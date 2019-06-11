@@ -30,19 +30,28 @@ namespace Gateway
 		}
 
 		Blob blob;
-		if (m_Peer.m_pStorage->Read(code, blob))
+		if (m_Trg.Read(code, blob))
 		{
 			assert(false);
 			return;
 		}
 
-		m_Peer.m_pStorage->Write(code, std::move(buf));
+		m_Trg.Write(code, std::move(buf));
 	}
 
 } // namespace Gateway
 
 namespace Storage
 {
+	bool IBase::ReadOneU(Blob& blob)
+	{
+		// helper
+		static const uint8_t s_One = 0x81; // w.r.t. current encoding scheme for unsigned integer (variable length)
+		blob.p = &s_One;
+		blob.n = 1;
+		return true;
+	}
+
 	void Map::Write(uint32_t code, ByteBuffer&& buf)
 	{
 		operator [](code) = std::move(buf);
@@ -72,24 +81,40 @@ IBase::Router::Router(Gateway::IBase* pG, Storage::IBase* pS, uint32_t iChannel,
 	n.m_pStorage = this;
 }
 
-uint32_t IBase::Router::Remap(uint32_t code) const
+uint32_t IBase::Router::Offset(uint32_t iChannel)
 {
-	return code + (m_iChannel << 16);
+	return iChannel << 16;
+}
+
+uint32_t IBase::Router::Offset() const
+{
+	return Offset(m_iChannel);
 }
 
 void IBase::Router::Send(uint32_t code, ByteBuffer&& buf)
 {
-	m_pG->Send(Remap(code), std::move(buf));
+	m_pG->Send(code + Offset(), std::move(buf));
 }
 
 void IBase::Router::Write(uint32_t code, ByteBuffer&& buf)
 {
-	m_pS->Write(Remap(code), std::move(buf));
+	m_pS->Write(code + Offset(), std::move(buf));
 }
 
 bool IBase::Router::Read(uint32_t code, Blob& blob)
 {
-	return m_pS->Read(Remap(code), blob);
+	switch (code)
+	{
+	case Codes::Role:
+	case Codes::Scheme:
+		// common params, not offset, by default inherited from parent
+		break;
+
+	default:
+		code += Offset();
+	}
+
+	return m_pS->Read(code, blob);
 }
 
 /////////////////////
@@ -128,48 +153,29 @@ uint32_t IBase::Update()
 	return nStatus;
 }
 
+bool IBase::SubQueryVar(std::string& s, uint32_t code, uint32_t i0, uint32_t i1, const char* szPrefix)
+{
+	i0 <<= 16;
+	i1 <<= 16;
+
+	if ((code < i0) || (code >= i1))
+		return false;
+
+	std::string sufix;
+	QueryVar(sufix, code - i0);
+
+	s = szPrefix;
+	s += '.';
+	s += sufix;
+
+	return true;
+}
+
 /////////////////////
 // Multisig
 
 struct Multisig::Impl
 {
-	struct PubKeyPlus
-	{
-		ECC::Point m_PubKey;
-		ECC::Signature m_Sig;
-
-		template <typename Archive>
-		void serialize(Archive& ar)
-		{
-			ar
-				& m_PubKey
-				& m_Sig;
-		}
-
-		void Set(const ECC::Scalar::Native& sk)
-		{
-			ECC::Hash::Value hv;
-			get_Hash(hv);
-			m_Sig.Sign(hv, sk);
-		}
-
-		bool IsValid(ECC::Point::Native& pkOut) const
-		{
-			if (!pkOut.Import(m_PubKey))
-				return false;
-
-			ECC::Hash::Value hv;
-			get_Hash(hv);
-
-			return m_Sig.IsValid(hv, pkOut);
-		}
-
-		void get_Hash(ECC::Hash::Value& hv) const
-		{
-			ECC::Hash::Processor() << m_PubKey >> hv;
-		}
-	};
-
 	struct Part2Plus
 		:public ECC::RangeProof::Confidential::Part2
 	{
@@ -181,62 +187,11 @@ struct Multisig::Impl
 				& m_T2;
 		}
 	};
-
-	struct MSigPlus
-		:public ECC::RangeProof::Confidential::MultiSig
-	{
-		template <typename Archive>
-		void serialize(Archive& ar)
-		{
-			ar
-				& m_Part1.m_A
-				& m_Part1.m_S
-				& Cast::Up<Part2Plus>(m_Part2);
-		}
-	};
 };
 
 
 uint32_t Multisig::Update2()
 {
-	ECC::Key::IDV kidv;
-	if (!Get(kidv, Codes::Kidv))
-		return 0;
-
-	ECC::Scalar::Native sk;
-	m_pKdf->DeriveKey(sk, kidv);
-
-	Output outp;
-	if (!Get(outp.m_Commitment, Codes::Commitment))
-	{
-		ECC::Point::Native comm = ECC::Context::get().G * sk;
-
-		Impl::PubKeyPlus pkp;
-
-		if (RaiseTo(1))
-		{
-			pkp.m_PubKey = comm;
-			pkp.Set(sk);
-			Send(pkp, Codes::PubKeyPlus);
-		}
-
-		if (!Get(pkp, Codes::PubKeyPlus))
-			return 0;
-
-		ECC::Point::Native commPeer;
-		if (!pkp.IsValid(commPeer))
-			return Status::Error;
-
-		comm += commPeer;
-		comm += ECC::Context::get().H * kidv.m_Value;
-
-		outp.m_Commitment = comm;
-		Set(outp.m_Commitment, Codes::Commitment);
-	}
-
-	uint32_t iRole = 0;
-	Get(iRole, Codes::Role);
-
 	ECC::NoLeak<ECC::uintBig> seedSk;
 	if (!Get(seedSk.V, Codes::Nonce))
 	{
@@ -244,90 +199,138 @@ uint32_t Multisig::Update2()
 		Set(seedSk.V, Codes::Nonce);
 	}
 
-	outp.m_pConfidential.reset(new ECC::RangeProof::Confidential);
-	ECC::RangeProof::Confidential& bp = *outp.m_pConfidential;
+	Impl::Part2Plus p2;
+	if (RaiseTo(1))
+	{
+		ZeroObject(p2);
+		ECC::RangeProof::Confidential::MultiSig::CoSignPart(seedSk.V, p2);
+		Send(p2, Codes::BpPart2);
+	}
+
+	ECC::Key::IDV kidv;
+	if (!Get(kidv, Codes::Kidv))
+		return 0;
+
+	ECC::Scalar::Native sk;
+	m_pKdf->DeriveKey(sk, kidv);
+
+	ECC::Point::Native comm = ECC::Context::get().G * sk;
+
+	ECC::Point pPk[2];
+	pPk[0] = comm;
+
+	if (RaiseTo(2))
+		Send(pPk[0], Codes::PubKey);
 
 	Height hScheme = MaxHeight;
-	if (!Get(hScheme, Codes::Scheme))
+
+	if (!Get(pPk[1], Codes::PubKey) ||
+		!Get(p2, Codes::BpPart2) ||
+		!Get(hScheme, Codes::Scheme))
 		return 0;
+
+	Output outp;
+	if (Get(outp.m_Commitment, Codes::Commitment))
+	{
+		//comm = outp.m_Commitment;
+	}
+	else
+	{
+		ECC::Point::Native pt;
+		if (!pt.Import(pPk[1]))
+			return Status::Error;
+
+		comm += pt;
+		comm += ECC::Context::get().H * kidv.m_Value;
+		outp.m_Commitment = comm;
+
+		Set(outp.m_Commitment, Codes::Commitment);
+	}
+
+	ECC::RangeProof::CreatorParams cp;
+	cp.m_Kidv = Zero;
+	cp.m_Kidv.m_Value = kidv.m_Value;
+
+	uint32_t iRole = 0;
+	Get(iRole, Codes::Role);
+
+	ECC::Hash::Processor()
+		<< pPk[iRole]
+		<< pPk[!iRole]
+		>> cp.m_Seed.V;
 
 	ECC::Oracle oracle, o2;
 	outp.Prepare(oracle, hScheme);
 
+	outp.m_pConfidential.reset(new ECC::RangeProof::Confidential);
+	ECC::RangeProof::Confidential& bp = *outp.m_pConfidential;
+
+	bp.m_Part2 = p2;
+
+	o2 = oracle;
+	if (!bp.CoSign(seedSk.V, sk, cp, o2, ECC::RangeProof::Confidential::Phase::Step2))
+		return Status::Error;
+
 	uint32_t nShareRes = 0;
 	Get(nShareRes, Codes::ShareResult);
 
-	if (!iRole)
+	bool bMustHaveResult = !iRole || nShareRes;
+
+	if (!Get(bp.m_Part3.m_TauX, Codes::BpPart3))
 	{
-		if (!Get(Cast::Up<Impl::Part2Plus>(bp.m_Part2), Codes::BpPart2))
-			return 0;
-
-		ECC::RangeProof::CreatorParams cp;
-		cp.m_Kidv = kidv;
-		beam::Output::GenerateSeedKid(cp.m_Seed.V, outp.m_Commitment, *m_pKdf);
-
-		o2 = oracle;
-		if (!bp.CoSign(seedSk.V, sk, cp, o2, ECC::RangeProof::Confidential::Phase::Step2)) // add self p2, produce msig
-			return Status::Error;
-
-		if (RaiseTo(2))
-		{
-			Impl::MSigPlus msig;
-			msig.m_Part1 = bp.m_Part1;
-			msig.m_Part2 = bp.m_Part2;
-			Send(msig, Codes::BpBothPart);
-		}
-
-		if (!Get(bp.m_Part3.m_TauX, Codes::BpPart3))
-			return 0;
-
-		o2 = oracle;
-		if (!bp.CoSign(seedSk.V, sk, cp, o2, ECC::RangeProof::Confidential::Phase::Finalize))
-			return Status::Error;
-
-		if (nShareRes && RaiseTo(3))
-			Send(bp, Codes::BpFull);
-	}
-	else
-	{
-		if (RaiseTo(2))
-		{
-			Impl::Part2Plus p2;
-			ZeroObject(p2);
-			if (!Impl::MSigPlus::CoSignPart(seedSk.V, p2))
-				return Status::Error;
-
-			Send(p2, Codes::BpPart2);
-		}
-
-		Impl::MSigPlus msig;
-		if (!Get(msig, Codes::BpBothPart))
-			return 0;
-
 		if (RaiseTo(3))
 		{
-			ECC::RangeProof::Confidential::Part3 p3;
-			ZeroObject(p3);
+			ECC::RangeProof::Confidential::MultiSig msig;
+			msig.m_Part1 = bp.m_Part1;
+			msig.m_Part2 = bp.m_Part2;
 
-			o2 = oracle;
-			msig.CoSignPart(seedSk.V, sk, o2, p3);
+			ZeroObject(bp.m_Part3);
+			msig.CoSignPart(seedSk.V, sk, oracle, bp.m_Part3);
 
-			Send(p3.m_TauX, Codes::BpPart3);
+			Send(bp.m_Part3.m_TauX, Codes::BpPart3);
 		}
 
-		if (!nShareRes)
-			return Status::Success;
-
-		if (!Get(bp, Codes::BpFull))
-			return 0;
+		return bMustHaveResult ? 0 : Status::Success;
 	}
 
-	ECC::Point::Native pt;
-	if (!outp.IsValid(hScheme, pt))
+	o2 = oracle;
+	if (!bp.CoSign(seedSk.V, sk, cp, o2, ECC::RangeProof::Confidential::Phase::Finalize))
+		return Status::Error;
+
+
+	// test (TODO: should be done in Phase::Finalize)
+	if (!outp.IsValid(hScheme, comm))
 		return Status::Error;
 
 	Set(outp, Codes::OutputTxo);
+
+
+	if ((iRole || nShareRes) && RaiseTo(3))
+	{
+		sk = bp.m_Part3.m_TauX;
+
+		ECC::RangeProof::Confidential::Part3 p3;
+		Get(p3.m_TauX, Codes::BpPart3);
+
+		ECC::Scalar::Native sk2(p3.m_TauX);
+		sk2 = -sk2;
+		sk2 += sk;
+		p3.m_TauX = sk2;
+
+		Send(p3.m_TauX, Codes::BpPart3);
+	}
+
 	return Status::Success;
+}
+
+void Multisig::QueryVar(std::string& s, uint32_t code)
+{
+	switch (code)
+	{
+	case Codes::PubKey: s = "Partial Commitment"; break;
+	case Codes::BpPart2: s = "Bulletproof T1,T2"; break;
+	case Codes::BpPart3: s = "Bulletproof TauX"; break;
+	}
 }
 
 /////////////////////
@@ -595,6 +598,7 @@ uint32_t MultiTx::Update2()
 	Get(nRestrict, Codes::RestrictInputs);
 	if (nRestrict)
 	{
+		// The only input should be the shared MuSig
 		Key::IDV kidvMsig;
 		if ((iRole > 0) && Get(kidvMsig, Codes::InpMsKidv))
 		{
@@ -620,12 +624,18 @@ uint32_t MultiTx::Update2()
 	if (nRestrict)
 	{
 		uint32_t nMaxPeerOutputs = 1;
+		uint32_t nMaxKernels = 0;
 
-		Key::IDV kidvMsig;
-		if ((iRole > 0) && Get(kidvMsig, Codes::OutpMsKidv))
-			nMaxPeerOutputs++; // the peer is supposed to add it
+		if (iRole > 0)
+		{
+			nMaxKernels++; // peer should add it
 
-		if (txPeer.m_vOutputs.size() > nMaxPeerOutputs)
+			Key::IDV kidvMsig;
+			if (Get(kidvMsig, Codes::OutpMsKidv))
+				nMaxPeerOutputs++; // the peer is supposed to add it
+		}
+
+		if ((txPeer.m_vOutputs.size() > nMaxPeerOutputs) || (txPeer.m_vKernels.size() > nMaxKernels))
 			return Status::Error;
 	}
 
@@ -640,12 +650,24 @@ uint32_t MultiTx::Update2()
 
 	TxBase::Context::Params pars;
 	TxBase::Context ctx(pars);
-	ctx.m_Height.m_Min = Rules::get().get_LastFork().m_Height;
+
+	ctx.m_Height.m_Min = hScheme;
 	if (!txFull.IsValid(ctx))
 		return Status::Error;
 
 	Set(txFull, Codes::TxFinal);
 	return Status::Success;
+}
+
+void MultiTx::QueryVar(std::string& s, uint32_t code)
+{
+	switch (code)
+	{
+	case Codes::KrnCommitment: s = "Excess Commitment"; break;
+	case Codes::KrnNonce: s = "Nonce Commitment"; break;
+	case Codes::KrnSig: s = "Partial Kernel Signature"; break;
+	case Codes::TxPartial: s = "Partial Transaction"; break;
+	}
 }
 
 
@@ -658,42 +680,21 @@ WithdrawTx::Worker::Worker(WithdrawTx& x)
 {
 }
 
-bool WithdrawTx::Worker::get_One(Blob& blob)
-{
-	return m_s0.get_S()->ReadConst(Codes::One, blob, uint32_t(1));
-}
-
-bool WithdrawTx::Worker::S0::Read(uint32_t code, Blob& blob)
-{
-	switch (code)
-	{
-	case Codes::Role:
-	case Codes::Scheme:
-		return m_pS->Read(code, blob);
-	}
-
-	return Router::Read(code, blob);
-}
-
 bool WithdrawTx::Worker::S1::Read(uint32_t code, Blob& blob)
 {
 	switch (code)
 	{
-	case Codes::Role:
-	case Codes::Scheme:
-		return m_pS->Read(code, blob);
-
 	case MultiTx::Codes::OutpMsKidv:
-		return get_ParentObj().m_s0.Read(Multisig::Codes::Kidv, blob);
+		return m_pS->Read(Multisig::Codes::Kidv + Offset(m_iChannel - 1), blob);
 
 	case MultiTx::Codes::OutpMsTxo:
-		return get_ParentObj().m_s0.Read(Multisig::Codes::OutputTxo, blob);
+		return m_pS->Read(Multisig::Codes::OutputTxo + Offset(m_iChannel - 1), blob);
 
 	case MultiTx::Codes::Barrier:
 		{
 			// block it until Tx2 is ready. Should be invoked only for Role==1
 			uint32_t status = 0;
-			get_ParentObj().m_s2.Get(status, Codes::Status);
+			Get(status, Codes::Status + Offset(1));
 
 			if (Status::Success == status)
 				return false; // i.e. not blocked
@@ -703,7 +704,7 @@ bool WithdrawTx::Worker::S1::Read(uint32_t code, Blob& blob)
 
 	case MultiTx::Codes::RestrictInputs:
 	case MultiTx::Codes::RestrictOutputs:
-		return get_ParentObj().get_One(blob);
+		return ReadOneU(blob);
 	}
 
 	return Router::Read(code, blob);
@@ -713,53 +714,44 @@ bool WithdrawTx::Worker::S2::Read(uint32_t code, Blob& blob)
 {
 	switch (code)
 	{
-	case Codes::Role:
-	case Codes::Scheme:
-		return m_pS->Read(code, blob);
-
 	case MultiTx::Codes::InpMsKidv:
-		return get_ParentObj().m_s0.Read(Multisig::Codes::Kidv, blob);
+		return m_pS->Read(Multisig::Codes::Kidv + Offset(m_iChannel - 2), blob);
 
 	case MultiTx::Codes::InpMsCommitment:
-		return get_ParentObj().m_s0.Read(Multisig::Codes::Commitment, blob);
+		return m_pS->Read(Multisig::Codes::Commitment + Offset(m_iChannel - 2), blob);
 
 	case MultiTx::Codes::KrnLockID:
-		return get_ParentObj().m_s1.Read(MultiTx::Codes::KernelID, blob);
+		return m_pS->Read(MultiTx::Codes::KernelID + Offset(m_iChannel - 1), blob);
 
 	case MultiTx::Codes::ShareResult: // both peers must have valid (msig1 -> outs)
 	case MultiTx::Codes::RestrictInputs:
 	case MultiTx::Codes::RestrictOutputs:
-		return get_ParentObj().get_One(blob);
+		return ReadOneU(blob);
 	}
 
 	return Router::Read(code, blob);
 }
 
-void WithdrawTx::Setup(
-	const Key::IDV* pMsig1,
-	const Key::IDV* pMsig0,
-	const ECC::Point* pComm0,
-	const std::vector<Key::IDV>* pOuts,
-	Height hLock)
+void WithdrawTx::Setup(bool bSet,
+	Key::IDV* pMsig1,
+	Key::IDV* pMsig0,
+	ECC::Point* pComm0,
+	std::vector<Key::IDV>* pOuts,
+	const CommonParam& cp)
 {
 	m_MSig.m_pKdf = m_pKdf;
 	m_Tx1.m_pKdf = m_pKdf;
 	m_Tx2.m_pKdf = m_pKdf;
 
-	if (pMsig1)
-		m_MSig.Set(*pMsig1, Multisig::Codes::Kidv);
-
-	if (pMsig0)
-		m_Tx1.Set(*pMsig0, MultiTx::Codes::InpMsKidv);
-
-	if (pComm0)
-		m_Tx1.Set(*pComm0, MultiTx::Codes::InpMsCommitment);
-
-	if (pOuts)
-		m_Tx2.Set(*pOuts, MultiTx::Codes::OutpKidvs);
-
-	if (hLock)
-		m_Tx2.Set(hLock, MultiTx::Codes::KrnLockHeight);
+	m_MSig.SetGet(bSet, pMsig1, Multisig::Codes::Kidv);
+	m_Tx1.SetGet(bSet, pMsig0, MultiTx::Codes::InpMsKidv);
+	m_Tx1.SetGet(bSet, pComm0, MultiTx::Codes::InpMsCommitment);
+	m_Tx1.SetGet(bSet, cp.m_Krn1.m_pH0, MultiTx::Codes::KrnH0);
+	m_Tx1.SetGet(bSet, cp.m_Krn1.m_pH1, MultiTx::Codes::KrnH1);
+	m_Tx1.SetGet(bSet, cp.m_Krn1.m_pFee, MultiTx::Codes::KrnFee);
+	m_Tx2.SetGet(bSet, cp.m_Krn2.m_pFee, MultiTx::Codes::KrnFee);
+	m_Tx2.SetGet(bSet, pOuts, MultiTx::Codes::OutpKidvs);
+	m_Tx2.SetGet(bSet, cp.m_Krn2.m_pLock, MultiTx::Codes::KrnLockHeight);
 }
 
 void WithdrawTx::get_Result(Result& r)
@@ -815,155 +807,15 @@ uint32_t WithdrawTx::Update2()
 	return 0;
 }
 
+void WithdrawTx::QueryVar(std::string& s, uint32_t code)
+{
+	m_MSig.SubQueryVar(s, code, 1, 2, "MuSig");
+	m_Tx1.SubQueryVar(s, code, 2, 3, "Tx-TLock");
+	m_Tx2.SubQueryVar(s, code, 3, 4, "Tx-Final");
+}
+
 /////////////////////
-// ChannelOpen
-
-ChannelOpen::Worker::Worker(ChannelOpen& x)
-	:m_s0(x.m_pGateway, x.m_pStorage, 1, x.m_MSig)
-	,m_s1(x.m_pGateway, x.m_pStorage, 2, x.m_Tx0)
-	,m_sa(x.m_pGateway, x.m_pStorage, 3, x.m_WdA)
-	,m_sb(x.m_pGateway, x.m_pStorage, 3 + WithdrawTx::s_Channels, x.m_WdB)
-	,m_wrkA(x.m_WdA)
-	,m_wrkB(x.m_WdB)
-{
-}
-
-bool ChannelOpen::Worker::get_One(Blob& blob)
-{
-	return m_s0.get_S()->ReadConst(Codes::One, blob, uint32_t(1));
-}
-
-bool ChannelOpen::Worker::S0::Read(uint32_t code, Blob& blob)
-{
-	switch (code)
-	{
-	case Codes::Role:
-	case Codes::Scheme:
-		return m_pS->Read(code, blob);
-	}
-
-	return Router::Read(code, blob);
-}
-
-bool ChannelOpen::Worker::S1::Read(uint32_t code, Blob& blob)
-{
-	switch (code)
-	{
-	case Codes::Role:
-	case Codes::Scheme:
-		return m_pS->Read(code, blob);
-
-	case MultiTx::Codes::OutpMsKidv:
-		return get_ParentObj().m_s0.Read(Multisig::Codes::Kidv, blob);
-
-	case MultiTx::Codes::OutpMsTxo:
-		return get_ParentObj().m_s0.Read(Multisig::Codes::OutputTxo, blob);
-
-	case MultiTx::Codes::Barrier:
-		{
-			// block it until our Withdrawal is fully prepared
-			uint32_t iRole = 0;
-			m_pS->Get(iRole, Codes::Role);
-
-			Router& s = iRole ?
-				Cast::Down<Router>(get_ParentObj().m_sb) :
-				Cast::Down<Router>(get_ParentObj().m_sa);
-
-			uint32_t status = 0;
-			s.Get(status, Codes::Status);
-
-			if (Status::Success == status)
-				return false; // i.e. not blocked
-		}
-		return get_ParentObj().get_One(blob);
-	}
-
-	return Router::Read(code, blob);
-}
-
-bool ChannelOpen::Worker::SA::Read(uint32_t code, Blob& blob)
-{
-	switch (code)
-	{
-	case Codes::Role:
-	case Codes::Scheme:
-		return m_pS->Read(code, blob);
-
-	case MultiTx::Codes::InpMsKidv + (2 << 16):
-		return get_ParentObj().m_s0.Read(Multisig::Codes::Kidv, blob);
-
-	case MultiTx::Codes::InpMsCommitment + (2 << 16):
-		return get_ParentObj().m_s0.Read(Multisig::Codes::Commitment, blob);
-	}
-
-	return Router::Read(code, blob);
-}
-
-bool ChannelOpen::Worker::SB::Read(uint32_t code, Blob& blob)
-{
-	switch (code)
-	{
-	case Codes::Role:
-		{
-			// role should be reversed
-			uint32_t iRole = 0;
-			m_pS->Get(iRole, Codes::Role);
-
-			if (iRole)
-				return false;
-		}
-		return get_ParentObj().get_One(blob);
-
-	case Codes::Scheme:
-		return m_pS->Read(Codes::Scheme, blob);
-
-	case MultiTx::Codes::InpMsKidv + (2 << 16):
-	case MultiTx::Codes::InpMsCommitment + (2 << 16) :
-	case MultiTx::Codes::OutpKidvs + (3 << 16) :
-	case MultiTx::Codes::KrnLockHeight + (3 << 16) :
-		// use parameters from SA
-		return get_ParentObj().m_sa.Read(code, blob);
-	}
-
-	return Router::Read(code, blob);
-}
-
-void ChannelOpen::Setup(
-	const std::vector<Key::IDV>* pInps,
-	const std::vector<Key::IDV>* pOutsChange,
-	const Key::IDV* pMsig0,
-	const Key::IDV* pMsig1A,
-	const Key::IDV* pMsig1B,
-	const std::vector<Key::IDV>* pOutsWd,
-	Height hLock)
-{
-	m_MSig.m_pKdf = m_pKdf;
-	m_Tx0.m_pKdf = m_pKdf;
-	m_WdA.m_pKdf = m_pKdf;
-	m_WdB.m_pKdf = m_pKdf;
-
-	if (pMsig0)
-		m_MSig.Set(*pMsig0, Multisig::Codes::Kidv);
-
-	if (pInps)
-		m_Tx0.Set(*pInps, MultiTx::Codes::InpKidvs);
-
-	if (pOutsChange)
-		m_Tx0.Set(*pOutsChange, MultiTx::Codes::OutpKidvs);
-
-	m_WdA.Setup(pMsig1A, nullptr, nullptr, pOutsWd, hLock);
-	m_WdB.Setup(pMsig1B, nullptr, nullptr, nullptr, 0);
-}
-
-void ChannelOpen::get_Result(Result& r)
-{
-	if (!m_MSig.Get(r.m_Comm0, Multisig::Codes::Commitment))
-		r.m_Comm0 = Zero;
-
-	m_Tx0.Get(r.m_txOpen, MultiTx::Codes::TxFinal);
-
-	ChannelWithdrawal::get_Result(r);
-}
+// ChannelWithdrawal
 
 void ChannelWithdrawal::get_Result(Result& r)
 {
@@ -988,6 +840,167 @@ void ChannelWithdrawal::get_Result(Result& r)
 		r.m_CommPeer1 = rx.m_Comm1;
 		r.m_txPeer2 = std::move(rx.m_tx2);
 	}
+}
+
+bool ChannelWithdrawal::SB::Read(uint32_t code, Blob& blob)
+{
+	switch (code)
+	{
+	case Codes::Role:
+		{
+			// role should be reversed
+			uint32_t iRole = 0;
+			m_pS->Get(iRole, Codes::Role);
+
+			if (iRole)
+				return false;
+		}
+		return ReadOneU(blob);
+
+	case MultiTx::Codes::InpMsKidv + (2 << 16):
+	case MultiTx::Codes::InpMsCommitment + (2 << 16) :
+	case MultiTx::Codes::KrnFee + (2 << 16) :
+	case MultiTx::Codes::KrnH0 + (2 << 16) :
+	case MultiTx::Codes::KrnH1 + (2 << 16) :
+	case MultiTx::Codes::OutpKidvs + (3 << 16) :
+	case MultiTx::Codes::KrnFee + (3 << 16) :
+	case MultiTx::Codes::KrnLockHeight + (3 << 16) :
+		// use parameters from SA
+		return m_pS->Read(code + Offset(m_iChannel - WithdrawTx::s_Channels), blob);
+	}
+
+	return Router::Read(code, blob);
+}
+
+/////////////////////
+// ChannelOpen
+
+ChannelOpen::Worker::Worker(ChannelOpen& x)
+	:m_s0(x.m_pGateway, x.m_pStorage, 1, x.m_MSig)
+	,m_s1(x.m_pGateway, x.m_pStorage, 2, x.m_Tx0)
+	,m_sa(x.m_pGateway, x.m_pStorage, 3, x.m_WdA)
+	,m_sb(x.m_pGateway, x.m_pStorage, 3 + WithdrawTx::s_Channels, x.m_WdB)
+	,m_wrkA(x.m_WdA)
+	,m_wrkB(x.m_WdB)
+{
+}
+
+bool ChannelOpen::Worker::S1::Read(uint32_t code, Blob& blob)
+{
+	switch (code)
+	{
+	case MultiTx::Codes::OutpMsKidv:
+		return m_pS->Read(Multisig::Codes::Kidv + Offset(m_iChannel - 1), blob);
+
+	case MultiTx::Codes::OutpMsTxo:
+		return m_pS->Read(Multisig::Codes::OutputTxo + Offset(m_iChannel - 1), blob);
+
+	case MultiTx::Codes::Barrier:
+		{
+			// block it until our Withdrawal is fully prepared
+			uint32_t iRole = 0;
+			m_pS->Get(iRole, Codes::Role);
+
+			uint32_t status = 0;
+			Get(status, Codes::Status + Offset(1 + WithdrawTx::s_Channels * iRole));
+
+			if (Status::Success == status)
+				return false; // i.e. not blocked
+		}
+		return ReadOneU(blob);
+	}
+
+	return Router::Read(code, blob);
+}
+
+bool ChannelOpen::Worker::SA::Read(uint32_t code, Blob& blob)
+{
+	switch (code)
+	{
+	case MultiTx::Codes::InpMsKidv + (2 << 16):
+		return m_pS->Read(Multisig::Codes::Kidv + Offset(m_iChannel - 2), blob);
+
+	case MultiTx::Codes::InpMsCommitment + (2 << 16):
+		return m_pS->Read(Multisig::Codes::Commitment + Offset(m_iChannel - 2), blob);
+	}
+
+	return Router::Read(code, blob);
+}
+
+bool ChannelOpen::Worker::SB::Read(uint32_t code, Blob& blob)
+{
+	switch (code)
+	{
+	case MultiTx::Codes::InpMsKidv + (2 << 16):
+		return m_pS->Read(Multisig::Codes::Kidv + Offset(m_iChannel - 2 - WithdrawTx::s_Channels), blob);
+
+	case MultiTx::Codes::InpMsCommitment + (2 << 16):
+		return m_pS->Read(Multisig::Codes::Commitment + Offset(m_iChannel - 2 - WithdrawTx::s_Channels), blob);
+	}
+
+	return ChannelWithdrawal::SB::Read(code, blob);
+}
+
+void ChannelOpen::Setup(bool bSet,
+	std::vector<Key::IDV>* pInps,
+	std::vector<Key::IDV>* pOutsChange,
+	Key::IDV* pMsig0,
+	const MultiTx::KernelParam& krn1,
+	Key::IDV* pMsig1A,
+	Key::IDV* pMsig1B,
+	std::vector<Key::IDV>* pOutsWd,
+	const WithdrawTx::CommonParam& cp)
+{
+	m_MSig.m_pKdf = m_pKdf;
+	m_Tx0.m_pKdf = m_pKdf;
+	m_WdA.m_pKdf = m_pKdf;
+	m_WdB.m_pKdf = m_pKdf;
+
+	m_MSig.SetGet(bSet, pMsig0, Multisig::Codes::Kidv);
+	m_Tx0.SetGet(bSet, pInps, MultiTx::Codes::InpKidvs);
+	m_Tx0.SetGet(bSet, pOutsChange, MultiTx::Codes::OutpKidvs);
+	m_Tx0.SetGet(bSet, krn1.m_pH0, MultiTx::Codes::KrnH0);
+	m_Tx0.SetGet(bSet, krn1.m_pH1, MultiTx::Codes::KrnH1);
+	m_Tx0.SetGet(bSet, krn1.m_pFee, MultiTx::Codes::KrnFee);
+
+	m_WdA.Setup(bSet, pMsig1A, nullptr, nullptr, pOutsWd, cp);
+	m_WdB.Setup(bSet, pMsig1B, nullptr, nullptr, nullptr, WithdrawTx::CommonParam());
+}
+
+void ChannelOpen::get_Result(Result& r)
+{
+	if (!m_MSig.Get(r.m_Comm0, Multisig::Codes::Commitment))
+		r.m_Comm0 = Zero;
+
+	m_Tx0.Get(r.m_txOpen, MultiTx::Codes::TxFinal);
+
+	ChannelWithdrawal::get_Result(r);
+}
+
+uint8_t ChannelOpen::get_DoneParts()
+{
+	uint8_t ret = 0;
+
+	uint32_t iRole = 0;
+	Get(iRole, Codes::Role);
+
+	{
+		uint32_t status = 0;
+		m_Tx0.Get(status, Codes::Status);
+		if (Status::Success == status)
+			ret |= DoneParts::Main;
+	}
+
+	{
+		WithdrawTx& x = iRole ? m_WdA : m_WdB;
+		uint32_t status = 0;
+		x.Get(status, Codes::Status);
+
+		if (Status::Success == status)
+			ret |= DoneParts::PeerWd;
+	}
+
+	return ret;
 }
 
 uint32_t ChannelOpen::Update2()
@@ -1027,6 +1040,13 @@ uint32_t ChannelOpen::Update2()
 	return 0;
 }
 
+void ChannelOpen::QueryVar(std::string& s, uint32_t code)
+{
+	m_MSig.SubQueryVar(s, code, 1, 2, "MuSig");
+	m_Tx0.SubQueryVar(s, code, 2, 3, "Tx-Open");
+	m_WdA.SubQueryVar(s, code, 3, 3 + WithdrawTx::s_Channels, "Exit-A");
+	m_WdB.SubQueryVar(s, code, 3 + WithdrawTx::s_Channels, 3 + WithdrawTx::s_Channels * 2, "Exit-B");
+}
 
 /////////////////////
 // ChannelUpdate
@@ -1039,75 +1059,26 @@ ChannelUpdate::Worker::Worker(ChannelUpdate& x)
 {
 }
 
-bool ChannelUpdate::Worker::get_One(Blob& blob)
-{
-	return m_sa.get_S()->ReadConst(Codes::One, blob, uint32_t(1));
-}
-
-bool ChannelUpdate::Worker::SA::Read(uint32_t code, Blob& blob)
-{
-	switch (code)
-	{
-	case Codes::Role:
-	case Codes::Scheme:
-		return m_pS->Read(code, blob);
-	}
-
-	return Router::Read(code, blob);
-}
-
-bool ChannelUpdate::Worker::SB::Read(uint32_t code, Blob& blob)
-{
-	switch (code)
-	{
-	case Codes::Role:
-		{
-			// role should be reversed
-			uint32_t iRole = 0;
-			m_pS->Get(iRole, Codes::Role);
-
-			if (iRole)
-				return false;
-		}
-		return get_ParentObj().get_One(blob);
-
-	case Codes::Scheme:
-		return m_pS->Read(Codes::Scheme, blob);
-
-	case MultiTx::Codes::InpMsKidv + (2 << 16):
-	case MultiTx::Codes::InpMsCommitment + (2 << 16) :
-	case MultiTx::Codes::OutpKidvs + (3 << 16) :
-	case MultiTx::Codes::KrnLockHeight + (3 << 16) :
-		// use parameters from SA
-		return get_ParentObj().m_sa.Read(code, blob);
-	}
-
-	return Router::Read(code, blob);
-}
-
-void ChannelUpdate::Setup(
-	const Key::IDV* pMsig0,
-	const ECC::Point* pComm0,
-	const Key::IDV* pMsig1A,
-	const Key::IDV* pMsig1B,
-	const std::vector<Key::IDV>* pOutsWd,
-	Height hLock,
-	const Key::IDV* pMsigPrevMy,
-	const Key::IDV* pMsigPrevPeer,
-	const ECC::Point* pCommPrevPeer)
+void ChannelUpdate::Setup(bool bSet,
+	Key::IDV* pMsig0,
+	ECC::Point* pComm0,
+	Key::IDV* pMsig1A,
+	Key::IDV* pMsig1B,
+	std::vector<Key::IDV>* pOutsWd,
+	const WithdrawTx::CommonParam& cp,
+	Key::IDV* pMsigPrevMy,
+	Key::IDV* pMsigPrevPeer,
+	ECC::Point* pCommPrevPeer)
 {
 	m_WdA.m_pKdf = m_pKdf;
 	m_WdB.m_pKdf = m_pKdf;
 
-	m_WdA.Setup(pMsig1A, pMsig0, pComm0, pOutsWd, hLock);
-	m_WdB.Setup(pMsig1B, nullptr, nullptr, nullptr, 0);
+	m_WdA.Setup(bSet, pMsig1A, pMsig0, pComm0, pOutsWd, cp);
+	m_WdB.Setup(bSet, pMsig1B, nullptr, nullptr, nullptr, WithdrawTx::CommonParam());
 
-	if (pMsigPrevMy)
-		Set(*pMsigPrevMy, Codes::KidvPrev);
-	if (pMsigPrevPeer)
-		Set(*pMsigPrevPeer, Codes::KidvPrevPeer);
-	if (pCommPrevPeer)
-		Set(*pCommPrevPeer, Codes::CommitmentPrevPeer);
+	SetGet(bSet, pMsigPrevMy, Codes::KidvPrev);
+	SetGet(bSet, pMsigPrevPeer, Codes::KidvPrevPeer);
+	SetGet(bSet, pCommPrevPeer, Codes::CommitmentPrevPeer);
 }
 
 uint32_t ChannelUpdate::Update2()
@@ -1192,6 +1163,53 @@ void ChannelUpdate::get_Result(Result& r)
 	Get(val, Codes::SelfKeyRevealed);
 	r.m_RevealedSelfKey = (val > 0);
 	r.m_PeerKeyValid = Get(r.m_PeerKey, Codes::PeerKey);
+}
+
+uint8_t ChannelUpdate::get_DoneParts()
+{
+	uint8_t ret = 0;
+
+	uint32_t iRole = 0;
+	Get(iRole, Codes::Role);
+
+	{
+		WithdrawTx& x = iRole ? m_WdB : m_WdA;
+		uint32_t status = 0;
+		x.Get(status, Codes::Status);
+
+		if (Status::Success == status)
+			ret |= DoneParts::Main;
+	}
+
+	{
+		WithdrawTx& x = iRole ? m_WdA : m_WdB;
+		uint32_t status = 0;
+		x.Get(status, Codes::Status);
+
+		if (Status::Success == status)
+			ret |= DoneParts::PeerWd;
+	}
+
+	ECC::Scalar peerKey;
+	if (Get(peerKey, Codes::PeerKey))
+		ret |= DoneParts::PeerKey;
+
+	return ret;
+}
+
+void ChannelUpdate::QueryVar(std::string& s, uint32_t code)
+{
+	switch (code)
+	{
+	case Codes::PeerBlindingFactor:
+		s = "Reveal Previous Blinding Factor";
+		break;
+
+	default:
+
+		m_WdA.SubQueryVar(s, code, 1, 1 + WithdrawTx::s_Channels, "Exit-A");
+		m_WdB.SubQueryVar(s, code, 1 + WithdrawTx::s_Channels, 1 + WithdrawTx::s_Channels * 2, "Exit-B");
+	}
 }
 
 } // namespace Negotiator

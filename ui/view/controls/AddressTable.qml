@@ -2,6 +2,7 @@ import QtQuick 2.11
 import QtQuick.Controls 1.4
 import QtQuick.Controls 2.3
 import "."
+import "../utils.js" as Utils
 
 CustomTableView {
     id: rootControl
@@ -11,6 +12,7 @@ CustomTableView {
     property var parentModel
     property bool isExpired: false
     property var editDialog
+    property var showQRDialog
     anchors.fill: parent
     frameVisible: false
     selectionMode: SelectionMode.NoSelection
@@ -70,6 +72,23 @@ CustomTableView {
         width: 150 *  rootControl.resizableWidth / 750
         resizable: false
         movable: false
+        delegate: Item {
+            Item {
+                width: parent.width
+                height: rootControl.rowHeight
+
+                SFText {
+                    font.pixelSize: 14
+                    anchors.left: parent.left
+                    anchors.right: parent.right
+                    anchors.leftMargin: 20
+                    elide: Text.ElideRight
+                    anchors.verticalCenter: parent.verticalCenter
+                    text: Utils.formatDateTime(styleData.value, parentModel.getLocaleName())
+                    color: Style.content_main
+                }
+            }
+        }
     }
 
     TableViewColumn {
@@ -79,6 +98,23 @@ CustomTableView {
         width: 150 *  rootControl.resizableWidth / 750
         resizable: false
         movable: false
+        delegate: Item {
+            Item {
+                width: parent.width
+                height: rootControl.rowHeight
+
+                SFText {
+                    font.pixelSize: 14
+                    anchors.left: parent.left
+                    anchors.right: parent.right
+                    anchors.leftMargin: 20
+                    elide: Text.ElideRight
+                    anchors.verticalCenter: parent.verticalCenter
+                    text: Utils.formatDateTime(styleData.value, parentModel.getLocaleName())
+                    color: Style.content_main
+                }
+            }
+        }
     }
 
     TableViewColumn {
@@ -156,20 +192,40 @@ CustomTableView {
         property string address
         property var addressItem
         Action {
+            id: showQRAction
+            //: Entry in adress table context menu to show QR
+            //% "show QR code"
+            text: qsTrId("address-table-cm-show-qr")
+            icon.source: "qrc:/assets/icon-qr.svg"
+            onTriggered: {
+                showQRDialog.addressItem = contextMenu.addressItem;
+                showQRDialog.open();
+            }
+        }
+        Action {
+            //: Entry in adress table context menu to edit
             //% "edit address"
             text: qsTrId("address-table-cm-edit")
             icon.source: "qrc:/assets/icon-edit.svg"
             onTriggered: {
                 editDialog.addressItem = contextMenu.addressItem;
+                editDialog.reset();
                 editDialog.open();
             }
         }
         Action {
+            //: Entry in adress table context menu to delete
             //% "delete address"
             text: qsTrId("address-table-cm-delete")
             icon.source: "qrc:/assets/icon-delete.svg"
             onTriggered: {
                 viewModel.deleteAddress(contextMenu.address);
+            }
+        }
+    
+        Component.onCompleted: {
+            if (isExpired) {
+                contextMenu.removeAction(showQRAction);
             }
         }
     }

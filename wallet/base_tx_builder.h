@@ -21,15 +21,11 @@
 #include <boost/optional.hpp>
 #include "utility/logger.h"
 
-#if defined(BEAM_HW_WALLET)
-#include "hw_wallet.h"
-#endif
-
 namespace beam::wallet
 {
     class BaseTransaction;
 
-    class BaseTxBuilder
+    class BaseTxBuilder : public std::enable_shared_from_this<BaseTxBuilder>
     {
     public:
         BaseTxBuilder(BaseTransaction& tx, SubTxID subTxID, const AmountList& amount, Amount fee);
@@ -37,22 +33,24 @@ namespace beam::wallet
         void SelectInputs();
         void AddChange();
         void GenerateNewCoin(Amount amount, bool bChange);
-        void AddOutput(Amount amount, bool bChange);
-        void CreateOutputs();
+        bool CreateOutputs();
         bool FinalizeOutputs();
         bool LoadKernel();
         bool HasKernelID() const;
-        Output::Ptr CreateOutput(Amount amount, bool bChange);
         void CreateKernel();
-        bool GenerateBlindingExcess();
+        void GenerateOffset();
         void GenerateNonce();
-        ECC::Point::Native GetPublicExcess() const;
+        virtual ECC::Point::Native GetPublicExcess() const;
         ECC::Point::Native GetPublicNonce() const;
         bool GetInitialTxParams();
+        bool GetInputs();
+        bool GetOutputs();
         bool GetPeerPublicExcessAndNonce();
         bool GetPeerSignature();
         bool GetPeerInputsAndOutputs();
         void FinalizeSignature();
+        bool CreateInputs();
+        void FinalizeInputs();
         virtual Transaction::Ptr CreateTransaction();
         void SignPartial();
         bool IsPeerSignatureValid() const;
@@ -76,7 +74,9 @@ namespace beam::wallet
         ECC::Hash::Value GetLockImage() const;
         SubTxID GetSubTxID() const;
 
-        const std::vector<Coin>& GetCoins() const;
+        const std::vector<Coin::ID>& GetInputCoins() const;
+        const std::vector<Coin::ID>& GetOutputCoins() const;
+
     protected:
         BaseTransaction& m_Tx;
         SubTxID m_SubTxID;
@@ -90,10 +90,12 @@ namespace beam::wallet
         Height m_MaxHeight;
         std::vector<Input::Ptr> m_Inputs;
         std::vector<Output::Ptr> m_Outputs;
-        ECC::Scalar::Native m_BlindingExcess; // goes to kernel
         ECC::Scalar::Native m_Offset; // goes to offset
 
-        std::vector<Coin> m_Coins;
+        std::vector<Coin::ID> m_InputCoins;
+        std::vector<Coin::ID> m_OutputCoins;
+        size_t m_NonceSlot = 0;
+        ECC::Point::Native m_PublicNonce;
 
         // peer values
         ECC::Scalar::Native m_PartialSignature;
@@ -109,12 +111,8 @@ namespace beam::wallet
         TxKernel::Ptr m_Kernel;
         ECC::Scalar::Native m_PeerSignature;
         ECC::Hash::Value m_Message;
-        ECC::Signature::MultiSig m_MultiSig;
 
         mutable boost::optional<Merkle::Hash> m_KernelID;
-
-#if defined(BEAM_HW_WALLET)
-        HWWallet m_hwWallet;
-#endif
+        io::AsyncEvent::Ptr m_AsyncCompletedEvent;
     };
 }

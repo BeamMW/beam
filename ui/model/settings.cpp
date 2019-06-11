@@ -34,6 +34,7 @@ namespace
     const char* kLocaleName = "locale";
     const char* kLockTimeoutName = "lock_timeout";
     const char* kRequirePasswordToSpendMoney = "require_password_to_spend_money";
+    const char* kIsAlowedBeamMWLink = "beam_mw_links_allowed";
 
     const char* kLocalNodeRun = "localnode/run";
     const char* kLocalNodePort = "localnode/port";
@@ -51,6 +52,7 @@ const char* WalletSettings::WalletCfg = "beam-wallet.cfg";
 const char* WalletSettings::LogsFolder = "logs";
 const char* WalletSettings::SettingsFile = "settings.ini";
 const char* WalletSettings::WalletDBFile = "wallet.db";
+const char* WalletSettings::NodeDBFile = "node.db";
 
 WalletSettings::WalletSettings(const QDir& appDataDir)
     : m_data{ appDataDir.filePath(SettingsFile), QSettings::IniFormat }
@@ -133,6 +135,18 @@ void WalletSettings::setPasswordReqiredToSpendMoney(bool value)
     m_data.setValue(kRequirePasswordToSpendMoney, value);
 }
 
+bool WalletSettings::isAllowedBeamMWLinks() const
+{
+    Lock lock(m_mutex);
+    return m_data.value(kIsAlowedBeamMWLink, false).toBool();
+}
+
+void WalletSettings::setAllowedBeamMWLinks(bool value)
+{
+    Lock lock(m_mutex);
+    m_data.setValue(kIsAlowedBeamMWLink, value);
+}
+
 bool WalletSettings::getRunLocalNode() const
 {
     Lock lock(m_mutex);
@@ -170,7 +184,7 @@ void WalletSettings::setLocalNodePort(uint port)
 string WalletSettings::getLocalNodeStorage() const
 {
     Lock lock(m_mutex);
-    return m_appDataDir.filePath("node.db").toStdString();
+    return m_appDataDir.filePath(NodeDBFile).toStdString();
 }
 
 string WalletSettings::getTempDir() const
@@ -216,23 +230,14 @@ QString WalletSettings::getLocale() const
         savedLocale = m_data.value(kLocaleName).toString();
     }
 
-    if (savedLocale.isEmpty())
-    {
-        auto systemLocale = QLocale::system().name();
-        const auto& it = kSupportedLangs.find(systemLocale);
-        if (it != kSupportedLangs.end())
-        {
-            return systemLocale;
-        }
-    }
-    else
-    {
+    if (!savedLocale.isEmpty()) {
         const auto& it = kSupportedLangs.find(savedLocale);
         if (it != kSupportedLangs.end())
         {
             return savedLocale;
         }
     }
+
     return QString::fromUtf8(kDefaultLocale);
 }
 

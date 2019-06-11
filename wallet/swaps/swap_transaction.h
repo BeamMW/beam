@@ -26,6 +26,36 @@ namespace beam::wallet
 
     class AtomicSwapTransaction : public BaseTransaction
     {
+        enum class SubTxState : uint8_t
+        {
+            Initial,
+            Invitation,
+            SharedUTXOProofPart2,
+            SharedUTXOProofDone,
+            Constructed,
+
+            InvitationConfirmation,
+            Registration,
+            KernelConfirmation
+        };
+
+        class UninitilizedSecondSide : public std::exception
+        {
+        };
+
+        class WrapperSecondSide
+        {
+        public:
+            WrapperSecondSide(INegotiatorGateway& gateway, const TxID& txID);
+            SecondSide::Ptr operator -> ();
+
+        private:
+            INegotiatorGateway& m_gateway;
+            TxID m_txID;
+            SecondSide::Ptr m_secondSide;
+        };
+
+    public:
         enum class State : uint8_t
         {
             Initial,
@@ -46,28 +76,17 @@ namespace beam::wallet
             Cancelled,
 
             CompleteSwap,
+            Failed,
+            Refunded
         };
-
-        enum class SubTxState : uint8_t
-        {
-            Initial,
-            Invitation,
-            SharedUTXOProofPart2,
-            SharedUTXOProofDone,
-            Constructed,
-
-            InvitationConfirmation,
-            Registration,
-            KernelConfirmation
-        };        
 
     public:
         
         AtomicSwapTransaction(INegotiatorGateway& gateway
-                            , beam::IWalletDB::Ptr walletDB
+                            , IWalletDB::Ptr walletDB
+                            , IPrivateKeyKeeper::Ptr keyKeeper
                             , const TxID& txID);
 
-        void Update() override;
         void Cancel() override;
 
         bool Rollback(Height height) override;
@@ -84,13 +103,14 @@ namespace beam::wallet
         void NotifyFailure(TxFailureReason) override;
         void OnFailed(TxFailureReason reason, bool notify) override;
         bool CheckExpired() override;
+        bool CheckExternalFailures() override;
         void SendInvitation();
         void SendExternalTxDetails();
         void SendLockTxInvitation(const LockTxBuilder& lockBuilder);
         void SendMultiSigProofPart2(const LockTxBuilder& lockBuilder, bool isMultiSigProofOwner);
         void SendMultiSigProofPart3(const LockTxBuilder& lockBuilder, bool isMultiSigProofOwner);
 
-        void SendSharedTxInvitation(const BaseTxBuilder& builder, bool shouldSendLockImage = false);
+        void SendSharedTxInvitation(const BaseTxBuilder& builder);
         void ConfirmSharedTxInvitation(const BaseTxBuilder& builder);
 
 
@@ -105,7 +125,7 @@ namespace beam::wallet
         // wait SubTX in BEAM chain(request kernel proof), returns true if got kernel proof
         bool CompleteSubTx(SubTxID subTxID);
 
-        bool GetPreimageFromChain(ECC::uintBig& preimage, SubTxID subTxID) const;
+        bool GetKernelFromChain(SubTxID subTxID) const;
 
         Amount GetAmount() const;
         bool IsSender() const;
@@ -113,6 +133,7 @@ namespace beam::wallet
 
         void OnSubTxFailed(TxFailureReason reason, SubTxID subTxID, bool notify = false);
         void CheckSubTxFailures();
+        void ExtractSecretPrivateKey();
 
         mutable boost::optional<bool> m_IsBeamSide;
         mutable boost::optional<bool> m_IsSender;
@@ -121,6 +142,6 @@ namespace beam::wallet
         Transaction::Ptr m_LockTx;
         Transaction::Ptr m_WithdrawTx;
 
-        SecondSide::Ptr m_secondSide;
+        WrapperSecondSide m_secondSide;
     };    
 }

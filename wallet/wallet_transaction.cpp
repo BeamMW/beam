@@ -26,9 +26,10 @@ namespace beam::wallet
 
 
     SimpleTransaction::SimpleTransaction(INegotiatorGateway& gateway
-                                        , beam::IWalletDB::Ptr walletDB
+                                        , IWalletDB::Ptr walletDB
+                                        , IPrivateKeyKeeper::Ptr keyKeeper
                                         , const TxID& txID)
-        : BaseTransaction{ gateway, walletDB, txID }
+        : BaseTransaction{ gateway, walletDB, keyKeeper, txID }
     {
 
     }
@@ -49,32 +50,28 @@ namespace beam::wallet
             amoutList = AmountList{ GetMandatoryParameter<Amount>(TxParameterID::Amount) };
         }
 
-        auto sharedBuilder = make_shared<BaseTxBuilder>(*this, kDefaultSubTxID, amoutList, GetMandatoryParameter<Amount>(TxParameterID::Fee));
+        if (!m_TxBuilder)
+        {
+            m_TxBuilder = make_shared<BaseTxBuilder>(*this, kDefaultSubTxID, amoutList, GetMandatoryParameter<Amount>(TxParameterID::Fee));
+        }
+        auto sharedBuilder = m_TxBuilder;
         BaseTxBuilder& builder = *sharedBuilder;
 
         bool hasPeersInputsAndOutputs = builder.GetPeerInputsAndOutputs();
 
+        // Check if we already have signed kernel
         if ((isSender && !builder.LoadKernel())
          || (!isSender && !builder.HasKernelID()))
         {
-            if (!m_WalletDB->get_MasterKdf())
+            // We don't need key keeper initialized to go on beyond this point
+            if (!m_KeyKeeper)
             {
                 // public wallet
                 return;
             }
 
-            bool newGenerated = builder.GenerateBlindingExcess();
-            if (newGenerated && txState != State::Initial)
-            {
-                OnFailed(TxFailureReason::InvalidState);
-                return;
-            }
             if (!builder.GetInitialTxParams() && txState == State::Initial)
             {
-                if (m_CompletedEvent)
-                {
-                    return;
-                }
                 LOG_INFO() << GetTxID() << (isSender ? " Sending " : " Receiving ")
                     << PrintableAmount(builder.GetAmount())
                     << " (fee: " << PrintableAmount(builder.GetFee()) << ")";
@@ -102,25 +99,17 @@ namespace beam::wallet
 
                 UpdateTxDescription(TxStatus::InProgress);
 
-                if (!builder.GetCoins().empty())
-                {
-                    m_Gateway.OnAsyncStarted();
-                    m_CompletedEvent = io::AsyncEvent::create(io::Reactor::get_Current(), [this, sharedBuilder]() mutable
-                        {
-                            if (!sharedBuilder->FinalizeOutputs())
-                            {
-                                //TODO: transaction is too big :(
-                            }
-                            Update();
-                            m_Gateway.OnAsyncFinished();
-                        });
-                    m_OutputsFuture = async(launch::async, [this, sharedBuilder]() mutable
-                        {
-                            sharedBuilder->CreateOutputs();
-                            m_CompletedEvent->post();
-                        });
-                    return;
-                }
+                builder.GenerateOffset();
+            }
+
+            if (builder.CreateInputs())
+            {
+                return;
+            }
+
+            if (builder.CreateOutputs())
+            {
+                return;
             }
 
             uint64_t nAddrOwnID;
@@ -198,9 +187,9 @@ namespace beam::wallet
 
             if (!isSelfTx && isSender && IsInitiator())
             {
-                // verify peer payment acknowledgement
+                // verify peer payment confirmation
 
-                wallet::PaymentConfirmation pc;
+                PaymentConfirmation pc;
                 WalletID widPeer, widMy;
                 bool bSuccess =
                     GetParameter(TxParameterID::PeerID, widPeer) &&
@@ -221,7 +210,7 @@ namespace beam::wallet
                     {
                         // older wallets don't support it. Check if unsigned payments are ok
                         uint8_t nRequired = 0;
-                        wallet::getVar(*m_WalletDB, wallet::g_szPaymentProofRequired, nRequired);
+                        storage::getVar(*m_WalletDB, storage::g_szPaymentProofRequired, nRequired);
 
                         if (!nRequired)
                             bSuccess = true;
@@ -362,7 +351,7 @@ namespace beam::wallet
         assert(!IsSelfTx());
         if (!GetMandatoryParameter<bool>(TxParameterID::IsSender))
         {
-            wallet::PaymentConfirmation pc;
+            PaymentConfirmation pc;
             WalletID widPeer, widMy;
             bool bSuccess =
                 GetParameter(TxParameterID::PeerID, widPeer) &&

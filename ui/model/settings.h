@@ -36,6 +36,9 @@ public:
     bool isPasswordReqiredToSpendMoney() const;
     void setPasswordReqiredToSpendMoney(bool value);
 
+    bool isAllowedBeamMWLinks() const;
+    void setAllowedBeamMWLinks(bool value);
+
     void initModel(WalletModel::Ptr model);
     std::string getWalletStorage() const;
     std::string getAppDataPath() const;
@@ -62,6 +65,7 @@ public:
     static const char* LogsFolder;
     static const char* SettingsFile;
     static const char* WalletDBFile;
+    static const char* NodeDBFile;
 
     void applyChanges();
 

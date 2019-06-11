@@ -26,18 +26,33 @@ namespace beam
     public:
         using Ptr = std::shared_ptr<IBitcoinBridge>;
 
+        enum ErrorType
+        {
+            None,
+            InvalidResultFormat,
+            IOError,
+            BitcoinError,
+            InvalidCredentials
+        };
+
+        struct Error
+        {
+            ErrorType m_type;
+            std::string m_message;
+        };
+
         virtual ~IBitcoinBridge() {};
 
         // error, private key
-        virtual void dumpPrivKey(const std::string& btcAddress, std::function<void(const std::string&, const std::string&)> callback) = 0;
+        virtual void dumpPrivKey(const std::string& btcAddress, std::function<void(const Error&, const std::string&)> callback) = 0;
         // error, transaction (hex), changepos
-        virtual void fundRawTransaction(const std::string& rawTx, Amount feeRate, std::function<void(const std::string&, const std::string&, int)> callback) = 0;
+        virtual void fundRawTransaction(const std::string& rawTx, Amount feeRate, std::function<void(const Error&, const std::string&, int)> callback) = 0;
         //error, transaction (hex), complete
-        virtual void signRawTransaction(const std::string& rawTx, std::function<void(const std::string&, const std::string&, bool)> callback) = 0;
+        virtual void signRawTransaction(const std::string& rawTx, std::function<void(const Error&, const std::string&, bool)> callback) = 0;
         // error, transaction ID
-        virtual void sendRawTransaction(const std::string& rawTx, std::function<void(const std::string&, const std::string&)> callback) = 0;
+        virtual void sendRawTransaction(const std::string& rawTx, std::function<void(const Error&, const std::string&)> callback) = 0;
         // error, address
-        virtual void getRawChangeAddress(std::function<void(const std::string&, const std::string&)> callback) = 0;
+        virtual void getRawChangeAddress(std::function<void(const Error&, const std::string&)> callback) = 0;
         // error, transaction (hex)
         virtual void createRawTransaction(
             const std::string& withdrawAddress,
@@ -45,14 +60,17 @@ namespace beam
             uint64_t amount,
             int outputIndex,
             Timestamp locktime,
-            std::function<void(const std::string&, const std::string&)> callback) = 0;
+            std::function<void(const Error&, const std::string&)> callback) = 0;
         // error, value, script (hex), confirmations
-        virtual void getTxOut(const std::string& txid, int outputIndex, std::function<void(const std::string&, const std::string&, double, uint16_t)> callback) = 0;
+        virtual void getTxOut(const std::string& txid, int outputIndex, std::function<void(const Error&, const std::string&, double, uint16_t)> callback) = 0;
         // error, block count
-        virtual void getBlockCount(std::function<void(const std::string&, uint64_t)> callback) = 0;
+        virtual void getBlockCount(std::function<void(const Error&, uint64_t)> callback) = 0;
+        // error, balance
+        virtual void getBalance(uint32_t confirmations, std::function<void(const Error&, double)> callback) = 0;
 
         virtual uint8_t getAddressVersion() = 0;
-
         virtual Amount getFeeRate() const = 0;
+        virtual uint16_t getTxMinConfirmations() const = 0;
+        virtual uint32_t getLockTimeInBlocks() const = 0;
     };
 }

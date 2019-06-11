@@ -33,14 +33,13 @@ Rectangle {
         //% "Available"
         text: qsTrId("available-panel-available")
     }
-    Rectangle {
+    Item {
         anchors.top: parent.top
         anchors.right: parent.right
         anchors.topMargin: 33
         anchors.rightMargin: 30
-        width: whereToBuy.width + 10 +whereToBuyIcon.width
+        width: whereToBuy.width + 10 + whereToBuyIcon.width
         height: 15
-        color: parent.color
 
         SFText {
             id: whereToBuy

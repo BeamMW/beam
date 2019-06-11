@@ -22,15 +22,15 @@ namespace beam
     {
     public:
         Bitcoind017() = delete;
-        Bitcoind017(io::Reactor& reactor, const std::string& userName, const std::string& pass, const io::Address& address, Amount feeRate, bool mainnet = false);
+        Bitcoind017(io::Reactor& reactor, BitcoinOptions options);
 
-        void signRawTransaction(const std::string& rawTx, std::function<void(const std::string&, const std::string&, bool)> callback) override;
+        void signRawTransaction(const std::string& rawTx, std::function<void(const IBitcoinBridge::Error&, const std::string&, bool)> callback) override;
         void createRawTransaction(
             const std::string& withdrawAddress,
             const std::string& contractTxId,
             uint64_t amount,
             int outputIndex,
             Timestamp locktime,
-            std::function<void(const std::string&, const std::string&)> callback) override;
+            std::function<void(const IBitcoinBridge::Error&, const std::string&)> callback) override;
     };
 }

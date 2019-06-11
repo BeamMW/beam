@@ -65,10 +65,12 @@
     </message>
     <message id="address-table-cm-edit">
         <source>edit address</source>
+        <extracomment>Entry in adress table context menu to edit</extracomment>
         <translation>edit address</translation>
     </message>
     <message id="address-table-cm-delete">
         <source>delete address</source>
+        <extracomment>Entry in adress table context menu to delete</extracomment>
         <translation>delete address</translation>
     </message>
     <message id="available-panel-available">
@@ -77,99 +79,81 @@
     </message>
     <message id="settings-version">
         <source>Version: </source>
+        <extracomment>settings tab, version label</extracomment>
         <translation>Version: </translation>
-    </message>
-    <message id="settings-remote-node-title">
-        <source>Remote node</source>
-        <translation>Remote node</translation>
     </message>
     <message id="settings-remote-node-ip-port">
         <source>ip:port</source>
+        <extracomment>settings tab, node section, address label</extracomment>
         <translation>ip:port</translation>
-    </message>
-    <message id="settings-local-node-title">
-        <source>Local node</source>
-        <translation>Local node</translation>
     </message>
     <message id="settings-local-node-run-checkbox">
         <source>Run local node</source>
+        <extracomment>settings tab, node section, run node label</extracomment>
         <translation>Run local node</translation>
     </message>
     <message id="settings-local-node-port">
-        <source>Local node port</source>
-        <translation>Local node port</translation>
-    </message>
-    <message id="settings-local-node-peers">
-        <source>Peers</source>
-        <translation>Peers</translation>
-    </message>
-    <message id="settings-local-node-no-peers-error">
-        <source>Please add at least one peer</source>
-        <translation>Please add at least one peer</translation>
+        <source>Port</source>
+        <oldsource>Local node port</oldsource>
+        <extracomment>settings tab, node section, port label</extracomment>
+        <translation>Port</translation>
     </message>
     <message id="settings-rescan-confirmation-button">
         <source>rescan</source>
+        <extracomment>settings tab, confirm rescan dialog, rescan button</extracomment>
         <translation>rescan</translation>
     </message>
     <message id="settings-rescan-confirmation-title">
         <source>Rescan</source>
+        <extracomment>settings tab, confirm rescan dialog, title</extracomment>
         <translation>Rescan</translation>
     </message>
     <message id="settings-rescan-confirmation-message">
         <source>Rescan will sync transaction and UTXO data with the latest information on the blockchain. The process might take long time.</source>
+        <extracomment>settings tab, confirm rescan dialog message</extracomment>
         <translation>Rescan will sync transaction and UTXO data with the latest information on the blockchain. The process might take long time.</translation>
     </message>
     <message id="settings-general-title">
         <source>General settings</source>
+        <extracomment>settings tab, general section, title</extracomment>
         <translation>General settings</translation>
     </message>
     <message id="settings-general-lock-screen">
         <source>Lock screen</source>
+        <extracomment>settings tab, general section, lock screen label</extracomment>
         <translation>Lock screen</translation>
     </message>
     <message id="settings-general-require-pwd-to-spend">
         <source>Ask password for every sending transaction</source>
+        <extracomment>settings tab, general section, ask password label</extracomment>
         <translation>Ask password for every sending transaction</translation>
     </message>
     <message id="settings-report-problem-title">
         <source>Report problem</source>
+        <extracomment>settings tab, report problem section, title</extracomment>
         <translation>Report problem</translation>
-    </message>
-    <message id="settings-report-problem-title-2">
-        <source>To report a problem:</source>
-        <translation>To report a problem:</translation>
-    </message>
-    <message id="settings-report-problem-message-line-1">
-        <source>1. Click &apos;Save wallet logs&apos; and choose a destination folder for log archive</source>
-        <translation>1. Click &apos;Save wallet logs&apos; and choose a destination folder for log archive</translation>
-    </message>
-    <message id="settings-report-problem-message-line-2">
-        <source>&lt;style&gt;a:link {color: &apos;#00f6d2&apos;}&lt;/style&gt;2. Send email to &lt;a href=&apos;mailto:support@beam.mw&apos;&gt;support@beam.mw&lt;/a&gt; or open a ticket in &lt;a href=&apos;https://github.com/beam-mw/beam&apos;&gt;github&lt;/a&gt;</source>
-        <translation>&lt;style&gt;a:link {color: &apos;#00f6d2&apos;}&lt;/style&gt;2. Send email to &lt;a href=&apos;mailto:support@beam.mw&apos;&gt;support@beam.mw&lt;/a&gt; or open a ticket in &lt;a href=&apos;https://github.com/beam-mw/beam&apos;&gt;github&lt;/a&gt;</translation>
-    </message>
-    <message id="settings-report-problem-message-line-3">
-        <source>3. Don&apos;t forget to attach logs archive</source>
-        <translation>3. Don&apos;t forget to attach logs archive</translation>
     </message>
     <message id="settings-rescan-button">
         <source>rescan</source>
+        <extracomment>settings tab, rescan button</extracomment>
         <translation>rescan</translation>
     </message>
     <message id="settings-wallet-location-label">
-        <source>Wallet folder location:</source>
-        <translation>Wallet folder location:</translation>
-    </message>
-    <message id="settings-wallet-location-copy-button">
-        <source>copy</source>
-        <translation>copy</translation>
+        <source>Wallet folder location</source>
+        <extracomment>settings tab, general section, wallet data folder location label</extracomment>
+        <translation>Wallet folder location</translation>
     </message>
     <message id="settings-undo">
-        <source>undo changes</source>
-        <translation>undo changes</translation>
+        <source>cancel</source>
+        <oldsource>undo changes</oldsource>
+        <extracomment>settings tab, node section, cancel button</extracomment>
+        <translation>cancel</translation>
     </message>
     <message id="settings-apply">
-        <source>apply changes</source>
-        <translation>apply changes</translation>
+        <source>apply</source>
+        <oldsource>apply changes</oldsource>
+        <extracomment>settings tab, node section, apply button</extracomment>
+        <translation>apply</translation>
     </message>
     <message id="logo-name">
         <source>BEAM</source>
@@ -239,25 +223,9 @@
         <source>Creating wallet...</source>
         <translation>Creating wallet...</translation>
     </message>
-    <message id="open-pwd-invitation">
-        <source>Enter your password to access the current wallet</source>
-        <translation>Enter your password to access the current wallet</translation>
-    </message>
-    <message id="open-pwd-label">
-        <source>Enter password</source>
-        <translation>Enter password</translation>
-    </message>
-    <message id="open-change-wallet-button">
-        <source>change wallet</source>
-        <translation>change wallet</translation>
-    </message>
-    <message id="open-change-wallet-message">
-        <source>If you open another wallet, all unsaved transaction history for the current wallet will be lost.</source>
-        <translation>If you open another wallet, all unsaved transaction history for the current wallet will be lost.</translation>
-    </message>
-    <message id="open-restore-wallet-button">
-        <source>restore wallet</source>
-        <translation>restore wallet</translation>
+    <message id="start-open-pwd-invitation">
+        <source>Enter your password to access the wallet</source>
+        <translation>Enter your password to access the wallet</translation>
     </message>
     <message id="open-show-wallet-button">
         <source>show my wallet</source>
@@ -281,30 +249,27 @@
     </message>
     <message id="edit-addr-title">
         <source>Edit address</source>
+        <extracomment>Edit addres dialog title</extracomment>
         <translation>Edit address</translation>
     </message>
     <message id="edit-addr-addr-id">
         <source>Address ID</source>
+        <extracomment>Edit addres dialog, address label</extracomment>
         <translation>Address ID</translation>
     </message>
     <message id="edit-addr-comment">
         <source>Comment</source>
+        <extracomment>Edit addres dialog, comment label</extracomment>
         <translation>Comment</translation>
-    </message>
-    <message id="edit-addr-expires">
-        <source>Expires</source>
-        <translation>Expires</translation>
     </message>
     <message id="edit-addr-cancel-button">
         <source>cancel</source>
+        <extracomment>Edit addres dialog, cancel button</extracomment>
         <translation>cancel</translation>
-    </message>
-    <message id="edit-addr-make-active-button">
-        <source>make active</source>
-        <translation>make active</translation>
     </message>
     <message id="edit-addr-save-button">
         <source>save</source>
+        <extracomment>Edit addres dialog, save button</extracomment>
         <translation>save</translation>
     </message>
     <message id="payment-info-proof-verification">
@@ -461,18 +426,22 @@
     </message>
     <message id="settings-report-problem-save-log-button">
         <source>save wallet logs</source>
+        <extracomment>settings tab, report problem section, save logs button</extracomment>
         <translation>save wallet logs</translation>
     </message>
     <message id="settings-rescan-confirmation-message-line-2">
         <source>Are you sure?</source>
+        <extracomment>settings tab, confirm rescan dialog additional message</extracomment>
         <translation>Are you sure?</translation>
     </message>
     <message id="settings-general-change-pwd-button">
         <source>change wallet password</source>
+        <extracomment>settings tab, change password button</extracomment>
         <translation>change wallet password</translation>
     </message>
     <message id="settings-title">
         <source>Settings</source>
+        <extracomment>settings tab title</extracomment>
         <translation>Settings</translation>
     </message>
     <message id="cant-send-to-expired-message">
@@ -679,17 +648,13 @@
         <source>The transaction will be deleted. This operation can not be undone</source>
         <translation>The transaction will be deleted. This operation can not be undone</translation>
     </message>
-    <message id="start-restore-button">
-        <source>restore wallet</source>
-        <translation>restore wallet</translation>
+    <message id="start-restore-confirm-button">
+        <source>I agree</source>
+        <translation>I agree</translation>
     </message>
-    <message id="start-restore-message-line-1">
-        <source>Your funds will be fully restored from the blockchain. The transaction history and addresses are stored only locally, hence can&apos;t be restored.</source>
-        <translation>Your funds will be fully restored from the blockchain. The transaction history and addresses are stored only locally, hence can&apos;t be restored.</translation>
-    </message>
-    <message id="start-restore-message-line-2">
-        <source>That&apos;s the final version till the future validation and process.</source>
-        <translation>That&apos;s the final version till the future validation and process.</translation>
+    <message id="start-restore-message-line">
+        <source>You are trying to restore an existing Beam Wallet. Please notice that if you use your wallet on another device, your balance will be up to date, but  transaction history and addresses will be kept separately on each device.</source>
+        <translation>You are trying to restore an existing Beam Wallet. Please notice that if you use your wallet on another device, your balance will be up to date, but  transaction history and addresses will be kept separately on each device.</translation>
     </message>
     <message id="start-create-button">
         <source>create new wallet</source>
@@ -795,9 +760,9 @@
         <source>Create password to access your wallet</source>
         <translation>Create password to access your wallet</translation>
     </message>
-    <message id="start-create-pwd-label">
-        <source>Enter password</source>
-        <translation>Enter password</translation>
+    <message id="start-pwd-label">
+        <source>Password</source>
+        <translation>Password</translation>
     </message>
     <message id="start-create-pwd-confirm-label">
         <source>Confirm password</source>
@@ -910,10 +875,6 @@
     <message id="wallet-model-data-location-error">
         <source>Failed to start wallet. Please check your wallet data location</source>
         <translation>Failed to start wallet. Please check your wallet data location</translation>
-    </message>
-    <message id="address-item-never">
-        <source>never</source>
-        <translation>never</translation>
     </message>
     <message id="loading-view-download-blocks">
         <source>Downloading blocks</source>
@@ -1171,10 +1132,6 @@
         <source>Transaction ID:</source>
         <translation>Transaction ID:</translation>
     </message>
-    <message id="open-login-another-button">
-        <source>login to another wallet</source>
-        <translation>login to another wallet</translation>
-    </message>
     <message id="appmodel-failed-time-not-synced">
         <source>Failed to start the integrated node: the timezone settings of your machine are out of sync. Please fix them and restart the wallet.</source>
         <translation>Failed to start the integrated node: the timezone settings of your machine are out of sync. Please fix them and restart the wallet.</translation>
@@ -1189,6 +1146,7 @@
     </message>
     <message id="settings-general-language">
         <source>Language</source>
+        <extracomment>settings tab, general section, language label</extracomment>
         <translation>Language</translation>
     </message>
     <message id="available-panel-where-to-buy">
@@ -1206,6 +1164,200 @@
     <message id="open-external-message">
         <source>Beam Wallet app requires permission to open external link in the browser. This action will expose your IP to the web server. To avoid it, choose -Cancel-. You can chage your choice in app setting anytime.</source>
         <translation>Beam Wallet app requires permission to open external link in the browser. This action will expose your IP to the web server. To avoid it, choose &quot;Cancel&quot;. You can chage your choice in app setting anytime.</translation>
+    </message>
+    <message id="start-restore-message-title">
+        <source>Restore wallet</source>
+        <translation>Restore wallet</translation>
+    </message>
+    <message id="start-open-restore-link">
+        <source>Restore wallet or create a new one</source>
+        <translation>Restore wallet or create a new one</translation>
+    </message>
+    <message id="start-open-change-wallet-confirm">
+        <source>proceed</source>
+        <translation>proceed</translation>
+    </message>
+    <message id="start-open-change-wallet-title">
+        <source>Restore wallet or create new one</source>
+        <translation>Restore wallet or create new one</translation>
+    </message>
+    <message id="start-open-change-wallet-message">
+        <source>If you&apos;ll restore a wallet all transaction history and addresses will be lost.</source>
+        <translation>If you&apos;ll restore a wallet all transaction history and addresses will be lost.</translation>
+    </message>
+    <message id="start-restore-link">
+        <source>Restore wallet</source>
+        <translation>Restore wallet</translation>
+    </message>
+    <message id="start-create-finish-button">
+        <source>start using your wallet</source>
+        <translation>start using your wallet</translation>
+    </message>
+    <message id="loading-restore-message-line1">
+        <source>Please wait for synchronization and do not close or minimize the application.</source>
+        <translation>Please wait for synchronization and do not close or minimize the application.</translation>
+    </message>
+    <message id="loading-restore-message-line2">
+        <source>Only the wallet balance (UTXO) can be restored, transaction info and addresses are always private and never kept in the blockchain.</source>
+        <translation>Only the wallet balance (UTXO) can be restored, transaction info and addresses are always private and never kept in the blockchain.</translation>
+    </message>
+    <message id="start-recovery-title">
+        <source>Create new password</source>
+        <translation>Create new password</translation>
+    </message>
+    <message id="start-recovery-pwd-message">
+        <source>Create new password to access your wallet</source>
+        <translation>Create new password to access your wallet</translation>
+    </message>
+    <message id="start-create-pwd-strength-message">
+        <source>Strong password needs to meet the following requirements:\n•  the length must be at least 10 characters\n•  must contain at least one lowercase letter\n•  must contain at least one uppercase letter\n•  must contain at least one number</source>
+        <translation>Strong password needs to meet the following requirements:
+        •  the length must be at least 10 characters
+        •  must contain at least one lowercase letter
+        •  must contain at least one uppercase letter
+        •  must contain at least one number</translation>
+    </message>
+    <message id="start-create-open-button">
+        <source>open my wallet</source>
+        <translation>open my wallet</translation>
+    </message>
+    <message id="start-open-caps-warning">
+        <source>Caps lock is on!</source>
+        <translation>Caps lock is on!</translation>
+    </message>
+    <message id="show-qr-title">
+        <source>QR code</source>
+        <extracomment>show QR dialog title</extracomment>
+        <translation>QR code</translation>
+    </message>
+    <message id="show-qr-tx-token-label">
+        <source>Your address:</source>
+        <extracomment>show qr dialog address label</extracomment>
+        <translation>Your address:</translation>
+    </message>
+    <message id="show-qr-message">
+        <source>Scan this QR code or send this address to the sender over secure channel</source>
+        <extracomment>show QR dialog message, how to use this QR</extracomment>
+        <translation>Scan this QR code
+or send this address to the sender over secure channel</translation>
+    </message>
+    <message id="show-qr-close-button">
+        <source>close</source>
+        <extracomment>show QR dialog close button</extracomment>
+        <translation>close</translation>
+    </message>
+    <message id="address-table-cm-show-qr">
+        <source>show QR code</source>
+        <extracomment>Entry in adress table context menu to show QR</extracomment>
+        <translation>show QR code</translation>
+    </message>
+    <message id="settings-general-allow-beammw-label-p1">
+        <source>&lt;style&gt;a:link {color: &apos;#00f6d2&apos;; text-decoration: none;}&lt;/style&gt;Allow access to &lt;a href=&apos;https://www.beam.mw/&apos;&gt;beam.mw&lt;/a&gt; and &lt;a href=&apos;https://explorer.beam.mw/&apos;&gt;blockchain explorer&lt;/a&gt; (to fetch exchanges and transaction data)</source>
+        <oldsource>&lt;style&gt;a:link {color: &apos;#00f6d2&apos;}&lt;/style&gt;Allow access to &lt;a href=&apos;https://www.beam.mw/&apos;&gt;beam.mw&lt;/a&gt; and &lt;a href=&apos;https://explorer.beam.mw/&apos;&gt;blockchain explorer&lt;/a&gt; (to fetch exchanges and transaction data)</oldsource>
+        <extracomment>general settings, label for alow access beam.mw part 1</extracomment>
+        <translation type="obsolete">&lt;style&gt;a:link {color: &apos;#00f6d2&apos;; text-decoration: none;}&lt;/style&gt;Allow access to &lt;a href=&apos;https://www.beam.mw/&apos;&gt;beam.mw&lt;/a&gt; and &lt;a href=&apos;https://explorer.beam.mw/&apos;&gt;blockchain explorer&lt;/a&gt; (to fetch
+exchanges and transaction data)</translation>
+    </message>
+    <message id="settings-peers-title">
+        <source>Peers</source>
+        <extracomment>settings tab, node section, peers label</extracomment>
+        <translation>Peers</translation>
+    </message>
+    <message id="settings-node-title">
+        <source>Node</source>
+        <extracomment>settings tab, node section, title</extracomment>
+        <translation>Node</translation>
+    </message>
+    <message id="settings-remote-node-ip-port-error">
+        <source>Invalid address</source>
+        <extracomment>settings tab, node section, on address error</extracomment>
+        <translation>Invalid address</translation>
+    </message>
+    <message id="settings-wallet-location-link">
+        <source>show in folder</source>
+        <extracomment>settings tab, general section, show data folder link</extracomment>
+        <translation>show in folder</translation>
+    </message>
+    <message id="settings-general-allow-beammw-label">
+        <source>&lt;style&gt;a:link {color: &apos;#00f6d2&apos;; text-decoration: none;}&lt;/style&gt;Allow access to &lt;a href=&apos;https://www.beam.mw/&apos;&gt;beam.mw&lt;/a&gt; and &lt;a href=&apos;https://explorer.beam.mw/&apos;&gt;blockchain explorer&lt;/a&gt; (to fetch exchanges and transaction data)</source>
+        <extracomment>general settings, label for alow open external links</extracomment>
+        <translation>&lt;style&gt;a:link {color: &apos;#00f6d2&apos;; text-decoration: none;}&lt;/style&gt;Allow access to &lt;a href=&apos;https://www.beam.mw/&apos;&gt;beam.mw&lt;/a&gt; and &lt;a href=&apos;https://explorer.beam.mw/&apos;&gt;blockchain explorer&lt;/a&gt; (to fetch
+exchanges and transaction data)</translation>
+    </message>
+    <message id="settings-report-problem-message">
+        <source>&lt;style&gt;a:link {color: &apos;#00f6d2&apos;; text-decoration: none;}&lt;/style&gt;To report a problem:&lt;br /&gt;1. Click “Save wallet logs” and choose a destination folder for log archive&lt;br /&gt;2. Send email to &lt;a href=&apos;mailto:support@beam.mw&apos;&gt;support@beam.mw&lt;/a&gt; or open a ticket in &lt;a href=&apos;https://github.com/BeamMW&apos;&gt;Github&lt;/a&gt;&lt;br /&gt;3. Don’t forget to attach logs archive</source>
+        <extracomment>settings tab, report problem section, message</extracomment>
+        <translation>&lt;style&gt;a:link {color: &apos;#00f6d2&apos;; text-decoration: none;}&lt;/style&gt;To report a problem:&lt;br /&gt;1. Click “Save wallet logs” and choose a destination folder for log archive&lt;br /&gt;2. Send email to &lt;a href=&apos;mailto:support@beam.mw&apos;&gt;support@beam.mw&lt;/a&gt; or open a ticket in &lt;a href=&apos;https://github.com/BeamMW&apos;&gt;Github&lt;/a&gt;&lt;br /&gt;3. Don’t forget to attach logs archive</translation>
+    </message>
+    <message id="edit-addr-24-option">
+        <source>in 24 hours from now</source>
+        <extracomment>Edit address dialog, expiration option, in 24 hours from now</extracomment>
+        <translation>in 24 hours from now</translation>
+    </message>
+    <message id="edit-addr-never-option">
+        <source>never</source>
+        <extracomment>Edit address dialog, expiration option, never</extracomment>
+        <translation>never</translation>
+    </message>
+    <message id="edit-addr-as-is-option">
+        <source>within 24 hours</source>
+        <extracomment>Edit address dialog, expiration option, do not change</extracomment>
+        <translation>within 24 hours</translation>
+    </message>
+    <message id="edit-addr-expires-label">
+        <source>Expires</source>
+        <extracomment>Edit addres dialog, expires label</extracomment>
+        <translation>Expires</translation>
+    </message>
+    <message id="edit-addr-expire-now-label">
+        <source>now</source>
+        <extracomment>Edit addres dialog, expire now label</extracomment>
+        <translation>now</translation>
+    </message>
+    <message id="edit-addr-expire-now-switch">
+        <source>Expire address now</source>
+        <extracomment>Edit addres dialog, expire now switch</extracomment>
+        <translation>Expire address now</translation>
+    </message>
+    <message id="edit-addr-expiration-time-label">
+        <source>Expired on </source>
+        <extracomment>Edit addres dialog, expiration time label</extracomment>
+        <translation>Expired on </translation>
+    </message>
+    <message id="edit-addr-activate-addr-switch">
+        <source>Activate address</source>
+        <extracomment>Edit addres dialog, expiration time label</extracomment>
+        <translation>Activate address</translation>
+    </message>
+    <message id="time-never">
+        <source>never</source>
+        <extracomment>time never string</extracomment>
+        <translation>never</translation>
+    </message>
+    <message id="start-pwd-difficulty-very-weak">
+        <source>Very weak password</source>
+        <extracomment>set passwort, difficulty message, very weak</extracomment>
+        <translation>Very weak password</translation>
+    </message>
+    <message id="start-pwd-difficulty-weak">
+        <source>Weak password</source>
+        <extracomment>set passwort, difficulty message, weak</extracomment>
+        <translation>Weak password</translation>
+    </message>
+    <message id="start-pwd-difficulty-medium">
+        <source>Medium strength password</source>
+        <extracomment>set passwort, difficulty message, medium</extracomment>
+        <translation>Medium strength password</translation>
+    </message>
+    <message id="start-pwd-difficulty-strong">
+        <source>Strong password</source>
+        <extracomment>set passwort, difficulty message, strong</extracomment>
+        <translation>Strong password</translation>
+    </message>
+    <message id="start-pwd-difficulty-very-strong">
+        <source>Very strong password</source>
+        <extracomment>set passwort, difficulty message, very strong</extracomment>
+        <translation>Very strong password</translation>
     </message>
 </context>
 </TS>

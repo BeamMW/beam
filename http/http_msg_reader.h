@@ -55,6 +55,7 @@ public:
     virtual const std::string& get_path() const = 0;
     virtual const std::string& get_header(const std::string& headerName) const = 0;
     virtual const void* get_body(size_t& size) const = 0;
+    virtual int get_status() const = 0;
 };
 
 /// Extracts individual http messages from stream, performs header/size validation

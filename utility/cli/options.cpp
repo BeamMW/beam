@@ -13,6 +13,8 @@
 // limitations under the License.
 
 #include "options.h"
+
+#include "boost/lexical_cast.hpp"
 #include "core/block_crypt.h"
 #include "core/ecc.h"
 #include "utility/string_helpers.h"
@@ -80,6 +82,7 @@ namespace beam
         const char* TX_HISTORY = "tx_history";
         const char* CANCEL_TX = "cancel_tx";
         const char* DELETE_TX = "delete_tx";
+        const char* TX_DETAILS = "tx_details";
         const char* PAYMENT_PROOF_EXPORT = "payment_proof_export";
         const char* PAYMENT_PROOF_VERIFY = "payment_proof_verify";
         const char* PAYMENT_PROOF_DATA = "payment_proof";
@@ -112,12 +115,17 @@ namespace beam
         const char* HORIZON_HI = "horizon_hi";
         const char* HORIZON_LO = "horizon_lo";
         const char* COLD_WALLET = "cold_wallet";
-        const char* SWAP_COINS = "swap_coins";
+        const char* SWAP_INIT = "swap_init";
         const char* SWAP_LISTEN = "swap_listen";
         const char* SWAP_AMOUNT = "swap_amount";
         const char* SWAP_FEERATE = "swap_feerate";
         const char* SWAP_COIN = "swap_coin";
         const char* SWAP_BEAM_SIDE = "swap_beam_side";
+        const char* SWAP_TX_HISTORY = "swap_tx_history";
+        const char* BTC_CONFIRMATIONS = "btc_confiramtions";
+        const char* LTC_CONFIRMATIONS = "ltc_confiramtions";
+        const char* BTC_LOCK_TIME = "btc_lock_time";
+        const char* LTC_LOCK_TIME = "ltc_lock_time";
 
         // wallet api
         const char* API_USE_HTTP = "use_http";
@@ -137,6 +145,67 @@ namespace beam
         const char* TR_N = "tr_N";
         // ui
         const char* APPDATA_PATH = "appdata";
+    }
+
+    template<typename T>
+    std::ostream& operator<<(std::ostream &os, const Nonnegative<T>& v)
+    {
+        os << v.value;
+        return os;
+    }
+
+    template<typename T>
+    std::ostream& operator<<(std::ostream &os, const Positive<T>& v)
+    {
+        os << v.value;
+        return os;
+    }
+
+    template <typename T>
+    void validate(boost::any& v, const std::vector<std::string>& values, Nonnegative<T>*, int)
+    {
+        po::validators::check_first_occurrence(v);
+
+        const std::string& s = po::validators::get_single_string(values);
+
+        if (!s.empty() && s[0] == '-') {
+            throw NonnegativeOptionException();
+        }
+
+        try
+        {
+            v = Nonnegative<T>(boost::lexical_cast<T>(s));
+        }
+        catch (const boost::bad_lexical_cast&)
+        {
+            throw po::invalid_option_value(s);
+        }
+    }
+
+    template <typename T>
+    void validate(boost::any& v, const std::vector<std::string>& values, Positive<T>*, int)
+    {
+        po::validators::check_first_occurrence(v);
+        const std::string& s = po::validators::get_single_string(values);
+        T numb;
+
+        if (!s.empty() && s[0] == '-') {
+            throw PositiveOptionException();
+        }
+
+        try
+        {
+            numb = boost::lexical_cast<T>(s);
+        }
+        catch (const boost::bad_lexical_cast&)
+        {
+            throw po::invalid_option_value(s);
+        }
+
+        if (numb <= 0)
+            throw PositiveOptionException();
+
+        v = Positive<T>(numb);
     }
 
     template <typename T> struct TypeCvt {
@@ -165,7 +234,7 @@ namespace beam
         node_options.add_options()
             (cli::PORT_FULL, po::value<uint16_t>()->default_value(10000), "port to start the server on")
             (cli::STORAGE, po::value<string>()->default_value("node.db"), "node storage path")
-            (cli::MINING_THREADS, po::value<uint32_t>()->default_value(0), "number of mining threads(there is no mining if 0)")
+            //(cli::MINING_THREADS, po::value<uint32_t>()->default_value(0), "number of mining threads(there is no mining if 0)")
 
             (cli::VERIFICATION_THREADS, po::value<int>()->default_value(-1), "number of threads for cryptographic verifications (0 = single thread, -1 = auto)")
             (cli::NONCEPREFIX_DIGITS, po::value<unsigned>()->default_value(0), "number of hex digits for nonce prefix for stratum client (0..6)")
@@ -201,8 +270,8 @@ namespace beam
             (cli::BTC_USER_NAME, po::value<string>(), "user name for the bitcoin node")
             (cli::LTC_PASS, po::value<string>(), "password for the litecoin node")
             (cli::LTC_USER_NAME, po::value<string>(), "user name for the litecoin node")
-            (cli::AMOUNT_FULL, po::value<double>(), "amount to send (in Beams, 1 Beam = 100,000,000 groth)")
-            (cli::FEE_FULL, po::value<Amount>()->default_value(0), "fee (in Groth, 100,000,000 groth = 1 Beam)")
+            (cli::AMOUNT_FULL, po::value<Positive<double>>(), "amount to send (in Beams, 1 Beam = 100,000,000 groth)")
+            (cli::FEE_FULL, po::value<Nonnegative<Amount>>()->default_value(Nonnegative<Amount>(0)), "fee (in Groth, 100,000,000 groth = 1 Beam)")
             (cli::RECEIVER_ADDR_FULL, po::value<string>(), "address of receiver")
             (cli::NODE_ADDR_FULL, po::value<string>(), "address of node")
             (cli::BTC_NODE_ADDR, po::value<string>(), "address of bitcoin node")
@@ -214,18 +283,23 @@ namespace beam
             (cli::NEW_ADDRESS_COMMENT, po::value<string>()->default_value(""), "comment for new own address")
             (cli::EXPIRATION_TIME, po::value<string>()->default_value("24h"), "expiration time for new own address [24h|never]")
             (cli::GENERATE_PHRASE, "command to generate phrases which will be used to create a secret according to BIP-39")
-            (cli::KEY_SUBKEY, po::value<uint32_t>()->default_value(0), "Child key index.")
+            (cli::KEY_SUBKEY, po::value<Nonnegative<uint32_t>>()->default_value(Nonnegative<uint32_t>(0)), "Child key index.")
             (cli::WALLET_ADDR, po::value<string>()->default_value("*"), "wallet address")
             (cli::PAYMENT_PROOF_DATA, po::value<string>(), "payment proof data to verify")
             (cli::PAYMENT_PROOF_REQUIRED, po::value<bool>(), "Set to disallow outgoing payments if the receiver doesn't supports the payment proof (older wallets)")
             (cli::UTXO, po::value<vector<string>>()->multitoken(), "preselected utxos to transfer")
             (cli::IMPORT_EXPORT_PATH, po::value<string>()->default_value("addresses.dat"), "path to import or export data (import_addresses|export_addresses)")
             (cli::COLD_WALLET, "used to init cold wallet")
-            (cli::COMMAND, po::value<string>(), "command to execute [new_addr|send|receive|listen|init|restore|info|export_miner_key|export_owner_key|generate_phrase|change_address_expiration|address_list|rescan|export_addresses|import_addresses|payment_proof_export|payment_proof_verify|utxo|cancel_tx|delete_tx|swap_coins|swap_listen]")
-            (cli::SWAP_AMOUNT, po::value<Amount>(), "swap amount in the smallest unit of the coin")
-            (cli::SWAP_FEERATE, po::value<Amount>()->default_value(20000), "The specific feerate you are willing to pay(satoshis(or photons) per KB)")
+            (cli::COMMAND, po::value<string>(), "command to execute [new_addr|send|receive|listen|init|restore|info|export_miner_key|export_owner_key|generate_phrase|change_address_expiration|address_list|rescan|export_addresses|import_addresses|tx_details|payment_proof_export|payment_proof_verify|utxo|cancel_tx|delete_tx|swap_init|swap_listen]")
+            (cli::SWAP_AMOUNT, po::value<Positive<Amount>>(), "swap amount in the smallest unit of the coin")
+            (cli::SWAP_FEERATE, po::value<Positive<Amount>>()->default_value(Positive<Amount>(20000)), "The specific feerate you are willing to pay(satoshis(or photons) per KB)")
             (cli::SWAP_COIN, po::value<string>(), "swap coin(btc, ltc)")
-            (cli::SWAP_BEAM_SIDE, "Should be set by Beam owner");
+            (cli::SWAP_BEAM_SIDE, "Should be set by Beam owner")
+            (cli::SWAP_TX_HISTORY, "show swap transactions history in info command")
+            (cli::BTC_CONFIRMATIONS, po::value<Positive<uint16_t>>(), "confirmations count in bitcoin chain")
+            (cli::LTC_CONFIRMATIONS, po::value<Positive<uint16_t>>(), "confirmations count in litecoin chain")
+            (cli::BTC_LOCK_TIME, po::value<Positive<uint32_t>>(), "lock time in blocks bitcoin transaction")
+            (cli::LTC_LOCK_TIME, po::value<Positive<uint32_t>>(), "lock time in blocks litecoin transaction");
 
         po::options_description wallet_treasury_options("Wallet treasury options");
         wallet_treasury_options.add_options()

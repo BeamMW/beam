@@ -18,7 +18,9 @@
 
 namespace beam::wallet
 {
-    constexpr uint32_t kBeamLockTimeInBlocks = 24 * 60;
+    /*constexpr uint32_t kBeamLockTimeInBlocks = 24 * 60;*/
+    // TODO: Must be changed after tests!
+    constexpr uint32_t kBeamLockTimeInBlocks = 140;
 
     enum SubTxIndex : SubTxID
     {

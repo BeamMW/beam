@@ -74,6 +74,7 @@ namespace beam
         extern const char* NEW_ADDRESS;
         extern const char* CANCEL_TX;
         extern const char* DELETE_TX;
+        extern const char* TX_DETAILS;
         extern const char* PAYMENT_PROOF_EXPORT;
         extern const char* PAYMENT_PROOF_VERIFY;
         extern const char* PAYMENT_PROOF_DATA;
@@ -111,12 +112,17 @@ namespace beam
         extern const char* HORIZON_HI;
         extern const char* HORIZON_LO;
         extern const char* COLD_WALLET;
-        extern const char* SWAP_COINS;
+        extern const char* SWAP_INIT;
         extern const char* SWAP_LISTEN;
         extern const char* SWAP_AMOUNT;
         extern const char* SWAP_FEERATE;
         extern const char* SWAP_COIN;
         extern const char* SWAP_BEAM_SIDE;
+        extern const char* SWAP_TX_HISTORY;
+        extern const char* BTC_CONFIRMATIONS;
+        extern const char* LTC_CONFIRMATIONS;
+        extern const char* BTC_LOCK_TIME;
+        extern const char* LTC_LOCK_TIME;
 
 
         // wallet api
@@ -162,6 +168,44 @@ namespace beam
     std::vector<std::string> getCfgPeers(const po::variables_map& vm);
 
     class SecString;
+
+    template <typename T>
+    struct Nonnegative {
+        static_assert(std::is_unsigned<T>::value, "Nonnegative<T> requires unsigned type.");
+
+        Nonnegative() {}
+        explicit Nonnegative(const T& v) : value(v) {}
+
+        T value = 0;
+    };
+
+    template <typename T>
+    struct Positive {
+        static_assert(std::is_arithmetic<T>::value, "Positive<T> requires numerical type.");
+
+        Positive() {}
+        explicit Positive(const T& v) : value(v) {}
+
+        T value = 0;
+    };
+
+    /** Class thrown when a argument of option is negative */
+    class NonnegativeOptionException : public po::error_with_option_name {
+    public:
+        NonnegativeOptionException()
+            : po::error_with_option_name("The argument for option '%canonical_option%' must be equal to or more than 0.")
+        {
+        }
+    };
+
+    // Class thrown when a argument of option is negative or zero
+    class PositiveOptionException : public po::error_with_option_name {
+    public:
+        PositiveOptionException()
+            : po::error_with_option_name("The argument for option '%canonical_option%' must be more than 0.")
+        {
+        }
+    };
 
     bool read_wallet_pass(SecString& pass, const po::variables_map& vm);
     bool confirm_wallet_pass(const SecString& pass);

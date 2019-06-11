@@ -174,10 +174,10 @@ struct Node
 
 	uint32_t get_AcessiblePeerCount() const; // all the peers with known addresses. Including temporarily banned
 
-private:
-
 	bool m_UpdatedFromPeers = false;
 	bool m_PostStartSynced = false;
+
+private:
 
 	struct Processor
 		:public NodeProcessor

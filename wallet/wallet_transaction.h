@@ -22,8 +22,6 @@
 #include <boost/optional.hpp>
 #include "utility/logger.h"
 
-#include <future>
-
 namespace beam::wallet
 {
     class BaseTxBuilder;
@@ -44,7 +42,8 @@ namespace beam::wallet
         };
     public:
         SimpleTransaction(INegotiatorGateway& gateway
-                        , beam::IWalletDB::Ptr walletDB
+                        , IWalletDB::Ptr walletDB
+                        , IPrivateKeyKeeper::Ptr keyKeeper
                         , const TxID& txID);
     private:
         TxType GetType() const override;
@@ -57,7 +56,6 @@ namespace beam::wallet
         bool IsSelfTx() const;
         State GetState() const;
     private:
-        io::AsyncEvent::Ptr m_CompletedEvent;
-        std::future<void> m_OutputsFuture;
+        std::shared_ptr<BaseTxBuilder> m_TxBuilder;
     };
 }

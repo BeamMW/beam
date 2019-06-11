@@ -31,13 +31,13 @@
 #endif
 #include "settings_view.h"
 #include "model/app_model.h"
+#include "model/keyboard.h"
 #include "version.h"
 #include "wallet/secstring.h"
 #include "wallet/default_peers.h"
 
 #include <boost/filesystem.hpp>
 #include <thread>
-
 
 using namespace beam;
 using namespace ECC;
@@ -236,7 +236,7 @@ StartViewModel::~StartViewModel()
 
 bool StartViewModel::walletExists() const
 {
-    return WalletDB::isInitialized(AppModel::getInstance()->getSettings().getWalletStorage());
+    return wallet::WalletDB::isInitialized(AppModel::getInstance()->getSettings().getWalletStorage());
 }
 
 bool StartViewModel::getIsRecoveryMode() const
@@ -338,6 +338,11 @@ QString StartViewModel::getLocalNodePeer() const
 QQmlListProperty<WalletDBPathItem> StartViewModel::getWalletDBpaths()
 {
     return QQmlListProperty<WalletDBPathItem>(this, m_walletDBpaths);
+}
+
+bool StartViewModel::isCapsLockOn() const
+{
+    return keyboard::isCapsLockOn();
 }
 
 void StartViewModel::setupLocalNode(int port, const QString& localNodePeer)
@@ -580,4 +585,9 @@ QString StartViewModel::defaultRemoteNodeAddr() const
 #else
     return "127.0.0.1:10005";
 #endif // BEAM_TESTNET
+}
+
+void StartViewModel::checkCapsLock()
+{
+    emit capsLockStateMayBeChanged();
 }

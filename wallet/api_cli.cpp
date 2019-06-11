@@ -38,6 +38,8 @@
 
 #include "wallet/wallet_db.h"
 #include "wallet/wallet_network.h"
+#include "wallet/bitcoin/options.h"
+#include "wallet/litecoin/options.h"
 
 #include "nlohmann/json.hpp"
 #include "version.h"
@@ -47,8 +49,11 @@ using json = nlohmann::json;
 static const unsigned LOG_ROTATION_PERIOD = 3 * 60 * 60 * 1000; // 3 hours
 static const size_t PACKER_FRAGMENTS_SIZE = 4096;
 
-namespace beam
+namespace
 {
+    using namespace beam;
+    using namespace beam::wallet;
+
     struct TlsOptions
     {
         bool use;
@@ -263,12 +268,36 @@ namespace beam
                 serializeMsg(msg);
             }
 
+            void FillAddressData(const AddressData& data, WalletAddress& address)
+            {
+                if (data.comment)
+                {
+                    address.setLabel(*data.comment);
+                }
+
+                if (data.expiration)
+                {
+                    switch (*data.expiration)
+                    {
+                    case EditAddress::OneDay:
+                        address.makeActive(24 * 60 * 60);
+                        break;
+                    case EditAddress::Expired:
+                        address.makeExpired();
+                        break;
+                    case EditAddress::Never:
+                        address.makeEternal();
+                        break;
+                    }
+                }
+            }
+
             void onMessage(int id, const CreateAddress& data) override 
             {
-                LOG_DEBUG() << "CreateAddress(id = " << id << " lifetime = " << data.lifetime << ")";
+                LOG_DEBUG() << "CreateAddress(id = " << id << ")";
 
-                WalletAddress address = wallet::createAddress(*_walletDB);
-                address.m_duration = data.lifetime * 60 * 60;
+                WalletAddress address = storage::createAddress(*_walletDB);
+                FillAddressData(data, address);
 
                 _walletDB->saveAddress(address);
 
@@ -303,27 +332,7 @@ namespace beam
                 {
                     if (addr->m_OwnID)
                     {
-                        if (data.comment)
-                        {
-                            addr->setLabel(*data.comment);
-                        }
-
-                        if (data.expiration)
-                        {
-                            switch (*data.expiration)
-                            {
-                            case EditAddress::OneDay:
-                                addr->makeActive(24 * 60 * 60);
-                                break;
-                            case EditAddress::Expired:
-                                addr->makeExpired();
-                                break;
-                            case EditAddress::Never:
-                                addr->makeEternal();
-                                break;
-                            }
-                        }
-
+                        FillAddressData(data, *addr);
                         _walletDB->saveAddress(*addr);
 
                         doResponse(id, EditAddress::Response{});
@@ -384,7 +393,7 @@ namespace beam
                     }
                     else
                     {
-                        WalletAddress senderAddress = wallet::createAddress(*_walletDB);
+                        WalletAddress senderAddress = storage::createAddress(*_walletDB);
                         _walletDB->saveAddress(senderAddress);
 
                         from = senderAddress.m_walletID;     
@@ -426,7 +435,13 @@ namespace beam
                 io::Address btcNodeAddr;
                 if (btcNodeAddr.resolve(data.btcNodeAddr.c_str()))
                 {
-                    _wallet.initBitcoin(io::Reactor::get_Current(), data.btcUserName, data.btcPass, btcNodeAddr, data.feeRate);
+                    BitcoinOptions options;
+
+                    options.m_userName = data.btcUserName;
+                    options.m_pass = data.btcPass;
+                    options.m_address = btcNodeAddr;
+                    options.m_feeRate = data.feeRate;
+                    _wallet.initBitcoin(io::Reactor::get_Current(), options);
 
                     doResponse(id, EditAddress::Response{});
                 }
@@ -443,7 +458,13 @@ namespace beam
                 io::Address ltcNodeAddr;
                 if (ltcNodeAddr.resolve(data.ltcNodeAddr.c_str()))
                 {
-                    _wallet.initLitecoin(io::Reactor::get_Current(), data.ltcUserName, data.ltcPass, ltcNodeAddr, data.feeRate);
+                    LitecoinOptions options;
+
+                    options.m_userName = data.ltcUserName;
+                    options.m_pass = data.ltcPass;
+                    options.m_address = ltcNodeAddr;
+                    options.m_feeRate = data.feeRate;
+                    _wallet.initLitecoin(io::Reactor::get_Current(), options);
 
                     doResponse(id, EditAddress::Response{});
                 }
@@ -461,7 +482,7 @@ namespace beam
                 {
                     WalletID from(Zero);
                     
-                    WalletAddress senderAddress = wallet::createAddress(*_walletDB);
+                    WalletAddress senderAddress = storage::createAddress(*_walletDB);
                     _walletDB->saveAddress(senderAddress);
 
                     from = senderAddress.m_walletID;
@@ -507,7 +528,7 @@ namespace beam
                     result.systemHeight = stateID.m_Height;
                     result.confirmations = 0;
 
-                    wallet::getTxParameter(*_walletDB, tx->m_txId, wallet::TxParameterID::KernelProofHeight, result.kernelProofHeight);
+                    storage::getTxParameter(*_walletDB, tx->m_txId, TxParameterID::KernelProofHeight, result.kernelProofHeight);
 
                     doResponse(id, result);
                 }
@@ -524,7 +545,7 @@ namespace beam
                 LOG_DEBUG() << "], fee = " << data.fee;
                 try
                 {
-                     WalletAddress senderAddress = wallet::createAddress(*_walletDB);
+                     WalletAddress senderAddress = storage::createAddress(*_walletDB);
                     _walletDB->saveAddress(senderAddress);
 
                     auto txId = _wallet.split_coins(senderAddress.m_walletID, data.coins, data.fee);
@@ -649,7 +670,7 @@ namespace beam
                     response.difficulty = state.m_PoW.m_Difficulty.ToFloat();
                 }
 
-				wallet::Totals totals(*_walletDB);
+                storage::Totals totals(*_walletDB);
 
                 response.available = totals.Avail;
                 response.receiving = totals.Incoming;
@@ -701,7 +722,7 @@ namespace beam
                         item.systemHeight = stateID.m_Height;
                         item.confirmations = 0;
 
-                        wallet::getTxParameter(*_walletDB, tx.m_txId, wallet::TxParameterID::KernelProofHeight, item.kernelProofHeight);
+                        storage::getTxParameter(*_walletDB, tx.m_txId, TxParameterID::KernelProofHeight, item.kernelProofHeight);
                         res.resultList.push_back(item);
                     }
                 }

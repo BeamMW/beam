@@ -9,12 +9,19 @@ Menu {
 	id: menu
     topPadding: 20
     bottomPadding: 20
+    width: {
+        var result = 0;
+        var padding = 0;
+        for (var i = 0; i < count; ++i) {
+            var item = itemAt(i);
+            result = Math.max(item.contentItem.implicitWidth, result);
+            padding = Math.max(item.padding, padding);
+        }
+        return result + padding * 2;
+    }
 
     delegate: MenuItem {
         id: control
-        implicitWidth: 200
-        implicitHeight: 40
-
 		icon.color: Style.content_main
 		icon.width: 12
 		icon.height: 12
@@ -23,10 +30,8 @@ Menu {
 		spacing: 14
 
 		contentItem: IconLabel {
-
 			leftPadding: 20
 			rightPadding: 20
-			
 
 			spacing: control.spacing
 			mirrored: control.mirrored
@@ -40,8 +45,6 @@ Menu {
 			opacity: enabled ? 1.0 : 0.3
 		}
 
-
-
         background: Rectangle {
             implicitWidth: 200
             implicitHeight: 40
@@ -51,12 +54,11 @@ Menu {
     }
 
     background: Rectangle {
-        implicitWidth: 200
-        implicitHeight: 40
+        width: parent.width
+        height: parent.height
         border.width: 1
         border.color: Style.separator
         color: Style.background_second
-		//opacity: 0.1
         radius: 10
     }
 }

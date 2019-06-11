@@ -33,6 +33,7 @@ namespace beam::wallet
         const ECC::RangeProof::Confidential& GetSharedProof() const;
         const ECC::RangeProof::Confidential::MultiSig& GetProofPartialMultiSig() const;
         ECC::Point::Native GetPublicSharedBlindingFactor() const;
+        ECC::Point::Native GetPublicExcess() const override;
 
     private:
 
@@ -47,7 +48,7 @@ namespace beam::wallet
 
         ECC::Scalar::Native m_SharedBlindingFactor;
         ECC::NoLeak<ECC::uintBig> m_SharedSeed;
-        beam::Coin m_SharedCoin;
+        Coin m_SharedCoin;
         ECC::RangeProof::Confidential m_SharedProof;
 
         // deduced values, 
