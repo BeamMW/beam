@@ -33,11 +33,13 @@ namespace beam
         void generateNonce(uint8_t slot, Result<ECC::Point> callback) const;
         void getNoncePublic(uint8_t slot, Result<ECC::Point> callback) const;
         void generateKey(const ECC::Key::IDV& idv, bool isCoinKey, Result<ECC::Point> callback) const;
+        void generateRangeProof(const ECC::Key::IDV& idv, bool isCoinKey, Result<ECC::RangeProof::Confidential> callback) const;
 
         std::string getOwnerKeySync() const;
         ECC::Point generateNonceSync(uint8_t slot) const;
         ECC::Point getNoncePublicSync(uint8_t slot) const;
         ECC::Point generateKeySync(const ECC::Key::IDV& idv, bool isCoinKey) const;
+        ECC::RangeProof::Confidential generateRangeProofSync(const ECC::Key::IDV& idv, bool isCoinKey) const;
 
     private:
         std::shared_ptr<HWWalletImpl> m_impl;

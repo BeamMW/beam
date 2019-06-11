@@ -186,6 +186,69 @@ namespace beam
             }
         }
 
+        void generateRangeproof(const ECC::Key::IDV& idv, bool isCoinKey, HWWallet::Result<ECC::RangeProof::Confidential> callback)
+        {
+            if (m_trezor)
+            {
+                std::atomic_flag m_runningFlag;
+                m_runningFlag.test_and_set();
+                ECC::RangeProof::Confidential result;
+
+                m_trezor->call_BeamGenerateRangeproof(idv.m_Idx, idv.m_Type, idv.m_SubIdx, idv.m_Value, isCoinKey, [&m_runningFlag, &result](const Message& msg, std::string session, size_t queue_size)
+                {
+                    const uint8_t* rp_raw = reinterpret_cast<const uint8_t*>(child_cast<Message, hw::trezor::messages::beam::BeamRangeproofData>(msg).data().c_str());
+                    rangeproof_confidential_t rp;
+                    memcpy(&rp, rp_raw, sizeof(rangeproof_confidential_t));
+
+                    {
+                        result.m_Part1.m_A.m_X = beam::Blob(rp.part1.a.x, 32);
+                        result.m_Part1.m_A.m_Y = rp.part1.a.y;
+
+                        result.m_Part1.m_S.m_X = beam::Blob(rp.part1.s.x, 32);
+                        result.m_Part1.m_S.m_Y = rp.part1.s.y;
+                    }
+
+                    {
+                        result.m_Part2.m_T1.m_X = beam::Blob(rp.part2.t1.x, 32);
+                        result.m_Part2.m_T1.m_Y = rp.part2.t1.y;
+
+                        result.m_Part2.m_T2.m_X = beam::Blob(rp.part2.t2.x, 32);
+                        result.m_Part2.m_T2.m_Y = rp.part2.t2.y;
+                    }
+
+                    {
+                        result.m_P_Tag.m_pCondensed[0].m_Value = beam::Blob(rp.p_tag.condensed[0].d, 32);
+                        result.m_P_Tag.m_pCondensed[1].m_Value = beam::Blob(rp.p_tag.condensed[1].d, 32);
+                    }
+
+                    for (int c = 0; c < INNER_PRODUCT_N_CYCLES; c++)
+                    {
+                        for (int i = 0; i < 2; i++)
+                        {
+                            result.m_P_Tag.m_pLR[c][i].m_X = beam::Blob(rp.p_tag.LR[c][i].x, 32);
+                            result.m_P_Tag.m_pLR[c][i].m_Y = rp.p_tag.LR[c][i].y;
+                        }
+                    }
+
+                    {
+                        result.m_Mu.m_Value = beam::Blob(rp.mu.d, sizeof rp.mu);
+                        result.m_tDot.m_Value = beam::Blob(rp.tDot.d, 32);
+                        result.m_Part3.m_TauX.m_Value = beam::Blob(rp.part3.tauX.d, 32);
+                    }
+
+                    m_runningFlag.clear();
+                });
+
+                while (m_runningFlag.test_and_set());
+
+                callback(result);
+            }
+            else
+            {
+                LOG_ERROR() << "HW wallet not initialized";
+            }
+        }
+
     private:
 
         Client m_client;
@@ -214,6 +277,11 @@ namespace beam
     void HWWallet::generateKey(const ECC::Key::IDV& idv, bool isCoinKey, Result<ECC::Point> callback) const
     {
         m_impl->generateKey(idv, isCoinKey, callback);
+    }
+
+    void HWWallet::generateRangeProof(const ECC::Key::IDV& idv, bool isCoinKey, Result<ECC::RangeProof::Confidential> callback) const
+    {
+        m_impl->generateRangeproof(idv, isCoinKey, callback);
     }
 
     std::string HWWallet::getOwnerKeySync() const
@@ -264,4 +332,15 @@ namespace beam
         return result;
     }
 
+    ECC::RangeProof::Confidential HWWallet::generateRangeProofSync(const ECC::Key::IDV& idv, bool isCoinKey) const
+    {
+        ECC::RangeProof::Confidential result;
+
+        generateRangeProof(idv, isCoinKey, [&result](const ECC::RangeProof::Confidential& key)
+        {
+            result = key;
+        });
+
+        return result;
+    }
 }

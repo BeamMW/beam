@@ -158,29 +158,19 @@ namespace beam::wallet
 
         Outputs GenerateOutputsSync(Height schemeHeigh, const std::vector<Key::IDV>& ids) override
         {
-            //SwitchCommitment sc(&m_AssetID);
-            //sc.Create(sk, m_Commitment, coinKdf, kidv);
+            Outputs outputs;
+            outputs.reserve(ids.size());
 
-            //ECC::Oracle oracle;
-            //Prepare(oracle, hScheme);
+            for (const auto& kidv : ids)
+            {
+                auto& output = outputs.emplace_back(std::make_unique<Output>());
+                output->m_Commitment = m_hwWallet.generateKeySync(kidv, false);
 
-            //ECC::RangeProof::CreatorParams cp;
-            //cp.m_Kidv = kidv;
-            //GenerateSeedKid(cp.m_Seed.V, m_Commitment, tagKdf);
+                output->m_pConfidential.reset(new ECC::RangeProof::Confidential);
+                *output->m_pConfidential = m_hwWallet.generateRangeProofSync(kidv, false);
+            }
 
-            //if (bPublic || m_Coinbase)
-            //{
-            //    m_pPublic.reset(new ECC::RangeProof::Public);
-            //    m_pPublic->m_Value = kidv.m_Value;
-            //    m_pPublic->Create(sk, cp, oracle);
-            //}
-            //else
-            //{
-            //    m_pConfidential.reset(new ECC::RangeProof::Confidential);
-            //    m_pConfidential->Create(sk, cp, oracle, &sc.m_hGen);
-            //}
-
-            return {};
+            return outputs;
         }
 
         ECC::Point GenerateNonceSync(size_t slot) override
