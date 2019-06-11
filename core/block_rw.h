@@ -131,4 +131,45 @@ namespace beam
 		bool Import(void*, uint32_t, uint8_t nCode);
 	};
 
+	// Full recovery info. Includes ChainWorkProof, and all the UTXO set which hash should correspond to the tip commitment
+	struct RecoveryInfo
+	{
+		struct Entry
+		{
+			Height m_Maturity;
+			Output m_Output; // recovery-only piece
+
+			template <typename Archive>
+			void serialize(Archive& ar)
+			{
+				ar
+					& m_Maturity
+					& m_Output;
+			}
+		};
+
+		struct Writer
+		{
+			std::FStream m_Stream;
+
+			void Open(const char*, const Block::ChainWorkProof&);
+			void Write(const Entry&);
+		};
+
+		struct Reader
+		{
+			std::FStream m_Stream;
+			Block::ChainWorkProof m_Cwp;
+			Block::SystemState::Full m_Tip;
+
+			void Open(const char*);
+			bool Read(Entry&);
+			void Finalyze();
+
+			UtxoTree::Compact m_UtxoTree;
+
+			static void ThrowRulesMismatch();
+		};
+	};
+
 }
