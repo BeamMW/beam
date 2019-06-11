@@ -177,6 +177,8 @@ struct Node
 	bool m_UpdatedFromPeers = false;
 	bool m_PostStartSynced = false;
 
+	bool GenerateRecoveryInfo(const char*);
+
 private:
 
 	struct Processor

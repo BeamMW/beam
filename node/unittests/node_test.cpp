@@ -1418,6 +1418,24 @@ namespace beam
 
 
 		pReactor->run();
+
+		node.GenerateRecoveryInfo(g_sz3);
+
+		RecoveryInfo::Reader rp;
+
+		Block::SystemState::Full sTip;
+		rp.Open(g_sz3);
+
+		while (true)
+		{
+			RecoveryInfo::Entry x;
+			if (!rp.Read(x))
+				break;
+		}
+
+		rp.Finalyze(); // final verification
+
+		DeleteFile(g_sz3);
 	}
 
 

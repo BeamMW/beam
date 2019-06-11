@@ -3934,4 +3934,68 @@ void Node::PeerMan::DeletePeer(PeerInfo& pi)
     delete (PeerInfoPlus*)&pi;
 }
 
+bool Node::GenerateRecoveryInfo(const char* szPath)
+{
+	if (!m_Processor.BuildCwp())
+		return false; // no info yet
+
+	struct MyTraveler
+		:public RadixTree::ITraveler
+	{
+		RecoveryInfo::Writer m_Writer;
+		NodeDB* m_pDB;
+
+		virtual bool OnLeaf(const RadixTree::Leaf& x) override
+		{
+			const UtxoTree::MyLeaf& n = Cast::Up<UtxoTree::MyLeaf>(x);
+			UtxoTree::Key::Data d;
+			d = n.m_Key;
+
+			if (n.IsExt())
+			{
+				for (auto it = n.m_pIDs->begin(); n.m_pIDs->end() != it; it++)
+					OnUtxo(d, *it);
+			}
+			else
+				OnUtxo(d, n.m_ID);
+
+			return true;
+		}
+
+		void OnUtxo(const UtxoTree::Key::Data& d, TxoID id)
+		{
+			NodeDB::WalkerTxo wlk(*m_pDB);
+			m_pDB->TxoGetValue(wlk, id);
+
+			Deserializer der;
+			der.reset(wlk.m_Value.p, wlk.m_Value.n);
+
+			RecoveryInfo::Entry val;
+			val.m_Maturity = d.m_Maturity;
+			der & val.m_Output;
+
+			assert(val.m_Output.m_Commitment == d.m_Commitment);
+			val.m_Output.m_RecoveryOnly = true;
+
+			m_Writer.Write(val);
+		}
+	};
+
+	MyTraveler ctx;
+	ctx.m_pDB = &m_Processor.get_DB();
+
+	try
+	{
+		ctx.m_Writer.Open(szPath, m_Processor.m_Cwp);
+		m_Processor.get_Utxos().Traverse(ctx);
+	}
+	catch (const std::exception& ex)
+	{
+		LOG_DEBUG() << ex.what();
+		return false;
+	}
+
+	return true;
+}
+
 } // namespace beam
