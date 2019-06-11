@@ -17,6 +17,7 @@
 #include "utility/logger.h"
 #include "utility/helpers.h"
 #include "sqlite/sqlite3.h"
+#include "core/block_rw.h"
 #include <sstream>
 #include <boost/functional/hash.hpp>
 #include <boost/filesystem.hpp>
@@ -1179,6 +1180,54 @@ namespace beam::wallet
     {
         SwitchCommitment().Create(sk, comm, *get_ChildKdf(cid.m_SubIdx), cid);
     }
+
+	void IWalletDB::ImportRecovery(const std::string& path)
+	{
+		beam::RecoveryInfo::Reader rp;
+		rp.Open(path.c_str());
+
+		beam::Key::IPKdf::Ptr pOwner = get_MasterKdf();
+
+		while (true)
+		{
+			RecoveryInfo::Entry x;
+			if (!rp.Read(x))
+				break;
+
+			Key::IDV kidv;
+			if (!x.m_Output.Recover(x.m_CreateHeight, *pOwner, kidv))
+				continue;
+
+			if (!kidv.m_Value && (Key::Type::Decoy == kidv.m_Type))
+				continue; // filter-out decoys
+
+			ECC::Scalar::Native sk;
+			ECC::Point comm;
+			calcCommitment(sk, comm, kidv);
+			if (!(comm == x.m_Output.m_Commitment))
+				continue;
+
+			Coin c;
+			c.m_ID = kidv;
+			find(c); // in case it exists already - fill its parameters
+
+			c.m_maturity = x.m_Output.get_MinMaturity(x.m_CreateHeight);
+			c.m_confirmHeight = x.m_CreateHeight;
+
+			LOG_INFO() << "CoinID: " << c.m_ID << " Maturity=" << c.m_maturity << " Recovered";
+
+			save(c);
+		}
+
+		rp.Finalyze(); // final verification
+
+		// add states to history
+		std::vector<Block::SystemState::Full> vec;
+		rp.m_Cwp.UnpackStates(vec);
+
+		if (!vec.empty())
+			get_History().AddStates(&vec.front(), vec.size());
+	}
 
     vector<Coin> WalletDB::selectCoins(Amount amount)
     {

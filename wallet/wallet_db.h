@@ -175,6 +175,10 @@ namespace beam::wallet
         // Calculates blinding factor and commitment of specifc Coin::ID
         void calcCommitment(ECC::Scalar::Native& sk, ECC::Point& comm, const Coin::ID&);
 
+		// import blockchain recovery data (all at once)
+		// should be used only upon creation on 'clean' wallet. Throws exception on error
+		void ImportRecovery(const std::string& path);
+
         // Allocates new Key ID, used for generation of the blinding factor
         // Will return the next id starting from a random base created during wallet initialization
         virtual uint64_t AllocateKidRange(uint64_t nCount) = 0;
