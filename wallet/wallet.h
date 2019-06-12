@@ -125,9 +125,6 @@ namespace beam::wallet
         void ResumeTransaction(const TxDescription& tx);
         void ResumeAllTransactions();
 
-        void RefreshIncomingCoins();
-        std::vector<BaseTransaction::Ptr> GetUnconfirmedTransactions();
-
         void OnAsyncStarted() override;
         void OnAsyncFinished() override;
         void on_tx_completed(const TxID& txID) override;
@@ -317,8 +314,5 @@ namespace beam::wallet
         IBitcoinBridge::Ptr m_bitcoinBridge;
         IBitcoinBridge::Ptr m_litecoinBridge;
         std::vector<SwapConditions> m_swapConditions;
-
-        // This is true when wallet is refreshing and should update incoming coins state
-        bool m_icoinsRefreshPending;
     };
 }

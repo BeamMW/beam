@@ -106,7 +106,6 @@ namespace beam::wallet
         , m_UpdateCompleted{move(updateCompleted)}
         , m_LastSyncTotal(0)
         , m_OwnedNodesOnline(0)
-        , m_icoinsRefreshPending(false)
     {
         assert(walletDB);
         ResumeAllTransactions();
@@ -305,10 +304,22 @@ namespace beam::wallet
     // Reset wallet state and rescan the blockchain
     void Wallet::Refresh()
     {
+        // We save all Incoming coins of active transactions and
+        // restore them after clearing db. This will save our outgoing & available amounts
+        std::vector<Coin> ocoins;
+        for(const auto& [txid, txptr]:m_Transactions)
+        {
+            const auto& txocoins = m_WalletDB->getCoinsCreatedByTx(txid);
+            ocoins.insert(ocoins.end(), txocoins.begin(), txocoins.end());
+        }
+
         m_WalletDB->clear();
         Block::SystemState::ID id;
         ZeroObject(id);
         m_WalletDB->setSystemStateID(id);
+
+        // Restore Incoming coins of active transactions
+        m_WalletDB->save(ocoins);
 
         SetUtxoEventsHeight(0);
         RequestUtxoEvents();
@@ -339,55 +350,6 @@ namespace beam::wallet
         {
             auto tx = p.second;
             tx->Update();
-        }
-
-        // At this moment for unconfirmed transaction there are are no coins
-        // registered and wallet would display incorrect receiving amount.
-        // We check this situation and re-register coins when necessary.
-        // Also there might be some additional transactions added when all async
-        // actions are completed so we request additional call in the future
-        RefreshIncomingCoins();
-        m_icoinsRefreshPending = true;
-    }
-
-    std::vector<BaseTransaction::Ptr> Wallet::GetUnconfirmedTransactions()
-    {
-        std::vector<BaseTransaction::Ptr> result;
-        for (const auto& [txid, txptr]:m_Transactions)
-        {
-            if(const auto txdesc = m_WalletDB->getTx(txid))
-            {
-                const auto status = txdesc.get().m_status;
-                if (status == TxStatus::Registering || status == TxStatus::InProgress)
-                {
-                    result.push_back(txptr);
-                }
-            }
-        }
-        return result;
-    }
-
-    void Wallet::RefreshIncomingCoins()
-    {
-        const auto unconf = GetUnconfirmedTransactions();
-        for(const auto& txptr:unconf)
-        {
-            std::vector<Coin::ID> ocids;
-            std::vector<Coin> ocoins;
-
-            txptr->GetParameter(TxParameterID::OutputCoins, ocids);
-            if(m_WalletDB->getCoinsByID(ocids).size() != ocids.size())
-            {
-                for (const auto &ocid: ocids)
-                {
-                    Coin coin;
-                    coin.m_ID = ocid;
-                    coin.m_createTxId = txptr->GetTxID();
-                    coin.m_status = Coin::Status::Incoming;
-                    ocoins.push_back(coin);
-                }
-                m_WalletDB->save(ocoins);
-            }
         }
     }
 
@@ -424,12 +386,6 @@ namespace beam::wallet
     {
         if (--m_AsyncUpdateCounter == 0)
         {
-            if (m_icoinsRefreshPending)
-            {
-                m_icoinsRefreshPending = false;
-                RefreshIncomingCoins();
-            }
-
             LOG_DEBUG() << "Async update finished!";
             if (m_UpdateCompleted)
             {
@@ -897,12 +853,11 @@ namespace beam::wallet
         {
             c.m_confirmHeight = std::min(c.m_confirmHeight, evt.m_Height); // in case of std utxo proofs - the event height may be bigger than actual utxo height
 
-            // Check if this Coin participates in any unconfirmed transaction
-            // and mark it as outgoing if it does (bug: ux_504)
-            const auto unconf = GetUnconfirmedTransactions();
-            for(const auto& txptr:unconf)
+            // Check if this Coin participates in any active transaction
+            // if it does and mark it as outgoing (bug: ux_504)
+            for(const auto& [txid, txptr]:m_Transactions)
             {
-                 std::vector<Coin::ID> icoins;
+                std::vector<Coin::ID> icoins;
                 txptr->GetParameter(TxParameterID::InputCoins, icoins);
                 if (std::find(icoins.begin(), icoins.end(), c.m_ID) != icoins.end())
                 {
