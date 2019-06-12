@@ -30,6 +30,7 @@
 #include "unittests/util.h"
 #include "mnemonic/mnemonic.h"
 #include "utility/string_helpers.h"
+#include "version.h"
 
 #ifndef LOG_VERBOSE_ENABLED
     #define LOG_VERBOSE_ENABLED 0
@@ -38,14 +39,14 @@
 #include "utility/cli/options.h"
 #include "utility/log_rotation.h"
 #include "utility/helpers.h"
-#include <iomanip>
 
 #include <boost/program_options.hpp>
 #include <boost/filesystem.hpp>
 #include <boost/algorithm/string/trim.hpp>
+
+#include <iomanip>
 #include <iterator>
 #include <future>
-#include "version.h"
 
 using namespace std;
 using namespace beam;
@@ -225,17 +226,6 @@ namespace
 
         yas::binary_oarchive<std::FStream, SERIALIZE_OPTIONS> arc(f);
         arc & x;
-    }
-
-    optional<SecString> GetPassword(const po::variables_map& vm)
-    {
-        SecString pass;
-        if (!beam::read_wallet_pass(pass, vm))
-        {
-            LOG_ERROR() << "Please, provide password for the wallet.";
-            return {};
-        }
-        return pass;
     }
 
     int HandleTreasury(const po::variables_map& vm, Key::IKdf& kdf)
