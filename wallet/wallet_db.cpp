@@ -146,7 +146,7 @@ namespace beam::wallet
 
         void enterKey(sqlite3 * db, const SecString& password)
         {
-            if (password.size() > numeric_limits<int>::max())
+            if (password.size() > static_cast<size_t>(numeric_limits<int>::max()))
             {
                 throwIfError(SQLITE_TOOBIG, db);
             }
@@ -466,7 +466,7 @@ namespace beam::wallet
 
             void bind(int col, const void* blob, size_t size)
             {
-                if (size > numeric_limits<int32_t>::max())// 0x7fffffff
+                if (size > static_cast<size_t>(numeric_limits<int32_t>::max()))// 0x7fffffff
                 {
                     throwIfError(SQLITE_TOOBIG, _db);
                 }
