@@ -599,4 +599,6 @@ namespace beam::wallet
         }
         return false;
     }
+
+    size_t TrezorKeyKeeper::m_latestSlot = 0;
 }

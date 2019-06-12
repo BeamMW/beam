@@ -249,6 +249,69 @@ namespace beam
             }
         }
 
+        void signTransaction(const std::vector<Key::IDV>& inputs, const std::vector<Key::IDV>& outputs, const HWWallet::TxData& tx, HWWallet::Result<ECC::Scalar> callback)
+        {
+            if (m_trezor)
+            {
+                std::atomic_flag m_runningFlag;
+                m_runningFlag.test_and_set();
+                ECC::Scalar result;
+
+                std::vector<key_idv_t> _inputs;
+                _inputs.reserve(inputs.size());
+
+                for(const auto& from : inputs)
+                {
+                    key_idv_t& to = _inputs.emplace_back();
+                    to.idx = from.m_Idx;
+                    to.sub_idx = from.m_SubIdx;
+                    to.type = from.m_Type;
+                    to.value = from.m_Value;
+                }
+
+                std::vector<key_idv_t> _outputs;
+                _outputs.reserve(outputs.size());
+
+                for (const auto& from : outputs)
+                {
+                    key_idv_t& to = _outputs.emplace_back();
+                    to.idx = from.m_Idx;
+                    to.sub_idx = from.m_SubIdx;
+                    to.type = from.m_Type;
+                    to.value = from.m_Value;
+                }
+
+                transaction_data_t _tx;
+                _tx.fee = tx.fee;
+                _tx.min_height = tx.height.m_Min;
+                _tx.max_height = tx.height.m_Max;
+
+                std::memcpy(_tx.kernel_commitment.x, tx.kernelCommitment.m_X.m_pData, 32);
+                _tx.kernel_commitment.y = tx.kernelCommitment.m_Y;
+
+                std::memcpy(_tx.kernel_nonce.x, tx.kernelNonce.m_X.m_pData, 32);
+                _tx.kernel_nonce.y = tx.kernelNonce.m_Y;
+
+                _tx.nonce_slot = tx.nonceSlot;
+                std::memcpy(_tx.offset, tx.offset.m_Value.m_pData, 32);
+
+                m_trezor->call_BeamSignTransaction(_inputs, _outputs, _tx, [&m_runningFlag, &result](const Message& msg, std::string session, size_t queue_size)
+                {
+                    result.m_Value = beam::Blob(child_cast<Message, hw::trezor::messages::beam::BeamSignedTransaction>(msg).signature().c_str(), 32);
+
+                    m_runningFlag.clear();
+                });
+
+                while (m_runningFlag.test_and_set());
+
+                callback(result);
+            }
+            else
+            {
+                LOG_ERROR() << "HW wallet not initialized";
+            }
+        }
+
     private:
 
         Client m_client;
@@ -282,6 +345,11 @@ namespace beam
     void HWWallet::generateRangeProof(const ECC::Key::IDV& idv, bool isCoinKey, Result<ECC::RangeProof::Confidential> callback) const
     {
         m_impl->generateRangeproof(idv, isCoinKey, callback);
+    }
+
+    void HWWallet::signTransaction(const std::vector<Key::IDV>& inputs, const std::vector<Key::IDV>& outputs, const TxData& tx, Result<ECC::Scalar> callback) const
+    {
+        m_impl->signTransaction(inputs, outputs, tx, callback);
     }
 
     std::string HWWallet::getOwnerKeySync() const
@@ -337,6 +405,18 @@ namespace beam
         ECC::RangeProof::Confidential result;
 
         generateRangeProof(idv, isCoinKey, [&result](const ECC::RangeProof::Confidential& key)
+        {
+            result = key;
+        });
+
+        return result;
+    }
+
+    ECC::Scalar HWWallet::signTransactionSync(const std::vector<Key::IDV>& inputs, const std::vector<Key::IDV>& outputs, const TxData& tx) const
+    {
+        ECC::Scalar result;
+
+        signTransaction(inputs, outputs, tx, [&result](const ECC::Scalar& key)
         {
             result = key;
         });

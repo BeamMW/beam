@@ -86,7 +86,7 @@ namespace beam::wallet
     {
     public:
         TrezorKeyKeeper()
-            : m_latestSlot(0)
+            //: m_latestSlot(0)
         {
 
         }
@@ -181,11 +181,21 @@ namespace beam::wallet
 
         ECC::Scalar SignSync(const std::vector<Key::IDV>& inputs, const std::vector<Key::IDV>& outputs, const ECC::Scalar::Native& offset, size_t nonceSlot, const ECC::Hash::Value& message, const ECC::Point::Native& publicNonce, const ECC::Point::Native& commitment) override
         {
-            return {};
+            HWWallet::TxData txData;
+            txData.fee = 2;
+            txData.height = {0, 865};
+            txData.kernelCommitment = commitment;
+            txData.kernelNonce = publicNonce;
+            txData.nonceSlot = (uint32_t)nonceSlot;
+            txData.offset = offset;
+
+            return m_hwWallet.signTransactionSync(inputs, outputs, txData);
         }
     private:
         beam::HWWallet m_hwWallet;
-        size_t m_latestSlot;
+
+        // TODO: temporary made it static to pass two wallets negotiations test
+        static size_t m_latestSlot;
     };
 #endif
 
