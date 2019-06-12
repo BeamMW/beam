@@ -1161,13 +1161,14 @@ namespace beam::wallet
                 m_DbTransaction.reset();
             }
             BEAM_VERIFY(SQLITE_OK == sqlite3_close(_db));
+            if (m_PrivateDB && _db != m_PrivateDB)
+            {
+                BEAM_VERIFY(SQLITE_OK == sqlite3_close(m_PrivateDB));
+                m_PrivateDB = nullptr;
+            }
             _db = nullptr;
         }
-        if (m_PrivateDB)
-        {
-            BEAM_VERIFY(SQLITE_OK == sqlite3_close(m_PrivateDB));
-            m_PrivateDB = nullptr;
-        }
+        
     }
 
     Key::IKdf::Ptr WalletDB::get_MasterKdf() const

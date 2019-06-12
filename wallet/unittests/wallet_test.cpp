@@ -1427,7 +1427,7 @@ int main()
 	Rules::get().pForks[1].m_Height = 100500; // needed for lightning network to work
     Rules::get().UpdateChecksum();
 
-	//TestNegotiation();
+	TestNegotiation();
 
     TestP2PWalletNegotiationST();
     //TestP2PWalletReverseNegotiationST();
@@ -1446,7 +1446,7 @@ int main()
     //TestExpiredTransaction();
 
     TestTransactionUpdate();
-    TestTxPerformance();
+    //TestTxPerformance();
 
     TestColdWalletSending();
     TestColdWalletReceiving();
