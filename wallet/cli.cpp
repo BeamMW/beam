@@ -607,7 +607,7 @@ namespace
                 return 0;
             }
 
-            const array<uint8_t, 6> columnWidths{ { 20, 10, 26, 21, 33, 65} };
+            const array<uint8_t, 6> columnWidths{ { 20, 17, 26, 21, 33, 65} };
 
             cout << "TRANSACTIONS\n\n  |"
                 << left << setw(columnWidths[0]) << " datetime" << " |"
@@ -621,7 +621,7 @@ namespace
             {
                 cout << "   "
                     << " " << left << setw(columnWidths[0]) << format_timestamp("%Y.%m.%d %H:%M:%S", tx.m_createTime * 1000, false) << " "
-                    << " " << left << setw(columnWidths[1]) << (tx.m_sender ? "outgoing" : "incoming")
+                    << " " << left << setw(columnWidths[1]) << (tx.m_selfTx ? "self transaction" : (tx.m_sender ? "outgoing" : "incoming"))
                     << " " << right << setw(columnWidths[2]) << PrintableAmount(tx.m_amount, true) << "  "
                     << " " << left << setw(columnWidths[3]+1) << getTxStatus(tx) 
                     << " " << setw(columnWidths[4]+1) << to_hex(tx.m_txId.data(), tx.m_txId.size())
