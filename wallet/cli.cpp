@@ -227,6 +227,17 @@ namespace
         arc & x;
     }
 
+    optional<SecString> GetPassword(const po::variables_map& vm)
+    {
+        SecString pass;
+        if (!beam::read_wallet_pass(pass, vm))
+        {
+            LOG_ERROR() << "Please, provide password for the wallet.";
+            return {};
+        }
+        return pass;
+    }
+
     int HandleTreasury(const po::variables_map& vm, Key::IKdf& kdf)
     {
         PeerID wid;
@@ -476,7 +487,7 @@ namespace
         return -1;
     }
 
-    WalletAddress newAddress(const IWalletDB::Ptr& walletDB, const std::string& comment, bool isNever = false)
+    WalletAddress CreateNewAddress(const IWalletDB::Ptr& walletDB, const std::string& comment, bool isNever = false)
     {
         WalletAddress address = storage::createAddress(*walletDB);
 
@@ -1017,7 +1028,7 @@ int main_impl(int argc, char* argv[])
                     auto command = vm[cli::COMMAND].as<string>();
 
                     {
-                        const vector<string> commands =
+                        const string commands[] =
                         {
                             cli::INIT,
                             cli::RESTORE,
@@ -1044,7 +1055,7 @@ int main_impl(int argc, char* argv[])
                             cli::SWAP_LISTEN
                         };
 
-                        if (find(commands.cbegin(), commands.cend(), command) == commands.cend())
+                        if (find(begin(commands), end(commands), command) == end(commands))
                         {
                             LOG_ERROR() << "unknown command: \'" << command << "\'";
                             return -1;
@@ -1115,7 +1126,7 @@ int main_impl(int argc, char* argv[])
                             LOG_INFO() << "wallet successfully created...";
 
                             // generate default address
-                            newAddress(walletDB, "default");
+                            CreateNewAddress(walletDB, "default");
 
                             return 0;
                         }
@@ -1174,7 +1185,7 @@ int main_impl(int argc, char* argv[])
                     if (command == cli::NEW_ADDRESS)
                     {
                         auto comment = vm[cli::NEW_ADDRESS_COMMENT].as<string>();
-                        newAddress(walletDB, comment, vm[cli::EXPIRATION_TIME].as<string>() == "never");
+                        CreateNewAddress(walletDB, comment, vm[cli::EXPIRATION_TIME].as<string>() == "never");
 
                         if (!vm.count(cli::LISTEN))
                         {
@@ -1313,6 +1324,7 @@ int main_impl(int argc, char* argv[])
                             }
 
                             auto nnet = make_shared<proto::FlyClient::NetworkStd>(wallet);
+                            nnet->m_Cfg.m_PollPeriod_ms = vm[cli::NODE_POLL_PERIOD].as<Positive<uint32_t>>().value;
                             nnet->m_Cfg.m_vNodes.push_back(nodeAddress);
                             nnet->Connect();
                             wallet.AddMessageEndpoint(make_shared<WalletNetworkViaBbs>(wallet, nnet, walletDB));
@@ -1410,7 +1422,7 @@ int main_impl(int argc, char* argv[])
                                     return -1;
                                 }
 
-                                WalletAddress senderAddress = newAddress(walletDB, "");
+                                WalletAddress senderAddress = CreateNewAddress(walletDB, "");
 
                                 currentTxID = wallet.swap_coins(senderAddress.m_walletID, receiverWalletID, 
                                     move(amount), move(fee), swapCoin, swapAmount, isBeamSide);
@@ -1441,7 +1453,7 @@ int main_impl(int argc, char* argv[])
 
                         if (isTxInitiator)
                         {
-                            WalletAddress senderAddress = newAddress(walletDB, "");
+                            WalletAddress senderAddress = CreateNewAddress(walletDB, "");
                             CoinIDList coinIDs = GetPreselectedCoinIDs(vm);
                             currentTxID = wallet.transfer_money(senderAddress.m_walletID, receiverWalletID, move(amount), move(fee), coinIDs, command == cli::SEND, kDefaultTxLifetime, kDefaultTxResponseTime, {}, true);
                         }

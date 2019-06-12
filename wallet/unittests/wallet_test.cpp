@@ -189,7 +189,7 @@ namespace
         };
 
         TestNode node;
-        TestWalletRig sender("sender", createSenderWalletDB(), f);
+        TestWalletRig sender("sender", createSenderWalletDB(), f, false, false, 600);
         TestWalletRig receiver("receiver", createReceiverWalletDB(), f);
 
         WALLET_CHECK(sender.m_WalletDB->selectCoins(6).size() == 2);
@@ -1427,7 +1427,7 @@ int main()
 	Rules::get().pForks[1].m_Height = 100500; // needed for lightning network to work
     Rules::get().UpdateChecksum();
 
-	TestNegotiation();
+	//TestNegotiation();
 
     TestP2PWalletNegotiationST();
     //TestP2PWalletReverseNegotiationST();
@@ -1446,7 +1446,7 @@ int main()
     //TestExpiredTransaction();
 
     TestTransactionUpdate();
-    //TestTxPerformance();
+    TestTxPerformance();
 
     TestColdWalletSending();
     TestColdWalletReceiving();

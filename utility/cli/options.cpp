@@ -127,6 +127,7 @@ namespace beam
         const char* LTC_CONFIRMATIONS = "ltc_confiramtions";
         const char* BTC_LOCK_TIME = "btc_lock_time";
         const char* LTC_LOCK_TIME = "ltc_lock_time";
+        const char* NODE_POLL_PERIOD = "node_poll_period";
 
         // wallet api
         const char* API_USE_HTTP = "use_http";
@@ -301,7 +302,8 @@ namespace beam
             (cli::BTC_CONFIRMATIONS, po::value<Positive<uint16_t>>(), "confirmations count in bitcoin chain")
             (cli::LTC_CONFIRMATIONS, po::value<Positive<uint16_t>>(), "confirmations count in litecoin chain")
             (cli::BTC_LOCK_TIME, po::value<Positive<uint32_t>>(), "lock time in blocks bitcoin transaction")
-            (cli::LTC_LOCK_TIME, po::value<Positive<uint32_t>>(), "lock time in blocks litecoin transaction");
+            (cli::LTC_LOCK_TIME, po::value<Positive<uint32_t>>(), "lock time in blocks litecoin transaction")
+            (cli::NODE_POLL_PERIOD, po::value<Positive<uint32_t>>()->default_value(Positive<uint32_t>(0)), "Node poll period. Set to 0 to keep connection. Anyway poll period would be no less than the expected rate of blocks. By default wallet keeps connection.");
 
         po::options_description wallet_treasury_options("Wallet treasury options");
         wallet_treasury_options.add_options()
