@@ -194,7 +194,7 @@ namespace beam::wallet
     private:
         beam::HWWallet m_hwWallet;
 
-        // TODO: temporary made it static to pass two wallets negotiations test
+        // TODO: temporary made it static to pass two wallets negotiation test
         static size_t m_latestSlot;
     };
 #endif

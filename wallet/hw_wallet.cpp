@@ -197,8 +197,8 @@ namespace beam
                 m_trezor->call_BeamGenerateRangeproof(idv.m_Idx, idv.m_Type, idv.m_SubIdx, idv.m_Value, isCoinKey, [&m_runningFlag, &result](const Message& msg, std::string session, size_t queue_size)
                 {
                     const uint8_t* rp_raw = reinterpret_cast<const uint8_t*>(child_cast<Message, hw::trezor::messages::beam::BeamRangeproofData>(msg).data().c_str());
-                    rangeproof_confidential_t rp;
-                    memcpy(&rp, rp_raw, sizeof(rangeproof_confidential_t));
+                    rangeproof_confidential_packed_t rp;
+                    memcpy(&rp, rp_raw, sizeof(rangeproof_confidential_packed_t));
 
                     {
                         result.m_Part1.m_A.m_X = beam::Blob(rp.part1.a.x, 32);
@@ -217,8 +217,8 @@ namespace beam
                     }
 
                     {
-                        result.m_P_Tag.m_pCondensed[0].m_Value = beam::Blob(rp.p_tag.condensed[0].d, 32);
-                        result.m_P_Tag.m_pCondensed[1].m_Value = beam::Blob(rp.p_tag.condensed[1].d, 32);
+                        result.m_P_Tag.m_pCondensed[0].m_Value = beam::Blob(rp.p_tag.condensed[0], 32);
+                        result.m_P_Tag.m_pCondensed[1].m_Value = beam::Blob(rp.p_tag.condensed[1], 32);
                     }
 
                     for (int c = 0; c < INNER_PRODUCT_N_CYCLES; c++)
@@ -231,9 +231,9 @@ namespace beam
                     }
 
                     {
-                        result.m_Mu.m_Value = beam::Blob(rp.mu.d, sizeof rp.mu);
-                        result.m_tDot.m_Value = beam::Blob(rp.tDot.d, 32);
-                        result.m_Part3.m_TauX.m_Value = beam::Blob(rp.part3.tauX.d, 32);
+                        result.m_Mu.m_Value = beam::Blob(rp.mu, sizeof rp.mu);
+                        result.m_tDot.m_Value = beam::Blob(rp.tDot, 32);
+                        result.m_Part3.m_TauX.m_Value = beam::Blob(rp.part3.tauX, 32);
                     }
 
                     m_runningFlag.clear();
