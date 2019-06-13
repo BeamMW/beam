@@ -17,8 +17,8 @@
 
 #include "node/node.h"
 #include "core/ecc_native.h"
-#include "core/ecc.h"
 #include "core/serialization_adapters.h"
+#include "core/block_rw.h"
 #include "utility/cli/options.h"
 #include "utility/log_rotation.h"
 #include "utility/helpers.h"
@@ -331,6 +331,14 @@ int main_impl(int argc, char* argv[])
 					node.m_Cfg.m_Horizon.m_SchwarzschildLo = vm[cli::HORIZON_LO].as<Height>();
 
 					node.Initialize(stratumServer.get());
+
+					if (vm.count(cli::GENERATE_RECOVERY_PATH))
+					{
+						string sPath = vm[cli::GENERATE_RECOVERY_PATH].as<string>();
+						LOG_INFO() << "Writing recovery info...";
+						node.GenerateRecoveryInfo(sPath.c_str());
+						LOG_INFO() << "Recovery info written";
+					}
 
 					io::Timer::Ptr pCrashTimer;
 

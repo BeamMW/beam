@@ -20,6 +20,7 @@
 #include "../../core/fly_client.h"
 #include "../../core/serialization_adapters.h"
 #include "../../core/treasury.h"
+#include "../../core/block_rw.h"
 #include "../../utility/test_helpers.h"
 #include "../../utility/serialize.h"
 #include "../../core/unittest/mini_blockchain.h"
@@ -1417,6 +1418,35 @@ namespace beam
 
 
 		pReactor->run();
+
+		node.GenerateRecoveryInfo(g_sz3);
+
+		RecoveryInfo::Reader rp;
+
+		Block::SystemState::Full sTip;
+		rp.Open(g_sz3);
+
+		uint32_t nUnrecognized = 0;
+		while (true)
+		{
+			RecoveryInfo::Entry x;
+			if (!rp.Read(x))
+				break;
+
+			Key::IDV kidv;
+			bool b1 = x.m_Output.Recover(x.m_CreateHeight, *node.m_Keys.m_pOwner, kidv);
+			bool b2 = x.m_Output.Recover(x.m_CreateHeight, *node2.m_Keys.m_pOwner, kidv);
+			if (!(b1 || b2))
+			{
+				verify_test(!x.m_CreateHeight); // treasury
+				nUnrecognized++;
+				verify_test(nUnrecognized <= 1);
+			}
+		}
+
+		rp.Finalyze(); // final verification
+
+		DeleteFile(g_sz3);
 	}
 
 

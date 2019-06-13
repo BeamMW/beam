@@ -114,6 +114,7 @@ namespace beam
         const char* IP_WHITELIST = "ip_whitelist";
         const char* HORIZON_HI = "horizon_hi";
         const char* HORIZON_LO = "horizon_lo";
+		const char* GENERATE_RECOVERY_PATH = "generate_recovery";
         const char* COLD_WALLET = "cold_wallet";
         const char* SWAP_INIT = "swap_init";
         const char* SWAP_LISTEN = "swap_listen";
@@ -126,6 +127,7 @@ namespace beam
         const char* LTC_CONFIRMATIONS = "ltc_confiramtions";
         const char* BTC_LOCK_TIME = "btc_lock_time";
         const char* LTC_LOCK_TIME = "ltc_lock_time";
+        const char* NODE_POLL_PERIOD = "node_poll_period";
 
         // wallet api
         const char* API_USE_HTTP = "use_http";
@@ -256,6 +258,7 @@ namespace beam
             (cli::LOG_UTXOS, po::value<bool>()->default_value(false), "Log recovered UTXOs (make sure the log file is not exposed)")
             (cli::HORIZON_HI, po::value<Height>()->default_value(MaxHeight), "spent TXO Hi-Horizon")
             (cli::HORIZON_LO, po::value<Height>()->default_value(MaxHeight), "spent TXO Lo-Horizon")
+			(cli::GENERATE_RECOVERY_PATH, po::value<string>(), "Recovery file to generate immediately after start")
             ;
 
         po::options_description node_treasury_options("Node treasury options");
@@ -299,7 +302,8 @@ namespace beam
             (cli::BTC_CONFIRMATIONS, po::value<Positive<uint16_t>>(), "confirmations count in bitcoin chain")
             (cli::LTC_CONFIRMATIONS, po::value<Positive<uint16_t>>(), "confirmations count in litecoin chain")
             (cli::BTC_LOCK_TIME, po::value<Positive<uint32_t>>(), "lock time in blocks bitcoin transaction")
-            (cli::LTC_LOCK_TIME, po::value<Positive<uint32_t>>(), "lock time in blocks litecoin transaction");
+            (cli::LTC_LOCK_TIME, po::value<Positive<uint32_t>>(), "lock time in blocks litecoin transaction")
+            (cli::NODE_POLL_PERIOD, po::value<Positive<uint32_t>>()->default_value(Positive<uint32_t>(0)), "Node poll period. Set to 0 to keep connection. Anyway poll period would be no less than the expected rate of blocks. By default wallet keeps connection.");
 
         po::options_description wallet_treasury_options("Wallet treasury options");
         wallet_treasury_options.add_options()
@@ -362,8 +366,11 @@ namespace beam
             macro(uint32_t, DA.WindowMedian0, "How many blocks are considered in calculating the timestamp median") \
             macro(uint32_t, DA.WindowMedian1, "Num of blocks taken at both endings of WindowWork, to pick medians") \
             macro(uint32_t, DA.Difficulty0, "Initial difficulty") \
+            macro(Height, Fork1, "Height of the 1st fork") \
             macro(bool, AllowPublicUtxos, "set to allow regular (non-coinbase) UTXO to have non-confidential signature") \
             macro(bool, FakePoW, "Don't verify PoW. Mining is simulated by the timer. For tests only")
+
+		#define Fork1 pForks[1].m_Height
 
         #define THE_MACRO(type, name, comment) (#name, po::value<type>()->default_value(TypeCvt<type>::get(Rules::get().name)), comment)
 

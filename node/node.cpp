@@ -16,6 +16,7 @@
 #include "../core/serialization_adapters.h"
 #include "../core/proto.h"
 #include "../core/ecc_native.h"
+#include "../core/block_rw.h"
 
 #include "../p2p/protocol.h"
 #include "../p2p/connection.h"
@@ -1790,10 +1791,7 @@ void Node::Peer::OnMsg(proto::GetBodyPack&& msg)
 						sid.m_Row = p.FindActiveAtStrict(sid.m_Height);
 
 						proto::BodyBuffers bb;
-						if (!p.GetBlock(sid,
-							msg.m_ExcludeE ? nullptr : &bb.m_Eternal,
-							msg.m_ExcludeP ? nullptr : &bb.m_Perishable,
-							msg.m_Height0, msg.m_HorizonLo1, msg.m_HorizonHi1))
+						if (!GetBlock(bb, sid, msg))
 							break;
 
 						nSize += bb.m_Eternal.size() + bb.m_Perishable.size();
@@ -1813,10 +1811,7 @@ void Node::Peer::OnMsg(proto::GetBodyPack&& msg)
 			else
 			{
 				proto::Body msgBody;
-				if (p.GetBlock(sid,
-					msg.m_ExcludeE ? nullptr : &msgBody.m_Body.m_Eternal,
-					msg.m_ExcludeP ? nullptr : &msgBody.m_Body.m_Perishable,
-					msg.m_Height0, msg.m_HorizonLo1, msg.m_HorizonHi1))
+				if (GetBlock(msgBody.m_Body, sid, msg))
 				{
 					Send(msgBody);
 					return;
@@ -1839,6 +1834,59 @@ void Node::Peer::OnMsg(proto::GetBodyPack&& msg)
 
     proto::DataMissing msgMiss(Zero);
     Send(msgMiss);
+}
+
+bool Node::Peer::GetBlock(proto::BodyBuffers& out, const NodeDB::StateID& sid, const proto::GetBodyPack& msg)
+{
+	ByteBuffer* pP = nullptr;
+	ByteBuffer* pE = nullptr;
+
+	switch (msg.m_FlagE)
+	{
+	case proto::BodyBuffers::Full:
+		pE = &out.m_Eternal;
+		// no break;
+	case proto::BodyBuffers::None:
+		break;
+	default:
+		ThrowUnexpected();
+	}
+
+	switch (msg.m_FlagP)
+	{
+	case proto::BodyBuffers::Recovery1:
+	case proto::BodyBuffers::Full:
+		pP = &out.m_Perishable;
+		// no break;
+	case proto::BodyBuffers::None:
+		break;
+	default:
+		ThrowUnexpected();
+	}
+
+	if (!m_This.m_Processor.GetBlock(sid, pE, pP, msg.m_Height0, msg.m_HorizonLo1, msg.m_HorizonHi1))
+		return false;
+
+	if (proto::BodyBuffers::Recovery1 == msg.m_FlagP)
+	{
+		Block::Body block;
+
+		Deserializer der;
+		der.reset(out.m_Perishable);
+		der & Cast::Down<Block::BodyBase>(block);
+		der & Cast::Down<TxVectors::Perishable>(block);
+
+		for (size_t i = 0; i < block.m_vOutputs.size(); i++)
+			block.m_vOutputs[i]->m_RecoveryOnly = true;
+
+		Serializer ser;
+		ser & Cast::Down<Block::BodyBase>(block);
+		ser & Cast::Down<TxVectors::Perishable>(block);
+
+		ser.swap_buf(out.m_Perishable);
+	}
+
+	return true;
 }
 
 void Node::Peer::OnMsg(proto::Body&& msg)
@@ -2266,8 +2314,8 @@ void Node::AddDummyInputs(Transaction& tx)
 
 			UtxoTree::Cursor cu;
 			t.m_pCu = &cu;
-			t.m_pBound[0] = kMin.m_pArr;
-			t.m_pBound[1] = kMax.m_pArr;
+			t.m_pBound[0] = kMin.V.m_pData;
+			t.m_pBound[1] = kMax.V.m_pData;
 
 			bFound = !m_Processor.get_Utxos().Traverse(t);
 			if (bFound)
@@ -2763,8 +2811,8 @@ void Node::Peer::OnMsg(proto::GetProofUtxo&& msg)
 		d.m_Maturity = Height(-1);
 		kMax = d;
 
-		t.m_pBound[0] = kMin.m_pArr;
-		t.m_pBound[1] = kMax.m_pArr;
+		t.m_pBound[0] = kMin.V.m_pData;
+		t.m_pBound[1] = kMax.V.m_pData;
 
 		t.m_pTree->Traverse(t);
 	}
@@ -3884,6 +3932,79 @@ PeerManager::PeerInfo* Node::PeerMan::AllocPeer()
 void Node::PeerMan::DeletePeer(PeerInfo& pi)
 {
     delete (PeerInfoPlus*)&pi;
+}
+
+bool Node::GenerateRecoveryInfo(const char* szPath)
+{
+	if (!m_Processor.BuildCwp())
+		return false; // no info yet
+
+	struct MyTraveler
+		:public RadixTree::ITraveler
+	{
+		RecoveryInfo::Writer m_Writer;
+		NodeDB* m_pDB;
+
+		virtual bool OnLeaf(const RadixTree::Leaf& x) override
+		{
+			const UtxoTree::MyLeaf& n = Cast::Up<UtxoTree::MyLeaf>(x);
+			UtxoTree::Key::Data d;
+			d = n.m_Key;
+
+			if (n.IsExt())
+			{
+				for (auto it = n.m_pIDs->begin(); n.m_pIDs->end() != it; it++)
+					OnUtxo(d, *it);
+			}
+			else
+				OnUtxo(d, n.m_ID);
+
+			return true;
+		}
+
+		void OnUtxo(const UtxoTree::Key::Data& d, TxoID id)
+		{
+			NodeDB::WalkerTxo wlk(*m_pDB);
+			m_pDB->TxoGetValue(wlk, id);
+
+			Deserializer der;
+			der.reset(wlk.m_Value.p, wlk.m_Value.n);
+
+			RecoveryInfo::Entry val;
+			der & val.m_Output;
+
+			// 2 ways to discover the UTXO create height: either directly by looking its TxoID in States table, or reverse-engineer it from Maturity
+			// Since currently maturity delta is independent of current height (not a function of height, not changed in current forks) - we prefer the 2nd method, which is faster.
+
+			//NodeDB::StateID sid;
+			//m_pDB->FindStateByTxoID(sid, id);
+			//val.m_CreateHeight = sid.m_Height;
+			//assert(val.m_Output.get_MinMaturity(val.m_CreateHeight) == d.m_Maturity);
+
+			val.m_CreateHeight = d.m_Maturity - val.m_Output.get_MinMaturity(0);
+
+			assert(val.m_Output.m_Commitment == d.m_Commitment);
+			val.m_Output.m_RecoveryOnly = true;
+
+			m_Writer.Write(val);
+		}
+	};
+
+	MyTraveler ctx;
+	ctx.m_pDB = &m_Processor.get_DB();
+
+	try
+	{
+		ctx.m_Writer.Open(szPath, m_Processor.m_Cwp);
+		m_Processor.get_Utxos().Traverse(ctx);
+	}
+	catch (const std::exception& ex)
+	{
+		LOG_DEBUG() << ex.what();
+		return false;
+	}
+
+	return true;
 }
 
 } // namespace beam

@@ -17,6 +17,7 @@
 #include "utility/logger.h"
 #include "utility/helpers.h"
 #include "sqlite/sqlite3.h"
+#include "core/block_rw.h"
 #include <sstream>
 #include <boost/functional/hash.hpp>
 #include <boost/filesystem.hpp>
@@ -382,6 +383,10 @@ namespace beam::wallet
                 , _db(privateDB ? db->m_PrivateDB : db->_db)
                 , _stm(nullptr)
             {
+                if (_walletDB)
+                {
+                    _walletDB->onPrepareToModify();
+                }
                 int ret = sqlite3_prepare_v2(_db, sql, -1, &_stm, nullptr);
                 throwIfError(ret, _db);
             }
@@ -1153,10 +1158,17 @@ namespace beam::wallet
                 {
                     LOG_ERROR() << "Wallet DB Commit failed: " << ex.what();
                 }
+                m_DbTransaction.reset();
             }
-            sqlite3_close_v2(_db);
+            BEAM_VERIFY(SQLITE_OK == sqlite3_close(_db));
+            if (m_PrivateDB && _db != m_PrivateDB)
+            {
+                BEAM_VERIFY(SQLITE_OK == sqlite3_close(m_PrivateDB));
+                m_PrivateDB = nullptr;
+            }
             _db = nullptr;
         }
+        
     }
 
     Key::IKdf::Ptr WalletDB::get_MasterKdf() const
@@ -1179,6 +1191,54 @@ namespace beam::wallet
     {
         SwitchCommitment().Create(sk, comm, *get_ChildKdf(cid.m_SubIdx), cid);
     }
+
+	void IWalletDB::ImportRecovery(const std::string& path)
+	{
+		beam::RecoveryInfo::Reader rp;
+		rp.Open(path.c_str());
+
+		beam::Key::IPKdf::Ptr pOwner = get_MasterKdf();
+
+		while (true)
+		{
+			RecoveryInfo::Entry x;
+			if (!rp.Read(x))
+				break;
+
+			Key::IDV kidv;
+			if (!x.m_Output.Recover(x.m_CreateHeight, *pOwner, kidv))
+				continue;
+
+			if (!kidv.m_Value && (Key::Type::Decoy == kidv.m_Type))
+				continue; // filter-out decoys
+
+			ECC::Scalar::Native sk;
+			ECC::Point comm;
+			calcCommitment(sk, comm, kidv);
+			if (!(comm == x.m_Output.m_Commitment))
+				continue;
+
+			Coin c;
+			c.m_ID = kidv;
+			find(c); // in case it exists already - fill its parameters
+
+			c.m_maturity = x.m_Output.get_MinMaturity(x.m_CreateHeight);
+			c.m_confirmHeight = x.m_CreateHeight;
+
+			LOG_INFO() << "CoinID: " << c.m_ID << " Maturity=" << c.m_maturity << " Recovered";
+
+			save(c);
+		}
+
+		rp.Finalyze(); // final verification
+
+		// add states to history
+		std::vector<Block::SystemState::Full> vec;
+		rp.m_Cwp.UnpackStates(vec);
+
+		if (!vec.empty())
+			get_History().AddStates(&vec.front(), vec.size());
+	}
 
     vector<Coin> WalletDB::selectCoins(Amount amount)
     {
@@ -2135,6 +2195,14 @@ namespace beam::wallet
         if (m_DbTransaction)
         {
             m_DbTransaction->commit();
+            m_DbTransaction.reset();
+        }
+    }
+
+    void WalletDB::onPrepareToModify()
+    {
+        if (!m_DbTransaction)
+        {
             m_DbTransaction.reset(new sqlite::Transaction(_db));
         }
     }

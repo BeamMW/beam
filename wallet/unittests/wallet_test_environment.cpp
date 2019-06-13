@@ -342,7 +342,7 @@ private:
 
 struct TestWalletRig
 {
-    TestWalletRig(const string& name, IWalletDB::Ptr walletDB, Wallet::TxCompletedAction&& action = Wallet::TxCompletedAction(), bool coldWallet = false, bool oneTimeBbsEndpoint = false)
+    TestWalletRig(const string& name, IWalletDB::Ptr walletDB, Wallet::TxCompletedAction&& action = Wallet::TxCompletedAction(), bool coldWallet = false, bool oneTimeBbsEndpoint = false, uint32_t nodePollPeriod_ms = 0)
         : m_WalletDB{ walletDB }
 #if defined(BEAM_HW_WALLET)
         , m_KeyKeeper{ make_shared<wallet::TrezorKeyKeeper>() }
@@ -370,6 +370,7 @@ struct TestWalletRig
         else
         {
             auto nodeEndpoint = make_shared<proto::FlyClient::NetworkStd>(m_Wallet);
+            nodeEndpoint->m_Cfg.m_PollPeriod_ms = nodePollPeriod_ms;
             nodeEndpoint->m_Cfg.m_vNodes.push_back(io::Address::localhost().port(32125));
             nodeEndpoint->Connect();
             if (oneTimeBbsEndpoint)
@@ -530,8 +531,8 @@ struct TestBlockchain
         kMax = d;
 
         t.m_pCu = &cu;
-        t.m_pBound[0] = kMin.m_pArr;
-        t.m_pBound[1] = kMax.m_pArr;
+        t.m_pBound[0] = kMin.V.m_pData;
+        t.m_pBound[1] = kMax.V.m_pData;
 
         if (m_Utxos.Traverse(t))
             return false;
@@ -598,8 +599,8 @@ struct TestBlockchain
         d.m_Maturity = Height(-1);
         kMax = d;
 
-        t.m_pBound[0] = kMin.m_pArr;
-        t.m_pBound[1] = kMax.m_pArr;
+        t.m_pBound[0] = kMin.V.m_pData;
+        t.m_pBound[1] = kMax.V.m_pData;
 
         t.m_pTree->Traverse(t);
         t.m_Msg.m_Proofs.swap(msgOut.m_Proofs);

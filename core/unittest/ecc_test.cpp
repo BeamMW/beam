@@ -14,7 +14,7 @@
 
 #include <iostream>
 #include "../ecc_native.h"
-#include "../block_crypt.h"
+#include "../block_rw.h"
 #include "../treasury.h"
 #include "../../utility/serialize.h"
 #include "../serialization_adapters.h"

@@ -111,6 +111,7 @@ namespace beam
         extern const char* IP_WHITELIST;
         extern const char* HORIZON_HI;
         extern const char* HORIZON_LO;
+		extern const char* GENERATE_RECOVERY_PATH;
         extern const char* COLD_WALLET;
         extern const char* SWAP_INIT;
         extern const char* SWAP_LISTEN;
@@ -123,7 +124,7 @@ namespace beam
         extern const char* LTC_CONFIRMATIONS;
         extern const char* BTC_LOCK_TIME;
         extern const char* LTC_LOCK_TIME;
-
+        extern const char* NODE_POLL_PERIOD;
 
         // wallet api
         extern const char* API_USE_HTTP;
