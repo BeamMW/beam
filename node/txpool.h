@@ -88,8 +88,6 @@ struct TxPool
 		void Release(Element&);
 		void Clear();
 
-		void DeleteOutOfBound(Height);
-
 		~Fluff() { Clear(); }
 	};
 

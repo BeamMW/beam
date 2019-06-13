@@ -86,18 +86,6 @@ void TxPool::Fluff::Release(Element& x)
 	}
 }
 
-void TxPool::Fluff::DeleteOutOfBound(Height h)
-{
-	while (!m_setThreshold.empty())
-	{
-		Element::Threshold& t = *m_setThreshold.begin();
-		if (t.m_Value >= h)
-			break;
-
-		Delete(t.get_ParentObj());
-	}
-}
-
 void TxPool::Fluff::Clear()
 {
 	while (!m_setThreshold.empty())
