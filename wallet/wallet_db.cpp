@@ -383,6 +383,10 @@ namespace beam::wallet
                 , _db(privateDB ? db->m_PrivateDB : db->_db)
                 , _stm(nullptr)
             {
+                if (_walletDB)
+                {
+                    _walletDB->onPrepareToModify();
+                }
                 int ret = sqlite3_prepare_v2(_db, sql, -1, &_stm, nullptr);
                 throwIfError(ret, _db);
             }
@@ -1154,10 +1158,17 @@ namespace beam::wallet
                 {
                     LOG_ERROR() << "Wallet DB Commit failed: " << ex.what();
                 }
+                m_DbTransaction.reset();
             }
-            sqlite3_close_v2(_db);
+            BEAM_VERIFY(SQLITE_OK == sqlite3_close(_db));
+            if (m_PrivateDB && _db != m_PrivateDB)
+            {
+                BEAM_VERIFY(SQLITE_OK == sqlite3_close(m_PrivateDB));
+                m_PrivateDB = nullptr;
+            }
             _db = nullptr;
         }
+        
     }
 
     Key::IKdf::Ptr WalletDB::get_MasterKdf() const
@@ -2197,6 +2208,14 @@ namespace beam::wallet
         if (m_DbTransaction)
         {
             m_DbTransaction->commit();
+            m_DbTransaction.reset();
+        }
+    }
+
+    void WalletDB::onPrepareToModify()
+    {
+        if (!m_DbTransaction)
+        {
             m_DbTransaction.reset(new sqlite::Transaction(_db));
         }
     }

@@ -189,7 +189,7 @@ namespace
         };
 
         TestNode node;
-        TestWalletRig sender("sender", createSenderWalletDB(), f);
+        TestWalletRig sender("sender", createSenderWalletDB(), f, false, false, 600);
         TestWalletRig receiver("receiver", createReceiverWalletDB(), f);
 
         WALLET_CHECK(sender.m_WalletDB->selectCoins(6).size() == 2);

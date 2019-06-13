@@ -272,11 +272,11 @@ void FlyClient::NetworkStd::Connection::OnMsg(NewTip&& msg)
         }
         else
         {
+            m_This.m_Client.OnTipUnchanged();
             if (shouldReassignRequests)
             {
                 AssignRequests();
             }
-            m_This.m_Client.OnTipUnchanged();
         }
     }
 }
@@ -530,8 +530,8 @@ void FlyClient::NetworkStd::Connection::PostChainworkProof(const StateArray& arr
     else
         m_This.m_Client.get_History().AddStates(&arr.m_vec.front(), arr.m_vec.size());
     PrioritizeSelf();
-    AssignRequests();
     m_This.m_Client.OnNewTip(); // finished!
+    AssignRequests();
 }
 
 
@@ -584,7 +584,7 @@ void FlyClient::NetworkStd::Connection::AssignRequests()
         AssignRequest(*it++);
 
     if (m_lst.empty() && m_This.m_Cfg.m_PollPeriod_ms)
-        SetTimer(0);
+        SetTimer(m_This.m_Cfg.m_CloseConnectionDelay_ms); // this should allow to get sbbs messages
     else
         KillTimer();
 }
@@ -789,6 +789,11 @@ void FlyClient::NetworkStd::Connection::OnFirstRequestDone(bool bStillSupported)
     }
     else
         m_lst.Delete(n); // aborted already
+
+    if (m_lst.empty() && m_This.m_Cfg.m_PollPeriod_ms)
+    {
+        SetTimer(0);
+    }
 }
 
 void FlyClient::NetworkStd::BbsSubscribe(BbsChannel ch, Timestamp ts, IBbsReceiver* p)

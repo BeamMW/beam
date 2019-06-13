@@ -25,6 +25,7 @@ Dialog {
 	property var reset: function() {
 		activate.checked = false;
 		disactivate.checked = false;
+		isAddressWithCommentExist = false;
 		if (isExpiredAddress) {
 			expirationOptionsForUnactive.model = expirationOptions;
 			expirationOptionsForUnactive.currentIndex = 0;
