@@ -307,9 +307,9 @@ namespace beam::wallet
         // We save all Incoming coins of active transactions and
         // restore them after clearing db. This will save our outgoing & available amounts
         std::vector<Coin> ocoins;
-        for([[maybe_unused]] const auto& [txid, txptr]:m_ActiveTransactions)
+        for(const auto& tx:m_ActiveTransactions)
         {
-            const auto& txocoins = m_WalletDB->getCoinsCreatedByTx(txid);
+            const auto& txocoins = m_WalletDB->getCoinsCreatedByTx(tx.first);
             ocoins.insert(ocoins.end(), txocoins.begin(), txocoins.end());
         }
 
@@ -855,14 +855,14 @@ namespace beam::wallet
 
             // Check if this Coin participates in any active transaction
             // if it does and mark it as outgoing (bug: ux_504)
-            for([[maybe_unused]] const auto& [txid, txptr]:m_ActiveTransactions)
+            for(const auto& [txid, txptr]:m_ActiveTransactions)
             {
                 std::vector<Coin::ID> icoins;
                 txptr->GetParameter(TxParameterID::InputCoins, icoins);
                 if (std::find(icoins.begin(), icoins.end(), c.m_ID) != icoins.end())
                 {
                     c.m_status = Coin::Status::Outgoing;
-                    c.m_spentTxId = txptr->GetTxID();
+                    c.m_spentTxId = txid;
                     LOG_INFO() << "CoinID: " << evt.m_Kidv << " marked as Outgoing";
                 }
             }
