@@ -18,6 +18,7 @@
 #include "wallet/secstring.h"
 #include "wallet/bitcoin/options.h"
 #include "wallet/litecoin/options.h"
+#include "wallet/qtum/options.h"
 #include "utility/test_helpers.h"
 #include "../../core/radixtree.h"
 #include "../../core/unittest/mini_blockchain.h"

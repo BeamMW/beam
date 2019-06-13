@@ -43,6 +43,7 @@ namespace beam::wallet
     macro(Send,             "tx_send",          API_WRITE_ACCESS)   \
     macro(InitBitcoin,      "init_bitcoin",     API_WRITE_ACCESS)   \
     macro(InitLitecoin,     "init_litecoin",    API_WRITE_ACCESS)   \
+    macro(InitQtum,         "init_qtum",        API_WRITE_ACCESS)   \
     macro(StartSwap,        "start_swap",       API_WRITE_ACCESS)   \
     macro(AcceptSwap,       "accept_swap",      API_WRITE_ACCESS)   \
     macro(Status,           "tx_status",        API_READ_ACCESS)    \
@@ -137,6 +138,16 @@ namespace beam::wallet
         std::string ltcUserName;
         std::string ltcPass;
         std::string ltcNodeAddr;
+        Amount feeRate;
+
+        struct Response {};
+    };
+
+    struct InitQtum
+    {
+        std::string qtumUserName;
+        std::string qtumPass;
+        std::string qtumNodeAddr;
         Amount feeRate;
 
         struct Response {};

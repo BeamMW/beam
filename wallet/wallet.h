@@ -21,6 +21,7 @@
 #include "bitcoin/bitcoin_bridge.h"
 #include "bitcoin/options.h"
 #include "litecoin/options.h"
+#include "qtum/options.h"
 
 namespace beam::wallet
 {
@@ -102,6 +103,7 @@ namespace beam::wallet
         // TODO: Refactor
         void initBitcoin(io::Reactor& reactor, const BitcoinOptions& options);
         void initLitecoin(io::Reactor& reactor, const LitecoinOptions& options);
+        void initQtum(io::Reactor& reactor, const QtumOptions& options);
         void initSwapConditions(Amount beamAmount, Amount swapAmount, AtomicSwapCoin swapCoin, bool isBeamSide);
 
         TxID transfer_money(const WalletID& from, const WalletID& to, Amount amount, Amount fee = 0, bool sender = true, Height lifetime = kDefaultTxLifetime, Height responseTime = kDefaultTxResponseTime, ByteBuffer&& message = {}, bool saveReceiver = false);
@@ -313,6 +315,7 @@ namespace beam::wallet
         // TODO: Refactor this
         IBitcoinBridge::Ptr m_bitcoinBridge;
         IBitcoinBridge::Ptr m_litecoinBridge;
+        IBitcoinBridge::Ptr m_qtumBridge;
         std::vector<SwapConditions> m_swapConditions;
     };
 }
