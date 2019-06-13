@@ -56,6 +56,7 @@ namespace beam::wallet
         std::string getNodeAddress() const;
         std::string exportOwnerKey(const beam::SecString& pass) const;
         bool isRunning() const;
+        bool isFork1() const;
 
     protected:
 

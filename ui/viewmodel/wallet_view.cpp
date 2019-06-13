@@ -34,6 +34,7 @@ using namespace beamui;
 namespace
 {
     const int kDefaultFeeInGroth = 10;
+    const int kFeeInGroth_Fork1 = 100;
 
     template<typename T>
     bool compareTx(const T& lf, const T& rt, Qt::SortOrder sortOrder)
@@ -768,7 +769,12 @@ QString WalletViewModel::getStatusRole() const
 
 int WalletViewModel::getDefaultFeeInGroth() const
 {
-    return kDefaultFeeInGroth;
+    return _model.isFork1() ? kFeeInGroth_Fork1 : kDefaultFeeInGroth;
+}
+
+int WalletViewModel::getMinFeeInGroth() const
+{
+    return _model.isFork1() ? kFeeInGroth_Fork1 : 0;
 }
 
 void WalletViewModel::setExpires(int value)

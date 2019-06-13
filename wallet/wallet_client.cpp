@@ -409,6 +409,11 @@ namespace beam::wallet
         return m_isRunning;
     }
 
+    bool WalletClient::isFork1() const
+    {
+        return m_walletDB->getCurrentHeight() >= Rules::get().pForks[1].m_Height;
+    }
+
     void WalletClient::onCoinsChanged()
     {
         onAllUtxoChanged(getUtxos());
