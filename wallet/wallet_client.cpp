@@ -473,6 +473,40 @@ void WalletClient::sendMoney(const beam::WalletID& receiver, const std::string& 
     }
 }
 
+void WalletClient::sendMoney(const WalletID& sender, const WalletID& receiver, const std::string& comment, Amount&& amount, Amount&& fee)
+{
+    try
+    {
+        ByteBuffer message(comment.begin(), comment.end());
+
+        assert(!m_wallet.expired());
+        auto s = m_wallet.lock();
+        if (s)
+        {
+            s->transfer_money(sender, receiver, move(amount), move(fee), true, 120, 720, move(message), true);
+        }
+
+        onSendMoneyVerified();
+    }
+    catch (const CannotGenerateSecretException&)
+    {
+        onNewAddressFailed();
+        return;
+    }
+    catch (const AddressExpiredException&)
+    {
+        onCantSendToExpired();
+        return;
+    }
+    catch (const std::exception& e)
+    {
+        LOG_UNHANDLED_EXCEPTION() << "what = " << e.what();
+    }
+    catch (...) {
+        LOG_UNHANDLED_EXCEPTION();
+    }
+}
+
 void WalletClient::syncWithNode()
 {
     assert(!m_nodeNetwork.expired());
