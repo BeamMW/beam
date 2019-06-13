@@ -593,7 +593,6 @@ void Node::Processor::OnNewState()
 	if (IsFastSync())
 		return;
 
-    //get_ParentObj().m_TxPool.DeleteOutOfBound(m_Cursor.m_Sid.m_Height + 1);
     get_ParentObj().m_Processor.DeleteOutdated(get_ParentObj().m_TxPool); // Better to delete all irrelevant txs explicitly, even if the node is supposed to mine
     // because in practice mining could be OFF (for instance, if miner key isn't defined, and owner wallet is offline).
 
@@ -1994,6 +1993,8 @@ void Node::Peer::OnMsg(proto::NewTransaction&& msg)
 
 uint8_t Node::ValidateTx(Transaction::Context& ctx, const Transaction& tx)
 {
+	ctx.m_Height.m_Min = m_Processor.m_Cursor.m_ID.m_Height + 1;
+
 	if (!(m_Processor.ValidateAndSummarize(ctx, tx, tx.get_Reader()) && ctx.IsValidTransaction()))
 		return proto::TxStatus::Invalid;
 
@@ -2090,7 +2091,6 @@ uint8_t Node::OnTransactionStem(Transaction::Ptr&& ptx, const Peer* pPeer)
 
 	Transaction::Context::Params pars;
 	Transaction::Context ctx(pars);
-	ctx.m_Height.m_Min = m_Processor.m_Cursor.m_ID.m_Height + 1;
     bool bTested = false;
     TxPool::Stem::Element* pDup = NULL;
 
@@ -2408,7 +2408,6 @@ bool Node::OnTransactionFluff(Transaction::Ptr&& ptxArg, const Peer* pPeer, TxPo
 
 	Transaction::Context::Params pars;
 	Transaction::Context ctx(pars);
-	ctx.m_Height.m_Min = m_Processor.m_Cursor.m_ID.m_Height + 1;
     if (pElem)
     {
         ctx.m_Fee = pElem->m_Profit.m_Fee;
