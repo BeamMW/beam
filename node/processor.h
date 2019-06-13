@@ -282,7 +282,6 @@ public:
 	};
 
 	bool GenerateNewBlock(BlockContext&);
-	void DeleteOutdated(TxPool::Fluff&);
 
 	bool GetBlock(const NodeDB::StateID&, ByteBuffer* pEthernal, ByteBuffer* pPerishable, Height h0, Height hLo1, Height hHi1);
 

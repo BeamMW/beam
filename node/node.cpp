@@ -581,6 +581,22 @@ void Node::Processor::FlushInsanePeers()
     }
 }
 
+void Node::Processor::DeleteOutdated()
+{
+	TxPool::Fluff& txp = get_ParentObj().m_TxPool;
+	for (TxPool::Fluff::Queue::iterator it = txp.m_Queue.begin(); txp.m_Queue.end() != it; )
+	{
+		TxPool::Fluff::Element& x = (it++)->get_ParentObj();
+		if (!x.m_pValue)
+			continue;
+		Transaction& tx = *x.m_pValue;
+
+		if (!ValidateTxContext(tx, x.m_Threshold.m_Height))
+			txp.Delete(x);
+	}
+}
+
+
 void Node::Processor::OnNewState()
 {
     m_Cwp.Reset();
@@ -593,7 +609,7 @@ void Node::Processor::OnNewState()
 	if (IsFastSync())
 		return;
 
-    get_ParentObj().m_Processor.DeleteOutdated(get_ParentObj().m_TxPool); // Better to delete all irrelevant txs explicitly, even if the node is supposed to mine
+    DeleteOutdated(); // Better to delete all irrelevant txs explicitly, even if the node is supposed to mine
     // because in practice mining could be OFF (for instance, if miner key isn't defined, and owner wallet is offline).
 
     if (get_ParentObj().m_Miner.IsEnabled())

@@ -250,6 +250,8 @@ private:
 		io::AsyncEvent::Ptr m_pAsyncPeerInsane;
 		void FlushInsanePeers();
 
+		void DeleteOutdated();
+
 		IMPLEMENT_GET_PARENT_OBJ(Node, m_Processor)
 	} m_Processor;
 

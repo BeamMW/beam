@@ -2372,18 +2372,6 @@ bool NodeProcessor::ValidateTxContext(const Transaction& tx)
 	return true;
 }
 
-void NodeProcessor::DeleteOutdated(TxPool::Fluff& txp)
-{
-	for (TxPool::Fluff::ProfitSet::iterator it = txp.m_setProfit.begin(); txp.m_setProfit.end() != it; )
-	{
-		TxPool::Fluff::Element& x = (it++)->get_ParentObj();
-		Transaction& tx = *x.m_pValue;
-
-		if (!ValidateTxContext(tx))
-			txp.Delete(x);
-	}
-}
-
 size_t NodeProcessor::GenerateNewBlockInternal(BlockContext& bc)
 {
 	Height h = m_Cursor.m_Sid.m_Height + 1;
