@@ -342,7 +342,7 @@ private:
 		:public TxPool::Stem
 	{
 		// TxPool::Stem
-		virtual bool ValidateTxContext(const Transaction&) override;
+		virtual bool ValidateTxContext(const Transaction&, const HeightRange&) override;
 		virtual void OnTimedOut(Element&) override;
 
 		IMPLEMENT_GET_PARENT_OBJ(Node, m_Dandelion)

@@ -2014,7 +2014,7 @@ uint8_t Node::ValidateTx(Transaction::Context& ctx, const Transaction& tx)
 	if (!(m_Processor.ValidateAndSummarize(ctx, tx, tx.get_Reader()) && ctx.IsValidTransaction()))
 		return proto::TxStatus::Invalid;
 
-	if (!m_Processor.ValidateTxContext(tx))
+	if (!m_Processor.ValidateTxContext(tx, ctx.m_Height))
 		return proto::TxStatus::InvalidContext;
 
 	if (ctx.m_Height.m_Min >= Rules::get().pForks[1].m_Height)
@@ -2168,6 +2168,7 @@ uint8_t Node::OnTransactionStem(Transaction::Ptr&& ptx, const Peer* pPeer)
         pGuard->m_Profit.m_Fee = ctx.m_Fee;
         pGuard->m_Profit.SetSize(*ptx);
         pGuard->m_pValue.swap(ptx);
+		pGuard->m_Height = ctx.m_Height;
 
         m_Dandelion.InsertKrn(*pGuard);
 
@@ -2426,7 +2427,11 @@ bool Node::OnTransactionFluff(Transaction::Ptr&& ptxArg, const Peer* pPeer, TxPo
 	Transaction::Context ctx(pars);
     if (pElem)
     {
+		if (!pElem->m_Height.IsInRange(m_Processor.m_Cursor.m_ID.m_Height + 1))
+			return false;
+
         ctx.m_Fee = pElem->m_Profit.m_Fee;
+		ctx.m_Height = pElem->m_Height;
         m_Dandelion.Delete(*pElem);
     }
     else
@@ -2507,9 +2512,9 @@ void Node::Dandelion::OnTimedOut(Element& x)
         get_ParentObj().OnTransactionFluff(std::move(x.m_pValue), NULL, &x);
 }
 
-bool Node::Dandelion::ValidateTxContext(const Transaction& tx)
+bool Node::Dandelion::ValidateTxContext(const Transaction& tx, const HeightRange& hr)
 {
-    return get_ParentObj().m_Processor.ValidateTxContext(tx);
+    return get_ParentObj().m_Processor.ValidateTxContext(tx, hr);
 }
 
 void Node::Peer::OnLogin(proto::Login&& msg)

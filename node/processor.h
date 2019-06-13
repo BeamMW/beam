@@ -248,8 +248,8 @@ public:
 
 	uint64_t FindActiveAtStrict(Height);
 
-	bool ValidateTxContext(const Transaction&); // assuming context-free validation is already performed, but 
-	bool ValidateTxWrtHeight(const Transaction&);
+	bool ValidateTxContext(const Transaction&, const HeightRange&); // assuming context-free validation is already performed, but 
+	bool ValidateTxWrtHeight(const Transaction&, const HeightRange&);
 
 	struct GeneratedBlock
 	{

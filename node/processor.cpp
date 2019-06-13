@@ -2292,15 +2292,16 @@ Timestamp NodeProcessor::get_MovingMedian()
 	return thw.first;
 }
 
-bool NodeProcessor::ValidateTxWrtHeight(const Transaction& tx)
+bool NodeProcessor::ValidateTxWrtHeight(const Transaction& tx, const HeightRange& hr)
 {
 	Height h = m_Cursor.m_Sid.m_Height + 1;
+	if (!hr.IsInRange(h))
+		return false;
 
 	for (size_t i = 0; i < tx.m_vKernels.size(); i++)
 	{
 		const TxKernel& krn = *tx.m_vKernels[i];
-		if (!krn.m_Height.IsInRange(h))
-			return false;
+		assert(krn.m_Height.IsInRange(h));
 
 		if (krn.m_pRelativeLock)
 		{
@@ -2315,12 +2316,13 @@ bool NodeProcessor::ValidateTxWrtHeight(const Transaction& tx)
 				return false;
 		}
 	}
+
 	return true;
 }
 
-bool NodeProcessor::ValidateTxContext(const Transaction& tx)
+bool NodeProcessor::ValidateTxContext(const Transaction& tx, const HeightRange& hr)
 {
-	if (!ValidateTxWrtHeight(tx))
+	if (!ValidateTxWrtHeight(tx, hr))
 		return false;
 
 	Height h = m_Cursor.m_Sid.m_Height;
@@ -2465,7 +2467,7 @@ size_t NodeProcessor::GenerateNewBlockInternal(BlockContext& bc)
 
 		Transaction& tx = *x.m_pValue;
 
-		if (ValidateTxWrtHeight(tx) && HandleValidatedTx(tx.get_Reader(), h, true))
+		if (ValidateTxWrtHeight(tx, x.m_Threshold.m_Height) && HandleValidatedTx(tx.get_Reader(), h, true))
 		{
 			TxVectors::Writer(bc.m_Block, bc.m_Block).Dump(tx.get_Reader());
 
