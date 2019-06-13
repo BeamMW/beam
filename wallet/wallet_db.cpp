@@ -857,6 +857,25 @@ namespace beam::wallet
             int ret = sqlite3_exec(db, req, nullptr, nullptr, nullptr);
             throwIfError(ret, db);
         }
+
+        void OpenAndMigrateIfNeeded(const string& path, sqlite3** db, const SecString& password)
+        {
+            int ret = sqlite3_open_v2(path.c_str(), db, SQLITE_OPEN_READWRITE, nullptr);
+            throwIfError(ret, *db);
+            enterKey(*db, password);
+            // try to decrypt
+            ret = sqlite3_exec(*db, "PRAGMA user_version;", nullptr, nullptr, nullptr);
+            if (ret != SQLITE_OK)
+            {
+                ret = sqlite3_close(*db);
+                throwIfError(ret, *db);
+                ret = sqlite3_open_v2(path.c_str(), db, SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE, nullptr);
+                throwIfError(ret, *db);
+                enterKey(*db, password);
+                ret = sqlite3_exec(*db, "PRAGMA cipher_migrate; ", nullptr, nullptr, nullptr);
+                throwIfError(ret, *db);
+            }
+        }
     }
 
     IWalletDB::Ptr WalletDB::init(const string& path, const SecString& password, const ECC::NoLeak<ECC::uintBig>& secretKey, io::Reactor::Ptr reactor, bool separateDBForPrivateData)
@@ -911,22 +930,15 @@ namespace beam::wallet
             if (isInitialized(path))
             {
                 sqlite3 *db = nullptr;
-                {
-                    int ret = sqlite3_open_v2(path.c_str(), &db, SQLITE_OPEN_READWRITE, nullptr);
-                    throwIfError(ret, db);
-                }
-
+                OpenAndMigrateIfNeeded(path, &db, password);
                 sqlite3 *sdb = db;
                 string privatePath = path + ".private";
                 bool separateDBForPrivateData = isInitialized(privatePath);
                 if (separateDBForPrivateData)
                 {
-                    int ret = sqlite3_open_v2(privatePath.c_str(), &sdb, SQLITE_OPEN_READWRITE, nullptr);
-                    throwIfError(ret, sdb);
-                    enterKey(sdb, password);
+                    OpenAndMigrateIfNeeded(privatePath, &sdb, password);
                 }
 
-                enterKey(db, password);
                 auto walletDB = make_shared<WalletDB>(db, reactor, sdb);
                 {
                     int ret = sqlite3_busy_timeout(walletDB->_db, BusyTimeoutMs);
