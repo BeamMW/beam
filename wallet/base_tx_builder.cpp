@@ -367,7 +367,7 @@ namespace beam::wallet
 
         KernelParameters kernelParameters;
         kernelParameters.fee = m_Fee;
-        kernelParameters.height = { m_MinHeight, m_MaxHeight };
+        kernelParameters.height = { GetMinHeight(), GetMaxHeight() };
         kernelParameters.commitment = totalPublicExcess;
         if (m_PeerLockImage)
         {
