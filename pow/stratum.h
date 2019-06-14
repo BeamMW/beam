@@ -124,7 +124,7 @@ struct Result : Message {
     ResultCode code=no_error;
     std::string description;
     std::string nonceprefix;
-    uint64_t forkheight = 0;
+    uint64_t forkheight = MaxHeight;
 
     Result() = default;
 

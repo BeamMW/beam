@@ -30,7 +30,7 @@ struct Block::PoW::Helper
 	EquihashR<150,5,0> BeamHashI;
 	EquihashR<150,5,3> BeamHashII;
 
-	PoWScheme* getCurrentPoW(uint32_t height) {
+	PoWScheme* getCurrentPoW(uint64_t height) {
 		if (height < Rules::get().pForks[1].m_Height) {
 			return &BeamHashI;
 		} else {
@@ -56,7 +56,7 @@ struct Block::PoW::Helper
 	}
 };
 
-bool Block::PoW::Solve(const void* pInput, uint32_t nSizeInput, uint32_t blockHeight, const Cancel& fnCancel)
+bool Block::PoW::Solve(const void* pInput, uint32_t nSizeInput, uint64_t blockHeight, const Cancel& fnCancel)
 {
 	Helper hlp;
 
@@ -96,7 +96,7 @@ bool Block::PoW::Solve(const void* pInput, uint32_t nSizeInput, uint32_t blockHe
     return true;
 }
 
-bool Block::PoW::IsValid(const void* pInput, uint32_t nSizeInput, uint32_t blockHeight) const
+bool Block::PoW::IsValid(const void* pInput, uint32_t nSizeInput, uint64_t blockHeight) const
 {
 	Helper hlp;
 	hlp.Reset(pInput, nSizeInput, m_Nonce, blockHeight);
