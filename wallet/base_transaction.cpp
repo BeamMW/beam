@@ -275,7 +275,7 @@ namespace beam::wallet
 
 	Key::IKdf::Ptr LocalPrivateKeyKeeper::GetChildKdf(const Key::IDV& kidv) const
 	{
-		return GetChildKdf(kidv.m_SubIdx);
+		return GetChildKdf(kidv.get_Subkey());
 	}
 
     Key::IKdf::Ptr LocalPrivateKeyKeeper::GetChildKdf(Key::Index iKdf) const

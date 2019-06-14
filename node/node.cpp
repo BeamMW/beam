@@ -2291,14 +2291,14 @@ void Node::AddDummyInputs(Transaction& tx)
 		Key::IKdf::Ptr pChild;
 		Key::IKdf* pKdf = nullptr;
 
-		if (kidv.m_SubIdx == m_Keys.m_nMinerSubIndex)
+		if (kidv.get_Subkey() == m_Keys.m_nMinerSubIndex)
 			pKdf = m_Keys.m_pMiner.get();
 		else
 		{
 			// was created by other miner. If we have the root key - we can recreate its key
 			if (!m_Keys.m_nMinerSubIndex)
 			{
-				ECC::HKdf::CreateChild(pChild, *m_Keys.m_pMiner, kidv.m_SubIdx);
+				ECC::HKdf::CreateChild(pChild, *m_Keys.m_pMiner, kidv.get_Subkey());
 				pKdf = pChild.get();
 			}
 		}
@@ -2375,7 +2375,7 @@ void Node::AddDummyOutputs(Transaction& tx)
     {
 		Key::IDV kidv(Zero);
 		kidv.m_Type = Key::Type::Decoy;
-		kidv.m_SubIdx = m_Keys.m_nMinerSubIndex;
+		kidv.set_Subkey(m_Keys.m_nMinerSubIndex);
 
 		while (true)
 		{

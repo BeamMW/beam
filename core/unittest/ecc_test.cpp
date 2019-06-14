@@ -592,6 +592,7 @@ void TestRangeProof(bool bCustomTag)
 	SetRandomOrd(cp.m_Kidv.m_Idx);
 	SetRandomOrd(cp.m_Kidv.m_Type);
 	SetRandomOrd(cp.m_Kidv.m_SubIdx);
+	cp.m_Kidv.set_Subkey(cp.m_Kidv.m_SubIdx);
 	SetRandom(cp.m_Seed.V);
 	cp.m_Kidv.m_Value = 345000;
 
@@ -856,6 +857,7 @@ void TestMultiSigOutput()
     creatorParamsB.m_Kidv.m_Type = Key::Type::Regular;
     creatorParamsB.m_Kidv.m_Value = amount;
     SetRandomOrd(creatorParamsB.m_Kidv.m_SubIdx);
+	creatorParamsB.m_Kidv.set_Subkey(creatorParamsB.m_Kidv.m_SubIdx);
 
     // multi-signed bulletproof
     // blindingFactor = sk + sk1
@@ -945,7 +947,7 @@ void TestMultiSigOutput()
     Key::IDV kidv;
     SetRandomOrd(kidv.m_Idx);
     kidv.m_Type = Key::Type::Regular;
-    kidv.m_SubIdx = 0;
+	kidv.set_Subkey(0);
     kidv.m_Value = amount;
     Scalar::Native k;
     beam::SwitchCommitment(nullptr).Create(k, pInput->m_Commitment, *pKdf_A, kidv);
@@ -1072,7 +1074,7 @@ struct TransactionMaker
 			Key::IDV kidv;
 			SetRandomOrd(kidv.m_Idx);
 			kidv.m_Type = Key::Type::Regular;
-			kidv.m_SubIdx = 0;
+			kidv.set_Subkey(0);
 			kidv.m_Value = val;
 
 			Scalar::Native k;
@@ -1091,7 +1093,7 @@ struct TransactionMaker
 			Key::IDV kidv;
 			SetRandomOrd(kidv.m_Idx);
 			kidv.m_Type = Key::Type::Regular;
-			kidv.m_SubIdx = 0;
+			kidv.set_Subkey(0);
 			kidv.m_Value = val;
 
 			if (pAssetID)

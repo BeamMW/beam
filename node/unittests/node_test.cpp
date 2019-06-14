@@ -711,7 +711,7 @@ namespace beam
 				MyUtxo utxoOut;
 				utxoOut.m_Kidv.m_Value = val - mk.m_Fee;
 				utxoOut.m_Kidv.m_Idx = ++m_nRunningIndex;
-				utxoOut.m_Kidv.m_SubIdx = 0;
+				utxoOut.m_Kidv.set_Subkey(0);
 				utxoOut.m_Kidv.m_Type = Key::Type::Regular;
 
 				ToOutput(utxoOut, tx, kOffset, h, hIncubation);

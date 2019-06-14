@@ -1190,7 +1190,7 @@ namespace beam::wallet
 
 	Key::IKdf::Ptr IWalletDB::get_ChildKdf(const Key::IDV& kidv) const
 	{
-		return get_ChildKdf(kidv.m_SubIdx);
+		return get_ChildKdf(kidv.get_Subkey());
 	}
 
     Key::IKdf::Ptr IWalletDB::get_ChildKdf(Key::Index iKdf) const

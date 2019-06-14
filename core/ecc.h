@@ -246,6 +246,16 @@ namespace ECC
 			{
 			}
 
+			Index get_Subkey() const
+			{
+				return m_SubIdx;
+			}
+
+			void set_Subkey(Index nSubIdx)
+			{
+				m_SubIdx = nSubIdx;
+			}
+
 #pragma pack (push, 1)
 			struct Packed
 				:public ID::Packed
