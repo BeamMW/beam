@@ -113,7 +113,7 @@ namespace beam::wallet
         // add output
         Scalar::Native blindingFactor;
         Output::Ptr output = std::make_unique<Output>();
-        output->Create(minHeight, blindingFactor, *m_Tx.GetWalletDB()->get_ChildKdf(outputCoin.m_ID.m_SubIdx), outputCoin.m_ID, *m_Tx.GetWalletDB()->get_MasterKdf());
+        output->Create(minHeight, blindingFactor, *m_Tx.GetWalletDB()->get_ChildKdf(outputCoin.m_ID), outputCoin.m_ID, *m_Tx.GetWalletDB()->get_MasterKdf());
 
         m_Outputs.push_back(std::move(output));
         m_OutputCoins.push_back(outputCoin.m_ID);

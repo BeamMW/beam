@@ -697,7 +697,7 @@ namespace beam::wallet
         , m_spentHeight{ MaxHeight }
         , m_sessionId(EmptyCoinSession)
     {
-        ZeroObject(m_ID);
+        m_ID = Zero;
         m_ID.m_Value = amount;
         m_ID.m_Type = keyType;
     }
@@ -1188,6 +1188,11 @@ namespace beam::wallet
         return m_pKdf;
     }
 
+	Key::IKdf::Ptr IWalletDB::get_ChildKdf(const Key::IDV& kidv) const
+	{
+		return get_ChildKdf(kidv.m_SubIdx);
+	}
+
     Key::IKdf::Ptr IWalletDB::get_ChildKdf(Key::Index iKdf) const
     {
         Key::IKdf::Ptr pMaster = get_MasterKdf();
@@ -1201,7 +1206,7 @@ namespace beam::wallet
 
     void IWalletDB::calcCommitment(ECC::Scalar::Native& sk, ECC::Point& comm, const Coin::ID& cid)
     {
-        SwitchCommitment().Create(sk, comm, *get_ChildKdf(cid.m_SubIdx), cid);
+        SwitchCommitment().Create(sk, comm, *get_ChildKdf(cid), cid);
     }
 
 	void IWalletDB::ImportRecovery(const std::string& path)

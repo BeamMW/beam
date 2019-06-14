@@ -157,10 +157,17 @@ namespace beam
 		ECC::Tag::AddValue(comm, &m_hGen, v);
 	}
 
+	void SwitchCommitment::get_Hash(ECC::Hash::Value& hv, const Key::IDV& kidv)
+	{
+		kidv.get_Hash(hv);
+
+	}
 
 	void SwitchCommitment::CreateInternal(ECC::Scalar::Native& sk, ECC::Point::Native& comm, bool bComm, Key::IKdf& kdf, const Key::IDV& kidv) const
 	{
-		kdf.DeriveKey(sk, kidv);
+		ECC::Hash::Value hv;
+		get_Hash(hv, kidv);
+		kdf.DeriveKey(sk, hv);
 
 		comm = ECC::Context::get().G * sk;
 		AddValue(comm, kidv.m_Value);
@@ -196,7 +203,7 @@ namespace beam
 	void SwitchCommitment::Recover(ECC::Point::Native& res, Key::IPKdf& pkdf, const Key::IDV& kidv) const
 	{
 		ECC::Hash::Value hv;
-		kidv.get_Hash(hv);
+		get_Hash(hv, kidv);
 
 		ECC::Point::Native sk0_J;
 		pkdf.DerivePKeyJ(sk0_J, hv);
