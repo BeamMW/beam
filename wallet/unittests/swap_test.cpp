@@ -411,6 +411,63 @@ void TestSwapBeamRefundTransaction()
     WALLET_CHECK(senderCoins[5].m_createTxId == txID);
 }
 
+void TestSwapExpiredByResponseTime()
+{
+    cout << "\nAtomic swap: testing expired transaction on Beam side...\n";
+
+    // Simulate swap transaction without response from second side
+
+    io::Reactor::Ptr mainReactor{ io::Reactor::create() };
+    io::Reactor::Scope scope(*mainReactor);
+
+    auto completedAction = [mainReactor](auto)
+    {
+        mainReactor->stop();
+    };
+
+    io::Address senderAddress;
+    senderAddress.resolve("127.0.0.1:10400");
+
+    Amount beamAmount = 3;
+    Amount beamFee = 1;
+    Amount swapAmount = 2000;
+    Amount feeRate = 256;
+    Height lifetime = 100;
+    Height responseTime = 100;
+
+    BitcoinOptions aliceOptions{ "Alice", "123", senderAddress, feeRate };
+    TestBitcoinWallet senderBtcWallet = GetSenderBTCWallet(*mainReactor, senderAddress, swapAmount);
+    auto sender = std::make_unique<TestWalletRig>("sender", createSenderWalletDB(), completedAction);
+
+    sender->m_Wallet.initBitcoin(*mainReactor, aliceOptions);
+
+    WalletAddress receiverWalletAddress = storage::createAddress(*createReceiverWalletDB());
+    WalletID receiverWalletID = receiverWalletAddress.m_walletID;
+
+    TxID txID = sender->m_Wallet.swap_coins(sender->m_WalletID, receiverWalletID, beamAmount, beamFee,
+        wallet::AtomicSwapCoin::Bitcoin, swapAmount, true, lifetime, responseTime);
+
+    TestNode node;
+    io::Timer::Ptr timer = io::Timer::create(*mainReactor);
+    timer->start(50, true, [&node]() {node.AddBlock(); });
+
+    mainReactor->run();
+
+    // validate sender TX state
+    wallet::AtomicSwapTransaction::State txState = wallet::AtomicSwapTransaction::State::Initial;
+    storage::getTxParameter(*sender->m_WalletDB, txID, wallet::kDefaultSubTxID, wallet::TxParameterID::State, txState);
+    WALLET_CHECK(txState == wallet::AtomicSwapTransaction::State::Failed);
+
+    TxFailureReason reason = TxFailureReason::Unknown;
+    storage::getTxParameter(*sender->m_WalletDB, txID, TxParameterID::InternalFailureReason, reason);
+    WALLET_CHECK(reason == TxFailureReason::TransactionExpired);
+
+    auto senderCoins = sender->GetCoins();
+    WALLET_CHECK(senderCoins.size() == 4);
+    WALLET_CHECK(senderCoins[0].m_ID.m_Value == 5);
+    WALLET_CHECK(senderCoins[0].m_status == Coin::Available);
+}
+
 int main()
 {
     int logLevel = LOG_LEVEL_DEBUG;
@@ -424,6 +481,8 @@ int main()
     
     TestSwapBTCRefundTransaction();
     TestSwapBeamRefundTransaction();
+
+    TestSwapExpiredByResponseTime();
 
     assert(g_failureCount == 0);
     return WALLET_CHECK_RESULT;
