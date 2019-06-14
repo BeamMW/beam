@@ -149,66 +149,6 @@ namespace beam
         const char* APPDATA_PATH = "appdata";
     }
 
-    template<typename T>
-    std::ostream& operator<<(std::ostream &os, const Nonnegative<T>& v)
-    {
-        os << v.value;
-        return os;
-    }
-
-    template<typename T>
-    std::ostream& operator<<(std::ostream &os, const Positive<T>& v)
-    {
-        os << v.value;
-        return os;
-    }
-
-    template <typename T>
-    void validate(boost::any& v, const std::vector<std::string>& values, Nonnegative<T>*, int)
-    {
-        po::validators::check_first_occurrence(v);
-
-        const std::string& s = po::validators::get_single_string(values);
-
-        if (!s.empty() && s[0] == '-') {
-            throw NonnegativeOptionException();
-        }
-
-        try
-        {
-            v = Nonnegative<T>(boost::lexical_cast<T>(s));
-        }
-        catch (const boost::bad_lexical_cast&)
-        {
-            throw po::invalid_option_value(s);
-        }
-    }
-
-    template <typename T>
-    void validate(boost::any& v, const std::vector<std::string>& values, Positive<T>*, int)
-    {
-        po::validators::check_first_occurrence(v);
-        const std::string& s = po::validators::get_single_string(values);
-        T numb;
-
-        if (!s.empty() && s[0] == '-') {
-            throw PositiveOptionException();
-        }
-
-        try
-        {
-            numb = boost::lexical_cast<T>(s);
-        }
-        catch (const boost::bad_lexical_cast&)
-        {
-            throw po::invalid_option_value(s);
-        }
-
-        if (numb <= 0)
-            throw PositiveOptionException();
-
-        v = Positive<T>(numb);
-    }
 
     template <typename T> struct TypeCvt {
 
@@ -303,7 +243,7 @@ namespace beam
             (cli::LTC_CONFIRMATIONS, po::value<Positive<uint16_t>>(), "confirmations count in litecoin chain")
             (cli::BTC_LOCK_TIME, po::value<Positive<uint32_t>>(), "lock time in blocks bitcoin transaction")
             (cli::LTC_LOCK_TIME, po::value<Positive<uint32_t>>(), "lock time in blocks litecoin transaction")
-            (cli::NODE_POLL_PERIOD, po::value<Positive<uint32_t>>()->default_value(Positive<uint32_t>(0)), "Node poll period. Set to 0 to keep connection. Anyway poll period would be no less than the expected rate of blocks. By default wallet keeps connection.");
+            (cli::NODE_POLL_PERIOD, po::value<Nonnegative<uint32_t>>()->default_value(Nonnegative<uint32_t>(0)), "Node poll period in milliseconds. Set to 0 to keep connection. Anyway poll period would be no less than the expected rate of blocks if it is less then it will be rounded up to block rate value.");
 
         po::options_description wallet_treasury_options("Wallet treasury options");
         wallet_treasury_options.add_options()

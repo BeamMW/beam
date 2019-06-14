@@ -49,11 +49,11 @@ using json = nlohmann::json;
 static const unsigned LOG_ROTATION_PERIOD = 3 * 60 * 60 * 1000; // 3 hours
 static const size_t PACKER_FRAGMENTS_SIZE = 4096;
 
+using namespace beam;
+using namespace beam::wallet;
+
 namespace
 {
-    using namespace beam;
-    using namespace beam::wallet;
-
     struct TlsOptions
     {
         bool use;
@@ -976,7 +976,7 @@ int main(int argc, char* argv[])
             std::string walletPath;
             std::string nodeURI;
             bool useHttp;
-            uint32_t pollPeriod_ms;
+            Nonnegative<uint32_t> pollPeriod_ms;
 
             bool useAcl;
             std::string aclPath;
@@ -1005,7 +1005,7 @@ int main(int argc, char* argv[])
                 (cli::API_USE_HTTP, po::value<bool>(&options.useHttp)->default_value(false), "use JSON RPC over HTTP")
                 (cli::IP_WHITELIST, po::value<std::string>(&options.whitelist)->default_value(""), "IP whitelist")
                 (cli::LOG_CLEANUP_DAYS, po::value<uint32_t>(&options.logCleanupPeriod)->default_value(5), "old logfiles cleanup period(days)")
-                (cli::NODE_POLL_PERIOD, po::value<uint32_t>(&options.pollPeriod_ms)->default_value(0), "Node poll period.Set to 0 to keep connection.Anyway poll period would be no less than the expected rate of blocks.By default wallet keeps connection.")
+                (cli::NODE_POLL_PERIOD, po::value<Nonnegative<uint32_t>>(&options.pollPeriod_ms)->default_value(Nonnegative<uint32_t>(0)), "Node poll period in milliseconds. Set to 0 to keep connection. Anyway poll period would be no less than the expected rate of blocks if it is less then it will be rounded up to block rate value.")
             ;
 
             po::options_description authDesc("User authorization options");
@@ -1143,7 +1143,12 @@ int main(int argc, char* argv[])
         Wallet wallet{ walletDB };
 
         auto nnet = std::make_shared<proto::FlyClient::NetworkStd>(wallet);
-        nnet->m_Cfg.m_PollPeriod_ms = options.pollPeriod_ms;
+        nnet->m_Cfg.m_PollPeriod_ms = options.pollPeriod_ms.value;
+        LOG_INFO() << "Node poll period = " << nnet->m_Cfg.m_PollPeriod_ms << " ms";
+        if (nnet->m_Cfg.m_PollPeriod_ms >= 43200000)
+        {
+            LOG_WARNING() << "The \"--node_poll_period\" parameter set to more than 12 hours may cause transaction problems.";
+        }
         nnet->m_Cfg.m_vNodes.push_back(node_addr);
         nnet->Connect();
 
