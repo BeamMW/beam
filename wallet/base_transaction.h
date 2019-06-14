@@ -43,7 +43,17 @@ namespace beam::wallet
         virtual bool Rollback(Height height) = 0;
     };
 
-
+    struct KernelParameters
+    {
+        beam::HeightRange height;
+        beam::Amount fee;
+        ECC::Point commitment;
+        boost::optional<ECC::Hash::Value> lockImage;
+        boost::optional<beam::TxKernel::HashLock> hashLock;
+       // ECC::Point kernelNonce;
+        ///uint32_t nonceSlot;
+       // ECC::Scalar offset;
+    };
 
     //
     // Interface to master key storage. HW wallet etc.
@@ -77,7 +87,7 @@ namespace beam::wallet
         virtual Outputs GenerateOutputsSync(Height schemeHeigh, const std::vector<Key::IDV>& ids) = 0;
         //virtual RangeProofs GenerateRangeProofSync(Height schemeHeigh, const std::vector<Key::IDV>& ids) = 0;
         virtual ECC::Point GenerateNonceSync(size_t slot) = 0;
-        virtual ECC::Scalar SignSync(const std::vector<Key::IDV>& inputs, const std::vector<Key::IDV>& outputs, const ECC::Scalar::Native& offset, size_t nonceSlot, const ECC::Hash::Value& message, const ECC::Point::Native& publicNonce, const ECC::Point::Native& commitment) = 0;
+        virtual ECC::Scalar SignSync(const std::vector<Key::IDV>& inputs, const std::vector<Key::IDV>& outputs, const ECC::Scalar::Native& offset, size_t nonceSlot, const KernelParameters& kernelParamerters, const ECC::Point::Native& publicNonce) = 0;
     };
 
 #if defined(BEAM_HW_WALLET)
@@ -179,12 +189,12 @@ namespace beam::wallet
             return m_hwWallet.getNoncePublicSync((uint8_t)slot);
         }
 
-        ECC::Scalar SignSync(const std::vector<Key::IDV>& inputs, const std::vector<Key::IDV>& outputs, const ECC::Scalar::Native& offset, size_t nonceSlot, const ECC::Hash::Value& message, const ECC::Point::Native& publicNonce, const ECC::Point::Native& commitment) override
+        ECC::Scalar SignSync(const std::vector<Key::IDV>& inputs, const std::vector<Key::IDV>& outputs, const ECC::Scalar::Native& offset, size_t nonceSlot, const KernelParameters& kernelParamerters, const ECC::Point::Native& publicNonce) override
         {
             HWWallet::TxData txData;
-            txData.fee = 2;
-            txData.height = {0, 865};
-            txData.kernelCommitment = commitment;
+            txData.fee = kernelParamerters.fee;
+            txData.height = kernelParamerters.height;
+            txData.kernelCommitment = kernelParamerters.commitment;
             txData.kernelNonce = publicNonce;
             txData.nonceSlot = (uint32_t)nonceSlot;
             txData.offset = offset;
@@ -218,7 +228,7 @@ namespace beam::wallet
         Outputs GenerateOutputsSync(Height schemeHeigh, const std::vector<Key::IDV>& ids) override;
         //RangeProofs GenerateRangeProofSync(Height schemeHeight, const std::vector<Key::IDV>& ids) override;
         ECC::Point GenerateNonceSync(size_t slot) override;
-        ECC::Scalar SignSync(const std::vector<Key::IDV>& inputs, const std::vector<Key::IDV>& outputs, const ECC::Scalar::Native& offset, size_t nonceSlot, const ECC::Hash::Value& message, const ECC::Point::Native& publicNonce, const ECC::Point::Native& commitment) override;
+        ECC::Scalar SignSync(const std::vector<Key::IDV>& inputs, const std::vector<Key::IDV>& outputs, const ECC::Scalar::Native& offset, size_t nonceSlot, const KernelParameters& kernelParameters, const ECC::Point::Native& publicNonce) override;
 
     private:
         ECC::uintBig GetSeedKid(Key::IPKdf& tagKdf, const ECC::Point& commitment) const;

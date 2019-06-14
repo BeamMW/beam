@@ -226,9 +226,20 @@ namespace beam::wallet
         return result;
     }
 
-    Scalar LocalPrivateKeyKeeper::SignSync(const std::vector<Key::IDV>& inputs, const std::vector<Key::IDV>& outputs, const Scalar::Native& offset, size_t nonceSlot, const ECC::Hash::Value& message, const Point::Native& publicNonce, const Point::Native& commitment)
+    Scalar LocalPrivateKeyKeeper::SignSync(const std::vector<Key::IDV>& inputs, const std::vector<Key::IDV>& outputs, const Scalar::Native& offset, size_t nonceSlot, const KernelParameters& kernelParamerters, const Point::Native& publicNonce)
     {
         auto excess = GetExcess(inputs, outputs, offset);
+
+        TxKernel kernel;
+        kernel.m_Commitment = kernelParamerters.commitment;
+        kernel.m_Fee = kernelParamerters.fee;
+        kernel.m_Height = kernelParamerters.height;
+        if (kernelParamerters.hashLock)
+        {
+            kernel.m_pHashLock= make_unique<TxKernel::HashLock>(*kernelParamerters.hashLock);
+        }
+        Merkle::Hash message;
+        kernel.get_Hash(message, kernelParamerters.lockImage ? &*kernelParamerters.lockImage : nullptr);
 
         ECC::Signature::MultiSig multiSig;
         ECC::Scalar::Native partialSignature;
