@@ -1317,7 +1317,7 @@ struct IHWWallet
 	virtual bool SignTransaction(Scalar::Native& res, const TransactionData& tx) = 0;
 };
 
-//#if defined(BEAM_HW_WALLET)
+#if defined(BEAM_HW_WALLET)
 
 struct TrezorWallet
     : IHWWallet
@@ -1351,7 +1351,7 @@ struct TrezorWallet
     }
 };
 
-//#endif
+#endif
 
 struct HWWalletEmulator
 	:public IHWWallet

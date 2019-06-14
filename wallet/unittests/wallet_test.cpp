@@ -1427,19 +1427,19 @@ int main()
 	Rules::get().pForks[1].m_Height = 100500; // needed for lightning network to work
     Rules::get().UpdateChecksum();
 
-	TestNegotiation();
+	//TestNegotiation();
 
-    TestP2PWalletNegotiationST();
-    //TestP2PWalletReverseNegotiationST();
+ //   TestP2PWalletNegotiationST();
+ //   //TestP2PWalletReverseNegotiationST();
 
-    {
-        io::Reactor::Ptr mainReactor{ io::Reactor::create() };
-        io::Reactor::Scope scope(*mainReactor);
-        //TestWalletNegotiation(CreateWalletDB<TestWalletDB>(), CreateWalletDB<TestWalletDB2>());
-        TestWalletNegotiation(createSenderWalletDB(), createReceiverWalletDB());
-    }
+ //   {
+ //       io::Reactor::Ptr mainReactor{ io::Reactor::create() };
+ //       io::Reactor::Scope scope(*mainReactor);
+ //       //TestWalletNegotiation(CreateWalletDB<TestWalletDB>(), CreateWalletDB<TestWalletDB2>());
+ //       TestWalletNegotiation(createSenderWalletDB(), createReceiverWalletDB());
+ //   }
 
-    TestSplitTransaction();
+ //   TestSplitTransaction();
 
     TestTxToHimself();
 
