@@ -550,21 +550,26 @@ void TestCommitments()
 	SetRandom(seed);
 	kdf.Generate(seed);
 
-	Key::IDV kidv(100500, 15, Key::Type::Regular, 7);
+	for (uint8_t iCycle = 0; iCycle < 2; iCycle++)
+	{
+		uint8_t nScheme = iCycle ? Key::IDV::Scheme::V1 : Key::IDV::Scheme::V0;
 
-	Scalar::Native sk;
-	ECC::Point::Native comm;
-	beam::SwitchCommitment().Create(sk, comm, kdf, kidv);
+		Key::IDV kidv(100500, 15, Key::Type::Regular, 7, nScheme);
 
-	sigma = Commitment(sk, kidv.m_Value);
-	sigma = -sigma;
-	sigma += comm;
-	verify_test(sigma == Zero);
+		Scalar::Native sk;
+		ECC::Point::Native comm;
+		beam::SwitchCommitment().Create(sk, comm, kdf, kidv);
 
-	beam::SwitchCommitment().Recover(sigma, kdf, kidv);
-	sigma = -sigma;
-	sigma += comm;
-	verify_test(sigma == Zero);
+		sigma = Commitment(sk, kidv.m_Value);
+		sigma = -sigma;
+		sigma += comm;
+		verify_test(sigma == Zero);
+
+		beam::SwitchCommitment().Recover(sigma, kdf, kidv);
+		sigma = -sigma;
+		sigma += comm;
+		verify_test(sigma == Zero);
+	}
 }
 
 template <typename T>

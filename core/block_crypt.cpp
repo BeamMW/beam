@@ -159,8 +159,21 @@ namespace beam
 
 	void SwitchCommitment::get_Hash(ECC::Hash::Value& hv, const Key::IDV& kidv)
 	{
-		kidv.get_Hash(hv);
-
+		Key::Index nScheme = kidv.get_Scheme();
+		if (nScheme)
+		{
+			// newer scheme - account for the Value.
+			// Make it infeasible to tamper with value for unknown blinding factor
+			ECC::Hash::Processor()
+				<< "kidv-1"
+				<< kidv.m_Idx
+				<< kidv.m_Type.V
+				<< kidv.m_SubIdx
+				<< kidv.m_Value
+				>> hv;
+		}
+		else
+			kidv.get_Hash(hv); // legacy
 	}
 
 	void SwitchCommitment::CreateInternal(ECC::Scalar::Native& sk, ECC::Point::Native& comm, bool bComm, Key::IKdf& kdf, const Key::IDV& kidv) const
