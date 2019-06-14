@@ -141,6 +141,13 @@ void TestSwapTransaction(bool isBeamOwnerStart)
     WALLET_CHECK(senderCoins[4].m_ID.m_Value == 1);
     WALLET_CHECK(senderCoins[4].m_status == Coin::Available);
     WALLET_CHECK(senderCoins[4].m_createTxId == txID);
+
+    // check secret
+    NoLeak<uintBig> senderSecretPrivateKey;
+    storage::getTxParameter(*sender.m_WalletDB, txID, SubTxIndex::BEAM_REDEEM_TX, TxParameterID::AtomicSwapSecretPrivateKey, senderSecretPrivateKey.V);
+    NoLeak<uintBig> receiverSecretPrivateKey;
+    storage::getTxParameter(*receiver.m_WalletDB, txID, SubTxIndex::BEAM_REDEEM_TX, TxParameterID::AtomicSwapSecretPrivateKey, receiverSecretPrivateKey.V);
+    WALLET_CHECK(senderSecretPrivateKey.V == receiverSecretPrivateKey.V);
 }
 
 void TestSwapTransactionWithoutChange(bool isBeamOwnerStart)
