@@ -18,6 +18,8 @@
 #include "wallet/secstring.h"
 #include "wallet/bitcoin/options.h"
 #include "wallet/litecoin/options.h"
+#include "wallet/swaps/common.h"
+#include "wallet/swaps/swap_transaction.h"
 #include "utility/test_helpers.h"
 #include "../../core/radixtree.h"
 #include "../../core/unittest/mini_blockchain.h"
@@ -239,6 +241,218 @@ void TestSwapTransactionWithoutChange(bool isBeamOwnerStart)
     WALLET_CHECK(senderCoins[0].m_spentTxId == txID);
 }
 
+void TestSwapBTCRefundTransaction()
+{
+    cout << "\nAtomic swap: testing BTC refund transaction...\n";
+
+    io::Reactor::Ptr mainReactor{ io::Reactor::create() };
+    io::Reactor::Scope scope(*mainReactor);
+
+    auto completedAction = [mainReactor](auto)
+    {
+        mainReactor->stop();
+    };
+
+    TestNode node;
+    auto sender = std::make_unique<TestWalletRig>("sender", createSenderWalletDB(), completedAction);
+    auto receiver = std::make_shared<TestWalletRig>("receiver", createReceiverWalletDB(), completedAction);
+
+    io::Address senderAddress;
+    senderAddress.resolve("127.0.0.1:10400");
+
+    io::Address receiverAddress;
+    receiverAddress.resolve("127.0.0.1:10300");
+
+    Amount beamAmount = 3;
+    Amount beamFee = 1;
+    Amount swapAmount = 2000;
+    Amount feeRate = 256;
+
+    BitcoinOptions bobOptions { "Bob", "123", senderAddress, feeRate };
+    BitcoinOptions aliceOptions { "Alice", "123", receiverAddress, feeRate };
+
+    sender->m_Wallet.initBitcoin(*mainReactor, bobOptions);
+    receiver->m_Wallet.initBitcoin(*mainReactor, aliceOptions);
+
+    TestBitcoinWallet::Options senderOptions;
+    senderOptions.m_rawAddress = "2N8N2kr34rcGqHCo3aN6yqniid8a4Mt3FCv";
+    senderOptions.m_privateKey = "cSFMca7FAeAgLRgvev5ajC1v1jzprBr1KoefUFFPS8aw3EYwLArM";
+    senderOptions.m_refundTx = "0200000001809fc0890cb2724a941dfc3b7213a63b3017b0cddbed4f303be300cb55ddca830100000000ffffffff01e8030000000000001976a9146ed612a79317bc6ade234f299073b945ccb3e76b88ac00000000";
+    senderOptions.m_amount = swapAmount;
+
+    TestBitcoinWallet senderBtcWallet(*mainReactor, senderAddress, senderOptions);
+    TestBitcoinWallet::Options receiverOptions;
+    receiverOptions.m_rawAddress = "2Mvfsv3JiwWXjjwNZD6LQJD4U4zaPAhSyNB";
+    receiverOptions.m_privateKey = "cNoRPsNczFw6b7wTuwLx24gSnCPyF3CbvgVmFJYKyfe63nBsGFxr";
+    receiverOptions.m_refundTx = "0200000001809fc0890cb2724a941dfc3b7213a63b3017b0cddbed4f303be300cb55ddca830100000000ffffffff01e8030000000000001976a9146ed612a79317bc6ade234f299073b945ccb3e76b88ac00000000";
+    receiverOptions.m_amount = swapAmount;
+
+    TestBitcoinWallet receiverBtcWallet(*mainReactor, receiverAddress, receiverOptions);
+
+    receiverBtcWallet.addPeer(senderAddress);
+
+    receiver->m_Wallet.initSwapConditions(beamAmount, swapAmount, wallet::AtomicSwapCoin::Bitcoin, false);
+    TxID txID = sender->m_Wallet.swap_coins(sender->m_WalletID, receiver->m_WalletID, beamAmount, beamFee, wallet::AtomicSwapCoin::Bitcoin, swapAmount, true);
+
+    auto receiverCoins = receiver->GetCoins();
+    WALLET_CHECK(receiverCoins.empty());
+
+   io::AsyncEvent::Ptr eventToUpdate;
+
+    eventToUpdate = io::AsyncEvent::create(*mainReactor, [&sender, receiver, txID, &eventToUpdate, &node]()
+    {
+        if (sender)
+        {
+            wallet::AtomicSwapTransaction::State txState = wallet::AtomicSwapTransaction::State::Initial;
+            storage::getTxParameter(*sender->m_WalletDB, txID, wallet::kDefaultSubTxID, wallet::TxParameterID::State, txState);
+            if (txState == wallet::AtomicSwapTransaction::State::HandlingContractTX)
+            {
+                // delete sender to simulate refund on BTC side
+                sender.reset();
+            }
+            eventToUpdate->post();
+        }
+        else
+        {
+            wallet::AtomicSwapTransaction::State txState = wallet::AtomicSwapTransaction::State::Initial;
+            storage::getTxParameter(*receiver->m_WalletDB, txID, wallet::kDefaultSubTxID, wallet::TxParameterID::State, txState);
+            if (txState != wallet::AtomicSwapTransaction::State::SendingRefundTX)
+            {
+                // speed-up test
+                node.AddBlock();
+                eventToUpdate->post();
+            }
+        }
+    });
+
+    io::Timer::Ptr timer = io::Timer::create(*mainReactor);
+    timer->start(5000, true, [&node]() {node.AddBlock(); });
+
+    eventToUpdate->post();
+    mainReactor->run();
+
+    // validate receiver TX state
+    wallet::AtomicSwapTransaction::State txState = wallet::AtomicSwapTransaction::State::Initial;
+    storage::getTxParameter(*receiver->m_WalletDB, txID, wallet::kDefaultSubTxID, wallet::TxParameterID::State, txState);
+    WALLET_CHECK(txState == wallet::AtomicSwapTransaction::State::Refunded);
+    receiverCoins = receiver->GetCoins();
+    WALLET_CHECK(receiverCoins.size() == 0);
+
+    // TODO: add check BTC balance
+}
+
+void TestSwapBeamRefundTransaction()
+{
+    cout << "\nAtomic swap: testing Beam refund transaction...\n";
+
+    io::Reactor::Ptr mainReactor{ io::Reactor::create() };
+    io::Reactor::Scope scope(*mainReactor);
+
+    auto completedAction = [mainReactor](auto)
+    {
+        mainReactor->stop();
+    };
+
+    TestNode node;
+    auto sender = std::make_unique<TestWalletRig>("sender", createSenderWalletDB(), completedAction);
+    auto receiver = std::make_unique<TestWalletRig>("receiver", createReceiverWalletDB(), completedAction);
+
+    io::Address senderAddress;
+    senderAddress.resolve("127.0.0.1:10400");
+
+    io::Address receiverAddress;
+    receiverAddress.resolve("127.0.0.1:10300");
+
+    Amount beamAmount = 3;
+    Amount beamFee = 1;
+    Amount swapAmount = 2000;
+    Amount feeRate = 256;
+
+    BitcoinOptions bobOptions{ "Bob", "123", senderAddress, feeRate };
+    BitcoinOptions aliceOptions{ "Alice", "123", receiverAddress, feeRate };
+
+    sender->m_Wallet.initBitcoin(*mainReactor, bobOptions);
+    receiver->m_Wallet.initBitcoin(*mainReactor, aliceOptions);
+
+    TestBitcoinWallet::Options senderOptions;
+    senderOptions.m_rawAddress = "2N8N2kr34rcGqHCo3aN6yqniid8a4Mt3FCv";
+    senderOptions.m_privateKey = "cSFMca7FAeAgLRgvev5ajC1v1jzprBr1KoefUFFPS8aw3EYwLArM";
+    senderOptions.m_refundTx = "0200000001809fc0890cb2724a941dfc3b7213a63b3017b0cddbed4f303be300cb55ddca830100000000ffffffff01e8030000000000001976a9146ed612a79317bc6ade234f299073b945ccb3e76b88ac00000000";
+    senderOptions.m_amount = swapAmount;
+
+    TestBitcoinWallet senderBtcWallet(*mainReactor, senderAddress, senderOptions);
+    TestBitcoinWallet::Options receiverOptions;
+    receiverOptions.m_rawAddress = "2Mvfsv3JiwWXjjwNZD6LQJD4U4zaPAhSyNB";
+    receiverOptions.m_privateKey = "cNoRPsNczFw6b7wTuwLx24gSnCPyF3CbvgVmFJYKyfe63nBsGFxr";
+    receiverOptions.m_refundTx = "0200000001809fc0890cb2724a941dfc3b7213a63b3017b0cddbed4f303be300cb55ddca830100000000ffffffff01e8030000000000001976a9146ed612a79317bc6ade234f299073b945ccb3e76b88ac00000000";
+    receiverOptions.m_amount = swapAmount;
+
+    TestBitcoinWallet receiverBtcWallet(*mainReactor, receiverAddress, receiverOptions);
+
+    receiverBtcWallet.addPeer(senderAddress);
+
+    receiver->m_Wallet.initSwapConditions(beamAmount, swapAmount, wallet::AtomicSwapCoin::Bitcoin, false);
+    TxID txID = sender->m_Wallet.swap_coins(sender->m_WalletID, receiver->m_WalletID, beamAmount, beamFee, wallet::AtomicSwapCoin::Bitcoin, swapAmount, true);
+
+    auto receiverCoins = receiver->GetCoins();
+    WALLET_CHECK(receiverCoins.empty());
+
+    io::AsyncEvent::Ptr eventToUpdate;
+
+    eventToUpdate = io::AsyncEvent::create(*mainReactor, [&sender, &receiver, txID, &eventToUpdate, &node]()
+    {
+        if (receiver)
+        {
+            wallet::AtomicSwapTransaction::State txState = wallet::AtomicSwapTransaction::State::Initial;
+            storage::getTxParameter(*receiver->m_WalletDB, txID, wallet::kDefaultSubTxID, wallet::TxParameterID::State, txState);
+            if (txState == wallet::AtomicSwapTransaction::State::SendingBeamRedeemTX)
+            {
+                // delete receiver to simulate refund on Beam side
+                receiver.reset();
+            }
+            eventToUpdate->post();
+        }
+        else
+        {
+            wallet::AtomicSwapTransaction::State txState = wallet::AtomicSwapTransaction::State::Initial;
+            storage::getTxParameter(*sender->m_WalletDB, txID, wallet::kDefaultSubTxID, wallet::TxParameterID::State, txState);
+            if (txState != wallet::AtomicSwapTransaction::State::SendingBeamRefundTX)
+            {
+                // speed-up test
+                node.AddBlock();
+                eventToUpdate->post();
+            }
+        }
+    });
+
+    io::Timer::Ptr timer = io::Timer::create(*mainReactor);
+    timer->start(5000, true, [&node]() {node.AddBlock(); });
+
+    eventToUpdate->post();
+    mainReactor->run();
+
+    // validate sender TX state
+    wallet::AtomicSwapTransaction::State txState = wallet::AtomicSwapTransaction::State::Initial;
+    storage::getTxParameter(*sender->m_WalletDB, txID, wallet::kDefaultSubTxID, wallet::TxParameterID::State, txState);
+    WALLET_CHECK(txState == wallet::AtomicSwapTransaction::State::Refunded);
+
+    auto senderCoins = sender->GetCoins();
+    WALLET_CHECK(senderCoins.size() == 6);
+    WALLET_CHECK(senderCoins[0].m_ID.m_Value == 5);
+    WALLET_CHECK(senderCoins[0].m_status == Coin::Spent);
+    WALLET_CHECK(senderCoins[0].m_spentTxId == txID);
+
+    // change of Beam LockTx
+    WALLET_CHECK(senderCoins[4].m_ID.m_Value == 1);
+    WALLET_CHECK(senderCoins[4].m_status == Coin::Available);
+    WALLET_CHECK(senderCoins[4].m_createTxId == txID);
+
+    // Refund
+    WALLET_CHECK(senderCoins[5].m_ID.m_Value == beamAmount);
+    WALLET_CHECK(senderCoins[5].m_status == Coin::Available);
+    WALLET_CHECK(senderCoins[5].m_createTxId == txID);
+}
+
 int main()
 {
     int logLevel = LOG_LEVEL_DEBUG;
@@ -250,6 +464,9 @@ int main()
     TestSwapTransaction(false);
     TestSwapTransactionWithoutChange(true);
     
+    TestSwapBTCRefundTransaction();
+    TestSwapBeamRefundTransaction();
+
     assert(g_failureCount == 0);
     return WALLET_CHECK_RESULT;
 }
