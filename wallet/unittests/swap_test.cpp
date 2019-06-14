@@ -251,9 +251,13 @@ void TestSwapBTCRefundTransaction()
     Amount beamFee = 1;
     Amount swapAmount = 2000;
     Amount feeRate = 256;
+    uint32_t lockTimeInBlocks = 200;
 
     BitcoinOptions bobOptions { "Bob", "123", senderAddress, feeRate };
+    bobOptions.m_lockTimeInBlocks = lockTimeInBlocks;
     BitcoinOptions aliceOptions { "Alice", "123", receiverAddress, feeRate };
+    aliceOptions.m_lockTimeInBlocks = lockTimeInBlocks;
+
     TestBitcoinWallet senderBtcWallet = GetSenderBTCWallet(*mainReactor, senderAddress, swapAmount);
     TestBitcoinWallet receiverBtcWallet = GetReceiverBTCWallet(*mainReactor, receiverAddress, swapAmount);
     auto sender = std::make_unique<TestWalletRig>("sender", createSenderWalletDB(), completedAction);
@@ -270,9 +274,12 @@ void TestSwapBTCRefundTransaction()
     WALLET_CHECK(receiverCoins.empty());
 
     TestNode node;
+    io::Timer::Ptr timer = io::Timer::create(*mainReactor);
+    timer->start(5000, true, [&node]() {node.AddBlock(); });
+
     io::AsyncEvent::Ptr eventToUpdate;
 
-    eventToUpdate = io::AsyncEvent::create(*mainReactor, [&sender, receiver, txID, &eventToUpdate, &node]()
+    eventToUpdate = io::AsyncEvent::create(*mainReactor, [&sender, receiver, txID, &eventToUpdate, &timer]()
     {
         if (sender)
         {
@@ -292,14 +299,10 @@ void TestSwapBTCRefundTransaction()
             if (txState != wallet::AtomicSwapTransaction::State::SendingRefundTX)
             {
                 // speed-up test
-                node.AddBlock();
-                eventToUpdate->post();
+                timer->restart(50, true);
             }
         }
     });
-
-    io::Timer::Ptr timer = io::Timer::create(*mainReactor);
-    timer->start(5000, true, [&node]() {node.AddBlock(); });
 
     eventToUpdate->post();
     mainReactor->run();
