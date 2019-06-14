@@ -739,7 +739,7 @@ namespace beam
 
 			Transaction::Context::Params pars;
 			Transaction::Context ctx(pars);
-			ctx.m_Height.m_Min = h;
+			ctx.m_Height.m_Min = h + 1;
 			bool isTxValid = tx.IsValid(ctx);
 			verify_test(isTxValid);
 		}
@@ -787,8 +787,10 @@ namespace beam
 				if (!np.m_Wallet.MakeTx(pTx, np.m_Cursor.m_ID.m_Height, hIncubation))
 					break;
 
-				verify_test(np.ValidateTxContext(*pTx));
-				verify_test(np.ValidateTxWrtHeight(*pTx));
+				HeightRange hr(np.m_Cursor.m_ID.m_Height + 1, MaxHeight);
+
+				verify_test(np.ValidateTxContext(*pTx, hr));
+				verify_test(np.ValidateTxWrtHeight(*pTx, hr));
 
 				Transaction::Context::Params pars;
 				Transaction::Context ctx(pars);
@@ -2291,6 +2293,7 @@ int main()
 	beam::Rules::get().Emission.Drop0 = 5;
 	beam::Rules::get().Emission.Drop1 = 8;
 	beam::Rules::get().CA.Enabled = true;
+	beam::Rules::get().Maturity.Coinbase = 10;
 	beam::Rules::get().pForks[1].m_Height = 16;
 	beam::Rules::get().UpdateChecksum();
 

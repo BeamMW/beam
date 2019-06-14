@@ -58,9 +58,9 @@ struct TxPool
 			struct Threshold
 				:public boost::intrusive::set_base_hook<>
 			{
-				Height m_Value;
+				HeightRange m_Height;
 
-				bool operator < (const Threshold& t) const { return m_Value < t.m_Value; }
+				bool operator < (const Threshold& t) const { return m_Height.m_Max < t.m_Height.m_Max; }
 
 				IMPLEMENT_GET_PARENT_OBJ(Element, m_Threshold)
 			} m_Threshold;
@@ -87,8 +87,6 @@ struct TxPool
 		void Delete(Element&);
 		void Release(Element&);
 		void Clear();
-
-		void DeleteOutOfBound(Height);
 
 		~Fluff() { Clear(); }
 	};
@@ -125,6 +123,8 @@ struct TxPool
 				bool operator < (const Kernel& t) const { return m_hv < t.m_hv; }
 			};
 
+			HeightRange m_Height;
+
 			std::vector<Kernel> m_vKrn;
 		};
 
@@ -155,7 +155,7 @@ struct TxPool
 
 		~Stem() { Clear(); }
 
-		virtual bool ValidateTxContext(const Transaction&) = 0; // assuming context-free validation is already performed, but 
+		virtual bool ValidateTxContext(const Transaction&, const HeightRange&) = 0; // assuming context-free validation is already performed, but 
 		virtual void OnTimedOut(Element&) = 0;
 
 	private:
