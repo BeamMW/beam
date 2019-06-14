@@ -134,6 +134,8 @@ bool Server::on_login(uint64_t from, const Login& login) {
 
     Result res(login.id, loginSuccess ? stratum::no_error : stratum::login_failed);
     res.nonceprefix = conn->get_nonceprefix();
+    res.forkheight = Rules::get().pForks[1].m_Height;
+    std::cout << "Fork Height: " << Rules::get().pForks[1].m_Height << std::endl;
     append_json_msg(_fw, res);
     bool sent = conn->send_msg(_currentMsg, false, !loginSuccess);
     _currentMsg.clear();
