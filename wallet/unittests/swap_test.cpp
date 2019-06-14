@@ -41,6 +41,31 @@ WALLET_TEST_INIT
 #include "wallet_test_environment.cpp"
 #include "swap_test_environment.cpp"
 
+namespace
+{
+    TestBitcoinWallet GetSenderBTCWallet(io::Reactor& reactor, const io::Address& senderAddress, Amount swapAmount)
+    {
+        TestBitcoinWallet::Options senderOptions;
+        senderOptions.m_rawAddress = "2N8N2kr34rcGqHCo3aN6yqniid8a4Mt3FCv";
+        senderOptions.m_privateKey = "cSFMca7FAeAgLRgvev5ajC1v1jzprBr1KoefUFFPS8aw3EYwLArM";
+        senderOptions.m_refundTx = "0200000001809fc0890cb2724a941dfc3b7213a63b3017b0cddbed4f303be300cb55ddca830100000000ffffffff01e8030000000000001976a9146ed612a79317bc6ade234f299073b945ccb3e76b88ac00000000";
+        senderOptions.m_amount = swapAmount;
+
+        return TestBitcoinWallet(reactor, senderAddress, senderOptions);
+    }
+
+    TestBitcoinWallet GetReceiverBTCWallet(io::Reactor& reactor, const io::Address& receiverAddress, Amount swapAmount)
+    {
+        TestBitcoinWallet::Options receiverOptions;
+        receiverOptions.m_rawAddress = "2Mvfsv3JiwWXjjwNZD6LQJD4U4zaPAhSyNB";
+        receiverOptions.m_privateKey = "cNoRPsNczFw6b7wTuwLx24gSnCPyF3CbvgVmFJYKyfe63nBsGFxr";
+        receiverOptions.m_refundTx = "0200000001809fc0890cb2724a941dfc3b7213a63b3017b0cddbed4f303be300cb55ddca830100000000ffffffff01e8030000000000001976a9146ed612a79317bc6ade234f299073b945ccb3e76b88ac00000000";
+        receiverOptions.m_amount = swapAmount;
+
+        return TestBitcoinWallet(reactor, receiverAddress, receiverOptions);
+    }
+}
+
 void TestSwapTransaction(bool isBeamOwnerStart)
 {
     cout << "\nTesting atomic swap transaction...\n";
@@ -49,7 +74,7 @@ void TestSwapTransaction(bool isBeamOwnerStart)
     io::Reactor::Scope scope(*mainReactor);
 
     int completedCount = 2;
-    auto f = [&completedCount, mainReactor](auto)
+    auto completeAction = [&completedCount, mainReactor](auto)
     {
         --completedCount;
         if (completedCount == 0)
@@ -58,10 +83,6 @@ void TestSwapTransaction(bool isBeamOwnerStart)
             completedCount = 2;
         }
     };
-
-    TestNode node;
-    TestWalletRig sender("sender", createSenderWalletDB(), f);
-    TestWalletRig receiver("receiver", createReceiverWalletDB(), f);
 
     io::Address senderAddress;
     senderAddress.resolve("127.0.0.1:10400");
@@ -74,37 +95,18 @@ void TestSwapTransaction(bool isBeamOwnerStart)
     Amount swapAmount = 2000;
     Amount feeRate = 256;
 
-    BitcoinOptions bobOptions;
-    bobOptions.m_userName = "Bob";
-    bobOptions.m_pass = "123";
-    bobOptions.m_address = senderAddress;
-    bobOptions.m_feeRate = feeRate;
-
-    BitcoinOptions aliceOptions;
-    aliceOptions.m_userName = "Alice";
-    aliceOptions.m_pass = "123";
-    aliceOptions.m_address = receiverAddress;
-    aliceOptions.m_feeRate = feeRate;
+    BitcoinOptions bobOptions{ "Bob", "123", senderAddress, feeRate };
+    BitcoinOptions aliceOptions{ "Alice", "123", receiverAddress, feeRate };
+    TestBitcoinWallet senderBtcWallet = GetSenderBTCWallet(*mainReactor, senderAddress, swapAmount);
+    TestBitcoinWallet receiverBtcWallet = GetReceiverBTCWallet(*mainReactor, receiverAddress, swapAmount);
+    TestWalletRig sender("sender", createSenderWalletDB(), completeAction);
+    TestWalletRig receiver("receiver", createReceiverWalletDB(), completeAction);
 
     sender.m_Wallet.initBitcoin(*mainReactor, bobOptions);
     receiver.m_Wallet.initBitcoin(*mainReactor, aliceOptions);
 
-    TestBitcoinWallet::Options senderOptions;
-    senderOptions.m_rawAddress = "2N8N2kr34rcGqHCo3aN6yqniid8a4Mt3FCv";
-    senderOptions.m_privateKey = "cSFMca7FAeAgLRgvev5ajC1v1jzprBr1KoefUFFPS8aw3EYwLArM";
-    senderOptions.m_refundTx = "0200000001809fc0890cb2724a941dfc3b7213a63b3017b0cddbed4f303be300cb55ddca830100000000ffffffff01e8030000000000001976a9146ed612a79317bc6ade234f299073b945ccb3e76b88ac00000000";
-    senderOptions.m_amount = swapAmount;
-
-    TestBitcoinWallet senderBtcWallet(*mainReactor, senderAddress, senderOptions);
-    TestBitcoinWallet::Options receiverOptions;
-    receiverOptions.m_rawAddress = "2Mvfsv3JiwWXjjwNZD6LQJD4U4zaPAhSyNB";
-    receiverOptions.m_privateKey = "cNoRPsNczFw6b7wTuwLx24gSnCPyF3CbvgVmFJYKyfe63nBsGFxr";
-    receiverOptions.m_refundTx = "0200000001809fc0890cb2724a941dfc3b7213a63b3017b0cddbed4f303be300cb55ddca830100000000ffffffff01e8030000000000001976a9146ed612a79317bc6ade234f299073b945ccb3e76b88ac00000000";
-    receiverOptions.m_amount = swapAmount;
-
-    TestBitcoinWallet receiverBtcWallet(*mainReactor, receiverAddress, receiverOptions);
-
     receiverBtcWallet.addPeer(senderAddress);
+
     TxID txID = { {0} };
 
     if (isBeamOwnerStart)
@@ -121,6 +123,7 @@ void TestSwapTransaction(bool isBeamOwnerStart)
     auto receiverCoins = receiver.GetCoins();
     WALLET_CHECK(receiverCoins.empty());
 
+    TestNode node;
     io::Timer::Ptr timer = io::Timer::create(*mainReactor);
     timer->start(5000, true, [&node]() {node.AddBlock(); });
 
@@ -158,7 +161,7 @@ void TestSwapTransactionWithoutChange(bool isBeamOwnerStart)
     io::Reactor::Scope scope(*mainReactor);
 
     int completedCount = 2;
-    auto f = [&completedCount, mainReactor](auto)
+    auto completeAction = [&completedCount, mainReactor](auto)
     {
         --completedCount;
         if (completedCount == 0)
@@ -167,10 +170,6 @@ void TestSwapTransactionWithoutChange(bool isBeamOwnerStart)
             completedCount = 2;
         }
     };
-
-    TestNode node;
-    TestWalletRig sender("sender", createSenderWalletDB(), f);
-    TestWalletRig receiver("receiver", createReceiverWalletDB(), f);
 
     io::Address senderAddress;
     senderAddress.resolve("127.0.0.1:10400");
@@ -183,37 +182,18 @@ void TestSwapTransactionWithoutChange(bool isBeamOwnerStart)
     Amount swapAmount = 2000;
     Amount feeRate = 256;
 
-    BitcoinOptions bobOptions;
-    bobOptions.m_userName = "Bob";
-    bobOptions.m_pass = "123";
-    bobOptions.m_address = senderAddress;
-    bobOptions.m_feeRate = feeRate;
-
-    BitcoinOptions aliceOptions;
-    aliceOptions.m_userName = "Alice";
-    aliceOptions.m_pass = "123";
-    aliceOptions.m_address = receiverAddress;
-    aliceOptions.m_feeRate = feeRate;
+    BitcoinOptions bobOptions{ "Bob", "123", senderAddress, feeRate };
+    BitcoinOptions aliceOptions{ "Alice", "123", receiverAddress, feeRate };
+    TestBitcoinWallet senderBtcWallet = GetSenderBTCWallet(*mainReactor, senderAddress, swapAmount);
+    TestBitcoinWallet receiverBtcWallet = GetReceiverBTCWallet(*mainReactor, receiverAddress, swapAmount);
+    TestWalletRig sender("sender", createSenderWalletDB(), completeAction);
+    TestWalletRig receiver("receiver", createReceiverWalletDB(), completeAction);
 
     sender.m_Wallet.initBitcoin(*mainReactor, bobOptions);
     receiver.m_Wallet.initBitcoin(*mainReactor, aliceOptions);
 
-    TestBitcoinWallet::Options senderOptions;
-    senderOptions.m_rawAddress = "2N8N2kr34rcGqHCo3aN6yqniid8a4Mt3FCv";
-    senderOptions.m_privateKey = "cSFMca7FAeAgLRgvev5ajC1v1jzprBr1KoefUFFPS8aw3EYwLArM";
-    senderOptions.m_refundTx = "0200000001809fc0890cb2724a941dfc3b7213a63b3017b0cddbed4f303be300cb55ddca830100000000ffffffff01e8030000000000001976a9146ed612a79317bc6ade234f299073b945ccb3e76b88ac00000000";
-    senderOptions.m_amount = swapAmount;
-
-    TestBitcoinWallet senderBtcWallet(*mainReactor, senderAddress, senderOptions);
-    TestBitcoinWallet::Options receiverOptions;
-    receiverOptions.m_rawAddress = "2Mvfsv3JiwWXjjwNZD6LQJD4U4zaPAhSyNB";
-    receiverOptions.m_privateKey = "cNoRPsNczFw6b7wTuwLx24gSnCPyF3CbvgVmFJYKyfe63nBsGFxr";
-    receiverOptions.m_refundTx = "0200000001809fc0890cb2724a941dfc3b7213a63b3017b0cddbed4f303be300cb55ddca830100000000ffffffff01e8030000000000001976a9146ed612a79317bc6ade234f299073b945ccb3e76b88ac00000000";
-    receiverOptions.m_amount = swapAmount;
-
-    TestBitcoinWallet receiverBtcWallet(*mainReactor, receiverAddress, receiverOptions);
-
     receiverBtcWallet.addPeer(senderAddress);
+
     TxID txID = { {0} };
 
     if (isBeamOwnerStart)
@@ -230,6 +210,7 @@ void TestSwapTransactionWithoutChange(bool isBeamOwnerStart)
     auto receiverCoins = receiver.GetCoins();
     WALLET_CHECK(receiverCoins.empty());
 
+    TestNode node;
     io::Timer::Ptr timer = io::Timer::create(*mainReactor);
     timer->start(5000, true, [&node]() {node.AddBlock(); });
 
@@ -260,10 +241,6 @@ void TestSwapBTCRefundTransaction()
         mainReactor->stop();
     };
 
-    TestNode node;
-    auto sender = std::make_unique<TestWalletRig>("sender", createSenderWalletDB(), completedAction);
-    auto receiver = std::make_shared<TestWalletRig>("receiver", createReceiverWalletDB(), completedAction);
-
     io::Address senderAddress;
     senderAddress.resolve("127.0.0.1:10400");
 
@@ -277,34 +254,23 @@ void TestSwapBTCRefundTransaction()
 
     BitcoinOptions bobOptions { "Bob", "123", senderAddress, feeRate };
     BitcoinOptions aliceOptions { "Alice", "123", receiverAddress, feeRate };
-
-    sender->m_Wallet.initBitcoin(*mainReactor, bobOptions);
-    receiver->m_Wallet.initBitcoin(*mainReactor, aliceOptions);
-
-    TestBitcoinWallet::Options senderOptions;
-    senderOptions.m_rawAddress = "2N8N2kr34rcGqHCo3aN6yqniid8a4Mt3FCv";
-    senderOptions.m_privateKey = "cSFMca7FAeAgLRgvev5ajC1v1jzprBr1KoefUFFPS8aw3EYwLArM";
-    senderOptions.m_refundTx = "0200000001809fc0890cb2724a941dfc3b7213a63b3017b0cddbed4f303be300cb55ddca830100000000ffffffff01e8030000000000001976a9146ed612a79317bc6ade234f299073b945ccb3e76b88ac00000000";
-    senderOptions.m_amount = swapAmount;
-
-    TestBitcoinWallet senderBtcWallet(*mainReactor, senderAddress, senderOptions);
-    TestBitcoinWallet::Options receiverOptions;
-    receiverOptions.m_rawAddress = "2Mvfsv3JiwWXjjwNZD6LQJD4U4zaPAhSyNB";
-    receiverOptions.m_privateKey = "cNoRPsNczFw6b7wTuwLx24gSnCPyF3CbvgVmFJYKyfe63nBsGFxr";
-    receiverOptions.m_refundTx = "0200000001809fc0890cb2724a941dfc3b7213a63b3017b0cddbed4f303be300cb55ddca830100000000ffffffff01e8030000000000001976a9146ed612a79317bc6ade234f299073b945ccb3e76b88ac00000000";
-    receiverOptions.m_amount = swapAmount;
-
-    TestBitcoinWallet receiverBtcWallet(*mainReactor, receiverAddress, receiverOptions);
+    TestBitcoinWallet senderBtcWallet = GetSenderBTCWallet(*mainReactor, senderAddress, swapAmount);
+    TestBitcoinWallet receiverBtcWallet = GetReceiverBTCWallet(*mainReactor, receiverAddress, swapAmount);
+    auto sender = std::make_unique<TestWalletRig>("sender", createSenderWalletDB(), completedAction);
+    auto receiver = std::make_shared<TestWalletRig>("receiver", createReceiverWalletDB(), completedAction);
 
     receiverBtcWallet.addPeer(senderAddress);
-
+    sender->m_Wallet.initBitcoin(*mainReactor, bobOptions);
+    receiver->m_Wallet.initBitcoin(*mainReactor, aliceOptions);
     receiver->m_Wallet.initSwapConditions(beamAmount, swapAmount, wallet::AtomicSwapCoin::Bitcoin, false);
+
     TxID txID = sender->m_Wallet.swap_coins(sender->m_WalletID, receiver->m_WalletID, beamAmount, beamFee, wallet::AtomicSwapCoin::Bitcoin, swapAmount, true);
 
     auto receiverCoins = receiver->GetCoins();
     WALLET_CHECK(receiverCoins.empty());
 
-   io::AsyncEvent::Ptr eventToUpdate;
+    TestNode node;
+    io::AsyncEvent::Ptr eventToUpdate;
 
     eventToUpdate = io::AsyncEvent::create(*mainReactor, [&sender, receiver, txID, &eventToUpdate, &node]()
     {
@@ -360,10 +326,6 @@ void TestSwapBeamRefundTransaction()
         mainReactor->stop();
     };
 
-    TestNode node;
-    auto sender = std::make_unique<TestWalletRig>("sender", createSenderWalletDB(), completedAction);
-    auto receiver = std::make_unique<TestWalletRig>("receiver", createReceiverWalletDB(), completedAction);
-
     io::Address senderAddress;
     senderAddress.resolve("127.0.0.1:10400");
 
@@ -377,33 +339,22 @@ void TestSwapBeamRefundTransaction()
 
     BitcoinOptions bobOptions{ "Bob", "123", senderAddress, feeRate };
     BitcoinOptions aliceOptions{ "Alice", "123", receiverAddress, feeRate };
-
-    sender->m_Wallet.initBitcoin(*mainReactor, bobOptions);
-    receiver->m_Wallet.initBitcoin(*mainReactor, aliceOptions);
-
-    TestBitcoinWallet::Options senderOptions;
-    senderOptions.m_rawAddress = "2N8N2kr34rcGqHCo3aN6yqniid8a4Mt3FCv";
-    senderOptions.m_privateKey = "cSFMca7FAeAgLRgvev5ajC1v1jzprBr1KoefUFFPS8aw3EYwLArM";
-    senderOptions.m_refundTx = "0200000001809fc0890cb2724a941dfc3b7213a63b3017b0cddbed4f303be300cb55ddca830100000000ffffffff01e8030000000000001976a9146ed612a79317bc6ade234f299073b945ccb3e76b88ac00000000";
-    senderOptions.m_amount = swapAmount;
-
-    TestBitcoinWallet senderBtcWallet(*mainReactor, senderAddress, senderOptions);
-    TestBitcoinWallet::Options receiverOptions;
-    receiverOptions.m_rawAddress = "2Mvfsv3JiwWXjjwNZD6LQJD4U4zaPAhSyNB";
-    receiverOptions.m_privateKey = "cNoRPsNczFw6b7wTuwLx24gSnCPyF3CbvgVmFJYKyfe63nBsGFxr";
-    receiverOptions.m_refundTx = "0200000001809fc0890cb2724a941dfc3b7213a63b3017b0cddbed4f303be300cb55ddca830100000000ffffffff01e8030000000000001976a9146ed612a79317bc6ade234f299073b945ccb3e76b88ac00000000";
-    receiverOptions.m_amount = swapAmount;
-
-    TestBitcoinWallet receiverBtcWallet(*mainReactor, receiverAddress, receiverOptions);
+    TestBitcoinWallet senderBtcWallet = GetSenderBTCWallet(*mainReactor, senderAddress, swapAmount);
+    TestBitcoinWallet receiverBtcWallet = GetReceiverBTCWallet(*mainReactor, receiverAddress, swapAmount);
+    auto sender = std::make_unique<TestWalletRig>("sender", createSenderWalletDB(), completedAction);
+    auto receiver = std::make_unique<TestWalletRig>("receiver", createReceiverWalletDB(), completedAction);
 
     receiverBtcWallet.addPeer(senderAddress);
-
+    sender->m_Wallet.initBitcoin(*mainReactor, bobOptions);
+    receiver->m_Wallet.initBitcoin(*mainReactor, aliceOptions);
     receiver->m_Wallet.initSwapConditions(beamAmount, swapAmount, wallet::AtomicSwapCoin::Bitcoin, false);
+
     TxID txID = sender->m_Wallet.swap_coins(sender->m_WalletID, receiver->m_WalletID, beamAmount, beamFee, wallet::AtomicSwapCoin::Bitcoin, swapAmount, true);
 
     auto receiverCoins = receiver->GetCoins();
     WALLET_CHECK(receiverCoins.empty());
 
+    TestNode node;
     io::AsyncEvent::Ptr eventToUpdate;
 
     eventToUpdate = io::AsyncEvent::create(*mainReactor, [&sender, &receiver, txID, &eventToUpdate, &node]()
