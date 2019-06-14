@@ -13,8 +13,8 @@
 // NDSS ’16, 21-24 February 2016, San Diego, CA, USA
 // https://www.internetsociety.org/sites/default/files/blogs-media/equihash-asymmetric-proof-of-work-based-generalized-birthday-problem.pdf
 
-#ifndef BEAMHASH_H
-#define BEAMHASH_H
+#ifndef EQUIHASHR_H
+#define EQUIHASHR_H
 
 #if defined(__ANDROID__) || !defined(BEAM_USE_AVX)
 #include "blake/ref/blake2.h"
@@ -30,9 +30,9 @@
 #include <set>
 #include <vector>
 
-typedef blake2b_state bh_HashState;
-typedef uint32_t bh_index;
-typedef uint8_t bh_trunc;
+typedef blake2b_state eh_HashState;
+typedef uint32_t eh_index;
+typedef uint8_t eh_trunc;
 
 void ExpandArray(const unsigned char* in, size_t in_len,
                  unsigned char* out, size_t out_len,
@@ -41,12 +41,12 @@ void CompressArray(const unsigned char* in, size_t in_len,
                    unsigned char* out, size_t out_len,
                    size_t bit_len, size_t byte_pad=0);
 
-bh_index ArrayToBhIndex(const unsigned char* array);
-bh_trunc TruncateIndex(const bh_index i, const unsigned int ilen);
+eh_index ArrayToEhIndex(const unsigned char* array);
+eh_trunc TruncateIndex(const eh_index i, const unsigned int ilen);
 
-std::vector<bh_index> GetIndicesFromMinimal(std::vector<unsigned char> minimal,
+std::vector<eh_index> GetIndicesFromMinimal(std::vector<unsigned char> minimal,
                                             size_t cBitLen);
-std::vector<unsigned char> GetMinimalFromIndices(std::vector<bh_index> indices,
+std::vector<unsigned char> GetMinimalFromIndices(std::vector<eh_index> indices,
                                                  size_t cBitLen);
 
 template<size_t WIDTH>
@@ -98,7 +98,7 @@ class FullStepRow : public StepRow<WIDTH>
 
 public:
     FullStepRow(const unsigned char* hashIn, size_t hInLen,
-                size_t hLen, size_t cBitLen, bh_index i);
+                size_t hLen, size_t cBitLen, eh_index i);
     ~FullStepRow() { }
 
     FullStepRow(const FullStepRow<WIDTH>& a) : StepRow<WIDTH> {a} { }
@@ -114,7 +114,7 @@ public:
     friend bool DistinctIndices(const FullStepRow<W>& a, const FullStepRow<W>& b,
                                 size_t len, size_t lenIndices);
     template<size_t W>
-    friend bool IsValidBranch(const FullStepRow<W>& a, const size_t len, const unsigned int ilen, const bh_trunc t);
+    friend bool IsValidBranch(const FullStepRow<W>& a, const size_t len, const unsigned int ilen, const eh_trunc t);
 };
 
 template<size_t WIDTH>
@@ -128,7 +128,7 @@ class TruncatedStepRow : public StepRow<WIDTH>
 public:
     TruncatedStepRow(const unsigned char* hashIn, size_t hInLen,
                      size_t hLen, size_t cBitLen,
-                     bh_index i, unsigned int ilen);
+                     eh_index i, unsigned int ilen);
     ~TruncatedStepRow() { }
 
     TruncatedStepRow(const TruncatedStepRow<WIDTH>& a) : StepRow<WIDTH> {a} { }
@@ -137,10 +137,10 @@ public:
     TruncatedStepRow& operator=(const TruncatedStepRow<WIDTH>& a);
 
     inline bool IndicesBefore(const TruncatedStepRow<WIDTH>& a, size_t len, size_t lenIndices) const { return memcmp(hash+len, a.hash+len, lenIndices) < 0; }
-    std::shared_ptr<bh_trunc> GetTruncatedIndices(size_t len, size_t lenIndices) const;
+    std::shared_ptr<eh_trunc> GetTruncatedIndices(size_t len, size_t lenIndices) const;
 };
 
-enum BhSolverCancelCheck
+enum EhSolverCancelCheck
 {
     ListGeneration,
     ListSorting,
@@ -155,7 +155,7 @@ enum BhSolverCancelCheck
     PartialEnd
 };
 
-class BhSolverCancelledException : public std::exception
+class EhSolverCancelledException : public std::exception
 {
     virtual const char* what() const throw() {
         return "BeamHash solver was cancelled";
@@ -178,9 +178,9 @@ constexpr uint8_t GetSizeInBytes(size_t N)
 template<size_t WIDTH>
 bool DistinctIndices(const FullStepRow<WIDTH>& a, const FullStepRow<WIDTH>& b, size_t len, size_t lenIndices)
 {
-    for(size_t i = 0; i < lenIndices; i += sizeof(bh_index)) {
-        for(size_t j = 0; j < lenIndices; j += sizeof(bh_index)) {
-            if (memcmp(a.hash+len+i, b.hash+len+j, sizeof(bh_index)) == 0) {
+    for(size_t i = 0; i < lenIndices; i += sizeof(eh_index)) {
+        for(size_t j = 0; j < lenIndices; j += sizeof(eh_index)) {
+            if (memcmp(a.hash+len+i, b.hash+len+j, sizeof(eh_index)) == 0) {
                 return false;
             }
         }
@@ -189,7 +189,7 @@ bool DistinctIndices(const FullStepRow<WIDTH>& a, const FullStepRow<WIDTH>& b, s
 }
 
 template<size_t MAX_INDICES>
-bool IsProbablyDuplicate(std::shared_ptr<bh_trunc> indices, size_t lenIndices)
+bool IsProbablyDuplicate(std::shared_ptr<eh_trunc> indices, size_t lenIndices)
 {
     bool checked_index[MAX_INDICES] = {false};
     size_t count_checked = 0;
@@ -210,22 +210,22 @@ bool IsProbablyDuplicate(std::shared_ptr<bh_trunc> indices, size_t lenIndices)
 }
 
 template<size_t WIDTH>
-bool IsValidBranch(const FullStepRow<WIDTH>& a, const size_t len, const unsigned int ilen, const bh_trunc t)
+bool IsValidBranch(const FullStepRow<WIDTH>& a, const size_t len, const unsigned int ilen, const eh_trunc t)
 {
-    return TruncateIndex(ArrayToBhIndex(a.hash+len), ilen) == t;
+    return TruncateIndex(ArrayToEhIndex(a.hash+len), ilen) == t;
 }
 
 
 
 class PoWScheme {
 public:
-    virtual int InitialiseState(bh_HashState& base_state) = 0;
-    virtual bool IsValidSolution(const bh_HashState& base_state, std::vector<unsigned char> soln) = 0;	
+    virtual int InitialiseState(eh_HashState& base_state) = 0;
+    virtual bool IsValidSolution(const eh_HashState& base_state, std::vector<unsigned char> soln) = 0;	
 
 #ifdef ENABLE_MINING
-    virtual bool OptimisedSolve(const bh_HashState& base_state,
+    virtual bool OptimisedSolve(const eh_HashState& base_state,
                         const std::function<bool(const std::vector<unsigned char>&)> validBlock,
-                        const std::function<bool(BhSolverCancelCheck)> cancelled) = 0;
+                        const std::function<bool(EhSolverCancelCheck)> cancelled) = 0;
 #endif
     
 };  
@@ -233,11 +233,11 @@ public:
 
 
 template<unsigned int N, unsigned int K, unsigned int R>
-class BeamHash : public PoWScheme
+class EquihashR : public PoWScheme
 {
 private:
     static_assert(K < N);
-    static_assert((N/(K+1)) + 1 < 8*sizeof(bh_index));
+    static_assert((N/(K+1)) + 1 < 8*sizeof(eh_index));
 
 public:
     enum : size_t { IndicesPerHashOutput=512/N };
@@ -245,25 +245,44 @@ public:
     enum : size_t { CollisionBitLength=N/(K+1) };
     enum : size_t { CollisionByteLength=(CollisionBitLength+7)/8 };
     enum : size_t { HashLength=(K+1)*CollisionByteLength };
-    enum : size_t { FullWidth=2*CollisionByteLength+sizeof(bh_index)*(1 << (K-1)) };
-    enum : size_t { FinalFullWidth=2*CollisionByteLength+sizeof(bh_index)*(1 << (K)) };
-    enum : size_t { TruncatedWidth=max(HashLength+sizeof(bh_trunc), 2*CollisionByteLength+sizeof(bh_trunc)*(1 << (K-1))) };
-    enum : size_t { FinalTruncatedWidth=max(HashLength+sizeof(bh_trunc), 2*CollisionByteLength+sizeof(bh_trunc)*(1 << (K))) };
+    enum : size_t { FullWidth=2*CollisionByteLength+sizeof(eh_index)*(1 << (K-1)) };
+    enum : size_t { FinalFullWidth=2*CollisionByteLength+sizeof(eh_index)*(1 << (K)) };
+    enum : size_t { TruncatedWidth=max(HashLength+sizeof(eh_trunc), 2*CollisionByteLength+sizeof(eh_trunc)*(1 << (K-1))) };
+    enum : size_t { FinalTruncatedWidth=max(HashLength+sizeof(eh_trunc), 2*CollisionByteLength+sizeof(eh_trunc)*(1 << (K))) };
     enum : size_t { SolutionWidth=(1 << K)*(CollisionBitLength+1)/8 };
 
-    BeamHash() { }
+    EquihashR() { }
 
-    int InitialiseState(bh_HashState& base_state);
-    bool IsValidSolution(const bh_HashState& base_state, std::vector<unsigned char> soln);
+    int InitialiseState(eh_HashState& base_state);
+    bool IsValidSolution(const eh_HashState& base_state, std::vector<unsigned char> soln);
 #ifdef ENABLE_MINING
-    bool OptimisedSolve(const bh_HashState& base_state,
+    bool OptimisedSolve(const eh_HashState& base_state,
                         const std::function<bool(const std::vector<unsigned char>&)> validBlock,
-                        const std::function<bool(BhSolverCancelCheck)> cancelled);
+                        const std::function<bool(EhSolverCancelCheck)> cancelled);
 #endif
 };
 
+static EquihashR<150,5,0> BeamHashI;
+static EquihashR<150,5,3> BeamHashII;
 
-//static BeamHash<150,5,0> BeamHashI;
-//static BeamHash<150,5,3> BeamHashII;
+
+#define EhRInitialiseState(n, k, r, base_state, personalizationString)  \
+     if (n == 150 && k == 5 && r == 0) { 				\
+        BeamHashI.InitialiseState(base_state, personalizationString); 	\
+    } else if (n == 150 && k == 5 && r == 3)) {       			\
+        BeamHashII.InitialiseState(base_state, personalizationString);	\
+    } else {                                 				\
+        throw std::invalid_argument("Unsupported Equihash parameters"); \
+    }
+
+#define EhRIsValidSolution(n, k, r, base_state, soln, ret)   	\
+    if (n == 150 && k == 5 && r == 0) {                 	\
+        ret = BeamHashI.IsValidSolution(base_state, soln); 	\
+    } else if (n == 150 && k == 5 && r == 3)) {            	\
+        ret = BeamHashII.IsValidSolution(base_state, soln);  	\
+    } else {                                             	\
+        throw std::invalid_argument("Unsupported Equihash parameters"); \
+    }
+
 
 #endif 
