@@ -1196,7 +1196,7 @@ namespace beam::wallet
     Key::IKdf::Ptr IWalletDB::get_ChildKdf(Key::Index iKdf) const
     {
         Key::IKdf::Ptr pMaster = get_MasterKdf();
-        if (!iKdf || pMaster)
+        if (!iKdf)
             return pMaster; // by convention 0 is not a childd
 
         Key::IKdf::Ptr pRet;

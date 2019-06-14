@@ -280,7 +280,7 @@ namespace beam::wallet
 
     Key::IKdf::Ptr LocalPrivateKeyKeeper::GetChildKdf(Key::Index iKdf) const
     {
-        if (!iKdf || m_MasterKdf)
+        if (!iKdf)
             return m_MasterKdf; // by convention 0 is not a childd
 
         Key::IKdf::Ptr pRet;
