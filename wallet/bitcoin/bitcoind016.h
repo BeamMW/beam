@@ -18,11 +18,6 @@
 #include "http/http_client.h"
 #include "options.h"
 
-//namespace nlohmann
-//{
-//    class json;
-//}
-
 namespace beam
 {
     class Bitcoind016: public IBitcoinBridge

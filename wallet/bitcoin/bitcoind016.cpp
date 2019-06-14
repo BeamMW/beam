@@ -400,38 +400,6 @@ namespace beam
                         error.m_message = "Empty response.";
                     }
                 }
-                /*switch (msg.msg->get_status())
-                {
-                case 200:
-                {
-                    size_t sz = 0;
-                    const void* body = msg.msg->get_body(sz);
-                    if (sz > 0 && body)
-                    {
-                        response = std::string(static_cast<const char*>(body), sz);
-                        LOG_DEBUG() << "Bitcoin response: " << response;
-                    }
-                    else
-                    {
-                        error.m_type = InvalidResultFormat;
-                        error.m_message = "Empty response.";
-                    }
-                    break;
-                }
-                case 401:
-                {
-                    error.m_type = InvalidCredentials;
-                    error.m_message = "Invalid credentials.";
-                    break;
-                }
-                default:
-                {
-                    error.m_type = IOError;
-                    error.m_message = "HTTP status: " + std::to_string(msg.msg->get_status());
-                    break;
-                }
-                }*/
-
             }
             else
             {
