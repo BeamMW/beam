@@ -92,7 +92,6 @@ namespace beam
         const char* GENERATE_PHRASE = "generate_phrase";
         const char* FEE = "fee";
         const char* FEE_FULL = "fee,f";
-        const char* RECEIVE = "receive";
         const char* LOG_LEVEL = "log_level";
         const char* FILE_LOG_LEVEL = "file_log_level";
         const char* LOG_INFO = "info";
@@ -147,6 +146,8 @@ namespace beam
         const char* TR_N = "tr_N";
         // ui
         const char* APPDATA_PATH = "appdata";
+        // Defaults
+        const Amount kMinimumFee = 100;
     }
 
     template<typename T>
@@ -274,7 +275,7 @@ namespace beam
             (cli::LTC_PASS, po::value<string>(), "password for the litecoin node")
             (cli::LTC_USER_NAME, po::value<string>(), "user name for the litecoin node")
             (cli::AMOUNT_FULL, po::value<Positive<double>>(), "amount to send (in Beams, 1 Beam = 100,000,000 groth)")
-            (cli::FEE_FULL, po::value<Nonnegative<Amount>>()->default_value(Nonnegative<Amount>(0)), "fee (in Groth, 100,000,000 groth = 1 Beam)")
+            (cli::FEE_FULL, po::value<Nonnegative<Amount>>()->default_value(Nonnegative<Amount>(cli::kMinimumFee)), "fee (in Groth, 100,000,000 groth = 1 Beam)")
             (cli::RECEIVER_ADDR_FULL, po::value<string>(), "address of receiver")
             (cli::NODE_ADDR_FULL, po::value<string>(), "address of node")
             (cli::BTC_NODE_ADDR, po::value<string>(), "address of bitcoin node")

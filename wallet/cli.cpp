@@ -884,7 +884,7 @@ namespace
         return coinIDs;
     }
 
-    bool LoadBaseParamsForTX(const po::variables_map& vm, Amount& amount, Amount& fee, WalletID& receiverWalletID)
+    bool LoadBaseParamsForTX(const po::variables_map& vm, Amount& amount, Amount& fee, WalletID& receiverWalletID, bool checkFee)
     {
         if (vm.count(cli::RECEIVER_ADDR) == 0)
         {
@@ -916,6 +916,11 @@ namespace
         }
 
         fee = vm[cli::FEE].as<Nonnegative<Amount>>().value;
+        if (checkFee && fee < cli::kMinimumFee)
+        {
+            LOG_ERROR() << "Failed to initiate the send operation. The minimum fee is 100 groth.";
+            return false;
+        }
 
         return true;
     }
@@ -1023,7 +1028,6 @@ int main_impl(int argc, char* argv[])
                             cli::INIT,
                             cli::RESTORE,
                             cli::SEND,
-                            cli::RECEIVE,
                             cli::LISTEN,
                             cli::TREASURY,
                             cli::INFO,
@@ -1133,6 +1137,10 @@ int main_impl(int argc, char* argv[])
                         LOG_ERROR() << "Please check your password. If password is lost, restore wallet.db from latest backup or delete it and restore from seed phrase.";
                         return -1;
                     }
+
+                    const auto& currHeight = walletDB->getCurrentHeight();
+                    const auto& fork1Height = Rules::get().pForks[1].m_Height;
+                    const bool isFork1 = currHeight >= fork1Height;
 
                     if (command == cli::CHANGE_ADDRESS_EXPIRATION)
                     {
@@ -1271,12 +1279,13 @@ int main_impl(int argc, char* argv[])
                         return ShowAddressList(walletDB);
                     }
 
+                    /// HERE!!
                     io::Address receiverAddr;
                     Amount amount = 0;
                     Amount fee = 0;
                     WalletID receiverWalletID(Zero);
-                    bool isTxInitiator = command == cli::SEND || command == cli::RECEIVE;
-                    if (isTxInitiator && !LoadBaseParamsForTX(vm, amount, fee, receiverWalletID))
+                    bool isTxInitiator = command == cli::SEND;
+                    if (isTxInitiator && !LoadBaseParamsForTX(vm, amount, fee, receiverWalletID, isFork1))
                     {
                         return -1;
                     }
@@ -1401,7 +1410,7 @@ int main_impl(int argc, char* argv[])
 
                             if (command == cli::SWAP_INIT)
                             {
-                                if (!LoadBaseParamsForTX(vm, amount, fee, receiverWalletID))
+                                if (!LoadBaseParamsForTX(vm, amount, fee, receiverWalletID, isFork1))
                                 {
                                     return -1;
                                 }
