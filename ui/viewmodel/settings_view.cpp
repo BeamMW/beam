@@ -260,7 +260,7 @@ void SettingsViewModel::refreshWallet()
 
 void SettingsViewModel::openFolder(const QString& path)
 {
-    QDesktopServices::openUrl(QUrl::fromLocalFile(path));
+    WalletSettings::openFolder(path);
 }
 
 bool SettingsViewModel::isChanged() const
