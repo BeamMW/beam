@@ -662,8 +662,9 @@
         <translation>Ваш кошелек будет обновлен до версии:</translation>
     </message>
     <message id="start-migration-button">
-        <source>start migration</source>
-        <translation>начать обновление</translation>
+        <source>start auto migration</source>
+        <extracomment>migration screen, start auto migration button</extracomment>
+        <translation>автообновление</translation>
     </message>
     <message id="start-login-another-message">
         <source>Restore wallet or create new one</source>
@@ -687,11 +688,8 @@
     </message>
     <message id="start-select-db-thead-modified">
         <source>Date modified</source>
+        <extracomment>start screen, select db for migration, Date modified column title</extracomment>
         <translation>Дата изменения</translation>
-    </message>
-    <message id="start-select-db-manual-button">
-        <source>select file manually</source>
-        <translation>выбрать файл</translation>
     </message>
     <message id="start-next-button">
         <source>next</source>
@@ -1357,6 +1355,26 @@
         <source>Address with same comment already exist</source>
         <extracomment>Create address, address with same comment already exist error</extracomment>
         <translation>Адрес с таким коментарием уже существует</translation>
+    </message>
+    <message id="start-migration-select-file-button">
+        <source>select wallet database file manually</source>
+        <extracomment>migration screen, select db file button</extracomment>
+        <translation>выбрать файл базы данных</translation>
+    </message>
+    <message id="start-select-db-best-match-label">
+        <source>(best match)</source>
+        <extracomment>start screen, select db for migration, best match label</extracomment>
+        <translation>(предпочтительно)</translation>
+    </message>
+    <message id="start-select-db-thead-created">
+        <source>Date created</source>
+        <extracomment>start screen, select db for migration, Date created column title</extracomment>
+        <translation>Дата создания</translation>
+    </message>
+    <message id="start-select-db-show-in-folder-label">
+        <source>show in folder</source>
+        <extracomment>start screen, select db for migration, show in folder label</extracomment>
+        <translation>открыть папку</translation>
     </message>
 </context>
 </TS>

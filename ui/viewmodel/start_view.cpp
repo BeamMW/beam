@@ -37,6 +37,7 @@
 #include "wallet/default_peers.h"
 
 #include <boost/filesystem.hpp>
+#include <algorithm>
 #include <thread>
 
 using namespace beam;
@@ -186,10 +187,17 @@ int RecoveryPhraseItem::getIndex() const
     return m_index;
 }
 
-WalletDBPathItem::WalletDBPathItem(const std::string& walletDBPath, uintmax_t fileSize, time_t lastWriteTime)
+WalletDBPathItem::WalletDBPathItem(
+    const QString& walletDBPath,
+    uintmax_t fileSize,
+    QDateTime lastWriteTime,
+    QDateTime creationTime,
+    bool defaultLocated)
     : m_fullPath{walletDBPath}
     , m_fileSize(fileSize)
     , m_lastWriteTime(lastWriteTime)
+    , m_creationTime(creationTime)
+    , m_defaultLocated(defaultLocated)
 {
 }
 
@@ -202,9 +210,9 @@ int WalletDBPathItem::getFileSize() const
     return m_fileSize;
 }
 
-QString WalletDBPathItem::getFullPath() const
+const QString& WalletDBPathItem::getFullPath() const
 {
-    return QString::fromStdString(m_fullPath);
+    return m_fullPath;
 }
 
 QString WalletDBPathItem::getShortPath() const
@@ -214,8 +222,32 @@ QString WalletDBPathItem::getShortPath() const
 
 QString WalletDBPathItem::getLastWriteDateString() const
 {
-    QDateTime datetime = QDateTime::fromTime_t(m_lastWriteTime);
-    return datetime.toString(Qt::SystemLocaleShortDate);
+    return m_lastWriteTime.date().toString(Qt::SystemLocaleShortDate);
+}
+
+QString WalletDBPathItem::getCreationDateString() const
+{
+    return m_creationTime.date().toString(Qt::SystemLocaleShortDate);
+}
+
+QDateTime WalletDBPathItem::getLastWriteDate() const
+{
+    return m_lastWriteTime;
+}
+
+bool WalletDBPathItem::locatedByDefault() const
+{
+    return m_defaultLocated;
+}
+
+void WalletDBPathItem::setPreferred(bool isPreferred)
+{
+    m_isPreferred = isPreferred;
+}
+
+bool WalletDBPathItem::isPreferred() const
+{
+    return m_isPreferred;
 }
 
 StartViewModel::StartViewModel()
@@ -514,9 +546,30 @@ void StartViewModel::findExistingWalletDB()
 
     for (auto& walletDBPath : walletDBs)
     {
-        auto fileSize = boost::filesystem::file_size(walletDBPath);
-        auto lastWriteTime = boost::filesystem::last_write_time(walletDBPath);
-        m_walletDBpaths.push_back(new WalletDBPathItem(walletDBPath.generic_string(), fileSize, lastWriteTime));
+        QFile dbFile(QString::fromStdString(walletDBPath.generic_string()));
+        QFileInfo fileInfo;
+        fileInfo.setFile(dbFile);
+        QString absoluteFilePath = fileInfo.absoluteFilePath();
+        bool isDefaultLocated = absoluteFilePath.contains(
+            QString::fromStdString(defaultAppDataPath));
+        m_walletDBpaths.push_back(new WalletDBPathItem(
+                absoluteFilePath,
+                fileInfo.size(),
+                fileInfo.lastModified(),
+                fileInfo.birthTime(),
+                isDefaultLocated));
+    }
+
+    std::sort(m_walletDBpaths.begin(), m_walletDBpaths.end(),
+              [] (WalletDBPathItem* left, WalletDBPathItem* right) {
+                  if (left->locatedByDefault() && !right->locatedByDefault()) {
+                      return false;
+                  }
+                  return left->getLastWriteDate() > right->getLastWriteDate();
+              });
+
+    if (!m_walletDBpaths.empty()) {
+        m_walletDBpaths.first()->setPreferred();
     }
 }
 
@@ -590,4 +643,9 @@ QString StartViewModel::defaultRemoteNodeAddr() const
 void StartViewModel::checkCapsLock()
 {
     emit capsLockStateMayBeChanged();
+}
+
+void StartViewModel::openFolder(const QString& path) const
+{
+    WalletSettings::openFolder(path);
 }

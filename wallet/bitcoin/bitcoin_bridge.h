@@ -32,7 +32,8 @@ namespace beam
             InvalidResultFormat,
             IOError,
             BitcoinError,
-            InvalidCredentials
+            InvalidCredentials,
+            EmptyResult
         };
 
         struct Error

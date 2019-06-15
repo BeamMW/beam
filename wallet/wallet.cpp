@@ -321,7 +321,7 @@ namespace beam::wallet
         // Restore Incoming coins of active transactions
         m_WalletDB->save(ocoins);
 
-        SetUtxoEventsHeight(0);
+        storage::setVar(*m_WalletDB, s_szNextUtxoEvt, 0);
         RequestUtxoEvents();
         RefreshTransactions();
     }
