@@ -803,7 +803,7 @@ namespace
 
     int ExportOwnerKey(const IWalletDB::Ptr& walletDB, const beam::SecString& pass)
     {
-        Key::IKdf::Ptr pKey = walletDB->get_ChildKdf(0);
+        Key::IKdf::Ptr pKey = walletDB->get_MasterKdf();
         const ECC::HKdf& kdf = static_cast<ECC::HKdf&>(*pKey);
 
         KeyString ks;
