@@ -23,8 +23,9 @@ ColumnLayout {
             Layout.maximumHeight: 40
             font.pixelSize: 36
             color: Style.content_main
-            //% "UTXO"
+            //% "Utxo"
             text: qsTrId("utxo-utxo")
+            font.capitalization: Font.AllUppercase
         }
 
         Item {
@@ -146,7 +147,7 @@ ColumnLayout {
         TableViewColumn {
             role: viewModel.amountRole
             //% "Amount"
-            title: qsTrId("utxo-head-amount")
+            title: qsTrId("general-amount")
             width: 300 * parent.width / 800
             movable: false
         }
@@ -162,7 +163,7 @@ ColumnLayout {
         TableViewColumn {
             role: viewModel.statusRole
             //% "Status"
-            title: qsTrId("utxo-head-status")
+            title: qsTrId("general-status")
             width: 200 * parent.width / 800
             movable: false
             resizable: false
@@ -229,25 +230,25 @@ ColumnLayout {
                 function utxoStatusText(value) {
                     switch(value) {
                         case UtxoStatus.Available:
-                            //% "available"
+                            //% "Available"
                             return qsTrId("utxo-status-available");
                         case UtxoStatus.Maturing:
-                            //% "maturing%1(till block height %2)"
+                            //% "Maturing%1(till block height %2)"
                             return qsTrId("utxo-status-maturing").arg(lineSeparator, model ? model.maturity : "?");
                         case UtxoStatus.Unavailable:
-                            //% "unavailable%1(mining result rollback)"
+                            //% "Unavailable%1(mining result rollback)"
                             return qsTrId("utxo-status-unavailable").arg(lineSeparator);
                         case UtxoStatus.Outgoing:
-                            //% "in progress%1(outgoing)"
+                            //% "In progress%1(outgoing)"
                             return qsTrId("utxo-status-outgoing").arg(lineSeparator);
                         case UtxoStatus.Incoming:
                             return (model && model.type == UtxoType.Change) ?
-                                //% "in progress%1(change)"
+                                //% "In progress%1(change)"
                                 qsTrId("utxo-status-change").arg(lineSeparator) :
-                                //% "in progress%1(incoming)"
+                                //% "In progress%1(incoming)"
                                 qsTrId("utxo-status-incoming").arg(lineSeparator);
                         case UtxoStatus.Spent:
-                            //% "spent"
+                            //% "Spent"
                             return qsTrId("utxo-status-spent");
                         default:
                             return "";
@@ -288,15 +289,15 @@ ColumnLayout {
                 function utxoTypeText(value) {
                     switch(value) {
                         //% "Transaction fee"
-                        case UtxoType.Comission: return qsTrId("utxo-type-fee");
+                        case UtxoType.Comission: return qsTrId("general-fee");
                         //% "Coinbase"
-                        case UtxoType.Coinbase: return qsTrId("utxo-type-coinbase");
+                        case UtxoType.Coinbase: return qsTrId("general-coinbase");
                         //% "Regular"
-                        case UtxoType.Regular: return qsTrId("utxo-type-regular");
+                        case UtxoType.Regular: return qsTrId("general-regular");
                         //% "Change"
-                        case UtxoType.Change: return qsTrId("utxo-type-change");
+                        case UtxoType.Change: return qsTrId("general-change");
                         //% "Treasury"
-                        case UtxoType.Treasury: return qsTrId("utxo-type-treasury");
+                        case UtxoType.Treasury: return qsTrId("general-treasury");
                         default : return "";
                     }
                 }

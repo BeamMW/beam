@@ -67,8 +67,8 @@ Dialog {
                 CustomButton {
                     id: cancelButton
                     focus: true
-                    //% "cancel"
-                    text: qsTrId("confirmation-cancel-button")
+                    //% "Cancel"
+                    text: qsTrId("general-cancel")
                     onClicked: { 
                         rejected();
                         close();
@@ -78,8 +78,8 @@ Dialog {
                 CustomButton {
                     id: okButton
                     palette.button: Style.active
-                    //% "delete"
-                    text: qsTrId("confirmation-delete-button")
+                    //% "Delete"
+                    text: qsTrId("general-delete")
                     palette.buttonText: Style.content_opposite
                     onClicked: {
                         confirmationHandler();

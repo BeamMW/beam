@@ -91,13 +91,20 @@ Dialog {
 				SFText {
 					Layout.fillWidth: true
 					Layout.alignment: Qt.AlignHCenter
-					id: error
 					color: Style.validator_error
 					font.pixelSize: 12
-					//: confirm password dialog, wrong password error
-					//% "Wrong password"
-					text: qsTrId("confirm-pwd-error")
-					visible: showError
+					//% "Please, enter password"
+					text: qsTrId("general-pwd-empty-error")
+					visible: showError && !pwd.text.length
+				}
+				SFText {
+					Layout.fillWidth: true
+					Layout.alignment: Qt.AlignHCenter
+					color: Style.validator_error
+					font.pixelSize: 12
+					//% "Invalid password provided."
+					text: qsTrId("general-pwd-invalid")
+					visible: showError && pwd.text.length
 				}
 			}
 		}			 	
@@ -109,9 +116,8 @@ Dialog {
 
 			CustomButton {
 				Layout.preferredHeight: 38
-				//: confirm password dialog, cancel button
-				//% "cancel"
-				text: qsTrId("confirm-pwd-cancel")
+				//% "Cancel"
+				text: qsTrId("general-cancel")
 				icon.source: "qrc:/assets/icon-cancel.svg"
 				onClicked: reject()
 			}
@@ -119,8 +125,8 @@ Dialog {
 			PrimaryButton {
 				Layout.preferredHeight: 38
 				//: confirm password dialog, ok button
-				//% "proceed"
-				text: qsTrId("confirm-pwd-ok")
+				//% "Proceed"
+				text: qsTrId("general-proceed")
 				enabled: !showError
 				icon.source: "qrc:/assets/icon-done.svg"
 				onClicked: {

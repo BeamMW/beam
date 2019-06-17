@@ -615,7 +615,7 @@ QString StartViewModel::selectCustomWalletDB()
     QString filePath = QFileDialog::getOpenFileName(
         nullptr,
         //% "Select the wallet database file"
-        qtTrId("start-view-select-db"),
+        qtTrId("general-select-db"),
         //% "SQLite database file (*.db)"
         QStandardPaths::writableLocation(QStandardPaths::DesktopLocation), qtTrId("start-view-db-file-filter"));
 

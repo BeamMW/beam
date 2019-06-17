@@ -52,8 +52,9 @@ Rectangle {
                     font.weight: Font.Bold
                     color: Style.content_main
                     opacity: 0.6
-                    //% "RECEIVING"
-                    text: qsTrId("secondary-panel-receiving")
+                    //% "Receiving"
+                    text: qsTrId("general-receiving")
+                    font.capitalization: Font.AllUppercase
                 }
 
                 SFLabel {
@@ -93,8 +94,9 @@ Rectangle {
                     font.weight: Font.Bold
                     color: Style.content_main
                     opacity: 0.6
-                    //% "SENDING"
-                    text: qsTrId("secondary-panel-sending")
+                    //% "Sending"
+                    text: qsTrId("general-sending")
+                    font.capitalization: Font.AllUppercase
                 }
 
                 SFLabel {
@@ -134,8 +136,9 @@ Rectangle {
                     font.weight: Font.Bold
                     color: Style.content_main
                     opacity: 0.6
-                    //% "MATURING"
+                    //% "Maturing"
                     text: qsTrId("secondary-panel-maturing")
+                    font.capitalization: Font.AllUppercase
                 }
 
                 SFLabel {

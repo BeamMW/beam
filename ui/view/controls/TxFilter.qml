@@ -8,6 +8,7 @@ Item  {
     id: root
     
     property string label
+    property var capitalization: Font.MixedCase
 
     width: text_label.width
     height: 20
@@ -23,6 +24,7 @@ Item  {
 
         font.pixelSize: 12
         font.styleName: "Bold"; font.weight: Font.Bold
+        font.capitalization: capitalization
         color: Style.content_main
         opacity: 0.4
         text: label

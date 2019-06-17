@@ -3,84 +3,295 @@
 <TS version="2.1" language="ru_RU" sourcelanguage="en_US">
 <context>
     <name></name>
+    <message id="general-beam">
+        <source>BEAM</source>
+        <translation>BEAM</translation>
+    </message>
+    <message id="general-groth">
+        <source>GROTH</source>
+        <translation>GROTH</translation>
+    </message>
+    <message id="general-comment">
+        <source>Comment</source>
+        <translation>Комментарий</translation>
+    </message>
+    <message id="general-contact">
+        <source>Contact</source>
+        <translation>Контакт</translation>
+    </message>
+    <message id="general-category">
+        <source>Category</source>
+        <translation>Категория</translation>
+    </message>
+    <message id="general-actions">
+        <source>Actions</source>
+        <translation>Действия</translation>
+    </message>
+    <message id="general-address">
+        <source>Address</source>
+        <translation>Адрес</translation>
+    </message>
+    <message id="general-exp-date">
+        <source>Expiration date</source>
+        <translation>Действителен до</translation>
+    </message>
+    <message id="general-created">
+        <source>Created</source>
+        <translation>Создан</translation>
+    </message>
+    <message id="general-send">
+        <source>Send</source>
+        <translation>Отправить</translation>
+    </message>
+    <message id="general-amount">
+        <source>Amount</source>
+        <translation>Сумма</translation>
+    </message>
+    <message id="general-status">
+        <source>Status</source>
+        <translation>Статус</translation>
+    </message>
+    <message id="general-cancel">
+        <source>Cancel</source>
+        <extracomment>Edit addres dialog, cancel button</extracomment>
+        <translation>Отмена</translation>
+    </message>
+    <message id="general-delete">
+        <source>Delete</source>
+        <translation>Удалить</translation>
+    </message>
+    <message id="general-receiving">
+        <source>Receiving</source>
+        <translation>Получение</translation>
+    </message>
+    <message id="general-sending">
+        <source>Sending</source>
+        <translation>Отправление</translation>
+    </message>
+    <message id="general-rescan">
+        <source>Rescan</source>
+        <translation>Сканировать</translation>
+    </message>
+    <message id="general-change-pwd">
+        <source>Change wallet password</source>
+        <translation>Сменить пароль</translation>
+    </message>
+    <message id="general-pwd-empty-error">
+        <source>Please, enter password</source>
+        <translation>Пожалуйста, введите пароль</translation>
+    </message>
+    <message id="general-pwd-invalid">
+        <source>Invalid password provided.</source>
+        <translation>Неверный пароль.</translation>
+    </message>
+    <message id="general-payment-proof">
+        <source>Payment proof</source>
+        <translation>Подтверждение платежа</translation>
+    </message>
+    <message id="general-close">
+        <source>Close</source>
+        <translation>Закрыть</translation>
+    </message>
+    <message id="general-details">
+        <source>Details</source>
+        <translation>Подробности</translation>
+    </message>
+    <message id="general-kernel-id">
+        <source>Kernel ID</source>
+        <translation>Идентификатор ядра</translation>
+    </message>
+    <message id="general-copy">
+        <source>Copy</source>
+        <translation>Копировать</translation>
+    </message>
+    <message id="general-paste">
+        <source>Paste</source>
+        <translation>Вставить</translation>
+    </message>
+    <message id="general-fee">
+        <source>Transaction fee</source>
+        <translation>Комиссия</translation>
+    </message>
+    <message id="general-ok">
+        <source>Ok</source>
+        <translation>Да</translation>
+    </message>
+    <message id="general-invalid-address">
+        <source>Invalid address</source>
+        <translation>Неправильный адрес</translation>
+    </message>
+    <message id="general-coinbase">
+        <source>Coinbase</source>
+        <translation>Награда</translation>
+    </message>
+    <message id="general-regular">
+        <source>Regular</source>
+        <translation>Обычная</translation>
+    </message>
+    <message id="general-change">
+        <source>Change</source>
+        <translation>Сдача</translation>
+    </message>
+    <message id="general-treasury">
+        <source>Treasury</source>
+        <translation>Казна</translation>
+    </message>
+    <message id="general-back">
+        <source>Back</source>
+        <translation>Назад</translation>
+    </message>
+    <message id="general-next">
+        <source>Next</source>
+        <translation>Дальше</translation>
+    </message>
+    <message id="general-create-wallet">
+        <source>Create new wallet</source>
+        <translation>Создать новый кошелек</translation>
+    </message>
+    <message id="general-restore-or-create-wallet">
+        <source>Restore wallet or create a new one</source>
+        <translation>Восстановить кошелек или создать новый</translation>
+    </message>
+    <message id="general-select-db">
+        <source>Select the wallet database file</source>
+        <translation>Выбрать файл базы данных кошелька</translation>
+    </message>
+    <message id="general-restore-wallet">
+        <source>Restore wallet</source>
+        <translation>Восстановить кошелек</translation>
+    </message>
+    <message id="general-start-using">
+        <source>Start using your wallet</source>
+        <translation>Начните использовать кошелек</translation>
+    </message>
+    <message id="general-open-wallet">
+        <source>Open my wallet</source>
+        <translation>Открыть кошелек</translation>
+    </message>
+    <message id="general-proceed">
+        <source>Proceed</source>
+        <extracomment>confirm password dialog, ok button</extracomment>
+        <translation>Продолжить</translation>
+    </message>
+    <message id="general-show-in-folder">
+        <source>Show in folder</source>
+        <translation>Открыть папку</translation>
+    </message>
+    <message id="wallet-receive-button">
+        <source>Receive</source>
+        <translation>Получить</translation>
+    </message>
+    <message id="wallet-in-progress-title">
+        <source>In progress</source>
+        <translation>В процессе</translation>
+    </message>
+    <message id="wallet-transactions-title">
+        <source>Transactions</source>
+        <translation>Транзакции</translation>
+    </message>
+    <message id="wallet-verify-payment">
+        <source>Verify payment</source>
+        <translation>Проверить платеж</translation>
+    </message>
+    <message id="wallet-txs-date-time">
+        <source>Date | Time</source>
+        <translation>Дата | Время</translation>
+    </message>
+    <message id="wallet-txs-copy-addr-cm">
+        <source>Copy address</source>
+        <translation>Копировать адрес</translation>
+    </message>
+    <message id="wallet-txs-delete-message">
+        <source>The transaction will be deleted. This operation can not be undone</source>
+        <translation>Транзакция будет удалена. Эта операция необратима.</translation>
+    </message>
+    <message id="wallet-txs-status-pending">
+        <source>Pending</source>
+        <translation>Ожидание</translation>
+    </message>
+    <message id="wallet-txs-status-waiting-sender">
+        <source>Waiting for sender</source>
+        <translation>Ждем отправителя</translation>
+    </message>
+    <message id="wallet-txs-status-waiting-receiver">
+        <source>Waiting for receiver</source>
+        <translation>Ждем получателя</translation>
+    </message>
+    <message id="wallet-txs-status-completed">
+        <source>Completed</source>
+        <translation>Завершено</translation>
+    </message>
+    <message id="wallet-txs-status-received">
+        <source>Received</source>
+        <translation>Получено</translation>
+    </message>
+    <message id="wallet-txs-status-sent">
+        <source>Sent</source>
+        <translation>Отправлено</translation>
+    </message>
+    <message id="wallet-txs-status-cancelled">
+        <source>Cancelled</source>
+        <translation>Отменено</translation>
+    </message>
+    <message id="wallet-txs-status-expired">
+        <source>Expired</source>
+        <translation>Просрочено</translation>
+    </message>
+    <message id="wallet-txs-status-failed">
+        <source>Failed</source>
+        <translation>Ошибка</translation>
+    </message>
+    <message id="wallet-txs-status-unknown">
+        <source>Unknown</source>
+        <translation>Не определено</translation>
+    </message>
     <message id="addresses-tittle">
         <source>Addresses</source>
         <translation>Мои адреса</translation>
     </message>
     <message id="addresses-tab-active">
-        <source>MY ACTIVE ADDRESSES</source>
-        <translation>АКТИВНЫЕ</translation>
+        <source>My active addresses</source>
+        <translation>Активные</translation>
     </message>
     <message id="addresses-tab-expired">
-        <source>MY EXPIRED ADDRESSES</source>
-        <translation>ПРОСРОЧЕННЫЕ</translation>
+        <source>My expired addresses</source>
+        <translation>Просроченные</translation>
     </message>
     <message id="addresses-tab-contacts">
-        <source>CONTACTS</source>
-        <translation>КОНТАКТЫ</translation>
+        <source>Contacts</source>
+        <translation>Контакты</translation>
     </message>
-    <message id="addresses-head-comment">
-        <source>Comment</source>
-        <translation>Комментарий</translation>
-    </message>
-    <message id="addresses-head-contact">
-        <source>Contact</source>
-        <translation>Контакт</translation>
-    </message>
-    <message id="addresses-head-category">
-        <source>Category</source>
-        <translation>Категория</translation>
-    </message>
-    <message id="addresses-head-actions-tooltip">
-        <source>Actions</source>
-        <translation>Действия</translation>
-    </message>
-    <message id="addresses-contextmenu-delete">
-        <source>delete contact</source>
-        <translation>удалить контакт</translation>
-    </message>
-    <message id="address-table-head-comment">
-        <source>Comment</source>
-        <translation>Комментарий</translation>
-    </message>
-    <message id="address-table-head-address">
-        <source>Address</source>
-        <translation>Адрес</translation>
-    </message>
-    <message id="address-table-head-category">
-        <source>Category</source>
-        <translation>Категория</translation>
-    </message>
-    <message id="address-table-head-exp-date">
-        <source>Expiration date</source>
-        <translation>Действителен до</translation>
-    </message>
-    <message id="address-table-head-created">
-        <source>Created</source>
-        <translation>Создан</translation>
-    </message>
-    <message id="address-table-head-tooltip-actions">
-        <source>Actions</source>
-        <translation>Действия</translation>
+    <message id="address-table-cm-show-qr">
+        <source>Show QR code</source>
+        <extracomment>Entry in adress table context menu to show QR</extracomment>
+        <translation>Показать QR код</translation>
     </message>
     <message id="address-table-cm-edit">
-        <source>edit address</source>
+        <source>Edit address</source>
         <extracomment>Entry in adress table context menu to edit</extracomment>
-        <translation>редактировать адрес</translation>
+        <translation>Редактировать адрес</translation>
     </message>
     <message id="address-table-cm-delete">
-        <source>delete address</source>
+        <source>Delete address</source>
         <extracomment>Entry in adress table context menu to delete</extracomment>
-        <translation>удалить адрес</translation>
+        <translation>Удалить адрес</translation>
+    </message>
+    <message id="address-table-cm-delete-contact">
+        <source>Delete contact</source>
+        <translation>Удалить контакт</translation>
     </message>
     <message id="available-panel-available">
         <source>Available</source>
         <translation>Доступно</translation>
     </message>
+    <message id="available-panel-where-to-buy">
+        <source>Where to buy BEAM?</source>
+        <translation>Где купить BEAM?</translation>
+    </message>
     <message id="settings-version">
-        <source>Version: </source>
+        <source>Version</source>
         <extracomment>settings tab, version label</extracomment>
-        <translation>Версия: </translation>
+        <translation>Версия</translation>
     </message>
     <message id="settings-remote-node-ip-port">
         <source>ip:port</source>
@@ -96,16 +307,6 @@
         <source>Port</source>
         <extracomment>settings tab, node section, port label</extracomment>
         <translation>Порт</translation>
-    </message>
-    <message id="settings-rescan-confirmation-button">
-        <source>rescan</source>
-        <extracomment>settings tab, confirm rescan dialog, rescan button</extracomment>
-        <translation>сканировать</translation>
-    </message>
-    <message id="settings-rescan-confirmation-title">
-        <source>Rescan</source>
-        <extracomment>settings tab, confirm rescan dialog, title</extracomment>
-        <translation>Сканировать</translation>
     </message>
     <message id="settings-rescan-confirmation-message">
         <source>Rescan will sync transaction and UTXO data with the latest information on the blockchain. The process might take long time.</source>
@@ -132,29 +333,15 @@
         <extracomment>settings tab, report problem section, title</extracomment>
         <translation>Сообщить о проблеме</translation>
     </message>
-    <message id="settings-rescan-button">
-        <source>rescan</source>
-        <extracomment>settings tab, rescan button</extracomment>
-        <translation>сканировать</translation>
-    </message>
     <message id="settings-wallet-location-label">
         <source>Wallet folder location</source>
         <extracomment>settings tab, general section, wallet data folder location label</extracomment>
         <translation>Папка данных</translation>
     </message>
-    <message id="settings-undo">
-        <source>cancel</source>
-        <extracomment>settings tab, node section, cancel button</extracomment>
-        <translation>отменить</translation>
-    </message>
     <message id="settings-apply">
-        <source>apply</source>
+        <source>Apply</source>
         <extracomment>settings tab, node section, apply button</extracomment>
-        <translation>применить</translation>
-    </message>
-    <message id="logo-name">
-        <source>BEAM</source>
-        <translation>BEAM</translation>
+        <translation>Применить</translation>
     </message>
     <message id="logo-description">
         <source>Scalable confidential cryptocurrency</source>
@@ -184,10 +371,6 @@
         <source>The old password you have entered is incorrect</source>
         <translation>Старый пароль введен не правильно</translation>
     </message>
-    <message id="change-pwd-title">
-        <source>Change wallet password</source>
-        <translation>Сменить пароль кошелька</translation>
-    </message>
     <message id="change-pwd-old-pwd-label">
         <source>Enter old password</source>
         <translation>Введите старый пароль</translation>
@@ -200,13 +383,9 @@
         <source>Confirm new password</source>
         <translation>Подтвердить новый пароль</translation>
     </message>
-    <message id="change-pwd-cancel">
-        <source>cancel</source>
-        <translation>отмена</translation>
-    </message>
     <message id="change-pwd-ok">
-        <source>change password</source>
-        <translation>поменять пароль</translation>
+        <source>Сhange password</source>
+        <translation>Поменять пароль</translation>
     </message>
     <message id="loading-loading">
         <source>Loading wallet...</source>
@@ -225,24 +404,8 @@
         <translation>Что бы получить доступ к кошельку, введите пароль</translation>
     </message>
     <message id="open-show-wallet-button">
-        <source>show my wallet</source>
-        <translation>открыть кошелек</translation>
-    </message>
-    <message id="open-pwd-empty">
-        <source>Please, enter password</source>
-        <translation>Пожалуйста, введите пароль</translation>
-    </message>
-    <message id="open-pwd-fail">
-        <source>Invalid password provided.</source>
-        <translation>Неверный пароль.</translation>
-    </message>
-    <message id="confirmation-cancel-button">
-        <source>cancel</source>
-        <translation>отмена</translation>
-    </message>
-    <message id="confirmation-delete-button">
-        <source>delete</source>
-        <translation>удалить</translation>
+        <source>Show my wallet</source>
+        <translation>Открыть кошелек</translation>
     </message>
     <message id="edit-addr-title">
         <source>Edit address</source>
@@ -254,32 +417,14 @@
         <extracomment>Edit addres dialog, address label</extracomment>
         <translation>Идентификатор адреса</translation>
     </message>
-    <message id="edit-addr-comment">
-        <source>Comment</source>
-        <extracomment>Edit addres dialog, comment label</extracomment>
-        <translation>Комментарий</translation>
-    </message>
-    <message id="edit-addr-cancel-button">
-        <source>cancel</source>
-        <extracomment>Edit addres dialog, cancel button</extracomment>
-        <translation>отмена</translation>
-    </message>
     <message id="edit-addr-save-button">
-        <source>save</source>
+        <source>Save</source>
         <extracomment>Edit addres dialog, save button</extracomment>
-        <translation>сохранить</translation>
+        <translation>Сохранить</translation>
     </message>
     <message id="payment-info-proof-verification">
         <source>Payment proof verification</source>
         <translation>Проверка подтверждения платежа</translation>
-    </message>
-    <message id="payment-info-proof">
-        <source>Payment proof</source>
-        <translation>Подтверждение платежа</translation>
-    </message>
-    <message id="payment-info-close-button">
-        <source>close</source>
-        <translation>закрыть</translation>
     </message>
     <message id="payment-info-proof-label">
         <source>Paste your payment proof here</source>
@@ -290,151 +435,78 @@
         <translation>Не возможно декодировать подтверждение.</translation>
     </message>
     <message id="payment-info-proof-code-label">
-        <source>Code:</source>
-        <translation>Код:</translation>
-    </message>
-    <message id="payment-info-proof-details-label">
-        <source>Details</source>
-        <translation>Подробности</translation>
+        <source>Code</source>
+        <translation>Код</translation>
     </message>
     <message id="payment-info-proof-sender-label">
-        <source>Sender:</source>
-        <translation>Отправитель:</translation>
+        <source>Sender</source>
+        <translation>Отправитель</translation>
     </message>
     <message id="payment-info-proof-receiver-label">
-        <source>Receiver:</source>
-        <translation>Получатель:</translation>
-    </message>
-    <message id="payment-info-proof-amount-label">
-        <source>Amount:</source>
-        <translation>Сумма:</translation>
-    </message>
-    <message id="payment-info-proof-kernel-id-label">
-        <source>Kernel ID:</source>
-        <translation>Идентификатор ядра:</translation>
+        <source>Receiver</source>
+        <translation>Получатель</translation>
     </message>
     <message id="payment-info-copy-details-button">
-        <source>copy details</source>
-        <translation>копировать подробности</translation>
+        <source>Copy details</source>
+        <translation>Копировать подробности</translation>
     </message>
     <message id="payment-info-copy-code-button">
-        <source>copy code</source>
-        <translation>копировать код</translation>
-    </message>
-    <message id="secondary-panel-receiving">
-        <source>RECEIVING</source>
-        <translation>ПОЛУЧЕНИЕ</translation>
-    </message>
-    <message id="secondary-panel-sending">
-        <source>SENDING</source>
-        <translation>ОТПРАВКА</translation>
+        <source>Copy code</source>
+        <translation>Копировать код</translation>
     </message>
     <message id="secondary-panel-maturing">
-        <source>MATURING</source>
-        <translation>ПОДТВЕРЖДЕНИЕ</translation>
-    </message>
-    <message id="sf-label-cm-copy">
-        <source>copy</source>
-        <translation>копировать</translation>
-    </message>
-    <message id="sf-text-area-cm-copy">
-        <source>copy</source>
-        <translation>копировать</translation>
-    </message>
-    <message id="sf-text-area-cm-paste">
-        <source>paste</source>
-        <translation>вставить</translation>
-    </message>
-    <message id="sf-text-input-cm-copy">
-        <source>copy</source>
-        <translation>копировать</translation>
-    </message>
-    <message id="sf-text-input-cm-paste">
-        <source>paste</source>
-        <translation>вставить</translation>
+        <source>Maturing</source>
+        <translation>Подтверждение</translation>
     </message>
     <message id="info-title">
         <source>Info view</source>
         <translation>Информация</translation>
     </message>
     <message id="loading-change-settings-button">
-        <source>change settings</source>
-        <translation>изменить настройки</translation>
-    </message>
-    <message id="loading-cancel-button">
-        <source>cancel</source>
-        <translation>отмена</translation>
+        <source>Сhange settings</source>
+        <translation>Изменить настройки</translation>
     </message>
     <message id="notifications-title">
         <source>Notifications view</source>
         <translation>Оповещения</translation>
     </message>
     <message id="status-connecting">
-        <source>connecting</source>
-        <translation>подключение</translation>
+        <source>Connecting</source>
+        <translation>Подключение</translation>
     </message>
     <message id="status-online">
-        <source>online</source>
-        <translation>в сети</translation>
+        <source>Online</source>
+        <translation>В сети</translation>
     </message>
     <message id="status-updating">
-        <source>updating</source>
-        <translation>обновление</translation>
+        <source>Updating</source>
+        <translation>Обновление</translation>
     </message>
     <message id="tx-details-title">
         <source>General transaction info</source>
         <translation>Основная информация о транзакциях</translation>
     </message>
     <message id="tx-details-sending-addr-label">
-        <source>Sending address:</source>
-        <translation>Адрес отправителя:</translation>
+        <source>Sending address</source>
+        <translation>Адрес отправителя</translation>
     </message>
     <message id="tx-details-receiving-addr-label">
-        <source>Receiving address:</source>
-        <translation>Адрес получателя:</translation>
-    </message>
-    <message id="tx-details-fee-label">
-        <source>Transaction fee:</source>
-        <translation>Комиссия:</translation>
-    </message>
-    <message id="tx-details-comment-label">
-        <source>Comment:</source>
-        <translation>Комментарий:</translation>
-    </message>
-    <message id="tx-details-kernel-id-label">
-        <source>Kernel ID:</source>
-        <translation>Идентификатор ядра:</translation>
+        <source>Receiving address</source>
+        <translation>Адрес получателя</translation>
     </message>
     <message id="tx-details-error-label">
-        <source>Error: </source>
-        <translation>Ошибка: </translation>
-    </message>
-    <message id="tx-details-payment-proof-label">
-        <source>Payment proof</source>
-        <translation>Подтверждение платежа</translation>
-    </message>
-    <message id="tx-details-details-button">
-        <source>details</source>
-        <translation>Подробнее</translation>
-    </message>
-    <message id="tx-details-copy-button">
-        <source>copy</source>
-        <translation>копировать</translation>
+        <source>Error</source>
+        <translation>Ошибка</translation>
     </message>
     <message id="settings-report-problem-save-log-button">
-        <source>save wallet logs</source>
+        <source>Save wallet logs</source>
         <extracomment>settings tab, report problem section, save logs button</extracomment>
-        <translation>сохранить лог</translation>
+        <translation>Сохранить лог</translation>
     </message>
     <message id="settings-rescan-confirmation-message-line-2">
         <source>Are you sure?</source>
         <extracomment>settings tab, confirm rescan dialog additional message</extracomment>
         <translation>Вы уверены?</translation>
-    </message>
-    <message id="settings-general-change-pwd-button">
-        <source>change wallet password</source>
-        <extracomment>settings tab, change password button</extracomment>
-        <translation>сменить пароль</translation>
     </message>
     <message id="settings-title">
         <source>Settings</source>
@@ -445,33 +517,13 @@
         <source>Can&apos;t send to the expired address.</source>
         <translation>Нельзя отправить, адрес просрочен.</translation>
     </message>
-    <message id="cant-send-to-expired-ok-button">
-        <source>ok</source>
-        <translation>Хорошо</translation>
-    </message>
-    <message id="send-confirmation-button">
-        <source>send</source>
-        <translation>отправить</translation>
-    </message>
-    <message id="send-confirmation-pwd-fail">
-        <source>Invalid password provided.</source>
-        <translation>Неверный пароль.</translation>
-    </message>
     <message id="send-confirmation-title">
         <source>Confirm transaction details</source>
         <translation>Проверьте данные транзакции</translation>
     </message>
     <message id="send-confirmation-recipient-label">
-        <source>Recipient:</source>
-        <translation>Получатель:</translation>
-    </message>
-    <message id="send-confirmation-amount-label">
-        <source>Amount:</source>
-        <translation>Сумма:</translation>
-    </message>
-    <message id="send-confirmation-fee-label">
-        <source>Transaction fee:</source>
-        <translation>Комиссия:</translation>
+        <source>Recipient</source>
+        <translation>Получатель</translation>
     </message>
     <message id="send-confirmation-pwd-require-message">
         <source>To broadcast your transaction please enter your password</source>
@@ -490,20 +542,16 @@
         <translation>Мой адрес</translation>
     </message>
     <message id="wallet-receive-expires-label">
-        <source>Expires:</source>
-        <translation>Истекает:</translation>
+        <source>Expires</source>
+        <translation>Истекает</translation>
     </message>
     <message id="wallet-receive-expires-24">
         <source>24 hours</source>
         <translation>через 24 часа</translation>
     </message>
     <message id="wallet-receive-expires-never">
-        <source>never</source>
-        <translation>никогда</translation>
-    </message>
-    <message id="wallet-receive-comment-label">
-        <source>Comment</source>
-        <translation>Комментарий</translation>
+        <source>Never</source>
+        <translation>Никогда</translation>
     </message>
     <message id="wallet-receive-qr-label">
         <source>Scan to send</source>
@@ -513,45 +561,25 @@
         <source>Send this address to the sender over an external secure channel</source>
         <translation>Отправьте этот адрес отправителю средств, по любому безопасному внешнему каналу</translation>
     </message>
-    <message id="wallet-receive-close-button">
-        <source>close</source>
-        <translation>закрыть</translation>
-    </message>
-    <message id="wallet-receive-copy-button">
-        <source>copy</source>
-        <translation>копировать</translation>
-    </message>
     <message id="invalid-addr-got-it-button">
-        <source>got it</source>
-        <translation>мне все понятно</translation>
-    </message>
-    <message id="delete-transaction-delete-button">
-        <source>delete</source>
-        <translation>удалить</translation>
+        <source>Got it</source>
+        <translation>Мне все понятно</translation>
     </message>
     <message id="send-title">
         <source>Send Beam</source>
         <translation>Отправить Beam</translation>
     </message>
     <message id="send-send-to-label">
-        <source>Send To:</source>
-        <translation>Получатель:</translation>
+        <source>Send To</source>
+        <translation>Получатель</translation>
     </message>
     <message id="send-contact-placeholder">
         <source>Please specify contact</source>
         <translation>Укажите адрес получателя</translation>
     </message>
-    <message id="send-addr-fail">
-        <source>Invalid address</source>
-        <translation>Неправильный адрес</translation>
-    </message>
     <message id="send-amount-label">
         <source>Transaction amount</source>
         <translation>Сумма транзакции</translation>
-    </message>
-    <message id="send-curency-name">
-        <source>BEAM</source>
-        <translation>BEAM</translation>
     </message>
     <message id="send-founds-fail">
         <source>Insufficient funds: you would need %1 to complete the transaction</source>
@@ -561,14 +589,6 @@
         <source>The minimum fee is %1 groth</source>
         <translation>Минимальная комиссия %1 groth</translation>
     </message>
-    <message id="send-comment-label">
-        <source>Comment</source>
-        <translation>Комментарий</translation>
-    </message>
-    <message id="send-fee-label">
-        <source>Transaction fee</source>
-        <translation>Комиссия</translation>
-    </message>
     <message id="send-curency-sub-name">
         <source>GROTH</source>
         <translation>GROTH</translation>
@@ -577,77 +597,9 @@
         <source>Remaining</source>
         <translation>Остаток</translation>
     </message>
-    <message id="send-change-label">
-        <source>Change</source>
-        <translation>Сдача</translation>
-    </message>
-    <message id="send-back-button">
-        <source>back</source>
-        <translation>назад</translation>
-    </message>
-    <message id="send-send-button">
-        <source>send</source>
-        <translation>отправить</translation>
-    </message>
     <message id="send-send-fail">
         <source>Address %1 is invalid</source>
         <translation>Адрес %1 не корректен</translation>
-    </message>
-    <message id="wallet-receive-button">
-        <source>receive</source>
-        <translation>получить</translation>
-    </message>
-    <message id="wallet-send-button">
-        <source>send</source>
-        <translation>отправить</translation>
-    </message>
-    <message id="wallet-in-progress-title">
-        <source>In progress</source>
-        <translation>В процессе</translation>
-    </message>
-    <message id="wallet-transactions-title">
-        <source>Transactions</source>
-        <translation>Транзакции</translation>
-    </message>
-    <message id="wallet-verify-payment">
-        <source>Verify payment</source>
-        <translation>Проверить платеж</translation>
-    </message>
-    <message id="wallet-txs-date-time">
-        <source>Date | time</source>
-        <translation>Дата | время</translation>
-    </message>
-    <message id="wallet-txs-addr">
-        <source>Address</source>
-        <translation>Адрес</translation>
-    </message>
-    <message id="wallet-txs-amount">
-        <source>Amount</source>
-        <translation>Сумма</translation>
-    </message>
-    <message id="wallet-txs-status">
-        <source>Status</source>
-        <translation>Статус</translation>
-    </message>
-    <message id="wallet-txs-actions-tooltip">
-        <source>Actions</source>
-        <translation>Действия</translation>
-    </message>
-    <message id="wallet-txs-copy-addr-cm">
-        <source>copy address</source>
-        <translation>копировать адрес</translation>
-    </message>
-    <message id="wallet-txs-cancel-cm">
-        <source>cancel</source>
-        <translation>отмена</translation>
-    </message>
-    <message id="wallet-txs-delete-cm">
-        <source>delete</source>
-        <translation>удалить</translation>
-    </message>
-    <message id="wallet-txs-delete-message">
-        <source>The transaction will be deleted. This operation can not be undone</source>
-        <translation>Транзакция будет удалена. Эта операция необратима.</translation>
     </message>
     <message id="start-restore-confirm-button">
         <source>I agree</source>
@@ -657,26 +609,14 @@
         <source>You are trying to restore an existing Beam Wallet. Please notice that if you use your wallet on another device, your balance will be up to date, but  transaction history and addresses will be kept separately on each device.</source>
         <translation>Вы пытаетесь восстановить существующий кошелек. Пожалуйста, обратите внимание, если ваш кошелек используется на другом устройстве, ваш баланс будет восстановлен до актуального состояния, но история транзакций и адреса будут хранится эксклюзивно для каждого устройства.</translation>
     </message>
-    <message id="start-create-button">
-        <source>create new wallet</source>
-        <translation>создать новый кошелек</translation>
-    </message>
     <message id="start-migration-message">
         <source>Your wallet will be migrated to v.</source>
         <translation>Ваш кошелек будет обновлен до версии:</translation>
     </message>
     <message id="start-migration-button">
-        <source>start auto migration</source>
+        <source>Start auto migration</source>
         <extracomment>migration screen, start auto migration button</extracomment>
-        <translation>автообновление</translation>
-    </message>
-    <message id="start-login-another-message">
-        <source>Restore wallet or create new one</source>
-        <translation>Восстановить кошелек или создать новый</translation>
-    </message>
-    <message id="start-select-db-message">
-        <source>Select the wallet database file</source>
-        <translation>Выбрать файл базы данных кошелька</translation>
+        <translation>Автообновление</translation>
     </message>
     <message id="start-select-db-thead-name">
         <source>Name</source>
@@ -694,18 +634,6 @@
         <source>Date modified</source>
         <extracomment>start screen, select db for migration, Date modified column title</extracomment>
         <translation>Дата изменения</translation>
-    </message>
-    <message id="start-next-button">
-        <source>next</source>
-        <translation>дальше</translation>
-    </message>
-    <message id="start-back-button">
-        <source>back</source>
-        <translation>назад</translation>
-    </message>
-    <message id="start-create-new-title">
-        <source>Create new wallet</source>
-        <translation>Создать новый кошелек</translation>
     </message>
     <message id="start-create-new-message-line-1">
         <source>Create new wallet with generating seed phrase.</source>
@@ -728,8 +656,8 @@
         <translation>Держите копию вашей контрольной фразы в надежном месте</translation>
     </message>
     <message id="start-generate-seed-phrase-button">
-        <source>generate seed phrase</source>
-        <translation>генерировать контрольную фразу</translation>
+        <source>Generate seed phrase</source>
+        <translation>Генерировать контрольную фразу</translation>
     </message>
     <message id="start-generate-seed-phrase-message">
         <source>Your seed phrase is the access key to all the cryptocurrencies in your wallet. Write down the phrase to keep it in a safe or in a locked vault. Without the phrase you will not be able to recover your money.</source>
@@ -747,10 +675,6 @@
         <source>To ensure the seed phrase is written down, please fill-in the specific words below</source>
         <translation>Что бы убедиться что вы правильно записали вашу контрольную фразу, пожалуйста введите нужные слова в поля снизу</translation>
     </message>
-    <message id="start-restore-title">
-        <source>Restore wallet</source>
-        <translation>Восстановить кошелек</translation>
-    </message>
     <message id="start-restore-message">
         <source>Type in or paste your seed phrase</source>
         <translation>Введите вашу контрольную фразу</translation>
@@ -766,10 +690,6 @@
     <message id="start-create-pwd-confirm-label">
         <source>Confirm password</source>
         <translation>Подтвердите пароль</translation>
-    </message>
-    <message id="start-create-pwd-empty-error">
-        <source>Please, enter password</source>
-        <translation>Пожалуйста, введите пароль</translation>
     </message>
     <message id="start-create-pwd-not-match-error">
         <source>Passwords do not match</source>
@@ -798,14 +718,6 @@
     <message id="start-node-remote-radio">
         <source>Connect to specific remote node</source>
         <translation>Подключиться к удаленному узлу</translation>
-    </message>
-    <message id="start-finish-button-restore">
-        <source>restore wallet</source>
-        <translation>восстановить кошелек</translation>
-    </message>
-    <message id="start-finish-button">
-        <source>start using your wallet</source>
-        <translation>начните использовать кошелек</translation>
     </message>
     <message id="start-node-port-empty-error">
         <source>Please, specify port number to listen on</source>
@@ -848,12 +760,12 @@
         <translation>Превышено время ожидания.</translation>
     </message>
     <message id="wallet-model-connection-refused-error">
-        <source>Cannot connect to node:</source>
-        <translation>Невозможно подключиться к узлу:</translation>
+        <source>Cannot connect to node</source>
+        <translation>Невозможно подключиться к узлу</translation>
     </message>
     <message id="wallet-model-connection-host-unreach-error">
-        <source>Node is unreachable:</source>
-        <translation>Узел недоступен:</translation>
+        <source>Node is unreachable</source>
+        <translation>Узел недоступен</translation>
     </message>
     <message id="wallet-model-connection-addr-in-use-error">
         <source>The port %1 is already in use. Check if a wallet is already running on this machine or change the port settings.</source>
@@ -898,10 +810,6 @@
     <message id="start-view-printer-error">
         <source>Failed to print seed phrase. Please, check your printer.</source>
         <translation>Ошибка печати. Пожалуйста, проверьте настройки принтера.</translation>
-    </message>
-    <message id="start-view-select-db">
-        <source>Select the wallet database file</source>
-        <translation>Выбрать файл базы данных кошелька</translation>
     </message>
     <message id="start-view-db-file-filter">
         <source>SQLite database file (*.db)</source>
@@ -976,8 +884,8 @@
         <translation>groths</translation>
     </message>
     <message id="utxo-utxo">
-        <source>UTXO</source>
-        <translation>UTXO</translation>
+        <source>Utxo</source>
+        <translation>Utxo</translation>
     </message>
     <message id="utxo-blockchain-height">
         <source>Blockchain Height</source>
@@ -987,121 +895,45 @@
         <source>Last block hash</source>
         <translation>Хэш последнего блока</translation>
     </message>
-    <message id="utxo-head-amount">
-        <source>Amount</source>
-        <translation>Сумма</translation>
-    </message>
     <message id="utxo-head-maturity">
         <source>Maturity</source>
         <translation>Подтвержден</translation>
-    </message>
-    <message id="utxo-head-status">
-        <source>Status</source>
-        <translation>Статус</translation>
     </message>
     <message id="utxo-head-type">
         <source>Type</source>
         <translation>Тип</translation>
     </message>
     <message id="utxo-status-available">
-        <source>available</source>
-        <translation>доступно</translation>
+        <source>Available</source>
+        <translation>Доступно</translation>
     </message>
     <message id="utxo-status-maturing">
-        <source>maturing%1(till block height %2)</source>
-        <translation>подтверждается%1(до блока %2)</translation>
+        <source>Maturing%1(till block height %2)</source>
+        <translation>Подтверждается%1(до блока %2)</translation>
     </message>
     <message id="utxo-status-unavailable">
-        <source>unavailable%1(mining result rollback)</source>
-        <translation>недоступно%1(откат результатов майнинга)</translation>
+        <source>Unavailable%1(mining result rollback)</source>
+        <translation>Недоступно%1(откат результатов майнинга)</translation>
     </message>
     <message id="utxo-status-outgoing">
-        <source>in progress%1(outgoing)</source>
-        <translation>в обработке%1(исходящая)</translation>
+        <source>In progress%1(outgoing)</source>
+        <translation>В обработке%1(исходящая)</translation>
     </message>
     <message id="utxo-status-change">
-        <source>in progress%1(change)</source>
-        <translation>в обработке%1(сдача)</translation>
+        <source>In progress%1(change)</source>
+        <translation>В обработке%1(сдача)</translation>
     </message>
     <message id="utxo-status-incoming">
-        <source>in progress%1(incoming)</source>
-        <translation>в обработке%1(входящая)</translation>
+        <source>In progress%1(incoming)</source>
+        <translation>В обработке%1(входящая)</translation>
     </message>
     <message id="utxo-status-spent">
-        <source>spent</source>
-        <translation>израсходовано</translation>
-    </message>
-    <message id="utxo-type-fee">
-        <source>Transaction fee</source>
-        <translation>Комиссия</translation>
-    </message>
-    <message id="utxo-type-coinbase">
-        <source>Coinbase</source>
-        <translation>Награда</translation>
-    </message>
-    <message id="utxo-type-regular">
-        <source>Regular</source>
-        <translation>Обычная</translation>
-    </message>
-    <message id="utxo-type-change">
-        <source>Change</source>
-        <translation>Сдача</translation>
-    </message>
-    <message id="utxo-type-treasury">
-        <source>Treasury</source>
-        <translation>Казна</translation>
-    </message>
-    <message id="wallet-txs-status-pending">
-        <source>pending</source>
-        <translation>ожидание</translation>
-    </message>
-    <message id="wallet-txs-status-waiting-sender">
-        <source>waiting for sender</source>
-        <translation>ждем отправителя</translation>
-    </message>
-    <message id="wallet-txs-status-waiting-receiver">
-        <source>waiting for receiver</source>
-        <translation>ждем получателя</translation>
-    </message>
-    <message id="wallet-txs-status-receiving">
-        <source>receiving</source>
-        <translation>получение</translation>
-    </message>
-    <message id="wallet-txs-status-sending">
-        <source>sending</source>
-        <translation>отправление</translation>
-    </message>
-    <message id="wallet-txs-status-completed">
-        <source>completed</source>
-        <translation>завершено</translation>
-    </message>
-    <message id="wallet-txs-status-received">
-        <source>received</source>
-        <translation>получено</translation>
-    </message>
-    <message id="wallet-txs-status-sent">
-        <source>sent</source>
-        <translation>отправлено</translation>
-    </message>
-    <message id="wallet-txs-status-cancelled">
-        <source>cancelled</source>
-        <translation>отменено</translation>
-    </message>
-    <message id="wallet-txs-status-expired">
-        <source>expired</source>
-        <translation>просрочено</translation>
-    </message>
-    <message id="wallet-txs-status-failed">
-        <source>failed</source>
-        <translation>ошибка</translation>
-    </message>
-    <message id="wallet-txs-status-unknown">
-        <source>unknown</source>
-        <translation>не определено</translation>
+        <source>Spent</source>
+        <translation>Израсходовано</translation>
     </message>
     <message id="settings-general-lock-screen-never">
-        <source>never</source>
-        <translation>никогда</translation>
+        <source>Never</source>
+        <translation>Никогда</translation>
     </message>
     <message id="settings-general-lock-screen-1m">
         <source>1 minute</source>
@@ -1128,8 +960,8 @@
         <translation>Сумма (опционально)</translation>
     </message>
     <message id="tx-details-tx-id-label">
-        <source>Transaction ID:</source>
-        <translation>Идентификатор транзакции:</translation>
+        <source>Transaction ID</source>
+        <translation>Идентификатор транзакции</translation>
     </message>
     <message id="appmodel-failed-time-not-synced">
         <source>Failed to start the integrated node: the timezone settings of your machine are out of sync. Please fix them and restart the wallet.</source>
@@ -1139,22 +971,14 @@
         <source>You cannot generate new address. Your wallet doesn&apos;t have a master key.</source>
         <translation>Вы не можете сгенерировать новый адрес. В кошельке отсутствует мастер-ключ.</translation>
     </message>
-    <message id="can-not-generate-new-address-ok-button">
-        <source>ok</source>
-        <translation>Хорошо</translation>
-    </message>
     <message id="settings-general-language">
         <source>Language</source>
         <extracomment>settings tab, general section, language label</extracomment>
         <translation>Язык</translation>
     </message>
-    <message id="available-panel-where-to-buy">
-        <source>Where to buy BEAM?</source>
-        <translation>Где купить BEAM?</translation>
-    </message>
     <message id="open-external-open">
-        <source>open</source>
-        <translation>открыть</translation>
+        <source>Open</source>
+        <translation>Открыть</translation>
     </message>
     <message id="open-external-title">
         <source>External link</source>
@@ -1164,33 +988,9 @@
         <source>Beam Wallet app requires permission to open external link in the browser. This action will expose your IP to the web server. To avoid it, choose -Cancel-. You can chage your choice in app setting anytime.</source>
         <translation>Кошелек пытается открыть внешнюю ссылку в браузере. Это действие может раскрыть ваш IP адрес серверу. Что бы избежать этого, нажмите &quot;отмена&quot;. Вы можете изменить свой выбор в настройках в любое время.</translation>
     </message>
-    <message id="start-restore-message-title">
-        <source>Restore wallet</source>
-        <translation>Восстановить кошелек</translation>
-    </message>
-    <message id="start-open-restore-link">
-        <source>Restore wallet or create a new one</source>
-        <translation>Восстановить кошелек или создать новый</translation>
-    </message>
-    <message id="start-open-change-wallet-confirm">
-        <source>proceed</source>
-        <translation>продолжить</translation>
-    </message>
-    <message id="start-open-change-wallet-title">
-        <source>Restore wallet or create new one</source>
-        <translation>Восстановить кошелек или создать новый</translation>
-    </message>
     <message id="start-open-change-wallet-message">
         <source>If you&apos;ll restore a wallet all transaction history and addresses will be lost.</source>
         <translation>Если вы восстановите кошелек, история транзакций и адреса будут потеряны на этом устройстве.</translation>
-    </message>
-    <message id="start-restore-link">
-        <source>Restore wallet</source>
-        <translation>Восстановить кошелек</translation>
-    </message>
-    <message id="start-create-finish-button">
-        <source>start using your wallet</source>
-        <translation>начните использовать кошелек</translation>
     </message>
     <message id="loading-restore-message-line1">
         <source>Please wait for synchronization and do not close or minimize the application.</source>
@@ -1216,10 +1016,6 @@
         •  содержит хотя бы одну прописную букву
         •  содержит хотя бы одну цифру</translation>
     </message>
-    <message id="start-create-open-button">
-        <source>open my wallet</source>
-        <translation>открыть кошелек</translation>
-    </message>
     <message id="start-open-caps-warning">
         <source>Caps lock is on!</source>
         <translation>Включен CapsLock!</translation>
@@ -1230,25 +1026,15 @@
         <translation>QR код</translation>
     </message>
     <message id="show-qr-tx-token-label">
-        <source>Your address:</source>
+        <source>Your address</source>
         <extracomment>show qr dialog address label</extracomment>
-        <translation>Адрес транзакции:</translation>
+        <translation>Адрес транзакции</translation>
     </message>
     <message id="show-qr-message">
         <source>Scan this QR code or send this address to the sender over secure channel</source>
         <extracomment>show QR dialog message, how to use this QR</extracomment>
         <translation>Сканируйте этот QR код
 или сообщите этот адрес отправителю по защищенному соединению</translation>
-    </message>
-    <message id="show-qr-close-button">
-        <source>close</source>
-        <extracomment>show QR dialog close button</extracomment>
-        <translation>закрыть</translation>
-    </message>
-    <message id="address-table-cm-show-qr">
-        <source>show QR code</source>
-        <extracomment>Entry in adress table context menu to show QR</extracomment>
-        <translation>показать QR код</translation>
     </message>
     <message id="settings-peers-title">
         <source>Peers</source>
@@ -1259,16 +1045,6 @@
         <source>Node</source>
         <extracomment>settings tab, node section, title</extracomment>
         <translation>Узел</translation>
-    </message>
-    <message id="settings-remote-node-ip-port-error">
-        <source>Invalid address</source>
-        <extracomment>settings tab, node section, on address error</extracomment>
-        <translation>Неправильный адрес</translation>
-    </message>
-    <message id="settings-wallet-location-link">
-        <source>show in folder</source>
-        <extracomment>settings tab, general section, show data folder link</extracomment>
-        <translation>открыть папку</translation>
     </message>
     <message id="settings-general-allow-beammw-label">
         <source>&lt;style&gt;a:link {color: &apos;#00f6d2&apos;; text-decoration: none;}&lt;/style&gt;Allow access to &lt;a href=&apos;https://www.beam.mw/&apos;&gt;beam.mw&lt;/a&gt; and &lt;a href=&apos;https://explorer.beam.mw/&apos;&gt;blockchain explorer&lt;/a&gt; (to fetch exchanges and transaction data)</source>
@@ -1281,19 +1057,19 @@
         <translation>&lt;style&gt;a:link {color: &apos;#00f6d2&apos;; text-decoration: none;}&lt;/style&gt;Что бы сообщить о проблеме:&lt;br /&gt;1. Нажмите “сохранить лог” и укажите куда сохранить архив&lt;br /&gt;2. Отправьте письмо на &lt;a href=&apos;mailto:support@beam.mw&apos;&gt;support@beam.mw&lt;/a&gt; или сообщите на &lt;a href=&apos;https://github.com/BeamMW&apos;&gt;Github&lt;/a&gt;&lt;br /&gt;3. Не забудьте прикрепить архив</translation>
     </message>
     <message id="edit-addr-24-option">
-        <source>in 24 hours from now</source>
+        <source>In 24 hours from now</source>
         <extracomment>Edit address dialog, expiration option, in 24 hours from now</extracomment>
-        <translation>еще 24 часа</translation>
+        <translation>Еще 24 часа</translation>
     </message>
     <message id="edit-addr-never-option">
-        <source>never</source>
+        <source>Never</source>
         <extracomment>Edit address dialog, expiration option, never</extracomment>
-        <translation>бессрочно</translation>
+        <translation>Бессрочно</translation>
     </message>
     <message id="edit-addr-as-is-option">
-        <source>within 24 hours</source>
+        <source>Within 24 hours</source>
         <extracomment>Edit address dialog, expiration option, do not change</extracomment>
-        <translation>в течение 24 часов</translation>
+        <translation>В течение 24 часов</translation>
     </message>
     <message id="edit-addr-expires-label">
         <source>Expires</source>
@@ -1301,9 +1077,9 @@
         <translation>Годен</translation>
     </message>
     <message id="edit-addr-expire-now-label">
-        <source>now</source>
+        <source>Now</source>
         <extracomment>Edit addres dialog, expire now label</extracomment>
-        <translation>до текущего времени</translation>
+        <translation>До текущего времени</translation>
     </message>
     <message id="edit-addr-expire-now-switch">
         <source>Expire address now</source>
@@ -1321,9 +1097,9 @@
         <translation>Активировать адрес</translation>
     </message>
     <message id="time-never">
-        <source>never</source>
+        <source>Never</source>
         <extracomment>time never string</extracomment>
-        <translation>бессрочно</translation>
+        <translation>Бессрочно</translation>
     </message>
     <message id="start-pwd-difficulty-very-weak">
         <source>Very weak password</source>
@@ -1361,9 +1137,9 @@
         <translation>Адрес с таким комментарием уже существует</translation>
     </message>
     <message id="start-migration-select-file-button">
-        <source>select wallet database file manually</source>
+        <source>Select wallet database file manually</source>
         <extracomment>migration screen, select db file button</extracomment>
-        <translation>выбрать файл базы данных</translation>
+        <translation>Выбрать файл базы данных</translation>
     </message>
     <message id="start-select-db-best-match-label">
         <source>(best match)</source>
@@ -1375,25 +1151,10 @@
         <extracomment>start screen, select db for migration, Date created column title</extracomment>
         <translation>Дата создания</translation>
     </message>
-    <message id="start-select-db-show-in-folder-label">
-        <source>show in folder</source>
-        <extracomment>start screen, select db for migration, show in folder label</extracomment>
-        <translation>открыть папку</translation>
-    </message>
     <message id="confirm-pwd-error">
-        <source>Wrong password</source>
-        <extracomment>confirm password dialog, wrong password error</extracomment>
-        <translation>Неправильный пароль</translation>
-    </message>
-    <message id="confirm-pwd-cancel">
-        <source>cancel</source>
-        <extracomment>confirm password dialog, cancel button</extracomment>
-        <translation>отмена</translation>
-    </message>
-    <message id="confirm-pwd-ok">
-        <source>proceed</source>
-        <extracomment>confirm password dialog, ok button</extracomment>
-        <translation>продолжить</translation>
+        <source>Invalid password provided.</source>
+        <oldsource>Wrong password</oldsource>
+        <translation type="obsolete">Неправильный пароль</translation>
     </message>
     <message id="settings-general-require-pwd-to-spend-confirm-pwd-title">
         <source>Don’t ask password on every Send</source>
