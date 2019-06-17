@@ -73,5 +73,6 @@ namespace beam
         virtual Amount getFeeRate() const = 0;
         virtual uint16_t getTxMinConfirmations() const = 0;
         virtual uint32_t getLockTimeInBlocks() const = 0;
+        virtual std::string getCoinName() const = 0;
     };
 }

@@ -37,4 +37,9 @@ namespace beam
 
         return QtumTestnetP2KH;
     }
+
+    std::string Qtumd017::getCoinName() const
+    {
+        return "qtum";
+    }
 }

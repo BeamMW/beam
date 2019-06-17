@@ -53,7 +53,7 @@ namespace beam
 
     void Bitcoind016::dumpPrivKey(const std::string& btcAddress, std::function<void(const IBitcoinBridge::Error&, const std::string&)> callback)
     {
-        LOG_DEBUG() << "Send to Bitcoind dumpPrivKey command";
+        LOG_DEBUG() << "Send dumpPrivKey command";
 
         sendRequest("dumpprivkey", "\"" + btcAddress + "\"", [callback] (IBitcoinBridge::Error error, const json& result){
             std::string privKey;
@@ -77,7 +77,7 @@ namespace beam
 
     void Bitcoind016::fundRawTransaction(const std::string& rawTx, Amount feeRate, std::function<void(const IBitcoinBridge::Error&, const std::string&, int)> callback)
     {
-        LOG_DEBUG() << "Send to Bitcoind fundRawTransaction command";
+        LOG_DEBUG() << "Send fundRawTransaction command";
 
         std::string params = "\"" + rawTx + "\"";
         if (feeRate)
@@ -109,7 +109,7 @@ namespace beam
 
     void Bitcoind016::signRawTransaction(const std::string& rawTx, std::function<void(const IBitcoinBridge::Error&, const std::string&, bool)> callback)
     {
-        LOG_DEBUG() << "Send to Bitcoind signRawTransaction command";
+        LOG_DEBUG() << "Send signRawTransaction command";
 
         sendRequest("signrawtransaction", "\"" + rawTx + "\"", [callback](IBitcoinBridge::Error error, const json& result) {
             std::string hex;
@@ -135,7 +135,7 @@ namespace beam
 
     void Bitcoind016::sendRawTransaction(const std::string& rawTx, std::function<void(const IBitcoinBridge::Error&, const std::string&)> callback)
     {
-        LOG_DEBUG() << "Send to Bitcoind sendRawTransaction command";
+        LOG_DEBUG() << "Send sendRawTransaction command";
 
         sendRequest("sendrawtransaction", "\"" + rawTx + "\"", [callback](IBitcoinBridge::Error error, const json& result) {
             std::string txID;
@@ -159,7 +159,7 @@ namespace beam
 
     void Bitcoind016::getRawChangeAddress(std::function<void(const IBitcoinBridge::Error&, const std::string&)> callback)
     {
-        LOG_DEBUG() << "Send to Bitcoind getRawChangeAddress command";
+        LOG_DEBUG() << "Send getRawChangeAddress command";
 
         sendRequest("getrawchangeaddress", "\"legacy\"", [callback](IBitcoinBridge::Error error, const json& result) {
             std::string address;
@@ -189,7 +189,7 @@ namespace beam
         Timestamp locktime,
         std::function<void(const IBitcoinBridge::Error&, const std::string&)> callback)
     {
-        LOG_DEBUG() << "Send to Bitcoind createRawTransaction command";
+        LOG_DEBUG() << "Send createRawTransaction command";
 
         std::string args("[{\"txid\": \"" + contractTxId + "\", \"vout\":" + std::to_string(outputIndex) + ", \"Sequence\": " + std::to_string(libbitcoin::max_input_sequence - 1) + " }]");
 
@@ -221,7 +221,7 @@ namespace beam
 
     void Bitcoind016::getTxOut(const std::string& txid, int outputIndex, std::function<void(const IBitcoinBridge::Error&, const std::string&, double, uint16_t)> callback)
     {
-        LOG_DEBUG() << "Send to Bitcoind getTxOut command";
+        LOG_DEBUG() << "Send getTxOut command";
 
         sendRequest("gettxout", "\"" + txid + "\"" + "," + std::to_string(outputIndex), [callback](IBitcoinBridge::Error error, const json& result) {
             double value = 0;
@@ -254,7 +254,7 @@ namespace beam
 
     void Bitcoind016::getBlockCount(std::function<void(const IBitcoinBridge::Error&, uint64_t)> callback)
     {
-        LOG_DEBUG() << "Send to Bitcoind getBlockCount command";
+        LOG_DEBUG() << "Send getBlockCount command";
 
         sendRequest("getblockcount", "", [callback](IBitcoinBridge::Error error, const json& result) {
             uint64_t blockCount = 0;
@@ -282,7 +282,7 @@ namespace beam
 
     void Bitcoind016::getBalance(uint32_t confirmations, std::function<void(const Error&, double)> callback)
     {
-        LOG_DEBUG() << "Send to Bitcoind getBalance command";
+        LOG_DEBUG() << "Send getBalance command";
         sendRequest("getbalance", "\"*\"," + std::to_string(confirmations), [callback](IBitcoinBridge::Error error, const json& result) {
             double balance = 0;
 
@@ -327,6 +327,11 @@ namespace beam
         return m_options.m_lockTimeInBlocks;
     }
 
+    std::string Bitcoind016::getCoinName() const
+    {
+        return "bitcoin";
+    }
+
     void Bitcoind016::sendRequest(const std::string& method, const std::string& params, std::function<void(const Error&, const json&)> callback)
     {
         const std::string content(R"({"method":")" + method + R"(","params":[)" + params + "]}");
@@ -343,7 +348,7 @@ namespace beam
             .method("POST")
             .body(content.c_str(), content.size());
 
-        request.callback([callback](uint64_t id, const HttpMsgReader::Message& msg) -> bool {
+        request.callback([coinName = getCoinName(), callback](uint64_t id, const HttpMsgReader::Message& msg) -> bool {
             Error error{ None, "" };
             json result;
 
@@ -367,7 +372,7 @@ namespace beam
                     if (sz > 0 && body)
                     {
                         std::string strResponse = std::string(static_cast<const char*>(body), sz);
-                        LOG_DEBUG() << "Bitcoin response: " << strResponse;
+                        LOG_DEBUG() << coinName << " wallet response: " << strResponse;
 
                         try
                         {
