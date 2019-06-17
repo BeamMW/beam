@@ -193,6 +193,7 @@ private:
 		bool EnumViewerKeys(IKeyWalker&) override;
 		void OnUtxoEvent(const UtxoEvent::Value&) override;
 		void OnDummy(const Key::ID&, Height) override;
+		void Stop();
 
 		struct TaskProcessor
 			:public Task::Processor

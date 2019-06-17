@@ -412,13 +412,17 @@ void Reactor::run() {
     }
     block_sigpipe();
     // NOTE: blocks
+    _running = true;
     uv_run(&_loop, UV_RUN_DEFAULT);
 }
 
 void Reactor::stop() {
-    int errorCode = uv_async_send(&_stopEvent);
-    if (errorCode != 0) {
-        LOG_DEBUG() << "cannot post stop signal to event loop";
+    if (_running) {
+        _running = false;
+        int errorCode = uv_async_send(&_stopEvent);
+        if (errorCode != 0) {
+            LOG_DEBUG() << "cannot post stop signal to event loop";
+        }
     }
 }
 
