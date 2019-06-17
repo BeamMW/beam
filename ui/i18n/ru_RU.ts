@@ -1349,12 +1349,12 @@
     <message id="edit-addr-comment-error">
         <source>Address with same comment already exist</source>
         <extracomment>Edit address dialog, address with same comment already exist error</extracomment>
-        <translation>Адрес с таким коментарием уже существует</translation>
+        <translation>Адрес с таким комментарием уже существует</translation>
     </message>
     <message id="create-addr-comment-error">
         <source>Address with same comment already exist</source>
         <extracomment>Create address, address with same comment already exist error</extracomment>
-        <translation>Адрес с таким коментарием уже существует</translation>
+        <translation>Адрес с таким комментарием уже существует</translation>
     </message>
     <message id="start-migration-select-file-button">
         <source>select wallet database file manually</source>
