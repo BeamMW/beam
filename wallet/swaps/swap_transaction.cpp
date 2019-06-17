@@ -380,7 +380,7 @@ namespace beam::wallet
             case State::Cancelled:
             {
                 LOG_INFO() << GetTxID() << " Transaction cancelled.";
-                // TODO roman.strilec: need to implement notification of counterparty
+                NotifyFailure(TxFailureReason::Cancelled);
                 UpdateTxDescription(TxStatus::Cancelled);
 
                 RollbackTx();
@@ -390,7 +390,22 @@ namespace beam::wallet
             }
             case State::Failed:
             {
-                LOG_INFO() << GetTxID() << " Transaction failed.";
+                TxFailureReason reason = TxFailureReason::Unknown;
+                if (GetParameter(TxParameterID::FailureReason, reason))
+                {
+                    if (reason == TxFailureReason::Cancelled)
+                    {
+                        LOG_ERROR() << GetTxID() << " Swap cancelled. The other side has cancelled the transaction.";
+                    }
+                    else
+                    {
+                        LOG_ERROR() << GetTxID() << " The other side has failed the transaction. Reason: " << GetFailureMessage(reason);
+                    }
+                }
+                else
+                {
+                    LOG_ERROR() << GetTxID() << " Transaction failed.";
+                }
                 UpdateTxDescription(TxStatus::Failed);
                 m_Gateway.on_tx_completed(GetTxID());
                 break;
@@ -410,7 +425,6 @@ namespace beam::wallet
         }
         catch (const UninitilizedSecondSide&)
         {
-            //LOG_ERROR() << "";
         }
     }
 
