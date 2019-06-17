@@ -524,7 +524,7 @@ Item {
                                 text: viewModel.newReceiverName
                                 onTextEdited: {
                                     isAddressCommentDuplicated = viewModel.isAddressWithCommentExist(myAddressName.text);
-                                    if (isAddressCommentDuplicated) {
+                                    if (!isAddressCommentDuplicated) {
                                         viewModel.newReceiverName = myAddressName.text;
                                     }
                                 }
