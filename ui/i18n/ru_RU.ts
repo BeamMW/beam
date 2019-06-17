@@ -124,7 +124,7 @@
     </message>
     <message id="settings-general-require-pwd-to-spend">
         <source>Ask password for every sending transaction</source>
-        <extracomment>settings tab, general section, ask password label</extracomment>
+        <extracomment>settings tab, general section, ask password to send label</extracomment>
         <translation>Спрашивать пароль для каждой исходящей транзакции</translation>
     </message>
     <message id="settings-report-problem-title">
@@ -1375,6 +1375,31 @@
         <source>show in folder</source>
         <extracomment>start screen, select db for migration, show in folder label</extracomment>
         <translation>открыть папку</translation>
+    </message>
+    <message id="confirm-pwd-error">
+        <source>Wrong password</source>
+        <extracomment>confirm password dialog, wrong password error</extracomment>
+        <translation>Неправильный пароль</translation>
+    </message>
+    <message id="confirm-pwd-cancel">
+        <source>cancel</source>
+        <extracomment>confirm password dialog, cancel button</extracomment>
+        <translation>отмена</translation>
+    </message>
+    <message id="confirm-pwd-ok">
+        <source>proceed</source>
+        <extracomment>confirm password dialog, ok button</extracomment>
+        <translation>продолжить</translation>
+    </message>
+    <message id="settings-general-require-pwd-to-spend-confirm-pwd-title">
+        <source>Don’t ask password on every Send</source>
+        <extracomment>settings tab, general section, ask password to send, confirm password dialog, title</extracomment>
+        <translation>Не спрашивать пароль для отправки</translation>
+    </message>
+    <message id="settings-general-require-pwd-to-spend-confirm-pwd-message">
+        <source>Password verification is required to change that setting</source>
+        <extracomment>settings tab, general section, ask password to send, confirm password dialog, message</extracomment>
+        <translation>Введите пароль, что бы изменения вступили в силу.</translation>
     </message>
 </context>
 </TS>

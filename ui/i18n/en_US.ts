@@ -125,7 +125,7 @@
     </message>
     <message id="settings-general-require-pwd-to-spend">
         <source>Ask password for every sending transaction</source>
-        <extracomment>settings tab, general section, ask password label</extracomment>
+        <extracomment>settings tab, general section, ask password to send label</extracomment>
         <translation>Ask password for every sending transaction</translation>
     </message>
     <message id="settings-report-problem-title">
@@ -1386,6 +1386,31 @@ exchanges and transaction data)</translation>
         <source>show in folder</source>
         <extracomment>start screen, select db for migration, show in folder label</extracomment>
         <translation>show in folder</translation>
+    </message>
+    <message id="confirm-pwd-error">
+        <source>Wrong password</source>
+        <extracomment>confirm password dialog, wrong password error</extracomment>
+        <translation>Wrong password</translation>
+    </message>
+    <message id="confirm-pwd-cancel">
+        <source>cancel</source>
+        <extracomment>confirm password dialog, cancel button</extracomment>
+        <translation>cancel</translation>
+    </message>
+    <message id="confirm-pwd-ok">
+        <source>proceed</source>
+        <extracomment>confirm password dialog, ok button</extracomment>
+        <translation>proceed</translation>
+    </message>
+    <message id="settings-general-require-pwd-to-spend-confirm-pwd-title">
+        <source>Don’t ask password on every Send</source>
+        <extracomment>settings tab, general section, ask password to send, confirm password dialog, title</extracomment>
+        <translation>Don’t ask password on every Send</translation>
+    </message>
+    <message id="settings-general-require-pwd-to-spend-confirm-pwd-message">
+        <source>Password verification is required to change that setting</source>
+        <extracomment>settings tab, general section, ask password to send, confirm password dialog, message</extracomment>
+        <translation>Password verification is required to change that setting</translation>
     </message>
 </context>
 </TS>

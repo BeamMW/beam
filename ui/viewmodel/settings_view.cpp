@@ -263,6 +263,12 @@ void SettingsViewModel::openFolder(const QString& path)
     WalletSettings::openFolder(path);
 }
 
+bool SettingsViewModel::checkWalletPassword(const QString& oldPass) const
+{
+    SecString secretPass = oldPass.toStdString();
+    return AppModel::getInstance()->checkWalletPassword(secretPass);
+}
+
 bool SettingsViewModel::isChanged() const
 {
     return m_nodeAddress != m_settings.getNodeAddress()
@@ -320,12 +326,6 @@ void SettingsViewModel::undoChanges()
 void SettingsViewModel::reportProblem()
 {
     m_settings.reportProblem();
-}
-
-bool SettingsViewModel::checkWalletPassword(const QString& oldPass) const
-{
-    SecString secretPass = oldPass.toStdString();
-    return AppModel::getInstance()->checkWalletPassword(secretPass);
 }
 
 void SettingsViewModel::changeWalletPassword(const QString& pass)

@@ -21,6 +21,10 @@ Rectangle {
         id: changePasswordDialog        
     }
 
+    ConfirmPasswordDialog {
+        id: confirmPasswordDialog
+    }
+
     ConfirmationDialog {
         id: confirmRefreshDialog
         property bool canRefresh: true
@@ -606,16 +610,29 @@ Rectangle {
 
                                     CustomSwitch {
                                         id: isPasswordReqiredToSpendMoney
-                                        //: settings tab, general section, ask password label
+                                        //: settings tab, general section, ask password to send label
                                         //% "Ask password for every sending transaction"
                                         text: qsTrId("settings-general-require-pwd-to-spend")
                                         font.pixelSize: 14
                                         Layout.fillWidth: true
                                         checked: viewModel.isPasswordReqiredToSpendMoney
-                                        Binding {
-                                            target: viewModel
-                                            property: "isPasswordReqiredToSpendMoney"
-                                            value: isPasswordReqiredToSpendMoney.checked
+                                        function onDialogAccepted() {
+                                            viewModel.isPasswordReqiredToSpendMoney = checked;
+                                        }
+
+                                        function onDialogRejected() {
+                                            checked = !checked;
+                                        }
+                                        onClicked: {
+                                            //: settings tab, general section, ask password to send, confirm password dialog, title
+                                            //% "Don’t ask password on every Send"
+                                            confirmPasswordDialog.dialogTitle = qsTrId("settings-general-require-pwd-to-spend-confirm-pwd-title");
+                                            //: settings tab, general section, ask password to send, confirm password dialog, message
+                                            //% "Password verification is required to change that setting"
+                                            confirmPasswordDialog.dialogMessage = qsTrId("settings-general-require-pwd-to-spend-confirm-pwd-message");
+                                            confirmPasswordDialog.onDialogAccepted = onDialogAccepted;
+                                            confirmPasswordDialog.onDialogRejected = onDialogRejected;
+                                            confirmPasswordDialog.open();
                                         }
                                     }
                                 }
