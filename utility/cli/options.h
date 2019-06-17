@@ -129,7 +129,7 @@ namespace beam
         extern const char* BTC_LOCK_TIME;
         extern const char* LTC_LOCK_TIME;
         extern const char* QTUM_LOCK_TIME;
-
+        extern const char* NODE_POLL_PERIOD;
 
         // wallet api
         extern const char* API_USE_HTTP;
@@ -212,6 +212,67 @@ namespace beam
         {
         }
     };
+
+    template<typename T>
+    std::ostream& operator<<(std::ostream& os, const Nonnegative<T>& v)
+    {
+        os << v.value;
+        return os;
+    }
+
+    template<typename T>
+    std::ostream& operator<<(std::ostream& os, const Positive<T>& v)
+    {
+        os << v.value;
+        return os;
+    }
+
+    template <typename T>
+    void validate(boost::any& v, const std::vector<std::string>& values, Nonnegative<T>*, int)
+    {
+        po::validators::check_first_occurrence(v);
+
+        const std::string& s = po::validators::get_single_string(values);
+
+        if (!s.empty() && s[0] == '-') {
+            throw NonnegativeOptionException();
+        }
+
+        try
+        {
+            v = Nonnegative<T>(boost::lexical_cast<T>(s));
+        }
+        catch (const boost::bad_lexical_cast&)
+        {
+            throw po::invalid_option_value(s);
+        }
+    }
+
+    template <typename T>
+    void validate(boost::any& v, const std::vector<std::string>& values, Positive<T>*, int)
+    {
+        po::validators::check_first_occurrence(v);
+        const std::string& s = po::validators::get_single_string(values);
+        T numb;
+
+        if (!s.empty() && s[0] == '-') {
+            throw PositiveOptionException();
+        }
+
+        try
+        {
+            numb = boost::lexical_cast<T>(s);
+        }
+        catch (const boost::bad_lexical_cast&)
+        {
+            throw po::invalid_option_value(s);
+        }
+
+        if (numb <= 0)
+            throw PositiveOptionException();
+
+        v = Positive<T>(numb);
+    }
 
     bool read_wallet_pass(SecString& pass, const po::variables_map& vm);
     bool confirm_wallet_pass(const SecString& pass);

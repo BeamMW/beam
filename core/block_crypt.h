@@ -163,6 +163,7 @@ namespace beam
 		static void get_sk1(ECC::Scalar::Native& res, const ECC::Point::Native& comm0, const ECC::Point::Native& sk0_J);
 		void CreateInternal(ECC::Scalar::Native&, ECC::Point::Native&, bool bComm, Key::IKdf& kdf, const Key::IDV& kidv) const;
 		void AddValue(ECC::Point::Native& comm, Amount) const;
+		static void get_Hash(ECC::Hash::Value&, const Key::IDV&);
 	public:
 
 		ECC::Point::Native m_hGen;

@@ -213,7 +213,10 @@ namespace beam::wallet
             {
                 auto lockTxState = BuildBeamLockTx();
                 if (lockTxState != SubTxState::Constructed)
+                {
+                    UpdateOnNextTip();
                     break;
+                }
                 LOG_INFO() << GetTxID() << " Beam LockTX constructed.";
                 SetNextState(State::BuildingBeamRefundTX);
                 break;
@@ -511,13 +514,19 @@ namespace beam::wallet
     {
         if (IsBeamSide())
         {
-			uint8_t nRegistered = proto::TxStatus::Unspecified;
+            uint8_t nRegistered = proto::TxStatus::Unspecified;
             if (!GetParameter(TxParameterID::TransactionRegistered, nRegistered, SubTxIndex::BEAM_LOCK_TX))
             {
                 Block::SystemState::Full state;
                 Height lockTxMaxHeight = MaxHeight;
 
-                if (GetParameter(TxParameterID::MaxHeight, lockTxMaxHeight, SubTxIndex::BEAM_LOCK_TX) && GetTip(state) && state.m_Height > lockTxMaxHeight)
+                if (!GetParameter(TxParameterID::MaxHeight, lockTxMaxHeight, SubTxIndex::BEAM_LOCK_TX)
+                    && !GetParameter(TxParameterID::PeerResponseHeight, lockTxMaxHeight, SubTxIndex::BEAM_LOCK_TX))
+                {
+                    return false;
+                }
+
+                if (GetTip(state) && state.m_Height > lockTxMaxHeight)
                 {
                     LOG_INFO() << GetTxID() << " Transaction expired. Current height: " << state.m_Height << ", max kernel height: " << lockTxMaxHeight;
                     OnFailed(TxFailureReason::TransactionExpired, false);

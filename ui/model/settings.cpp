@@ -279,6 +279,15 @@ QStringList WalletSettings::getSupportedLanguages()
     return languagesNames;
 }
 
+// static
+void WalletSettings::openFolder(const QString& path)
+{
+    QFileInfo fileInfo(path);
+    QDesktopServices::openUrl(
+        QUrl::fromLocalFile(
+            fileInfo.isFile() ? fileInfo.absolutePath() : path));
+}
+
 void WalletSettings::reportProblem()
 {
     auto logsFolder = QString::fromStdString(LogsFolder) + "/";

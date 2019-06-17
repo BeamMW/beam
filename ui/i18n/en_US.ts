@@ -665,8 +665,9 @@
         <translation>Your wallet will be migrated to v.</translation>
     </message>
     <message id="start-migration-button">
-        <source>start migration</source>
-        <translation>start migration</translation>
+        <source>start auto migration</source>
+        <extracomment>migration screen, start auto migration button</extracomment>
+        <translation>start auto migration</translation>
     </message>
     <message id="start-login-another-message">
         <source>Restore wallet or create new one</source>
@@ -690,11 +691,8 @@
     </message>
     <message id="start-select-db-thead-modified">
         <source>Date modified</source>
+        <extracomment>start screen, select db for migration, Date modified column title</extracomment>
         <translation>Date modified</translation>
-    </message>
-    <message id="start-select-db-manual-button">
-        <source>select file manually</source>
-        <translation>select file manually</translation>
     </message>
     <message id="start-next-button">
         <source>next</source>
@@ -1368,6 +1366,26 @@ exchanges and transaction data)</translation>
         <source>Address with same comment already exist</source>
         <extracomment>Create address, address with same comment already exist error</extracomment>
         <translation>Address with same comment already exist</translation>
+    </message>
+    <message id="start-migration-select-file-button">
+        <source>select wallet database file manually</source>
+        <extracomment>migration screen, select db file button</extracomment>
+        <translation>select wallet database file manually</translation>
+    </message>
+    <message id="start-select-db-best-match-label">
+        <source>(best match)</source>
+        <extracomment>start screen, select db for migration, best match label</extracomment>
+        <translation>(best match)</translation>
+    </message>
+    <message id="start-select-db-thead-created">
+        <source>Date created</source>
+        <extracomment>start screen, select db for migration, Date created column title</extracomment>
+        <translation>Date created</translation>
+    </message>
+    <message id="start-select-db-show-in-folder-label">
+        <source>show in folder</source>
+        <extracomment>start screen, select db for migration, show in folder label</extracomment>
+        <translation>show in folder</translation>
     </message>
 </context>
 </TS>

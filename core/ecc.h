@@ -233,17 +233,45 @@ namespace ECC
 		struct IDV
 			:public ID
 		{
+			struct Scheme
+			{
+				static const uint8_t V0 = 0;
+				static const uint8_t V1 = 1;
+
+				static const uint32_t s_SubKeyBits = 24;
+				static const Index s_SubKeyMask = (static_cast<Index>(1) << s_SubKeyBits) - 1;
+			};
+
+
 			Amount m_Value;
 			IDV() {}
 			IDV(Zero_)
 				:ID(Zero)
 				,m_Value(0)
-			{}
+			{
+				set_Subkey(0);
+			}
 
-			IDV(Amount v, uint64_t nIdx, Type type, Index nSubIdx = 0)
-				:ID(nIdx, type, nSubIdx)
+			IDV(Amount v, uint64_t nIdx, Type type, Index nSubIdx = 0, Index nScheme = Scheme::V1)
+				:ID(nIdx, type)
 				,m_Value(v)
 			{
+				set_Subkey(nSubIdx, nScheme);
+			}
+
+			Index get_Scheme() const
+			{
+				return m_SubIdx >> Scheme::s_SubKeyBits;
+			}
+
+			Index get_Subkey() const
+			{
+				return m_SubIdx & Scheme::s_SubKeyMask;
+			}
+
+			void set_Subkey(Index nSubIdx, Index nScheme = Scheme::V1)
+			{
+				m_SubIdx = (nSubIdx & Scheme::s_SubKeyMask) | (nScheme << Scheme::s_SubKeyBits);
 			}
 
 #pragma pack (push, 1)
