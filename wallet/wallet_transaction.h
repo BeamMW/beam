@@ -41,6 +41,11 @@ namespace beam::wallet
             OutputsConfirmation
         };
     public:
+        static BaseTransaction::Ptr Create(INegotiatorGateway& gateway
+                                    , IWalletDB::Ptr walletDB
+                                    , IPrivateKeyKeeper::Ptr keyKeeper
+                                    , const TxID& txID);
+    private:
         SimpleTransaction(INegotiatorGateway& gateway
                         , IWalletDB::Ptr walletDB
                         , IPrivateKeyKeeper::Ptr keyKeeper

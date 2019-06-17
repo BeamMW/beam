@@ -185,6 +185,8 @@ namespace beam::wallet
     {
     public:
         using Ptr = std::shared_ptr<BaseTransaction>;
+        using Creator = std::function<BaseTransaction::Ptr(INegotiatorGateway&, IWalletDB::Ptr, IPrivateKeyKeeper::Ptr, const TxID&)>;
+
         BaseTransaction(INegotiatorGateway& gateway
                       , IWalletDB::Ptr walletDB
                       , IPrivateKeyKeeper::Ptr keyKeeper

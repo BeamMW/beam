@@ -26,11 +26,12 @@ namespace beam::wallet
 
 
     BaseTransaction::Ptr SimpleTransaction::Create(INegotiatorGateway& gateway
-        , beam::IWalletDB::Ptr walletDB
+        , IWalletDB::Ptr walletDB
+        , IPrivateKeyKeeper::Ptr keyKeeper
         , const TxID& txID)
     {
         //return make_shared<SimpleTransaction>(gateway, walletDB, txID);
-        return BaseTransaction::Ptr(new SimpleTransaction(gateway, walletDB, txID));
+        return BaseTransaction::Ptr(new SimpleTransaction(gateway, walletDB, keyKeeper, txID));
     }
 
     SimpleTransaction::SimpleTransaction(INegotiatorGateway& gateway

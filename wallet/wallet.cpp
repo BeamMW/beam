@@ -1169,7 +1169,7 @@ namespace beam::wallet
             return wallet::BaseTransaction::Ptr();
         }
 
-        return it->second(*this, m_WalletDB, id, m_KeyKeeper);
+        return it->second(*this, m_WalletDB, m_KeyKeeper, id);
     }
 
     void Wallet::ProcessStoredMessages()
