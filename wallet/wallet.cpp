@@ -112,6 +112,9 @@ namespace beam::wallet
         assert(walletDB);
         // the only default type of transaction
         RegisterTransactionType(TxType::Simple, wallet::SimpleTransaction::Create);
+
+        // Temporary
+        RegisterTransactionType(TxType::AtomicSwap, wallet::AtomicSwapTransaction::Create);
         ResumeAllTransactions();
     }
 
