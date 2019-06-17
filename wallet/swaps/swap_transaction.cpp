@@ -49,6 +49,16 @@ namespace beam::wallet
         return m_secondSide;
     }
 
+    BaseTransaction::Ptr AtomicSwapTransaction::Create(INegotiatorGateway& gateway
+        , IWalletDB::Ptr walletDB
+        , IPrivateKeyKeeper::Ptr keyKeeper
+        , const TxID& txID)
+    {
+        return BaseTransaction::Ptr(new AtomicSwapTransaction(gateway, walletDB, keyKeeper, txID));
+    }
+
+
+
     AtomicSwapTransaction::AtomicSwapTransaction(INegotiatorGateway& gateway
                                                , IWalletDB::Ptr walletDB
                                                , IPrivateKeyKeeper::Ptr keyKeeper

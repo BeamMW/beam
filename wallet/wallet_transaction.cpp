@@ -30,7 +30,6 @@ namespace beam::wallet
         , IPrivateKeyKeeper::Ptr keyKeeper
         , const TxID& txID)
     {
-        //return make_shared<SimpleTransaction>(gateway, walletDB, txID);
         return BaseTransaction::Ptr(new SimpleTransaction(gateway, walletDB, keyKeeper, txID));
     }
 

@@ -82,6 +82,11 @@ namespace beam::wallet
 
     public:
         
+        static BaseTransaction::Ptr Create(INegotiatorGateway& gateway
+                                            , IWalletDB::Ptr walletDB
+                                            , IPrivateKeyKeeper::Ptr keyKeeper
+                                            , const TxID& txID);
+
         AtomicSwapTransaction(INegotiatorGateway& gateway
                             , IWalletDB::Ptr walletDB
                             , IPrivateKeyKeeper::Ptr keyKeeper
