@@ -1413,6 +1413,20 @@ void TestHWWallet()
     {
         LOG_INFO() << "HWWallet.generateNonce(): " << nonce;
     });
+
+    const ECC::Key::IDV kidv(100500, 15, Key::Type::Regular, 7);
+    hw.generateRangeProof(kidv, false, [](const ECC::RangeProof::Confidential &rp) {
+        auto hGen = beam::SwitchCommitment(NULL).m_hGen;
+        // Recovery seed: copy, vendor, shallow, raven, coffee, appear, book, blast, lock, exchange, farm, glue
+        uint8_t x[] = {0xce, 0xb2, 0x0d, 0xa2, 0x73, 0x07, 0x0e, 0xb9, 0xc8, 0x2e, 0x47, 0x5b, 0x6f, 0xa0, 0x7b, 0x85, 0x8d, 0x2c, 0x40, 0x9b, 0x9c, 0x24, 0x31, 0xba, 0x3a, 0x8e, 0x2c, 0xba, 0x7b, 0xa1, 0xb0, 0x04};
+        ECC::Point pt;
+        pt.m_X = beam::Blob(x, 32);
+        pt.m_Y = 1;
+        ECC::Point::Native comm;
+        comm.Import(pt);
+        Oracle oracle;
+        LOG_INFO() << "rp.IsValid(): " << rp.IsValid(comm, oracle, &hGen);
+    });
 }
 #endif
 
