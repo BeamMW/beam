@@ -332,6 +332,7 @@ namespace beam::wallet
     {
         Bitcoin,
         Litecoin,
+        Qtum,
         Unknown
     };
 

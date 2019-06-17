@@ -18,6 +18,7 @@
 #include "wallet/secstring.h"
 #include "wallet/bitcoin/options.h"
 #include "wallet/litecoin/options.h"
+#include "wallet/qtum/options.h"
 #include "wallet/swaps/common.h"
 #include "wallet/swaps/swap_transaction.h"
 #include "utility/test_helpers.h"

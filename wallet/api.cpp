@@ -313,6 +313,34 @@ namespace beam::wallet
         _handler.onMessage(id, data);
     }
 
+    void WalletApi::onInitQtumMessage(int id, const nlohmann::json& params)
+    {
+        checkJsonParam(params, "qtumUserName", id);
+        checkJsonParam(params, "qtumPass", id);
+        checkJsonParam(params, "qtumNodeAddr", id);
+
+        if (params["qtumUserName"].empty())
+            throwInvalidJsonRpc(id);
+
+        if (params["qtumPass"].empty())
+            throwInvalidJsonRpc(id);
+
+        if (params["qtumNodeAddr"].empty())
+            throwInvalidJsonRpc(id);
+
+        if (params["feeRate"].empty())
+            throwInvalidJsonRpc(id);
+
+        InitQtum data;
+
+        data.qtumUserName = params["qtumUserName"];
+        data.qtumPass = params["qtumPass"];
+        data.qtumNodeAddr = params["qtumNodeAddr"];
+        data.feeRate = params["feeRate"];
+
+        _handler.onMessage(id, data);
+    }
+
     void WalletApi::onStartSwapMessage(int id, const nlohmann::json& params)
     {
         checkJsonParam(params, "amount", id);
@@ -671,6 +699,16 @@ namespace beam::wallet
     }
 
     void WalletApi::getResponse(int id, const InitLitecoin::Response& res, json& msg)
+    {
+        msg = json
+        {
+            {"jsonrpc", "2.0"},
+            {"id", id},
+            {"result", "done"}
+        };
+    }
+
+    void WalletApi::getResponse(int id, const InitQtum::Response& res, json& msg)
     {
         msg = json
         {
