@@ -1371,6 +1371,17 @@ int main_impl(int argc, char* argv[])
                             wallet.AddMessageEndpoint(make_shared<ColdWalletMessageEndpoint>(wallet, walletDB));
                         }
 
+                        SwapSecondSideChainType swapSecondSideChainType = SwapSecondSideChainType::Unknown;
+                        if (vm.count(cli::SWAP_NETWORK) > 0)
+                        {
+                            swapSecondSideChainType = SwapSecondSideChainTypeFromString(vm[cli::SWAP_NETWORK].as<string>());
+                            if (swapSecondSideChainType == SwapSecondSideChainType::Unknown)
+                            {
+                                LOG_ERROR() << "Unknown type of second side chain for swap";
+                                return -1;
+                            }
+                        }
+
                         if (!btcOptions.m_userName.empty() && !btcOptions.m_pass.empty())
                         {
                             btcOptions.m_feeRate = vm[cli::SWAP_FEERATE].as<Positive<Amount>>().value;
@@ -1385,6 +1396,11 @@ int main_impl(int argc, char* argv[])
                                 btcOptions.m_lockTimeInBlocks = vm[cli::BTC_LOCK_TIME].as<Positive<uint32_t>>().value;
                             }
                             
+                            if (swapSecondSideChainType != SwapSecondSideChainType::Unknown)
+                            {
+                                btcOptions.m_chainType = swapSecondSideChainType;
+                            }
+
                             wallet.initBitcoin(io::Reactor::get_Current(), btcOptions);
                         }
 
@@ -1401,6 +1417,12 @@ int main_impl(int argc, char* argv[])
                             {
                                 ltcOptions.m_lockTimeInBlocks = vm[cli::LTC_LOCK_TIME].as<Positive<uint32_t>>().value;
                             }
+
+                            if (swapSecondSideChainType != SwapSecondSideChainType::Unknown)
+                            {
+                                ltcOptions.m_chainType = swapSecondSideChainType;
+                            }
+
                             wallet.initLitecoin(io::Reactor::get_Current(), ltcOptions);
                         }
 
@@ -1417,6 +1439,12 @@ int main_impl(int argc, char* argv[])
                             {
                                 qtumOptions.m_lockTimeInBlocks = vm[cli::QTUM_LOCK_TIME].as<Positive<uint32_t>>().value;
                             }
+
+                            if (swapSecondSideChainType != SwapSecondSideChainType::Unknown)
+                            {
+                                qtumOptions.m_chainType = swapSecondSideChainType;
+                            }
+
                             wallet.initQtum(io::Reactor::get_Current(), qtumOptions);
                         }
 

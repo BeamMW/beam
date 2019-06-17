@@ -421,6 +421,6 @@ namespace beam
 
     bool Bitcoind016::isMainnet() const
     {
-        return m_options.m_mainnet;
+        return m_options.m_chainType == wallet::SwapSecondSideChainType::Mainnet;
     }
 }

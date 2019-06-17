@@ -442,6 +442,20 @@ namespace
                     options.m_pass = data.btcPass;
                     options.m_address = btcNodeAddr;
                     options.m_feeRate = data.feeRate;
+
+                    if (data.confirmations)
+                    {
+                        options.m_confirmations = data.confirmations;
+                    }
+                    if (data.chainType != SwapSecondSideChainType::Unknown)
+                    {
+                        options.m_chainType = data.chainType;
+                    }
+                    if (data.lockTimeInBlocks)
+                    {
+                        options.m_lockTimeInBlocks = data.lockTimeInBlocks;
+                    }
+
                     _wallet.initBitcoin(io::Reactor::get_Current(), options);
 
                     doResponse(id, EditAddress::Response{});
@@ -465,6 +479,20 @@ namespace
                     options.m_pass = data.ltcPass;
                     options.m_address = ltcNodeAddr;
                     options.m_feeRate = data.feeRate;
+
+                    if (data.confirmations)
+                    {
+                        options.m_confirmations = data.confirmations;
+                    }
+                    if (data.chainType != SwapSecondSideChainType::Unknown)
+                    {
+                        options.m_chainType = data.chainType;
+                    }
+                    if (data.lockTimeInBlocks)
+                    {
+                        options.m_lockTimeInBlocks = data.lockTimeInBlocks;
+                    }
+
                     _wallet.initLitecoin(io::Reactor::get_Current(), options);
 
                     doResponse(id, EditAddress::Response{});
@@ -488,6 +516,20 @@ namespace
                     options.m_pass = data.qtumPass;
                     options.m_address = qtumNodeAddr;
                     options.m_feeRate = data.feeRate;
+
+                    if (data.confirmations)
+                    {
+                        options.m_confirmations = data.confirmations;
+                    }
+                    if (data.chainType != SwapSecondSideChainType::Unknown)
+                    {
+                        options.m_chainType = data.chainType;
+                    }
+                    if (data.lockTimeInBlocks)
+                    {
+                        options.m_lockTimeInBlocks = data.lockTimeInBlocks;
+                    }
+
                     _wallet.initQtum(io::Reactor::get_Current(), options);
 
                     doResponse(id, EditAddress::Response{});

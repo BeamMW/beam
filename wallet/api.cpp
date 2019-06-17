@@ -282,6 +282,24 @@ namespace beam::wallet
         data.btcNodeAddr = params["btcNodeAddr"];
         data.feeRate = params["feeRate"];
 
+        if (existsJsonParam(params, "confirmations"))
+        {
+            if (params["confirmations"] < 0)
+                throwInvalidJsonRpc(id);
+            data.confirmations = params["confirmations"];
+        }
+        if (existsJsonParam(params, "chainType"))
+        {
+            data.chainType = wallet::SwapSecondSideChainTypeFromString(params["chainType"]);
+            if (data.chainType == wallet::SwapSecondSideChainType::Unknown)
+                throwInvalidJsonRpc(id);
+        }
+        if (existsJsonParam(params, "lockTimeInBlocks"))
+        {
+            if (params["lockTimeInBlocks"] < 0)
+                throwInvalidJsonRpc(id);
+            data.lockTimeInBlocks = params["lockTimeInBlocks"];
+        }
         _handler.onMessage(id, data);
     }
 
@@ -310,6 +328,24 @@ namespace beam::wallet
         data.ltcNodeAddr = params["ltcNodeAddr"];
         data.feeRate = params["feeRate"];
 
+        if (existsJsonParam(params, "confirmations"))
+        {
+            if (params["confirmations"] < 0)
+                throwInvalidJsonRpc(id);
+            data.confirmations = params["confirmations"];
+        }
+        if (existsJsonParam(params, "chainType"))
+        {
+            data.chainType = wallet::SwapSecondSideChainTypeFromString(params["chainType"]);
+            if (data.chainType == wallet::SwapSecondSideChainType::Unknown)
+                throwInvalidJsonRpc(id);
+        }
+        if (existsJsonParam(params, "lockTimeInBlocks"))
+        {
+            if (params["lockTimeInBlocks"] < 0)
+                throwInvalidJsonRpc(id);
+            data.lockTimeInBlocks = params["lockTimeInBlocks"];
+        }
         _handler.onMessage(id, data);
     }
 
@@ -338,6 +374,24 @@ namespace beam::wallet
         data.qtumNodeAddr = params["qtumNodeAddr"];
         data.feeRate = params["feeRate"];
 
+        if (existsJsonParam(params, "confirmations"))
+        {
+            if (params["confirmations"] < 0)
+                throwInvalidJsonRpc(id);
+            data.confirmations = params["confirmations"];
+        }
+        if (existsJsonParam(params, "chainType"))
+        {
+            data.chainType = wallet::SwapSecondSideChainTypeFromString(params["chainType"]);
+            if (data.chainType == wallet::SwapSecondSideChainType::Unknown)
+                throwInvalidJsonRpc(id);
+        }
+        if (existsJsonParam(params, "lockTimeInBlocks"))
+        {
+            if (params["lockTimeInBlocks"] < 0)
+                throwInvalidJsonRpc(id);
+            data.lockTimeInBlocks = params["lockTimeInBlocks"];
+        }
         _handler.onMessage(id, data);
     }
 
