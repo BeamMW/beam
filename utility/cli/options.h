@@ -89,7 +89,6 @@ namespace beam
         extern const char* GENERATE_PHRASE;
         extern const char* FEE;
         extern const char* FEE_FULL;
-        extern const char* RECEIVE;
         extern const char* LOG_LEVEL;
         extern const char* FILE_LOG_LEVEL;
         extern const char* LOG_INFO;
@@ -142,8 +141,12 @@ namespace beam
         extern const char* TR_COMMENT;
         extern const char* TR_M;
         extern const char* TR_N;
+
         // ui
         extern const char* APPDATA_PATH;
+
+        // Defaults that should be accessible outside
+        extern const Amount kMinimumFee;
     }
 
     enum OptionsFlag : int

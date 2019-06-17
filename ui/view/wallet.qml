@@ -878,7 +878,7 @@ Item {
 
                                         property int amount: viewModel.defaultFeeInGroth
 
-                                        validator: IntValidator {bottom: 0}
+                                        validator: IntValidator {bottom: viewModel.minimumFeeInGroth}
                                         maximumLength: 15
                                         selectByMouse: true
                                     
@@ -902,6 +902,24 @@ Item {
                                     color: Style.content_main
                                     //% "GROTH"
                                     text: qsTrId("send-curency-sub-name")
+                                }
+                            }
+
+                            Item {
+                                Layout.topMargin: -12
+                                Layout.minimumHeight: 16
+                                Layout.fillWidth: true
+
+                                SFText {
+                                    //% "The minimum fee is %1 groth"
+                                    text: qsTrId("send-fee-fail").arg(viewModel.minimumFeeInGroth)
+                                    color: Style.validator_error
+                                    font.pixelSize: 14
+                                    fontSizeMode: Text.Fit
+                                    minimumPixelSize: 10
+                                    font.styleName: "Italic"
+                                    width: parent.width
+                                    visible: fee_input.amount < viewModel.minimumFeeInGroth
                                 }
                             }
 
@@ -1055,7 +1073,7 @@ Item {
                         palette.buttonText: Style.content_opposite
                         palette.button: Style.accent_outgoing
                         icon.source: "qrc:/assets/icon-send-blue.svg"
-                        enabled: {viewModel.isEnoughMoney && amount_input.amount > 0 && receiverAddrInput.acceptableInput }
+                        enabled: {viewModel.isEnoughMoney && amount_input.amount > 0 && fee_input.amount >= viewModel.minimumFeeInGroth && receiverAddrInput.acceptableInput }
                         onClicked: {
                             if (viewModel.isValidReceiverAddress(viewModel.receiverAddr)) {
                                 confirmationDialog.addressText = viewModel.receiverAddr;
