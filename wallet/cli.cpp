@@ -19,6 +19,7 @@
 #include "wallet/wallet_db.h"
 #include "wallet/wallet_network.h"
 #include "wallet/secstring.h"
+#include "wallet/qtum/options.h"
 #include "wallet/litecoin/options.h"
 #include "wallet/bitcoin/options.h"
 #include "wallet/swaps/common.h"
@@ -187,6 +188,8 @@ namespace beam
             return "BTC";
         case AtomicSwapCoin::Litecoin:
             return "LTC";
+        case AtomicSwapCoin::Qtum:
+            return "QTUM";
         default:
             assert(false && "Unknow SwapCoin");
         }
@@ -1246,6 +1249,35 @@ int main_impl(int argc, char* argv[])
                         ltcOptions.m_pass = vm[cli::LTC_PASS].as<string>();
                     }
 
+                    QtumOptions qtumOptions;
+                    if (vm.count(cli::QTUM_NODE_ADDR) > 0 || vm.count(cli::QTUM_USER_NAME) > 0 || vm.count(cli::QTUM_PASS) > 0)
+                    {
+                        string qtumNodeUri = vm[cli::QTUM_NODE_ADDR].as<string>();
+                        if (!qtumOptions.m_address.resolve(qtumNodeUri.c_str()))
+                        {
+                            LOG_ERROR() << "unable to resolve qtum node address: " << qtumNodeUri;
+                            return -1;
+                        }
+
+                        if (vm.count(cli::QTUM_USER_NAME) == 0)
+                        {
+                            LOG_ERROR() << "user name of qtum node should be specified";
+                            return -1;
+                        }
+
+                        qtumOptions.m_userName = vm[cli::QTUM_USER_NAME].as<string>();
+
+                        // TODO roman.strilets: use SecString instead of std::string
+                        if (vm.count(cli::QTUM_PASS) == 0)
+                        {
+                            LOG_ERROR() << "Please, provide password for the qtum node.";
+                            return -1;
+                        }
+
+                        qtumOptions.m_pass = vm[cli::QTUM_PASS].as<string>();
+                    }
+
+
                     if (command == cli::INFO)
                     {
                         return ShowWalletInfo(walletDB, vm);
@@ -1363,6 +1395,22 @@ int main_impl(int argc, char* argv[])
                             wallet.initLitecoin(io::Reactor::get_Current(), ltcOptions);
                         }
 
+                        if (!qtumOptions.m_userName.empty() && !qtumOptions.m_pass.empty())
+                        {
+                            qtumOptions.m_feeRate = vm[cli::SWAP_FEERATE].as<Positive<Amount>>().value;
+
+                            if (vm.count(cli::QTUM_CONFIRMATIONS) > 0)
+                            {
+                                qtumOptions.m_confirmations = vm[cli::QTUM_CONFIRMATIONS].as<Positive<uint16_t>>().value;
+                            }
+
+                            if (vm.count(cli::QTUM_LOCK_TIME) > 0)
+                            {
+                                qtumOptions.m_lockTimeInBlocks = vm[cli::QTUM_LOCK_TIME].as<Positive<uint32_t>>().value;
+                            }
+                            wallet.initQtum(io::Reactor::get_Current(), qtumOptions);
+                        }
+
                         if (command == cli::SWAP_INIT || command == cli::SWAP_LISTEN)
                         {
                             wallet::AtomicSwapCoin swapCoin = wallet::AtomicSwapCoin::Bitcoin;
@@ -1386,7 +1434,7 @@ int main_impl(int argc, char* argv[])
                                     return -1;
                                 }
                             }
-                            else
+                            else if (swapCoin == wallet::AtomicSwapCoin::Litecoin)
                             {
                                 if (ltcOptions.m_userName.empty() || ltcOptions.m_pass.empty() || ltcOptions.m_address.empty())
                                 {
@@ -1394,6 +1442,15 @@ int main_impl(int argc, char* argv[])
                                     return -1;
                                 }
                             }
+                            else
+                            {
+                                if (qtumOptions.m_userName.empty() || qtumOptions.m_pass.empty() || qtumOptions.m_address.empty())
+                                {
+                                    LOG_ERROR() << "Qtum node credentials should be provided";
+                                    return -1;
+                                }
+                            }
+                            
 
                             if (vm.count(cli::SWAP_AMOUNT) == 0)
                             {

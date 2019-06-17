@@ -28,6 +28,8 @@
 #include "bitcoin/bitcoin_side.h"
 #include "litecoin/litecoind016.h"
 #include "litecoin/litecoin_side.h"
+#include "qtum/qtumd017.h"
+#include "qtum/qtum_side.h"
 
 namespace beam::wallet
 {
@@ -165,6 +167,11 @@ namespace beam::wallet
     void Wallet::initLitecoin(io::Reactor& reactor, const LitecoinOptions& options)
     {
         m_litecoinBridge = make_shared<Litecoind016>(reactor, options);
+    }
+    
+    void Wallet::initQtum(io::Reactor& reactor, const QtumOptions& options)
+    {
+        m_qtumBridge = make_shared<Qtumd017>(reactor, options);
     }
 
     void Wallet::initSwapConditions(Amount beamAmount, Amount swapAmount, AtomicSwapCoin swapCoin, bool isBeamSide)
@@ -577,6 +584,18 @@ namespace beam::wallet
 
                 bool isBeamSide = it->second->GetMandatoryParameter<bool>(TxParameterID::AtomicSwapIsBeamSide);
                 return std::make_shared<LitecoinSide>(*it->second, m_litecoinBridge, isBeamSide);
+            }
+            
+            if (swapCoin == AtomicSwapCoin::Qtum)
+            {
+                if (!m_qtumBridge)
+                {
+                    LOG_ERROR() << "Qtum bridge is not initialized";
+                    return nullptr;
+                }
+
+                bool isBeamSide = it->second->GetMandatoryParameter<bool>(TxParameterID::AtomicSwapIsBeamSide);
+                return std::make_shared<QtumSide>(*it->second, m_qtumBridge, isBeamSide);
             }
         }
 

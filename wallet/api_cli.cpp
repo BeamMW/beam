@@ -40,6 +40,7 @@
 #include "wallet/wallet_network.h"
 #include "wallet/bitcoin/options.h"
 #include "wallet/litecoin/options.h"
+#include "wallet/qtum/options.h"
 
 #include "nlohmann/json.hpp"
 #include "version.h"
@@ -471,6 +472,29 @@ namespace
                 else
                 {
                     doError(id, INVALID_ADDRESS, "Bitcoin node address is not resolved.");
+                }
+            }
+
+            void onMessage(int id, const InitQtum& data) override
+            {
+                LOG_DEBUG() << "InitQtum";
+
+                io::Address qtumNodeAddr;
+                if (qtumNodeAddr.resolve(data.qtumNodeAddr.c_str()))
+                {
+                    QtumOptions options;
+
+                    options.m_userName = data.qtumUserName;
+                    options.m_pass = data.qtumPass;
+                    options.m_address = qtumNodeAddr;
+                    options.m_feeRate = data.feeRate;
+                    _wallet.initQtum(io::Reactor::get_Current(), options);
+
+                    doResponse(id, EditAddress::Response{});
+                }
+                else
+                {
+                    doError(id, INVALID_ADDRESS, "Qtum node address is not resolved.");
                 }
             }
 
