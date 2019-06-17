@@ -111,6 +111,12 @@ private:
 
     io::SharedBuffer generateResponse(const HttpMsgReader::Message& msg)
     {
+        if (msg.what != HttpMsgReader::http_message)
+        {
+            LOG_ERROR() << "TestBitcoinWallet, connection error: " << msg.error_str();
+            return {};
+        }
+
         size_t sz = 0;
         const void* rawReq = msg.msg->get_body(sz);
         std::string result;

@@ -383,6 +383,10 @@ namespace beam::wallet
                 , _db(privateDB ? db->m_PrivateDB : db->_db)
                 , _stm(nullptr)
             {
+                if (_walletDB)
+                {
+                    _walletDB->onPrepareToModify();
+                }
                 int ret = sqlite3_prepare_v2(_db, sql, -1, &_stm, nullptr);
                 throwIfError(ret, _db);
             }
@@ -693,7 +697,7 @@ namespace beam::wallet
         , m_spentHeight{ MaxHeight }
         , m_sessionId(EmptyCoinSession)
     {
-        ZeroObject(m_ID);
+        m_ID = Zero;
         m_ID.m_Value = amount;
         m_ID.m_Type = keyType;
     }
@@ -853,6 +857,25 @@ namespace beam::wallet
             int ret = sqlite3_exec(db, req, nullptr, nullptr, nullptr);
             throwIfError(ret, db);
         }
+
+        void OpenAndMigrateIfNeeded(const string& path, sqlite3** db, const SecString& password)
+        {
+            int ret = sqlite3_open_v2(path.c_str(), db, SQLITE_OPEN_READWRITE, nullptr);
+            throwIfError(ret, *db);
+            enterKey(*db, password);
+            // try to decrypt
+            ret = sqlite3_exec(*db, "PRAGMA user_version;", nullptr, nullptr, nullptr);
+            if (ret != SQLITE_OK)
+            {
+                ret = sqlite3_close(*db);
+                throwIfError(ret, *db);
+                ret = sqlite3_open_v2(path.c_str(), db, SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE, nullptr);
+                throwIfError(ret, *db);
+                enterKey(*db, password);
+                ret = sqlite3_exec(*db, "PRAGMA cipher_migrate; ", nullptr, nullptr, nullptr);
+                throwIfError(ret, *db);
+            }
+        }
     }
 
     IWalletDB::Ptr WalletDB::init(const string& path, const SecString& password, const ECC::NoLeak<ECC::uintBig>& secretKey, io::Reactor::Ptr reactor, bool separateDBForPrivateData)
@@ -907,22 +930,15 @@ namespace beam::wallet
             if (isInitialized(path))
             {
                 sqlite3 *db = nullptr;
-                {
-                    int ret = sqlite3_open_v2(path.c_str(), &db, SQLITE_OPEN_READWRITE, nullptr);
-                    throwIfError(ret, db);
-                }
-
+                OpenAndMigrateIfNeeded(path, &db, password);
                 sqlite3 *sdb = db;
                 string privatePath = path + ".private";
                 bool separateDBForPrivateData = isInitialized(privatePath);
                 if (separateDBForPrivateData)
                 {
-                    int ret = sqlite3_open_v2(privatePath.c_str(), &sdb, SQLITE_OPEN_READWRITE, nullptr);
-                    throwIfError(ret, sdb);
-                    enterKey(sdb, password);
+                    OpenAndMigrateIfNeeded(privatePath, &sdb, password);
                 }
 
-                enterKey(db, password);
                 auto walletDB = make_shared<WalletDB>(db, reactor, sdb);
                 {
                     int ret = sqlite3_busy_timeout(walletDB->_db, BusyTimeoutMs);
@@ -1154,10 +1170,17 @@ namespace beam::wallet
                 {
                     LOG_ERROR() << "Wallet DB Commit failed: " << ex.what();
                 }
+                m_DbTransaction.reset();
             }
-            sqlite3_close_v2(_db);
+            BEAM_VERIFY(SQLITE_OK == sqlite3_close(_db));
+            if (m_PrivateDB && _db != m_PrivateDB)
+            {
+                BEAM_VERIFY(SQLITE_OK == sqlite3_close(m_PrivateDB));
+                m_PrivateDB = nullptr;
+            }
             _db = nullptr;
         }
+        
     }
 
     Key::IKdf::Ptr WalletDB::get_MasterKdf() const
@@ -1165,10 +1188,15 @@ namespace beam::wallet
         return m_pKdf;
     }
 
+	Key::IKdf::Ptr IWalletDB::get_ChildKdf(const Key::IDV& kidv) const
+	{
+		return get_ChildKdf(kidv.get_Subkey());
+	}
+
     Key::IKdf::Ptr IWalletDB::get_ChildKdf(Key::Index iKdf) const
     {
         Key::IKdf::Ptr pMaster = get_MasterKdf();
-        if (!iKdf || pMaster)
+        if (!iKdf)
             return pMaster; // by convention 0 is not a childd
 
         Key::IKdf::Ptr pRet;
@@ -1178,13 +1206,20 @@ namespace beam::wallet
 
     void IWalletDB::calcCommitment(ECC::Scalar::Native& sk, ECC::Point& comm, const Coin::ID& cid)
     {
-        SwitchCommitment().Create(sk, comm, *get_ChildKdf(cid.m_SubIdx), cid);
+        SwitchCommitment().Create(sk, comm, *get_ChildKdf(cid), cid);
     }
 
 	void IWalletDB::ImportRecovery(const std::string& path)
 	{
+		IRecoveryProgress prog;
+		BEAM_VERIFY(ImportRecovery(path, prog));
+	}
+
+	bool IWalletDB::ImportRecovery(const std::string& path, IRecoveryProgress& prog)
+	{
 		beam::RecoveryInfo::Reader rp;
 		rp.Open(path.c_str());
+		uint64_t nTotal = rp.m_Stream.get_Remaining();
 
 		beam::Key::IPKdf::Ptr pOwner = get_MasterKdf();
 
@@ -1193,6 +1228,10 @@ namespace beam::wallet
 			RecoveryInfo::Entry x;
 			if (!rp.Read(x))
 				break;
+
+			uint64_t nRemaining = rp.m_Stream.get_Remaining();
+			if (!prog.OnProgress(nTotal - nRemaining, nTotal))
+				return false;
 
 			Key::IDV kidv;
 			if (!x.m_Output.Recover(x.m_CreateHeight, *pOwner, kidv))
@@ -1227,6 +1266,8 @@ namespace beam::wallet
 
 		if (!vec.empty())
 			get_History().AddStates(&vec.front(), vec.size());
+
+		return true;
 	}
 
     vector<Coin> WalletDB::selectCoins(Amount amount)
@@ -2184,6 +2225,14 @@ namespace beam::wallet
         if (m_DbTransaction)
         {
             m_DbTransaction->commit();
+            m_DbTransaction.reset();
+        }
+    }
+
+    void WalletDB::onPrepareToModify()
+    {
+        if (!m_DbTransaction)
+        {
             m_DbTransaction.reset(new sqlite::Transaction(_db));
         }
     }

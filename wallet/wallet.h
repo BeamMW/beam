@@ -286,7 +286,7 @@ namespace beam::wallet
         std::shared_ptr<proto::FlyClient::INetwork> m_NodeEndpoint;
 
         // List of currently active (incomplete) transactions
-        std::map<TxID, BaseTransaction::Ptr> m_Transactions;
+        std::map<TxID, BaseTransaction::Ptr> m_ActiveTransactions;
 
         // List of transactions that are waiting for wallet to finish sync before tx update
         std::unordered_set<BaseTransaction::Ptr> m_TransactionsToUpdate;

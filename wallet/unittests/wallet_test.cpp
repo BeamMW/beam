@@ -190,7 +190,7 @@ namespace
         };
 
         TestNode node;
-        TestWalletRig sender("sender", createSenderWalletDB(), f);
+        TestWalletRig sender("sender", createSenderWalletDB(), f, false, false, 600);
         TestWalletRig receiver("receiver", createReceiverWalletDB(), f);
 
         WALLET_CHECK(sender.m_WalletDB->selectCoins(6).size() == 2);
@@ -1146,7 +1146,7 @@ Amount SetKidvs(beam::Negotiator::IBase& neg, const Amount* p, size_t n, uint32_
 	for (size_t i = 0; i < n; i++)
 	{
 		Key::IDV& kidv = vec[i];
-		ZeroObject(kidv);
+		kidv = Zero;
 
 		kidv.m_Type = Key::Type::Regular;
 		kidv.m_Idx = i0 + static_cast<uint32_t>(i);

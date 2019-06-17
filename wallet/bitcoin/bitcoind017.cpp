@@ -31,7 +31,7 @@ namespace beam
     {
         LOG_DEBUG() << "Send to Bitcoind signrawtransactionwithwallet command";
 
-        sendRequest("signrawtransactionwithwallet", "\"" + rawTx + "\"", [callback](IBitcoinBridge::Error error, const std::string& response) {
+        sendRequest("signrawtransactionwithwallet", "\"" + rawTx + "\"", [callback](IBitcoinBridge::Error error, const json& result) {
             std::string hex;
             bool isComplete = false;
 
@@ -39,19 +39,8 @@ namespace beam
             {
                 try
                 {
-                    json reply = json::parse(response);
-
-                    if (reply["error"].empty())
-                    {
-                        const auto& result = reply["result"];
-                        hex = result["hex"].get<std::string>();
-                        isComplete = result["complete"].get<bool>();
-                    }
-                    else
-                    {
-                        error.m_type = IBitcoinBridge::BitcoinError;
-                        error.m_message = reply["error"]["message"].get<std::string>();
-                    }
+                    hex = result["hex"].get<std::string>();
+                    isComplete = result["complete"].get<bool>();
                 }
                 catch (const std::exception& ex)
                 {
@@ -81,24 +70,14 @@ namespace beam
         {
             args += "," + std::to_string(locktime);
         }
-        sendRequest("createrawtransaction", args, [callback](IBitcoinBridge::Error error, const std::string& response) {
-            std::string result;
+        sendRequest("createrawtransaction", args, [callback](IBitcoinBridge::Error error, const json& result) {
+            std::string tx;
 
             if (error.m_type == IBitcoinBridge::None)
             {
                 try
                 {
-                    json reply = json::parse(response);
-
-                    if (reply["error"].empty())
-                    {
-                        result = reply["result"].get<std::string>();
-                    }
-                    else
-                    {
-                        error.m_type = IBitcoinBridge::BitcoinError;
-                        error.m_message = reply["error"]["message"].get<std::string>();
-                    }
+                    tx = result.get<std::string>();
                 }
                 catch (const std::exception& ex)
                 {
@@ -107,7 +86,7 @@ namespace beam
                 }
             }
 
-            callback(error, result);
+            callback(error, tx);
         });
     }
 }

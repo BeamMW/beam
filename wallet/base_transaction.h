@@ -151,6 +151,7 @@ namespace beam::wallet
     private:
         ECC::uintBig GetSeedKid(Key::IPKdf& tagKdf, const ECC::Point& commitment) const;
         Key::IKdf::Ptr GetChildKdf(Key::Index iKdf) const;
+		Key::IKdf::Ptr GetChildKdf(const Key::IDV&) const;
         ECC::Scalar::Native GetNonce(size_t slot);
         ECC::Scalar::Native GetExcess(const std::vector<Key::IDV>& inputs, const std::vector<Key::IDV>& outputs, const ECC::Scalar::Native& offset) const;
         void LoadNonceSeeds();

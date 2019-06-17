@@ -59,6 +59,7 @@ public:
     QString getLanguageName() const;
     void setLocaleByLanguageName(const QString& language);
     static QStringList getSupportedLanguages();
+    static void openFolder(const QString& path);
 
 public:
     static const char* WalletCfg;

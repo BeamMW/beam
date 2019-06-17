@@ -171,6 +171,7 @@ namespace beam::wallet
 
         // Returns the Child Key Derivative Function (operates on secret keys)
         beam::Key::IKdf::Ptr get_ChildKdf(Key::Index) const;
+		beam::Key::IKdf::Ptr get_ChildKdf(const Key::IDV&) const;
 
         // Calculates blinding factor and commitment of specifc Coin::ID
         void calcCommitment(ECC::Scalar::Native& sk, ECC::Point& comm, const Coin::ID&);
@@ -178,6 +179,14 @@ namespace beam::wallet
 		// import blockchain recovery data (all at once)
 		// should be used only upon creation on 'clean' wallet. Throws exception on error
 		void ImportRecovery(const std::string& path);
+
+		struct IRecoveryProgress
+		{
+			virtual bool OnProgress(uint64_t done, uint64_t total) { return true; } // return false to stop recovery
+		};
+
+		// returns false if callback asked to stop verification.
+		bool ImportRecovery(const std::string& path, IRecoveryProgress&);
 
         // Allocates new Key ID, used for generation of the blinding factor
         // Will return the next id starting from a random base created during wallet initialization
@@ -387,6 +396,7 @@ namespace beam::wallet
         void flushDB();
         void onModified();
         void onFlushTimer();
+        void onPrepareToModify();
     private:
         friend struct sqlite::Statement;
         sqlite3* _db;

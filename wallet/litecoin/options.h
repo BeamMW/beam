@@ -18,5 +18,11 @@
 
 namespace beam
 {
-    using LitecoinOptions = BitcoinOptions;
+    struct LitecoinOptions : public BitcoinOptions
+    {
+        LitecoinOptions()
+        {
+            m_lockTimeInBlocks = 2 * 24 * 4 * 6;
+        }
+    };
 }

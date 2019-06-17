@@ -112,7 +112,12 @@ namespace ECC {
 
 	std::ostream& operator << (std::ostream& s, const Key::IDV& x)
 	{
-		s << "Key=" << x.m_Type << "-" << x.m_SubIdx << ":" << x.m_Idx << ", Value=" << x.m_Value;
+		s
+			<< "Key=" << x.m_Type
+			<< "-" << x.get_Scheme()
+			<< ":" << x.get_Subkey()
+			<< ":" << x.m_Idx
+			<< ", Value=" << x.m_Value;
 		return s;
 	}
 

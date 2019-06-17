@@ -48,7 +48,7 @@ namespace beam
         uint32_t getLockTimeInBlocks() const override;
 
     protected:
-        void sendRequest(const std::string& method, const std::string& params, std::function<void(const Error&, const std::string&)> callback);
+        void sendRequest(const std::string& method, const std::string& params, std::function<void(const Error&, const nlohmann::json&)> callback);
         bool isMainnet() const;
 
     private:

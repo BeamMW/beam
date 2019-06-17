@@ -15,6 +15,23 @@ Item
     property bool isLockedMode: false
 
     StartViewModel { id: viewModel }
+
+    function migrateWalletDB(path) {
+        // copy wallet.db                         
+        viewModel.migrateWalletDB(path);
+        viewModel.isRecoveryMode = false;
+        startWizzardView.push(open, {
+            "firstButtonVisible": true,
+            //% "back"
+            "firstButtonText": qsTrId("start-back-button"), 
+            "firstButtonIcon": "qrc:/assets/icon-back.svg",
+            "firstButtonAction": function() {
+                // remove wallet.db file
+                viewModel.deleteCurrentWalletDB();
+                startWizzardView.pop();
+            }
+        });
+    }
     
     LogoComponent {
         id: logoComponent
@@ -228,17 +245,43 @@ Item
                         Layout.maximumHeight: 67
                     }
 
-                    PrimaryButton {
-                        id: startMigration
-                        Layout.alignment: Qt.AlignHCenter | Qt.AlignVCenter
-                        Layout.minimumHeight: 38
+                    RowLayout {
+                        Layout.alignment: Qt.AlignHCenter
+                        Layout.fillWidth: true
+                        
+                        PrimaryButton {
+                            id: startMigration
+                            Layout.preferredHeight: 38
+                            Layout.preferredWidth: 220
 
-                        //% "start migration"
-                        text: qsTrId("start-migration-button")
-                        icon.source: "qrc:/assets/icon-repeat.svg"
-                        onClicked: 
-                        {
-                            startWizzardView.push(selectWalletDBView);
+                            //: migration screen, start auto migration button
+                            //% "start auto migration"
+                            text: qsTrId("start-migration-button")
+                            icon.source: "qrc:/assets/icon-repeat.svg"
+                            onClicked: 
+                            {
+                                startWizzardView.push(selectWalletDBView);
+                            }
+                        }
+
+                        Item {
+                            Layout.preferredWidth: 20
+                        }
+
+                        CustomButton {
+                            Layout.preferredHeight: 38
+                            Layout.preferredWidth: 320
+                            //: migration screen, select db file button
+                            //% "select wallet database file manually"
+                            text: qsTrId("start-migration-select-file-button")
+                            icon.source: "qrc:/assets/icon-folder.svg"
+                            onClicked: {
+                                var path = viewModel.selectCustomWalletDB();
+
+                                if (path.length > 0) {
+                                    migrateWalletDB(path);
+                                }
+                            }
                         }
                     }
 
@@ -279,6 +322,18 @@ Item
             Rectangle
             {
                 color: Style.background_main
+                function next() {
+                    if (nextButton.enabled) {
+                        nextButton.clicked();
+                    }
+                }
+                Keys.onReturnPressed: {
+                    next();
+                }
+                Keys.onEnterPressed:{
+                    next();
+                }
+
                 ColumnLayout {
                     anchors.fill: parent
                     anchors.topMargin: 50
@@ -295,7 +350,7 @@ Item
                     CustomTableView {
                         id: tableView
                         property int rowHeight: 44
-                        property int minWidth: 600
+                        property int minWidth: 894
                         property int textLeftMargin: 20
                         Layout.alignment: Qt.AlignHCenter 
                         Layout.topMargin: 50
@@ -332,24 +387,71 @@ Item
                             role: "fullPath"
                             //% "Name"
                             title: qsTrId("start-select-db-thead-name")
-                            width: 300
+                            width: 350
                             movable: false
                             delegate: Item {
                                 width: parent.width
                                 height: tableView.rowHeight
                                 clip:true
+                                
 
                                 SFLabel {
+                                    id: pathLabel
+                                    property bool isPreferred: (viewModel.walletDBpaths && viewModel.walletDBpaths[styleData.row]) ? viewModel.walletDBpaths[styleData.row].isPreferred : false
+                                    //: start screen, select db for migration, best match label 
+                                    //% "(best match)"
+                                    property string bestMatchStr: qsTrId("start-select-db-best-match-label")
+
                                     font.pixelSize: 14
                                     anchors.left: parent.left
                                     anchors.leftMargin: tableView.textLeftMargin
                                     anchors.right: parent.right
-                                    elide: Text.ElideLeft
                                     anchors.verticalCenter: parent.verticalCenter
-                                    text: styleData.value
+                                    textFormat: Text.RichText 
+                                    text: styleData.value + " " + (isPreferred ? "<style>span {color: '#00f6d2';}</style><span>%1</span>".arg(bestMatchStr) : "")
                                     color: Style.content_main
                                     copyMenuEnabled: true
                                     onCopyText: viewModel.copyToClipboard(text)
+                                    Component.onCompleted: {
+                                        elide();
+                                    }
+                                    function elide(){
+                                        var elided;
+                                        if (isPreferred) {
+                                            elided = textMetricsPreferred.text.length - textMetricsPreferred.elidedText.length;
+                                            tableView.selection.select(styleData.row);
+                                            tableView.currentRow = styleData.row;
+                                        } else {
+                                            elided = textMetrics.text.length - textMetrics.elidedText.length;
+                                        }
+                                        if (elided) {
+                                            text = "…" + text.substr(elided + 3, text.length) ;
+                                        }
+                                    }
+                                    TextMetrics {
+                                        id: textMetricsPreferred
+                                        font { 
+                                            family: "SF Pro Display"
+                                            styleName: "Regular"
+                                            weight: Font.Normal
+                                            pixelSize: 14
+                                        }
+                                        elide: Text.ElideLeft
+                                        elideWidth: parent.width - tableView.textLeftMargin
+                                        text: styleData.value + " " + pathLabel.bestMatchStr
+                                    }
+                                    TextMetrics {
+                                        id: textMetrics
+                                        font { 
+                                            family: "SF Pro Display"
+                                            styleName: "Regular"
+                                            weight: Font.Normal
+                                            pixelSize: 14
+                                        }
+                                        elide: Text.ElideLeft
+                                        elideWidth: parent.width - tableView.textLeftMargin
+                                        text: styleData.value
+                                    }
                                 }
                             }
                         }
@@ -379,11 +481,52 @@ Item
                         }
 
                         TableViewColumn {
+                            role: "creationDateString"
+                            //: start screen, select db for migration, Date created column title
+                            //% "Date created"
+                            title: qsTrId("start-select-db-thead-created")
+                            width: 145 
+                            movable: false
+                        }
+
+                        TableViewColumn {
                             role: "lastWriteDateString"
+                            //: start screen, select db for migration, Date modified column title
                             //% "Date modified"
                             title: qsTrId("start-select-db-thead-modified")
-                            width: 150 
+                            width: 145 
                             movable: false
+                        }
+
+                        TableViewColumn {
+                            role: "fullPath"
+                            width: 150
+                            movable: false
+                            delegate: Item {
+                                width: parent.width
+                                height: tableView.rowHeight
+                                clip:true
+
+                                SFLabel {
+                                    font.pixelSize: 14
+                                    anchors.left: parent.left
+                                    anchors.leftMargin: tableView.textLeftMargin
+                                    anchors.right: parent.right
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    //: start screen, select db for migration, show in folder label 
+                                    //% "show in folder"
+                                    text: qsTrId("start-select-db-show-in-folder-label")
+                                    color: Style.active
+                                    MouseArea {
+                                        anchors.fill: parent
+                                        acceptedButtons: Qt.LeftButton
+                                        cursorShape: Qt.PointingHandCursor
+                                        onClicked: {
+                                            viewModel.openFolder(styleData.value);
+                                        }
+                                    }
+                                }
+                            }
                         }
 
                         rowDelegate: Item {
@@ -433,20 +576,6 @@ Item
                             }
                         }
 
-                        CustomButton {
-                            //% "select file manually"
-                            text: qsTrId("start-select-db-manual-button")
-                            icon.source: "qrc:/assets/icon-folder.svg"
-                            onClicked: {
-                                // open fileOpenDialog
-                                var path = viewModel.selectCustomWalletDB();
-
-                                if (path.length > 0) {
-                                    buttons.migrateWalletDB(path);
-                                }
-                            }
-                        }
-
                         PrimaryButton {
                             id: nextButton
                             //% "next"
@@ -454,27 +583,8 @@ Item
                             icon.source: "qrc:/assets/icon-next-blue.svg"
                             enabled: tableView.currentRow >= 0
                             onClicked: {
-                                buttons.migrateWalletDB(viewModel.walletDBpaths[tableView.currentRow].fullPath);
+                                migrateWalletDB(viewModel.walletDBpaths[tableView.currentRow].fullPath);
                             }
-                        }
-
-                        function backAction() {
-                            // remove wallet.db file
-                            viewModel.deleteCurrentWalletDB();
-                            startWizzardView.pop();
-                        }
-
-                        function migrateWalletDB(path) {
-                            // copy wallet.db                         
-                            viewModel.migrateWalletDB(path);
-                            viewModel.isRecoveryMode = false;
-                            startWizzardView.push(open, {
-                                "firstButtonVisible": true,
-                                //% "back"
-                                "firstButtonText": qsTrId("start-back-button"), 
-                                "firstButtonIcon": "qrc:/assets/icon-back.svg",
-                                "firstButtonAction": backAction
-                            });
                         }
                     }
 
