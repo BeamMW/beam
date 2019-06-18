@@ -925,12 +925,12 @@ namespace beam
 
 	Rules::Rules()
 	{
-		TreasuryChecksum = {
+		TreasuryChecksum =  {
 			0x5d, 0x9b, 0x18, 0x78, 0x9c, 0x02, 0x1a, 0x1e,
 			0xfb, 0x83, 0xd9, 0x06, 0xf4, 0xac, 0x7d, 0xce,
 			0x99, 0x7d, 0x4a, 0xc5, 0xd4, 0x71, 0xd7, 0xb4,
 			0x6f, 0x99, 0x77, 0x6e, 0x7a, 0xbd, 0x2e, 0xc9
-		};
+		}; 
 
 		Prehistoric = {
 			// BTC Block #556833
@@ -1202,7 +1202,7 @@ namespace beam
 
 		Merkle::Hash hv;
 		get_HashForPoW(hv);
-		return m_PoW.IsValid(hv.m_pData, hv.nBytes);
+		return m_PoW.IsValid(hv.m_pData, hv.nBytes, m_Height);
 	}
 
     bool Block::SystemState::Full::GeneratePoW(const PoW::Cancel& fnCancel)
@@ -1210,7 +1210,7 @@ namespace beam
 		Merkle::Hash hv;
 		get_HashForPoW(hv);
 
-        return m_PoW.Solve(hv.m_pData, hv.nBytes, fnCancel);
+        return m_PoW.Solve(hv.m_pData, hv.nBytes, m_Height, fnCancel);
 	}
 
 	bool Block::SystemState::Sequence::Element::IsValidProofUtxo(const ECC::Point& comm, const Input::Proof& p) const
