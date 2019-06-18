@@ -646,6 +646,54 @@ void Node::Processor::OnNewState()
 	IObserver* pObserver = get_ParentObj().m_Cfg.m_Observer;
 	if (pObserver)
 		pObserver->OnStateChanged();
+
+	get_ParentObj().MaybeGenerateRecovery();
+}
+
+void Node::MaybeGenerateRecovery()
+{
+	if (!m_PostStartSynced || m_Cfg.m_Recovery.m_sPathOutput.empty() || !m_Cfg.m_Recovery.m_Granularity)
+		return;
+
+	Height h0 = m_Processor.get_DB().ParamIntGetDef(NodeDB::ParamID::LastRecoveryHeight);
+	const Height& h1 = m_Processor.m_Cursor.m_ID.m_Height; // alias
+	if (h1 < h0 + m_Cfg.m_Recovery.m_Granularity)
+		return;
+
+	LOG_INFO() << "Generating recovery...";
+
+	std::ostringstream os;
+	os
+		<< m_Cfg.m_Recovery.m_sPathOutput
+		<< m_Processor.m_Cursor.m_ID;
+
+	std::string sPath = os.str();
+
+	std::string sTmp = sPath;
+	sTmp += ".tmp";
+
+	bool bOk = GenerateRecoveryInfo(sTmp.c_str());
+	if (bOk)
+	{
+#ifdef WIN32
+		bOk =
+			MoveFileExW(Utf8toUtf16(sTmp.c_str()).c_str(), Utf8toUtf16(sPath.c_str()).c_str(), MOVEFILE_REPLACE_EXISTING) ||
+			(GetLastError() == ERROR_FILE_NOT_FOUND);
+#else // WIN32
+		bool bOk =
+			!rename(sTmp.c_str(), sPath.c_str()) ||
+			(ENOENT == errno);
+#endif // WIN32
+	}
+
+	if (bOk) {
+		LOG_INFO() << "Recovery generation done";
+		m_Processor.get_DB().ParamSet(NodeDB::ParamID::LastRecoveryHeight, &h1, nullptr);
+	} else
+	{
+		LOG_INFO() << "Recovery generation failed";
+		beam::DeleteFile(sTmp.c_str());
+	}
 }
 
 void Node::Processor::OnRolledBack()
@@ -4021,7 +4069,7 @@ bool Node::GenerateRecoveryInfo(const char* szPath)
 	}
 	catch (const std::exception& ex)
 	{
-		LOG_DEBUG() << ex.what();
+		LOG_ERROR() << ex.what();
 		return false;
 	}
 
