@@ -244,13 +244,14 @@ namespace beam::wallet
 
         // /////////////////////////////////////////////
         // Transaction management
-        virtual std::vector<TxDescription> getTxHistory(wallet::TxType txType = wallet::TxType::Simple, uint64_t start = 0, int count = std::numeric_limits<int>::max()) = 0;
-        virtual boost::optional<TxDescription> getTx(const TxID& txId) = 0;
+        virtual std::vector<TxDescription> getTxHistory(wallet::TxType txType = wallet::TxType::Simple, uint64_t start = 0, int count = std::numeric_limits<int>::max()) const = 0;
+        virtual boost::optional<TxDescription> getTx(const TxID& txId) const = 0;
         virtual void saveTx(const TxDescription& p) = 0;
         virtual void deleteTx(const TxID& txId) = 0;
         virtual bool setTxParameter(const TxID& txID, SubTxID subTxID, TxParameterID paramID,
             const ByteBuffer& blob, bool shouldNotifyAboutChanges) = 0;
         virtual bool getTxParameter(const TxID& txID, SubTxID subTxID, TxParameterID paramID, ByteBuffer& blob) const = 0;
+        virtual auto getAllTxParameters() const -> std::vector<TxParameter> = 0;
         virtual void rollbackTx(const TxID& txId) = 0;
 
         // ////////////////////////////////////////////
@@ -332,8 +333,8 @@ namespace beam::wallet
         Height getCurrentHeight() const override;
         void rollbackConfirmedUtxo(Height minHeight) override;
 
-        std::vector<TxDescription> getTxHistory(wallet::TxType txType, uint64_t start, int count) override;
-        boost::optional<TxDescription> getTx(const TxID& txId) override;
+        std::vector<TxDescription> getTxHistory(wallet::TxType txType, uint64_t start, int count) const override;
+        boost::optional<TxDescription> getTx(const TxID& txId) const override;
         void saveTx(const TxDescription& p) override;
         void deleteTx(const TxID& txId) override;
         void rollbackTx(const TxID& txId) override;
@@ -356,6 +357,7 @@ namespace beam::wallet
         bool setTxParameter(const TxID& txID, SubTxID subTxID, TxParameterID paramID,
             const ByteBuffer& blob, bool shouldNotifyAboutChanges) override;
         bool getTxParameter(const TxID& txID, SubTxID subTxID, TxParameterID paramID, ByteBuffer& blob) const override;
+        auto getAllTxParameters() const -> std::vector<TxParameter> override;
 
         Block::SystemState::IHistory& get_History() override;
         void ShrinkHistory() override;
@@ -565,7 +567,10 @@ namespace beam::wallet
         };
 
         std::string ExportAddressesToJson(const IWalletDB& db);
+        std::string ExportTransactionsToJson(const IWalletDB& db);
         bool ImportAddressesFromJson(IWalletDB& db, const char* data, size_t size);
+        bool ImportTransactionsFromJson(IWalletDB& db, const char* data, size_t size);
+
         std::string TxDetailsInfo(const IWalletDB::Ptr& db, const TxID& txID);
         ByteBuffer ExportPaymentProof(const IWalletDB& db, const TxID& txID);
         bool VerifyPaymentProof(const ByteBuffer& data);

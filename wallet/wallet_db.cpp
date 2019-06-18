@@ -123,6 +123,21 @@ namespace std
             return boost::hash<argument_type>()(a);
         }
     };
+
+    template<class T, size_t N> 
+    struct hash<std::array<T, N>>
+    {
+        auto operator() (const std::array<T, N>& key) const
+        {
+            std::hash<T> hasher;
+            size_t result = 0;
+            for(size_t i = 0; i < N; ++i)
+            {
+                result = (result << 1) ^ hasher(key[i]);
+            }
+            return result;
+        }
+    };
 }
 
 namespace beam::wallet
@@ -345,7 +360,7 @@ namespace beam::wallet
         };
 
         template<typename T>
-        void deserialize(T& value, ByteBuffer& blob)
+        void deserialize(T& value, const ByteBuffer& blob)
         {
             if (!blob.empty())
             {
@@ -1716,7 +1731,7 @@ namespace beam::wallet
         notifyCoinsChanged();
     }
 
-    vector<TxDescription> WalletDB::getTxHistory(wallet::TxType txType, uint64_t start, int count)
+    vector<TxDescription> WalletDB::getTxHistory(wallet::TxType txType, uint64_t start, int count) const
     {
         // TODO this is temporary solution
         int txCount = 0;
@@ -1778,8 +1793,8 @@ namespace beam::wallet
 
         return res;
     }
-
-    boost::optional<TxDescription> WalletDB::getTx(const TxID& txId)
+    
+    boost::optional<TxDescription> WalletDB::getTx(const TxID& txId) const
     {
         // load only simple TX that supported by TxDescription
         const char* req = "SELECT * FROM " TX_PARAMS_NAME " WHERE txID=?1 AND subTxID=?2;";
@@ -2184,6 +2199,24 @@ namespace beam::wallet
         }
         insertParameterToCache(txID, subTxID, paramID, boost::optional<ByteBuffer>());
         return false;
+    }
+
+    auto WalletDB::getAllTxParameters() const -> std::vector<TxParameter>
+    {
+        sqlite::Statement stm(this, "SELECT * FROM " TX_PARAMS_NAME ";");
+        std::vector<TxParameter> res;
+        while (stm.step())
+        {
+            auto& p = res.emplace_back();
+            int colIdx = 0;
+            ENUM_TX_PARAMS_FIELDS(STM_GET_LIST, NOSEP, p);
+            insertParameterToCache(
+				p.m_txID,
+				static_cast<SubTxID>(p.m_subTxID),
+				static_cast<TxParameterID>(p.m_paramID),
+				p.m_value);
+        }
+        return res;
     }
 
     void WalletDB::insertParameterToCache(const TxID& txID, SubTxID subTxID, TxParameterID paramID, const boost::optional<ByteBuffer>& blob) const
@@ -2738,6 +2771,29 @@ namespace beam::wallet
             return res.dump();
         }
 
+        
+        string ExportTransactionsToJson(const IWalletDB& db)
+        {
+            json txParams = json::array();
+            for (const auto& p : db.getAllTxParameters())
+            {
+                txParams.push_back(
+                    json
+                    {
+						{"TransactionId", p.m_txID},
+						{"SubTransactionId", p.m_subTxID},
+						{"ParameterId", p.m_paramID},
+						{"Value", p.m_value}
+                    }
+                );
+            }
+            auto res = json
+            {
+                {"TransactionParameters", txParams}
+            };
+            return res.dump();
+        }
+
         bool ImportAddressesFromJson(IWalletDB& db, const char* data, size_t size)
         {
             try
@@ -2775,6 +2831,71 @@ namespace beam::wallet
             catch (const nlohmann::detail::exception& e)
             {
                 LOG_ERROR() << "json parse: " << e.what() << "\n" << std::string(data, data + (size > 1024 ? 1024 : size));
+            }
+            return false;
+        }
+
+        bool ImportTransactionsFromJson(IWalletDB& db, const char* data, size_t size)
+        {
+            try
+            {
+                json obj = json::parse(data, data + size);
+                if (obj.find("TransactionParameters") == obj.end())
+                {
+                    return false;
+                }
+
+                std::unordered_map<
+                    TxID,
+                    std::unordered_map<
+                        TxParameterID,
+                        TxParameter>
+                    > importedTransactionsMap;
+                for (const auto& jsonTxParameter : obj["TransactionParameters"])
+                {
+                    TxParameter txParameter;
+                    txParameter.m_txID = jsonTxParameter["TransactionId"];
+                    txParameter.m_subTxID = jsonTxParameter["SubTransactionId"];
+                    txParameter.m_paramID = jsonTxParameter["ParameterId"];
+                    for (const auto& v : jsonTxParameter["Value"])
+                    {
+                        txParameter.m_value.push_back(v);
+                    }
+                    importedTransactionsMap[txParameter.m_txID].emplace(static_cast<TxParameterID>(txParameter.m_paramID), txParameter);
+                }
+                for (const auto& txPair : importedTransactionsMap)
+                {
+                    auto paramsMap = txPair.second;                    
+                    WalletID wid;
+                    uint64_t myAddrId = 0;
+
+                    if (wid.FromBuf(paramsMap.at(TxParameterID::MyID).m_value) &&
+                        fromByteBuffer(paramsMap.at(TxParameterID::MyAddressID).m_value, myAddrId) &&
+                        wid == generateWalletIDFromIndex(db, myAddrId))
+                    {
+                        for (const auto& paramPair : paramsMap)
+                        {
+                            const auto& p = paramPair.second;
+                            db.setTxParameter(p.m_txID,
+                                                static_cast<SubTxID>(p.m_subTxID),
+                                                paramPair.first,
+                                                p.m_value,
+                                                true);
+                        }
+                        LOG_INFO() << "Transaction " << txPair.first << " was imported.";
+                        continue;
+                    }
+                    LOG_ERROR() << "Transaction " << txPair.first << " was not imported. Corrupted parameters.";
+                }
+                return true;
+            }
+            catch (const nlohmann::detail::exception& e)
+            {
+                LOG_ERROR() << "json parse: " << e.what() << "\n" << std::string(data, data + (size > 1024 ? 1024 : size));
+            }
+            catch (const std::out_of_range& e)
+            {
+                LOG_ERROR() << "imported transaction has corrupted parameters:" << e.what();
             }
             return false;
         }

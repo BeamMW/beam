@@ -854,6 +854,12 @@ namespace
         return SaveExportedData(ByteBuffer(s.begin(), s.end()), vm[cli::IMPORT_EXPORT_PATH].as<string>()) ? 0 : -1;
     }
 
+    int ExportTransactions(const po::variables_map& vm, const IWalletDB::Ptr& walletDB)
+    {
+        auto s = storage::ExportTransactionsToJson(*walletDB);
+        return SaveExportedData(ByteBuffer(s.begin(), s.end()), vm[cli::IMPORT_EXPORT_PATH].as<string>()) ? 0 : -1;
+    }
+
     int ImportAddresses(const po::variables_map& vm, const IWalletDB::Ptr& walletDB)
     {
         ByteBuffer buffer;
@@ -863,6 +869,17 @@ namespace
         }
         const char* p = (char*)(&buffer[0]);
         return storage::ImportAddressesFromJson(*walletDB, p, buffer.size()) ? 0 : -1;
+    }
+    
+    int ImportTransactions(const po::variables_map& vm, const IWalletDB::Ptr& walletDB)
+    {
+        ByteBuffer buffer;
+        if (!LoadDataToImport(vm[cli::IMPORT_EXPORT_PATH].as<string>(), buffer))
+        {
+            return -1;
+        }
+        const char* p = (char*)(&buffer[0]);
+        return storage::ImportTransactionsFromJson(*walletDB, p, buffer.size()) ? 0 : -1;
     }
 
     CoinIDList GetPreselectedCoinIDs(const po::variables_map& vm)
@@ -1227,7 +1244,9 @@ int main_impl(int argc, char* argv[])
                             cli::WALLET_ADDRESS_LIST,
                             cli::WALLET_RESCAN,
                             cli::IMPORT_ADDRESSES,
+                            cli::IMPORT_TRANSACTIONS,
                             cli::EXPORT_ADDRESSES,
+                            cli::EXPORT_TRANSACTIONS,
                             cli::SWAP_INIT,
                             cli::SWAP_LISTEN
                         };
@@ -1345,9 +1364,19 @@ int main_impl(int argc, char* argv[])
                         return ExportAddresses(vm, walletDB);
                     }
 
+                    if (command == cli::EXPORT_TRANSACTIONS)
+                    {
+                        return ExportTransactions(vm, walletDB);
+                    }
+
                     if (command == cli::IMPORT_ADDRESSES)
                     {
                         return ImportAddresses(vm, walletDB);
+                    }
+
+                    if (command == cli::IMPORT_TRANSACTIONS)
+                    {
+                        return ImportTransactions(vm, walletDB);
                     }
 
                     {

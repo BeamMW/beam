@@ -108,7 +108,9 @@ namespace beam
         extern const char* WALLET_RESCAN;
         extern const char* UTXO;
         extern const char* EXPORT_ADDRESSES;
+        extern const char* EXPORT_TRANSACTIONS;
         extern const char* IMPORT_ADDRESSES;
+        extern const char* IMPORT_TRANSACTIONS;
         extern const char* IMPORT_EXPORT_PATH;
         extern const char* IP_WHITELIST;
         extern const char* HORIZON_HI;

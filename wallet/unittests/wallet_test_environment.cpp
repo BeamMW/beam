@@ -106,8 +106,8 @@ public:
     void subscribe(IWalletDbObserver* observer) override {}
     void unsubscribe(IWalletDbObserver* observer) override {}
 
-    std::vector<TxDescription> getTxHistory(wallet::TxType, uint64_t, int) override { return {}; };
-    boost::optional<TxDescription> getTx(const TxID&) override { return boost::optional<TxDescription>{}; };
+    std::vector<TxDescription> getTxHistory(wallet::TxType, uint64_t, int) const override { return {}; };
+    boost::optional<TxDescription> getTx(const TxID&) const override { return boost::optional<TxDescription>{}; };
     void saveTx(const TxDescription& p) override
     {
         setTxParameter(p.m_txId, wallet::kDefaultSubTxID, wallet::TxParameterID::Amount, toByteBuffer(p.m_amount), false);
