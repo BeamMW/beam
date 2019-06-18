@@ -261,18 +261,6 @@ namespace beam::wallet
 
     ////
 
-    ECC::uintBig LocalPrivateKeyKeeper::GetSeedKid(Key::IPKdf& tagKdf, const Point& commitment) const
-    {
-        uintBig seed;
-        ECC::Hash::Processor() << commitment >> seed;
-
-        ECC::Scalar::Native sk;
-        tagKdf.DerivePKey(sk, seed);
-
-        ECC::Hash::Processor() << sk >> seed;
-        return seed;
-    }
-
 	Key::IKdf::Ptr LocalPrivateKeyKeeper::GetChildKdf(const Key::IDV& kidv) const
 	{
 		return GetChildKdf(kidv.get_Subkey());
