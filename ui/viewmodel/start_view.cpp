@@ -546,9 +546,11 @@ void StartViewModel::findExistingWalletDB()
 
     for (auto& walletDBPath : walletDBs)
     {
-        QFile dbFile(QString::fromStdString(walletDBPath.generic_string()));
-        QFileInfo fileInfo;
-        fileInfo.setFile(dbFile);
+#ifdef WIN32
+        QFileInfo fileInfo(QString::fromStdWString(walletDBPath.wstring()));
+#else
+        QFileInfo fileInfo(QString::fromStdString(walletDBPath.string()));
+#endif
         QString absoluteFilePath = fileInfo.absoluteFilePath();
         bool isDefaultLocated = absoluteFilePath.contains(
             QString::fromStdString(defaultAppDataPath));
