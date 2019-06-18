@@ -16,6 +16,7 @@
 
 #include "utility/io/address.h"
 #include "utility/common.h"
+#include "wallet/common.h"
 
 namespace beam
 {
@@ -26,7 +27,7 @@ namespace beam
         io::Address m_address;
         Amount m_feeRate;
         uint16_t m_confirmations = 6;
-        bool m_mainnet = false;
+        wallet::SwapSecondSideChainType m_chainType = wallet::SwapSecondSideChainType::Mainnet;
         uint32_t m_lockTimeInBlocks = 2 * 24 * 6;
     };
 }

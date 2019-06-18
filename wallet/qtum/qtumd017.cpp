@@ -12,20 +12,34 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#pragma once
+#include "qtumd017.h"
 
-#include "../bitcoin/bitcoind016.h"
-#include "options.h"
+#include "bitcoin/bitcoin.hpp"
+
+namespace {
+    constexpr uint8_t QtumMainnetP2KH = 0x3a;
+    constexpr uint8_t QtumTestnetP2KH = 0x78;
+}
 
 namespace beam
 {
-    class Litecoind016 : public Bitcoind016
+    Qtumd017::Qtumd017(io::Reactor& reactor, const QtumOptions& options)
+        : Bitcoind017(reactor, options)
     {
-    public:
-        Litecoind016() = delete;
-        Litecoind016(io::Reactor& reactor, const LitecoinOptions& options);
+    }
 
-        uint8_t getAddressVersion() override;
-        std::string getCoinName() const override;
-    };
+    uint8_t Qtumd017::getAddressVersion()
+    {
+        if (isMainnet())
+        {
+            return QtumMainnetP2KH;
+        }
+
+        return QtumTestnetP2KH;
+    }
+
+    std::string Qtumd017::getCoinName() const
+    {
+        return "qtum";
+    }
 }

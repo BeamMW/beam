@@ -18,6 +18,7 @@
 #include "wallet/secstring.h"
 #include "wallet/bitcoin/options.h"
 #include "wallet/litecoin/options.h"
+#include "wallet/qtum/options.h"
 #include "wallet/swaps/common.h"
 #include "wallet/swaps/swap_transaction.h"
 #include "utility/test_helpers.h"
@@ -414,11 +415,11 @@ void TestSwapBeamRefundTransaction()
     WALLET_CHECK(senderCoins[5].m_createTxId == txID);
 }
 
-void TestSwapExpiredByResponseTime()
+void ExpireByResponseTime(bool isBeamSide)
 {
-    cout << "\nAtomic swap: testing expired transaction on Beam side...\n";
-
     // Simulate swap transaction without response from second side
+
+    cout << "\nAtomic swap: testing expired transaction on " << (isBeamSide ? "Beam" : "BTC") << " side...\n";
 
     io::Reactor::Ptr mainReactor{ io::Reactor::create() };
     io::Reactor::Scope scope(*mainReactor);
@@ -448,7 +449,7 @@ void TestSwapExpiredByResponseTime()
     WalletID receiverWalletID = receiverWalletAddress.m_walletID;
 
     TxID txID = sender->m_Wallet.swap_coins(sender->m_WalletID, receiverWalletID, beamAmount, beamFee,
-        wallet::AtomicSwapCoin::Bitcoin, swapAmount, true, lifetime, responseTime);
+        wallet::AtomicSwapCoin::Bitcoin, swapAmount, isBeamSide, lifetime, responseTime);
 
     TestNode node;
     io::Timer::Ptr timer = io::Timer::create(*mainReactor);
@@ -465,10 +466,13 @@ void TestSwapExpiredByResponseTime()
     storage::getTxParameter(*sender->m_WalletDB, txID, TxParameterID::InternalFailureReason, reason);
     WALLET_CHECK(reason == TxFailureReason::TransactionExpired);
 
-    auto senderCoins = sender->GetCoins();
-    WALLET_CHECK(senderCoins.size() == 4);
-    WALLET_CHECK(senderCoins[0].m_ID.m_Value == 5);
-    WALLET_CHECK(senderCoins[0].m_status == Coin::Available);
+    if (isBeamSide)
+    {
+        auto senderCoins = sender->GetCoins();
+        WALLET_CHECK(senderCoins.size() == 4);
+        WALLET_CHECK(senderCoins[0].m_ID.m_Value == 5);
+        WALLET_CHECK(senderCoins[0].m_status == Coin::Available);
+    }
 }
 
 int main()
@@ -481,11 +485,12 @@ int main()
     TestSwapTransaction(true);
     TestSwapTransaction(false);
     TestSwapTransactionWithoutChange(true);
-    
+
     TestSwapBTCRefundTransaction();
     TestSwapBeamRefundTransaction();
 
-    TestSwapExpiredByResponseTime();
+    ExpireByResponseTime(true);
+    ExpireByResponseTime(false);
 
     assert(g_failureCount == 0);
     return WALLET_CHECK_RESULT;

@@ -14,16 +14,16 @@
 
 #pragma once
 
-#include "../bitcoin/bitcoind016.h"
+#include "../bitcoin/bitcoind017.h"
 #include "options.h"
 
 namespace beam
 {
-    class Litecoind016 : public Bitcoind016
+    class Qtumd017 : public Bitcoind017
     {
     public:
-        Litecoind016() = delete;
-        Litecoind016(io::Reactor& reactor, const LitecoinOptions& options);
+        Qtumd017() = delete;
+        Qtumd017(io::Reactor& reactor, const QtumOptions& options);
 
         uint8_t getAddressVersion() override;
         std::string getCoinName() const override;

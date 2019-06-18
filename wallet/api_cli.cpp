@@ -40,6 +40,7 @@
 #include "wallet/wallet_network.h"
 #include "wallet/bitcoin/options.h"
 #include "wallet/litecoin/options.h"
+#include "wallet/qtum/options.h"
 
 #include "nlohmann/json.hpp"
 #include "version.h"
@@ -441,6 +442,20 @@ namespace
                     options.m_pass = data.btcPass;
                     options.m_address = btcNodeAddr;
                     options.m_feeRate = data.feeRate;
+
+                    if (data.confirmations)
+                    {
+                        options.m_confirmations = data.confirmations;
+                    }
+                    if (data.chainType != SwapSecondSideChainType::Unknown)
+                    {
+                        options.m_chainType = data.chainType;
+                    }
+                    if (data.lockTimeInBlocks)
+                    {
+                        options.m_lockTimeInBlocks = data.lockTimeInBlocks;
+                    }
+
                     _wallet.initBitcoin(io::Reactor::get_Current(), options);
 
                     doResponse(id, EditAddress::Response{});
@@ -464,6 +479,20 @@ namespace
                     options.m_pass = data.ltcPass;
                     options.m_address = ltcNodeAddr;
                     options.m_feeRate = data.feeRate;
+
+                    if (data.confirmations)
+                    {
+                        options.m_confirmations = data.confirmations;
+                    }
+                    if (data.chainType != SwapSecondSideChainType::Unknown)
+                    {
+                        options.m_chainType = data.chainType;
+                    }
+                    if (data.lockTimeInBlocks)
+                    {
+                        options.m_lockTimeInBlocks = data.lockTimeInBlocks;
+                    }
+
                     _wallet.initLitecoin(io::Reactor::get_Current(), options);
 
                     doResponse(id, EditAddress::Response{});
@@ -471,6 +500,43 @@ namespace
                 else
                 {
                     doError(id, INVALID_ADDRESS, "Bitcoin node address is not resolved.");
+                }
+            }
+
+            void onMessage(int id, const InitQtum& data) override
+            {
+                LOG_DEBUG() << "InitQtum";
+
+                io::Address qtumNodeAddr;
+                if (qtumNodeAddr.resolve(data.qtumNodeAddr.c_str()))
+                {
+                    QtumOptions options;
+
+                    options.m_userName = data.qtumUserName;
+                    options.m_pass = data.qtumPass;
+                    options.m_address = qtumNodeAddr;
+                    options.m_feeRate = data.feeRate;
+
+                    if (data.confirmations)
+                    {
+                        options.m_confirmations = data.confirmations;
+                    }
+                    if (data.chainType != SwapSecondSideChainType::Unknown)
+                    {
+                        options.m_chainType = data.chainType;
+                    }
+                    if (data.lockTimeInBlocks)
+                    {
+                        options.m_lockTimeInBlocks = data.lockTimeInBlocks;
+                    }
+
+                    _wallet.initQtum(io::Reactor::get_Current(), options);
+
+                    doResponse(id, EditAddress::Response{});
+                }
+                else
+                {
+                    doError(id, INVALID_ADDRESS, "Qtum node address is not resolved.");
                 }
             }
 

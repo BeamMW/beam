@@ -124,7 +124,7 @@
     </message>
     <message id="settings-general-require-pwd-to-spend">
         <source>Ask password for every sending transaction</source>
-        <extracomment>settings tab, general section, ask password label</extracomment>
+        <extracomment>settings tab, general section, ask password to send label</extracomment>
         <translation>Спрашивать пароль для каждой исходящей транзакции</translation>
     </message>
     <message id="settings-report-problem-title">
@@ -556,6 +556,10 @@
     <message id="send-founds-fail">
         <source>Insufficient funds: you would need %1 to complete the transaction</source>
         <translation>Недостаточно средств: необходимо %1 для завершения транзакции</translation>
+    </message>
+    <message id="send-fee-fail">
+        <source>The minimum fee is %1 groth</source>
+        <translation>Минимальная комиссия %1 groth</translation>
     </message>
     <message id="send-comment-label">
         <source>Comment</source>
@@ -1349,12 +1353,12 @@
     <message id="edit-addr-comment-error">
         <source>Address with same comment already exist</source>
         <extracomment>Edit address dialog, address with same comment already exist error</extracomment>
-        <translation>Адрес с таким коментарием уже существует</translation>
+        <translation>Адрес с таким комментарием уже существует</translation>
     </message>
     <message id="create-addr-comment-error">
         <source>Address with same comment already exist</source>
         <extracomment>Create address, address with same comment already exist error</extracomment>
-        <translation>Адрес с таким коментарием уже существует</translation>
+        <translation>Адрес с таким комментарием уже существует</translation>
     </message>
     <message id="start-migration-select-file-button">
         <source>select wallet database file manually</source>
@@ -1375,6 +1379,31 @@
         <source>show in folder</source>
         <extracomment>start screen, select db for migration, show in folder label</extracomment>
         <translation>открыть папку</translation>
+    </message>
+    <message id="confirm-pwd-error">
+        <source>Wrong password</source>
+        <extracomment>confirm password dialog, wrong password error</extracomment>
+        <translation>Неправильный пароль</translation>
+    </message>
+    <message id="confirm-pwd-cancel">
+        <source>cancel</source>
+        <extracomment>confirm password dialog, cancel button</extracomment>
+        <translation>отмена</translation>
+    </message>
+    <message id="confirm-pwd-ok">
+        <source>proceed</source>
+        <extracomment>confirm password dialog, ok button</extracomment>
+        <translation>продолжить</translation>
+    </message>
+    <message id="settings-general-require-pwd-to-spend-confirm-pwd-title">
+        <source>Don’t ask password on every Send</source>
+        <extracomment>settings tab, general section, ask password to send, confirm password dialog, title</extracomment>
+        <translation>Не спрашивать пароль для отправки</translation>
+    </message>
+    <message id="settings-general-require-pwd-to-spend-confirm-pwd-message">
+        <source>Password verification is required to change that setting</source>
+        <extracomment>settings tab, general section, ask password to send, confirm password dialog, message</extracomment>
+        <translation>Введите пароль, что бы изменения вступили в силу.</translation>
     </message>
 </context>
 </TS>

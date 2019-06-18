@@ -19,6 +19,7 @@
 #include "wallet/wallet_db.h"
 #include "wallet/wallet_network.h"
 #include "wallet/secstring.h"
+#include "wallet/qtum/options.h"
 #include "wallet/litecoin/options.h"
 #include "wallet/bitcoin/options.h"
 #include "wallet/swaps/common.h"
@@ -187,6 +188,8 @@ namespace beam
             return "BTC";
         case AtomicSwapCoin::Litecoin:
             return "LTC";
+        case AtomicSwapCoin::Qtum:
+            return "QTUM";
         default:
             assert(false && "Unknow SwapCoin");
         }
@@ -884,7 +887,7 @@ namespace
         return coinIDs;
     }
 
-    bool LoadBaseParamsForTX(const po::variables_map& vm, Amount& amount, Amount& fee, WalletID& receiverWalletID)
+    bool LoadBaseParamsForTX(const po::variables_map& vm, Amount& amount, Amount& fee, WalletID& receiverWalletID, bool checkFee)
     {
         if (vm.count(cli::RECEIVER_ADDR) == 0)
         {
@@ -916,8 +919,193 @@ namespace
         }
 
         fee = vm[cli::FEE].as<Nonnegative<Amount>>().value;
+        if (checkFee && fee < cli::kMinimumFee)
+        {
+            LOG_ERROR() << "Failed to initiate the send operation. The minimum fee is 100 groth.";
+            return false;
+        }
 
         return true;
+    }
+
+    SwapSecondSideChainType ParseSwapSecondSideChainType(const po::variables_map& vm)
+    {
+        SwapSecondSideChainType swapSecondSideChainType = SwapSecondSideChainType::Unknown;
+        if (vm.count(cli::SWAP_NETWORK) > 0)
+        {
+            swapSecondSideChainType = SwapSecondSideChainTypeFromString(vm[cli::SWAP_NETWORK].as<string>());
+            if (swapSecondSideChainType == SwapSecondSideChainType::Unknown)
+            {
+                throw std::runtime_error("Unknown type of second side chain for swap");
+            }
+        }
+        return swapSecondSideChainType;
+    }
+
+    boost::optional<BitcoinOptions> ParseBitcoinOptions(const po::variables_map& vm)
+    {
+        if (vm.count(cli::BTC_NODE_ADDR) > 0 || vm.count(cli::BTC_USER_NAME) > 0 || vm.count(cli::BTC_PASS) > 0)
+        {
+            BitcoinOptions btcOptions;
+
+            string btcNodeUri = vm[cli::BTC_NODE_ADDR].as<string>();
+            if (!btcOptions.m_address.resolve(btcNodeUri.c_str()))
+            {
+                throw std::runtime_error("unable to resolve bitcoin node address: " + btcNodeUri);
+            }
+
+            if (vm.count(cli::BTC_USER_NAME) == 0)
+            {
+                throw std::runtime_error("user name of bitcoin node should be specified");
+            }
+
+            btcOptions.m_userName = vm[cli::BTC_USER_NAME].as<string>();
+
+            // TODO roman.strilets: use SecString instead of std::string
+            if (vm.count(cli::BTC_PASS) == 0)
+            {
+                throw std::runtime_error("Please, provide password for the bitcoin node.");
+            }
+
+            btcOptions.m_pass = vm[cli::BTC_PASS].as<string>();
+
+            if (vm.count(cli::SWAP_FEERATE) == 0)
+            {
+                throw std::runtime_error("swap fee rate is missing");
+            }
+
+            btcOptions.m_feeRate = vm[cli::SWAP_FEERATE].as<Positive<Amount>>().value;
+
+            if (vm.count(cli::BTC_CONFIRMATIONS) > 0)
+            {
+                btcOptions.m_confirmations = vm[cli::BTC_CONFIRMATIONS].as<Positive<uint16_t>>().value;
+            }
+
+            if (vm.count(cli::BTC_LOCK_TIME) > 0)
+            {
+                btcOptions.m_lockTimeInBlocks = vm[cli::BTC_LOCK_TIME].as<Positive<uint32_t>>().value;
+            }
+
+            auto swapSecondSideChainType = ParseSwapSecondSideChainType(vm);
+            if (swapSecondSideChainType != SwapSecondSideChainType::Unknown)
+            {
+                btcOptions.m_chainType = swapSecondSideChainType;
+            }
+
+            return btcOptions;
+        }
+
+        return boost::optional<BitcoinOptions>{};
+    }
+
+    boost::optional<LitecoinOptions> ParseLitecoinOptions(const po::variables_map& vm)
+    {
+        if (vm.count(cli::LTC_NODE_ADDR) > 0 || vm.count(cli::LTC_USER_NAME) > 0 || vm.count(cli::LTC_PASS) > 0)
+        {
+            LitecoinOptions ltcOptions;
+
+            string ltcNodeUri = vm[cli::LTC_NODE_ADDR].as<string>();
+            if (!ltcOptions.m_address.resolve(ltcNodeUri.c_str()))
+            {
+                throw std::runtime_error("unable to resolve litecoin node address: " + ltcNodeUri);
+            }
+
+            if (vm.count(cli::LTC_USER_NAME) == 0)
+            {
+                throw std::runtime_error("user name of litecoin node should be specified");
+            }
+
+            ltcOptions.m_userName = vm[cli::LTC_USER_NAME].as<string>();
+
+            // TODO roman.strilets: use SecString instead of std::string
+            if (vm.count(cli::LTC_PASS) == 0)
+            {
+                throw std::runtime_error("Please, provide password for the litecoin node.");
+            }
+
+            ltcOptions.m_pass = vm[cli::LTC_PASS].as<string>();
+
+            if (vm.count(cli::SWAP_FEERATE) == 0)
+            {
+                throw std::runtime_error("swap fee rate is missing");
+            }
+            ltcOptions.m_feeRate = vm[cli::SWAP_FEERATE].as<Positive<Amount>>().value;
+
+            if (vm.count(cli::LTC_CONFIRMATIONS) > 0)
+            {
+                ltcOptions.m_confirmations = vm[cli::LTC_CONFIRMATIONS].as<Positive<uint16_t>>().value;
+            }
+
+            if (vm.count(cli::LTC_LOCK_TIME) > 0)
+            {
+                ltcOptions.m_lockTimeInBlocks = vm[cli::LTC_LOCK_TIME].as<Positive<uint32_t>>().value;
+            }
+
+            auto swapSecondSideChainType = ParseSwapSecondSideChainType(vm);
+            if (swapSecondSideChainType != SwapSecondSideChainType::Unknown)
+            {
+                ltcOptions.m_chainType = swapSecondSideChainType;
+            }
+
+            return ltcOptions;
+        }
+
+        return boost::optional<LitecoinOptions>{};
+    }
+
+    boost::optional<QtumOptions> ParseQtumOptions(const po::variables_map& vm)
+    {
+        if (vm.count(cli::QTUM_NODE_ADDR) > 0 || vm.count(cli::QTUM_USER_NAME) > 0 || vm.count(cli::QTUM_PASS) > 0)
+        {
+            QtumOptions qtumOptions;
+
+            string qtumNodeUri = vm[cli::QTUM_NODE_ADDR].as<string>();
+            if (!qtumOptions.m_address.resolve(qtumNodeUri.c_str()))
+            {
+                throw std::runtime_error("unable to resolve qtum node address: " + qtumNodeUri);
+            }
+
+            if (vm.count(cli::QTUM_USER_NAME) == 0)
+            {
+                throw std::runtime_error("user name of qtum node should be specified");
+            }
+
+            qtumOptions.m_userName = vm[cli::QTUM_USER_NAME].as<string>();
+
+            // TODO roman.strilets: use SecString instead of std::string
+            if (vm.count(cli::QTUM_PASS) == 0)
+            {
+                throw std::runtime_error("Please, provide password for the qtum node.");
+            }
+
+            qtumOptions.m_pass = vm[cli::QTUM_PASS].as<string>();
+
+            if (vm.count(cli::SWAP_FEERATE) == 0)
+            {
+                throw std::runtime_error("swap fee rate is missing");
+            }
+            qtumOptions.m_feeRate = vm[cli::SWAP_FEERATE].as<Positive<Amount>>().value;
+
+            if (vm.count(cli::QTUM_CONFIRMATIONS) > 0)
+            {
+                qtumOptions.m_confirmations = vm[cli::QTUM_CONFIRMATIONS].as<Positive<uint16_t>>().value;
+            }
+
+            if (vm.count(cli::QTUM_LOCK_TIME) > 0)
+            {
+                qtumOptions.m_lockTimeInBlocks = vm[cli::QTUM_LOCK_TIME].as<Positive<uint32_t>>().value;
+            }
+
+            auto swapSecondSideChainType = ParseSwapSecondSideChainType(vm);
+            if (swapSecondSideChainType != SwapSecondSideChainType::Unknown)
+            {
+                qtumOptions.m_chainType = swapSecondSideChainType;
+            }
+
+            return qtumOptions;
+        }
+
+        return boost::optional<QtumOptions>{};
     }
 }
 
@@ -1023,7 +1211,6 @@ int main_impl(int argc, char* argv[])
                             cli::INIT,
                             cli::RESTORE,
                             cli::SEND,
-                            cli::RECEIVE,
                             cli::LISTEN,
                             cli::TREASURY,
                             cli::INFO,
@@ -1134,6 +1321,10 @@ int main_impl(int argc, char* argv[])
                         return -1;
                     }
 
+                    const auto& currHeight = walletDB->getCurrentHeight();
+                    const auto& fork1Height = Rules::get().pForks[1].m_Height;
+                    const bool isFork1 = currHeight >= fork1Height;
+
                     if (command == cli::CHANGE_ADDRESS_EXPIRATION)
                     {
                         return ChangeAddressExpiration(vm, walletDB);
@@ -1190,62 +1381,6 @@ int main_impl(int argc, char* argv[])
                         return HandleTreasury(vm, *walletDB->get_MasterKdf());
                     }
 
-                    BitcoinOptions btcOptions;
-                    if (vm.count(cli::BTC_NODE_ADDR) > 0 || vm.count(cli::BTC_USER_NAME) > 0 || vm.count(cli::BTC_PASS) > 0)
-                    {
-                        string btcNodeUri = vm[cli::BTC_NODE_ADDR].as<string>();
-                        if (!btcOptions.m_address.resolve(btcNodeUri.c_str()))
-                        {
-                            LOG_ERROR() << "unable to resolve bitcoin node address: " << btcNodeUri;
-                            return -1;
-                        }
-
-                        if (vm.count(cli::BTC_USER_NAME) == 0)
-                        {
-                            LOG_ERROR() << "user name of bitcoin node should be specified";
-                            return -1;
-                        }
-
-                        btcOptions.m_userName = vm[cli::BTC_USER_NAME].as<string>();
-
-                        // TODO roman.strilets: use SecString instead of std::string
-                        if (vm.count(cli::BTC_PASS) == 0)
-                        {
-                            LOG_ERROR() << "Please, provide password for the bitcoin node.";
-                            return -1;
-                        }
-
-                        btcOptions.m_pass = vm[cli::BTC_PASS].as<string>();
-                    }
-
-                    LitecoinOptions ltcOptions;
-                    if (vm.count(cli::LTC_NODE_ADDR) > 0 || vm.count(cli::LTC_USER_NAME) > 0 || vm.count(cli::LTC_PASS) > 0)
-                    {
-                        string ltcNodeUri = vm[cli::LTC_NODE_ADDR].as<string>();
-                        if (!ltcOptions.m_address.resolve(ltcNodeUri.c_str()))
-                        {
-                            LOG_ERROR() << "unable to resolve litecoin node address: " << ltcNodeUri;
-                            return -1;
-                        }
-
-                        if (vm.count(cli::LTC_USER_NAME) == 0)
-                        {
-                            LOG_ERROR() << "user name of litecoin node should be specified";
-                            return -1;
-                        }
-
-                        ltcOptions.m_userName = vm[cli::LTC_USER_NAME].as<string>();
-
-                        // TODO roman.strilets: use SecString instead of std::string
-                        if (vm.count(cli::LTC_PASS) == 0)
-                        {
-                            LOG_ERROR() << "Please, provide password for the litecoin node.";
-                            return -1;
-                        }
-
-                        ltcOptions.m_pass = vm[cli::LTC_PASS].as<string>();
-                    }
-
                     if (command == cli::INFO)
                     {
                         return ShowWalletInfo(walletDB, vm);
@@ -1271,12 +1406,17 @@ int main_impl(int argc, char* argv[])
                         return ShowAddressList(walletDB);
                     }
 
+                    boost::optional<BitcoinOptions> btcOptions = ParseBitcoinOptions(vm);
+                    boost::optional<LitecoinOptions> ltcOptions = ParseLitecoinOptions(vm);
+                    boost::optional<QtumOptions> qtumOptions = ParseQtumOptions(vm);
+
+                    /// HERE!!
                     io::Address receiverAddr;
                     Amount amount = 0;
                     Amount fee = 0;
                     WalletID receiverWalletID(Zero);
-                    bool isTxInitiator = command == cli::SEND || command == cli::RECEIVE;
-                    if (isTxInitiator && !LoadBaseParamsForTX(vm, amount, fee, receiverWalletID))
+                    bool isTxInitiator = command == cli::SEND;
+                    if (isTxInitiator && !LoadBaseParamsForTX(vm, amount, fee, receiverWalletID, isFork1))
                     {
                         return -1;
                     }
@@ -1330,37 +1470,19 @@ int main_impl(int argc, char* argv[])
                             wallet.AddMessageEndpoint(make_shared<ColdWalletMessageEndpoint>(wallet, walletDB));
                         }
 
-                        if (!btcOptions.m_userName.empty() && !btcOptions.m_pass.empty())
+                        if (btcOptions.is_initialized())
                         {
-                            btcOptions.m_feeRate = vm[cli::SWAP_FEERATE].as<Positive<Amount>>().value;
-                            
-                            if (vm.count(cli::BTC_CONFIRMATIONS) > 0)
-                            {
-                                btcOptions.m_confirmations = vm[cli::BTC_CONFIRMATIONS].as<Positive<uint16_t>>().value;
-                            }
-
-                            if (vm.count(cli::BTC_LOCK_TIME) > 0)
-                            {
-                                btcOptions.m_lockTimeInBlocks = vm[cli::BTC_LOCK_TIME].as<Positive<uint32_t>>().value;
-                            }
-                            
-                            wallet.initBitcoin(io::Reactor::get_Current(), btcOptions);
+                            wallet.initBitcoin(io::Reactor::get_Current(), btcOptions.get());
                         }
 
-                        if (!ltcOptions.m_userName.empty() && !ltcOptions.m_pass.empty())
+                        if (ltcOptions.is_initialized())
                         {
-                            ltcOptions.m_feeRate = vm[cli::SWAP_FEERATE].as<Positive<Amount>>().value;
+                            wallet.initLitecoin(io::Reactor::get_Current(), ltcOptions.get());
+                        }
 
-                            if (vm.count(cli::LTC_CONFIRMATIONS) > 0)
-                            {
-                                ltcOptions.m_confirmations = vm[cli::LTC_CONFIRMATIONS].as<Positive<uint16_t>>().value;
-                            }
-
-                            if (vm.count(cli::LTC_LOCK_TIME) > 0)
-                            {
-                                ltcOptions.m_lockTimeInBlocks = vm[cli::LTC_LOCK_TIME].as<Positive<uint32_t>>().value;
-                            }
-                            wallet.initLitecoin(io::Reactor::get_Current(), ltcOptions);
+                        if (qtumOptions.is_initialized())
+                        {
+                            wallet.initQtum(io::Reactor::get_Current(), qtumOptions.get());
                         }
 
                         if (command == cli::SWAP_INIT || command == cli::SWAP_LISTEN)
@@ -1380,20 +1502,29 @@ int main_impl(int argc, char* argv[])
 
                             if (swapCoin == wallet::AtomicSwapCoin::Bitcoin)
                             {
-                                if (btcOptions.m_userName.empty() || btcOptions.m_pass.empty() || btcOptions.m_address.empty())
+                                if (!btcOptions.is_initialized() || btcOptions->m_userName.empty() || btcOptions->m_pass.empty() || btcOptions->m_address.empty())
                                 {
                                     LOG_ERROR() << "BTC node credentials should be provided";
                                     return -1;
                                 }
                             }
-                            else
+                            else if (swapCoin == wallet::AtomicSwapCoin::Litecoin)
                             {
-                                if (ltcOptions.m_userName.empty() || ltcOptions.m_pass.empty() || ltcOptions.m_address.empty())
+                                if (!ltcOptions.is_initialized() || ltcOptions->m_userName.empty() || ltcOptions->m_pass.empty() || ltcOptions->m_address.empty())
                                 {
                                     LOG_ERROR() << "LTC node credentials should be provided";
                                     return -1;
                                 }
                             }
+                            else
+                            {
+                                if (!qtumOptions.is_initialized() || qtumOptions->m_userName.empty() || qtumOptions->m_pass.empty() || qtumOptions->m_address.empty())
+                                {
+                                    LOG_ERROR() << "Qtum node credentials should be provided";
+                                    return -1;
+                                }
+                            }
+                            
 
                             if (vm.count(cli::SWAP_AMOUNT) == 0)
                             {
@@ -1406,7 +1537,7 @@ int main_impl(int argc, char* argv[])
 
                             if (command == cli::SWAP_INIT)
                             {
-                                if (!LoadBaseParamsForTX(vm, amount, fee, receiverWalletID))
+                                if (!LoadBaseParamsForTX(vm, amount, fee, receiverWalletID, isFork1))
                                 {
                                     return -1;
                                 }

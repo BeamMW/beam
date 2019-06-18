@@ -14,18 +14,9 @@
 
 #pragma once
 
-#include "../bitcoin/bitcoind016.h"
-#include "options.h"
+#include "../bitcoin/options.h"
 
 namespace beam
 {
-    class Litecoind016 : public Bitcoind016
-    {
-    public:
-        Litecoind016() = delete;
-        Litecoind016(io::Reactor& reactor, const LitecoinOptions& options);
-
-        uint8_t getAddressVersion() override;
-        std::string getCoinName() const override;
-    };
+    using QtumOptions = BitcoinOptions;
 }

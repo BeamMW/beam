@@ -42,6 +42,8 @@ namespace beam
         extern const char* BTC_USER_NAME;
         extern const char* LTC_PASS;
         extern const char* LTC_USER_NAME;
+        extern const char* QTUM_PASS;
+        extern const char* QTUM_USER_NAME;
         extern const char* AMOUNT;
         extern const char* AMOUNT_FULL;
         extern const char* RECEIVER_ADDR;
@@ -50,6 +52,7 @@ namespace beam
         extern const char* NODE_ADDR_FULL;
         extern const char* BTC_NODE_ADDR;
         extern const char* LTC_NODE_ADDR;
+        extern const char* QTUM_NODE_ADDR;
         extern const char* COMMAND;
         extern const char* NODE;
         extern const char* WALLET;
@@ -89,7 +92,6 @@ namespace beam
         extern const char* GENERATE_PHRASE;
         extern const char* FEE;
         extern const char* FEE_FULL;
-        extern const char* RECEIVE;
         extern const char* LOG_LEVEL;
         extern const char* FILE_LOG_LEVEL;
         extern const char* LOG_INFO;
@@ -118,12 +120,15 @@ namespace beam
         extern const char* SWAP_AMOUNT;
         extern const char* SWAP_FEERATE;
         extern const char* SWAP_COIN;
+        extern const char* SWAP_NETWORK;
         extern const char* SWAP_BEAM_SIDE;
         extern const char* SWAP_TX_HISTORY;
         extern const char* BTC_CONFIRMATIONS;
         extern const char* LTC_CONFIRMATIONS;
+        extern const char* QTUM_CONFIRMATIONS;
         extern const char* BTC_LOCK_TIME;
         extern const char* LTC_LOCK_TIME;
+        extern const char* QTUM_LOCK_TIME;
         extern const char* NODE_POLL_PERIOD;
 
         // wallet api
@@ -142,8 +147,12 @@ namespace beam
         extern const char* TR_COMMENT;
         extern const char* TR_M;
         extern const char* TR_N;
+
         // ui
         extern const char* APPDATA_PATH;
+
+        // Defaults that should be accessible outside
+        extern const Amount kMinimumFee;
     }
 
     enum OptionsFlag : int
