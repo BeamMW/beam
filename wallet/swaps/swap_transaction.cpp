@@ -23,11 +23,6 @@ using namespace ECC;
 
 namespace beam::wallet
 {
-    namespace
-    {
-        constexpr Amount kMinFeeInGroth = 10;
-    }
-
     AtomicSwapTransaction::WrapperSecondSide::WrapperSecondSide(INegotiatorGateway& gateway, const TxID& txID)
         : m_gateway(gateway)
         , m_txID(txID)
@@ -788,6 +783,7 @@ namespace beam::wallet
         if (!GetParameter(TxParameterID::Amount, withdrawAmount, subTxID) ||
             !GetParameter(TxParameterID::Fee, withdrawFee, subTxID))
         {
+            withdrawFee = GetWithdrawFee();
             withdrawAmount = GetAmount() - withdrawFee;
 
             SetParameter(TxParameterID::Amount, withdrawAmount, subTxID);

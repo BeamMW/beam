@@ -236,11 +236,11 @@ IWalletDB::Ptr createSqliteWalletDB(const string& path, bool separateDBForPrivat
     return walletDB;
 }
 
-IWalletDB::Ptr createSenderWalletDB(bool separateDBForPrivateData = false)
+IWalletDB::Ptr createSenderWalletDB(bool separateDBForPrivateData = false, AmountList amounts = {5, 2, 1, 9})
 {
     auto db = createSqliteWalletDB(SenderWalletDB, separateDBForPrivateData);
     db->AllocateKidRange(100500); // make sure it'll get the address different from the receiver
-    for (auto amount : { 5, 2, 1, 9 })
+    for (auto amount : amounts)
     {
         Coin coin = CreateAvailCoin(amount, 0);
         db->store(coin);
