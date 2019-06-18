@@ -255,7 +255,7 @@ namespace beam
             (cli::QTUM_CONFIRMATIONS, po::value<Positive<uint16_t>>(), "confirmations count in qtum chain")
             (cli::BTC_LOCK_TIME, po::value<Positive<uint32_t>>(), "lock time in blocks bitcoin transaction")
             (cli::LTC_LOCK_TIME, po::value<Positive<uint32_t>>(), "lock time in blocks litecoin transaction")
-            (cli::QTUM_LOCK_TIME, po::value<Positive<uint32_t>>(), "lock time in blocks qtum transaction");
+            (cli::QTUM_LOCK_TIME, po::value<Positive<uint32_t>>(), "lock time in blocks qtum transaction")
             (cli::NODE_POLL_PERIOD, po::value<Nonnegative<uint32_t>>()->default_value(Nonnegative<uint32_t>(0)), "Node poll period in milliseconds. Set to 0 to keep connection. Anyway poll period would be no less than the expected rate of blocks if it is less then it will be rounded up to block rate value.");
 
         po::options_description wallet_treasury_options("Wallet treasury options");
