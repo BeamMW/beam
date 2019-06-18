@@ -1455,10 +1455,14 @@ int main_impl(int argc, char* argv[])
 
                             auto nnet = make_shared<proto::FlyClient::NetworkStd>(wallet);
                             nnet->m_Cfg.m_PollPeriod_ms = vm[cli::NODE_POLL_PERIOD].as<Nonnegative<uint32_t>>().value;
-                            LOG_INFO() << "Node poll period = " << nnet->m_Cfg.m_PollPeriod_ms << " ms";
-                            if (nnet->m_Cfg.m_PollPeriod_ms >= 43200000)
+                            if (nnet->m_Cfg.m_PollPeriod_ms)
                             {
-                                LOG_WARNING() << "The \"--node_poll_period\" parameter set to more than 12 hours may cause transaction problems.";
+                                LOG_INFO() << "Node poll period = " << nnet->m_Cfg.m_PollPeriod_ms << " ms";
+                            }
+                            uint32_t responceTime_s = Rules::get().DA.Target_s * wallet::kDefaultTxResponseTime;
+                            if (nnet->m_Cfg.m_PollPeriod_ms >= responceTime_s * 1000)
+                            {
+                                LOG_WARNING() << "The \"--node_poll_period\" parameter set to more than " << uint32_t(responceTime_s / 3600) << " hours may cause transaction problems.";
                             }
                             nnet->m_Cfg.m_vNodes.push_back(nodeAddress);
                             nnet->Connect();
