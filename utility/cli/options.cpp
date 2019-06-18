@@ -119,6 +119,8 @@ namespace beam
         const char* HORIZON_HI = "horizon_hi";
         const char* HORIZON_LO = "horizon_lo";
 		const char* GENERATE_RECOVERY_PATH = "generate_recovery";
+		const char* RECOVERY_AUTO_PATH = "recovery_auto_path";
+		const char* RECOVERY_AUTO_PERIOD = "recovery_auto_period";
         const char* COLD_WALLET = "cold_wallet";
         const char* SWAP_INIT = "swap_init";
         const char* SWAP_LISTEN = "swap_listen";
@@ -208,6 +210,8 @@ namespace beam
             (cli::HORIZON_HI, po::value<Height>()->default_value(MaxHeight), "spent TXO Hi-Horizon")
             (cli::HORIZON_LO, po::value<Height>()->default_value(MaxHeight), "spent TXO Lo-Horizon")
 			(cli::GENERATE_RECOVERY_PATH, po::value<string>(), "Recovery file to generate immediately after start")
+			(cli::RECOVERY_AUTO_PATH, po::value<string>(), "path and file prefix for recovery auto-generation")
+			(cli::RECOVERY_AUTO_PERIOD, po::value<uint32_t>()->default_value(30), "period (in blocks) for recovery auto-generation")
             ;
 
         po::options_description node_treasury_options("Node treasury options");

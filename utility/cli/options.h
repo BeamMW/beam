@@ -116,6 +116,8 @@ namespace beam
         extern const char* HORIZON_HI;
         extern const char* HORIZON_LO;
 		extern const char* GENERATE_RECOVERY_PATH;
+		extern const char* RECOVERY_AUTO_PATH;
+		extern const char* RECOVERY_AUTO_PERIOD;
         extern const char* COLD_WALLET;
         extern const char* SWAP_INIT;
         extern const char* SWAP_LISTEN;
