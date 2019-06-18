@@ -23,11 +23,6 @@ using namespace ECC;
 
 namespace beam::wallet
 {
-    namespace
-    {
-        constexpr Amount kMinFeeInGroth = 10;
-    }
-
     AtomicSwapTransaction::WrapperSecondSide::WrapperSecondSide(INegotiatorGateway& gateway, const TxID& txID)
         : m_gateway(gateway)
         , m_txID(txID)
@@ -48,6 +43,16 @@ namespace beam::wallet
 
         return m_secondSide;
     }
+
+    BaseTransaction::Ptr AtomicSwapTransaction::Create(INegotiatorGateway& gateway
+        , IWalletDB::Ptr walletDB
+        , IPrivateKeyKeeper::Ptr keyKeeper
+        , const TxID& txID)
+    {
+        return BaseTransaction::Ptr(new AtomicSwapTransaction(gateway, walletDB, keyKeeper, txID));
+    }
+
+
 
     AtomicSwapTransaction::AtomicSwapTransaction(INegotiatorGateway& gateway
                                                , IWalletDB::Ptr walletDB
@@ -213,7 +218,10 @@ namespace beam::wallet
             {
                 auto lockTxState = BuildBeamLockTx();
                 if (lockTxState != SubTxState::Constructed)
+                {
+                    UpdateOnNextTip();
                     break;
+                }
                 LOG_INFO() << GetTxID() << " Beam LockTX constructed.";
                 SetNextState(State::BuildingBeamRefundTX);
                 break;
@@ -377,7 +385,7 @@ namespace beam::wallet
             case State::Cancelled:
             {
                 LOG_INFO() << GetTxID() << " Transaction cancelled.";
-                // TODO roman.strilec: need to implement notification of counterparty
+                NotifyFailure(TxFailureReason::Cancelled);
                 UpdateTxDescription(TxStatus::Cancelled);
 
                 RollbackTx();
@@ -387,7 +395,22 @@ namespace beam::wallet
             }
             case State::Failed:
             {
-                LOG_INFO() << GetTxID() << " Transaction failed.";
+                TxFailureReason reason = TxFailureReason::Unknown;
+                if (GetParameter(TxParameterID::FailureReason, reason))
+                {
+                    if (reason == TxFailureReason::Cancelled)
+                    {
+                        LOG_ERROR() << GetTxID() << " Swap cancelled. The other side has cancelled the transaction.";
+                    }
+                    else
+                    {
+                        LOG_ERROR() << GetTxID() << " The other side has failed the transaction. Reason: " << GetFailureMessage(reason);
+                    }
+                }
+                else
+                {
+                    LOG_ERROR() << GetTxID() << " Transaction failed.";
+                }
                 UpdateTxDescription(TxStatus::Failed);
                 m_Gateway.on_tx_completed(GetTxID());
                 break;
@@ -407,7 +430,6 @@ namespace beam::wallet
         }
         catch (const UninitilizedSecondSide&)
         {
-            //LOG_ERROR() << "";
         }
     }
 
@@ -469,7 +491,7 @@ namespace beam::wallet
             }
             else
             {
-                assert(false && "Impossible case!");
+                SetNextState(State::SendingRefundTX);
                 return;
             }
         }
@@ -509,17 +531,43 @@ namespace beam::wallet
 
     bool AtomicSwapTransaction::CheckExpired()
     {
-        if (IsBeamSide())
+        TxStatus s = TxStatus::Failed;
+        if (GetParameter(TxParameterID::Status, s)
+            && (s == TxStatus::Failed
+                || s == TxStatus::Cancelled
+                || s == TxStatus::Completed))
         {
-			uint8_t nRegistered = proto::TxStatus::Unspecified;
-            if (!GetParameter(TxParameterID::TransactionRegistered, nRegistered, SubTxIndex::BEAM_LOCK_TX))
-            {
-                Block::SystemState::Full state;
-                Height lockTxMaxHeight = MaxHeight;
+            return false;
+        }
 
-                if (GetParameter(TxParameterID::MaxHeight, lockTxMaxHeight, SubTxIndex::BEAM_LOCK_TX) && GetTip(state) && state.m_Height > lockTxMaxHeight)
+        Height lockTxMaxHeight = MaxHeight;
+        if (!GetParameter(TxParameterID::MaxHeight, lockTxMaxHeight, SubTxIndex::BEAM_LOCK_TX)
+            && !GetParameter(TxParameterID::PeerResponseHeight, lockTxMaxHeight, SubTxIndex::BEAM_LOCK_TX))
+        {
+            return false;
+        }
+
+        uint8_t nRegistered = proto::TxStatus::Unspecified;
+        Merkle::Hash kernelID;
+        if (!GetParameter(TxParameterID::TransactionRegistered, nRegistered, SubTxIndex::BEAM_LOCK_TX)
+            || !GetParameter(TxParameterID::KernelID, kernelID, SubTxIndex::BEAM_LOCK_TX))
+        {
+            Block::SystemState::Full state;
+            if (GetTip(state) && state.m_Height > lockTxMaxHeight)
+            {
+                LOG_INFO() << GetTxID() << " Transaction expired. Current height: " << state.m_Height << ", max kernel height: " << lockTxMaxHeight;
+                OnFailed(TxFailureReason::TransactionExpired, false);
+                return true;
+            }
+        }
+        else
+        {
+            Height lastUnconfirmedHeight = 0;
+            if (GetParameter(TxParameterID::KernelUnconfirmedHeight, lastUnconfirmedHeight, SubTxIndex::BEAM_LOCK_TX) && lastUnconfirmedHeight > 0)
+            {
+                if (lastUnconfirmedHeight >= lockTxMaxHeight)
                 {
-                    LOG_INFO() << GetTxID() << " Transaction expired. Current height: " << state.m_Height << ", max kernel height: " << lockTxMaxHeight;
+                    LOG_INFO() << GetTxID() << " Transaction expired. Last unconfirmeed height: " << lastUnconfirmedHeight << ", max kernel height: " << lockTxMaxHeight;
                     OnFailed(TxFailureReason::TransactionExpired, false);
                     return true;
                 }
@@ -735,6 +783,7 @@ namespace beam::wallet
         if (!GetParameter(TxParameterID::Amount, withdrawAmount, subTxID) ||
             !GetParameter(TxParameterID::Fee, withdrawFee, subTxID))
         {
+            withdrawFee = GetWithdrawFee();
             withdrawAmount = GetAmount() - withdrawFee;
 
             SetParameter(TxParameterID::Amount, withdrawAmount, subTxID);

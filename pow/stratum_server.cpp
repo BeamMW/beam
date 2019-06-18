@@ -134,6 +134,8 @@ bool Server::on_login(uint64_t from, const Login& login) {
 
     Result res(login.id, loginSuccess ? stratum::no_error : stratum::login_failed);
     res.nonceprefix = conn->get_nonceprefix();
+    res.forkheight = Rules::get().pForks[1].m_Height;
+    std::cout << "Fork Height: " << Rules::get().pForks[1].m_Height << std::endl;
     append_json_msg(_fw, res);
     bool sent = conn->send_msg(_currentMsg, false, !loginSuccess);
     _currentMsg.clear();
@@ -195,6 +197,7 @@ void Server::new_job(
 ) {
     _recentJob.id = id;
     _recentResult.onBlockFound = callback;
+    _recentResult.height = height;	
 
     LOG_INFO() << STS << "new job " << id << " will be sent to " << _connections.size() << " connected peers";
 
@@ -217,8 +220,9 @@ void Server::new_job(
     // TODO job cancel policy - timer
 }
 
-void Server::get_last_found_block(std::string& jobID, Block::PoW& pow) {
+void Server::get_last_found_block(std::string& jobID, Height& jobHeight, Block::PoW& pow) {
     jobID = _recentResult.id;
+    jobHeight = _recentResult.height;	
     pow = _recentResult.pow;
 }
 

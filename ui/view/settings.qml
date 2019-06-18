@@ -21,12 +21,15 @@ Rectangle {
         id: changePasswordDialog        
     }
 
+    ConfirmPasswordDialog {
+        id: confirmPasswordDialog
+    }
+
     ConfirmationDialog {
         id: confirmRefreshDialog
         property bool canRefresh: true
-        //: settings tab, confirm rescan dialog, rescan button
-        //% "rescan"
-        okButtonText: qsTrId("settings-rescan-confirmation-button")
+        //% "Rescan"
+        okButtonText: qsTrId("general-rescan")
         okButtonIconSource: "qrc:/assets/icon-repeat.svg"
         cancelButtonIconSource: "qrc:/assets/icon-cancel-white.svg"
         cancelVisible: true
@@ -45,9 +48,8 @@ Rectangle {
                     font.pixelSize: 18
                     color: Style.content_main
                     horizontalAlignment : Text.AlignHCenter
-                    //: settings tab, confirm rescan dialog, title
                     //% "Rescan"
-                    text: qsTrId("settings-rescan-confirmation-title")
+                    text: qsTrId("general-rescan")
                 }
                 SFText {
                     width: parent.width
@@ -135,8 +137,8 @@ Rectangle {
                 font.pixelSize: 14
                 color: Style.content_secondary
                 //: settings tab, version label
-                //% "Version: "
-                text: qsTrId("settings-version") + viewModel.version
+                //% "Version"
+                text: qsTrId("settings-version") + ": " + viewModel.version
             }
         }
 
@@ -297,9 +299,8 @@ Rectangle {
                                         color: Style.validator_error
                                         font.pixelSize: 14
                                         font.italic: true
-                                        //: settings tab, node section, on address error
                                         //% "Invalid address"
-                                        text: qsTrId("settings-remote-node-ip-port-error")
+                                        text: qsTrId("general-invalid-address")
                                     }
                                 }
 
@@ -401,9 +402,8 @@ Rectangle {
                                         leftPadding: 25
                                         rightPadding: 25
                                         spacing: 12
-                                        //: settings tab, node section, cancel button
-                                        //% "cancel"
-                                        text: qsTrId("settings-undo")
+                                        //% "Cancel"
+                                        text: qsTrId("general-cancel")
                                         icon.source: "qrc:/assets/icon-cancel-white.svg"
                                         enabled: {
                                             viewModel.isChanged 
@@ -425,7 +425,7 @@ Rectangle {
                                         rightPadding: 25
                                         spacing: 12
                                         //: settings tab, node section, apply button    
-                                        //% "apply"
+                                        //% "Apply"
                                         text: qsTrId("settings-apply")
                                         icon.source: "qrc:/assets/icon-done.svg"  
                                         enabled: {
@@ -503,7 +503,7 @@ Rectangle {
                                             }
 
                                             model: [
-                                                //% "never"
+                                                //% "Never"
                                                 qsTrId("settings-general-lock-screen-never"),
                                                 //% "1 minute"
                                                 qsTrId("settings-general-lock-screen-1m"),
@@ -583,9 +583,8 @@ Rectangle {
                                         Layout.alignment: Qt.AlignRight
                                         font.pixelSize: 14
                                         color: Style.active
-                                        //: settings tab, general section, show data folder link
-                                        //% "show in folder"
-                                        text: qsTrId("settings-wallet-location-link")
+                                        //% "Show in folder"
+                                        text: qsTrId("general-show-in-folder")
                                         MouseArea {
                                             anchors.fill: parent
                                             acceptedButtons: Qt.LeftButton
@@ -606,16 +605,29 @@ Rectangle {
 
                                     CustomSwitch {
                                         id: isPasswordReqiredToSpendMoney
-                                        //: settings tab, general section, ask password label
+                                        //: settings tab, general section, ask password to send label
                                         //% "Ask password for every sending transaction"
                                         text: qsTrId("settings-general-require-pwd-to-spend")
                                         font.pixelSize: 14
                                         Layout.fillWidth: true
                                         checked: viewModel.isPasswordReqiredToSpendMoney
-                                        Binding {
-                                            target: viewModel
-                                            property: "isPasswordReqiredToSpendMoney"
-                                            value: isPasswordReqiredToSpendMoney.checked
+                                        function onDialogAccepted() {
+                                            viewModel.isPasswordReqiredToSpendMoney = checked;
+                                        }
+
+                                        function onDialogRejected() {
+                                            checked = !checked;
+                                        }
+                                        onClicked: {
+                                            //: settings tab, general section, ask password to send, confirm password dialog, title
+                                            //% "Don’t ask password on every Send"
+                                            confirmPasswordDialog.dialogTitle = qsTrId("settings-general-require-pwd-to-spend-confirm-pwd-title");
+                                            //: settings tab, general section, ask password to send, confirm password dialog, message
+                                            //% "Password verification is required to change that setting"
+                                            confirmPasswordDialog.dialogMessage = qsTrId("settings-general-require-pwd-to-spend-confirm-pwd-message");
+                                            confirmPasswordDialog.onDialogAccepted = onDialogAccepted;
+                                            confirmPasswordDialog.onDialogRejected = onDialogRejected;
+                                            confirmPasswordDialog.open();
                                         }
                                     }
                                 }
@@ -679,9 +691,8 @@ Rectangle {
                                 Layout.preferredHeight: 38
                                 Layout.alignment: Qt.AlignLeft
                                 Layout.leftMargin: 5
-                                //: settings tab, change password button
-                                //% "change wallet password"
-                                text: qsTrId("settings-general-change-pwd-button")
+                                //% "Change wallet password"
+                                text: qsTrId("general-change-pwd")
                                 palette.buttonText : "white"
                                 palette.button: Style.background_second
                                 icon.source: "qrc:/assets/icon-password.svg"
@@ -699,10 +710,9 @@ Rectangle {
                                 Layout.preferredWidth: 250
                                 Layout.preferredHeight: 38
                                 Layout.alignment: Qt.AlignRight
-                                Layout.rightMargin: 5    
-                                //: settings tab, rescan button                            
-                                //% "rescan"
-                                text: qsTrId("settings-rescan-button")
+                                Layout.rightMargin: 5                         
+                                //% "Rescan"
+                                text: qsTrId("general-rescan")
                                 palette.button: Style.background_second
                                 palette.buttonText : viewModel.localNodeRun ? Style.content_main : Style.content_disabled
                                 icon.source: "qrc:/assets/icon-repeat-white.svg"
@@ -764,7 +774,7 @@ Rectangle {
                                     Layout.preferredWidth: 191
                                     Layout.alignment: Qt.AlignLeft
                                     //: settings tab, report problem section, save logs button
-                                    //% "save wallet logs"
+                                    //% "Save wallet logs"
                                     text: qsTrId("settings-report-problem-save-log-button")
                                     icon.source: "qrc:/assets/icon-save.svg"
                                     palette.buttonText : "white"

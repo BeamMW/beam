@@ -36,4 +36,9 @@ namespace beam
 
         return libbitcoin::wallet::ec_private::testnet_p2kh;
     }
+
+    std::string Litecoind016::getCoinName() const
+    {
+        return "litecoin";
+    }
 }

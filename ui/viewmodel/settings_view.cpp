@@ -260,7 +260,13 @@ void SettingsViewModel::refreshWallet()
 
 void SettingsViewModel::openFolder(const QString& path)
 {
-    QDesktopServices::openUrl(QUrl::fromLocalFile(path));
+    WalletSettings::openFolder(path);
+}
+
+bool SettingsViewModel::checkWalletPassword(const QString& oldPass) const
+{
+    SecString secretPass = oldPass.toStdString();
+    return AppModel::getInstance()->checkWalletPassword(secretPass);
 }
 
 bool SettingsViewModel::isChanged() const
@@ -320,12 +326,6 @@ void SettingsViewModel::undoChanges()
 void SettingsViewModel::reportProblem()
 {
     m_settings.reportProblem();
-}
-
-bool SettingsViewModel::checkWalletPassword(const QString& oldPass) const
-{
-    SecString secretPass = oldPass.toStdString();
-    return AppModel::getInstance()->checkWalletPassword(secretPass);
 }
 
 void SettingsViewModel::changeWalletPassword(const QString& pass)

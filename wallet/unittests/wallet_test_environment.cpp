@@ -106,8 +106,8 @@ public:
     void subscribe(IWalletDbObserver* observer) override {}
     void unsubscribe(IWalletDbObserver* observer) override {}
 
-    std::vector<TxDescription> getTxHistory(wallet::TxType, uint64_t, int) override { return {}; };
-    boost::optional<TxDescription> getTx(const TxID&) override { return boost::optional<TxDescription>{}; };
+    std::vector<TxDescription> getTxHistory(wallet::TxType, uint64_t, int) const override { return {}; };
+    boost::optional<TxDescription> getTx(const TxID&) const override { return boost::optional<TxDescription>{}; };
     void saveTx(const TxDescription& p) override
     {
         setTxParameter(p.m_txId, wallet::kDefaultSubTxID, wallet::TxParameterID::Amount, toByteBuffer(p.m_amount), false);
@@ -236,11 +236,11 @@ IWalletDB::Ptr createSqliteWalletDB(const string& path, bool separateDBForPrivat
     return walletDB;
 }
 
-IWalletDB::Ptr createSenderWalletDB(bool separateDBForPrivateData = false)
+IWalletDB::Ptr createSenderWalletDB(bool separateDBForPrivateData = false, AmountList amounts = {5, 2, 1, 9})
 {
     auto db = createSqliteWalletDB(SenderWalletDB, separateDBForPrivateData);
     db->AllocateKidRange(100500); // make sure it'll get the address different from the receiver
-    for (auto amount : { 5, 2, 1, 9 })
+    for (auto amount : amounts)
     {
         Coin coin = CreateAvailCoin(amount, 0);
         db->store(coin);

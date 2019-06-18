@@ -174,7 +174,7 @@ namespace beam::wallet
             for (const auto& coinID : ids)
             {
                 Point& publicKey = result.emplace_back();
-                SwitchCommitment().Create(secretKey, publicKey, *GetChildKdf(coinID.m_SubIdx), coinID);
+                SwitchCommitment().Create(secretKey, publicKey, *GetChildKdf(coinID), coinID);
             }
         }
         else
@@ -196,7 +196,7 @@ namespace beam::wallet
 
         if (createCoinKey)
         {
-            SwitchCommitment().Create(secretKey, publicKey, *GetChildKdf(id.m_SubIdx), id);
+            SwitchCommitment().Create(secretKey, publicKey, *GetChildKdf(id), id);
         }
         else
         {
@@ -215,7 +215,7 @@ namespace beam::wallet
         for (const auto& coinID : ids)
         {
             auto& output = result.emplace_back(make_unique<Output>());
-            output->Create(schemeHeigh, secretKey, *GetChildKdf(coinID.m_SubIdx), coinID, *m_MasterKdf);
+            output->Create(schemeHeigh, secretKey, *GetChildKdf(coinID), coinID, *m_MasterKdf);
         }
         return result;
     }
@@ -261,21 +261,14 @@ namespace beam::wallet
 
     ////
 
-    ECC::uintBig LocalPrivateKeyKeeper::GetSeedKid(Key::IPKdf& tagKdf, const Point& commitment) const
-    {
-        uintBig seed;
-        ECC::Hash::Processor() << commitment >> seed;
-
-        ECC::Scalar::Native sk;
-        tagKdf.DerivePKey(sk, seed);
-
-        ECC::Hash::Processor() << sk >> seed;
-        return seed;
-    }
+	Key::IKdf::Ptr LocalPrivateKeyKeeper::GetChildKdf(const Key::IDV& kidv) const
+	{
+		return GetChildKdf(kidv.get_Subkey());
+	}
 
     Key::IKdf::Ptr LocalPrivateKeyKeeper::GetChildKdf(Key::Index iKdf) const
     {
-        if (!iKdf || m_MasterKdf)
+        if (!iKdf)
             return m_MasterKdf; // by convention 0 is not a childd
 
         Key::IKdf::Ptr pRet;
@@ -300,14 +293,14 @@ namespace beam::wallet
         Scalar::Native excess = offset;
         for (const auto& coinID : outputs)
         {
-            SwitchCommitment().Create(blindingFactor, commitment, *GetChildKdf(coinID.m_SubIdx), coinID);
+            SwitchCommitment().Create(blindingFactor, commitment, *GetChildKdf(coinID), coinID);
             excess += blindingFactor;
         }
         excess = -excess;
 
         for (const auto& coinID : inputs)
         {
-            SwitchCommitment().Create(blindingFactor, commitment, *GetChildKdf(coinID.m_SubIdx), coinID);
+            SwitchCommitment().Create(blindingFactor, commitment, *GetChildKdf(coinID), coinID);
             excess += blindingFactor;
         }
         return excess;

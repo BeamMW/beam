@@ -29,7 +29,7 @@ Component
             Layout.alignment: Qt.AlignHCenter
 
             //% "BEAM"
-            text: qsTrId("logo-name")
+            text: qsTrId("general-beam")
             color: Style.accent_incoming
             font.pixelSize: 32
             font.styleName: "Bold"; font.weight: Font.Bold

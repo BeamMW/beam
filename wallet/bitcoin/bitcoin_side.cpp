@@ -438,6 +438,7 @@ namespace beam::wallet
         LOG_ERROR() << m_tx.GetTxID() << "[" << static_cast<SubTxID>(subTxID) << "]" << " Bridge internal error: type = " << error.m_type << "; message = " << error.m_message;
         switch (error.m_type)
         {
+        case IBitcoinBridge::EmptyResult:
         case IBitcoinBridge::InvalidResultFormat:
             m_tx.SetParameter(TxParameterID::InternalFailureReason, TxFailureReason::SwapFormatResponseError, false, subTxID);
             break;

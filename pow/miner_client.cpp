@@ -105,7 +105,8 @@ private:
 
     IExternalPOW::BlockFoundResult on_block_found() {
         std::string jobID;
-        _miner->get_last_found_block(jobID, _lastFoundBlock);
+		Height h;
+        _miner->get_last_found_block(jobID, h, _lastFoundBlock);
         if (jobID != _lastJobID) {
             LOG_INFO() << "solution expired" << TRACE(jobID);
             return IExternalPOW::solution_expired;
@@ -114,7 +115,7 @@ private:
         //char buf[72];
         //LOG_DEBUG() << "input=" << to_hex(buf, _lastJobInput.m_pData, 32);
 
-        if (!_fakeSolver && !_lastFoundBlock.IsValid(_lastJobInput.m_pData, 32)) {
+        if (!_fakeSolver && !_lastFoundBlock.IsValid(_lastJobInput.m_pData, 32, h)) {
             LOG_ERROR() << "solution is invalid, id=" << _lastJobID;
             return IExternalPOW::solution_rejected;
         }

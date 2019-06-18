@@ -581,6 +581,22 @@ void Node::Processor::FlushInsanePeers()
     }
 }
 
+void Node::Processor::DeleteOutdated()
+{
+	TxPool::Fluff& txp = get_ParentObj().m_TxPool;
+	for (TxPool::Fluff::Queue::iterator it = txp.m_Queue.begin(); txp.m_Queue.end() != it; )
+	{
+		TxPool::Fluff::Element& x = (it++)->get_ParentObj();
+		if (!x.m_pValue)
+			continue;
+		Transaction& tx = *x.m_pValue;
+
+		if (!ValidateTxContext(tx, x.m_Threshold.m_Height))
+			txp.Delete(x);
+	}
+}
+
+
 void Node::Processor::OnNewState()
 {
     m_Cwp.Reset();
@@ -593,8 +609,7 @@ void Node::Processor::OnNewState()
 	if (IsFastSync())
 		return;
 
-    //get_ParentObj().m_TxPool.DeleteOutOfBound(m_Cursor.m_Sid.m_Height + 1);
-    get_ParentObj().m_Processor.DeleteOutdated(get_ParentObj().m_TxPool); // Better to delete all irrelevant txs explicitly, even if the node is supposed to mine
+    DeleteOutdated(); // Better to delete all irrelevant txs explicitly, even if the node is supposed to mine
     // because in practice mining could be OFF (for instance, if miner key isn't defined, and owner wallet is offline).
 
     if (get_ParentObj().m_Miner.IsEnabled())
@@ -2011,10 +2026,12 @@ void Node::Peer::OnMsg(proto::NewTransaction&& msg)
 
 uint8_t Node::ValidateTx(Transaction::Context& ctx, const Transaction& tx)
 {
+	ctx.m_Height.m_Min = m_Processor.m_Cursor.m_ID.m_Height + 1;
+
 	if (!(m_Processor.ValidateAndSummarize(ctx, tx, tx.get_Reader()) && ctx.IsValidTransaction()))
 		return proto::TxStatus::Invalid;
 
-	if (!m_Processor.ValidateTxContext(tx))
+	if (!m_Processor.ValidateTxContext(tx, ctx.m_Height))
 		return proto::TxStatus::InvalidContext;
 
 	if (ctx.m_Height.m_Min >= Rules::get().pForks[1].m_Height)
@@ -2107,7 +2124,6 @@ uint8_t Node::OnTransactionStem(Transaction::Ptr&& ptx, const Peer* pPeer)
 
 	Transaction::Context::Params pars;
 	Transaction::Context ctx(pars);
-	ctx.m_Height.m_Min = m_Processor.m_Cursor.m_ID.m_Height + 1;
     bool bTested = false;
     TxPool::Stem::Element* pDup = NULL;
 
@@ -2169,6 +2185,7 @@ uint8_t Node::OnTransactionStem(Transaction::Ptr&& ptx, const Peer* pPeer)
         pGuard->m_Profit.m_Fee = ctx.m_Fee;
         pGuard->m_Profit.SetSize(*ptx);
         pGuard->m_pValue.swap(ptx);
+		pGuard->m_Height = ctx.m_Height;
 
         m_Dandelion.InsertKrn(*pGuard);
 
@@ -2291,14 +2308,14 @@ void Node::AddDummyInputs(Transaction& tx)
 		Key::IKdf::Ptr pChild;
 		Key::IKdf* pKdf = nullptr;
 
-		if (kidv.m_SubIdx == m_Keys.m_nMinerSubIndex)
+		if (kidv.get_Subkey() == m_Keys.m_nMinerSubIndex)
 			pKdf = m_Keys.m_pMiner.get();
 		else
 		{
 			// was created by other miner. If we have the root key - we can recreate its key
 			if (!m_Keys.m_nMinerSubIndex)
 			{
-				ECC::HKdf::CreateChild(pChild, *m_Keys.m_pMiner, kidv.m_SubIdx);
+				ECC::HKdf::CreateChild(pChild, *m_Keys.m_pMiner, kidv.get_Subkey());
 				pKdf = pChild.get();
 			}
 		}
@@ -2375,7 +2392,7 @@ void Node::AddDummyOutputs(Transaction& tx)
     {
 		Key::IDV kidv(Zero);
 		kidv.m_Type = Key::Type::Decoy;
-		kidv.m_SubIdx = m_Keys.m_nMinerSubIndex;
+		kidv.set_Subkey(m_Keys.m_nMinerSubIndex);
 
 		while (true)
 		{
@@ -2425,10 +2442,13 @@ bool Node::OnTransactionFluff(Transaction::Ptr&& ptxArg, const Peer* pPeer, TxPo
 
 	Transaction::Context::Params pars;
 	Transaction::Context ctx(pars);
-	ctx.m_Height.m_Min = m_Processor.m_Cursor.m_ID.m_Height + 1;
     if (pElem)
     {
+		if (!pElem->m_Height.IsInRange(m_Processor.m_Cursor.m_ID.m_Height + 1))
+			return false;
+
         ctx.m_Fee = pElem->m_Profit.m_Fee;
+		ctx.m_Height = pElem->m_Height;
         m_Dandelion.Delete(*pElem);
     }
     else
@@ -2509,9 +2529,9 @@ void Node::Dandelion::OnTimedOut(Element& x)
         get_ParentObj().OnTransactionFluff(std::move(x.m_pValue), NULL, &x);
 }
 
-bool Node::Dandelion::ValidateTxContext(const Transaction& tx)
+bool Node::Dandelion::ValidateTxContext(const Transaction& tx, const HeightRange& hr)
 {
-    return get_ParentObj().m_Processor.ValidateTxContext(tx);
+    return get_ParentObj().m_Processor.ValidateTxContext(tx, hr);
 }
 
 void Node::Peer::OnLogin(proto::Login&& msg)
@@ -3604,9 +3624,10 @@ IExternalPOW::BlockFoundResult Node::Miner::OnMinedExternal()
 {
 	std::string jobID_;
 	Block::PoW POW;
+	Height h;
 
 	assert(m_External.m_pSolver);
-	m_External.m_pSolver->get_last_found_block(jobID_, POW);
+	m_External.m_pSolver->get_last_found_block(jobID_, h, POW);
 
 	char* szEnd = nullptr;
 	uint64_t jobID = strtoul(jobID_.c_str(), &szEnd, 10);

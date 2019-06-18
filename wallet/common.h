@@ -112,7 +112,7 @@ namespace beam::wallet
     MACRO(SwapSecondSideBridgeError,    17, "Side chain bridge has internal error") \
     MACRO(SwapNetworkBridgeError,       18, "Side chain bridge has network error") \
     MACRO(SwapFormatResponseError,      19, "Side chain bridge has format response error") \
-    MACRO(InvalidCredentialsOfSideChain,   20, "Invalid credentinals of Side chain") \
+    MACRO(InvalidCredentialsOfSideChain,   20, "Invalid credentials of Side chain") \
 
     enum TxFailureReason : int32_t
     {
@@ -332,10 +332,20 @@ namespace beam::wallet
     {
         Bitcoin,
         Litecoin,
+        Qtum,
         Unknown
     };
 
     AtomicSwapCoin from_string(const std::string& value);
+
+    enum class SwapSecondSideChainType
+    {
+        Mainnet,
+        Testnet,
+        Unknown
+    };
+
+    SwapSecondSideChainType SwapSecondSideChainTypeFromString(const std::string& value);
 
     using SubTxID = uint16_t;
     const SubTxID kDefaultSubTxID = 1;

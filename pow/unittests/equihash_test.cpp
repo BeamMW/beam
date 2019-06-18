@@ -14,7 +14,7 @@
 
 #include "core/block_crypt.h"
 #include <iostream>
-#include "3rdparty/crypto/equihash.h"
+#include "3rdparty/crypto/equihashR.h"
 #include "wallet/unittests/test_helpers.h"
 #include <algorithm>
 

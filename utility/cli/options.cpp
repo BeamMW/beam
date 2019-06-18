@@ -47,6 +47,8 @@ namespace beam
         const char* BTC_USER_NAME = "btc_user";
         const char* LTC_PASS = "ltc_pass";
         const char* LTC_USER_NAME = "ltc_user";
+        const char* QTUM_PASS = "qtum_pass";
+        const char* QTUM_USER_NAME = "qtum_user";
         const char* AMOUNT = "amount";
         const char* AMOUNT_FULL = "amount,a";
         const char* RECEIVER_ADDR = "receiver_addr";
@@ -55,6 +57,7 @@ namespace beam
         const char* NODE_ADDR_FULL = "node_addr,n";
         const char* BTC_NODE_ADDR = "btc_node_addr";
         const char* LTC_NODE_ADDR = "ltc_node_addr";
+        const char* QTUM_NODE_ADDR = "qtum_node_addr";
         const char* COMMAND = "command";
         const char* LISTEN = "listen";
         const char* TREASURY = "treasury";
@@ -108,7 +111,9 @@ namespace beam
         const char* WALLET_RESCAN = "rescan";
         const char* UTXO = "utxo";
         const char* EXPORT_ADDRESSES = "export_addresses";
+        const char* EXPORT_TRANSACTIONS = "export_transactions";
         const char* IMPORT_ADDRESSES = "import_addresses";
+        const char* IMPORT_TRANSACTIONS = "import_transactions";
         const char* IMPORT_EXPORT_PATH = "file_location";
         const char* IP_WHITELIST = "ip_whitelist";
         const char* HORIZON_HI = "horizon_hi";
@@ -120,12 +125,15 @@ namespace beam
         const char* SWAP_AMOUNT = "swap_amount";
         const char* SWAP_FEERATE = "swap_feerate";
         const char* SWAP_COIN = "swap_coin";
+        const char* SWAP_NETWORK = "swap_network";
         const char* SWAP_BEAM_SIDE = "swap_beam_side";
         const char* SWAP_TX_HISTORY = "swap_tx_history";
         const char* BTC_CONFIRMATIONS = "btc_confiramtions";
         const char* LTC_CONFIRMATIONS = "ltc_confiramtions";
+        const char* QTUM_CONFIRMATIONS = "qtum_confiramtions";
         const char* BTC_LOCK_TIME = "btc_lock_time";
         const char* LTC_LOCK_TIME = "ltc_lock_time";
+        const char* QTUM_LOCK_TIME = "qtum_lock_time";
         const char* NODE_POLL_PERIOD = "node_poll_period";
 
         // wallet api
@@ -150,66 +158,6 @@ namespace beam
         const Amount kMinimumFee = 100;
     }
 
-    template<typename T>
-    std::ostream& operator<<(std::ostream &os, const Nonnegative<T>& v)
-    {
-        os << v.value;
-        return os;
-    }
-
-    template<typename T>
-    std::ostream& operator<<(std::ostream &os, const Positive<T>& v)
-    {
-        os << v.value;
-        return os;
-    }
-
-    template <typename T>
-    void validate(boost::any& v, const std::vector<std::string>& values, Nonnegative<T>*, int)
-    {
-        po::validators::check_first_occurrence(v);
-
-        const std::string& s = po::validators::get_single_string(values);
-
-        if (!s.empty() && s[0] == '-') {
-            throw NonnegativeOptionException();
-        }
-
-        try
-        {
-            v = Nonnegative<T>(boost::lexical_cast<T>(s));
-        }
-        catch (const boost::bad_lexical_cast&)
-        {
-            throw po::invalid_option_value(s);
-        }
-    }
-
-    template <typename T>
-    void validate(boost::any& v, const std::vector<std::string>& values, Positive<T>*, int)
-    {
-        po::validators::check_first_occurrence(v);
-        const std::string& s = po::validators::get_single_string(values);
-        T numb;
-
-        if (!s.empty() && s[0] == '-') {
-            throw PositiveOptionException();
-        }
-
-        try
-        {
-            numb = boost::lexical_cast<T>(s);
-        }
-        catch (const boost::bad_lexical_cast&)
-        {
-            throw po::invalid_option_value(s);
-        }
-
-        if (numb <= 0)
-            throw PositiveOptionException();
-
-        v = Positive<T>(numb);
-    }
 
     template <typename T> struct TypeCvt {
 
@@ -274,12 +222,15 @@ namespace beam
             (cli::BTC_USER_NAME, po::value<string>(), "user name for the bitcoin node")
             (cli::LTC_PASS, po::value<string>(), "password for the litecoin node")
             (cli::LTC_USER_NAME, po::value<string>(), "user name for the litecoin node")
+            (cli::QTUM_PASS, po::value<string>(), "password for the qtum node")
+            (cli::QTUM_USER_NAME, po::value<string>(), "user name for the qtum node")
             (cli::AMOUNT_FULL, po::value<Positive<double>>(), "amount to send (in Beams, 1 Beam = 100,000,000 groth)")
             (cli::FEE_FULL, po::value<Nonnegative<Amount>>()->default_value(Nonnegative<Amount>(cli::kMinimumFee)), "fee (in Groth, 100,000,000 groth = 1 Beam)")
             (cli::RECEIVER_ADDR_FULL, po::value<string>(), "address of receiver")
             (cli::NODE_ADDR_FULL, po::value<string>(), "address of node")
             (cli::BTC_NODE_ADDR, po::value<string>(), "address of bitcoin node")
             (cli::LTC_NODE_ADDR, po::value<string>(), "address of litecoin node")
+            (cli::QTUM_NODE_ADDR, po::value<string>(), "address of qtum node")
             (cli::WALLET_STORAGE, po::value<string>()->default_value("wallet.db"), "path to wallet file")
             (cli::TX_HISTORY, "print transacrions' history in info command")
             (cli::LISTEN, "start listen after new_addr command")
@@ -292,19 +243,22 @@ namespace beam
             (cli::PAYMENT_PROOF_DATA, po::value<string>(), "payment proof data to verify")
             (cli::PAYMENT_PROOF_REQUIRED, po::value<bool>(), "Set to disallow outgoing payments if the receiver doesn't supports the payment proof (older wallets)")
             (cli::UTXO, po::value<vector<string>>()->multitoken(), "preselected utxos to transfer")
-            (cli::IMPORT_EXPORT_PATH, po::value<string>()->default_value("addresses.dat"), "path to import or export data (import_addresses|export_addresses)")
+            (cli::IMPORT_EXPORT_PATH, po::value<string>()->default_value("export.dat"), "path to import or export data (import_addresses|import_transactions|export_addresses|export_transactions)")
             (cli::COLD_WALLET, "used to init cold wallet")
-            (cli::COMMAND, po::value<string>(), "command to execute [new_addr|send|receive|listen|init|restore|info|export_miner_key|export_owner_key|generate_phrase|change_address_expiration|address_list|rescan|export_addresses|import_addresses|tx_details|payment_proof_export|payment_proof_verify|utxo|cancel_tx|delete_tx|swap_init|swap_listen]")
+            (cli::COMMAND, po::value<string>(), "command to execute [new_addr|send|receive|listen|init|restore|info|export_miner_key|export_owner_key|generate_phrase|change_address_expiration|address_list|rescan|export_addresses|export_transactions|import_addresses|import_transactions|tx_details|payment_proof_export|payment_proof_verify|utxo|cancel_tx|delete_tx|swap_init|swap_listen]")
             (cli::SWAP_AMOUNT, po::value<Positive<Amount>>(), "swap amount in the smallest unit of the coin")
-            (cli::SWAP_FEERATE, po::value<Positive<Amount>>()->default_value(Positive<Amount>(20000)), "The specific feerate you are willing to pay(satoshis(or photons) per KB)")
-            (cli::SWAP_COIN, po::value<string>(), "swap coin(btc, ltc)")
+            (cli::SWAP_FEERATE, po::value<Positive<Amount>>(), "The specific feerate you are willing to pay(the smallest unit of the coin per KB)")
+            (cli::SWAP_COIN, po::value<string>(), "swap coin(btc, ltc, qtum)")
+            (cli::SWAP_NETWORK, po::value<string>(), "type of second side network(mainnet, testnet)")
             (cli::SWAP_BEAM_SIDE, "Should be set by Beam owner")
             (cli::SWAP_TX_HISTORY, "show swap transactions history in info command")
             (cli::BTC_CONFIRMATIONS, po::value<Positive<uint16_t>>(), "confirmations count in bitcoin chain")
             (cli::LTC_CONFIRMATIONS, po::value<Positive<uint16_t>>(), "confirmations count in litecoin chain")
+            (cli::QTUM_CONFIRMATIONS, po::value<Positive<uint16_t>>(), "confirmations count in qtum chain")
             (cli::BTC_LOCK_TIME, po::value<Positive<uint32_t>>(), "lock time in blocks bitcoin transaction")
             (cli::LTC_LOCK_TIME, po::value<Positive<uint32_t>>(), "lock time in blocks litecoin transaction")
-            (cli::NODE_POLL_PERIOD, po::value<Positive<uint32_t>>()->default_value(Positive<uint32_t>(0)), "Node poll period. Set to 0 to keep connection. Anyway poll period would be no less than the expected rate of blocks. By default wallet keeps connection.");
+            (cli::QTUM_LOCK_TIME, po::value<Positive<uint32_t>>(), "lock time in blocks qtum transaction")
+            (cli::NODE_POLL_PERIOD, po::value<Nonnegative<uint32_t>>()->default_value(Nonnegative<uint32_t>(0)), "Node poll period in milliseconds. Set to 0 to keep connection. Anyway poll period would be no less than the expected rate of blocks if it is less then it will be rounded up to block rate value.");
 
         po::options_description wallet_treasury_options("Wallet treasury options");
         wallet_treasury_options.add_options()

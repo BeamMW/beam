@@ -10,10 +10,10 @@ Dialog {
     property var parentModel
 	property var expirationOptions: [
 		//: Edit address dialog, expiration option, in 24 hours from now
-		//% "in 24 hours from now"
+		//% "In 24 hours from now"
 		qsTrId("edit-addr-24-option"),
 		//: Edit address dialog, expiration option, never
-		//% "never"
+		//% "Never"
 		qsTrId("edit-addr-never-option")
 	]
     property bool isExpiredAddress: false
@@ -35,7 +35,7 @@ Dialog {
 				expirationOptionsForActive.currentIndex = 1;
 			} else {
 				//: Edit address dialog, expiration option, do not change
-				//% "within 24 hours"
+				//% "Within 24 hours"
 				expirationOptionsForActive.model = [qsTrId("edit-addr-as-is-option"),].concat(expirationOptions);
 			}
 		}
@@ -173,7 +173,7 @@ Dialog {
 					Layout.preferredWidth: parent.width
 					Layout.alignment: Qt.AlignLeft | Qt.AlignTop
 					//: Edit addres dialog, expire now label
-					//% "now"
+					//% "Now"
 					text: qsTrId("edit-addr-expire-now-label")
 					color: Style.content_secondary
 					font.pixelSize: 14
@@ -291,9 +291,8 @@ Dialog {
 			Layout.alignment: Qt.AlignLeft
 
 			SFText {
-				//: Edit addres dialog, comment label
 				//% "Comment"
-				text: qsTrId("edit-addr-comment")
+				text: qsTrId("general-comment")
 				color: Style.content_main
 				font.pixelSize: 14
 				font.styleName: "Bold"; font.weight: Font.Bold
@@ -340,8 +339,8 @@ Dialog {
 			CustomButton {
 				Layout.preferredHeight: 40
 				//: Edit addres dialog, cancel button
-				//% "cancel"
-				text: qsTrId("edit-addr-cancel-button")
+				//% "Cancel"
+				text: qsTrId("general-cancel")
                 icon.source: "qrc:/assets/icon-cancel.svg"
                 icon.color: Style.content_main
 				onClicked: {
@@ -357,7 +356,7 @@ Dialog {
 				id: saveButton
 				Layout.preferredHeight: 40
 				//: Edit addres dialog, save button
-				//% "save"
+				//% "Save"
 				text: qsTrId("edit-addr-save-button")
                 icon.source: "qrc:/assets/icon-done.svg"
                 enabled: {

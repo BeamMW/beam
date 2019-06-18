@@ -172,7 +172,7 @@ struct Client
 
 		virtual void AllocTxoID(ECC::Key::IDV& kidv) override
 		{
-			kidv.m_SubIdx = 0;
+			kidv.set_Subkey(0);
 			kidv.m_Idx = m_This.m_nNextCoinID++;
 		}
 

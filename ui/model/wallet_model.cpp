@@ -62,11 +62,11 @@ QString WalletModel::GetErrorString(beam::wallet::ErrorType type)
         //% "Connection timed out."
         return qtTrId("wallet-model-connection-time-out-error");
     case wallet::ErrorType::ConnectionRefused:
-        //% "Cannot connect to node:"
-        return qtTrId("wallet-model-connection-refused-error") + " " +  getNodeAddress().c_str();
+        //% "Cannot connect to node"
+        return qtTrId("wallet-model-connection-refused-error") + ": " +  getNodeAddress().c_str();
     case wallet::ErrorType::ConnectionHostUnreach:
-        //% "Node is unreachable:"
-        return qtTrId("wallet-model-connection-host-unreach-error") + " " + getNodeAddress().c_str();
+        //% "Node is unreachable"
+        return qtTrId("wallet-model-connection-host-unreach-error") + ": " + getNodeAddress().c_str();
     case wallet::ErrorType::ConnectionAddrInUse:
     {
         auto localNodePort = AppModel::getInstance()->getSettings().getLocalNodePort();

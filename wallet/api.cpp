@@ -282,6 +282,24 @@ namespace beam::wallet
         data.btcNodeAddr = params["btcNodeAddr"];
         data.feeRate = params["feeRate"];
 
+        if (existsJsonParam(params, "confirmations"))
+        {
+            if (params["confirmations"] < 0)
+                throwInvalidJsonRpc(id);
+            data.confirmations = params["confirmations"];
+        }
+        if (existsJsonParam(params, "chainType"))
+        {
+            data.chainType = wallet::SwapSecondSideChainTypeFromString(params["chainType"]);
+            if (data.chainType == wallet::SwapSecondSideChainType::Unknown)
+                throwInvalidJsonRpc(id);
+        }
+        if (existsJsonParam(params, "lockTimeInBlocks"))
+        {
+            if (params["lockTimeInBlocks"] < 0)
+                throwInvalidJsonRpc(id);
+            data.lockTimeInBlocks = params["lockTimeInBlocks"];
+        }
         _handler.onMessage(id, data);
     }
 
@@ -310,6 +328,70 @@ namespace beam::wallet
         data.ltcNodeAddr = params["ltcNodeAddr"];
         data.feeRate = params["feeRate"];
 
+        if (existsJsonParam(params, "confirmations"))
+        {
+            if (params["confirmations"] < 0)
+                throwInvalidJsonRpc(id);
+            data.confirmations = params["confirmations"];
+        }
+        if (existsJsonParam(params, "chainType"))
+        {
+            data.chainType = wallet::SwapSecondSideChainTypeFromString(params["chainType"]);
+            if (data.chainType == wallet::SwapSecondSideChainType::Unknown)
+                throwInvalidJsonRpc(id);
+        }
+        if (existsJsonParam(params, "lockTimeInBlocks"))
+        {
+            if (params["lockTimeInBlocks"] < 0)
+                throwInvalidJsonRpc(id);
+            data.lockTimeInBlocks = params["lockTimeInBlocks"];
+        }
+        _handler.onMessage(id, data);
+    }
+
+    void WalletApi::onInitQtumMessage(int id, const nlohmann::json& params)
+    {
+        checkJsonParam(params, "qtumUserName", id);
+        checkJsonParam(params, "qtumPass", id);
+        checkJsonParam(params, "qtumNodeAddr", id);
+
+        if (params["qtumUserName"].empty())
+            throwInvalidJsonRpc(id);
+
+        if (params["qtumPass"].empty())
+            throwInvalidJsonRpc(id);
+
+        if (params["qtumNodeAddr"].empty())
+            throwInvalidJsonRpc(id);
+
+        if (params["feeRate"].empty())
+            throwInvalidJsonRpc(id);
+
+        InitQtum data;
+
+        data.qtumUserName = params["qtumUserName"];
+        data.qtumPass = params["qtumPass"];
+        data.qtumNodeAddr = params["qtumNodeAddr"];
+        data.feeRate = params["feeRate"];
+
+        if (existsJsonParam(params, "confirmations"))
+        {
+            if (params["confirmations"] < 0)
+                throwInvalidJsonRpc(id);
+            data.confirmations = params["confirmations"];
+        }
+        if (existsJsonParam(params, "chainType"))
+        {
+            data.chainType = wallet::SwapSecondSideChainTypeFromString(params["chainType"]);
+            if (data.chainType == wallet::SwapSecondSideChainType::Unknown)
+                throwInvalidJsonRpc(id);
+        }
+        if (existsJsonParam(params, "lockTimeInBlocks"))
+        {
+            if (params["lockTimeInBlocks"] < 0)
+                throwInvalidJsonRpc(id);
+            data.lockTimeInBlocks = params["lockTimeInBlocks"];
+        }
         _handler.onMessage(id, data);
     }
 
@@ -671,6 +753,16 @@ namespace beam::wallet
     }
 
     void WalletApi::getResponse(int id, const InitLitecoin::Response& res, json& msg)
+    {
+        msg = json
+        {
+            {"jsonrpc", "2.0"},
+            {"id", id},
+            {"result", "done"}
+        };
+    }
+
+    void WalletApi::getResponse(int id, const InitQtum::Response& res, json& msg)
     {
         msg = json
         {
