@@ -222,3 +222,36 @@ private:
     std::string m_userName;
     std::string m_pass;
 };
+
+class BitcoinHttpServerEmptyResult : public BitcoinHttpServer
+{
+private:
+    std::string fundRawTransaction() override
+    {
+        return R"({"error":null,"id":null})";
+    }
+
+    std::string getTxOut() override
+    {
+        return R"( {"result":null,"error":null,"id":null})";
+    }
+
+    std::string getBlockCount() override
+    {
+        return R"( {"error":null,"id":null})";
+    }
+
+    std::string getBalance() override
+    {
+        return R"({"result":null,"error":null,"id":null})";
+    }
+};
+
+class BitcoinHttpServerEmptyResponse : public BitcoinHttpServer
+{
+private:
+    std::string fundRawTransaction() override
+    {
+        return "";
+    }
+};

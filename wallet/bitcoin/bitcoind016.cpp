@@ -232,6 +232,7 @@ namespace beam
             {
                 // it's normal case for getTxOut
                 error.m_type = IBitcoinBridge::None;
+                error.m_message = "";
             }
             else if (error.m_type == IBitcoinBridge::None)
             {
@@ -263,6 +264,7 @@ namespace beam
             {
                 // it's normal case for getBlockCount
                 error.m_type = IBitcoinBridge::None;
+                error.m_message = "";
             }
             else if (error.m_type == IBitcoinBridge::None)
             {
