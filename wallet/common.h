@@ -338,6 +338,15 @@ namespace beam::wallet
 
     AtomicSwapCoin from_string(const std::string& value);
 
+    enum class SwapSecondSideChainType
+    {
+        Mainnet,
+        Testnet,
+        Unknown
+    };
+
+    SwapSecondSideChainType SwapSecondSideChainTypeFromString(const std::string& value);
+
     using SubTxID = uint16_t;
     const SubTxID kDefaultSubTxID = 1;
 

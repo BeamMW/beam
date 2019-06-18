@@ -44,6 +44,8 @@ WALLET_TEST_INIT
 
 namespace
 {
+    const AmountList kDefaultTestAmounts = { 500, 200, 100, 900 };
+
     TestBitcoinWallet GetSenderBTCWallet(io::Reactor& reactor, const io::Address& senderAddress, Amount swapAmount)
     {
         TestBitcoinWallet::Options senderOptions;
@@ -91,8 +93,8 @@ void TestSwapTransaction(bool isBeamOwnerStart)
     io::Address receiverAddress;
     receiverAddress.resolve("127.0.0.1:10300");
 
-    Amount beamAmount = 3;
-    Amount beamFee = 1;
+    Amount beamAmount = 300;
+    Amount beamFee = 100;
     Amount swapAmount = 2000;
     Amount feeRate = 256;
 
@@ -100,7 +102,7 @@ void TestSwapTransaction(bool isBeamOwnerStart)
     BitcoinOptions aliceOptions{ "Alice", "123", receiverAddress, feeRate };
     TestBitcoinWallet senderBtcWallet = GetSenderBTCWallet(*mainReactor, senderAddress, swapAmount);
     TestBitcoinWallet receiverBtcWallet = GetReceiverBTCWallet(*mainReactor, receiverAddress, swapAmount);
-    TestWalletRig sender("sender", createSenderWalletDB(), completeAction);
+    TestWalletRig sender("sender", createSenderWalletDB(false, kDefaultTestAmounts), completeAction);
     TestWalletRig receiver("receiver", createReceiverWalletDB(), completeAction);
 
     sender.m_Wallet.initBitcoin(*mainReactor, bobOptions);
@@ -132,17 +134,17 @@ void TestSwapTransaction(bool isBeamOwnerStart)
 
     receiverCoins = receiver.GetCoins();
     WALLET_CHECK(receiverCoins.size() == 1);
-    WALLET_CHECK(receiverCoins[0].m_ID.m_Value == beamAmount);
+    WALLET_CHECK(receiverCoins[0].m_ID.m_Value == beamAmount - kMinFeeInGroth);
     WALLET_CHECK(receiverCoins[0].m_status == Coin::Available);
     WALLET_CHECK(receiverCoins[0].m_createTxId == txID);
 
     auto senderCoins = sender.GetCoins();
-    WALLET_CHECK(senderCoins.size() == 5);
-    WALLET_CHECK(senderCoins[0].m_ID.m_Value == 5);
+    WALLET_CHECK(senderCoins.size() == kDefaultTestAmounts.size() + 1);
+    WALLET_CHECK(senderCoins[0].m_ID.m_Value == 500);
     WALLET_CHECK(senderCoins[0].m_status == Coin::Spent);
     WALLET_CHECK(senderCoins[0].m_spentTxId == txID);
     // change
-    WALLET_CHECK(senderCoins[4].m_ID.m_Value == 1);
+    WALLET_CHECK(senderCoins[4].m_ID.m_Value == 100);
     WALLET_CHECK(senderCoins[4].m_status == Coin::Available);
     WALLET_CHECK(senderCoins[4].m_createTxId == txID);
 
@@ -178,8 +180,8 @@ void TestSwapTransactionWithoutChange(bool isBeamOwnerStart)
     io::Address receiverAddress;
     receiverAddress.resolve("127.0.0.1:10300");
 
-    Amount beamAmount = 4;
-    Amount beamFee = 1;
+    Amount beamAmount = 400;
+    Amount beamFee = 100;
     Amount swapAmount = 2000;
     Amount feeRate = 256;
 
@@ -187,7 +189,7 @@ void TestSwapTransactionWithoutChange(bool isBeamOwnerStart)
     BitcoinOptions aliceOptions{ "Alice", "123", receiverAddress, feeRate };
     TestBitcoinWallet senderBtcWallet = GetSenderBTCWallet(*mainReactor, senderAddress, swapAmount);
     TestBitcoinWallet receiverBtcWallet = GetReceiverBTCWallet(*mainReactor, receiverAddress, swapAmount);
-    TestWalletRig sender("sender", createSenderWalletDB(), completeAction);
+    TestWalletRig sender("sender", createSenderWalletDB(false, kDefaultTestAmounts), completeAction);
     TestWalletRig receiver("receiver", createReceiverWalletDB(), completeAction);
 
     sender.m_Wallet.initBitcoin(*mainReactor, bobOptions);
@@ -219,13 +221,13 @@ void TestSwapTransactionWithoutChange(bool isBeamOwnerStart)
 
     receiverCoins = receiver.GetCoins();
     WALLET_CHECK(receiverCoins.size() == 1);
-    WALLET_CHECK(receiverCoins[0].m_ID.m_Value == beamAmount);
+    WALLET_CHECK(receiverCoins[0].m_ID.m_Value == beamAmount - kDefaultTxLifetime);
     WALLET_CHECK(receiverCoins[0].m_status == Coin::Available);
     WALLET_CHECK(receiverCoins[0].m_createTxId == txID);
 
     auto senderCoins = sender.GetCoins();
     WALLET_CHECK(senderCoins.size() == 4);
-    WALLET_CHECK(senderCoins[0].m_ID.m_Value == 5);
+    WALLET_CHECK(senderCoins[0].m_ID.m_Value == 500);
     WALLET_CHECK(senderCoins[0].m_status == Coin::Spent);
     WALLET_CHECK(senderCoins[0].m_spentTxId == txID);
 }
@@ -248,8 +250,8 @@ void TestSwapBTCRefundTransaction()
     io::Address receiverAddress;
     receiverAddress.resolve("127.0.0.1:10300");
 
-    Amount beamAmount = 3;
-    Amount beamFee = 1;
+    Amount beamAmount = 300;
+    Amount beamFee = 100;
     Amount swapAmount = 2000;
     Amount feeRate = 256;
     uint32_t lockTimeInBlocks = 200;
@@ -261,7 +263,7 @@ void TestSwapBTCRefundTransaction()
 
     TestBitcoinWallet senderBtcWallet = GetSenderBTCWallet(*mainReactor, senderAddress, swapAmount);
     TestBitcoinWallet receiverBtcWallet = GetReceiverBTCWallet(*mainReactor, receiverAddress, swapAmount);
-    auto sender = std::make_unique<TestWalletRig>("sender", createSenderWalletDB(), completedAction);
+    auto sender = std::make_unique<TestWalletRig>("sender", createSenderWalletDB(false, kDefaultTestAmounts), completedAction);
     auto receiver = std::make_shared<TestWalletRig>("receiver", createReceiverWalletDB(), completedAction);
 
     receiverBtcWallet.addPeer(senderAddress);
@@ -336,8 +338,8 @@ void TestSwapBeamRefundTransaction()
     io::Address receiverAddress;
     receiverAddress.resolve("127.0.0.1:10300");
 
-    Amount beamAmount = 3;
-    Amount beamFee = 1;
+    Amount beamAmount = 300;
+    Amount beamFee = 100;
     Amount swapAmount = 2000;
     Amount feeRate = 256;
 
@@ -345,7 +347,7 @@ void TestSwapBeamRefundTransaction()
     BitcoinOptions aliceOptions{ "Alice", "123", receiverAddress, feeRate };
     TestBitcoinWallet senderBtcWallet = GetSenderBTCWallet(*mainReactor, senderAddress, swapAmount);
     TestBitcoinWallet receiverBtcWallet = GetReceiverBTCWallet(*mainReactor, receiverAddress, swapAmount);
-    auto sender = std::make_unique<TestWalletRig>("sender", createSenderWalletDB(), completedAction);
+    auto sender = std::make_unique<TestWalletRig>("sender", createSenderWalletDB(false, kDefaultTestAmounts), completedAction);
     auto receiver = std::make_unique<TestWalletRig>("receiver", createReceiverWalletDB(), completedAction);
 
     receiverBtcWallet.addPeer(senderAddress);
@@ -400,26 +402,26 @@ void TestSwapBeamRefundTransaction()
 
     auto senderCoins = sender->GetCoins();
     WALLET_CHECK(senderCoins.size() == 6);
-    WALLET_CHECK(senderCoins[0].m_ID.m_Value == 5);
+    WALLET_CHECK(senderCoins[0].m_ID.m_Value == 500);
     WALLET_CHECK(senderCoins[0].m_status == Coin::Spent);
     WALLET_CHECK(senderCoins[0].m_spentTxId == txID);
 
     // change of Beam LockTx
-    WALLET_CHECK(senderCoins[4].m_ID.m_Value == 1);
+    WALLET_CHECK(senderCoins[4].m_ID.m_Value == 100);
     WALLET_CHECK(senderCoins[4].m_status == Coin::Available);
     WALLET_CHECK(senderCoins[4].m_createTxId == txID);
 
     // Refund
-    WALLET_CHECK(senderCoins[5].m_ID.m_Value == beamAmount);
+    WALLET_CHECK(senderCoins[5].m_ID.m_Value == beamAmount - kMinFeeInGroth);
     WALLET_CHECK(senderCoins[5].m_status == Coin::Available);
     WALLET_CHECK(senderCoins[5].m_createTxId == txID);
 }
 
-void TestSwapExpiredByResponseTime()
+void ExpireByResponseTime(bool isBeamSide)
 {
-    cout << "\nAtomic swap: testing expired transaction on Beam side...\n";
-
     // Simulate swap transaction without response from second side
+
+    cout << "\nAtomic swap: testing expired transaction on " << (isBeamSide ? "Beam" : "BTC") << " side...\n";
 
     io::Reactor::Ptr mainReactor{ io::Reactor::create() };
     io::Reactor::Scope scope(*mainReactor);
@@ -432,8 +434,8 @@ void TestSwapExpiredByResponseTime()
     io::Address senderAddress;
     senderAddress.resolve("127.0.0.1:10400");
 
-    Amount beamAmount = 3;
-    Amount beamFee = 1;
+    Amount beamAmount = 300;
+    Amount beamFee = 100;
     Amount swapAmount = 2000;
     Amount feeRate = 256;
     Height lifetime = 100;
@@ -441,7 +443,7 @@ void TestSwapExpiredByResponseTime()
 
     BitcoinOptions aliceOptions{ "Alice", "123", senderAddress, feeRate };
     TestBitcoinWallet senderBtcWallet = GetSenderBTCWallet(*mainReactor, senderAddress, swapAmount);
-    auto sender = std::make_unique<TestWalletRig>("sender", createSenderWalletDB(), completedAction);
+    auto sender = std::make_unique<TestWalletRig>("sender", createSenderWalletDB(false, kDefaultTestAmounts), completedAction);
 
     sender->m_Wallet.initBitcoin(*mainReactor, aliceOptions);
 
@@ -449,7 +451,7 @@ void TestSwapExpiredByResponseTime()
     WalletID receiverWalletID = receiverWalletAddress.m_walletID;
 
     TxID txID = sender->m_Wallet.swap_coins(sender->m_WalletID, receiverWalletID, beamAmount, beamFee,
-        wallet::AtomicSwapCoin::Bitcoin, swapAmount, true, lifetime, responseTime);
+        wallet::AtomicSwapCoin::Bitcoin, swapAmount, isBeamSide, lifetime, responseTime);
 
     TestNode node;
     io::Timer::Ptr timer = io::Timer::create(*mainReactor);
@@ -466,10 +468,13 @@ void TestSwapExpiredByResponseTime()
     storage::getTxParameter(*sender->m_WalletDB, txID, TxParameterID::InternalFailureReason, reason);
     WALLET_CHECK(reason == TxFailureReason::TransactionExpired);
 
-    auto senderCoins = sender->GetCoins();
-    WALLET_CHECK(senderCoins.size() == 4);
-    WALLET_CHECK(senderCoins[0].m_ID.m_Value == 5);
-    WALLET_CHECK(senderCoins[0].m_status == Coin::Available);
+    if (isBeamSide)
+    {
+        auto senderCoins = sender->GetCoins();
+        WALLET_CHECK(senderCoins.size() == 4);
+        WALLET_CHECK(senderCoins[0].m_ID.m_Value == 500);
+        WALLET_CHECK(senderCoins[0].m_status == Coin::Available);
+    }
 }
 
 int main()
@@ -482,11 +487,12 @@ int main()
     TestSwapTransaction(true);
     TestSwapTransaction(false);
     TestSwapTransactionWithoutChange(true);
-    
+
     TestSwapBTCRefundTransaction();
     TestSwapBeamRefundTransaction();
 
-    TestSwapExpiredByResponseTime();
+    ExpireByResponseTime(true);
+    ExpireByResponseTime(false);
 
     assert(g_failureCount == 0);
     return WALLET_CHECK_RESULT;

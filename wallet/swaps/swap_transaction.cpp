@@ -23,11 +23,6 @@ using namespace ECC;
 
 namespace beam::wallet
 {
-    namespace
-    {
-        constexpr Amount kMinFeeInGroth = 10;
-    }
-
     AtomicSwapTransaction::WrapperSecondSide::WrapperSecondSide(INegotiatorGateway& gateway, const TxID& txID)
         : m_gateway(gateway)
         , m_txID(txID)
@@ -496,7 +491,7 @@ namespace beam::wallet
             }
             else
             {
-                assert(false && "Impossible case!");
+                SetNextState(State::SendingRefundTX);
                 return;
             }
         }
@@ -536,23 +531,43 @@ namespace beam::wallet
 
     bool AtomicSwapTransaction::CheckExpired()
     {
-        if (IsBeamSide())
+        TxStatus s = TxStatus::Failed;
+        if (GetParameter(TxParameterID::Status, s)
+            && (s == TxStatus::Failed
+                || s == TxStatus::Cancelled
+                || s == TxStatus::Completed))
         {
-            uint8_t nRegistered = proto::TxStatus::Unspecified;
-            if (!GetParameter(TxParameterID::TransactionRegistered, nRegistered, SubTxIndex::BEAM_LOCK_TX))
+            return false;
+        }
+
+        Height lockTxMaxHeight = MaxHeight;
+        if (!GetParameter(TxParameterID::MaxHeight, lockTxMaxHeight, SubTxIndex::BEAM_LOCK_TX)
+            && !GetParameter(TxParameterID::PeerResponseHeight, lockTxMaxHeight, SubTxIndex::BEAM_LOCK_TX))
+        {
+            return false;
+        }
+
+        uint8_t nRegistered = proto::TxStatus::Unspecified;
+        Merkle::Hash kernelID;
+        if (!GetParameter(TxParameterID::TransactionRegistered, nRegistered, SubTxIndex::BEAM_LOCK_TX)
+            || !GetParameter(TxParameterID::KernelID, kernelID, SubTxIndex::BEAM_LOCK_TX))
+        {
+            Block::SystemState::Full state;
+            if (GetTip(state) && state.m_Height > lockTxMaxHeight)
             {
-                Block::SystemState::Full state;
-                Height lockTxMaxHeight = MaxHeight;
-
-                if (!GetParameter(TxParameterID::MaxHeight, lockTxMaxHeight, SubTxIndex::BEAM_LOCK_TX)
-                    && !GetParameter(TxParameterID::PeerResponseHeight, lockTxMaxHeight, SubTxIndex::BEAM_LOCK_TX))
+                LOG_INFO() << GetTxID() << " Transaction expired. Current height: " << state.m_Height << ", max kernel height: " << lockTxMaxHeight;
+                OnFailed(TxFailureReason::TransactionExpired, false);
+                return true;
+            }
+        }
+        else
+        {
+            Height lastUnconfirmedHeight = 0;
+            if (GetParameter(TxParameterID::KernelUnconfirmedHeight, lastUnconfirmedHeight, SubTxIndex::BEAM_LOCK_TX) && lastUnconfirmedHeight > 0)
+            {
+                if (lastUnconfirmedHeight >= lockTxMaxHeight)
                 {
-                    return false;
-                }
-
-                if (GetTip(state) && state.m_Height > lockTxMaxHeight)
-                {
-                    LOG_INFO() << GetTxID() << " Transaction expired. Current height: " << state.m_Height << ", max kernel height: " << lockTxMaxHeight;
+                    LOG_INFO() << GetTxID() << " Transaction expired. Last unconfirmeed height: " << lastUnconfirmedHeight << ", max kernel height: " << lockTxMaxHeight;
                     OnFailed(TxFailureReason::TransactionExpired, false);
                     return true;
                 }
@@ -768,6 +783,7 @@ namespace beam::wallet
         if (!GetParameter(TxParameterID::Amount, withdrawAmount, subTxID) ||
             !GetParameter(TxParameterID::Fee, withdrawFee, subTxID))
         {
+            withdrawFee = GetWithdrawFee();
             withdrawAmount = GetAmount() - withdrawFee;
 
             SetParameter(TxParameterID::Amount, withdrawAmount, subTxID);

@@ -129,6 +129,9 @@ namespace beam::wallet
         std::string btcPass;
         std::string btcNodeAddr;
         Amount feeRate;
+        uint16_t confirmations = 0;
+        SwapSecondSideChainType chainType = SwapSecondSideChainType::Unknown;
+        uint32_t lockTimeInBlocks = 0;
 
         struct Response {};
     };
@@ -139,6 +142,9 @@ namespace beam::wallet
         std::string ltcPass;
         std::string ltcNodeAddr;
         Amount feeRate;
+        uint16_t confirmations = 0;
+        SwapSecondSideChainType chainType = SwapSecondSideChainType::Unknown;
+        uint32_t lockTimeInBlocks = 0;
 
         struct Response {};
     };
@@ -149,6 +155,9 @@ namespace beam::wallet
         std::string qtumPass;
         std::string qtumNodeAddr;
         Amount feeRate;
+        uint16_t confirmations = 0;
+        SwapSecondSideChainType chainType = SwapSecondSideChainType::Unknown;
+        uint32_t lockTimeInBlocks = 0;
 
         struct Response {};
     };

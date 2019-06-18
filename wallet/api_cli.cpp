@@ -442,6 +442,20 @@ namespace
                     options.m_pass = data.btcPass;
                     options.m_address = btcNodeAddr;
                     options.m_feeRate = data.feeRate;
+
+                    if (data.confirmations)
+                    {
+                        options.m_confirmations = data.confirmations;
+                    }
+                    if (data.chainType != SwapSecondSideChainType::Unknown)
+                    {
+                        options.m_chainType = data.chainType;
+                    }
+                    if (data.lockTimeInBlocks)
+                    {
+                        options.m_lockTimeInBlocks = data.lockTimeInBlocks;
+                    }
+
                     _wallet.initBitcoin(io::Reactor::get_Current(), options);
 
                     doResponse(id, EditAddress::Response{});
@@ -465,6 +479,20 @@ namespace
                     options.m_pass = data.ltcPass;
                     options.m_address = ltcNodeAddr;
                     options.m_feeRate = data.feeRate;
+
+                    if (data.confirmations)
+                    {
+                        options.m_confirmations = data.confirmations;
+                    }
+                    if (data.chainType != SwapSecondSideChainType::Unknown)
+                    {
+                        options.m_chainType = data.chainType;
+                    }
+                    if (data.lockTimeInBlocks)
+                    {
+                        options.m_lockTimeInBlocks = data.lockTimeInBlocks;
+                    }
+
                     _wallet.initLitecoin(io::Reactor::get_Current(), options);
 
                     doResponse(id, EditAddress::Response{});
@@ -488,6 +516,20 @@ namespace
                     options.m_pass = data.qtumPass;
                     options.m_address = qtumNodeAddr;
                     options.m_feeRate = data.feeRate;
+
+                    if (data.confirmations)
+                    {
+                        options.m_confirmations = data.confirmations;
+                    }
+                    if (data.chainType != SwapSecondSideChainType::Unknown)
+                    {
+                        options.m_chainType = data.chainType;
+                    }
+                    if (data.lockTimeInBlocks)
+                    {
+                        options.m_lockTimeInBlocks = data.lockTimeInBlocks;
+                    }
+
                     _wallet.initQtum(io::Reactor::get_Current(), options);
 
                     doResponse(id, EditAddress::Response{});
@@ -1168,10 +1210,15 @@ int main(int argc, char* argv[])
 
         auto nnet = std::make_shared<proto::FlyClient::NetworkStd>(wallet);
         nnet->m_Cfg.m_PollPeriod_ms = options.pollPeriod_ms.value;
-        LOG_INFO() << "Node poll period = " << nnet->m_Cfg.m_PollPeriod_ms << " ms";
-        if (nnet->m_Cfg.m_PollPeriod_ms >= 43200000)
+        
+        if (nnet->m_Cfg.m_PollPeriod_ms)
         {
-            LOG_WARNING() << "The \"--node_poll_period\" parameter set to more than 12 hours may cause transaction problems.";
+            LOG_INFO() << "Node poll period = " << nnet->m_Cfg.m_PollPeriod_ms << " ms";
+        }
+        uint32_t responceTime_s = Rules::get().DA.Target_s * wallet::kDefaultTxResponseTime;
+        if (nnet->m_Cfg.m_PollPeriod_ms >= responceTime_s * 1000)
+        {
+            LOG_WARNING() << "The \"--node_poll_period\" parameter set to more than " << uint32_t(responceTime_s / 3600) << " hours may cause transaction problems.";
         }
         nnet->m_Cfg.m_vNodes.push_back(node_addr);
         nnet->Connect();

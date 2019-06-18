@@ -123,6 +123,7 @@ namespace beam
         const char* SWAP_AMOUNT = "swap_amount";
         const char* SWAP_FEERATE = "swap_feerate";
         const char* SWAP_COIN = "swap_coin";
+        const char* SWAP_NETWORK = "swap_network";
         const char* SWAP_BEAM_SIDE = "swap_beam_side";
         const char* SWAP_TX_HISTORY = "swap_tx_history";
         const char* BTC_CONFIRMATIONS = "btc_confiramtions";
@@ -244,8 +245,9 @@ namespace beam
             (cli::COLD_WALLET, "used to init cold wallet")
             (cli::COMMAND, po::value<string>(), "command to execute [new_addr|send|receive|listen|init|restore|info|export_miner_key|export_owner_key|generate_phrase|change_address_expiration|address_list|rescan|export_addresses|import_addresses|tx_details|payment_proof_export|payment_proof_verify|utxo|cancel_tx|delete_tx|swap_init|swap_listen]")
             (cli::SWAP_AMOUNT, po::value<Positive<Amount>>(), "swap amount in the smallest unit of the coin")
-            (cli::SWAP_FEERATE, po::value<Positive<Amount>>()->default_value(Positive<Amount>(20000)), "The specific feerate you are willing to pay(satoshis(or photons) per KB)")
+            (cli::SWAP_FEERATE, po::value<Positive<Amount>>(), "The specific feerate you are willing to pay(the smallest unit of the coin per KB)")
             (cli::SWAP_COIN, po::value<string>(), "swap coin(btc, ltc, qtum)")
+            (cli::SWAP_NETWORK, po::value<string>(), "type of second side network(mainnet, testnet)")
             (cli::SWAP_BEAM_SIDE, "Should be set by Beam owner")
             (cli::SWAP_TX_HISTORY, "show swap transactions history in info command")
             (cli::BTC_CONFIRMATIONS, po::value<Positive<uint16_t>>(), "confirmations count in bitcoin chain")
@@ -253,7 +255,7 @@ namespace beam
             (cli::QTUM_CONFIRMATIONS, po::value<Positive<uint16_t>>(), "confirmations count in qtum chain")
             (cli::BTC_LOCK_TIME, po::value<Positive<uint32_t>>(), "lock time in blocks bitcoin transaction")
             (cli::LTC_LOCK_TIME, po::value<Positive<uint32_t>>(), "lock time in blocks litecoin transaction")
-            (cli::QTUM_LOCK_TIME, po::value<Positive<uint32_t>>(), "lock time in blocks qtum transaction");
+            (cli::QTUM_LOCK_TIME, po::value<Positive<uint32_t>>(), "lock time in blocks qtum transaction")
             (cli::NODE_POLL_PERIOD, po::value<Nonnegative<uint32_t>>()->default_value(Nonnegative<uint32_t>(0)), "Node poll period in milliseconds. Set to 0 to keep connection. Anyway poll period would be no less than the expected rate of blocks if it is less then it will be rounded up to block rate value.");
 
         po::options_description wallet_treasury_options("Wallet treasury options");

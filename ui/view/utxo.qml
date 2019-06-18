@@ -234,7 +234,7 @@ ColumnLayout {
                             return qsTrId("utxo-status-available");
                         case UtxoStatus.Maturing:
                             //% "Maturing%1(till block height %2)"
-                            return qsTrId("utxo-status-maturing").arg(lineSeparator, model ? model.maturity : "?");
+                            return qsTrId("utxo-status-maturing").arg(lineSeparator).arg(model ? model.maturity : "?");
                         case UtxoStatus.Unavailable:
                             //% "Unavailable%1(mining result rollback)"
                             return qsTrId("utxo-status-unavailable").arg(lineSeparator);

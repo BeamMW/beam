@@ -1202,7 +1202,7 @@ namespace beam
 
 		Merkle::Hash hv;
 		get_HashForPoW(hv);
-		return m_PoW.IsValid(hv.m_pData, hv.nBytes);
+		return m_PoW.IsValid(hv.m_pData, hv.nBytes, m_Height);
 	}
 
     bool Block::SystemState::Full::GeneratePoW(const PoW::Cancel& fnCancel)
@@ -1210,7 +1210,7 @@ namespace beam
 		Merkle::Hash hv;
 		get_HashForPoW(hv);
 
-        return m_PoW.Solve(hv.m_pData, hv.nBytes, fnCancel);
+        return m_PoW.Solve(hv.m_pData, hv.nBytes, m_Height, fnCancel);
 	}
 
 	bool Block::SystemState::Sequence::Element::IsValidProofUtxo(const ECC::Point& comm, const Input::Proof& p) const

@@ -56,7 +56,7 @@ QString UtxoItem::maturity() const
 
 UtxoViewStatus::EnStatus UtxoItem::status() const
 {
-switch(_coin.m_status)
+    switch(_coin.m_status)
     {
         case Coin::Available:
             return UtxoViewStatus::Available;
