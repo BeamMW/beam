@@ -41,11 +41,6 @@ namespace beam::wallet
     macro(AddrList,         "addr_list",        API_READ_ACCESS)    \
     macro(ValidateAddress,  "validate_address", API_READ_ACCESS)    \
     macro(Send,             "tx_send",          API_WRITE_ACCESS)   \
-    macro(InitBitcoin,      "init_bitcoin",     API_WRITE_ACCESS)   \
-    macro(InitLitecoin,     "init_litecoin",    API_WRITE_ACCESS)   \
-    macro(InitQtum,         "init_qtum",        API_WRITE_ACCESS)   \
-    macro(StartSwap,        "start_swap",       API_WRITE_ACCESS)   \
-    macro(AcceptSwap,       "accept_swap",      API_WRITE_ACCESS)   \
     macro(Status,           "tx_status",        API_READ_ACCESS)    \
     macro(Split,            "tx_split",         API_WRITE_ACCESS)   \
     macro(TxCancel,         "tx_cancel",        API_WRITE_ACCESS)   \
@@ -121,70 +116,6 @@ namespace beam::wallet
         {
             wallet::TxID txId;
         };
-    };
-
-    struct InitBitcoin
-    {
-        std::string btcUserName;
-        std::string btcPass;
-        std::string btcNodeAddr;
-        Amount feeRate;
-        uint16_t confirmations = 0;
-        SwapSecondSideChainType chainType = SwapSecondSideChainType::Unknown;
-        uint32_t lockTimeInBlocks = 0;
-
-        struct Response {};
-    };
-
-    struct InitLitecoin
-    {
-        std::string ltcUserName;
-        std::string ltcPass;
-        std::string ltcNodeAddr;
-        Amount feeRate;
-        uint16_t confirmations = 0;
-        SwapSecondSideChainType chainType = SwapSecondSideChainType::Unknown;
-        uint32_t lockTimeInBlocks = 0;
-
-        struct Response {};
-    };
-
-    struct InitQtum
-    {
-        std::string qtumUserName;
-        std::string qtumPass;
-        std::string qtumNodeAddr;
-        Amount feeRate;
-        uint16_t confirmations = 0;
-        SwapSecondSideChainType chainType = SwapSecondSideChainType::Unknown;
-        uint32_t lockTimeInBlocks = 0;
-
-        struct Response {};
-    };
-
-    struct StartSwap
-    {
-        Amount amount;
-        Amount fee;
-        Amount swapAmount;
-        wallet::AtomicSwapCoin swapCoin;
-        bool beamSide;
-        wallet::WalletID address;
-
-        struct Response
-        {
-            wallet::TxID txId;
-        };
-    };
-
-    struct AcceptSwap
-    {
-        Amount amount;
-        Amount swapAmount;
-        wallet::AtomicSwapCoin swapCoin;
-        bool beamSide;
-
-        struct Response {};
     };
 
     struct Status
