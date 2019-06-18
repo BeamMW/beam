@@ -791,7 +791,7 @@ namespace
             cout << "Please, specify Subkey number --subkey=N (N > 0)" << endl;
             return -1;
         }
-        Key::IKdf::Ptr pKey = walletDB->get_ChildKdf(subKey);
+		Key::IKdf::Ptr pKey = MasterKey::get_Child(*walletDB->get_MasterKdf(), subKey);
         const ECC::HKdf& kdf = static_cast<ECC::HKdf&>(*pKey);
 
         KeyString ks;

@@ -119,6 +119,24 @@ namespace beam
 	}
 
 	/////////////
+	// MasterKey
+	Key::IKdf::Ptr MasterKey::get_Child(Key::IKdf& kdf, Key::Index iSubkey)
+	{
+		Key::IKdf::Ptr pRes;
+		ECC::HKdf::CreateChild(pRes, kdf, iSubkey);
+		return std::move(pRes);
+	}
+
+	Key::IKdf::Ptr MasterKey::get_Child(const Key::IKdf::Ptr& pKdf, const Key::IDV& kidv)
+	{
+		Key::Index iSubkey = kidv.get_Subkey();
+		if (!iSubkey)
+			return pKdf; // by convention: scheme V0, Subkey=0 - is a master key
+
+		return get_Child(*pKdf, iSubkey);
+	}
+
+	/////////////
 	// SwitchCommitment
 	SwitchCommitment::SwitchCommitment(const AssetID* pAssetID /* = nullptr */)
 	{

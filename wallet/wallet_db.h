@@ -170,7 +170,6 @@ namespace beam::wallet
         virtual beam::Key::IKdf::Ptr get_MasterKdf() const = 0;
 
         // Returns the Child Key Derivative Function (operates on secret keys)
-        beam::Key::IKdf::Ptr get_ChildKdf(Key::Index) const;
 		beam::Key::IKdf::Ptr get_ChildKdf(const Key::IDV&) const;
 
         // Calculates blinding factor and commitment of specifc Coin::ID

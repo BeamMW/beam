@@ -1205,19 +1205,8 @@ namespace beam::wallet
 
 	Key::IKdf::Ptr IWalletDB::get_ChildKdf(const Key::IDV& kidv) const
 	{
-		return get_ChildKdf(kidv.get_Subkey());
+		return MasterKey::get_Child(get_MasterKdf(), kidv);
 	}
-
-    Key::IKdf::Ptr IWalletDB::get_ChildKdf(Key::Index iKdf) const
-    {
-        Key::IKdf::Ptr pMaster = get_MasterKdf();
-        if (!iKdf)
-            return pMaster; // by convention 0 is not a childd
-
-        Key::IKdf::Ptr pRet;
-        ECC::HKdf::CreateChild(pRet, *pMaster, iKdf);
-        return pRet;
-    }
 
     void IWalletDB::calcCommitment(ECC::Scalar::Native& sk, ECC::Point& comm, const Coin::ID& cid)
     {
