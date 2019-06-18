@@ -220,7 +220,7 @@ void Server::new_job(
     // TODO job cancel policy - timer
 }
 
-void Server::get_last_found_block(std::string& jobID, uint32_t& jobHeight, Block::PoW& pow) {
+void Server::get_last_found_block(std::string& jobID, Height& jobHeight, Block::PoW& pow) {
     jobID = _recentResult.id;
     jobHeight = _recentResult.height;	
     pow = _recentResult.pow;

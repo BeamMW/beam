@@ -52,7 +52,7 @@ public:
         const BlockFound& callback,
         const CancelCallback& cancelCallback) = 0;
 
-    virtual void get_last_found_block(std::string& jobID, uint32_t& jobHeight, Block::PoW& pow) = 0;
+    virtual void get_last_found_block(std::string& jobID, Height& jobHeight, Block::PoW& pow) = 0;
 
     virtual void stop_current() = 0;
 

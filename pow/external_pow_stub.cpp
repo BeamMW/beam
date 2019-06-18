@@ -53,10 +53,10 @@ private:
         _cond.notify_one();
     }
 
-    void get_last_found_block(std::string& jobID, uint32_t& jobHeight, Block::PoW& pow) override {
+    void get_last_found_block(std::string& jobID, Height& jobHeight, Block::PoW& pow) override {
         std::lock_guard<std::mutex> lk(_mutex);
         jobID = _lastFoundBlockID;
-	jobHeight = _lastFoundBlockHeight;
+		jobHeight = _lastFoundBlockHeight;
         pow = _lastFoundBlock;
     }
 
@@ -129,7 +129,7 @@ private:
 
     Job _currentJob;
     std::string _lastFoundBlockID;
-    uint32_t _lastFoundBlockHeight;
+    Height _lastFoundBlockHeight;
     Block::PoW _lastFoundBlock;
     uint64_t _seed;
     std::atomic<bool> _changed;

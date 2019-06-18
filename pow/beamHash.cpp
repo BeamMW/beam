@@ -30,17 +30,17 @@ struct Block::PoW::Helper
 	EquihashR<150,5,0> BeamHashI;
 	EquihashR<150,5,3> BeamHashII;
 
-	PoWScheme* getCurrentPoW(uint64_t height) {
-		if (height < Rules::get().pForks[1].m_Height) {
+	PoWScheme* getCurrentPoW(Height h) {
+		if (h < Rules::get().pForks[1].m_Height) {
 			return &BeamHashI;
 		} else {
 			return &BeamHashII;
 		}
 	}
 
-	void Reset(const void* pInput, uint32_t nSizeInput, const NonceType& nonce, uint32_t height)
+	void Reset(const void* pInput, uint32_t nSizeInput, const NonceType& nonce, Height h)
 	{
-		getCurrentPoW(height)->InitialiseState(m_Blake);
+		getCurrentPoW(h)->InitialiseState(m_Blake);
 
 		// H(I||...
 		blake2b_update(&m_Blake, (uint8_t*) pInput, nSizeInput);
@@ -56,7 +56,7 @@ struct Block::PoW::Helper
 	}
 };
 
-bool Block::PoW::Solve(const void* pInput, uint32_t nSizeInput, uint64_t blockHeight, const Cancel& fnCancel)
+bool Block::PoW::Solve(const void* pInput, uint32_t nSizeInput, Height h, const Cancel& fnCancel)
 {
 	Helper hlp;
 
@@ -76,11 +76,11 @@ bool Block::PoW::Solve(const void* pInput, uint32_t nSizeInput, uint64_t blockHe
 
     while (true)
     {
-		hlp.Reset(pInput, nSizeInput, m_Nonce, blockHeight);
+		hlp.Reset(pInput, nSizeInput, m_Nonce, h);
 
 		try {
 
-			if (hlp.getCurrentPoW(blockHeight)->OptimisedSolve(hlp.m_Blake, fnValid, fnCancelInternal))
+			if (hlp.getCurrentPoW(h)->OptimisedSolve(hlp.m_Blake, fnValid, fnCancelInternal))
 				break;
 
 		} catch (const EhSolverCancelledException&) {
@@ -96,14 +96,14 @@ bool Block::PoW::Solve(const void* pInput, uint32_t nSizeInput, uint64_t blockHe
     return true;
 }
 
-bool Block::PoW::IsValid(const void* pInput, uint32_t nSizeInput, uint64_t blockHeight) const
+bool Block::PoW::IsValid(const void* pInput, uint32_t nSizeInput, Height h) const
 {
 	Helper hlp;
-	hlp.Reset(pInput, nSizeInput, m_Nonce, blockHeight);
+	hlp.Reset(pInput, nSizeInput, m_Nonce, h);
 
 	std::vector<uint8_t> v(m_Indices.begin(), m_Indices.end());
     return
-		hlp.getCurrentPoW(blockHeight)->IsValidSolution(hlp.m_Blake, v) &&
+		hlp.getCurrentPoW(h)->IsValidSolution(hlp.m_Blake, v) &&
 		hlp.TestDifficulty(&m_Indices.front(), (uint32_t) m_Indices.size(), m_Difficulty);
 }
 

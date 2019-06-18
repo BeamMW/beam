@@ -101,7 +101,7 @@ private:
         const CancelCallback& cancelCallback
     ) override;
 
-    void get_last_found_block(std::string& jobID, uint32_t& jobHeight, Block::PoW& pow) override;
+    void get_last_found_block(std::string& jobID, Height& jobHeight, Block::PoW& pow) override;
     void stop_current() override;
     void stop() override;
 
@@ -121,7 +121,7 @@ private:
 
 	struct RecentResult {
 		std::string id;
-		uint32_t height;
+		Height height;
 		Block::PoW pow;
 		BlockFound onBlockFound;
 	} _recentResult;
