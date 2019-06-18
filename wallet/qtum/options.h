@@ -18,5 +18,12 @@
 
 namespace beam
 {
-    using QtumOptions = BitcoinOptions;
+    struct QtumOptions : public BitcoinOptions
+    {
+        QtumOptions()
+        {
+            m_confirmations = 10;
+            m_lockTimeInBlocks = 2 * 600;   // 48h
+        }
+    };
 }
