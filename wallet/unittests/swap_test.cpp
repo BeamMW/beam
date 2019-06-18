@@ -221,7 +221,7 @@ void TestSwapTransactionWithoutChange(bool isBeamOwnerStart)
 
     receiverCoins = receiver.GetCoins();
     WALLET_CHECK(receiverCoins.size() == 1);
-    WALLET_CHECK(receiverCoins[0].m_ID.m_Value == beamAmount - kDefaultTxLifetime);
+    WALLET_CHECK(receiverCoins[0].m_ID.m_Value == beamAmount - kMinFeeInGroth);
     WALLET_CHECK(receiverCoins[0].m_status == Coin::Available);
     WALLET_CHECK(receiverCoins[0].m_createTxId == txID);
 
