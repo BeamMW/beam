@@ -398,6 +398,7 @@ Item
                                 SFLabel {
                                     id: pathLabel
                                     property bool isPreferred: (viewModel.walletDBpaths && viewModel.walletDBpaths[styleData.row]) ? viewModel.walletDBpaths[styleData.row].isPreferred : false
+                                    property string preferredLabelFormat: "<style>span {color: '#00f6d2';}</style><span>%1</span>"
                                     //: start screen, select db for migration, best match label 
                                     //% "(best match)"
                                     property string bestMatchStr: qsTrId("start-select-db-best-match-label")
@@ -408,49 +409,25 @@ Item
                                     anchors.right: parent.right
                                     anchors.verticalCenter: parent.verticalCenter
                                     textFormat: Text.RichText 
-                                    text: styleData.value + " " + (isPreferred ? "<style>span {color: '#00f6d2';}</style><span>%1</span>".arg(bestMatchStr) : "")
+                                    text: elidedText(styleData.value, isPreferred) + (isPreferred ? " " + preferredLabelFormat.arg(bestMatchStr) : " ")
                                     color: Style.content_main
                                     copyMenuEnabled: true
                                     onCopyText: viewModel.copyToClipboard(text)
                                     Component.onCompleted: {
-                                        elide();
-                                    }
-                                    function elide(){
-                                        var elided;
                                         if (isPreferred) {
-                                            elided = textMetricsPreferred.text.length - textMetricsPreferred.elidedText.length;
                                             tableView.selection.select(styleData.row);
                                             tableView.currentRow = styleData.row;
-                                        } else {
-                                            elided = textMetrics.text.length - textMetrics.elidedText.length;
-                                        }
-                                        if (elided) {
-                                            text = "…" + text.substr(elided + 3, text.length) ;
                                         }
                                     }
-                                    TextMetrics {
-                                        id: textMetricsPreferred
-                                        font { 
-                                            family: "SF Pro Display"
-                                            styleName: "Regular"
-                                            weight: Font.Normal
-                                            pixelSize: 14
-                                        }
-                                        elide: Text.ElideLeft
-                                        elideWidth: parent.width - tableView.textLeftMargin
-                                        text: styleData.value + " " + pathLabel.bestMatchStr
-                                    }
-                                    TextMetrics {
-                                        id: textMetrics
-                                        font { 
-                                            family: "SF Pro Display"
-                                            styleName: "Regular"
-                                            weight: Font.Normal
-                                            pixelSize: 14
-                                        }
-                                        elide: Text.ElideLeft
-                                        elideWidth: parent.width - tableView.textLeftMargin
-                                        text: styleData.value
+                                    function elidedText(str, isPreferred){
+                                        var textMetricsTemplate = 'import QtQuick 2.11; TextMetrics{font{family: "SF Pro Display";styleName: "Regular";weight: Font.Normal;pixelSize: 14;}elide: Text.ElideLeft;elideWidth: parent.width - tableView.textLeftMargin;text: "%1"}';
+                                        var fullTextStr = isPreferred ? str + " " + pathLabel.bestMatchStr: str;
+                                        var textMetrics= Qt.createQmlObject(
+                                                textMetricsTemplate.arg(fullTextStr),
+                                                pathLabel,
+                                                "textMetrics");
+                                        var elidedCount = fullTextStr.length - textMetrics.elidedText.length;
+                                        return elidedCount ? "…" + str.substr(elidedCount + 3, str.length) : str;
                                     }
                                 }
                             }
