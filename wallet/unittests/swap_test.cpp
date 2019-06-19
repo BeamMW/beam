@@ -577,7 +577,7 @@ void TestSwapCancelTransaction(bool isSender, wallet::AtomicSwapTransaction::Sta
     TestNode node;
     io::AsyncEvent::Ptr eventToUpdate;
 
-    eventToUpdate = io::AsyncEvent::create(*mainReactor, [&walletRig = isSender ? sender: receiver, testingState, txID, &eventToUpdate, &node]()
+    eventToUpdate = io::AsyncEvent::create(*mainReactor, [&walletRig = isSender ? sender: receiver, testingState, txID, &eventToUpdate]()
     {
         wallet::AtomicSwapTransaction::State txState = wallet::AtomicSwapTransaction::State::Initial;
         storage::getTxParameter(*walletRig->m_WalletDB, txID, wallet::kDefaultSubTxID, wallet::TxParameterID::State, txState);
