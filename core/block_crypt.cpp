@@ -124,7 +124,7 @@ namespace beam
 	{
 		Key::IKdf::Ptr pRes;
 		ECC::HKdf::CreateChild(pRes, kdf, iSubkey);
-		return std::move(pRes);
+		return pRes;
 	}
 
 	Key::IKdf::Ptr MasterKey::get_Child(const Key::IKdf::Ptr& pKdf, const Key::IDV& kidv)
