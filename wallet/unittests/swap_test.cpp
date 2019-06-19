@@ -67,6 +67,63 @@ namespace
 
         return TestBitcoinWallet(reactor, receiverAddress, receiverOptions);
     }
+
+    const char* getSwapTxStatus(wallet::AtomicSwapTransaction::State state)
+    {
+        static const char* Initial = "initial";
+        static const char* Invitation = "invitation";
+        static const char* BuildingBeamLockTX = "building Beam LockTX";
+        static const char* BuildingBeamRefundTX = "building Beam RefundTX";
+        static const char* BuildingBeamRedeemTX = "building Beam RedeemTX";
+        static const char* HandlingContractTX = "handling LockTX";
+        static const char* SendingRefundTX = "sending RefundTX";
+        static const char* SendingRedeemTX = "sending RedeemTX";
+        static const char* SendingBeamLockTX = "sending Beam LockTX";
+        static const char* SendingBeamRefundTX = "sending Beam RefundTX";
+        static const char* SendingBeamRedeemTX = "sending Beam RedeemTX";
+        static const char* Completed = "completed";
+        static const char* Cancelled = "cancelled";
+        static const char* Aborted = "aborted";
+        static const char* Failed = "failed";
+
+        switch (state)
+        {
+        case wallet::AtomicSwapTransaction::State::Initial:
+            return Initial;
+        case wallet::AtomicSwapTransaction::State::Invitation:
+            return Invitation;
+        case wallet::AtomicSwapTransaction::State::BuildingBeamLockTX:
+            return BuildingBeamLockTX;
+        case wallet::AtomicSwapTransaction::State::BuildingBeamRefundTX:
+            return BuildingBeamRefundTX;
+        case wallet::AtomicSwapTransaction::State::BuildingBeamRedeemTX:
+            return BuildingBeamRedeemTX;
+        case wallet::AtomicSwapTransaction::State::HandlingContractTX:
+            return HandlingContractTX;
+        case wallet::AtomicSwapTransaction::State::SendingRefundTX:
+            return SendingRefundTX;
+        case wallet::AtomicSwapTransaction::State::SendingRedeemTX:
+            return SendingRedeemTX;
+        case wallet::AtomicSwapTransaction::State::SendingBeamLockTX:
+            return SendingBeamLockTX;
+        case wallet::AtomicSwapTransaction::State::SendingBeamRefundTX:
+            return SendingBeamRefundTX;
+        case wallet::AtomicSwapTransaction::State::SendingBeamRedeemTX:
+            return SendingBeamRedeemTX;
+        case wallet::AtomicSwapTransaction::State::CompleteSwap:
+            return Completed;
+        case wallet::AtomicSwapTransaction::State::Cancelled:
+            return Cancelled;
+        case wallet::AtomicSwapTransaction::State::Refunded:
+            return Aborted;
+        case wallet::AtomicSwapTransaction::State::Failed:
+            return Failed;
+        default:
+            assert(false && "Unexpected status");
+        }
+
+        return "";
+    }
 }
 
 void TestSwapTransaction(bool isBeamOwnerStart)
@@ -477,6 +534,86 @@ void ExpireByResponseTime(bool isBeamSide)
     }
 }
 
+void TestSwapCancelTransaction(bool isSender, wallet::AtomicSwapTransaction::State testingState)
+{
+    cout << "\nAtomic swap: testing cancel transaction (" << (isSender ? "sender" : "receiver") << ", " << getSwapTxStatus(testingState) << ")...\n";
+
+    io::Reactor::Ptr mainReactor{ io::Reactor::create() };
+    io::Reactor::Scope scope(*mainReactor);
+
+    auto completedAction = [mainReactor](auto)
+    {
+        mainReactor->stop();
+    };
+
+    io::Address senderAddress;
+    senderAddress.resolve("127.0.0.1:10400");
+
+    io::Address receiverAddress;
+    receiverAddress.resolve("127.0.0.1:10300");
+
+    Amount beamAmount = 300;
+    Amount beamFee = 100;
+    Amount swapAmount = 2000;
+    Amount feeRate = 256;
+
+    BitcoinOptions bobOptions{ "Bob", "123", senderAddress, feeRate };
+    BitcoinOptions aliceOptions{ "Alice", "123", receiverAddress, feeRate };
+    TestBitcoinWallet senderBtcWallet = GetSenderBTCWallet(*mainReactor, senderAddress, swapAmount);
+    TestBitcoinWallet receiverBtcWallet = GetReceiverBTCWallet(*mainReactor, receiverAddress, swapAmount);
+    auto sender = std::make_unique<TestWalletRig>("sender", createSenderWalletDB(false, kDefaultTestAmounts), isSender ? Wallet::TxCompletedAction() : completedAction);
+    auto receiver = std::make_unique<TestWalletRig>("receiver", createReceiverWalletDB(), isSender ? completedAction : Wallet::TxCompletedAction());
+
+    receiverBtcWallet.addPeer(senderAddress);
+    sender->m_Wallet.initBitcoin(*mainReactor, bobOptions);
+    receiver->m_Wallet.initBitcoin(*mainReactor, aliceOptions);
+    receiver->m_Wallet.initSwapConditions(beamAmount, swapAmount, wallet::AtomicSwapCoin::Bitcoin, false);
+
+    TxID txID = sender->m_Wallet.swap_coins(sender->m_WalletID, receiver->m_WalletID, beamAmount, beamFee, wallet::AtomicSwapCoin::Bitcoin, swapAmount, true);
+
+    auto receiverCoins = receiver->GetCoins();
+    WALLET_CHECK(receiverCoins.empty());
+
+    TestNode node;
+    io::AsyncEvent::Ptr eventToUpdate;
+
+    eventToUpdate = io::AsyncEvent::create(*mainReactor, [&walletRig = isSender ? sender: receiver, testingState, txID, &eventToUpdate, &node]()
+    {
+        wallet::AtomicSwapTransaction::State txState = wallet::AtomicSwapTransaction::State::Initial;
+        storage::getTxParameter(*walletRig->m_WalletDB, txID, wallet::kDefaultSubTxID, wallet::TxParameterID::State, txState);
+        if (txState == testingState)
+        {
+            walletRig->m_Wallet.cancel_tx(txID);
+        }
+        else
+        {
+            eventToUpdate->post();
+        }
+    });
+
+    io::Timer::Ptr timer = io::Timer::create(*mainReactor);
+    timer->start(2000, true, [&node]() {node.AddBlock(); });
+
+    eventToUpdate->post();
+    mainReactor->run();
+
+    // validate sender TX state
+    wallet::AtomicSwapTransaction::State txState = wallet::AtomicSwapTransaction::State::Initial;
+    storage::getTxParameter(*sender->m_WalletDB, txID, wallet::kDefaultSubTxID, wallet::TxParameterID::State, txState);
+    WALLET_CHECK(txState == (isSender ? wallet::AtomicSwapTransaction::State::Cancelled : wallet::AtomicSwapTransaction::State::Failed));
+
+    storage::getTxParameter(*receiver->m_WalletDB, txID, wallet::kDefaultSubTxID, wallet::TxParameterID::State, txState);
+    WALLET_CHECK(txState == (isSender ? wallet::AtomicSwapTransaction::State::Failed : wallet::AtomicSwapTransaction::State::Cancelled));
+
+    auto senderCoins = sender->GetCoins();
+    WALLET_CHECK(senderCoins.size() == 4);
+
+    for (const auto& coin : senderCoins)
+    {
+        WALLET_CHECK(coin.m_status == Coin::Available);
+    }    
+}
+
 int main()
 {
     int logLevel = LOG_LEVEL_DEBUG;
@@ -493,6 +630,17 @@ int main()
 
     ExpireByResponseTime(true);
     ExpireByResponseTime(false);
+
+    TestSwapCancelTransaction(false, wallet::AtomicSwapTransaction::State::Invitation);
+
+    TestSwapCancelTransaction(true, wallet::AtomicSwapTransaction::State::BuildingBeamLockTX);
+    TestSwapCancelTransaction(false, wallet::AtomicSwapTransaction::State::BuildingBeamLockTX);
+
+    TestSwapCancelTransaction(true, wallet::AtomicSwapTransaction::State::BuildingBeamRedeemTX);
+    TestSwapCancelTransaction(false, wallet::AtomicSwapTransaction::State::BuildingBeamRedeemTX);
+
+    TestSwapCancelTransaction(true, wallet::AtomicSwapTransaction::State::BuildingBeamRefundTX);
+    TestSwapCancelTransaction(false, wallet::AtomicSwapTransaction::State::BuildingBeamRefundTX);
 
     assert(g_failureCount == 0);
     return WALLET_CHECK_RESULT;
