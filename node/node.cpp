@@ -680,7 +680,7 @@ void Node::MaybeGenerateRecovery()
 			MoveFileExW(Utf8toUtf16(sTmp.c_str()).c_str(), Utf8toUtf16(sPath.c_str()).c_str(), MOVEFILE_REPLACE_EXISTING) ||
 			(GetLastError() == ERROR_FILE_NOT_FOUND);
 #else // WIN32
-		bool bOk =
+		bOk =
 			!rename(sTmp.c_str(), sPath.c_str()) ||
 			(ENOENT == errno);
 #endif // WIN32
