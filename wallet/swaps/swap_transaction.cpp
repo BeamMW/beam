@@ -531,6 +531,12 @@ namespace beam::wallet
 
     bool AtomicSwapTransaction::CheckExpired()
     {
+        TxFailureReason reason = TxFailureReason::Unknown;
+        if (GetParameter(TxParameterID::InternalFailureReason, reason))
+        {
+            return false;
+        }
+
         TxStatus s = TxStatus::Failed;
         if (GetParameter(TxParameterID::Status, s)
             && (s == TxStatus::Failed
