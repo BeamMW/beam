@@ -81,11 +81,38 @@ namespace beam::wallet
         };
 
     public:
+
+        struct SwapConditions
+        {
+            Amount beamAmount = 0;
+            Amount swapAmount = 0;
+            AtomicSwapCoin swapCoin;
+            bool isBeamSide = false;
+
+            bool operator== (const SwapConditions& other)
+            {
+                return beamAmount == other.beamAmount &&
+                    swapAmount == other.swapAmount &&
+                    swapCoin == other.swapCoin &&
+                    isBeamSide == other.isBeamSide;
+            }
+        };
         
-        static BaseTransaction::Ptr Create(INegotiatorGateway& gateway
-                                            , IWalletDB::Ptr walletDB
-                                            , IPrivateKeyKeeper::Ptr keyKeeper
-                                            , const TxID& txID);
+        class Creator : public BaseTransaction::Creator
+        {
+        public:
+            Creator(std::vector<SwapConditions>& swapConditions);
+
+       //     BaseTransaction::Ptr Create(const WalletID& from, const WalletID& to, Amount amount, Amount fee, AtomicSwapCoin swapCoin, Amount swapAmount, bool isBeamSide = true, Height lifetime = kDefaultTxLifetime, Height responseTime = kDefaultTxResponseTime);
+        private:
+            BaseTransaction::Ptr Create(INegotiatorGateway& gateway
+                                        , IWalletDB::Ptr walletDB
+                                        , IPrivateKeyKeeper::Ptr keyKeeper
+                                        , const TxID& txID) override;
+            bool CanCreate(const SetTxParameter& msg) override;
+        private:
+            std::vector<SwapConditions>& m_swapConditions;
+        };
 
         AtomicSwapTransaction(INegotiatorGateway& gateway
                             , IWalletDB::Ptr walletDB

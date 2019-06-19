@@ -18,10 +18,10 @@
 #include "wallet/common.h"
 #include "wallet/wallet_transaction.h"
 #include "core/fly_client.h"
-#include "bitcoin/bitcoin_bridge.h"
-#include "bitcoin/options.h"
-#include "litecoin/options.h"
-#include "qtum/options.h"
+//#include "bitcoin/bitcoin_bridge.h"
+//#include "bitcoin/options.h"
+//#include "litecoin/options.h"
+//#include "qtum/options.h"
 
 namespace beam::wallet
 {
@@ -101,10 +101,10 @@ namespace beam::wallet
 
         // Metods for Atomic Swaps
         // TODO: Refactor
-        void initBitcoin(io::Reactor& reactor, const BitcoinOptions& options);
-        void initLitecoin(io::Reactor& reactor, const LitecoinOptions& options);
-        void initQtum(io::Reactor& reactor, const QtumOptions& options);
-        void initSwapConditions(Amount beamAmount, Amount swapAmount, AtomicSwapCoin swapCoin, bool isBeamSide);
+        //void initBitcoin(io::Reactor& reactor, const BitcoinOptions& options);
+        //void initLitecoin(io::Reactor& reactor, const LitecoinOptions& options);
+        //void initQtum(io::Reactor& reactor, const QtumOptions& options);
+        //void initSwapConditions(Amount beamAmount, Amount swapAmount, AtomicSwapCoin swapCoin, bool isBeamSide);
 
         TxID transfer_money(const WalletID& from, const WalletID& to, Amount amount, Amount fee = 0, bool sender = true, Height lifetime = kDefaultTxLifetime, Height responseTime = kDefaultTxResponseTime, ByteBuffer&& message = {}, bool saveReceiver = false);
         TxID transfer_money(const WalletID& from, const WalletID& to, Amount amount, Amount fee = 0, const CoinIDList& coins = {}, bool sender = true, Height lifetime = kDefaultTxLifetime, Height responseTime = kDefaultTxResponseTime, ByteBuffer&& message = {}, bool saveReceiver = false);
@@ -122,8 +122,9 @@ namespace beam::wallet
         void cancel_tx(const TxID& txId) override;
         void delete_tx(const TxID& txId) override;
 
-        void ProcessTransaction(wallet::BaseTransaction::Ptr tx);
-        void RegisterTransactionType(wallet::TxType type, wallet::BaseTransaction::Creator creator);
+        void ProcessTransaction(BaseTransaction::Ptr tx);
+        void RegisterTransactionType(TxType type, BaseTransaction::Creator::Ptr creator);
+        BaseTransaction::Ptr CreateNewTransaction(TxType type);
         
     private:
         void RefreshTransactions();
@@ -176,7 +177,8 @@ namespace beam::wallet
         Height GetUtxoEventsHeightNext();
 
         BaseTransaction::Ptr getTransaction(const WalletID& myID, const SetTxParameter& msg);
-        BaseTransaction::Ptr constructTransaction(const TxID& id, TxType type);
+        BaseTransaction::Ptr ConstructTransaction(const TxID& id, TxType type);
+        BaseTransaction::Ptr Wallet::ConstructTransactionFromParameters(const SetTxParameter& msg);
         void ProcessStoredMessages();
         bool IsNodeInSync() const;
 
@@ -184,21 +186,21 @@ namespace beam::wallet
 
         static const char s_szNextUtxoEvt[];
 
-        struct SwapConditions
-        {
-            Amount beamAmount = 0;
-            Amount swapAmount = 0;
-            AtomicSwapCoin swapCoin;
-            bool isBeamSide = 0;
+        //struct SwapConditions
+        //{
+        //    Amount beamAmount = 0;
+        //    Amount swapAmount = 0;
+        //    AtomicSwapCoin swapCoin;
+        //    bool isBeamSide = 0;
 
-            bool operator== (const SwapConditions& other)
-            {
-                return beamAmount == other.beamAmount &&
-                    swapAmount == other.swapAmount &&
-                    swapCoin == other.swapCoin &&
-                    isBeamSide == other.isBeamSide;
-            }
-        };
+        //    bool operator== (const SwapConditions& other)
+        //    {
+        //        return beamAmount == other.beamAmount &&
+        //            swapAmount == other.swapAmount &&
+        //            swapCoin == other.swapCoin &&
+        //            isBeamSide == other.isBeamSide;
+        //    }
+        //};
 
 // The following macros define
 // Wallet to Node messages (requests) to get update on blockchain state
@@ -298,7 +300,7 @@ namespace beam::wallet
         std::unordered_set<BaseTransaction::Ptr> m_NextTipTransactionToUpdate;
 
         // List of registered transaction creators
-        std::unordered_map<wallet::TxType, wallet::BaseTransaction::Creator> m_TxCreators;
+        std::unordered_map<wallet::TxType, wallet::BaseTransaction::Creator::Ptr> m_TxCreators;
 
         // Functor for callback when transaction completed
         TxCompletedAction m_TxCompletedAction;
@@ -319,9 +321,9 @@ namespace beam::wallet
 
         // Members for Atomic Swaps
         // TODO: Refactor this
-        IBitcoinBridge::Ptr m_bitcoinBridge;
-        IBitcoinBridge::Ptr m_litecoinBridge;
-        IBitcoinBridge::Ptr m_qtumBridge;
-        std::vector<SwapConditions> m_swapConditions;
+        //IBitcoinBridge::Ptr m_bitcoinBridge;
+        //IBitcoinBridge::Ptr m_litecoinBridge;
+        //IBitcoinBridge::Ptr m_qtumBridge;
+        //std::vector<SwapConditions> m_swapConditions;
     };
 }

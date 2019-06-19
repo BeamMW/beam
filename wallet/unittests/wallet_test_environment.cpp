@@ -394,7 +394,7 @@ struct TestWalletRig
 
     WalletID m_WalletID;
     IWalletDB::Ptr m_WalletDB;
-    wallet::IPrivateKeyKeeper::Ptr m_KeyKeeper;
+    IPrivateKeyKeeper::Ptr m_KeyKeeper;
     Wallet m_Wallet;
 };
 

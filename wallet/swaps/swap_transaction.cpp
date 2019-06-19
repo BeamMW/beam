@@ -49,14 +49,90 @@ namespace beam::wallet
         return m_secondSide;
     }
 
-    BaseTransaction::Ptr AtomicSwapTransaction::Create(INegotiatorGateway& gateway
-        , IWalletDB::Ptr walletDB
-        , IPrivateKeyKeeper::Ptr keyKeeper
-        , const TxID& txID)
+    ////////////
+    // Creator
+    AtomicSwapTransaction::Creator::Creator(std::vector<SwapConditions>& swapConditions)
+        : m_swapConditions(swapConditions)
+    {
+
+    }
+
+    //BaseTransaction::Ptr AtomicSwapTransaction::Create(const WalletID& from, const WalletID& to, Amount amount, Amount fee, AtomicSwapCoin swapCoin, Amount swapAmount, bool isBeamSide = true, Height lifetime = kDefaultTxLifetime, Height responseTime = kDefaultTxResponseTime)
+    //{
+    //    // TODO: uncomment this
+    //    //auto receiverAddr = m_WalletDB->getAddress(to);
+
+    //    //if (receiverAddr && receiverAddr->m_OwnID)
+    //    //{
+    //    //    LOG_INFO() << "Failed to initiate the atomic swap. Not able to use own address as receiver's.";
+    //    //    throw FailToStartSwapException();
+    //    //}
+
+    //    auto txID = GenerateTxID();
+    //    auto tx = ConstructTransaction(txID, TxType::AtomicSwap);
+
+    //    tx->SetParameter(TxParameterID::TransactionType, TxType::AtomicSwap, false);
+    //    tx->SetParameter(TxParameterID::CreateTime, getTimestamp(), false);
+    //    tx->SetParameter(TxParameterID::Amount, amount, false);
+    //    tx->SetParameter(TxParameterID::Fee, fee, false);
+    //    tx->SetParameter(TxParameterID::Lifetime, lifetime, false);
+    //    tx->SetParameter(TxParameterID::PeerID, to, false);
+
+    //    // Must be reset on first Update when we already have correct current height.
+    //    tx->SetParameter(TxParameterID::PeerResponseHeight, responseTime);
+    //    tx->SetParameter(TxParameterID::MyID, from, false);
+    //    tx->SetParameter(TxParameterID::IsSender, isBeamSide, false);
+    //    tx->SetParameter(TxParameterID::IsInitiator, true, false);
+    //    tx->SetParameter(TxParameterID::Status, TxStatus::Pending, true);
+
+    //    tx->SetParameter(TxParameterID::AtomicSwapCoin, swapCoin, false);
+    //    tx->SetParameter(TxParameterID::AtomicSwapAmount, swapAmount, false);
+    //    tx->SetParameter(TxParameterID::AtomicSwapIsBeamSide, isBeamSide, false);
+
+    //    return tx;
+    //}
+
+    BaseTransaction::Ptr AtomicSwapTransaction::Creator::Create(INegotiatorGateway& gateway
+                                                        , IWalletDB::Ptr walletDB
+                                                        , IPrivateKeyKeeper::Ptr keyKeeper
+                                                        , const TxID& txID)
     {
         return BaseTransaction::Ptr(new AtomicSwapTransaction(gateway, walletDB, keyKeeper, txID));
     }
 
+    bool AtomicSwapTransaction::Creator::CanCreate(const SetTxParameter& msg)
+    {
+        if (m_swapConditions.empty())
+        {
+            LOG_DEBUG() << msg.m_TxID << " Swap rejected. Swap conditions aren't initialized.";
+            return false;
+        }
+
+        // validate swapConditions
+        Amount amount = 0;
+        Amount swapAmount = 0;
+        AtomicSwapCoin swapCoin = AtomicSwapCoin::Bitcoin;
+        bool isBeamSide = 0;
+
+        bool result = msg.GetParameter(TxParameterID::Amount, amount) &&
+            msg.GetParameter(TxParameterID::AtomicSwapAmount, swapAmount) &&
+            msg.GetParameter(TxParameterID::AtomicSwapCoin, swapCoin) &&
+            msg.GetParameter(TxParameterID::AtomicSwapIsBeamSide, isBeamSide);
+
+        auto idx = std::find(m_swapConditions.begin(), m_swapConditions.end(), SwapConditions{ amount, swapAmount, swapCoin, isBeamSide });
+
+        if (!result || idx == m_swapConditions.end())
+        {
+            LOG_DEBUG() << msg.m_TxID << " Swap rejected. Invalid conditions.";
+            return false;
+        }
+
+        m_swapConditions.erase(idx);
+
+        LOG_DEBUG() << msg.m_TxID << " Swap conditions match.";
+
+        return true;
+    }
 
 
     AtomicSwapTransaction::AtomicSwapTransaction(INegotiatorGateway& gateway
