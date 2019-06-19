@@ -134,7 +134,6 @@ public:
         m_LastAdddr = wa;
     }
 
-    void setExpirationForAllAddresses(uint64_t expiration) override {};
     boost::optional<WalletAddress> getAddress(const WalletID& id) const override
     {
         if (id == m_LastAdddr.m_walletID)

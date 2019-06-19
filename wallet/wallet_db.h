@@ -255,10 +255,9 @@ namespace beam::wallet
 
         // ////////////////////////////////////////////
         // Address management
+        virtual boost::optional<WalletAddress> getAddress(const WalletID&) const = 0;
         virtual std::vector<WalletAddress> getAddresses(bool own) const = 0;
         virtual void saveAddress(const WalletAddress&) = 0;
-        virtual void setExpirationForAllAddresses(uint64_t expiration) = 0;
-        virtual boost::optional<WalletAddress> getAddress(const WalletID&) const = 0;
         virtual void deleteAddress(const WalletID&) = 0;
 
         // 
@@ -340,7 +339,6 @@ namespace beam::wallet
 
         std::vector<WalletAddress> getAddresses(bool own) const override;
         void saveAddress(const WalletAddress&) override;
-        void setExpirationForAllAddresses(uint64_t expiration) override;
         boost::optional<WalletAddress> getAddress(const WalletID&) const override;
         void deleteAddress(const WalletID&) override;
 
