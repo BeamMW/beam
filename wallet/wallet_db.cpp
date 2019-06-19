@@ -2721,61 +2721,16 @@ namespace beam::wallet
 
         using nlohmann::json;
 
-        string ExportAddressesToJson(const IWalletDB& db)
+        namespace
         {
-            json ownAddresses = json::array();
-            for (const auto& address : db.getAddresses(true))
-            {
-                ownAddresses.push_back(
-                    json
-                    {
-                        {"Index", address.m_OwnID},
-                        {"SubIndex", 0},
-                        {"WalletID", to_string(address.m_walletID)},
-                        {"Label", address.m_label},
-                        {"CreationTime", address.m_createTime},
-                        {"Duration", address.m_duration}
-                    }
-                );
-            }
-            auto res = json
-            {
-                {"OwnAddresses", ownAddresses}
-            };
-            return res.dump();
-        }
+            const string OwnAddressesName = "OwnAddresses";
+            const string TransactionParametersName = "TransactionParameters";
 
-        
-        string ExportTransactionsToJson(const IWalletDB& db)
-        {
-            json txParams = json::array();
-            for (const auto& p : db.getAllTxParameters())
+            bool ImportAddressesFromJson(IWalletDB& db, const json& obj)
             {
-                txParams.push_back(
-                    json
-                    {
-						{"TransactionId", p.m_txID},
-						{"SubTransactionId", p.m_subTxID},
-						{"ParameterId", p.m_paramID},
-						{"Value", p.m_value}
-                    }
-                );
-            }
-            auto res = json
-            {
-                {"TransactionParameters", txParams}
-            };
-            return res.dump();
-        }
-
-        bool ImportAddressesFromJson(IWalletDB& db, const char* data, size_t size)
-        {
-            try
-            {
-                json obj = json::parse(data, data + size);
-                if (obj.find("OwnAddresses") == obj.end())
+                if (obj.find(OwnAddressesName) == obj.end())
                 {
-                    return false;
+                    return true;
                 }
 
                 vector<WalletAddress> addresses;
@@ -2802,74 +2757,127 @@ namespace beam::wallet
                 }
                 return true;
             }
-            catch (const nlohmann::detail::exception& e)
+
+            bool ImportTransactionsFromJson(IWalletDB& db, const json& obj)
             {
-                LOG_ERROR() << "json parse: " << e.what() << "\n" << std::string(data, data + (size > 1024 ? 1024 : size));
+                try
+                {
+                    if (obj.find(TransactionParametersName) == obj.end())
+                    {
+                        return true;
+                    }
+
+                    std::unordered_map<
+                        TxID,
+                        std::unordered_map<
+                        TxParameterID,
+                        TxParameter>
+                    > importedTransactionsMap;
+                    for (const auto& jsonTxParameter : obj["TransactionParameters"])
+                    {
+                        TxParameter txParameter;
+                        txParameter.m_txID = jsonTxParameter["TransactionId"];
+                        txParameter.m_subTxID = jsonTxParameter["SubTransactionId"];
+                        txParameter.m_paramID = jsonTxParameter["ParameterId"];
+                        for (const auto& v : jsonTxParameter["Value"])
+                        {
+                            txParameter.m_value.push_back(v);
+                        }
+                        importedTransactionsMap[txParameter.m_txID].emplace(static_cast<TxParameterID>(txParameter.m_paramID), txParameter);
+                    }
+                    for (const auto& txPair : importedTransactionsMap)
+                    {
+                        auto paramsMap = txPair.second;
+                        WalletID wid;
+                        uint64_t myAddrId = 0;
+
+                        if (wid.FromBuf(paramsMap.at(TxParameterID::MyID).m_value) &&
+                            fromByteBuffer(paramsMap.at(TxParameterID::MyAddressID).m_value, myAddrId) &&
+                            wid == generateWalletIDFromIndex(db, myAddrId))
+                        {
+                            for (const auto& paramPair : paramsMap)
+                            {
+                                const auto& p = paramPair.second;
+                                db.setTxParameter(p.m_txID,
+                                    static_cast<SubTxID>(p.m_subTxID),
+                                    paramPair.first,
+                                    p.m_value,
+                                    true);
+                            }
+                            LOG_INFO() << "Transaction " << txPair.first << " was imported.";
+                            continue;
+                        }
+                        LOG_ERROR() << "Transaction " << txPair.first << " was not imported. Corrupted parameters.";
+                    }
+                    return true;
+                }
+                catch (const std::out_of_range& e)
+                {
+                    LOG_ERROR() << "imported transaction has corrupted parameters:" << e.what();
+                }
+                return false;
             }
-            return false;
+
+            json ExportAddressesToJson(const IWalletDB& db)
+            {
+                json ownAddresses = json::array();
+                for (const auto& address : db.getAddresses(true))
+                {
+                    ownAddresses.push_back(
+                        json
+                        {
+                            {"Index", address.m_OwnID},
+                            {"SubIndex", 0},
+                            {"WalletID", to_string(address.m_walletID)},
+                            {"Label", address.m_label},
+                            {"CreationTime", address.m_createTime},
+                            {"Duration", address.m_duration}
+                        }
+                    );
+                }
+                return ownAddresses;
+            }
+
+
+            json ExportTransactionsToJson(const IWalletDB& db)
+            {
+                json txParams = json::array();
+                for (const auto& p : db.getAllTxParameters())
+                {
+                    txParams.push_back(
+                        json
+                        {
+                            {"TransactionId", p.m_txID},
+                            {"SubTransactionId", p.m_subTxID},
+                            {"ParameterId", p.m_paramID},
+                            {"Value", p.m_value}
+                        }
+                    );
+                }
+                return txParams;
+            }
         }
 
-        bool ImportTransactionsFromJson(IWalletDB& db, const char* data, size_t size)
+        string ExportDataToJson(const IWalletDB& db)
+        {
+            auto res = json
+            {
+                {OwnAddressesName, ExportAddressesToJson(db)},
+                {TransactionParametersName, ExportTransactionsToJson(db)}
+            };
+            return res.dump();
+        }
+
+        bool ImportDataFromJson(IWalletDB& db, const char* data, size_t size)
         {
             try
             {
                 json obj = json::parse(data, data + size);
-                if (obj.find("TransactionParameters") == obj.end())
-                {
-                    return false;
-                }
-
-                std::unordered_map<
-                    TxID,
-                    std::unordered_map<
-                        TxParameterID,
-                        TxParameter>
-                    > importedTransactionsMap;
-                for (const auto& jsonTxParameter : obj["TransactionParameters"])
-                {
-                    TxParameter txParameter;
-                    txParameter.m_txID = jsonTxParameter["TransactionId"];
-                    txParameter.m_subTxID = jsonTxParameter["SubTransactionId"];
-                    txParameter.m_paramID = jsonTxParameter["ParameterId"];
-                    for (const auto& v : jsonTxParameter["Value"])
-                    {
-                        txParameter.m_value.push_back(v);
-                    }
-                    importedTransactionsMap[txParameter.m_txID].emplace(static_cast<TxParameterID>(txParameter.m_paramID), txParameter);
-                }
-                for (const auto& txPair : importedTransactionsMap)
-                {
-                    auto paramsMap = txPair.second;                    
-                    WalletID wid;
-                    uint64_t myAddrId = 0;
-
-                    if (wid.FromBuf(paramsMap.at(TxParameterID::MyID).m_value) &&
-                        fromByteBuffer(paramsMap.at(TxParameterID::MyAddressID).m_value, myAddrId) &&
-                        wid == generateWalletIDFromIndex(db, myAddrId))
-                    {
-                        for (const auto& paramPair : paramsMap)
-                        {
-                            const auto& p = paramPair.second;
-                            db.setTxParameter(p.m_txID,
-                                                static_cast<SubTxID>(p.m_subTxID),
-                                                paramPair.first,
-                                                p.m_value,
-                                                true);
-                        }
-                        LOG_INFO() << "Transaction " << txPair.first << " was imported.";
-                        continue;
-                    }
-                    LOG_ERROR() << "Transaction " << txPair.first << " was not imported. Corrupted parameters.";
-                }
-                return true;
+                return ImportAddressesFromJson(db, obj) && ImportTransactionsFromJson(db, obj);
             }
             catch (const nlohmann::detail::exception& e)
             {
                 LOG_ERROR() << "json parse: " << e.what() << "\n" << std::string(data, data + (size > 1024 ? 1024 : size));
-            }
-            catch (const std::out_of_range& e)
-            {
-                LOG_ERROR() << "imported transaction has corrupted parameters:" << e.what();
             }
             return false;
         }
@@ -3010,6 +3018,16 @@ namespace beam::wallet
         , m_duration(24 * 60 * 60) // 24h
         , m_OwnID(false)
     {}
+
+    bool WalletAddress::operator == (const WalletAddress& other) const
+    {
+        return m_walletID == other.m_walletID && m_OwnID == other.m_OwnID;
+    }
+
+    bool WalletAddress::operator != (const WalletAddress& other) const
+    {
+        return !(*this == other);
+    }
 
     bool WalletAddress::isExpired() const
     {
