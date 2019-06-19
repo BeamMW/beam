@@ -370,7 +370,6 @@ namespace beam::wallet
                 catch (...) {
                     LOG_UNHANDLED_EXCEPTION();
                 }
-                m_isRunning = false;
             });
     }
 
