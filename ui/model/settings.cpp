@@ -43,8 +43,12 @@ namespace
     const char* kDefaultLocale = "en_US";
 
     const std::map<QString, QString> kSupportedLangs { 
-        { "en_US", "English" }, 
-        { "ru_RU", "Русский" } 
+        { "zh_CN", "Chinese Simplified"},
+        { "en_US", "English" },
+        { "es_ES", "Español"},
+        { "fr_FR", "Française"},
+        { "ru_RU", "Русский" },
+        { "vi_VI", "Tiếng việt"}
     };
 }
 
