@@ -222,19 +222,10 @@ namespace beam
         wallet_options.add_options()
             (cli::PASS, po::value<string>(), "password for the wallet")
             (cli::SEED_PHRASE, po::value<string>(), "phrase to generate secret key according to BIP-39.")
-            (cli::BTC_PASS, po::value<string>(), "password for the bitcoin node")
-            (cli::BTC_USER_NAME, po::value<string>(), "user name for the bitcoin node")
-            (cli::LTC_PASS, po::value<string>(), "password for the litecoin node")
-            (cli::LTC_USER_NAME, po::value<string>(), "user name for the litecoin node")
-            (cli::QTUM_PASS, po::value<string>(), "password for the qtum node")
-            (cli::QTUM_USER_NAME, po::value<string>(), "user name for the qtum node")
             (cli::AMOUNT_FULL, po::value<Positive<double>>(), "amount to send (in Beams, 1 Beam = 100,000,000 groth)")
             (cli::FEE_FULL, po::value<Nonnegative<Amount>>()->default_value(Nonnegative<Amount>(cli::kMinimumFee)), "fee (in Groth, 100,000,000 groth = 1 Beam)")
             (cli::RECEIVER_ADDR_FULL, po::value<string>(), "address of receiver")
             (cli::NODE_ADDR_FULL, po::value<string>(), "address of node")
-            (cli::BTC_NODE_ADDR, po::value<string>(), "address of bitcoin node")
-            (cli::LTC_NODE_ADDR, po::value<string>(), "address of litecoin node")
-            (cli::QTUM_NODE_ADDR, po::value<string>(), "address of qtum node")
             (cli::WALLET_STORAGE, po::value<string>()->default_value("wallet.db"), "path to wallet file")
             (cli::TX_HISTORY, "print transacrions' history in info command")
             (cli::LISTEN, "start listen after new_addr command")
@@ -250,18 +241,6 @@ namespace beam
             (cli::IMPORT_EXPORT_PATH, po::value<string>()->default_value("export.dat"), "path to import or export data (import_addresses|import_transactions|export_addresses|export_transactions)")
             (cli::COLD_WALLET, "used to init cold wallet")
             (cli::COMMAND, po::value<string>(), "command to execute [new_addr|send|receive|listen|init|restore|info|export_miner_key|export_owner_key|generate_phrase|change_address_expiration|address_list|rescan|export_addresses|export_transactions|import_addresses|import_transactions|tx_details|payment_proof_export|payment_proof_verify|utxo|cancel_tx|delete_tx|swap_init|swap_listen]")
-            (cli::SWAP_AMOUNT, po::value<Positive<Amount>>(), "swap amount in the smallest unit of the coin")
-            (cli::SWAP_FEERATE, po::value<Positive<Amount>>(), "The specific feerate you are willing to pay(the smallest unit of the coin per KB)")
-            (cli::SWAP_COIN, po::value<string>(), "swap coin(btc, ltc, qtum)")
-            (cli::SWAP_NETWORK, po::value<string>(), "type of second side network(mainnet, testnet)")
-            (cli::SWAP_BEAM_SIDE, "Should be set by Beam owner")
-            (cli::SWAP_TX_HISTORY, "show swap transactions history in info command")
-            (cli::BTC_CONFIRMATIONS, po::value<Positive<uint16_t>>(), "confirmations count in bitcoin chain")
-            (cli::LTC_CONFIRMATIONS, po::value<Positive<uint16_t>>(), "confirmations count in litecoin chain")
-            (cli::QTUM_CONFIRMATIONS, po::value<Positive<uint16_t>>(), "confirmations count in qtum chain")
-            (cli::BTC_LOCK_TIME, po::value<Positive<uint32_t>>(), "lock time in blocks bitcoin transaction")
-            (cli::LTC_LOCK_TIME, po::value<Positive<uint32_t>>(), "lock time in blocks litecoin transaction")
-            (cli::QTUM_LOCK_TIME, po::value<Positive<uint32_t>>(), "lock time in blocks qtum transaction")
             (cli::NODE_POLL_PERIOD, po::value<Nonnegative<uint32_t>>()->default_value(Nonnegative<uint32_t>(0)), "Node poll period in milliseconds. Set to 0 to keep connection. Anyway poll period would be no less than the expected rate of blocks if it is less then it will be rounded up to block rate value.");
 
         po::options_description wallet_treasury_options("Wallet treasury options");
@@ -278,6 +257,30 @@ namespace beam
         uioptions.add_options()
             (cli::WALLET_ADDR, po::value<vector<string>>()->multitoken())
             (cli::APPDATA_PATH, po::value<string>());
+
+        po::options_description swap_options("Atomic swap options");
+        swap_options.add_options()
+            (cli::BTC_NODE_ADDR, po::value<string>(), "address of bitcoin node")
+            (cli::BTC_USER_NAME, po::value<string>(), "user name for the bitcoin node")
+            (cli::BTC_PASS, po::value<string>(), "password for the bitcoin node")
+            (cli::BTC_CONFIRMATIONS, po::value<Positive<uint16_t>>(), "confirmations count in bitcoin chain")
+            (cli::BTC_LOCK_TIME, po::value<Positive<uint32_t>>(), "lock time in blocks bitcoin transaction")
+            (cli::LTC_NODE_ADDR, po::value<string>(), "address of litecoin node")
+            (cli::LTC_USER_NAME, po::value<string>(), "user name for the litecoin node")
+            (cli::LTC_PASS, po::value<string>(), "password for the litecoin node")
+            (cli::LTC_CONFIRMATIONS, po::value<Positive<uint16_t>>(), "confirmations count in litecoin chain")
+            (cli::LTC_LOCK_TIME, po::value<Positive<uint32_t>>(), "lock time in blocks litecoin transaction")
+            (cli::QTUM_NODE_ADDR, po::value<string>(), "address of qtum node")
+            (cli::QTUM_USER_NAME, po::value<string>(), "user name for the qtum node")
+            (cli::QTUM_PASS, po::value<string>(), "password for the qtum node")
+            (cli::QTUM_CONFIRMATIONS, po::value<Positive<uint16_t>>(), "confirmations count in qtum chain")
+            (cli::QTUM_LOCK_TIME, po::value<Positive<uint32_t>>(), "lock time in blocks qtum transaction")
+            (cli::SWAP_COIN, po::value<string>(), "swap coin(btc, ltc, qtum)")
+            (cli::SWAP_AMOUNT, po::value<Positive<Amount>>(), "swap amount in the smallest unit of the coin")
+            (cli::SWAP_FEERATE, po::value<Positive<Amount>>(), "The specific feerate you are willing to pay(the smallest unit of the coin per KB)")
+            (cli::SWAP_NETWORK, po::value<string>(), "type of second side network(mainnet, testnet)")
+            (cli::SWAP_BEAM_SIDE, "Should be set by Beam owner")
+            (cli::SWAP_TX_HISTORY, "show swap transactions history in info command");
 
         po::options_description options{ "Allowed options" };
         po::options_description visible_options{ "Allowed options" };
@@ -296,7 +299,9 @@ namespace beam
         {
             options.add(wallet_options);
             options.add(wallet_treasury_options);
+            options.add(swap_options);
             visible_options.add(wallet_options);
+            visible_options.add(swap_options);
         }
         if (flags & UI_OPTIONS)
         {
