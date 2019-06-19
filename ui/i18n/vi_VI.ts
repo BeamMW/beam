@@ -1057,7 +1057,7 @@
     <message id="settings-report-problem-message">
         <source>&lt;style&gt;a:link {color: &apos;#00f6d2&apos;; text-decoration: none;}&lt;/style&gt;To report a problem:&lt;br /&gt;1. Click “Save wallet logs” and choose a destination folder for log archive&lt;br /&gt;2. Send email to &lt;a href=&apos;mailto:support@beam.mw&apos;&gt;support@beam.mw&lt;/a&gt; or open a ticket in &lt;a href=&apos;https://github.com/BeamMW&apos;&gt;Github&lt;/a&gt;&lt;br /&gt;3. Don’t forget to attach logs archive</source>
         <extracomment>settings tab, report problem section, message</extracomment>
-        <translation>&lt;style&gt;a:link {color: &apos;#00f6d2&apos;; trang trí văn bản: none;}&lt;/style&gt;Để báo cáo sự cố:&lt;br /&gt;1. Nhấp vào Lưu Lưu nhật ký ví Nhật ký và chọn thư mục đích để lưu trữ nhật ký &lt; br/&gt;2. Gửi email đến &lt;a href=&apos;mailto: support@beam.mw&apos;&gt;support@beam.mw&lt;/a&gt; hoặc mở một vé trong &lt;a href=&apos;https://github.com/BeamMW&apos;&gt;Github&lt;/a&gt;&lt;br /&gt;3. Đừng để quên lưu trữ nhật ký</translation>
+        <translation>&lt;style&gt;a:link {color: &apos;#00f6d2&apos;; text-decoration: none;}&lt;/style&gt;Để báo cáo sự cố:&lt;br /&gt;1. Nhấp vào Lưu Lưu nhật ký ví Nhật ký và chọn thư mục đích để lưu trữ nhật ký &lt; br/&gt;2. Gửi email đến &lt;a href=&apos;mailto: support@beam.mw&apos;&gt;support@beam.mw&lt;/a&gt; hoặc mở một vé trong &lt;a href=&apos;https://github.com/BeamMW&apos;&gt;Github&lt;/a&gt;&lt;br /&gt;3. Đừng để quên lưu trữ nhật ký</translation>
     </message>
     <message id="edit-addr-24-option">
         <source>In 24 hours from now</source>
