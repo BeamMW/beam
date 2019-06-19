@@ -14,8 +14,6 @@
 
 #include "fly_client.h"
 
-#include "utility/logger.h"
-
 namespace beam {
 namespace proto {
 
@@ -157,10 +155,6 @@ void FlyClient::NetworkStd::Connection::OnTimer()
         {
             ResetAll();
             uint32_t timeout_ms = std::max(Rules::get().DA.Target_s * 1000, m_This.m_Cfg.m_PollPeriod_ms);
-            if (timeout_ms != m_This.m_Cfg.m_PollPeriod_ms)
-            {
-                LOG_INFO() << "Node poll period has been automatically rounded up to block rate: " << timeout_ms << " ms";
-            }
             SetTimer(timeout_ms);
         }
     }

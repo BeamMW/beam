@@ -1487,6 +1487,11 @@ int main_impl(int argc, char* argv[])
                             if (nnet->m_Cfg.m_PollPeriod_ms)
                             {
                                 LOG_INFO() << "Node poll period = " << nnet->m_Cfg.m_PollPeriod_ms << " ms";
+                                uint32_t timeout_ms = std::max(Rules::get().DA.Target_s * 1000, nnet->m_Cfg.m_PollPeriod_ms);
+                                if (timeout_ms != nnet->m_Cfg.m_PollPeriod_ms)
+                                {
+                                    LOG_INFO() << "Node poll period has been automatically rounded up to block rate: " << timeout_ms << " ms";
+                                }
                             }
                             uint32_t responceTime_s = Rules::get().DA.Target_s * wallet::kDefaultTxResponseTime;
                             if (nnet->m_Cfg.m_PollPeriod_ms >= responceTime_s * 1000)
