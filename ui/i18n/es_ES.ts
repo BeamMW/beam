@@ -81,8 +81,8 @@
         <translation>Por favor, introduce la contraseña</translation>
     </message>
     <message id="general-pwd-invalid">
-        <source>Invalid password provided.</source>
-        <translation>La contraseña introducida es errónea.</translation>
+        <source>Invalid password provided</source>
+        <translation>La contraseña introducida es errónea</translation>
     </message>
     <message id="general-payment-proof">
         <source>Payment proof</source>
@@ -721,7 +721,7 @@
         <translation>Conectar al nodo remoto específico</translation>
     </message>
     <message id="start-node-port-empty-error">
-        <source>Please, specify port number to listen on</source>
+        <source>Please specify port</source>
         <translation>Por favor, especifique el número de puerto para escucharlo</translation>
     </message>
     <message id="start-node-port-value-error">
@@ -729,15 +729,15 @@
         <translation>El puerto debe ser un número entre 1 y 65535</translation>
     </message>
     <message id="start-node-peer-empty-error">
-        <source>Please, specify peer</source>
+        <source>Please specify peer</source>
         <translation>Por favor, especifica el par</translation>
     </message>
     <message id="start-node-peer-error">
-        <source>Please, specify correct peer</source>
+        <source>Incorrect address</source>
         <translation>Por favor, especifica el par correcto</translation>
     </message>
     <message id="start-node-empty-error">
-        <source>Please, specify address of the remote node</source>
+        <source>Please specify address of the remote node</source>
         <translation>Por favor, especifica la dirección del nodo remoto</translation>
     </message>
     <message id="appmodel-failed-start-node">
@@ -753,12 +753,12 @@
         <translation>Estás tratando de conectarte con un par incompatible.</translation>
     </message>
     <message id="wallet-model-connection-base-error">
-        <source>Connection error.</source>
-        <translation>Error de conexión.</translation>
+        <source>Connection error</source>
+        <translation>Error de conexión</translation>
     </message>
     <message id="wallet-model-connection-time-out-error">
-        <source>Connection timed out.</source>
-        <translation>Tiempo de conexión agotado.</translation>
+        <source>Connection timed out</source>
+        <translation>Tiempo de conexión agotado</translation>
     </message>
     <message id="wallet-model-connection-refused-error">
         <source>Cannot connect to node</source>
@@ -773,8 +773,8 @@
         <translation>El puerto 1% ya está en uso. Compruebe si ya se está ejecutando una wallet en esta máquina o cambie la configuración del puerto.</translation>
     </message>
     <message id="wallet-model-time-sync-error">
-        <source>System time not synchronized.</source>
-        <translation>La hora del sistema no está sincronizada.</translation>
+        <source>System time not synchronized</source>
+        <translation>La hora del sistema no está sincronizada</translation>
     </message>
     <message id="wallet-model-host-unresolved-error">
         <source>Incorrect node name or no Internet connection.</source>

@@ -81,7 +81,7 @@
         <translation>请输入密码</translation>
     </message>
     <message id="general-pwd-invalid">
-        <source>Invalid password provided.</source>
+        <source>Invalid password provided</source>
         <translation>无效的密码</translation>
     </message>
     <message id="general-payment-proof">
@@ -721,7 +721,7 @@
         <translation>连接到指定远程节点</translation>
     </message>
     <message id="start-node-port-empty-error">
-        <source>Please, specify port number to listen on</source>
+        <source>Please specify port</source>
         <translation>请输入端口</translation>
     </message>
     <message id="start-node-port-value-error">
@@ -729,15 +729,15 @@
         <translation>端口必须是1到65535之间的数字</translation>
     </message>
     <message id="start-node-peer-empty-error">
-        <source>Please, specify peer</source>
-        <translation type="unfinished">Please, specify peer</translation>
+        <source>Please specify peer</source>
+        <translation type="unfinished">Please specify peer</translation>
     </message>
     <message id="start-node-peer-error">
-        <source>Please, specify correct peer</source>
-        <translation type="unfinished">Please, specify correct peer</translation>
+        <source>Incorrect address</source>
+        <translation type="unfinished">Incorrect address</translation>
     </message>
     <message id="start-node-empty-error">
-        <source>Please, specify address of the remote node</source>
+        <source>Please specify address of the remote node</source>
         <translation>请输入远程节点的地址</translation>
     </message>
     <message id="appmodel-failed-start-node">
@@ -753,11 +753,11 @@
         <translation>您试图连接到一个不兼容的节点。</translation>
     </message>
     <message id="wallet-model-connection-base-error">
-        <source>Connection error.</source>
+        <source>Connection error</source>
         <translation>连接错误</translation>
     </message>
     <message id="wallet-model-connection-time-out-error">
-        <source>Connection timed out.</source>
+        <source>Connection timed out</source>
         <translation>连接超时</translation>
     </message>
     <message id="wallet-model-connection-refused-error">
@@ -773,7 +773,7 @@
         <translation>端口%1被占用。请检查本机其他应用程序或更改端口设置。</translation>
     </message>
     <message id="wallet-model-time-sync-error">
-        <source>System time not synchronized.</source>
+        <source>System time not synchronized</source>
         <translation>系统时间不同步。</translation>
     </message>
     <message id="wallet-model-host-unresolved-error">

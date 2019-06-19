@@ -102,7 +102,7 @@ Dialog {
 					Layout.alignment: Qt.AlignHCenter
 					color: Style.validator_error
 					font.pixelSize: 12
-					//% "Invalid password provided."
+					//% "Invalid password provided"
 					text: qsTrId("general-pwd-invalid")
 					visible: showError && pwd.text.length
 				}

@@ -81,8 +81,8 @@
         <translation>Merci de saisir votre mot de passe</translation>
     </message>
     <message id="general-pwd-invalid">
-        <source>Invalid password provided.</source>
-        <translation>Le mot de passe saisi est invalide.</translation>
+        <source>Invalid password provided</source>
+        <translation>Le mot de passe saisi est invalide</translation>
     </message>
     <message id="general-payment-proof">
         <source>Payment proof</source>
@@ -722,7 +722,7 @@ Vous essayez de restaurer un portefeuille Beam existant. Veuillez noter que si v
         <translation>Se connecter à un nœud distant spécifique</translation>
     </message>
     <message id="start-node-port-empty-error">
-        <source>Please, specify port number to listen on</source>
+        <source>Please specify port</source>
         <translation>Veuillez spécifier le numéro de port sur lequel écouter</translation>
     </message>
     <message id="start-node-port-value-error">
@@ -730,15 +730,15 @@ Vous essayez de restaurer un portefeuille Beam existant. Veuillez noter que si v
         <translation>Le port doit être un nombre compris entre 1 et 65535</translation>
     </message>
     <message id="start-node-peer-empty-error">
-        <source>Please, specify peer</source>
+        <source>Please specify peer</source>
         <translation>Merci de spécifier la paire</translation>
     </message>
     <message id="start-node-peer-error">
-        <source>Please, specify correct peer</source>
+        <source>Incorrect address</source>
         <translation>Merci de spécifier une paire correcte</translation>
     </message>
     <message id="start-node-empty-error">
-        <source>Please, specify address of the remote node</source>
+        <source>Please specify address of the remote node</source>
         <translation>Merci de spécifier l&apos;adresse du noeud distant</translation>
     </message>
     <message id="appmodel-failed-start-node">
@@ -754,12 +754,12 @@ Vous essayez de restaurer un portefeuille Beam existant. Veuillez noter que si v
         <translation>Vous essayez de vous connecter à un noeud incompatible.</translation>
     </message>
     <message id="wallet-model-connection-base-error">
-        <source>Connection error.</source>
-        <translation>Erreur de connexion.</translation>
+        <source>Connection error</source>
+        <translation>Erreur de connexion</translation>
     </message>
     <message id="wallet-model-connection-time-out-error">
-        <source>Connection timed out.</source>
-        <translation>La connexion a expiré.</translation>
+        <source>Connection timed out</source>
+        <translation>La connexion a expiré</translation>
     </message>
     <message id="wallet-model-connection-refused-error">
         <source>Cannot connect to node</source>
@@ -774,8 +774,8 @@ Vous essayez de restaurer un portefeuille Beam existant. Veuillez noter que si v
         <translation>Le port% 1 est déjà utilisé. Vérifiez si un portefeuille est déjà en cours d&apos;exécution sur cette machine ou modifiez les paramètres du port.</translation>
     </message>
     <message id="wallet-model-time-sync-error">
-        <source>System time not synchronized.</source>
-        <translation>Heure du système non synchronisée.</translation>
+        <source>System time not synchronized</source>
+        <translation>Heure du système non synchronisée</translation>
     </message>
     <message id="wallet-model-host-unresolved-error">
         <source>Incorrect node name or no Internet connection.</source>

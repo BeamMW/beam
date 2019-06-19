@@ -81,8 +81,8 @@
         <translation>Пожалуйста, введите пароль</translation>
     </message>
     <message id="general-pwd-invalid">
-        <source>Invalid password provided.</source>
-        <translation>Неверный пароль.</translation>
+        <source>Invalid password provided</source>
+        <translation>Неверный пароль</translation>
     </message>
     <message id="general-payment-proof">
         <source>Payment proof</source>
@@ -720,7 +720,7 @@
         <translation>Подключиться к удаленному узлу</translation>
     </message>
     <message id="start-node-port-empty-error">
-        <source>Please, specify port number to listen on</source>
+        <source>Please specify port</source>
         <translation>Пожалуйста, укажите номер порта</translation>
     </message>
     <message id="start-node-port-value-error">
@@ -728,15 +728,15 @@
         <translation>Номер порта должен быть между 1 и 65535</translation>
     </message>
     <message id="start-node-peer-empty-error">
-        <source>Please, specify peer</source>
+        <source>Please specify peer</source>
         <translation>Пожалуйста, укажите адрес пира</translation>
     </message>
     <message id="start-node-peer-error">
-        <source>Please, specify correct peer</source>
-        <translation>Пожалуйста, укажите корректный адрес пира</translation>
+        <source>Incorrect address</source>
+        <translation>Неверный формат адреса</translation>
     </message>
     <message id="start-node-empty-error">
-        <source>Please, specify address of the remote node</source>
+        <source>Please specify address of the remote node</source>
         <translation>Пожалуйста, укажите адрес удаленного узла</translation>
     </message>
     <message id="appmodel-failed-start-node">
@@ -752,12 +752,12 @@
         <translation>Несовместимый пир</translation>
     </message>
     <message id="wallet-model-connection-base-error">
-        <source>Connection error.</source>
-        <translation>Ошибка подключения.</translation>
+        <source>Connection error</source>
+        <translation>Ошибка подключения</translation>
     </message>
     <message id="wallet-model-connection-time-out-error">
-        <source>Connection timed out.</source>
-        <translation>Превышено время ожидания.</translation>
+        <source>Connection timed out</source>
+        <translation>Превышено время ожидания</translation>
     </message>
     <message id="wallet-model-connection-refused-error">
         <source>Cannot connect to node</source>
@@ -772,8 +772,8 @@
         <translation>Порт %1 уже используется. Возможно кошелек уже запущен на этом компьютере. Измените номер порта.</translation>
     </message>
     <message id="wallet-model-time-sync-error">
-        <source>System time not synchronized.</source>
-        <translation>Системное время не синхронизировано.</translation>
+        <source>System time not synchronized</source>
+        <translation>Системное время не синхронизировано</translation>
     </message>
     <message id="wallet-model-host-unresolved-error">
         <source>Incorrect node name or no Internet connection.</source>
@@ -1150,11 +1150,6 @@
         <source>Date created</source>
         <extracomment>start screen, select db for migration, Date created column title</extracomment>
         <translation>Дата создания</translation>
-    </message>
-    <message id="confirm-pwd-error">
-        <source>Invalid password provided.</source>
-        <oldsource>Wrong password</oldsource>
-        <translation type="obsolete">Неправильный пароль</translation>
     </message>
     <message id="settings-general-require-pwd-to-spend-confirm-pwd-title">
         <source>Don’t ask password on every Send</source>

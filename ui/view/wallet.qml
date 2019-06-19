@@ -142,7 +142,7 @@ Item {
                 }
                 if (!viewModel.isPasswordValid(requirePasswordInput.text)) {
                     requirePasswordInput.forceActiveFocus(Qt.TabFocusReason);
-                    //% "Invalid password provided."
+                    //% "Invalid password provided"
                     requirePasswordError.text = qsTrId("general-pwd-invalid");
                     return;
                 }

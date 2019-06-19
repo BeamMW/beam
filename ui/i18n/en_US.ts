@@ -81,8 +81,8 @@
         <translation>Please, enter password</translation>
     </message>
     <message id="general-pwd-invalid">
-        <source>Invalid password provided.</source>
-        <translation>Invalid password provided.</translation>
+        <source>Invalid password provided</source>
+        <translation>Invalid password provided</translation>
     </message>
     <message id="general-payment-proof">
         <source>Payment proof</source>
@@ -721,24 +721,24 @@
         <translation>Connect to specific remote node</translation>
     </message>
     <message id="start-node-port-empty-error">
-        <source>Please, specify port number to listen on</source>
-        <translation>Please, specify port number to listen on</translation>
+        <source>Please specify port</source>
+        <translation>Please specify port</translation>
     </message>
     <message id="start-node-port-value-error">
         <source>Port must be a number between 1 and 65535</source>
         <translation>Port must be a number between 1 and 65535</translation>
     </message>
     <message id="start-node-peer-empty-error">
-        <source>Please, specify peer</source>
-        <translation>Please, specify peer</translation>
+        <source>Please specify peer</source>
+        <translation>Please specify peer</translation>
     </message>
     <message id="start-node-peer-error">
-        <source>Please, specify correct peer</source>
-        <translation>Please, specify correct peer</translation>
+        <source>Incorrect address</source>
+        <translation>Incorrect address</translation>
     </message>
     <message id="start-node-empty-error">
-        <source>Please, specify address of the remote node</source>
-        <translation>Please, specify address of the remote node</translation>
+        <source>Please specify address of the remote node</source>
+        <translation>Please specify address of the remote node</translation>
     </message>
     <message id="appmodel-failed-start-node">
         <source>Failed to start node. Please check your node configuration</source>
@@ -753,12 +753,12 @@
         <translation>You are trying to connect to incompatible peer.</translation>
     </message>
     <message id="wallet-model-connection-base-error">
-        <source>Connection error.</source>
-        <translation>Connection error.</translation>
+        <source>Connection error</source>
+        <translation>Connection error</translation>
     </message>
     <message id="wallet-model-connection-time-out-error">
-        <source>Connection timed out.</source>
-        <translation>Connection timed out.</translation>
+        <source>Connection timed out</source>
+        <translation>Connection timed out</translation>
     </message>
     <message id="wallet-model-connection-refused-error">
         <source>Cannot connect to node</source>
@@ -773,8 +773,8 @@
         <translation>The port %1 is already in use. Check if a wallet is already running on this machine or change the port settings.</translation>
     </message>
     <message id="wallet-model-time-sync-error">
-        <source>System time not synchronized.</source>
-        <translation>System time not synchronized.</translation>
+        <source>System time not synchronized</source>
+        <translation>System time not synchronized</translation>
     </message>
     <message id="wallet-model-host-unresolved-error">
         <source>Incorrect node name or no Internet connection.</source>

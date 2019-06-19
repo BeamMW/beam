@@ -1598,7 +1598,7 @@ Item
                             onClicked:{
                                 if (localNodeButton.checked) {
                                     if (portInput.text.trim().length === 0) {
-                                        //% "Please, specify port number to listen on"
+                                        //% "Please specify port"
                                         portError.text = qsTrId("start-node-port-empty-error");
                                         return;
                                     }
@@ -1609,12 +1609,12 @@ Item
                                         return;
                                     }
                                     if (localNodePeer.text.trim().length === 0) {
-                                        //% "Please, specify peer"
+                                        //% "Please specify peer"
                                         peerError.text = qsTrId("start-node-peer-empty-error");
                                         return;
                                     }
                                     if (!localNodePeer.acceptableInput) {
-                                        //% "Please, specify correct peer"
+                                        //% "Incorrect address"
                                         peerError.text = qsTrId("start-node-peer-error");
                                         return;
                                     }
@@ -1623,7 +1623,7 @@ Item
                                 }
                                 else if (remoteNodeButton.checked) {
                                     if (remoteNodeAddrInput.text.trim().length === 0) {
-                                        //% "Please, specify address of the remote node"
+                                        //% "Please specify address of the remote node"
                                         remoteNodeAddrError.text = qsTrId("start-node-empty-error");
                                         return;
                                     }
@@ -1794,7 +1794,7 @@ Item
                                 {
                                     if(!openWallet(openPassword.text))
                                     {
-                                        //% "Invalid password provided."
+                                        //% "Invalid password provided"
                                         openPasswordError.text = qsTrId("general-pwd-invalid");
                                     }
                                     else

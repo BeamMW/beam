@@ -151,7 +151,7 @@
         <translation type="unfinished"></translation>
     </message>
     <message id="general-pwd-invalid">
-        <source>Invalid password provided.</source>
+        <source>Invalid password provided</source>
         <translation type="unfinished"></translation>
     </message>
     <message id="general-proceed">
@@ -719,7 +719,7 @@
         <translation type="unfinished"></translation>
     </message>
     <message id="start-node-port-empty-error">
-        <source>Please, specify port number to listen on</source>
+        <source>Please specify port</source>
         <translation type="unfinished"></translation>
     </message>
     <message id="start-node-port-value-error">
@@ -727,15 +727,15 @@
         <translation type="unfinished"></translation>
     </message>
     <message id="start-node-peer-empty-error">
-        <source>Please, specify peer</source>
+        <source>Please specify peer</source>
         <translation type="unfinished"></translation>
     </message>
     <message id="start-node-peer-error">
-        <source>Please, specify correct peer</source>
+        <source>Incorrect address</source>
         <translation type="unfinished"></translation>
     </message>
     <message id="start-node-empty-error">
-        <source>Please, specify address of the remote node</source>
+        <source>Please specify address of the remote node</source>
         <translation type="unfinished"></translation>
     </message>
     <message id="start-open-pwd-invitation">
@@ -1025,11 +1025,11 @@
         <translation type="unfinished"></translation>
     </message>
     <message id="wallet-model-connection-base-error">
-        <source>Connection error.</source>
+        <source>Connection error</source>
         <translation type="unfinished"></translation>
     </message>
     <message id="wallet-model-connection-time-out-error">
-        <source>Connection timed out.</source>
+        <source>Connection timed out</source>
         <translation type="unfinished"></translation>
     </message>
     <message id="wallet-model-connection-refused-error">
@@ -1045,7 +1045,7 @@
         <translation type="unfinished"></translation>
     </message>
     <message id="wallet-model-time-sync-error">
-        <source>System time not synchronized.</source>
+        <source>System time not synchronized</source>
         <translation type="unfinished"></translation>
     </message>
     <message id="wallet-model-host-unresolved-error">

@@ -81,8 +81,8 @@
         <translation>Vui lòng nhập mật khẩu</translation>
     </message>
     <message id="general-pwd-invalid">
-        <source>Invalid password provided.</source>
-        <translation>Mật khẩu không hợp lệ đã được cung cấp.</translation>
+        <source>Invalid password provided</source>
+        <translation>Mật khẩu không hợp lệ đã được cung cấp</translation>
     </message>
     <message id="general-payment-proof">
         <source>Payment proof</source>
@@ -721,7 +721,7 @@
         <translation>Kết nối với nút từ xa cụ thể</translation>
     </message>
     <message id="start-node-port-empty-error">
-        <source>Please, specify port number to listen on</source>
+        <source>Please specify port</source>
         <translation>Vui lòng xác định số cổng để nghe</translation>
     </message>
     <message id="start-node-port-value-error">
@@ -729,15 +729,15 @@
         <translation>Cổng phải là một số trong khoảng từ 1 đến 65535</translation>
     </message>
     <message id="start-node-peer-empty-error">
-        <source>Please, specify peer</source>
+        <source>Please specify peer</source>
         <translation>Vui lòng xác định đối tượng ngang hàng</translation>
     </message>
     <message id="start-node-peer-error">
-        <source>Please, specify correct peer</source>
+        <source>Incorrect address</source>
         <translation>Vui lòng xác định đối tượng ngang hàng chính xác</translation>
     </message>
     <message id="start-node-empty-error">
-        <source>Please, specify address of the remote node</source>
+        <source>Please specify address of the remote node</source>
         <translation>Vui lòng xác định địa chỉ nút từ xa</translation>
     </message>
     <message id="appmodel-failed-start-node">
@@ -753,12 +753,12 @@
         <translation>Bạn đang cố gắng kết nối với đối tượng ngang hàngt không tương thích.</translation>
     </message>
     <message id="wallet-model-connection-base-error">
-        <source>Connection error.</source>
-        <translation>Lỗi kết nối.</translation>
+        <source>Connection error</source>
+        <translation>Lỗi kết nối</translation>
     </message>
     <message id="wallet-model-connection-time-out-error">
-        <source>Connection timed out.</source>
-        <translation>Kết nối quá hạn.</translation>
+        <source>Connection timed out</source>
+        <translation>Kết nối quá hạn</translation>
     </message>
     <message id="wallet-model-connection-refused-error">
         <source>Cannot connect to node</source>
@@ -773,8 +773,8 @@
         <translation>Cổng %1 đã được sử dụng. Kiểm tra xem ví đã chạy trên máy này hoặc thay đổi cài đặt cổng.</translation>
     </message>
     <message id="wallet-model-time-sync-error">
-        <source>System time not synchronized.</source>
-        <translation>Thời gian hệ thống không đồng bộ.</translation>
+        <source>System time not synchronized</source>
+        <translation>Thời gian hệ thống không đồng bộ</translation>
     </message>
     <message id="wallet-model-host-unresolved-error">
         <source>Incorrect node name or no Internet connection.</source>
