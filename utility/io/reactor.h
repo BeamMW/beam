@@ -165,7 +165,6 @@ private:
     uv_async_t _stopEvent;
     MemPool<uv_handle_t, sizeof(Handles)> _handlePool;
     bool _creatingInternalObjects=false;
-    bool _running = false;
 
     std::unique_ptr<PendingWrites> _pendingWrites;
     std::unique_ptr<TcpConnectors> _tcpConnectors;
