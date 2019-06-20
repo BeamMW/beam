@@ -115,6 +115,12 @@ void AppModel::OnWalledOpened(const beam::SecString& pass)
 
 void AppModel::resetWalletImpl()
 {
+    if(m_settings.getRunLocalNode()) {
+        disconnect(&m_nodeModel, SIGNAL(startedNode()), this, SLOT(startedNode()));
+        disconnect(&m_nodeModel, SIGNAL(failedToStartNode(beam::wallet::ErrorType)), this, SLOT(onFailedToStartNode(beam::wallet::ErrorType)));
+        disconnect(&m_nodeModel, SIGNAL(failedToSyncNode(beam::wallet::ErrorType)), this, SLOT(onFailedToStartNode(beam::wallet::ErrorType)));
+    }
+
     assert(m_db);
     m_db.reset();
 
