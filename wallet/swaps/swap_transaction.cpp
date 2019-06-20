@@ -1211,7 +1211,7 @@ namespace beam::wallet
             state == State::Invitation ||
             state == State::HandlingContractTX) && GetParameter(TxParameterID::InternalFailureReason, reason, SubTxIndex::LOCK_TX))
         {
-            OnFailed(reason, false);
+            OnFailed(reason, true);
         }
     }
 
