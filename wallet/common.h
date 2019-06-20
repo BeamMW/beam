@@ -113,6 +113,7 @@ namespace beam::wallet
     MACRO(SwapNetworkBridgeError,       18, "Side chain bridge has network error") \
     MACRO(SwapFormatResponseError,      19, "Side chain bridge has format response error") \
     MACRO(InvalidCredentialsOfSideChain,   20, "Invalid credentials of Side chain") \
+    MACRO(FailedToCreateMultiSig,       21, "Failed to create mullti-signature") \
 
     enum TxFailureReason : int32_t
     {

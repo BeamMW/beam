@@ -56,23 +56,22 @@ namespace beam::wallet
     bool LockTxBuilder::CreateSharedUTXOProofPart2(bool isBeamOwner)
     {
         // load peer part2
-        if (!m_Tx.GetParameter(TxParameterID::PeerSharedBulletProofPart2, m_SharedProof.m_Part2, m_SubTxID))
+        m_SharedProof.m_Part2 = m_Tx.GetMandatoryParameter<RangeProof::Confidential::Part2>(TxParameterID::PeerSharedBulletProofPart2, m_SubTxID);
+
+        Output outp;
+        outp.m_Commitment = GetSharedCommitment();
+
+        Height minHeight = 0;
+        m_Tx.GetParameter(TxParameterID::MinHeight, minHeight, m_SubTxID);
+
+        Oracle oracle;
+        outp.Prepare(oracle, minHeight);
+
+        // produce multisig
+        if (!m_SharedProof.CoSign(GetSharedSeed(), GetSharedBlindingFactor(), GetProofCreatorParams(isBeamOwner), oracle, RangeProof::Confidential::Phase::Step2))
         {
             return false;
         }
-
-		Output outp;
-		outp.m_Commitment = GetSharedCommitment();
-
-		Height minHeight = 0;
-		m_Tx.GetParameter(TxParameterID::MinHeight, minHeight, m_SubTxID);
-
-        Oracle oracle;
-		outp.Prepare(oracle, minHeight);
-
-        // TODO: check error!
-        // produce multisig
-        m_SharedProof.CoSign(GetSharedSeed(), GetSharedBlindingFactor(), GetProofCreatorParams(isBeamOwner), oracle, RangeProof::Confidential::Phase::Step2);
 
         m_Tx.SetParameter(TxParameterID::SharedBulletProof, m_SharedProof, m_SubTxID);
 
@@ -81,28 +80,25 @@ namespace beam::wallet
 
     bool LockTxBuilder::CreateSharedUTXOProofPart3(bool isBeamOwner)
     {
-		Output outp;
-		outp.m_Commitment = GetSharedCommitment();
+        Output outp;
+        outp.m_Commitment = GetSharedCommitment();
 
-		Height minHeight = 0;
-		m_Tx.GetParameter(TxParameterID::MinHeight, minHeight, m_SubTxID);
+        Height minHeight = 0;
+        m_Tx.GetParameter(TxParameterID::MinHeight, minHeight, m_SubTxID);
 
-		Oracle oracle;
-		outp.Prepare(oracle, minHeight);
+        Oracle oracle;
+        outp.Prepare(oracle, minHeight);
 
-		if (isBeamOwner)
+        if (isBeamOwner)
         {
             // load peer part3
-            if (!m_Tx.GetParameter(TxParameterID::PeerSharedBulletProofPart3, m_SharedProof.m_Part3, m_SubTxID))
+            m_SharedProof.m_Part3 = m_Tx.GetMandatoryParameter<RangeProof::Confidential::Part3>(TxParameterID::PeerSharedBulletProofPart3, m_SubTxID);
+
+            // finalize proof
+            if (!m_SharedProof.CoSign(GetSharedSeed(), GetSharedBlindingFactor(), GetProofCreatorParams(isBeamOwner), oracle, RangeProof::Confidential::Phase::Finalize))
             {
                 return false;
             }
-
-            // TODO: check error!
-            // finalize proof
-            m_SharedProof.CoSign(GetSharedSeed(), GetSharedBlindingFactor(), GetProofCreatorParams(isBeamOwner), oracle, RangeProof::Confidential::Phase::Finalize);
-
-            m_Tx.SetParameter(TxParameterID::SharedBulletProof, m_SharedProof, m_SubTxID);
         }
         else
         {
@@ -112,8 +108,9 @@ namespace beam::wallet
 
             ZeroObject(m_SharedProof.m_Part3);
             msig.CoSignPart(GetSharedSeed(), GetSharedBlindingFactor(), oracle, m_SharedProof.m_Part3);
-            // TODO: save m_SharedProof ?
         }
+
+        m_Tx.SetParameter(TxParameterID::SharedBulletProof, m_SharedProof, m_SubTxID);
         return true;
     }
 

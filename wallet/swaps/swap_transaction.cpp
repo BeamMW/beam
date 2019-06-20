@@ -669,8 +669,6 @@ namespace beam::wallet
 
         if (!lockTxBuilder->GetInitialTxParams() && lockTxState == SubTxState::Initial)
         {
-            // TODO: check expired!
-
             if (isBeamOwner)
             {
                 Height maxResponseHeight = 0;
@@ -728,29 +726,24 @@ namespace beam::wallet
         {
             if (!lockTxBuilder->CreateSharedUTXOProofPart2(isBeamOwner))
             {
-                assert(false);
+                OnSubTxFailed(TxFailureReason::FailedToCreateMultiSig, SubTxIndex::BEAM_LOCK_TX, true);
                 return lockTxState;
             }
 
             if (!lockTxBuilder->CreateSharedUTXOProofPart3(isBeamOwner))
             {
-                assert(false);
+                OnSubTxFailed(TxFailureReason::FailedToCreateMultiSig, SubTxIndex::BEAM_LOCK_TX, true);
                 return lockTxState;
             }
 
-            if (lockTxState == SubTxState::Initial)
+            SetState(SubTxState::Constructed, SubTxIndex::BEAM_LOCK_TX);
+            lockTxState = SubTxState::Constructed;
+
+            if (!isBeamOwner)
             {
-                assert(!isBeamOwner);
                 // send part2/part3!
                 SendLockTxConfirmation(*lockTxBuilder);
-                SetState(SubTxState::Constructed, SubTxIndex::BEAM_LOCK_TX);
-                lockTxState = SubTxState::Constructed;
                 return lockTxState;
-            }
-            else
-            {
-                SetState(SubTxState::SharedUTXOProofDone, SubTxIndex::BEAM_LOCK_TX);
-                lockTxState = SubTxState::SharedUTXOProofDone;
             }
         }
 
@@ -767,8 +760,9 @@ namespace beam::wallet
 
         lockTxBuilder->FinalizeSignature();
 
-        if (isBeamOwner && lockTxState == SubTxState::Constructed)
+        if (isBeamOwner)
         {
+            assert(lockTxState == SubTxState::Constructed);
             // Create TX
             auto transaction = lockTxBuilder->CreateTransaction();
             TxBase::Context::Params pars;
@@ -936,7 +930,7 @@ namespace beam::wallet
 
     bool AtomicSwapTransaction::SendSubTx(Transaction::Ptr transaction, SubTxID subTxID)
     {
-		uint8_t nRegistered = proto::TxStatus::Unspecified;
+    	uint8_t nRegistered = proto::TxStatus::Unspecified;
         if (!GetParameter(TxParameterID::TransactionRegistered, nRegistered, subTxID))
         {
             m_Gateway.register_tx(GetTxID(), transaction, subTxID);

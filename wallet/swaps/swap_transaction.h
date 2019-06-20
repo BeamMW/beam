@@ -30,12 +30,7 @@ namespace beam::wallet
         {
             Initial,
             Invitation,
-            SharedUTXOProofDone,
-            Constructed,
-
-            InvitationConfirmation,
-            Registration,
-            KernelConfirmation
+            Constructed
         };
 
         class UninitilizedSecondSide : public std::exception
