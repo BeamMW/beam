@@ -177,6 +177,10 @@
         <source>Show in folder</source>
         <translation type="unfinished">Show in folder</translation>
     </message>
+    <message id="general-addr-comment-error">
+        <source>Address with same comment already exist</source>
+        <translation>Address with same comment already exist</translation>
+    </message>
     <message id="wallet-receive-button">
         <source>Receive</source>
         <translation type="unfinished">Receive</translation>
@@ -877,8 +881,8 @@
         <translation>交易状态无效</translation>
     </message>
     <message id="tx-curency-name">
-        <source>beams</source>
-        <translation>Beam</translation>
+        <source>BEAM</source>
+        <translation>BEAM</translation>
     </message>
     <message id="tx-curency-sub-name">
         <source>groths</source>
@@ -886,8 +890,8 @@
 </translation>
     </message>
     <message id="utxo-utxo">
-        <source>Utxo</source>
-        <translation type="unfinished">Utxo</translation>
+        <source>UTXO</source>
+        <translation>UTXO</translation>
     </message>
     <message id="utxo-blockchain-height">
         <source>Blockchain Height</source>
@@ -1035,12 +1039,6 @@
         <extracomment>show QR dialog message, how to use this QR</extracomment>
         <translation>此二维码将通过安全通道发送给发送者</translation>
     </message>
-    <message id="settings-general-allow-beammw-label-p1">
-        <source>&lt;style&gt;a:link {color: &apos;#00f6d2&apos;; text-decoration: none;}&lt;/style&gt;Allow access to &lt;a href=&apos;https://www.beam.mw/&apos;&gt;beam.mw&lt;/a&gt; and &lt;a href=&apos;https://explorer.beam.mw/&apos;&gt;blockchain explorer&lt;/a&gt; (to fetch exchanges and transaction data)</source>
-        <oldsource>&lt;style&gt;a:link {color: &apos;#00f6d2&apos;}&lt;/style&gt;Allow access to &lt;a href=&apos;https://www.beam.mw/&apos;&gt;beam.mw&lt;/a&gt; and &lt;a href=&apos;https://explorer.beam.mw/&apos;&gt;blockchain explorer&lt;/a&gt; (to fetch exchanges and transaction data)</oldsource>
-        <extracomment>general settings, label for alow access beam.mw part 1</extracomment>
-        <translation type="obsolete">&lt;style&gt;a:link {color: &apos;#00f6d2&apos;; text-decoration: none;}&lt;/style&gt;Allow access to &lt;a href=&apos;https://www.beam.mw/&apos;&gt;beam.mw&lt;/a&gt; and &lt;a href=&apos;https://explorer.beam.mw/&apos;&gt;blockchain explorer&lt;/a&gt; (to fetch exchanges and transaction data)</translation>
-    </message>
     <message id="settings-peers-title">
         <source>Peers</source>
         <extracomment>settings tab, node section, peers label</extracomment>
@@ -1052,14 +1050,18 @@
         <translation>节点</translation>
     </message>
     <message id="settings-general-allow-beammw-label">
-        <source>&lt;style&gt;a:link {color: &apos;#00f6d2&apos;; text-decoration: none;}&lt;/style&gt;Allow access to &lt;a href=&apos;https://www.beam.mw/&apos;&gt;beam.mw&lt;/a&gt; and &lt;a href=&apos;https://explorer.beam.mw/&apos;&gt;blockchain explorer&lt;/a&gt; (to fetch exchanges and transaction data)</source>
+        <source>Allow access to %1 and %2 (to fetch exchanges and transaction data)</source>
         <extracomment>general settings, label for alow open external links</extracomment>
-        <translation type="unfinished">&lt;style&gt;a:link {color: &apos;#00f6d2&apos;; text-decoration: none;}&lt;/style&gt;Allow access to &lt;a href=&apos;https://www.beam.mw/&apos;&gt;beam.mw&lt;/a&gt; and &lt;a href=&apos;https://explorer.beam.mw/&apos;&gt;blockchain explorer&lt;/a&gt; (to fetch exchanges and transaction data)</translation>
+        <translation type="unfinished">Allow access to %1 and %2 (to fetch exchanges and transaction data)</translation>
     </message>
     <message id="settings-report-problem-message">
-        <source>&lt;style&gt;a:link {color: &apos;#00f6d2&apos;; text-decoration: none;}&lt;/style&gt;To report a problem:&lt;br /&gt;1. Click “Save wallet logs” and choose a destination folder for log archive&lt;br /&gt;2. Send email to &lt;a href=&apos;mailto:support@beam.mw&apos;&gt;support@beam.mw&lt;/a&gt; or open a ticket in &lt;a href=&apos;https://github.com/BeamMW&apos;&gt;Github&lt;/a&gt;&lt;br /&gt;3. Don’t forget to attach logs archive</source>
+        <source>To report a problem:&lt;br /&gt;1. Click “Save wallet logs” and choose a destination folder for log archive&lt;br /&gt;2. Send email to %1 or open a ticket in %2 &lt;br /&gt;3. Don’t forget to attach logs archive</source>
         <extracomment>settings tab, report problem section, message</extracomment>
-        <translation type="unfinished">&lt;style&gt;a:link {color: &apos;#00f6d2&apos;; text-decoration: none;}&lt;/style&gt;To report a problem:&lt;br /&gt;1. Click “Save wallet logs” and choose a destination folder for log archive&lt;br /&gt;2. Send email to &lt;a href=&apos;mailto:support@beam.mw&apos;&gt;support@beam.mw&lt;/a&gt; or open a ticket in &lt;a href=&apos;https://github.com/BeamMW&apos;&gt;Github&lt;/a&gt;&lt;br /&gt;3. Don’t forget to attach logs archive</translation>
+        <translation type="unfinished">To report a problem:&lt;br /&gt;1. Click “Save wallet logs” and choose a destination folder for log archive&lt;br /&gt;2. Send email to %1 or open a ticket in %2 &lt;br /&gt;3. Don’t forget to attach logs archive</translation>
+    </message>
+    <message id="explorer">
+        <source>blockchain explorer</source>
+        <translation type="unfinished">blockchain explorer</translation>
     </message>
     <message id="edit-addr-24-option">
         <source>In 24 hours from now</source>
@@ -1130,16 +1132,6 @@
         <source>Very strong password</source>
         <extracomment>set passwort, difficulty message, very strong</extracomment>
         <translation>加强密码</translation>
-    </message>
-    <message id="edit-addr-comment-error">
-        <source>Address with same comment already exist</source>
-        <extracomment>Edit address dialog, address with same comment already exist error</extracomment>
-        <translation type="unfinished">Address with same comment already exist</translation>
-    </message>
-    <message id="create-addr-comment-error">
-        <source>Address with same comment already exist</source>
-        <extracomment>Create address, address with same comment already exist error</extracomment>
-        <translation type="unfinished">Address with same comment already exist</translation>
     </message>
     <message id="start-migration-select-file-button">
         <source>Select wallet database file manually</source>

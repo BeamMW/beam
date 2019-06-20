@@ -531,9 +531,8 @@ Item {
                             }
 
                             SFText {
-                                //: Create address, address with same comment already exist error
                                 //% "Address with same comment already exist"
-                                text: qsTrId("create-addr-comment-error")
+                                text: qsTrId("general-addr-comment-error")
                                 color: Style.validator_error
                                 font.pixelSize: 12
                                 visible: isAddressCommentDuplicated
