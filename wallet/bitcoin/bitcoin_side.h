@@ -38,6 +38,8 @@ namespace beam::wallet
         bool SendRefund() override;
         bool SendRedeem() override;
         bool IsLockTimeExpired() override;
+        bool HasEnoughTimeToProcessLockTx() override;
+        uint32_t GetTxTimeInBeamBlocks() const override;
 
     private:
         bool LoadSwapAddress();

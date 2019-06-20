@@ -18,5 +18,19 @@
 
 namespace beam::wallet
 {
-    using LitecoinSide = BitcoinSide;
+    class LitecoinSide : public BitcoinSide
+    {
+    public:
+
+        LitecoinSide(BaseTransaction& tx, std::shared_ptr<IBitcoinBridge> bitcoinBridge, bool isBeamSide)
+            : BitcoinSide(tx, bitcoinBridge, isBeamSide)
+        {
+        }
+
+        uint32_t GetTxTimeInBeamBlocks() const
+        {
+            // it's average value
+            return 20;
+        }
+    };
 }
