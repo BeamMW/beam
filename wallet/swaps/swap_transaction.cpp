@@ -726,14 +726,32 @@ namespace beam::wallet
 
         if (lockTxState == SubTxState::Initial || lockTxState == SubTxState::Invitation)
         {
-            if (!lockTxBuilder->SharedUTXOProofPart2(isBeamOwner))
+            if (!lockTxBuilder->CreateSharedUTXOProofPart2(isBeamOwner))
             {
+                assert(false);
                 return lockTxState;
             }
-            SendMultiSigProofPart2(*lockTxBuilder, isBeamOwner);
-            SetState(SubTxState::SharedUTXOProofPart2, SubTxIndex::BEAM_LOCK_TX);
-            lockTxState = SubTxState::SharedUTXOProofPart2;
-            return lockTxState;
+
+            if (!lockTxBuilder->CreateSharedUTXOProofPart3(isBeamOwner))
+            {
+                assert(false);
+                return lockTxState;
+            }
+
+            if (lockTxState == SubTxState::Initial)
+            {
+                assert(!isBeamOwner);
+                // send part2/part3!
+                SendLockTxConfirmation(*lockTxBuilder);
+                SetState(SubTxState::Constructed, SubTxIndex::BEAM_LOCK_TX);
+                lockTxState = SubTxState::Constructed;
+                return lockTxState;
+            }
+            else
+            {
+                SetState(SubTxState::SharedUTXOProofDone, SubTxIndex::BEAM_LOCK_TX);
+                lockTxState = SubTxState::SharedUTXOProofDone;
+            }
         }
 
         if (!lockTxBuilder->GetPeerSignature())
@@ -748,17 +766,6 @@ namespace beam::wallet
         }
 
         lockTxBuilder->FinalizeSignature();
-
-        if (lockTxState == SubTxState::SharedUTXOProofPart2)
-        {
-            if (!lockTxBuilder->SharedUTXOProofPart3(isBeamOwner))
-            {
-                return lockTxState;
-            }
-            SendMultiSigProofPart3(*lockTxBuilder, isBeamOwner);
-            SetState(SubTxState::Constructed, SubTxIndex::BEAM_LOCK_TX);
-            lockTxState = SubTxState::Constructed;
-        }
 
         if (isBeamOwner && lockTxState == SubTxState::Constructed)
         {
@@ -1094,7 +1101,9 @@ namespace beam::wallet
             .AddParameter(TxParameterID::SubTxIndex, SubTxIndex::BEAM_LOCK_TX)
             .AddParameter(TxParameterID::PeerMaxHeight, lockBuilder.GetMaxHeight())
             .AddParameter(TxParameterID::PeerPublicExcess, lockBuilder.GetPublicExcess())
-            .AddParameter(TxParameterID::PeerPublicNonce, lockBuilder.GetPublicNonce());
+            .AddParameter(TxParameterID::PeerPublicNonce, lockBuilder.GetPublicNonce())
+            .AddParameter(TxParameterID::PeerSharedBulletProofPart2, lockBuilder.GetRangeProofInitialPart2())
+            .AddParameter(TxParameterID::PeerPublicSharedBlindingFactor, lockBuilder.GetPublicSharedBlindingFactor());
 
         if (!SendTxParameters(std::move(msg)))
         {
@@ -1102,46 +1111,24 @@ namespace beam::wallet
         }
     }
 
-    void AtomicSwapTransaction::SendMultiSigProofPart2(const LockTxBuilder& lockBuilder, bool isMultiSigProofOwner)
+    void AtomicSwapTransaction::SendLockTxConfirmation(const LockTxBuilder& lockBuilder)
     {
+        auto bulletProof = lockBuilder.GetSharedProof();
+
         SetTxParameter msg;
         msg.AddParameter(TxParameterID::SubTxIndex, SubTxIndex::BEAM_LOCK_TX)
+            .AddParameter(TxParameterID::PeerPublicExcess, lockBuilder.GetPublicExcess())
+            .AddParameter(TxParameterID::PeerPublicNonce, lockBuilder.GetPublicNonce())
+            .AddParameter(TxParameterID::PeerMaxHeight, lockBuilder.GetMaxHeight())
             .AddParameter(TxParameterID::PeerSignature, lockBuilder.GetPartialSignature())
             .AddParameter(TxParameterID::PeerOffset, lockBuilder.GetOffset())
+            .AddParameter(TxParameterID::PeerSharedBulletProofPart2, lockBuilder.GetRangeProofInitialPart2())
+            .AddParameter(TxParameterID::PeerSharedBulletProofPart3, bulletProof.m_Part3)
             .AddParameter(TxParameterID::PeerPublicSharedBlindingFactor, lockBuilder.GetPublicSharedBlindingFactor());
-        if (isMultiSigProofOwner)
-        {
-            auto proofPartialMultiSig = lockBuilder.GetProofPartialMultiSig();
-            msg.AddParameter(TxParameterID::PeerSharedBulletProofMSig, proofPartialMultiSig);
-        }
-        else
-        {
-            auto bulletProof = lockBuilder.GetSharedProof();
-            msg.AddParameter(TxParameterID::PeerPublicExcess, lockBuilder.GetPublicExcess())
-                .AddParameter(TxParameterID::PeerPublicNonce, lockBuilder.GetPublicNonce())
-                .AddParameter(TxParameterID::PeerSharedBulletProofPart2, bulletProof.m_Part2)
-                .AddParameter(TxParameterID::PeerMaxHeight, lockBuilder.GetMaxHeight());
-        }
 
         if (!SendTxParameters(std::move(msg)))
         {
             OnFailed(TxFailureReason::FailedToSendParameters, false);
-        }
-    }
-
-    void AtomicSwapTransaction::SendMultiSigProofPart3(const LockTxBuilder& lockBuilder, bool isMultiSigProofOwner)
-    {
-        if (!isMultiSigProofOwner)
-        {
-            auto bulletProof = lockBuilder.GetSharedProof();
-            SetTxParameter msg;
-            msg.AddParameter(TxParameterID::SubTxIndex, SubTxIndex::BEAM_LOCK_TX)
-                .AddParameter(TxParameterID::PeerSharedBulletProofPart3, bulletProof.m_Part3);
-
-            if (!SendTxParameters(std::move(msg)))
-            {
-                OnFailed(TxFailureReason::FailedToSendParameters, false);
-            }
         }
     }
 
