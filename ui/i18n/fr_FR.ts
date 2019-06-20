@@ -1053,10 +1053,21 @@ Vous essayez de restaurer un portefeuille Beam existant. Veuillez noter que si v
         <extracomment>general settings, label for alow open external links</extracomment>
         <translation type="unfinished">Allow access to %1 and %2 (to fetch exchanges and transaction data)</translation>
     </message>
-    <message id="settings-report-problem-message">
-        <source>To report a problem:&lt;br /&gt;1. Click “Save wallet logs” and choose a destination folder for log archive&lt;br /&gt;2. Send email to %1 or open a ticket in %2 &lt;br /&gt;3. Don’t forget to attach logs archive</source>
-        <extracomment>settings tab, report problem section, message</extracomment>
-        <translation type="unfinished">To report a problem:&lt;br /&gt;1. Click “Save wallet logs” and choose a destination folder for log archive&lt;br /&gt;2. Send email to %1 or open a ticket in %2 &lt;br /&gt;3. Don’t forget to attach logs archive</translation>
+    <message id="settings-report-problem-message-l0">
+        <source>To report a problem:</source>
+        <translation type="unfinished">To report a problem:</translation>
+    </message>
+    <message id="settings-report-problem-message-l1">
+        <source>1. Click “Save wallet logs” and choose a destination folder for log archive</source>
+        <translation type="unfinished">1. Click “Save wallet logs” and choose a destination folder for log archive</translation>
+    </message>
+    <message id="settings-report-problem-message-l2">
+        <source>2. Send email to %1 or open a ticket in %2</source>
+        <translation type="unfinished">2. Send email to %1 or open a ticket in %2</translation>
+    </message>
+    <message id="settings-report-problem-message-l3">
+        <source>3. Don’t forget to attach logs archive</source>
+        <translation type="unfinished">3. Don’t forget to attach logs archive</translation>
     </message>
     <message id="explorer">
         <source>blockchain explorer</source>

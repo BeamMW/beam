@@ -1051,12 +1051,23 @@ Escanee este código QR o envíe esta dirección al remitente a través de un ca
     <message id="settings-general-allow-beammw-label">
         <source>Allow access to %1 and %2 (to fetch exchanges and transaction data)</source>
         <extracomment>general settings, label for alow open external links</extracomment>
-        <translation type="unfinished">Allow access to %1 and %2 (para buscar intercambios y datos de transacciones)</translation>
+        <translation>Allow access to %1 and %2 (para buscar intercambios y datos de transacciones)</translation>
     </message>
-    <message id="settings-report-problem-message">
-        <source>To report a problem:&lt;br /&gt;1. Click “Save wallet logs” and choose a destination folder for log archive&lt;br /&gt;2. Send email to %1 or open a ticket in %2 &lt;br /&gt;3. Don’t forget to attach logs archive</source>
-        <extracomment>settings tab, report problem section, message</extracomment>
-        <translation type="unfinished">To report a problem:&lt;br /&gt;1. Haga clic en &quot;Guardar registros de cartera&quot; y elija una carpeta de destino para el archivo de registro&lt;br /&gt;2. Enviar email a %1 o abrir ticket en %2 &lt;br /&gt;3. No olvide adjuntar los archivos de registro</translation>
+    <message id="settings-report-problem-message-l0">
+        <source>To report a problem:</source>
+        <translation>To report a problem</translation>
+    </message>
+    <message id="settings-report-problem-message-l1">
+        <source>1. Click “Save wallet logs” and choose a destination folder for log archive</source>
+        <translation>1. Haga clic en “Guardar registros de cartera” y elija una carpeta de destino para el archivo de registro</translation>
+    </message>
+    <message id="settings-report-problem-message-l2">
+        <source>2. Send email to %1 or open a ticket in %2</source>
+        <translation>2. Enviar email a %1 o abrir ticket en %2</translation>
+    </message>
+    <message id="settings-report-problem-message-l3">
+        <source>3. Don’t forget to attach logs archive</source>
+        <translation>3. No olvide adjuntar los archivos de registro</translation>
     </message>
     <message id="explorer">
         <source>blockchain explorer</source>

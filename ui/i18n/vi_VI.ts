@@ -1052,10 +1052,21 @@
         <extracomment>general settings, label for alow open external links</extracomment>
         <translation>Cho phép truy cập vào %1 và %2 (để lấy dữ liệu trao đổi và giao dịch)</translation>
     </message>
-    <message id="settings-report-problem-message">
-        <source>To report a problem:&lt;br /&gt;1. Click “Save wallet logs” and choose a destination folder for log archive&lt;br /&gt;2. Send email to %1 or open a ticket in %2 &lt;br /&gt;3. Don’t forget to attach logs archive</source>
-        <extracomment>settings tab, report problem section, message</extracomment>
-        <translation>&lt;style&gt;a:link {color: &apos;#00f6d2&apos;; text-decoration: none;}&lt;/style&gt;Để báo cáo sự cố:&lt;br /&gt;1. Nhấp vào Lưu Lưu nhật ký ví Nhật ký và chọn thư mục đích để lưu trữ nhật ký &lt; br/&gt;2. Gửi email đến &lt;a href=&apos;mailto: support@beam.mw&apos;&gt;support@beam.mw&lt;/a&gt; hoặc mở một vé trong &lt;a href=&apos;https://github.com/BeamMW&apos;&gt;Github&lt;/a&gt;&lt;br /&gt;3. Đừng để quên lưu trữ nhật ký</translation>
+    <message id="settings-report-problem-message-l0">
+        <source>To report a problem:</source>
+        <translation>Để báo cáo sự cố:</translation>
+    </message>
+    <message id="settings-report-problem-message-l1">
+        <source>1. Click “Save wallet logs” and choose a destination folder for log archive</source>
+        <translation>1. Nhấp vào Lưu Lưu nhật ký ví Nhật ký và chọn thư mục đích để lưu trữ nhật ký</translation>
+    </message>
+    <message id="settings-report-problem-message-l2">
+        <source>2. Send email to %1 or open a ticket in %2</source>
+        <translation>2. Gửi email đến %1 hoặc mở một vé trong %2</translation>
+    </message>
+    <message id="settings-report-problem-message-l3">
+        <source>3. Don’t forget to attach logs archive</source>
+        <translation>3. Đừng để quên lưu trữ nhật ký</translation>
     </message>
     <message id="explorer">
         <source>blockchain explorer</source>

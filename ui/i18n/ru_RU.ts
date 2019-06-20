@@ -1054,10 +1054,21 @@
         <extracomment>general settings, label for alow open external links</extracomment>
         <translation>Разрешить доступ к %1 и %2 (обменники и информация о транзакциях)</translation>
     </message>
-    <message id="settings-report-problem-message">
-        <source>To report a problem:&lt;br /&gt;1. Click “Save wallet logs” and choose a destination folder for log archive&lt;br /&gt;2. Send email to %1 or open a ticket in %2 &lt;br /&gt;3. Don’t forget to attach logs archive</source>
-        <extracomment>settings tab, report problem section, message</extracomment>
-        <translation>Что бы сообщить о проблеме:&lt;br /&gt;1. Нажмите “сохранить лог” и укажите куда сохранить архив&lt;br /&gt;2. Отправьте письмо на %1 или сообщите на %2 &lt;br /&gt;3. Не забудьте прикрепить архив</translation>
+    <message id="settings-report-problem-message-l0">
+        <source>To report a problem:</source>
+        <translation>Что бы сообщить о проблеме:</translation>
+    </message>
+    <message id="settings-report-problem-message-l1">
+        <source>1. Click “Save wallet logs” and choose a destination folder for log archive</source>
+        <translation>1. Нажмите “сохранить лог” и укажите куда сохранить архив</translation>
+    </message>
+    <message id="settings-report-problem-message-l2">
+        <source>2. Send email to %1 or open a ticket in %2</source>
+        <translation>2. Отправьте письмо на %1 или сообщите на %2</translation>
+    </message>
+    <message id="settings-report-problem-message-l3">
+        <source>3. Don’t forget to attach logs archive</source>
+        <translation>3. Не забудьте прикрепить архив</translation>
     </message>
     <message id="explorer">
         <source>blockchain explorer</source>

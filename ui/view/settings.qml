@@ -750,11 +750,17 @@ Rectangle {
                                 SFText {
                                     property string beamEmail: "<a href='mailto:support@beam.mw'>support@beam.mw</a>"
                                     property string beamGithub: "<a href='https://github.com/BeamMW'>Github</a>"
+                                    //% "To report a problem:"
+                                    property string rpm0: qsTrId("settings-report-problem-message-l0")
+                                    //% "1. Click “Save wallet logs” and choose a destination folder for log archive"
+                                    property string rpm1: qsTrId("settings-report-problem-message-l1")
+                                    //% "2. Send email to %1 or open a ticket in %2"
+                                    property string rpm2: qsTrId("settings-report-problem-message-l2").arg(beamEmail).arg(beamGithub)
+                                    //% "3. Don’t forget to attach logs archive"
+                                    property string rpm3: qsTrId("settings-report-problem-message-l3")
                                     Layout.topMargin: 7
                                     Layout.preferredWidth: 419
-                                    //: settings tab, report problem section, message
-                                    //% "To report a problem:<br />1. Click “Save wallet logs” and choose a destination folder for log archive<br />2. Send email to %1 or open a ticket in %2 <br />3. Don’t forget to attach logs archive"
-                                    text: linkStyle + qsTrId("settings-report-problem-message").arg(beamEmail).arg(beamGithub)
+                                    text: linkStyle + rpm0 + "<br />" + rpm1 + "<br />" + rpm2 + "<br />" + rpm3
                                     textFormat: Text.RichText
                                     color: Style.content_main
                                     font.pixelSize: 14
