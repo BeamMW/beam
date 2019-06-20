@@ -252,6 +252,17 @@ namespace beam::wallet
             {
                 if (!isBeamOwner)
                 {
+                    Height lockTxMaxHeight = MaxHeight;
+                    if (GetParameter(TxParameterID::MaxHeight, lockTxMaxHeight, SubTxIndex::BEAM_LOCK_TX))
+                    {
+                        Block::SystemState::Full systemState;
+                        if (GetTip(systemState) && systemState.m_Height > lockTxMaxHeight - kBtcTxTimeInBeamBlocks)
+                        {
+                            OnFailed(NotEnoughTimeToFinishBtcTx, true);
+                            break;
+                        }
+                    }
+                    
                     if (!m_secondSide->SendLockTx())
                         break;
 
@@ -1181,7 +1192,7 @@ namespace beam::wallet
             state == State::Invitation ||
             state == State::HandlingContractTX) && GetParameter(TxParameterID::InternalFailureReason, reason, SubTxIndex::LOCK_TX))
         {
-            OnFailed(reason, false);
+            OnFailed(reason, true);
         }
     }
 

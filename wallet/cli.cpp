@@ -840,27 +840,22 @@ namespace
     bool SaveExportedData(const ByteBuffer& data, const std::string& path)
     {
         FStream f;
-        if (f.Open(path.c_str(), false))
+        if (f.Open(path.c_str(), false) && f.write(data.data(), data.size()) == data.size())
         {
-            return f.write(data.data(), data.size()) == data.size();
+            LOG_INFO() << "Data has been successfully exported.";
+            return true;
         }
-        LOG_ERROR() << "Failed to save exported data";
+        LOG_ERROR() << "Failed to save exported data.";
         return false;
     }
 
-    int ExportAddresses(const po::variables_map& vm, const IWalletDB::Ptr& walletDB)
+    int ExportWalletData(const po::variables_map& vm, const IWalletDB::Ptr& walletDB)
     {
-        auto s = storage::ExportAddressesToJson(*walletDB);
+        auto s = storage::ExportDataToJson(*walletDB);
         return SaveExportedData(ByteBuffer(s.begin(), s.end()), vm[cli::IMPORT_EXPORT_PATH].as<string>()) ? 0 : -1;
     }
 
-    int ExportTransactions(const po::variables_map& vm, const IWalletDB::Ptr& walletDB)
-    {
-        auto s = storage::ExportTransactionsToJson(*walletDB);
-        return SaveExportedData(ByteBuffer(s.begin(), s.end()), vm[cli::IMPORT_EXPORT_PATH].as<string>()) ? 0 : -1;
-    }
-
-    int ImportAddresses(const po::variables_map& vm, const IWalletDB::Ptr& walletDB)
+    int ImportWalletData(const po::variables_map& vm, const IWalletDB::Ptr& walletDB)
     {
         ByteBuffer buffer;
         if (!LoadDataToImport(vm[cli::IMPORT_EXPORT_PATH].as<string>(), buffer))
@@ -868,18 +863,7 @@ namespace
             return -1;
         }
         const char* p = (char*)(&buffer[0]);
-        return storage::ImportAddressesFromJson(*walletDB, p, buffer.size()) ? 0 : -1;
-    }
-    
-    int ImportTransactions(const po::variables_map& vm, const IWalletDB::Ptr& walletDB)
-    {
-        ByteBuffer buffer;
-        if (!LoadDataToImport(vm[cli::IMPORT_EXPORT_PATH].as<string>(), buffer))
-        {
-            return -1;
-        }
-        const char* p = (char*)(&buffer[0]);
-        return storage::ImportTransactionsFromJson(*walletDB, p, buffer.size()) ? 0 : -1;
+        return storage::ImportDataFromJson(*walletDB, p, buffer.size()) ? 0 : -1;
     }
 
     CoinIDList GetPreselectedCoinIDs(const po::variables_map& vm)
@@ -1243,10 +1227,8 @@ int main_impl(int argc, char* argv[])
                             cli::GENERATE_PHRASE,
                             cli::WALLET_ADDRESS_LIST,
                             cli::WALLET_RESCAN,
-                            cli::IMPORT_ADDRESSES,
-                            cli::IMPORT_TRANSACTIONS,
-                            cli::EXPORT_ADDRESSES,
-                            cli::EXPORT_TRANSACTIONS,
+                            cli::IMPORT_DATA,
+                            cli::EXPORT_DATA,
                             cli::SWAP_INIT,
                             cli::SWAP_LISTEN
                         };
@@ -1359,24 +1341,14 @@ int main_impl(int argc, char* argv[])
                         return ExportOwnerKey(walletDB, pass);
                     }
 
-                    if (command == cli::EXPORT_ADDRESSES)
+                    if (command == cli::EXPORT_DATA)
                     {
-                        return ExportAddresses(vm, walletDB);
+                        return ExportWalletData(vm, walletDB);
                     }
 
-                    if (command == cli::EXPORT_TRANSACTIONS)
+                    if (command == cli::IMPORT_DATA)
                     {
-                        return ExportTransactions(vm, walletDB);
-                    }
-
-                    if (command == cli::IMPORT_ADDRESSES)
-                    {
-                        return ImportAddresses(vm, walletDB);
-                    }
-
-                    if (command == cli::IMPORT_TRANSACTIONS)
-                    {
-                        return ImportTransactions(vm, walletDB);
+                        return ImportWalletData(vm, walletDB);
                     }
 
                     {

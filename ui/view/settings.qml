@@ -7,7 +7,7 @@ import "controls"
 import Beam.Wallet 1.0
 
 Rectangle {
-
+    property string linkStyle: "<style>a:link {color: '#00f6d2'; text-decoration: none;}</style>"
     anchors.fill: parent
     color: Style.background_main
 
@@ -636,9 +636,12 @@ Rectangle {
                                     Layout.preferredHeight: 32
 
                                     SFText {
+                                        property string beamUrl: "<a href='https://www.beam.mw/'>beam.mw</a>"
+                                        //% "blockchain explorer"
+                                        property string explorerUrl: "<a href='https://explorer.beam.mw/'>%1</a>".arg(qsTrId("explorer"))
                                         //: general settings, label for alow open external links
-                                        //% "<style>a:link {color: '#00f6d2'; text-decoration: none;}</style>Allow access to <a href='https://www.beam.mw/'>beam.mw</a> and <a href='https://explorer.beam.mw/'>blockchain explorer</a> (to fetch exchanges and transaction data)"
-                                        text: qsTrId("settings-general-allow-beammw-label")
+                                        //% "Allow access to %1 and %2 (to fetch exchanges and transaction data)"
+                                        text: linkStyle + qsTrId("settings-general-allow-beammw-label").arg(beamUrl).arg(explorerUrl)
                                         textFormat: Text.RichText
                                         font.pixelSize: 14
                                         color: allowBeamMWLinks.palette.text
@@ -745,11 +748,19 @@ Rectangle {
                                     font.styleName: "Bold"; font.weight: Font.Bold
                                 }
                                 SFText {
+                                    property string beamEmail: "<a href='mailto:support@beam.mw'>support@beam.mw</a>"
+                                    property string beamGithub: "<a href='https://github.com/BeamMW'>Github</a>"
+                                    //% "To report a problem:"
+                                    property string rpm0: qsTrId("settings-report-problem-message-l0")
+                                    //% "1. Click “Save wallet logs” and choose a destination folder for log archive"
+                                    property string rpm1: qsTrId("settings-report-problem-message-l1")
+                                    //% "2. Send email to %1 or open a ticket in %2"
+                                    property string rpm2: qsTrId("settings-report-problem-message-l2").arg(beamEmail).arg(beamGithub)
+                                    //% "3. Don’t forget to attach logs archive"
+                                    property string rpm3: qsTrId("settings-report-problem-message-l3")
                                     Layout.topMargin: 7
                                     Layout.preferredWidth: 419
-                                    //: settings tab, report problem section, message
-                                    //% "<style>a:link {color: '#00f6d2'; text-decoration: none;}</style>To report a problem:<br />1. Click “Save wallet logs” and choose a destination folder for log archive<br />2. Send email to <a href='mailto:support@beam.mw'>support@beam.mw</a> or open a ticket in <a href='https://github.com/BeamMW'>Github</a><br />3. Don’t forget to attach logs archive"
-                                    text: qsTrId("settings-report-problem-message")
+                                    text: linkStyle + rpm0 + "<br />" + rpm1 + "<br />" + rpm2 + "<br />" + rpm3
                                     textFormat: Text.RichText
                                     color: Style.content_main
                                     font.pixelSize: 14

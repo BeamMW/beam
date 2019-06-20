@@ -902,6 +902,23 @@ void Node::Processor::OnGoUpTimer()
 	get_ParentObj().UpdateSyncStatus();
 }
 
+void Node::Processor::Stop()
+{
+    m_TaskProcessor.Stop();
+    m_bGoUpPending = false;
+    m_bFlushPending = false;
+
+    if (m_pGoUpTimer)
+    {
+        m_pGoUpTimer->cancel();
+    }
+
+    if (m_pFlushTimer)
+    {
+        m_pFlushTimer->cancel();
+    }
+}
+
 bool Node::Processor::EnumViewerKeys(IKeyWalker& w)
 {
     const Keys& keys = get_ParentObj().m_Keys;
@@ -1185,7 +1202,7 @@ Node::~Node()
 
     assert(m_setTasks.empty());
 
-	m_Processor.m_TaskProcessor.Stop();
+	m_Processor.Stop();
 
 	if (!std::uncaught_exceptions())
 		m_PeerMan.OnFlush();

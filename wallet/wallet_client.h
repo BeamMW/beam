@@ -124,9 +124,6 @@ namespace beam::wallet
         std::weak_ptr<Wallet> m_wallet;
         bool m_isConnected;
         boost::optional<ErrorType> m_walletError;
-
         std::string m_nodeAddrStr;
-
-        std::atomic<bool> m_isRunning;
     };
 }

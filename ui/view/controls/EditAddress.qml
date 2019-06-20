@@ -316,9 +316,8 @@ Dialog {
 			Item {
 				Layout.preferredHeight: 15
 				SFText {
-					//: Edit address dialog, address with same comment already exist error
 					//% "Address with same comment already exist"
-					text: qsTrId("edit-addr-comment-error")
+					text: qsTrId("general-addr-comment-error")
 					color: Style.validator_error
 					font.pixelSize: 12
 					visible: rootControl.isAddressWithCommentExist

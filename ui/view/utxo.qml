@@ -23,7 +23,7 @@ ColumnLayout {
             Layout.maximumHeight: 40
             font.pixelSize: 36
             color: Style.content_main
-            //% "Utxo"
+            //% "UTXO"
             text: qsTrId("utxo-utxo")
             font.capitalization: Font.AllUppercase
         }

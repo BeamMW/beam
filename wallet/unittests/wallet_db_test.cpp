@@ -570,7 +570,7 @@ void TestAddresses()
     WALLET_CHECK(addresses[0].m_duration == a.m_duration);
     WALLET_CHECK(addresses[0].m_OwnID == a.m_OwnID);
 
-    auto exported = storage::ExportAddressesToJson(*db);
+    auto exported = storage::ExportDataToJson(*db);
     WALLET_CHECK(!exported.empty());
  
     auto a2 = db->getAddress(a.m_walletID);
@@ -582,10 +582,19 @@ void TestAddresses()
     a2 = db->getAddress(a.m_walletID);
     WALLET_CHECK(!a2.is_initialized());
 
-    WALLET_CHECK(storage::ImportAddressesFromJson(*db, &exported[0], exported.size()));
+    WALLET_CHECK(storage::ImportDataFromJson(*db, &exported[0], exported.size()));
     {
         auto a3 = db->getAddress(a.m_walletID);
         WALLET_CHECK(a3.is_initialized());
+        addresses = db->getAddresses(true);
+    }
+
+    // check double import
+    WALLET_CHECK(storage::ImportDataFromJson(*db, &exported[0], exported.size()));
+    {
+        auto a3 = db->getAddress(a.m_walletID);
+        WALLET_CHECK(a3.is_initialized());
+        WALLET_CHECK(addresses == db->getAddresses(true));
     }
 }
 
@@ -636,10 +645,10 @@ void TestExportImportTx()
         wa2.m_OwnID,
         false);
 
-    auto exported = storage::ExportTransactionsToJson(*walletDB);
+    auto exported = storage::ExportDataToJson(*walletDB);
     walletDB->deleteTx(tr.m_txId);
     WALLET_CHECK(walletDB->getTxHistory().size() == 1);
-    WALLET_CHECK(storage::ImportTransactionsFromJson(*walletDB, &exported[0], exported.size()));
+    WALLET_CHECK(storage::ImportDataFromJson(*walletDB, &exported[0], exported.size()));
     auto _tr = walletDB->getTx(tr.m_txId);
     WALLET_CHECK(_tr.is_initialized());
     WALLET_CHECK(_tr.value().m_createTime == tr.m_createTime);
@@ -653,10 +662,10 @@ void TestExportImportTx()
         TxParameterID::MyAddressID,
         (*walletDB).AllocateKidRange(1),
         false);
-    exported = storage::ExportTransactionsToJson(*walletDB);
+    exported = storage::ExportDataToJson(*walletDB);
     walletDB->deleteTx(tr2.m_txId);
     WALLET_CHECK(walletDB->getTxHistory().size() == 1);
-    WALLET_CHECK(storage::ImportTransactionsFromJson(*walletDB, &exported[0], exported.size()));
+    WALLET_CHECK(storage::ImportDataFromJson(*walletDB, &exported[0], exported.size()));
     WALLET_CHECK(walletDB->getTxHistory().size() == 1);
     _tr = walletDB->getTx(tr2.m_txId);
     WALLET_CHECK(!_tr.is_initialized());

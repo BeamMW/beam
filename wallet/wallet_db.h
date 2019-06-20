@@ -98,6 +98,8 @@ namespace beam::wallet
         uint64_t  m_OwnID; // set for own address
         
         WalletAddress();
+        bool operator == (const WalletAddress& other) const;
+        bool operator != (const WalletAddress& other) const;
         bool isExpired() const;
         Timestamp getCreateTime() const;
         Timestamp getExpirationTime() const;
@@ -563,10 +565,8 @@ namespace beam::wallet
             static PaymentInfo FromByteBuffer(const ByteBuffer& data);
         };
 
-        std::string ExportAddressesToJson(const IWalletDB& db);
-        std::string ExportTransactionsToJson(const IWalletDB& db);
-        bool ImportAddressesFromJson(IWalletDB& db, const char* data, size_t size);
-        bool ImportTransactionsFromJson(IWalletDB& db, const char* data, size_t size);
+        std::string ExportDataToJson(const IWalletDB& db);
+        bool ImportDataFromJson(IWalletDB& db, const char* data, size_t size);
 
         std::string TxDetailsInfo(const IWalletDB::Ptr& db, const TxID& txID);
         ByteBuffer ExportPaymentProof(const IWalletDB& db, const TxID& txID);
