@@ -113,6 +113,7 @@ namespace beam::wallet
     MACRO(SwapNetworkBridgeError,       18, "Side chain bridge has network error") \
     MACRO(SwapFormatResponseError,      19, "Side chain bridge has format response error") \
     MACRO(InvalidCredentialsOfSideChain,   20, "Invalid credentials of Side chain") \
+    MACRO(NotEnoughTimeToFinishBtcTx,   21, "Not enough time to finish btc lock transaction") \
 
     enum TxFailureReason : int32_t
     {
