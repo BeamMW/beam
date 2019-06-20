@@ -22,8 +22,6 @@ namespace beam::wallet
     // TODO: Must be changed after tests!
     constexpr uint32_t kBeamLockTimeInBlocks = 140;
     constexpr Amount kMinFeeInGroth = 100;
-    // it's average value
-    constexpr uint32_t kBtcTxTimeInBeamBlocks = 70;
 
     enum SubTxIndex : SubTxID
     {
