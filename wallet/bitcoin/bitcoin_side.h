@@ -41,6 +41,8 @@ namespace beam::wallet
         bool HasEnoughTimeToProcessLockTx() override;
         uint32_t GetTxTimeInBeamBlocks() const override;
 
+        static bool CheckAmount(Amount amount, Amount feeRate);
+
     private:
         bool LoadSwapAddress();
         void InitSecret();

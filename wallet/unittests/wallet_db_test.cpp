@@ -636,14 +636,8 @@ void TestExportImportTx()
     tr2.m_status = TxStatus::Cancelled;
     tr2.m_change = 8;
     tr2.m_myId = wa2.m_walletID;
-    walletDB->saveTx(tr2);
-    storage::setTxParameter(
-        *walletDB,
-        tr2.m_txId,
-        1,
-        TxParameterID::MyAddressID,
-        wa2.m_OwnID,
-        false);
+    walletDB->saveTx(tr2); // without MyAddressID
+
 
     auto exported = storage::ExportDataToJson(*walletDB);
     walletDB->deleteTx(tr.m_txId);
