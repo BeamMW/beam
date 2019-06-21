@@ -78,8 +78,8 @@ T.TextField {
         modal: true
         dim: false
         Action {
-            //% "copy"
-            text: qsTrId("sf-text-input-cm-copy")
+            //% "Copy"
+            text: qsTrId("general-copy")
             icon.source: "qrc:/assets/icon-copy.svg"
             enabled: control.enabled && (control.echoMode === TextInput.Normal)
             onTriggered: {
@@ -94,8 +94,8 @@ T.TextField {
             }
         }
         Action {
-            //% "paste"
-            text: qsTrId("sf-text-input-cm-paste")
+            //% "Paste"
+            text: qsTrId("general-paste")
             icon.source: "qrc:/assets/icon-edit.svg"
             enabled: control.canPaste
             onTriggered: {

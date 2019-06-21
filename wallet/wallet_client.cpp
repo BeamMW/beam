@@ -14,6 +14,7 @@
 
 #include "wallet_client.h"
 #include "utility/log_rotation.h"
+#include "../core/block_rw.h"
 
 
 using namespace std;
@@ -229,9 +230,7 @@ namespace beam::wallet
         , m_async{ make_shared<WalletModelBridge>(*(static_cast<IWalletModelAsync*>(this)), *m_reactor) }
         , m_isConnected(false)
         , m_nodeAddrStr(nodeAddr)
-        , m_isRunning(false)
     {
-
     }
 
     WalletClient::~WalletClient()
@@ -240,9 +239,9 @@ namespace beam::wallet
         {
             if (m_reactor)
             {
-                m_reactor->stop();
                 if (m_thread)
                 {
+                    m_reactor->stop();
                     // TODO: check this
                     m_thread->join();
                 }
@@ -261,7 +260,6 @@ namespace beam::wallet
     {
         m_thread = std::make_shared<std::thread>([this]()
             {
-                m_isRunning = true;
                 try
                 {
                     std::unique_ptr<WalletSubscriber> wallet_subscriber;
@@ -372,7 +370,6 @@ namespace beam::wallet
                 catch (...) {
                     LOG_UNHANDLED_EXCEPTION();
                 }
-                m_isRunning = false;
             });
     }
 
@@ -388,7 +385,7 @@ namespace beam::wallet
 
     std::string WalletClient::exportOwnerKey(const beam::SecString& pass) const
     {
-        Key::IKdf::Ptr pKey = m_walletDB->get_ChildKdf(0);
+        Key::IKdf::Ptr pKey = m_walletDB->get_MasterKdf();
         const ECC::HKdf& kdf = static_cast<ECC::HKdf&>(*pKey);
 
         KeyString ks;
@@ -405,7 +402,12 @@ namespace beam::wallet
 
     bool WalletClient::isRunning() const
     {
-        return m_isRunning;
+        return m_thread && m_thread->joinable();
+    }
+
+    bool WalletClient::isFork1() const
+    {
+        return m_walletDB->getCurrentHeight() >= Rules::get().pForks[1].m_Height;
     }
 
     void WalletClient::onCoinsChanged()

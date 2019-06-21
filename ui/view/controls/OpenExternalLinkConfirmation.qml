@@ -7,7 +7,7 @@ import "."
 ConfirmationDialog {
     property string externalUrl
     property var onOkClicked: null
-    //% "open"
+    //% "Open"
     okButtonText: qsTrId("open-external-open")
     okButtonIconSource: "qrc:/assets/icon-external-link-black.svg"
     cancelVisible: true

@@ -27,9 +27,10 @@ namespace beam::wallet
         Transaction::Ptr CreateTransaction() override;
 
         void LoadSharedParameters();
-        bool SharedUTXOProofPart2(bool shouldProduceMultisig);
-        bool SharedUTXOProofPart3(bool shouldProduceMultisig);
+        bool CreateSharedUTXOProofPart2(bool isBeamOwner);
+        bool CreateSharedUTXOProofPart3(bool isBeamOwner);
 
+        ECC::RangeProof::Confidential::Part2 GetRangeProofInitialPart2() const;
         const ECC::RangeProof::Confidential& GetSharedProof() const;
         const ECC::RangeProof::Confidential::MultiSig& GetProofPartialMultiSig() const;
         ECC::Point::Native GetPublicSharedBlindingFactor() const;
@@ -42,7 +43,7 @@ namespace beam::wallet
 
         const ECC::uintBig& GetSharedSeed() const;
         const ECC::Scalar::Native& GetSharedBlindingFactor() const;
-        const ECC::RangeProof::CreatorParams& GetProofCreatorParams();
+        const ECC::RangeProof::CreatorParams& GetProofCreatorParams(bool isBeamOwner);
 
         ECC::Point::Native GetSharedCommitment();
 

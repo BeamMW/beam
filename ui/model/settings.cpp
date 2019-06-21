@@ -43,8 +43,12 @@ namespace
     const char* kDefaultLocale = "en_US";
 
     const std::map<QString, QString> kSupportedLangs { 
-        { "en_US", "English" }, 
-        { "ru_RU", "Русский" } 
+        { "zh_CN", "Chinese Simplified"},
+        { "en_US", "English" },
+        { "es_ES", "Español"},
+        { "fr_FR", "Française"},
+        { "ru_RU", "Русский" },
+        { "vi_VI", "Tiếng việt"}
     };
 }
 
@@ -277,6 +281,15 @@ QStringList WalletSettings::getSupportedLanguages()
                        return lang.second;
                    });
     return languagesNames;
+}
+
+// static
+void WalletSettings::openFolder(const QString& path)
+{
+    QFileInfo fileInfo(path);
+    QDesktopServices::openUrl(
+        QUrl::fromLocalFile(
+            fileInfo.isFile() ? fileInfo.absolutePath() : path));
 }
 
 void WalletSettings::reportProblem()

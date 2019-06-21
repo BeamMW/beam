@@ -25,6 +25,8 @@ namespace
     constexpr uint32_t kBTCLockTimeSec = 2 * 24 * 60 * 60;
     constexpr uint32_t kBTCWithdrawTxAverageSize = 240;
     constexpr uint32_t kBTCMaxHeightDifference = 10;
+    // it's average value
+    constexpr uint32_t kBtcTxTimeInBeamBlocks = 70;
 
     libbitcoin::chain::script AtomicSwapContract(const libbitcoin::ec_compressed& publicKeyA
         , const libbitcoin::ec_compressed& publicKeyB
@@ -184,6 +186,26 @@ namespace beam::wallet
         m_tx.GetParameter(TxParameterID::AtomicSwapExternalLockTime, lockHeight);
 
         return height >= lockHeight;
+    }
+
+    bool BitcoinSide::HasEnoughTimeToProcessLockTx()
+    {
+        Height lockTxMaxHeight = MaxHeight;
+        if (m_tx.GetParameter(TxParameterID::MaxHeight, lockTxMaxHeight, SubTxIndex::BEAM_LOCK_TX))
+        {
+            Block::SystemState::Full systemState;
+            if (m_tx.GetTip(systemState) && systemState.m_Height > lockTxMaxHeight - GetTxTimeInBeamBlocks())
+            {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    uint32_t BitcoinSide::GetTxTimeInBeamBlocks() const
+    {
+        // it's average value
+        return 70;
     }
 
     bool BitcoinSide::LoadSwapAddress()
@@ -438,6 +460,7 @@ namespace beam::wallet
         LOG_ERROR() << m_tx.GetTxID() << "[" << static_cast<SubTxID>(subTxID) << "]" << " Bridge internal error: type = " << error.m_type << "; message = " << error.m_message;
         switch (error.m_type)
         {
+        case IBitcoinBridge::EmptyResult:
         case IBitcoinBridge::InvalidResultFormat:
             m_tx.SetParameter(TxParameterID::InternalFailureReason, TxFailureReason::SwapFormatResponseError, false, subTxID);
             break;

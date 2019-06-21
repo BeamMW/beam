@@ -53,6 +53,7 @@ public:
 			HeightTxoLo, // Height starting from which and below Txo info is totally erased.
 			HeightTxoHi, // Height starting from which and below Txo infi is compacted, only the commitment is left
 			SyncData,
+			LastRecoveryHeight,
 		};
 	};
 
@@ -147,7 +148,8 @@ public:
 			TxoEnumBySpent,
 			TxoDelSpentTxosFrom,
 			TxoSetValue,
-            BlockFind,
+			TxoGetValue,
+			BlockFind,
 			FindHeightBelow,
 
 			Dbg0,
@@ -448,6 +450,7 @@ public:
 	void EnumTxosBySpent(WalkerTxo&, const HeightRange&);
 	uint64_t DeleteSpentTxos(const HeightRange&, TxoID id0); // delete Txos where (SpendHeight is within range) AND (TxoID >= id0)
 	void TxoSetValue(TxoID, const Blob&);
+	void TxoGetValue(WalkerTxo&, TxoID);
 
 	// reset cursor to zero. Keep all the data: local peers, bbs, dummy UTXOs
 	void ResetCursor();

@@ -469,154 +469,6 @@ void TestRollback()
     }
 }
 
-void TestBlockRollbackWithTx()
-{
-    cout << "\nWallet database rollback with tx test\n";
-    IWalletDB::Ptr db = createSqliteWalletDB();
-    TxID txID1 = { { 1, 3, 4, 5 ,65 } };
-    TxID txID2 = { {1, 3, 4} };
-    TxID txID3 = { {1, 3, 4, 9} };
-
-    Coin coin1 = CreateCoin(1, 6, 6);
-    coin1.m_createTxId = txID1;
-
-    Coin coin2 = CreateCoin(2, 4, 4, 6);
-    coin2.m_createTxId = txID2;
-    coin2.m_spentTxId = txID1;
-
-    Coin coin3 = CreateCoin(3, 6, 6);
-
-    {
-        TxDescription tx;
-        tx.m_txId = txID1;
-        tx.m_peerId.m_Pk = unsigned(23);
-        tx.m_peerId.m_Channel = 0U;
-        tx.m_myId.m_Pk = unsigned(42);
-        tx.m_myId.m_Channel = 0U;
-        tx.m_createTime = 123456;
-        tx.m_minHeight = 5;
-        tx.m_status = TxStatus::Completed;
-        tx.m_change = 0;
-        tx.m_amount = 2;
-        tx.m_sender = true;
-
-        db->saveTx(tx);
-
-        storage::setTxParameter(*db, txID1, wallet::TxParameterID::KernelUnconfirmedHeight, Height(5), false);
-        storage::setTxParameter(*db, txID1, wallet::TxParameterID::KernelProofHeight, Height(6), false);
-    }
-
-    {
-        TxDescription tx;
-        tx.m_txId = txID2;
-        tx.m_peerId.m_Pk = unsigned(23);
-        tx.m_peerId.m_Channel = 0U;
-        tx.m_myId.m_Pk = unsigned(42);
-        tx.m_myId.m_Channel = 0U;
-        tx.m_createTime = 123456;
-        tx.m_minHeight = 3;
-        tx.m_status = TxStatus::Completed;
-        tx.m_change = 0;
-        tx.m_amount = 2;
-        tx.m_sender = true;
-
-        db->saveTx(tx);
-        storage::setTxParameter(*db, txID2, wallet::TxParameterID::KernelUnconfirmedHeight, Height(3), false);
-        storage::setTxParameter(*db, txID2, wallet::TxParameterID::KernelProofHeight, Height(4), false);
-    }
-
-    {
-        TxDescription tx;
-        tx.m_txId = txID3;
-        tx.m_peerId.m_Pk = unsigned(23);
-        tx.m_peerId.m_Channel = 0U;
-        tx.m_myId.m_Pk = unsigned(42);
-        tx.m_myId.m_Channel = 0U;
-        tx.m_createTime = 123456;
-        tx.m_minHeight = 3;
-        tx.m_status = TxStatus::Completed;
-        tx.m_change = 0;
-        tx.m_amount = 2;
-        tx.m_sender = true;
-
-        db->saveTx(tx);
-
-        storage::setTxParameter(*db, txID3, wallet::TxParameterID::KernelProofHeight, Height(5), false);
-    }
-    
-    db->store(coin1);
-    db->store(coin2);
-    db->store(coin3);
-    {
-        auto transactions = db->getTxHistory();
-        WALLET_CHECK(transactions.size() == 3);
-        {
-            auto tx = db->getTx(txID1);
-            WALLET_CHECK(tx->canResume() == false);
-        }
-        {
-            auto tx = db->getTx(txID2);
-            WALLET_CHECK(tx->canResume() == false);
-        }
-        {
-            auto tx = db->getTx(txID3);
-            WALLET_CHECK(tx->canResume() == false);
-        }
-    }
-    db->rollbackConfirmedUtxo(5);
-    {
-        vector<Coin> coins;
-        db->visit([&coins](const Coin& c)->bool
-        {
-            coins.push_back(c);
-            return true;
-        });
-        WALLET_CHECK(coins.size() == 3);
-        WALLET_CHECK(coins[0].m_ID.m_Value == 1);
-        WALLET_CHECK(coins[0].m_confirmHeight == MaxHeight);
-        WALLET_CHECK(coins[0].m_status == Coin::Incoming);
-
-        WALLET_CHECK(coins[1].m_ID.m_Value == 2);
-        WALLET_CHECK(coins[1].m_confirmHeight == 4);
-        WALLET_CHECK(coins[1].m_status == Coin::Outgoing);
-
-        WALLET_CHECK(coins[2].m_ID.m_Value == 3);
-        WALLET_CHECK(coins[2].m_confirmHeight == MaxHeight);
-        WALLET_CHECK(coins[2].m_status == Coin::Unavailable);
-
-        auto transactions = db->getTxHistory();
-        WALLET_CHECK(transactions.size() == 3);
-        {
-            auto tx = db->getTx(txID1);
-            WALLET_CHECK(tx->m_status == TxStatus::Registering);
-            Height h = 0;
-            WALLET_CHECK(storage::getTxParameter(*db, txID1, wallet::TxParameterID::KernelProofHeight, h));
-            WALLET_CHECK(h == 0);
-            WALLET_CHECK(storage::getTxParameter(*db, txID1, wallet::TxParameterID::KernelUnconfirmedHeight, h));
-            WALLET_CHECK(h == 0);
-        }
-        {
-            auto tx = db->getTx(txID2);
-            WALLET_CHECK(tx->m_status == TxStatus::Completed);
-            Height h = 0;
-            WALLET_CHECK(storage::getTxParameter(*db, txID2, wallet::TxParameterID::KernelProofHeight, h));
-            WALLET_CHECK(h == 4);
-            WALLET_CHECK(storage::getTxParameter(*db, txID2, wallet::TxParameterID::KernelUnconfirmedHeight, h));
-            WALLET_CHECK(h == 3);
-        }
-        {
-            auto tx = db->getTx(txID3);
-            WALLET_CHECK(tx->m_status == TxStatus::Completed);
-            Height h = 0;
-            WALLET_CHECK(storage::getTxParameter(*db, txID3, wallet::TxParameterID::KernelProofHeight, h));
-            WALLET_CHECK(h == 5);
-            WALLET_CHECK(!storage::getTxParameter(*db, txID3, wallet::TxParameterID::KernelUnconfirmedHeight, h));
-
-        }
-    }
-
-}
-
 void TestTxRollback()
 {
     cout << "\nWallet database transaction rollback test\n";
@@ -718,7 +570,7 @@ void TestAddresses()
     WALLET_CHECK(addresses[0].m_duration == a.m_duration);
     WALLET_CHECK(addresses[0].m_OwnID == a.m_OwnID);
 
-    auto exported = storage::ExportAddressesToJson(*db);
+    auto exported = storage::ExportDataToJson(*db);
     WALLET_CHECK(!exported.empty());
  
     auto a2 = db->getAddress(a.m_walletID);
@@ -730,11 +582,93 @@ void TestAddresses()
     a2 = db->getAddress(a.m_walletID);
     WALLET_CHECK(!a2.is_initialized());
 
-    WALLET_CHECK(storage::ImportAddressesFromJson(*db, &exported[0], exported.size()));
+    WALLET_CHECK(storage::ImportDataFromJson(*db, &exported[0], exported.size()));
     {
         auto a3 = db->getAddress(a.m_walletID);
         WALLET_CHECK(a3.is_initialized());
+        addresses = db->getAddresses(true);
     }
+
+    // check double import
+    WALLET_CHECK(storage::ImportDataFromJson(*db, &exported[0], exported.size()));
+    {
+        auto a3 = db->getAddress(a.m_walletID);
+        WALLET_CHECK(a3.is_initialized());
+        WALLET_CHECK(addresses == db->getAddresses(true));
+    }
+}
+
+void TestExportImportTx()
+{
+    cout << "\nWallet database transactions export/import test\n";
+    auto walletDB = createSqliteWalletDB();
+
+    WalletAddress wa;
+    wa.m_OwnID = (*walletDB).AllocateKidRange(1);
+    wa.m_walletID = storage::generateWalletIDFromIndex(*walletDB, wa.m_OwnID);
+    TxDescription tr;
+    tr.m_txId = {{4, 5, 6, 7, 65}};
+    tr.m_amount = 52;
+    tr.m_createTime = 45613;
+    tr.m_minHeight = 185;
+    tr.m_sender = false;
+    tr.m_status = TxStatus::Pending;
+    tr.m_change = 8;
+    tr.m_myId = wa.m_walletID;
+    walletDB->saveTx(tr);
+    storage::setTxParameter(
+        *walletDB,
+        tr.m_txId,
+        1,
+        TxParameterID::MyAddressID,
+        wa.m_OwnID,
+        false);
+
+    WalletAddress wa2;
+    wa2.m_OwnID = (*walletDB).AllocateKidRange(1);
+    wa2.m_walletID = storage::generateWalletIDFromIndex(*walletDB, wa2.m_OwnID);
+    TxDescription tr2;
+    tr2.m_txId = {{7, 8, 9, 13}};
+    tr2.m_amount = 71;
+    tr2.m_minHeight = 285;
+    tr2.m_createTime = 4628;
+    tr2.m_modifyTime = 45285;
+    tr2.m_status = TxStatus::Cancelled;
+    tr2.m_change = 8;
+    tr2.m_myId = wa2.m_walletID;
+    walletDB->saveTx(tr2);
+    storage::setTxParameter(
+        *walletDB,
+        tr2.m_txId,
+        1,
+        TxParameterID::MyAddressID,
+        wa2.m_OwnID,
+        false);
+
+    auto exported = storage::ExportDataToJson(*walletDB);
+    walletDB->deleteTx(tr.m_txId);
+    WALLET_CHECK(walletDB->getTxHistory().size() == 1);
+    WALLET_CHECK(storage::ImportDataFromJson(*walletDB, &exported[0], exported.size()));
+    auto _tr = walletDB->getTx(tr.m_txId);
+    WALLET_CHECK(_tr.is_initialized());
+    WALLET_CHECK(_tr.value().m_createTime == tr.m_createTime);
+    WALLET_CHECK(_tr.value().m_minHeight == tr.m_minHeight);
+    WALLET_CHECK(walletDB->getTxHistory().size() == 2);
+
+    storage::setTxParameter(
+        *walletDB,
+        tr2.m_txId,
+        1,
+        TxParameterID::MyAddressID,
+        (*walletDB).AllocateKidRange(1),
+        false);
+    exported = storage::ExportDataToJson(*walletDB);
+    walletDB->deleteTx(tr2.m_txId);
+    WALLET_CHECK(walletDB->getTxHistory().size() == 1);
+    WALLET_CHECK(storage::ImportDataFromJson(*walletDB, &exported[0], exported.size()));
+    WALLET_CHECK(walletDB->getTxHistory().size() == 1);
+    _tr = walletDB->getTx(tr2.m_txId);
+    WALLET_CHECK(!_tr.is_initialized());
 }
 
 vector<Coin::ID> ExtractIDs(const vector<Coin>& src)
@@ -1254,7 +1188,6 @@ int main()
     TestStoreTxRecord();
     TestTxRollback();
     TestRollback();
-    TestBlockRollbackWithTx();
     TestSelect();
     TestSelect2();
     TestSelect3();
@@ -1262,6 +1195,7 @@ int main()
     TestSelect5();
     TestSelect6();
     TestAddresses();
+    TestExportImportTx();
     TestTxParameters();
     TestWalletMessages();
 

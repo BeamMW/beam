@@ -13,12 +13,13 @@
 // limitations under the License.
 
 //#include <ctime>
-#include "block_crypt.h"
+#include "block_rw.h"
 #include "utility/serialize.h"
 #include "utilstrencodings.h"
 #include "core/serialization_adapters.h"
 #include "aes.h"
 #include "pkcs5_pbkdf2.h"
+#include "radixtree.h"
 
 namespace beam
 {
@@ -639,6 +640,102 @@ namespace beam
 
 		if (nRes)
 			throw std::runtime_error("pbkdf2 fail");
+	}
+
+	/////////////
+	// RecoveryInfo
+	void RecoveryInfo::Reader::ThrowRulesMismatch()
+	{
+		throw std::runtime_error("Rules mismatch");
+	}
+
+	void RecoveryInfo::Writer::Open(const char* sz, const Block::ChainWorkProof& cwp)
+	{
+		m_Stream.Open(sz, false, true);
+		yas::binary_oarchive<std::FStream, SERIALIZE_OPTIONS> ser(m_Stream);
+
+		Height hMax = cwp.m_Heading.m_Prefix.m_Height + cwp.m_Heading.m_vElements.size() - 1;
+
+		const Rules& r = Rules::get();
+
+		uint32_t nForks = 0;
+		for (; nForks < _countof(r.pForks); nForks++)
+		{
+			if (hMax < r.pForks[nForks].m_Height)
+				break;
+		}
+
+		ser & nForks;
+		for (uint32_t iFork = 0; iFork < nForks; iFork++)
+			ser & r.pForks[iFork].m_Hash;
+
+		ser & cwp;
+	}
+
+	void RecoveryInfo::Reader::Open(const char* sz)
+	{
+		m_Stream.Open(sz, true, true);
+		yas::binary_iarchive<std::FStream, SERIALIZE_OPTIONS> der(m_Stream);
+
+		uint32_t nForks = 0;
+		der & nForks;
+
+		const Rules& r = Rules::get();
+		if (nForks > _countof(r.pForks))
+			ThrowRulesMismatch();
+
+		for (uint32_t iFork = 0; iFork < nForks; iFork++)
+		{
+			ECC::Hash::Value hv;
+			der & hv;
+
+			if (hv != r.pForks[iFork].m_Hash)
+				ThrowRulesMismatch();
+		}
+
+		der & m_Cwp;
+
+		if (!m_Cwp.IsValid(&m_Tip))
+			throw "CWP error";
+
+		if ((nForks < _countof(r.pForks)) && (m_Tip.m_Height >= r.pForks[nForks].m_Height))
+			ThrowRulesMismatch();
+	}
+
+	void RecoveryInfo::Writer::Write(const Entry& x)
+	{
+		yas::binary_oarchive<std::FStream, SERIALIZE_OPTIONS> ser(m_Stream);
+		ser & x;
+	}
+
+	bool RecoveryInfo::Reader::Read(Entry& x)
+	{
+		if (!m_Stream.get_Remaining())
+			return false;
+
+		yas::binary_iarchive<std::FStream, SERIALIZE_OPTIONS> der(m_Stream);
+		der & x;
+
+		UtxoTree::Key::Data d;
+		d.m_Commitment = x.m_Output.m_Commitment;
+		d.m_Maturity = x.m_Output.get_MinMaturity(x.m_CreateHeight);
+
+		UtxoTree::Key key;
+		key = d;
+
+		if (!m_UtxoTree.Add(key))
+			throw "UTXO order mismatch";
+
+		return true;
+	}
+
+	void RecoveryInfo::Reader::Finalyze()
+	{
+		Merkle::Hash hv;
+		m_UtxoTree.Flush(hv);
+
+		if (!(m_Cwp.m_hvRootLive == hv))
+			throw "UTXO hash mismatch";
 	}
 
 } // namespace beam

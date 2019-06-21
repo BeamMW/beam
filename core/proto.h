@@ -54,8 +54,8 @@ namespace proto {
 
 #define BeamNodeMsg_GetBodyPack(macro) \
     macro(Block::SystemState::ID, Top) \
-    macro(bool, ExcludeP) \
-    macro(bool, ExcludeE) \
+    macro(uint8_t, FlagP) \
+    macro(uint8_t, FlagE) \
     macro(Height, CountExtra) \
     macro(Height, Height0) \
     macro(Height, HorizonLo1) \
@@ -339,6 +339,12 @@ namespace proto {
 	            & m_Perishable
 	            & m_Eternal;
 	    }
+
+		// flags w.r.t. body request
+		static const uint8_t Full = 0; // default
+		static const uint8_t None = 1;
+		static const uint8_t Recovery1 = 2; // part suitable for recovery (version 1). Suitable for Outputs
+
 	};
 
     enum Unused_ { Unused };

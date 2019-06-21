@@ -149,8 +149,7 @@ namespace beam::wallet
         ECC::Scalar SignSync(const std::vector<Key::IDV>& inputs, const std::vector<Key::IDV>& outputs, const ECC::Scalar::Native& offset, size_t nonceSlot, const ECC::Hash::Value& message, const ECC::Point::Native& publicNonce, const ECC::Point::Native& commitment) override;
 
     private:
-        ECC::uintBig GetSeedKid(Key::IPKdf& tagKdf, const ECC::Point& commitment) const;
-        Key::IKdf::Ptr GetChildKdf(Key::Index iKdf) const;
+		Key::IKdf::Ptr GetChildKdf(const Key::IDV&) const;
         ECC::Scalar::Native GetNonce(size_t slot);
         ECC::Scalar::Native GetExcess(const std::vector<Key::IDV>& inputs, const std::vector<Key::IDV>& outputs, const ECC::Scalar::Native& offset) const;
         void LoadNonceSeeds();
@@ -184,6 +183,8 @@ namespace beam::wallet
     {
     public:
         using Ptr = std::shared_ptr<BaseTransaction>;
+        using Creator = std::function<BaseTransaction::Ptr(INegotiatorGateway&, IWalletDB::Ptr, IPrivateKeyKeeper::Ptr, const TxID&)>;
+
         BaseTransaction(INegotiatorGateway& gateway
                       , IWalletDB::Ptr walletDB
                       , IPrivateKeyKeeper::Ptr keyKeeper

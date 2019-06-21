@@ -35,8 +35,8 @@ RowLayout {
             Layout.alignment: Qt.AlignTop
             font.pixelSize: 14
             color: Style.content_secondary
-            //% "Sending address:"
-            text: qsTrId("tx-details-sending-addr-label")
+            //% "Sending address"
+            text: qsTrId("tx-details-sending-addr-label") + ":"
         }
         SFLabel {
             Layout.fillWidth: true
@@ -55,8 +55,8 @@ RowLayout {
             Layout.alignment: Qt.AlignTop
             font.pixelSize: 14
             color: Style.content_secondary
-            //% "Receiving address:"
-            text: qsTrId("tx-details-receiving-addr-label")
+            //% "Receiving address"
+            text: qsTrId("tx-details-receiving-addr-label") + ":"
         }
         SFLabel {
             Layout.fillWidth: true
@@ -75,8 +75,8 @@ RowLayout {
             Layout.alignment: Qt.AlignTop
             font.pixelSize: 14
             color: Style.content_secondary
-            //% "Transaction fee:"
-            text: qsTrId("tx-details-fee-label")
+            //% "Transaction fee"
+            text: qsTrId("general-fee") + ":"
         }
         SFLabel {
             Layout.fillWidth: true
@@ -93,8 +93,8 @@ RowLayout {
             Layout.alignment: Qt.AlignTop
             font.pixelSize: 14
             color: Style.content_secondary
-            //% "Comment:"
-            text: qsTrId("tx-details-comment-label")
+            //% "Comment"
+            text: qsTrId("general-comment") + ":"
         }
         SFLabel {
             Layout.fillWidth: true
@@ -114,8 +114,8 @@ RowLayout {
             Layout.alignment: Qt.AlignTop
             font.pixelSize: 14
             color: Style.content_secondary
-            //% "Transaction ID:"
-            text: qsTrId("tx-details-tx-id-label")
+            //% "Transaction ID"
+            text: qsTrId("tx-details-tx-id-label") + ":"
         }
         SFLabel {
             Layout.fillWidth: true
@@ -132,8 +132,8 @@ RowLayout {
             Layout.alignment: Qt.AlignTop
             font.pixelSize: 14
             color: Style.content_secondary
-            //% "Kernel ID:"
-            text: qsTrId("tx-details-kernel-id-label")
+            //% "Kernel ID"
+            text: qsTrId("general-kernel-id") + ":"
         }
         SFLabel {
             Layout.fillWidth: true
@@ -151,8 +151,8 @@ RowLayout {
             Layout.alignment: Qt.AlignTop
             font.pixelSize: 14
             color: Style.content_secondary
-            //% "Error: "
-            text: qsTrId("tx-details-error-label")
+            //% "Error"
+            text: qsTrId("tx-details-error-label") + ":"
             visible: model ? model.failureReason.length > 0 : false
         }
         SFLabel {
@@ -197,15 +197,15 @@ RowLayout {
             font.pixelSize: 14
             color: Style.content_main
             //% "Payment proof"
-            text: qsTrId("tx-details-payment-proof-label")
+            text: qsTrId("general-payment-proof")
             font.styleName: "Bold"; font.weight: Font.Bold
             Layout.columnSpan: 2
         }
         Row {
             spacing: 20
             CustomButton {
-                //% "details"
-                text: qsTrId("tx-details-details-button")
+                //% "Details"
+                text: qsTrId("general-details")
                 icon.source: "qrc:/assets/icon-details.svg"
                 icon.width: 21
                 icon.height: 14
@@ -213,8 +213,8 @@ RowLayout {
                 onClicked: showDetails();
             }
             CustomButton {
-                //% "copy"
-                text: qsTrId("tx-details-copy-button")
+                //% "Copy"
+                text: qsTrId("general-copy")
                 icon.source: "qrc:/assets/icon-copy.svg"
                 enabled: model ? model.hasPaymentProof && !model.isSelfTx() : false
                 onClicked: {

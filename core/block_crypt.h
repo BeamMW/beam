@@ -32,6 +32,12 @@ namespace beam
 
 	using ECC::Key;
 
+	namespace MasterKey
+	{
+		Key::IKdf::Ptr get_Child(Key::IKdf&, Key::Index);
+		Key::IKdf::Ptr get_Child(const Key::IKdf::Ptr&, const Key::IDV&);
+	}
+
 	Timestamp getTimestamp();
 	uint32_t GetTime_ms(); // platform-independent GetTickCount
 	uint32_t GetTimeNnz_ms(); // guaranteed non-zero
@@ -163,6 +169,7 @@ namespace beam
 		static void get_sk1(ECC::Scalar::Native& res, const ECC::Point::Native& comm0, const ECC::Point::Native& sk0_J);
 		void CreateInternal(ECC::Scalar::Native&, ECC::Point::Native&, bool bComm, Key::IKdf& kdf, const Key::IDV& kidv) const;
 		void AddValue(ECC::Point::Native& comm, Amount) const;
+		static void get_Hash(ECC::Hash::Value&, const Key::IDV&);
 	public:
 
 		ECC::Point::Native m_hGen;
@@ -491,12 +498,12 @@ namespace beam
 			NonceType m_Nonce; // 8 bytes. The overall solution size is 96 bytes.
 			Difficulty m_Difficulty;
 
-			bool IsValid(const void* pInput, uint32_t nSizeInput) const;
+			bool IsValid(const void* pInput, uint32_t nSizeInput, Height) const;
 
 			using Cancel = std::function<bool(bool bRetrying)>;
 			// Difficulty and Nonce must be initialized. During the solution it's incremented each time by 1.
 			// returns false only if cancelled
-			bool Solve(const void* pInput, uint32_t nSizeInput, const Cancel& = [](bool) { return false; });
+			bool Solve(const void* pInput, uint32_t nSizeInput, Height, const Cancel& = [](bool) { return false; });
 
 		private:
 			struct Helper;
@@ -539,7 +546,9 @@ namespace beam
 
 				bool IsSane() const;
 				bool IsValidPoW() const;
-				bool IsValid() const { return IsSane() && IsValidPoW(); }
+				bool IsValid() const {
+					return IsSane() && IsValidPoW(); 
+				}
                 bool GeneratePoW(const PoW::Cancel& = [](bool) { return false; });
 
 				// the most robust proof verification - verifies the whole proof structure
@@ -742,98 +751,6 @@ namespace beam
 		bool IsValidBlock();
 	};
 
-	class Block::BodyBase::RW
-		:public Block::BodyBase::IMacroReader
-		,public Block::BodyBase::IMacroWriter
-	{
-
-	public:
-
-#define MBLOCK_DATA_Types(macro) \
-		macro(hd) \
-		macro(ui) \
-		macro(uo) \
-		macro(ko) \
-		macro(kx)
-
-		struct Type
-		{
-			enum Enum {
-#define THE_MACRO(x) x,
-				MBLOCK_DATA_Types(THE_MACRO)
-#undef THE_MACRO
-				count
-			};
-		};
-
-		static const char* const s_pszSufix[Type::count];
-
-	private:
-
-		std::FStream m_pS[Type::count];
-
-		Input::Ptr m_pGuardUtxoIn[2];
-		Output::Ptr m_pGuardUtxoOut[2];
-		TxKernel::Ptr m_pGuardKernel[2];
-
-		Height m_pMaturity[Type::count]; // some are used as maturity, some have different meaning.
-		// Those are aliases, used in read mode
-		uint64_t& m_KrnSizeTotal() { return m_pMaturity[Type::hd]; }
-		uint64_t& m_KrnThresholdPos() { return m_pMaturity[Type::kx]; }
-
-		template <typename T>
-		void LoadInternal(const T*& pPtr, int, typename T::Ptr* ppGuard);
-		bool LoadMaturity(int);
-		void NextKernelThreshold();
-
-		template <typename T>
-		void WriteInternal(const T&, int);
-		void WriteMaturity(const TxElement&, int);
-
-		bool OpenInternal(int iData);
-		void PostOpen(int iData);
-		void Open(bool bRead);
-
-	public:
-
-		RW() :m_bAutoDelete(false) {}
-		~RW();
-
-		// do not modify between Open() and Close()
-		bool m_bRead;
-		bool m_bAutoDelete;
-		std::string m_sPath;
-		Merkle::Hash m_hvContentTag; // needed to make sure all the files indeed belong to the same data set
-
-		void GetPath(std::string&, int iData) const;
-
-		void ROpen();
-		void WCreate();
-
-		void Flush();
-		void Close();
-		void Delete(); // must be closed
-
-		void NextKernelFF(Height hMin);
-
-		// IReader
-		virtual void Clone(Ptr&) override;
-		virtual void Reset() override;
-		virtual void NextUtxoIn() override;
-		virtual void NextUtxoOut() override;
-		virtual void NextKernel() override;
-		// IMacroReader
-		virtual void get_Start(BodyBase&, SystemState::Sequence::Prefix&) override;
-		virtual bool get_NextHdr(SystemState::Sequence::Element&) override;
-		// IWriter
-		virtual void Write(const Input&) override;
-		virtual void Write(const Output&) override;
-		virtual void Write(const TxKernel&) override;
-		// IMacroWriter
-		virtual void put_Start(const BodyBase&, const SystemState::Sequence::Prefix&) override;
-		virtual void put_NextHdr(const SystemState::Sequence::Element&) override;
-	};
-
 	struct Block::ChainWorkProof
 	{
 		// Compressed consecutive states (likely to appear at the end)
@@ -880,30 +797,19 @@ namespace beam
 				& m_LowerBound;
 		}
 
+		struct IStateWalker
+		{
+			virtual bool OnState(const SystemState::Full&, bool bIsTip) = 0;
+		};
+
+		// enumerates all the embedded states in standard order (from lo to hi)
+		bool EnumStates(IStateWalker&) const;
+		void UnpackStates(std::vector<SystemState::Full>&) const;
+
 	private:
 		struct Sampler;
 		bool IsValidInternal(size_t& iState, size_t& iHash, const Difficulty::Raw& lowerBound, SystemState::Full* pTip) const;
 		void ZeroInit();
-	};
-
-	struct KeyString
-	{
-		std::string m_sRes;
-		std::string m_sMeta;
-		ECC::NoLeak<Merkle::Hash> m_hvSecret;
-
-		void Export(const ECC::HKdf&);
-		void Export(const ECC::HKdfPub&);
-		bool Import(ECC::HKdf&);
-		bool Import(ECC::HKdfPub&);
-		void SetPassword(const std::string&);
-		void SetPassword(const Blob&);
-
-	private:
-		typedef uintBig_t<8> MacValue;
-		void XCrypt(MacValue&, uint32_t nSize, bool bEnc) const;
-
-		void Export(void*, uint32_t, uint8_t nCode);
-		bool Import(void*, uint32_t, uint8_t nCode);
+		bool EnumStatesHeadingOnly(IStateWalker&) const; // skip arbitrary
 	};
 }

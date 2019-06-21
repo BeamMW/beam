@@ -1819,8 +1819,8 @@ bool NodeProcessor::HandleBlockElement(const Input& v, Height h, const Height* p
 		}
 
 		t.m_pCu = &cu;
-		t.m_pBound[0] = kMin.m_pArr;
-		t.m_pBound[1] = kMax.m_pArr;
+		t.m_pBound[0] = kMin.V.m_pData;
+		t.m_pBound[1] = kMax.V.m_pData;
 
 		if (m_Utxos.Traverse(t))
 			return false;
@@ -2292,15 +2292,16 @@ Timestamp NodeProcessor::get_MovingMedian()
 	return thw.first;
 }
 
-bool NodeProcessor::ValidateTxWrtHeight(const Transaction& tx)
+bool NodeProcessor::ValidateTxWrtHeight(const Transaction& tx, const HeightRange& hr)
 {
 	Height h = m_Cursor.m_Sid.m_Height + 1;
+	if (!hr.IsInRange(h))
+		return false;
 
 	for (size_t i = 0; i < tx.m_vKernels.size(); i++)
 	{
 		const TxKernel& krn = *tx.m_vKernels[i];
-		if (!krn.m_Height.IsInRange(h))
-			return false;
+		assert(krn.m_Height.IsInRange(h));
 
 		if (krn.m_pRelativeLock)
 		{
@@ -2315,12 +2316,13 @@ bool NodeProcessor::ValidateTxWrtHeight(const Transaction& tx)
 				return false;
 		}
 	}
+
 	return true;
 }
 
-bool NodeProcessor::ValidateTxContext(const Transaction& tx)
+bool NodeProcessor::ValidateTxContext(const Transaction& tx, const HeightRange& hr)
 {
-	if (!ValidateTxWrtHeight(tx))
+	if (!ValidateTxWrtHeight(tx, hr))
 		return false;
 
 	Height h = m_Cursor.m_Sid.m_Height;
@@ -2362,26 +2364,14 @@ bool NodeProcessor::ValidateTxContext(const Transaction& tx)
 
 		UtxoTree::Cursor cu;
 		t.m_pCu = &cu;
-		t.m_pBound[0] = kMin.m_pArr;
-		t.m_pBound[1] = kMax.m_pArr;
+		t.m_pBound[0] = kMin.V.m_pData;
+		t.m_pBound[1] = kMax.V.m_pData;
 
 		if (m_Utxos.Traverse(t))
 			return false; // some input UTXOs are missing
 	}
 
 	return true;
-}
-
-void NodeProcessor::DeleteOutdated(TxPool::Fluff& txp)
-{
-	for (TxPool::Fluff::ProfitSet::iterator it = txp.m_setProfit.begin(); txp.m_setProfit.end() != it; )
-	{
-		TxPool::Fluff::Element& x = (it++)->get_ParentObj();
-		Transaction& tx = *x.m_pValue;
-
-		if (!ValidateTxContext(tx))
-			txp.Delete(x);
-	}
 }
 
 size_t NodeProcessor::GenerateNewBlockInternal(BlockContext& bc)
@@ -2477,7 +2467,7 @@ size_t NodeProcessor::GenerateNewBlockInternal(BlockContext& bc)
 
 		Transaction& tx = *x.m_pValue;
 
-		if (ValidateTxWrtHeight(tx) && HandleValidatedTx(tx.get_Reader(), h, true))
+		if (ValidateTxWrtHeight(tx, x.m_Threshold.m_Height) && HandleValidatedTx(tx.get_Reader(), h, true))
 		{
 			TxVectors::Writer(bc.m_Block, bc.m_Block).Dump(tx.get_Reader());
 

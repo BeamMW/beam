@@ -16,6 +16,7 @@
 #include "../core/serialization_adapters.h"
 #include "../core/proto.h"
 #include "../core/ecc_native.h"
+#include "../core/block_rw.h"
 
 #include "../p2p/protocol.h"
 #include "../p2p/connection.h"
@@ -580,6 +581,22 @@ void Node::Processor::FlushInsanePeers()
     }
 }
 
+void Node::Processor::DeleteOutdated()
+{
+	TxPool::Fluff& txp = get_ParentObj().m_TxPool;
+	for (TxPool::Fluff::Queue::iterator it = txp.m_Queue.begin(); txp.m_Queue.end() != it; )
+	{
+		TxPool::Fluff::Element& x = (it++)->get_ParentObj();
+		if (!x.m_pValue)
+			continue;
+		Transaction& tx = *x.m_pValue;
+
+		if (!ValidateTxContext(tx, x.m_Threshold.m_Height))
+			txp.Delete(x);
+	}
+}
+
+
 void Node::Processor::OnNewState()
 {
     m_Cwp.Reset();
@@ -592,8 +609,7 @@ void Node::Processor::OnNewState()
 	if (IsFastSync())
 		return;
 
-    //get_ParentObj().m_TxPool.DeleteOutOfBound(m_Cursor.m_Sid.m_Height + 1);
-    get_ParentObj().m_Processor.DeleteOutdated(get_ParentObj().m_TxPool); // Better to delete all irrelevant txs explicitly, even if the node is supposed to mine
+    DeleteOutdated(); // Better to delete all irrelevant txs explicitly, even if the node is supposed to mine
     // because in practice mining could be OFF (for instance, if miner key isn't defined, and owner wallet is offline).
 
     if (get_ParentObj().m_Miner.IsEnabled())
@@ -630,6 +646,54 @@ void Node::Processor::OnNewState()
 	IObserver* pObserver = get_ParentObj().m_Cfg.m_Observer;
 	if (pObserver)
 		pObserver->OnStateChanged();
+
+	get_ParentObj().MaybeGenerateRecovery();
+}
+
+void Node::MaybeGenerateRecovery()
+{
+	if (!m_PostStartSynced || m_Cfg.m_Recovery.m_sPathOutput.empty() || !m_Cfg.m_Recovery.m_Granularity)
+		return;
+
+	Height h0 = m_Processor.get_DB().ParamIntGetDef(NodeDB::ParamID::LastRecoveryHeight);
+	const Height& h1 = m_Processor.m_Cursor.m_ID.m_Height; // alias
+	if (h1 < h0 + m_Cfg.m_Recovery.m_Granularity)
+		return;
+
+	LOG_INFO() << "Generating recovery...";
+
+	std::ostringstream os;
+	os
+		<< m_Cfg.m_Recovery.m_sPathOutput
+		<< m_Processor.m_Cursor.m_ID;
+
+	std::string sPath = os.str();
+
+	std::string sTmp = sPath;
+	sTmp += ".tmp";
+
+	bool bOk = GenerateRecoveryInfo(sTmp.c_str());
+	if (bOk)
+	{
+#ifdef WIN32
+		bOk =
+			MoveFileExW(Utf8toUtf16(sTmp.c_str()).c_str(), Utf8toUtf16(sPath.c_str()).c_str(), MOVEFILE_REPLACE_EXISTING) ||
+			(GetLastError() == ERROR_FILE_NOT_FOUND);
+#else // WIN32
+		bOk =
+			!rename(sTmp.c_str(), sPath.c_str()) ||
+			(ENOENT == errno);
+#endif // WIN32
+	}
+
+	if (bOk) {
+		LOG_INFO() << "Recovery generation done";
+		m_Processor.get_DB().ParamSet(NodeDB::ParamID::LastRecoveryHeight, &h1, nullptr);
+	} else
+	{
+		LOG_INFO() << "Recovery generation failed";
+		beam::DeleteFile(sTmp.c_str());
+	}
 }
 
 void Node::Processor::OnRolledBack()
@@ -836,6 +900,23 @@ void Node::Processor::OnGoUpTimer()
 	TryGoUp();
 	get_ParentObj().RefreshCongestions();
 	get_ParentObj().UpdateSyncStatus();
+}
+
+void Node::Processor::Stop()
+{
+    m_TaskProcessor.Stop();
+    m_bGoUpPending = false;
+    m_bFlushPending = false;
+
+    if (m_pGoUpTimer)
+    {
+        m_pGoUpTimer->cancel();
+    }
+
+    if (m_pFlushTimer)
+    {
+        m_pFlushTimer->cancel();
+    }
 }
 
 bool Node::Processor::EnumViewerKeys(IKeyWalker& w)
@@ -1121,7 +1202,7 @@ Node::~Node()
 
     assert(m_setTasks.empty());
 
-	m_Processor.m_TaskProcessor.Stop();
+	m_Processor.Stop();
 
 	if (!std::uncaught_exceptions())
 		m_PeerMan.OnFlush();
@@ -1790,10 +1871,7 @@ void Node::Peer::OnMsg(proto::GetBodyPack&& msg)
 						sid.m_Row = p.FindActiveAtStrict(sid.m_Height);
 
 						proto::BodyBuffers bb;
-						if (!p.GetBlock(sid,
-							msg.m_ExcludeE ? nullptr : &bb.m_Eternal,
-							msg.m_ExcludeP ? nullptr : &bb.m_Perishable,
-							msg.m_Height0, msg.m_HorizonLo1, msg.m_HorizonHi1))
+						if (!GetBlock(bb, sid, msg))
 							break;
 
 						nSize += bb.m_Eternal.size() + bb.m_Perishable.size();
@@ -1813,10 +1891,7 @@ void Node::Peer::OnMsg(proto::GetBodyPack&& msg)
 			else
 			{
 				proto::Body msgBody;
-				if (p.GetBlock(sid,
-					msg.m_ExcludeE ? nullptr : &msgBody.m_Body.m_Eternal,
-					msg.m_ExcludeP ? nullptr : &msgBody.m_Body.m_Perishable,
-					msg.m_Height0, msg.m_HorizonLo1, msg.m_HorizonHi1))
+				if (GetBlock(msgBody.m_Body, sid, msg))
 				{
 					Send(msgBody);
 					return;
@@ -1839,6 +1914,59 @@ void Node::Peer::OnMsg(proto::GetBodyPack&& msg)
 
     proto::DataMissing msgMiss(Zero);
     Send(msgMiss);
+}
+
+bool Node::Peer::GetBlock(proto::BodyBuffers& out, const NodeDB::StateID& sid, const proto::GetBodyPack& msg)
+{
+	ByteBuffer* pP = nullptr;
+	ByteBuffer* pE = nullptr;
+
+	switch (msg.m_FlagE)
+	{
+	case proto::BodyBuffers::Full:
+		pE = &out.m_Eternal;
+		// no break;
+	case proto::BodyBuffers::None:
+		break;
+	default:
+		ThrowUnexpected();
+	}
+
+	switch (msg.m_FlagP)
+	{
+	case proto::BodyBuffers::Recovery1:
+	case proto::BodyBuffers::Full:
+		pP = &out.m_Perishable;
+		// no break;
+	case proto::BodyBuffers::None:
+		break;
+	default:
+		ThrowUnexpected();
+	}
+
+	if (!m_This.m_Processor.GetBlock(sid, pE, pP, msg.m_Height0, msg.m_HorizonLo1, msg.m_HorizonHi1))
+		return false;
+
+	if (proto::BodyBuffers::Recovery1 == msg.m_FlagP)
+	{
+		Block::Body block;
+
+		Deserializer der;
+		der.reset(out.m_Perishable);
+		der & Cast::Down<Block::BodyBase>(block);
+		der & Cast::Down<TxVectors::Perishable>(block);
+
+		for (size_t i = 0; i < block.m_vOutputs.size(); i++)
+			block.m_vOutputs[i]->m_RecoveryOnly = true;
+
+		Serializer ser;
+		ser & Cast::Down<Block::BodyBase>(block);
+		ser & Cast::Down<TxVectors::Perishable>(block);
+
+		ser.swap_buf(out.m_Perishable);
+	}
+
+	return true;
 }
 
 void Node::Peer::OnMsg(proto::Body&& msg)
@@ -1946,10 +2074,12 @@ void Node::Peer::OnMsg(proto::NewTransaction&& msg)
 
 uint8_t Node::ValidateTx(Transaction::Context& ctx, const Transaction& tx)
 {
+	ctx.m_Height.m_Min = m_Processor.m_Cursor.m_ID.m_Height + 1;
+
 	if (!(m_Processor.ValidateAndSummarize(ctx, tx, tx.get_Reader()) && ctx.IsValidTransaction()))
 		return proto::TxStatus::Invalid;
 
-	if (!m_Processor.ValidateTxContext(tx))
+	if (!m_Processor.ValidateTxContext(tx, ctx.m_Height))
 		return proto::TxStatus::InvalidContext;
 
 	if (ctx.m_Height.m_Min >= Rules::get().pForks[1].m_Height)
@@ -2042,7 +2172,6 @@ uint8_t Node::OnTransactionStem(Transaction::Ptr&& ptx, const Peer* pPeer)
 
 	Transaction::Context::Params pars;
 	Transaction::Context ctx(pars);
-	ctx.m_Height.m_Min = m_Processor.m_Cursor.m_ID.m_Height + 1;
     bool bTested = false;
     TxPool::Stem::Element* pDup = NULL;
 
@@ -2104,6 +2233,7 @@ uint8_t Node::OnTransactionStem(Transaction::Ptr&& ptx, const Peer* pPeer)
         pGuard->m_Profit.m_Fee = ctx.m_Fee;
         pGuard->m_Profit.SetSize(*ptx);
         pGuard->m_pValue.swap(ptx);
+		pGuard->m_Height = ctx.m_Height;
 
         m_Dandelion.InsertKrn(*pGuard);
 
@@ -2226,14 +2356,14 @@ void Node::AddDummyInputs(Transaction& tx)
 		Key::IKdf::Ptr pChild;
 		Key::IKdf* pKdf = nullptr;
 
-		if (kidv.m_SubIdx == m_Keys.m_nMinerSubIndex)
+		if (kidv.get_Subkey() == m_Keys.m_nMinerSubIndex)
 			pKdf = m_Keys.m_pMiner.get();
 		else
 		{
 			// was created by other miner. If we have the root key - we can recreate its key
 			if (!m_Keys.m_nMinerSubIndex)
 			{
-				ECC::HKdf::CreateChild(pChild, *m_Keys.m_pMiner, kidv.m_SubIdx);
+				ECC::HKdf::CreateChild(pChild, *m_Keys.m_pMiner, kidv.get_Subkey());
 				pKdf = pChild.get();
 			}
 		}
@@ -2266,8 +2396,8 @@ void Node::AddDummyInputs(Transaction& tx)
 
 			UtxoTree::Cursor cu;
 			t.m_pCu = &cu;
-			t.m_pBound[0] = kMin.m_pArr;
-			t.m_pBound[1] = kMax.m_pArr;
+			t.m_pBound[0] = kMin.V.m_pData;
+			t.m_pBound[1] = kMax.V.m_pData;
 
 			bFound = !m_Processor.get_Utxos().Traverse(t);
 			if (bFound)
@@ -2310,7 +2440,7 @@ void Node::AddDummyOutputs(Transaction& tx)
     {
 		Key::IDV kidv(Zero);
 		kidv.m_Type = Key::Type::Decoy;
-		kidv.m_SubIdx = m_Keys.m_nMinerSubIndex;
+		kidv.set_Subkey(m_Keys.m_nMinerSubIndex);
 
 		while (true)
 		{
@@ -2360,10 +2490,13 @@ bool Node::OnTransactionFluff(Transaction::Ptr&& ptxArg, const Peer* pPeer, TxPo
 
 	Transaction::Context::Params pars;
 	Transaction::Context ctx(pars);
-	ctx.m_Height.m_Min = m_Processor.m_Cursor.m_ID.m_Height + 1;
     if (pElem)
     {
+		if (!pElem->m_Height.IsInRange(m_Processor.m_Cursor.m_ID.m_Height + 1))
+			return false;
+
         ctx.m_Fee = pElem->m_Profit.m_Fee;
+		ctx.m_Height = pElem->m_Height;
         m_Dandelion.Delete(*pElem);
     }
     else
@@ -2444,9 +2577,9 @@ void Node::Dandelion::OnTimedOut(Element& x)
         get_ParentObj().OnTransactionFluff(std::move(x.m_pValue), NULL, &x);
 }
 
-bool Node::Dandelion::ValidateTxContext(const Transaction& tx)
+bool Node::Dandelion::ValidateTxContext(const Transaction& tx, const HeightRange& hr)
 {
-    return get_ParentObj().m_Processor.ValidateTxContext(tx);
+    return get_ParentObj().m_Processor.ValidateTxContext(tx, hr);
 }
 
 void Node::Peer::OnLogin(proto::Login&& msg)
@@ -2763,8 +2896,8 @@ void Node::Peer::OnMsg(proto::GetProofUtxo&& msg)
 		d.m_Maturity = Height(-1);
 		kMax = d;
 
-		t.m_pBound[0] = kMin.m_pArr;
-		t.m_pBound[1] = kMax.m_pArr;
+		t.m_pBound[0] = kMin.V.m_pData;
+		t.m_pBound[1] = kMax.V.m_pData;
 
 		t.m_pTree->Traverse(t);
 	}
@@ -3539,9 +3672,10 @@ IExternalPOW::BlockFoundResult Node::Miner::OnMinedExternal()
 {
 	std::string jobID_;
 	Block::PoW POW;
+	Height h;
 
 	assert(m_External.m_pSolver);
-	m_External.m_pSolver->get_last_found_block(jobID_, POW);
+	m_External.m_pSolver->get_last_found_block(jobID_, h, POW);
 
 	char* szEnd = nullptr;
 	uint64_t jobID = strtoul(jobID_.c_str(), &szEnd, 10);
@@ -3884,6 +4018,79 @@ PeerManager::PeerInfo* Node::PeerMan::AllocPeer()
 void Node::PeerMan::DeletePeer(PeerInfo& pi)
 {
     delete (PeerInfoPlus*)&pi;
+}
+
+bool Node::GenerateRecoveryInfo(const char* szPath)
+{
+	if (!m_Processor.BuildCwp())
+		return false; // no info yet
+
+	struct MyTraveler
+		:public RadixTree::ITraveler
+	{
+		RecoveryInfo::Writer m_Writer;
+		NodeDB* m_pDB;
+
+		virtual bool OnLeaf(const RadixTree::Leaf& x) override
+		{
+			const UtxoTree::MyLeaf& n = Cast::Up<UtxoTree::MyLeaf>(x);
+			UtxoTree::Key::Data d;
+			d = n.m_Key;
+
+			if (n.IsExt())
+			{
+				for (auto it = n.m_pIDs->begin(); n.m_pIDs->end() != it; it++)
+					OnUtxo(d, *it);
+			}
+			else
+				OnUtxo(d, n.m_ID);
+
+			return true;
+		}
+
+		void OnUtxo(const UtxoTree::Key::Data& d, TxoID id)
+		{
+			NodeDB::WalkerTxo wlk(*m_pDB);
+			m_pDB->TxoGetValue(wlk, id);
+
+			Deserializer der;
+			der.reset(wlk.m_Value.p, wlk.m_Value.n);
+
+			RecoveryInfo::Entry val;
+			der & val.m_Output;
+
+			// 2 ways to discover the UTXO create height: either directly by looking its TxoID in States table, or reverse-engineer it from Maturity
+			// Since currently maturity delta is independent of current height (not a function of height, not changed in current forks) - we prefer the 2nd method, which is faster.
+
+			//NodeDB::StateID sid;
+			//m_pDB->FindStateByTxoID(sid, id);
+			//val.m_CreateHeight = sid.m_Height;
+			//assert(val.m_Output.get_MinMaturity(val.m_CreateHeight) == d.m_Maturity);
+
+			val.m_CreateHeight = d.m_Maturity - val.m_Output.get_MinMaturity(0);
+
+			assert(val.m_Output.m_Commitment == d.m_Commitment);
+			val.m_Output.m_RecoveryOnly = true;
+
+			m_Writer.Write(val);
+		}
+	};
+
+	MyTraveler ctx;
+	ctx.m_pDB = &m_Processor.get_DB();
+
+	try
+	{
+		ctx.m_Writer.Open(szPath, m_Processor.m_Cwp);
+		m_Processor.get_Utxos().Traverse(ctx);
+	}
+	catch (const std::exception& ex)
+	{
+		LOG_ERROR() << ex.what();
+		return false;
+	}
+
+	return true;
 }
 
 } // namespace beam

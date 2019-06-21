@@ -20,6 +20,7 @@
 #include "../../core/fly_client.h"
 #include "../../core/serialization_adapters.h"
 #include "../../core/treasury.h"
+#include "../../core/block_rw.h"
 #include "../../utility/test_helpers.h"
 #include "../../utility/serialize.h"
 #include "../../core/unittest/mini_blockchain.h"
@@ -710,7 +711,7 @@ namespace beam
 				MyUtxo utxoOut;
 				utxoOut.m_Kidv.m_Value = val - mk.m_Fee;
 				utxoOut.m_Kidv.m_Idx = ++m_nRunningIndex;
-				utxoOut.m_Kidv.m_SubIdx = 0;
+				utxoOut.m_Kidv.set_Subkey(0);
 				utxoOut.m_Kidv.m_Type = Key::Type::Regular;
 
 				ToOutput(utxoOut, tx, kOffset, h, hIncubation);
@@ -738,7 +739,7 @@ namespace beam
 
 			Transaction::Context::Params pars;
 			Transaction::Context ctx(pars);
-			ctx.m_Height.m_Min = h;
+			ctx.m_Height.m_Min = h + 1;
 			bool isTxValid = tx.IsValid(ctx);
 			verify_test(isTxValid);
 		}
@@ -786,8 +787,10 @@ namespace beam
 				if (!np.m_Wallet.MakeTx(pTx, np.m_Cursor.m_ID.m_Height, hIncubation))
 					break;
 
-				verify_test(np.ValidateTxContext(*pTx));
-				verify_test(np.ValidateTxWrtHeight(*pTx));
+				HeightRange hr(np.m_Cursor.m_ID.m_Height + 1, MaxHeight);
+
+				verify_test(np.ValidateTxContext(*pTx, hr));
+				verify_test(np.ValidateTxWrtHeight(*pTx, hr));
 
 				Transaction::Context::Params pars;
 				Transaction::Context ctx(pars);
@@ -1417,6 +1420,35 @@ namespace beam
 
 
 		pReactor->run();
+
+		node.GenerateRecoveryInfo(g_sz3);
+
+		RecoveryInfo::Reader rp;
+
+		Block::SystemState::Full sTip;
+		rp.Open(g_sz3);
+
+		uint32_t nUnrecognized = 0;
+		while (true)
+		{
+			RecoveryInfo::Entry x;
+			if (!rp.Read(x))
+				break;
+
+			Key::IDV kidv;
+			bool b1 = x.m_Output.Recover(x.m_CreateHeight, *node.m_Keys.m_pOwner, kidv);
+			bool b2 = x.m_Output.Recover(x.m_CreateHeight, *node2.m_Keys.m_pOwner, kidv);
+			if (!(b1 || b2))
+			{
+				verify_test(!x.m_CreateHeight); // treasury
+				nUnrecognized++;
+				verify_test(nUnrecognized <= 1);
+			}
+		}
+
+		rp.Finalyze(); // final verification
+
+		DeleteFile(g_sz3);
 	}
 
 
@@ -2261,6 +2293,7 @@ int main()
 	beam::Rules::get().Emission.Drop0 = 5;
 	beam::Rules::get().Emission.Drop1 = 8;
 	beam::Rules::get().CA.Enabled = true;
+	beam::Rules::get().Maturity.Coinbase = 10;
 	beam::Rules::get().pForks[1].m_Height = 16;
 	beam::Rules::get().UpdateChecksum();
 

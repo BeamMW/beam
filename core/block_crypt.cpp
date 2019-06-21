@@ -119,6 +119,24 @@ namespace beam
 	}
 
 	/////////////
+	// MasterKey
+	Key::IKdf::Ptr MasterKey::get_Child(Key::IKdf& kdf, Key::Index iSubkey)
+	{
+		Key::IKdf::Ptr pRes;
+		ECC::HKdf::CreateChild(pRes, kdf, iSubkey);
+		return pRes;
+	}
+
+	Key::IKdf::Ptr MasterKey::get_Child(const Key::IKdf::Ptr& pKdf, const Key::IDV& kidv)
+	{
+		Key::Index iSubkey = kidv.get_Subkey();
+		if (!iSubkey)
+			return pKdf; // by convention: scheme V0, Subkey=0 - is a master key
+
+		return get_Child(*pKdf, iSubkey);
+	}
+
+	/////////////
 	// SwitchCommitment
 	SwitchCommitment::SwitchCommitment(const AssetID* pAssetID /* = nullptr */)
 	{
@@ -157,10 +175,30 @@ namespace beam
 		ECC::Tag::AddValue(comm, &m_hGen, v);
 	}
 
+	void SwitchCommitment::get_Hash(ECC::Hash::Value& hv, const Key::IDV& kidv)
+	{
+		Key::Index nScheme = kidv.get_Scheme();
+		if (nScheme)
+		{
+			// newer scheme - account for the Value.
+			// Make it infeasible to tamper with value for unknown blinding factor
+			ECC::Hash::Processor()
+				<< "kidv-1"
+				<< kidv.m_Idx
+				<< kidv.m_Type.V
+				<< kidv.m_SubIdx
+				<< kidv.m_Value
+				>> hv;
+		}
+		else
+			kidv.get_Hash(hv); // legacy
+	}
 
 	void SwitchCommitment::CreateInternal(ECC::Scalar::Native& sk, ECC::Point::Native& comm, bool bComm, Key::IKdf& kdf, const Key::IDV& kidv) const
 	{
-		kdf.DeriveKey(sk, kidv);
+		ECC::Hash::Value hv;
+		get_Hash(hv, kidv);
+		kdf.DeriveKey(sk, hv);
 
 		comm = ECC::Context::get().G * sk;
 		AddValue(comm, kidv.m_Value);
@@ -196,7 +234,7 @@ namespace beam
 	void SwitchCommitment::Recover(ECC::Point::Native& res, Key::IPKdf& pkdf, const Key::IDV& kidv) const
 	{
 		ECC::Hash::Value hv;
-		kidv.get_Hash(hv);
+		get_Hash(hv, kidv);
 
 		ECC::Point::Native sk0_J;
 		pkdf.DerivePKeyJ(sk0_J, hv);
@@ -1182,7 +1220,7 @@ namespace beam
 
 		Merkle::Hash hv;
 		get_HashForPoW(hv);
-		return m_PoW.IsValid(hv.m_pData, hv.nBytes);
+		return m_PoW.IsValid(hv.m_pData, hv.nBytes, m_Height);
 	}
 
     bool Block::SystemState::Full::GeneratePoW(const PoW::Cancel& fnCancel)
@@ -1190,7 +1228,7 @@ namespace beam
 		Merkle::Hash hv;
 		get_HashForPoW(hv);
 
-        return m_PoW.Solve(hv.m_pData, hv.nBytes, fnCancel);
+        return m_PoW.Solve(hv.m_pData, hv.nBytes, m_Height, fnCancel);
 	}
 
 	bool Block::SystemState::Sequence::Element::IsValidProofUtxo(const ECC::Point& comm, const Input::Proof& p) const

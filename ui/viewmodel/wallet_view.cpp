@@ -34,6 +34,7 @@ using namespace beamui;
 namespace
 {
     const int kDefaultFeeInGroth = 10;
+    const int kFeeInGroth_Fork1 = 100;
 
     template<typename T>
     bool compareTx(const T& lf, const T& rt, Qt::SortOrder sortOrder)
@@ -611,7 +612,7 @@ QString WalletViewModel::getAmountMissingToSend() const
     Amount missed = calcTotalAmount() - _status.available;
     if (missed > 99999)
     {
-        //% "beams"
+        //% "BEAM"
         return BeamToString(missed) + " " +qtTrId("tx-curency-name");
     }
     //% "groths"
@@ -667,6 +668,11 @@ bool WalletViewModel::isPasswordValid(const QString& value) const
 {
     SecString secretPass = value.toStdString();
     return AppModel::getInstance()->checkWalletPassword(secretPass);
+}
+
+bool WalletViewModel::isAddressWithCommentExist(const QString& comment) const
+{
+    return _model.isAddressWithCommentExist(comment.toStdString());
 }
 
 void WalletViewModel::setSendAmount(const QString& value)
@@ -763,7 +769,12 @@ QString WalletViewModel::getStatusRole() const
 
 int WalletViewModel::getDefaultFeeInGroth() const
 {
-    return kDefaultFeeInGroth;
+    return _model.isFork1() ? kFeeInGroth_Fork1 : kDefaultFeeInGroth;
+}
+
+int WalletViewModel::getMinFeeInGroth() const
+{
+    return _model.isFork1() ? kFeeInGroth_Fork1 : 0;
 }
 
 void WalletViewModel::setExpires(int value)

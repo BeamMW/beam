@@ -115,8 +115,8 @@ ColumnLayout {
             SFText {
                 Layout.alignment: Qt.AlignHCenter
                 //: show qr dialog address label
-                //% "Your address:"
-                text: qsTrId("show-qr-tx-token-label")
+                //% "Your address"
+                text: qsTrId("show-qr-tx-token-label") + ":"
                 color: Style.content_main
                 font.pixelSize: 14
                 font.styleName: "Bold"; font.weight: Font.Bold
@@ -176,9 +176,8 @@ ColumnLayout {
                 Layout.alignment: Qt.AlignHCenter
                 CustomButton {
                     height: 38
-                    //: show QR dialog close button
-                    //% "close"
-                    text: qsTrId("show-qr-close-button")
+                    //% "Close"
+                    text: qsTrId("general-close")
                     Layout.alignment: Qt.AlignHCenter
                     icon.source: "qrc:/assets/icon-cancel-16.svg"
                     onClicked: showQR.close()
@@ -197,23 +196,26 @@ ColumnLayout {
         TxFilter{
             id: activeAddressesFilter
             Layout.leftMargin: 20
-            //% "MY ACTIVE ADDRESSES"
+            //% "My active addresses"
             label: qsTrId("addresses-tab-active")
             onClicked: addressRoot.state = "active"
+            capitalization: Font.AllUppercase
         }
 
         TxFilter{
             id: expiredAddressesFilter
-            //% "MY EXPIRED ADDRESSES"
+            //% "My expired addresses"
             label: qsTrId("addresses-tab-expired")
             onClicked: addressRoot.state = "expired"
+            capitalization: Font.AllUppercase
         }
 
         TxFilter{
             id: contactsFilter
-            //% "CONTACTS"
+            //% "Contacts"
             label: qsTrId("addresses-tab-contacts")
             onClicked: addressRoot.state = "contacts"
+            capitalization: Font.AllUppercase
         }
 
         Item {
@@ -294,7 +296,7 @@ ColumnLayout {
             TableViewColumn {
                 role: viewModel.nameRole
                 //% "Comment"
-                title: qsTrId("addresses-head-comment")
+                title: qsTrId("general-comment")
                 width: 280 * contactsView.resizableWidth / 740
                 movable: false
             }
@@ -302,7 +304,7 @@ ColumnLayout {
             TableViewColumn {
                 role: viewModel.addressRole
                 //% "Contact"
-                title: qsTrId("addresses-head-contact")
+                title: qsTrId("general-contact")
                 width: 170 * contactsView.resizableWidth / 740
                 movable: false
                 delegate: Item {
@@ -330,7 +332,7 @@ ColumnLayout {
             TableViewColumn {
                 role: viewModel.categoryRole
                 //% "Category"
-                title: qsTrId("addresses-head-category")
+                title: qsTrId("general-category")
                 width: 290 * contactsView.resizableWidth / 740
                 movable: false
             }
@@ -358,6 +360,17 @@ ColumnLayout {
                     color: styleData.selected ? Style.row_selected : Style.background_row_even
                     visible: styleData.selected ? true : styleData.alternate
                 }
+                MouseArea {
+                    anchors.fill: parent
+                    acceptedButtons: Qt.RightButton
+                    onClicked: {
+                        if (mouse.button == Qt.RightButton && styleData.row != undefined)
+                        {
+                            contextMenu.address = contactsView.model[styleData.row].address;
+                            contextMenu.popup();
+                        }
+                    }
+                }
             }
 
             itemDelegate: TableItem {
@@ -380,7 +393,7 @@ ColumnLayout {
                             CustomToolButton {
                                 icon.source: "qrc:/assets/icon-actions.svg"
                                 //% "Actions"
-                                ToolTip.text: qsTrId("addresses-head-actions-tooltip")
+                                ToolTip.text: qsTrId("general-actions")
                                 onClicked: {
                                     contextMenu.address = contactsView.model[styleData.row].address;
                                     contextMenu.popup();
@@ -397,8 +410,8 @@ ColumnLayout {
                 dim: false
                 property string address
                 Action {
-                    //% "delete contact"
-                    text: qsTrId("addresses-contextmenu-delete")
+                    //% "Delete contact"
+                    text: qsTrId("address-table-cm-delete-contact")
                     icon.source: "qrc:/assets/icon-delete.svg"
                     onTriggered: {
                         viewModel.deleteAddress(contextMenu.address);

@@ -78,12 +78,12 @@ public:
     Q_INVOKABLE void copyToClipboard(const QString& text);
     Q_INVOKABLE void refreshWallet();
     Q_INVOKABLE void openFolder(const QString& path);
+    Q_INVOKABLE bool checkWalletPassword(const QString& password) const;
 
 public slots:
     void applyChanges();
     void undoChanges();
 	void reportProblem();
-    bool checkWalletPassword(const QString& oldPass) const;
     void changeWalletPassword(const QString& pass);
     void onNodeStarted();
     void onNodeStopped();

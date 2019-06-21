@@ -40,6 +40,7 @@
 #include "wallet/wallet_network.h"
 #include "wallet/bitcoin/options.h"
 #include "wallet/litecoin/options.h"
+#include "wallet/qtum/options.h"
 
 #include "nlohmann/json.hpp"
 #include "version.h"
@@ -49,11 +50,11 @@ using json = nlohmann::json;
 static const unsigned LOG_ROTATION_PERIOD = 3 * 60 * 60 * 1000; // 3 hours
 static const size_t PACKER_FRAGMENTS_SIZE = 4096;
 
+using namespace beam;
+using namespace beam::wallet;
+
 namespace
 {
-    using namespace beam;
-    using namespace beam::wallet;
-
     struct TlsOptions
     {
         bool use;
@@ -425,89 +426,6 @@ namespace
                 catch(...)
                 {
                     doError(id, INTERNAL_JSON_RPC_ERROR, "Transaction could not be created. Please look at logs.");
-                }
-            }
-
-            void onMessage(int id, const InitBitcoin& data) override
-            {
-                LOG_DEBUG() << "InitBitcoin";
-
-                io::Address btcNodeAddr;
-                if (btcNodeAddr.resolve(data.btcNodeAddr.c_str()))
-                {
-                    BitcoinOptions options;
-
-                    options.m_userName = data.btcUserName;
-                    options.m_pass = data.btcPass;
-                    options.m_address = btcNodeAddr;
-                    options.m_feeRate = data.feeRate;
-                    _wallet.initBitcoin(io::Reactor::get_Current(), options);
-
-                    doResponse(id, EditAddress::Response{});
-                }
-                else
-                {
-                    doError(id, INVALID_ADDRESS, "Bitcoin node address is not resolved.");
-                }
-            }
-
-            void onMessage(int id, const InitLitecoin& data) override
-            {
-                LOG_DEBUG() << "InitLitecoin";
-
-                io::Address ltcNodeAddr;
-                if (ltcNodeAddr.resolve(data.ltcNodeAddr.c_str()))
-                {
-                    LitecoinOptions options;
-
-                    options.m_userName = data.ltcUserName;
-                    options.m_pass = data.ltcPass;
-                    options.m_address = ltcNodeAddr;
-                    options.m_feeRate = data.feeRate;
-                    _wallet.initLitecoin(io::Reactor::get_Current(), options);
-
-                    doResponse(id, EditAddress::Response{});
-                }
-                else
-                {
-                    doError(id, INVALID_ADDRESS, "Bitcoin node address is not resolved.");
-                }
-            }
-
-            void onMessage(int id, const StartSwap& data) override
-            {
-                LOG_DEBUG() << "StartSwap(id = " << id << " amount = " << data.amount << " fee = " << data.fee << " address = " << std::to_string(data.address) << " swap amount = " << data.swapAmount << " isBeamSide = " << data.beamSide << ")";
-
-                try
-                {
-                    WalletID from(Zero);
-                    
-                    WalletAddress senderAddress = storage::createAddress(*_walletDB);
-                    _walletDB->saveAddress(senderAddress);
-
-                    from = senderAddress.m_walletID;
-
-                    auto txId = _wallet.swap_coins(from, data.address, data.amount, data.fee, data.swapCoin, data.swapAmount, data.beamSide);
-                    doResponse(id, StartSwap::Response{ txId });
-                }
-                catch (...)
-                {
-                    doError(id, INTERNAL_JSON_RPC_ERROR, "Atomic swap transaction could not be created. Please look at logs.");
-                }
-            }
-
-            void onMessage(int id, const AcceptSwap& data) override
-            {
-                LOG_DEBUG() << "AcceptSwap(id = " << id << " amount = " << data.amount << " swap amount = " << data.swapAmount << " isBeamSide = " << data.beamSide << ")";
-
-                try
-                {
-                    _wallet.initSwapConditions(data.amount, data.swapAmount, data.swapCoin, data.beamSide);
-                    doResponse(id, AcceptSwap::Response{});
-                }
-                catch (...)
-                {
-                    doError(id, INTERNAL_JSON_RPC_ERROR, "Atomic swap transaction could not be created. Please look at logs.");
                 }
             }
 
@@ -976,6 +894,7 @@ int main(int argc, char* argv[])
             std::string walletPath;
             std::string nodeURI;
             bool useHttp;
+            Nonnegative<uint32_t> pollPeriod_ms;
 
             bool useAcl;
             std::string aclPath;
@@ -1004,6 +923,7 @@ int main(int argc, char* argv[])
                 (cli::API_USE_HTTP, po::value<bool>(&options.useHttp)->default_value(false), "use JSON RPC over HTTP")
                 (cli::IP_WHITELIST, po::value<std::string>(&options.whitelist)->default_value(""), "IP whitelist")
                 (cli::LOG_CLEANUP_DAYS, po::value<uint32_t>(&options.logCleanupPeriod)->default_value(5), "old logfiles cleanup period(days)")
+                (cli::NODE_POLL_PERIOD, po::value<Nonnegative<uint32_t>>(&options.pollPeriod_ms)->default_value(Nonnegative<uint32_t>(0)), "Node poll period in milliseconds. Set to 0 to keep connection. Anyway poll period would be no less than the expected rate of blocks if it is less then it will be rounded up to block rate value.")
             ;
 
             po::options_description authDesc("User authorization options");
@@ -1141,6 +1061,22 @@ int main(int argc, char* argv[])
         Wallet wallet{ walletDB };
 
         auto nnet = std::make_shared<proto::FlyClient::NetworkStd>(wallet);
+        nnet->m_Cfg.m_PollPeriod_ms = options.pollPeriod_ms.value;
+        
+        if (nnet->m_Cfg.m_PollPeriod_ms)
+        {
+            LOG_INFO() << "Node poll period = " << nnet->m_Cfg.m_PollPeriod_ms << " ms";
+            uint32_t timeout_ms = std::max(Rules::get().DA.Target_s * 1000, nnet->m_Cfg.m_PollPeriod_ms);
+            if (timeout_ms != nnet->m_Cfg.m_PollPeriod_ms)
+            {
+                LOG_INFO() << "Node poll period has been automatically rounded up to block rate: " << timeout_ms << " ms";
+            }
+        }
+        uint32_t responceTime_s = Rules::get().DA.Target_s * wallet::kDefaultTxResponseTime;
+        if (nnet->m_Cfg.m_PollPeriod_ms >= responceTime_s * 1000)
+        {
+            LOG_WARNING() << "The \"--node_poll_period\" parameter set to more than " << uint32_t(responceTime_s / 3600) << " hours may cause transaction problems.";
+        }
         nnet->m_Cfg.m_vNodes.push_back(node_addr);
         nnet->Connect();
 

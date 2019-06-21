@@ -42,6 +42,8 @@ namespace beam
         extern const char* BTC_USER_NAME;
         extern const char* LTC_PASS;
         extern const char* LTC_USER_NAME;
+        extern const char* QTUM_PASS;
+        extern const char* QTUM_USER_NAME;
         extern const char* AMOUNT;
         extern const char* AMOUNT_FULL;
         extern const char* RECEIVER_ADDR;
@@ -50,6 +52,7 @@ namespace beam
         extern const char* NODE_ADDR_FULL;
         extern const char* BTC_NODE_ADDR;
         extern const char* LTC_NODE_ADDR;
+        extern const char* QTUM_NODE_ADDR;
         extern const char* COMMAND;
         extern const char* NODE;
         extern const char* WALLET;
@@ -89,7 +92,6 @@ namespace beam
         extern const char* GENERATE_PHRASE;
         extern const char* FEE;
         extern const char* FEE_FULL;
-        extern const char* RECEIVE;
         extern const char* LOG_LEVEL;
         extern const char* FILE_LOG_LEVEL;
         extern const char* LOG_INFO;
@@ -106,24 +108,32 @@ namespace beam
         extern const char* WALLET_RESCAN;
         extern const char* UTXO;
         extern const char* EXPORT_ADDRESSES;
+        extern const char* EXPORT_DATA;
         extern const char* IMPORT_ADDRESSES;
+        extern const char* IMPORT_DATA;
         extern const char* IMPORT_EXPORT_PATH;
         extern const char* IP_WHITELIST;
         extern const char* HORIZON_HI;
         extern const char* HORIZON_LO;
+		extern const char* GENERATE_RECOVERY_PATH;
+		extern const char* RECOVERY_AUTO_PATH;
+		extern const char* RECOVERY_AUTO_PERIOD;
         extern const char* COLD_WALLET;
         extern const char* SWAP_INIT;
         extern const char* SWAP_LISTEN;
         extern const char* SWAP_AMOUNT;
         extern const char* SWAP_FEERATE;
         extern const char* SWAP_COIN;
+        extern const char* SWAP_NETWORK;
         extern const char* SWAP_BEAM_SIDE;
         extern const char* SWAP_TX_HISTORY;
         extern const char* BTC_CONFIRMATIONS;
         extern const char* LTC_CONFIRMATIONS;
+        extern const char* QTUM_CONFIRMATIONS;
         extern const char* BTC_LOCK_TIME;
         extern const char* LTC_LOCK_TIME;
-
+        extern const char* QTUM_LOCK_TIME;
+        extern const char* NODE_POLL_PERIOD;
 
         // wallet api
         extern const char* API_USE_HTTP;
@@ -141,8 +151,12 @@ namespace beam
         extern const char* TR_COMMENT;
         extern const char* TR_M;
         extern const char* TR_N;
+
         // ui
         extern const char* APPDATA_PATH;
+
+        // Defaults that should be accessible outside
+        extern const Amount kMinimumFee;
     }
 
     enum OptionsFlag : int
@@ -206,6 +220,67 @@ namespace beam
         {
         }
     };
+
+    template<typename T>
+    std::ostream& operator<<(std::ostream& os, const Nonnegative<T>& v)
+    {
+        os << v.value;
+        return os;
+    }
+
+    template<typename T>
+    std::ostream& operator<<(std::ostream& os, const Positive<T>& v)
+    {
+        os << v.value;
+        return os;
+    }
+
+    template <typename T>
+    void validate(boost::any& v, const std::vector<std::string>& values, Nonnegative<T>*, int)
+    {
+        po::validators::check_first_occurrence(v);
+
+        const std::string& s = po::validators::get_single_string(values);
+
+        if (!s.empty() && s[0] == '-') {
+            throw NonnegativeOptionException();
+        }
+
+        try
+        {
+            v = Nonnegative<T>(boost::lexical_cast<T>(s));
+        }
+        catch (const boost::bad_lexical_cast&)
+        {
+            throw po::invalid_option_value(s);
+        }
+    }
+
+    template <typename T>
+    void validate(boost::any& v, const std::vector<std::string>& values, Positive<T>*, int)
+    {
+        po::validators::check_first_occurrence(v);
+        const std::string& s = po::validators::get_single_string(values);
+        T numb;
+
+        if (!s.empty() && s[0] == '-') {
+            throw PositiveOptionException();
+        }
+
+        try
+        {
+            numb = boost::lexical_cast<T>(s);
+        }
+        catch (const boost::bad_lexical_cast&)
+        {
+            throw po::invalid_option_value(s);
+        }
+
+        if (numb <= 0)
+            throw PositiveOptionException();
+
+        v = Positive<T>(numb);
+    }
 
     bool read_wallet_pass(SecString& pass, const po::variables_map& vm);
     bool confirm_wallet_pass(const SecString& pass);

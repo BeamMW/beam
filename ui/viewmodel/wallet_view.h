@@ -182,6 +182,7 @@ class WalletViewModel : public QObject
     Q_PROPERTY(QString statusRole READ getStatusRole CONSTANT)
 
     Q_PROPERTY(int defaultFeeInGroth READ getDefaultFeeInGroth CONSTANT)
+    Q_PROPERTY(int minimumFeeInGroth READ getMinFeeInGroth CONSTANT)
 
     Q_PROPERTY(int expires READ getExpires WRITE setExpires NOTIFY expiresChanged)
     Q_PROPERTY(bool isAllowedBeamMWLinks READ isAllowedBeamMWLinks WRITE allowBeamMWLinks NOTIFY beamMWLinksAllowed)
@@ -196,6 +197,7 @@ public:
     Q_INVOKABLE bool isValidReceiverAddress(const QString& value);
     Q_INVOKABLE bool isPasswordReqiredToSpendMoney() const;
     Q_INVOKABLE bool isPasswordValid(const QString& value) const;
+    Q_INVOKABLE bool isAddressWithCommentExist(const QString& comment) const;
 
 public:
     using TxList = QList<TxObject*>;
@@ -245,6 +247,7 @@ public:
     QString getStatusRole() const;
 
     int getDefaultFeeInGroth() const;
+    int getMinFeeInGroth() const;
 
     void setExpires(int value);
     int getExpires() const;

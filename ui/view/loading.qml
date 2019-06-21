@@ -18,7 +18,7 @@ Item
     ConfirmationDialog {
         id: confirmationDialog
         okButtonColor: Style.active
-        //% "change settings"
+        //% "Сhange settings"
         okButtonText: qsTrId("loading-change-settings-button")
         okButtonIconSource: "qrc:/assets/icon-settings-blue.svg"
         cancelButtonIconSource: "qrc:/assets/icon-cancel-white.svg"
@@ -221,8 +221,8 @@ Item
 
                 CustomButton {
                     visible: isCreating
-                    //% "cancel"
-                    text: qsTrId("loading-cancel-button")
+                    //% "Cancel"
+                    text: qsTrId("general-cancel")
                     icon.source: "qrc:/assets/icon-cancel.svg"
                     onClicked: {
                         cancelCreating();

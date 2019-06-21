@@ -22,6 +22,7 @@
 #include "wallet/secstring.h"
 #include "wallet/bitcoin/options.h"
 #include "wallet/litecoin/options.h"
+#include "wallet/qtum/options.h"
 #include "utility/test_helpers.h"
 #include "../../core/radixtree.h"
 #include "../../core/unittest/mini_blockchain.h"
@@ -189,7 +190,7 @@ namespace
         };
 
         TestNode node;
-        TestWalletRig sender("sender", createSenderWalletDB(), f);
+        TestWalletRig sender("sender", createSenderWalletDB(), f, false, false, 0);
         TestWalletRig receiver("receiver", createReceiverWalletDB(), f);
 
         WALLET_CHECK(sender.m_WalletDB->selectCoins(6).size() == 2);
@@ -706,7 +707,7 @@ namespace
         TestWalletRig receiver("receiver", createReceiverWalletDB());
 
         TxID txID = wallet::GenerateTxID();
-        auto tx = make_shared<wallet::SimpleTransaction>(gateway, sender.m_WalletDB, sender.m_KeyKeeper, txID);
+        auto tx = SimpleTransaction::Create(gateway, sender.m_WalletDB, sender.m_KeyKeeper, txID);
         Height currentHeight = sender.m_WalletDB->getCurrentHeight();
 
         tx->SetParameter(wallet::TxParameterID::TransactionType, wallet::TxType::Simple, false);
@@ -765,7 +766,7 @@ namespace
             } gateway;
 
             TxID txID = wallet::GenerateTxID();
-            auto tx = make_shared<wallet::SimpleTransaction>(gateway, sender.m_WalletDB, sender.m_KeyKeeper, txID);
+            auto tx = SimpleTransaction::Create(gateway, sender.m_WalletDB, sender.m_KeyKeeper, txID);
 
             tx->SetParameter(wallet::TxParameterID::TransactionType, wallet::TxType::Simple, false);
             tx->SetParameter(wallet::TxParameterID::MaxHeight, currentHeight + 2, false); // transaction is valid +lifetime blocks from currentHeight
@@ -804,7 +805,7 @@ namespace
             } gateway;
 
             TxID txID = wallet::GenerateTxID();
-            auto tx = make_shared<wallet::SimpleTransaction>(gateway, sender.m_WalletDB, sender.m_KeyKeeper, txID);
+            auto tx = SimpleTransaction::Create(gateway, sender.m_WalletDB, sender.m_KeyKeeper, txID);
 
             tx->SetParameter(wallet::TxParameterID::TransactionType, wallet::TxType::Simple, false);
             tx->SetParameter(wallet::TxParameterID::MaxHeight, currentHeight + 2, false); // transaction is valid +lifetime blocks from currentHeight
@@ -1145,7 +1146,7 @@ Amount SetKidvs(beam::Negotiator::IBase& neg, const Amount* p, size_t n, uint32_
 	for (size_t i = 0; i < n; i++)
 	{
 		Key::IDV& kidv = vec[i];
-		ZeroObject(kidv);
+		kidv = Zero;
 
 		kidv.m_Type = Key::Type::Regular;
 		kidv.m_Idx = i0 + static_cast<uint32_t>(i);

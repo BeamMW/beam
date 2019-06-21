@@ -2082,4 +2082,13 @@ void NodeDB::TxoSetValue(TxoID id, const Blob& v)
 	TestChanged1Row();
 }
 
+void NodeDB::TxoGetValue(WalkerTxo& wlk, TxoID id0)
+{
+	wlk.m_Rs.Reset(Query::TxoGetValue, "SELECT " TblTxo_Value " FROM " TblTxo " WHERE " TblTxo_ID "=?");
+	wlk.m_Rs.put(0, id0);
+
+	wlk.m_Rs.StepStrict();
+	wlk.m_Rs.get(0, wlk.m_Value);
+}
+
 } // namespace beam

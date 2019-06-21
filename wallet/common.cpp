@@ -57,6 +57,8 @@ namespace std
             return "btc";
         case beam::wallet::AtomicSwapCoin::Litecoin:
             return "ltc";
+        case beam::wallet::AtomicSwapCoin::Qtum:
+            return "qtum";
         default:
             return "";
         }
@@ -112,8 +114,20 @@ namespace beam::wallet
             return AtomicSwapCoin::Bitcoin;
         else if (value == "ltc")
             return AtomicSwapCoin::Litecoin;
+        else if (value == "qtum")
+            return AtomicSwapCoin::Qtum;
 
         return AtomicSwapCoin::Unknown;
+    }
+
+    SwapSecondSideChainType SwapSecondSideChainTypeFromString(const std::string& value)
+    {
+        if (value == "mainnet")
+            return SwapSecondSideChainType::Mainnet;
+        else if (value == "testnet")
+            return SwapSecondSideChainType::Testnet;
+
+        return SwapSecondSideChainType::Unknown;
     }
 
     ByteBuffer toByteBuffer(const ECC::Point::Native& value)

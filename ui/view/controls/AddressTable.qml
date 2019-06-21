@@ -21,7 +21,7 @@ CustomTableView {
     TableViewColumn {
         role: parentModel.nameRole
         //% "Comment"
-        title: qsTrId("address-table-head-comment")
+        title: qsTrId("general-comment")
         width: 150 * rootControl.resizableWidth / 750
         resizable: false
         movable: false
@@ -30,7 +30,7 @@ CustomTableView {
     TableViewColumn {
         role: parentModel.addressRole
         //% "Address"
-        title: qsTrId("address-table-head-address")
+        title: qsTrId("general-address")
         width: 150 *  rootControl.resizableWidth / 750
         movable: false
         resizable: false
@@ -59,7 +59,7 @@ CustomTableView {
     TableViewColumn {
         role: parentModel.categoryRole
         //% "Category"
-        title: qsTrId("address-table-head-category")
+        title: qsTrId("general-category")
         width: 150 *  rootControl.resizableWidth / 750
         resizable: false
         movable: false
@@ -68,7 +68,7 @@ CustomTableView {
     TableViewColumn {
         role: parentModel.expirationRole
         //% "Expiration date"
-        title: qsTrId("address-table-head-exp-date")
+        title: qsTrId("general-exp-date")
         width: 150 *  rootControl.resizableWidth / 750
         resizable: false
         movable: false
@@ -94,7 +94,7 @@ CustomTableView {
     TableViewColumn {
         role:parentModel.createdRole
         //% "Created"
-        title: qsTrId("address-table-head-created")
+        title: qsTrId("general-created")
         width: 150 *  rootControl.resizableWidth / 750
         resizable: false
         movable: false
@@ -173,7 +173,7 @@ CustomTableView {
                     CustomToolButton {
                         icon.source: "qrc:/assets/icon-actions.svg"
                         //% "Actions"
-                        ToolTip.text: qsTrId("address-table-head-tooltip-actions")
+                        ToolTip.text: qsTrId("general-actions")
                         onClicked: {
                             contextMenu.address = rootControl.model[styleData.row].address;
                             contextMenu.addressItem = rootControl.model[styleData.row];
@@ -194,7 +194,7 @@ CustomTableView {
         Action {
             id: showQRAction
             //: Entry in adress table context menu to show QR
-            //% "show QR code"
+            //% "Show QR code"
             text: qsTrId("address-table-cm-show-qr")
             icon.source: "qrc:/assets/icon-qr.svg"
             onTriggered: {
@@ -204,7 +204,7 @@ CustomTableView {
         }
         Action {
             //: Entry in adress table context menu to edit
-            //% "edit address"
+            //% "Edit address"
             text: qsTrId("address-table-cm-edit")
             icon.source: "qrc:/assets/icon-edit.svg"
             onTriggered: {
@@ -215,7 +215,7 @@ CustomTableView {
         }
         Action {
             //: Entry in adress table context menu to delete
-            //% "delete address"
+            //% "Delete address"
             text: qsTrId("address-table-cm-delete")
             icon.source: "qrc:/assets/icon-delete.svg"
             onTriggered: {

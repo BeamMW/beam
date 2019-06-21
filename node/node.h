@@ -133,6 +133,13 @@ struct Node
 
 		} m_Dandelion;
 
+		struct Recovery
+		{
+			std::string m_sPathOutput; // directory with (back)slash and optionally a common prefix
+			uint32_t m_Granularity = 30; // block interval for newer recovery generation
+
+		} m_Recovery;
+
 		NodeProcessor::StartParams m_ProcessorParams;
 
 		IObserver* m_Observer = nullptr;
@@ -177,6 +184,8 @@ struct Node
 	bool m_UpdatedFromPeers = false;
 	bool m_PostStartSynced = false;
 
+	bool GenerateRecoveryInfo(const char*);
+
 private:
 
 	struct Processor
@@ -191,6 +200,7 @@ private:
 		bool EnumViewerKeys(IKeyWalker&) override;
 		void OnUtxoEvent(const UtxoEvent::Value&) override;
 		void OnDummy(const Key::ID&, Height) override;
+		void Stop();
 
 		struct TaskProcessor
 			:public Task::Processor
@@ -248,6 +258,8 @@ private:
 		io::AsyncEvent::Ptr m_pAsyncPeerInsane;
 		void FlushInsanePeers();
 
+		void DeleteOutdated();
+
 		IMPLEMENT_GET_PARENT_OBJ(Node, m_Processor)
 	} m_Processor;
 
@@ -290,6 +302,7 @@ private:
 	void InitKeys();
 	void InitIDs();
 	void RefreshOwnedUtxos();
+	void MaybeGenerateRecovery();
 
 	struct Wanted
 	{
@@ -338,7 +351,7 @@ private:
 		:public TxPool::Stem
 	{
 		// TxPool::Stem
-		virtual bool ValidateTxContext(const Transaction&) override;
+		virtual bool ValidateTxContext(const Transaction&, const HeightRange&) override;
 		virtual void OnTimedOut(Element&) override;
 
 		IMPLEMENT_GET_PARENT_OBJ(Node, m_Dandelion)
@@ -481,6 +494,7 @@ private:
 		void BroadcastBbs(Bbs::Subscription&);
 		void OnChocking();
 		void SetTxCursor(TxPool::Fluff::Element*);
+		bool GetBlock(proto::BodyBuffers&, const NodeDB::StateID&, const proto::GetBodyPack&);
 
 		bool IsChocking(size_t nExtra = 0);
 		bool ShouldAssignTasks();

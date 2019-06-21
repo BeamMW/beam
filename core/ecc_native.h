@@ -110,6 +110,8 @@ namespace ECC
 		void GenRandomNnz();
 	};
 
+    std::ostream& operator << (std::ostream&, const Scalar::Native&);
+
 	class Point::Native
 		:private secp256k1_gej
 	{
@@ -156,6 +158,8 @@ namespace ECC
 
 		static void ExportEx(Point&, const secp256k1_ge&);
 	};
+
+    std::ostream& operator << (std::ostream&, const Point::Native&);
 
     secp256k1_pubkey ConvertPointToPubkey(const Point& point);
     std::vector<uint8_t> SerializePubkey(const secp256k1_pubkey& pubkey);

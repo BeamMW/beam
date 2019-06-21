@@ -129,6 +129,7 @@ namespace proto {
 				std::vector<io::Address> m_vNodes;
 				uint32_t m_PollPeriod_ms = 0; // set to 0 to keep connection. Anyway poll period would be no less than the expected rate of blocks
 				uint32_t m_ReconnectTimeout_ms = 5000;
+                uint32_t m_CloseConnectionDelay_ms = 1000;
 			} m_Cfg;
 
 			class Connection

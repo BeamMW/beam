@@ -30,13 +30,7 @@ namespace beam::wallet
         {
             Initial,
             Invitation,
-            SharedUTXOProofPart2,
-            SharedUTXOProofDone,
-            Constructed,
-
-            InvitationConfirmation,
-            Registration,
-            KernelConfirmation
+            Constructed
         };
 
         class UninitilizedSecondSide : public std::exception
@@ -82,6 +76,11 @@ namespace beam::wallet
 
     public:
         
+        static BaseTransaction::Ptr Create(INegotiatorGateway& gateway
+                                            , IWalletDB::Ptr walletDB
+                                            , IPrivateKeyKeeper::Ptr keyKeeper
+                                            , const TxID& txID);
+
         AtomicSwapTransaction(INegotiatorGateway& gateway
                             , IWalletDB::Ptr walletDB
                             , IPrivateKeyKeeper::Ptr keyKeeper
@@ -107,8 +106,7 @@ namespace beam::wallet
         void SendInvitation();
         void SendExternalTxDetails();
         void SendLockTxInvitation(const LockTxBuilder& lockBuilder);
-        void SendMultiSigProofPart2(const LockTxBuilder& lockBuilder, bool isMultiSigProofOwner);
-        void SendMultiSigProofPart3(const LockTxBuilder& lockBuilder, bool isMultiSigProofOwner);
+        void SendLockTxConfirmation(const LockTxBuilder& lockBuilder);
 
         void SendSharedTxInvitation(const BaseTxBuilder& builder);
         void ConfirmSharedTxInvitation(const BaseTxBuilder& builder);

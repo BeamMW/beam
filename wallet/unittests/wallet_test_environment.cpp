@@ -106,8 +106,8 @@ public:
     void subscribe(IWalletDbObserver* observer) override {}
     void unsubscribe(IWalletDbObserver* observer) override {}
 
-    std::vector<TxDescription> getTxHistory(wallet::TxType, uint64_t, int) override { return {}; };
-    boost::optional<TxDescription> getTx(const TxID&) override { return boost::optional<TxDescription>{}; };
+    std::vector<TxDescription> getTxHistory(wallet::TxType, uint64_t, int) const override { return {}; };
+    boost::optional<TxDescription> getTx(const TxID&) const override { return boost::optional<TxDescription>{}; };
     void saveTx(const TxDescription& p) override
     {
         setTxParameter(p.m_txId, wallet::kDefaultSubTxID, wallet::TxParameterID::Amount, toByteBuffer(p.m_amount), false);
@@ -134,7 +134,6 @@ public:
         m_LastAdddr = wa;
     }
 
-    void setExpirationForAllAddresses(uint64_t expiration) override {};
     boost::optional<WalletAddress> getAddress(const WalletID& id) const override
     {
         if (id == m_LastAdddr.m_walletID)
@@ -236,11 +235,11 @@ IWalletDB::Ptr createSqliteWalletDB(const string& path, bool separateDBForPrivat
     return walletDB;
 }
 
-IWalletDB::Ptr createSenderWalletDB(bool separateDBForPrivateData = false)
+IWalletDB::Ptr createSenderWalletDB(bool separateDBForPrivateData = false, AmountList amounts = {5, 2, 1, 9})
 {
     auto db = createSqliteWalletDB(SenderWalletDB, separateDBForPrivateData);
     db->AllocateKidRange(100500); // make sure it'll get the address different from the receiver
-    for (auto amount : { 5, 2, 1, 9 })
+    for (auto amount : amounts)
     {
         Coin coin = CreateAvailCoin(amount, 0);
         db->store(coin);
@@ -342,7 +341,7 @@ private:
 
 struct TestWalletRig
 {
-    TestWalletRig(const string& name, IWalletDB::Ptr walletDB, Wallet::TxCompletedAction&& action = Wallet::TxCompletedAction(), bool coldWallet = false, bool oneTimeBbsEndpoint = false)
+    TestWalletRig(const string& name, IWalletDB::Ptr walletDB, Wallet::TxCompletedAction&& action = Wallet::TxCompletedAction(), bool coldWallet = false, bool oneTimeBbsEndpoint = false, uint32_t nodePollPeriod_ms = 0)
         : m_WalletDB{ walletDB }
         , m_KeyKeeper{ make_shared<wallet::LocalPrivateKeyKeeper>(walletDB) }
         , m_Wallet{ m_WalletDB, move(action), coldWallet ? []() {io::Reactor::get_Current().stop(); } : Wallet::UpdateCompletedAction() }
@@ -366,6 +365,7 @@ struct TestWalletRig
         else
         {
             auto nodeEndpoint = make_shared<proto::FlyClient::NetworkStd>(m_Wallet);
+            nodeEndpoint->m_Cfg.m_PollPeriod_ms = nodePollPeriod_ms;
             nodeEndpoint->m_Cfg.m_vNodes.push_back(io::Address::localhost().port(32125));
             nodeEndpoint->Connect();
             if (oneTimeBbsEndpoint)
@@ -526,8 +526,8 @@ struct TestBlockchain
         kMax = d;
 
         t.m_pCu = &cu;
-        t.m_pBound[0] = kMin.m_pArr;
-        t.m_pBound[1] = kMax.m_pArr;
+        t.m_pBound[0] = kMin.V.m_pData;
+        t.m_pBound[1] = kMax.V.m_pData;
 
         if (m_Utxos.Traverse(t))
             return false;
@@ -594,8 +594,8 @@ struct TestBlockchain
         d.m_Maturity = Height(-1);
         kMax = d;
 
-        t.m_pBound[0] = kMin.m_pArr;
-        t.m_pBound[1] = kMax.m_pArr;
+        t.m_pBound[0] = kMin.V.m_pData;
+        t.m_pBound[1] = kMax.V.m_pData;
 
         t.m_pTree->Traverse(t);
         t.m_Msg.m_Proofs.swap(msgOut.m_Proofs);

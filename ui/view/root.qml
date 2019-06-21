@@ -11,12 +11,7 @@ Window  {
     flags: Qt.Window | Qt.WindowFullscreenButtonHint
 
     function cellResize() {
-        if(appWindow.visibility == ApplicationWindow.Maximized) {
-            appWindow.width = Screen.desktopAvailableWidth;
-            appWindow.height = Screen.desktopAvailableHeight;
-            
-        }
-        else {
+        if(appWindow.visibility != ApplicationWindow.Maximized) {
             var minWidth = Math.min(1024, Screen.desktopAvailableWidth - 10);
             var minHeight = Math.min(867, Screen.desktopAvailableHeight - 80);
             appWindow.minimumWidth = minWidth;

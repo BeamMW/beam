@@ -46,9 +46,10 @@ namespace beam
         Amount getFeeRate() const override;
         uint16_t getTxMinConfirmations() const override;
         uint32_t getLockTimeInBlocks() const override;
+        std::string getCoinName() const override;
 
     protected:
-        void sendRequest(const std::string& method, const std::string& params, std::function<void(const Error&, const std::string&)> callback);
+        void sendRequest(const std::string& method, const std::string& params, std::function<void(const Error&, const nlohmann::json&)> callback);
         bool isMainnet() const;
 
     private:

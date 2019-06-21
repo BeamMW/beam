@@ -29,13 +29,19 @@ WALLET_TEST_INIT
 using namespace beam;
 using json = nlohmann::json;
 
+namespace
+{
+    const unsigned TEST_PERIOD = 1000;
+}
+
 void testSuccessResponse()
 {
     io::Reactor::Ptr reactor = io::Reactor::create();
     io::Timer::Ptr timer(io::Timer::create(*reactor));
     io::Reactor::Scope scope(*reactor);
+    unsigned counter = 0;
 
-    timer->start(5000, false, [&reactor]() {
+    timer->start(TEST_PERIOD, false, [&reactor]() {
         reactor->stop();
     });
 
@@ -50,65 +56,75 @@ void testSuccessResponse()
 
     Bitcoind016 bridge(*reactor, options);
 
-    bridge.dumpPrivKey("", [](const IBitcoinBridge::Error& error, const std::string& key)
+    bridge.dumpPrivKey("", [&counter](const IBitcoinBridge::Error& error, const std::string& key)
     {
         WALLET_CHECK(error.m_type == IBitcoinBridge::None);
         WALLET_CHECK(!key.empty());
+        ++counter;
     });
 
-    bridge.fundRawTransaction("", 2, [](const IBitcoinBridge::Error& error, const std::string& tx, int pos)
+    bridge.fundRawTransaction("", 2, [&counter](const IBitcoinBridge::Error& error, const std::string& tx, int pos)
     {
-        LOG_INFO() << error.m_type;
         WALLET_CHECK(error.m_type == IBitcoinBridge::None);
         WALLET_CHECK(!tx.empty());
+        ++counter;
     });
 
-    bridge.signRawTransaction("", [](const IBitcoinBridge::Error& error, const std::string& tx, bool complete)
+    bridge.signRawTransaction("", [&counter](const IBitcoinBridge::Error& error, const std::string& tx, bool complete)
     {
         WALLET_CHECK(error.m_type == IBitcoinBridge::None);
         WALLET_CHECK(!tx.empty());
         WALLET_CHECK(complete);
+        ++counter;
     });
 
-    bridge.sendRawTransaction("", [](const IBitcoinBridge::Error& error, const std::string& txID)
+    bridge.sendRawTransaction("", [&counter](const IBitcoinBridge::Error& error, const std::string& txID)
     {
         WALLET_CHECK(error.m_type == IBitcoinBridge::None);
         WALLET_CHECK(!txID.empty());
+        ++counter;
     });
 
-    bridge.getRawChangeAddress([](const IBitcoinBridge::Error& error, const std::string& address)
+    bridge.getRawChangeAddress([&counter](const IBitcoinBridge::Error& error, const std::string& address)
     {
         WALLET_CHECK(error.m_type == IBitcoinBridge::None);
         WALLET_CHECK(!address.empty());
+        ++counter;
     });
 
-    bridge.createRawTransaction("", "", 2, 0, 2, [](const IBitcoinBridge::Error& error, const std::string& tx)
+    bridge.createRawTransaction("", "", 2, 0, 2, [&counter](const IBitcoinBridge::Error& error, const std::string& tx)
     {
         WALLET_CHECK(error.m_type == IBitcoinBridge::None);
         WALLET_CHECK(!tx.empty());
+        ++counter;
     });
 
-    bridge.getTxOut("", 2, [](const IBitcoinBridge::Error& error, const std::string& script, double value, uint16_t confirmations)
+    bridge.getTxOut("", 2, [&counter](const IBitcoinBridge::Error& error, const std::string& script, double value, uint16_t confirmations)
     {
         WALLET_CHECK(error.m_type == IBitcoinBridge::None);
         WALLET_CHECK(!script.empty());
         WALLET_CHECK(value > 0);
         WALLET_CHECK(confirmations > 0);
+        ++counter;
     });
 
-    bridge.getBlockCount([](const IBitcoinBridge::Error& error, uint64_t blocks)
+    bridge.getBlockCount([&counter](const IBitcoinBridge::Error& error, uint64_t blocks)
     {
         WALLET_CHECK(error.m_type == IBitcoinBridge::None);
         WALLET_CHECK(blocks > 0);
+        ++counter;
     });
 
-    bridge.getBalance(2, [](const IBitcoinBridge::Error& error, double balance)
+    bridge.getBalance(2, [&counter](const IBitcoinBridge::Error& error, double balance)
     {
         WALLET_CHECK(error.m_type == IBitcoinBridge::None);
         WALLET_CHECK(balance > 0);
+        ++counter;
     });
 
     reactor->run();
+
+    WALLET_CHECK(counter == 9);
 }
 
 void testWrongCredentials()
@@ -116,8 +132,9 @@ void testWrongCredentials()
     io::Reactor::Ptr reactor = io::Reactor::create();
     io::Timer::Ptr timer(io::Timer::create(*reactor));
     io::Reactor::Scope scope(*reactor);
+    unsigned counter = 0;
 
-    timer->start(5000, false, [&reactor]() {
+    timer->start(TEST_PERIOD, false, [&reactor]() {
         reactor->stop();
     });
 
@@ -132,13 +149,139 @@ void testWrongCredentials()
 
     Bitcoind016 bridge(*reactor, options);
 
-    bridge.getBlockCount([](const IBitcoinBridge::Error& error, uint64_t blocks)
+    bridge.getBlockCount([&counter](const IBitcoinBridge::Error& error, uint64_t blocks)
     {
         WALLET_CHECK(error.m_type == IBitcoinBridge::InvalidCredentials);
         WALLET_CHECK(blocks == 0);
+        ++counter;
     });
 
     reactor->run();
+    WALLET_CHECK(counter == 1);
+}
+
+void testEmptyResult()
+{
+    io::Reactor::Ptr reactor = io::Reactor::create();
+    io::Timer::Ptr timer(io::Timer::create(*reactor));
+    io::Reactor::Scope scope(*reactor);
+    unsigned counter = 0;
+
+    timer->start(TEST_PERIOD, false, [&reactor]() {
+        reactor->stop();
+    });
+
+    BitcoinHttpServerEmptyResult httpServer;
+
+    io::Address addr(io::Address::localhost(), PORT);
+    BitcoinOptions options;
+
+    options.m_address = addr;
+    options.m_userName = btcUserName;
+    options.m_pass = btcPass;
+
+    Bitcoind016 bridge(*reactor, options);
+
+    bridge.fundRawTransaction("", 2, [&counter](const IBitcoinBridge::Error& error, const std::string& tx, int pos)
+    {
+        WALLET_CHECK(error.m_type == IBitcoinBridge::EmptyResult);
+        WALLET_CHECK(!error.m_message.empty());
+        ++counter;
+    });
+
+    bridge.getTxOut("", 2, [&counter](const IBitcoinBridge::Error& error, const std::string& script, double value, uint16_t confirmations)
+    {
+        WALLET_CHECK(error.m_type == IBitcoinBridge::None);
+        WALLET_CHECK(error.m_message.empty());
+        WALLET_CHECK(value == 0);
+        WALLET_CHECK(script.empty());
+        WALLET_CHECK(confirmations == 0);
+        ++counter;
+    });
+
+    bridge.getBlockCount([&counter](const IBitcoinBridge::Error& error, uint64_t blocks)
+    {
+        WALLET_CHECK(error.m_type == IBitcoinBridge::None);
+        WALLET_CHECK(error.m_message.empty());
+        WALLET_CHECK(blocks == 0);
+        ++counter;
+    });
+
+    bridge.getBalance(2, [&counter](const IBitcoinBridge::Error& error, double balance)
+    {
+        WALLET_CHECK(error.m_type == IBitcoinBridge::EmptyResult);
+        WALLET_CHECK(!error.m_message.empty());
+        ++counter;
+    });
+
+    reactor->run();
+
+    WALLET_CHECK(counter == 4);
+}
+
+void testEmptyResponse()
+{
+    io::Reactor::Ptr reactor = io::Reactor::create();
+    io::Timer::Ptr timer(io::Timer::create(*reactor));
+    io::Reactor::Scope scope(*reactor);
+    unsigned counter = 0;
+
+    timer->start(TEST_PERIOD, false, [&reactor]() {
+        reactor->stop();
+    });
+
+    BitcoinHttpServerEmptyResponse httpServer;
+
+    io::Address addr(io::Address::localhost(), PORT);
+    BitcoinOptions options;
+
+    options.m_address = addr;
+    options.m_userName = btcUserName;
+    options.m_pass = btcPass;
+
+    Bitcoind016 bridge(*reactor, options);
+
+    bridge.fundRawTransaction("", 2, [&counter](const IBitcoinBridge::Error& error, const std::string& tx, int pos)
+    {
+        WALLET_CHECK(error.m_type == IBitcoinBridge::InvalidResultFormat);
+        WALLET_CHECK(!error.m_message.empty());
+        ++counter;
+    });
+
+    reactor->run();
+
+    WALLET_CHECK(counter == 1);
+}
+
+void testConnectionRefused()
+{
+    io::Reactor::Ptr reactor = io::Reactor::create();
+    io::Timer::Ptr timer(io::Timer::create(*reactor));
+    io::Reactor::Scope scope(*reactor);
+    unsigned counter = 0;
+
+    timer->start(5000, false, [&reactor]() {
+        reactor->stop();
+    });
+
+    io::Address addr(io::Address::localhost(), PORT);
+    BitcoinOptions options;
+
+    options.m_address = addr;
+    options.m_userName = btcUserName;
+    options.m_pass = btcPass;
+
+    Bitcoind016 bridge(*reactor, options);
+
+    bridge.fundRawTransaction("", 2, [&counter](const IBitcoinBridge::Error& error, const std::string& tx, int pos)
+    {
+        WALLET_CHECK(error.m_type == IBitcoinBridge::IOError);
+        WALLET_CHECK(!error.m_message.empty());
+        ++counter;
+    });
+
+    reactor->run();
+    WALLET_CHECK(counter == 1);
 }
 
 int main()
@@ -151,6 +294,9 @@ int main()
 
     testSuccessResponse();
     testWrongCredentials();
+    testEmptyResult();
+    testEmptyResponse();
+    testConnectionRefused();
 
     assert(g_failureCount == 0);
     return WALLET_CHECK_RESULT;

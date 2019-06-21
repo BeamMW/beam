@@ -53,9 +53,10 @@ private:
         _cond.notify_one();
     }
 
-    void get_last_found_block(std::string& jobID, Block::PoW& pow) override {
+    void get_last_found_block(std::string& jobID, Height& jobHeight, Block::PoW& pow) override {
         std::lock_guard<std::mutex> lk(_mutex);
         jobID = _lastFoundBlockID;
+		jobHeight = _lastFoundBlockHeight;
         pow = _lastFoundBlock;
     }
 
@@ -110,14 +111,16 @@ private:
                     std::lock_guard<std::mutex> lk(_mutex);
                     _lastFoundBlock = job.pow;
                     _lastFoundBlockID = job.jobID;
+                    _lastFoundBlockHeight = job.height;
                 }
                 job.callback();
 
-            } else if ( (job.pow.*SolveFn) (job.input.m_pData, Merkle::Hash::nBytes, cancelFn)) {
+            } else if ( (job.pow.*SolveFn) (job.input.m_pData, Merkle::Hash::nBytes, job.height, cancelFn)) {
                 {
                     std::lock_guard<std::mutex> lk(_mutex);
                     _lastFoundBlock = job.pow;
                     _lastFoundBlockID = job.jobID;
+                    _lastFoundBlockHeight = job.height;
                 }
                 job.callback();
             }
@@ -126,6 +129,7 @@ private:
 
     Job _currentJob;
     std::string _lastFoundBlockID;
+    Height _lastFoundBlockHeight;
     Block::PoW _lastFoundBlock;
     uint64_t _seed;
     std::atomic<bool> _changed;

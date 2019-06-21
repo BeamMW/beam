@@ -98,6 +98,8 @@ namespace beam::wallet
         uint64_t  m_OwnID; // set for own address
         
         WalletAddress();
+        bool operator == (const WalletAddress& other) const;
+        bool operator != (const WalletAddress& other) const;
         bool isExpired() const;
         Timestamp getCreateTime() const;
         Timestamp getExpirationTime() const;
@@ -170,10 +172,22 @@ namespace beam::wallet
         virtual beam::Key::IKdf::Ptr get_MasterKdf() const = 0;
 
         // Returns the Child Key Derivative Function (operates on secret keys)
-        beam::Key::IKdf::Ptr get_ChildKdf(Key::Index) const;
+		beam::Key::IKdf::Ptr get_ChildKdf(const Key::IDV&) const;
 
         // Calculates blinding factor and commitment of specifc Coin::ID
         void calcCommitment(ECC::Scalar::Native& sk, ECC::Point& comm, const Coin::ID&);
+
+		// import blockchain recovery data (all at once)
+		// should be used only upon creation on 'clean' wallet. Throws exception on error
+		void ImportRecovery(const std::string& path);
+
+		struct IRecoveryProgress
+		{
+			virtual bool OnProgress(uint64_t done, uint64_t total) { return true; } // return false to stop recovery
+		};
+
+		// returns false if callback asked to stop verification.
+		bool ImportRecovery(const std::string& path, IRecoveryProgress&);
 
         // Allocates new Key ID, used for generation of the blinding factor
         // Will return the next id starting from a random base created during wallet initialization
@@ -231,21 +245,21 @@ namespace beam::wallet
 
         // /////////////////////////////////////////////
         // Transaction management
-        virtual std::vector<TxDescription> getTxHistory(wallet::TxType txType = wallet::TxType::Simple, uint64_t start = 0, int count = std::numeric_limits<int>::max()) = 0;
-        virtual boost::optional<TxDescription> getTx(const TxID& txId) = 0;
+        virtual std::vector<TxDescription> getTxHistory(wallet::TxType txType = wallet::TxType::Simple, uint64_t start = 0, int count = std::numeric_limits<int>::max()) const = 0;
+        virtual boost::optional<TxDescription> getTx(const TxID& txId) const = 0;
         virtual void saveTx(const TxDescription& p) = 0;
         virtual void deleteTx(const TxID& txId) = 0;
         virtual bool setTxParameter(const TxID& txID, SubTxID subTxID, TxParameterID paramID,
             const ByteBuffer& blob, bool shouldNotifyAboutChanges) = 0;
         virtual bool getTxParameter(const TxID& txID, SubTxID subTxID, TxParameterID paramID, ByteBuffer& blob) const = 0;
+        virtual auto getAllTxParameters() const -> std::vector<TxParameter> = 0;
         virtual void rollbackTx(const TxID& txId) = 0;
 
         // ////////////////////////////////////////////
         // Address management
+        virtual boost::optional<WalletAddress> getAddress(const WalletID&) const = 0;
         virtual std::vector<WalletAddress> getAddresses(bool own) const = 0;
         virtual void saveAddress(const WalletAddress&) = 0;
-        virtual void setExpirationForAllAddresses(uint64_t expiration) = 0;
-        virtual boost::optional<WalletAddress> getAddress(const WalletID&) const = 0;
         virtual void deleteAddress(const WalletID&) = 0;
 
         // 
@@ -319,15 +333,14 @@ namespace beam::wallet
         Height getCurrentHeight() const override;
         void rollbackConfirmedUtxo(Height minHeight) override;
 
-        std::vector<TxDescription> getTxHistory(wallet::TxType txType, uint64_t start, int count) override;
-        boost::optional<TxDescription> getTx(const TxID& txId) override;
+        std::vector<TxDescription> getTxHistory(wallet::TxType txType, uint64_t start, int count) const override;
+        boost::optional<TxDescription> getTx(const TxID& txId) const override;
         void saveTx(const TxDescription& p) override;
         void deleteTx(const TxID& txId) override;
         void rollbackTx(const TxID& txId) override;
 
         std::vector<WalletAddress> getAddresses(bool own) const override;
         void saveAddress(const WalletAddress&) override;
-        void setExpirationForAllAddresses(uint64_t expiration) override;
         boost::optional<WalletAddress> getAddress(const WalletID&) const override;
         void deleteAddress(const WalletID&) override;
 
@@ -343,6 +356,7 @@ namespace beam::wallet
         bool setTxParameter(const TxID& txID, SubTxID subTxID, TxParameterID paramID,
             const ByteBuffer& blob, bool shouldNotifyAboutChanges) override;
         bool getTxParameter(const TxID& txID, SubTxID subTxID, TxParameterID paramID, ByteBuffer& blob) const override;
+        auto getAllTxParameters() const -> std::vector<TxParameter> override;
 
         Block::SystemState::IHistory& get_History() override;
         void ShrinkHistory() override;
@@ -383,6 +397,7 @@ namespace beam::wallet
         void flushDB();
         void onModified();
         void onFlushTimer();
+        void onPrepareToModify();
     private:
         friend struct sqlite::Statement;
         sqlite3* _db;
@@ -550,8 +565,9 @@ namespace beam::wallet
             static PaymentInfo FromByteBuffer(const ByteBuffer& data);
         };
 
-        std::string ExportAddressesToJson(const IWalletDB& db);
-        bool ImportAddressesFromJson(IWalletDB& db, const char* data, size_t size);
+        std::string ExportDataToJson(const IWalletDB& db);
+        bool ImportDataFromJson(IWalletDB& db, const char* data, size_t size);
+
         std::string TxDetailsInfo(const IWalletDB::Ptr& db, const TxID& txID);
         ByteBuffer ExportPaymentProof(const IWalletDB& db, const TxID& txID);
         bool VerifyPaymentProof(const ByteBuffer& data);

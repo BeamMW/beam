@@ -26,6 +26,6 @@ namespace beam
         Litecoind016(io::Reactor& reactor, const LitecoinOptions& options);
 
         uint8_t getAddressVersion() override;
-
+        std::string getCoinName() const override;
     };
 }
