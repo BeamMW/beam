@@ -22,6 +22,7 @@
 #include "wallet/qtum/options.h"
 #include "wallet/litecoin/options.h"
 #include "wallet/bitcoin/options.h"
+#include "wallet/strings_resources.h"
 #include "wallet/swaps/common.h"
 #include "wallet/swaps/swap_transaction.h"
 #include "core/ecc_native.h"
@@ -43,6 +44,7 @@
 
 #include <boost/program_options.hpp>
 #include <boost/filesystem.hpp>
+#include <boost/format.hpp>
 #include <boost/algorithm/string/trim.hpp>
 
 #include <iomanip>
@@ -62,14 +64,14 @@ namespace beam
         ss << "[";
         switch (s)
         {
-        case Coin::Available: ss << "Available"; break;
-        case Coin::Unavailable: ss << "Unavailable"; break;
-        case Coin::Spent: ss << "Spent"; break;
-        case Coin::Maturing: ss << "Maturing"; break;
-        case Coin::Outgoing: ss << "In progress(outgoing)"; break;
-        case Coin::Incoming: ss << "In progress(incoming/change)"; break;
+        case Coin::Available: ss << kCoinStatusAvailable; break;
+        case Coin::Unavailable: ss << kCoinStatusUnavailable; break;
+        case Coin::Spent: ss << kCoinStatusSpent; break;
+        case Coin::Maturing: ss << kCoinStatusMaturing; break;
+        case Coin::Outgoing: ss << kCoinStatusOutgoing; break;
+        case Coin::Incoming: ss << kCoinStatusIncoming; break;
         default:
-            assert(false && "Unknown coin status");
+            assert(false && kErrorUnknownCoinStatus);
         }
         ss << "]";
         string str = ss.str();
@@ -80,35 +82,24 @@ namespace beam
 
     const char* getTxStatus(const TxDescription& tx)
     {
-        static const char* Pending = "pending";
-        static const char* WaitingForSender = "waiting for sender";
-        static const char* WaitingForReceiver = "waiting for receiver";
-        static const char* Sending = "sending";
-        static const char* Receiving = "receiving";
-        static const char* Cancelled = "cancelled";
-        static const char* Sent = "sent";
-        static const char* Received = "received";
-        static const char* Failed = "failed";
-        static const char* Completed = "completed";
-        static const char* Expired = "expired";
-
         switch (tx.m_status)
         {
-        case TxStatus::Pending: return Pending;
-        case TxStatus::InProgress: return tx.m_sender ? WaitingForReceiver : WaitingForSender;
-        case TxStatus::Registering: return tx.m_sender ? Sending : Receiving;
-        case TxStatus::Cancelled: return Cancelled;
+        case TxStatus::Pending: return kTxStatusPending;
+        case TxStatus::InProgress: return tx.m_sender ? kTxStatusWaitingForReceiver : kTxStatusWaitingForSender;
+        case TxStatus::Registering: return tx.m_sender ? kTxStatusSending : kTxStatusReceiving;
+        case TxStatus::Cancelled: return kTxStatusCancelled;
         case TxStatus::Completed:
         {
             if (tx.m_selfTx)
             {
-                return Completed;
+                return kTxStatusCompleted;
             }
-            return tx.m_sender ? Sent : Received;
+            return tx.m_sender ? kTxStatusSent : kTxStatusReceived;
         }
-        case TxStatus::Failed: return TxFailureReason::TransactionExpired == tx.m_failureReason ? Expired : Failed;
+        case TxStatus::Failed: return TxFailureReason::TransactionExpired == tx.m_failureReason
+            ? kTxStatusExpired : kTxStatusFailed;
         default:
-            assert(false && "Unknown status");
+            assert(false && kErrorUnknowmTxStatus);
         }
 
         return "";
@@ -116,65 +107,48 @@ namespace beam
 
     const char* getSwapTxStatus(const IWalletDB::Ptr& walletDB, const TxDescription& tx)
     {
-        static const char* Initial = "initial";
-        static const char* Invitation = "invitation";
-        static const char* BuildingBeamLockTX = "building Beam LockTX";
-        static const char* BuildingBeamRefundTX = "building Beam RefundTX";
-        static const char* BuildingBeamRedeemTX = "building Beam RedeemTX";
-        static const char* HandlingContractTX = "handling LockTX";
-        static const char* SendingRefundTX = "sending RefundTX";
-        static const char* SendingRedeemTX = "sending RedeemTX";
-        static const char* SendingBeamLockTX = "sending Beam LockTX";
-        static const char* SendingBeamRefundTX = "sending Beam RefundTX";
-        static const char* SendingBeamRedeemTX = "sending Beam RedeemTX";
-        static const char* Completed = "completed";
-        static const char* Cancelled = "cancelled";
-        static const char* Aborted = "aborted";
-        static const char* Failed = "failed";
-        static const char* Expired = "expired";
-
         wallet::AtomicSwapTransaction::State state = wallet::AtomicSwapTransaction::State::CompleteSwap;
         storage::getTxParameter(*walletDB, tx.m_txId, wallet::TxParameterID::State, state);
 
         switch (state)
         {
         case wallet::AtomicSwapTransaction::State::Initial:
-            return Initial;
+            return kSwapTxStatusInitial;
         case wallet::AtomicSwapTransaction::State::Invitation:
-            return Invitation;
+            return kSwapTxStatusInvitation;
         case wallet::AtomicSwapTransaction::State::BuildingBeamLockTX:
-            return BuildingBeamLockTX;
+            return kSwapTxStatusBuildingBeamLockTX;
         case wallet::AtomicSwapTransaction::State::BuildingBeamRefundTX:
-            return BuildingBeamRefundTX;
+            return kSwapTxStatusBuildingBeamRefundTX;
         case wallet::AtomicSwapTransaction::State::BuildingBeamRedeemTX:
-            return BuildingBeamRedeemTX;
+            return kSwapTxStatusBuildingBeamRedeemTX;
         case wallet::AtomicSwapTransaction::State::HandlingContractTX:
-            return HandlingContractTX;
+            return kSwapTxStatusHandlingContractTX;
         case wallet::AtomicSwapTransaction::State::SendingRefundTX:
-            return SendingRefundTX;
+            return kSwapTxStatusSendingRefundTX;
         case wallet::AtomicSwapTransaction::State::SendingRedeemTX:
-            return SendingRedeemTX;
+            return kSwapTxStatusSendingRedeemTX;
         case wallet::AtomicSwapTransaction::State::SendingBeamLockTX:
-            return SendingBeamLockTX;
+            return kSwapTxStatusSendingBeamLockTX;
         case wallet::AtomicSwapTransaction::State::SendingBeamRefundTX:
-            return SendingBeamRefundTX;
+            return kSwapTxStatusSendingBeamRefundTX;
         case wallet::AtomicSwapTransaction::State::SendingBeamRedeemTX:
-            return SendingBeamRedeemTX;
+            return kSwapTxStatusSendingBeamRedeemTX;
         case wallet::AtomicSwapTransaction::State::CompleteSwap:
-            return Completed;
+            return kSwapTxStatusCompleted;
         case wallet::AtomicSwapTransaction::State::Cancelled:
-            return Cancelled;
+            return kSwapTxStatusCancelled;
         case wallet::AtomicSwapTransaction::State::Refunded:
-            return Aborted;
+            return kSwapTxStatusAborted;
         case wallet::AtomicSwapTransaction::State::Failed:
         {
             TxFailureReason reason = TxFailureReason::Unknown;
             storage::getTxParameter(*walletDB, tx.m_txId, wallet::TxParameterID::InternalFailureReason, reason);
 
-            return TxFailureReason::TransactionExpired == reason ? Expired : Failed;
+            return TxFailureReason::TransactionExpired == reason ? kSwapTxStatusExpired : kSwapTxStatusFailed;
         }
         default:
-            assert(false && "Unexpected status");
+            assert(false && kErrorUnknowmTxStatus);
         }
 
         return "";
@@ -185,13 +159,13 @@ namespace beam
         switch (swapCoin)
         {
         case AtomicSwapCoin::Bitcoin:
-            return "BTC";
+            return kSwapCoinBTC;
         case AtomicSwapCoin::Litecoin:
-            return "LTC";
+            return kSwapCoinLTC;
         case AtomicSwapCoin::Qtum:
-            return "QTUM";
+            return kSwapCoinQTUM;
         default:
-            assert(false && "Unknow SwapCoin");
+            assert(false && kErrorUnknownSwapCoin);
         }
         return "";
     }
@@ -204,7 +178,7 @@ namespace
         ByteBuffer bb = from_hex(s, &bValid);
 
         if ((bb.size() != res.nBytes) || !bValid)
-            throw std::runtime_error("invalid WID");
+            throw std::runtime_error(kErrorInvalidWID);
 
         memcpy(res.m_pData, &bb.front(), res.nBytes);
     }
@@ -278,11 +252,11 @@ namespace
             uint32_t n = vm[cli::TR_N].as<uint32_t>();
 
             if (m >= n)
-                throw std::runtime_error("bad m/n");
+                throw std::runtime_error(kErrorTreasuryBadM);
 
             assert(n);
             if (pars.m_Bursts % n)
-                throw std::runtime_error("bad n (roundoff)");
+                throw std::runtime_error(kErrorTreasuryBadN);
 
             pars.m_Bursts /= n;
             pars.m_Maturity0 = pars.m_MaturityStep * pars.m_Bursts * m;
@@ -318,9 +292,9 @@ namespace
 
                     Amount vL = AmountBig::get_Lo(valInBurst);
                     if (AmountBig::get_Hi(valInBurst) || (vL >= c.m_Value))
-                        throw std::runtime_error("Nothing remains");
+                        throw std::runtime_error(kErrorTreasuryNothingRemains);
 
-                    cout << "Maturity=" << c.m_Incubation << ", Consumed = " << vL << " / " << c.m_Value << std::endl;
+                    cout << boost::format(kTreasuryConsumeRemaining) % c.m_Incubation % vL % c.m_Value << std::endl;
                     c.m_Value -= vL;
                 }
 
@@ -353,14 +327,14 @@ namespace
 
             Treasury::EntryMap::iterator it = tres.m_Entries.find(wid);
             if (tres.m_Entries.end() == it)
-                throw std::runtime_error("plan not found");
+                throw std::runtime_error(kErrorTreasuryPlanNotFound);
 
             Treasury::Entry& e = it->second;
             e.m_pResponse.reset(new Treasury::Response);
             FLoad(*e.m_pResponse, sID + szResponse);
 
             if (!e.m_pResponse->IsValid(e.m_Request))
-                throw std::runtime_error("invalid response");
+                throw std::runtime_error(kErrorTreasuryInvalidResponse);
 
             FSave(tres, szPlans);
         }
@@ -387,7 +361,7 @@ namespace
             char szHash[Hash::Value::nTxtLen + 1];
             hv.Print(szHash);
 
-            cout << "Treasury data hash: " << szHash << std::endl;
+            cout << boost::format(kTreasuryDataHash) % szHash << std::endl;
 
         }
         break;
@@ -401,12 +375,12 @@ namespace
             std::vector<Treasury::Data::Coin> vCoins;
             data.Recover(kdf, vCoins);
 
-            cout << "Recovered coins: " << vCoins.size() << std::endl;
+            cout << boost::format(kTreasuryRecoveredCoinsTitle) % vCoins.size() << std::endl;
 
             for (size_t i = 0; i < vCoins.size(); i++)
             {
                 const Treasury::Data::Coin& coin = vCoins[i];
-                cout << "\t" << coin.m_Kidv << ", Height=" << coin.m_Incubation << std::endl;
+                cout << boost::format(kTreasuryRecoveredCoin) % coin.m_Kidv % coin.m_Incubation << std::endl;
 
             }
         }
@@ -420,12 +394,12 @@ namespace
 
             auto vBursts = data.get_Bursts();
 
-            cout << "Total bursts: " << vBursts.size() << std::endl;
+            cout << boost::format(kTreasuryBurstsTitle) % vBursts.size() << std::endl;
 
             for (size_t i = 0; i < vBursts.size(); i++)
             {
                 const Treasury::Data::Burst& b = vBursts[i];
-                cout << "\t" << "Height=" << b.m_Height << ", Value=" << b.m_Value << std::endl;
+                cout << boost::format(kTreasuryBurst) % b.m_Height % b.m_Value << std::endl;
             }
         }
         break;
@@ -451,17 +425,17 @@ namespace
             walletID.FromHex(address);
         }
         uint64_t newDuration_s = 0;
-        if (newTime == "24h")
+        if (newTime == kExprTime24h)
         {
             newDuration_s = 24 * 3600; //seconds
         }
-        else if (newTime == "never")
+        else if (newTime == kExprTimeNever)
         {
             newDuration_s = 0;
         }
         else
         {
-            LOG_ERROR() << "Invalid address expiration time \"" << newTime << "\".";
+            LOG_ERROR() << boost::format(kErrorAddrExprTimeInvalid) % newTime;
             return -1;
         }
 
@@ -469,11 +443,11 @@ namespace
         {
             if (allAddresses)
             {
-                LOG_INFO() << "Expiration for all addresses  was changed to \"" << newTime << "\".";
+                LOG_INFO() << boost::format(kAllAddrExprChanged) % newTime;
             }
             else
             {
-                LOG_INFO() << "Expiration for address " << to_string(walletID) << " was changed to \"" << newTime << "\".";
+                LOG_INFO() << boost::format(kAddrExprChanged) % to_string(walletID) % newTime;
             }
             return 0;
         }
@@ -492,9 +466,9 @@ namespace
         address.m_label = comment;
         walletDB->saveAddress(address);
 
-        LOG_INFO() << "New address generated:\n\n" << std::to_string(address.m_walletID) << "\n";
+        LOG_INFO() << boost::format(kAddrNewGenerated) % std::to_string(address.m_walletID);
         if (!comment.empty()) {
-            LOG_INFO() << "comment = " << comment;
+            LOG_INFO() << boost::format(kAddrNewGeneratedComment) % comment;
         }
         return address;
     }
@@ -503,12 +477,12 @@ namespace
     {
         auto phrase = createMnemonic(getEntropy(), language::en);
         assert(phrase.size() == 12);
-        cout << "======\nGenerated seed phrase: \n\n\t";
+        cout << kSeedPhraseGeneratedTitle;
         for (const auto& word : phrase)
         {
             cout << word << ';';
         }
-        cout << "\n\n\tIMPORTANT\n\n\tYour seed phrase is the access key to all the cryptocurrencies in your wallet.\n\tPrint or write down the phrase to keep it in a safe or in a locked vault.\n\tWithout the phrase you will not be able to recover your money.\n======" << endl;
+        cout << kSeedPhraseGeneratedMessage << endl;
         return phrase;
     }
 
@@ -518,7 +492,7 @@ namespace
         WordList phrase;
         if (generateNew)
         {
-            LOG_INFO() << "Generating seed phrase...";
+            LOG_INFO() << kSeedPhraseReadTitle;
             phrase = GeneratePhrase();
         }
         else if (vm.count(cli::SEED_PHRASE))
@@ -529,13 +503,13 @@ namespace
             assert(phrase.size() == WORD_COUNT);
             if (!isValidMnemonic(phrase, language::en))
             {
-                LOG_ERROR() << "Invalid seed phrase provided: " << tempPhrase;
+                LOG_ERROR() << boost::format(kErrorSeedPhraseInvalid) % tempPhrase;
                 return false;
             }
         }
         else
         {
-            LOG_ERROR() << "Seed phrase has not been provided.";
+            LOG_ERROR() << kErrorSeedPhraseNotProvided;
             return false;
         }
 
@@ -552,13 +526,13 @@ namespace
         array<uint8_t, 5> columnWidths{ { 20, 70, 8, 20, 21 } };
 
         // Comment | Address | Active | Expiration date | Created |
-        cout << "Addresses\n\n"
-            << "  " << std::left
-            << setw(columnWidths[0]) << "comment" << "|"
-            << setw(columnWidths[1]) << "address" << "|"
-            << setw(columnWidths[2]) << "active" << "|"
-            << setw(columnWidths[3]) << "expiration date" << "|"
-            << setw(columnWidths[4]) << "created" << endl;
+        cout << boost::format(kAddrListTableHead)
+             % boost::io::group(left, setw(columnWidths[0]), kAddrListColumnComment)
+             % boost::io::group(left, setw(columnWidths[1]), kAddrListColumnAddress)
+             % boost::io::group(left, setw(columnWidths[2]), kAddrListColumnActive)
+             % boost::io::group(left, setw(columnWidths[3]), kAddrListColumnExprDate)
+             % boost::io::group(left, setw(columnWidths[4]), kAddrListColumnCreated)
+             << std::endl;
 
         for (const auto& address : addresses)
         {
@@ -569,14 +543,18 @@ namespace
                 comment = comment.substr(0, columnWidths[0] - 3) + "...";
             }
 
-            auto expirationDateText = (address.m_duration == 0) ? "never" : format_timestamp("%Y.%m.%d %H:%M:%S", address.getExpirationTime() * 1000, false);
+            auto expirationDateText = (address.m_duration == 0)
+                ? kExprTimeNever
+                : format_timestamp(kTimeStampFormat3x3, address.getExpirationTime() * 1000, false);
+            auto creationDateText = format_timestamp(kTimeStampFormat3x3, address.getCreateTime() * 1000, false);
 
-            cout << "  " << std::left << std::boolalpha
-                << setw(columnWidths[0]) << comment << " "
-                << setw(columnWidths[1]) << std::to_string(address.m_walletID) << " "
-                << setw(columnWidths[2]) << !address.isExpired() << " "
-                << setw(columnWidths[3]) << expirationDateText << " "
-                << setw(columnWidths[4]) << format_timestamp("%Y.%m.%d %H:%M:%S", address.getCreateTime() * 1000, false) << "\n";
+            cout << boost::format(kAddrListTableBody)
+             % boost::io::group(left, setw(columnWidths[0]), comment)
+             % boost::io::group(left, setw(columnWidths[1]), std::to_string(address.m_walletID))
+             % boost::io::group(left, boolalpha, setw(columnWidths[2]), !address.isExpired())
+             % boost::io::group(left, setw(columnWidths[3]), expirationDateText)
+             % boost::io::group(left, setw(columnWidths[4]), creationDateText)
+             << std::endl;
         }
 
         return 0;
@@ -589,47 +567,52 @@ namespace
 
         storage::Totals totals(*walletDB);
 
-        cout << "____Wallet summary____\n\n"
-            << "Current height............" << stateID.m_Height << '\n'
-            << "Current state ID.........." << stateID.m_Hash << "\n\n"
-            << "Available................." << PrintableAmount(totals.Avail) << '\n'
-            << "Maturing.................." << PrintableAmount(totals.Maturing) << '\n'
-            << "In progress..............." << PrintableAmount(totals.Incoming) << '\n'
-            << "Unavailable..............." << PrintableAmount(totals.Unavail) << '\n'
-            << "Available coinbase ......." << PrintableAmount(totals.AvailCoinbase) << '\n'
-            << "Total coinbase............" << PrintableAmount(totals.Coinbase) << '\n'
-            << "Avaliable fee............." << PrintableAmount(totals.AvailFee) << '\n'
-            << "Total fee................." << PrintableAmount(totals.Fee) << '\n'
-            << "Total unspent............." << PrintableAmount(totals.Unspent) << "\n\n";
+        const unsigned kWidth = 26; 
+        cout << boost::format(kWalletSummaryFormat)
+
+             % boost::io::group(left, setfill('.'), setw(kWidth), kWalletSummaryFieldCurHeight) % stateID.m_Height
+             % boost::io::group(left, setfill('.'), setw(kWidth), kWalletSummaryFieldCurStateID) % stateID.m_Hash
+
+             % boost::io::group(left, setfill('.'), setw(kWidth), kWalletSummaryFieldAvailable) % to_string(PrintableAmount(totals.Avail))
+             % boost::io::group(left, setfill('.'), setw(kWidth), kWalletSummaryFieldMaturing) % to_string(PrintableAmount(totals.Maturing))
+             % boost::io::group(left, setfill('.'), setw(kWidth), kWalletSummaryFieldInProgress) % to_string(PrintableAmount(totals.Incoming))
+             % boost::io::group(left, setfill('.'), setw(kWidth), kWalletSummaryFieldUnavailable) % to_string(PrintableAmount(totals.Unavail))
+             % boost::io::group(left, setfill('.'), setw(kWidth), kWalletSummaryFieldAvailableCoinbase) % to_string(PrintableAmount(totals.AvailCoinbase))
+             % boost::io::group(left, setfill('.'), setw(kWidth), kWalletSummaryFieldTotalCoinbase) % to_string(PrintableAmount(totals.Coinbase))
+             % boost::io::group(left, setfill('.'), setw(kWidth), kWalletSummaryFieldAvaliableFee) % to_string(PrintableAmount(totals.AvailFee))
+             % boost::io::group(left, setfill('.'), setw(kWidth), kWalletSummaryFieldTotalFee) % to_string(PrintableAmount(totals.Fee))
+             % boost::io::group(left, setfill('.'), setw(kWidth), kWalletSummaryFieldTotalUnspent) % to_string(PrintableAmount(totals.Unspent));
 
         if (vm.count(cli::TX_HISTORY))
         {
             auto txHistory = walletDB->getTxHistory();
             if (txHistory.empty())
             {
-                cout << "No transactions\n";
+                cout << kTxHistoryEmpty << endl;
                 return 0;
             }
 
             const array<uint8_t, 6> columnWidths{ { 20, 17, 26, 21, 33, 65} };
 
-            cout << "TRANSACTIONS\n\n  |"
-                << left << setw(columnWidths[0]) << " datetime" << " |"
-                << left << setw(columnWidths[1]) << " direction" << " |"
-                << right << setw(columnWidths[2]) << " amount, BEAM" << " |"
-                << left << setw(columnWidths[3]) << " status" << " |"
-                << setw(columnWidths[4]) << " ID" << " |" 
-                << setw(columnWidths[5]) << " kernel ID" << " |" << endl;
+            cout << boost::format(kTxHistoryTableHead)
+                 % boost::io::group(left, setw(columnWidths[0]), kTxHistoryColumnDatetTime)
+                 % boost::io::group(left, setw(columnWidths[1]), kTxHistoryColumnDirection)
+                 % boost::io::group(right, setw(columnWidths[2]), kTxHistoryColumnAmount)
+                 % boost::io::group(left, setw(columnWidths[3]), kTxHistoryColumnStatus)
+                 % boost::io::group(left, setw(columnWidths[4]), kTxHistoryColumnId)
+                 % boost::io::group(left, setw(columnWidths[5]), kTxHistoryColumnKernelId)
+                 << std::endl;
 
             for (auto& tx : txHistory)
             {
-                cout << "   "
-                    << " " << left << setw(columnWidths[0]) << format_timestamp("%Y.%m.%d %H:%M:%S", tx.m_createTime * 1000, false) << " "
-                    << " " << left << setw(columnWidths[1]) << (tx.m_selfTx ? "self transaction" : (tx.m_sender ? "outgoing" : "incoming"))
-                    << " " << right << setw(columnWidths[2]) << PrintableAmount(tx.m_amount, true) << "  "
-                    << " " << left << setw(columnWidths[3]+1) << getTxStatus(tx) 
-                    << " " << setw(columnWidths[4]+1) << to_hex(tx.m_txId.data(), tx.m_txId.size())
-                    << " " << setw(columnWidths[5]+1) << to_string(tx.m_kernelID) << '\n';
+                cout << boost::format(kTxHistoryTableFormat)
+                     % boost::io::group(left, setw(columnWidths[0]), format_timestamp(kTimeStampFormat3x3, tx.m_createTime * 1000, false))
+                     % boost::io::group(left, setw(columnWidths[1]), (tx.m_selfTx ? kTxDirectionSelf : (tx.m_sender ? kTxDirectionOut : kTxDirectionIn)))
+                     % boost::io::group(right, setw(columnWidths[2]), to_string(PrintableAmount(tx.m_amount, true)))
+                     % boost::io::group(left, setw(columnWidths[3]), getTxStatus(tx))
+                     % boost::io::group(left, setw(columnWidths[4]), to_hex(tx.m_txId.data(), tx.m_txId.size()))
+                     % boost::io::group(left, setw(columnWidths[5]), to_string(tx.m_kernelID))
+                     << std::endl;
             }
             return 0;
         }
@@ -639,19 +622,20 @@ namespace
             auto txHistory = walletDB->getTxHistory(wallet::TxType::AtomicSwap);
             if (txHistory.empty())
             {
-                cout << "No swap transactions\n";
+                cout << kSwapTxHistoryEmpty << endl;
                 return 0;
             }
 
             const array<uint8_t, 6> columnWidths{ { 20, 26, 18, 15, 23, 33} };
 
-            cout << "SWAP TRANSACTIONS\n\n  |"
-                << left << setw(columnWidths[0]) << " datetime" << " |"
-                << right << setw(columnWidths[1]) << " amount, BEAM" << " |"
-                << right << setw(columnWidths[2]) << " swap amount" << " |"
-                << left << setw(columnWidths[3]) << " swap type" << " |"
-                << left << setw(columnWidths[4]) << " status" << " |"
-                << setw(columnWidths[5]) << " ID" << " |" << endl;
+            cout << boost::format(kTxHistoryTableHead)
+                 % boost::io::group(left, setw(columnWidths[0]), kTxHistoryColumnDatetTime)
+                 % boost::io::group(right, setw(columnWidths[1]), kTxHistoryColumnAmount)
+                 % boost::io::group(right, setw(columnWidths[2]), kTxHistoryColumnSwapAmount)
+                 % boost::io::group(left, setw(columnWidths[3]), kTxHistoryColumnSwapType)
+                 % boost::io::group(left, setw(columnWidths[4]), kTxHistoryColumnStatus)
+                 % boost::io::group(left, setw(columnWidths[5]), kTxHistoryColumnId)
+                 << std::endl;
 
             for (auto& tx : txHistory)
             {
@@ -664,38 +648,40 @@ namespace
                 storage::getTxParameter(*walletDB, tx.m_txId, wallet::kDefaultSubTxID, wallet::TxParameterID::AtomicSwapCoin, swapCoin);
 
                 stringstream ss;
-                ss << (isBeamSide ? "Beam" : getAtomicSwapCoinText(swapCoin)) << " <--> " << (!isBeamSide ? "Beam" : getAtomicSwapCoinText(swapCoin));
+                ss << (isBeamSide ? kBEAM : getAtomicSwapCoinText(swapCoin)) << " <--> " << (!isBeamSide ? kBEAM : getAtomicSwapCoinText(swapCoin));
 
-                cout << "   "
-                    << " " << left << setw(columnWidths[0]) << format_timestamp("%Y.%m.%d %H:%M:%S", tx.m_createTime * 1000, false)
-                    << " " << right << setw(columnWidths[1]) << PrintableAmount(tx.m_amount, true) << " "
-                    << " " << right << setw(columnWidths[2]) << swapAmount << " "
-                    << " " << right << setw(columnWidths[3]) << ss.str() << "  "
-                    << " " << left << setw(columnWidths[4]) << getSwapTxStatus(walletDB, tx)
-                    << " " << setw(columnWidths[5] + 1) << to_hex(tx.m_txId.data(), tx.m_txId.size()) << '\n';
+                cout << boost::format(kSwapTxHistoryTableFormat)
+                     % boost::io::group(left, setw(columnWidths[0]), format_timestamp(kTimeStampFormat3x3, tx.m_createTime * 1000, false))
+                     % boost::io::group(right, setw(columnWidths[1]), to_string(PrintableAmount(tx.m_amount, true)))
+                     % boost::io::group(right, setw(columnWidths[2]), swapAmount)
+                     % boost::io::group(right, setw(columnWidths[3]), ss.str())
+                     % boost::io::group(left, setw(columnWidths[4]), getSwapTxStatus(walletDB, tx))
+                     % boost::io::group(left, setw(columnWidths[5]), to_hex(tx.m_txId.data(), tx.m_txId.size()))
+                     << std::endl;
             }
             return 0;
         }
 
         const array<uint8_t, 6> columnWidths{ { 49, 14, 14, 18, 30, 8} };
-        cout << "  |"
-            << left << setw(columnWidths[0]) << " ID" << " |"
-            << right << setw(columnWidths[1]) << " beam" << " |"
-            << setw(columnWidths[2]) << " groth" << " |"
-            << left << setw(columnWidths[3]) << " maturity" << " |"
-            << setw(columnWidths[4]) << " status" << " |"
-            << setw(columnWidths[5]) << " type" << endl;
-
+        cout << boost::format(kCoinsTableHeadFormat)
+                 % boost::io::group(left, setw(columnWidths[0]), kCoinColumnId)
+                 % boost::io::group(right, setw(columnWidths[1]), kBEAM)
+                 % boost::io::group(right, setw(columnWidths[2]), kGROTH)
+                 % boost::io::group(left, setw(columnWidths[3]), kCoinColumnMaturity)
+                 % boost::io::group(left, setw(columnWidths[4]), kCoinColumnStatus)
+                 % boost::io::group(left, setw(columnWidths[5]), kCoinColumnType)
+                 << std::endl;
         
         walletDB->visit([&columnWidths](const Coin& c)->bool
         {
-            cout << "   "
-                << " " << left << setw(columnWidths[0]) << c.toStringID()
-                << " " << right << setw(columnWidths[1]) << c.m_ID.m_Value / Rules::Coin << " "
-                << " " << right << setw(columnWidths[2]) << c.m_ID.m_Value % Rules::Coin << "  "
-                << " " << left << setw(columnWidths[3]+1) << (c.IsMaturityValid() ? std::to_string(static_cast<int64_t>(c.m_maturity)) : "-")
-                << " " << setw(columnWidths[4]+1) << c.m_status
-                << " " << setw(columnWidths[5]+1) << c.m_ID.m_Type << endl;
+            cout << boost::format(kCoinsTableFormat)
+                 % boost::io::group(left, setw(columnWidths[0]), c.toStringID())
+                 % boost::io::group(right, setw(columnWidths[1]), c.m_ID.m_Value / Rules::Coin)
+                 % boost::io::group(right, setw(columnWidths[2]), c.m_ID.m_Value % Rules::Coin)
+                 % boost::io::group(left, setw(columnWidths[3]), (c.IsMaturityValid() ? std::to_string(static_cast<int64_t>(c.m_maturity)) : "-"))
+                 % boost::io::group(left, setw(columnWidths[4]), c.m_status)
+                 % boost::io::group(left, setw(columnWidths[5]), c.m_ID.m_Type)
+                 << std::endl;
             return true;
         });
         return 0;

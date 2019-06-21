@@ -63,6 +63,34 @@ namespace std
             return "";
         }
     }
+
+    string to_string(const beam::wallet::PrintableAmount& amount)
+    {
+        stringstream ss;
+
+        if (amount.m_showPoint)
+        {
+            size_t maxGrothsLength = std::lround(std::log10(Rules::Coin));
+            ss << fixed << setprecision(maxGrothsLength) << double(amount.m_value) / Rules::Coin;
+            string s = ss.str();
+            boost::algorithm::trim_right_if(s, boost::is_any_of("0"));
+            boost::algorithm::trim_right_if(s, boost::is_any_of(",."));
+            return s;
+        }
+        else
+        {
+            if (amount.m_value >= Rules::Coin)
+            {
+                ss << Amount(amount.m_value / Rules::Coin) << " beams ";
+            }
+            Amount c = amount.m_value % Rules::Coin;
+            if (c > 0 || amount.m_value == 0)
+            {
+                ss << c << " groth ";
+            }
+            return ss.str();
+        }
+    }
 }
 
 namespace beam
@@ -77,30 +105,7 @@ namespace beam
 
     std::ostream& operator<<(std::ostream& os, const wallet::PrintableAmount& amount)
     {
-        stringstream ss;
-
-        if (amount.m_showPoint)
-        {
-            size_t maxGrothsLength = std::lround(std::log10(Rules::Coin));
-            ss << fixed << setprecision(maxGrothsLength) << double(amount.m_value) / Rules::Coin;
-            string s = ss.str();
-            boost::algorithm::trim_right_if(s, boost::is_any_of("0"));
-            boost::algorithm::trim_right_if(s, boost::is_any_of(",."));
-            os << s;
-        }
-        else
-        {
-            if (amount.m_value >= Rules::Coin)
-            {
-                ss << Amount(amount.m_value / Rules::Coin) << " beams ";
-            }
-            Amount c = amount.m_value % Rules::Coin;
-            if (c > 0 || amount.m_value == 0)
-            {
-                ss << c << " groth ";
-            }
-            os << ss.str();
-        }
+        os << std::to_string(amount);
         
         return os;
     }

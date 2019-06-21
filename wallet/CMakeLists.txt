@@ -64,7 +64,7 @@ if (NOT ANDROID)
 
     endif()
 
-    add_executable(${TARGET_NAME} cli.cpp)
+    add_executable(${TARGET_NAME} cli.cpp strings_resources.h strings_resources.cpp)
 
 target_include_directories(${TARGET_NAME} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/external)
 
