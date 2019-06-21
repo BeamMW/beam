@@ -842,8 +842,17 @@ namespace
 
     bool SaveExportedData(const ByteBuffer& data, const std::string& path)
     {
+        size_t dotPos = path.find_last_of('.');
+        stringstream ss;
+        ss << path.substr(0, dotPos);
+        ss << getTimestamp();
+        if (dotPos != string::npos)
+        {
+            ss << path.substr(dotPos);
+        }
+        string timestampedPath = ss.str();
         FStream f;
-        if (f.Open(path.c_str(), false) && f.write(data.data(), data.size()) == data.size())
+        if (f.Open(timestampedPath.c_str(), false) && f.write(data.data(), data.size()) == data.size())
         {
             LOG_INFO() << "Data has been successfully exported.";
             return true;
