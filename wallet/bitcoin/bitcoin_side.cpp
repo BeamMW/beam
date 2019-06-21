@@ -208,6 +208,13 @@ namespace beam::wallet
         return 70;
     }
 
+    bool BitcoinSide::CheckAmount(Amount amount, Amount feeRate)
+    {
+        constexpr Amount kDustThreshold = 546;
+        Amount fee = static_cast<Amount>(std::round(double(kBTCWithdrawTxAverageSize * feeRate) / 1000));
+        return amount > kDustThreshold && amount > fee;
+    }
+
     bool BitcoinSide::LoadSwapAddress()
     {
         // load or generate BTC address
