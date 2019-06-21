@@ -45,6 +45,7 @@
 #include "utility/log_rotation.h"
 #include "utility/helpers.h"
 
+#include <boost/assert.hpp> 
 #include <boost/program_options.hpp>
 #include <boost/filesystem.hpp>
 #include <boost/format.hpp>
@@ -74,12 +75,12 @@ namespace beam
         case Coin::Outgoing: ss << kCoinStatusOutgoing; break;
         case Coin::Incoming: ss << kCoinStatusIncoming; break;
         default:
-            assert(false && kErrorUnknownCoinStatus);
+            BOOST_ASSERT_MSG(false, kErrorUnknownCoinStatus);
         }
         ss << "]";
         string str = ss.str();
         os << str;
-        assert(str.length() <= 30);
+        BOOST_ASSERT(str.length() <= 30);
         return os;
     }
 
@@ -102,7 +103,7 @@ namespace beam
         case TxStatus::Failed: return TxFailureReason::TransactionExpired == tx.m_failureReason
             ? kTxStatusExpired : kTxStatusFailed;
         default:
-            assert(false && kErrorUnknowmTxStatus);
+            BOOST_ASSERT_MSG(false, kErrorUnknowmTxStatus);
         }
 
         return "";
@@ -151,7 +152,7 @@ namespace beam
             return TxFailureReason::TransactionExpired == reason ? kSwapTxStatusExpired : kSwapTxStatusFailed;
         }
         default:
-            assert(false && kErrorUnknowmTxStatus);
+            BOOST_ASSERT_MSG(false, kErrorUnknowmTxStatus);
         }
 
         return "";
@@ -168,7 +169,7 @@ namespace beam
         case AtomicSwapCoin::Qtum:
             return kSwapCoinQTUM;
         default:
-            assert(false && kErrorUnknownSwapCoin);
+            BOOST_ASSERT_MSG(false, kErrorUnknownSwapCoin);
         }
         return "";
     }
@@ -257,7 +258,7 @@ namespace
             if (m >= n)
                 throw std::runtime_error(kErrorTreasuryBadM);
 
-            assert(n);
+            BOOST_ASSERT(n);
             if (pars.m_Bursts % n)
                 throw std::runtime_error(kErrorTreasuryBadN);
 
@@ -479,7 +480,7 @@ namespace
     WordList GeneratePhrase()
     {
         auto phrase = createMnemonic(getEntropy(), language::en);
-        assert(phrase.size() == 12);
+        BOOST_ASSERT(phrase.size() == 12);
         cout << kSeedPhraseGeneratedTitle;
         for (const auto& word : phrase)
         {
@@ -503,7 +504,7 @@ namespace
             auto tempPhrase = vm[cli::SEED_PHRASE].as<string>();
             boost::algorithm::trim_if(tempPhrase, [](char ch) { return ch == ';'; });
             phrase = string_helpers::split(tempPhrase, ';');
-            assert(phrase.size() == WORD_COUNT);
+            BOOST_ASSERT(phrase.size() == WORD_COUNT);
             if (!isValidMnemonic(phrase, language::en))
             {
                 LOG_ERROR() << boost::format(kErrorSeedPhraseInvalid) % tempPhrase;
@@ -1255,7 +1256,7 @@ int main_impl(int argc, char* argv[])
                         return -1;
                     }
 
-                    assert(vm.count(cli::WALLET_STORAGE) > 0);
+                    BOOST_ASSERT(vm.count(cli::WALLET_STORAGE) > 0);
                     auto walletPath = vm[cli::WALLET_STORAGE].as<string>();
 
                     if (!WalletDB::isInitialized(walletPath) && (command != cli::INIT && command != cli::RESTORE))
