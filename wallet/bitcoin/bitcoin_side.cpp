@@ -419,14 +419,11 @@ namespace beam::wallet
 
     bool BitcoinSide::SendWithdrawTx(SubTxID subTxID)
     {
-        if (uint8_t nRegistered = proto::TxStatus::Unspecified; !m_tx.GetParameter(TxParameterID::TransactionRegistered, nRegistered, subTxID)) // TODO
-        {
-            auto refundTxState = BuildWithdrawTx(subTxID);
-            if (refundTxState != SwapTxState::Constructed)
-                return false;
+        auto refundTxState = BuildWithdrawTx(subTxID);
+        if (refundTxState != SwapTxState::Constructed)
+            return false;
 
-            assert(m_SwapWithdrawRawTx.is_initialized());
-        }
+         assert(m_SwapWithdrawRawTx.is_initialized());
 
         if (!RegisterTx(*m_SwapWithdrawRawTx, subTxID))
             return false;
