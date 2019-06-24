@@ -23,7 +23,7 @@ using json = nlohmann::json;
 namespace
 {
     constexpr uint32_t kBTCLockTimeSec = 2 * 24 * 60 * 60;
-    constexpr uint32_t kBTCWithdrawTxAverageSize = 240;
+    constexpr uint32_t kBTCWithdrawTxAverageSize = 360;
     constexpr uint32_t kBTCMaxHeightDifference = 10;
     // it's average value
     constexpr uint32_t kBtcTxTimeInBeamBlocks = 70;
@@ -326,7 +326,8 @@ namespace beam::wallet
             Amount swapAmount = m_tx.GetMandatoryParameter<Amount>(TxParameterID::AtomicSwapAmount);
 
             libbitcoin::chain::transaction contractTx;
-            libbitcoin::chain::output output(swapAmount, contractScript);
+            libbitcoin::chain::script outputScript = libbitcoin::chain::script::to_pay_script_hash_pattern(libbitcoin::bitcoin_short_hash(contractScript.to_data(false)));
+            libbitcoin::chain::output output(swapAmount, outputScript);
             contractTx.outputs().push_back(output);
 
             std::string hexTx = libbitcoin::encode_base16(contractTx.to_data());
@@ -611,12 +612,14 @@ namespace beam::wallet
                 libbitcoin::endorsement secretSig;
                 libbitcoin::chain::script::create_endorsement(secretSig, secret, contractScript, withdrawTX, input_index, libbitcoin::machine::sighash_algorithm::all);
 
-                // 0 <their sig> <secret sig> 1
+               // 0 <their sig> <secret sig> 1
                 sig_script.push_back(libbitcoin::machine::operation(libbitcoin::machine::opcode(0)));
                 sig_script.push_back(libbitcoin::machine::operation(sig));
                 sig_script.push_back(libbitcoin::machine::operation(secretSig));
                 sig_script.push_back(libbitcoin::machine::operation(libbitcoin::machine::opcode::push_positive_1));
             }
+
+            sig_script.push_back(libbitcoin::machine::operation(contractScript.to_data(false)));
 
             libbitcoin::chain::script input_script(sig_script);
 
@@ -680,10 +683,11 @@ namespace beam::wallet
             auto script = libbitcoin::chain::script::factory_from_data(scriptData, false);
 
             auto contractScript = CreateAtomicSwapContract();
+            auto inputScript = libbitcoin::chain::script::to_pay_script_hash_pattern(libbitcoin::bitcoin_short_hash(contractScript.to_data(false)));
 
-            assert(script == contractScript);
+            assert(script == inputScript);
 
-            if (script != contractScript)
+            if (script != inputScript)
             {
                 m_tx.SetParameter(TxParameterID::InternalFailureReason, TxFailureReason::SwapInvalidContract, false, SubTxIndex::LOCK_TX);
                 m_tx.UpdateAsync();

@@ -35,7 +35,7 @@ namespace beam::wallet
 
         static bool CheckAmount(Amount amount, Amount feeRate)
         {
-            constexpr uint32_t kQtumWithdrawTxAverageSize = 240;
+            constexpr uint32_t kQtumWithdrawTxAverageSize = 360;
             constexpr Amount kDustThreshold = 72800;
             Amount fee = static_cast<Amount>(std::round(double(kQtumWithdrawTxAverageSize * feeRate) / 1000));
             return amount > kDustThreshold && amount > fee;
