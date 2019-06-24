@@ -1160,7 +1160,6 @@ namespace beam::wallet
         , m_PrivateDB(sdb)
         , m_Reactor(reactor)
         , m_IsFlushPending(false)
-        , m_DbTransaction(new sqlite::Transaction(_db))
     {
 
     }
