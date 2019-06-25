@@ -1066,6 +1066,7 @@ namespace beam::wallet
         auto swapLockTime = GetMandatoryParameter<Timestamp>(TxParameterID::AtomicSwapExternalLockTime);
         auto minHeight = GetMandatoryParameter<Height>(TxParameterID::MinHeight);
         auto lifetime = GetMandatoryParameter<Height>(TxParameterID::Lifetime);
+        auto chainType = GetMandatoryParameter<SwapSecondSideChainType>(TxParameterID::AtomicSwapSecondSideChainType);
 
         // send invitation
         SetTxParameter msg;
@@ -1079,6 +1080,7 @@ namespace beam::wallet
             .AddParameter(TxParameterID::AtomicSwapPeerPublicKey, swapPublicKey)
             .AddParameter(TxParameterID::AtomicSwapExternalLockTime, swapLockTime)
             .AddParameter(TxParameterID::AtomicSwapIsBeamSide, !IsBeamSide())
+            .AddParameter(TxParameterID::AtomicSwapSecondSideChainType, chainType)
             .AddParameter(TxParameterID::PeerProtoVersion, s_ProtoVersion);
 
         if (!SendTxParameters(std::move(msg)))

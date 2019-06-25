@@ -1517,6 +1517,7 @@ int main_impl(int argc, char* argv[])
 
                             Amount swapAmount = vm[cli::SWAP_AMOUNT].as<Positive<Amount>>().value;
 
+                            SwapSecondSideChainType secondSideChainType = SwapSecondSideChainType::Mainnet;
                             wallet::AtomicSwapCoin swapCoin = wallet::AtomicSwapCoin::Bitcoin;
 
                             if (vm.count(cli::SWAP_COIN) > 0)
@@ -1543,6 +1544,7 @@ int main_impl(int argc, char* argv[])
                                     LOG_ERROR() << "The swap amount must be greater than the redemption fee.";
                                     return -1;
                                 }
+                                secondSideChainType = btcOptions->m_chainType;
                             }
                             else if (swapCoin == wallet::AtomicSwapCoin::Litecoin)
                             {
@@ -1556,6 +1558,7 @@ int main_impl(int argc, char* argv[])
                                     LOG_ERROR() << "The swap amount must be greater than the redemption fee.";
                                     return -1;
                                 }
+                                secondSideChainType = ltcOptions->m_chainType;
                             }
                             else
                             {
@@ -1569,6 +1572,7 @@ int main_impl(int argc, char* argv[])
                                     LOG_ERROR() << "The swap amount must be greater than the redemption fee.";
                                     return -1;
                                 }
+                                secondSideChainType = qtumOptions->m_chainType;
                             }
                             
                             bool isBeamSide = (vm.count(cli::SWAP_BEAM_SIDE) != 0);
@@ -1595,7 +1599,7 @@ int main_impl(int argc, char* argv[])
                                 WalletAddress senderAddress = CreateNewAddress(walletDB, "");
 
                                 currentTxID = wallet.swap_coins(senderAddress.m_walletID, receiverWalletID, 
-                                    move(amount), move(fee), swapCoin, swapAmount, isBeamSide);
+                                    move(amount), move(fee), swapCoin, swapAmount, secondSideChainType, isBeamSide);
                             }
 
                             if (command == cli::SWAP_LISTEN)
@@ -1622,8 +1626,7 @@ int main_impl(int argc, char* argv[])
                                     LOG_ERROR() << "The amount must be greater than the redemption fee.";
                                     return -1;
                                 }
-
-                                wallet.initSwapConditions(amount, swapAmount, swapCoin, isBeamSide);
+                                wallet.initSwapConditions(amount, swapAmount, swapCoin, isBeamSide, secondSideChainType);
                             }
                         }
 
