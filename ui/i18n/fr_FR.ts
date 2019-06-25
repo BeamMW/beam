@@ -179,7 +179,7 @@
     </message>
     <message id="general-addr-comment-error">
         <source>Address with same comment already exist</source>
-        <translation>Address with same comment already exist</translation>
+        <translation type="unfinished">Address with same comment already exist</translation>
     </message>
     <message id="wallet-receive-button">
         <source>Receive</source>
@@ -807,7 +807,7 @@ Vous essayez de restaurer un portefeuille Beam existant. Veuillez noter que si v
     </message>
     <message id="loading-view-connection-error">
         <source>Connection error</source>
-        <translation>Erreur de connexion</translation>
+        <translation type="unfinished">Connection error</translation>
     </message>
     <message id="start-view-printer-not-found-error">
         <source>Printer is not found. Please, check your printer preferences.</source>
@@ -883,7 +883,7 @@ Vous essayez de restaurer un portefeuille Beam existant. Veuillez noter que si v
     </message>
     <message id="tx-curency-name">
         <source>BEAM</source>
-        <translation>BEAM</translation>
+        <translation type="unfinished">BEAM</translation>
     </message>
     <message id="tx-curency-sub-name">
         <source>groths</source>
@@ -891,7 +891,7 @@ Vous essayez de restaurer un portefeuille Beam existant. Veuillez noter que si v
     </message>
     <message id="utxo-utxo">
         <source>UTXO</source>
-        <translation>UTXO</translation>
+        <translation type="unfinished">UTXO</translation>
     </message>
     <message id="utxo-blockchain-height">
         <source>Blockchain Height</source>

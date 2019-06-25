@@ -309,6 +309,7 @@
     </message>
     <message id="settings-local-node-port">
         <source>Port</source>
+        <oldsource>Local node port</oldsource>
         <extracomment>settings tab, node section, port label</extracomment>
         <translation>Порт</translation>
     </message>
@@ -909,6 +910,7 @@
     </message>
     <message id="utxo-status-available">
         <source>Available</source>
+        <oldsource>available</oldsource>
         <translation>Доступно</translation>
     </message>
     <message id="utxo-status-maturing">

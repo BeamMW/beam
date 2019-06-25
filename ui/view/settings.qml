@@ -759,7 +759,7 @@ Rectangle {
                                     //% "3. Don’t forget to attach logs archive"
                                     property string rpm3: qsTrId("settings-report-problem-message-l3")
                                     Layout.topMargin: 7
-                                    Layout.preferredWidth: 419
+                                    Layout.preferredWidth: parent.width
                                     text: linkStyle + rpm0 + "<br />" + rpm1 + "<br />" + rpm2 + "<br />" + rpm3
                                     textFormat: Text.RichText
                                     color: Style.content_main
