@@ -203,6 +203,7 @@ namespace beam::wallet
                 {
                     m_secondSide->InitLockTime();
                     SendInvitation();
+                    LOG_INFO() << GetTxID() << " Invitation sent.";
                 }
                 else
                 {
