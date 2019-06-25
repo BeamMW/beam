@@ -61,12 +61,14 @@
         <translation>删除</translation>
     </message>
     <message id="general-receiving">
-        <source>Receiving</source>
-        <translation>收款中</translation>
+        <source>receiving</source>
+        <oldsource>Receiving</oldsource>
+        <translation type="unfinished">收款中</translation>
     </message>
     <message id="general-sending">
-        <source>Sending</source>
-        <translation>付款中</translation>
+        <source>sending</source>
+        <oldsource>Sending</oldsource>
+        <translation type="unfinished">付款中</translation>
     </message>
     <message id="general-rescan">
         <source>Rescan</source>
@@ -210,43 +212,43 @@
         <translation>交易将被删除。此操作无法撤销。</translation>
     </message>
     <message id="wallet-txs-status-pending">
-        <source>Pending</source>
+        <source>pending</source>
         <translation>待确认</translation>
     </message>
     <message id="wallet-txs-status-waiting-sender">
-        <source>Waiting for sender</source>
+        <source>waiting for sender</source>
         <translation>等待付款方</translation>
     </message>
     <message id="wallet-txs-status-waiting-receiver">
-        <source>Waiting for receiver</source>
+        <source>waiting for receiver</source>
         <translation>等待收款方</translation>
     </message>
     <message id="wallet-txs-status-completed">
-        <source>Completed</source>
+        <source>completed</source>
         <translation>已完成</translation>
     </message>
     <message id="wallet-txs-status-received">
-        <source>Received</source>
+        <source>received</source>
         <translation>已收</translation>
     </message>
     <message id="wallet-txs-status-sent">
-        <source>Sent</source>
+        <source>sent</source>
         <translation>已付</translation>
     </message>
     <message id="wallet-txs-status-cancelled">
-        <source>Cancelled</source>
+        <source>cancelled</source>
         <translation>已取消</translation>
     </message>
     <message id="wallet-txs-status-expired">
-        <source>Expired</source>
+        <source>expired</source>
         <translation>已失效</translation>
     </message>
     <message id="wallet-txs-status-failed">
-        <source>Failed</source>
+        <source>failed</source>
         <translation>失败</translation>
     </message>
     <message id="wallet-txs-status-unknown">
-        <source>Unknown</source>
+        <source>unknown</source>
         <translation>未知</translation>
     </message>
     <message id="addresses-tittle">
@@ -309,7 +311,6 @@
     </message>
     <message id="settings-local-node-port">
         <source>Port</source>
-        <oldsource>Local node port</oldsource>
         <extracomment>settings tab, node section, port label</extracomment>
         <translation>端口</translation>
     </message>
@@ -910,7 +911,6 @@
     </message>
     <message id="utxo-status-available">
         <source>Available</source>
-        <oldsource>available</oldsource>
         <translation>可用余额</translation>
     </message>
     <message id="utxo-status-maturing">

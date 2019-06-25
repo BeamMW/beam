@@ -61,12 +61,14 @@
         <translation>Delete</translation>
     </message>
     <message id="general-receiving">
-        <source>Receiving</source>
-        <translation>Receiving</translation>
+        <source>receiving</source>
+        <oldsource>Receiving</oldsource>
+        <translation type="unfinished">Receiving</translation>
     </message>
     <message id="general-sending">
-        <source>Sending</source>
-        <translation>Sending</translation>
+        <source>sending</source>
+        <oldsource>Sending</oldsource>
+        <translation type="unfinished">Sending</translation>
     </message>
     <message id="general-rescan">
         <source>Rescan</source>
@@ -210,44 +212,44 @@
         <translation>The transaction will be deleted. This operation can not be undone</translation>
     </message>
     <message id="wallet-txs-status-pending">
-        <source>Pending</source>
-        <translation>Pending</translation>
+        <source>pending</source>
+        <translation>pending</translation>
     </message>
     <message id="wallet-txs-status-waiting-sender">
-        <source>Waiting for sender</source>
-        <translation>Waiting for sender</translation>
+        <source>waiting for sender</source>
+        <translation>waiting for sender</translation>
     </message>
     <message id="wallet-txs-status-waiting-receiver">
-        <source>Waiting for receiver</source>
-        <translation>Waiting for receiver</translation>
+        <source>waiting for receiver</source>
+        <translation>waiting for receiver</translation>
     </message>
     <message id="wallet-txs-status-completed">
-        <source>Completed</source>
-        <translation>Completed</translation>
+        <source>completed</source>
+        <translation>completed</translation>
     </message>
     <message id="wallet-txs-status-received">
-        <source>Received</source>
-        <translation>Received</translation>
+        <source>received</source>
+        <translation>received</translation>
     </message>
     <message id="wallet-txs-status-sent">
-        <source>Sent</source>
-        <translation>Sent</translation>
+        <source>sent</source>
+        <translation>sent</translation>
     </message>
     <message id="wallet-txs-status-cancelled">
-        <source>Cancelled</source>
-        <translation>Cancelled</translation>
+        <source>cancelled</source>
+        <translation>cancelled</translation>
     </message>
     <message id="wallet-txs-status-expired">
-        <source>Expired</source>
-        <translation>Expired</translation>
+        <source>expired</source>
+        <translation>expired</translation>
     </message>
     <message id="wallet-txs-status-failed">
-        <source>Failed</source>
-        <translation>Failed</translation>
+        <source>failed</source>
+        <translation>failed</translation>
     </message>
     <message id="wallet-txs-status-unknown">
-        <source>Unknown</source>
-        <translation>Unknown</translation>
+        <source>unknown</source>
+        <translation>unknown</translation>
     </message>
     <message id="addresses-tittle">
         <source>Addresses</source>
@@ -309,7 +311,6 @@
     </message>
     <message id="settings-local-node-port">
         <source>Port</source>
-        <oldsource>Local node port</oldsource>
         <extracomment>settings tab, node section, port label</extracomment>
         <translation>Port</translation>
     </message>
@@ -910,7 +911,6 @@
     </message>
     <message id="utxo-status-available">
         <source>Available</source>
-        <oldsource>available</oldsource>
         <translation>Available</translation>
     </message>
     <message id="utxo-status-maturing">

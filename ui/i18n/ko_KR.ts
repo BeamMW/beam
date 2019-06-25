@@ -61,12 +61,14 @@
         <translation>삭제</translation>
     </message>
     <message id="general-receiving">
-        <source>Receiving</source>
-        <translation>받는 중</translation>
+        <source>receiving</source>
+        <oldsource>Receiving</oldsource>
+        <translation type="unfinished">받는 중</translation>
     </message>
     <message id="general-sending">
-        <source>Sending</source>
-        <translation>보내는 중</translation>
+        <source>sending</source>
+        <oldsource>Sending</oldsource>
+        <translation type="unfinished">보내는 중</translation>
     </message>
     <message id="general-rescan">
         <source>Rescan</source>
@@ -210,43 +212,43 @@
         <translation>거래는 삭제될 것입니다. 해당 작업은 취소될 수 없습니다.</translation>
     </message>
     <message id="wallet-txs-status-pending">
-        <source>Pending</source>
+        <source>pending</source>
         <translation>펜딩 중</translation>
     </message>
     <message id="wallet-txs-status-waiting-sender">
-        <source>Waiting for sender</source>
+        <source>waiting for sender</source>
         <translation>보내는 사람을 기다리는 중</translation>
     </message>
     <message id="wallet-txs-status-waiting-receiver">
-        <source>Waiting for receiver</source>
+        <source>waiting for receiver</source>
         <translation>받는 사람을 기다리는 중</translation>
     </message>
     <message id="wallet-txs-status-completed">
-        <source>Completed</source>
+        <source>completed</source>
         <translation>완성</translation>
     </message>
     <message id="wallet-txs-status-received">
-        <source>Received</source>
+        <source>received</source>
         <translation>받음</translation>
     </message>
     <message id="wallet-txs-status-sent">
-        <source>Sent</source>
+        <source>sent</source>
         <translation>보냄</translation>
     </message>
     <message id="wallet-txs-status-cancelled">
-        <source>Cancelled</source>
+        <source>cancelled</source>
         <translation>취소됨</translation>
     </message>
     <message id="wallet-txs-status-expired">
-        <source>Expired</source>
+        <source>expired</source>
         <translation>만료</translation>
     </message>
     <message id="wallet-txs-status-failed">
-        <source>Failed</source>
+        <source>failed</source>
         <translation>실패</translation>
     </message>
     <message id="wallet-txs-status-unknown">
-        <source>Unknown</source>
+        <source>unknown</source>
         <translation>알려지지 않음</translation>
     </message>
     <message id="addresses-tittle">
@@ -309,7 +311,6 @@
     </message>
     <message id="settings-local-node-port">
         <source>Port</source>
-        <oldsource>Local node port</oldsource>
         <extracomment>settings tab, node section, port label</extracomment>
         <translation>포트</translation>
     </message>
@@ -910,7 +911,6 @@
     </message>
     <message id="utxo-status-available">
         <source>Available</source>
-        <oldsource>available</oldsource>
         <translation>가능함</translation>
     </message>
     <message id="utxo-status-maturing">

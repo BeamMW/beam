@@ -49,7 +49,7 @@ namespace
         { "fr_FR", "Française"},
         { "ru_RU", "Русский" },
         { "vi_VI", "Tiếng việt"},
-        { "ko_KR", "Korean"}
+        { "ko_KR", "한국어"}
     };
 }
 

@@ -52,7 +52,7 @@ Rectangle {
                     font.weight: Font.Bold
                     color: Style.content_main
                     opacity: 0.6
-                    //% "Receiving"
+                    //% "receiving"
                     text: qsTrId("general-receiving")
                     font.capitalization: Font.AllUppercase
                 }
@@ -94,7 +94,7 @@ Rectangle {
                     font.weight: Font.Bold
                     color: Style.content_main
                     opacity: 0.6
-                    //% "Sending"
+                    //% "sending"
                     text: qsTrId("general-sending")
                     font.capitalization: Font.AllUppercase
                 }

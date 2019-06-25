@@ -61,12 +61,14 @@
         <translation>Удаление</translation>
     </message>
     <message id="general-receiving">
-        <source>Receiving</source>
-        <translation>Получение</translation>
+        <source>receiving</source>
+        <oldsource>Receiving</oldsource>
+        <translation type="unfinished">Получение</translation>
     </message>
     <message id="general-sending">
-        <source>Sending</source>
-        <translation>Отправление</translation>
+        <source>sending</source>
+        <oldsource>Sending</oldsource>
+        <translation type="unfinished">Отправление</translation>
     </message>
     <message id="general-rescan">
         <source>Rescan</source>
@@ -210,44 +212,44 @@
         <translation>Транзакция будет удалена. Эта операция необратима.</translation>
     </message>
     <message id="wallet-txs-status-pending">
-        <source>Pending</source>
-        <translation>Ожидание</translation>
+        <source>pending</source>
+        <translation>ожидание</translation>
     </message>
     <message id="wallet-txs-status-waiting-sender">
-        <source>Waiting for sender</source>
-        <translation>В ожидании отправителя</translation>
+        <source>waiting for sender</source>
+        <translation>в ожидании отправителя</translation>
     </message>
     <message id="wallet-txs-status-waiting-receiver">
-        <source>Waiting for receiver</source>
-        <translation>Ждем получателя</translation>
+        <source>waiting for receiver</source>
+        <translation>ждем получателя</translation>
     </message>
     <message id="wallet-txs-status-completed">
-        <source>Completed</source>
-        <translation>Завершено</translation>
+        <source>completed</source>
+        <translation>завершено</translation>
     </message>
     <message id="wallet-txs-status-received">
-        <source>Received</source>
-        <translation>Получено</translation>
+        <source>received</source>
+        <translation>получено</translation>
     </message>
     <message id="wallet-txs-status-sent">
-        <source>Sent</source>
-        <translation>Отправлено</translation>
+        <source>sent</source>
+        <translation>отправлено</translation>
     </message>
     <message id="wallet-txs-status-cancelled">
-        <source>Cancelled</source>
-        <translation>Отменено</translation>
+        <source>cancelled</source>
+        <translation>отменено</translation>
     </message>
     <message id="wallet-txs-status-expired">
-        <source>Expired</source>
-        <translation>Просрочено</translation>
+        <source>expired</source>
+        <translation>просрочено</translation>
     </message>
     <message id="wallet-txs-status-failed">
-        <source>Failed</source>
-        <translation>Ошибка</translation>
+        <source>failed</source>
+        <translation>ошибка</translation>
     </message>
     <message id="wallet-txs-status-unknown">
-        <source>Unknown</source>
-        <translation>Не определено</translation>
+        <source>unknown</source>
+        <translation>не определено</translation>
     </message>
     <message id="addresses-tittle">
         <source>Addresses</source>
@@ -309,7 +311,6 @@
     </message>
     <message id="settings-local-node-port">
         <source>Port</source>
-        <oldsource>Local node port</oldsource>
         <extracomment>settings tab, node section, port label</extracomment>
         <translation>Порт</translation>
     </message>
@@ -910,7 +911,6 @@
     </message>
     <message id="utxo-status-available">
         <source>Available</source>
-        <oldsource>available</oldsource>
         <translation>Доступно</translation>
     </message>
     <message id="utxo-status-maturing">

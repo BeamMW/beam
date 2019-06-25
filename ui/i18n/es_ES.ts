@@ -61,12 +61,14 @@
         <translation>Borrar</translation>
     </message>
     <message id="general-receiving">
-        <source>Receiving</source>
-        <translation>Recibiendo</translation>
+        <source>receiving</source>
+        <oldsource>Receiving</oldsource>
+        <translation type="unfinished">Recibiendo</translation>
     </message>
     <message id="general-sending">
-        <source>Sending</source>
-        <translation>Enviando</translation>
+        <source>sending</source>
+        <oldsource>Sending</oldsource>
+        <translation type="unfinished">Enviando</translation>
     </message>
     <message id="general-rescan">
         <source>Rescan</source>
@@ -210,44 +212,44 @@
         <translation>La transacción será eliminada. Esta operación no se puede deshacer</translation>
     </message>
     <message id="wallet-txs-status-pending">
-        <source>Pending</source>
-        <translation>Pendiente</translation>
+        <source>pending</source>
+        <translation>pendiente</translation>
     </message>
     <message id="wallet-txs-status-waiting-sender">
-        <source>Waiting for sender</source>
-        <translation>Esperando remitente</translation>
+        <source>waiting for sender</source>
+        <translation>esperando remitente</translation>
     </message>
     <message id="wallet-txs-status-waiting-receiver">
-        <source>Waiting for receiver</source>
-        <translation>Esperando destinatario</translation>
+        <source>waiting for receiver</source>
+        <translation>esperando destinatario</translation>
     </message>
     <message id="wallet-txs-status-completed">
-        <source>Completed</source>
-        <translation>Completado</translation>
+        <source>completed</source>
+        <translation>completado</translation>
     </message>
     <message id="wallet-txs-status-received">
-        <source>Received</source>
-        <translation>Recibido</translation>
+        <source>received</source>
+        <translation>recibido</translation>
     </message>
     <message id="wallet-txs-status-sent">
-        <source>Sent</source>
-        <translation>Enviado</translation>
+        <source>sent</source>
+        <translation>enviado</translation>
     </message>
     <message id="wallet-txs-status-cancelled">
-        <source>Cancelled</source>
-        <translation>Cancelado</translation>
+        <source>cancelled</source>
+        <translation>cancelado</translation>
     </message>
     <message id="wallet-txs-status-expired">
-        <source>Expired</source>
-        <translation>Caducado</translation>
+        <source>expired</source>
+        <translation>caducado</translation>
     </message>
     <message id="wallet-txs-status-failed">
-        <source>Failed</source>
-        <translation>Fallado</translation>
+        <source>failed</source>
+        <translation>fallado</translation>
     </message>
     <message id="wallet-txs-status-unknown">
-        <source>Unknown</source>
-        <translation>Desconocido</translation>
+        <source>unknown</source>
+        <translation>desconocido</translation>
     </message>
     <message id="addresses-tittle">
         <source>Addresses</source>
@@ -309,7 +311,6 @@
     </message>
     <message id="settings-local-node-port">
         <source>Port</source>
-        <oldsource>Local node port</oldsource>
         <extracomment>settings tab, node section, port label</extracomment>
         <translation>Puerto</translation>
     </message>
@@ -882,7 +883,7 @@
     </message>
     <message id="tx-curency-name">
         <source>BEAM</source>
-        <translation type="unfinished">BEAM</translation>
+        <translation>BEAM</translation>
     </message>
     <message id="tx-curency-sub-name">
         <source>groths</source>
@@ -890,7 +891,7 @@
     </message>
     <message id="utxo-utxo">
         <source>UTXO</source>
-        <translation type="unfinished">UTXO</translation>
+        <translation>UTXO</translation>
     </message>
     <message id="utxo-blockchain-height">
         <source>Blockchain Height</source>
@@ -910,7 +911,6 @@
     </message>
     <message id="utxo-status-available">
         <source>Available</source>
-        <oldsource>available</oldsource>
         <translation>Disponible</translation>
     </message>
     <message id="utxo-status-maturing">
