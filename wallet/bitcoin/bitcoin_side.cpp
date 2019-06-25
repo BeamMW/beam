@@ -388,6 +388,13 @@ namespace beam::wallet
 
         if (swapTxState == SwapTxState::CreatingTx)
         {
+            if (!m_SwapWithdrawRawTx.is_initialized())
+            {
+                LOG_ERROR() << m_tx.GetTxID() << "[" << subTxID << "]" << " Incorrect state, rebuilding.";
+                m_tx.SetState(SwapTxState::Initial, subTxID);
+                return SwapTxState::Initial;
+            }
+
             std::string withdrawAddress = GetWithdrawAddress();
             auto callback = [this, subTxID, weak = this->weak_from_this()](const IBitcoinBridge::Error& error, const std::string& privateKey) {
                 if (!weak.expired())
