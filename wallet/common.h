@@ -251,6 +251,7 @@ namespace beam::wallet
 
         IsSelfTx = 27,
        
+        AtomicSwapSecondSideChainType = 29,
         AtomicSwapIsBeamSide = 30,
         AtomicSwapCoin = 31,
         AtomicSwapAmount = 32,
@@ -323,7 +324,6 @@ namespace beam::wallet
         PreImage = 201,
         AtomicSwapSecretPrivateKey = 202,
         AtomicSwapSecretPublicKey = 203,
-        AtomicSwapSecondSideChainType = 204,
 
         InternalFailureReason = 210,
     
