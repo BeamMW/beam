@@ -584,6 +584,7 @@ Item {
                         text: qsTrId("general-close")
                         palette.buttonText: Style.content_main
                         icon.source: "qrc:/assets/icon-cancel-white.svg"
+                        font.capitalization: Font.AllLowercase
                         onClicked: {
                             walletView.pop();
                         }
@@ -596,6 +597,7 @@ Item {
                         icon.color: Style.content_opposite
                         palette.button: Style.active
                         icon.source: "qrc:/assets/icon-copy.svg"
+                        font.capitalization: Font.AllLowercase
                         onClicked: {
                             viewModel.copyToClipboard(myAddressID.text);
                         }
@@ -1061,6 +1063,7 @@ Item {
                         //% "Back"
                         text: qsTrId("general-back")
                         icon.source: "qrc:/assets/icon-back.svg"
+                        font.capitalization: Font.AllLowercase
                         onClicked: {
                             walletView.pop();
                         }
@@ -1072,6 +1075,7 @@ Item {
                         palette.buttonText: Style.content_opposite
                         palette.button: Style.accent_outgoing
                         icon.source: "qrc:/assets/icon-send-blue.svg"
+                        font.capitalization: Font.AllLowercase
                         enabled: {viewModel.isEnoughMoney && amount_input.amount > 0 && fee_input.amount >= viewModel.minimumFeeInGroth && receiverAddrInput.acceptableInput }
                         onClicked: {
                             if (viewModel.isValidReceiverAddress(viewModel.receiverAddr)) {
