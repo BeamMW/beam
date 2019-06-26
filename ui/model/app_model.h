@@ -42,6 +42,7 @@ public:
     void changeWalletPassword(const std::string& pass);
 
     void applySettingsChanges();
+    void nodeSettingsChanged();
 
     WalletSettings& getSettings();
     MessageManager& getMessages();
@@ -56,6 +57,7 @@ public slots:
 
 private:
     void start();
+    void startNode();
     void OnWalledOpened(const beam::SecString& pass);
     void resetWalletImpl();
     void loadTranslation();

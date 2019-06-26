@@ -182,6 +182,18 @@ void AppModel::applySettingsChanges()
     }
 }
 
+void AppModel::nodeSettingsChanged()
+{
+    applySettingsChanges();
+    if (!m_settings.getRunLocalNode())
+    {
+        if (!m_wallet->isRunning())
+        {
+            m_wallet->start();
+        }
+    }
+}
+
 void AppModel::startedNode()
 {
     if (m_wallet && !m_wallet->isRunning())

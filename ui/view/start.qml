@@ -798,7 +798,6 @@ Item
                             //% "Back"
                             text: qsTrId("general-back")
                             icon.source: "qrc:/assets/icon-back.svg"
-                            visible: !isBadPortMode
                             onClicked: {
                                 startWizzardView.pop();
                                 viewModel.resetPhrases();
@@ -1584,6 +1583,7 @@ Item
                             //% "Back"
                             text: qsTrId("general-back")
                             icon.source: "qrc:/assets/icon-back.svg"
+                            visible: !isBadPortMode
                             onClicked: startWizzardView.pop();
                         }
 
