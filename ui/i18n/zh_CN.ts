@@ -477,15 +477,15 @@
         <translation>通知视图</translation>
     </message>
     <message id="status-connecting">
-        <source>Connecting</source>
+        <source>connecting</source>
         <translation>正在连接</translation>
     </message>
     <message id="status-online">
-        <source>Online</source>
+        <source>online</source>
         <translation>在线</translation>
     </message>
     <message id="status-updating">
-        <source>Updating</source>
+        <source>updating</source>
         <translation>正在更新</translation>
     </message>
     <message id="tx-details-title">

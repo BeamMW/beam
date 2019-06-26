@@ -477,16 +477,16 @@
         <translation>Notifications view</translation>
     </message>
     <message id="status-connecting">
-        <source>Connecting</source>
-        <translation>Connecting</translation>
+        <source>connecting</source>
+        <translation>connecting</translation>
     </message>
     <message id="status-online">
-        <source>Online</source>
-        <translation>Online</translation>
+        <source>online</source>
+        <translation>online</translation>
     </message>
     <message id="status-updating">
-        <source>Updating</source>
-        <translation>Updating</translation>
+        <source>updating</source>
+        <translation>updating</translation>
     </message>
     <message id="tx-details-title">
         <source>General transaction info</source>

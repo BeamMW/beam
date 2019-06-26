@@ -477,16 +477,16 @@
         <translation>Xem thông báo</translation>
     </message>
     <message id="status-connecting">
-        <source>Connecting</source>
-        <translation type="unfinished">Connecting</translation>
+        <source>connecting</source>
+        <translation type="unfinished">connecting</translation>
     </message>
     <message id="status-online">
-        <source>Online</source>
-        <translation type="unfinished">Online</translation>
+        <source>online</source>
+        <translation type="unfinished">online</translation>
     </message>
     <message id="status-updating">
-        <source>Updating</source>
-        <translation type="unfinished">Updating</translation>
+        <source>updating</source>
+        <translation type="unfinished">updating</translation>
     </message>
     <message id="tx-details-title">
         <source>General transaction info</source>

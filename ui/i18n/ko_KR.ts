@@ -477,15 +477,15 @@
         <translation>알림 보기</translation>
     </message>
     <message id="status-connecting">
-        <source>Connecting</source>
+        <source>connecting</source>
         <translation>연결중</translation>
     </message>
     <message id="status-online">
-        <source>Online</source>
+        <source>online</source>
         <translation>온라인</translation>
     </message>
     <message id="status-updating">
-        <source>Updating</source>
+        <source>updating</source>
         <translation>업데이트 중</translation>
     </message>
     <message id="tx-details-title">

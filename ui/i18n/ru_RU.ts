@@ -477,16 +477,16 @@
         <translation>Оповещения</translation>
     </message>
     <message id="status-connecting">
-        <source>Connecting</source>
-        <translation>Подключение</translation>
+        <source>connecting</source>
+        <translation>подключение</translation>
     </message>
     <message id="status-online">
-        <source>Online</source>
-        <translation>В сети</translation>
+        <source>online</source>
+        <translation>в сети</translation>
     </message>
     <message id="status-updating">
-        <source>Updating</source>
-        <translation>Обновление</translation>
+        <source>updating</source>
+        <translation>обновление</translation>
     </message>
     <message id="tx-details-title">
         <source>General transaction info</source>
