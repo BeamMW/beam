@@ -51,7 +51,7 @@ T.TextField {
     background: Rectangle {
 	    id: backgroundRect
         y: control.height - height - control.bottomPadding + 4
-        implicitWidth: 120
+        width: control.width - (control.leftPadding + control.rightPadding)
         height: control.activeFocus || control.hovered ? 2 : 1
 		opacity: (control.activeFocus || control.hovered)? 0.3 : 0.1
     }

@@ -93,10 +93,10 @@ namespace beam::wallet
     bool AtomicSwapTransaction::Rollback(Height height)
     {
         Height proofHeight = 0;
+        bool isRolledback = false;
 
         if (IsBeamSide())
         {
-            bool isRolledback = false;
             if (GetParameter(TxParameterID::KernelProofHeight, proofHeight, SubTxIndex::BEAM_REFUND_TX)
                 && proofHeight > height)
             {
@@ -116,8 +116,6 @@ namespace beam::wallet
                 SetState(State::SendingBeamLockTX);
                 isRolledback = true;
             }
-
-            return isRolledback;
         }
         else
         {
@@ -128,11 +126,16 @@ namespace beam::wallet
                 SetParameter(TxParameterID::KernelUnconfirmedHeight, Height(0), false, SubTxIndex::BEAM_REDEEM_TX);
 
                 SetState(State::SendingBeamRedeemTX);
-                return true;
+                isRolledback = true;
             }
         }
 
-        return false;
+        if (isRolledback)
+        {
+            UpdateTxDescription(TxStatus::InProgress);
+        }
+
+        return isRolledback;
     }
 
     void AtomicSwapTransaction::SetNextState(State state)
@@ -200,6 +203,7 @@ namespace beam::wallet
                 {
                     m_secondSide->InitLockTime();
                     SendInvitation();
+                    LOG_INFO() << GetTxID() << " Invitation sent.";
                 }
                 else
                 {
@@ -262,6 +266,10 @@ namespace beam::wallet
                         break;
 
                     SendExternalTxDetails();
+
+                    // Beam LockTx: switch to the state of awaiting for proofs
+                    uint8_t nCode = proto::TxStatus::Ok; // compiler workaround (ref to static const)
+                    SetParameter(TxParameterID::TransactionRegistered, nCode, false, SubTxIndex::BEAM_LOCK_TX);
                 }
                 else
                 {
@@ -579,7 +587,7 @@ namespace beam::wallet
             {
                 if (lastUnconfirmedHeight >= lockTxMaxHeight)
                 {
-                    LOG_INFO() << GetTxID() << " Transaction expired. Last unconfirmeed height: " << lastUnconfirmedHeight << ", max kernel height: " << lockTxMaxHeight;
+                    LOG_INFO() << GetTxID() << " Transaction expired. Last unconfirmed height: " << lastUnconfirmedHeight << ", max kernel height: " << lockTxMaxHeight;
                     OnFailed(TxFailureReason::TransactionExpired, false);
                     return true;
                 }
@@ -1059,6 +1067,7 @@ namespace beam::wallet
         auto swapLockTime = GetMandatoryParameter<Timestamp>(TxParameterID::AtomicSwapExternalLockTime);
         auto minHeight = GetMandatoryParameter<Height>(TxParameterID::MinHeight);
         auto lifetime = GetMandatoryParameter<Height>(TxParameterID::Lifetime);
+        auto chainType = GetMandatoryParameter<SwapSecondSideChainType>(TxParameterID::AtomicSwapSecondSideChainType);
 
         // send invitation
         SetTxParameter msg;
@@ -1072,6 +1081,7 @@ namespace beam::wallet
             .AddParameter(TxParameterID::AtomicSwapPeerPublicKey, swapPublicKey)
             .AddParameter(TxParameterID::AtomicSwapExternalLockTime, swapLockTime)
             .AddParameter(TxParameterID::AtomicSwapIsBeamSide, !IsBeamSide())
+            .AddParameter(TxParameterID::AtomicSwapSecondSideChainType, chainType)
             .AddParameter(TxParameterID::PeerProtoVersion, s_ProtoVersion);
 
         if (!SendTxParameters(std::move(msg)))
@@ -1096,7 +1106,8 @@ namespace beam::wallet
         auto swapPublicKey = GetMandatoryParameter<std::string>(TxParameterID::AtomicSwapPublicKey);
 
         SetTxParameter msg;
-        msg.AddParameter(TxParameterID::AtomicSwapPeerPublicKey, swapPublicKey)
+        msg.AddParameter(TxParameterID::PeerProtoVersion, s_ProtoVersion)
+            .AddParameter(TxParameterID::AtomicSwapPeerPublicKey, swapPublicKey)
             .AddParameter(TxParameterID::Fee, lockBuilder.GetFee())
             .AddParameter(TxParameterID::SubTxIndex, SubTxIndex::BEAM_LOCK_TX)
             .AddParameter(TxParameterID::PeerMaxHeight, lockBuilder.GetMaxHeight())
@@ -1116,7 +1127,8 @@ namespace beam::wallet
         auto bulletProof = lockBuilder.GetSharedProof();
 
         SetTxParameter msg;
-        msg.AddParameter(TxParameterID::SubTxIndex, SubTxIndex::BEAM_LOCK_TX)
+        msg.AddParameter(TxParameterID::PeerProtoVersion, s_ProtoVersion)
+            .AddParameter(TxParameterID::SubTxIndex, SubTxIndex::BEAM_LOCK_TX)
             .AddParameter(TxParameterID::PeerPublicExcess, lockBuilder.GetPublicExcess())
             .AddParameter(TxParameterID::PeerPublicNonce, lockBuilder.GetPublicNonce())
             .AddParameter(TxParameterID::PeerMaxHeight, lockBuilder.GetMaxHeight())

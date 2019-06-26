@@ -61,11 +61,13 @@
         <translation type="unfinished">Delete</translation>
     </message>
     <message id="general-receiving">
-        <source>Receiving</source>
+        <source>receiving</source>
+        <oldsource>Receiving</oldsource>
         <translation type="unfinished">Receiving</translation>
     </message>
     <message id="general-sending">
-        <source>Sending</source>
+        <source>sending</source>
+        <oldsource>Sending</oldsource>
         <translation type="unfinished">Sending</translation>
     </message>
     <message id="general-rescan">
@@ -179,7 +181,7 @@
     </message>
     <message id="general-addr-comment-error">
         <source>Address with same comment already exist</source>
-        <translation>Address with same comment already exist</translation>
+        <translation type="unfinished">Address with same comment already exist</translation>
     </message>
     <message id="wallet-receive-button">
         <source>Receive</source>
@@ -210,44 +212,44 @@
         <translation>Giao dịch sẽ bị xóa. Thao tác này không thể hoàn tác</translation>
     </message>
     <message id="wallet-txs-status-pending">
-        <source>Pending</source>
-        <translation type="unfinished">Pending</translation>
+        <source>pending</source>
+        <translation type="unfinished">pending</translation>
     </message>
     <message id="wallet-txs-status-waiting-sender">
-        <source>Waiting for sender</source>
-        <translation type="unfinished">Waiting for sender</translation>
+        <source>waiting for sender</source>
+        <translation type="unfinished">waiting for sender</translation>
     </message>
     <message id="wallet-txs-status-waiting-receiver">
-        <source>Waiting for receiver</source>
-        <translation type="unfinished">Waiting for receiver</translation>
+        <source>waiting for receiver</source>
+        <translation type="unfinished">waiting for receiver</translation>
     </message>
     <message id="wallet-txs-status-completed">
-        <source>Completed</source>
-        <translation type="unfinished">Completed</translation>
+        <source>completed</source>
+        <translation type="unfinished">completed</translation>
     </message>
     <message id="wallet-txs-status-received">
-        <source>Received</source>
-        <translation type="unfinished">Received</translation>
+        <source>received</source>
+        <translation type="unfinished">received</translation>
     </message>
     <message id="wallet-txs-status-sent">
-        <source>Sent</source>
-        <translation type="unfinished">Sent</translation>
+        <source>sent</source>
+        <translation type="unfinished">sent</translation>
     </message>
     <message id="wallet-txs-status-cancelled">
-        <source>Cancelled</source>
-        <translation type="unfinished">Cancelled</translation>
+        <source>cancelled</source>
+        <translation type="unfinished">cancelled</translation>
     </message>
     <message id="wallet-txs-status-expired">
-        <source>Expired</source>
-        <translation type="unfinished">Expired</translation>
+        <source>expired</source>
+        <translation type="unfinished">expired</translation>
     </message>
     <message id="wallet-txs-status-failed">
-        <source>Failed</source>
-        <translation type="unfinished">Failed</translation>
+        <source>failed</source>
+        <translation type="unfinished">failed</translation>
     </message>
     <message id="wallet-txs-status-unknown">
-        <source>Unknown</source>
-        <translation type="unfinished">Unknown</translation>
+        <source>unknown</source>
+        <translation type="unfinished">unknown</translation>
     </message>
     <message id="addresses-tittle">
         <source>Addresses</source>
@@ -309,7 +311,6 @@
     </message>
     <message id="settings-local-node-port">
         <source>Port</source>
-        <oldsource>Local node port</oldsource>
         <extracomment>settings tab, node section, port label</extracomment>
         <translation>Cổng</translation>
     </message>
@@ -476,16 +477,16 @@
         <translation>Xem thông báo</translation>
     </message>
     <message id="status-connecting">
-        <source>Connecting</source>
-        <translation type="unfinished">Connecting</translation>
+        <source>connecting</source>
+        <translation type="unfinished">connecting</translation>
     </message>
     <message id="status-online">
-        <source>Online</source>
-        <translation type="unfinished">Online</translation>
+        <source>online</source>
+        <translation type="unfinished">online</translation>
     </message>
     <message id="status-updating">
-        <source>Updating</source>
-        <translation type="unfinished">Updating</translation>
+        <source>updating</source>
+        <translation type="unfinished">updating</translation>
     </message>
     <message id="tx-details-title">
         <source>General transaction info</source>
@@ -806,7 +807,7 @@
     </message>
     <message id="loading-view-connection-error">
         <source>Connection error</source>
-        <translation>Lỗi kết nối</translation>
+        <translation type="unfinished">Connection error</translation>
     </message>
     <message id="start-view-printer-not-found-error">
         <source>Printer is not found. Please, check your printer preferences.</source>
@@ -882,7 +883,7 @@
     </message>
     <message id="tx-curency-name">
         <source>BEAM</source>
-        <translation>BEAM</translation>
+        <translation type="unfinished">BEAM</translation>
     </message>
     <message id="tx-curency-sub-name">
         <source>groths</source>
@@ -890,7 +891,7 @@
     </message>
     <message id="utxo-utxo">
         <source>UTXO</source>
-        <translation>UTXO</translation>
+        <translation type="unfinished">UTXO</translation>
     </message>
     <message id="utxo-blockchain-height">
         <source>Blockchain Height</source>
@@ -910,7 +911,6 @@
     </message>
     <message id="utxo-status-available">
         <source>Available</source>
-        <oldsource>available</oldsource>
         <translation type="unfinished">Available</translation>
     </message>
     <message id="utxo-status-maturing">

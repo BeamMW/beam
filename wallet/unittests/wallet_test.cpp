@@ -190,7 +190,7 @@ namespace
         };
 
         TestNode node;
-        TestWalletRig sender("sender", createSenderWalletDB(), f, false, false, 0);
+        TestWalletRig sender("sender", createSenderWalletDB(), f, TestWalletRig::Type::Regular, false, 0);
         TestWalletRig receiver("receiver", createReceiverWalletDB(), f);
 
         WALLET_CHECK(sender.m_WalletDB->selectCoins(6).size() == 2);
@@ -623,9 +623,22 @@ namespace
             }
         };
 
-        TestNode node;
         TestWalletRig sender("sender", createSenderWalletDB(), f);
-        TestWalletRig receiver("receiver", createReceiverWalletDB(), f);
+        TestWalletRig receiver("receiver", createReceiverWalletDB(), f, TestWalletRig::Type::Offline);
+
+        auto newBlockFunc = [&receiver](Height height)
+        {
+            if (height == 200)
+            {
+                auto nodeEndpoint = make_shared<proto::FlyClient::NetworkStd>(receiver.m_Wallet);
+                nodeEndpoint->m_Cfg.m_vNodes.push_back(io::Address::localhost().port(32125));
+                nodeEndpoint->Connect();
+                receiver.m_Wallet.AddMessageEndpoint(make_shared<WalletNetworkViaBbs>(receiver.m_Wallet, nodeEndpoint, receiver.m_WalletDB));
+                receiver.m_Wallet.SetNodeEndpoint(nodeEndpoint);
+            }
+        };
+
+        TestNode node(newBlockFunc);
         io::Timer::Ptr timer = io::Timer::create(*mainReactor);
         timer->start(1000, true, [&node]() {node.AddBlock(); });
 
@@ -883,7 +896,7 @@ namespace
         TestNode node;
         TestWalletRig receiver("receiver", createReceiverWalletDB(), f);
         {
-            TestWalletRig privateSender("sender", createSenderWalletDB(true), f, true);
+            TestWalletRig privateSender("sender", createSenderWalletDB(true), f, TestWalletRig::Type::ColdWallet);
             WALLET_CHECK(privateSender.m_WalletDB->selectCoins(6).size() == 2);
             WALLET_CHECK(privateSender.m_WalletDB->getTxHistory().empty());
 
@@ -899,7 +912,7 @@ namespace
             boost::filesystem::copy_file(SenderWalletDB, publicPath);
 
             auto publicDB = WalletDB::open(publicPath, DBPassword, io::Reactor::get_Current().shared_from_this());
-            TestWalletRig publicSender("public_sender", publicDB, f, false, true);
+            TestWalletRig publicSender("public_sender", publicDB, f, TestWalletRig::Type::Regular, true);
 
             WALLET_CHECK(publicSender.m_WalletDB->getTxHistory().size() == 1);
             WALLET_CHECK(receiver.m_WalletDB->getTxHistory().empty());
@@ -912,7 +925,7 @@ namespace
             boost::filesystem::remove(SenderWalletDB);
             boost::filesystem::copy_file(publicPath, SenderWalletDB);
             auto privateDB = WalletDB::open(SenderWalletDB, DBPassword, io::Reactor::get_Current().shared_from_this());
-            TestWalletRig privateSender("sender", privateDB, f, true);
+            TestWalletRig privateSender("sender", privateDB, f, TestWalletRig::Type::ColdWallet);
             mainReactor->run();
         }
 
@@ -977,7 +990,7 @@ namespace
 
         {
             // create cold wallet
-            TestWalletRig privateReceiver("receiver", createReceiverWalletDB(true), f, true);
+            TestWalletRig privateReceiver("receiver", createReceiverWalletDB(true), f, TestWalletRig::Type::ColdWallet);
         }
 
         string publicPath = "receiver_public.db";
@@ -987,7 +1000,7 @@ namespace
             boost::filesystem::copy_file(ReceiverWalletDB, publicPath);
 
             auto publicDB = WalletDB::open(publicPath, DBPassword, io::Reactor::get_Current().shared_from_this());
-            TestWalletRig publicReceiver("public_receiver", publicDB, f, false, true);
+            TestWalletRig publicReceiver("public_receiver", publicDB, f, TestWalletRig::Type::Regular, true);
 
             sender.m_Wallet.transfer_money(sender.m_WalletID, publicReceiver.m_WalletID, 4, 2, true, 200);
 
@@ -999,7 +1012,7 @@ namespace
             boost::filesystem::remove(ReceiverWalletDB);
             boost::filesystem::copy_file(publicPath, ReceiverWalletDB);
             auto privateDB = WalletDB::open(ReceiverWalletDB, DBPassword, io::Reactor::get_Current().shared_from_this());
-            TestWalletRig privateReceiver("receiver", privateDB, f, true);
+            TestWalletRig privateReceiver("receiver", privateDB, f, TestWalletRig::Type::ColdWallet);
             mainReactor->run();
         }
 
@@ -1018,7 +1031,7 @@ namespace
         boost::filesystem::remove(ReceiverWalletDB);
         boost::filesystem::copy_file(publicPath, ReceiverWalletDB);
         auto privateDB = WalletDB::open(ReceiverWalletDB, DBPassword, io::Reactor::get_Current().shared_from_this());
-        TestWalletRig privateReceiver("receiver", privateDB, f, true);
+        TestWalletRig privateReceiver("receiver", privateDB, f, TestWalletRig::Type::ColdWallet);
 
         // check coins
         vector<Coin> newSenderCoins = sender.GetCoins();
@@ -1444,7 +1457,7 @@ int main()
 
     TestTxToHimself();
 
-    //TestExpiredTransaction();
+    TestExpiredTransaction();
 
     TestTransactionUpdate();
     //TestTxPerformance();

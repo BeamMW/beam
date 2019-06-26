@@ -584,6 +584,7 @@ Item {
                         text: qsTrId("general-close")
                         palette.buttonText: Style.content_main
                         icon.source: "qrc:/assets/icon-cancel-white.svg"
+                        font.capitalization: Font.AllLowercase
                         onClicked: {
                             walletView.pop();
                         }
@@ -596,6 +597,7 @@ Item {
                         icon.color: Style.content_opposite
                         palette.button: Style.active
                         icon.source: "qrc:/assets/icon-copy.svg"
+                        font.capitalization: Font.AllLowercase
                         onClicked: {
                             viewModel.copyToClipboard(myAddressID.text);
                         }
@@ -1061,6 +1063,7 @@ Item {
                         //% "Back"
                         text: qsTrId("general-back")
                         icon.source: "qrc:/assets/icon-back.svg"
+                        font.capitalization: Font.AllLowercase
                         onClicked: {
                             walletView.pop();
                         }
@@ -1072,6 +1075,7 @@ Item {
                         palette.buttonText: Style.content_opposite
                         palette.button: Style.accent_outgoing
                         icon.source: "qrc:/assets/icon-send-blue.svg"
+                        font.capitalization: Font.AllLowercase
                         enabled: {viewModel.isEnoughMoney && amount_input.amount > 0 && fee_input.amount >= viewModel.minimumFeeInGroth && receiverAddrInput.acceptableInput }
                         onClicked: {
                             if (viewModel.isValidReceiverAddress(viewModel.receiverAddr)) {
@@ -1432,29 +1436,29 @@ Item {
 
                                     function txStatusText(value) {
                                         switch(value) {
-                                            //% "Pending"
+                                            //% "pending"
                                             case "pending": return qsTrId("wallet-txs-status-pending");
-                                            //% "Waiting for sender"
+                                            //% "waiting for sender"
                                             case "waiting for sender": return qsTrId("wallet-txs-status-waiting-sender");
-                                            //% "Waiting for receiver"
+                                            //% "waiting for receiver"
                                             case "waiting for receiver": return qsTrId("wallet-txs-status-waiting-receiver");
-                                            //% "Receiving"
+                                            //% "receiving"
                                             case "receiving": return qsTrId("general-receiving");
-                                            //% "Sending"
+                                            //% "sending"
                                             case "sending": return qsTrId("general-sending");
-                                            //% "Completed"
+                                            //% "completed"
                                             case "completed": return qsTrId("wallet-txs-status-completed");
-                                            //% "Received"
+                                            //% "received"
                                             case "received": return qsTrId("wallet-txs-status-received");
-                                            //% "Sent"
+                                            //% "sent"
                                             case "sent": return qsTrId("wallet-txs-status-sent");
-                                            //% "Cancelled"
+                                            //% "cancelled"
                                             case "cancelled": return qsTrId("wallet-txs-status-cancelled");
-                                            //% "Expired"
+                                            //% "expired"
                                             case "expired": return qsTrId("wallet-txs-status-expired");
-                                            //% "Failed"
+                                            //% "failed"
                                             case "failed": return qsTrId("wallet-txs-status-failed");
-                                            //% "Unknown"
+                                            //% "unknown"
                                             default: return qsTrId("wallet-txs-status-unknown");
                                         }
                                     }

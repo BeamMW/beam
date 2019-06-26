@@ -4,83 +4,77 @@ import QtQuick.Layouts 1.4
 import Beam.Wallet 1.0
 import "."
 
-Component
+ColumnLayout
 {
-    ColumnLayout
+    id: lll
+    function themeName() {
+        return Theme.name();
+    }
+    function isMainNet() {
+        return themeName() == "mainnet";
+    }
+    spacing: 0
+
+    Item {
+        Layout.preferredHeight: 60
+        visible: isMainNet()
+    }
+
+    Image
     {
-        anchors.fill:parent
-        spacing: 0
-        Image
-        {
-            Layout.alignment: Qt.AlignHCenter
-            Layout.fillHeight: true
-            Layout.preferredWidth: 242
-            Layout.preferredHeight: 170
-            Layout.maximumHeight: 170
-            Layout.minimumHeight: 120
+        Layout.alignment: Qt.AlignHCenter
+        Layout.fillHeight: true
+        Layout.preferredWidth: 242
+        Layout.preferredHeight: 170
+        Layout.maximumHeight: 170
 
-            fillMode: Image.PreserveAspectFit
+        fillMode: Image.PreserveAspectFit
 
-            source: "qrc:/assets/start-logo.svg"
-        }
+        source: "qrc:/assets/start-logo.svg"
+    }
 
-        SFText 
-        {
-            Layout.alignment: Qt.AlignHCenter
+    SFText 
+    {
+        Layout.alignment: Qt.AlignHCenter
+        Layout.preferredHeight: 34
 
-            //% "BEAM"
-            text: qsTrId("general-beam")
-            color: Style.accent_incoming
-            font.pixelSize: 32
-            font.styleName: "Bold"; font.weight: Font.Bold
-            font.letterSpacing: 20
-            leftPadding: 20
-        }
+        //% "BEAM"
+        text: qsTrId("general-beam")
+        color: Style.accent_incoming
+        font.pixelSize: 32
+        font.styleName: "Bold"; font.weight: Font.Bold
+        font.letterSpacing: 20
+        leftPadding: 20
+    }
 
-        Item
-        {
-            Layout.fillHeight: true
-            Layout.minimumHeight: 30
-            Layout.maximumHeight: 40
-        }
+    SFText
+    {
+        Layout.alignment: Qt.AlignHCenter
+        Layout.topMargin: 30
+        Layout.preferredHeight: 20
 
-        SFText
-        {
-            Layout.alignment: Qt.AlignHCenter
+        //% "Scalable confidential cryptocurrency"
+        text: qsTrId("logo-description")
 
-            //% "Scalable confidential cryptocurrency"
-            text: qsTrId("logo-description")
+        color: Style.accent_incoming
+        font.pixelSize: 18
+        font.styleName: "Bold"; font.weight: Font.Bold
+    }
 
-            color: Style.accent_incoming
-            font.pixelSize: 18
-            font.styleName: "Bold"; font.weight: Font.Bold
-        }
+    SFText
+    {
+        visible: !isMainNet()
+        Layout.alignment: Qt.AlignHCenter
+        Layout.preferredHeight: 20
+        Layout.topMargin: 40
+        color: Style.content_secondary
+        text: themeName()
+        font.pixelSize: 18
+        font.styleName: "Bold"; font.weight: Font.Bold
+        font.capitalization: Font.AllUppercase
+    }
 
-        Item
-        {
-            id: stagingLabelAligner
-            visible: false
-            Layout.fillHeight: true
-            Layout.minimumHeight: 30
-            Layout.maximumHeight: 40
-        }
-        SFText
-        {
-            id: stagingLabel
-            visible: false
-            Layout.alignment: Qt.AlignHCenter
-            color: Style.content_secondary
-            font.pixelSize: 18
-            font.styleName: "Bold"; font.weight: Font.Bold
-        }
-
-        Component.onCompleted: {
-            var themeName = Theme.name();
-            if (themeName != "mainnet") {
-                stagingLabelAligner.visible = true;
-                stagingLabel.text = themeName.toUpperCase();
-                stagingLabel.visible = true;
-            }
-        }
+    Item {
+        Layout.preferredHeight: 30 
     }
 }

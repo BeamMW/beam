@@ -171,13 +171,13 @@ void TestSwapTransaction(bool isBeamOwnerStart)
 
     if (isBeamOwnerStart)
     {
-        receiver.m_Wallet.initSwapConditions(beamAmount, swapAmount, wallet::AtomicSwapCoin::Bitcoin, false);
-        txID = sender.m_Wallet.swap_coins(sender.m_WalletID, receiver.m_WalletID, beamAmount, beamFee, wallet::AtomicSwapCoin::Bitcoin, swapAmount, true);
+        receiver.m_Wallet.initSwapConditions(beamAmount, swapAmount, wallet::AtomicSwapCoin::Bitcoin, false, SwapSecondSideChainType::Testnet);
+        txID = sender.m_Wallet.swap_coins(sender.m_WalletID, receiver.m_WalletID, beamAmount, beamFee, wallet::AtomicSwapCoin::Bitcoin, swapAmount, SwapSecondSideChainType::Testnet, true);
     }
     else
     {
-        sender.m_Wallet.initSwapConditions(beamAmount, swapAmount, wallet::AtomicSwapCoin::Bitcoin, true);
-        txID = receiver.m_Wallet.swap_coins(receiver.m_WalletID, sender.m_WalletID, beamAmount, beamFee, wallet::AtomicSwapCoin::Bitcoin, swapAmount, false);
+        sender.m_Wallet.initSwapConditions(beamAmount, swapAmount, wallet::AtomicSwapCoin::Bitcoin, true, SwapSecondSideChainType::Testnet);
+        txID = receiver.m_Wallet.swap_coins(receiver.m_WalletID, sender.m_WalletID, beamAmount, beamFee, wallet::AtomicSwapCoin::Bitcoin, swapAmount, SwapSecondSideChainType::Testnet, false);
     }
 
     auto receiverCoins = receiver.GetCoins();
@@ -258,13 +258,13 @@ void TestSwapTransactionWithoutChange(bool isBeamOwnerStart)
 
     if (isBeamOwnerStart)
     {
-        receiver.m_Wallet.initSwapConditions(beamAmount, swapAmount, wallet::AtomicSwapCoin::Bitcoin, false);
-        txID = sender.m_Wallet.swap_coins(sender.m_WalletID, receiver.m_WalletID, beamAmount, beamFee, wallet::AtomicSwapCoin::Bitcoin, swapAmount, true);
+        receiver.m_Wallet.initSwapConditions(beamAmount, swapAmount, wallet::AtomicSwapCoin::Bitcoin, false, SwapSecondSideChainType::Testnet);
+        txID = sender.m_Wallet.swap_coins(sender.m_WalletID, receiver.m_WalletID, beamAmount, beamFee, wallet::AtomicSwapCoin::Bitcoin, swapAmount, SwapSecondSideChainType::Testnet, true);
     }
     else
     {
-        sender.m_Wallet.initSwapConditions(beamAmount, swapAmount, wallet::AtomicSwapCoin::Bitcoin, true);
-        txID = receiver.m_Wallet.swap_coins(receiver.m_WalletID, sender.m_WalletID, beamAmount, beamFee, wallet::AtomicSwapCoin::Bitcoin, swapAmount, false);
+        sender.m_Wallet.initSwapConditions(beamAmount, swapAmount, wallet::AtomicSwapCoin::Bitcoin, true, SwapSecondSideChainType::Testnet);
+        txID = receiver.m_Wallet.swap_coins(receiver.m_WalletID, sender.m_WalletID, beamAmount, beamFee, wallet::AtomicSwapCoin::Bitcoin, swapAmount, SwapSecondSideChainType::Testnet, false);
     }
 
     auto receiverCoins = receiver.GetCoins();
@@ -326,9 +326,9 @@ void TestSwapBTCRefundTransaction()
     receiverBtcWallet.addPeer(senderAddress);
     sender->m_Wallet.initBitcoin(*mainReactor, bobOptions);
     receiver->m_Wallet.initBitcoin(*mainReactor, aliceOptions);
-    receiver->m_Wallet.initSwapConditions(beamAmount, swapAmount, wallet::AtomicSwapCoin::Bitcoin, false);
+    receiver->m_Wallet.initSwapConditions(beamAmount, swapAmount, wallet::AtomicSwapCoin::Bitcoin, false, SwapSecondSideChainType::Testnet);
 
-    TxID txID = sender->m_Wallet.swap_coins(sender->m_WalletID, receiver->m_WalletID, beamAmount, beamFee, wallet::AtomicSwapCoin::Bitcoin, swapAmount, true);
+    TxID txID = sender->m_Wallet.swap_coins(sender->m_WalletID, receiver->m_WalletID, beamAmount, beamFee, wallet::AtomicSwapCoin::Bitcoin, swapAmount, SwapSecondSideChainType::Testnet, true);
 
     auto receiverCoins = receiver->GetCoins();
     WALLET_CHECK(receiverCoins.empty());
@@ -410,9 +410,9 @@ void TestSwapBeamRefundTransaction()
     receiverBtcWallet.addPeer(senderAddress);
     sender->m_Wallet.initBitcoin(*mainReactor, bobOptions);
     receiver->m_Wallet.initBitcoin(*mainReactor, aliceOptions);
-    receiver->m_Wallet.initSwapConditions(beamAmount, swapAmount, wallet::AtomicSwapCoin::Bitcoin, false);
+    receiver->m_Wallet.initSwapConditions(beamAmount, swapAmount, wallet::AtomicSwapCoin::Bitcoin, false, SwapSecondSideChainType::Testnet);
 
-    TxID txID = sender->m_Wallet.swap_coins(sender->m_WalletID, receiver->m_WalletID, beamAmount, beamFee, wallet::AtomicSwapCoin::Bitcoin, swapAmount, true);
+    TxID txID = sender->m_Wallet.swap_coins(sender->m_WalletID, receiver->m_WalletID, beamAmount, beamFee, wallet::AtomicSwapCoin::Bitcoin, swapAmount, SwapSecondSideChainType::Testnet, true);
 
     auto receiverCoins = receiver->GetCoins();
     WALLET_CHECK(receiverCoins.empty());
@@ -508,7 +508,7 @@ void ExpireByResponseTime(bool isBeamSide)
     WalletID receiverWalletID = receiverWalletAddress.m_walletID;
 
     TxID txID = sender->m_Wallet.swap_coins(sender->m_WalletID, receiverWalletID, beamAmount, beamFee,
-        wallet::AtomicSwapCoin::Bitcoin, swapAmount, isBeamSide, lifetime, responseTime);
+        wallet::AtomicSwapCoin::Bitcoin, swapAmount, SwapSecondSideChainType::Testnet, isBeamSide, lifetime, responseTime);
 
     TestNode node;
     io::Timer::Ptr timer = io::Timer::create(*mainReactor);
@@ -567,9 +567,9 @@ void TestSwapCancelTransaction(bool isSender, wallet::AtomicSwapTransaction::Sta
     receiverBtcWallet.addPeer(senderAddress);
     sender->m_Wallet.initBitcoin(*mainReactor, bobOptions);
     receiver->m_Wallet.initBitcoin(*mainReactor, aliceOptions);
-    receiver->m_Wallet.initSwapConditions(beamAmount, swapAmount, wallet::AtomicSwapCoin::Bitcoin, false);
+    receiver->m_Wallet.initSwapConditions(beamAmount, swapAmount, wallet::AtomicSwapCoin::Bitcoin, false, SwapSecondSideChainType::Testnet);
 
-    TxID txID = sender->m_Wallet.swap_coins(sender->m_WalletID, receiver->m_WalletID, beamAmount, beamFee, wallet::AtomicSwapCoin::Bitcoin, swapAmount, true);
+    TxID txID = sender->m_Wallet.swap_coins(sender->m_WalletID, receiver->m_WalletID, beamAmount, beamFee, wallet::AtomicSwapCoin::Bitcoin, swapAmount, SwapSecondSideChainType::Testnet, true);
 
     auto receiverCoins = receiver->GetCoins();
     WALLET_CHECK(receiverCoins.empty());
@@ -613,6 +613,86 @@ void TestSwapCancelTransaction(bool isSender, wallet::AtomicSwapTransaction::Sta
         WALLET_CHECK(coin.m_status == Coin::Available);
     }    
 }
+
+//void TestSwap120Blocks()
+//{
+//    cout << "\nAtomic swap: testing 120 blocks ...\n";
+//
+//    io::Reactor::Ptr mainReactor{ io::Reactor::create() };
+//    io::Reactor::Scope scope(*mainReactor);
+//
+//    auto completedAction = [mainReactor](auto)
+//    {
+//        mainReactor->stop();
+//    };
+//
+//    io::Address senderAddress;
+//    senderAddress.resolve("127.0.0.1:10400");
+//
+//    io::Address receiverAddress;
+//    receiverAddress.resolve("127.0.0.1:10300");
+//
+//    Amount beamAmount = 300;
+//    Amount beamFee = 100;
+//    Amount swapAmount = 2000;
+//    Amount feeRate = 256;
+//
+//    BitcoinOptions bobOptions{ "Bob", "123", senderAddress, feeRate };
+//    BitcoinOptions aliceOptions{ "Alice", "123", receiverAddress, feeRate };
+//    TestBitcoinWallet senderBtcWallet = GetSenderBTCWallet(*mainReactor, senderAddress, swapAmount);
+//    TestBitcoinWallet receiverBtcWallet = GetReceiverBTCWallet(*mainReactor, receiverAddress, swapAmount);
+//    auto sender = std::make_unique<TestWalletRig>("sender", createSenderWalletDB(false, kDefaultTestAmounts), isSender ? Wallet::TxCompletedAction() : completedAction);
+//    auto receiver = std::make_unique<TestWalletRig>("receiver", createReceiverWalletDB(), isSender ? completedAction : Wallet::TxCompletedAction());
+//
+//    receiverBtcWallet.addPeer(senderAddress);
+//    sender->m_Wallet.initBitcoin(*mainReactor, bobOptions);
+//    receiver->m_Wallet.initBitcoin(*mainReactor, aliceOptions);
+//    receiver->m_Wallet.initSwapConditions(beamAmount, swapAmount, wallet::AtomicSwapCoin::Bitcoin, false, SwapSecondSideChainType::Testnet);
+//
+//    TxID txID = sender->m_Wallet.swap_coins(sender->m_WalletID, receiver->m_WalletID, beamAmount, beamFee, wallet::AtomicSwapCoin::Bitcoin, swapAmount, SwapSecondSideChainType::Testnet, true);
+//
+//    auto receiverCoins = receiver->GetCoins();
+//    WALLET_CHECK(receiverCoins.empty());
+//
+//    TestNode node;
+//    io::AsyncEvent::Ptr eventToUpdate;
+//
+//    eventToUpdate = io::AsyncEvent::create(*mainReactor, [&walletRig = isSender ? sender : receiver, testingState, txID, &eventToUpdate]()
+//    {
+//        wallet::AtomicSwapTransaction::State txState = wallet::AtomicSwapTransaction::State::Initial;
+//        storage::getTxParameter(*walletRig->m_WalletDB, txID, wallet::kDefaultSubTxID, wallet::TxParameterID::State, txState);
+//        if (txState == testingState)
+//        {
+//            walletRig->m_Wallet.cancel_tx(txID);
+//        }
+//        else
+//        {
+//            eventToUpdate->post();
+//        }
+//    });
+//
+//    io::Timer::Ptr timer = io::Timer::create(*mainReactor);
+//    timer->start(2000, true, [&node]() {node.AddBlock(); });
+//
+//    eventToUpdate->post();
+//    mainReactor->run();
+//
+//    // validate sender TX state
+//    wallet::AtomicSwapTransaction::State txState = wallet::AtomicSwapTransaction::State::Initial;
+//    storage::getTxParameter(*sender->m_WalletDB, txID, wallet::kDefaultSubTxID, wallet::TxParameterID::State, txState);
+//    WALLET_CHECK(txState == (isSender ? wallet::AtomicSwapTransaction::State::Cancelled : wallet::AtomicSwapTransaction::State::Failed));
+//
+//    storage::getTxParameter(*receiver->m_WalletDB, txID, wallet::kDefaultSubTxID, wallet::TxParameterID::State, txState);
+//    WALLET_CHECK(txState == (isSender ? wallet::AtomicSwapTransaction::State::Failed : wallet::AtomicSwapTransaction::State::Cancelled));
+//
+//    auto senderCoins = sender->GetCoins();
+//    WALLET_CHECK(senderCoins.size() == 4);
+//
+//    for (const auto& coin : senderCoins)
+//    {
+//        WALLET_CHECK(coin.m_status == Coin::Available);
+//    }
+//}
 
 int main()
 {
