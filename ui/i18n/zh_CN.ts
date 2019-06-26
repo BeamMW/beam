@@ -62,12 +62,10 @@
     </message>
     <message id="general-receiving">
         <source>receiving</source>
-        <oldsource>Receiving</oldsource>
         <translation type="unfinished">收款中</translation>
     </message>
     <message id="general-sending">
         <source>sending</source>
-        <oldsource>Sending</oldsource>
         <translation type="unfinished">付款中</translation>
     </message>
     <message id="general-rescan">

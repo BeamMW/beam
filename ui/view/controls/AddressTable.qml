@@ -191,7 +191,6 @@ CustomTableView {
         dim: false
         property string address
         property var addressItem
-        font.capitalization: Font.AllLowercase
         Action {
             id: showQRAction
             //: Entry in adress table context menu to show QR

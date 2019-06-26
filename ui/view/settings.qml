@@ -782,7 +782,7 @@ Rectangle {
                                 CustomButton {
                                     Layout.topMargin: 10
                                     Layout.preferredHeight: 38
-                                    Layout.preferredWidth: 191
+                                    Layout.preferredWidth: 200
                                     Layout.alignment: Qt.AlignLeft
                                     //: settings tab, report problem section, save logs button
                                     //% "Save wallet logs"
