@@ -26,7 +26,7 @@
 #include <numeric>
 #include "bitcoin/bitcoind017.h"
 #include "bitcoin/bitcoin_side.h"
-#include "litecoin/litecoind016.h"
+#include "litecoin/litecoind017.h"
 #include "litecoin/litecoin_side.h"
 #include "qtum/qtumd017.h"
 #include "qtum/qtum_side.h"
@@ -171,7 +171,7 @@ namespace beam::wallet
 
     void Wallet::initLitecoin(io::Reactor& reactor, const LitecoinOptions& options)
     {
-        m_litecoinBridge = make_shared<Litecoind016>(reactor, options);
+        m_litecoinBridge = make_shared<Litecoind017>(reactor, options);
     }
     
     void Wallet::initQtum(io::Reactor& reactor, const QtumOptions& options)
