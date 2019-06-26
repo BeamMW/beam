@@ -409,6 +409,7 @@ ColumnLayout {
                 modal: true
                 dim: false
                 property string address
+                font.capitalization: Font.AllLowercase
                 Action {
                     //% "Delete contact"
                     text: qsTrId("address-table-cm-delete-contact")
