@@ -25,6 +25,7 @@ Item
 
         property alias titleText: title.text
         property alias messageText: message.text
+        property var acceptedCallback: undefined
 
         contentItem: Item {
             id: confirmationContent
@@ -58,7 +59,7 @@ Item
             }
         }
         onAccepted: {
-            cancelCreating();
+            if (acceptedCallback) acceptedCallback();
         }
     }
 
@@ -72,17 +73,29 @@ Item
         }
 
         onWalletError: {
+            confirmationDialog.titleText = title;
+            confirmationDialog.messageText = message;
+
             if (isCreating) {
-                confirmationDialog.titleText = title;
-                confirmationDialog.messageText = message;
-                confirmationDialog.open();
+                confirmationDialog.acceptedCallback = cancelCreating;
+            } else {
+                confirmationDialog.cancelVisible    = false;
+                confirmationDialog.cancelEnable     = false;
+                confirmationDialog.closePolicy      = Popup.NoAutoClose;
+                confirmationDialog.acceptedCallback = changeNodeSettings;
             }
+
+            confirmationDialog.open();
         }
     }
 
     function cancelCreating() {
         viewModel.resetWallet();
         cancelCallback();
+    }
+
+    function changeNodeSettings () {
+        rootLoading.parent.setSource("qrc:/start.qml", {"isBadPortMode": true});
     }
 
     Rectangle
