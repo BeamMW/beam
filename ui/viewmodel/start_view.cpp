@@ -530,6 +530,11 @@ void StartViewModel::setPassword(const QString& pass)
     m_password = pass.toStdString();
 }
 
+void StartViewModel::onNodeSettingsChanged()
+{
+    AppModel::getInstance()->applySettingsChanges();
+}
+
 void StartViewModel::findExistingWalletDB()
 {
     auto appDataPath = AppModel::getInstance()->getSettings().getAppDataPath();
