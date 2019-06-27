@@ -374,7 +374,6 @@ namespace beam
                     if (sz > 0 && body)
                     {
                         std::string strResponse = std::string(static_cast<const char*>(body), sz);
-                        LOG_DEBUG() << coinName << " wallet response: " << strResponse;
 
                         try
                         {
