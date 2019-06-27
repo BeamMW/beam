@@ -1260,6 +1260,9 @@ void Node::Peer::OnResendPeers()
 		if (!pi.m_LastSeen)
 			continue; // recommend only verified peers
 
+		if (pi.m_Addr.m_Value.empty())
+			continue; // address unknown, can't recommend
+
         proto::PeerInfo msg;
         msg.m_ID = pi.m_ID.m_Key;
         msg.m_LastAddr = pi.m_Addr.m_Value;
