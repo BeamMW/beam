@@ -134,7 +134,7 @@ private:
         }
 
         Reactor::Ptr _reactor;
-        uv_handle_t* _handle=0;
+        uv_handle_t* _handle = nullptr;
     };
 
     ErrorCode init_asyncevent(Object* o, uv_async_cb cb);

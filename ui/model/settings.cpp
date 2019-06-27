@@ -13,11 +13,14 @@
 // limitations under the License.
 
 #include "settings.h"
-#include <QtQuick>
+
+#include <algorithm>
+#include <map>
+
 #include <QFileDialog>
+#include <QtQuick>
 
-#include "app_model.h"
-
+#include "ui/model/app_model.h"
 #include "version.h"
 
 #include "quazip/quazip.h"
@@ -27,19 +30,34 @@ using namespace std;
 
 namespace
 {
-    const char* NodeAddressName = "node/address";
-    const char* LockTimeoutName = "lock_timeout";
-    const char* RequirePasswordToSpendMoney = "require_password_to_spend_money";
+    const char* kNodeAddressName = "node/address";
+    const char* kLocaleName = "locale";
+    const char* kLockTimeoutName = "lock_timeout";
+    const char* kRequirePasswordToSpendMoney = "require_password_to_spend_money";
+    const char* kIsAlowedBeamMWLink = "beam_mw_links_allowed";
 
-    const char* LocalNodeRun = "localnode/run";
-    const char* LocalNodePort = "localnode/port";
-    const char* LocalNodePeers = "localnode/peers";
+    const char* kLocalNodeRun = "localnode/run";
+    const char* kLocalNodePort = "localnode/port";
+    const char* kLocalNodePeers = "localnode/peers";
+
+    const char* kDefaultLocale = "en_US";
+
+    const std::map<QString, QString> kSupportedLangs { 
+        { "zh_CN", "Chinese Simplified"},
+        { "en_US", "English" },
+        { "es_ES", "Español"},
+        { "fr_FR", "Française"},
+        { "ru_RU", "Русский" },
+        { "vi_VI", "Tiếng việt"},
+        { "ko_KR", "한국어"}
+    };
 }
 
 const char* WalletSettings::WalletCfg = "beam-wallet.cfg";
 const char* WalletSettings::LogsFolder = "logs";
 const char* WalletSettings::SettingsFile = "settings.ini";
 const char* WalletSettings::WalletDBFile = "wallet.db";
+const char* WalletSettings::NodeDBFile = "node.db";
 
 WalletSettings::WalletSettings(const QDir& appDataDir)
     : m_data{ appDataDir.filePath(SettingsFile), QSettings::IniFormat }
@@ -70,7 +88,7 @@ string WalletSettings::getAppDataPath() const
 QString WalletSettings::getNodeAddress() const
 {
     Lock lock(m_mutex);
-    return m_data.value(NodeAddressName).toString();
+    return m_data.value(kNodeAddressName).toString();
 }
 
 void WalletSettings::setNodeAddress(const QString& addr)
@@ -84,7 +102,7 @@ void WalletSettings::setNodeAddress(const QString& addr)
         }
         {
             Lock lock(m_mutex);
-            m_data.setValue(NodeAddressName, addr);
+            m_data.setValue(kNodeAddressName, addr);
         }
         
         emit nodeAddressChanged();
@@ -95,7 +113,7 @@ void WalletSettings::setNodeAddress(const QString& addr)
 int WalletSettings::getLockTimeout() const
 {
     Lock lock(m_mutex);
-    return m_data.value(LockTimeoutName, 0).toInt();
+    return m_data.value(kLockTimeoutName, 0).toInt();
 }
 
 void WalletSettings::setLockTimeout(int value)
@@ -104,7 +122,7 @@ void WalletSettings::setLockTimeout(int value)
     {
         {
             Lock lock(m_mutex);
-            m_data.setValue(LockTimeoutName, value);
+            m_data.setValue(kLockTimeoutName, value);
         }
         emit lockTimeoutChanged();
     }
@@ -113,26 +131,38 @@ void WalletSettings::setLockTimeout(int value)
 bool WalletSettings::isPasswordReqiredToSpendMoney() const
 {
     Lock lock(m_mutex);
-    return m_data.value(RequirePasswordToSpendMoney, false).toBool();
+    return m_data.value(kRequirePasswordToSpendMoney, false).toBool();
 }
 
 void WalletSettings::setPasswordReqiredToSpendMoney(bool value)
 {
     Lock lock(m_mutex);
-    m_data.setValue(RequirePasswordToSpendMoney, value);
+    m_data.setValue(kRequirePasswordToSpendMoney, value);
+}
+
+bool WalletSettings::isAllowedBeamMWLinks() const
+{
+    Lock lock(m_mutex);
+    return m_data.value(kIsAlowedBeamMWLink, false).toBool();
+}
+
+void WalletSettings::setAllowedBeamMWLinks(bool value)
+{
+    Lock lock(m_mutex);
+    m_data.setValue(kIsAlowedBeamMWLink, value);
 }
 
 bool WalletSettings::getRunLocalNode() const
 {
     Lock lock(m_mutex);
-    return m_data.value(LocalNodeRun, false).toBool();
+    return m_data.value(kLocalNodeRun, false).toBool();
 }
 
 void WalletSettings::setRunLocalNode(bool value)
 {
     {
         Lock lock(m_mutex);
-        m_data.setValue(LocalNodeRun, value);
+        m_data.setValue(kLocalNodeRun, value);
     }
     emit localNodeRunChanged();
 }
@@ -141,9 +171,9 @@ uint WalletSettings::getLocalNodePort() const
 {
     Lock lock(m_mutex);
 #ifdef BEAM_TESTNET
-    return m_data.value(LocalNodePort, 11005).toUInt();
+    return m_data.value(kLocalNodePort, 11005).toUInt();
 #else
-    return m_data.value(LocalNodePort, 10005).toUInt();
+    return m_data.value(kLocalNodePort, 10005).toUInt();
 #endif // BEAM_TESTNET
 }
 
@@ -151,7 +181,7 @@ void WalletSettings::setLocalNodePort(uint port)
 {
     {
         Lock lock(m_mutex);
-        m_data.setValue(LocalNodePort, port);
+        m_data.setValue(kLocalNodePort, port);
     }
     emit localNodePortChanged();
 }
@@ -159,7 +189,7 @@ void WalletSettings::setLocalNodePort(uint port)
 string WalletSettings::getLocalNodeStorage() const
 {
     Lock lock(m_mutex);
-    return m_appDataDir.filePath("node.db").toStdString();
+    return m_appDataDir.filePath(NodeDBFile).toStdString();
 }
 
 string WalletSettings::getTempDir() const
@@ -185,16 +215,82 @@ static void zipLocalFile(QuaZip& zip, const QString& path, const QString& folder
 QStringList WalletSettings::getLocalNodePeers() const
 {
     Lock lock(m_mutex);
-    return m_data.value(LocalNodePeers).value<QStringList>();
+    return m_data.value(kLocalNodePeers).value<QStringList>();
 }
 
 void WalletSettings::setLocalNodePeers(const QStringList& qPeers)
 {
     {
         Lock lock(m_mutex);
-        m_data.setValue(LocalNodePeers, QVariant::fromValue(qPeers));
+        m_data.setValue(kLocalNodePeers, QVariant::fromValue(qPeers));
     }
     emit localNodePeersChanged();
+}
+
+QString WalletSettings::getLocale() const
+{
+    QString savedLocale;
+    {
+        Lock lock(m_mutex);
+        savedLocale = m_data.value(kLocaleName).toString();
+    }
+
+    if (!savedLocale.isEmpty()) {
+        const auto& it = kSupportedLangs.find(savedLocale);
+        if (it != kSupportedLangs.end())
+        {
+            return savedLocale;
+        }
+    }
+
+    return QString::fromUtf8(kDefaultLocale);
+}
+
+QString WalletSettings::getLanguageName() const
+{
+    return kSupportedLangs.at(getLocale());
+}
+
+void WalletSettings::setLocaleByLanguageName(const QString& language)
+{
+    const auto& it = std::find_if(
+            kSupportedLangs.begin(),
+            kSupportedLangs.end(),
+            [language] (const auto& mapedObject) -> bool
+            {
+                return mapedObject.second == language;
+            });
+    auto locale = 
+            it != kSupportedLangs.end()
+                ? it->first
+                : QString::fromUtf8(kDefaultLocale);
+    {
+        Lock lock(m_mutex);
+        m_data.setValue(kLocaleName, locale);
+    }
+    emit localeChanged();
+}
+
+// static
+QStringList WalletSettings::getSupportedLanguages()
+{
+    QStringList languagesNames;
+    std::transform(kSupportedLangs.begin(),
+                   kSupportedLangs.end(),
+                   std::back_inserter(languagesNames),
+                   [] (const auto& lang) -> QString {
+                       return lang.second;
+                   });
+    return languagesNames;
+}
+
+// static
+void WalletSettings::openFolder(const QString& path)
+{
+    QFileInfo fileInfo(path);
+    QDesktopServices::openUrl(
+        QUrl::fromLocalFile(
+            fileInfo.isFile() ? fileInfo.absolutePath() : path));
 }
 
 void WalletSettings::reportProblem()

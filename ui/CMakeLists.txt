@@ -56,6 +56,11 @@ endif()
 
 list(APPEND SUPPORTED_LANGS "en_US")
 list(APPEND SUPPORTED_LANGS "ru_RU")
+list(APPEND SUPPORTED_LANGS "es_ES")
+list(APPEND SUPPORTED_LANGS "vi_VI")
+list(APPEND SUPPORTED_LANGS "zh_CN")
+list(APPEND SUPPORTED_LANGS "fr_FR")
+list(APPEND SUPPORTED_LANGS "ko_KR")
 
 set(UI_SRC
     ui.cpp
@@ -94,12 +99,16 @@ set(UI_SRC
     model/wallet_model.cpp
     model/app_model.h
     model/app_model.cpp
+    model/keyboard.h
+    model/keyboard.cpp
     model/settings.h
     model/settings.cpp
     model/messages.h
     model/messages.cpp
     model/node_model.h
     model/node_model.cpp
+    model/qr.h
+    model/qr.cpp
 )
 
 beam_translations_update_ts("${SUPPORTED_LANGS}" TS_FILES)
@@ -147,16 +156,30 @@ file(RENAME ${CMAKE_CURRENT_SOURCE_DIR}/beam_${BEAM_ICON_SUFFIX}.icns ${CMAKE_CU
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/beam.rc.in ${CMAKE_CURRENT_SOURCE_DIR}/beam.rc)
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/beam.desktop.in ${CMAKE_CURRENT_SOURCE_DIR}/beam.desktop)
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/Info.plist.in ${CMAKE_CURRENT_SOURCE_DIR}/Info.plist)
+if (APPLE)
+    find_library(CARBON_LIBRARY Carbon)
+    if(NOT CARBON_LIBRARY)
+        message(FATAL_ERROR "Carbon framework not found")
+    endif()
+endif()
 add_executable(${TARGET_NAME} ${SYSTEM_TYPE} ${UI_SRC} ${QT_RESOURCES} beam.rc ${MACOSX_BUNDLE_ICON_FILE})
 set_target_properties(${TARGET_NAME} PROPERTIES OUTPUT_NAME ${OUTPUT_NAME})
+
+if(BEAM_HW_WALLET)
+    target_compile_definitions(${TARGET_NAME} PRIVATE BEAM_HW_WALLET)
+endif()
 
 configure_file("${PROJECT_SOURCE_DIR}/version.h.in" "${CMAKE_CURRENT_BINARY_DIR}/version.h")
 
 add_dependencies(${TARGET_NAME} wallet mnemonic qrcode cli)
 target_link_libraries(${TARGET_NAME} qrcode cli)
-
-if(LINUX)
+if (LINUX)
+    target_link_libraries(${TARGET_NAME} X11)
     set(CMAKE_POSITION_INDEPENDENT_CODE ON)
+endif()
+
+if (APPLE)
+    target_link_libraries(${TARGET_NAME} ${CARBON_LIBRARY})
 endif()
 
 # link with QuaZip library

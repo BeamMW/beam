@@ -311,69 +311,177 @@ namespace detail
 
         /// ECC::RangeProof::Confidential serialization
         template<typename Archive>
-        static Archive& save(Archive& ar, const ECC::RangeProof::Confidential& v)
+        static Archive& save(Archive& ar, const ECC::RangeProof::Confidential& v, bool bRecoveryOnly = false)
         {
 			ar
 				& v.m_Part1.m_A.m_X
 				& v.m_Part1.m_S.m_X
 				& v.m_Part2.m_T1.m_X
-				& v.m_Part2.m_T2.m_X
-				& v.m_Part3.m_TauX
-				& v.m_Mu
-				& v.m_tDot;
+				& v.m_Part2.m_T2.m_X;
 
-			save_nobits(ar, v.m_P_Tag);
+			if (bRecoveryOnly)
+			{
+				uint8_t nFlags =
+					(v.m_Part1.m_A.m_Y ? 1 : 0) |
+					(v.m_Part1.m_S.m_Y ? 2 : 0) |
+					(v.m_Part2.m_T1.m_Y ? 4 : 0) |
+					(v.m_Part2.m_T2.m_Y ? 8 : 0);
 
-			InnerProductFlags ipf;
-			ZeroObject(ipf);
+				ar
+					& v.m_Mu
+					& nFlags;
+			}
+			else
+			{
+				ar
+					& v.m_Part3.m_TauX
+					& v.m_Mu
+					& v.m_tDot;
 
-			ipf.save(v.m_P_Tag);
+				save_nobits(ar, v.m_P_Tag);
 
-			static_assert(ipf.N_Max - ipf.N == 4, "");
-			ipf.set(ipf.N + 0, v.m_Part1.m_A.m_Y);
-			ipf.set(ipf.N + 1, v.m_Part1.m_S.m_Y);
-			ipf.set(ipf.N + 2, v.m_Part2.m_T1.m_Y);
-			ipf.set(ipf.N + 3, v.m_Part2.m_T2.m_Y);
+				InnerProductFlags ipf;
+				ZeroObject(ipf);
 
-			ar & ipf.m_pF;
+				ipf.save(v.m_P_Tag);
+
+				static_assert(ipf.N_Max - ipf.N == 4, "");
+				ipf.set(ipf.N + 0, v.m_Part1.m_A.m_Y);
+				ipf.set(ipf.N + 1, v.m_Part1.m_S.m_Y);
+				ipf.set(ipf.N + 2, v.m_Part2.m_T1.m_Y);
+				ipf.set(ipf.N + 3, v.m_Part2.m_T2.m_Y);
+
+				ar & ipf.m_pF;
+			}
             return ar;
         }
 
         template<typename Archive>
-        static Archive& load(Archive& ar, ECC::RangeProof::Confidential& v)
+        static Archive& load(Archive& ar, ECC::RangeProof::Confidential& v, bool bRecoveryOnly = false)
         {
 			ar
 				& v.m_Part1.m_A.m_X
 				& v.m_Part1.m_S.m_X
 				& v.m_Part2.m_T1.m_X
-				& v.m_Part2.m_T2.m_X
-				& v.m_Part3.m_TauX
-				& v.m_Mu
-				& v.m_tDot;
+				& v.m_Part2.m_T2.m_X;
 
-			load_nobits(ar, v.m_P_Tag);
+			if (bRecoveryOnly)
+			{
+				uint8_t nFlags;
 
-			InnerProductFlags ipf;
-			ar & ipf.m_pF;
+				ar
+					& v.m_Mu
+					& nFlags;
 
-			ipf.load(v.m_P_Tag);
+				v.m_Part1.m_A.m_Y = 0 != (1 & nFlags);
+				v.m_Part1.m_S.m_Y = 0 != (2 & nFlags);
+				v.m_Part2.m_T1.m_Y = 0 != (4 & nFlags);
+				v.m_Part2.m_T2.m_Y = 0 != (8 & nFlags);
 
-			static_assert(ipf.N_Max - ipf.N == 4, "");
-			ipf.get(ipf.N + 0, v.m_Part1.m_A.m_Y);
-			ipf.get(ipf.N + 1, v.m_Part1.m_S.m_Y);
-			ipf.get(ipf.N + 2, v.m_Part2.m_T1.m_Y);
-			ipf.get(ipf.N + 3, v.m_Part2.m_T2.m_Y);
+				ZeroObject(v.m_Part3);
+				ZeroObject(v.m_tDot);
+				ZeroObject(v.m_P_Tag);
+			}
+			else
+			{
+				ar
+					& v.m_Part3.m_TauX
+					& v.m_Mu
+					& v.m_tDot;
 
+				load_nobits(ar, v.m_P_Tag);
+
+				InnerProductFlags ipf;
+				ar & ipf.m_pF;
+
+				ipf.load(v.m_P_Tag);
+
+				static_assert(ipf.N_Max - ipf.N == 4, "");
+				ipf.get(ipf.N + 0, v.m_Part1.m_A.m_Y);
+				ipf.get(ipf.N + 1, v.m_Part1.m_S.m_Y);
+				ipf.get(ipf.N + 2, v.m_Part2.m_T1.m_Y);
+				ipf.get(ipf.N + 3, v.m_Part2.m_T2.m_Y);
+			}
 			return ar;
 		}
 
-        /// ECC::RangeProof::Public serialization
+        /// ECC::RangeProof::Confidential::Part2
         template<typename Archive>
-        static Archive& save(Archive& ar, const ECC::RangeProof::Public& val)
+        static Archive& save(Archive& ar, const ECC::RangeProof::Confidential::Part2& v)
         {
             ar
-                & val.m_Value
-                & val.m_Signature
+                & v.m_T1
+                & v.m_T2;
+
+            return ar;
+        }
+
+        template<typename Archive>
+        static Archive& load(Archive& ar, ECC::RangeProof::Confidential::Part2& v)
+        {
+            ar
+                & v.m_T1
+                & v.m_T2;
+
+            return ar;
+        }
+
+        /// ECC::RangeProof::Confidential::Part3
+        template<typename Archive>
+        static Archive& save(Archive& ar, const ECC::RangeProof::Confidential::Part3& v)
+        {
+            ar
+                & v.m_TauX;
+
+            return ar;
+        }
+
+        template<typename Archive>
+        static Archive& load(Archive& ar, ECC::RangeProof::Confidential::Part3& v)
+        {
+            ar
+                & v.m_TauX;
+
+            return ar;
+        }
+
+        /// ECC::RangeProof::Confidential::MultiSig
+        template<typename Archive>
+        static Archive& save(Archive& ar, const ECC::RangeProof::Confidential::MultiSig& v)
+        {
+			ar
+				& v.m_Part1.m_A
+				& v.m_Part1.m_S
+				& v.m_Part2.m_T1
+				& v.m_Part2.m_T2;
+
+            return ar;
+        }
+
+        template<typename Archive>
+        static Archive& load(Archive& ar, ECC::RangeProof::Confidential::MultiSig& v)
+        {
+			ar
+				& v.m_Part1.m_A
+				& v.m_Part1.m_S
+				& v.m_Part2.m_T1
+				& v.m_Part2.m_T2;
+
+            return ar;
+        }
+
+        /// ECC::RangeProof::Public serialization
+        template<typename Archive>
+        static Archive& save(Archive& ar, const ECC::RangeProof::Public& val, bool bRecoveryOnly = false)
+        {
+			ar & val.m_Value;
+
+			if (!bRecoveryOnly)
+			{
+				ar & val.m_Signature;
+			}
+
+            ar
 				& val.m_Recovery.m_Kid.m_Idx
 				& val.m_Recovery.m_Kid.m_Type
 				& val.m_Recovery.m_Kid.m_SubIdx
@@ -384,11 +492,20 @@ namespace detail
         }
 
         template<typename Archive>
-        static Archive& load(Archive& ar, ECC::RangeProof::Public& val)
+        static Archive& load(Archive& ar, ECC::RangeProof::Public& val, bool bRecoveryOnly = false)
         {
-            ar
-                & val.m_Value
-                & val.m_Signature
+			ar & val.m_Value;
+
+			if (bRecoveryOnly)
+			{
+				ZeroObject(val.m_Signature);
+			}
+			else
+			{
+				ar & val.m_Signature;
+			}
+
+			ar
 				& val.m_Recovery.m_Kid.m_Idx
 				& val.m_Recovery.m_Kid.m_Type
 				& val.m_Recovery.m_Kid.m_SubIdx
@@ -439,17 +556,18 @@ namespace detail
 				(output.m_pConfidential ? 4 : 0) |
 				(output.m_pPublic ? 8 : 0) |
 				(output.m_Incubation ? 0x10 : 0) |
-				((output.m_AssetID == beam::Zero) ? 0 : 0x20);
+				((output.m_AssetID == beam::Zero) ? 0 : 0x20) |
+				(output.m_RecoveryOnly ? 0x40 : 0);
 
 			ar
 				& nFlags
 				& output.m_Commitment.m_X;
 
 			if (output.m_pConfidential)
-				ar & *output.m_pConfidential;
+				save(ar, *output.m_pConfidential, output.m_RecoveryOnly);
 
 			if (output.m_pPublic)
-				ar & *output.m_pPublic;
+				save(ar, *output.m_pPublic, output.m_RecoveryOnly);
 
 			if (output.m_Incubation)
 				ar & output.m_Incubation;
@@ -470,17 +588,18 @@ namespace detail
 
 			output.m_Commitment.m_Y = (1 & nFlags);
 			output.m_Coinbase = 0 != (2 & nFlags);
+			output.m_RecoveryOnly = 0 != (0x40 & nFlags);
 
 			if (4 & nFlags)
 			{
 				output.m_pConfidential = std::make_unique<ECC::RangeProof::Confidential>();
-				ar & *output.m_pConfidential;
+				load(ar, *output.m_pConfidential, output.m_RecoveryOnly);
 			}
 
 			if (8 & nFlags)
 			{
 				output.m_pPublic = std::make_unique<ECC::RangeProof::Public>();
-				ar & *output.m_pPublic;
+				load(ar, *output.m_pPublic, output.m_RecoveryOnly);
 			}
 
 			if (0x10 & nFlags)
@@ -515,10 +634,38 @@ namespace detail
 			return ar;
 		}
 
+		/// beam::TxKernel::RelativeLock serialization
+		template<typename Archive>
+		static Archive& save(Archive& ar, const beam::TxKernel::RelativeLock& val)
+		{
+			ar
+				& val.m_ID
+				& val.m_LockHeight
+				;
+
+			return ar;
+		}
+
+		template<typename Archive>
+		static Archive& load(Archive& ar, beam::TxKernel::RelativeLock& val)
+		{
+			ar
+				& val.m_ID
+				& val.m_LockHeight
+				;
+
+			return ar;
+		}
+
         /// beam::TxKernel serialization
         template<typename Archive>
         static Archive& save(Archive& ar, const beam::TxKernel& val)
         {
+			uint8_t nFlags2 =
+				(val.m_AssetEmission ? 1 : 0) |
+				(val.m_pRelativeLock ? 2 : 0) |
+				(val.m_CanEmbed ? 4 : 0);
+
 			uint8_t nFlags =
 				(val.m_Commitment.m_Y ? 1 : 0) |
 				(val.m_Fee ? 2 : 0) |
@@ -527,7 +674,7 @@ namespace detail
 				(val.m_Signature.m_NoncePub.m_Y ? 0x10 : 0) |
 				(val.m_pHashLock ? 0x20 : 0) |
 				(val.m_vNested.empty() ? 0 : 0x40) |
-				(val.m_AssetEmission ? 0x80 : 0);
+				(nFlags2 ? 0x80 : 0);
 
 			ar
 				& nFlags
@@ -556,9 +703,16 @@ namespace detail
 					save(ar, *val.m_vNested[i]);
 			}
 
-			if (0x80 & nFlags)
-				ar & val.m_AssetEmission;
+			if (nFlags2)
+			{
+				ar & nFlags2;
 
+				if (1 & nFlags2)
+					ar & val.m_AssetEmission;
+
+				if (2 & nFlags2)
+					ar & *val.m_pRelativeLock;
+			}
             return ar;
         }
 
@@ -617,10 +771,25 @@ namespace detail
 				}
 			}
 
+			val.m_AssetEmission = 0;
+
 			if (0x80 & nFlags)
-				ar & val.m_AssetEmission;
-			else
-				val.m_AssetEmission = 0;
+			{
+				uint8_t nFlags2;
+				ar & nFlags2;
+
+				if (1 & nFlags2)
+					ar & val.m_AssetEmission;
+
+				if (2 & nFlags2)
+				{
+					val.m_pRelativeLock.reset(new beam::TxKernel::RelativeLock);
+					ar & *val.m_pRelativeLock;
+				}
+
+				if (4 & nFlags2)
+					val.m_CanEmbed = true;
+			}
 
             return ar;
         }

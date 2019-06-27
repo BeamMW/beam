@@ -51,7 +51,7 @@ T.TextField {
     background: Rectangle {
 	    id: backgroundRect
         y: control.height - height - control.bottomPadding + 4
-        implicitWidth: 120
+        width: control.width - (control.leftPadding + control.rightPadding)
         height: control.activeFocus || control.hovered ? 2 : 1
 		opacity: (control.activeFocus || control.hovered)? 0.3 : 0.1
     }
@@ -78,8 +78,8 @@ T.TextField {
         modal: true
         dim: false
         Action {
-            //% "copy"
-            text: qsTrId("sf-text-input-cm-copy")
+            //% "Copy"
+            text: qsTrId("general-copy")
             icon.source: "qrc:/assets/icon-copy.svg"
             enabled: control.enabled && (control.echoMode === TextInput.Normal)
             onTriggered: {
@@ -94,8 +94,8 @@ T.TextField {
             }
         }
         Action {
-            //% "paste"
-            text: qsTrId("sf-text-input-cm-paste")
+            //% "Paste"
+            text: qsTrId("general-paste")
             icon.source: "qrc:/assets/icon-edit.svg"
             enabled: control.canPaste
             onTriggered: {

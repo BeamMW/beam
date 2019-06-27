@@ -19,12 +19,13 @@
 #include "common.h"
 
 using namespace beam;
+using namespace beam::wallet;
 using namespace beam::io;
 using namespace std;
 
 namespace
 {
-    jobjectArray convertCoinsToJObject(JNIEnv* env, const std::vector<beam::Coin>& utxosVec)
+    jobjectArray convertCoinsToJObject(JNIEnv* env, const std::vector<Coin>& utxosVec)
     {
         jobjectArray utxos = 0;
 
@@ -62,7 +63,7 @@ namespace
     }
 }
 
-WalletModel::WalletModel(IWalletDB::Ptr walletDB, const std::string& nodeAddr, beam::io::Reactor::Ptr reactor)
+WalletModel::WalletModel(IWalletDB::Ptr walletDB, const std::string& nodeAddr, Reactor::Ptr reactor)
     : WalletClient(walletDB, nodeAddr, reactor)
 {    
 }
@@ -102,7 +103,7 @@ void WalletModel::onStatus(const WalletStatus& status)
     env->DeleteLocalRef(walletStatus);
 }
 
-void WalletModel::onTxStatus(beam::ChangeAction action, const std::vector<beam::TxDescription>& items)
+void WalletModel::onTxStatus(ChangeAction action, const std::vector<TxDescription>& items)
 {
     LOG_DEBUG() << "onTxStatus()";
 
@@ -137,7 +138,7 @@ void WalletModel::onTxStatus(beam::ChangeAction action, const std::vector<beam::
             setBooleanField(env, TxDescriptionClass, tx, "sender", item.m_sender);
             setBooleanField(env, TxDescriptionClass, tx, "selfTx", item.m_selfTx);
             setIntField(env, TxDescriptionClass, tx, "status", static_cast<jint>(item.m_status));
-            setStringField(env, TxDescriptionClass, tx, "kernelId", beam::to_hex(item.m_kernelID.m_pData, item.m_kernelID.nBytes));
+            setStringField(env, TxDescriptionClass, tx, "kernelId", to_hex(item.m_kernelID.m_pData, item.m_kernelID.nBytes));
             setIntField(env, TxDescriptionClass, tx, "failureReason", static_cast<jint>(item.m_failureReason));
 
             env->SetObjectArrayElement(txItems, i, tx);
@@ -162,7 +163,7 @@ void WalletModel::onSyncProgressUpdated(int done, int total)
     env->CallStaticVoidMethod(WalletListenerClass, callback, done, total);
 }
 
-void WalletModel::onChangeCalculated(beam::Amount change)
+void WalletModel::onChangeCalculated(Amount change)
 {
     LOG_DEBUG() << "onChangeCalculated(" << change << ")";
 
@@ -173,7 +174,7 @@ void WalletModel::onChangeCalculated(beam::Amount change)
     env->CallStaticVoidMethod(WalletListenerClass, callback, change);
 }
 
-void WalletModel::onAllUtxoChanged(const std::vector<beam::Coin>& utxosVec)
+void WalletModel::onAllUtxoChanged(const std::vector<Coin>& utxosVec)
 {
     LOG_DEBUG() << "onAllUtxoChanged()";
 
@@ -187,7 +188,7 @@ void WalletModel::onAllUtxoChanged(const std::vector<beam::Coin>& utxosVec)
     env->DeleteLocalRef(utxos);
 }
 
-void WalletModel::onAddresses(bool own, const std::vector<beam::WalletAddress>& addresses)
+void WalletModel::onAddresses(bool own, const std::vector<WalletAddress>& addresses)
 {
     LOG_DEBUG() << "onAddresses(" << own << ")";
 
@@ -226,7 +227,7 @@ void WalletModel::onAddresses(bool own, const std::vector<beam::WalletAddress>& 
     env->DeleteLocalRef(addrArray);
 }
 
-void WalletModel::onGeneratedNewAddress(const beam::WalletAddress& address)
+void WalletModel::onGeneratedNewAddress(const WalletAddress& address)
 {
     LOG_DEBUG() << "onGeneratedNewAddress()";
 
@@ -254,7 +255,7 @@ void WalletModel::onNewAddressFailed()
 
 }
 
-void WalletModel::onChangeCurrentWalletIDs(beam::WalletID senderID, beam::WalletID receiverID)
+void WalletModel::onChangeCurrentWalletIDs(WalletID senderID, WalletID receiverID)
 {
 }
 
@@ -269,7 +270,7 @@ void WalletModel::onNodeConnectionChanged(bool isNodeConnected)
     env->CallStaticVoidMethod(WalletListenerClass, callback, isNodeConnected);
 }
 
-void WalletModel::onWalletError(beam::wallet::ErrorType error)
+void WalletModel::onWalletError(ErrorType error)
 {
     LOG_DEBUG() << "onNodeConnectionFailed(): error = " << static_cast<uint8_t>(error);
 
@@ -299,13 +300,13 @@ void WalletModel::onCantSendToExpired()
     env->CallStaticVoidMethod(WalletListenerClass, callback);
 }
 
-void WalletModel::onPaymentProofExported(const beam::TxID& txID, const beam::ByteBuffer& proof)
+void WalletModel::onPaymentProofExported(const TxID& txID, const ByteBuffer& proof)
 {
     string strProof;
     strProof.resize(proof.size() * 2);
 
-    beam::to_hex(strProof.data(), proof.data(), proof.size());
-    beam::wallet::PaymentInfo paymentInfo = wallet::PaymentInfo::FromByteBuffer(proof);
+    to_hex(strProof.data(), proof.data(), proof.size());
+    storage::PaymentInfo paymentInfo = storage::PaymentInfo::FromByteBuffer(proof);
 
     JNIEnv* env = Android_JNI_getEnv();
 
@@ -332,7 +333,7 @@ void WalletModel::onPaymentProofExported(const beam::TxID& txID, const beam::Byt
     env->DeleteLocalRef(jPaymentInfo);
 }
 
-void WalletModel::onCoinsByTx(const std::vector<beam::Coin>& coins)
+void WalletModel::onCoinsByTx(const std::vector<Coin>& coins)
 {
     JNIEnv* env = Android_JNI_getEnv();
 

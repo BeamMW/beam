@@ -10,6 +10,9 @@ set(MNEMONIC_SRC
     ${PROJECT_SOURCE_DIR}/3rdparty/zeroize.c
 )
 
+if (MSVC AND (MSVC_VERSION GREATER_EQUAL 1921))
+    add_compile_options("/bigobj")
+endif()
 add_library(${TARGET_NAME} STATIC ${MNEMONIC_SRC})
 target_include_directories(${TARGET_NAME} PRIVATE ${PROJECT_SOURCE_DIR}}/external)
 add_dependencies(${TARGET_NAME} core)

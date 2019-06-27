@@ -210,10 +210,7 @@ public:
 
 		Key& operator = (const Data&);
 
-		int cmp(const Key&) const;
-		COMPARISON_VIA_CMP
-
-		uint8_t m_pArr[s_Bytes];
+		uintBig_t<s_Bytes> V;
 	};
 
 	struct MyLeaf :public Leaf
@@ -229,6 +226,7 @@ public:
 		};
 
 		bool IsExt() const;
+		bool IsCommitmentDuplicated() const;
 
 		void PushID(TxoID);
 		TxoID PopID();
@@ -241,7 +239,7 @@ public:
 
 	MyLeaf* Find(CursorBase& cu, const Key& key, bool& bCreate)
 	{
-		return Cast::Up<MyLeaf>(RadixTree::Find(cu, key.m_pArr, key.s_Bits, bCreate));
+		return Cast::Up<MyLeaf>(RadixTree::Find(cu, key.V.m_pData, key.s_Bits, bCreate));
 	}
 
 	~UtxoTree() { Clear(); }
@@ -262,10 +260,29 @@ public:
 		return ar;
 	}
 
+	class Compact
+	{
+		void FlushInternal(uint16_t nBitsCommonNext);
+
+		// compact tree builder. Assumes all the elements are added in correct order
+		struct Node {
+			Merkle::Hash m_Hash;
+			uint16_t m_nBitsCommon; // with prev node
+		};
+
+		std::vector<Node> m_vNodes;
+
+		Key m_LastKey;
+		Input::Count m_LastCount;
+
+	public:
+		bool Add(const Key&);
+		void Flush(Merkle::Hash&);
+	};
 
 protected:
 	virtual Leaf* CreateLeaf() override { return new MyLeaf; }
-	virtual uint8_t* GetLeafKey(const Leaf& x) const override { return Cast::Up<MyLeaf>(Cast::NotConst(x)).m_Key.m_pArr; }
+	virtual uint8_t* GetLeafKey(const Leaf& x) const override { return Cast::Up<MyLeaf>(Cast::NotConst(x)).m_Key.V.m_pData; }
 	virtual void DeleteLeaf(Leaf* p) override { delete Cast::Up<MyLeaf>(p); }
 	virtual const Merkle::Hash& get_LeafHash(Node&, Merkle::Hash&) override;
 
@@ -282,7 +299,7 @@ protected:
 
 		virtual void Process(uint32_t& n) override { m_ar & n; }
 		virtual void Process(uint64_t& n) override { m_ar & n; }
-		virtual void Process(Key& k) override { m_ar & k.m_pArr; }
+		virtual void Process(Key& k) override { m_ar & k.V.m_pData; }
 	};
 
 	void SaveIntenral(ISerializer&) const;

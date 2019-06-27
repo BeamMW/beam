@@ -24,6 +24,7 @@
 using namespace std;
 using namespace ECC;
 using namespace beam;
+using namespace beam::wallet;
 
 WALLET_TEST_INIT
 
@@ -86,7 +87,7 @@ void TestWalletDataBase()
         TxID txID;
         ZeroObject(txID);
 
-        wallet::setTxParameter(*walletDB, txID, wallet::TxParameterID::Status, TxStatus::InProgress, false);
+        storage::setTxParameter(*walletDB, txID, wallet::TxParameterID::Status, TxStatus::InProgress, false);
         for (Coin& c : coins)
             c.m_spentTxId = txID;
         walletDB->save(coins);
@@ -106,11 +107,11 @@ void TestWalletDataBase()
         a.m_Height = rand();
 
         const char* name = "SystemStateID";
-        wallet::setVar(*walletDB, name, "dummy");
-        wallet::setVar(*walletDB, name, a);
+        storage::setVar(*walletDB, name, "dummy");
+        storage::setVar(*walletDB, name, a);
 
         Block::SystemState::ID b;
-        WALLET_CHECK(wallet::getVar(*walletDB, name, b));
+        WALLET_CHECK(storage::getVar(*walletDB, name, b));
 
         WALLET_CHECK(a == b);
     }
@@ -248,7 +249,11 @@ void TestStoreTxRecord()
 
     WALLET_CHECK_NO_THROW(walletDB->saveTx(tr));
     WALLET_CHECK_NO_THROW(walletDB->saveTx(tr));
-    WALLET_CHECK(wallet::setTxParameter(*walletDB, id, TxParameterID::TransactionType, TxType::Simple, false));
+    {
+        wallet::TxType type = TxType::Simple;
+        WALLET_CHECK(storage::getTxParameter(*walletDB, id, TxParameterID::TransactionType, type));
+        WALLET_CHECK(type == TxType::Simple);
+    }
 
     TxDescription tr2 = tr;
     tr2.m_txId = id;
@@ -277,7 +282,7 @@ void TestStoreTxRecord()
     WALLET_CHECK_NO_THROW(walletDB->deleteTx(id));
     {
         wallet::TxType type = TxType::Simple;
-        WALLET_CHECK(wallet::getTxParameter(*walletDB, id, TxParameterID::TransactionType, type));
+        WALLET_CHECK(storage::getTxParameter(*walletDB, id, TxParameterID::TransactionType, type));
         WALLET_CHECK(type == TxType::Simple);
     }
     
@@ -306,25 +311,25 @@ void TestStoreTxRecord()
         WALLET_CHECK_NO_THROW(walletDB->saveTx(tr));
     }
     WALLET_CHECK(walletDB->getTxHistory().size() == 100);
-    t = walletDB->getTxHistory(50, 2);
+    t = walletDB->getTxHistory(TxType::Simple, 50, 2);
     WALLET_CHECK(t.size() == 2);
-    t = walletDB->getTxHistory(99, 10);
+    t = walletDB->getTxHistory(TxType::Simple, 99, 10);
     WALLET_CHECK(t.size() == 1);
-    t = walletDB->getTxHistory(9, 0);
+    t = walletDB->getTxHistory(TxType::Simple, 9, 0);
     WALLET_CHECK(t.size() == 0);
-    t = walletDB->getTxHistory(50, 2);
+    t = walletDB->getTxHistory(TxType::Simple, 50, 2);
     id[0] = 50;
     WALLET_CHECK(t[0].m_txId == id);
     id[0] = 51;
     WALLET_CHECK(t[1].m_txId == id);
 
-    t = walletDB->getTxHistory(0, 1);
+    t = walletDB->getTxHistory(TxType::Simple, 0, 1);
     WALLET_CHECK(t.size() == 1 && t[0].m_txId[0] == 0);
 
-    t = walletDB->getTxHistory(99, 1);
+    t = walletDB->getTxHistory(TxType::Simple, 99, 1);
     WALLET_CHECK(t.size() == 1 && t[0].m_txId[0] == 99);
 
-    t = walletDB->getTxHistory(100, 1);
+    t = walletDB->getTxHistory(TxType::Simple, 100, 1);
     WALLET_CHECK(t.size() == 0);
 }
 
@@ -464,154 +469,6 @@ void TestRollback()
     }
 }
 
-void TestBlockRollbackWithTx()
-{
-    cout << "\nWallet database rollback with tx test\n";
-    IWalletDB::Ptr db = createSqliteWalletDB();
-    TxID txID1 = { { 1, 3, 4, 5 ,65 } };
-    TxID txID2 = { {1, 3, 4} };
-    TxID txID3 = { {1, 3, 4, 9} };
-
-    Coin coin1 = CreateCoin(1, 6, 6);
-    coin1.m_createTxId = txID1;
-
-    Coin coin2 = CreateCoin(2, 4, 4, 6);
-    coin2.m_createTxId = txID2;
-    coin2.m_spentTxId = txID1;
-
-    Coin coin3 = CreateCoin(3, 6, 6);
-
-    {
-        TxDescription tx;
-        tx.m_txId = txID1;
-        tx.m_peerId.m_Pk = unsigned(23);
-        tx.m_peerId.m_Channel = 0U;
-        tx.m_myId.m_Pk = unsigned(42);
-        tx.m_myId.m_Channel = 0U;
-        tx.m_createTime = 123456;
-        tx.m_minHeight = 5;
-        tx.m_status = TxStatus::Completed;
-        tx.m_change = 0;
-        tx.m_amount = 2;
-        tx.m_sender = true;
-
-        db->saveTx(tx);
-
-        wallet::setTxParameter(*db, txID1, wallet::TxParameterID::KernelUnconfirmedHeight, Height(5), false);
-        wallet::setTxParameter(*db, txID1, wallet::TxParameterID::KernelProofHeight, Height(6), false);
-    }
-
-    {
-        TxDescription tx;
-        tx.m_txId = txID2;
-        tx.m_peerId.m_Pk = unsigned(23);
-        tx.m_peerId.m_Channel = 0U;
-        tx.m_myId.m_Pk = unsigned(42);
-        tx.m_myId.m_Channel = 0U;
-        tx.m_createTime = 123456;
-        tx.m_minHeight = 3;
-        tx.m_status = TxStatus::Completed;
-        tx.m_change = 0;
-        tx.m_amount = 2;
-        tx.m_sender = true;
-
-        db->saveTx(tx);
-        wallet::setTxParameter(*db, txID2, wallet::TxParameterID::KernelUnconfirmedHeight, Height(3), false);
-        wallet::setTxParameter(*db, txID2, wallet::TxParameterID::KernelProofHeight, Height(4), false);
-    }
-
-    {
-        TxDescription tx;
-        tx.m_txId = txID3;
-        tx.m_peerId.m_Pk = unsigned(23);
-        tx.m_peerId.m_Channel = 0U;
-        tx.m_myId.m_Pk = unsigned(42);
-        tx.m_myId.m_Channel = 0U;
-        tx.m_createTime = 123456;
-        tx.m_minHeight = 3;
-        tx.m_status = TxStatus::Completed;
-        tx.m_change = 0;
-        tx.m_amount = 2;
-        tx.m_sender = true;
-
-        db->saveTx(tx);
-
-        wallet::setTxParameter(*db, txID3, wallet::TxParameterID::KernelProofHeight, Height(5), false);
-    }
-    
-    db->store(coin1);
-    db->store(coin2);
-    db->store(coin3);
-    {
-        auto transactions = db->getTxHistory();
-        WALLET_CHECK(transactions.size() == 3);
-        {
-            auto tx = db->getTx(txID1);
-            WALLET_CHECK(tx->canResume() == false);
-        }
-        {
-            auto tx = db->getTx(txID2);
-            WALLET_CHECK(tx->canResume() == false);
-        }
-        {
-            auto tx = db->getTx(txID3);
-            WALLET_CHECK(tx->canResume() == false);
-        }
-    }
-    db->rollbackConfirmedUtxo(5);
-    {
-        vector<Coin> coins;
-        db->visit([&coins](const Coin& c)->bool
-        {
-            coins.push_back(c);
-            return true;
-        });
-        WALLET_CHECK(coins.size() == 3);
-        WALLET_CHECK(coins[0].m_ID.m_Value == 1);
-        WALLET_CHECK(coins[0].m_confirmHeight == MaxHeight);
-        WALLET_CHECK(coins[0].m_status == Coin::Incoming);
-
-        WALLET_CHECK(coins[1].m_ID.m_Value == 2);
-        WALLET_CHECK(coins[1].m_confirmHeight == 4);
-        WALLET_CHECK(coins[1].m_status == Coin::Outgoing);
-
-        WALLET_CHECK(coins[2].m_ID.m_Value == 3);
-        WALLET_CHECK(coins[2].m_confirmHeight == MaxHeight);
-        WALLET_CHECK(coins[2].m_status == Coin::Unavailable);
-
-        auto transactions = db->getTxHistory();
-        WALLET_CHECK(transactions.size() == 3);
-        {
-            auto tx = db->getTx(txID1);
-            WALLET_CHECK(tx->m_status == TxStatus::Registering);
-            Height h = 0;
-            WALLET_CHECK(wallet::getTxParameter(*db, txID1, wallet::TxParameterID::KernelProofHeight, h));
-            WALLET_CHECK(h == 0);
-            WALLET_CHECK(wallet::getTxParameter(*db, txID1, wallet::TxParameterID::KernelUnconfirmedHeight, h));
-            WALLET_CHECK(h == 0);
-        }
-        {
-            auto tx = db->getTx(txID2);
-            WALLET_CHECK(tx->m_status == TxStatus::Completed);
-            Height h = 0;
-            WALLET_CHECK(wallet::getTxParameter(*db, txID2, wallet::TxParameterID::KernelProofHeight, h));
-            WALLET_CHECK(h == 4);
-            WALLET_CHECK(wallet::getTxParameter(*db, txID2, wallet::TxParameterID::KernelUnconfirmedHeight, h));
-            WALLET_CHECK(h == 3);
-        }
-        {
-            auto tx = db->getTx(txID3);
-            WALLET_CHECK(tx->m_status == TxStatus::Completed);
-            Height h = 0;
-            WALLET_CHECK(wallet::getTxParameter(*db, txID3, wallet::TxParameterID::KernelProofHeight, h));
-            WALLET_CHECK(h == 5);
-            WALLET_CHECK(!wallet::getTxParameter(*db, txID3, wallet::TxParameterID::KernelUnconfirmedHeight, h));
-
-        }
-    }
-
-}
-
 void TestTxRollback()
 {
     cout << "\nWallet database transaction rollback test\n";
@@ -632,7 +489,7 @@ void TestTxRollback()
     walletDB->store(coin3);
     walletDB->save({ coin2 });
 
-    wallet::setTxParameter(*walletDB, id, wallet::TxParameterID::Status, TxStatus::Registering, true);
+    storage::setTxParameter(*walletDB, id, wallet::TxParameterID::Status, TxStatus::Registering, true);
 
     vector<Coin> coins;
     walletDB->visit([&coins](const Coin& c)->bool
@@ -687,7 +544,7 @@ void TestAddresses()
     a.m_createTime = beam::getTimestamp();
     a.m_duration = 23;
     a.m_OwnID = 44;
-    a.m_walletID = generateWalletIDFromIndex(*db, a.m_OwnID);
+    a.m_walletID = storage::generateWalletIDFromIndex(*db, a.m_OwnID);
 
     db->saveAddress(a);
 
@@ -713,7 +570,7 @@ void TestAddresses()
     WALLET_CHECK(addresses[0].m_duration == a.m_duration);
     WALLET_CHECK(addresses[0].m_OwnID == a.m_OwnID);
 
-    auto exported = wallet::ExportAddressesToJson(*db);
+    auto exported = storage::ExportDataToJson(*db);
     WALLET_CHECK(!exported.empty());
  
     auto a2 = db->getAddress(a.m_walletID);
@@ -725,11 +582,87 @@ void TestAddresses()
     a2 = db->getAddress(a.m_walletID);
     WALLET_CHECK(!a2.is_initialized());
 
-    WALLET_CHECK(wallet::ImportAddressesFromJson(*db, &exported[0], exported.size()));
+    WALLET_CHECK(storage::ImportDataFromJson(*db, &exported[0], exported.size()));
     {
         auto a3 = db->getAddress(a.m_walletID);
         WALLET_CHECK(a3.is_initialized());
+        addresses = db->getAddresses(true);
     }
+
+    // check double import
+    WALLET_CHECK(storage::ImportDataFromJson(*db, &exported[0], exported.size()));
+    {
+        auto a3 = db->getAddress(a.m_walletID);
+        WALLET_CHECK(a3.is_initialized());
+        WALLET_CHECK(addresses == db->getAddresses(true));
+    }
+}
+
+void TestExportImportTx()
+{
+    cout << "\nWallet database transactions export/import test\n";
+    auto walletDB = createSqliteWalletDB();
+
+    WalletAddress wa;
+    wa.m_OwnID = (*walletDB).AllocateKidRange(1);
+    wa.m_walletID = storage::generateWalletIDFromIndex(*walletDB, wa.m_OwnID);
+    TxDescription tr;
+    tr.m_txId = {{4, 5, 6, 7, 65}};
+    tr.m_amount = 52;
+    tr.m_createTime = 45613;
+    tr.m_minHeight = 185;
+    tr.m_sender = false;
+    tr.m_status = TxStatus::Pending;
+    tr.m_change = 8;
+    tr.m_myId = wa.m_walletID;
+    walletDB->saveTx(tr);
+    storage::setTxParameter(
+        *walletDB,
+        tr.m_txId,
+        1,
+        TxParameterID::MyAddressID,
+        wa.m_OwnID,
+        false);
+
+    WalletAddress wa2;
+    wa2.m_OwnID = (*walletDB).AllocateKidRange(1);
+    wa2.m_walletID = storage::generateWalletIDFromIndex(*walletDB, wa2.m_OwnID);
+    TxDescription tr2;
+    tr2.m_txId = {{7, 8, 9, 13}};
+    tr2.m_amount = 71;
+    tr2.m_minHeight = 285;
+    tr2.m_createTime = 4628;
+    tr2.m_modifyTime = 45285;
+    tr2.m_status = TxStatus::Cancelled;
+    tr2.m_change = 8;
+    tr2.m_myId = wa2.m_walletID;
+    walletDB->saveTx(tr2); // without MyAddressID
+
+
+    auto exported = storage::ExportDataToJson(*walletDB);
+    walletDB->deleteTx(tr.m_txId);
+    WALLET_CHECK(walletDB->getTxHistory().size() == 1);
+    WALLET_CHECK(storage::ImportDataFromJson(*walletDB, &exported[0], exported.size()));
+    auto _tr = walletDB->getTx(tr.m_txId);
+    WALLET_CHECK(_tr.is_initialized());
+    WALLET_CHECK(_tr.value().m_createTime == tr.m_createTime);
+    WALLET_CHECK(_tr.value().m_minHeight == tr.m_minHeight);
+    WALLET_CHECK(walletDB->getTxHistory().size() == 2);
+
+    storage::setTxParameter(
+        *walletDB,
+        tr2.m_txId,
+        1,
+        TxParameterID::MyAddressID,
+        (*walletDB).AllocateKidRange(1),
+        false);
+    exported = storage::ExportDataToJson(*walletDB);
+    walletDB->deleteTx(tr2.m_txId);
+    WALLET_CHECK(walletDB->getTxHistory().size() == 1);
+    WALLET_CHECK(storage::ImportDataFromJson(*walletDB, &exported[0], exported.size()));
+    WALLET_CHECK(walletDB->getTxHistory().size() == 1);
+    _tr = walletDB->getTx(tr2.m_txId);
+    WALLET_CHECK(!_tr.is_initialized());
 }
 
 vector<Coin::ID> ExtractIDs(const vector<Coin>& src)
@@ -962,38 +895,38 @@ void TestTxParameters()
     TxID txID = { {1, 3, 5} };
     // public parameter cannot be overriten
     Amount amount = 0;
-    WALLET_CHECK(!wallet::getTxParameter(*db, txID, TxParameterID::Amount, amount));
+    WALLET_CHECK(!storage::getTxParameter(*db, txID, TxParameterID::Amount, amount));
     WALLET_CHECK(amount == 0);
-    WALLET_CHECK(wallet::setTxParameter(*db, txID, TxParameterID::Amount, 8765, false));
-    WALLET_CHECK(wallet::getTxParameter(*db, txID, TxParameterID::Amount, amount));
+    WALLET_CHECK(storage::setTxParameter(*db, txID, TxParameterID::Amount, 8765, false));
+    WALLET_CHECK(storage::getTxParameter(*db, txID, TxParameterID::Amount, amount));
     WALLET_CHECK(amount == 8765);
-    WALLET_CHECK(!wallet::setTxParameter(*db, txID, TxParameterID::Amount, 786, false));
-    WALLET_CHECK(wallet::getTxParameter(*db, txID, TxParameterID::Amount, amount));
+    WALLET_CHECK(!storage::setTxParameter(*db, txID, TxParameterID::Amount, 786, false));
+    WALLET_CHECK(storage::getTxParameter(*db, txID, TxParameterID::Amount, amount));
     WALLET_CHECK(amount == 8765);
 
     // private parameter can be overriten
     TxStatus status = TxStatus::Pending;
-    WALLET_CHECK(!wallet::getTxParameter(*db, txID, TxParameterID::Status, status));
+    WALLET_CHECK(!storage::getTxParameter(*db, txID, TxParameterID::Status, status));
     WALLET_CHECK(status == TxStatus::Pending);
-    WALLET_CHECK(wallet::setTxParameter(*db, txID, TxParameterID::Status, TxStatus::Completed, false));
-    WALLET_CHECK(wallet::getTxParameter(*db, txID, TxParameterID::Status, status));
+    WALLET_CHECK(storage::setTxParameter(*db, txID, TxParameterID::Status, TxStatus::Completed, false));
+    WALLET_CHECK(storage::getTxParameter(*db, txID, TxParameterID::Status, status));
     WALLET_CHECK(status == TxStatus::Completed);
-    WALLET_CHECK(wallet::setTxParameter(*db, txID, TxParameterID::Status, TxStatus::InProgress, false));
-    WALLET_CHECK(wallet::getTxParameter(*db, txID, TxParameterID::Status, status));
+    WALLET_CHECK(storage::setTxParameter(*db, txID, TxParameterID::Status, TxStatus::InProgress, false));
+    WALLET_CHECK(storage::getTxParameter(*db, txID, TxParameterID::Status, status));
     WALLET_CHECK(status == TxStatus::InProgress);
 
     // check different types
 
     ByteBuffer b = { 1, 2, 3 };
-    WALLET_CHECK(wallet::setTxParameter(*db, txID, TxParameterID::Status, b, false));
+    WALLET_CHECK(storage::setTxParameter(*db, txID, TxParameterID::Status, b, false));
     ByteBuffer b2;
-    WALLET_CHECK(wallet::getTxParameter(*db, txID, TxParameterID::Status, b2));
+    WALLET_CHECK(storage::getTxParameter(*db, txID, TxParameterID::Status, b2));
     WALLET_CHECK(equal(b.begin(), b.end(), b2.begin(), b2.end()));
 
     ECC::Scalar::Native s, s2;
     s = 123U;
-    WALLET_CHECK(wallet::setTxParameter(*db, txID, TxParameterID::BlindingExcess, s, false));
-    WALLET_CHECK(wallet::getTxParameter(*db, txID, TxParameterID::BlindingExcess, s2));
+    WALLET_CHECK(storage::setTxParameter(*db, txID, TxParameterID::BlindingExcess, s, false));
+    WALLET_CHECK(storage::getTxParameter(*db, txID, TxParameterID::BlindingExcess, s2));
     WALLET_CHECK(s == s2);
 
     ECC::Point p;
@@ -1001,8 +934,8 @@ void TestTxParameters()
     p.m_Y = 0;
     ECC::Point::Native pt, pt2;
     pt.Import(p);
-    WALLET_CHECK(wallet::setTxParameter(*db, txID, TxParameterID::PeerPublicNonce, pt, false));
-    WALLET_CHECK(wallet::getTxParameter(*db, txID, TxParameterID::PeerPublicNonce, pt2));
+    WALLET_CHECK(storage::setTxParameter(*db, txID, TxParameterID::PeerPublicNonce, pt, false));
+    WALLET_CHECK(storage::getTxParameter(*db, txID, TxParameterID::PeerPublicNonce, pt2));
     WALLET_CHECK(p == pt2);
 }
 
@@ -1146,80 +1079,6 @@ void TestSelect6()
     }
 }
 
-void TestTransferredByTx()
-{
-    cout << "\nWallet database test: calculate sums of spent & received in transactions\n";
-    auto walletDB = createSqliteWalletDB();
-
-    Amount amount = 10;
-    Amount kAmountStep = 5;
-    uint64_t kMaxCount = 1000;
-    Amount totalAmount = 0;
-
-    TxDescription txTemplate;
-    txTemplate.m_peerId.m_Pk = unsigned(23);
-    txTemplate.m_peerId.m_Channel = 0U;
-    txTemplate.m_myId.m_Pk = unsigned(42);
-    txTemplate.m_myId.m_Channel = 0U;
-    txTemplate.m_createTime = 123456;
-    txTemplate.m_minHeight = 134;
-    txTemplate.m_status = TxStatus::Completed;
-    txTemplate.m_change = 10;
-
-    cout << "Create & Save " << kMaxCount << " transactions to database" << "\n";
-
-    for (uint64_t i = 0; i < kMaxCount; ++i, amount += kAmountStep)
-    {
-        // i -> txID
-        std::copy((uint8_t*)&i, ((uint8_t*)&i) + sizeof(uint64_t), txTemplate.m_txId.begin());
-
-        txTemplate.m_amount = amount;
-        txTemplate.m_sender = (i > kMaxCount / 2);
-
-        WALLET_CHECK_NO_THROW(walletDB->saveTx(txTemplate));
-
-        totalAmount += amount;
-
-        if (i == kMaxCount / 2) 
-        {
-            amount = kAmountStep;
-        }
-    }
-
-    // calculate sum
-    helpers::StopWatch sw;
-
-    cout << "Calculate sums using GetTxHistory" << "\n";
-    sw.start();
-    auto txHistory = walletDB->getTxHistory();
-    Amount historySumSent = 0;
-    Amount historySumReceived = 0;
-
-    for (const auto& item : txHistory)
-    {
-        switch (item.m_status)
-        {
-        case TxStatus::Completed:
-            (item.m_sender ? historySumSent : historySumReceived) += item.m_amount;
-            break;
-        default: break;
-        }
-    }
-    sw.stop();
-    cout << "Elapsed time: " << sw.milliseconds() << " ms\n";
-
-    cout << "Calculate sums using getTransferredByTx" << "\n";
-    sw.start();
-    auto sumSent = wallet::getSpentByTx(*walletDB, TxStatus::Completed);
-    auto sumReceived = wallet::getReceivedByTx(*walletDB, TxStatus::Completed);
-
-    sw.stop();
-    cout << "Elapsed time: " << sw.milliseconds() << " ms\n";
-
-    WALLET_CHECK(historySumReceived == sumReceived);
-    WALLET_CHECK(historySumSent == sumSent);
-}
-
 void TestWalletMessages()
 {
     auto db = createSqliteWalletDB();
@@ -1323,7 +1182,6 @@ int main()
     TestStoreTxRecord();
     TestTxRollback();
     TestRollback();
-    TestBlockRollbackWithTx();
     TestSelect();
     TestSelect2();
     TestSelect3();
@@ -1331,8 +1189,8 @@ int main()
     TestSelect5();
     TestSelect6();
     TestAddresses();
+    TestExportImportTx();
     TestTxParameters();
-    TestTransferredByTx();
     TestWalletMessages();
 
 
