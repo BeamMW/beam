@@ -1160,7 +1160,6 @@ namespace beam::wallet
         , m_PrivateDB(sdb)
         , m_Reactor(reactor)
         , m_IsFlushPending(false)
-        , m_DbTransaction(new sqlite::Transaction(_db))
     {
 
     }
@@ -2760,62 +2759,78 @@ namespace beam::wallet
 
             bool ImportTransactionsFromJson(IWalletDB& db, const json& obj)
             {
-                try
+                if (obj.find(TransactionParametersName) == obj.end())
                 {
-                    if (obj.find(TransactionParametersName) == obj.end())
-                    {
-                        return true;
-                    }
-
-                    std::unordered_map<
-                        TxID,
-                        std::unordered_map<
-                        TxParameterID,
-                        TxParameter>
-                    > importedTransactionsMap;
-                    for (const auto& jsonTxParameter : obj["TransactionParameters"])
-                    {
-                        TxParameter txParameter;
-                        txParameter.m_txID = jsonTxParameter["TransactionId"];
-                        txParameter.m_subTxID = jsonTxParameter["SubTransactionId"];
-                        txParameter.m_paramID = jsonTxParameter["ParameterId"];
-                        for (const auto& v : jsonTxParameter["Value"])
-                        {
-                            txParameter.m_value.push_back(v);
-                        }
-                        importedTransactionsMap[txParameter.m_txID].emplace(static_cast<TxParameterID>(txParameter.m_paramID), txParameter);
-                    }
-                    for (const auto& txPair : importedTransactionsMap)
-                    {
-                        auto paramsMap = txPair.second;
-                        WalletID wid;
-                        uint64_t myAddrId = 0;
-
-                        if (wid.FromBuf(paramsMap.at(TxParameterID::MyID).m_value) &&
-                            fromByteBuffer(paramsMap.at(TxParameterID::MyAddressID).m_value, myAddrId) &&
-                            wid == generateWalletIDFromIndex(db, myAddrId))
-                        {
-                            for (const auto& paramPair : paramsMap)
-                            {
-                                const auto& p = paramPair.second;
-                                db.setTxParameter(p.m_txID,
-                                    static_cast<SubTxID>(p.m_subTxID),
-                                    paramPair.first,
-                                    p.m_value,
-                                    true);
-                            }
-                            LOG_INFO() << "Transaction " << txPair.first << " was imported.";
-                            continue;
-                        }
-                        LOG_ERROR() << "Transaction " << txPair.first << " was not imported. Corrupted parameters.";
-                    }
                     return true;
                 }
-                catch (const std::out_of_range& e)
+
+                std::unordered_map<
+                    TxID,
+                    std::unordered_map<
+                    TxParameterID,
+                    TxParameter>
+                > importedTransactionsMap;
+                for (const auto& jsonTxParameter : obj["TransactionParameters"])
                 {
-                    LOG_ERROR() << "imported transaction has corrupted parameters:" << e.what();
+                    TxParameter txParameter;
+                    txParameter.m_txID = jsonTxParameter["TransactionId"];
+                    txParameter.m_subTxID = jsonTxParameter["SubTransactionId"];
+                    txParameter.m_paramID = jsonTxParameter["ParameterId"];
+                    for (const auto& v : jsonTxParameter["Value"])
+                    {
+                        txParameter.m_value.push_back(v);
+                    }
+                    importedTransactionsMap[txParameter.m_txID].emplace(static_cast<TxParameterID>(txParameter.m_paramID), txParameter);
                 }
-                return false;
+                for (const auto& txPair : importedTransactionsMap)
+                {
+                    const auto& paramsMap = txPair.second;
+                    WalletID wid;
+                    uint64_t myAddrId = 0;
+
+                    //paramsMap
+                    if (auto idIt = paramsMap.find(TxParameterID::MyID);
+                        idIt == paramsMap.end() ||
+                        !wid.FromBuf(idIt->second.m_value) ||
+                        !wid.IsValid())
+                    {
+                        LOG_ERROR() << "Transaction " << txPair.first << " was not imported. Invalid myID parameter";
+                        continue;
+                    }
+
+                    auto waddr = db.getAddress(wid);
+                    if (waddr && (waddr->m_OwnID == 0 || wid != generateWalletIDFromIndex(db, waddr->m_OwnID)))
+                    {
+                        LOG_ERROR() << "Transaction " << txPair.first << " was not imported. Invalid address parameter";
+                        continue;
+                    }
+
+                    auto addressIt = paramsMap.find(TxParameterID::MyAddressID);
+                    if (addressIt != paramsMap.end() && (!fromByteBuffer(addressIt->second.m_value, myAddrId) ||
+                        wid != generateWalletIDFromIndex(db, myAddrId)))
+                    {
+                        LOG_ERROR() << "Transaction " << txPair.first << " was not imported. Invalid MyAddressID parameter";
+                        continue;
+                    }
+                    
+                    if (!waddr && addressIt == paramsMap.end())
+                    {
+                        LOG_WARNING() << "Transaction " << txPair.first << ". Cannot check imported address";
+                    }
+                    
+                    for (const auto& paramPair : paramsMap)
+                    {
+                        const auto& p = paramPair.second;
+                        db.setTxParameter(p.m_txID,
+                            static_cast<SubTxID>(p.m_subTxID),
+                            paramPair.first,
+                            p.m_value,
+                            true);
+                    }
+                    LOG_INFO() << "Transaction " << txPair.first << " was imported.";
+
+                }
+                return true;
             }
 
             json ExportAddressesToJson(const IWalletDB& db)

@@ -251,6 +251,7 @@ namespace beam::wallet
 
         IsSelfTx = 27,
        
+        AtomicSwapSecondSideChainType = 29,
         AtomicSwapIsBeamSide = 30,
         AtomicSwapCoin = 31,
         AtomicSwapAmount = 32,

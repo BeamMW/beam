@@ -131,16 +131,17 @@ namespace beam::wallet
         }
 
         auto thisHolder = shared_from_this();
+        auto txHolder = m_Tx.shared_from_this(); // increment use counter of tx object. We use it to avoid tx object desctruction during Update call.
         m_Tx.GetAsyncAcontext().OnAsyncStarted();
         m_Tx.GetKeyKeeper()->GenerateOutputs(m_MinHeight, m_OutputCoins,
-            [thisHolder, this](auto&& result)
+            [thisHolder, this, txHolder](auto&& result)
             {
                 m_Outputs = move(result);
                 FinalizeOutputs();
-                m_Tx.Update();
+                m_Tx.Update(); // may complete tranasction 
                 m_Tx.GetAsyncAcontext().OnAsyncFinished();
             },
-            [thisHolder, this](const exception&)
+            [thisHolder, this, txHolder](const exception&)
             {
                 //m_Tx.Update();
                 m_Tx.GetAsyncAcontext().OnAsyncFinished();

@@ -22,6 +22,9 @@
 #include "wallet/qtum/options.h"
 #include "wallet/litecoin/options.h"
 #include "wallet/bitcoin/options.h"
+#include "wallet/bitcoin/bitcoin_side.h"
+#include "wallet/litecoin/litecoin_side.h"
+#include "wallet/qtum/qtum_side.h"
 #include "wallet/swaps/common.h"
 #include "wallet/swaps/swap_transaction.h"
 #include "core/ecc_native.h"
@@ -839,8 +842,17 @@ namespace
 
     bool SaveExportedData(const ByteBuffer& data, const std::string& path)
     {
+        size_t dotPos = path.find_last_of('.');
+        stringstream ss;
+        ss << path.substr(0, dotPos);
+        ss << getTimestamp();
+        if (dotPos != string::npos)
+        {
+            ss << path.substr(dotPos);
+        }
+        string timestampedPath = ss.str();
         FStream f;
-        if (f.Open(path.c_str(), false) && f.write(data.data(), data.size()) == data.size())
+        if (f.Open(timestampedPath.c_str(), false) && f.write(data.data(), data.size()) == data.size())
         {
             LOG_INFO() << "Data has been successfully exported.";
             return true;
@@ -910,7 +922,7 @@ namespace
             return false;
         }
 
-        signedAmount *= Rules::Coin; // convert beams to coins
+        signedAmount *= Rules::Coin; // convert beams to groths
 
         amount = static_cast<ECC::Amount>(std::round(signedAmount));
         if (amount == 0)
@@ -1497,6 +1509,15 @@ int main_impl(int argc, char* argv[])
 
                         if (command == cli::SWAP_INIT || command == cli::SWAP_LISTEN)
                         {
+                            if (vm.count(cli::SWAP_AMOUNT) == 0)
+                            {
+                                LOG_ERROR() << "swap amount is missing";
+                                return -1;
+                            }
+
+                            Amount swapAmount = vm[cli::SWAP_AMOUNT].as<Positive<Amount>>().value;
+
+                            SwapSecondSideChainType secondSideChainType = SwapSecondSideChainType::Mainnet;
                             wallet::AtomicSwapCoin swapCoin = wallet::AtomicSwapCoin::Bitcoin;
 
                             if (vm.count(cli::SWAP_COIN) > 0)
@@ -1517,6 +1538,13 @@ int main_impl(int argc, char* argv[])
                                     LOG_ERROR() << "BTC node credentials should be provided";
                                     return -1;
                                 }
+
+                                if (!BitcoinSide::CheckAmount(swapAmount, btcOptions->m_feeRate))
+                                {
+                                    LOG_ERROR() << "The swap amount must be greater than the redemption fee.";
+                                    return -1;
+                                }
+                                secondSideChainType = btcOptions->m_chainType;
                             }
                             else if (swapCoin == wallet::AtomicSwapCoin::Litecoin)
                             {
@@ -1525,6 +1553,12 @@ int main_impl(int argc, char* argv[])
                                     LOG_ERROR() << "LTC node credentials should be provided";
                                     return -1;
                                 }
+                                if (!LitecoinSide::CheckAmount(swapAmount, ltcOptions->m_feeRate))
+                                {
+                                    LOG_ERROR() << "The swap amount must be greater than the redemption fee.";
+                                    return -1;
+                                }
+                                secondSideChainType = ltcOptions->m_chainType;
                             }
                             else
                             {
@@ -1533,16 +1567,14 @@ int main_impl(int argc, char* argv[])
                                     LOG_ERROR() << "Qtum node credentials should be provided";
                                     return -1;
                                 }
+                                if (!QtumSide::CheckAmount(swapAmount, qtumOptions->m_feeRate))
+                                {
+                                    LOG_ERROR() << "The swap amount must be greater than the redemption fee.";
+                                    return -1;
+                                }
+                                secondSideChainType = qtumOptions->m_chainType;
                             }
                             
-
-                            if (vm.count(cli::SWAP_AMOUNT) == 0)
-                            {
-                                LOG_ERROR() << "swap amount is missing";
-                                return -1;
-                            }
-
-                            Amount swapAmount = vm[cli::SWAP_AMOUNT].as<Positive<Amount>>().value;
                             bool isBeamSide = (vm.count(cli::SWAP_BEAM_SIDE) != 0);
 
                             if (command == cli::SWAP_INIT)
@@ -1558,10 +1590,16 @@ int main_impl(int argc, char* argv[])
                                     return -1;
                                 }
 
+                                if (amount <= kMinFeeInGroth)
+                                {
+                                    LOG_ERROR() << "The amount must be greater than the redemption fee.";
+                                    return -1;
+                                }
+
                                 WalletAddress senderAddress = CreateNewAddress(walletDB, "");
 
                                 currentTxID = wallet.swap_coins(senderAddress.m_walletID, receiverWalletID, 
-                                    move(amount), move(fee), swapCoin, swapAmount, isBeamSide);
+                                    move(amount), move(fee), swapCoin, swapAmount, secondSideChainType, isBeamSide);
                             }
 
                             if (command == cli::SWAP_LISTEN)
@@ -1583,7 +1621,12 @@ int main_impl(int argc, char* argv[])
                                     return false;
                                 }
 
-                                wallet.initSwapConditions(amount, swapAmount, swapCoin, isBeamSide);
+                                if (amount <= kMinFeeInGroth)
+                                {
+                                    LOG_ERROR() << "The amount must be greater than the redemption fee.";
+                                    return -1;
+                                }
+                                wallet.initSwapConditions(amount, swapAmount, swapCoin, isBeamSide, secondSideChainType);
                             }
                         }
 

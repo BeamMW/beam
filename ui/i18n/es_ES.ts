@@ -61,12 +61,12 @@
         <translation>Borrar</translation>
     </message>
     <message id="general-receiving">
-        <source>Receiving</source>
-        <translation>Recibiendo</translation>
+        <source>receiving</source>
+        <translation>recibiendo</translation>
     </message>
     <message id="general-sending">
-        <source>Sending</source>
-        <translation>Enviando</translation>
+        <source>sending</source>
+        <translation>enviando</translation>
     </message>
     <message id="general-rescan">
         <source>Rescan</source>
@@ -179,7 +179,7 @@
     </message>
     <message id="general-addr-comment-error">
         <source>Address with same comment already exist</source>
-        <translation>Ya existe una dirección con el mismo comentario</translation>
+        <translation>Todavia existe una dirección con el mismo comentario</translation>
     </message>
     <message id="wallet-receive-button">
         <source>Receive</source>
@@ -199,7 +199,7 @@
     </message>
     <message id="wallet-txs-date-time">
         <source>Date | Time</source>
-        <translation>Fecha | Hora</translation>
+        <translation>Fecha | hora</translation>
     </message>
     <message id="wallet-txs-copy-addr-cm">
         <source>Copy address</source>
@@ -210,44 +210,44 @@
         <translation>La transacción será eliminada. Esta operación no se puede deshacer</translation>
     </message>
     <message id="wallet-txs-status-pending">
-        <source>Pending</source>
-        <translation>Pendiente</translation>
+        <source>pending</source>
+        <translation>pendiente</translation>
     </message>
     <message id="wallet-txs-status-waiting-sender">
-        <source>Waiting for sender</source>
-        <translation>Esperando remitente</translation>
+        <source>waiting for sender</source>
+        <translation>esperando remitente</translation>
     </message>
     <message id="wallet-txs-status-waiting-receiver">
-        <source>Waiting for receiver</source>
-        <translation>Esperando destinatario</translation>
+        <source>waiting for receiver</source>
+        <translation>esperando destinatario</translation>
     </message>
     <message id="wallet-txs-status-completed">
-        <source>Completed</source>
-        <translation>Completado</translation>
+        <source>completed</source>
+        <translation>completado</translation>
     </message>
     <message id="wallet-txs-status-received">
-        <source>Received</source>
-        <translation>Recibido</translation>
+        <source>received</source>
+        <translation>recibido</translation>
     </message>
     <message id="wallet-txs-status-sent">
-        <source>Sent</source>
-        <translation>Enviado</translation>
+        <source>sent</source>
+        <translation>enviado</translation>
     </message>
     <message id="wallet-txs-status-cancelled">
-        <source>Cancelled</source>
-        <translation>Cancelado</translation>
+        <source>cancelled</source>
+        <translation>cancelado</translation>
     </message>
     <message id="wallet-txs-status-expired">
-        <source>Expired</source>
-        <translation>Caducado</translation>
+        <source>expired</source>
+        <translation>caducado</translation>
     </message>
     <message id="wallet-txs-status-failed">
-        <source>Failed</source>
-        <translation>Fallado</translation>
+        <source>failed</source>
+        <translation>fallado</translation>
     </message>
     <message id="wallet-txs-status-unknown">
-        <source>Unknown</source>
-        <translation>Desconocido</translation>
+        <source>unknown</source>
+        <translation>desconocido</translation>
     </message>
     <message id="addresses-tittle">
         <source>Addresses</source>
@@ -309,7 +309,6 @@
     </message>
     <message id="settings-local-node-port">
         <source>Port</source>
-        <oldsource>Local node port</oldsource>
         <extracomment>settings tab, node section, port label</extracomment>
         <translation>Puerto</translation>
     </message>
@@ -476,16 +475,16 @@
         <translation>Ver notificaciones</translation>
     </message>
     <message id="status-connecting">
-        <source>Connecting</source>
-        <translation>Conectando</translation>
+        <source>connecting</source>
+        <translation>conectando</translation>
     </message>
     <message id="status-online">
-        <source>Online</source>
-        <translation>Conectado</translation>
+        <source>online</source>
+        <translation>conectado</translation>
     </message>
     <message id="status-updating">
-        <source>Updating</source>
-        <translation>Actualizando</translation>
+        <source>updating</source>
+        <translation>actualizando</translation>
     </message>
     <message id="tx-details-title">
         <source>General transaction info</source>
@@ -910,7 +909,6 @@
     </message>
     <message id="utxo-status-available">
         <source>Available</source>
-        <oldsource>available</oldsource>
         <translation>Disponible</translation>
     </message>
     <message id="utxo-status-maturing">
@@ -1071,7 +1069,7 @@ Escanee este código QR o envíe esta dirección al remitente a través de un ca
     </message>
     <message id="explorer">
         <source>blockchain explorer</source>
-        <translation>blockchain explorer</translation>
+        <translation type="unfinished">blockchain explorer</translation>
     </message>
     <message id="edit-addr-24-option">
         <source>In 24 hours from now</source>

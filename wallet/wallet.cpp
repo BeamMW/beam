@@ -26,7 +26,7 @@
 #include <numeric>
 #include "bitcoin/bitcoind017.h"
 #include "bitcoin/bitcoin_side.h"
-#include "litecoin/litecoind016.h"
+#include "litecoin/litecoind017.h"
 #include "litecoin/litecoin_side.h"
 #include "qtum/qtumd017.h"
 #include "qtum/qtum_side.h"
@@ -171,7 +171,7 @@ namespace beam::wallet
 
     void Wallet::initLitecoin(io::Reactor& reactor, const LitecoinOptions& options)
     {
-        m_litecoinBridge = make_shared<Litecoind016>(reactor, options);
+        m_litecoinBridge = make_shared<Litecoind017>(reactor, options);
     }
     
     void Wallet::initQtum(io::Reactor& reactor, const QtumOptions& options)
@@ -179,9 +179,9 @@ namespace beam::wallet
         m_qtumBridge = make_shared<Qtumd017>(reactor, options);
     }
 
-    void Wallet::initSwapConditions(Amount beamAmount, Amount swapAmount, AtomicSwapCoin swapCoin, bool isBeamSide)
+    void Wallet::initSwapConditions(Amount beamAmount, Amount swapAmount, AtomicSwapCoin swapCoin, bool isBeamSide, SwapSecondSideChainType chainType)
     {
-        m_swapConditions.push_back(SwapConditions{ beamAmount, swapAmount, swapCoin, isBeamSide });
+        m_swapConditions.push_back(SwapConditions{ beamAmount, swapAmount, swapCoin, isBeamSide, chainType });
     }
 
     Wallet::~Wallet()
@@ -271,7 +271,8 @@ namespace beam::wallet
     }
 
     TxID Wallet::swap_coins(const WalletID& from, const WalletID& to, Amount amount, Amount fee, AtomicSwapCoin swapCoin,
-        Amount swapAmount, bool isBeamSide/*=true*/, Height lifetime/* = kDefaultTxLifetime*/, Height responseTime/* = kDefaultTxResponseTime*/)
+        Amount swapAmount, SwapSecondSideChainType chainType, bool isBeamSide/*=true*/,
+        Height lifetime/* = kDefaultTxLifetime*/, Height responseTime/* = kDefaultTxResponseTime*/)
     {
         auto receiverAddr = m_WalletDB->getAddress(to);
 
@@ -301,6 +302,7 @@ namespace beam::wallet
         tx->SetParameter(TxParameterID::AtomicSwapCoin, swapCoin, false);
         tx->SetParameter(TxParameterID::AtomicSwapAmount, swapAmount, false);
         tx->SetParameter(TxParameterID::AtomicSwapIsBeamSide, isBeamSide, false);
+        tx->SetParameter(TxParameterID::AtomicSwapSecondSideChainType, chainType, false);
 
         ProcessTransaction(tx);
         return txID;
@@ -1143,13 +1145,15 @@ namespace beam::wallet
             Amount swapAmount = 0;
             AtomicSwapCoin swapCoin = AtomicSwapCoin::Bitcoin;
             bool isBeamSide = 0;
+            SwapSecondSideChainType chainType = SwapSecondSideChainType::Mainnet;
 
             bool result = msg.GetParameter(TxParameterID::Amount, amount) &&
                 msg.GetParameter(TxParameterID::AtomicSwapAmount, swapAmount) &&
                 msg.GetParameter(TxParameterID::AtomicSwapCoin, swapCoin) &&
-                msg.GetParameter(TxParameterID::AtomicSwapIsBeamSide, isBeamSide);
+                msg.GetParameter(TxParameterID::AtomicSwapIsBeamSide, isBeamSide) &&
+                msg.GetParameter(TxParameterID::AtomicSwapSecondSideChainType, chainType);
 
-            auto idx = std::find(m_swapConditions.begin(), m_swapConditions.end(), SwapConditions{ amount, swapAmount, swapCoin, isBeamSide });
+            auto idx = std::find(m_swapConditions.begin(), m_swapConditions.end(), SwapConditions{ amount, swapAmount, swapCoin, isBeamSide, chainType });
 
             if (!result || idx == m_swapConditions.end())
             {

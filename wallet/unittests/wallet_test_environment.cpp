@@ -341,10 +341,16 @@ private:
 
 struct TestWalletRig
 {
-    TestWalletRig(const string& name, IWalletDB::Ptr walletDB, Wallet::TxCompletedAction&& action = Wallet::TxCompletedAction(), bool coldWallet = false, bool oneTimeBbsEndpoint = false, uint32_t nodePollPeriod_ms = 0)
+    enum Type
+    {
+        Regular,
+        ColdWallet,
+        Offline
+    };
+    TestWalletRig(const string& name, IWalletDB::Ptr walletDB, Wallet::TxCompletedAction&& action = Wallet::TxCompletedAction(), Type type = Type::Regular, bool oneTimeBbsEndpoint = false, uint32_t nodePollPeriod_ms = 0)
         : m_WalletDB{ walletDB }
         , m_KeyKeeper{ make_shared<wallet::LocalPrivateKeyKeeper>(walletDB) }
-        , m_Wallet{ m_WalletDB, move(action), coldWallet ? []() {io::Reactor::get_Current().stop(); } : Wallet::UpdateCompletedAction() }
+        , m_Wallet{ m_WalletDB, move(action),( type == Type::ColdWallet) ? []() {io::Reactor::get_Current().stop(); } : Wallet::UpdateCompletedAction() }
     {
         if (m_WalletDB->get_MasterKdf()) // can create secrets
         {
@@ -358,25 +364,33 @@ struct TestWalletRig
             m_WalletID = addresses[0].m_walletID;
         }
 
-        if (coldWallet)
+        switch (type)
         {
-            m_Wallet.AddMessageEndpoint(make_shared<ColdWalletMessageEndpoint>(m_Wallet, m_WalletDB));
-        }
-        else
-        {
-            auto nodeEndpoint = make_shared<proto::FlyClient::NetworkStd>(m_Wallet);
-            nodeEndpoint->m_Cfg.m_PollPeriod_ms = nodePollPeriod_ms;
-            nodeEndpoint->m_Cfg.m_vNodes.push_back(io::Address::localhost().port(32125));
-            nodeEndpoint->Connect();
-            if (oneTimeBbsEndpoint)
+        case Type::ColdWallet:
             {
-                m_Wallet.AddMessageEndpoint(make_shared<OneTimeBbsEndpoint>(m_Wallet, nodeEndpoint, m_WalletDB));
+                m_Wallet.AddMessageEndpoint(make_shared<ColdWalletMessageEndpoint>(m_Wallet, m_WalletDB));
+                break;
             }
-            else
+
+        case Type::Regular:
             {
-                m_Wallet.AddMessageEndpoint(make_shared<WalletNetworkViaBbs>(m_Wallet, nodeEndpoint, m_WalletDB));
+                auto nodeEndpoint = make_shared<proto::FlyClient::NetworkStd>(m_Wallet);
+                nodeEndpoint->m_Cfg.m_PollPeriod_ms = nodePollPeriod_ms;
+                nodeEndpoint->m_Cfg.m_vNodes.push_back(io::Address::localhost().port(32125));
+                nodeEndpoint->Connect();
+                if (oneTimeBbsEndpoint)
+                {
+                    m_Wallet.AddMessageEndpoint(make_shared<OneTimeBbsEndpoint>(m_Wallet, nodeEndpoint, m_WalletDB));
+                }
+                else
+                {
+                    m_Wallet.AddMessageEndpoint(make_shared<WalletNetworkViaBbs>(m_Wallet, nodeEndpoint, m_WalletDB));
+                }
+                m_Wallet.SetNodeEndpoint(nodeEndpoint);
+                break;
             }
-            m_Wallet.SetNodeEndpoint(nodeEndpoint);
+        case Type::Offline:
+            break;
         }
     }
 
@@ -805,7 +819,9 @@ struct TestNodeNetwork
 class TestNode
 {
 public:
-    TestNode()
+    using NewBlockFunc = std::function<void(Height)>;
+    TestNode(NewBlockFunc func = NewBlockFunc())
+        : m_NewBlockFunc(func)
     {
         m_Server.Listen(io::Address::localhost().port(32125));
         while (m_Blockchain.m_mcm.m_vStates.size() < 145)
@@ -833,6 +849,11 @@ public:
             Client& c = *it;
             if (c.IsSecureOut())
                 c.SendTip();
+        }
+
+        if (m_NewBlockFunc)
+        {
+            m_NewBlockFunc(m_Blockchain.m_mcm.m_vStates.back().m_Hdr.m_Height);
         }
     }
 private:
@@ -974,6 +995,7 @@ private:
     ClientList m_lstClients;
 
     std::vector<proto::BbsMsg> m_bbs;
+    NewBlockFunc m_NewBlockFunc;
 
     void DeleteClient(Client* client)
     {

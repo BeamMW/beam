@@ -1432,29 +1432,29 @@ Item {
 
                                     function txStatusText(value) {
                                         switch(value) {
-                                            //% "Pending"
+                                            //% "pending"
                                             case "pending": return qsTrId("wallet-txs-status-pending");
-                                            //% "Waiting for sender"
+                                            //% "waiting for sender"
                                             case "waiting for sender": return qsTrId("wallet-txs-status-waiting-sender");
-                                            //% "Waiting for receiver"
+                                            //% "waiting for receiver"
                                             case "waiting for receiver": return qsTrId("wallet-txs-status-waiting-receiver");
-                                            //% "Receiving"
+                                            //% "receiving"
                                             case "receiving": return qsTrId("general-receiving");
-                                            //% "Sending"
+                                            //% "sending"
                                             case "sending": return qsTrId("general-sending");
-                                            //% "Completed"
+                                            //% "completed"
                                             case "completed": return qsTrId("wallet-txs-status-completed");
-                                            //% "Received"
+                                            //% "received"
                                             case "received": return qsTrId("wallet-txs-status-received");
-                                            //% "Sent"
+                                            //% "sent"
                                             case "sent": return qsTrId("wallet-txs-status-sent");
-                                            //% "Cancelled"
+                                            //% "cancelled"
                                             case "cancelled": return qsTrId("wallet-txs-status-cancelled");
-                                            //% "Expired"
+                                            //% "expired"
                                             case "expired": return qsTrId("wallet-txs-status-expired");
-                                            //% "Failed"
+                                            //% "failed"
                                             case "failed": return qsTrId("wallet-txs-status-failed");
-                                            //% "Unknown"
+                                            //% "unknown"
                                             default: return qsTrId("wallet-txs-status-unknown");
                                         }
                                     }

@@ -143,7 +143,7 @@ Item {
             when: (rootControl.status === "connecting")
             PropertyChanges {
                 target: status_text;
-                //% "Connecting"
+                //% "connecting"
                 text: qsTrId("status-connecting") + model.branchName
             }
             StateChangeScript {
@@ -158,7 +158,7 @@ Item {
             when: (rootControl.status === "online")
             PropertyChanges {
                 target: status_text;
-                //% "Online"
+                //% "online"
                 text: qsTrId("status-online") + model.branchName
             }
             StateChangeScript {
@@ -174,7 +174,7 @@ Item {
             when: (rootControl.status === "updating")
             PropertyChanges {
                 target: status_text;
-                //% "Updating"
+                //% "updating"
                 text: qsTrId("status-updating") + "..." + model.branchName
             }
             StateChangeScript {

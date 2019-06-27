@@ -19,6 +19,7 @@ Button {
         family: "SF Pro Display"
         pixelSize: 14
         styleName: "Bold"; weight: Font.Bold
+        capitalization: Font.AllLowercase
     }
 
 //    width: 122
