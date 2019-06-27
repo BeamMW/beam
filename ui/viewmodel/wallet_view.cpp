@@ -23,15 +23,18 @@
 #include <QtGui/qimage.h>
 #include <QtCore/qbuffer.h>
 #include <QUrlQuery>
+#include "model/qr.h"
 #include "utility/helpers.h"
 
 using namespace beam;
+using namespace beam::wallet;
 using namespace std;
 using namespace beamui;
 
 namespace
 {
     const int kDefaultFeeInGroth = 10;
+    const int kFeeInGroth_Fork1 = 100;
 
     template<typename T>
     bool compareTx(const T& lf, const T& rt, Qt::SortOrder sortOrder)
@@ -135,7 +138,7 @@ void TxObject::setDisplayName(const QString& name)
     }
 }
 
-beam::WalletID TxObject::peerId() const
+beam::wallet::WalletID TxObject::peerId() const
 {
     return m_tx.m_peerId;
 }
@@ -167,12 +170,12 @@ QString TxObject::getFee() const
     return QString{};
 }
 
-const beam::TxDescription& TxObject::getTxDescription() const
+const beam::wallet::TxDescription& TxObject::getTxDescription() const
 {
     return m_tx;
 }
 
-void TxObject::setStatus(beam::TxStatus status)
+void TxObject::setStatus(beam::wallet::TxStatus status)
 {
     if (m_tx.m_status != status)
     {
@@ -204,7 +207,7 @@ QString TxObject::getFailureReason() const
 {
     if (getTxDescription().m_status == TxStatus::Failed)
     {
-        static QString Reasons[] =
+        QString Reasons[] =
         {
             //% "Unexpected reason, please send wallet logs to Beam support"
             qtTrId("tx-failture-undefined"),
@@ -242,7 +245,7 @@ QString TxObject::getFailureReason() const
     return QString();
 }
 
-void TxObject::setFailureReason(beam::TxFailureReason reason)
+void TxObject::setFailureReason(beam::wallet::TxFailureReason reason)
 {
     if (m_tx.m_failureReason != reason)
     {
@@ -256,7 +259,7 @@ bool TxObject::hasPaymentProof() const
     return !income() && m_tx.m_status == TxStatus::Completed;
 }
 
-void TxObject::update(const beam::TxDescription& tx)
+void TxObject::update(const beam::wallet::TxDescription& tx)
 {
     setStatus(tx.m_status);
     auto kernelID = QString::fromStdString(to_hex(tx.m_kernelID.m_pData, tx.m_kernelID.nBytes));
@@ -337,7 +340,7 @@ void PaymentInfoItem::setPaymentProof(const QString& value)
         m_paymentProof = value;
         try
         {
-            m_paymentInfo = wallet::PaymentInfo::FromByteBuffer(from_hex(m_paymentProof.toStdString()));
+            m_paymentInfo = wallet::storage::PaymentInfo::FromByteBuffer(from_hex(m_paymentProof.toStdString()));
             emit paymentProofChanged();
         }
         catch (...)
@@ -359,11 +362,11 @@ MyPaymentInfoItem::MyPaymentInfoItem(const TxID& txID, QObject* parent/* = nullp
     : PaymentInfoItem(parent)
 {
     auto model = AppModel::getInstance()->getWallet();
-    connect(model.get(), SIGNAL(paymentProofExported(const beam::TxID&, const QString&)), SLOT(onPaymentProofExported(const beam::TxID&, const QString&)));
+    connect(model.get(), SIGNAL(paymentProofExported(const beam::wallet::TxID&, const QString&)), SLOT(onPaymentProofExported(const beam::wallet::TxID&, const QString&)));
     model->getAsync()->exportPaymentProof(txID);
 }
 
-void MyPaymentInfoItem::onPaymentProofExported(const beam::TxID& txID, const QString& proof)
+void MyPaymentInfoItem::onPaymentProofExported(const beam::wallet::TxID& txID, const QString& proof)
 {
     setPaymentProof(proof);
 }
@@ -380,23 +383,25 @@ WalletViewModel::WalletViewModel()
     , _feeGrothes("0")
     , _change(0)
     , _expires(0)
+    , _qr(std::make_unique<QR>())
 {
-    connect(&_model, SIGNAL(walletStatus(const WalletStatus&)), SLOT(onStatus(const WalletStatus&)));
 
-    connect(&_model, SIGNAL(txStatus(beam::ChangeAction, const std::vector<beam::TxDescription>&)),
-        SLOT(onTxStatus(beam::ChangeAction, const std::vector<beam::TxDescription>&)));
+    connect(&_model, SIGNAL(walletStatus(const beam::wallet::WalletStatus&)), SLOT(onStatus(const beam::wallet::WalletStatus&)));
+
+    connect(&_model, SIGNAL(txStatus(beam::wallet::ChangeAction, const std::vector<beam::wallet::TxDescription>&)),
+        SLOT(onTxStatus(beam::wallet::ChangeAction, const std::vector<beam::wallet::TxDescription>&)));
 
     connect(&_model, SIGNAL(changeCalculated(beam::Amount)),
         SLOT(onChangeCalculated(beam::Amount)));
 
-    connect(&_model, SIGNAL(changeCurrentWalletIDs(beam::WalletID, beam::WalletID)),
-        SLOT(onChangeCurrentWalletIDs(beam::WalletID, beam::WalletID)));
+    connect(&_model, SIGNAL(changeCurrentWalletIDs(beam::wallet::WalletID, beam::wallet::WalletID)),
+        SLOT(onChangeCurrentWalletIDs(beam::wallet::WalletID, beam::wallet::WalletID)));
 
-    connect(&_model, SIGNAL(addressesChanged(bool, const std::vector<beam::WalletAddress>&)),
-        SLOT(onAddresses(bool, const std::vector<beam::WalletAddress>&)));
+    connect(&_model, SIGNAL(addressesChanged(bool, const std::vector<beam::wallet::WalletAddress>&)),
+        SLOT(onAddresses(bool, const std::vector<beam::wallet::WalletAddress>&)));
 
-    connect(&_model, SIGNAL(generatedNewAddress(const beam::WalletAddress&)),
-        SLOT(onGeneratedNewAddress(const beam::WalletAddress&)));
+    connect(&_model, SIGNAL(generatedNewAddress(const beam::wallet::WalletAddress&)),
+        SLOT(onGeneratedNewAddress(const beam::wallet::WalletAddress&)));
 
     connect(&_model, SIGNAL(newAddressFailed()), SLOT(onNewAddressFailed()));
 
@@ -404,11 +409,15 @@ WalletViewModel::WalletViewModel()
 
     connect(&_model, SIGNAL(cantSendToExpired()), SLOT(onCantSendToExpired()));
 
+    connect(_qr.get(), SIGNAL(qrDataChanged()), SLOT(onReceiverQRChanged()));
+
     _model.getAsync()->getWalletStatus();
 }
 
 WalletViewModel::~WalletViewModel()
 {
+    disconnect(_qr.get(), SIGNAL(qrDataChanged()),
+               this, SLOT(onReceiverQRChanged()));
     qDeleteAll(_txList);
 }
 
@@ -452,7 +461,7 @@ void WalletViewModel::copyToClipboard(const QString& text)
     QApplication::clipboard()->setText(text);
 }
 
-void WalletViewModel::onStatus(const WalletStatus& status)
+void WalletViewModel::onStatus(const beam::wallet::WalletStatus& status)
 {
     bool changed = false;
 
@@ -499,10 +508,10 @@ void WalletViewModel::onStatus(const WalletStatus& status)
     }
 }
 
-void WalletViewModel::onTxStatus(beam::ChangeAction action, const std::vector<TxDescription>& items)
+void WalletViewModel::onTxStatus(beam::wallet::ChangeAction action, const std::vector<beam::wallet::TxDescription>& items)
 {
     QList<TxObject*> deletedObjects;
-    if (action == beam::ChangeAction::Reset)
+    if (action == beam::wallet::ChangeAction::Reset)
     {
         deletedObjects.swap(_txList);
         _txList.clear();
@@ -512,7 +521,7 @@ void WalletViewModel::onTxStatus(beam::ChangeAction action, const std::vector<Tx
         }
         sortTx();
     }
-    else if (action == beam::ChangeAction::Removed)
+    else if (action == beam::wallet::ChangeAction::Removed)
     {
         for (const auto& item : items)
         {
@@ -525,7 +534,7 @@ void WalletViewModel::onTxStatus(beam::ChangeAction action, const std::vector<Tx
         }
         emit transactionsChanged();
     }
-    else if (action == beam::ChangeAction::Updated)
+    else if (action == beam::wallet::ChangeAction::Updated)
     {
         auto txIt = _txList.begin();
         auto txEnd = _txList.end();
@@ -540,7 +549,7 @@ void WalletViewModel::onTxStatus(beam::ChangeAction action, const std::vector<Tx
         }
         sortTx();
     }
-    else if (action == beam::ChangeAction::Added)
+    else if (action == beam::wallet::ChangeAction::Added)
     {
         // TODO in sort order
         for (const auto& item : items)
@@ -567,7 +576,7 @@ void WalletViewModel::onChangeCalculated(beam::Amount change)
     emit actualAvailableChanged();
 }
 
-void WalletViewModel::onChangeCurrentWalletIDs(beam::WalletID senderID, beam::WalletID receiverID)
+void WalletViewModel::onChangeCurrentWalletIDs(beam::wallet::WalletID senderID, beam::wallet::WalletID receiverID)
 {
     //setSenderAddr(toString(senderID));
     setReceiverAddr(toString(receiverID));
@@ -603,7 +612,7 @@ QString WalletViewModel::getAmountMissingToSend() const
     Amount missed = calcTotalAmount() - _status.available;
     if (missed > 99999)
     {
-        //% "beams"
+        //% "BEAM"
         return BeamToString(missed) + " " +qtTrId("tx-curency-name");
     }
     //% "groths"
@@ -620,7 +629,7 @@ void WalletViewModel::setAmountForReceive(double value)
     if (value != _amountForReceive)
     {
         _amountForReceive = value;
-        updateReceiverQRCode();
+        _qr->setAmount(_amountForReceive);
         emit amountForReceiveChanged();
     }
 }
@@ -659,6 +668,11 @@ bool WalletViewModel::isPasswordValid(const QString& value) const
 {
     SecString secretPass = value.toStdString();
     return AppModel::getInstance()->checkWalletPassword(secretPass);
+}
+
+bool WalletViewModel::isAddressWithCommentExist(const QString& comment) const
+{
+    return _model.isAddressWithCommentExist(comment.toStdString());
 }
 
 void WalletViewModel::setSendAmount(const QString& value)
@@ -755,7 +769,12 @@ QString WalletViewModel::getStatusRole() const
 
 int WalletViewModel::getDefaultFeeInGroth() const
 {
-    return kDefaultFeeInGroth;
+    return _model.isFork1() ? kFeeInGroth_Fork1 : kDefaultFeeInGroth;
+}
+
+int WalletViewModel::getMinFeeInGroth() const
+{
+    return _model.isFork1() ? kFeeInGroth_Fork1 : 0;
 }
 
 void WalletViewModel::setExpires(int value)
@@ -770,6 +789,16 @@ void WalletViewModel::setExpires(int value)
 int WalletViewModel::getExpires() const
 {
     return _expires;
+}
+
+bool WalletViewModel::isAllowedBeamMWLinks() const
+{
+    return _settings.isAllowedBeamMWLinks();
+}
+
+void WalletViewModel::allowBeamMWLinks(bool value)
+{
+    _settings.setAllowedBeamMWLinks(value);
 }
 
 QQmlListProperty<TxObject> WalletViewModel::getTransactions()
@@ -880,7 +909,7 @@ QString WalletViewModel::getNewReceiverAddr() const
 
 QString WalletViewModel::getNewReceiverAddrQR() const
 {
-    return _newReceiverAddrQR;
+    return _qr->getEncoded();
 }
 
 void WalletViewModel::setNewReceiverName(const QString& value)
@@ -889,7 +918,6 @@ void WalletViewModel::setNewReceiverName(const QString& value)
     if (_newReceiverName != trimmedValue)
     {
         _newReceiverName = trimmedValue;
-        updateReceiverQRCode();
         emit newReceiverNameChanged();
     }
 }
@@ -899,7 +927,7 @@ QString WalletViewModel::getNewReceiverName() const
     return _newReceiverName;
 }
 
-void WalletViewModel::onAddresses(bool own, const std::vector<beam::WalletAddress>& addresses)
+void WalletViewModel::onAddresses(bool own, const std::vector<beam::wallet::WalletAddress>& addresses)
 {
     if (own)
     {
@@ -925,13 +953,11 @@ void WalletViewModel::onAddresses(bool own, const std::vector<beam::WalletAddres
     }
 }
 
-void WalletViewModel::onGeneratedNewAddress(const beam::WalletAddress& addr)
+void WalletViewModel::onGeneratedNewAddress(const beam::wallet::WalletAddress& addr)
 {
     _newReceiverAddr = addr;
-    _newReceiverAddrQR = "";
     setExpires(0);
-
-    updateReceiverQRCode();
+    _qr->setAddr(toString(_newReceiverAddr.m_walletID));
 }
 
 void WalletViewModel::onNewAddressFailed()
@@ -951,46 +977,7 @@ void WalletViewModel::onCantSendToExpired()
     emit cantSendToExpired();
 }
 
-void WalletViewModel::updateReceiverQRCode()
+void WalletViewModel::onReceiverQRChanged()
 {
-    QUrlQuery query;
-    if (_amountForReceive > 0)
-    {
-        query.addQueryItem("amount", QLocale("C").toString(_amountForReceive, 'f', -128));
-    }
-    
-    QUrl url;
-    url.setScheme("beam");
-    url.setPath(toString(_newReceiverAddr.m_walletID));
-    url.setQuery(query);
-
-    CQR_Encode qrEncode;
-    QString strAddr = url.toString(QUrl::FullyEncoded);
-    bool success = qrEncode.EncodeData(1, 0, true, -1, strAddr.toUtf8().data());
-
-    if (success)
-    {
-        int qrImageSize = qrEncode.m_nSymbleSize;
-        int encodeImageSize = qrImageSize + (QR_MARGIN * 2);
-        QImage encodeImage(encodeImageSize, encodeImageSize, QImage::Format_ARGB32);
-        encodeImage.fill(Qt::white);
-        QColor color(Qt::transparent);
-
-        for (int i = 0; i < qrImageSize; i++)
-            for (int j = 0; j < qrImageSize; j++)
-                if (qrEncode.m_byModuleData[i][j])
-                    encodeImage.setPixel(i + QR_MARGIN, j + QR_MARGIN, color.rgba());
-
-        encodeImage = encodeImage.scaled(200, 200);
-
-        QByteArray bArray;
-        QBuffer buffer(&bArray);
-        buffer.open(QIODevice::WriteOnly);
-        encodeImage.save(&buffer, "png");
-
-        _newReceiverAddrQR = "data:image/png;base64,";
-        _newReceiverAddrQR.append(QString::fromLatin1(bArray.toBase64().data()));
-    }
-
     emit newReceiverAddrChanged();
 }

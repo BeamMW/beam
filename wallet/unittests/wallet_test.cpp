@@ -20,11 +20,15 @@
 #include "wallet/wallet_network.h"
 #include "wallet/wallet.h"
 #include "wallet/secstring.h"
+#include "wallet/bitcoin/options.h"
+#include "wallet/litecoin/options.h"
+#include "wallet/qtum/options.h"
 #include "utility/test_helpers.h"
 #include "../../core/radixtree.h"
 #include "../../core/unittest/mini_blockchain.h"
 #include <string_view>
 #include "wallet/wallet_transaction.h"
+#include "../../core/negotiator.h"
 
 #include "test_helpers.h"
 
@@ -39,742 +43,20 @@
 #include <boost/filesystem.hpp>
 #include <boost/intrusive/list.hpp>
 
+#if defined(BEAM_HW_WALLET)
+#include "wallet/hw_wallet.h"
+#endif
+
 using namespace beam;
 using namespace std;
 using namespace ECC;
 
 WALLET_TEST_INIT
 
-Coin CreateAvailCoin(Amount amount, Height maturity = 10)
-{
-    Coin c(amount);
-    c.m_maturity = maturity;
-    c.m_confirmHeight = maturity;
-    return c;
-}
+#include "wallet_test_environment.cpp"
 
 namespace
 {
-    class BaseTestWalletDB : public IWalletDB
-    {
-        Key::IKdf::Ptr m_pKdf;
-        Block::SystemState::HistoryMap m_Hist;
-        uint64_t m_KeyIndex = 1;
-    public:
-
-        BaseTestWalletDB()
-        {
-            uintBig seed;
-            seed = 10U;
-            HKdf::Create(m_pKdf, seed);
-        }
-
-
-        Key::IKdf::Ptr get_MasterKdf() const override
-        {
-            return m_pKdf;
-        }
-
-        std::vector<beam::Coin> selectCoins(ECC::Amount amount) override
-        {
-            std::vector<beam::Coin> res;
-            ECC::Amount t = 0;
-            for (auto& c : m_coins)
-            {
-                t += c.m_ID.m_Value;
-                c.m_status = Coin::Outgoing;
-                res.push_back(c);
-                if (t >= amount)
-                {
-                    break;
-                }
-            }
-            return res;
-        }
-
-        uint64_t AllocateKidRange(uint64_t nCount) override
-        {
-            uint64_t ret = m_KeyIndex;
-            m_KeyIndex += nCount;
-            return ret;
-        }
-        bool find(Coin& coin) override { return false; }
-        std::vector<beam::Coin> getCoinsCreatedByTx(const TxID& txId) override { return {}; };
-        std::vector<Coin> getCoinsByID(const CoinIDList& ids) override { return {}; };
-        void store(beam::Coin& ) override {}
-        void store(std::vector<beam::Coin>&) override {}
-        void save(const beam::Coin&) override {}
-        void save(const std::vector<beam::Coin>& ) override {}
-        void remove(const std::vector<beam::Coin::ID>&) override {}
-        void remove(const beam::Coin::ID&) override {}
-        void visit(std::function<bool(const beam::Coin& coin)> ) override {}
-        void setVarRaw(const char* , const void* , size_t ) override {}
-        bool getVarRaw(const char* , void* , int) const override { return false; }
-        bool getBlob(const char* name, ByteBuffer& var) const override { return false; }
-        Timestamp getLastUpdateTime() const override { return 0; }
-        void setSystemStateID(const Block::SystemState::ID& ) override {};
-        bool getSystemStateID(Block::SystemState::ID& ) const override { return false; };
-
-        void subscribe(IWalletDbObserver* observer) override {}
-        void unsubscribe(IWalletDbObserver* observer) override {}
-
-        std::vector<TxDescription> getTxHistory(uint64_t , int ) override { return {}; };
-        boost::optional<TxDescription> getTx(const TxID& ) override { return boost::optional<TxDescription>{}; };
-        void saveTx(const TxDescription& p) override
-        {
-            setTxParameter(p.m_txId, wallet::TxParameterID::Amount, wallet::toByteBuffer(p.m_amount), false);
-            setTxParameter(p.m_txId, wallet::TxParameterID::Fee, wallet::toByteBuffer(p.m_fee), false);
-            setTxParameter(p.m_txId, wallet::TxParameterID::Change, wallet::toByteBuffer(p.m_change), false);
-            setTxParameter(p.m_txId, wallet::TxParameterID::MinHeight, wallet::toByteBuffer(p.m_minHeight), false);
-            setTxParameter(p.m_txId, wallet::TxParameterID::PeerID, wallet::toByteBuffer(p.m_peerId), false);
-            setTxParameter(p.m_txId, wallet::TxParameterID::MyID, wallet::toByteBuffer(p.m_myId), false);
-            setTxParameter(p.m_txId, wallet::TxParameterID::Message, wallet::toByteBuffer(p.m_message), false);
-            setTxParameter(p.m_txId, wallet::TxParameterID::CreateTime, wallet::toByteBuffer(p.m_createTime), false);
-            setTxParameter(p.m_txId, wallet::TxParameterID::ModifyTime, wallet::toByteBuffer(p.m_modifyTime), false);
-            setTxParameter(p.m_txId, wallet::TxParameterID::IsSender, wallet::toByteBuffer(p.m_sender), false);
-            setTxParameter(p.m_txId, wallet::TxParameterID::Status, wallet::toByteBuffer(p.m_status), false);
-        };
-        void deleteTx(const TxID& ) override {};
-        void rollbackTx(const TxID&) override {}
-
-        std::vector<WalletAddress> getAddresses(bool own) const override { return {}; }
-
-        WalletAddress m_LastAdddr;
-
-        void saveAddress(const WalletAddress& wa) override
-        {
-            m_LastAdddr = wa;
-        }
-
-        void setExpirationForAllAddresses(uint64_t expiration) override {};
-        boost::optional<WalletAddress> getAddress(const WalletID& id) const override
-        {
-            if (id == m_LastAdddr.m_walletID)
-                return m_LastAdddr;
-
-            return boost::optional<WalletAddress>();
-        }
-        void deleteAddress(const WalletID&) override {}
-
-        Height getCurrentHeight() const override
-        {
-            return 134;
-        }
-
-        void rollbackConfirmedUtxo(Height /*minHeight*/) override
-        {}
-
-        void clear() override {}
-
-        void changePassword(const SecString& password) override {}
-
-        bool setTxParameter(const TxID& txID, wallet::TxParameterID paramID,
-            const ByteBuffer& blob, bool shouldNotifyAboutChanges) override
-        {
-            if (paramID < wallet::TxParameterID::PrivateFirstParam)
-            {
-                auto p = m_params.emplace(paramID, blob);
-                return p.second;
-            }
-            m_params[paramID] = blob;
-            return true;
-        }
-        bool getTxParameter(const TxID& txID, wallet::TxParameterID paramID, ByteBuffer& blob) const override
-        {
-            auto it = m_params.find(paramID);
-            if (it != m_params.end())
-            {
-                blob = it->second;
-                return true;
-            }
-            return false;
-        }
-
-        Block::SystemState::IHistory& get_History() override { return m_Hist; }
-        void ShrinkHistory() override {}
-
-        Amount getTransferredByTx(TxStatus status, bool isSender) const override { return 0; };
-
-    protected:
-        std::vector<beam::Coin> m_coins;
-        std::map<wallet::TxParameterID, ByteBuffer> m_params;
-    };
-
-    class TestWalletDB : public BaseTestWalletDB
-    {
-    public:
-        TestWalletDB()
-        {
-            m_coins.emplace_back(5);
-            m_coins.emplace_back(2);
-            m_coins.emplace_back(3);
-        }
-    };
-
-    class TestWalletDB2 : public BaseTestWalletDB
-    {
-    public:
-        TestWalletDB2()
-        {
-            m_coins.emplace_back(1);
-            m_coins.emplace_back(3);
-        }
-    };
-
-    template<typename T>
-    IWalletDB::Ptr CreateWalletDB()
-    {
-        return std::static_pointer_cast<IWalletDB>(std::make_shared<T>());
-    }
-
-    const string SenderWalletDB = "sender_wallet.db";
-    const string ReceiverWalletDB = "receiver_wallet.db";
-    const string DBPassword = "pass123";
-
-    IWalletDB::Ptr createSqliteWalletDB(const string& path, bool separateDBForPrivateData)
-    {
-        if (boost::filesystem::exists(path))
-        {
-            boost::filesystem::remove(path);
-        }
-        if (separateDBForPrivateData)
-        {
-            string privatePath = path + ".private";
-            boost::filesystem::remove(privatePath);
-        }
-        
-        ECC::NoLeak<ECC::uintBig> seed;
-        seed.V = Zero;
-               
-        auto walletDB = WalletDB::init(path, DBPassword, seed, io::Reactor::get_Current().shared_from_this(), separateDBForPrivateData);
-        return walletDB;
-    }
-
-    IWalletDB::Ptr createSenderWalletDB(bool separateDBForPrivateData = false)
-    {
-        auto db = createSqliteWalletDB(SenderWalletDB, separateDBForPrivateData);
-        db->AllocateKidRange(100500); // make sure it'll get the address different from the receiver
-        for (auto amount : { 5, 2, 1, 9 })
-        {
-            Coin coin = CreateAvailCoin(amount, 0);
-            db->store(coin);
-        }
-        return db;
-    }
-
-    IWalletDB::Ptr createSenderWalletDB(int count, Amount amount, bool separateDBForPrivateData = false)
-    {
-        auto db = createSqliteWalletDB(SenderWalletDB, separateDBForPrivateData);
-        db->AllocateKidRange(100500); // make sure it'll get the address different from the receiver
-        for (int i = 0; i < count; ++i)
-        {
-            Coin coin = CreateAvailCoin(amount, 0);
-            db->store(coin);
-        }
-        return db;
-    }
-
-    IWalletDB::Ptr createReceiverWalletDB(bool separateDBForPrivateData = false)
-    {
-        return createSqliteWalletDB(ReceiverWalletDB, separateDBForPrivateData);
-    }
-
-    struct TestGateway : wallet::INegotiatorGateway
-    {
-        void on_tx_completed(const TxID&) override
-        {
-            cout << __FUNCTION__ << "\n";
-        }
-
-        void register_tx(const TxID& , Transaction::Ptr) override
-        {
-            cout << "sent tx registration request\n";
-        }
-
-        void confirm_outputs(const vector<Coin>&) override
-        {
-            cout << "confirm outputs\n";
-        }
-
-        void confirm_kernel(const TxID&, const Merkle::Hash&) override
-        {
-            cout << "confirm kernel\n";
-        }
-
-        bool get_tip(Block::SystemState::Full& state) const override
-        {
-            return true;
-        }
-
-    };
-
-    class AsyncProcessor
-    {
-        io::Timer::Ptr m_pTimer;
-        bool m_bPending = false;
-
-    public:
-        virtual void Proceed() = 0;
-
-        void PostAsync()
-        {
-            if (!m_bPending)
-            {
-                if (!m_pTimer)
-                    m_pTimer = io::Timer::create(io::Reactor::get_Current());
-
-                m_bPending = true;
-                m_pTimer->start(0, false, [this]() {
-                    assert(m_bPending);
-                    m_bPending = false;
-                    Proceed();
-                });
-            }
-        }
-    };
-
-    class OneTimeBbsEndpoint : public WalletNetworkViaBbs
-    {
-    public:
-        OneTimeBbsEndpoint(IWallet& wallet, std::shared_ptr<proto::FlyClient::INetwork> nodeEndpoint, const IWalletDB::Ptr& walletDB)
-            : WalletNetworkViaBbs(wallet, nodeEndpoint, walletDB)
-        {
-
-        }
-    private:
-        void OnIncomingMessage() override
-        {
-            io::Reactor::get_Current().stop();
-        }
-
-    };
-        
-
-    struct TestWalletRig
-    {
-        TestWalletRig(const string& name, IWalletDB::Ptr walletDB, Wallet::TxCompletedAction&& action = Wallet::TxCompletedAction(), bool coldWallet = false, bool oneTimeBbsEndpoint = false)
-            : m_WalletDB{walletDB}
-            , m_Wallet{ m_WalletDB, move(action), coldWallet ? []() {io::Reactor::get_Current().stop(); } : Wallet::UpdateCompletedAction() }
-        {
-            if (m_WalletDB->get_MasterKdf()) // can create secrets
-            {
-                WalletAddress wa = wallet::createAddress(*m_WalletDB);
-                m_WalletDB->saveAddress(wa);
-                m_WalletID = wa.m_walletID;
-            }
-            else
-            {
-                auto addresses = m_WalletDB->getAddresses(true);
-                m_WalletID = addresses[0].m_walletID;
-            }
-
-            if (coldWallet)
-            {
-                m_Wallet.AddMessageEndpoint(make_shared<ColdWalletMessageEndpoint>(m_Wallet, m_WalletDB));
-            }
-            else
-            {
-                auto nodeEndpoint = make_shared<proto::FlyClient::NetworkStd>(m_Wallet);
-                nodeEndpoint->m_Cfg.m_vNodes.push_back(io::Address::localhost().port(32125));
-                nodeEndpoint->Connect();
-                if (oneTimeBbsEndpoint)
-                {
-                    m_Wallet.AddMessageEndpoint(make_shared<OneTimeBbsEndpoint>(m_Wallet, nodeEndpoint, m_WalletDB));
-                }
-                else
-                {
-                    m_Wallet.AddMessageEndpoint(make_shared<WalletNetworkViaBbs>(m_Wallet, nodeEndpoint, m_WalletDB));
-                }
-                m_Wallet.SetNodeEndpoint(nodeEndpoint);
-            }
-        }
-
-        vector<Coin> GetCoins()
-        {
-            vector<Coin> coins;
-            m_WalletDB->visit([&coins](const Coin& c)->bool
-            {
-                coins.push_back(c);
-                return true;
-            });
-            return coins;
-        }
-
-        WalletID m_WalletID;
-        IWalletDB::Ptr m_WalletDB;
-        int m_CompletedCount{1};
-        Wallet m_Wallet;
-    };
-
-    struct TestWalletNetwork
-        : public IWalletMessageEndpoint
-        , public AsyncProcessor
-    {
-        struct Entry
-        {
-            IWallet* m_pSink;
-            std::deque<std::pair<WalletID, wallet::SetTxParameter> > m_Msgs;
-        };
-
-        typedef std::map<WalletID, Entry> WalletMap;
-        WalletMap m_Map;
-
-        virtual void Send(const WalletID& peerID, const wallet::SetTxParameter& msg) override
-        {
-            WalletMap::iterator it = m_Map.find(peerID);
-            WALLET_CHECK(m_Map.end() != it);
-
-            it->second.m_Msgs.push_back(std::make_pair(peerID, msg));
-
-            PostAsync();
-        }
-
-        virtual void SendEncryptedMessage(const WalletID& peerID, const ByteBuffer& msg) override
-        {
-        }
-
-        virtual void Proceed() override
-        {
-            for (WalletMap::iterator it = m_Map.begin(); m_Map.end() != it; it++)
-                for (Entry& v = it->second; !v.m_Msgs.empty(); v.m_Msgs.pop_front())
-                    v.m_pSink->OnWalletMessage(v.m_Msgs.front().first, std::move(v.m_Msgs.front().second));
-        }
-    };
-
-    struct TestBlockchain
-    {
-        MiniBlockChain m_mcm;
-
-        UtxoTree m_Utxos;
-
-        struct KrnPerBlock
-        {
-            std::vector<Merkle::Hash> m_vKrnIDs;
-
-            struct Mmr :public Merkle::FlyMmr
-            {
-                const Merkle::Hash* m_pHashes;
-
-                Mmr(const KrnPerBlock& kpb)
-                    :Merkle::FlyMmr(kpb.m_vKrnIDs.size())
-                {
-                    m_pHashes = kpb.m_vKrnIDs.empty() ? NULL : &kpb.m_vKrnIDs.front();
-                }
-
-                virtual void LoadElement(Merkle::Hash& hv, uint64_t n) const override {
-                    hv = m_pHashes[n];
-                }
-            };
-
-        };
-        std::vector<KrnPerBlock> m_vBlockKernels;
-
-        void AddBlock()
-        {
-            m_Utxos.get_Hash(m_mcm.m_hvLive);
-            m_mcm.Add();
-
-            if (m_vBlockKernels.size() < m_mcm.m_vStates.size())
-                m_vBlockKernels.emplace_back();
-            assert(m_vBlockKernels.size() == m_mcm.m_vStates.size());
-
-            KrnPerBlock::Mmr fmmr(m_vBlockKernels.back());
-            fmmr.get_Hash(m_mcm.m_vStates.back().m_Hdr.m_Kernels);
-        }
-
-        bool AddCommitment(const ECC::Point& c)
-        {
-            UtxoTree::Key::Data d;
-            d.m_Commitment = c;
-            d.m_Maturity = m_mcm.m_vStates.back().m_Hdr.m_Height;
-
-            UtxoTree::Key key;
-            key = d;
-
-            UtxoTree::Cursor cu;
-            bool bCreate = true;
-            UtxoTree::MyLeaf* p = m_Utxos.Find(cu, key, bCreate);
-
-            cu.InvalidateElement();
-
-            if (bCreate)
-                p->m_ID = 0;
-            else
-            {
-                // protect again overflow attacks, though it's highly unlikely (Input::Count is currently limited to 32 bits, it'd take millions of blocks)
-                Input::Count nCountInc = p->get_Count() + 1;
-                if (!nCountInc)
-                    return false;
-
-                p->PushID(0);
-            }
-
-            return true;
-        }
-
-        bool RemoveCommitment(const ECC::Point& c)
-        {
-            UtxoTree::Cursor cu;
-            UtxoTree::MyLeaf* p;
-            UtxoTree::Key::Data d;
-            d.m_Commitment = c;
-
-            struct Traveler :public UtxoTree::ITraveler {
-                virtual bool OnLeaf(const RadixTree::Leaf& x) override {
-                    return false; // stop iteration
-                }
-            } t;
-
-
-            UtxoTree::Key kMin, kMax;
-
-            d.m_Maturity = 0;
-            kMin = d;
-            d.m_Maturity = m_mcm.m_vStates.back().m_Hdr.m_Height;
-            kMax = d;
-
-            t.m_pCu = &cu;
-            t.m_pBound[0] = kMin.m_pArr;
-            t.m_pBound[1] = kMax.m_pArr;
-
-            if (m_Utxos.Traverse(t))
-                return false;
-
-            p = &(UtxoTree::MyLeaf&) cu.get_Leaf();
-
-            d = p->m_Key;
-            assert(d.m_Commitment == c);
-
-            if (!p->IsExt())
-                m_Utxos.Delete(cu);
-            else
-            {
-                p->PopID();
-                cu.InvalidateElement();
-            }
-
-            return true;
-        }
-
-
-        void GetProof(const proto::GetProofUtxo& data, proto::ProofUtxo& msgOut)
-        {
-            struct Traveler :public UtxoTree::ITraveler
-            {
-                proto::ProofUtxo m_Msg;
-                UtxoTree* m_pTree;
-                Merkle::Hash m_hvHistory;
-
-                virtual bool OnLeaf(const RadixTree::Leaf& x) override {
-
-                    const UtxoTree::MyLeaf& v = (UtxoTree::MyLeaf&) x;
-                    UtxoTree::Key::Data d;
-                    d = v.m_Key;
-
-                    m_Msg.m_Proofs.resize(m_Msg.m_Proofs.size() + 1);
-                    Input::Proof& ret = m_Msg.m_Proofs.back();
-
-                    ret.m_State.m_Count = v.get_Count();
-                    ret.m_State.m_Maturity = d.m_Maturity;
-                    m_pTree->get_Proof(ret.m_Proof, *m_pCu);
-
-                    ret.m_Proof.emplace_back();
-                    ret.m_Proof.back().first = false;
-                    ret.m_Proof.back().second = m_hvHistory;
-
-                    return m_Msg.m_Proofs.size() < Input::Proof::s_EntriesMax;
-                }
-            } t;
-
-            t.m_pTree = &m_Utxos;
-            m_mcm.m_Mmr.get_Hash(t.m_hvHistory);
-
-            UtxoTree::Cursor cu;
-            t.m_pCu = &cu;
-
-            // bounds
-            UtxoTree::Key kMin, kMax;
-
-            UtxoTree::Key::Data d;
-            d.m_Commitment = data.m_Utxo;
-            d.m_Maturity = data.m_MaturityMin;
-            kMin = d;
-            d.m_Maturity = Height(-1);
-            kMax = d;
-
-            t.m_pBound[0] = kMin.m_pArr;
-            t.m_pBound[1] = kMax.m_pArr;
-
-            t.m_pTree->Traverse(t);
-            t.m_Msg.m_Proofs.swap(msgOut.m_Proofs);
-        }
-
-        void GetProof(const proto::GetProofKernel& data, proto::ProofKernel& msgOut)
-        {
-            for (size_t iState = m_mcm.m_vStates.size(); iState--; )
-            {
-                const KrnPerBlock& kpb = m_vBlockKernels[iState];
-
-                for (size_t i = 0; i < kpb.m_vKrnIDs.size(); i++)
-                {
-                    if (kpb.m_vKrnIDs[i] == data.m_ID)
-                    {
-                        KrnPerBlock::Mmr fmmr(kpb);
-                        Merkle::ProofBuilderStd bld;
-                        fmmr.get_Proof(bld, i);
-
-                        msgOut.m_Proof.m_Inner.swap(bld.m_Proof);
-                        msgOut.m_Proof.m_State = m_mcm.m_vStates[iState].m_Hdr;
-
-                        if (iState + 1 != m_mcm.m_vStates.size())
-                        {
-                            Merkle::ProofBuilderHard bld2;
-                            m_mcm.m_Mmr.get_Proof(bld2, iState);
-                            msgOut.m_Proof.m_Outer.swap(bld2.m_Proof);
-                            msgOut.m_Proof.m_Outer.resize(msgOut.m_Proof.m_Outer.size() + 1);
-                            m_Utxos.get_Hash(msgOut.m_Proof.m_Outer.back());
-
-                            Block::SystemState::Full state = m_mcm.m_vStates[m_mcm.m_vStates.size()-1].m_Hdr;
-                            WALLET_CHECK(state.IsValidProofKernel(data.m_ID, msgOut.m_Proof));
-                        }
-
-                        return;
-                    }
-                }
-            }
-        }
-
-        void AddKernel(const TxKernel& krn)
-        {
-            Merkle::Hash hvKrn;
-            krn.get_Hash(hvKrn);
-            AddKernel(hvKrn);
-        }
-
-        void AddKernel(const Merkle::Hash& hvKrn)
-        {
-            if (m_vBlockKernels.size() <= m_mcm.m_vStates.size())
-                m_vBlockKernels.emplace_back();
-
-            KrnPerBlock& kpb = m_vBlockKernels.back();
-            kpb.m_vKrnIDs.push_back(hvKrn);
-        }
-
-        void HandleTx(const proto::NewTransaction& data)
-        {
-            for (const auto& input : data.m_Transaction->m_vInputs)
-                RemoveCommitment(input->m_Commitment);
-            for (const auto& output : data.m_Transaction->m_vOutputs)
-                AddCommitment(output->m_Commitment);
-            for (size_t i = 0; i < data.m_Transaction->m_vKernels.size(); i++)
-                AddKernel(*data.m_Transaction->m_vKernels[i]);
-        }
-    };
-
-    struct TestNodeNetwork
-        :public proto::FlyClient::INetwork
-        ,public AsyncProcessor
-        ,public boost::intrusive::list_base_hook<>
-    {
-        typedef boost::intrusive::list<TestNodeNetwork> List;
-        typedef proto::FlyClient::Request Request;
-
-        proto::FlyClient& m_Client;
-
-        struct Shared
-        {
-            TestBlockchain m_Blockchain;
-            List m_lst;
-
-            void AddBlock()
-            {
-                m_Blockchain.AddBlock();
-
-                for (List::iterator it = m_lst.begin(); m_lst.end() != it; it++)
-                {
-                    proto::FlyClient& c = it->m_Client;
-                    c.get_History().AddStates(&m_Blockchain.m_mcm.m_vStates.back().m_Hdr, 1);
-                    c.OnNewTip();
-                }
-            }
-        };
-
-        Shared& m_Shared;
-
-        TestNodeNetwork(Shared& shared, proto::FlyClient& x)
-            :m_Client(x)
-            ,m_Shared(shared)
-        {
-            m_Shared.m_lst.push_back(*this);
-        }
-
-        ~TestNodeNetwork()
-        {
-            m_Shared.m_lst.erase(List::s_iterator_to(*this));
-        }
-
-        typedef std::deque<Request::Ptr> Queue;
-        Queue m_queReqs;
-
-        virtual void Connect() override {}
-        virtual void Disconnect() override {}
-
-        virtual void PostRequestInternal(Request& r) override
-        {
-            assert(r.m_pTrg);
-
-            m_queReqs.push_back(&r);
-            PostAsync();
-        }
-
-        virtual void Proceed() override
-        {
-            Queue q;
-            q.swap(m_queReqs);
-
-            for (; !q.empty(); q.pop_front())
-            {
-                Request& r = *q.front();
-                PostProcess(r);
-                if (r.m_pTrg)
-                    r.m_pTrg->OnComplete(r);
-            }
-        }
-
-        virtual void PostProcess(Request& r)
-        {
-            switch (r.get_Type())
-            {
-            case Request::Type::Transaction:
-                {
-                    proto::FlyClient::RequestTransaction& v = static_cast<proto::FlyClient::RequestTransaction&>(r);
-                    v.m_Res.m_Value = true;
-
-                    m_Shared.m_Blockchain.HandleTx(v.m_Msg);
-                    m_Shared.AddBlock();
-                }
-                break;
-
-            case Request::Type::Kernel:
-                {
-                    proto::FlyClient::RequestKernel& v = static_cast<proto::FlyClient::RequestKernel&>(r);
-                    m_Shared.m_Blockchain.GetProof(v.m_Msg, v.m_Res);
-                }
-                break;
-
-            case Request::Type::Utxo:
-                {
-                    proto::FlyClient::RequestUtxo& v = static_cast<proto::FlyClient::RequestUtxo&>(r);
-                    m_Shared.m_Blockchain.GetProof(v.m_Msg, v.m_Res);
-                }
-                break;
-
-            default:
-                break; // suppess warning
-            }
-        }
-    };
-
     void TestWalletNegotiation(IWalletDB::Ptr senderWalletDB, IWalletDB::Ptr receiverWalletDB)
     {
         cout << "\nTesting wallets negotiation...\n";
@@ -782,11 +64,11 @@ namespace
         io::Reactor::Ptr mainReactor{ io::Reactor::create() };
         io::Reactor::Scope scope(*mainReactor);
 
-        WalletAddress wa = wallet::createAddress(*receiverWalletDB);
+        WalletAddress wa = storage::createAddress(*receiverWalletDB);
         receiverWalletDB->saveAddress(wa);
         WalletID receiver_id = wa.m_walletID;
 
-        wa = wallet::createAddress(*senderWalletDB);
+        wa = storage::createAddress(*senderWalletDB);
         senderWalletDB->saveAddress(wa);
         WalletID sender_id = wa.m_walletID;
 
@@ -796,7 +78,7 @@ namespace
             if (++count >= 2)
                 io::Reactor::get_Current().stop();
         };
-        
+
         TestNodeNetwork::Shared tnns;
 
         Wallet sender(senderWalletDB, f);
@@ -822,197 +104,6 @@ namespace
 
         WALLET_CHECK(count == 2);
     }
-
-    class TestNode
-    {
-    public:
-        TestNode()
-        {
-            m_Server.Listen(io::Address::localhost().port(32125));
-            while (m_Blockchain.m_mcm.m_vStates.size() < 145)
-                m_Blockchain.AddBlock();
-        }
-
-        ~TestNode() {
-            KillAll();
-        }
-
-        void KillAll()
-        {
-            while (!m_lstClients.empty())
-                DeleteClient(&m_lstClients.front());
-        }
-
-        TestBlockchain m_Blockchain;
-
-        void AddBlock()
-        {
-            m_Blockchain.AddBlock();
-
-            for (ClientList::iterator it = m_lstClients.begin(); m_lstClients.end() != it; it++)
-            {
-                Client& c = *it;
-                if (c.IsSecureOut())
-                    c.SendTip();
-            }
-        }
-    private:
-
-        struct Client
-            :public proto::NodeConnection
-            ,public boost::intrusive::list_base_hook<>
-        {
-            TestNode& m_This;
-            bool m_Subscribed;
-
-            Client(TestNode& n)
-                : m_This(n)
-                , m_Subscribed(false)
-            {
-            }
-
-
-            // protocol handler
-            void OnConnectedSecure() override
-            {
-                ECC::Scalar::Native sk;
-                sk = 23U;
-                ProveID(sk, proto::IDType::Node);
-
-                proto::Login msg;
-                msg.m_CfgChecksum = Rules::get().Checksum;
-                msg.m_Flags =
-                    proto::LoginFlags::Extension1 |
-                    proto::LoginFlags::SpreadingTransactions |
-                    proto::LoginFlags::Bbs |
-                    proto::LoginFlags::SendPeers;
-                Send(msg);
-
-                SendTip();
-            }
-
-            void SendTip()
-            {
-                proto::NewTip msg;
-                msg.m_Description = m_This.m_Blockchain.m_mcm.m_vStates.back().m_Hdr;
-                Send(msg);
-            }
-
-            void OnMsg(proto::NewTransaction&& data) override
-            {
-                m_This.m_Blockchain.HandleTx(data);
-
-                Send(proto::Boolean{ true });
-                m_This.AddBlock();
-            }
-
-            void OnMsg(proto::GetProofUtxo&& data) override
-            {
-                proto::ProofUtxo msgOut;
-                m_This.m_Blockchain.GetProof(data, msgOut);
-                Send(msgOut);
-            }
-
-            void OnMsg(proto::GetProofKernel&& data) override
-            {
-                proto::ProofKernel msgOut;
-                m_This.m_Blockchain.GetProof(data, msgOut);
-                Send(msgOut);
-            }
-
-            void OnMsg(proto::Login&& /*data*/) override
-            {
-            }
-
-            void OnMsg(proto::GetProofState&&) override
-            {
-                Send(proto::ProofState{});
-            }
-
-            void OnMsg(proto::GetProofChainWork&& msg) override
-            {
-                proto::ProofChainWork msgOut;
-                msgOut.m_Proof.m_LowerBound = msg.m_LowerBound;
-                msgOut.m_Proof.m_hvRootLive = m_This.m_Blockchain.m_mcm.m_hvLive;
-                msgOut.m_Proof.Create(m_This.m_Blockchain.m_mcm.m_Source, m_This.m_Blockchain.m_mcm.m_vStates.back().m_Hdr);
-
-                Send(msgOut);
-            }
-
-            void OnMsg(proto::BbsSubscribe&& msg) override
-            {
-                if (m_Subscribed)
-                    return;
-                m_Subscribed = true;
-
-                for (const auto& m : m_This.m_bbs)
-                    Send(m);
-            }
-
-            void OnMsg(proto::BbsMsg&& msg) override
-            {
-                m_This.m_bbs.push_back(msg);
-
-                for (ClientList::iterator it = m_This.m_lstClients.begin(); m_This.m_lstClients.end() != it; it++)
-                {
-                    Client& c = *it;
-                    if ((&c != this) && c.m_Subscribed)
-                        c.Send(msg);
-                }
-            }
-
-            void OnMsg(proto::Ping&& msg) override
-            {
-                proto::Pong msgOut(Zero);
-                Send(msgOut);
-            }
-
-            void OnDisconnect(const DisconnectReason& r) override
-            {
-                switch (r.m_Type)
-                {
-                case DisconnectReason::Protocol:
-                case DisconnectReason::ProcessingExc:
-                    LOG_ERROR() << "Disconnect: " << r;
-                    g_failureCount++;
-
-                default: // suppress warning
-                    break;
-                }
-
-                m_This.DeleteClient(this);
-            }
-        };
-
-        typedef boost::intrusive::list<Client> ClientList;
-        ClientList m_lstClients;
-
-        std::vector<proto::BbsMsg> m_bbs;
-
-        void DeleteClient(Client* client)
-        {
-            m_lstClients.erase(ClientList::s_iterator_to(*client));
-            delete client;
-        }
-
-        struct Server
-            :public proto::NodeConnection::Server
-        {
-            IMPLEMENT_GET_PARENT_OBJ(TestNode, m_Server)
-
-            void OnAccepted(io::TcpStream::Ptr&& newStream, int errorCode) override
-            {
-                if (newStream)
-                {
-                    Client* p = new Client(get_ParentObj());
-                    get_ParentObj().m_lstClients.push_back(*p);
-
-                    p->Accept(std::move(newStream));
-                    p->SecureConnect();
-                }
-            }
-        } m_Server;
-    };
 
     void TestTxToHimself()
     {
@@ -1099,7 +190,7 @@ namespace
         };
 
         TestNode node;
-        TestWalletRig sender("sender", createSenderWalletDB(), f);
+        TestWalletRig sender("sender", createSenderWalletDB(), f, TestWalletRig::Type::Regular, false, 0);
         TestWalletRig receiver("receiver", createReceiverWalletDB(), f);
 
         WALLET_CHECK(sender.m_WalletDB->selectCoins(6).size() == 2);
@@ -1441,75 +532,6 @@ namespace
         WALLET_CHECK(stx->m_sender == true);
     }
 
-    void TestSwapTransaction()
-    {
-        cout << "\nTesting atomic swap transaction...\n";
-
-        io::Reactor::Ptr mainReactor{ io::Reactor::create() };
-        io::Reactor::Scope scope(*mainReactor);
-
-        int completedCount = 2;
-        auto f = [&completedCount, mainReactor](auto)
-        {
-            --completedCount;
-            if (completedCount == 0)
-            {
-                mainReactor->stop();
-                completedCount = 2;
-            }
-        };
-
-        TestNode node;
-        TestWalletRig sender("sender", createSenderWalletDB(), f);
-        TestWalletRig receiver("receiver", createReceiverWalletDB(), f);
-
-        /*TxID txID =*/ sender.m_Wallet.swap_coins(sender.m_WalletID, receiver.m_WalletID, 4, 1, wallet::AtomicSwapCoin::Bitcoin, 2);
-
-        auto receiverCoins = receiver.GetCoins();
-        WALLET_CHECK(receiverCoins.empty());
-
-        mainReactor->run();
-
-        receiverCoins = receiver.GetCoins();
-        WALLET_CHECK(receiverCoins.size() == 1);
-        WALLET_CHECK(receiverCoins[0].m_ID.m_Value == 4);
-    }
-
-    struct MyMmr : public Merkle::Mmr
-    {
-        typedef std::vector<Merkle::Hash> HashVector;
-        typedef std::unique_ptr<HashVector> HashVectorPtr;
-
-        std::vector<HashVectorPtr> m_vec;
-
-        Merkle::Hash& get_At(const Merkle::Position& pos)
-        {
-            if (m_vec.size() <= pos.H)
-                m_vec.resize(pos.H + 1);
-
-            HashVectorPtr& ptr = m_vec[pos.H];
-            if (!ptr)
-                ptr.reset(new HashVector);
-
-
-            HashVector& vec = *ptr;
-            if (vec.size() <= pos.X)
-                vec.resize(pos.X + 1);
-
-            return vec[pos.X];
-        }
-
-        virtual void LoadElement(Merkle::Hash& hv, const Merkle::Position& pos) const override
-        {
-            hv = ((MyMmr*)this)->get_At(pos);
-        }
-
-        virtual void SaveElement(const Merkle::Hash& hv, const Merkle::Position& pos) override
-        {
-            get_At(pos) = hv;
-        }
-    };
-
     void TestSplitTransaction()
     {
         cout << "\nTesting split Tx...\n";
@@ -1601,9 +623,22 @@ namespace
             }
         };
 
-        TestNode node;
         TestWalletRig sender("sender", createSenderWalletDB(), f);
-        TestWalletRig receiver("receiver", createReceiverWalletDB(), f);
+        TestWalletRig receiver("receiver", createReceiverWalletDB(), f, TestWalletRig::Type::Offline);
+
+        auto newBlockFunc = [&receiver](Height height)
+        {
+            if (height == 200)
+            {
+                auto nodeEndpoint = make_shared<proto::FlyClient::NetworkStd>(receiver.m_Wallet);
+                nodeEndpoint->m_Cfg.m_vNodes.push_back(io::Address::localhost().port(32125));
+                nodeEndpoint->Connect();
+                receiver.m_Wallet.AddMessageEndpoint(make_shared<WalletNetworkViaBbs>(receiver.m_Wallet, nodeEndpoint, receiver.m_WalletDB));
+                receiver.m_Wallet.SetNodeEndpoint(nodeEndpoint);
+            }
+        };
+
+        TestNode node(newBlockFunc);
         io::Timer::Ptr timer = io::Timer::create(*mainReactor);
         timer->start(1000, true, [&node]() {node.AddBlock(); });
 
@@ -1680,23 +715,12 @@ namespace
 
         io::Reactor::Ptr mainReactor{ io::Reactor::create() };
         io::Reactor::Scope scope(*mainReactor);
-        struct TestGateway : wallet::INegotiatorGateway
-        {
-            void OnAsyncStarted() override {}
-            void OnAsyncFinished() override {}
-            void on_tx_completed(const TxID&) override {}
-            void register_tx(const TxID&, Transaction::Ptr) override  {}
-            void confirm_outputs(const std::vector<Coin>&) override  {}
-            void confirm_kernel(const TxID&, const Merkle::Hash&) override  {}
-            bool get_tip(Block::SystemState::Full& state) const override { return false; }
-            void send_tx_params(const WalletID& peerID, wallet::SetTxParameter&&) override {}
-            void UpdateOnNextTip(const TxID&) override {};
-        } gateway;
+        EmptyTestGateway gateway;
         TestWalletRig sender("sender", createSenderWalletDB());
         TestWalletRig receiver("receiver", createReceiverWalletDB());
 
         TxID txID = wallet::GenerateTxID();
-        auto tx = make_shared<wallet::SimpleTransaction>(gateway, sender.m_WalletDB, txID);
+        auto tx = SimpleTransaction::Create(gateway, sender.m_WalletDB, sender.m_KeyKeeper, txID);
         Height currentHeight = sender.m_WalletDB->getCurrentHeight();
 
         tx->SetParameter(wallet::TxParameterID::TransactionType, wallet::TxType::Simple, false);
@@ -1733,110 +757,95 @@ namespace
 
     }
 
-    class PerformanceRig
+    void TestTxExceptionHandling()
     {
-    public:
-        PerformanceRig(int txCount, int txPerCall = 1)
-            : m_TxCount(txCount)
-            , m_TxPerCall(txPerCall)
+        cout << "\nTesting exception processing by transaction ...\n";
+
+        io::Reactor::Ptr mainReactor{ io::Reactor::create() };
+        io::Reactor::Scope scope(*mainReactor);
+
+        TestWalletRig sender("sender", createSenderWalletDB());
+        TestWalletRig receiver("receiver", createReceiverWalletDB());
+        Height currentHeight = sender.m_WalletDB->getCurrentHeight();
+
+        // process TransactionFailedException
         {
-
-        }
-
-        void Run()
-        {
-            io::Reactor::Ptr mainReactor{ io::Reactor::create() };
-            io::Reactor::Scope scope(*mainReactor);
-
-            int completedCount = 2 * m_TxCount;
-            auto f = [&completedCount, mainReactor, count = 2 * m_TxCount](auto)
+            struct TestGateway : EmptyTestGateway
             {
-                --completedCount;
-                if (completedCount == 0)
+                bool get_tip(Block::SystemState::Full& state) const override
                 {
-                    mainReactor->stop();
-                    completedCount = count;
+                    throw wallet::TransactionFailedException(true, TxFailureReason::FailedToGetParameter);
                 }
-            };
+            } gateway;
 
-            TestNode node;
-            TestWalletRig sender("sender", createSenderWalletDB(m_TxCount, 6), f);
-            TestWalletRig receiver("receiver", createReceiverWalletDB(), f);
+            TxID txID = wallet::GenerateTxID();
+            auto tx = SimpleTransaction::Create(gateway, sender.m_WalletDB, sender.m_KeyKeeper, txID);
 
-            io::Timer::Ptr timer = io::Timer::create(*mainReactor);
-            auto timestamp = GetTime_ms();
-            m_MaxLatency = 0;
+            tx->SetParameter(wallet::TxParameterID::TransactionType, wallet::TxType::Simple, false);
+            tx->SetParameter(wallet::TxParameterID::MaxHeight, currentHeight + 2, false); // transaction is valid +lifetime blocks from currentHeight
+            tx->SetParameter(wallet::TxParameterID::IsInitiator, true, false);
 
-            io::AsyncEvent::Ptr accessEvent;
-            accessEvent = io::AsyncEvent::create(*mainReactor, [&timestamp, this, &accessEvent]()
+            TxDescription txDescription;
+
+            txDescription.m_txId = txID;
+            txDescription.m_amount = 1;
+            txDescription.m_fee = 2;
+            txDescription.m_minHeight = currentHeight;
+            txDescription.m_peerId = receiver.m_WalletID;
+            txDescription.m_myId = sender.m_WalletID;
+            txDescription.m_message = {};
+            txDescription.m_createTime = getTimestamp();
+            txDescription.m_sender = true;
+            txDescription.m_status = TxStatus::Pending;
+            txDescription.m_selfTx = false;
+            sender.m_WalletDB->saveTx(txDescription);
+
+            tx->Update();
+
+            auto result = sender.m_WalletDB->getTx(txID);
+
+            WALLET_CHECK(result->m_status == TxStatus::Failed);
+        }
+
+        // process unknown exception
+        {
+            struct TestGateway : EmptyTestGateway
             {
-                auto newTimestamp = GetTime_ms();
-                auto latency = newTimestamp - timestamp;
-                timestamp = newTimestamp;
-                if (latency > 100)
+                bool get_tip(Block::SystemState::Full& state) const override
                 {
-                    cout << "Latency: " << float(latency) / 1000 << " s\n";
+                    throw exception();
                 }
-                m_MaxLatency = max(latency, m_MaxLatency);
-                accessEvent->post();
-            });
-            accessEvent->post();
+            } gateway;
 
-            helpers::StopWatch sw;
-            sw.start();
+            TxID txID = wallet::GenerateTxID();
+            auto tx = SimpleTransaction::Create(gateway, sender.m_WalletDB, sender.m_KeyKeeper, txID);
 
-            io::Timer::Ptr sendTimer = io::Timer::create(*mainReactor);
+            tx->SetParameter(wallet::TxParameterID::TransactionType, wallet::TxType::Simple, false);
+            tx->SetParameter(wallet::TxParameterID::MaxHeight, currentHeight + 2, false); // transaction is valid +lifetime blocks from currentHeight
+            tx->SetParameter(wallet::TxParameterID::IsInitiator, true, false);
 
-            int sendCount = m_TxCount;
-            io::AsyncEvent::Ptr sendEvent;
-            sendEvent = io::AsyncEvent::create(*mainReactor, [&sender, &receiver, &sendCount, &sendEvent, this]()
-            {
-                for (int i = 0; i < m_TxPerCall && sendCount; ++i)
-                {
-                    if (sendCount--)
-                    {
-                        sender.m_Wallet.transfer_money(sender.m_WalletID, receiver.m_WalletID, 5, 1, true, 10000, 10000);
-                    }
-                }
-                if (sendCount)
-                {
-                    sendEvent->post();
-                }
-            });
-            sendEvent->post();
+            TxDescription txDescription;
 
-            mainReactor->run();
-            sw.stop();
-            m_TotalTime = sw.milliseconds();
+            txDescription.m_txId = txID;
+            txDescription.m_amount = 1;
+            txDescription.m_fee = 2;
+            txDescription.m_minHeight = currentHeight;
+            txDescription.m_peerId = receiver.m_WalletID;
+            txDescription.m_myId = sender.m_WalletID;
+            txDescription.m_message = {};
+            txDescription.m_createTime = getTimestamp();
+            txDescription.m_sender = true;
+            txDescription.m_status = TxStatus::Pending;
+            txDescription.m_selfTx = false;
+            sender.m_WalletDB->saveTx(txDescription);
+
+            tx->Update();
+
+            auto result = sender.m_WalletDB->getTx(txID);
+
+            WALLET_CHECK(result->m_status == TxStatus::Failed);
         }
-
-        uint64_t GetTotalTime() const
-        {
-            return m_TotalTime;
-        }
-
-        uint32_t GetMaxLatency() const
-        {
-            return m_MaxLatency;
-        }
-
-        int GetTxCount() const
-        {
-            return m_TxCount;
-        }
-
-        int GetTxPerCall() const
-        {
-            return m_TxPerCall;
-        }
-
-
-    private:
-        int m_TxCount;
-        int m_TxPerCall;
-        uint32_t m_MaxLatency = 0;
-        uint64_t m_TotalTime = 0;
-    };
+    }
 
     void TestTxPerformance()
     {
@@ -1887,7 +896,7 @@ namespace
         TestNode node;
         TestWalletRig receiver("receiver", createReceiverWalletDB(), f);
         {
-            TestWalletRig privateSender("sender", createSenderWalletDB(true), f, true);
+            TestWalletRig privateSender("sender", createSenderWalletDB(true), f, TestWalletRig::Type::ColdWallet);
             WALLET_CHECK(privateSender.m_WalletDB->selectCoins(6).size() == 2);
             WALLET_CHECK(privateSender.m_WalletDB->getTxHistory().empty());
 
@@ -1903,7 +912,7 @@ namespace
             boost::filesystem::copy_file(SenderWalletDB, publicPath);
 
             auto publicDB = WalletDB::open(publicPath, DBPassword, io::Reactor::get_Current().shared_from_this());
-            TestWalletRig publicSender("public_sender", publicDB, f, false, true);
+            TestWalletRig publicSender("public_sender", publicDB, f, TestWalletRig::Type::Regular, true);
 
             WALLET_CHECK(publicSender.m_WalletDB->getTxHistory().size() == 1);
             WALLET_CHECK(receiver.m_WalletDB->getTxHistory().empty());
@@ -1916,7 +925,7 @@ namespace
             boost::filesystem::remove(SenderWalletDB);
             boost::filesystem::copy_file(publicPath, SenderWalletDB);
             auto privateDB = WalletDB::open(SenderWalletDB, DBPassword, io::Reactor::get_Current().shared_from_this());
-            TestWalletRig privateSender("sender", privateDB, f, true);
+            TestWalletRig privateSender("sender", privateDB, f, TestWalletRig::Type::ColdWallet);
             mainReactor->run();
         }
 
@@ -1981,7 +990,7 @@ namespace
 
         {
             // create cold wallet
-            TestWalletRig privateSender("receiver", createReceiverWalletDB(true), f, true);
+            TestWalletRig privateReceiver("receiver", createReceiverWalletDB(true), f, TestWalletRig::Type::ColdWallet);
         }
 
         string publicPath = "receiver_public.db";
@@ -1991,7 +1000,7 @@ namespace
             boost::filesystem::copy_file(ReceiverWalletDB, publicPath);
 
             auto publicDB = WalletDB::open(publicPath, DBPassword, io::Reactor::get_Current().shared_from_this());
-            TestWalletRig publicReceiver("public_receiver", publicDB, f, false, true);
+            TestWalletRig publicReceiver("public_receiver", publicDB, f, TestWalletRig::Type::Regular, true);
 
             sender.m_Wallet.transfer_money(sender.m_WalletID, publicReceiver.m_WalletID, 4, 2, true, 200);
 
@@ -2003,7 +1012,7 @@ namespace
             boost::filesystem::remove(ReceiverWalletDB);
             boost::filesystem::copy_file(publicPath, ReceiverWalletDB);
             auto privateDB = WalletDB::open(ReceiverWalletDB, DBPassword, io::Reactor::get_Current().shared_from_this());
-            TestWalletRig privateReceiver("receiver", privateDB, f, true);
+            TestWalletRig privateReceiver("receiver", privateDB, f, TestWalletRig::Type::ColdWallet);
             mainReactor->run();
         }
 
@@ -2013,17 +1022,16 @@ namespace
             boost::filesystem::copy_file(ReceiverWalletDB, publicPath);
 
             auto publicDB = WalletDB::open(publicPath, DBPassword, io::Reactor::get_Current().shared_from_this());
-            TestWalletRig publicReceiver("public_receiver", publicDB, f, false, true);
+            TestWalletRig publicReceiver("public_receiver", publicDB, f);
 
             mainReactor->run();
-            mainReactor->run(); // to allow receiver complete his transaction
         }
 
         // hot -> cold
         boost::filesystem::remove(ReceiverWalletDB);
         boost::filesystem::copy_file(publicPath, ReceiverWalletDB);
         auto privateDB = WalletDB::open(ReceiverWalletDB, DBPassword, io::Reactor::get_Current().shared_from_this());
-        TestWalletRig privateReceiver("receiver", privateDB, f, true);
+        TestWalletRig privateReceiver("receiver", privateDB, f, TestWalletRig::Type::ColdWallet);
 
         // check coins
         vector<Coin> newSenderCoins = sender.GetCoins();
@@ -2054,6 +1062,374 @@ namespace
     }
 }
 
+bool RunNegLoop(beam::Negotiator::IBase& a, beam::Negotiator::IBase& b, const char* szTask)
+{
+	using namespace Negotiator;
+
+	const uint32_t nPeers = 2;
+
+	IBase* pArr[nPeers];
+	pArr[0] = &a;
+	pArr[1] = &b;
+
+	for (uint32_t i = 0; i < nPeers; i++)
+	{
+		IBase& v = *pArr[i];
+		v.Set(i, Codes::Role);
+		v.Set(Rules::get().get_LastFork().m_Height, Codes::Scheme);
+	}
+
+	cout << "\nNegotiating: " << szTask << std::endl;
+
+	bool pDone[nPeers] = { false };
+
+	uint32_t nDone = 0;
+
+	for (uint32_t i = 0; ; ++i %= nPeers)
+	{
+		if (pDone[i])
+			continue;
+
+		IBase& v = *pArr[i];
+
+		Storage::Map gwOut;
+		Gateway::Direct gw(gwOut);
+
+		v.m_pGateway = &gw;
+
+		uint32_t status = v.Update();
+
+		char chThis = static_cast<char>('A' + i);
+
+		if (!gwOut.empty())
+		{
+			char chOther = static_cast<char>('A' + !i);
+
+			Gateway::Direct gwFin(*pArr[!i]->m_pStorage);
+
+			size_t nSize = 0;
+			for (Storage::Map::iterator it = gwOut.begin(); gwOut.end() != it; it++)
+			{
+				ByteBuffer& buf = it->second;
+				uint32_t code = it->first;
+				nSize += sizeof(code) + sizeof(uint32_t) + buf.size();
+				gwFin.Send(code, std::move(buf));
+			}
+
+			cout << "\t" << chThis << " -> " << chOther << ' ' << nSize << " bytes" << std::endl;
+
+
+			for (Storage::Map::iterator it = gwOut.begin(); gwOut.end() != it; it++)
+			{
+				uint32_t code = it->first;
+				std::string sVar;
+				v.QueryVar(sVar, code);
+
+				if (sVar.empty())
+					sVar = "?";
+				cout << "\t     " << sVar << endl;
+			}
+		}
+
+		if (!status)
+			continue;
+
+		if (Status::Success != status)
+		{
+			cout << "\t" << chThis << " Failed!" << std::endl;
+			return false; // fail
+		}
+
+		pDone[i] = true;
+
+		cout << "\t" << chThis << " done" << std::endl;
+		if (++nDone == _countof(pArr))
+			break;
+	}
+
+	return true;
+}
+
+Amount SetKidvs(beam::Negotiator::IBase& neg, const Amount* p, size_t n, uint32_t code, uint32_t i0 = 0)
+{
+	std::vector<Key::IDV> vec;
+	vec.resize(n);
+	Amount sum = 0;
+
+	for (size_t i = 0; i < n; i++)
+	{
+		Key::IDV& kidv = vec[i];
+		kidv = Zero;
+
+		kidv.m_Type = Key::Type::Regular;
+		kidv.m_Idx = i0 + static_cast<uint32_t>(i);
+
+		kidv.m_Value = p[i];
+		sum += p[i];
+	}
+
+	neg.Set(vec, code);
+	return sum;
+}
+
+void TestNegotiation()
+{
+	using namespace Negotiator;
+
+	cout << "TestNegotiation" << std::endl;
+
+	const Amount valMSig = 11;
+	Height hLock = 1440;
+
+	WithdrawTx::CommonParam cpWd;
+	cpWd.m_Krn2.m_pLock = &hLock;
+
+	Multisig pT1[2];
+	Storage::Map pS1[2];
+
+	for (size_t i = 0; i < _countof(pT1); i++)
+	{
+		IBase& v = pT1[i];
+
+		uintBig seed;
+		ECC::GenRandom(seed);
+		HKdf::Create(v.m_pKdf, seed);
+
+		v.m_pStorage = pS1 + i;
+
+		Key::IDV kidv(Zero);
+		kidv.m_Value = valMSig;
+		kidv.m_Idx = 500;
+		kidv.m_Type = FOURCC_FROM(msg2);
+		v.Set(kidv, Multisig::Codes::Kidv);
+
+		v.Set(uint32_t(1), Multisig::Codes::ShareResult);
+	}
+
+	WALLET_CHECK(RunNegLoop(pT1[0], pT1[1], "MuSig"));
+
+
+	MultiTx pT2[2];
+	Storage::Map pS2[2];
+
+	for (size_t i = 0; i < _countof(pT2); i++)
+	{
+		IBase& v = pT2[i];
+		v.m_pKdf = pT1[i].m_pKdf;
+		v.m_pStorage = pS2 + i;
+	}
+
+	const Amount pIn0[] = { 30, 50, 45 };
+	const Amount pOut0[] = { 11, 12 };
+
+	const Amount pIn1[] = { 6 };
+	const Amount pOut1[] = { 17, 55 };
+
+	Amount fee = valMSig;
+
+	fee += SetKidvs(pT2[0], pIn0, _countof(pIn0), MultiTx::Codes::InpKidvs);
+	fee -= SetKidvs(pT2[0], pOut0, _countof(pOut0), MultiTx::Codes::OutpKidvs, 700);
+
+	fee += SetKidvs(pT2[1], pIn1, _countof(pIn1), MultiTx::Codes::InpKidvs);
+	fee -= SetKidvs(pT2[1], pOut1, _countof(pOut1), MultiTx::Codes::OutpKidvs, 500);
+
+	for (size_t i = 0; i < _countof(pT2); i++)
+	{
+		IBase& v = pT2[i];
+		v.Set(fee, MultiTx::Codes::KrnFee);
+
+		Key::IDV kidv(Zero);
+		kidv.m_Value = valMSig;
+		kidv.m_Idx = 500;
+		kidv.m_Type = FOURCC_FROM(msg2);
+		v.Set(kidv, MultiTx::Codes::InpMsKidv);
+
+		uint32_t idxTrg = MultiTx::Codes::InpMsCommitment;
+		uint32_t idxSrc = Multisig::Codes::Commitment;
+
+		pS2[i][idxTrg] = pS1[i][idxSrc];
+	}
+
+	WALLET_CHECK(RunNegLoop(pT2[0], pT2[1], "Transaction-with-MuSig"));
+
+	WithdrawTx pT3[2];
+	Storage::Map pS3[2];
+
+	for (size_t i = 0; i < _countof(pT3); i++)
+	{
+		WithdrawTx& v = pT3[i];
+		v.m_pKdf = pT1[i].m_pKdf;
+		v.m_pStorage = pS3 + i;
+
+		WithdrawTx::Worker wrk(v);
+
+		// new multisig
+		Key::IDV ms0(Zero);
+		ms0.m_Value = valMSig;
+		ms0.m_Idx = 500;
+		ms0.m_Type = FOURCC_FROM(msg2);
+
+		Key::IDV ms1 = ms0;
+		ms1.m_Idx = 800;
+
+		ECC::Point comm0;
+		WALLET_CHECK(pT1[i].Get(comm0, Multisig::Codes::Commitment));
+
+
+		std::vector<Key::IDV> vec;
+		vec.resize(1, Zero);
+		vec[0].m_Idx = 315;
+		vec[0].m_Type = Key::Type::Regular;
+
+		Amount half = valMSig / 2;
+		vec[0].m_Value = i ? half : (valMSig - half);
+
+		v.Setup(true, &ms1, &ms0, &comm0, &vec, cpWd);
+	}
+
+	WALLET_CHECK(RunNegLoop(pT3[0], pT3[1], "Withdraw-Tx ritual"));
+
+
+	struct ChannelData
+	{
+		Key::IDV m_msMy;
+		Key::IDV m_msPeer;
+		ECC::Point m_CommPeer;
+	};
+
+	ChannelOpen pT4[2];
+	Storage::Map pS4[2];
+	ChannelData pCData[2];
+
+	for (size_t i = 0; i < _countof(pT4); i++)
+	{
+		ChannelOpen& v = pT4[i];
+		v.m_pKdf = pT1[i].m_pKdf;
+		v.m_pStorage = pS4 + i;
+
+		ChannelOpen::Worker wrk(v);
+
+		Amount half = valMSig / 2;
+		Amount nMyValue = i ? half : (valMSig - half);
+
+		std::vector<Key::IDV> vIn, vOutWd;
+		vIn.resize(1, Zero);
+		vIn[0].m_Idx = 215;
+		vIn[0].m_Type = Key::Type::Regular;
+		vIn[0].m_Value = nMyValue;
+
+		vOutWd.resize(1, Zero);
+		vOutWd[0].m_Idx = 216;
+		vOutWd[0].m_Type = Key::Type::Regular;
+		vOutWd[0].m_Value = nMyValue;
+
+		Key::IDV ms0(Zero);
+		ms0.m_Value = valMSig;
+		ms0.m_Type = FOURCC_FROM(msg2);
+		ms0.m_Idx = 220;
+
+		Key::IDV msA = ms0;
+		msA.m_Idx++;
+		Key::IDV msB = msA;
+		msB.m_Idx++;
+
+		v.Setup(true, &vIn, nullptr, &ms0, MultiTx::KernelParam(), &msA, &msB, &vOutWd, cpWd);
+
+		ChannelData& cd = pCData[i];
+		cd.m_msMy = i ? msB : msA;
+		cd.m_msPeer = i ? msA : msB;
+	}
+
+	WALLET_CHECK(RunNegLoop(pT4[0], pT4[1], "Lightning channel open"));
+
+	for (int i = 0; i < 2; i++)
+	{
+		ChannelOpen::Result r;
+		ChannelOpen::Worker wrk(pT4[i]);
+		pT4[i].get_Result(r);
+
+		WALLET_CHECK(!r.m_tx1.m_vKernels.empty());
+		WALLET_CHECK(!r.m_tx2.m_vKernels.empty());
+		WALLET_CHECK(!r.m_txPeer2.m_vKernels.empty());
+
+		pCData[i].m_CommPeer = r.m_CommPeer1;
+	}
+
+
+	ChannelUpdate pT5[2];
+	Storage::Map pS5[2];
+
+
+	for (size_t i = 0; i < _countof(pT5); i++)
+	{
+		ChannelUpdate& v = pT5[i];
+		v.m_pKdf = pT1[i].m_pKdf;
+		v.m_pStorage = pS5 + i;
+
+		ChannelUpdate::Worker wrk(v);
+
+		Amount nPart = valMSig / 3;
+		Amount nMyValue = i ? nPart : (valMSig - nPart);
+
+		Key::IDV ms0;
+		ECC::Point comm0;
+		{
+			ChannelOpen::Worker wrk2(pT4[i]);
+			pT4[i].m_MSig.Get(comm0, Multisig::Codes::Commitment);
+			pT4[i].m_MSig.Get(ms0, Multisig::Codes::Kidv);
+		}
+
+		Key::IDV msA = ms0;
+		msA.m_Idx += 15;
+		Key::IDV msB = msA;
+		msB.m_Idx++;
+
+		std::vector<Key::IDV> vOutWd;
+		vOutWd.resize(1, Zero);
+		vOutWd[0].m_Idx = 216;
+		vOutWd[0].m_Type = Key::Type::Regular;
+		vOutWd[0].m_Value = nMyValue;
+
+		ChannelData& cd = pCData[i];
+
+		v.Setup(true, &ms0, &comm0, &msA, &msB, &vOutWd, cpWd, &cd.m_msMy, &cd.m_msPeer, &cd.m_CommPeer);
+	}
+
+	WALLET_CHECK(RunNegLoop(pT5[0], pT5[1], "Lightning channel update"));
+
+	for (int i = 0; i < 2; i++)
+	{
+		ChannelUpdate::Result r;
+		ChannelUpdate::Worker wrk(pT5[i]);
+		pT5[i].get_Result(r);
+
+		WALLET_CHECK(!r.m_tx1.m_vKernels.empty());
+		WALLET_CHECK(!r.m_tx2.m_vKernels.empty());
+		WALLET_CHECK(!r.m_txPeer2.m_vKernels.empty());
+
+		WALLET_CHECK(r.m_RevealedSelfKey && r.m_PeerKeyValid);
+	}
+}
+
+
+#if defined(BEAM_HW_WALLET)
+void TestHWWallet()
+{
+    cout << "Test HW wallet" << std::endl;
+
+    HWWallet hw;
+    hw.getOwnerKey([](const std::string& key)
+    {
+        LOG_INFO() << "HWWallet.getOwnerKey(): " << key;
+    });
+
+    hw.generateNonce(1, [](const ECC::Point& nonce)
+    {
+        LOG_INFO() << "HWWallet.generateNonce(): " << nonce;
+    });
+}
+#endif
+
 int main()
 {
     int logLevel = LOG_LEVEL_DEBUG;
@@ -2062,7 +1438,10 @@ int main()
 #endif
     auto logger = beam::Logger::create(logLevel, logLevel);
     Rules::get().FakePoW = true;
+	Rules::get().pForks[1].m_Height = 100500; // needed for lightning network to work
     Rules::get().UpdateChecksum();
+
+	TestNegotiation();
 
     TestP2PWalletNegotiationST();
     //TestP2PWalletReverseNegotiationST();
@@ -2076,17 +1455,20 @@ int main()
 
     TestSplitTransaction();
 
-    //TestSwapTransaction();
-
     TestTxToHimself();
 
-    //TestExpiredTransaction();
+    TestExpiredTransaction();
 
     TestTransactionUpdate();
     //TestTxPerformance();
 
     TestColdWalletSending();
     TestColdWalletReceiving();
+
+    TestTxExceptionHandling();
+#if defined(BEAM_HW_WALLET)
+    TestHWWallet();
+#endif
 
     assert(g_failureCount == 0);
     return WALLET_CHECK_RESULT;

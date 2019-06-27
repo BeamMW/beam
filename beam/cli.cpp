@@ -17,8 +17,8 @@
 
 #include "node/node.h"
 #include "core/ecc_native.h"
-#include "core/ecc.h"
 #include "core/serialization_adapters.h"
+#include "core/block_rw.h"
 #include "utility/cli/options.h"
 #include "utility/log_rotation.h"
 #include "utility/helpers.h"
@@ -190,7 +190,7 @@ int main_impl(int argc, char* argv[])
 
 			Rules::get().UpdateChecksum();
             LOG_INFO() << "Beam Node " << PROJECT_VERSION << " (" << BRANCH_NAME << ")";
-			LOG_INFO() << "Rules signature: " << Rules::get().Checksum;
+			LOG_INFO() << "Rules signature: " << Rules::get().get_SignatureStr();
 
 			auto port = vm[cli::PORT].as<uint16_t>();
 
@@ -229,7 +229,7 @@ int main_impl(int argc, char* argv[])
 					node.m_Cfg.m_Listen.port(port);
 					node.m_Cfg.m_Listen.ip(INADDR_ANY);
 					node.m_Cfg.m_sPathLocal = vm[cli::STORAGE].as<string>();
-					node.m_Cfg.m_MiningThreads = vm[cli::MINING_THREADS].as<uint32_t>();
+					node.m_Cfg.m_MiningThreads = 0; // by default disabled
 					node.m_Cfg.m_VerificationThreads = vm[cli::VERIFICATION_THREADS].as<int>();
 
 					node.m_Cfg.m_LogUtxos = vm[cli::LOG_UTXOS].as<bool>();
@@ -323,13 +323,28 @@ int main_impl(int argc, char* argv[])
 					if (vm.count(cli::ERASE_ID))
 						node.m_Cfg.m_ProcessorParams.m_EraseSelfID = vm[cli::ERASE_ID].as<bool>();
 
-					node.m_Cfg.m_Bbs = vm[cli::BBS_ENABLE].as<bool>();
+					if (!vm[cli::BBS_ENABLE].as<bool>())
+						ZeroObject(node.m_Cfg.m_Bbs.m_Limit);
 
 					node.m_Cfg.m_Horizon.m_Branching = Rules::get().Macroblock.MaxRollback / 4; // inferior branches would be pruned when height difference is this.
 					node.m_Cfg.m_Horizon.m_SchwarzschildHi = vm[cli::HORIZON_HI].as<Height>();
 					node.m_Cfg.m_Horizon.m_SchwarzschildLo = vm[cli::HORIZON_LO].as<Height>();
 
 					node.Initialize(stratumServer.get());
+
+					if (vm.count(cli::GENERATE_RECOVERY_PATH))
+					{
+						string sPath = vm[cli::GENERATE_RECOVERY_PATH].as<string>();
+						LOG_INFO() << "Writing recovery info...";
+						node.GenerateRecoveryInfo(sPath.c_str());
+						LOG_INFO() << "Recovery info written";
+					}
+
+					if (vm.count(cli::RECOVERY_AUTO_PATH))
+					{
+						node.m_Cfg.m_Recovery.m_sPathOutput = vm[cli::RECOVERY_AUTO_PATH].as<string>();
+						node.m_Cfg.m_Recovery.m_Granularity = vm[cli::RECOVERY_AUTO_PERIOD].as<uint32_t>();
+					}
 
 					io::Timer::Ptr pCrashTimer;
 

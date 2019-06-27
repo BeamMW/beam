@@ -17,6 +17,7 @@
 #include <vector>
 #include <functional>
 #include <thread>
+#include <future>
 #include <stdint.h>
 #include <assert.h>
 
@@ -99,6 +100,15 @@ void wait_for_termination(int nSec);
 
 /// reads sensible strings from console input
 void read_password(const char* prompt, SecString& out, bool includeTerminatingZero=false);
+
+
+/// Functor for async call
+using Functor = std::function<void()>;
+/// Functor which should be called when functor will be completed 
+using CompletionCallback = std::function<void()>;
+
+/// Performs functor in background thread, callback will be called in caller thread
+std::future<void> do_thread_async(Functor&& functor, CompletionCallback&& callback);
 
 } //namespace
 

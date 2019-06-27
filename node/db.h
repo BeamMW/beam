@@ -53,6 +53,7 @@ public:
 			HeightTxoLo, // Height starting from which and below Txo info is totally erased.
 			HeightTxoHi, // Height starting from which and below Txo infi is compacted, only the commitment is left
 			SyncData,
+			LastRecoveryHeight,
 		};
 	};
 
@@ -122,12 +123,14 @@ public:
 			BbsEnumCSeq,
 			BbsHistogram,
 			BbsEnumAllSeq,
+			BbsEnumAll,
 			BbsFindRaw,
 			BbsFind,
 			BbsFindCursor,
-			BbsDelOld,
+			BbsDel,
 			BbsIns,
 			BbsMaxTime,
+			BbsTotals,
 			DummyIns,
 			DummyFindLowest,
 			DummyFind,
@@ -145,7 +148,8 @@ public:
 			TxoEnumBySpent,
 			TxoDelSpentTxosFrom,
 			TxoSetValue,
-            BlockFind,
+			TxoGetValue,
+			BlockFind,
 			FindHeightBelow,
 
 			Dbg0,
@@ -367,10 +371,17 @@ public:
 	uint64_t BbsIns(const WalkerBbs::Data&); // must be unique (if not sure - first try to find it). Returns the ID
 	bool BbsFind(WalkerBbs&); // set Key
 	uint64_t BbsFind(const WalkerBbs::Key&);
-	void BbsDelOld(Timestamp tMinToRemain);
+	void BbsDel(uint64_t id);
 	uint64_t BbsFindCursor(Timestamp);
 	Timestamp get_BbsMaxTime();
 	uint64_t get_BbsLastID();
+
+	struct BbsTotals {
+		uint32_t m_Count;
+		uint64_t m_Size;
+	};
+
+	void get_BbsTotals(BbsTotals&);
 
 	struct WalkerBbsLite
 	{
@@ -386,6 +397,19 @@ public:
 	};
 
 	void EnumAllBbsSeq(WalkerBbsLite&); // ordered by m_ID. Must be initialized to specify the lower bound
+
+	struct WalkerBbsTimeLen
+	{
+		Recordset m_Rs;
+		uint64_t m_ID;
+		Timestamp m_Time;
+		uint32_t m_Size;
+
+		WalkerBbsTimeLen(NodeDB& db) :m_Rs(db) {}
+		bool MoveNext();
+	};
+
+	void EnumAllBbs(WalkerBbsTimeLen&); // ordered by m_ID.
 
 	struct IBbsHistogram {
 		virtual bool OnChannel(BbsChannel, uint64_t nCount) = 0;
@@ -426,6 +450,7 @@ public:
 	void EnumTxosBySpent(WalkerTxo&, const HeightRange&);
 	uint64_t DeleteSpentTxos(const HeightRange&, TxoID id0); // delete Txos where (SpendHeight is within range) AND (TxoID >= id0)
 	void TxoSetValue(TxoID, const Blob&);
+	void TxoGetValue(WalkerTxo&, TxoID);
 
 	// reset cursor to zero. Keep all the data: local peers, bbs, dummy UTXOs
 	void ResetCursor();

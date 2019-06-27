@@ -201,6 +201,17 @@ void LoadingViewModel::onGetWalletError(beam::wallet::ErrorType error)
         }
     }
 
+    // For task 721. For now we're handling only port error.
+    // There rest need to be added later
+    switch (error)
+    {
+        case beam::wallet::ErrorType::ConnectionAddrInUse:
+            emit walletError(qtTrId("loading-view-connection-error"), m_walletModel.GetErrorString(error));
+            return;
+        default:
+            break;
+    }
+
     m_skipProgress = true;
     updateProgress();
 }

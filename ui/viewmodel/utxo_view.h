@@ -30,7 +30,7 @@ class UtxoItem : public QObject
 public:
 
     UtxoItem() = default;
-    UtxoItem(const beam::Coin& coin);
+    UtxoItem(const beam::wallet::Coin& coin);
     virtual ~UtxoItem();
 
     QString amount() const;
@@ -40,13 +40,13 @@ public:
 
     beam::Amount rawAmount() const;
     beam::Height rawMaturity() const;
-	const beam::Coin::ID& get_ID() const;
+	const beam::wallet::Coin::ID& get_ID() const;
 
 signals:
     void changed();
 
 private:
-    beam::Coin _coin;
+    beam::wallet::Coin _coin;
 };
 
 class UtxoViewModel : public QObject
@@ -77,8 +77,8 @@ public:
     Qt::SortOrder sortOrder() const;
     void setSortOrder(Qt::SortOrder);
 public slots:
-    void onAllUtxoChanged(const std::vector<beam::Coin>& utxos);
-    void onStatus(const WalletStatus& status);
+    void onAllUtxoChanged(const std::vector<beam::wallet::Coin>& utxos);
+    void onStatus(const beam::wallet::WalletStatus& status);
 signals:
     void allUtxoChanged();
     void stateChanged();

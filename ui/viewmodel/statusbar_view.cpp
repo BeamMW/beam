@@ -69,10 +69,14 @@ int StatusbarViewModel::getNodeSyncProgress() const
 
 QString StatusbarViewModel::getBranchName() const
 {
+#ifdef BEAM_MAINNET
+    return QString();
+#else
     if (BRANCH_NAME.empty())
         return QString();
 
     return QString::fromStdString(" (" + BRANCH_NAME + ")");
+#endif
 }
 
 QString StatusbarViewModel::getWalletStatusErrorMsg() const

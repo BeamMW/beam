@@ -37,6 +37,11 @@ void NodeModel::setKdf(beam::Key::IKdf::Ptr kdf)
     m_nodeClient.setKdf(kdf);
 }
 
+void NodeModel::setOwnerKey(beam::Key::IPKdf::Ptr key)
+{
+    m_nodeClient.setOwnerKey(key);
+}
+
 void NodeModel::startNode()
 {
     m_nodeClient.startNode();

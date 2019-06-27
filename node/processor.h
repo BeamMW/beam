@@ -242,14 +242,14 @@ public:
 	};
 	virtual bool EnumViewerKeys(IKeyWalker&) { return true; }
 
-	bool Recover(Key::IDV&, const Output&);
+	bool Recover(Key::IDV&, const Output&, Height hMax);
 
 	void RescanOwnedTxos();
 
 	uint64_t FindActiveAtStrict(Height);
 
-	bool ValidateTxContext(const Transaction&); // assuming context-free validation is already performed, but 
-	bool ValidateTxWrtHeight(const Transaction&) const;
+	bool ValidateTxContext(const Transaction&, const HeightRange&); // assuming context-free validation is already performed, but 
+	bool ValidateTxWrtHeight(const Transaction&, const HeightRange&);
 
 	struct GeneratedBlock
 	{
@@ -282,7 +282,6 @@ public:
 	};
 
 	bool GenerateNewBlock(BlockContext&);
-	void DeleteOutdated(TxPool::Fluff&);
 
 	bool GetBlock(const NodeDB::StateID&, ByteBuffer* pEthernal, ByteBuffer* pPerishable, Height h0, Height hLo1, Height hHi1);
 

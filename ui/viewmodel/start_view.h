@@ -14,8 +14,10 @@
 
 #pragma once
 
-#include <QObject>
 #include <functional>
+
+#include <QObject>
+#include <QDateTime>
 #include <QQmlListProperty>
 
 #include "wallet/wallet_db.h"
@@ -59,20 +61,35 @@ class WalletDBPathItem : public QObject
     Q_PROPERTY(QString fullPath READ getFullPath CONSTANT)
     Q_PROPERTY(int fileSize READ getFileSize CONSTANT)
     Q_PROPERTY(QString lastWriteDateString READ getLastWriteDateString CONSTANT)
+    Q_PROPERTY(QString creationDateString READ getCreationDateString CONSTANT)
+    Q_PROPERTY(bool isPreferred READ isPreferred CONSTANT)
 public:
-    WalletDBPathItem(const std::string& walletDBPath, uintmax_t fileSize, time_t m_lastWriteTime);
+    WalletDBPathItem(
+            const QString& walletDBPath,
+            uintmax_t fileSize,
+            QDateTime lastWriteTime,
+            QDateTime creationTime,
+            bool defaultLocated = false);
     WalletDBPathItem() = default;
     virtual ~WalletDBPathItem();
 
-    QString getFullPath() const;
+    const QString& getFullPath() const;
     QString getShortPath() const;
     int getFileSize() const;
     QString getLastWriteDateString() const;
+    QString getCreationDateString() const;
+    QDateTime getLastWriteDate() const;
+    bool locatedByDefault() const;
+    void setPreferred(bool isPreferred = true);
+    bool isPreferred() const;
 
 private:
-    std::string m_fullPath;
+    QString m_fullPath;
     uintmax_t m_fileSize = 0;
-    time_t m_lastWriteTime = 0;
+    QDateTime m_lastWriteTime;
+    QDateTime m_creationTime;
+    bool m_defaultLocated = false;
+    bool m_isPreferred = false;
 };
 
 class StartViewModel : public QObject
@@ -89,10 +106,11 @@ class StartViewModel : public QObject
     Q_PROPERTY(QString remoteNodeAddress READ getRemoteNodeAddress CONSTANT)
     Q_PROPERTY(QString localNodePeer READ getLocalNodePeer CONSTANT)
     Q_PROPERTY(QQmlListProperty<WalletDBPathItem> walletDBpaths READ getWalletDBpaths CONSTANT)
+    Q_PROPERTY(bool isCapsLockOn READ isCapsLockOn NOTIFY capsLockStateMayBeChanged)
 
 public:
 
-    using DoneCallback = std::function<bool (beam::IWalletDB::Ptr db, const std::string& walletPass)>;
+    using DoneCallback = std::function<bool (beam::wallet::IWalletDB::Ptr db, const std::string& walletPass)>;
 
     StartViewModel();
     ~StartViewModel();
@@ -107,6 +125,7 @@ public:
     QString getRemoteNodeAddress() const;
     QString getLocalNodePeer() const;
     QQmlListProperty<WalletDBPathItem> getWalletDBpaths();
+    bool isCapsLockOn() const;
 
     Q_INVOKABLE void setupLocalNode(int port, const QString& localNodePeer);
     Q_INVOKABLE void setupRemoteNode(const QString& nodeAddress);
@@ -125,6 +144,8 @@ public:
     Q_INVOKABLE QString selectCustomWalletDB();
     Q_INVOKABLE QString defaultPortToListen() const;
     Q_INVOKABLE QString defaultRemoteNodeAddr() const;
+    Q_INVOKABLE void checkCapsLock();
+    Q_INVOKABLE void openFolder(const QString& path) const;
 
 signals:
     void walletExistsChanged();
@@ -132,12 +153,14 @@ signals:
     void recoveryPhrasesChanged();
     void checkPhrasesChanged();
     void isRecoveryModeChanged();
+    void capsLockStateMayBeChanged();
 
 public slots:
     bool createWallet();
     bool openWallet(const QString& pass);
     bool checkWalletPassword(const QString& password) const;
     void setPassword(const QString& pass);
+    void onNodeSettingsChanged();
 
 private:
 

@@ -38,6 +38,9 @@
 
 #include "wallet/wallet_db.h"
 #include "wallet/wallet_network.h"
+#include "wallet/bitcoin/options.h"
+#include "wallet/litecoin/options.h"
+#include "wallet/qtum/options.h"
 
 #include "nlohmann/json.hpp"
 #include "version.h"
@@ -47,7 +50,10 @@ using json = nlohmann::json;
 static const unsigned LOG_ROTATION_PERIOD = 3 * 60 * 60 * 1000; // 3 hours
 static const size_t PACKER_FRAGMENTS_SIZE = 4096;
 
-namespace beam
+using namespace beam;
+using namespace beam::wallet;
+
+namespace
 {
     struct TlsOptions
     {
@@ -263,12 +269,36 @@ namespace beam
                 serializeMsg(msg);
             }
 
+            void FillAddressData(const AddressData& data, WalletAddress& address)
+            {
+                if (data.comment)
+                {
+                    address.setLabel(*data.comment);
+                }
+
+                if (data.expiration)
+                {
+                    switch (*data.expiration)
+                    {
+                    case EditAddress::OneDay:
+                        address.makeActive(24 * 60 * 60);
+                        break;
+                    case EditAddress::Expired:
+                        address.makeExpired();
+                        break;
+                    case EditAddress::Never:
+                        address.makeEternal();
+                        break;
+                    }
+                }
+            }
+
             void onMessage(int id, const CreateAddress& data) override 
             {
-                LOG_DEBUG() << "CreateAddress(id = " << id << " lifetime = " << data.lifetime << ")";
+                LOG_DEBUG() << "CreateAddress(id = " << id << ")";
 
-                WalletAddress address = wallet::createAddress(*_walletDB);
-                address.m_duration = data.lifetime * 60 * 60;
+                WalletAddress address = storage::createAddress(*_walletDB);
+                FillAddressData(data, address);
 
                 _walletDB->saveAddress(address);
 
@@ -303,27 +333,7 @@ namespace beam
                 {
                     if (addr->m_OwnID)
                     {
-                        if (data.comment)
-                        {
-                            addr->setLabel(*data.comment);
-                        }
-
-                        if (data.expiration)
-                        {
-                            switch (*data.expiration)
-                            {
-                            case EditAddress::OneDay:
-                                addr->makeActive(24 * 60 * 60);
-                                break;
-                            case EditAddress::Expired:
-                                addr->makeExpired();
-                                break;
-                            case EditAddress::Never:
-                                addr->makeEternal();
-                                break;
-                            }
-                        }
-
+                        FillAddressData(data, *addr);
                         _walletDB->saveAddress(*addr);
 
                         doResponse(id, EditAddress::Response{});
@@ -384,7 +394,7 @@ namespace beam
                     }
                     else
                     {
-                        WalletAddress senderAddress = wallet::createAddress(*_walletDB);
+                        WalletAddress senderAddress = storage::createAddress(*_walletDB);
                         _walletDB->saveAddress(senderAddress);
 
                         from = senderAddress.m_walletID;     
@@ -409,7 +419,8 @@ namespace beam
                         coins = data.coins ? *data.coins : CoinIDList();
                     }
 
-                    auto txId = _wallet.transfer_money(from, data.address, data.value, data.fee, coins, true, 120, 720, std::move(message), true);
+                    auto txId = _wallet.transfer_money(from, data.address, data.value, data.fee, coins, true, kDefaultTxLifetime, kDefaultTxResponseTime, std::move(message), true);
+
                     doResponse(id, Send::Response{ txId });
                 }
                 catch(...)
@@ -435,7 +446,7 @@ namespace beam
                     result.systemHeight = stateID.m_Height;
                     result.confirmations = 0;
 
-                    wallet::getTxParameter(*_walletDB, tx->m_txId, wallet::TxParameterID::KernelProofHeight, result.kernelProofHeight);
+                    storage::getTxParameter(*_walletDB, tx->m_txId, TxParameterID::KernelProofHeight, result.kernelProofHeight);
 
                     doResponse(id, result);
                 }
@@ -452,7 +463,7 @@ namespace beam
                 LOG_DEBUG() << "], fee = " << data.fee;
                 try
                 {
-                     WalletAddress senderAddress = wallet::createAddress(*_walletDB);
+                     WalletAddress senderAddress = storage::createAddress(*_walletDB);
                     _walletDB->saveAddress(senderAddress);
 
                     auto txId = _wallet.split_coins(senderAddress.m_walletID, data.coins, data.fee);
@@ -577,7 +588,7 @@ namespace beam
                     response.difficulty = state.m_PoW.m_Difficulty.ToFloat();
                 }
 
-				wallet::Totals totals(*_walletDB);
+                storage::Totals totals(*_walletDB);
 
                 response.available = totals.Avail;
                 response.receiving = totals.Incoming;
@@ -629,7 +640,7 @@ namespace beam
                         item.systemHeight = stateID.m_Height;
                         item.confirmations = 0;
 
-                        wallet::getTxParameter(*_walletDB, tx.m_txId, wallet::TxParameterID::KernelProofHeight, item.kernelProofHeight);
+                        storage::getTxParameter(*_walletDB, tx.m_txId, TxParameterID::KernelProofHeight, item.kernelProofHeight);
                         res.resultList.push_back(item);
                     }
                 }
@@ -883,6 +894,7 @@ int main(int argc, char* argv[])
             std::string walletPath;
             std::string nodeURI;
             bool useHttp;
+            Nonnegative<uint32_t> pollPeriod_ms;
 
             bool useAcl;
             std::string aclPath;
@@ -911,6 +923,7 @@ int main(int argc, char* argv[])
                 (cli::API_USE_HTTP, po::value<bool>(&options.useHttp)->default_value(false), "use JSON RPC over HTTP")
                 (cli::IP_WHITELIST, po::value<std::string>(&options.whitelist)->default_value(""), "IP whitelist")
                 (cli::LOG_CLEANUP_DAYS, po::value<uint32_t>(&options.logCleanupPeriod)->default_value(5), "old logfiles cleanup period(days)")
+                (cli::NODE_POLL_PERIOD, po::value<Nonnegative<uint32_t>>(&options.pollPeriod_ms)->default_value(Nonnegative<uint32_t>(0)), "Node poll period in milliseconds. Set to 0 to keep connection. Anyway poll period would be no less than the expected rate of blocks if it is less then it will be rounded up to block rate value.")
             ;
 
             po::options_description authDesc("User authorization options");
@@ -958,7 +971,7 @@ int main(int argc, char* argv[])
 
             Rules::get().UpdateChecksum();
             LOG_INFO() << "Beam Wallet API " << PROJECT_VERSION << " (" << BRANCH_NAME << ")";
-            LOG_INFO() << "Rules signature: " << Rules::get().Checksum;
+            LOG_INFO() << "Rules signature: " << Rules::get().get_SignatureStr();
             
             if (options.useAcl)
             {
@@ -1048,6 +1061,22 @@ int main(int argc, char* argv[])
         Wallet wallet{ walletDB };
 
         auto nnet = std::make_shared<proto::FlyClient::NetworkStd>(wallet);
+        nnet->m_Cfg.m_PollPeriod_ms = options.pollPeriod_ms.value;
+        
+        if (nnet->m_Cfg.m_PollPeriod_ms)
+        {
+            LOG_INFO() << "Node poll period = " << nnet->m_Cfg.m_PollPeriod_ms << " ms";
+            uint32_t timeout_ms = std::max(Rules::get().DA.Target_s * 1000, nnet->m_Cfg.m_PollPeriod_ms);
+            if (timeout_ms != nnet->m_Cfg.m_PollPeriod_ms)
+            {
+                LOG_INFO() << "Node poll period has been automatically rounded up to block rate: " << timeout_ms << " ms";
+            }
+        }
+        uint32_t responceTime_s = Rules::get().DA.Target_s * wallet::kDefaultTxResponseTime;
+        if (nnet->m_Cfg.m_PollPeriod_ms >= responceTime_s * 1000)
+        {
+            LOG_WARNING() << "The \"--node_poll_period\" parameter set to more than " << uint32_t(responceTime_s / 3600) << " hours may cause transaction problems.";
+        }
         nnet->m_Cfg.m_vNodes.push_back(node_addr);
         nnet->Connect();
 

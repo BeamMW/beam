@@ -134,7 +134,7 @@ void NodeDB::Close()
 		for (size_t i = 0; i < _countof(m_pPrep); i++)
 			m_pPrep[i].Close();
 
-		verify(SQLITE_OK == sqlite3_close(m_pDb));
+        BEAM_VERIFY(SQLITE_OK == sqlite3_close(m_pDb));
 		m_pDb = NULL;
 	}
 }
@@ -676,7 +676,7 @@ uint64_t NodeDB::InsertState(const Block::SystemState::Full& s)
 	rs.put(1, hash);
 	rs.put(2, StateFlags::Functional);
 
-	verify(rs.Step());
+    BEAM_VERIFY(rs.Step());
 	rs.get(0, nCountNextF);
 
 	// Insert row
@@ -1714,6 +1714,29 @@ bool NodeDB::WalkerBbsLite::MoveNext()
 	return true;
 }
 
+void NodeDB::EnumAllBbs(WalkerBbsTimeLen& x)
+{
+	x.m_Rs.Reset(Query::BbsEnumAll, "SELECT " TblBbs_ID "," TblBbs_Time ",LENGTH(" TblBbs_Msg ") FROM " TblBbs " ORDER BY " TblBbs_ID);
+}
+
+bool NodeDB::WalkerBbsTimeLen::MoveNext()
+{
+	if (!m_Rs.Step())
+		return false;
+	m_Rs.get(0, m_ID);
+	m_Rs.get(1, m_Time);
+	m_Rs.get(2, m_Size);
+	return true;
+}
+
+void NodeDB::get_BbsTotals(BbsTotals& x)
+{
+	Recordset rs(*this, Query::BbsTotals, "SELECT COUNT(*), SUM(Length(" TblBbs_Msg ")) FROM " TblBbs);
+	rs.StepStrict();
+
+	rs.get(0, x.m_Count);
+	rs.get(1, x.m_Size);
+}
 
 #define TblBbs_InsFieldsListed TblBbs_Key "," TblBbs_Channel "," TblBbs_Time "," TblBbs_Msg "," TblBbs_Nonce
 #define TblBbs_AllFieldsListed TblBbs_ID "," TblBbs_InsFieldsListed
@@ -1783,11 +1806,12 @@ uint64_t NodeDB::BbsFind(const WalkerBbs::Key& key)
 	return id;
 }
 
-void NodeDB::BbsDelOld(Timestamp tMinToRemain)
+void NodeDB::BbsDel(uint64_t id)
 {
-	Recordset rs(*this, Query::BbsDelOld, "DELETE FROM " TblBbs " WHERE " TblBbs_Time "<?");
-	rs.put(0, tMinToRemain);
+	Recordset rs(*this, Query::BbsDel, "DELETE FROM " TblBbs " WHERE " TblBbs_ID "=?");
+	rs.put(0, id);
 	rs.Step();
+	TestChanged1Row();
 }
 
 uint64_t NodeDB::BbsIns(const WalkerBbs::Data& d)
@@ -2056,6 +2080,15 @@ void NodeDB::TxoSetValue(TxoID id, const Blob& v)
 	rs.put(1, id);
 	rs.Step();
 	TestChanged1Row();
+}
+
+void NodeDB::TxoGetValue(WalkerTxo& wlk, TxoID id0)
+{
+	wlk.m_Rs.Reset(Query::TxoGetValue, "SELECT " TblTxo_Value " FROM " TblTxo " WHERE " TblTxo_ID "=?");
+	wlk.m_Rs.put(0, id0);
+
+	wlk.m_Rs.StepStrict();
+	wlk.m_Rs.get(0, wlk.m_Value);
 }
 
 } // namespace beam

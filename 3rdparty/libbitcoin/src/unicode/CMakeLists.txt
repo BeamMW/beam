@@ -1,0 +1,28 @@
+set(TARGET_NAME libbitcoin_unicode)
+
+file(GLOB SOURCES "*.cpp")
+file(GLOB HEADERS "${LIBBITCOIN_INCLUDE_DIR}/unicode/*.hpp")
+
+add_library(${TARGET_NAME} OBJECT ${SOURCES} ${HEADERS})
+
+if(MSVC)
+    target_compile_options(${TARGET_NAME} PUBLIC "/wd4389")
+    target_compile_options(${TARGET_NAME} PUBLIC "/wd4996")
+elseif(APPLE)
+    target_compile_options(${TARGET_NAME} PUBLIC -Wno-unused-private-field)
+    target_compile_options(${TARGET_NAME} PUBLIC -Wno-unused-variable)
+    target_compile_options(${TARGET_NAME} PUBLIC -Wno-reorder)
+elseif(ANDROID)
+    target_compile_options(${TARGET_NAME} PUBLIC -Wno-unused-private-field)
+    target_compile_options(${TARGET_NAME} PUBLIC -Wno-unused-variable)
+    target_compile_options(${TARGET_NAME} PUBLIC -Wno-reorder)
+    target_compile_options(${TARGET_NAME} PUBLIC -Wno-tautological-constant-out-of-range-compare)
+else()
+    target_compile_options(${TARGET_NAME} PUBLIC -Wno-reorder)
+    target_compile_options(${TARGET_NAME} PUBLIC -Wno-sign-compare)
+    target_compile_options(${TARGET_NAME} PUBLIC -fpermissive)
+endif()
+
+if(Boost_FOUND)
+    target_link_libraries(${TARGET_NAME} boost)
+endif()

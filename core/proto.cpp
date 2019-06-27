@@ -313,6 +313,8 @@ bool NotCalled_VerifyNoDuplicatedIDs(uint32_t id)
 NodeConnection::NodeConnection()
     :m_Protocol('B', 'm', 10, sizeof(HighestMsgCode), *this, 20000)
     ,m_ConnectPending(false)
+	,m_RulesCfgSent(false)
+	,m_PeerSupportsLogin1(false)
 {
 #define THE_MACRO(code, msg) \
     m_Protocol.add_message_handler<NodeConnection, msg##_NoInit, &NodeConnection::OnMsgInternal>(uint8_t(code), this, 0, 1024*1024*10);
@@ -334,6 +336,8 @@ void NodeConnection::Reset()
         m_ConnectPending = false;
     }
 
+	m_RulesCfgSent = false;
+	m_PeerSupportsLogin1 = false;
     m_Connection = NULL;
     m_pAsyncFail = NULL;
 
@@ -610,6 +614,158 @@ void NodeConnection::OnMsg(SChannelInitiate&& msg)
 	OnConnectedSecure();
 }
 
+void NodeConnection::SendLogin()
+{
+	Login msg;
+	msg.m_Flags = LoginFlags::ExtensionsAll;
+	SetupLogin(msg);
+
+	const Rules& r = Rules::get();
+
+	if (m_PeerSupportsLogin1)
+	{
+
+		if (!m_RulesCfgSent)
+		{
+			m_RulesCfgSent = true;
+
+			Height hMin = get_MinPeerFork();
+			size_t iFork = _countof(r.pForks);
+			while (iFork)
+			{
+				if (r.pForks[--iFork].m_Height <= hMin)
+					break;
+			}
+
+			msg.m_Cfgs.reserve(_countof(r.pForks) - iFork);
+
+			for (; iFork < _countof(r.pForks); iFork++)
+			{
+				const HeightHash& x = r.pForks[iFork];
+				if (MaxHeight == x.m_Height)
+					break;
+				msg.m_Cfgs.push_back(r.pForks[iFork].m_Hash);
+			}
+		}
+
+		Send(msg);
+	}
+	else
+	{
+		Login0 msg0;
+		msg0.m_CfgChecksum = r.pForks[0].m_Hash;
+		msg0.m_Flags = static_cast<uint8_t>(msg.m_Flags);
+		Send(msg0);
+	}
+}
+
+void NodeConnection::SetupLogin(Login&)
+{
+}
+
+Height NodeConnection::get_MinPeerFork()
+{
+	return Rules::HeightGenesis - 1;
+}
+
+void NodeConnection::OnLogin(Login&&)
+{
+}
+
+void NodeConnection::OnMsg(Login0&& msg0)
+{
+	const Rules& r = Rules::get();
+
+	if (msg0.m_CfgChecksum != r.pForks[0].m_Hash)
+	{
+		std::ostringstream os;
+		os << "Incompatible peer cfg: " << msg0.m_CfgChecksum;
+
+		ThrowUnexpected(os.str().c_str(), NodeProcessingException::Type::Incompatible);
+	}
+
+	if (!m_PeerSupportsLogin1 && (LoginFlags::Extension3 & msg0.m_Flags))
+	{
+		m_PeerSupportsLogin1 = true;
+		SendLogin();
+	}
+
+	Login msg;
+	msg.m_Flags = msg0.m_Flags;
+
+	OnLoginInternal(MaxHeight, std::move(msg));
+}
+
+void NodeConnection::OnMsg(Login&& msg)
+{
+	if (msg.m_Cfgs.empty()) // Peers send cfgs only on 1st login
+	{
+		OnLoginInternal(MaxHeight, std::move(msg));
+		return;
+	}
+
+	const Rules& r = Rules::get();
+	for (size_t i = msg.m_Cfgs.size(); ; )
+	{
+		if (!i--)
+			break; // no compatible cfg found
+
+		const HeightHash* pFork = r.FindFork(msg.m_Cfgs[i]);
+		if (pFork)
+		{
+			Height hMaxScheme = MaxHeight;
+			if (&r.get_LastFork() != pFork)
+			{
+				if (i + 1 != msg.m_Cfgs.size())
+					break; // overlap config found, but then we have incompatible forks.
+
+				hMaxScheme = pFork[1].m_Height - 1;
+			}
+
+			OnLoginInternal(hMaxScheme, std::move(msg));
+			return;
+		}
+	}
+
+	std::ostringstream os;
+	os << "Incompatible peer cfgs: ";
+
+	for (size_t i = 0; ; )
+	{
+		os << msg.m_Cfgs[i];
+		if (++i == msg.m_Cfgs.size())
+			break;
+
+		os << ", ";
+	}
+
+	ThrowUnexpected(os.str().c_str(), NodeProcessingException::Type::Incompatible);
+}
+
+void NodeConnection::OnLoginInternal(Height hScheme, Login&& msg)
+{
+	if ((~LoginFlags::Recognized) & msg.m_Flags) {
+		LOG_WARNING() << "Peer " << m_Connection->peer_address() << " Uses newer protocol.";
+	}
+	else
+	{
+		const uint32_t nMask = LoginFlags::ExtensionsAll;
+		uint32_t nFlags2 = nMask & msg.m_Flags;
+		if (nFlags2 != nMask)
+		{
+			LOG_WARNING() << "Peer " << m_Connection->peer_address() << " Uses older protocol: " << nFlags2;
+
+			hScheme = std::min(hScheme, Rules::get().pForks[1].m_Height - 1); // doesn't support extensions - must be before the 1st fork
+		}
+	}
+
+	Height hMinScheme = get_MinPeerFork();
+	if (hScheme < hMinScheme)
+		ThrowUnexpected("Legacy", NodeProcessingException::Type::Incompatible);
+
+	OnLogin(std::move(msg));
+}
+
 void NodeConnection::OnMsg(SChannelReady&& msg)
 {
     if (ProtocolPlus::Mode::Outgoing != m_Protocol.m_Mode)
@@ -800,25 +956,6 @@ void NodeConnection::OnMsg(Time&& msg)
 		os << "Time diff too large. Local=" << ts << ", Remote=" << msg.m_Value;
 
 		ThrowUnexpected(os.str().c_str(), NodeProcessingException::Type::TimeOutOfSync);
-	}
-}
-
-void NodeConnection::VerifyCfg(const Login& msg)
-{
-	if (msg.m_CfgChecksum != Rules::get().Checksum) {
-		ThrowUnexpected("Incompatible peer cfg!", NodeProcessingException::Type::Incompatible);
-	}
-
-	if ((~proto::LoginFlags::Recognized) & msg.m_Flags) {
-		LOG_WARNING() << "Peer " << m_Connection->peer_address() << " Uses newer protocol.";
-	}
-	else
-	{
-		const uint8_t nMask = proto::LoginFlags::Extension1 | proto::LoginFlags::Extension2;
-		uint8_t nFlags = nMask & msg.m_Flags;
-		if (nFlags != nMask) {
-			LOG_WARNING() << "Peer " << m_Connection->peer_address() << " Uses older protocol: " << static_cast<uint32_t>(nFlags);
-		}
 	}
 }
 

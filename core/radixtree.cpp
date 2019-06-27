@@ -509,7 +509,7 @@ void RadixHashTree::get_Proof(Merkle::Proof& proof, const CursorBase& cu)
 void UtxoTree::MyLeaf::get_Hash(Merkle::Hash& hv, const Key& key, Input::Count nCount)
 {
 	ECC::Hash::Processor()
-		<< Blob(key.m_pArr, Key::s_Bytes) // whole description of the UTXO
+		<< key.V // whole description of the UTXO
 		<< nCount
 		>> hv;
 }
@@ -547,6 +547,12 @@ Input::Count UtxoTree::MyLeaf::get_Count() const
 bool UtxoTree::MyLeaf::IsExt() const
 {
 	return 0 != (s_User & m_Bits);
+}
+
+bool UtxoTree::MyLeaf::IsCommitmentDuplicated() const
+{
+	const uint16_t nBitsPostCommitment = Key::s_Bits - Key::s_BitsCommitment;
+	return get_Bits() <= nBitsPostCommitment;
 }
 
 UtxoTree::MyLeaf::~MyLeaf()
@@ -640,7 +646,7 @@ void UtxoTree::LoadIntenral(ISerializer& s)
 		if (i)
 		{
 			// must be in ascending order
-			if (keyPrev.cmp(key) >= 0)
+			if (keyPrev.V.cmp(key.V) >= 0)
 				throw std::runtime_error("incorrect order");
 		}
 
@@ -662,15 +668,10 @@ void UtxoTree::LoadIntenral(ISerializer& s)
 	}
 }
 
-int UtxoTree::Key::cmp(const Key& k) const
-{
-	return memcmp(m_pArr, k.m_pArr, sizeof(m_pArr));
-}
-
 UtxoTree::Key::Data& UtxoTree::Key::Data::operator = (const Key& key)
 {
-	memcpy(m_Commitment.m_X.m_pData, key.m_pArr, m_Commitment.m_X.nBytes);
-	const uint8_t* pKey = key.m_pArr + m_Commitment.m_X.nBytes;
+	memcpy(m_Commitment.m_X.m_pData, key.V.m_pData, m_Commitment.m_X.nBytes);
+	const uint8_t* pKey = key.V.m_pData + m_Commitment.m_X.nBytes;
 
 	m_Commitment.m_Y = 1 & (pKey[0] >> 7);
 
@@ -683,10 +684,10 @@ UtxoTree::Key::Data& UtxoTree::Key::Data::operator = (const Key& key)
 
 UtxoTree::Key& UtxoTree::Key::operator = (const Data& d)
 {
-	memcpy(m_pArr, d.m_Commitment.m_X.m_pData, d.m_Commitment.m_X.nBytes);
+	memcpy(V.m_pData, d.m_Commitment.m_X.m_pData, d.m_Commitment.m_X.nBytes);
 
-	uint8_t* pKey = m_pArr + d.m_Commitment.m_X.nBytes;
-	memset0(pKey, sizeof(m_pArr) - d.m_Commitment.m_X.nBytes);
+	uint8_t* pKey = V.m_pData + d.m_Commitment.m_X.nBytes;
+	memset0(pKey, sizeof(V.m_pData) - d.m_Commitment.m_X.nBytes);
 
 	if (d.m_Commitment.m_Y)
 		pKey[0] |= (1 << 7);
@@ -699,6 +700,86 @@ UtxoTree::Key& UtxoTree::Key::operator = (const Data& d)
 	}
 
 	return *this;
+}
+
+bool UtxoTree::Compact::Add(const Key& key)
+{
+	uint16_t nBitsCommon = 0;
+
+	if (!m_vNodes.empty())
+	{
+		int nCmp = m_LastKey.V.cmp(key.V);
+		if (nCmp > 0)
+			return false;
+
+		assert(m_LastCount);
+
+		if (!nCmp)
+		{
+			m_LastCount++;
+			return !!m_LastCount; // overflow check
+		}
+
+		Key k1 = m_LastKey;
+		k1.V ^= key.V;
+
+		// calculate the common bits num!
+		uint16_t nOrder = static_cast<uint16_t>(k1.V.get_Order());
+		nBitsCommon = k1.V.nBits - nOrder;
+		assert(nBitsCommon < Key::s_Bits);
+
+		FlushInternal(nBitsCommon);
+	}
+
+	Node& n = m_vNodes.emplace_back();
+	n.m_nBitsCommon = nBitsCommon;
+
+	m_LastKey = key;
+	m_LastCount = 1;
+
+	return true;
+}
+
+void UtxoTree::Compact::Flush(Merkle::Hash& hv)
+{
+	if (m_vNodes.empty())
+		hv = Zero;
+	else
+	{
+		FlushInternal(0);
+
+		assert(m_vNodes.size() == 1);
+		assert(!m_LastCount);
+
+		hv = m_vNodes.front().m_Hash;
+	}
+}
+
+void UtxoTree::Compact::FlushInternal(uint16_t nBitsCommonNext)
+{
+	assert(!m_vNodes.empty());
+	Node& n = m_vNodes.back();
+	if (m_LastCount)
+	{
+		// convert leaf -> node
+		MyLeaf::get_Hash(n.m_Hash, m_LastKey, m_LastCount);
+		m_LastCount = 0;
+	}
+
+	for (; m_vNodes.size() > 1; m_vNodes.pop_back())
+	{
+		Node& n1 = m_vNodes[m_vNodes.size() - 1];
+
+		if (n1.m_nBitsCommon < nBitsCommonNext)
+			break;
+
+		Node& n0 = m_vNodes[m_vNodes.size() - 2];
+
+		ECC::Hash::Processor()
+			<< n0.m_Hash
+			<< n1.m_Hash
+			>> n0.m_Hash;
+	}
 }
 
 } // namespace beam

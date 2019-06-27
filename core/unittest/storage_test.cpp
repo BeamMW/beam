@@ -366,9 +366,9 @@ namespace beam
 			virtual bool OnLeaf(const RadixTree::Leaf& x) override
 			{
 				const UtxoTree::MyLeaf& v = Cast::Up<UtxoTree::MyLeaf>(x);
-				verify_test(v.m_Key >= m_Min);
-				verify_test(v.m_Key <= m_Max);
-				verify_test(v.m_Key > m_Last);
+				verify_test(v.m_Key.V >= m_Min.V);
+				verify_test(v.m_Key.V <= m_Max.V);
+				verify_test(v.m_Key.V > m_Last.V);
 				m_Last = v.m_Key;
 				return true;
 			}
@@ -376,16 +376,40 @@ namespace beam
 
 		ZeroObject(t2.m_Min);
 		ZeroObject(t2.m_Max);
-		t2.m_Min.m_pArr[0] = 0x33;
-		t2.m_Max.m_pArr[0] = 0x3a;
-		t2.m_Max.m_pArr[1] = 0xe2;
+		t2.m_Min.V.m_pData[0] = 0x33;
+		t2.m_Max.V.m_pData[0] = 0x3a;
+		t2.m_Max.V.m_pData[1] = 0xe2;
 		ZeroObject(t2.m_Last);
 
 		UtxoTree::Cursor cu;
 		t2.m_pCu = &cu;
-		t2.m_pBound[0] = t2.m_Min.m_pArr;
-		t2.m_pBound[1] = t2.m_Max.m_pArr;
+		t2.m_pBound[0] = t2.m_Min.V.m_pData;
+		t2.m_pBound[1] = t2.m_Max.V.m_pData;
 		t.Traverse(t2);
+
+		// full traverse, and verification of Compact
+
+		struct Traveler3
+			:public RadixTree::ITraveler
+		{
+			UtxoTree::Compact m_Compact;
+
+			virtual bool OnLeaf(const RadixTree::Leaf& x) override
+			{
+				const UtxoTree::MyLeaf& v = Cast::Up<UtxoTree::MyLeaf>(x);
+				uint32_t nCount = v.get_Count();
+
+				while (nCount--)
+					verify_test(m_Compact.Add(v.m_Key));
+
+				return true;
+			}
+		} t3;
+
+		t.Traverse(t3);
+
+		t3.m_Compact.Flush(hv2);
+		verify_test(hv1 == hv2);
 	}
 
 	struct MyMmr

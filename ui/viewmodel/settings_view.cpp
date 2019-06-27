@@ -34,6 +34,7 @@ SettingsViewModel::SettingsViewModel()
     , m_isValidNodeAddress{true}
     , m_isNeedToCheckAddress(false)
     , m_isNeedToApplyChanges(false)
+    , m_supportedLanguages(WalletSettings::getSupportedLanguages())
 {
     undoChanges();
     connect(&AppModel::getInstance()->getNode(), SIGNAL(startedNode()), SLOT(onNodeStarted()));
@@ -156,8 +157,8 @@ void SettingsViewModel::setLockTimeout(int value)
     if (value != m_lockTimeout)
     {
         m_lockTimeout = value;
+        m_settings.setLockTimeout(m_lockTimeout);
         emit lockTimeoutChanged();
-        emit propertiesChanged();
     }
 }
 
@@ -171,8 +172,55 @@ void SettingsViewModel::setPasswordReqiredToSpendMoney(bool value)
     if (value != m_isPasswordReqiredToSpendMoney)
     {
         m_isPasswordReqiredToSpendMoney = value;
+        m_settings.setPasswordReqiredToSpendMoney(m_isPasswordReqiredToSpendMoney);
         emit passwordReqiredToSpendMoneyChanged();
-        emit propertiesChanged();
+    }
+}
+
+bool SettingsViewModel::isAllowedBeamMWLinks() const
+{
+    return m_isAllowedBeamMWLinks;
+}
+
+void SettingsViewModel::allowBeamMWLinks(bool value)
+{
+    if (value != m_isAllowedBeamMWLinks)
+    {
+        m_isAllowedBeamMWLinks = value;
+        m_settings.setAllowedBeamMWLinks(m_isAllowedBeamMWLinks);
+        emit beamMWLinksAllowed();
+    }
+}
+
+QStringList SettingsViewModel::getSupportedLanguages() const
+{
+    return m_supportedLanguages;
+}
+
+int SettingsViewModel::getCurrentLanguageIndex() const
+{
+    return m_currentLanguageIndex;
+}
+
+void SettingsViewModel::setCurrentLanguageIndex(int value)
+{
+    m_currentLanguageIndex = value;
+    m_settings.setLocaleByLanguageName(
+            m_supportedLanguages[m_currentLanguageIndex]);
+    emit currentLanguageIndexChanged();
+}
+
+QString SettingsViewModel::getCurrentLanguage() const
+{
+    return m_supportedLanguages[m_currentLanguageIndex];
+}
+
+void SettingsViewModel::setCurrentLanguage(QString value)
+{
+    auto index = m_supportedLanguages.indexOf(value);
+    if (index != -1 )
+    {
+        setCurrentLanguageIndex(index);
     }
 }
 
@@ -210,14 +258,23 @@ void SettingsViewModel::refreshWallet()
     AppModel::getInstance()->getWallet()->getAsync()->refresh();
 }
 
+void SettingsViewModel::openFolder(const QString& path)
+{
+    WalletSettings::openFolder(path);
+}
+
+bool SettingsViewModel::checkWalletPassword(const QString& oldPass) const
+{
+    SecString secretPass = oldPass.toStdString();
+    return AppModel::getInstance()->checkWalletPassword(secretPass);
+}
+
 bool SettingsViewModel::isChanged() const
 {
     return m_nodeAddress != m_settings.getNodeAddress()
         || m_localNodeRun != m_settings.getRunLocalNode()
         || m_localNodePort != m_settings.getLocalNodePort()
-        || m_localNodePeers != m_settings.getLocalNodePeers()
-        || m_lockTimeout != m_settings.getLockTimeout()
-        || m_isPasswordReqiredToSpendMoney != m_settings.isPasswordReqiredToSpendMoney();
+        || m_localNodePeers != m_settings.getLocalNodePeers();
 }
 
 void SettingsViewModel::applyChanges()
@@ -232,8 +289,6 @@ void SettingsViewModel::applyChanges()
     m_settings.setRunLocalNode(m_localNodeRun);
     m_settings.setLocalNodePort(m_localNodePort);
     m_settings.setLocalNodePeers(m_localNodePeers);
-    m_settings.setLockTimeout(m_lockTimeout);
-    m_settings.setPasswordReqiredToSpendMoney(m_isPasswordReqiredToSpendMoney);
     m_settings.applyChanges();
     emit propertiesChanged();
 }
@@ -263,17 +318,14 @@ void SettingsViewModel::undoChanges()
     setLockTimeout(m_settings.getLockTimeout());
     setLocalNodePeers(m_settings.getLocalNodePeers());
     setPasswordReqiredToSpendMoney(m_settings.isPasswordReqiredToSpendMoney());
+    allowBeamMWLinks(m_settings.isAllowedBeamMWLinks());
+    setCurrentLanguageIndex(
+            m_supportedLanguages.indexOf(m_settings.getLanguageName()));
 }
 
 void SettingsViewModel::reportProblem()
 {
     m_settings.reportProblem();
-}
-
-bool SettingsViewModel::checkWalletPassword(const QString& oldPass) const
-{
-    SecString secretPass = oldPass.toStdString();
-    return AppModel::getInstance()->checkWalletPassword(secretPass);
 }
 
 void SettingsViewModel::changeWalletPassword(const QString& pass)

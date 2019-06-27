@@ -21,6 +21,7 @@
 
 using namespace std;
 using namespace beam;
+using namespace beam::wallet;
 using json = nlohmann::json;
 
 WALLET_TEST_INIT
@@ -64,7 +65,7 @@ namespace
         WALLET_CHECK(msg["id"] > 0);
     }
 
-    class WalletApiHandlerBase : public IWalletApiHandler
+    class WalletApiHandlerBase : public wallet::IWalletApiHandler
     {
         void onInvalidJsonRpc(const json& msg) override {}
         
