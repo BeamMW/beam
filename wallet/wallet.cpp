@@ -586,7 +586,7 @@ namespace beam
 
     void Wallet::OnRequestComplete(MyRequestUtxoEvents& r)
     {
-        const std::vector<proto::UtxoEvent>& v = r.m_Res.m_Events;
+        std::vector<proto::UtxoEvent>& v = r.m_Res.m_Events;
 		for (size_t i = 0; i < v.size(); i++)
 		{
 			proto::UtxoEvent& evt = v[i];
