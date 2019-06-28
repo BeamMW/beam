@@ -598,6 +598,21 @@ namespace beam
 
 			if (comm == evt.m_Commitment)
 				ProcessUtxoEvent(evt);
+			else
+			{
+				uint32_t iScheme = evt.m_Kidv.m_SubIdx >> 24;
+				if (!iScheme && evt.m_Kidv.m_SubIdx)
+				{
+					// Is it BB2.1?
+					Key::IDV kidv2 = evt.m_Kidv;
+					kidv2.m_SubIdx |= (2U << 24);
+
+					m_WalletDB->calcCommitment(sk, comm, evt.m_Kidv);
+
+					if (comm == evt.m_Commitment)
+						ProcessUtxoEvent(evt);
+				}
+			}
 		}
 
 		if (r.m_Res.m_Events.size() < proto::UtxoEvent::s_Max)
