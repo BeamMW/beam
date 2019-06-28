@@ -38,6 +38,7 @@ public:
     void changeWalletPassword(const std::string& pass);
 
     void applySettingsChanges();
+    void nodeSettingsChanged();
     void resetWallet();
 
     WalletModel::Ptr getWallet() const;
@@ -55,6 +56,7 @@ signals:
 
 private:
     void start();
+    void startNode();
     void resetWalletImpl();
     void loadTranslation();
     void onWalledOpened(const beam::SecString& pass);

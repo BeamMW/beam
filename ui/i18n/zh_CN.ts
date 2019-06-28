@@ -62,11 +62,11 @@
     </message>
     <message id="general-receiving">
         <source>receiving</source>
-        <translation type="unfinished">收款中</translation>
+        <translation>收款中</translation>
     </message>
     <message id="general-sending">
         <source>sending</source>
-        <translation type="unfinished">付款中</translation>
+        <translation>付款中</translation>
     </message>
     <message id="general-rescan">
         <source>Rescan</source>
@@ -286,7 +286,7 @@
     </message>
     <message id="available-panel-available">
         <source>Available</source>
-        <translation>有效的</translation>
+        <translation>可用余额</translation>
     </message>
     <message id="available-panel-where-to-buy">
         <source>Where to buy BEAM?</source>
@@ -389,7 +389,7 @@
     </message>
     <message id="change-pwd-ok">
         <source>Сhange password</source>
-        <translation>更改密码</translation>
+        <translation>修改密码</translation>
     </message>
     <message id="loading-loading">
         <source>Loading wallet...</source>
@@ -1103,7 +1103,7 @@
     <message id="edit-addr-expiration-time-label">
         <source>Expired on </source>
         <extracomment>Edit addres dialog, expiration time label</extracomment>
-        <translation type="unfinished">Expired on </translation>
+        <translation>失效时间</translation>
     </message>
     <message id="edit-addr-activate-addr-switch">
         <source>Activate address</source>

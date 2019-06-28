@@ -175,6 +175,17 @@ void AppModel::applySettingsChanges()
     }
 }
 
+void AppModel::nodeSettingsChanged()
+{
+    applySettingsChanges();
+    if (!m_settings.getRunLocalNode())
+    {
+        if (!m_wallet->isRunning())
+        {
+            m_wallet->start();
+        }
+    }
+}
 void AppModel::onStartedNode()
 {
     m_nsc.disconnect();

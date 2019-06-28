@@ -1069,7 +1069,7 @@ Escanee este código QR o envíe esta dirección al remitente a través de un ca
     </message>
     <message id="explorer">
         <source>blockchain explorer</source>
-        <translation type="unfinished">blockchain explorer</translation>
+        <translation>explorador de la blockchain</translation>
     </message>
     <message id="edit-addr-24-option">
         <source>In 24 hours from now</source>

@@ -2325,53 +2325,59 @@ bool NodeProcessor::ValidateTxContext(const Transaction& tx, const HeightRange& 
 	if (!ValidateTxWrtHeight(tx, hr))
 		return false;
 
-	Height h = m_Cursor.m_Sid.m_Height;
-
 	// Cheap tx verification. No need to update the internal structure, recalculate definition, or etc.
 	// Ensure input UTXOs are present
 	for (size_t i = 0; i < tx.m_vInputs.size(); i++)
 	{
-		struct Traveler :public UtxoTree::ITraveler
-		{
-			uint32_t m_Count;
-			virtual bool OnLeaf(const RadixTree::Leaf& x) override
-			{
-				const UtxoTree::MyLeaf& n = Cast::Up<UtxoTree::MyLeaf>(x);
-				Input::Count nCount = n.get_Count();
-				assert(m_Count && nCount);
-				if (m_Count <= nCount)
-					return false; // stop iteration
-
-				m_Count -= nCount;
-				return true;
-			}
-		} t;
-		t.m_Count = 1;
+		Input::Count nCount = 1;
 		const Input& v = *tx.m_vInputs[i];
 
-		for (; i + 1 < tx.m_vInputs.size(); i++, t.m_Count++)
+		for (; i + 1 < tx.m_vInputs.size(); i++, nCount++)
 			if (tx.m_vInputs[i + 1]->m_Commitment != v.m_Commitment)
 				break;
 
-		UtxoTree::Key kMin, kMax;
-
-		UtxoTree::Key::Data d;
-		d.m_Commitment = v.m_Commitment;
-		d.m_Maturity = 0;
-		kMin = d;
-		d.m_Maturity = h;
-		kMax = d;
-
-		UtxoTree::Cursor cu;
-		t.m_pCu = &cu;
-		t.m_pBound[0] = kMin.V.m_pData;
-		t.m_pBound[1] = kMax.V.m_pData;
-
-		if (m_Utxos.Traverse(t))
+		if (!ValidateInputs(v.m_Commitment, nCount))
 			return false; // some input UTXOs are missing
 	}
 
 	return true;
+}
+
+bool NodeProcessor::ValidateInputs(const ECC::Point& comm, Input::Count nCount /* = 1 */)
+{
+	struct Traveler :public UtxoTree::ITraveler
+	{
+		uint32_t m_Count;
+		virtual bool OnLeaf(const RadixTree::Leaf& x) override
+		{
+			const UtxoTree::MyLeaf& n = Cast::Up<UtxoTree::MyLeaf>(x);
+			Input::Count nCount = n.get_Count();
+			assert(m_Count && nCount);
+			if (m_Count <= nCount)
+				return false; // stop iteration
+
+			m_Count -= nCount;
+			return true;
+		}
+	} t;
+	t.m_Count = nCount;
+
+
+	UtxoTree::Key kMin, kMax;
+
+	UtxoTree::Key::Data d;
+	d.m_Commitment = comm;
+	d.m_Maturity = 0;
+	kMin = d;
+	d.m_Maturity = m_Cursor.m_ID.m_Height;
+	kMax = d;
+
+	UtxoTree::Cursor cu;
+	t.m_pCu = &cu;
+	t.m_pBound[0] = kMin.V.m_pData;
+	t.m_pBound[1] = kMax.V.m_pData;
+
+	return !m_Utxos.Traverse(t);
 }
 
 size_t NodeProcessor::GenerateNewBlockInternal(BlockContext& bc)

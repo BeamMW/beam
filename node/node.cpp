@@ -1260,6 +1260,9 @@ void Node::Peer::OnResendPeers()
 		if (!pi.m_LastSeen)
 			continue; // recommend only verified peers
 
+		if (pi.m_Addr.m_Value.empty())
+			continue; // address unknown, can't recommend
+
         proto::PeerInfo msg;
         msg.m_ID = pi.m_ID.m_Key;
         msg.m_LastAddr = pi.m_Addr.m_Value;
@@ -2353,70 +2356,19 @@ void Node::AddDummyInputs(Transaction& tx)
         if (h > m_Processor.m_Cursor.m_ID.m_Height)
             break;
 
-		Key::IKdf::Ptr pChild;
-		Key::IKdf* pKdf = nullptr;
+		bModified = true;
+		kidv.m_Value = 0;
 
-		if (kidv.get_Subkey() == m_Keys.m_nMinerSubIndex)
-			pKdf = m_Keys.m_pMiner.get();
+		if (AddDummyInputEx(tx, kidv))
+		{
+			/// in the (unlikely) case the tx will be lost - we'll retry spending this UTXO after the following num of blocks
+			m_Processor.get_DB().SetDummyHeight(kidv, m_Processor.m_Cursor.m_ID.m_Height + m_Cfg.m_Dandelion.m_DummyLifetimeLo + 1);
+		}
 		else
 		{
-			// was created by other miner. If we have the root key - we can recreate its key
-			if (!m_Keys.m_nMinerSubIndex)
-			{
-				ECC::HKdf::CreateChild(pChild, *m_Keys.m_pMiner, kidv.get_Subkey());
-				pKdf = pChild.get();
-			}
-		}
-
-		kidv.m_Value = 0;
-        bModified = true;
-
-		bool bFound = false;
-		if (pKdf)
-		{
-			ECC::Scalar::Native sk;
-
-			// bounds
-			UtxoTree::Key kMin, kMax;
-
-			UtxoTree::Key::Data d;
-			SwitchCommitment().Create(sk, d.m_Commitment, *pKdf, kidv);
-			d.m_Maturity = 0;
-			kMin = d;
-
-			d.m_Maturity = m_Processor.m_Cursor.m_ID.m_Height;
-			kMax = d;
-
-			// check if it's still unspent
-			struct Traveler :public UtxoTree::ITraveler {
-				virtual bool OnLeaf(const RadixTree::Leaf& x) override {
-					return false;
-				}
-			} t;
-
-			UtxoTree::Cursor cu;
-			t.m_pCu = &cu;
-			t.m_pBound[0] = kMin.V.m_pData;
-			t.m_pBound[1] = kMax.V.m_pData;
-
-			bFound = !m_Processor.get_Utxos().Traverse(t);
-			if (bFound)
-			{
-				// unspent
-				Input::Ptr pInp(new Input);
-				pInp->m_Commitment = d.m_Commitment;
-
-				tx.m_vInputs.push_back(std::move(pInp));
-				tx.m_Offset = ECC::Scalar::Native(tx.m_Offset) + ECC::Scalar::Native(sk);
-
-				/// in the (unlikely) case the tx will be lost - we'll retry spending this UTXO after the following num of blocks
-				m_Processor.get_DB().SetDummyHeight(kidv, m_Processor.m_Cursor.m_ID.m_Height + m_Cfg.m_Dandelion.m_DummyLifetimeLo + 1);
-			}
-		}
-
-		if (!bFound)
 			// spent
 			m_Processor.get_DB().DeleteDummy(kidv);
+		}
     }
 
     if (bModified)
@@ -2424,6 +2376,63 @@ void Node::AddDummyInputs(Transaction& tx)
         m_Processor.FlushDB(); // make sure they're not lost
         tx.Normalize();
     }
+}
+
+bool Node::AddDummyInputEx(Transaction& tx, const Key::IDV& kidv)
+{
+	if (AddDummyInputRaw(tx, kidv))
+		return true;
+
+	// try workaround
+	if (kidv.get_Scheme())
+		return false;
+
+	uint32_t iSubkey = kidv.get_Subkey();
+	if (!iSubkey)
+		return false;
+
+	Key::IDV kidv2 = kidv;
+	kidv2.set_Subkey(iSubkey, 2);
+	return AddDummyInputRaw(tx, kidv2);
+
+}
+
+bool Node::AddDummyInputRaw(Transaction& tx, const Key::IDV& kidv)
+{
+	assert(m_Keys.m_pMiner);
+
+	Key::IKdf::Ptr pChild;
+	Key::IKdf* pKdf = nullptr;
+
+	if (kidv.get_Subkey() == m_Keys.m_nMinerSubIndex)
+		pKdf = m_Keys.m_pMiner.get();
+	else
+	{
+		// was created by other miner. If we have the root key - we can recreate its key
+		if (m_Keys.m_nMinerSubIndex)
+			return false;
+
+		pChild = MasterKey::get_Child(m_Keys.m_pMiner, kidv);
+		pKdf = pChild.get();
+	}
+
+	ECC::Scalar::Native sk;
+
+	// bounds
+	ECC::Point comm;
+	SwitchCommitment().Create(sk, comm, *pKdf, kidv);
+
+	if (!m_Processor.ValidateInputs(comm))
+		return false;
+
+	// unspent
+	Input::Ptr pInp(new Input);
+	pInp->m_Commitment = comm;
+
+	tx.m_vInputs.push_back(std::move(pInp));
+	tx.m_Offset = ECC::Scalar::Native(tx.m_Offset) + ECC::Scalar::Native(sk);
+
+	return true;
 }
 
 void Node::AddDummyOutputs(Transaction& tx)
