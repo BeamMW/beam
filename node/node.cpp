@@ -2380,34 +2380,15 @@ void Node::AddDummyInputs(Transaction& tx)
 			ECC::Scalar::Native sk;
 
 			// bounds
-			UtxoTree::Key kMin, kMax;
+			ECC::Point comm;
+			SwitchCommitment().Create(sk, comm, *pKdf, kidv);
 
-			UtxoTree::Key::Data d;
-			SwitchCommitment().Create(sk, d.m_Commitment, *pKdf, kidv);
-			d.m_Maturity = 0;
-			kMin = d;
-
-			d.m_Maturity = m_Processor.m_Cursor.m_ID.m_Height;
-			kMax = d;
-
-			// check if it's still unspent
-			struct Traveler :public UtxoTree::ITraveler {
-				virtual bool OnLeaf(const RadixTree::Leaf& x) override {
-					return false;
-				}
-			} t;
-
-			UtxoTree::Cursor cu;
-			t.m_pCu = &cu;
-			t.m_pBound[0] = kMin.V.m_pData;
-			t.m_pBound[1] = kMax.V.m_pData;
-
-			bFound = !m_Processor.get_Utxos().Traverse(t);
+			bFound = m_Processor.ValidateInputs(comm);
 			if (bFound)
 			{
 				// unspent
 				Input::Ptr pInp(new Input);
-				pInp->m_Commitment = d.m_Commitment;
+				pInp->m_Commitment = comm;
 
 				tx.m_vInputs.push_back(std::move(pInp));
 				tx.m_Offset = ECC::Scalar::Native(tx.m_Offset) + ECC::Scalar::Native(sk);
