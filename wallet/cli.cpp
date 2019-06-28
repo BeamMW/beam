@@ -191,8 +191,6 @@ namespace beam
             return "BTC";
         case AtomicSwapCoin::Litecoin:
             return "LTC";
-        case AtomicSwapCoin::Qtum:
-            return "QTUM";
         default:
             assert(false && "Unknow SwapCoin");
         }
@@ -1045,51 +1043,6 @@ namespace
 
         return boost::optional<LitecoinOptions>{};
     }
-
-    boost::optional<QtumOptions> ParseQtumOptions(const po::variables_map& vm)
-    {
-        if (vm.count(cli::QTUM_NODE_ADDR) > 0 || vm.count(cli::QTUM_USER_NAME) > 0 || vm.count(cli::QTUM_PASS) > 0)
-        {
-            QtumOptions qtumOptions;
-
-            string qtumNodeUri = vm[cli::QTUM_NODE_ADDR].as<string>();
-            if (!qtumOptions.m_address.resolve(qtumNodeUri.c_str()))
-            {
-                throw std::runtime_error("unable to resolve qtum node address: " + qtumNodeUri);
-            }
-
-            if (vm.count(cli::QTUM_USER_NAME) == 0)
-            {
-                throw std::runtime_error("user name of qtum node should be specified");
-            }
-
-            qtumOptions.m_userName = vm[cli::QTUM_USER_NAME].as<string>();
-
-            // TODO roman.strilets: use SecString instead of std::string
-            if (vm.count(cli::QTUM_PASS) == 0)
-            {
-                throw std::runtime_error("Please, provide password for the qtum node.");
-            }
-
-            qtumOptions.m_pass = vm[cli::QTUM_PASS].as<string>();
-
-            if (vm.count(cli::SWAP_FEERATE) == 0)
-            {
-                throw std::runtime_error("swap fee rate is missing");
-            }
-            qtumOptions.m_feeRate = vm[cli::SWAP_FEERATE].as<Positive<Amount>>().value;
-
-            auto swapSecondSideChainType = ParseSwapSecondSideChainType(vm);
-            if (swapSecondSideChainType != SwapSecondSideChainType::Unknown)
-            {
-                qtumOptions.m_chainType = swapSecondSideChainType;
-            }
-
-            return qtumOptions;
-        }
-
-        return boost::optional<QtumOptions>{};
-    }
 }
 
 io::Reactor::Ptr reactor;
@@ -1391,7 +1344,6 @@ int main_impl(int argc, char* argv[])
 
                     boost::optional<BitcoinOptions> btcOptions = ParseBitcoinOptions(vm);
                     boost::optional<LitecoinOptions> ltcOptions = ParseLitecoinOptions(vm);
-                    boost::optional<QtumOptions> qtumOptions = ParseQtumOptions(vm);
 
                     /// HERE!!
                     io::Address receiverAddr;
@@ -1472,11 +1424,6 @@ int main_impl(int argc, char* argv[])
                             wallet.initLitecoin(io::Reactor::get_Current(), ltcOptions.get());
                         }
 
-                        if (qtumOptions.is_initialized())
-                        {
-                            wallet.initQtum(io::Reactor::get_Current(), qtumOptions.get());
-                        }
-
                         if (command == cli::SWAP_INIT || command == cli::SWAP_LISTEN)
                         {
                             if (vm.count(cli::SWAP_AMOUNT) == 0)
@@ -1530,21 +1477,7 @@ int main_impl(int argc, char* argv[])
                                 }
                                 secondSideChainType = ltcOptions->m_chainType;
                             }
-                            else
-                            {
-                                if (!qtumOptions.is_initialized() || qtumOptions->m_userName.empty() || qtumOptions->m_pass.empty() || qtumOptions->m_address.empty())
-                                {
-                                    LOG_ERROR() << "Qtum node credentials should be provided";
-                                    return -1;
-                                }
-                                if (!QtumSide::CheckAmount(swapAmount, qtumOptions->m_feeRate))
-                                {
-                                    LOG_ERROR() << "The swap amount must be greater than the redemption fee.";
-                                    return -1;
-                                }
-                                secondSideChainType = qtumOptions->m_chainType;
-                            }
-                            
+
                             bool isBeamSide = (vm.count(cli::SWAP_BEAM_SIDE) != 0);
 
                             if (command == cli::SWAP_INIT)
