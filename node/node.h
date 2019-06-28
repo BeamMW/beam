@@ -222,7 +222,7 @@ private:
 
 			std::vector<std::thread> m_vThreads;
 
-			typedef ECC::InnerProduct::BatchContextEx<100> MyBatch; // seems to be ok, for larger batches difference is marginal
+			typedef ECC::InnerProduct::BatchContextEx<4> MyBatch; // seems to be ok, for larger batches difference is marginal
 
 			~TaskProcessor() { Stop(); }
 			void Stop();

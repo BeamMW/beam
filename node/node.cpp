@@ -806,7 +806,6 @@ void Node::Processor::TaskProcessor::Stop()
 void Node::Processor::TaskProcessor::Thread(uint32_t)
 {
 	std::unique_ptr<MyBatch> p(new MyBatch);
-	p->m_bEnableBatch = true;
 	MyBatch::Scope scopeBatch(*p);
 
 	while (true)
