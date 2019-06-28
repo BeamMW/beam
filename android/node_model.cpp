@@ -98,7 +98,7 @@ void NodeModel::onNodeCreated()
     env->CallStaticVoidMethod(WalletListenerClass, callback);
 }
 
-void NodeMode::onNodeDestroyed()
+void NodeModel::onNodeDestroyed()
 {
     JNIEnv* env = Android_JNI_getEnv();
 
