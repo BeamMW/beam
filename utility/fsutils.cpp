@@ -13,6 +13,7 @@
 // limitations under the License.
 
 #include <boost/filesystem.hpp>
+#include "common.h"
 #include "logger.h"
 #include "fsutils.h"
 
@@ -23,7 +24,7 @@ namespace beam::fsutils
         boost::system::error_code error;
         boost::filesystem::remove(path, error);
         if (error) LOG_ERROR() << "fsutils::remove " << path << " error: " << error.message();
-        return !error.failed();
+        return !static_cast<bool>(error);
     }
 
     bool remove(const std::string& spath)
