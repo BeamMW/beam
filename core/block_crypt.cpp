@@ -133,6 +133,9 @@ namespace beam
 		if (!iSubkey)
 			return pKdf; // by convention: scheme V0, Subkey=0 - is a master key
 
+		if (2 == kidv.get_Scheme())
+			return pKdf; // BB2.1 workaround
+
 		return get_Child(*pKdf, iSubkey);
 	}
 
@@ -180,15 +183,25 @@ namespace beam
 		Key::Index nScheme = kidv.get_Scheme();
 		if (nScheme)
 		{
-			// newer scheme - account for the Value.
-			// Make it infeasible to tamper with value for unknown blinding factor
-			ECC::Hash::Processor()
-				<< "kidv-1"
-				<< kidv.m_Idx
-				<< kidv.m_Type.V
-				<< kidv.m_SubIdx
-				<< kidv.m_Value
-				>> hv;
+			if (2 == nScheme)
+			{
+				// BB2.1 workaround
+				Key::IDV kidv2 = kidv;
+				kidv2.set_Subkey(kidv.get_Subkey(), 0);
+				kidv2.get_Hash(hv);
+			}
+			else
+			{
+				// newer scheme - account for the Value.
+				// Make it infeasible to tamper with value for unknown blinding factor
+				ECC::Hash::Processor()
+					<< "kidv-1"
+					<< kidv.m_Idx
+					<< kidv.m_Type.V
+					<< kidv.m_SubIdx
+					<< kidv.m_Value
+					>> hv;
+			}
 		}
 		else
 			kidv.get_Hash(hv); // legacy

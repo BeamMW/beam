@@ -813,10 +813,10 @@ namespace beam::wallet
 
     void Wallet::OnRequestComplete(MyRequestUtxoEvents& r)
     {
-        const std::vector<proto::UtxoEvent>& v = r.m_Res.m_Events;
+        std::vector<proto::UtxoEvent>& v = r.m_Res.m_Events;
 		for (size_t i = 0; i < v.size(); i++)
 		{
-			const auto& event = v[i];
+			auto& event = v[i];
 
 			// filter-out false positives
             if (m_KeyKeeper)
@@ -824,6 +824,18 @@ namespace beam::wallet
                 Point commitment = m_KeyKeeper->GeneratePublicKeySync(event.m_Kidv, true);
 			    if (commitment == event.m_Commitment)
 				    ProcessUtxoEvent(event);
+				else
+				{
+					if (event.m_Kidv.m_SubIdx && !event.m_Kidv.get_Scheme())
+					{
+						// Is it BB2.1?
+						event.m_Kidv.set_Subkey(event.m_Kidv.get_Subkey(), 2);
+
+						commitment = m_KeyKeeper->GeneratePublicKeySync(event.m_Kidv, true);
+						if (commitment == event.m_Commitment)
+							ProcessUtxoEvent(event);
+					}
+				}
             }
 		}
 
