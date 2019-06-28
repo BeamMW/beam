@@ -361,6 +361,8 @@ private:
 	void OnTransactionAggregated(Dandelion::Element&);
 	void PerformAggregation(Dandelion::Element&);
 	void AddDummyInputs(Transaction&);
+	bool AddDummyInputRaw(Transaction& tx, const Key::IDV&);
+	bool AddDummyInputEx(Transaction& tx, const Key::IDV&);
 	void AddDummyOutputs(Transaction&);
 	Height SampleDummySpentHeight();
 	bool OnTransactionFluff(Transaction::Ptr&&, const Peer*, Dandelion::Element*);
