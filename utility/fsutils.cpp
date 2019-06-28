@@ -31,7 +31,7 @@ namespace beam::fsutils
     {
 #ifdef WIN32
         boost::filesystem::path path(Utf8toUtf16(spath));
-        return remove(path);
+        return fsutils::remove(path);
 #else
         boost::filesystem::path path(spath);
         return fsutils::remove(path);
