@@ -826,10 +826,10 @@ namespace beam::wallet
 				    ProcessUtxoEvent(event);
 				else
 				{
-					if (event.m_Kidv.m_SubIdx && !event.m_Kidv.get_Scheme())
+					// Is it BB2.1?
+					if (event.m_Kidv.IsBb21Possible())
 					{
-						// Is it BB2.1?
-						event.m_Kidv.set_Subkey(event.m_Kidv.get_Subkey(), 2);
+						event.m_Kidv.set_WorkaroundBb21();
 
 						commitment = m_KeyKeeper->GeneratePublicKeySync(event.m_Kidv, true);
 						if (commitment == event.m_Commitment)
