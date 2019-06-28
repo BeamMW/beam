@@ -32,7 +32,7 @@ namespace
 }
 
 MainViewModel::MainViewModel()
-    : m_settings{AppModel::getInstance()->getSettings()}
+    : m_settings{AppModel::getInstance().getSettings()}
     , m_timer(this)
 {
     m_timer.setSingleShot(true);

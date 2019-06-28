@@ -114,7 +114,7 @@ QString ContactItem::getCategory() const
 }
 
 AddressBookViewModel::AddressBookViewModel()
-    : m_model{*AppModel::getInstance()->getWallet()}
+    : m_model{*AppModel::getInstance().getWallet()}
 {
     connect(&m_model,
             SIGNAL(walletStatus(const beam::wallet::WalletStatus&)),
@@ -267,7 +267,7 @@ QString AddressBookViewModel::generateQR(
 // static
 QString AddressBookViewModel::getLocaleName()
 {
-    const auto& settings = AppModel::getInstance()->getSettings();
+    const auto& settings = AppModel::getInstance().getSettings();
     return settings.getLocale();
 }
 

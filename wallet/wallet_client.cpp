@@ -235,6 +235,14 @@ namespace beam::wallet
 
     WalletClient::~WalletClient()
     {
+        // reactor should be already stopped here, but just in case
+        // this call is unsafe and may result in crash if reactor is not stopped
+        assert(!m_thread && !m_reactor);
+        stopReactor();
+    }
+
+    void WalletClient::stopReactor()
+    {
         try
         {
             if (m_reactor)
@@ -242,9 +250,10 @@ namespace beam::wallet
                 if (m_thread)
                 {
                     m_reactor->stop();
-                    // TODO: check this
                     m_thread->join();
+                    m_thread.reset();
                 }
+                m_reactor.reset();
             }
         }
         catch (const std::exception& e)

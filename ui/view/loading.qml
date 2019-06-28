@@ -87,11 +87,14 @@ Item
 
             confirmationDialog.open();
         }
+
+        onWalletReseted: {
+            if(cancelCallback) cancelCallback();
+        }
     }
 
     function cancelCreating() {
         viewModel.resetWallet();
-        cancelCallback();
     }
 
     function changeNodeSettings () {

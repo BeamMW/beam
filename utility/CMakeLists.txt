@@ -7,6 +7,7 @@ set(UTILITY_SRC
     config.cpp
 	string_helpers.cpp
 	asynccontext.cpp
+	fsutils.cpp
 # ~etc
 )
 
