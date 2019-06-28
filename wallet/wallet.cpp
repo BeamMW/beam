@@ -589,7 +589,7 @@ namespace beam
         const std::vector<proto::UtxoEvent>& v = r.m_Res.m_Events;
 		for (size_t i = 0; i < v.size(); i++)
 		{
-			const proto::UtxoEvent& evt = v[i];
+			proto::UtxoEvent& evt = v[i];
 
 			// filter-out false positives
 			Scalar::Native sk;
@@ -604,8 +604,7 @@ namespace beam
 				if (!iScheme && evt.m_Kidv.m_SubIdx)
 				{
 					// Is it BB2.1?
-					Key::IDV kidv2 = evt.m_Kidv;
-					kidv2.m_SubIdx |= (2U << 24);
+					evt.m_Kidv.m_SubIdx |= (2U << 24);
 
 					m_WalletDB->calcCommitment(sk, comm, evt.m_Kidv);
 
