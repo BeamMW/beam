@@ -598,18 +598,6 @@ namespace beam::wallet
                 bool isBeamSide = it->second->GetMandatoryParameter<bool>(TxParameterID::AtomicSwapIsBeamSide);
                 return std::make_shared<LitecoinSide>(*it->second, m_litecoinBridge, isBeamSide);
             }
-            
-            if (swapCoin == AtomicSwapCoin::Qtum)
-            {
-                if (!m_qtumBridge)
-                {
-                    LOG_ERROR() << "Qtum bridge is not initialized";
-                    return nullptr;
-                }
-
-                bool isBeamSide = it->second->GetMandatoryParameter<bool>(TxParameterID::AtomicSwapIsBeamSide);
-                return std::make_shared<QtumSide>(*it->second, m_qtumBridge, isBeamSide);
-            }
         }
 
         LOG_ERROR() << "Transaction is absent in wallet.";

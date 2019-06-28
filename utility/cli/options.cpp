@@ -47,8 +47,6 @@ namespace beam
         const char* BTC_USER_NAME = "btc_user";
         const char* LTC_PASS = "ltc_pass";
         const char* LTC_USER_NAME = "ltc_user";
-        const char* QTUM_PASS = "qtum_pass";
-        const char* QTUM_USER_NAME = "qtum_user";
         const char* AMOUNT = "amount";
         const char* AMOUNT_FULL = "amount,a";
         const char* RECEIVER_ADDR = "receiver_addr";
@@ -57,7 +55,6 @@ namespace beam
         const char* NODE_ADDR_FULL = "node_addr,n";
         const char* BTC_NODE_ADDR = "btc_node_addr";
         const char* LTC_NODE_ADDR = "ltc_node_addr";
-        const char* QTUM_NODE_ADDR = "qtum_node_addr";
         const char* COMMAND = "command";
         const char* LISTEN = "listen";
         const char* TREASURY = "treasury";
@@ -258,9 +255,6 @@ namespace beam
             (cli::LTC_NODE_ADDR, po::value<string>(), "address of litecoin node")
             (cli::LTC_USER_NAME, po::value<string>(), "user name for the litecoin node")
             (cli::LTC_PASS, po::value<string>(), "password for the litecoin node")
-            (cli::QTUM_NODE_ADDR, po::value<string>(), "address of qtum node")
-            (cli::QTUM_USER_NAME, po::value<string>(), "user name for the qtum node")
-            (cli::QTUM_PASS, po::value<string>(), "password for the qtum node")
             (cli::SWAP_COIN, po::value<string>(), "swap coin(btc, ltc, qtum)")
             (cli::SWAP_AMOUNT, po::value<Positive<Amount>>(), "swap amount in the smallest unit of the coin")
             (cli::SWAP_FEERATE, po::value<Positive<Amount>>(), "The specific feerate you are willing to pay(the smallest unit of the coin per KB)")
