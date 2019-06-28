@@ -2384,15 +2384,11 @@ bool Node::AddDummyInputEx(Transaction& tx, const Key::IDV& kidv)
 		return true;
 
 	// try workaround
-	if (kidv.get_Scheme())
-		return false;
-
-	uint32_t iSubkey = kidv.get_Subkey();
-	if (!iSubkey)
+	if (!kidv.IsBb21Possible())
 		return false;
 
 	Key::IDV kidv2 = kidv;
-	kidv2.set_Subkey(iSubkey, 2);
+	kidv2.set_WorkaroundBb21();
 	return AddDummyInputRaw(tx, kidv2);
 
 }
