@@ -159,7 +159,15 @@ namespace beam
 
 	void SwitchCommitment::CreateInternal(ECC::Scalar::Native& sk, ECC::Point::Native& comm, bool bComm, Key::IKdf& kdf, const Key::IDV& kidv) const
 	{
-		kdf.DeriveKey(sk, kidv);
+		uint32_t iScheme = kidv.m_SubIdx >> 24;
+		if (2 == iScheme)
+		{
+			Key::IDV kidv2 = kidv;
+			kidv2.m_SubIdx &= ((1U << 24) - 1);
+			kdf.DeriveKey(sk, kidv2);
+		}
+		else
+			kdf.DeriveKey(sk, kidv);
 
 		comm = ECC::Context::get().G * sk;
 		AddValue(comm, kidv.m_Value);

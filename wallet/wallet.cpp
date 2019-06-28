@@ -615,10 +615,10 @@ namespace beam
 
     void Wallet::OnRequestComplete(MyRequestUtxoEvents& r)
     {
-        const std::vector<proto::UtxoEvent>& v = r.m_Res.m_Events;
+        std::vector<proto::UtxoEvent>& v = r.m_Res.m_Events;
 		for (size_t i = 0; i < v.size(); i++)
 		{
-			const proto::UtxoEvent& evt = v[i];
+			proto::UtxoEvent& evt = v[i];
 
 			// filter-out false positives
 			Scalar::Native sk;
@@ -627,6 +627,20 @@ namespace beam
 
 			if (comm == evt.m_Commitment)
 				ProcessUtxoEvent(evt);
+			else
+			{
+				uint32_t iScheme = evt.m_Kidv.m_SubIdx >> 24;
+				if (!iScheme && evt.m_Kidv.m_SubIdx)
+				{
+					// Is it BB2.1?
+					evt.m_Kidv.m_SubIdx |= (2U << 24);
+
+					m_WalletDB->calcCommitment(sk, comm, evt.m_Kidv);
+
+					if (comm == evt.m_Commitment)
+						ProcessUtxoEvent(evt);
+				}
+			}
 		}
 
 		if (r.m_Res.m_Events.size() < proto::UtxoEvent::s_Max)
