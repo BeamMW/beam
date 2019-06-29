@@ -1064,8 +1064,20 @@ uint32_t Node::get_AcessiblePeerCount() const
 
 void Node::InitKeys()
 {
-    if (!m_Keys.m_pOwner)
-        m_Keys.m_pMiner = NULL; // can't mine without owner view key, because it's used for Tagging
+	if (m_Keys.m_pOwner)
+	{
+		// Ensure the miner key makes sense.
+		if (m_Keys.m_pMiner && m_Keys.m_nMinerSubIndex && m_Keys.m_pOwner->IsSame(*m_Keys.m_pMiner))
+		{
+			// BB2.1
+			CorruptionException exc;
+			exc.m_sErr = "Incompatible miner key. Please regenerate with the latest version";
+			throw exc;
+
+		}
+	}
+	else
+        m_Keys.m_pMiner = nullptr; // can't mine without owner view key, because it's used for Tagging
 
     if (!m_Keys.m_pGeneric)
     {
@@ -1107,16 +1119,24 @@ void Node::RefreshOwnedUtxos()
 {
 	ECC::Hash::Processor hp;
 
+	ECC::Hash::Value hv0, hv1(Zero);
+
 	if (m_Keys.m_pOwner)
 	{
-		ECC::uintBig hv;
-		hv = m_Keys.m_nMinerSubIndex; // rescan also when miner subkey changes, to recover possible decoys that were rejected earlier
 		ECC::Scalar::Native sk;
-		m_Keys.m_pOwner->DerivePKey(sk, hv);
+		m_Keys.m_pOwner->DerivePKey(sk, hv1);
 		hp << sk;
+
+		if (m_Keys.m_pMiner)
+		{
+			// rescan also when miner subkey changes, to recover possible decoys that were rejected earlier
+			m_Keys.m_pMiner->DerivePKey(sk, hv1);
+			hp
+				<< m_Keys.m_nMinerSubIndex
+				<< sk;
+		}
 	}
 
-	ECC::Hash::Value hv0, hv1(Zero);
 	hp >> hv0;
 
 	Blob blob(hv1);
