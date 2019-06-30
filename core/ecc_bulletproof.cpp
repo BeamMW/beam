@@ -90,6 +90,11 @@ namespace ECC {
 		trg += (k * m_Multiplier);
 	}
 
+	void InnerProduct::BatchContext::Reset()
+	{
+		m_bDirty = false;
+	}
+
 	bool InnerProduct::BatchContext::Flush()
 	{
 		if (!m_bDirty)

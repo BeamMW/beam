@@ -682,6 +682,7 @@ namespace ECC
 
 		void EquationBegin();
 
+		void Reset();
 		bool Flush();
 
 	protected:
