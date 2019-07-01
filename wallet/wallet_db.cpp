@@ -891,6 +891,83 @@ namespace beam::wallet
                 throwIfError(ret, *db);
             }
         }
+
+        bool MoveSeedToPrivateVariables(WalletDB& db)
+        {
+            ECC::NoLeak<ECC::Hash::Value> seed;
+            if (!storage::getVar(db, WalletSeed, seed.V))
+            {
+                assert(false && "there is no seed for walletDB");
+                LOG_ERROR() << "there is no seed for walletDB";
+                return false;
+            }
+            db.setPrivateVarRaw(WalletSeed, &seed.V, sizeof(seed.V));
+
+            {
+                sqlite::Statement stm(&db, "DELETE FROM " VARIABLES_NAME " WHERE name=?1;");
+                stm.bind(1, WalletSeed);
+                stm.step();
+            }
+
+            return true;
+        }
+
+        bool GetPrivateVarRaw(const WalletDB& db, const char* name, void* data, int size, bool privateDb)
+        {
+            {
+                sqlite::Statement stm(&db, "SELECT name FROM sqlite_master WHERE type = 'table' AND name = '" PRIVATE_VARIABLES_NAME "';", privateDb);
+                if (!stm.step())
+                {
+                    return false; // public database
+                }
+            }
+
+            {
+                const char* req = "SELECT value FROM " PRIVATE_VARIABLES_NAME " WHERE name=?1;";
+
+                sqlite::Statement stm(&db, req, privateDb);
+                stm.bind(1, name);
+
+                return stm.step() && stm.getBlobSafe(0, data, size);
+            }
+        }
+
+        bool DropPrivateVariablesFromPublicDatabase(WalletDB& db)
+        {
+            {
+                sqlite::Statement stm(&db, "SELECT name FROM sqlite_master WHERE type='table' AND name='" PRIVATE_VARIABLES_NAME "';");
+
+                if (!stm.step())
+                {
+                    return true; // there is nothing to drop
+                }
+            }
+
+            // ensure that we have  master key in private database
+            {
+                ECC::NoLeak<ECC::Hash::Value> seed; // seed from public db
+                if (GetPrivateVarRaw(db, WalletSeed, &seed.V, sizeof(ECC::Hash::Value), false))
+                {
+                    ECC::NoLeak<ECC::Hash::Value> seed2; // seed from private db
+                    if (GetPrivateVarRaw(db, WalletSeed, &seed2.V, sizeof(ECC::Hash::Value), true))
+                    {
+                        if (seed.V != seed2.V)
+                        {
+                            LOG_ERROR() << "Public database has different master key. Please check your \'wallet.db\' and \'wallet.db.private\'";
+                            return false;
+                        }
+                    }
+                    else
+                    {
+                        db.setPrivateVarRaw(WalletSeed, &seed.V, sizeof(seed.V));
+                    }
+                }
+            }
+
+            sqlite::Statement dropStm(&db, "DROP TABLE " PRIVATE_VARIABLES_NAME ";");
+            dropStm.step();
+            return true;
+        }
     }
 
     IWalletDB::Ptr WalletDB::init(const string& path, const SecString& password, const ECC::NoLeak<ECC::uintBig>& secretKey, io::Reactor::Ptr reactor, bool separateDBForPrivateData)
@@ -1036,21 +1113,10 @@ namespace beam::wallet
                     case DbVersion13:
                         CreateWalletMessageTable(walletDB->_db);
                         CreatePrivateVariablesTable(walletDB->m_PrivateDB);
-                        {
-                            ECC::NoLeak<ECC::Hash::Value> seed;
-                            if (!storage::getVar(*walletDB, WalletSeed, seed.V))
-                            {
-                                assert(false && "there is no seed for walletDB");
-                                LOG_ERROR() << "there is no seed for walletDB";
-                                return Ptr();
-                            }
-                            {
-                                sqlite::Statement stm(walletDB.get(), "DELETE FROM " VARIABLES_NAME " WHERE name=?1;");
-                                stm.bind(1, WalletSeed);
-                                stm.step();
-                            }
 
-                            walletDB->setPrivateVarRaw(WalletSeed, &seed.V, sizeof(seed.V));
+                        if (!MoveSeedToPrivateVariables(*walletDB))
+                        {
+                            return Ptr();
                         }
 
                     case DbVersion14:
@@ -1089,6 +1155,13 @@ namespace beam::wallet
                         // no break;
 
                     case DbVersion:
+
+                        // drop private variables from public database for cold wallet 
+                        if (separateDBForPrivateData && !DropPrivateVariablesFromPublicDatabase(*walletDB))
+                        {
+                            return Ptr();
+                        }
+
                         break; // ok
 
                     default:
@@ -1632,22 +1705,7 @@ namespace beam::wallet
 
     bool WalletDB::getPrivateVarRaw(const char* name, void* data, int size) const
     {
-        {
-            sqlite::Statement stm(this, "SELECT name FROM sqlite_master WHERE type = 'table' AND name = '" PRIVATE_VARIABLES_NAME "';", true);
-            if (!stm.step())
-            {
-                return false; // public database
-            }
-        }
-        
-        {
-            const char* req = "SELECT value FROM " PRIVATE_VARIABLES_NAME " WHERE name=?1;";
-
-            sqlite::Statement stm(this, req, true);
-            stm.bind(1, name);
-
-            return stm.step() && stm.getBlobSafe(0, data, size);
-        }
+        return GetPrivateVarRaw(*this, name, data, size, true);
     }
 
     bool WalletDB::getBlob(const char* name, ByteBuffer& var) const

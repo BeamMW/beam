@@ -992,8 +992,12 @@ namespace beam::wallet
         MyRequestUtxo::Ptr pReq(new MyRequestUtxo);
         pReq->m_CoinID = cid;
 
-		Scalar::Native sk;
-		m_WalletDB->calcCommitment(sk, pReq->m_Msg.m_Utxo, cid);
+        if (!m_KeyKeeper)
+        {
+            LOG_WARNING() << "You cannot get utxo commitment without private key";
+            return;
+        }
+        pReq->m_Msg.m_Utxo = m_KeyKeeper->GeneratePublicKeySync(cid, true);
 
         LOG_DEBUG() << "Get utxo proof: " << pReq->m_Msg.m_Utxo;
 
