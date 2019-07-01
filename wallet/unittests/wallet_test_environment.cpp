@@ -13,6 +13,7 @@
 // limitations under the License.
 
 #include "http/http_client.h"
+#include "core/treasury.h"
 
 using namespace beam;
 using namespace beam::wallet;
@@ -220,8 +221,8 @@ IWalletDB::Ptr createSqliteWalletDB(const string& path, bool separateDBForPrivat
 {
     if (boost::filesystem::exists(path))
     {
-            boost::filesystem::remove(path);
-        }
+        boost::filesystem::remove(path);
+    }
     if (separateDBForPrivateData)
     {
         string privatePath = path + ".private";
