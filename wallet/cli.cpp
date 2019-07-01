@@ -695,7 +695,7 @@ namespace
     {
         auto txIdStr = vm[cli::TX_ID].as<string>();
         if (txIdStr.empty()) {
-            LOG_ERROR() << "Failed, --tx_id param required";
+            LOG_ERROR() << kErrorTxIdParamReqired;
             return -1;
         }
         auto txIdVec = from_hex(txIdStr);
@@ -706,17 +706,16 @@ namespace
         auto tx = walletDB->getTx(txId);
         if (!tx)
         {
-            LOG_ERROR() << "Failed, transaction with id: "
-                        << txIdStr
-                        << " does not exist.";
+            LOG_ERROR() << boost::format(kErrorTxWithIdNotFound) % txIdStr;
             return -1;
         }
 
-        LOG_INFO() << "Transaction details:\n"
-                   << storage::TxDetailsInfo(walletDB, txId)
-                   << "Status: "
-                   << getTxStatus(*tx)
-                   << (tx->m_status == TxStatus::Failed ? "\nReason: "+ GetFailureMessage(tx->m_failureReason) : "");
+        LOG_INFO()
+            << boost::format(kTxDetailsFormat)
+                % storage::TxDetailsInfo(walletDB, txId) % getTxStatus(*tx) 
+            << (tx->m_status == TxStatus::Failed
+                    ? boost::format(kTxDetailsFailReason) % GetFailureMessage(tx->m_failureReason)
+                    : boost::format(""));
 
         return 0;
     }
@@ -731,17 +730,17 @@ namespace
         auto tx = walletDB->getTx(txId);
         if (!tx)
         {
-            LOG_ERROR() << "Failed to export payment proof, transaction does not exist.";
+            LOG_ERROR() << kErrorPpExportFailed;
             return -1;
         }
         if (!tx->m_sender || tx->m_selfTx)
         {
-            LOG_ERROR() << "Cannot export payment proof for receiver or self transaction.";
+            LOG_ERROR() << kErrorPpCannotExportForReceiver;
             return -1;
         }
         if (tx->m_status != TxStatus::Completed)
         {
-            LOG_ERROR() << "Failed to export payment proof. Transaction is not completed.";
+            LOG_ERROR() << kErrorPpExportFailedTxNotCompleted;
             return -1;
         }
 
@@ -752,7 +751,7 @@ namespace
             sTxt.resize(res.size() * 2);
 
             beam::to_hex(&sTxt.front(), res.data(), res.size());
-            LOG_INFO() << "Exported form: " << sTxt;
+            LOG_INFO() << boost::format(kPpExportedFrom) % sTxt;
         }
 
         return 0;
@@ -763,12 +762,12 @@ namespace
         const auto& pprofData = vm[cli::PAYMENT_PROOF_DATA];
         if (pprofData.empty())
         {
-            throw std::runtime_error("No payment proof provided: --payment_proof parameter is missing");
+            throw std::runtime_error(kErrorPpNotProvided);
         }
         ByteBuffer buf = from_hex(pprofData.as<string>());
 
         if (!storage::VerifyPaymentProof(buf))
-            throw std::runtime_error("Payment proof is invalid");
+            throw std::runtime_error(kErrorPpInvalid);
 
         return 0;
     }

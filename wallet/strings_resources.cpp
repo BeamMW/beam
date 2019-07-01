@@ -53,6 +53,13 @@ namespace beam
     const char kErrorAddrExprTimeInvalid[] = "Invalid address expiration time \"%1%\".";
     const char kErrorSeedPhraseInvalid[] = "Invalid seed phrase provided: %1%";
     const char kErrorSeedPhraseNotProvided[] = "Seed phrase has not been provided.";
+    const char kErrorTxIdParamReqired[] = "Failed, --tx_id param required";
+    const char kErrorTxWithIdNotFound[] = "Failed, transaction with id: %1% does not exist.";
+    const char kErrorPpExportFailed[] = "Failed to export payment proof, transaction does not exist.";
+    const char kErrorPpCannotExportForReceiver[] = "Cannot export payment proof for receiver or self transaction.";
+    const char kErrorPpExportFailedTxNotCompleted[] = "Failed to export payment proof. Transaction is not completed.";
+    const char kErrorPpNotProvided[] = "No payment proof provided: --payment_proof parameter is missing";
+    const char kErrorPpInvalid[] = "Payment proof is invalid";
 
     // Swap Tx statuses
     const char kSwapTxStatusInitial[] = "initial";
@@ -144,4 +151,9 @@ namespace beam
     const char kTxHistoryColumnSwapAmount[] = "swap amount";
     const char kTxHistoryColumnSwapType[] = "swap type";
 
+    // Tx Details
+    const char kTxDetailsFormat[] = "Transaction details:\n%1%Status: %2%";
+    const char kTxDetailsFailReason[] = "\nReason: %1%";
+
+    const char kPpExportedFrom[] = "Exported form: %1%";
 }

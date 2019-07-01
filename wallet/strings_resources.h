@@ -51,6 +51,13 @@ namespace beam
     extern const char kErrorAddrExprTimeInvalid[];
     extern const char kErrorSeedPhraseInvalid[];
     extern const char kErrorSeedPhraseNotProvided[];
+    extern const char kErrorTxIdParamReqired[];
+    extern const char kErrorTxWithIdNotFound[];
+    extern const char kErrorPpExportFailed[];
+    extern const char kErrorPpCannotExportForReceiver[];
+    extern const char kErrorPpExportFailedTxNotCompleted[];
+    extern const char kErrorPpNotProvided[];
+    extern const char kErrorPpInvalid[];
     // Swap Tx statuses
     extern const char kSwapTxStatusInitial[];
     extern const char kSwapTxStatusInvitation[];
@@ -134,4 +141,9 @@ namespace beam
     extern const char kSwapTxHistoryTableFormat[];
     extern const char kTxHistoryColumnSwapAmount[];
     extern const char kTxHistoryColumnSwapType[];
+    // Tx Details
+    extern const char kTxDetailsFormat[];
+    extern const char kTxDetailsFailReason[];
+
+    extern const char kPpExportedFrom[];
 }
