@@ -24,8 +24,9 @@ namespace ECC {
 
 	InnerProduct::BatchContext::BatchContext(uint32_t nCasualTotal)
 		:m_CasualTotal(nCasualTotal)
-		,m_bEnableBatch(false)
+		,m_bDirty(false)
 	{
+		assert(nCasualTotal);
 		m_Multiplier = Zero;
 
 		m_ppPrepared = m_Bufs.m_ppPrepared;
@@ -42,20 +43,15 @@ namespace ECC {
 		m_ppPrepared[s_Idx_H] = &Context::get().m_Ipp.H_;
 
 		m_Prepared = s_CountPrepared;
-		Reset();
 	}
 
-	void InnerProduct::BatchContext::Reset()
+	void InnerProduct::BatchContext::Calculate()
 	{
-		m_Casual = 0;
-		ZeroObject(m_Bufs.m_pKPrep);
-		m_bDirty = false;
-	}
-
-	void InnerProduct::BatchContext::Calculate(Point::Native& res)
-	{
+		Point::Native res;
 		Mode::Scope scope(Mode::Fast);
 		MultiMac::Calculate(res);
+
+		m_Sum += res;
 	}
 
 	bool InnerProduct::BatchContext::AddCasual(const Point& p, const Scalar::Native& k)
@@ -70,13 +66,20 @@ namespace ECC {
 
 	void InnerProduct::BatchContext::AddCasual(const Point::Native& pt, const Scalar::Native& k)
 	{
-		assert(uint32_t(m_Casual) < m_CasualTotal);
+		if (uint32_t(m_Casual) == m_CasualTotal)
+		{
+			assert(s_CountPrepared == m_Prepared);
+			m_Prepared = 0; // don't count them now
+			Calculate();
+
+			m_Casual = 0;
+			m_Prepared = s_CountPrepared;
+		}
 
 		Casual& c = m_pCasual[m_Casual++];
 
 		c.Init(pt, k);
-		if (m_bEnableBatch)
-			c.m_K *= m_Multiplier;
+		c.m_K *= m_Multiplier;
 	}
 
 	void InnerProduct::BatchContext::AddPrepared(uint32_t i, const Scalar::Native& k)
@@ -84,68 +87,40 @@ namespace ECC {
 		assert(i < s_CountPrepared);
 		Scalar::Native& trg = m_Bufs.m_pKPrep[i];
 
-		trg += m_bEnableBatch ? (k * m_Multiplier) : k;
+		trg += (k * m_Multiplier);
+	}
+
+	void InnerProduct::BatchContext::Reset()
+	{
+		m_bDirty = false;
 	}
 
 	bool InnerProduct::BatchContext::Flush()
 	{
 		if (!m_bDirty)
 			return true;
+		m_bDirty = false;
 
-		Point::Native pt;
-		Calculate(pt);
-		if (!(pt == Zero))
-			return false;
-
-		Reset();
-		return true;
+		Calculate();
+		return (m_Sum == Zero);
 	}
 
-	bool InnerProduct::BatchContext::EquationBegin(uint32_t nCasualNeeded)
+	void InnerProduct::BatchContext::EquationBegin()
 	{
-		if (nCasualNeeded > m_CasualTotal)
+		if (!m_bDirty)
 		{
-			assert(false);
-			return false; // won't fit!
+			m_bDirty = true;
+
+			m_Sum = Zero;
+			m_Casual = 0;
+			ZeroObject(m_Bufs.m_pKPrep);
 		}
 
-#ifndef NDEBUG
-        m_CasualAtEndExpected = nCasualNeeded;
-#endif // NDEBUG
-
-		nCasualNeeded += m_Casual;
-		if (nCasualNeeded > m_CasualTotal)
-		{
-			if (!Flush())
-				return false;
-		}
-
-		if (m_bEnableBatch)
-		{
-			// mutate multiplier
-			if (m_Multiplier == Zero)
-				m_Multiplier.GenRandomNnz();
-			else
-				Oracle() << m_Multiplier >> m_Multiplier;
-		}
-
-#ifndef NDEBUG
-        m_CasualAtEndExpected += m_Casual;
-#endif // NDEBUG
-
-		m_bDirty = true;
-		return true;
-	}
-
-	bool InnerProduct::BatchContext::EquationEnd()
-	{
-		assert(m_bDirty);
-        assert(m_Casual == m_CasualAtEndExpected);
-
-		if (!m_bEnableBatch)
-			return Flush();
-
-		return true;
+		// mutate multiplier
+		if (m_Multiplier == Zero)
+			m_Multiplier.GenRandomNnz();
+		else
+			Oracle() << m_Multiplier >> m_Multiplier;
 	}
 
 
@@ -495,14 +470,10 @@ namespace ECC {
 		Challenges cs_;
 		cs_.Init(oracle, dotAB, *this);
 
-		if (!bc.EquationBegin(1 + nCycles * 2))
-			return false;
-
+		bc.EquationBegin();
 		bc.AddCasual(commAB, cs_.m_Mul2);
 
-		return
-			IsValid(bc, cs_, dotAB, mod) &&
-			bc.EquationEnd();
+		return IsValid(bc, cs_, dotAB, mod);
 	}
 
 	bool InnerProduct::IsValid(BatchContext& bc, Challenges& cs_, const Scalar::Native& dotAB, const Modifier& mod) const
@@ -569,8 +540,7 @@ namespace ECC {
 			k = m_pCondensed[j];
 			k = -k;
 
-			if (bc.m_bEnableBatch)
-				k *= bc.m_Multiplier;
+			k *= bc.m_Multiplier;
 
 			k *= cs_.m_Mul1;
 
@@ -1039,8 +1009,6 @@ namespace ECC {
 			return IsValid(commitment, oracle, *InnerProduct::BatchContext::s_pInstance, pHGen);
 
 		InnerProduct::BatchContextEx<1> bc;
-		bc.m_bEnableBatch = true; // why not?
-
 		return
 			IsValid(commitment, oracle, bc, pHGen) &&
 			bc.Flush();
@@ -1090,10 +1058,9 @@ namespace ECC {
 
 		Point::Native p;
 
-		if (!bc.EquationBegin(3 + (bCustom != false)))
-			return false;
-
+		bc.EquationBegin();
 		bc.AddCasual(commitment, -zz);
+
 		if (!bc.AddCasual(m_Part2.m_T1, -cs.x))
 			return false;
 		if (!bc.AddCasual(m_Part2.m_T2, -xx))
@@ -1110,13 +1077,9 @@ namespace ECC {
 		else
 			bc.AddPrepared(InnerProduct::BatchContext::s_Idx_H, sumY);
 
-		if (!bc.EquationEnd())
-			return false;
-
 		// (P - m_Mu*G) + m_Mu*G =?= m_A + m_S*x - vec(G)*vec(z) + vec(H)*( vec(z) + vec(z^2*2^n*y^-n) )
 
-		if (!bc.EquationBegin(2 + InnerProduct::nCycles * 2))
-			return false;
+		bc.EquationBegin();
 
 		InnerProduct::Challenges cs_;
 		cs_.Init(oracle, tDot, m_P_Tag);
@@ -1156,10 +1119,7 @@ namespace ECC {
 		InnerProduct::Modifier mod;
 		mod.m_pMultiplier[1] = &cs.yInv;
 
-		if (!m_P_Tag.IsValid(bc, cs_, tDot, mod))
-			return false;
-
-		return bc.EquationEnd();
+		return m_P_Tag.IsValid(bc, cs_, tDot, mod);
 	}
 
 	int RangeProof::Confidential::cmp(const Confidential& x) const
