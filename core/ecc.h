@@ -237,6 +237,7 @@ namespace ECC
 			{
 				static const uint8_t V0 = 0;
 				static const uint8_t V1 = 1;
+				static const uint8_t BB21 = 2; // worakround for BB.2.1
 
 				static const uint32_t s_SubKeyBits = 24;
 				static const Index s_SubKeyMask = (static_cast<Index>(1) << s_SubKeyBits) - 1;
@@ -284,6 +285,16 @@ namespace ECC
 #pragma pack (pop)
 
 			void operator = (const Packed&);
+
+			bool IsBb21Possible() const
+			{
+				return m_SubIdx && (Scheme::V0 == get_Scheme());
+			}
+
+			void set_WorkaroundBb21()
+			{
+				set_Subkey(get_Subkey(), Scheme::BB21);
+			}
 
 			int cmp(const IDV&) const;
 			COMPARISON_VIA_CMP

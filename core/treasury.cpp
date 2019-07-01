@@ -100,10 +100,9 @@ namespace beam
 
 			virtual void Do(size_t iTask) override
 			{
-				typedef InnerProduct::BatchContextEx<100> MyBatch;
+				typedef InnerProduct::BatchContextEx<4> MyBatch;
 
 				std::unique_ptr<MyBatch> p(new MyBatch);
-				p->m_bEnableBatch = true;
 				MyBatch::Scope scope(*p);
 
 				if (!Verify(iTask) || !p->Flush())
