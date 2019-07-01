@@ -2547,39 +2547,49 @@ namespace beam::wallet
             return setTxParameter(db, txID, kDefaultSubTxID, paramID, value, shouldNotifyAboutChanges);
         }
 
-        bool changeAddressExpiration(IWalletDB& walletDB, const WalletID& walletID, uint64_t expiration)
+        bool changeAddressExpiration(IWalletDB& walletDB, const WalletID& walletID, bool makeEternal, bool makeActive, bool makeExpired)
         {
             if (walletID != Zero)
             {
-                auto walletAddress = walletDB.getAddress(walletID);
+                auto address = walletDB.getAddress(walletID);
 
-                if (!walletAddress.is_initialized())
+                if (!address.is_initialized())
                 {
                     LOG_INFO() << "Address " << to_string(walletID) << "is absent in wallet";
                     return false;
                 }
 
-                if (expiration == 0)
+                if (makeExpired)
                 {
-                    walletAddress->makeEternal();
+                    address->makeExpired();
                 }
-                else
+                else if (makeEternal)
                 {
-                    walletAddress->makeActive(expiration);
+                    address->makeEternal();
                 }
-                walletDB.saveAddress(*walletAddress);
+                else if (makeActive)
+                {
+                    // set expiration date to 24h since now
+                    address->makeActive(WalletAddress::AddressExpiration24h);
+                }
+
+                walletDB.saveAddress(*address);
             }
             else
             {
                 for (auto& address : walletDB.getAddresses(true))
                 {
-                    if (expiration == 0)
+                    if (makeExpired)
+                    {
+                        address.makeExpired();
+                    }
+                    else if (makeEternal)
                     {
                         address.makeEternal();
                     }
-                    else
+                    else if (makeActive)
                     {
-                        address.makeActive(expiration);
+                        address.makeActive(WalletAddress::AddressExpiration24h);
                     }
                     walletDB.saveAddress(address);
                 }
@@ -3030,7 +3040,7 @@ namespace beam::wallet
     WalletAddress::WalletAddress()
         : m_walletID(Zero)
         , m_createTime(0)
-        , m_duration(24 * 60 * 60) // 24h
+        , m_duration(AddressExpiration24h)
         , m_OwnID(false)
     {}
 
@@ -3056,7 +3066,7 @@ namespace beam::wallet
 
     Timestamp WalletAddress::getExpirationTime() const
     {
-        if (m_duration == 0)
+        if (m_duration == AddressExpirationNever)
         {
             return Timestamp(-1);
         }
@@ -3076,13 +3086,13 @@ namespace beam::wallet
 
     void WalletAddress::makeActive(uint64_t duration)
     {
-        // set expiration date to 24h since now
+        // set expiration date since current timestamp
         auto delta = getTimestamp() - m_createTime;
         m_duration = delta + duration;
     }
 
     void WalletAddress::makeEternal()
     {
-        m_duration = 0;
+        m_duration = AddressExpirationNever;
     }
 }

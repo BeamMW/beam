@@ -85,7 +85,6 @@ namespace beam::wallet
     };
 
     using CoinIDList = std::vector<Coin::ID>;
-
     
     // Used for SBBS Address management in the wallet
     struct WalletAddress
@@ -94,8 +93,11 @@ namespace beam::wallet
         std::string m_label;
         std::string m_category;
         Timestamp m_createTime;
-        uint64_t  m_duration; // if it equals 0 then address never expires
-        uint64_t  m_OwnID; // set for own address
+        uint64_t  m_duration;   // if equals to "AddressNeverExpires" then address never expires
+        uint64_t  m_OwnID;      // set for own address
+        
+        static constexpr uint64_t AddressExpirationNever = 0;
+        static constexpr uint64_t AddressExpiration24h = 24*60*60;
         
         WalletAddress();
         bool operator == (const WalletAddress& other) const;
@@ -496,7 +498,7 @@ namespace beam::wallet
         bool setTxParameter(IWalletDB& db, const TxID& txID, TxParameterID paramID, const ECC::Scalar::Native& value, bool shouldNotifyAboutChanges);
         bool setTxParameter(IWalletDB& db, const TxID& txID, TxParameterID paramID, const ByteBuffer& value, bool shouldNotifyAboutChanges);
 
-        bool changeAddressExpiration(IWalletDB& walletDB, const WalletID& walletID, uint64_t expiration);
+        bool changeAddressExpiration(IWalletDB& walletDB, const WalletID& walletID, bool makeEternal, bool makeActive, bool makeExpired);
         WalletAddress createAddress(IWalletDB& walletDB);
         WalletID generateWalletIDFromIndex(IWalletDB& walletDB, uint64_t ownID);
 

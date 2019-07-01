@@ -651,7 +651,7 @@ namespace beam::wallet
                     else if (makeActive)
                     {
                         // set expiration date to 24h since now
-                        addr->makeActive(24 * 60 * 60);
+                        addr->makeActive(WalletAddress::AddressExpiration24h);
                     }
 
                     m_walletDB->saveAddress(*addr);

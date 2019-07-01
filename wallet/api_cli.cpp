@@ -281,7 +281,7 @@ namespace
                     switch (*data.expiration)
                     {
                     case EditAddress::OneDay:
-                        address.makeActive(24 * 60 * 60);
+                        address.makeActive(WalletAddress::AddressExpiration24h);
                         break;
                     case EditAddress::Expired:
                         address.makeExpired();

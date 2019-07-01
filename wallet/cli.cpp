@@ -453,14 +453,18 @@ namespace
         {
             walletID.FromHex(address);
         }
-        uint64_t newDuration_s = 0;
+        bool makeEternal = false, makeActive = false, makeExpired = false;
         if (newTime == "24h")
         {
-            newDuration_s = 24 * 3600; //seconds
+            makeActive = true;
         }
         else if (newTime == "never")
         {
-            newDuration_s = 0;
+            makeEternal = true;
+        }
+        else if (newTime == "now")
+        {
+            makeExpired = true;
         }
         else
         {
@@ -468,7 +472,7 @@ namespace
             return -1;
         }
 
-        if (storage::changeAddressExpiration(*walletDB, walletID, newDuration_s))
+        if (storage::changeAddressExpiration(*walletDB, walletID, makeEternal, makeActive, makeExpired))
         {
             if (allAddresses)
             {
