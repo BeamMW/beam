@@ -13,6 +13,7 @@ Item
 
     anchors.fill: parent
     property bool isLockedMode: false
+    property bool isBadPortMode: false
 
     StartViewModel { id: viewModel }
 
@@ -1582,6 +1583,7 @@ Item
                             //% "Back"
                             text: qsTrId("general-back")
                             icon.source: "qrc:/assets/icon-back.svg"
+                            visible: !isBadPortMode
                             onClicked: startWizzardView.pop();
                         }
 
@@ -1631,11 +1633,16 @@ Item
                                     viewModel.setupRandomNode();
                                 }
 
-                                if (viewModel.createWallet()) {
-                                    startWizzardView.push("qrc:/loading.qml", {"isRecoveryMode" : viewModel.isRecoveryMode, "isCreating" : true, "cancelCallback": startWizzardView.pop});
-                                }
-                                else {
-                                    // TODO(alex.starun): error message if wallet not created
+                                if (isBadPortMode) {
+                                    viewModel.onNodeSettingsChanged();
+                                    root.parent.setSource("qrc:/loading.qml");
+                                } else {
+                                    if (viewModel.createWallet()) {
+                                        startWizzardView.push("qrc:/loading.qml", {"isRecoveryMode" : viewModel.isRecoveryMode, "isCreating" : true, "cancelCallback": startWizzardView.pop});
+                                    }
+                                    else {
+                                        // TODO(alex.starun): error message if wallet not created
+                                    }
                                 }
                             }
                         }
@@ -1912,7 +1919,10 @@ Item
         }
 
         Component.onCompleted: {
-            if (isLockedMode) {
+            if (isBadPortMode) {
+                startWizzardView.push(nodeSetup)
+            }
+            else if (isLockedMode) {
                 startWizzardView.push(open, { "openWallet": function (pass) { return viewModel.checkWalletPassword(pass); },
                                               "loadWallet": function () { root.parent.setSource("qrc:/main.qml"); } });
             }

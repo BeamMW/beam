@@ -62,13 +62,11 @@
     </message>
     <message id="general-receiving">
         <source>receiving</source>
-        <oldsource>Receiving</oldsource>
-        <translation type="unfinished">Получение</translation>
+        <translation>получение</translation>
     </message>
     <message id="general-sending">
         <source>sending</source>
-        <oldsource>Sending</oldsource>
-        <translation type="unfinished">Отправление</translation>
+        <translation>отправление</translation>
     </message>
     <message id="general-rescan">
         <source>Rescan</source>

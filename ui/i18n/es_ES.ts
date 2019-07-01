@@ -62,13 +62,11 @@
     </message>
     <message id="general-receiving">
         <source>receiving</source>
-        <oldsource>Receiving</oldsource>
-        <translation type="unfinished">Recibiendo</translation>
+        <translation>recibiendo</translation>
     </message>
     <message id="general-sending">
         <source>sending</source>
-        <oldsource>Sending</oldsource>
-        <translation type="unfinished">Enviando</translation>
+        <translation>enviando</translation>
     </message>
     <message id="general-rescan">
         <source>Rescan</source>
@@ -1071,7 +1069,7 @@ Escanee este código QR o envíe esta dirección al remitente a través de un ca
     </message>
     <message id="explorer">
         <source>blockchain explorer</source>
-        <translation type="unfinished">blockchain explorer</translation>
+        <translation>explorador de la blockchain</translation>
     </message>
     <message id="edit-addr-24-option">
         <source>In 24 hours from now</source>

@@ -62,13 +62,11 @@
     </message>
     <message id="general-receiving">
         <source>receiving</source>
-        <oldsource>Receiving</oldsource>
-        <translation type="unfinished">받는 중</translation>
+        <translation>받는 중</translation>
     </message>
     <message id="general-sending">
         <source>sending</source>
-        <oldsource>Sending</oldsource>
-        <translation type="unfinished">보내는 중</translation>
+        <translation>보내는 중</translation>
     </message>
     <message id="general-rescan">
         <source>Rescan</source>

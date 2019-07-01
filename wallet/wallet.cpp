@@ -26,7 +26,7 @@
 #include <numeric>
 #include "bitcoin/bitcoind017.h"
 #include "bitcoin/bitcoin_side.h"
-#include "litecoin/litecoind016.h"
+#include "litecoin/litecoind017.h"
 #include "litecoin/litecoin_side.h"
 #include "qtum/qtumd017.h"
 #include "qtum/qtum_side.h"
@@ -171,7 +171,7 @@ namespace beam::wallet
 
     void Wallet::initLitecoin(io::Reactor& reactor, const LitecoinOptions& options)
     {
-        m_litecoinBridge = make_shared<Litecoind016>(reactor, options);
+        m_litecoinBridge = make_shared<Litecoind017>(reactor, options);
     }
     
     void Wallet::initQtum(io::Reactor& reactor, const QtumOptions& options)
@@ -825,10 +825,10 @@ namespace beam::wallet
 
     void Wallet::OnRequestComplete(MyRequestUtxoEvents& r)
     {
-        const std::vector<proto::UtxoEvent>& v = r.m_Res.m_Events;
+        std::vector<proto::UtxoEvent>& v = r.m_Res.m_Events;
 		for (size_t i = 0; i < v.size(); i++)
 		{
-			const auto& event = v[i];
+			auto& event = v[i];
 
 			// filter-out false positives
             if (m_KeyKeeper)
@@ -836,6 +836,18 @@ namespace beam::wallet
                 Point commitment = m_KeyKeeper->GeneratePublicKeySync(event.m_Kidv, true);
 			    if (commitment == event.m_Commitment)
 				    ProcessUtxoEvent(event);
+				else
+				{
+					// Is it BB2.1?
+					if (event.m_Kidv.IsBb21Possible())
+					{
+						event.m_Kidv.set_WorkaroundBb21();
+
+						commitment = m_KeyKeeper->GeneratePublicKeySync(event.m_Kidv, true);
+						if (commitment == event.m_Commitment)
+							ProcessUtxoEvent(event);
+					}
+				}
             }
 		}
 
