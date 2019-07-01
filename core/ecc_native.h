@@ -669,25 +669,20 @@ namespace ECC
 		} m_Bufs;
 
 
-		void Reset();
-		void Calculate(Point::Native& res);
+		void Calculate();
 
 		const uint32_t m_CasualTotal;
-		bool m_bEnableBatch;
 		bool m_bDirty;
 		Scalar::Native m_Multiplier; // must be initialized in a non-trivial way
-
-#ifndef NDEBUG
-        int m_CasualAtEndExpected;
-#endif // NDEBUG
+		Point::Native m_Sum; // intermediate result, sum of Casuals
 
 		bool AddCasual(const Point& p, const Scalar::Native& k);
 		void AddCasual(const Point::Native& pt, const Scalar::Native& k);
 		void AddPrepared(uint32_t i, const Scalar::Native& k);
 
-		bool EquationBegin(uint32_t nCasualNeeded);
-		bool EquationEnd();
+		void EquationBegin();
 
+		void Reset();
 		bool Flush();
 
 	protected:

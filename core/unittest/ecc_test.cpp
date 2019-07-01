@@ -721,7 +721,6 @@ void TestRangeProof(bool bCustomTag)
 	}
 
 	InnerProduct::BatchContextEx<2> bc;
-	bc.m_bEnableBatch = true;
 
 	{
 		Oracle oracle;
@@ -2451,9 +2450,8 @@ void RunBenchmark()
 		const uint32_t nBatch = 100;
 		bm.N = 10 * nBatch;
 
-		typedef InnerProduct::BatchContextEx<100> MyBatch;
+		typedef InnerProduct::BatchContextEx<4> MyBatch;
 		std::unique_ptr<MyBatch> p(new MyBatch);
-		p->m_bEnableBatch = true;
 
 		InnerProduct::BatchContext::Scope scope(*p);
 
