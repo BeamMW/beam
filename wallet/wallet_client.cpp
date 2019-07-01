@@ -286,24 +286,14 @@ namespace beam::wallet
                     auto wallet = make_shared<Wallet>(m_walletDB);
                     m_wallet = wallet;
 
-                    struct MyNodeNetwork :public proto::FlyClient::NetworkStd {
-
-                        MyNodeNetwork(proto::FlyClient& fc, WalletClient& client)
+                    class NodeNetwork final: public proto::FlyClient::NetworkStd
+                    {
+                    public:
+                        NodeNetwork(proto::FlyClient& fc, WalletClient& client, const std::string& nodeAddress)
                             : proto::FlyClient::NetworkStd(fc)
+                            , m_nodeAddrStr(nodeAddress)
                             , m_walletClient(client)
                         {
-                        }
-
-                        WalletClient& m_walletClient;
-
-                        void OnNodeConnected(size_t, bool bConnected) override
-                        {
-                            m_walletClient.nodeConnectedStatusChanged(bConnected);
-                        }
-
-                        void OnConnectionFailed(size_t, const proto::NodeConnection::DisconnectReason& reason) override
-                        {
-                            m_walletClient.nodeConnectionFailed(reason);
                         }
 
                         void tryToConnect()
@@ -324,7 +314,6 @@ namespace beam::wallet
                             else if (m_attemptToConnect == MAX_ATTEMPT_TO_CONNECT)
                             {
                                 proto::NodeConnection::DisconnectReason reason;
-
                                 reason.m_Type = proto::NodeConnection::DisconnectReason::Io;
                                 reason.m_IoError = io::EC_HOST_RESOLVED_ERROR;
                                 m_walletClient.nodeConnectionFailed(reason);
@@ -341,12 +330,23 @@ namespace beam::wallet
                                 {
                                     tryToConnect();
                                 }
-                                });
+                            });
                         }
 
-                        std::string m_nodeAddrStr;
-
                     private:
+                        void OnNodeConnected(size_t, bool bConnected) override
+                        {
+                            m_walletClient.nodeConnectedStatusChanged(bConnected);
+                        }
+
+                        void OnConnectionFailed(size_t, const proto::NodeConnection::DisconnectReason& reason) override
+                        {
+                            m_walletClient.nodeConnectionFailed(reason);
+                        }
+
+                    public:
+                        std::string m_nodeAddrStr;
+                        WalletClient& m_walletClient;
 
                         io::Timer::Ptr m_timer;
                         uint8_t m_attemptToConnect = 0;
@@ -355,8 +355,7 @@ namespace beam::wallet
                         const uint16_t RECONNECTION_TIMEOUT = 1000;
                     };
 
-                    auto nodeNetwork = make_shared<MyNodeNetwork>(*wallet, *this);
-
+                    auto nodeNetwork = make_shared<NodeNetwork>(*wallet, *this, m_nodeAddrStr);
                     m_nodeNetwork = nodeNetwork;
 
                     auto walletNetwork = make_shared<WalletNetworkViaBbs>(*wallet, nodeNetwork, m_walletDB);
@@ -366,10 +365,19 @@ namespace beam::wallet
 
                     wallet_subscriber = make_unique<WalletSubscriber>(static_cast<IWalletObserver*>(this), wallet);
 
-                    nodeNetwork->m_nodeAddrStr = m_nodeAddrStr;
                     nodeNetwork->tryToConnect();
-
                     m_reactor->run();
+
+                    // If there are any tcp connections they should be terminated right now
+                    // since they refer reactor which is about to go out of scope
+                    wallet->CleanupNetwork();
+                    nodeNetwork->Disconnect();
+
+                    assert(walletNetwork.use_count() == 1);
+                    walletNetwork.reset();
+
+                    assert(nodeNetwork.use_count() == 1);
+                    nodeNetwork.reset();
                 }
                 catch (const runtime_error& ex)
                 {
