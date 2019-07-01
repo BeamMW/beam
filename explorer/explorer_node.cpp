@@ -2,6 +2,7 @@
 #include "adapter.h"
 #include "wallet/secstring.h"
 #include "core/ecc_native.h"
+#include "core/block_rw.h"
 
 #include "node/node.h"
 #include "utility/cli/options.h"
@@ -19,7 +20,7 @@ using namespace beam;
 using namespace std;
 
 #define LOG_FILES_DIR "logs"
-#define FILES_PREFIX "explorer-node_"
+#define FILES_PREFIX "explorer-node"
 #define API_PORT_PARAMETER "api_port"
 
 struct Options {
@@ -129,7 +130,7 @@ bool parse_cmdline(int argc, char* argv[], Options& o) {
         vm.notify();
 
         o.logCleanupPeriod = vm[cli::LOG_CLEANUP_DAYS].as<uint32_t>() * 24 * 3600;
-        o.nodeDbFilename = FILES_PREFIX "db";
+        o.nodeDbFilename = FILES_PREFIX ".db";
         //o.accessControlFile = "api.keys";
 
         o.nodeConnectTo = vm[cli::NODE_PEER].as<string>();
@@ -200,7 +201,7 @@ bool parse_cmdline(int argc, char* argv[], Options& o) {
 void setup_node(Node& node, const Options& o) {
     Rules::get().UpdateChecksum();
     LOG_INFO() << "Beam Node Explorer " << PROJECT_VERSION << " (" << BRANCH_NAME << ")";
-    LOG_INFO() << "Rules signature: " << Rules::get().Checksum;
+    LOG_INFO() << "Rules signature: " << Rules::get().get_SignatureStr();
 
     node.m_Cfg.m_sPathLocal = o.nodeDbFilename;
     node.m_Cfg.m_Listen.port(o.nodeListenTo.port());

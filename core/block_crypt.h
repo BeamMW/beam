@@ -32,9 +32,17 @@ namespace beam
 
 	using ECC::Key;
 
+	namespace MasterKey
+	{
+		Key::IKdf::Ptr get_Child(Key::IKdf&, Key::Index);
+		Key::IKdf::Ptr get_Child(const Key::IKdf::Ptr&, const Key::IDV&);
+	}
+
 	Timestamp getTimestamp();
 	uint32_t GetTime_ms(); // platform-independent GetTickCount
 	uint32_t GetTimeNnz_ms(); // guaranteed non-zero
+
+	void HeightAdd(Height& trg, Height val); // saturates if overflow
 
 	struct HeightRange
 	{
@@ -77,6 +85,15 @@ namespace beam
 	typedef int64_t AmountSigned;
 	static_assert(sizeof(Amount) == sizeof(AmountSigned), "");
 
+	struct HeightHash
+	{
+		Merkle::Hash	m_Hash;
+		Height			m_Height;
+
+		int cmp(const HeightHash&) const;
+		COMPARISON_VIA_CMP
+	};
+
 	struct Rules
 	{
 		Rules();
@@ -105,6 +122,12 @@ namespace beam
 			uint32_t WindowMedian0	= 25; // Timestamp for a block must be (strictly) higher than the median of preceding window
 			uint32_t WindowMedian1	= 7; // Num of blocks taken at both endings of WindowWork, to pick medians.
 			Difficulty Difficulty0	= Difficulty(22 << Difficulty::s_MantissaBits); // 2^22 = 4,194,304. For GPUs producing 7 sol/sec this is roughly equivalent to 10K GPUs.
+
+			struct {
+				// damp factor. Adjustment of actual dt toward expected, effectively dampens
+				uint32_t M = 1; // Multiplier of the actual dt
+				uint32_t N = 3; // Denominator. The goal is multiplied by (N-M)
+			} Damp;
 		} DA;
 
 		struct {
@@ -125,13 +148,17 @@ namespace beam
 		ECC::Hash::Value Prehistoric; // Prev hash of the 1st block
 		ECC::Hash::Value TreasuryChecksum;
 
-		ECC::Hash::Value Checksum;
-
 		void UpdateChecksum();
 
 		static Amount get_Emission(Height);
 		static void get_Emission(AmountBig::Type&, const HeightRange&);
 		static void get_Emission(AmountBig::Type&, const HeightRange&, Amount base);
+
+		HeightHash pForks[2];
+
+		const HeightHash& get_LastFork() const;
+		const HeightHash* FindFork(const Merkle::Hash&) const;
+		std::string get_SignatureStr() const;
 
 	private:
 		Amount get_EmissionEx(Height, Height& hEnd, Amount base) const;
@@ -142,6 +169,7 @@ namespace beam
 		static void get_sk1(ECC::Scalar::Native& res, const ECC::Point::Native& comm0, const ECC::Point::Native& sk0_J);
 		void CreateInternal(ECC::Scalar::Native&, ECC::Point::Native&, bool bComm, Key::IKdf& kdf, const Key::IDV& kidv) const;
 		void AddValue(ECC::Point::Native& comm, Amount) const;
+		static void get_Hash(ECC::Hash::Value&, const Key::IDV&);
 	public:
 
 		ECC::Point::Native m_hGen;
@@ -218,11 +246,13 @@ namespace beam
 		typedef std::unique_ptr<Output> Ptr;
 
 		bool		m_Coinbase;
+		bool		m_RecoveryOnly;
 		Height		m_Incubation; // # of blocks before it's mature
 		AssetID		m_AssetID;
 
 		Output()
 			:m_Coinbase(false)
+			,m_RecoveryOnly(false)
 			,m_Incubation(0)
 		{
 			m_AssetID = Zero;
@@ -234,20 +264,20 @@ namespace beam
 		std::unique_ptr<ECC::RangeProof::Confidential>	m_pConfidential;
 		std::unique_ptr<ECC::RangeProof::Public>		m_pPublic;
 
-		void Create(ECC::Scalar::Native&, Key::IKdf& coinKdf, const Key::IDV&, Key::IPKdf& tagKdf, bool bPublic = false);
+		void Create(Height hScheme, ECC::Scalar::Native&, Key::IKdf& coinKdf, const Key::IDV&, Key::IPKdf& tagKdf, bool bPublic = false);
 
-		bool Recover(Key::IPKdf& tagKdf, Key::IDV&) const;
+		bool Recover(Height hScheme, Key::IPKdf& tagKdf, Key::IDV&) const;
 		bool VerifyRecovered(Key::IPKdf& coinKdf, const Key::IDV&) const;
 
-		bool IsValid(ECC::Point::Native& comm) const;
+		bool IsValid(Height hScheme, ECC::Point::Native& comm) const;
 		Height get_MinMaturity(Height h) const; // regardless to the explicitly-overridden
 
 		void operator = (const Output&);
 		int cmp(const Output&) const;
 		COMPARISON_VIA_CMP
 
-	private:
-		void get_SeedKid(ECC::uintBig&, Key::IPKdf&) const;
+		static void GenerateSeedKid(ECC::uintBig&, const ECC::Point& comm, Key::IPKdf&);
+		void Prepare(ECC::Oracle&, Height hScheme) const;
 	};
 
 	inline bool operator < (const Output::Ptr& a, const Output::Ptr& b) { return *a < *b; }
@@ -262,10 +292,12 @@ namespace beam
 		Amount			m_Fee;			// can be 0 (for instance for coinbase transactions)
 		HeightRange		m_Height;
 		AmountSigned	m_AssetEmission; // in case it's non-zero - the kernel commitment is the AssetID
+		bool			m_CanEmbed;
 
 		TxKernel()
 			:m_Fee(0)
 			,m_AssetEmission(0)
+			,m_CanEmbed(false)
 		{}
 
 		struct HashLock
@@ -277,6 +309,18 @@ namespace beam
 		};
 
 		std::unique_ptr<HashLock> m_pHashLock;
+
+		struct RelativeLock
+		{
+			Merkle::Hash m_ID;
+			Height m_LockHeight;
+
+			int cmp(const RelativeLock&) const;
+			COMPARISON_VIA_CMP
+		};
+
+		std::unique_ptr<RelativeLock> m_pRelativeLock;
+
 		std::vector<Ptr> m_vNested; // nested kernels, included in the signature.
 
 		static const uint32_t s_MaxRecursionDepth = 2;
@@ -290,7 +334,7 @@ namespace beam
 		void get_Hash(Merkle::Hash&, const ECC::Hash::Value* pLockImage = NULL) const; // for signature. Contains all, including the m_Commitment (i.e. the public key)
 		void get_ID(Merkle::Hash&, const ECC::Hash::Value* pLockImage = NULL) const; // unique kernel identifier in the system.
 
-		bool IsValid(AmountBig::Type& fee, ECC::Point::Native& exc) const;
+		bool IsValid(Height hScheme, AmountBig::Type& fee, ECC::Point::Native& exc) const;
 		void Sign(const ECC::Scalar::Native&); // suitable for aux kernels, created by single party
 
 		struct LongProof; // legacy
@@ -299,8 +343,10 @@ namespace beam
 		int cmp(const TxKernel&) const;
 		COMPARISON_VIA_CMP
 
+		size_t get_TotalCount() const; // including self and nested
+
 	private:
-		bool Traverse(ECC::Hash::Value&, AmountBig::Type*, ECC::Point::Native*, const TxKernel* pParent, const ECC::Hash::Value* pLockImage) const;
+		bool Traverse(ECC::Hash::Value&, AmountBig::Type*, ECC::Point::Native*, const TxKernel* pParent, const ECC::Hash::Value* pLockImage, const Height* pScheme) const;
 	};
 
 	inline bool operator < (const TxKernel::Ptr& a, const TxKernel::Ptr& b) { return *a < *b; }
@@ -319,6 +365,7 @@ namespace beam
 			const Output* m_pUtxoOut;
 			const TxKernel* m_pKernel;
 
+			virtual ~IReader() {}
 			virtual void Clone(Ptr&) = 0;
 			virtual void Reset() = 0;
 			// For all the following methods: the returned pointer should be valid during at least 2 consequent calls!
@@ -332,6 +379,7 @@ namespace beam
 
 		struct IWriter
 		{
+			virtual ~IWriter() {}
 			virtual void Write(const Input&) = 0;
 			virtual void Write(const Output&) = 0;
 			virtual void Write(const TxKernel&) = 0;
@@ -411,6 +459,16 @@ namespace beam
 		typedef uintBig_t<ECC::nBytes> KeyType; // key len for map of transactions. Can actually be less than 256 bits.
 
 		void get_Key(KeyType&) const;
+
+		struct FeeSettings
+		{
+			Amount m_Output;
+			Amount m_Kernel; // nested kernels are accounted too
+
+			FeeSettings(); // defaults
+
+			Amount Calculate(const Transaction&) const;
+		};
 	};
 
 	struct Block
@@ -440,12 +498,12 @@ namespace beam
 			NonceType m_Nonce; // 8 bytes. The overall solution size is 96 bytes.
 			Difficulty m_Difficulty;
 
-			bool IsValid(const void* pInput, uint32_t nSizeInput) const;
+			bool IsValid(const void* pInput, uint32_t nSizeInput, Height) const;
 
 			using Cancel = std::function<bool(bool bRetrying)>;
 			// Difficulty and Nonce must be initialized. During the solution it's incremented each time by 1.
 			// returns false only if cancelled
-			bool Solve(const void* pInput, uint32_t nSizeInput, const Cancel& = [](bool) { return false; });
+			bool Solve(const void* pInput, uint32_t nSizeInput, Height, const Cancel& = [](bool) { return false; });
 
 		private:
 			struct Helper;
@@ -453,13 +511,7 @@ namespace beam
 
 		struct SystemState
 		{
-			struct ID {
-				Merkle::Hash	m_Hash; // explained later
-				Height			m_Height;
-
-				int cmp(const ID&) const;
-				COMPARISON_VIA_CMP
-			};
+			typedef HeightHash ID;
 
 			struct Sequence
 			{
@@ -494,7 +546,9 @@ namespace beam
 
 				bool IsSane() const;
 				bool IsValidPoW() const;
-				bool IsValid() const { return IsSane() && IsValidPoW(); }
+				bool IsValid() const {
+					return IsSane() && IsValidPoW(); 
+				}
                 bool GeneratePoW(const PoW::Cancel& = [](bool) { return false; });
 
 				// the most robust proof verification - verifies the whole proof structure
@@ -697,98 +751,6 @@ namespace beam
 		bool IsValidBlock();
 	};
 
-	class Block::BodyBase::RW
-		:public Block::BodyBase::IMacroReader
-		,public Block::BodyBase::IMacroWriter
-	{
-
-	public:
-
-#define MBLOCK_DATA_Types(macro) \
-		macro(hd) \
-		macro(ui) \
-		macro(uo) \
-		macro(ko) \
-		macro(kx)
-
-		struct Type
-		{
-			enum Enum {
-#define THE_MACRO(x) x,
-				MBLOCK_DATA_Types(THE_MACRO)
-#undef THE_MACRO
-				count
-			};
-		};
-
-		static const char* const s_pszSufix[Type::count];
-
-	private:
-
-		std::FStream m_pS[Type::count];
-
-		Input::Ptr m_pGuardUtxoIn[2];
-		Output::Ptr m_pGuardUtxoOut[2];
-		TxKernel::Ptr m_pGuardKernel[2];
-
-		Height m_pMaturity[Type::count]; // some are used as maturity, some have different meaning.
-		// Those are aliases, used in read mode
-		uint64_t& m_KrnSizeTotal() { return m_pMaturity[Type::hd]; }
-		uint64_t& m_KrnThresholdPos() { return m_pMaturity[Type::kx]; }
-
-		template <typename T>
-		void LoadInternal(const T*& pPtr, int, typename T::Ptr* ppGuard);
-		bool LoadMaturity(int);
-		void NextKernelThreshold();
-
-		template <typename T>
-		void WriteInternal(const T&, int);
-		void WriteMaturity(const TxElement&, int);
-
-		bool OpenInternal(int iData);
-		void PostOpen(int iData);
-		void Open(bool bRead);
-
-	public:
-
-		RW() :m_bAutoDelete(false) {}
-		~RW();
-
-		// do not modify between Open() and Close()
-		bool m_bRead;
-		bool m_bAutoDelete;
-		std::string m_sPath;
-		Merkle::Hash m_hvContentTag; // needed to make sure all the files indeed belong to the same data set
-
-		void GetPath(std::string&, int iData) const;
-
-		void ROpen();
-		void WCreate();
-
-		void Flush();
-		void Close();
-		void Delete(); // must be closed
-
-		void NextKernelFF(Height hMin);
-
-		// IReader
-		virtual void Clone(Ptr&) override;
-		virtual void Reset() override;
-		virtual void NextUtxoIn() override;
-		virtual void NextUtxoOut() override;
-		virtual void NextKernel() override;
-		// IMacroReader
-		virtual void get_Start(BodyBase&, SystemState::Sequence::Prefix&) override;
-		virtual bool get_NextHdr(SystemState::Sequence::Element&) override;
-		// IWriter
-		virtual void Write(const Input&) override;
-		virtual void Write(const Output&) override;
-		virtual void Write(const TxKernel&) override;
-		// IMacroWriter
-		virtual void put_Start(const BodyBase&, const SystemState::Sequence::Prefix&) override;
-		virtual void put_NextHdr(const SystemState::Sequence::Element&) override;
-	};
-
 	struct Block::ChainWorkProof
 	{
 		// Compressed consecutive states (likely to appear at the end)
@@ -835,30 +797,19 @@ namespace beam
 				& m_LowerBound;
 		}
 
+		struct IStateWalker
+		{
+			virtual bool OnState(const SystemState::Full&, bool bIsTip) = 0;
+		};
+
+		// enumerates all the embedded states in standard order (from lo to hi)
+		bool EnumStates(IStateWalker&) const;
+		void UnpackStates(std::vector<SystemState::Full>&) const;
+
 	private:
 		struct Sampler;
 		bool IsValidInternal(size_t& iState, size_t& iHash, const Difficulty::Raw& lowerBound, SystemState::Full* pTip) const;
 		void ZeroInit();
-	};
-
-	struct KeyString
-	{
-		std::string m_sRes;
-		std::string m_sMeta;
-		ECC::NoLeak<Merkle::Hash> m_hvSecret;
-
-		void Export(const ECC::HKdf&);
-		void Export(const ECC::HKdfPub&);
-		bool Import(ECC::HKdf&);
-		bool Import(ECC::HKdfPub&);
-		void SetPassword(const std::string&);
-		void SetPassword(const Blob&);
-
-	private:
-		typedef uintBig_t<8> MacValue;
-		void XCrypt(MacValue&, uint32_t nSize, bool bEnc) const;
-
-		void Export(void*, uint32_t, uint8_t nCode);
-		bool Import(void*, uint32_t, uint8_t nCode);
+		bool EnumStatesHeadingOnly(IStateWalker&) const; // skip arbitrary
 	};
 }

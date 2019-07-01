@@ -233,17 +233,46 @@ namespace ECC
 		struct IDV
 			:public ID
 		{
+			struct Scheme
+			{
+				static const uint8_t V0 = 0;
+				static const uint8_t V1 = 1;
+				static const uint8_t BB21 = 2; // worakround for BB.2.1
+
+				static const uint32_t s_SubKeyBits = 24;
+				static const Index s_SubKeyMask = (static_cast<Index>(1) << s_SubKeyBits) - 1;
+			};
+
+
 			Amount m_Value;
 			IDV() {}
 			IDV(Zero_)
 				:ID(Zero)
 				,m_Value(0)
-			{}
+			{
+				set_Subkey(0);
+			}
 
-			IDV(Amount v, uint64_t nIdx, Type type, Index nSubIdx = 0)
-				:ID(nIdx, type, nSubIdx)
+			IDV(Amount v, uint64_t nIdx, Type type, Index nSubIdx = 0, Index nScheme = Scheme::V1)
+				:ID(nIdx, type)
 				,m_Value(v)
 			{
+				set_Subkey(nSubIdx, nScheme);
+			}
+
+			Index get_Scheme() const
+			{
+				return m_SubIdx >> Scheme::s_SubKeyBits;
+			}
+
+			Index get_Subkey() const
+			{
+				return m_SubIdx & Scheme::s_SubKeyMask;
+			}
+
+			void set_Subkey(Index nSubIdx, Index nScheme = Scheme::V1)
+			{
+				m_SubIdx = (nSubIdx & Scheme::s_SubKeyMask) | (nScheme << Scheme::s_SubKeyBits);
 			}
 
 #pragma pack (push, 1)
@@ -256,6 +285,16 @@ namespace ECC
 #pragma pack (pop)
 
 			void operator = (const Packed&);
+
+			bool IsBb21Possible() const
+			{
+				return m_SubIdx && (Scheme::V0 == get_Scheme());
+			}
+
+			void set_WorkaroundBb21()
+			{
+				set_Subkey(get_Subkey(), Scheme::BB21);
+			}
 
 			int cmp(const IDV&) const;
 			COMPARISON_VIA_CMP
@@ -385,11 +424,13 @@ namespace ECC
 			// multisig
 			struct MultiSig
 			{
-				Scalar x, zz;
+				Part1 m_Part1;
+				Part2 m_Part2;
+
 				struct Impl;
 
 				static bool CoSignPart(const uintBig& seedSk, Part2&);
-				void CoSignPart(const uintBig& seedSk, const Scalar::Native& sk, Part3&) const;
+				void CoSignPart(const uintBig& seedSk, const Scalar::Native& sk, Oracle&, Part3&) const;
 			};
 
 			struct Phase {
@@ -401,12 +442,14 @@ namespace ECC
 				};
 			};
 
-			bool CoSign(const uintBig& seedSk, const Scalar::Native& sk, const CreatorParams&, Oracle&, Phase::Enum, MultiSig* pMsigOut = nullptr, const Point::Native* pHGen = nullptr); // for multi-sig use 1,2,3 for 1st-pass
+			bool CoSign(const uintBig& seedSk, const Scalar::Native& sk, const CreatorParams&, Oracle&, Phase::Enum, const Point::Native* pHGen = nullptr);
 
+            static void GenerateSeed(uintBig& seedSk, const Scalar::Native& sk, Amount amount, Oracle& oracle);
 
 		private:
-			struct ChallengeSetBase;
-			struct ChallengeSet;
+			struct ChallengeSet0;
+			struct ChallengeSet1;
+			struct ChallengeSet2;
 			static void CalcA(Point&, const Scalar::Native& alpha, Amount v);
 		};
 

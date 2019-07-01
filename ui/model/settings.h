@@ -36,6 +36,9 @@ public:
     bool isPasswordReqiredToSpendMoney() const;
     void setPasswordReqiredToSpendMoney(bool value);
 
+    bool isAllowedBeamMWLinks() const;
+    void setAllowedBeamMWLinks(bool value);
+
     void initModel(WalletModel::Ptr model);
     std::string getWalletStorage() const;
     std::string getAppDataPath() const;
@@ -52,11 +55,18 @@ public:
     QStringList getLocalNodePeers() const;
     void setLocalNodePeers(const QStringList& qPeers);
 
+    QString getLocale() const;
+    QString getLanguageName() const;
+    void setLocaleByLanguageName(const QString& language);
+    static QStringList getSupportedLanguages();
+    static void openFolder(const QString& path);
+
 public:
     static const char* WalletCfg;
     static const char* LogsFolder;
     static const char* SettingsFile;
     static const char* WalletDBFile;
+    static const char* NodeDBFile;
 
     void applyChanges();
 
@@ -67,6 +77,7 @@ signals:
     void localNodePortChanged();
     void localNodePeersChanged();
     void localNodeSynchronizedChanged();
+    void localeChanged();
 
 private:
     QSettings m_data;

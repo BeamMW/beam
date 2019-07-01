@@ -67,6 +67,7 @@ namespace {
     DEF_LABEL(output);
     DEF_LABEL(height);
     DEF_LABEL(nonceprefix);
+    DEF_LABEL(forkheight);
 #undef DEF_LABEL
 
 ResultCode parse_json(const void* buf, size_t bufSize, json& o) {
@@ -202,6 +203,7 @@ bool append_json_msg(io::FragmentWriter& packer, const Result& m) {
     o[l_code] = m.code;
     o[l_description] = m.description;
     if (!m.nonceprefix.empty()) o[l_nonceprefix] = m.nonceprefix;
+    if (m.forkheight != MaxHeight) o[l_forkheight] = m.forkheight;	
     return serialize_json_msg(packer, o);
 }
 

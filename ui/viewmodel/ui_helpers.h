@@ -4,7 +4,7 @@
 
 namespace beamui
 {
-    QString toString(const beam::WalletID&);
+    QString toString(const beam::wallet::WalletID&);
     QString toString(const beam::Merkle::Hash&);
     QString BeamToString(const beam::Amount& value);
     QString toString(const beam::Timestamp& ts);

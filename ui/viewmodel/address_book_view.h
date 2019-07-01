@@ -17,6 +17,7 @@
 
 #include <QObject>
 #include <QtCore/qvariant.h>
+#include <QDateTime>
 #include <QQmlListProperty>
 #include "wallet/wallet_db.h"
 #include "model/wallet_model.h"
@@ -27,20 +28,20 @@ class AddressItem : public QObject
     Q_PROPERTY(QString address          READ getAddress         CONSTANT)
     Q_PROPERTY(QString name             READ getName            CONSTANT)
     Q_PROPERTY(QString category         READ getCategory        CONSTANT)
-    Q_PROPERTY(QString expirationDate   READ getExpirationDate  CONSTANT)
-    Q_PROPERTY(QString createDate       READ getCreateDate      CONSTANT)
+    Q_PROPERTY(QDateTime expirationDate READ getExpirationDate  CONSTANT)
+    Q_PROPERTY(QDateTime createDate     READ getCreateDate      CONSTANT)
     Q_PROPERTY(bool neverExpired        READ isNeverExpired     CONSTANT)
 
 public:
 
     AddressItem() = default;
-    AddressItem(const beam::WalletAddress&);
+    AddressItem(const beam::wallet::WalletAddress&);
 
     QString getAddress() const;
     QString getName() const;
     QString getCategory() const;
-    QString getExpirationDate() const;
-    QString getCreateDate() const;
+    QDateTime getExpirationDate() const;
+    QDateTime getCreateDate() const;
     bool isNeverExpired() const;
 
     bool isExpired() const;
@@ -48,7 +49,7 @@ public:
     beam::Timestamp getExpirationTimestamp() const;
 
 private:
-    beam::WalletAddress m_walletAddress;
+    beam::wallet::WalletAddress m_walletAddress;
 };
 
 class ContactItem : public QObject
@@ -60,14 +61,14 @@ class ContactItem : public QObject
 
 public:
     ContactItem() = default;
-    ContactItem(const beam::WalletAddress&);
+    ContactItem(const beam::wallet::WalletAddress&);
 
     QString getAddress() const;
     QString getName() const;
     QString getCategory() const;
 
 private:
-    beam::WalletAddress m_walletAddress;
+    beam::wallet::WalletAddress m_walletAddress;
 };
 
 class AddressBookViewModel : public QObject
@@ -96,6 +97,9 @@ public:
 	Q_INVOKABLE void deleteAddress(const QString& addr);
     Q_INVOKABLE void copyToClipboard(const QString& text);
     Q_INVOKABLE void saveChanges(const QString& addr, const QString& name, bool isNever, bool makeActive, bool makeExpired);
+    Q_INVOKABLE static QString generateQR(const QString& addr, uint width, uint height);
+    Q_INVOKABLE static QString getLocaleName();
+    Q_INVOKABLE bool isAddressWithCommentExist(const QString& comment) const;
 
 public:
 
@@ -126,8 +130,8 @@ public:
     void setContactSortRole(QString);
 
 public slots:
-    void onStatus(const WalletStatus& amount);
-    void onAddresses(bool own, const std::vector<beam::WalletAddress>& addresses);
+    void onStatus(const beam::wallet::WalletStatus& amount);
+    void onAddresses(bool own, const std::vector<beam::wallet::WalletAddress>& addresses);
 
 signals:
     void contactsChanged();

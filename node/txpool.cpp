@@ -48,7 +48,7 @@ TxPool::Fluff::Element* TxPool::Fluff::AddValidTx(Transaction::Ptr&& pValue, con
 
 	Element* p = new Element;
 	p->m_pValue = std::move(pValue);
-	p->m_Threshold.m_Value	= ctx.m_Height.m_Max;
+	p->m_Threshold.m_Height	= ctx.m_Height;
 	p->m_Profit.m_Fee = ctx.m_Fee;
 	p->m_Profit.SetSize(*p->m_pValue);
 	p->m_Tx.m_Key = key;
@@ -86,18 +86,6 @@ void TxPool::Fluff::Release(Element& x)
 	}
 }
 
-void TxPool::Fluff::DeleteOutOfBound(Height h)
-{
-	while (!m_setThreshold.empty())
-	{
-		Element::Threshold& t = *m_setThreshold.begin();
-		if (t.m_Value >= h)
-			break;
-
-		Delete(t.get_ParentObj());
-	}
-}
-
 void TxPool::Fluff::Clear()
 {
 	while (!m_setThreshold.empty())
@@ -110,6 +98,11 @@ bool TxPool::Stem::TryMerge(Element& trg, Element& src)
 {
 	assert(trg.m_bAggregating && src.m_bAggregating);
 
+	HeightRange hr = trg.m_Height;
+	hr.Intersect(src.m_Height);
+	if (hr.IsEmpty())
+		return false;
+
 	Transaction txNew;
 	TxVectors::Writer wtx(txNew, txNew);
 
@@ -118,13 +111,14 @@ bool TxPool::Stem::TryMerge(Element& trg, Element& src)
 
 	txNew.m_Offset = ECC::Scalar::Native(trg.m_pValue->m_Offset) + ECC::Scalar::Native(src.m_pValue->m_Offset);
 
-#ifdef _DEBUG
-	Transaction::Context::Params pars;
-	Transaction::Context ctx(pars);
-	assert(txNew.IsValid(ctx));
-#endif // _DEBUG
+//#ifdef _DEBUG
+//	Transaction::Context::Params pars;
+//	Transaction::Context ctx(pars);
+////	ctx.m_Height = ;
+//	assert(txNew.IsValid(ctx));
+//#endif // _DEBUG
 
-	if (!ValidateTxContext(txNew))
+	if (!ValidateTxContext(txNew, hr))
 		return false; // conflicting txs, can't merge
 
 	trg.m_Profit.m_Fee += src.m_Profit.m_Fee;
@@ -137,6 +131,8 @@ bool TxPool::Stem::TryMerge(Element& trg, Element& src)
 	trg.m_pValue->m_vOutputs.swap(txNew.m_vOutputs);
 	trg.m_pValue->m_vKernels.swap(txNew.m_vKernels);
 	trg.m_pValue->m_Offset = txNew.m_Offset;
+
+	trg.m_Height = hr;
 
 	InsertKrn(trg);
 

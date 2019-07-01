@@ -38,12 +38,18 @@ namespace beam
         extern const char* NONCEPREFIX_DIGITS;
         extern const char* NODE_PEER;
         extern const char* PASS;
+        extern const char* BTC_PASS;
+        extern const char* BTC_USER_NAME;
+        extern const char* LTC_PASS;
+        extern const char* LTC_USER_NAME;
         extern const char* AMOUNT;
         extern const char* AMOUNT_FULL;
         extern const char* RECEIVER_ADDR;
         extern const char* RECEIVER_ADDR_FULL;
         extern const char* NODE_ADDR;
         extern const char* NODE_ADDR_FULL;
+        extern const char* BTC_NODE_ADDR;
+        extern const char* LTC_NODE_ADDR;
         extern const char* COMMAND;
         extern const char* NODE;
         extern const char* WALLET;
@@ -51,9 +57,9 @@ namespace beam
         extern const char* TREASURY;
         extern const char* TREASURY_BLOCK;
         extern const char* RESYNC;
-		extern const char* RESET_ID;
-		extern const char* ERASE_ID;
-		extern const char* CHECKDB;
+        extern const char* RESET_ID;
+        extern const char* ERASE_ID;
+        extern const char* CHECKDB;
         extern const char* CRASH;
         extern const char* INIT;
         extern const char* RESTORE;
@@ -68,10 +74,11 @@ namespace beam
         extern const char* NEW_ADDRESS;
         extern const char* CANCEL_TX;
         extern const char* DELETE_TX;
-		extern const char* PAYMENT_PROOF_EXPORT;
-		extern const char* PAYMENT_PROOF_VERIFY;
-		extern const char* PAYMENT_PROOF_DATA;
-		extern const char* PAYMENT_PROOF_REQUIRED;
+        extern const char* TX_DETAILS;
+        extern const char* PAYMENT_PROOF_EXPORT;
+        extern const char* PAYMENT_PROOF_VERIFY;
+        extern const char* PAYMENT_PROOF_DATA;
+        extern const char* PAYMENT_PROOF_REQUIRED;
         extern const char* SEND;
         extern const char* INFO;
         extern const char* NEW_ADDRESS_COMMENT;
@@ -82,14 +89,13 @@ namespace beam
         extern const char* GENERATE_PHRASE;
         extern const char* FEE;
         extern const char* FEE_FULL;
-        extern const char* RECEIVE;
         extern const char* LOG_LEVEL;
         extern const char* FILE_LOG_LEVEL;
         extern const char* LOG_INFO;
         extern const char* LOG_DEBUG;
         extern const char* LOG_VERBOSE;
         extern const char* LOG_CLEANUP_DAYS;
-		extern const char* LOG_UTXOS;
+        extern const char* LOG_UTXOS;
         extern const char* VERSION;
         extern const char* VERSION_FULL;
         extern const char* GIT_COMMIT_HASH;
@@ -99,12 +105,26 @@ namespace beam
         extern const char* WALLET_RESCAN;
         extern const char* UTXO;
         extern const char* EXPORT_ADDRESSES;
+        extern const char* EXPORT_DATA;
         extern const char* IMPORT_ADDRESSES;
+        extern const char* IMPORT_DATA;
         extern const char* IMPORT_EXPORT_PATH;
         extern const char* IP_WHITELIST;
-		extern const char* HORIZON_HI;
-		extern const char* HORIZON_LO;
+        extern const char* HORIZON_HI;
+        extern const char* HORIZON_LO;
+		extern const char* GENERATE_RECOVERY_PATH;
+		extern const char* RECOVERY_AUTO_PATH;
+		extern const char* RECOVERY_AUTO_PERIOD;
         extern const char* COLD_WALLET;
+        extern const char* SWAP_INIT;
+        extern const char* SWAP_LISTEN;
+        extern const char* SWAP_AMOUNT;
+        extern const char* SWAP_FEERATE;
+        extern const char* SWAP_COIN;
+        extern const char* SWAP_NETWORK;
+        extern const char* SWAP_BEAM_SIDE;
+        extern const char* SWAP_TX_HISTORY;
+        extern const char* NODE_POLL_PERIOD;
 
         // wallet api
         extern const char* API_USE_HTTP;
@@ -118,13 +138,16 @@ namespace beam
         extern const char* TR_OPCODE;
         extern const char* TR_WID;
         extern const char* TR_PERC;
-		extern const char* TR_PERC_TOTAL;
-		extern const char* TR_COMMENT;
-		extern const char* TR_M;
-		extern const char* TR_N;
-		// ui
+        extern const char* TR_PERC_TOTAL;
+        extern const char* TR_COMMENT;
+        extern const char* TR_M;
+        extern const char* TR_N;
+
+        // ui
         extern const char* APPDATA_PATH;
-        extern const char* LANG;
+
+        // Defaults that should be accessible outside
+        extern const Amount kMinimumFee;
     }
 
     enum OptionsFlag : int
@@ -151,6 +174,106 @@ namespace beam
 
     class SecString;
 
+    template <typename T>
+    struct Nonnegative {
+        static_assert(std::is_unsigned<T>::value, "Nonnegative<T> requires unsigned type.");
+
+        Nonnegative() {}
+        explicit Nonnegative(const T& v) : value(v) {}
+
+        T value = 0;
+    };
+
+    template <typename T>
+    struct Positive {
+        static_assert(std::is_arithmetic<T>::value, "Positive<T> requires numerical type.");
+
+        Positive() {}
+        explicit Positive(const T& v) : value(v) {}
+
+        T value = 0;
+    };
+
+    /** Class thrown when a argument of option is negative */
+    class NonnegativeOptionException : public po::error_with_option_name {
+    public:
+        NonnegativeOptionException()
+            : po::error_with_option_name("The argument for option '%canonical_option%' must be equal to or more than 0.")
+        {
+        }
+    };
+
+    // Class thrown when a argument of option is negative or zero
+    class PositiveOptionException : public po::error_with_option_name {
+    public:
+        PositiveOptionException()
+            : po::error_with_option_name("The argument for option '%canonical_option%' must be more than 0.")
+        {
+        }
+    };
+
+    template<typename T>
+    std::ostream& operator<<(std::ostream& os, const Nonnegative<T>& v)
+    {
+        os << v.value;
+        return os;
+    }
+
+    template<typename T>
+    std::ostream& operator<<(std::ostream& os, const Positive<T>& v)
+    {
+        os << v.value;
+        return os;
+    }
+
+    template <typename T>
+    void validate(boost::any& v, const std::vector<std::string>& values, Nonnegative<T>*, int)
+    {
+        po::validators::check_first_occurrence(v);
+
+        const std::string& s = po::validators::get_single_string(values);
+
+        if (!s.empty() && s[0] == '-') {
+            throw NonnegativeOptionException();
+        }
+
+        try
+        {
+            v = Nonnegative<T>(boost::lexical_cast<T>(s));
+        }
+        catch (const boost::bad_lexical_cast&)
+        {
+            throw po::invalid_option_value(s);
+        }
+    }
+
+    template <typename T>
+    void validate(boost::any& v, const std::vector<std::string>& values, Positive<T>*, int)
+    {
+        po::validators::check_first_occurrence(v);
+        const std::string& s = po::validators::get_single_string(values);
+        T numb;
+
+        if (!s.empty() && s[0] == '-') {
+            throw PositiveOptionException();
+        }
+
+        try
+        {
+            numb = boost::lexical_cast<T>(s);
+        }
+        catch (const boost::bad_lexical_cast&)
+        {
+            throw po::invalid_option_value(s);
+        }
+
+        if (numb <= 0)
+            throw PositiveOptionException();
+
+        v = Positive<T>(numb);
+    }
+
     bool read_wallet_pass(SecString& pass, const po::variables_map& vm);
     bool confirm_wallet_pass(const SecString& pass);
+    bool read_btc_pass(SecString& pass, po::variables_map& vm);
 }

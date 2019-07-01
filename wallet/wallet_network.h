@@ -21,7 +21,7 @@
 #include <boost/intrusive/list.hpp>
 #include "wallet.h"
 
-namespace beam
+namespace beam::wallet
 {
     namespace bi = boost::intrusive;
 
@@ -68,8 +68,7 @@ namespace beam
         bool IsSingleChannelUser(const Addr::Channel&);
 
         // IWalletMessageEndpoint
-        void Send(const WalletID& peerID, const wallet::SetTxParameter& msg) override;
-        void AddOwnAddress(uint64_t ownID, BbsChannel, Timestamp expirationTime, const WalletID& walletID);
+        void Send(const WalletID& peerID, const SetTxParameter& msg) override;
         void OnAddressTimer();
         
     private:

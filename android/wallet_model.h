@@ -17,31 +17,31 @@
 #include "wallet/wallet_client.h"
 
 class WalletModel
-    : public WalletClient
+    : public beam::wallet::WalletClient
 {
 public:
 
     using Ptr = std::shared_ptr<WalletModel>;
 
-    WalletModel(beam::IWalletDB::Ptr walletDB, const std::string& nodeAddr, beam::io::Reactor::Ptr reactor);
+    WalletModel(beam::wallet::IWalletDB::Ptr walletDB, const std::string& nodeAddr, beam::io::Reactor::Ptr reactor);
     ~WalletModel() override;
 
 private:
-    void onStatus(const WalletStatus& status) override;
-    void onTxStatus(beam::ChangeAction, const std::vector<beam::TxDescription>& items) override;
+    void onStatus(const beam::wallet::WalletStatus& status) override;
+    void onTxStatus(beam::wallet::ChangeAction, const std::vector<beam::wallet::TxDescription>& items) override;
     void onSyncProgressUpdated(int done, int total) override;
     void onChangeCalculated(beam::Amount change) override;
-    void onAllUtxoChanged(const std::vector<beam::Coin>& utxos) override;
-    void onAddresses(bool own, const std::vector<beam::WalletAddress>& addrs) override;
-    void onGeneratedNewAddress(const beam::WalletAddress& walletAddr) override;
+    void onAllUtxoChanged(const std::vector<beam::wallet::Coin>& utxos) override;
+    void onAddresses(bool own, const std::vector<beam::wallet::WalletAddress>& addrs) override;
+    void onGeneratedNewAddress(const beam::wallet::WalletAddress& walletAddr) override;
     void onNewAddressFailed() override;
-    void onChangeCurrentWalletIDs(beam::WalletID senderID, beam::WalletID receiverID) override;
+    void onChangeCurrentWalletIDs(beam::wallet::WalletID senderID, beam::wallet::WalletID receiverID) override;
     void onNodeConnectionChanged(bool isNodeConnected) override;
     void onWalletError(beam::wallet::ErrorType error) override;
     void FailedToStartWallet() override;
     void onSendMoneyVerified() override;
     void onCantSendToExpired() override;
-    void onPaymentProofExported(const beam::TxID& txID, const beam::ByteBuffer& proof) override;
-    void onCoinsByTx(const std::vector<beam::Coin>& coins) override;
+    void onPaymentProofExported(const beam::wallet::TxID& txID, const beam::ByteBuffer& proof) override;
+    void onCoinsByTx(const std::vector<beam::wallet::Coin>& coins) override;
     void onAddressChecked(const std::string& addr, bool isValid) override;
 };

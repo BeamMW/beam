@@ -13,306 +13,31 @@
 // limitations under the License.
 
 #include "wallet_transaction.h"
+#include "base_tx_builder.h"
 #include "core/block_crypt.h"
 
-// TODO: getrandom not available until API 28 in the Android NDK 17b
-// https://github.com/boostorg/uuid/issues/76
-#if defined(__ANDROID__)
-#define BOOST_UUID_RANDOM_PROVIDER_DISABLE_GETRANDOM 1
-#endif
-
-#include <boost/uuid/uuid_generators.hpp>
 #include <numeric>
 #include "utility/logger.h"
 
-namespace beam { namespace wallet
+namespace beam::wallet
 {
     using namespace ECC;
     using namespace std;
 
-    TxID GenerateTxID()
+
+    BaseTransaction::Ptr SimpleTransaction::Create(INegotiatorGateway& gateway
+        , IWalletDB::Ptr walletDB
+        , IPrivateKeyKeeper::Ptr keyKeeper
+        , const TxID& txID)
     {
-        boost::uuids::uuid id = boost::uuids::random_generator()();
-        TxID txID{};
-        copy(id.begin(), id.end(), txID.begin());
-        return txID;
-    }
-
-    std::string GetFailureMessage(TxFailureReason reason)
-    {
-        switch (reason)
-        {
-#define MACRO(name, code, message) case name: return message;
-            BEAM_TX_FAILURE_REASON_MAP(MACRO)
-#undef MACRO
-        }
-        return "Unknown reason";
-    }
-
-    TransactionFailedException::TransactionFailedException(bool notify, TxFailureReason reason, const char* message)
-        : std::runtime_error(message)
-        , m_Notify{notify}
-        , m_Reason{reason}
-    {
-
-    }
-    bool TransactionFailedException::ShouldNofify() const
-    {
-        return m_Notify;
-    }
-
-    TxFailureReason TransactionFailedException::GetReason() const
-    {
-        return m_Reason;
-    }
-
-    const uint32_t BaseTransaction::s_ProtoVersion = 2;
-
-
-    BaseTransaction::BaseTransaction(INegotiatorGateway& gateway
-                                   , beam::IWalletDB::Ptr walletDB
-                                   , const TxID& txID)
-        : m_Gateway{ gateway }
-        , m_WalletDB{ walletDB }
-        , m_ID{ txID }
-    {
-        assert(walletDB);
-    }
-
-    bool BaseTransaction::IsInitiator() const
-    {
-        if (!m_IsInitiator.is_initialized())
-        {
-            m_IsInitiator = GetMandatoryParameter<bool>(TxParameterID::IsInitiator);
-        }
-        return *m_IsInitiator;
-    }
-
-    uint32_t BaseTransaction::get_PeerVersion() const
-    {
-        uint32_t nVer = 0;
-        GetParameter(TxParameterID::PeerProtoVersion, nVer);
-        return nVer;
-    }
-
-    bool BaseTransaction::GetTip(Block::SystemState::Full& state) const
-    {
-        return m_Gateway.get_tip(state);
-    }
-
-    const TxID& BaseTransaction::GetTxID() const
-    {
-        return m_ID;
-    }
-
-    void BaseTransaction::Update()
-    {
-        AsyncContextHolder async(m_Gateway);
-        try
-        {
-            if (CheckExternalFailures())
-            {
-                return;
-            }
-
-            UpdateImpl();
-
-            CheckExpired();
-        }
-        catch (const TransactionFailedException& ex)
-        {
-            LOG_ERROR() << GetTxID() << " exception msg: " << ex.what();
-            OnFailed(ex.GetReason(), ex.ShouldNofify());
-        }
-        catch (const exception& ex)
-        {
-            LOG_ERROR() << GetTxID() << " exception msg: " << ex.what();
-        }
-    }
-
-    void BaseTransaction::Cancel()
-    {
-        TxStatus s = TxStatus::Failed;
-        GetParameter(TxParameterID::Status, s);
-        // TODO: add CanCancel() method
-        if (s == TxStatus::Pending || s == TxStatus::InProgress)
-        {
-            if (s == TxStatus::InProgress)
-            {
-                if (!m_WalletDB->get_MasterKdf())
-                {
-                    // cannot create encrypted message
-                    return;
-                }
-                // notify about cancellation if we have started negotiations
-                NotifyFailure(TxFailureReason::Cancelled);
-
-            }
-            UpdateTxDescription(TxStatus::Cancelled);
-            RollbackTx();
-            m_Gateway.on_tx_completed(GetTxID());
-        }
-        else
-        {
-            LOG_INFO() << GetTxID() << " You cannot cancel transaction in state: " << static_cast<int>(s);
-        }
-    }
-
-    void BaseTransaction::RollbackTx()
-    {
-        LOG_INFO() << GetTxID() << " Transaction failed. Rollback...";
-        m_WalletDB->rollbackTx(GetTxID());
-    }
-
-    bool BaseTransaction::CheckExpired()
-    {
-        TxStatus s = TxStatus::Failed;
-        if (GetParameter(TxParameterID::Status, s)
-            && (s == TxStatus::Failed 
-             || s == TxStatus::Cancelled 
-             || s == TxStatus::Completed ))
-        {
-            return false;
-        }
-
-        Height maxHeight = MaxHeight;
-        if (!GetParameter(TxParameterID::MaxHeight, maxHeight) 
-         && !GetParameter(TxParameterID::PeerResponseHeight, maxHeight))
-        {
-            // we have no data to make decision
-            return false;
-        }
-
-        bool isRegistered = false;
-        Merkle::Hash kernelID;
-        if (!GetParameter(TxParameterID::TransactionRegistered, isRegistered)
-         || !GetParameter(TxParameterID::KernelID, kernelID))
-        {
-            Block::SystemState::Full state;
-            if (GetTip(state) && state.m_Height > maxHeight)
-            {
-                LOG_INFO() << GetTxID() << " Transaction expired. Current height: " << state.m_Height << ", max kernel height: " << maxHeight;
-                OnFailed(TxFailureReason::TransactionExpired);
-                return true;
-            }
-        }
-        else
-        {
-            Height lastUnconfirmedHeight = 0;
-            if (GetParameter(TxParameterID::KernelUnconfirmedHeight, lastUnconfirmedHeight) && lastUnconfirmedHeight > 0)
-            {
-                if (lastUnconfirmedHeight >= maxHeight)
-                {
-                    LOG_INFO() << GetTxID() << " Transaction expired. Last unconfirmeed height: " << lastUnconfirmedHeight << ", max kernel height: " << maxHeight;
-                    OnFailed(TxFailureReason::TransactionExpired);
-                    return true;
-                }
-            }
-        }
-        return false;
-    }
-
-    bool BaseTransaction::CheckExternalFailures()
-    {
-        TxFailureReason reason = TxFailureReason::Unknown;
-        if (GetParameter(TxParameterID::FailureReason, reason))
-        {
-            TxStatus s = GetMandatoryParameter<TxStatus>(TxParameterID::Status);
-            if (s == TxStatus::InProgress) 
-            {
-                OnFailed(reason);
-                return true;
-            }
-        }
-        return false;
-    }
-
-    void BaseTransaction::ConfirmKernel(const Merkle::Hash& kernelID)
-    {
-        UpdateTxDescription(TxStatus::Registering);
-        m_Gateway.confirm_kernel(GetTxID(), kernelID);
-    }
-
-    void BaseTransaction::UpdateOnNextTip()
-    {
-        m_Gateway.UpdateOnNextTip(GetTxID());
-    }
-
-    void BaseTransaction::CompleteTx()
-    {
-        LOG_INFO() << GetTxID() << " Transaction completed";
-        UpdateTxDescription(TxStatus::Completed);
-        m_Gateway.on_tx_completed(GetTxID());
-    }
-
-    void BaseTransaction::UpdateTxDescription(TxStatus s)
-    {
-        if (SetParameter(TxParameterID::Status, s, true))
-        {
-            SetParameter(TxParameterID::ModifyTime, getTimestamp(), false);
-        }
-    }
-
-    void BaseTransaction::OnFailed(TxFailureReason reason, bool notify)
-    {
-        LOG_ERROR() << GetTxID() << " Failed. " << GetFailureMessage(reason);
-
-        if (notify)
-        {
-            NotifyFailure(reason);
-        }
-
-        SetParameter(TxParameterID::FailureReason, reason, false);
-        UpdateTxDescription((reason == TxFailureReason::Cancelled) ? TxStatus::Cancelled : TxStatus::Failed);
-        RollbackTx();
-
-        m_Gateway.on_tx_completed(GetTxID());
-    }
-
-    void BaseTransaction::NotifyFailure(TxFailureReason reason)
-    {
-        TxStatus s = TxStatus::Failed;
-        GetParameter(TxParameterID::Status, s);
-
-        switch (s)
-        {
-        case TxStatus::Pending:
-        case TxStatus::InProgress:
-            // those are the only applicable statuses, where there's no chance tx can be valid
-            break;
-        default:
-            return;
-        }
-
-        SetTxParameter msg;
-        msg.AddParameter(TxParameterID::FailureReason, reason);
-        SendTxParameters(move(msg));
-    }
-
-    IWalletDB::Ptr BaseTransaction::GetWalletDB()
-    {
-        return m_WalletDB;
-    }
-
-    bool BaseTransaction::SendTxParameters(SetTxParameter&& msg) const
-    {
-        msg.m_TxID = GetTxID();
-        msg.m_Type = GetType();
-        
-        WalletID peerID;
-        if (GetParameter(TxParameterID::MyID, msg.m_From) 
-            && GetParameter(TxParameterID::PeerID, peerID))
-        {
-            m_Gateway.send_tx_params(peerID, move(msg));
-            return true;
-        }
-        return false;
+        return BaseTransaction::Ptr(new SimpleTransaction(gateway, walletDB, keyKeeper, txID));
     }
 
     SimpleTransaction::SimpleTransaction(INegotiatorGateway& gateway
-                                        , beam::IWalletDB::Ptr walletDB
+                                        , IWalletDB::Ptr walletDB
+                                        , IPrivateKeyKeeper::Ptr keyKeeper
                                         , const TxID& txID)
-        : BaseTransaction{ gateway, walletDB, txID }
+        : BaseTransaction{ gateway, walletDB, keyKeeper, txID }
     {
 
     }
@@ -333,32 +58,28 @@ namespace beam { namespace wallet
             amoutList = AmountList{ GetMandatoryParameter<Amount>(TxParameterID::Amount) };
         }
 
-        auto sharedBuilder = make_shared<TxBuilder>(*this, amoutList, GetMandatoryParameter<Amount>(TxParameterID::Fee));
-        TxBuilder& builder = *sharedBuilder;
+        if (!m_TxBuilder)
+        {
+            m_TxBuilder = make_shared<BaseTxBuilder>(*this, kDefaultSubTxID, amoutList, GetMandatoryParameter<Amount>(TxParameterID::Fee));
+        }
+        auto sharedBuilder = m_TxBuilder;
+        BaseTxBuilder& builder = *sharedBuilder;
 
         bool hasPeersInputsAndOutputs = builder.GetPeerInputsAndOutputs();
 
+        // Check if we already have signed kernel
         if ((isSender && !builder.LoadKernel())
          || (!isSender && !builder.HasKernelID()))
         {
-            if (!m_WalletDB->get_MasterKdf())
+            // We don't need key keeper initialized to go on beyond this point
+            if (!m_KeyKeeper)
             {
                 // public wallet
                 return;
             }
 
-            bool newGenerated = builder.GenerateBlindingExcess();
-            if (newGenerated && txState != State::Initial)
-            {
-                OnFailed(TxFailureReason::InvalidState);
-                return;
-            }
             if (!builder.GetInitialTxParams() && txState == State::Initial)
             {
-                if (m_CompletedEvent)
-                {
-                    return;
-                }
                 LOG_INFO() << GetTxID() << (isSender ? " Sending " : " Receiving ")
                     << PrintableAmount(builder.GetAmount())
                     << " (fee: " << PrintableAmount(builder.GetFee()) << ")";
@@ -386,25 +107,17 @@ namespace beam { namespace wallet
 
                 UpdateTxDescription(TxStatus::InProgress);
 
-                if (!builder.GetCoins().empty())
-                {
-                    m_Gateway.OnAsyncStarted();
-                    m_CompletedEvent = io::AsyncEvent::create(io::Reactor::get_Current(), [this, sharedBuilder]() mutable
-                        {
-                            if (!sharedBuilder->FinalizeOutputs())
-                            {
-                                //TODO: transaction is too big :(
-                            }
-                            Update();
-                            m_Gateway.OnAsyncFinished();
-                        });
-                    m_OutputsFuture = async(launch::async, [this, sharedBuilder]() mutable
-                        {
-                            sharedBuilder->CreateOutputs();
-                            m_CompletedEvent->post();
-                        });
-                    return;
-                }
+                builder.GenerateOffset();
+            }
+
+            if (builder.CreateInputs())
+            {
+                return;
+            }
+
+            if (builder.CreateOutputs())
+            {
+                return;
             }
 
             uint64_t nAddrOwnID;
@@ -456,7 +169,8 @@ namespace beam { namespace wallet
                     if (GetParameter(TxParameterID::PeerProtoVersion, nVer))
                     {
                         // for peers with new flow, we assume that after we have responded, we have to switch to the state of awaiting for proofs
-                        SetParameter(TxParameterID::TransactionRegistered, true);
+						uint8_t nCode = proto::TxStatus::Ok; // compiler workaround (ref to static const)
+						SetParameter(TxParameterID::TransactionRegistered, nCode);
 
                         SetState(State::KernelConfirmation);
                         ConfirmKernel(builder.GetKernelID());
@@ -481,9 +195,9 @@ namespace beam { namespace wallet
 
             if (!isSelfTx && isSender && IsInitiator())
             {
-                // verify peer payment acknowledgement
+                // verify peer payment confirmation
 
-                wallet::PaymentConfirmation pc;
+                PaymentConfirmation pc;
                 WalletID widPeer, widMy;
                 bool bSuccess =
                     GetParameter(TxParameterID::PeerID, widPeer) &&
@@ -504,7 +218,7 @@ namespace beam { namespace wallet
                     {
                         // older wallets don't support it. Check if unsigned payments are ok
                         uint8_t nRequired = 0;
-                        wallet::getVar(*m_WalletDB, wallet::g_szPaymentProofRequired, nRequired);
+                        storage::getVar(*m_WalletDB, storage::g_szPaymentProofRequired, nRequired);
 
                         if (!nRequired)
                             bSuccess = true;
@@ -521,8 +235,8 @@ namespace beam { namespace wallet
             builder.FinalizeSignature();
         }
 
-        bool isRegistered = false;
-        if (!GetParameter(TxParameterID::TransactionRegistered, isRegistered))
+        uint8_t nRegistered = proto::TxStatus::Unspecified;
+        if (!GetParameter(TxParameterID::TransactionRegistered, nRegistered))
         {
             if (!isSelfTx && (!hasPeersInputsAndOutputs || IsInitiator()))
             {
@@ -548,8 +262,9 @@ namespace beam { namespace wallet
 
             // Verify final transaction
             TxBase::Context::Params pars;
-            TxBase::Context ctx(pars);
-            if (!transaction->IsValid(ctx))
+			TxBase::Context ctx(pars);
+			ctx.m_Height.m_Min = builder.GetMinHeight();
+			if (!transaction->IsValid(ctx))
             {
                 OnFailed(TxFailureReason::InvalidTransaction, true);
                 return;
@@ -559,7 +274,7 @@ namespace beam { namespace wallet
             return;
         }
 
-        if (!isRegistered)
+        if (proto::TxStatus::Ok != nRegistered)
         {
             OnFailed(TxFailureReason::FailedToRegister, true);
             return;
@@ -605,7 +320,7 @@ namespace beam { namespace wallet
         CompleteTx();
     }
 
-    void SimpleTransaction::SendInvitation(const TxBuilder& builder, bool isSender)
+    void SimpleTransaction::SendInvitation(const BaseTxBuilder& builder, bool isSender)
     {
         SetTxParameter msg;
         msg.AddParameter(TxParameterID::Amount, builder.GetAmount())
@@ -624,7 +339,7 @@ namespace beam { namespace wallet
         }
     }
 
-    void SimpleTransaction::ConfirmInvitation(const TxBuilder& builder, bool sendUtxos)
+    void SimpleTransaction::ConfirmInvitation(const BaseTxBuilder& builder, bool sendUtxos)
     {
         LOG_INFO() << GetTxID() << " Transaction accepted. Kernel: " << builder.GetKernelIDString();
         SetTxParameter msg;
@@ -644,7 +359,7 @@ namespace beam { namespace wallet
         assert(!IsSelfTx());
         if (!GetMandatoryParameter<bool>(TxParameterID::IsSender))
         {
-            wallet::PaymentConfirmation pc;
+            PaymentConfirmation pc;
             WalletID widPeer, widMy;
             bool bSuccess =
                 GetParameter(TxParameterID::PeerID, widPeer) &&
@@ -673,7 +388,7 @@ namespace beam { namespace wallet
         SendTxParameters(move(msg));
     }
 
-    void SimpleTransaction::ConfirmTransaction(const TxBuilder& builder, bool sendUtxos)
+    void SimpleTransaction::ConfirmTransaction(const BaseTxBuilder& builder, bool sendUtxos)
     {
         uint32_t nVer = 0;
         if (GetParameter(TxParameterID::PeerProtoVersion, nVer))
@@ -696,7 +411,8 @@ namespace beam { namespace wallet
     void SimpleTransaction::NotifyTransactionRegistered()
     {
         SetTxParameter msg;
-        msg.AddParameter(TxParameterID::TransactionRegistered, true);
+		uint8_t nCode = proto::TxStatus::Ok; // compiler workaround (ref to static const)
+        msg.AddParameter(TxParameterID::TransactionRegistered, nCode);
         SendTxParameters(move(msg));
     }
 
@@ -734,470 +450,4 @@ namespace beam { namespace wallet
         }
     }
 
-    TxBuilder::TxBuilder(BaseTransaction& tx, const AmountList& amountList, Amount fee)
-        : m_Tx{ tx }
-        , m_AmountList{ amountList }
-        , m_Fee{ fee }
-        , m_Change{0}
-        , m_Lifetime{120}
-        , m_MinHeight{0}
-        , m_MaxHeight{MaxHeight}
-        , m_PeerMaxHeight{ MaxHeight }
-    {
-    }
-
-    void TxBuilder::SelectInputs()
-    {
-        CoinIDList preselectedCoinIDs;
-        vector<Coin> coins;
-        Amount preselectedAmount = 0;
-        if (m_Tx.GetParameter(TxParameterID::PreselectedCoins, preselectedCoinIDs) && !preselectedCoinIDs.empty())
-        {
-            coins = m_Tx.GetWalletDB()->getCoinsByID(preselectedCoinIDs);
-            for (auto& coin : coins)
-            {
-                preselectedAmount += coin.getAmount();
-                coin.m_spentTxId = m_Tx.GetTxID();
-            }
-            m_Tx.GetWalletDB()->save(coins);
-        }
-        Amount amountWithFee = GetAmount() + m_Fee;
-        if (preselectedAmount < amountWithFee)
-        {
-            auto selectedCoins = m_Tx.GetWalletDB()->selectCoins(amountWithFee - preselectedAmount);
-            copy(selectedCoins.begin(), selectedCoins.end(), back_inserter(coins));
-        }
-
-        if (coins.empty())
-        {
-            Totals totals(*m_Tx.GetWalletDB());
-
-            LOG_ERROR() << m_Tx.GetTxID() << " You only have " << PrintableAmount(totals.Avail);
-            throw TransactionFailedException(!m_Tx.IsInitiator(), TxFailureReason::NoInputs);
-        }
-
-        m_Inputs.reserve(m_Inputs.size() + coins.size());
-        Amount total = 0;
-        for (auto& coin : coins)
-        {
-            coin.m_spentTxId = m_Tx.GetTxID();
-
-            auto& input = m_Inputs.emplace_back(make_unique<Input>());
-
-            Scalar::Native blindingFactor;
-            m_Tx.GetWalletDB()->calcCommitment(blindingFactor, input->m_Commitment, coin.m_ID);
-
-            m_Offset += blindingFactor;
-            total += coin.m_ID.m_Value;
-        }
-
-        m_Change += total - amountWithFee;
-
-        m_Tx.SetParameter(TxParameterID::Change, m_Change, false);
-        m_Tx.SetParameter(TxParameterID::Inputs, m_Inputs, false);
-        m_Tx.SetParameter(TxParameterID::Offset, m_Offset, false);
-
-        m_Tx.GetWalletDB()->save(coins);
-    }
-
-    void TxBuilder::AddChange()
-    {
-        if (m_Change == 0)
-        {
-            return;
-        }
-
-        GenerateNewCoin(m_Change, true);
-    }
-
-    void TxBuilder::GenerateNewCoin(Amount amount, bool bChange)
-    {
-        Coin& newUtxo = m_Coins.emplace_back(amount);
-        newUtxo.m_createTxId = m_Tx.GetTxID();
-        if (bChange)
-        {
-            newUtxo.m_ID.m_Type = Key::Type::Change;
-        }
-        m_Tx.GetWalletDB()->store(newUtxo);
-    }
-
-    void TxBuilder::CreateOutputs()
-    {
-        for (const auto& utxo : m_Coins)
-        {
-            Scalar::Native blindingFactor;
-            Output::Ptr output = make_unique<Output>();
-            output->Create(blindingFactor, *m_Tx.GetWalletDB()->get_ChildKdf(utxo.m_ID.m_SubIdx), utxo.m_ID, *m_Tx.GetWalletDB()->get_MasterKdf());
-
-            blindingFactor = -blindingFactor;
-            m_Offset += blindingFactor;
-            m_Outputs.emplace_back(move(output));
-        }
-    }
-
-    void TxBuilder::AddOutput(Amount amount, bool bChange)
-    {
-        m_Outputs.push_back(CreateOutput(amount, bChange));
-    }
-
-    bool TxBuilder::FinalizeOutputs()
-    {
-        m_Tx.SetParameter(TxParameterID::Outputs, m_Outputs, false);
-        m_Tx.SetParameter(TxParameterID::Offset, m_Offset, false);
-        
-        // TODO: check transaction size here
-
-        return true;
-    }
-
-    Output::Ptr TxBuilder::CreateOutput(Amount amount, bool bChange)
-    {
-        Coin newUtxo(amount);
-        newUtxo.m_createTxId = m_Tx.GetTxID();
-        if (bChange)
-        {
-            newUtxo.m_ID.m_Type = Key::Type::Change;
-        }
-        m_Tx.GetWalletDB()->store(newUtxo);
-
-        Scalar::Native blindingFactor;
-        Output::Ptr output = make_unique<Output>();
-        output->Create(blindingFactor, *m_Tx.GetWalletDB()->get_ChildKdf(newUtxo.m_ID.m_SubIdx), newUtxo.m_ID, *m_Tx.GetWalletDB()->get_MasterKdf());
-
-        blindingFactor = -blindingFactor;
-        m_Offset += blindingFactor;
-
-        return output;
-    }
-
-    void TxBuilder::CreateKernel()
-    {
-        // create kernel
-        assert(!m_Kernel);
-        m_Kernel = make_unique<TxKernel>();
-        m_Kernel->m_Fee = m_Fee;
-        m_Kernel->m_Height.m_Min = GetMinHeight();
-        m_Kernel->m_Height.m_Max = GetMaxHeight();
-        m_Kernel->m_Commitment = Zero;
-
-        m_Tx.SetParameter(TxParameterID::MaxHeight, GetMaxHeight());
-    }
-
-    bool TxBuilder::GenerateBlindingExcess()
-    {
-        bool newGenerated = false;
-        if (!m_Tx.GetParameter(TxParameterID::BlindingExcess, m_BlindingExcess))
-        {
-            Key::ID kid;
-            kid.m_Idx = m_Tx.GetWalletDB()->AllocateKidRange(1);
-            kid.m_Type = FOURCC_FROM(KerW);
-            kid.m_SubIdx = 0;
-
-            m_Tx.GetWalletDB()->get_MasterKdf()->DeriveKey(m_BlindingExcess, kid);
-
-            m_Tx.SetParameter(TxParameterID::BlindingExcess, m_BlindingExcess, false);
-
-            newGenerated = true;
-        }
-
-        m_Offset += m_BlindingExcess;
-        m_BlindingExcess = -m_BlindingExcess;
-
-        return newGenerated;
-    }
-
-    void TxBuilder::GenerateNonce()
-    {
-        // Don't store the generated nonce for the kernel multisig. Instead - store the raw random, from which the nonce is derived using kdf.
-        NoLeak<Hash::Value> hvRandom;
-        if (!m_Tx.GetParameter(TxParameterID::MyNonce, hvRandom.V))
-        {
-            ECC::GenRandom(hvRandom.V);
-            m_Tx.SetParameter(TxParameterID::MyNonce, hvRandom.V, false);
-        }
-        m_Tx.GetWalletDB()->get_MasterKdf()->DeriveKey(m_MultiSig.m_Nonce, hvRandom.V);
-    }
-
-    Point::Native TxBuilder::GetPublicExcess() const
-    {
-        return Context::get().G * m_BlindingExcess;
-    }
-
-    Point::Native TxBuilder::GetPublicNonce() const
-    {
-        return Context::get().G * m_MultiSig.m_Nonce;
-    }
-
-    bool TxBuilder::GetPeerPublicExcessAndNonce()
-    {
-        return m_Tx.GetParameter(TxParameterID::PeerPublicExcess, m_PeerPublicExcess)
-            && m_Tx.GetParameter(TxParameterID::PeerPublicNonce, m_PeerPublicNonce);
-    }
-
-    bool TxBuilder::GetPeerSignature()
-    {
-        if (m_Tx.GetParameter(TxParameterID::PeerSignature, m_PeerSignature))
-        {
-            LOG_DEBUG() << m_Tx.GetTxID() << " Received PeerSig:\t" << Scalar(m_PeerSignature);
-            return true;
-        }
-        
-        return false;
-    }
-
-    bool TxBuilder::GetInitialTxParams()
-    {
-        m_Tx.GetParameter(TxParameterID::Inputs, m_Inputs);
-        m_Tx.GetParameter(TxParameterID::Outputs, m_Outputs);
-        if (!m_Tx.GetParameter(TxParameterID::MinHeight, m_MinHeight))
-        {
-            // adjust min height, this allows create transaction when node is out of sync
-            auto currentHeight = m_Tx.GetWalletDB()->getCurrentHeight();
-            m_MinHeight = currentHeight;
-            m_Tx.SetParameter(TxParameterID::MinHeight, m_MinHeight);
-            Height maxResponseHeight = 0;
-            if (m_Tx.GetParameter(TxParameterID::PeerResponseHeight, maxResponseHeight))
-            {
-                // adjust responce height, if min height din not set then then it should be equal to responce time
-                m_Tx.SetParameter(TxParameterID::PeerResponseHeight, maxResponseHeight + currentHeight);
-            }
-        }
-        m_Tx.GetParameter(TxParameterID::Lifetime, m_Lifetime);
-        m_Tx.GetParameter(TxParameterID::PeerMaxHeight, m_PeerMaxHeight);
-
-        return m_Tx.GetParameter(TxParameterID::Offset, m_Offset);
-    }
-
-    bool TxBuilder::GetPeerInputsAndOutputs()
-    {
-        // used temporary vars to avoid non-short circuit evaluation
-        bool hasInputs = m_Tx.GetParameter(TxParameterID::PeerInputs, m_PeerInputs);
-        bool hasOutputs = (m_Tx.GetParameter(TxParameterID::PeerOutputs, m_PeerOutputs)
-                        && m_Tx.GetParameter(TxParameterID::PeerOffset, m_PeerOffset));
-        return hasInputs || hasOutputs;
-    }
-
-    void TxBuilder::SignPartial()
-    {
-        // create signature
-        Point::Native totalPublicExcess = GetPublicExcess();
-        totalPublicExcess += m_PeerPublicExcess;
-        m_Kernel->m_Commitment = totalPublicExcess;
-
-        m_Kernel->get_Hash(m_Message);
-        m_MultiSig.m_NoncePub = GetPublicNonce() + m_PeerPublicNonce;
-        
-        
-        m_MultiSig.SignPartial(m_PartialSignature, m_Message, m_BlindingExcess);
-
-        StoreKernelID();
-    }
-
-    void TxBuilder::FinalizeSignature()
-    {
-        // final signature
-        m_Kernel->m_Signature.m_NoncePub = GetPublicNonce() + m_PeerPublicNonce;
-        m_Kernel->m_Signature.m_k = m_PartialSignature + m_PeerSignature;
-        
-        StoreKernelID();
-        m_Tx.SetParameter(TxParameterID::Kernel, m_Kernel);
-    }
-
-    bool TxBuilder::LoadKernel()
-    {
-        if (m_Tx.GetParameter(TxParameterID::Kernel, m_Kernel))
-        {
-            GetInitialTxParams();
-            return true;
-        }
-        return false;
-    }
-
-    bool TxBuilder::HasKernelID() const
-    {
-        Merkle::Hash kernelID;
-        return m_Tx.GetParameter(TxParameterID::KernelID, kernelID);
-    }
-
-    Transaction::Ptr TxBuilder::CreateTransaction()
-    {
-        assert(m_Kernel);
-        LOG_INFO() << m_Tx.GetTxID() << " Transaction created. Kernel: " << GetKernelIDString()
-            << " min height: " << m_Kernel->m_Height.m_Min
-            << " max height: " << m_Kernel->m_Height.m_Max;
-
-        // create transaction
-        auto transaction = make_shared<Transaction>();
-        transaction->m_vKernels.push_back(move(m_Kernel));
-        transaction->m_Offset = m_Offset + m_PeerOffset;
-        transaction->m_vInputs = move(m_Inputs);
-        transaction->m_vOutputs = move(m_Outputs);
-        move(m_PeerInputs.begin(), m_PeerInputs.end(), back_inserter(transaction->m_vInputs));
-        move(m_PeerOutputs.begin(), m_PeerOutputs.end(), back_inserter(transaction->m_vOutputs));
-
-        transaction->Normalize();
-
-        return transaction;
-    }
-
-    bool TxBuilder::IsPeerSignatureValid() const
-    {
-        Signature peerSig;
-        peerSig.m_NoncePub = m_MultiSig.m_NoncePub;
-        peerSig.m_k = m_PeerSignature;
-        return peerSig.IsValidPartial(m_Message, m_PeerPublicNonce, m_PeerPublicExcess);
-    }
-
-    Amount TxBuilder::GetAmount() const
-    {
-        return std::accumulate(m_AmountList.begin(), m_AmountList.end(), 0ULL);
-    }
-
-    const AmountList& TxBuilder::GetAmountList() const
-    {
-        return m_AmountList;
-    }
-
-    Amount TxBuilder::GetFee() const
-    {
-        return m_Fee;
-    }
-
-    Height TxBuilder::GetLifetime() const
-    {
-        return m_Lifetime;
-    }
-
-    Height TxBuilder::GetMinHeight() const
-    {
-        return m_MinHeight;
-    }
-
-    Height TxBuilder::GetMaxHeight() const
-    {
-        if (m_MaxHeight == MaxHeight)
-        {
-            return m_MinHeight + m_Lifetime;
-        }
-        return m_MaxHeight;
-    }
-
-    const vector<Input::Ptr>& TxBuilder::GetInputs() const
-    {
-        return m_Inputs;
-    }
-
-    const vector<Output::Ptr>& TxBuilder::GetOutputs() const
-    {
-        return m_Outputs;
-    }
-
-    const Scalar::Native& TxBuilder::GetOffset() const
-    {
-        return m_Offset;
-    }
-
-    const Scalar::Native& TxBuilder::GetPartialSignature() const
-    {
-        return m_PartialSignature;
-    }
-
-    const TxKernel& TxBuilder::GetKernel() const
-    {
-        assert(m_Kernel);
-        return *m_Kernel;
-    }
-
-    const Merkle::Hash& TxBuilder::GetKernelID() const
-    {
-        if (!m_KernelID)
-        {
-            Merkle::Hash kernelID;
-            if (m_Tx.GetParameter(TxParameterID::KernelID, kernelID))
-            {
-                m_KernelID = kernelID;
-            }
-            else
-            {
-                assert(false && "KernelID is not stored");
-            }
-            
-        }
-        return *m_KernelID;
-    }
-
-    void TxBuilder::StoreKernelID()
-    {
-        assert(m_Kernel);
-        Merkle::Hash kernelID;
-        m_Kernel->get_ID(kernelID);
-
-        m_Tx.SetParameter(TxParameterID::KernelID, kernelID);
-    }
-
-    string TxBuilder::GetKernelIDString() const
-    {
-        Merkle::Hash kernelID;
-        m_Tx.GetParameter(TxParameterID::KernelID, kernelID);
-        char sz[Merkle::Hash::nTxtLen + 1];
-        kernelID.Print(sz);
-        return string(sz);
-    }
-
-    bool TxBuilder::UpdateMaxHeight()
-    {
-        Merkle::Hash kernelId;
-        if (!m_Tx.GetParameter(TxParameterID::MaxHeight, m_MaxHeight) &&
-            !m_Tx.GetParameter(TxParameterID::KernelID, kernelId))
-        {
-            bool isInitiator = m_Tx.IsInitiator();
-            bool hasPeerMaxHeight = m_PeerMaxHeight < MaxHeight;
-            if (!isInitiator)
-            {
-                if (m_Tx.GetParameter(TxParameterID::Lifetime, m_Lifetime))
-                {
-                    Block::SystemState::Full state;
-                    if (m_Tx.GetTip(state))
-                    {
-                        m_MaxHeight = state.m_Height + m_Lifetime;
-                    }
-                }
-                else if (hasPeerMaxHeight)
-                {
-                    m_MaxHeight = m_PeerMaxHeight;
-                }
-            }
-            else if (hasPeerMaxHeight)
-            {
-                if (IsAcceptableMaxHeight())
-                {
-                    m_MaxHeight = m_PeerMaxHeight;
-                }
-                else
-                {
-                    return false;
-                }
-            }
-        }
-        return true;
-    }
-
-    bool TxBuilder::IsAcceptableMaxHeight() const
-    {
-        Height lifetime = 0;
-        Height peerResponceHeight = 0;
-        if (!m_Tx.GetParameter(TxParameterID::Lifetime, lifetime)
-         || !m_Tx.GetParameter(TxParameterID::PeerResponseHeight, peerResponceHeight))
-        {
-            // possible situation during update from older version
-            return true; 
-        }
-        Height maxAcceptableHeight = lifetime + peerResponceHeight;
-        return m_PeerMaxHeight < MaxHeight && m_PeerMaxHeight <= maxAcceptableHeight;
-    }
-
-    const std::vector<Coin>& TxBuilder::GetCoins() const
-    {
-        return m_Coins;
-    }
-}}
+}

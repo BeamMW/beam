@@ -82,6 +82,19 @@ namespace beam
 		if (m_Height.IsEmpty())
 			return false;
 
+		const Rules& rules = Rules::get(); // alias
+
+		if ((m_Height.m_Min < rules.pForks[1].m_Height) && (m_Height.m_Max >= rules.pForks[1].m_Height))
+		{
+			// mixed version are not allowed!
+			if (m_Params.m_bBlockMode)
+				return false;
+
+			m_Height.m_Max = rules.pForks[1].m_Height - 1;
+			assert(!m_Height.IsEmpty());
+
+		}
+
 		ECC::Mode::Scope scope(ECC::Mode::Fast);
 
 		m_Sigma = -m_Sigma;
@@ -144,7 +157,7 @@ namespace beam
 
 				if (bSigned)
 				{
-					if (!r.m_pUtxoOut->IsValid(pt))
+					if (!r.m_pUtxoOut->IsValid(m_Height.m_Min, pt))
 						return false;
 				}
 				else
@@ -183,7 +196,7 @@ namespace beam
 				if (m_Params.m_bVerifyOrder && pPrev && (*pPrev > *r.m_pKernel))
 					return false;
 
-				if (!r.m_pKernel->IsValid(m_Fee, m_Sigma))
+				if (!r.m_pKernel->IsValid(m_Height.m_Min, m_Fee, m_Sigma))
 					return false;
 
 				if (!HandleElementHeight(r.m_pKernel->m_Height))

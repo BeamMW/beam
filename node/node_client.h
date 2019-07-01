@@ -49,6 +49,7 @@ public:
     ~NodeClient();
 
     void setKdf(beam::Key::IKdf::Ptr);
+    void setOwnerKey(beam::Key::IPKdf::Ptr);
     void startNode();
     void stopNode();
 
@@ -68,5 +69,6 @@ private:
     std::atomic<bool> m_isRunning;
     std::condition_variable m_waiting;
     beam::Key::IKdf::Ptr m_pKdf;
+    beam::Key::IPKdf::Ptr m_ownerKey;
 };
 }

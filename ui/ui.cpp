@@ -18,7 +18,6 @@
 
 #include <QInputDialog>
 #include <QMessageBox>
-#include <QTranslator>
 
 #include <qqmlcontext.h>
 #include "viewmodel/start_view.h"
@@ -153,22 +152,6 @@ int main (int argc, char* argv[])
             appDataDir = QString::fromStdString(vm[cli::APPDATA_PATH].as<string>());
         }
 
-        //TODO(sergey.zavarza) replace language choise with selectbox
-        QTranslator translator;
-        bool isTranslationLoaded = false;
-        if (vm.count(cli::LANG) && vm[cli::LANG].as<string>() == "ru")
-        {
-            isTranslationLoaded = translator.load("ru_RU", ":/translations");
-        }
-        else
-        {
-            isTranslationLoaded = translator.load("en_US", ":/translations");
-        }
-        if (isTranslationLoaded)
-        {
-            app.installTranslator(&translator);
-        }
-
         int logLevel = getLogLevel(cli::LOG_LEVEL, vm, LOG_LEVEL_DEBUG);
         int fileLogLevel = getLogLevel(cli::FILE_LOG_LEVEL, vm, LOG_LEVEL_DEBUG);
 
@@ -187,13 +170,12 @@ int main (int argc, char* argv[])
         {
             Rules::get().UpdateChecksum();
             LOG_INFO() << "Beam Wallet UI " << PROJECT_VERSION << " (" << BRANCH_NAME << ")";
-            LOG_INFO() << "Rules signature: " << Rules::get().Checksum;
+            LOG_INFO() << "Rules signature: " << Rules::get().get_SignatureStr();
 
             WalletSettings settings(appDataDir);
-            AppModel appModel(settings);
-
             QQmlApplicationEngine engine;
-
+            AppModel appModel(settings, engine);
+            
             if (settings.getNodeAddress().isEmpty())
             {
                 if (vm.count(cli::NODE_ADDR))

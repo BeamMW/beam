@@ -24,8 +24,9 @@ namespace ECC {
 
 	InnerProduct::BatchContext::BatchContext(uint32_t nCasualTotal)
 		:m_CasualTotal(nCasualTotal)
-		,m_bEnableBatch(false)
+		,m_bDirty(false)
 	{
+		assert(nCasualTotal);
 		m_Multiplier = Zero;
 
 		m_ppPrepared = m_Bufs.m_ppPrepared;
@@ -42,20 +43,15 @@ namespace ECC {
 		m_ppPrepared[s_Idx_H] = &Context::get().m_Ipp.H_;
 
 		m_Prepared = s_CountPrepared;
-		Reset();
 	}
 
-	void InnerProduct::BatchContext::Reset()
+	void InnerProduct::BatchContext::Calculate()
 	{
-		m_Casual = 0;
-		ZeroObject(m_Bufs.m_pKPrep);
-		m_bDirty = false;
-	}
-
-	void InnerProduct::BatchContext::Calculate(Point::Native& res)
-	{
+		Point::Native res;
 		Mode::Scope scope(Mode::Fast);
 		MultiMac::Calculate(res);
+
+		m_Sum += res;
 	}
 
 	bool InnerProduct::BatchContext::AddCasual(const Point& p, const Scalar::Native& k)
@@ -70,13 +66,20 @@ namespace ECC {
 
 	void InnerProduct::BatchContext::AddCasual(const Point::Native& pt, const Scalar::Native& k)
 	{
-		assert(uint32_t(m_Casual) < m_CasualTotal);
+		if (uint32_t(m_Casual) == m_CasualTotal)
+		{
+			assert(s_CountPrepared == m_Prepared);
+			m_Prepared = 0; // don't count them now
+			Calculate();
+
+			m_Casual = 0;
+			m_Prepared = s_CountPrepared;
+		}
 
 		Casual& c = m_pCasual[m_Casual++];
 
 		c.Init(pt, k);
-		if (m_bEnableBatch)
-			c.m_K *= m_Multiplier;
+		c.m_K *= m_Multiplier;
 	}
 
 	void InnerProduct::BatchContext::AddPrepared(uint32_t i, const Scalar::Native& k)
@@ -84,68 +87,40 @@ namespace ECC {
 		assert(i < s_CountPrepared);
 		Scalar::Native& trg = m_Bufs.m_pKPrep[i];
 
-		trg += m_bEnableBatch ? (k * m_Multiplier) : k;
+		trg += (k * m_Multiplier);
+	}
+
+	void InnerProduct::BatchContext::Reset()
+	{
+		m_bDirty = false;
 	}
 
 	bool InnerProduct::BatchContext::Flush()
 	{
 		if (!m_bDirty)
 			return true;
+		m_bDirty = false;
 
-		Point::Native pt;
-		Calculate(pt);
-		if (!(pt == Zero))
-			return false;
-
-		Reset();
-		return true;
+		Calculate();
+		return (m_Sum == Zero);
 	}
 
-	bool InnerProduct::BatchContext::EquationBegin(uint32_t nCasualNeeded)
+	void InnerProduct::BatchContext::EquationBegin()
 	{
-		if (nCasualNeeded > m_CasualTotal)
+		if (!m_bDirty)
 		{
-			assert(false);
-			return false; // won't fit!
+			m_bDirty = true;
+
+			m_Sum = Zero;
+			m_Casual = 0;
+			ZeroObject(m_Bufs.m_pKPrep);
 		}
 
-#ifndef NDEBUG
-        m_CasualAtEndExpected = nCasualNeeded;
-#endif // NDEBUG
-
-		nCasualNeeded += m_Casual;
-		if (nCasualNeeded > m_CasualTotal)
-		{
-			if (!Flush())
-				return false;
-		}
-
-		if (m_bEnableBatch)
-		{
-			// mutate multiplier
-			if (m_Multiplier == Zero)
-				m_Multiplier.GenRandomNnz();
-			else
-				Oracle() << m_Multiplier >> m_Multiplier;
-		}
-
-#ifndef NDEBUG
-        m_CasualAtEndExpected += m_Casual;
-#endif // NDEBUG
-
-		m_bDirty = true;
-		return true;
-	}
-
-	bool InnerProduct::BatchContext::EquationEnd()
-	{
-		assert(m_bDirty);
-        assert(m_Casual == m_CasualAtEndExpected);
-
-		if (!m_bEnableBatch)
-			return Flush();
-
-		return true;
+		// mutate multiplier
+		if (m_Multiplier == Zero)
+			m_Multiplier.GenRandomNnz();
+		else
+			Oracle() << m_Multiplier >> m_Multiplier;
 	}
 
 
@@ -495,14 +470,10 @@ namespace ECC {
 		Challenges cs_;
 		cs_.Init(oracle, dotAB, *this);
 
-		if (!bc.EquationBegin(1 + nCycles * 2))
-			return false;
-
+		bc.EquationBegin();
 		bc.AddCasual(commAB, cs_.m_Mul2);
 
-		return
-			IsValid(bc, cs_, dotAB, mod) &&
-			bc.EquationEnd();
+		return IsValid(bc, cs_, dotAB, mod);
 	}
 
 	bool InnerProduct::IsValid(BatchContext& bc, Challenges& cs_, const Scalar::Native& dotAB, const Modifier& mod) const
@@ -569,8 +540,7 @@ namespace ECC {
 			k = m_pCondensed[j];
 			k = -k;
 
-			if (bc.m_bEnableBatch)
-				k *= bc.m_Multiplier;
+			k *= bc.m_Multiplier;
 
 			k *= cs_.m_Mul1;
 
@@ -604,21 +574,25 @@ namespace ECC {
 	// Bulletproof
 	void RangeProof::Confidential::Create(const Scalar::Native& sk, const CreatorParams& cp, Oracle& oracle, const Point::Native* pHGen /* = nullptr */)
 	{
-		// single-pass - use both deterministic and random seed for key blinding.
-		// For more safety - use the current oracle state
-
-		Oracle o(oracle); // copy
 		NoLeak<uintBig> seedSk;
-		GenRandom(seedSk.V);
-
-		o
-			<< sk
-			<< seedSk.V
-			<< cp.m_Kidv.m_Value
-			>> seedSk.V;
-
-		verify(CoSign(seedSk.V, sk, cp, oracle, Phase::SinglePass, NULL, pHGen));
+        GenerateSeed(seedSk.V, sk, cp.m_Kidv.m_Value, oracle);
+        BEAM_VERIFY(CoSign(seedSk.V, sk, cp, oracle, Phase::SinglePass, pHGen));
 	}
+
+    void RangeProof::Confidential::GenerateSeed(uintBig& seedSk, const Scalar::Native& sk, Amount amount, Oracle& oracle)
+    {
+        // single-pass - use both deterministic and random seed for key blinding.
+        // For more safety - use the current oracle state
+
+        Oracle o(oracle); // copy
+        GenRandom(seedSk);
+
+        o
+            << sk
+            << seedSk
+            << amount
+            >> seedSk;
+    }
 
 	struct RangeProof::Confidential::MultiSig::Impl
 	{
@@ -628,22 +602,28 @@ namespace ECC {
 		void Init(const uintBig& seedSk);
 
 		void AddInfo1(Point::Native& ptT1, Point::Native& ptT2) const;
-		void AddInfo2(Scalar::Native& taux, const Scalar::Native& sk, const ChallengeSet&) const;
+		void AddInfo2(Scalar::Native& taux, const Scalar::Native& sk, const ChallengeSet1&) const;
 	};
 
-	struct RangeProof::Confidential::ChallengeSetBase
+	struct RangeProof::Confidential::ChallengeSet0
 	{
 		Scalar::Native x, y, z;
-		void Init(const Part1&, Oracle&);
-		void Init(const Part2&, Oracle&);
+		void Init1(const Part1&, Oracle&);
+		void Init2(const Part2&, Oracle&);
 	};
 
-	struct RangeProof::Confidential::ChallengeSet
-		:public ChallengeSetBase
+	struct RangeProof::Confidential::ChallengeSet1
+		:public ChallengeSet0
 	{
-		Scalar::Native yInv, zz;
-		void Init(const Part1&, Oracle&);
-		void Init(const Part2&, Oracle&);
+		Scalar::Native zz;
+		void Init1(const Part1&, Oracle&);
+	};
+
+	struct RangeProof::Confidential::ChallengeSet2
+		:public ChallengeSet1
+	{
+		Scalar::Native yInv;
+		void Init1(const Part1&, Oracle&);
 	};
 
 #pragma pack (push, 1)
@@ -655,7 +635,7 @@ namespace ECC {
 
 #pragma pack (pop)
 
-	bool RangeProof::Confidential::CoSign(const uintBig& seedSk, const Scalar::Native& sk, const CreatorParams& cp, Oracle& oracle, Phase::Enum ePhase, MultiSig* pMsigOut /* = nullptr */, const Point::Native* pHGen /* = nullptr */)
+	bool RangeProof::Confidential::CoSign(const uintBig& seedSk, const Scalar::Native& sk, const CreatorParams& cp, Oracle& oracle, Phase::Enum ePhase, const Point::Native* pHGen /* = nullptr */)
 	{
 		NonceGeneratorBp nonceGen(cp.m_Seed.V);
 
@@ -670,7 +650,7 @@ namespace ECC {
 		ZeroObject(pad.V.m_Padding);
 		pad.V.V = cp.m_Kidv;
 
-		verify(!ro.Import((Scalar&) pad.V)); // if overflow - the params won't be recovered properly, there may be ambiguity
+        BEAM_VERIFY(!ro.Import((Scalar&) pad.V)); // if overflow - the params won't be recovered properly, there may be ambiguity
 
 		alpha += ro;
 
@@ -703,8 +683,8 @@ namespace ECC {
 		//	return; // stop after A,S calculated
 
 		// get challenges
-		ChallengeSet cs;
-		cs.Init(m_Part1, oracle);
+		ChallengeSet2 cs;
+		cs.Init1(m_Part1, oracle);
 
 		// calculate t1, t2 - parts of vec(L)*vec(R) which depend on (future) x and x^2.
 		Scalar::Native t0(Zero), t1(Zero), t2(Zero);
@@ -792,13 +772,7 @@ namespace ECC {
 			m_Part2.m_T2 = comm2;
 		}
 
-		cs.Init(m_Part2, oracle); // get challenge 
-
-		if (pMsigOut)
-		{
-			pMsigOut->x = cs.x;
-			pMsigOut->zz = cs.zz;
-		}
+		cs.Init2(m_Part2, oracle); // get challenge 
 
 		if (Phase::Step2 == ePhase)
 			return true; // stop after T1,T2 calculated
@@ -902,9 +876,9 @@ namespace ECC {
 		nonceGen >> ro;
 
 		// get challenges
-		ChallengeSetBase cs;
-		cs.Init(m_Part1, oracle);
-		cs.Init(m_Part2, oracle);
+		ChallengeSet0 cs;
+		cs.Init1(m_Part1, oracle);
+		cs.Init2(m_Part2, oracle);
 
 		// m_Mu = alpha + ro*x
 		// alpha = m_Mu - ro*x = alpha_minus_params + params
@@ -925,7 +899,7 @@ namespace ECC {
 
 		cp.m_Kidv = pad.V;
 
-		// by now the probability of false positive if 2^-8, which is quite a lot
+		// by now the probability of false positive if 2^-64 (padding is 8 bytes)
 		// Calculate m_Part1.m_A, which depends on alpha and the value.
 
 		alpha_minus_params += params; // just alpha
@@ -949,7 +923,7 @@ namespace ECC {
 		ptT2 = Context::get().G * m_tau2;
 	}
 
-	void RangeProof::Confidential::MultiSig::Impl::AddInfo2(Scalar::Native& taux, const Scalar::Native& sk, const ChallengeSet& cs) const
+	void RangeProof::Confidential::MultiSig::Impl::AddInfo2(Scalar::Native& taux, const Scalar::Native& sk, const ChallengeSet1& cs) const
 	{
 		// m_TauX = tau2*x^2 + tau1*x + sk*z^2
 		taux = m_tau2;
@@ -987,14 +961,14 @@ namespace ECC {
 		return true;
 	}
 
-	void RangeProof::Confidential::MultiSig::CoSignPart(const uintBig& seedSk, const Scalar::Native& sk, Part3& p3) const
+	void RangeProof::Confidential::MultiSig::CoSignPart(const uintBig& seedSk, const Scalar::Native& sk, Oracle& oracle, Part3& p3) const
 	{
 		Impl msig;
 		msig.Init(seedSk);
 
-		ChallengeSet cs;
-		cs.x = x;
-		cs.zz = zz;
+		ChallengeSet1 cs;
+		cs.Init1(m_Part1, oracle);
+		cs.Init2(m_Part2, oracle);
 
 		Scalar::Native taux;
 		msig.AddInfo2(taux, sk, cs);
@@ -1003,31 +977,30 @@ namespace ECC {
 		p3.m_TauX = taux;
 	}
 
-	void RangeProof::Confidential::ChallengeSetBase::Init(const Part1& p1, Oracle& oracle)
+	void RangeProof::Confidential::ChallengeSet0::Init1(const Part1& p1, Oracle& oracle)
 	{
 		oracle << p1.m_A << p1.m_S;
 		oracle >> y;
 		oracle >> z;
 	}
 
-	void RangeProof::Confidential::ChallengeSet::Init(const Part1& p1, Oracle& oracle)
+	void RangeProof::Confidential::ChallengeSet1::Init1(const Part1& p1, Oracle& oracle)
 	{
-		ChallengeSetBase::Init(p1, oracle);
-
-		yInv.SetInv(y);
+		ChallengeSet0::Init1(p1, oracle);
 		zz = z;
 		zz *= z;
 	}
 
-	void RangeProof::Confidential::ChallengeSetBase::Init(const Part2& p2, Oracle& oracle)
+	void RangeProof::Confidential::ChallengeSet2::Init1(const Part1& p1, Oracle& oracle)
+	{
+		ChallengeSet1::Init1(p1, oracle);
+		yInv.SetInv(y);
+	}
+
+	void RangeProof::Confidential::ChallengeSet0::Init2(const Part2& p2, Oracle& oracle)
 	{
 		oracle << p2.m_T1 << p2.m_T2;
 		oracle >> x;
-	}
-
-	void RangeProof::Confidential::ChallengeSet::Init(const Part2& p2, Oracle& oracle)
-	{
-		ChallengeSetBase::Init(p2, oracle);
 	}
 
 	bool RangeProof::Confidential::IsValid(const Point::Native& commitment, Oracle& oracle, const Point::Native* pHGen /* = nullptr */) const
@@ -1036,8 +1009,6 @@ namespace ECC {
 			return IsValid(commitment, oracle, *InnerProduct::BatchContext::s_pInstance, pHGen);
 
 		InnerProduct::BatchContextEx<1> bc;
-		bc.m_bEnableBatch = true; // why not?
-
 		return
 			IsValid(commitment, oracle, bc, pHGen) &&
 			bc.Flush();
@@ -1049,9 +1020,9 @@ namespace ECC {
 
 		Mode::Scope scope(Mode::Fast);
 
-		ChallengeSet cs;
-		cs.Init(m_Part1, oracle);
-		cs.Init(m_Part2, oracle);
+		ChallengeSet2 cs;
+		cs.Init1(m_Part1, oracle);
+		cs.Init2(m_Part2, oracle);
 
 		Scalar::Native xx, zz, tDot;
 
@@ -1087,10 +1058,9 @@ namespace ECC {
 
 		Point::Native p;
 
-		if (!bc.EquationBegin(3 + (bCustom != false)))
-			return false;
-
+		bc.EquationBegin();
 		bc.AddCasual(commitment, -zz);
+
 		if (!bc.AddCasual(m_Part2.m_T1, -cs.x))
 			return false;
 		if (!bc.AddCasual(m_Part2.m_T2, -xx))
@@ -1107,13 +1077,9 @@ namespace ECC {
 		else
 			bc.AddPrepared(InnerProduct::BatchContext::s_Idx_H, sumY);
 
-		if (!bc.EquationEnd())
-			return false;
-
 		// (P - m_Mu*G) + m_Mu*G =?= m_A + m_S*x - vec(G)*vec(z) + vec(H)*( vec(z) + vec(z^2*2^n*y^-n) )
 
-		if (!bc.EquationBegin(2 + InnerProduct::nCycles * 2))
-			return false;
+		bc.EquationBegin();
 
 		InnerProduct::Challenges cs_;
 		cs_.Init(oracle, tDot, m_P_Tag);
@@ -1153,10 +1119,7 @@ namespace ECC {
 		InnerProduct::Modifier mod;
 		mod.m_pMultiplier[1] = &cs.yInv;
 
-		if (!m_P_Tag.IsValid(bc, cs_, tDot, mod))
-			return false;
-
-		return bc.EquationEnd();
+		return m_P_Tag.IsValid(bc, cs_, tDot, mod);
 	}
 
 	int RangeProof::Confidential::cmp(const Confidential& x) const

@@ -18,35 +18,40 @@
 #include "wallet/wallet_db.h"
 #include "wallet/wallet_network.h"
 
-struct IWalletModelAsync
+namespace beam::wallet
 {
-    using Ptr = std::shared_ptr<IWalletModelAsync>;
 
-    virtual void sendMoney(const beam::WalletID& receiver, const std::string& comment, beam::Amount&& amount, beam::Amount&& fee = 0) = 0;
-    virtual void syncWithNode() = 0;
-    virtual void calcChange(beam::Amount&& amount) = 0;
-    virtual void getWalletStatus() = 0;
-    virtual void getUtxosStatus() = 0;
-    virtual void getAddresses(bool own) = 0;
-    virtual void cancelTx(const beam::TxID& id) = 0;
-    virtual void deleteTx(const beam::TxID& id) = 0;
-    virtual void getCoinsByTx(const beam::TxID& txId) = 0;
-    virtual void saveAddress(const beam::WalletAddress& address, bool bOwn) = 0;
-    virtual void generateNewAddress() = 0;
-    virtual void changeCurrentWalletIDs(const beam::WalletID& senderID, const beam::WalletID& receiverID) = 0;
+    struct IWalletModelAsync
+    {
+        using Ptr = std::shared_ptr<IWalletModelAsync>;
 
-    virtual void deleteAddress(const beam::WalletID& id) = 0;
-    virtual void saveAddressChanges(const beam::WalletID& id, const std::string& name, bool isNever, bool makeActive, bool makeExpired) = 0;
+        virtual void sendMoney(const WalletID& receiver, const std::string& comment, Amount&& amount, Amount&& fee = 0) = 0;
+        virtual void sendMoney(const WalletID& sender, const WalletID& receiver, const std::string& comment, Amount&& amount, Amount&& fee = 0) = 0;
+        virtual void syncWithNode() = 0;
+        virtual void calcChange(Amount&& amount) = 0;
+        virtual void getWalletStatus() = 0;
+        virtual void getUtxosStatus() = 0;
+        virtual void getAddresses(bool own) = 0;
+        virtual void cancelTx(const TxID& id) = 0;
+        virtual void deleteTx(const TxID& id) = 0;
+        virtual void getCoinsByTx(const TxID& txId) = 0;
+        virtual void saveAddress(const WalletAddress& address, bool bOwn) = 0;
+        virtual void generateNewAddress() = 0;
+        virtual void changeCurrentWalletIDs(const WalletID& senderID, const WalletID& receiverID) = 0;
 
-    virtual void setNodeAddress(const std::string& addr) = 0;
+        virtual void deleteAddress(const WalletID& id) = 0;
+        virtual void saveAddressChanges(const WalletID& id, const std::string& name, bool isNever, bool makeActive, bool makeExpired) = 0;
 
-    virtual void changeWalletPassword(const beam::SecString& password) = 0;
+        virtual void setNodeAddress(const std::string& addr) = 0;
 
-    virtual void getNetworkStatus() = 0;
-    virtual void refresh() = 0;
-    virtual void exportPaymentProof(const beam::TxID& id) = 0;
+        virtual void changeWalletPassword(const beam::SecString& password) = 0;
 
-    virtual void checkAddress(const std::string& addr) = 0;
+        virtual void getNetworkStatus() = 0;
+        virtual void refresh() = 0;
+        virtual void exportPaymentProof(const TxID& id) = 0;
 
-    virtual ~IWalletModelAsync() {}
-};
+        virtual void checkAddress(const std::string& addr) = 0;
+
+        virtual ~IWalletModelAsync() {}
+    };
+}

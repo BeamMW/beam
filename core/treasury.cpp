@@ -100,10 +100,9 @@ namespace beam
 
 			virtual void Do(size_t iTask) override
 			{
-				typedef InnerProduct::BatchContextEx<100> MyBatch;
+				typedef InnerProduct::BatchContextEx<4> MyBatch;
 
 				std::unique_ptr<MyBatch> p(new MyBatch);
-				p->m_bEnableBatch = true;
 				MyBatch::Scope scope(*p);
 
 				if (!Verify(iTask) || !p->Flush())
@@ -185,7 +184,7 @@ namespace beam
 			kidv.m_Type = Key::Type::Treasury;
 			kidv.m_Value = c0.m_Value;
 
-			c.m_pOutput->Create(sk, kdf, kidv, kdf);
+			c.m_pOutput->Create(Rules::HeightGenesis - 1, sk, kdf, kidv, kdf);
 			offset += sk;
 
 			Hash::Value hv;
@@ -220,6 +219,7 @@ namespace beam
 		TxBase::Context::Params pars;
 		pars.m_bVerifyOrder = false;
 		TxBase::Context ctx(pars);
+		ZeroObject(ctx.m_Height);
 		if (!ctx.ValidateAndSummarize(m_Base, Reader(*this)))
 			return false;
 
@@ -531,7 +531,7 @@ namespace beam
 			{
 				const Output& outp = *g.m_Data.m_vOutputs[iO];
 				Key::IDV kidv;
-				if (outp.Recover(kdf, kidv))
+				if (outp.Recover(Rules::HeightGenesis - 1, kdf, kidv))
 				{
 					out.emplace_back();
 					out.back().m_Incubation = outp.m_Incubation;

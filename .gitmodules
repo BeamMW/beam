@@ -1,3 +1,9 @@
-[submodule "secp256k1-zkp"]
-	path = secp256k1-zkp
-	url = https://github.com/ElementsProject/secp256k1-zkp.git
+[submodule "3rdparty/curl"]
+	path = 3rdparty/curl
+	url = https://github.com/curl/curl.git
+[submodule "3rdparty/protobuf"]
+	path = 3rdparty/protobuf
+	url = https://github.com/protocolbuffers/protobuf.git
+[submodule "3rdparty/trezor-cpp-client"]
+	path = 3rdparty/trezor-cpp-client
+	url = https://github.com/BeamMW/trezor-cpp-client.git

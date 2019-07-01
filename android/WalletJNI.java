@@ -85,7 +85,7 @@ public class WalletJNI
 				{
 					sendAttempt = true;
 
-					wallet.sendMoney("fbac2507faf499581aff0a2b97bccf5e4705aa36714ca14a529e98e8c4641ab7", "test comment", 1500, 10);
+					wallet.sendMoney("", "fbac2507faf499581aff0a2b97bccf5e4705aa36714ca14a529e98e8c4641ab7", "test comment", 1500, 10);
 				}
 			}
 			try

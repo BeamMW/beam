@@ -15,9 +15,6 @@
 #include "common.h"
 #include "ecc_native.h"
 
-#define ENABLE_MODULE_GENERATOR
-#define ENABLE_MODULE_RANGEPROOF
-
 #if defined(__clang__) || defined(__GNUC__) || defined(__GNUG__)
 #	pragma GCC diagnostic push
 #	pragma GCC diagnostic ignored "-Wunused-function"
@@ -26,7 +23,10 @@
 #	pragma warning (disable: 4706 4701) // assignment within conditional expression
 #endif
 
-#include "secp256k1-zkp/src/secp256k1.c"
+#include "secp256k1-zkp/src/group_impl.h"
+#include "secp256k1-zkp/src/scalar_impl.h"
+#include "secp256k1-zkp/src/field_impl.h"
+#include "secp256k1-zkp/src/hash_impl.h"
 
 #if defined(__clang__) || defined(__GNUC__) || defined(__GNUG__)
 #	pragma GCC diagnostic pop
@@ -90,14 +90,34 @@ namespace ECC {
 		return operator << (s, x.m_Value);
 	}
 
+    std::ostream& operator << (std::ostream& s, const Scalar::Native& x)
+    {
+        Scalar scalar;
+        x.Export(scalar);
+        return operator << (s, scalar);
+    }
+
 	std::ostream& operator << (std::ostream& s, const Point& x)
 	{
 		return operator << (s, x.m_X);
 	}
 
+    std::ostream& operator << (std::ostream& s, const Point::Native& x)
+    {
+        Point point;
+
+        x.Export(point);
+        return operator << (s, point);
+    }
+
 	std::ostream& operator << (std::ostream& s, const Key::IDV& x)
 	{
-		s << "Key=" << x.m_Type << "-" << x.m_SubIdx << ":" << x.m_Idx << ", Value=" << x.m_Value;
+		s
+			<< "Key=" << x.m_Type
+			<< "-" << x.get_Scheme()
+			<< ":" << x.get_Subkey()
+			<< ":" << x.m_Idx
+			<< ", Value=" << x.m_Value;
 		return s;
 	}
 
@@ -186,6 +206,11 @@ namespace ECC {
 		return secp256k1_scalar_is_zero(this) != 0; // constant time guaranteed
 	}
 
+    bool Scalar::Native::operator != (Zero_ v) const
+    {
+        return !(operator == (v));
+    }
+
 	bool Scalar::Native::operator == (const Native& v) const
 	{
 		// Used in tests only, but implemented with constant mem-time guarantee
@@ -193,6 +218,11 @@ namespace ECC {
 		x += v;
 		return x == Zero;
 	}
+
+    bool Scalar::Native::operator != (const Native& v) const
+    {
+        return !(operator == (v));
+    }
 
 	Scalar::Native& Scalar::Native::operator = (Minus v)
 	{
@@ -251,6 +281,13 @@ namespace ECC {
 		secp256k1_scalar_add(this, &v.x, &v.y);
 		return *this;
 	}
+
+    Scalar::Native& Scalar::Native::operator = (Minus2 v)
+    {
+        Scalar::Native temp = -v.y;
+        secp256k1_scalar_add(this, &v.x, &temp);
+        return *this;
+    }
 
 	Scalar::Native& Scalar::Native::operator = (Mul v)
 	{
@@ -476,6 +513,11 @@ namespace ECC {
 		return secp256k1_gej_is_infinity(this) != 0;
 	}
 
+    bool Point::Native::operator != (Zero_ v) const
+    {
+        return !(operator == (v));
+    }
+
 	Point::Native& Point::Native::operator = (Minus v)
 	{
 		secp256k1_gej_neg(this, &v.x);
@@ -487,6 +529,13 @@ namespace ECC {
 		secp256k1_gej_add_var(this, &v.x, &v.y, NULL);
 		return *this;
 	}
+
+    Point::Native& Point::Native::operator = (Minus2 v)
+    {
+        Point::Native temp = -v.y;
+        secp256k1_gej_add_var(this, &v.x, &temp, NULL);
+        return *this;
+    }
 
 	Point::Native& Point::Native::operator = (Double v)
 	{
@@ -511,6 +560,49 @@ namespace ECC {
 	{
 		return operator += (Native(v));
 	}
+
+    secp256k1_pubkey ConvertPointToPubkey(const Point& point)
+    {
+        Point::Native native;
+
+        native.Import(point);
+
+        NoLeak<secp256k1_gej> gej;
+        NoLeak<secp256k1_ge> ge;
+
+        gej.V = native.get_Raw();
+        secp256k1_ge_set_gej(&ge.V, &gej.V);
+
+        const size_t dataSize = 64;
+        secp256k1_pubkey pubkey;
+
+        if constexpr (sizeof(secp256k1_ge_storage) == dataSize)
+        {
+            secp256k1_ge_storage s;
+            secp256k1_ge_to_storage(&s, &ge.V);
+            memcpy(&pubkey.data[0], &s, dataSize);
+        }
+        else 
+        {
+            assert(false && "Unsupported case");
+        }
+
+        return pubkey;
+    }
+
+    std::vector<uint8_t> SerializePubkey(const secp256k1_pubkey& pubkey)
+    {
+        size_t dataSize = 65;
+        std::vector<uint8_t> data(dataSize);
+
+        secp256k1_context* context = secp256k1_context_create(SECP256K1_CONTEXT_SIGN | SECP256K1_CONTEXT_VERIFY);
+
+        secp256k1_ec_pubkey_serialize(context, data.data(), &dataSize, &pubkey, SECP256K1_EC_UNCOMPRESSED);
+
+        secp256k1_context_destroy(context);
+
+        return data;
+    }
 
 	/////////////////////
 	// Generator
@@ -1554,14 +1646,13 @@ namespace ECC {
 		InnerProduct::BatchContext* pBc = InnerProduct::BatchContext::s_pInstance;
 		if (pBc)
 		{
-			if (!pBc->EquationBegin(2))
-				return false;
+			pBc->EquationBegin();
 
 			pBc->AddPrepared(InnerProduct::BatchContext::s_Idx_G, m_k);
 			pBc->AddCasual(pk, e);
 			pBc->AddCasual(pubNonce, 1U);
 
-			return pBc->EquationEnd();
+			return true;
 		}
 
 		Point::Native pt = Context::get().G * m_k;
@@ -1691,9 +1782,3 @@ namespace ECC {
 	} // namespace RangeProof
 
 } // namespace ECC
-
-// Needed for test
-void secp256k1_ecmult_gen(const secp256k1_context* pCtx, secp256k1_gej *r, const secp256k1_scalar *a)
-{
-	secp256k1_ecmult_gen(&pCtx->ecmult_gen_ctx, r, a);
-}

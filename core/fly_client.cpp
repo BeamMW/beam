@@ -105,16 +105,18 @@ void FlyClient::NetworkStd::Connection::ResetInternal()
 
 void FlyClient::NetworkStd::Connection::OnConnectedSecure()
 {
-    Login msg;
-    msg.m_CfgChecksum = Rules::get().Checksum;
-    msg.m_Flags = LoginFlags::MiningFinalization | LoginFlags::Extension1;
-    Send(msg);
+	SendLogin();
 
     if (!(Flags::ReportedConnected & m_Flags))
     {
         m_Flags |= Flags::ReportedConnected;
         m_This.OnNodeConnected(m_iIndex, true);
     }
+}
+
+void FlyClient::NetworkStd::Connection::SetupLogin(Login& msg)
+{
+	msg.m_Flags |= LoginFlags::MiningFinalization;
 }
 
 void FlyClient::NetworkStd::Connection::OnDisconnect(const DisconnectReason& dr)
@@ -225,11 +227,9 @@ void FlyClient::NetworkStd::Connection::OnMsg(GetBlockFinalization&& msg)
     Send(msgOut);
 }
 
-void FlyClient::NetworkStd::Connection::OnMsg(Login&& msg)
+void FlyClient::NetworkStd::Connection::OnLogin(Login&& msg)
 {
-    VerifyCfg(msg);
-
-    m_LoginFlags = msg.m_Flags;
+    m_LoginFlags = static_cast<uint8_t>(msg.m_Flags);
     AssignRequests();
 
     if (LoginFlags::Bbs & m_LoginFlags)
@@ -272,11 +272,11 @@ void FlyClient::NetworkStd::Connection::OnMsg(NewTip&& msg)
         }
         else
         {
+            m_This.m_Client.OnTipUnchanged();
             if (shouldReassignRequests)
             {
                 AssignRequests();
             }
-            m_This.m_Client.OnTipUnchanged();
         }
     }
 }
@@ -406,32 +406,8 @@ struct FlyClient::NetworkStd::Connection::StateArray
 {
     std::vector<Block::SystemState::Full> m_vec;
 
-    void Unpack(const Block::ChainWorkProof&);
     bool Find(const Block::SystemState::Full&) const;
 };
-
-void FlyClient::NetworkStd::Connection::StateArray::Unpack(const Block::ChainWorkProof& proof)
-{
-    m_vec.reserve(proof.m_vArbitraryStates.size() + proof.m_Heading.m_vElements.size());
-
-    // copy reversed
-    m_vec.resize(proof.m_vArbitraryStates.size());
-    std::copy(proof.m_vArbitraryStates.rbegin(), proof.m_vArbitraryStates.rend(), m_vec.begin());
-
-    m_vec.emplace_back();
-    Cast::Down<Block::SystemState::Sequence::Prefix>(m_vec.back()) = proof.m_Heading.m_Prefix;
-    Cast::Down<Block::SystemState::Sequence::Element>(m_vec.back()) = proof.m_Heading.m_vElements.back();
-
-    for (size_t i = proof.m_Heading.m_vElements.size() - 1; i--; )
-    {
-        Block::SystemState::Full& sLast = m_vec.emplace_back();
-
-        sLast = m_vec[m_vec.size() - 2];
-        sLast.NextPrefix();
-        Cast::Down<Block::SystemState::Sequence::Element>(sLast) = proof.m_Heading.m_vElements[i];
-        sLast.m_ChainWork += sLast.m_PoW.m_Difficulty;
-    }
-}
 
 bool FlyClient::NetworkStd::Connection::StateArray::Find(const Block::SystemState::Full& s) const
 {
@@ -488,7 +464,7 @@ void FlyClient::NetworkStd::Connection::OnMsg(ProofChainWork&& msg)
 
     // Unpack the proof, convert it to one sorted array. For convenience
     StateArray arr;
-    arr.Unpack(msg.m_Proof);
+	msg.m_Proof.UnpackStates(arr.m_vec);
 
     if (pSync->m_TipBeforeGap.m_Height && pSync->m_Confirmed.m_Height)
     {
@@ -554,8 +530,8 @@ void FlyClient::NetworkStd::Connection::PostChainworkProof(const StateArray& arr
     else
         m_This.m_Client.get_History().AddStates(&arr.m_vec.front(), arr.m_vec.size());
     PrioritizeSelf();
-    AssignRequests();
     m_This.m_Client.OnNewTip(); // finished!
+    AssignRequests();
 }
 
 
@@ -608,7 +584,7 @@ void FlyClient::NetworkStd::Connection::AssignRequests()
         AssignRequest(*it++);
 
     if (m_lst.empty() && m_This.m_Cfg.m_PollPeriod_ms)
-        SetTimer(0);
+        SetTimer(m_This.m_Cfg.m_CloseConnectionDelay_ms); // this should allow to get sbbs messages
     else
         KillTimer();
 }
@@ -717,6 +693,25 @@ void FlyClient::NetworkStd::Connection::OnRequestData(RequestKernel& req)
             ThrowUnexpected();
 }
 
+bool FlyClient::NetworkStd::Connection::IsSupported(RequestKernel2& req)
+{
+    return (Flags::Node & m_Flags) && IsAtTip();
+}
+
+void FlyClient::NetworkStd::Connection::OnRequestData(RequestKernel2& req)
+{
+    if (req.m_Res.m_Kernel)
+    {
+        AmountBig::Type fee;
+        ECC::Point::Native exc;
+
+        if (!req.m_Res.m_Kernel->IsValid(req.m_Res.m_Height, fee, exc))
+        {
+            ThrowUnexpected();
+        }
+    }
+}
+
 bool FlyClient::NetworkStd::Connection::IsSupported(RequestUtxoEvents& req)
 {
     return (Flags::Owned & m_Flags) && IsAtTip();
@@ -794,6 +789,11 @@ void FlyClient::NetworkStd::Connection::OnFirstRequestDone(bool bStillSupported)
     }
     else
         m_lst.Delete(n); // aborted already
+
+    if (m_lst.empty() && m_This.m_Cfg.m_PollPeriod_ms)
+    {
+        SetTimer(0);
+    }
 }
 
 void FlyClient::NetworkStd::BbsSubscribe(BbsChannel ch, Timestamp ts, IBbsReceiver* p)

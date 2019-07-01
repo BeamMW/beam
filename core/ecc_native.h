@@ -59,6 +59,7 @@ namespace ECC
 	{
 		typedef Op::Unary<Op::Minus, Native>			Minus;
 		typedef Op::Binary<Op::Plus, Native, Native>	Plus;
+        typedef Op::Binary<Op::Minus, Native, Native>	Minus2;
 		typedef Op::Binary<Op::Mul, Native, Native>		Mul;
 	public:
 
@@ -77,19 +78,24 @@ namespace ECC
 
 		Minus	operator - () const { return Minus(*this); }
 		Plus	operator + (const Native& y) const { return Plus(*this, y); }
+        Minus2	operator - (const Native& y) const { return Minus2(*this, y); }
 		Mul		operator * (const Native& y) const { return Mul(*this, y); }
 
 		bool operator == (Zero_) const;
+        bool operator != (Zero_) const;
 		bool operator == (const Native&) const;
+        bool operator != (const Native&) const;
 
 		Native& operator = (Zero_);
 		Native& operator = (uint32_t);
 		Native& operator = (uint64_t);
 		Native& operator = (Minus);
 		Native& operator = (Plus);
+        Native& operator = (Minus2);
 		Native& operator = (Mul);
 		Native& operator = (const Scalar&);
 		Native& operator += (const Native& v) { return *this = *this + v; }
+        Native& operator -= (const Native& v) { return *this = *this - v; }
 		Native& operator *= (const Native& v) { return *this = *this * v; }
 
 		void SetSqr(const Native&);
@@ -104,12 +110,15 @@ namespace ECC
 		void GenRandomNnz();
 	};
 
+    std::ostream& operator << (std::ostream&, const Scalar::Native&);
+
 	class Point::Native
 		:private secp256k1_gej
 	{
 		typedef Op::Unary<Op::Minus, Native>				Minus;
 		typedef Op::Unary<Op::Double, Native>				Double;
 		typedef Op::Binary<Op::Plus, Native, Native>		Plus;
+        typedef Op::Binary<Op::Minus, Native, Native>		Minus2;
 		typedef Op::Binary<Op::Mul, Native, Scalar::Native>	Mul;
 
 		Native(const Point&);
@@ -122,16 +131,20 @@ namespace ECC
 
 		Minus	operator - () const { return Minus(*this); }
 		Plus	operator + (const Native& y_) const { return Plus(*this, y_); }
+        Minus2	operator - (const Native& y_) const { return Minus2(*this, y_); }
 		Mul		operator * (const Scalar::Native& y_) const { return Mul(*this, y_); }
 		Double	operator * (Two_) const { return Double(*this); }
 
 		bool operator == (Zero_) const;
+        bool operator != (Zero_) const;
 
 		Native& operator = (Zero_);
 		Native& operator = (Minus);
 		Native& operator = (Plus);
+        Native& operator = (Minus2);
 		Native& operator = (Double);
 		Native& operator += (const Native& v) { return *this = *this + v; }
+        Native& operator -= (const Native& v) { return *this = *this - v; }
 
 		Native& operator = (Mul);
 		Native& operator += (Mul);
@@ -145,6 +158,11 @@ namespace ECC
 
 		static void ExportEx(Point&, const secp256k1_ge&);
 	};
+
+    std::ostream& operator << (std::ostream&, const Point::Native&);
+
+    secp256k1_pubkey ConvertPointToPubkey(const Point& point);
+    std::vector<uint8_t> SerializePubkey(const secp256k1_pubkey& pubkey);
 
 #ifdef NDEBUG
 #	define ECC_COMPACT_GEN // init time is insignificant in release build. ~1sec in debug.
@@ -651,25 +669,20 @@ namespace ECC
 		} m_Bufs;
 
 
-		void Reset();
-		void Calculate(Point::Native& res);
+		void Calculate();
 
 		const uint32_t m_CasualTotal;
-		bool m_bEnableBatch;
 		bool m_bDirty;
 		Scalar::Native m_Multiplier; // must be initialized in a non-trivial way
-
-#ifndef NDEBUG
-        int m_CasualAtEndExpected;
-#endif // NDEBUG
+		Point::Native m_Sum; // intermediate result, sum of Casuals
 
 		bool AddCasual(const Point& p, const Scalar::Native& k);
 		void AddCasual(const Point::Native& pt, const Scalar::Native& k);
 		void AddPrepared(uint32_t i, const Scalar::Native& k);
 
-		bool EquationBegin(uint32_t nCasualNeeded);
-		bool EquationEnd();
+		void EquationBegin();
 
+		void Reset();
 		bool Flush();
 
 	protected:

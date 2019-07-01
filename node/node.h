@@ -65,9 +65,6 @@ struct Node
 			uint32_t m_TopPeersUpd_ms = 1000 * 60 * 10; // once in 10 minutes
 			uint32_t m_PeersUpdate_ms	= 1000; // reconsider every second
 			uint32_t m_PeersDbFlush_ms = 1000 * 60; // 1 minute
-			uint32_t m_BbsMessageTimeout_s	= 3600 * 12; // 1/2 day
-			uint32_t m_BbsCleanupPeriod_ms = 3600 * 1000; // 1 hour
-			uint32_t m_BbsChannelUpdate_ms = 60 * 5; // 5 minutes
 		} m_Timeout;
 
 		uint32_t m_MaxConcurrentBlocksRequest = 18;
@@ -81,8 +78,26 @@ struct Node
 		// negative: number of cores minus number of mining threads.
 		int m_VerificationThreads = 0;
 
-		bool m_Bbs = true;
-		bool m_BbsAllowV0 = true; // allow older format, without pow
+		struct Bbs
+		{
+			uint32_t m_MessageTimeout_s = 3600 * 12; // 1/2 day
+			uint32_t m_CleanupPeriod_ms = 3600 * 1000; // 1 hour
+
+			NodeDB::BbsTotals m_Limit;
+
+			Bbs()
+			{
+				// set the following to 0 to disable BBS replication.
+				// Typically each transaction demands several messages, there're roughly max ~1K txs per block, and 1 block per minute.
+				// Means, for the default 12-hour lifetime it's about 1.5 mln, hence the following (20 mln) is more than enough
+				m_Limit.m_Count = 20000000;
+				// max bbs msg size is proto::Bbs::s_MaxMsgSize == 1Mb. However mostly they're much smaller.
+				m_Limit.m_Size = uint64_t(5) * 1024U * 1024U * 1024U; // 5Gb
+			}
+
+			bool IsEnabled() const { return m_Limit.m_Count > 0; }
+
+		} m_Bbs;
 
 		struct BandwidthCtl
 		{
@@ -117,6 +132,13 @@ struct Node
 			uint32_t m_DummyLifetimeHi = 1440 * 7; // set to 0 to disable
 
 		} m_Dandelion;
+
+		struct Recovery
+		{
+			std::string m_sPathOutput; // directory with (back)slash and optionally a common prefix
+			uint32_t m_Granularity = 30; // block interval for newer recovery generation
+
+		} m_Recovery;
 
 		NodeProcessor::StartParams m_ProcessorParams;
 
@@ -159,10 +181,12 @@ struct Node
 
 	uint32_t get_AcessiblePeerCount() const; // all the peers with known addresses. Including temporarily banned
 
-private:
-
 	bool m_UpdatedFromPeers = false;
 	bool m_PostStartSynced = false;
+
+	bool GenerateRecoveryInfo(const char*);
+
+private:
 
 	struct Processor
 		:public NodeProcessor
@@ -176,6 +200,7 @@ private:
 		bool EnumViewerKeys(IKeyWalker&) override;
 		void OnUtxoEvent(const UtxoEvent::Value&) override;
 		void OnDummy(const Key::ID&, Height) override;
+		void Stop();
 
 		struct TaskProcessor
 			:public Task::Processor
@@ -197,7 +222,7 @@ private:
 
 			std::vector<std::thread> m_vThreads;
 
-			typedef ECC::InnerProduct::BatchContextEx<100> MyBatch; // seems to be ok, for larger batches difference is marginal
+			typedef ECC::InnerProduct::BatchContextEx<4> MyBatch; // seems to be ok, for larger batches difference is marginal
 
 			~TaskProcessor() { Stop(); }
 			void Stop();
@@ -232,6 +257,8 @@ private:
 		std::deque<PeerID> m_lstInsanePeers;
 		io::AsyncEvent::Ptr m_pAsyncPeerInsane;
 		void FlushInsanePeers();
+
+		void DeleteOutdated();
 
 		IMPLEMENT_GET_PARENT_OBJ(Node, m_Processor)
 	} m_Processor;
@@ -275,6 +302,7 @@ private:
 	void InitKeys();
 	void InitIDs();
 	void RefreshOwnedUtxos();
+	void MaybeGenerateRecovery();
 
 	struct Wanted
 	{
@@ -323,22 +351,24 @@ private:
 		:public TxPool::Stem
 	{
 		// TxPool::Stem
-		virtual bool ValidateTxContext(const Transaction&) override;
+		virtual bool ValidateTxContext(const Transaction&, const HeightRange&) override;
 		virtual void OnTimedOut(Element&) override;
 
 		IMPLEMENT_GET_PARENT_OBJ(Node, m_Dandelion)
 	} m_Dandelion;
 
-	bool OnTransactionStem(Transaction::Ptr&&, const Peer*);
+	uint8_t OnTransactionStem(Transaction::Ptr&&, const Peer*);
 	void OnTransactionAggregated(Dandelion::Element&);
 	void PerformAggregation(Dandelion::Element&);
 	void AddDummyInputs(Transaction&);
+	bool AddDummyInputRaw(Transaction& tx, const Key::IDV&);
+	bool AddDummyInputEx(Transaction& tx, const Key::IDV&);
 	void AddDummyOutputs(Transaction&);
 	Height SampleDummySpentHeight();
 	bool OnTransactionFluff(Transaction::Ptr&&, const Peer*, Dandelion::Element*);
 
-	bool ValidateTx(Transaction::Context&, const Transaction&); // complete validation
-	void LogTx(const Transaction&, bool bValid, const Transaction::KeyType&);
+	uint8_t ValidateTx(Transaction::Context&, const Transaction&); // complete validation
+	void LogTx(const Transaction&, uint8_t nStatus, const Transaction::KeyType&);
 
 	struct Bbs
 	{
@@ -354,6 +384,7 @@ private:
 		uint32_t m_LastCleanup_ms = 0;
 		void Cleanup();
 		void MaybeCleanup();
+		bool IsInLimits() const;
 
 		struct Subscription
 		{
@@ -378,6 +409,8 @@ private:
 
 		Subscription::BbsSet m_Subscribed;
 		Timestamp m_HighestPosted_s = 0;
+
+		NodeDB::BbsTotals m_Totals;
 
 		IMPLEMENT_GET_PARENT_OBJ(Node, m_Bbs)
 	} m_Bbs;
@@ -463,7 +496,7 @@ private:
 		void BroadcastBbs(Bbs::Subscription&);
 		void OnChocking();
 		void SetTxCursor(TxPool::Fluff::Element*);
-		void SendLogin();
+		bool GetBlock(proto::BodyBuffers&, const NodeDB::StateID&, const proto::GetBodyPack&);
 
 		bool IsChocking(size_t nExtra = 0);
 		bool ShouldAssignTasks();
@@ -480,9 +513,12 @@ private:
 		virtual void OnConnectedSecure() override;
 		virtual void OnDisconnect(const DisconnectReason&) override;
 		virtual void GenerateSChannelNonce(ECC::Scalar::Native&) override; // Must be overridden to support SChannel
+		// login
+		virtual void SetupLogin(proto::Login&) override;
+		virtual void OnLogin(proto::Login&&) override;
+		virtual Height get_MinPeerFork() override;
 		// messages
 		virtual void OnMsg(proto::Authentication&&) override;
-		virtual void OnMsg(proto::Login&&) override;
 		virtual void OnMsg(proto::Bye&&) override;
 		virtual void OnMsg(proto::Pong&&) override;
 		virtual void OnMsg(proto::NewTip&&) override;

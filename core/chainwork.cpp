@@ -118,7 +118,7 @@ namespace beam
 
 			bool bAllCovered = (range >= m_Begin);
 
-			verify(UniformRandom(out, range));
+            BEAM_VERIFY(UniformRandom(out, range));
 
 			range.Negate(); // convert to -range
 
@@ -136,6 +136,72 @@ namespace beam
 			return true;
 		}
 	};
+
+	bool Block::ChainWorkProof::EnumStates(IStateWalker& wlk) const
+	{
+		for (size_t i = m_vArbitraryStates.size(); i--; )
+		{
+			if (!wlk.OnState(m_vArbitraryStates[i], false))
+				return false;
+		}
+
+		return EnumStatesHeadingOnly(wlk);
+	}
+
+	bool Block::ChainWorkProof::EnumStatesHeadingOnly(IStateWalker& wlk) const
+	{
+		if (m_Heading.m_vElements.empty())
+			return false; // illegal
+
+		Block::SystemState::Full s;
+		bool bFirst = true;
+
+		for (size_t i = m_Heading.m_vElements.size(); ; )
+		{
+			bool bTip = !(--i);
+
+			if (!bFirst)
+				s.NextPrefix();
+
+			Cast::Down<Block::SystemState::Sequence::Element>(s) = m_Heading.m_vElements[i];
+
+			if (bFirst)
+			{
+				bFirst = false;
+				Cast::Down<Block::SystemState::Sequence::Prefix>(s) = m_Heading.m_Prefix;
+			}
+			else
+				s.m_ChainWork += s.m_PoW.m_Difficulty;
+
+			if (!wlk.OnState(s, bTip))
+				return false;
+
+			if (bTip)
+				break;
+		}
+
+		return true;
+	}
+
+	void Block::ChainWorkProof::UnpackStates(std::vector<SystemState::Full>& v) const
+	{
+		struct Walker
+			:public IStateWalker
+		{
+			std::vector<SystemState::Full>& m_Trg;
+			Walker(std::vector<SystemState::Full>& trg) :m_Trg(trg) {}
+
+			virtual bool OnState(const Block::SystemState::Full& s, bool bIsTip) override
+			{
+				m_Trg.push_back(s);
+				return true;
+			}
+
+		} wlk(v);
+
+		v.reserve(v.size() + m_vArbitraryStates.size() + m_Heading.m_vElements.size());
+		EnumStates(wlk);
+	}
 
 	void Block::ChainWorkProof::Create(ISource& src, const SystemState::Full& sRoot)
 	{
@@ -225,18 +291,27 @@ namespace beam
 			m_vArbitraryStates.clear();
 			assert(iState); // root must remain!
 
-			SystemState::Full s;
-			Cast::Down<SystemState::Sequence::Prefix>(s) = src.m_Heading.m_Prefix;
-			Cast::Down<SystemState::Sequence::Element>(s) = src.m_Heading.m_vElements.back();
-
-			for (size_t i = src.m_Heading.m_vElements.size() - 1; i >= iState; )
+			struct Cropper
+				:public IStateWalker
 			{
-				s.NextPrefix();
-				Cast::Down<SystemState::Sequence::Element>(s) = src.m_Heading.m_vElements[--i];
-				s.m_ChainWork += s.m_PoW.m_Difficulty;
-			}
+				size_t m_Count;
+				Block::SystemState::Sequence::Prefix* m_pTrg;
 
-			m_Heading.m_Prefix = s;
+				virtual bool OnState(const SystemState::Full& s, bool bIsTip) override
+				{
+					if (m_Count--)
+						return true;
+
+					*m_pTrg = s;
+					return false; // stop iteration
+				}
+			};
+
+			Cropper c;
+			c.m_pTrg = &m_Heading.m_Prefix;
+			c.m_Count = src.m_Heading.m_vElements.size() - iState;
+			src.EnumStatesHeadingOnly(c);
+
 			m_Heading.m_vElements.resize(iState);
 		}
 
@@ -263,29 +338,28 @@ namespace beam
 		if (m_Heading.m_vElements.empty())
 			return false;
 
-		SystemState::Full s;
-		Cast::Down<SystemState::Sequence::Prefix>(s) = m_Heading.m_Prefix;
-		Cast::Down<SystemState::Sequence::Element>(s) = m_Heading.m_vElements.back();
-
-		for (size_t i = m_Heading.m_vElements.size() - 1; ; )
+		struct StateVerifier
+			:public IStateWalker
 		{
-			if (!(s.IsValid()))
-				return false;
+			Block::SystemState::Full m_Tip;
 
-			if (!i--)
-				break;
+			virtual bool OnState(const SystemState::Full& s, bool bIsTip) override
+			{
+				if (!(s.IsValid()))
+					return false;
 
-			s.NextPrefix();
-			Cast::Down<SystemState::Sequence::Element>(s) = m_Heading.m_vElements[i];
-			s.m_ChainWork += s.m_PoW.m_Difficulty;
-		}
+				if (bIsTip)
+					m_Tip = s;
 
-		for (size_t i = 0; i < m_vArbitraryStates.size(); i++)
-		{
-			const Block::SystemState::Full& s2 = m_vArbitraryStates[i];
-			if (!(s2.IsValid()))
-				return false;
-		}
+				return true;
+			}
+
+		} wlk;
+
+		if (!EnumStates(wlk))
+			return false;
+
+		Block::SystemState::Full& s = wlk.m_Tip; // alias
 
 		struct MyVerifier :public Merkle::MultiProof::Verifier
 		{

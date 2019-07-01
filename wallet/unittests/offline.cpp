@@ -21,7 +21,7 @@
 #include <boost/filesystem.hpp>
 
 namespace beam {
-
+    using namespace wallet;
 struct WalletDBObserver : IWalletDbObserver {
     void onCoinsChanged() {
         LOG_DEBUG() << _who << " " << __FUNCTION__;
@@ -173,10 +173,10 @@ void test_offline(bool twoNodes) {
     receiverParams.reactor = io::Reactor::create();
     receiverParams.walletDB = init_wallet_db("_receiver", 0, receiverParams.reactor);
 
-	WalletAddress wa = wallet::createAddress(*senderParams.walletDB);
+	WalletAddress wa = storage::createAddress(*senderParams.walletDB);
 	senderParams.walletDB->saveAddress(wa);
 	senderParams.sendFrom = wa.m_walletID;
-    wa = wallet::createAddress(*senderParams.walletDB);
+    wa = storage::createAddress(*senderParams.walletDB);
     receiverParams.walletDB->saveAddress(wa);
 	senderParams.sendTo = wa.m_walletID;
 

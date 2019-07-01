@@ -78,8 +78,8 @@ T.TextArea {
         modal: true
         dim: false
         Action {
-            //% "copy"
-            text: qsTrId("sf-text-area-cm-copy")
+            //% "Copy"
+            text: qsTrId("general-copy")
             icon.source: "qrc:/assets/icon-copy.svg"
             enabled: control.enabled
             onTriggered: {
@@ -94,8 +94,8 @@ T.TextArea {
             }
         }
         Action {
-            //% "paste"
-            text: qsTrId("sf-text-area-cm-paste")
+            //% "Paste"
+            text: qsTrId("general-paste")
             icon.source: "qrc:/assets/icon-edit.svg"
             enabled: control.canPaste
             onTriggered: {

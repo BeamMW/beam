@@ -1,0 +1,12 @@
+diff --git a/3rdparty/protobuf/cmake/CMakeLists.txt b/3rdparty/protobuf/cmake/CMakeLists.txt
+--- a/3rdparty/protobuf/cmake/CMakeLists.txt
++++ b/3rdparty/protobuf/cmake/CMakeLists.txt
+@@ -228,7 +228,7 @@ if (protobuf_BUILD_CONFORMANCE)
+   include(conformance.cmake)
+ endif (protobuf_BUILD_CONFORMANCE)
+ 
+-include(install.cmake)
++#include(install.cmake)
+ 
+ if (protobuf_BUILD_EXAMPLES)
+   include(examples.cmake)
