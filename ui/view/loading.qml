@@ -200,10 +200,12 @@ Item
 
                         CustomButton {
                             visible: (isCreating || isRecoveryMode)
+                            enabled: true
                             //% "Cancel"
                             text: qsTrId("general-cancel")
                             icon.source: "qrc:/assets/icon-cancel.svg"
                             onClicked: {
+                                this.enabled = false;
                                 cancelCreating();
                             }
                         }
