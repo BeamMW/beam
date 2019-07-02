@@ -138,6 +138,7 @@ namespace beam
     // Address
     const char kExprTime24h[] = "24h";
     const char kExprTimeNever[] = "never";
+    const char kExprTimeNow[] = "now";
     const char kAllAddrExprChanged[] = "Expiration for all addresses  was changed to \"%1%\".";
     const char kAddrExprChanged[] = "Expiration for address %1% was changed to \"%2%\".";
     const char kAddrNewGenerated[] = "New address generated:\n\n%1%\n";

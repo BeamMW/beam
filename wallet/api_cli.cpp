@@ -281,7 +281,7 @@ namespace
                     switch (*data.expiration)
                     {
                     case EditAddress::OneDay:
-                        address.makeActive(24 * 60 * 60);
+                        address.makeActive(WalletAddress::AddressExpiration24h);
                         break;
                     case EditAddress::Expired:
                         address.makeExpired();
@@ -406,7 +406,7 @@ namespace
 
                     if (data.session)
                     {
-                        coins = _walletDB->getLocked(*data.session);
+                        coins = _walletDB->getLockedCoins(*data.session);
 
                         if (coins.empty())
                         {
@@ -556,7 +556,7 @@ namespace
                 LOG_DEBUG() << "GetUtxo(id = " << id << ")";
 
                 GetUtxo::Response response;
-                _walletDB->visit([&response](const Coin& c)->bool
+                _walletDB->visitCoins([&response](const Coin& c)->bool
                 {
                     response.utxos.push_back(c);
                     return true;
@@ -604,7 +604,7 @@ namespace
 
                 Lock::Response response;
 
-                response.result = _walletDB->lock(data.coins, data.session);
+                response.result = _walletDB->lockCoins(data.coins, data.session);
 
                 doResponse(id, response);
             }
@@ -615,7 +615,7 @@ namespace
 
                 Unlock::Response response;
 
-                response.result = _walletDB->unlock(data.session);
+                response.result = _walletDB->unlockCoins(data.session);
 
                 doResponse(id, response);
             }

@@ -65,7 +65,7 @@ namespace beam::wallet
                 preselectedAmount += coin.getAmount();
                 coin.m_spentTxId = m_Tx.GetTxID();
             }
-            m_Tx.GetWalletDB()->save(coins);
+            m_Tx.GetWalletDB()->saveCoins(coins);
         }
         Amount amountWithFee = GetAmount() + m_Fee;
         if (preselectedAmount < amountWithFee)
@@ -97,7 +97,7 @@ namespace beam::wallet
         m_Tx.SetParameter(TxParameterID::Change, m_Change, false, m_SubTxID);
         m_Tx.SetParameter(TxParameterID::InputCoins, m_InputCoins, false, m_SubTxID);
 
-        m_Tx.GetWalletDB()->save(coins);
+        m_Tx.GetWalletDB()->saveCoins(coins);
     }
 
     void BaseTxBuilder::AddChange()
@@ -118,7 +118,7 @@ namespace beam::wallet
         {
             newUtxo.m_ID.m_Type = Key::Type::Change;
         }
-        m_Tx.GetWalletDB()->store(newUtxo);
+        m_Tx.GetWalletDB()->storeCoin(newUtxo);
         m_OutputCoins.push_back(newUtxo.m_ID);
         m_Tx.SetParameter(TxParameterID::OutputCoins, m_OutputCoins, false, m_SubTxID);
     }

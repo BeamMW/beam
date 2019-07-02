@@ -428,14 +428,19 @@ namespace
         {
             walletID.FromHex(address);
         }
-        uint64_t newDuration_s = 0;
+
+        bool makeEternal = false, makeActive = false, makeExpired = false;
         if (newTime == kExprTime24h)
         {
-            newDuration_s = 24 * 3600; //seconds
+            makeActive = true;
         }
         else if (newTime == kExprTimeNever)
         {
-            newDuration_s = 0;
+            makeEternal = true;
+        }
+        else if (newTime == kExprTimeNow)
+        {
+            makeExpired = true;
         }
         else
         {
@@ -443,7 +448,7 @@ namespace
             return -1;
         }
 
-        if (storage::changeAddressExpiration(*walletDB, walletID, newDuration_s))
+        if (storage::changeAddressExpiration(*walletDB, walletID, makeEternal, makeActive, makeExpired))
         {
             if (allAddresses)
             {
@@ -676,7 +681,7 @@ namespace
                  % boost::io::group(left, setw(columnWidths[5]), kCoinColumnType)
                  << std::endl;
         
-        walletDB->visit([&columnWidths](const Coin& c)->bool
+        walletDB->visitCoins([&columnWidths](const Coin& c)->bool
         {
             cout << boost::format(kCoinsTableFormat)
                  % boost::io::group(left, setw(columnWidths[0]), c.toStringID())

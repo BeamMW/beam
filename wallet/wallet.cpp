@@ -321,13 +321,13 @@ namespace beam::wallet
             ocoins.insert(ocoins.end(), txocoins.begin(), txocoins.end());
         }
 
-        m_WalletDB->clear();
+        m_WalletDB->clearCoins();
         Block::SystemState::ID id;
         ZeroObject(id);
         m_WalletDB->setSystemStateID(id);
 
         // Restore Incoming coins of active transactions
-        m_WalletDB->save(ocoins);
+        m_WalletDB->saveCoins(ocoins);
 
         storage::setVar(*m_WalletDB, s_szNextUtxoEvt, 0);
         RequestUtxoEvents();
@@ -888,7 +888,7 @@ namespace beam::wallet
         Coin c;
         c.m_ID = evt.m_Kidv;
 
-        bool bExists = m_WalletDB->find(c);
+        bool bExists = m_WalletDB->findCoin(c);
 		c.m_maturity = evt.m_Maturity;
 
         LOG_INFO() << "CoinID: " << evt.m_Kidv << " Maturity=" << evt.m_Maturity << (evt.m_Added ? " Confirmed" : " Spent");
@@ -919,7 +919,7 @@ namespace beam::wallet
 			c.m_spentHeight = std::min(c.m_spentHeight, evt.m_Height); // reported spend height may be bigger than it actuall was (in case of macroblocks)
 		}
 
-        m_WalletDB->save(c);
+        m_WalletDB->saveCoin(c);
     }
 
     void Wallet::OnRolledBack()
@@ -992,8 +992,12 @@ namespace beam::wallet
         MyRequestUtxo::Ptr pReq(new MyRequestUtxo);
         pReq->m_CoinID = cid;
 
-		Scalar::Native sk;
-		m_WalletDB->calcCommitment(sk, pReq->m_Msg.m_Utxo, cid);
+        if (!m_KeyKeeper)
+        {
+            LOG_WARNING() << "You cannot get utxo commitment without private key";
+            return;
+        }
+        pReq->m_Msg.m_Utxo = m_KeyKeeper->GeneratePublicKeySync(cid, true);
 
         LOG_DEBUG() << "Get utxo proof: " << pReq->m_Msg.m_Utxo;
 

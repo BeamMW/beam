@@ -134,6 +134,7 @@ namespace beam
     // Address
     extern const char kExprTime24h[];
     extern const char kExprTimeNever[];
+    extern const char kExprTimeNow[];
     extern const char kAllAddrExprChanged[];
     extern const char kAddrExprChanged[];
     extern const char kAddrNewGenerated[];
