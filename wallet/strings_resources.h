@@ -16,6 +16,8 @@
 
 namespace beam
 {
+    extern const char kDefaultConfigFile[];
+
     extern const char kTimeStampFormat3x3[];
     extern const char kBEAM[];
     extern const char kGROTH[];
@@ -58,6 +60,48 @@ namespace beam
     extern const char kErrorPpExportFailedTxNotCompleted[];
     extern const char kErrorPpNotProvided[];
     extern const char kErrorPpInvalid[];
+    extern const char kErrorSubkeyNotSpecified[];
+    extern const char kErrorExportDataFail[];
+    extern const char kErrorReceiverAddrMissing[];
+    extern const char kErrorAmountMissing[];
+    extern const char kErrorNegativeAmount[];
+    extern const char kErrorZeroAmount[];
+    extern const char kErrorFeeToLow[];
+    extern const char kErrorUnknownSecondSideChainForSwap[];
+    extern const char kErrorBTCNodeAddrNotResolved[];
+    extern const char kErrorBTCNodeUserNameUnspecified[];
+    extern const char kErrorBTCNodePwdNotProvided[];
+    extern const char kErrorSwapFeeRateMissing[];
+    extern const char kErrorLTCNodeAddrNotResolved[];
+    extern const char kErrorLTCNodeUserNameUnspecified[];
+    extern const char kErrorLTCNodePwdNotProvided[];
+    extern const char kErrorQTUMNodeAddrNotResolved[];
+    extern const char kErrorQTUMNodeUserNameUnspecified[];
+    extern const char kErrorQTUMNodePwdNotProvided[];
+    extern const char kErrorCommandNotSpecified[];
+    extern const char kErrorCommandUnknown[];
+    extern const char kErrorCantRestoreColdWallet[];
+    extern const char kErrorWalletNotInitialized[];
+    extern const char kErrorWalletAlreadyInitialized[];
+    extern const char kErrorWalletPwdNotProvided[];
+    extern const char kErrorWalletPwdNotMatch[];
+    extern const char kErrorSeedPhraseFail[];
+    extern const char kErrorWalletNotCreated[];
+    extern const char kErrorCantOpenWallet[];
+    extern const char kErrorNodeAddrNotSpecified[];
+    extern const char kErrorNodeAddrUnresolved[];
+    extern const char kErrorNodePoolPeriodTooMuch[];
+    extern const char kErrorSwapAmountMissing[];
+    extern const char kErrorSwapCoinUnknown[];
+    extern const char kErrorNoBTCNodeCredentials[];
+    extern const char kErrorSwapAmountTooLow[];
+    extern const char kErrorNoLTCNodeCredentials[];
+    extern const char kErrorNoQTUMNodeCredentials[];
+    extern const char kErrorAmountTooLow[];
+    extern const char kErrorUnableSendZeroCoin[];
+    extern const char kErrorTxStatusInvalid[];
+    extern const char kErrorTxIdUnknown[];
+
     // Swap Tx statuses
     extern const char kSwapTxStatusInitial[];
     extern const char kSwapTxStatusInvitation[];
@@ -86,6 +130,7 @@ namespace beam
     extern const char kTreasuryRecoveredCoin[];
     extern const char kTreasuryBurstsTitle[];
     extern const char kTreasuryBurst[];
+    extern const char kTreasuryID[];
     // Address
     extern const char kExprTime24h[];
     extern const char kExprTimeNever[];
@@ -146,4 +191,20 @@ namespace beam
     extern const char kTxDetailsFailReason[];
 
     extern const char kPpExportedFrom[];
+    extern const char kSubKeyInfo[];
+    extern const char kOwnerKeyInfo[];
+    extern const char kDataExportedMessage[];
+
+    extern const char kVersionInfo[];
+    extern const char kRulesSignatureInfo[];
+    extern const char kStartMessage[];
+    extern const char kWalletCreatedMessage[];
+    extern const char kDefaultAddrComment[];
+    extern const char kDefaultAddrExpiration[];
+    extern const char kWalletOpenedMessage[];
+
+    extern const char kNodePoolPeriod[];
+    extern const char kNodePoolPeriodRounded[];
+
+    extern const char kPpRequired[];
 }

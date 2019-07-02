@@ -16,6 +16,7 @@
 
 namespace beam
 {
+    const char kDefaultConfigFile[] = "beam-wallet.cfg";
     const char kTimeStampFormat3x3[] = "%Y.%m.%d %H:%M:%S";
     const char kBEAM[] = "BEAM";
     const char kGROTH[] = "GROTH";
@@ -60,6 +61,47 @@ namespace beam
     const char kErrorPpExportFailedTxNotCompleted[] = "Failed to export payment proof. Transaction is not completed.";
     const char kErrorPpNotProvided[] = "No payment proof provided: --payment_proof parameter is missing";
     const char kErrorPpInvalid[] = "Payment proof is invalid";
+    const char kErrorSubkeyNotSpecified[] = "Please, specify Subkey number --subkey=N (N > 0)";
+    const char kErrorExportDataFail[] = "Failed to save exported data.";
+    const char kErrorReceiverAddrMissing[] = "receiver's address is missing";
+    const char kErrorAmountMissing[] = "amount is missing";
+    const char kErrorNegativeAmount[] = "Unable to send negative amount of coins";
+    const char kErrorZeroAmount[] = "Unable to send zero coins";
+    const char kErrorFeeToLow[] = "Failed to initiate the send operation. The minimum fee is 100 groth.";
+    const char kErrorUnknownSecondSideChainForSwap[] = "Unknown type of second side chain for swap";
+    const char kErrorBTCNodeAddrNotResolved[] = "unable to resolve bitcoin node address: %1%";
+    const char kErrorBTCNodeUserNameUnspecified[] = "user name of bitcoin node should be specified";
+    const char kErrorBTCNodePwdNotProvided[] = "Please, provide password for the bitcoin node.";
+    const char kErrorSwapFeeRateMissing[] = "swap fee rate is missing";
+    const char kErrorLTCNodeAddrNotResolved[] = "unable to resolve litecoin node address: %1%";
+    const char kErrorLTCNodeUserNameUnspecified[] = "user name of litecoin node should be specified";
+    const char kErrorLTCNodePwdNotProvided[] = "Please, provide password for the litecoin node.";
+    const char kErrorQTUMNodeAddrNotResolved[] = "unable to resolve qtum node address: %1%";
+    const char kErrorQTUMNodeUserNameUnspecified[] = "user name of qtum node should be specified";
+    const char kErrorQTUMNodePwdNotProvided[] = "Please, provide password for qtum litecoin node.";
+    const char kErrorCommandNotSpecified[] = "command parameter not specified.";
+    const char kErrorCommandUnknown[] = "unknown command: \'%1%\'";
+    const char kErrorCantRestoreColdWallet[] = "You can't restore cold wallet.";
+    const char kErrorWalletNotInitialized[] = "Please initialize your wallet first... \nExample: beam-wallet --command=init";
+    const char kErrorWalletAlreadyInitialized[] = "Your wallet is already initialized.";
+    const char kErrorWalletPwdNotProvided[] = "Please, provide password for the wallet.";
+    const char kErrorWalletPwdNotMatch[] = "Passwords do not match";
+    const char kErrorSeedPhraseFail[] = "Please, provide a valid seed phrase for the wallet.";
+    const char kErrorWalletNotCreated[] = "something went wrong, wallet not created...";
+    const char kErrorCantOpenWallet[] = "Please check your password. If password is lost, restore wallet.db from latest backup or delete it and restore from seed phrase.";
+    const char kErrorNodeAddrNotSpecified[] = "node address should be specified";
+    const char kErrorNodeAddrUnresolved[] = "unable to resolve node address: %1%";
+    const char kErrorNodePoolPeriodTooMuch[] = "The \"--node_poll_period\" parameter set to more than %1% hours may cause transaction problems.";
+    const char kErrorSwapAmountMissing[] = "swap amount is missing";
+    const char kErrorSwapCoinUnknown[] = "Unknown coin for swap";
+    const char kErrorNoBTCNodeCredentials[] = "BTC node credentials should be provided";
+    const char kErrorSwapAmountTooLow[] = "The swap amount must be greater than the redemption fee.";
+    const char kErrorNoLTCNodeCredentials[] = "LTC node credentials should be provided";
+    const char kErrorNoQTUMNodeCredentials[] = "Qtum node credentials should be provided";
+    const char kErrorAmountTooLow[] = "The amount must be greater than the redemption fee.";
+    const char kErrorUnableSendZeroCoin[] = "Unable to send zero coins";
+    const char kErrorTxStatusInvalid[] = "Transaction could not be deleted. Invalid transaction status.";
+    const char kErrorTxIdUnknown[] = "Unknown transaction ID.";
 
     // Swap Tx statuses
     const char kSwapTxStatusInitial[] = "initial";
@@ -91,6 +133,7 @@ namespace beam
     const char kTreasuryRecoveredCoin[] = "\t%1%, Height=%2%";
     const char kTreasuryBurstsTitle[] = "Total bursts: %1%";
     const char kTreasuryBurst[] = "\tHeight=%1%, Value=%2%";
+    const char kTreasuryID[] = "ID: %1%";
 
     // Address
     const char kExprTime24h[] = "24h";
@@ -156,4 +199,20 @@ namespace beam
     const char kTxDetailsFailReason[] = "\nReason: %1%";
 
     const char kPpExportedFrom[] = "Exported form: %1%";
+    const char kSubKeyInfo[] = "Secret Subkey %1%: %2%";
+    const char kOwnerKeyInfo[] = "Owner Viewer key: %1%";
+    const char kDataExportedMessage[] = "Data has been successfully exported.";
+
+    const char kVersionInfo[] = "Beam Wallet %1% (%2%)";
+    const char kRulesSignatureInfo[] = "Rules signature: %1%";
+    const char kStartMessage[] = "starting a wallet...";
+    const char kWalletCreatedMessage[] = "wallet successfully created...";
+    const char kDefaultAddrComment[] = "default";
+    const char kDefaultAddrExpiration[] = "never";
+    const char kWalletOpenedMessage[] = "wallet sucessfully opened...";
+
+    const char kNodePoolPeriod[] = "Node poll period = %1% ms";
+    const char kNodePoolPeriodRounded[] = "Node poll period has been automatically rounded up to block rate: %1% ms";
+
+    const char kPpRequired[] = "Parameter set: Payment proof required: %1%";
 }

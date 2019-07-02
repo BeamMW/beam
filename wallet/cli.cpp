@@ -231,7 +231,7 @@ namespace
         switch (nCode)
         {
         default:
-            cout << "ID: " << szID << std::endl;
+            cout << boost::format(kTreasuryID) % szID << std::endl;
             break;
 
         case 1:
@@ -777,7 +777,7 @@ namespace
         uint32_t subKey = vm[cli::KEY_SUBKEY].as<Nonnegative<uint32_t>>().value;
         if (subKey < 1)
         {
-            cout << "Please, specify Subkey number --subkey=N (N > 0)" << endl;
+            cout << kErrorSubkeyNotSpecified << endl;
             return -1;
         }
 		Key::IKdf::Ptr pKey = MasterKey::get_Child(*walletDB->get_MasterKdf(), subKey);
@@ -788,7 +788,7 @@ namespace
         ks.m_sMeta = std::to_string(subKey);
 
         ks.Export(kdf);
-        cout << "Secret Subkey " << subKey << ": " << ks.m_sRes << std::endl;
+        cout << boost::format(kSubKeyInfo) % subKey % ks.m_sRes << std::endl;
 
         return 0;
     }
@@ -806,7 +806,7 @@ namespace
         pkdf.GenerateFrom(kdf);
 
         ks.Export(pkdf);
-        cout << "Owner Viewer key: " << ks.m_sRes << std::endl;
+        cout << boost::format(kOwnerKeyInfo) % ks.m_sRes << std::endl;
 
         return 0;
     }
@@ -840,10 +840,10 @@ namespace
         FStream f;
         if (f.Open(timestampedPath.c_str(), false) && f.write(data.data(), data.size()) == data.size())
         {
-            LOG_INFO() << "Data has been successfully exported.";
+            LOG_INFO() << kDataExportedMessage;
             return true;
         }
-        LOG_ERROR() << "Failed to save exported data.";
+        LOG_ERROR() << kErrorExportDataFail;
         return false;
     }
 
@@ -890,12 +890,12 @@ namespace
     {
         if (vm.count(cli::RECEIVER_ADDR) == 0)
         {
-            LOG_ERROR() << "receiver's address is missing";
+            LOG_ERROR() << kErrorReceiverAddrMissing;
             return false;
         }
         if (vm.count(cli::AMOUNT) == 0)
         {
-            LOG_ERROR() << "amount is missing";
+            LOG_ERROR() << kErrorAmountMissing;
             return false;
         }
 
@@ -904,7 +904,7 @@ namespace
         auto signedAmount = vm[cli::AMOUNT].as<Positive<double>>().value;
         if (signedAmount < 0)
         {
-            LOG_ERROR() << "Unable to send negative amount of coins";
+            LOG_ERROR() << kErrorNegativeAmount;
             return false;
         }
 
@@ -913,14 +913,14 @@ namespace
         amount = static_cast<ECC::Amount>(std::round(signedAmount));
         if (amount == 0)
         {
-            LOG_ERROR() << "Unable to send zero coins";
+            LOG_ERROR() << kErrorZeroAmount;
             return false;
         }
 
         fee = vm[cli::FEE].as<Nonnegative<Amount>>().value;
         if (checkFee && fee < cli::kMinimumFee)
         {
-            LOG_ERROR() << "Failed to initiate the send operation. The minimum fee is 100 groth.";
+            LOG_ERROR() << kErrorFeeToLow;
             return false;
         }
 
@@ -935,7 +935,7 @@ namespace
             swapSecondSideChainType = SwapSecondSideChainTypeFromString(vm[cli::SWAP_NETWORK].as<string>());
             if (swapSecondSideChainType == SwapSecondSideChainType::Unknown)
             {
-                throw std::runtime_error("Unknown type of second side chain for swap");
+                throw std::runtime_error(kErrorUnknownSecondSideChainForSwap);
             }
         }
         return swapSecondSideChainType;
@@ -950,12 +950,12 @@ namespace
             string btcNodeUri = vm[cli::BTC_NODE_ADDR].as<string>();
             if (!btcOptions.m_address.resolve(btcNodeUri.c_str()))
             {
-                throw std::runtime_error("unable to resolve bitcoin node address: " + btcNodeUri);
+                throw std::runtime_error((boost::format(kErrorBTCNodeAddrNotResolved) % btcNodeUri).str());
             }
 
             if (vm.count(cli::BTC_USER_NAME) == 0)
             {
-                throw std::runtime_error("user name of bitcoin node should be specified");
+                throw std::runtime_error(kErrorBTCNodeUserNameUnspecified);
             }
 
             btcOptions.m_userName = vm[cli::BTC_USER_NAME].as<string>();
@@ -963,14 +963,14 @@ namespace
             // TODO roman.strilets: use SecString instead of std::string
             if (vm.count(cli::BTC_PASS) == 0)
             {
-                throw std::runtime_error("Please, provide password for the bitcoin node.");
+                throw std::runtime_error(kErrorBTCNodePwdNotProvided);
             }
 
             btcOptions.m_pass = vm[cli::BTC_PASS].as<string>();
 
             if (vm.count(cli::SWAP_FEERATE) == 0)
             {
-                throw std::runtime_error("swap fee rate is missing");
+                throw std::runtime_error(kErrorSwapFeeRateMissing);
             }
 
             btcOptions.m_feeRate = vm[cli::SWAP_FEERATE].as<Positive<Amount>>().value;
@@ -1006,12 +1006,12 @@ namespace
             string ltcNodeUri = vm[cli::LTC_NODE_ADDR].as<string>();
             if (!ltcOptions.m_address.resolve(ltcNodeUri.c_str()))
             {
-                throw std::runtime_error("unable to resolve litecoin node address: " + ltcNodeUri);
+                throw std::runtime_error((boost::format(kErrorLTCNodeAddrNotResolved) % ltcNodeUri).str());
             }
 
             if (vm.count(cli::LTC_USER_NAME) == 0)
             {
-                throw std::runtime_error("user name of litecoin node should be specified");
+                throw std::runtime_error(kErrorLTCNodeUserNameUnspecified);
             }
 
             ltcOptions.m_userName = vm[cli::LTC_USER_NAME].as<string>();
@@ -1019,14 +1019,14 @@ namespace
             // TODO roman.strilets: use SecString instead of std::string
             if (vm.count(cli::LTC_PASS) == 0)
             {
-                throw std::runtime_error("Please, provide password for the litecoin node.");
+                throw std::runtime_error(kErrorLTCNodePwdNotProvided);
             }
 
             ltcOptions.m_pass = vm[cli::LTC_PASS].as<string>();
 
             if (vm.count(cli::SWAP_FEERATE) == 0)
             {
-                throw std::runtime_error("swap fee rate is missing");
+                throw std::runtime_error(kErrorSwapFeeRateMissing);
             }
             ltcOptions.m_feeRate = vm[cli::SWAP_FEERATE].as<Positive<Amount>>().value;
 
@@ -1061,12 +1061,12 @@ namespace
             string qtumNodeUri = vm[cli::QTUM_NODE_ADDR].as<string>();
             if (!qtumOptions.m_address.resolve(qtumNodeUri.c_str()))
             {
-                throw std::runtime_error("unable to resolve qtum node address: " + qtumNodeUri);
+                throw std::runtime_error((boost::format(kErrorQTUMNodeAddrNotResolved) % qtumNodeUri).str());
             }
 
             if (vm.count(cli::QTUM_USER_NAME) == 0)
             {
-                throw std::runtime_error("user name of qtum node should be specified");
+                throw std::runtime_error(kErrorQTUMNodeUserNameUnspecified);
             }
 
             qtumOptions.m_userName = vm[cli::QTUM_USER_NAME].as<string>();
@@ -1074,14 +1074,14 @@ namespace
             // TODO roman.strilets: use SecString instead of std::string
             if (vm.count(cli::QTUM_PASS) == 0)
             {
-                throw std::runtime_error("Please, provide password for the qtum node.");
+                throw std::runtime_error(kErrorQTUMNodePwdNotProvided);
             }
 
             qtumOptions.m_pass = vm[cli::QTUM_PASS].as<string>();
 
             if (vm.count(cli::SWAP_FEERATE) == 0)
             {
-                throw std::runtime_error("swap fee rate is missing");
+                throw std::runtime_error(kErrorSwapFeeRateMissing);
             }
             qtumOptions.m_feeRate = vm[cli::SWAP_FEERATE].as<Positive<Amount>>().value;
 
@@ -1123,7 +1123,7 @@ int main_impl(int argc, char* argv[])
         po::variables_map vm;
         try
         {
-            vm = getOptions(argc, argv, "beam-wallet.cfg", options, true);
+            vm = getOptions(argc, argv, kDefaultConfigFile, options, true);
         }
         catch (const po::invalid_option_value& e)
         {
@@ -1197,7 +1197,7 @@ int main_impl(int argc, char* argv[])
                 {
                     if (vm.count(cli::COMMAND) == 0)
                     {
-                        LOG_ERROR() << "command parameter not specified.";
+                        LOG_ERROR() << kErrorCommandNotSpecified;
                         printHelp(visibleOptions);
                         return 0;
                     }
@@ -1233,7 +1233,7 @@ int main_impl(int argc, char* argv[])
 
                         if (find(begin(commands), end(commands), command) == end(commands))
                         {
-                            LOG_ERROR() << "unknown command: \'" << command << "\'";
+                            LOG_ERROR() << boost::format(kErrorCommandUnknown) % command;
                             return -1;
                         }
                     }
@@ -1244,14 +1244,14 @@ int main_impl(int argc, char* argv[])
                         return 0;
                     }
 
-                    LOG_INFO() << "Beam Wallet " << PROJECT_VERSION << " (" << BRANCH_NAME << ")";
-                    LOG_INFO() << "Rules signature: " << Rules::get().get_SignatureStr();
+                    LOG_INFO() << boost::format(kVersionInfo) % PROJECT_VERSION % BRANCH_NAME;
+                    LOG_INFO() << boost::format(kRulesSignatureInfo) % Rules::get().get_SignatureStr();
 
                     bool coldWallet = vm.count(cli::COLD_WALLET) > 0;
 
                     if (coldWallet && command == cli::RESTORE)
                     {
-                        LOG_ERROR() << "You can't restore cold wallet.";
+                        LOG_ERROR() << kErrorCantRestoreColdWallet;
                         return -1;
                     }
 
@@ -1260,21 +1260,21 @@ int main_impl(int argc, char* argv[])
 
                     if (!WalletDB::isInitialized(walletPath) && (command != cli::INIT && command != cli::RESTORE))
                     {
-                        LOG_ERROR() << "Please initialize your wallet first... \nExample: beam-wallet --command=init";
+                        LOG_ERROR() << kErrorWalletNotInitialized;
                         return -1;
                     }
                     else if (WalletDB::isInitialized(walletPath) && (command == cli::INIT || command == cli::RESTORE))
                     {
-                        LOG_ERROR() << "Your wallet is already initialized.";
+                        LOG_ERROR() << kErrorWalletAlreadyInitialized;
                         return -1;
                     }
 
-                    LOG_INFO() << "starting a wallet...";
+                    LOG_INFO() << kStartMessage;
 
                     SecString pass;
                     if (!beam::read_wallet_pass(pass, vm))
                     {
-                        LOG_ERROR() << "Please, provide password for the wallet.";
+                        LOG_ERROR() << kErrorWalletPwdNotProvided;
                         return -1;
                     }
 
@@ -1282,7 +1282,7 @@ int main_impl(int argc, char* argv[])
                     {
                         if (!beam::confirm_wallet_pass(pass))
                         {
-                            LOG_ERROR() << "Passwords do not match";
+                            LOG_ERROR() << kErrorWalletPwdNotMatch;
                             return -1;
                         }
                     }
@@ -1293,22 +1293,22 @@ int main_impl(int argc, char* argv[])
                         walletSeed.V = Zero;
                         if (!ReadWalletSeed(walletSeed, vm, command == cli::INIT))
                         {
-                            LOG_ERROR() << "Please, provide a valid seed phrase for the wallet.";
+                            LOG_ERROR() << kErrorSeedPhraseFail;
                             return -1;
                         }
                         auto walletDB = WalletDB::init(walletPath, pass, walletSeed, reactor, coldWallet);
                         if (walletDB)
                         {
-                            LOG_INFO() << "wallet successfully created...";
+                            LOG_INFO() << kWalletCreatedMessage;
 
                             // generate default address
-                            CreateNewAddress(walletDB, "default");
+                            CreateNewAddress(walletDB, kDefaultAddrComment);
 
                             return 0;
                         }
                         else
                         {
-                            LOG_ERROR() << "something went wrong, wallet not created...";
+                            LOG_ERROR() << kErrorWalletNotCreated;
                             return -1;
                         }
                     }
@@ -1316,7 +1316,7 @@ int main_impl(int argc, char* argv[])
                     auto walletDB = WalletDB::open(walletPath, pass, reactor);
                     if (!walletDB)
                     {
-                        LOG_ERROR() << "Please check your password. If password is lost, restore wallet.db from latest backup or delete it and restore from seed phrase.";
+                        LOG_ERROR() << kErrorCantOpenWallet;
                         return -1;
                     }
 
@@ -1357,7 +1357,7 @@ int main_impl(int argc, char* argv[])
                             uint8_t n = b ? 1 : 0;
                             storage::setVar(*walletDB, storage::g_szPaymentProofRequired, n);
 
-                            cout << "Parameter set: Payment proof required: " << static_cast<uint32_t>(n) << std::endl;
+                            cout << boost::format(kPpRequired) % static_cast<uint32_t>(n) << std::endl;
                             return 0;
                         }
                     }
@@ -1365,7 +1365,7 @@ int main_impl(int argc, char* argv[])
                     if (command == cli::NEW_ADDRESS)
                     {
                         auto comment = vm[cli::NEW_ADDRESS_COMMENT].as<string>();
-                        CreateNewAddress(walletDB, comment, vm[cli::EXPIRATION_TIME].as<string>() == "never");
+                        CreateNewAddress(walletDB, comment, vm[cli::EXPIRATION_TIME].as<string>() == kDefaultAddrExpiration);
 
                         if (!vm.count(cli::LISTEN))
                         {
@@ -1373,7 +1373,7 @@ int main_impl(int argc, char* argv[])
                         }
                     }
 
-                    LOG_INFO() << "wallet sucessfully opened...";
+                    LOG_INFO() << kWalletOpenedMessage;
 
                     if (command == cli::TREASURY)
                     {
@@ -1440,7 +1440,7 @@ int main_impl(int argc, char* argv[])
                         {
                             if (vm.count(cli::NODE_ADDR) == 0)
                             {
-                                LOG_ERROR() << "node address should be specified";
+                                LOG_ERROR() << kErrorNodeAddrNotSpecified;
                                 return -1;
                             }
 
@@ -1448,7 +1448,7 @@ int main_impl(int argc, char* argv[])
                             io::Address nodeAddress;
                             if (!nodeAddress.resolve(nodeURI.c_str()))
                             {
-                                LOG_ERROR() << "unable to resolve node address: " << nodeURI;
+                                LOG_ERROR() << boost::format(kErrorNodeAddrUnresolved) % nodeURI;
                                 return -1;
                             }
 
@@ -1456,17 +1456,17 @@ int main_impl(int argc, char* argv[])
                             nnet->m_Cfg.m_PollPeriod_ms = vm[cli::NODE_POLL_PERIOD].as<Nonnegative<uint32_t>>().value;
                             if (nnet->m_Cfg.m_PollPeriod_ms)
                             {
-                                LOG_INFO() << "Node poll period = " << nnet->m_Cfg.m_PollPeriod_ms << " ms";
+                                LOG_INFO() << boost::format(kNodePoolPeriod) % nnet->m_Cfg.m_PollPeriod_ms;
                                 uint32_t timeout_ms = std::max(Rules::get().DA.Target_s * 1000, nnet->m_Cfg.m_PollPeriod_ms);
                                 if (timeout_ms != nnet->m_Cfg.m_PollPeriod_ms)
                                 {
-                                    LOG_INFO() << "Node poll period has been automatically rounded up to block rate: " << timeout_ms << " ms";
+                                    LOG_INFO() << boost::format(kNodePoolPeriodRounded) % timeout_ms;
                                 }
                             }
                             uint32_t responceTime_s = Rules::get().DA.Target_s * wallet::kDefaultTxResponseTime;
                             if (nnet->m_Cfg.m_PollPeriod_ms >= responceTime_s * 1000)
                             {
-                                LOG_WARNING() << "The \"--node_poll_period\" parameter set to more than " << uint32_t(responceTime_s / 3600) << " hours may cause transaction problems.";
+                                LOG_WARNING() << boost::format(kErrorNodePoolPeriodTooMuch) % uint32_t(responceTime_s / 3600);
                             }
                             nnet->m_Cfg.m_vNodes.push_back(nodeAddress);
                             nnet->Connect();
@@ -1497,7 +1497,7 @@ int main_impl(int argc, char* argv[])
                         {
                             if (vm.count(cli::SWAP_AMOUNT) == 0)
                             {
-                                LOG_ERROR() << "swap amount is missing";
+                                LOG_ERROR() << kErrorSwapAmountMissing;
                                 return -1;
                             }
 
@@ -1512,7 +1512,7 @@ int main_impl(int argc, char* argv[])
 
                                 if (swapCoin == wallet::AtomicSwapCoin::Unknown)
                                 {
-                                    LOG_ERROR() << "Unknown coin for swap";
+                                    LOG_ERROR() << kErrorSwapCoinUnknown;
                                     return -1;
                                 }
                             }
@@ -1521,13 +1521,13 @@ int main_impl(int argc, char* argv[])
                             {
                                 if (!btcOptions.is_initialized() || btcOptions->m_userName.empty() || btcOptions->m_pass.empty() || btcOptions->m_address.empty())
                                 {
-                                    LOG_ERROR() << "BTC node credentials should be provided";
+                                    LOG_ERROR() << kErrorNoBTCNodeCredentials;
                                     return -1;
                                 }
 
                                 if (!BitcoinSide::CheckAmount(swapAmount, btcOptions->m_feeRate))
                                 {
-                                    LOG_ERROR() << "The swap amount must be greater than the redemption fee.";
+                                    LOG_ERROR() << kErrorSwapAmountTooLow;
                                     return -1;
                                 }
                                 secondSideChainType = btcOptions->m_chainType;
@@ -1536,12 +1536,12 @@ int main_impl(int argc, char* argv[])
                             {
                                 if (!ltcOptions.is_initialized() || ltcOptions->m_userName.empty() || ltcOptions->m_pass.empty() || ltcOptions->m_address.empty())
                                 {
-                                    LOG_ERROR() << "LTC node credentials should be provided";
+                                    LOG_ERROR() << kErrorNoLTCNodeCredentials;
                                     return -1;
                                 }
                                 if (!LitecoinSide::CheckAmount(swapAmount, ltcOptions->m_feeRate))
                                 {
-                                    LOG_ERROR() << "The swap amount must be greater than the redemption fee.";
+                                    LOG_ERROR() << kErrorSwapAmountTooLow;
                                     return -1;
                                 }
                                 secondSideChainType = ltcOptions->m_chainType;
@@ -1550,12 +1550,12 @@ int main_impl(int argc, char* argv[])
                             {
                                 if (!qtumOptions.is_initialized() || qtumOptions->m_userName.empty() || qtumOptions->m_pass.empty() || qtumOptions->m_address.empty())
                                 {
-                                    LOG_ERROR() << "Qtum node credentials should be provided";
+                                    LOG_ERROR() << kErrorNoQTUMNodeCredentials;
                                     return -1;
                                 }
                                 if (!QtumSide::CheckAmount(swapAmount, qtumOptions->m_feeRate))
                                 {
-                                    LOG_ERROR() << "The swap amount must be greater than the redemption fee.";
+                                    LOG_ERROR() << kErrorSwapAmountTooLow;
                                     return -1;
                                 }
                                 secondSideChainType = qtumOptions->m_chainType;
@@ -1572,13 +1572,13 @@ int main_impl(int argc, char* argv[])
 
                                 if (vm.count(cli::SWAP_AMOUNT) == 0)
                                 {
-                                    LOG_ERROR() << "swap amount is missing";
+                                    LOG_ERROR() << kErrorSwapAmountMissing;
                                     return -1;
                                 }
 
                                 if (amount <= kMinFeeInGroth)
                                 {
-                                    LOG_ERROR() << "The amount must be greater than the redemption fee.";
+                                    LOG_ERROR() << kErrorSwapAmountTooLow;
                                     return -1;
                                 }
 
@@ -1592,7 +1592,7 @@ int main_impl(int argc, char* argv[])
                             {
                                 if (vm.count(cli::AMOUNT) == 0)
                                 {
-                                    LOG_ERROR() << "amount is missing";
+                                    LOG_ERROR() << kErrorAmountMissing;
                                     return false;
                                 }
 
@@ -1603,13 +1603,13 @@ int main_impl(int argc, char* argv[])
                                 amount = static_cast<ECC::Amount>(std::round(signedAmount));
                                 if (amount == 0)
                                 {
-                                    LOG_ERROR() << "Unable to send zero coins";
+                                    LOG_ERROR() << kErrorUnableSendZeroCoin;
                                     return false;
                                 }
 
                                 if (amount <= kMinFeeInGroth)
                                 {
-                                    LOG_ERROR() << "The amount must be greater than the redemption fee.";
+                                    LOG_ERROR() << kErrorAmountTooLow;
                                     return -1;
                                 }
                                 wallet.initSwapConditions(amount, swapAmount, swapCoin, isBeamSide, secondSideChainType);
@@ -1642,7 +1642,7 @@ int main_impl(int argc, char* argv[])
                                     }
                                     else
                                     {
-                                        LOG_ERROR() << "Transaction could not be deleted. Invalid transaction status.";
+                                        LOG_ERROR() << kErrorTxStatusInvalid;
                                         return -1;
                                     }
                                 }
@@ -1655,14 +1655,14 @@ int main_impl(int argc, char* argv[])
                                     }
                                     else
                                     {
-                                        LOG_ERROR() << "Transaction could not be cancelled. Invalid transaction status.";
+                                        LOG_ERROR() << kErrorTxStatusInvalid;
                                         return -1;
                                     }
                                 }
                             }
                             else
                             {
-                                LOG_ERROR() << "Unknown transaction ID.";
+                                LOG_ERROR() << kErrorTxIdUnknown;
                                 return -1;
                             }
                         }
