@@ -2393,9 +2393,9 @@ namespace beam::wallet
         return list;
     }
 
-    std::vector<WalletMessage> WalletDB::getWalletMessages() const
+    std::vector<OutgoingWalletMessage> WalletDB::getWalletMessages() const
     {
-        std::vector<WalletMessage> messages;
+        std::vector<OutgoingWalletMessage> messages;
         sqlite::Statement stm(this, "SELECT * FROM " WALLET_MESSAGE_NAME " ;");
         while (stm.step())
         {
@@ -2406,7 +2406,7 @@ namespace beam::wallet
         return messages;
     }
 
-    uint64_t WalletDB::saveWalletMessage(const WalletMessage& message)
+    uint64_t WalletDB::saveWalletMessage(const OutgoingWalletMessage& message)
     {
         const char* req = "INSERT INTO " WALLET_MESSAGE_NAME " (PeerID, Message) VALUES(?,?)";
         sqlite::Statement stm(this, req);

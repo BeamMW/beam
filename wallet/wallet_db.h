@@ -122,8 +122,7 @@ namespace beam::wallet
     };
 
     // Outgoing wallet messages sent through SBBS (used in Cold Wallet)
-    // TODO: Think about renaming to OutgoingWalletMessage
-    struct WalletMessage
+    struct OutgoingWalletMessage
     {
         int m_ID;
         WalletID m_PeerID;
@@ -281,8 +280,8 @@ namespace beam::wallet
         
         // ///////////////////////////////
         // Message management
-        virtual std::vector<WalletMessage> getWalletMessages() const = 0;
-        virtual uint64_t saveWalletMessage(const WalletMessage& message) = 0;
+        virtual std::vector<OutgoingWalletMessage> getWalletMessages() const = 0;
+        virtual uint64_t saveWalletMessage(const OutgoingWalletMessage& message) = 0;
         virtual void deleteWalletMessage(uint64_t id) = 0;
 
         virtual std::vector<IncomingWalletMessage> getIncomingWalletMessages() const = 0;
@@ -367,8 +366,8 @@ namespace beam::wallet
         bool unlockCoins(uint64_t session) override;
         CoinIDList getLockedCoins(uint64_t session) const override;
 
-        std::vector<WalletMessage> getWalletMessages() const override;
-        uint64_t saveWalletMessage(const WalletMessage& message) override;
+        std::vector<OutgoingWalletMessage> getWalletMessages() const override;
+        uint64_t saveWalletMessage(const OutgoingWalletMessage& message) override;
         void deleteWalletMessage(uint64_t id) override;
 
         std::vector<IncomingWalletMessage> getIncomingWalletMessages() const override;
