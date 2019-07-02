@@ -366,12 +366,10 @@ namespace beam::wallet
                     wallet_subscriber = make_unique<WalletSubscriber>(static_cast<IWalletObserver*>(this), wallet);
 
                     nodeNetwork->tryToConnect();
-                    m_reactor->run();
-
-                    // If there are any tcp connections they should be terminated right now
-                    // since they refer reactor which is about to go out of scope
-                    wallet->CleanupNetwork();
-                    nodeNetwork->Disconnect();
+                    m_reactor->run_ex([&wallet, &nodeNetwork](){
+                        wallet->CleanupNetwork();
+                        nodeNetwork->Disconnect();
+                    });
 
                     assert(walletNetwork.use_count() == 1);
                     walletNetwork.reset();
