@@ -315,7 +315,7 @@ namespace beam::wallet
             }
         }
 
-        GetWalletDB()->save(modified);
+        GetWalletDB()->saveCoins(modified);
 
         CompleteTx();
     }

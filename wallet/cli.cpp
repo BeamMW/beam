@@ -694,7 +694,7 @@ namespace
             << setw(columnWidths[5]) << " type" << endl;
 
         
-        walletDB->visit([&columnWidths](const Coin& c)->bool
+        walletDB->visitCoins([&columnWidths](const Coin& c)->bool
         {
             cout << "   "
                 << " " << left << setw(columnWidths[0]) << c.toStringID()

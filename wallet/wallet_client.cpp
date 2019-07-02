@@ -771,7 +771,7 @@ namespace beam::wallet
     vector<Coin> WalletClient::getUtxos() const
     {
         vector<Coin> utxos;
-        m_walletDB->visit([&utxos](const Coin& c)->bool
+        m_walletDB->visitCoins([&utxos](const Coin& c)->bool
             {
                 utxos.push_back(c);
                 return true;

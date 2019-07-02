@@ -1097,7 +1097,7 @@ namespace beam::wallet
                                             storage::getTxParameter(*walletDB, coin.m_spentTxId.get(), TxParameterID::KernelProofHeight, coin.m_spentHeight);
                                     }
 
-                                    walletDB->save(coin);
+                                    walletDB->saveCoin(coin);
                                 }
                             }
 
@@ -1324,14 +1324,14 @@ namespace beam::wallet
 
 			Coin c;
 			c.m_ID = kidv;
-			find(c); // in case it exists already - fill its parameters
+			findCoin(c); // in case it exists already - fill its parameters
 
 			c.m_maturity = x.m_Output.get_MinMaturity(x.m_CreateHeight);
 			c.m_confirmHeight = x.m_CreateHeight;
 
 			LOG_INFO() << "CoinID: " << c.m_ID << " Maturity=" << c.m_maturity << " Recovered";
 
-			save(c);
+			saveCoin(c);
 		}
 
 		rp.Finalyze(); // final verification
@@ -1460,7 +1460,7 @@ namespace beam::wallet
         return coins;
     }
 
-    void WalletDB::insertRaw(const Coin& coin)
+    void WalletDB::insertCoinRaw(const Coin& coin)
     {
         const char* req = "INSERT INTO " STORAGE_NAME " (" ENUM_ALL_STORAGE_FIELDS(LIST, COMMA, ) ") VALUES(" ENUM_ALL_STORAGE_FIELDS(BIND_LIST, COMMA, ) ");";
         sqlite::Statement stm(this, req);
@@ -1470,18 +1470,18 @@ namespace beam::wallet
         stm.step();
     }
 
-    void WalletDB::insertNew(Coin& coin)
+    void WalletDB::insertNewCoin(Coin& coin)
     {
         Coin cDup;
         cDup.m_ID = coin.m_ID;
-        while (find(cDup))
+        while (findCoin(cDup))
             cDup.m_ID.m_Idx++;
 
         coin.m_ID.m_Idx = cDup.m_ID.m_Idx;
-        insertRaw(coin);
+        insertCoinRaw(coin);
     }
 
-    bool WalletDB::updateRaw(const Coin& coin)
+    bool WalletDB::updateCoinRaw(const Coin& coin)
     {
         const char* req = "UPDATE " STORAGE_NAME " SET " ENUM_STORAGE_FIELDS(SET_LIST, COMMA, ) STORAGE_WHERE_ID  ";";
         sqlite::Statement stm(this, req);
@@ -1494,10 +1494,10 @@ namespace beam::wallet
         return sqlite3_changes(_db) > 0;
     }
 
-    void WalletDB::saveRaw(const Coin& coin)
+    void WalletDB::saveCoinRaw(const Coin& coin)
     {
-        if (!updateRaw(coin))
-            insertRaw(coin);
+        if (!updateCoinRaw(coin))
+            insertCoinRaw(coin);
     }
 
     Coin WalletDB::generateSharedCoin(Amount amount)
@@ -1508,14 +1508,14 @@ namespace beam::wallet
         return coin;
     }
 
-    void WalletDB::store(Coin& coin)
+    void WalletDB::storeCoin(Coin& coin)
     {
         coin.m_ID.m_Idx = get_RandomID();
-        insertNew(coin);
+        insertNewCoin(coin);
         notifyCoinsChanged();
     }
 
-    void WalletDB::store(std::vector<Coin>& coins)
+    void WalletDB::storeCoins(std::vector<Coin>& coins)
     {
         if (coins.empty())
             return;
@@ -1524,26 +1524,26 @@ namespace beam::wallet
         for (auto& coin : coins)
         {
             coin.m_ID.m_Idx = nKeyIndex;
-            insertNew(coin);
+            insertNewCoin(coin);
             nKeyIndex = coin.m_ID.m_Idx + 1;
         }
         notifyCoinsChanged();
     }
 
-    void WalletDB::save(const Coin& coin)
+    void WalletDB::saveCoin(const Coin& coin)
     {
-        saveRaw(coin);
+        saveCoinRaw(coin);
         notifyCoinsChanged();
     }
 
-    void WalletDB::save(const vector<Coin>& coins)
+    void WalletDB::saveCoins(const vector<Coin>& coins)
     {
         if (coins.empty())
             return;
 
         for (auto& coin : coins)
         {
-            saveRaw(coin);
+            saveCoinRaw(coin);
         }
 
         notifyCoinsChanged();
@@ -1583,18 +1583,18 @@ namespace beam::wallet
         return nLast;
     }
 
-    void WalletDB::remove(const vector<Coin::ID>& coins)
+    void WalletDB::removeCoins(const vector<Coin::ID>& coins)
     {
         if (coins.size())
         {
             for (const auto& cid : coins)
-                removeImpl(cid);
+                removeCoinImpl(cid);
 
             notifyCoinsChanged();
         }
     }
 
-    void WalletDB::removeImpl(const Coin::ID& cid)
+    void WalletDB::removeCoinImpl(const Coin::ID& cid)
     {
         const char* req = "DELETE FROM " STORAGE_NAME STORAGE_WHERE_ID;
         sqlite::Statement stm(this, req);
@@ -1612,22 +1612,20 @@ namespace beam::wallet
         stm.step();
     }
 
-    void WalletDB::remove(const Coin::ID& cid)
+    void WalletDB::removeCoin(const Coin::ID& cid)
     {
-        removeImpl(cid);
+        removeCoinImpl(cid);
         notifyCoinsChanged();
     }
 
-    void WalletDB::clear()
+    void WalletDB::clearCoins()
     {
-        {
-            sqlite::Statement stm(this, "DELETE FROM " STORAGE_NAME ";");
-            stm.step();
-            notifyCoinsChanged();
-        }
+        sqlite::Statement stm(this, "DELETE FROM " STORAGE_NAME ";");
+        stm.step();
+        notifyCoinsChanged();
     }
 
-    bool WalletDB::find(Coin& coin)
+    bool WalletDB::findCoin(Coin& coin)
     {
         const char* req = "SELECT " ENUM_STORAGE_FIELDS(LIST, COMMA, ) " FROM " STORAGE_NAME STORAGE_WHERE_ID;
         sqlite::Statement stm(this, req);
@@ -1646,7 +1644,7 @@ namespace beam::wallet
         return true;
     }
 
-    void WalletDB::visit(function<bool(const Coin& coin)> func)
+    void WalletDB::visitCoins(function<bool(const Coin& coin)> func)
     {
         const char* req = "SELECT " STORAGE_FIELDS " FROM " STORAGE_NAME " ORDER BY ROWID;";
         sqlite::Statement stm(this, req);
@@ -2340,7 +2338,7 @@ namespace beam::wallet
         }
     }
 
-    bool WalletDB::lock(const CoinIDList& list, uint64_t session)
+    bool WalletDB::lockCoins(const CoinIDList& list, uint64_t session)
     {
         auto coins = getCoinsByID(list);
         for (auto& coin : coins)
@@ -2356,12 +2354,12 @@ namespace beam::wallet
             }
         }
 
-        save(coins);
+        saveCoins(coins);
 
         return !coins.empty();
     }
 
-    bool WalletDB::unlock(uint64_t session)
+    bool WalletDB::unlockCoins(uint64_t session)
     {
         const char* req = "UPDATE " STORAGE_NAME " SET sessionId=0 WHERE sessionId=?1;";
         sqlite::Statement stm(this, req);
@@ -2373,7 +2371,7 @@ namespace beam::wallet
         return sqlite3_changes(_db) > 0;
     }
 
-    CoinIDList WalletDB::getLocked(uint64_t session) const
+    CoinIDList WalletDB::getLockedCoins(uint64_t session) const
     {
         const char* req = "SELECT " STORAGE_FIELDS " FROM " STORAGE_NAME " WHERE sessionId=?1;";
         sqlite::Statement stm(this, req);
@@ -2659,7 +2657,7 @@ namespace beam::wallet
         {
             ZeroObject(*this);
 
-            walletDB.visit([this](const Coin& c)->bool
+            walletDB.visitCoins([this](const Coin& c)->bool
             {
                 const Amount& v = c.m_ID.m_Value; // alias
                 switch (c.m_status)

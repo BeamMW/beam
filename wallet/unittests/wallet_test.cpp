@@ -118,7 +118,7 @@ namespace
         beam::Amount coin_amount = 40;
         Coin coin = CreateAvailCoin(coin_amount, 0);
         coin.m_ID.m_Type = Key::Type::Coinbase;
-        senderWalletDB->store(coin);
+        senderWalletDB->storeCoin(coin);
 
         auto coins = senderWalletDB->selectCoins(24);
         WALLET_CHECK(coins.size() == 1);
@@ -148,7 +148,7 @@ namespace
 
         // check coins
         vector<Coin> newSenderCoins;
-        senderWalletDB->visit([&newSenderCoins](const Coin& c)->bool
+        senderWalletDB->visitCoins([&newSenderCoins](const Coin& c)->bool
         {
             newSenderCoins.push_back(c);
             return true;
@@ -545,7 +545,7 @@ namespace
         beam::Amount coin_amount = 40;
         Coin coin = CreateAvailCoin(coin_amount, 0);
         coin.m_ID.m_Type = Key::Type::Coinbase;
-        senderWalletDB->store(coin);
+        senderWalletDB->storeCoin(coin);
 
         auto coins = senderWalletDB->selectCoins(24);
         WALLET_CHECK(coins.size() == 1);
@@ -575,7 +575,7 @@ namespace
 
         // check coins
         vector<Coin> newSenderCoins;
-        senderWalletDB->visit([&newSenderCoins](const Coin& c)->bool
+        senderWalletDB->visitCoins([&newSenderCoins](const Coin& c)->bool
         {
             newSenderCoins.push_back(c);
             return true;
