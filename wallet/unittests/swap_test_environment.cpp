@@ -274,7 +274,7 @@ ByteBuffer createTreasury(IWalletDB::Ptr db, AmountList amounts = { 5, 2, 1, 9 }
 
     Treasury::Entry* plan = treasury.CreatePlan(pid, 0, params);
 
-    for (int i = 0; i < amounts.size(); ++i)
+    for (size_t i = 0; i < amounts.size(); ++i)
     {
         plan->m_Request.m_vGroups[i].m_vCoins.front().m_Value = amounts[i];
     }
