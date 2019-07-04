@@ -262,10 +262,10 @@ namespace beam::wallet
             {
                 try
                 {
-                    std::unique_ptr<WalletSubscriber> wallet_subscriber;
+					io::Reactor::Scope scope(*m_reactor);
+					io::Reactor::GracefulIntHandler gih(*m_reactor);
 
-                    io::Reactor::Scope scope(*m_reactor);
-                    io::Reactor::GracefulIntHandler gih(*m_reactor);
+					std::unique_ptr<WalletSubscriber> wallet_subscriber;
 
                     onStatus(getStatus());
                     onTxStatus(ChangeAction::Reset, m_walletDB->getTxHistory());
