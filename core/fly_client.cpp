@@ -88,6 +88,7 @@ void FlyClient::NetworkStd::Connection::ResetVars()
 void FlyClient::NetworkStd::Connection::ResetInternal()
 {
     m_pSync.reset();
+	KillTimer();
 
     if (Flags::Owned & m_Flags)
         m_This.m_Client.OnOwnedNode(m_NodeID, false);
