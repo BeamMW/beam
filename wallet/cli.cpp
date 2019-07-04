@@ -993,16 +993,6 @@ namespace
 
             btcOptions.m_feeRate = vm[cli::SWAP_FEERATE].as<Positive<Amount>>().value;
 
-            if (vm.count(cli::BTC_CONFIRMATIONS) > 0)
-            {
-                btcOptions.m_confirmations = vm[cli::BTC_CONFIRMATIONS].as<Positive<uint16_t>>().value;
-            }
-
-            if (vm.count(cli::BTC_LOCK_TIME) > 0)
-            {
-                btcOptions.m_lockTimeInBlocks = vm[cli::BTC_LOCK_TIME].as<Positive<uint32_t>>().value;
-            }
-
             auto swapSecondSideChainType = ParseSwapSecondSideChainType(vm);
             if (swapSecondSideChainType != SwapSecondSideChainType::Unknown)
             {
@@ -1048,16 +1038,6 @@ namespace
             }
             ltcOptions.m_feeRate = vm[cli::SWAP_FEERATE].as<Positive<Amount>>().value;
 
-            if (vm.count(cli::LTC_CONFIRMATIONS) > 0)
-            {
-                ltcOptions.m_confirmations = vm[cli::LTC_CONFIRMATIONS].as<Positive<uint16_t>>().value;
-            }
-
-            if (vm.count(cli::LTC_LOCK_TIME) > 0)
-            {
-                ltcOptions.m_lockTimeInBlocks = vm[cli::LTC_LOCK_TIME].as<Positive<uint32_t>>().value;
-            }
-
             auto swapSecondSideChainType = ParseSwapSecondSideChainType(vm);
             if (swapSecondSideChainType != SwapSecondSideChainType::Unknown)
             {
@@ -1102,16 +1082,6 @@ namespace
                 throw std::runtime_error("swap fee rate is missing");
             }
             qtumOptions.m_feeRate = vm[cli::SWAP_FEERATE].as<Positive<Amount>>().value;
-
-            if (vm.count(cli::QTUM_CONFIRMATIONS) > 0)
-            {
-                qtumOptions.m_confirmations = vm[cli::QTUM_CONFIRMATIONS].as<Positive<uint16_t>>().value;
-            }
-
-            if (vm.count(cli::QTUM_LOCK_TIME) > 0)
-            {
-                qtumOptions.m_lockTimeInBlocks = vm[cli::QTUM_LOCK_TIME].as<Positive<uint32_t>>().value;
-            }
 
             auto swapSecondSideChainType = ParseSwapSecondSideChainType(vm);
             if (swapSecondSideChainType != SwapSecondSideChainType::Unknown)

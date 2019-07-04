@@ -128,12 +128,6 @@ namespace beam
         const char* SWAP_NETWORK = "swap_network";
         const char* SWAP_BEAM_SIDE = "swap_beam_side";
         const char* SWAP_TX_HISTORY = "swap_tx_history";
-        const char* BTC_CONFIRMATIONS = "btc_confiramtions";
-        const char* LTC_CONFIRMATIONS = "ltc_confiramtions";
-        const char* QTUM_CONFIRMATIONS = "qtum_confiramtions";
-        const char* BTC_LOCK_TIME = "btc_lock_time";
-        const char* LTC_LOCK_TIME = "ltc_lock_time";
-        const char* QTUM_LOCK_TIME = "qtum_lock_time";
         const char* NODE_POLL_PERIOD = "node_poll_period";
 
         // wallet api
@@ -261,18 +255,12 @@ namespace beam
             (cli::BTC_NODE_ADDR, po::value<string>(), "address of bitcoin node")
             (cli::BTC_USER_NAME, po::value<string>(), "user name for the bitcoin node")
             (cli::BTC_PASS, po::value<string>(), "password for the bitcoin node")
-            (cli::BTC_CONFIRMATIONS, po::value<Positive<uint16_t>>(), "confirmations count in bitcoin chain")
-            (cli::BTC_LOCK_TIME, po::value<Positive<uint32_t>>(), "lock time in blocks bitcoin transaction")
             (cli::LTC_NODE_ADDR, po::value<string>(), "address of litecoin node")
             (cli::LTC_USER_NAME, po::value<string>(), "user name for the litecoin node")
             (cli::LTC_PASS, po::value<string>(), "password for the litecoin node")
-            (cli::LTC_CONFIRMATIONS, po::value<Positive<uint16_t>>(), "confirmations count in litecoin chain")
-            (cli::LTC_LOCK_TIME, po::value<Positive<uint32_t>>(), "lock time in blocks litecoin transaction")
             (cli::QTUM_NODE_ADDR, po::value<string>(), "address of qtum node")
             (cli::QTUM_USER_NAME, po::value<string>(), "user name for the qtum node")
             (cli::QTUM_PASS, po::value<string>(), "password for the qtum node")
-            (cli::QTUM_CONFIRMATIONS, po::value<Positive<uint16_t>>(), "confirmations count in qtum chain")
-            (cli::QTUM_LOCK_TIME, po::value<Positive<uint32_t>>(), "lock time in blocks qtum transaction")
             (cli::SWAP_COIN, po::value<string>(), "swap coin(btc, ltc, qtum)")
             (cli::SWAP_AMOUNT, po::value<Positive<Amount>>(), "swap amount in the smallest unit of the coin")
             (cli::SWAP_FEERATE, po::value<Positive<Amount>>(), "The specific feerate you are willing to pay(the smallest unit of the coin per KB)")
