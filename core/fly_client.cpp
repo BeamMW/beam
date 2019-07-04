@@ -182,6 +182,11 @@ void FlyClient::NetworkStd::Connection::OnMsg(Authentication&& msg)
             m_This.m_Client.get_Kdf(pKdf, pPKdf);
             if (pKdf)
                 ProveKdfObscured(*pKdf, IDType::Owner);
+			else
+			{
+				if (pPKdf)
+					ProvePKdfObscured(*pPKdf, IDType::Viewer);
+			}
         }
         break;
 
