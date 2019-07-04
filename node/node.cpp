@@ -1357,6 +1357,15 @@ void Node::Peer::OnMsg(proto::Authentication&& msg)
         if (!b && ShouldFinalizeMining())
             m_This.m_Miner.OnFinalizerChanged(this);
     }
+    else if (proto::IDType::Viewer == msg.m_IDType)
+    {
+        Key::IPKdf* pOwner = m_This.m_Keys.m_pOwner.get();
+        if (pOwner && IsPKdfObscured(*pOwner, msg.m_ID))
+        {
+            m_Flags |= Flags::Owner; // is it ok?
+            ProvePKdfObscured(*pOwner, proto::IDType::Viewer);
+        }
+    }
 
     if (proto::IDType::Node != msg.m_IDType)
         return;

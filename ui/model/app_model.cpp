@@ -269,6 +269,7 @@ void AppModel::start()
 //    }
 //#else
     m_nodeModel.setKdf(m_db->get_MasterKdf());
+    m_nodeModel.setOwnerKey(m_db->get_OwnerKdf());
 //#endif
 
     std::string nodeAddrStr;

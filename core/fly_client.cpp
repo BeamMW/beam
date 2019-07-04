@@ -179,7 +179,17 @@ void FlyClient::NetworkStd::Connection::OnMsg(Authentication&& msg)
             Key::IKdf::Ptr pKdf;
             m_This.m_Client.get_Kdf(pKdf);
             if (pKdf)
+            {
                 ProveKdfObscured(*pKdf, IDType::Owner);
+                return;
+            }
+
+            Key::IPKdf::Ptr ownerKdf;
+            m_This.m_Client.get_OwnerKdf(ownerKdf);
+            if (ownerKdf)
+            {
+                ProvePKdfObscured(*ownerKdf, IDType::Viewer);
+            }
         }
         break;
 
@@ -188,9 +198,9 @@ void FlyClient::NetworkStd::Connection::OnMsg(Authentication&& msg)
             if (Flags::Owned & m_Flags)
                 ThrowUnexpected();
 
-            Key::IKdf::Ptr pKdf;
-            m_This.m_Client.get_Kdf(pKdf);
-            if (!(pKdf && IsPKdfObscured(*pKdf, msg.m_ID)))
+            Key::IPKdf::Ptr pubKdf;
+            m_This.m_Client.get_OwnerKdf(pubKdf);
+            if (!(pubKdf && IsPKdfObscured(*pubKdf, msg.m_ID)))
                 ThrowUnexpected();
 
             //  viewer confirmed!

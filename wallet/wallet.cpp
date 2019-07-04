@@ -126,6 +126,11 @@ namespace beam::wallet
         pKdf = m_WalletDB->get_MasterKdf();
     }
 
+    void Wallet::get_OwnerKdf(Key::IPKdf::Ptr& ownerKdf)
+    {
+        ownerKdf = m_WalletDB->get_OwnerKdf();
+    }
+
     // Implementation of the FlyClient protocol method
     // @id : PeerID - peer id of the node
     // bUp : bool - flag indicating that node is online
@@ -826,14 +831,33 @@ namespace beam::wallet
     void Wallet::OnRequestComplete(MyRequestUtxoEvents& r)
     {
         std::vector<proto::UtxoEvent>& v = r.m_Res.m_Events;
+
+        function<Point(const Key::IDV&)> commitmentFunc;
+        if (m_KeyKeeper)
+        {
+            commitmentFunc = [this](const auto& kidv) {return m_KeyKeeper->GeneratePublicKeySync(kidv, true); };
+        }
+        else if (auto ownerKdf = m_WalletDB->get_OwnerKdf(); ownerKdf)
+        {
+            commitmentFunc = [ownerKdf](const auto& kidv)
+            {
+                Point::Native pt;
+                SwitchCommitment sw;
+
+                sw.Recover(pt, *ownerKdf, kidv);
+                Point commitment = pt;
+                return commitment;
+            };
+        }
+
 		for (size_t i = 0; i < v.size(); i++)
 		{
 			auto& event = v[i];
 
 			// filter-out false positives
-            if (m_KeyKeeper)
+            if (commitmentFunc)
             {
-                Point commitment = m_KeyKeeper->GeneratePublicKeySync(event.m_Kidv, true);
+                Point commitment = commitmentFunc(event.m_Kidv);
 			    if (commitment == event.m_Commitment)
 				    ProcessUtxoEvent(event);
 				else
@@ -843,13 +867,13 @@ namespace beam::wallet
 					{
 						event.m_Kidv.set_WorkaroundBb21();
 
-						commitment = m_KeyKeeper->GeneratePublicKeySync(event.m_Kidv, true);
+						commitment = commitmentFunc(event.m_Kidv);
 						if (commitment == event.m_Commitment)
 							ProcessUtxoEvent(event);
 					}
 				}
             }
-		}
+        }
 
 		if (r.m_Res.m_Events.size() < proto::UtxoEvent::s_Max)
 		{

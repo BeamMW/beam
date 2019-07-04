@@ -1269,8 +1269,7 @@ int main_impl(int argc, char* argv[])
 
                     if (coldWallet && command == cli::RESTORE)
                     {
-                        LOG_ERROR() << "You can't restore cold wallet.";
-                        return -1;
+                        LOG_INFO() << "Restoring cold wallet. You have to replace generated 'wallet.db' with your existing 'wallet.db' file.";
                     }
 
                     assert(vm.count(cli::WALLET_STORAGE) > 0);
