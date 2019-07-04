@@ -178,7 +178,8 @@ void FlyClient::NetworkStd::Connection::OnMsg(Authentication&& msg)
             m_NodeID = msg.m_ID;
 
             Key::IKdf::Ptr pKdf;
-            m_This.m_Client.get_Kdf(pKdf);
+			Key::IPKdf::Ptr pPKdf;
+            m_This.m_Client.get_Kdf(pKdf, pPKdf);
             if (pKdf)
                 ProveKdfObscured(*pKdf, IDType::Owner);
         }
@@ -186,12 +187,13 @@ void FlyClient::NetworkStd::Connection::OnMsg(Authentication&& msg)
 
     case IDType::Viewer:
         {
-            if (Flags::Owned & m_Flags)
+            if ((Flags::Owned & m_Flags) || !(Flags::Node & m_Flags))
                 ThrowUnexpected();
 
             Key::IKdf::Ptr pKdf;
-            m_This.m_Client.get_Kdf(pKdf);
-            if (!(pKdf && IsPKdfObscured(*pKdf, msg.m_ID)))
+			Key::IPKdf::Ptr pPKdf;
+			m_This.m_Client.get_Kdf(pKdf, pPKdf);
+            if (!(pPKdf && IsPKdfObscured(*pPKdf, msg.m_ID)))
                 ThrowUnexpected();
 
             //  viewer confirmed!
@@ -211,7 +213,8 @@ void FlyClient::NetworkStd::Connection::OnMsg(GetBlockFinalization&& msg)
         ThrowUnexpected();
 
     Key::IKdf::Ptr pKdf;
-    m_This.m_Client.get_Kdf(pKdf);
+	Key::IPKdf::Ptr pPKdf;
+	m_This.m_Client.get_Kdf(pKdf, pPKdf);
     if (!pKdf)
         ThrowUnexpected(); // ?!
 

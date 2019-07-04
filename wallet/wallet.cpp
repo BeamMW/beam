@@ -121,9 +121,10 @@ namespace beam::wallet
 
     // Fly client implementation
 
-    void Wallet::get_Kdf(Key::IKdf::Ptr& pKdf)
+    void Wallet::get_Kdf(Key::IKdf::Ptr& pKdf, Key::IPKdf::Ptr& pPKdf)
     {
         pKdf = m_WalletDB->get_MasterKdf();
+		pPKdf = pKdf;
     }
 
     // Implementation of the FlyClient protocol method

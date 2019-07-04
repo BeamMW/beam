@@ -149,7 +149,7 @@ namespace beam::wallet
         void OnNewTip() override;
         void OnTipUnchanged() override;
         void OnRolledBack() override;
-        void get_Kdf(Key::IKdf::Ptr&) override;
+        void get_Kdf(Key::IKdf::Ptr&, Key::IPKdf::Ptr&) override;
         Block::SystemState::IHistory& get_History() override;
         void OnOwnedNode(const PeerID&, bool bUp) override;
 
