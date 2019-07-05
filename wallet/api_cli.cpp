@@ -281,7 +281,7 @@ namespace
                     switch (*data.expiration)
                     {
                     case EditAddress::OneDay:
-                        address.makeActive(24 * 60 * 60);
+                        address.makeActive(WalletAddress::AddressExpiration24h);
                         break;
                     case EditAddress::Expired:
                         address.makeExpired();
@@ -406,7 +406,7 @@ namespace
 
                     if (data.session)
                     {
-                        coins = _walletDB->getLocked(*data.session);
+                        coins = _walletDB->getLockedCoins(*data.session);
 
                         if (coins.empty())
                         {
@@ -426,154 +426,6 @@ namespace
                 catch(...)
                 {
                     doError(id, INTERNAL_JSON_RPC_ERROR, "Transaction could not be created. Please look at logs.");
-                }
-            }
-
-            void onMessage(int id, const InitBitcoin& data) override
-            {
-                LOG_DEBUG() << "InitBitcoin";
-
-                io::Address btcNodeAddr;
-                if (btcNodeAddr.resolve(data.btcNodeAddr.c_str()))
-                {
-                    BitcoinOptions options;
-
-                    options.m_userName = data.btcUserName;
-                    options.m_pass = data.btcPass;
-                    options.m_address = btcNodeAddr;
-                    options.m_feeRate = data.feeRate;
-
-                    if (data.confirmations)
-                    {
-                        options.m_confirmations = data.confirmations;
-                    }
-                    if (data.chainType != SwapSecondSideChainType::Unknown)
-                    {
-                        options.m_chainType = data.chainType;
-                    }
-                    if (data.lockTimeInBlocks)
-                    {
-                        options.m_lockTimeInBlocks = data.lockTimeInBlocks;
-                    }
-
-                    _wallet.initBitcoin(io::Reactor::get_Current(), options);
-
-                    doResponse(id, EditAddress::Response{});
-                }
-                else
-                {
-                    doError(id, INVALID_ADDRESS, "Bitcoin node address is not resolved.");
-                }
-            }
-
-            void onMessage(int id, const InitLitecoin& data) override
-            {
-                LOG_DEBUG() << "InitLitecoin";
-
-                io::Address ltcNodeAddr;
-                if (ltcNodeAddr.resolve(data.ltcNodeAddr.c_str()))
-                {
-                    LitecoinOptions options;
-
-                    options.m_userName = data.ltcUserName;
-                    options.m_pass = data.ltcPass;
-                    options.m_address = ltcNodeAddr;
-                    options.m_feeRate = data.feeRate;
-
-                    if (data.confirmations)
-                    {
-                        options.m_confirmations = data.confirmations;
-                    }
-                    if (data.chainType != SwapSecondSideChainType::Unknown)
-                    {
-                        options.m_chainType = data.chainType;
-                    }
-                    if (data.lockTimeInBlocks)
-                    {
-                        options.m_lockTimeInBlocks = data.lockTimeInBlocks;
-                    }
-
-                    _wallet.initLitecoin(io::Reactor::get_Current(), options);
-
-                    doResponse(id, EditAddress::Response{});
-                }
-                else
-                {
-                    doError(id, INVALID_ADDRESS, "Bitcoin node address is not resolved.");
-                }
-            }
-
-            void onMessage(int id, const InitQtum& data) override
-            {
-                LOG_DEBUG() << "InitQtum";
-
-                io::Address qtumNodeAddr;
-                if (qtumNodeAddr.resolve(data.qtumNodeAddr.c_str()))
-                {
-                    QtumOptions options;
-
-                    options.m_userName = data.qtumUserName;
-                    options.m_pass = data.qtumPass;
-                    options.m_address = qtumNodeAddr;
-                    options.m_feeRate = data.feeRate;
-
-                    if (data.confirmations)
-                    {
-                        options.m_confirmations = data.confirmations;
-                    }
-                    if (data.chainType != SwapSecondSideChainType::Unknown)
-                    {
-                        options.m_chainType = data.chainType;
-                    }
-                    if (data.lockTimeInBlocks)
-                    {
-                        options.m_lockTimeInBlocks = data.lockTimeInBlocks;
-                    }
-
-                    _wallet.initQtum(io::Reactor::get_Current(), options);
-
-                    doResponse(id, EditAddress::Response{});
-                }
-                else
-                {
-                    doError(id, INVALID_ADDRESS, "Qtum node address is not resolved.");
-                }
-            }
-
-            void onMessage(int id, const StartSwap& data) override
-            {
-                LOG_DEBUG() << "StartSwap(id = " << id << " amount = " << data.amount << " fee = " << data.fee << " address = " << std::to_string(data.address) << " swap amount = " << data.swapAmount << " isBeamSide = " << data.beamSide << ")";
-
-                try
-                {
-                    WalletID from(Zero);
-                    
-                    WalletAddress senderAddress = storage::createAddress(*_walletDB);
-                    _walletDB->saveAddress(senderAddress);
-
-                    from = senderAddress.m_walletID;
-
-                    auto txId = _wallet.swap_coins(from, data.address, data.amount, data.fee, data.swapCoin, data.swapAmount, data.beamSide);
-                    doResponse(id, StartSwap::Response{ txId });
-                }
-                catch (...)
-                {
-                    doError(id, INTERNAL_JSON_RPC_ERROR, "Atomic swap transaction could not be created. Please look at logs.");
-                }
-            }
-
-            void onMessage(int id, const AcceptSwap& data) override
-            {
-                LOG_DEBUG() << "AcceptSwap(id = " << id << " amount = " << data.amount << " swap amount = " << data.swapAmount << " isBeamSide = " << data.beamSide << ")";
-
-                try
-                {
-                    _wallet.initSwapConditions(data.amount, data.swapAmount, data.swapCoin, data.beamSide);
-                    doResponse(id, AcceptSwap::Response{});
-                }
-                catch (...)
-                {
-                    doError(id, INTERNAL_JSON_RPC_ERROR, "Atomic swap transaction could not be created. Please look at logs.");
                 }
             }
 
@@ -704,7 +556,7 @@ namespace
                 LOG_DEBUG() << "GetUtxo(id = " << id << ")";
 
                 GetUtxo::Response response;
-                _walletDB->visit([&response](const Coin& c)->bool
+                _walletDB->visitCoins([&response](const Coin& c)->bool
                 {
                     response.utxos.push_back(c);
                     return true;
@@ -752,7 +604,7 @@ namespace
 
                 Lock::Response response;
 
-                response.result = _walletDB->lock(data.coins, data.session);
+                response.result = _walletDB->lockCoins(data.coins, data.session);
 
                 doResponse(id, response);
             }
@@ -763,7 +615,7 @@ namespace
 
                 Unlock::Response response;
 
-                response.result = _walletDB->unlock(data.session);
+                response.result = _walletDB->unlockCoins(data.session);
 
                 doResponse(id, response);
             }
@@ -1214,6 +1066,11 @@ int main(int argc, char* argv[])
         if (nnet->m_Cfg.m_PollPeriod_ms)
         {
             LOG_INFO() << "Node poll period = " << nnet->m_Cfg.m_PollPeriod_ms << " ms";
+            uint32_t timeout_ms = std::max(Rules::get().DA.Target_s * 1000, nnet->m_Cfg.m_PollPeriod_ms);
+            if (timeout_ms != nnet->m_Cfg.m_PollPeriod_ms)
+            {
+                LOG_INFO() << "Node poll period has been automatically rounded up to block rate: " << timeout_ms << " ms";
+            }
         }
         uint32_t responceTime_s = Rules::get().DA.Target_s * wallet::kDefaultTxResponseTime;
         if (nnet->m_Cfg.m_PollPeriod_ms >= responceTime_s * 1000)

@@ -18,5 +18,27 @@
 
 namespace beam::wallet
 {
-    using QtumSide = BitcoinSide;
+    class QtumSide : public BitcoinSide
+    {
+    public:
+
+        QtumSide(BaseTransaction& tx, std::shared_ptr<IBitcoinBridge> bitcoinBridge, bool isBeamSide)
+            : BitcoinSide(tx, bitcoinBridge, isBeamSide)
+        {
+        }
+
+        uint32_t GetTxTimeInBeamBlocks() const
+        {
+            // it's average value
+            return 30;
+        }
+
+        static bool CheckAmount(Amount amount, Amount feeRate)
+        {
+            constexpr uint32_t kQtumWithdrawTxAverageSize = 360;
+            constexpr Amount kDustThreshold = 72800;
+            Amount fee = static_cast<Amount>(std::round(double(kQtumWithdrawTxAverageSize * feeRate) / 1000));
+            return amount > kDustThreshold && amount > fee;
+        }
+    };
 }

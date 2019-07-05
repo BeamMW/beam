@@ -10,10 +10,10 @@ Dialog {
     property var parentModel
 	property var expirationOptions: [
 		//: Edit address dialog, expiration option, in 24 hours from now
-		//% "in 24 hours from now"
+		//% "In 24 hours from now"
 		qsTrId("edit-addr-24-option"),
 		//: Edit address dialog, expiration option, never
-		//% "never"
+		//% "Never"
 		qsTrId("edit-addr-never-option")
 	]
     property bool isExpiredAddress: false
@@ -35,7 +35,7 @@ Dialog {
 				expirationOptionsForActive.currentIndex = 1;
 			} else {
 				//: Edit address dialog, expiration option, do not change
-				//% "within 24 hours"
+				//% "Within 24 hours"
 				expirationOptionsForActive.model = [qsTrId("edit-addr-as-is-option"),].concat(expirationOptions);
 			}
 		}
@@ -70,14 +70,12 @@ Dialog {
 		}
 		return " ";
 	}
-
-
+	property int kPreferredWidth: 450
 
     modal: true
     visible: false
 
-    width: 460
-    height: contentItem.implicidHeight
+	height: 400
 
     x: (parent.width - width) / 2
 	y: (parent.height - height) / 2
@@ -138,12 +136,27 @@ Dialog {
 //----------------------------------------------------------------------------------------------------------------------
 		RowLayout {
 			id: expirationForActive
-			Layout.preferredWidth: parent.width
+			TextMetrics {
+				id: textMeterActiveAddr
+				font {
+					family: "SF Pro Display"
+					styleName: "Bold"
+					weight: Font.Bold
+					pixelSize: 14
+					}
+				text: expiresDateLabel.text + " " + disactivate.text
+			}
+			Layout.preferredWidth: {
+				return Math.max(
+					kPreferredWidth,
+					parseInt(textMeterActiveAddr.width) + 45 + 35 + 160 + 30);
+			}
 			Layout.topMargin: 20
 			Layout.alignment: Qt.AlignLeft
 			visible: !isExpiredAddress
 
 			SFText {
+				id: expiresDateLabel
 				//: Edit addres dialog, expires label
 				//% "Expires"
 				text: qsTrId("edit-addr-expires-label")
@@ -153,12 +166,12 @@ Dialog {
 				font.styleName: "Bold"; font.weight: Font.Bold
 			}
 			Item {
-				Layout.minimumWidth: 10
+				Layout.preferredWidth: 10
 			}
 			ColumnLayout {
-				Layout.preferredWidth: 150
+				Layout.preferredWidth: 160
 				Layout.minimumWidth: 140
-				Layout.maximumWidth: 150
+				Layout.maximumWidth: 160
 
 				CustomComboBox {
 					id: expirationOptionsForActive
@@ -173,7 +186,7 @@ Dialog {
 					Layout.preferredWidth: parent.width
 					Layout.alignment: Qt.AlignLeft | Qt.AlignTop
 					//: Edit addres dialog, expire now label
-					//% "now"
+					//% "Now"
 					text: qsTrId("edit-addr-expire-now-label")
 					color: Style.content_secondary
 					font.pixelSize: 14
@@ -191,7 +204,7 @@ Dialog {
 			}
 
 			Item {
-				Layout.minimumWidth: 10
+				Layout.preferredWidth: 10
 			}
 			
 			CustomSwitch {
@@ -209,7 +222,7 @@ Dialog {
 		}
 //----------------------------------------------------------------------------------------------------------------------
 		RowLayout {
-			Layout.preferredWidth: parent.width
+			Layout.fillWidth: true
 			Layout.topMargin: 15
 			visible: isExpiredAddress
 
@@ -233,8 +246,22 @@ Dialog {
 		}
 
 		RowLayout {
+			TextMetrics {
+				id: textMeterUnactiveAddr
+				font {
+					family: "SF Pro Display"
+					styleName: "Bold"
+					weight: Font.Bold
+					pixelSize: 14
+					}
+				text: activate.text + " " + expiresLabel.text
+			}
+			Layout.preferredWidth: {
+				return Math.max(
+					kPreferredWidth,
+					parseInt(textMeterUnactiveAddr.width) + 45 + 35 + 150 + 30);
+			}
 			id: expirationForUnactive
-			Layout.preferredWidth: parent.width
 			Layout.topMargin: 20
 			Layout.alignment: Qt.AlignLeft
 			visible: isExpiredAddress
@@ -253,12 +280,13 @@ Dialog {
 
 			Item {
 				Layout.alignment: Qt.AlignLeft
-				Layout.minimumWidth: 20
+				Layout.preferredWidth: 20
 			}
 
 			SFText {
 				//: Edit addres dialog, expires label
 				//% "Expires"
+				id: expiresLabel
 				text: qsTrId("edit-addr-expires-label")
 				color: Style.content_main
 				Layout.alignment: Qt.AlignLeft
@@ -269,7 +297,7 @@ Dialog {
 
 			Item {
 				Layout.alignment: Qt.AlignLeft
-				Layout.minimumWidth: 15
+				Layout.preferredWidth: 15
 				visible: activate.checked
 			}
 
@@ -291,9 +319,8 @@ Dialog {
 			Layout.alignment: Qt.AlignLeft
 
 			SFText {
-				//: Edit addres dialog, comment label
 				//% "Comment"
-				text: qsTrId("edit-addr-comment")
+				text: qsTrId("general-comment")
 				color: Style.content_main
 				font.pixelSize: 14
 				font.styleName: "Bold"; font.weight: Font.Bold
@@ -317,9 +344,8 @@ Dialog {
 			Item {
 				Layout.preferredHeight: 15
 				SFText {
-					//: Edit address dialog, address with same comment already exist error
 					//% "Address with same comment already exist"
-					text: qsTrId("edit-addr-comment-error")
+					text: qsTrId("general-addr-comment-error")
 					color: Style.validator_error
 					font.pixelSize: 12
 					visible: rootControl.isAddressWithCommentExist
@@ -340,8 +366,8 @@ Dialog {
 			CustomButton {
 				Layout.preferredHeight: 40
 				//: Edit addres dialog, cancel button
-				//% "cancel"
-				text: qsTrId("edit-addr-cancel-button")
+				//% "Cancel"
+				text: qsTrId("general-cancel")
                 icon.source: "qrc:/assets/icon-cancel.svg"
                 icon.color: Style.content_main
 				onClicked: {
@@ -357,7 +383,7 @@ Dialog {
 				id: saveButton
 				Layout.preferredHeight: 40
 				//: Edit addres dialog, save button
-				//% "save"
+				//% "Save"
 				text: qsTrId("edit-addr-save-button")
                 icon.source: "qrc:/assets/icon-done.svg"
                 enabled: {

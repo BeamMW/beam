@@ -612,7 +612,7 @@ QString WalletViewModel::getAmountMissingToSend() const
     Amount missed = calcTotalAmount() - _status.available;
     if (missed > 99999)
     {
-        //% "beams"
+        //% "BEAM"
         return BeamToString(missed) + " " +qtTrId("tx-curency-name");
     }
     //% "groths"

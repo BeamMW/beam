@@ -32,6 +32,12 @@ namespace beam
 
 	using ECC::Key;
 
+	namespace MasterKey
+	{
+		Key::IKdf::Ptr get_Child(Key::IKdf&, Key::Index);
+		Key::IKdf::Ptr get_Child(const Key::IKdf::Ptr&, const Key::IDV&);
+	}
+
 	Timestamp getTimestamp();
 	uint32_t GetTime_ms(); // platform-independent GetTickCount
 	uint32_t GetTimeNnz_ms(); // guaranteed non-zero

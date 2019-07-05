@@ -133,6 +133,13 @@ struct Node
 
 		} m_Dandelion;
 
+		struct Recovery
+		{
+			std::string m_sPathOutput; // directory with (back)slash and optionally a common prefix
+			uint32_t m_Granularity = 30; // block interval for newer recovery generation
+
+		} m_Recovery;
+
 		NodeProcessor::StartParams m_ProcessorParams;
 
 		IObserver* m_Observer = nullptr;
@@ -193,6 +200,7 @@ private:
 		bool EnumViewerKeys(IKeyWalker&) override;
 		void OnUtxoEvent(const UtxoEvent::Value&) override;
 		void OnDummy(const Key::ID&, Height) override;
+		void Stop();
 
 		struct TaskProcessor
 			:public Task::Processor
@@ -214,7 +222,7 @@ private:
 
 			std::vector<std::thread> m_vThreads;
 
-			typedef ECC::InnerProduct::BatchContextEx<100> MyBatch; // seems to be ok, for larger batches difference is marginal
+			typedef ECC::InnerProduct::BatchContextEx<4> MyBatch; // seems to be ok, for larger batches difference is marginal
 
 			~TaskProcessor() { Stop(); }
 			void Stop();
@@ -294,6 +302,7 @@ private:
 	void InitKeys();
 	void InitIDs();
 	void RefreshOwnedUtxos();
+	void MaybeGenerateRecovery();
 
 	struct Wanted
 	{
@@ -352,6 +361,8 @@ private:
 	void OnTransactionAggregated(Dandelion::Element&);
 	void PerformAggregation(Dandelion::Element&);
 	void AddDummyInputs(Transaction&);
+	bool AddDummyInputRaw(Transaction& tx, const Key::IDV&);
+	bool AddDummyInputEx(Transaction& tx, const Key::IDV&);
 	void AddDummyOutputs(Transaction&);
 	Height SampleDummySpentHeight();
 	bool OnTransactionFluff(Transaction::Ptr&&, const Peer*, Dandelion::Element*);
@@ -446,6 +457,7 @@ private:
 			static const uint16_t Finalizing	= 0x080;
 			static const uint16_t HasTreasury	= 0x100;
 			static const uint16_t Chocking		= 0x200;
+			static const uint16_t Viewer		= 0x400;
 		};
 
 		uint16_t m_Flags;

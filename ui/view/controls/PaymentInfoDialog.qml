@@ -65,15 +65,15 @@
                             //% "Payment proof verification"
                             qsTrId("payment-info-proof-verification") :
                             //% "Payment proof"
-                            qsTrId("payment-info-proof")
+                            qsTrId("general-payment-proof")
                     }
 
                     CustomToolButton {
                         icon.source: "qrc:/assets/icon-cancel.svg"
                         icon.width: 12
                         icon.height: 12
-                        //% "close"
-                        ToolTip.text: qsTrId("payment-info-close-button")
+                        //% "Close"
+                        ToolTip.text: qsTrId("general-close")
                         onClicked: {
                             dialog.close();
                         }
@@ -146,8 +146,8 @@
                     font.styleName: "Bold"
                     font.weight: Font.Bold
                     color: Style.content_main
-                    //% "Code:"
-                    text: qsTrId("payment-info-proof-code-label")
+                    //% "Code"
+                    text: qsTrId("payment-info-proof-code-label") + ":"
                     visible: !shouldVerify
                 }
             
@@ -169,7 +169,7 @@
                     font.weight: Font.Bold
                     color: Style.content_main
                     //% "Details"
-                    text: qsTrId("payment-info-proof-details-label")
+                    text: qsTrId("general-details")
                     visible: model? model.isValid : false
                 }
             
@@ -179,8 +179,8 @@
                     font.styleName: "Bold"
                     font.weight: Font.Bold
                     color: Style.content_main
-                    //% "Sender:"
-                    text: qsTrId("payment-info-proof-sender-label")
+                    //% "Sender"
+                    text: qsTrId("payment-info-proof-sender-label") + ":"
                     visible: model? model.isValid : false
                 }
             
@@ -201,8 +201,8 @@
                     font.styleName: "Bold"
                     font.weight: Font.Bold
                     color: Style.content_main
-                    //% "Receiver:"
-                    text: qsTrId("payment-info-proof-receiver-label")
+                    //% "Receiver"
+                    text: qsTrId("payment-info-proof-receiver-label") + ":"
                     visible: model? model.isValid : false
                 }
             
@@ -222,8 +222,8 @@
                     font.styleName: "Bold"
                     font.weight: Font.Bold
                     color: Style.content_main
-                    //% "Amount:"
-                    text: qsTrId("payment-info-proof-amount-label")
+                    //% "Amount"
+                    text: qsTrId("general-amount") + ":"
                     visible: model? model.isValid : false
                 }
             
@@ -242,8 +242,8 @@
                     font.styleName: "Bold"
                     font.weight: Font.Bold
                     color: Style.content_main
-                    //% "Kernel ID:"
-                    text: qsTrId("payment-info-proof-kernel-id-label")
+                    //% "Kernel ID"
+                    text: qsTrId("general-kernel-id") + ":"
                     visible: model? model.isValid : false
                 }
             
@@ -276,7 +276,7 @@
 
                 CustomButton {
                     icon.source: "qrc:/assets/icon-copy.svg"
-                    //% "copy details"
+                    //% "Copy details"
                     text: qsTrId("payment-info-copy-details-button")
                     visible: !shouldVerify
                     onClicked: {
@@ -286,7 +286,7 @@
             
                 PrimaryButton {
                     icon.source: "qrc:/assets/icon-copy-blue.svg"
-                    //% "copy code"
+                    //% "Copy code"
                     text: qsTrId("payment-info-copy-code-button")
                     visible: !shouldVerify
                     onClicked: {
@@ -299,7 +299,7 @@
 
                 PrimaryButton {
                     icon.source: "qrc:/assets/icon-copy-blue.svg"
-                    //% "copy details"
+                    //% "Copy details"
                     text: qsTrId("payment-info-copy-details-button")
                     visible: shouldVerify
                     onClicked: {

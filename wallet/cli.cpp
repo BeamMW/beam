@@ -22,6 +22,9 @@
 #include "wallet/qtum/options.h"
 #include "wallet/litecoin/options.h"
 #include "wallet/bitcoin/options.h"
+#include "wallet/bitcoin/bitcoin_side.h"
+#include "wallet/litecoin/litecoin_side.h"
+#include "wallet/qtum/qtum_side.h"
 #include "wallet/swaps/common.h"
 #include "wallet/swaps/swap_transaction.h"
 #include "core/ecc_native.h"
@@ -450,14 +453,18 @@ namespace
         {
             walletID.FromHex(address);
         }
-        uint64_t newDuration_s = 0;
+        bool makeEternal = false, makeActive = false, makeExpired = false;
         if (newTime == "24h")
         {
-            newDuration_s = 24 * 3600; //seconds
+            makeActive = true;
         }
         else if (newTime == "never")
         {
-            newDuration_s = 0;
+            makeEternal = true;
+        }
+        else if (newTime == "now")
+        {
+            makeExpired = true;
         }
         else
         {
@@ -465,7 +472,7 @@ namespace
             return -1;
         }
 
-        if (storage::changeAddressExpiration(*walletDB, walletID, newDuration_s))
+        if (storage::changeAddressExpiration(*walletDB, walletID, makeEternal, makeActive, makeExpired))
         {
             if (allAddresses)
             {
@@ -687,7 +694,7 @@ namespace
             << setw(columnWidths[5]) << " type" << endl;
 
         
-        walletDB->visit([&columnWidths](const Coin& c)->bool
+        walletDB->visitCoins([&columnWidths](const Coin& c)->bool
         {
             cout << "   "
                 << " " << left << setw(columnWidths[0]) << c.toStringID()
@@ -791,7 +798,7 @@ namespace
             cout << "Please, specify Subkey number --subkey=N (N > 0)" << endl;
             return -1;
         }
-        Key::IKdf::Ptr pKey = walletDB->get_ChildKdf(subKey);
+		Key::IKdf::Ptr pKey = MasterKey::get_Child(*walletDB->get_MasterKdf(), subKey);
         const ECC::HKdf& kdf = static_cast<ECC::HKdf&>(*pKey);
 
         KeyString ks;
@@ -839,22 +846,32 @@ namespace
 
     bool SaveExportedData(const ByteBuffer& data, const std::string& path)
     {
-        FStream f;
-        if (f.Open(path.c_str(), false))
+        size_t dotPos = path.find_last_of('.');
+        stringstream ss;
+        ss << path.substr(0, dotPos);
+        ss << getTimestamp();
+        if (dotPos != string::npos)
         {
-            return f.write(data.data(), data.size()) == data.size();
+            ss << path.substr(dotPos);
         }
-        LOG_ERROR() << "Failed to save exported data";
+        string timestampedPath = ss.str();
+        FStream f;
+        if (f.Open(timestampedPath.c_str(), false) && f.write(data.data(), data.size()) == data.size())
+        {
+            LOG_INFO() << "Data has been successfully exported.";
+            return true;
+        }
+        LOG_ERROR() << "Failed to save exported data.";
         return false;
     }
 
-    int ExportAddresses(const po::variables_map& vm, const IWalletDB::Ptr& walletDB)
+    int ExportWalletData(const po::variables_map& vm, const IWalletDB::Ptr& walletDB)
     {
-        auto s = storage::ExportAddressesToJson(*walletDB);
+        auto s = storage::ExportDataToJson(*walletDB);
         return SaveExportedData(ByteBuffer(s.begin(), s.end()), vm[cli::IMPORT_EXPORT_PATH].as<string>()) ? 0 : -1;
     }
 
-    int ImportAddresses(const po::variables_map& vm, const IWalletDB::Ptr& walletDB)
+    int ImportWalletData(const po::variables_map& vm, const IWalletDB::Ptr& walletDB)
     {
         ByteBuffer buffer;
         if (!LoadDataToImport(vm[cli::IMPORT_EXPORT_PATH].as<string>(), buffer))
@@ -862,7 +879,7 @@ namespace
             return -1;
         }
         const char* p = (char*)(&buffer[0]);
-        return storage::ImportAddressesFromJson(*walletDB, p, buffer.size()) ? 0 : -1;
+        return storage::ImportDataFromJson(*walletDB, p, buffer.size()) ? 0 : -1;
     }
 
     CoinIDList GetPreselectedCoinIDs(const po::variables_map& vm)
@@ -909,7 +926,7 @@ namespace
             return false;
         }
 
-        signedAmount *= Rules::Coin; // convert beams to coins
+        signedAmount *= Rules::Coin; // convert beams to groths
 
         amount = static_cast<ECC::Amount>(std::round(signedAmount));
         if (amount == 0)
@@ -976,16 +993,6 @@ namespace
 
             btcOptions.m_feeRate = vm[cli::SWAP_FEERATE].as<Positive<Amount>>().value;
 
-            if (vm.count(cli::BTC_CONFIRMATIONS) > 0)
-            {
-                btcOptions.m_confirmations = vm[cli::BTC_CONFIRMATIONS].as<Positive<uint16_t>>().value;
-            }
-
-            if (vm.count(cli::BTC_LOCK_TIME) > 0)
-            {
-                btcOptions.m_lockTimeInBlocks = vm[cli::BTC_LOCK_TIME].as<Positive<uint32_t>>().value;
-            }
-
             auto swapSecondSideChainType = ParseSwapSecondSideChainType(vm);
             if (swapSecondSideChainType != SwapSecondSideChainType::Unknown)
             {
@@ -1031,16 +1038,6 @@ namespace
             }
             ltcOptions.m_feeRate = vm[cli::SWAP_FEERATE].as<Positive<Amount>>().value;
 
-            if (vm.count(cli::LTC_CONFIRMATIONS) > 0)
-            {
-                ltcOptions.m_confirmations = vm[cli::LTC_CONFIRMATIONS].as<Positive<uint16_t>>().value;
-            }
-
-            if (vm.count(cli::LTC_LOCK_TIME) > 0)
-            {
-                ltcOptions.m_lockTimeInBlocks = vm[cli::LTC_LOCK_TIME].as<Positive<uint32_t>>().value;
-            }
-
             auto swapSecondSideChainType = ParseSwapSecondSideChainType(vm);
             if (swapSecondSideChainType != SwapSecondSideChainType::Unknown)
             {
@@ -1085,16 +1082,6 @@ namespace
                 throw std::runtime_error("swap fee rate is missing");
             }
             qtumOptions.m_feeRate = vm[cli::SWAP_FEERATE].as<Positive<Amount>>().value;
-
-            if (vm.count(cli::QTUM_CONFIRMATIONS) > 0)
-            {
-                qtumOptions.m_confirmations = vm[cli::QTUM_CONFIRMATIONS].as<Positive<uint16_t>>().value;
-            }
-
-            if (vm.count(cli::QTUM_LOCK_TIME) > 0)
-            {
-                qtumOptions.m_lockTimeInBlocks = vm[cli::QTUM_LOCK_TIME].as<Positive<uint32_t>>().value;
-            }
 
             auto swapSecondSideChainType = ParseSwapSecondSideChainType(vm);
             if (swapSecondSideChainType != SwapSecondSideChainType::Unknown)
@@ -1226,8 +1213,8 @@ int main_impl(int argc, char* argv[])
                             cli::GENERATE_PHRASE,
                             cli::WALLET_ADDRESS_LIST,
                             cli::WALLET_RESCAN,
-                            cli::IMPORT_ADDRESSES,
-                            cli::EXPORT_ADDRESSES,
+                            cli::IMPORT_DATA,
+                            cli::EXPORT_DATA,
                             cli::SWAP_INIT,
                             cli::SWAP_LISTEN
                         };
@@ -1252,8 +1239,7 @@ int main_impl(int argc, char* argv[])
 
                     if (coldWallet && command == cli::RESTORE)
                     {
-                        LOG_ERROR() << "You can't restore cold wallet.";
-                        return -1;
+                        LOG_INFO() << "Restoring cold wallet. You have to replace generated 'wallet.db' with your existing 'wallet.db' file.";
                     }
 
                     assert(vm.count(cli::WALLET_STORAGE) > 0);
@@ -1340,14 +1326,14 @@ int main_impl(int argc, char* argv[])
                         return ExportOwnerKey(walletDB, pass);
                     }
 
-                    if (command == cli::EXPORT_ADDRESSES)
+                    if (command == cli::EXPORT_DATA)
                     {
-                        return ExportAddresses(vm, walletDB);
+                        return ExportWalletData(vm, walletDB);
                     }
 
-                    if (command == cli::IMPORT_ADDRESSES)
+                    if (command == cli::IMPORT_DATA)
                     {
-                        return ImportAddresses(vm, walletDB);
+                        return ImportWalletData(vm, walletDB);
                     }
 
                     {
@@ -1458,6 +1444,11 @@ int main_impl(int argc, char* argv[])
                             if (nnet->m_Cfg.m_PollPeriod_ms)
                             {
                                 LOG_INFO() << "Node poll period = " << nnet->m_Cfg.m_PollPeriod_ms << " ms";
+                                uint32_t timeout_ms = std::max(Rules::get().DA.Target_s * 1000, nnet->m_Cfg.m_PollPeriod_ms);
+                                if (timeout_ms != nnet->m_Cfg.m_PollPeriod_ms)
+                                {
+                                    LOG_INFO() << "Node poll period has been automatically rounded up to block rate: " << timeout_ms << " ms";
+                                }
                             }
                             uint32_t responceTime_s = Rules::get().DA.Target_s * wallet::kDefaultTxResponseTime;
                             if (nnet->m_Cfg.m_PollPeriod_ms >= responceTime_s * 1000)
@@ -1491,6 +1482,15 @@ int main_impl(int argc, char* argv[])
 
                         if (command == cli::SWAP_INIT || command == cli::SWAP_LISTEN)
                         {
+                            if (vm.count(cli::SWAP_AMOUNT) == 0)
+                            {
+                                LOG_ERROR() << "swap amount is missing";
+                                return -1;
+                            }
+
+                            Amount swapAmount = vm[cli::SWAP_AMOUNT].as<Positive<Amount>>().value;
+
+                            SwapSecondSideChainType secondSideChainType = SwapSecondSideChainType::Mainnet;
                             wallet::AtomicSwapCoin swapCoin = wallet::AtomicSwapCoin::Bitcoin;
 
                             if (vm.count(cli::SWAP_COIN) > 0)
@@ -1511,6 +1511,13 @@ int main_impl(int argc, char* argv[])
                                     LOG_ERROR() << "BTC node credentials should be provided";
                                     return -1;
                                 }
+
+                                if (!BitcoinSide::CheckAmount(swapAmount, btcOptions->m_feeRate))
+                                {
+                                    LOG_ERROR() << "The swap amount must be greater than the redemption fee.";
+                                    return -1;
+                                }
+                                secondSideChainType = btcOptions->m_chainType;
                             }
                             else if (swapCoin == wallet::AtomicSwapCoin::Litecoin)
                             {
@@ -1519,6 +1526,12 @@ int main_impl(int argc, char* argv[])
                                     LOG_ERROR() << "LTC node credentials should be provided";
                                     return -1;
                                 }
+                                if (!LitecoinSide::CheckAmount(swapAmount, ltcOptions->m_feeRate))
+                                {
+                                    LOG_ERROR() << "The swap amount must be greater than the redemption fee.";
+                                    return -1;
+                                }
+                                secondSideChainType = ltcOptions->m_chainType;
                             }
                             else
                             {
@@ -1527,16 +1540,14 @@ int main_impl(int argc, char* argv[])
                                     LOG_ERROR() << "Qtum node credentials should be provided";
                                     return -1;
                                 }
+                                if (!QtumSide::CheckAmount(swapAmount, qtumOptions->m_feeRate))
+                                {
+                                    LOG_ERROR() << "The swap amount must be greater than the redemption fee.";
+                                    return -1;
+                                }
+                                secondSideChainType = qtumOptions->m_chainType;
                             }
                             
-
-                            if (vm.count(cli::SWAP_AMOUNT) == 0)
-                            {
-                                LOG_ERROR() << "swap amount is missing";
-                                return -1;
-                            }
-
-                            Amount swapAmount = vm[cli::SWAP_AMOUNT].as<Positive<Amount>>().value;
                             bool isBeamSide = (vm.count(cli::SWAP_BEAM_SIDE) != 0);
 
                             if (command == cli::SWAP_INIT)
@@ -1552,10 +1563,16 @@ int main_impl(int argc, char* argv[])
                                     return -1;
                                 }
 
+                                if (amount <= kMinFeeInGroth)
+                                {
+                                    LOG_ERROR() << "The amount must be greater than the redemption fee.";
+                                    return -1;
+                                }
+
                                 WalletAddress senderAddress = CreateNewAddress(walletDB, "");
 
                                 currentTxID = wallet.swap_coins(senderAddress.m_walletID, receiverWalletID, 
-                                    move(amount), move(fee), swapCoin, swapAmount, isBeamSide);
+                                    move(amount), move(fee), swapCoin, swapAmount, secondSideChainType, isBeamSide);
                             }
 
                             if (command == cli::SWAP_LISTEN)
@@ -1577,7 +1594,12 @@ int main_impl(int argc, char* argv[])
                                     return false;
                                 }
 
-                                wallet.initSwapConditions(amount, swapAmount, swapCoin, isBeamSide);
+                                if (amount <= kMinFeeInGroth)
+                                {
+                                    LOG_ERROR() << "The amount must be greater than the redemption fee.";
+                                    return -1;
+                                }
+                                wallet.initSwapConditions(amount, swapAmount, swapCoin, isBeamSide, secondSideChainType);
                             }
                         }
 

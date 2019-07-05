@@ -65,8 +65,8 @@ Item {
             }
 
             PrimaryButton {
-                //% "ok"
-                text: qsTrId("cant-send-to-expired-ok-button")
+                //% "Ok"
+                text: qsTrId("general-ok")
                 anchors.horizontalCenter: parent.horizontalCenter
                 icon.source: "qrc:/assets/icon-done.svg"
                 onClicked: cantSendToExpiredDialog.close()
@@ -111,8 +111,8 @@ Item {
 
             PrimaryButton {
                 // text: qsTr("ok")
-                //% "ok"
-                text: qsTrId("can-not-generate-new-address-ok-button")
+                //% "Ok"
+                text: qsTrId("general-ok")
                 anchors.horizontalCenter: parent.horizontalCenter
                 icon.source: "qrc:/assets/icon-done.svg"
                 onClicked: newAddressFailedDialog.close()
@@ -123,8 +123,8 @@ Item {
     ConfirmationDialog {
         id: confirmationDialog
         okButtonColor: Style.accent_outgoing
-        //% "send"
-        okButtonText: qsTrId("send-confirmation-button")
+        //% "Send"
+        okButtonText: qsTrId("general-send")
         okButtonIconSource: "qrc:/assets/icon-send-blue.svg"
         cancelButtonIconSource: "qrc:/assets/icon-cancel-white.svg"
         okButtonEnable: viewModel.isPasswordReqiredToSpendMoney() ? requirePasswordInput.text.length : true
@@ -142,8 +142,8 @@ Item {
                 }
                 if (!viewModel.isPasswordValid(requirePasswordInput.text)) {
                     requirePasswordInput.forceActiveFocus(Qt.TabFocusReason);
-                    //% "Invalid password provided."
-                    requirePasswordError.text = qsTrId("send-confirmation-pwd-fail");
+                    //% "Invalid password provided"
+                    requirePasswordError.text = qsTrId("general-pwd-invalid");
                     return;
                 }
             }
@@ -198,8 +198,8 @@ Item {
                         Layout.minimumHeight: 16
                         font.pixelSize: 14
                         color: Style.content_disabled
-                        //% "Recipient:"
-                        text: qsTrId("send-confirmation-recipient-label")
+                        //% "Recipient"
+                        text: qsTrId("send-confirmation-recipient-label") + ":"
                         verticalAlignment: Text.AlignTop
                     }
 
@@ -222,8 +222,8 @@ Item {
                         Layout.bottomMargin: 3
                         font.pixelSize: 14
                         color: Style.content_disabled
-                        //% "Amount:"
-                        text: qsTrId("send-confirmation-amount-label")
+                        //% "Amount"
+                        text: qsTrId("general-amount") + ":"
                         verticalAlignment: Text.AlignBottom
                     }
 
@@ -243,8 +243,8 @@ Item {
                         Layout.minimumHeight: 16
                         font.pixelSize: 14
                         color: Style.content_disabled
-                        //% "Transaction fee:"
-                        text: qsTrId("send-confirmation-fee-label")
+                        //% "Transaction fee"
+                        text: qsTrId("general-fee") + ":"
                     }
 
                     SFText {
@@ -312,14 +312,14 @@ Item {
 
     ConfirmationDialog {
         id: invalidAddressDialog
-        //% "got it"
+        //% "Got it"
         okButtonText: qsTrId("invalid-addr-got-it-button")
     }
 
     ConfirmationDialog {
         id: deleteTransactionDialog
-        //% "delete"
-        okButtonText: qsTrId("delete-transaction-delete-button")
+        //% "Delete"
+        okButtonText: qsTrId("general-delete")
     }
 
     OpenExternalLinkConfirmation {
@@ -421,8 +421,8 @@ Item {
                                     font.pixelSize: 14
                                     font.italic: true
                                     color: Style.content_main
-                                    //% "Expires:"
-                                    text: qsTrId("wallet-receive-expires-label")
+                                    //% "Expires"
+                                    text: qsTrId("wallet-receive-expires-label") + ":"
                                 }
                                 CustomComboBox {
                                     id: expiresControl
@@ -442,7 +442,7 @@ Item {
                                     model: [
                                         //% "24 hours"
                                         qsTrId("wallet-receive-expires-24"),
-                                        //% "never"
+                                        //% "Never"
                                         qsTrId("wallet-receive-expires-never")
                                     ]
                                 }
@@ -500,7 +500,7 @@ Item {
                                         font.pixelSize: 24
                                         color: Style.content_main
                                         //% "BEAM"
-                                        text: qsTrId("send-curency-name")
+                                        text: qsTrId("general-beam")
                                     }
                                 }
                             }
@@ -510,7 +510,7 @@ Item {
                                 font.styleName: "Bold"; font.weight: Font.Bold
                                 color: Style.content_main
                                 //% "Comment"
-                                text: qsTrId("wallet-receive-comment-label")
+                                text: qsTrId("general-comment")
                             }
 
                             SFTextInput {
@@ -531,9 +531,8 @@ Item {
                             }
 
                             SFText {
-                                //: Create address, address with same comment already exist error
                                 //% "Address with same comment already exist"
-                                text: qsTrId("create-addr-comment-error")
+                                text: qsTrId("general-addr-comment-error")
                                 color: Style.validator_error
                                 font.pixelSize: 12
                                 visible: isAddressCommentDuplicated
@@ -581,8 +580,8 @@ Item {
                     spacing: 19
 
                     CustomButton {
-                        //% "close"
-                        text: qsTrId("wallet-receive-close-button")
+                        //% "Close"
+                        text: qsTrId("general-close")
                         palette.buttonText: Style.content_main
                         icon.source: "qrc:/assets/icon-cancel-white.svg"
                         onClicked: {
@@ -591,8 +590,8 @@ Item {
                     }
 
                     CustomButton {
-                        //% "copy"
-                        text: qsTrId("wallet-receive-copy-button")
+                        //% "Copy"
+                        text: qsTrId("general-copy")
                         palette.buttonText: Style.content_opposite
                         icon.color: Style.content_opposite
                         palette.button: Style.active
@@ -670,8 +669,8 @@ Item {
                                 font.pixelSize: 14
                                 font.styleName: "Bold"; font.weight: Font.Bold
                                 color: Style.content_main
-                                //% "Send To:"
-                                text: qsTrId("send-send-to-label")
+                                //% "Send To"
+                                text: qsTrId("send-send-to-label") + ":"
                             }
 
                             SFTextInput {
@@ -699,7 +698,7 @@ Item {
                                 color: Style.validator_error
                                 font.pixelSize: 10
                                 //% "Invalid address"
-                                text: qsTrId("send-addr-fail")
+                                text: qsTrId("general-invalid-address")
                                 visible: false
                             }
 
@@ -776,7 +775,7 @@ Item {
                                     font.pixelSize: 24
                                     color: Style.content_main
                                     //% "BEAM"
-                                    text: qsTrId("send-curency-name")
+                                    text: qsTrId("general-beam")
                                 }
                             }
                             Item {
@@ -820,7 +819,7 @@ Item {
                                 font.styleName: "Bold"; font.weight: Font.Bold
                                 color: Style.content_main
                                 //% "Comment"
-                                text: qsTrId("send-comment-label")
+                                text: qsTrId("general-comment")
                             }
 
                             SFTextInput {
@@ -857,7 +856,7 @@ Item {
                                 font.styleName: "Bold"; font.weight: Font.Bold
                                 color: Style.content_main
                                 //% "Transaction fee"
-                                text: qsTrId("send-fee-label")
+                                text: qsTrId("general-fee")
                             }
 
                             RowLayout {
@@ -1010,7 +1009,7 @@ Item {
                                                     font.styleName: "Bold"; font.weight: Font.Bold
                                                     color: Style.content_secondary
                                                     //% "Change"
-                                                    text: qsTrId("send-change-label")
+                                                    text: qsTrId("general-change")
                                                 }
 
                                                 RowLayout
@@ -1059,8 +1058,8 @@ Item {
                     spacing: 30
 
                     CustomButton {
-                        //% "back"
-                        text: qsTrId("send-back-button")
+                        //% "Back"
+                        text: qsTrId("general-back")
                         icon.source: "qrc:/assets/icon-back.svg"
                         onClicked: {
                             walletView.pop();
@@ -1068,8 +1067,8 @@ Item {
                     }
 
                     CustomButton {
-                        //% "send"
-                        text: qsTrId("send-send-button")
+                        //% "Send"
+                        text: qsTrId("general-send")
                         palette.buttonText: Style.content_opposite
                         palette.button: Style.accent_outgoing
                         icon.source: "qrc:/assets/icon-send-blue.svg"
@@ -1078,9 +1077,9 @@ Item {
                             if (viewModel.isValidReceiverAddress(viewModel.receiverAddr)) {
                                 confirmationDialog.addressText = viewModel.receiverAddr;
                                 //% "BEAM"
-                                confirmationDialog.amountText = amount_input.amount.toLocaleString(Qt.locale(), 'f', -128) + " " + qsTrId("send-curency-name");
+                                confirmationDialog.amountText = amount_input.amount.toLocaleString(Qt.locale(), 'f', -128) + " " + qsTrId("general-beam");
                                 //% "GROTH"
-                                confirmationDialog.feeText = fee_input.amount.toLocaleString(Qt.locale(), 'f', -128) + " " + qsTrId("send-curency-sub-name");
+                                confirmationDialog.feeText = fee_input.amount.toLocaleString(Qt.locale(), 'f', -128) + " " + qsTrId("general-groth");
 
                                 confirmationDialog.open();
                             } else {
@@ -1113,7 +1112,7 @@ Item {
                     palette.button: Style.accent_incoming
                     palette.buttonText: Style.content_opposite
                     icon.source: "qrc:/assets/icon-receive-blue.svg"
-                    //% "receive"
+                    //% "Receive"
                     text: qsTrId("wallet-receive-button")
 
                     onClicked: {
@@ -1126,8 +1125,8 @@ Item {
                     palette.button: Style.accent_outgoing
                     palette.buttonText: Style.content_opposite
                     icon.source: "qrc:/assets/icon-send-blue.svg"
-                    //% "send"
-                    text: qsTrId("wallet-send-button")
+                    //% "Send"
+                    text: qsTrId("general-send")
 
                     onClicked: {
                         walletView.push(send_layout);
@@ -1279,7 +1278,7 @@ Item {
 
                 TableViewColumn {
                     role: viewModel.dateRole
-                    //% "Date | time"
+                    //% "Date | Time"
                     title: qsTrId("wallet-txs-date-time")
                     width: 160 * transactionsView.resizableWidth / 960
                     elideMode: Text.ElideRight
@@ -1310,7 +1309,7 @@ Item {
                 TableViewColumn {
                     role: viewModel.userRole
                     //% "Address"
-                    title: qsTrId("wallet-txs-addr")
+                    title: qsTrId("general-address")
                     width: 400 * transactionsView.resizableWidth / 960
                     elideMode: Text.ElideMiddle
                     resizable: false
@@ -1340,7 +1339,7 @@ Item {
                 TableViewColumn {
                     role: viewModel.amountRole
                     //% "Amount"
-                    title: qsTrId("wallet-txs-amount")
+                    title: qsTrId("general-amount")
                     width: 200 * transactionsView.resizableWidth / 960
                     elideMode: Text.ElideRight
                     movable: false
@@ -1372,7 +1371,7 @@ Item {
                 TableViewColumn {
                     role: viewModel.statusRole
                     //% "Status"
-                    title: qsTrId("wallet-txs-status")
+                    title: qsTrId("general-status")
                     width: 200 * transactionsView.resizableWidth / 960
                     elideMode: Text.ElideRight
                     movable: false
@@ -1440,9 +1439,9 @@ Item {
                                             //% "waiting for receiver"
                                             case "waiting for receiver": return qsTrId("wallet-txs-status-waiting-receiver");
                                             //% "receiving"
-                                            case "receiving": return qsTrId("wallet-txs-status-receiving");
+                                            case "receiving": return qsTrId("general-receiving");
                                             //% "sending"
-                                            case "sending": return qsTrId("wallet-txs-status-sending");
+                                            case "sending": return qsTrId("general-sending");
                                             //% "completed"
                                             case "completed": return qsTrId("wallet-txs-status-completed");
                                             //% "received"
@@ -1492,7 +1491,7 @@ Item {
                                 CustomToolButton {
                                     icon.source: "qrc:/assets/icon-actions.svg"
                                     //% "Actions"
-                                    ToolTip.text: qsTrId("wallet-txs-actions-tooltip")
+                                    ToolTip.text: qsTrId("general-actions")
                                     onClicked: {
                                         txContextMenu.transaction = viewModel.transactions[styleData.row];
                                         txContextMenu.popup();
@@ -1509,7 +1508,7 @@ Item {
                     dim: false
                     property TxObject transaction
                     Action {
-                        //% "copy address"
+                        //% "Copy address"
                         text: qsTrId("wallet-txs-copy-addr-cm")
                         icon.source: "qrc:/assets/icon-copy.svg"
                         onTriggered: {
@@ -1520,8 +1519,8 @@ Item {
                         }
                     }
                     Action {
-                        //% "cancel"
-                        text: qsTrId("wallet-txs-cancel-cm")
+                        //% "Cancel"
+                        text: qsTrId("general-cancel")
                         onTriggered: {
                            viewModel.cancelTx(txContextMenu.transaction);
                         }
@@ -1529,8 +1528,8 @@ Item {
                         icon.source: "qrc:/assets/icon-cancel.svg"
                     }
                     Action {
-                        //% "delete"
-                        text: qsTrId("wallet-txs-delete-cm")
+                        //% "Delete"
+                        text: qsTrId("general-delete")
                         icon.source: "qrc:/assets/icon-delete.svg"
                         enabled: !!txContextMenu.transaction && txContextMenu.transaction.canDelete
                         onTriggered: {

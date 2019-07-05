@@ -115,6 +115,12 @@ void AppModel::OnWalledOpened(const beam::SecString& pass)
 
 void AppModel::resetWalletImpl()
 {
+    if(m_settings.getRunLocalNode()) {
+        disconnect(&m_nodeModel, SIGNAL(startedNode()), this, SLOT(startedNode()));
+        disconnect(&m_nodeModel, SIGNAL(failedToStartNode(beam::wallet::ErrorType)), this, SLOT(onFailedToStartNode(beam::wallet::ErrorType)));
+        disconnect(&m_nodeModel, SIGNAL(failedToSyncNode(beam::wallet::ErrorType)), this, SLOT(onFailedToStartNode(beam::wallet::ErrorType)));
+    }
+
     assert(m_db);
     m_db.reset();
 
@@ -173,6 +179,18 @@ void AppModel::applySettingsChanges()
     {
         auto nodeAddr = m_settings.getNodeAddress().toStdString();
         m_wallet->getAsync()->setNodeAddress(nodeAddr);
+    }
+}
+
+void AppModel::nodeSettingsChanged()
+{
+    applySettingsChanges();
+    if (!m_settings.getRunLocalNode())
+    {
+        if (!m_wallet->isRunning())
+        {
+            m_wallet->start();
+        }
     }
 }
 
@@ -251,6 +269,7 @@ void AppModel::start()
 //    }
 //#else
     m_nodeModel.setKdf(m_db->get_MasterKdf());
+    m_nodeModel.setOwnerKey(m_db->get_OwnerKdf());
 //#endif
 
     std::string nodeAddrStr;

@@ -18,5 +18,27 @@
 
 namespace beam::wallet
 {
-    using LitecoinSide = BitcoinSide;
+    class LitecoinSide : public BitcoinSide
+    {
+    public:
+
+        LitecoinSide(BaseTransaction& tx, std::shared_ptr<IBitcoinBridge> bitcoinBridge, bool isBeamSide)
+            : BitcoinSide(tx, bitcoinBridge, isBeamSide)
+        {
+        }
+
+        uint32_t GetTxTimeInBeamBlocks() const
+        {
+            // it's average value
+            return 20;
+        }
+
+        static bool CheckAmount(Amount amount, Amount feeRate)
+        {
+            constexpr uint32_t kLTCWithdrawTxAverageSize = 360;
+            constexpr Amount kDustThreshold = 546;
+            Amount fee = static_cast<Amount>(std::round(double(kLTCWithdrawTxAverageSize * feeRate) / 1000));
+            return amount > kDustThreshold && amount > fee;
+        }
+    };
 }

@@ -26,7 +26,7 @@
 #include <numeric>
 //#include "bitcoin/bitcoind017.h"
 //#include "bitcoin/bitcoin_side.h"
-//#include "litecoin/litecoind016.h"
+//#include "litecoin/litecoind017.h"
 //#include "litecoin/litecoin_side.h"
 //#include "qtum/qtumd017.h"
 //#include "qtum/qtum_side.h"
@@ -126,6 +126,11 @@ namespace beam::wallet
         pKdf = m_WalletDB->get_MasterKdf();
     }
 
+    void Wallet::get_OwnerKdf(Key::IPKdf::Ptr& ownerKdf)
+    {
+        ownerKdf = m_WalletDB->get_OwnerKdf();
+    }
+
     // Implementation of the FlyClient protocol method
     // @id : PeerID - peer id of the node
     // bUp : bool - flag indicating that node is online
@@ -171,7 +176,7 @@ namespace beam::wallet
 
     //void Wallet::initLitecoin(io::Reactor& reactor, const LitecoinOptions& options)
     //{
-    //    m_litecoinBridge = make_shared<Litecoind016>(reactor, options);
+    //    m_litecoinBridge = make_shared<Litecoind017>(reactor, options);
     //}
     //
     //void Wallet::initQtum(io::Reactor& reactor, const QtumOptions& options)
@@ -179,9 +184,9 @@ namespace beam::wallet
     //    m_qtumBridge = make_shared<Qtumd017>(reactor, options);
     //}
 
-    //void Wallet::initSwapConditions(Amount beamAmount, Amount swapAmount, AtomicSwapCoin swapCoin, bool isBeamSide)
+    //void Wallet::initSwapConditions(Amount beamAmount, Amount swapAmount, AtomicSwapCoin swapCoin, bool isBeamSide, SwapSecondSideChainType chainType)
     //{
-    //    m_swapConditions.push_back(SwapConditions{ beamAmount, swapAmount, swapCoin, isBeamSide });
+    //    m_swapConditions.push_back(SwapConditions{ beamAmount, swapAmount, swapCoin, isBeamSide, chainType });
     //}
 
     Wallet::~Wallet()
@@ -271,7 +276,8 @@ namespace beam::wallet
     }
 
     TxID Wallet::swap_coins(const WalletID& from, const WalletID& to, Amount amount, Amount fee, AtomicSwapCoin swapCoin,
-        Amount swapAmount, bool isBeamSide/*=true*/, Height lifetime/* = kDefaultTxLifetime*/, Height responseTime/* = kDefaultTxResponseTime*/)
+        Amount swapAmount, SwapSecondSideChainType chainType, bool isBeamSide/*=true*/,
+        Height lifetime/* = kDefaultTxLifetime*/, Height responseTime/* = kDefaultTxResponseTime*/)
     {
         auto receiverAddr = m_WalletDB->getAddress(to);
 
@@ -301,6 +307,7 @@ namespace beam::wallet
         tx->SetParameter(TxParameterID::AtomicSwapCoin, swapCoin, false);
         tx->SetParameter(TxParameterID::AtomicSwapAmount, swapAmount, false);
         tx->SetParameter(TxParameterID::AtomicSwapIsBeamSide, isBeamSide, false);
+        tx->SetParameter(TxParameterID::AtomicSwapSecondSideChainType, chainType, false);
 
         ProcessTransaction(tx);
         return txID;
@@ -319,13 +326,13 @@ namespace beam::wallet
             ocoins.insert(ocoins.end(), txocoins.begin(), txocoins.end());
         }
 
-        m_WalletDB->clear();
+        m_WalletDB->clearCoins();
         Block::SystemState::ID id;
         ZeroObject(id);
         m_WalletDB->setSystemStateID(id);
 
         // Restore Incoming coins of active transactions
-        m_WalletDB->save(ocoins);
+        m_WalletDB->saveCoins(ocoins);
 
         storage::setVar(*m_WalletDB, s_szNextUtxoEvt, 0);
         RequestUtxoEvents();
@@ -828,19 +835,50 @@ namespace beam::wallet
 
     void Wallet::OnRequestComplete(MyRequestUtxoEvents& r)
     {
-        const std::vector<proto::UtxoEvent>& v = r.m_Res.m_Events;
+        std::vector<proto::UtxoEvent>& v = r.m_Res.m_Events;
+
+        function<Point(const Key::IDV&)> commitmentFunc;
+        if (m_KeyKeeper)
+        {
+            commitmentFunc = [this](const auto& kidv) {return m_KeyKeeper->GeneratePublicKeySync(kidv, true); };
+        }
+        else if (auto ownerKdf = m_WalletDB->get_OwnerKdf(); ownerKdf)
+        {
+            commitmentFunc = [ownerKdf](const auto& kidv)
+            {
+                Point::Native pt;
+                SwitchCommitment sw;
+
+                sw.Recover(pt, *ownerKdf, kidv);
+                Point commitment = pt;
+                return commitment;
+            };
+        }
+
 		for (size_t i = 0; i < v.size(); i++)
 		{
-			const auto& event = v[i];
+			auto& event = v[i];
 
 			// filter-out false positives
-            if (m_KeyKeeper)
+            if (commitmentFunc)
             {
-                Point commitment = m_KeyKeeper->GeneratePublicKeySync(event.m_Kidv, true);
+                Point commitment = commitmentFunc(event.m_Kidv);
 			    if (commitment == event.m_Commitment)
 				    ProcessUtxoEvent(event);
+				else
+				{
+					// Is it BB2.1?
+					if (event.m_Kidv.IsBb21Possible())
+					{
+						event.m_Kidv.set_WorkaroundBb21();
+
+						commitment = commitmentFunc(event.m_Kidv);
+						if (commitment == event.m_Commitment)
+							ProcessUtxoEvent(event);
+					}
+				}
             }
-		}
+        }
 
 		if (r.m_Res.m_Events.size() < proto::UtxoEvent::s_Max)
 		{
@@ -879,7 +917,7 @@ namespace beam::wallet
         Coin c;
         c.m_ID = evt.m_Kidv;
 
-        bool bExists = m_WalletDB->find(c);
+        bool bExists = m_WalletDB->findCoin(c);
 		c.m_maturity = evt.m_Maturity;
 
         LOG_INFO() << "CoinID: " << evt.m_Kidv << " Maturity=" << evt.m_Maturity << (evt.m_Added ? " Confirmed" : " Spent");
@@ -910,7 +948,7 @@ namespace beam::wallet
 			c.m_spentHeight = std::min(c.m_spentHeight, evt.m_Height); // reported spend height may be bigger than it actuall was (in case of macroblocks)
 		}
 
-        m_WalletDB->save(c);
+        m_WalletDB->saveCoin(c);
     }
 
     void Wallet::OnRolledBack()
@@ -983,8 +1021,12 @@ namespace beam::wallet
         MyRequestUtxo::Ptr pReq(new MyRequestUtxo);
         pReq->m_CoinID = cid;
 
-		Scalar::Native sk;
-		m_WalletDB->calcCommitment(sk, pReq->m_Msg.m_Utxo, cid);
+        if (!m_KeyKeeper)
+        {
+            LOG_WARNING() << "You cannot get utxo commitment without private key";
+            return;
+        }
+        pReq->m_Msg.m_Utxo = m_KeyKeeper->GeneratePublicKeySync(cid, true);
 
         LOG_DEBUG() << "Get utxo proof: " << pReq->m_Msg.m_Utxo;
 

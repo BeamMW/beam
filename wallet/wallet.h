@@ -104,13 +104,13 @@ namespace beam::wallet
         //void initBitcoin(io::Reactor& reactor, const BitcoinOptions& options);
         //void initLitecoin(io::Reactor& reactor, const LitecoinOptions& options);
         //void initQtum(io::Reactor& reactor, const QtumOptions& options);
-        //void initSwapConditions(Amount beamAmount, Amount swapAmount, AtomicSwapCoin swapCoin, bool isBeamSide);
+        //void initSwapConditions(Amount beamAmount, Amount swapAmount, AtomicSwapCoin swapCoin, bool isBeamSide, SwapSecondSideChainType chainType);
 
         TxID transfer_money(const WalletID& from, const WalletID& to, Amount amount, Amount fee = 0, bool sender = true, Height lifetime = kDefaultTxLifetime, Height responseTime = kDefaultTxResponseTime, ByteBuffer&& message = {}, bool saveReceiver = false);
         TxID transfer_money(const WalletID& from, const WalletID& to, Amount amount, Amount fee = 0, const CoinIDList& coins = {}, bool sender = true, Height lifetime = kDefaultTxLifetime, Height responseTime = kDefaultTxResponseTime, ByteBuffer&& message = {}, bool saveReceiver = false);
         TxID transfer_money(const WalletID& from, const WalletID& to, const AmountList& amountList, Amount fee = 0, const CoinIDList& coins = {}, bool sender = true, Height lifetime = kDefaultTxLifetime, Height responseTime = kDefaultTxResponseTime, ByteBuffer&& message = {}, bool saveReceiver = false);
         TxID split_coins(const WalletID& from, const AmountList& amountList, Amount fee = 0, bool sender = true, Height lifetime = kDefaultTxLifetime, Height responseTime = kDefaultTxResponseTime, ByteBuffer&& message = {});
-        TxID swap_coins(const WalletID& from, const WalletID& to, Amount amount, Amount fee, AtomicSwapCoin swapCoin, Amount swapAmount, bool isBeamSide = true, Height lifetime = kDefaultTxLifetime, Height responseTime = kDefaultTxResponseTime);
+        TxID swap_coins(const WalletID& from, const WalletID& to, Amount amount, Amount fee, AtomicSwapCoin swapCoin, Amount swapAmount, SwapSecondSideChainType chainType, bool isBeamSide = true, Height lifetime = kDefaultTxLifetime, Height responseTime = kDefaultTxResponseTime);
 
 
         // Resets wallet state and rescans the blockchain from scratch
@@ -151,6 +151,7 @@ namespace beam::wallet
         void OnTipUnchanged() override;
         void OnRolledBack() override;
         void get_Kdf(Key::IKdf::Ptr&) override;
+        void get_OwnerKdf(Key::IPKdf::Ptr&) override;
         Block::SystemState::IHistory& get_History() override;
         void OnOwnedNode(const PeerID&, bool bUp) override;
 
@@ -192,13 +193,15 @@ namespace beam::wallet
         //    Amount swapAmount = 0;
         //    AtomicSwapCoin swapCoin;
         //    bool isBeamSide = 0;
+        //    SwapSecondSideChainType sideChainType;
 
         //    bool operator== (const SwapConditions& other)
         //    {
         //        return beamAmount == other.beamAmount &&
         //            swapAmount == other.swapAmount &&
         //            swapCoin == other.swapCoin &&
-        //            isBeamSide == other.isBeamSide;
+        //            isBeamSide == other.isBeamSide &&
+        //            sideChainType == other.sideChainType;
         //    }
         //};
 

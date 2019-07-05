@@ -230,9 +230,7 @@ namespace beam::wallet
         , m_async{ make_shared<WalletModelBridge>(*(static_cast<IWalletModelAsync*>(this)), *m_reactor) }
         , m_isConnected(false)
         , m_nodeAddrStr(nodeAddr)
-        , m_isRunning(false)
     {
-
     }
 
     WalletClient::~WalletClient()
@@ -241,9 +239,9 @@ namespace beam::wallet
         {
             if (m_reactor)
             {
-                m_reactor->stop();
                 if (m_thread)
                 {
+                    m_reactor->stop();
                     // TODO: check this
                     m_thread->join();
                 }
@@ -262,13 +260,12 @@ namespace beam::wallet
     {
         m_thread = std::make_shared<std::thread>([this]()
             {
-                m_isRunning = true;
                 try
                 {
-                    std::unique_ptr<WalletSubscriber> wallet_subscriber;
+					io::Reactor::Scope scope(*m_reactor);
+					io::Reactor::GracefulIntHandler gih(*m_reactor);
 
-                    io::Reactor::Scope scope(*m_reactor);
-                    io::Reactor::GracefulIntHandler gih(*m_reactor);
+					std::unique_ptr<WalletSubscriber> wallet_subscriber;
 
                     onStatus(getStatus());
                     onTxStatus(ChangeAction::Reset, m_walletDB->getTxHistory());
@@ -373,7 +370,6 @@ namespace beam::wallet
                 catch (...) {
                     LOG_UNHANDLED_EXCEPTION();
                 }
-                m_isRunning = false;
             });
     }
 
@@ -406,7 +402,7 @@ namespace beam::wallet
 
     bool WalletClient::isRunning() const
     {
-        return m_isRunning;
+        return m_thread && m_thread->joinable();
     }
 
     bool WalletClient::isFork1() const
@@ -655,7 +651,7 @@ namespace beam::wallet
                     else if (makeActive)
                     {
                         // set expiration date to 24h since now
-                        addr->makeActive(24 * 60 * 60);
+                        addr->makeActive(WalletAddress::AddressExpiration24h);
                     }
 
                     m_walletDB->saveAddress(*addr);
@@ -775,7 +771,7 @@ namespace beam::wallet
     vector<Coin> WalletClient::getUtxos() const
     {
         vector<Coin> utxos;
-        m_walletDB->visit([&utxos](const Coin& c)->bool
+        m_walletDB->visitCoins([&utxos](const Coin& c)->bool
             {
                 utxos.push_back(c);
                 return true;

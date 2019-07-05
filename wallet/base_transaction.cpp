@@ -263,17 +263,7 @@ namespace beam::wallet
 
 	Key::IKdf::Ptr LocalPrivateKeyKeeper::GetChildKdf(const Key::IDV& kidv) const
 	{
-		return GetChildKdf(kidv.get_Subkey());
-	}
-
-    Key::IKdf::Ptr LocalPrivateKeyKeeper::GetChildKdf(Key::Index iKdf) const
-    {
-        if (!iKdf)
-            return m_MasterKdf; // by convention 0 is not a childd
-
-        Key::IKdf::Ptr pRet;
-        ECC::HKdf::CreateChild(pRet, *m_MasterKdf, iKdf);
-        return pRet;
+		return MasterKey::get_Child(m_MasterKdf, kidv);
     }
 
     Scalar::Native LocalPrivateKeyKeeper::GetNonce(size_t slot)
@@ -425,8 +415,8 @@ namespace beam::wallet
         if (GetParameter(TxParameterID::KernelProofHeight, proofHeight) && (proofHeight > height))
         {
             SetParameter(TxParameterID::Status, TxStatus::Registering);
-            SetParameter(TxParameterID::KernelProofHeight, 0);
-            SetParameter(TxParameterID::KernelUnconfirmedHeight, 0);
+            SetParameter(TxParameterID::KernelProofHeight, Height(0));
+            SetParameter(TxParameterID::KernelUnconfirmedHeight, Height(0));
             return true;
         }
         return false;

@@ -14,8 +14,6 @@
 
 #include "fly_client.h"
 
-#include "utility/logger.h"
-
 namespace beam {
 namespace proto {
 
@@ -90,6 +88,7 @@ void FlyClient::NetworkStd::Connection::ResetVars()
 void FlyClient::NetworkStd::Connection::ResetInternal()
 {
     m_pSync.reset();
+	KillTimer();
 
     if (Flags::Owned & m_Flags)
         m_This.m_Client.OnOwnedNode(m_NodeID, false);
@@ -157,10 +156,6 @@ void FlyClient::NetworkStd::Connection::OnTimer()
         {
             ResetAll();
             uint32_t timeout_ms = std::max(Rules::get().DA.Target_s * 1000, m_This.m_Cfg.m_PollPeriod_ms);
-            if (timeout_ms != m_This.m_Cfg.m_PollPeriod_ms)
-            {
-                LOG_INFO() << "Node poll period has been automatically rounded up to block rate: " << timeout_ms << " ms";
-            }
             SetTimer(timeout_ms);
         }
     }
@@ -185,18 +180,29 @@ void FlyClient::NetworkStd::Connection::OnMsg(Authentication&& msg)
             Key::IKdf::Ptr pKdf;
             m_This.m_Client.get_Kdf(pKdf);
             if (pKdf)
+            {
                 ProveKdfObscured(*pKdf, IDType::Owner);
+            }
+            else
+            {
+                Key::IPKdf::Ptr ownerKdf;
+                m_This.m_Client.get_OwnerKdf(ownerKdf);
+                if (ownerKdf)
+                {
+                    ProvePKdfObscured(*ownerKdf, IDType::Viewer);
+                }
+            }
         }
         break;
 
     case IDType::Viewer:
         {
-            if (Flags::Owned & m_Flags)
+            if ((Flags::Owned & m_Flags) || !(Flags::Node & m_Flags))
                 ThrowUnexpected();
 
-            Key::IKdf::Ptr pKdf;
-            m_This.m_Client.get_Kdf(pKdf);
-            if (!(pKdf && IsPKdfObscured(*pKdf, msg.m_ID)))
+            Key::IPKdf::Ptr pubKdf;
+            m_This.m_Client.get_OwnerKdf(pubKdf);
+            if (!(pubKdf && IsPKdfObscured(*pubKdf, msg.m_ID)))
                 ThrowUnexpected();
 
             //  viewer confirmed!

@@ -530,6 +530,11 @@ void StartViewModel::setPassword(const QString& pass)
     m_password = pass.toStdString();
 }
 
+void StartViewModel::onNodeSettingsChanged()
+{
+    AppModel::getInstance()->nodeSettingsChanged();
+}
+
 void StartViewModel::findExistingWalletDB()
 {
     auto appDataPath = AppModel::getInstance()->getSettings().getAppDataPath();
@@ -546,9 +551,11 @@ void StartViewModel::findExistingWalletDB()
 
     for (auto& walletDBPath : walletDBs)
     {
-        QFile dbFile(QString::fromStdString(walletDBPath.generic_string()));
-        QFileInfo fileInfo;
-        fileInfo.setFile(dbFile);
+#ifdef WIN32
+        QFileInfo fileInfo(QString::fromStdWString(walletDBPath.wstring()));
+#else
+        QFileInfo fileInfo(QString::fromStdString(walletDBPath.string()));
+#endif
         QString absoluteFilePath = fileInfo.absoluteFilePath();
         bool isDefaultLocated = absoluteFilePath.contains(
             QString::fromStdString(defaultAppDataPath));
@@ -615,7 +622,7 @@ QString StartViewModel::selectCustomWalletDB()
     QString filePath = QFileDialog::getOpenFileName(
         nullptr,
         //% "Select the wallet database file"
-        qtTrId("start-view-select-db"),
+        qtTrId("general-select-db"),
         //% "SQLite database file (*.db)"
         QStandardPaths::writableLocation(QStandardPaths::DesktopLocation), qtTrId("start-view-db-file-filter"));
 

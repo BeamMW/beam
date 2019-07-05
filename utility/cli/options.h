@@ -108,12 +108,16 @@ namespace beam
         extern const char* WALLET_RESCAN;
         extern const char* UTXO;
         extern const char* EXPORT_ADDRESSES;
+        extern const char* EXPORT_DATA;
         extern const char* IMPORT_ADDRESSES;
+        extern const char* IMPORT_DATA;
         extern const char* IMPORT_EXPORT_PATH;
         extern const char* IP_WHITELIST;
         extern const char* HORIZON_HI;
         extern const char* HORIZON_LO;
 		extern const char* GENERATE_RECOVERY_PATH;
+		extern const char* RECOVERY_AUTO_PATH;
+		extern const char* RECOVERY_AUTO_PERIOD;
         extern const char* COLD_WALLET;
         extern const char* SWAP_INIT;
         extern const char* SWAP_LISTEN;
@@ -123,12 +127,6 @@ namespace beam
         extern const char* SWAP_NETWORK;
         extern const char* SWAP_BEAM_SIDE;
         extern const char* SWAP_TX_HISTORY;
-        extern const char* BTC_CONFIRMATIONS;
-        extern const char* LTC_CONFIRMATIONS;
-        extern const char* QTUM_CONFIRMATIONS;
-        extern const char* BTC_LOCK_TIME;
-        extern const char* LTC_LOCK_TIME;
-        extern const char* QTUM_LOCK_TIME;
         extern const char* NODE_POLL_PERIOD;
 
         // wallet api

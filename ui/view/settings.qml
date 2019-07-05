@@ -7,7 +7,7 @@ import "controls"
 import Beam.Wallet 1.0
 
 Rectangle {
-
+    property string linkStyle: "<style>a:link {color: '#00f6d2'; text-decoration: none;}</style>"
     anchors.fill: parent
     color: Style.background_main
 
@@ -28,9 +28,8 @@ Rectangle {
     ConfirmationDialog {
         id: confirmRefreshDialog
         property bool canRefresh: true
-        //: settings tab, confirm rescan dialog, rescan button
-        //% "rescan"
-        okButtonText: qsTrId("settings-rescan-confirmation-button")
+        //% "Rescan"
+        okButtonText: qsTrId("general-rescan")
         okButtonIconSource: "qrc:/assets/icon-repeat.svg"
         cancelButtonIconSource: "qrc:/assets/icon-cancel-white.svg"
         cancelVisible: true
@@ -49,9 +48,8 @@ Rectangle {
                     font.pixelSize: 18
                     color: Style.content_main
                     horizontalAlignment : Text.AlignHCenter
-                    //: settings tab, confirm rescan dialog, title
                     //% "Rescan"
-                    text: qsTrId("settings-rescan-confirmation-title")
+                    text: qsTrId("general-rescan")
                 }
                 SFText {
                     width: parent.width
@@ -139,8 +137,8 @@ Rectangle {
                 font.pixelSize: 14
                 color: Style.content_secondary
                 //: settings tab, version label
-                //% "Version: "
-                text: qsTrId("settings-version") + viewModel.version
+                //% "Version"
+                text: qsTrId("settings-version") + ": " + viewModel.version
             }
         }
 
@@ -301,9 +299,8 @@ Rectangle {
                                         color: Style.validator_error
                                         font.pixelSize: 14
                                         font.italic: true
-                                        //: settings tab, node section, on address error
                                         //% "Invalid address"
-                                        text: qsTrId("settings-remote-node-ip-port-error")
+                                        text: qsTrId("general-invalid-address")
                                     }
                                 }
 
@@ -405,9 +402,8 @@ Rectangle {
                                         leftPadding: 25
                                         rightPadding: 25
                                         spacing: 12
-                                        //: settings tab, node section, cancel button
-                                        //% "cancel"
-                                        text: qsTrId("settings-undo")
+                                        //% "Cancel"
+                                        text: qsTrId("general-cancel")
                                         icon.source: "qrc:/assets/icon-cancel-white.svg"
                                         enabled: {
                                             viewModel.isChanged 
@@ -429,7 +425,7 @@ Rectangle {
                                         rightPadding: 25
                                         spacing: 12
                                         //: settings tab, node section, apply button    
-                                        //% "apply"
+                                        //% "Apply"
                                         text: qsTrId("settings-apply")
                                         icon.source: "qrc:/assets/icon-done.svg"  
                                         enabled: {
@@ -507,7 +503,7 @@ Rectangle {
                                             }
 
                                             model: [
-                                                //% "never"
+                                                //% "Never"
                                                 qsTrId("settings-general-lock-screen-never"),
                                                 //% "1 minute"
                                                 qsTrId("settings-general-lock-screen-1m"),
@@ -587,9 +583,8 @@ Rectangle {
                                         Layout.alignment: Qt.AlignRight
                                         font.pixelSize: 14
                                         color: Style.active
-                                        //: settings tab, general section, show data folder link
-                                        //% "show in folder"
-                                        text: qsTrId("settings-wallet-location-link")
+                                        //% "Show in folder"
+                                        text: qsTrId("general-show-in-folder")
                                         MouseArea {
                                             anchors.fill: parent
                                             acceptedButtons: Qt.LeftButton
@@ -641,9 +636,12 @@ Rectangle {
                                     Layout.preferredHeight: 32
 
                                     SFText {
+                                        property string beamUrl: "<a href='https://www.beam.mw/'>beam.mw</a>"
+                                        //% "blockchain explorer"
+                                        property string explorerUrl: "<a href='https://explorer.beam.mw/'>%1</a>".arg(qsTrId("explorer"))
                                         //: general settings, label for alow open external links
-                                        //% "<style>a:link {color: '#00f6d2'; text-decoration: none;}</style>Allow access to <a href='https://www.beam.mw/'>beam.mw</a> and <a href='https://explorer.beam.mw/'>blockchain explorer</a> (to fetch exchanges and transaction data)"
-                                        text: qsTrId("settings-general-allow-beammw-label")
+                                        //% "Allow access to %1 and %2 (to fetch exchanges and transaction data)"
+                                        text: linkStyle + qsTrId("settings-general-allow-beammw-label").arg(beamUrl).arg(explorerUrl)
                                         textFormat: Text.RichText
                                         font.pixelSize: 14
                                         color: allowBeamMWLinks.palette.text
@@ -696,9 +694,8 @@ Rectangle {
                                 Layout.preferredHeight: 38
                                 Layout.alignment: Qt.AlignLeft
                                 Layout.leftMargin: 5
-                                //: settings tab, change password button
-                                //% "change wallet password"
-                                text: qsTrId("settings-general-change-pwd-button")
+                                //% "Change wallet password"
+                                text: qsTrId("general-change-pwd")
                                 palette.buttonText : "white"
                                 palette.button: Style.background_second
                                 icon.source: "qrc:/assets/icon-password.svg"
@@ -716,10 +713,9 @@ Rectangle {
                                 Layout.preferredWidth: 250
                                 Layout.preferredHeight: 38
                                 Layout.alignment: Qt.AlignRight
-                                Layout.rightMargin: 5    
-                                //: settings tab, rescan button                            
-                                //% "rescan"
-                                text: qsTrId("settings-rescan-button")
+                                Layout.rightMargin: 5                         
+                                //% "Rescan"
+                                text: qsTrId("general-rescan")
                                 palette.button: Style.background_second
                                 palette.buttonText : viewModel.localNodeRun ? Style.content_main : Style.content_disabled
                                 icon.source: "qrc:/assets/icon-repeat-white.svg"
@@ -752,11 +748,19 @@ Rectangle {
                                     font.styleName: "Bold"; font.weight: Font.Bold
                                 }
                                 SFText {
+                                    property string beamEmail: "<a href='mailto:support@beam.mw'>support@beam.mw</a>"
+                                    property string beamGithub: "<a href='https://github.com/BeamMW'>Github</a>"
+                                    //% "To report a problem:"
+                                    property string rpm0: qsTrId("settings-report-problem-message-l0")
+                                    //% "1. Click “Save wallet logs” and choose a destination folder for log archive"
+                                    property string rpm1: qsTrId("settings-report-problem-message-l1")
+                                    //% "2. Send email to %1 or open a ticket in %2"
+                                    property string rpm2: qsTrId("settings-report-problem-message-l2").arg(beamEmail).arg(beamGithub)
+                                    //% "3. Don’t forget to attach logs archive"
+                                    property string rpm3: qsTrId("settings-report-problem-message-l3")
                                     Layout.topMargin: 7
-                                    Layout.preferredWidth: 419
-                                    //: settings tab, report problem section, message
-                                    //% "<style>a:link {color: '#00f6d2'; text-decoration: none;}</style>To report a problem:<br />1. Click “Save wallet logs” and choose a destination folder for log archive<br />2. Send email to <a href='mailto:support@beam.mw'>support@beam.mw</a> or open a ticket in <a href='https://github.com/BeamMW'>Github</a><br />3. Don’t forget to attach logs archive"
-                                    text: qsTrId("settings-report-problem-message")
+                                    Layout.preferredWidth: parent.width
+                                    text: linkStyle + rpm0 + "<br />" + rpm1 + "<br />" + rpm2 + "<br />" + rpm3
                                     textFormat: Text.RichText
                                     color: Style.content_main
                                     font.pixelSize: 14
@@ -778,10 +782,10 @@ Rectangle {
                                 CustomButton {
                                     Layout.topMargin: 10
                                     Layout.preferredHeight: 38
-                                    Layout.preferredWidth: 191
+                                    Layout.preferredWidth: 200
                                     Layout.alignment: Qt.AlignLeft
                                     //: settings tab, report problem section, save logs button
-                                    //% "save wallet logs"
+                                    //% "Save wallet logs"
                                     text: qsTrId("settings-report-problem-save-log-button")
                                     icon.source: "qrc:/assets/icon-save.svg"
                                     palette.buttonText : "white"

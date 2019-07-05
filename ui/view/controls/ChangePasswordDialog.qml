@@ -31,7 +31,7 @@ Dialog {
 		SFText {
 			anchors.horizontalCenter: parent.horizontalCenter
 			//% "Change wallet password"
-			text: qsTrId("change-pwd-title")
+			text: qsTrId("general-change-pwd")
 			color: Style.content_main
 			font.pixelSize: 24
 			font.styleName: "Bold"; font.weight: Font.Bold
@@ -123,13 +123,13 @@ Dialog {
 			spacing: 30
 
 			CustomButton {
-				//% "cancel"
-				text: qsTrId("change-pwd-cancel")
+				//% "Cancel"
+				text: qsTrId("general-cancel")
 				onClicked: control.close()
 			}
 
 			PrimaryButton {
-				//% "change password"
+				//% "Сhange password"
 				text: qsTrId("change-pwd-ok")
 				onClicked: {
 					if(oldPass.text.length == 0)

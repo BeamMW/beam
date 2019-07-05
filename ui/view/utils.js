@@ -2,7 +2,7 @@ function formatDateTime(datetime, localeName) {
     var maxTime = new Date(4294967295000);
     if (datetime >= maxTime) {
         //: time never string
-        //% "never"
+        //% "Never"
         return qsTrId("time-never");
     }
     var timeZoneShort = datetime.getTimezoneOffset() / 60 * (-1);

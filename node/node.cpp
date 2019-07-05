@@ -646,6 +646,54 @@ void Node::Processor::OnNewState()
 	IObserver* pObserver = get_ParentObj().m_Cfg.m_Observer;
 	if (pObserver)
 		pObserver->OnStateChanged();
+
+	get_ParentObj().MaybeGenerateRecovery();
+}
+
+void Node::MaybeGenerateRecovery()
+{
+	if (!m_PostStartSynced || m_Cfg.m_Recovery.m_sPathOutput.empty() || !m_Cfg.m_Recovery.m_Granularity)
+		return;
+
+	Height h0 = m_Processor.get_DB().ParamIntGetDef(NodeDB::ParamID::LastRecoveryHeight);
+	const Height& h1 = m_Processor.m_Cursor.m_ID.m_Height; // alias
+	if (h1 < h0 + m_Cfg.m_Recovery.m_Granularity)
+		return;
+
+	LOG_INFO() << "Generating recovery...";
+
+	std::ostringstream os;
+	os
+		<< m_Cfg.m_Recovery.m_sPathOutput
+		<< m_Processor.m_Cursor.m_ID;
+
+	std::string sPath = os.str();
+
+	std::string sTmp = sPath;
+	sTmp += ".tmp";
+
+	bool bOk = GenerateRecoveryInfo(sTmp.c_str());
+	if (bOk)
+	{
+#ifdef WIN32
+		bOk =
+			MoveFileExW(Utf8toUtf16(sTmp.c_str()).c_str(), Utf8toUtf16(sPath.c_str()).c_str(), MOVEFILE_REPLACE_EXISTING) ||
+			(GetLastError() == ERROR_FILE_NOT_FOUND);
+#else // WIN32
+		bOk =
+			!rename(sTmp.c_str(), sPath.c_str()) ||
+			(ENOENT == errno);
+#endif // WIN32
+	}
+
+	if (bOk) {
+		LOG_INFO() << "Recovery generation done";
+		m_Processor.get_DB().ParamSet(NodeDB::ParamID::LastRecoveryHeight, &h1, nullptr);
+	} else
+	{
+		LOG_INFO() << "Recovery generation failed";
+		beam::DeleteFile(sTmp.c_str());
+	}
 }
 
 void Node::Processor::OnRolledBack()
@@ -758,7 +806,6 @@ void Node::Processor::TaskProcessor::Stop()
 void Node::Processor::TaskProcessor::Thread(uint32_t)
 {
 	std::unique_ptr<MyBatch> p(new MyBatch);
-	p->m_bEnableBatch = true;
 	MyBatch::Scope scopeBatch(*p);
 
 	while (true)
@@ -852,6 +899,23 @@ void Node::Processor::OnGoUpTimer()
 	TryGoUp();
 	get_ParentObj().RefreshCongestions();
 	get_ParentObj().UpdateSyncStatus();
+}
+
+void Node::Processor::Stop()
+{
+    m_TaskProcessor.Stop();
+    m_bGoUpPending = false;
+    m_bFlushPending = false;
+
+    if (m_pGoUpTimer)
+    {
+        m_pGoUpTimer->cancel();
+    }
+
+    if (m_pFlushTimer)
+    {
+        m_pFlushTimer->cancel();
+    }
 }
 
 bool Node::Processor::EnumViewerKeys(IKeyWalker& w)
@@ -1000,8 +1064,20 @@ uint32_t Node::get_AcessiblePeerCount() const
 
 void Node::InitKeys()
 {
-    if (!m_Keys.m_pOwner)
-        m_Keys.m_pMiner = NULL; // can't mine without owner view key, because it's used for Tagging
+	if (m_Keys.m_pOwner)
+	{
+		// Ensure the miner key makes sense.
+		if (m_Keys.m_pMiner && m_Keys.m_nMinerSubIndex && m_Keys.m_pOwner->IsSame(*m_Keys.m_pMiner))
+		{
+			// BB2.1
+			CorruptionException exc;
+			exc.m_sErr = "Incompatible miner key. Please regenerate with the latest version";
+			throw exc;
+
+		}
+	}
+	else
+        m_Keys.m_pMiner = nullptr; // can't mine without owner view key, because it's used for Tagging
 
     if (!m_Keys.m_pGeneric)
     {
@@ -1043,16 +1119,24 @@ void Node::RefreshOwnedUtxos()
 {
 	ECC::Hash::Processor hp;
 
+	ECC::Hash::Value hv0, hv1(Zero);
+
 	if (m_Keys.m_pOwner)
 	{
-		ECC::uintBig hv;
-		hv = m_Keys.m_nMinerSubIndex; // rescan also when miner subkey changes, to recover possible decoys that were rejected earlier
 		ECC::Scalar::Native sk;
-		m_Keys.m_pOwner->DerivePKey(sk, hv);
+		m_Keys.m_pOwner->DerivePKey(sk, hv1);
 		hp << sk;
+
+		if (m_Keys.m_pMiner)
+		{
+			// rescan also when miner subkey changes, to recover possible decoys that were rejected earlier
+			m_Keys.m_pMiner->DerivePKey(sk, hv1);
+			hp
+				<< m_Keys.m_nMinerSubIndex
+				<< sk;
+		}
 	}
 
-	ECC::Hash::Value hv0, hv1(Zero);
 	hp >> hv0;
 
 	Blob blob(hv1);
@@ -1137,7 +1221,7 @@ Node::~Node()
 
     assert(m_setTasks.empty());
 
-	m_Processor.m_TaskProcessor.Stop();
+	m_Processor.Stop();
 
 	if (!std::uncaught_exceptions())
 		m_PeerMan.OnFlush();
@@ -1194,6 +1278,9 @@ void Node::Peer::OnResendPeers()
 
 		if (!pi.m_LastSeen)
 			continue; // recommend only verified peers
+
+		if (pi.m_Addr.m_Value.empty())
+			continue; // address unknown, can't recommend
 
         proto::PeerInfo msg;
         msg.m_ID = pi.m_ID.m_Key;
@@ -1263,13 +1350,23 @@ void Node::Peer::OnMsg(proto::Authentication&& msg)
         Key::IPKdf* pOwner = m_This.m_Keys.m_pOwner.get();
         if (pOwner && IsKdfObscured(*pOwner, msg.m_ID))
         {
-            m_Flags |= Flags::Owner;
+            m_Flags |= Flags::Owner | Flags::Viewer;
             ProvePKdfObscured(*pOwner, proto::IDType::Viewer);
         }
 
         if (!b && ShouldFinalizeMining())
             m_This.m_Miner.OnFinalizerChanged(this);
     }
+
+	if (proto::IDType::Viewer == msg.m_IDType)
+	{
+		Key::IPKdf* pOwner = m_This.m_Keys.m_pOwner.get();
+		if (pOwner && IsPKdfObscured(*pOwner, msg.m_ID))
+		{
+			m_Flags |= Flags::Viewer;
+			ProvePKdfObscured(*pOwner, proto::IDType::Viewer);
+		}
+	}
 
     if (proto::IDType::Node != msg.m_IDType)
         return;
@@ -2288,70 +2385,19 @@ void Node::AddDummyInputs(Transaction& tx)
         if (h > m_Processor.m_Cursor.m_ID.m_Height)
             break;
 
-		Key::IKdf::Ptr pChild;
-		Key::IKdf* pKdf = nullptr;
+		bModified = true;
+		kidv.m_Value = 0;
 
-		if (kidv.get_Subkey() == m_Keys.m_nMinerSubIndex)
-			pKdf = m_Keys.m_pMiner.get();
+		if (AddDummyInputEx(tx, kidv))
+		{
+			/// in the (unlikely) case the tx will be lost - we'll retry spending this UTXO after the following num of blocks
+			m_Processor.get_DB().SetDummyHeight(kidv, m_Processor.m_Cursor.m_ID.m_Height + m_Cfg.m_Dandelion.m_DummyLifetimeLo + 1);
+		}
 		else
 		{
-			// was created by other miner. If we have the root key - we can recreate its key
-			if (!m_Keys.m_nMinerSubIndex)
-			{
-				ECC::HKdf::CreateChild(pChild, *m_Keys.m_pMiner, kidv.get_Subkey());
-				pKdf = pChild.get();
-			}
-		}
-
-		kidv.m_Value = 0;
-        bModified = true;
-
-		bool bFound = false;
-		if (pKdf)
-		{
-			ECC::Scalar::Native sk;
-
-			// bounds
-			UtxoTree::Key kMin, kMax;
-
-			UtxoTree::Key::Data d;
-			SwitchCommitment().Create(sk, d.m_Commitment, *pKdf, kidv);
-			d.m_Maturity = 0;
-			kMin = d;
-
-			d.m_Maturity = m_Processor.m_Cursor.m_ID.m_Height;
-			kMax = d;
-
-			// check if it's still unspent
-			struct Traveler :public UtxoTree::ITraveler {
-				virtual bool OnLeaf(const RadixTree::Leaf& x) override {
-					return false;
-				}
-			} t;
-
-			UtxoTree::Cursor cu;
-			t.m_pCu = &cu;
-			t.m_pBound[0] = kMin.V.m_pData;
-			t.m_pBound[1] = kMax.V.m_pData;
-
-			bFound = !m_Processor.get_Utxos().Traverse(t);
-			if (bFound)
-			{
-				// unspent
-				Input::Ptr pInp(new Input);
-				pInp->m_Commitment = d.m_Commitment;
-
-				tx.m_vInputs.push_back(std::move(pInp));
-				tx.m_Offset = ECC::Scalar::Native(tx.m_Offset) + ECC::Scalar::Native(sk);
-
-				/// in the (unlikely) case the tx will be lost - we'll retry spending this UTXO after the following num of blocks
-				m_Processor.get_DB().SetDummyHeight(kidv, m_Processor.m_Cursor.m_ID.m_Height + m_Cfg.m_Dandelion.m_DummyLifetimeLo + 1);
-			}
-		}
-
-		if (!bFound)
 			// spent
 			m_Processor.get_DB().DeleteDummy(kidv);
+		}
     }
 
     if (bModified)
@@ -2359,6 +2405,59 @@ void Node::AddDummyInputs(Transaction& tx)
         m_Processor.FlushDB(); // make sure they're not lost
         tx.Normalize();
     }
+}
+
+bool Node::AddDummyInputEx(Transaction& tx, const Key::IDV& kidv)
+{
+	if (AddDummyInputRaw(tx, kidv))
+		return true;
+
+	// try workaround
+	if (!kidv.IsBb21Possible())
+		return false;
+
+	Key::IDV kidv2 = kidv;
+	kidv2.set_WorkaroundBb21();
+	return AddDummyInputRaw(tx, kidv2);
+
+}
+
+bool Node::AddDummyInputRaw(Transaction& tx, const Key::IDV& kidv)
+{
+	assert(m_Keys.m_pMiner);
+
+	Key::IKdf::Ptr pChild;
+	Key::IKdf* pKdf = nullptr;
+
+	if (kidv.get_Subkey() == m_Keys.m_nMinerSubIndex)
+		pKdf = m_Keys.m_pMiner.get();
+	else
+	{
+		// was created by other miner. If we have the root key - we can recreate its key
+		if (m_Keys.m_nMinerSubIndex)
+			return false;
+
+		pChild = MasterKey::get_Child(m_Keys.m_pMiner, kidv);
+		pKdf = pChild.get();
+	}
+
+	ECC::Scalar::Native sk;
+
+	// bounds
+	ECC::Point comm;
+	SwitchCommitment().Create(sk, comm, *pKdf, kidv);
+
+	if (!m_Processor.ValidateInputs(comm))
+		return false;
+
+	// unspent
+	Input::Ptr pInp(new Input);
+	pInp->m_Commitment = comm;
+
+	tx.m_vInputs.push_back(std::move(pInp));
+	tx.m_Offset = ECC::Scalar::Native(tx.m_Offset) + ECC::Scalar::Native(sk);
+
+	return true;
 }
 
 void Node::AddDummyOutputs(Transaction& tx)
@@ -3161,7 +3260,7 @@ void Node::Peer::OnMsg(proto::GetUtxoEvents&& msg)
 {
     proto::UtxoEvents msgOut;
 
-    if (Flags::Owner & m_Flags)
+    if (Flags::Viewer & m_Flags)
     {
 		Processor& p = m_This.m_Processor;
 		NodeDB& db = p.get_DB();
@@ -4021,7 +4120,7 @@ bool Node::GenerateRecoveryInfo(const char* szPath)
 	}
 	catch (const std::exception& ex)
 	{
-		LOG_DEBUG() << ex.what();
+		LOG_ERROR() << ex.what();
 		return false;
 	}
 

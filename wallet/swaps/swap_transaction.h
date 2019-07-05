@@ -30,13 +30,7 @@ namespace beam::wallet
         {
             Initial,
             Invitation,
-            SharedUTXOProofPart2,
-            SharedUTXOProofDone,
-            Constructed,
-
-            InvitationConfirmation,
-            Registration,
-            KernelConfirmation
+            Constructed
         };
 
         class UninitilizedSecondSide : public std::exception
@@ -88,13 +82,15 @@ namespace beam::wallet
             Amount swapAmount = 0;
             AtomicSwapCoin swapCoin;
             bool isBeamSide = false;
+            SwapSecondSideChainType sideChainType;
 
             bool operator== (const SwapConditions& other)
             {
                 return beamAmount == other.beamAmount &&
                     swapAmount == other.swapAmount &&
                     swapCoin == other.swapCoin &&
-                    isBeamSide == other.isBeamSide;
+                    isBeamSide == other.isBeamSide &&
+                    sideChainType == other.sideChainType;
             }
         };
         
@@ -139,8 +135,7 @@ namespace beam::wallet
         void SendInvitation();
         void SendExternalTxDetails();
         void SendLockTxInvitation(const LockTxBuilder& lockBuilder);
-        void SendMultiSigProofPart2(const LockTxBuilder& lockBuilder, bool isMultiSigProofOwner);
-        void SendMultiSigProofPart3(const LockTxBuilder& lockBuilder, bool isMultiSigProofOwner);
+        void SendLockTxConfirmation(const LockTxBuilder& lockBuilder);
 
         void SendSharedTxInvitation(const BaseTxBuilder& builder);
         void ConfirmSharedTxInvitation(const BaseTxBuilder& builder);

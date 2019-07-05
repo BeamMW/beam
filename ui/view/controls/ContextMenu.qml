@@ -26,6 +26,7 @@ Menu {
 		icon.width: 12
 		icon.height: 12
 		font.pixelSize: 14
+        font.capitalization: Font.AllLowercase
 		
 		spacing: 14
 

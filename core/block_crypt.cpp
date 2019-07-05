@@ -119,6 +119,27 @@ namespace beam
 	}
 
 	/////////////
+	// MasterKey
+	Key::IKdf::Ptr MasterKey::get_Child(Key::IKdf& kdf, Key::Index iSubkey)
+	{
+		Key::IKdf::Ptr pRes;
+		ECC::HKdf::CreateChild(pRes, kdf, iSubkey);
+		return pRes;
+	}
+
+	Key::IKdf::Ptr MasterKey::get_Child(const Key::IKdf::Ptr& pKdf, const Key::IDV& kidv)
+	{
+		Key::Index iSubkey = kidv.get_Subkey();
+		if (!iSubkey)
+			return pKdf; // by convention: scheme V0, Subkey=0 - is a master key
+
+		if (Key::IDV::Scheme::BB21 == kidv.get_Scheme())
+			return pKdf; // BB2.1 workaround
+
+		return get_Child(*pKdf, iSubkey);
+	}
+
+	/////////////
 	// SwitchCommitment
 	SwitchCommitment::SwitchCommitment(const AssetID* pAssetID /* = nullptr */)
 	{
@@ -160,17 +181,27 @@ namespace beam
 	void SwitchCommitment::get_Hash(ECC::Hash::Value& hv, const Key::IDV& kidv)
 	{
 		Key::Index nScheme = kidv.get_Scheme();
-		if (nScheme)
+		if (nScheme > Key::IDV::Scheme::V0)
 		{
-			// newer scheme - account for the Value.
-			// Make it infeasible to tamper with value for unknown blinding factor
-			ECC::Hash::Processor()
-				<< "kidv-1"
-				<< kidv.m_Idx
-				<< kidv.m_Type.V
-				<< kidv.m_SubIdx
-				<< kidv.m_Value
-				>> hv;
+			if (Key::IDV::Scheme::BB21 == nScheme)
+			{
+				// BB2.1 workaround
+				Key::IDV kidv2 = kidv;
+				kidv2.set_Subkey(kidv.get_Subkey(), Key::IDV::Scheme::V0);
+				kidv2.get_Hash(hv);
+			}
+			else
+			{
+				// newer scheme - account for the Value.
+				// Make it infeasible to tamper with value for unknown blinding factor
+				ECC::Hash::Processor()
+					<< "kidv-1"
+					<< kidv.m_Idx
+					<< kidv.m_Type.V
+					<< kidv.m_SubIdx
+					<< kidv.m_Value
+					>> hv;
+			}
 		}
 		else
 			kidv.get_Hash(hv); // legacy

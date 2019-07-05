@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.1)
 
 set(VERSION_MAJOR 2)
-set(VERSION_MINOR 1)
+set(VERSION_MINOR 2)
 set(VERSION_REVISION 0)
 set(GIT_COMMIT_HASH "unknown")
 
@@ -97,8 +97,8 @@ enable_testing()
 
 function(add_test_snippet EXE_NAME LIB_NAME)
     add_executable(${EXE_NAME} ${EXE_NAME}.cpp)
-    add_dependencies(${EXE_NAME} ${LIB_NAME})
-    target_link_libraries(${EXE_NAME} ${LIB_NAME})
+    add_dependencies(${EXE_NAME} ${LIB_NAME} ${ARGN})
+    target_link_libraries(${EXE_NAME} ${LIB_NAME} ${ARGN})
     add_test(NAME ${EXE_NAME} COMMAND $<TARGET_FILE:${EXE_NAME}>)
 endfunction()
 

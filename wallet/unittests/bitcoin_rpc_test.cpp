@@ -253,6 +253,37 @@ void testEmptyResponse()
     WALLET_CHECK(counter == 1);
 }
 
+void testConnectionRefused()
+{
+    io::Reactor::Ptr reactor = io::Reactor::create();
+    io::Timer::Ptr timer(io::Timer::create(*reactor));
+    io::Reactor::Scope scope(*reactor);
+    unsigned counter = 0;
+
+    timer->start(5000, false, [&reactor]() {
+        reactor->stop();
+    });
+
+    io::Address addr(io::Address::localhost(), PORT);
+    BitcoinOptions options;
+
+    options.m_address = addr;
+    options.m_userName = btcUserName;
+    options.m_pass = btcPass;
+
+    Bitcoind016 bridge(*reactor, options);
+
+    bridge.fundRawTransaction("", 2, [&counter](const IBitcoinBridge::Error& error, const std::string& tx, int pos)
+    {
+        WALLET_CHECK(error.m_type == IBitcoinBridge::IOError);
+        WALLET_CHECK(!error.m_message.empty());
+        ++counter;
+    });
+
+    reactor->run();
+    WALLET_CHECK(counter == 1);
+}
+
 int main()
 {
     int logLevel = LOG_LEVEL_DEBUG;
@@ -265,6 +296,7 @@ int main()
     testWrongCredentials();
     testEmptyResult();
     testEmptyResponse();
+    testConnectionRefused();
 
     assert(g_failureCount == 0);
     return WALLET_CHECK_RESULT;

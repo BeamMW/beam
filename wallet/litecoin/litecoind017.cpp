@@ -12,18 +12,33 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#pragma once
+#include "litecoind017.h"
 
-#include "../bitcoin/options.h"
+#include "bitcoin/bitcoin.hpp"
+
+namespace {
+    constexpr uint8_t kLitecoinMainnetP2KH = 48;
+}
 
 namespace beam
 {
-    struct QtumOptions : public BitcoinOptions
+    Litecoind017::Litecoind017(io::Reactor& reactor, const LitecoinOptions& options)
+        : Bitcoind017(reactor, options)
     {
-        QtumOptions()
+    }
+
+    uint8_t Litecoind017::getAddressVersion()
+    {
+        if (isMainnet())
         {
-            m_confirmations = 10;
-            m_lockTimeInBlocks = 2 * 600;   // 48h
+            return kLitecoinMainnetP2KH;
         }
-    };
+
+        return libbitcoin::wallet::ec_private::testnet_p2kh;
+    }
+
+    std::string Litecoind017::getCoinName() const
+    {
+        return "litecoin";
+    }
 }

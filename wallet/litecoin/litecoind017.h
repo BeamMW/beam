@@ -14,16 +14,18 @@
 
 #pragma once
 
-#include "../bitcoin/options.h"
+#include "../bitcoin/bitcoind017.h"
+#include "options.h"
 
 namespace beam
 {
-    struct QtumOptions : public BitcoinOptions
+    class Litecoind017 : public Bitcoind017
     {
-        QtumOptions()
-        {
-            m_confirmations = 10;
-            m_lockTimeInBlocks = 2 * 600;   // 48h
-        }
+    public:
+        Litecoind017() = delete;
+        Litecoind017(io::Reactor& reactor, const LitecoinOptions& options);
+
+        uint8_t getAddressVersion() override;
+        std::string getCoinName() const override;
     };
 }

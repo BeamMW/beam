@@ -340,6 +340,12 @@ int main_impl(int argc, char* argv[])
 						LOG_INFO() << "Recovery info written";
 					}
 
+					if (vm.count(cli::RECOVERY_AUTO_PATH))
+					{
+						node.m_Cfg.m_Recovery.m_sPathOutput = vm[cli::RECOVERY_AUTO_PATH].as<string>();
+						node.m_Cfg.m_Recovery.m_Granularity = vm[cli::RECOVERY_AUTO_PERIOD].as<uint32_t>();
+					}
+
 					io::Timer::Ptr pCrashTimer;
 
 					int nCrash = vm.count(cli::CRASH) ? vm[cli::CRASH].as<int>() : 0;

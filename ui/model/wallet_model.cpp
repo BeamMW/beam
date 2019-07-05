@@ -56,17 +56,17 @@ QString WalletModel::GetErrorString(beam::wallet::ErrorType type)
         //% "You are trying to connect to incompatible peer."
         return qtTrId("wallet-model-incompatible-peer-error");
     case wallet::ErrorType::ConnectionBase:
-        //% "Connection error."
+        //% "Connection error"
         return qtTrId("wallet-model-connection-base-error");
     case wallet::ErrorType::ConnectionTimedOut:
-        //% "Connection timed out."
+        //% "Connection timed out"
         return qtTrId("wallet-model-connection-time-out-error");
     case wallet::ErrorType::ConnectionRefused:
-        //% "Cannot connect to node:"
-        return qtTrId("wallet-model-connection-refused-error") + " " +  getNodeAddress().c_str();
+        //% "Cannot connect to node"
+        return qtTrId("wallet-model-connection-refused-error") + ": " +  getNodeAddress().c_str();
     case wallet::ErrorType::ConnectionHostUnreach:
-        //% "Node is unreachable:"
-        return qtTrId("wallet-model-connection-host-unreach-error") + " " + getNodeAddress().c_str();
+        //% "Node is unreachable"
+        return qtTrId("wallet-model-connection-host-unreach-error") + ": " + getNodeAddress().c_str();
     case wallet::ErrorType::ConnectionAddrInUse:
     {
         auto localNodePort = AppModel::getInstance()->getSettings().getLocalNodePort();
@@ -74,7 +74,7 @@ QString WalletModel::GetErrorString(beam::wallet::ErrorType type)
         return qtTrId("wallet-model-connection-addr-in-use-error").arg(QString::number(localNodePort));
     }
     case wallet::ErrorType::TimeOutOfSync:
-        //% "System time not synchronized."
+        //% "System time not synchronized"
         return qtTrId("wallet-model-time-sync-error");
     case wallet::ErrorType::HostResolvedError:
         //% "Incorrect node name or no Internet connection."
