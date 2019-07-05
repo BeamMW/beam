@@ -1231,6 +1231,7 @@ namespace beam::wallet
                     if (walletDB->getPrivateVarRaw(WalletSeed, &seed.V, sizeof(seed.V)))
                     {
                         ECC::HKdf::Create(walletDB->m_pKdf, seed.V);
+                        walletDB->m_OwnerKdf = walletDB->m_pKdf;
                     }
                     else
                     {
