@@ -88,6 +88,7 @@ void FlyClient::NetworkStd::Connection::ResetVars()
 void FlyClient::NetworkStd::Connection::ResetInternal()
 {
     m_pSync.reset();
+	KillTimer();
 
     if (Flags::Owned & m_Flags)
         m_This.m_Client.OnOwnedNode(m_NodeID, false);
@@ -181,21 +182,22 @@ void FlyClient::NetworkStd::Connection::OnMsg(Authentication&& msg)
             if (pKdf)
             {
                 ProveKdfObscured(*pKdf, IDType::Owner);
-                return;
             }
-
-            Key::IPKdf::Ptr ownerKdf;
-            m_This.m_Client.get_OwnerKdf(ownerKdf);
-            if (ownerKdf)
+            else
             {
-                ProvePKdfObscured(*ownerKdf, IDType::Viewer);
+                Key::IPKdf::Ptr ownerKdf;
+                m_This.m_Client.get_OwnerKdf(ownerKdf);
+                if (ownerKdf)
+                {
+                    ProvePKdfObscured(*ownerKdf, IDType::Viewer);
+                }
             }
         }
         break;
 
     case IDType::Viewer:
         {
-            if (Flags::Owned & m_Flags)
+            if ((Flags::Owned & m_Flags) || !(Flags::Node & m_Flags))
                 ThrowUnexpected();
 
             Key::IPKdf::Ptr pubKdf;

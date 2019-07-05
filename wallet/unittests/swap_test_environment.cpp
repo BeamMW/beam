@@ -258,3 +258,110 @@ private:
     std::map<std::string, int> m_txConfirmations;
     uint64_t m_blockCount = 100;
 };
+
+ByteBuffer createTreasury(IWalletDB::Ptr db, AmountList amounts = { 5, 2, 1, 9 })
+{
+    Treasury treasury;
+    PeerID pid;
+    ECC::Scalar::Native sk;
+
+    Treasury::get_ID(*db->get_MasterKdf(), pid, sk);
+
+    Treasury::Parameters params;
+    params.m_Bursts = static_cast<uint32_t>(amounts.size());
+    //params.m_Maturity0 = 1;
+    params.m_MaturityStep = 1;
+
+    Treasury::Entry* plan = treasury.CreatePlan(pid, 0, params);
+
+    for (size_t i = 0; i < amounts.size(); ++i)
+    {
+        plan->m_Request.m_vGroups[i].m_vCoins.front().m_Value = amounts[i];
+    }
+
+    plan->m_pResponse.reset(new Treasury::Response);
+    uint64_t nIndex = 1;
+    plan->m_pResponse->Create(plan->m_Request, *db->get_MasterKdf(), nIndex);
+
+    for (const auto& group : plan->m_pResponse->m_vGroups)
+    {
+        for (const auto& treasuryCoin : group.m_vCoins)
+        {
+            Key::IDV kidv;
+            if (treasuryCoin.m_pOutput->Recover(0, *db->get_MasterKdf(), kidv))
+            {
+                Coin coin;
+                coin.m_ID = kidv;
+                coin.m_maturity = treasuryCoin.m_pOutput->m_Incubation;
+                coin.m_confirmHeight = treasuryCoin.m_pOutput->m_Incubation;
+                db->saveCoin(coin);
+            }
+        }
+    }
+
+    Treasury::Data data;
+    data.m_sCustomMsg = "LN";
+    treasury.Build(data);
+
+    Serializer ser;
+    ser & data;
+
+    ByteBuffer result;
+    ser.swap_buf(result);
+
+    return result;
+}
+
+void InitNodeToTest(Node& node, const ByteBuffer& binaryTreasury, Node::IObserver* observer, uint32_t powSolveTime = 1000)
+{
+    node.m_Cfg.m_Treasury = binaryTreasury;
+    ECC::Hash::Processor() << Blob(node.m_Cfg.m_Treasury) >> Rules::get().TreasuryChecksum;
+
+#ifdef WIN32
+    const char* g_sz = "mytest.db";
+#else // WIN32
+    const char* g_sz = "/tmp/mytest.db";
+#endif // WIN32
+    boost::filesystem::remove(g_sz);
+    node.m_Cfg.m_sPathLocal = g_sz;
+    node.m_Cfg.m_Listen.port(32125);
+    node.m_Cfg.m_Listen.ip(INADDR_ANY);
+    node.m_Cfg.m_MiningThreads = 1;
+    node.m_Cfg.m_VerificationThreads = 1;
+    node.m_Cfg.m_TestMode.m_FakePowSolveTime_ms = powSolveTime;
+
+    node.m_Cfg.m_Dandelion.m_AggregationTime_ms = 0;
+    node.m_Cfg.m_Dandelion.m_OutputsMin = 0;
+    //Rules::get().Maturity.Coinbase = 1;
+    Rules::get().FakePoW = true;
+
+    ECC::uintBig seed = 345U;
+    node.m_Keys.InitSingleKey(seed);
+
+    node.m_Cfg.m_Observer = observer;
+    Rules::get().UpdateChecksum();
+    node.Initialize();
+    node.m_PostStartSynced = true;
+}
+
+class NodeObserver : public Node::IObserver
+{
+public:
+    using Test = std::function<void()>;
+    NodeObserver(Test test)
+        : m_test(test)
+    {
+    }
+
+    void OnSyncProgress() override
+    {
+    }
+
+    void OnStateChanged() override
+    {
+        m_test();
+    }
+
+private:
+    Test m_test;
+};

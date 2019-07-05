@@ -526,7 +526,7 @@ namespace beam::wallet
         {            
             if (isBeamSide)
             {
-                LOG_ERROR() << "";
+                LOG_ERROR() << GetTxID() << " Unexpected error.";
                 return;
             }
             else
