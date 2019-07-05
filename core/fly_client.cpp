@@ -159,7 +159,10 @@ void FlyClient::NetworkStd::Connection::OnTimer()
         }
     }
     else
+    {
+        ResetAll();
         Connect(m_Addr);
+    }
 }
 
 void FlyClient::NetworkStd::Connection::OnMsg(Authentication&& msg)

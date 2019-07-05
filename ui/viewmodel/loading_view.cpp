@@ -25,9 +25,7 @@ LoadingViewModel::LoadingViewModel()
     , m_nodeDone{0}
     , m_total{0}
     , m_done{0}
-    , m_walletConnected{false}
     , m_hasLocalNode{ AppModel::getInstance()->getSettings().getRunLocalNode() }
-    , m_skipProgress{false}
     , m_isCreating{false}
 {
     connect(&m_walletModel, SIGNAL(syncProgressUpdated(int, int)),
@@ -44,12 +42,6 @@ LoadingViewModel::LoadingViewModel()
 
     connect(&m_walletModel, SIGNAL(walletError(beam::wallet::ErrorType)),
         SLOT(onGetWalletError(beam::wallet::ErrorType)));
-
-    if (!m_hasLocalNode)
-    {
-        syncWithNode();
-    }
-
 }
 
 LoadingViewModel::~LoadingViewModel()
@@ -96,10 +88,7 @@ void LoadingViewModel::updateProgress()
         if (m_total > 0)
             walletSyncProgress = std::min(1., static_cast<double>(m_done) / static_cast<double>(m_total));
 
-		if (!m_walletConnected)
-			syncWithNode();
-
-		if (m_done < m_total)
+    	if (m_done < m_total)
         {
             //% "Scanning UTXO %d/%d"
 			progressMessage = QString::asprintf(qtTrId("loading-view-scaning-utxo").toStdString().c_str(), m_done, m_total);
@@ -119,11 +108,6 @@ void LoadingViewModel::updateProgress()
 
     setProgressMessage(progressMessage);
     setProgress(p);
-
-    if (m_skipProgress)
-    {
-        emit syncCompleted();
-    }
 }
 
 double LoadingViewModel::getProgress() const
@@ -167,14 +151,8 @@ bool LoadingViewModel::getIsCreating() const
     return m_isCreating;
 }
 
-void LoadingViewModel::syncWithNode()
-{
-    m_walletModel.getAsync()->syncWithNode();
-}
-
 void LoadingViewModel::onNodeConnectionChanged(bool isNodeConnected)
 {
-    m_walletConnected = isNodeConnected;
 }
 
 void LoadingViewModel::onGetWalletError(beam::wallet::ErrorType error)
@@ -212,6 +190,7 @@ void LoadingViewModel::onGetWalletError(beam::wallet::ErrorType error)
             break;
     }
 
-    m_skipProgress = true;
+    // There's an unhandled error. Show wallet and display it in errorneous state
     updateProgress();
+    emit syncCompleted();
 }
