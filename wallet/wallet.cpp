@@ -20,10 +20,12 @@
 #include "utility/logger.h"
 #include "utility/helpers.h"
 #include "swaps/swap_transaction.h"
+
 #include <algorithm>
 #include <random>
 #include <iomanip>
 #include <numeric>
+
 //#include "bitcoin/bitcoind017.h"
 //#include "bitcoin/bitcoin_side.h"
 //#include "litecoin/litecoind017.h"
@@ -341,19 +343,13 @@ namespace beam::wallet
 
     void Wallet::ProcessTransaction(wallet::BaseTransaction::Ptr tx)
     {
-        auto txID = tx->GetTxID();
-        m_ActiveTransactions.emplace(txID, tx);
-        updateTransaction(txID);
+        MakeTransactionActive(tx);
+        UpdateTransaction(tx->GetTxID());
     }
 
     void Wallet::RegisterTransactionType(TxType type, BaseTransaction::Creator::Ptr creator)
     {
         m_TxCreators[type] = move(creator);
-    }
-
-    BaseTransaction::Ptr Wallet::CreateNewTransaction(TxType type)
-    {
-
     }
 
     void Wallet::RefreshTransactions()
@@ -368,7 +364,7 @@ namespace beam::wallet
                 auto t = ConstructTransaction(tx.m_txId, tx.m_txType);
                 if (t->Rollback(Height(0)))
                 {
-                    m_ActiveTransactions.emplace(tx.m_txId, t);
+                    MakeTransactionActive(t);
                 }
             }
         }
@@ -389,7 +385,7 @@ namespace beam::wallet
         {
             auto t = ConstructTransaction(tx.m_txId, tx.m_txType);
 
-            m_ActiveTransactions.emplace(tx.m_txId, t);
+            MakeTransactionActive(t);
             UpdateOnSynced(t);
         }
     }
@@ -629,7 +625,7 @@ namespace beam::wallet
 
     void Wallet::OnWalletMessage(const WalletID& myID, SetTxParameter&& msg)
     {
-        auto t = getTransaction(myID, msg);
+        auto t = GetTransaction(myID, msg);
         if (!t)
         {
             return;
@@ -659,7 +655,7 @@ namespace beam::wallet
         }
         if (txChanged)
         {
-            updateTransaction(msg.m_TxID);
+            UpdateTransaction(msg.m_TxID);
         }
     }
 
@@ -671,7 +667,7 @@ namespace beam::wallet
         if (it != m_ActiveTransactions.end())
         {
             it->second->SetParameter(TxParameterID::TransactionRegistered, r.m_Res.m_Value, r.m_SubTxID);
-            updateTransaction(r.m_TxID);
+            UpdateTransaction(r.m_TxID);
         }
     }
 
@@ -704,7 +700,7 @@ namespace beam::wallet
         }
     }
 
-    void Wallet::updateTransaction(const TxID& txID)
+    void Wallet::UpdateTransaction(const TxID& txID)
     {
         auto it = m_ActiveTransactions.find(txID);
         if (it != m_ActiveTransactions.end())
@@ -1152,7 +1148,7 @@ namespace beam::wallet
         m_WalletDB->unsubscribe(observer);
     }
 
-    BaseTransaction::Ptr Wallet::getTransaction(const WalletID& myID, const SetTxParameter& msg)
+    BaseTransaction::Ptr Wallet::GetTransaction(const WalletID& myID, const SetTxParameter& msg)
     {
         auto it = m_ActiveTransactions.find(msg.m_TxID);
         if (it != m_ActiveTransactions.end())
@@ -1178,22 +1174,24 @@ namespace beam::wallet
         }
 
         auto t = ConstructTransactionFromParameters(msg);
-
-        t->SetParameter(TxParameterID::TransactionType, msg.m_Type, false);
-        t->SetParameter(TxParameterID::CreateTime, getTimestamp(), false);
-        t->SetParameter(TxParameterID::MyID, myID, false);
-        t->SetParameter(TxParameterID::PeerID, msg.m_From, false);
-        t->SetParameter(TxParameterID::IsInitiator, false, false);
-        t->SetParameter(TxParameterID::Status, TxStatus::Pending, true);
-
-        auto address = m_WalletDB->getAddress(myID);
-        if (address.is_initialized())
+        if (t)
         {
-            ByteBuffer message(address->m_label.begin(), address->m_label.end());
-            t->SetParameter(TxParameterID::Message, message);
-        }
+            t->SetParameter(TxParameterID::TransactionType, msg.m_Type, false);
+            t->SetParameter(TxParameterID::CreateTime, getTimestamp(), false);
+            t->SetParameter(TxParameterID::MyID, myID, false);
+            t->SetParameter(TxParameterID::PeerID, msg.m_From, false);
+            t->SetParameter(TxParameterID::IsInitiator, false, false);
+            t->SetParameter(TxParameterID::Status, TxStatus::Pending, true);
 
-        m_ActiveTransactions.emplace(msg.m_TxID, t);
+            auto address = m_WalletDB->getAddress(myID);
+            if (address.is_initialized())
+            {
+                ByteBuffer message(address->m_label.begin(), address->m_label.end());
+                t->SetParameter(TxParameterID::Message, message);
+            }
+
+            MakeTransactionActive(t);
+        }
         return t;
     }
 
@@ -1206,7 +1204,7 @@ namespace beam::wallet
             return wallet::BaseTransaction::Ptr();
         }
 
-        return it->second->Create(*this, m_WalletDB, m_KeyKeeper, id);
+        return it->second->Create(m_WalletDB, m_KeyKeeper, id);
     }
 
     BaseTransaction::Ptr Wallet::ConstructTransactionFromParameters(const SetTxParameter& msg)
@@ -1218,13 +1216,19 @@ namespace beam::wallet
             return wallet::BaseTransaction::Ptr();
         }
 
-        if (it->second->CanCreate(msg))
+        if (!it->second->CanCreate(msg))
         {
             LOG_ERROR() << msg.m_TxID << " It is not permited to create this transaction";
             return wallet::BaseTransaction::Ptr();
         }
 
-        return it->second->Create(*this, m_WalletDB, m_KeyKeeper, msg.m_TxID);
+        return it->second->Create(m_WalletDB, m_KeyKeeper, msg.m_TxID);
+    }
+
+    void Wallet::MakeTransactionActive(BaseTransaction::Ptr tx)
+    {
+        m_ActiveTransactions.emplace(tx->GetTxID(), tx);
+        tx->SetGateway(this);
     }
 
     void Wallet::ProcessStoredMessages()

@@ -40,11 +40,11 @@ namespace beam::wallet
         class WrapperSecondSide
         {
         public:
-            WrapperSecondSide(INegotiatorGateway& gateway, const TxID& txID);
+            WrapperSecondSide(BaseTransaction& transaction, const TxID& txID);
             SecondSide::Ptr operator -> ();
 
         private:
-            INegotiatorGateway& m_gateway;
+            BaseTransaction& m_transaction;
             TxID m_txID;
             SecondSide::Ptr m_secondSide;
         };
@@ -101,17 +101,15 @@ namespace beam::wallet
 
        //     BaseTransaction::Ptr Create(const WalletID& from, const WalletID& to, Amount amount, Amount fee, AtomicSwapCoin swapCoin, Amount swapAmount, bool isBeamSide = true, Height lifetime = kDefaultTxLifetime, Height responseTime = kDefaultTxResponseTime);
         private:
-            BaseTransaction::Ptr Create(INegotiatorGateway& gateway
-                                        , IWalletDB::Ptr walletDB
-                                        , IPrivateKeyKeeper::Ptr keyKeeper
-                                        , const TxID& txID) override;
+            BaseTransaction::Ptr Create(IWalletDB::Ptr walletDB
+                                      , IPrivateKeyKeeper::Ptr keyKeeper
+                                      , const TxID& txID) override;
             bool CanCreate(const SetTxParameter& msg) override;
         private:
             std::vector<SwapConditions>& m_swapConditions;
         };
 
-        AtomicSwapTransaction(INegotiatorGateway& gateway
-                            , IWalletDB::Ptr walletDB
+        AtomicSwapTransaction(IWalletDB::Ptr walletDB
                             , IPrivateKeyKeeper::Ptr keyKeeper
                             , const TxID& txID);
 

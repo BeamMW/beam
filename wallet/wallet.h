@@ -124,7 +124,6 @@ namespace beam::wallet
 
         void ProcessTransaction(BaseTransaction::Ptr tx);
         void RegisterTransactionType(TxType type, BaseTransaction::Creator::Ptr creator);
-        BaseTransaction::Ptr CreateNewTransaction(TxType type);
         
     private:
         void RefreshTransactions();
@@ -167,7 +166,7 @@ namespace beam::wallet
         void getUtxoProof(const Coin::ID&);
         void report_sync_progress();
         void notifySyncProgress();
-        void updateTransaction(const TxID& txID);
+        void UpdateTransaction(const TxID& txID);
         void UpdateOnSynced(BaseTransaction::Ptr tx);
         void UpdateOnNextTip(BaseTransaction::Ptr tx);
         void saveKnownState();
@@ -177,9 +176,10 @@ namespace beam::wallet
         void SetUtxoEventsHeight(Height);
         Height GetUtxoEventsHeightNext();
 
-        BaseTransaction::Ptr getTransaction(const WalletID& myID, const SetTxParameter& msg);
+        BaseTransaction::Ptr GetTransaction(const WalletID& myID, const SetTxParameter& msg);
         BaseTransaction::Ptr ConstructTransaction(const TxID& id, TxType type);
         BaseTransaction::Ptr Wallet::ConstructTransactionFromParameters(const SetTxParameter& msg);
+        void MakeTransactionActive(BaseTransaction::Ptr tx);
         void ProcessStoredMessages();
         bool IsNodeInSync() const;
 

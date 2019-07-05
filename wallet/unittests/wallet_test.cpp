@@ -720,7 +720,10 @@ namespace
         TestWalletRig receiver("receiver", createReceiverWalletDB());
 
         TxID txID = wallet::GenerateTxID();
-        auto tx = SimpleTransaction::Create(gateway, sender.m_WalletDB, sender.m_KeyKeeper, txID);
+        SimpleTransaction::Creator creator;
+        auto tx = creator.Create(sender.m_WalletDB, sender.m_KeyKeeper, txID);
+        tx->SetGateway(&gateway);
+
         Height currentHeight = sender.m_WalletDB->getCurrentHeight();
 
         tx->SetParameter(wallet::TxParameterID::TransactionType, wallet::TxType::Simple, false);
@@ -768,6 +771,7 @@ namespace
         TestWalletRig receiver("receiver", createReceiverWalletDB());
         Height currentHeight = sender.m_WalletDB->getCurrentHeight();
 
+        SimpleTransaction::Creator txCreator;
         // process TransactionFailedException
         {
             struct TestGateway : EmptyTestGateway
@@ -779,7 +783,8 @@ namespace
             } gateway;
 
             TxID txID = wallet::GenerateTxID();
-            auto tx = SimpleTransaction::Create(gateway, sender.m_WalletDB, sender.m_KeyKeeper, txID);
+            auto tx = txCreator.Create(sender.m_WalletDB, sender.m_KeyKeeper, txID);
+            tx->SetGateway(&gateway);
 
             tx->SetParameter(wallet::TxParameterID::TransactionType, wallet::TxType::Simple, false);
             tx->SetParameter(wallet::TxParameterID::MaxHeight, currentHeight + 2, false); // transaction is valid +lifetime blocks from currentHeight
@@ -818,7 +823,8 @@ namespace
             } gateway;
 
             TxID txID = wallet::GenerateTxID();
-            auto tx = SimpleTransaction::Create(gateway, sender.m_WalletDB, sender.m_KeyKeeper, txID);
+            auto tx = txCreator.Create(sender.m_WalletDB, sender.m_KeyKeeper, txID);
+            tx->SetGateway(&gateway);
 
             tx->SetParameter(wallet::TxParameterID::TransactionType, wallet::TxType::Simple, false);
             tx->SetParameter(wallet::TxParameterID::MaxHeight, currentHeight + 2, false); // transaction is valid +lifetime blocks from currentHeight
@@ -1441,7 +1447,7 @@ int main()
 	Rules::get().pForks[1].m_Height = 100500; // needed for lightning network to work
     Rules::get().UpdateChecksum();
 
-	TestNegotiation();
+	//TestNegotiation();
 
     TestP2PWalletNegotiationST();
     //TestP2PWalletReverseNegotiationST();

@@ -23,8 +23,8 @@ using namespace ECC;
 
 namespace beam::wallet
 {
-    AtomicSwapTransaction::WrapperSecondSide::WrapperSecondSide(INegotiatorGateway& gateway, const TxID& txID)
-        : m_gateway(gateway)
+    AtomicSwapTransaction::WrapperSecondSide::WrapperSecondSide(BaseTransaction& transaction, const TxID& txID)
+        : m_transaction(transaction)
         , m_txID(txID)
     {
     }
@@ -33,7 +33,7 @@ namespace beam::wallet
     {
         if (!m_secondSide)
         {
-            m_secondSide = m_gateway.GetSecondSide(m_txID);
+            m_secondSide = m_transaction.GetGateway().GetSecondSide(m_txID);
 
             if (!m_secondSide)
             {
@@ -87,12 +87,11 @@ namespace beam::wallet
     //    return tx;
     //}
 
-    BaseTransaction::Ptr AtomicSwapTransaction::Creator::Create(INegotiatorGateway& gateway
-                                                        , IWalletDB::Ptr walletDB
-                                                        , IPrivateKeyKeeper::Ptr keyKeeper
-                                                        , const TxID& txID)
+    BaseTransaction::Ptr AtomicSwapTransaction::Creator::Create(IWalletDB::Ptr walletDB
+                                                              , IPrivateKeyKeeper::Ptr keyKeeper
+                                                              , const TxID& txID)
     {
-        return BaseTransaction::Ptr(new AtomicSwapTransaction(gateway, walletDB, keyKeeper, txID));
+        return BaseTransaction::Ptr(new AtomicSwapTransaction(walletDB, keyKeeper, txID));
     }
 
     bool AtomicSwapTransaction::Creator::CanCreate(const SetTxParameter& msg)
@@ -132,12 +131,11 @@ namespace beam::wallet
     }
 
 
-    AtomicSwapTransaction::AtomicSwapTransaction(INegotiatorGateway& gateway
-                                               , IWalletDB::Ptr walletDB
+    AtomicSwapTransaction::AtomicSwapTransaction(IWalletDB::Ptr walletDB
                                                , IPrivateKeyKeeper::Ptr keyKeeper
                                                , const TxID& txID)
-        : BaseTransaction(gateway, walletDB, keyKeeper, txID)
-        , m_secondSide(gateway, txID)
+        : BaseTransaction(walletDB, keyKeeper, txID)
+        , m_secondSide(*this, txID)
     {
     }
 
@@ -471,7 +469,7 @@ namespace beam::wallet
             {
                 LOG_INFO() << GetTxID() << " Swap completed.";
                 UpdateTxDescription(TxStatus::Completed);
-                m_Gateway.on_tx_completed(GetTxID());
+                GetGateway().on_tx_completed(GetTxID());
                 break;
             }
             case State::Cancelled:
@@ -482,7 +480,7 @@ namespace beam::wallet
 
                 RollbackTx();
 
-                m_Gateway.on_tx_completed(GetTxID());
+                GetGateway().on_tx_completed(GetTxID());
                 break;
             }
             case State::Failed:
@@ -504,7 +502,7 @@ namespace beam::wallet
                     LOG_ERROR() << GetTxID() << " Transaction failed.";
                 }
                 UpdateTxDescription(TxStatus::Failed);
-                m_Gateway.on_tx_completed(GetTxID());
+                GetGateway().on_tx_completed(GetTxID());
                 break;
             }
 
@@ -512,7 +510,7 @@ namespace beam::wallet
             {
                 LOG_INFO() << GetTxID() << " Swap has not succeeded.";
                 UpdateTxDescription(TxStatus::Completed);
-                m_Gateway.on_tx_completed(GetTxID());
+                GetGateway().on_tx_completed(GetTxID());
                 break;
             }
 
@@ -1025,7 +1023,7 @@ namespace beam::wallet
     	uint8_t nRegistered = proto::TxStatus::Unspecified;
         if (!GetParameter(TxParameterID::TransactionRegistered, nRegistered, subTxID))
         {
-            m_Gateway.register_tx(GetTxID(), transaction, subTxID);
+            GetGateway().register_tx(GetTxID(), transaction, subTxID);
             return (proto::TxStatus::Ok == nRegistered);
         }
 
@@ -1055,7 +1053,7 @@ namespace beam::wallet
         if (!hProof)
         {
             Merkle::Hash kernelID = GetMandatoryParameter<Merkle::Hash>(TxParameterID::KernelID, subTxID);
-            m_Gateway.confirm_kernel(GetTxID(), kernelID, subTxID);
+            GetGateway().confirm_kernel(GetTxID(), kernelID, subTxID);
             return false;
         }
 
@@ -1101,7 +1099,7 @@ namespace beam::wallet
         if (!hProof)
         {
             Merkle::Hash kernelID = GetMandatoryParameter<Merkle::Hash>(TxParameterID::KernelID, SubTxIndex::BEAM_REDEEM_TX);
-            m_Gateway.get_kernel(GetTxID(), kernelID, subTxID);
+            GetGateway().get_kernel(GetTxID(), kernelID, subTxID);
             return false;
         }
 

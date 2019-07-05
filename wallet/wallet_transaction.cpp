@@ -25,19 +25,17 @@ namespace beam::wallet
     using namespace std;
 
 
-    BaseTransaction::Ptr SimpleTransaction::Creator::Create(INegotiatorGateway& gateway
-                                                            , IWalletDB::Ptr walletDB
-                                                            , IPrivateKeyKeeper::Ptr keyKeeper
-                                                            , const TxID& txID)
+    BaseTransaction::Ptr SimpleTransaction::Creator::Create(IWalletDB::Ptr walletDB
+                                                          , IPrivateKeyKeeper::Ptr keyKeeper
+                                                          , const TxID& txID)
     {
-        return BaseTransaction::Ptr(new SimpleTransaction(gateway, walletDB, keyKeeper, txID));
+        return BaseTransaction::Ptr(new SimpleTransaction(walletDB, keyKeeper, txID));
     }
 
-    SimpleTransaction::SimpleTransaction(INegotiatorGateway& gateway
-                                        , IWalletDB::Ptr walletDB
-                                        , IPrivateKeyKeeper::Ptr keyKeeper
-                                        , const TxID& txID)
-        : BaseTransaction{ gateway, walletDB, keyKeeper, txID }
+    SimpleTransaction::SimpleTransaction(IWalletDB::Ptr walletDB
+                                       , IPrivateKeyKeeper::Ptr keyKeeper
+                                       , const TxID& txID)
+        : BaseTransaction{ walletDB, keyKeeper, txID }
     {
 
     }
@@ -269,7 +267,7 @@ namespace beam::wallet
                 OnFailed(TxFailureReason::InvalidTransaction, true);
                 return;
             }
-            m_Gateway.register_tx(GetTxID(), transaction);
+            GetGateway().register_tx(GetTxID(), transaction);
             SetState(State::Registration);
             return;
         }

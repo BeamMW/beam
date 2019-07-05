@@ -14,22 +14,11 @@ set(WALLET_SRC
     wallet_db.cpp
     wallet_client.h
     wallet_client.cpp
-    swaps/swap_transaction.cpp
-    swaps/lock_tx_builder.cpp
-    swaps/shared_tx_builder.cpp
-    bitcoin/bitcoin_side.cpp
-    bitcoin/bitcoind016.cpp
-    bitcoin/bitcoind017.cpp
-    litecoin/litecoind016.cpp
-    litecoin/litecoind017.cpp
-    qtum/qtumd017.cpp
-    secstring2.cpp
     unittests/util.cpp
 )
 
 add_library(wallet STATIC ${WALLET_SRC})
-add_dependencies(wallet core sqlite libbitcoin http)
-target_link_libraries(wallet core sqlite libbitcoin http)
+target_link_libraries(wallet core sqlite swap)
 target_include_directories(wallet PUBLIC "${CMAKE_SOURCE_DIR}/3rdparty/libbitcoin/include")
 
 if (NOT ANDROID)
@@ -95,6 +84,7 @@ if(LINUX)
 endif()
 
 add_subdirectory(unittests)
+add_subdirectory(swaps)
 
 if (BEAM_SIGN_PACKAGE AND WIN32)
     add_custom_command(
