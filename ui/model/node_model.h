@@ -49,6 +49,8 @@ signals:
     void stoppedNode();
     void failedToStartNode(beam::wallet::ErrorType errorType);
     void failedToSyncNode(beam::wallet::ErrorType errorType);
+    void createdNode();
+    void destroyedNode();
 
 protected:
     void onSyncProgressUpdated(int done, int total) override;
@@ -56,6 +58,8 @@ protected:
     void onStoppedNode() override;
     void onFailedToStartNode(beam::io::ErrorCode errorCode) override;
     void onSyncError(beam::Node::IObserver::Error error) override;
+    void onNodeCreated() override;
+    void onNodeDestroyed() override;
 
     uint16_t getLocalNodePort() override;
     std::string getLocalNodeStorage() override;

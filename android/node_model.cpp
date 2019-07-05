@@ -89,6 +89,24 @@ void NodeModel::onStoppedNode()
     env->CallStaticVoidMethod(WalletListenerClass, callback);
 }
 
+void NodeModel::onNodeCreated()
+{
+    JNIEnv* env = Android_JNI_getEnv();
+
+    jmethodID callback = env->GetStaticMethodID(WalletListenerClass, "onNodeCreated", "()V");
+
+    env->CallStaticVoidMethod(WalletListenerClass, callback);
+}
+
+void NodeModel::onNodeDestroyed()
+{
+    JNIEnv* env = Android_JNI_getEnv();
+
+    jmethodID callback = env->GetStaticMethodID(WalletListenerClass, "onNodeDestroyed", "()V");
+
+    env->CallStaticVoidMethod(WalletListenerClass, callback);
+}
+
 // void NodeModel::onFailedToStartNode()
 // {
 //     JNIEnv* env = Android_JNI_getEnv();

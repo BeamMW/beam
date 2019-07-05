@@ -199,50 +199,56 @@ void NodeClient::runLocalNode()
 
     LOG_INFO() << "starting a node on " << node.m_Cfg.m_Listen.port() << " port...";
 
-    struct MyObserver
+    class MyObserver
         :public Node::IObserver
     {
-        Node* m_pNode;
-        NodeClient* m_pModel;
+    public:
+        MyObserver(Node& node, NodeClient& model)
+            : m_node(node)
+            , m_model(model)
+        {
+            assert(m_model.m_observer);
+            m_model.m_observer->onNodeCreated();
+        }
 
-		bool m_bReportedStarted = false;
+        ~MyObserver()
+        {
+            assert(m_model.m_observer);
+            if (m_reportedStarted) m_model.m_observer->onStoppedNode();
+            m_model.m_observer->onNodeDestroyed();
+        }
 
         void OnSyncProgress() override
         {
-            Node::SyncStatus s = m_pNode->m_SyncStatus;
+            Node::SyncStatus s = m_node.m_SyncStatus;
 
-			if (!m_bReportedStarted && (s.m_Done == s.m_Total))
+			if (!m_reportedStarted && (s.m_Done == s.m_Total))
 			{
-				m_bReportedStarted = true;
-				m_pModel->m_observer->onStartedNode();
+                m_reportedStarted = true;
+                m_model.m_observer->onStartedNode();
 			}
 
 			// make sure no overflow during conversion from SyncStatus to int,int.
-			unsigned int nThreshold = static_cast<unsigned int>(std::numeric_limits<int>::max());
-            while (s.m_Total > nThreshold)
+			const auto threshold = static_cast<unsigned int>(std::numeric_limits<int>::max());
+            while (s.m_Total > threshold)
             {
                 s.m_Total >>= 1;
                 s.m_Done >>= 1;
             }
 
-            m_pModel->m_observer->onSyncProgressUpdated(static_cast<int>(s.m_Done), static_cast<int>(s.m_Total));
+            m_model.m_observer->onSyncProgressUpdated(static_cast<int>(s.m_Done), static_cast<int>(s.m_Total));
         }
 
         void OnSyncError(Node::IObserver::Error error) override
         {
-            m_pModel->m_observer->onSyncError(error);
+            m_model.m_observer->onSyncError(error);
         }
 
-		~MyObserver()
-		{
-			if (m_bReportedStarted)
-				m_pModel->m_observer->onStoppedNode();
-		}
-
-    } obs;
-
-    obs.m_pNode = &node;
-    obs.m_pModel = this;
+    private:
+        Node& m_node;
+        NodeClient& m_model;
+        bool m_reportedStarted = false;
+    } obs(node, *this);
 
     node.m_Cfg.m_Observer = &obs;
     node.Initialize();
@@ -251,10 +257,9 @@ void NodeClient::runLocalNode()
     {
         throw std::runtime_error("Resolved peer list is empty");
     }
+
     m_isRunning = true;
-
     io::Reactor::get_Current().run();
-
     m_isRunning = false;
 }
 }

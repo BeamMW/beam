@@ -44,12 +44,16 @@ public slots:
     void onNodeSyncProgressUpdated(int done, int total);
     void onNodeConnectionChanged(bool isNodeConnected);
     void onGetWalletError(beam::wallet::ErrorType error);
+    void onWalletReseted();
+
 signals:
     void progressChanged();
     void progressMessageChanged();
     void syncCompleted();
     void walletError(const QString& title, const QString& message);
     void isCreatingChanged();
+    void walletReseted();
+
 private:
     void updateProgress();
     void syncWithNode();

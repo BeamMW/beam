@@ -361,7 +361,7 @@ void PaymentInfoItem::reset()
 MyPaymentInfoItem::MyPaymentInfoItem(const TxID& txID, QObject* parent/* = nullptr*/)
     : PaymentInfoItem(parent)
 {
-    auto model = AppModel::getInstance()->getWallet();
+    auto model = AppModel::getInstance().getWallet();
     connect(model.get(), SIGNAL(paymentProofExported(const beam::wallet::TxID&, const QString&)), SLOT(onPaymentProofExported(const beam::wallet::TxID&, const QString&)));
     model->getAsync()->exportPaymentProof(txID);
 }
@@ -375,8 +375,8 @@ void MyPaymentInfoItem::onPaymentProofExported(const beam::wallet::TxID& txID, c
 //////////
 // WalletViewModel
 WalletViewModel::WalletViewModel()
-    : _model(*AppModel::getInstance()->getWallet())
-    , _settings(AppModel::getInstance()->getSettings())
+    : _model(*AppModel::getInstance().getWallet())
+    , _settings(AppModel::getInstance().getSettings())
     , _status{ 0, 0, 0, 0, {0, 0, 0}, {} }
     , _sendAmount("0")
     , _amountForReceive(0.0)
@@ -667,7 +667,7 @@ bool WalletViewModel::isPasswordReqiredToSpendMoney() const
 bool WalletViewModel::isPasswordValid(const QString& value) const
 {
     SecString secretPass = value.toStdString();
-    return AppModel::getInstance()->checkWalletPassword(secretPass);
+    return AppModel::getInstance().checkWalletPassword(secretPass);
 }
 
 bool WalletViewModel::isAddressWithCommentExist(const QString& comment) const

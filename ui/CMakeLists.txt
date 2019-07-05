@@ -110,6 +110,7 @@ set(UI_SRC
     model/node_model.cpp
     model/qr.h
     model/qr.cpp
+    model/helpers.h
 )
 
 beam_translations_update_ts("${SUPPORTED_LANGS}" TS_FILES)
