@@ -1,4 +1,5 @@
 cmake_minimum_required(VERSION 3.5)
+cmake_policy(SET CMP0074 NEW)
 
 set(VERSION_MAJOR 3)
 set(VERSION_MINOR 0)

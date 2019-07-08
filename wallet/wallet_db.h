@@ -73,7 +73,7 @@ namespace beam::wallet
         Height m_spentHeight;   // height at which the coin was spent
 
         boost::optional<TxID> m_createTxId;  // id of the transaction which created the UTXO
-        boost::optional<TxID> m_spentTxId;   // id of the transaction which spernt the UTXO
+        boost::optional<TxID> m_spentTxId;   // id of the transaction which spent the UTXO
         
         uint64_t m_sessionId;   // Used in the API to lock coins for specific session (see https://github.com/BeamMW/beam/wiki/Beam-wallet-protocol-API#tx_split)
 
