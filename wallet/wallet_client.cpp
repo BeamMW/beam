@@ -460,7 +460,6 @@ namespace beam::wallet
         try
         {
             WalletAddress senderAddress = storage::createAddress(*m_walletDB);
-            senderAddress.m_label = comment;
             saveAddress(senderAddress, true); // should update the wallet_network
 
             ByteBuffer message(comment.begin(), comment.end());
@@ -654,7 +653,6 @@ namespace beam::wallet
             {
                 if (addr->m_OwnID)
                 {
-                    addr->setLabel(name);
                     if (makeExpired)
                     {
                         addr->makeExpired();
@@ -668,13 +666,9 @@ namespace beam::wallet
                         // set expiration date to 24h since now
                         addr->makeActive(WalletAddress::AddressExpiration24h);
                     }
-
-                    m_walletDB->saveAddress(*addr);
                 }
-                else
-                {
-                    LOG_ERROR() << "It's not implemented!";
-                }
+                addr->setLabel(name);
+                m_walletDB->saveAddress(*addr);
             }
             else
             {

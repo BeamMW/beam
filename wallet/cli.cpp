@@ -487,7 +487,7 @@ namespace
         return -1;
     }
 
-    WalletAddress CreateNewAddress(const IWalletDB::Ptr& walletDB, const std::string& comment, bool isNever = false)
+    WalletAddress CreateNewAddress(const IWalletDB::Ptr& walletDB, const std::string& label, bool isNever = false)
     {
         WalletAddress address = storage::createAddress(*walletDB);
 
@@ -496,12 +496,12 @@ namespace
             address.m_duration = 0;
         }
 
-        address.m_label = comment;
+        address.m_label = label;
         walletDB->saveAddress(address);
 
         LOG_INFO() << "New address generated:\n\n" << std::to_string(address.m_walletID) << "\n";
-        if (!comment.empty()) {
-            LOG_INFO() << "comment = " << comment;
+        if (!label.empty()) {
+            LOG_INFO() << "label = " << label;
         }
         return address;
     }
