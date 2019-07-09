@@ -23,8 +23,8 @@ using namespace ECC;
 
 namespace beam::wallet
 {
-    AtomicSwapTransaction::WrapperSecondSide::WrapperSecondSide(BaseTransaction& transaction, const TxID& txID)
-        : m_transaction(transaction)
+    AtomicSwapTransaction::WrapperSecondSide::WrapperSecondSide(INegotiatorGateway& gateway, const TxID& txID)
+        : m_gateway(gateway)
         , m_txID(txID)
     {
     }
@@ -33,7 +33,7 @@ namespace beam::wallet
     {
         if (!m_secondSide)
         {
-            m_secondSide = m_transaction.GetGateway().GetSecondSide(m_txID);
+            m_secondSide = m_gateway.GetSecondSide(m_txID);
 
             if (!m_secondSide)
             {
@@ -87,11 +87,12 @@ namespace beam::wallet
     //    return tx;
     //}
 
-    BaseTransaction::Ptr AtomicSwapTransaction::Creator::Create(IWalletDB::Ptr walletDB
+    BaseTransaction::Ptr AtomicSwapTransaction::Creator::Create(INegotiatorGateway& gateway
+                                                              , IWalletDB::Ptr walletDB
                                                               , IPrivateKeyKeeper::Ptr keyKeeper
                                                               , const TxID& txID)
     {
-        return BaseTransaction::Ptr(new AtomicSwapTransaction(walletDB, keyKeeper, txID));
+        return BaseTransaction::Ptr(new AtomicSwapTransaction(gateway, walletDB, keyKeeper, txID));
     }
 
     bool AtomicSwapTransaction::Creator::CanCreate(const SetTxParameter& msg)
@@ -131,11 +132,12 @@ namespace beam::wallet
     }
 
 
-    AtomicSwapTransaction::AtomicSwapTransaction(IWalletDB::Ptr walletDB
+    AtomicSwapTransaction::AtomicSwapTransaction(INegotiatorGateway& gateway
+                                               , IWalletDB::Ptr walletDB
                                                , IPrivateKeyKeeper::Ptr keyKeeper
                                                , const TxID& txID)
-        : BaseTransaction(walletDB, keyKeeper, txID)
-        , m_secondSide(*this, txID)
+        : BaseTransaction(gateway, walletDB, keyKeeper, txID)
+        , m_secondSide(gateway, txID)
     {
     }
 

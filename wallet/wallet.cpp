@@ -1204,7 +1204,7 @@ namespace beam::wallet
             return wallet::BaseTransaction::Ptr();
         }
 
-        return it->second->Create(m_WalletDB, m_KeyKeeper, id);
+        return it->second->Create(*this, m_WalletDB, m_KeyKeeper, id);
     }
 
     BaseTransaction::Ptr Wallet::ConstructTransactionFromParameters(const SetTxParameter& msg)
@@ -1222,13 +1222,12 @@ namespace beam::wallet
             return wallet::BaseTransaction::Ptr();
         }
 
-        return it->second->Create(m_WalletDB, m_KeyKeeper, msg.m_TxID);
+        return it->second->Create(*this, m_WalletDB, m_KeyKeeper, msg.m_TxID);
     }
 
     void Wallet::MakeTransactionActive(BaseTransaction::Ptr tx)
     {
         m_ActiveTransactions.emplace(tx->GetTxID(), tx);
-        tx->SetGateway(this);
     }
 
     void Wallet::ProcessStoredMessages()

@@ -300,11 +300,11 @@ namespace beam::wallet
 
     const uint32_t BaseTransaction::s_ProtoVersion = 3;
 
-    BaseTransaction::BaseTransaction(
-        IWalletDB::Ptr walletDB
+    BaseTransaction::BaseTransaction(INegotiatorGateway& gateway
+        , IWalletDB::Ptr walletDB
         , IPrivateKeyKeeper::Ptr keyKeeper
         , const TxID& txID)
-        : m_Gateway{ nullptr }
+        : m_Gateway{ gateway }
         , m_WalletDB{ walletDB }
         , m_KeyKeeper{ keyKeeper }
         , m_ID{ txID }
@@ -330,7 +330,6 @@ namespace beam::wallet
 
     bool BaseTransaction::GetTip(Block::SystemState::Full& state) const
     {
-        assert(m_Gateway);
         return GetGateway().get_tip(state);
     }
 
@@ -354,16 +353,9 @@ namespace beam::wallet
         return m_ID;
     }
 
-    void BaseTransaction::SetGateway(INegotiatorGateway* gateway)
-    {
-        assert(!m_Gateway);
-        m_Gateway = gateway;
-    }
-
     void BaseTransaction::Update()
     {
-        assert(m_Gateway);
-        AsyncContextHolder async(*m_Gateway);
+        AsyncContextHolder async(m_Gateway);
         try
         {
             m_EventToUpdate.reset();
@@ -438,8 +430,7 @@ namespace beam::wallet
 
     INegotiatorGateway& BaseTransaction::GetGateway() const
     {
-        assert(m_Gateway);
-        return *m_Gateway;
+        return m_Gateway;
     }
 
     bool BaseTransaction::CheckExpired()

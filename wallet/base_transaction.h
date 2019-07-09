@@ -39,7 +39,6 @@ namespace beam::wallet
         using Ptr = std::shared_ptr<ITransaction>;
 
         virtual TxType GetType() const = 0;
-        virtual void SetGateway(INegotiatorGateway* gateway) = 0;
         virtual void Update() = 0;
         virtual void Cancel() = 0;
         virtual bool Rollback(Height height) = 0;
@@ -191,17 +190,17 @@ namespace beam::wallet
         public:
             using Ptr = std::unique_ptr<Creator>;
 
-            virtual BaseTransaction::Ptr Create(IWalletDB::Ptr, IPrivateKeyKeeper::Ptr, const TxID&) = 0;
+            virtual BaseTransaction::Ptr Create(INegotiatorGateway& gateway, WalletDB::Ptr, IPrivateKeyKeeper::Ptr, const TxID&) = 0;
             virtual bool CanCreate(const SetTxParameter&) { return true; };
         };
 
-        BaseTransaction(IWalletDB::Ptr walletDB
+        BaseTransaction(INegotiatorGateway& gateway
+                      , IWalletDB::Ptr walletDB
                       , IPrivateKeyKeeper::Ptr keyKeeper
                       , const TxID& txID);
         virtual ~BaseTransaction(){}
 
         const TxID& GetTxID() const;
-        void SetGateway(INegotiatorGateway* gateway) override;
         void Update() override;
         void Cancel() override;
 
@@ -273,7 +272,7 @@ namespace beam::wallet
         virtual bool ShouldNotifyAboutChanges(TxParameterID paramID) const { return true; };
     protected:
 
-        INegotiatorGateway* m_Gateway;
+        INegotiatorGateway& m_Gateway;
         IWalletDB::Ptr m_WalletDB;
         IPrivateKeyKeeper::Ptr m_KeyKeeper;
 

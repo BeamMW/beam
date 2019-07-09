@@ -721,8 +721,7 @@ namespace
 
         TxID txID = wallet::GenerateTxID();
         SimpleTransaction::Creator creator;
-        auto tx = creator.Create(sender.m_WalletDB, sender.m_KeyKeeper, txID);
-        tx->SetGateway(&gateway);
+        auto tx = creator.Create(gateway, sender.m_WalletDB, sender.m_KeyKeeper, txID);
 
         Height currentHeight = sender.m_WalletDB->getCurrentHeight();
 
@@ -783,8 +782,7 @@ namespace
             } gateway;
 
             TxID txID = wallet::GenerateTxID();
-            auto tx = txCreator.Create(sender.m_WalletDB, sender.m_KeyKeeper, txID);
-            tx->SetGateway(&gateway);
+            auto tx = txCreator.Create(gateway, sender.m_WalletDB, sender.m_KeyKeeper, txID);
 
             tx->SetParameter(wallet::TxParameterID::TransactionType, wallet::TxType::Simple, false);
             tx->SetParameter(wallet::TxParameterID::MaxHeight, currentHeight + 2, false); // transaction is valid +lifetime blocks from currentHeight
@@ -823,8 +821,7 @@ namespace
             } gateway;
 
             TxID txID = wallet::GenerateTxID();
-            auto tx = txCreator.Create(sender.m_WalletDB, sender.m_KeyKeeper, txID);
-            tx->SetGateway(&gateway);
+            auto tx = txCreator.Create(gateway, sender.m_WalletDB, sender.m_KeyKeeper, txID);
 
             tx->SetParameter(wallet::TxParameterID::TransactionType, wallet::TxType::Simple, false);
             tx->SetParameter(wallet::TxParameterID::MaxHeight, currentHeight + 2, false); // transaction is valid +lifetime blocks from currentHeight
