@@ -142,6 +142,7 @@ namespace beam
 
 #ifdef WIN32
 	std::wstring Utf8toUtf16(const char*);
+	std::wstring Utf8toUtf16(const std::string&);
 #endif // WIN32
 
 	bool DeleteFile(const char*);

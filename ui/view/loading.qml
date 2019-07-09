@@ -87,11 +87,14 @@ Item
 
             confirmationDialog.open();
         }
+
+        onWalletReseted: {
+            if(cancelCallback) cancelCallback();
+        }
     }
 
     function cancelCreating() {
         viewModel.resetWallet();
-        cancelCallback();
     }
 
     function changeNodeSettings () {
@@ -197,10 +200,12 @@ Item
 
                         CustomButton {
                             visible: (isCreating || isRecoveryMode)
+                            enabled: true
                             //% "Cancel"
                             text: qsTrId("general-cancel")
                             icon.source: "qrc:/assets/icon-cancel.svg"
                             onClicked: {
+                                this.enabled = false;
                                 cancelCreating();
                             }
                         }

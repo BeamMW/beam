@@ -321,4 +321,5 @@ private:
     QString _sortRole;
     int _expires;
     std::unique_ptr<QR> _qr;
+    beam::wallet::TxParameters m_txParameters;
 };

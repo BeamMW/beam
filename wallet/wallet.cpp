@@ -57,40 +57,6 @@ namespace beam::wallet
         }
     }
 
-    int WalletID::cmp(const WalletID& x) const
-    {
-        int n = m_Channel.cmp(x.m_Channel);
-        if (n)
-            return n;
-        return m_Pk.cmp(x.m_Pk);
-    }
-
-    bool WalletID::FromBuf(const ByteBuffer& x)
-    {
-        if (x.size() > sizeof(*this))
-            return false;
-
-        typedef uintBig_t<sizeof(*this)> BigSelf;
-        static_assert(sizeof(BigSelf) == sizeof(*this), "");
-
-        *reinterpret_cast<BigSelf*>(this) = Blob(x);
-        return true;
-    }
-
-    bool WalletID::FromHex(const std::string& s)
-    {
-        bool bValid = true;
-        ByteBuffer bb = from_hex(s, &bValid);
-
-        return bValid && FromBuf(bb);
-    }
-
-    bool WalletID::IsValid() const
-    {
-        Point::Native p;
-        return proto::ImportPeerID(p, m_Pk);
-    }
-
     // @param SBBS address as string
     // Returns whether the address is a valid SBBS address i.e. a point on an ellyptic curve
     bool check_receiver_address(const std::string& addr)
@@ -120,9 +86,26 @@ namespace beam::wallet
         ResumeAllTransactions();
     }
 
+    Wallet::~Wallet()
+    {
+        CleanupNetwork();
+    }
+
+    void Wallet::CleanupNetwork()
+    {
+        // clear all requests
+#define THE_MACRO(type, msgOut, msgIn) \
+                while (!m_Pending##type.empty()) \
+                    DeleteReq(*m_Pending##type.begin());
+
+        REQUEST_TYPES_All(THE_MACRO)
+#undef THE_MACRO
+
+        m_MessageEndpoints.clear();
+        m_NodeEndpoint = nullptr;
+    }
 
     // Fly client implementation
-
     void Wallet::get_Kdf(Key::IKdf::Ptr& pKdf)
     {
         pKdf = m_WalletDB->get_MasterKdf();
@@ -156,8 +139,6 @@ namespace beam::wallet
         return m_WalletDB->get_History();
     }
 
-    // 
-
     void Wallet::SetNodeEndpoint(std::shared_ptr<proto::FlyClient::INetwork> nodeEndpoint)
     {
         m_NodeEndpoint = nodeEndpoint;
@@ -167,7 +148,6 @@ namespace beam::wallet
     {
         m_MessageEndpoints.insert(endpoint);
     }
-
 
     // Atomic Swap related methods
     // TODO: Refactor
@@ -190,17 +170,6 @@ namespace beam::wallet
     //{
     //    m_swapConditions.push_back(SwapConditions{ beamAmount, swapAmount, swapCoin, isBeamSide, chainType });
     //}
-
-    Wallet::~Wallet()
-    {
-        // clear all requests
-#define THE_MACRO(type, msgOut, msgIn) \
-        while (!m_Pending##type.empty()) \
-            DeleteReq(*m_Pending##type.begin());
-
-        REQUEST_TYPES_All(THE_MACRO)
-#undef THE_MACRO
-    }
 
     TxID Wallet::transfer_money(const WalletID& from, const WalletID& to, Amount amount, Amount fee, bool sender, Height lifetime, Height responseTime, ByteBuffer&& message, bool saveReceiver)
     {

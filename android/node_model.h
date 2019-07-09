@@ -38,6 +38,8 @@ public:
 
 protected:
     void onSyncProgressUpdated(int done, int total) override;
+    void onNodeCreated() override;
+    void onNodeDestroyed() override;
     void onStartedNode() override;
     void onStoppedNode() override;
     // void onFailedToStartNode() override;

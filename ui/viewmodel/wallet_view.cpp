@@ -361,7 +361,7 @@ void PaymentInfoItem::reset()
 MyPaymentInfoItem::MyPaymentInfoItem(const TxID& txID, QObject* parent/* = nullptr*/)
     : PaymentInfoItem(parent)
 {
-    auto model = AppModel::getInstance()->getWallet();
+    auto model = AppModel::getInstance().getWallet();
     connect(model.get(), SIGNAL(paymentProofExported(const beam::wallet::TxID&, const QString&)), SLOT(onPaymentProofExported(const beam::wallet::TxID&, const QString&)));
     model->getAsync()->exportPaymentProof(txID);
 }
@@ -375,8 +375,8 @@ void MyPaymentInfoItem::onPaymentProofExported(const beam::wallet::TxID& txID, c
 //////////
 // WalletViewModel
 WalletViewModel::WalletViewModel()
-    : _model(*AppModel::getInstance()->getWallet())
-    , _settings(AppModel::getInstance()->getSettings())
+    : _model(*AppModel::getInstance().getWallet())
+    , _settings(AppModel::getInstance().getSettings())
     , _status{ 0, 0, 0, 0, {0, 0, 0}, {} }
     , _sendAmount("0")
     , _amountForReceive(0.0)
@@ -543,7 +543,9 @@ void WalletViewModel::onTxStatus(beam::wallet::ChangeAction action, const std::v
             txIt = find_if(txIt, txEnd, [&item](const auto& tx) {return item.m_txId == tx->getTxDescription().m_txId; });
             if (txIt == txEnd)
             {
-                break;
+                // insert new object
+                _txList.insert(0, new TxObject(item));
+                continue;
             }
             (*txIt)->update(item);
         }
@@ -649,6 +651,7 @@ void WalletViewModel::setReceiverAddr(const QString& value)
     auto trimmedValue = value.trimmed();
     if (_receiverAddr != trimmedValue)
     {
+        m_txParameters = TxParameters(trimmedValue.toStdString());
         _receiverAddr = trimmedValue;
         emit receiverAddrChanged();
     }
@@ -667,7 +670,7 @@ bool WalletViewModel::isPasswordReqiredToSpendMoney() const
 bool WalletViewModel::isPasswordValid(const QString& value) const
 {
     SecString secretPass = value.toStdString();
-    return AppModel::getInstance()->checkWalletPassword(secretPass);
+    return AppModel::getInstance().checkWalletPassword(secretPass);
 }
 
 bool WalletViewModel::isAddressWithCommentExist(const QString& comment) const

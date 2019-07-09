@@ -41,7 +41,7 @@ WalletModel::WalletModel(IWalletDB::Ptr walletDB, const std::string& nodeAddr, b
 
 WalletModel::~WalletModel()
 {
-
+    stopReactor();
 }
 
 QString WalletModel::GetErrorString(beam::wallet::ErrorType type)
@@ -69,7 +69,7 @@ QString WalletModel::GetErrorString(beam::wallet::ErrorType type)
         return qtTrId("wallet-model-connection-host-unreach-error") + ": " + getNodeAddress().c_str();
     case wallet::ErrorType::ConnectionAddrInUse:
     {
-        auto localNodePort = AppModel::getInstance()->getSettings().getLocalNodePort();
+        auto localNodePort = AppModel::getInstance().getSettings().getLocalNodePort();
         //% "The port %1 is already in use. Check if a wallet is already running on this machine or change the port settings."
         return qtTrId("wallet-model-connection-addr-in-use-error").arg(QString::number(localNodePort));
     }
@@ -172,7 +172,7 @@ void WalletModel::onWalletError(beam::wallet::ErrorType error)
 void WalletModel::FailedToStartWallet()
 {
     //% "Failed to start wallet. Please check your wallet data location"
-    AppModel::getInstance()->getMessages().addMessage(qtTrId("wallet-model-data-location-error"));
+    AppModel::getInstance().getMessages().addMessage(qtTrId("wallet-model-data-location-error"));
 }
 
 void WalletModel::onSendMoneyVerified()

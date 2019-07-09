@@ -108,7 +108,7 @@ beam::Height UtxoItem::rawMaturity() const
 
 
 UtxoViewModel::UtxoViewModel()
-    : _model{*AppModel::getInstance()->getWallet()}
+    : _model{*AppModel::getInstance().getWallet()}
     , _sortOrder(Qt::DescendingOrder)
 {
     connect(&_model, SIGNAL(allUtxoChanged(const std::vector<beam::wallet::Coin>&)),

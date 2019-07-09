@@ -123,78 +123,6 @@ namespace beam::wallet
 #undef MACRO
     };
 
-    // Specifies key transaction parameters for interaction with Wallet Clients
-    struct TxDescription
-    {
-        TxDescription() = default;
-
-        TxDescription(const TxID& txId
-                    , wallet::TxType txType
-                    , Amount amount
-                    , Amount fee
-                    , Height minHeight
-                    , const WalletID& peerId
-                    , const WalletID& myId
-                    , ByteBuffer&& message
-                    , Timestamp createTime
-                    , bool sender)
-            : m_txId{ txId }
-            , m_txType{ txType }
-            , m_amount{ amount }
-            , m_fee{ fee }
-            , m_change{}
-            , m_minHeight{ minHeight }
-            , m_peerId{ peerId }
-            , m_myId{myId}
-            , m_message{ std::move(message) }
-            , m_createTime{ createTime }
-            , m_modifyTime{ createTime }
-            , m_sender{ sender }
-            , m_status{ TxStatus::Pending }
-        {
-
-        }
-
-        TxID m_txId;
-        wallet::TxType m_txType = wallet::TxType::Simple;
-        Amount m_amount=0;
-        Amount m_fee=0;
-        Amount m_change=0;
-        Height m_minHeight=0;
-        WalletID m_peerId = Zero;
-        WalletID m_myId = Zero;
-        ByteBuffer m_message;
-        Timestamp m_createTime=0;
-        Timestamp m_modifyTime=0;
-        bool m_sender=false;
-        bool m_selfTx = false;
-        TxStatus m_status=TxStatus::Pending;
-        Merkle::Hash m_kernelID = Zero;
-        TxFailureReason m_failureReason = TxFailureReason::Unknown;
-
-        bool canResume() const
-        {
-            return m_status == TxStatus::Pending 
-                || m_status == TxStatus::InProgress 
-                || m_status == TxStatus::Registering;
-        }
-
-        bool canCancel() const
-        {
-            return m_status == TxStatus::InProgress
-                || m_status == TxStatus::Pending;
-        }
-
-        bool canDelete() const
-        {
-            return m_status == TxStatus::Failed
-                || m_status == TxStatus::Completed
-                || m_status == TxStatus::Cancelled;
-        }
-
-        std::string getStatusString() const;
-    };
-
     template<typename T>
     bool fromByteBuffer(const ByteBuffer& b, T& value)
     {
@@ -213,7 +141,7 @@ namespace beam::wallet
     ByteBuffer toByteBuffer(const T& value)
     {
         Serializer s;
-        s& value;
+        s & value;
         ByteBuffer b;
         s.swap_buf(b);
         return b;
@@ -331,6 +259,98 @@ namespace beam::wallet
 
     };
 
+    // Holds transaction parameters as key/value
+    class TxParameters
+    {
+    public:
+        TxParameters() = default;
+        TxParameters(const std::string& token);
+
+        template <typename T>
+        boost::optional<T> GetParameter(TxParameterID parameterID) const
+        {
+            auto buffer = GetParameter(parameterID);
+            if (buffer && buffer->empty())
+            {
+                Deserializer d;
+                d.reset(buffer->data(), buffer->size());
+                boost::optional<T> value;
+                d & value;
+                return value;
+            }
+            return boost::optional<T>();
+        }
+
+        template <typename T>
+        void SetParameter(TxParameterID parameterID, const T& value)
+        {
+            SetParameter(parameterID, toByteBuffer(value));
+        }
+
+        SERIALIZE(m_Parameters);
+
+        boost::optional<ByteBuffer> GetParameter(TxParameterID parameterID) const;
+        void SetParameter(TxParameterID parameterID, const ByteBuffer& parameter);
+    private:
+        std::unordered_map<TxParameterID, ByteBuffer> m_Parameters;
+    };
+
+    // Specifies key transaction parameters for interaction with Wallet Clients
+    struct TxDescription : public TxParameters
+    {
+        TxDescription() = default;
+
+        TxDescription(const TxID& txId
+            , TxType txType = TxType::Simple
+            , Amount amount = 0
+            , Amount fee =0
+            , Height minHeight = 0
+            , const WalletID & peerId = {}
+            , const WalletID& myId = {}
+            , ByteBuffer&& message = {}
+            , Timestamp createTime = {}
+            , bool sender = true)
+            : m_txId{ txId }
+            , m_txType{ txType }
+            , m_amount{ amount }
+            , m_fee{ fee }
+            , m_change{}
+            , m_minHeight{ minHeight }
+            , m_peerId{ peerId }
+            , m_myId{ myId }
+            , m_message{ std::move(message) }
+            , m_createTime{ createTime }
+            , m_modifyTime{ createTime }
+            , m_sender{ sender }
+            , m_status{ TxStatus::Pending }
+        {
+
+        }
+
+        bool canResume() const;
+        bool canCancel() const;
+        bool canDelete() const;
+        std::string getStatusString() const;
+
+    //private:
+        TxID m_txId = {};
+        wallet::TxType m_txType = wallet::TxType::Simple;
+        Amount m_amount = 0;
+        Amount m_fee = 0;
+        Amount m_change = 0;
+        Height m_minHeight = 0;
+        WalletID m_peerId = Zero;
+        WalletID m_myId = Zero;
+        ByteBuffer m_message;
+        Timestamp m_createTime = 0;
+        Timestamp m_modifyTime = 0;
+        bool m_sender = false;
+        bool m_selfTx = false;
+        TxStatus m_status = TxStatus::Pending;
+        Merkle::Hash m_kernelID = Zero;
+        TxFailureReason m_failureReason = TxFailureReason::Unknown;
+    };
+
     enum class AtomicSwapCoin
     {
         Bitcoin,
@@ -362,7 +382,8 @@ namespace beam::wallet
         TxType m_Type;
 
         std::vector<std::pair<TxParameterID, ByteBuffer>> m_Parameters;
-
+        
+        // TODO use TxParameters here
         template <typename T>
         SetTxParameter& AddParameter(TxParameterID paramID, T&& value)
         {
@@ -476,4 +497,5 @@ namespace std
     string to_string(const beam::wallet::WalletID&);
     string to_string(const beam::Merkle::Hash& hash);
     string to_string(beam::wallet::AtomicSwapCoin value);
+    string to_string(const beam::wallet::TxParameters&);
 }
