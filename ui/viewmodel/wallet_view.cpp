@@ -543,7 +543,9 @@ void WalletViewModel::onTxStatus(beam::wallet::ChangeAction action, const std::v
             txIt = find_if(txIt, txEnd, [&item](const auto& tx) {return item.m_txId == tx->getTxDescription().m_txId; });
             if (txIt == txEnd)
             {
-                break;
+                // insert new object
+                _txList.insert(0, new TxObject(item));
+                continue;
             }
             (*txIt)->update(item);
         }
@@ -649,6 +651,7 @@ void WalletViewModel::setReceiverAddr(const QString& value)
     auto trimmedValue = value.trimmed();
     if (_receiverAddr != trimmedValue)
     {
+        m_txParameters = TxParameters(trimmedValue.toStdString());
         _receiverAddr = trimmedValue;
         emit receiverAddrChanged();
     }

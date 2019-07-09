@@ -63,6 +63,12 @@ namespace std
             return "";
         }
     }
+
+    string to_string(const beam::wallet::TxParameters& value)
+    {
+        auto buffer = toByteBuffer(value);
+        return beam::to_hex(buffer.data(), buffer.size());
+    }
 }
 
 namespace beam
@@ -108,6 +114,40 @@ namespace beam
 
 namespace beam::wallet
 {
+    int WalletID::cmp(const WalletID& x) const
+    {
+        int n = m_Channel.cmp(x.m_Channel);
+        if (n)
+            return n;
+        return m_Pk.cmp(x.m_Pk);
+    }
+
+    bool WalletID::FromBuf(const ByteBuffer& x)
+    {
+        if (x.size() > sizeof(*this))
+            return false;
+
+        typedef uintBig_t<sizeof(*this)> BigSelf;
+        static_assert(sizeof(BigSelf) == sizeof(*this), "");
+
+        *reinterpret_cast<BigSelf*>(this) = Blob(x);
+        return true;
+    }
+
+    bool WalletID::FromHex(const std::string& s)
+    {
+        bool bValid = true;
+        ByteBuffer bb = from_hex(s, &bValid);
+
+        return bValid && FromBuf(bb);
+    }
+
+    bool WalletID::IsValid() const
+    {
+        Point::Native p;
+        return proto::ImportPeerID(p, m_Pk);
+    }
+
     AtomicSwapCoin from_string(const std::string& value)
     {
         if (value == "btc")
@@ -207,6 +247,67 @@ namespace beam::wallet
         get_Hash(hv);
 
         m_Signature.Sign(hv, sk);
+    }
+
+    TxParameters::TxParameters(const std::string& token)
+    {
+        bool isValid = true;
+        ByteBuffer buffer = from_hex(token, &isValid);
+        if (!isValid || buffer.size() < 2)
+        {
+            return;
+        }
+        TxParameters result;
+        if (buffer[0] & 0x80) // token
+        {
+            // simply deserialize for now
+            Deserializer d;
+            d.reset(&buffer[1], buffer.size() - 1);
+            d& *this;
+        }
+        else // plain WalletID
+        {
+            WalletID walletID;
+            if (walletID.FromBuf(buffer))
+            {
+                SetParameter(TxParameterID::PeerID, walletID);
+            }
+        }
+    }
+
+    boost::optional<ByteBuffer> TxParameters::GetParameter(TxParameterID parameterID) const
+    {
+        auto it = m_Parameters.find(parameterID);
+        if (it == m_Parameters.end())
+        {
+            return {};
+        }
+        return boost::optional<ByteBuffer>(it->second);
+    }
+
+    void TxParameters::SetParameter(TxParameterID parameterID, const ByteBuffer& parameter)
+    {
+        m_Parameters[parameterID] = parameter;
+    }
+
+    bool TxDescription::canResume() const
+    {
+        return m_status == TxStatus::Pending
+            || m_status == TxStatus::InProgress
+            || m_status == TxStatus::Registering;
+    }
+
+    bool TxDescription::canCancel() const
+    {
+        return m_status == TxStatus::InProgress
+            || m_status == TxStatus::Pending;
+    }
+
+    bool TxDescription::canDelete() const
+    {
+        return m_status == TxStatus::Failed
+            || m_status == TxStatus::Completed
+            || m_status == TxStatus::Cancelled;
     }
 
     std::string TxDescription::getStatusString() const

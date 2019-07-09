@@ -463,13 +463,14 @@ namespace beam::wallet
             senderAddress.m_label = comment;
             saveAddress(senderAddress, true); // should update the wallet_network
 
-            ByteBuffer message(comment.begin(), comment.end());
+          //  ByteBuffer message(comment.begin(), comment.end());
 
             assert(!m_wallet.expired());
             auto s = m_wallet.lock();
             if (s)
             {
-                s->transfer_money(senderAddress.m_walletID, receiver, move(amount), move(fee), true, kDefaultTxLifetime, kDefaultTxResponseTime, move(message), true);
+                //s->transfer_money(senderAddress.m_walletID, receiver, move(amount), move(fee), true, kDefaultTxLifetime, kDefaultTxResponseTime, move(message), true);
+                s->swap_coins(senderAddress.m_walletID, receiver, amount, fee, wallet::AtomicSwapCoin::Bitcoin, 1, wallet::SwapSecondSideChainType::Testnet, true, kDefaultTxLifetime, kDefaultTxResponseTime);
             }
 
             onSendMoneyVerified();
@@ -556,7 +557,7 @@ namespace beam::wallet
     void WalletClient::getWalletStatus()
     {
         onStatus(getStatus());
-        onTxStatus(ChangeAction::Reset, m_walletDB->getTxHistory());
+        onTxStatus(ChangeAction::Reset, m_walletDB->getTxHistory(wallet::TxType::ALL));
         onAddresses(false, m_walletDB->getAddresses(false));
     }
 

@@ -55,40 +55,6 @@ namespace beam::wallet
         }
     }
 
-    int WalletID::cmp(const WalletID& x) const
-    {
-        int n = m_Channel.cmp(x.m_Channel);
-        if (n)
-            return n;
-        return m_Pk.cmp(x.m_Pk);
-    }
-
-    bool WalletID::FromBuf(const ByteBuffer& x)
-    {
-        if (x.size() > sizeof(*this))
-            return false;
-
-        typedef uintBig_t<sizeof(*this)> BigSelf;
-        static_assert(sizeof(BigSelf) == sizeof(*this), "");
-
-        *reinterpret_cast<BigSelf*>(this) = Blob(x);
-        return true;
-    }
-
-    bool WalletID::FromHex(const std::string& s)
-    {
-        bool bValid = true;
-        ByteBuffer bb = from_hex(s, &bValid);
-
-        return bValid && FromBuf(bb);
-    }
-
-    bool WalletID::IsValid() const
-    {
-        Point::Native p;
-        return proto::ImportPeerID(p, m_Pk);
-    }
-
     // @param SBBS address as string
     // Returns whether the address is a valid SBBS address i.e. a point on an ellyptic curve
     bool check_receiver_address(const std::string& addr)
