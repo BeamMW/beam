@@ -932,7 +932,7 @@ namespace
         fee = vm[cli::FEE].as<Nonnegative<Amount>>().value;
         if (checkFee && fee < cli::kMinimumFee)
         {
-            LOG_ERROR() << "Failed to initiate the send operation. The minimum fee is 100 groth.";
+            LOG_ERROR() << "Failed to initiate the send operation. The minimum fee is 100 GROTH.";
             return false;
         }
 

@@ -590,8 +590,8 @@
         <translation>Fondos insuficientes: usted necesitaría un 1% para completar la transacción</translation>
     </message>
     <message id="send-fee-fail">
-        <source>The minimum fee is %1 groth</source>
-        <translation>La cuota minima es %1 groth</translation>
+        <source>The minimum fee is %1 GROTH</source>
+        <translation>La cuota minima es %1 GROTH</translation>
     </message>
     <message id="send-curency-sub-name">
         <source>GROTH</source>

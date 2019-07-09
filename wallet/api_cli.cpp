@@ -423,7 +423,7 @@ namespace
 
                     if (data.fee < MinimumFee)
                     {
-                        doError(id, INTERNAL_JSON_RPC_ERROR, "Failed to initiate the send operation. The minimum fee is 100 groth.");
+                        doError(id, INTERNAL_JSON_RPC_ERROR, "Failed to initiate the send operation. The minimum fee is 100 GROTH.");
                         return;
                     }
 
@@ -476,7 +476,7 @@ namespace
 
                     if (data.fee < MinimumFee)
                     {
-                        doError(id, INTERNAL_JSON_RPC_ERROR, "Failed to initiate the send operation. The minimum fee is 100 groth.");
+                        doError(id, INTERNAL_JSON_RPC_ERROR, "Failed to initiate the send operation. The minimum fee is 100 GROTH.");
                         return;
                     }
 
