@@ -259,7 +259,6 @@ public slots:
     void onStatus(const beam::wallet::WalletStatus& amount);
     void onTxStatus(beam::wallet::ChangeAction action, const std::vector<beam::wallet::TxDescription>& items);
     void sendMoney();
-    void syncWithNode();
     void onChangeCalculated(beam::Amount change);
     void onChangeCurrentWalletIDs(beam::wallet::WalletID senderID, beam::wallet::WalletID receiverID);
     void onAddresses(bool own, const std::vector<beam::wallet::WalletAddress>& addresses);

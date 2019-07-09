@@ -56,7 +56,7 @@ signals:
 
 private:
     void updateProgress();
-    void syncWithNode();
+
 private:
     WalletModel& m_walletModel;
     double m_progress;
@@ -64,9 +64,7 @@ private:
     int m_nodeDone;
     int m_total;
     int m_done;
-    bool m_walletConnected;
     bool m_hasLocalNode;
     QString m_progressMessage;
-    bool m_skipProgress;
     bool m_isCreating;
 };
