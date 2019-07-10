@@ -1106,6 +1106,13 @@ namespace beam
 			<< DA.Damp.N
 			// out
 			>> pForks[1].m_Hash;
+
+		oracle
+			<< "fork2"
+			// TBD
+			// ...
+			// out
+			>> pForks[2].m_Hash;
 	}
 
 	const HeightHash* Rules::FindFork(const Merkle::Hash& hv) const
