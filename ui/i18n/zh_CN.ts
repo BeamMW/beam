@@ -590,8 +590,8 @@
         <translation>资金不足：您需要%1来完成交易</translation>
     </message>
     <message id="send-fee-fail">
-        <source>The minimum fee is %1 groth</source>
-        <translation>最小交易费为 %1 Groth</translation>
+        <source>The minimum fee is %1 GROTH</source>
+        <translation>最小交易费为 %1 GROTH</translation>
     </message>
     <message id="send-curency-sub-name">
         <source>GROTH</source>

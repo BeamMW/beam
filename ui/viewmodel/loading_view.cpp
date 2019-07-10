@@ -19,29 +19,23 @@ using namespace beam;
 using namespace std;
 
 LoadingViewModel::LoadingViewModel()
-    : m_walletModel{ *AppModel::getInstance()->getWallet() }
+    : m_walletModel{ *AppModel::getInstance().getWallet() }
     , m_progress{0.0}
     , m_nodeTotal{0}
     , m_nodeDone{0}
     , m_total{0}
     , m_done{0}
-    , m_hasLocalNode{ AppModel::getInstance()->getSettings().getRunLocalNode() }
+    , m_hasLocalNode{ AppModel::getInstance().getSettings().getRunLocalNode() }
     , m_isCreating{false}
 {
-    connect(&m_walletModel, SIGNAL(syncProgressUpdated(int, int)),
-        SLOT(onSyncProgressUpdated(int, int)));
+    connect(&m_walletModel, SIGNAL(syncProgressUpdated(int, int)), SLOT(onSyncProgressUpdated(int, int)));
+    connect(&m_walletModel, SIGNAL(nodeConnectionChanged(bool)), SLOT(onNodeConnectionChanged(bool)));
+    connect(&m_walletModel, SIGNAL(walletError(beam::wallet::ErrorType)), SLOT(onGetWalletError(beam::wallet::ErrorType)));
 
-    if (AppModel::getInstance()->getSettings().getRunLocalNode())
+    if (AppModel::getInstance().getSettings().getRunLocalNode())
     {
-        connect(&AppModel::getInstance()->getNode(), SIGNAL(syncProgressUpdated(int, int)),
-            SLOT(onNodeSyncProgressUpdated(int, int)));
+        connect(&AppModel::getInstance().getNode(), SIGNAL(syncProgressUpdated(int, int)), SLOT(onNodeSyncProgressUpdated(int, int)));
     }
-
-    connect(&m_walletModel, SIGNAL(nodeConnectionChanged(bool)),
-        SLOT(onNodeConnectionChanged(bool)));
-
-    connect(&m_walletModel, SIGNAL(walletError(beam::wallet::ErrorType)),
-        SLOT(onGetWalletError(beam::wallet::ErrorType)));
 }
 
 LoadingViewModel::~LoadingViewModel()
@@ -64,7 +58,11 @@ void LoadingViewModel::onNodeSyncProgressUpdated(int done, int total)
 
 void LoadingViewModel::resetWallet()
 {
-    AppModel::getInstance()->resetWallet();
+    disconnect(&m_walletModel, SIGNAL(syncProgressUpdated(int, int)), this, SLOT(onSyncProgressUpdated(int, int)));
+    disconnect(&m_walletModel, SIGNAL(nodeConnectionChanged(bool)), this, SLOT(onNodeConnectionChanged(bool)));
+    disconnect(&m_walletModel, SIGNAL(walletError(beam::wallet::ErrorType)), this, SLOT(onGetWalletError(beam::wallet::ErrorType)));
+    connect(&AppModel::getInstance(), SIGNAL(walletReseted()), this, SLOT(onWalletReseted()));
+    AppModel::getInstance().resetWallet();
 }
 
 void LoadingViewModel::updateProgress()
@@ -75,7 +73,7 @@ void LoadingViewModel::updateProgress()
 	if (m_nodeTotal > 0)
 		nodeSyncProgress = std::min(1., static_cast<double>(m_nodeDone) / static_cast<double>(m_nodeTotal));
 
-	bool bLocalNode = AppModel::getInstance()->getSettings().getRunLocalNode();
+	bool bLocalNode = AppModel::getInstance().getSettings().getRunLocalNode();
 	QString progressMessage = "";
 
     if (bLocalNode && (!m_nodeTotal || (m_nodeDone < m_nodeTotal)))
@@ -88,7 +86,7 @@ void LoadingViewModel::updateProgress()
         if (m_total > 0)
             walletSyncProgress = std::min(1., static_cast<double>(m_done) / static_cast<double>(m_total));
 
-    	if (m_done < m_total)
+		if (m_done < m_total)
         {
             //% "Scanning UTXO %d/%d"
 			progressMessage = QString::asprintf(qtTrId("loading-view-scaning-utxo").toStdString().c_str(), m_done, m_total);
@@ -193,4 +191,9 @@ void LoadingViewModel::onGetWalletError(beam::wallet::ErrorType error)
     // There's an unhandled error. Show wallet and display it in errorneous state
     updateProgress();
     emit syncCompleted();
+}
+
+void LoadingViewModel::onWalletReseted()
+{
+    emit walletReseted();
 }

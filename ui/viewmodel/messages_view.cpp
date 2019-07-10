@@ -17,7 +17,7 @@
 
 MessagesViewModel::MessagesViewModel()
 {
-    auto& model = AppModel::getInstance()->getMessages();
+    auto& model = AppModel::getInstance().getMessages();
     connect(&model, SIGNAL(newMessage(const QString&)),
         SLOT(onNewMessage(const QString&)));
 }

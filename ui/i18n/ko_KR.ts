@@ -590,8 +590,8 @@
         <translation>자금이 부족합니다 : 거래를 완료하려면 %1 만큼의 자금이 필요합니다</translation>
     </message>
     <message id="send-fee-fail">
-        <source>The minimum fee is %1 groth</source>
-        <translation>최소 수수료는 %1 groth 입니다</translation>
+        <source>The minimum fee is %1 GROTH</source>
+        <translation>최소 수수료는 %1 GROTH 입니다</translation>
     </message>
     <message id="send-curency-sub-name">
         <source>GROTH</source>

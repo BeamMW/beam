@@ -487,7 +487,7 @@ namespace
         return -1;
     }
 
-    WalletAddress CreateNewAddress(const IWalletDB::Ptr& walletDB, const std::string& comment, bool isNever = false)
+    WalletAddress CreateNewAddress(const IWalletDB::Ptr& walletDB, const std::string& label, bool isNever = false)
     {
         WalletAddress address = storage::createAddress(*walletDB);
 
@@ -496,12 +496,12 @@ namespace
             address.m_duration = 0;
         }
 
-        address.m_label = comment;
+        address.m_label = label;
         walletDB->saveAddress(address);
 
         LOG_INFO() << "New address generated:\n\n" << std::to_string(address.m_walletID) << "\n";
-        if (!comment.empty()) {
-            LOG_INFO() << "comment = " << comment;
+        if (!label.empty()) {
+            LOG_INFO() << "label = " << label;
         }
         return address;
     }
@@ -938,7 +938,7 @@ namespace
         fee = vm[cli::FEE].as<Nonnegative<Amount>>().value;
         if (checkFee && fee < cli::kMinimumFee)
         {
-            LOG_ERROR() << "Failed to initiate the send operation. The minimum fee is 100 groth.";
+            LOG_ERROR() << "Failed to initiate the send operation. The minimum fee is 100 GROTH.";
             return false;
         }
 
@@ -993,16 +993,6 @@ namespace
 
             btcOptions.m_feeRate = vm[cli::SWAP_FEERATE].as<Positive<Amount>>().value;
 
-            if (vm.count(cli::BTC_CONFIRMATIONS) > 0)
-            {
-                btcOptions.m_confirmations = vm[cli::BTC_CONFIRMATIONS].as<Positive<uint16_t>>().value;
-            }
-
-            if (vm.count(cli::BTC_LOCK_TIME) > 0)
-            {
-                btcOptions.m_lockTimeInBlocks = vm[cli::BTC_LOCK_TIME].as<Positive<uint32_t>>().value;
-            }
-
             auto swapSecondSideChainType = ParseSwapSecondSideChainType(vm);
             if (swapSecondSideChainType != SwapSecondSideChainType::Unknown)
             {
@@ -1048,16 +1038,6 @@ namespace
             }
             ltcOptions.m_feeRate = vm[cli::SWAP_FEERATE].as<Positive<Amount>>().value;
 
-            if (vm.count(cli::LTC_CONFIRMATIONS) > 0)
-            {
-                ltcOptions.m_confirmations = vm[cli::LTC_CONFIRMATIONS].as<Positive<uint16_t>>().value;
-            }
-
-            if (vm.count(cli::LTC_LOCK_TIME) > 0)
-            {
-                ltcOptions.m_lockTimeInBlocks = vm[cli::LTC_LOCK_TIME].as<Positive<uint32_t>>().value;
-            }
-
             auto swapSecondSideChainType = ParseSwapSecondSideChainType(vm);
             if (swapSecondSideChainType != SwapSecondSideChainType::Unknown)
             {
@@ -1102,16 +1082,6 @@ namespace
                 throw std::runtime_error("swap fee rate is missing");
             }
             qtumOptions.m_feeRate = vm[cli::SWAP_FEERATE].as<Positive<Amount>>().value;
-
-            if (vm.count(cli::QTUM_CONFIRMATIONS) > 0)
-            {
-                qtumOptions.m_confirmations = vm[cli::QTUM_CONFIRMATIONS].as<Positive<uint16_t>>().value;
-            }
-
-            if (vm.count(cli::QTUM_LOCK_TIME) > 0)
-            {
-                qtumOptions.m_lockTimeInBlocks = vm[cli::QTUM_LOCK_TIME].as<Positive<uint32_t>>().value;
-            }
 
             auto swapSecondSideChainType = ParseSwapSecondSideChainType(vm);
             if (swapSecondSideChainType != SwapSecondSideChainType::Unknown)
@@ -1269,8 +1239,7 @@ int main_impl(int argc, char* argv[])
 
                     if (coldWallet && command == cli::RESTORE)
                     {
-                        LOG_ERROR() << "You can't restore cold wallet.";
-                        return -1;
+                        LOG_INFO() << "Restoring cold wallet. You have to replace generated 'wallet.db' with your existing 'wallet.db' file.";
                     }
 
                     assert(vm.count(cli::WALLET_STORAGE) > 0);

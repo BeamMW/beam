@@ -73,7 +73,7 @@ namespace beam::wallet
         Height m_spentHeight;   // height at which the coin was spent
 
         boost::optional<TxID> m_createTxId;  // id of the transaction which created the UTXO
-        boost::optional<TxID> m_spentTxId;   // id of the transaction which spernt the UTXO
+        boost::optional<TxID> m_spentTxId;   // id of the transaction which spent the UTXO
         
         uint64_t m_sessionId;   // Used in the API to lock coins for specific session (see https://github.com/BeamMW/beam/wiki/Beam-wallet-protocol-API#tx_split)
 
@@ -174,6 +174,9 @@ namespace beam::wallet
 
         // Returns the Child Key Derivative Function (operates on secret keys)
 		beam::Key::IKdf::Ptr get_ChildKdf(const Key::IDV&) const;
+
+        // Returns the Owner Key Derivative Function (operates on public keys)
+        virtual beam::Key::IPKdf::Ptr get_OwnerKdf() const = 0;
 
         // Calculates blinding factor and commitment of specifc Coin::ID
         void calcCommitment(ECC::Scalar::Native& sk, ECC::Point& comm, const Coin::ID&);
@@ -307,6 +310,7 @@ namespace beam::wallet
         ~WalletDB();
 
         beam::Key::IKdf::Ptr get_MasterKdf() const override;
+        beam::Key::IPKdf::Ptr get_OwnerKdf() const override;
         uint64_t AllocateKidRange(uint64_t nCount) override;
         std::vector<Coin> selectCoins(Amount amount) override;
         std::vector<Coin> getCoinsCreatedByTx(const TxID& txId) override;
@@ -405,6 +409,7 @@ namespace beam::wallet
         sqlite3* m_PrivateDB;
         io::Reactor::Ptr m_Reactor;
         Key::IKdf::Ptr m_pKdf;
+        Key::IPKdf::Ptr m_OwnerKdf;
         io::Timer::Ptr m_FlushTimer;
         bool m_IsFlushPending;
         std::unique_ptr<sqlite::Transaction> m_DbTransaction;

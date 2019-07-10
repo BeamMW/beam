@@ -170,6 +170,16 @@ public class WalletListener
         System.out.println(">>>>>>>>>>>>>> async onStoppedNode() in Java");
     }
 
+    static void onNodeCreated()
+    {
+        System.out.println(">>>>>>>>>>>>>> async onNodeCreated() in Java");
+    }
+
+    static void onNodeDestroyed()
+    {
+        System.out.println(">>>>>>>>>>>>>> async onNodeDestroyed() in Java");
+    }
+
     static void onFailedToStartNode()
     {
         System.out.println(">>>>>>>>>>>>>> async onFailedToStartNode() in Java");

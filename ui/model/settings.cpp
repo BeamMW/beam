@@ -96,7 +96,7 @@ void WalletSettings::setNodeAddress(const QString& addr)
 {
     if (addr != getNodeAddress())
     {
-        auto walletModel = AppModel::getInstance()->getWallet();
+        auto walletModel = AppModel::getInstance().getWallet();
         if (walletModel)
         {
             walletModel->getAsync()->setNodeAddress(addr.toStdString());
@@ -363,5 +363,5 @@ void WalletSettings::reportProblem()
 
 void WalletSettings::applyChanges()
 {
-    AppModel::getInstance()->applySettingsChanges();
+    AppModel::getInstance().applySettingsChanges();
 }

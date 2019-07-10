@@ -59,6 +59,9 @@ namespace beam::wallet
         bool isFork1() const;
 
     protected:
+        // Call this before derived class is destructed to ensure
+        // that no virtual function calls below will result in purecall
+        void stopReactor();
 
         virtual void onStatus(const WalletStatus& status) = 0;
         virtual void onTxStatus(ChangeAction, const std::vector<TxDescription>& items) = 0;

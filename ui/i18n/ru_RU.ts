@@ -590,8 +590,8 @@
         <translation>Недостаточно средств: необходимо %1 для завершения транзакции</translation>
     </message>
     <message id="send-fee-fail">
-        <source>The minimum fee is %1 groth</source>
-        <translation>Минимальная комиссия %1 groth</translation>
+        <source>The minimum fee is %1 GROTH</source>
+        <translation>Минимальная комиссия %1 GROTH</translation>
     </message>
     <message id="send-curency-sub-name">
         <source>GROTH</source>

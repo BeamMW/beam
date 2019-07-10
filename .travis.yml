@@ -16,7 +16,9 @@ matrix:
         - brew update
         - brew unlink cmake
         - brew unlink boost 
-        - brew install qt5 cmake boost
+        - brew install cmake boost
+        - curl -O https://raw.githubusercontent.com/Homebrew/homebrew-core/56c500b569c724b049be7ab9e12d9693f85522f9/Formula/qt.rb
+        - brew install ./qt.rb
         - brew link qt5 --force
         - export PATH=/usr/local/opt/qt/bin:$PATH
         - export OPENSSL_ROOT_DIR="/usr/local/opt/openssl"

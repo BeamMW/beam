@@ -590,8 +590,8 @@
         <translation>Otillräckliga medel; du behöver %1 för att slutföra transaktionen</translation>
     </message>
     <message id="send-fee-fail">
-        <source>The minimum fee is %1 groth</source>
-        <translation>Minsta möjliga avgift är %1 groth</translation>
+        <source>The minimum fee is %1 GROTH</source>
+        <translation>Minsta möjliga avgift är %1 GROTH</translation>
     </message>
     <message id="send-curency-sub-name">
         <source>GROTH</source>

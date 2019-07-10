@@ -235,6 +235,14 @@ namespace beam::wallet
 
     WalletClient::~WalletClient()
     {
+        // reactor should be already stopped here, but just in case
+        // this call is unsafe and may result in crash if reactor is not stopped
+        assert(!m_thread && !m_reactor);
+        stopReactor();
+    }
+
+    void WalletClient::stopReactor()
+    {
         try
         {
             if (m_reactor)
@@ -242,9 +250,10 @@ namespace beam::wallet
                 if (m_thread)
                 {
                     m_reactor->stop();
-                    // TODO: check this
                     m_thread->join();
+                    m_thread.reset();
                 }
+                m_reactor.reset();
             }
         }
         catch (const std::exception& e)
@@ -262,10 +271,10 @@ namespace beam::wallet
             {
                 try
                 {
-                    std::unique_ptr<WalletSubscriber> wallet_subscriber;
+					io::Reactor::Scope scope(*m_reactor);
+					io::Reactor::GracefulIntHandler gih(*m_reactor);
 
-                    io::Reactor::Scope scope(*m_reactor);
-                    io::Reactor::GracefulIntHandler gih(*m_reactor);
+					std::unique_ptr<WalletSubscriber> wallet_subscriber;
 
                     onStatus(getStatus());
                     onTxStatus(ChangeAction::Reset, m_walletDB->getTxHistory());
@@ -277,24 +286,14 @@ namespace beam::wallet
                     auto wallet = make_shared<Wallet>(m_walletDB);
                     m_wallet = wallet;
 
-                    struct MyNodeNetwork :public proto::FlyClient::NetworkStd {
-
-                        MyNodeNetwork(proto::FlyClient& fc, WalletClient& client)
+                    class NodeNetwork final: public proto::FlyClient::NetworkStd
+                    {
+                    public:
+                        NodeNetwork(proto::FlyClient& fc, WalletClient& client, const std::string& nodeAddress)
                             : proto::FlyClient::NetworkStd(fc)
+                            , m_nodeAddrStr(nodeAddress)
                             , m_walletClient(client)
                         {
-                        }
-
-                        WalletClient& m_walletClient;
-
-                        void OnNodeConnected(size_t, bool bConnected) override
-                        {
-                            m_walletClient.nodeConnectedStatusChanged(bConnected);
-                        }
-
-                        void OnConnectionFailed(size_t, const proto::NodeConnection::DisconnectReason& reason) override
-                        {
-                            m_walletClient.nodeConnectionFailed(reason);
                         }
 
                         void tryToConnect()
@@ -315,7 +314,6 @@ namespace beam::wallet
                             else if (m_attemptToConnect == MAX_ATTEMPT_TO_CONNECT)
                             {
                                 proto::NodeConnection::DisconnectReason reason;
-
                                 reason.m_Type = proto::NodeConnection::DisconnectReason::Io;
                                 reason.m_IoError = io::EC_HOST_RESOLVED_ERROR;
                                 m_walletClient.nodeConnectionFailed(reason);
@@ -332,12 +330,23 @@ namespace beam::wallet
                                 {
                                     tryToConnect();
                                 }
-                                });
+                            });
                         }
 
-                        std::string m_nodeAddrStr;
-
                     private:
+                        void OnNodeConnected(size_t, bool bConnected) override
+                        {
+                            m_walletClient.nodeConnectedStatusChanged(bConnected);
+                        }
+
+                        void OnConnectionFailed(size_t, const proto::NodeConnection::DisconnectReason& reason) override
+                        {
+                            m_walletClient.nodeConnectionFailed(reason);
+                        }
+
+                    public:
+                        std::string m_nodeAddrStr;
+                        WalletClient& m_walletClient;
 
                         io::Timer::Ptr m_timer;
                         uint8_t m_attemptToConnect = 0;
@@ -346,8 +355,7 @@ namespace beam::wallet
                         const uint16_t RECONNECTION_TIMEOUT = 1000;
                     };
 
-                    auto nodeNetwork = make_shared<MyNodeNetwork>(*wallet, *this);
-
+                    auto nodeNetwork = make_shared<NodeNetwork>(*wallet, *this, m_nodeAddrStr);
                     m_nodeNetwork = nodeNetwork;
 
                     auto walletNetwork = make_shared<WalletNetworkViaBbs>(*wallet, nodeNetwork, m_walletDB);
@@ -357,10 +365,17 @@ namespace beam::wallet
 
                     wallet_subscriber = make_unique<WalletSubscriber>(static_cast<IWalletObserver*>(this), wallet);
 
-                    nodeNetwork->m_nodeAddrStr = m_nodeAddrStr;
                     nodeNetwork->tryToConnect();
+                    m_reactor->run_ex([&wallet, &nodeNetwork](){
+                        wallet->CleanupNetwork();
+                        nodeNetwork->Disconnect();
+                    });
 
-                    m_reactor->run();
+                    assert(walletNetwork.use_count() == 1);
+                    walletNetwork.reset();
+
+                    assert(nodeNetwork.use_count() == 1);
+                    nodeNetwork.reset();
                 }
                 catch (const runtime_error& ex)
                 {
@@ -445,7 +460,6 @@ namespace beam::wallet
         try
         {
             WalletAddress senderAddress = storage::createAddress(*m_walletDB);
-            senderAddress.m_label = comment;
             saveAddress(senderAddress, true); // should update the wallet_network
 
             ByteBuffer message(comment.begin(), comment.end());
@@ -639,7 +653,6 @@ namespace beam::wallet
             {
                 if (addr->m_OwnID)
                 {
-                    addr->setLabel(name);
                     if (makeExpired)
                     {
                         addr->makeExpired();
@@ -653,13 +666,9 @@ namespace beam::wallet
                         // set expiration date to 24h since now
                         addr->makeActive(WalletAddress::AddressExpiration24h);
                     }
-
-                    m_walletDB->saveAddress(*addr);
                 }
-                else
-                {
-                    LOG_ERROR() << "It's not implemented!";
-                }
+                addr->setLabel(name);
+                m_walletDB->saveAddress(*addr);
             }
             else
             {

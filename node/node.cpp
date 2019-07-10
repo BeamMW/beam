@@ -1350,13 +1350,23 @@ void Node::Peer::OnMsg(proto::Authentication&& msg)
         Key::IPKdf* pOwner = m_This.m_Keys.m_pOwner.get();
         if (pOwner && IsKdfObscured(*pOwner, msg.m_ID))
         {
-            m_Flags |= Flags::Owner;
+            m_Flags |= Flags::Owner | Flags::Viewer;
             ProvePKdfObscured(*pOwner, proto::IDType::Viewer);
         }
 
         if (!b && ShouldFinalizeMining())
             m_This.m_Miner.OnFinalizerChanged(this);
     }
+
+	if (proto::IDType::Viewer == msg.m_IDType)
+	{
+		Key::IPKdf* pOwner = m_This.m_Keys.m_pOwner.get();
+		if (pOwner && IsPKdfObscured(*pOwner, msg.m_ID))
+		{
+			m_Flags |= Flags::Viewer;
+			ProvePKdfObscured(*pOwner, proto::IDType::Viewer);
+		}
+	}
 
     if (proto::IDType::Node != msg.m_IDType)
         return;
@@ -3250,7 +3260,7 @@ void Node::Peer::OnMsg(proto::GetUtxoEvents&& msg)
 {
     proto::UtxoEvents msgOut;
 
-    if (Flags::Owner & m_Flags)
+    if (Flags::Viewer & m_Flags)
     {
 		Processor& p = m_This.m_Processor;
 		NodeDB& db = p.get_DB();
