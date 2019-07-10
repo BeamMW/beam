@@ -40,7 +40,7 @@ Item
         //% "I agree"
         okButtonText: qsTrId("start-restore-confirm-button")
         okButtonIconSource: "qrc:/assets/icon-done.svg"
-        cancelVisible: false
+        cancelButtonVisible: false
         width: 460
         height: contentItem.implicitHeight + footer.implicitHeight
         padding: 0
@@ -732,7 +732,7 @@ Item
                         //% "I understand"
                         okButtonText: qsTrId("start-confirm-seed-phrase-button")
                         okButtonIconSource: "qrc:/assets/icon-done.svg"
-                        cancelVisible: false
+                        cancelButtonVisible: false
                         width: 460
                         //% "It is strictly recommended to write down the seed phrase on a paper. Storing it in a file makes it prone to cyber attacks and, therefore, less secure."
                         text: qsTrId("start-confirm-seed-phrase-message")
@@ -1880,7 +1880,7 @@ Item
                         okButtonText: qsTrId("general-proceed")
                         okButtonIconSource: "qrc:/assets/icon-done.svg"
                         cancelButtonIconSource: "qrc:/assets/icon-cancel-white.svg"
-                        cancelVisible: true
+                        cancelButtonVisible: true
                         width: 460
                         height: 195
                         contentItem: Column {
