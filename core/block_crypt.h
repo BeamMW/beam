@@ -162,6 +162,7 @@ namespace beam
 
 	private:
 		Amount get_EmissionEx(Height, Height& hEnd, Amount base) const;
+		bool IsForkHeightsConsistent() const;
 	};
 
 	class SwitchCommitment
