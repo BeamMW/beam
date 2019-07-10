@@ -1109,6 +1109,7 @@ namespace beam
 
 		oracle
 			<< "fork2"
+			<< pForks[2].m_Height
 			// TBD
 			// ...
 			// out
