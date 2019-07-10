@@ -17,7 +17,7 @@ matrix:
         - brew unlink cmake
         - brew unlink boost 
         - brew install cmake boost
-        - curl -O https://raw.githubusercontent.com/Homebrew/homebrew-core/65a45a9e61f15046a256cdba6a008f38f79570c9/Formula/qt.rb
+        - curl -O https://raw.githubusercontent.com/Homebrew/homebrew-core/56c500b569c724b049be7ab9e12d9693f85522f9/Formula/qt.rb
         - brew install ./qt.rb
         - brew link qt5 --force
         - export PATH=/usr/local/opt/qt/bin:$PATH
