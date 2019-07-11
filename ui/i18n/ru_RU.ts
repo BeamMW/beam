@@ -978,7 +978,7 @@
     <message id="settings-general-language">
         <source>Language</source>
         <extracomment>settings tab, general section, language label</extracomment>
-        <translation>Язык</translation>
+        <translation type="vanished">Язык</translation>
     </message>
     <message id="open-external-open">
         <source>Open</source>

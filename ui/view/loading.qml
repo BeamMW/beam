@@ -4,6 +4,7 @@ import QtQuick.Controls 2.4
 import QtQuick.Controls.Styles 1.2
 import QtGraphicalEffects 1.0
 import "controls"
+import "utils.js" as Utils
 import Beam.Wallet 1.0
 import QtQuick.Layouts 1.3
 
@@ -113,7 +114,7 @@ Item
             anchors.fill: parent
             spacing: 0
             Item {
-                Layout.preferredHeight: parent.height * 0.18
+                Layout.preferredHeight: Utils.getLogoTopGapSize(parent.height)
             }
 
             LogoComponent {
@@ -176,7 +177,7 @@ Item
                     }
                     Row {
                         Layout.alignment: Qt.AlignHCenter
-                        Layout.topMargin: 25
+                        Layout.topMargin: 20
                         SFText {
                             horizontalAlignment: Text.AlignHCenter
                             width: 548

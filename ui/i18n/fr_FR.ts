@@ -979,7 +979,7 @@ Vous essayez de restaurer un portefeuille Beam existant. Veuillez noter que si v
     <message id="settings-general-language">
         <source>Language</source>
         <extracomment>settings tab, general section, language label</extracomment>
-        <translation>Langue</translation>
+        <translation type="vanished">Langue</translation>
     </message>
     <message id="open-external-open">
         <source>Open</source>
