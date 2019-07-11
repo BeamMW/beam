@@ -286,7 +286,7 @@
     </message>
     <message id="available-panel-available">
         <source>Available</source>
-        <translation>가능함</translation>
+        <translation>사용 가능 금액</translation>
     </message>
     <message id="available-panel-where-to-buy">
         <source>Where to buy BEAM?</source>
@@ -469,6 +469,10 @@
     <message id="loading-change-settings-button">
         <source>Change settings</source>
         <translation>설정 변경</translation>
+    </message>
+    <message id="loading-try-again-button">
+        <source>Try again</source>
+        <translation type="unfinished">Try again</translation>
     </message>
     <message id="notifications-title">
         <source>Notifications view</source>
@@ -909,7 +913,7 @@
     </message>
     <message id="utxo-status-available">
         <source>Available</source>
-        <translation>가능함</translation>
+        <translation>사용 가능 금액</translation>
     </message>
     <message id="utxo-status-maturing">
         <source>Maturing%1(till block height %2)</source>
@@ -1164,10 +1168,6 @@
         <source>Password verification is required to change that setting</source>
         <extracomment>settings tab, general section, ask password to send, confirm password dialog, message</extracomment>
         <translation>설정 바꾸기를 하려면 비밀번호 검증이 필요합니다</translation>
-    </message>
-    <message id="loading-try-again-button">
-        <source>Try again</source>
-        <translation type="unfinished">Try again</translation>
     </message>
 </context>
 </TS>

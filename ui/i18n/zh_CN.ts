@@ -470,6 +470,10 @@
         <source>Change settings</source>
         <translation>更改设置</translation>
     </message>
+    <message id="loading-try-again-button">
+        <source>Try again</source>
+        <translation type="unfinished">Try again</translation>
+    </message>
     <message id="notifications-title">
         <source>Notifications view</source>
         <translation>通知视图</translation>
@@ -1164,10 +1168,6 @@
         <source>Password verification is required to change that setting</source>
         <extracomment>settings tab, general section, ask password to send, confirm password dialog, message</extracomment>
         <translation>需验证密码来使设置变更生效</translation>
-    </message>
-    <message id="loading-try-again-button">
-        <source>Try again</source>
-        <translation type="unfinished">Try again</translation>
     </message>
 </context>
 </TS>
