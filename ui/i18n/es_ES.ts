@@ -467,7 +467,7 @@
         <translation>Ver información</translation>
     </message>
     <message id="loading-change-settings-button">
-        <source>Сhange settings</source>
+        <source>Change settings</source>
         <translation>Cambiar ajustes</translation>
     </message>
     <message id="notifications-title">
@@ -1165,6 +1165,10 @@ Escanee este código QR o envíe esta dirección al remitente a través de un ca
         <source>Password verification is required to change that setting</source>
         <extracomment>settings tab, general section, ask password to send, confirm password dialog, message</extracomment>
         <translation>Hay que verificar la contraseña para cambiar esa configuración</translation>
+    </message>
+    <message id="loading-try-again-button">
+        <source>Try again</source>
+        <translation type="unfinished">Try again</translation>
     </message>
 </context>
 </TS>

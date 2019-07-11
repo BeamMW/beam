@@ -467,7 +467,7 @@
         <translation>信息视图</translation>
     </message>
     <message id="loading-change-settings-button">
-        <source>Сhange settings</source>
+        <source>Change settings</source>
         <translation>更改设置</translation>
     </message>
     <message id="notifications-title">
@@ -1164,6 +1164,10 @@
         <source>Password verification is required to change that setting</source>
         <extracomment>settings tab, general section, ask password to send, confirm password dialog, message</extracomment>
         <translation>需验证密码来使设置变更生效</translation>
+    </message>
+    <message id="loading-try-again-button">
+        <source>Try again</source>
+        <translation type="unfinished">Try again</translation>
     </message>
 </context>
 </TS>
