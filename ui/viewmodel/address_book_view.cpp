@@ -243,11 +243,6 @@ void AddressBookViewModel::deleteAddress(const QString& addr)
     m_model.getAsync()->deleteAddress(walletID);
 }
 
-void AddressBookViewModel::copyToClipboard(const QString& text)
-{
-    QApplication::clipboard()->setText(text);
-}
-
 void AddressBookViewModel::saveChanges(const QString& addr, const QString& name, bool isNever, bool makeActive, bool makeExpired)
 {
     WalletID walletID;

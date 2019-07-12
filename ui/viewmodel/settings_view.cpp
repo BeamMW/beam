@@ -248,11 +248,6 @@ void SettingsViewModel::openUrl(const QString& url)
     QDesktopServices::openUrl(QUrl(url));
 }
 
-void SettingsViewModel::copyToClipboard(const QString& text)
-{
-    QApplication::clipboard()->setText(text);
-}
-
 void SettingsViewModel::refreshWallet()
 {
     AppModel::getInstance().getWallet()->getAsync()->refresh();

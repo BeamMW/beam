@@ -35,7 +35,10 @@
 #include "viewmodel/messages_view.h"
 #include "viewmodel/statusbar_view.h"
 #include "viewmodel/theme.h"
+#include "viewmodel/receive_view.h"
+#include "viewmodel/send_view.h"
 #include "model/app_model.h"
+#include "viewmodel/qml_globals.h"
 
 #include "wallet/wallet_db.h"
 #include "utility/log_rotation.h"
@@ -192,6 +195,15 @@ int main (int argc, char* argv[])
                         Q_UNUSED(scriptEngine)
                         return new Theme;
                     });
+
+            qmlRegisterSingletonType<QMLGlobals>(
+                    "Beam.Wallet", 1, 0, "BeamGlobals",
+                    [](QQmlEngine* engine, QJSEngine* scriptEngine) -> QObject* {
+                        Q_UNUSED(engine)
+                        Q_UNUSED(scriptEngine)
+                        return new QMLGlobals(*engine);
+                    });
+
             qmlRegisterType<StartViewModel>("Beam.Wallet", 1, 0, "StartViewModel");
             qmlRegisterType<LoadingViewModel>("Beam.Wallet", 1, 0, "LoadingViewModel");
             qmlRegisterType<MainViewModel>("Beam.Wallet", 1, 0, "MainViewModel");
@@ -206,6 +218,8 @@ int main (int argc, char* argv[])
             qmlRegisterType<HelpViewModel>("Beam.Wallet", 1, 0, "HelpViewModel");
             qmlRegisterType<MessagesViewModel>("Beam.Wallet", 1, 0, "MessagesViewModel");
             qmlRegisterType<StatusbarViewModel>("Beam.Wallet", 1, 0, "StatusbarViewModel");
+            qmlRegisterType<ReceiveViewModel>("Beam.Wallet", 1, 0, "ReceiveViewModel");
+            qmlRegisterType<SendViewModel>("Beam.Wallet", 1, 0, "SendViewModel");
 
             qmlRegisterType<AddressItem>("Beam.Wallet", 1, 0, "AddressItem");
             qmlRegisterType<ContactItem>("Beam.Wallet", 1, 0, "ContactItem");
