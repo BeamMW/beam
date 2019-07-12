@@ -14,6 +14,7 @@
 #include "qml_globals.h"
 #include <QMessageBox>
 #include <QApplication>
+#include <QClipboard>
 
 QMLGlobals::QMLGlobals(QQmlEngine& engine)
     : _engine(engine)
