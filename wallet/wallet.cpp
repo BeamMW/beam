@@ -320,6 +320,7 @@ namespace beam::wallet
     void Wallet::RegisterTransactionType(TxType type, BaseTransaction::Creator::Ptr creator)
     {
         m_TxCreators[type] = move(creator);
+        ResumeAllTransactions();
     }
 
     TxID Wallet::StartNewTransaction(const TxParameters& parameters)
@@ -371,9 +372,11 @@ namespace beam::wallet
         if (tx.canResume() && m_ActiveTransactions.find(tx.m_txId) == m_ActiveTransactions.end())
         {
             auto t = ConstructTransaction(tx.m_txId, tx.m_txType);
-
-            MakeTransactionActive(t);
-            UpdateOnSynced(t);
+            if (t)
+            {
+                MakeTransactionActive(t);
+                UpdateOnSynced(t);
+            }
         }
     }
 
@@ -390,7 +393,7 @@ namespace beam::wallet
     {
         if (m_AsyncUpdateCounter == 0)
         {
-            LOG_DEBUG() << "Async update started!";
+            LOG_VERBOSE() << "Async update started!";
         }
         ++m_AsyncUpdateCounter;
     }
@@ -399,7 +402,7 @@ namespace beam::wallet
     {
         if (--m_AsyncUpdateCounter == 0)
         {
-            LOG_DEBUG() << "Async update finished!";
+            LOG_VERBOSE() << "Async update finished!";
             if (m_UpdateCompleted)
             {
                 m_UpdateCompleted();
@@ -1108,7 +1111,7 @@ namespace beam::wallet
         auto it = m_TxCreators.find(type);
         if (it == m_TxCreators.end())
         {
-            LOG_ERROR() << id << " Unsupported type of transaction: " << static_cast<int>(type);
+            LOG_WARNING() << id << " Unsupported type of transaction: " << static_cast<int>(type);
             return wallet::BaseTransaction::Ptr();
         }
 
@@ -1120,7 +1123,7 @@ namespace beam::wallet
         auto it = m_TxCreators.find(msg.m_Type);
         if (it == m_TxCreators.end())
         {
-            LOG_ERROR() << msg.m_TxID << " Unsupported type of transaction: " << static_cast<int>(msg.m_Type);
+            LOG_WARNING() << msg.m_TxID << " Unsupported type of transaction: " << static_cast<int>(msg.m_Type);
             return wallet::BaseTransaction::Ptr();
         }
 
