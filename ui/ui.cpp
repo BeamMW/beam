@@ -39,19 +39,15 @@
 #include "viewmodel/send_view.h"
 #include "model/app_model.h"
 #include "viewmodel/qml_globals.h"
-
 #include "wallet/wallet_db.h"
 #include "utility/log_rotation.h"
 #include "core/ecc_native.h"
-
 #include "utility/cli/options.h"
-
 #include <QtCore/QtPlugin>
-
 #include "version.h"
-
 #include "utility/string_helpers.h"
 #include "utility/helpers.h"
+#include "model/translator.h"
 
 #if defined(BEAM_USE_STATIC)
 
@@ -175,9 +171,13 @@ int main (int argc, char* argv[])
             LOG_INFO() << "Beam Wallet UI " << PROJECT_VERSION << " (" << BRANCH_NAME << ")";
             LOG_INFO() << "Rules signature: " << Rules::get().get_SignatureStr();
 
+            // AppModel Model MUST BE created before the UI engine and destroyed after.
+            // AppModel serves the UI and UI should be able to access AppModel at any time
+            // even while being destroyed. Do not move engine above AppModel
             WalletSettings settings(appDataDir);
+            AppModel appModel(settings);
             QQmlApplicationEngine engine;
-            AppModel appModel(settings, engine);
+            Translator translator(settings, engine);
             
             if (settings.getNodeAddress().isEmpty())
             {
@@ -247,7 +247,6 @@ int main (int argc, char* argv[])
 
             window->setMinimumSize(QSize(768, 540));
             window->setFlag(Qt::WindowFullscreenButtonHint);
-
             window->show();
 
             return app.exec();
