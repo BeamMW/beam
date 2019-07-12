@@ -249,6 +249,13 @@ namespace beam::wallet
         m_Signature.Sign(hv, sk);
     }
 
+    TxParameters::TxParameters(const TxID& txID, TxType type)
+        : m_ID(txID)
+        , m_Type(type)
+    {
+        SetParameter(TxParameterID::TransactionType, type);
+    }
+
     TxParameters::TxParameters(const std::string& token)
     {
         bool isValid = true;
@@ -257,7 +264,6 @@ namespace beam::wallet
         {
             return;
         }
-        TxParameters result;
         if (buffer[0] & 0x80) // token
         {
             // simply deserialize for now
@@ -275,19 +281,51 @@ namespace beam::wallet
         }
     }
 
-    boost::optional<ByteBuffer> TxParameters::GetParameter(TxParameterID parameterID) const
+    TxID TxParameters::GetTxID() const
     {
-        auto it = m_Parameters.find(parameterID);
-        if (it == m_Parameters.end())
+        return m_ID;
+    }
+
+    TxType TxParameters::GetType() const
+    {
+        return m_Type;
+    }
+
+    boost::optional<ByteBuffer> TxParameters::GetParameter(TxParameterID parameterID, SubTxID subTxID) const
+    {
+        auto subTxIt = m_Parameters.find(subTxID);
+        if (subTxIt == m_Parameters.end())
+        {
+            return {};
+        }
+        auto it = subTxIt->second.find(parameterID);
+        if (it == subTxIt->second.end())
         {
             return {};
         }
         return boost::optional<ByteBuffer>(it->second);
     }
 
-    void TxParameters::SetParameter(TxParameterID parameterID, const ByteBuffer& parameter)
+    void TxParameters::SetParameter(TxParameterID parameterID, const ByteBuffer& parameter, SubTxID subTxID)
     {
-        m_Parameters[parameterID] = parameter;
+        m_Parameters[subTxID][parameterID] = parameter;
+    }
+
+    SerializedTxParameters TxParameters::GetParameters() const
+    {
+        SerializedTxParameters parameters;
+        for (const auto& subTx : m_Parameters)
+        {
+            if (subTx.first > kDefaultSubTxID)
+            {
+                parameters.emplace_back(TxParameterID::SubTxIndex, subTx.first);
+            }
+            for (const auto& p : subTx.second)
+            {
+                parameters.emplace_back(p.first, p.second);
+            }
+        }
+        return parameters;
     }
 
     bool TxDescription::canResume() const

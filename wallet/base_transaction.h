@@ -17,10 +17,10 @@
 #include "wallet/common.h"
 #include "wallet/wallet_db.h"
 
-#include <condition_variable>
 #include <boost/optional.hpp>
 #include "utility/logger.h"
 
+#include <condition_variable>
 #include <memory>
 
 #if defined(BEAM_HW_WALLET)
@@ -188,10 +188,10 @@ namespace beam::wallet
         class Creator
         {
         public:
-            using Ptr = std::unique_ptr<Creator>;
+            using Ptr = std::shared_ptr<Creator>;
 
             virtual BaseTransaction::Ptr Create(INegotiatorGateway& gateway, WalletDB::Ptr, IPrivateKeyKeeper::Ptr, const TxID&) = 0;
-            virtual bool CanCreate(const SetTxParameter&) { return true; };
+            virtual bool CanCreate(const TxParameters&) { return true; };
         };
 
         BaseTransaction(INegotiatorGateway& gateway

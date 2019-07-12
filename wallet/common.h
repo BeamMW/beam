@@ -36,6 +36,9 @@ namespace beam::wallet
     const Height kDefaultTxLifetime = 2 * 60;
     const Height kDefaultTxResponseTime = 12 * 60;
 
+    using SubTxID = uint16_t;
+    const SubTxID kDefaultSubTxID = 1;
+
 #pragma pack (push, 1)
     struct WalletID
     {
@@ -259,22 +262,28 @@ namespace beam::wallet
 
     };
 
+    using SerializedTxParameters = std::vector<std::pair<TxParameterID, ByteBuffer>>;
+
     // Holds transaction parameters as key/value
     class TxParameters
     {
     public:
-        TxParameters() = default;
+
+        TxParameters(const TxID& txID, TxType type = TxType::Simple);
         TxParameters(const std::string& token);
 
+        TxID GetTxID() const;
+        TxType GetType() const;
+
         template <typename T>
-        boost::optional<T> GetParameter(TxParameterID parameterID) const
+        boost::optional<T> GetParameter(TxParameterID parameterID, SubTxID subTxID = kDefaultSubTxID) const
         {
-            auto buffer = GetParameter(parameterID);
-            if (buffer && buffer->empty())
+            auto buffer = GetParameter(parameterID, subTxID);
+            if (buffer && !buffer->empty())
             {
                 Deserializer d;
                 d.reset(buffer->data(), buffer->size());
-                boost::optional<T> value;
+                T value;
                 d & value;
                 return value;
             }
@@ -282,17 +291,51 @@ namespace beam::wallet
         }
 
         template <typename T>
-        void SetParameter(TxParameterID parameterID, const T& value)
+        bool GetParameter(TxParameterID parameterID, T& value, SubTxID subTxID = kDefaultSubTxID) const
         {
-            SetParameter(parameterID, toByteBuffer(value));
+            auto subTxIt = m_Parameters.find(subTxID);
+            if (subTxIt == m_Parameters.end())
+            {
+                return false;
+            }
+            auto pit = subTxIt->second.find(parameterID);
+            if (pit == subTxIt->second.end())
+            {
+                return false;
+            }
+            const ByteBuffer& b = pit->second;
+
+            if (!b.empty())
+            {
+                Deserializer d;
+                d.reset(b.data(), b.size());
+                d& value;
+            }
+            else
+            {
+                ZeroObject(value);
+            }
+            return true;
         }
 
-        SERIALIZE(m_Parameters);
+        template <typename T>
+        void SetParameter(TxParameterID parameterID, const T& value, SubTxID subTxID = kDefaultSubTxID)
+        {
+            SetParameter(parameterID, toByteBuffer(value), subTxID);
+        }
 
-        boost::optional<ByteBuffer> GetParameter(TxParameterID parameterID) const;
-        void SetParameter(TxParameterID parameterID, const ByteBuffer& parameter);
+        SerializedTxParameters GetParameters() const;
+
+        SERIALIZE(m_ID, m_Type, m_Parameters);
+
+        boost::optional<ByteBuffer> GetParameter(TxParameterID parameterID, SubTxID subTxID = kDefaultSubTxID) const;
+        void SetParameter(TxParameterID parameterID, const ByteBuffer& parameter, SubTxID subTxID = kDefaultSubTxID);
+
+
     private:
-        std::unordered_map<TxParameterID, ByteBuffer> m_Parameters;
+        TxID m_ID;
+        TxType m_Type;
+        std::map<SubTxID, std::map<TxParameterID, ByteBuffer>> m_Parameters;
     };
 
     // Specifies key transaction parameters for interaction with Wallet Clients
@@ -310,7 +353,8 @@ namespace beam::wallet
             , ByteBuffer&& message = {}
             , Timestamp createTime = {}
             , bool sender = true)
-            : m_txId{ txId }
+            : TxParameters(txId)
+            , m_txId{ txId }
             , m_txType{ txType }
             , m_amount{ amount }
             , m_fee{ fee }
@@ -370,9 +414,6 @@ namespace beam::wallet
 
     SwapSecondSideChainType SwapSecondSideChainTypeFromString(const std::string& value);
 
-    using SubTxID = uint16_t;
-    const SubTxID kDefaultSubTxID = 1;
-
     // messages
     struct SetTxParameter
     {
@@ -381,7 +422,7 @@ namespace beam::wallet
 
         TxType m_Type;
 
-        std::vector<std::pair<TxParameterID, ByteBuffer>> m_Parameters;
+        SerializedTxParameters m_Parameters;
         
         // TODO use TxParameters here
         template <typename T>
@@ -415,6 +456,18 @@ namespace beam::wallet
         }
 
         SERIALIZE(m_From, m_TxID, m_Type, m_Parameters);
+    };
+
+    struct SetTxParameter2
+    {
+        WalletID m_From;
+        TxParameters m_Parameters;
+        SetTxParameter2(TxID txID, TxType type)
+            : m_Parameters(txID, type)
+        {
+
+        }
+        SERIALIZE(m_From, m_Parameters);
     };
 
     // context to take into account all async wallet operations
@@ -451,7 +504,6 @@ namespace beam::wallet
         virtual bool get_tip(Block::SystemState::Full& state) const = 0;
         virtual void send_tx_params(const WalletID& peerID, SetTxParameter&&) = 0;
         virtual void UpdateOnNextTip(const TxID&) = 0;
-        virtual SecondSide::Ptr GetSecondSide(const TxID&) const = 0;
     };
 
     enum class ErrorType : uint8_t

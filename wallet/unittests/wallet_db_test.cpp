@@ -243,7 +243,7 @@ void TestStoreTxRecord()
     cout << "\nWallet database transactions test\n";
     auto walletDB = createSqliteWalletDB();
     TxID id = {{1, 3, 4, 5 ,65}};
-    TxDescription tr;
+    TxDescription tr(id);
     tr.m_txId = id;
     tr.m_amount = 34;
     tr.m_peerId.m_Pk = unsigned(23);

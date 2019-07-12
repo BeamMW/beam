@@ -9,7 +9,7 @@ if(BEAM_HW_WALLET)
 endif()
 
 add_test_snippet(bitcoin_rpc_test wallet)
-add_test_snippet(swap_test wallet node swap)
+add_test_snippet(swap_test wallet node swap http)
 
 add_executable(offline offline.cpp)
 target_link_libraries(offline node wallet)

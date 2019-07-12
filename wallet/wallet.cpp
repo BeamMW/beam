@@ -55,6 +55,34 @@ namespace beam::wallet
             }
             return true;
         }
+
+        bool ApplyTransactionParameters(BaseTransaction::Ptr tx, const SerializedTxParameters& parameters, bool allowPrivate = false)
+        {
+            bool txChanged = false;
+            SubTxID subTxID = kDefaultSubTxID;
+
+            for (const auto& p : parameters)
+            {
+                if (p.first == TxParameterID::SubTxIndex)
+                {
+                    // change subTxID
+                    Deserializer d;
+                    d.reset(p.second.data(), p.second.size());
+                    d& subTxID;
+                    continue;
+                }
+
+                if (allowPrivate || p.first < TxParameterID::PrivateFirstParam)
+                {
+                    txChanged |= tx->SetParameter(p.first, p.second, subTxID);
+                }
+                else
+                {
+                    LOG_WARNING() << "Attempt to set private tx parameter";
+                }
+            }
+            return txChanged;
+        }
     }
 
     // @param SBBS address as string
@@ -149,28 +177,6 @@ namespace beam::wallet
         m_MessageEndpoints.insert(endpoint);
     }
 
-    // Atomic Swap related methods
-    // TODO: Refactor
-    //void Wallet::initBitcoin(io::Reactor& reactor, const BitcoinOptions& options)
-    //{
-    //    m_bitcoinBridge = make_shared<Bitcoind017>(reactor, options);
-    //}
-
-    //void Wallet::initLitecoin(io::Reactor& reactor, const LitecoinOptions& options)
-    //{
-    //    m_litecoinBridge = make_shared<Litecoind017>(reactor, options);
-    //}
-    //
-    //void Wallet::initQtum(io::Reactor& reactor, const QtumOptions& options)
-    //{
-    //    m_qtumBridge = make_shared<Qtumd017>(reactor, options);
-    //}
-
-    //void Wallet::initSwapConditions(Amount beamAmount, Amount swapAmount, AtomicSwapCoin swapCoin, bool isBeamSide, SwapSecondSideChainType chainType)
-    //{
-    //    m_swapConditions.push_back(SwapConditions{ beamAmount, swapAmount, swapCoin, isBeamSide, chainType });
-    //}
-
     TxID Wallet::transfer_money(const WalletID& from, const WalletID& to, Amount amount, Amount fee, bool sender, Height lifetime, Height responseTime, ByteBuffer&& message, bool saveReceiver)
     {
         return transfer_money(from, to, AmountList{ amount }, fee, {}, sender, lifetime, responseTime, move(message), saveReceiver);
@@ -223,7 +229,7 @@ namespace beam::wallet
         tx->SetParameter(TxParameterID::AmountList, amountList, false);
         tx->SetParameter(TxParameterID::PreselectedCoins, coins, false);
 
-        TxDescription txDescription;
+        TxDescription txDescription(txID);
 
         txDescription.m_txId = txID;
         txDescription.m_amount = std::accumulate(amountList.begin(), amountList.end(), 0ULL);
@@ -310,15 +316,27 @@ namespace beam::wallet
         RefreshTransactions();
     }
 
-    void Wallet::ProcessTransaction(wallet::BaseTransaction::Ptr tx)
-    {
-        MakeTransactionActive(tx);
-        UpdateTransaction(tx->GetTxID());
-    }
 
     void Wallet::RegisterTransactionType(TxType type, BaseTransaction::Creator::Ptr creator)
     {
         m_TxCreators[type] = move(creator);
+    }
+
+    TxID Wallet::StartNewTransaction(const TxParameters& parameters)
+    {
+        auto tx = ConstructTransactionFromParameters(parameters);
+        if (!tx)
+        {
+            throw FailToStartNewTransactionException();
+        }
+        ProcessTransaction(tx);
+        return parameters.GetTxID();
+    }
+
+    void Wallet::ProcessTransaction(wallet::BaseTransaction::Ptr tx)
+    {
+        MakeTransactionActive(tx);
+        UpdateTransaction(tx->GetTxID());
     }
 
     void Wallet::RefreshTransactions()
@@ -534,64 +552,6 @@ namespace beam::wallet
         }
     }
 
-    // Implementation of the INegotiatorGateway::GetSecondSide
-    SecondSide::Ptr Wallet::GetSecondSide(const TxID& txID) const
-    {
-        //auto it = m_ActiveTransactions.find(txID);
-        //if (it != m_ActiveTransactions.end())
-        //{
-        //    TxType type = it->second->GetMandatoryParameter<TxType>(TxParameterID::TransactionType);
-
-        //    if (type != TxType::AtomicSwap)
-        //    {
-        //        LOG_ERROR() << txID << "Transaction has invalid type.";
-        //        return nullptr;
-        //    }
-
-        //    auto swapCoin = it->second->GetMandatoryParameter<AtomicSwapCoin>(TxParameterID::AtomicSwapCoin);
-
-        //    if (swapCoin == AtomicSwapCoin::Bitcoin)
-        //    {
-        //        if (!m_bitcoinBridge)
-        //        {
-        //            LOG_ERROR() << "Bitcoin bridge is not initialized";
-        //            return nullptr;
-        //        }
-
-        //        bool isBeamSide = it->second->GetMandatoryParameter<bool>(TxParameterID::AtomicSwapIsBeamSide);
-        //        return std::make_shared<BitcoinSide>(*it->second, m_bitcoinBridge, isBeamSide);
-        //    }
-
-        //    if (swapCoin == AtomicSwapCoin::Litecoin)
-        //    {
-        //        if (!m_litecoinBridge)
-        //        {
-        //            LOG_ERROR() << "Litecoin bridge is not initialized";
-        //            return nullptr;
-        //        }
-
-        //        bool isBeamSide = it->second->GetMandatoryParameter<bool>(TxParameterID::AtomicSwapIsBeamSide);
-        //        return std::make_shared<LitecoinSide>(*it->second, m_litecoinBridge, isBeamSide);
-        //    }
-        //    
-        //    if (swapCoin == AtomicSwapCoin::Qtum)
-        //    {
-        //        if (!m_qtumBridge)
-        //        {
-        //            LOG_ERROR() << "Qtum bridge is not initialized";
-        //            return nullptr;
-        //        }
-
-        //        bool isBeamSide = it->second->GetMandatoryParameter<bool>(TxParameterID::AtomicSwapIsBeamSide);
-        //        return std::make_shared<QtumSide>(*it->second, m_qtumBridge, isBeamSide);
-        //    }
-        //}
-
-        //LOG_ERROR() << "Transaction is absent in wallet.";
-
-        return nullptr;
-    }
-
     void Wallet::OnWalletMessage(const WalletID& myID, SetTxParameter&& msg)
     {
         auto t = GetTransaction(myID, msg);
@@ -599,30 +559,8 @@ namespace beam::wallet
         {
             return;
         }
-        bool txChanged = false;
-        SubTxID subTxID = kDefaultSubTxID;
 
-        for (const auto& p : msg.m_Parameters)
-        {
-            if (p.first == TxParameterID::SubTxIndex)
-            {
-                // change subTxID
-                Deserializer d;
-                d.reset(p.second.data(), p.second.size());
-                d & subTxID;
-                continue;
-            }
-
-            if (p.first < TxParameterID::PrivateFirstParam)
-            {
-                txChanged |= t->SetParameter(p.first, p.second, subTxID);
-            }
-            else
-            {
-                LOG_WARNING() << "Attempt to set private tx parameter";
-            }
-        }
-        if (txChanged)
+        if (ApplyTransactionParameters(t, msg.m_Parameters))
         {
             UpdateTransaction(msg.m_TxID);
         }
@@ -1126,6 +1064,7 @@ namespace beam::wallet
             {
                 LOG_WARNING() << msg.m_TxID << " Parameters for invalid tx type";
             }
+            it->second->SetParameter(TxParameterID::PeerID, msg.m_From, false);
             return it->second;
         }
 
@@ -1185,13 +1124,39 @@ namespace beam::wallet
             return wallet::BaseTransaction::Ptr();
         }
 
-        if (!it->second->CanCreate(msg))
+        //if (!it->second->CanCreate(msg))
+        //{
+        //    LOG_ERROR() << msg.m_TxID << " It is not permited to create this transaction";
+        //    return wallet::BaseTransaction::Ptr();
+        //}
+
+        return it->second->Create(*this, m_WalletDB, m_KeyKeeper, msg.m_TxID);
+    }
+
+    BaseTransaction::Ptr Wallet::ConstructTransactionFromParameters(const TxParameters& parameters)
+    {
+        auto type = parameters.GetParameter<TxType>(TxParameterID::TransactionType);
+        if (!type)
         {
-            LOG_ERROR() << msg.m_TxID << " It is not permited to create this transaction";
+            return BaseTransaction::Ptr();
+        }
+
+        auto it = m_TxCreators.find(*type);
+        if (it == m_TxCreators.end())
+        {
+            LOG_ERROR() << parameters.GetTxID() << " Unsupported type of transaction: " << static_cast<int>(*type);
+            return BaseTransaction::Ptr();
+        }
+
+        if (!it->second->CanCreate(parameters))
+        {
+            LOG_ERROR() << parameters.GetTxID() << " It is not permited to create this transaction";
             return wallet::BaseTransaction::Ptr();
         }
 
-        return it->second->Create(*this, m_WalletDB, m_KeyKeeper, msg.m_TxID);
+        auto newTx = it->second->Create(*this, m_WalletDB, m_KeyKeeper, parameters.GetTxID());
+        ApplyTransactionParameters(newTx, parameters.GetParameters(), true);
+        return newTx;
     }
 
     void Wallet::MakeTransactionActive(BaseTransaction::Ptr tx)

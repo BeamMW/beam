@@ -1,3 +1,4 @@
+// Copyright 2018 The Beam Team
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -23,9 +24,9 @@ using namespace ECC;
 
 namespace beam::wallet
 {
-    AtomicSwapTransaction::WrapperSecondSide::WrapperSecondSide(INegotiatorGateway& gateway, const TxID& txID)
+    AtomicSwapTransaction::WrapperSecondSide::WrapperSecondSide(ISecondSideProvider& gateway, BaseTransaction& tx)
         : m_gateway(gateway)
-        , m_txID(txID)
+        , m_tx(tx)
     {
     }
 
@@ -33,7 +34,7 @@ namespace beam::wallet
     {
         if (!m_secondSide)
         {
-            m_secondSide = m_gateway.GetSecondSide(m_txID);
+            m_secondSide = m_gateway.GetSecondSide(m_tx);
 
             if (!m_secondSide)
             {
@@ -46,87 +47,64 @@ namespace beam::wallet
 
     ////////////
     // Creator
-    AtomicSwapTransaction::Creator::Creator(std::vector<SwapConditions>& swapConditions)
-        : m_swapConditions(swapConditions)
-    {
-
-    }
-
-    //BaseTransaction::Ptr AtomicSwapTransaction::Create(const WalletID& from, const WalletID& to, Amount amount, Amount fee, AtomicSwapCoin swapCoin, Amount swapAmount, bool isBeamSide = true, Height lifetime = kDefaultTxLifetime, Height responseTime = kDefaultTxResponseTime)
+    //AtomicSwapTransaction::Creator::Creator(std::vector<SwapConditions>& swapConditions)
+    //    : m_swapConditions(swapConditions)
     //{
-    //    // TODO: uncomment this
-    //    //auto receiverAddr = m_WalletDB->getAddress(to);
 
-    //    //if (receiverAddr && receiverAddr->m_OwnID)
-    //    //{
-    //    //    LOG_INFO() << "Failed to initiate the atomic swap. Not able to use own address as receiver's.";
-    //    //    throw FailToStartSwapException();
-    //    //}
-
-    //    auto txID = GenerateTxID();
-    //    auto tx = ConstructTransaction(txID, TxType::AtomicSwap);
-
-    //    tx->SetParameter(TxParameterID::TransactionType, TxType::AtomicSwap, false);
-    //    tx->SetParameter(TxParameterID::CreateTime, getTimestamp(), false);
-    //    tx->SetParameter(TxParameterID::Amount, amount, false);
-    //    tx->SetParameter(TxParameterID::Fee, fee, false);
-    //    tx->SetParameter(TxParameterID::Lifetime, lifetime, false);
-    //    tx->SetParameter(TxParameterID::PeerID, to, false);
-
-    //    // Must be reset on first Update when we already have correct current height.
-    //    tx->SetParameter(TxParameterID::PeerResponseHeight, responseTime);
-    //    tx->SetParameter(TxParameterID::MyID, from, false);
-    //    tx->SetParameter(TxParameterID::IsSender, isBeamSide, false);
-    //    tx->SetParameter(TxParameterID::IsInitiator, true, false);
-    //    tx->SetParameter(TxParameterID::Status, TxStatus::Pending, true);
-
-    //    tx->SetParameter(TxParameterID::AtomicSwapCoin, swapCoin, false);
-    //    tx->SetParameter(TxParameterID::AtomicSwapAmount, swapAmount, false);
-    //    tx->SetParameter(TxParameterID::AtomicSwapIsBeamSide, isBeamSide, false);
-
-    //    return tx;
     //}
+
+    void AtomicSwapTransaction::Creator::RegisterFactory(AtomicSwapCoin coinType, ISecondSideFactory::Ptr factory)
+    {
+        m_factories.emplace(coinType, factory);
+    }
 
     BaseTransaction::Ptr AtomicSwapTransaction::Creator::Create(INegotiatorGateway& gateway
                                                               , IWalletDB::Ptr walletDB
                                                               , IPrivateKeyKeeper::Ptr keyKeeper
                                                               , const TxID& txID)
     {
-        return BaseTransaction::Ptr(new AtomicSwapTransaction(gateway, walletDB, keyKeeper, txID));
+        return BaseTransaction::Ptr(new AtomicSwapTransaction(gateway, walletDB, keyKeeper, txID, *this));
     }
 
-    bool AtomicSwapTransaction::Creator::CanCreate(const SetTxParameter& msg)
+    SecondSide::Ptr AtomicSwapTransaction::Creator::GetSecondSide(BaseTransaction& tx)
     {
-        if (m_swapConditions.empty())
-        {
-            LOG_DEBUG() << msg.m_TxID << " Swap rejected. Swap conditions aren't initialized.";
-            return false;
-        }
+        AtomicSwapCoin coinType = tx.GetMandatoryParameter<AtomicSwapCoin>(TxParameterID::AtomicSwapCoin);
+        bool isBeamSide = tx.GetMandatoryParameter<bool>(TxParameterID::AtomicSwapIsBeamSide);
+        return m_factories[coinType]->CreateSecondSide(tx, isBeamSide);
+    }
 
-        // validate swapConditions
-        Amount amount = 0;
-        Amount swapAmount = 0;
-        AtomicSwapCoin swapCoin = AtomicSwapCoin::Bitcoin;
-        bool isBeamSide = 0;
-        SwapSecondSideChainType chainType = SwapSecondSideChainType::Mainnet;
+    bool AtomicSwapTransaction::Creator::CanCreate(const TxParameters& parameters)
+    {
+        //if (m_swapConditions.empty())
+        //{
+        //    LOG_DEBUG() << parameters.GetTxID() << " Swap rejected. Swap conditions aren't initialized.";
+        //    return false;
+        //}
 
-        bool result = msg.GetParameter(TxParameterID::Amount, amount) &&
-            msg.GetParameter(TxParameterID::AtomicSwapAmount, swapAmount) &&
-            msg.GetParameter(TxParameterID::AtomicSwapCoin, swapCoin) &&
-            msg.GetParameter(TxParameterID::AtomicSwapIsBeamSide, isBeamSide) &&
-            msg.GetParameter(TxParameterID::AtomicSwapSecondSideChainType, chainType);
+        //// validate swapConditions
+        //Amount amount = 0;
+        //Amount swapAmount = 0;
+        //AtomicSwapCoin swapCoin = AtomicSwapCoin::Bitcoin;
+        //bool isBeamSide = 0;
+        //SwapSecondSideChainType chainType = SwapSecondSideChainType::Mainnet;
 
-        auto idx = std::find(m_swapConditions.begin(), m_swapConditions.end(), SwapConditions{ amount, swapAmount, swapCoin, isBeamSide, chainType });
+        //bool result = parameters.GetParameter(TxParameterID::Amount, amount) &&
+        //    parameters.GetParameter(TxParameterID::AtomicSwapAmount, swapAmount) &&
+        //    parameters.GetParameter(TxParameterID::AtomicSwapCoin, swapCoin) &&
+        //    parameters.GetParameter(TxParameterID::AtomicSwapIsBeamSide, isBeamSide) &&
+        //    parameters.GetParameter(TxParameterID::AtomicSwapSecondSideChainType, chainType);
 
-        if (!result || idx == m_swapConditions.end())
-        {
-            LOG_DEBUG() << msg.m_TxID << " Swap rejected. Invalid conditions.";
-            return false;
-        }
+        //auto idx = std::find(m_swapConditions.begin(), m_swapConditions.end(), SwapConditions{ amount, swapAmount, swapCoin, isBeamSide, chainType });
 
-        m_swapConditions.erase(idx);
+        //if (!result || idx == m_swapConditions.end())
+        //{
+        //    LOG_DEBUG() << parameters.GetTxID() << " Swap rejected. Invalid conditions.";
+        //    return false;
+        //}
 
-        LOG_DEBUG() << msg.m_TxID << " Swap conditions match.";
+        //m_swapConditions.erase(idx);
+
+        //LOG_DEBUG() << parameters.GetTxID() << " Swap conditions match.";
 
         return true;
     }
@@ -135,9 +113,10 @@ namespace beam::wallet
     AtomicSwapTransaction::AtomicSwapTransaction(INegotiatorGateway& gateway
                                                , IWalletDB::Ptr walletDB
                                                , IPrivateKeyKeeper::Ptr keyKeeper
-                                               , const TxID& txID)
+                                               , const TxID& txID
+                                               , ISecondSideProvider& secondSideProvider)
         : BaseTransaction(gateway, walletDB, keyKeeper, txID)
-        , m_secondSide(gateway, txID)
+        , m_secondSide(secondSideProvider, *this)
     {
     }
 
@@ -285,6 +264,12 @@ namespace beam::wallet
                 }
                 else
                 {
+                    Height lockTime = 0;
+                    if (!GetParameter(TxParameterID::AtomicSwapExternalLockTime, lockTime))
+                    {
+                        //we doesn't have an answer from other participant
+                        break;
+                    }
                     if (!m_secondSide->ValidateLockTime())
                     {
                         LOG_ERROR() << GetTxID() << "[" << static_cast<SubTxID>(SubTxIndex::LOCK_TX) << "] " << "Lock height is unacceptable.";
