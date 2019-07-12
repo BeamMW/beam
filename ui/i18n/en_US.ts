@@ -467,8 +467,12 @@
         <translation>Info view</translation>
     </message>
     <message id="loading-change-settings-button">
-        <source>Сhange settings</source>
-        <translation>Сhange settings</translation>
+        <source>Change settings</source>
+        <translation>Change settings</translation>
+    </message>
+    <message id="loading-try-again-button">
+        <source>Try again</source>
+        <translation>Try again</translation>
     </message>
     <message id="notifications-title">
         <source>Notifications view</source>

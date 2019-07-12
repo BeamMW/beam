@@ -41,7 +41,7 @@
     </message>
     <message id="general-send">
         <source>Send</source>
-        <translation type="unfinished">Send</translation>
+        <translation>Gửi</translation>
     </message>
     <message id="general-amount">
         <source>Amount</source>
@@ -54,19 +54,19 @@
     <message id="general-cancel">
         <source>Cancel</source>
         <extracomment>Edit addres dialog, cancel button</extracomment>
-        <translation type="unfinished">Cancel</translation>
+        <translation>Huỷ</translation>
     </message>
     <message id="general-delete">
         <source>Delete</source>
-        <translation type="unfinished">Delete</translation>
+        <translation>Xoá</translation>
     </message>
     <message id="general-receiving">
         <source>receiving</source>
-        <translation>receiving</translation>
+        <translation>Receiving</translation>
     </message>
     <message id="general-sending">
         <source>sending</source>
-        <translation>sending</translation>
+        <translation>Sending</translation>
     </message>
     <message id="general-rescan">
         <source>Rescan</source>
@@ -90,7 +90,7 @@
     </message>
     <message id="general-close">
         <source>Close</source>
-        <translation type="unfinished">Close</translation>
+        <translation>Đóng</translation>
     </message>
     <message id="general-details">
         <source>Details</source>
@@ -98,15 +98,15 @@
     </message>
     <message id="general-kernel-id">
         <source>Kernel ID</source>
-        <translation type="unfinished">Kernel ID</translation>
+        <translation>ID hạt nhân</translation>
     </message>
     <message id="general-copy">
         <source>Copy</source>
-        <translation type="unfinished">Copy</translation>
+        <translation>Sao chép</translation>
     </message>
     <message id="general-paste">
         <source>Paste</source>
-        <translation type="unfinished">Paste</translation>
+        <translation>Dán</translation>
     </message>
     <message id="general-fee">
         <source>Transaction fee</source>
@@ -114,7 +114,7 @@
     </message>
     <message id="general-ok">
         <source>Ok</source>
-        <translation type="unfinished">Ok</translation>
+        <translation>Đồng ý</translation>
     </message>
     <message id="general-invalid-address">
         <source>Invalid address</source>
@@ -138,11 +138,11 @@
     </message>
     <message id="general-back">
         <source>Back</source>
-        <translation type="unfinished">Back</translation>
+        <translation>Quay lại</translation>
     </message>
     <message id="general-next">
         <source>Next</source>
-        <translation type="unfinished">Next</translation>
+        <translation>Tiếp</translation>
     </message>
     <message id="general-create-wallet">
         <source>Create new wallet</source>
@@ -162,20 +162,20 @@
     </message>
     <message id="general-start-using">
         <source>Start using your wallet</source>
-        <translation type="unfinished">Start using your wallet</translation>
+        <translation>Bắt đầu sử dụng ví của bạn</translation>
     </message>
     <message id="general-open-wallet">
         <source>Open my wallet</source>
-        <translation type="unfinished">Open my wallet</translation>
+        <translation>Mở ví của tôi</translation>
     </message>
     <message id="general-proceed">
         <source>Proceed</source>
         <extracomment>confirm password dialog, ok button</extracomment>
-        <translation type="unfinished">Proceed</translation>
+        <translation>Tiến hành</translation>
     </message>
     <message id="general-show-in-folder">
         <source>Show in folder</source>
-        <translation type="unfinished">Show in folder</translation>
+        <translation>Hiển thị trong thư mục</translation>
     </message>
     <message id="general-addr-comment-error">
         <source>Address with same comment already exist</source>
@@ -183,7 +183,7 @@
     </message>
     <message id="wallet-receive-button">
         <source>Receive</source>
-        <translation type="unfinished">Receive</translation>
+        <translation>Nhận</translation>
     </message>
     <message id="wallet-in-progress-title">
         <source>In progress</source>
@@ -199,11 +199,11 @@
     </message>
     <message id="wallet-txs-date-time">
         <source>Date | Time</source>
-        <translation type="unfinished">Date | Time</translation>
+        <translation>Ngày | thời gian</translation>
     </message>
     <message id="wallet-txs-copy-addr-cm">
         <source>Copy address</source>
-        <translation type="unfinished">Copy address</translation>
+        <translation>Sao chép địa chỉ</translation>
     </message>
     <message id="wallet-txs-delete-message">
         <source>The transaction will be deleted. This operation can not be undone</source>
@@ -211,43 +211,43 @@
     </message>
     <message id="wallet-txs-status-pending">
         <source>pending</source>
-        <translation type="unfinished">pending</translation>
+        <translation>đang chờ</translation>
     </message>
     <message id="wallet-txs-status-waiting-sender">
         <source>waiting for sender</source>
-        <translation type="unfinished">waiting for sender</translation>
+        <translation>đang chờ người gửi</translation>
     </message>
     <message id="wallet-txs-status-waiting-receiver">
         <source>waiting for receiver</source>
-        <translation type="unfinished">waiting for receiver</translation>
+        <translation>đang chờ người nhận</translation>
     </message>
     <message id="wallet-txs-status-completed">
         <source>completed</source>
-        <translation type="unfinished">completed</translation>
+        <translation>đã hoàn thành</translation>
     </message>
     <message id="wallet-txs-status-received">
         <source>received</source>
-        <translation type="unfinished">received</translation>
+        <translation>đã nhận</translation>
     </message>
     <message id="wallet-txs-status-sent">
         <source>sent</source>
-        <translation type="unfinished">sent</translation>
+        <translation>đã gửi</translation>
     </message>
     <message id="wallet-txs-status-cancelled">
         <source>cancelled</source>
-        <translation type="unfinished">cancelled</translation>
+        <translation>đã huỷ</translation>
     </message>
     <message id="wallet-txs-status-expired">
         <source>expired</source>
-        <translation type="unfinished">expired</translation>
+        <translation>đã hết hạn</translation>
     </message>
     <message id="wallet-txs-status-failed">
         <source>failed</source>
-        <translation type="unfinished">failed</translation>
+        <translation>thất bại</translation>
     </message>
     <message id="wallet-txs-status-unknown">
         <source>unknown</source>
-        <translation type="unfinished">unknown</translation>
+        <translation>chưa xác định</translation>
     </message>
     <message id="addresses-tittle">
         <source>Addresses</source>
@@ -255,20 +255,20 @@
     </message>
     <message id="addresses-tab-active">
         <source>My active addresses</source>
-        <translation type="unfinished">My active addresses</translation>
+        <translation>Địa chỉ đang hoạt động của tôi</translation>
     </message>
     <message id="addresses-tab-expired">
         <source>My expired addresses</source>
-        <translation type="unfinished">My expired addresses</translation>
+        <translation>Địa chỉ đã hết hạn của tôi</translation>
     </message>
     <message id="addresses-tab-contacts">
         <source>Contacts</source>
-        <translation type="unfinished">Contacts</translation>
+        <translation>Liên hệ</translation>
     </message>
     <message id="address-table-cm-show-qr">
         <source>Show QR code</source>
         <extracomment>Entry in adress table context menu to show QR</extracomment>
-        <translation type="unfinished">Show QR code</translation>
+        <translation>Hiển thị mã QR</translation>
     </message>
     <message id="address-table-cm-edit">
         <source>Edit address</source>
@@ -278,11 +278,11 @@
     <message id="address-table-cm-delete">
         <source>Delete address</source>
         <extracomment>Entry in adress table context menu to delete</extracomment>
-        <translation type="unfinished">Delete address</translation>
+        <translation>Xoá địa chỉ</translation>
     </message>
     <message id="address-table-cm-delete-contact">
         <source>Delete contact</source>
-        <translation type="unfinished">Delete contact</translation>
+        <translation>Xoá liên hệ</translation>
     </message>
     <message id="available-panel-available">
         <source>Available</source>
@@ -295,7 +295,7 @@
     <message id="settings-version">
         <source>Version</source>
         <extracomment>settings tab, version label</extracomment>
-        <translation type="unfinished">Version</translation>
+        <translation>Phiên bản</translation>
     </message>
     <message id="settings-remote-node-ip-port">
         <source>ip:port</source>
@@ -345,7 +345,7 @@
     <message id="settings-apply">
         <source>Apply</source>
         <extracomment>settings tab, node section, apply button</extracomment>
-        <translation type="unfinished">Apply</translation>
+        <translation>Đăng ký</translation>
     </message>
     <message id="logo-description">
         <source>Scalable confidential cryptocurrency</source>
@@ -389,7 +389,7 @@
     </message>
     <message id="change-pwd-ok">
         <source>Сhange password</source>
-        <translation type="unfinished">Сhange password</translation>
+        <translation>Thay đổi mật khẩu</translation>
     </message>
     <message id="loading-loading">
         <source>Loading wallet...</source>
@@ -409,12 +409,12 @@
     </message>
     <message id="open-show-wallet-button">
         <source>Show my wallet</source>
-        <translation type="unfinished">Show my wallet</translation>
+        <translation>Xem ví của tôi</translation>
     </message>
     <message id="edit-addr-title">
         <source>Edit address</source>
         <extracomment>Edit addres dialog title</extracomment>
-        <translation type="unfinished">Edit address</translation>
+        <translation>Sửa địa chỉ</translation>
     </message>
     <message id="edit-addr-addr-id">
         <source>Address ID</source>
@@ -424,7 +424,7 @@
     <message id="edit-addr-save-button">
         <source>Save</source>
         <extracomment>Edit addres dialog, save button</extracomment>
-        <translation type="unfinished">Save</translation>
+        <translation>Lưu</translation>
     </message>
     <message id="payment-info-proof-verification">
         <source>Payment proof verification</source>
@@ -440,35 +440,39 @@
     </message>
     <message id="payment-info-proof-code-label">
         <source>Code</source>
-        <translation type="unfinished">Code</translation>
+        <translation>Mã</translation>
     </message>
     <message id="payment-info-proof-sender-label">
         <source>Sender</source>
-        <translation type="unfinished">Sender</translation>
+        <translation>Người gửi</translation>
     </message>
     <message id="payment-info-proof-receiver-label">
         <source>Receiver</source>
-        <translation type="unfinished">Receiver</translation>
+        <translation>Người nhận</translation>
     </message>
     <message id="payment-info-copy-details-button">
         <source>Copy details</source>
-        <translation type="unfinished">Copy details</translation>
+        <translation>Sao chép chi tiết</translation>
     </message>
     <message id="payment-info-copy-code-button">
         <source>Copy code</source>
-        <translation type="unfinished">Copy code</translation>
+        <translation>Sao chép mã</translation>
     </message>
     <message id="secondary-panel-maturing">
         <source>Maturing</source>
-        <translation type="unfinished">Maturing</translation>
+        <translation>Đáo hạn</translation>
     </message>
     <message id="info-title">
         <source>Info view</source>
         <translation>Xem thông tin</translation>
     </message>
     <message id="loading-change-settings-button">
-        <source>Сhange settings</source>
-        <translation type="unfinished">Сhange settings</translation>
+        <source>Change settings</source>
+        <translation type="unfinished">Change settings</translation>
+    </message>
+    <message id="loading-try-again-button">
+        <source>Try again</source>
+        <translation type="unfinished">Try again</translation>
     </message>
     <message id="notifications-title">
         <source>Notifications view</source>
@@ -476,15 +480,15 @@
     </message>
     <message id="status-connecting">
         <source>connecting</source>
-        <translation type="unfinished">connecting</translation>
+        <translation>đang kết nối</translation>
     </message>
     <message id="status-online">
         <source>online</source>
-        <translation type="unfinished">online</translation>
+        <translation>trực tuyến</translation>
     </message>
     <message id="status-updating">
         <source>updating</source>
-        <translation type="unfinished">updating</translation>
+        <translation>đang cập nhật</translation>
     </message>
     <message id="tx-details-title">
         <source>General transaction info</source>
@@ -492,20 +496,20 @@
     </message>
     <message id="tx-details-sending-addr-label">
         <source>Sending address</source>
-        <translation type="unfinished">Sending address</translation>
+        <translation>Đang gửi địa chỉ</translation>
     </message>
     <message id="tx-details-receiving-addr-label">
         <source>Receiving address</source>
-        <translation type="unfinished">Receiving address</translation>
+        <translation>Đang nhận địa chỉ</translation>
     </message>
     <message id="tx-details-error-label">
         <source>Error</source>
-        <translation type="unfinished">Error</translation>
+        <translation>Lỗi</translation>
     </message>
     <message id="settings-report-problem-save-log-button">
         <source>Save wallet logs</source>
         <extracomment>settings tab, report problem section, save logs button</extracomment>
-        <translation type="unfinished">Save wallet logs</translation>
+        <translation>Lưu nhật ký ví</translation>
     </message>
     <message id="settings-rescan-confirmation-message-line-2">
         <source>Are you sure?</source>
@@ -527,7 +531,7 @@
     </message>
     <message id="send-confirmation-recipient-label">
         <source>Recipient</source>
-        <translation type="unfinished">Recipient</translation>
+        <translation>Người nhận</translation>
     </message>
     <message id="send-confirmation-pwd-require-message">
         <source>To broadcast your transaction please enter your password</source>
@@ -555,7 +559,7 @@
     </message>
     <message id="wallet-receive-expires-never">
         <source>Never</source>
-        <translation type="unfinished">Never</translation>
+        <translation>Không bao giờ</translation>
     </message>
     <message id="wallet-receive-qr-label">
         <source>Scan to send</source>
@@ -567,7 +571,7 @@
     </message>
     <message id="invalid-addr-got-it-button">
         <source>Got it</source>
-        <translation type="unfinished">Got it</translation>
+        <translation>Lấy</translation>
     </message>
     <message id="send-title">
         <source>Send Beam</source>
@@ -575,7 +579,7 @@
     </message>
     <message id="send-send-to-label">
         <source>Send To</source>
-        <translation type="unfinished">Send To</translation>
+        <translation>Gửi tới</translation>
     </message>
     <message id="send-contact-placeholder">
         <source>Please specify contact</source>
@@ -909,35 +913,35 @@
     </message>
     <message id="utxo-status-available">
         <source>Available</source>
-        <translation type="unfinished">Available</translation>
+        <translation>Có sẵn</translation>
     </message>
     <message id="utxo-status-maturing">
         <source>Maturing%1(till block height %2)</source>
-        <translation type="unfinished">Maturing%1(till block height %2)</translation>
+        <translation>Đáo hạn %1 (cho đến chiều cao khối %2)</translation>
     </message>
     <message id="utxo-status-unavailable">
         <source>Unavailable%1(mining result rollback)</source>
-        <translation type="unfinished">Unavailable%1(mining result rollback)</translation>
+        <translation>Không có sẵn %1 (khôi phục kết quả khai thác)</translation>
     </message>
     <message id="utxo-status-outgoing">
         <source>In progress%1(outgoing)</source>
-        <translation type="unfinished">In progress%1(outgoing)</translation>
+        <translation>Trong tiến trình %1 ( đang gửi)</translation>
     </message>
     <message id="utxo-status-change">
         <source>In progress%1(change)</source>
-        <translation type="unfinished">In progress%1(change)</translation>
+        <translation>Trong tiến trình %1(thay đổi)</translation>
     </message>
     <message id="utxo-status-incoming">
         <source>In progress%1(incoming)</source>
-        <translation type="unfinished">In progress%1(incoming)</translation>
+        <translation>Trong tiến trình %1 (đang tới)</translation>
     </message>
     <message id="utxo-status-spent">
         <source>Spent</source>
-        <translation type="unfinished">Spent</translation>
+        <translation>Dành ra</translation>
     </message>
     <message id="settings-general-lock-screen-never">
         <source>Never</source>
-        <translation type="unfinished">Never</translation>
+        <translation>Không bao giờ</translation>
     </message>
     <message id="settings-general-lock-screen-1m">
         <source>1 minute</source>
@@ -965,7 +969,7 @@
     </message>
     <message id="tx-details-tx-id-label">
         <source>Transaction ID</source>
-        <translation type="unfinished">Transaction ID</translation>
+        <translation>ID giao dịch</translation>
     </message>
     <message id="appmodel-failed-time-not-synced">
         <source>Failed to start the integrated node: the timezone settings of your machine are out of sync. Please fix them and restart the wallet.</source>
@@ -982,7 +986,7 @@
     </message>
     <message id="open-external-open">
         <source>Open</source>
-        <translation type="unfinished">Open</translation>
+        <translation>Mở</translation>
     </message>
     <message id="open-external-title">
         <source>External link</source>
@@ -1028,7 +1032,7 @@
     <message id="show-qr-tx-token-label">
         <source>Your address</source>
         <extracomment>show qr dialog address label</extracomment>
-        <translation type="unfinished">Your address</translation>
+        <translation>Địa chỉ của bạn</translation>
     </message>
     <message id="show-qr-message">
         <source>Scan this QR code or send this address to the sender over secure channel</source>
@@ -1073,27 +1077,27 @@
     <message id="edit-addr-24-option">
         <source>In 24 hours from now</source>
         <extracomment>Edit address dialog, expiration option, in 24 hours from now</extracomment>
-        <translation type="unfinished">In 24 hours from now</translation>
+        <translation>Trong 24 giờ kể từ bây giờ</translation>
     </message>
     <message id="edit-addr-never-option">
         <source>Never</source>
         <extracomment>Edit address dialog, expiration option, never</extracomment>
-        <translation type="unfinished">Never</translation>
+        <translation>Không bao giờ</translation>
     </message>
     <message id="edit-addr-as-is-option">
         <source>Within 24 hours</source>
         <extracomment>Edit address dialog, expiration option, do not change</extracomment>
-        <translation type="unfinished">Within 24 hours</translation>
+        <translation>Trong vòng 24 giờ</translation>
     </message>
     <message id="edit-addr-expires-label">
         <source>Expires</source>
         <extracomment>Edit addres dialog, expires label</extracomment>
-        <translation type="unfinished">Expires</translation>
+        <translation>Hết hạn</translation>
     </message>
     <message id="edit-addr-expire-now-label">
         <source>Now</source>
         <extracomment>Edit addres dialog, expire now label</extracomment>
-        <translation type="unfinished">Now</translation>
+        <translation>Bây giờ</translation>
     </message>
     <message id="edit-addr-expire-now-switch">
         <source>Expire address now</source>
@@ -1113,7 +1117,7 @@
     <message id="time-never">
         <source>Never</source>
         <extracomment>time never string</extracomment>
-        <translation type="unfinished">Never</translation>
+        <translation>Không bao giờ</translation>
     </message>
     <message id="start-pwd-difficulty-very-weak">
         <source>Very weak password</source>

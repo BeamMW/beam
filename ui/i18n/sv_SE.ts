@@ -13,7 +13,7 @@
     </message>
     <message id="general-comment">
         <source>Comment</source>
-        <translation>Kommentarer</translation>
+        <translation>Kommentar</translation>
     </message>
     <message id="general-contact">
         <source>Contact</source>
@@ -74,7 +74,7 @@
     </message>
     <message id="general-change-pwd">
         <source>Change wallet password</source>
-        <translation>Byta plånbokens lösenord</translation>
+        <translation>Byt plånbokens lösenord</translation>
     </message>
     <message id="general-pwd-empty-error">
         <source>Please, enter password</source>
@@ -130,7 +130,7 @@
     </message>
     <message id="general-change">
         <source>Change</source>
-        <translation>Växel</translation>
+        <translation>Ändra</translation>
     </message>
     <message id="general-treasury">
         <source>Treasury</source>
@@ -467,8 +467,12 @@
         <translation>Informationsvy</translation>
     </message>
     <message id="loading-change-settings-button">
-        <source>Сhange settings</source>
+        <source>Change settings</source>
         <translation>Ändra inställningar</translation>
+    </message>
+    <message id="loading-try-again-button">
+        <source>Try again</source>
+        <translation type="unfinished">Try again</translation>
     </message>
     <message id="notifications-title">
         <source>Notifications view</source>
@@ -591,7 +595,7 @@
     </message>
     <message id="send-fee-fail">
         <source>The minimum fee is %1 GROTH</source>
-        <translation>Minsta möjliga avgift är %1 GROTH</translation>
+        <translation>The minimum fee is %1 GROTH</translation>
     </message>
     <message id="send-curency-sub-name">
         <source>GROTH</source>

@@ -166,6 +166,7 @@ void LoadingViewModel::onGetWalletError(beam::wallet::ErrorType error)
                 return;
             }
             case beam::wallet::ErrorType::ConnectionAddrInUse:
+            case beam::wallet::ErrorType::ConnectionRefused:
             case beam::wallet::ErrorType::HostResolvedError:
             {
                 //% "Connection error"
