@@ -405,6 +405,7 @@ elseif (APPLE)
     set(CPACK_BUNDLE_STARTUP_COMMAND "ui/Beam Wallet${BEAM_DISPLAY_SUFFIX}")
 
     if(BEAM_SIGN_MACOS_BINARY)
+        set(CPACK_COMMAND_CODESIGN "codesign -o runtime --timestamp")
         set(CPACK_BUNDLE_APPLE_CERT_APP "Developer ID Application: Beam Development Limited (KNU2R94BJK)")
     endif()
 elseif (LINUX)
