@@ -2,6 +2,7 @@ set(TARGET_NAME libbitcoin)
 
 set(LIBBITCOIN_INCLUDE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/include/bitcoin/bitcoin)
 
+add_definitions(-DWITH_ICU)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/include)
 
 add_subdirectory(src)
