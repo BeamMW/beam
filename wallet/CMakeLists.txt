@@ -20,6 +20,8 @@ set(WALLET_SRC
     bitcoin/bitcoin_side.cpp
     bitcoin/bitcoind016.cpp
     bitcoin/bitcoind017.cpp
+    lightning/lightning_channel.h
+    lightning/lightning_channel.cpp
     litecoin/litecoind016.cpp
     litecoin/litecoind017.cpp
     qtum/qtumd017.cpp

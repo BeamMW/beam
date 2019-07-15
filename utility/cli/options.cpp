@@ -133,6 +133,15 @@ namespace beam
         const char* EXPIRATION_TIME_24H = "24h";
         const char* EXPIRATION_TIME_NEVER = "never";
         const char* EXPIRATION_TIME_NOW = "now";
+        // laser
+        const char* LASER = "laser";
+        const char* LASER_OPEN = "open";
+        const char* LASER_SEND = "send";
+        const char* LASER_AMOUNT_MY = "a_my";
+        const char* LASER_AMOUNT_TARGET = "a_trg";
+        const char* LASER_TARGET_ARRD = "laser_target";
+        const char* LASER_FEE = "lfee";
+        const char* LASER_LOCK_TIME = "laser_lock_time";
 
         // wallet api
         const char* API_USE_HTTP = "use_http";
@@ -236,7 +245,7 @@ namespace beam
             (cli::UTXO, po::value<vector<string>>()->multitoken(), "preselected utxos to transfer")
             (cli::IMPORT_EXPORT_PATH, po::value<string>()->default_value("export.dat"), "path to import or export data (import_data|export_data)")
             (cli::COLD_WALLET, "used to init cold wallet")
-            (cli::COMMAND, po::value<string>(), "command to execute [new_addr|send|listen|init|restore|info|export_miner_key|export_owner_key|generate_phrase|change_address_expiration|address_list|rescan|export_data|import_data|tx_details|payment_proof_export|payment_proof_verify|utxo|cancel_tx|delete_tx|swap_init|swap_listen]")
+            (cli::COMMAND, po::value<string>(), "command to execute [new_addr|send|listen|init|restore|info|export_miner_key|export_owner_key|generate_phrase|change_address_expiration|address_list|rescan|export_data|import_data|tx_details|payment_proof_export|payment_proof_verify|utxo|cancel_tx|delete_tx|swap_init|swap_listen|laser]")
             (cli::NODE_POLL_PERIOD, po::value<Nonnegative<uint32_t>>()->default_value(Nonnegative<uint32_t>(0)), "Node poll period in milliseconds. Set to 0 to keep connection. Anyway poll period would be no less than the expected rate of blocks if it is less then it will be rounded up to block rate value.");
 
         po::options_description wallet_treasury_options("Wallet treasury options");
@@ -272,6 +281,16 @@ namespace beam
             (cli::SWAP_BEAM_SIDE, "Should be set by Beam owner")
             (cli::SWAP_TX_HISTORY, "show swap transactions history in info command");
 
+        po::options_description lazer_options("Lightning options");
+        lazer_options.add_options()
+            (cli::LASER_OPEN, "open lightning channel")
+            (cli::LASER_SEND, "send to lightning channel")
+            (cli::LASER_AMOUNT_MY, po::value<Positive<double>>(), "amount to lock in channel on my side (in Beams, 1 Beam = 100,000,000 groth)")
+            (cli::LASER_AMOUNT_TARGET, po::value<Positive<double>>(), "amount to lock in channel on target side (in Beams, 1 Beam = 100,000,000 groth)")
+            (cli::LASER_TARGET_ARRD, po::value<string>(), "address of laser receiver")
+            (cli::LASER_FEE, po::value<Nonnegative<Amount>>()->default_value(Nonnegative<Amount>(cli::kMinimumFee)), "fee (in Groth, 100,000,000 groth = 1 Beam)")
+            (cli::LASER_LOCK_TIME, po::value<Positive<uint32_t>>(), "lock time in blocks beam transaction");
+
         po::options_description options{ "Allowed options" };
         po::options_description visible_options{ "Allowed options" };
         if (flags & GENERAL_OPTIONS)
@@ -290,8 +309,10 @@ namespace beam
             options.add(wallet_options);
             options.add(wallet_treasury_options);
             options.add(swap_options);
+            options.add(lazer_options);
             visible_options.add(wallet_options);
             visible_options.add(swap_options);
+            visible_options.add(lazer_options);
         }
         if (flags & UI_OPTIONS)
         {

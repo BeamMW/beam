@@ -389,7 +389,6 @@ namespace beam::wallet
         void notifySystemStateChanged();
         void notifyAddressChanged(ChangeAction action, const std::vector<WalletAddress>& items);
 
-        static uint64_t get_RandomID();
         bool updateCoinRaw(const Coin&);
         void insertCoinRaw(const Coin&);
         void insertNewCoin(Coin&);

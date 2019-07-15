@@ -25,6 +25,8 @@
 
 namespace beam::wallet
 {
+    class LightningChannel;
+
     class AddressExpiredException : public std::runtime_error
     {
     public:
@@ -125,6 +127,11 @@ namespace beam::wallet
 
         void ProcessTransaction(wallet::BaseTransaction::Ptr tx);
         void RegisterTransactionType(wallet::TxType type, wallet::BaseTransaction::Creator creator);
+        void OpenLaserChanel(Amount aMy,
+                             Amount aTrg,
+                             Amount fee,
+                             const WalletID& receiverWalletID,
+                             Height locktime);
         
     private:
         void RefreshTransactions();
@@ -327,5 +334,8 @@ namespace beam::wallet
         IBitcoinBridge::Ptr m_litecoinBridge;
         IBitcoinBridge::Ptr m_qtumBridge;
         std::vector<SwapConditions> m_swapConditions;
+
+        // Members for Lightning
+        std::vector<std::unique_ptr<LightningChannel>> m_lchs;
     };
 }

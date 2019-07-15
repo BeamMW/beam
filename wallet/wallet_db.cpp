@@ -1589,16 +1589,6 @@ namespace beam::wallet
         notifyCoinsChanged();
     }
 
-    uint64_t WalletDB::get_RandomID()
-    {
-        uintBigFor<uint64_t>::Type val;
-        ECC::GenRandom(val);
-
-        uint64_t ret;
-        val.Export(ret);
-        return ret;
-    }
-
     uint64_t WalletDB::AllocateKidRange(uint64_t nCount)
     {
         // a bit akward, but ok

@@ -463,7 +463,9 @@ namespace beam::wallet
 
         void Sign(const ECC::Scalar::Native& sk);
     };
-}
+
+    uint64_t get_RandomID();
+}  // beam::wallet
 
 namespace beam
 {

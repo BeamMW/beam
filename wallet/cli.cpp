@@ -969,6 +969,61 @@ namespace
         return true;
     }
 
+    bool LoadLaserParams(const po::variables_map& vm,
+                         Amount* aMy,
+                         Amount* aTrg,
+                         Amount* fee,
+                         WalletID* receiverWalletID,
+                         Height* locktime)
+    {
+        if (vm.count(cli::LASER_TARGET_ARRD) == 0)
+        {
+            LOG_ERROR() << "receiver's address is missing";
+            return false;
+        }
+
+        if (vm.count(cli::LASER_AMOUNT_MY) == 0)
+        {
+            LOG_ERROR() << "amount is missing";
+            return false;
+        }
+
+        receiverWalletID->FromHex(vm[cli::LASER_TARGET_ARRD].as<string>());
+
+        auto myAmount = vm[cli::LASER_AMOUNT_MY].as<Positive<double>>().value;
+        myAmount *= Rules::Coin;
+        *aMy = static_cast<ECC::Amount>(std::round(myAmount));
+        if (*aMy == 0)
+        {
+            LOG_ERROR() << "Unable to send zero coins";
+            return false;
+        }
+
+        if (vm.count(cli::LASER_AMOUNT_TARGET))
+        {
+            auto trgAmount = vm[cli::LASER_AMOUNT_TARGET].as<Positive<double>>().value;
+            trgAmount *= Rules::Coin;
+            *aTrg = static_cast<ECC::Amount>(std::round(trgAmount));
+        }
+
+        if (vm.count(cli::LASER_AMOUNT_TARGET) == 0)
+        {
+            *fee = vm[cli::FEE].as<Nonnegative<Amount>>().value;
+            if (*fee < cli::kMinimumFee)
+            {
+                LOG_ERROR() << "Failed to initiate the send operation. The minimum fee is 100 groth.";
+                return false;
+            }
+        }
+
+        if (vm.count(cli::LASER_LOCK_TIME) > 0)
+        {
+            *locktime = vm[cli::LASER_LOCK_TIME].as<Positive<uint32_t>>().value;
+        }
+
+        return true;
+    }
+
     SwapSecondSideChainType ParseSwapSecondSideChainType(const po::variables_map& vm)
     {
         SwapSecondSideChainType swapSecondSideChainType = SwapSecondSideChainType::Unknown;
@@ -1118,6 +1173,27 @@ namespace
 
         return boost::optional<QtumOptions>{};
     }
+
+    bool LaserOpen(Wallet* wallet, const po::variables_map& vm)
+    {
+        io::Address receiverAddr;
+        Amount aMy = 0, aTrg = 0, fee = 100;
+        WalletID receiverWalletID(Zero);
+
+        Height lifetime = kDefaultTxLifetime;
+        if (!LoadLaserParams(vm, &aMy, &aTrg, &fee, &receiverWalletID, &lifetime))
+        {
+            LOG_ERROR() << "Can't read lightning params";
+            return false;
+        }
+        wallet->OpenLaserChanel(aMy, aTrg, fee, receiverWalletID, lifetime);
+        return true;
+    }
+
+    // int LaserSend()
+    // {
+    //     return 0;        
+    // }
 }
 
 io::Reactor::Ptr reactor;
@@ -1240,7 +1316,8 @@ int main_impl(int argc, char* argv[])
                             cli::IMPORT_DATA,
                             cli::EXPORT_DATA,
                             cli::SWAP_INIT,
-                            cli::SWAP_LISTEN
+                            cli::SWAP_LISTEN,
+                            cli::LASER
                         };
 
                         if (find(begin(commands), end(commands), command) == end(commands))
@@ -1445,6 +1522,9 @@ int main_impl(int argc, char* argv[])
                     }
 
                     bool is_server = command == cli::LISTEN || vm.count(cli::LISTEN);
+                    bool is_laser = command == cli::LASER || vm.count(cli::LASER);
+                    bool is_laser_open = is_laser && vm.count(cli::LASER_OPEN);
+                    is_server = is_laser_open ? true : is_server;
 
                     boost::optional<TxID> currentTxID;
                     auto txCompleteAction = [&currentTxID](const TxID& txID)
@@ -1475,6 +1555,31 @@ int main_impl(int argc, char* argv[])
                                 LOG_ERROR() << "unable to resolve node address: " << nodeURI;
                                 return -1;
                             }
+
+                            if (is_laser_open)
+                            {
+                                if(!LaserOpen(&wallet, vm))
+                                {
+                                    return -1;
+                                }
+                            }
+
+                            // size_t lightning_channels_count = vm.count(cli::LASER);
+                            // if (lightning_channels_count) {
+                                // if (lightning_channels_count > 1)
+                                // {
+                                //     LOG_INFO() << "use existing laser";
+                                // }
+                                // is_server = vm.count(cli::LASER_OPEN);
+                                // isTxInitiator = vm.count(cli::LASER_SEND);
+                                // LOG_INFO() << "LASER";
+                                // if (!is_server && !isTxInitiator) {
+                                //     LOG_ERROR() << "Lightning params is incorrect";
+                                //     printHelp(visibleOptions);
+                                //     return -1;
+                                // }
+                            //     return 0;
+                            // }
 
                             auto nnet = make_shared<proto::FlyClient::NetworkStd>(wallet);
                             nnet->m_Cfg.m_PollPeriod_ms = vm[cli::NODE_POLL_PERIOD].as<Nonnegative<uint32_t>>().value;
