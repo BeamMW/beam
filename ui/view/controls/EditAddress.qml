@@ -129,7 +129,7 @@ Dialog {
                 text: addressItem ? addressItem.address : ""
 				elide: Text.ElideLeft
 				copyMenuEnabled: true
-				onCopyText: parentModel.copyToClipboard(text)
+				onCopyText: BeamGlobals.copyToClipboard(text)
 			}
     	}
 

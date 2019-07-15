@@ -412,7 +412,7 @@ Item
                                     text: elidedText(styleData.value, isPreferred) + (isPreferred ? " " + preferredLabelFormat.arg(bestMatchStr) : " ")
                                     color: Style.content_main
                                     copyMenuEnabled: true
-                                    onCopyText: viewModel.copyToClipboard(text)
+                                    onCopyText: BeamGlobals.copyToClipboard(text)
                                     Component.onCompleted: {
                                         if (isPreferred) {
                                             tableView.selection.select(styleData.row);

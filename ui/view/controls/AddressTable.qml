@@ -50,7 +50,7 @@ CustomTableView {
                     text: styleData.value
                     color: Style.content_main
                     copyMenuEnabled: true
-                    onCopyText: parentModel.copyToClipboard(text)
+                    onCopyText: BeamGlobals.copyToClipboard(text)
                 }
             }
         }

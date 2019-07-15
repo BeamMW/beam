@@ -140,7 +140,6 @@ public:
     Q_INVOKABLE bool isFindExistingWalletDB();
     Q_INVOKABLE void deleteCurrentWalletDB();
     Q_INVOKABLE void migrateWalletDB(const QString& path);
-    Q_INVOKABLE void copyToClipboard(const QString& text);
     Q_INVOKABLE QString selectCustomWalletDB();
     Q_INVOKABLE QString defaultPortToListen() const;
     Q_INVOKABLE QString defaultRemoteNodeAddr() const;
