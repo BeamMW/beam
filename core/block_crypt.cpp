@@ -331,7 +331,7 @@ namespace beam
 
 		ECC::RangeProof::CreatorParams cp;
 		cp.m_Kidv = kidv;
-        GenerateSeedKid(cp.m_Seed.V, m_Commitment, tagKdf);
+		GenerateSeedKid(cp.m_Seed.V, m_Commitment, tagKdf);
 
 		if (bPublic || m_Coinbase)
 		{
@@ -369,7 +369,7 @@ namespace beam
 	bool Output::Recover(Height hScheme, Key::IPKdf& tagKdf, Key::IDV& kidv) const
 	{
 		ECC::RangeProof::CreatorParams cp;
-        GenerateSeedKid(cp.m_Seed.V, m_Commitment, tagKdf);
+		GenerateSeedKid(cp.m_Seed.V, m_Commitment, tagKdf);
 
 		ECC::Oracle oracle;
 		Prepare(oracle, hScheme);
@@ -972,8 +972,12 @@ namespace beam
 		};
 
 		ZeroObject(pForks);
-		for (size_t i = 1; i < _countof(pForks); i++)
-			pForks[i].m_Height = MaxHeight; // not yet decided
+
+		pForks[1].m_Height = MaxHeight; // not decided yet 
+
+		// future forks
+		for (size_t i = 2; i < _countof(pForks); i++)
+			pForks[i].m_Height = MaxHeight;
 	}
 
 	Amount Rules::get_EmissionEx(Height h, Height& hEnd, Amount base) const
@@ -1046,8 +1050,23 @@ namespace beam
 		}
 	}
 
+	bool Rules::IsForkHeightsConsistent() const
+	{
+		if (pForks[0].m_Height != Rules::HeightGenesis - 1)
+			return false;
+
+		for (size_t i = 1; i < _countof(pForks); i++)
+			if (pForks[i].m_Height < pForks[i - 1].m_Height)
+				return false;
+
+		return true;
+	}
+
 	void Rules::UpdateChecksum()
 	{
+		if (!IsForkHeightsConsistent())
+			throw std::runtime_error("Inconsistent Forks");
+
 		// all parameters, including const (in case they'll be hardcoded to different values in later versions)
 		ECC::Oracle oracle;
 		oracle
@@ -1079,7 +1098,7 @@ namespace beam
 			<< (uint32_t) Block::PoW::NonceType::nBits
 			<< uint32_t(14) // increment this whenever we change something in the protocol
 #ifndef BEAM_TESTNET
-            << "masternet"
+			<< "masternet"
 #endif
 			// out
 			>> pForks[0].m_Hash;
@@ -1091,6 +1110,14 @@ namespace beam
 			<< DA.Damp.N
 			// out
 			>> pForks[1].m_Hash;
+
+		oracle
+			<< "fork2"
+			<< pForks[2].m_Height
+			// TBD
+			// ...
+			// out
+			>> pForks[2].m_Hash;
 	}
 
 	const HeightHash* Rules::FindFork(const Merkle::Hash& hv) const
@@ -1236,12 +1263,12 @@ namespace beam
 		return m_PoW.IsValid(hv.m_pData, hv.nBytes, m_Height);
 	}
 
-    bool Block::SystemState::Full::GeneratePoW(const PoW::Cancel& fnCancel)
+	bool Block::SystemState::Full::GeneratePoW(const PoW::Cancel& fnCancel)
 	{
 		Merkle::Hash hv;
 		get_HashForPoW(hv);
 
-        return m_PoW.Solve(hv.m_pData, hv.nBytes, m_Height, fnCancel);
+		return m_PoW.Solve(hv.m_pData, hv.nBytes, m_Height, fnCancel);
 	}
 
 	bool Block::SystemState::Sequence::Element::IsValidProofUtxo(const ECC::Point& comm, const Input::Proof& p) const

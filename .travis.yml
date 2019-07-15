@@ -15,8 +15,10 @@ matrix:
         - export TZ=Etc/GMT-3
         - brew update
         - brew unlink cmake
-        - brew unlink boost 
-        - brew install qt5 cmake boost
+        - brew unlink boost
+        - brew install cmake boost
+        - curl -O https://raw.githubusercontent.com/Homebrew/homebrew-core/56c500b569c724b049be7ab9e12d9693f85522f9/Formula/qt.rb
+        - brew install ./qt.rb
         - brew link qt5 --force
         - export PATH=/usr/local/opt/qt/bin:$PATH
         - export OPENSSL_ROOT_DIR="/usr/local/opt/openssl"
@@ -39,7 +41,7 @@ matrix:
 
     - os: osx
       language: cpp
-      osx_image: xcode9.3
+      osx_image: xcode10.1
       install:
         - export TZ=Etc/GMT-3
         - brew update
@@ -75,11 +77,12 @@ matrix:
         - export BEAM_WALLET_UI_OUT="Beam-Wallet$BEAM_DISPLAY_SUFFIX2-$BEAM_VERSION.dmg"
         - export BEAM_WALLET_UI_OUT_VERLESS="Beam-Wallet$BEAM_DISPLAY_SUFFIX2.dmg"
         # sign our builds
-        - codesign --force --deep --sign "$MACOS_SIGN_IDENTITY" beam/beam-node$BEAM_TARGET_SUFFIX
-        - codesign --force --deep --sign "$MACOS_SIGN_IDENTITY" wallet/beam-wallet$BEAM_TARGET_SUFFIX
-        - codesign --force --deep --sign "$MACOS_SIGN_IDENTITY" wallet/wallet-api$BEAM_TARGET_SUFFIX
-        - codesign --force --deep --sign "$MACOS_SIGN_IDENTITY" explorer/explorer-node$BEAM_TARGET_SUFFIX
-        - codesign --force --deep --sign "$MACOS_SIGN_IDENTITY" $BEAM_WALLET_UI_IN
+        - codesign --deep --force -v -s "$MACOS_SIGN_IDENTITY" -o runtime --timestamp beam/beam-node$BEAM_TARGET_SUFFIX
+        - codesign --deep --force -v -s "$MACOS_SIGN_IDENTITY" -o runtime --timestamp wallet/beam-wallet$BEAM_TARGET_SUFFIX
+        - codesign --deep --force -v -s "$MACOS_SIGN_IDENTITY" -o runtime --timestamp wallet/wallet-api$BEAM_TARGET_SUFFIX
+        - codesign --deep --force -v -s "$MACOS_SIGN_IDENTITY" -o runtime --timestamp explorer/explorer-node$BEAM_TARGET_SUFFIX
+        - codesign --deep --force -v -s "$MACOS_SIGN_IDENTITY" -o runtime --timestamp $BEAM_WALLET_UI_IN
+        - bash notarize.sh
 
 ###############################################################################
 # Linux Debug

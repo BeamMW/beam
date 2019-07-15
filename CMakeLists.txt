@@ -1,7 +1,7 @@
-cmake_minimum_required(VERSION 3.1)
+cmake_minimum_required(VERSION 3.5)
 
-set(VERSION_MAJOR 2)
-set(VERSION_MINOR 2)
+set(VERSION_MAJOR 3)
+set(VERSION_MINOR 0)
 set(VERSION_REVISION 0)
 set(GIT_COMMIT_HASH "unknown")
 
@@ -405,6 +405,7 @@ elseif (APPLE)
     set(CPACK_BUNDLE_STARTUP_COMMAND "ui/Beam Wallet${BEAM_DISPLAY_SUFFIX}")
 
     if(BEAM_SIGN_MACOS_BINARY)
+        set(CPACK_COMMAND_CODESIGN "codesign -o runtime --timestamp")
         set(CPACK_BUNDLE_APPLE_CERT_APP "Developer ID Application: Beam Development Limited (KNU2R94BJK)")
     endif()
 elseif (LINUX)

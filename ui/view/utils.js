@@ -13,3 +13,7 @@ function formatDateTime(datetime, localeName) {
          + timeZoneShort
          + ")";
 }
+
+function getLogoTopGapSize(parentHeight) {
+    return parentHeight * (parentHeight < 768 ? 0.13 : 0.18)
+}
