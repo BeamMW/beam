@@ -266,11 +266,11 @@ static EquihashR<150,5,0> BeamHashI;
 static EquihashR<150,5,3> BeamHashII;
 
 
-#define EhRInitialiseState(n, k, r, base_state, personalizationString)  \
+#define EhRInitialiseState(n, k, r, base_state)  \
      if (n == 150 && k == 5 && r == 0) { 				\
-        BeamHashI.InitialiseState(base_state, personalizationString); 	\
+        BeamHashI.InitialiseState(base_state); 	\
     } else if (n == 150 && k == 5 && r == 3)) {       			\
-        BeamHashII.InitialiseState(base_state, personalizationString);	\
+        BeamHashII.InitialiseState(base_state);	\
     } else {                                 				\
         throw std::invalid_argument("Unsupported Equihash parameters"); \
     }

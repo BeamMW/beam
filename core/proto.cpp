@@ -759,9 +759,14 @@ void NodeConnection::OnLoginInternal(Height hScheme, Login&& msg)
 		}
 	}
 
-	Height hMinScheme = get_MinPeerFork();
-	if (hScheme < hMinScheme)
-		ThrowUnexpected("Legacy", NodeProcessingException::Type::Incompatible);
+	if (hScheme < MaxHeight)
+	{
+		LOG_WARNING() << "Peer " << m_Connection->peer_address() << " incompatible with fork " << (hScheme + 1);
+
+		Height hMinScheme = get_MinPeerFork();
+		if (hScheme < hMinScheme)
+			ThrowUnexpected("Legacy", NodeProcessingException::Type::Incompatible);
+	}
 
 	OnLogin(std::move(msg));
 }
