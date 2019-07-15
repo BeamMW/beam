@@ -1276,8 +1276,22 @@ int main_impl(int argc, char* argv[])
                     }
                     else if (WalletDB::isInitialized(walletPath) && (command == cli::INIT || command == cli::RESTORE))
                     {
-                        LOG_ERROR() << "Your wallet is already initialized.";
-                        return -1;
+                        bool isDirectory;
+                        #ifdef WIN32
+                                isDirectory = boost::filesystem::is_directory(Utf8toUtf16(walletPath.c_str()));
+                        #else
+                                isDirectory = boost::filesystem::is_directory(walletPath);
+                        #endif
+
+                        if (isDirectory)
+                        {
+                            walletPath.append("/wallet.db");
+                        }
+                        else
+                        {
+                            LOG_ERROR() << "Your wallet is already initialized.";
+                            return -1;
+                        }                  
                     }
 
                     LOG_INFO() << "starting a wallet...";
