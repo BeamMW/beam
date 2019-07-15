@@ -283,13 +283,13 @@ namespace
                     switch (*data.expiration)
                     {
                     case EditAddress::OneDay:
-                        address.makeActive(WalletAddress::AddressExpiration24h);
+                        address.setExpiration(WalletAddress::ExpirationStatus::OneDay);
                         break;
                     case EditAddress::Expired:
-                        address.makeExpired();
+                        address.setExpiration(WalletAddress::ExpirationStatus::Expired);
                         break;
                     case EditAddress::Never:
-                        address.makeEternal();
+                        address.setExpiration(WalletAddress::ExpirationStatus::Never);
                         break;
                     }
                 }

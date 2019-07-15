@@ -161,11 +161,11 @@ struct WalletModelBridge : public Bridge<IWalletModelAsync>
         });
     }
 
-    void saveAddressChanges(const wallet::WalletID& id, const std::string& name, bool isNever, bool makeActive, bool makeExpired) override
+    void updateAddress(const wallet::WalletID& id, const std::string& name, WalletAddress::ExpirationStatus status) override
     {
-        tx.send([id, name, isNever, makeActive, makeExpired](BridgeInterface& receiver_) mutable
+        tx.send([id, name, status](BridgeInterface& receiver_) mutable
         {
-            receiver_.saveAddressChanges(id, name, isNever, makeActive, makeExpired);
+            receiver_.updateAddress(id, name, status);
         });
     }
 
@@ -643,7 +643,7 @@ namespace beam::wallet
         }
     }
 
-    void WalletClient::saveAddressChanges(const WalletID& id, const std::string& name, bool makeEternal, bool makeActive, bool makeExpired)
+    void WalletClient::updateAddress(const WalletID& id, const std::string& name, WalletAddress::ExpirationStatus status)
     {
         try
         {
@@ -653,19 +653,7 @@ namespace beam::wallet
             {
                 if (addr->m_OwnID)
                 {
-                    if (makeExpired)
-                    {
-                        addr->makeExpired();
-                    }
-                    else if (makeEternal)
-                    {
-                        addr->makeEternal();
-                    }
-                    else if (makeActive)
-                    {
-                        // set expiration date to 24h since now
-                        addr->makeActive(WalletAddress::AddressExpiration24h);
-                    }
+                    addr->setExpiration(status);
                 }
                 addr->setLabel(name);
                 m_walletDB->saveAddress(*addr);
