@@ -889,8 +889,8 @@ Vous essayez de restaurer un portefeuille Beam existant. Veuillez noter que si v
         <translation type="unfinished">BEAM</translation>
     </message>
     <message id="tx-curency-sub-name">
-        <source>groths</source>
-        <translation>groths</translation>
+        <source>GROTH</source>
+        <translation>GROTH</translation>
     </message>
     <message id="utxo-utxo">
         <source>UTXO</source>

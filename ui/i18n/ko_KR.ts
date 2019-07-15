@@ -888,7 +888,7 @@
         <translation>BEAM</translation>
     </message>
     <message id="tx-curency-sub-name">
-        <source>groths</source>
+        <source>GROTH</source>
         <translation>GROTH</translation>
     </message>
     <message id="utxo-utxo">

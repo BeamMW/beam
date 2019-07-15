@@ -29,6 +29,7 @@ Item {
 
     ConfirmationDialog {
         id: invalidAddressDialog
+        //% "Got it"
         okButtonText: qsTrId("invalid-addr-got-it-button")
     }
 
@@ -313,7 +314,7 @@ Item {
                         Layout.fillWidth: true
 
                         SFText {
-                            //% "The minimum fee is %1 groth"
+                            //% "The minimum fee is %1 GROTH"
                             text: qsTrId("send-fee-fail").arg(viewModel.minimumFeeInGroth)
                             color: Style.validator_error
                             font.pixelSize: 14
