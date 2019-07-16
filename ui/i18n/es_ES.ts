@@ -467,8 +467,12 @@
         <translation>Ver información</translation>
     </message>
     <message id="loading-change-settings-button">
-        <source>Сhange settings</source>
+        <source>Change settings</source>
         <translation>Cambiar ajustes</translation>
+    </message>
+    <message id="loading-try-again-button">
+        <source>Try again</source>
+        <translation type="unfinished">Try again</translation>
     </message>
     <message id="notifications-title">
         <source>Notifications view</source>
@@ -590,8 +594,8 @@
         <translation>Fondos insuficientes: usted necesitaría un 1% para completar la transacción</translation>
     </message>
     <message id="send-fee-fail">
-        <source>The minimum fee is %1 groth</source>
-        <translation>La cuota minima es %1 groth</translation>
+        <source>The minimum fee is %1 GROTH</source>
+        <translation>La cuota minima es %1 GROTH</translation>
     </message>
     <message id="send-curency-sub-name">
         <source>GROTH</source>
@@ -884,8 +888,8 @@
         <translation>BEAM</translation>
     </message>
     <message id="tx-curency-sub-name">
-        <source>groths</source>
-        <translation>groths</translation>
+        <source>GROTH</source>
+        <translation>GROTH</translation>
     </message>
     <message id="utxo-utxo">
         <source>UTXO</source>

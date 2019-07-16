@@ -73,7 +73,7 @@ namespace beam::wallet
         Height m_spentHeight;   // height at which the coin was spent
 
         boost::optional<TxID> m_createTxId;  // id of the transaction which created the UTXO
-        boost::optional<TxID> m_spentTxId;   // id of the transaction which spernt the UTXO
+        boost::optional<TxID> m_spentTxId;   // id of the transaction which spent the UTXO
         
         uint64_t m_sessionId;   // Used in the API to lock coins for specific session (see https://github.com/BeamMW/beam/wiki/Beam-wallet-protocol-API#tx_split)
 
@@ -96,20 +96,24 @@ namespace beam::wallet
         uint64_t  m_duration;   // if equals to "AddressNeverExpires" then address never expires
         uint64_t  m_OwnID;      // set for own address
         
-        static constexpr uint64_t AddressExpirationNever = 0;
-        static constexpr uint64_t AddressExpiration24h = 24*60*60;
-        
         WalletAddress();
         bool operator == (const WalletAddress& other) const;
         bool operator != (const WalletAddress& other) const;
         bool isExpired() const;
         Timestamp getCreateTime() const;
         Timestamp getExpirationTime() const;
-
+        
+        enum class ExpirationStatus
+        {
+            Expired = 0,
+            OneDay,
+            Never
+        };
         void setLabel(const std::string& label);
-        void makeExpired();
-        void makeActive(uint64_t duration);
-        void makeEternal();
+        void setExpiration(ExpirationStatus status);
+
+        static constexpr uint64_t AddressExpirationNever = 0;
+        static constexpr uint64_t AddressExpiration24h = 24*60*60;
     };
 
     // Describes structure of generic transaction parameter
@@ -502,7 +506,7 @@ namespace beam::wallet
         bool setTxParameter(IWalletDB& db, const TxID& txID, TxParameterID paramID, const ECC::Scalar::Native& value, bool shouldNotifyAboutChanges);
         bool setTxParameter(IWalletDB& db, const TxID& txID, TxParameterID paramID, const ByteBuffer& value, bool shouldNotifyAboutChanges);
 
-        bool changeAddressExpiration(IWalletDB& walletDB, const WalletID& walletID, bool makeEternal, bool makeActive, bool makeExpired);
+        bool changeAddressExpiration(IWalletDB& walletDB, const WalletID& walletID, WalletAddress::ExpirationStatus status);
         WalletAddress createAddress(IWalletDB& walletDB);
         WalletID generateWalletIDFromIndex(IWalletDB& walletDB, uint64_t ownID);
 

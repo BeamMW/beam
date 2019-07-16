@@ -29,11 +29,6 @@ using namespace beam::wallet;
 using namespace ECC;
 using namespace std;
 
-namespace
-{
-    const char* kDefaultTranslationsPath = ":/translations";
-}
-
 AppModel* AppModel::s_instance = nullptr;
 
 AppModel& AppModel::getInstance()
@@ -42,18 +37,12 @@ AppModel& AppModel::getInstance()
     return *s_instance;
 }
 
-AppModel::AppModel(WalletSettings& settings, QQmlApplicationEngine& qmlEngine)
+AppModel::AppModel(WalletSettings& settings)
     : m_settings{settings}
-    , m_qmlEngine{qmlEngine}
     , m_walletReactor(beam::io::Reactor::create())
-    , m_translator(make_unique<QTranslator>())
 {
     assert(s_instance == nullptr);
     s_instance = this;
-
-    loadTranslation();    
-    connect(&m_settings, SIGNAL(localeChanged()), SLOT(onLocaleChanged()));
-
     m_nodeModel.start();
 }
 
@@ -137,19 +126,6 @@ void AppModel::resetWalletImpl()
     fsutils::remove(getSettings().getLocalNodeStorage());
 
     emit walletReseted();
-}
-
-void AppModel::loadTranslation()
-{
-    auto locale = m_settings.getLocale();
-    if (m_translator->load(locale, kDefaultTranslationsPath))
-    {
-        qApp->installTranslator(m_translator.get());
-    }
-    else
-    {
-        LOG_WARNING() << "Can't load translation";
-    }
 }
 
 void AppModel::applySettingsChanges()
@@ -274,14 +250,6 @@ void AppModel::start()
     {
         m_wallet->start();
     }
-}
-
-void AppModel::onLocaleChanged()
-{
-    qApp->removeTranslator(m_translator.get());
-    m_translator = make_unique<QTranslator>();
-    loadTranslation();
-    m_qmlEngine.retranslate();
 }
 
 bool AppModel::checkWalletPassword(const beam::SecString& pass) const

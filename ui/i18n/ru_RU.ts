@@ -467,8 +467,12 @@
         <translation>Информация</translation>
     </message>
     <message id="loading-change-settings-button">
-        <source>Сhange settings</source>
+        <source>Change settings</source>
         <translation>Изменить настройки</translation>
+    </message>
+    <message id="loading-try-again-button">
+        <source>Try again</source>
+        <translation>Попробуйте еще раз</translation>
     </message>
     <message id="notifications-title">
         <source>Notifications view</source>
@@ -590,8 +594,8 @@
         <translation>Недостаточно средств: необходимо %1 для завершения транзакции</translation>
     </message>
     <message id="send-fee-fail">
-        <source>The minimum fee is %1 groth</source>
-        <translation>Минимальная комиссия %1 groth</translation>
+        <source>The minimum fee is %1 GROTH</source>
+        <translation>Минимальная комиссия %1 GROTH</translation>
     </message>
     <message id="send-curency-sub-name">
         <source>GROTH</source>
@@ -884,8 +888,8 @@
         <translation>BEAM</translation>
     </message>
     <message id="tx-curency-sub-name">
-        <source>groths</source>
-        <translation>groths</translation>
+        <source>GROTH</source>
+        <translation>GROTH</translation>
     </message>
     <message id="utxo-utxo">
         <source>UTXO</source>

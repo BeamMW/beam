@@ -612,11 +612,6 @@ void StartViewModel::migrateWalletDB(const QString& path)
     }
 }
 
-void StartViewModel::copyToClipboard(const QString& text)
-{
-    QApplication::clipboard()->setText(text);
-}
-
 QString StartViewModel::selectCustomWalletDB()
 {
     QString filePath = QFileDialog::getOpenFileName(

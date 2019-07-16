@@ -50,7 +50,8 @@ namespace
         { "ru_RU", "Русский" },
         { "vi_VI", "Tiếng việt"},
         { "ko_KR", "한국어"},
-        { "sv_SE", "Swedish"}
+        { "sv_SE", "Svenska"},
+        { "tr_TR", "Türkçe"}
     };
 }
 

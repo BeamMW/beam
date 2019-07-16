@@ -4,6 +4,7 @@ import QtQuick.Controls 2.4
 import QtQuick.Controls.Styles 1.2
 import QtGraphicalEffects 1.0
 import "controls"
+import "utils.js" as Utils
 import Beam.Wallet 1.0
 import QtQuick.Layouts 1.3
 
@@ -40,7 +41,7 @@ Item
         //% "I agree"
         okButtonText: qsTrId("start-restore-confirm-button")
         okButtonIconSource: "qrc:/assets/icon-done.svg"
-        cancelVisible: false
+        cancelButtonVisible: false
         width: 460
         height: contentItem.implicitHeight + footer.implicitHeight
         padding: 0
@@ -110,7 +111,7 @@ Item
                     anchors.fill: parent
                     spacing: 0
                     Item {
-                        Layout.preferredHeight: parent.height * 0.18
+                        Layout.preferredHeight: Utils.getLogoTopGapSize(parent.height)
                     }
 
                     LogoComponent {
@@ -216,7 +217,7 @@ Item
                     anchors.fill: parent
                     spacing: 0
                     Item {
-                        Layout.preferredHeight: parent.height * 0.18
+                        Layout.preferredHeight: Utils.getLogoTopGapSize(parent.height)
                     }
 
                     LogoComponent {
@@ -411,7 +412,7 @@ Item
                                     text: elidedText(styleData.value, isPreferred) + (isPreferred ? " " + preferredLabelFormat.arg(bestMatchStr) : " ")
                                     color: Style.content_main
                                     copyMenuEnabled: true
-                                    onCopyText: viewModel.copyToClipboard(text)
+                                    onCopyText: BeamGlobals.copyToClipboard(text)
                                     Component.onCompleted: {
                                         if (isPreferred) {
                                             tableView.selection.select(styleData.row);
@@ -732,7 +733,7 @@ Item
                         //% "I understand"
                         okButtonText: qsTrId("start-confirm-seed-phrase-button")
                         okButtonIconSource: "qrc:/assets/icon-done.svg"
-                        cancelVisible: false
+                        cancelButtonVisible: false
                         width: 460
                         //% "It is strictly recommended to write down the seed phrase on a paper. Storing it in a file makes it prone to cyber attacks and, therefore, less secure."
                         text: qsTrId("start-confirm-seed-phrase-message")
@@ -1715,7 +1716,7 @@ Item
                     anchors.fill: parent
                     spacing: 0
                     Item {
-                        Layout.preferredHeight: parent.height * 0.18
+                        Layout.preferredHeight: Utils.getLogoTopGapSize(parent.height)
                     }
 
                     LogoComponent {
@@ -1880,7 +1881,7 @@ Item
                         okButtonText: qsTrId("general-proceed")
                         okButtonIconSource: "qrc:/assets/icon-done.svg"
                         cancelButtonIconSource: "qrc:/assets/icon-cancel-white.svg"
-                        cancelVisible: true
+                        cancelButtonVisible: true
                         width: 460
                         height: 195
                         contentItem: Column {

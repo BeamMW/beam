@@ -4,6 +4,7 @@ import QtQuick.Controls 2.4
 import QtQuick.Controls.Styles 1.2
 import QtGraphicalEffects 1.0
 import "controls"
+import "utils.js" as Utils
 import Beam.Wallet 1.0
 import QtQuick.Layouts 1.3
 
@@ -18,14 +19,16 @@ Item
     ConfirmationDialog {
         id: confirmationDialog
         okButtonColor: Style.active
-        //% "Сhange settings"
-        okButtonText: qsTrId("loading-change-settings-button")
-        okButtonIconSource: "qrc:/assets/icon-settings-blue.svg"
-        cancelButtonIconSource: "qrc:/assets/icon-cancel-white.svg"
+        //% "Try again"
+        okButtonText: qsTrId("loading-try-again-button")
+        okButtonIconSource: "qrc:/assets/icon-restore-blue.svg"
+        //% "Change settings"
+        cancelButtonText: qsTrId("loading-change-settings-button")
+        cancelButtonIconSource: "qrc:/assets/icon-settings-white.svg"
 
         property alias titleText: title.text
         property alias messageText: message.text
-        property var acceptedCallback: undefined
+        property var rejectedCallback: undefined
 
         contentItem: Item {
             id: confirmationContent
@@ -58,8 +61,8 @@ Item
                 }
             }
         }
-        onAccepted: {
-            if (acceptedCallback) acceptedCallback();
+        onRejected: {
+            if (rejectedCallback) rejectedCallback();
         }
     }
 
@@ -76,13 +79,13 @@ Item
             confirmationDialog.titleText = title;
             confirmationDialog.messageText = message;
 
-            if (isCreating) {
-                confirmationDialog.acceptedCallback = cancelCreating;
+            if (!isCreating) {
+                confirmationDialog.rejectedCallback = cancelCreating;
             } else {
-                confirmationDialog.cancelVisible    = false;
-                confirmationDialog.cancelEnable     = false;
+                confirmationDialog.okButtonVisible  = false;
+                confirmationDialog.okButtonEnable   = false;
                 confirmationDialog.closePolicy      = Popup.NoAutoClose;
-                confirmationDialog.acceptedCallback = changeNodeSettings;
+                confirmationDialog.rejectedCallback = changeNodeSettings;
             }
 
             confirmationDialog.open();
@@ -116,7 +119,7 @@ Item
             anchors.fill: parent
             spacing: 0
             Item {
-                Layout.preferredHeight: parent.height * 0.18
+                Layout.preferredHeight: Utils.getLogoTopGapSize(parent.height)
             }
 
             LogoComponent {
@@ -179,7 +182,7 @@ Item
                     }
                     Row {
                         Layout.alignment: Qt.AlignHCenter
-                        Layout.topMargin: 25
+                        Layout.topMargin: 20
                         SFText {
                             horizontalAlignment: Text.AlignHCenter
                             width: 548

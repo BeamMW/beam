@@ -103,7 +103,7 @@ namespace beam::wallet
         void changeCurrentWalletIDs(const WalletID& senderID, const WalletID& receiverID) override;
         void generateNewAddress() override;
         void deleteAddress(const WalletID& id) override;
-        void saveAddressChanges(const WalletID& id, const std::string& name, bool isNever, bool makeActive, bool makeExpired) override;
+        void updateAddress(const WalletID& id, const std::string& name, WalletAddress::ExpirationStatus status) override;
         void setNodeAddress(const std::string& addr) override;
         void changeWalletPassword(const SecString& password) override;
         void getNetworkStatus() override;

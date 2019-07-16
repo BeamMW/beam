@@ -286,7 +286,7 @@
     </message>
     <message id="available-panel-available">
         <source>Available</source>
-        <translation>가능함</translation>
+        <translation>사용 가능 금액</translation>
     </message>
     <message id="available-panel-where-to-buy">
         <source>Where to buy BEAM?</source>
@@ -467,8 +467,12 @@
         <translation>정보 보기</translation>
     </message>
     <message id="loading-change-settings-button">
-        <source>Сhange settings</source>
+        <source>Change settings</source>
         <translation>설정 변경</translation>
+    </message>
+    <message id="loading-try-again-button">
+        <source>Try again</source>
+        <translation type="unfinished">Try again</translation>
     </message>
     <message id="notifications-title">
         <source>Notifications view</source>
@@ -590,8 +594,8 @@
         <translation>자금이 부족합니다 : 거래를 완료하려면 %1 만큼의 자금이 필요합니다</translation>
     </message>
     <message id="send-fee-fail">
-        <source>The minimum fee is %1 groth</source>
-        <translation>최소 수수료는 %1 groth 입니다</translation>
+        <source>The minimum fee is %1 GROTH</source>
+        <translation>최소 수수료는 %1 GROTH 입니다</translation>
     </message>
     <message id="send-curency-sub-name">
         <source>GROTH</source>
@@ -884,7 +888,7 @@
         <translation>BEAM</translation>
     </message>
     <message id="tx-curency-sub-name">
-        <source>groths</source>
+        <source>GROTH</source>
         <translation>GROTH</translation>
     </message>
     <message id="utxo-utxo">
@@ -909,7 +913,7 @@
     </message>
     <message id="utxo-status-available">
         <source>Available</source>
-        <translation>가능함</translation>
+        <translation>사용 가능 금액</translation>
     </message>
     <message id="utxo-status-maturing">
         <source>Maturing%1(till block height %2)</source>

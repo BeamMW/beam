@@ -10,7 +10,7 @@ ConfirmationDialog {
     //% "Open"
     okButtonText: qsTrId("open-external-open")
     okButtonIconSource: "qrc:/assets/icon-external-link-black.svg"
-    cancelVisible: true
+    cancelButtonVisible: true
     cancelButtonIconSource: "qrc:/assets/icon-cancel-white.svg"
     width: 460
     height: 217

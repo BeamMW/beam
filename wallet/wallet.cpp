@@ -199,22 +199,12 @@ namespace beam::wallet
                 LOG_INFO() << "Can't send to the expired address.";
                 throw AddressExpiredException();
             }
-
-            // update address comment if changed
-            auto messageStr = std::string(message.begin(), message.end());
-
-            if (messageStr != receiverAddr->m_label)
-            {
-                receiverAddr->m_label = messageStr;
-                m_WalletDB->saveAddress(*receiverAddr);
-            }
         }
         else if (saveReceiver)
         {
             WalletAddress address;
             address.m_walletID = to;
             address.m_createTime = getTimestamp();
-            address.m_label = std::string(message.begin(), message.end());
 
             m_WalletDB->saveAddress(address);
         }

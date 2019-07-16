@@ -247,7 +247,6 @@ namespace beam::wallet
 
             send.fee = params["fee"];
         }
-        else send.fee = 0;
 
         if (existsJsonParam(params, "comment"))
         {

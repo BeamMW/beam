@@ -467,8 +467,12 @@
         <translation>Voir information</translation>
     </message>
     <message id="loading-change-settings-button">
-        <source>Сhange settings</source>
-        <translation type="unfinished">Сhange settings</translation>
+        <source>Change settings</source>
+        <translation>Сhange settings</translation>
+    </message>
+    <message id="loading-try-again-button">
+        <source>Try again</source>
+        <translation type="unfinished">Try again</translation>
     </message>
     <message id="notifications-title">
         <source>Notifications view</source>
@@ -590,8 +594,8 @@
         <translation>Fonds insuffisants: vous auriez besoin de % 1 pour finaliser la transaction</translation>
     </message>
     <message id="send-fee-fail">
-        <source>The minimum fee is %1 groth</source>
-        <translation type="unfinished">The minimum fee is %1 groth</translation>
+        <source>The minimum fee is %1 GROTH</source>
+        <translation type="unfinished">The minimum fee is %1 GROTH</translation>
     </message>
     <message id="send-curency-sub-name">
         <source>GROTH</source>
@@ -885,8 +889,8 @@ Vous essayez de restaurer un portefeuille Beam existant. Veuillez noter que si v
         <translation type="unfinished">BEAM</translation>
     </message>
     <message id="tx-curency-sub-name">
-        <source>groths</source>
-        <translation>groths</translation>
+        <source>GROTH</source>
+        <translation>GROTH</translation>
     </message>
     <message id="utxo-utxo">
         <source>UTXO</source>

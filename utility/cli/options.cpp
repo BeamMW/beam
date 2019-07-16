@@ -129,6 +129,10 @@ namespace beam
         const char* SWAP_BEAM_SIDE = "swap_beam_side";
         const char* SWAP_TX_HISTORY = "swap_tx_history";
         const char* NODE_POLL_PERIOD = "node_poll_period";
+        // values
+        const char* EXPIRATION_TIME_24H = "24h";
+        const char* EXPIRATION_TIME_NEVER = "never";
+        const char* EXPIRATION_TIME_NOW = "now";
 
         // wallet api
         const char* API_USE_HTTP = "use_http";
@@ -223,7 +227,7 @@ namespace beam
             (cli::LISTEN, "start listen after new_addr command")
             (cli::TX_ID, po::value<string>()->default_value(""), "tx id")
             (cli::NEW_ADDRESS_COMMENT, po::value<string>()->default_value(""), "comment for new own address")
-            (cli::EXPIRATION_TIME, po::value<string>()->default_value("24h"), "expiration time for new own address [24h|never|now]")
+            (cli::EXPIRATION_TIME, po::value<string>()->default_value(cli::EXPIRATION_TIME_24H), "expiration time for own address [24h|never|now]")
             (cli::GENERATE_PHRASE, "command to generate phrases which will be used to create a secret according to BIP-39")
             (cli::KEY_SUBKEY, po::value<Nonnegative<uint32_t>>()->default_value(Nonnegative<uint32_t>(0)), "Child key index.")
             (cli::WALLET_ADDR, po::value<string>()->default_value("*"), "wallet address")
@@ -317,10 +321,12 @@ namespace beam
             macro(uint32_t, DA.WindowMedian1, "Num of blocks taken at both endings of WindowWork, to pick medians") \
             macro(uint32_t, DA.Difficulty0, "Initial difficulty") \
             macro(Height, Fork1, "Height of the 1st fork") \
+            macro(Height, Fork2, "Height of the 2nd fork") \
             macro(bool, AllowPublicUtxos, "set to allow regular (non-coinbase) UTXO to have non-confidential signature") \
             macro(bool, FakePoW, "Don't verify PoW. Mining is simulated by the timer. For tests only")
 
 		#define Fork1 pForks[1].m_Height
+		#define Fork2 pForks[2].m_Height
 
         #define THE_MACRO(type, name, comment) (#name, po::value<type>()->default_value(TypeCvt<type>::get(Rules::get().name)), comment)
 
