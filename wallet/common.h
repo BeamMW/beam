@@ -268,7 +268,7 @@ namespace beam::wallet
     class TxParameters
     {
     public:
-
+        TxParameters() = default;
         TxParameters(const TxID& txID, TxType type = TxType::Simple);
         TxParameters(const std::string& token);
 

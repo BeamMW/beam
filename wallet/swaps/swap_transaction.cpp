@@ -24,6 +24,50 @@ using namespace ECC;
 
 namespace beam::wallet
 {
+    /// Swap Parameters 
+    TxParameters InitNewSwap(const WalletID& myID, Amount amount, Amount fee, AtomicSwapCoin swapCoin,
+        Amount swapAmount, SwapSecondSideChainType chainType, bool isBeamSide /*= true*/,
+        Height lifetime /*= kDefaultTxLifetime*/, Height responseTime/* = kDefaultTxResponseTime*/)
+    {
+        TxParameters parameters(GenerateTxID());
+
+        parameters.SetParameter(TxParameterID::TransactionType, TxType::AtomicSwap);
+        parameters.SetParameter(TxParameterID::CreateTime, getTimestamp());
+        parameters.SetParameter(TxParameterID::Amount, amount);
+        parameters.SetParameter(TxParameterID::Fee, fee);
+        parameters.SetParameter(TxParameterID::Lifetime, lifetime);
+
+        // Must be reset on first Update when we already have correct current height.
+        parameters.SetParameter(TxParameterID::PeerResponseHeight, responseTime);
+        parameters.SetParameter(TxParameterID::MyID, myID);
+        parameters.SetParameter(TxParameterID::IsSender, isBeamSide);
+        parameters.SetParameter(TxParameterID::IsInitiator, false);
+
+        parameters.SetParameter(TxParameterID::AtomicSwapCoin, swapCoin);
+        parameters.SetParameter(TxParameterID::AtomicSwapAmount, swapAmount);
+        parameters.SetParameter(TxParameterID::AtomicSwapIsBeamSide, isBeamSide);
+        parameters.SetParameter(TxParameterID::AtomicSwapSecondSideChainType, chainType);
+
+        return parameters;
+    }
+
+
+    TxParameters AcceptSwapParameters(const TxParameters& initialParameters, const WalletID& myID)
+    {
+        TxParameters parameters = initialParameters;
+
+        parameters.SetParameter(TxParameterID::PeerID, *parameters.GetParameter<WalletID>(TxParameterID::MyID));
+        parameters.SetParameter(TxParameterID::MyID, myID);
+
+        bool isBeamSide = *parameters.GetParameter<bool>(TxParameterID::AtomicSwapIsBeamSide);
+
+        parameters.SetParameter(TxParameterID::IsSender, !isBeamSide);
+        parameters.SetParameter(TxParameterID::AtomicSwapIsBeamSide, !isBeamSide);
+        parameters.SetParameter(TxParameterID::IsInitiator, true);
+
+        return parameters;
+    }
+    ///
     AtomicSwapTransaction::WrapperSecondSide::WrapperSecondSide(ISecondSideProvider& gateway, BaseTransaction& tx)
         : m_gateway(gateway)
         , m_tx(tx)

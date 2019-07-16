@@ -18,8 +18,7 @@ set(WALLET_SRC
 )
 
 add_library(wallet STATIC ${WALLET_SRC})
-target_link_libraries(wallet core sqlite swap)
-target_include_directories(wallet PUBLIC "${CMAKE_SOURCE_DIR}/3rdparty/libbitcoin/include")
+target_link_libraries(wallet core sqlite)
 
 if (NOT ANDROID)
 
@@ -65,11 +64,9 @@ endif()
 configure_file("${PROJECT_SOURCE_DIR}/version.h.in" "${CMAKE_CURRENT_BINARY_DIR}/version.h")
 target_include_directories(${TARGET_NAME} PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
 
-    add_dependencies(${TARGET_NAME} wallet utility cli)
-    target_link_libraries(${TARGET_NAME} wallet utility cli)
+    target_link_libraries(${TARGET_NAME} wallet utility cli swap)
 
 add_library(wallet_api_proto STATIC api.cpp)
-add_dependencies(wallet_api_proto wallet utility http)
 target_link_libraries(wallet_api_proto wallet utility http)
 
 set(WALLET_API_NAME wallet-api${BEAM_TARGET_SUFFIX})

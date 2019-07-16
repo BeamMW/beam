@@ -140,50 +140,6 @@ void InitBitcoin(Wallet& wallet, io::Reactor& reactor, const BitcoinOptions& opt
     wallet.RegisterTransactionType(TxType::AtomicSwap, std::static_pointer_cast<BaseTransaction::Creator>(creator));
 }
 
-TxParameters InitNewSwap(const WalletID& myID, Amount amount, Amount fee, AtomicSwapCoin swapCoin,
-    Amount swapAmount, SwapSecondSideChainType chainType, bool isBeamSide=true,
-    Height lifetime = kDefaultTxLifetime, Height responseTime = kDefaultTxResponseTime)
-{
-    TxParameters parameters(GenerateTxID());
-
-    parameters.SetParameter(TxParameterID::TransactionType, TxType::AtomicSwap);
-    parameters.SetParameter(TxParameterID::CreateTime, getTimestamp());
-    parameters.SetParameter(TxParameterID::Amount, amount);
-    parameters.SetParameter(TxParameterID::Fee, fee);
-    parameters.SetParameter(TxParameterID::Lifetime, lifetime);
-
-    // Must be reset on first Update when we already have correct current height.
-    parameters.SetParameter(TxParameterID::PeerResponseHeight, responseTime);
-    parameters.SetParameter(TxParameterID::MyID, myID);
-    parameters.SetParameter(TxParameterID::IsSender, isBeamSide);
-    parameters.SetParameter(TxParameterID::IsInitiator, false);
-
-    parameters.SetParameter(TxParameterID::AtomicSwapCoin, swapCoin);
-    parameters.SetParameter(TxParameterID::AtomicSwapAmount, swapAmount);
-    parameters.SetParameter(TxParameterID::AtomicSwapIsBeamSide, isBeamSide);
-    parameters.SetParameter(TxParameterID::AtomicSwapSecondSideChainType, chainType);
-
-    return parameters;
-}
-
-
-TxParameters InitSwap(const TxParameters& initialParameters, const WalletID& myID)
-{
-    TxParameters parameters = initialParameters;
-
-    parameters.SetParameter(TxParameterID::PeerID, *parameters.GetParameter<WalletID>(TxParameterID::MyID));
-    parameters.SetParameter(TxParameterID::MyID, myID);
-
-    bool isBeamSide = *parameters.GetParameter<bool>(TxParameterID::AtomicSwapIsBeamSide);
-
-    parameters.SetParameter(TxParameterID::IsSender, !isBeamSide);
-    parameters.SetParameter(TxParameterID::AtomicSwapIsBeamSide, !isBeamSide);
-    parameters.SetParameter(TxParameterID::IsInitiator, true);
-
-    return parameters;
-}
-
-
 void TestSwapTransaction(bool isBeamOwnerStart)
 {
     cout << "\nTesting atomic swap transaction...\n";
@@ -244,13 +200,13 @@ void TestSwapTransaction(bool isBeamOwnerStart)
             {
                 auto parameters = InitNewSwap(receiver.m_WalletID, beamAmount, beamFee, wallet::AtomicSwapCoin::Bitcoin, swapAmount, SwapSecondSideChainType::Testnet, false);
                 receiver.m_Wallet.StartNewTransaction(parameters);
-                txID = sender.m_Wallet.StartNewTransaction(InitSwap(parameters, sender.m_WalletID));
+                txID = sender.m_Wallet.StartNewTransaction(AcceptSwapParameters(parameters, sender.m_WalletID));
             }
             else
             {
                 auto parameters = InitNewSwap(sender.m_WalletID, beamAmount, beamFee, wallet::AtomicSwapCoin::Bitcoin, swapAmount, SwapSecondSideChainType::Testnet, true);
                 sender.m_Wallet.StartNewTransaction(parameters);
-                txID = receiver.m_Wallet.StartNewTransaction(InitSwap(parameters, receiver.m_WalletID));
+                txID = receiver.m_Wallet.StartNewTransaction(AcceptSwapParameters(parameters, receiver.m_WalletID));
             }
         }
     });
@@ -330,13 +286,13 @@ void TestSwapTransactionWithoutChange(bool isBeamOwnerStart)
     {
         auto parameters = InitNewSwap(receiver.m_WalletID, beamAmount, beamFee, wallet::AtomicSwapCoin::Bitcoin, swapAmount, SwapSecondSideChainType::Testnet, false);
         receiver.m_Wallet.StartNewTransaction(parameters);
-        txID = sender.m_Wallet.StartNewTransaction(InitSwap(parameters, sender.m_WalletID));
+        txID = sender.m_Wallet.StartNewTransaction(AcceptSwapParameters(parameters, sender.m_WalletID));
     }
     else
     {
         auto parameters = InitNewSwap(sender.m_WalletID, beamAmount, beamFee, wallet::AtomicSwapCoin::Bitcoin, swapAmount, SwapSecondSideChainType::Testnet, true);
         sender.m_Wallet.StartNewTransaction(parameters);
-        txID = receiver.m_Wallet.StartNewTransaction(InitSwap(parameters, receiver.m_WalletID));
+        txID = receiver.m_Wallet.StartNewTransaction(AcceptSwapParameters(parameters, receiver.m_WalletID));
     }
 
     auto receiverCoins = receiver.GetCoins();
@@ -401,7 +357,7 @@ void TestSwapBTCRefundTransaction()
 
     auto parameters = InitNewSwap(receiver->m_WalletID, beamAmount, beamFee, wallet::AtomicSwapCoin::Bitcoin, swapAmount, SwapSecondSideChainType::Testnet, false);
     receiver->m_Wallet.StartNewTransaction(parameters);
-    TxID txID = sender->m_Wallet.StartNewTransaction(InitSwap(parameters, sender->m_WalletID));
+    TxID txID = sender->m_Wallet.StartNewTransaction(AcceptSwapParameters(parameters, sender->m_WalletID));
 
     auto receiverCoins = receiver->GetCoins();
     WALLET_CHECK(receiverCoins.empty());
@@ -486,7 +442,7 @@ void TestSwapBeamRefundTransaction()
 
     auto parameters = InitNewSwap(receiver->m_WalletID, beamAmount, beamFee, wallet::AtomicSwapCoin::Bitcoin, swapAmount, SwapSecondSideChainType::Testnet, false);
     receiver->m_Wallet.StartNewTransaction(parameters);
-    TxID txID = sender->m_Wallet.StartNewTransaction(InitSwap(parameters, sender->m_WalletID));
+    TxID txID = sender->m_Wallet.StartNewTransaction(AcceptSwapParameters(parameters, sender->m_WalletID));
 
     auto receiverCoins = receiver->GetCoins();
     WALLET_CHECK(receiverCoins.empty());
@@ -581,8 +537,9 @@ void ExpireByResponseTime(bool isBeamSide)
     WalletAddress receiverWalletAddress = storage::createAddress(*createReceiverWalletDB());
     WalletID receiverWalletID = receiverWalletAddress.m_walletID;
 
-    TxID txID = sender->m_Wallet.swap_coins(sender->m_WalletID, receiverWalletID, beamAmount, beamFee,
-        wallet::AtomicSwapCoin::Bitcoin, swapAmount, SwapSecondSideChainType::Testnet, isBeamSide, lifetime, responseTime);
+    auto swapParameters = InitNewSwap(receiverWalletID, beamAmount, beamFee, wallet::AtomicSwapCoin::Bitcoin, swapAmount, SwapSecondSideChainType::Testnet, !isBeamSide, lifetime, responseTime);
+
+    TxID txID = sender->m_Wallet.StartNewTransaction(AcceptSwapParameters(swapParameters, sender->m_WalletID));
 
     TestNode node;
     io::Timer::Ptr timer = io::Timer::create(*mainReactor);
@@ -644,7 +601,7 @@ void TestSwapCancelTransaction(bool isSender, wallet::AtomicSwapTransaction::Sta
 
     auto parameters = InitNewSwap(receiver->m_WalletID, beamAmount, beamFee, wallet::AtomicSwapCoin::Bitcoin, swapAmount, SwapSecondSideChainType::Testnet, false);
     receiver->m_Wallet.StartNewTransaction(parameters);
-    TxID txID = sender->m_Wallet.StartNewTransaction(InitSwap(parameters, sender->m_WalletID));
+    TxID txID = sender->m_Wallet.StartNewTransaction(AcceptSwapParameters(parameters, sender->m_WalletID));
 
     auto receiverCoins = receiver->GetCoins();
     WALLET_CHECK(receiverCoins.empty());
@@ -781,7 +738,7 @@ void TestSwap120Blocks()
 
             auto parameters = InitNewSwap(receiver->m_WalletID, beamAmount, beamFee, wallet::AtomicSwapCoin::Bitcoin, swapAmount, SwapSecondSideChainType::Testnet, false);
             receiver->m_Wallet.StartNewTransaction(parameters);
-            txID = sender->m_Wallet.StartNewTransaction(InitSwap(parameters, sender->m_WalletID));
+            txID = sender->m_Wallet.StartNewTransaction(AcceptSwapParameters(parameters, sender->m_WalletID));
         }
     });
 

@@ -14,14 +14,20 @@
 
 #pragma once
 
-#include "../base_transaction.h"
-#include "../base_tx_builder.h"
+#include "wallet/base_transaction.h"
+#include "wallet/base_tx_builder.h"
 #include "common.h"
 
 #include "second_side.h"
 
 namespace beam::wallet
 {
+    TxParameters InitNewSwap(const WalletID& myID, Amount amount, Amount fee, AtomicSwapCoin swapCoin,
+        Amount swapAmount, SwapSecondSideChainType chainType, bool isBeamSide = true,
+        Height lifetime = kDefaultTxLifetime, Height responseTime = kDefaultTxResponseTime);
+
+    TxParameters AcceptSwapParameters(const TxParameters& initialParameters, const WalletID& myID);
+
     class ISecondSideFactory
     {
     public:

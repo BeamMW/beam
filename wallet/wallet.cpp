@@ -252,43 +252,43 @@ namespace beam::wallet
         return transfer_money(from, from, amountList, fee, {}, sender, lifetime, responseTime, move(message));
     }
 
-    TxID Wallet::swap_coins(const WalletID& from, const WalletID& to, Amount amount, Amount fee, AtomicSwapCoin swapCoin,
-        Amount swapAmount, SwapSecondSideChainType chainType, bool isBeamSide/*=true*/,
-        Height lifetime/* = kDefaultTxLifetime*/, Height responseTime/* = kDefaultTxResponseTime*/)
-    {
-        auto receiverAddr = m_WalletDB->getAddress(to);
+    //TxID Wallet::swap_coins(const WalletID& from, const WalletID& to, Amount amount, Amount fee, AtomicSwapCoin swapCoin,
+    //    Amount swapAmount, SwapSecondSideChainType chainType, bool isBeamSide/*=true*/,
+    //    Height lifetime/* = kDefaultTxLifetime*/, Height responseTime/* = kDefaultTxResponseTime*/)
+    //{
+    //    auto receiverAddr = m_WalletDB->getAddress(to);
 
-        if (receiverAddr && receiverAddr->m_OwnID)
-        {
-            LOG_INFO() << "Failed to initiate the atomic swap. Not able to use own address as receiver's.";
-            throw FailToStartSwapException();
-        }
+    //    if (receiverAddr && receiverAddr->m_OwnID)
+    //    {
+    //        LOG_INFO() << "Failed to initiate the atomic swap. Not able to use own address as receiver's.";
+    //        throw FailToStartSwapException();
+    //    }
 
-        auto txID = GenerateTxID();
-        auto tx = ConstructTransaction(txID, TxType::AtomicSwap);
+    //    auto txID = GenerateTxID();
+    //    auto tx = ConstructTransaction(txID, TxType::AtomicSwap);
 
-        tx->SetParameter(TxParameterID::TransactionType, TxType::AtomicSwap, false);
-        tx->SetParameter(TxParameterID::CreateTime, getTimestamp(), false);
-        tx->SetParameter(TxParameterID::Amount, amount, false);
-        tx->SetParameter(TxParameterID::Fee, fee, false);
-        tx->SetParameter(TxParameterID::Lifetime, lifetime, false);
-        tx->SetParameter(TxParameterID::PeerID, to, false);
+    //    tx->SetParameter(TxParameterID::TransactionType, TxType::AtomicSwap, false);
+    //    tx->SetParameter(TxParameterID::CreateTime, getTimestamp(), false);
+    //    tx->SetParameter(TxParameterID::Amount, amount, false);
+    //    tx->SetParameter(TxParameterID::Fee, fee, false);
+    //    tx->SetParameter(TxParameterID::Lifetime, lifetime, false);
+    //    tx->SetParameter(TxParameterID::PeerID, to, false);
 
-        // Must be reset on first Update when we already have correct current height.
-        tx->SetParameter(TxParameterID::PeerResponseHeight, responseTime);
-        tx->SetParameter(TxParameterID::MyID, from, false);
-        tx->SetParameter(TxParameterID::IsSender, isBeamSide, false);
-        tx->SetParameter(TxParameterID::IsInitiator, true, false);
-        tx->SetParameter(TxParameterID::Status, TxStatus::Pending, true);
+    //    // Must be reset on first Update when we already have correct current height.
+    //    tx->SetParameter(TxParameterID::PeerResponseHeight, responseTime);
+    //    tx->SetParameter(TxParameterID::MyID, from, false);
+    //    tx->SetParameter(TxParameterID::IsSender, isBeamSide, false);
+    //    tx->SetParameter(TxParameterID::IsInitiator, true, false);
+    //    tx->SetParameter(TxParameterID::Status, TxStatus::Pending, true);
 
-        tx->SetParameter(TxParameterID::AtomicSwapCoin, swapCoin, false);
-        tx->SetParameter(TxParameterID::AtomicSwapAmount, swapAmount, false);
-        tx->SetParameter(TxParameterID::AtomicSwapIsBeamSide, isBeamSide, false);
-        tx->SetParameter(TxParameterID::AtomicSwapSecondSideChainType, chainType, false);
+    //    tx->SetParameter(TxParameterID::AtomicSwapCoin, swapCoin, false);
+    //    tx->SetParameter(TxParameterID::AtomicSwapAmount, swapAmount, false);
+    //    tx->SetParameter(TxParameterID::AtomicSwapIsBeamSide, isBeamSide, false);
+    //    tx->SetParameter(TxParameterID::AtomicSwapSecondSideChainType, chainType, false);
 
-        ProcessTransaction(tx);
-        return txID;
-    }
+    //    ProcessTransaction(tx);
+    //    return txID;
+    //}
 
     // TODO: Rename to Rescan ?
     // Reset wallet state and rescan the blockchain

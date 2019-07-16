@@ -23,8 +23,11 @@
 #include "wallet/litecoin/options.h"
 #include "wallet/bitcoin/options.h"
 #include "wallet/bitcoin/bitcoin_side.h"
+#include "wallet/bitcoin/bitcoind017.h"
 #include "wallet/litecoin/litecoin_side.h"
+#include "wallet/litecoin/litecoind017.h"
 #include "wallet/qtum/qtum_side.h"
+#include "wallet/qtum/qtumd017.h"
 #include "wallet/swaps/common.h"
 #include "wallet/swaps/swap_transaction.h"
 #include "core/ecc_native.h"
@@ -1465,19 +1468,22 @@ int main_impl(int argc, char* argv[])
                             wallet.AddMessageEndpoint(make_shared<ColdWalletMessageEndpoint>(wallet, walletDB));
                         }
 
-                        if (btcOptions.is_initialized())
+                        auto swapTransactionCreator = std::make_shared<AtomicSwapTransaction::Creator>();
+                        wallet.RegisterTransactionType(TxType::AtomicSwap, std::static_pointer_cast<BaseTransaction::Creator>(swapTransactionCreator));
+
+                        if (btcOptions)
                         {
-                            wallet.initBitcoin(io::Reactor::get_Current(), btcOptions.get());
+                            swapTransactionCreator->RegisterFactory(AtomicSwapCoin::Bitcoin, wallet::MakeSecondSideFactory<BitcoinSide, Bitcoind017>(std::make_shared<Bitcoind017>(io::Reactor::get_Current(), *btcOptions)));
                         }
 
-                        if (ltcOptions.is_initialized())
+                        if (ltcOptions)
                         {
-                            wallet.initLitecoin(io::Reactor::get_Current(), ltcOptions.get());
+                            swapTransactionCreator->RegisterFactory(AtomicSwapCoin::Litecoin, wallet::MakeSecondSideFactory<BitcoinSide, Litecoind017>(std::make_shared<Litecoind017>(io::Reactor::get_Current(), *ltcOptions)));
                         }
 
-                        if (qtumOptions.is_initialized())
+                        if (qtumOptions)
                         {
-                            wallet.initQtum(io::Reactor::get_Current(), qtumOptions.get());
+                            swapTransactionCreator->RegisterFactory(AtomicSwapCoin::Qtum, wallet::MakeSecondSideFactory<BitcoinSide, Qtumd017>(std::make_shared<Qtumd017>(io::Reactor::get_Current(), *qtumOptions)));
                         }
 
                         if (command == cli::SWAP_INIT || command == cli::SWAP_LISTEN)
@@ -1571,8 +1577,11 @@ int main_impl(int argc, char* argv[])
 
                                 WalletAddress senderAddress = CreateNewAddress(walletDB, "");
 
+                                auto swapParameters = InitNewSwap(receiverWalletID, amount, fee, swapCoin, swapAmount, secondSideChainType, isBeamSide);
+                                swapParameters.SetParameter(TxParameterID::MyID, senderAddress.m_walletID);
+                                currentTxID = wallet.StartNewTransaction(swapParameters);/*
                                 currentTxID = wallet.swap_coins(senderAddress.m_walletID, receiverWalletID, 
-                                    move(amount), move(fee), swapCoin, swapAmount, secondSideChainType, isBeamSide);
+                                    move(amount), move(fee), swapCoin, swapAmount, secondSideChainType, isBeamSide);*/
                             }
 
                             if (command == cli::SWAP_LISTEN)
@@ -1599,7 +1608,8 @@ int main_impl(int argc, char* argv[])
                                     LOG_ERROR() << "The amount must be greater than the redemption fee.";
                                     return -1;
                                 }
-                                wallet.initSwapConditions(amount, swapAmount, swapCoin, isBeamSide, secondSideChainType);
+
+                  //              wallet.initSwapConditions(amount, swapAmount, swapCoin, isBeamSide, secondSideChainType);
                             }
                         }
 

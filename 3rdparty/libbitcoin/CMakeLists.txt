@@ -19,6 +19,8 @@ add_library(${TARGET_NAME} STATIC
 	$<TARGET_OBJECTS:libbitcoin_utility>
 	$<TARGET_OBJECTS:libbitcoin_wallet>)
 
+target_include_directories(${TARGET_NAME} PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/include")
+
 target_link_libraries(${TARGET_NAME} secp256k1)
 
 if(ANDROID)
