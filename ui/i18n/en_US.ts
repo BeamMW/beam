@@ -178,8 +178,8 @@
         <translation>Show in folder</translation>
     </message>
     <message id="general-addr-comment-error">
-        <source>Address with same comment already exist</source>
-        <translation>Address with same comment already exist</translation>
+        <source>Address with same comment already exists</source>
+        <translation>Address with same comment already exists</translation>
     </message>
     <message id="wallet-receive-button">
         <source>Receive</source>
