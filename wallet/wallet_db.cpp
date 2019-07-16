@@ -2643,7 +2643,7 @@ namespace beam::wallet
             return setTxParameter(db, txID, kDefaultSubTxID, paramID, value, shouldNotifyAboutChanges);
         }
 
-        bool changeAddressExpiration(IWalletDB& walletDB, const WalletID& walletID, bool makeEternal, bool makeActive, bool makeExpired)
+        bool changeAddressExpiration(IWalletDB& walletDB, const WalletID& walletID, WalletAddress::ExpirationStatus status)
         {
             if (walletID != Zero)
             {
@@ -2655,38 +2655,14 @@ namespace beam::wallet
                     return false;
                 }
 
-                if (makeExpired)
-                {
-                    address->makeExpired();
-                }
-                else if (makeEternal)
-                {
-                    address->makeEternal();
-                }
-                else if (makeActive)
-                {
-                    // set expiration date to 24h since now
-                    address->makeActive(WalletAddress::AddressExpiration24h);
-                }
-
+                address->setExpiration(status);
                 walletDB.saveAddress(*address);
             }
             else
             {
                 for (auto& address : walletDB.getAddresses(true))
                 {
-                    if (makeExpired)
-                    {
-                        address.makeExpired();
-                    }
-                    else if (makeEternal)
-                    {
-                        address.makeEternal();
-                    }
-                    else if (makeActive)
-                    {
-                        address.makeActive(WalletAddress::AddressExpiration24h);
-                    }
+                    address.setExpiration(status);
                     walletDB.saveAddress(address);
                 }
             }
@@ -3174,21 +3150,31 @@ namespace beam::wallet
         m_label = label;
     }
 
-    void WalletAddress::makeExpired()
+    void WalletAddress::setExpiration(WalletAddress::ExpirationStatus status)
     {
-        assert(m_createTime < getTimestamp() - 1);
-        m_duration = getTimestamp() - m_createTime - 1;
-    }
-
-    void WalletAddress::makeActive(uint64_t duration)
-    {
-        // set expiration date since current timestamp
-        auto delta = getTimestamp() - m_createTime;
-        m_duration = delta + duration;
-    }
-
-    void WalletAddress::makeEternal()
-    {
-        m_duration = AddressExpirationNever;
+        switch (status)
+        {
+        case ExpirationStatus::Expired:
+            {
+                assert(m_createTime < getTimestamp() - 1);
+                m_duration = getTimestamp() - m_createTime - 1;
+                break;
+            }
+        case ExpirationStatus::OneDay:
+            {
+                // set expiration date since current timestamp
+                auto delta = getTimestamp() - m_createTime;
+                m_duration = delta + WalletAddress::AddressExpiration24h;
+                break;
+            }
+        case ExpirationStatus::Never:
+            {
+                m_duration = AddressExpirationNever;
+                break;
+            }
+        
+        default:
+            break;
+        }
     }
 }

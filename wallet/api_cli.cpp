@@ -55,7 +55,7 @@ using namespace beam::wallet;
 
 namespace
 {
-    constexpr Amount MinimumFee = 100;
+    const char* MinimumFeeError = "Failed to initiate the send operation. The minimum fee is 100 GROTH.";
 
     struct TlsOptions
     {
@@ -283,13 +283,13 @@ namespace
                     switch (*data.expiration)
                     {
                     case EditAddress::OneDay:
-                        address.makeActive(WalletAddress::AddressExpiration24h);
+                        address.setExpiration(WalletAddress::ExpirationStatus::OneDay);
                         break;
                     case EditAddress::Expired:
-                        address.makeExpired();
+                        address.setExpiration(WalletAddress::ExpirationStatus::Expired);
                         break;
                     case EditAddress::Never:
-                        address.makeEternal();
+                        address.setExpiration(WalletAddress::ExpirationStatus::Never);
                         break;
                     }
                 }
@@ -423,7 +423,7 @@ namespace
 
                     if (data.fee < MinimumFee)
                     {
-                        doError(id, INTERNAL_JSON_RPC_ERROR, "Failed to initiate the send operation. The minimum fee is 100 GROTH.");
+                        doError(id, INTERNAL_JSON_RPC_ERROR, MinimumFeeError);
                         return;
                     }
 
@@ -476,7 +476,7 @@ namespace
 
                     if (data.fee < MinimumFee)
                     {
-                        doError(id, INTERNAL_JSON_RPC_ERROR, "Failed to initiate the send operation. The minimum fee is 100 GROTH.");
+                        doError(id, INTERNAL_JSON_RPC_ERROR, MinimumFeeError);
                         return;
                     }
 

@@ -243,12 +243,12 @@ void AddressBookViewModel::deleteAddress(const QString& addr)
     m_model.getAsync()->deleteAddress(walletID);
 }
 
-void AddressBookViewModel::saveChanges(const QString& addr, const QString& name, bool isNever, bool makeActive, bool makeExpired)
+void AddressBookViewModel::saveChanges(const QString& addr, const QString& name, uint expirationStatus)
 {
     WalletID walletID;
     walletID.FromHex(addr.toStdString());
 
-    m_model.getAsync()->saveAddressChanges(walletID, name.toStdString(), isNever, makeActive, makeExpired);
+    m_model.getAsync()->updateAddress(walletID, name.toStdString(), static_cast<WalletAddress::ExpirationStatus>(expirationStatus));
 }
 
 // static

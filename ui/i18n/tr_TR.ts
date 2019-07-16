@@ -888,8 +888,8 @@
         <translation type="unfinished">BEAM</translation>
     </message>
     <message id="tx-curency-sub-name">
-        <source>groths</source>
-        <translation type="unfinished">groths</translation>
+        <source>GROTH</source>
+        <translation type="unfinished">GROTH</translation>
     </message>
     <message id="utxo-utxo">
         <source>UTXO</source>

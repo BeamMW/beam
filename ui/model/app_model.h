@@ -20,16 +20,14 @@
 #include "helpers.h"
 #include "wallet/secstring.h"
 #include <memory>
-#include <QQmlApplicationEngine>
 
-class QTranslator;
 class AppModel final: public QObject
 {
     Q_OBJECT
 public:
     static AppModel& getInstance();
 
-    AppModel(WalletSettings& settings, QQmlApplicationEngine& qmlEngine);
+    AppModel(WalletSettings& settings);
     ~AppModel() override;
 
     bool createWallet(const beam::SecString& seed, const beam::SecString& pass);
@@ -49,7 +47,6 @@ public:
 public slots:
     void onStartedNode();
     void onFailedToStartNode(beam::wallet::ErrorType errorCode);
-    void onLocaleChanged();
 
 signals:
     void walletReseted();
@@ -58,19 +55,16 @@ private:
     void start();
     void startNode();
     void resetWalletImpl();
-    void loadTranslation();
     void onWalledOpened(const beam::SecString& pass);
 
 private:
     WalletModel::Ptr m_wallet;
     NodeModel m_nodeModel;
     WalletSettings& m_settings;
-    QQmlApplicationEngine& m_qmlEngine;
     MessageManager m_messages;
     ECC::NoLeak<ECC::uintBig> m_passwordHash;
     beam::io::Reactor::Ptr m_walletReactor;
     beam::wallet::IWalletDB::Ptr m_db;
-    std::unique_ptr<QTranslator> m_translator;
     Connections m_nsc; // [n]ode [s]tarting [c]connections
     static AppModel* s_instance;
 };

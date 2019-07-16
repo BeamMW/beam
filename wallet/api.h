@@ -29,6 +29,8 @@
 
 namespace beam::wallet
 {
+    constexpr Amount MinimumFee = 100;
+
     using json = nlohmann::json;
 
 #define API_WRITE_ACCESS true
@@ -105,7 +107,7 @@ namespace beam::wallet
     struct Send
     {
         Amount value;
-        Amount fee;
+        Amount fee = MinimumFee;
         boost::optional<wallet::CoinIDList> coins;
         boost::optional<wallet::WalletID> from;
         boost::optional<uint64_t> session;
@@ -134,7 +136,7 @@ namespace beam::wallet
     struct Split
     {
         //int session;
-        Amount fee;
+        Amount fee = MinimumFee;
         AmountList coins;
 
         struct Response
