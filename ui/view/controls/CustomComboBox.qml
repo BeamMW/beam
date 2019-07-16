@@ -52,7 +52,7 @@ ComboBox {
     background: Item {
         Rectangle {
             width: control.width
-            height: control.activeFocus || control.hovered ? 2 : 1
+            height: control.activeFocus || control.hovered ? 1 : 1
             y: control.height - 1
             color: Style.content_main
             opacity: (control.activeFocus || control.hovered)? 0.3 : 0.1

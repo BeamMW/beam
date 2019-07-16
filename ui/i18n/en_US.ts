@@ -542,11 +542,11 @@
         <translation>Wallet</translation>
     </message>
     <message id="wallet-receive-title">
-        <source>Receive Beam</source>
-        <translation>Receive Beam</translation>
+        <source>Receive</source>
+        <translation>Receive</translation>
     </message>
     <message id="wallet-receive-my-addr-label">
-        <source>My address</source>
+        <source>My address (auto-generated)</source>
         <translation>My address</translation>
     </message>
     <message id="wallet-receive-expires-label">
@@ -568,6 +568,10 @@
     <message id="wallet-receive-propogate-addr-message">
         <source>Send this address to the sender over an external secure channel</source>
         <translation>Send this address to the sender over an external secure channel</translation>
+    </message>
+    <message id="wallet-receive-copy-address">
+        <source>Copy transaction address</source>
+        <translation>Copy transaction address</translation>
     </message>
     <message id="invalid-addr-got-it-button">
         <source>Got it</source>
