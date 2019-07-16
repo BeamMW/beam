@@ -194,7 +194,7 @@ Item {
             StateChangeScript {
                 name: "errorScript"
                 script: {
-                    online_indicator.color = "red";
+                    online_indicator.color = "#ff746b";
                     rootControl.setIndicator(online_indicator);
                 }
             }
