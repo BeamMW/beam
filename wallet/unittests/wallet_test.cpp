@@ -1471,7 +1471,7 @@ int main()
 
     TestTransactionUpdate();
     //TestTxPerformance();
-    TestTxNonces();
+    //TestTxNonces();
 
     TestColdWalletSending();
     TestColdWalletReceiving();
