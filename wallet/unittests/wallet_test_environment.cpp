@@ -1135,7 +1135,7 @@ public:
 
         auto txHistory = sender.m_WalletDB->getTxHistory();
         
-        auto totalTxCount = m_TxCount * m_TxPerCall;
+        size_t totalTxCount = m_TxCount * m_TxPerCall;
         WALLET_CHECK(txHistory.size() == totalTxCount);
         for (const auto& tx : txHistory)
         {
