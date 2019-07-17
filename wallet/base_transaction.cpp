@@ -71,6 +71,8 @@ namespace beam::wallet
     namespace
     {
         const char* LOCAL_NONCE_SEEDS = "NonceSeeds";
+        const char* LOCAL_NONCE_NEXT_SLOT = "NextNonceSlot";
+        const size_t kMaxNonces = 1000000;
     }
 
     LocalPrivateKeyKeeper::LocalPrivateKeyKeeper(IWalletDB::Ptr walletDB)
@@ -127,39 +129,19 @@ namespace beam::wallet
 
     size_t LocalPrivateKeyKeeper::AllocateNonceSlot()
     {
-        if (m_Nonces.size() == numeric_limits<uint8_t>::max())
-        {
-            throw runtime_error("has no place  for nonces");
-        }
-
-        size_t i = 0;
-        auto it = m_Nonces.begin();
-        while (it != m_Nonces.end() && i < numeric_limits<size_t>::max())
-        {
-            if (i > it->first)
-            {
-                ++it;
-            }
-            else if (i == it->first)
-            {
-                ++it;
-                ++i;
-            }
-            else
-            {
-                break;
-            }
-        }
+        size_t slot = 0;
+        storage::getVar(*m_WalletDB, LOCAL_NONCE_NEXT_SLOT, slot);
+        storage::setVar(*m_WalletDB, LOCAL_NONCE_NEXT_SLOT, (slot + 1) % kMaxNonces);
 
         // Don't store the generated nonce for the kernel multisig. Instead - store the raw random, from which the nonce is derived using kdf.
         NoLeak<Hash::Value> hvRandom;
         ECC::GenRandom(hvRandom.V);
 
-        m_Nonces.insert({ i, hvRandom.V });
+        m_Nonces[slot] = hvRandom.V; // overrite existing nonce
 
         SaveNonceSeeds();
 
-        return i;
+        return slot;
     }
 
     ////
@@ -242,12 +224,20 @@ namespace beam::wallet
     void LocalPrivateKeyKeeper::LoadNonceSeeds()
     {
         ByteBuffer buffer;
-        if (m_WalletDB->getBlob(LOCAL_NONCE_SEEDS, buffer) && !buffer.empty())
+        try
         {
-            Deserializer d;
-            d.reset(buffer);
-            d & m_Nonces;
+            if (m_WalletDB->getBlob(LOCAL_NONCE_SEEDS, buffer) && !buffer.empty())
+            {
+                Deserializer d;
+                d.reset(buffer);
+                d & m_Nonces;
+            }
         }
+        catch (...)
+        {
+
+        }
+        m_Nonces.resize(kMaxNonces);
     }
 
     void LocalPrivateKeyKeeper::SaveNonceSeeds()

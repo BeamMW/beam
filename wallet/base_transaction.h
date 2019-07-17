@@ -158,7 +158,7 @@ namespace beam::wallet
         IWalletDB::Ptr m_WalletDB;
         Key::IKdf::Ptr m_MasterKdf;
 
-        std::map<size_t, ECC::Hash::Value> m_Nonces;
+        std::vector<ECC::Hash::Value> m_Nonces;
     };
 
     std::string GetFailureMessage(TxFailureReason reason);
