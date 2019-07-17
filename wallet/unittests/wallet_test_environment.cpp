@@ -1132,6 +1132,15 @@ public:
         mainReactor->run();
         sw.stop();
         m_TotalTime = sw.milliseconds();
+
+        auto txHistory = sender.m_WalletDB->getTxHistory();
+        
+        size_t totalTxCount = m_TxCount * m_TxPerCall;
+        WALLET_CHECK(txHistory.size() == totalTxCount);
+        for (const auto& tx : txHistory)
+        {
+            WALLET_CHECK(tx.m_status == TxStatus::Completed);
+        }
     }
 
     uint64_t GetTotalTime() const
