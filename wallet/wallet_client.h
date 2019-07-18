@@ -69,6 +69,7 @@ namespace beam::wallet
         virtual void onChangeCalculated(Amount change) = 0;
         virtual void onAllUtxoChanged(const std::vector<Coin>& utxos) = 0;
         virtual void onAddresses(bool own, const std::vector<WalletAddress>& addresses) = 0;
+        virtual void onSwapOffers(const std::vector<TxDescription>& offers) = 0;
         virtual void onGeneratedNewAddress(const WalletAddress& walletAddr) = 0;
         virtual void onNewAddressFailed() = 0;
         virtual void onChangeCurrentWalletIDs(WalletID senderID, WalletID receiverID) = 0;
@@ -96,6 +97,7 @@ namespace beam::wallet
         void getWalletStatus() override;
         void getUtxosStatus() override;
         void getAddresses(bool own) override;
+        void getSwapOffers() override;
         void cancelTx(const TxID& id) override;
         void deleteTx(const TxID& id) override;
         void getCoinsByTx(const TxID& txId) override;
@@ -128,5 +130,6 @@ namespace beam::wallet
         bool m_isConnected;
         boost::optional<ErrorType> m_walletError;
         std::string m_nodeAddrStr;
+        std::vector<TxDescription> dummySwapOffers;
     };
 }

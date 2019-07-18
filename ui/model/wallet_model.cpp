@@ -134,6 +134,11 @@ void WalletModel::onAddresses(bool own, const std::vector<beam::wallet::WalletAd
     emit addressesChanged(own, addrs);
 }
 
+void WalletModel::onSwapOffers(const std::vector<beam::wallet::TxDescription>& offers)
+{
+    emit swapOffersChanged(offers);
+}
+
 void WalletModel::onCoinsByTx(const std::vector<beam::wallet::Coin>& coins)
 {
 

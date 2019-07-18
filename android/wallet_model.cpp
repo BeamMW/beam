@@ -227,6 +227,13 @@ void WalletModel::onAddresses(bool own, const std::vector<WalletAddress>& addres
     env->DeleteLocalRef(addrArray);
 }
 
+void WalletModel::onSwapOffers(const std::vector<beam::wallet::TxDescription>& offers)
+{
+    LOG_DEBUG() << "onSwapOffers()";
+
+    // TODO
+}
+
 void WalletModel::onGeneratedNewAddress(const WalletAddress& address)
 {
     LOG_DEBUG() << "onGeneratedNewAddress()";

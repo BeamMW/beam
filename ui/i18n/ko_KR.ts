@@ -1169,5 +1169,9 @@
         <extracomment>settings tab, general section, ask password to send, confirm password dialog, message</extracomment>
         <translation>설정 바꾸기를 하려면 비밀번호 검증이 필요합니다</translation>
     </message>
+    <message id="offers-title">
+        <source>Offers</source>
+        <translation type="unfinished"></translation>
+    </message>
 </context>
 </TS>

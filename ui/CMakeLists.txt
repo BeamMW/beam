@@ -108,6 +108,11 @@ set(UI_SRC
     viewmodel/payment_item.cpp
     viewmodel/qml_globals.h
     viewmodel/qml_globals.cpp
+    viewmodel/swap_offers_view.h
+    viewmodel/swap_offers_view.cpp
+    viewmodel/helpers/list_model.h
+    viewmodel/helpers/sortfilterproxymodel.h
+    viewmodel/helpers/sortfilterproxymodel.cpp
 
     model/wallet_model.h
     model/wallet_model.cpp

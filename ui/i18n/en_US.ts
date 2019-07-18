@@ -939,6 +939,10 @@
         <source>Spent</source>
         <translation>Spent</translation>
     </message>
+    <message id="offers-title">
+        <source>Offers</source>
+        <translation>Offers</translation>
+    </message>
     <message id="settings-general-lock-screen-never">
         <source>Never</source>
         <translation>Never</translation>

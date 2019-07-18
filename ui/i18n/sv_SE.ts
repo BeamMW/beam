@@ -1169,5 +1169,9 @@
         <extracomment>settings tab, general section, ask password to send, confirm password dialog, message</extracomment>
         <translation>Lösenordsverifiering krävs för att ändra denna inställning</translation>
     </message>
+    <message id="offers-title">
+        <source>Offers</source>
+        <translation type="unfinished"></translation>
+    </message>
 </context>
 </TS>

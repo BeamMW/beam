@@ -1169,5 +1169,9 @@
         <extracomment>settings tab, general section, ask password to send, confirm password dialog, message</extracomment>
         <translation>需验证密码来使设置变更生效</translation>
     </message>
+    <message id="offers-title">
+        <source>Offers</source>
+        <translation type="unfinished"></translation>
+    </message>
 </context>
 </TS>

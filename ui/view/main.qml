@@ -38,6 +38,7 @@ Rectangle {
 		"wallet", 
 		"addresses", 
 		"utxo",
+        "offers",
 		//"notification", 
 		//"info",
 		"settings"]

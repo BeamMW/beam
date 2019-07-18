@@ -40,6 +40,7 @@ signals:
     void changeCalculated(beam::Amount change);
     void allUtxoChanged(const std::vector<beam::wallet::Coin>& utxos);
     void addressesChanged(bool own, const std::vector<beam::wallet::WalletAddress>& addresses);
+    void swapOffersChanged(const std::vector<beam::wallet::TxDescription>& offers);
     void generatedNewAddress(const beam::wallet::WalletAddress& walletAddr);
     void newAddressFailed();
     void changeCurrentWalletIDs(beam::wallet::WalletID senderID, beam::wallet::WalletID receiverID);
@@ -57,6 +58,7 @@ private:
     void onChangeCalculated(beam::Amount change) override;
     void onAllUtxoChanged(const std::vector<beam::wallet::Coin>& utxos) override;
     void onAddresses(bool own, const std::vector<beam::wallet::WalletAddress>& addrs) override;
+    void onSwapOffers(const std::vector<beam::wallet::TxDescription>& offers) override;
     void onGeneratedNewAddress(const beam::wallet::WalletAddress& walletAddr) override;
     void onNewAddressFailed() override;
     void onChangeCurrentWalletIDs(beam::wallet::WalletID senderID, beam::wallet::WalletID receiverID) override;

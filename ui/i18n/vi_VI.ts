@@ -1169,5 +1169,9 @@
         <extracomment>settings tab, general section, ask password to send, confirm password dialog, message</extracomment>
         <translation type="unfinished">Password verification is required to change that setting</translation>
     </message>
+    <message id="offers-title">
+        <source>Offers</source>
+        <translation type="unfinished"></translation>
+    </message>
 </context>
 </TS>

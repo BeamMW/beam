@@ -36,6 +36,7 @@
         <file>settings.qml</file>
         <file>addresses.qml</file>
         <file>utxo.qml</file>
+        <file>offers.qml</file>
         <file>receive.qml</file>
         <file>receive_addrfail.qml</file>
         <file>send.qml</file>
@@ -82,6 +83,8 @@
         <file>assets/icon-settings-active.svg</file>
         <file>assets/icon-settings-blue.svg</file>
         <file>assets/icon-settings-white.svg</file>
+        <file>assets/icon-offers.svg</file>
+        <file>assets/icon-offers-active.svg</file>
         <file>assets/icon-sent.svg</file>
         <file>assets/icon-received.svg</file>
         <file>assets/icon-comment.svg</file>

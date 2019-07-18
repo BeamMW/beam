@@ -1173,5 +1173,9 @@
         <extracomment>settings tab, general section, ask password to send, confirm password dialog, message</extracomment>
         <translation>Введите пароль чтобы изменения вступили в силу</translation>
     </message>
+    <message id="offers-title">
+        <source>Offers</source>
+        <translation type="unfinished"></translation>
+    </message>
 </context>
 </TS>
