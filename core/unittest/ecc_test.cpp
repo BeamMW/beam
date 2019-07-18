@@ -2018,7 +2018,7 @@ void TestTreasury()
 
 template <uint32_t n> struct Power {
 	template <uint32_t x> struct Of {
-		static const uint32_t V = typename Power<n - 1>::Of<x>::V * x;
+		static const uint32_t V = Power<n - 1>::template Of<x>::V * x;
 	};
 };
 
