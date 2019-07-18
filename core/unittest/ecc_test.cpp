@@ -2016,6 +2016,636 @@ void TestTreasury()
 	}
 }
 
+template <uint32_t n> struct Power {
+	template <uint32_t x> struct Of {
+		static const uint32_t V = Power<n - 1>::Of<x>::V * x;
+	};
+};
+
+template <> struct Power<0> {
+	template <uint32_t x> struct Of {
+		static const uint32_t V = 1;
+	};
+};
+
+
+
+struct Lelantus
+{
+	struct CmList
+	{
+		virtual bool get_At(Point&, uint32_t iIdx) = 0;
+	};
+
+	struct CmListVec
+		:public CmList
+	{
+		std::vector<Point> m_vec;
+		virtual bool get_At(Point& res, uint32_t iIdx) override
+		{
+			if (iIdx >= m_vec.size())
+				return false;
+
+			res = m_vec[iIdx];
+			return true;
+		}
+	};
+
+	struct Cfg
+	{
+		// bitness selection
+		static const uint32_t n = 4; // binary
+		static const uint32_t M = 8;
+		static const uint32_t N = Power<M>::Of<n>::V;
+	};
+
+	struct CommitmentStd
+	{
+		static const uint32_t s_Generators = Cfg::M * Cfg::n + 1;
+		typedef MultiMac_WithBufs<1, s_Generators> MultiMac;
+
+		virtual void get_At(ECC::Scalar::Native&, uint32_t j, uint32_t i) = 0;
+
+		void Calculate(ECC::Point::Native& res, MultiMac& mm, ECC::Scalar::Native& blinding)
+		{
+			static_assert(s_Generators < ECC::InnerProduct::nDim * 2);
+			const MultiMac::Prepared* pP0 = ECC::Context::get().m_Ipp.m_pGen_[0];
+
+			mm.Reset();
+
+			// A
+			for (uint32_t j = 0; j < Cfg::M; j++)
+			{
+				for (uint32_t i = 0; i < Cfg::n; i++, mm.m_Prepared++)
+				{
+					get_At(mm.m_pKPrep[mm.m_Prepared], j, i);
+					mm.m_ppPrepared[mm.m_Prepared] = pP0 + mm.m_Prepared;
+				}
+			}
+
+			mm.m_pKPrep[mm.m_Prepared] = blinding;
+			mm.m_ppPrepared[mm.m_Prepared] = pP0 + mm.m_Prepared;
+			mm.m_Prepared++;
+			assert(s_Generators == mm.m_Prepared);
+
+			mm.Calculate(res);
+		}
+
+		void Calculate(ECC::Point& res, MultiMac& mm, ECC::Scalar::Native& blinding)
+		{
+			ECC::Point::Native resN;
+			Calculate(resN, mm, blinding);
+			res = resN;
+		}
+
+		// A + B*x =?= Commitment(..., z)
+		bool IsValid(MultiMac& mm, const ECC::Point& ptA, const ECC::Point& ptB, const ECC::Scalar::Native& x, const ECC::Scalar& z)
+		{
+			ECC::Point::Native pt0, pt1;
+			if (!pt0.Import(ptA) ||
+				!pt1.Import(ptB))
+				return false;
+
+			pt0 += pt1 * x;
+
+			ECC::Scalar::Native k = z;
+			Calculate(pt1, mm, k);
+
+			pt1 = -pt1;
+			pt1 += pt0;
+			return (pt1 == Zero);
+		}
+	};
+
+	struct Proof
+	{
+		struct Part1
+		{
+			ECC::Point m_A, m_B, m_C, m_D;
+			ECC::Point m_pG[Cfg::M];
+			ECC::Point m_pQ[Cfg::M];
+
+			void get_Challenge(ECC::Scalar::Native& x, Oracle& oracle) const
+			{
+				oracle
+					<< m_A
+					<< m_B
+					<< m_C
+					<< m_D;
+
+				for (uint32_t k = 0; k < Cfg::M; k++)
+				{
+					oracle
+						<< m_pG[k]
+						<< m_pQ[k];
+				}
+
+				oracle >> x;
+				//x = Zero;
+			}
+
+		} m_Part1;
+		// <- x
+		struct Part2
+		{
+			ECC::Scalar m_zA, m_zC, m_zV, m_zR;
+			ECC::Scalar m_pF[Cfg::M][Cfg::n - 1];
+		} m_Part2;
+
+		bool IsValid(Oracle& oracle, CmList&) const;
+	};
+
+	struct Prover
+	{
+		CmList& m_List;
+
+		// witness data
+		struct Witness
+		{
+			uint32_t m_L;
+			Amount m_V;
+			Scalar::Native m_R;
+		};
+		NoLeak<Witness> m_Witness;
+
+		// nonces
+		Scalar::Native m_rA, m_rB, m_rC, m_rD;
+		Scalar::Native m_a[Cfg::M][Cfg::n];
+		Scalar::Native m_Gamma[Cfg::M];
+		Scalar::Native m_Ro[Cfg::M];
+		Scalar::Native m_Tau[Cfg::M];
+
+		// precalculated coeffs
+		Scalar::Native m_p[Cfg::M][Cfg::N]; // very large
+
+		// result
+		Proof m_Proof;
+
+		Prover(CmList& lst)
+			:m_List(lst)
+		{
+		}
+
+		void InitNonces(const uintBig& seed)
+		{
+			ECC::NonceGenerator nonceGen("lel0");
+			nonceGen << seed;
+
+			nonceGen
+				>> m_rA
+				>> m_rB
+				>> m_rC
+				>> m_rD;
+
+			for (uint32_t j = 0; j < Cfg::M; j++)
+			{
+				nonceGen
+					>> m_Gamma[j]
+					>> m_Ro[j]
+					>> m_Tau[j];
+
+				for (uint32_t i = 1; i < Cfg::n; i++)
+				{
+					nonceGen >> m_a[j][i];
+					m_a[j][0] += -m_a[j][i];
+				}
+			}
+		}
+
+		void CalculateP()
+		{
+			m_p[0][0] = 1U;
+
+			uint32_t nPwr = 1;
+			for (uint32_t j = 0; j < Cfg::M; j++)
+			{
+				uint32_t i0 = (m_Witness.V.m_L / nPwr) % Cfg::n;
+
+				for (uint32_t i = Cfg::n; i--; )
+				{
+					bool bMatch = (i == i0);
+
+					if (j + 1 < Cfg::M)
+					{
+						for (uint32_t t = nPwr; t--; )
+							if (bMatch)
+								m_p[j + 1][i * nPwr + t] = m_p[j][t];
+							else
+								m_p[j + 1][i * nPwr + t] = Zero;
+					}
+
+					for (uint32_t k = j; ; )
+					{
+						for (uint32_t t = nPwr; t--; )
+						{
+							if (i)
+								m_p[k][i * nPwr + t] = m_p[k][t];
+							m_p[k][i * nPwr + t] *= m_a[j][i];
+
+							if (bMatch && k)
+								m_p[k][i * nPwr + t] += m_p[k - 1][t];
+						}
+
+						if (!k--)
+							break;
+					}
+				}
+
+				nPwr *= Cfg::n;
+			}
+		}
+
+		void ExtractABCD()
+		{
+			CommitmentStd::MultiMac mm;
+
+			{
+				struct Commitment_A :public CommitmentStd
+				{
+					Prover* m_p;
+					virtual void get_At(ECC::Scalar::Native& x, uint32_t j, uint32_t i) override
+					{
+						x = m_p->m_a[j][i];
+					}
+				} c;
+				c.m_p = this;
+				c.Calculate(m_Proof.m_Part1.m_A, mm, m_rA);
+			}
+
+			{
+				struct Commitment_B :public CommitmentStd
+				{
+					uint32_t m_L_Reduced;
+					virtual void get_At(ECC::Scalar::Native& x, uint32_t j, uint32_t i) override
+					{
+						assert(i < Cfg::n);
+
+						if ((m_L_Reduced % Cfg::n) == i)
+							x = 1U;
+						else
+							x = Zero;
+
+						if (Cfg::n - 1 == i)
+							m_L_Reduced /= Cfg::n;
+					}
+				} c;
+
+				c.m_L_Reduced = m_Witness.V.m_L;
+				c.Calculate(m_Proof.m_Part1.m_B, mm, m_rB);
+			}
+
+			{
+				struct Commitment_C :public CommitmentStd
+				{
+					Prover* m_p;
+					uint32_t m_L_Reduced;
+
+					virtual void get_At(ECC::Scalar::Native& x, uint32_t j, uint32_t i) override
+					{
+						assert(i < Cfg::n);
+						x = m_p->m_a[j][i];
+
+						if ((m_L_Reduced % Cfg::n) == i)
+							x = -x;
+
+						if (Cfg::n - 1 == i)
+							m_L_Reduced /= Cfg::n;
+					}
+				} c;
+
+				c.m_p = this;
+				c.m_L_Reduced = m_Witness.V.m_L;
+				c.Calculate(m_Proof.m_Part1.m_C, mm, m_rC);
+			}
+
+			{
+				struct Commitment_D :public CommitmentStd
+				{
+					Prover* m_p;
+					virtual void get_At(ECC::Scalar::Native& x, uint32_t j, uint32_t i) override
+					{
+						x = m_p->m_a[j][i];
+						x *= x;
+						x = -x;
+					}
+				} c;
+
+				c.m_p = this;
+				c.Calculate(m_Proof.m_Part1.m_D, mm, m_rD);
+			}
+		}
+
+		void ExtractGQ()
+		{
+			const uint32_t nSizeNaggle = 128;
+			MultiMac_WithBufs<nSizeNaggle, 1> mm;
+
+			uint32_t iPos = 0;
+			ECC::Point::Native pG[Cfg::M], comm, comm2;
+
+			while (true)
+			{
+				for (mm.Reset(); static_cast<uint32_t>(mm.m_Casual) < nSizeNaggle; mm.m_Casual++)
+				{
+					ECC::Point pt;
+					if (!m_List.get_At(pt, iPos + mm.m_Casual))
+						break;
+					if (!comm.Import(pt))
+						break; //?!?
+
+					mm.m_pCasual[mm.m_Casual].Init(comm);
+				}
+
+				bool bLast = (Cfg::N == iPos + mm.m_Casual) || (static_cast<uint32_t>(mm.m_Casual) < nSizeNaggle);
+
+				for (uint32_t k = 0; k < Cfg::M; k++)
+				{
+					for (uint32_t i = 0; i < static_cast<uint32_t>(mm.m_Casual); i++)
+						mm.m_pCasual[i].m_K = m_p[k][iPos + i];
+
+					mm.Calculate(comm);
+					pG[k] += comm;
+				}
+
+				if (bLast)
+					break;
+
+				iPos += mm.m_Casual;
+			}
+
+			static_assert(CommitmentStd::s_Generators + 1 < ECC::InnerProduct::nDim * 2);
+			const MultiMac::Prepared* pP0 = ECC::Context::get().m_Ipp.m_pGen_[0];
+
+			mm.Reset();
+			mm.m_ppPrepared[mm.m_Prepared++] = pP0 + CommitmentStd::s_Generators; // H2
+
+			for (uint32_t k = 0; k < Cfg::M; k++)
+			{
+				mm.m_pKPrep[0] = m_Gamma[k];
+				mm.Calculate(comm);
+
+				comm2 = comm;
+				comm2 += ECC::Context::get().G * m_Tau[k];
+				comm2 += ECC::Context::get().H_Big * m_Ro[k];
+				m_Proof.m_Part1.m_pQ[k] = comm2;
+
+				comm = -comm;
+				comm += pG[k];
+				m_Proof.m_Part1.m_pG[k] = comm;
+			}
+		}
+
+		static void ExtractBlinded(Scalar& out, const Scalar::Native& sk, const Scalar::Native& challenge, const Scalar::Native& nonce)
+		{
+			Scalar::Native val = sk;
+			val *= challenge;
+			val += nonce;
+			out = val;
+		}
+
+		void ExtractPart2(const Scalar::Native& x)
+		{
+			ExtractBlinded(m_Proof.m_Part2.m_zA, m_rB, x, m_rA);
+			ExtractBlinded(m_Proof.m_Part2.m_zC, m_rC, x, m_rD);
+
+			Scalar::Native zV(Zero), zR(Zero), xPwr(1U);
+
+			for (uint32_t j = 0; j < Cfg::M; j++)
+			{
+				zV += m_Ro[j] * xPwr;
+				zR += m_Tau[j] * xPwr;
+
+				xPwr *= x;
+			}
+
+			zV = -zV;
+			zV += Scalar::Native(m_Witness.V.m_V) * xPwr;
+			m_Proof.m_Part2.m_zV = zV;
+
+			zR = -zR;
+			zR += m_Witness.V.m_R * xPwr;
+			m_Proof.m_Part2.m_zR = zR;
+
+			uint32_t nL_Reduced = m_Witness.V.m_L;
+
+			for (uint32_t j = 0; j < Cfg::M; j++)
+			{
+				uint32_t i0 = nL_Reduced % Cfg::n;
+				nL_Reduced /= Cfg::n;
+
+				for (uint32_t i = 1; i < Cfg::n; i++)
+				{
+					xPwr = m_a[j][i];
+					if (i == i0)
+						xPwr += x;
+
+					m_Proof.m_Part2.m_pF[j][i - 1] = xPwr;
+				}
+			}
+		}
+
+		void Generate(const uintBig& seed, Oracle& oracle)
+		{
+			InitNonces(seed);
+			ExtractABCD();
+			CalculateP();
+			ExtractGQ();
+
+			Scalar::Native x;
+			m_Proof.m_Part1.get_Challenge(x, oracle);
+			ExtractPart2(x);
+		}
+	};
+};
+
+bool Lelantus::Proof::IsValid(Oracle& oracle, CmList& cmList) const
+{
+	ECC::Mode::Scope scope(ECC::Mode::Fast);
+
+	struct MyContext
+	{
+		const Proof& m_P;
+
+		Scalar::Native pF0[Cfg::M];
+		Scalar::Native x;
+
+		void get_F(Scalar::Native& out, uint32_t j, uint32_t i) const
+		{
+			out = i ?
+				m_P.m_Part2.m_pF[j][i - 1] :
+				pF0[j];
+		}
+
+		MyContext(const Proof& p) :m_P(p) {}
+
+	} mctx(*this);
+
+	m_Part1.get_Challenge(mctx.x, oracle);
+
+	// recover pF0
+	for (uint32_t j = 0; j < Cfg::M; j++)
+	{
+		mctx.pF0[j] = m_Part2.m_pF[j][0];
+
+		for (uint32_t i = 1; i < Cfg::n - 1; i++)
+			mctx.pF0[j] += m_Part2.m_pF[j][i];
+
+		mctx.pF0[j] = -mctx.pF0[j];
+		mctx.pF0[j] += mctx.x;
+	}
+
+
+	{
+		Lelantus::CommitmentStd::MultiMac mm;
+
+		// A + B*x =?= Commitment(f, Za)
+		{
+			struct Commitment_1 :public CommitmentStd
+			{
+				const MyContext* m_p;
+				virtual void get_At(ECC::Scalar::Native& x, uint32_t j, uint32_t i) override
+				{
+					m_p->get_F(x, j, i);
+				}
+			} c;
+			c.m_p = &mctx;
+
+			if (!c.IsValid(mm, m_Part1.m_A, m_Part1.m_B, mctx.x, m_Part2.m_zA))
+				return false;
+		}
+
+		// D + C*x =?= Commitment(f*(x-f), Zc)
+		{
+			struct Commitment_2 :public CommitmentStd
+			{
+				const MyContext* m_p;
+				virtual void get_At(ECC::Scalar::Native& x, uint32_t j, uint32_t i) override
+				{
+					ECC::Scalar::Native v;
+					m_p->get_F(v, j, i);
+
+					x = m_p->x;
+					x *= v;
+
+					v *= v;
+					x -= v;
+				}
+			} c;
+			c.m_p = &mctx;
+
+			if (!c.IsValid(mm, m_Part1.m_D, m_Part1.m_C, mctx.x, m_Part2.m_zC))
+				return false;
+		}
+	}
+
+	// final calculation
+	const uint32_t nSizeNaggle = 128;
+	static_assert(nSizeNaggle >= Cfg::M);
+	MultiMac_WithBufs<nSizeNaggle, 1> mm;
+
+	ECC::Point::Native res, comm;
+
+	// G and Q
+	Scalar::Native xPwr = 1U;
+	xPwr = -xPwr;
+	for (uint32_t j = 0; j < Cfg::M; j++)
+	{
+		if (!res.Import(m_Part1.m_pG[j]) ||
+			!comm.Import(m_Part1.m_pQ[j]))
+			return false;
+
+		res += comm; // they're multiplied by the same scalar
+
+		mm.m_pCasual[mm.m_Casual++].Init(res, xPwr);
+		xPwr *= mctx.x;
+	}
+
+	mm.Calculate(res);
+
+	// Commitments from CmList
+	mm.Reset();
+
+	for (uint32_t iPos = 0; iPos < Cfg::N; iPos++)
+	{
+		bool bEnd = (Cfg::N == iPos);
+		if (!bEnd)
+		{
+			ECC::Point pt;
+			if (cmList.get_At(pt, iPos))
+			{
+				if (!comm.Import(pt))
+					return false; //?!?
+
+				ECC::MultiMac::Casual& c = mm.m_pCasual[mm.m_Casual++];
+				c.Init(comm);
+				c.m_K = 1U;
+
+				uint32_t ij = iPos;
+
+				for (uint32_t j = 0; j < Cfg::M; j++)
+				{
+					mctx.get_F(xPwr, j, ij % Cfg::n);
+					c.m_K *= xPwr;
+					ij /= Cfg::n;
+				}
+			}
+			else
+			{
+				bEnd = true;
+			}
+		}
+
+		if ((bEnd && mm.m_Casual) || (static_cast<uint32_t>(mm.m_Casual) == nSizeNaggle))
+		{
+			// flush
+			mm.Calculate(comm);
+			res += comm;
+			mm.Reset();
+		}
+
+		if (bEnd)
+			break;
+	}
+
+	// compare with target
+	comm = ECC::Context::get().G * m_Part2.m_zR;
+	comm += ECC::Context::get().H_Big * m_Part2.m_zV;
+
+	comm = -comm;
+	comm += res;
+	return comm == Zero;
+}
+
+void TestLelantus()
+{
+
+	Lelantus::CmListVec lst;
+	lst.m_vec.resize(1000);
+
+	ECC::Point::Native rnd;
+	SetRandom(rnd);
+
+	for (size_t i = 0; i < lst.m_vec.size(); i++, rnd += rnd)
+		lst.m_vec[i] = rnd;
+
+	std::unique_ptr<Lelantus::Prover> pProver(std::make_unique<Lelantus::Prover>(lst));
+	Lelantus::Prover& p = *pProver;
+
+	p.m_Witness.V.m_V = 100500;
+	p.m_Witness.V.m_R = 4U;
+	p.m_Witness.V.m_L = 333;
+
+	lst.m_vec[p.m_Witness.V.m_L] = ECC::Commitment(p.m_Witness.V.m_R, p.m_Witness.V.m_V);
+
+	const uint32_t N = Lelantus::Cfg::N;
+
+	Oracle oracle;
+	p.Generate(Zero, oracle);
+
+	Oracle o2;
+	verify_test(p.m_Proof.IsValid(o2, lst));
+}
+
 void TestAll()
 {
 	TestUintBig();
