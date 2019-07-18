@@ -1195,6 +1195,7 @@ namespace ECC {
 
 		ctx.m_Ipp.G_.Initialize(G_raw, oracle);
 		ctx.m_Ipp.H_.Initialize(H_raw, oracle);
+		ctx.m_Ipp.J_.Initialize(J_raw, oracle);
 
 		for (uint32_t i = 0; i < InnerProduct::nDim; i++)
 		{

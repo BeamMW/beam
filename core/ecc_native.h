@@ -619,6 +619,7 @@ namespace ECC
 			MultiMac::Prepared m_Aux2_;
 			MultiMac::Prepared G_;
 			MultiMac::Prepared H_;
+			MultiMac::Prepared J_;
 
 		} m_Ipp;
 
