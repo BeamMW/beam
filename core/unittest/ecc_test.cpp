@@ -2668,7 +2668,7 @@ void TestLelantus()
 	pt += ECC::Context::get().J * p.m_Witness.V.m_Serial;
 	lst.m_vec[p.m_Witness.V.m_L] = pt;
 
-	const uint32_t N = Lelantus::Cfg::N;
+	//const uint32_t N = Lelantus::Cfg::N;
 
 	Oracle oracle;
 	p.Generate(Zero, oracle);
