@@ -2121,6 +2121,7 @@ struct Lelantus
 	{
 		struct Part1
 		{
+			ECC::Scalar m_Serial;
 			ECC::Point m_A, m_B, m_C, m_D;
 			ECC::Point m_pG[Cfg::M];
 			ECC::Point m_pQ[Cfg::M];
@@ -2128,6 +2129,7 @@ struct Lelantus
 			void get_Challenge(ECC::Scalar::Native& x, Oracle& oracle) const
 			{
 				oracle
+					<< m_Serial
 					<< m_A
 					<< m_B
 					<< m_C
@@ -2165,6 +2167,7 @@ struct Lelantus
 			uint32_t m_L;
 			Amount m_V;
 			Scalar::Native m_R;
+			Scalar::Native m_Serial;
 		};
 		NoLeak<Witness> m_Witness;
 
@@ -2342,6 +2345,7 @@ struct Lelantus
 
 			uint32_t iPos = 0;
 			ECC::Point::Native pG[Cfg::M], comm, comm2;
+			ECC::Scalar::Native s1;
 
 			while (true)
 			{
@@ -2358,10 +2362,21 @@ struct Lelantus
 
 				bool bLast = (Cfg::N == iPos + mm.m_Casual) || (static_cast<uint32_t>(mm.m_Casual) < nSizeNaggle);
 
+				mm.m_ppPrepared[mm.m_Prepared] = &ECC::Context::get().m_Ipp.J_;
+				Scalar::Native& kSer = mm.m_pKPrep[mm.m_Prepared++];
+
 				for (uint32_t k = 0; k < Cfg::M; k++)
 				{
+					kSer = Zero;
+
 					for (uint32_t i = 0; i < static_cast<uint32_t>(mm.m_Casual); i++)
+					{
 						mm.m_pCasual[i].m_K = m_p[k][iPos + i];
+						kSer += m_p[k][iPos + i];
+					}
+
+					kSer *= m_Witness.V.m_Serial;
+					kSer = -kSer;
 
 					mm.Calculate(comm);
 					pG[k] += comm;
@@ -2451,6 +2466,7 @@ struct Lelantus
 			CalculateP();
 			ExtractGQ();
 
+			m_Proof.m_Part1.m_Serial = m_Witness.V.m_Serial;
 			Scalar::Native x;
 			m_Proof.m_Part1.get_Challenge(x, oracle);
 			ExtractPart2(x);
@@ -2564,6 +2580,12 @@ bool Lelantus::Proof::IsValid(Oracle& oracle, CmList& cmList) const
 
 	// Commitments from CmList
 	mm.Reset();
+	mm.m_ppPrepared[0] = &ECC::Context::get().m_Ipp.J_;
+	ECC::Scalar::Native& kSer = mm.m_pKPrep[0];
+	kSer = Zero;
+
+	ECC::Scalar::Native kSer2 = m_Part1.m_Serial;
+	kSer2 = -kSer2;
 
 	for (uint32_t iPos = 0; iPos < Cfg::N; iPos++)
 	{
@@ -2588,6 +2610,8 @@ bool Lelantus::Proof::IsValid(Oracle& oracle, CmList& cmList) const
 					c.m_K *= xPwr;
 					ij /= Cfg::n;
 				}
+
+				kSer += c.m_K;
 			}
 			else
 			{
@@ -2598,9 +2622,13 @@ bool Lelantus::Proof::IsValid(Oracle& oracle, CmList& cmList) const
 		if ((bEnd && mm.m_Casual) || (static_cast<uint32_t>(mm.m_Casual) == nSizeNaggle))
 		{
 			// flush
+			mm.m_Prepared = 1;
+			kSer *= kSer2;
+
 			mm.Calculate(comm);
 			res += comm;
 			mm.Reset();
+			kSer = Zero;
 		}
 
 		if (bEnd)
@@ -2634,8 +2662,11 @@ void TestLelantus()
 	p.m_Witness.V.m_V = 100500;
 	p.m_Witness.V.m_R = 4U;
 	p.m_Witness.V.m_L = 333;
+	SetRandom(p.m_Witness.V.m_Serial);
 
-	lst.m_vec[p.m_Witness.V.m_L] = ECC::Commitment(p.m_Witness.V.m_R, p.m_Witness.V.m_V);
+	ECC::Point::Native pt = ECC::Commitment(p.m_Witness.V.m_R, p.m_Witness.V.m_V);
+	pt += ECC::Context::get().J * p.m_Witness.V.m_Serial;
+	lst.m_vec[p.m_Witness.V.m_L] = pt;
 
 	const uint32_t N = Lelantus::Cfg::N;
 
