@@ -35,6 +35,5 @@ namespace beam::wallet
         virtual bool SendRedeem() = 0;
         virtual bool IsLockTimeExpired() = 0;
         virtual bool HasEnoughTimeToProcessLockTx() = 0;
-        virtual uint32_t GetTxTimeInBeamBlocks() const = 0;
     };
 }

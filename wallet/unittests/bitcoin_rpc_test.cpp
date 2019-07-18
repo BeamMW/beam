@@ -32,6 +32,17 @@ using json = nlohmann::json;
 namespace
 {
     const unsigned TEST_PERIOD = 1000;
+
+    Bitcoind016 GetBitcoind016(io::Reactor& reactor, std::string userName, std::string pass, io::Address address)
+    {
+        BitcoindSettings settings;
+
+        settings.m_address = address;
+        settings.m_userName = btcUserName;
+        settings.m_pass = btcPass;
+
+        return Bitcoind016(reactor, settings);
+    }
 }
 
 void testSuccessResponse()
@@ -48,13 +59,7 @@ void testSuccessResponse()
     BitcoinHttpServer httpServer;
 
     io::Address addr(io::Address::localhost(), PORT);
-    BitcoinOptions options;
-
-    options.m_address = addr;
-    options.m_userName = btcUserName;
-    options.m_pass = btcPass;
-
-    Bitcoind016 bridge(*reactor, options);
+    Bitcoind016 bridge = GetBitcoind016(*reactor, btcUserName, btcPass, addr);
 
     bridge.dumpPrivKey("", [&counter](const IBitcoinBridge::Error& error, const std::string& key)
     {
@@ -141,13 +146,7 @@ void testWrongCredentials()
     BitcoinHttpServer httpServer("Bob", "123");
 
     io::Address addr(io::Address::localhost(), PORT);
-    BitcoinOptions options;
-
-    options.m_address = addr;
-    options.m_userName = btcUserName;
-    options.m_pass = btcPass;
-
-    Bitcoind016 bridge(*reactor, options);
+    Bitcoind016 bridge = GetBitcoind016(*reactor, btcUserName, btcPass, addr);
 
     bridge.getBlockCount([&counter](const IBitcoinBridge::Error& error, uint64_t blocks)
     {
@@ -174,13 +173,7 @@ void testEmptyResult()
     BitcoinHttpServerEmptyResult httpServer;
 
     io::Address addr(io::Address::localhost(), PORT);
-    BitcoinOptions options;
-
-    options.m_address = addr;
-    options.m_userName = btcUserName;
-    options.m_pass = btcPass;
-
-    Bitcoind016 bridge(*reactor, options);
+    Bitcoind016 bridge = GetBitcoind016(*reactor, btcUserName, btcPass, addr);
 
     bridge.fundRawTransaction("", 2, [&counter](const IBitcoinBridge::Error& error, const std::string& tx, int pos)
     {
@@ -233,13 +226,7 @@ void testEmptyResponse()
     BitcoinHttpServerEmptyResponse httpServer;
 
     io::Address addr(io::Address::localhost(), PORT);
-    BitcoinOptions options;
-
-    options.m_address = addr;
-    options.m_userName = btcUserName;
-    options.m_pass = btcPass;
-
-    Bitcoind016 bridge(*reactor, options);
+    Bitcoind016 bridge = GetBitcoind016(*reactor, btcUserName, btcPass, addr);
 
     bridge.fundRawTransaction("", 2, [&counter](const IBitcoinBridge::Error& error, const std::string& tx, int pos)
     {
@@ -265,13 +252,7 @@ void testConnectionRefused()
     });
 
     io::Address addr(io::Address::localhost(), PORT);
-    BitcoinOptions options;
-
-    options.m_address = addr;
-    options.m_userName = btcUserName;
-    options.m_pass = btcPass;
-
-    Bitcoind016 bridge(*reactor, options);
+    Bitcoind016 bridge = GetBitcoind016(*reactor, btcUserName, btcPass, addr);
 
     bridge.fundRawTransaction("", 2, [&counter](const IBitcoinBridge::Error& error, const std::string& tx, int pos)
     {

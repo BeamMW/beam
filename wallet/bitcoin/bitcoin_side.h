@@ -14,11 +14,12 @@
 
 #pragma once
 
-#include "../swaps/second_side.h"
-#include "../swaps/common.h"
-#include "../base_transaction.h"
+#include "wallet/swaps/second_side.h"
+#include "wallet/swaps/common.h"
+#include "wallet/base_transaction.h"
 #include "bitcoin/bitcoin.hpp"
 #include "bitcoin_bridge.h"
+#include "bitcoin_settings.h"
 
 #include <memory>
 
@@ -27,7 +28,7 @@ namespace beam::wallet
     class BitcoinSide : public SecondSide, public std::enable_shared_from_this<BitcoinSide>
     {
     public:
-        BitcoinSide(BaseTransaction& tx, std::shared_ptr<IBitcoinBridge> bitcoinBridge, bool isBeamSide);
+        BitcoinSide(BaseTransaction& tx, IBitcoinBridge::Ptr bitcoinBridge, IBitcoinSettings::Ptr settings, bool isBeamSide);
 
         bool Initialize() override;
         bool InitLockTime() override;
@@ -39,9 +40,17 @@ namespace beam::wallet
         bool SendRedeem() override;
         bool IsLockTimeExpired() override;
         bool HasEnoughTimeToProcessLockTx() override;
-        uint32_t GetTxTimeInBeamBlocks() const override;
 
         static bool CheckAmount(Amount amount, Amount feeRate);
+
+    protected:
+        virtual uint32_t GetLockTxEstimatedTimeInBeamBlocks() const;
+        virtual uint8_t GetAddressVersion() const;
+
+        Amount GetFeeRate() const;
+        uint16_t GetTxMinConfirmations() const;
+        uint32_t GetLockTimeInBlocks() const;
+        bool IsMainnet() const;
 
     private:
         bool LoadSwapAddress();
@@ -66,12 +75,11 @@ namespace beam::wallet
 
     private:
         BaseTransaction& m_tx;
-        std::shared_ptr<IBitcoinBridge> m_bitcoinBridge;
+        IBitcoinBridge::Ptr m_bitcoinBridge;
+        IBitcoinSettings::Ptr m_settings;
         bool m_isBtcOwner;
         uint64_t m_blockCount = 0;
 
-        // TODO: make a separate struct
-        // btc additional params
         uint16_t m_SwapLockTxConfirmations = 0;
         boost::optional<std::string> m_SwapLockRawTx;
         boost::optional<std::string> m_SwapWithdrawRawTx;

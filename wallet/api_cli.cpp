@@ -38,9 +38,6 @@
 
 #include "wallet/wallet_db.h"
 #include "wallet/wallet_network.h"
-#include "wallet/bitcoin/options.h"
-#include "wallet/litecoin/options.h"
-#include "wallet/qtum/options.h"
 
 #include "nlohmann/json.hpp"
 #include "version.h"

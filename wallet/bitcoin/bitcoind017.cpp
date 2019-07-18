@@ -22,8 +22,8 @@ using json = nlohmann::json;
 
 namespace beam
 {
-    Bitcoind017::Bitcoind017(io::Reactor& reactor, BitcoinOptions options)
-        : Bitcoind016(reactor, options)
+    Bitcoind017::Bitcoind017(io::Reactor& reactor, const BitcoindSettings& settings)
+        : Bitcoind016(reactor, settings)
     {
     }
 

@@ -14,7 +14,7 @@
 
 #pragma once
 
-#include "../bitcoin/bitcoin_side.h"
+#include "wallet/bitcoin/bitcoin_side.h"
 
 namespace beam::wallet
 {
@@ -22,23 +22,12 @@ namespace beam::wallet
     {
     public:
 
-        QtumSide(BaseTransaction& tx, std::shared_ptr<IBitcoinBridge> bitcoinBridge, bool isBeamSide)
-            : BitcoinSide(tx, bitcoinBridge, isBeamSide)
-        {
-        }
+        QtumSide(BaseTransaction& tx, IBitcoinBridge::Ptr bitcoinBridge, IBitcoinSettings::Ptr settings, bool isBeamSide);
+        static bool CheckAmount(Amount amount, Amount feeRate);
 
-        uint32_t GetTxTimeInBeamBlocks() const
-        {
-            // it's average value
-            return 30;
-        }
+    protected:
 
-        static bool CheckAmount(Amount amount, Amount feeRate)
-        {
-            constexpr uint32_t kQtumWithdrawTxAverageSize = 360;
-            constexpr Amount kDustThreshold = 72800;
-            Amount fee = static_cast<Amount>(std::round(double(kQtumWithdrawTxAverageSize * feeRate) / 1000));
-            return amount > kDustThreshold && amount > fee;
-        }
+        uint32_t GetLockTxEstimatedTimeInBeamBlocks() const override;
+        uint8_t GetAddressVersion() const override;
     };
 }

@@ -7,9 +7,12 @@ set(SWAP_SRC
     ../bitcoin/bitcoin_side.cpp
     ../bitcoin/bitcoind016.cpp
     ../bitcoin/bitcoind017.cpp
+    ../bitcoin/bitcoin_settings.cpp
     ../litecoin/litecoind016.cpp
     ../litecoin/litecoind017.cpp
+    ../litecoin/litecoin_side.cpp
     ../qtum/qtumd017.cpp
+    ../qtum/qtum_side.cpp
 )
 
 add_library(swap STATIC ${SWAP_SRC})

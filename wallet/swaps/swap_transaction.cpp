@@ -18,7 +18,7 @@
 
 #include "lock_tx_builder.h"
 #include "shared_tx_builder.h"
-#include "../bitcoin/bitcoin_side.h"
+#include "wallet/bitcoin/bitcoin_side.h"
 
 using namespace ECC;
 

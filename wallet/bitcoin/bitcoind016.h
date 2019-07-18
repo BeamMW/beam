@@ -16,7 +16,7 @@
 
 #include "bitcoin_bridge.h"
 #include "http/http_client.h"
-#include "options.h"
+#include "bitcoin_settings.h"
 
 namespace beam
 {
@@ -24,7 +24,7 @@ namespace beam
     {
     public:
         Bitcoind016() = delete;
-        Bitcoind016(io::Reactor& reactor, const BitcoinOptions& options);
+        Bitcoind016(io::Reactor& reactor, const BitcoindSettings& settings);
 
         void dumpPrivKey(const std::string& btcAddress, std::function<void(const Error&, const std::string&)> callback) override;
         void fundRawTransaction(const std::string& rawTx, Amount feeRate, std::function<void(const Error&, const std::string&, int)> callback) override;
@@ -42,19 +42,13 @@ namespace beam
         void getBlockCount(std::function<void(const Error&, uint64_t)> callback) override;
         void getBalance(uint32_t confirmations, std::function<void(const Error&, double)> callback) override;
 
-        uint8_t getAddressVersion() override;
-        Amount getFeeRate() const override;
-        uint16_t getTxMinConfirmations() const override;
-        uint32_t getLockTimeInBlocks() const override;
-        std::string getCoinName() const override;
-
     protected:
         void sendRequest(const std::string& method, const std::string& params, std::function<void(const Error&, const nlohmann::json&)> callback);
-        bool isMainnet() const;
+        virtual std::string getCoinName() const;
 
     private:
         HttpClient m_httpClient;
-        BitcoinOptions m_options;
+        BitcoindSettings m_settings;
         std::string m_authorization;
     };
 }

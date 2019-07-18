@@ -44,10 +44,10 @@ namespace beam
         }
     }
 
-    Bitcoind016::Bitcoind016(io::Reactor& reactor, const BitcoinOptions& options)
+    Bitcoind016::Bitcoind016(io::Reactor& reactor, const BitcoindSettings& settings)
         : m_httpClient(reactor)
-        , m_options(options)
-        , m_authorization(generateAuthorization(options.m_userName, options.m_pass))
+        , m_settings(settings)
+        , m_authorization(generateAuthorization(m_settings.m_userName, m_settings.m_pass))
     {
     }
 
@@ -304,31 +304,6 @@ namespace beam
         });
     }
 
-    uint8_t Bitcoind016::getAddressVersion()
-    {
-        if (isMainnet())
-        {
-            return libbitcoin::wallet::ec_private::mainnet_p2kh;
-        }
-        
-        return libbitcoin::wallet::ec_private::testnet_p2kh;
-    }
-
-    Amount Bitcoind016::getFeeRate() const
-    {
-        return m_options.m_feeRate;
-    }
-
-    uint16_t Bitcoind016::getTxMinConfirmations() const
-    {
-        return m_options.m_confirmations;
-    }
-
-    uint32_t Bitcoind016::getLockTimeInBlocks() const
-    {
-        return m_options.m_lockTimeInBlocks;
-    }
-
     std::string Bitcoind016::getCoinName() const
     {
         return "bitcoin";
@@ -342,7 +317,7 @@ namespace beam
         };
         HttpClient::Request request;
 
-        request.address(m_options.m_address)
+        request.address(m_settings.m_address)
             .connectTimeoutMsec(2000)
             .pathAndQuery("/")
             .headers(headers)
@@ -418,10 +393,5 @@ namespace beam
         });
 
         m_httpClient.send_request(request);
-    }
-
-    bool Bitcoind016::isMainnet() const
-    {
-        return m_options.m_chainType == wallet::SwapSecondSideChainType::Mainnet;
     }
 }

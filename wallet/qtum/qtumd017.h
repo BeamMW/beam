@@ -14,8 +14,8 @@
 
 #pragma once
 
-#include "../bitcoin/bitcoind017.h"
-#include "options.h"
+#include "wallet/bitcoin/bitcoind017.h"
+#include "qtum_settings.h"
 
 namespace beam
 {
@@ -23,9 +23,9 @@ namespace beam
     {
     public:
         Qtumd017() = delete;
-        Qtumd017(io::Reactor& reactor, const QtumOptions& options);
+        Qtumd017(io::Reactor& reactor, const QtumdSettings& settings);
 
-        uint8_t getAddressVersion() override;
+    protected:
         std::string getCoinName() const override;
     };
 }
