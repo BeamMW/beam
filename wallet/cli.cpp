@@ -1633,7 +1633,7 @@ int main_impl(int argc, char* argv[])
 
                                 auto swapParameters = InitNewSwap(receiverWalletID, amount, fee, swapCoin, swapAmount, secondSideChainType, isBeamSide);
                                 swapParameters.SetParameter(TxParameterID::MyID, senderAddress.m_walletID);
-                                currentTxID = wallet.StartNewTransaction(swapParameters);
+                                currentTxID = wallet.StartTransaction(swapParameters);
                                 //currentTxID = wallet.swap_coins(senderAddress.m_walletID, receiverWalletID, 
                                 //    move(amount), move(fee), swapCoin, swapAmount, secondSideChainType, isBeamSide);
                             }
