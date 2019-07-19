@@ -91,6 +91,7 @@ namespace beam::wallet
 
         void sendMoney(const WalletID& receiver, const std::string& comment, Amount&& amount, Amount&& fee) override;
         void sendMoney(const WalletID& sender, const WalletID& receiver, const std::string& comment, Amount&& amount, Amount&& fee) override;
+        void startTransaction(TxParameters&& parameters) override;
         void syncWithNode() override;
         void calcChange(Amount&& amount) override;
         void getWalletStatus() override;

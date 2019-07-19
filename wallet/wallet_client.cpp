@@ -61,6 +61,11 @@ struct WalletModelBridge : public Bridge<IWalletModelAsync>
         call_async((SendMoneyType)&IWalletModelAsync::sendMoney, senderID, receiverID, comment, move(amount), move(fee));
     }
 
+    void startTransaction(TxParameters&& parameters) override
+    {
+        call_async(&IWalletModelAsync::startTransaction, move(parameters));
+    }
+
     void syncWithNode() override
     {
         call_async(&IWalletModelAsync::syncWithNode);
@@ -453,6 +458,38 @@ namespace beam::wallet
                     .SetParameter(TxParameterID::Amount, amount)
                     .SetParameter(TxParameterID::Fee, fee)
                     .SetParameter(TxParameterID::Message, message));
+            }
+
+            onSendMoneyVerified();
+        }
+        catch (const CannotGenerateSecretException&)
+        {
+            onNewAddressFailed();
+            return;
+        }
+        catch (const AddressExpiredException&)
+        {
+            onCantSendToExpired();
+            return;
+        }
+        catch (const std::exception& e)
+        {
+            LOG_UNHANDLED_EXCEPTION() << "what = " << e.what();
+        }
+        catch (...) {
+            LOG_UNHANDLED_EXCEPTION();
+        }
+    }
+
+    void WalletClient::startTransaction(TxParameters&& parameters)
+    {
+        try
+        {
+            assert(!m_wallet.expired());
+            auto s = m_wallet.lock();
+            if (s)
+            {
+                s->StartTransaction(parameters);
             }
 
             onSendMoneyVerified();
