@@ -1120,7 +1120,13 @@ public:
             {
                 if (sendCount--)
                 {
-                    sender.m_Wallet.transfer_money(sender.m_WalletID, receiver.m_WalletID, 5, 1, true, 10000, 10000);
+                    sender.m_Wallet.StartTransaction(CreateSimpleTransactionParameters()
+                        .SetParameter(TxParameterID::MyID, sender.m_WalletID)
+                        .SetParameter(TxParameterID::PeerID, receiver.m_WalletID)
+                        .SetParameter(TxParameterID::Amount, Amount(5))
+                        .SetParameter(TxParameterID::Fee, Amount(1))
+                        .SetParameter(TxParameterID::Lifetime, Height(10000))
+                        .SetParameter(TxParameterID::PeerResponseHeight, Height(10000)));
                 }
             }
             if (sendCount)

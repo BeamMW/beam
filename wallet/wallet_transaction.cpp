@@ -24,6 +24,19 @@ namespace beam::wallet
     using namespace ECC;
     using namespace std;
 
+    TxParameters CreateSimpleTransactionParameters()
+    {
+        return CreateTransactionParameters().SetParameter(TxParameterID::TransactionType, TxType::Simple);
+    }
+
+    TxParameters CreateSplitTransactionParameters(const WalletID& myID, const AmountList& amountList)
+    {
+        return CreateSimpleTransactionParameters()
+            .SetParameter(TxParameterID::MyID, myID)
+            .SetParameter(TxParameterID::PeerID, myID)
+            .SetParameter(TxParameterID::AmountList, amountList)
+            .SetParameter(TxParameterID::Amount, std::accumulate(amountList.begin(), amountList.end(), Amount(0)));
+    }
 
     BaseTransaction::Ptr SimpleTransaction::Creator::Create(INegotiatorGateway& gateway
                                                           , IWalletDB::Ptr walletDB

@@ -306,9 +306,10 @@ namespace beam::wallet
         return boost::optional<ByteBuffer>(it->second);
     }
 
-    void TxParameters::SetParameter(TxParameterID parameterID, const ByteBuffer& parameter, SubTxID subTxID)
+    TxParameters& TxParameters::SetParameter(TxParameterID parameterID, const ByteBuffer& parameter, SubTxID subTxID)
     {
         m_Parameters[subTxID][parameterID] = parameter;
+        return *this;
     }
 
     SerializedTxParameters TxParameters::GetParameters() const

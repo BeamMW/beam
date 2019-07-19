@@ -157,7 +157,7 @@ namespace beam::wallet
     enum class TxParameterID : uint8_t
     {
         // public parameters
-        // Can bet set during outside communications
+        // Can be set during outside communications
         TransactionType = 0,
         IsSender = 1,
         Amount = 2,
@@ -319,9 +319,9 @@ namespace beam::wallet
         }
 
         template <typename T>
-        void SetParameter(TxParameterID parameterID, const T& value, SubTxID subTxID = kDefaultSubTxID)
+        TxParameters& SetParameter(TxParameterID parameterID, const T& value, SubTxID subTxID = kDefaultSubTxID)
         {
-            SetParameter(parameterID, toByteBuffer(value), subTxID);
+            return SetParameter(parameterID, toByteBuffer(value), subTxID);
         }
 
         SerializedTxParameters GetParameters() const;
@@ -329,7 +329,7 @@ namespace beam::wallet
         SERIALIZE(m_ID, m_Type, m_Parameters);
 
         boost::optional<ByteBuffer> GetParameter(TxParameterID parameterID, SubTxID subTxID = kDefaultSubTxID) const;
-        void SetParameter(TxParameterID parameterID, const ByteBuffer& parameter, SubTxID subTxID = kDefaultSubTxID);
+        TxParameters& SetParameter(TxParameterID parameterID, const ByteBuffer& parameter, SubTxID subTxID = kDefaultSubTxID);
 
 
     private:

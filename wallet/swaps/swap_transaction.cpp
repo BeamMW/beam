@@ -52,6 +52,15 @@ namespace beam::wallet
     }
 
 
+    TxParameters CreateSwapParameters()
+    {
+        return CreateTransactionParameters()
+            .SetParameter(TxParameterID::TransactionType, TxType::AtomicSwap)
+            .SetParameter(TxParameterID::IsSender, true)
+            .SetParameter(TxParameterID::IsInitiator, false)
+            .SetParameter(TxParameterID::AtomicSwapIsBeamSide, true);
+    }
+
     TxParameters AcceptSwapParameters(const TxParameters& initialParameters, const WalletID& myID)
     {
         TxParameters parameters = initialParameters;

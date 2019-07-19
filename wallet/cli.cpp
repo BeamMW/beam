@@ -1669,8 +1669,12 @@ int main_impl(int argc, char* argv[])
                         if (isTxInitiator)
                         {
                             WalletAddress senderAddress = GenerateNewAddress(walletDB, "");
-                            CoinIDList coinIDs = GetPreselectedCoinIDs(vm);
-                            currentTxID = wallet.transfer_money(senderAddress.m_walletID, receiverWalletID, move(amount), move(fee), coinIDs, command == cli::SEND, kDefaultTxLifetime, kDefaultTxResponseTime, {}, true);
+                            currentTxID = wallet.StartTransaction(CreateSimpleTransactionParameters()
+                                .SetParameter(TxParameterID::MyID, senderAddress.m_walletID)
+                                .SetParameter(TxParameterID::PeerID, receiverWalletID)
+                                .SetParameter(TxParameterID::Amount, amount)
+                                .SetParameter(TxParameterID::Fee, fee)
+                                .SetParameter(TxParameterID::PreselectedCoins, GetPreselectedCoinIDs(vm)));
                         }
 
                         bool deleteTx = command == cli::DELETE_TX;

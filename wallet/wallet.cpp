@@ -177,70 +177,55 @@ namespace beam::wallet
         m_MessageEndpoints.insert(endpoint);
     }
 
-    TxID Wallet::transfer_money(const WalletID& from, const WalletID& to, Amount amount, Amount fee, bool sender, Height lifetime, Height responseTime, ByteBuffer&& message, bool saveReceiver)
-    {
-        return transfer_money(from, to, AmountList{ amount }, fee, {}, sender, lifetime, responseTime, move(message), saveReceiver);
-    }
+     //// TODO: Change flag saveReceiver to separate function for handling receiver address separately
+    //TxID Wallet::transfer_money(const WalletID& from, const WalletID& to, const AmountList& amountList, Amount fee, const CoinIDList& coins, bool sender, Height lifetime, Height responseTime, ByteBuffer&& message, bool saveReceiver)
+    //{
+    //    auto receiverAddr = m_WalletDB->getAddress(to);
 
-    TxID Wallet::transfer_money(const WalletID& from, const WalletID& to, Amount amount, Amount fee, const CoinIDList& coins, bool sender, Height lifetime, Height responseTime, ByteBuffer&& message, bool saveReceiver)
-    {
-        return transfer_money(from, to, AmountList{ amount }, fee, coins, sender, lifetime, responseTime, move(message), saveReceiver);
-    }
+    //    if (receiverAddr)
+    //    {
+    //        if (receiverAddr->m_OwnID && receiverAddr->isExpired())
+    //        {
+    //            LOG_INFO() << "Can't send to the expired address.";
+    //            throw AddressExpiredException();
+    //        }
+    //    }
+    //    else if (saveReceiver)
+    //    {
+    //        WalletAddress address;
+    //        address.m_walletID = to;
+    //        address.m_createTime = getTimestamp();
 
-    // TODO: Change flag saveReceiver to separate function for handling receiver address separately
-    TxID Wallet::transfer_money(const WalletID& from, const WalletID& to, const AmountList& amountList, Amount fee, const CoinIDList& coins, bool sender, Height lifetime, Height responseTime, ByteBuffer&& message, bool saveReceiver)
-    {
-        auto receiverAddr = m_WalletDB->getAddress(to);
+    //        m_WalletDB->saveAddress(address);
+    //    }
 
-        if (receiverAddr)
-        {
-            if (receiverAddr->m_OwnID && receiverAddr->isExpired())
-            {
-                LOG_INFO() << "Can't send to the expired address.";
-                throw AddressExpiredException();
-            }
-        }
-        else if (saveReceiver)
-        {
-            WalletAddress address;
-            address.m_walletID = to;
-            address.m_createTime = getTimestamp();
+    //    TxID txID = GenerateTxID();
+    //    auto tx = ConstructTransaction(txID, TxType::Simple);
 
-            m_WalletDB->saveAddress(address);
-        }
+    //    tx->SetParameter(TxParameterID::TransactionType, TxType::Simple, false);
+    //    tx->SetParameter(TxParameterID::Lifetime, lifetime, false);
+    //    tx->SetParameter(TxParameterID::PeerResponseHeight, responseTime); 
+    //    tx->SetParameter(TxParameterID::IsInitiator, true, false);
+    //    tx->SetParameter(TxParameterID::AmountList, amountList, false);
+    //    tx->SetParameter(TxParameterID::PreselectedCoins, coins, false);
 
-        TxID txID = GenerateTxID();
-        auto tx = ConstructTransaction(txID, TxType::Simple);
+    //    TxDescription txDescription(txID);
 
-        tx->SetParameter(TxParameterID::TransactionType, TxType::Simple, false);
-        tx->SetParameter(TxParameterID::Lifetime, lifetime, false);
-        tx->SetParameter(TxParameterID::PeerResponseHeight, responseTime); 
-        tx->SetParameter(TxParameterID::IsInitiator, true, false);
-        tx->SetParameter(TxParameterID::AmountList, amountList, false);
-        tx->SetParameter(TxParameterID::PreselectedCoins, coins, false);
+    //    txDescription.m_txId = txID;
+    //    txDescription.m_amount = std::accumulate(amountList.begin(), amountList.end(), 0ULL);
+    //    txDescription.m_fee = fee;
+    //    txDescription.m_peerId = to;
+    //    txDescription.m_myId = from;
+    //    txDescription.m_message = move(message);
+    //    txDescription.m_createTime = getTimestamp();
+    //    txDescription.m_sender = sender;
+    //    txDescription.m_status = TxStatus::Pending;
+    //    txDescription.m_selfTx = (receiverAddr && receiverAddr->m_OwnID);
+    //    m_WalletDB->saveTx(txDescription);
 
-        TxDescription txDescription(txID);
-
-        txDescription.m_txId = txID;
-        txDescription.m_amount = std::accumulate(amountList.begin(), amountList.end(), 0ULL);
-        txDescription.m_fee = fee;
-        txDescription.m_peerId = to;
-        txDescription.m_myId = from;
-        txDescription.m_message = move(message);
-        txDescription.m_createTime = getTimestamp();
-        txDescription.m_sender = sender;
-        txDescription.m_status = TxStatus::Pending;
-        txDescription.m_selfTx = (receiverAddr && receiverAddr->m_OwnID);
-        m_WalletDB->saveTx(txDescription);
-
-        ProcessTransaction(tx);
-        return txID;
-    }
-
-    TxID Wallet::split_coins(const WalletID& from, const AmountList& amountList, Amount fee, bool sender, Height lifetime, Height responseTime,  ByteBuffer&& message)
-    {
-        return transfer_money(from, from, amountList, fee, {}, sender, lifetime, responseTime, move(message));
-    }
+    //    ProcessTransaction(tx);
+    //    return txID;
+    //}
 
     //TxID Wallet::swap_coins(const WalletID& from, const WalletID& to, Amount amount, Amount fee, AtomicSwapCoin swapCoin,
     //    Amount swapAmount, SwapSecondSideChainType chainType, bool isBeamSide/*=true*/,
@@ -313,7 +298,7 @@ namespace beam::wallet
         ResumeAllTransactions();
     }
 
-    TxID Wallet::StartNewTransaction(const TxParameters& parameters)
+    TxID Wallet::StartTransaction(const TxParameters& parameters)
     {
         auto tx = ConstructTransactionFromParameters(parameters);
         if (!tx)

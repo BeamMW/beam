@@ -38,6 +38,17 @@ namespace beam::wallet
         return txID;
     }
 
+    TxParameters CreateTransactionParameters()
+    {
+        return TxParameters(GenerateTxID())
+            .SetParameter(TxParameterID::Lifetime, kDefaultTxLifetime)
+            .SetParameter(TxParameterID::PeerResponseHeight, kDefaultTxResponseTime)
+            .SetParameter(TxParameterID::IsInitiator, true)
+            .SetParameter(TxParameterID::IsSender, true)
+            .SetParameter(TxParameterID::CreateTime, getTimestamp());
+
+    }
+
     std::string GetFailureMessage(TxFailureReason reason)
     {
         switch (reason)

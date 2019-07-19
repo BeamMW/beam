@@ -26,6 +26,8 @@ namespace beam::wallet
         Amount swapAmount, SwapSecondSideChainType chainType, bool isBeamSide = true,
         Height lifetime = kDefaultTxLifetime, Height responseTime = kDefaultTxResponseTime);
 
+    TxParameters CreateSwapParameters();
+
     TxParameters AcceptSwapParameters(const TxParameters& initialParameters, const WalletID& myID);
 
     class ISecondSideFactory

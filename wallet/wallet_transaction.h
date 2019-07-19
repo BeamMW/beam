@@ -26,6 +26,9 @@ namespace beam::wallet
 {
     class BaseTxBuilder;
 
+    TxParameters CreateSimpleTransactionParameters();
+    TxParameters CreateSplitTransactionParameters(const WalletID& myID, const AmountList& amountList);
+
     class SimpleTransaction : public BaseTransaction
     {
         enum State : uint8_t

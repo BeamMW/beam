@@ -407,7 +407,12 @@ namespace beam::wallet
             auto s = m_wallet.lock();
             if (s)
             {
-                s->transfer_money(senderAddress.m_walletID, receiver, move(amount), move(fee), true, kDefaultTxLifetime, kDefaultTxResponseTime, move(message), true);
+                s->StartTransaction(CreateSimpleTransactionParameters()
+                    .SetParameter(TxParameterID::MyID, senderAddress.m_walletID)
+                    .SetParameter(TxParameterID::PeerID, receiver)
+                    .SetParameter(TxParameterID::Amount, amount)
+                    .SetParameter(TxParameterID::Fee, fee)
+                    .SetParameter(TxParameterID::Message, message));
                 //s->swap_coins(senderAddress.m_walletID, receiver, amount, fee, wallet::AtomicSwapCoin::Bitcoin, 1, wallet::SwapSecondSideChainType::Testnet, true, kDefaultTxLifetime, kDefaultTxResponseTime);
             }
 
@@ -442,7 +447,12 @@ namespace beam::wallet
             auto s = m_wallet.lock();
             if (s)
             {
-                s->transfer_money(sender, receiver, move(amount), move(fee), true, kDefaultTxLifetime, kDefaultTxResponseTime, move(message), true);
+                s->StartTransaction(CreateSimpleTransactionParameters()
+                    .SetParameter(TxParameterID::MyID, sender)
+                    .SetParameter(TxParameterID::PeerID, receiver)
+                    .SetParameter(TxParameterID::Amount, amount)
+                    .SetParameter(TxParameterID::Fee, fee)
+                    .SetParameter(TxParameterID::Message, message));
             }
 
             onSendMoneyVerified();
