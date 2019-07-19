@@ -7,7 +7,7 @@ import Beam.Wallet 1.0;
 
 ColumnLayout {
     anchors.fill: parent
-    // SwapOffersViewModel {id: viewModel}
+    SwapOffersViewModel {id: viewModel}
 
     RowLayout {
         Layout.fillWidth: true
@@ -25,7 +25,6 @@ ColumnLayout {
             color: Style.content_main
             //% "Offers"
             text: qsTrId("offers-title")
-            font.capitalization: Font.AllUppercase
         }
 
         Item {
@@ -43,28 +42,24 @@ ColumnLayout {
                 anchors.bottomMargin: 20
                 spacing: 5
 
-            }
+                SFTextInput {
+                    id: searchBox
+                    Layout.fillWidth: true
+                    Layout.minimumHeight: 20
+                    Layout.maximumHeight: 80
+                    font.pixelSize: 18
+                    font.styleName: "Bold"; font.weight: Font.Bold
+                    color: Style.content_main
+                    //% "Search..."
+                    placeholderText: "Search..."
+                    // text: qsTrId("utxo-last-block-hash")
 
-            Rectangle {
-                anchors.fill: parent
-                radius: 10
-                color: Style.white
-                opacity: 0.1
-            }
-        }
+                    inputMethodHints: Qt.ImhNoPredictiveText
 
-        Item {
-            Layout.fillWidth: true
-            height: parent.height
-
-            ColumnLayout {
-                anchors.fill: parent
-                anchors.leftMargin: 20
-                anchors.rightMargin: 20
-                anchors.topMargin: 10
-                anchors.bottomMargin: 20
-                spacing: 5
-
+                    // width: window.width / 5 * 2
+                    // anchors.right: parent.right
+                    // anchors.verticalCenter: parent.verticalCenter
+                }
             }
 
             Rectangle {
@@ -81,65 +76,91 @@ ColumnLayout {
         model: statusbarModel
     }
 
-    TextField {
-        id: searchBox
+    CustomTableView {
+        id: tableView
+        property int rowHeight: 69
         Layout.fillWidth: true
-        height: 80
-        placeholderText: "Search..."
-        inputMethodHints: Qt.ImhNoPredictiveText
+        Layout.fillHeight: true
+        Layout.bottomMargin: 9
+        frameVisible: false
+        selectionMode: SelectionMode.NoSelection
+        backgroundVisible: false
+        sortIndicatorVisible: true
+        sortIndicatorColumn: 1
+        sortIndicatorOrder: Qt.DescendingOrder
 
-        // width: window.width / 5 * 2
-        // anchors.right: parent.right
-        // anchors.verticalCenter: parent.verticalCenter
+        model: SortFilterProxyModel {
+            id: proxyModel
+            source: viewModel.allOffers
+
+            sortOrder: tableView.sortIndicatorOrder
+            sortCaseSensitivity: Qt.CaseInsensitive
+            sortRole: tableView.getColumn(tableView.sortIndicatorColumn).role + "Sort"
+
+            filterString: "*" + searchBox.text + "*"
+            filterSyntax: SortFilterProxyModel.Wildcard
+            filterCaseSensitivity: Qt.CaseInsensitive
+        }
+
+        TableViewColumn {
+            role: "amount"
+            //% "Amount"
+            title: qsTrId("general-amount")
+            width: 300 * parent.width / 800
+            movable: false
+        }
+
+        TableViewColumn {
+            role: "status"
+            //% "Status"
+            title: qsTrId("general-status")
+            width: 200 * parent.width / 800
+            movable: false
+            resizable: false
+            delegate: Item {
+                id: delegate_id
+                width: parent.width
+                height: tableView.rowHeight
+                readonly property var lineSeparator: "\n"
+                property var texts: styleData.value
+                property color secondLineColor: Style.content_secondary
+
+                ColumnLayout {
+                    anchors.right: parent.right
+                    anchors.left: parent.left
+                    anchors.verticalCenter: parent.verticalCenter
+
+                    SFLabel {
+                        Layout.fillWidth: true
+                        Layout.fillHeight: true
+                        Layout.topMargin: 20
+                        elide: Text.ElideRight
+                        text: delegate_id.texts[0] // add check for NULL
+                        textFormat: Text.StyledText
+                        font.italic: true
+                        font.pixelSize: 14
+                    }
+                }
+            }
+        }
+        
+        rowDelegate: Item {
+            height: tableView.rowHeight
+
+            anchors.left: parent.left
+            anchors.right: parent.right
+
+            Rectangle {
+                anchors.fill: parent
+
+                color: Style.background_row_even
+                visible: styleData.alternate
+            }
+        }
+
+        itemDelegate: TableItem {
+            text: styleData.value
+            elide: Text.ElideRight
+        }
     }
-
-    // ListModel {
-    //     id: mockModel
-    //     ListElement {
-    //         amount: "1"
-    //         status: "active"
-    //     }
-    //     ListElement {
-    //         amount: "2"
-    //         status: "blocked"
-    //     }
-    //     ListElement {
-    //         amount: "1"
-    //         status: "expired"
-    //     }
-    // }
-
-    // ListView {
-    //     id: swapsListView
-    //     property int rowHeight: 69
-    //     Layout.fillWidth: true
-    //     Layout.fillHeight: true
-    //     Layout.bottomMargin: 9
-    //     // frameVisible: false
-    //     // selectionMode: SelectionMode.NoSelection
-    //     // backgroundVisible: false
-    //     // sortIndicatorVisible: true
-    //     // sortIndicatorColumn: 1
-    //     // sortIndicatorOrder: Qt.DescendingOrder
-
-    //     // model: viewModel.allSwapOffers
-    //     model: mockModel
-    //     delegate: Row {
-    //         Text { text: 'amount' + amount;}
-    //         Text { text: 'status' + status;}
-    //     }
-
-    //     // model: SortFilterProxyModel {
-    //     //     id: proxyModel
-    //     //     source: viewModel.allSwapOffers
-
-    //     //     sortOrder: tableView.sortIndicatorOrder
-    //     //     sortCaseSensitivity: Qt.CaseInsensitive
-    //     //     sortRole: tableView.getColumn(tableView.sortIndicatorColumn).role + "Sort"
-
-    //     //     filterString: "*" + searchBox.text + "*"
-    //     //     filterSyntax: SortFilterProxyModel.Wildcard
-    //     //     filterCaseSensitivity: Qt.CaseInsensitive
-    //     // }
-    // }
 }

@@ -58,12 +58,12 @@ public:
     void insert(const std::vector<T>& items)
     {
         int row = 0;
-        // beginInsertRows(QModelIndex(), row, row + int(items.size()) - 1);
+        beginInsertRows(QModelIndex(), row, row + int(items.size()) - 1);
         for (const auto& item : items)
         {
             m_list.insert(row, item);
         }
-        // endInsertRows();
+        endInsertRows();
     }
 
     void update(const std::vector<T>& items)
@@ -74,13 +74,13 @@ public:
     void reset(const std::vector<T>& items)
     {
         int row = 0;
-        // beginResetModel();
+        beginResetModel();
         m_list.clear();
         for (const auto& item : items)
         {
             m_list.insert(row, item);
         }
-        // endResetModel();
+        endResetModel();
     }
 
 protected:

@@ -72,8 +72,8 @@ SwapOffersViewModel::SwapOffersViewModel()
     : m_walletModel{*AppModel::getInstance().getWallet()}
 {
     connect(&m_walletModel,
-            SIGNAL(swapOffersChanged(const std::vector<beam::wallet::TxDescription> & offers)),
-            SLOT(onAllOffersChanged(const std::vector<beam::wallet::TxDescription> & offers)));
+            SIGNAL(swapOffersChanged(const std::vector<beam::wallet::TxDescription>&)),
+            SLOT(onAllOffersChanged(const std::vector<beam::wallet::TxDescription>&)));
 
     m_walletModel.getAsync()->getSwapOffers();
 }
@@ -90,7 +90,8 @@ QAbstractItemModel* SwapOffersViewModel::getAllOffers()
 
 void SwapOffersViewModel::onAllOffersChanged(const std::vector<beam::wallet::TxDescription>& offers)
 {
-    vector<shared_ptr<SwapOfferItem>> newOffers(offers.size());
+    vector<shared_ptr<SwapOfferItem>> newOffers;
+    newOffers.reserve(offers.size());
 
     for (const auto& offer : offers)
     {
@@ -98,4 +99,6 @@ void SwapOffersViewModel::onAllOffersChanged(const std::vector<beam::wallet::TxD
     }
 
     m_offersList.reset(newOffers);
+
+    emit allOffersChanged();
 }

@@ -22,6 +22,8 @@
 class SwapOfferItem : public QObject
 {
     Q_OBJECT
+    Q_PROPERTY(QString amount READ amount NOTIFY changed)
+    Q_PROPERTY(QString status READ status NOTIFY changed)
 public:
     SwapOfferItem() = default;
     SwapOfferItem(const beam::wallet::TxDescription& offer) : m_offer{offer} {};
@@ -30,6 +32,9 @@ public:
     QString status() const;
 
     beam::Amount rawAmount() const;
+
+signals:
+    void changed();
 
 private:
     beam::wallet::TxDescription m_offer;
@@ -47,7 +52,7 @@ public:
 		AmountSortRole,
 
 		StatusRole,
-		StatusSortRole,
+		StatusSortRole
 	};
 	SwapOffersList() {};
 
@@ -58,7 +63,7 @@ public:
 class SwapOffersViewModel : public QObject
 {
 	Q_OBJECT
-    Q_PROPERTY(QAbstractItemModel* allSwapOffers READ getAllOffers NOTIFY allOffersChanged)
+    Q_PROPERTY(QAbstractItemModel* allOffers READ getAllOffers NOTIFY allOffersChanged)
 
 public:
     SwapOffersViewModel();
