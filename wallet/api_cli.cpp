@@ -505,7 +505,7 @@ namespace
                 {
                     if (tx->canCancel())
                     {
-                        _wallet.cancel_tx(tx->m_txId);
+                        _wallet.CancelTransaction(tx->m_txId);
                         TxCancel::Response result{ true };
                         doResponse(id, result);
                     }

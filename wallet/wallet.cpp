@@ -26,13 +26,6 @@
 #include <iomanip>
 #include <numeric>
 
-//#include "bitcoin/bitcoind017.h"
-//#include "bitcoin/bitcoin_side.h"
-//#include "litecoin/litecoind017.h"
-//#include "litecoin/litecoin_side.h"
-//#include "qtum/qtumd017.h"
-//#include "qtum/qtum_side.h"
-
 namespace beam::wallet
 {
     using namespace std;
@@ -109,8 +102,6 @@ namespace beam::wallet
         // the only default type of transaction
         RegisterTransactionType(TxType::Simple, make_unique<SimpleTransaction::Creator>());
 
-        // Temporary
-//        RegisterTransactionType(TxType::AtomicSwap, wallet::AtomicSwapTransaction::Create);
         ResumeAllTransactions();
     }
 
@@ -556,8 +547,7 @@ namespace beam::wallet
         }
     }
 
-    // Implementation of the IWallet::cancel_tx
-    void Wallet::cancel_tx(const TxID& txId)
+    void Wallet::CancelTransaction(const TxID& txId)
     {
         LOG_INFO() << txId << " Canceling tx";
 
@@ -571,8 +561,7 @@ namespace beam::wallet
         }
     }
 
-    // Implementation of the IWallet::delete_tx
-    void Wallet::delete_tx(const TxID& txId)
+    void Wallet::DeleteTransaction(const TxID& txId)
     {
         LOG_INFO() << "deleting tx " << txId;
         if (auto it = m_ActiveTransactions.find(txId); it == m_ActiveTransactions.end())
@@ -1013,7 +1002,7 @@ namespace beam::wallet
         PostReqUnique(*pReq);
     }
 
-    void Wallet::subscribe(IWalletObserver* observer)
+    void Wallet::Subscribe(IWalletObserver* observer)
     {
         assert(std::find(m_subscribers.begin(), m_subscribers.end(), observer) == m_subscribers.end());
 
@@ -1022,7 +1011,7 @@ namespace beam::wallet
         m_WalletDB->subscribe(observer);
     }
 
-    void Wallet::unsubscribe(IWalletObserver* observer)
+    void Wallet::Unsubscribe(IWalletObserver* observer)
     {
         auto it = std::find(m_subscribers.begin(), m_subscribers.end(), observer);
 

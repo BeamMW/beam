@@ -326,7 +326,7 @@ public:
 class OneTimeBbsEndpoint : public WalletNetworkViaBbs
 {
 public:
-    OneTimeBbsEndpoint(IWallet& wallet, std::shared_ptr<proto::FlyClient::INetwork> nodeEndpoint, const IWalletDB::Ptr& walletDB)
+    OneTimeBbsEndpoint(IWalletMessageConsumer& wallet, std::shared_ptr<proto::FlyClient::INetwork> nodeEndpoint, const IWalletDB::Ptr& walletDB)
         : WalletNetworkViaBbs(wallet, nodeEndpoint, walletDB)
     {
 
@@ -418,7 +418,7 @@ struct TestWalletNetwork
 {
     struct Entry
     {
-        IWallet* m_pSink;
+        IWalletMessageConsumer* m_pSink;
         std::deque<std::pair<WalletID, wallet::SetTxParameter> > m_Msgs;
     };
 

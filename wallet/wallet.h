@@ -21,6 +21,7 @@
 
 namespace beam::wallet
 {
+    // Exceptions
     class AddressExpiredException : public std::runtime_error
     {
     public:
@@ -51,7 +52,7 @@ namespace beam::wallet
 
     };
 
-    // Interface for walelt observer. 
+    // Interface for wallet observer. 
     struct IWalletObserver : IWalletDbObserver
     {
         // Callback for wallet sync progress. 
@@ -60,19 +61,10 @@ namespace beam::wallet
         virtual void onSyncProgress(int done, int total) = 0;
     };
 
-    // Wallet base class. 
-    // Extends FlyClient protocol for communication with own or remote node
-    struct IWallet : public proto::FlyClient
+    // Interface for wallet message consumer
+    struct IWalletMessageConsumer
     {
-        using Ptr = std::shared_ptr<IWallet>;
-        virtual ~IWallet() {}
-
-        virtual void subscribe(IWalletObserver* observer) = 0;
-        virtual void unsubscribe(IWalletObserver* observer) = 0;
-
-        // TODO: Consider removing these methods from the interface
-        virtual void cancel_tx(const TxID& id) = 0;
-        virtual void delete_tx(const TxID& id) = 0;
+        using Ptr = std::shared_ptr<IWalletMessageConsumer>;
 
         // Callback for receiving notifications on SBBS messages
         virtual void OnWalletMessage(const WalletID& peerID, SetTxParameter&&) = 0;
@@ -88,10 +80,12 @@ namespace beam::wallet
         virtual void SendEncryptedMessage(const WalletID& peerID, const ByteBuffer& msg) = 0;
     };
 
-
+    // Wallet base class. 
+    // Extends FlyClient protocol for communication with own or remote node
     class Wallet
-        : public IWallet
+        : public proto::FlyClient
         , public INegotiatorGateway
+        , public IWalletMessageConsumer
     {
     public:
 
@@ -109,15 +103,15 @@ namespace beam::wallet
         // Resets wallet state and rescans the blockchain from scratch
         void Refresh();
 
-        // IWallet
-        void subscribe(IWalletObserver* observer) override;
-        void unsubscribe(IWalletObserver* observer) override;
-        void cancel_tx(const TxID& txId) override;
-        void delete_tx(const TxID& txId) override;
-
         void RegisterTransactionType(TxType type, BaseTransaction::Creator::Ptr creator);
         TxID StartTransaction(const TxParameters& parameters);
-     private:
+        void CancelTransaction(const TxID& txId);
+        void DeleteTransaction(const TxID& txId);
+        
+        void Subscribe(IWalletObserver* observer);
+        void Unsubscribe(IWalletObserver* observer);
+
+    private:
         void ProcessTransaction(BaseTransaction::Ptr tx);
         void RefreshTransactions();
         void ResumeTransaction(const TxDescription& tx);
