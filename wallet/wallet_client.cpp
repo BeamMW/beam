@@ -544,6 +544,7 @@ namespace beam::wallet
         onStatus(getStatus());
         onTxStatus(ChangeAction::Reset, m_walletDB->getTxHistory(wallet::TxType::ALL));
         onAddresses(false, m_walletDB->getAddresses(false));
+        onAddresses(true, m_walletDB->getAddresses(true));
     }
 
     void WalletClient::getUtxosStatus()

@@ -723,6 +723,16 @@ namespace
         }
     }
 
+    void TestTxNonces()
+    {
+        cout << "\nTesting tx nonce...\n";
+
+        PerformanceRig t2(200);
+        t2.Run();
+        t2.Run();
+
+    }
+
     void TestColdWalletSending()
     {
         cout << "\nTesting cold wallet sending...\n";
@@ -1353,6 +1363,7 @@ int main()
 
     TestTransactionUpdate();
     //TestTxPerformance();
+    //TestTxNonces();
 
     TestColdWalletSending();
     TestColdWalletReceiving();

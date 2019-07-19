@@ -93,6 +93,7 @@ namespace beam {
 				State& s0 = m_vStates[i - 1];
 				s.m_Hdr = s0.m_Hdr;
 				s.m_Hdr.NextPrefix();
+                s.m_Hdr.m_TimeStamp = getTimestamp();
 
 				uint32_t nSize = m_Mmr.get_NodeSize(i - 1);
 				s0.m_pMmrData.reset(new uint8_t[nSize]);

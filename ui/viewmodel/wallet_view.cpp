@@ -56,6 +56,7 @@ WalletViewModel::WalletViewModel()
         emit stateChanged();
     });
 
+    // TODO: This also refreshes TXs and addresses. Need to make this more transparent
     _status.refresh();
 }
 

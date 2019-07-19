@@ -142,7 +142,7 @@ void InitBitcoin(Wallet& wallet, io::Reactor& reactor, std::shared_ptr<BitcoinSe
     wallet.RegisterTransactionType(TxType::AtomicSwap, std::static_pointer_cast<BaseTransaction::Creator>(creator));
 }
 
-void TestSwapTransaction(bool isBeamOwnerStart)
+void TestSwapTransaction(bool isBeamOwnerStart, beam::Height fork1Height)
 {
     cout << "\nTesting atomic swap transaction...\n";
 
@@ -202,7 +202,7 @@ void TestSwapTransaction(bool isBeamOwnerStart)
     NodeObserver observer([&]()
     {
         auto cursor = node.get_Processor().m_Cursor;
-        if (cursor.m_Sid.m_Height == 15)
+        if (cursor.m_Sid.m_Height == fork1Height + 5)
         {
             if (isBeamOwnerStart)
             {
@@ -821,6 +821,8 @@ int main()
     auto logger = beam::Logger::create(logLevel, logLevel);
     Rules::get().FakePoW = true;
     Rules::get().UpdateChecksum();
+    beam::Height fork1Height = 10;
+    Rules::get().pForks[1].m_Height = fork1Height;
 
     TestSwapTransaction(true);
     TestSwapTransaction(false);
@@ -829,8 +831,8 @@ int main()
     TestSwapBTCRefundTransaction();
     TestSwapBeamRefundTransaction();
 
-    ExpireByResponseTime(true);
-    ExpireByResponseTime(false);
+    ExpireByResponseTime(true, fork1Height);
+    ExpireByResponseTime(false, fork1Height);
 
     TestSwapCancelTransaction(true, wallet::AtomicSwapTransaction::State::Invitation);
 
