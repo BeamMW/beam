@@ -26,6 +26,7 @@
         <file>controls/FeeSlider.qml</file>
         <file>controls/SFFontLoader.qml</file>
         <file>controls/SFTextArea.qml</file>
+        <file>controls/AmountInput.qml</file>
         <file>root.qml</file>
         <file>start.qml</file>
         <file>main.qml</file>
@@ -37,6 +38,8 @@
         <file>addresses.qml</file>
         <file>utxo.qml</file>
         <file>receive.qml</file>
+        <file>receive_regular.qml</file>
+        <file>receive_swap.qml</file>
         <file>receive_addrfail.qml</file>
         <file>send.qml</file>
         <file>send_confirm.qml</file>
@@ -149,5 +152,6 @@
         <file>assets/icon-details.svg</file>
         <file>controls/OpenExternalLinkConfirmation.qml</file>
         <file>utils.js</file>
+        <file>qmldir</file>
     </qresource>
 </RCC>

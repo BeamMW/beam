@@ -22,7 +22,7 @@ class QMLGlobals : public QObject
 public:
     QMLGlobals(QQmlEngine&);
 
-    Q_INVOKABLE void showMessage(QString message);
+    Q_INVOKABLE void showMessage(QString& message);
     Q_INVOKABLE void copyToClipboard(const QString& text);
 
 private:

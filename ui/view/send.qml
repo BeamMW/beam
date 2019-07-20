@@ -128,7 +128,6 @@ Item {
 
                 ColumnLayout {
                     width: parent.width
-
                     spacing: 12
 
                     SFText {
@@ -205,7 +204,6 @@ Item {
 
         RowLayout {
             Layout.fillWidth: true
-
             spacing: 70
 
             Item {
@@ -251,8 +249,7 @@ Item {
                 height: childrenRect.height
 
                 ColumnLayout {
-                    width: parent.width
-
+                    width:   parent.width
                     spacing: 12
 
                     SFText {

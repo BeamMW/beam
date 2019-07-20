@@ -113,7 +113,8 @@ namespace beam::wallet
         void setExpiration(ExpirationStatus status);
 
         static constexpr uint64_t AddressExpirationNever = 0;
-        static constexpr uint64_t AddressExpiration24h = 24*60*60;
+        static constexpr uint64_t AddressExpiration24h   = 24 * 60 * 60;
+        static constexpr uint64_t AddressExpiration1h    = 60 * 60;
     };
 
     // Describes structure of generic transaction parameter

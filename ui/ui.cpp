@@ -36,6 +36,7 @@
 #include "viewmodel/statusbar_view.h"
 #include "viewmodel/theme.h"
 #include "viewmodel/receive_view.h"
+#include "viewmodel/receive_swap_view.h"
 #include "viewmodel/send_view.h"
 #include "model/app_model.h"
 #include "viewmodel/qml_globals.h"
@@ -219,6 +220,7 @@ int main (int argc, char* argv[])
             qmlRegisterType<MessagesViewModel>("Beam.Wallet", 1, 0, "MessagesViewModel");
             qmlRegisterType<StatusbarViewModel>("Beam.Wallet", 1, 0, "StatusbarViewModel");
             qmlRegisterType<ReceiveViewModel>("Beam.Wallet", 1, 0, "ReceiveViewModel");
+            qmlRegisterType<ReceiveSwapViewModel>("Beam.Wallet", 1, 0, "ReceiveSwapViewModel");
             qmlRegisterType<SendViewModel>("Beam.Wallet", 1, 0, "SendViewModel");
 
             qmlRegisterType<AddressItem>("Beam.Wallet", 1, 0, "AddressItem");
