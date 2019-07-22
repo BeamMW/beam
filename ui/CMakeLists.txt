@@ -108,6 +108,8 @@ set(UI_SRC
     viewmodel/payment_item.cpp
     viewmodel/qml_globals.h
     viewmodel/qml_globals.cpp
+    viewmodel/receive_swap_view.h
+    viewmodel/receive_swap_view.cpp
 
     model/wallet_model.h
     model/wallet_model.cpp

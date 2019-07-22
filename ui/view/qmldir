@@ -1,0 +1,2 @@
+ReceiveRegular ./receive_regular.qml
+ReceiveSwap ./receive_swap.qml

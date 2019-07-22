@@ -21,7 +21,7 @@ QMLGlobals::QMLGlobals(QQmlEngine& engine)
 {
 }
 
-void QMLGlobals::showMessage(QString message)
+void QMLGlobals::showMessage(QString& message)
 {
     QMessageBox::information(nullptr, "BeamWalletUI", message);
 }

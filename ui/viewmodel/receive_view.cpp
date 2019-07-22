@@ -17,11 +17,17 @@
 #include "model/qr.h"
 #include "model/app_model.h"
 #include <QClipboard>
-#include <QApplication>
+
+namespace {
+    enum {
+        AddressExpires = 0,
+        AddressNotExpires = 1
+    };
+}
 
 ReceiveViewModel::ReceiveViewModel()
     : _amountToReceive(0.0)
-    , _addressExpires(true)
+    , _addressExpires(AddressExpires)
     , _qr(std::make_unique<QR>())
     , _walletModel(*AppModel::getInstance().getWallet())
 {
@@ -30,19 +36,22 @@ ReceiveViewModel::ReceiveViewModel()
     connect(&_walletModel, &WalletModel::generatedNewAddress, this, &ReceiveViewModel::onGeneratedNewAddress);
     connect(&_walletModel, &WalletModel::newAddressFailed, this,  &ReceiveViewModel::onNewAddressFailed);
     generateNewAddress();
+
+    // TODO: This is only for test, apply actual when ready
+    _token = "176dan89jksasdg21skaw9q7g176dan89jksasdg21skaw9q7g176dan89jksasdg21skaw9q7g176dan89jksasdg21skaw9q7g176dan89jksasdg21skaw9q7g";
 }
 
 ReceiveViewModel::~ReceiveViewModel()
 {
     disconnect(_qr.get(), &QR::qrDataChanged, this, &ReceiveViewModel::onReceiverQRChanged);
-    saveAddress();
     LOG_INFO() << "ReceiveViewModel destroyed";
 }
 
 void ReceiveViewModel::onGeneratedNewAddress(const beam::wallet::WalletAddress& addr)
 {
     _receiverAddress = addr;
-    setAddressExpires(true);
+    emit receiverAddressChanged();
+
     _qr->setAddr(beamui::toString(_receiverAddress.m_walletID));
 }
 
@@ -53,6 +62,7 @@ double ReceiveViewModel::getAmountToReceive() const
 
 void ReceiveViewModel::setAmountToReceive(double value)
 {
+    LOG_INFO() << "amount to receive " << value;
     if (value != _amountToReceive)
     {
         _amountToReceive = value;
@@ -61,8 +71,9 @@ void ReceiveViewModel::setAmountToReceive(double value)
     }
 }
 
-void ReceiveViewModel::setAddressExpires(bool value)
+void ReceiveViewModel::setAddressExpires(int value)
 {
+    LOG_INFO() << "address expires " << value;
     if (value != _addressExpires)
     {
         _addressExpires = value;
@@ -70,7 +81,7 @@ void ReceiveViewModel::setAddressExpires(bool value)
     }
 }
 
-bool ReceiveViewModel::getAddressExpires() const
+int ReceiveViewModel::getAddressExpires() const
 {
     return _addressExpires;
 }
@@ -93,7 +104,9 @@ void ReceiveViewModel::onReceiverQRChanged()
 void ReceiveViewModel::generateNewAddress()
 {
     _receiverAddress = {};
-    _addressComment = "";
+    emit receiverAddressChanged();
+
+    setAddressComment("");
     _walletModel.getAsync()->generateNewAddress();
 }
 
@@ -104,29 +117,39 @@ void ReceiveViewModel::onNewAddressFailed()
 
 QString ReceiveViewModel::getAddressComment() const
 {
+    auto val = _addressComment.toStdString();
     return _addressComment;
+}
+
+QString ReceiveViewModel::getTransactionToken() const
+{
+    return _token;
+}
+
+bool ReceiveViewModel::getCommentValid() const
+{
+    return !_walletModel.isAddressWithCommentExist(_addressComment.toStdString());
 }
 
 void ReceiveViewModel::setAddressComment(const QString& value)
 {
+    LOG_INFO() << "address comment " << value.toStdString();
     auto trimmed = value.trimmed();
     if (_addressComment != trimmed)
     {
         _addressComment = trimmed;
         emit addressCommentChanged();
+        emit commentValidChanged();
     }
-}
-
-bool ReceiveViewModel::isValidComment(const QString &comment) const
-{
-    return !_walletModel.isAddressWithCommentExist(comment.toStdString());
 }
 
 void ReceiveViewModel::saveAddress()
 {
     using namespace beam::wallet;
 
-    _receiverAddress.m_label = _addressComment.toStdString();
-    _receiverAddress.m_duration = _addressExpires ? WalletAddress::AddressExpiration24h : WalletAddress::AddressExpirationNever;
-    _walletModel.getAsync()->saveAddress(_receiverAddress, true);
+    if (getCommentValid()) {
+        _receiverAddress.m_label = _addressComment.toStdString();
+        _receiverAddress.m_duration = _addressExpires == AddressExpires ? WalletAddress::AddressExpiration24h : WalletAddress::AddressExpirationNever;
+        _walletModel.getAsync()->saveAddress(_receiverAddress, true);
+    }
 }
