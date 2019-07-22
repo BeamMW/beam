@@ -1,15 +1,9 @@
 import QtQuick.Layouts 1.11
 import QtQuick 2.11
+import Beam.Wallet 1.0
 
 ColumnLayout {
     id: control
-
-    enum CurrType {
-        CurrBEAM = 0,
-        CurrBTC  = 1,
-        CurrETH  = 2,
-        CurrQTUM = 3
-    }
 
     readonly property variant currencies: [
         {label: "BEAM", feeLabel: "GROTH",   minFee: 100,   defaultFee: 100},
@@ -20,21 +14,17 @@ ColumnLayout {
 
     readonly property bool isValid: hasFee ? fee >= currencies[currency].minFee : true
 
-    property string  title
-    property string  color:     Style.accent_incoming
-    property string  currColor: Style.content_main
-    property bool    hasFee:    false
-    property bool    multi:     false
-    property int     currency:  AmountInput.CurrBEAM
-    property double  amount:    0
-    property int     fee:       currencies[currency].defaultFee
+    property string   title
+    property string   color:     Style.accent_incoming
+    property string   currColor: Style.content_main
+    property bool     hasFee:    false
+    property bool     multi:     false
+    property int      currency:  Currency.CurrBEAM
+    property double   amount:    0
+    property int      fee:       currencies[currency].defaultFee
 
     function currList() {
         return ["BEAM", "BTC", "LTC", "QTUM"]
-    }
-
-    function currLabel() {
-        return currList()[control.currency]
     }
 
     SFText {
@@ -77,7 +67,7 @@ ColumnLayout {
             font.pixelSize:     24
             font.letterSpacing: 0.6
             color:              control.currColor
-            text:               currLabel()
+            text:               currencies[control.currency].label
             visible:            !multi
         }
 
@@ -112,7 +102,7 @@ ColumnLayout {
         font.styleName:   "Bold"
         font.weight:      Font.Bold
         color:            Style.content_main
-        text:             currency == AmountInput.CurrBEAM ? qsTrId("general-fee") : qsTrId("general-fee-rate")
+        text:             currency == Currency.CurrBEAM ? qsTrId("general-fee") : qsTrId("general-fee-rate")
         visible:          control.hasFee
     }
 

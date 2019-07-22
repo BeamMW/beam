@@ -15,23 +15,22 @@
 
 #include <QObject>
 #include "model/wallet_model.h"
+#include "currencies.h"
 
 class ReceiveSwapViewModel: public QObject
 {
     Q_OBJECT
-    Q_PROPERTY(double   amountToReceive    READ getAmountToReceive    WRITE  setAmountToReceive  NOTIFY  amountToReceiveChanged)
-    Q_PROPERTY(double   amountSent         READ getAmountSent         WRITE  setAmountSent       NOTIFY  amountSentChanged)
-    Q_PROPERTY(int      receiveFee         READ getReceiveFee         WRITE  setReceiveFee       NOTIFY  receiveFeeChanged)
-    Q_PROPERTY(int      sentFee            READ getSentFee            WRITE  setSentFee          NOTIFY  sentFeeChanged)
-    Q_PROPERTY(int      receiveCurrency    READ getReceiveCurrency    WRITE  setReceiveCurrency  NOTIFY  receiveCurrencyChanged)
-    Q_PROPERTY(int      sentCurrency       READ getSentCurrency       WRITE  setSentCurrency     NOTIFY  sentCurrencyChanged)
-
-    Q_PROPERTY(int      offerExpires       READ getOfferExpires       WRITE  setOfferExpires     NOTIFY  offerExpiresChanged)
-    Q_PROPERTY(QString  addressComment     READ getAddressComment     WRITE  setAddressComment   NOTIFY  addressCommentChanged)
-
-    Q_PROPERTY(QString  receiverAddress    READ getReceiverAddress                               NOTIFY  receiverAddressChanged)
-    Q_PROPERTY(QString  transactionToken   READ getTransactionToken                              NOTIFY  transactionTokenChanged)
-    Q_PROPERTY(bool     commentValid       READ getCommentValid                                  NOTIFY  commentValidChanged)
+    Q_PROPERTY(double    amountToReceive    READ getAmountToReceive    WRITE  setAmountToReceive  NOTIFY  amountToReceiveChanged)
+    Q_PROPERTY(double    amountSent         READ getAmountSent         WRITE  setAmountSent       NOTIFY  amountSentChanged)
+    Q_PROPERTY(int       receiveFee         READ getReceiveFee         WRITE  setReceiveFee       NOTIFY  receiveFeeChanged)
+    Q_PROPERTY(int       sentFee            READ getSentFee            WRITE  setSentFee          NOTIFY  sentFeeChanged)
+    Q_PROPERTY(int       offerExpires       READ getOfferExpires       WRITE  setOfferExpires     NOTIFY  offerExpiresChanged)
+    Q_PROPERTY(QString   addressComment     READ getAddressComment     WRITE  setAddressComment   NOTIFY  addressCommentChanged)
+    Q_PROPERTY(QString   receiverAddress    READ getReceiverAddress                               NOTIFY  receiverAddressChanged)
+    Q_PROPERTY(QString   transactionToken   READ getTransactionToken                              NOTIFY  transactionTokenChanged)
+    Q_PROPERTY(bool      commentValid       READ getCommentValid                                  NOTIFY  commentValidChanged)
+    Q_PROPERTY(Currency  receiveCurrency    READ getReceiveCurrency    WRITE  setReceiveCurrency  NOTIFY  receiveCurrencyChanged)
+    Q_PROPERTY(Currency  sentCurrency       READ getSentCurrency       WRITE  setSentCurrency     NOTIFY  sentCurrencyChanged)
 
 public:
     ReceiveSwapViewModel();
@@ -68,11 +67,11 @@ private:
     int  getSentFee() const;
     void setSentFee(int value);
 
-    int  getReceiveCurrency() const;
-    void setReceiveCurrency(int value);
+    Currency  getReceiveCurrency() const;
+    void setReceiveCurrency(Currency value);
 
-    int  getSentCurrency() const;
-    void setSentCurrency(int value);
+    Currency  getSentCurrency() const;
+    void setSentCurrency(Currency value);
 
     void setOfferExpires(int value);
     int  getOfferExpires() const;
@@ -89,15 +88,15 @@ private slots:
     void onNewAddressFailed();
 
 private:
-    double  _amountToReceive;
-    double  _amountSent;
-    int     _receiveFee;
-    int     _sentFee;
-    int     _receiveCurrency;
-    int     _sentCurrency;
-    int     _offerExpires;
-    QString _addressComment;
-    QString _token;
+    double    _amountToReceive;
+    double    _amountSent;
+    int       _receiveFee;
+    int       _sentFee;
+    Currency  _receiveCurrency;
+    Currency  _sentCurrency;
+    int       _offerExpires;
+    QString   _addressComment;
+    QString   _token;
     beam::wallet::WalletAddress _receiverAddress;
     WalletModel& _walletModel;
 };
