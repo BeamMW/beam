@@ -30,6 +30,16 @@ namespace beam::wallet
 
     TxParameters AcceptSwapParameters(const TxParameters& initialParameters, const WalletID& myID);
 
+    class SecondSideFactoryNotRegisteredException : public std::runtime_error
+    {
+    public:
+        explicit SecondSideFactoryNotRegisteredException()
+            : std::runtime_error("second side factory is not registered")
+        {
+        }
+
+    };
+
     class ISecondSideFactory
     {
     public:

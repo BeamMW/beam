@@ -15,6 +15,7 @@
 
 #include <QObject>
 #include "model/wallet_model.h"
+#include "wallet/common.h"
 
 class ReceiveSwapViewModel: public QObject
 {
@@ -30,7 +31,7 @@ class ReceiveSwapViewModel: public QObject
     Q_PROPERTY(QString  addressComment     READ getAddressComment     WRITE  setAddressComment   NOTIFY  addressCommentChanged)
 
     Q_PROPERTY(QString  receiverAddress    READ getReceiverAddress                               NOTIFY  receiverAddressChanged)
-    Q_PROPERTY(QString  transactionToken   READ getTransactionToken                              NOTIFY  transactionTokenChanged)
+    Q_PROPERTY(QString  transactionToken   READ getTransactionToken   WRITE  setTranasctionToken NOTIFY  transactionTokenChanged)
     Q_PROPERTY(bool     commentValid       READ getCommentValid                                  NOTIFY  commentValidChanged)
 
 public:
@@ -54,6 +55,7 @@ signals:
 public:
     Q_INVOKABLE void generateNewAddress();
     Q_INVOKABLE void saveAddress();
+    Q_INVOKABLE void startListen();
 
 private:
     double getAmountToReceive() const;
@@ -81,8 +83,13 @@ private:
     QString getAddressComment() const;
 
     QString getReceiverAddress() const;
+
+    void setTranasctionToken(const QString& value);
     QString getTransactionToken() const;
+
     bool getCommentValid() const;
+
+    void updateTRansactionToken();
 
 private slots:
     void onGeneratedNewAddress(const beam::wallet::WalletAddress& walletAddr);
@@ -100,4 +107,5 @@ private:
     QString _token;
     beam::wallet::WalletAddress _receiverAddress;
     WalletModel& _walletModel;
+    beam::wallet::TxParameters _txParameters;
 };

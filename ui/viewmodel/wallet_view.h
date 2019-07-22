@@ -94,5 +94,4 @@ private:
 
     Qt::SortOrder _sortOrder;
     QString _sortRole;
-    beam::wallet::TxParameters m_txParameters;
 };

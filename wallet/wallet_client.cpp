@@ -309,6 +309,8 @@ namespace beam::wallet
 
                     wallet_subscriber = make_unique<WalletSubscriber>(static_cast<IWalletObserver*>(this), wallet);
 
+                    onBeforeWalletRun(*wallet, m_reactor);
+
                     nodeNetwork->tryToConnect();
                     m_reactor->run_ex([&wallet, &nodeNetwork](){
                         wallet->CleanupNetwork();
@@ -418,7 +420,6 @@ namespace beam::wallet
                     .SetParameter(TxParameterID::Amount, amount)
                     .SetParameter(TxParameterID::Fee, fee)
                     .SetParameter(TxParameterID::Message, message));
-                //s->swap_coins(senderAddress.m_walletID, receiver, amount, fee, wallet::AtomicSwapCoin::Bitcoin, 1, wallet::SwapSecondSideChainType::Testnet, true, kDefaultTxLifetime, kDefaultTxResponseTime);
             }
 
             onSendMoneyVerified();

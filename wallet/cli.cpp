@@ -19,6 +19,8 @@
 #include "wallet/wallet_db.h"
 #include "wallet/wallet_network.h"
 #include "wallet/secstring.h"
+
+// TODO: move this includes to one place
 #include "wallet/bitcoin/bitcoind017.h"
 #include "wallet/bitcoin/bitcoin_settings.h"
 #include "wallet/bitcoin/bitcoin_side.h"
@@ -28,6 +30,7 @@
 #include "wallet/qtum/qtumd017.h"
 #include "wallet/qtum/qtum_settings.h"
 #include "wallet/qtum/qtum_side.h"
+///
 #include "wallet/swaps/common.h"
 #include "wallet/swaps/swap_transaction.h"
 #include "core/ecc_native.h"

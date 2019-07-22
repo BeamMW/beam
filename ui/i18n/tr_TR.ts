@@ -542,15 +542,18 @@
         <translation type="unfinished">Wallet</translation>
     </message>
     <message id="wallet-receive-title">
-        <source>Receive Beam</source>
+        <source>Receive</source>
+        <oldsource>Receive Beam</oldsource>
         <translation type="unfinished">Receive Beam</translation>
     </message>
     <message id="wallet-receive-my-addr-label">
-        <source>My address</source>
+        <source>My address (auto-generated)</source>
+        <oldsource>My address</oldsource>
         <translation type="unfinished">My address</translation>
     </message>
     <message id="wallet-receive-expires-label">
-        <source>Expires</source>
+        <source></source>
+        <oldsource>Expires</oldsource>
         <translation type="unfinished">Expires</translation>
     </message>
     <message id="wallet-receive-expires-24">
@@ -566,7 +569,8 @@
         <translation>Göndermek için tara</translation>
     </message>
     <message id="wallet-receive-propogate-addr-message">
-        <source>Send this address to the sender over an external secure channel</source>
+        <source></source>
+        <oldsource>Send this address to the sender over an external secure channel</oldsource>
         <translation type="unfinished">Send this address to the sender over an external secure channel</translation>
     </message>
     <message id="invalid-addr-got-it-button">
@@ -964,7 +968,8 @@
         <translation type="unfinished">1 hour</translation>
     </message>
     <message id="receive-amount-label">
-        <source>Receive amount (optional)</source>
+        <source></source>
+        <oldsource>Receive amount (optional)</oldsource>
         <translation type="unfinished">Receive amount (optional)</translation>
     </message>
     <message id="tx-details-tx-id-label">
@@ -1168,6 +1173,54 @@
         <source>Password verification is required to change that setting</source>
         <extracomment>settings tab, general section, ask password to send, confirm password dialog, message</extracomment>
         <translation type="unfinished">Password verification is required to change that setting</translation>
+    </message>
+    <message id="general-fee-rate">
+        <source></source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="general-fee-fail">
+        <source>The minimum fee is %1 GROTH</source>
+        <translation type="unfinished">The minimum fee is %1 GROTH</translation>
+    </message>
+    <message id="wallet-swap-title">
+        <source></source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="wallet-swap">
+        <source></source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="wallet-receive-your-token">
+        <source></source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="wallet-receive-copy-address">
+        <source>Copy transaction address</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="receive-amount-swap-label">
+        <source></source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="sent-amount-label">
+        <source></source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="wallet-receive-offer-expires-label">
+        <source></source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="wallet-receive-expires-12">
+        <source>12 hours</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="wallet-receive-expires-6">
+        <source>6 hours</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="wallet-swap-propogate-addr-message">
+        <source></source>
+        <translation type="unfinished"></translation>
     </message>
 </context>
 </TS>

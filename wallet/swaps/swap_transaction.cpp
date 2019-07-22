@@ -29,7 +29,7 @@ namespace beam::wallet
         Amount swapAmount, SwapSecondSideChainType chainType, bool isBeamSide /*= true*/,
         Height lifetime /*= kDefaultTxLifetime*/, Height responseTime/* = kDefaultTxResponseTime*/)
     {
-        TxParameters parameters(GenerateTxID());
+        TxParameters parameters(GenerateTxID(), TxType::AtomicSwap);
 
         parameters.SetParameter(TxParameterID::TransactionType, TxType::AtomicSwap);
         parameters.SetParameter(TxParameterID::CreateTime, getTimestamp());
@@ -54,7 +54,7 @@ namespace beam::wallet
 
     TxParameters CreateSwapParameters()
     {
-        return CreateTransactionParameters()
+        return CreateTransactionParameters(TxType::AtomicSwap)
             .SetParameter(TxParameterID::TransactionType, TxType::AtomicSwap)
             .SetParameter(TxParameterID::IsSender, true)
             .SetParameter(TxParameterID::IsInitiator, false)
@@ -100,11 +100,6 @@ namespace beam::wallet
 
     ////////////
     // Creator
-    //AtomicSwapTransaction::Creator::Creator(std::vector<SwapConditions>& swapConditions)
-    //    : m_swapConditions(swapConditions)
-    //{
-
-    //}
 
     void AtomicSwapTransaction::Creator::RegisterFactory(AtomicSwapCoin coinType, ISecondSideFactory::Ptr factory)
     {
@@ -122,8 +117,13 @@ namespace beam::wallet
     SecondSide::Ptr AtomicSwapTransaction::Creator::GetSecondSide(BaseTransaction& tx)
     {
         AtomicSwapCoin coinType = tx.GetMandatoryParameter<AtomicSwapCoin>(TxParameterID::AtomicSwapCoin);
+        auto it = m_factories.find(coinType);
+        if (it == m_factories.end())
+        {
+            throw SecondSideFactoryNotRegisteredException();
+        }
         bool isBeamSide = tx.GetMandatoryParameter<bool>(TxParameterID::AtomicSwapIsBeamSide);
-        return m_factories[coinType]->CreateSecondSide(tx, isBeamSide);
+        return it->second->CreateSecondSide(tx, isBeamSide);
     }
 
     bool AtomicSwapTransaction::Creator::CanCreate(const TxParameters& parameters)

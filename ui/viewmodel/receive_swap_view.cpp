@@ -15,6 +15,7 @@
 #include "receive_swap_view.h"
 #include "ui_helpers.h"
 #include "model/app_model.h"
+#include "wallet/swaps/swap_transaction.h"
 #include <QClipboard>
 
 namespace {
@@ -33,6 +34,10 @@ ReceiveSwapViewModel::ReceiveSwapViewModel()
     , _sentCurrency(1)
     , _offerExpires(OfferExpires12h)
     , _walletModel(*AppModel::getInstance().getWallet())
+    , _txParameters(beam::wallet::CreateSwapParameters()
+        .SetParameter(beam::wallet::TxParameterID::AtomicSwapCoin, beam::wallet::AtomicSwapCoin::Bitcoin)
+        .SetParameter(beam::wallet::TxParameterID::AtomicSwapIsBeamSide, true)
+        .SetParameter(beam::wallet::TxParameterID::AtomicSwapSecondSideChainType, beam::wallet::SwapSecondSideChainType::Testnet))
 {
     LOG_INFO() << "ReceiveSwapViewModel created";
     connect(&_walletModel, &WalletModel::generatedNewAddress, this, &ReceiveSwapViewModel::onGeneratedNewAddress);
@@ -40,7 +45,7 @@ ReceiveSwapViewModel::ReceiveSwapViewModel()
     generateNewAddress();
 
     // TODO: This is only for test, apply actual when ready
-    _token = "176dan89jksasdg21skaw9q7g176dan89jksasdg21skaw9q7g176dan89jksasdg21skaw9q7g176dan89jksasdg21skaw9q7g176dan89jksasdg21skaw9q7g";
+    updateTRansactionToken();//"176dan89jksasdg21skaw9q7g176dan89jksasdg21skaw9q7g176dan89jksasdg21skaw9q7g176dan89jksasdg21skaw9q7g176dan89jksasdg21skaw9q7g";
 }
 
 ReceiveSwapViewModel::~ReceiveSwapViewModel()
@@ -52,6 +57,9 @@ void ReceiveSwapViewModel::onGeneratedNewAddress(const beam::wallet::WalletAddre
 {
     _receiverAddress = addr;
     emit receiverAddressChanged();
+
+    _txParameters.SetParameter(beam::wallet::TxParameterID::PeerID, addr.m_walletID);
+    updateTRansactionToken();
 }
 
 double ReceiveSwapViewModel::getAmountToReceive() const
@@ -66,6 +74,9 @@ void ReceiveSwapViewModel::setAmountToReceive(double value)
     {
         _amountToReceive = value;
         emit amountToReceiveChanged();
+
+        _txParameters.SetParameter(beam::wallet::TxParameterID::AtomicSwapAmount, static_cast<beam::Amount>(std::round(_amountToReceive * 100000000)));// TODO: us libbitcoin::satoshi_per_bitcoin)));
+        updateTRansactionToken();
     }
 }
 
@@ -86,6 +97,9 @@ void ReceiveSwapViewModel::setAmountSent(double value)
     {
         _amountSent = value;
         emit amountSentChanged();
+
+        _txParameters.SetParameter(beam::wallet::TxParameterID::Amount, static_cast<beam::Amount>(std::round(_amountSent * 100000000)));// TODO: us libbitcoin::satoshi_per_bitcoin)));
+        updateTRansactionToken();
     }
 }
 
@@ -101,6 +115,9 @@ void ReceiveSwapViewModel::setSentFee(int value)
     {
         _sentFee = value;
         emit sentFeeChanged();
+
+        _txParameters.SetParameter(beam::wallet::TxParameterID::Fee, beam::Amount(_sentFee));
+        updateTRansactionToken();
     }
 }
 
@@ -178,6 +195,15 @@ void ReceiveSwapViewModel::onNewAddressFailed()
     emit newAddressFailed();
 }
 
+void ReceiveSwapViewModel::setTranasctionToken(const QString& value)
+{
+    if (_token != value)
+    {
+        _token = value;
+        emit transactionTokenChanged();
+    }
+}
+
 QString ReceiveSwapViewModel::getTransactionToken() const
 {
     return _token;
@@ -204,6 +230,7 @@ bool ReceiveSwapViewModel::getCommentValid() const
 {
     return !_walletModel.isAddressWithCommentExist(_addressComment.toStdString());
 }
+
 void ReceiveSwapViewModel::saveAddress()
 {
     using namespace beam::wallet;
@@ -213,4 +240,16 @@ void ReceiveSwapViewModel::saveAddress()
         _receiverAddress.m_duration = _offerExpires * WalletAddress::AddressExpiration1h;
         _walletModel.getAsync()->saveAddress(_receiverAddress, true);
     }
+}
+
+void ReceiveSwapViewModel::startListen()
+{
+    _walletModel.getAsync()->startTransaction(std::move(beam::wallet::TxParameters(_txParameters)
+        .SetParameter(beam::wallet::TxParameterID::PeerID, {})
+        .SetParameter(beam::wallet::TxParameterID::MyID, _txParameters.GetParameter(beam::wallet::TxParameterID::PeerID))));
+}
+
+void ReceiveSwapViewModel::updateTRansactionToken()
+{
+    setTranasctionToken(QString::fromStdString(std::to_string(_txParameters)));
 }

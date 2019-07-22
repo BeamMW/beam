@@ -44,8 +44,8 @@ namespace beam
     class BitcoinSettings : public IBitcoinSettings
     {
     public:
-        BitcoinSettings() = default;
-
+       // BitcoinSettings() = default;
+       // ~BitcoinSettings() = default;
         const BitcoindSettings& GetConnectionOptions() const override;
         Amount GetFeeRate() const override;
         uint16_t GetTxMinConfirmations() const override;

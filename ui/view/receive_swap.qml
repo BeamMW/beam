@@ -271,6 +271,7 @@ ColumnLayout {
             icon.source: "qrc:/assets/icon-copy.svg"
             onClicked: {
                 BeamGlobals.copyToClipboard(viewModel.transactionToken);
+                viewModel.startListen();
             }
             enabled: thisView.canSend()
         }

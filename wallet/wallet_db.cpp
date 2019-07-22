@@ -1888,9 +1888,12 @@ namespace beam::wallet
 
         TxDescription txDescription(txId);
 
-        const std::set<TxParameterID> mandatoryParams{ TxParameterID::Amount, TxParameterID::Fee,
-            TxParameterID::PeerID,
-            TxParameterID::MyID, TxParameterID::CreateTime,
+        const std::set<TxParameterID> mandatoryParams{ 
+            TxParameterID::Amount,
+            TxParameterID::Fee,
+         //   TxParameterID::PeerID,
+            TxParameterID::MyID, 
+            TxParameterID::CreateTime,
             TxParameterID::IsSender };
         std::set<TxParameterID> gottenParams;
 

@@ -113,8 +113,9 @@
         <translation>Transaction fee</translation>
     </message>
     <message id="general-fee-rate">
-        <source>Transaction fee rate</source>
-        <translation>Transaction fee rate</translation>
+        <source></source>
+        <oldsource>Transaction fee rate</oldsource>
+        <translation type="unfinished">Transaction fee rate</translation>
     </message>
     <message id="general-ok">
         <source>Ok</source>
@@ -182,12 +183,14 @@
         <translation>Show in folder</translation>
     </message>
     <message id="general-addr-comment-error">
-        <source>Address with the same comment already exists</source>
-        <translation>Address with the same comment already exists</translation>
+        <source>Address with same comment already exist</source>
+        <oldsource>Address with the same comment already exists</oldsource>
+        <translation type="unfinished">Address with the same comment already exists</translation>
     </message>
     <message id="general-fee-fail">
-        <source>The minimum fee is %1 %2</source>
-        <translation>The minimum fee is %1 %2</translation>
+        <source>The minimum fee is %1 GROTH</source>
+        <oldsource>The minimum fee is %1 %2</oldsource>
+        <translation type="unfinished">The minimum fee is %1 %2</translation>
     </message>
     <message id="wallet-receive-button">
         <source>Receive</source>
@@ -554,20 +557,23 @@
         <translation>Receive</translation>
     </message>
     <message id="wallet-swap-title">
-        <source>Create swap offer</source>
-        <translation>Create swap offer</translation>
+        <source></source>
+        <oldsource>Create swap offer</oldsource>
+        <translation type="unfinished">Create swap offer</translation>
     </message>
     <message id="wallet-receive-my-addr-label">
         <source>My address (auto-generated)</source>
         <translation>My address (auto-generated)</translation>
     </message>
     <message id="wallet-receive-expires-label">
-        <source>Expires in</source>
-        <translation>Expires in</translation>
+        <source></source>
+        <oldsource>Expires in</oldsource>
+        <translation type="unfinished">Expires in</translation>
     </message>
     <message id="wallet-receive-offer-expires-label">
-        <source>Offer expiration time</source>
-        <translation>Offer expiration time</translation>
+        <source></source>
+        <oldsource>Offer expiration time</oldsource>
+        <translation type="unfinished">Offer expiration time</translation>
     </message>
     <message id="wallet-receive-expires-24">
         <source>24 hours</source>
@@ -590,24 +596,29 @@
         <translation>Scan to send</translation>
     </message>
     <message id="wallet-receive-propogate-addr-message">
-        <source>Send this token to the sender over an external secure channel or scan the QR code</source>
-        <translation>Send this token to the sender over an external secure channel or scan the QR code</translation>
+        <source></source>
+        <oldsource>Send this token to the sender over an external secure channel or scan the QR code</oldsource>
+        <translation type="unfinished">Send this token to the sender over an external secure channel or scan the QR code</translation>
     </message>
-     <message id="wallet-swap-propogate-addr-message">
-        <source>Send this token to the sender over an external secure channel</source>
-        <translation>Send this token to the sender over an external secure channel</translation>
+    <message id="wallet-swap-propogate-addr-message">
+        <source></source>
+        <oldsource>Send this token to the sender over an external secure channel</oldsource>
+        <translation type="unfinished">Send this token to the sender over an external secure channel</translation>
     </message>
     <message id="wallet-receive-your-token">
-        <source>Your transaction token:</source>
-        <translation>Your transaction token:</translation>
+        <source></source>
+        <oldsource>Your transaction token:</oldsource>
+        <translation type="unfinished">Your transaction token:</translation>
     </message>
     <message id="wallet-swap">
-        <source>Swap</source>
-        <translation>Swap</translation>
+        <source></source>
+        <oldsource>Swap</oldsource>
+        <translation type="unfinished">Swap</translation>
     </message>
     <message id="wallet-receive-copy-address">
-        <source>Copy transaction token</source>
-        <translation>Copy transaction token</translation>
+        <source>Copy transaction address</source>
+        <oldsource>Copy transaction token</oldsource>
+        <translation type="unfinished">Copy transaction token</translation>
     </message>
     <message id="invalid-addr-got-it-button">
         <source>Got it</source>
@@ -1004,16 +1015,19 @@
         <translation>1 hour</translation>
     </message>
     <message id="receive-amount-label">
-        <source>Receive amount (optional)</source>
-        <translation>Receive amount (optional)</translation>
+        <source></source>
+        <oldsource>Receive amount (optional)</oldsource>
+        <translation type="unfinished">Receive amount (optional)</translation>
     </message>
     <message id="receive-amount-swap-label">
-        <source>Receive amount</source>
-        <translation>Receive amount</translation>
+        <source></source>
+        <oldsource>Receive amount</oldsource>
+        <translation type="unfinished">Receive amount</translation>
     </message>
     <message id="sent-amount-label">
-        <source>Sent amount</source>
-        <translation>Sent amount</translation>
+        <source></source>
+        <oldsource>Sent amount</oldsource>
+        <translation type="unfinished">Sent amount</translation>
     </message>
     <message id="tx-details-tx-id-label">
         <source>Transaction ID</source>

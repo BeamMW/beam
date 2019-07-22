@@ -38,9 +38,9 @@ namespace beam::wallet
         return txID;
     }
 
-    TxParameters CreateTransactionParameters()
+    TxParameters CreateTransactionParameters(TxType type)
     {
-        return TxParameters(GenerateTxID())
+        return TxParameters(GenerateTxID(), type)
             .SetParameter(TxParameterID::Lifetime, kDefaultTxLifetime)
             .SetParameter(TxParameterID::PeerResponseHeight, kDefaultTxResponseTime)
             .SetParameter(TxParameterID::IsInitiator, true)

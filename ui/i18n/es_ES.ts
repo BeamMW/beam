@@ -542,16 +542,19 @@
         <translation>Wallet</translation>
     </message>
     <message id="wallet-receive-title">
-        <source>Receive Beam</source>
-        <translation>Recibir Beam</translation>
+        <source>Receive</source>
+        <oldsource>Receive Beam</oldsource>
+        <translation type="unfinished">Recibir Beam</translation>
     </message>
     <message id="wallet-receive-my-addr-label">
-        <source>My address</source>
-        <translation>Mi dirección</translation>
+        <source>My address (auto-generated)</source>
+        <oldsource>My address</oldsource>
+        <translation type="unfinished">Mi dirección</translation>
     </message>
     <message id="wallet-receive-expires-label">
-        <source>Expires</source>
-        <translation>Caduca</translation>
+        <source></source>
+        <oldsource>Expires</oldsource>
+        <translation type="unfinished">Caduca</translation>
     </message>
     <message id="wallet-receive-expires-24">
         <source>24 hours</source>
@@ -566,8 +569,9 @@
         <translation>Escanear para enviar</translation>
     </message>
     <message id="wallet-receive-propogate-addr-message">
-        <source>Send this address to the sender over an external secure channel</source>
-        <translation>Enviar esta dirección al remitente a través de un canal externo seguro</translation>
+        <source></source>
+        <oldsource>Send this address to the sender over an external secure channel</oldsource>
+        <translation type="unfinished">Enviar esta dirección al remitente a través de un canal externo seguro</translation>
     </message>
     <message id="invalid-addr-got-it-button">
         <source>Got it</source>
@@ -964,8 +968,9 @@
         <translation>1 hora</translation>
     </message>
     <message id="receive-amount-label">
-        <source>Receive amount (optional)</source>
-        <translation>Recibir cantidad (opcional)</translation>
+        <source></source>
+        <oldsource>Receive amount (optional)</oldsource>
+        <translation type="unfinished">Recibir cantidad (opcional)</translation>
     </message>
     <message id="tx-details-tx-id-label">
         <source>Transaction ID</source>
@@ -1169,6 +1174,54 @@ Escanee este código QR o envíe esta dirección al remitente a través de un ca
         <source>Password verification is required to change that setting</source>
         <extracomment>settings tab, general section, ask password to send, confirm password dialog, message</extracomment>
         <translation>Hay que verificar la contraseña para cambiar esa configuración</translation>
+    </message>
+    <message id="general-fee-rate">
+        <source></source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="general-fee-fail">
+        <source>The minimum fee is %1 GROTH</source>
+        <translation type="unfinished">La cuota minima es %1 GROTH</translation>
+    </message>
+    <message id="wallet-swap-title">
+        <source></source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="wallet-swap">
+        <source></source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="wallet-receive-your-token">
+        <source></source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="wallet-receive-copy-address">
+        <source>Copy transaction address</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="receive-amount-swap-label">
+        <source></source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="sent-amount-label">
+        <source></source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="wallet-receive-offer-expires-label">
+        <source></source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="wallet-receive-expires-12">
+        <source>12 hours</source>
+        <translation type="unfinished">24 horas {12 ?}</translation>
+    </message>
+    <message id="wallet-receive-expires-6">
+        <source>6 hours</source>
+        <translation type="unfinished">24 horas {6 ?}</translation>
+    </message>
+    <message id="wallet-swap-propogate-addr-message">
+        <source></source>
+        <translation type="unfinished"></translation>
     </message>
 </context>
 </TS>
