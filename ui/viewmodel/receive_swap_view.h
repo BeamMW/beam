@@ -29,8 +29,9 @@ class ReceiveSwapViewModel: public QObject
     Q_PROPERTY(QString   receiverAddress    READ getReceiverAddress                               NOTIFY  receiverAddressChanged)
     Q_PROPERTY(QString   transactionToken   READ getTransactionToken                              NOTIFY  transactionTokenChanged)
     Q_PROPERTY(bool      commentValid       READ getCommentValid                                  NOTIFY  commentValidChanged)
-    Q_PROPERTY(Currency  receiveCurrency    READ getReceiveCurrency    WRITE  setReceiveCurrency  NOTIFY  receiveCurrencyChanged)
-    Q_PROPERTY(Currency  sentCurrency       READ getSentCurrency       WRITE  setSentCurrency     NOTIFY  sentCurrencyChanged)
+
+    Q_PROPERTY(WalletCurrency::Currency  receiveCurrency    READ getReceiveCurrency    WRITE  setReceiveCurrency  NOTIFY  receiveCurrencyChanged)
+    Q_PROPERTY(WalletCurrency::Currency  sentCurrency       READ getSentCurrency       WRITE  setSentCurrency     NOTIFY  sentCurrencyChanged)
 
 public:
     ReceiveSwapViewModel();
