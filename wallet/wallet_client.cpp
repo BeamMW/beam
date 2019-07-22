@@ -376,9 +376,9 @@ namespace beam::wallet
         onStatus(getStatus());
     }
 
-    void WalletClient::onTransactionChanged(ChangeAction action, std::vector<TxDescription>&& items)
+    void WalletClient::onTransactionChanged(ChangeAction action, const std::vector<TxDescription>& items)
     {
-        onTxStatus(action, move(items));
+        onTxStatus(action, items);
         onStatus(getStatus());
     }
 

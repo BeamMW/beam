@@ -521,7 +521,7 @@ namespace beam::wallet
         }
     }
 
-    void Wallet::OnWalletMessage(const WalletID& myID, SetTxParameter&& msg)
+    void Wallet::OnWalletMessage(const WalletID& myID, const SetTxParameter& msg)
     {
         auto t = GetTransaction(myID, msg);
         if (!t)

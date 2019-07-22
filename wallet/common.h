@@ -271,6 +271,8 @@ namespace beam::wallet
         TxParameters() = default;
         TxParameters(const TxID& txID, TxType type = TxType::Simple);
         TxParameters(const std::string& token);
+        bool operator==(const TxParameters& other);
+        bool operator!=(const TxParameters& other);
 
         TxID GetTxID() const;
         TxType GetType() const;

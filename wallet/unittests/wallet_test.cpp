@@ -930,6 +930,26 @@ namespace
         WALLET_CHECK(newSenderCoins[3].m_ID.m_Type == Key::Type::Regular);
 
     }
+
+    void TestTxParameters()
+    {
+        std::cout << "Testing tx parameters and token...\n";
+
+        WalletID myID(Zero);
+        WALLET_CHECK(myID.FromHex("7a3b9afd0f6bba147a4e044329b135424ca3a57ab9982fe68747010a71e0cac3f3"));
+
+        WalletID peerID(Zero);
+        WALLET_CHECK(peerID.FromHex("1b516fb39884a3281bc0761f97817782a8bc51fdb1336882a2c7efebdb400d00d4"));
+        auto params = CreateSimpleTransactionParameters()
+            .SetParameter(TxParameterID::MyID, myID)
+            .SetParameter(TxParameterID::PeerID, peerID);
+
+        string token = to_string(params);
+
+        TxParameters restoredParams{ token };
+
+        WALLET_CHECK(restoredParams == params);
+    }
 }
 
 bool RunNegLoop(beam::Negotiator::IBase& a, beam::Negotiator::IBase& b, const char* szTask)
@@ -1311,38 +1331,7 @@ int main()
 	Rules::get().pForks[1].m_Height = 100500; // needed for lightning network to work
     Rules::get().UpdateChecksum();
 
-    //{
-    //    WalletID myID(Zero);
-    //    WALLET_CHECK(myID.FromHex("7a3b9afd0f6bba147a4e044329b135424ca3a57ab9982fe68747010a71e0cac3f3"));
-    //    WalletID peerID(Zero);
-    //    WALLET_CHECK(peerID.FromHex("1b516fb39884a3281bc0761f97817782a8bc51fdb1336882a2c7efebdb400d00d4"));
-    //    TxID txID = wallet::GenerateTxID();
-
-    //    SetTxParameter tx1;
-    //    tx1.m_From = myID;
-    //    tx1.m_TxID = txID;
-    //    tx1.m_Type = TxType::AtomicSwap;
-    //    tx1.AddParameter(TxParameterID::TransactionType, TxType::AtomicSwap);
-    //    tx1.AddParameter(TxParameterID::Amount, 456);
-    //    tx1.AddParameter(TxParameterID::PeerID, peerID);
-
-    //    SetTxParameter2 tx2(txID, TxType::AtomicSwap);
-    //    tx2.m_From = myID;
-    //    tx2.m_Parameters.SetParameter(TxParameterID::Amount, 456);
-    //    tx2.m_Parameters.SetParameter(TxParameterID::PeerID, peerID);
-
-    //    ByteBuffer buffer1;
-    //    Serializer s1;
-    //    s1 & tx1;
-    //    s1.swap_buf(buffer1);
-
-    //    ByteBuffer buffer2;
-    //    s1 & tx2;
-    //    s1.swap_buf(buffer2);
-    //    WALLET_CHECK(buffer1 == buffer2);
-    //
-    //}
-
+    TestTxParameters();
 
 	TestNegotiation();
 

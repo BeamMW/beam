@@ -66,7 +66,14 @@ namespace std
 
     string to_string(const beam::wallet::TxParameters& value)
     {
-        auto buffer = toByteBuffer(value);
+        uint8_t flags = 0x80; // token
+        Serializer s;
+        s & flags;
+        s & value.GetTxID();
+        s & value.GetType();
+        s & value.GetParameters();
+        ByteBuffer buffer;
+        s.swap_buf(buffer);
         return beam::to_hex(buffer.data(), buffer.size());
     }
 }
@@ -269,7 +276,25 @@ namespace beam::wallet
             // simply deserialize for now
             Deserializer d;
             d.reset(&buffer[1], buffer.size() - 1);
-            d& *this;
+            SerializedTxParameters parameters;
+            d & m_ID;
+            d & m_Type;
+            d & parameters;
+
+            SubTxID subTxID = kDefaultSubTxID;
+
+            for (const auto& p : parameters)
+            {
+                if (p.first == TxParameterID::SubTxIndex)
+                {
+                    // change subTxID
+                    d.reset(p.second.data(), p.second.size());
+                    d & subTxID;
+                    continue;
+                }
+
+                SetParameter(p.first, p.second, subTxID);
+            }
         }
         else // plain WalletID
         {
@@ -279,6 +304,18 @@ namespace beam::wallet
                 SetParameter(TxParameterID::PeerID, walletID);
             }
         }
+    }
+
+    bool TxParameters::operator==(const TxParameters& other)
+    {
+        return m_ID == other.m_ID &&
+            m_Type == other.m_Type &&
+            m_Parameters == other.m_Parameters;
+    }
+
+    bool TxParameters::operator!=(const TxParameters& other)
+    {
+        return !(*this == other);
     }
 
     TxID TxParameters::GetTxID() const

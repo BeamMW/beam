@@ -824,15 +824,15 @@ int main()
     beam::Height fork1Height = 10;
     Rules::get().pForks[1].m_Height = fork1Height;
 
-    TestSwapTransaction(true);
-    TestSwapTransaction(false);
+    TestSwapTransaction(true, fork1Height);
+    TestSwapTransaction(false, fork1Height);
     TestSwapTransactionWithoutChange(true);
 
     TestSwapBTCRefundTransaction();
     TestSwapBeamRefundTransaction();
 
-    ExpireByResponseTime(true, fork1Height);
-    ExpireByResponseTime(false, fork1Height);
+    ExpireByResponseTime(true);
+    ExpireByResponseTime(false);
 
     TestSwapCancelTransaction(true, wallet::AtomicSwapTransaction::State::Invitation);
 

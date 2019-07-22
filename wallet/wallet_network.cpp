@@ -109,7 +109,7 @@ namespace beam::wallet {
                 WalletID wid;
                 wid.m_Pk = it->get_ParentObj().m_Pk;
                 wid.m_Channel = it->m_Value;
-                m_Wallet.OnWalletMessage(wid, std::move(msgWallet));
+                m_Wallet.OnWalletMessage(wid, msgWallet);
                 break;
             }
         }

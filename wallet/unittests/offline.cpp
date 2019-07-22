@@ -26,7 +26,7 @@ struct WalletDBObserver : IWalletDbObserver {
     void onCoinsChanged() {
         LOG_DEBUG() << _who << " " << __FUNCTION__;
     }
-    void onTransactionChanged(ChangeAction, std::vector<TxDescription>&& )  {
+    void onTransactionChanged(ChangeAction, const std::vector<TxDescription>& )  {
         LOG_INFO() << _who << " QQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQ " << __FUNCTION__;
     }
     void onSystemStateChanged()  {

@@ -2334,11 +2334,11 @@ namespace beam::wallet
         for (auto sub : m_subscribers) sub->onCoinsChanged();
     }
 
-    void WalletDB::notifyTransactionChanged(ChangeAction action, vector<TxDescription>&& items)
+    void WalletDB::notifyTransactionChanged(ChangeAction action, const vector<TxDescription>& items)
     {
         for (auto sub : m_subscribers)
         {
-            sub->onTransactionChanged(action, move(items));
+            sub->onTransactionChanged(action, items);
         }
     }
 

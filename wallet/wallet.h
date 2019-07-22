@@ -67,7 +67,7 @@ namespace beam::wallet
         using Ptr = std::shared_ptr<IWalletMessageConsumer>;
 
         // Callback for receiving notifications on SBBS messages
-        virtual void OnWalletMessage(const WalletID& peerID, SetTxParameter&&) = 0;
+        virtual void OnWalletMessage(const WalletID& peerID, const SetTxParameter&) = 0;
 
     };
 
@@ -129,7 +129,7 @@ namespace beam::wallet
         void register_tx(const TxID& txId, Transaction::Ptr, SubTxID subTxID) override;
         void UpdateOnNextTip(const TxID&) override;
 
-        void OnWalletMessage(const WalletID& peerID, SetTxParameter&&) override;
+        void OnWalletMessage(const WalletID& peerID, const SetTxParameter&) override;
 
         // FlyClient
         void OnNewTip() override;
