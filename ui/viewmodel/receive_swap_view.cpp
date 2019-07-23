@@ -30,8 +30,8 @@ ReceiveSwapViewModel::ReceiveSwapViewModel()
     , _amountSent(0.0)
     , _receiveFee(0)
     , _sentFee(0)
-    , _receiveCurrency(0)
-    , _sentCurrency(1)
+    , _receiveCurrency(Currency::CurrBEAM)
+    , _sentCurrency(Currency::CurrBTC)
     , _offerExpires(OfferExpires12h)
     , _walletModel(*AppModel::getInstance().getWallet())
     , _txParameters(beam::wallet::CreateSwapParameters()
@@ -121,14 +121,16 @@ void ReceiveSwapViewModel::setSentFee(int value)
     }
 }
 
-int ReceiveSwapViewModel::getReceiveCurrency() const
+Currency ReceiveSwapViewModel::getReceiveCurrency() const
 {
     return _receiveCurrency;
 }
 
-void ReceiveSwapViewModel::setReceiveCurrency(int value)
+void ReceiveSwapViewModel::setReceiveCurrency(Currency value)
 {
-    LOG_INFO() << "setReceiveCurrency " << value;
+    assert(value > Currency::CurrStart && value < Currency::CurrEnd);
+    LOG_INFO() << "setReceiveCurrency " << static_cast<int>(value);
+
     if (value != _receiveCurrency)
     {
         _receiveCurrency = value;
@@ -136,14 +138,16 @@ void ReceiveSwapViewModel::setReceiveCurrency(int value)
     }
 }
 
-int ReceiveSwapViewModel::getSentCurrency() const
+Currency ReceiveSwapViewModel::getSentCurrency() const
 {
     return _sentCurrency;
 }
 
-void ReceiveSwapViewModel::setSentCurrency(int value)
+void ReceiveSwapViewModel::setSentCurrency(Currency value)
 {
-    LOG_INFO() << "setSentCurrency " << value;
+    assert(value > Currency::CurrStart && value < Currency::CurrEnd);
+    LOG_INFO() << "setSentCurrency " << static_cast<int>(value);
+
     if (value != _sentCurrency)
     {
         _sentCurrency = value;

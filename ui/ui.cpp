@@ -38,6 +38,7 @@
 #include "viewmodel/receive_view.h"
 #include "viewmodel/receive_swap_view.h"
 #include "viewmodel/send_view.h"
+#include "viewmodel/currencies.h"
 #include "model/app_model.h"
 #include "viewmodel/qml_globals.h"
 #include "wallet/wallet_db.h"
@@ -205,6 +206,7 @@ int main (int argc, char* argv[])
                         return new QMLGlobals(*engine);
                     });
 
+            qmlRegisterType<WalletCurrency>("Beam.Wallet", 1, 0, "Currency");
             qmlRegisterType<StartViewModel>("Beam.Wallet", 1, 0, "StartViewModel");
             qmlRegisterType<LoadingViewModel>("Beam.Wallet", 1, 0, "LoadingViewModel");
             qmlRegisterType<MainViewModel>("Beam.Wallet", 1, 0, "MainViewModel");
