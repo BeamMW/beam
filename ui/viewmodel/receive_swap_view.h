@@ -88,7 +88,7 @@ private:
 
     bool getCommentValid() const;
 
-    void updateTRansactionToken();
+    void updateTransactionToken();
 
 private slots:
     void onGeneratedNewAddress(const beam::wallet::WalletAddress& walletAddr);
