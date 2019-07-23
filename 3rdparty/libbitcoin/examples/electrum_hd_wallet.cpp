@@ -27,7 +27,6 @@ int main() {
     int logLevel = LOG_LEVEL_DEBUG;
     auto logger = Logger::create(logLevel, logLevel);
 
-    //word_list my_word_list{ "market", "parent", "marriage", "drive", "umbrella", "custom", "leisure", "fury", "recipe", "steak", "have", "enable" };
     word_list my_word_list{ "child", "happy", "moment", "weird", "ten", "token", "stuff", "surface", "success", "desk", "embark", "observe" };
 
     auto hd_seed = electrum::decode_mnemonic(my_word_list);
@@ -39,17 +38,15 @@ int main() {
 
     auto m0 = masterPrivateKey.derive_private(0);
     auto m1 = masterPrivateKey.derive_private(1);
-    auto m2 = masterPrivateKey.derive_private(2);
 
     std::cout << "m0 = " << m0.to_public().encoded() << std::endl;
     std::cout << "m1 = " << m1.to_public() << std::endl;
-    std::cout << "m2 = " << m2.to_public() << std::endl;
 
-    //auto my_pubkeyhash = bitcoin_short_hash(m0.to_public().point());
     ec_public publicKey0(m0.to_public().derive_public(0).point());
     ec_public publicKey1(m0.to_public().derive_public(1).point());
 
-    std::cout << "addr = " << publicKey0.to_payment_address(ec_private::testnet).encoded() << std::endl;
+    payment_address addr = publicKey0.to_payment_address(ec_private::testnet);
+    std::cout << "addr = " << addr.encoded() << std::endl;
     std::cout << "addr = " << publicKey1.to_payment_address(ec_private::testnet).encoded() << std::endl;
 
     ec_public publicKey01(m1.to_public().derive_public(0).point());
@@ -57,6 +54,12 @@ int main() {
 
     std::cout << "change = " << publicKey01.to_payment_address(ec_private::testnet).encoded() << std::endl;
     std::cout << "change = " << publicKey11.to_payment_address(ec_private::testnet).encoded() << std::endl;
+
+    auto script = chain::script(chain::script::to_pay_key_hash_pattern(addr.hash()));
+
+    std::string hexScript = libbitcoin::encode_base16(script.to_data(false));
+
+    std::cout << "hex script = " << hexScript << std::endl;
 
     return 0;
 }

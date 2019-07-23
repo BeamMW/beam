@@ -52,24 +52,11 @@ namespace
 
             // legacy address mkgTKdapn48BM8BaMTDSnd1miT1AZSjV7P
             std::string hexPubKey = "76a91438a49a6f46ab5f3c7ab7f79e7cd142ac3b57bccf88ac";
-            //libbitcoin::data_chunk t(hexPubKey.begin(), hexPubKey.end());
             libbitcoin::data_chunk t;
             libbitcoin::decode_base16(t, hexPubKey);
             libbitcoin::data_chunk secretHash = libbitcoin::sha256_hash_chunk(t);
-            std::string hash = libbitcoin::encode_base16(secretHash);
-            std::string reverseHash = "";
-            for (auto idx = hash.rbegin(); idx != hash.rend(); ++idx)
-            {
-                auto tmp = idx;
-                
-                ++idx;
-                if (tmp != hash.rend())
-                {
-                    reverseHash += *idx;
-                    reverseHash += *tmp;
-                }
-            }
-            
+            libbitcoin::data_chunk reverseSecretHash(secretHash.rbegin(), secretHash.rend());
+            std::string reverseHash = libbitcoin::encode_base16(reverseSecretHash);
             LOG_INFO() << reverseHash;
             std::string request = R"({"method":"blockchain.scripthash.get_balance","params":[")" + reverseHash +R"("], "id": "teste"})";
             request += "\n";
@@ -92,9 +79,6 @@ namespace
 
 int main() {
     int logLevel = LOG_LEVEL_DEBUG;
-#if LOG_VERBOSE_ENABLED
-    logLevel = LOG_LEVEL_VERBOSE;
-#endif
     auto logger = Logger::create(logLevel, logLevel);
 
     try {
