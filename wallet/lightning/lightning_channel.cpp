@@ -14,7 +14,7 @@
 
 #include "lightning_channel.h"
 
-namespace beam::wallet
+namespace beam::wallet::lightning
 {
 LightningChannel::~LightningChannel()
 {
@@ -64,7 +64,44 @@ void LightningChannel::AllocTxoID(Key::IDV& kidv)
 
 void LightningChannel::SendPeer(Negotiator::Storage::Map&& dataOut)
 {
-    std::cout << "SendPeer";
+    assert(!dataOut.empty());
+
+    if (m_SendMyWid)
+    {
+        m_SendMyWid = false;
+        std::cout << "Generate new WID\n";
+        WalletAddress::ExpirationStatus expirationStatus = WalletAddress::ExpirationStatus::Never;
+        
+        WalletAddress address = storage::createAddress(*m_WalletDB);
+
+        address.setExpiration(expirationStatus);
+        address.m_label = "laser";
+        m_WalletDB->saveAddress(address);
+        dataOut.Set(address.m_walletID, Codes::MyWid);
+    }
+    Serializer ser;
+    ser & m_ID;
+    ser & Cast::Down<FieldMap>(dataOut);
+
+    std::cout << "SendPeer\tTo peer (via bbs): " << ser.buffer().second << std::endl;
+
+    proto::FlyClient::RequestBbsMsg::Ptr pReq(new proto::FlyClient::RequestBbsMsg);
+	m_widTrg.m_Channel.Export(pReq->m_Msg.m_Channel);
+
+	ECC::NoLeak<ECC::Hash::Value> hvRandom;
+	ECC::GenRandom(hvRandom.V);
+
+	ECC::Scalar::Native nonce;
+    Key::IKdf::Ptr pKdf;
+    get_Kdf(pKdf);
+	pKdf->DeriveKey(nonce, hvRandom.V);
+
+	if (proto::Bbs::Encrypt(pReq->m_Msg.m_Message, m_widTrg.m_Pk, nonce, ser.buffer().first, static_cast<uint32_t>(ser.buffer().second)))
+	{
+		// skip mining!
+		pReq->m_Msg.m_TimePosted = getTimestamp();
+		get_Net().PostRequest(*pReq, m_openHandler);
+	}
 };
 
-}  // namespace beam::wallet
+}  // namespace beam::wallet::lightning

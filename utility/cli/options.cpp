@@ -137,6 +137,7 @@ namespace beam
         const char* LASER = "laser";
         const char* LASER_OPEN = "open";
         const char* LASER_SEND = "send";
+        const char* LASER_WAIT = "wait";
         const char* LASER_AMOUNT_MY = "a_my";
         const char* LASER_AMOUNT_TARGET = "a_trg";
         const char* LASER_TARGET_ARRD = "laser_target";
@@ -285,6 +286,7 @@ namespace beam
         lazer_options.add_options()
             (cli::LASER_OPEN, "open lightning channel")
             (cli::LASER_SEND, "send to lightning channel")
+            (cli::LASER_WAIT, "wait for open lightning channel")
             (cli::LASER_AMOUNT_MY, po::value<Positive<double>>(), "amount to lock in channel on my side (in Beams, 1 Beam = 100,000,000 groth)")
             (cli::LASER_AMOUNT_TARGET, po::value<Positive<double>>(), "amount to lock in channel on target side (in Beams, 1 Beam = 100,000,000 groth)")
             (cli::LASER_TARGET_ARRD, po::value<string>(), "address of laser receiver")

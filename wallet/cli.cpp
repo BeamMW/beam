@@ -1524,7 +1524,7 @@ int main_impl(int argc, char* argv[])
                     bool is_server = command == cli::LISTEN || vm.count(cli::LISTEN);
                     bool is_laser = command == cli::LASER || vm.count(cli::LASER);
                     bool is_laser_open = is_laser && vm.count(cli::LASER_OPEN);
-                    is_server = is_laser_open ? true : is_server;
+                    is_server = is_laser_open || vm.count(cli::LASER_WAIT) ? true : is_server;
 
                     boost::optional<TxID> currentTxID;
                     auto txCompleteAction = [&currentTxID](const TxID& txID)
@@ -1556,31 +1556,6 @@ int main_impl(int argc, char* argv[])
                                 return -1;
                             }
 
-                            if (is_laser_open)
-                            {
-                                if(!LaserOpen(&wallet, vm))
-                                {
-                                    return -1;
-                                }
-                            }
-
-                            // size_t lightning_channels_count = vm.count(cli::LASER);
-                            // if (lightning_channels_count) {
-                                // if (lightning_channels_count > 1)
-                                // {
-                                //     LOG_INFO() << "use existing laser";
-                                // }
-                                // is_server = vm.count(cli::LASER_OPEN);
-                                // isTxInitiator = vm.count(cli::LASER_SEND);
-                                // LOG_INFO() << "LASER";
-                                // if (!is_server && !isTxInitiator) {
-                                //     LOG_ERROR() << "Lightning params is incorrect";
-                                //     printHelp(visibleOptions);
-                                //     return -1;
-                                // }
-                            //     return 0;
-                            // }
-
                             auto nnet = make_shared<proto::FlyClient::NetworkStd>(wallet);
                             nnet->m_Cfg.m_PollPeriod_ms = vm[cli::NODE_POLL_PERIOD].as<Nonnegative<uint32_t>>().value;
                             if (nnet->m_Cfg.m_PollPeriod_ms)
@@ -1599,6 +1574,19 @@ int main_impl(int argc, char* argv[])
                             }
                             nnet->m_Cfg.m_vNodes.push_back(nodeAddress);
                             nnet->Connect();
+                            if (is_laser)
+                            {
+                                LOG_INFO() << "Laser start";
+                                wallet.InitLaser(nodeAddress);
+                                if (is_laser_open)
+                                {
+                                    if(!LaserOpen(&wallet, vm))
+                                    {
+                                        return -1;
+                                    }
+                                }
+
+                            }
                             wallet.AddMessageEndpoint(make_shared<WalletNetworkViaBbs>(wallet, nnet, walletDB));
                             wallet.SetNodeEndpoint(nnet);
                         }

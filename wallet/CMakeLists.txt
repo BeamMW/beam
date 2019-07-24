@@ -20,6 +20,13 @@ set(WALLET_SRC
     bitcoin/bitcoin_side.cpp
     bitcoin/bitcoind016.cpp
     bitcoin/bitcoind017.cpp
+    lightning/client_mediator.h
+    lightning/client_mediator.cpp
+    lightning/client_interface.h
+    lightning/laser_connection.h
+    lightning/laser_connection.cpp
+    lightning/laser_listener.h
+    lightning/laser_listener.cpp
     lightning/lightning_channel.h
     lightning/lightning_channel.cpp
     litecoin/litecoind016.cpp

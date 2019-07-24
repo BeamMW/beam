@@ -26,7 +26,8 @@
 #include <numeric>
 #include "bitcoin/bitcoind017.h"
 #include "bitcoin/bitcoin_side.h"
-#include "lightning/lightning_channel.h"
+// #include "lightning/lightning_channel.h"
+#include "lightning/client_mediator.h"
 #include "litecoin/litecoind017.h"
 #include "litecoin/litecoin_side.h"
 #include "qtum/qtumd017.h"
@@ -345,33 +346,28 @@ namespace beam::wallet
         m_TxCreators[type] = creator;
     }
 
+    void Wallet::InitLaser(const beam::io::Address& nodeAddr)
+    {
+        if (!m_laser)
+        {
+             m_laser = std::make_unique<lightning::ClientMediator>(m_WalletDB,
+                                                                   nodeAddr);
+        }
+    }
+
     void Wallet::OpenLaserChanel(Amount aMy,
                                  Amount aTrg,
                                  Amount fee,
                                  const WalletID& receiverWalletID,
                                  Height locktime)
     {
-        auto& ch = m_lchs.emplace_back(
-                std::make_unique<LightningChannel>(m_NodeEndpoint, m_WalletDB));
-        ECC::GenRandom(ch->m_ID);
-        ch->m_widTrg = receiverWalletID;
-        ch->m_Params.m_hLockTime = locktime;
-	    ch->m_Params.m_Fee = fee;
-
-        Block::SystemState::Full tip;
-        get_tip(tip);
-
-        HeightRange hr;
-        hr.m_Min = tip.m_Height;
-        hr.m_Max = hr.m_Min + 30;
-
-        if (ch->Open(aMy, aTrg, hr))
+        if (m_laser)
         {
-            LOG_INFO() << "Laser open";
+            m_laser->OpenChannel(aMy, aTrg, fee, receiverWalletID, locktime);
         }
         else
         {
-            LOG_INFO() << "Laser fail";
+            LOG_DEBUG() << "Lasee is not init";
         }
     }
 
