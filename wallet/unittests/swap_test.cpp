@@ -127,7 +127,7 @@ namespace
     }
 }
 
-void TestSwapTransaction(bool isBeamOwnerStart)
+void TestSwapTransaction(bool isBeamOwnerStart, beam::Height fork1Height)
 {
     cout << "\nTesting atomic swap transaction...\n";
 
@@ -181,7 +181,7 @@ void TestSwapTransaction(bool isBeamOwnerStart)
     NodeObserver observer([&]()
     {
         auto cursor = node.get_Processor().m_Cursor;
-        if (cursor.m_Sid.m_Height == 5)
+        if (cursor.m_Sid.m_Height == fork1Height + 5)
         {
             if (isBeamOwnerStart)
             {
@@ -747,9 +747,11 @@ int main()
     auto logger = beam::Logger::create(logLevel, logLevel);
     Rules::get().FakePoW = true;
     Rules::get().UpdateChecksum();
+    beam::Height fork1Height = 10;
+    Rules::get().pForks[1].m_Height = fork1Height;
 
-    TestSwapTransaction(true);
-    TestSwapTransaction(false);
+    TestSwapTransaction(true, fork1Height);
+    TestSwapTransaction(false, fork1Height);
     TestSwapTransactionWithoutChange(true);
 
     TestSwapBTCRefundTransaction();

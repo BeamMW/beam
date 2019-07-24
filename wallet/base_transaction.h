@@ -158,7 +158,14 @@ namespace beam::wallet
         IWalletDB::Ptr m_WalletDB;
         Key::IKdf::Ptr m_MasterKdf;
 
-        std::map<size_t, ECC::Hash::Value> m_Nonces;
+		struct MyNonce :public ECC::NoLeak<ECC::Hash::Value> {
+			template <typename Archive> void serialize(Archive& ar) {
+				ar & V;
+			}
+		};
+
+        std::vector<MyNonce> m_Nonces;
+		size_t m_NonceSlotLast = 0;
     };
 
     std::string GetFailureMessage(TxFailureReason reason);

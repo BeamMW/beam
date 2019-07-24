@@ -76,23 +76,19 @@ Item
         }
 
         onWalletError: {
-            confirmationDialog.titleText = title;
-            confirmationDialog.messageText = message;
-
-            if (!isCreating) {
-                confirmationDialog.rejectedCallback = cancelCreating;
-            } else {
-                confirmationDialog.okButtonVisible  = false;
-                confirmationDialog.okButtonEnable   = false;
-                confirmationDialog.closePolicy      = Popup.NoAutoClose;
-                confirmationDialog.rejectedCallback = changeNodeSettings;
-            }
-
+            confirmationDialog.titleText        = title;
+            confirmationDialog.messageText      = message;
+            confirmationDialog.okButtonVisible  = false;
+            confirmationDialog.okButtonEnable   = false;
+            confirmationDialog.closePolicy      = Popup.NoAutoClose;
+            confirmationDialog.rejectedCallback = isCreating ? cancelCreating : changeNodeSettings;
             confirmationDialog.open();
         }
 
         onWalletReseted: {
-            if(cancelCallback) cancelCallback();
+            if(cancelCallback) {
+                cancelCallback();
+            }
         }
     }
 

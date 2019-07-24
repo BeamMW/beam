@@ -51,130 +51,84 @@ struct WalletModelBridge : public Bridge<IWalletModelAsync>
 
     void sendMoney(const wallet::WalletID& receiverID, const std::string& comment, Amount&& amount, Amount&& fee) override
     {
-        tx.send([receiverID, comment, amount{ move(amount) }, fee{ move(fee) }](BridgeInterface& receiver_) mutable
-        {
-            receiver_.sendMoney(receiverID, comment, move(amount), move(fee));
-        });
+        typedef void(IWalletModelAsync::*SendMoneyType)(const wallet::WalletID&, const std::string&, Amount&&, Amount&&);
+        call_async((SendMoneyType)&IWalletModelAsync::sendMoney, receiverID, comment, move(amount), move(fee));
     }
 
     void sendMoney(const wallet::WalletID& senderID, const wallet::WalletID& receiverID, const std::string& comment, Amount&& amount, Amount&& fee) override
     {
-        tx.send([senderID, receiverID, comment, amount{ move(amount) }, fee{ move(fee) }](BridgeInterface& receiver_) mutable
-        {
-            receiver_.sendMoney(senderID, receiverID, comment, move(amount), move(fee));
-        });
+        typedef void(IWalletModelAsync::*SendMoneyType)(const wallet::WalletID &, const wallet::WalletID &, const std::string &, Amount &&, Amount &&);
+        call_async((SendMoneyType)&IWalletModelAsync::sendMoney, senderID, receiverID, comment, move(amount), move(fee));
     }
 
     void syncWithNode() override
     {
-        tx.send([](BridgeInterface& receiver_) mutable
-        {
-            receiver_.syncWithNode();
-        });
+        call_async(&IWalletModelAsync::syncWithNode);
     }
 
     void calcChange(Amount&& amount) override
     {
-        tx.send([amount{ move(amount) }](BridgeInterface& receiver_) mutable
-        {
-            receiver_.calcChange(move(amount));
-        });
+        call_async(&IWalletModelAsync::calcChange, move(amount));
     }
 
     void getWalletStatus() override
     {
-        tx.send([](BridgeInterface& receiver_) mutable
-        {
-            receiver_.getWalletStatus();
-        });
+        call_async(&IWalletModelAsync::getWalletStatus);
     }
 
     void getUtxosStatus() override
     {
-        tx.send([](BridgeInterface& receiver_) mutable
-        {
-            receiver_.getUtxosStatus();
-        });
+        call_async(&IWalletModelAsync::getUtxosStatus);
     }
 
     void getAddresses(bool own) override
     {
-        tx.send([own](BridgeInterface& receiver_) mutable
-        {
-            receiver_.getAddresses(own);
-        });
+        call_async(&IWalletModelAsync::getAddresses, own);
     }
 
     void cancelTx(const wallet::TxID& id) override
     {
-        tx.send([id](BridgeInterface& receiver_) mutable
-        {
-            receiver_.cancelTx(id);
-        });
+        call_async(&IWalletModelAsync::cancelTx, id);
     }
 
     void deleteTx(const wallet::TxID& id) override
     {
-        tx.send([id](BridgeInterface& receiver_) mutable
-        {
-            receiver_.deleteTx(id);
-        });
+        call_async(&IWalletModelAsync::deleteTx, id);
     }
 
     void getCoinsByTx(const wallet::TxID& id) override
     {
-        tx.send([id](BridgeInterface& receiver_) mutable
-        {
-            receiver_.getCoinsByTx(id);
-        });
+        call_async(&IWalletModelAsync::getCoinsByTx, id);
     }
 
     void saveAddress(const wallet::WalletAddress& address, bool bOwn) override
     {
-        tx.send([address, bOwn](BridgeInterface& receiver_) mutable
-        {
-            receiver_.saveAddress(address, bOwn);
-        });
+        call_async(&IWalletModelAsync::saveAddress, address, bOwn);
     }
 
     void changeCurrentWalletIDs(const wallet::WalletID& senderID, const wallet::WalletID& receiverID) override
     {
-        tx.send([senderID, receiverID](BridgeInterface& receiver_) mutable
-        {
-            receiver_.changeCurrentWalletIDs(senderID, receiverID);
-        });
+        call_async(&IWalletModelAsync::changeCurrentWalletIDs, senderID, receiverID);
     }
 
     void generateNewAddress() override
     {
-        tx.send([](BridgeInterface& receiver_) mutable
-        {
-            receiver_.generateNewAddress();
-        });
+        call_async(&IWalletModelAsync::generateNewAddress);
     }
 
     void deleteAddress(const wallet::WalletID& id) override
     {
-        tx.send([id](BridgeInterface& receiver_) mutable
-        {
-            receiver_.deleteAddress(id);
-        });
+        call_async(&IWalletModelAsync::deleteAddress, id);
     }
 
     void updateAddress(const wallet::WalletID& id, const std::string& name, WalletAddress::ExpirationStatus status) override
     {
-        tx.send([id, name, status](BridgeInterface& receiver_) mutable
-        {
-            receiver_.updateAddress(id, name, status);
-        });
+        call_async(&IWalletModelAsync::updateAddress, id, name, status);
     }
 
     void setNodeAddress(const std::string& addr) override
     {
-        tx.send([addr](BridgeInterface& receiver_) mutable
-        {
-            receiver_.setNodeAddress(addr);
-        });
+        call_async(&IWalletModelAsync::setNodeAddress, addr);
     }
 
     void changeWalletPassword(const SecString& pass) override
@@ -182,42 +136,27 @@ struct WalletModelBridge : public Bridge<IWalletModelAsync>
         // TODO: should be investigated, don't know how to "move" SecString into lambda
         std::string passStr(pass.data(), pass.size());
 
-        tx.send([passStr](BridgeInterface& receiver_) mutable
-        {
-            receiver_.changeWalletPassword(passStr);
-        });
+        call_async(&IWalletModelAsync::changeWalletPassword, passStr);
     }
 
     void getNetworkStatus() override
     {
-        tx.send([](BridgeInterface& receiver_) mutable
-        {
-            receiver_.getNetworkStatus();
-        });
+        call_async(&IWalletModelAsync::getNetworkStatus);
     }
 
     void refresh() override
     {
-        tx.send([](BridgeInterface& receiver_) mutable
-        {
-            receiver_.refresh();
-        });
+        call_async(&IWalletModelAsync::refresh);
     }
 
     void exportPaymentProof(const wallet::TxID& id) override
     {
-        tx.send([id](BridgeInterface& receiver_) mutable
-        {
-            receiver_.exportPaymentProof(id);
-        });
+        call_async(&IWalletModelAsync::exportPaymentProof, id);
     }
 
     void checkAddress(const std::string& addr) override
     {
-        tx.send([addr](BridgeInterface& receiver_) mutable
-        {
-            receiver_.checkAddress(addr);
-        });
+        call_async(&IWalletModelAsync::checkAddress, addr);
     }
 };
 }
@@ -557,6 +496,7 @@ namespace beam::wallet
         onStatus(getStatus());
         onTxStatus(ChangeAction::Reset, m_walletDB->getTxHistory());
         onAddresses(false, m_walletDB->getAddresses(false));
+        onAddresses(true, m_walletDB->getAddresses(true));
     }
 
     void WalletClient::getUtxosStatus()
