@@ -104,7 +104,7 @@ namespace beam
         
         return os;
     }
-}
+}  // namespace beam
 
 namespace beam::wallet
 {

@@ -137,8 +137,9 @@ namespace lightning
         void OpenLaserChanel(Amount aMy,
                              Amount aTrg,
                              Amount fee,
-                             const WalletID& receiverWalletID,
+                             const WalletID& receiverWID,
                              Height locktime);
+        void WaitIncoming(WalletAddress myAddr);
         
     private:
         void RefreshTransactions();

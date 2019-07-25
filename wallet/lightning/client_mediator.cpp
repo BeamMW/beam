@@ -12,11 +12,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#pragma once
-
 #include "client_mediator.h"
 // #include "lightning_channel.h"
 #include "utility/logger.h"
+
+namespace
+{
+
+}  // namespace
 
 namespace beam::wallet::lightning
 {
@@ -26,6 +29,9 @@ ClientMediator::ClientMediator(IWalletDB::Ptr walletDB,
     , m_pListener(std::make_unique<LaserListener>(*this))
     , m_pConnection(std::make_shared<LaserConnection>(*m_pListener))
 {
+    m_pConnection->Connect();
+
+
     // m_listener = std::make_unique<LaserListener>(*this);
     // m_connection = std::make_unique<LaserConnection>(*m_listener);
 }
@@ -40,14 +46,23 @@ Block::SystemState::IHistory& ClientMediator::get_History()
     return m_pWalletDB->get_History();
 }
 
+void ClientMediator::Listen(WalletAddress myAddr)
+{
+    BbsChannel ch;
+    myAddr.m_walletID.m_Channel.Export(ch);
+    m_pConnection->BbsSubscribe(ch, getTimestamp(), m_pListener.get());
+}
+
 void ClientMediator::OpenChannel(Amount aMy,
                                  Amount aTrg,
                                  Amount fee,
                                  const WalletID& receiverWalletID,
                                  Height locktime)
 {
-    auto& ch = m_channels.emplace_back(
-            std::make_unique<LightningChannel>(m_pConnection, m_pWalletDB, *m_pListener));
+    // auto& ch = m_channels.emplace_back(
+    //         std::make_unique<LightningChannel>(m_pConnection, m_pWalletDB, *m_pListener, *m_pListener));
+    m_lch = std::make_unique<LightningChannel>(m_pConnection, m_pWalletDB, *m_pListener, *m_pListener);
+    auto* ch = m_lch.get();
     ECC::GenRandom(ch->m_ID);
     ch->m_widTrg = receiverWalletID;
     ch->m_Params.m_hLockTime = 15;

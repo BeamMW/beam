@@ -31,8 +31,9 @@ public:
     LightningChannel(
             const std::shared_ptr<proto::FlyClient::INetwork>& net,
             const IWalletDB::Ptr& walletDB,
-            proto::FlyClient::Request::IHandler& openHandler)
-            : m_net(net), m_WalletDB(walletDB), m_openHandler(openHandler) {};
+            proto::FlyClient::Request::IHandler& openHandler,
+            proto::FlyClient::IBbsReceiver& bbsReceiver)
+            : m_net(net), m_WalletDB(walletDB), m_openHandler(openHandler), m_BbsReceiver(bbsReceiver) {};
     LightningChannel(const LightningChannel&) = delete;
     void operator=(const LightningChannel&) = delete;
     // LightningChannel(LightningChannel&& channel) { m_net = std::move(channel.m_net);};
@@ -54,6 +55,7 @@ public:
     bool m_SendMyWid = true;
     using FieldMap = std::map<uint32_t, ByteBuffer>;
     // void (*SendFunctor)(Request& r, Request::IHandler& h);
+    proto::FlyClient::IBbsReceiver& m_BbsReceiver;
     proto::FlyClient::Request::IHandler& m_openHandler;
 };
 }  // namespace beam::wallet::lightning

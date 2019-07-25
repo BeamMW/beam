@@ -66,19 +66,25 @@ void LightningChannel::SendPeer(Negotiator::Storage::Map&& dataOut)
 {
     assert(!dataOut.empty());
 
+    WalletAddress address;
     if (m_SendMyWid)
     {
         m_SendMyWid = false;
         std::cout << "Generate new WID\n";
         WalletAddress::ExpirationStatus expirationStatus = WalletAddress::ExpirationStatus::Never;
         
-        WalletAddress address = storage::createAddress(*m_WalletDB);
+        address = storage::createAddress(*m_WalletDB);
 
         address.setExpiration(expirationStatus);
         address.m_label = "laser";
-        m_WalletDB->saveAddress(address);
+        // m_WalletDB->saveAddress(address);
         dataOut.Set(address.m_walletID, Codes::MyWid);
     }
+    
+    BbsChannel ch;
+    address.m_walletID.m_Channel.Export(ch);
+    get_Net().BbsSubscribe(ch, getTimestamp(), &m_BbsReceiver);
+
     Serializer ser;
     ser & m_ID;
     ser & Cast::Down<FieldMap>(dataOut);

@@ -13,46 +13,49 @@
 // limitations under the License.
 
 #include "laser_listener.h"
+#include "utility/logger.h"
 
 namespace beam::wallet::lightning
 {
 LaserListener::LaserListener(IClient& parent) : m_Parent(parent)
 {
-
+    LOG_DEBUG() << "LaserListener::LaserListener";
 }
 
 LaserListener::~LaserListener()
 {
-
+    LOG_DEBUG() << "LaserListener::~LaserListener";
 }
 
 void LaserListener::OnNewTip()
 {
+    LOG_DEBUG() << "LaserListener::OnNewTip";
     m_Parent.OnNewTip();
 }
 
 void LaserListener::OnRolledBack()
 {
-
+    LOG_DEBUG() << "LaserListener::OnRolledBack";
 }
 
 void LaserListener::OnOwnedNode(const PeerID&, bool bUp)
 {
-
+    LOG_DEBUG() << "LaserListener::OnOwnedNode";
 }
 
 void LaserListener::OnComplete(Request&)
 {
-
+    LOG_DEBUG() << "LaserListener::OnComplete";
 }
 
 void LaserListener::OnMsg(proto::BbsMsg&&)
 {
-
+    LOG_DEBUG() << "LaserListener::OnMsg";
 }
 
 Block::SystemState::IHistory& LaserListener::get_History()
 {
+    LOG_DEBUG() << "LaserListener::get_History";
     return m_Parent.get_History();
 }
 

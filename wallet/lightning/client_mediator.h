@@ -36,6 +36,7 @@ public:
     void OnNewTip() final;
     Block::SystemState::IHistory& get_History() final;
 
+    void Listen(WalletAddress myAddr);
     void OpenChannel(Amount aMy,
                      Amount aTrg,
                      Amount fee,
@@ -47,6 +48,7 @@ private:
     IWalletDB::Ptr m_pWalletDB;
     std::unique_ptr<LaserListener> m_pListener;
     std::shared_ptr<LaserConnection> m_pConnection;
+    std::unique_ptr<LightningChannel> m_lch;
     std::vector<std::unique_ptr<LightningChannel> > m_channels;
 };
 }  // namespace beam::wallet::lightning

@@ -471,7 +471,7 @@ namespace beam
 {
     std::ostream& operator<<(std::ostream& os, const wallet::PrintableAmount& amount);
     std::ostream& operator<<(std::ostream& os, const wallet::TxID& uuid);
-}
+}  // namespace beam
 
 namespace std
 {

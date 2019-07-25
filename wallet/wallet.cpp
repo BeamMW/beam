@@ -371,6 +371,19 @@ namespace beam::wallet
         }
     }
 
+    void Wallet::WaitIncoming(WalletAddress myAddr)
+    {
+        if (m_laser)
+        {
+            m_laser->Listen(myAddr);
+            LOG_DEBUG() << "Laser WaitIncoming";
+        }
+        else
+        {
+            LOG_DEBUG() << "Laser is not init";
+        }
+    }
+
     void Wallet::RefreshTransactions()
     {
         auto txs = m_WalletDB->getTxHistory(TxType::ALL); // get list of ALL transactions

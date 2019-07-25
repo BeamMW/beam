@@ -32,6 +32,9 @@ void LaserConnection::PostRequestInternal(proto::FlyClient::Request& r)
     if (proto::FlyClient::Request::Type::Transaction == r.get_Type())
         std::cout << "### Broadcasting transaction ###" << std::endl;
 
+    if (proto::FlyClient::Request::Type::BbsMsg == r.get_Type())
+        std::cout << "### Bbs mesage out ###" << std::endl;    
+
     proto::FlyClient::NetworkStd::PostRequestInternal(r);
 }
 }  // namespace beam::wallet::lightning

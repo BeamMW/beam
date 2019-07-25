@@ -491,18 +491,32 @@ namespace
     WalletAddress GenerateNewAddress(
         const IWalletDB::Ptr& walletDB,
         const std::string& label,
-        WalletAddress::ExpirationStatus expirationStatus = WalletAddress::ExpirationStatus::OneDay)
+        WalletAddress::ExpirationStatus expirationStatus = WalletAddress::ExpirationStatus::OneDay,
+        bool saveRequired = true)
     {
         WalletAddress address = storage::createAddress(*walletDB);
 
         address.setExpiration(expirationStatus);
         address.m_label = label;
-        walletDB->saveAddress(address);
+        if (saveRequired)
+        {
+            walletDB->saveAddress(address);
+        }
 
         LOG_INFO() << "New address generated:\n\n" << std::to_string(address.m_walletID) << "\n";
         if (!label.empty()) {
             LOG_INFO() << "label = " << label;
         }
+        return address;
+    }
+
+    WalletAddress GenerateNewLaserAddress(const IWalletDB::Ptr& walletDB)
+    {
+        auto address = storage::createAddress(*walletDB);
+
+        address.setExpiration(WalletAddress::ExpirationStatus::Never);
+        address.m_label = "laser_in";
+        // walletDB->saveAddress(address);
         return address;
     }
 
@@ -1174,7 +1188,7 @@ namespace
         return boost::optional<QtumOptions>{};
     }
 
-    bool LaserOpen(Wallet* wallet, const po::variables_map& vm)
+    bool LaserOpen(Wallet* wallet, const IWalletDB::Ptr& walletDB, const po::variables_map& vm)
     {
         io::Address receiverAddr;
         Amount aMy = 0, aTrg = 0, fee = 100;
@@ -1187,6 +1201,17 @@ namespace
             return false;
         }
         wallet->OpenLaserChanel(aMy, aTrg, fee, receiverWalletID, lifetime);
+        return true;
+    }
+    
+    bool LaserWait(Wallet* wallet, const IWalletDB::Ptr& walletDB, const po::variables_map& vm)
+    {
+        auto addr = GenerateNewAddress(
+                walletDB,
+                "laser_in",
+                WalletAddress::ExpirationStatus::Never,
+                false);
+        wallet->WaitIncoming(addr);
         return true;
     }
 
@@ -1522,9 +1547,11 @@ int main_impl(int argc, char* argv[])
                     }
 
                     bool is_server = command == cli::LISTEN || vm.count(cli::LISTEN);
+
                     bool is_laser = command == cli::LASER || vm.count(cli::LASER);
                     bool is_laser_open = is_laser && vm.count(cli::LASER_OPEN);
-                    is_server = is_laser_open || vm.count(cli::LASER_WAIT) ? true : is_server;
+                    bool is_laser_wait = is_laser && vm.count(cli::LASER_WAIT);
+                    is_server = is_laser_open || is_laser_wait ? true : is_server;
 
                     boost::optional<TxID> currentTxID;
                     auto txCompleteAction = [&currentTxID](const TxID& txID)
@@ -1580,7 +1607,14 @@ int main_impl(int argc, char* argv[])
                                 wallet.InitLaser(nodeAddress);
                                 if (is_laser_open)
                                 {
-                                    if(!LaserOpen(&wallet, vm))
+                                    if(!LaserOpen(&wallet, walletDB, vm))
+                                    {
+                                        return -1;
+                                    }
+                                }
+                                else if (is_laser_wait)
+                                {
+                                    if(!LaserWait(&wallet, walletDB, vm))
                                     {
                                         return -1;
                                     }
