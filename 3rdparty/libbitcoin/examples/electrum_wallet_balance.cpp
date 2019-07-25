@@ -38,7 +38,7 @@ namespace
 
     void getBalance(const std::string& scriptHash)
     {
-        std::string request = R"({"method":"blockchain.scripthash.listunspent","params":[")" + scriptHash + R"("], "id": "teste"})";
+        std::string request = R"({"method":"blockchain.scripthash.get_balance","params":[")" + scriptHash + R"("], "id": "teste"})";
         request += "\n";
         Result res = tcpStream->write(request.data(), request.size());
         if (!res) {
