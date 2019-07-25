@@ -55,7 +55,7 @@ public:
     bool m_SendMyWid = true;
     using FieldMap = std::map<uint32_t, ByteBuffer>;
     // void (*SendFunctor)(Request& r, Request::IHandler& h);
-    proto::FlyClient::IBbsReceiver& m_BbsReceiver;
     proto::FlyClient::Request::IHandler& m_openHandler;
+    proto::FlyClient::IBbsReceiver& m_BbsReceiver;
 };
 }  // namespace beam::wallet::lightning
