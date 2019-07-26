@@ -116,43 +116,15 @@ ColumnLayout {
             title: qsTrId("general-status")
             width: 200 * parent.width / 800
             movable: false
-            resizable: false
-            delegate: Item {
-                id: delegate_id
-                width: parent.width
-                height: tableView.rowHeight
-                readonly property var lineSeparator: "\n"
-                property var texts: styleData.value
-                property color secondLineColor: Style.content_secondary
-
-                ColumnLayout {
-                    anchors.right: parent.right
-                    anchors.left: parent.left
-                    anchors.verticalCenter: parent.verticalCenter
-
-                    SFLabel {
-                        Layout.fillWidth: true
-                        Layout.fillHeight: true
-                        Layout.topMargin: 20
-                        elide: Text.ElideRight
-                        text: delegate_id.texts[0] // add check for NULL
-                        textFormat: Text.StyledText
-                        font.italic: true
-                        font.pixelSize: 14
-                    }
-                }
-            }
         }
         
         rowDelegate: Item {
             height: tableView.rowHeight
-
             anchors.left: parent.left
             anchors.right: parent.right
 
             Rectangle {
                 anchors.fill: parent
-
                 color: Style.background_row_even
                 visible: styleData.alternate
             }

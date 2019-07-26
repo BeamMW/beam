@@ -239,16 +239,6 @@ namespace beam::wallet
         , m_isConnected(false)
         , m_nodeAddrStr(nodeAddr)
     {
-        // test on dummy data
-        TxDescription tr1, tr2, tr3, tr4;
-        tr1.m_amount = 1;
-        tr2.m_amount = 2;
-        tr3.m_amount = 3;
-        tr4.m_amount = 4;
-        dummySwapOffers.push_back(tr1);
-        dummySwapOffers.push_back(tr2);
-        dummySwapOffers.push_back(tr3);
-        dummySwapOffers.push_back(tr4);
     }
 
     WalletClient::~WalletClient()
@@ -296,7 +286,6 @@ namespace beam::wallet
 
                     onStatus(getStatus());
                     onTxStatus(ChangeAction::Reset, m_walletDB->getTxHistory());
-                    onSwapOffers(dummySwapOffers);
 
                     static const unsigned LOG_ROTATION_PERIOD_SEC = 3 * 3600; // 3 hours
                     static const unsigned LOG_CLEANUP_PERIOD_SEC = 120 * 3600; // 5 days
@@ -383,6 +372,9 @@ namespace beam::wallet
                     wallet->AddMessageEndpoint(walletNetwork);
 
                     wallet_subscriber = make_unique<WalletSubscriber>(static_cast<IWalletObserver*>(this), wallet);
+
+                    auto offersMonitor = make_shared<SwapOffersMonitor>(nodeNetwork,static_cast<IWalletObserver&>(*this));
+                    m_offersMonitor = offersMonitor;
 
                     nodeNetwork->tryToConnect();
                     m_reactor->run_ex([&wallet, &nodeNetwork](){
@@ -576,7 +568,6 @@ namespace beam::wallet
         onStatus(getStatus());
         onTxStatus(ChangeAction::Reset, m_walletDB->getTxHistory());
         onAddresses(false, m_walletDB->getAddresses(false));
-        onSwapOffers(dummySwapOffers);
     }
 
     void WalletClient::getUtxosStatus()
@@ -592,7 +583,7 @@ namespace beam::wallet
 
     void WalletClient::getSwapOffers()
     {
-        onSwapOffers(dummySwapOffers);
+        onSwapOffersChanged(ChangeAction::Reset, ...);
     }
 
     void WalletClient::cancelTx(const TxID& id)

@@ -227,9 +227,9 @@ void WalletModel::onAddresses(bool own, const std::vector<WalletAddress>& addres
     env->DeleteLocalRef(addrArray);
 }
 
-void WalletModel::onSwapOffers(const std::vector<beam::wallet::TxDescription>& offers)
+void WalletModel::onSwapOffersChanged(ChangeAction action, const std::vector<beam::wallet::TxDescription>& offers)
 {
-    LOG_DEBUG() << "onSwapOffers()";
+    LOG_DEBUG() << "onSwapOffersChanged()";
 
     // TODO
 }
