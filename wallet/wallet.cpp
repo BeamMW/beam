@@ -26,8 +26,7 @@
 #include <numeric>
 #include "bitcoin/bitcoind017.h"
 #include "bitcoin/bitcoin_side.h"
-// #include "lightning/lightning_channel.h"
-#include "lightning/client_mediator.h"
+#include "laser/mediator.h"
 #include "litecoin/litecoind017.h"
 #include "litecoin/litecoin_side.h"
 #include "qtum/qtumd017.h"
@@ -346,12 +345,11 @@ namespace beam::wallet
         m_TxCreators[type] = creator;
     }
 
-    void Wallet::InitLaser(const beam::io::Address& nodeAddr)
+    void Wallet::InitLaser(std::shared_ptr<proto::FlyClient::NetworkStd>& net)
     {
         if (!m_laser)
         {
-             m_laser = std::make_unique<lightning::ClientMediator>(m_WalletDB,
-                                                                   nodeAddr);
+             m_laser = std::make_unique<laser::Mediator>(m_WalletDB, net);
         }
     }
 
@@ -367,15 +365,15 @@ namespace beam::wallet
         }
         else
         {
-            LOG_DEBUG() << "Lasee is not init";
+            LOG_DEBUG() << "Laser is not init";
         }
     }
 
-    void Wallet::WaitIncoming(WalletAddress myAddr)
+    void Wallet::WaitIncoming()
     {
         if (m_laser)
         {
-            m_laser->Listen(myAddr);
+            m_laser->Listen();
             LOG_DEBUG() << "Laser WaitIncoming";
         }
         else

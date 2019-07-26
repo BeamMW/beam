@@ -17,26 +17,28 @@
 #include <memory>
 #include <vector>
 
-#include "client_interface.h"
+#include "wallet/laser/i_receiver_holder.h"
 #include "core/fly_client.h"
-#include "laser_connection.h"
-#include "laser_listener.h"
-#include "lightning_channel.h"
+#include "wallet/laser/channel.h"
 #include "wallet/wallet_db.h"
 
-namespace beam::wallet::lightning
+namespace beam::wallet::laser
 {
-class LightningChannel;
+// class LightningChannel;
+class Connection;
+class Receiver;
 
-// using NetPtr=std::shared_ptr<proto::FlyClient::INetwork>;
-class ClientMediator : public IClient
+class Mediator : public IReceiverHolder
 {
 public:
-    ClientMediator(IWalletDB::Ptr walletDB, const beam::io::Address& nodeAddr);
+    Mediator(IWalletDB::Ptr walletDB, std::shared_ptr<proto::FlyClient::NetworkStd>& net);
+    // IReceiverHolder implementation
     void OnNewTip() final;
     Block::SystemState::IHistory& get_History() final;
+    void OnMsg(Blob&& blob) final;
+    ECC::Scalar::Native get_skBbs() final;
 
-    void Listen(WalletAddress myAddr);
+    void Listen();
     void OpenChannel(Amount aMy,
                      Amount aTrg,
                      Amount fee,
@@ -46,9 +48,11 @@ private:
     // Height get_TipHeight() const;
 
     IWalletDB::Ptr m_pWalletDB;
-    std::unique_ptr<LaserListener> m_pListener;
-    std::shared_ptr<LaserConnection> m_pConnection;
-    std::unique_ptr<LightningChannel> m_lch;
-    std::vector<std::unique_ptr<LightningChannel> > m_channels;
+    std::unique_ptr<Receiver> m_pReceiver;
+    std::shared_ptr<Connection> m_pConnection;
+
+    std::unique_ptr<Channel> m_lch;
+    std::vector<std::unique_ptr<Channel> > m_channels;
+    WalletAddress m_myAddr;
 };
-}  // namespace beam::wallet::lightning
+}  // namespace beam::wallet::laser

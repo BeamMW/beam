@@ -14,19 +14,16 @@
 
 #pragma once
 
-// #include <memory>
-#include "core/fly_client.h"
+#include <string>
 
-namespace beam::wallet::lightning
-{
-class LaserConnection final : public proto::FlyClient::NetworkStd
-{
-public:
-    LaserConnection(proto::FlyClient& fc);
-    ~LaserConnection();
-    // using proto::FlyClient::NetworkStd::NetworkStd;
-    using Ptr=std::shared_ptr<proto::FlyClient::INetwork>;
+#include "wallet/wallet_db.h"
 
-    virtual void PostRequestInternal(proto::FlyClient::Request& r) override;
-};
-}  // namespace beam::wallet::lightning
+namespace beam::wallet
+{
+WalletAddress GenerateNewAddress(
+        const IWalletDB::Ptr& walletDB,
+        const std::string& label,
+        WalletAddress::ExpirationStatus expirationStatus
+            = WalletAddress::ExpirationStatus::OneDay,
+        bool saveRequired = true);
+}  // namespace beam::wallet

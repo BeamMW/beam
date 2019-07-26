@@ -15,15 +15,25 @@
 #pragma once
 
 #include <memory>
-#include "core/block_crypt.h"
+#include "core/fly_client.h"
 
-namespace beam::wallet::lightning
+namespace beam::wallet::laser
 {
-class IClient
+class Connection final : public proto::FlyClient::INetwork
 {
 public:
-    // using Ptr = std::shared_ptr<IClient>;
-    virtual void OnNewTip() = 0;
-    virtual Block::SystemState::IHistory& get_History() = 0;
+    Connection(std::shared_ptr<proto::FlyClient::NetworkStd>& net);
+    ~Connection();
+
+    virtual void Connect() override;
+    virtual void Disconnect() override;
+    virtual void PostRequestInternal(proto::FlyClient::Request& r) override;
+    virtual void BbsSubscribe(
+            BbsChannel ch,
+            Timestamp timestamp,
+            proto::FlyClient::IBbsReceiver* receiver) override;
+
+private:
+    std::shared_ptr<proto::FlyClient::NetworkStd> m_pNet;
 };
-} // namespace beam::wallet::lightning
+}  // namespace beam::wallet::laser

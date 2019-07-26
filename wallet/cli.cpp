@@ -15,6 +15,7 @@
 #include "wallet/wallet_network.h"
 #include "core/common.h"
 
+#include "wallet/common_utils.h"
 #include "wallet/wallet.h"
 #include "wallet/wallet_db.h"
 #include "wallet/wallet_network.h"
@@ -486,28 +487,6 @@ namespace
             return 0;
         }
         return -1;
-    }
-
-    WalletAddress GenerateNewAddress(
-        const IWalletDB::Ptr& walletDB,
-        const std::string& label,
-        WalletAddress::ExpirationStatus expirationStatus = WalletAddress::ExpirationStatus::OneDay,
-        bool saveRequired = true)
-    {
-        WalletAddress address = storage::createAddress(*walletDB);
-
-        address.setExpiration(expirationStatus);
-        address.m_label = label;
-        if (saveRequired)
-        {
-            walletDB->saveAddress(address);
-        }
-
-        LOG_INFO() << "New address generated:\n\n" << std::to_string(address.m_walletID) << "\n";
-        if (!label.empty()) {
-            LOG_INFO() << "label = " << label;
-        }
-        return address;
     }
 
     WalletAddress GenerateNewLaserAddress(const IWalletDB::Ptr& walletDB)
@@ -1206,12 +1185,12 @@ namespace
     
     bool LaserWait(Wallet* wallet, const IWalletDB::Ptr& walletDB, const po::variables_map& vm)
     {
-        auto addr = GenerateNewAddress(
-                walletDB,
-                "laser_in",
-                WalletAddress::ExpirationStatus::Never,
-                false);
-        wallet->WaitIncoming(addr);
+        // auto addr = GenerateNewAddress(
+        //         walletDB,
+        //         "laser_in",
+        //         WalletAddress::ExpirationStatus::Never,
+        //         false);
+        wallet->WaitIncoming();
         return true;
     }
 
@@ -1604,7 +1583,7 @@ int main_impl(int argc, char* argv[])
                             if (is_laser)
                             {
                                 LOG_INFO() << "Laser start";
-                                wallet.InitLaser(nodeAddress);
+                                wallet.InitLaser(nnet);
                                 if (is_laser_open)
                                 {
                                     if(!LaserOpen(&wallet, walletDB, vm))

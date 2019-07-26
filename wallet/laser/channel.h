@@ -15,12 +15,13 @@
 #pragma once
 
 #include "core/lightning.h"
+#include "wallet/laser/receiver.h"
 #include "wallet/wallet_db.h"
 #include "wallet/common.h"
 
-namespace beam::wallet::lightning
+namespace beam::wallet::laser
 {
-class LightningChannel : public Lightning::Channel
+class Channel : public Lightning::Channel
 {
 public:
     struct Codes
@@ -28,17 +29,15 @@ public:
         static const uint32_t Control0 = 1024 << 16;
         static const uint32_t MyWid = Control0 + 31;
     };
-    LightningChannel(
-            const std::shared_ptr<proto::FlyClient::INetwork>& net,
+    Channel(const std::shared_ptr<proto::FlyClient::INetwork>& net,
             const IWalletDB::Ptr& walletDB,
-            proto::FlyClient::Request::IHandler& openHandler,
-            proto::FlyClient::IBbsReceiver& bbsReceiver)
-            : m_net(net), m_WalletDB(walletDB), m_openHandler(openHandler), m_BbsReceiver(bbsReceiver) {};
-    LightningChannel(const LightningChannel&) = delete;
-    void operator=(const LightningChannel&) = delete;
+            Receiver& receiver)
+            : m_net(net), m_WalletDB(walletDB), m_rReceiver(receiver) {};
+    Channel(const Channel&) = delete;
+    void operator=(const Channel&) = delete;
     // LightningChannel(LightningChannel&& channel) { m_net = std::move(channel.m_net);};
     // void operator=(LightningChannel&& channel) { m_net = std::move(channel.m_net);};
-    ~LightningChannel();
+    ~Channel();
 
     Height get_Tip() const override;
     proto::FlyClient::INetwork& get_Net() override;
@@ -47,15 +46,17 @@ public:
     Amount SelectInputs(
             std::vector<Key::IDV>& vInp, Amount valRequired) override;
     void SendPeer(Negotiator::Storage::Map&& dataOut) override;
+    void LogNewState();
 
     uintBig_t<16> m_ID;
     WalletID m_widTrg;
+    WalletID m_widMy;
     std::shared_ptr<proto::FlyClient::INetwork> m_net;
     IWalletDB::Ptr m_WalletDB;
     bool m_SendMyWid = true;
     using FieldMap = std::map<uint32_t, ByteBuffer>;
     // void (*SendFunctor)(Request& r, Request::IHandler& h);
-    proto::FlyClient::Request::IHandler& m_openHandler;
-    proto::FlyClient::IBbsReceiver& m_BbsReceiver;
+    Receiver& m_rReceiver;
+    beam::Lightning::Channel::State::Enum m_LastState = State::None;
 };
-}  // namespace beam::wallet::lightning
+}  // namespace beam::wallet::laser

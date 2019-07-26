@@ -12,22 +12,38 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "laser_connection.h"
+#include "wallet/laser/connection.h"
 
-namespace beam::wallet::lightning
+namespace beam::wallet::laser
 {
-LaserConnection::LaserConnection(proto::FlyClient& fc)
-    : proto::FlyClient::NetworkStd(fc)
+Connection::Connection(std::shared_ptr<proto::FlyClient::NetworkStd>& net)
+    : m_pNet(net)
 {
-
 }
 
-LaserConnection::~LaserConnection()
+Connection::~Connection()
 {
-
 }
 
-void LaserConnection::PostRequestInternal(proto::FlyClient::Request& r)
+void Connection::Connect()
+{
+    m_pNet->Connect();
+}
+
+void Connection::Disconnect()
+{
+    m_pNet->Disconnect();
+}
+
+void Connection::BbsSubscribe(
+        BbsChannel ch,
+        Timestamp timestamp,
+        proto::FlyClient::IBbsReceiver* receiver)
+{
+    m_pNet->BbsSubscribe(ch, timestamp, receiver);
+}
+
+void Connection::PostRequestInternal(proto::FlyClient::Request& r)
 {
     if (proto::FlyClient::Request::Type::Transaction == r.get_Type())
         std::cout << "### Broadcasting transaction ###" << std::endl;
@@ -35,6 +51,6 @@ void LaserConnection::PostRequestInternal(proto::FlyClient::Request& r)
     if (proto::FlyClient::Request::Type::BbsMsg == r.get_Type())
         std::cout << "### Bbs mesage out ###" << std::endl;    
 
-    proto::FlyClient::NetworkStd::PostRequestInternal(r);
+    m_pNet->PostRequestInternal(r);
 }
-}  // namespace beam::wallet::lightning
+}  // namespace beam::wallet::laser

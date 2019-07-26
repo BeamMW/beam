@@ -14,19 +14,19 @@
 
 #pragma once
 
-#include "client_interface.h"
+#include "wallet/laser/i_receiver_holder.h"
 #include "core/fly_client.h"
 
-namespace beam::wallet::lightning
+namespace beam::wallet::laser
 {
-class LaserListener
+class Receiver
     :public proto::FlyClient
     ,public proto::FlyClient::Request::IHandler
     ,public proto::FlyClient::IBbsReceiver
 {
 public:
-    explicit LaserListener(IClient& parent);
-    ~LaserListener();
+    explicit Receiver(IReceiverHolder& holder);
+    ~Receiver();
     // proto::FlyClient
     virtual void OnNewTip() override;
     virtual void OnRolledBack() override;
@@ -37,7 +37,7 @@ public:
     // proto::FlyClient::IBbsReceiver
     virtual void OnMsg(proto::BbsMsg&&) override;
 private:
-    IClient& m_Parent;
+    IReceiverHolder& m_rHolder;
 };
 
-}  // namespace beam::wallet::lightning
+}  // namespace beam::wallet::laser

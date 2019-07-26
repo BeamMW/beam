@@ -3,6 +3,7 @@ set(TARGET_NAME beam-wallet${BEAM_TARGET_SUFFIX})
 add_definitions( -DSQLITE_HAS_CODEC )
 
 set(WALLET_SRC
+    common_utils.cpp
     common.cpp
     default_peers.cpp
     wallet.h
@@ -20,15 +21,15 @@ set(WALLET_SRC
     bitcoin/bitcoin_side.cpp
     bitcoin/bitcoind016.cpp
     bitcoin/bitcoind017.cpp
-    lightning/client_mediator.h
-    lightning/client_mediator.cpp
-    lightning/client_interface.h
-    lightning/laser_connection.h
-    lightning/laser_connection.cpp
-    lightning/laser_listener.h
-    lightning/laser_listener.cpp
-    lightning/lightning_channel.h
-    lightning/lightning_channel.cpp
+    # laser/mediator.h
+    laser/mediator.cpp
+    # laser/i_receiver_holder.h
+    # laser/connection.h
+    laser/connection.cpp
+    # laser/receiver.h
+    laser/receiver.cpp
+    # laser/channel.h
+    laser/channel.cpp
     litecoin/litecoind016.cpp
     litecoin/litecoind017.cpp
     qtum/qtumd017.cpp
