@@ -48,9 +48,21 @@ void LaserListener::OnComplete(Request&)
     LOG_DEBUG() << "LaserListener::OnComplete";
 }
 
-void LaserListener::OnMsg(proto::BbsMsg&&)
+void LaserListener::OnMsg(proto::BbsMsg&& msg)
 {
     LOG_DEBUG() << "LaserListener::OnMsg";
+    if (msg.m_Message.empty())
+		return;
+
+	Blob blob;
+
+	uint8_t* pMsg = &msg.m_Message.front();
+	blob.n = static_cast<uint32_t>(msg.m_Message.size());
+
+	// if (!proto::Bbs::Decrypt(pMsg, blob.n, get_ParentObj().m_skBbs))
+	// 	return;
+
+	blob.p = pMsg;
 }
 
 Block::SystemState::IHistory& LaserListener::get_History()

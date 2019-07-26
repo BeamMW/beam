@@ -29,11 +29,8 @@ ClientMediator::ClientMediator(IWalletDB::Ptr walletDB,
     , m_pListener(std::make_unique<LaserListener>(*this))
     , m_pConnection(std::make_shared<LaserConnection>(*m_pListener))
 {
+    m_pConnection->m_Cfg.m_vNodes.push_back(nodeAddr);
     m_pConnection->Connect();
-
-
-    // m_listener = std::make_unique<LaserListener>(*this);
-    // m_connection = std::make_unique<LaserConnection>(*m_listener);
 }
 
 void ClientMediator::OnNewTip()
