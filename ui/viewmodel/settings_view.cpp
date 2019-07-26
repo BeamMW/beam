@@ -43,6 +43,12 @@ SettingsViewModel::SettingsViewModel()
     connect(AppModel::getInstance().getWallet().get(), SIGNAL(addressChecked(const QString&, bool)),
         SLOT(onAddressChecked(const QString&, bool)));
 
+    // BitcoinClient
+    connect(AppModel::getInstance().getBitcoinClient().get(), SIGNAL(GotBalance(const beam::BitcoinClient::Balance&)),
+        SLOT(onBitcoinBalance(const beam::BitcoinClient::Balance&)));
+
+    onBitcoinSettings(AppModel::getInstance().getBitcoinClient()->GetSettings());
+
     m_timerId = startTimer(CHECK_INTERVAL);
 }
 
@@ -72,6 +78,106 @@ void SettingsViewModel::onAddressChecked(const QString& addr, bool isValid)
         }
     }
 }
+
+// ===================================================================================
+
+void SettingsViewModel::applyBTCChanges()
+{
+    BitcoindSettings connectionSettings;
+    connectionSettings.m_pass = m_bitcoinPass.toStdString();
+    connectionSettings.m_userName = m_bitcoinUser.toStdString();
+    connectionSettings.m_address.resolve(m_bitcoinNodeAddress.toStdString().c_str());
+
+    BitcoinSettings btcSettings;
+    btcSettings.SetChainType(beam::wallet::SwapSecondSideChainType::Testnet);
+    btcSettings.SetConnectionOptions(connectionSettings);
+    btcSettings.SetFeeRate(m_bitcoinFeeRate);
+
+    AppModel::getInstance().getBitcoinClient()->SetSettings(btcSettings);
+
+    AppModel::getInstance().getBitcoinClient()->GetAsync()->GetBalance();
+}
+
+void SettingsViewModel::onBitcoinSettings(const beam::BitcoinSettings& settings)
+{
+    setBTCUser(QString::fromStdString(settings.GetConnectionOptions().m_userName));
+    setBTCPass(QString::fromStdString(settings.GetConnectionOptions().m_pass));
+    setBTCNodeAddress(QString::fromStdString(settings.GetConnectionOptions().m_address.str()));
+    setBTCFeeRate(settings.GetFeeRate());
+}
+
+void SettingsViewModel::onBitcoinBalance(const beam::BitcoinClient::Balance& balance)
+{
+    m_balance = balance;
+    emit btcAvailableChanged();
+}
+
+QString SettingsViewModel::getBTCUser() const
+{
+    return m_bitcoinUser;
+}
+
+void SettingsViewModel::setBTCUser(const QString& value)
+{
+    if (value != m_bitcoinUser)
+    {
+        m_bitcoinUser = value;
+        emit btcUserChanged();
+        emit propertiesChanged();
+    }
+}
+
+QString SettingsViewModel::getBTCPass() const
+{
+    return m_bitcoinPass;
+}
+
+void SettingsViewModel::setBTCPass(const QString& value)
+{
+    if (value != m_bitcoinPass)
+    {
+        m_bitcoinPass = value;
+        emit btcPassChanged();
+        emit propertiesChanged();
+    }
+}
+
+QString SettingsViewModel::getBTCNodeAddress() const
+{
+    return m_bitcoinNodeAddress;
+}
+
+void SettingsViewModel::setBTCNodeAddress(const QString& value)
+{
+    if (value != m_bitcoinNodeAddress)
+    {
+        m_bitcoinNodeAddress = value;
+        emit btcNodeAddressChanged();
+        emit propertiesChanged();
+    }
+}
+
+int SettingsViewModel::getBTCFeeRate() const
+{
+    return m_bitcoinFeeRate;
+}
+
+void SettingsViewModel::setBTCFeeRate(int value)
+{
+    if (value != m_bitcoinFeeRate)
+    {
+        m_bitcoinFeeRate = value;
+        emit btcFeeRateChanged();
+        emit propertiesChanged();
+    }
+}
+
+double SettingsViewModel::getBTCAvailable() const
+{
+    return m_balance.m_available;
+}
+
+// ===================================================================================
 
 bool SettingsViewModel::isLocalNodeRunning() const
 {

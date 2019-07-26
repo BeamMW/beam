@@ -19,6 +19,9 @@
 #include <QQmlListProperty>
 
 #include "model/settings.h"
+#include "wallet/bitcoin/bitcoin_client.h"
+#include "wallet/bitcoin/bitcoin_settings.h"
+
 
 
 class SettingsViewModel : public QObject
@@ -40,6 +43,13 @@ class SettingsViewModel : public QObject
     Q_PROPERTY(int currentLanguageIndex READ getCurrentLanguageIndex NOTIFY currentLanguageIndexChanged)
     Q_PROPERTY(QString currentLanguage READ getCurrentLanguage WRITE setCurrentLanguage)
     Q_PROPERTY(bool isValidNodeAddress READ isValidNodeAddress NOTIFY validNodeAddressChanged)
+
+    Q_PROPERTY(QString btcUser READ getBTCUser WRITE setBTCUser NOTIFY btcUserChanged)
+    Q_PROPERTY(QString btcPass READ getBTCPass WRITE setBTCPass NOTIFY btcPassChanged)
+    Q_PROPERTY(QString btcNodeAddress READ getBTCNodeAddress WRITE setBTCNodeAddress NOTIFY btcNodeAddressChanged)
+    Q_PROPERTY(int btcFeeRate READ getBTCFeeRate WRITE setBTCFeeRate NOTIFY btcFeeRateChanged)
+    Q_PROPERTY(double btcAvailable READ getBTCAvailable NOTIFY btcAvailableChanged)
+
 public:
 
     SettingsViewModel();
@@ -71,6 +81,18 @@ public:
 
     bool isChanged() const;
 
+    // ========== TEST ONLY =====================
+    QString getBTCUser() const;
+    void setBTCUser(const QString& value);
+    QString getBTCPass() const;
+    void setBTCPass(const QString& value);
+    QString getBTCNodeAddress() const;
+    void setBTCNodeAddress(const QString& value);
+    int getBTCFeeRate() const;
+    void setBTCFeeRate(int value);
+    double getBTCAvailable() const;
+    // =========================================
+
     Q_INVOKABLE uint coreAmount() const;
     Q_INVOKABLE void addLocalNodePeer(const QString& localNodePeer);
     Q_INVOKABLE void deleteLocalNodePeer(int index);
@@ -88,6 +110,10 @@ public slots:
     void onNodeStopped();
     void onAddressChecked(const QString& addr, bool isValid);
 
+    void applyBTCChanges();
+    void onBitcoinSettings(const beam::BitcoinSettings& settings);
+    void onBitcoinBalance(const beam::BitcoinClient::Balance& balance);
+
 signals:
     void nodeAddressChanged();
     void localNodeRunChanged();
@@ -101,6 +127,11 @@ signals:
     void currentLanguageIndexChanged();
     void beamMWLinksAllowed();
 
+    void btcUserChanged();
+    void btcPassChanged();
+    void btcNodeAddressChanged();
+    void btcFeeRateChanged();
+    void btcAvailableChanged();
 protected:
     void timerEvent(QTimerEvent *event) override;
 
@@ -120,6 +151,13 @@ private:
     QStringList m_supportedLanguages;
     int m_currentLanguageIndex;
     int m_timerId;
+
+    QString m_bitcoinUser;
+    QString m_bitcoinPass;
+    QString m_bitcoinNodeAddress;
+    int m_bitcoinFeeRate = 0;
+
+    beam::BitcoinClient::Balance m_balance;
 
     const int CHECK_INTERVAL = 1000;
 };

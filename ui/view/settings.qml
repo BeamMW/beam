@@ -85,6 +85,204 @@ Rectangle {
         }
     }
 
+    Dialog {
+	    id: btcSettingsDialog
+
+	    modal: true
+
+	    width: 420
+	    height: 420
+	    x: (parent.width - width) / 2
+	    y: (parent.height - height) / 2
+	    visible: false
+
+	    background: Rectangle {
+		    radius: 10
+            color: Style.background_second
+            anchors.fill: parent            
+        }
+
+        contentItem: ColumnLayout {
+            anchors.fill: parent
+            anchors.margins: 30
+            spacing: 10
+
+            SFText {
+                Layout.alignment: Qt.AlignHCenter
+                Layout.topMargin: 15
+                text: "BTC settings"
+                color: Style.content_main
+                font.pixelSize: 18
+                font.styleName: "Bold"; font.weight: Font.Bold
+            }
+
+            ColumnLayout {
+                Layout.fillWidth: true
+                Layout.fillHeight: true
+
+                RowLayout {
+                    Layout.fillWidth: true
+                    spacing: 10
+
+                    SFText {
+                        text: "user:"
+                        color: Style.content_main
+                        font.pixelSize: 14
+                    }
+
+                    SFTextInput {
+                        id: btcUser
+                        Layout.fillWidth: true
+                        focus: true
+                        activeFocusOnTab: true
+                        font.pixelSize: 14
+                        color: Style.content_main
+                        text: viewModel.btcUser
+                        Binding {
+                            target: viewModel
+                            property: "btcUser"
+                            value: btcUser.text
+                        }
+                    }
+                }
+
+                RowLayout {
+                    Layout.fillWidth: true
+                    spacing: 10
+
+                    SFText {
+                        text: "password:"
+                        color: Style.content_main
+                        font.pixelSize: 14
+                    }
+
+                    SFTextInput {
+                        id: btcPass
+                        Layout.fillWidth: true
+                        focus: true
+                        activeFocusOnTab: true
+                        font.pixelSize: 14
+                        color: Style.content_main
+                        text: viewModel.btcPass
+                        Binding {
+                            target: viewModel
+                            property: "btcPass"
+                            value: btcPass.text
+                        }
+                    }
+                }
+
+                RowLayout {
+                    Layout.fillWidth: true
+                    spacing: 10
+
+                    SFText {
+                        text: "node:"
+                        color: Style.content_main
+                        font.pixelSize: 14
+                    }
+
+                    SFTextInput {
+                        id: btcNodeAddress
+                        Layout.fillWidth: true
+                        focus: true
+                        activeFocusOnTab: true
+                        font.pixelSize: 14
+                        color: Style.content_main
+                        validator: RegExpValidator { regExp: /^(\s|\x180E)*((([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])|([\w.-]+(?:\.[\w\.-]+)+))(:([1-9]|[1-9][0-9]{1,3}|[1-5][0-9]{4}|6[0-4][0-9]{3}|65[0-4][0-9]{2}|655[0-2][0-9]|6553[0-5]))?(\s|\x180E)*$/ }
+                        text: viewModel.btcNodeAddress
+                        Binding {
+                            target: viewModel
+                            property: "btcNodeAddress"
+                            value: btcNodeAddress.text
+                        }
+                    }
+                }
+
+                RowLayout {
+                    Layout.fillWidth: true
+                    spacing: 10
+
+                    SFText {
+                        text: "fee_rate:"
+                        color: Style.content_main
+                        font.pixelSize: 14
+                    }
+
+                    SFTextInput {
+                        id: btcFeeRate
+                        Layout.fillWidth: true
+                        focus: true
+                        activeFocusOnTab: true
+                        font.pixelSize: 14
+                        color: Style.content_main
+                        text: viewModel.btcFeeRate
+                        Binding {
+                            target: viewModel
+                            property: "btcFeeRate"
+                            value: btcFeeRate.text
+                        }
+                    }
+                }
+
+                RowLayout {
+                    Layout.fillWidth: true
+                    spacing: 10
+
+                    SFText {
+                        text: "available:"
+                        color: Style.content_main
+                        font.pixelSize: 14
+                    }
+
+                    SFText {
+                        text: viewModel.btcAvailable
+                        color: Style.content_main
+                        font.pixelSize: 14
+                    }
+                }
+            }
+
+            RowLayout {
+                Layout.fillWidth: true
+                Layout.alignment: Qt.AlignHCenter
+                Layout.preferredHeight: 42
+
+                CustomButton {
+                    Layout.preferredHeight: 38
+                    Layout.preferredWidth: 125
+                    leftPadding: 25
+                    rightPadding: 25
+                    spacing: 12
+                    //% "Cancel"
+                    text: qsTrId("general-cancel")
+                    icon.source: "qrc:/assets/icon-cancel-white.svg"
+                    onClicked: btcSettingsDialog.close();
+                }
+
+                Item {
+                    Layout.maximumWidth: 30
+                    Layout.fillWidth: true
+                }
+
+
+                PrimaryButton {
+                    Layout.alignment: Qt.AlignHCenter
+                    Layout.preferredHeight: 38
+                    Layout.preferredWidth: 225
+                    leftPadding: 25
+                    rightPadding: 25
+                    spacing: 12
+                    text: "apply btc settings"
+                    icon.source: "qrc:/assets/icon-done.svg"  
+                    onClicked: { 
+                        viewModel.applyBTCChanges()
+                    }
+                }
+            }
+        }
+    }
+
     function handleMousePointer(mouse, element) {
         if (element.parent.linkAt(mouse.x, mouse.y).length) {
             element.cursorShape = Qt.PointingHandCursor;
@@ -438,6 +636,19 @@ Rectangle {
                                     }
                                 }
                             }
+                        }
+
+                        PrimaryButton {
+                            Layout.alignment: Qt.AlignHCenter
+                            Layout.preferredHeight: 38
+                            Layout.preferredWidth: 225
+                            palette.button: Style.background_second
+                            palette.buttonText : Style.content_main
+                            leftPadding: 25
+                            rightPadding: 25
+                            spacing: 12
+                            text: "btc settings"
+                            onClicked: btcSettingsDialog.open()
                         }
                     }
 
