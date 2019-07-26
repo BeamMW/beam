@@ -315,21 +315,20 @@ namespace beam::wallet
             if (m_ActiveTransactions.find(tx.m_txId) == m_ActiveTransactions.end())
             {
                 // Reconstruct tx with reset parameters and add it to the active list
-                auto t = ConstructTransaction(tx.m_txId, tx.m_txType);
-                if (t->Rollback(Height(0)))
+                auto transaction = ConstructTransaction(tx.m_txId, tx.m_txType);
+                if (transaction && transaction->Rollback(Height(0)))
                 {
-                    MakeTransactionActive(t);
+                    MakeTransactionActive(transaction);
                 }
             }
         }
 
         // Update all transactions
-        auto t = m_ActiveTransactions;
+        auto transactions = m_ActiveTransactions;
         AsyncContextHolder holder(*this);
-        for (auto& p : t)
+        for (auto& [txId, transaction] : transactions)
         {
-            auto tx = p.second;
-            tx->Update();
+            transaction->Update();
         }
     }
 
