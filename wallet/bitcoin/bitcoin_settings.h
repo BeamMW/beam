@@ -14,6 +14,7 @@
 
 #pragma once
 
+#include "core/serialization_adapters.h"
 #include "utility/io/address.h"
 #include "utility/common.h"
 #include "wallet/common.h"
@@ -25,6 +26,16 @@ namespace beam
         std::string m_userName;
         std::string m_pass;
         io::Address m_address;
+
+        SERIALIZE(m_userName, m_pass, m_address);
+    };
+
+    class IBitcoindSettingsProvider
+    {
+    public:
+        using Ptr = std::shared_ptr<IBitcoindSettingsProvider>;
+
+        virtual BitcoindSettings GetBitcoindSettings() const = 0;
     };
 
     class IBitcoinSettings
@@ -58,11 +69,23 @@ namespace beam
         void SetLockTimeInBlocks(uint32_t lockTimeInBlocks);
         void SetChainType(wallet::SwapSecondSideChainType chainType);
 
+        SERIALIZE(m_connectionSettings, m_feeRate, m_txMinConfirmations, m_chainType, m_lockTimeInBlocks);
+
     private:
         BitcoindSettings m_connectionSettings;
         Amount m_feeRate = 0;
         uint16_t m_txMinConfirmations = 6;
         wallet::SwapSecondSideChainType m_chainType = wallet::SwapSecondSideChainType::Mainnet;
         uint32_t m_lockTimeInBlocks = 2 * 24 * 6;
+    };
+
+    class IBitcoinSettingsProvider
+        : public IBitcoindSettingsProvider
+    {
+    public:
+        using Ptr = std::shared_ptr<IBitcoinSettingsProvider>;
+
+        virtual BitcoinSettings GetSettings() const = 0;
+        virtual void SetSettings(const BitcoinSettings& settings) = 0;
     };
 }

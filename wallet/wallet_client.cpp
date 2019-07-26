@@ -209,9 +209,9 @@ namespace beam::wallet
         }
     }
 
-    void WalletClient::start()
+    void WalletClient::start(std::shared_ptr<std::unordered_map<TxType, BaseTransaction::Creator::Ptr>> txCreators)
     {
-        m_thread = std::make_shared<std::thread>([this]()
+        m_thread = std::make_shared<std::thread>([this, txCreators]()
             {
                 try
                 {
@@ -309,7 +309,13 @@ namespace beam::wallet
 
                     wallet_subscriber = make_unique<WalletSubscriber>(static_cast<IWalletObserver*>(this), wallet);
 
-                    onBeforeWalletRun(*wallet, m_reactor);
+                    if (txCreators)
+                    {
+                        for (auto& [txType, creator] : *txCreators)
+                        {
+                            wallet->RegisterTransactionType(txType, creator);
+                        }
+                    }
 
                     nodeNetwork->tryToConnect();
                     m_reactor->run_ex([&wallet, &nodeNetwork](){
