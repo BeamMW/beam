@@ -373,7 +373,7 @@ namespace beam::wallet
 
                     wallet_subscriber = make_unique<WalletSubscriber>(static_cast<IWalletObserver*>(this), wallet);
 
-                    auto offersMonitor = make_shared<SwapOffersMonitor>(nodeNetwork,static_cast<IWalletObserver&>(*this));
+                    auto offersMonitor = make_shared<SwapOffersMonitor>(*nodeNetwork,static_cast<IWalletObserver&>(*this), *walletNetwork);
                     m_offersMonitor = offersMonitor;
 
                     nodeNetwork->tryToConnect();
@@ -583,7 +583,11 @@ namespace beam::wallet
 
     void WalletClient::getSwapOffers()
     {
-        onSwapOffersChanged(ChangeAction::Reset, ...);
+        auto p = m_offersMonitor.lock();
+        if (p)
+        {
+            onSwapOffersChanged(ChangeAction::Reset, p->getOffersList());
+        }
     }
 
     void WalletClient::cancelTx(const TxID& id)

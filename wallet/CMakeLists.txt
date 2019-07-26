@@ -17,6 +17,7 @@ set(WALLET_SRC
     swaps/swap_transaction.cpp
     swaps/lock_tx_builder.cpp
     swaps/shared_tx_builder.cpp
+    swaps/offers/swap_offers_monitor.h
     bitcoin/bitcoin_side.cpp
     bitcoin/bitcoind016.cpp
     bitcoin/bitcoind017.cpp

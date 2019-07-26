@@ -19,7 +19,7 @@
 #include "wallet_db.h"
 #include "wallet_network.h"
 #include "wallet_model_async.h"
-#include "swap_offers_monitor.h"
+#include "swaps/offers/swap_offers_monitor.h"
 
 #include <thread>
 #include <atomic>

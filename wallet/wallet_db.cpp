@@ -123,21 +123,6 @@ namespace std
             return boost::hash<argument_type>()(a);
         }
     };
-
-    template<class T, size_t N> 
-    struct hash<std::array<T, N>>
-    {
-        auto operator() (const std::array<T, N>& key) const
-        {
-            std::hash<T> hasher;
-            size_t result = 0;
-            for(size_t i = 0; i < N; ++i)
-            {
-                result = (result << 1) ^ hasher(key[i]);
-            }
-            return result;
-        }
-    };
 }
 
 namespace beam::wallet

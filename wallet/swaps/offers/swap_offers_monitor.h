@@ -29,15 +29,16 @@ namespace beam::wallet
     {
 
     public:
-        SwapOffersMonitor(FlyClient::INetwork& network, IWalletObserver& observer)
-            : m_observer(observer)
+        SwapOffersMonitor(FlyClient::INetwork& network, IWalletObserver& observer, IWalletMessageEndpoint& messageEndpoint)
+            : m_observer(observer),
+              m_messageEndpoint(messageEndpoint)
         {
             network.BbsSubscribe(OffersBbsChannel, m_lastTimestamp, this);
 
             // test on dummy data
-            for (int i = 0; i < 10; ++i) {
+            for (uint8_t i = 0; i < 10; ++i) {
 
-                TxID id {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,i};
+                TxID id {0u,0u,0u,0u,0u,0u,0u,0u,0u,0u,0u,0u,0u,0u,0u,i};
                 TxDescription txDesc;
 
                 txDesc.m_txId = id;
@@ -73,25 +74,25 @@ namespace beam::wallet
             uint32_t nSize = static_cast<uint32_t>(msg.m_Message.size());
 
             // SetTxParameter deserializedObj;
-            TxDescription deserializedObj;
-            bool bValid = false;
+            TxID deserializedObj;
+            TxDescription tx;
 
             try
             {
                 Deserializer der;
                 der.reset(pMsg, nSize);
-                der& deserializedObj;
-                bValid = true;
+                der & deserializedObj;
+
+                tx.m_txId = deserializedObj;
+                m_offersCache[tx.m_txId] = tx;
+
+                m_observer.onSwapOffersChanged(ChangeAction::Added, std::vector<TxDescription>{tx});
             }
             catch (const std::exception&)
             {
                 LOG_WARNING() << "not crypted BBS deserialization failed";
             }
-
-            m_offersCache[deserializedObj.m_txId] = deserializedObj;
-
-            m_observer.onSwapOffersChanged(ChangeAction::Added, std::vector<TxDescription>{deserializedObj});
-        }
+        };
 
         auto getOffersList() const -> std::vector<TxDescription>
         {
@@ -103,6 +104,21 @@ namespace beam::wallet
             }
 
             return offers;
+        };
+
+        void sendOffer(TxID id)
+        {
+            WalletID wId;
+            ByteBuffer msg;
+
+            wId.m_Channel = OffersBbsChannel;
+
+            for (auto byte : id)
+            {
+                msg.push_back(byte);
+            }
+            
+            m_messageEndpoint.SendEncryptedMessage(wId, msg);
         }
 
         // implement smart cache to prevent load of all mesages each time
@@ -112,6 +128,7 @@ namespace beam::wallet
         Timestamp m_lastTimestamp = 0;  /// for test
 
         IWalletObserver& m_observer;
+        IWalletMessageEndpoint& m_messageEndpoint;
 
         std::unordered_map<TxID, TxDescription> m_offersCache;
 
