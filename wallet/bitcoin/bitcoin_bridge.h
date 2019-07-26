@@ -68,5 +68,7 @@ namespace beam
         virtual void getBlockCount(std::function<void(const Error&, uint64_t)> callback) = 0;
         // error, balance
         virtual void getBalance(uint32_t confirmations, std::function<void(const Error&, double)> callback) = 0;
+        // error, confirmed, unconfirmed and immature balances
+        virtual void getDetailedBalance(std::function<void(const Error&, double, double, double)> callback) = 0;
     };
 }

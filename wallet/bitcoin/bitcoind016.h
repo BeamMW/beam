@@ -41,6 +41,7 @@ namespace beam
         void getTxOut(const std::string& txid, int outputIndex, std::function<void(const Error&, const std::string&, double, uint16_t)> callback) override;
         void getBlockCount(std::function<void(const Error&, uint64_t)> callback) override;
         void getBalance(uint32_t confirmations, std::function<void(const Error&, double)> callback) override;
+        void getDetailedBalance(std::function<void(const Error&, double, double, double)> callback) override;
 
     protected:
         void sendRequest(const std::string& method, const std::string& params, std::function<void(const Error&, const nlohmann::json&)> callback);

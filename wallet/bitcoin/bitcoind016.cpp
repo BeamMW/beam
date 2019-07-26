@@ -304,6 +304,32 @@ namespace beam
         });
     }
 
+    void Bitcoind016::getDetailedBalance(std::function<void(const Error&, double, double, double)> callback)
+    {
+        LOG_DEBUG() << "Send getalletInfo command";
+        sendRequest("getwalletinfo", "", [callback](IBitcoinBridge::Error error, const json& result) {
+            double confirmed = 0;
+            double unconfirmed = 0;
+            double immature = 0;
+
+            if (error.m_type == IBitcoinBridge::None)
+            {
+                try
+                {
+                    confirmed = result["balance"].get<double>();
+                    unconfirmed = result["unconfirmed_balance"].get<double>();
+                    immature = result["immature_balance"].get<double>();
+                }
+                catch (const std::exception& ex)
+                {
+                    error.m_type = IBitcoinBridge::InvalidResultFormat;
+                    error.m_message = ex.what();
+                }
+            }
+            callback(error, confirmed, unconfirmed, immature);
+            });
+    }
+
     std::string Bitcoind016::getCoinName() const
     {
         return "bitcoin";
