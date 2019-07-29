@@ -11,11 +11,11 @@ ColumnLayout {
     id: thisView
     property bool regularMode: true
     property var defaultFocusItem: null
+    property var currentView: null
 
-    Component.onDestruction: {
-       if (regularMode) receive.saveAddress()
-       else swap.saveAddress()
-    }
+    Component.onDestruction: currentView.saveAddress()
+    Component.onCompleted:   createChild()
+    onRegularModeChanged:    createChild()
 
     Item {
         Layout.fillWidth:    true
@@ -43,10 +43,6 @@ ColumnLayout {
             value:    !mode.checked
         }
     }
-
-    property var currentView: null
-    Component.onCompleted: createChild()
-    onRegularModeChanged: createChild();
 
     function createChild() {
         if (currentView) currentView.destroy();
