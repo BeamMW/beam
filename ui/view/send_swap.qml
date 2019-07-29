@@ -112,7 +112,6 @@ ColumnLayout {
                 fee:              viewModel.sendFee
                 readOnly:         true
                 multi:            false
-                resetAmount:      false
                 color:            Style.accent_outgoing
                 currColor:        viewModel.receiveCurrency == viewModel.sendCurrency ? Style.validator_error : Style.content_main
                 error:            viewModel.isEnough ? "" : qsTrId("send-not-enough")
@@ -173,7 +172,6 @@ ColumnLayout {
                 fee:              viewModel.receiveFee
                 readOnly:         true
                 multi:            false
-                resetAmount:      false
                 color:            Style.accent_incoming
                 currColor:        viewModel.receiveCurrency == viewModel.sendCurrency ? Style.validator_error : Style.content_main
             }

@@ -100,9 +100,12 @@ ColumnLayout {
             visible:             multi
             model:               currList()
 
-            onCurrentIndexChanged: {
-                if (multi) control.currency = currentIndex
-                // if (resetAmount) control.amount = 0
+            onActivated: {
+                if (multi) control.currency = index
+                if (resetAmount) {
+                    ainput.text    = ""
+                    control.amount = 0
+                }
             }
         }
     }
