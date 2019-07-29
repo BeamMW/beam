@@ -210,16 +210,16 @@ void WalletModel::onPaymentProofExported(const beam::wallet::TxID& txID, const b
 
 void WalletModel::onBeforeWalletRun(beam::wallet::Wallet& wallet, beam::io::Reactor::Ptr reactor)
 {
-    auto swapTransactionCreator = std::make_shared<beam::wallet::AtomicSwapTransaction::Creator>();
-    wallet.RegisterTransactionType(TxType::AtomicSwap, std::static_pointer_cast<beam::wallet::BaseTransaction::Creator>(swapTransactionCreator));
-    
+    //auto swapTransactionCreator = std::make_shared<beam::wallet::AtomicSwapTransaction::Creator>();
+    //wallet.RegisterTransactionType(TxType::AtomicSwap, std::static_pointer_cast<beam::wallet::BaseTransaction::Creator>(swapTransactionCreator));
+    //
 
-    if (auto btcSettings = AppModel::getInstance().getSettings().getBitcoinSettings(); btcSettings)
-    {
-        auto bitcoinBridge = std::make_shared<Bitcoind017>(*reactor, btcSettings->GetConnectionOptions());
-        auto btcSecondSideFactory = beam::wallet::MakeSecondSideFactory<BitcoinSide, Bitcoind017, BitcoinSettings>(bitcoinBridge, btcSettings);
-        swapTransactionCreator->RegisterFactory(AtomicSwapCoin::Bitcoin, btcSecondSideFactory);
-    }
+    //if (auto btcSettings = AppModel::getInstance().getSettings().getBitcoinSettings(); btcSettings)
+    //{
+    //    auto bitcoinBridge = std::make_shared<Bitcoind017>(*reactor, btcSettings->GetConnectionOptions());
+    //    auto btcSecondSideFactory = beam::wallet::MakeSecondSideFactory<BitcoinSide, Bitcoind017, BitcoinSettings>(bitcoinBridge, btcSettings);
+    //    swapTransactionCreator->RegisterFactory(AtomicSwapCoin::Bitcoin, btcSecondSideFactory);
+    //}
 
     //if (ltcSettings)
     //{

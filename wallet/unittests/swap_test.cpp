@@ -131,13 +131,42 @@ namespace
 
         return "";
     }
+
+    class BitcoinSettingsProvider : public IBitcoinSettingsProvider
+    {
+    public:
+        BitcoinSettingsProvider(const BitcoinSettings& settings)
+            : m_settings{ settings }
+        {
+        }
+
+        BitcoindSettings GetBitcoindSettings() const
+        {
+            return m_settings.GetConnectionOptions();
+        }
+
+        BitcoinSettings GetSettings() const override
+        {
+            return m_settings;
+        }
+
+        void SetSettings(const BitcoinSettings& settings)
+        {
+            assert(false && "readonly object!");
+        }
+
+    private:
+        BitcoinSettings m_settings;
+    };
+
 }
 
 void InitBitcoin(Wallet& wallet, io::Reactor& reactor, std::shared_ptr<BitcoinSettings> settings)
 {
+    auto settingsProvider = std::make_shared<BitcoinSettingsProvider>(*settings);
     auto creator = std::make_shared<AtomicSwapTransaction::Creator>();
-    auto bridge = std::make_shared<Bitcoind017>(reactor, settings->GetConnectionOptions());
-    auto factory = wallet::MakeSecondSideFactory<BitcoinSide, Bitcoind017, BitcoinSettings>(bridge, settings);
+    auto bridge = std::make_shared<Bitcoind017>(reactor, settingsProvider);
+    auto factory = wallet::MakeSecondSideFactory<BitcoinSide, Bitcoind017, IBitcoinSettingsProvider>(bridge, settingsProvider);
     creator->RegisterFactory(AtomicSwapCoin::Bitcoin, factory);
     wallet.RegisterTransactionType(TxType::AtomicSwap, std::static_pointer_cast<BaseTransaction::Creator>(creator));
 }

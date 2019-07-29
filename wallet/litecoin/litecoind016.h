@@ -23,7 +23,7 @@ namespace beam
     {
     public:
         Litecoind016() = delete;
-        Litecoind016(io::Reactor& reactor, const LitecoindSettings& settings);
+        Litecoind016(io::Reactor& reactor, ILitecoindSettingsProvider::Ptr settingsProvider);
 
     protected:
         std::string getCoinName() const override;

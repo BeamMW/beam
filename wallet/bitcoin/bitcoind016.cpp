@@ -44,10 +44,9 @@ namespace beam
         }
     }
 
-    Bitcoind016::Bitcoind016(io::Reactor& reactor, const BitcoindSettings& settings)
+    Bitcoind016::Bitcoind016(io::Reactor& reactor, IBitcoindSettingsProvider::Ptr settingsProvider)
         : m_httpClient(reactor)
-        , m_settings(settings)
-        , m_authorization(generateAuthorization(m_settings.m_userName, m_settings.m_pass))
+        , m_settingsProvider(settingsProvider)
     {
     }
 
@@ -338,12 +337,14 @@ namespace beam
     void Bitcoind016::sendRequest(const std::string& method, const std::string& params, std::function<void(const Error&, const json&)> callback)
     {
         const std::string content(R"({"method":")" + method + R"(","params":[)" + params + "]}");
+        auto settings = m_settingsProvider->GetBitcoindSettings();
+        const std::string authorization(generateAuthorization(settings.m_userName, settings.m_pass));
         const HeaderPair headers[] = {
-            {"Authorization", m_authorization.data()}
+            {"Authorization", authorization.data()}
         };
         HttpClient::Request request;
 
-        request.address(m_settings.m_address)
+        request.address(settings.m_address)
             .connectTimeoutMsec(2000)
             .pathAndQuery("/")
             .headers(headers)

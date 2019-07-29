@@ -24,8 +24,8 @@ namespace
 
 namespace beam::wallet
 {
-    LitecoinSide::LitecoinSide(BaseTransaction& tx, IBitcoinBridge::Ptr bitcoinBridge, IBitcoinSettings::Ptr settings, bool isBeamSide)
-        : BitcoinSide(tx, bitcoinBridge, settings, isBeamSide)
+    LitecoinSide::LitecoinSide(BaseTransaction& tx, IBitcoinBridge::Ptr bitcoinBridge, ILitecoinSettingsProvider::Ptr settingsProvider, bool isBeamSide)
+        : BitcoinSide(tx, bitcoinBridge, settingsProvider, isBeamSide)
     {
     }
 

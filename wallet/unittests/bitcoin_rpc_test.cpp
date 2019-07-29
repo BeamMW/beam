@@ -33,15 +33,26 @@ namespace
 {
     const unsigned TEST_PERIOD = 1000;
 
+    class BitcoindSettingsProvider : public IBitcoindSettingsProvider
+    {
+    public:
+        BitcoindSettingsProvider(const std::string& userName, const std::string& pass, const io::Address& address)
+            : m_settings{ userName, pass, address }
+        {
+        }
+        BitcoindSettings GetBitcoindSettings() const override
+        {
+            return m_settings;
+        }
+
+    private:
+        BitcoindSettings m_settings;
+    };
+
     Bitcoind016 GetBitcoind016(io::Reactor& reactor, std::string userName, std::string pass, io::Address address)
     {
-        BitcoindSettings settings;
-
-        settings.m_address = address;
-        settings.m_userName = btcUserName;
-        settings.m_pass = btcPass;
-
-        return Bitcoind016(reactor, settings);
+        auto settingsProvider = std::make_shared<BitcoindSettingsProvider>(btcUserName, btcPass, address);
+        return Bitcoind016(reactor, settingsProvider);
     }
 }
 

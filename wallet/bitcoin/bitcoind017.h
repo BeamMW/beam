@@ -22,7 +22,7 @@ namespace beam
     {
     public:
         Bitcoind017() = delete;
-        Bitcoind017(io::Reactor& reactor, const BitcoindSettings& settings);
+        Bitcoind017(io::Reactor& reactor, IBitcoindSettingsProvider::Ptr settingsProvider);
 
         void signRawTransaction(const std::string& rawTx, std::function<void(const IBitcoinBridge::Error&, const std::string&, bool)> callback) override;
         void createRawTransaction(

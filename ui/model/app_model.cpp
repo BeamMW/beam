@@ -141,10 +141,10 @@ void AppModel::startWallet()
     auto additionalTxCreators = std::make_shared<std::unordered_map<TxType, BaseTransaction::Creator::Ptr>>();
     auto swapTransactionCreator = std::make_shared<beam::wallet::AtomicSwapTransaction::Creator>();
 
-    if (auto btcSettings = getSettings().getBitcoinSettings(); btcSettings)
+    if (auto btcClient = getBitcoinClient(); btcClient)
     {
-        auto bitcoinBridge = std::make_shared<Bitcoind017>(*m_walletReactor, btcSettings->GetConnectionOptions());
-        auto btcSecondSideFactory = beam::wallet::MakeSecondSideFactory<BitcoinSide, Bitcoind017, BitcoinSettings>(bitcoinBridge, btcSettings);
+        auto bitcoinBridge = std::make_shared<Bitcoind017>(*m_walletReactor, btcClient);
+        auto btcSecondSideFactory = beam::wallet::MakeSecondSideFactory<BitcoinSide, Bitcoind017, IBitcoinSettingsProvider>(bitcoinBridge, btcClient);
         swapTransactionCreator->RegisterFactory(AtomicSwapCoin::Bitcoin, btcSecondSideFactory);
     }
 

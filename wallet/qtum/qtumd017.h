@@ -23,7 +23,7 @@ namespace beam
     {
     public:
         Qtumd017() = delete;
-        Qtumd017(io::Reactor& reactor, const QtumdSettings& settings);
+        Qtumd017(io::Reactor& reactor, IQtumdSettingsProvider::Ptr settingsProvider);
 
     protected:
         std::string getCoinName() const override;

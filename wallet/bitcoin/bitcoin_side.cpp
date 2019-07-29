@@ -69,10 +69,10 @@ namespace
 
 namespace beam::wallet
 {
-    BitcoinSide::BitcoinSide(BaseTransaction& tx, IBitcoinBridge::Ptr bitcoinBridge, IBitcoinSettings::Ptr settings, bool isBeamSide)
+    BitcoinSide::BitcoinSide(BaseTransaction& tx, IBitcoinBridge::Ptr bitcoinBridge, IBitcoinSettingsProvider::Ptr settingsProvider, bool isBeamSide)
         : m_tx(tx)
         , m_bitcoinBridge(bitcoinBridge)
-        , m_settings(settings)
+        , m_settingsProvider(settingsProvider)
         , m_isBtcOwner(!isBeamSide)
     {
     }
@@ -230,22 +230,22 @@ namespace beam::wallet
 
     Amount BitcoinSide::GetFeeRate() const
     {
-        return m_settings->GetFeeRate();
+        return m_settingsProvider->GetSettings().GetFeeRate();
     }
 
     uint16_t BitcoinSide::GetTxMinConfirmations() const
     {
-        return m_settings->GetTxMinConfirmations();
+        return m_settingsProvider->GetSettings().GetTxMinConfirmations();
     }
 
     uint32_t BitcoinSide::GetLockTimeInBlocks() const
     {
-        return m_settings->GetLockTimeInBlocks();
+        return m_settingsProvider->GetSettings().GetLockTimeInBlocks();
     }
 
     bool BitcoinSide::IsMainnet() const
     {
-        return m_settings->GetChainType() == wallet::SwapSecondSideChainType::Mainnet;
+        return m_settingsProvider->GetSettings().GetChainType() == wallet::SwapSecondSideChainType::Mainnet;
     }
 
     bool BitcoinSide::LoadSwapAddress()

@@ -18,6 +18,8 @@
 
 namespace beam
 {
+    using ILitecoindSettingsProvider = IBitcoindSettingsProvider;
+    using ILitecoinSettingsProvider = IBitcoinSettingsProvider;
     using LitecoindSettings = BitcoindSettings;
 
     class LitecoinSettings : public BitcoinSettings

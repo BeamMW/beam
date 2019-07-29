@@ -18,8 +18,8 @@
 
 namespace beam
 {
-    Qtumd017::Qtumd017(io::Reactor& reactor, const QtumdSettings& settings)
-        : Bitcoind017(reactor, settings)
+    Qtumd017::Qtumd017(io::Reactor& reactor, IQtumdSettingsProvider::Ptr settingsProvider)
+        : Bitcoind017(reactor, settingsProvider)
     {
     }
 

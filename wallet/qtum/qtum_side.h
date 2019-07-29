@@ -15,6 +15,7 @@
 #pragma once
 
 #include "wallet/bitcoin/bitcoin_side.h"
+#include "qtum_settings.h"
 
 namespace beam::wallet
 {
@@ -22,7 +23,7 @@ namespace beam::wallet
     {
     public:
 
-        QtumSide(BaseTransaction& tx, IBitcoinBridge::Ptr bitcoinBridge, IBitcoinSettings::Ptr settings, bool isBeamSide);
+        QtumSide(BaseTransaction& tx, IBitcoinBridge::Ptr bitcoinBridge, IQtumSettingsProvider::Ptr settingsProvider, bool isBeamSide);
         static bool CheckAmount(Amount amount, Amount feeRate);
 
     protected:

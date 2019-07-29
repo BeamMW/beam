@@ -47,8 +47,6 @@ namespace beam
         , m_async{ std::make_shared<BitcoinClientBridge>(*(static_cast<IBitcoinClientAsync*>(this)), reactor) }
     {
         LoadSettings();
-        // verify connection and update status
-        GetBalance();
     }
 
     IBitcoinClientAsync::Ptr BitcoinClient::GetAsync()
@@ -99,7 +97,7 @@ namespace beam
         if (!m_bridge)
         {
             // TODO: change settings ?
-            m_bridge = std::make_shared<Bitcoind017>(m_reactor, m_settings->GetConnectionOptions());
+            m_bridge = std::make_shared<Bitcoind017>(m_reactor, shared_from_this());
         }
 
         m_bridge->getDetailedBalance([this] (const IBitcoinBridge::Error& error, double confirmed, double unconfirmed, double immature)

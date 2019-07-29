@@ -33,8 +33,10 @@ namespace beam
     class BitcoinClient 
         : private IBitcoinClientAsync
         , public IBitcoinSettingsProvider
+        , public std::enable_shared_from_this<IBitcoinSettingsProvider>
     {
     public:
+
         struct Balance
         {
             double m_available = 0;

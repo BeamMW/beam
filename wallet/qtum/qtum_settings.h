@@ -18,6 +18,8 @@
 
 namespace beam
 {
+    using IQtumdSettingsProvider = IBitcoindSettingsProvider;
+    using IQtumSettingsProvider = IBitcoinSettingsProvider;
     using QtumdSettings = BitcoindSettings;
 
     class QtumSettings : public BitcoinSettings

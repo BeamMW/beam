@@ -1132,6 +1132,33 @@ namespace
 
         return nullptr;
     }
+
+    class BitcoinSettingsProvider : public IBitcoinSettingsProvider
+    {
+    public:
+        BitcoinSettingsProvider(const BitcoinSettings& settings)
+            : m_settings{ settings }
+        {
+        }
+
+        BitcoindSettings GetBitcoindSettings() const
+        {
+            return m_settings.GetConnectionOptions();
+        }
+
+        BitcoinSettings GetSettings() const override
+        {
+            return m_settings;
+        }
+
+        void SetSettings(const BitcoinSettings& settings)
+        {
+            assert(false && "readonly object!");
+        }
+
+    private:
+        BitcoinSettings m_settings;
+    };
 }
 
 io::Reactor::Ptr reactor;
@@ -1521,22 +1548,25 @@ int main_impl(int argc, char* argv[])
 
                         if (btcSettings)
                         {
-                            auto bitcoinBridge = std::make_shared<Bitcoind017>(io::Reactor::get_Current(), btcSettings->GetConnectionOptions());
-                            auto btcSecondSideFactory = wallet::MakeSecondSideFactory<BitcoinSide, Bitcoind017, BitcoinSettings>(bitcoinBridge, btcSettings);
+                            auto settingsProvider = std::make_shared<BitcoinSettingsProvider>(*btcSettings);
+                            auto bitcoinBridge = std::make_shared<Bitcoind017>(io::Reactor::get_Current(), settingsProvider);
+                            auto btcSecondSideFactory = wallet::MakeSecondSideFactory<BitcoinSide, Bitcoind017, IBitcoinSettingsProvider>(bitcoinBridge, settingsProvider);
                             swapTransactionCreator->RegisterFactory(AtomicSwapCoin::Bitcoin, btcSecondSideFactory);
                         }
 
                         if (ltcSettings)
                         {
-                            auto litecoinBridge = std::make_shared<Litecoind017>(io::Reactor::get_Current(), ltcSettings->GetConnectionOptions());
-                            auto ltcSecondSideFactory = wallet::MakeSecondSideFactory<LitecoinSide, Litecoind017, LitecoinSettings>(litecoinBridge, ltcSettings);
+                            auto settingsProvider = std::make_shared<BitcoinSettingsProvider>(*ltcSettings);
+                            auto litecoinBridge = std::make_shared<Litecoind017>(io::Reactor::get_Current(), settingsProvider);
+                            auto ltcSecondSideFactory = wallet::MakeSecondSideFactory<LitecoinSide, Litecoind017, ILitecoinSettingsProvider>(litecoinBridge, settingsProvider);
                             swapTransactionCreator->RegisterFactory(AtomicSwapCoin::Litecoin, ltcSecondSideFactory);
                         }
 
                         if (qtumSettings)
                         {
-                            auto qtumBridge = std::make_shared<Qtumd017>(io::Reactor::get_Current(), qtumSettings->GetConnectionOptions());
-                            auto qtumSecondSideFactory = wallet::MakeSecondSideFactory<QtumSide, Qtumd017, QtumSettings>(qtumBridge, qtumSettings);
+                            auto settingsProvider = std::make_shared<BitcoinSettingsProvider>(*qtumSettings);
+                            auto qtumBridge = std::make_shared<Qtumd017>(io::Reactor::get_Current(), settingsProvider);
+                            auto qtumSecondSideFactory = wallet::MakeSecondSideFactory<QtumSide, Qtumd017, IQtumSettingsProvider>(qtumBridge, settingsProvider);
                             swapTransactionCreator->RegisterFactory(AtomicSwapCoin::Qtum, qtumSecondSideFactory);
                         }
 
@@ -1634,7 +1664,7 @@ int main_impl(int argc, char* argv[])
 
                                 WalletAddress senderAddress = GenerateNewAddress(walletDB, "");
 
-                                auto swapParameters = InitNewSwap(receiverWalletID, amount, fee, swapCoin, swapAmount, secondSideChainType, isBeamSide);
+                                auto swapParameters = InitNewSwap(senderAddress.m_walletID, amount, fee, swapCoin, swapAmount, secondSideChainType, isBeamSide);
                                 swapParameters.SetParameter(TxParameterID::MyID, senderAddress.m_walletID);
                                 currentTxID = wallet.StartTransaction(swapParameters);
                                 //currentTxID = wallet.swap_coins(senderAddress.m_walletID, receiverWalletID, 
