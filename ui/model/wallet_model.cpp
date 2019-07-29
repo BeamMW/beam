@@ -18,19 +18,6 @@
 #include "utility/bridge.h"
 #include "utility/io/asyncevent.h"
 #include "utility/helpers.h"
-#include "wallet/swaps/swap_transaction.h"
-
-// TODO: move this includes to one place
-#include "wallet/bitcoin/bitcoind017.h"
-#include "wallet/bitcoin/bitcoin_settings.h"
-#include "wallet/bitcoin/bitcoin_side.h"
-#include "wallet/litecoin/litecoind017.h"
-#include "wallet/litecoin/litecoin_settings.h"
-#include "wallet/litecoin/litecoin_side.h"
-#include "wallet/qtum/qtumd017.h"
-#include "wallet/qtum/qtum_settings.h"
-#include "wallet/qtum/qtum_side.h"
-///
 
 using namespace beam;
 using namespace beam::wallet;
@@ -205,33 +192,4 @@ void WalletModel::onPaymentProofExported(const beam::wallet::TxID& txID, const b
 
     beam::to_hex(str.data(), proof.data(), proof.size());
     emit paymentProofExported(txID, QString::fromStdString(str));
-}
-
-
-void WalletModel::onBeforeWalletRun(beam::wallet::Wallet& wallet, beam::io::Reactor::Ptr reactor)
-{
-    //auto swapTransactionCreator = std::make_shared<beam::wallet::AtomicSwapTransaction::Creator>();
-    //wallet.RegisterTransactionType(TxType::AtomicSwap, std::static_pointer_cast<beam::wallet::BaseTransaction::Creator>(swapTransactionCreator));
-    //
-
-    //if (auto btcSettings = AppModel::getInstance().getSettings().getBitcoinSettings(); btcSettings)
-    //{
-    //    auto bitcoinBridge = std::make_shared<Bitcoind017>(*reactor, btcSettings->GetConnectionOptions());
-    //    auto btcSecondSideFactory = beam::wallet::MakeSecondSideFactory<BitcoinSide, Bitcoind017, BitcoinSettings>(bitcoinBridge, btcSettings);
-    //    swapTransactionCreator->RegisterFactory(AtomicSwapCoin::Bitcoin, btcSecondSideFactory);
-    //}
-
-    //if (ltcSettings)
-    //{
-    //    auto litecoinBridge = std::make_shared<Litecoind017>(*reactor, ltcSettings->GetConnectionOptions());
-    //    auto ltcSecondSideFactory = wallet::MakeSecondSideFactory<LitecoinSide, Litecoind017, LitecoinSettings>(litecoinBridge, ltcSettings);
-    //    swapTransactionCreator->RegisterFactory(AtomicSwapCoin::Litecoin, ltcSecondSideFactory);
-    //}
-
-    //if (qtumSettings)
-    //{
-    //    auto qtumBridge = std::make_shared<Qtumd017>(*reactor, qtumSettings->GetConnectionOptions());
-    //    auto qtumSecondSideFactory = wallet::MakeSecondSideFactory<QtumSide, Qtumd017, QtumSettings>(qtumBridge, qtumSettings);
-    //    swapTransactionCreator->RegisterFactory(AtomicSwapCoin::Qtum, qtumSecondSideFactory);
-    //}
 }

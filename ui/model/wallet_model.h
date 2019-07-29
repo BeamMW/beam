@@ -68,7 +68,6 @@ private:
     void onPaymentProofExported(const beam::wallet::TxID& txID, const beam::ByteBuffer& proof) override;
     void onCoinsByTx(const std::vector<beam::wallet::Coin>& coins) override;
     void onAddressChecked(const std::string& addr, bool isValid) override;
-    void onBeforeWalletRun(beam::wallet::Wallet& wallet, beam::io::Reactor::Ptr reactor) override;
 
 private:
     std::vector<beam::wallet::WalletAddress> m_addresses;

@@ -80,7 +80,6 @@ namespace beam::wallet
         virtual void onPaymentProofExported(const TxID& txID, const ByteBuffer& proof) = 0;
         virtual void onCoinsByTx(const std::vector<Coin>& coins) = 0;
         virtual void onAddressChecked(const std::string& addr, bool isValid) = 0;
-        virtual void onBeforeWalletRun(Wallet& wallet, io::Reactor::Ptr reactor) {}
 
     private:
 
