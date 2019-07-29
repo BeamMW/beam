@@ -952,8 +952,7 @@ namespace beam::wallet
 
         m_WalletDB->rollbackConfirmedUtxo(sTip.m_Height);
 
-        ResumeAllTransactions();
-
+        // Rollback active transaction
         for (auto it = m_ActiveTransactions.begin(); m_ActiveTransactions.end() != it; it++)
         {
             const auto& pTx = it->second;
@@ -961,6 +960,23 @@ namespace beam::wallet
             if (pTx->Rollback(sTip.m_Height))
             {
                 UpdateOnSynced(pTx);
+            }
+        }
+
+        // Rollback inactive (completed or active) transactions if applicable
+        auto txs = m_WalletDB->getTxHistory(TxType::ALL); // get list of ALL transactions
+        for (auto& tx : txs)
+        {
+            // For all transactions that are not currently in the 'active' tx list
+            if (m_ActiveTransactions.find(tx.m_txId) == m_ActiveTransactions.end())
+            {
+                // Reconstruct tx with reset parameters and add it to the active list
+                auto pTx = constructTransaction(tx.m_txId, tx.m_txType);
+                if (pTx->Rollback(sTip.m_Height))
+                {
+                    m_ActiveTransactions.emplace(tx.m_txId, pTx);
+                    UpdateOnSynced(pTx);
+                }
             }
         }
 
