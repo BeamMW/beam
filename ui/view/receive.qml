@@ -10,6 +10,7 @@ import "controls"
 ColumnLayout {
     id: thisView
     property bool regularMode: true
+    property var defaultFocusItem: null
 
     Component.onDestruction: {
        if (regularMode) receive.saveAddress()
@@ -27,7 +28,7 @@ ColumnLayout {
             font.styleName:      "Bold"; font.weight: Font.Bold
             color:               Style.content_main
             //% "Receive" / "Create swap offer"
-            text:                regularMode ? qsTrId("wallet-receive-title") : qsTrId("wallet-swap-title")
+            text:                regularMode ? qsTrId("wallet-receive-title") : qsTrId("wallet-receive-swap-title")
         }
 
         CustomSwitch {
@@ -43,14 +44,15 @@ ColumnLayout {
         }
     }
 
-    ReceiveRegular {
-        id:               receive
-        visible:          regularMode
-    }
+    property var currentView: null
+    Component.onCompleted: createChild()
+    onRegularModeChanged: createChild();
 
-    ReceiveSwap {
-        id:               swap
-        visible:          !regularMode
+    function createChild() {
+        if (currentView) currentView.destroy();
+        currentView       = Qt.createComponent(regularMode ? "receive_regular.qml" : "receive_swap.qml").createObject(thisView)
+        defaultFocusItem  = currentView.defaultFocusItem
+        currentView.defaultFocusItem.forceActiveFocus()
     }
 
     Item {

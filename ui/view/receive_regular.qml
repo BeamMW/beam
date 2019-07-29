@@ -9,7 +9,7 @@ import "controls"
 
 ColumnLayout {
     id: thisView
-    property Item defaultFocusItem: addressComment
+    property var defaultFocusItem: addressComment
 
     ReceiveViewModel {
         id: viewModel
@@ -95,6 +95,7 @@ ColumnLayout {
                 color:            viewModel.commentValid ? Style.content_main : Style.validator_error
                 focus:            true
                 text:             viewModel.addressComment
+                maximumLength:    BeamGlobals.maxCommentLength()
             }
 
             Binding {
@@ -109,8 +110,9 @@ ColumnLayout {
                     //% "Address with same comment already exist"
                     text:           qsTrId("general-addr-comment-error")
                     color:          Style.validator_error
-                    font.pixelSize: 11
+                    font.pixelSize: 12
                     visible:        !viewModel.commentValid
+                    font.italic:    true
                 }
             }
 
@@ -200,6 +202,7 @@ ColumnLayout {
         color:               isValid() ? Style.content_secondary : Style.validator_error
         text:                viewModel.transactionToken
         horizontalAlignment: TextEdit.AlignHCenter
+        readOnly:            true
     }
 
     SFText {

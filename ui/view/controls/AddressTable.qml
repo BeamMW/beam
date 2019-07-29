@@ -3,6 +3,7 @@ import QtQuick.Controls 1.4
 import QtQuick.Controls 2.3
 import "."
 import "../utils.js" as Utils
+import Beam.Wallet 1.0
 
 CustomTableView {
     id: rootControl
@@ -84,7 +85,7 @@ CustomTableView {
                     anchors.leftMargin: 20
                     elide: Text.ElideRight
                     anchors.verticalCenter: parent.verticalCenter
-                    text: Utils.formatDateTime(styleData.value, parentModel.getLocaleName())
+                    text: Utils.formatDateTime(styleData.value, BeamGlobals.getLocaleName())
                     color: Style.content_main
                 }
             }
@@ -110,7 +111,7 @@ CustomTableView {
                     anchors.leftMargin: 20
                     elide: Text.ElideRight
                     anchors.verticalCenter: parent.verticalCenter
-                    text: Utils.formatDateTime(styleData.value, parentModel.getLocaleName())
+                    text: Utils.formatDateTime(styleData.value, BeamGlobals.getLocaleName())
                     color: Style.content_main
                 }
             }

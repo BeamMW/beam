@@ -9,12 +9,12 @@ import "controls"
 
 ColumnLayout {
     id: thisView
-    property Item defaultFocusItem: addressComment
+    property var defaultFocusItem: receiveAmountInput.amountInput
 
     ReceiveSwapViewModel {
         id: viewModel
         onNewAddressFailed: {
-            walletView.enabled = true
+            thisView.enabled = true
             Qt.createComponent("receive_addrfail.qml")
                 .createObject(sendView)
                 .open();
@@ -73,8 +73,8 @@ ColumnLayout {
                 title:            qsTrId("receive-amount-swap-label") //% "Receive amount"
                 id:               receiveAmountInput
                 hasFee:           true
-                amount:           viewModel.amountToReceive
                 currency:         viewModel.receiveCurrency
+                amount:           viewModel.amountToReceive
                 multi:            true
                 currColor:        viewModel.receiveCurrency == viewModel.sentCurrency ? Style.validator_error : Style.content_main
             }
@@ -117,6 +117,7 @@ ColumnLayout {
                 color:            viewModel.commentValid ? Style.content_main : Style.validator_error
                 focus:            true
                 text:             viewModel.addressComment
+                maximumLength:    BeamGlobals.maxCommentLength()
             }
 
             Binding {
@@ -131,7 +132,8 @@ ColumnLayout {
                     //% "Address with same comment already exist"
                     text:           qsTrId("general-addr-comment-error")
                     color:          Style.validator_error
-                    font.pixelSize: 11
+                    font.pixelSize: 12
+                    font.italic:    true
                     visible:        !viewModel.commentValid
                 }
             }
@@ -236,6 +238,7 @@ ColumnLayout {
         color:               isValid() ? (canSend() ? Style.content_secondary : Qt.darker(Style.content_secondary)) : Style.validator_error
         text:                viewModel.transactionToken
         horizontalAlignment: TextEdit.AlignHCenter
+        readOnly:            true
     }
 
     SFText {

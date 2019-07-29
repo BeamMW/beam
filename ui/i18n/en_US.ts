@@ -121,8 +121,8 @@
         <translation>Ok</translation>
     </message>
     <message id="general-invalid-address">
-        <source>Invalid address</source>
-        <translation>Invalid address</translation>
+        <source>Invalid address or token</source>
+        <translation>Invalid address or token</translation>
     </message>
     <message id="general-coinbase">
         <source>Coinbase</source>
@@ -188,6 +188,10 @@
     <message id="general-fee-fail">
         <source>The minimum fee is %1 %2</source>
         <translation>The minimum fee is %1 %2</translation>
+    </message>
+    <message id="general-comment-local">
+        <source>Comments are local and won't be shared</source>
+        <translation>Comments are local and won't be shared</translation>
     </message>
     <message id="wallet-receive-button">
         <source>Receive</source>
@@ -553,6 +557,22 @@
         <source>Receive</source>
         <translation>Receive</translation>
     </message>
+    <message id="wallet-receive-swap-title">
+        <source>Create swap offer</source>
+        <translation>Create swap offer</translation>
+    </message>
+    <message id="wallet-send-swap-title">
+        <source>Swap currencies</source>
+        <translation>Swap currencies</translation>
+    </message>
+    <message id="wallet-send-swap-expires-label">
+        <source>Expires on</source>
+        <translation>Expires on</translation>
+    </message>
+    <message id="wallet-send-swap-offered-label">
+        <source>Offered on</source>
+        <translation>Offered on</translation>
+    </message>
     <message id="wallet-swap-title">
         <source>Create swap offer</source>
         <translation>Create swap offer</translation>
@@ -618,12 +638,16 @@
         <translation>Send Beam</translation>
     </message>
     <message id="send-send-to-label">
-        <source>Send To</source>
-        <translation>Send To</translation>
+        <source>Transaction token or contact</source>
+        <translation>Transaction token or contact</translation>
+    </message>
+    <message id="send-swap-to-label">
+        <source>Transaction token</source>
+        <translation>Transaction token</translation>
     </message>
     <message id="send-contact-placeholder">
-        <source>Please specify contact</source>
-        <translation>Please specify contact</translation>
+        <source>Please specify contact or transaction token</source>
+        <translation>Please specify contact or transaction token</translation>
     </message>
     <message id="send-amount-label">
         <source>Transaction amount</source>
@@ -632,6 +656,10 @@
     <message id="send-founds-fail">
         <source>Insufficient funds: you would need %1 to complete the transaction</source>
         <translation>Insufficient funds: you would need %1 to complete the transaction</translation>
+    </message>
+    <message id="send-not-enough">
+        <source>There is not enough funds to completer the transaction</source>
+        <translation>There is not enough funds to completer the transaction</translation>
     </message>
     <message id="send-fee-fail">
         <source>The minimum fee is %1 GROTH</source>
@@ -644,6 +672,14 @@
     <message id="send-remaining-label">
         <source>Remaining</source>
         <translation>Remaining</translation>
+    </message>
+    <message id="send-amount-label">
+        <source>Amount to send</source>
+        <translation>Amount to send</translation>
+    </message>
+    <message id="send-total-label">
+        <source>Total UTXO value</source>
+        <translation>Total UTXO value</translation>
     </message>
     <message id="send-send-fail">
         <source>Address %1 is invalid</source>

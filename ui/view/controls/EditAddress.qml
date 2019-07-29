@@ -42,7 +42,7 @@ Dialog {
 	}
 
 	property var getExpirationTimeLabel: function() {
-		var localeName = parentModel.getLocaleName();
+		var localeName = BeamGlobals.getLocaleName();
 		if (isExpiredAddress) {
 			return addressItem
 				? Utils.formatDateTime(addressItem.expirationDate, localeName)

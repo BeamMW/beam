@@ -22,7 +22,7 @@ public:
         CurrStart = -1,
         CurrBEAM  = 0,
         CurrBTC   = 1,
-        CurrETH   = 2,
+        CurrLTC   = 2,
         CurrQTUM  = 3,
         CurrEnd   = 4
     };

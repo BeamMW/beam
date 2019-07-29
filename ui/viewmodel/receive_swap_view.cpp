@@ -81,7 +81,7 @@ int ReceiveSwapViewModel::getReceiveFee() const
 
 void ReceiveSwapViewModel::setAmountSent(double value)
 {
-    LOG_INFO() << "setAmountToReceive " << value;
+    LOG_INFO() << "setAmountSent " << value;
     if (value != _amountSent)
     {
         _amountSent = value;
@@ -118,6 +118,9 @@ void ReceiveSwapViewModel::setReceiveCurrency(Currency value)
     {
         _receiveCurrency = value;
         emit receiveCurrencyChanged();
+
+        // We reset amount on currency change to avoid user mistakes / sending too large amount
+        //setAmountToReceive(0);
     }
 }
 

@@ -8,6 +8,7 @@ namespace beamui
     QString toString(const beam::Merkle::Hash&);
     QString BeamToString(const beam::Amount& value);
     QString toString(const beam::Timestamp& ts);
+    double  Beam2Coins(const beam::Amount& value);
 
     class Filter
     {
