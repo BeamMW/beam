@@ -245,7 +245,6 @@ bool SendSwapViewModel::isEnough() const
         assert(false);
         return true;
     }
-    return false;
 }
 
 void SendSwapViewModel::recalcAvailable()
