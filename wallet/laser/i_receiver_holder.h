@@ -23,8 +23,6 @@ namespace beam::wallet::laser
 class IReceiverHolder
 {
 public:
-    virtual void OnNewTip() = 0;
-    virtual Block::SystemState::IHistory& get_History() = 0;
     virtual void OnMsg(Blob&& blob) = 0;
     virtual ECC::Scalar::Native get_skBbs() = 0;
 };

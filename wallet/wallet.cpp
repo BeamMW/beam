@@ -1021,6 +1021,11 @@ namespace beam::wallet
         Height h = GetUtxoEventsHeightNext();
         if (h > sTip.m_Height + 1)
             SetUtxoEventsHeight(sTip.m_Height);
+
+        if (m_laser)
+        {
+            m_laser->OnRolledBack();
+        }
     }
 
     void Wallet::OnNewTip()
@@ -1047,6 +1052,20 @@ namespace beam::wallet
         CheckSyncDone();
 
         ProcessStoredMessages();
+
+        if (m_laser)
+        {
+            // test: close channel
+            if (m_laser->m_is_opener)
+            {
+                if (sTip.m_Height > m_laser->m_initial_height + 10)
+                {
+                    m_laser->m_is_opener = false;
+                    m_laser->Close();
+                }
+            }
+            m_laser->OnNewTip();
+        }
     }
 
     void Wallet::OnTipUnchanged()

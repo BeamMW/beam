@@ -24,7 +24,7 @@
 
 namespace beam::wallet::laser
 {
-// class LightningChannel;
+
 class Connection;
 class Receiver;
 
@@ -32,11 +32,12 @@ class Mediator : public IReceiverHolder
 {
 public:
     Mediator(IWalletDB::Ptr walletDB, std::shared_ptr<proto::FlyClient::NetworkStd>& net);
-    // IReceiverHolder implementation
-    void OnNewTip() final;
-    Block::SystemState::IHistory& get_History() final;
+    // IReceiverHolder implementation;
     void OnMsg(Blob&& blob) final;
     ECC::Scalar::Native get_skBbs() final;
+    
+    void OnRolledBack();
+    void OnNewTip();
 
     void Listen();
     void OpenChannel(Amount aMy,
@@ -44,8 +45,13 @@ public:
                      Amount fee,
                      const WalletID& receiverWalletID,
                      Height locktime);
+    void Close();
+
+    // test
+    bool m_is_opener = false;
+    Height m_initial_height = 0;
 private:
-    // Height get_TipHeight() const;
+    Block::SystemState::IHistory& get_History();
 
     IWalletDB::Ptr m_pWalletDB;
     std::unique_ptr<Receiver> m_pReceiver;

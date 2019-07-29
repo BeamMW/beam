@@ -20,20 +20,14 @@
 namespace beam::wallet::laser
 {
 class Receiver
-    :public proto::FlyClient
-    ,public proto::FlyClient::Request::IHandler
-    ,public proto::FlyClient::IBbsReceiver
+    : public proto::FlyClient::Request::IHandler
+    , public proto::FlyClient::IBbsReceiver
 {
 public:
     explicit Receiver(IReceiverHolder& holder);
     ~Receiver();
-    // proto::FlyClient
-    virtual void OnNewTip() override;
-    virtual void OnRolledBack() override;
-    virtual Block::SystemState::IHistory& get_History() override;
-    virtual void OnOwnedNode(const PeerID&, bool bUp) override;
     // proto::FlyClient::Request::IHandler
-    virtual void OnComplete(Request&) override;
+    virtual void OnComplete(proto::FlyClient::Request&) override;
     // proto::FlyClient::IBbsReceiver
     virtual void OnMsg(proto::BbsMsg&&) override;
 private:

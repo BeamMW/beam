@@ -27,22 +27,7 @@ Receiver::~Receiver()
     LOG_DEBUG() << "Receiver::~Receiver";
 }
 
-void Receiver::OnNewTip()
-{
-    m_rHolder.OnNewTip();
-}
-
-void Receiver::OnRolledBack()
-{
-    LOG_DEBUG() << "Receiver::OnRolledBack";
-}
-
-void Receiver::OnOwnedNode(const PeerID&, bool bUp)
-{
-    LOG_DEBUG() << "Receiver::OnOwnedNode";
-}
-
-void Receiver::OnComplete(Request&)
+void Receiver::OnComplete(proto::FlyClient::Request&)
 {
     LOG_DEBUG() << "Receiver::OnComplete";
 }
@@ -63,11 +48,6 @@ void Receiver::OnMsg(proto::BbsMsg&& msg)
 
 	blob.p = pMsg;
     m_rHolder.OnMsg(std::move(blob));
-}
-
-Block::SystemState::IHistory& Receiver::get_History()
-{
-    return m_rHolder.get_History();
 }
 
 }  // namespace beam::wallet::laser

@@ -29,6 +29,8 @@ public:
         static const uint32_t Control0 = 1024 << 16;
         static const uint32_t MyWid = Control0 + 31;
     };
+    using FieldMap = std::map<uint32_t, ByteBuffer>;
+
     Channel(const std::shared_ptr<proto::FlyClient::INetwork>& net,
             const IWalletDB::Ptr& walletDB,
             Receiver& receiver)
@@ -54,9 +56,8 @@ public:
     std::shared_ptr<proto::FlyClient::INetwork> m_net;
     IWalletDB::Ptr m_WalletDB;
     bool m_SendMyWid = true;
-    using FieldMap = std::map<uint32_t, ByteBuffer>;
-    // void (*SendFunctor)(Request& r, Request::IHandler& h);
     Receiver& m_rReceiver;
+
     beam::Lightning::Channel::State::Enum m_LastState = State::None;
 };
 }  // namespace beam::wallet::laser
