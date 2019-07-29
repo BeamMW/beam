@@ -18,12 +18,6 @@
 #include "qml_globals.h"
 #include <QLocale>
 
-namespace
-{
-    const int kDefaultFeeInGroth = 10;
-    const int kFeeInGroth_Fork1 = 100;
-}
-
 SendViewModel::SendViewModel()
     : _feeGrothes(0)
     , _sendAmount(0.0)
@@ -202,7 +196,7 @@ bool SendViewModel::canSend() const
 {
     return !QMLGlobals::isSwapToken(_receiverTA) && getRreceiverTAValid()
            && _sendAmount > 0 && isEnough()
-           && _feeGrothes >= (_walletModel.isFork1() ? kFeeInGroth_Fork1 : kDefaultFeeInGroth);
+           && QMLGlobals::isFeeOK(_feeGrothes, Currency::CurrBEAM);
 }
 
 void SendViewModel::sendMoney()

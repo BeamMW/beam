@@ -66,7 +66,8 @@ int QMLGlobals::maxCommentLength()
     return 1024;
 }
 
-bool QMLGlobals::isFeeOK(int fee, Currency currency) {
+bool QMLGlobals::isFeeOK(int fee, Currency currency)
+{
     switch (currency)
     {
     case Currency::CurrBEAM: return fee >= minFeeBEAM();
@@ -81,7 +82,8 @@ bool QMLGlobals::isFeeOK(int fee, Currency currency) {
 
 int QMLGlobals::minFeeBEAM()
 {
-    return 100;
+    assert(AppModel::getInstance().getWallet());
+    return AppModel::getInstance().getWallet()->isFork1() ? kFeeInGroth_Fork1 : kDefaultFeeInGroth;
 }
 
 int QMLGlobals::minFeeBTC()
