@@ -88,6 +88,11 @@ QAbstractItemModel* SwapOffersViewModel::getAllOffers()
     return &m_offersList;
 }
 
+void SwapOffersViewModel::sendTestOffer()
+{
+    m_walletModel.getAsync()->sendTestOffer();
+}
+
 void SwapOffersViewModel::onAllOffersChanged(const std::vector<beam::wallet::TxDescription>& offers)
 {
     vector<shared_ptr<SwapOfferItem>> newOffers;

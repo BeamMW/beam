@@ -70,6 +70,9 @@ public:
     virtual ~SwapOffersViewModel();
 
     QAbstractItemModel* getAllOffers();
+    // void sendTestOffer();
+
+    Q_INVOKABLE void sendTestOffer();
 
 public slots:
     void onAllOffersChanged(const std::vector<beam::wallet::TxDescription>& offers);

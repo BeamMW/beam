@@ -99,6 +99,7 @@ namespace beam::wallet
         void getUtxosStatus() override;
         void getAddresses(bool own) override;
         void getSwapOffers() override;
+        void sendTestOffer() override;
         void cancelTx(const TxID& id) override;
         void deleteTx(const TxID& id) override;
         void getCoinsByTx(const TxID& txId) override;

@@ -113,6 +113,14 @@ struct WalletModelBridge : public Bridge<IWalletModelAsync>
         });
     }
 
+    void sendTestOffer()
+    {
+        tx.send([](BridgeInterface& receiver_) mutable
+        {
+            receiver_.sendTestOffer();
+        });
+    }
+
     void cancelTx(const wallet::TxID& id) override
     {
         tx.send([id](BridgeInterface& receiver_) mutable
@@ -587,6 +595,17 @@ namespace beam::wallet
         if (p)
         {
             onSwapOffersChanged(ChangeAction::Reset, p->getOffersList());
+        }
+    }
+
+    void WalletClient::sendTestOffer()
+    {
+        auto p = m_offersMonitor.lock();
+        static TxID id = {1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1};
+        if (p)
+        {
+            p->sendTestOffer(id);
+            id[15]++;
         }
     }
 

@@ -106,7 +106,7 @@ namespace beam::wallet
             return offers;
         };
 
-        void sendOffer(TxID id)
+        void sendTestOffer(const TxID& id)
         {
             WalletID wId;
             ByteBuffer msg;

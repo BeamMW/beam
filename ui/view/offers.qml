@@ -60,6 +60,20 @@ ColumnLayout {
                     // anchors.right: parent.right
                     // anchors.verticalCenter: parent.verticalCenter
                 }
+
+                CustomButton {
+                    id: sendTestButton
+
+                    Layout.fillWidth: true
+                    Layout.minimumHeight: 20
+                    Layout.maximumHeight: 80
+                    font.pixelSize: 18
+                    font.styleName: "Bold"; font.weight: Font.Bold
+                    // color: Style.content_main
+
+                    text: "SendTest"
+                    onClicked: viewModel.sendTestOffer()
+                }
             }
 
             Rectangle {
