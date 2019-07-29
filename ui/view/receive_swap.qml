@@ -37,12 +37,13 @@ ColumnLayout {
         if (viewModel.commentValid) viewModel.saveAddress()
     }
 
-    RowLayout {
-        spacing: 80
+    Grid {
+        Layout.fillWidth: true
+        columnSpacing:    70
+        columns:          2
 
         ColumnLayout {
-            Layout.preferredWidth: parent.width * 0.5 - parent.spacing / 2
-            Layout.alignment: Qt.AlignTop
+            width: parent.width / 2 - parent.columnSpacing / 2
 
             //
             // My Address
@@ -140,8 +141,7 @@ ColumnLayout {
         }
 
         ColumnLayout {
-            Layout.preferredWidth: parent.width * 0.5 - parent.spacing / 2
-            Layout.alignment: Qt.AlignTop
+            width: parent.width / 2 - parent.columnSpacing / 2
 
             //
             // Sent amount
