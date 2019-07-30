@@ -349,3 +349,14 @@ void WalletModel::onAddressChecked(const std::string& addr, bool isValid)
 {
 
 }
+
+void WalletModel::onImportRecoveryProgress(uint64_t done, uint64_t total)
+{
+    LOG_DEBUG() << "onImportRecoveryProgress(" << done << ", " << total << ")";
+
+    JNIEnv* env = Android_JNI_getEnv();
+
+    jmethodID callback = env->GetStaticMethodID(WalletListenerClass, "onImportRecoveryProgress", "(II)V");
+
+    env->CallStaticVoidMethod(WalletListenerClass, callback, done, total);
+}

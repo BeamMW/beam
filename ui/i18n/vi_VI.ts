@@ -110,6 +110,7 @@
     </message>
     <message id="general-fee">
         <source>Transaction fee</source>
+        <extracomment>UTXO type fee</extracomment>
         <translation>Phí giao dịch</translation>
     </message>
     <message id="general-ok">
@@ -122,18 +123,22 @@
     </message>
     <message id="general-coinbase">
         <source>Coinbase</source>
+        <extracomment>UTXO type Coinbase</extracomment>
         <translation>Sàn Coinbase</translation>
     </message>
     <message id="general-regular">
         <source>Regular</source>
+        <extracomment>UTXO type Regular</extracomment>
         <translation>Thông thường</translation>
     </message>
     <message id="general-change">
         <source>Change</source>
+        <extracomment>UTXO type Change</extracomment>
         <translation>Thay đổi</translation>
     </message>
     <message id="general-treasury">
         <source>Treasury</source>
+        <extracomment>UTXO type Treasury</extracomment>
         <translation>Kho bạc</translation>
     </message>
     <message id="general-back">
@@ -179,7 +184,7 @@
     </message>
     <message id="general-addr-comment-error">
         <source>Address with same comment already exist</source>
-        <translation type="unfinished">Address with same comment already exist</translation>
+        <translation>Địa chỉ có cùng nhận xét đã tồn tại</translation>
     </message>
     <message id="wallet-receive-button">
         <source>Receive</source>
@@ -468,11 +473,11 @@
     </message>
     <message id="loading-change-settings-button">
         <source>Change settings</source>
-        <translation type="unfinished">Change settings</translation>
+        <translation>Thay đổi cài đặt</translation>
     </message>
     <message id="loading-try-again-button">
         <source>Try again</source>
-        <translation type="unfinished">Try again</translation>
+        <translation>Thử lại lần nữa</translation>
     </message>
     <message id="notifications-title">
         <source>Notifications view</source>
@@ -595,11 +600,11 @@
     </message>
     <message id="send-fee-fail">
         <source>The minimum fee is %1 GROTH</source>
-        <translation type="unfinished">The minimum fee is %1 GROTH</translation>
+        <translation>Phí tối thiểu là %1 GROTH</translation>
     </message>
     <message id="send-curency-sub-name">
         <source>GROTH</source>
-        <translation type="unfinished">GROTH</translation>
+        <translation>GROTH</translation>
     </message>
     <message id="send-remaining-label">
         <source>Remaining</source>
@@ -624,7 +629,7 @@
     <message id="start-migration-button">
         <source>Start auto migration</source>
         <extracomment>migration screen, start auto migration button</extracomment>
-        <translation type="unfinished">Start auto migration</translation>
+        <translation>Bắt đầu di chuyển tự động</translation>
     </message>
     <message id="start-select-db-thead-name">
         <source>Name</source>
@@ -665,7 +670,7 @@
     </message>
     <message id="start-generate-seed-phrase-button">
         <source>Generate seed phrase</source>
-        <translation type="unfinished">Generate seed phrase</translation>
+        <translation>Tạo cụm từ hạt giống</translation>
     </message>
     <message id="start-generate-seed-phrase-message">
         <source>Your seed phrase is the access key to all the cryptocurrencies in your wallet. Write down the phrase to keep it in a safe or in a locked vault. Without the phrase you will not be able to recover your money.</source>
@@ -769,11 +774,11 @@
     </message>
     <message id="wallet-model-connection-refused-error">
         <source>Cannot connect to node</source>
-        <translation type="unfinished">Cannot connect to node</translation>
+        <translation>Không thể kết nối với nút</translation>
     </message>
     <message id="wallet-model-connection-host-unreach-error">
         <source>Node is unreachable</source>
-        <translation type="unfinished">Node is unreachable</translation>
+        <translation>Nút không thể truy cập được</translation>
     </message>
     <message id="wallet-model-connection-addr-in-use-error">
         <source>The port %1 is already in use. Check if a wallet is already running on this machine or change the port settings.</source>
@@ -809,7 +814,7 @@
     </message>
     <message id="loading-view-connection-error">
         <source>Connection error</source>
-        <translation type="unfinished">Connection error</translation>
+        <translation>Lỗi kết nối</translation>
     </message>
     <message id="start-view-printer-not-found-error">
         <source>Printer is not found. Please, check your printer preferences.</source>
@@ -885,7 +890,7 @@
     </message>
     <message id="tx-curency-name">
         <source>BEAM</source>
-        <translation type="unfinished">BEAM</translation>
+        <translation>BEAM</translation>
     </message>
     <message id="tx-curency-sub-name">
         <source>GROTH</source>
@@ -893,7 +898,7 @@
     </message>
     <message id="utxo-utxo">
         <source>UTXO</source>
-        <translation type="unfinished">UTXO</translation>
+        <translation>Đầu ra chưa được xác định từ giao dịch</translation>
     </message>
     <message id="utxo-blockchain-height">
         <source>Blockchain Height</source>
@@ -993,7 +998,7 @@
         <translation>Liên kết bên ngoài</translation>
     </message>
     <message id="open-external-message">
-        <source>Beam Wallet app requires permission to open external link in the browser. This action will expose your IP to the web server. To avoid it, choose -Cancel-. You can chage your choice in app setting anytime.</source>
+        <source>Beam Wallet app requires permission to open external link in the browser. This action will expose your IP to the web server. To avoid it, choose -Cancel-. You can change your choice in app setting anytime.</source>
         <translation>Ứng dụng Ví Beam yêu cầu sự cho phép để mở liên kết ngoài trong trình duyệt. Hành động này sẽ hiển thị IP của bạn cho máy chủ web. Để tránh điều này, chọn -Hủy-. Bạn có thể thay đổi lựa chọn của mình trong cài đặt ứng dụng bất cứ lúc nào.</translation>
     </message>
     <message id="start-open-change-wallet-message">
@@ -1147,27 +1152,27 @@
     <message id="start-migration-select-file-button">
         <source>Select wallet database file manually</source>
         <extracomment>migration screen, select db file button</extracomment>
-        <translation type="unfinished">Select wallet database file manually</translation>
+        <translation>Chọn tệp cơ sở dữ liệu ví thủ công</translation>
     </message>
     <message id="start-select-db-best-match-label">
         <source>(best match)</source>
         <extracomment>start screen, select db for migration, best match label</extracomment>
-        <translation type="unfinished">(best match)</translation>
+        <translation>(phù hợp nhất)</translation>
     </message>
     <message id="start-select-db-thead-created">
         <source>Date created</source>
         <extracomment>start screen, select db for migration, Date created column title</extracomment>
-        <translation type="unfinished">Date created</translation>
+        <translation>Ngày tạo</translation>
     </message>
     <message id="settings-general-require-pwd-to-spend-confirm-pwd-title">
         <source>Don’t ask password on every Send</source>
         <extracomment>settings tab, general section, ask password to send, confirm password dialog, title</extracomment>
-        <translation type="unfinished">Don’t ask password on every Send</translation>
+        <translation>Không yêu cầu mật khẩu trên mỗi lần gửi</translation>
     </message>
     <message id="settings-general-require-pwd-to-spend-confirm-pwd-message">
         <source>Password verification is required to change that setting</source>
         <extracomment>settings tab, general section, ask password to send, confirm password dialog, message</extracomment>
-        <translation type="unfinished">Password verification is required to change that setting</translation>
+        <translation>Cần xác minh mật khẩu để thay đổi cài đặt đó</translation>
     </message>
 </context>
 </TS>

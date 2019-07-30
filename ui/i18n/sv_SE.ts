@@ -110,6 +110,7 @@
     </message>
     <message id="general-fee">
         <source>Transaction fee</source>
+        <extracomment>UTXO type fee</extracomment>
         <translation>Transaktionskostnad</translation>
     </message>
     <message id="general-ok">
@@ -122,18 +123,22 @@
     </message>
     <message id="general-coinbase">
         <source>Coinbase</source>
+        <extracomment>UTXO type Coinbase</extracomment>
         <translation>Coinbase</translation>
     </message>
     <message id="general-regular">
         <source>Regular</source>
+        <extracomment>UTXO type Regular</extracomment>
         <translation>Reguljär</translation>
     </message>
     <message id="general-change">
         <source>Change</source>
+        <extracomment>UTXO type Change</extracomment>
         <translation>Ändra</translation>
     </message>
     <message id="general-treasury">
         <source>Treasury</source>
+        <extracomment>UTXO type Treasury</extracomment>
         <translation>Kassan</translation>
     </message>
     <message id="general-back">
@@ -273,7 +278,7 @@
     <message id="address-table-cm-edit">
         <source>Edit address</source>
         <extracomment>Entry in adress table context menu to edit</extracomment>
-        <translation>Ändra adress</translation>
+        <translation>Editera adress</translation>
     </message>
     <message id="address-table-cm-delete">
         <source>Delete address</source>
@@ -472,7 +477,7 @@
     </message>
     <message id="loading-try-again-button">
         <source>Try again</source>
-        <translation type="unfinished">Try again</translation>
+        <translation>Försök igen</translation>
     </message>
     <message id="notifications-title">
         <source>Notifications view</source>
@@ -595,7 +600,7 @@
     </message>
     <message id="send-fee-fail">
         <source>The minimum fee is %1 GROTH</source>
-        <translation>The minimum fee is %1 GROTH</translation>
+        <translation>Minsta möjliga avgift är %1 GROTH</translation>
     </message>
     <message id="send-curency-sub-name">
         <source>GROTH</source>
@@ -993,7 +998,7 @@
         <translation>Extern länk</translation>
     </message>
     <message id="open-external-message">
-        <source>Beam Wallet app requires permission to open external link in the browser. This action will expose your IP to the web server. To avoid it, choose -Cancel-. You can chage your choice in app setting anytime.</source>
+        <source>Beam Wallet app requires permission to open external link in the browser. This action will expose your IP to the web server. To avoid it, choose -Cancel-. You can change your choice in app setting anytime.</source>
         <translation>Beam-plånboken behöver tillstånd för att öppna en extern länk i webläsaren. Denna åtgärd kommer att exponera din IP-adress mot web-servern. För att undvika detta, välj -Avbryt-. Du kan ändra ditt val i applikationens inställningar när som helst.</translation>
     </message>
     <message id="start-open-change-wallet-message">

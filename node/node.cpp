@@ -1143,7 +1143,7 @@ void Node::RefreshOwnedUtxos()
 	m_Processor.get_DB().ParamGet(NodeDB::ParamID::DummyID, NULL, &blob);
 
 	if (hv0 == hv1)
-		return; // unchaged
+		return; // unchanged
 
 	m_Processor.RescanOwnedTxos();
 

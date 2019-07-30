@@ -41,7 +41,7 @@
     </message>
     <message id="general-send">
         <source>Send</source>
-        <translation type="unfinished">Send</translation>
+        <translation>Envoyer</translation>
     </message>
     <message id="general-amount">
         <source>Amount</source>
@@ -54,19 +54,19 @@
     <message id="general-cancel">
         <source>Cancel</source>
         <extracomment>Edit addres dialog, cancel button</extracomment>
-        <translation type="unfinished">Cancel</translation>
+        <translation>Annuler</translation>
     </message>
     <message id="general-delete">
         <source>Delete</source>
-        <translation type="unfinished">Delete</translation>
+        <translation>Effacer</translation>
     </message>
     <message id="general-receiving">
         <source>receiving</source>
-        <translation>receiving</translation>
+        <translation>en cours de réception</translation>
     </message>
     <message id="general-sending">
         <source>sending</source>
-        <translation>sending</translation>
+        <translation>en cours d&apos;envoi</translation>
     </message>
     <message id="general-rescan">
         <source>Rescan</source>
@@ -90,7 +90,7 @@
     </message>
     <message id="general-close">
         <source>Close</source>
-        <translation type="unfinished">Close</translation>
+        <translation>Fermer</translation>
     </message>
     <message id="general-details">
         <source>Details</source>
@@ -98,23 +98,24 @@
     </message>
     <message id="general-kernel-id">
         <source>Kernel ID</source>
-        <translation type="unfinished">Kernel ID</translation>
+        <translation>Identifiant Kernel</translation>
     </message>
     <message id="general-copy">
         <source>Copy</source>
-        <translation type="unfinished">Copy</translation>
+        <translation>Copier</translation>
     </message>
     <message id="general-paste">
         <source>Paste</source>
-        <translation type="unfinished">Paste</translation>
+        <translation>Coller</translation>
     </message>
     <message id="general-fee">
         <source>Transaction fee</source>
+        <extracomment>UTXO type fee</extracomment>
         <translation>Frais de transaction</translation>
     </message>
     <message id="general-ok">
         <source>Ok</source>
-        <translation type="unfinished">Ok</translation>
+        <translation>Ok</translation>
     </message>
     <message id="general-invalid-address">
         <source>Invalid address</source>
@@ -122,27 +123,31 @@
     </message>
     <message id="general-coinbase">
         <source>Coinbase</source>
+        <extracomment>UTXO type Coinbase</extracomment>
         <translation>Coinbase</translation>
     </message>
     <message id="general-regular">
         <source>Regular</source>
+        <extracomment>UTXO type Regular</extracomment>
         <translation>Régulier</translation>
     </message>
     <message id="general-change">
         <source>Change</source>
+        <extracomment>UTXO type Change</extracomment>
         <translation>Changement</translation>
     </message>
     <message id="general-treasury">
         <source>Treasury</source>
+        <extracomment>UTXO type Treasury</extracomment>
         <translation>Trésorerie</translation>
     </message>
     <message id="general-back">
         <source>Back</source>
-        <translation type="unfinished">Back</translation>
+        <translation>Retour</translation>
     </message>
     <message id="general-next">
         <source>Next</source>
-        <translation type="unfinished">Next</translation>
+        <translation>Suivant</translation>
     </message>
     <message id="general-create-wallet">
         <source>Create new wallet</source>
@@ -162,28 +167,28 @@
     </message>
     <message id="general-start-using">
         <source>Start using your wallet</source>
-        <translation type="unfinished">Start using your wallet</translation>
+        <translation>Commencer à utiliser votre portefeuille</translation>
     </message>
     <message id="general-open-wallet">
         <source>Open my wallet</source>
-        <translation type="unfinished">Open my wallet</translation>
+        <translation>Afficher mon portefeuille</translation>
     </message>
     <message id="general-proceed">
         <source>Proceed</source>
         <extracomment>confirm password dialog, ok button</extracomment>
-        <translation type="unfinished">Proceed</translation>
+        <translation>Procéder</translation>
     </message>
     <message id="general-show-in-folder">
         <source>Show in folder</source>
-        <translation type="unfinished">Show in folder</translation>
+        <translation>Montrer dans le dossier</translation>
     </message>
     <message id="general-addr-comment-error">
         <source>Address with same comment already exist</source>
-        <translation type="unfinished">Address with same comment already exist</translation>
+        <translation>L&apos;adresse avec le même commentaire existe déjà</translation>
     </message>
     <message id="wallet-receive-button">
         <source>Receive</source>
-        <translation type="unfinished">Receive</translation>
+        <translation>Recevoir</translation>
     </message>
     <message id="wallet-in-progress-title">
         <source>In progress</source>
@@ -199,11 +204,11 @@
     </message>
     <message id="wallet-txs-date-time">
         <source>Date | Time</source>
-        <translation type="unfinished">Date | Time</translation>
+        <translation>Date | heure</translation>
     </message>
     <message id="wallet-txs-copy-addr-cm">
         <source>Copy address</source>
-        <translation type="unfinished">Copy address</translation>
+        <translation>Copier adresse</translation>
     </message>
     <message id="wallet-txs-delete-message">
         <source>The transaction will be deleted. This operation can not be undone</source>
@@ -211,43 +216,43 @@
     </message>
     <message id="wallet-txs-status-pending">
         <source>pending</source>
-        <translation type="unfinished">pending</translation>
+        <translation>en cours</translation>
     </message>
     <message id="wallet-txs-status-waiting-sender">
         <source>waiting for sender</source>
-        <translation type="unfinished">waiting for sender</translation>
+        <translation>en attente de l&apos;expéditeur</translation>
     </message>
     <message id="wallet-txs-status-waiting-receiver">
         <source>waiting for receiver</source>
-        <translation type="unfinished">waiting for receiver</translation>
+        <translation>en attente du destinataire</translation>
     </message>
     <message id="wallet-txs-status-completed">
         <source>completed</source>
-        <translation type="unfinished">completed</translation>
+        <translation>terminé</translation>
     </message>
     <message id="wallet-txs-status-received">
         <source>received</source>
-        <translation type="unfinished">received</translation>
+        <translation>reçu</translation>
     </message>
     <message id="wallet-txs-status-sent">
         <source>sent</source>
-        <translation type="unfinished">sent</translation>
+        <translation>envoyé</translation>
     </message>
     <message id="wallet-txs-status-cancelled">
         <source>cancelled</source>
-        <translation type="unfinished">cancelled</translation>
+        <translation>annulé</translation>
     </message>
     <message id="wallet-txs-status-expired">
         <source>expired</source>
-        <translation type="unfinished">expired</translation>
+        <translation>expiré</translation>
     </message>
     <message id="wallet-txs-status-failed">
         <source>failed</source>
-        <translation type="unfinished">failed</translation>
+        <translation>echoué</translation>
     </message>
     <message id="wallet-txs-status-unknown">
         <source>unknown</source>
-        <translation type="unfinished">unknown</translation>
+        <translation>inconnu</translation>
     </message>
     <message id="addresses-tittle">
         <source>Addresses</source>
@@ -255,20 +260,20 @@
     </message>
     <message id="addresses-tab-active">
         <source>My active addresses</source>
-        <translation type="unfinished">My active addresses</translation>
+        <translation>Adresses actives</translation>
     </message>
     <message id="addresses-tab-expired">
         <source>My expired addresses</source>
-        <translation type="unfinished">My expired addresses</translation>
+        <translation>Adresses expirées</translation>
     </message>
     <message id="addresses-tab-contacts">
         <source>Contacts</source>
-        <translation type="unfinished">Contacts</translation>
+        <translation>Contacts</translation>
     </message>
     <message id="address-table-cm-show-qr">
         <source>Show QR code</source>
         <extracomment>Entry in adress table context menu to show QR</extracomment>
-        <translation type="unfinished">Show QR code</translation>
+        <translation>Montrer le code QR</translation>
     </message>
     <message id="address-table-cm-edit">
         <source>Edit address</source>
@@ -278,11 +283,11 @@
     <message id="address-table-cm-delete">
         <source>Delete address</source>
         <extracomment>Entry in adress table context menu to delete</extracomment>
-        <translation type="unfinished">Delete address</translation>
+        <translation>Supprimer mon adresse</translation>
     </message>
     <message id="address-table-cm-delete-contact">
         <source>Delete contact</source>
-        <translation type="unfinished">Delete contact</translation>
+        <translation>Effacer un contact</translation>
     </message>
     <message id="available-panel-available">
         <source>Available</source>
@@ -295,7 +300,7 @@
     <message id="settings-version">
         <source>Version</source>
         <extracomment>settings tab, version label</extracomment>
-        <translation type="unfinished">Version</translation>
+        <translation>Version</translation>
     </message>
     <message id="settings-remote-node-ip-port">
         <source>ip:port</source>
@@ -345,7 +350,7 @@
     <message id="settings-apply">
         <source>Apply</source>
         <extracomment>settings tab, node section, apply button</extracomment>
-        <translation type="unfinished">Apply</translation>
+        <translation>Appliquer</translation>
     </message>
     <message id="logo-description">
         <source>Scalable confidential cryptocurrency</source>
@@ -389,7 +394,7 @@
     </message>
     <message id="change-pwd-ok">
         <source>Сhange password</source>
-        <translation type="unfinished">Сhange password</translation>
+        <translation>Modifier mot de passe</translation>
     </message>
     <message id="loading-loading">
         <source>Loading wallet...</source>
@@ -409,12 +414,12 @@
     </message>
     <message id="open-show-wallet-button">
         <source>Show my wallet</source>
-        <translation type="unfinished">Show my wallet</translation>
+        <translation>Afficher mon portefeuille</translation>
     </message>
     <message id="edit-addr-title">
         <source>Edit address</source>
         <extracomment>Edit addres dialog title</extracomment>
-        <translation type="unfinished">Edit address</translation>
+        <translation>Modifier adresse</translation>
     </message>
     <message id="edit-addr-addr-id">
         <source>Address ID</source>
@@ -424,7 +429,7 @@
     <message id="edit-addr-save-button">
         <source>Save</source>
         <extracomment>Edit addres dialog, save button</extracomment>
-        <translation type="unfinished">Save</translation>
+        <translation>Sauvegarder</translation>
     </message>
     <message id="payment-info-proof-verification">
         <source>Payment proof verification</source>
@@ -440,27 +445,27 @@
     </message>
     <message id="payment-info-proof-code-label">
         <source>Code</source>
-        <translation type="unfinished">Code</translation>
+        <translation>Code</translation>
     </message>
     <message id="payment-info-proof-sender-label">
         <source>Sender</source>
-        <translation type="unfinished">Sender</translation>
+        <translation>Expéditeur</translation>
     </message>
     <message id="payment-info-proof-receiver-label">
         <source>Receiver</source>
-        <translation type="unfinished">Receiver</translation>
+        <translation>Récipiendaire</translation>
     </message>
     <message id="payment-info-copy-details-button">
         <source>Copy details</source>
-        <translation type="unfinished">Copy details</translation>
+        <translation>Copier détails</translation>
     </message>
     <message id="payment-info-copy-code-button">
         <source>Copy code</source>
-        <translation type="unfinished">Copy code</translation>
+        <translation>Copier code</translation>
     </message>
     <message id="secondary-panel-maturing">
         <source>Maturing</source>
-        <translation type="unfinished">Maturing</translation>
+        <translation>Maturité</translation>
     </message>
     <message id="info-title">
         <source>Info view</source>
@@ -472,7 +477,7 @@
     </message>
     <message id="loading-try-again-button">
         <source>Try again</source>
-        <translation type="unfinished">Try again</translation>
+        <translation>Réessayer</translation>
     </message>
     <message id="notifications-title">
         <source>Notifications view</source>
@@ -480,15 +485,15 @@
     </message>
     <message id="status-connecting">
         <source>connecting</source>
-        <translation type="unfinished">connecting</translation>
+        <translation>en cours de connexion</translation>
     </message>
     <message id="status-online">
         <source>online</source>
-        <translation type="unfinished">online</translation>
+        <translation>en ligne</translation>
     </message>
     <message id="status-updating">
         <source>updating</source>
-        <translation type="unfinished">updating</translation>
+        <translation>en cours de mis à jour</translation>
     </message>
     <message id="tx-details-title">
         <source>General transaction info</source>
@@ -496,20 +501,20 @@
     </message>
     <message id="tx-details-sending-addr-label">
         <source>Sending address</source>
-        <translation type="unfinished">Sending address</translation>
+        <translation>Adresse d&apos;envoi</translation>
     </message>
     <message id="tx-details-receiving-addr-label">
         <source>Receiving address</source>
-        <translation type="unfinished">Receiving address</translation>
+        <translation>Adresse de réception</translation>
     </message>
     <message id="tx-details-error-label">
         <source>Error</source>
-        <translation type="unfinished">Error</translation>
+        <translation>Erreur</translation>
     </message>
     <message id="settings-report-problem-save-log-button">
         <source>Save wallet logs</source>
         <extracomment>settings tab, report problem section, save logs button</extracomment>
-        <translation type="unfinished">Save wallet logs</translation>
+        <translation>Sauvegarder les logs du portefeuille</translation>
     </message>
     <message id="settings-rescan-confirmation-message-line-2">
         <source>Are you sure?</source>
@@ -531,7 +536,7 @@
     </message>
     <message id="send-confirmation-recipient-label">
         <source>Recipient</source>
-        <translation type="unfinished">Recipient</translation>
+        <translation>Récipiendaire</translation>
     </message>
     <message id="send-confirmation-pwd-require-message">
         <source>To broadcast your transaction please enter your password</source>
@@ -559,7 +564,7 @@
     </message>
     <message id="wallet-receive-expires-never">
         <source>Never</source>
-        <translation type="unfinished">Never</translation>
+        <translation>Jamais</translation>
     </message>
     <message id="wallet-receive-qr-label">
         <source>Scan to send</source>
@@ -571,7 +576,7 @@
     </message>
     <message id="invalid-addr-got-it-button">
         <source>Got it</source>
-        <translation type="unfinished">Got it</translation>
+        <translation>Bien reçu</translation>
     </message>
     <message id="send-title">
         <source>Send Beam</source>
@@ -579,7 +584,7 @@
     </message>
     <message id="send-send-to-label">
         <source>Send To</source>
-        <translation type="unfinished">Send To</translation>
+        <translation>Envoyer à</translation>
     </message>
     <message id="send-contact-placeholder">
         <source>Please specify contact</source>
@@ -595,11 +600,11 @@
     </message>
     <message id="send-fee-fail">
         <source>The minimum fee is %1 GROTH</source>
-        <translation type="unfinished">The minimum fee is %1 GROTH</translation>
+        <translation>Frais de transaction minimum: 1 GROTH</translation>
     </message>
     <message id="send-curency-sub-name">
         <source>GROTH</source>
-        <translation type="unfinished">GROTH</translation>
+        <translation>GROTH</translation>
     </message>
     <message id="send-remaining-label">
         <source>Remaining</source>
@@ -625,7 +630,7 @@ Vous essayez de restaurer un portefeuille Beam existant. Veuillez noter que si v
     <message id="start-migration-button">
         <source>Start auto migration</source>
         <extracomment>migration screen, start auto migration button</extracomment>
-        <translation type="unfinished">Start auto migration</translation>
+        <translation>Initier la migration</translation>
     </message>
     <message id="start-select-db-thead-name">
         <source>Name</source>
@@ -666,7 +671,7 @@ Vous essayez de restaurer un portefeuille Beam existant. Veuillez noter que si v
     </message>
     <message id="start-generate-seed-phrase-button">
         <source>Generate seed phrase</source>
-        <translation type="unfinished">Generate seed phrase</translation>
+        <translation>Générer une phrase clé</translation>
     </message>
     <message id="start-generate-seed-phrase-message">
         <source>Your seed phrase is the access key to all the cryptocurrencies in your wallet. Write down the phrase to keep it in a safe or in a locked vault. Without the phrase you will not be able to recover your money.</source>
@@ -750,7 +755,7 @@ Vous essayez de restaurer un portefeuille Beam existant. Veuillez noter que si v
     </message>
     <message id="appmodel-failed-start-node">
         <source>Failed to start node. Please check your node configuration</source>
-        <translation type="unfinished">Failed to start node. Please check your node configuration</translation>
+        <translation>Impossible de lancer un noeud. Merci de vérifier les paramètre de votre noeud</translation>
     </message>
     <message id="wallet-model-node-protocol-error">
         <source>Node protocol error!</source>
@@ -770,11 +775,11 @@ Vous essayez de restaurer un portefeuille Beam existant. Veuillez noter que si v
     </message>
     <message id="wallet-model-connection-refused-error">
         <source>Cannot connect to node</source>
-        <translation type="unfinished">Cannot connect to node</translation>
+        <translation>Impossible de se connecter au noeud</translation>
     </message>
     <message id="wallet-model-connection-host-unreach-error">
         <source>Node is unreachable</source>
-        <translation type="unfinished">Node is unreachable</translation>
+        <translation>Le noeud est inaccessible</translation>
     </message>
     <message id="wallet-model-connection-addr-in-use-error">
         <source>The port %1 is already in use. Check if a wallet is already running on this machine or change the port settings.</source>
@@ -810,7 +815,7 @@ Vous essayez de restaurer un portefeuille Beam existant. Veuillez noter que si v
     </message>
     <message id="loading-view-connection-error">
         <source>Connection error</source>
-        <translation type="unfinished">Connection error</translation>
+        <translation>Erreur de connexion</translation>
     </message>
     <message id="start-view-printer-not-found-error">
         <source>Printer is not found. Please, check your printer preferences.</source>
@@ -886,7 +891,7 @@ Vous essayez de restaurer un portefeuille Beam existant. Veuillez noter que si v
     </message>
     <message id="tx-curency-name">
         <source>BEAM</source>
-        <translation type="unfinished">BEAM</translation>
+        <translation>BEAM</translation>
     </message>
     <message id="tx-curency-sub-name">
         <source>GROTH</source>
@@ -894,7 +899,7 @@ Vous essayez de restaurer un portefeuille Beam existant. Veuillez noter que si v
     </message>
     <message id="utxo-utxo">
         <source>UTXO</source>
-        <translation type="unfinished">UTXO</translation>
+        <translation>UTXO</translation>
     </message>
     <message id="utxo-blockchain-height">
         <source>Blockchain Height</source>
@@ -914,35 +919,35 @@ Vous essayez de restaurer un portefeuille Beam existant. Veuillez noter que si v
     </message>
     <message id="utxo-status-available">
         <source>Available</source>
-        <translation type="unfinished">Available</translation>
+        <translation>Disponible</translation>
     </message>
     <message id="utxo-status-maturing">
         <source>Maturing%1(till block height %2)</source>
-        <translation type="unfinished">Maturing%1(till block height %2)</translation>
+        <translation>Maturer%1(à hauteur de %2)</translation>
     </message>
     <message id="utxo-status-unavailable">
         <source>Unavailable%1(mining result rollback)</source>
-        <translation type="unfinished">Unavailable%1(mining result rollback)</translation>
+        <translation>%1 Invalide (rollback du résultat du minage)</translation>
     </message>
     <message id="utxo-status-outgoing">
         <source>In progress%1(outgoing)</source>
-        <translation type="unfinished">In progress%1(outgoing)</translation>
+        <translation>en cours %1 (sortant)</translation>
     </message>
     <message id="utxo-status-change">
         <source>In progress%1(change)</source>
-        <translation type="unfinished">In progress%1(change)</translation>
+        <translation>En cours %1 (modification)</translation>
     </message>
     <message id="utxo-status-incoming">
         <source>In progress%1(incoming)</source>
-        <translation type="unfinished">In progress%1(incoming)</translation>
+        <translation>En cours %1 (entrant)</translation>
     </message>
     <message id="utxo-status-spent">
         <source>Spent</source>
-        <translation type="unfinished">Spent</translation>
+        <translation>Utilisé</translation>
     </message>
     <message id="settings-general-lock-screen-never">
         <source>Never</source>
-        <translation type="unfinished">Never</translation>
+        <translation>Jamais</translation>
     </message>
     <message id="settings-general-lock-screen-1m">
         <source>1 minute</source>
@@ -970,7 +975,7 @@ Vous essayez de restaurer un portefeuille Beam existant. Veuillez noter que si v
     </message>
     <message id="tx-details-tx-id-label">
         <source>Transaction ID</source>
-        <translation type="unfinished">Transaction ID</translation>
+        <translation>Identifiant de la transaction</translation>
     </message>
     <message id="appmodel-failed-time-not-synced">
         <source>Failed to start the integrated node: the timezone settings of your machine are out of sync. Please fix them and restart the wallet.</source>
@@ -987,14 +992,14 @@ Vous essayez de restaurer un portefeuille Beam existant. Veuillez noter que si v
     </message>
     <message id="open-external-open">
         <source>Open</source>
-        <translation type="unfinished">Open</translation>
+        <translation>Ouvrir</translation>
     </message>
     <message id="open-external-title">
         <source>External link</source>
         <translation>Lien externe</translation>
     </message>
     <message id="open-external-message">
-        <source>Beam Wallet app requires permission to open external link in the browser. This action will expose your IP to the web server. To avoid it, choose -Cancel-. You can chage your choice in app setting anytime.</source>
+        <source>Beam Wallet app requires permission to open external link in the browser. This action will expose your IP to the web server. To avoid it, choose -Cancel-. You can change your choice in app setting anytime.</source>
         <translation>L&apos;application Beam Wallet nécessite l&apos;autorisation d&apos;ouvrir un lien externe dans le navigateur. Cette action exposera votre adresse IP au serveur Web. Pour l&apos;éviter, choisissez -Annuler-. Vous pouvez modifier votre choix dans les paramètres de l&apos;application à tout moment.</translation>
     </message>
     <message id="start-open-change-wallet-message">
@@ -1033,7 +1038,7 @@ Vous essayez de restaurer un portefeuille Beam existant. Veuillez noter que si v
     <message id="show-qr-tx-token-label">
         <source>Your address</source>
         <extracomment>show qr dialog address label</extracomment>
-        <translation type="unfinished">Your address</translation>
+        <translation>Votre adresse</translation>
     </message>
     <message id="show-qr-message">
         <source>Scan this QR code or send this address to the sender over secure channel</source>
@@ -1053,52 +1058,52 @@ Vous essayez de restaurer un portefeuille Beam existant. Veuillez noter que si v
     <message id="settings-general-allow-beammw-label">
         <source>Allow access to %1 and %2 (to fetch exchanges and transaction data)</source>
         <extracomment>general settings, label for alow open external links</extracomment>
-        <translation type="unfinished">Allow access to %1 and %2 (to fetch exchanges and transaction data)</translation>
+        <translation>Autoriser l&apos;accès à %1 et à %2 (pour récupérer les échanges et les données de transaction)</translation>
     </message>
     <message id="settings-report-problem-message-l0">
         <source>To report a problem:</source>
-        <translation type="unfinished">To report a problem:</translation>
+        <translation>Signaler un problème:</translation>
     </message>
     <message id="settings-report-problem-message-l1">
         <source>1. Click “Save wallet logs” and choose a destination folder for log archive</source>
-        <translation type="unfinished">1. Click “Save wallet logs” and choose a destination folder for log archive</translation>
+        <translation>1. Cliquez sur «&#xa0;Enregistrer les logs du portefeuille&#xa0;» et choisissez un dossier de destination pour l&apos;archive de logs</translation>
     </message>
     <message id="settings-report-problem-message-l2">
         <source>2. Send email to %1 or open a ticket in %2</source>
-        <translation type="unfinished">2. Send email to %1 or open a ticket in %2</translation>
+        <translation>2. Envoyer un email à %1 ou ouvrir un ticket dans %2</translation>
     </message>
     <message id="settings-report-problem-message-l3">
         <source>3. Don’t forget to attach logs archive</source>
-        <translation type="unfinished">3. Don’t forget to attach logs archive</translation>
+        <translation>3. N&apos;oubliez pas d&apos;attacher l&apos;archive des logs</translation>
     </message>
     <message id="explorer">
         <source>blockchain explorer</source>
-        <translation type="unfinished">blockchain explorer</translation>
+        <translation>blockchain Explorer</translation>
     </message>
     <message id="edit-addr-24-option">
         <source>In 24 hours from now</source>
         <extracomment>Edit address dialog, expiration option, in 24 hours from now</extracomment>
-        <translation type="unfinished">In 24 hours from now</translation>
+        <translation>Dans les 24 heures</translation>
     </message>
     <message id="edit-addr-never-option">
         <source>Never</source>
         <extracomment>Edit address dialog, expiration option, never</extracomment>
-        <translation type="unfinished">Never</translation>
+        <translation>Jamais</translation>
     </message>
     <message id="edit-addr-as-is-option">
         <source>Within 24 hours</source>
         <extracomment>Edit address dialog, expiration option, do not change</extracomment>
-        <translation type="unfinished">Within 24 hours</translation>
+        <translation>Dans les 24 heures</translation>
     </message>
     <message id="edit-addr-expires-label">
         <source>Expires</source>
         <extracomment>Edit addres dialog, expires label</extracomment>
-        <translation type="unfinished">Expires</translation>
+        <translation>Expire</translation>
     </message>
     <message id="edit-addr-expire-now-label">
         <source>Now</source>
         <extracomment>Edit addres dialog, expire now label</extracomment>
-        <translation type="unfinished">Now</translation>
+        <translation>Maintenant</translation>
     </message>
     <message id="edit-addr-expire-now-switch">
         <source>Expire address now</source>
@@ -1118,7 +1123,7 @@ Vous essayez de restaurer un portefeuille Beam existant. Veuillez noter que si v
     <message id="time-never">
         <source>Never</source>
         <extracomment>time never string</extracomment>
-        <translation type="unfinished">Never</translation>
+        <translation>Jamais</translation>
     </message>
     <message id="start-pwd-difficulty-very-weak">
         <source>Very weak password</source>
@@ -1148,27 +1153,27 @@ Vous essayez de restaurer un portefeuille Beam existant. Veuillez noter que si v
     <message id="start-migration-select-file-button">
         <source>Select wallet database file manually</source>
         <extracomment>migration screen, select db file button</extracomment>
-        <translation type="unfinished">Select wallet database file manually</translation>
+        <translation>Sélectionner manuellement la base de donnée du portefeuille</translation>
     </message>
     <message id="start-select-db-best-match-label">
         <source>(best match)</source>
         <extracomment>start screen, select db for migration, best match label</extracomment>
-        <translation type="unfinished">(best match)</translation>
+        <translation>(Meilleure correspondance)</translation>
     </message>
     <message id="start-select-db-thead-created">
         <source>Date created</source>
         <extracomment>start screen, select db for migration, Date created column title</extracomment>
-        <translation type="unfinished">Date created</translation>
+        <translation>Date de création</translation>
     </message>
     <message id="settings-general-require-pwd-to-spend-confirm-pwd-title">
         <source>Don’t ask password on every Send</source>
         <extracomment>settings tab, general section, ask password to send, confirm password dialog, title</extracomment>
-        <translation type="unfinished">Don’t ask password on every Send</translation>
+        <translation>Ne pas demander de mot de passe à chaque envoi</translation>
     </message>
     <message id="settings-general-require-pwd-to-spend-confirm-pwd-message">
         <source>Password verification is required to change that setting</source>
         <extracomment>settings tab, general section, ask password to send, confirm password dialog, message</extracomment>
-        <translation type="unfinished">Password verification is required to change that setting</translation>
+        <translation>La vérification du mot de passe est nécessaire pour changer ce paramètre</translation>
     </message>
 </context>
 </TS>

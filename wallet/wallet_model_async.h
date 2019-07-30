@@ -52,6 +52,8 @@ namespace beam::wallet
 
         virtual void checkAddress(const std::string& addr) = 0;
 
+        virtual void importRecovery(const std::string& path) = 0;
+
         virtual ~IWalletModelAsync() {}
     };
 }
