@@ -85,7 +85,7 @@ Item {
                         color: Style.content_main
                         text: viewModel.receiverAddress
 
-                        validator: RegExpValidator { regExp: /[0-9a-fA-F]{1,80}/ }
+                        validator: RegExpValidator { regExp: /[0-9a-fA-F]{1,800}/ }
                         selectByMouse: true
 
                         //% "Please specify contact"

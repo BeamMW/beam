@@ -36,9 +36,7 @@ ReceiveViewModel::ReceiveViewModel()
     connect(&_walletModel, &WalletModel::generatedNewAddress, this, &ReceiveViewModel::onGeneratedNewAddress);
     connect(&_walletModel, &WalletModel::newAddressFailed, this,  &ReceiveViewModel::onNewAddressFailed);
     generateNewAddress();
-
-    // TODO: This is only for test, apply actual when ready
-    _token = "176dan89jksasdg21skaw9q7g176dan89jksasdg21skaw9q7g176dan89jksasdg21skaw9q7g176dan89jksasdg21skaw9q7g176dan89jksasdg21skaw9q7g";
+    updateTransactionToken();
 }
 
 ReceiveViewModel::~ReceiveViewModel()
@@ -53,6 +51,7 @@ void ReceiveViewModel::onGeneratedNewAddress(const beam::wallet::WalletAddress& 
     emit receiverAddressChanged();
 
     _qr->setAddr(beamui::toString(_receiverAddress.m_walletID));
+    updateTransactionToken();
 }
 
 double ReceiveViewModel::getAmountToReceive() const
@@ -68,6 +67,7 @@ void ReceiveViewModel::setAmountToReceive(double value)
         _amountToReceive = value;
         _qr->setAmount(_amountToReceive);
         emit amountToReceiveChanged();
+        updateTransactionToken();
     }
 }
 
@@ -121,6 +121,15 @@ QString ReceiveViewModel::getAddressComment() const
     return _addressComment;
 }
 
+void ReceiveViewModel::setTranasctionToken(const QString& value)
+{
+    if (_token != value)
+    {
+        _token = value;
+        emit transactionTokenChanged();
+    }
+}
+
 QString ReceiveViewModel::getTransactionToken() const
 {
     return _token;
@@ -152,4 +161,12 @@ void ReceiveViewModel::saveAddress()
         _receiverAddress.m_duration = _addressExpires == AddressExpires ? WalletAddress::AddressExpiration24h : WalletAddress::AddressExpirationNever;
         _walletModel.getAsync()->saveAddress(_receiverAddress, true);
     }
+}
+
+void ReceiveViewModel::updateTransactionToken()
+{
+    _txParameters.SetParameter(beam::wallet::TxParameterID::Amount, static_cast<beam::Amount>(std::round(_amountToReceive * beam::Rules::Coin)));
+    _txParameters.SetParameter(beam::wallet::TxParameterID::PeerID, _receiverAddress.m_walletID);
+
+    setTranasctionToken(QString::fromStdString(std::to_string(_txParameters)));
 }

@@ -20,15 +20,16 @@
 #include "wallet/wallet_network.h"
 #include "wallet/wallet.h"
 #include "wallet/secstring.h"
+#include "wallet/base58.h"
 #include "utility/test_helpers.h"
 #include "../../core/radixtree.h"
 #include "../../core/unittest/mini_blockchain.h"
-#include <string_view>
 #include "wallet/wallet_transaction.h"
 #include "../../core/negotiator.h"
 
 #include "test_helpers.h"
 
+#include <string_view>
 #include <assert.h>
 #include <iostream>
 #include <thread>
@@ -950,6 +951,77 @@ namespace
 
         WALLET_CHECK(restoredParams == params);
     }
+
+    void TestConvertions()
+    {
+        //{
+        //    vector<uint8_t> input = { 2, 5, 6, 7 };
+        //    auto r58 = Convert(input, 10, 58);
+        //    WALLET_CHECK(r58 == vector<uint8_t>({44, 15}));
+        //    auto r256 = Convert(input, 10, 256);
+        //    WALLET_CHECK(r256 == vector<uint8_t>({ 10, 7 }));
+
+        //    auto r58_10 = Convert(r58, 58, 10);
+        //    WALLET_CHECK(r58_10 == input);
+        //    auto r256_10 = Convert(r256, 256, 10);
+        //    WALLET_CHECK(r256_10 == vector<uint8_t>({2, 5, 6, 7}));
+
+        //    auto r11 = Convert(input, 10, 11);
+        //    WALLET_CHECK(r11 == vector<uint8_t>({ 1, 10, 2, 4 }));
+
+        //    auto r58_11 = Convert(r58, 58, 11);
+        //    WALLET_CHECK(r58_11 == vector<uint8_t>({ 1, 10, 2, 4 }));
+        //    auto r256_11 = Convert(r256, 256, 11);
+        //    WALLET_CHECK(r256_11 == vector<uint8_t>({ 1, 10, 2, 4 }));
+        //}
+        {
+            vector<uint8_t> input = { 1,43,54,7,8,9,7 };
+
+            auto r58 = EncodeToBase58(input);
+            WALLET_CHECK(r58 == "3ZzuVHW5C");
+
+            auto r256 = DecodeBase58("3ZzuVHW5C");
+            WALLET_CHECK(r256 == input);
+
+            WALLET_CHECK(DecodeBase58("13ZzuVHW5C") == vector<uint8_t>({ 0, 1,43,54,7,8,9,7 }));
+            WALLET_CHECK(DecodeBase58("C") == vector<uint8_t>{11});
+
+
+            WALLET_CHECK(EncodeToBase58({}) == "");
+
+            WALLET_CHECK(DecodeBase58("") == vector<uint8_t>{});
+
+        }
+        {
+            vector<pair<string, string>> tests =
+            {
+                {"10c8511e", "Rt5zm"},
+                {"00eb15231dfceb60925886b67d065299925915aeb172c06647", "1NS17iag9jJgTHD1VXjvLCEnZuQ3rJDE9L"},
+                {"00000000000000000000", "1111111111"},
+                {"", ""},
+                {"61", "2g"},
+                {"626262", "a3gV"},
+                {"636363", "aPEr"},
+                {"73696d706c792061206c6f6e6720737472696e67", "2cFupjhnEsSn59qHXstmK2ffpLv2"},
+                {"516b6fcd0f", "ABnLTmg"},
+                {"bf4f89001e670274dd", "3SEo3LWLoPntC"},
+                {"572e4794", "3EFU7m"},
+                {"ecac89cad93923c02321", "EJDM8drfXA6uyA"},
+                {"000111d38e5fc9071ffcd20b4a763cc9ae4f252bb4e48fd66a835e252ada93ff480d6dd43dc62a641155a5", "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz"},
+                {"000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f202122232425262728292a2b2c2d2e2f303132333435363738393a3b3c3d3e3f404142434445464748494a4b4c4d4e4f505152535455565758595a5b5c5d5e5f606162636465666768696a6b6c6d6e6f707172737475767778797a7b7c7d7e7f808182838485868788898a8b8c8d8e8f909192939495969798999a9b9c9d9e9fa0a1a2a3a4a5a6a7a8a9aaabacadaeafb0b1b2b3b4b5b6b7b8b9babbbcbdbebfc0c1c2c3c4c5c6c7c8c9cacbcccdcecfd0d1d2d3d4d5d6d7d8d9dadbdcdddedfe0e1e2e3e4e5e6e7e8e9eaebecedeeeff0f1f2f3f4f5f6f7f8f9fafbfcfdfeff", "1cWB5HCBdLjAuqGGReWE3R3CguuwSjw6RHn39s2yuDRTS5NsBgNiFpWgAnEx6VQi8csexkgYw3mdYrMHr8x9i7aEwP8kZ7vccXWqKDvGv3u1GxFKPuAkn8JCPPGDMf3vMMnbzm6Nh9zh1gcNsMvH3ZNLmP5fSG6DGbbi2tuwMWPthr4boWwCxf7ewSgNQeacyozhKDDQQ1qL5fQFUW52QKUZDZ5fw3KXNQJMcNTcaB723LchjeKun7MuGW5qyCBZYzA1KjofN1gYBV3NqyhQJ3Ns746GNuf9N2pQPmHz4xpnSrrfCvy6TVVz5d4PdrjeshsWQwpZsZGzvbdAdN8MKV5QsBDY"}
+            };
+
+            for (const auto& test : tests)
+            {
+                ByteBuffer value = from_hex(test.first);
+                auto to = EncodeToBase58(value);
+                auto buf = DecodeBase58(test.second);
+                auto from = EncodeToBase58(buf);
+                WALLET_CHECK(to == test.second);
+                WALLET_CHECK(to == from);
+            }
+        }
+    }
 }
 
 bool RunNegLoop(beam::Negotiator::IBase& a, beam::Negotiator::IBase& b, const char* szTask)
@@ -1331,6 +1403,7 @@ int main()
 	Rules::get().pForks[1].m_Height = 100500; // needed for lightning network to work
     Rules::get().UpdateChecksum();
 
+    TestConvertions();
     TestTxParameters();
 
 	TestNegotiation();

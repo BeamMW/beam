@@ -109,8 +109,12 @@ void SendViewModel::setReceiverAddress(const QString& value)
 {
     if (_receiverAddr != value)
     {
+        _txParameters = beam::wallet::TxParameters(value.toStdString());
+
         _receiverAddr = value;
         emit receiverAddressChanged();
+
+        updateParameters();
     }
 }
 
@@ -201,4 +205,21 @@ void SendViewModel::onCantSendToExpired()
 {
     // forward to qml
     emit cantSendToExpired();
+}
+
+void SendViewModel::updateParameters()
+{
+    if (auto amount = _txParameters.GetParameter<beam::Amount>(beam::wallet::TxParameterID::Amount); amount)
+    {
+        setSendAmount(static_cast<double>(*amount) / beam::Rules::Coin);
+    }
+    if (auto fee = _txParameters.GetParameter<beam::Amount>(beam::wallet::TxParameterID::Fee); fee)
+    {
+        setFeeGrothes(static_cast<int>(*fee));
+    }
+    if (auto comment = _txParameters.GetParameter<beam::ByteBuffer>(beam::wallet::TxParameterID::Message); comment)
+    {
+        std::string s(comment->begin(), comment->end());
+        setComment(QString::fromStdString(s));
+    }
 }

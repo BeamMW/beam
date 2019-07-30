@@ -56,7 +56,6 @@ void ReceiveSwapViewModel::onGeneratedNewAddress(const beam::wallet::WalletAddre
 {
     _receiverAddress = addr;
     emit receiverAddressChanged();
-
     updateTransactionToken();
 }
 
@@ -72,7 +71,6 @@ void ReceiveSwapViewModel::setAmountToReceive(double value)
     {
         _amountToReceive = value;
         emit amountToReceiveChanged();
-
         updateTransactionToken();
     }
 }
@@ -110,7 +108,6 @@ void ReceiveSwapViewModel::setSentFee(int value)
     {
         _sentFee = value;
         emit sentFeeChanged();
-
         updateTransactionToken();
     }
 }
@@ -146,7 +143,6 @@ void ReceiveSwapViewModel::setSentCurrency(Currency value)
     {
         _sentCurrency = value;
         emit sentCurrencyChanged();
-
         updateTransactionToken();
     }
 }
@@ -158,7 +154,6 @@ void ReceiveSwapViewModel::setReceiveFee(int value)
     {
         _receiveFee = value;
         emit receiveFeeChanged();
-
         updateTransactionToken();
     }
 }

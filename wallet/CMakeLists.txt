@@ -14,6 +14,7 @@ set(WALLET_SRC
     wallet_db.cpp
     wallet_client.h
     wallet_client.cpp
+    base58.cpp
     unittests/util.cpp
 )
 

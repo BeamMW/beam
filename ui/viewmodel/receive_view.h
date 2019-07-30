@@ -25,7 +25,7 @@ class ReceiveViewModel: public QObject
     Q_PROPERTY(QString  addressComment     READ getAddressComment     WRITE  setAddressComment   NOTIFY  addressCommentChanged)
     Q_PROPERTY(QString  receiverAddress    READ getReceiverAddress                               NOTIFY  receiverAddressChanged)
     Q_PROPERTY(QString  receiverAddressQR  READ getReceiverAddressQR                             NOTIFY  receiverAddressChanged)
-    Q_PROPERTY(QString  transactionToken   READ getTransactionToken                              NOTIFY  transactionTokenChanged)
+    Q_PROPERTY(QString  transactionToken   READ getTransactionToken   WRITE  setTranasctionToken NOTIFY  transactionTokenChanged)
     Q_PROPERTY(bool     commentValid       READ getCommentValid                                  NOTIFY  commentValidChanged)
 
 public:
@@ -58,8 +58,12 @@ private:
     void setAddressComment(const QString& value);
     QString getAddressComment() const;
 
+    void setTranasctionToken(const QString& value);
     QString getTransactionToken() const;
+
     bool getCommentValid() const;
+
+    void updateTransactionToken();
 
 private slots:
     void onGeneratedNewAddress(const beam::wallet::WalletAddress& walletAddr);
@@ -75,4 +79,5 @@ private:
 
     std::unique_ptr<QR> _qr;
     WalletModel& _walletModel;
+    beam::wallet::TxParameters _txParameters;
 };
