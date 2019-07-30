@@ -110,6 +110,7 @@
     </message>
     <message id="general-fee">
         <source>Transaction fee</source>
+        <extracomment>UTXO type fee</extracomment>
         <translation>Transaction fee</translation>
     </message>
     <message id="general-ok">
@@ -122,18 +123,22 @@
     </message>
     <message id="general-coinbase">
         <source>Coinbase</source>
+        <extracomment>UTXO type Coinbase</extracomment>
         <translation>Coinbase</translation>
     </message>
     <message id="general-regular">
         <source>Regular</source>
+        <extracomment>UTXO type Regular</extracomment>
         <translation>Regular</translation>
     </message>
     <message id="general-change">
         <source>Change</source>
+        <extracomment>UTXO type Change</extracomment>
         <translation>Change</translation>
     </message>
     <message id="general-treasury">
         <source>Treasury</source>
+        <extracomment>UTXO type Treasury</extracomment>
         <translation>Treasury</translation>
     </message>
     <message id="general-back">
