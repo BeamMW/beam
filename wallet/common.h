@@ -368,7 +368,6 @@ namespace beam::wallet
             , m_createTime{ createTime }
             , m_modifyTime{ createTime }
             , m_sender{ sender }
-            , m_status{ TxStatus::Pending }
         {
 
         }
