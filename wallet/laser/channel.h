@@ -48,6 +48,7 @@ public:
     Amount SelectInputs(
             std::vector<Key::IDV>& vInp, Amount valRequired) override;
     void SendPeer(Negotiator::Storage::Map&& dataOut) override;
+
     void LogNewState();
 
     uintBig_t<16> m_ID;

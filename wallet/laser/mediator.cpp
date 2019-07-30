@@ -37,11 +37,6 @@ Mediator::Mediator(IWalletDB::Ptr walletDB,
     m_pConnection->Connect();
 }
 
-Block::SystemState::IHistory& Mediator::get_History()
-{
-    return m_pWalletDB->get_History();
-}
-
 void Mediator::OnMsg(Blob&& blob)
 {
     uintBig_t<16> key;
@@ -80,18 +75,13 @@ void Mediator::OnMsg(Blob&& blob)
     }
 }
 
-ECC::Scalar::Native Mediator::get_skBbs()
+bool  Mediator::Decrypt(uint8_t* pMsg, Blob* blob)
 {
-    auto& wid = m_myAddr.m_walletID;
-    if (wid != Zero)
-    {    
-        PeerID peerID;
-        ECC::Scalar::Native sk;
-        m_pWalletDB->get_MasterKdf()->DeriveKey(sk, Key::ID(m_myAddr.m_OwnID, Key::Type::Bbs));
-        proto::Sk2Pk(peerID, sk);
-        return m_myAddr.m_walletID.m_Pk == peerID ? sk : Zero;        
-    }
-    return Zero;
+    if (!proto::Bbs::Decrypt(pMsg, blob->n, get_skBbs()))
+		return false;
+
+	blob->p = pMsg;
+    return true;
 }
 
 void Mediator::OnRolledBack()
@@ -182,6 +172,25 @@ void Mediator::Close()
     {
         m_lch->Close();
     }
+}
+
+Block::SystemState::IHistory& Mediator::get_History()
+{
+    return m_pWalletDB->get_History();
+}
+
+ECC::Scalar::Native Mediator::get_skBbs()
+{
+    auto& wid = m_myAddr.m_walletID;
+    if (wid != Zero)
+    {    
+        PeerID peerID;
+        ECC::Scalar::Native sk;
+        m_pWalletDB->get_MasterKdf()->DeriveKey(sk, Key::ID(m_myAddr.m_OwnID, Key::Type::Bbs));
+        proto::Sk2Pk(peerID, sk);
+        return m_myAddr.m_walletID.m_Pk == peerID ? sk : Zero;        
+    }
+    return Zero;
 }
 
 }  // namespace beam::wallet::laser

@@ -19,12 +19,10 @@ namespace beam::wallet::laser
 {
 Receiver::Receiver(IReceiverHolder& holder) : m_rHolder(holder)
 {
-    LOG_DEBUG() << "Receiver::Receiver";
 }
 
 Receiver::~Receiver()
 {
-    LOG_DEBUG() << "Receiver::~Receiver";
 }
 
 void Receiver::OnComplete(proto::FlyClient::Request&)
@@ -34,7 +32,6 @@ void Receiver::OnComplete(proto::FlyClient::Request&)
 
 void Receiver::OnMsg(proto::BbsMsg&& msg)
 {
-    LOG_DEBUG() << "Receiver::OnMsg";
     if (msg.m_Message.empty())
 		return;
 
@@ -43,10 +40,9 @@ void Receiver::OnMsg(proto::BbsMsg&& msg)
 	uint8_t* pMsg = &msg.m_Message.front();
 	blob.n = static_cast<uint32_t>(msg.m_Message.size());
 
-	if (!proto::Bbs::Decrypt(pMsg, blob.n, m_rHolder.get_skBbs()))
-		return;
+    if (!m_rHolder.Decrypt(pMsg, &blob))
+        return;
 
-	blob.p = pMsg;
     m_rHolder.OnMsg(std::move(blob));
 }
 

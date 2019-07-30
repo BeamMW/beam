@@ -67,6 +67,8 @@
 #define PRIVATE_VARIABLES_NAME "PrivateVariables"
 #define WALLET_MESSAGE_NAME "WalletMessages"
 #define INCOMING_WALLET_MESSAGE_NAME "IncomingWalletMessages"
+#define LASER_CHANNELS_NAME "LaserChannels"
+#define LASER_ADDRESSES_NAME "LaserAddresses"
 
 #define ENUM_VARIABLES_FIELDS(each, sep, obj) \
     each(name,  name,  TEXT UNIQUE, obj) sep \
@@ -109,6 +111,13 @@
 #define TblStates            "States"
 #define TblStates_Height     "Height"
 #define TblStates_Hdr        "State"
+
+#define ENUM_LASER_CHANNEL_FIELDS(each, sep, obj) \
+    each(chID,           chID,           BLOB NOT NULL PRIMARY KEY, obj) sep \
+    each(myWID,          myWID,          BLOB NOT NULL, obj) sep \
+    each(trgWID,         trgWID,         BLOB NOT NULL, obj)
+
+#define LASER_CHANNEL_FIELDS ENUM_LASER_CHANNEL_FIELDS(LIST, COMMA, )
 
 namespace std
 {
@@ -698,7 +707,8 @@ namespace beam::wallet
         const char* SystemStateIDName = "SystemStateID";
         const char* LastUpdateTimeName = "LastUpdateTime";
         const int BusyTimeoutMs = 5000;
-        const int DbVersion = 15;
+        const int DbVersion = 16;
+        const int DbVersion15 = 15;
         const int DbVersion14 = 14;
         const int DbVersion13 = 13;
         const int DbVersion12 = 12;
@@ -874,6 +884,20 @@ namespace beam::wallet
             throwIfError(ret, db);
         }
 
+        
+        void CreateLaserTables(sqlite3* db)
+        {
+            const char* req = "CREATE TABLE " LASER_CHANNELS_NAME " (" ENUM_LASER_CHANNEL_FIELDS(LIST_WITH_TYPES, COMMA, ) ") WITHOUT ROWID;";
+            int ret = sqlite3_exec(db, req, nullptr, nullptr, nullptr);
+            throwIfError(ret, db);
+
+            const char* req2 = "CREATE TABLE " LASER_ADDRESSES_NAME " (" ENUM_ADDRESS_FIELDS(LIST_WITH_TYPES, COMMA, ) ") WITHOUT ROWID;";
+            ret = sqlite3_exec(db, req2, nullptr, nullptr, nullptr);
+            throwIfError(ret, db);
+
+            LOG_INFO() << "Create laser tables";
+        }
+
         void OpenAndMigrateIfNeeded(const string& path, sqlite3** db, const SecString& password)
         {
             int ret = sqlite3_open_v2(path.c_str(), db, SQLITE_OPEN_READWRITE, nullptr);
@@ -1000,6 +1024,7 @@ namespace beam::wallet
             CreateAddressesTable(walletDB->_db);
             CreateTxParamsTable(walletDB->_db);
             CreateStatesTable(walletDB->_db);
+            CreateLaserTables(walletDB->_db);
 
             {
                 // store master key
@@ -1166,6 +1191,12 @@ namespace beam::wallet
                                 throwIfError(ret, walletDB->_db);
                             }
 
+                        }
+                    case DbVersion15:
+                        {
+                            LOG_INFO() << "Converting DB from format 15";
+                            CreateLaserTables(walletDB->_db);
+                            // no break;   
                         }
 
                         storage::setVar(*walletDB, Version, DbVersion);

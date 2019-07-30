@@ -25,7 +25,7 @@
 namespace beam::wallet::laser
 {
 
-class Connection;
+// class Connection;
 class Receiver;
 
 class Mediator : public IReceiverHolder
@@ -34,7 +34,7 @@ public:
     Mediator(IWalletDB::Ptr walletDB, std::shared_ptr<proto::FlyClient::NetworkStd>& net);
     // IReceiverHolder implementation;
     void OnMsg(Blob&& blob) final;
-    ECC::Scalar::Native get_skBbs() final;
+    bool Decrypt(uint8_t* pMsg, Blob* blob) final;
     
     void OnRolledBack();
     void OnNewTip();
@@ -52,10 +52,11 @@ public:
     Height m_initial_height = 0;
 private:
     Block::SystemState::IHistory& get_History();
+    ECC::Scalar::Native get_skBbs();
 
     IWalletDB::Ptr m_pWalletDB;
     std::unique_ptr<Receiver> m_pReceiver;
-    std::shared_ptr<Connection> m_pConnection;
+    std::shared_ptr<proto::FlyClient::INetwork> m_pConnection;
 
     std::unique_ptr<Channel> m_lch;
     std::vector<std::unique_ptr<Channel> > m_channels;
