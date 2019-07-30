@@ -1006,7 +1006,7 @@
       <translation>外部链接</translation>
     </message>
     <message id="open-external-message">
-      <source>Beam Wallet app requires permission to open external link in the browser. This action will expose your IP to the web server. To avoid it, choose -Cancel-. You can chage your choice in app setting anytime.</source>
+      <source>Beam Wallet app requires permission to open external link in the browser. This action will expose your IP to the web server. To avoid it, choose -Cancel-. You can change your choice in app setting anytime.</source>
       <translation>Beam钱包需要获取权限以在浏览器中打开外部链接
 
 在浏览器中打开外部外链会暴露您的IP地址；如不想暴露IP地址，请选择“取消”；您可以随时在设置中修改该选项</translation>

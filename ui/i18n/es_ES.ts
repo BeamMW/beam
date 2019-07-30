@@ -993,7 +993,7 @@
       <translation>Enlace externo</translation>
     </message>
     <message id="open-external-message">
-      <source>Beam Wallet app requires permission to open external link in the browser. This action will expose your IP to the web server. To avoid it, choose -Cancel-. You can chage your choice in app setting anytime.</source>
+      <source>Beam Wallet app requires permission to open external link in the browser. This action will expose your IP to the web server. To avoid it, choose -Cancel-. You can change your choice in app setting anytime.</source>
       <translation>La aplicación Beam Wallet requiere permiso para abrir un enlace externo en el navegador. Esta acción expondrá su IP al servidor web. Para evitarlo, elija -Cancelar-. Puede cambiar su elección en la configuración de la aplicación en cualquier momento.</translation>
     </message>
     <message id="start-open-change-wallet-message">

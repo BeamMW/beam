@@ -994,7 +994,7 @@ Vous essayez de restaurer un portefeuille Beam existant. Veuillez noter que si v
       <translation>Lien externe</translation>
     </message>
     <message id="open-external-message">
-      <source>Beam Wallet app requires permission to open external link in the browser. This action will expose your IP to the web server. To avoid it, choose -Cancel-. You can chage your choice in app setting anytime.</source>
+      <source>Beam Wallet app requires permission to open external link in the browser. This action will expose your IP to the web server. To avoid it, choose -Cancel-. You can change your choice in app setting anytime.</source>
       <translation>L&apos;application Beam Wallet nécessite l&apos;autorisation d&apos;ouvrir un lien externe dans le navigateur. Cette action exposera votre adresse IP au serveur Web. Pour l&apos;éviter, choisissez -Annuler-. Vous pouvez modifier votre choix dans les paramètres de l&apos;application à tout moment.</translation>
     </message>
     <message id="start-open-change-wallet-message">
