@@ -1141,7 +1141,7 @@ namespace
         {
         }
 
-        BitcoindSettings GetBitcoindSettings() const
+        BitcoindSettings GetBitcoindSettings() const override
         {
             return m_settings.GetConnectionOptions();
         }
@@ -1151,7 +1151,7 @@ namespace
             return m_settings;
         }
 
-        void SetSettings(const BitcoinSettings& settings)
+        void SetSettings(const BitcoinSettings& settings) override
         {
             assert(false && "readonly object!");
         }

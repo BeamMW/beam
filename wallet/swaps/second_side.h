@@ -25,6 +25,8 @@ namespace beam::wallet
     public:
         using Ptr = std::shared_ptr<SecondSide>;
         
+        virtual ~SecondSide() = default;
+
         virtual bool Initialize() = 0;
         virtual bool InitLockTime() = 0;
         virtual bool ValidateLockTime() = 0;

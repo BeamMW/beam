@@ -44,7 +44,7 @@ namespace beam::wallet
     {
     public:
         using Ptr = std::shared_ptr<ISecondSideFactory>;
-
+        virtual ~ISecondSideFactory() = default;
         virtual SecondSide::Ptr CreateSecondSide(BaseTransaction& tx, bool isBeamSide) = 0;
     };
 
@@ -56,7 +56,6 @@ namespace beam::wallet
             : m_bridge{ bridge }
             , m_settingsProvider{ settingsProvider }
         {
-
         }
     private:
         SecondSide::Ptr CreateSecondSide(BaseTransaction& tx, bool isBeamSide) override

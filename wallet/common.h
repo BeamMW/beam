@@ -368,6 +368,10 @@ namespace beam::wallet
             , m_createTime{ createTime }
             , m_modifyTime{ createTime }
             , m_sender{ sender }
+            , m_selfTx{ false }
+            , m_status{ TxStatus::Pending }
+            , m_kernelID{ Zero }
+            , m_failureReason{ TxFailureReason::Unknown }
         {
 
         }

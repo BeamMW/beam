@@ -35,6 +35,8 @@ namespace beam
     public:
         using Ptr = std::shared_ptr<IBitcoindSettingsProvider>;
 
+        virtual ~IBitcoindSettingsProvider() = default;
+
         virtual BitcoindSettings GetBitcoindSettings() const = 0;
     };
 

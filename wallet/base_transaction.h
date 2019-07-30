@@ -197,6 +197,8 @@ namespace beam::wallet
         public:
             using Ptr = std::shared_ptr<Creator>;
 
+            virtual ~Creator() = default;
+
             virtual BaseTransaction::Ptr Create(INegotiatorGateway& gateway, WalletDB::Ptr, IPrivateKeyKeeper::Ptr, const TxID&) = 0;
             virtual bool CanCreate(const TxParameters&) { return true; };
         };
