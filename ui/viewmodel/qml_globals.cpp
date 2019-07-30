@@ -16,6 +16,7 @@
 #include <QApplication>
 #include <QClipboard>
 #include "model/app_model.h"
+#include "wallet/common.h"
 
 namespace
 {
@@ -41,18 +42,20 @@ void QMLGlobals::copyToClipboard(const QString& text)
 bool QMLGlobals::isTransactionToken(const QString& text)
 {
     if (text.isEmpty()) return false;
-
-    // TODO:SWAP check if correct
-    return static_cast<bool>(text.toUtf8()[0] & 0x80);
+    
+    auto params = beam::wallet::ParseParameters(text.toStdString());
+    return params && params->GetParameter<beam::wallet::TxType>(beam::wallet::TxParameterID::TransactionType);
 }
 
 bool QMLGlobals::isSwapToken(const QString& text)
 {
-    // TODO:SWAP This is for tests, implement real check
-    return text == "112233";
-
-    // if (!QMLGlobals::isTransactionToken(text)) return false;
-    // return
+    auto params = beam::wallet::ParseParameters(text.toStdString());
+    if (!params)
+    {
+        return false;
+    }
+    auto type = params->GetParameter<beam::wallet::TxType>(beam::wallet::TxParameterID::TransactionType);
+    return type && *type == beam::wallet::TxType::AtomicSwap;
 }
 
 QString QMLGlobals::getLocaleName()

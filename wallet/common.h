@@ -22,6 +22,7 @@
 #include "core/proto.h"
 #include "swaps/second_side.h"
 #include <algorithm>
+#include <optional>
 
 namespace beam::wallet
 {
@@ -262,20 +263,18 @@ namespace beam::wallet
 
     };
 
-    using SerializedTxParameters = std::vector<std::pair<TxParameterID, ByteBuffer>>;
+    using PackedTxParameters = std::vector<std::pair<TxParameterID, ByteBuffer>>;
 
     // Holds transaction parameters as key/value
     class TxParameters
     {
     public:
-        TxParameters() = default;
-        TxParameters(const TxID& txID, TxType type = TxType::Simple);
-        TxParameters(const std::string& token);
+        TxParameters(const std::optional<TxID>& txID = {});
+
         bool operator==(const TxParameters& other);
         bool operator!=(const TxParameters& other);
 
-        TxID GetTxID() const;
-        TxType GetType() const;
+        std::optional<TxID> GetTxID() const;
 
         template <typename T>
         boost::optional<T> GetParameter(TxParameterID parameterID, SubTxID subTxID = kDefaultSubTxID) const
@@ -326,19 +325,32 @@ namespace beam::wallet
             return SetParameter(parameterID, toByteBuffer(value), subTxID);
         }
 
-        SerializedTxParameters GetParameters() const;
-
-        SERIALIZE(m_ID, m_Type, m_Parameters);
+        PackedTxParameters GetParameters() const;
 
         boost::optional<ByteBuffer> GetParameter(TxParameterID parameterID, SubTxID subTxID = kDefaultSubTxID) const;
         TxParameters& SetParameter(TxParameterID parameterID, const ByteBuffer& parameter, SubTxID subTxID = kDefaultSubTxID);
 
-
     private:
-        TxID m_ID;
-        TxType m_Type;
+        std::optional<TxID> m_ID;
         std::map<SubTxID, std::map<TxParameterID, ByteBuffer>> m_Parameters;
     };
+
+    // Class to simplify serializing/deserializing parameters
+    class TxToken
+    {
+    public:
+        static const uint8_t TokenFlag = 0x80;
+        TxToken() = default;
+        TxToken(const TxParameters&);
+        TxParameters UnpackParameters() const;
+        SERIALIZE(m_Flags, m_TxID, m_Parameters);
+    private:
+        uint8_t m_Flags = TokenFlag;
+        std::optional<TxID> m_TxID;
+        PackedTxParameters m_Parameters;
+    };
+
+    std::optional<TxParameters> ParseParameters(const std::string& text);
 
     // Specifies key transaction parameters for interaction with Wallet Clients
     struct TxDescription : public TxParameters
@@ -427,7 +439,7 @@ namespace beam::wallet
 
         TxType m_Type;
 
-        SerializedTxParameters m_Parameters;
+        PackedTxParameters m_Parameters;
         
         // TODO use TxParameters here
         template <typename T>
@@ -461,18 +473,6 @@ namespace beam::wallet
         }
 
         SERIALIZE(m_From, m_TxID, m_Type, m_Parameters);
-    };
-
-    struct SetTxParameter2
-    {
-        WalletID m_From;
-        TxParameters m_Parameters;
-        SetTxParameter2(TxID txID, TxType type)
-            : m_Parameters(txID, type)
-        {
-
-        }
-        SERIALIZE(m_From, m_Parameters);
     };
 
     // context to take into account all async wallet operations

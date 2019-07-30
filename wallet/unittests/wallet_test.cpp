@@ -979,9 +979,13 @@ namespace
 
         string token = to_string(params);
 
-        TxParameters restoredParams{ token };
+        auto restoredParams = wallet::ParseParameters(token);
 
-        WALLET_CHECK(restoredParams == params);
+        WALLET_CHECK(restoredParams && *restoredParams == params);
+
+        string address = to_string(myID);
+        auto addrParams = wallet::ParseParameters(address);
+        WALLET_CHECK(addrParams && *addrParams->GetParameter<WalletID>(TxParameterID::PeerID) == myID);
     }
 
     void TestConvertions()
@@ -1022,6 +1026,8 @@ namespace
             WALLET_CHECK(EncodeToBase58({}) == "");
 
             WALLET_CHECK(DecodeBase58("") == vector<uint8_t>{});
+
+            WALLET_CHECK(DecodeBase58("3ZzuVHW5C==") == vector<uint8_t>{});
 
         }
         {

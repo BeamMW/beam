@@ -115,4 +115,5 @@ private:
 
     StatusHolder _status;
     WalletModel& _walletModel;
+    beam::wallet::TxParameters _txParameters;
 };

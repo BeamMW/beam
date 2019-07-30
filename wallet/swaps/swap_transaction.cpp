@@ -29,7 +29,7 @@ namespace beam::wallet
         Amount swapAmount, SwapSecondSideChainType chainType, bool isBeamSide /*= true*/,
         Height lifetime /*= kDefaultTxLifetime*/, Height responseTime/* = kDefaultTxResponseTime*/)
     {
-        TxParameters parameters(GenerateTxID(), TxType::AtomicSwap);
+        TxParameters parameters(GenerateTxID());
 
         parameters.SetParameter(TxParameterID::TransactionType, TxType::AtomicSwap);
         parameters.SetParameter(TxParameterID::CreateTime, getTimestamp());

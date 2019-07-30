@@ -16,6 +16,8 @@
 #include "common.h"
 #include "utility/logger.h"
 #include "core/ecc_native.h"
+#include "wallet/base58.h"
+
 #include <iomanip>
 #include <boost/algorithm/string.hpp>
 
@@ -66,15 +68,12 @@ namespace std
 
     string to_string(const beam::wallet::TxParameters& value)
     {
-        uint8_t flags = 0x80; // token
+        beam::wallet::TxToken token(value);
         Serializer s;
-        s & flags;
-        s & value.GetTxID();
-        s & value.GetType();
-        s & value.GetParameters();
+        s & token;
         ByteBuffer buffer;
         s.swap_buf(buffer);
-        return beam::to_hex(buffer.data(), buffer.size());
+        return beam::wallet::EncodeToBase58(buffer);
     }
 }
 
@@ -256,60 +255,15 @@ namespace beam::wallet
         m_Signature.Sign(hv, sk);
     }
 
-    TxParameters::TxParameters(const TxID& txID, TxType type)
+    TxParameters::TxParameters(const optional<TxID>& txID)
         : m_ID(txID)
-        , m_Type(type)
     {
-        SetParameter(TxParameterID::TransactionType, type);
-    }
 
-    TxParameters::TxParameters(const std::string& token)
-    {
-        bool isValid = true;
-        ByteBuffer buffer = from_hex(token, &isValid);
-        if (!isValid || buffer.size() < 2)
-        {
-            return;
-        }
-        if (buffer[0] & 0x80) // token
-        {
-            // simply deserialize for now
-            Deserializer d;
-            d.reset(&buffer[1], buffer.size() - 1);
-            SerializedTxParameters parameters;
-            d & m_ID;
-            d & m_Type;
-            d & parameters;
-
-            SubTxID subTxID = kDefaultSubTxID;
-
-            for (const auto& p : parameters)
-            {
-                if (p.first == TxParameterID::SubTxIndex)
-                {
-                    // change subTxID
-                    d.reset(p.second.data(), p.second.size());
-                    d & subTxID;
-                    continue;
-                }
-
-                SetParameter(p.first, p.second, subTxID);
-            }
-        }
-        else // plain WalletID
-        {
-            WalletID walletID;
-            if (walletID.FromBuf(buffer))
-            {
-                SetParameter(TxParameterID::PeerID, walletID);
-            }
-        }
     }
 
     bool TxParameters::operator==(const TxParameters& other)
     {
         return m_ID == other.m_ID &&
-            m_Type == other.m_Type &&
             m_Parameters == other.m_Parameters;
     }
 
@@ -318,14 +272,9 @@ namespace beam::wallet
         return !(*this == other);
     }
 
-    TxID TxParameters::GetTxID() const
+    std::optional<TxID> TxParameters::GetTxID() const
     {
         return m_ID;
-    }
-
-    TxType TxParameters::GetType() const
-    {
-        return m_Type;
     }
 
     boost::optional<ByteBuffer> TxParameters::GetParameter(TxParameterID parameterID, SubTxID subTxID) const
@@ -349,9 +298,9 @@ namespace beam::wallet
         return *this;
     }
 
-    SerializedTxParameters TxParameters::GetParameters() const
+    PackedTxParameters TxParameters::GetParameters() const
     {
-        SerializedTxParameters parameters;
+        PackedTxParameters parameters;
         for (const auto& subTx : m_Parameters)
         {
             if (subTx.first > kDefaultSubTxID)
@@ -364,6 +313,83 @@ namespace beam::wallet
             }
         }
         return parameters;
+    }
+
+    TxToken::TxToken(const TxParameters& parameters)
+        : m_Flags(TxToken::TokenFlag)
+        , m_TxID(parameters.GetTxID())
+        , m_Parameters(parameters.GetParameters())
+    {
+
+    }
+
+    TxParameters TxToken::UnpackParameters() const
+    {
+        TxParameters result(m_TxID);
+
+        SubTxID subTxID = kDefaultSubTxID;
+        Deserializer d;
+        for (const auto& p : m_Parameters)
+        {
+            if (p.first == TxParameterID::SubTxIndex)
+            {
+                // change subTxID
+                d.reset(p.second.data(), p.second.size());
+                d & subTxID;
+                continue;
+            }
+
+            result.SetParameter(p.first, p.second, subTxID);
+        }
+        return result;
+    }
+
+    optional<TxParameters> ParseParameters(const string& text)
+    {
+        bool isValid = true;
+        ByteBuffer buffer = from_hex(text, &isValid);
+        if (!isValid)
+        {
+            buffer = DecodeBase58(text);
+            if (buffer.empty())
+            {
+                return {};
+            }
+        }
+
+        if (buffer.size() < 2)
+        {
+            return {};
+        }
+        
+        if (buffer[0] & TxToken::TokenFlag) // token
+        {
+            try
+            {
+                TxToken token;
+                // simply deserialize for now
+                Deserializer d;
+                d.reset(&buffer[0], buffer.size());
+                d & token;
+
+                return make_optional<TxParameters>(token.UnpackParameters());
+            }
+            catch (...)
+            {
+                // failed to deserialize
+            }
+        }
+        else // plain WalletID
+        {
+            WalletID walletID;
+            if (walletID.FromBuf(buffer))
+            {
+                auto result = make_optional<TxParameters>();
+                result->SetParameter(TxParameterID::PeerID, walletID);
+                return result;
+            }
+        }
+        return {};
     }
 
     bool TxDescription::canResume() const

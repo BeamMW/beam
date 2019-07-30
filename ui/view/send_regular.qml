@@ -54,7 +54,7 @@ ColumnLayout {
                 backgroundColor:  isTAInputValid() ? Style.content_main : Style.validator_error
                 font.italic :     !isTAInputValid()
                 text:             viewModel.receiverTA
-                validator:        RegExpValidator { regExp: /[0-9a-fA-F]{1,}/ }
+                validator:        RegExpValidator { regExp: /[0-9a-zA-Z]{1,}/ }
                 selectByMouse:    true
                 placeholderText:  qsTrId("send-contact-placeholder") //% "Please specify contact"
 

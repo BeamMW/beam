@@ -1,3 +1,5 @@
+cmake_minimum_required(VERSION 3.10)
+
 set(TARGET_NAME beam-wallet${BEAM_TARGET_SUFFIX})
 
 add_definitions( -DSQLITE_HAS_CODEC )
@@ -21,6 +23,8 @@ set(WALLET_SRC
 add_library(wallet STATIC ${WALLET_SRC})
 target_link_libraries(wallet core sqlite)
 
+target_compile_features(wallet PUBLIC cxx_std_17)
+
 if (NOT ANDROID)
 
     if(BEAM_HW_WALLET)
@@ -34,7 +38,6 @@ if (NOT ANDROID)
             ${PROJECT_SOURCE_DIR}/3rdparty/trezor-cpp-client/src/messages/messages-beam.pb.cc
         )
 
-        add_dependencies(hw_wallet core)
         target_link_libraries(hw_wallet core)
 
         if(MSVC)
@@ -49,7 +52,7 @@ if (NOT ANDROID)
         target_include_directories(hw_wallet PRIVATE ${PROJECT_SOURCE_DIR}/3rdparty/trezor-cpp-client/src/messages)
         target_include_directories(hw_wallet PRIVATE ${PROJECT_SOURCE_DIR}/3rdparty/curl/include)
         target_include_directories(hw_wallet PRIVATE ${PROJECT_SOURCE_DIR}/3rdparty/protobuf/src)
-        add_dependencies(wallet hw_wallet libprotobuf libcurl)
+
         target_link_libraries(wallet hw_wallet libprotobuf libcurl)
 
     endif()
@@ -74,7 +77,6 @@ set(WALLET_API_NAME wallet-api${BEAM_TARGET_SUFFIX})
 
 add_executable(${WALLET_API_NAME} api_cli.cpp)
 target_include_directories(${WALLET_API_NAME} PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
-    add_dependencies(${WALLET_API_NAME} wallet utility wallet_api_proto cli)
     target_link_libraries(${WALLET_API_NAME} wallet utility wallet_api_proto cli)
 
 if(LINUX)

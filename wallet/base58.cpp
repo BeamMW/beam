@@ -99,7 +99,10 @@ namespace beam::wallet
         {
             // alphabet is sorted
             auto it = lower_bound(alphabet.begin(), alphabet.end(), input[i]);
-
+            if (it == alphabet.end() || *it != input[i])
+            {
+                return {};
+            }
             indices[i] = static_cast<uint8_t>(distance(alphabet.begin(), it));
         }
         return Convert(move(indices), 58, 256);

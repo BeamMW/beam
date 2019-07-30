@@ -49,7 +49,7 @@ namespace beam::wallet
             return true;
         }
 
-        bool ApplyTransactionParameters(BaseTransaction::Ptr tx, const SerializedTxParameters& parameters, bool allowPrivate = false)
+        bool ApplyTransactionParameters(BaseTransaction::Ptr tx, const PackedTxParameters& parameters, bool allowPrivate = false)
         {
             bool txChanged = false;
             SubTxID subTxID = kDefaultSubTxID;
@@ -297,7 +297,7 @@ namespace beam::wallet
             throw FailToStartNewTransactionException();
         }
         ProcessTransaction(tx);
-        return parameters.GetTxID();
+        return *parameters.GetTxID();
     }
 
     void Wallet::ProcessTransaction(wallet::BaseTransaction::Ptr tx)
@@ -1127,17 +1127,17 @@ namespace beam::wallet
         auto it = m_TxCreators.find(*type);
         if (it == m_TxCreators.end())
         {
-            LOG_ERROR() << parameters.GetTxID() << " Unsupported type of transaction: " << static_cast<int>(*type);
+            LOG_ERROR() << *parameters.GetTxID() << " Unsupported type of transaction: " << static_cast<int>(*type);
             return BaseTransaction::Ptr();
         }
 
         if (!it->second->CanCreate(parameters))
         {
-            LOG_ERROR() << parameters.GetTxID() << " It is not permited to create this transaction";
+            LOG_ERROR() << *parameters.GetTxID() << " It is not permited to create this transaction";
             return wallet::BaseTransaction::Ptr();
         }
 
-        auto newTx = it->second->Create(*this, m_WalletDB, m_KeyKeeper, parameters.GetTxID());
+        auto newTx = it->second->Create(*this, m_WalletDB, m_KeyKeeper, *parameters.GetTxID());
         ApplyTransactionParameters(newTx, parameters.GetParameters(), true);
         return newTx;
     }
