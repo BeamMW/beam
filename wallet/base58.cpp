@@ -14,6 +14,7 @@
 
 #include "base58.h"
 
+#include <cmath>
 #include <iterator>
 #include <algorithm>
 

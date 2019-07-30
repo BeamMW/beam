@@ -326,8 +326,9 @@ namespace beam::wallet
         // Update all transactions
         auto transactions = m_ActiveTransactions;
         AsyncContextHolder holder(*this);
-        for (auto& [txId, transaction] : transactions)
+        for (auto& txPair : transactions)
         {
+            auto transaction = txPair.second;
             transaction->Update();
         }
     }
