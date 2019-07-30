@@ -15,6 +15,7 @@
 
 #include <QObject>
 #include <QQmlApplicationEngine>
+#include "currencies.h"
 
 class QMLGlobals : public QObject
 {
@@ -22,8 +23,21 @@ class QMLGlobals : public QObject
 public:
     QMLGlobals(QQmlEngine&);
 
-    Q_INVOKABLE void showMessage(QString& message);
-    Q_INVOKABLE void copyToClipboard(const QString& text);
+    Q_INVOKABLE static void showMessage(const QString& message);
+    Q_INVOKABLE static void copyToClipboard(const QString& text);
+    Q_INVOKABLE static bool isTransactionToken(const QString& text);
+    Q_INVOKABLE static bool isSwapToken(const QString& text);
+    Q_INVOKABLE static QString getLocaleName();
+    Q_INVOKABLE static int maxCommentLength();
+    Q_INVOKABLE static bool needPasswordToSpend();
+    Q_INVOKABLE static bool isPasswordValid(const QString& value);
+
+    // Currency utils
+    static bool isFeeOK(int fee, Currency currency);
+    Q_INVOKABLE static int minFeeBEAM();
+    Q_INVOKABLE static int minFeeBTC();
+    Q_INVOKABLE static int minFeeLTC();
+    Q_INVOKABLE static int minFeeQTUM();
 
 private:
     QQmlEngine& _engine;

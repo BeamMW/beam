@@ -36,7 +36,11 @@ namespace beamui
 
         return datetime.toString(Qt::SystemLocaleShortDate);
     }
-    
+
+    double Beam2Coins(const Amount& value)
+    {
+        return double(int64_t(value)) / Rules::Coin;
+    }
 
     Filter::Filter(size_t size)
         : _samples(size, 0.0)

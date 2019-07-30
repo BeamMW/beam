@@ -267,6 +267,38 @@ namespace
         WALLET_CHECK(stx->m_sender == true);
         WALLET_CHECK(rtx->m_sender == false);
 
+        // rollback test
+        {
+
+            Block::SystemState::Full sTip;
+            receiver.m_WalletDB->get_History().get_Tip(sTip);
+
+            receiver.m_WalletDB->get_History().DeleteFrom(sTip.m_Height); // delete latest block
+
+            proto::FlyClient& flyClient = receiver.m_Wallet;
+            //imitate rollback
+            flyClient.OnRolledBack();
+            receiver.m_WalletDB->get_History().AddStates(&sTip, 1);
+            flyClient.OnNewTip();
+            completedCount = 1; // sender's transaction is completed
+            mainReactor->run();
+
+            newReceiverCoins = receiver.GetCoins();
+
+            WALLET_CHECK(newReceiverCoins[0].m_ID.m_Value == 4);
+            WALLET_CHECK(newReceiverCoins[0].m_status == Coin::Available);
+            WALLET_CHECK(newReceiverCoins[0].m_ID.m_Type == Key::Type::Regular);
+
+            // Tx history check
+            rh = receiver.m_WalletDB->getTxHistory();
+            WALLET_CHECK(rh.size() == 1);
+            rtx = receiver.m_WalletDB->getTx(txId);
+            WALLET_CHECK(rtx.is_initialized());
+
+            WALLET_CHECK(rtx->m_status == TxStatus::Completed);
+            WALLET_CHECK(rtx->m_sender == false);
+        }
+
         // second transfer
         auto preselectedCoins = sender.m_WalletDB->selectCoins(6);
         CoinIDList preselectedIDs;

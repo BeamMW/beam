@@ -8,8 +8,9 @@
         <translation>BEAM</translation>
     </message>
     <message id="general-groth">
-        <source>GROTH</source>
-        <translation>GROTH</translation>
+        <source></source>
+        <oldsource>GROTH</oldsource>
+        <translation type="unfinished">GROTH</translation>
     </message>
     <message id="general-comment">
         <source>Comment</source>
@@ -123,7 +124,8 @@
     </message>
     <message id="general-invalid-address">
         <source>Invalid address</source>
-        <translation>Invalid address</translation>
+        <oldsource>Invalid address or token</oldsource>
+        <translation type="unfinished">Invalid address or token</translation>
     </message>
     <message id="general-coinbase">
         <source>Coinbase</source>
@@ -191,6 +193,11 @@
         <source>The minimum fee is %1 GROTH</source>
         <oldsource>The minimum fee is %1 %2</oldsource>
         <translation type="unfinished">The minimum fee is %1 %2</translation>
+    </message>
+    <message id="general-comment-local">
+        <source></source>
+        <oldsource>Comments are local and won&apos;t be shared</oldsource>
+        <translation type="unfinished">Comments are local and won&apos;t be shared</translation>
     </message>
     <message id="wallet-receive-button">
         <source>Receive</source>
@@ -556,10 +563,30 @@
         <source>Receive</source>
         <translation>Receive</translation>
     </message>
-    <message id="wallet-swap-title">
+    <message id="wallet-receive-swap-title">
         <source></source>
         <oldsource>Create swap offer</oldsource>
         <translation type="unfinished">Create swap offer</translation>
+    </message>
+    <message id="wallet-send-swap-title">
+        <source></source>
+        <oldsource>Swap currencies</oldsource>
+        <translation type="unfinished">Swap currencies</translation>
+    </message>
+    <message id="wallet-send-swap-expires-label">
+        <source></source>
+        <oldsource>Expires on</oldsource>
+        <translation type="unfinished">Expires on</translation>
+    </message>
+    <message id="wallet-send-swap-offered-label">
+        <source></source>
+        <oldsource>Offered on</oldsource>
+        <translation type="unfinished">Offered on</translation>
+    </message>
+    <message id="wallet-swap-title">
+        <source></source>
+        <oldsource>Create swap offer</oldsource>
+        <translation type="obsolete">Create swap offer</translation>
     </message>
     <message id="wallet-receive-my-addr-label">
         <source>My address (auto-generated)</source>
@@ -622,43 +649,64 @@
     </message>
     <message id="invalid-addr-got-it-button">
         <source>Got it</source>
-        <translation>Got it</translation>
+        <translation type="vanished">Got it</translation>
     </message>
     <message id="send-title">
-        <source>Send Beam</source>
-        <translation>Send Beam</translation>
+        <source></source>
+        <oldsource>Send Beam</oldsource>
+        <translation type="unfinished">Send Beam</translation>
     </message>
     <message id="send-send-to-label">
-        <source>Send To</source>
-        <translation>Send To</translation>
+        <source></source>
+        <oldsource>Transaction token or contact</oldsource>
+        <translation type="unfinished">Transaction token or contact</translation>
+    </message>
+    <message id="send-swap-to-label">
+        <source></source>
+        <oldsource>Transaction token</oldsource>
+        <translation type="unfinished">Transaction token</translation>
     </message>
     <message id="send-contact-placeholder">
-        <source>Please specify contact</source>
-        <translation>Please specify contact</translation>
+        <source></source>
+        <oldsource>Please specify contact or transaction token</oldsource>
+        <translation type="unfinished">Please specify contact or transaction token</translation>
     </message>
     <message id="send-amount-label">
-        <source>Transaction amount</source>
-        <translation>Transaction amount</translation>
+        <source></source>
+        <oldsource>Transaction amount</oldsource>
+        <translation type="unfinished">Transaction amount</translation>
     </message>
     <message id="send-founds-fail">
-        <source>Insufficient funds: you would need %1 to complete the transaction</source>
-        <translation>Insufficient funds: you would need %1 to complete the transaction</translation>
+        <source></source>
+        <oldsource>Insufficient funds: you would need %1 to complete the transaction</oldsource>
+        <translation type="unfinished">Insufficient funds: you would need %1 to complete the transaction</translation>
+    </message>
+    <message id="send-not-enough">
+        <source></source>
+        <oldsource>There is not enough funds to completer the transaction</oldsource>
+        <translation type="unfinished">There is not enough funds to completer the transaction</translation>
     </message>
     <message id="send-fee-fail">
         <source>The minimum fee is %1 GROTH</source>
-        <translation>The minimum fee is %1 GROTH</translation>
+        <translation type="vanished">The minimum fee is %1 GROTH</translation>
     </message>
     <message id="send-curency-sub-name">
         <source>GROTH</source>
-        <translation>GROTH</translation>
+        <translation type="vanished">GROTH</translation>
     </message>
     <message id="send-remaining-label">
-        <source>Remaining</source>
-        <translation>Remaining</translation>
+        <source></source>
+        <oldsource>Remaining</oldsource>
+        <translation type="unfinished">Remaining</translation>
+    </message>
+    <message id="send-total-label">
+        <source></source>
+        <oldsource>Total UTXO value</oldsource>
+        <translation type="unfinished">Total UTXO value</translation>
     </message>
     <message id="send-send-fail">
         <source>Address %1 is invalid</source>
-        <translation>Address %1 is invalid</translation>
+        <translation type="vanished">Address %1 is invalid</translation>
     </message>
     <message id="start-restore-confirm-button">
         <source>I agree</source>
@@ -936,11 +984,11 @@
     </message>
     <message id="tx-curency-name">
         <source>BEAM</source>
-        <translation>BEAM</translation>
+        <translation type="vanished">BEAM</translation>
     </message>
     <message id="tx-curency-sub-name">
         <source>GROTH</source>
-        <translation>GROTH</translation>
+        <translation type="vanished">GROTH</translation>
     </message>
     <message id="utxo-utxo">
         <source>UTXO</source>

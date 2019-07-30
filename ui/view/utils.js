@@ -14,6 +14,10 @@ function formatDateTime(datetime, localeName) {
          + ")";
 }
 
+function formatAmount (amount, toPlainNumber) {
+    return amount ? amount.toLocaleString(toPlainNumber ? Qt.locale("C") : Qt.locale(), 'f', -128) : ""
+}
+
 function getLogoTopGapSize(parentHeight) {
     return parentHeight * (parentHeight < 768 ? 0.13 : 0.18)
 }

@@ -111,6 +111,8 @@ set(UI_SRC
     viewmodel/receive_swap_view.h
     viewmodel/receive_swap_view.cpp
     viewmodel/currencies.h
+    viewmodel/send_swap_view.h
+    viewmodel/send_swap_view.cpp
 
     model/wallet_model.h
     model/wallet_model.cpp

@@ -8,8 +8,9 @@
         <translation>BEAM</translation>
     </message>
     <message id="general-groth">
-        <source>GROTH</source>
-        <translation>GROTH</translation>
+        <source></source>
+        <oldsource>GROTH</oldsource>
+        <translation type="unfinished">GROTH</translation>
     </message>
     <message id="general-comment">
         <source>Comment</source>
@@ -575,43 +576,49 @@
     </message>
     <message id="invalid-addr-got-it-button">
         <source>Got it</source>
-        <translation>Ясно</translation>
+        <translation type="vanished">Ясно</translation>
     </message>
     <message id="send-title">
-        <source>Send Beam</source>
-        <translation>Отправить Beam</translation>
+        <source></source>
+        <oldsource>Send Beam</oldsource>
+        <translation type="unfinished">Отправить Beam</translation>
     </message>
     <message id="send-send-to-label">
-        <source>Send To</source>
-        <translation>Получатель</translation>
+        <source></source>
+        <oldsource>Send To</oldsource>
+        <translation type="unfinished">Получатель</translation>
     </message>
     <message id="send-contact-placeholder">
-        <source>Please specify contact</source>
-        <translation>Укажите адрес получателя</translation>
+        <source></source>
+        <oldsource>Please specify contact</oldsource>
+        <translation type="unfinished">Укажите адрес получателя</translation>
     </message>
     <message id="send-amount-label">
-        <source>Transaction amount</source>
-        <translation>Сумма транзакции</translation>
+        <source></source>
+        <oldsource>Transaction amount</oldsource>
+        <translation type="unfinished">Сумма транзакции</translation>
     </message>
     <message id="send-founds-fail">
-        <source>Insufficient funds: you would need %1 to complete the transaction</source>
-        <translation>Недостаточно средств: необходимо %1 для завершения транзакции</translation>
+        <source></source>
+        <oldsource>Insufficient funds: you would need %1 to complete the transaction</oldsource>
+        <translation type="unfinished">Недостаточно средств: необходимо %1 для завершения транзакции</translation>
     </message>
     <message id="send-fee-fail">
         <source>The minimum fee is %1 GROTH</source>
-        <translation>Минимальная комиссия %1 GROTH</translation>
+        <translation type="vanished">Минимальная комиссия %1 GROTH</translation>
     </message>
     <message id="send-curency-sub-name">
         <source>GROTH</source>
-        <translation>GROTH</translation>
+        <translation type="vanished">GROTH</translation>
     </message>
     <message id="send-remaining-label">
-        <source>Remaining</source>
-        <translation>Остаток</translation>
+        <source></source>
+        <oldsource>Remaining</oldsource>
+        <translation type="unfinished">Остаток</translation>
     </message>
     <message id="send-send-fail">
         <source>Address %1 is invalid</source>
-        <translation>Адрес %1 не корректен</translation>
+        <translation type="vanished">Адрес %1 не корректен</translation>
     </message>
     <message id="start-restore-confirm-button">
         <source>I agree</source>
@@ -889,11 +896,11 @@
     </message>
     <message id="tx-curency-name">
         <source>BEAM</source>
-        <translation>BEAM</translation>
+        <translation type="vanished">BEAM</translation>
     </message>
     <message id="tx-curency-sub-name">
         <source>GROTH</source>
-        <translation>GROTH</translation>
+        <translation type="vanished">GROTH</translation>
     </message>
     <message id="utxo-utxo">
         <source>UTXO</source>
@@ -1186,10 +1193,6 @@
         <source>The minimum fee is %1 GROTH</source>
         <translation type="unfinished">Минимальная комиссия %1 GROTH</translation>
     </message>
-    <message id="wallet-swap-title">
-        <source></source>
-        <translation type="unfinished"></translation>
-    </message>
     <message id="wallet-swap">
         <source></source>
         <translation type="unfinished"></translation>
@@ -1223,6 +1226,38 @@
         <translation type="unfinished">24 часа {6 ?}</translation>
     </message>
     <message id="wallet-swap-propogate-addr-message">
+        <source></source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="wallet-receive-swap-title">
+        <source></source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="wallet-send-swap-title">
+        <source></source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="general-comment-local">
+        <source></source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="send-total-label">
+        <source></source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="send-swap-to-label">
+        <source></source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="send-not-enough">
+        <source></source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="wallet-send-swap-offered-label">
+        <source></source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="wallet-send-swap-expires-label">
         <source></source>
         <translation type="unfinished"></translation>
     </message>

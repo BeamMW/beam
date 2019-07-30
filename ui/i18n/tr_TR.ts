@@ -8,8 +8,9 @@
         <translation>BEAM</translation>
     </message>
     <message id="general-groth">
-        <source>GROTH</source>
-        <translation>GROTH</translation>
+        <source></source>
+        <oldsource>GROTH</oldsource>
+        <translation type="unfinished">GROTH</translation>
     </message>
     <message id="general-comment">
         <source>Comment</source>
@@ -154,7 +155,7 @@
     </message>
     <message id="general-select-db">
         <source>Select the wallet database file</source>
-        <translation type="unfinished">Select the wallet database file</translation>
+        <translation>Cüzdan veritabanı dosyasını seçin</translation>
     </message>
     <message id="general-restore-wallet">
         <source>Restore wallet</source>
@@ -179,7 +180,7 @@
     </message>
     <message id="general-addr-comment-error">
         <source>Address with same comment already exist</source>
-        <translation type="unfinished">Address with same comment already exist</translation>
+        <translation>Aynı yorumu içeren adres hali hazırda var</translation>
     </message>
     <message id="wallet-receive-button">
         <source>Receive</source>
@@ -315,12 +316,12 @@
     <message id="settings-rescan-confirmation-message">
         <source>Rescan will sync transaction and UTXO data with the latest information on the blockchain. The process might take long time.</source>
         <extracomment>settings tab, confirm rescan dialog message</extracomment>
-        <translation type="unfinished">Rescan will sync transaction and UTXO data with the latest information on the blockchain. The process might take long time.</translation>
+        <translation>Rescan, işlem ve UTXO verilerini blockchain hakkındaki en son bilgilerle senkronize eder. İşlem uzun zaman alabilir.</translation>
     </message>
     <message id="settings-general-title">
         <source>General settings</source>
         <extracomment>settings tab, general section, title</extracomment>
-        <translation type="unfinished">General settings</translation>
+        <translation>Genel ayarlar</translation>
     </message>
     <message id="settings-general-lock-screen">
         <source>Lock screen</source>
@@ -365,200 +366,200 @@
     </message>
     <message id="change-pwd-new-same-as-old">
         <source>New password cannot be the same as old</source>
-        <translation type="unfinished">New password cannot be the same as old</translation>
+        <translation>Yeni şifre eskisiyle aynı olamaz</translation>
     </message>
     <message id="change-pwd-confirm-fail">
         <source>New password doesn&apos;t match the confirm password</source>
-        <translation type="unfinished">New password doesn&apos;t match the confirm password</translation>
+        <translation>Yeni şifre eşleşmiyor, onaylamak için lütfen eşleştirin</translation>
     </message>
     <message id="change-pwd-old-fail">
         <source>The old password you have entered is incorrect</source>
-        <translation type="unfinished">The old password you have entered is incorrect</translation>
+        <translation>Girdiğiniz eski şifre yanlış</translation>
     </message>
     <message id="change-pwd-old-pwd-label">
         <source>Enter old password</source>
-        <translation type="unfinished">Enter old password</translation>
+        <translation>Eski şifrenizi girin</translation>
     </message>
     <message id="change-pwd-new-pwd-label">
         <source>Enter new password</source>
-        <translation type="unfinished">Enter new password</translation>
+        <translation>Yeni şifrenizi girin</translation>
     </message>
     <message id="change-pwd-confirm-pwd-label">
         <source>Confirm new password</source>
-        <translation type="unfinished">Confirm new password</translation>
+        <translation>Yeni şifrenizi onaylayın</translation>
     </message>
     <message id="change-pwd-ok">
         <source>Сhange password</source>
-        <translation type="unfinished">Сhange password</translation>
+        <translation>Şifreyi değiştir</translation>
     </message>
     <message id="loading-loading">
         <source>Loading wallet...</source>
-        <translation type="unfinished">Loading wallet...</translation>
+        <translation>Cüzdan yükleniyor...</translation>
     </message>
     <message id="loading-restoring">
         <source>Restoring wallet...</source>
-        <translation type="unfinished">Restoring wallet...</translation>
+        <translation>Cüzdan geri yükleniyor...</translation>
     </message>
     <message id="loading-creating">
         <source>Creating wallet...</source>
-        <translation type="unfinished">Creating wallet...</translation>
+        <translation>Cüzdan oluşturuluyor...</translation>
     </message>
     <message id="start-open-pwd-invitation">
         <source>Enter your password to access the wallet</source>
-        <translation type="unfinished">Enter your password to access the wallet</translation>
+        <translation>Cüzdana erişmek için şifrenizi girin</translation>
     </message>
     <message id="open-show-wallet-button">
         <source>Show my wallet</source>
-        <translation type="unfinished">Show my wallet</translation>
+        <translation>Cüzdanımı göster</translation>
     </message>
     <message id="edit-addr-title">
         <source>Edit address</source>
         <extracomment>Edit addres dialog title</extracomment>
-        <translation type="unfinished">Edit address</translation>
+        <translation>Adresi düzenle</translation>
     </message>
     <message id="edit-addr-addr-id">
         <source>Address ID</source>
         <extracomment>Edit addres dialog, address label</extracomment>
-        <translation type="unfinished">Address ID</translation>
+        <translation>Adres kimliği</translation>
     </message>
     <message id="edit-addr-save-button">
         <source>Save</source>
         <extracomment>Edit addres dialog, save button</extracomment>
-        <translation type="unfinished">Save</translation>
+        <translation>Kaydet</translation>
     </message>
     <message id="payment-info-proof-verification">
         <source>Payment proof verification</source>
-        <translation type="unfinished">Payment proof verification</translation>
+        <translation>Ödeme kanıtı doğrulama</translation>
     </message>
     <message id="payment-info-proof-label">
         <source>Paste your payment proof here</source>
-        <translation type="unfinished">Paste your payment proof here</translation>
+        <translation>Ödeme kanıdınızı buraya yapıştırın</translation>
     </message>
     <message id="payment-info-proof-decode-fail">
         <source>Cannot decode a proof, illegal sequence.</source>
-        <translation type="unfinished">Cannot decode a proof, illegal sequence.</translation>
+        <translation>Kanıt çözülemedi, yasadışı dizi.</translation>
     </message>
     <message id="payment-info-proof-code-label">
         <source>Code</source>
-        <translation type="unfinished">Code</translation>
+        <translation>Kod</translation>
     </message>
     <message id="payment-info-proof-sender-label">
         <source>Sender</source>
-        <translation type="unfinished">Sender</translation>
+        <translation>Gönderici</translation>
     </message>
     <message id="payment-info-proof-receiver-label">
         <source>Receiver</source>
-        <translation type="unfinished">Receiver</translation>
+        <translation>Alıcı</translation>
     </message>
     <message id="payment-info-copy-details-button">
         <source>Copy details</source>
-        <translation type="unfinished">Copy details</translation>
+        <translation>Detayları kopyala</translation>
     </message>
     <message id="payment-info-copy-code-button">
         <source>Copy code</source>
-        <translation type="unfinished">Copy code</translation>
+        <translation>Kodu kopyala</translation>
     </message>
     <message id="secondary-panel-maturing">
         <source>Maturing</source>
-        <translation type="unfinished">Maturing</translation>
+        <translation>Olgunlaştırılıyor</translation>
     </message>
     <message id="info-title">
         <source>Info view</source>
-        <translation type="unfinished">Info view</translation>
+        <translation>Bilgi görünümü</translation>
     </message>
     <message id="loading-change-settings-button">
         <source>Change settings</source>
-        <translation type="unfinished">Change settings</translation>
+        <translation>Ayarları değiştir</translation>
     </message>
     <message id="loading-try-again-button">
         <source>Try again</source>
-        <translation type="unfinished">Try again</translation>
+        <translation>Tekrar deneyin</translation>
     </message>
     <message id="notifications-title">
         <source>Notifications view</source>
-        <translation type="unfinished">Notifications view</translation>
+        <translation>Bildirimler</translation>
     </message>
     <message id="status-connecting">
         <source>connecting</source>
-        <translation type="unfinished">connecting</translation>
+        <translation>bağlanıyor</translation>
     </message>
     <message id="status-online">
         <source>online</source>
-        <translation type="unfinished">online</translation>
+        <translation>çevrimiçi</translation>
     </message>
     <message id="status-updating">
         <source>updating</source>
-        <translation type="unfinished">updating</translation>
+        <translation>güncelleniyor</translation>
     </message>
     <message id="tx-details-title">
         <source>General transaction info</source>
-        <translation type="unfinished">General transaction info</translation>
+        <translation>Genel işlem bilgileri</translation>
     </message>
     <message id="tx-details-sending-addr-label">
         <source>Sending address</source>
-        <translation type="unfinished">Sending address</translation>
+        <translation>Gönderici adresleri</translation>
     </message>
     <message id="tx-details-receiving-addr-label">
         <source>Receiving address</source>
-        <translation type="unfinished">Receiving address</translation>
+        <translation>Alıcı adresleri</translation>
     </message>
     <message id="tx-details-error-label">
         <source>Error</source>
-        <translation type="unfinished">Error</translation>
+        <translation>Hata</translation>
     </message>
     <message id="settings-report-problem-save-log-button">
         <source>Save wallet logs</source>
         <extracomment>settings tab, report problem section, save logs button</extracomment>
-        <translation type="unfinished">Save wallet logs</translation>
+        <translation>Cüzdan kaydını kaydedin</translation>
     </message>
     <message id="settings-rescan-confirmation-message-line-2">
         <source>Are you sure?</source>
         <extracomment>settings tab, confirm rescan dialog additional message</extracomment>
-        <translation type="unfinished">Are you sure?</translation>
+        <translation>Emin misiniz?</translation>
     </message>
     <message id="settings-title">
         <source>Settings</source>
         <extracomment>settings tab title</extracomment>
-        <translation type="unfinished">Settings</translation>
+        <translation>Ayarlar</translation>
     </message>
     <message id="cant-send-to-expired-message">
         <source>Can&apos;t send to the expired address.</source>
-        <translation type="unfinished">Can&apos;t send to the expired address.</translation>
+        <translation>Süresi dolmuş adrese gönderilemiyor.</translation>
     </message>
     <message id="send-confirmation-title">
         <source>Confirm transaction details</source>
-        <translation type="unfinished">Confirm transaction details</translation>
+        <translation>İşlem detaylarını onaylayın</translation>
     </message>
     <message id="send-confirmation-recipient-label">
         <source>Recipient</source>
-        <translation type="unfinished">Recipient</translation>
+        <translation>Alıcı</translation>
     </message>
     <message id="send-confirmation-pwd-require-message">
         <source>To broadcast your transaction please enter your password</source>
-        <translation type="unfinished">To broadcast your transaction please enter your password</translation>
+        <translation>İşleminizi gerçekleştirmek için lütfen şifrenizi girin</translation>
     </message>
     <message id="wallet-title">
         <source>Wallet</source>
-        <translation type="unfinished">Wallet</translation>
+        <translation>Cüzdan</translation>
     </message>
     <message id="wallet-receive-title">
         <source>Receive</source>
         <oldsource>Receive Beam</oldsource>
-        <translation type="unfinished">Receive Beam</translation>
+        <translation type="unfinished">Beam al</translation>
     </message>
     <message id="wallet-receive-my-addr-label">
         <source>My address (auto-generated)</source>
         <oldsource>My address</oldsource>
-        <translation type="unfinished">My address</translation>
+        <translation type="unfinished">Adresim</translation>
     </message>
     <message id="wallet-receive-expires-label">
         <source></source>
         <oldsource>Expires</oldsource>
-        <translation type="unfinished">Expires</translation>
+        <translation type="unfinished">Süresi dolanlar</translation>
     </message>
     <message id="wallet-receive-expires-24">
         <source>24 hours</source>
-        <translation type="unfinished">24 hours</translation>
+        <translation>24 saat</translation>
     </message>
     <message id="wallet-receive-expires-never">
         <source>Never</source>
@@ -571,608 +572,614 @@
     <message id="wallet-receive-propogate-addr-message">
         <source></source>
         <oldsource>Send this address to the sender over an external secure channel</oldsource>
-        <translation type="unfinished">Send this address to the sender over an external secure channel</translation>
+        <translation type="unfinished">Bu adresi gönderene harici güvenli bir kanal üzerinden gönderin</translation>
     </message>
     <message id="invalid-addr-got-it-button">
         <source>Got it</source>
-        <translation type="unfinished">Got it</translation>
+        <translation type="vanished">Anlaşıldı</translation>
     </message>
     <message id="send-title">
-        <source>Send Beam</source>
-        <translation type="unfinished">Send Beam</translation>
+        <source></source>
+        <oldsource>Send Beam</oldsource>
+        <translation type="unfinished">Beam yolla</translation>
     </message>
     <message id="send-send-to-label">
-        <source>Send To</source>
-        <translation type="unfinished">Send To</translation>
+        <source></source>
+        <oldsource>Send To</oldsource>
+        <translation type="unfinished">Yolla</translation>
     </message>
     <message id="send-contact-placeholder">
-        <source>Please specify contact</source>
-        <translation type="unfinished">Please specify contact</translation>
+        <source></source>
+        <oldsource>Please specify contact</oldsource>
+        <translation type="unfinished">Lütfen kontağı belirleyin</translation>
     </message>
     <message id="send-amount-label">
-        <source>Transaction amount</source>
-        <translation type="unfinished">Transaction amount</translation>
+        <source></source>
+        <oldsource>Transaction amount</oldsource>
+        <translation type="unfinished">İşlem miktarı</translation>
     </message>
     <message id="send-founds-fail">
-        <source>Insufficient funds: you would need %1 to complete the transaction</source>
-        <translation type="unfinished">Insufficient funds: you would need %1 to complete the transaction</translation>
+        <source></source>
+        <oldsource>Insufficient funds: you would need %1 to complete the transaction</oldsource>
+        <translation type="unfinished">Yetersiz miktar: işlemi tamamlamak için %1 gerekir</translation>
     </message>
     <message id="send-fee-fail">
         <source>The minimum fee is %1 GROTH</source>
-        <translation type="unfinished">The minimum fee is %1 GROTH</translation>
+        <translation type="vanished">Minimum işlem ücreti %1 GROTH</translation>
     </message>
     <message id="send-curency-sub-name">
         <source>GROTH</source>
-        <translation type="unfinished">GROTH</translation>
+        <translation type="vanished">GROTH</translation>
     </message>
     <message id="send-remaining-label">
-        <source>Remaining</source>
-        <translation type="unfinished">Remaining</translation>
+        <source></source>
+        <oldsource>Remaining</oldsource>
+        <translation type="unfinished">Kalan</translation>
     </message>
     <message id="send-send-fail">
         <source>Address %1 is invalid</source>
-        <translation type="unfinished">Address %1 is invalid</translation>
+        <translation type="vanished">Adres %1 geçersiz</translation>
     </message>
     <message id="start-restore-confirm-button">
         <source>I agree</source>
-        <translation type="unfinished">I agree</translation>
+        <translation>Kabul ediyorum</translation>
     </message>
     <message id="start-restore-message-line">
         <source>You are trying to restore an existing Beam Wallet. Please notice that if you use your wallet on another device, your balance will be up to date, but  transaction history and addresses will be kept separately on each device.</source>
-        <translation type="unfinished">You are trying to restore an existing Beam Wallet. Please notice that if you use your wallet on another device, your balance will be up to date, but  transaction history and addresses will be kept separately on each device.</translation>
+        <translation>Mevcut bir Beam cüzdanını geri yüklemeye çalışıyorsunuz. Lütfen cüzdanınızı başka bir cihazda kullanırsanız, bakiyenizin güncel olacağını, ancak işlem geçmişinin ve adreslerin iki cihazda ayrı ayrı tutulacağını unutmayın.</translation>
     </message>
     <message id="start-migration-message">
         <source>Your wallet will be migrated to v.</source>
-        <translation type="unfinished">Your wallet will be migrated to v.</translation>
+        <translation>Cüzdanınız taşındı.</translation>
     </message>
     <message id="start-migration-button">
         <source>Start auto migration</source>
         <extracomment>migration screen, start auto migration button</extracomment>
-        <translation type="unfinished">Start auto migration</translation>
+        <translation>Otomatik transferi başlatın</translation>
     </message>
     <message id="start-select-db-thead-name">
         <source>Name</source>
-        <translation type="unfinished">Name</translation>
+        <translation>İsim</translation>
     </message>
     <message id="start-select-db-thead-size">
         <source>Size</source>
-        <translation type="unfinished">Size</translation>
+        <translation>Boyut</translation>
     </message>
     <message id="kb-unit">
         <source>kb</source>
-        <translation type="unfinished">kb</translation>
+        <translation>kb</translation>
     </message>
     <message id="start-select-db-thead-modified">
         <source>Date modified</source>
         <extracomment>start screen, select db for migration, Date modified column title</extracomment>
-        <translation type="unfinished">Date modified</translation>
+        <translation>Değiştirilme tarihi</translation>
     </message>
     <message id="start-create-new-message-line-1">
         <source>Create new wallet with generating seed phrase.</source>
-        <translation type="unfinished">Create new wallet with generating seed phrase.</translation>
+        <translation>Anahtar kelimeler ile yeni bir cüzdan oluşturun.</translation>
     </message>
     <message id="start-create-new-message-line-2">
         <source>If you ever lose your device, you will need this phrase to recover your wallet!</source>
-        <translation type="unfinished">If you ever lose your device, you will need this phrase to recover your wallet!</translation>
+        <translation>Eğer cihazınızı kaybederseniz, cüzdanınızı kurtarmak için bu cümleye ihtiyacınız olacak!</translation>
     </message>
     <message id="start-create-new-securiry-note-1">
         <source>Do not let anyone see your seed phrase</source>
-        <translation type="unfinished">Do not let anyone see your seed phrase</translation>
+        <translation>Kimsenin anahtar kelimelerinizi görmesine izin vermeyin</translation>
     </message>
     <message id="start-create-new-securiry-note-2">
         <source>Never type your seed phrase into password managers or elsewhere</source>
-        <translation type="unfinished">Never type your seed phrase into password managers or elsewhere</translation>
+        <translation>Anahtar kelimelerinizi asla bir şifre yöneticine ya da başka bir yere yazmayın</translation>
     </message>
     <message id="start-create-new-securiry-note-3">
         <source>Keep the copies of your seed phrase in a safe place</source>
-        <translation type="unfinished">Keep the copies of your seed phrase in a safe place</translation>
+        <translation>Anahtar kelimelerinizin kopyalarını güvenli bir yerde saklayın</translation>
     </message>
     <message id="start-generate-seed-phrase-button">
         <source>Generate seed phrase</source>
-        <translation type="unfinished">Generate seed phrase</translation>
+        <translation>Anahtar kelimeleri oluştur</translation>
     </message>
     <message id="start-generate-seed-phrase-message">
         <source>Your seed phrase is the access key to all the cryptocurrencies in your wallet. Write down the phrase to keep it in a safe or in a locked vault. Without the phrase you will not be able to recover your money.</source>
-        <translation type="unfinished">Your seed phrase is the access key to all the cryptocurrencies in your wallet. Write down the phrase to keep it in a safe or in a locked vault. Without the phrase you will not be able to recover your money.</translation>
+        <translation>Anahtar kelimeleriniz, cüzdanınızdaki tüm bakiyenin erişim anahtarıdır. Güvenli veya kilitli bir kasada saklamak için ifadeyi yazdırın veya yazın. İfade olmadan bakiyenize ulaşamazsınız.</translation>
     </message>
     <message id="start-confirm-seed-phrase-button">
         <source>I understand</source>
-        <translation type="unfinished">I understand</translation>
+        <translation>Anlıyorum</translation>
     </message>
     <message id="start-confirm-seed-phrase-message">
         <source>It is strictly recommended to write down the seed phrase on a paper. Storing it in a file makes it prone to cyber attacks and, therefore, less secure.</source>
-        <translation type="unfinished">It is strictly recommended to write down the seed phrase on a paper. Storing it in a file makes it prone to cyber attacks and, therefore, less secure.</translation>
+        <translation>Anahtar kelimelerinizi bir kağıda yazmanız kesinlikle önerilir. Bilgisayar içerisinde bir dosyada saklamak, siber saldırılara karşı açık olmasını ve dolayısıyla daha az güvenli olmasına neden olur.</translation>
     </message>
     <message id="start-check-seed-phrase-message">
         <source>To ensure the seed phrase is written down, please fill-in the specific words below</source>
-        <translation type="unfinished">To ensure the seed phrase is written down, please fill-in the specific words below</translation>
+        <translation>Anahtar kelimelerin doğru yazıldığından emin olmak için lütfen aşağıdaki kelimeleri girin</translation>
     </message>
     <message id="start-restore-message">
         <source>Type in or paste your seed phrase</source>
-        <translation type="unfinished">Type in or paste your seed phrase</translation>
+        <translation>Anahtar kelimelerinizi yazın ya da yapıştırın</translation>
     </message>
     <message id="start-create-pwd-message">
         <source>Create password to access your wallet</source>
-        <translation type="unfinished">Create password to access your wallet</translation>
+        <translation>Cüzdanınıza erişmek için bir şifre oluşturun</translation>
     </message>
     <message id="start-pwd-label">
         <source>Password</source>
-        <translation type="unfinished">Password</translation>
+        <translation>Şifre</translation>
     </message>
     <message id="start-create-pwd-confirm-label">
         <source>Confirm password</source>
-        <translation type="unfinished">Confirm password</translation>
+        <translation>Şifreyi onaylayın</translation>
     </message>
     <message id="start-create-pwd-not-match-error">
         <source>Passwords do not match</source>
-        <translation type="unfinished">Passwords do not match</translation>
+        <translation>Şifreler eşleşmiyor</translation>
     </message>
     <message id="start-node-title">
         <source>Setup node connectivity</source>
-        <translation type="unfinished">Setup node connectivity</translation>
+        <translation>Nod kurulum bağlantısı</translation>
     </message>
     <message id="start-node-integrated-radio">
         <source>Run integrated node (recommended)</source>
-        <translation type="unfinished">Run integrated node (recommended)</translation>
+        <translation>Entegre nodu çalıştır (önerilen)</translation>
     </message>
     <message id="start-node-port-label">
         <source>Enter port to listen</source>
-        <translation type="unfinished">Enter port to listen</translation>
+        <translation>Dinlemek için port girin</translation>
     </message>
     <message id="start-node-peer-label">
         <source>Peer</source>
-        <translation type="unfinished">Peer</translation>
+        <translation>Eş</translation>
     </message>
     <message id="start-node-random-radio">
         <source>Connect to random remote node</source>
-        <translation type="unfinished">Connect to random remote node</translation>
+        <translation>Rasgele uzak noda bağlan</translation>
     </message>
     <message id="start-node-remote-radio">
         <source>Connect to specific remote node</source>
-        <translation type="unfinished">Connect to specific remote node</translation>
+        <translation>Belirli bir uzak noda bağlan</translation>
     </message>
     <message id="start-node-port-empty-error">
         <source>Please specify port</source>
-        <translation type="unfinished">Please specify port</translation>
+        <translation>Lütfen portu belirleyin</translation>
     </message>
     <message id="start-node-port-value-error">
         <source>Port must be a number between 1 and 65535</source>
-        <translation type="unfinished">Port must be a number between 1 and 65535</translation>
+        <translation>Port numarası 1 ile 65535 arasında bir sayı olmalıdır</translation>
     </message>
     <message id="start-node-peer-empty-error">
         <source>Please specify peer</source>
-        <translation type="unfinished">Please specify peer</translation>
+        <translation>Eşi belirleyin</translation>
     </message>
     <message id="start-node-peer-error">
         <source>Incorrect address</source>
-        <translation type="unfinished">Incorrect address</translation>
+        <translation>Yanlış adres</translation>
     </message>
     <message id="start-node-empty-error">
         <source>Please specify address of the remote node</source>
-        <translation type="unfinished">Please specify address of the remote node</translation>
+        <translation>Lütfen uzak nodun adresini belirtin</translation>
     </message>
     <message id="appmodel-failed-start-node">
         <source>Failed to start node. Please check your node configuration</source>
-        <translation type="unfinished">Failed to start node. Please check your node configuration</translation>
+        <translation>Cüzdan başlatılırken hata oluştu. Lütfen nod ayarlarını kontrol edin</translation>
     </message>
     <message id="wallet-model-node-protocol-error">
         <source>Node protocol error!</source>
-        <translation type="unfinished">Node protocol error!</translation>
+        <translation>Nod protokol hatası!</translation>
     </message>
     <message id="wallet-model-incompatible-peer-error">
         <source>You are trying to connect to incompatible peer.</source>
-        <translation type="unfinished">You are trying to connect to incompatible peer.</translation>
+        <translation>Uyumsuz bir eşe bağlanmaya çalışıyorsunuz.</translation>
     </message>
     <message id="wallet-model-connection-base-error">
         <source>Connection error</source>
-        <translation type="unfinished">Connection error</translation>
+        <translation>Bağlantı hatası</translation>
     </message>
     <message id="wallet-model-connection-time-out-error">
         <source>Connection timed out</source>
-        <translation type="unfinished">Connection timed out</translation>
+        <translation>Bağlantı zaman aşımına uğradı</translation>
     </message>
     <message id="wallet-model-connection-refused-error">
         <source>Cannot connect to node</source>
-        <translation type="unfinished">Cannot connect to node</translation>
+        <translation>Nod&apos;a bağlanamıyor</translation>
     </message>
     <message id="wallet-model-connection-host-unreach-error">
         <source>Node is unreachable</source>
-        <translation type="unfinished">Node is unreachable</translation>
+        <translation>Noda ulaşılamıyor</translation>
     </message>
     <message id="wallet-model-connection-addr-in-use-error">
         <source>The port %1 is already in use. Check if a wallet is already running on this machine or change the port settings.</source>
-        <translation type="unfinished">The port %1 is already in use. Check if a wallet is already running on this machine or change the port settings.</translation>
+        <translation>%1 bağlantı noktası zaten kullanılıyor. Bu makinede zaten bir cüzdanın çalışıp çalışmadığını kontrol edin veya port ayarlarını değiştirin.</translation>
     </message>
     <message id="wallet-model-time-sync-error">
         <source>System time not synchronized</source>
-        <translation type="unfinished">System time not synchronized</translation>
+        <translation>Sistem zamanı senkronize değil</translation>
     </message>
     <message id="wallet-model-host-unresolved-error">
         <source>Incorrect node name or no Internet connection.</source>
-        <translation type="unfinished">Incorrect node name or no Internet connection.</translation>
+        <translation>Yanlış nod adı ya da internet bağlantısı yok.</translation>
     </message>
     <message id="wallet-model-undefined-error">
         <source>Unexpected error!</source>
-        <translation type="unfinished">Unexpected error!</translation>
+        <translation>Beklenmedik hata!</translation>
     </message>
     <message id="wallet-model-data-location-error">
         <source>Failed to start wallet. Please check your wallet data location</source>
-        <translation type="unfinished">Failed to start wallet. Please check your wallet data location</translation>
+        <translation>Cüzdan başlatılırken hata oluştu. Lütfen cüzdan lokasyonunu kontrol edin</translation>
     </message>
     <message id="loading-view-download-blocks">
         <source>Downloading blocks</source>
-        <translation type="unfinished">Downloading blocks</translation>
+        <translation>Bloklar indiriliyor</translation>
     </message>
     <message id="loading-view-scaning-utxo">
         <source>Scanning UTXO %d/%d</source>
-        <translation type="unfinished">Scanning UTXO %d/%d</translation>
+        <translation>UTXO aranıyor %d/%d</translation>
     </message>
     <message id="loading-view-protocol-error">
         <source>Incompatible peer</source>
-        <translation type="unfinished">Incompatible peer</translation>
+        <translation>Uyumsuz eş</translation>
     </message>
     <message id="loading-view-connection-error">
         <source>Connection error</source>
-        <translation type="unfinished">Connection error</translation>
+        <translation>Bağlantı hatası</translation>
     </message>
     <message id="start-view-printer-not-found-error">
         <source>Printer is not found. Please, check your printer preferences.</source>
-        <translation type="unfinished">Printer is not found. Please, check your printer preferences.</translation>
+        <translation>Yazıcı bulunamadı. Lütfen yazıcınızın tercihlerini kontrol edin.</translation>
     </message>
     <message id="start-view-printer-error">
         <source>Failed to print seed phrase. Please, check your printer.</source>
-        <translation type="unfinished">Failed to print seed phrase. Please, check your printer.</translation>
+        <translation>Anahtar kelimeler yazdırılamadı. Lütfen yazıcınızı kontrol edin.</translation>
     </message>
     <message id="start-view-db-file-filter">
         <source>SQLite database file (*.db)</source>
-        <translation type="unfinished">SQLite database file (*.db)</translation>
+        <translation>SQLite database dosyası (*.db)</translation>
     </message>
     <message id="status-bar-view-not-connected">
         <source>Wallet is not connected to the node</source>
-        <translation type="unfinished">Wallet is not connected to the node</translation>
+        <translation>Cüzdan noda bağlı değil</translation>
     </message>
     <message id="tx-failture-undefined">
         <source>Unexpected reason, please send wallet logs to Beam support</source>
-        <translation type="unfinished">Unexpected reason, please send wallet logs to Beam support</translation>
+        <translation>Beklenmedik bir hata, lütfen Beam destek birimlerine cüzdan kaydınızı gönderin</translation>
     </message>
     <message id="tx-failture-cancelled">
         <source>Transaction cancelled</source>
-        <translation type="unfinished">Transaction cancelled</translation>
+        <translation>İşlem iptal edildi</translation>
     </message>
     <message id="tx-failture-receiver-signature-invalid">
         <source>Receiver signature in not valid, please send wallet logs to Beam support</source>
-        <translation type="unfinished">Receiver signature in not valid, please send wallet logs to Beam support</translation>
+        <translation>Alıcı imzası geçerli değil, lütfen Beam destek birimlerine cüzdan kaydınızı gönderin</translation>
     </message>
     <message id="tx-failture-not-registered-in-blockchain">
         <source>Failed to register transaction with the blockchain, see node logs for details</source>
-        <translation type="unfinished">Failed to register transaction with the blockchain, see node logs for details</translation>
+        <translation>Blockchain ile işlem kaydedilemedi, detaylar için nod kaydına bakın</translation>
     </message>
     <message id="tx-failture-not-valid">
         <source>Transaction is not valid, please send wallet logs to Beam support</source>
-        <translation type="unfinished">Transaction is not valid, please send wallet logs to Beam support</translation>
+        <translation>İşlem geçerli değil, lütfen Beam destek birimlerine cüzdan kaydınızı gönderin</translation>
     </message>
     <message id="tx-failture-kernel-invalid">
         <source>Invalid kernel proof provided</source>
-        <translation type="unfinished">Invalid kernel proof provided</translation>
+        <translation>Geçersiz kernel kanıtı girildi</translation>
     </message>
     <message id="tx-failture-parameters-not-sended">
         <source>Failed to send Transaction parameters</source>
-        <translation type="unfinished">Failed to send Transaction parameters</translation>
+        <translation>İşlem parametreleri gönderilemedi</translation>
     </message>
     <message id="tx-failture-no-inputs">
         <source>No inputs</source>
-        <translation type="unfinished">No inputs</translation>
+        <translation>Giriş yok</translation>
     </message>
     <message id="tx-failture-addr-expired">
         <source>Address is expired</source>
-        <translation type="unfinished">Address is expired</translation>
+        <translation>Adresin süresi doldu</translation>
     </message>
     <message id="tx-failture-parameters-not-readed">
         <source>Failed to get transaction parameters</source>
-        <translation type="unfinished">Failed to get transaction parameters</translation>
+        <translation>İşlem parametreleri alınamadı</translation>
     </message>
     <message id="tx-failture-time-out">
         <source>Transaction timed out</source>
-        <translation type="unfinished">Transaction timed out</translation>
+        <translation>İşlem zaman aşımına uğradı</translation>
     </message>
     <message id="tx-failture-not-signed-by-receiver">
         <source>Payment not signed by the receiver, please send wallet logs to Beam support</source>
-        <translation type="unfinished">Payment not signed by the receiver, please send wallet logs to Beam support</translation>
+        <translation>Ödeme alıcı tarafından imzalanmadı, lütfen Beam destek birimlerine cüzdan kaydını gönderin</translation>
     </message>
     <message id="tx-failture-max-height-to-high">
         <source>Kernel maximum height is too high</source>
-        <translation type="unfinished">Kernel maximum height is too high</translation>
+        <translation>Kernel maksimum boyutu çok fazla</translation>
     </message>
     <message id="tx-failture-invalid-state">
         <source>Transaction has invalid state</source>
-        <translation type="unfinished">Transaction has invalid state</translation>
+        <translation>İşlem geçersiz durumda</translation>
     </message>
     <message id="tx-curency-name">
         <source>BEAM</source>
-        <translation type="unfinished">BEAM</translation>
+        <translation type="vanished">BEAM</translation>
     </message>
     <message id="tx-curency-sub-name">
         <source>GROTH</source>
-        <translation type="unfinished">GROTH</translation>
+        <translation type="vanished">GROTH</translation>
     </message>
     <message id="utxo-utxo">
         <source>UTXO</source>
-        <translation type="unfinished">UTXO</translation>
+        <translation>UTXO</translation>
     </message>
     <message id="utxo-blockchain-height">
         <source>Blockchain Height</source>
-        <translation type="unfinished">Blockchain Height</translation>
+        <translation>Blokzincir Yüksekliği</translation>
     </message>
     <message id="utxo-last-block-hash">
         <source>Last block hash</source>
-        <translation type="unfinished">Last block hash</translation>
+        <translation>Son blok hashi</translation>
     </message>
     <message id="utxo-head-maturity">
         <source>Maturity</source>
-        <translation type="unfinished">Maturity</translation>
+        <translation>Olgunluk</translation>
     </message>
     <message id="utxo-head-type">
         <source>Type</source>
-        <translation type="unfinished">Type</translation>
+        <translation>Tip</translation>
     </message>
     <message id="utxo-status-available">
         <source>Available</source>
-        <translation type="unfinished">Available</translation>
+        <translation>Mevcut</translation>
     </message>
     <message id="utxo-status-maturing">
         <source>Maturing%1(till block height %2)</source>
-        <translation type="unfinished">Maturing%1(till block height %2)</translation>
+        <translation>Olgunlaştırılıyor%1(%2 blok yüksekliğine kadar)</translation>
     </message>
     <message id="utxo-status-unavailable">
         <source>Unavailable%1(mining result rollback)</source>
-        <translation type="unfinished">Unavailable%1(mining result rollback)</translation>
+        <translation>Kullanılamıyor%1(madencilik geri almaya neden oldu)</translation>
     </message>
     <message id="utxo-status-outgoing">
         <source>In progress%1(outgoing)</source>
-        <translation type="unfinished">In progress%1(outgoing)</translation>
+        <translation>%1Devam ediyor (giden)</translation>
     </message>
     <message id="utxo-status-change">
         <source>In progress%1(change)</source>
-        <translation type="unfinished">In progress%1(change)</translation>
+        <translation>Devam ediyor%1(değiştir)</translation>
     </message>
     <message id="utxo-status-incoming">
         <source>In progress%1(incoming)</source>
-        <translation type="unfinished">In progress%1(incoming)</translation>
+        <translation>Devam ediyor%1(gelen)</translation>
     </message>
     <message id="utxo-status-spent">
         <source>Spent</source>
-        <translation type="unfinished">Spent</translation>
+        <translation>Harcanan</translation>
     </message>
     <message id="settings-general-lock-screen-never">
         <source>Never</source>
-        <translation type="unfinished">Never</translation>
+        <translation>Asla</translation>
     </message>
     <message id="settings-general-lock-screen-1m">
         <source>1 minute</source>
-        <translation type="unfinished">1 minute</translation>
+        <translation>1 dakika</translation>
     </message>
     <message id="settings-general-lock-screen-5m">
         <source>5 minutes</source>
-        <translation type="unfinished">5 minutes</translation>
+        <translation>5 dakika</translation>
     </message>
     <message id="settings-general-lock-screen-15m">
         <source>15 minutes</source>
-        <translation type="unfinished">15 minutes</translation>
+        <translation>15 dakika</translation>
     </message>
     <message id="settings-general-lock-screen-30m">
         <source>30 minutes</source>
-        <translation type="unfinished">30 minutes</translation>
+        <translation>30 dakika</translation>
     </message>
     <message id="settings-general-lock-screen-1h">
         <source>1 hour</source>
-        <translation type="unfinished">1 hour</translation>
+        <translation>1 saat</translation>
     </message>
     <message id="receive-amount-label">
         <source></source>
         <oldsource>Receive amount (optional)</oldsource>
-        <translation type="unfinished">Receive amount (optional)</translation>
+        <translation type="unfinished">Alınacak miktar (isteğe bağlı)</translation>
     </message>
     <message id="tx-details-tx-id-label">
         <source>Transaction ID</source>
-        <translation type="unfinished">Transaction ID</translation>
+        <translation>İşlem Kimliği</translation>
     </message>
     <message id="appmodel-failed-time-not-synced">
         <source>Failed to start the integrated node: the timezone settings of your machine are out of sync. Please fix them and restart the wallet.</source>
-        <translation type="unfinished">Failed to start the integrated node: the timezone settings of your machine are out of sync. Please fix them and restart the wallet.</translation>
+        <translation>Entegre nod başlatılamadı: makinenizin saat dilimi ayarları senkronize değil. Lütfen bunu düzeltip cüzdanı yeniden başlatın.</translation>
     </message>
     <message id="can-not-generate-new-address-message">
         <source>You cannot generate new address. Your wallet doesn&apos;t have a master key.</source>
-        <translation type="unfinished">You cannot generate new address. Your wallet doesn&apos;t have a master key.</translation>
+        <translation>Yeni adres oluşturamazsınız. Cüzdanınızda bir ana anahtar yok.</translation>
     </message>
     <message id="settings-general-language">
         <source>Language</source>
         <extracomment>settings tab, general section, language label</extracomment>
-        <translation type="unfinished">Language</translation>
+        <translation>Dil</translation>
     </message>
     <message id="open-external-open">
         <source>Open</source>
-        <translation type="unfinished">Open</translation>
+        <translation>Açık</translation>
     </message>
     <message id="open-external-title">
         <source>External link</source>
-        <translation type="unfinished">External link</translation>
+        <translation>Harici link</translation>
     </message>
     <message id="open-external-message">
         <source>Beam Wallet app requires permission to open external link in the browser. This action will expose your IP to the web server. To avoid it, choose -Cancel-. You can chage your choice in app setting anytime.</source>
-        <translation type="unfinished">Beam Wallet app requires permission to open external link in the browser. This action will expose your IP to the web server. To avoid it, choose -Cancel-. You can chage your choice in app setting anytime.</translation>
+        <translation>Beam Wallet uygulaması tarayıcıda harici link açmak için izin gerektirir. Bu işlem IP&apos;nizi web sunucusuna maruz bırakacaktır. Bunu önlemek için &quot;İptal&quot; i seçin. İstediğiniz zaman uygulama ayarlarında seçiminizi değiştirebilirsiniz.</translation>
     </message>
     <message id="start-open-change-wallet-message">
         <source>If you&apos;ll restore a wallet all transaction history and addresses will be lost.</source>
-        <translation type="unfinished">If you&apos;ll restore a wallet all transaction history and addresses will be lost.</translation>
+        <translation>Bir cüzdanı geri yükleyecekseniz, tüm işlem geçmişi ve adresleri kaybolur.</translation>
     </message>
     <message id="loading-restore-message-line1">
         <source>Please wait for synchronization and do not close or minimize the application.</source>
-        <translation type="unfinished">Please wait for synchronization and do not close or minimize the application.</translation>
+        <translation>Lütfen senkronizasyonu bekleyin ve uygulamayı kapatmayın veya simge durumuna almayın.</translation>
     </message>
     <message id="loading-restore-message-line2">
         <source>Only the wallet balance (UTXO) can be restored, transaction info and addresses are always private and never kept in the blockchain.</source>
-        <translation type="unfinished">Only the wallet balance (UTXO) can be restored, transaction info and addresses are always private and never kept in the blockchain.</translation>
+        <translation>Yalnızca cüzdan bakiyesi (UTXO) geri yüklenebilir, işlem bilgileri ve adresler her zaman gizlidir ve hiçbir zaman blokzincirinde tutulmaz.</translation>
     </message>
     <message id="start-recovery-title">
         <source>Create new password</source>
-        <translation type="unfinished">Create new password</translation>
+        <translation>Yeni şifrenizi oluşturun</translation>
     </message>
     <message id="start-recovery-pwd-message">
         <source>Create new password to access your wallet</source>
-        <translation type="unfinished">Create new password to access your wallet</translation>
+        <translation>Cüzdanınıza erişmek için yeni bir şifre oluşturun</translation>
     </message>
     <message id="start-create-pwd-strength-message">
         <source>Strong password needs to meet the following requirements:\n•  the length must be at least 10 characters\n•  must contain at least one lowercase letter\n•  must contain at least one uppercase letter\n•  must contain at least one number</source>
-        <translation type="unfinished">Strong password needs to meet the following requirements:\n•  the length must be at least 10 characters\n•  must contain at least one lowercase letter\n•  must contain at least one uppercase letter\n•  must contain at least one number</translation>
+        <translation>Güçlü bir parolanın aşağıdaki gereksinimleri karşılaması gerekir:\n• uzunluk en az 10 karakter olmalı\n• en az bir küçük harf içermeli\n • en az bir büyük harf içermeli \n• en az bir sayı içermeli</translation>
     </message>
     <message id="start-open-caps-warning">
         <source>Caps lock is on!</source>
-        <translation type="unfinished">Caps lock is on!</translation>
+        <translation>Caps Lock açık!</translation>
     </message>
     <message id="show-qr-title">
         <source>QR code</source>
         <extracomment>show QR dialog title</extracomment>
-        <translation type="unfinished">QR code</translation>
+        <translation>QR kodu</translation>
     </message>
     <message id="show-qr-tx-token-label">
         <source>Your address</source>
         <extracomment>show qr dialog address label</extracomment>
-        <translation type="unfinished">Your address</translation>
+        <translation>Adresiniz</translation>
     </message>
     <message id="show-qr-message">
         <source>Scan this QR code or send this address to the sender over secure channel</source>
         <extracomment>show QR dialog message, how to use this QR</extracomment>
-        <translation type="unfinished">Scan this QR code or send this address to the sender over secure channel</translation>
+        <translation>Bu QR kodunu tarayın veya bu adresi gönderene güvenli kanal üzerinden gönderin</translation>
     </message>
     <message id="settings-peers-title">
         <source>Peers</source>
         <extracomment>settings tab, node section, peers label</extracomment>
-        <translation type="unfinished">Peers</translation>
+        <translation>Eşler</translation>
     </message>
     <message id="settings-node-title">
         <source>Node</source>
         <extracomment>settings tab, node section, title</extracomment>
-        <translation type="unfinished">Node</translation>
+        <translation>Nod</translation>
     </message>
     <message id="settings-general-allow-beammw-label">
         <source>Allow access to %1 and %2 (to fetch exchanges and transaction data)</source>
         <extracomment>general settings, label for alow open external links</extracomment>
-        <translation type="unfinished">Allow access to %1 and %2 (to fetch exchanges and transaction data)</translation>
+        <translation>%1 ve %2&apos;ye erişime izin ver (takas ve işlem verilerini almak için)</translation>
     </message>
     <message id="settings-report-problem-message-l0">
         <source>To report a problem:</source>
-        <translation type="unfinished">To report a problem:</translation>
+        <translation>Sorunu rapor etmek için:</translation>
     </message>
     <message id="settings-report-problem-message-l1">
         <source>1. Click “Save wallet logs” and choose a destination folder for log archive</source>
-        <translation type="unfinished">1. Click “Save wallet logs” and choose a destination folder for log archive</translation>
+        <translation>1. “Cüzdan kaydını kaydet” seçeneğini tıklayın ve günlük kayıt için bir hedef klasör seçin</translation>
     </message>
     <message id="settings-report-problem-message-l2">
         <source>2. Send email to %1 or open a ticket in %2</source>
-        <translation type="unfinished">2. Send email to %1 or open a ticket in %2</translation>
+        <translation>2.%1 e-posta gönderin veya %2 bir destek bileti açın</translation>
     </message>
     <message id="settings-report-problem-message-l3">
         <source>3. Don’t forget to attach logs archive</source>
-        <translation type="unfinished">3. Don’t forget to attach logs archive</translation>
+        <translation>3. Günlük kaydı eklemeyi unutmayın</translation>
     </message>
     <message id="explorer">
         <source>blockchain explorer</source>
-        <translation type="unfinished">blockchain explorer</translation>
+        <translation>blokzincir tarayıcısı</translation>
     </message>
     <message id="edit-addr-24-option">
         <source>In 24 hours from now</source>
         <extracomment>Edit address dialog, expiration option, in 24 hours from now</extracomment>
-        <translation type="unfinished">In 24 hours from now</translation>
+        <translation>Şu andan itibaren 24 saat içinde</translation>
     </message>
     <message id="edit-addr-never-option">
         <source>Never</source>
         <extracomment>Edit address dialog, expiration option, never</extracomment>
-        <translation type="unfinished">Never</translation>
+        <translation>Asla</translation>
     </message>
     <message id="edit-addr-as-is-option">
         <source>Within 24 hours</source>
         <extracomment>Edit address dialog, expiration option, do not change</extracomment>
-        <translation type="unfinished">Within 24 hours</translation>
+        <translation>24 saat içinde</translation>
     </message>
     <message id="edit-addr-expires-label">
         <source>Expires</source>
         <extracomment>Edit addres dialog, expires label</extracomment>
-        <translation type="unfinished">Expires</translation>
+        <translation>Süresi dolanlar</translation>
     </message>
     <message id="edit-addr-expire-now-label">
         <source>Now</source>
         <extracomment>Edit addres dialog, expire now label</extracomment>
-        <translation type="unfinished">Now</translation>
+        <translation>Şimdi</translation>
     </message>
     <message id="edit-addr-expire-now-switch">
         <source>Expire address now</source>
         <extracomment>Edit addres dialog, expire now switch</extracomment>
-        <translation type="unfinished">Expire address now</translation>
+        <translation>Adresi şimdi sonlandır</translation>
     </message>
     <message id="edit-addr-expiration-time-label">
         <source>Expired on </source>
         <extracomment>Edit addres dialog, expiration time label</extracomment>
-        <translation type="unfinished">Expired on </translation>
+        <translation>Süresi doldu </translation>
     </message>
     <message id="edit-addr-activate-addr-switch">
         <source>Activate address</source>
         <extracomment>Edit addres dialog, expiration time label</extracomment>
-        <translation type="unfinished">Activate address</translation>
+        <translation>Adresi aktifleştir</translation>
     </message>
     <message id="time-never">
         <source>Never</source>
         <extracomment>time never string</extracomment>
-        <translation type="unfinished">Never</translation>
+        <translation>Asla</translation>
     </message>
     <message id="start-pwd-difficulty-very-weak">
         <source>Very weak password</source>
         <extracomment>set passwort, difficulty message, very weak</extracomment>
-        <translation type="unfinished">Very weak password</translation>
+        <translation>Çok zayıf şifre</translation>
     </message>
     <message id="start-pwd-difficulty-weak">
         <source>Weak password</source>
         <extracomment>set passwort, difficulty message, weak</extracomment>
-        <translation type="unfinished">Weak password</translation>
+        <translation>Zayıf şifre</translation>
     </message>
     <message id="start-pwd-difficulty-medium">
         <source>Medium strength password</source>
         <extracomment>set passwort, difficulty message, medium</extracomment>
-        <translation type="unfinished">Medium strength password</translation>
+        <translation>Orta güçlü şifre</translation>
     </message>
     <message id="start-pwd-difficulty-strong">
         <source>Strong password</source>
         <extracomment>set passwort, difficulty message, strong</extracomment>
-        <translation type="unfinished">Strong password</translation>
+        <translation>Güçlü şifre</translation>
     </message>
     <message id="start-pwd-difficulty-very-strong">
         <source>Very strong password</source>
         <extracomment>set passwort, difficulty message, very strong</extracomment>
-        <translation type="unfinished">Very strong password</translation>
+        <translation>Çok güçlü şifre</translation>
     </message>
     <message id="start-migration-select-file-button">
         <source>Select wallet database file manually</source>
         <extracomment>migration screen, select db file button</extracomment>
-        <translation type="unfinished">Select wallet database file manually</translation>
+        <translation>Cüzdan veritabanı dosyasını elle seçin</translation>
     </message>
     <message id="start-select-db-best-match-label">
         <source>(best match)</source>
         <extracomment>start screen, select db for migration, best match label</extracomment>
-        <translation type="unfinished">(best match)</translation>
+        <translation>(en iyi eşleşme)</translation>
     </message>
     <message id="start-select-db-thead-created">
         <source>Date created</source>
         <extracomment>start screen, select db for migration, Date created column title</extracomment>
-        <translation type="unfinished">Date created</translation>
+        <translation>Tarih oluşturuldu</translation>
     </message>
     <message id="settings-general-require-pwd-to-spend-confirm-pwd-title">
         <source>Don’t ask password on every Send</source>
         <extracomment>settings tab, general section, ask password to send, confirm password dialog, title</extracomment>
-        <translation type="unfinished">Don’t ask password on every Send</translation>
+        <translation>Her Gönderimde şifre sorma</translation>
     </message>
     <message id="settings-general-require-pwd-to-spend-confirm-pwd-message">
         <source>Password verification is required to change that setting</source>
         <extracomment>settings tab, general section, ask password to send, confirm password dialog, message</extracomment>
-        <translation type="unfinished">Password verification is required to change that setting</translation>
+        <translation>Bu ayarı değiştirmek için parola doğrulaması gerekiyor</translation>
     </message>
     <message id="general-fee-rate">
         <source></source>
@@ -1180,9 +1187,9 @@
     </message>
     <message id="general-fee-fail">
         <source>The minimum fee is %1 GROTH</source>
-        <translation type="unfinished">The minimum fee is %1 GROTH</translation>
+        <translation type="unfinished">Minimum işlem ücreti %1 GROTH</translation>
     </message>
-    <message id="wallet-swap-title">
+    <message id="wallet-receive-swap-title">
         <source></source>
         <translation type="unfinished"></translation>
     </message>
@@ -1212,13 +1219,41 @@
     </message>
     <message id="wallet-receive-expires-12">
         <source>12 hours</source>
-        <translation type="unfinished"></translation>
+        <translation type="unfinished">24 saat {12 ?}</translation>
     </message>
     <message id="wallet-receive-expires-6">
         <source>6 hours</source>
-        <translation type="unfinished"></translation>
+        <translation type="unfinished">24 saat {6 ?}</translation>
     </message>
     <message id="wallet-swap-propogate-addr-message">
+        <source></source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="wallet-send-swap-title">
+        <source></source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="general-comment-local">
+        <source></source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="send-total-label">
+        <source></source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="send-swap-to-label">
+        <source></source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="send-not-enough">
+        <source></source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="wallet-send-swap-offered-label">
+        <source></source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="wallet-send-swap-expires-label">
         <source></source>
         <translation type="unfinished"></translation>
     </message>

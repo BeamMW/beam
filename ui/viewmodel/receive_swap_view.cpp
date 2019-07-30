@@ -87,7 +87,7 @@ int ReceiveSwapViewModel::getReceiveFee() const
 
 void ReceiveSwapViewModel::setAmountSent(double value)
 {
-    LOG_INFO() << "setAmountToReceive " << value;
+    LOG_INFO() << "setAmountSent " << value;
     if (value != _amountSent)
     {
         _amountSent = value;
