@@ -194,4 +194,9 @@ public class WalletListener
     {
         System.out.println(">>>>>>>>>>> onNodeThreadFinished called");
     }
+
+    static void onImportRecoveryProgress(int done, int total)
+    {
+        System.out.println(">>>>>>>>>>>>>> async onImportRecoveryProgress in Java [ " + done + " / " + total + " ]");
+    }
 }
