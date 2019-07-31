@@ -325,6 +325,24 @@ namespace beam::wallet
             return SetParameter(parameterID, toByteBuffer(value), subTxID);
         }
 
+        bool DeleteParameter(TxParameterID parameterID, SubTxID subTxID = kDefaultSubTxID)
+        {
+            auto subTxIt = m_Parameters.find(subTxID);
+            if (subTxIt == m_Parameters.end())
+            {
+                return false;
+            }
+            auto pit = subTxIt->second.find(parameterID);
+            if (pit == subTxIt->second.end())
+            {
+                return false;
+            }
+            
+            subTxIt->second.erase(pit);
+
+            return true;
+        }
+
         PackedTxParameters GetParameters() const;
 
         boost::optional<ByteBuffer> GetParameter(TxParameterID parameterID, SubTxID subTxID = kDefaultSubTxID) const;

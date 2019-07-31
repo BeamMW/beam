@@ -81,20 +81,18 @@ void SendSwapViewModel::setToken(const QString& value)
             auto isBeamSide = parameters->GetParameter<bool>(TxParameterID::AtomicSwapIsBeamSide);
             auto swapCoin = parameters->GetParameter<AtomicSwapCoin>(TxParameterID::AtomicSwapCoin);
             auto beamAmount = parameters->GetParameter<Amount>(TxParameterID::Amount);
-            auto beamFee = parameters->GetParameter<Amount>(TxParameterID::Fee);
             auto swapAmount = parameters->GetParameter<Amount>(TxParameterID::AtomicSwapAmount);
             auto peerID = parameters->GetParameter<WalletID>(TxParameterID::PeerID);
             auto peerResponseHeight = parameters->GetParameter<Height>(TxParameterID::PeerResponseHeight);
 
-            if (peerID && swapAmount 
-                && beamFee && beamAmount 
+            if (peerID && swapAmount && beamAmount
                 && swapCoin && isBeamSide && peerResponseHeight)
             {
                 if (!*isBeamSide) // other participant is not a beam side
                 {
                     setSendCurrency(Currency::CurrBEAM);
                     setSendAmount(double(*beamAmount) / Rules::Coin);
-                    setSendFee(*beamFee);
+                    setSendFee(QMLGlobals::minFeeBEAM());
                     setReceiveCurrency(convertSwapCoinToCurrency(*swapCoin));
                     setReceiveAmount(double(*swapAmount) / 100000000);// TODO:SWAP us libbitcoin::satoshi_per_bitcoin);
                     setReceiveFee(95000);
@@ -106,7 +104,7 @@ void SendSwapViewModel::setToken(const QString& value)
                     setSendFee(95000);
                     setReceiveCurrency(Currency::CurrBEAM);
                     setReceiveAmount(double(*beamAmount) / Rules::Coin);
-                    setReceiveFee(*beamFee);
+                    setReceiveFee(QMLGlobals::minFeeBEAM());
                 }
                 setOfferedTime(QDateTime::currentDateTime()); // TODO:SWAP use peerResponseHeight
                 setExpiresTime(QDateTime::currentDateTime().addSecs(12*3600)); //
@@ -331,5 +329,11 @@ bool SendSwapViewModel::canSend() const
 
 void SendSwapViewModel::sendMoney()
 {
-    _walletModel.getAsync()->startTransaction(beam::wallet::TxParameters(_txParameters));
+    auto txParameters = beam::wallet::TxParameters(_txParameters);
+    auto isBeamSide = txParameters.GetParameter<bool>(beam::wallet::TxParameterID::AtomicSwapIsBeamSide);
+    auto fee = (*isBeamSide) ? getReceiveFee() : getSendFee();
+
+    txParameters.SetParameter(beam::wallet::TxParameterID::Fee, beam::Amount(fee));
+
+    _walletModel.getAsync()->startTransaction(beam::wallet::TxParameters(txParameters));
 }
