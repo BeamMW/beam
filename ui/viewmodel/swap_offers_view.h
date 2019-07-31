@@ -15,6 +15,7 @@
 #pragma once
 
 #include <QObject>
+#include <QDateTime>
 #include <QQmlListProperty>
 #include "model/wallet_model.h"
 #include "helpers/list_model.h"
@@ -22,14 +23,20 @@
 class SwapOfferItem : public QObject
 {
     Q_OBJECT
-    Q_PROPERTY(QString amount READ amount NOTIFY changed)
-    Q_PROPERTY(QString status READ status NOTIFY changed)
+    Q_PROPERTY(QDateTime time   READ time       NOTIFY changed)
+    Q_PROPERTY(QString id       READ id         NOTIFY changed)
+    Q_PROPERTY(QString amount   READ amount     NOTIFY changed)
+    Q_PROPERTY(QString status   READ status     NOTIFY changed)
+    Q_PROPERTY(QString message  READ message    NOTIFY changed)
 public:
     SwapOfferItem() = default;
-    SwapOfferItem(const beam::wallet::TxDescription& offer) : m_offer{offer} {};
+    SwapOfferItem(const beam::wallet::SwapOffer& offer) : m_offer{offer} {};
 
+    QDateTime time() const;
+    QString id() const;
     QString amount() const;
     QString status() const;
+    QString message() const;
 
     beam::Amount rawAmount() const;
 
@@ -37,7 +44,7 @@ signals:
     void changed();
 
 private:
-    beam::wallet::TxDescription m_offer;
+    beam::wallet::SwapOffer m_offer;
 };
 
 class SwapOffersList : public ListModel<std::shared_ptr<SwapOfferItem>>
@@ -48,11 +55,16 @@ public:
 
 	enum class Roles
 	{
-		AmountRole = Qt::UserRole + 1,
+        TimeRole = Qt::UserRole + 1,
+        TimeSortRole,
+        IdRole,
+        IdSortRole,
+		AmountRole,
 		AmountSortRole,
-
 		StatusRole,
-		StatusSortRole
+		StatusSortRole,
+		MessageRole,
+		MessageSortRole
 	};
 	SwapOffersList() {};
 
@@ -65,17 +77,17 @@ class SwapOffersViewModel : public QObject
 	Q_OBJECT
     Q_PROPERTY(QAbstractItemModel* allOffers READ getAllOffers NOTIFY allOffersChanged)
 
+
 public:
     SwapOffersViewModel();
     virtual ~SwapOffersViewModel();
 
     QAbstractItemModel* getAllOffers();
-    // void sendTestOffer();
 
-    Q_INVOKABLE void sendTestOffer();
+    Q_INVOKABLE void sendSwapOffer(double amount, QString msg);
 
 public slots:
-    void onAllOffersChanged(const std::vector<beam::wallet::TxDescription>& offers);
+    void onSwapDataModelChanged(beam::wallet::ChangeAction action, const std::vector<beam::wallet::SwapOffer>& offers);
 
 signals:
     void allOffersChanged();

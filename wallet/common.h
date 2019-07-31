@@ -193,6 +193,28 @@ namespace beam::wallet
         }
 
         std::string getStatusString() const;
+
+        template <typename Archive>
+        void serialize(Archive& ar)
+        {
+            ar
+                & m_txId
+                & m_txType
+                & m_amount
+                & m_fee
+                & m_change
+                & m_minHeight
+                & m_peerId
+                & m_myId
+                & m_message
+                & m_createTime
+                & m_modifyTime
+                & m_sender
+                & m_selfTx
+                & m_status
+                & m_kernelID
+                & m_failureReason;
+        }
     };
 
     template<typename T>

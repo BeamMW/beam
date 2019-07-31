@@ -42,6 +42,56 @@ ColumnLayout {
                 anchors.bottomMargin: 20
                 spacing: 5
 
+                RowLayout {
+                    Layout.fillWidth: true
+
+                    SFTextInput {
+                        id: sendAmountInput
+                        property double amount: 0
+                        Layout.fillWidth: true
+                        //% "Amount..."
+                        placeholderText: "Amount..."
+                        font.pixelSize: 18
+                        font.styleName: "Light"
+                        font.weight: Font.Light
+                        color: Style.accent_outgoing
+
+                        validator: RegExpValidator { regExp: /^(([1-9][0-9]{0,7})|(1[0-9]{8})|(2[0-4][0-9]{7})|(25[0-3][0-9]{6})|(0))(\.[0-9]{0,7}[1-9])?$/ }
+
+                        onTextChanged: {
+                            if (focus) {
+                                amount = text ? text : 0;
+                            }
+                        }
+
+                        onFocusChanged: {
+                            if (amount > 0) {
+                                text = amount.toLocaleString(focus ? Qt.locale("C") : Qt.locale(), 'f', -128);
+                            }
+                        }
+                    }
+                    
+                    SFTextInput {
+                        id: sendMsgInput
+                        Layout.fillWidth: true
+                        //% "Message..."
+                        placeholderText: "Message..."
+                        font.pixelSize: 18
+                        font.styleName: "Light"
+                        font.weight: Font.Light
+                        color: Style.accent_outgoing
+                    }
+
+                    CustomButton {
+                        id: sendOfferButton
+                        Layout.fillWidth: true
+                        font.pixelSize: 18
+                        font.styleName: "Bold"; font.weight: Font.Bold
+                        text: "send offer"
+                        onClicked: viewModel.sendSwapOffer(sendAmountInput.amount, sendMsgInput.text)
+                    }
+                }
+
                 SFTextInput {
                     id: searchBox
                     Layout.fillWidth: true
@@ -53,26 +103,7 @@ ColumnLayout {
                     //% "Search..."
                     placeholderText: "Search..."
                     // text: qsTrId("utxo-last-block-hash")
-
                     inputMethodHints: Qt.ImhNoPredictiveText
-
-                    // width: window.width / 5 * 2
-                    // anchors.right: parent.right
-                    // anchors.verticalCenter: parent.verticalCenter
-                }
-
-                CustomButton {
-                    id: sendTestButton
-
-                    Layout.fillWidth: true
-                    Layout.minimumHeight: 20
-                    Layout.maximumHeight: 80
-                    font.pixelSize: 18
-                    font.styleName: "Bold"; font.weight: Font.Bold
-                    // color: Style.content_main
-
-                    text: "SendTest"
-                    onClicked: viewModel.sendTestOffer()
                 }
             }
 
@@ -117,10 +148,26 @@ ColumnLayout {
         }
 
         TableViewColumn {
+            role: "time"
+            //% "Last updated"
+            title: "Last updated"
+            width: parent.width / 5
+            movable: false
+        }
+
+        TableViewColumn {
+            role: "id"
+            //% "Id"
+            title: "Id"
+            width: parent.width / 5
+            movable: false
+        }
+
+        TableViewColumn {
             role: "amount"
             //% "Amount"
             title: qsTrId("general-amount")
-            width: 300 * parent.width / 800
+            width: parent.width / 5
             movable: false
         }
 
@@ -128,7 +175,15 @@ ColumnLayout {
             role: "status"
             //% "Status"
             title: qsTrId("general-status")
-            width: 200 * parent.width / 800
+            width: parent.width / 5
+            movable: false
+        }
+
+        TableViewColumn {
+            role: "message"
+            //% "Message"
+            title: "Message"
+            width: parent.width / 5
             movable: false
         }
         

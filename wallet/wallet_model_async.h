@@ -17,6 +17,7 @@
 #include "wallet/wallet.h"
 #include "wallet/wallet_db.h"
 #include "wallet/wallet_network.h"
+#include "swaps/offers/swap_offers_monitor.h"
 
 namespace beam::wallet
 {
@@ -33,7 +34,7 @@ namespace beam::wallet
         virtual void getUtxosStatus() = 0;
         virtual void getAddresses(bool own) = 0;
         virtual void getSwapOffers() = 0;
-        virtual void sendTestOffer() = 0;
+        virtual void sendSwapOffer(SwapOffer&& offer) = 0;
         virtual void cancelTx(const TxID& id) = 0;
         virtual void deleteTx(const TxID& id) = 0;
         virtual void getCoinsByTx(const TxID& txId) = 0;

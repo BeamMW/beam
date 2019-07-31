@@ -113,11 +113,11 @@ struct WalletModelBridge : public Bridge<IWalletModelAsync>
         });
     }
 
-    void sendTestOffer()
+    void sendSwapOffer(SwapOffer&& offer)
     {
-        tx.send([](BridgeInterface& receiver_) mutable
+        tx.send([offer{ move(offer) }](BridgeInterface& receiver_) mutable
         {
-            receiver_.sendTestOffer();
+            receiver_.sendSwapOffer(move(offer));
         });
     }
 
@@ -598,14 +598,12 @@ namespace beam::wallet
         }
     }
 
-    void WalletClient::sendTestOffer()
+    void WalletClient::sendSwapOffer(SwapOffer&& offer)
     {
         auto p = m_offersMonitor.lock();
-        static TxID id = {1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1};
         if (p)
         {
-            p->sendTestOffer(id);
-            id[15]++;
+            p->sendSwapOffer(move(offer));
         }
     }
 

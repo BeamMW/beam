@@ -30,6 +30,7 @@ WalletModel::WalletModel(IWalletDB::Ptr walletDB, const std::string& nodeAddr, b
     qRegisterMetaType<beam::wallet::WalletStatus>("beam::wallet::WalletStatus");
     qRegisterMetaType<beam::wallet::ChangeAction>("beam::wallet::ChangeAction");
     qRegisterMetaType<vector<beam::wallet::TxDescription>>("std::vector<beam::wallet::TxDescription>");
+    qRegisterMetaType<vector<beam::wallet::SwapOffer>>("std::vector<beam::wallet::SwapOffer>");
     qRegisterMetaType<beam::Amount>("beam::Amount");
     qRegisterMetaType<vector<beam::wallet::Coin>>("std::vector<beam::wallet::Coin>");
     qRegisterMetaType<vector<beam::wallet::WalletAddress>>("std::vector<beam::wallet::WalletAddress>");
@@ -134,9 +135,9 @@ void WalletModel::onAddresses(bool own, const std::vector<beam::wallet::WalletAd
     emit addressesChanged(own, addrs);
 }
 
-void WalletModel::onSwapOffersChanged(ChangeAction action, const std::vector<beam::wallet::TxDescription>& offers)
+void WalletModel::onSwapOffersChanged(beam::wallet::ChangeAction action, const std::vector<beam::wallet::SwapOffer>& offers)
 {
-    emit swapOffersChanged(offers);
+    emit swapOffersChanged(action, offers);
 }
 
 void WalletModel::onCoinsByTx(const std::vector<beam::wallet::Coin>& coins)

@@ -20,6 +20,19 @@ using namespace beam::wallet;
 using namespace std;
 using namespace beamui;
 
+QDateTime SwapOfferItem::time() const
+{
+    QDateTime datetime;
+    datetime.setTime_t(m_offer.m_modifyTime);
+    return datetime;
+}
+
+QString SwapOfferItem::id() const
+{
+    auto id = to_hex(m_offer.m_txId.data(), m_offer.m_txId.size());
+    return QString::fromStdString(id);
+}
+
 QString SwapOfferItem::amount() const
 {
     return BeamToString(m_offer.m_amount);
@@ -35,14 +48,29 @@ beam::Amount SwapOfferItem::rawAmount() const
     return m_offer.m_amount;
 }
 
+QString SwapOfferItem::message() const
+{
+    std::string msg;
+    if(fromByteBuffer(m_offer.m_message, msg))
+        return QString::fromStdString(msg);
+    else
+        return QString();
+}
+
 QHash<int, QByteArray> SwapOffersList::roleNames() const
 {
     static const auto roles = QHash<int, QByteArray>
     {
+        { static_cast<int>(Roles::TimeRole), "time" },
+        { static_cast<int>(Roles::TimeSortRole), "timeSort" },
+        { static_cast<int>(Roles::IdRole), "id" },
+        { static_cast<int>(Roles::IdSortRole), "idSort" },
         { static_cast<int>(Roles::AmountRole), "amount" },
         { static_cast<int>(Roles::AmountSortRole), "amountSort" },
         { static_cast<int>(Roles::StatusRole), "status" },
-        { static_cast<int>(Roles::StatusSortRole), "statusSort" }
+        { static_cast<int>(Roles::StatusSortRole), "statusSort" },
+        { static_cast<int>(Roles::MessageRole), "message" },
+        { static_cast<int>(Roles::MessageSortRole), "messageSort" }
     };
     return roles;
 }
@@ -56,6 +84,12 @@ QVariant SwapOffersList::data(const QModelIndex &index, int role) const
     auto& value = m_list[index.row()];
     switch (static_cast<Roles>(role))
     {
+    case Roles::TimeRole:
+    case Roles::TimeSortRole:
+        return value->time();
+    case Roles::IdRole:
+    case Roles::IdSortRole:
+        return value->id();
 	case Roles::AmountRole:
         return value->amount();
     case Roles::AmountSortRole:
@@ -63,6 +97,9 @@ QVariant SwapOffersList::data(const QModelIndex &index, int role) const
     case Roles::StatusRole:
     case Roles::StatusSortRole:
         return value->status();
+    case Roles::MessageRole:
+    case Roles::MessageSortRole:
+        return value->message();
     default:
         return QVariant();
     }
@@ -72,8 +109,8 @@ SwapOffersViewModel::SwapOffersViewModel()
     : m_walletModel{*AppModel::getInstance().getWallet()}
 {
     connect(&m_walletModel,
-            SIGNAL(swapOffersChanged(const std::vector<beam::wallet::TxDescription>&)),
-            SLOT(onAllOffersChanged(const std::vector<beam::wallet::TxDescription>&)));
+            SIGNAL(swapOffersChanged(beam::wallet::ChangeAction, const std::vector<beam::wallet::SwapOffer>&)),
+            SLOT(onSwapDataModelChanged(beam::wallet::ChangeAction, const std::vector<beam::wallet::SwapOffer>&)));
 
     m_walletModel.getAsync()->getSwapOffers();
 }
@@ -88,12 +125,20 @@ QAbstractItemModel* SwapOffersViewModel::getAllOffers()
     return &m_offersList;
 }
 
-void SwapOffersViewModel::sendTestOffer()
+void SwapOffersViewModel::sendSwapOffer(double amount, QString msg)
 {
-    m_walletModel.getAsync()->sendTestOffer();
+    static TxID id = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
+    SwapOffer newOffer;
+    newOffer.m_createTime = newOffer.m_modifyTime = getTimestamp();
+    newOffer.m_amount = std::round(amount * beam::Rules::Coin);
+    newOffer.m_txId = id;
+    id[15]++;
+    newOffer.m_message = toByteBuffer(msg.toStdString());
+
+    m_walletModel.getAsync()->sendSwapOffer(move(newOffer));
 }
 
-void SwapOffersViewModel::onAllOffersChanged(const std::vector<beam::wallet::TxDescription>& offers)
+void SwapOffersViewModel::onSwapDataModelChanged(beam::wallet::ChangeAction action, const std::vector<beam::wallet::SwapOffer>& offers)
 {
     vector<shared_ptr<SwapOfferItem>> newOffers;
     newOffers.reserve(offers.size());
@@ -103,7 +148,24 @@ void SwapOffersViewModel::onAllOffersChanged(const std::vector<beam::wallet::TxD
         newOffers.push_back(make_shared<SwapOfferItem>(offer));
     }
 
-    m_offersList.reset(newOffers);
+    switch (action)
+    {
+    case ChangeAction::Reset:
+        {
+            m_offersList.reset(newOffers);
+            break;
+        }
 
+    case ChangeAction::Added:
+        {
+            m_offersList.insert(newOffers);
+            break;
+        }
+    
+    default:
+        assert(false && "Unexpected action");
+        break;
+    }
+    
     emit allOffersChanged();
 }
