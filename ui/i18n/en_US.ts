@@ -112,13 +112,17 @@
         <source>Transaction fee</source>
         <translation>Transaction fee</translation>
     </message>
+    <message id="general-fee-rate">
+        <source>Transaction fee rate</source>
+        <translation>Transaction fee rate</translation>
+    </message>
     <message id="general-ok">
         <source>Ok</source>
         <translation>Ok</translation>
     </message>
     <message id="general-invalid-address">
-        <source>Invalid address</source>
-        <translation>Invalid address</translation>
+        <source>Invalid address or token</source>
+        <translation>Invalid address or token</translation>
     </message>
     <message id="general-coinbase">
         <source>Coinbase</source>
@@ -178,8 +182,16 @@
         <translation>Show in folder</translation>
     </message>
     <message id="general-addr-comment-error">
-        <source>Address with same comment already exist</source>
-        <translation>Address with same comment already exist</translation>
+        <source>Address with the same comment already exists</source>
+        <translation>Address with the same comment already exists</translation>
+    </message>
+    <message id="general-fee-fail">
+        <source>The minimum fee is %1 %2</source>
+        <translation>The minimum fee is %1 %2</translation>
+    </message>
+    <message id="general-comment-local">
+        <source>Comments are local and won't be shared</source>
+        <translation>Comments are local and won't be shared</translation>
     </message>
     <message id="wallet-receive-button">
         <source>Receive</source>
@@ -542,20 +554,52 @@
         <translation>Wallet</translation>
     </message>
     <message id="wallet-receive-title">
-        <source>Receive Beam</source>
-        <translation>Receive Beam</translation>
+        <source>Receive</source>
+        <translation>Receive</translation>
+    </message>
+    <message id="wallet-receive-swap-title">
+        <source>Create swap offer</source>
+        <translation>Create swap offer</translation>
+    </message>
+    <message id="wallet-send-swap-title">
+        <source>Swap currencies</source>
+        <translation>Swap currencies</translation>
+    </message>
+    <message id="wallet-send-swap-expires-label">
+        <source>Expires on</source>
+        <translation>Expires on</translation>
+    </message>
+    <message id="wallet-send-swap-offered-label">
+        <source>Offered on</source>
+        <translation>Offered on</translation>
+    </message>
+    <message id="wallet-swap-title">
+        <source>Create swap offer</source>
+        <translation>Create swap offer</translation>
     </message>
     <message id="wallet-receive-my-addr-label">
-        <source>My address</source>
-        <translation>My address</translation>
+        <source>My address (auto-generated)</source>
+        <translation>My address (auto-generated)</translation>
     </message>
     <message id="wallet-receive-expires-label">
-        <source>Expires</source>
-        <translation>Expires</translation>
+        <source>Expires in</source>
+        <translation>Expires in</translation>
+    </message>
+    <message id="wallet-receive-offer-expires-label">
+        <source>Offer expiration time</source>
+        <translation>Offer expiration time</translation>
     </message>
     <message id="wallet-receive-expires-24">
         <source>24 hours</source>
         <translation>24 hours</translation>
+    </message>
+    <message id="wallet-receive-expires-12">
+        <source>12 hours</source>
+        <translation>12 hours</translation>
+    </message>
+    <message id="wallet-receive-expires-6">
+        <source>6 hours</source>
+        <translation>6 hours</translation>
     </message>
     <message id="wallet-receive-expires-never">
         <source>Never</source>
@@ -566,8 +610,24 @@
         <translation>Scan to send</translation>
     </message>
     <message id="wallet-receive-propogate-addr-message">
-        <source>Send this address to the sender over an external secure channel</source>
-        <translation>Send this address to the sender over an external secure channel</translation>
+        <source>Send this token to the sender over an external secure channel or scan the QR code</source>
+        <translation>Send this token to the sender over an external secure channel or scan the QR code</translation>
+    </message>
+     <message id="wallet-swap-propogate-addr-message">
+        <source>Send this token to the sender over an external secure channel</source>
+        <translation>Send this token to the sender over an external secure channel</translation>
+    </message>
+    <message id="wallet-receive-your-token">
+        <source>Your transaction token:</source>
+        <translation>Your transaction token:</translation>
+    </message>
+    <message id="wallet-swap">
+        <source>Swap</source>
+        <translation>Swap</translation>
+    </message>
+    <message id="wallet-receive-copy-address">
+        <source>Copy transaction token</source>
+        <translation>Copy transaction token</translation>
     </message>
     <message id="invalid-addr-got-it-button">
         <source>Got it</source>
@@ -578,12 +638,16 @@
         <translation>Send Beam</translation>
     </message>
     <message id="send-send-to-label">
-        <source>Send To</source>
-        <translation>Send To</translation>
+        <source>Transaction token or contact</source>
+        <translation>Transaction token or contact</translation>
+    </message>
+    <message id="send-swap-to-label">
+        <source>Transaction token</source>
+        <translation>Transaction token</translation>
     </message>
     <message id="send-contact-placeholder">
-        <source>Please specify contact</source>
-        <translation>Please specify contact</translation>
+        <source>Please specify contact or transaction token</source>
+        <translation>Please specify contact or transaction token</translation>
     </message>
     <message id="send-amount-label">
         <source>Transaction amount</source>
@@ -592,6 +656,10 @@
     <message id="send-founds-fail">
         <source>Insufficient funds: you would need %1 to complete the transaction</source>
         <translation>Insufficient funds: you would need %1 to complete the transaction</translation>
+    </message>
+    <message id="send-not-enough">
+        <source>There is not enough funds to completer the transaction</source>
+        <translation>There is not enough funds to completer the transaction</translation>
     </message>
     <message id="send-fee-fail">
         <source>The minimum fee is %1 GROTH</source>
@@ -604,6 +672,14 @@
     <message id="send-remaining-label">
         <source>Remaining</source>
         <translation>Remaining</translation>
+    </message>
+    <message id="send-amount-label">
+        <source>Amount to send</source>
+        <translation>Amount to send</translation>
+    </message>
+    <message id="send-total-label">
+        <source>Total UTXO value</source>
+        <translation>Total UTXO value</translation>
     </message>
     <message id="send-send-fail">
         <source>Address %1 is invalid</source>
@@ -970,6 +1046,14 @@
     <message id="receive-amount-label">
         <source>Receive amount (optional)</source>
         <translation>Receive amount (optional)</translation>
+    </message>
+    <message id="receive-amount-swap-label">
+        <source>Receive amount</source>
+        <translation>Receive amount</translation>
+    </message>
+    <message id="sent-amount-label">
+        <source>Sent amount</source>
+        <translation>Sent amount</translation>
     </message>
     <message id="tx-details-tx-id-label">
         <source>Transaction ID</source>

@@ -26,6 +26,7 @@
         <file>controls/FeeSlider.qml</file>
         <file>controls/SFFontLoader.qml</file>
         <file>controls/SFTextArea.qml</file>
+        <file>controls/AmountInput.qml</file>
         <file>root.qml</file>
         <file>start.qml</file>
         <file>main.qml</file>
@@ -38,8 +39,12 @@
         <file>utxo.qml</file>
         <file>offers.qml</file>
         <file>receive.qml</file>
+        <file>receive_regular.qml</file>
+        <file>receive_swap.qml</file>
         <file>receive_addrfail.qml</file>
         <file>send.qml</file>
+        <file>send_regular.qml</file>
+        <file>send_swap.qml</file>
         <file>send_confirm.qml</file>
         <file>send_expired.qml</file>
         <file>assets/fonts/SF-Pro-Display-Black.otf</file>
@@ -118,6 +123,7 @@
         <file>controls/CustomSwitch.qml</file>
         <file>controls/CustomCheckBox.qml</file>
         <file>controls/CustomComboBox.qml</file>
+        <file>controls/BeamAmount.qml</file>
         <file>assets/copy-two-paper-sheets-interface-symbol.svg</file>
         <file>assets/eye.svg</file>
         <file>assets/icon-back.svg</file>
@@ -152,5 +158,6 @@
         <file>assets/icon-details.svg</file>
         <file>controls/OpenExternalLinkConfirmation.qml</file>
         <file>utils.js</file>
+        <file>qmldir</file>
     </qresource>
 </RCC>

@@ -132,16 +132,16 @@ void AppModel::applySettingsChanges()
 {
     if (m_nodeModel.isNodeRunning())
     {
+        m_nsc.disconnect();
         m_nodeModel.stopNode();
     }
 
     if (m_settings.getRunLocalNode())
     {
-        m_nodeModel.startNode();
+        startNode();
 
         io::Address nodeAddr = io::Address::LOCALHOST;
         nodeAddr.port(m_settings.getLocalNodePort());
-
         m_wallet->getAsync()->setNodeAddress(nodeAddr.str());
     }
     else
@@ -162,6 +162,7 @@ void AppModel::nodeSettingsChanged()
         }
     }
 }
+
 void AppModel::onStartedNode()
 {
     m_nsc.disconnect();
@@ -239,17 +240,22 @@ void AppModel::start()
 
     if (m_settings.getRunLocalNode())
     {
-        m_nsc
-                << connect(&m_nodeModel, &NodeModel::startedNode, this, &AppModel::onStartedNode)
-                << connect(&m_nodeModel, &NodeModel::failedToStartNode, this, &AppModel::onFailedToStartNode)
-                << connect(&m_nodeModel, &NodeModel::failedToSyncNode, this, &AppModel::onFailedToStartNode);
-
-        m_nodeModel.startNode();
+        startNode();
     }
     else
     {
         m_wallet->start();
     }
+}
+
+void AppModel::startNode()
+{
+    m_nsc
+        << connect(&m_nodeModel, &NodeModel::startedNode, this, &AppModel::onStartedNode)
+        << connect(&m_nodeModel, &NodeModel::failedToStartNode, this, &AppModel::onFailedToStartNode)
+        << connect(&m_nodeModel, &NodeModel::failedToSyncNode, this, &AppModel::onFailedToStartNode);
+
+    m_nodeModel.startNode();
 }
 
 bool AppModel::checkWalletPassword(const beam::SecString& pass) const

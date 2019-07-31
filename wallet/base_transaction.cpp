@@ -71,6 +71,7 @@ namespace beam::wallet
     namespace
     {
         const char* LOCAL_NONCE_SEEDS = "NonceSeeds";
+        const size_t kMaxNonces = 1000000;
     }
 
     LocalPrivateKeyKeeper::LocalPrivateKeyKeeper(IWalletDB::Ptr walletDB)
@@ -127,39 +128,21 @@ namespace beam::wallet
 
     size_t LocalPrivateKeyKeeper::AllocateNonceSlot()
     {
-        if (m_Nonces.size() == numeric_limits<uint8_t>::max())
-        {
-            throw runtime_error("has no place  for nonces");
-        }
+		++m_NonceSlotLast %= kMaxNonces;
 
-        size_t i = 0;
-        auto it = m_Nonces.begin();
-        while (it != m_Nonces.end() && i < numeric_limits<size_t>::max())
-        {
-            if (i > it->first)
-            {
-                ++it;
-            }
-            else if (i == it->first)
-            {
-                ++it;
-                ++i;
-            }
-            else
-            {
-                break;
-            }
-        }
+		if (m_NonceSlotLast >= m_Nonces.size())
+		{
+			m_NonceSlotLast = m_Nonces.size();
+			m_Nonces.emplace_back();
+		}
 
         // Don't store the generated nonce for the kernel multisig. Instead - store the raw random, from which the nonce is derived using kdf.
-        NoLeak<Hash::Value> hvRandom;
-        ECC::GenRandom(hvRandom.V);
 
-        m_Nonces.insert({ i, hvRandom.V });
+        ECC::GenRandom(m_Nonces[m_NonceSlotLast].V);
 
         SaveNonceSeeds();
 
-        return i;
+        return m_NonceSlotLast;
     }
 
     ////
@@ -241,19 +224,31 @@ namespace beam::wallet
 
     void LocalPrivateKeyKeeper::LoadNonceSeeds()
     {
-        ByteBuffer buffer;
-        if (m_WalletDB->getBlob(LOCAL_NONCE_SEEDS, buffer) && !buffer.empty())
+        try
         {
-            Deserializer d;
-            d.reset(buffer);
-            d & m_Nonces;
+			ByteBuffer buffer;
+			if (m_WalletDB->getBlob(LOCAL_NONCE_SEEDS, buffer) && !buffer.empty())
+            {
+                Deserializer d;
+                d.reset(buffer);
+                d & m_Nonces;
+				d & m_NonceSlotLast;
+            }
         }
+        catch (...)
+        {
+			m_Nonces.clear();
+        }
+
+		if (m_NonceSlotLast >= m_Nonces.size())
+			m_NonceSlotLast = m_Nonces.size() - 1;
     }
 
     void LocalPrivateKeyKeeper::SaveNonceSeeds()
     {
         Serializer s;
-        s& m_Nonces;
+        s & m_Nonces;
+		s & m_NonceSlotLast;
         ByteBuffer buffer;
         s.swap_buf(buffer);
         m_WalletDB->setVarRaw(LOCAL_NONCE_SEEDS, buffer.data(), buffer.size());
@@ -268,7 +263,7 @@ namespace beam::wallet
 
     Scalar::Native LocalPrivateKeyKeeper::GetNonce(size_t slot)
     {
-        auto randomValue = m_Nonces[slot];
+        const auto& randomValue = m_Nonces[slot].V;
 
         NoLeak<Scalar::Native> nonce;
         m_MasterKdf->DeriveKey(nonce.V, randomValue);

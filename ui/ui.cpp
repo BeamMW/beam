@@ -38,7 +38,10 @@
 #include "viewmodel/statusbar_view.h"
 #include "viewmodel/theme.h"
 #include "viewmodel/receive_view.h"
+#include "viewmodel/receive_swap_view.h"
 #include "viewmodel/send_view.h"
+#include "viewmodel/send_swap_view.h"
+#include "viewmodel/currencies.h"
 #include "model/app_model.h"
 #include "viewmodel/qml_globals.h"
 #include "viewmodel/helpers/list_model.h"
@@ -208,6 +211,7 @@ int main (int argc, char* argv[])
                         return new QMLGlobals(*engine);
                     });
 
+            qmlRegisterType<WalletCurrency>("Beam.Wallet", 1, 0, "Currency");
             qmlRegisterType<StartViewModel>("Beam.Wallet", 1, 0, "StartViewModel");
             qmlRegisterType<LoadingViewModel>("Beam.Wallet", 1, 0, "LoadingViewModel");
             qmlRegisterType<MainViewModel>("Beam.Wallet", 1, 0, "MainViewModel");
@@ -224,7 +228,9 @@ int main (int argc, char* argv[])
             qmlRegisterType<MessagesViewModel>("Beam.Wallet", 1, 0, "MessagesViewModel");
             qmlRegisterType<StatusbarViewModel>("Beam.Wallet", 1, 0, "StatusbarViewModel");
             qmlRegisterType<ReceiveViewModel>("Beam.Wallet", 1, 0, "ReceiveViewModel");
+            qmlRegisterType<ReceiveSwapViewModel>("Beam.Wallet", 1, 0, "ReceiveSwapViewModel");
             qmlRegisterType<SendViewModel>("Beam.Wallet", 1, 0, "SendViewModel");
+            qmlRegisterType<SendSwapViewModel>("Beam.Wallet", 1, 0, "SendSwapViewModel");
 
             qmlRegisterType<AddressItem>("Beam.Wallet", 1, 0, "AddressItem");
             qmlRegisterType<ContactItem>("Beam.Wallet", 1, 0, "ContactItem");
