@@ -794,7 +794,17 @@ namespace beam::wallet
         GetParameter(TxParameterID::State, lockTxState, SubTxIndex::BEAM_LOCK_TX);
 
         bool isBeamOwner = IsBeamSide();
-        auto fee = GetMandatoryParameter<Amount>(TxParameterID::Fee);
+        Amount fee = 0;
+        if (!GetParameter<Amount>(TxParameterID::Fee, fee, SubTxIndex::BEAM_LOCK_TX))
+        {
+            // Beam owner extract fee from main TX, receiver must get fee along with LockTX invitation
+            if (isBeamOwner && lockTxState == SubTxState::Initial)
+            {
+                fee = GetMandatoryParameter<Amount>(TxParameterID::Fee);
+                SetParameter(TxParameterID::Fee, fee, false, SubTxIndex::BEAM_LOCK_TX);
+            }
+        }
+
         auto lockTxBuilder = std::make_shared<LockTxBuilder>(*this, GetAmount(), fee);
 
         if (!lockTxBuilder->GetInitialTxParams() && lockTxState == SubTxState::Initial)
@@ -849,6 +859,7 @@ namespace beam::wallet
             return lockTxState;
         }
 
+        assert(fee);
         lockTxBuilder->CreateKernel();
         lockTxBuilder->SignPartial();
 
@@ -1226,8 +1237,8 @@ namespace beam::wallet
         SetTxParameter msg;
         msg.AddParameter(TxParameterID::PeerProtoVersion, s_ProtoVersion)
             .AddParameter(TxParameterID::AtomicSwapPeerPublicKey, swapPublicKey)
-            .AddParameter(TxParameterID::Fee, lockBuilder.GetFee())
             .AddParameter(TxParameterID::SubTxIndex, SubTxIndex::BEAM_LOCK_TX)
+            .AddParameter(TxParameterID::Fee, lockBuilder.GetFee())
             .AddParameter(TxParameterID::PeerMaxHeight, lockBuilder.GetMaxHeight())
             .AddParameter(TxParameterID::PeerPublicExcess, lockBuilder.GetPublicExcess())
             .AddParameter(TxParameterID::PeerPublicNonce, lockBuilder.GetPublicNonce())
