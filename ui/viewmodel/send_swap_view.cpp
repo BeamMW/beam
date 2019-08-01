@@ -88,7 +88,7 @@ void SendSwapViewModel::setToken(const QString& value)
             if (peerID && swapAmount && beamAmount
                 && swapCoin && isBeamSide && peerResponseHeight)
             {
-                if (!*isBeamSide) // other participant is not a beam side
+                if (*isBeamSide) // other participant is not a beam side
                 {
                     setSendCurrency(Currency::CurrBEAM);
                     setSendAmount(double(*beamAmount) / Rules::Coin);
@@ -331,7 +331,7 @@ void SendSwapViewModel::sendMoney()
 {
     auto txParameters = beam::wallet::TxParameters(_txParameters);
     auto isBeamSide = txParameters.GetParameter<bool>(beam::wallet::TxParameterID::AtomicSwapIsBeamSide);
-    auto fee = (*isBeamSide) ? getReceiveFee() : getSendFee();
+    auto fee = (*isBeamSide) ? getSendFee() : getReceiveFee();
 
     txParameters.SetParameter(beam::wallet::TxParameterID::Fee, beam::Amount(fee));
 
