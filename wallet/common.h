@@ -448,6 +448,7 @@ namespace beam::wallet
         TimeOutOfSync,
         InternalNodeStartFailed,
         HostResolvedError,
+        ImportRecoveryError,
     };
 
     ErrorType getWalletError(proto::NodeProcessingException::Type exceptionType);
