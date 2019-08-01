@@ -29,7 +29,7 @@ ConfirmationDialog
     cancelButtonIconSource:  "qrc:/assets/icon-cancel-white.svg"
 
     function confirmationHandler() {
-        if (BeamGlobals.needPasswordToSpend) {
+        if (BeamGlobals.needPasswordToSpend()) {
             if (requirePasswordInput.text.length == 0) {
                 requirePasswordInput.forceActiveFocus(Qt.TabFocusReason);
                 return;

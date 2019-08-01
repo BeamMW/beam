@@ -229,8 +229,7 @@ ColumnLayout {
 
     SFTextArea {
         Layout.alignment:    Qt.AlignHCenter
-        width:               392
-        height:              48
+        width:               570
         focus:               true
         activeFocusOnTab:    true
         font.pixelSize:      14

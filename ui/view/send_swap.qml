@@ -238,14 +238,11 @@ ColumnLayout {
             icon.source:        "qrc:/assets/icon-send-blue.svg"
             enabled:            viewModel.canSend
             onClicked: {
-                // TODO: remove after testing
-                viewModel.sendMoney();
-/*                const dialog       = Qt.createComponent("send_confirm.qml").createObject(thisView);
+                const dialog       = Qt.createComponent("send_confirm.qml").createObject(thisView);
                 dialog.addressText = viewModel.receiverAddress;
                 dialog.amountText  = [Utils.formatAmount(viewModel.sendAmount), sendAmountInput.getCurrencyLabel()].join(" ")
                 dialog.feeText     = [Utils.formatAmount(viewModel.sendFee), sendAmountInput.getFeeLabel()].join(" ")
                 dialog.open();
-*/
             }
         }
     }
