@@ -46,12 +46,13 @@ namespace
         { "zh_CN", "Chinese Simplified"},
         { "en_US", "English" },
         { "es_ES", "Español"},
+        { "nl_NL", "Dutch"},
         { "fr_FR", "Française"},
         { "ru_RU", "Русский" },
-        { "vi_VI", "Tiếng việt"},
-        { "ko_KR", "한국어"},
         { "sv_SE", "Svenska"},
-        { "tr_TR", "Türkçe"}
+        { "tr_TR", "Türkçe"},
+        { "vi_VI", "Tiếng việt"},
+        { "ko_KR", "한국어"}
     };
 }
 
