@@ -15,26 +15,12 @@
 #pragma once
 
 #include <memory>
-#include "core/fly_client.h"
+#include "core/uintBig.h"
+#include "utility/common.h"
 
 namespace beam::wallet::laser
 {
-using proto::FlyClient;
-class Connection final : public FlyClient::INetwork
-{
-public:
-    Connection(const FlyClient::NetworkStd::Ptr& net);
-    ~Connection();
-
-    virtual void Connect() override;
-    virtual void Disconnect() override;
-    virtual void PostRequestInternal(FlyClient::Request& r) override;
-    virtual void BbsSubscribe(
-            BbsChannel ch,
-            Timestamp timestamp,
-            FlyClient::IBbsReceiver* receiver) override;
-
-private:
-    FlyClient::NetworkStd::Ptr m_pNet;
-};
+    using ChannelID = uintBig_t<16>;
+    using ChannelIDPtr = std::shared_ptr<uintBig_t<16>>;
+    using FieldMap = std::map<uint32_t, ByteBuffer>;
 }  // namespace beam::wallet::laser

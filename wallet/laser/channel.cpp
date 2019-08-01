@@ -13,24 +13,64 @@
 // limitations under the License.
 
 #include "wallet/laser/channel.h"
+#include "utility/logger.h"
 
 namespace beam::wallet::laser
 {
+
+Channel::Channel(IChannelHolder& holder,
+                 const WalletID& my,
+                 const WalletID& trg,
+                 const Amount& fee,
+                 const Amount& aMy,
+                 const Amount& aTrg)
+    : m_rHolder(holder)
+    , m_ID(std::make_shared<ChannelID>())
+    , m_widMy(my)
+    , m_widTrg(trg)
+    , m_aMy(aMy)
+    , m_aTrg(aTrg)
+{
+    ECC::GenRandom(*m_ID);
+    m_upReceiver = std::make_unique<Receiver>(m_rHolder, m_ID);
+    m_Params.m_Fee = fee;
+
+    Subscribe();
+}
+Channel::Channel(IChannelHolder& holder,
+                 const ChannelIDPtr& chID,
+                 const WalletID& my,
+                 const WalletID& trg,
+                 const Amount& fee,
+                 const Amount& aMy,
+                 const Amount& aTrg)
+    : m_rHolder(holder)
+    , m_ID(chID)
+    , m_widMy(my)
+    , m_widTrg(trg)
+    , m_aMy(aMy)
+    , m_aTrg(aTrg)
+    , m_upReceiver(std::make_unique<Receiver>(holder, chID))
+{
+    m_Params.m_Fee = fee;
+    Subscribe();
+}
+
 Channel::~Channel()
 {
-
+    Unsubscribe();
 }
 
 Height Channel::get_Tip() const
 {
     Block::SystemState::Full tip;
-    m_WalletDB->get_History().get_Tip(tip);
+    m_rHolder.getWalletDB()->get_History().get_Tip(tip);
     return tip.m_Height;
 }
 
 proto::FlyClient::INetwork& Channel::get_Net()
 {
-    return *(m_net.get());
+    return m_rHolder.get_Net();
 }
 
 Amount Channel::SelectInputs(std::vector<Key::IDV>& vInp, Amount valRequired)
@@ -38,7 +78,7 @@ Amount Channel::SelectInputs(std::vector<Key::IDV>& vInp, Amount valRequired)
     assert(vInp.empty());
 
     Amount nDone = 0;
-    auto coins = m_WalletDB->selectCoins(valRequired);
+    auto coins = m_rHolder.getWalletDB()->selectCoins(valRequired);
     vInp.reserve(coins.size());
     std::transform(coins.begin(), coins.end(), std::back_inserter(vInp),
                    [&nDone] (const Coin& coin) -> Key::IDV
@@ -52,7 +92,7 @@ Amount Channel::SelectInputs(std::vector<Key::IDV>& vInp, Amount valRequired)
 
 void Channel::get_Kdf(Key::IKdf::Ptr& pKdf)
 {
-    pKdf = m_WalletDB->get_MasterKdf();
+    pKdf = m_rHolder.getWalletDB()->get_MasterKdf();
 }
 
 void Channel::AllocTxoID(Key::IDV& kidv)
@@ -71,15 +111,15 @@ void Channel::SendPeer(Negotiator::Storage::Map&& dataOut)
         dataOut.Set(m_widMy, Codes::MyWid);
     }
     
-    BbsChannel ch;
-    m_widMy.m_Channel.Export(ch);
-    get_Net().BbsSubscribe(ch, getTimestamp(), &m_rReceiver);
+    // BbsChannel ch;
+    // m_widMy.m_Channel.Export(ch);
+    // get_Net().BbsSubscribe(ch, getTimestamp(), m_upReceiver.get());
 
     Serializer ser;
     ser & m_ID;
     ser & Cast::Down<FieldMap>(dataOut);
 
-    std::cout << "SendPeer\tTo peer (via bbs): " << ser.buffer().second << std::endl;
+    LOG_INFO() << "SendPeer\tTo peer (via bbs): " << ser.buffer().second;
 
     proto::FlyClient::RequestBbsMsg::Ptr pReq(new proto::FlyClient::RequestBbsMsg);
 	m_widTrg.m_Channel.Export(pReq->m_Msg.m_Channel);
@@ -96,8 +136,58 @@ void Channel::SendPeer(Negotiator::Storage::Map&& dataOut)
 	{
 		// skip mining!
 		pReq->m_Msg.m_TimePosted = getTimestamp();
-		get_Net().PostRequest(*pReq, m_rReceiver);
+		get_Net().PostRequest(*pReq, *m_upReceiver);
 	}
+};
+
+const ChannelIDPtr& Channel::get_chID() const
+{
+    return m_ID;
+};
+
+const WalletID& Channel::get_myWID() const
+{
+    return m_widMy;
+};
+
+const WalletID& Channel::get_trgWID() const
+{
+    return m_widTrg;
+};
+
+int Channel::get_lastState() const
+{
+    return m_LastState;
+};
+
+const Amount& Channel::get_fee() const
+{
+    return m_Params.m_Fee;
+};
+
+const Amount& Channel::get_amountMy() const
+{
+    return m_aMy;
+};
+
+const Amount& Channel::get_amountTrg() const
+{
+    return m_aTrg;
+};
+
+const Amount& Channel::get_amountCurrentMy() const
+{
+    return m_aMy;
+};
+
+const Amount& Channel::get_amountCurrentTrg() const
+{
+    return m_aTrg;
+};
+
+bool Channel::IsStateChanged()
+{
+    return m_LastState != get_State();
 };
 
 void Channel::LogNewState()
@@ -148,8 +238,23 @@ void Channel::LogNewState()
         return;
     }
 
-
     std::cout << os.str() << std::endl;
+};
+
+void Channel::Subscribe()
+{
+    BbsChannel ch;
+    m_widMy.m_Channel.Export(ch);
+    get_Net().BbsSubscribe(ch, getTimestamp(), m_upReceiver.get());
+    LOG_INFO() << "beam::wallet::laser::Channel subscribed: " << ch;
+};
+
+void Channel::Unsubscribe()
+{
+    BbsChannel ch;
+    m_widMy.m_Channel.Export(ch);
+    get_Net().BbsSubscribe(ch, 0, nullptr);
+    LOG_INFO() << "beam::wallet::laser::Channel unsubscribed: " << ch;
 };
 
 }  // namespace beam::wallet::laser

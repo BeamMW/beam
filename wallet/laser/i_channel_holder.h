@@ -14,27 +14,20 @@
 
 #pragma once
 
-#include <memory>
+#include "wallet/wallet_db.h"
 #include "core/fly_client.h"
+#include "wallet/laser/i_receiver_holder.h"
 
 namespace beam::wallet::laser
 {
-using proto::FlyClient;
-class Connection final : public FlyClient::INetwork
+class IChannelHolder : public IReceiverHolder
 {
 public:
-    Connection(const FlyClient::NetworkStd::Ptr& net);
-    ~Connection();
-
-    virtual void Connect() override;
-    virtual void Disconnect() override;
-    virtual void PostRequestInternal(FlyClient::Request& r) override;
-    virtual void BbsSubscribe(
-            BbsChannel ch,
-            Timestamp timestamp,
-            FlyClient::IBbsReceiver* receiver) override;
-
-private:
-    FlyClient::NetworkStd::Ptr m_pNet;
+    virtual IWalletDB::Ptr getWalletDB() = 0;
+    virtual proto::FlyClient::INetwork& get_Net() = 0;
+    virtual void OnMsg(const ChannelIDPtr& chID, Blob&& blob) override = 0;
+    virtual bool Decrypt(const ChannelIDPtr& chID,
+                         uint8_t* pMsg,
+                         Blob* blob) override = 0;
 };
 }  // namespace beam::wallet::laser

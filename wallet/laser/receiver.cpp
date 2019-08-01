@@ -17,7 +17,8 @@
 
 namespace beam::wallet::laser
 {
-Receiver::Receiver(IReceiverHolder& holder) : m_rHolder(holder)
+Receiver::Receiver(IReceiverHolder& holder, const ChannelIDPtr& chID)
+    : m_rHolder(holder), m_chID(chID)
 {
 }
 
@@ -40,10 +41,10 @@ void Receiver::OnMsg(proto::BbsMsg&& msg)
 	uint8_t* pMsg = &msg.m_Message.front();
 	blob.n = static_cast<uint32_t>(msg.m_Message.size());
 
-    if (!m_rHolder.Decrypt(pMsg, &blob))
+    if (!m_rHolder.Decrypt(m_chID, pMsg, &blob))
         return;
 
-    m_rHolder.OnMsg(std::move(blob));
+    m_rHolder.OnMsg(m_chID, std::move(blob));
 }
 
 }  // namespace beam::wallet::laser

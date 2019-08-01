@@ -14,16 +14,15 @@
 
 #pragma once
 
-#include <memory>
-#include "core/block_crypt.h"
-#include "core/ecc_native.h"
+#include "wallet/laser/types.h"
 
 namespace beam::wallet::laser
 {
 class IReceiverHolder
 {
 public:
-    virtual void OnMsg(Blob&& blob) = 0;
-    virtual bool Decrypt(uint8_t* pMsg, Blob* blob) = 0;
+    virtual void OnMsg(const ChannelIDPtr& chID, Blob&& blob) = 0;
+    virtual bool Decrypt(const ChannelIDPtr& chID,
+                         uint8_t* pMsg, Blob* blob) = 0;
 };
 } // namespace beam::wallet::laser

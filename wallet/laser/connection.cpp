@@ -13,10 +13,11 @@
 // limitations under the License.
 
 #include "wallet/laser/connection.h"
+#include "utility/logger.h"
 
 namespace beam::wallet::laser
 {
-Connection::Connection(std::shared_ptr<proto::FlyClient::NetworkStd>& net)
+Connection::Connection(const FlyClient::NetworkStd::Ptr& net)
     : m_pNet(net)
 {
 }
@@ -38,18 +39,18 @@ void Connection::Disconnect()
 void Connection::BbsSubscribe(
         BbsChannel ch,
         Timestamp timestamp,
-        proto::FlyClient::IBbsReceiver* receiver)
+        FlyClient::IBbsReceiver* receiver)
 {
     m_pNet->BbsSubscribe(ch, timestamp, receiver);
 }
 
-void Connection::PostRequestInternal(proto::FlyClient::Request& r)
+void Connection::PostRequestInternal(FlyClient::Request& r)
 {
-    if (proto::FlyClient::Request::Type::Transaction == r.get_Type())
-        std::cout << "### Broadcasting transaction ###" << std::endl;
+    if (FlyClient::Request::Type::Transaction == r.get_Type())
+        LOG_INFO() << "LASER ### Broadcasting transaction ###";
 
-    if (proto::FlyClient::Request::Type::BbsMsg == r.get_Type())
-        std::cout << "### Bbs mesage out ###" << std::endl;    
+    if (FlyClient::Request::Type::BbsMsg == r.get_Type())
+        LOG_INFO()  << "LASER ### Bbs mesage out ###";    
 
     m_pNet->PostRequestInternal(r);
 }

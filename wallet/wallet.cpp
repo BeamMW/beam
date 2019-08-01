@@ -373,8 +373,8 @@ namespace beam::wallet
     {
         if (m_laser)
         {
-            m_laser->Listen();
             LOG_DEBUG() << "Laser WaitIncoming";
+            m_laser->WaitIncoming();
         }
         else
         {
@@ -1056,14 +1056,14 @@ namespace beam::wallet
         if (m_laser)
         {
             // test: close channel
-            if (m_laser->m_is_opener)
-            {
-                if (sTip.m_Height > m_laser->m_initial_height + 10)
-                {
-                    m_laser->m_is_opener = false;
-                    m_laser->Close();
-                }
-            }
+            // if (m_laser->m_is_opener)
+            // {
+            //     if (sTip.m_Height > m_laser->m_initial_height + 10)
+            //     {
+            //         m_laser->m_is_opener = false;
+            //         m_laser->Close();
+            //     }
+            // }
             m_laser->OnNewTip();
         }
     }

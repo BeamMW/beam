@@ -21,14 +21,9 @@ set(WALLET_SRC
     bitcoin/bitcoin_side.cpp
     bitcoin/bitcoind016.cpp
     bitcoin/bitcoind017.cpp
-    # laser/mediator.h
     laser/mediator.cpp
-    # laser/i_receiver_holder.h
-    # laser/connection.h
     laser/connection.cpp
-    # laser/receiver.h
     laser/receiver.cpp
-    # laser/channel.h
     laser/channel.cpp
     litecoin/litecoind016.cpp
     litecoin/litecoind017.cpp

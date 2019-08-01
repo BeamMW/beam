@@ -79,8 +79,6 @@ namespace Lightning {
 			MultiTx m_Inst;
 		};
 
-		struct Codes;
-
 	public:
 
 		struct DataOpen
@@ -136,7 +134,7 @@ namespace Lightning {
 			Height m_hQueryLast = 0; // the last height of the current unsuccessful query finish.
 
 			enum Enum {
-				None,
+				None = 0,
 				Opening0, // negotiating, no-return barrier not crossed yet. Safe to forget
 				Opening1, // negotiating, no-return barrier crossed, waiting confirmation
 				Opening2, // negoiation is over, waiting for confirmation

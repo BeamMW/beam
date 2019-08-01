@@ -17,6 +17,7 @@
 #include <memory>
 #include <vector>
 
+#include "wallet/laser/i_channel_holder.h"
 #include "wallet/laser/i_receiver_holder.h"
 #include "core/fly_client.h"
 #include "wallet/laser/channel.h"
@@ -28,38 +29,43 @@ namespace beam::wallet::laser
 // class Connection;
 class Receiver;
 
-class Mediator : public IReceiverHolder
+class Mediator : public IChannelHolder
 {
 public:
-    Mediator(IWalletDB::Ptr walletDB, std::shared_ptr<proto::FlyClient::NetworkStd>& net);
+    Mediator(const IWalletDB::Ptr& walletDB,
+             const proto::FlyClient::NetworkStd::Ptr& net);
+    // IChannelHolder implementation;
+    IWalletDB::Ptr getWalletDB() final;
+    proto::FlyClient::INetwork& get_Net() final;
     // IReceiverHolder implementation;
-    void OnMsg(Blob&& blob) final;
-    bool Decrypt(uint8_t* pMsg, Blob* blob) final;
+    void OnMsg(const ChannelIDPtr& chID, Blob&& blob) final;
+    bool Decrypt(const ChannelIDPtr& chID, uint8_t* pMsg, Blob* blob) final;
     
     void OnRolledBack();
     void OnNewTip();
 
-    void Listen();
+    void WaitIncoming();
     void OpenChannel(Amount aMy,
                      Amount aTrg,
                      Amount fee,
                      const WalletID& receiverWalletID,
                      Height locktime);
-    void Close();
+    void Close(const std::string& channelIDStr);
 
-    // test
-    bool m_is_opener = false;
-    Height m_initial_height = 0;
 private:
     Block::SystemState::IHistory& get_History();
     ECC::Scalar::Native get_skBbs();
+    void OnIncoming(const ChannelIDPtr& chID,
+                    Negotiator::Storage::Map& dataIn);
 
     IWalletDB::Ptr m_pWalletDB;
-    std::unique_ptr<Receiver> m_pReceiver;
     std::shared_ptr<proto::FlyClient::INetwork> m_pConnection;
 
-    std::unique_ptr<Channel> m_lch;
-    std::vector<std::unique_ptr<Channel> > m_channels;
-    WalletAddress m_myAddr;
+    std::unique_ptr<Receiver> m_pInputReceiver = nullptr;
+
+    std::unordered_map<ChannelIDPtr, std::unique_ptr<Channel>> m_channels;
+
+    WalletAddress m_myOutAddr;
+    WalletAddress m_myInAddr;
 };
 }  // namespace beam::wallet::laser

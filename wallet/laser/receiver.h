@@ -14,7 +14,10 @@
 
 #pragma once
 
+#include <memory>
+
 #include "wallet/laser/i_receiver_holder.h"
+#include "wallet/laser/types.h"
 #include "core/fly_client.h"
 
 namespace beam::wallet::laser
@@ -24,7 +27,8 @@ class Receiver
     , public proto::FlyClient::IBbsReceiver
 {
 public:
-    explicit Receiver(IReceiverHolder& holder);
+    using UPtr = std::unique_ptr<Receiver>;
+    explicit Receiver(IReceiverHolder& holder, const ChannelIDPtr& chID);
     ~Receiver();
     // proto::FlyClient::Request::IHandler
     virtual void OnComplete(proto::FlyClient::Request&) override;
@@ -32,6 +36,7 @@ public:
     virtual void OnMsg(proto::BbsMsg&&) override;
 private:
     IReceiverHolder& m_rHolder;
+    ChannelIDPtr m_chID;
 };
 
 }  // namespace beam::wallet::laser

@@ -116,6 +116,20 @@ namespace beam::wallet
         static constexpr uint64_t AddressExpiration24h = 24*60*60;
     };
 
+    class ILaserChannelEntity
+    {
+    public:
+        virtual const std::shared_ptr<uintBig_t<16>>& get_chID() const = 0;
+        virtual const WalletID& get_myWID() const = 0;
+        virtual const WalletID& get_trgWID() const = 0;
+        virtual int get_lastState() const = 0;
+        virtual const Amount& get_fee() const = 0;
+        virtual const Amount& get_amountMy() const = 0;
+        virtual const Amount& get_amountTrg() const = 0;
+        virtual const Amount& get_amountCurrentMy() const = 0;
+        virtual const Amount& get_amountCurrentTrg() const = 0;
+    };
+
     // Describes structure of generic transaction parameter
     struct TxParameter
     {
@@ -267,8 +281,11 @@ namespace beam::wallet
         // Address management
         virtual boost::optional<WalletAddress> getAddress(const WalletID&) const = 0;
         virtual std::vector<WalletAddress> getAddresses(bool own) const = 0;
-        virtual void saveAddress(const WalletAddress&) = 0;
+        virtual void saveAddress(const WalletAddress&, bool isLaser = false) = 0;
         virtual void deleteAddress(const WalletID&) = 0;
+
+        // Laser
+        virtual void saveLaserChannel(const ILaserChannelEntity&) = 0;
 
         // 
         virtual Timestamp getLastUpdateTime() const = 0;
@@ -349,7 +366,8 @@ namespace beam::wallet
         void rollbackTx(const TxID& txId) override;
 
         std::vector<WalletAddress> getAddresses(bool own) const override;
-        void saveAddress(const WalletAddress&) override;
+        void saveAddress(const WalletAddress&, bool isLaser = false) override;
+        void saveLaserChannel(const ILaserChannelEntity&) override;
         boost::optional<WalletAddress> getAddress(const WalletID&) const override;
         void deleteAddress(const WalletID&) override;
 

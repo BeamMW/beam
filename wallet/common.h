@@ -35,6 +35,7 @@ namespace beam::wallet
     using TxID = std::array<uint8_t, 16>;
     const Height kDefaultTxLifetime = 2 * 60;
     const Height kDefaultTxResponseTime = 12 * 60;
+    const Height kDefaultLaserOpenTime = 2 * 60;
 
 #pragma pack (push, 1)
     struct WalletID

@@ -69,6 +69,8 @@
 #define INCOMING_WALLET_MESSAGE_NAME "IncomingWalletMessages"
 #define LASER_CHANNELS_NAME "LaserChannels"
 #define LASER_ADDRESSES_NAME "LaserAddresses"
+#define LASER_OPEN_STATES_NAME "LaserOpenStates"
+#define LASER_UPDATES_NAME "LaserUpdates"
 
 #define ENUM_VARIABLES_FIELDS(each, sep, obj) \
     each(name,  name,  TEXT UNIQUE, obj) sep \
@@ -113,9 +115,15 @@
 #define TblStates_Hdr        "State"
 
 #define ENUM_LASER_CHANNEL_FIELDS(each, sep, obj) \
-    each(chID,           chID,           BLOB NOT NULL PRIMARY KEY, obj) sep \
-    each(myWID,          myWID,          BLOB NOT NULL, obj) sep \
-    each(trgWID,         trgWID,         BLOB NOT NULL, obj)
+    each(chID,             chID,             BLOB NOT NULL PRIMARY KEY, obj) sep \
+    each(myWID,            myWID,            BLOB NOT NULL, obj) sep \
+    each(trgWID,           trgWID,           BLOB NOT NULL, obj) sep \
+    each(lastState,        lastState,        INTEGER NOT NULL, obj) sep \
+    each(fee,              fee,              INTEGER, obj) sep \
+    each(amountMy,         amountMy,         INTEGER, obj) sep \
+    each(amountTrg,        amountTrg,        INTEGER, obj) sep \
+    each(amountCurrentMy,  amountCurrentMy,  INTEGER, obj) sep \
+    each(amountCurrentTrg, amountCurrentTrg, INTEGER, obj)
 
 #define LASER_CHANNEL_FIELDS ENUM_LASER_CHANNEL_FIELDS(LIST, COMMA, )
 
@@ -2085,18 +2093,20 @@ namespace beam::wallet
         return res;
     }
 
-    void WalletDB::saveAddress(const WalletAddress& address)
+    void WalletDB::saveAddress(const WalletAddress& address, bool isLaser)
     {
+        const std::string addrTableName =
+            isLaser ? LASER_ADDRESSES_NAME : ADDRESSES_NAME;
         ChangeAction action = ChangeAction::Added;
         {
-            const char* selectReq = "SELECT * FROM " ADDRESSES_NAME " WHERE walletID=?1;";
-            sqlite::Statement stm2(this, selectReq);
+            auto selectReq = "SELECT * FROM " + addrTableName + " WHERE walletID=?1;";
+            sqlite::Statement stm2(this, selectReq.c_str());
             stm2.bind(1, address.m_walletID);
 
             if (stm2.step())
             {
-                const char* updateReq = "UPDATE " ADDRESSES_NAME " SET label=?2, category=?3, duration=?4, createTime=?5 WHERE walletID=?1;";
-                sqlite::Statement stm(this, updateReq);
+                auto updateReq = "UPDATE " + addrTableName + " SET label=?2, category=?3, duration=?4, createTime=?5 WHERE walletID=?1;";
+                sqlite::Statement stm(this, updateReq.c_str());
 
                 stm.bind(1, address.m_walletID);
                 stm.bind(2, address.m_label);
@@ -2109,8 +2119,8 @@ namespace beam::wallet
             }
             else
             {
-                const char* insertReq = "INSERT INTO " ADDRESSES_NAME " (" ENUM_ADDRESS_FIELDS(LIST, COMMA, ) ") VALUES(" ENUM_ADDRESS_FIELDS(BIND_LIST, COMMA, ) ");";
-                sqlite::Statement stm(this, insertReq);
+                auto insertReq = "INSERT INTO " + addrTableName + " (" ENUM_ADDRESS_FIELDS(LIST, COMMA, ) ") VALUES(" ENUM_ADDRESS_FIELDS(BIND_LIST, COMMA, ) ");";
+                sqlite::Statement stm(this, insertReq.c_str());
                 int colIdx = 0;
                 ENUM_ADDRESS_FIELDS(STM_BIND_LIST, NOSEP, address);
                 stm.step();
@@ -2119,6 +2129,45 @@ namespace beam::wallet
 
         insertAddressToCache(address.m_walletID, address);
         notifyAddressChanged(action, { address });
+    }
+
+    void WalletDB::saveLaserChannel(const ILaserChannelEntity& ch)
+    {
+        const char* selectReq = "SELECT * FROM " LASER_CHANNELS_NAME " WHERE chID=?1;";
+        sqlite::Statement stm2(this, selectReq);
+        stm2.bind(1, ch.get_chID()->m_pData, ch.get_chID()->nBytes);
+
+        if (stm2.step())
+        {
+            const char* updateReq = "UPDATE " LASER_CHANNELS_NAME " SET myWID=?2, trgWID=?3, lastState=?4, fee=?5, amountMy=?6, amountTrg=?7, amountCurrentMy=?8, amountCurrentTrg=?9 WHERE chID=?1;";
+            sqlite::Statement stm(this, updateReq);
+
+            stm.bind(1, ch.get_chID()->m_pData, ch.get_chID()->nBytes);
+            stm.bind(2, ch.get_myWID());
+            stm.bind(3, ch.get_trgWID());
+            stm.bind(4, ch.get_lastState());
+            stm.bind(5, ch.get_fee());
+            stm.bind(6, ch.get_amountMy());
+            stm.bind(7, ch.get_amountTrg());
+            stm.bind(8, ch.get_amountCurrentMy());
+            stm.bind(9, ch.get_amountCurrentTrg());
+            stm.step();
+        }
+        else
+        {
+            const char* insertReq = "INSERT INTO " LASER_CHANNELS_NAME " (" ENUM_LASER_CHANNEL_FIELDS(LIST, COMMA, ) ") VALUES(" ENUM_LASER_CHANNEL_FIELDS(BIND_LIST, COMMA, ) ");";
+            sqlite::Statement stm(this, insertReq);
+            stm.bind(1, ch.get_chID()->m_pData, ch.get_chID()->nBytes);
+            stm.bind(2, ch.get_myWID());
+            stm.bind(3, ch.get_trgWID());
+            stm.bind(4, ch.get_lastState());
+            stm.bind(5, ch.get_fee());
+            stm.bind(6, ch.get_amountMy());
+            stm.bind(7, ch.get_amountTrg());
+            stm.bind(8, ch.get_amountCurrentMy());
+            stm.bind(9, ch.get_amountCurrentTrg());
+            stm.step();
+        }
     }
 
     void WalletDB::deleteAddress(const WalletID& id)

@@ -130,7 +130,7 @@ public:
 
     WalletAddress m_LastAdddr;
 
-    void saveAddress(const WalletAddress& wa) override
+    void saveAddress(const WalletAddress& wa, bool isLaser = false) override
     {
         m_LastAdddr = wa;
     }
