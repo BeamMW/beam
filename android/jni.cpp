@@ -381,6 +381,8 @@ JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(importRecovery)(JNIEnv *env, j
 {
     auto path = JString(env, jpath).value();
 
+    LOG_DEBUG() << "importRecovery path = " << path;
+
     walletModel->getAsync()->importRecovery(path);
 }
 
