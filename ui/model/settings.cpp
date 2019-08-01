@@ -46,6 +46,7 @@ namespace
         { "zh_CN", "Chinese Simplified"},
         { "en_US", "English" },
         { "es_ES", "Español"},
+        { "be_BY", "Беларуская"},
         { "nl_NL", "Dutch"},
         { "fr_FR", "Française"},
         { "ru_RU", "Русский" },
