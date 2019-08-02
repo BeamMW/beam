@@ -129,6 +129,10 @@ namespace beam
                 Deserializer d;
                 d.reset(settings.data(), settings.size());
                 d& *m_settings;
+
+                assert(m_settings->GetFeeRate() > 0);
+                assert(m_settings->GetMinFeeRate() > 0);
+                assert(m_settings->GetMinFeeRate() <= m_settings->GetFeeRate());
             }
         }
     }

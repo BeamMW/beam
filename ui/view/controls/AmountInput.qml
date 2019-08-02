@@ -8,10 +8,10 @@ ColumnLayout {
     id: control
 
     readonly property variant currencies: [
-        {label: "BEAM", feeLabel: "GROTH",   minFee: BeamGlobals.minFeeBEAM(), defaultFee: 100},
-        {label: "BTC",  feeLabel: "sat/kB",  minFee: BeamGlobals.minFeeBTC(),  defaultFee: 90000},
-        {label: "LTC",  feeLabel: "ph/kB",   minFee: BeamGlobals.minFeeLTC(),  defaultFee: 90000},
-        {label: "QTUM", feeLabel: "qsat/kB", minFee: BeamGlobals.minFeeQTUM(), defaultFee: 90000}
+        {label: "BEAM", feeLabel: BeamGlobals.beamFeeRateLabel(), minFee: BeamGlobals.minFeeBEAM(),     defaultFee: BeamGlobals.defFeeBEAM()},
+        {label: "BTC",  feeLabel: BeamGlobals.btcFeeRateLabel(),  minFee: BeamGlobals.minFeeRateBTC(),  defaultFee: BeamGlobals.defFeeRateBTC()},
+        {label: "LTC",  feeLabel: BeamGlobals.ltcFeeRateLabel(),  minFee: BeamGlobals.minFeeRateLTC(),  defaultFee: BeamGlobals.defFeeRateLTC()},
+        {label: "QTUM", feeLabel: BeamGlobals.qtumFeeRateLabel(), minFee: BeamGlobals.minFeeRateQTUM(), defaultFee: BeamGlobals.defFeeRateQTUM()}
     ]
 
     function currList() {
@@ -26,7 +26,7 @@ ColumnLayout {
         return currencies[control.currency].feeLabel
     }
 
-    readonly property bool isValidFee: hasFee ? fee >= currencies[currency].minFee : true
+    readonly property bool isValidFee: hasFee ? feeInput.isValid : true
     readonly property bool isValid: error.length == 0 && isValidFee
 
     property string   title
@@ -132,55 +132,20 @@ ColumnLayout {
         visible:          control.hasFee
     }
 
-    RowLayout {
+    FeeInput {
+        id:               feeInput
         Layout.fillWidth: true
         visible:          control.hasFee
-
-        SFTextInput {
-            id:                    feeInput
-            Layout.preferredWidth: 150
-            font.pixelSize:        14
-            font.styleName:        "Light"
-            font.weight:           Font.Light
-            font.italic:           !isValid
-            color:                 isValidFee ? control.color : Style.validator_error
-            backgroundColor:       isValidFee ? Style.content_main : Style.validator_error
-            maximumLength:         9
-            selectByMouse:         true
-            text:                  formatFee()
-            validator:             IntValidator {bottom: currencies[control.currency].minFee}
-            readOnly:              control.readOnly
-
-            onTextChanged: {
-                if (focus) control.fee = text ? parseInt(text) : 0
-            }
-
-            onFocusChanged: {
-                text = formatFee()
-            }
-
-            function formatFee() {
-                return control.fee ? control.fee.toLocaleString(focus ? Qt.locale("C") : Qt.locale(), 'f', -128) : ""
-            }
-        }
-
-        SFText {
-            font.pixelSize: 14
-            color:          Style.content_main
-            text:           getFeeLabel()
-        }
+        fee:              control.fee
+        minFee:           currencies[currency].minFee
+        feeLabel:         getFeeLabel()
+        readOnly:         control.readOnly
+        color:            control.color
     }
 
-    Item {
-        Layout.fillWidth: true
-        SFText {
-            //% "The minimum fee is %1 GROTH"
-            text:            qsTrId("general-fee-fail").arg(currencies[control.currency].minFee).arg(getFeeLabel())
-            color:           Style.validator_error
-            font.pixelSize:  12
-            font.styleName:  "Italic"
-            width:           parent.width
-            visible:         hasFee && !control.isValidFee
-        }
+    Binding {
+        target:   control
+        property: "fee"
+        value:    feeInput.fee
     }
 }

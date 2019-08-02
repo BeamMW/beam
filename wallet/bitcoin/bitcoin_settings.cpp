@@ -26,6 +26,11 @@ namespace beam
         return m_feeRate;
     }
 
+    Amount BitcoinSettings::GetMinFeeRate() const
+    {
+        return m_minFeeRate;
+    }
+
     uint16_t BitcoinSettings::GetTxMinConfirmations() const
     {
         return m_txMinConfirmations;
@@ -49,6 +54,11 @@ namespace beam
     void BitcoinSettings::SetFeeRate(Amount feeRate)
     {
         m_feeRate = feeRate;
+    }
+
+    void BitcoinSettings::SetMinFeeRate(beam::Amount feeRate)
+    {
+        m_minFeeRate = feeRate;
     }
 
     void BitcoinSettings::SetTxMinConfirmations(uint16_t txMinConfirmations)

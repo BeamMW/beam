@@ -28,16 +28,27 @@ public:
     Q_INVOKABLE static bool isTransactionToken(const QString& text);
     Q_INVOKABLE static bool isSwapToken(const QString& text);
     Q_INVOKABLE static QString getLocaleName();
-    Q_INVOKABLE static int maxCommentLength();
+    Q_INVOKABLE static int  maxCommentLength();
     Q_INVOKABLE static bool needPasswordToSpend();
     Q_INVOKABLE static bool isPasswordValid(const QString& value);
 
     // Currency utils
     static bool isFeeOK(int fee, Currency currency);
+
     Q_INVOKABLE static int minFeeBEAM();
-    Q_INVOKABLE static int minFeeBTC();
-    Q_INVOKABLE static int minFeeLTC();
-    Q_INVOKABLE static int minFeeQTUM();
+    Q_INVOKABLE static int minFeeRateBTC();
+    Q_INVOKABLE static int minFeeRateLTC();
+    Q_INVOKABLE static int minFeeRateQTUM();
+
+    Q_INVOKABLE static int defFeeBEAM();
+    Q_INVOKABLE static int defFeeRateBTC();
+    Q_INVOKABLE static int defFeeRateLTC();
+    Q_INVOKABLE static int defFeeRateQTUM();
+
+    Q_INVOKABLE static QString beamFeeRateLabel();
+    Q_INVOKABLE static QString btcFeeRateLabel();
+    Q_INVOKABLE static QString ltcFeeRateLabel();
+    Q_INVOKABLE static QString qtumFeeRateLabel();
 
 private:
     QQmlEngine& _engine;

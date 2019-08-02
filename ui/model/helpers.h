@@ -34,3 +34,7 @@ private:
 inline auto MakeConnectionPtr() {
     return std::make_shared<QMetaObject::Connection>();
 }
+
+inline QString str2qstr(const std::string& str) {
+    return QString::fromStdString(str);
+}

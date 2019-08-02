@@ -33,6 +33,7 @@ namespace beam
 
             SetTxMinConfirmations(kQtumDefaultTxMinConfirmations);
             SetLockTimeInBlocks(kQtumDefaultLockTimeInBlocks);
+            SetMinFeeRate(90000);
         }
     };
 }

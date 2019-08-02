@@ -49,6 +49,7 @@ namespace beam
 
         virtual const BitcoindSettings& GetConnectionOptions() const = 0;
         virtual Amount GetFeeRate() const = 0;
+        virtual Amount GetMinFeeRate() const = 0;
         virtual uint16_t GetTxMinConfirmations() const = 0;
         virtual uint32_t GetLockTimeInBlocks() const = 0;
         virtual wallet::SwapSecondSideChainType GetChainType() const = 0;
@@ -61,21 +62,24 @@ namespace beam
        // ~BitcoinSettings() = default;
         const BitcoindSettings& GetConnectionOptions() const override;
         Amount GetFeeRate() const override;
+        Amount GetMinFeeRate() const override;
         uint16_t GetTxMinConfirmations() const override;
         uint32_t GetLockTimeInBlocks() const override;
         wallet::SwapSecondSideChainType GetChainType() const override;
 
         void SetConnectionOptions(const BitcoindSettings& connectionSettings);
         void SetFeeRate(Amount feeRate);
+        void SetMinFeeRate(Amount feeRate);
         void SetTxMinConfirmations(uint16_t txMinConfirmations);
         void SetLockTimeInBlocks(uint32_t lockTimeInBlocks);
         void SetChainType(wallet::SwapSecondSideChainType chainType);
 
         SERIALIZE(m_connectionSettings, m_feeRate, m_txMinConfirmations, m_chainType, m_lockTimeInBlocks);
 
-    private:
+    protected:
         BitcoindSettings m_connectionSettings;
-        Amount m_feeRate = 0;
+        Amount m_feeRate = 90000;
+        Amount m_minFeeRate = 50000;
         uint16_t m_txMinConfirmations = 6;
         wallet::SwapSecondSideChainType m_chainType = wallet::SwapSecondSideChainType::Mainnet;
         uint32_t m_lockTimeInBlocks = 2 * 24 * 6;

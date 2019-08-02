@@ -18,9 +18,10 @@
 #include <QApplication>
 #include <QClipboard>
 #include "model/app_model.h"
+#include "model/helpers.h"
 #include <thread>
 #include "wallet/secstring.h"
-
+#include "qml_globals.h"
 #include <algorithm>
 
 
@@ -39,15 +40,16 @@ SettingsViewModel::SettingsViewModel()
     undoChanges();
     connect(&AppModel::getInstance().getNode(), SIGNAL(startedNode()), SLOT(onNodeStarted()));
     connect(&AppModel::getInstance().getNode(), SIGNAL(stoppedNode()), SLOT(onNodeStopped()));
+    connect(AppModel::getInstance().getWallet().get(), SIGNAL(addressChecked(const QString&, bool)), SLOT(onAddressChecked(const QString&, bool)));
 
-    connect(AppModel::getInstance().getWallet().get(), SIGNAL(addressChecked(const QString&, bool)),
-        SLOT(onAddressChecked(const QString&, bool)));
+    const auto btcSettings = AppModel::getInstance().getBitcoinClient()->GetSettings();
+    setBTCUser(str2qstr(btcSettings.GetConnectionOptions().m_userName));
+    setBTCPass(str2qstr(btcSettings.GetConnectionOptions().m_pass));
+    setBTCNodeAddress(str2qstr(btcSettings.GetConnectionOptions().m_address.str()));
+    setBTCFeeRate(btcSettings.GetFeeRate());
 
-    // BitcoinClient
-    connect(AppModel::getInstance().getBitcoinClient().get(), SIGNAL(GotBalance(const beam::BitcoinClient::Balance&)),
-        SLOT(onBitcoinBalance(const beam::BitcoinClient::Balance&)));
-
-    onBitcoinSettings(AppModel::getInstance().getBitcoinClient()->GetSettings());
+    // TODO:SWAP-SETTINGS load LTC settings
+    // TODO:SWAP-SETTINGS load QTUM settings
 
     m_timerId = startTimer(CHECK_INTERVAL);
 }
@@ -77,39 +79,6 @@ void SettingsViewModel::onAddressChecked(const QString& addr, bool isValid)
             m_isNeedToApplyChanges = false;
         }
     }
-}
-
-// ===================================================================================
-
-void SettingsViewModel::applyBTCChanges()
-{
-    BitcoindSettings connectionSettings;
-    connectionSettings.m_pass = m_bitcoinPass.toStdString();
-    connectionSettings.m_userName = m_bitcoinUser.toStdString();
-    connectionSettings.m_address.resolve(m_bitcoinNodeAddress.toStdString().c_str());
-
-    BitcoinSettings btcSettings;
-    btcSettings.SetChainType(beam::wallet::SwapSecondSideChainType::Testnet);
-    btcSettings.SetConnectionOptions(connectionSettings);
-    btcSettings.SetFeeRate(m_bitcoinFeeRate);
-
-    AppModel::getInstance().getBitcoinClient()->SetSettings(btcSettings);
-
-    AppModel::getInstance().getBitcoinClient()->GetAsync()->GetBalance();
-}
-
-void SettingsViewModel::onBitcoinSettings(const beam::BitcoinSettings& settings)
-{
-    setBTCUser(QString::fromStdString(settings.GetConnectionOptions().m_userName));
-    setBTCPass(QString::fromStdString(settings.GetConnectionOptions().m_pass));
-    setBTCNodeAddress(QString::fromStdString(settings.GetConnectionOptions().m_address.str()));
-    setBTCFeeRate(settings.GetFeeRate());
-}
-
-void SettingsViewModel::onBitcoinBalance(const beam::BitcoinClient::Balance& balance)
-{
-    m_balance = balance;
-    emit btcAvailableChanged();
 }
 
 QString SettingsViewModel::getBTCUser() const
@@ -149,9 +118,10 @@ QString SettingsViewModel::getBTCNodeAddress() const
 
 void SettingsViewModel::setBTCNodeAddress(const QString& value)
 {
-    if (value != m_bitcoinNodeAddress)
+    const auto val = value == "0.0.0.0" ? "" : value;
+    if (val != m_bitcoinNodeAddress)
     {
-        m_bitcoinNodeAddress = value;
+        m_bitcoinNodeAddress = val;
         emit btcNodeAddressChanged();
         emit propertiesChanged();
     }
@@ -164,6 +134,7 @@ int SettingsViewModel::getBTCFeeRate() const
 
 void SettingsViewModel::setBTCFeeRate(int value)
 {
+    LOG_INFO() << "setBTCFeeRate " << value;
     if (value != m_bitcoinFeeRate)
     {
         m_bitcoinFeeRate = value;
@@ -172,12 +143,175 @@ void SettingsViewModel::setBTCFeeRate(int value)
     }
 }
 
-double SettingsViewModel::getBTCAvailable() const
+/* work in progress, do not touch now
+void SettingsViewModel::disableBtc()
 {
-    return m_balance.m_available;
+    setBTCFeeRate(QMLGlobals::defFeeRateBTC());
+    setBTCNodeAddress("0.0.0.0");
+    setBTCPass("");
+    setBTCUser("");
+    //applyBtcSettings();
+}
+ */
+
+void SettingsViewModel::applyBtcSettings()
+{
+    BitcoindSettings connectionSettings;
+    connectionSettings.m_pass = m_bitcoinPass.toStdString();
+    connectionSettings.m_userName = m_bitcoinUser.toStdString();
+
+    // TODO:SWAP-SETTINGS check if this is correct
+    const std::string address = m_bitcoinNodeAddress.isEmpty() ? "0.0.0.0" : m_bitcoinNodeAddress.toStdString();
+    connectionSettings.m_address.resolve(address.c_str());
+
+    BitcoinSettings btcSettings;
+
+    // TODO:SWAP-SETTINGS check if this is correct
+    #ifdef BEAM_MAINNET
+    btcSettings.SetChainType(beam::wallet::SwapSecondSideChainType::Mainnet);
+    #else
+    btcSettings.SetChainType(beam::wallet::SwapSecondSideChainType::Testnet);
+    #endif
+
+    btcSettings.SetConnectionOptions(connectionSettings);
+    btcSettings.SetFeeRate(m_bitcoinFeeRate);
+
+    // TODO:SWAP-SETTINGS perform actions if necessary
+    AppModel::getInstance().getBitcoinClient()->SetSettings(btcSettings);
+
+    // TODO:SWAP-SETTINGS probably need to remove
+    AppModel::getInstance().getBitcoinClient()->GetAsync()->GetBalance();
 }
 
-// ===================================================================================
+QString SettingsViewModel::getLTCUser() const
+{
+    return m_litecoinUser;
+}
+
+void SettingsViewModel::setLTCUser(const QString& value)
+{
+    if (value != m_litecoinUser)
+    {
+        m_litecoinUser = value;
+        emit ltcUserChanged();
+        emit propertiesChanged();
+    }
+}
+
+QString SettingsViewModel::getLTCPass() const
+{
+    return m_litecoinPass;
+}
+
+void SettingsViewModel::setLTCPass(const QString& value)
+{
+    if (value != m_litecoinPass)
+    {
+        m_litecoinPass = value;
+        emit ltcPassChanged();
+        emit propertiesChanged();
+    }
+}
+
+QString SettingsViewModel::getLTCNodeAddress() const
+{
+    return m_litecoinNodeAddress;
+}
+
+void SettingsViewModel::setLTCNodeAddress(const QString& value)
+{
+    if (value != m_litecoinNodeAddress)
+    {
+        m_litecoinNodeAddress = value;
+        emit ltcNodeAddressChanged();
+        emit propertiesChanged();
+    }
+}
+
+int SettingsViewModel::getLTCFeeRate() const
+{
+    return m_litecoinFeeRate;
+}
+
+void SettingsViewModel::setLTCFeeRate(int value)
+{
+    if (value != m_litecoinFeeRate)
+    {
+        m_litecoinFeeRate = value;
+        emit ltcFeeRateChanged();
+        emit propertiesChanged();
+    }
+}
+
+void SettingsViewModel::applyLtcSettings()
+{
+    // TODO:SWAP-SETTINGS save LTC settings. These can be empty, take a look at btc apply
+}
+
+QString SettingsViewModel::getQTUMUser() const
+{
+    return m_qtumUser;
+}
+
+void SettingsViewModel::setQTUMUser(const QString& value)
+{
+    if (value != m_qtumUser)
+    {
+        m_qtumUser = value;
+        emit qtumUserChanged();
+        emit propertiesChanged();
+    }
+}
+
+QString SettingsViewModel::getQTUMPass() const
+{
+    return m_qtumPass;
+}
+
+void SettingsViewModel::setQTUMPass(const QString& value)
+{
+    if (value != m_qtumPass)
+    {
+        m_qtumPass = value;
+        emit qtumPassChanged();
+        emit propertiesChanged();
+    }
+}
+
+QString SettingsViewModel::getQTUMNodeAddress() const
+{
+    return m_qtumNodeAddress;
+}
+
+void SettingsViewModel::setQTUMNodeAddress(const QString& value)
+{
+    if (value != m_qtumNodeAddress)
+    {
+        m_qtumNodeAddress = value;
+        emit qtumNodeAddressChanged();
+        emit propertiesChanged();
+    }
+}
+
+int SettingsViewModel::getQTUMFeeRate() const
+{
+    return m_qtumFeeRate;
+}
+
+void SettingsViewModel::setQTUMFeeRate(int value)
+{
+    if (value != m_qtumFeeRate)
+    {
+        m_qtumFeeRate = value;
+        emit qtumFeeRateChanged();
+        emit propertiesChanged();
+    }
+}
+
+void SettingsViewModel::applyQtumSettings()
+{
+    // TODO:SWAP-SETTINGS save QTUM settings. These can be empty, take a look at btc apply
+}
 
 bool SettingsViewModel::isLocalNodeRunning() const
 {
@@ -420,8 +554,7 @@ void SettingsViewModel::undoChanges()
     setLocalNodePeers(m_settings.getLocalNodePeers());
     setPasswordReqiredToSpendMoney(m_settings.isPasswordReqiredToSpendMoney());
     allowBeamMWLinks(m_settings.isAllowedBeamMWLinks());
-    setCurrentLanguageIndex(
-            m_supportedLanguages.indexOf(m_settings.getLanguageName()));
+    setCurrentLanguageIndex(m_supportedLanguages.indexOf(m_settings.getLanguageName()));
 }
 
 void SettingsViewModel::reportProblem()

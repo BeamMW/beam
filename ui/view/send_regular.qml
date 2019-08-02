@@ -72,7 +72,7 @@ ColumnLayout {
                     id:               receiverTAError
                     color:            Style.validator_error
                     font.pixelSize:   12
-                    text:             qsTrId("general-invalid-address") //% "Invalid address"
+                    text:             qsTrId("wallet-send-invalid-token") //% "Invalid address or token"
                     visible:          !isTAInputValid()
                 }
             }

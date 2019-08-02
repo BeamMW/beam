@@ -74,9 +74,9 @@ bool QMLGlobals::isFeeOK(int fee, Currency currency)
     switch (currency)
     {
     case Currency::CurrBEAM: return fee >= minFeeBEAM();
-    case Currency::CurrBTC:  return fee >= minFeeBTC();
-    case Currency::CurrLTC:  return fee >= minFeeLTC();
-    case Currency::CurrQTUM: return fee >= minFeeQTUM();
+    case Currency::CurrBTC:  return fee >= minFeeRateBTC();
+    case Currency::CurrLTC:  return fee >= minFeeRateLTC();
+    case Currency::CurrQTUM: return fee >= minFeeRateQTUM();
     default:
         assert(false);
         return false;
@@ -89,18 +89,44 @@ int QMLGlobals::minFeeBEAM()
     return AppModel::getInstance().getWallet()->isFork1() ? kFeeInGroth_Fork1 : kDefaultFeeInGroth;
 }
 
-int QMLGlobals::minFeeBTC()
+int QMLGlobals::defFeeBEAM()
 {
-    return 50000;
+    return minFeeBEAM();
 }
 
-int QMLGlobals::minFeeLTC()
+int QMLGlobals::minFeeRateBTC()
 {
+     const auto btcSettings = AppModel::getInstance().getBitcoinClient()->GetSettings();
+     return btcSettings.GetMinFeeRate();
+}
+
+int QMLGlobals::defFeeRateBTC()
+{
+     const auto btcSettings = AppModel::getInstance().getBitcoinClient()->GetSettings();
+     return btcSettings.GetFeeRate();
+}
+
+int QMLGlobals::minFeeRateLTC()
+{
+    // TODO:SWAP-SETTINGS read from settings (see btc for an example)
     return 90000;
 }
 
-int QMLGlobals::minFeeQTUM()
+int QMLGlobals::defFeeRateLTC()
 {
+    // TODO:SWAP-SETTINGS read from settings (see btc for an example)
+    return 90000;
+}
+
+int QMLGlobals::minFeeRateQTUM()
+{
+    // TODO:SWAP-SETTINGS read from settings (see btc for an example)
+    return 90000;
+}
+
+int QMLGlobals::defFeeRateQTUM()
+{
+    // TODO:SWAP-SETTINGS read from settings (see btc for an example)
     return 90000;
 }
 
@@ -113,4 +139,24 @@ bool QMLGlobals::isPasswordValid(const QString& value)
 {
     beam::SecString secretPass = value.toStdString();
     return AppModel::getInstance().checkWalletPassword(secretPass);
+}
+
+QString QMLGlobals::beamFeeRateLabel()
+{
+    return "GROTH";
+}
+
+QString QMLGlobals::btcFeeRateLabel()
+{
+    return "sat/kB";
+}
+
+QString QMLGlobals::ltcFeeRateLabel()
+{
+    return "ph/kB";
+}
+
+QString QMLGlobals::qtumFeeRateLabel()
+{
+    return "qsat/kB";
 }

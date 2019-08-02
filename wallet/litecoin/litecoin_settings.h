@@ -30,6 +30,7 @@ namespace beam
         {
             constexpr uint32_t kLTCDefaultLockTimeInBlocks = 2 * 24 * 4 * 6;
             SetLockTimeInBlocks(kLTCDefaultLockTimeInBlocks);
+            SetMinFeeRate(90000);
         }
     };
 }

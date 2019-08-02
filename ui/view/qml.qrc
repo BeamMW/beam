@@ -27,6 +27,10 @@
         <file>controls/SFFontLoader.qml</file>
         <file>controls/SFTextArea.qml</file>
         <file>controls/AmountInput.qml</file>
+        <file>controls/FeeInput.qml</file>
+        <file>controls/IPAddrInput.qml</file>
+        <file>controls/SwapNodeSettings.qml</file>
+        <file>controls/LinkButton.qml</file>
         <file>root.qml</file>
         <file>start.qml</file>
         <file>main.qml</file>

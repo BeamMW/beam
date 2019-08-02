@@ -371,6 +371,26 @@
         <extracomment>settings tab, node section, apply button</extracomment>
         <translation>Apply</translation>
     </message>
+    <message id="settings-node-address">
+        <source>Node Address</source>
+        <translation>Node Address</translation>
+    </message>
+    <message id="settings-username">
+        <source>Username</source>
+        <translation>Username</translation>
+    </message>
+    <message id="settings-password">
+        <source>Password</source>
+        <translation>Password</translation>
+    </message>
+    <message id="settings-fee-rate">
+        <source>Default fee</source>
+        <translation>Default fee</translation>
+    </message>
+    <message id="settings-reset">
+        <source>Switch off</source>
+        <translation>Switch off</translation>
+    </message>
     <message id="logo-description">
         <source>Scalable confidential cryptocurrency</source>
         <translation>Scalable confidential cryptocurrency</translation>
@@ -572,6 +592,10 @@
     <message id="wallet-receive-swap-title">
         <source>Create swap offer</source>
         <translation>Create swap offer</translation>
+    </message>
+    <message id="wallet-send-invalid-token">
+        <source>Invalid address or token</source>
+        <translation>Invalid address or token</translation>
     </message>
     <message id="wallet-send-swap-title">
         <source>Swap currencies</source>

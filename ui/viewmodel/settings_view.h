@@ -44,11 +44,20 @@ class SettingsViewModel : public QObject
     Q_PROPERTY(QString currentLanguage READ getCurrentLanguage WRITE setCurrentLanguage)
     Q_PROPERTY(bool isValidNodeAddress READ isValidNodeAddress NOTIFY validNodeAddressChanged)
 
-    Q_PROPERTY(QString btcUser READ getBTCUser WRITE setBTCUser NOTIFY btcUserChanged)
-    Q_PROPERTY(QString btcPass READ getBTCPass WRITE setBTCPass NOTIFY btcPassChanged)
-    Q_PROPERTY(QString btcNodeAddress READ getBTCNodeAddress WRITE setBTCNodeAddress NOTIFY btcNodeAddressChanged)
-    Q_PROPERTY(int btcFeeRate READ getBTCFeeRate WRITE setBTCFeeRate NOTIFY btcFeeRateChanged)
-    Q_PROPERTY(double btcAvailable READ getBTCAvailable NOTIFY btcAvailableChanged)
+    Q_PROPERTY(QString  btcUser        READ getBTCUser         WRITE setBTCUser         NOTIFY btcUserChanged)
+    Q_PROPERTY(QString  btcPass        READ getBTCPass         WRITE setBTCPass         NOTIFY btcPassChanged)
+    Q_PROPERTY(QString  btcNodeAddress READ getBTCNodeAddress  WRITE setBTCNodeAddress  NOTIFY btcNodeAddressChanged)
+    Q_PROPERTY(int      btcFeeRate     READ getBTCFeeRate      WRITE setBTCFeeRate      NOTIFY btcFeeRateChanged)
+
+    Q_PROPERTY(QString  ltcUser        READ getLTCUser         WRITE setLTCUser         NOTIFY ltcUserChanged)
+    Q_PROPERTY(QString  ltcPass        READ getLTCPass         WRITE setLTCPass         NOTIFY ltcPassChanged)
+    Q_PROPERTY(QString  ltcNodeAddress READ getLTCNodeAddress  WRITE setLTCNodeAddress  NOTIFY ltcNodeAddressChanged)
+    Q_PROPERTY(int      ltcFeeRate     READ getLTCFeeRate      WRITE setLTCFeeRate      NOTIFY ltcFeeRateChanged)
+
+    Q_PROPERTY(QString  qtumUser        READ getQTUMUser        WRITE setQTUMUser         NOTIFY qtumUserChanged)
+    Q_PROPERTY(QString  qtumPass        READ getQTUMPass        WRITE setQTUMPass         NOTIFY qtumPassChanged)
+    Q_PROPERTY(QString  qtumNodeAddress READ getQTUMNodeAddress WRITE setQTUMNodeAddress  NOTIFY qtumNodeAddressChanged)
+    Q_PROPERTY(int      qtumFeeRate     READ getQTUMFeeRate     WRITE setQTUMFeeRate      NOTIFY qtumFeeRateChanged)
 
 public:
 
@@ -81,7 +90,6 @@ public:
 
     bool isChanged() const;
 
-    // ========== TEST ONLY =====================
     QString getBTCUser() const;
     void setBTCUser(const QString& value);
     QString getBTCPass() const;
@@ -90,8 +98,24 @@ public:
     void setBTCNodeAddress(const QString& value);
     int getBTCFeeRate() const;
     void setBTCFeeRate(int value);
-    double getBTCAvailable() const;
-    // =========================================
+
+    QString getLTCUser() const;
+    void setLTCUser(const QString& value);
+    QString getLTCPass() const;
+    void setLTCPass(const QString& value);
+    QString getLTCNodeAddress() const;
+    void setLTCNodeAddress(const QString& value);
+    int getLTCFeeRate() const;
+    void setLTCFeeRate(int value);
+
+    QString getQTUMUser() const;
+    void setQTUMUser(const QString& value);
+    QString getQTUMPass() const;
+    void setQTUMPass(const QString& value);
+    QString getQTUMNodeAddress() const;
+    void setQTUMNodeAddress(const QString& value);
+    int getQTUMFeeRate() const;
+    void setQTUMFeeRate(int value);
 
     Q_INVOKABLE uint coreAmount() const;
     Q_INVOKABLE void addLocalNodePeer(const QString& localNodePeer);
@@ -100,6 +124,12 @@ public:
     Q_INVOKABLE void refreshWallet();
     Q_INVOKABLE void openFolder(const QString& path);
     Q_INVOKABLE bool checkWalletPassword(const QString& password) const;
+    Q_INVOKABLE void applyBtcSettings();
+    Q_INVOKABLE void applyLtcSettings();
+    Q_INVOKABLE void applyQtumSettings();
+    //Q_INVOKABLE void disableBtc();
+    //Q_INVOKABLE void disableLtc();
+    //Q_INVOKABLE void disableQtum();
 
 public slots:
     void applyChanges();
@@ -109,10 +139,6 @@ public slots:
     void onNodeStarted();
     void onNodeStopped();
     void onAddressChecked(const QString& addr, bool isValid);
-
-    void applyBTCChanges();
-    void onBitcoinSettings(const beam::BitcoinSettings& settings);
-    void onBitcoinBalance(const beam::BitcoinClient::Balance& balance);
 
 signals:
     void nodeAddressChanged();
@@ -131,7 +157,17 @@ signals:
     void btcPassChanged();
     void btcNodeAddressChanged();
     void btcFeeRateChanged();
-    void btcAvailableChanged();
+
+    void ltcUserChanged();
+    void ltcPassChanged();
+    void ltcNodeAddressChanged();
+    void ltcFeeRateChanged();
+
+    void qtumUserChanged();
+    void qtumPassChanged();
+    void qtumNodeAddressChanged();
+    void qtumFeeRateChanged();
+
 protected:
     void timerEvent(QTimerEvent *event) override;
 
@@ -157,7 +193,15 @@ private:
     QString m_bitcoinNodeAddress;
     int m_bitcoinFeeRate = 0;
 
-    beam::BitcoinClient::Balance m_balance;
+    QString m_litecoinUser;
+    QString m_litecoinPass;
+    QString m_litecoinNodeAddress;
+    int m_litecoinFeeRate = 0;
+
+    QString m_qtumUser;
+    QString m_qtumPass;
+    QString m_qtumNodeAddress;
+    int m_qtumFeeRate = 0;
 
     const int CHECK_INTERVAL = 1000;
 };
