@@ -675,7 +675,8 @@ namespace beam::wallet
         {
             LOG_UNHANDLED_EXCEPTION() << "what = " << e.what();
         }
-        catch (...) {
+        catch (...)
+        {
             LOG_UNHANDLED_EXCEPTION();
         }
     }
@@ -694,7 +695,20 @@ namespace beam::wallet
 
     void WalletClient::importRecovery(const std::string& path)
     {
-        m_walletDB->ImportRecovery(path, *this);
+        try
+        {
+            m_walletDB->ImportRecovery(path, *this);
+            return;
+        }
+        catch (const std::runtime_error& e)
+        {
+            LOG_UNHANDLED_EXCEPTION() << "what = " << e.what();
+        }
+        catch (...) 
+        {
+            LOG_UNHANDLED_EXCEPTION();
+        }
+        onWalletError(ErrorType::ImportRecoveryError);
     }
 
     bool WalletClient::OnProgress(uint64_t done, uint64_t total)
