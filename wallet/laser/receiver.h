@@ -29,7 +29,7 @@ class Receiver
 public:
     using UPtr = std::unique_ptr<Receiver>;
     explicit Receiver(IReceiverHolder& holder, const ChannelIDPtr& chID);
-    ~Receiver();
+    virtual ~Receiver();
     // proto::FlyClient::Request::IHandler
     virtual void OnComplete(proto::FlyClient::Request&) override;
     // proto::FlyClient::IBbsReceiver
