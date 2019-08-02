@@ -305,7 +305,7 @@ namespace beam::wallet
         {
             if (subTx.first > kDefaultSubTxID)
             {
-                parameters.emplace_back(TxParameterID::SubTxIndex, subTx.first);
+                parameters.emplace_back(TxParameterID::SubTxIndex, toByteBuffer(subTx.first));
             }
             for (const auto& p : subTx.second)
             {
