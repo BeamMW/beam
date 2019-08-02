@@ -84,7 +84,7 @@ private:
     beam::Amount calcTotalAmount() const;
     beam::Amount calcSendAmount() const;
     beam::Amount calcFeeAmount() const;
-    void updateParameters();
+    void extractParameters();
 
     int     _feeGrothes;
     double  _sendAmount;
