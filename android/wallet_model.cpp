@@ -279,7 +279,7 @@ void WalletModel::onWalletError(ErrorType error)
 
     jmethodID callback = env->GetStaticMethodID(WalletListenerClass, "onNodeConnectionFailed", "(I)V");
 
-    env->CallStaticVoidMethod(WalletListenerClass, callback, static_cast<uint8_t>(error));
+    env->CallStaticVoidMethod(WalletListenerClass, callback, static_cast<int>(error));
 }
 
 void WalletModel::FailedToStartWallet()
@@ -357,7 +357,7 @@ void WalletModel::onImportRecoveryProgress(uint64_t done, uint64_t total)
 
     JNIEnv* env = Android_JNI_getEnv();
 
-    jmethodID callback = env->GetStaticMethodID(WalletListenerClass, "onImportRecoveryProgress", "(II)V");
+    jmethodID callback = env->GetStaticMethodID(WalletListenerClass, "onImportRecoveryProgress", "(JJ)V");
 
     env->CallStaticVoidMethod(WalletListenerClass, callback, done, total);
 }
