@@ -41,11 +41,6 @@ QString TxObject::date() const
     return toString(m_tx.m_createTime);
 }
 
-QString TxObject::user() const
-{
-    return toString(m_tx.m_peerId);
-}
-
 QString TxObject::userName() const
 {
     return m_userName;
@@ -62,9 +57,24 @@ QString TxObject::comment() const
     return QString(str.c_str()).trimmed();
 }
 
-QString TxObject::amount() const
+QString TxObject::getSentAmount() const
 {
-    return BeamToString(m_tx.m_amount);
+    return m_tx.m_sender ? BeamToString(m_tx.m_amount) : "";
+}
+
+double TxObject::getSentAmountValue() const
+{
+    return m_tx.m_sender ? m_tx.m_amount : 0;
+}
+
+QString TxObject::getReceivedAmount() const
+{
+    return !m_tx.m_sender ? BeamToString(m_tx.m_amount) : "";
+}
+
+double TxObject::getReceivedAmountValue() const
+{
+    return !m_tx.m_sender ? m_tx.m_amount : 0;
 }
 
 QString TxObject::change() const
@@ -116,20 +126,12 @@ beam::wallet::WalletID TxObject::peerId() const
 
 QString TxObject::getSendingAddress() const
 {
-    if (m_tx.m_sender)
-    {
-        return toString(m_tx.m_myId);
-    }
-    return user();
+    return toString(m_tx.m_sender ? m_tx.m_myId : m_tx.m_peerId);
 }
 
 QString TxObject::getReceivingAddress() const
 {
-    if (m_tx.m_sender)
-    {
-        return user();
-    }
-    return toString(m_tx.m_myId);
+    return toString(!m_tx.m_sender ? m_tx.m_myId : m_tx.m_peerId);
 }
 
 QString TxObject::getFee() const

@@ -1258,5 +1258,21 @@ Vous essayez de restaurer un portefeuille Beam existant. Veuillez noter que si v
         <source></source>
         <translation type="unfinished"></translation>
     </message>
+    <message id="general-address-from">
+        <source>From</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="general-address-to">
+        <source>To</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="general-amount-sent">
+        <source>Sent</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="general-amount-received">
+        <source>Received</source>
+        <translation type="unfinished"></translation>
+    </message>
 </context>
 </TS>

@@ -1258,5 +1258,21 @@ Escanee este código QR o envíe esta dirección al remitente a través de un ca
         <source></source>
         <translation type="unfinished"></translation>
     </message>
+    <message id="general-address-from">
+        <source>From</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="general-address-to">
+        <source>To</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="general-amount-sent">
+        <source>Sent</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="general-amount-received">
+        <source>Received</source>
+        <translation type="unfinished"></translation>
+    </message>
 </context>
 </TS>

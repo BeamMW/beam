@@ -1290,5 +1290,21 @@ or send this address to the sender over secure channel</translation>
         <extracomment>settings tab, general section, ask password to send, confirm password dialog, message</extracomment>
         <translation>Password verification is required to change that setting</translation>
     </message>
+    <message id="general-address-from">
+        <source>From</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="general-address-to">
+        <source>To</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="general-amount-sent">
+        <source>Sent</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="general-amount-received">
+        <source>Received</source>
+        <translation type="unfinished"></translation>
+    </message>
 </context>
 </TS>
