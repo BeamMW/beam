@@ -48,6 +48,7 @@ namespace beam::wallet
         virtual uint8_t GetAddressVersion() const;
 
         Amount GetFeeRate() const;
+        Amount GetFeeRate(SubTxID subTxID) const;
         uint16_t GetTxMinConfirmations() const;
         uint32_t GetLockTimeInBlocks() const;
         bool IsMainnet() const;
