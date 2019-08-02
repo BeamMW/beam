@@ -19,15 +19,15 @@ namespace beam::wallet::laser
 {
 
 Channel::Channel(IChannelHolder& holder,
-                 const WalletID& my,
+                 const WalletAddress& myAddr,
                  const WalletID& trg,
                  const Amount& fee,
                  const Amount& aMy,
                  const Amount& aTrg,
                  Height locktime)
     : m_rHolder(holder)
-    , m_ID(std::make_shared<ChannelID>())
-    , m_widMy(my)
+    , m_ID(std::make_shared<ChannelID>(Zero))
+    , m_myAddr(myAddr)
     , m_widTrg(trg)
     , m_aMy(aMy)
     , m_aTrg(aTrg)
@@ -41,7 +41,7 @@ Channel::Channel(IChannelHolder& holder,
 }
 Channel::Channel(IChannelHolder& holder,
                  const ChannelIDPtr& chID,
-                 const WalletID& my,
+                 const WalletAddress& myAddr,
                  const WalletID& trg,
                  const Amount& fee,
                  const Amount& aMy,
@@ -49,7 +49,7 @@ Channel::Channel(IChannelHolder& holder,
                  Height locktime)
     : m_rHolder(holder)
     , m_ID(chID)
-    , m_widMy(my)
+    , m_myAddr(myAddr)
     , m_widTrg(trg)
     , m_aMy(aMy)
     , m_aTrg(aTrg)
@@ -113,15 +113,11 @@ void Channel::SendPeer(Negotiator::Storage::Map&& dataOut)
     if (m_SendMyWid)
     {
         m_SendMyWid = false;
-        dataOut.Set(m_widMy, Codes::MyWid);
+        dataOut.Set(m_myAddr.m_walletID, Codes::MyWid);
     }
     
-    // BbsChannel ch;
-    // m_widMy.m_Channel.Export(ch);
-    // get_Net().BbsSubscribe(ch, getTimestamp(), m_upReceiver.get());
-
     Serializer ser;
-    ser & m_ID;
+    ser & (*m_ID);
     ser & Cast::Down<FieldMap>(dataOut);
 
     LOG_INFO() << "SendPeer\tTo peer (via bbs): " << ser.buffer().second;
@@ -152,7 +148,7 @@ const ChannelIDPtr& Channel::get_chID() const
 
 const WalletID& Channel::get_myWID() const
 {
-    return m_widMy;
+    return m_myAddr.m_walletID;
 };
 
 const WalletID& Channel::get_trgWID() const
@@ -193,6 +189,11 @@ const Amount& Channel::get_amountCurrentTrg() const
 bool Channel::Open(HeightRange openWindow)
 {
     return Lightning::Channel::Open(m_aMy, m_aTrg, openWindow);
+};
+
+const WalletAddress& Channel::getMyAddr() const
+{
+    return m_myAddr;
 };
 
 bool Channel::IsStateChanged()
@@ -254,7 +255,7 @@ void Channel::LogNewState()
 void Channel::Subscribe()
 {
     BbsChannel ch;
-    m_widMy.m_Channel.Export(ch);
+    get_myWID().m_Channel.Export(ch);
     get_Net().BbsSubscribe(ch, getTimestamp(), m_upReceiver.get());
     LOG_INFO() << "beam::wallet::laser::Channel subscribed: " << ch;
 };
@@ -262,7 +263,7 @@ void Channel::Subscribe()
 void Channel::Unsubscribe()
 {
     BbsChannel ch;
-    m_widMy.m_Channel.Export(ch);
+    get_myWID().m_Channel.Export(ch);
     get_Net().BbsSubscribe(ch, 0, nullptr);
     LOG_INFO() << "beam::wallet::laser::Channel unsubscribed: " << ch;
 };

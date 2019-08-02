@@ -55,7 +55,7 @@ proto::FlyClient::INetwork& Mediator::get_Net()
 
 void Mediator::OnMsg(const ChannelIDPtr& chID, Blob&& blob)
 {
-    ChannelIDPtr inChID = std::make_shared<ChannelID>();
+    auto inChID = std::make_shared<ChannelID>(Zero);
 	beam::Negotiator::Storage::Map dataIn;
 
 	try
@@ -83,6 +83,7 @@ void Mediator::OnMsg(const ChannelIDPtr& chID, Blob&& blob)
                         << to_hex(inChID->m_pData , inChID->nBytes);
             return;
         }
+        inChID = chID;
     }
 
     auto it = m_channels.find(inChID);
@@ -107,7 +108,7 @@ void Mediator::OnMsg(const ChannelIDPtr& chID, Blob&& blob)
 
 bool  Mediator::Decrypt(const ChannelIDPtr& chID, uint8_t* pMsg, Blob* blob)
 {
-    if (!proto::Bbs::Decrypt(pMsg, blob->n, get_skBbs()))
+    if (!proto::Bbs::Decrypt(pMsg, blob->n, get_skBbs(chID)))
 		return false;
 
 	blob->p = pMsg;
@@ -168,7 +169,7 @@ void Mediator::OpenChannel(Amount aMy,
     }
 
     auto channel = std::make_unique<Channel>(
-        *this, m_myOutAddr.m_walletID, receiverWalletID,
+        *this, m_myOutAddr, receiverWalletID,
         fee, aMy, aTrg, locktime);
 
     auto chIDPtr = channel->get_chID();
@@ -212,17 +213,18 @@ Block::SystemState::IHistory& Mediator::get_History()
     return m_pWalletDB->get_History();
 }
 
-ECC::Scalar::Native Mediator::get_skBbs()
+ECC::Scalar::Native Mediator::get_skBbs(const ChannelIDPtr& chID)
 {
-    auto& wid = m_myOutAddr.m_walletID;
+    auto& addr = chID ? m_channels[chID]->getMyAddr() : m_myInAddr;
+    auto& wid = addr.m_walletID;
     if (wid != Zero)
     {    
         PeerID peerID;
         ECC::Scalar::Native sk;
         m_pWalletDB->get_MasterKdf()->DeriveKey(
-            sk, Key::ID(m_myOutAddr.m_OwnID, Key::Type::Bbs));
+            sk, Key::ID(addr.m_OwnID, Key::Type::Bbs));
         proto::Sk2Pk(peerID, sk);
-        return m_myOutAddr.m_walletID.m_Pk == peerID ? sk : Zero;        
+        return wid.m_Pk == peerID ? sk : Zero;        
     }
     return Zero;
 }
@@ -250,13 +252,13 @@ void Mediator::OnIncoming(const ChannelIDPtr& chID,
     if (!dataIn.Get(locktime, beam::Lightning::Codes::HLock))
         return;           
 
-    m_channels[chID] = std::make_unique<Channel>(
-        *this, chID, m_myInAddr.m_walletID, trgWid, fee, aMy, aTrg, locktime);
-
     BbsChannel ch;
     m_myInAddr.m_walletID.m_Channel.Export(ch);
     m_pConnection->BbsSubscribe(ch, 0, nullptr);
     LOG_INFO() << "beam::wallet::laser::Mediator unsubscribed: " << ch;
+
+    m_channels[chID] = std::make_unique<Channel>(
+        *this, chID, m_myInAddr, trgWid, fee, aMy, aTrg, locktime);
 
     m_pInputReceiver.reset();
 };

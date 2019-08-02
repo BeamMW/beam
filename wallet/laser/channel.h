@@ -33,7 +33,7 @@ public:
     };
 
     Channel(IChannelHolder& holder,
-            const WalletID& my,
+            const WalletAddress& myAddr,
             const WalletID& trg,
             const Amount& fee,
             const Amount& aMy,
@@ -41,7 +41,7 @@ public:
             Height locktime);
     Channel(IChannelHolder& holder,
             const ChannelIDPtr& chID,
-            const WalletID& my,
+            const WalletAddress& myAddr,
             const WalletID& trg,
             const Amount& fee,
             const Amount& aMy,
@@ -74,7 +74,7 @@ public:
     const Amount& get_amountCurrentTrg() const override;
 
     bool Open(HeightRange openWindow);
-
+    const WalletAddress& getMyAddr() const;
     bool IsStateChanged();
     void LogNewState();
 
@@ -87,7 +87,7 @@ private:
     IChannelHolder& m_rHolder;
 
     ChannelIDPtr m_ID;
-    WalletID m_widMy;
+    WalletAddress m_myAddr;
     WalletID m_widTrg;
     Amount m_aMy;
     Amount m_aTrg;

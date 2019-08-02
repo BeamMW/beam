@@ -55,7 +55,7 @@ public:
 
 private:
     Block::SystemState::IHistory& get_History();
-    ECC::Scalar::Native get_skBbs();
+    ECC::Scalar::Native get_skBbs(const ChannelIDPtr& chID);
     void OnIncoming(const ChannelIDPtr& chID,
                     Negotiator::Storage::Map& dataIn);
 
