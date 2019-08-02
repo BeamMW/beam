@@ -42,11 +42,7 @@ SettingsViewModel::SettingsViewModel()
     connect(&AppModel::getInstance().getNode(), SIGNAL(stoppedNode()), SLOT(onNodeStopped()));
     connect(AppModel::getInstance().getWallet().get(), SIGNAL(addressChecked(const QString&, bool)), SLOT(onAddressChecked(const QString&, bool)));
 
-    const auto btcSettings = AppModel::getInstance().getBitcoinClient()->GetSettings();
-    setBTCUser(str2qstr(btcSettings.GetConnectionOptions().m_userName));
-    setBTCPass(str2qstr(btcSettings.GetConnectionOptions().m_pass));
-    setBTCNodeAddress(str2qstr(btcSettings.GetConnectionOptions().m_address.str()));
-    setBTCFeeRate(btcSettings.GetFeeRate());
+    LoadBitcoinSettings();
 
     // TODO:SWAP-SETTINGS load LTC settings
     // TODO:SWAP-SETTINGS load QTUM settings
@@ -160,24 +156,16 @@ void SettingsViewModel::applyBtcSettings()
     connectionSettings.m_pass = m_bitcoinPass.toStdString();
     connectionSettings.m_userName = m_bitcoinUser.toStdString();
 
-    // TODO:SWAP-SETTINGS check if this is correct
-    const std::string address = m_bitcoinNodeAddress.isEmpty() ? "0.0.0.0" : m_bitcoinNodeAddress.toStdString();
-    connectionSettings.m_address.resolve(address.c_str());
+    if (!m_bitcoinNodeAddress.isEmpty())
+    {
+        const std::string address = m_bitcoinNodeAddress.toStdString();
+        connectionSettings.m_address.resolve(address.c_str());
+    }
 
-    BitcoinSettings btcSettings;
+    m_bitcoinSettings->SetConnectionOptions(connectionSettings);
+    m_bitcoinSettings->SetFeeRate(m_bitcoinFeeRate);
 
-    // TODO:SWAP-SETTINGS check if this is correct
-    #ifdef BEAM_MAINNET
-    btcSettings.SetChainType(beam::wallet::SwapSecondSideChainType::Mainnet);
-    #else
-    btcSettings.SetChainType(beam::wallet::SwapSecondSideChainType::Testnet);
-    #endif
-
-    btcSettings.SetConnectionOptions(connectionSettings);
-    btcSettings.SetFeeRate(m_bitcoinFeeRate);
-
-    // TODO:SWAP-SETTINGS perform actions if necessary
-    AppModel::getInstance().getBitcoinClient()->SetSettings(btcSettings);
+    AppModel::getInstance().getBitcoinClient()->SetSettings(*m_bitcoinSettings);
 
     // TODO:SWAP-SETTINGS probably need to remove
     AppModel::getInstance().getBitcoinClient()->GetAsync()->GetBalance();
@@ -577,4 +565,13 @@ void SettingsViewModel::timerEvent(QTimerEvent *event)
 
         killTimer(m_timerId);
     }
+}
+
+void SettingsViewModel::LoadBitcoinSettings()
+{
+    m_bitcoinSettings = AppModel::getInstance().getBitcoinClient()->GetSettings();
+    setBTCUser(str2qstr(m_bitcoinSettings->GetConnectionOptions().m_userName));
+    setBTCPass(str2qstr(m_bitcoinSettings->GetConnectionOptions().m_pass));
+    setBTCNodeAddress(str2qstr(m_bitcoinSettings->GetConnectionOptions().m_address.str()));
+    setBTCFeeRate(m_bitcoinSettings->GetFeeRate());
 }
