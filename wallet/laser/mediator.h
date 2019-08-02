@@ -62,7 +62,7 @@ private:
     IWalletDB::Ptr m_pWalletDB;
     std::shared_ptr<proto::FlyClient::INetwork> m_pConnection;
 
-    std::unique_ptr<Receiver> m_pInputReceiver = nullptr;
+    std::unique_ptr<Receiver> m_pInputReceiver;
 
     std::unordered_map<ChannelIDPtr, std::unique_ptr<Channel>> m_channels;
 

@@ -117,8 +117,8 @@ void Channel::OnPeerData(Storage::Map& dataIn)
 				return;
 			}
 
-				dataIn.Get(hr0.m_Min, Codes::H0);
-				dataIn.Get(hr0.m_Max, Codes::H1);
+			dataIn.Get(hr0.m_Min, Codes::H0);
+			dataIn.Get(hr0.m_Max, Codes::H1);
 
 			// TODO - ask permissions to open a channel with those conditions
 

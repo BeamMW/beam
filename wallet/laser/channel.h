@@ -37,14 +37,16 @@ public:
             const WalletID& trg,
             const Amount& fee,
             const Amount& aMy,
-            const Amount& aTrg);
+            const Amount& aTrg,
+            Height locktime);
     Channel(IChannelHolder& holder,
             const ChannelIDPtr& chID,
             const WalletID& my,
             const WalletID& trg,
             const Amount& fee,
             const Amount& aMy,
-            const Amount& aTrg);
+            const Amount& aTrg,
+            Height locktime);
     Channel(const Channel&) = delete;
     void operator=(const Channel&) = delete;
     // LightningChannel(LightningChannel&& channel) { m_net = std::move(channel.m_net);};
@@ -70,6 +72,8 @@ public:
     const Amount& get_amountTrg() const override;
     const Amount& get_amountCurrentMy() const override;
     const Amount& get_amountCurrentTrg() const override;
+
+    bool Open(HeightRange openWindow);
 
     bool IsStateChanged();
     void LogNewState();

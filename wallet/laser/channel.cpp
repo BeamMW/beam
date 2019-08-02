@@ -23,7 +23,8 @@ Channel::Channel(IChannelHolder& holder,
                  const WalletID& trg,
                  const Amount& fee,
                  const Amount& aMy,
-                 const Amount& aTrg)
+                 const Amount& aTrg,
+                 Height locktime)
     : m_rHolder(holder)
     , m_ID(std::make_shared<ChannelID>())
     , m_widMy(my)
@@ -34,6 +35,7 @@ Channel::Channel(IChannelHolder& holder,
     ECC::GenRandom(*m_ID);
     m_upReceiver = std::make_unique<Receiver>(m_rHolder, m_ID);
     m_Params.m_Fee = fee;
+    m_Params.m_hLockTime = locktime;
 
     Subscribe();
 }
@@ -43,7 +45,8 @@ Channel::Channel(IChannelHolder& holder,
                  const WalletID& trg,
                  const Amount& fee,
                  const Amount& aMy,
-                 const Amount& aTrg)
+                 const Amount& aTrg,
+                 Height locktime)
     : m_rHolder(holder)
     , m_ID(chID)
     , m_widMy(my)
@@ -53,6 +56,8 @@ Channel::Channel(IChannelHolder& holder,
     , m_upReceiver(std::make_unique<Receiver>(holder, chID))
 {
     m_Params.m_Fee = fee;
+    m_Params.m_hLockTime = locktime;
+
     Subscribe();
 }
 
@@ -183,6 +188,11 @@ const Amount& Channel::get_amountCurrentMy() const
 const Amount& Channel::get_amountCurrentTrg() const
 {
     return m_aTrg;
+};
+
+bool Channel::Open(HeightRange openWindow)
+{
+    return Lightning::Channel::Open(m_aMy, m_aTrg, openWindow);
 };
 
 bool Channel::IsStateChanged()

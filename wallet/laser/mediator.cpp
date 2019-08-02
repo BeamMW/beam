@@ -40,7 +40,7 @@ Mediator::Mediator(const IWalletDB::Ptr& walletDB,
 
 Mediator::~Mediator()
 {
-    
+
 }
 
 IWalletDB::Ptr Mediator::getWalletDB()
@@ -149,6 +149,7 @@ void Mediator::WaitIncoming()
     BbsChannel ch;
     m_myInAddr.m_walletID.m_Channel.Export(ch);
     m_pConnection->BbsSubscribe(ch, getTimestamp(), m_pInputReceiver.get());
+    LOG_INFO() << "beam::wallet::laser::Mediator subscribed: " << ch;
 }
 
 void Mediator::OpenChannel(Amount aMy,
@@ -167,20 +168,13 @@ void Mediator::OpenChannel(Amount aMy,
     }
 
     auto channel = std::make_unique<Channel>(
-        *this,
-        m_myOutAddr.m_walletID,
-        receiverWalletID,
-        fee,
-        aMy,
-        aTrg);
+        *this, m_myOutAddr.m_walletID, receiverWalletID,
+        fee, aMy, aTrg, locktime);
 
     auto chIDPtr = channel->get_chID();
     m_channels[chIDPtr] = std::move(channel);
     
     auto& ch = m_channels[chIDPtr];
-
-    ch->m_Params.m_hLockTime = locktime;
-    ch->m_Params.m_Fee = fee;
 
     Block::SystemState::Full tip;
     get_History().get_Tip(tip);
@@ -189,11 +183,10 @@ void Mediator::OpenChannel(Amount aMy,
     openWindow.m_Min = tip.m_Height;
     openWindow.m_Max = openWindow.m_Min + kDefaultLaserOpenTime;
 
-    // m_initial_height = openWindow.m_Min;
-
-    if (ch->Open(aMy, aTrg, openWindow))
+    if (ch->Open(openWindow))
     {
-        LOG_INFO() << "Laser open start: " << to_hex(ch->get_chID()->m_pData, ch->get_chID()->nBytes);
+        LOG_INFO() << "Laser open start: "
+                   << to_hex(ch->get_chID()->m_pData, ch->get_chID()->nBytes);
         if (ch->IsStateChanged())
         {
             m_pWalletDB->saveLaserChannel(*ch);
@@ -226,7 +219,8 @@ ECC::Scalar::Native Mediator::get_skBbs()
     {    
         PeerID peerID;
         ECC::Scalar::Native sk;
-        m_pWalletDB->get_MasterKdf()->DeriveKey(sk, Key::ID(m_myOutAddr.m_OwnID, Key::Type::Bbs));
+        m_pWalletDB->get_MasterKdf()->DeriveKey(
+            sk, Key::ID(m_myOutAddr.m_OwnID, Key::Type::Bbs));
         proto::Sk2Pk(peerID, sk);
         return m_myOutAddr.m_walletID.m_Pk == peerID ? sk : Zero;        
     }
@@ -250,16 +244,21 @@ void Mediator::OnIncoming(const ChannelIDPtr& chID,
     
     Amount aTrg;
     if (!dataIn.Get(aTrg, beam::Lightning::Codes::ValueMy))
-        return;          
+        return;
+
+    Height locktime;
+    if (!dataIn.Get(locktime, beam::Lightning::Codes::HLock))
+        return;           
 
     m_channels[chID] = std::make_unique<Channel>(
-        *this,
-        chID,
-        m_myOutAddr.m_walletID,
-        trgWid,
-        fee,
-        aMy,
-        aTrg);
+        *this, chID, m_myInAddr.m_walletID, trgWid, fee, aMy, aTrg, locktime);
+
+    BbsChannel ch;
+    m_myInAddr.m_walletID.m_Channel.Export(ch);
+    m_pConnection->BbsSubscribe(ch, 0, nullptr);
+    LOG_INFO() << "beam::wallet::laser::Mediator unsubscribed: " << ch;
+
+    m_pInputReceiver.reset();
 };
 
 }  // namespace beam::wallet::laser
