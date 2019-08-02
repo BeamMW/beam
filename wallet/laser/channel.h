@@ -88,6 +88,6 @@ private:
     Amount m_aMy;
     Amount m_aTrg;
     
-    std::unique_ptr<Receiver> m_upReceiver = nullptr;
+    std::unique_ptr<Receiver> m_upReceiver;
 };
 }  // namespace beam::wallet::laser

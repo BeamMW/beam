@@ -34,6 +34,7 @@ class Mediator : public IChannelHolder
 public:
     Mediator(const IWalletDB::Ptr& walletDB,
              const proto::FlyClient::NetworkStd::Ptr& net);
+    ~Mediator();
     // IChannelHolder implementation;
     IWalletDB::Ptr getWalletDB() final;
     proto::FlyClient::INetwork& get_Net() final;

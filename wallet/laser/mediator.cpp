@@ -38,6 +38,11 @@ Mediator::Mediator(const IWalletDB::Ptr& walletDB,
     m_pConnection->Connect();
 }
 
+Mediator::~Mediator()
+{
+    
+}
+
 IWalletDB::Ptr Mediator::getWalletDB()
 {
     return m_pWalletDB;
