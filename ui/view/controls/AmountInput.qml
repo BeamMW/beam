@@ -38,7 +38,8 @@ ColumnLayout {
     property double   amount:      0
     property int      fee:         currencies[currency].defaultFee
     property alias    error:       errmsg.text
-    property bool     readOnly:    false
+    property bool     readOnlyA:   false
+    property bool     readOnlyF:   false
     property bool     resetAmount: true
     property var      amountInput: ainput
 
@@ -64,7 +65,7 @@ ColumnLayout {
             validator:        RegExpValidator {regExp: /^(([1-9][0-9]{0,7})|(1[0-9]{8})|(2[0-4][0-9]{7})|(25[0-3][0-9]{6})|(0))(\.[0-9]{0,7}[1-9])?$/}
             selectByMouse:    true
             text:             formatAmount()
-            readOnly:         control.readOnly
+            readOnly:         control.readOnlyA
 
             onTextChanged: {
                 if (focus) control.amount = text ? parseFloat(text) : 0;
@@ -139,8 +140,17 @@ ColumnLayout {
         fee:              control.fee
         minFee:           currencies[currency].minFee
         feeLabel:         getFeeLabel()
-        readOnly:         control.readOnly
         color:            control.color
+        readOnly:         control.readOnlyF
+
+       Connections {
+            target: control
+            onFeeChanged: feeInput.fee = control.fee
+            onCurrencyChanged: {
+                feeInput.fee = currencies[currency].defaultFee
+                feeInput.minFee = currencies[currency].minFee
+            }
+        }
     }
 
     Binding {

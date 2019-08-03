@@ -186,8 +186,12 @@ ColumnLayout {
             feeRateLabel:        BeamGlobals.btcFeeRateLabel()
             onApply:             viewModel.applyBtcSettings()
             Layout.minimumWidth: swapGrid.width / 2 - swapGrid.columnSpacing / 2
-        }
 
+            Connections {
+                target: viewModel
+                onBtcFeeRateChanged: btcSettings.feeRate = viewModel.btcFeeRate
+            }
+        }
 
         Binding {
             target:   viewModel
@@ -213,7 +217,7 @@ ColumnLayout {
             value:    btcSettings.feeRate
         }
 
-        SwapNodeSettings {
+        /*SwapNodeSettings {
             id:                ltcSettings
             title:             qsTrId("general-litecoin")
             address:           viewModel.ltcNodeAddress
@@ -285,7 +289,7 @@ ColumnLayout {
             target:   viewModel
             property: "qtumFeeRate"
             value:    qtumSettings.feeRate
-        }
+        }*/
     }
 
     RowLayout {

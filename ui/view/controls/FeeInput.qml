@@ -7,17 +7,13 @@ import Beam.Wallet 1.0
 ColumnLayout {
     id: control
 
-    property bool   fillWidth: false
-    property bool   readOnly:  false
-    property int    minFee:    0
-    property int    fee:       0
-    property string feeLabel:  undefined
-    property string color:     Style.content_main
+    property bool    fillWidth: false
+    property bool    readOnly:  false
+    property int     minFee:    0
+    property int     fee:       0
+    property string  feeLabel:  undefined
+    property string  color:     Style.content_main
     readonly property bool isValid: control.fee >= control.minFee
-
-    onFeeChanged: {
-        feeInput.text = feeInput.formatFee()
-    }
 
     RowLayout {
         Layout.fillWidth: true
@@ -34,20 +30,20 @@ ColumnLayout {
             backgroundColor:       isValid ? Style.content_main : Style.validator_error
             maximumLength:         9
             selectByMouse:         true
-            text:                  formatFee()
             validator:             IntValidator {bottom: control.minFee}
             readOnly:              control.readOnly
 
-            onTextChanged: {
-                if (focus) control.fee = text ? parseInt(text) : 0
-            }
-
-            onFocusChanged: {
-                text = formatFee()
-            }
-
             function formatFee() {
                 return control.fee ? control.fee.toLocaleString(focus ? Qt.locale("C") : Qt.locale(), 'f', -128) : ""
+            }
+
+            onTextEdited:   control.fee = text ? parseInt(text) : 0
+            onFocusChanged: text = formatFee()
+
+            Connections {
+                target: control
+                onFeeChanged: feeInput.text = feeInput.formatFee()
+                Component.onCompleted: feeInput.text = feeInput.formatFee()
             }
         }
 
@@ -62,7 +58,6 @@ ColumnLayout {
     Item {
         Layout.fillWidth: true
         SFText {
-            //% "The minimum fee is %1 GROTH"
             text:            qsTrId("general-fee-fail").arg(Utils.formatAmount(control.minFee)).arg(control.feeLabel)
             color:           Style.validator_error
             font.pixelSize:  12

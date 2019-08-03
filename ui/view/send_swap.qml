@@ -109,12 +109,17 @@ ColumnLayout {
                 hasFee:           true
                 amount:           viewModel.sendAmount
                 currency:         viewModel.sendCurrency
-                fee:              viewModel.sendFee
-                readOnly:         true
+                readOnlyA:        true
                 multi:            false
                 color:            Style.accent_outgoing
                 currColor:        viewModel.receiveCurrency == viewModel.sendCurrency ? Style.validator_error : Style.content_main
                 error:            viewModel.isEnough ? "" : qsTrId("send-not-enough")
+            }
+
+            Binding {
+                target:   viewModel
+                property: "sendFee"
+                value:    sendAmountInput.fee
             }
 
             //
@@ -169,11 +174,16 @@ ColumnLayout {
                 hasFee:           true
                 amount:           viewModel.receiveAmount
                 currency:         viewModel.receiveCurrency
-                fee:              viewModel.receiveFee
-                readOnly:         true
+                readOnlyA:        true
                 multi:            false
                 color:            Style.accent_incoming
                 currColor:        viewModel.receiveCurrency == viewModel.sendCurrency ? Style.validator_error : Style.content_main
+            }
+
+            Binding {
+                target:   viewModel
+                property: "receiveFee"
+                value:    receiveAmountInput.fee
             }
 
             GridLayout {

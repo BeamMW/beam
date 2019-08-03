@@ -160,3 +160,14 @@ QString QMLGlobals::qtumFeeRateLabel()
 {
     return "qsat/kB";
 }
+
+int QMLGlobals::getMinFeeOrRate(Currency currency)
+{
+    switch (currency) {
+        case Currency::CurrBEAM: return minFeeBEAM();
+        case Currency::CurrBTC:  return minFeeRateBTC();
+        case Currency::CurrLTC:  return minFeeRateLTC();
+        case Currency::CurrQTUM: return minFeeRateQTUM();
+        default: assert(false); return 0;
+    }
+}

@@ -58,7 +58,9 @@ Control {
         */
     }
 
-    Component.onCompleted: internal.save()
+    Component.onCompleted: {
+        internal.save()
+    }
 
     function canApply() {
         return internal.changed && feeRate >= minFeeRate && password.length && username.length && addressInput.isValid
@@ -181,6 +183,11 @@ Control {
                 minFee:           thisControl.minFeeRate
                 feeLabel:         thisControl.feeRateLabel
                 color:            Style.content_secondary
+
+                Connections {
+                    target: thisControl
+                    onFeeRateChanged: feeRateInput.fee = thisControl.feeRate
+                }
             }
 
             Binding {

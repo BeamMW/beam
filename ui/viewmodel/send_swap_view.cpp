@@ -92,23 +92,18 @@ void SendSwapViewModel::setToken(const QString& value)
                 {
                     setSendCurrency(Currency::CurrBEAM);
                     setSendAmount(double(*beamAmount) / Rules::Coin);
-                    setSendFee(QMLGlobals::minFeeBEAM());
                     setReceiveCurrency(convertSwapCoinToCurrency(*swapCoin));
                     setReceiveAmount(double(*swapAmount) / 100000000);// TODO:SWAP us libbitcoin::satoshi_per_bitcoin);
-                    setReceiveFee(95000);
                 }
                 else
                 {
                     setSendCurrency(convertSwapCoinToCurrency(*swapCoin));
                     setSendAmount(double(*swapAmount) / 100000000);// TODO:SWAP us libbitcoin::satoshi_per_bitcoin);
-                    setSendFee(95000);
                     setReceiveCurrency(Currency::CurrBEAM);
                     setReceiveAmount(double(*beamAmount) / Rules::Coin);
-                    setReceiveFee(QMLGlobals::minFeeBEAM());
                 }
                 setOfferedTime(QDateTime::currentDateTime()); // TODO:SWAP use peerResponseHeight
                 setExpiresTime(QDateTime::currentDateTime().addSecs(12*3600)); //
-
                 _txParameters = *parameters;
             }
         }

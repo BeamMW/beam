@@ -34,6 +34,7 @@ public:
 
     // Currency utils
     static bool isFeeOK(int fee, Currency currency);
+    static int  getMinFeeOrRate(Currency currency);
 
     Q_INVOKABLE static int minFeeBEAM();
     Q_INVOKABLE static int minFeeRateBTC();
