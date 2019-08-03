@@ -167,6 +167,7 @@ void ReceiveViewModel::updateTransactionToken()
 {
     _txParameters.SetParameter(beam::wallet::TxParameterID::Amount, static_cast<beam::Amount>(std::round(_amountToReceive * beam::Rules::Coin)));
     _txParameters.SetParameter(beam::wallet::TxParameterID::PeerID, _receiverAddress.m_walletID);
+    _txParameters.SetParameter(beam::wallet::TxParameterID::TransactionType, beam::wallet::TxType::Simple);
 
     setTranasctionToken(QString::fromStdString(std::to_string(_txParameters)));
 }

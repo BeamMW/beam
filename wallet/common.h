@@ -380,8 +380,8 @@ namespace beam::wallet
             , Amount amount = 0
             , Amount fee =0
             , Height minHeight = 0
-            , const WalletID & peerId = {}
-            , const WalletID& myId = {}
+            , const WalletID & peerId = Zero
+            , const WalletID& myId = Zero
             , ByteBuffer&& message = {}
             , Timestamp createTime = {}
             , bool sender = true)

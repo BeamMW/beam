@@ -11,8 +11,12 @@ namespace beamui
 {
     QString toString(const beam::wallet::WalletID& walletID)
     {
-        auto id = std::to_string(walletID);
-        return QString::fromStdString(id);
+        if (walletID != Zero)
+        {
+            auto id = std::to_string(walletID);
+            return QString::fromStdString(id);
+        }
+        return "";
     }
 
     QString toString(const beam::Merkle::Hash& walletID)

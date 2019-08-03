@@ -233,6 +233,21 @@ namespace beam::wallet
         return m_settingsProvider->GetSettings().GetFeeRate();
     }
 
+    Amount BitcoinSide::GetFeeRate(SubTxID subTxID) const
+    {
+        Amount defaultFeeRate = GetFeeRate();
+        assert(defaultFeeRate);
+        Amount feeRate = 0;
+        m_tx.GetParameter(TxParameterID::Fee, feeRate, subTxID);
+
+        if (subTxID == SubTxIndex::REFUND_TX && !feeRate)
+        {
+            // use LOCK_TX feeRate if REFUND_TX doesn't have defined feeRate
+            m_tx.GetParameter(TxParameterID::Fee, feeRate, SubTxIndex::LOCK_TX);
+        }
+        return (defaultFeeRate > feeRate) ? defaultFeeRate : feeRate;
+    }
+
     uint16_t BitcoinSide::GetTxMinConfirmations() const
     {
         return m_settingsProvider->GetSettings().GetTxMinConfirmations();
@@ -366,7 +381,7 @@ namespace beam::wallet
 
             std::string hexTx = libbitcoin::encode_base16(contractTx.to_data());
 
-            m_bitcoinBridge->fundRawTransaction(hexTx, GetFeeRate(), [this, weak = this->weak_from_this()](const IBitcoinBridge::Error& error, const std::string& hexTx, int changePos)
+            m_bitcoinBridge->fundRawTransaction(hexTx, GetFeeRate(SubTxIndex::LOCK_TX), [this, weak = this->weak_from_this()](const IBitcoinBridge::Error& error, const std::string& hexTx, int changePos)
             {
                 if (!weak.expired())
                 {
@@ -394,7 +409,7 @@ namespace beam::wallet
 
         if (swapTxState == SwapTxState::Initial)
         {
-            Amount fee = static_cast<Amount>(std::round(double(kBTCWithdrawTxAverageSize * GetFeeRate()) / 1000));
+            Amount fee = static_cast<Amount>(std::round(double(kBTCWithdrawTxAverageSize * GetFeeRate(subTxID)) / 1000));
             Amount swapAmount = m_tx.GetMandatoryParameter<Amount>(TxParameterID::AtomicSwapAmount);
             swapAmount = swapAmount - fee;
             std::string withdrawAddress = GetWithdrawAddress();

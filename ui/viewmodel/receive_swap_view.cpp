@@ -242,16 +242,20 @@ void ReceiveSwapViewModel::saveAddress()
 
 void ReceiveSwapViewModel::startListen()
 {
-    auto fee = (_sentCurrency == Currency::CurrBEAM) ? _sentFee : _receiveFee;
+    using namespace beam::wallet;
+
+    bool isBeamSide = (_sentCurrency == Currency::CurrBEAM);
+    auto beamFee = isBeamSide ? _sentFee : _receiveFee;
+    auto swapFee = isBeamSide ? _receiveFee : _sentFee;
     auto txParameters = beam::wallet::TxParameters(_txParameters);
 
-    txParameters.SetParameter(beam::wallet::TxParameterID::IsInitiator, !*_txParameters.GetParameter<bool>(beam::wallet::TxParameterID::IsInitiator));
-    txParameters.DeleteParameter(beam::wallet::TxParameterID::PeerID);
-    txParameters.SetParameter(beam::wallet::TxParameterID::MyID, *_txParameters.GetParameter<beam::wallet::WalletID>(beam::wallet::TxParameterID::PeerID));
-    txParameters.SetParameter(beam::wallet::TxParameterID::Fee, beam::Amount(fee));
-    bool isBeamSide = !*_txParameters.GetParameter<bool>(beam::wallet::TxParameterID::AtomicSwapIsBeamSide);
-    txParameters.SetParameter(beam::wallet::TxParameterID::AtomicSwapIsBeamSide, isBeamSide);
-    txParameters.SetParameter(beam::wallet::TxParameterID::IsSender, isBeamSide);
+    txParameters.DeleteParameter(TxParameterID::PeerID);
+    txParameters.SetParameter(TxParameterID::IsInitiator, !*_txParameters.GetParameter<bool>(TxParameterID::IsInitiator));
+    txParameters.SetParameter(TxParameterID::MyID, *_txParameters.GetParameter<beam::wallet::WalletID>(beam::wallet::TxParameterID::PeerID));
+    txParameters.SetParameter(TxParameterID::Fee, beam::Amount(beamFee));
+    txParameters.SetParameter(TxParameterID::Fee, beam::Amount(swapFee), isBeamSide ? SubTxIndex::REDEEM_TX : SubTxIndex::LOCK_TX);
+    txParameters.SetParameter(TxParameterID::AtomicSwapIsBeamSide, isBeamSide);
+    txParameters.SetParameter(TxParameterID::IsSender, isBeamSide);
 
     _walletModel.getAsync()->startTransaction(std::move(txParameters));
 }

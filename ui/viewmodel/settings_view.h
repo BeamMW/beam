@@ -172,6 +172,8 @@ protected:
     void timerEvent(QTimerEvent *event) override;
 
 private:
+    void LoadBitcoinSettings();
+
     WalletSettings& m_settings;
 
     QString m_nodeAddress;
@@ -188,6 +190,7 @@ private:
     int m_currentLanguageIndex;
     int m_timerId;
 
+    boost::optional<beam::BitcoinSettings> m_bitcoinSettings;
     QString m_bitcoinUser;
     QString m_bitcoinPass;
     QString m_bitcoinNodeAddress;

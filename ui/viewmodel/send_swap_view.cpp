@@ -14,6 +14,7 @@
 #include "send_swap_view.h"
 #include "model/app_model.h"
 #include "qml_globals.h"
+#include "wallet/swaps/common.h"
 
 SendSwapViewModel::SendSwapViewModel()
     : _sendAmount(0)
@@ -326,9 +327,12 @@ void SendSwapViewModel::sendMoney()
 {
     auto txParameters = beam::wallet::TxParameters(_txParameters);
     auto isBeamSide = txParameters.GetParameter<bool>(beam::wallet::TxParameterID::AtomicSwapIsBeamSide);
-    auto fee = (*isBeamSide) ? getSendFee() : getReceiveFee();
+    auto beamFee = (*isBeamSide) ? getSendFee() : getReceiveFee();
+    auto swapFee = (*isBeamSide) ? getReceiveFee() : getSendFee();
+    auto subTxID = isBeamSide ? beam::wallet::SubTxIndex::REDEEM_TX : beam::wallet::SubTxIndex::LOCK_TX;
 
-    txParameters.SetParameter(beam::wallet::TxParameterID::Fee, beam::Amount(fee));
+    txParameters.SetParameter(beam::wallet::TxParameterID::Fee, beam::Amount(beamFee));
+    txParameters.SetParameter(beam::wallet::TxParameterID::Fee, beam::Amount(swapFee), subTxID);
 
     _walletModel.getAsync()->startTransaction(beam::wallet::TxParameters(txParameters));
 }
