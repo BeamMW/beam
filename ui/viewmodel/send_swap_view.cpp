@@ -91,6 +91,7 @@ void SendSwapViewModel::setToken(const QString& value)
             {
                 if (*isBeamSide) // other participant is not a beam side
                 {
+                    // Do not set fee, it is set automatically based on the currency param
                     setSendCurrency(Currency::CurrBeam);
                     setSendAmount(double(*beamAmount) / Rules::Coin);
                     setReceiveCurrency(convertSwapCoinToCurrency(*swapCoin));
@@ -98,6 +99,7 @@ void SendSwapViewModel::setToken(const QString& value)
                 }
                 else
                 {
+                    // Do not set fee, it is set automatically based on the currency param
                     setSendCurrency(convertSwapCoinToCurrency(*swapCoin));
                     setSendAmount(double(*swapAmount) / 100000000);// TODO:SWAP us libbitcoin::satoshi_per_bitcoin);
                     setReceiveCurrency(Currency::CurrBeam);

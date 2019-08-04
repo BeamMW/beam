@@ -101,6 +101,7 @@ Control {
            }
 
             LinkButton {
+                Layout.alignment: Qt.AlignVCenter
                 text:       qsTrId("settings-reset")
                 visible:    canSwitchOff()
                 onClicked:  {
