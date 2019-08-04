@@ -19,10 +19,10 @@
 SendSwapViewModel::SendSwapViewModel()
     : _sendAmount(0)
     , _sendFee(0)
-    , _sendCurrency(Currency::CurrBEAM)
+    , _sendCurrency(Currency::CurrBeam)
     , _receiveAmount(0)
     , _receiveFee(0)
-    , _receiveCurrency(Currency::CurrBTC)
+    , _receiveCurrency(Currency::CurrBtc)
     , _change(0)
     , _walletModel(*AppModel::getInstance().getWallet())
 {
@@ -55,13 +55,13 @@ namespace
         switch (coin)
         {
         case beam::wallet::AtomicSwapCoin::Bitcoin:
-            return Currency::CurrBTC;
+            return Currency::CurrBtc;
         case beam::wallet::AtomicSwapCoin::Litecoin:
-            return Currency::CurrLTC;
+            return Currency::CurrLtc;
         case beam::wallet::AtomicSwapCoin::Qtum:
-            return Currency::CurrQTUM;
+            return Currency::CurrQtum;
         default:
-            return Currency::CurrBEAM;
+            return Currency::CurrBeam;
         }
     }
 }
@@ -91,7 +91,7 @@ void SendSwapViewModel::setToken(const QString& value)
             {
                 if (*isBeamSide) // other participant is not a beam side
                 {
-                    setSendCurrency(Currency::CurrBEAM);
+                    setSendCurrency(Currency::CurrBeam);
                     setSendAmount(double(*beamAmount) / Rules::Coin);
                     setReceiveCurrency(convertSwapCoinToCurrency(*swapCoin));
                     setReceiveAmount(double(*swapAmount) / 100000000);// TODO:SWAP us libbitcoin::satoshi_per_bitcoin);
@@ -100,7 +100,7 @@ void SendSwapViewModel::setToken(const QString& value)
                 {
                     setSendCurrency(convertSwapCoinToCurrency(*swapCoin));
                     setSendAmount(double(*swapAmount) / 100000000);// TODO:SWAP us libbitcoin::satoshi_per_bitcoin);
-                    setReceiveCurrency(Currency::CurrBEAM);
+                    setReceiveCurrency(Currency::CurrBeam);
                     setReceiveAmount(double(*beamAmount) / Rules::Coin);
                 }
                 setOfferedTime(QDateTime::currentDateTime()); // TODO:SWAP use peerResponseHeight
@@ -276,7 +276,7 @@ bool SendSwapViewModel::isEnough() const
 {
     switch(_sendCurrency)
     {
-    case Currency::CurrBEAM:
+    case Currency::CurrBeam:
         {
             auto total = std::round(_sendAmount * beam::Rules::Coin) + _sendFee + _change;
             return _status.getAvailable() >= total;
@@ -292,7 +292,7 @@ void SendSwapViewModel::recalcAvailable()
 {
     switch(_sendCurrency)
     {
-    case Currency::CurrBEAM:
+    case Currency::CurrBeam:
         _change = 0;
         _walletModel.getAsync()->calcChange(std::round(_sendAmount * beam::Rules::Coin) + _sendFee);
         return;

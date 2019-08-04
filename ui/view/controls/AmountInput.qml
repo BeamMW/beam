@@ -9,9 +9,9 @@ ColumnLayout {
 
     readonly property variant currencies: [
         {label: "BEAM", feeLabel: BeamGlobals.beamFeeRateLabel(), minFee: BeamGlobals.minFeeBEAM(),     defaultFee: BeamGlobals.defFeeBEAM()},
-        {label: "BTC",  feeLabel: BeamGlobals.btcFeeRateLabel(),  minFee: BeamGlobals.minFeeRateBTC(),  defaultFee: BeamGlobals.defFeeRateBTC()},
-        {label: "LTC",  feeLabel: BeamGlobals.ltcFeeRateLabel(),  minFee: BeamGlobals.minFeeRateLTC(),  defaultFee: BeamGlobals.defFeeRateLTC()},
-        {label: "QTUM", feeLabel: BeamGlobals.qtumFeeRateLabel(), minFee: BeamGlobals.minFeeRateQTUM(), defaultFee: BeamGlobals.defFeeRateQTUM()}
+        {label: "BTC",  feeLabel: BeamGlobals.btcFeeRateLabel(),  minFee: BeamGlobals.minFeeRateBtc(),  defaultFee: BeamGlobals.defFeeRateBtc()},
+        {label: "LTC",  feeLabel: BeamGlobals.ltcFeeRateLabel(),  minFee: BeamGlobals.minFeeRateLtc(),  defaultFee: BeamGlobals.defFeeRateLtc()},
+        {label: "QTUM", feeLabel: BeamGlobals.qtumFeeRateLabel(), minFee: BeamGlobals.minFeeRateQtum(), defaultFee: BeamGlobals.defFeeRateQtum()}
     ]
 
     function currList() {
@@ -34,7 +34,7 @@ ColumnLayout {
     property string   currColor:   Style.content_main
     property bool     hasFee:      false
     property bool     multi:       false // changing this property in runtime would reset bindings
-    property int      currency:    Currency.CurrBEAM
+    property int      currency:    Currency.CurrBeam
     property double   amount:      0
     property int      fee:         currencies[currency].defaultFee
     property alias    error:       errmsg.text
@@ -78,6 +78,11 @@ ColumnLayout {
             function formatAmount() {
                 return Utils.formatAmount(control.amount, focus)
             }
+
+            Connections {
+                target: control
+                onAmountChanged: ainput.text = ainput.formatAmount()
+            }
         }
 
         SFText {
@@ -103,10 +108,7 @@ ColumnLayout {
 
             onActivated: {
                 if (multi) control.currency = index
-                if (resetAmount) {
-                    ainput.text    = ""
-                    control.amount = 0
-                }
+                if (resetAmount) control.amount = 0
             }
         }
     }
@@ -129,7 +131,7 @@ ColumnLayout {
         font.styleName:   "Bold"
         font.weight:      Font.Bold
         color:            Style.content_main
-        text:             control.currency == Currency.CurrBEAM ? qsTrId("general-fee") : qsTrId("general-fee-rate")
+        text:             control.currency == Currency.CurrBeam ? qsTrId("general-fee") : qsTrId("general-fee-rate")
         visible:          control.hasFee
     }
 
@@ -146,10 +148,7 @@ ColumnLayout {
        Connections {
             target: control
             onFeeChanged: feeInput.fee = control.fee
-            onCurrencyChanged: {
-                feeInput.fee = currencies[currency].defaultFee
-                feeInput.minFee = currencies[currency].minFee
-            }
+            onCurrencyChanged: feeInput.fee = currencies[currency].defaultFee
         }
     }
 

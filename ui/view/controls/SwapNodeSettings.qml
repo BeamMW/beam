@@ -23,6 +23,7 @@ Control {
     property int    minFeeRate:   0
 
     signal apply
+    signal switchOff
 
     QtObject {
         id: internal
@@ -48,14 +49,6 @@ Control {
             initialPassword = password
             changed = false
         }
-
-        /*
-        function reset() {
-            initialAddress  = ""
-            initialUsername = ""
-            initialPassword = ""
-        }
-        */
     }
 
     Component.onCompleted: {
@@ -75,13 +68,11 @@ Control {
         thisControl.apply()
     }
 
-    /* do not touch please, work in progress
-    function isEmpty () {
-        return internal.initialAddress.length  == 0 &&
-               internal.initialUsername.length == 0 &&
-               internal.initialPassword.length == 0
+    function canSwitchOff () {
+        return internal.initialAddress.length  != 0 ||
+               internal.initialUsername.length != 0 ||
+               internal.initialPassword.length != 0
     }
-    */
 
     onTitleChanged:    internal.changed = true
     onAddressChanged:  internal.changed = true
@@ -95,8 +86,8 @@ Control {
     }
 
     contentItem: ColumnLayout {
-        Row {
-            Layout.fillWidth: true
+        RowLayout {
+            width: parent.width
 
             SFText {
                 id:             controlTitle
@@ -105,18 +96,18 @@ Control {
                 font.weight:    Font.Bold
             }
 
-            /* do not touch please, work in progress
+           Item {
+                Layout.fillWidth: true
+           }
+
             LinkButton {
-                x:         parent.width - width - thisControl.rightPadding
-                text:      qsTrId("settings-reset")
-                visible:   !isEmpty()
-                onClicked: {
-                    BeamGlobals.showMessage("LinkButton reset")
-                    thisControl.onSwitchOff()
-                    internal.reset()
+                text:       qsTrId("settings-reset")
+                visible:    canSwitchOff()
+                onClicked:  {
+                    thisControl.switchOff()
+                    internal.save()
                 }
             }
-            */
         }
 
         //

@@ -36,15 +36,15 @@ public:
     static bool isFeeOK(int fee, Currency currency);
     static int  getMinFeeOrRate(Currency currency);
 
-    Q_INVOKABLE static int minFeeBEAM();
-    Q_INVOKABLE static int minFeeRateBTC();
-    Q_INVOKABLE static int minFeeRateLTC();
-    Q_INVOKABLE static int minFeeRateQTUM();
+    Q_INVOKABLE static int minFeeBeam();
+    Q_INVOKABLE static int minFeeRateBtc();
+    Q_INVOKABLE static int minFeeRateLtc();
+    Q_INVOKABLE static int minFeeRateQtum();
 
-    Q_INVOKABLE static int defFeeBEAM();
-    Q_INVOKABLE static int defFeeRateBTC();
-    Q_INVOKABLE static int defFeeRateLTC();
-    Q_INVOKABLE static int defFeeRateQTUM();
+    Q_INVOKABLE static int defFeeBeam();
+    Q_INVOKABLE static int defFeeRateBtc();
+    Q_INVOKABLE static int defFeeRateLtc();
+    Q_INVOKABLE static int defFeeRateQtum();
 
     Q_INVOKABLE static QString beamFeeRateLabel();
     Q_INVOKABLE static QString btcFeeRateLabel();

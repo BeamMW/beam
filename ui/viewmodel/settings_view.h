@@ -44,20 +44,20 @@ class SettingsViewModel : public QObject
     Q_PROPERTY(QString currentLanguage READ getCurrentLanguage WRITE setCurrentLanguage)
     Q_PROPERTY(bool isValidNodeAddress READ isValidNodeAddress NOTIFY validNodeAddressChanged)
 
-    Q_PROPERTY(QString  btcUser        READ getBTCUser         WRITE setBTCUser         NOTIFY btcUserChanged)
-    Q_PROPERTY(QString  btcPass        READ getBTCPass         WRITE setBTCPass         NOTIFY btcPassChanged)
-    Q_PROPERTY(QString  btcNodeAddress READ getBTCNodeAddress  WRITE setBTCNodeAddress  NOTIFY btcNodeAddressChanged)
-    Q_PROPERTY(int      btcFeeRate     READ getBTCFeeRate      WRITE setBTCFeeRate      NOTIFY btcFeeRateChanged)
+    Q_PROPERTY(QString  btcUser        READ getBtcUser         WRITE setBtcUser         NOTIFY btcUserChanged)
+    Q_PROPERTY(QString  btcPass        READ getBtcPass         WRITE setBtcPass         NOTIFY btcPassChanged)
+    Q_PROPERTY(QString  btcNodeAddress READ getBtcNodeAddress  WRITE setBtcNodeAddress  NOTIFY btcNodeAddressChanged)
+    Q_PROPERTY(int      btcFeeRate     READ getBtcFeeRate      WRITE setBtcFeeRate      NOTIFY btcFeeRateChanged)
 
-    Q_PROPERTY(QString  ltcUser        READ getLTCUser         WRITE setLTCUser         NOTIFY ltcUserChanged)
-    Q_PROPERTY(QString  ltcPass        READ getLTCPass         WRITE setLTCPass         NOTIFY ltcPassChanged)
-    Q_PROPERTY(QString  ltcNodeAddress READ getLTCNodeAddress  WRITE setLTCNodeAddress  NOTIFY ltcNodeAddressChanged)
-    Q_PROPERTY(int      ltcFeeRate     READ getLTCFeeRate      WRITE setLTCFeeRate      NOTIFY ltcFeeRateChanged)
+    Q_PROPERTY(QString  ltcUser        READ getLtcUser         WRITE setLtcUser         NOTIFY ltcUserChanged)
+    Q_PROPERTY(QString  ltcPass        READ getLtcPass         WRITE setLtcPass         NOTIFY ltcPassChanged)
+    Q_PROPERTY(QString  ltcNodeAddress READ getLtcNodeAddress  WRITE setLtcNodeAddress  NOTIFY ltcNodeAddressChanged)
+    Q_PROPERTY(int      ltcFeeRate     READ getLtcFeeRate      WRITE setLtcFeeRate      NOTIFY ltcFeeRateChanged)
 
-    Q_PROPERTY(QString  qtumUser        READ getQTUMUser        WRITE setQTUMUser         NOTIFY qtumUserChanged)
-    Q_PROPERTY(QString  qtumPass        READ getQTUMPass        WRITE setQTUMPass         NOTIFY qtumPassChanged)
-    Q_PROPERTY(QString  qtumNodeAddress READ getQTUMNodeAddress WRITE setQTUMNodeAddress  NOTIFY qtumNodeAddressChanged)
-    Q_PROPERTY(int      qtumFeeRate     READ getQTUMFeeRate     WRITE setQTUMFeeRate      NOTIFY qtumFeeRateChanged)
+    Q_PROPERTY(QString  qtumUser        READ getQtumUser         WRITE setQtumUser         NOTIFY qtumUserChanged)
+    Q_PROPERTY(QString  qtumPass        READ getQtumPass         WRITE setQtumPass         NOTIFY qtumPassChanged)
+    Q_PROPERTY(QString  qtumNodeAddress READ getQtumNodeAddress  WRITE setQtumNodeAddress  NOTIFY qtumNodeAddressChanged)
+    Q_PROPERTY(int      qtumFeeRate     READ getQtumFeeRate      WRITE setQtumFeeRate      NOTIFY qtumFeeRateChanged)
 
 public:
 
@@ -90,32 +90,32 @@ public:
 
     bool isChanged() const;
 
-    QString getBTCUser() const;
-    void setBTCUser(const QString& value);
-    QString getBTCPass() const;
-    void setBTCPass(const QString& value);
-    QString getBTCNodeAddress() const;
-    void setBTCNodeAddress(const QString& value);
-    int getBTCFeeRate() const;
-    void setBTCFeeRate(int value);
+    QString getBtcUser() const;
+    void setBtcUser(const QString& value);
+    QString getBtcPass() const;
+    void setBtcPass(const QString& value);
+    QString getBtcNodeAddress() const;
+    void setBtcNodeAddress(const QString& value);
+    int getBtcFeeRate() const;
+    void setBtcFeeRate(int value);
 
-    QString getLTCUser() const;
-    void setLTCUser(const QString& value);
-    QString getLTCPass() const;
-    void setLTCPass(const QString& value);
-    QString getLTCNodeAddress() const;
-    void setLTCNodeAddress(const QString& value);
-    int getLTCFeeRate() const;
-    void setLTCFeeRate(int value);
+    QString getLtcUser() const;
+    void setLtcUser(const QString& value);
+    QString getLtcPass() const;
+    void setLtcPass(const QString& value);
+    QString getLtcNodeAddress() const;
+    void setLtcNodeAddress(const QString& value);
+    int getLtcFeeRate() const;
+    void setLtcFeeRate(int value);
 
-    QString getQTUMUser() const;
-    void setQTUMUser(const QString& value);
-    QString getQTUMPass() const;
-    void setQTUMPass(const QString& value);
-    QString getQTUMNodeAddress() const;
-    void setQTUMNodeAddress(const QString& value);
-    int getQTUMFeeRate() const;
-    void setQTUMFeeRate(int value);
+    QString getQtumUser() const;
+    void setQtumUser(const QString& value);
+    QString getQtumPass() const;
+    void setQtumPass(const QString& value);
+    QString getQtumNodeAddress() const;
+    void setQtumNodeAddress(const QString& value);
+    int getQtumFeeRate() const;
+    void setQtumFeeRate(int value);
 
     Q_INVOKABLE uint coreAmount() const;
     Q_INVOKABLE void addLocalNodePeer(const QString& localNodePeer);
@@ -127,9 +127,10 @@ public:
     Q_INVOKABLE void applyBtcSettings();
     Q_INVOKABLE void applyLtcSettings();
     Q_INVOKABLE void applyQtumSettings();
-    //Q_INVOKABLE void disableBtc();
-    //Q_INVOKABLE void disableLtc();
-    //Q_INVOKABLE void disableQtum();
+
+    Q_INVOKABLE void btcOff();
+    Q_INVOKABLE void ltcOff();
+    Q_INVOKABLE void qtumOff();
 
 public slots:
     void applyChanges();

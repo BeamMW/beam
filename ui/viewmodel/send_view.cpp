@@ -196,7 +196,7 @@ bool SendViewModel::canSend() const
 {
     return !QMLGlobals::isSwapToken(_receiverTA) && getRreceiverTAValid()
            && _sendAmount > 0 && isEnough()
-           && QMLGlobals::isFeeOK(_feeGrothes, Currency::CurrBEAM);
+           && QMLGlobals::isFeeOK(_feeGrothes, Currency::CurrBeam);
 }
 
 void SendViewModel::sendMoney()

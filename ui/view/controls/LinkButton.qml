@@ -6,13 +6,14 @@ import QtQuick.Layouts 1.0
 import Beam.Wallet 1.0
 import "."
 
-Item {
+Control {
     id: control
+
     property string linkStyle: "<style>a:link {color: '#00f6d2'; text-decoration: none;}</style>"
     property string text
     signal   clicked
 
-    SFText {
+    contentItem: SFText {
         text:           [linkStyle, "<a href='#'>", control.text, "</a>"].join("")
         textFormat:     Text.RichText
         font.pixelSize: 14

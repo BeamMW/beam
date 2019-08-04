@@ -182,15 +182,20 @@ ColumnLayout {
             username:            viewModel.btcUser
             password:            viewModel.btcPass
             feeRate:             viewModel.btcFeeRate
-            minFeeRate:          BeamGlobals.minFeeRateBTC()
+            minFeeRate:          BeamGlobals.minFeeRateBtc()
             feeRateLabel:        BeamGlobals.btcFeeRateLabel()
-            onApply:             viewModel.applyBtcSettings()
             Layout.minimumWidth: swapGrid.width / 2 - swapGrid.columnSpacing / 2
 
             Connections {
                 target: viewModel
+                onBtcNodeAddressChanged: btcSettings.address = viewModel.btcNodeAddress
+                onBtcUserChanged: btcSettings.username = viewModel.btcUser
+                onBtcPassChanged: btcSettings.password = viewModel.btcPass
                 onBtcFeeRateChanged: btcSettings.feeRate = viewModel.btcFeeRate
             }
+
+            onApply: viewModel.applyBtcSettings()
+            onSwitchOff: viewModel.btcOff()
         }
 
         Binding {
@@ -217,17 +222,27 @@ ColumnLayout {
             value:    btcSettings.feeRate
         }
 
-        /*SwapNodeSettings {
+        SwapNodeSettings {
             id:                ltcSettings
             title:             qsTrId("general-litecoin")
             address:           viewModel.ltcNodeAddress
             username:          viewModel.ltcUser
             password:          viewModel.ltcPass
             feeRate:           viewModel.ltcFeeRate
-            minFeeRate:        BeamGlobals.minFeeRateLTC()
+            minFeeRate:        BeamGlobals.minFeeRateLtc()
             feeRateLabel:      BeamGlobals.ltcFeeRateLabel()
             Layout.fillWidth:  true
-            onApply:           viewModel.applyLtcSettings()
+
+            Connections {
+                target: viewModel
+                onLtcNodeAddressChanged: ltcSettings.address = viewModel.ltcNodeAddress
+                onLtcUserChanged: ltcSettings.username = viewModel.ltcUser
+                onLtcPassChanged: ltcSettings.password = viewModel.ltcPass
+                onLtcFeeRateChanged: ltcSettings.feeRate = viewModel.ltcFeeRate
+            }
+
+            onApply: viewModel.applyLtcSettings()
+            onSwitchOff: viewModel.ltcOff()
         }
 
         Binding {
@@ -261,7 +276,7 @@ ColumnLayout {
             username:             viewModel.qtumUser
             password:             viewModel.qtumPass
             feeRate:              viewModel.qtumFeeRate
-            minFeeRate:           BeamGlobals.minFeeRateQTUM()
+            minFeeRate:           BeamGlobals.minFeeRateQtum()
             feeRateLabel:         BeamGlobals.qtumFeeRateLabel()
             Layout.minimumWidth:  swapGrid.width / 2 - swapGrid.columnSpacing / 2
             onApply:              viewModel.applyQtumSettings()
@@ -289,7 +304,7 @@ ColumnLayout {
             target:   viewModel
             property: "qtumFeeRate"
             value:    qtumSettings.feeRate
-        }*/
+        }
     }
 
     RowLayout {
