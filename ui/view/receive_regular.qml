@@ -31,11 +31,11 @@ ColumnLayout {
 
     RowLayout {
         width:    parent.width
-        spacing:  80
+        spacing:  40
 
         ColumnLayout {
             id:                    receiveControls
-            Layout.preferredWidth: parent.width * 0.6 - parent.spacing / 2
+            Layout.preferredWidth: parent.width * 0.65 - parent.spacing / 2
             Layout.alignment:      Qt.AlignTop
 
             //
@@ -63,7 +63,7 @@ ColumnLayout {
             // Amount
             //
             AmountInput {
-                Layout.topMargin: 25
+                Layout.topMargin: 35
                 title:            qsTrId("receive-amount-label") //% "Receive amount (optional)"
                 id:               receiveAmountInput
                 amount:           viewModel.amountToReceive
@@ -159,7 +159,7 @@ ColumnLayout {
         //  QR Code
         //
         ColumnLayout {
-            Layout.preferredWidth: parent.width * 0.4 - parent.spacing / 2
+            Layout.preferredWidth: parent.width * 0.35 - parent.spacing / 2
             Layout.topMargin:      10
             Layout.alignment:      Qt.AlignTop
 

@@ -27,6 +27,7 @@ public:
     Q_INVOKABLE static void copyToClipboard(const QString& text);
     Q_INVOKABLE static bool isTransactionToken(const QString& text);
     Q_INVOKABLE static bool isSwapToken(const QString& text);
+    Q_INVOKABLE static bool isTAValid(const QString& text);
     Q_INVOKABLE static QString getLocaleName();
     Q_INVOKABLE static int  maxCommentLength();
     Q_INVOKABLE static bool needPasswordToSpend();

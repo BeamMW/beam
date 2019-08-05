@@ -37,6 +37,28 @@ ColumnLayout {
         if (viewModel.commentValid) viewModel.saveAddress()
     }
 
+    ColumnLayout {
+        //
+        // My Address
+        //
+        SFText {
+            font.pixelSize: 14
+            font.styleName: "Bold"; font.weight: Font.Bold
+            color: Style.content_main
+            //% "My address (auto-generated)"
+            text: qsTrId("wallet-receive-my-addr-label")
+        }
+
+        SFTextInput {
+            id:               myAddressID
+            font.pixelSize:   14
+            color:            Style.content_disabled
+            readOnly:         true
+            activeFocusOnTab: false
+            text:             viewModel.receiverAddress
+        }
+    }
+
     Grid {
         Layout.fillWidth: true
         columnSpacing:    70
@@ -44,33 +66,11 @@ ColumnLayout {
 
         ColumnLayout {
             width: parent.width / 2 - parent.columnSpacing / 2
-
-            //
-            // My Address
-            //
-            SFText {
-                font.pixelSize: 14
-                font.styleName: "Bold"; font.weight: Font.Bold
-                color: Style.content_main
-                //% "My address (auto-generated)"
-                text: qsTrId("wallet-receive-my-addr-label")
-            }
-
-            SFTextInput {
-                id:               myAddressID
-                Layout.fillWidth: true
-                font.pixelSize:   14
-                color:            Style.content_disabled
-                readOnly:         true
-                activeFocusOnTab: false
-                text:             viewModel.receiverAddress
-            }
-
             //
             // Amount
             //
             AmountInput {
-                Layout.topMargin: 25
+                Layout.topMargin: 35
                 title:            qsTrId("receive-amount-swap-label") //% "Receive amount"
                 id:               receiveAmountInput
                 hasFee:           true
@@ -147,7 +147,7 @@ ColumnLayout {
             // Sent amount
             //
             AmountInput {
-                Layout.topMargin: 84
+                Layout.topMargin: 35
                 title:            qsTrId("sent-amount-label") //% "Sent amount"
                 id:               sentAmountInput
                 color:            Style.accent_outgoing

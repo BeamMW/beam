@@ -8,7 +8,7 @@ ColumnLayout {
     id: control
 
     readonly property variant currencies: [
-        {label: "BEAM", feeLabel: BeamGlobals.beamFeeRateLabel(), minFee: BeamGlobals.minFeeBEAM(),     defaultFee: BeamGlobals.defFeeBEAM()},
+        {label: "BEAM", feeLabel: BeamGlobals.beamFeeRateLabel(), minFee: BeamGlobals.minFeeBeam(),     defaultFee: BeamGlobals.defFeeBeam()},
         {label: "BTC",  feeLabel: BeamGlobals.btcFeeRateLabel(),  minFee: BeamGlobals.minFeeRateBtc(),  defaultFee: BeamGlobals.defFeeRateBtc()},
         {label: "LTC",  feeLabel: BeamGlobals.ltcFeeRateLabel(),  minFee: BeamGlobals.minFeeRateLtc(),  defaultFee: BeamGlobals.defFeeRateLtc()},
         {label: "QTUM", feeLabel: BeamGlobals.qtumFeeRateLabel(), minFee: BeamGlobals.minFeeRateQtum(), defaultFee: BeamGlobals.defFeeRateQtum()}

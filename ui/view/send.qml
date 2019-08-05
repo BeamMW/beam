@@ -10,7 +10,7 @@ import "controls"
 ColumnLayout {
     id: thisView
     property bool regularMode: true
-    property var  defaultFocusItem: null
+    property var  defaultFocusItem: receiverTAInput
 
     Row {
         Layout.alignment:    Qt.AlignHCenter
@@ -25,18 +25,78 @@ ColumnLayout {
         }
     }
 
-    property var currentView: null
-
-    Component.onCompleted: {
-        currentView            = Qt.createComponent("send_regular.qml").createObject(thisView)
-        currentView.parentView = thisView
-        defaultFocusItem       = currentView.defaultFocusItem
+    function isTAInputValid() {
+        return receiverTAInput.text.length == 0 || BeamGlobals.isTAValid(receiverTAInput.text)
     }
 
+    ColumnLayout {
+        visible: currentView === undefined
+
+        SFText {
+            font.pixelSize:  14
+            font.styleName:  "Bold"; font.weight: Font.Bold
+            color:           Style.content_main
+            text:            qsTrId("send-send-to-label") //% "Transaction token or contact"
+        }
+
+        SFTextInput {
+            Layout.fillWidth: true
+            id:               receiverTAInput
+            font.pixelSize:   14
+            color:            isTAInputValid() ? Style.content_main : Style.validator_error
+            backgroundColor:  isTAInputValid() ? Style.content_main : Style.validator_error
+            font.italic :     !isTAInputValid()
+            validator:        RegExpValidator { regExp: /[0-9a-zA-Z]{1,}/ }
+            selectByMouse:    true
+            placeholderText:  qsTrId("send-contact-placeholder") //% "Please specify contact"
+
+            onTextChanged: {
+                if (!isTAInputValid()) return;
+                BeamGlobals.isSwapToken(receiverTAInput.text) ? onInitialSwapToken(receiverTAInput.text) : onInitialAddress(receiverTAInput.text);
+            }
+        }
+
+        Item {
+            Layout.fillWidth: true
+            SFText {
+                Layout.alignment: Qt.AlignTop
+                id:               receiverTAError
+                color:            Style.validator_error
+                font.pixelSize:   12
+                text:             qsTrId("wallet-send-invalid-token") //% "Invalid address or token"
+                visible:          !isTAInputValid()
+            }
+        }
+
+        Item {
+            Layout.fillHeight: true
+        }
+    }
+
+    property var currentView: undefined
+
     function onSwapToken(token) {
-        currentView.destroy();
+        if (currentView) currentView.destroy()
         currentView            = Qt.createComponent("send_swap.qml").createObject(thisView);
         currentView.parentView = thisView
         currentView.setToken(token)
+        regularMode = false
+    }
+
+    function onInitialSwapToken(token) {
+        if (currentView) currentView.destroy()
+        currentView            = Qt.createComponent("send_swap.qml").createObject(thisView);
+        currentView.parentView = thisView
+        currentView.setToken(token)
+        regularMode = false
+    }
+
+    function onInitialAddress(address) {
+        if (currentView) currentView.destroy()
+        currentView            = Qt.createComponent("send_regular.qml").createObject(thisView)
+        currentView.parentView = thisView
+        defaultFocusItem       = currentView.defaultFocusItem
+        currentView.setToken(address)
+        regularMode = true
     }
 }

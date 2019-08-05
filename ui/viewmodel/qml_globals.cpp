@@ -39,6 +39,16 @@ void QMLGlobals::copyToClipboard(const QString& text)
     QApplication::clipboard()->setText(text);
 }
 
+bool QMLGlobals::isTAValid(const QString& text)
+{
+    if (QMLGlobals::isTransactionToken(text))
+    {
+        return true;
+    }
+
+    return beam::wallet::check_receiver_address(text.toStdString());
+}
+
 bool QMLGlobals::isTransactionToken(const QString& text)
 {
     if (text.isEmpty()) return false;
