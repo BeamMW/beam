@@ -33,10 +33,6 @@ ColumnLayout {
         return true;
     }
 
-    function saveAddress() {
-        if (viewModel.commentValid) viewModel.saveAddress()
-    }
-
     ColumnLayout {
         //
         // My Address
@@ -238,6 +234,7 @@ ColumnLayout {
         text:                viewModel.transactionToken
         horizontalAlignment: TextEdit.AlignHCenter
         readOnly:            true
+        enabled:             false
     }
 
     SFText {
@@ -265,17 +262,26 @@ ColumnLayout {
         }
 
         CustomButton {
-            //% "Copy transaction address"
-            text: qsTrId("wallet-receive-copy-address")
-            palette.buttonText: Style.content_opposite
-            icon.color: Style.content_opposite
-            palette.button: Style.active
-            icon.source: "qrc:/assets/icon-copy.svg"
+            text:                qsTrId("wallet-receive-copy-address")
+            palette.buttonText:  Style.content_opposite
+            icon.color:          Style.content_opposite
+            palette.button:      Style.passive
+            icon.source:         "qrc:/assets/icon-copy.svg"
+            enabled:             thisView.canSend()
             onClicked: {
                 BeamGlobals.copyToClipboard(viewModel.transactionToken);
                 viewModel.startListen();
             }
-            enabled: thisView.canSend()
+        }
+
+        CustomButton {
+            text:                qsTrId("wallet-receive-swap-publish")
+            palette.buttonText:  Style.content_opposite
+            icon.color:          Style.content_opposite
+            palette.button:      Style.active
+            icon.source:         "qrc:/assets/icon-share.svg"
+            onClicked:           viewModel.publishToken()
+            enabled:             thisView.canSend()
         }
     }
 

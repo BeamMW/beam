@@ -302,3 +302,8 @@ void ReceiveSwapViewModel::updateTransactionToken()
 
     setTranasctionToken(QString::fromStdString(std::to_string(_txParameters)));
 }
+
+void ReceiveSwapViewModel::publishToken()
+{
+    // TODO:SWAP
+}
