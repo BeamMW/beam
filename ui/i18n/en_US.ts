@@ -657,6 +657,10 @@
         <source>Your transaction token:</source>
         <translation>Your transaction token:</translation>
     </message>
+   <message id="wallet-receive-swap-publish">
+        <source>publish transaction token</source>
+        <translation>publish transaction token</translation>
+    </message>
     <message id="wallet-swap">
         <source>Swap</source>
         <translation>Swap</translation>
