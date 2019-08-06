@@ -9,8 +9,8 @@ import "controls"
 ColumnLayout {
     id: settingsView
 
-    property string linkStyle:        "<style>a:link {color: '#00f6d2'; text-decoration: none;}</style>"
-    property bool   swapMode:         false
+    property string linkStyle: "<style>a:link {color: '#00f6d2'; text-decoration: none;}</style>"
+    property bool swapMode:  false
 
     SettingsViewModel {
         id: viewModel
@@ -155,9 +155,10 @@ ColumnLayout {
         }
 
         CustomSwitch {
-            id:   mode
-            text: qsTrId("wallet-swap")
-            Layout.alignment: Qt.AlignRight
+            id:                mode
+            text:              qsTrId("wallet-swap")
+            Layout.alignment:  Qt.AlignRight
+            checked:           settingsView.swapMode
         }
 
         Binding {

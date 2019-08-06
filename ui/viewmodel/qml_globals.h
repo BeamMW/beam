@@ -52,6 +52,12 @@ public:
     Q_INVOKABLE static QString ltcFeeRateLabel();
     Q_INVOKABLE static QString qtumFeeRateLabel();
 
+    // Swap & other currencies utils
+    Q_INVOKABLE static bool canSwap();
+    Q_INVOKABLE static bool haveBtc();
+    Q_INVOKABLE static bool haveLtc();
+    Q_INVOKABLE static bool haveQtum();
+
 private:
     QQmlEngine& _engine;
 };

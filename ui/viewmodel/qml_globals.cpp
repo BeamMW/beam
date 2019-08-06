@@ -181,3 +181,26 @@ int QMLGlobals::getMinFeeOrRate(Currency currency)
         default: assert(false); return 0;
     }
 }
+
+bool QMLGlobals::canSwap()
+{
+    return haveBtc() || haveLtc() || haveQtum();
+}
+
+bool QMLGlobals::haveBtc()
+{
+    // TODO:SWAP return true if btc is initialized
+    return false;
+}
+
+bool QMLGlobals::haveLtc()
+{
+    // TODO:SWAP return true if btc is initialized
+    return false;
+}
+
+bool QMLGlobals::haveQtum()
+{
+    // TODO:SWAP return true if btc is initialized
+    return false;
+}

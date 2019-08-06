@@ -240,9 +240,10 @@ ColumnLayout {
         spacing:          25
 
         CustomButton {
-            text:        qsTrId("general-back")
-            icon.source: "qrc:/assets/icon-back.svg"
-            onClicked:   walletView.pop();
+            text:                qsTrId("general-close")
+            palette.buttonText:  Style.content_main
+            icon.source:         "qrc:/assets/icon-cancel-white.svg"
+            onClicked:           walletView.pop();
         }
 
         CustomButton {

@@ -10,12 +10,38 @@ import "controls"
 ColumnLayout {
     id: thisView
     property bool regularMode: true
-    property var defaultFocusItem: null
-    property var currentView: null
+    property var  defaultFocusItem: null
+    property var  currentView: null
 
-    Component.onDestruction: currentView.saveAddress()
-    Component.onCompleted:   createChild()
-    onRegularModeChanged:    createChild()
+    Component.onCompleted: {
+        createChild()
+    }
+
+    Component.onDestruction:  {
+        if (regularMode) currentView.saveAddress()
+    }
+
+    onRegularModeChanged: {
+        createChild()
+        if (!regularMode && !BeamGlobals.canSwap()) {
+            thisView.enabled = false
+            swapna.open()
+        }
+    }
+
+    SwapNADialog {
+        id: swapna
+
+        onRejected: {
+            thisView.enabled = true
+            thisView.regularMode = true
+        }
+
+        onAccepted: {
+            thisView.enabled = true
+            main.openSwapSettings()
+        }
+    }
 
     Item {
         Layout.fillWidth:    true
@@ -27,14 +53,14 @@ ColumnLayout {
             font.pixelSize:      18
             font.styleName:      "Bold"; font.weight: Font.Bold
             color:               Style.content_main
-            //% "Receive" / "Create swap offer"
             text:                regularMode ? qsTrId("wallet-receive-title") : qsTrId("wallet-receive-swap-title")
         }
 
         CustomSwitch {
-            id:   mode
-            text: qsTrId("wallet-swap")
-            x:    parent.width - width
+            id:      mode
+            text:    qsTrId("wallet-swap")
+            x:       parent.width - width
+            checked: !regularMode
         }
 
         Binding {

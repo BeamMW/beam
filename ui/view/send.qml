@@ -52,7 +52,7 @@ ColumnLayout {
 
             onTextChanged: {
                 if (!isTAInputValid()) return;
-                BeamGlobals.isSwapToken(receiverTAInput.text) ? onInitialSwapToken(receiverTAInput.text) : onInitialAddress(receiverTAInput.text);
+                BeamGlobals.isSwapToken(receiverTAInput.text) ? onSwapToken(receiverTAInput.text) : onAddress(receiverTAInput.text);
             }
         }
 
@@ -83,15 +83,7 @@ ColumnLayout {
         regularMode = false
     }
 
-    function onInitialSwapToken(token) {
-        if (currentView) currentView.destroy()
-        currentView            = Qt.createComponent("send_swap.qml").createObject(thisView);
-        currentView.parentView = thisView
-        currentView.setToken(token)
-        regularMode = false
-    }
-
-    function onInitialAddress(address) {
+    function onAddress(address) {
         if (currentView) currentView.destroy()
         currentView            = Qt.createComponent("send_regular.qml").createObject(thisView)
         currentView.parentView = thisView

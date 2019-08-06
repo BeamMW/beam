@@ -205,6 +205,10 @@
         <source>Comments are local and won&apos;t be shared</source>
         <translation>Comments are local and won&apos;t be shared</translation>
     </message>
+    <message id="general-change-settings">
+        <source>Change settings</source>
+        <translation>Change settings</translation>
+    </message>
     <message id="wallet-receive-button">
         <source>Receive</source>
         <translation>Receive</translation>
@@ -509,10 +513,6 @@
     <message id="info-title">
         <source>Info view</source>
         <translation>Info view</translation>
-    </message>
-    <message id="loading-change-settings-button">
-        <source>Change settings</source>
-        <translation>Change settings</translation>
     </message>
     <message id="loading-try-again-button">
         <source>Try again</source>
