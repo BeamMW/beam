@@ -15,6 +15,38 @@ ColumnLayout {
 
     function setToken(token) {
         viewModel.token = token
+        var currency = viewModel.sendCurrency
+        if (currency == Currency.CurrBeam) return;
+
+        var canSwap  = false
+        var currname = ""
+
+        if (currency == Currency.CurrBtc) {
+            canSwap  = BeamGlobals.haveBtc()
+            currname = qsTrId("general-bitcoin")
+        }
+
+        if (currency == Currency.CurrLtc){
+            canSwap = BeamGlobals.haveLtc()
+            currname = qsTrId("general-litecoin")
+        }
+
+        if (currency == Currency.CurrQtum) {
+            canSwap = BeamGlobals.haveQtum()
+            currname = qsTrId("general-qtum")
+        }
+
+        if (canSwap) return;
+
+        swapna.text = qsTrId("swap-currency-na-message").arg(currname).replace("\\n", "\n")
+        swapna.open()
+    }
+
+    SwapNADialog {
+        id:         swapna
+        parent:     walletView
+        onRejected: parentView.onBadSwap()
+        onAccepted: main.openSwapSettings()
     }
 
     Component.onCompleted: {

@@ -195,12 +195,12 @@ bool QMLGlobals::haveBtc()
 
 bool QMLGlobals::haveLtc()
 {
-    // TODO:SWAP return true if btc is initialized
+    // TODO:SWAP return true if ltc is initialized
     return false;
 }
 
 bool QMLGlobals::haveQtum()
 {
-    // TODO:SWAP return true if btc is initialized
+    // TODO:SWAP return true if qtum is initialized
     return false;
 }

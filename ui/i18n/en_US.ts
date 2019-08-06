@@ -671,11 +671,11 @@
     </message>
     <message id="invalid-addr-got-it-button">
         <source>Got it</source>
-        <translation type="vanished">Got it</translation>
+        <translation>Got it</translation>
     </message>
     <message id="send-title">
-        <source>Send Beam</source>
-        <translation>Send Beam</translation>
+        <source>Send</source>
+        <translation>Send</translation>
     </message>
     <message id="send-send-to-label">
         <source>Transaction token or contact</source>
@@ -703,11 +703,11 @@
     </message>
     <message id="send-fee-fail">
         <source>The minimum fee is %1 GROTH</source>
-        <translation type="vanished">The minimum fee is %1 GROTH</translation>
+        <translation>The minimum fee is %1 GROTH</translation>
     </message>
     <message id="send-curency-sub-name">
         <source>GROTH</source>
-        <translation type="vanished">GROTH</translation>
+        <translation>GROTH</translation>
     </message>
     <message id="send-remaining-label">
         <source>Remaining</source>
@@ -717,9 +717,17 @@
         <source>Total UTXO value</source>
         <translation>Total UTXO value</translation>
     </message>
+    <message id="swap-na-message">
+        <source>You do not have any 3rd-party currencies connected.\nUpdate your settings and try again.</source>
+        <translation>You do not have any 3rd-party currencies connected.\nUpdate your settings and try again.</translation>
+    </message>
+    <message id="swap-currency-na-message">
+        <source>You do not have %1 connected.\nUpdate your settings and try again.</source>
+        <translation>You do not have %1 connected.\nUpdate your settings and try again.</translation>
+    </message>
     <message id="send-send-fail">
         <source>Address %1 is invalid</source>
-        <translation type="vanished">Address %1 is invalid</translation>
+        <translation>Address %1 is invalid</translation>
     </message>
     <message id="start-restore-confirm-button">
         <source>I agree</source>
@@ -997,11 +1005,11 @@
     </message>
     <message id="tx-curency-name">
         <source>BEAM</source>
-        <translation type="vanished">BEAM</translation>
+        <translation>BEAM</translation>
     </message>
     <message id="tx-curency-sub-name">
         <source>GROTH</source>
-        <translation type="vanished">GROTH</translation>
+        <translation>GROTH</translation>
     </message>
     <message id="utxo-utxo">
         <source>UTXO</source>

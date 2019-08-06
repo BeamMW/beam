@@ -23,24 +23,14 @@ ColumnLayout {
 
     onRegularModeChanged: {
         createChild()
-        if (!regularMode && !BeamGlobals.canSwap()) {
-            thisView.enabled = false
-            swapna.open()
-        }
+        if (!regularMode && !BeamGlobals.canSwap()) swapna.open()
     }
 
     SwapNADialog {
         id: swapna
-
-        onRejected: {
-            thisView.enabled = true
-            thisView.regularMode = true
-        }
-
-        onAccepted: {
-            thisView.enabled = true
-            main.openSwapSettings()
-        }
+        onRejected: thisView.regularMode = true
+        onAccepted: main.openSwapSettings()
+        text:       qsTrId("swap-na-message").replace("\\n", "\n")
     }
 
     Item {
