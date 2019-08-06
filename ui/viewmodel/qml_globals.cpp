@@ -15,6 +15,7 @@
 #include <QMessageBox>
 #include <QApplication>
 #include <QClipboard>
+#include "version.h"
 
 QMLGlobals::QMLGlobals(QQmlEngine& engine)
     : _engine(engine)
@@ -29,4 +30,9 @@ void QMLGlobals::showMessage(QString message)
 void QMLGlobals::copyToClipboard(const QString& text)
 {
     QApplication::clipboard()->setText(text);
+}
+
+QString QMLGlobals::version()
+{
+    return QString::fromStdString(PROJECT_VERSION);
 }
