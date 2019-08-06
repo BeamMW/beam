@@ -261,7 +261,7 @@ ColumnLayout {
             palette.buttonText: Style.content_main
             icon.source: "qrc:/assets/icon-cancel-white.svg"
             onClicked: {
-                walletView.pop();
+                thisView.parent.parent.pop();
             }
         }
 
@@ -274,6 +274,19 @@ ColumnLayout {
             icon.source: "qrc:/assets/icon-copy.svg"
             onClicked: {
                 BeamGlobals.copyToClipboard(viewModel.transactionToken);
+            }
+            enabled: thisView.canSend()
+        }
+
+        CustomButton {
+            //% "Publish"
+            text: qsTrId("wallet-publish-swap")
+            palette.buttonText: Style.content_opposite
+            icon.color: Style.content_opposite
+            palette.button: Style.active
+            icon.source: "qrc:/assets/icon-send.svg"
+            onClicked: {
+                viewModel.publishOffer();
             }
             enabled: thisView.canSend()
         }

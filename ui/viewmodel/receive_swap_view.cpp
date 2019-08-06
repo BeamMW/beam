@@ -208,6 +208,7 @@ bool ReceiveSwapViewModel::getCommentValid() const
 {
     return !_walletModel.isAddressWithCommentExist(_addressComment.toStdString());
 }
+
 void ReceiveSwapViewModel::saveAddress()
 {
     using namespace beam::wallet;
@@ -217,4 +218,18 @@ void ReceiveSwapViewModel::saveAddress()
         _receiverAddress.m_duration = _offerExpires * WalletAddress::AddressExpiration1h;
         _walletModel.getAsync()->saveAddress(_receiverAddress, true);
     }
+}
+
+void ReceiveSwapViewModel::publishOffer()
+{
+    // todo
+    static beam::wallet::TxID id = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
+	beam::wallet::SwapOffer newOffer;
+    newOffer.m_createTime = newOffer.m_modifyTime = beam::getTimestamp();
+    newOffer.m_amount = std::round(_amountToReceive * beam::Rules::Coin);
+    newOffer.m_txId = id;
+    id[15]++;
+    newOffer.m_message = beam::wallet::toByteBuffer(_addressComment.toStdString());
+
+    _walletModel.getAsync()->sendSwapOffer(newOffer);
 }

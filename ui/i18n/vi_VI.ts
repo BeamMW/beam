@@ -8,8 +8,9 @@
         <translation>BEAM</translation>
     </message>
     <message id="general-groth">
-        <source>GROTH</source>
-        <translation>Groth: đơn vị nhỏ nhất của Beam </translation>
+        <source></source>
+        <oldsource>GROTH</oldsource>
+        <translation type="unfinished">Groth: đơn vị nhỏ nhất của Beam </translation>
     </message>
     <message id="general-comment">
         <source>Comment</source>
@@ -542,16 +543,19 @@
         <translation>Ví</translation>
     </message>
     <message id="wallet-receive-title">
-        <source>Receive Beam</source>
-        <translation>Nhận Beam</translation>
+        <source></source>
+        <oldsource>Receive</oldsource>
+        <translation type="unfinished">Nhận Beam</translation>
     </message>
     <message id="wallet-receive-my-addr-label">
-        <source>My address</source>
-        <translation>Địa chỉ của tôi</translation>
+        <source>My address (auto-generated)</source>
+        <oldsource>My address</oldsource>
+        <translation type="unfinished">Địa chỉ của tôi</translation>
     </message>
     <message id="wallet-receive-expires-label">
-        <source>Expires</source>
-        <translation>Hết hạn</translation>
+        <source></source>
+        <oldsource>Expires</oldsource>
+        <translation type="unfinished">Hết hạn</translation>
     </message>
     <message id="wallet-receive-expires-24">
         <source>24 hours</source>
@@ -566,48 +570,55 @@
         <translation>Quét để gửi</translation>
     </message>
     <message id="wallet-receive-propogate-addr-message">
-        <source>Send this address to the sender over an external secure channel</source>
-        <translation>Gửi địa chỉ này cho người gửi qua kênh bảo mật bên ngoài</translation>
+        <source></source>
+        <oldsource>Send this address to the sender over an external secure channel</oldsource>
+        <translation type="unfinished">Gửi địa chỉ này cho người gửi qua kênh bảo mật bên ngoài</translation>
     </message>
     <message id="invalid-addr-got-it-button">
         <source>Got it</source>
-        <translation>Lấy</translation>
+        <translation type="vanished">Lấy</translation>
     </message>
     <message id="send-title">
-        <source>Send Beam</source>
-        <translation>Gửi Beam</translation>
+        <source></source>
+        <oldsource>Send Beam</oldsource>
+        <translation type="unfinished">Gửi Beam</translation>
     </message>
     <message id="send-send-to-label">
-        <source>Send To</source>
-        <translation>Gửi tới</translation>
+        <source></source>
+        <oldsource>Send To</oldsource>
+        <translation type="unfinished">Gửi tới</translation>
     </message>
     <message id="send-contact-placeholder">
-        <source>Please specify contact</source>
-        <translation>Vui lòng xác định liên hệ</translation>
+        <source></source>
+        <oldsource>Please specify contact</oldsource>
+        <translation type="unfinished">Vui lòng xác định liên hệ</translation>
     </message>
     <message id="send-amount-label">
-        <source>Transaction amount</source>
-        <translation>Số tiền giao dịch</translation>
+        <source></source>
+        <oldsource>Transaction amount</oldsource>
+        <translation type="unfinished">Số tiền giao dịch</translation>
     </message>
     <message id="send-founds-fail">
-        <source>Insufficient funds: you would need %1 to complete the transaction</source>
-        <translation>Không đủ tiền: bạn sẽ cần %1 để hoàn thành giao dịch</translation>
+        <source></source>
+        <oldsource>Insufficient funds: you would need %1 to complete the transaction</oldsource>
+        <translation type="unfinished">Không đủ tiền: bạn sẽ cần %1 để hoàn thành giao dịch</translation>
     </message>
     <message id="send-fee-fail">
         <source>The minimum fee is %1 GROTH</source>
-        <translation type="unfinished">The minimum fee is %1 GROTH</translation>
+        <translation type="obsolete">The minimum fee is %1 GROTH</translation>
     </message>
     <message id="send-curency-sub-name">
         <source>GROTH</source>
-        <translation type="unfinished">GROTH</translation>
+        <translation type="obsolete">GROTH</translation>
     </message>
     <message id="send-remaining-label">
-        <source>Remaining</source>
-        <translation>Còn lại</translation>
+        <source></source>
+        <oldsource>Remaining</oldsource>
+        <translation type="unfinished">Còn lại</translation>
     </message>
     <message id="send-send-fail">
         <source>Address %1 is invalid</source>
-        <translation>Địa chỉ %1 không hợp lệ</translation>
+        <translation type="vanished">Địa chỉ %1 không hợp lệ</translation>
     </message>
     <message id="start-restore-confirm-button">
         <source>I agree</source>
@@ -885,11 +896,11 @@
     </message>
     <message id="tx-curency-name">
         <source>BEAM</source>
-        <translation type="unfinished">BEAM</translation>
+        <translation type="obsolete">BEAM</translation>
     </message>
     <message id="tx-curency-sub-name">
         <source>GROTH</source>
-        <translation>GROTH</translation>
+        <translation type="vanished">GROTH</translation>
     </message>
     <message id="utxo-utxo">
         <source>UTXO</source>
@@ -964,8 +975,9 @@
         <translation>1 giờ</translation>
     </message>
     <message id="receive-amount-label">
-        <source>Receive amount (optional)</source>
-        <translation>Nhận tiền (tùy chọn)</translation>
+        <source></source>
+        <oldsource>Receive amount (optional)</oldsource>
+        <translation type="unfinished">Nhận tiền (tùy chọn)</translation>
     </message>
     <message id="tx-details-tx-id-label">
         <source>Transaction ID</source>
@@ -1169,8 +1181,96 @@
         <extracomment>settings tab, general section, ask password to send, confirm password dialog, message</extracomment>
         <translation type="unfinished">Password verification is required to change that setting</translation>
     </message>
+    <message id="general-fee-rate">
+        <source></source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="general-fee-fail">
+        <source>The minimum fee is %1 GROTH</source>
+        <translation type="unfinished">The minimum fee is %1 GROTH</translation>
+    </message>
+    <message id="wallet-receive-swap-title">
+        <source>Receive</source>
+        <translation type="unfinished">Nhận</translation>
+    </message>
+    <message id="wallet-swap">
+        <source></source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="wallet-receive-your-token">
+        <source></source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="wallet-receive-copy-address">
+        <source>Copy transaction address</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="receive-amount-swap-label">
+        <source></source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="sent-amount-label">
+        <source></source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="wallet-receive-offer-expires-label">
+        <source></source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="wallet-receive-expires-12">
+        <source>12 hours</source>
+        <translation type="unfinished">24 tiếng {12 ?}</translation>
+    </message>
+    <message id="wallet-receive-expires-6">
+        <source>6 hours</source>
+        <translation type="unfinished">24 tiếng {6 ?}</translation>
+    </message>
+    <message id="wallet-swap-propogate-addr-message">
+        <source></source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="wallet-send-swap-title">
+        <source></source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="general-comment-local">
+        <source></source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="send-total-label">
+        <source></source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="send-swap-to-label">
+        <source></source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="send-not-enough">
+        <source></source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="wallet-send-swap-offered-label">
+        <source></source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="wallet-send-swap-expires-label">
+        <source></source>
+        <translation type="unfinished"></translation>
+    </message>
     <message id="offers-title">
         <source>Offers</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="offers-search">
+        <source>Search...</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="offers-create">
+        <source>Create offer</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="wallet-publish-swap">
+        <source>Publish</source>
         <translation type="unfinished"></translation>
     </message>
 </context>

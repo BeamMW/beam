@@ -86,20 +86,19 @@ struct WalletModelBridge : public Bridge<IWalletModelAsync>
         call_async(&IWalletModelAsync::getAddresses, own);
     }
     
+    void setSwapOffersCoinType(AtomicSwapCoin type) override
+    {
+		call_async(&IWalletModelAsync::setSwapOffersCoinType, type);
+    }
+    
     void getSwapOffers() override
     {
-        tx.send([](BridgeInterface& receiver_) mutable
-        {
-            receiver_.getSwapOffers();
-        });
+		call_async(&IWalletModelAsync::getSwapOffers);
     }
 
-    void sendSwapOffer(SwapOffer&& offer)
+    void sendSwapOffer(const wallet::SwapOffer& offer)
     {
-        tx.send([offer{ move(offer) }](BridgeInterface& receiver_) mutable
-        {
-            receiver_.sendSwapOffer(move(offer));
-        });
+		call_async(&IWalletModelAsync::sendSwapOffer, offer);
     }
 
     void cancelTx(const wallet::TxID& id) override
@@ -529,21 +528,27 @@ namespace beam::wallet
         onAddresses(own, m_walletDB->getAddresses(own));
     }
 
+    void WalletClient::setSwapOffersCoinType(AtomicSwapCoin type)
+    {
+        if (auto p = m_offersMonitor.lock())
+        {
+            p->listenChannel(type);
+        }
+    }
+
     void WalletClient::getSwapOffers()
     {
-        auto p = m_offersMonitor.lock();
-        if (p)
+        if (auto p = m_offersMonitor.lock())
         {
             onSwapOffersChanged(ChangeAction::Reset, p->getOffersList());
         }
     }
 
-    void WalletClient::sendSwapOffer(SwapOffer&& offer)
+    void WalletClient::sendSwapOffer(const SwapOffer& offer)
     {
-        auto p = m_offersMonitor.lock();
-        if (p)
+        if (auto p = m_offersMonitor.lock())
         {
-            p->sendSwapOffer(move(offer));
+            p->publishOffer(offer);
         }
     }
 

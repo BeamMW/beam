@@ -113,7 +113,8 @@ set(UI_SRC
     viewmodel/currencies.h
     viewmodel/send_swap_view.h
     viewmodel/send_swap_view.cpp
-    viewmodel/swap_offers_view.h
+    viewmodel/swap_offer_item.cpp
+    viewmodel/swap_offers_list.cpp
     viewmodel/swap_offers_view.cpp
     viewmodel/helpers/list_model.h
     viewmodel/helpers/sortfilterproxymodel.h

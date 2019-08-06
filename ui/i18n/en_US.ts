@@ -8,8 +8,9 @@
         <translation>BEAM</translation>
     </message>
     <message id="general-groth">
-        <source>GROTH</source>
-        <translation>GROTH</translation>
+        <source></source>
+        <oldsource>GROTH</oldsource>
+        <translation type="unfinished">GROTH</translation>
     </message>
     <message id="general-comment">
         <source>Comment</source>
@@ -113,16 +114,18 @@
         <translation>Transaction fee</translation>
     </message>
     <message id="general-fee-rate">
-        <source>Transaction fee rate</source>
-        <translation>Transaction fee rate</translation>
+        <source></source>
+        <oldsource>Transaction fee rate</oldsource>
+        <translation type="unfinished">Transaction fee rate</translation>
     </message>
     <message id="general-ok">
         <source>Ok</source>
         <translation>Ok</translation>
     </message>
     <message id="general-invalid-address">
-        <source>Invalid address or token</source>
-        <translation>Invalid address or token</translation>
+        <source>Invalid address</source>
+        <oldsource>Invalid address or token</oldsource>
+        <translation type="unfinished">Invalid address or token</translation>
     </message>
     <message id="general-coinbase">
         <source>Coinbase</source>
@@ -182,16 +185,19 @@
         <translation>Show in folder</translation>
     </message>
     <message id="general-addr-comment-error">
-        <source>Address with the same comment already exists</source>
-        <translation>Address with the same comment already exists</translation>
+        <source>Address with same comment already exist</source>
+        <oldsource>Address with the same comment already exists</oldsource>
+        <translation type="unfinished">Address with the same comment already exists</translation>
     </message>
     <message id="general-fee-fail">
-        <source>The minimum fee is %1 %2</source>
-        <translation>The minimum fee is %1 %2</translation>
+        <source>The minimum fee is %1 GROTH</source>
+        <oldsource>The minimum fee is %1 %2</oldsource>
+        <translation type="unfinished">The minimum fee is %1 %2</translation>
     </message>
     <message id="general-comment-local">
-        <source>Comments are local and won't be shared</source>
-        <translation>Comments are local and won't be shared</translation>
+        <source></source>
+        <oldsource>Comments are local and won&apos;t be shared</oldsource>
+        <translation type="unfinished">Comments are local and won&apos;t be shared</translation>
     </message>
     <message id="wallet-receive-button">
         <source>Receive</source>
@@ -554,40 +560,46 @@
         <translation>Wallet</translation>
     </message>
     <message id="wallet-receive-title">
-        <source>Receive</source>
-        <translation>Receive</translation>
+        <source></source>
+        <oldsource>Receive</oldsource>
+        <translation type="unfinished">Receive</translation>
     </message>
     <message id="wallet-receive-swap-title">
-        <source>Create swap offer</source>
-        <translation>Create swap offer</translation>
+        <source>Receive</source>
+        <translation type="unfinished">Create swap offer</translation>
     </message>
     <message id="wallet-send-swap-title">
-        <source>Swap currencies</source>
-        <translation>Swap currencies</translation>
+        <source></source>
+        <oldsource>Swap currencies</oldsource>
+        <translation type="unfinished">Swap currencies</translation>
     </message>
     <message id="wallet-send-swap-expires-label">
-        <source>Expires on</source>
-        <translation>Expires on</translation>
+        <source></source>
+        <oldsource>Expires on</oldsource>
+        <translation type="unfinished">Expires on</translation>
     </message>
     <message id="wallet-send-swap-offered-label">
-        <source>Offered on</source>
-        <translation>Offered on</translation>
+        <source></source>
+        <oldsource>Offered on</oldsource>
+        <translation type="unfinished">Offered on</translation>
     </message>
     <message id="wallet-swap-title">
         <source>Create swap offer</source>
-        <translation>Create swap offer</translation>
+        <translation type="vanished">Create swap offer</translation>
     </message>
     <message id="wallet-receive-my-addr-label">
         <source>My address (auto-generated)</source>
         <translation>My address (auto-generated)</translation>
     </message>
     <message id="wallet-receive-expires-label">
-        <source>Expires in</source>
-        <translation>Expires in</translation>
+        <source></source>
+        <oldsource>Expires in</oldsource>
+        <translation type="unfinished">Expires in</translation>
     </message>
     <message id="wallet-receive-offer-expires-label">
-        <source>Offer expiration time</source>
-        <translation>Offer expiration time</translation>
+        <source></source>
+        <oldsource>Offer expiration time</oldsource>
+        <translation type="unfinished">Offer expiration time</translation>
     </message>
     <message id="wallet-receive-expires-24">
         <source>24 hours</source>
@@ -610,80 +622,94 @@
         <translation>Scan to send</translation>
     </message>
     <message id="wallet-receive-propogate-addr-message">
-        <source>Send this token to the sender over an external secure channel or scan the QR code</source>
-        <translation>Send this token to the sender over an external secure channel or scan the QR code</translation>
+        <source></source>
+        <oldsource>Send this token to the sender over an external secure channel or scan the QR code</oldsource>
+        <translation type="unfinished">Send this token to the sender over an external secure channel or scan the QR code</translation>
     </message>
-     <message id="wallet-swap-propogate-addr-message">
-        <source>Send this token to the sender over an external secure channel</source>
-        <translation>Send this token to the sender over an external secure channel</translation>
+    <message id="wallet-swap-propogate-addr-message">
+        <source></source>
+        <oldsource>Send this token to the sender over an external secure channel</oldsource>
+        <translation type="unfinished">Send this token to the sender over an external secure channel</translation>
     </message>
     <message id="wallet-receive-your-token">
-        <source>Your transaction token:</source>
-        <translation>Your transaction token:</translation>
+        <source></source>
+        <oldsource>Your transaction token:</oldsource>
+        <translation type="unfinished">Your transaction token:</translation>
     </message>
     <message id="wallet-swap">
-        <source>Swap</source>
-        <translation>Swap</translation>
+        <source></source>
+        <oldsource>Swap</oldsource>
+        <translation type="unfinished">Swap</translation>
     </message>
     <message id="wallet-receive-copy-address">
-        <source>Copy transaction token</source>
-        <translation>Copy transaction token</translation>
+        <source>Copy transaction address</source>
+        <oldsource>Copy transaction token</oldsource>
+        <translation type="unfinished">Copy transaction token</translation>
+    </message>
+    <message id="wallet-publish-swap">
+        <source>Publish</source>
+        <translation>Publish</translation>
     </message>
     <message id="invalid-addr-got-it-button">
         <source>Got it</source>
-        <translation>Got it</translation>
+        <translation type="vanished">Got it</translation>
     </message>
     <message id="send-title">
-        <source>Send Beam</source>
-        <translation>Send Beam</translation>
+        <source></source>
+        <oldsource>Send Beam</oldsource>
+        <translation type="unfinished">Send Beam</translation>
     </message>
     <message id="send-send-to-label">
-        <source>Transaction token or contact</source>
-        <translation>Transaction token or contact</translation>
+        <source></source>
+        <oldsource>Transaction token or contact</oldsource>
+        <translation type="unfinished">Transaction token or contact</translation>
     </message>
     <message id="send-swap-to-label">
-        <source>Transaction token</source>
-        <translation>Transaction token</translation>
+        <source></source>
+        <oldsource>Transaction token</oldsource>
+        <translation type="unfinished">Transaction token</translation>
     </message>
     <message id="send-contact-placeholder">
-        <source>Please specify contact or transaction token</source>
-        <translation>Please specify contact or transaction token</translation>
+        <source></source>
+        <oldsource>Please specify contact or transaction token</oldsource>
+        <translation type="unfinished">Please specify contact or transaction token</translation>
     </message>
     <message id="send-amount-label">
-        <source>Transaction amount</source>
-        <translation>Transaction amount</translation>
+        <source></source>
+        <oldsource>Transaction amount</oldsource>
+        <translation type="unfinished">Transaction amount</translation>
     </message>
     <message id="send-founds-fail">
-        <source>Insufficient funds: you would need %1 to complete the transaction</source>
-        <translation>Insufficient funds: you would need %1 to complete the transaction</translation>
+        <source></source>
+        <oldsource>Insufficient funds: you would need %1 to complete the transaction</oldsource>
+        <translation type="unfinished">Insufficient funds: you would need %1 to complete the transaction</translation>
     </message>
     <message id="send-not-enough">
-        <source>There is not enough funds to completer the transaction</source>
-        <translation>There is not enough funds to completer the transaction</translation>
+        <source></source>
+        <oldsource>There is not enough funds to completer the transaction</oldsource>
+        <translation type="unfinished">There is not enough funds to completer the transaction</translation>
     </message>
     <message id="send-fee-fail">
         <source>The minimum fee is %1 GROTH</source>
-        <translation>The minimum fee is %1 GROTH</translation>
+        <translation type="vanished">The minimum fee is %1 GROTH</translation>
     </message>
     <message id="send-curency-sub-name">
         <source>GROTH</source>
-        <translation>GROTH</translation>
+        <translation type="vanished">GROTH</translation>
     </message>
     <message id="send-remaining-label">
-        <source>Remaining</source>
-        <translation>Remaining</translation>
-    </message>
-    <message id="send-amount-label">
-        <source>Amount to send</source>
-        <translation>Amount to send</translation>
+        <source></source>
+        <oldsource>Remaining</oldsource>
+        <translation type="unfinished">Remaining</translation>
     </message>
     <message id="send-total-label">
-        <source>Total UTXO value</source>
-        <translation>Total UTXO value</translation>
+        <source></source>
+        <oldsource>Total UTXO value</oldsource>
+        <translation type="unfinished">Total UTXO value</translation>
     </message>
     <message id="send-send-fail">
         <source>Address %1 is invalid</source>
-        <translation>Address %1 is invalid</translation>
+        <translation type="vanished">Address %1 is invalid</translation>
     </message>
     <message id="start-restore-confirm-button">
         <source>I agree</source>
@@ -961,11 +987,11 @@
     </message>
     <message id="tx-curency-name">
         <source>BEAM</source>
-        <translation>BEAM</translation>
+        <translation type="vanished">BEAM</translation>
     </message>
     <message id="tx-curency-sub-name">
         <source>GROTH</source>
-        <translation>GROTH</translation>
+        <translation type="vanished">GROTH</translation>
     </message>
     <message id="utxo-utxo">
         <source>UTXO</source>
@@ -1019,6 +1045,14 @@
         <source>Offers</source>
         <translation>Offers</translation>
     </message>
+    <message id="offers-search">
+        <source>Search...</source>
+        <translation>Search...</translation>
+    </message>
+    <message id="offers-create">
+        <source>Create offer</source>
+        <translation>Create offer</translation>
+    </message>
     <message id="settings-general-lock-screen-never">
         <source>Never</source>
         <translation>Never</translation>
@@ -1044,16 +1078,19 @@
         <translation>1 hour</translation>
     </message>
     <message id="receive-amount-label">
-        <source>Receive amount (optional)</source>
-        <translation>Receive amount (optional)</translation>
+        <source></source>
+        <oldsource>Receive amount (optional)</oldsource>
+        <translation type="unfinished">Receive amount (optional)</translation>
     </message>
     <message id="receive-amount-swap-label">
-        <source>Receive amount</source>
-        <translation>Receive amount</translation>
+        <source></source>
+        <oldsource>Receive amount</oldsource>
+        <translation type="unfinished">Receive amount</translation>
     </message>
     <message id="sent-amount-label">
-        <source>Sent amount</source>
-        <translation>Sent amount</translation>
+        <source></source>
+        <oldsource>Sent amount</oldsource>
+        <translation type="unfinished">Sent amount</translation>
     </message>
     <message id="tx-details-tx-id-label">
         <source>Transaction ID</source>

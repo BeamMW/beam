@@ -9,13 +9,21 @@ import "controls"
 
 ColumnLayout {
     id: thisView
-    property bool regularMode: true
+    property bool isSwapView: false
+    property bool isSwapOnly
     property var defaultFocusItem: null
     property var currentView: null
 
     Component.onDestruction: currentView.saveAddress()
-    Component.onCompleted:   createChild()
-    onRegularModeChanged:    createChild()
+    Component.onCompleted: {
+        if (!currentView) {
+            createChild();
+        }
+        isSwapOnly = isSwapView;
+    }
+    onIsSwapViewChanged: {
+        createChild();
+    }
 
     Item {
         Layout.fillWidth:    true
@@ -28,25 +36,27 @@ ColumnLayout {
             font.styleName:      "Bold"; font.weight: Font.Bold
             color:               Style.content_main
             //% "Receive" / "Create swap offer"
-            text:                regularMode ? qsTrId("wallet-receive-title") : qsTrId("wallet-receive-swap-title")
+            text:                isSwapView ? qsTrId("wallet-receive-swap-title") : qsTrId("wallet-receive-title")
         }
 
         CustomSwitch {
             id:   mode
             text: qsTrId("wallet-swap")
             x:    parent.width - width
+            checked: isSwapView
+            enabled: !isSwapOnly
         }
 
         Binding {
             target:   thisView
-            property: "regularMode"
-            value:    !mode.checked
+            property: "isSwapView"
+            value:    mode.checked
         }
     }
 
     function createChild() {
         if (currentView) currentView.destroy();
-        currentView       = Qt.createComponent(regularMode ? "receive_regular.qml" : "receive_swap.qml").createObject(thisView)
+        currentView       = Qt.createComponent(isSwapView ? "receive_swap.qml" : "receive_regular.qml").createObject(thisView)
         defaultFocusItem  = currentView.defaultFocusItem
         currentView.defaultFocusItem.forceActiveFocus()
     }

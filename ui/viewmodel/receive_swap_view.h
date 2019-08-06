@@ -54,6 +54,7 @@ signals:
 public:
     Q_INVOKABLE void generateNewAddress();
     Q_INVOKABLE void saveAddress();
+    Q_INVOKABLE void publishOffer();
 
 private:
     double getAmountToReceive() const;

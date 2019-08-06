@@ -8,8 +8,9 @@
         <translation>BEAM</translation>
     </message>
     <message id="general-groth">
-        <source>GROTH</source>
-        <translation>GROTH</translation>
+        <source></source>
+        <oldsource>GROTH</oldsource>
+        <translation type="unfinished">GROTH</translation>
     </message>
     <message id="general-comment">
         <source>Comment</source>
@@ -542,16 +543,19 @@
         <translation>지갑</translation>
     </message>
     <message id="wallet-receive-title">
-        <source>Receive Beam</source>
-        <translation>Beam 받기</translation>
+        <source></source>
+        <oldsource>Receive</oldsource>
+        <translation type="unfinished">Beam 받기</translation>
     </message>
     <message id="wallet-receive-my-addr-label">
-        <source>My address</source>
-        <translation>내 주소</translation>
+        <source>My address (auto-generated)</source>
+        <oldsource>My address</oldsource>
+        <translation type="unfinished">내 주소</translation>
     </message>
     <message id="wallet-receive-expires-label">
-        <source>Expires</source>
-        <translation>만료</translation>
+        <source></source>
+        <oldsource>Expires</oldsource>
+        <translation type="unfinished">만료</translation>
     </message>
     <message id="wallet-receive-expires-24">
         <source>24 hours</source>
@@ -566,48 +570,55 @@
         <translation>스캔하여 보내기</translation>
     </message>
     <message id="wallet-receive-propogate-addr-message">
-        <source>Send this address to the sender over an external secure channel</source>
-        <translation>해당 주소를 외부의 보안 채널로 보내는 사람에게 보냅니다.</translation>
+        <source></source>
+        <oldsource>Send this address to the sender over an external secure channel</oldsource>
+        <translation type="unfinished">해당 주소를 외부의 보안 채널로 보내는 사람에게 보냅니다.</translation>
     </message>
     <message id="invalid-addr-got-it-button">
         <source>Got it</source>
-        <translation>네, 알겠습니다</translation>
+        <translation type="vanished">네, 알겠습니다</translation>
     </message>
     <message id="send-title">
-        <source>Send Beam</source>
-        <translation>Beam 보내기</translation>
+        <source></source>
+        <oldsource>Send Beam</oldsource>
+        <translation type="unfinished">Beam 보내기</translation>
     </message>
     <message id="send-send-to-label">
-        <source>Send To</source>
-        <translation>~~ 에게 보내기</translation>
+        <source></source>
+        <oldsource>Send To</oldsource>
+        <translation type="unfinished">~~ 에게 보내기</translation>
     </message>
     <message id="send-contact-placeholder">
-        <source>Please specify contact</source>
-        <translation>연락처를 명확히 하십시오</translation>
+        <source></source>
+        <oldsource>Please specify contact</oldsource>
+        <translation type="unfinished">연락처를 명확히 하십시오</translation>
     </message>
     <message id="send-amount-label">
-        <source>Transaction amount</source>
-        <translation>거래량</translation>
+        <source></source>
+        <oldsource>Transaction amount</oldsource>
+        <translation type="unfinished">거래량</translation>
     </message>
     <message id="send-founds-fail">
-        <source>Insufficient funds: you would need %1 to complete the transaction</source>
-        <translation>자금이 부족합니다 : 거래를 완료하려면 %1 만큼의 자금이 필요합니다</translation>
+        <source></source>
+        <oldsource>Insufficient funds: you would need %1 to complete the transaction</oldsource>
+        <translation type="unfinished">자금이 부족합니다 : 거래를 완료하려면 %1 만큼의 자금이 필요합니다</translation>
     </message>
     <message id="send-fee-fail">
         <source>The minimum fee is %1 GROTH</source>
-        <translation>최소 수수료는 %1 GROTH 입니다</translation>
+        <translation type="vanished">최소 수수료는 %1 GROTH 입니다</translation>
     </message>
     <message id="send-curency-sub-name">
         <source>GROTH</source>
-        <translation>GROTH</translation>
+        <translation type="vanished">GROTH</translation>
     </message>
     <message id="send-remaining-label">
-        <source>Remaining</source>
-        <translation>남아있는</translation>
+        <source></source>
+        <oldsource>Remaining</oldsource>
+        <translation type="unfinished">남아있는</translation>
     </message>
     <message id="send-send-fail">
         <source>Address %1 is invalid</source>
-        <translation>주소 %1 는 유효하지 않습니다</translation>
+        <translation type="vanished">주소 %1 는 유효하지 않습니다</translation>
     </message>
     <message id="start-restore-confirm-button">
         <source>I agree</source>
@@ -885,11 +896,11 @@
     </message>
     <message id="tx-curency-name">
         <source>BEAM</source>
-        <translation>BEAM</translation>
+        <translation type="vanished">BEAM</translation>
     </message>
     <message id="tx-curency-sub-name">
         <source>GROTH</source>
-        <translation>GROTH</translation>
+        <translation type="vanished">GROTH</translation>
     </message>
     <message id="utxo-utxo">
         <source>UTXO</source>
@@ -964,8 +975,9 @@
         <translation>1 시간</translation>
     </message>
     <message id="receive-amount-label">
-        <source>Receive amount (optional)</source>
-        <translation>받는 양 (선택)</translation>
+        <source></source>
+        <oldsource>Receive amount (optional)</oldsource>
+        <translation type="unfinished">받는 양 (선택)</translation>
     </message>
     <message id="tx-details-tx-id-label">
         <source>Transaction ID</source>
@@ -1169,8 +1181,96 @@
         <extracomment>settings tab, general section, ask password to send, confirm password dialog, message</extracomment>
         <translation>설정 바꾸기를 하려면 비밀번호 검증이 필요합니다</translation>
     </message>
+    <message id="general-fee-rate">
+        <source></source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="general-fee-fail">
+        <source>The minimum fee is %1 GROTH</source>
+        <translation type="unfinished">최소 수수료는 %1 GROTH 입니다</translation>
+    </message>
+    <message id="wallet-receive-swap-title">
+        <source>Receive</source>
+        <translation type="unfinished">받기</translation>
+    </message>
+    <message id="wallet-swap">
+        <source></source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="wallet-receive-your-token">
+        <source></source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="wallet-receive-copy-address">
+        <source>Copy transaction address</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="receive-amount-swap-label">
+        <source></source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="sent-amount-label">
+        <source></source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="wallet-receive-offer-expires-label">
+        <source></source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="wallet-receive-expires-12">
+        <source>12 hours</source>
+        <translation type="unfinished">24 시간 {12 ?}</translation>
+    </message>
+    <message id="wallet-receive-expires-6">
+        <source>6 hours</source>
+        <translation type="unfinished">24 시간 {6 ?}</translation>
+    </message>
+    <message id="wallet-swap-propogate-addr-message">
+        <source></source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="wallet-send-swap-title">
+        <source></source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="general-comment-local">
+        <source></source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="send-total-label">
+        <source></source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="send-swap-to-label">
+        <source></source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="send-not-enough">
+        <source></source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="wallet-send-swap-offered-label">
+        <source></source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="wallet-send-swap-expires-label">
+        <source></source>
+        <translation type="unfinished"></translation>
+    </message>
     <message id="offers-title">
         <source>Offers</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="offers-search">
+        <source>Search...</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="offers-create">
+        <source>Create offer</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="wallet-publish-swap">
+        <source>Publish</source>
         <translation type="unfinished"></translation>
     </message>
 </context>

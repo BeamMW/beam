@@ -1,4 +1,4 @@
-// Copyright 2018 The Beam Team
+// Copyright 2019 The Beam Team
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,68 +15,15 @@
 #pragma once
 
 #include <QObject>
-#include <QDateTime>
-#include <QQmlListProperty>
 #include "model/wallet_model.h"
-#include "helpers/list_model.h"
+#include "swap_offers_list.h"
 
-class SwapOfferItem : public QObject
-{
-    Q_OBJECT
-    Q_PROPERTY(QDateTime time   READ time       NOTIFY changed)
-    Q_PROPERTY(QString id       READ id         NOTIFY changed)
-    Q_PROPERTY(QString amount   READ amount     NOTIFY changed)
-    Q_PROPERTY(QString status   READ status     NOTIFY changed)
-    Q_PROPERTY(QString message  READ message    NOTIFY changed)
-public:
-    SwapOfferItem() = default;
-    SwapOfferItem(const beam::wallet::SwapOffer& offer) : m_offer{offer} {};
-
-    QDateTime time() const;
-    QString id() const;
-    QString amount() const;
-    QString status() const;
-    QString message() const;
-
-    beam::Amount rawAmount() const;
-
-signals:
-    void changed();
-
-private:
-    beam::wallet::SwapOffer m_offer;
-};
-
-class SwapOffersList : public ListModel<std::shared_ptr<SwapOfferItem>>
-{
-
-	Q_OBJECT
-public:
-
-	enum class Roles
-	{
-        TimeRole = Qt::UserRole + 1,
-        TimeSortRole,
-        IdRole,
-        IdSortRole,
-		AmountRole,
-		AmountSortRole,
-		StatusRole,
-		StatusSortRole,
-		MessageRole,
-		MessageSortRole
-	};
-	SwapOffersList() {};
-
-	QVariant data(const QModelIndex& index, int role) const override;
-	QHash<int, QByteArray> roleNames() const override;
-};
+using namespace beam::wallet;
 
 class SwapOffersViewModel : public QObject
 {
 	Q_OBJECT
-    Q_PROPERTY(QAbstractItemModel* allOffers READ getAllOffers NOTIFY allOffersChanged)
-
+    Q_PROPERTY(QAbstractItemModel* allOffers    READ getAllOffers   NOTIFY allOffersChanged)
 
 public:
     SwapOffersViewModel();
@@ -84,7 +31,8 @@ public:
 
     QAbstractItemModel* getAllOffers();
 
-    Q_INVOKABLE void sendSwapOffer(double amount, QString msg);
+    Q_INVOKABLE int getCoinType();
+    Q_INVOKABLE void setCoinType(int coinType);
 
 public slots:
     void onSwapDataModelChanged(beam::wallet::ChangeAction action, const std::vector<beam::wallet::SwapOffer>& offers);
@@ -94,5 +42,7 @@ signals:
 
 private:
     WalletModel& m_walletModel;
+    AtomicSwapCoin m_coinType;
     SwapOffersList m_offersList;
+
 };

@@ -14,10 +14,10 @@
 
 #pragma once
 
-#include "wallet/wallet.h"
-#include "wallet/wallet_db.h"
-#include "wallet/wallet_network.h"
-#include "swaps/offers/swap_offers_monitor.h"
+#include "wallet.h"
+#include "wallet_db.h"
+#include "wallet_network.h"
+#include "swaps/swap_offers_monitor.h"
 
 namespace beam::wallet
 {
@@ -33,14 +33,16 @@ namespace beam::wallet
         virtual void getWalletStatus() = 0;
         virtual void getUtxosStatus() = 0;
         virtual void getAddresses(bool own) = 0;
-        virtual void getSwapOffers() = 0;
-        virtual void sendSwapOffer(SwapOffer&& offer) = 0;
         virtual void cancelTx(const TxID& id) = 0;
         virtual void deleteTx(const TxID& id) = 0;
         virtual void getCoinsByTx(const TxID& txId) = 0;
         virtual void saveAddress(const WalletAddress& address, bool bOwn) = 0;
         virtual void generateNewAddress() = 0;
         virtual void changeCurrentWalletIDs(const WalletID& senderID, const WalletID& receiverID) = 0;
+
+        virtual void setSwapOffersCoinType(AtomicSwapCoin type) = 0;
+        virtual void getSwapOffers() = 0;
+        virtual void sendSwapOffer(const SwapOffer& offer) = 0;
 
         virtual void deleteAddress(const WalletID& id) = 0;
         virtual void updateAddress(const WalletID& id, const std::string& name, WalletAddress::ExpirationStatus status) = 0;

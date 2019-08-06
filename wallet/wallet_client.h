@@ -19,7 +19,7 @@
 #include "wallet_db.h"
 #include "wallet_network.h"
 #include "wallet_model_async.h"
-#include "swaps/offers/swap_offers_monitor.h"
+#include "swaps/swap_offers_monitor.h"
 
 #include <thread>
 #include <atomic>
@@ -98,8 +98,9 @@ namespace beam::wallet
         void getWalletStatus() override;
         void getUtxosStatus() override;
         void getAddresses(bool own) override;
+        void setSwapOffersCoinType(AtomicSwapCoin type) override;
         void getSwapOffers() override;
-        void sendSwapOffer(SwapOffer&& offer) override;
+        void sendSwapOffer(const SwapOffer& offer) override;
         void cancelTx(const TxID& id) override;
         void deleteTx(const TxID& id) override;
         void getCoinsByTx(const TxID& txId) override;
