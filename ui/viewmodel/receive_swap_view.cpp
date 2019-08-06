@@ -193,7 +193,7 @@ void ReceiveSwapViewModel::onNewAddressFailed()
     emit newAddressFailed();
 }
 
-void ReceiveSwapViewModel::setTranasctionToken(const QString& value)
+void ReceiveSwapViewModel::setTransactionToken(const QString& value)
 {
     if (_token != value)
     {
@@ -300,7 +300,7 @@ void ReceiveSwapViewModel::updateTransactionToken()
     _txParameters.SetParameter(beam::wallet::TxParameterID::PeerID, _receiverAddress.m_walletID);
     _txParameters.SetParameter(beam::wallet::TxParameterID::IsSender, _receiveCurrency == Currency::CurrBeam);
 
-    setTranasctionToken(QString::fromStdString(std::to_string(_txParameters)));
+    setTransactionToken(QString::fromStdString(std::to_string(_txParameters)));
 }
 
 void ReceiveSwapViewModel::publishToken()
