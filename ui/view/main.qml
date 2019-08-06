@@ -142,14 +142,14 @@ Rectangle {
 
     function updateItem(indexOrID, props)
     {
-        let update = (index) => {
+        var update = function(index) {
             selectedItem = index
             content.setSource("qrc:/" + contentItems[index] + ".qml", Object.assign({"toSend": false}, props))
             viewModel.update(index)
         }
 
         if (typeof(indexOrID) == "string") {
-            for (let index = 0; index < contentItems.length; index++) {
+            for (var index = 0; index < contentItems.length; index++) {
                 if (contentItems[index] == indexOrID) {
                     return update(index);
                 }
