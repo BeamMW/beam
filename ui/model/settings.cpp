@@ -49,6 +49,7 @@ namespace
         { "be_BY", "Беларуская"},
         { "nl_NL", "Dutch"},
         { "fr_FR", "Française"},
+        { "ja_JP", "日本語"},
         { "ru_RU", "Русский" },
         { "sv_SE", "Svenska"},
         { "tr_TR", "Türkçe"},
