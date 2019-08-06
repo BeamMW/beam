@@ -24,7 +24,7 @@
 class WalletViewModel : public QObject
 {
     Q_OBJECT
-    Q_PROPERTY(QString available   READ available    NOTIFY stateChanged)
+    Q_PROPERTY(double  available   READ available    NOTIFY stateChanged)
     Q_PROPERTY(QString receiving   READ receiving    NOTIFY stateChanged)
     Q_PROPERTY(QString sending     READ sending      NOTIFY stateChanged)
     Q_PROPERTY(QString maturing    READ maturing     NOTIFY stateChanged)
@@ -51,7 +51,7 @@ public:
     WalletViewModel();
     virtual ~WalletViewModel();
 
-    QString available() const;
+    double  available() const;
     QString receiving() const;
     QString sending() const;
     QString maturing() const;
