@@ -27,7 +27,7 @@ namespace beam
     {
     }
 
-    uint8_t Litecoind017::getAddressVersion()
+    uint8_t Litecoind017::getAddressVersion() const
     {
         if (isMainnet())
         {

@@ -28,7 +28,7 @@ namespace beam
     {
     }
 
-    uint8_t Qtumd017::getAddressVersion()
+    uint8_t Qtumd017::getAddressVersion() const
     {
         if (isMainnet())
         {

@@ -10,6 +10,7 @@ endif()
 
 add_test_snippet(bitcoin_rpc_test wallet)
 add_test_snippet(swap_test wallet node)
+add_test_snippet(electrum_test wallet)
 
 add_executable(offline offline.cpp)
 add_dependencies(offline node wallet)

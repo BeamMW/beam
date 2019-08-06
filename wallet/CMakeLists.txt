@@ -1,6 +1,7 @@
 set(TARGET_NAME beam-wallet${BEAM_TARGET_SUFFIX})
 
 add_definitions( -DSQLITE_HAS_CODEC )
+add_definitions(-DWITH_ICU)
 
 set(WALLET_SRC
     common.cpp
@@ -19,6 +20,7 @@ set(WALLET_SRC
     swaps/shared_tx_builder.cpp
     bitcoin/bitcoin_side.cpp
     bitcoin/bitcoind016.cpp
+    bitcoin/bitcoin_electrum.cpp
     bitcoin/bitcoind017.cpp
     litecoin/litecoind016.cpp
     litecoin/litecoind017.cpp

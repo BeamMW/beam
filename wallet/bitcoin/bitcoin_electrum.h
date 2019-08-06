@@ -14,17 +14,32 @@
 
 #pragma once
 
-#include "bitcoin_bridge.h"
-#include "http/http_client.h"
+#include "bitcoind016.h"
 #include "options.h"
+
+#include "bitcoin/bitcoin.hpp"
+
+#include <any>
 
 namespace beam
 {
-    class Bitcoind016: public IBitcoinBridge
+    namespace io
     {
+        class TcpStream;
+    }
+
+    class BitcoinElectrum : public Bitcoind016
+    {
+    private:
+        struct TCPConnect
+        {
+            std::string m_request;
+            std::function<bool(const Error&, const nlohmann::json&, uint64_t)> m_callback;
+            std::unique_ptr<io::TcpStream> m_stream;
+        };
     public:
-        Bitcoind016() = delete;
-        Bitcoind016(io::Reactor& reactor, const BitcoinOptions& options);
+        BitcoinElectrum() = delete;
+        BitcoinElectrum(io::Reactor& reactor, const BitcoinOptions& options);
 
         void dumpPrivKey(const std::string& btcAddress, std::function<void(const Error&, const std::string&)> callback) override;
         void fundRawTransaction(const std::string& rawTx, Amount feeRate, std::function<void(const Error&, const std::string&, int)> callback) override;
@@ -38,11 +53,12 @@ namespace beam
             int outputIndex,
             Timestamp locktime,
             std::function<void(const Error&, const std::string&)> callback) override;
+        // TODO roman.strilec use uint32_t instead uint16_t
         void getTxOut(const std::string& txid, int outputIndex, std::function<void(const Error&, const std::string&, double, uint16_t)> callback) override;
         void getBlockCount(std::function<void(const Error&, uint64_t)> callback) override;
         void getBalance(uint32_t confirmations, std::function<void(const Error&, double)> callback) override;
 
-        uint8_t getAddressVersion() const override;
+        /*uint8_t getAddressVersion() override;
         Amount getFeeRate() const override;
         uint16_t getTxMinConfirmations() const override;
         uint32_t getLockTimeInBlocks() const override;
@@ -55,6 +71,21 @@ namespace beam
     private:
         HttpClient m_httpClient;
         BitcoinOptions m_options;
-        std::string m_authorization;
+        std::string m_authorization;*/
+
+    protected:
+
+        void sendRequest(const std::string& method, const std::string& params, std::function<bool(const Error&, const nlohmann::json&, uint64_t)> callback);
+        std::string getReceivingAddress(uint32_t index) const;
+        std::string getChangeAddress(uint32_t index) const;
+        std::vector<libbitcoin::wallet::ec_private> generatePrivateKeyList() const;
+
+    private:
+        io::Reactor& m_reactor;
+        std::map<uint64_t, TCPConnect> m_connections;
+        libbitcoin::wallet::hd_private m_receivingPrivateKey;
+        libbitcoin::wallet::hd_private m_changePrivateKey;
+        uint64_t m_counter = 0;
+        uint32_t m_currentReceivingAddress = 0;
     };
 }

@@ -304,7 +304,7 @@ namespace beam
         });
     }
 
-    uint8_t Bitcoind016::getAddressVersion()
+    uint8_t Bitcoind016::getAddressVersion() const
     {
         if (isMainnet())
         {

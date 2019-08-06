@@ -25,7 +25,7 @@ namespace beam
         Qtumd017() = delete;
         Qtumd017(io::Reactor& reactor, const QtumOptions& options);
 
-        uint8_t getAddressVersion() override;
+        uint8_t getAddressVersion() const override;
         std::string getCoinName() const override;
     };
 }

@@ -20,7 +20,7 @@ using namespace libbitcoin;
 using namespace libbitcoin::wallet;
 using namespace libbitcoin::chain;
 
-int main()
+std::string createTx()
 {
     payment_address destinationAddress("miVBRoTahqyw4RqL5yhnwuVqkNDhfVgcxe");
 
@@ -29,6 +29,8 @@ int main()
     output_point utxo1(utxoHash1, 1);
     ec_private privateKey1("cVHGhFtxzhUg8yupEY574qJJXq8WjJnPSAhXPVjqvULLkB5HMcGo", ec_private::testnet);
     ec_public pubKey1 = privateKey1.to_public();
+    std::cout << "addr1 = " << pubKey1.to_payment_address(ec_private::testnet).encoded() << std::endl;
+    std::cout << "addr1 = " << pubKey1.to_payment_address().encoded() << std::endl;
     script lockingScript1 = script().to_pay_key_hash_pattern(pubKey1.to_payment_address(ec_private::testnet).hash());
     input input1 = input();
     input1.set_previous_output(utxo1);
@@ -85,7 +87,39 @@ int main()
 
     tx.inputs()[1].set_script(unlockingScript2);
 
-    std::cout << encode_base16(tx.to_data()) << std::endl;
+    return encode_base16(tx.to_data());
+}
+
+void parseTx(const std::string& strTx)
+{
+    data_chunk txData;
+    decode_base16(txData, strTx);
+    transaction tx = transaction::factory_from_data(txData);
+
+    for (size_t ind = 0; ind < tx.inputs().size(); ++ind)
+    {
+        auto inp = tx.inputs()[ind];
+        auto h = encode_hash(inp.previous_output().hash());
+
+        std::cout << "hash = " << h << std::endl;
+        //payment_address addr(inp.script());
+
+        //std::cout << "address = " << addr.encoded() << std::endl;
+
+        auto addresses = inp.addresses();
+
+        for (auto addr : addresses)
+            std::cout << "address = " << addr.encoded() << std::endl;
+    }
+}
+
+int main()
+{
+    std::string strTx = createTx();
+
+    std::cout << strTx << std::endl;
+
+    parseTx(strTx);
 
     return 0;
 }
