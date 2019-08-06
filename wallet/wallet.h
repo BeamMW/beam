@@ -127,7 +127,6 @@ namespace beam::wallet
         void RegisterTransactionType(wallet::TxType type, wallet::BaseTransaction::Creator creator);
         
     private:
-        void RefreshTransactions();
         void ResumeTransaction(const TxDescription& tx);
         void ResumeAllTransactions();
 
