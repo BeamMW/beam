@@ -111,10 +111,11 @@ namespace beam::wallet
     MACRO(SwapInvalidContract,          16, "Side chain has invalid contract") \
     MACRO(SwapSecondSideBridgeError,    17, "Side chain bridge has internal error") \
     MACRO(SwapNetworkBridgeError,       18, "Side chain bridge has network error") \
-    MACRO(SwapFormatResponseError,      19, "Side chain bridge has format response error") \
+    MACRO(SwapFormatResponseError,      19, "Side chain bridge has response format error") \
     MACRO(InvalidCredentialsOfSideChain,   20, "Invalid credentials of Side chain") \
     MACRO(NotEnoughTimeToFinishBtcTx,   21, "Not enough time to finish btc lock transaction") \
-    MACRO(FailedToCreateMultiSig,       22, "Failed to create mullti-signature") \
+    MACRO(FailedToCreateMultiSig,       22, "Failed to create multi-signature") \
+    MACRO(FeeIsTooSmall,                23, "Fee is too small") \
 
     enum TxFailureReason : int32_t
     {
