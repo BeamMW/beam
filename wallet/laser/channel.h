@@ -49,8 +49,8 @@ public:
             Height locktime);
     Channel(const Channel&) = delete;
     void operator=(const Channel&) = delete;
-    // LightningChannel(LightningChannel&& channel) { m_net = std::move(channel.m_net);};
-    // void operator=(LightningChannel&& channel) { m_net = std::move(channel.m_net);};
+    // Channel(Channel&& channel) = delete;
+    // void operator=(Channel&& channel) = delete;
     ~Channel();
 
     // beam::Lightning::Channel implementation
@@ -66,25 +66,30 @@ public:
     const ChannelIDPtr& get_chID() const override;
     const WalletID& get_myWID() const override;
     const WalletID& get_trgWID() const override;
-    int get_lastState() const override;
+    // int get_lastState() const override;
     const Amount& get_fee() const override;
+    const Height getLocktime() const override;
     const Amount& get_amountMy() const override;
     const Amount& get_amountTrg() const override;
     const Amount& get_amountCurrentMy() const override;
     const Amount& get_amountCurrentTrg() const override;
+    int get_State() const override;
+    const ByteBuffer& get_Data() const override;
+    const WalletAddress& get_myAddr() const override;
 
     bool Open(HeightRange openWindow);
-    const WalletAddress& getMyAddr() const;
     bool IsStateChanged();
     void LogNewState();
+    // bool IsOpen() const;
 
-    bool m_SendMyWid = true;
-    beam::Lightning::Channel::State::Enum m_LastState = State::None;
 private:
     void Subscribe();
     void Unsubscribe();
 
     IChannelHolder& m_rHolder;
+
+    bool m_SendMyWid = true;
+    beam::Lightning::Channel::State::Enum m_LastState = State::None;
 
     ChannelIDPtr m_ID;
     WalletAddress m_myAddr;
@@ -93,5 +98,6 @@ private:
     Amount m_aTrg;
     
     std::unique_ptr<Receiver> m_upReceiver;
+    ByteBuffer m_data;
 };
 }  // namespace beam::wallet::laser

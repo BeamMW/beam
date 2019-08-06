@@ -21,6 +21,7 @@
 #include "wallet/wallet_network.h"
 #include "wallet/secstring.h"
 #include "wallet/qtum/options.h"
+#include "wallet/laser/mediator.h"
 #include "wallet/litecoin/options.h"
 #include "wallet/bitcoin/options.h"
 #include "wallet/bitcoin/bitcoin_side.h"
@@ -1167,7 +1168,41 @@ namespace
         return boost::optional<QtumOptions>{};
     }
 
-    bool LaserOpen(Wallet* wallet, const IWalletDB::Ptr& walletDB, const po::variables_map& vm)
+    proto::FlyClient::NetworkStd::Ptr createNetwork(proto::FlyClient& fc, const po::variables_map& vm)
+    {
+        auto nnet = make_shared<proto::FlyClient::NetworkStd>(fc);
+
+        string nodeURI = vm[cli::NODE_ADDR].as<string>();
+        io::Address nodeAddress;
+        if (!nodeAddress.resolve(nodeURI.c_str()))
+        {
+            LOG_ERROR() << "unable to resolve node address: " << nodeURI;
+            return nnet;
+        }
+
+        
+        nnet->m_Cfg.m_PollPeriod_ms = vm[cli::NODE_POLL_PERIOD].as<Nonnegative<uint32_t>>().value;
+        if (nnet->m_Cfg.m_PollPeriod_ms)
+        {
+            LOG_INFO() << "Node poll period = " << nnet->m_Cfg.m_PollPeriod_ms << " ms";
+            uint32_t timeout_ms = std::max(Rules::get().DA.Target_s * 1000, nnet->m_Cfg.m_PollPeriod_ms);
+            if (timeout_ms != nnet->m_Cfg.m_PollPeriod_ms)
+            {
+                LOG_INFO() << "Node poll period has been automatically rounded up to block rate: " << timeout_ms << " ms";
+            }
+        }
+        uint32_t responceTime_s = Rules::get().DA.Target_s * wallet::kDefaultTxResponseTime;
+        if (nnet->m_Cfg.m_PollPeriod_ms >= responceTime_s * 1000)
+        {
+            LOG_WARNING() << "The \"--node_poll_period\" parameter set to more than " << uint32_t(responceTime_s / 3600) << " hours may cause transaction problems.";
+        }
+        nnet->m_Cfg.m_vNodes.push_back(nodeAddress);
+        nnet->Connect();
+
+        return nnet;
+    }
+
+    bool LaserOpen(laser::Mediator* laser, const po::variables_map& vm)
     {
         io::Address receiverAddr;
         Amount aMy = 0, aTrg = 0, fee = 100;
@@ -1179,18 +1214,15 @@ namespace
             LOG_ERROR() << "Can't read lightning params";
             return false;
         }
-        wallet->OpenLaserChanel(aMy, aTrg, fee, receiverWalletID, lifetime);
+
+        laser->OpenChannel(aMy, aTrg, fee, receiverWalletID, lifetime);
+
         return true;
     }
     
-    bool LaserWait(Wallet* wallet, const IWalletDB::Ptr& walletDB, const po::variables_map& vm)
+    bool LaserWait(laser::Mediator* laser, const po::variables_map& vm)
     {
-        // auto addr = GenerateNewAddress(
-        //         walletDB,
-        //         "laser_in",
-        //         WalletAddress::ExpirationStatus::Never,
-        //         false);
-        wallet->WaitIncoming();
+        laser->WaitIncoming();
         return true;
     }
 
@@ -1198,6 +1230,79 @@ namespace
     // {
     //     return 0;        
     // }
+
+    int LaserShowChannels(const IWalletDB::Ptr& walletDB)
+    {
+        array<uint8_t, 6> columnWidths{ { 32, 10, 10, 10, 10, 10 } };
+
+        cout << "Laser Channels:\n\n"
+            << "  " << std::left
+            << setw(columnWidths[0]) << "chId" << "|"
+            << setw(columnWidths[1]) << "aMy" << "|"
+            << setw(columnWidths[2]) << "aTrg" << "|"
+            << setw(columnWidths[3]) << "fee" << "|"
+            << setw(columnWidths[4]) << "state" << "|"
+            << setw(columnWidths[5]) << "locktime" << endl;
+        for (auto& ch : walletDB->loadLaserChannels())
+        {
+            const auto& chID = std::get<0>(ch);
+            cout << "  " << std::left << std::boolalpha
+                << setw(columnWidths[0]) << beam::to_hex(chID.m_pData, chID.nBytes) << "|"
+                << setw(columnWidths[1]) << PrintableAmount(std::get<6>(ch), true) << "|"
+                << setw(columnWidths[2]) << PrintableAmount(std::get<7>(ch), true) << "|"
+                << setw(columnWidths[3]) << PrintableAmount(std::get<4>(ch), true) << "|"
+                << setw(columnWidths[4]) << std::get<3>(ch) << "|"
+                << setw(columnWidths[5]) << std::get<5>(ch) << "\n";
+        }
+        return 0;
+    }
+
+    int Laser(const IWalletDB::Ptr& walletDB, const po::variables_map& vm)
+    {
+        laser::Mediator laser(walletDB);
+        laser.SetNetwork(createNetwork(laser, vm));
+
+        if (vm.count(cli::LASER_OPEN))
+        {
+            laser.SetOnCommandCompleteAction([&walletDB] ()
+            {
+                LOG_INFO() << "onLaserCompleteActionOnce";
+                io::Reactor::get_Current().stop();
+                LaserShowChannels(walletDB); 
+            });
+            if(!LaserOpen(&laser, vm))
+            {
+                return -1;
+            }
+        }
+        else if (vm.count(cli::LASER_WAIT))
+        {
+            laser.SetOnCommandCompleteAction([&walletDB] ()
+            {
+                LOG_INFO() << "onLaserCompleteAction";
+                LaserShowChannels(walletDB); 
+            });
+            if(!LaserWait(&laser, vm))
+            {
+                return -1;
+            }
+        }
+        else if (vm.count(cli::LASER_CLOSE))
+        {
+            LOG_INFO() << "LASER CLOSE";
+        }
+        else if (vm.count(cli::LASER_SEND))
+        {
+            LOG_INFO() << "LASER SEND";
+        }
+        else if (vm.count(cli::LASER_LIST))
+        {
+            return LaserShowChannels(walletDB);
+        }
+
+        io::Reactor::get_Current().run();
+        return 0;
+    }
 }
 
 io::Reactor::Ptr reactor;
@@ -1510,6 +1615,11 @@ int main_impl(int argc, char* argv[])
                         return ShowAddressList(walletDB);
                     }
 
+                    if (command == cli::LASER || vm.count(cli::LASER))
+                    {
+                        return Laser(walletDB, vm);
+                    }
+
                     boost::optional<BitcoinOptions> btcOptions = ParseBitcoinOptions(vm);
                     boost::optional<LitecoinOptions> ltcOptions = ParseLitecoinOptions(vm);
                     boost::optional<QtumOptions> qtumOptions = ParseQtumOptions(vm);
@@ -1526,80 +1636,40 @@ int main_impl(int argc, char* argv[])
                     }
 
                     bool is_server = command == cli::LISTEN || vm.count(cli::LISTEN);
-
-                    bool is_laser = command == cli::LASER || vm.count(cli::LASER);
-                    bool is_laser_open = is_laser && vm.count(cli::LASER_OPEN);
-                    bool is_laser_wait = is_laser && vm.count(cli::LASER_WAIT);
-                    is_server = is_laser_open || is_laser_wait ? true : is_server;
-
+                   
                     boost::optional<TxID> currentTxID;
-                    auto txCompleteAction = [&currentTxID](const TxID& txID)
+                    auto onTxCompleteAction = [&currentTxID](const TxID& txID)
                     {
-                        if (currentTxID.is_initialized() && currentTxID.get() != txID)
+                        if (currentTxID.is_initialized() &&
+                            currentTxID.get() != txID)
                         {
                             return;
                         }
                         io::Reactor::get_Current().stop();
                     };
 
-                    Wallet wallet{ walletDB, is_server ? Wallet::TxCompletedAction() : txCompleteAction,
-                                            !coldWallet ? Wallet::UpdateCompletedAction() : []() {io::Reactor::get_Current().stop(); } };
+                    auto onColdWalletUpdateCompleted = [] ()
+                    {
+                        io::Reactor::get_Current().stop();
+                    };
+
+                    auto txCompletedAction = is_server
+                        ? Wallet::TxCompletedAction()
+                        : onTxCompleteAction;
+
+                    auto updateCompletedAction = !coldWallet
+                        ? Wallet::UpdateCompletedAction()
+                        : onColdWalletUpdateCompleted;
+
+                    Wallet wallet{ walletDB,
+                                   std::move(txCompletedAction),
+                                   std::move(updateCompletedAction) };
                     {
                         wallet::AsyncContextHolder holder(wallet);
                         if (!coldWallet)
                         {
-                            if (vm.count(cli::NODE_ADDR) == 0)
-                            {
-                                LOG_ERROR() << "node address should be specified";
-                                return -1;
-                            }
+                            auto nnet = createNetwork(wallet, vm);
 
-                            string nodeURI = vm[cli::NODE_ADDR].as<string>();
-                            io::Address nodeAddress;
-                            if (!nodeAddress.resolve(nodeURI.c_str()))
-                            {
-                                LOG_ERROR() << "unable to resolve node address: " << nodeURI;
-                                return -1;
-                            }
-
-                            auto nnet = make_shared<proto::FlyClient::NetworkStd>(wallet);
-                            nnet->m_Cfg.m_PollPeriod_ms = vm[cli::NODE_POLL_PERIOD].as<Nonnegative<uint32_t>>().value;
-                            if (nnet->m_Cfg.m_PollPeriod_ms)
-                            {
-                                LOG_INFO() << "Node poll period = " << nnet->m_Cfg.m_PollPeriod_ms << " ms";
-                                uint32_t timeout_ms = std::max(Rules::get().DA.Target_s * 1000, nnet->m_Cfg.m_PollPeriod_ms);
-                                if (timeout_ms != nnet->m_Cfg.m_PollPeriod_ms)
-                                {
-                                    LOG_INFO() << "Node poll period has been automatically rounded up to block rate: " << timeout_ms << " ms";
-                                }
-                            }
-                            uint32_t responceTime_s = Rules::get().DA.Target_s * wallet::kDefaultTxResponseTime;
-                            if (nnet->m_Cfg.m_PollPeriod_ms >= responceTime_s * 1000)
-                            {
-                                LOG_WARNING() << "The \"--node_poll_period\" parameter set to more than " << uint32_t(responceTime_s / 3600) << " hours may cause transaction problems.";
-                            }
-                            nnet->m_Cfg.m_vNodes.push_back(nodeAddress);
-                            nnet->Connect();
-                            if (is_laser)
-                            {
-                                LOG_INFO() << "Laser start";
-                                wallet.InitLaser(nnet);
-                                if (is_laser_open)
-                                {
-                                    if(!LaserOpen(&wallet, walletDB, vm))
-                                    {
-                                        return -1;
-                                    }
-                                }
-                                else if (is_laser_wait)
-                                {
-                                    if(!LaserWait(&wallet, walletDB, vm))
-                                    {
-                                        return -1;
-                                    }
-                                }
-
-                            }
                             wallet.AddMessageEndpoint(make_shared<WalletNetworkViaBbs>(wallet, nnet, walletDB));
                             wallet.SetNodeEndpoint(nnet);
                         }

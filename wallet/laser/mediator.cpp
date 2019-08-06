@@ -24,21 +24,84 @@
 
 namespace
 {
+    const beam::Height kSafeForgetHeight = 8;
+
+    bool IsValidTimeStamp(beam::Timestamp currentBlockTime_s)
+    {
+        beam::Timestamp currentTime_s = beam::getTimestamp();
+        const beam::Timestamp tolerance_s = 60 * 8; // 10 minutes tolerance.
+        currentBlockTime_s += tolerance_s;
+
+        if (currentTime_s > currentBlockTime_s)
+        {
+            LOG_INFO() << "It seems that node is not up to date";
+            return false;
+        }
+        return true;
+    }
 
 }  // namespace
 
 namespace beam::wallet::laser
 {
-Mediator::Mediator(const IWalletDB::Ptr& walletDB,
-                   const proto::FlyClient::NetworkStd::Ptr& net)
+Mediator::Mediator(const IWalletDB::Ptr& walletDB)
     : m_pWalletDB(walletDB)
-    , m_pConnection(std::make_shared<Connection>(net))
 {
     m_myOutAddr.m_walletID = m_myInAddr.m_walletID = Zero;
-    m_pConnection->Connect();
 }
 
 Mediator::~Mediator()
+{
+
+}
+
+void Mediator::OnNewTip()
+{
+    // get_History()
+    // m_openQueue.pop()()
+    for (auto& it: m_channels)
+    {
+        auto& ch = it.second;
+        ch->Update();
+        if (ch->IsStateChanged())
+        {
+            m_pWalletDB->saveLaserChannel(*ch);
+        }
+        
+        if ((ch->get_State() == Lightning::Channel::State::Open ||
+             ch->get_State() == Lightning::Channel::State::OpenFailed) &&
+            m_onCommandComplete)
+        {
+            m_onCommandComplete();
+        }
+        ch->LogNewState();
+
+        if (!ch->IsNegotiating() && ch->IsSafeToForget(kSafeForgetHeight))
+        {
+            ForgetChannel(ch->get_chID());
+        }
+    }
+}
+
+void Mediator::OnRolledBack()
+{
+    for (auto& it: m_channels)
+    {
+        auto& ch = it.second;
+        ch->OnRolledBack();
+        if (ch->IsStateChanged())
+        {
+            m_pWalletDB->saveLaserChannel(*ch);
+        }
+    }
+}
+
+Block::SystemState::IHistory& Mediator::get_History()
+{
+    return m_pWalletDB->get_History();
+}
+
+void Mediator::OnOwnedNode(const PeerID&, bool bUp)
 {
 
 }
@@ -71,7 +134,7 @@ void Mediator::OnMsg(const ChannelIDPtr& chID, Blob&& blob)
 		return;
 	}
 
-    if (!chID)
+    if (!chID && m_pInputReceiver)
     {
         OnIncoming(inChID, dataIn);
     }
@@ -79,7 +142,7 @@ void Mediator::OnMsg(const ChannelIDPtr& chID, Blob&& blob)
     {
         if (*chID != *inChID)
         {
-            LOG_ERROR() << "Wrong channel ID: "
+            LOG_ERROR() << "Unknown channel ID: "
                         << to_hex(inChID->m_pData , inChID->nBytes);
             return;
         }
@@ -96,13 +159,16 @@ void Mediator::OnMsg(const ChannelIDPtr& chID, Blob&& blob)
     auto& ch = it->second;
 
     ch->OnPeerData(dataIn);
-    ch->LogNewState();
-    // TODO: save channel
-    if (!ch->IsNegotiating() && ch->IsSafeToForget(8))
+    
+    if (ch->IsStateChanged())
     {
-        ch->Forget();
-        ch.reset();
-        // TODO: save channel
+        m_pWalletDB->saveLaserChannel(*ch);
+    }
+    ch->LogNewState();
+
+    if (!ch->IsNegotiating() && ch->IsSafeToForget(kSafeForgetHeight))
+    {
+        ForgetChannel(inChID);
     }
 }
 
@@ -115,27 +181,9 @@ bool  Mediator::Decrypt(const ChannelIDPtr& chID, uint8_t* pMsg, Blob* blob)
     return true;
 }
 
-void Mediator::OnRolledBack()
+void Mediator::SetNetwork(const proto::FlyClient::NetworkStd::Ptr& net)
 {
-    for (auto& it: m_channels)
-    {
-        it.second->OnRolledBack();
-    }
-}
-
-void Mediator::OnNewTip()
-{
-    for (auto& it: m_channels)
-    {
-        auto& ch = it.second;
-        ch->Update();
-        ch->LogNewState();
-        if (!ch->IsNegotiating() && ch->IsSafeToForget(8))
-        {
-            ch->Forget();
-            ch.reset();
-        }
-    }
+    m_pConnection = std::make_shared<Connection>(net);
 }
 
 void Mediator::WaitIncoming()
@@ -177,27 +225,29 @@ void Mediator::OpenChannel(Amount aMy,
     
     auto& ch = m_channels[chIDPtr];
 
-    Block::SystemState::Full tip;
-    get_History().get_Tip(tip);
+    m_openQueue.emplace([this, &ch] () {
+        Block::SystemState::Full tip;
+        get_History().get_Tip(tip);
 
-    HeightRange openWindow;
-    openWindow.m_Min = tip.m_Height;
-    openWindow.m_Max = openWindow.m_Min + kDefaultLaserOpenTime;
+        HeightRange openWindow;
+        openWindow.m_Min = tip.m_Height;
+        openWindow.m_Max = openWindow.m_Min + kDefaultLaserOpenTime;
 
-    if (ch->Open(openWindow))
-    {
-        LOG_INFO() << "Laser open start: "
-                   << to_hex(ch->get_chID()->m_pData, ch->get_chID()->nBytes);
-        if (ch->IsStateChanged())
+        if (ch->Open(openWindow))
         {
-            m_pWalletDB->saveLaserChannel(*ch);
-            m_pWalletDB->saveAddress(m_myOutAddr, true);
+            LOG_INFO() << "LASER opening channel: "
+                    << to_hex(ch->get_chID()->m_pData, ch->get_chID()->nBytes);
+            if (ch->IsStateChanged())
+            {
+                m_pWalletDB->saveLaserChannel(*ch);
+            }
+            ch->LogNewState();
         }
-    }
-    else
-    {
-        LOG_ERROR() << "Laser open channel fail";
-    }
+        else
+        {
+            LOG_ERROR() << "Laser open channel fail";
+        }
+    });
 }
 
 void Mediator::Close(const std::string& channelIDStr)
@@ -208,14 +258,15 @@ void Mediator::Close(const std::string& channelIDStr)
     // }
 }
 
-Block::SystemState::IHistory& Mediator::get_History()
+void Mediator::SetOnCommandCompleteAction(
+        std::function<void()>&& onCommandComplete)
 {
-    return m_pWalletDB->get_History();
+    m_onCommandComplete = std::move(onCommandComplete);
 }
 
 ECC::Scalar::Native Mediator::get_skBbs(const ChannelIDPtr& chID)
 {
-    auto& addr = chID ? m_channels[chID]->getMyAddr() : m_myInAddr;
+    auto& addr = chID ? m_channels[chID]->get_myAddr() : m_myInAddr;
     auto& wid = addr.m_walletID;
     if (wid != Zero)
     {    
@@ -261,6 +312,17 @@ void Mediator::OnIncoming(const ChannelIDPtr& chID,
         *this, chID, m_myInAddr, trgWid, fee, aMy, aTrg, locktime);
 
     m_pInputReceiver.reset();
+};
+
+void Mediator::ForgetChannel(const ChannelIDPtr& chID)
+{
+    auto it = m_channels.find(chID);
+    if (it != m_channels.end())
+    {
+        auto& ch = it->second;
+        ch->Forget();
+        m_channels.erase(chID);
+    }
 };
 
 }  // namespace beam::wallet::laser

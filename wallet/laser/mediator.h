@@ -14,7 +14,9 @@
 
 #pragma once
 
+#include <functional>
 #include <memory>
+#include <queue>
 #include <vector>
 
 #include "wallet/laser/i_channel_holder.h"
@@ -29,12 +31,17 @@ namespace beam::wallet::laser
 // class Connection;
 class Receiver;
 
-class Mediator : public IChannelHolder
+class Mediator : public IChannelHolder, public proto::FlyClient
 {
 public:
-    Mediator(const IWalletDB::Ptr& walletDB,
-             const proto::FlyClient::NetworkStd::Ptr& net);
+    Mediator(const IWalletDB::Ptr& walletDB);
     ~Mediator();
+    // proto::FlyClient
+    void OnNewTip() override;
+    void OnRolledBack() override;
+    Block::SystemState::IHistory& get_History() override;
+    void OnOwnedNode(const PeerID&, bool bUp) override;
+
     // IChannelHolder implementation;
     IWalletDB::Ptr getWalletDB() final;
     proto::FlyClient::INetwork& get_Net() final;
@@ -42,8 +49,7 @@ public:
     void OnMsg(const ChannelIDPtr& chID, Blob&& blob) final;
     bool Decrypt(const ChannelIDPtr& chID, uint8_t* pMsg, Blob* blob) final;
     
-    void OnRolledBack();
-    void OnNewTip();
+    void SetNetwork(const proto::FlyClient::NetworkStd::Ptr& net);
 
     void WaitIncoming();
     void OpenChannel(Amount aMy,
@@ -52,12 +58,13 @@ public:
                      const WalletID& receiverWalletID,
                      Height locktime);
     void Close(const std::string& channelIDStr);
+    void SetOnCommandCompleteAction(std::function<void()>&& onCommandComplete);
 
 private:
-    Block::SystemState::IHistory& get_History();
     ECC::Scalar::Native get_skBbs(const ChannelIDPtr& chID);
     void OnIncoming(const ChannelIDPtr& chID,
                     Negotiator::Storage::Map& dataIn);
+    void ForgetChannel(const ChannelIDPtr& chID);
 
     IWalletDB::Ptr m_pWalletDB;
     std::shared_ptr<proto::FlyClient::INetwork> m_pConnection;
@@ -68,5 +75,8 @@ private:
 
     WalletAddress m_myOutAddr;
     WalletAddress m_myInAddr;
+
+    std::function<void()> m_onCommandComplete = std::function<void()>();
+    std::queue<std::function<void()>> m_openQueue;
 };
 }  // namespace beam::wallet::laser

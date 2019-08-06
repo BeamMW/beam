@@ -25,11 +25,6 @@
 
 namespace beam::wallet
 {
-namespace laser
-{
-    class Mediator;
-}  // namespace laser
-
     class AddressExpiredException : public std::runtime_error
     {
     public:
@@ -130,16 +125,7 @@ namespace laser
 
         void ProcessTransaction(wallet::BaseTransaction::Ptr tx);
         void RegisterTransactionType(wallet::TxType type, wallet::BaseTransaction::Creator creator);
-
-        // Laser Beam
-        void InitLaser(std::shared_ptr<proto::FlyClient::NetworkStd>& net);
-        void OpenLaserChanel(Amount aMy,
-                             Amount aTrg,
-                             Amount fee,
-                             const WalletID& receiverWID,
-                             Height locktime);
-        void WaitIncoming();
-        
+       
     private:
         void RefreshTransactions();
         void ResumeTransaction(const TxDescription& tx);
@@ -341,8 +327,5 @@ namespace laser
         IBitcoinBridge::Ptr m_litecoinBridge;
         IBitcoinBridge::Ptr m_qtumBridge;
         std::vector<SwapConditions> m_swapConditions;
-
-        // Members for Lightning
-        std::unique_ptr<laser::Mediator> m_laser;
     };
 }

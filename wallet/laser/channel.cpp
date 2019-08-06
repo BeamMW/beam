@@ -61,6 +61,16 @@ Channel::Channel(IChannelHolder& holder,
     Subscribe();
 }
 
+// Channel::Channel(Channel&& channel)
+// { 
+//     LOG_INFO() << "Channel(Channel&& channel)";
+// }
+
+// void  Channel::operator=(Channel&& channel)
+// {
+//     LOG_INFO() << "operator=(Channel&& channel)";
+// }
+
 Channel::~Channel()
 {
     Unsubscribe();
@@ -120,7 +130,7 @@ void Channel::SendPeer(Negotiator::Storage::Map&& dataOut)
     ser & (*m_ID);
     ser & Cast::Down<FieldMap>(dataOut);
 
-    LOG_INFO() << "SendPeer\tTo peer (via bbs): " << ser.buffer().second;
+    LOG_INFO() << "Send From " << m_myAddr.m_walletID.m_Pk << "\tTo peer " << m_widTrg.m_Pk << " (via bbs): " << ser.buffer().second;
 
     proto::FlyClient::RequestBbsMsg::Ptr pReq(new proto::FlyClient::RequestBbsMsg);
 	m_widTrg.m_Channel.Export(pReq->m_Msg.m_Channel);
@@ -156,14 +166,19 @@ const WalletID& Channel::get_trgWID() const
     return m_widTrg;
 };
 
-int Channel::get_lastState() const
-{
-    return m_LastState;
-};
+// int Channel::get_lastState() const
+// {
+//     return m_LastState;
+// };
 
 const Amount& Channel::get_fee() const
 {
     return m_Params.m_Fee;
+};
+
+const Height Channel::getLocktime() const
+{
+    return m_Params.m_hLockTime;
 };
 
 const Amount& Channel::get_amountMy() const
@@ -186,24 +201,35 @@ const Amount& Channel::get_amountCurrentTrg() const
     return m_aTrg;
 };
 
+int Channel::get_State() const
+{
+    return beam::Lightning::Channel::get_State();
+};
+
+const ByteBuffer& Channel::get_Data() const
+{
+    return m_data;
+};
+
+const WalletAddress& Channel::get_myAddr() const
+{
+    return m_myAddr;
+};
+
 bool Channel::Open(HeightRange openWindow)
 {
     return Lightning::Channel::Open(m_aMy, m_aTrg, openWindow);
 };
 
-const WalletAddress& Channel::getMyAddr() const
-{
-    return m_myAddr;
-};
-
 bool Channel::IsStateChanged()
 {
-    return m_LastState != get_State();
+    return m_LastState != beam::Lightning::Channel::get_State();
 };
 
 void Channel::LogNewState()
 {
-    beam::Lightning::Channel::State::Enum eState = get_State();
+    beam::Lightning::Channel::State::Enum eState =
+        beam::Lightning::Channel::get_State();
     if (m_LastState == eState)
         return;
 
@@ -251,6 +277,12 @@ void Channel::LogNewState()
 
     std::cout << os.str() << std::endl;
 };
+
+// bool Channel::IsOpen() const
+// {
+//     return beam::Lightning::Channel::get_State() ==
+//            beam::Lightning::Channel::State::Open;
+// };
 
 void Channel::Subscribe()
 {

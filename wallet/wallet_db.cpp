@@ -118,12 +118,14 @@
     each(chID,             chID,             BLOB NOT NULL PRIMARY KEY, obj) sep \
     each(myWID,            myWID,            BLOB NOT NULL, obj) sep \
     each(trgWID,           trgWID,           BLOB NOT NULL, obj) sep \
-    each(lastState,        lastState,        INTEGER NOT NULL, obj) sep \
+    each(state,            state,            INTEGER NOT NULL, obj) sep \
     each(fee,              fee,              INTEGER, obj) sep \
+    each(locktime,         locktime,         INTEGER, obj) sep \
     each(amountMy,         amountMy,         INTEGER, obj) sep \
     each(amountTrg,        amountTrg,        INTEGER, obj) sep \
     each(amountCurrentMy,  amountCurrentMy,  INTEGER, obj) sep \
-    each(amountCurrentTrg, amountCurrentTrg, INTEGER, obj)
+    each(amountCurrentTrg, amountCurrentTrg, INTEGER, obj) sep \
+    each(data,             data,             BLOB, obj)
 
 #define LASER_CHANNEL_FIELDS ENUM_LASER_CHANNEL_FIELDS(LIST, COMMA, )
 
@@ -616,6 +618,16 @@ namespace beam::wallet
                     b.resize(size);
                     memcpy(&b.front(), sqlite3_column_blob(_stm, col), size);
                 }
+            }
+
+            template<uint32_t nBytes_>
+            void get(int col, uintBig_t<nBytes_>& data)
+            {
+                uint32_t size = sqlite3_column_bytes(_stm, col);
+                if (size == nBytes_)
+                    memcpy(data.m_pData, sqlite3_column_blob(_stm, col), size);
+                else
+                    throw std::runtime_error("wrong blob size");
             }
 
             bool getBlobSafe(int col, void* blob, int size)
@@ -2127,8 +2139,11 @@ namespace beam::wallet
             }
         }
 
-        insertAddressToCache(address.m_walletID, address);
-        notifyAddressChanged(action, { address });
+        if (!isLaser)
+        {
+            insertAddressToCache(address.m_walletID, address);
+            notifyAddressChanged(action, { address });
+        }
     }
 
     void WalletDB::saveLaserChannel(const ILaserChannelEntity& ch)
@@ -2139,18 +2154,20 @@ namespace beam::wallet
 
         if (stm2.step())
         {
-            const char* updateReq = "UPDATE " LASER_CHANNELS_NAME " SET myWID=?2, trgWID=?3, lastState=?4, fee=?5, amountMy=?6, amountTrg=?7, amountCurrentMy=?8, amountCurrentTrg=?9 WHERE chID=?1;";
+            const char* updateReq = "UPDATE " LASER_CHANNELS_NAME " SET myWID=?2, trgWID=?3, state=?4, fee=?5, locktime=?6, amountMy=?7, amountTrg=?8, amountCurrentMy=?9, amountCurrentTrg=?10, data=?11 WHERE chID=?1;";
             sqlite::Statement stm(this, updateReq);
 
             stm.bind(1, ch.get_chID()->m_pData, ch.get_chID()->nBytes);
             stm.bind(2, ch.get_myWID());
             stm.bind(3, ch.get_trgWID());
-            stm.bind(4, ch.get_lastState());
+            stm.bind(4, ch.get_State());
             stm.bind(5, ch.get_fee());
-            stm.bind(6, ch.get_amountMy());
-            stm.bind(7, ch.get_amountTrg());
-            stm.bind(8, ch.get_amountCurrentMy());
-            stm.bind(9, ch.get_amountCurrentTrg());
+            stm.bind(6, ch.getLocktime());
+            stm.bind(7, ch.get_amountMy());
+            stm.bind(8, ch.get_amountTrg());
+            stm.bind(9, ch.get_amountCurrentMy());
+            stm.bind(10, ch.get_amountCurrentTrg());
+            stm.bind(11, ch.get_Data().data(), ch.get_Data().size());
             stm.step();
         }
         else
@@ -2160,14 +2177,52 @@ namespace beam::wallet
             stm.bind(1, ch.get_chID()->m_pData, ch.get_chID()->nBytes);
             stm.bind(2, ch.get_myWID());
             stm.bind(3, ch.get_trgWID());
-            stm.bind(4, ch.get_lastState());
+            stm.bind(4, ch.get_State());
             stm.bind(5, ch.get_fee());
-            stm.bind(6, ch.get_amountMy());
-            stm.bind(7, ch.get_amountTrg());
-            stm.bind(8, ch.get_amountCurrentMy());
-            stm.bind(9, ch.get_amountCurrentTrg());
+            LOG_INFO() << "locktime " << ch.getLocktime();
+            stm.bind(6, ch.getLocktime());
+            stm.bind(7, ch.get_amountMy());
+            stm.bind(8, ch.get_amountTrg());
+            stm.bind(9, ch.get_amountCurrentMy());
+            stm.bind(10, ch.get_amountCurrentTrg());
+            stm.bind(11, ch.get_Data().data(), ch.get_Data().size());
             stm.step();
+
+            saveAddress(ch.get_myAddr(), true);
         }
+    }
+
+    std::vector<TLaserChannelEntity> WalletDB::loadLaserChannels()
+    {
+        std::vector<TLaserChannelEntity> channels;
+
+        sqlite::Statement countStm(this, "SELECT COUNT(*) FROM " LASER_CHANNELS_NAME ";");
+        countStm.step();
+        
+        uint64_t count;
+        countStm.get(0, count);
+        channels.reserve(count);
+
+        sqlite::Statement stm(this, "SELECT * FROM " LASER_CHANNELS_NAME ";");
+
+        while (stm.step())
+        {
+            auto& entity = channels.emplace_back();
+
+            stm.get(0, std::get<0>(entity));
+            stm.get(1, std::get<1>(entity));
+            stm.get(2, std::get<2>(entity));
+            stm.get(3, std::get<3>(entity));
+            stm.get(4, std::get<4>(entity));
+            stm.get(5, std::get<5>(entity));
+            stm.get(6, std::get<6>(entity));
+            stm.get(7, std::get<7>(entity));
+            stm.get(8, std::get<8>(entity));
+            stm.get(9, std::get<9>(entity));
+            stm.get(10, std::get<10>(entity));
+        }
+
+        return channels;
     }
 
     void WalletDB::deleteAddress(const WalletID& id)

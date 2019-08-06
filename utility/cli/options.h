@@ -137,6 +137,8 @@ namespace beam
         extern const char* LASER_OPEN;
         extern const char* LASER_SEND;
         extern const char* LASER_WAIT;
+        extern const char* LASER_LIST;
+        extern const char* LASER_CLOSE;
         extern const char* LASER_AMOUNT_MY;
         extern const char* LASER_AMOUNT_TARGET;
         extern const char* LASER_TARGET_ARRD;
