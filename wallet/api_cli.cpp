@@ -55,7 +55,12 @@ using namespace beam::wallet;
 
 namespace
 {
-    const char* MinimumFeeError = "Failed to initiate the send operation. The minimum fee is 100 GROTH.";
+    std::string getMinimumFeeError(Amount minimumFee)
+    {
+        std::stringstream ss;
+        ss << "Failed to initiate the send operation. The minimum fee is " << minimumFee << " GROTH.";
+        return ss.str();
+    }
 
     struct TlsOptions
     {
@@ -421,9 +426,10 @@ namespace
                         coins = data.coins ? *data.coins : CoinIDList();
                     }
 
-                    if (data.fee < MinimumFee)
+                    auto minimumFee = wallet::GetMinimumFee(2); // receivers's output + change
+                    if (data.fee < minimumFee)
                     {
-                        doError(id, INTERNAL_JSON_RPC_ERROR, MinimumFeeError);
+                        doError(id, INTERNAL_JSON_RPC_ERROR, getMinimumFeeError(minimumFee));
                         return;
                     }
 
@@ -474,9 +480,10 @@ namespace
                      WalletAddress senderAddress = storage::createAddress(*_walletDB);
                     _walletDB->saveAddress(senderAddress);
 
-                    if (data.fee < MinimumFee)
+                    auto minimumFee = wallet::GetMinimumFee(data.coins.size() + 1); // +1 extra output for change 
+                    if (data.fee < minimumFee)
                     {
-                        doError(id, INTERNAL_JSON_RPC_ERROR, MinimumFeeError);
+                        doError(id, INTERNAL_JSON_RPC_ERROR, getMinimumFeeError(minimumFee));
                         return;
                     }
 

@@ -293,7 +293,10 @@ namespace beam::wallet
 
             split.fee = params["fee"];
         }
-        else split.fee = 0;
+        else
+        {
+            split.fee = wallet::GetMinimumFee(split.coins.size() + 1); // +1 extra output for change
+        }
 
         _handler.onMessage(id, split);
     }

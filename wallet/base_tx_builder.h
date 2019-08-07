@@ -77,8 +77,8 @@ namespace beam::wallet
         const std::vector<Coin::ID>& GetInputCoins() const;
         const std::vector<Coin::ID>& GetOutputCoins() const;
     private:
-        Amount GetMinimalFee() const;
-        void CheckMinimalFee();
+        Amount GetMinimumFee() const;
+        void CheckMinimumFee();
     protected:
         BaseTransaction& m_Tx;
         SubTxID m_SubTxID;

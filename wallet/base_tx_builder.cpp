@@ -336,7 +336,7 @@ namespace beam::wallet
         m_Tx.GetParameter(TxParameterID::Lifetime, m_Lifetime, m_SubTxID);
         m_Tx.GetParameter(TxParameterID::PeerMaxHeight, m_PeerMaxHeight, m_SubTxID);
 
-        CheckMinimalFee();
+        CheckMinimumFee();
 
         return m_Tx.GetParameter(TxParameterID::Offset, m_Offset, m_SubTxID);
     }
@@ -614,20 +614,19 @@ namespace beam::wallet
         return m_OutputCoins;
     }
 
-    Amount BaseTxBuilder::GetMinimalFee() const
+    Amount BaseTxBuilder::GetMinimumFee() const
     {
         auto numberOfOutputs = GetAmountList().size() + 1; // +1 for possible change to simplify logic TODO: need to review
 
-        // Minimum Fee = (number of outputs) * 10 + (number of kernels) * 10
-        return (numberOfOutputs + 1) * Amount(10);
+        return wallet::GetMinimumFee(numberOfOutputs);
     }
 
-    void BaseTxBuilder::CheckMinimalFee()
+    void BaseTxBuilder::CheckMinimumFee()
     {
         // after 1st fork fee should be >= minimal fee
         if (Rules::get().pForks[1].m_Height <= GetMinHeight())
         {
-            auto minimalFee = GetMinimalFee();
+            auto minimalFee = GetMinimumFee();
             Amount userFee = 0;
             if (m_Tx.GetParameter(TxParameterID::Fee, userFee, m_SubTxID))
             {
@@ -637,11 +636,6 @@ namespace beam::wallet
                     ss << "The minimum fee must be: " << minimalFee << " .";
                     throw TransactionFailedException(false, TxFailureReason::FeeIsTooSmall, ss.str().c_str());
                 }
-            }
-            else if (m_Fee < minimalFee)
-            {
-                // TODO: review this, should we change fee?
-                m_Fee = minimalFee;
             }
         }
     }
