@@ -10,14 +10,18 @@ import "../utils.js" as Utils
 RowLayout
 {
     id: control
-    spacing: 5
-    property double amount: 0
-    property string color:  Style.content_main
-    property bool   error:  false
+    spacing: 3
+
+    property double amount:      0
+    property string color:       Style.content_main
+    property bool   error:       false
+    property int    fontSize:    14
+    property int    iconSize:    14
+    property int    iconTop:     3
 
     SFText {
         id:             amountText
-        font.pixelSize: 14
+        font.pixelSize: fontSize
         font.styleName: "Light";
         font.weight:    Font.Light
         color:          control.error ? Style.validator_error : control.color
@@ -26,8 +30,8 @@ RowLayout
 
     SvgImage {
         id:               beamIcon
-        Layout.topMargin: 3
-        sourceSize:       Qt.size(10, 15)
+        Layout.topMargin: iconTop
+        sourceSize:       Qt.size(10 * iconSize / 14, 15 * iconSize / 14)
         source:           control.error ? "qrc:/assets/b-red.svg" : "qrc:/assets/b-grey.svg"
     }
 }

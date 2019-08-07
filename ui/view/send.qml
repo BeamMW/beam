@@ -52,6 +52,7 @@ ColumnLayout {
 
             onTextChanged: {
                 if (!isTAInputValid()) return;
+                if (receiverTAInput.text.length == 0) return;
                 BeamGlobals.isSwapToken(receiverTAInput.text) ? onSwapToken(receiverTAInput.text) : onAddress(receiverTAInput.text);
             }
         }
@@ -65,6 +66,20 @@ ColumnLayout {
                 font.pixelSize:   12
                 text:             qsTrId("wallet-send-invalid-token") //% "Invalid address or token"
                 visible:          !isTAInputValid()
+            }
+        }
+
+        Row {
+            Layout.alignment: Qt.AlignHCenter
+            Layout.topMargin: 30
+            spacing:          25
+
+            CustomButton {
+                //% "Close"
+                text:               qsTrId("general-close")
+                palette.buttonText: Style.content_main
+                icon.source:        "qrc:/assets/icon-cancel-white.svg"
+                onClicked:          walletView.pop();
             }
         }
 
@@ -90,5 +105,13 @@ ColumnLayout {
         defaultFocusItem       = currentView.defaultFocusItem
         currentView.setToken(address)
         regularMode = true
+    }
+
+    function onBadSwap() {
+         if (currentView) {
+            currentView.destroy()
+            receiverTAInput.text = ""
+            currentView = undefined
+         }
     }
 }

@@ -701,8 +701,8 @@
     </message>
     <message id="send-title">
         <source></source>
-        <oldsource>Send Beam</oldsource>
-        <translation type="unfinished">Send Beam</translation>
+        <oldsource>Send</oldsource>
+        <translation type="unfinished">Send</translation>
     </message>
     <message id="send-send-to-label">
         <source></source>
@@ -751,6 +751,16 @@
         <source></source>
         <oldsource>Total UTXO value</oldsource>
         <translation type="unfinished">Total UTXO value</translation>
+    </message>
+    <message id="swap-na-message">
+        <source></source>
+        <oldsource>You do not have any 3rd-party currencies connected.\nUpdate your settings and try again.</oldsource>
+        <translation type="unfinished">You do not have any 3rd-party currencies connected.\nUpdate your settings and try again.</translation>
+    </message>
+    <message id="swap-currency-na-message">
+        <source></source>
+        <oldsource>You do not have %1 connected.\nUpdate your settings and try again.</oldsource>
+        <translation type="unfinished">You do not have %1 connected.\nUpdate your settings and try again.</translation>
     </message>
     <message id="send-send-fail">
         <source>Address %1 is invalid</source>
@@ -1358,10 +1368,6 @@ or send this address to the sender over secure channel</translation>
     </message>
     <message id="general-amount-received">
         <source>Received</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message id="wallet-publish-swap">
-        <source>Publish</source>
         <translation type="unfinished"></translation>
     </message>
 </context>

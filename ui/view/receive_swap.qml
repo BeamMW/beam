@@ -283,19 +283,6 @@ ColumnLayout {
             onClicked:           viewModel.publishToken()
             enabled:             thisView.canSend()
         }
-
-        CustomButton {
-            //% "Publish"
-            text: qsTrId("wallet-publish-swap")
-            palette.buttonText: Style.content_opposite
-            icon.color: Style.content_opposite
-            palette.button: Style.active
-            icon.source: "qrc:/assets/icon-send.svg"
-            onClicked: {
-                viewModel.publishOffer();
-            }
-            enabled: thisView.canSend()
-        }
     }
 
     Row {

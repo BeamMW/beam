@@ -14,8 +14,6 @@
 
 #pragma once
 
-#include "wallet/common.h"
-#include "core/fly_client.h"
 #include "wallet/wallet.h"
 #include "utility/logger.h"
 
@@ -26,8 +24,6 @@ namespace beam::wallet
 {
     using namespace beam::proto;
 
-    using SwapOffer = TxParameters;
-
     /**
      *  Implementation of public swap offers broadcasting.
      */
@@ -35,7 +31,7 @@ namespace beam::wallet
     {
         
     public:
-        SwapOffersMonitor(FlyClient::INetwork& network, IWalletObserver& observer, IWalletMessageEndpoint& messageEndpoint);
+        SwapOffersMonitor(FlyClient::INetwork& network, beam::wallet::IWalletObserver &observer, IWalletMessageEndpoint& messageEndpoint);
 
         // FlyClient::IBbsReceiver
         virtual void OnMsg(proto::BbsMsg&& msg) override;
@@ -46,12 +42,12 @@ namespace beam::wallet
         void publishOffer(const SwapOffer& offer) const;
 
     private:
-        FlyClient::INetwork& m_network;
+		FlyClient::INetwork& m_network;
         IWalletObserver& m_observer;
         IWalletMessageEndpoint& m_messageEndpoint;
 
         static const std::map<AtomicSwapCoin, BbsChannel> m_channelsMap;
-        Timestamp m_lastTimestamp = getTimestamp() - 24*60*60;
+        Timestamp m_lastTimestamp = getTimestamp() - 12*60*60;
         std::optional<BbsChannel> m_activeChannel;
 
         std::unordered_map<TxID, SwapOffer> m_offersCache;

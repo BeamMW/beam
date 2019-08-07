@@ -28,24 +28,15 @@ ColumnLayout {
 
     onIsSwapViewChanged: {
         createChild();
-        if (isSwapView && !BeamGlobals.canSwap()) {
-            thisView.enabled = false;
-            swapna.open();
-        }
+        if (isSwapView && !BeamGlobals.canSwap()) swapna.open();
+
     }
 
     SwapNADialog {
         id: swapna
-
-        onRejected: {
-            thisView.enabled = true
-            thisView.regularMode = true
-        }
-
-        onAccepted: {
-            thisView.enabled = true
-            main.openSwapSettings()
-        }
+        onRejected: thisView.isSwapView = false
+        onAccepted: main.openSwapSettings()
+        text:       qsTrId("swap-na-message").replace("\\n", "\n")
     }
 
     Item {
@@ -62,17 +53,17 @@ ColumnLayout {
         }
 
         CustomSwitch {
-            id:   mode
-            text: qsTrId("wallet-swap")
-            x:    parent.width - width
-            checked: isSwapView
-            enabled: !isSwapOnly
+            id:         mode
+            text:       qsTrId("wallet-swap")
+            x:          parent.width - width
+            checked:    isSwapView
+            enabled:    !isSwapOnly
         }
 
         Binding {
-            target:   thisView
-            property: "isSwapView"
-            value:    mode.checked
+            target:     thisView
+            property:   "isSwapView"
+            value:      mode.checked
         }
     }
 

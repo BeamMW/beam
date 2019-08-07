@@ -54,7 +54,6 @@ signals:
 public:
     Q_INVOKABLE void generateNewAddress();
     Q_INVOKABLE void saveAddress();
-    Q_INVOKABLE void publishOffer();
     Q_INVOKABLE void startListen();
     Q_INVOKABLE void publishToken();
 

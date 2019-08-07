@@ -72,35 +72,28 @@ Rectangle {
         }
     }
 
-    Row
+    RowLayout
     {
         id: amount
         anchors.verticalCenter: parent.verticalCenter
         anchors.left: title.left
+        spacing: 18
 
-        spacing: 6
-
-        SFLabel {
-            id: amount_text
-            font.pixelSize: 36
-            font.styleName: "Light"; font.weight: Font.Light
-            color: Style.active
-
-            text: value
-            anchors.bottom: parent.bottom
-            copyMenuEnabled: true
-            onCopyText: panel.copyValueText()
+        SvgImage {
+            Layout.topMargin:   23
+            source:             "qrc:/assets/beam-circle.svg"
+            sourceSize:         Qt.size(34, 34)
         }
 
-        SFText {
-            id: currency_text
-            font.pixelSize: 24
-            font.styleName: "Light"; font.weight: Font.Light
-            color: Style.active
-
-            text: "BEAM"
-            anchors.bottom: parent.bottom
-            anchors.bottomMargin: 3
+        BeamAmount {
+            Layout.topMargin:   20
+            Layout.rightMargin: 25
+            amount:             value
+            color:              Style.content_secondary
+            fontSize:           38
+            iconSize:           30
+            iconTop:            5
+            spacing:            8
         }
     }
 }

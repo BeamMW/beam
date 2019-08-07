@@ -1270,8 +1270,6 @@ Vous essayez de restaurer un portefeuille Beam existant. Veuillez noter que si v
         <source>Create offer</source>
         <translation type="unfinished"></translation>
     </message>
-    <message id="wallet-publish-swap">
-        <source>Publish</source>
     <message id="general-address-from">
         <source>From</source>
         <translation type="unfinished"></translation>

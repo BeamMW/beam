@@ -10,6 +10,7 @@ ConfirmationDialog {
     okButtonIconSource:       "qrc:/assets/icon-settings-blue.svg"
     cancelButtonIconSource:   "qrc:/assets/icon-cancel-white.svg"
     closePolicy:              Popup.NoAutoClose
+    property alias text:      message.text
 
     function openHandler() {
         okButton.forceActiveFocus(Qt.TabFocusReason);
@@ -31,6 +32,7 @@ ConfirmationDialog {
             }
 
             SFText {
+                id:                   message
                 width:                parent.width
                 leftPadding:          20
                 rightPadding:         20
@@ -39,7 +41,6 @@ ConfirmationDialog {
                 color:                Style.content_main
                 wrapMode:             Text.Wrap
                 horizontalAlignment:  Text.AlignHCenter
-                text: "You do not have any 3rd-party currencies connected.\nUpdate your settings and try again."
             }
         }
     }

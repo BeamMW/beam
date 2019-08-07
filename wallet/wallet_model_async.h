@@ -17,7 +17,6 @@
 #include "wallet.h"
 #include "wallet_db.h"
 #include "wallet_network.h"
-#include "swaps/swap_offers_monitor.h"
 
 namespace beam::wallet
 {

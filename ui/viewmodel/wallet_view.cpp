@@ -141,9 +141,9 @@ void WalletViewModel::onTxStatus(beam::wallet::ChangeAction action, const std::v
 
 }
 
-QString WalletViewModel::available() const
+double WalletViewModel::available() const
 {
-    return BeamToString(_status.getAvailable());
+    return double(int64_t(_status.getAvailable())) / Rules::Coin;
 }
 
 QString WalletViewModel::receiving() const

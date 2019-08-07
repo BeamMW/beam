@@ -81,17 +81,6 @@ if (NOT ANDROID)
         target_link_libraries(${WALLET_API_NAME} -static-libstdc++ -static-libgcc)
     endif()
 
-    if (BEAM_SIGN_PACKAGE AND WIN32)
-        add_custom_command(
-            TARGET ${TARGET_NAME} POST_BUILD
-            COMMAND ${SIGNTOOL_EXECUTABLE} sign ${SIGNTOOL_OPTIONS} "${CMAKE_CURRENT_BINARY_DIR}\\{TARGET_NAME}.exe"
-        )
-        add_custom_command(
-            TARGET ${WALLET_API_NAME} POST_BUILD
-            COMMAND ${SIGNTOOL_EXECUTABLE} sign ${SIGNTOOL_OPTIONS} "${CMAKE_CURRENT_BINARY_DIR}\\${WALLET_API_NAME}.exe"
-        )
-    endif()
-
     add_subdirectory(unittests)
     add_subdirectory(swaps)
 

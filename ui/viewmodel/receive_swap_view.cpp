@@ -240,18 +240,21 @@ void ReceiveSwapViewModel::saveAddress()
     }
 }
 
-void ReceiveSwapViewModel::publishOffer()
+void ReceiveSwapViewModel::publishToken()
 {
-    // todo
-    static beam::wallet::TxID id = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
-	beam::wallet::SwapOffer newOffer;
-    newOffer.m_createTime = newOffer.m_modifyTime = beam::getTimestamp();
-    newOffer.m_amount = std::round(_amountToReceive * beam::Rules::Coin);
-    newOffer.m_txId = id;
-    id[15]++;
-    newOffer.m_message = beam::wallet::toByteBuffer(_addressComment.toStdString());
+    using namespace beam::wallet;
+	// TODO:
+    auto txParameters = beam::wallet::TxParameters(_txParameters);
+    // txParameters.SetParameter(beam::wallet::TxParameterID::PeerResponseHeight, ResponseTime(_offerExpires));
+    txParameters.SetParameter(beam::wallet::TxParameterID::Message, beam::wallet::toByteBuffer(_addressComment.toStdString()));
 
-    _walletModel.getAsync()->sendSwapOffer(newOffer);
+	auto time = beam::wallet::toByteBuffer(beam::getTimestamp());
+	txParameters.SetParameter(beam::wallet::TxParameterID::CreateTime, time);
+	txParameters.SetParameter(beam::wallet::TxParameterID::ModifyTime, time);
+	
+    _walletModel.getAsync()->sendSwapOffer(txParameters);
+}
+
 void ReceiveSwapViewModel::startListen()
 {
     using namespace beam::wallet;
@@ -313,9 +316,4 @@ void ReceiveSwapViewModel::updateTransactionToken()
     _txParameters.SetParameter(beam::wallet::TxParameterID::IsSender, _receiveCurrency == Currency::CurrBeam);
 
     setTransactionToken(QString::fromStdString(std::to_string(_txParameters)));
-}
-
-void ReceiveSwapViewModel::publishToken()
-{
-    // TODO:SWAP
 }

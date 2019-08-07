@@ -368,6 +368,8 @@ namespace beam::wallet
         PackedTxParameters m_Parameters;
     };
 
+    using SwapOffer = TxParameters;
+
     std::optional<TxParameters> ParseParameters(const std::string& text);
 
     // Specifies key transaction parameters for interaction with Wallet Clients

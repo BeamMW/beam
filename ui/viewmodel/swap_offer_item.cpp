@@ -17,6 +17,8 @@
 #include "ui_helpers.h"
 #include "wallet/common.h"
 
+using namespace beam::wallet;
+
 QDateTime SwapOfferItem::time() const
 {
     beam::Timestamp time;
@@ -38,9 +40,8 @@ QString SwapOfferItem::id() const
     
     if (id.has_value())
     {
-        value = id.value();
-        beam::to_hex(value.data(), value.size());
-        return QString::fromStdString(value); 
+        auto value = id.value();
+        return QString::fromStdString(beam::to_hex(value.data(), value.size()));
     }
     else
     {

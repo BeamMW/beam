@@ -18,7 +18,6 @@
 #include "wallet/common.h"
 #include "wallet/wallet_transaction.h"
 #include "core/fly_client.h"
-#include "swaps/swap_offers_monitor.h"
 
 namespace beam::wallet
 {
