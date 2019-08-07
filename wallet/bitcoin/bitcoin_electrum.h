@@ -19,7 +19,7 @@
 
 #include "bitcoin/bitcoin.hpp"
 
-#include <any>
+#include "nlohmann/json.hpp"
 
 namespace beam
 {
@@ -37,6 +37,16 @@ namespace beam
             std::function<bool(const Error&, const nlohmann::json&, uint64_t)> m_callback;
             std::unique_ptr<io::TcpStream> m_stream;
         };
+
+        // TODO roman.strilets it is temporary
+    public:
+
+        struct BtcCoin
+        {
+            libbitcoin::wallet::ec_private m_privateKey;
+            nlohmann::json m_details;
+        };
+
     public:
         BitcoinElectrum() = delete;
         BitcoinElectrum(io::Reactor& reactor, const BitcoinOptions& options);
@@ -57,6 +67,8 @@ namespace beam
         void getTxOut(const std::string& txid, int outputIndex, std::function<void(const Error&, const std::string&, double, uint16_t)> callback) override;
         void getBlockCount(std::function<void(const Error&, uint64_t)> callback) override;
         void getBalance(uint32_t confirmations, std::function<void(const Error&, double)> callback) override;
+
+        void listUnspent(std::function<void(const Error&, const std::vector<BtcCoin>&)> callback);
 
         /*uint8_t getAddressVersion() override;
         Amount getFeeRate() const override;

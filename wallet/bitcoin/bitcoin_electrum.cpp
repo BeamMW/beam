@@ -15,7 +15,6 @@
 #include "bitcoin_electrum.h"
 
 
-#include "nlohmann/json.hpp"
 #include "utility/io/reactor.h"
 #include "utility/io/timer.h"
 #include "utility/io/tcpstream.h"
@@ -94,21 +93,117 @@ namespace beam
 
     void BitcoinElectrum::fundRawTransaction(const std::string& rawTx, Amount feeRate, std::function<void(const IBitcoinBridge::Error&, const std::string&, int)> callback)
     {
-        LOG_DEBUG() << "Send fundRawTransaction command";
+        LOG_DEBUG() << "fundRawTransaction command";
+        listUnspent([this, rawTx, feeRate, callback](const IBitcoinBridge::Error& error, const std::vector<BitcoinElectrum::BtcCoin>& coins)
+        {
+            data_chunk txData;
+            decode_base16(txData, rawTx);
+            transaction tx = transaction::factory_from_data(txData);
+            uint64_t total = 0;
+            for (auto o : tx.outputs())
+            {
+                total += o.value();
+            }
+
+            points_value unspentPoints;
+            for (auto coin : coins)
+            {
+                hash_digest txHash;
+                decode_hash(txHash, coin.m_details["tx_hash"].get<std::string>());
+                unspentPoints.points.push_back(point_value(point(txHash, coin.m_details["tx_pos"].get<uint32_t>()), coin.m_details["value"].get<uint64_t>()));
+            }
+
+            while (true)
+            {
+                int changePosition = -1;
+                points_value resultPoints;
+
+                select_outputs::select(resultPoints, unspentPoints, total);
+                // TODO roman.strilec proccess error
+
+                transaction newTx(tx);
+                newTx.set_version(2);
+
+                for (auto p : resultPoints.points)
+                {
+                    input in;
+                    output_point outputPoint(p.hash(), p.index());
+
+                    in.set_previous_output(outputPoint);
+                    newTx.inputs().push_back(in);
+                }
+
+                Amount fee = static_cast<Amount>(std::round(double(newTx.weight() * getFeeRate()) / 1000));
+                auto newTxFee = newTx.fees();
+
+                if (fee > newTxFee)
+                {
+                    total += fee;
+                    continue;
+                }
+
+                // TODO roman.strilec need to check on dust output
+                if (fee < newTxFee)
+                {
+                    payment_address destinationAddress(getChangeAddress(0));
+                    script outputScript = script().to_pay_key_hash_pattern(destinationAddress.hash());
+                    output out(newTxFee - fee, outputScript);
+                    Amount feeOutput = static_cast<Amount>(std::round(double(out.serialized_size() * getFeeRate()) / 1000));
+
+                    if (fee + feeOutput < newTxFee)
+                    {
+                        out.set_value(newTxFee - (fee + feeOutput));
+                        newTx.outputs().push_back(out);
+                        changePosition = static_cast<int>(newTx.outputs().size()) - 1;
+                    }
+                }
+
+                callback(error, encode_base16(tx.to_data()), changePosition);
+            }
+        });
     }
 
     void BitcoinElectrum::signRawTransaction(const std::string& rawTx, std::function<void(const IBitcoinBridge::Error&, const std::string&, bool)> callback)
     {
-        LOG_DEBUG() << "Send signRawTransaction command";
+        LOG_DEBUG() << "signRawTransaction command";
 
-        data_chunk txData;
-        decode_base16(txData, rawTx);
-        transaction tx = transaction::factory_from_data(txData);
-
-        for (size_t ind = 0; ind < tx.inputs().size(); ++ind)
+        listUnspent([this, rawTx, callback](const IBitcoinBridge::Error& error, const std::vector<BitcoinElectrum::BtcCoin>& coins)
         {
+            data_chunk txData;
+            decode_base16(txData, rawTx);
+            transaction tx = transaction::factory_from_data(txData);
 
-        }
+            for (size_t ind = 0; ind < tx.inputs().size(); ++ind)
+            {
+                auto previousOutput = tx.inputs()[ind].previous_output();
+                auto strHash = encode_hash(previousOutput.hash());
+                auto index = previousOutput.index();
+
+                for (auto coin : coins)
+                {
+                    if (coin.m_details["tx_hash"].get<std::string>() == strHash && coin.m_details["tx_pos"].get<uint32_t>() == index)
+                    {
+                        script lockingScript = script().to_pay_key_hash_pattern(coin.m_privateKey.to_public().to_payment_address(getAddressVersion()).hash());
+                        endorsement sig;
+                        if (lockingScript.create_endorsement(sig, coin.m_privateKey.secret(), lockingScript, tx, static_cast<uint32_t>(ind), machine::sighash_algorithm::all))
+                        {
+                            script::operation::list sigScript;
+                            sigScript.push_back(script::operation(sig));
+                            data_chunk tmp;
+                            coin.m_privateKey.to_public().to_data(tmp);
+                            sigScript.push_back(script::operation(tmp));
+                            script unlockingScript(sigScript);
+
+                            tx.inputs()[ind].set_script(unlockingScript);
+                        }
+                        break;
+                    }
+                }
+            }
+
+            // TODO roman.strilec process error
+            callback(error, encode_base16(tx.to_data()), true);
+        });
     }
 
     void BitcoinElectrum::sendRawTransaction(const std::string& rawTx, std::function<void(const IBitcoinBridge::Error&, const std::string&)> callback)
@@ -296,6 +391,59 @@ namespace beam
                 }
             }
             callback(error, tmp.m_confirmed / satoshi_per_bitcoin);
+            return false;
+        });
+    }
+
+    void BitcoinElectrum::listUnspent(std::function<void(const Error&, const std::vector<BtcCoin>&)> callback)
+    {
+        LOG_DEBUG() << "listunstpent command";
+        struct {
+            size_t m_index = 0;
+            std::vector<BtcCoin> m_coins;
+        } tmp;
+        auto privateKeys = generatePrivateKeyList();
+
+        sendRequest("blockchain.scripthash.listunspent", "\"" + generateScriptHash(privateKeys[0].to_public()) + "\"",
+            [this, callback, tmp, privateKeys](IBitcoinBridge::Error error, const json& result, uint64_t tag) mutable
+        {
+            if (error.m_type == IBitcoinBridge::None)
+            {
+                TCPConnect& connection = m_connections[tag];
+
+                try
+                {
+                    for (auto utxo : result)
+                    {
+                        BtcCoin coin;
+                        coin.m_privateKey = privateKeys[tmp.m_index];
+                        coin.m_details = utxo;
+                        tmp.m_coins.push_back(coin);
+                    }
+                }
+                catch (const std::exception& ex)
+                {
+                    error.m_type = IBitcoinBridge::InvalidResultFormat;
+                    error.m_message = ex.what();
+
+                    callback(error, tmp.m_coins);
+
+                    return false;
+                }
+
+                if (++tmp.m_index < privateKeys.size())
+                {
+                    std::string request = R"({"method":"blockchain.scripthash.listunspent","params":[")" + generateScriptHash(privateKeys[tmp.m_index].to_public()) + R"("], "id": "teste"})";
+                    request += "\n";
+
+                    Result res = connection.m_stream->write(request.data(), request.size());
+                    if (!res) {
+                        LOG_ERROR() << error_str(res.error());
+                    }
+                    return true;
+                }
+            }
+            callback(error, tmp.m_coins);
             return false;
         });
     }

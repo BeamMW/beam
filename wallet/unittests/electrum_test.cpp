@@ -93,6 +93,27 @@ void testGetBlockCount()
     mainReactor->run();
 }
 
+void testListUnspent()
+{
+    io::Reactor::Ptr mainReactor{ io::Reactor::create() };
+    io::Reactor::Scope scope(*mainReactor);
+    BitcoinOptions options;
+    options.m_chainType = wallet::SwapSecondSideChainType::Testnet;
+    BitcoinElectrum electrum(*mainReactor, options);
+
+    electrum.listUnspent([mainReactor](const IBitcoinBridge::Error&, const std::vector<BitcoinElectrum::BtcCoin>& coins)
+    {
+        for (auto coin : coins)
+        {
+            LOG_INFO() << "details = " << coin.m_details;
+        }
+
+        mainReactor->stop();
+    });
+
+    mainReactor->run();
+}
+
 void testGetBalance()
 {
     io::Reactor::Ptr mainReactor{ io::Reactor::create() };
@@ -120,7 +141,8 @@ int main()
     testDumpPrivKey();
     testGetTxOut();
     testGetBlockCount();*/
-    testGetBalance();
+    //testGetBalance();
+    testListUnspent();
 
     assert(g_failureCount == 0);
     return WALLET_CHECK_RESULT;
