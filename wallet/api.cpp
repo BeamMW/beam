@@ -295,7 +295,7 @@ namespace beam::wallet
         }
         else
         {
-            split.fee = wallet::GetMinimumFee(split.coins.size() + 1); // +1 extra output for change
+            split.fee = std::max(wallet::GetMinimumFee(split.coins.size() + 1), DefaultFee); // +1 extra output for change
         }
 
         _handler.onMessage(id, split);
