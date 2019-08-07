@@ -1215,5 +1215,9 @@ Escanee este código QR o envíe esta dirección al remitente a través de un ca
         <source>Fee is too small</source>
         <translation type="unfinished"></translation>
     </message>
+    <message id="general-validate-dictionary">
+        <source>validate dictionary</source>
+        <translation type="unfinished"></translation>
+    </message>
 </context>
 </TS>

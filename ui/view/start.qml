@@ -1126,7 +1126,7 @@ Item
 
                                     Rectangle {
                                         id: correctPhraseRect
-                                        color: modelData.isAllowed ? Style.background_second : Style.validator_error
+                                        color: !viewModel.validateDictionary || modelData.isAllowed ? Style.background_second : Style.validator_error
                                         width: 20
                                         height: 20
                                         radius: 10
@@ -1148,8 +1148,8 @@ Item
                                     anchors.bottomMargin: 6
                                     width: 121
                                     font.pixelSize: 14
-                                    color: (modelData.isAllowed || modelData.value.length == 0) ? Style.content_main : Style.validator_error
-                                    backgroundColor: (modelData.isAllowed || modelData.value.length == 0) ? Style.content_main : Style.validator_error
+                                    color: (!viewModel.validateDictionary || modelData.isAllowed || modelData.value.length == 0) ? Style.content_main : Style.validator_error
+                                    backgroundColor: (!viewModel.validateDictionary || modelData.isAllowed || modelData.value.length == 0) ? Style.content_main : Style.validator_error
                                     text: modelData.value
                                     onTextEdited: {
                                         var phrases = text.split(viewModel.phrasesSeparator);
@@ -1171,6 +1171,19 @@ Item
                                     property: "value"
                                     value: phraseValue.text
                                 }
+                            }
+                        }
+                        CustomCheckBox {
+                            id: validateDictionaryCB
+                            Layout.fillWidth: true
+                            font.pixelSize: 12
+                            //% "validate dictionary"
+                            text: qsTrId("general-validate-dictionary")
+                            checked: viewModel.validateDictionary
+                            Binding {
+                                target: viewModel
+                                property: "validateDictionary"
+                                value: validateDictionaryCB.checked
                             }
                         }
                     }
@@ -1203,7 +1216,11 @@ Item
                                 var enable = true;
                                 for(var i = 0; i < viewModel.recoveryPhrases.length; ++i)
                                 {
-                                    enable &= viewModel.recoveryPhrases[i].isAllowed;
+                                    if (viewModel.validateDictionary)
+                                    {
+                                        enable &= viewModel.recoveryPhrases[i].isAllowed;
+                                    }
+                                    enable &= viewModel.recoveryPhrases[i].value.length > 0;
                                 }
                                 return enable;
                             }
