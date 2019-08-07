@@ -14,15 +14,24 @@
 
 #pragma once
 
-#include "../bitcoin/options.h"
+#include <QObject>
+#include "wallet/bitcoin/bitcoin_client.h"
 
-namespace beam
+class BitcoinClientModel
+    : public QObject
+    , public beam::BitcoinClient
 {
-    struct LitecoinOptions : public BitcoinOptions
-    {
-        LitecoinOptions()
-        {
-            m_lockTimeInBlocks = 2 * 24 * 4 * 6;
-        }
-    };
-}
+    Q_OBJECT
+public:
+    using Ptr = std::shared_ptr<BitcoinClientModel>;
+
+    BitcoinClientModel(beam::wallet::IWalletDB::Ptr walletDB, beam::io::Reactor& reactor);
+
+signals:
+    void GotStatus(beam::BitcoinClient::Status status);
+    void GotBalance(const beam::BitcoinClient::Balance& balance);
+
+private:
+    void OnStatus(Status status) override;
+    void OnBalance(const BitcoinClient::Balance& balance) override;
+};

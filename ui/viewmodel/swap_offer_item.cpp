@@ -19,37 +19,79 @@
 
 QDateTime SwapOfferItem::time() const
 {
-    QDateTime datetime;
-    datetime.setTime_t(m_offer.m_modifyTime);
-    return datetime;
+    beam::Timestamp time;
+    if (m_offer.GetParameter(TxParameterID::ModifyTime, time))
+    {
+        QDateTime datetime;
+        datetime.setTime_t(time);
+        return datetime;
+    }
+    else
+    {
+        return QDateTime();
+    }
 }
 
 QString SwapOfferItem::id() const
 {
-    auto id = beam::to_hex(m_offer.m_txId.data(), m_offer.m_txId.size());
-    return QString::fromStdString(id);
-}
-
-QString SwapOfferItem::amount() const
-{
-    return beamui::BeamToString(m_offer.m_amount);
-}
-
-QString SwapOfferItem::status() const
-{
-    return m_offer.getStatusString().c_str();
+    auto id = m_offer.GetTxID();
+    
+    if (id.has_value())
+    {
+        value = id.value();
+        beam::to_hex(value.data(), value.size());
+        return QString::fromStdString(value); 
+    }
+    else
+    {
+        return QString("undefined");
+    }
 }
 
 beam::Amount SwapOfferItem::rawAmount() const
 {
-    return m_offer.m_amount;
+    beam::Amount amount;
+    if (m_offer.GetParameter(TxParameterID::Amount, amount))
+    {
+        return amount;
+    }
+    else
+    {
+        return 0;
+    }
+}
+
+QString SwapOfferItem::amount() const
+{
+    return beamui::BeamToString(rawAmount());
+}
+
+QString SwapOfferItem::status() const
+{
+    beam::wallet::TxStatus status;
+    if (m_offer.GetParameter(TxParameterID::Status, status))
+    {
+        // todo - replace with status toString
+        beam::wallet::TxDescription desc;
+        desc.m_status = status;
+        return desc.getStatusString().c_str();
+    }
+    else
+    {
+        return QString("undefined");
+    }
 }
 
 QString SwapOfferItem::message() const
 {
-    std::string msg;
-    if(beam::wallet::fromByteBuffer(m_offer.m_message, msg))
-        return QString::fromStdString(msg);
-    else
-        return QString();
+    beam::ByteBuffer message;
+    if (m_offer.GetParameter(TxParameterID::Message, message))
+    {
+        std::string string;
+        if (beam::wallet::fromByteBuffer(message, string))
+        {
+            return QString::fromStdString(string);
+        }
+    }
+    return QString();
 }

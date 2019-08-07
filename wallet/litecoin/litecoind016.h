@@ -14,8 +14,8 @@
 
 #pragma once
 
-#include "../bitcoin/bitcoind016.h"
-#include "options.h"
+#include "wallet/bitcoin/bitcoind016.h"
+#include "litecoin_settings.h"
 
 namespace beam
 {
@@ -23,9 +23,9 @@ namespace beam
     {
     public:
         Litecoind016() = delete;
-        Litecoind016(io::Reactor& reactor, const LitecoinOptions& options);
+        Litecoind016(io::Reactor& reactor, ILitecoindSettingsProvider::Ptr settingsProvider);
 
-        uint8_t getAddressVersion() override;
+    protected:
         std::string getCoinName() const override;
     };
 }

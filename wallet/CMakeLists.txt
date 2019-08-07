@@ -1,14 +1,9 @@
+cmake_minimum_required(VERSION 3.10)
+
 set(TARGET_NAME beam-wallet${BEAM_TARGET_SUFFIX})
 
-add_library(wallet STATIC ${WALLET_SRC})
-
-target_compile_definitions(
-    wallet
-    PRIVATE SQLITE_HAS_CODEC
-)
-
-target_sources(
-    wallet
+add_library(wallet STATIC)
+target_sources(wallet
     PRIVATE common.cpp
     PRIVATE default_peers.cpp
     PRIVATE wallet.h
@@ -20,25 +15,13 @@ target_sources(
     PRIVATE wallet_db.cpp
     PRIVATE wallet_client.h
     PRIVATE wallet_client.cpp
-    PRIVATE swaps/swap_transaction.cpp
-    PRIVATE swaps/lock_tx_builder.cpp
-    PRIVATE swaps/shared_tx_builder.cpp
-    PRIVATE swaps/swap_offers_monitor.cpp
-    PRIVATE bitcoin/bitcoin_side.cpp
-    PRIVATE bitcoin/bitcoind016.cpp
-    PRIVATE bitcoin/bitcoind017.cpp
-    PRIVATE litecoin/litecoind016.cpp
-    PRIVATE litecoin/litecoind017.cpp
-    PRIVATE qtum/qtumd017.cpp
-    PRIVATE secstring2.cpp
+    PRIVATE base58.cpp
     PRIVATE unittests/util.cpp
 )
+target_compile_definitions(wallet PRIVATE SQLITE_HAS_CODEC)
+target_link_libraries(wallet core sqlite)
+target_compile_features(wallet PUBLIC cxx_std_17)
 
-add_dependencies(wallet core sqlite libbitcoin http)
-
-target_link_libraries(wallet core sqlite libbitcoin http)
-
-target_include_directories(wallet PUBLIC "${CMAKE_SOURCE_DIR}/3rdparty/libbitcoin/include")
 
 if (NOT ANDROID)
 
@@ -53,7 +36,6 @@ if (NOT ANDROID)
             ${PROJECT_SOURCE_DIR}/3rdparty/trezor-cpp-client/src/messages/messages-beam.pb.cc
         )
 
-        add_dependencies(hw_wallet core)
         target_link_libraries(hw_wallet core)
 
         if(MSVC)
@@ -68,7 +50,7 @@ if (NOT ANDROID)
         target_include_directories(hw_wallet PRIVATE ${PROJECT_SOURCE_DIR}/3rdparty/trezor-cpp-client/src/messages)
         target_include_directories(hw_wallet PRIVATE ${PROJECT_SOURCE_DIR}/3rdparty/curl/include)
         target_include_directories(hw_wallet PRIVATE ${PROJECT_SOURCE_DIR}/3rdparty/protobuf/src)
-        add_dependencies(wallet hw_wallet libprotobuf libcurl)
+
         target_link_libraries(wallet hw_wallet libprotobuf libcurl)
 
     endif()
@@ -84,25 +66,20 @@ if (NOT ANDROID)
     configure_file("${PROJECT_SOURCE_DIR}/version.h.in" "${CMAKE_CURRENT_BINARY_DIR}/version.h")
     target_include_directories(${TARGET_NAME} PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
 
-    add_dependencies(${TARGET_NAME} wallet utility cli)
-    target_link_libraries(${TARGET_NAME} wallet utility cli)
+    target_link_libraries(${TARGET_NAME} wallet utility cli swap)
 
     add_library(wallet_api_proto STATIC api.cpp)
-    add_dependencies(wallet_api_proto wallet utility http)
     target_link_libraries(wallet_api_proto wallet utility http)
 
     set(WALLET_API_NAME wallet-api${BEAM_TARGET_SUFFIX})
 
     add_executable(${WALLET_API_NAME} api_cli.cpp)
     target_include_directories(${WALLET_API_NAME} PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
-        add_dependencies(${WALLET_API_NAME} wallet utility wallet_api_proto cli)
-        target_link_libraries(${WALLET_API_NAME} wallet utility wallet_api_proto cli)
+    target_link_libraries(${WALLET_API_NAME} wallet utility wallet_api_proto cli)
 
     if(LINUX)
         target_link_libraries(${WALLET_API_NAME} -static-libstdc++ -static-libgcc)
     endif()
-
-    add_subdirectory(unittests)
 
     if (BEAM_SIGN_PACKAGE AND WIN32)
         add_custom_command(
@@ -115,4 +92,17 @@ if (NOT ANDROID)
         )
     endif()
 
+    add_subdirectory(unittests)
+    add_subdirectory(swaps)
+
+    if (BEAM_SIGN_PACKAGE AND WIN32)
+        add_custom_command(
+            TARGET ${TARGET_NAME} POST_BUILD
+            COMMAND ${SIGNTOOL_EXECUTABLE} sign ${SIGNTOOL_OPTIONS} "${CMAKE_CURRENT_BINARY_DIR}\\{TARGET_NAME}.exe"
+        )
+        add_custom_command(
+            TARGET ${WALLET_API_NAME} POST_BUILD
+            COMMAND ${SIGNTOOL_EXECUTABLE} sign ${SIGNTOOL_OPTIONS} "${CMAKE_CURRENT_BINARY_DIR}\\${WALLET_API_NAME}.exe"
+        )
+    endif()
 endif()

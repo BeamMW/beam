@@ -137,6 +137,8 @@ set(UI_SRC
     model/helpers.h
     model/translator.cpp
     model/translator.h
+    model/bitcoin_client_model.cpp
+    model/bitcoin_client_model.h
 )
 
 beam_translations_update_ts("${SUPPORTED_LANGS}" TS_FILES)
@@ -199,7 +201,6 @@ endif()
 
 configure_file("${PROJECT_SOURCE_DIR}/version.h.in" "${CMAKE_CURRENT_BINARY_DIR}/version.h")
 
-add_dependencies(${TARGET_NAME} wallet mnemonic qrcode cli)
 target_link_libraries(${TARGET_NAME} qrcode cli)
 if (LINUX)
     target_link_libraries(${TARGET_NAME} X11)
@@ -215,16 +216,14 @@ target_include_directories(${TARGET_NAME} PRIVATE ${CMAKE_PREFIX_PATH}/include/Q
 target_include_directories(${TARGET_NAME} PRIVATE ${PROJECT_SOURCE_DIR}/3rdparty/quazip)
 add_definitions(-DQUAZIP_STATIC)
 
-add_dependencies(${TARGET_NAME} quazip_static)
 target_link_libraries(${TARGET_NAME} quazip_static)
 
 #if (BEAM_WALLET_WITH_NODE)
     add_definitions(-DBEAM_WALLET_WITH_NODE)
-    add_dependencies(${TARGET_NAME} node external_pow)
     target_link_libraries(${TARGET_NAME} node external_pow)
 #endif()
 
-target_link_libraries(${TARGET_NAME} wallet mnemonic Qt5::Qml Qt5::Quick Qt5::Svg Qt5::PrintSupport)
+target_link_libraries(${TARGET_NAME} wallet swap mnemonic Qt5::Qml Qt5::Quick Qt5::Svg Qt5::PrintSupport)
 
 if (BEAM_SIGN_PACKAGE AND WIN32)
     add_custom_command(

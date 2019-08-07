@@ -33,7 +33,7 @@ struct EmptyTestGateway : wallet::INegotiatorGateway
     bool get_tip(Block::SystemState::Full& state) const override { return false; }
     void send_tx_params(const WalletID& peerID, wallet::SetTxParameter&&) override {}
     void UpdateOnNextTip(const TxID&) override {};
-    wallet::SecondSide::Ptr GetSecondSide(const TxID&) const override { return nullptr; }
+//    wallet::SecondSide::Ptr GetSecondSide(const TxID&) const override { return nullptr; }
 };
 
 Coin CreateAvailCoin(Amount amount, Height maturity = 10)
@@ -292,10 +292,10 @@ struct TestGateway : wallet::INegotiatorGateway
         return true;
     }
 
-    wallet::SecondSide::Ptr GetSecondSide(const TxID&) const override
-    {
-        return nullptr;
-    }
+    //wallet::SecondSide::Ptr GetSecondSide(const TxID&) const override
+    //{
+    //    return nullptr;
+    //}
 };
 
 class AsyncProcessor
@@ -326,7 +326,7 @@ public:
 class OneTimeBbsEndpoint : public WalletNetworkViaBbs
 {
 public:
-    OneTimeBbsEndpoint(IWallet& wallet, std::shared_ptr<proto::FlyClient::INetwork> nodeEndpoint, const IWalletDB::Ptr& walletDB)
+    OneTimeBbsEndpoint(IWalletMessageConsumer& wallet, std::shared_ptr<proto::FlyClient::INetwork> nodeEndpoint, const IWalletDB::Ptr& walletDB)
         : WalletNetworkViaBbs(wallet, nodeEndpoint, walletDB)
     {
 
@@ -408,7 +408,7 @@ struct TestWalletRig
 
     WalletID m_WalletID;
     IWalletDB::Ptr m_WalletDB;
-    wallet::IPrivateKeyKeeper::Ptr m_KeyKeeper;
+    IPrivateKeyKeeper::Ptr m_KeyKeeper;
     Wallet m_Wallet;
 };
 
@@ -418,7 +418,7 @@ struct TestWalletNetwork
 {
     struct Entry
     {
-        IWallet* m_pSink;
+        IWalletMessageConsumer* m_pSink;
         std::deque<std::pair<WalletID, wallet::SetTxParameter> > m_Msgs;
     };
 
@@ -443,7 +443,7 @@ struct TestWalletNetwork
     {
         for (WalletMap::iterator it = m_Map.begin(); m_Map.end() != it; it++)
             for (Entry& v = it->second; !v.m_Msgs.empty(); v.m_Msgs.pop_front())
-                v.m_pSink->OnWalletMessage(v.m_Msgs.front().first, std::move(v.m_Msgs.front().second));
+                v.m_pSink->OnWalletMessage(v.m_Msgs.front().first, v.m_Msgs.front().second);
     }
 };
 
@@ -1120,7 +1120,13 @@ public:
             {
                 if (sendCount--)
                 {
-                    sender.m_Wallet.transfer_money(sender.m_WalletID, receiver.m_WalletID, 5, 1, true, 10000, 10000);
+                    sender.m_Wallet.StartTransaction(CreateSimpleTransactionParameters()
+                        .SetParameter(TxParameterID::MyID, sender.m_WalletID)
+                        .SetParameter(TxParameterID::PeerID, receiver.m_WalletID)
+                        .SetParameter(TxParameterID::Amount, Amount(5))
+                        .SetParameter(TxParameterID::Fee, Amount(1))
+                        .SetParameter(TxParameterID::Lifetime, Height(10000))
+                        .SetParameter(TxParameterID::PeerResponseHeight, Height(10000)));
                 }
             }
             if (sendCount)

@@ -17,10 +17,10 @@
 #include "wallet/common.h"
 #include "wallet/wallet_db.h"
 
-#include <condition_variable>
 #include <boost/optional.hpp>
 #include "utility/logger.h"
 
+#include <condition_variable>
 #include <memory>
 
 #if defined(BEAM_HW_WALLET)
@@ -30,13 +30,14 @@
 namespace beam::wallet
 {
     TxID GenerateTxID();
-
+    TxParameters CreateTransactionParameters(TxType type);
     //
     // Interface for all possible transaction types
     //
     struct ITransaction
     {
         using Ptr = std::shared_ptr<ITransaction>;
+
         virtual TxType GetType() const = 0;
         virtual void Update() = 0;
         virtual void Cancel() = 0;
@@ -190,7 +191,17 @@ namespace beam::wallet
     {
     public:
         using Ptr = std::shared_ptr<BaseTransaction>;
-        using Creator = std::function<BaseTransaction::Ptr(INegotiatorGateway&, IWalletDB::Ptr, IPrivateKeyKeeper::Ptr, const TxID&)>;
+
+        class Creator
+        {
+        public:
+            using Ptr = std::shared_ptr<Creator>;
+
+            virtual ~Creator() = default;
+
+            virtual BaseTransaction::Ptr Create(INegotiatorGateway& gateway, WalletDB::Ptr, IPrivateKeyKeeper::Ptr, const TxID&) = 0;
+            virtual bool CanCreate(const TxParameters&) { return true; };
+        };
 
         BaseTransaction(INegotiatorGateway& gateway
                       , IWalletDB::Ptr walletDB
@@ -250,7 +261,9 @@ namespace beam::wallet
         uint32_t get_PeerVersion() const;
         bool GetTip(Block::SystemState::Full& state) const;
         void UpdateAsync();
+        INegotiatorGateway& GetGateway() const;
     protected:
+        
         virtual bool CheckExpired();
         virtual bool CheckExternalFailures();
         void ConfirmKernel(const Merkle::Hash& kernelID);

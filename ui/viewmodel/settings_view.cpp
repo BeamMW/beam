@@ -18,9 +18,10 @@
 #include <QApplication>
 #include <QClipboard>
 #include "model/app_model.h"
+#include "model/helpers.h"
 #include <thread>
 #include "wallet/secstring.h"
-
+#include "qml_globals.h"
 #include <algorithm>
 
 
@@ -39,9 +40,12 @@ SettingsViewModel::SettingsViewModel()
     undoChanges();
     connect(&AppModel::getInstance().getNode(), SIGNAL(startedNode()), SLOT(onNodeStarted()));
     connect(&AppModel::getInstance().getNode(), SIGNAL(stoppedNode()), SLOT(onNodeStopped()));
+    connect(AppModel::getInstance().getWallet().get(), SIGNAL(addressChecked(const QString&, bool)), SLOT(onAddressChecked(const QString&, bool)));
 
-    connect(AppModel::getInstance().getWallet().get(), SIGNAL(addressChecked(const QString&, bool)),
-        SLOT(onAddressChecked(const QString&, bool)));
+    LoadBitcoinSettings();
+
+    // TODO:SWAP-SETTINGS load Ltc settings
+    // TODO:SWAP-SETTINGS load Qtum settings
 
     m_timerId = startTimer(CHECK_INTERVAL);
 }
@@ -71,6 +75,252 @@ void SettingsViewModel::onAddressChecked(const QString& addr, bool isValid)
             m_isNeedToApplyChanges = false;
         }
     }
+}
+
+QString SettingsViewModel::getBtcUser() const
+{
+    return m_bitcoinUser;
+}
+
+void SettingsViewModel::setBtcUser(const QString& value)
+{
+    LOG_INFO() << "SetBtcUser " << value.toStdString();
+    if (value != m_bitcoinUser)
+    {
+        m_bitcoinUser = value;
+        emit btcUserChanged();
+        emit propertiesChanged();
+    }
+}
+
+QString SettingsViewModel::getBtcPass() const
+{
+    return m_bitcoinPass;
+}
+
+void SettingsViewModel::setBtcPass(const QString& value)
+{
+    LOG_INFO() << "setBtcPass ****";
+    if (value != m_bitcoinPass)
+    {
+        m_bitcoinPass = value;
+        emit btcPassChanged();
+        emit propertiesChanged();
+    }
+}
+
+QString SettingsViewModel::getBtcNodeAddress() const
+{
+    return m_bitcoinNodeAddress;
+}
+
+void SettingsViewModel::setBtcNodeAddress(const QString& value)
+{
+    const auto val = value == "0.0.0.0" ? "" : value;
+    LOG_INFO() << "setBtcNodeAddress " << val.toStdString();
+    if (val != m_bitcoinNodeAddress)
+    {
+        m_bitcoinNodeAddress = val;
+        emit btcNodeAddressChanged();
+        emit propertiesChanged();
+    }
+}
+
+int SettingsViewModel::getBtcFeeRate() const
+{
+    return m_bitcoinFeeRate;
+}
+
+void SettingsViewModel::setBtcFeeRate(int value)
+{
+    LOG_INFO() << "setBtcFeeRate " << value;
+    if (value != m_bitcoinFeeRate)
+    {
+        m_bitcoinFeeRate = value;
+        emit btcFeeRateChanged();
+        emit propertiesChanged();
+    }
+}
+
+void SettingsViewModel::btcOff()
+{
+    setBtcFeeRate(QMLGlobals::defFeeRateBtc());
+    setBtcNodeAddress("");
+    setBtcPass("");
+    setBtcUser("");
+    applyBtcSettings();
+    // TODO:SWAP-SETTINGS we rest settings to nothing, disconnect Btc here
+}
+
+void SettingsViewModel::applyBtcSettings()
+{
+    BitcoindSettings connectionSettings;
+    connectionSettings.m_pass = m_bitcoinPass.toStdString();
+    connectionSettings.m_userName = m_bitcoinUser.toStdString();
+
+    if (!m_bitcoinNodeAddress.isEmpty())
+    {
+        const std::string address = m_bitcoinNodeAddress.toStdString();
+        connectionSettings.m_address.resolve(address.c_str());
+    }
+
+    m_bitcoinSettings->SetConnectionOptions(connectionSettings);
+    m_bitcoinSettings->SetFeeRate(m_bitcoinFeeRate);
+
+    AppModel::getInstance().getBitcoinClient()->SetSettings(*m_bitcoinSettings);
+
+    // TODO:SWAP-SETTINGS probably need to remove
+    AppModel::getInstance().getBitcoinClient()->GetAsync()->GetBalance();
+}
+
+QString SettingsViewModel::getLtcUser() const
+{
+    return m_litecoinUser;
+}
+
+void SettingsViewModel::setLtcUser(const QString& value)
+{
+    if (value != m_litecoinUser)
+    {
+        m_litecoinUser = value;
+        emit ltcUserChanged();
+        emit propertiesChanged();
+    }
+}
+
+QString SettingsViewModel::getLtcPass() const
+{
+    return m_litecoinPass;
+}
+
+void SettingsViewModel::setLtcPass(const QString& value)
+{
+    if (value != m_litecoinPass)
+    {
+        m_litecoinPass = value;
+        emit ltcPassChanged();
+        emit propertiesChanged();
+    }
+}
+
+QString SettingsViewModel::getLtcNodeAddress() const
+{
+    return m_litecoinNodeAddress;
+}
+
+void SettingsViewModel::setLtcNodeAddress(const QString& value)
+{
+    if (value != m_litecoinNodeAddress)
+    {
+        m_litecoinNodeAddress = value;
+        emit ltcNodeAddressChanged();
+        emit propertiesChanged();
+    }
+}
+
+int SettingsViewModel::getLtcFeeRate() const
+{
+    return m_litecoinFeeRate;
+}
+
+void SettingsViewModel::setLtcFeeRate(int value)
+{
+    if (value != m_litecoinFeeRate)
+    {
+        m_litecoinFeeRate = value;
+        emit ltcFeeRateChanged();
+        emit propertiesChanged();
+    }
+}
+
+void SettingsViewModel::applyLtcSettings()
+{
+    // TODO:SWAP-SETTINGS save Ltc settings. These can be empty, take a look at btc apply
+}
+
+void SettingsViewModel::ltcOff()
+{
+    setLtcFeeRate(QMLGlobals::defFeeRateLtc());
+    setLtcNodeAddress("");
+    setLtcPass("");
+    setLtcUser("");
+    applyLtcSettings();
+    // TODO:SWAP-SETTINGS we rest settings to nothing, disconnect Ltc here
+}
+
+QString SettingsViewModel::getQtumUser() const
+{
+    return m_qtumUser;
+}
+
+void SettingsViewModel::setQtumUser(const QString& value)
+{
+    if (value != m_qtumUser)
+    {
+        m_qtumUser = value;
+        emit qtumUserChanged();
+        emit propertiesChanged();
+    }
+}
+
+QString SettingsViewModel::getQtumPass() const
+{
+    return m_qtumPass;
+}
+
+void SettingsViewModel::setQtumPass(const QString& value)
+{
+    if (value != m_qtumPass)
+    {
+        m_qtumPass = value;
+        emit qtumPassChanged();
+        emit propertiesChanged();
+    }
+}
+
+QString SettingsViewModel::getQtumNodeAddress() const
+{
+    return m_qtumNodeAddress;
+}
+
+void SettingsViewModel::setQtumNodeAddress(const QString& value)
+{
+    if (value != m_qtumNodeAddress)
+    {
+        m_qtumNodeAddress = value;
+        emit qtumNodeAddressChanged();
+        emit propertiesChanged();
+    }
+}
+
+int SettingsViewModel::getQtumFeeRate() const
+{
+    return m_qtumFeeRate;
+}
+
+void SettingsViewModel::setQtumFeeRate(int value)
+{
+    if (value != m_qtumFeeRate)
+    {
+        m_qtumFeeRate = value;
+        emit qtumFeeRateChanged();
+        emit propertiesChanged();
+    }
+}
+
+void SettingsViewModel::applyQtumSettings()
+{
+    // TODO:SWAP-SETTINGS save Qtum settings. These can be empty, take a look at btc apply
+}
+
+void SettingsViewModel::qtumOff()
+{
+    setQtumFeeRate(QMLGlobals::defFeeRateQtum());
+    setQtumNodeAddress("");
+    setQtumPass("");
+    setQtumUser("");
+    applyQtumSettings();
+    // TODO:SWAP-SETTINGS we rest settings to nothing, disconnect Qtum here
 }
 
 bool SettingsViewModel::isLocalNodeRunning() const
@@ -314,8 +564,7 @@ void SettingsViewModel::undoChanges()
     setLocalNodePeers(m_settings.getLocalNodePeers());
     setPasswordReqiredToSpendMoney(m_settings.isPasswordReqiredToSpendMoney());
     allowBeamMWLinks(m_settings.isAllowedBeamMWLinks());
-    setCurrentLanguageIndex(
-            m_supportedLanguages.indexOf(m_settings.getLanguageName()));
+    setCurrentLanguageIndex(m_supportedLanguages.indexOf(m_settings.getLanguageName()));
 }
 
 void SettingsViewModel::reportProblem()
@@ -338,4 +587,13 @@ void SettingsViewModel::timerEvent(QTimerEvent *event)
 
         killTimer(m_timerId);
     }
+}
+
+void SettingsViewModel::LoadBitcoinSettings()
+{
+    m_bitcoinSettings = AppModel::getInstance().getBitcoinClient()->GetSettings();
+    setBtcUser(str2qstr(m_bitcoinSettings->GetConnectionOptions().m_userName));
+    setBtcPass(str2qstr(m_bitcoinSettings->GetConnectionOptions().m_pass));
+    setBtcNodeAddress(str2qstr(m_bitcoinSettings->GetConnectionOptions().m_address.str()));
+    setBtcFeeRate(m_bitcoinSettings->GetFeeRate());
 }

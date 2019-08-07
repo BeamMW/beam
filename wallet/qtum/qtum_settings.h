@@ -14,16 +14,26 @@
 
 #pragma once
 
-#include "../bitcoin/options.h"
+#include "wallet/bitcoin/bitcoin_settings.h"
 
 namespace beam
 {
-    struct QtumOptions : public BitcoinOptions
+    using IQtumdSettingsProvider = IBitcoindSettingsProvider;
+    using IQtumSettingsProvider = IBitcoinSettingsProvider;
+    using QtumdSettings = BitcoindSettings;
+
+    class QtumSettings : public BitcoinSettings
     {
-        QtumOptions()
+    public:
+        QtumSettings()
+            : BitcoinSettings()
         {
-            m_confirmations = 10;
-            m_lockTimeInBlocks = 2 * 600;   // 48h
+            constexpr uint16_t kQtumDefaultTxMinConfirmations = 10;
+            constexpr uint32_t kQtumDefaultLockTimeInBlocks = 2 * 600;  // 48h
+
+            SetTxMinConfirmations(kQtumDefaultTxMinConfirmations);
+            SetLockTimeInBlocks(kQtumDefaultLockTimeInBlocks);
+            SetMinFeeRate(90000);
         }
     };
 }

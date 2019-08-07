@@ -12,22 +12,25 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#pragma once
+#include "bitcoin_client_model.h"
 
-#include "utility/io/address.h"
-#include "utility/common.h"
-#include "wallet/common.h"
 
-namespace beam
+using namespace beam;
+
+
+BitcoinClientModel::BitcoinClientModel(wallet::IWalletDB::Ptr walletDB, io::Reactor& reactor)
+    : BitcoinClient(walletDB, reactor)
 {
-    struct BitcoinOptions
-    {
-        std::string m_userName;
-        std::string m_pass;
-        io::Address m_address;
-        Amount m_feeRate;
-        uint16_t m_confirmations = 6;
-        wallet::SwapSecondSideChainType m_chainType = wallet::SwapSecondSideChainType::Mainnet;
-        uint32_t m_lockTimeInBlocks = 2 * 24 * 6;
-    };
+    qRegisterMetaType<beam::BitcoinClient::Status>("beam::BitcoinClient::Status");
+    qRegisterMetaType<beam::BitcoinClient::Balance>("beam::BitcoinClient::Balance");
+}
+
+void BitcoinClientModel::OnStatus(Status status)
+{
+    emit GotStatus(status);
+}
+
+void BitcoinClientModel::OnBalance(const BitcoinClient::Balance& balance)
+{
+    emit GotBalance(balance);
 }

@@ -84,6 +84,7 @@ private:
     beam::Amount calcTotalAmount() const;
     beam::Amount calcSendAmount() const;
     beam::Amount calcFeeAmount() const;
+    void extractParameters();
 
     int     _feeGrothes;
     double  _sendAmount;
@@ -92,4 +93,5 @@ private:
     StatusHolder _status;
     beam::Amount _change;
     WalletModel& _walletModel;
+    beam::wallet::TxParameters _txParameters;
 };

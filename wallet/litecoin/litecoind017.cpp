@@ -16,25 +16,11 @@
 
 #include "bitcoin/bitcoin.hpp"
 
-namespace {
-    constexpr uint8_t kLitecoinMainnetP2KH = 48;
-}
-
 namespace beam
 {
-    Litecoind017::Litecoind017(io::Reactor& reactor, const LitecoinOptions& options)
-        : Bitcoind017(reactor, options)
+    Litecoind017::Litecoind017(io::Reactor& reactor, ILitecoindSettingsProvider::Ptr settingsProvider)
+        : Bitcoind017(reactor, settingsProvider)
     {
-    }
-
-    uint8_t Litecoind017::getAddressVersion()
-    {
-        if (isMainnet())
-        {
-            return kLitecoinMainnetP2KH;
-        }
-
-        return libbitcoin::wallet::ec_private::testnet_p2kh;
     }
 
     std::string Litecoind017::getCoinName() const

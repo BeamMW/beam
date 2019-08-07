@@ -16,6 +16,7 @@
 #include <QApplication>
 #include <QClipboard>
 #include "model/app_model.h"
+#include "wallet/common.h"
 
 namespace
 {
@@ -38,21 +39,33 @@ void QMLGlobals::copyToClipboard(const QString& text)
     QApplication::clipboard()->setText(text);
 }
 
+bool QMLGlobals::isTAValid(const QString& text)
+{
+    if (QMLGlobals::isTransactionToken(text))
+    {
+        return true;
+    }
+
+    return beam::wallet::check_receiver_address(text.toStdString());
+}
+
 bool QMLGlobals::isTransactionToken(const QString& text)
 {
     if (text.isEmpty()) return false;
-
-    // TODO:SWAP check if correct
-    return static_cast<bool>(text.toUtf8()[0] & 0x80);
+    
+    auto params = beam::wallet::ParseParameters(text.toStdString());
+    return params && params->GetParameter<beam::wallet::TxType>(beam::wallet::TxParameterID::TransactionType);
 }
 
 bool QMLGlobals::isSwapToken(const QString& text)
 {
-    // TODO:SWAP This is for tests, implement real check
-    return text == "112233";
-
-    // if (!QMLGlobals::isTransactionToken(text)) return false;
-    // return
+    auto params = beam::wallet::ParseParameters(text.toStdString());
+    if (!params)
+    {
+        return false;
+    }
+    auto type = params->GetParameter<beam::wallet::TxType>(beam::wallet::TxParameterID::TransactionType);
+    return type && *type == beam::wallet::TxType::AtomicSwap;
 }
 
 QString QMLGlobals::getLocaleName()
@@ -70,34 +83,60 @@ bool QMLGlobals::isFeeOK(int fee, Currency currency)
 {
     switch (currency)
     {
-    case Currency::CurrBEAM: return fee >= minFeeBEAM();
-    case Currency::CurrBTC:  return fee >= minFeeBTC();
-    case Currency::CurrLTC:  return fee >= minFeeLTC();
-    case Currency::CurrQTUM: return fee >= minFeeQTUM();
+    case Currency::CurrBeam: return fee >= minFeeBeam();
+    case Currency::CurrBtc:  return fee >= minFeeRateBtc();
+    case Currency::CurrLtc:  return fee >= minFeeRateLtc();
+    case Currency::CurrQtum: return fee >= minFeeRateQtum();
     default:
         assert(false);
         return false;
     }
 }
 
-int QMLGlobals::minFeeBEAM()
+int QMLGlobals::minFeeBeam()
 {
     assert(AppModel::getInstance().getWallet());
     return AppModel::getInstance().getWallet()->isFork1() ? kFeeInGroth_Fork1 : kDefaultFeeInGroth;
 }
 
-int QMLGlobals::minFeeBTC()
+int QMLGlobals::defFeeBeam()
 {
-    return 50000;
+    return minFeeBeam();
 }
 
-int QMLGlobals::minFeeLTC()
+int QMLGlobals::minFeeRateBtc()
 {
+     const auto btcSettings = AppModel::getInstance().getBitcoinClient()->GetSettings();
+     return btcSettings.GetMinFeeRate();
+}
+
+int QMLGlobals::defFeeRateBtc()
+{
+     const auto btcSettings = AppModel::getInstance().getBitcoinClient()->GetSettings();
+     return btcSettings.GetFeeRate();
+}
+
+int QMLGlobals::minFeeRateLtc()
+{
+    // TODO:SWAP-SETTINGS read from settings (see btc for an example)
     return 90000;
 }
 
-int QMLGlobals::minFeeQTUM()
+int QMLGlobals::defFeeRateLtc()
 {
+    // TODO:SWAP-SETTINGS read from settings (see btc for an example)
+    return 90000;
+}
+
+int QMLGlobals::minFeeRateQtum()
+{
+    // TODO:SWAP-SETTINGS read from settings (see btc for an example)
+    return 90000;
+}
+
+int QMLGlobals::defFeeRateQtum()
+{
+    // TODO:SWAP-SETTINGS read from settings (see btc for an example)
     return 90000;
 }
 
@@ -110,4 +149,58 @@ bool QMLGlobals::isPasswordValid(const QString& value)
 {
     beam::SecString secretPass = value.toStdString();
     return AppModel::getInstance().checkWalletPassword(secretPass);
+}
+
+QString QMLGlobals::beamFeeRateLabel()
+{
+    return "GROTH";
+}
+
+QString QMLGlobals::btcFeeRateLabel()
+{
+    return "sat/kB";
+}
+
+QString QMLGlobals::ltcFeeRateLabel()
+{
+    return "ph/kB";
+}
+
+QString QMLGlobals::qtumFeeRateLabel()
+{
+    return "qsat/kB";
+}
+
+int QMLGlobals::getMinFeeOrRate(Currency currency)
+{
+    switch (currency) {
+        case Currency::CurrBeam: return minFeeBeam();
+        case Currency::CurrBtc:  return minFeeRateBtc();
+        case Currency::CurrLtc:  return minFeeRateLtc();
+        case Currency::CurrQtum: return minFeeRateQtum();
+        default: assert(false); return 0;
+    }
+}
+
+bool QMLGlobals::canSwap()
+{
+    return haveBtc() || haveLtc() || haveQtum();
+}
+
+bool QMLGlobals::haveBtc()
+{
+    // TODO:SWAP return true if btc is initialized
+    return false;
+}
+
+bool QMLGlobals::haveLtc()
+{
+    // TODO:SWAP return true if btc is initialized
+    return false;
+}
+
+bool QMLGlobals::haveQtum()
+{
+    // TODO:SWAP return true if btc is initialized
+    return false;
 }

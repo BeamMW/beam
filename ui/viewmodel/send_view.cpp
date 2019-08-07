@@ -100,7 +100,7 @@ void SendViewModel::setReceiverTA(const QString& value)
     LOG_INFO() << "setReceiverTA " << value.toStdString();
     if (_receiverTA != value)
     {
-        _receiverTA = value;
+       _receiverTA = value;
         emit receiverTAChanged();
         emit canSendChanged();
 
@@ -113,7 +113,7 @@ void SendViewModel::setReceiverTA(const QString& value)
         {
             if(getRreceiverTAValid())
             {
-                // TODO:SWAP Extract and set amount, fee
+                extractParameters();
             }
             else
             {
@@ -196,7 +196,7 @@ bool SendViewModel::canSend() const
 {
     return !QMLGlobals::isSwapToken(_receiverTA) && getRreceiverTAValid()
            && _sendAmount > 0 && isEnough()
-           && QMLGlobals::isFeeOK(_feeGrothes, Currency::CurrBEAM);
+           && QMLGlobals::isFeeOK(_feeGrothes, Currency::CurrBeam);
 }
 
 void SendViewModel::sendMoney()
@@ -204,11 +204,15 @@ void SendViewModel::sendMoney()
     assert(canSend());
     if(canSend())
     {
-        beam::wallet::WalletID walletID(beam::Zero);
-        walletID.FromHex(getReceiverAddress().toStdString());
-
         // TODO:SWAP show 'operation in process' animation here?
-        _walletModel.getAsync()->sendMoney(walletID, _comment.toStdString(), calcSendAmount(), calcFeeAmount());
+
+        auto p = beam::wallet::CreateSimpleTransactionParameters()
+            .SetParameter(beam::wallet::TxParameterID::PeerID, *_txParameters.GetParameter<beam::wallet::WalletID>(beam::wallet::TxParameterID::PeerID))
+            .SetParameter(beam::wallet::TxParameterID::Amount, calcSendAmount())
+            .SetParameter(beam::wallet::TxParameterID::Fee, calcFeeAmount())
+            .SetParameter(beam::wallet::TxParameterID::Message, beam::wallet::toByteBuffer(_comment.toStdString()));
+
+        _walletModel.getAsync()->startTransaction(std::move(p));
     }
 }
 
@@ -222,4 +226,22 @@ void SendViewModel::onCantSendToExpired()
 {
     // forward to qml
     emit cantSendToExpired();
+}
+
+void SendViewModel::extractParameters()
+{
+    _txParameters = *beam::wallet::ParseParameters(_receiverTA.toStdString());
+    if (auto amount = _txParameters.GetParameter<beam::Amount>(beam::wallet::TxParameterID::Amount); amount)
+    {
+        setSendAmount(static_cast<double>(*amount) / beam::Rules::Coin);
+    }
+    if (auto fee = _txParameters.GetParameter<beam::Amount>(beam::wallet::TxParameterID::Fee); fee)
+    {
+        setFeeGrothes(static_cast<int>(*fee));
+    }
+    if (auto comment = _txParameters.GetParameter<beam::ByteBuffer>(beam::wallet::TxParameterID::Message); comment)
+    {
+        std::string s(comment->begin(), comment->end());
+        setComment(QString::fromStdString(s));
+    }
 }

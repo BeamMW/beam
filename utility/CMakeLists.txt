@@ -1,3 +1,6 @@
+cmake_minimum_required(VERSION 3.10)
+cmake_policy(SET CMP0074 NEW)
+
 set(UTILITY_SRC
     common.cpp
     logger.cpp
@@ -47,6 +50,7 @@ if (MSVC)
 endif()
 
 add_library(utility STATIC ${UTILITY_SRC} ${IO_SRC})
+target_compile_features(utility PUBLIC cxx_std_17)
 
 if(ANDROID OR NOT BEAM_USE_AVX)
     add_library(crypto STATIC ${PROJECT_SOURCE_DIR}/3rdparty/crypto/blake/ref/blake2b-ref.c)
@@ -59,7 +63,6 @@ endif()
 #endif()
 
 if (UV_INTERNAL)
-    add_dependencies(utility uv_a)
     target_link_libraries(utility uv_a)
 else()
     target_link_libraries(utility uv)

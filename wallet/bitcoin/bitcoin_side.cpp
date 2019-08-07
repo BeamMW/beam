@@ -69,9 +69,10 @@ namespace
 
 namespace beam::wallet
 {
-    BitcoinSide::BitcoinSide(BaseTransaction& tx, IBitcoinBridge::Ptr bitcoinBridge, bool isBeamSide)
+    BitcoinSide::BitcoinSide(BaseTransaction& tx, IBitcoinBridge::Ptr bitcoinBridge, IBitcoinSettingsProvider::Ptr settingsProvider, bool isBeamSide)
         : m_tx(tx)
         , m_bitcoinBridge(bitcoinBridge)
+        , m_settingsProvider(settingsProvider)
         , m_isBtcOwner(!isBeamSide)
     {
     }
@@ -100,7 +101,7 @@ namespace beam::wallet
         auto height = GetBlockCount();
         assert(height);
 
-        auto externalLockPeriod = height + m_bitcoinBridge->getLockTimeInBlocks();
+        auto externalLockPeriod = height + GetLockTimeInBlocks();
         m_tx.SetParameter(TxParameterID::AtomicSwapExternalLockTime, externalLockPeriod);
 
         return true;
@@ -118,12 +119,12 @@ namespace beam::wallet
         }
 
         Height lockPeriod = externalLockTime - height;
-        if (lockPeriod > m_bitcoinBridge->getLockTimeInBlocks())
+        if (lockPeriod > GetLockTimeInBlocks())
         {
-            return (lockPeriod - m_bitcoinBridge->getLockTimeInBlocks()) <= kBTCMaxHeightDifference;
+            return (lockPeriod - GetLockTimeInBlocks()) <= kBTCMaxHeightDifference;
         }
 
-        return (m_bitcoinBridge->getLockTimeInBlocks() - lockPeriod) <= kBTCMaxHeightDifference;
+        return (GetLockTimeInBlocks() - lockPeriod) <= kBTCMaxHeightDifference;
     }
 
     void BitcoinSide::AddTxDetails(SetTxParameter& txParameters)
@@ -145,7 +146,7 @@ namespace beam::wallet
         if (!m_tx.GetParameter(TxParameterID::AtomicSwapExternalTxID, txID, SubTxIndex::LOCK_TX))
             return false;
 
-        if (m_SwapLockTxConfirmations < m_bitcoinBridge->getTxMinConfirmations())
+        if (m_SwapLockTxConfirmations < GetTxMinConfirmations())
         {
             // validate expired?
 
@@ -196,7 +197,7 @@ namespace beam::wallet
         if (m_tx.GetParameter(TxParameterID::MaxHeight, lockTxMaxHeight, SubTxIndex::BEAM_LOCK_TX))
         {
             Block::SystemState::Full systemState;
-            if (m_tx.GetTip(systemState) && systemState.m_Height > lockTxMaxHeight - GetTxTimeInBeamBlocks())
+            if (m_tx.GetTip(systemState) && systemState.m_Height > lockTxMaxHeight - GetLockTxEstimatedTimeInBeamBlocks())
             {
                 return false;
             }
@@ -204,7 +205,7 @@ namespace beam::wallet
         return true;
     }
 
-    uint32_t BitcoinSide::GetTxTimeInBeamBlocks() const
+    uint32_t BitcoinSide::GetLockTxEstimatedTimeInBeamBlocks() const
     {
         // it's average value
         return 70;
@@ -215,6 +216,51 @@ namespace beam::wallet
         constexpr Amount kDustThreshold = 546;
         Amount fee = static_cast<Amount>(std::round(double(kBTCWithdrawTxAverageSize * feeRate) / 1000));
         return amount > kDustThreshold && amount > fee;
+    }
+
+    uint8_t BitcoinSide::GetAddressVersion() const
+    {
+        if (IsMainnet())
+        {
+            return libbitcoin::wallet::ec_private::mainnet_p2kh;
+        }
+
+        return libbitcoin::wallet::ec_private::testnet_p2kh;
+    }
+
+    Amount BitcoinSide::GetFeeRate() const
+    {
+        return m_settingsProvider->GetSettings().GetFeeRate();
+    }
+
+    Amount BitcoinSide::GetFeeRate(SubTxID subTxID) const
+    {
+        Amount defaultFeeRate = GetFeeRate();
+        assert(defaultFeeRate);
+        Amount feeRate = 0;
+        m_tx.GetParameter(TxParameterID::Fee, feeRate, subTxID);
+
+        if (subTxID == SubTxIndex::REFUND_TX && !feeRate)
+        {
+            // use LOCK_TX feeRate if REFUND_TX doesn't have defined feeRate
+            m_tx.GetParameter(TxParameterID::Fee, feeRate, SubTxIndex::LOCK_TX);
+        }
+        return (defaultFeeRate > feeRate) ? defaultFeeRate : feeRate;
+    }
+
+    uint16_t BitcoinSide::GetTxMinConfirmations() const
+    {
+        return m_settingsProvider->GetSettings().GetTxMinConfirmations();
+    }
+
+    uint32_t BitcoinSide::GetLockTimeInBlocks() const
+    {
+        return m_settingsProvider->GetSettings().GetLockTimeInBlocks();
+    }
+
+    bool BitcoinSide::IsMainnet() const
+    {
+        return m_settingsProvider->GetSettings().GetChainType() == wallet::SwapSecondSideChainType::Mainnet;
     }
 
     bool BitcoinSide::LoadSwapAddress()
@@ -257,7 +303,7 @@ namespace beam::wallet
             // secretPrivateKey -> secretPublicKey
             libbitcoin::ec_secret secret;
             std::copy(std::begin(secretPrivateKey.V.m_pData), std::end(secretPrivateKey.V.m_pData), secret.begin());
-            libbitcoin::wallet::ec_private privateKey(secret, m_bitcoinBridge->getAddressVersion());
+            libbitcoin::wallet::ec_private privateKey(secret, GetAddressVersion());
 
             secretPublicKey = privateKey.to_public();
         }
@@ -335,7 +381,7 @@ namespace beam::wallet
 
             std::string hexTx = libbitcoin::encode_base16(contractTx.to_data());
 
-            m_bitcoinBridge->fundRawTransaction(hexTx, m_bitcoinBridge->getFeeRate(), [this, weak = this->weak_from_this()](const IBitcoinBridge::Error& error, const std::string& hexTx, int changePos)
+            m_bitcoinBridge->fundRawTransaction(hexTx, GetFeeRate(SubTxIndex::LOCK_TX), [this, weak = this->weak_from_this()](const IBitcoinBridge::Error& error, const std::string& hexTx, int changePos)
             {
                 if (!weak.expired())
                 {
@@ -363,7 +409,7 @@ namespace beam::wallet
 
         if (swapTxState == SwapTxState::Initial)
         {
-            Amount fee = static_cast<Amount>(std::round(double(kBTCWithdrawTxAverageSize * m_bitcoinBridge->getFeeRate()) / 1000));
+            Amount fee = static_cast<Amount>(std::round(double(kBTCWithdrawTxAverageSize * GetFeeRate(subTxID)) / 1000));
             Amount swapAmount = m_tx.GetMandatoryParameter<Amount>(TxParameterID::AtomicSwapAmount);
             swapAmount = swapAmount - fee;
             std::string withdrawAddress = GetWithdrawAddress();
@@ -460,7 +506,7 @@ namespace beam::wallet
     {
         std::string swapPublicKeyStr = m_tx.GetMandatoryParameter<std::string>(TxParameterID::AtomicSwapPublicKey);
         libbitcoin::wallet::ec_public swapPublicKey(swapPublicKeyStr);
-        return swapPublicKey.to_payment_address(m_bitcoinBridge->getAddressVersion()).encoded();
+        return swapPublicKey.to_payment_address(GetAddressVersion()).encoded();
     }
 
     void BitcoinSide::SetTxError(const IBitcoinBridge::Error& error, SubTxID subTxID)
@@ -510,7 +556,7 @@ namespace beam::wallet
                     {
                         if (std::string swapPublicKey; !m_tx.GetParameter(TxParameterID::AtomicSwapPublicKey, swapPublicKey))
                         {
-                            libbitcoin::wallet::ec_private addressPrivateKey(privateKey, m_bitcoinBridge->getAddressVersion());
+                            libbitcoin::wallet::ec_private addressPrivateKey(privateKey, GetAddressVersion());
 
                             m_tx.SetParameter(TxParameterID::AtomicSwapPublicKey, addressPrivateKey.to_public().encoded());
                             m_tx.UpdateAsync();
@@ -595,7 +641,7 @@ namespace beam::wallet
             libbitcoin::decode_base16(tx_data, *m_SwapWithdrawRawTx);
             libbitcoin::chain::transaction withdrawTX = libbitcoin::chain::transaction::factory_from_data(tx_data);
 
-            libbitcoin::wallet::ec_private wallet_key(privateKey, m_bitcoinBridge->getAddressVersion());
+            libbitcoin::wallet::ec_private wallet_key(privateKey, GetAddressVersion());
             libbitcoin::endorsement sig;
 
             uint32_t input_index = 0;
@@ -708,7 +754,7 @@ namespace beam::wallet
             if (m_SwapLockTxConfirmations != confirmations)
             {
                 LOG_DEBUG() << m_tx.GetTxID() << "[" << static_cast<SubTxID>(SubTxIndex::LOCK_TX) << "] " << confirmations << "/"
-                    << m_bitcoinBridge->getTxMinConfirmations() << " confirmations are received.";
+                    << GetTxMinConfirmations() << " confirmations are received.";
                 m_SwapLockTxConfirmations = confirmations;
             }
         }

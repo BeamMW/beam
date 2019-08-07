@@ -11,7 +11,11 @@ import "./utils.js" as Utils
 ColumnLayout {
     id: thisView
     property variant parentView: null
-    property var defaultFocusItem: receiverTAInput
+
+    function setToken(token) {
+        viewModel.receiverTA = token
+        sendAmountInput.amountInput.forceActiveFocus();
+    }
 
     SendViewModel {
         id: viewModel
@@ -54,7 +58,7 @@ ColumnLayout {
                 backgroundColor:  isTAInputValid() ? Style.content_main : Style.validator_error
                 font.italic :     !isTAInputValid()
                 text:             viewModel.receiverTA
-                validator:        RegExpValidator { regExp: /[0-9a-fA-F]{1,}/ }
+                validator:        RegExpValidator { regExp: /[0-9a-zA-Z]{1,}/ }
                 selectByMouse:    true
                 placeholderText:  qsTrId("send-contact-placeholder") //% "Please specify contact"
 
@@ -72,7 +76,7 @@ ColumnLayout {
                     id:               receiverTAError
                     color:            Style.validator_error
                     font.pixelSize:   12
-                    text:             qsTrId("general-invalid-address") //% "Invalid address"
+                    text:             qsTrId("wallet-send-invalid-token") //% "Invalid address or token"
                     visible:          !isTAInputValid()
                 }
             }
@@ -165,7 +169,7 @@ ColumnLayout {
                 Layout.topMargin:  20
                 Layout.leftMargin: 25
                 font.pixelSize:    14
-                color:             viewModel.isEnough ? Style.content_secondary : Style.validator_error
+                color:             Style.content_secondary
                 text:              qsTrId("send-total-label") + ":"
             }
 
@@ -181,7 +185,7 @@ ColumnLayout {
                 Layout.topMargin:  15
                 Layout.leftMargin: 25
                 font.pixelSize:    14
-                color:             viewModel.isEnough ? Style.content_secondary : Style.validator_error
+                color:             Style.content_secondary
                 text:              qsTrId("send-amount-label") + ":"
             }
 
@@ -197,7 +201,7 @@ ColumnLayout {
                 Layout.topMargin:  15
                 Layout.leftMargin: 25
                 font.pixelSize:    14
-                color:             viewModel.isEnough ? Style.content_secondary : Style.validator_error
+                color:             Style.content_secondary
                 text:              qsTrId("general-change") + ":"
             }
 
@@ -214,7 +218,7 @@ ColumnLayout {
                 Layout.leftMargin:   25
                 Layout.bottomMargin: 20
                 font.pixelSize:      14
-                color:               viewModel.available < 0 ? Style.validator_error : Style.content_secondary
+                color:               Style.content_secondary
                 text:                qsTrId("send-remaining-label") + ":"
             }
 

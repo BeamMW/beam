@@ -12,6 +12,21 @@
         <oldsource>GROTH</oldsource>
         <translation type="unfinished">GROTH</translation>
     </message>
+    <message id="general-bitcoin">
+        <source></source>
+        <oldsource>Bitcoin</oldsource>
+        <translation type="unfinished">Bitcoin</translation>
+    </message>
+    <message id="general-litecoin">
+        <source></source>
+        <oldsource>Litecoin</oldsource>
+        <translation type="unfinished">Litecoin</translation>
+    </message>
+    <message id="general-qtum">
+        <source></source>
+        <oldsource>QTUM</oldsource>
+        <translation type="unfinished">QTUM</translation>
+    </message>
     <message id="general-comment">
         <source>Comment</source>
         <translation>Comment</translation>
@@ -124,8 +139,7 @@
     </message>
     <message id="general-invalid-address">
         <source>Invalid address</source>
-        <oldsource>Invalid address or token</oldsource>
-        <translation type="unfinished">Invalid address or token</translation>
+        <translation>Invalid address</translation>
     </message>
     <message id="general-coinbase">
         <source>Coinbase</source>
@@ -190,14 +204,18 @@
         <translation type="unfinished">Address with the same comment already exists</translation>
     </message>
     <message id="general-fee-fail">
-        <source>The minimum fee is %1 GROTH</source>
-        <oldsource>The minimum fee is %1 %2</oldsource>
+        <source></source>
+        <oldsource>The minimum fee is %1 GROTH</oldsource>
         <translation type="unfinished">The minimum fee is %1 %2</translation>
     </message>
     <message id="general-comment-local">
         <source></source>
         <oldsource>Comments are local and won&apos;t be shared</oldsource>
         <translation type="unfinished">Comments are local and won&apos;t be shared</translation>
+    </message>
+    <message id="general-change-settings">
+        <source>Change settings</source>
+        <translation>Change settings</translation>
     </message>
     <message id="wallet-receive-button">
         <source>Receive</source>
@@ -365,6 +383,31 @@
         <extracomment>settings tab, node section, apply button</extracomment>
         <translation>Apply</translation>
     </message>
+    <message id="settings-node-address">
+        <source></source>
+        <oldsource>Node Address</oldsource>
+        <translation type="unfinished">Node Address</translation>
+    </message>
+    <message id="settings-username">
+        <source></source>
+        <oldsource>Username</oldsource>
+        <translation type="unfinished">Username</translation>
+    </message>
+    <message id="settings-password">
+        <source></source>
+        <oldsource>Password</oldsource>
+        <translation type="unfinished">Password</translation>
+    </message>
+    <message id="settings-fee-rate">
+        <source></source>
+        <oldsource>Default fee</oldsource>
+        <translation type="unfinished">Default fee</translation>
+    </message>
+    <message id="settings-reset">
+        <source></source>
+        <oldsource>Switch off</oldsource>
+        <translation type="unfinished">Switch off</translation>
+    </message>
     <message id="logo-description">
         <source>Scalable confidential cryptocurrency</source>
         <translation>Scalable confidential cryptocurrency</translation>
@@ -484,10 +527,6 @@
         <source>Info view</source>
         <translation>Info view</translation>
     </message>
-    <message id="loading-change-settings-button">
-        <source>Change settings</source>
-        <translation>Change settings</translation>
-    </message>
     <message id="loading-try-again-button">
         <source>Try again</source>
         <translation>Try again</translation>
@@ -565,8 +604,14 @@
         <translation type="unfinished">Receive</translation>
     </message>
     <message id="wallet-receive-swap-title">
-        <source>Receive</source>
+        <source></source>
+        <oldsource>Receive</oldsource>
         <translation type="unfinished">Create swap offer</translation>
+    </message>
+    <message id="wallet-send-invalid-token">
+        <source></source>
+        <oldsource>Invalid address or token</oldsource>
+        <translation type="unfinished">Invalid address or token</translation>
     </message>
     <message id="wallet-send-swap-title">
         <source></source>
@@ -636,6 +681,11 @@
         <oldsource>Your transaction token:</oldsource>
         <translation type="unfinished">Your transaction token:</translation>
     </message>
+    <message id="wallet-receive-swap-publish">
+        <source></source>
+        <oldsource>publish transaction token</oldsource>
+        <translation type="unfinished">publish transaction token</translation>
+    </message>
     <message id="wallet-swap">
         <source></source>
         <oldsource>Swap</oldsource>
@@ -643,12 +693,7 @@
     </message>
     <message id="wallet-receive-copy-address">
         <source>Copy transaction address</source>
-        <oldsource>Copy transaction token</oldsource>
-        <translation type="unfinished">Copy transaction token</translation>
-    </message>
-    <message id="wallet-publish-swap">
-        <source>Publish</source>
-        <translation>Publish</translation>
+        <translation>Copy transaction token</translation>
     </message>
     <message id="invalid-addr-got-it-button">
         <source>Got it</source>
@@ -1298,6 +1343,26 @@ or send this address to the sender over secure channel</translation>
         <source>Password verification is required to change that setting</source>
         <extracomment>settings tab, general section, ask password to send, confirm password dialog, message</extracomment>
         <translation>Password verification is required to change that setting</translation>
+    </message>
+    <message id="general-address-from">
+        <source>From</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="general-address-to">
+        <source>To</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="general-amount-sent">
+        <source>Sent</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="general-amount-received">
+        <source>Received</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="wallet-publish-swap">
+        <source>Publish</source>
+        <translation type="unfinished"></translation>
     </message>
 </context>
 </TS>

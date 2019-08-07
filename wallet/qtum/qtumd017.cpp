@@ -16,26 +16,11 @@
 
 #include "bitcoin/bitcoin.hpp"
 
-namespace {
-    constexpr uint8_t QtumMainnetP2KH = 0x3a;
-    constexpr uint8_t QtumTestnetP2KH = 0x78;
-}
-
 namespace beam
 {
-    Qtumd017::Qtumd017(io::Reactor& reactor, const QtumOptions& options)
-        : Bitcoind017(reactor, options)
+    Qtumd017::Qtumd017(io::Reactor& reactor, IQtumdSettingsProvider::Ptr settingsProvider)
+        : Bitcoind017(reactor, settingsProvider)
     {
-    }
-
-    uint8_t Qtumd017::getAddressVersion()
-    {
-        if (isMainnet())
-        {
-            return QtumMainnetP2KH;
-        }
-
-        return QtumTestnetP2KH;
     }
 
     std::string Qtumd017::getCoinName() const

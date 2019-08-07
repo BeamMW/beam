@@ -15,6 +15,7 @@
 #include "receive_swap_view.h"
 #include "ui_helpers.h"
 #include "model/app_model.h"
+#include "wallet/swaps/swap_transaction.h"
 #include <QClipboard>
 
 namespace {
@@ -29,18 +30,22 @@ ReceiveSwapViewModel::ReceiveSwapViewModel()
     , _amountSent(0.0)
     , _receiveFee(0)
     , _sentFee(0)
-    , _receiveCurrency(Currency::CurrBEAM)
-    , _sentCurrency(Currency::CurrBTC)
+    , _receiveCurrency(Currency::CurrBeam)
+    , _sentCurrency(Currency::CurrBtc)
     , _offerExpires(OfferExpires12h)
     , _walletModel(*AppModel::getInstance().getWallet())
+    , _txParameters(beam::wallet::CreateSwapParameters()
+        .SetParameter(beam::wallet::TxParameterID::AtomicSwapCoin, beam::wallet::AtomicSwapCoin::Bitcoin)
+        .SetParameter(beam::wallet::TxParameterID::AtomicSwapIsBeamSide, true)
+        .SetParameter(beam::wallet::TxParameterID::AtomicSwapSecondSideChainType, beam::wallet::SwapSecondSideChainType::Testnet)
+        .SetParameter(beam::wallet::TxParameterID::IsInitiator, true))
 {
     LOG_INFO() << "ReceiveSwapViewModel created";
     connect(&_walletModel, &WalletModel::generatedNewAddress, this, &ReceiveSwapViewModel::onGeneratedNewAddress);
     connect(&_walletModel, &WalletModel::newAddressFailed, this,  &ReceiveSwapViewModel::onNewAddressFailed);
     generateNewAddress();
 
-    // TODO: This is only for test, apply actual when ready
-    _token = "176dan89jksasdg21skaw9q7g176dan89jksasdg21skaw9q7g176dan89jksasdg21skaw9q7g176dan89jksasdg21skaw9q7g176dan89jksasdg21skaw9q7g";
+    updateTransactionToken();
 }
 
 ReceiveSwapViewModel::~ReceiveSwapViewModel()
@@ -52,6 +57,7 @@ void ReceiveSwapViewModel::onGeneratedNewAddress(const beam::wallet::WalletAddre
 {
     _receiverAddress = addr;
     emit receiverAddressChanged();
+    updateTransactionToken();
 }
 
 double ReceiveSwapViewModel::getAmountToReceive() const
@@ -66,6 +72,7 @@ void ReceiveSwapViewModel::setAmountToReceive(double value)
     {
         _amountToReceive = value;
         emit amountToReceiveChanged();
+        updateTransactionToken();
     }
 }
 
@@ -86,6 +93,7 @@ void ReceiveSwapViewModel::setAmountSent(double value)
     {
         _amountSent = value;
         emit amountSentChanged();
+        updateTransactionToken();
     }
 }
 
@@ -101,6 +109,7 @@ void ReceiveSwapViewModel::setSentFee(int value)
     {
         _sentFee = value;
         emit sentFeeChanged();
+        updateTransactionToken();
     }
 }
 
@@ -135,6 +144,7 @@ void ReceiveSwapViewModel::setSentCurrency(Currency value)
     {
         _sentCurrency = value;
         emit sentCurrencyChanged();
+        updateTransactionToken();
     }
 }
 
@@ -145,6 +155,7 @@ void ReceiveSwapViewModel::setReceiveFee(int value)
     {
         _receiveFee = value;
         emit receiveFeeChanged();
+        updateTransactionToken();
     }
 }
 
@@ -180,6 +191,15 @@ void ReceiveSwapViewModel::generateNewAddress()
 void ReceiveSwapViewModel::onNewAddressFailed()
 {
     emit newAddressFailed();
+}
+
+void ReceiveSwapViewModel::setTransactionToken(const QString& value)
+{
+    if (_token != value)
+    {
+        _token = value;
+        emit transactionTokenChanged();
+    }
 }
 
 QString ReceiveSwapViewModel::getTransactionToken() const
@@ -232,4 +252,70 @@ void ReceiveSwapViewModel::publishOffer()
     newOffer.m_message = beam::wallet::toByteBuffer(_addressComment.toStdString());
 
     _walletModel.getAsync()->sendSwapOffer(newOffer);
+void ReceiveSwapViewModel::startListen()
+{
+    using namespace beam::wallet;
+
+    bool isBeamSide = (_sentCurrency == Currency::CurrBeam);
+    auto beamFee = isBeamSide ? _sentFee : _receiveFee;
+    auto swapFee = isBeamSide ? _receiveFee : _sentFee;
+    auto txParameters = beam::wallet::TxParameters(_txParameters);
+
+    txParameters.DeleteParameter(TxParameterID::PeerID);
+    txParameters.SetParameter(TxParameterID::IsInitiator, !*_txParameters.GetParameter<bool>(TxParameterID::IsInitiator));
+    txParameters.SetParameter(TxParameterID::MyID, *_txParameters.GetParameter<beam::wallet::WalletID>(beam::wallet::TxParameterID::PeerID));
+    txParameters.SetParameter(TxParameterID::Fee, beam::Amount(beamFee));
+    txParameters.SetParameter(TxParameterID::Fee, beam::Amount(swapFee), isBeamSide ? SubTxIndex::REDEEM_TX : SubTxIndex::LOCK_TX);
+    txParameters.SetParameter(TxParameterID::AtomicSwapIsBeamSide, isBeamSide);
+    txParameters.SetParameter(TxParameterID::IsSender, isBeamSide);
+
+    _walletModel.getAsync()->startTransaction(std::move(txParameters));
+}
+
+namespace
+{
+    beam::wallet::AtomicSwapCoin convertCurrencyToSwapCoin(Currency currency)
+    {
+        switch (currency)
+        {
+        case Currency::CurrBtc:
+            return beam::wallet::AtomicSwapCoin::Bitcoin;
+        case Currency::CurrLtc:
+            return beam::wallet::AtomicSwapCoin::Litecoin;
+        case Currency::CurrQtum:
+            return beam::wallet::AtomicSwapCoin::Qtum;
+        default:
+            return beam::wallet::AtomicSwapCoin::Unknown;
+        }
+    }
+}
+
+void ReceiveSwapViewModel::updateTransactionToken()
+{
+    // TODO:
+    // _txParameters.SetParameter(beam::wallet::TxParameterID::PeerResponseHeight, ResponseTime(_offerExpires));
+
+    if (_sentCurrency == Currency::CurrBeam)
+    {
+        _txParameters.SetParameter(beam::wallet::TxParameterID::AtomicSwapIsBeamSide, false);
+        _txParameters.SetParameter(beam::wallet::TxParameterID::AtomicSwapAmount, static_cast<beam::Amount>(std::round(_amountToReceive * 100000000)));// TODO: us libbitcoin::satoshi_per_bitcoin)));
+        _txParameters.SetParameter(beam::wallet::TxParameterID::Amount, static_cast<beam::Amount>(std::round(_amountSent * beam::Rules::Coin)));
+        _txParameters.SetParameter(beam::wallet::TxParameterID::AtomicSwapCoin, convertCurrencyToSwapCoin(_receiveCurrency));
+    }
+    else if (_receiveCurrency == Currency::CurrBeam)
+    {
+        _txParameters.SetParameter(beam::wallet::TxParameterID::AtomicSwapIsBeamSide, true);
+        _txParameters.SetParameter(beam::wallet::TxParameterID::AtomicSwapAmount, static_cast<beam::Amount>(std::round(_amountSent * 100000000)));// TODO: us libbitcoin::satoshi_per_bitcoin)));
+        _txParameters.SetParameter(beam::wallet::TxParameterID::Amount, static_cast<beam::Amount>(std::round(_amountToReceive * beam::Rules::Coin)));
+        _txParameters.SetParameter(beam::wallet::TxParameterID::AtomicSwapCoin, convertCurrencyToSwapCoin(_sentCurrency));
+    }
+    _txParameters.SetParameter(beam::wallet::TxParameterID::PeerID, _receiverAddress.m_walletID);
+    _txParameters.SetParameter(beam::wallet::TxParameterID::IsSender, _receiveCurrency == Currency::CurrBeam);
+
+    setTransactionToken(QString::fromStdString(std::to_string(_txParameters)));
+}
+
+void ReceiveSwapViewModel::publishToken()
+{
+    // TODO:SWAP
 }

@@ -26,7 +26,7 @@ namespace beam::wallet
 {
     using namespace beam::proto;
 
-    using SwapOffer = TxDescription;
+    using SwapOffer = TxParameters;
 
     /**
      *  Implementation of public swap offers broadcasting.

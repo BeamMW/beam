@@ -28,6 +28,6 @@ RowLayout
         id:               beamIcon
         Layout.topMargin: 3
         sourceSize:       Qt.size(10, 15)
-        source:           "qrc:/assets/b-grey.svg"
+        source:           control.error ? "qrc:/assets/b-red.svg" : "qrc:/assets/b-grey.svg"
     }
 }

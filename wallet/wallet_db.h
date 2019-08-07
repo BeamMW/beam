@@ -164,7 +164,7 @@ namespace beam::wallet
     struct IWalletDbObserver
     {
         virtual void onCoinsChanged() {};
-        virtual void onTransactionChanged(ChangeAction action, std::vector<TxDescription>&& items) {};
+        virtual void onTransactionChanged(ChangeAction action, const std::vector<TxDescription>& items) {};
         virtual void onSystemStateChanged() {};
         virtual void onAddressChanged(ChangeAction action, const std::vector<WalletAddress>& items) {};
     };
@@ -386,7 +386,7 @@ namespace beam::wallet
     private:
         void removeCoinImpl(const Coin::ID& cid);
         void notifyCoinsChanged();
-        void notifyTransactionChanged(ChangeAction action, std::vector<TxDescription>&& items);
+        void notifyTransactionChanged(ChangeAction action, const std::vector<TxDescription>& items);
         void notifySystemStateChanged();
         void notifyAddressChanged(ChangeAction action, const std::vector<WalletAddress>& items);
 

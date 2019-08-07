@@ -231,7 +231,7 @@ private:
             HttpClient::Request request;
 
             request.address(peer)
-                .connectTimeoutMsec(2000)
+                .connectTimeoutMsec(200000)
                 .pathAndQuery("/")
                 .method("POST")
                 .body(msg.c_str(), msg.size());

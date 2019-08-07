@@ -33,8 +33,26 @@ ColumnLayout {
         return true;
     }
 
-    function saveAddress() {
-        if (viewModel.commentValid) viewModel.saveAddress()
+    ColumnLayout {
+        //
+        // My Address
+        //
+        SFText {
+            font.pixelSize: 14
+            font.styleName: "Bold"; font.weight: Font.Bold
+            color: Style.content_main
+            //% "My address (auto-generated)"
+            text: qsTrId("wallet-receive-my-addr-label")
+        }
+
+        SFTextInput {
+            id:               myAddressID
+            font.pixelSize:   14
+            color:            Style.content_disabled
+            readOnly:         true
+            activeFocusOnTab: false
+            text:             viewModel.receiverAddress
+        }
     }
 
     Grid {
@@ -44,33 +62,11 @@ ColumnLayout {
 
         ColumnLayout {
             width: parent.width / 2 - parent.columnSpacing / 2
-
-            //
-            // My Address
-            //
-            SFText {
-                font.pixelSize: 14
-                font.styleName: "Bold"; font.weight: Font.Bold
-                color: Style.content_main
-                //% "My address (auto-generated)"
-                text: qsTrId("wallet-receive-my-addr-label")
-            }
-
-            SFTextInput {
-                id:               myAddressID
-                Layout.fillWidth: true
-                font.pixelSize:   14
-                color:            Style.content_disabled
-                readOnly:         true
-                activeFocusOnTab: false
-                text:             viewModel.receiverAddress
-            }
-
             //
             // Amount
             //
             AmountInput {
-                Layout.topMargin: 25
+                Layout.topMargin: 35
                 title:            qsTrId("receive-amount-swap-label") //% "Receive amount"
                 id:               receiveAmountInput
                 hasFee:           true
@@ -147,7 +143,7 @@ ColumnLayout {
             // Sent amount
             //
             AmountInput {
-                Layout.topMargin: 84
+                Layout.topMargin: 35
                 title:            qsTrId("sent-amount-label") //% "Sent amount"
                 id:               sentAmountInput
                 color:            Style.accent_outgoing
@@ -229,8 +225,7 @@ ColumnLayout {
 
     SFTextArea {
         Layout.alignment:    Qt.AlignHCenter
-        width:               392
-        height:              48
+        width:               570
         focus:               true
         activeFocusOnTab:    true
         font.pixelSize:      14
@@ -239,6 +234,7 @@ ColumnLayout {
         text:                viewModel.transactionToken
         horizontalAlignment: TextEdit.AlignHCenter
         readOnly:            true
+        enabled:             false
     }
 
     SFText {
@@ -266,16 +262,26 @@ ColumnLayout {
         }
 
         CustomButton {
-            //% "Copy transaction address"
-            text: qsTrId("wallet-receive-copy-address")
-            palette.buttonText: Style.content_opposite
-            icon.color: Style.content_opposite
-            palette.button: Style.active
-            icon.source: "qrc:/assets/icon-copy.svg"
+            text:                qsTrId("wallet-receive-copy-address")
+            palette.buttonText:  Style.content_opposite
+            icon.color:          Style.content_opposite
+            palette.button:      Style.passive
+            icon.source:         "qrc:/assets/icon-copy.svg"
+            enabled:             thisView.canSend()
             onClicked: {
                 BeamGlobals.copyToClipboard(viewModel.transactionToken);
+                viewModel.startListen();
             }
-            enabled: thisView.canSend()
+        }
+
+        CustomButton {
+            text:                qsTrId("wallet-receive-swap-publish")
+            palette.buttonText:  Style.content_opposite
+            icon.color:          Style.content_opposite
+            palette.button:      Style.active
+            icon.source:         "qrc:/assets/icon-share.svg"
+            onClicked:           viewModel.publishToken()
+            enabled:             thisView.canSend()
         }
 
         CustomButton {

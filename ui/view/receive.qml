@@ -9,20 +9,43 @@ import "controls"
 
 ColumnLayout {
     id: thisView
+    
     property bool isSwapView: false
     property bool isSwapOnly
     property var defaultFocusItem: null
     property var currentView: null
 
-    Component.onDestruction: currentView.saveAddress()
     Component.onCompleted: {
         if (!currentView) {
             createChild();
         }
         isSwapOnly = isSwapView;
     }
+
+    Component.onDestruction: {
+        if (!isSwapView) currentView.saveAddress();
+    }
+
     onIsSwapViewChanged: {
         createChild();
+        if (isSwapView && !BeamGlobals.canSwap()) {
+            thisView.enabled = false;
+            swapna.open();
+        }
+    }
+
+    SwapNADialog {
+        id: swapna
+
+        onRejected: {
+            thisView.enabled = true
+            thisView.regularMode = true
+        }
+
+        onAccepted: {
+            thisView.enabled = true
+            main.openSwapSettings()
+        }
     }
 
     Item {
@@ -35,7 +58,6 @@ ColumnLayout {
             font.pixelSize:      18
             font.styleName:      "Bold"; font.weight: Font.Bold
             color:               Style.content_main
-            //% "Receive" / "Create swap offer"
             text:                isSwapView ? qsTrId("wallet-receive-swap-title") : qsTrId("wallet-receive-title")
         }
 

@@ -51,7 +51,7 @@ namespace beam::wallet
         WalletClient(IWalletDB::Ptr walletDB, const std::string& nodeAddr, io::Reactor::Ptr reactor);
         virtual ~WalletClient();
 
-        void start();
+        void start(std::shared_ptr<std::unordered_map<TxType, BaseTransaction::Creator::Ptr>> txCreators = nullptr);
 
         IWalletModelAsync::Ptr getAsync();
         std::string getNodeAddress() const;
@@ -86,13 +86,14 @@ namespace beam::wallet
     private:
 
         void onCoinsChanged() override;
-        void onTransactionChanged(ChangeAction action, std::vector<TxDescription>&& items) override;
+        void onTransactionChanged(ChangeAction action, const std::vector<TxDescription>& items) override;
         void onSystemStateChanged() override;
         void onAddressChanged(ChangeAction action, const std::vector<WalletAddress>& items) override;
         void onSyncProgress(int done, int total) override;
 
         void sendMoney(const WalletID& receiver, const std::string& comment, Amount&& amount, Amount&& fee) override;
         void sendMoney(const WalletID& sender, const WalletID& receiver, const std::string& comment, Amount&& amount, Amount&& fee) override;
+        void startTransaction(TxParameters&& parameters) override;
         void syncWithNode() override;
         void calcChange(Amount&& amount) override;
         void getWalletStatus() override;

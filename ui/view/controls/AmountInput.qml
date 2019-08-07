@@ -8,10 +8,10 @@ ColumnLayout {
     id: control
 
     readonly property variant currencies: [
-        {label: "BEAM", feeLabel: "GROTH",   minFee: BeamGlobals.minFeeBEAM(), defaultFee: 100},
-        {label: "BTC",  feeLabel: "sat/kB",  minFee: BeamGlobals.minFeeBTC(),  defaultFee: 90000},
-        {label: "LTC",  feeLabel: "ph/kB",   minFee: BeamGlobals.minFeeLTC(),  defaultFee: 90000},
-        {label: "QTUM", feeLabel: "qsat/kB", minFee: BeamGlobals.minFeeQTUM(), defaultFee: 90000}
+        {label: "BEAM", feeLabel: BeamGlobals.beamFeeRateLabel(), minFee: BeamGlobals.minFeeBeam(),     defaultFee: BeamGlobals.defFeeBeam()},
+        {label: "BTC",  feeLabel: BeamGlobals.btcFeeRateLabel(),  minFee: BeamGlobals.minFeeRateBtc(),  defaultFee: BeamGlobals.defFeeRateBtc()},
+        {label: "LTC",  feeLabel: BeamGlobals.ltcFeeRateLabel(),  minFee: BeamGlobals.minFeeRateLtc(),  defaultFee: BeamGlobals.defFeeRateLtc()},
+        {label: "QTUM", feeLabel: BeamGlobals.qtumFeeRateLabel(), minFee: BeamGlobals.minFeeRateQtum(), defaultFee: BeamGlobals.defFeeRateQtum()}
     ]
 
     function currList() {
@@ -26,7 +26,7 @@ ColumnLayout {
         return currencies[control.currency].feeLabel
     }
 
-    readonly property bool isValidFee: hasFee ? fee >= currencies[currency].minFee : true
+    readonly property bool isValidFee: hasFee ? feeInput.isValid : true
     readonly property bool isValid: error.length == 0 && isValidFee
 
     property string   title
@@ -34,11 +34,12 @@ ColumnLayout {
     property string   currColor:   Style.content_main
     property bool     hasFee:      false
     property bool     multi:       false // changing this property in runtime would reset bindings
-    property int      currency:    Currency.CurrBEAM
+    property int      currency:    Currency.CurrBeam
     property double   amount:      0
     property int      fee:         currencies[currency].defaultFee
     property alias    error:       errmsg.text
-    property bool     readOnly:    false
+    property bool     readOnlyA:   false
+    property bool     readOnlyF:   false
     property bool     resetAmount: true
     property var      amountInput: ainput
 
@@ -64,7 +65,7 @@ ColumnLayout {
             validator:        RegExpValidator {regExp: /^(([1-9][0-9]{0,7})|(1[0-9]{8})|(2[0-4][0-9]{7})|(25[0-3][0-9]{6})|(0))(\.[0-9]{0,7}[1-9])?$/}
             selectByMouse:    true
             text:             formatAmount()
-            readOnly:         control.readOnly
+            readOnly:         control.readOnlyA
 
             onTextChanged: {
                 if (focus) control.amount = text ? parseFloat(text) : 0;
@@ -76,6 +77,11 @@ ColumnLayout {
 
             function formatAmount() {
                 return Utils.formatAmount(control.amount, focus)
+            }
+
+            Connections {
+                target: control
+                onAmountChanged: ainput.text = ainput.formatAmount()
             }
         }
 
@@ -102,10 +108,7 @@ ColumnLayout {
 
             onActivated: {
                 if (multi) control.currency = index
-                if (resetAmount) {
-                    ainput.text    = ""
-                    control.amount = 0
-                }
+                if (resetAmount) control.amount = 0
             }
         }
     }
@@ -128,59 +131,30 @@ ColumnLayout {
         font.styleName:   "Bold"
         font.weight:      Font.Bold
         color:            Style.content_main
-        text:             control.currency == Currency.CurrBEAM ? qsTrId("general-fee") : qsTrId("general-fee-rate")
+        text:             control.currency == Currency.CurrBeam ? qsTrId("general-fee") : qsTrId("general-fee-rate")
         visible:          control.hasFee
     }
 
-    RowLayout {
+    FeeInput {
+        id:               feeInput
         Layout.fillWidth: true
         visible:          control.hasFee
+        fee:              control.fee
+        minFee:           currencies[currency].minFee
+        feeLabel:         getFeeLabel()
+        color:            control.color
+        readOnly:         control.readOnlyF
 
-        SFTextInput {
-            id:                    feeInput
-            Layout.preferredWidth: 150
-            font.pixelSize:        14
-            font.styleName:        "Light"
-            font.weight:           Font.Light
-            font.italic:           !isValid
-            color:                 isValidFee ? control.color : Style.validator_error
-            backgroundColor:       isValidFee ? Style.content_main : Style.validator_error
-            maximumLength:         9
-            selectByMouse:         true
-            text:                  formatFee()
-            validator:             IntValidator {bottom: currencies[control.currency].minFee}
-            readOnly:              control.readOnly
-
-            onTextChanged: {
-                if (focus) control.fee = text ? parseInt(text) : 0
-            }
-
-            onFocusChanged: {
-                text = formatFee()
-            }
-
-            function formatFee() {
-                return control.fee ? control.fee.toLocaleString(focus ? Qt.locale("C") : Qt.locale(), 'f', -128) : ""
-            }
-        }
-
-        SFText {
-            font.pixelSize: 14
-            color:          Style.content_main
-            text:           getFeeLabel()
+       Connections {
+            target: control
+            onFeeChanged: feeInput.fee = control.fee
+            onCurrencyChanged: feeInput.fee = currencies[currency].defaultFee
         }
     }
 
-    Item {
-        Layout.fillWidth: true
-        SFText {
-            //% "The minimum fee is %1 GROTH"
-            text:            qsTrId("general-fee-fail").arg(currencies[control.currency].minFee).arg(getFeeLabel())
-            color:           Style.validator_error
-            font.pixelSize:  12
-            font.styleName:  "Italic"
-            width:           parent.width
-            visible:         hasFee && !control.isValidFee
-        }
+    Binding {
+        target:   control
+        property: "fee"
+        value:    feeInput.fee
     }
 }

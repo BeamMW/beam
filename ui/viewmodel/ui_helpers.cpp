@@ -1,4 +1,4 @@
-#include "ui_helpers.h"
+﻿#include "ui_helpers.h"
 
 #include <QDateTime>
 #include <QLocale>
@@ -11,8 +11,12 @@ namespace beamui
 {
     QString toString(const beam::wallet::WalletID& walletID)
     {
-        auto id = std::to_string(walletID);
-        return QString::fromStdString(id);
+        if (walletID != Zero)
+        {
+            auto id = std::to_string(walletID);
+            return QString::fromStdString(id);
+        }
+        return "";
     }
 
     QString toString(const beam::Merkle::Hash& walletID)
@@ -25,8 +29,9 @@ namespace beamui
     {
         auto realAmount = double(int64_t(value)) / Rules::Coin;
         QString qstr = QLocale().toString(realAmount, 'f', QLocale::FloatingPointShortest);
-
-        return qstr;
+        //auto ending = QString::fromUtf16((const char16_t*)(L" ₿"));
+        auto ending = QString::fromUtf16((const char16_t*)(L" \uEAFB"));//(L" \u2042"));
+        return qstr + ending;
     }
 
     QString toString(const beam::Timestamp& ts)

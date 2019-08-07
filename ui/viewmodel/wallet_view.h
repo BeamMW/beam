@@ -33,9 +33,11 @@ class WalletViewModel : public QObject
     Q_PROPERTY(Qt::SortOrder sortOrder READ sortOrder WRITE setSortOrder)
     Q_PROPERTY(QString incomeRole READ getIncomeRole CONSTANT)
     Q_PROPERTY(QString dateRole READ getDateRole CONSTANT)
-    Q_PROPERTY(QString userRole READ getUserRole CONSTANT)
     Q_PROPERTY(QString displayNameRole READ getDisplayNameRole CONSTANT)
-    Q_PROPERTY(QString amountRole READ getAmountRole CONSTANT)
+    Q_PROPERTY(QString sendingAddressRole READ getSendingAddressRole CONSTANT)
+    Q_PROPERTY(QString receivingAddressRole READ getReceivingAddressRole CONSTANT)
+    Q_PROPERTY(QString sentAmountRole READ getSentAmountRole CONSTANT)
+    Q_PROPERTY(QString receivedAmountRole READ getReceivedAmountRole CONSTANT)
     Q_PROPERTY(QString statusRole READ getStatusRole CONSTANT)
     Q_PROPERTY(bool isAllowedBeamMWLinks READ isAllowedBeamMWLinks WRITE allowBeamMWLinks NOTIFY beamMWLinksAllowed)
 
@@ -65,9 +67,11 @@ public:
     void setSortOrder(Qt::SortOrder);
     QString getIncomeRole() const;
     QString getDateRole() const;
-    QString getUserRole() const;
     QString getDisplayNameRole() const;
-    QString getAmountRole() const;
+    QString getSendingAddressRole() const;
+    QString getReceivingAddressRole() const;
+    QString getSentAmountRole() const;
+    QString getReceivedAmountRole() const;
     QString getStatusRole() const;
 
     Q_INVOKABLE bool isAllowedBeamMWLinks() const;

@@ -13,12 +13,18 @@
 // limitations under the License.
 
 #include "app_model.h"
+#include "wallet/swaps/swap_transaction.h"
 #include "utility/common.h"
 #include "utility/logger.h"
 #include "utility/fsutils.h"
 #include <boost/filesystem.hpp>
 #include <QApplication>
 #include <QTranslator>
+
+// TODO: move this includes to one place
+#include "wallet/bitcoin/bitcoind017.h"
+#include "wallet/bitcoin/bitcoin_settings.h"
+#include "wallet/bitcoin/bitcoin_side.h"
 
 #if defined(BEAM_HW_WALLET)
 #include "wallet/hw_wallet.h"
@@ -128,6 +134,25 @@ void AppModel::resetWalletImpl()
     emit walletReseted();
 }
 
+void AppModel::startWallet()
+{
+    assert(!m_wallet->isRunning());
+
+    auto additionalTxCreators = std::make_shared<std::unordered_map<TxType, BaseTransaction::Creator::Ptr>>();
+    auto swapTransactionCreator = std::make_shared<beam::wallet::AtomicSwapTransaction::Creator>();
+
+    if (auto btcClient = getBitcoinClient(); btcClient)
+    {
+        auto bitcoinBridge = std::make_shared<Bitcoind017>(*m_walletReactor, btcClient);
+        auto btcSecondSideFactory = beam::wallet::MakeSecondSideFactory<BitcoinSide, Bitcoind017, IBitcoinSettingsProvider>(bitcoinBridge, btcClient);
+        swapTransactionCreator->RegisterFactory(AtomicSwapCoin::Bitcoin, btcSecondSideFactory);
+    }
+
+    additionalTxCreators->emplace(TxType::AtomicSwap, swapTransactionCreator);
+
+    m_wallet->start(additionalTxCreators);
+}
+
 void AppModel::applySettingsChanges()
 {
     if (m_nodeModel.isNodeRunning())
@@ -158,7 +183,7 @@ void AppModel::nodeSettingsChanged()
     {
         if (!m_wallet->isRunning())
         {
-            m_wallet->start();
+            startWallet();
         }
     }
 }
@@ -170,7 +195,7 @@ void AppModel::onStartedNode()
 
     if (!m_wallet->isRunning())
     {
-        m_wallet->start();
+        startWallet();
     }
 }
 
@@ -236,6 +261,7 @@ void AppModel::start()
         nodeAddrStr = nodeAddr.str();
     }
 
+    m_bitcoinClient = std::make_shared<BitcoinClientModel>(m_db, *m_walletReactor);
     m_wallet = std::make_shared<WalletModel>(m_db, nodeAddrStr, m_walletReactor);
 
     if (m_settings.getRunLocalNode())
@@ -244,7 +270,7 @@ void AppModel::start()
     }
     else
     {
-        m_wallet->start();
+        startWallet();
     }
 }
 
@@ -289,4 +315,9 @@ MessageManager& AppModel::getMessages()
 NodeModel& AppModel::getNode()
 {
     return m_nodeModel;
+}
+
+BitcoinClientModel::Ptr AppModel::getBitcoinClient() const
+{
+    return m_bitcoinClient;
 }

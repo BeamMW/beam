@@ -1871,12 +1871,14 @@ namespace beam::wallet
         stm.bind(1, txId);
         stm.bind(2, kDefaultSubTxID);
 
-        TxDescription txDescription;
-        txDescription.m_txId = txId;
+        TxDescription txDescription(txId);
 
-        const std::set<TxParameterID> mandatoryParams{ TxParameterID::Amount, TxParameterID::Fee,
-            TxParameterID::PeerID,
-            TxParameterID::MyID, TxParameterID::CreateTime,
+        const std::set<TxParameterID> mandatoryParams{ 
+            TxParameterID::Amount,
+            TxParameterID::Fee,
+         //   TxParameterID::PeerID,
+            TxParameterID::MyID, 
+            TxParameterID::CreateTime,
             TxParameterID::IsSender };
         std::set<TxParameterID> gottenParams;
 
@@ -1885,10 +1887,11 @@ namespace beam::wallet
             TxParameter parameter = {};
             int colIdx = 0;
             ENUM_TX_PARAMS_FIELDS(STM_GET_LIST, NOSEP, parameter);
+            auto parameterID = static_cast<TxParameterID>(parameter.m_paramID);
+            gottenParams.emplace(parameterID);
+            txDescription.SetParameter(parameterID, parameter.m_value);
 
-            gottenParams.emplace(static_cast<TxParameterID>(parameter.m_paramID));
-
-            switch (static_cast<TxParameterID>(parameter.m_paramID))
+            switch (parameterID)
             {
             case TxParameterID::TransactionType:
                 deserialize(txDescription.m_txType, parameter.m_value);
@@ -2319,11 +2322,11 @@ namespace beam::wallet
         for (auto sub : m_subscribers) sub->onCoinsChanged();
     }
 
-    void WalletDB::notifyTransactionChanged(ChangeAction action, vector<TxDescription>&& items)
+    void WalletDB::notifyTransactionChanged(ChangeAction action, const vector<TxDescription>& items)
     {
         for (auto sub : m_subscribers)
         {
-            sub->onTransactionChanged(action, move(items));
+            sub->onTransactionChanged(action, items);
         }
     }
 

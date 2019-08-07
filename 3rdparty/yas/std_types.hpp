@@ -42,8 +42,7 @@
 #include <yas/types/std/bitset.hpp>
 #include <yas/types/std/chrono.hpp>
 
-// CLang can't find optional on c++17 :(
-// #include <yas/types/std/optional.hpp>
+#include <yas/types/std/optional.hpp>
 
 #include <yas/types/std/complex.hpp>
 #include <yas/types/std/string.hpp>

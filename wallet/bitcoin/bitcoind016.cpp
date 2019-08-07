@@ -44,10 +44,9 @@ namespace beam
         }
     }
 
-    Bitcoind016::Bitcoind016(io::Reactor& reactor, const BitcoinOptions& options)
+    Bitcoind016::Bitcoind016(io::Reactor& reactor, IBitcoindSettingsProvider::Ptr settingsProvider)
         : m_httpClient(reactor)
-        , m_options(options)
-        , m_authorization(generateAuthorization(options.m_userName, options.m_pass))
+        , m_settingsProvider(settingsProvider)
     {
     }
 
@@ -304,29 +303,30 @@ namespace beam
         });
     }
 
-    uint8_t Bitcoind016::getAddressVersion()
+    void Bitcoind016::getDetailedBalance(std::function<void(const Error&, double, double, double)> callback)
     {
-        if (isMainnet())
-        {
-            return libbitcoin::wallet::ec_private::mainnet_p2kh;
-        }
-        
-        return libbitcoin::wallet::ec_private::testnet_p2kh;
-    }
+        LOG_DEBUG() << "Send getalletInfo command";
+        sendRequest("getwalletinfo", "", [callback](IBitcoinBridge::Error error, const json& result) {
+            double confirmed = 0;
+            double unconfirmed = 0;
+            double immature = 0;
 
-    Amount Bitcoind016::getFeeRate() const
-    {
-        return m_options.m_feeRate;
-    }
-
-    uint16_t Bitcoind016::getTxMinConfirmations() const
-    {
-        return m_options.m_confirmations;
-    }
-
-    uint32_t Bitcoind016::getLockTimeInBlocks() const
-    {
-        return m_options.m_lockTimeInBlocks;
+            if (error.m_type == IBitcoinBridge::None)
+            {
+                try
+                {
+                    confirmed = result["balance"].get<double>();
+                    unconfirmed = result["unconfirmed_balance"].get<double>();
+                    immature = result["immature_balance"].get<double>();
+                }
+                catch (const std::exception& ex)
+                {
+                    error.m_type = IBitcoinBridge::InvalidResultFormat;
+                    error.m_message = ex.what();
+                }
+            }
+            callback(error, confirmed, unconfirmed, immature);
+            });
     }
 
     std::string Bitcoind016::getCoinName() const
@@ -337,12 +337,14 @@ namespace beam
     void Bitcoind016::sendRequest(const std::string& method, const std::string& params, std::function<void(const Error&, const json&)> callback)
     {
         const std::string content(R"({"method":")" + method + R"(","params":[)" + params + "]}");
+        auto settings = m_settingsProvider->GetBitcoindSettings();
+        const std::string authorization(generateAuthorization(settings.m_userName, settings.m_pass));
         const HeaderPair headers[] = {
-            {"Authorization", m_authorization.data()}
+            {"Authorization", authorization.data()}
         };
         HttpClient::Request request;
 
-        request.address(m_options.m_address)
+        request.address(settings.m_address)
             .connectTimeoutMsec(2000)
             .pathAndQuery("/")
             .headers(headers)
@@ -418,10 +420,5 @@ namespace beam
         });
 
         m_httpClient.send_request(request);
-    }
-
-    bool Bitcoind016::isMainnet() const
-    {
-        return m_options.m_chainType == wallet::SwapSecondSideChainType::Mainnet;
     }
 }

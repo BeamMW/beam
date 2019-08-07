@@ -543,8 +543,8 @@
         <translation>Wallet</translation>
     </message>
     <message id="wallet-receive-title">
-        <source></source>
-        <oldsource>Receive</oldsource>
+        <source>Receive</source>
+        <oldsource>Receive Beam</oldsource>
         <translation type="unfinished">Recibir Beam</translation>
     </message>
     <message id="wallet-receive-my-addr-label">
@@ -1190,10 +1190,6 @@ Escanee este código QR o envíe esta dirección al remitente a través de un ca
         <source>The minimum fee is %1 GROTH</source>
         <translation type="unfinished">La cuota minima es %1 GROTH</translation>
     </message>
-    <message id="wallet-receive-swap-title">
-        <source>Receive</source>
-        <translation type="unfinished">Recibir</translation>
-    </message>
     <message id="wallet-swap">
         <source></source>
         <translation type="unfinished"></translation>
@@ -1227,6 +1223,10 @@ Escanee este código QR o envíe esta dirección al remitente a través de un ca
         <translation type="unfinished">24 horas {6 ?}</translation>
     </message>
     <message id="wallet-swap-propogate-addr-message">
+        <source></source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="wallet-receive-swap-title">
         <source></source>
         <translation type="unfinished"></translation>
     </message>
@@ -1272,6 +1272,20 @@ Escanee este código QR o envíe esta dirección al remitente a través de un ca
     </message>
     <message id="wallet-publish-swap">
         <source>Publish</source>
+    <message id="general-address-from">
+        <source>From</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="general-address-to">
+        <source>To</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="general-amount-sent">
+        <source>Sent</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="general-amount-received">
+        <source>Received</source>
         <translation type="unfinished"></translation>
     </message>
 </context>

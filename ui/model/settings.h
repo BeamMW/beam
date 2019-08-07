@@ -18,8 +18,11 @@
 #include <QSettings>
 #include <QDir>
 #include <mutex>
+#include <optional>
 
 #include "model/wallet_model.h"
+#include "wallet/bitcoin/bitcoin_settings.h"
+
 
 class WalletSettings : public QObject
 {
@@ -60,6 +63,8 @@ public:
     void setLocaleByLanguageName(const QString& language);
     static QStringList getSupportedLanguages();
     static void openFolder(const QString& path);
+
+    std::shared_ptr<beam::BitcoinSettings> getBitcoinSettings() const;
 
 public:
     static const char* WalletCfg;

@@ -20,10 +20,10 @@ class WalletCurrency: public QObject
 public:
     enum class Currency {
         CurrStart = -1,
-        CurrBEAM  = 0,
-        CurrBTC   = 1,
-        CurrLTC   = 2,
-        CurrQTUM  = 3,
+        CurrBeam  = 0,
+        CurrBtc   = 1,
+        CurrLtc   = 2,
+        CurrQtum  = 3,
         CurrEnd   = 4
     };
     Q_ENUMS(Currency)

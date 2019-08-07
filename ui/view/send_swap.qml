@@ -52,6 +52,49 @@ ColumnLayout {
         }
     }
 
+    ColumnLayout {
+        Layout.fillWidth: true
+
+        SFText {
+            font.pixelSize:  14
+            font.styleName:  "Bold"; font.weight: Font.Bold
+            color:           Style.content_main
+            text:            qsTrId("send-swap-to-label") //% "Transaction token or contact"
+        }
+
+        SFTextInput {
+            Layout.fillWidth: true
+            id:               tokenInput
+            font.pixelSize:   14
+            color:            viewModel.tokenValid ? Style.content_main : Style.validator_error
+            backgroundColor:  viewModel.tokenValid ? Style.content_main : Style.validator_error
+            font.italic :     !viewModel.tokenValid
+            text:             viewModel.token
+            validator:        RegExpValidator { regExp: /[0-9a-fA-F]{1,}/ }
+            selectByMouse:    true
+            readOnly:         true
+            placeholderText:  qsTrId("send-contact-placeholder") //% "Please specify contact"
+        }
+
+        Item {
+            Layout.fillWidth: true
+            SFText {
+                Layout.alignment: Qt.AlignTop
+                id:               receiverTAError
+                color:            Style.validator_error
+                font.pixelSize:   12
+                text:             qsTrId("general-invalid-address") //% "Invalid address"
+                visible:          !viewModel.tokenValid
+            }
+        }
+
+        Binding {
+            target:   viewModel
+            property: "token"
+            value:    tokenInput.text
+        }
+    }
+
     Grid  {
         Layout.fillWidth: true
         columnSpacing:    70
@@ -59,45 +102,6 @@ ColumnLayout {
 
         ColumnLayout {
             width: parent.width / 2 - parent.columnSpacing / 2
-
-            SFText {
-                font.pixelSize:  14
-                font.styleName:  "Bold"; font.weight: Font.Bold
-                color:           Style.content_main
-                text:            qsTrId("send-swap-to-label") //% "Transaction token or contact"
-            }
-
-            SFTextInput {
-                Layout.fillWidth: true
-                id:               tokenInput
-                font.pixelSize:   14
-                color:            viewModel.tokenValid ? Style.content_main : Style.validator_error
-                backgroundColor:  viewModel.tokenValid ? Style.content_main : Style.validator_error
-                font.italic :     !viewModel.tokenValid
-                text:             viewModel.token
-                validator:        RegExpValidator { regExp: /[0-9a-fA-F]{1,}/ }
-                selectByMouse:    true
-                readOnly:         true
-                placeholderText:  qsTrId("send-contact-placeholder") //% "Please specify contact"
-            }
-
-            Item {
-                Layout.fillWidth: true
-                SFText {
-                    Layout.alignment: Qt.AlignTop
-                    id:               receiverTAError
-                    color:            Style.validator_error
-                    font.pixelSize:   12
-                    text:             qsTrId("general-invalid-address") //% "Invalid address"
-                    visible:          !viewModel.tokenValid
-                }
-            }
-
-            Binding {
-                target:   viewModel
-                property: "token"
-                value:    tokenInput.text
-            }
 
             //
             // Send Amount
@@ -109,12 +113,17 @@ ColumnLayout {
                 hasFee:           true
                 amount:           viewModel.sendAmount
                 currency:         viewModel.sendCurrency
-                fee:              viewModel.sendFee
-                readOnly:         true
+                readOnlyA:        true
                 multi:            false
                 color:            Style.accent_outgoing
                 currColor:        viewModel.receiveCurrency == viewModel.sendCurrency ? Style.validator_error : Style.content_main
                 error:            viewModel.isEnough ? "" : qsTrId("send-not-enough")
+            }
+
+            Binding {
+                target:   viewModel
+                property: "sendFee"
+                value:    sendAmountInput.fee
             }
 
             //
@@ -169,11 +178,16 @@ ColumnLayout {
                 hasFee:           true
                 amount:           viewModel.receiveAmount
                 currency:         viewModel.receiveCurrency
-                fee:              viewModel.receiveFee
-                readOnly:         true
+                readOnlyA:        true
                 multi:            false
                 color:            Style.accent_incoming
                 currColor:        viewModel.receiveCurrency == viewModel.sendCurrency ? Style.validator_error : Style.content_main
+            }
+
+            Binding {
+                target:   viewModel
+                property: "receiveFee"
+                value:    receiveAmountInput.fee
             }
 
             GridLayout {
@@ -226,9 +240,10 @@ ColumnLayout {
         spacing:          25
 
         CustomButton {
-            text:        qsTrId("general-back")
-            icon.source: "qrc:/assets/icon-back.svg"
-            onClicked:   walletView.pop();
+            text:                qsTrId("general-close")
+            palette.buttonText:  Style.content_main
+            icon.source:         "qrc:/assets/icon-cancel-white.svg"
+            onClicked:           walletView.pop();
         }
 
         CustomButton {

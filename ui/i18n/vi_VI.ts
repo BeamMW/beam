@@ -543,8 +543,8 @@
         <translation>Ví</translation>
     </message>
     <message id="wallet-receive-title">
-        <source></source>
-        <oldsource>Receive</oldsource>
+        <source>Receive</source>
+        <oldsource>Receive Beam</oldsource>
         <translation type="unfinished">Nhận Beam</translation>
     </message>
     <message id="wallet-receive-my-addr-label">
@@ -1189,10 +1189,6 @@
         <source>The minimum fee is %1 GROTH</source>
         <translation type="unfinished">The minimum fee is %1 GROTH</translation>
     </message>
-    <message id="wallet-receive-swap-title">
-        <source>Receive</source>
-        <translation type="unfinished">Nhận</translation>
-    </message>
     <message id="wallet-swap">
         <source></source>
         <translation type="unfinished"></translation>
@@ -1226,6 +1222,10 @@
         <translation type="unfinished">24 tiếng {6 ?}</translation>
     </message>
     <message id="wallet-swap-propogate-addr-message">
+        <source></source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="wallet-receive-swap-title">
         <source></source>
         <translation type="unfinished"></translation>
     </message>
@@ -1271,6 +1271,20 @@
     </message>
     <message id="wallet-publish-swap">
         <source>Publish</source>
+    <message id="general-address-from">
+        <source>From</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="general-address-to">
+        <source>To</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="general-amount-sent">
+        <source>Sent</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="general-amount-received">
+        <source>Received</source>
         <translation type="unfinished"></translation>
     </message>
 </context>

@@ -35,12 +35,22 @@ namespace beam::wallet
         if (msg.m_Message.empty())
             return;
 
-        SwapOffer offer;
-
-        if (fromByteBuffer(msg.m_Message, offer))
+        TxToken token;
+        if (fromByteBuffer(msg.m_Message, token))
         {
-            m_offersCache[offer.m_txId] = offer;
-            m_observer.onSwapOffersChanged(ChangeAction::Added, std::vector<SwapOffer>{offer});
+            auto txParams = std::make_optional<TxParameters>(token.UnpackParameters());
+
+            if (txParams.has_value())
+            {
+                auto offer = txParams.value();
+                auto txId = offer.GetTxID();
+                if (txId.has_value())
+                {
+                    m_offersCache[txId.value()] = offer;
+                    m_observer.onSwapOffersChanged(ChangeAction::Added, std::vector<SwapOffer>{offer});
+                }
+            }
+
         }
         else
         {
@@ -90,7 +100,9 @@ namespace beam::wallet
             return;
         WalletID wId;
         wId.m_Channel = m_activeChannel.value();
-        m_messageEndpoint.SendEncryptedMessage(wId, toByteBuffer(offer));
+
+        beam::wallet::TxToken token(offer);
+        m_messageEndpoint.SendEncryptedMessage(wId, toByteBuffer(token));
     }
 
 } // namespace beam::wallet
