@@ -9,7 +9,8 @@ import "controls"
 
 ColumnLayout {
     id: thisView
-    property var defaultFocusItem: receiveAmountInput.amountInput
+    property var  defaultFocusItem: receiveAmountInput.amountInput
+    property bool addressSaved: false
 
     ReceiveSwapViewModel {
         id: viewModel
@@ -115,6 +116,7 @@ ColumnLayout {
                 focus:            true
                 text:             viewModel.addressComment
                 maximumLength:    BeamGlobals.maxCommentLength()
+                enabled:          !thisView.addressSaved
             }
 
             Binding {
@@ -270,7 +272,11 @@ ColumnLayout {
             enabled:             thisView.canSend()
             onClicked: {
                 BeamGlobals.copyToClipboard(viewModel.transactionToken);
-                viewModel.startListen();
+                if (!thisView.addressSaved) {
+                    thisView.addressSaved = true
+                    viewModel.saveAddress()
+                }
+                viewModel.startListen()
             }
         }
 
@@ -280,8 +286,14 @@ ColumnLayout {
             icon.color:          Style.content_opposite
             palette.button:      Style.active
             icon.source:         "qrc:/assets/icon-share.svg"
-            onClicked:           viewModel.publishToken()
             enabled:             thisView.canSend()
+            onClicked: {
+                if (!thisView.addressSaved) {
+                    thisView.addressSaved = true
+                    viewModel.saveAddress()
+                }
+                viewModel.publishToken()
+            }
         }
     }
 
