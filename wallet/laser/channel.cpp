@@ -79,7 +79,8 @@ Channel::~Channel()
 Height Channel::get_Tip() const
 {
     Block::SystemState::Full tip;
-    m_rHolder.getWalletDB()->get_History().get_Tip(tip);
+    auto& history = m_rHolder.getWalletDB()->get_History();
+    history.get_Tip(tip);
     return tip.m_Height;
 }
 
@@ -130,7 +131,7 @@ void Channel::SendPeer(Negotiator::Storage::Map&& dataOut)
     ser & (*m_ID);
     ser & Cast::Down<FieldMap>(dataOut);
 
-    LOG_INFO() << "Send From " << m_myAddr.m_walletID.m_Pk << "\tTo peer " << m_widTrg.m_Pk << " (via bbs): " << ser.buffer().second;
+    LOG_INFO() << "LASER Send From: " << std::to_string(m_myAddr.m_walletID) << " To peer " << std::to_string(m_widTrg);
 
     proto::FlyClient::RequestBbsMsg::Ptr pReq(new proto::FlyClient::RequestBbsMsg);
 	m_widTrg.m_Channel.Export(pReq->m_Msg.m_Channel);

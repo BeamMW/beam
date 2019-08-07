@@ -1168,7 +1168,8 @@ namespace
         return boost::optional<QtumOptions>{};
     }
 
-    proto::FlyClient::NetworkStd::Ptr createNetwork(proto::FlyClient& fc, const po::variables_map& vm)
+    proto::FlyClient::NetworkStd::Ptr CreateNetwork(
+        proto::FlyClient& fc, const po::variables_map& vm)
     {
         auto nnet = make_shared<proto::FlyClient::NetworkStd>(fc);
 
@@ -1181,20 +1182,29 @@ namespace
         }
 
         
-        nnet->m_Cfg.m_PollPeriod_ms = vm[cli::NODE_POLL_PERIOD].as<Nonnegative<uint32_t>>().value;
+        nnet->m_Cfg.m_PollPeriod_ms =
+            vm[cli::NODE_POLL_PERIOD].as<Nonnegative<uint32_t>>().value;
         if (nnet->m_Cfg.m_PollPeriod_ms)
         {
-            LOG_INFO() << "Node poll period = " << nnet->m_Cfg.m_PollPeriod_ms << " ms";
-            uint32_t timeout_ms = std::max(Rules::get().DA.Target_s * 1000, nnet->m_Cfg.m_PollPeriod_ms);
+            LOG_INFO() << "Node poll period = "
+                       << nnet->m_Cfg.m_PollPeriod_ms
+                       << " ms";
+            uint32_t timeout_ms =
+                std::max(Rules::get().DA.Target_s * 1000,
+                         nnet->m_Cfg.m_PollPeriod_ms);
             if (timeout_ms != nnet->m_Cfg.m_PollPeriod_ms)
             {
-                LOG_INFO() << "Node poll period has been automatically rounded up to block rate: " << timeout_ms << " ms";
+                LOG_INFO() << "Node poll period has been automatically rounded up to block rate: "
+                           << timeout_ms << " ms";
             }
         }
-        uint32_t responceTime_s = Rules::get().DA.Target_s * wallet::kDefaultTxResponseTime;
+        uint32_t responceTime_s =
+            Rules::get().DA.Target_s * wallet::kDefaultTxResponseTime;
         if (nnet->m_Cfg.m_PollPeriod_ms >= responceTime_s * 1000)
         {
-            LOG_WARNING() << "The \"--node_poll_period\" parameter set to more than " << uint32_t(responceTime_s / 3600) << " hours may cause transaction problems.";
+            LOG_WARNING() << "The \"--node_poll_period\" parameter set to more than "
+                          << uint32_t(responceTime_s / 3600)
+                          << " hours may cause transaction problems.";
         }
         nnet->m_Cfg.m_vNodes.push_back(nodeAddress);
         nnet->Connect();
@@ -1202,7 +1212,8 @@ namespace
         return nnet;
     }
 
-    bool LaserOpen(laser::Mediator* laser, const po::variables_map& vm)
+    bool LaserOpen(const unique_ptr<laser::Mediator>& laser,
+                   const po::variables_map& vm)
     {
         io::Address receiverAddr;
         Amount aMy = 0, aTrg = 0, fee = 100;
@@ -1216,22 +1227,22 @@ namespace
         }
 
         laser->OpenChannel(aMy, aTrg, fee, receiverWalletID, lifetime);
-
         return true;
     }
     
-    bool LaserWait(laser::Mediator* laser, const po::variables_map& vm)
+    void LaserWait(const unique_ptr<laser::Mediator>& laser,
+                   const po::variables_map& vm)
     {
         laser->WaitIncoming();
-        return true;
     }
 
-    // int LaserSend()
-    // {
-    //     return 0;        
-    // }
+    bool LaserSend()
+    {
+        LOG_INFO() << "LaserSend";
+        return true;   
+    }
 
-    int LaserShowChannels(const IWalletDB::Ptr& walletDB)
+    void LaserShowChannels(const IWalletDB::Ptr& walletDB)
     {
         array<uint8_t, 6> columnWidths{ { 32, 10, 10, 10, 10, 10 } };
 
@@ -1254,54 +1265,50 @@ namespace
                 << setw(columnWidths[4]) << std::get<3>(ch) << "|"
                 << setw(columnWidths[5]) << std::get<5>(ch) << "\n";
         }
-        return 0;
     }
 
-    int Laser(const IWalletDB::Ptr& walletDB, const po::variables_map& vm)
+    bool ServeLaser(const unique_ptr<laser::Mediator>& laser,
+                    const IWalletDB::Ptr& walletDB,
+                    const po::variables_map& vm)
     {
-        laser::Mediator laser(walletDB);
-        laser.SetNetwork(createNetwork(laser, vm));
+        laser->SetNetwork(CreateNetwork(*laser, vm));
 
         if (vm.count(cli::LASER_OPEN))
         {
-            laser.SetOnCommandCompleteAction([&walletDB] ()
+            laser->SetOnCommandCompleteAction([&walletDB] ()
             {
                 LOG_INFO() << "onLaserCompleteActionOnce";
                 io::Reactor::get_Current().stop();
                 LaserShowChannels(walletDB); 
             });
-            if(!LaserOpen(&laser, vm))
-            {
-                return -1;
-            }
+            return LaserOpen(laser, vm);
         }
         else if (vm.count(cli::LASER_WAIT))
         {
-            laser.SetOnCommandCompleteAction([&walletDB] ()
+            laser->SetOnCommandCompleteAction([&walletDB] ()
             {
                 LOG_INFO() << "onLaserCompleteAction";
                 LaserShowChannels(walletDB); 
             });
-            if(!LaserWait(&laser, vm))
-            {
-                return -1;
-            }
+            LaserWait(laser, vm);
+            return true;
         }
         else if (vm.count(cli::LASER_CLOSE))
         {
             LOG_INFO() << "LASER CLOSE";
+            return true;
         }
         else if (vm.count(cli::LASER_SEND))
         {
-            LOG_INFO() << "LASER SEND";
+            return LaserSend();
         }
         else if (vm.count(cli::LASER_LIST))
         {
-            return LaserShowChannels(walletDB);
+            LaserShowChannels(walletDB);
+            return false;
         }
 
-        io::Reactor::get_Current().run();
-        return 0;
+        return false;
     }
 }
 
@@ -1617,9 +1624,14 @@ int main_impl(int argc, char* argv[])
 
                     if (command == cli::LASER || vm.count(cli::LASER))
                     {
-                        return Laser(walletDB, vm);
+                        auto laser =
+                            std::make_unique<laser::Mediator>(walletDB);
+                        if (ServeLaser(laser, walletDB, vm))
+                        {
+                            io::Reactor::get_Current().run();
+                        }
+                        return 0;
                     }
-
                     boost::optional<BitcoinOptions> btcOptions = ParseBitcoinOptions(vm);
                     boost::optional<LitecoinOptions> ltcOptions = ParseLitecoinOptions(vm);
                     boost::optional<QtumOptions> qtumOptions = ParseQtumOptions(vm);
@@ -1635,7 +1647,8 @@ int main_impl(int argc, char* argv[])
                         return -1;
                     }
 
-                    bool is_server = command == cli::LISTEN || vm.count(cli::LISTEN);
+                    bool is_server =
+                        command == cli::LISTEN || vm.count(cli::LISTEN);
                    
                     boost::optional<TxID> currentTxID;
                     auto onTxCompleteAction = [&currentTxID](const TxID& txID)
@@ -1668,7 +1681,7 @@ int main_impl(int argc, char* argv[])
                         wallet::AsyncContextHolder holder(wallet);
                         if (!coldWallet)
                         {
-                            auto nnet = createNetwork(wallet, vm);
+                            auto nnet = CreateNetwork(wallet, vm);
 
                             wallet.AddMessageEndpoint(make_shared<WalletNetworkViaBbs>(wallet, nnet, walletDB));
                             wallet.SetNodeEndpoint(nnet);

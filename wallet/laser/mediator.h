@@ -16,7 +16,6 @@
 
 #include <functional>
 #include <memory>
-#include <queue>
 #include <vector>
 
 #include "wallet/laser/i_channel_holder.h"
@@ -77,6 +76,6 @@ private:
     WalletAddress m_myInAddr;
 
     std::function<void()> m_onCommandComplete = std::function<void()>();
-    std::queue<std::function<void()>> m_openQueue;
+    std::vector<std::function<void()>> m_openQueue;
 };
 }  // namespace beam::wallet::laser

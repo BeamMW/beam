@@ -2179,7 +2179,6 @@ namespace beam::wallet
             stm.bind(3, ch.get_trgWID());
             stm.bind(4, ch.get_State());
             stm.bind(5, ch.get_fee());
-            LOG_INFO() << "locktime " << ch.getLocktime();
             stm.bind(6, ch.getLocktime());
             stm.bind(7, ch.get_amountMy());
             stm.bind(8, ch.get_amountTrg());

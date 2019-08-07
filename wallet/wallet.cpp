@@ -344,54 +344,6 @@ namespace beam::wallet
         m_TxCreators[type] = creator;
     }
 
-    // void Wallet::InitLaser(proto::FlyClient::NetworkStd::Ptr& net)
-    // {
-    //     if (!m_laser)
-    //     {
-    //         m_laser = std::make_unique<laser::Mediator>(m_WalletDB, net);
-    //     }
-    // }
-
-    // void Wallet::SetLaserOnCompleteAction(std::function<void()>&& onComplete)
-    // {
-    //     if (m_laser)
-    //     {
-    //         m_laser->SetOnCommandCompleteAction(std::move(onComplete));
-    //     }
-    //     else
-    //     {
-    //         LOG_ERROR() << "Laser is not init";
-    //     }
-    // }
-
-    // void Wallet::OpenLaserChanel(Amount aMy,
-    //                              Amount aTrg,
-    //                              Amount fee,
-    //                              const WalletID& receiverWalletID,
-    //                              Height locktime)
-    // {   
-    //     if (m_laser)
-    //     {
-    //         m_laser->OpenChannel(aMy, aTrg, fee, receiverWalletID, locktime);
-    //     }
-    //     else
-    //     {
-    //         LOG_DEBUG() << "Laser is not init";
-    //     }
-    // }
-
-    // void Wallet::WaitIncomingLaser()
-    // {
-    //     if (m_laser)
-    //     {
-    //         m_laser->WaitIncoming();
-    //     }
-    //     else
-    //     {
-    //         LOG_DEBUG() << "Laser is not init";
-    //     }
-    // }
-
     void Wallet::RefreshTransactions()
     {
         auto txs = m_WalletDB->getTxHistory(TxType::ALL); // get list of ALL transactions
@@ -1057,11 +1009,6 @@ namespace beam::wallet
         CheckSyncDone();
 
         ProcessStoredMessages();
-
-        // if (m_laser)
-        // {
-        //     m_laser->OnNewTip();
-        // }
     }
 
     void Wallet::OnTipUnchanged()

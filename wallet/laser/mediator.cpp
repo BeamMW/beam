@@ -29,7 +29,7 @@ namespace
     bool IsValidTimeStamp(beam::Timestamp currentBlockTime_s)
     {
         beam::Timestamp currentTime_s = beam::getTimestamp();
-        const beam::Timestamp tolerance_s = 60 * 8; // 10 minutes tolerance.
+        const beam::Timestamp tolerance_s = 60 * 8;
         currentBlockTime_s += tolerance_s;
 
         if (currentTime_s > currentBlockTime_s)
@@ -57,23 +57,39 @@ Mediator::~Mediator()
 
 void Mediator::OnNewTip()
 {
-    // get_History()
-    // m_openQueue.pop()()
+    Block::SystemState::Full tip;
+    get_History().get_Tip(tip);
+    if (!IsValidTimeStamp(tip.m_TimeStamp))
+    {
+        return;
+    }
+
+    LOG_INFO() << "LASER New Tip: " << tip.m_Height;
+
+    for (auto& openIt : m_openQueue)
+    {
+        openIt();
+    }
+    m_openQueue.clear();
+
     for (auto& it: m_channels)
     {
         auto& ch = it.second;
         ch->Update();
         if (ch->IsStateChanged())
         {
-            m_pWalletDB->saveLaserChannel(*ch);
+            if (ch->get_State() >= Lightning::Channel::State::Opening1)
+            {
+                m_pWalletDB->saveLaserChannel(*ch);
+            }
+            if (m_onCommandComplete &&
+                ch->get_State() == Lightning::Channel::State::Open ||
+                ch->get_State() == Lightning::Channel::State::OpenFailed)
+            {
+                m_onCommandComplete();
+            }
         }
         
-        if ((ch->get_State() == Lightning::Channel::State::Open ||
-             ch->get_State() == Lightning::Channel::State::OpenFailed) &&
-            m_onCommandComplete)
-        {
-            m_onCommandComplete();
-        }
         ch->LogNewState();
 
         if (!ch->IsNegotiating() && ch->IsSafeToForget(kSafeForgetHeight))
@@ -160,7 +176,8 @@ void Mediator::OnMsg(const ChannelIDPtr& chID, Blob&& blob)
 
     ch->OnPeerData(dataIn);
     
-    if (ch->IsStateChanged())
+    if (ch->IsStateChanged() &&
+        ch->get_State() >= Lightning::Channel::State::Opening1)
     {
         m_pWalletDB->saveLaserChannel(*ch);
     }
@@ -198,7 +215,7 @@ void Mediator::WaitIncoming()
     BbsChannel ch;
     m_myInAddr.m_walletID.m_Channel.Export(ch);
     m_pConnection->BbsSubscribe(ch, getTimestamp(), m_pInputReceiver.get());
-    LOG_INFO() << "beam::wallet::laser::Mediator subscribed: " << ch;
+    LOG_INFO() << "LASER subscribed: " << ch;
 }
 
 void Mediator::OpenChannel(Amount aMy,
@@ -225,23 +242,18 @@ void Mediator::OpenChannel(Amount aMy,
     
     auto& ch = m_channels[chIDPtr];
 
-    m_openQueue.emplace([this, &ch] () {
+    m_openQueue.emplace_back([this, &ch] () {
         Block::SystemState::Full tip;
         get_History().get_Tip(tip);
 
         HeightRange openWindow;
         openWindow.m_Min = tip.m_Height;
-        openWindow.m_Max = openWindow.m_Min + kDefaultLaserOpenTime;
+        openWindow.m_Max = openWindow.m_Min + kDefaultTxLifetime;
 
         if (ch->Open(openWindow))
         {
             LOG_INFO() << "LASER opening channel: "
                     << to_hex(ch->get_chID()->m_pData, ch->get_chID()->nBytes);
-            if (ch->IsStateChanged())
-            {
-                m_pWalletDB->saveLaserChannel(*ch);
-            }
-            ch->LogNewState();
         }
         else
         {
