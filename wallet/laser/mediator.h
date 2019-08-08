@@ -57,6 +57,7 @@ public:
                      const WalletID& receiverWalletID,
                      Height locktime);
     void Close(const std::string& channelIDStr);
+    bool Transfer(Amount amount, const std::string& channelIDStr);
     void SetOnCommandCompleteAction(std::function<void()>&& onCommandComplete);
 
 private:
@@ -64,6 +65,7 @@ private:
     void OnIncoming(const ChannelIDPtr& chID,
                     Negotiator::Storage::Map& dataIn);
     void ForgetChannel(const ChannelIDPtr& chID);
+    bool RestoreChannel(const ChannelIDPtr& chID);
 
     IWalletDB::Ptr m_pWalletDB;
     std::shared_ptr<proto::FlyClient::INetwork> m_pConnection;

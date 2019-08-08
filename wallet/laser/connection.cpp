@@ -47,7 +47,10 @@ void Connection::BbsSubscribe(
 void Connection::PostRequestInternal(FlyClient::Request& r)
 {
     if (FlyClient::Request::Type::Transaction == r.get_Type())
+    {
         LOG_INFO() << "LASER ### Broadcasting transaction ###";
+        // return; // TEST ONLY
+    }
 
     if (FlyClient::Request::Type::BbsMsg == r.get_Type())
         LOG_INFO()  << "LASER ### Bbs mesage out ###";    

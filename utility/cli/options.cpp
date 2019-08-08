@@ -136,7 +136,7 @@ namespace beam
         // laser
         const char* LASER = "laser";
         const char* LASER_OPEN = "open";
-        const char* LASER_SEND = "send";
+        const char* LASER_TRANSFER = "transfer";
         const char* LASER_WAIT = "wait";
         const char* LASER_LIST = "list";
         const char* LASER_CLOSE = "close";
@@ -145,6 +145,7 @@ namespace beam
         const char* LASER_TARGET_ARRD = "laser_target";
         const char* LASER_FEE = "lfee";
         const char* LASER_LOCK_TIME = "laser_lock_time";
+        const char* LASER_CHANNEL_ID = "channel";
 
         // wallet api
         const char* API_USE_HTTP = "use_http";
@@ -287,7 +288,7 @@ namespace beam
         po::options_description lazer_options("Lightning options");
         lazer_options.add_options()
             (cli::LASER_OPEN, "open lightning channel")
-            (cli::LASER_SEND, "send to lightning channel")
+            (cli::LASER_TRANSFER, "send to lightning channel")
             (cli::LASER_WAIT, "wait for open lightning channel")
             (cli::LASER_LIST, "view all opened lightning channel")
             (cli::LASER_CLOSE, "close opened lightning channel")
@@ -295,7 +296,8 @@ namespace beam
             (cli::LASER_AMOUNT_TARGET, po::value<Positive<double>>(), "amount to lock in channel on target side (in Beams, 1 Beam = 100,000,000 groth)")
             (cli::LASER_TARGET_ARRD, po::value<string>(), "address of laser receiver")
             (cli::LASER_FEE, po::value<Nonnegative<Amount>>()->default_value(Nonnegative<Amount>(cli::kMinimumFee)), "fee (in Groth, 100,000,000 groth = 1 Beam)")
-            (cli::LASER_LOCK_TIME, po::value<Positive<uint32_t>>(), "lock time in blocks beam transaction");
+            (cli::LASER_LOCK_TIME, po::value<Positive<uint32_t>>(), "lock time in blocks beam transaction")
+            (cli::LASER_CHANNEL_ID, po::value<string>(), "laser channel ID");
 
         po::options_description options{ "Allowed options" };
         po::options_description visible_options{ "Allowed options" };

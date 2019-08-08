@@ -135,7 +135,7 @@ namespace beam
         // laser
         extern const char* LASER;
         extern const char* LASER_OPEN;
-        extern const char* LASER_SEND;
+        extern const char* LASER_TRANSFER;
         extern const char* LASER_WAIT;
         extern const char* LASER_LIST;
         extern const char* LASER_CLOSE;
@@ -144,6 +144,7 @@ namespace beam
         extern const char* LASER_TARGET_ARRD;
         extern const char* LASER_FEE;
         extern const char* LASER_LOCK_TIME;
+        extern const char* LASER_CHANNEL_ID;
 
         // wallet api
         extern const char* API_USE_HTTP;

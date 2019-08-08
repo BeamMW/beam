@@ -18,6 +18,22 @@
 namespace beam::wallet::laser
 {
 
+// static
+ChannelIDPtr Channel::ChIdFromString(const std::string& chIdStr)
+{
+    bool isValid = false;
+    auto buffer = from_hex(chIdStr, &isValid);
+
+    if (isValid)
+    {
+        auto chId = std::make_shared<ChannelID>(Zero);
+        memcpy(&(chId->m_pData), buffer.data(), buffer.size());
+
+        return chId;
+    }
+    return nullptr;
+}
+
 Channel::Channel(IChannelHolder& holder,
                  const WalletAddress& myAddr,
                  const WalletID& trg,
@@ -39,6 +55,7 @@ Channel::Channel(IChannelHolder& holder,
 
     Subscribe();
 }
+
 Channel::Channel(IChannelHolder& holder,
                  const ChannelIDPtr& chID,
                  const WalletAddress& myAddr,
@@ -57,6 +74,26 @@ Channel::Channel(IChannelHolder& holder,
 {
     m_Params.m_Fee = fee;
     m_Params.m_hLockTime = locktime;
+
+    Subscribe();
+}
+
+Channel::Channel(IChannelHolder& holder,
+                 const ChannelIDPtr& chID,
+                 const WalletAddress& myAddr,
+                 const TLaserChannelEntity& entity)
+    : m_rHolder(holder)
+    , m_ID(chID)
+    , m_myAddr(myAddr)
+    , m_widTrg(std::get<2>(entity))
+    , m_aMy(std::get<5>(entity))
+    , m_aTrg(std::get<6>(entity))
+    , m_upReceiver(std::make_unique<Receiver>(holder, chID))
+{
+    m_Params.m_Fee = std::get<3>(entity);
+    m_Params.m_hLockTime = std::get<4>(entity);
+
+    RestoreInternalState(std::get<10>(entity));
 
     Subscribe();
 }
@@ -150,22 +187,22 @@ void Channel::SendPeer(Negotiator::Storage::Map&& dataOut)
 		pReq->m_Msg.m_TimePosted = getTimestamp();
 		get_Net().PostRequest(*pReq, *m_upReceiver);
 	}
-};
+}
 
 const ChannelIDPtr& Channel::get_chID() const
 {
     return m_ID;
-};
+}
 
 const WalletID& Channel::get_myWID() const
 {
     return m_myAddr.m_walletID;
-};
+}
 
 const WalletID& Channel::get_trgWID() const
 {
     return m_widTrg;
-};
+}
 
 // int Channel::get_lastState() const
 // {
@@ -175,57 +212,106 @@ const WalletID& Channel::get_trgWID() const
 const Amount& Channel::get_fee() const
 {
     return m_Params.m_Fee;
-};
+}
 
 const Height Channel::getLocktime() const
 {
     return m_Params.m_hLockTime;
-};
+}
 
 const Amount& Channel::get_amountMy() const
 {
     return m_aMy;
-};
+}
 
 const Amount& Channel::get_amountTrg() const
 {
     return m_aTrg;
-};
+}
 
 const Amount& Channel::get_amountCurrentMy() const
 {
     return m_aMy;
-};
+}
 
 const Amount& Channel::get_amountCurrentTrg() const
 {
     return m_aTrg;
-};
+}
 
 int Channel::get_State() const
 {
     return beam::Lightning::Channel::get_State();
-};
+}
 
 const ByteBuffer& Channel::get_Data() const
 {
     return m_data;
-};
+}
 
 const WalletAddress& Channel::get_myAddr() const
 {
     return m_myAddr;
-};
+}
 
 bool Channel::Open(HeightRange openWindow)
 {
     return Lightning::Channel::Open(m_aMy, m_aTrg, openWindow);
-};
+}
 
 bool Channel::IsStateChanged()
 {
     return m_LastState != beam::Lightning::Channel::get_State();
-};
+}
+
+void Channel::UpdateRestorePoint()
+{
+    Serializer ser;
+
+    ser & m_State.m_hTxSentLast;
+    ser & m_State.m_hQueryLast;
+    ser & m_State.m_Close.m_iPath;
+    ser & m_State.m_Close.m_Initiator;
+    ser & m_State.m_Close.m_hPhase1;
+    ser & m_State.m_Close.m_hPhase2;
+    ser & m_State.m_Terminate;
+
+    ser & m_pOpen->m_Comm0;
+    ser & m_pOpen->m_ms0;
+    ser & m_pOpen->m_hrLimit.m_Min;
+    ser & m_pOpen->m_hrLimit.m_Max;
+    ser & m_pOpen->m_txOpen;
+    ser & m_pOpen->m_hvKernel0;
+    ser & m_pOpen->m_hOpened;
+    ser & m_pOpen->m_vInp.size();
+    for (auto& inp : m_pOpen->m_vInp)
+    {
+        ser & inp;
+    }
+    ser & m_pOpen->m_kidvChange;
+
+    ser & m_vUpdates.size();
+    for (auto& upd : m_vUpdates)
+    {
+        ser & upd->m_Comm1;
+        ser & upd->m_tx1;
+        ser & upd->m_tx2;
+        ser & upd->m_CommPeer1;
+        ser & upd->m_txPeer2;
+
+        ser & upd->m_RevealedSelfKey;
+        ser & upd->m_PeerKeyValid;
+        ser & upd->m_PeerKey;
+
+        ser & upd->m_msMy;
+        ser & upd->m_msPeer;
+        ser & upd->m_Outp;
+        ser & upd->m_Type;
+    }
+
+    Blob blob(ser.buffer().first, static_cast<uint32_t>(ser.buffer().second));
+    blob.Export(m_data);
+}
 
 void Channel::LogNewState()
 {
@@ -277,7 +363,7 @@ void Channel::LogNewState()
     }
 
     std::cout << os.str() << std::endl;
-};
+}
 
 // bool Channel::IsOpen() const
 // {
@@ -291,7 +377,7 @@ void Channel::Subscribe()
     get_myWID().m_Channel.Export(ch);
     get_Net().BbsSubscribe(ch, getTimestamp(), m_upReceiver.get());
     LOG_INFO() << "beam::wallet::laser::Channel subscribed: " << ch;
-};
+}
 
 void Channel::Unsubscribe()
 {
@@ -299,6 +385,69 @@ void Channel::Unsubscribe()
     get_myWID().m_Channel.Export(ch);
     get_Net().BbsSubscribe(ch, 0, nullptr);
     LOG_INFO() << "beam::wallet::laser::Channel unsubscribed: " << ch;
-};
+}
+
+void Channel::RestoreInternalState(const ByteBuffer& data)
+{
+    try
+    {
+        Deserializer der;
+        der.reset(data.data(), data.size());
+
+        der & m_State.m_hTxSentLast;
+        der & m_State.m_hQueryLast;
+        der & m_State.m_Close.m_iPath;
+        der & m_State.m_Close.m_Initiator;
+        der & m_State.m_Close.m_hPhase1;
+        der & m_State.m_Close.m_hPhase2;
+        der & m_State.m_Terminate;
+
+        m_pOpen = std::make_unique<DataOpen>();
+        der & m_pOpen->m_Comm0;
+        der & m_pOpen->m_ms0;
+        der & m_pOpen->m_hrLimit.m_Min;
+        der & m_pOpen->m_hrLimit.m_Max;
+        der & m_pOpen->m_txOpen;
+        der & m_pOpen->m_hvKernel0;
+        der & m_pOpen->m_hOpened;
+
+        size_t vInpSize = 0;
+        der & vInpSize;
+        m_pOpen->m_vInp.reserve(vInpSize);
+        for (auto i = 0; i < vInpSize; ++i)
+        {
+            Key::IDV idv;
+            der & idv;
+            m_pOpen->m_vInp.push_back(idv);
+        }
+        der & m_pOpen->m_kidvChange;
+
+        size_t vUpdatesSize = 0;
+        der & vUpdatesSize;
+        m_vUpdates.reserve(vUpdatesSize);
+        for (auto i = 0; i < vUpdatesSize; ++i)
+        {
+            auto& upd = m_vUpdates.emplace_back(std::make_unique<DataUpdate>());
+            der & upd->m_Comm1;
+            der & upd->m_tx1;
+            der & upd->m_tx2;
+            der & upd->m_CommPeer1;
+            der & upd->m_txPeer2;
+
+            der & upd->m_RevealedSelfKey;
+            der & upd->m_PeerKeyValid;
+            der & upd->m_PeerKey;
+
+            der & upd->m_msMy;
+            der & upd->m_msPeer;
+            der & upd->m_Outp;
+            der & upd->m_Type;
+        }
+    }
+    catch (const std::exception&)
+    {
+		LOG_ERROR() << "LASER RestoreInternalState failed";
+	}
+}
 
 }  // namespace beam::wallet::laser

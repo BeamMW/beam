@@ -1236,10 +1236,33 @@ namespace
         laser->WaitIncoming();
     }
 
-    bool LaserSend()
+    bool LaserTransfer(const unique_ptr<laser::Mediator>& laser,
+                   const po::variables_map& vm)
     {
-        LOG_INFO() << "LaserSend";
-        return true;   
+        if (vm.count(cli::LASER_AMOUNT_MY) == 0)
+        {
+            LOG_ERROR() << "amount is missing";
+            return false;
+        }
+
+        if (vm.count(cli::LASER_CHANNEL_ID) == 0)
+        {
+            LOG_ERROR() << "channel ID is missing";
+            return false;
+        }
+
+        auto myAmount = vm[cli::LASER_AMOUNT_MY].as<Positive<double>>().value;
+        myAmount *= Rules::Coin;
+        Amount amount = static_cast<ECC::Amount>(std::round(myAmount));
+        if (amount == 0)
+        {
+            LOG_ERROR() << "Unable to send zero coins";
+            return false;
+        }
+
+        auto chIdStr = vm[cli::LASER_CHANNEL_ID].as<string>();
+
+        return laser->Transfer(amount, chIdStr);  
     }
 
     void LaserShowChannels(const IWalletDB::Ptr& walletDB)
@@ -1298,9 +1321,9 @@ namespace
             LOG_INFO() << "LASER CLOSE";
             return true;
         }
-        else if (vm.count(cli::LASER_SEND))
+        else if (vm.count(cli::LASER_TRANSFER))
         {
-            return LaserSend();
+            return LaserTransfer(laser, vm);
         }
         else if (vm.count(cli::LASER_LIST))
         {

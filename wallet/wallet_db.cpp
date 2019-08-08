@@ -2064,14 +2064,17 @@ namespace beam::wallet
         notifyCoinsChanged();
     }
 
-    boost::optional<WalletAddress> WalletDB::getAddress(const WalletID& id) const
+    boost::optional<WalletAddress> WalletDB::getAddress(
+        const WalletID& id, bool isLaser) const
     {
         if (auto it = m_AddressesCache.find(id); it != m_AddressesCache.end())
         {
             return it->second;
         }
-        const char* req = "SELECT * FROM " ADDRESSES_NAME " WHERE walletID=?1;";
-        sqlite::Statement stm(this, req);
+        const std::string addrTableName =
+            isLaser ? LASER_ADDRESSES_NAME : ADDRESSES_NAME;
+        auto req = "SELECT * FROM " + addrTableName + " WHERE walletID=?1;";
+        sqlite::Statement stm(this, req.c_str());
 
         stm.bind(1, id);
 
@@ -2148,6 +2151,8 @@ namespace beam::wallet
 
     void WalletDB::saveLaserChannel(const ILaserChannelEntity& ch)
     {
+        LOG_INFO() << "LASER save channel: "
+                   << to_hex(ch.get_chID()->m_pData, ch.get_chID()->nBytes);
         const char* selectReq = "SELECT * FROM " LASER_CHANNELS_NAME " WHERE chID=?1;";
         sqlite::Statement stm2(this, selectReq);
         stm2.bind(1, ch.get_chID()->m_pData, ch.get_chID()->nBytes);
@@ -2189,6 +2194,31 @@ namespace beam::wallet
 
             saveAddress(ch.get_myAddr(), true);
         }
+    }
+
+    bool WalletDB::getLaserChannel(const std::shared_ptr<uintBig_t<16>>& chId,
+                                   TLaserChannelEntity* entity)
+    {
+        const char* selectReq = "SELECT * FROM " LASER_CHANNELS_NAME " WHERE chID=?1;";
+        sqlite::Statement stm(this, selectReq);
+        stm.bind(1, chId->m_pData, chId->nBytes);
+
+        if (stm.step())
+        {
+            stm.get(0, std::get<0>(*entity));
+            stm.get(1, std::get<1>(*entity));
+            stm.get(2, std::get<2>(*entity));
+            stm.get(3, std::get<3>(*entity));
+            stm.get(4, std::get<4>(*entity));
+            stm.get(5, std::get<5>(*entity));
+            stm.get(6, std::get<6>(*entity));
+            stm.get(7, std::get<7>(*entity));
+            stm.get(8, std::get<8>(*entity));
+            stm.get(9, std::get<9>(*entity));
+            stm.get(10, std::get<10>(*entity));
+            return true;
+        }
+        return false;
     }
 
     std::vector<TLaserChannelEntity> WalletDB::loadLaserChannels()

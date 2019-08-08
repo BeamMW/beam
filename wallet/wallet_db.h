@@ -134,17 +134,18 @@ namespace beam::wallet
     };
 
     using TLaserChannelEntity = std::tuple<
-        uintBig_t<16>,
-        WalletID,
-        WalletID,
-        Amount,
-        Height,
-        Amount,
-        Amount,
-        Amount,
-        Amount,
-        int,
-        ByteBuffer>;
+        uintBig_t<16>,  // 0 chID
+        WalletID,       // 1 myWID
+        WalletID,       // 2 trgWID
+        Amount,         // 3 fee
+        Height,         // 4 Locktime
+        Amount,         // 5 amountMy
+        Amount,         // 6 amountTrg
+        Amount,         // 7 amountCurrentMy
+        Amount,         // 8 amountCurrentTrg
+        int,            // 9 State
+        ByteBuffer      // 10 Data
+    >;
 
     // Describes structure of generic transaction parameter
     struct TxParameter
@@ -295,13 +296,16 @@ namespace beam::wallet
 
         // ////////////////////////////////////////////
         // Address management
-        virtual boost::optional<WalletAddress> getAddress(const WalletID&) const = 0;
+        virtual boost::optional<WalletAddress> getAddress(
+                const WalletID&, bool isLaser = false) const = 0;
         virtual std::vector<WalletAddress> getAddresses(bool own) const = 0;
         virtual void saveAddress(const WalletAddress&, bool isLaser = false) = 0;
         virtual void deleteAddress(const WalletID&) = 0;
 
         // Laser
         virtual void saveLaserChannel(const ILaserChannelEntity&) = 0;
+        virtual bool getLaserChannel(const std::shared_ptr<uintBig_t<16>>& chId,
+                                     TLaserChannelEntity* entity) = 0;
         virtual std::vector<TLaserChannelEntity> loadLaserChannels() = 0;
 
         // 
@@ -385,8 +389,11 @@ namespace beam::wallet
         std::vector<WalletAddress> getAddresses(bool own) const override;
         void saveAddress(const WalletAddress&, bool isLaser = false) override;
         void saveLaserChannel(const ILaserChannelEntity&) override;
+        virtual bool getLaserChannel(const std::shared_ptr<uintBig_t<16>>& chId,
+                                     TLaserChannelEntity* entity) override;
         std::vector<TLaserChannelEntity> loadLaserChannels() override;
-        boost::optional<WalletAddress> getAddress(const WalletID&) const override;
+        boost::optional<WalletAddress> getAddress(
+            const WalletID&, bool isLaser = false) const override;
         void deleteAddress(const WalletID&) override;
 
         Timestamp getLastUpdateTime() const override;

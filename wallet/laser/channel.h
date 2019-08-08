@@ -32,6 +32,8 @@ public:
         static const uint32_t MyWid = Control0 + 31;
     };
 
+    static ChannelIDPtr ChIdFromString(const std::string& chIdStr);
+
     Channel(IChannelHolder& holder,
             const WalletAddress& myAddr,
             const WalletID& trg,
@@ -47,6 +49,10 @@ public:
             const Amount& aMy,
             const Amount& aTrg,
             Height locktime);
+    Channel(IChannelHolder& holder,
+            const ChannelIDPtr& chID,
+            const WalletAddress& myAddr,
+            const TLaserChannelEntity& entity);
     Channel(const Channel&) = delete;
     void operator=(const Channel&) = delete;
     // Channel(Channel&& channel) = delete;
@@ -79,12 +85,15 @@ public:
 
     bool Open(HeightRange openWindow);
     bool IsStateChanged();
+    void UpdateRestorePoint();
     void LogNewState();
+    
     // bool IsOpen() const;
 
 private:
     void Subscribe();
     void Unsubscribe();
+    void RestoreInternalState(const ByteBuffer& data);
 
     IChannelHolder& m_rHolder;
 
@@ -99,5 +108,6 @@ private:
     
     std::unique_ptr<Receiver> m_upReceiver;
     ByteBuffer m_data;
+    Blob m_blob;
 };
 }  // namespace beam::wallet::laser

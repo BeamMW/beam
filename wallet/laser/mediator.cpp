@@ -80,6 +80,7 @@ void Mediator::OnNewTip()
         {
             if (ch->get_State() >= Lightning::Channel::State::Opening1)
             {
+                ch->UpdateRestorePoint();
                 m_pWalletDB->saveLaserChannel(*ch);
             }
             if (m_onCommandComplete &&
@@ -94,19 +95,24 @@ void Mediator::OnNewTip()
 
         if (!ch->IsNegotiating() && ch->IsSafeToForget(kSafeForgetHeight))
         {
-            ForgetChannel(ch->get_chID());
+            const auto& chId = ch->get_chID();
+            LOG_ERROR() << "ForgetChannel: "
+                        << to_hex(chId->m_pData , chId->nBytes);
+            ForgetChannel(chId);
         }
     }
 }
 
 void Mediator::OnRolledBack()
 {
+    LOG_INFO() << "LASER OnRolledBack";
     for (auto& it: m_channels)
     {
         auto& ch = it.second;
         ch->OnRolledBack();
         if (ch->IsStateChanged())
         {
+            ch->UpdateRestorePoint();
             m_pWalletDB->saveLaserChannel(*ch);
         }
     }
@@ -152,6 +158,8 @@ void Mediator::OnMsg(const ChannelIDPtr& chID, Blob&& blob)
 
     if (!chID && m_pInputReceiver)
     {
+        LOG_INFO() << "LASER Create incoming: "
+                   << to_hex(inChID->m_pData , inChID->nBytes);
         OnIncoming(inChID, dataIn);
     }
     else
@@ -179,12 +187,15 @@ void Mediator::OnMsg(const ChannelIDPtr& chID, Blob&& blob)
     if (ch->IsStateChanged() &&
         ch->get_State() >= Lightning::Channel::State::Opening1)
     {
+        ch->UpdateRestorePoint();
         m_pWalletDB->saveLaserChannel(*ch);
     }
     ch->LogNewState();
 
     if (!ch->IsNegotiating() && ch->IsSafeToForget(kSafeForgetHeight))
     {
+        LOG_ERROR() << "ForgetChannel: "
+                    << to_hex(inChID->m_pData , inChID->nBytes);
         ForgetChannel(inChID);
     }
 }
@@ -215,7 +226,7 @@ void Mediator::WaitIncoming()
     BbsChannel ch;
     m_myInAddr.m_walletID.m_Channel.Export(ch);
     m_pConnection->BbsSubscribe(ch, getTimestamp(), m_pInputReceiver.get());
-    LOG_INFO() << "LASER subscribed: " << ch;
+    LOG_INFO() << "LASER WAIT IN subscribed: " << ch;
 }
 
 void Mediator::OpenChannel(Amount aMy,
@@ -270,6 +281,44 @@ void Mediator::Close(const std::string& channelIDStr)
     // }
 }
 
+bool Mediator::Transfer(Amount amount, const std::string& channelIDStr)
+{
+    auto chId = Channel::ChIdFromString(channelIDStr);
+    if (!chId)
+    {
+        LOG_ERROR() << "Incorrect channel ID format";
+        return false;
+    }
+
+    bool isConnected = false;
+    for (const auto& it : m_channels)
+    {
+        isConnected = *(it.first) == *chId;
+        if (isConnected)
+        {
+            chId = it.first;
+            LOG_INFO() << "LASER channel "
+                       << to_hex(chId->m_pData , chId->nBytes)
+                       << " already connected";
+            break;
+        }
+    }
+
+    if (!isConnected)
+    {
+        if (!RestoreChannel(chId))
+        {
+            LOG_INFO() << "LASER channel "
+                       << to_hex(chId->m_pData , chId->nBytes)
+                       << " not saved in DB";
+            return false;
+        }
+    }
+
+    auto& ch = m_channels[chId];
+    return ch ? ch->Transfer(amount) : false;
+}
+
 void Mediator::SetOnCommandCompleteAction(
         std::function<void()>&& onCommandComplete)
 {
@@ -318,13 +367,13 @@ void Mediator::OnIncoming(const ChannelIDPtr& chID,
     BbsChannel ch;
     m_myInAddr.m_walletID.m_Channel.Export(ch);
     m_pConnection->BbsSubscribe(ch, 0, nullptr);
-    LOG_INFO() << "beam::wallet::laser::Mediator unsubscribed: " << ch;
+    LOG_INFO() << "LASER WAIT IN unsubscribed: " << ch;
 
     m_channels[chID] = std::make_unique<Channel>(
         *this, chID, m_myInAddr, trgWid, fee, aMy, aTrg, locktime);
 
     m_pInputReceiver.reset();
-};
+}
 
 void Mediator::ForgetChannel(const ChannelIDPtr& chID)
 {
@@ -335,6 +384,26 @@ void Mediator::ForgetChannel(const ChannelIDPtr& chID)
         ch->Forget();
         m_channels.erase(chID);
     }
-};
+}
+
+bool Mediator::RestoreChannel(const ChannelIDPtr& chID)
+{
+    TLaserChannelEntity chDBEntity;
+    if (m_pWalletDB->getLaserChannel(chID, &chDBEntity) &&
+        *chID == std::get<0>(chDBEntity))
+    {
+        auto& myWID = std::get<1>(chDBEntity);
+        auto myAddr = m_pWalletDB->getAddress(myWID, true);
+        if (!myAddr) {
+            LOG_ERROR() << "Can't load address from DB: "
+                        << std::to_string(myWID);
+            return false;
+        }
+        m_channels[chID] = std::make_unique<Channel>(
+            *this, chID, *myAddr, chDBEntity);
+        return true;
+    }
+    return false;
+}
 
 }  // namespace beam::wallet::laser
