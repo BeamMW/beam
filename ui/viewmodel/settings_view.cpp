@@ -30,17 +30,17 @@ using namespace std;
 
 
 SettingsViewModel::SettingsViewModel()
-    : m_settings{AppModel::getInstance()->getSettings()}
+    : m_settings{AppModel::getInstance().getSettings()}
     , m_isValidNodeAddress{true}
     , m_isNeedToCheckAddress(false)
     , m_isNeedToApplyChanges(false)
     , m_supportedLanguages(WalletSettings::getSupportedLanguages())
 {
     undoChanges();
-    connect(&AppModel::getInstance()->getNode(), SIGNAL(startedNode()), SLOT(onNodeStarted()));
-    connect(&AppModel::getInstance()->getNode(), SIGNAL(stoppedNode()), SLOT(onNodeStopped()));
+    connect(&AppModel::getInstance().getNode(), SIGNAL(startedNode()), SLOT(onNodeStarted()));
+    connect(&AppModel::getInstance().getNode(), SIGNAL(stoppedNode()), SLOT(onNodeStopped()));
 
-    connect(AppModel::getInstance()->getWallet().get(), SIGNAL(addressChecked(const QString&, bool)),
+    connect(AppModel::getInstance().getWallet().get(), SIGNAL(addressChecked(const QString&, bool)),
         SLOT(onAddressChecked(const QString&, bool)));
 
     m_timerId = startTimer(CHECK_INTERVAL);
@@ -75,7 +75,7 @@ void SettingsViewModel::onAddressChecked(const QString& addr, bool isValid)
 
 bool SettingsViewModel::isLocalNodeRunning() const
 {
-    return AppModel::getInstance()->getNode().isNodeRunning();
+    return AppModel::getInstance().getNode().isNodeRunning();
 }
 
 bool SettingsViewModel::isValidNodeAddress() const
@@ -248,14 +248,9 @@ void SettingsViewModel::openUrl(const QString& url)
     QDesktopServices::openUrl(QUrl(url));
 }
 
-void SettingsViewModel::copyToClipboard(const QString& text)
-{
-    QApplication::clipboard()->setText(text);
-}
-
 void SettingsViewModel::refreshWallet()
 {
-    AppModel::getInstance()->getWallet()->getAsync()->refresh();
+    AppModel::getInstance().getWallet()->getAsync()->refresh();
 }
 
 void SettingsViewModel::openFolder(const QString& path)
@@ -266,7 +261,7 @@ void SettingsViewModel::openFolder(const QString& path)
 bool SettingsViewModel::checkWalletPassword(const QString& oldPass) const
 {
     SecString secretPass = oldPass.toStdString();
-    return AppModel::getInstance()->checkWalletPassword(secretPass);
+    return AppModel::getInstance().checkWalletPassword(secretPass);
 }
 
 bool SettingsViewModel::isChanged() const
@@ -330,7 +325,7 @@ void SettingsViewModel::reportProblem()
 
 void SettingsViewModel::changeWalletPassword(const QString& pass)
 {
-    AppModel::getInstance()->changeWalletPassword(pass.toStdString());
+    AppModel::getInstance().changeWalletPassword(pass.toStdString());
 }
 
 void SettingsViewModel::timerEvent(QTimerEvent *event)
@@ -339,7 +334,7 @@ void SettingsViewModel::timerEvent(QTimerEvent *event)
     {
         m_isNeedToCheckAddress = false;
 
-        AppModel::getInstance()->getWallet()->getAsync()->checkAddress(m_nodeAddress.toStdString());
+        AppModel::getInstance().getWallet()->getAsync()->checkAddress(m_nodeAddress.toStdString());
 
         killTimer(m_timerId);
     }

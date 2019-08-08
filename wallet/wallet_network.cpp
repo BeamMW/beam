@@ -578,6 +578,6 @@ namespace beam::wallet {
 
     void ColdWalletMessageEndpoint::SendEncryptedMessage(const WalletID& peerID, const ByteBuffer& msg)
     {
-        m_WalletDB->saveWalletMessage(WalletMessage{ 0, peerID, msg });
+        m_WalletDB->saveWalletMessage(OutgoingWalletMessage{ 0, peerID, msg });
     }
 }

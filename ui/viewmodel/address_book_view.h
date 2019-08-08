@@ -93,10 +93,8 @@ class AddressBookViewModel : public QObject
     Q_PROPERTY(QString contactSortRole READ contactSortRole WRITE setContactSortRole)
 
 public:
-
 	Q_INVOKABLE void deleteAddress(const QString& addr);
-    Q_INVOKABLE void copyToClipboard(const QString& text);
-    Q_INVOKABLE void saveChanges(const QString& addr, const QString& name, bool isNever, bool makeActive, bool makeExpired);
+    Q_INVOKABLE void saveChanges(const QString& addr, const QString& name, uint expirationStatus);
     Q_INVOKABLE static QString generateQR(const QString& addr, uint width, uint height);
     Q_INVOKABLE static QString getLocaleName();
     Q_INVOKABLE bool isAddressWithCommentExist(const QString& comment) const;

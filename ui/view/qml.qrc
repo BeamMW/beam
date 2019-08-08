@@ -36,6 +36,11 @@
         <file>settings.qml</file>
         <file>addresses.qml</file>
         <file>utxo.qml</file>
+        <file>receive.qml</file>
+        <file>receive_addrfail.qml</file>
+        <file>send.qml</file>
+        <file>send_confirm.qml</file>
+        <file>send_expired.qml</file>
         <file>assets/fonts/SF-Pro-Display-Black.otf</file>
         <file>assets/fonts/SF-Pro-Display-Light.otf</file>
         <file>assets/fonts/SF-Pro-Display-Semibold.otf</file>
@@ -76,6 +81,7 @@
         <file>assets/icon-settings.svg</file>
         <file>assets/icon-settings-active.svg</file>
         <file>assets/icon-settings-blue.svg</file>
+        <file>assets/icon-settings-white.svg</file>
         <file>assets/icon-sent.svg</file>
         <file>assets/icon-received.svg</file>
         <file>assets/icon-comment.svg</file>

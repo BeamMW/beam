@@ -696,7 +696,7 @@ namespace beam
 		der & m_Cwp;
 
 		if (!m_Cwp.IsValid(&m_Tip))
-			throw "CWP error";
+			throw std::runtime_error("CWP error");
 
 		if ((nForks < _countof(r.pForks)) && (m_Tip.m_Height >= r.pForks[nForks].m_Height))
 			ThrowRulesMismatch();
@@ -724,7 +724,7 @@ namespace beam
 		key = d;
 
 		if (!m_UtxoTree.Add(key))
-			throw "UTXO order mismatch";
+			throw std::runtime_error("UTXO order mismatch");
 
 		return true;
 	}
@@ -735,7 +735,7 @@ namespace beam
 		m_UtxoTree.Flush(hv);
 
 		if (!(m_Cwp.m_hvRootLive == hv))
-			throw "UTXO hash mismatch";
+			throw std::runtime_error("UTXO hash mismatch");
 	}
 
 } // namespace beam

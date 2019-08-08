@@ -114,7 +114,7 @@ QString ContactItem::getCategory() const
 }
 
 AddressBookViewModel::AddressBookViewModel()
-    : m_model{*AppModel::getInstance()->getWallet()}
+    : m_model{*AppModel::getInstance().getWallet()}
 {
     connect(&m_model,
             SIGNAL(walletStatus(const beam::wallet::WalletStatus&)),
@@ -243,17 +243,12 @@ void AddressBookViewModel::deleteAddress(const QString& addr)
     m_model.getAsync()->deleteAddress(walletID);
 }
 
-void AddressBookViewModel::copyToClipboard(const QString& text)
-{
-    QApplication::clipboard()->setText(text);
-}
-
-void AddressBookViewModel::saveChanges(const QString& addr, const QString& name, bool isNever, bool makeActive, bool makeExpired)
+void AddressBookViewModel::saveChanges(const QString& addr, const QString& name, uint expirationStatus)
 {
     WalletID walletID;
     walletID.FromHex(addr.toStdString());
 
-    m_model.getAsync()->saveAddressChanges(walletID, name.toStdString(), isNever, makeActive, makeExpired);
+    m_model.getAsync()->updateAddress(walletID, name.toStdString(), static_cast<WalletAddress::ExpirationStatus>(expirationStatus));
 }
 
 // static
@@ -267,7 +262,7 @@ QString AddressBookViewModel::generateQR(
 // static
 QString AddressBookViewModel::getLocaleName()
 {
-    const auto& settings = AppModel::getInstance()->getSettings();
+    const auto& settings = AppModel::getInstance().getSettings();
     return settings.getLocale();
 }
 

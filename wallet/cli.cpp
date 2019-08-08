@@ -191,6 +191,8 @@ namespace beam
             return "BTC";
         case AtomicSwapCoin::Litecoin:
             return "LTC";
+        case AtomicSwapCoin::Qtum:
+            return "QTUM";
         default:
             assert(false && "Unknow SwapCoin");
         }
@@ -443,7 +445,7 @@ namespace
     int ChangeAddressExpiration(const po::variables_map& vm, const IWalletDB::Ptr& walletDB)
     {
         string address = vm[cli::WALLET_ADDR].as<string>();
-        string newTime = vm[cli::EXPIRATION_TIME].as<string>();
+        string expiration = vm[cli::EXPIRATION_TIME].as<string>();
         WalletID walletID(Zero);
         bool allAddresses = address == "*";
 
@@ -451,45 +453,49 @@ namespace
         {
             walletID.FromHex(address);
         }
-        uint64_t newDuration_s = 0;
-        if (newTime == "24h")
+
+        WalletAddress::ExpirationStatus expirationStatus;
+        if (expiration == cli::EXPIRATION_TIME_24H)
         {
-            newDuration_s = 24 * 3600; //seconds
+            expirationStatus = WalletAddress::ExpirationStatus::OneDay;
         }
-        else if (newTime == "never")
+        else if (expiration == cli::EXPIRATION_TIME_NEVER)
         {
-            newDuration_s = 0;
+            expirationStatus = WalletAddress::ExpirationStatus::Never;
+        }
+        else if (expiration == cli::EXPIRATION_TIME_NOW)
+        {
+            expirationStatus = WalletAddress::ExpirationStatus::Expired;
         }
         else
         {
-            LOG_ERROR() << "Invalid address expiration time \"" << newTime << "\".";
+            LOG_ERROR() << "Operation failed: provided \"" << cli::EXPIRATION_TIME << "\" parameter value \"" << expiration << "\" is not valid";
             return -1;
         }
 
-        if (storage::changeAddressExpiration(*walletDB, walletID, newDuration_s))
+        if (storage::changeAddressExpiration(*walletDB, walletID, expirationStatus))
         {
             if (allAddresses)
             {
-                LOG_INFO() << "Expiration for all addresses  was changed to \"" << newTime << "\".";
+                LOG_INFO() << "Expiration for all addresses  was changed to \"" << expiration << "\".";
             }
             else
             {
-                LOG_INFO() << "Expiration for address " << to_string(walletID) << " was changed to \"" << newTime << "\".";
+                LOG_INFO() << "Expiration for address " << to_string(walletID) << " was changed to \"" << expiration << "\".";
             }
             return 0;
         }
         return -1;
     }
 
-    WalletAddress CreateNewAddress(const IWalletDB::Ptr& walletDB, const std::string& label, bool isNever = false)
+    WalletAddress GenerateNewAddress(
+        const IWalletDB::Ptr& walletDB,
+        const std::string& label,
+        WalletAddress::ExpirationStatus expirationStatus = WalletAddress::ExpirationStatus::OneDay)
     {
         WalletAddress address = storage::createAddress(*walletDB);
 
-        if (isNever)
-        {
-            address.m_duration = 0;
-        }
-
+        address.setExpiration(expirationStatus);
         address.m_label = label;
         walletDB->saveAddress(address);
 
@@ -498,6 +504,30 @@ namespace
             LOG_INFO() << "label = " << label;
         }
         return address;
+    }
+
+    int CreateNewAddress(const po::variables_map& vm, const IWalletDB::Ptr& walletDB)
+    {
+        auto comment = vm[cli::NEW_ADDRESS_COMMENT].as<string>();
+        auto expiration = vm[cli::EXPIRATION_TIME].as<string>();
+
+        WalletAddress::ExpirationStatus expirationStatus;
+        if (expiration == cli::EXPIRATION_TIME_24H)
+        {
+            expirationStatus = WalletAddress::ExpirationStatus::OneDay;
+        }
+        else if (expiration == cli::EXPIRATION_TIME_NEVER)
+        {
+            expirationStatus = WalletAddress::ExpirationStatus::Never;
+        }
+        else
+        {
+            LOG_ERROR() << "Operation failed: provided \"" << cli::EXPIRATION_TIME << "\" parameter value \"" << expiration << "\" is not valid";
+            return -1;
+        }
+        
+        GenerateNewAddress(walletDB, comment, expirationStatus);
+        return 0;
     }
 
     WordList GeneratePhrase()
@@ -527,8 +557,9 @@ namespace
             auto tempPhrase = vm[cli::SEED_PHRASE].as<string>();
             boost::algorithm::trim_if(tempPhrase, [](char ch) { return ch == ';'; });
             phrase = string_helpers::split(tempPhrase, ';');
-            assert(phrase.size() == WORD_COUNT);
-            if (!isValidMnemonic(phrase, language::en))
+            
+            if (phrase.size() != WORD_COUNT 
+                || (vm.count(cli::IGNORE_DICTIONARY) == 0 && !isValidMnemonic(phrase, language::en)))
             {
                 LOG_ERROR() << "Invalid seed phrase provided: " << tempPhrase;
                 return false;
@@ -688,7 +719,7 @@ namespace
             << setw(columnWidths[5]) << " type" << endl;
 
         
-        walletDB->visit([&columnWidths](const Coin& c)->bool
+        walletDB->visitCoins([&columnWidths](const Coin& c)->bool
         {
             cout << "   "
                 << " " << left << setw(columnWidths[0]) << c.toStringID()
@@ -1043,6 +1074,51 @@ namespace
 
         return boost::optional<LitecoinOptions>{};
     }
+
+    boost::optional<QtumOptions> ParseQtumOptions(const po::variables_map& vm)
+    {
+        if (vm.count(cli::QTUM_NODE_ADDR) > 0 || vm.count(cli::QTUM_USER_NAME) > 0 || vm.count(cli::QTUM_PASS) > 0)
+        {
+            QtumOptions qtumOptions;
+
+            string qtumNodeUri = vm[cli::QTUM_NODE_ADDR].as<string>();
+            if (!qtumOptions.m_address.resolve(qtumNodeUri.c_str()))
+            {
+                throw std::runtime_error("unable to resolve qtum node address: " + qtumNodeUri);
+            }
+
+            if (vm.count(cli::QTUM_USER_NAME) == 0)
+            {
+                throw std::runtime_error("user name of qtum node should be specified");
+            }
+
+            qtumOptions.m_userName = vm[cli::QTUM_USER_NAME].as<string>();
+
+            // TODO roman.strilets: use SecString instead of std::string
+            if (vm.count(cli::QTUM_PASS) == 0)
+            {
+                throw std::runtime_error("Please, provide password for the qtum node.");
+            }
+
+            qtumOptions.m_pass = vm[cli::QTUM_PASS].as<string>();
+
+            if (vm.count(cli::SWAP_FEERATE) == 0)
+            {
+                throw std::runtime_error("swap fee rate is missing");
+            }
+            qtumOptions.m_feeRate = vm[cli::SWAP_FEERATE].as<Positive<Amount>>().value;
+
+            auto swapSecondSideChainType = ParseSwapSecondSideChainType(vm);
+            if (swapSecondSideChainType != SwapSecondSideChainType::Unknown)
+            {
+                qtumOptions.m_chainType = swapSecondSideChainType;
+            }
+
+            return qtumOptions;
+        }
+
+        return boost::optional<QtumOptions>{};
+    }
 }
 
 io::Reactor::Ptr reactor;
@@ -1188,8 +1264,7 @@ int main_impl(int argc, char* argv[])
 
                     if (coldWallet && command == cli::RESTORE)
                     {
-                        LOG_ERROR() << "You can't restore cold wallet.";
-                        return -1;
+                        LOG_INFO() << "Restoring cold wallet. You have to replace generated 'wallet.db' with your existing 'wallet.db' file.";
                     }
 
                     assert(vm.count(cli::WALLET_STORAGE) > 0);
@@ -1202,8 +1277,22 @@ int main_impl(int argc, char* argv[])
                     }
                     else if (WalletDB::isInitialized(walletPath) && (command == cli::INIT || command == cli::RESTORE))
                     {
-                        LOG_ERROR() << "Your wallet is already initialized.";
-                        return -1;
+                        bool isDirectory;
+                        #ifdef WIN32
+                                isDirectory = boost::filesystem::is_directory(Utf8toUtf16(walletPath.c_str()));
+                        #else
+                                isDirectory = boost::filesystem::is_directory(walletPath);
+                        #endif
+
+                        if (isDirectory)
+                        {
+                            walletPath.append("/wallet.db");
+                        }
+                        else
+                        {
+                            LOG_ERROR() << "Your wallet is already initialized.";
+                            return -1;
+                        }                  
                     }
 
                     LOG_INFO() << "starting a wallet...";
@@ -1237,10 +1326,7 @@ int main_impl(int argc, char* argv[])
                         if (walletDB)
                         {
                             LOG_INFO() << "wallet successfully created...";
-
-                            // generate default address
-                            CreateNewAddress(walletDB, "default");
-
+                            GenerateNewAddress(walletDB, "default");
                             return 0;
                         }
                         else
@@ -1301,8 +1387,10 @@ int main_impl(int argc, char* argv[])
 
                     if (command == cli::NEW_ADDRESS)
                     {
-                        auto comment = vm[cli::NEW_ADDRESS_COMMENT].as<string>();
-                        CreateNewAddress(walletDB, comment, vm[cli::EXPIRATION_TIME].as<string>() == "never");
+                        if (!CreateNewAddress(vm, walletDB))
+                        {
+                            return -1;
+                        }
 
                         if (!vm.count(cli::LISTEN))
                         {
@@ -1344,6 +1432,7 @@ int main_impl(int argc, char* argv[])
 
                     boost::optional<BitcoinOptions> btcOptions = ParseBitcoinOptions(vm);
                     boost::optional<LitecoinOptions> ltcOptions = ParseLitecoinOptions(vm);
+                    boost::optional<QtumOptions> qtumOptions = ParseQtumOptions(vm);
 
                     /// HERE!!
                     io::Address receiverAddr;
@@ -1424,6 +1513,11 @@ int main_impl(int argc, char* argv[])
                             wallet.initLitecoin(io::Reactor::get_Current(), ltcOptions.get());
                         }
 
+                        if (qtumOptions.is_initialized())
+                        {
+                            wallet.initQtum(io::Reactor::get_Current(), qtumOptions.get());
+                        }
+
                         if (command == cli::SWAP_INIT || command == cli::SWAP_LISTEN)
                         {
                             if (vm.count(cli::SWAP_AMOUNT) == 0)
@@ -1477,7 +1571,21 @@ int main_impl(int argc, char* argv[])
                                 }
                                 secondSideChainType = ltcOptions->m_chainType;
                             }
-
+                            else
+                            {
+                                if (!qtumOptions.is_initialized() || qtumOptions->m_userName.empty() || qtumOptions->m_pass.empty() || qtumOptions->m_address.empty())
+                                {
+                                    LOG_ERROR() << "Qtum node credentials should be provided";
+                                    return -1;
+                                }
+                                if (!QtumSide::CheckAmount(swapAmount, qtumOptions->m_feeRate))
+                                {
+                                    LOG_ERROR() << "The swap amount must be greater than the redemption fee.";
+                                    return -1;
+                                }
+                                secondSideChainType = qtumOptions->m_chainType;
+                            }
+                            
                             bool isBeamSide = (vm.count(cli::SWAP_BEAM_SIDE) != 0);
 
                             if (command == cli::SWAP_INIT)
@@ -1499,7 +1607,7 @@ int main_impl(int argc, char* argv[])
                                     return -1;
                                 }
 
-                                WalletAddress senderAddress = CreateNewAddress(walletDB, "");
+                                WalletAddress senderAddress = GenerateNewAddress(walletDB, "");
 
                                 currentTxID = wallet.swap_coins(senderAddress.m_walletID, receiverWalletID, 
                                     move(amount), move(fee), swapCoin, swapAmount, secondSideChainType, isBeamSide);
@@ -1535,7 +1643,7 @@ int main_impl(int argc, char* argv[])
 
                         if (isTxInitiator)
                         {
-                            WalletAddress senderAddress = CreateNewAddress(walletDB, "");
+                            WalletAddress senderAddress = GenerateNewAddress(walletDB, "");
                             CoinIDList coinIDs = GetPreselectedCoinIDs(vm);
                             currentTxID = wallet.transfer_money(senderAddress.m_walletID, receiverWalletID, move(amount), move(fee), coinIDs, command == cli::SEND, kDefaultTxLifetime, kDefaultTxResponseTime, {}, true);
                         }

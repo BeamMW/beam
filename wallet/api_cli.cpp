@@ -55,7 +55,12 @@ using namespace beam::wallet;
 
 namespace
 {
-    const char* MinimumFeeError = "Failed to initiate the send operation. The minimum fee is 100 GROTH.";
+    std::string getMinimumFeeError(Amount minimumFee)
+    {
+        std::stringstream ss;
+        ss << "Failed to initiate the send operation. The minimum fee is " << minimumFee << " GROTH.";
+        return ss.str();
+    }
 
     struct TlsOptions
     {
@@ -283,13 +288,13 @@ namespace
                     switch (*data.expiration)
                     {
                     case EditAddress::OneDay:
-                        address.makeActive(24 * 60 * 60);
+                        address.setExpiration(WalletAddress::ExpirationStatus::OneDay);
                         break;
                     case EditAddress::Expired:
-                        address.makeExpired();
+                        address.setExpiration(WalletAddress::ExpirationStatus::Expired);
                         break;
                     case EditAddress::Never:
-                        address.makeEternal();
+                        address.setExpiration(WalletAddress::ExpirationStatus::Never);
                         break;
                     }
                 }
@@ -408,7 +413,7 @@ namespace
 
                     if (data.session)
                     {
-                        coins = _walletDB->getLocked(*data.session);
+                        coins = _walletDB->getLockedCoins(*data.session);
 
                         if (coins.empty())
                         {
@@ -421,9 +426,10 @@ namespace
                         coins = data.coins ? *data.coins : CoinIDList();
                     }
 
-                    if (data.fee < MinimumFee)
+                    auto minimumFee = std::max(wallet::GetMinimumFee(2), DefaultFee); // receivers's output + change
+                    if (data.fee < minimumFee)
                     {
-                        doError(id, INTERNAL_JSON_RPC_ERROR, MinimumFeeError);
+                        doError(id, INTERNAL_JSON_RPC_ERROR, getMinimumFeeError(minimumFee));
                         return;
                     }
 
@@ -474,9 +480,10 @@ namespace
                      WalletAddress senderAddress = storage::createAddress(*_walletDB);
                     _walletDB->saveAddress(senderAddress);
 
-                    if (data.fee < MinimumFee)
+                    auto minimumFee = std::max(wallet::GetMinimumFee(data.coins.size() + 1), DefaultFee); // +1 extra output for change 
+                    if (data.fee < minimumFee)
                     {
-                        doError(id, INTERNAL_JSON_RPC_ERROR, MinimumFeeError);
+                        doError(id, INTERNAL_JSON_RPC_ERROR, getMinimumFeeError(minimumFee));
                         return;
                     }
 
@@ -570,7 +577,7 @@ namespace
                 LOG_DEBUG() << "GetUtxo(id = " << id << ")";
 
                 GetUtxo::Response response;
-                _walletDB->visit([&response](const Coin& c)->bool
+                _walletDB->visitCoins([&response](const Coin& c)->bool
                 {
                     response.utxos.push_back(c);
                     return true;
@@ -618,7 +625,7 @@ namespace
 
                 Lock::Response response;
 
-                response.result = _walletDB->lock(data.coins, data.session);
+                response.result = _walletDB->lockCoins(data.coins, data.session);
 
                 doResponse(id, response);
             }
@@ -629,7 +636,7 @@ namespace
 
                 Unlock::Response response;
 
-                response.result = _walletDB->unlock(data.session);
+                response.result = _walletDB->unlockCoins(data.session);
 
                 doResponse(id, response);
             }

@@ -377,8 +377,17 @@ JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(saveAddress)(JNIEnv *env, jobj
     walletModel->getAsync()->saveAddress(addr, own);
 }
 
-JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(saveAddressChanges)(JNIEnv *env, jobject thiz,
-    jstring addr, jstring name, jboolean isNever, jboolean makeActive, jboolean makeExpired)
+JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(importRecovery)(JNIEnv *env, jobject thiz, jstring jpath)
+{
+    auto path = JString(env, jpath).value();
+
+    LOG_DEBUG() << "importRecovery path = " << path;
+
+    walletModel->getAsync()->importRecovery(path);
+}
+
+JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(updateAddress)(JNIEnv *env, jobject thiz,
+    jstring addr, jstring name, jint addressExpirationEnum)
 {
     WalletID walletID(Zero);
 
@@ -388,7 +397,53 @@ JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(saveAddressChanges)(JNIEnv *en
 
         return;
     }
-    walletModel->getAsync()->saveAddressChanges(walletID, JString(env, name).value(), isNever, makeActive, makeExpired);
+
+    WalletAddress::ExpirationStatus expirationStatus;
+    switch (addressExpirationEnum)
+    {
+    case 0:
+        expirationStatus = WalletAddress::ExpirationStatus::Expired;
+        break;
+    case 1:
+        expirationStatus = WalletAddress::ExpirationStatus::OneDay;
+        break;
+    case 2:
+        expirationStatus = WalletAddress::ExpirationStatus::Never;
+        break;
+    
+    default:
+        LOG_ERROR() << "Address expiration is not valid!!!";
+        return;
+    }
+
+    walletModel->getAsync()->updateAddress(walletID, JString(env, name).value(), expirationStatus);
+}
+
+JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(saveAddressChanges)(JNIEnv *env, jobject thiz,
+    jstring addr, jstring name, jboolean isNever, jboolean makeActive, jboolean makeExpired)
+{
+    WalletID walletID(Zero);
+
+    if (!walletID.FromHex(JString(env, addr).value()))
+    {
+        LOG_ERROR() << "Address is not valid!!!";
+        return;
+    }
+
+    WalletAddress::ExpirationStatus expirationStatus;
+    if (isNever)
+        expirationStatus = WalletAddress::ExpirationStatus::Never;
+    else if (makeActive)
+        expirationStatus = WalletAddress::ExpirationStatus::OneDay;
+    else if (makeExpired)
+		expirationStatus = WalletAddress::ExpirationStatus::Expired;
+    else
+    {
+        LOG_ERROR() << "Address expiration is not valid!!!";
+        return;
+    }
+
+    walletModel->getAsync()->updateAddress(walletID, JString(env, name).value(), expirationStatus);
 }
 
 // don't use it. i don't check it

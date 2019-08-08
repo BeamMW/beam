@@ -13,6 +13,7 @@
 // limitations under the License.
 
 #include "http/http_client.h"
+#include "core/treasury.h"
 
 using namespace beam;
 using namespace beam::wallet;
@@ -86,16 +87,16 @@ public:
         m_KeyIndex += nCount;
         return ret;
     }
-    bool find(Coin& coin) override { return false; }
+    bool findCoin(Coin& coin) override { return false; }
     std::vector<Coin> getCoinsCreatedByTx(const TxID& txId) override { return {}; };
     std::vector<Coin> getCoinsByID(const CoinIDList& ids) override { return {}; };
-    void store(Coin&) override {}
-    void store(std::vector<Coin>&) override {}
-    void save(const Coin&) override {}
-    void save(const std::vector<Coin>&) override {}
-    void remove(const std::vector<Coin::ID>&) override {}
-    void remove(const Coin::ID&) override {}
-    void visit(std::function<bool(const Coin& coin)>) override {}
+    void storeCoin(Coin&) override {}
+    void storeCoins(std::vector<Coin>&) override {}
+    void saveCoin(const Coin&) override {}
+    void saveCoins(const std::vector<Coin>&) override {}
+    void removeCoins(const std::vector<Coin::ID>&) override {}
+    void removeCoin(const Coin::ID&) override {}
+    void visitCoins(std::function<bool(const Coin& coin)>) override {}
     void setVarRaw(const char*, const void*, size_t) override {}
     bool getVarRaw(const char*, void*, int) const override { return false; }
     bool getBlob(const char* name, ByteBuffer& var) const override { return false; }
@@ -151,7 +152,7 @@ public:
     void rollbackConfirmedUtxo(Height /*minHeight*/) override
     {}
 
-    void clear() override {}
+    void clearCoins() override {}
 
     void changePassword(const SecString& password) override {}
 
@@ -220,8 +221,8 @@ IWalletDB::Ptr createSqliteWalletDB(const string& path, bool separateDBForPrivat
 {
     if (boost::filesystem::exists(path))
     {
-            boost::filesystem::remove(path);
-        }
+        boost::filesystem::remove(path);
+    }
     if (separateDBForPrivateData)
     {
         string privatePath = path + ".private";
@@ -242,7 +243,7 @@ IWalletDB::Ptr createSenderWalletDB(bool separateDBForPrivateData = false, Amoun
     for (auto amount : amounts)
     {
         Coin coin = CreateAvailCoin(amount, 0);
-        db->store(coin);
+        db->storeCoin(coin);
     }
     return db;
 }
@@ -254,7 +255,7 @@ IWalletDB::Ptr createSenderWalletDB(int count, Amount amount, bool separateDBFor
     for (int i = 0; i < count; ++i)
     {
         Coin coin = CreateAvailCoin(amount, 0);
-        db->store(coin);
+        db->storeCoin(coin);
     }
     return db;
 }
@@ -397,7 +398,7 @@ struct TestWalletRig
     vector<Coin> GetCoins()
     {
         vector<Coin> coins;
-        m_WalletDB->visit([&coins](const Coin& c)->bool
+        m_WalletDB->visitCoins([&coins](const Coin& c)->bool
         {
             coins.push_back(c);
             return true;

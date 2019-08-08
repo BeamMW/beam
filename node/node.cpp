@@ -1143,7 +1143,7 @@ void Node::RefreshOwnedUtxos()
 	m_Processor.get_DB().ParamGet(NodeDB::ParamID::DummyID, NULL, &blob);
 
 	if (hv0 == hv1)
-		return; // unchaged
+		return; // unchanged
 
 	m_Processor.RescanOwnedTxos();
 
@@ -1350,13 +1350,23 @@ void Node::Peer::OnMsg(proto::Authentication&& msg)
         Key::IPKdf* pOwner = m_This.m_Keys.m_pOwner.get();
         if (pOwner && IsKdfObscured(*pOwner, msg.m_ID))
         {
-            m_Flags |= Flags::Owner;
+            m_Flags |= Flags::Owner | Flags::Viewer;
             ProvePKdfObscured(*pOwner, proto::IDType::Viewer);
         }
 
         if (!b && ShouldFinalizeMining())
             m_This.m_Miner.OnFinalizerChanged(this);
     }
+
+	if (proto::IDType::Viewer == msg.m_IDType)
+	{
+		Key::IPKdf* pOwner = m_This.m_Keys.m_pOwner.get();
+		if (pOwner && IsPKdfObscured(*pOwner, msg.m_ID))
+		{
+			m_Flags |= Flags::Viewer;
+			ProvePKdfObscured(*pOwner, proto::IDType::Viewer);
+		}
+	}
 
     if (proto::IDType::Node != msg.m_IDType)
         return;
@@ -1503,7 +1513,7 @@ void Node::Peer::OnDisconnect(const DisconnectReason& dr)
         break;
 
     case DisconnectReason::ProcessingExc:
-        if (dr.m_ExceptionDetails.m_ExceptionType == proto::NodeProcessingException::Type::TimeOutOfSync)
+        if (dr.m_ExceptionDetails.m_ExceptionType == proto::NodeProcessingException::Type::TimeOutOfSync && m_This.m_Cfg.m_Observer)
         {
             m_This.m_Cfg.m_Observer->OnSyncError(IObserver::Error::TimeDiffToLarge);
         }
@@ -1663,7 +1673,7 @@ void Node::Peer::OnMsg(proto::NewTip&& msg)
         switch (p.OnState(m_Tip, m_pInfo->m_ID.m_Key))
         {
         case NodeProcessor::DataStatus::Invalid:
-            m_Tip.m_TimeStamp > getTimestamp() ?
+            m_Tip.m_TimeStamp > getTimestamp() && m_This.m_Cfg.m_Observer ?
                 m_This.m_Cfg.m_Observer->OnSyncError(IObserver::Error::TimeDiffToLarge):
                 ThrowUnexpected();
             // no break;
@@ -3250,7 +3260,7 @@ void Node::Peer::OnMsg(proto::GetUtxoEvents&& msg)
 {
     proto::UtxoEvents msgOut;
 
-    if (Flags::Owner & m_Flags)
+    if (Flags::Viewer & m_Flags)
     {
 		Processor& p = m_This.m_Processor;
 		NodeDB& db = p.get_DB();

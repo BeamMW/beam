@@ -47,6 +47,8 @@ namespace beam
         const char* BTC_USER_NAME = "btc_user";
         const char* LTC_PASS = "ltc_pass";
         const char* LTC_USER_NAME = "ltc_user";
+        const char* QTUM_PASS = "qtum_pass";
+        const char* QTUM_USER_NAME = "qtum_user";
         const char* AMOUNT = "amount";
         const char* AMOUNT_FULL = "amount,a";
         const char* RECEIVER_ADDR = "receiver_addr";
@@ -55,6 +57,7 @@ namespace beam
         const char* NODE_ADDR_FULL = "node_addr,n";
         const char* BTC_NODE_ADDR = "btc_node_addr";
         const char* LTC_NODE_ADDR = "ltc_node_addr";
+        const char* QTUM_NODE_ADDR = "qtum_node_addr";
         const char* COMMAND = "command";
         const char* LISTEN = "listen";
         const char* TREASURY = "treasury";
@@ -89,6 +92,7 @@ namespace beam
         const char* PAYMENT_PROOF_REQUIRED = "payment_proof_required";
         const char* TX_ID = "tx_id";
         const char* SEED_PHRASE = "seed_phrase";
+        const char* IGNORE_DICTIONARY = "ignore_dictionary";
         const char* GENERATE_PHRASE = "generate_phrase";
         const char* FEE = "fee";
         const char* FEE_FULL = "fee,f";
@@ -126,6 +130,10 @@ namespace beam
         const char* SWAP_BEAM_SIDE = "swap_beam_side";
         const char* SWAP_TX_HISTORY = "swap_tx_history";
         const char* NODE_POLL_PERIOD = "node_poll_period";
+        // values
+        const char* EXPIRATION_TIME_24H = "24h";
+        const char* EXPIRATION_TIME_NEVER = "never";
+        const char* EXPIRATION_TIME_NOW = "now";
 
         // wallet api
         const char* API_USE_HTTP = "use_http";
@@ -220,7 +228,7 @@ namespace beam
             (cli::LISTEN, "start listen after new_addr command")
             (cli::TX_ID, po::value<string>()->default_value(""), "tx id")
             (cli::NEW_ADDRESS_COMMENT, po::value<string>()->default_value(""), "comment for new own address")
-            (cli::EXPIRATION_TIME, po::value<string>()->default_value("24h"), "expiration time for new own address [24h|never]")
+            (cli::EXPIRATION_TIME, po::value<string>()->default_value(cli::EXPIRATION_TIME_24H), "expiration time for own address [24h|never|now]")
             (cli::GENERATE_PHRASE, "command to generate phrases which will be used to create a secret according to BIP-39")
             (cli::KEY_SUBKEY, po::value<Nonnegative<uint32_t>>()->default_value(Nonnegative<uint32_t>(0)), "Child key index.")
             (cli::WALLET_ADDR, po::value<string>()->default_value("*"), "wallet address")
@@ -229,6 +237,7 @@ namespace beam
             (cli::UTXO, po::value<vector<string>>()->multitoken(), "preselected utxos to transfer")
             (cli::IMPORT_EXPORT_PATH, po::value<string>()->default_value("export.dat"), "path to import or export data (import_data|export_data)")
             (cli::COLD_WALLET, "used to init cold wallet")
+            (cli::IGNORE_DICTIONARY, "ignore dictionaty while validating seed phrase")
             (cli::COMMAND, po::value<string>(), "command to execute [new_addr|send|listen|init|restore|info|export_miner_key|export_owner_key|generate_phrase|change_address_expiration|address_list|rescan|export_data|import_data|tx_details|payment_proof_export|payment_proof_verify|utxo|cancel_tx|delete_tx|swap_init|swap_listen]")
             (cli::NODE_POLL_PERIOD, po::value<Nonnegative<uint32_t>>()->default_value(Nonnegative<uint32_t>(0)), "Node poll period in milliseconds. Set to 0 to keep connection. Anyway poll period would be no less than the expected rate of blocks if it is less then it will be rounded up to block rate value.");
 
@@ -255,6 +264,9 @@ namespace beam
             (cli::LTC_NODE_ADDR, po::value<string>(), "address of litecoin node")
             (cli::LTC_USER_NAME, po::value<string>(), "user name for the litecoin node")
             (cli::LTC_PASS, po::value<string>(), "password for the litecoin node")
+            (cli::QTUM_NODE_ADDR, po::value<string>(), "address of qtum node")
+            (cli::QTUM_USER_NAME, po::value<string>(), "user name for the qtum node")
+            (cli::QTUM_PASS, po::value<string>(), "password for the qtum node")
             (cli::SWAP_COIN, po::value<string>(), "swap coin(btc, ltc, qtum)")
             (cli::SWAP_AMOUNT, po::value<Positive<Amount>>(), "swap amount in the smallest unit of the coin")
             (cli::SWAP_FEERATE, po::value<Positive<Amount>>(), "The specific feerate you are willing to pay(the smallest unit of the coin per KB)")

@@ -45,6 +45,7 @@ namespace beam::wallet
     class WalletClient
         : private IWalletObserver
         , private IWalletModelAsync
+        , private IWalletDB::IRecoveryProgress
     {
     public:
         WalletClient(IWalletDB::Ptr walletDB, const std::string& nodeAddr, io::Reactor::Ptr reactor);
@@ -59,6 +60,9 @@ namespace beam::wallet
         bool isFork1() const;
 
     protected:
+        // Call this before derived class is destructed to ensure
+        // that no virtual function calls below will result in purecall
+        void stopReactor();
 
         virtual void onStatus(const WalletStatus& status) = 0;
         virtual void onTxStatus(ChangeAction, const std::vector<TxDescription>& items) = 0;
@@ -77,6 +81,7 @@ namespace beam::wallet
         virtual void onPaymentProofExported(const TxID& txID, const ByteBuffer& proof) = 0;
         virtual void onCoinsByTx(const std::vector<Coin>& coins) = 0;
         virtual void onAddressChecked(const std::string& addr, bool isValid) = 0;
+        virtual void onImportRecoveryProgress(uint64_t done, uint64_t total) = 0;
 
     private:
 
@@ -100,13 +105,17 @@ namespace beam::wallet
         void changeCurrentWalletIDs(const WalletID& senderID, const WalletID& receiverID) override;
         void generateNewAddress() override;
         void deleteAddress(const WalletID& id) override;
-        void saveAddressChanges(const WalletID& id, const std::string& name, bool isNever, bool makeActive, bool makeExpired) override;
+        void updateAddress(const WalletID& id, const std::string& name, WalletAddress::ExpirationStatus status) override;
         void setNodeAddress(const std::string& addr) override;
         void changeWalletPassword(const SecString& password) override;
         void getNetworkStatus() override;
         void refresh() override;
         void exportPaymentProof(const TxID& id) override;
         void checkAddress(const std::string& addr) override;
+        void importRecovery(const std::string& path) override;
+
+        // implement IWalletDB::IRecoveryProgress
+        bool OnProgress(uint64_t done, uint64_t total) override;
 
         WalletStatus getStatus() const;
         std::vector<Coin> getUtxos() const;

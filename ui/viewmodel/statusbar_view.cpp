@@ -17,7 +17,7 @@
 #include "version.h"
 
 StatusbarViewModel::StatusbarViewModel()
-    : m_model(*AppModel::getInstance()->getWallet())
+    : m_model(*AppModel::getInstance().getWallet())
     , m_isOnline(false)
     , m_isSyncInProgress(false)
     , m_isFailedStatus(false)
@@ -38,10 +38,10 @@ StatusbarViewModel::StatusbarViewModel()
     connect(&m_model, SIGNAL(syncProgressUpdated(int, int)),
         SLOT(onSyncProgressUpdated(int, int)));
 
-    connect(&AppModel::getInstance()->getNode(), SIGNAL(syncProgressUpdated(int, int)),
+    connect(&AppModel::getInstance().getNode(), SIGNAL(syncProgressUpdated(int, int)),
             SLOT(onNodeSyncProgressUpdated(int, int)));
     
-    connect(&AppModel::getInstance()->getNode(), SIGNAL(failedToSyncNode(beam::wallet::ErrorType)),
+    connect(&AppModel::getInstance().getNode(), SIGNAL(failedToSyncNode(beam::wallet::ErrorType)),
             SLOT(onGetWalletError(beam::wallet::ErrorType)));
 
     m_model.getAsync()->getNetworkStatus();

@@ -45,6 +45,9 @@ public:
     virtual ~Reactor();
 
     /// Runs the reactor. This function blocks.
+    // TODO: Consider if it is possible to move callback to constructor, may be would be possible after task #739
+    using StopCallback = std::function<void()>;
+    void run_ex(StopCallback&& scb);
     void run();
 
     /// Stops the running reactor.
@@ -52,7 +55,6 @@ public:
     void stop();
 
     using ConnectCallback = std::function<void(uint64_t tag, std::unique_ptr<TcpStream>&& newStream, ErrorCode errorCode)>;
-
     Result tcp_connect(
         Address address,
         uint64_t tag,
@@ -168,7 +170,8 @@ private:
 
     std::unique_ptr<PendingWrites> _pendingWrites;
     std::unique_ptr<TcpConnectors> _tcpConnectors;
-    std::unique_ptr<TcpShutdowns> _tcpShutdowns;
+    std::unique_ptr<TcpShutdowns>  _tcpShutdowns;
+    StopCallback _stopCB;
 
     friend class TcpConnectors;
     friend class TcpShutdowns;

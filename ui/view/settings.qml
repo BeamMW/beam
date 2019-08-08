@@ -32,7 +32,7 @@ Rectangle {
         okButtonText: qsTrId("general-rescan")
         okButtonIconSource: "qrc:/assets/icon-repeat.svg"
         cancelButtonIconSource: "qrc:/assets/icon-cancel-white.svg"
-        cancelVisible: true
+        cancelButtonVisible: true
         width: 460
         height: 243
 
@@ -524,37 +524,37 @@ Rectangle {
                                     Layout.preferredHeight: 15
                                 }
 
-//                                RowLayout {
-//                                    Layout.preferredHeight: 16
-//
-//                                    ColumnLayout {
-//                                        SFText {
-//                                            Layout.fillWidth: true
-//                                            //: settings tab, general section, language label
-//                                            //% "Language"
-//                                            text: qsTrId("settings-general-language")
-//                                            color: Style.content_secondary
-//                                            font.pixelSize: 14
-//                                        }
-//                                    }
-//
-//                                    Item {
-//                                    }
-//
-//                                    ColumnLayout {
-//                                        CustomComboBox {
-//                                            id: language
-//                                            Layout.preferredWidth: generalBlock.width * 0.33
-//                                            fontPixelSize: 14
-//
-//                                            model: viewModel.supportedLanguages
-//                                            currentIndex: viewModel.currentLanguageIndex
-//                                            onActivated: {
-//                                                viewModel.currentLanguage = currentText;
-//                                            }
-//                                        }
-//                                    }
-//                                }
+                                RowLayout {
+                                    Layout.preferredHeight: 16
+
+                                    ColumnLayout {
+                                        SFText {
+                                            Layout.fillWidth: true
+                                            //: settings tab, general section, language label
+                                            //% "Language"
+                                            text: qsTrId("settings-general-language")
+                                            color: Style.content_secondary
+                                            font.pixelSize: 14
+                                        }
+                                    }
+
+                                    Item {
+                                    }
+
+                                    ColumnLayout {
+                                        CustomComboBox {
+                                            id: language
+                                            Layout.preferredWidth: generalBlock.width * 0.33
+                                            fontPixelSize: 14
+
+                                            model: viewModel.supportedLanguages
+                                            currentIndex: viewModel.currentLanguageIndex
+                                            onActivated: {
+                                                viewModel.currentLanguage = currentText;
+                                            }
+                                        }
+                                    }
+                                }
 
                                 Item {
                                     Layout.preferredHeight: 10

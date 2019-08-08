@@ -28,6 +28,8 @@ namespace beam
 class INodeClientObserver
 {
 public:
+    virtual void onNodeCreated() = 0;
+    virtual void onNodeDestroyed() = 0;
     virtual void onSyncProgressUpdated(int done, int total) = 0;
     virtual void onStartedNode() = 0;
     virtual void onStoppedNode() = 0;

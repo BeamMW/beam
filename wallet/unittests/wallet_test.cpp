@@ -118,7 +118,7 @@ namespace
         beam::Amount coin_amount = 40;
         Coin coin = CreateAvailCoin(coin_amount, 0);
         coin.m_ID.m_Type = Key::Type::Coinbase;
-        senderWalletDB->store(coin);
+        senderWalletDB->storeCoin(coin);
 
         auto coins = senderWalletDB->selectCoins(24);
         WALLET_CHECK(coins.size() == 1);
@@ -148,7 +148,7 @@ namespace
 
         // check coins
         vector<Coin> newSenderCoins;
-        senderWalletDB->visit([&newSenderCoins](const Coin& c)->bool
+        senderWalletDB->visitCoins([&newSenderCoins](const Coin& c)->bool
         {
             newSenderCoins.push_back(c);
             return true;
@@ -577,7 +577,7 @@ namespace
         beam::Amount coin_amount = 40;
         Coin coin = CreateAvailCoin(coin_amount, 0);
         coin.m_ID.m_Type = Key::Type::Coinbase;
-        senderWalletDB->store(coin);
+        senderWalletDB->storeCoin(coin);
 
         auto coins = senderWalletDB->selectCoins(24);
         WALLET_CHECK(coins.size() == 1);
@@ -607,7 +607,7 @@ namespace
 
         // check coins
         vector<Coin> newSenderCoins;
-        senderWalletDB->visit([&newSenderCoins](const Coin& c)->bool
+        senderWalletDB->visitCoins([&newSenderCoins](const Coin& c)->bool
         {
             newSenderCoins.push_back(c);
             return true;
@@ -635,6 +635,119 @@ namespace
         WALLET_CHECK(newSenderCoins[4].m_ID.m_Value == 13);
 
         cout << "\nFinish of testing split Tx...\n";
+    }
+
+    void TestMinimalFeeTransaction()
+    {
+        struct ForkHolder
+        {
+            ForkHolder(Height h)
+                : m_PrevValue{ Rules::get().pForks[1].m_Height }
+            {
+                Rules::get().pForks[1].m_Height = h;
+                Rules::get().UpdateChecksum();
+            }
+
+            ~ForkHolder()
+            {
+                Rules::get().pForks[1].m_Height = m_PrevValue;
+                Rules::get().UpdateChecksum();
+            }
+
+            Height m_PrevValue;
+        };
+
+        ForkHolder holder(140); // set fork height
+
+        cout << "\nTesting minimal Tx...\n";
+
+        io::Reactor::Ptr mainReactor{ io::Reactor::create() };
+        io::Reactor::Scope scope(*mainReactor);
+
+        auto senderWalletDB = createSqliteWalletDB("sender_wallet.db", false);
+
+        // add coin with keyType - Coinbase
+        Coin coin = CreateAvailCoin(100, 0);
+        coin.m_ID.m_Type = Key::Type::Coinbase;
+        senderWalletDB->storeCoin(coin);
+
+        auto coins = senderWalletDB->selectCoins(24);
+        WALLET_CHECK(coins.size() == 1);
+        WALLET_CHECK(coins[0].m_ID.m_Type == Key::Type::Coinbase);
+        WALLET_CHECK(coins[0].m_status == Coin::Available);
+        WALLET_CHECK(senderWalletDB->getTxHistory().empty());
+
+        TestNode node;
+        TestWalletRig sender("sender", senderWalletDB, [](auto) { io::Reactor::get_Current().stop(); });
+
+        auto txId = sender.m_Wallet.split_coins(sender.m_WalletID, { 11, 12, 13 }, 2, true, 200);
+        mainReactor->run();
+
+        // check Tx
+        {
+            auto txHistory = senderWalletDB->getTxHistory();
+            WALLET_CHECK(txHistory.size() == 1);
+            WALLET_CHECK(txHistory[0].m_txId == txId);
+            WALLET_CHECK(txHistory[0].m_amount == 36);
+            WALLET_CHECK(txHistory[0].m_change == 0);
+            WALLET_CHECK(txHistory[0].m_fee == 2);
+            WALLET_CHECK(txHistory[0].m_status == TxStatus::Failed);
+        }
+        
+        txId = sender.m_Wallet.split_coins(sender.m_WalletID, { 11, 12, 13 }, 42, true, 200);
+        mainReactor->run();
+
+        // check Tx
+        {
+            auto txHistory = senderWalletDB->getTxHistory();
+            WALLET_CHECK(txHistory.size() == 2);
+            auto tx = *senderWalletDB->getTx(txId);
+            WALLET_CHECK(tx.m_txId == txId);
+            WALLET_CHECK(tx.m_amount == 36);
+            WALLET_CHECK(tx.m_change == 0);
+            WALLET_CHECK(tx.m_fee == 42);
+            WALLET_CHECK(tx.m_status == TxStatus::Failed);
+        }
+
+        // another attempt
+
+        txId = sender.m_Wallet.split_coins(sender.m_WalletID, { 11, 12, 13 }, 50, true, 200);
+        mainReactor->run();
+
+        // check Tx
+        {
+            auto tx = senderWalletDB->getTx(txId);
+            WALLET_CHECK(tx);
+            WALLET_CHECK(tx->m_txId == txId);
+            WALLET_CHECK(tx->m_amount == 36);
+            WALLET_CHECK(tx->m_change == 14);
+            WALLET_CHECK(tx->m_fee == 50);
+            WALLET_CHECK(tx->m_status == TxStatus::Completed);
+        }
+
+        // check coins
+        vector<Coin> newSenderCoins = sender.GetCoins();
+
+        WALLET_CHECK(newSenderCoins.size() == 5);
+        WALLET_CHECK(newSenderCoins[0].m_ID.m_Type == Key::Type::Coinbase);
+        WALLET_CHECK(newSenderCoins[0].m_status == Coin::Spent);
+        WALLET_CHECK(newSenderCoins[0].m_ID.m_Value == 100);
+
+        WALLET_CHECK(newSenderCoins[1].m_ID.m_Type == Key::Type::Change);
+        WALLET_CHECK(newSenderCoins[1].m_status == Coin::Available);
+        WALLET_CHECK(newSenderCoins[1].m_ID.m_Value == 14);
+
+        WALLET_CHECK(newSenderCoins[2].m_ID.m_Type == Key::Type::Regular);
+        WALLET_CHECK(newSenderCoins[2].m_status == Coin::Available);
+        WALLET_CHECK(newSenderCoins[2].m_ID.m_Value == 11);
+
+        WALLET_CHECK(newSenderCoins[3].m_ID.m_Type == Key::Type::Regular);
+        WALLET_CHECK(newSenderCoins[3].m_status == Coin::Available);
+        WALLET_CHECK(newSenderCoins[3].m_ID.m_Value == 12);
+
+        WALLET_CHECK(newSenderCoins[4].m_ID.m_Type == Key::Type::Regular);
+        WALLET_CHECK(newSenderCoins[4].m_status == Coin::Available);
+        WALLET_CHECK(newSenderCoins[4].m_ID.m_Value == 13);
     }
 
     void TestExpiredTransaction()
@@ -1496,6 +1609,8 @@ int main()
     }
 
     TestSplitTransaction();
+
+    TestMinimalFeeTransaction();
 
     TestTxToHimself();
 
