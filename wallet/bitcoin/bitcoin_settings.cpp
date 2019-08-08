@@ -46,6 +46,11 @@ namespace beam
         return m_chainType;
     }
 
+    bool BitcoinSettings::IsInitialized() const
+    {
+        return m_connectionSettings.IsInitialized();
+    }
+
     void BitcoinSettings::SetConnectionOptions(const BitcoindSettings& connectionSettings)
     {
         m_connectionSettings = connectionSettings;

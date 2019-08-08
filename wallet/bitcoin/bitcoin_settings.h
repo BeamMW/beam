@@ -27,6 +27,11 @@ namespace beam
         std::string m_pass;
         io::Address m_address;
 
+        bool IsInitialized() const
+        {
+            return !m_userName.empty() && !m_pass.empty() && !m_address.empty();
+        }
+
         SERIALIZE(m_userName, m_pass, m_address);
     };
 
@@ -53,6 +58,7 @@ namespace beam
         virtual uint16_t GetTxMinConfirmations() const = 0;
         virtual uint32_t GetLockTimeInBlocks() const = 0;
         virtual wallet::SwapSecondSideChainType GetChainType() const = 0;
+        virtual bool IsInitialized() const = 0;
     };
 
     class BitcoinSettings : public IBitcoinSettings
@@ -66,6 +72,7 @@ namespace beam
         uint16_t GetTxMinConfirmations() const override;
         uint32_t GetLockTimeInBlocks() const override;
         wallet::SwapSecondSideChainType GetChainType() const override;
+        bool IsInitialized() const override;
 
         void SetConnectionOptions(const BitcoindSettings& connectionSettings);
         void SetFeeRate(Amount feeRate);

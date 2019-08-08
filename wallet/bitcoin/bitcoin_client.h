@@ -28,6 +28,7 @@ namespace beam
 
         virtual void GetStatus() = 0;
         virtual void GetBalance() = 0;
+        virtual void ResetSettings() = 0;
     };
 
     class BitcoinClient 
@@ -46,7 +47,7 @@ namespace beam
 
         enum class Status
         {
-            Disconnected,
+            Uninitialized,
             Connected,
             Failed,
             Unknown
@@ -68,15 +69,17 @@ namespace beam
         // IBitcoinClientAsync
         void GetStatus() override;
         void GetBalance() override;
-    
+        void ResetSettings() override;
+
         void LoadSettings();
+        void SetStatus(const Status& status);
 
     private:
         Status m_status;
         wallet::IWalletDB::Ptr m_walletDB;
         io::Reactor& m_reactor;
         IBitcoinClientAsync::Ptr m_async;
-        std::shared_ptr<BitcoinSettings> m_settings;
+        std::unique_ptr<BitcoinSettings> m_settings;
         IBitcoinBridge::Ptr m_bridge;
 
         mutable std::mutex m_mutex;

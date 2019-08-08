@@ -148,8 +148,7 @@ void SettingsViewModel::btcOff()
     setBtcNodeAddress("");
     setBtcPass("");
     setBtcUser("");
-    applyBtcSettings();
-    // TODO:SWAP-SETTINGS we rest settings to nothing, disconnect Btc here
+    AppModel::getInstance().getBitcoinClient()->GetAsync()->ResetSettings();
 }
 
 void SettingsViewModel::applyBtcSettings()
@@ -166,6 +165,13 @@ void SettingsViewModel::applyBtcSettings()
 
     m_bitcoinSettings->SetConnectionOptions(connectionSettings);
     m_bitcoinSettings->SetFeeRate(m_bitcoinFeeRate);
+
+    // TODO:SWAP-SETTINGS need to be moved to config
+#ifdef BEAM_MAINNET
+    m_bitcoinSettings->SetChainType(beam::wallet::SwapSecondSideChainType::Mainnet);
+#else
+    m_bitcoinSettings->SetChainType(beam::wallet::SwapSecondSideChainType::Testnet);
+#endif
 
     AppModel::getInstance().getBitcoinClient()->SetSettings(*m_bitcoinSettings);
 

@@ -38,10 +38,15 @@ namespace beam
         {
             call_async(&IBitcoinClientAsync::GetBalance);
         }
+
+        void ResetSettings()
+        {
+            call_async(&IBitcoinClientAsync::ResetSettings);
+        }
     };
     
     BitcoinClient::BitcoinClient(wallet::IWalletDB::Ptr walletDB, io::Reactor& reactor)
-        : m_status(Status::Disconnected)
+        : m_status(Status::Uninitialized)
         , m_walletDB(walletDB)
         , m_reactor(reactor)
         , m_async{ std::make_shared<BitcoinClientBridge>(*(static_cast<IBitcoinClientAsync*>(this)), reactor) }
@@ -77,14 +82,7 @@ namespace beam
         m_walletDB->setVarRaw(kBitcoinSettingsName, buffer.data(), static_cast<int>(buffer.size()));
 
         // update m_settings
-        if (m_settings)
-        {
-            *m_settings = settings;
-        }
-        else
-        {
-            m_settings = std::make_shared<BitcoinSettings>(settings);
-        }
+        m_settings = std::make_unique<BitcoinSettings>(settings);
     }
 
     void BitcoinClient::GetStatus()
@@ -96,14 +94,13 @@ namespace beam
     {
         if (!m_bridge)
         {
-            // TODO: change settings ?
             m_bridge = std::make_shared<Bitcoind017>(m_reactor, shared_from_this());
         }
 
         m_bridge->getDetailedBalance([this] (const IBitcoinBridge::Error& error, double confirmed, double unconfirmed, double immature)
         {
             // TODO: check error and update status
-            m_status = (error.m_type != IBitcoinBridge::None) ? Status::Failed : Status::Connected;
+            SetStatus((error.m_type != IBitcoinBridge::None) ? Status::Failed : Status::Connected);
 
             Balance balance;
             balance.m_available = confirmed;
@@ -114,11 +111,25 @@ namespace beam
         });
     }
 
+    void BitcoinClient::ResetSettings()
+    {
+        {
+            Lock lock(m_mutex);
+
+            // remove from DB
+            m_walletDB->removeVarRaw(kBitcoinSettingsName);
+
+            m_settings = std::make_unique<BitcoinSettings>();
+        }
+
+        SetStatus(Status::Uninitialized);
+    }
+
     void BitcoinClient::LoadSettings()
     {
         if (!m_settings)
         {
-            m_settings = std::make_shared<BitcoinSettings>();
+            m_settings = std::make_unique<BitcoinSettings>();
 
             // load from DB or use default
             ByteBuffer settings;
@@ -135,5 +146,11 @@ namespace beam
                 assert(m_settings->GetMinFeeRate() <= m_settings->GetFeeRate());
             }
         }
+    }
+
+    void BitcoinClient::SetStatus(const Status& status)
+    {
+        m_status = status;
+        OnStatus(m_status);
     }
 }
