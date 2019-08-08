@@ -1214,9 +1214,5 @@
         <source>Fee is too small</source>
         <translation type="unfinished"></translation>
     </message>
-    <message id="general-validate-dictionary">
-        <source>validate dictionary</source>
-        <translation type="unfinished"></translation>
-    </message>
 </context>
 </TS>

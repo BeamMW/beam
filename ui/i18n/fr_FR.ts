@@ -1215,9 +1215,5 @@ Vous essayez de restaurer un portefeuille Beam existant. Veuillez noter que si v
         <source>Fee is too small</source>
         <translation type="unfinished"></translation>
     </message>
-    <message id="general-validate-dictionary">
-        <source>validate dictionary</source>
-        <translation type="unfinished"></translation>
-    </message>
 </context>
 </TS>

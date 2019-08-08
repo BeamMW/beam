@@ -1173,19 +1173,6 @@ Item
                                 }
                             }
                         }
-                        CustomCheckBox {
-                            id: validateDictionaryCB
-                            Layout.fillWidth: true
-                            font.pixelSize: 12
-                            //% "validate dictionary"
-                            text: qsTrId("general-validate-dictionary")
-                            checked: viewModel.validateDictionary
-                            Binding {
-                                target: viewModel
-                                property: "validateDictionary"
-                                value: validateDictionaryCB.checked
-                            }
-                        }
                     }
                     
                     Item {
@@ -1226,6 +1213,20 @@ Item
                             }
                             icon.source: "qrc:/assets/icon-next-blue.svg"
                             onClicked: startWizzardView.push(create);
+                        }
+                    }
+
+                    Keys.onPressed: {
+                        if (event.key == Qt.Key_Shift)
+                        {
+                            viewModel.validateDictionary = false;
+                        }
+                    }
+
+                    Keys.onReleased: {
+                        if (event.key == Qt.Key_Shift)
+                        {
+                            viewModel.validateDictionary = true;
                         }
                     }
 
