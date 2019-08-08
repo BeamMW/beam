@@ -1,6 +1,7 @@
 import QtQuick 2.11
 import QtQuick.Controls 2.3
 import QtQuick.Layouts 1.11
+import Beam.Wallet 1.0
 import "."
 import "../utils.js" as Utils
 
@@ -129,7 +130,7 @@ Dialog {
                 text: addressItem ? addressItem.address : ""
 				elide: Text.ElideLeft
 				copyMenuEnabled: true
-				onCopyText: parentModel.copyToClipboard(text)
+				onCopyText: BeamGlobals.copyToClipboard(text)
 			}
     	}
 
@@ -284,9 +285,9 @@ Dialog {
 			}
 
 			SFText {
+				id: expiresLabel
 				//: Edit addres dialog, expires label
 				//% "Expires"
-				id: expiresLabel
 				text: qsTrId("edit-addr-expires-label")
 				color: Style.content_main
 				Layout.alignment: Qt.AlignLeft
@@ -405,36 +406,49 @@ Dialog {
 					}
                 }
                 onClicked: {
-					var isNever = false;
-					var makeActive = false;
-					var makeExpired = false;
+					var expirationStatus;
+					const expirationStatusEnum = {
+						Expired: 0,
+						OneDay: 1,
+						Never: 2
+					}
 
 					if (rootControl.isExpiredAddress) {
-						isNever =
-							expirationOptionsForUnactive.currentIndex == 1;
-						makeActive = activate.checked;
+						if (activate.checked) {
+							switch(expirationOptionsForUnactive.currentIndex) {
+								case 0:
+									expirationStatus = expirationStatusEnum.OneDay;
+									break;
+								case 1:
+									expirationStatus = expirationStatusEnum.Never;
+									break;
+							}
+						}
 					}
 					else {
 						if (disactivate.checked) {
-							makeExpired = true;
+							expirationStatus = expirationStatusEnum.Expired;
 						} else if (isNeverExpired()) {
-							isNever = 
-								expirationOptionsForActive.currentIndex == 1;
-							makeActive =
-								expirationOptionsForActive.currentIndex == 0;
+							switch(expirationOptionsForActive.currentIndex) {
+								case 0:
+									expirationStatus = expirationStatusEnum.OneDay;
+									break;
+								case 1:
+									expirationStatus = expirationStatusEnum.Never;
+									break;
+							}
 						} else {
-							isNever =
-								expirationOptionsForActive.currentIndex == 2;
-							makeActive =
-								expirationOptionsForActive.currentIndex == 1;
+							switch(expirationOptionsForActive.currentIndex) {
+								case 1:
+									expirationStatus = expirationStatusEnum.OneDay;
+									break;
+								case 2:
+									expirationStatus = expirationStatusEnum.Never;
+									break;
+							}
 						}
 					}
-					parentModel.saveChanges(
-							addressID.text,
-							addressName.text,
-							isNever,
-							makeActive,
-							makeExpired);
+					parentModel.saveChanges(addressID.text, addressName.text, expirationStatus);
 					rootControl.accepted();
                     rootControl.close();
                 }

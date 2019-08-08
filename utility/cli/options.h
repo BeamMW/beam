@@ -42,6 +42,8 @@ namespace beam
         extern const char* BTC_USER_NAME;
         extern const char* LTC_PASS;
         extern const char* LTC_USER_NAME;
+        extern const char* QTUM_PASS;
+        extern const char* QTUM_USER_NAME;
         extern const char* AMOUNT;
         extern const char* AMOUNT_FULL;
         extern const char* RECEIVER_ADDR;
@@ -50,6 +52,7 @@ namespace beam
         extern const char* NODE_ADDR_FULL;
         extern const char* BTC_NODE_ADDR;
         extern const char* LTC_NODE_ADDR;
+        extern const char* QTUM_NODE_ADDR;
         extern const char* COMMAND;
         extern const char* NODE;
         extern const char* WALLET;
@@ -86,6 +89,7 @@ namespace beam
         extern const char* TX_HISTORY;
         extern const char* TX_ID;
         extern const char* SEED_PHRASE;
+        extern const char* IGNORE_DICTIONARY;
         extern const char* GENERATE_PHRASE;
         extern const char* FEE;
         extern const char* FEE_FULL;
@@ -125,6 +129,10 @@ namespace beam
         extern const char* SWAP_BEAM_SIDE;
         extern const char* SWAP_TX_HISTORY;
         extern const char* NODE_POLL_PERIOD;
+        // values
+        extern const char* EXPIRATION_TIME_24H;
+        extern const char* EXPIRATION_TIME_NEVER;
+        extern const char* EXPIRATION_TIME_NOW;
 
         // wallet api
         extern const char* API_USE_HTTP;

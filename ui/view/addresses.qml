@@ -142,7 +142,7 @@ ColumnLayout {
                     font.pixelSize: 14
                     wrapMode: Text.Wrap
                     copyMenuEnabled: true
-                    onCopyText: viewModel.copyToClipboard(text)
+                    onCopyText: BeamGlobals.copyToClipboard(text)
                 }
             }
 
@@ -323,7 +323,7 @@ ColumnLayout {
                             text: styleData.value
                             color: Style.content_main
                             copyMenuEnabled: true
-                            onCopyText: viewModel.copyToClipboard(text)
+                            onCopyText: BeamGlobals.copyToClipboard(text)
                         }
                     }
                 }

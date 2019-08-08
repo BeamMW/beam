@@ -132,7 +132,7 @@ namespace beam
 
 		struct {
 			bool Enabled = false;
-			bool Deposit = true; // CA emission in exchage for beams. If not specified - the emission is free
+			bool Deposit = true; // CA emission in exchange for beams. If not specified - the emission is free
 		} CA;
 
 		struct {

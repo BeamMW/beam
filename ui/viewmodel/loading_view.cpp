@@ -19,37 +19,23 @@ using namespace beam;
 using namespace std;
 
 LoadingViewModel::LoadingViewModel()
-    : m_walletModel{ *AppModel::getInstance()->getWallet() }
+    : m_walletModel{ *AppModel::getInstance().getWallet() }
     , m_progress{0.0}
     , m_nodeTotal{0}
     , m_nodeDone{0}
     , m_total{0}
     , m_done{0}
-    , m_walletConnected{false}
-    , m_hasLocalNode{ AppModel::getInstance()->getSettings().getRunLocalNode() }
-    , m_skipProgress{false}
+    , m_hasLocalNode{ AppModel::getInstance().getSettings().getRunLocalNode() }
     , m_isCreating{false}
 {
-    connect(&m_walletModel, SIGNAL(syncProgressUpdated(int, int)),
-        SLOT(onSyncProgressUpdated(int, int)));
+    connect(&m_walletModel, SIGNAL(syncProgressUpdated(int, int)), SLOT(onSyncProgressUpdated(int, int)));
+    connect(&m_walletModel, SIGNAL(nodeConnectionChanged(bool)), SLOT(onNodeConnectionChanged(bool)));
+    connect(&m_walletModel, SIGNAL(walletError(beam::wallet::ErrorType)), SLOT(onGetWalletError(beam::wallet::ErrorType)));
 
-    if (AppModel::getInstance()->getSettings().getRunLocalNode())
+    if (AppModel::getInstance().getSettings().getRunLocalNode())
     {
-        connect(&AppModel::getInstance()->getNode(), SIGNAL(syncProgressUpdated(int, int)),
-            SLOT(onNodeSyncProgressUpdated(int, int)));
+        connect(&AppModel::getInstance().getNode(), SIGNAL(syncProgressUpdated(int, int)), SLOT(onNodeSyncProgressUpdated(int, int)));
     }
-
-    connect(&m_walletModel, SIGNAL(nodeConnectionChanged(bool)),
-        SLOT(onNodeConnectionChanged(bool)));
-
-    connect(&m_walletModel, SIGNAL(walletError(beam::wallet::ErrorType)),
-        SLOT(onGetWalletError(beam::wallet::ErrorType)));
-
-    if (!m_hasLocalNode)
-    {
-        syncWithNode();
-    }
-
 }
 
 LoadingViewModel::~LoadingViewModel()
@@ -72,7 +58,11 @@ void LoadingViewModel::onNodeSyncProgressUpdated(int done, int total)
 
 void LoadingViewModel::resetWallet()
 {
-    AppModel::getInstance()->resetWallet();
+    disconnect(&m_walletModel, SIGNAL(syncProgressUpdated(int, int)), this, SLOT(onSyncProgressUpdated(int, int)));
+    disconnect(&m_walletModel, SIGNAL(nodeConnectionChanged(bool)), this, SLOT(onNodeConnectionChanged(bool)));
+    disconnect(&m_walletModel, SIGNAL(walletError(beam::wallet::ErrorType)), this, SLOT(onGetWalletError(beam::wallet::ErrorType)));
+    connect(&AppModel::getInstance(), SIGNAL(walletReseted()), this, SLOT(onWalletReseted()));
+    AppModel::getInstance().resetWallet();
 }
 
 void LoadingViewModel::updateProgress()
@@ -83,7 +73,7 @@ void LoadingViewModel::updateProgress()
 	if (m_nodeTotal > 0)
 		nodeSyncProgress = std::min(1., static_cast<double>(m_nodeDone) / static_cast<double>(m_nodeTotal));
 
-	bool bLocalNode = AppModel::getInstance()->getSettings().getRunLocalNode();
+	bool bLocalNode = AppModel::getInstance().getSettings().getRunLocalNode();
 	QString progressMessage = "";
 
     if (bLocalNode && (!m_nodeTotal || (m_nodeDone < m_nodeTotal)))
@@ -95,9 +85,6 @@ void LoadingViewModel::updateProgress()
 	{
         if (m_total > 0)
             walletSyncProgress = std::min(1., static_cast<double>(m_done) / static_cast<double>(m_total));
-
-		if (!m_walletConnected)
-			syncWithNode();
 
 		if (m_done < m_total)
         {
@@ -119,11 +106,6 @@ void LoadingViewModel::updateProgress()
 
     setProgressMessage(progressMessage);
     setProgress(p);
-
-    if (m_skipProgress)
-    {
-        emit syncCompleted();
-    }
 }
 
 double LoadingViewModel::getProgress() const
@@ -144,6 +126,7 @@ const QString& LoadingViewModel::getProgressMessage() const
 {
     return m_progressMessage;
 }
+
 void LoadingViewModel::setProgressMessage(const QString& value)
 {
     if (m_progressMessage != value)
@@ -167,14 +150,8 @@ bool LoadingViewModel::getIsCreating() const
     return m_isCreating;
 }
 
-void LoadingViewModel::syncWithNode()
-{
-    m_walletModel.getAsync()->syncWithNode();
-}
-
 void LoadingViewModel::onNodeConnectionChanged(bool isNodeConnected)
 {
-    m_walletConnected = isNodeConnected;
 }
 
 void LoadingViewModel::onGetWalletError(beam::wallet::ErrorType error)
@@ -190,6 +167,7 @@ void LoadingViewModel::onGetWalletError(beam::wallet::ErrorType error)
                 return;
             }
             case beam::wallet::ErrorType::ConnectionAddrInUse:
+            case beam::wallet::ErrorType::ConnectionRefused:
             case beam::wallet::ErrorType::HostResolvedError:
             {
                 //% "Connection error"
@@ -212,6 +190,12 @@ void LoadingViewModel::onGetWalletError(beam::wallet::ErrorType error)
             break;
     }
 
-    m_skipProgress = true;
+    // There's an unhandled error. Show wallet and display it in errorneous state
     updateProgress();
+    emit syncCompleted();
+}
+
+void LoadingViewModel::onWalletReseted()
+{
+    emit walletReseted();
 }

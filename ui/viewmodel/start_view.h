@@ -107,6 +107,7 @@ class StartViewModel : public QObject
     Q_PROPERTY(QString localNodePeer READ getLocalNodePeer CONSTANT)
     Q_PROPERTY(QQmlListProperty<WalletDBPathItem> walletDBpaths READ getWalletDBpaths CONSTANT)
     Q_PROPERTY(bool isCapsLockOn READ isCapsLockOn NOTIFY capsLockStateMayBeChanged)
+    Q_PROPERTY(bool validateDictionary READ getValidateDictionary WRITE setValidateDictionary NOTIFY validateDictionaryChanged)
 
 public:
 
@@ -126,6 +127,8 @@ public:
     QString getLocalNodePeer() const;
     QQmlListProperty<WalletDBPathItem> getWalletDBpaths();
     bool isCapsLockOn() const;
+    bool getValidateDictionary() const;
+    void setValidateDictionary(bool value);
 
     Q_INVOKABLE void setupLocalNode(int port, const QString& localNodePeer);
     Q_INVOKABLE void setupRemoteNode(const QString& nodeAddress);
@@ -140,7 +143,6 @@ public:
     Q_INVOKABLE bool isFindExistingWalletDB();
     Q_INVOKABLE void deleteCurrentWalletDB();
     Q_INVOKABLE void migrateWalletDB(const QString& path);
-    Q_INVOKABLE void copyToClipboard(const QString& text);
     Q_INVOKABLE QString selectCustomWalletDB();
     Q_INVOKABLE QString defaultPortToListen() const;
     Q_INVOKABLE QString defaultRemoteNodeAddr() const;
@@ -154,7 +156,7 @@ signals:
     void checkPhrasesChanged();
     void isRecoveryModeChanged();
     void capsLockStateMayBeChanged();
-
+    void validateDictionaryChanged();
 public slots:
     bool createWallet();
     bool openWallet(const QString& pass);
@@ -174,4 +176,5 @@ private:
     QList<WalletDBPathItem*> m_walletDBpaths;
 
     bool m_isRecoveryMode;
+    bool m_validateDictionary = true;
 };

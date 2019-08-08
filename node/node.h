@@ -457,6 +457,7 @@ private:
 			static const uint16_t Finalizing	= 0x080;
 			static const uint16_t HasTreasury	= 0x100;
 			static const uint16_t Chocking		= 0x200;
+			static const uint16_t Viewer		= 0x400;
 		};
 
 		uint16_t m_Flags;

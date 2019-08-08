@@ -41,7 +41,7 @@ Item
         //% "I agree"
         okButtonText: qsTrId("start-restore-confirm-button")
         okButtonIconSource: "qrc:/assets/icon-done.svg"
-        cancelVisible: false
+        cancelButtonVisible: false
         width: 460
         height: contentItem.implicitHeight + footer.implicitHeight
         padding: 0
@@ -193,6 +193,17 @@ Item
                                 Layout.fillHeight: true
                                 Layout.minimumHeight: 67
                             }
+
+                            SFText {
+                                Layout.alignment:    Qt.AlignHCenter
+                                font.pixelSize:      12
+                                color:               Qt.rgba(255, 255, 255, 0.3)
+                                text:                [qsTrId("settings-version"), BeamGlobals.version()].join(' ')
+                            }
+
+                            Item {
+                                Layout.minimumHeight: 35
+                            }
                         }
                     }
                 }
@@ -311,6 +322,17 @@ Item
                                 Layout.fillHeight: true
                                 Layout.minimumHeight: 67
                             }
+
+                            SFText {
+                                Layout.alignment:    Qt.AlignHCenter
+                                font.pixelSize:      12
+                                color:               Qt.rgba(255, 255, 255, 0.3)
+                                text:                [qsTrId("settings-version"), BeamGlobals.version()].join(' ')
+                            }
+
+                            Item {
+                                Layout.minimumHeight: 35
+                            }
                         }
                     }
                 }
@@ -412,7 +434,7 @@ Item
                                     text: elidedText(styleData.value, isPreferred) + (isPreferred ? " " + preferredLabelFormat.arg(bestMatchStr) : " ")
                                     color: Style.content_main
                                     copyMenuEnabled: true
-                                    onCopyText: viewModel.copyToClipboard(text)
+                                    onCopyText: BeamGlobals.copyToClipboard(text)
                                     Component.onCompleted: {
                                         if (isPreferred) {
                                             tableView.selection.select(styleData.row);
@@ -593,6 +615,17 @@ Item
                         Layout.minimumHeight: 60
                         Layout.maximumHeight: 90
                     }
+
+                    SFText {
+                        Layout.alignment:    Qt.AlignHCenter
+                        font.pixelSize:      12
+                        color:               Qt.rgba(255, 255, 255, 0.3)
+                        text:                [qsTrId("settings-version"), BeamGlobals.version()].join(' ')
+                    }
+
+                    Item {
+                        Layout.minimumHeight: 35
+                    }
                 }
             }
         }
@@ -691,6 +724,17 @@ Item
                         Layout.minimumHeight: 67
                         Layout.maximumHeight: 143
                     }
+
+                    SFText {
+                        Layout.alignment:    Qt.AlignHCenter
+                        font.pixelSize:      12
+                        color:               Qt.rgba(255, 255, 255, 0.3)
+                        text:                [qsTrId("settings-version"), BeamGlobals.version()].join(' ')
+                    }
+
+                    Item {
+                        Layout.minimumHeight: 35
+                    }
                 }
             }
         }
@@ -733,7 +777,7 @@ Item
                         //% "I understand"
                         okButtonText: qsTrId("start-confirm-seed-phrase-button")
                         okButtonIconSource: "qrc:/assets/icon-done.svg"
-                        cancelVisible: false
+                        cancelButtonVisible: false
                         width: 460
                         //% "It is strictly recommended to write down the seed phrase on a paper. Storing it in a file makes it prone to cyber attacks and, therefore, less secure."
                         text: qsTrId("start-confirm-seed-phrase-message")
@@ -818,6 +862,17 @@ Item
                         Layout.fillHeight: true
                         Layout.minimumHeight: 67
                         Layout.maximumHeight: 143
+                    }
+
+                    SFText {
+                        Layout.alignment:    Qt.AlignHCenter
+                        font.pixelSize:      12
+                        color:               Qt.rgba(255, 255, 255, 0.3)
+                        text:                [qsTrId("settings-version"), BeamGlobals.version()].join(' ')
+                    }
+
+                    Item {
+                        Layout.minimumHeight: 35
                     }
                 }
             }
@@ -985,6 +1040,17 @@ Item
                         Layout.minimumHeight: 67
                         Layout.maximumHeight: 143
                     }
+
+                    SFText {
+                        Layout.alignment:    Qt.AlignHCenter
+                        font.pixelSize:      12
+                        color:               Qt.rgba(255, 255, 255, 0.3)
+                        text:                [qsTrId("settings-version"), BeamGlobals.version()].join(' ')
+                    }
+
+                    Item {
+                        Layout.minimumHeight: 35
+                    }
                 }
             }
         }
@@ -1060,7 +1126,7 @@ Item
 
                                     Rectangle {
                                         id: correctPhraseRect
-                                        color: modelData.isAllowed ? Style.background_second : Style.validator_error
+                                        color: !viewModel.validateDictionary || modelData.isAllowed ? Style.background_second : Style.validator_error
                                         width: 20
                                         height: 20
                                         radius: 10
@@ -1082,8 +1148,8 @@ Item
                                     anchors.bottomMargin: 6
                                     width: 121
                                     font.pixelSize: 14
-                                    color: (modelData.isAllowed || modelData.value.length == 0) ? Style.content_main : Style.validator_error
-                                    backgroundColor: (modelData.isAllowed || modelData.value.length == 0) ? Style.content_main : Style.validator_error
+                                    color: (!viewModel.validateDictionary || modelData.isAllowed || modelData.value.length == 0) ? Style.content_main : Style.validator_error
+                                    backgroundColor: (!viewModel.validateDictionary || modelData.isAllowed || modelData.value.length == 0) ? Style.content_main : Style.validator_error
                                     text: modelData.value
                                     onTextEdited: {
                                         var phrases = text.split(viewModel.phrasesSeparator);
@@ -1137,12 +1203,33 @@ Item
                                 var enable = true;
                                 for(var i = 0; i < viewModel.recoveryPhrases.length; ++i)
                                 {
-                                    enable &= viewModel.recoveryPhrases[i].isAllowed;
+                                    if (viewModel.validateDictionary)
+                                    {
+                                        enable &= viewModel.recoveryPhrases[i].isAllowed;
+                                    }
+                                    enable &= viewModel.recoveryPhrases[i].value.length > 0;
                                 }
                                 return enable;
                             }
                             icon.source: "qrc:/assets/icon-next-blue.svg"
-                            onClicked: startWizzardView.push(create);
+                            onClicked: {
+                                viewModel.validateDictionary = true;
+                                startWizzardView.push(create);
+                            }
+                        }
+                    }
+
+                    Keys.onPressed: {
+                        if (event.key == Qt.Key_Shift)
+                        {
+                            viewModel.validateDictionary = false;
+                        }
+                    }
+
+                    Keys.onReleased: {
+                        if (event.key == Qt.Key_Shift)
+                        {
+                            viewModel.validateDictionary = true;
                         }
                     }
 
@@ -1150,6 +1237,17 @@ Item
                         Layout.fillHeight: true
                         Layout.minimumHeight: 67
                         Layout.maximumHeight: 143
+                    }
+
+                    SFText {
+                        Layout.alignment:    Qt.AlignHCenter
+                        font.pixelSize:      12
+                        color:               Qt.rgba(255, 255, 255, 0.3)
+                        text:                [qsTrId("settings-version"), BeamGlobals.version()].join(' ')
+                    }
+
+                    Item {
+                        Layout.minimumHeight: 35
                     }
                 }
             }
@@ -1391,6 +1489,17 @@ Item
                         Layout.fillHeight: true
                         Layout.minimumHeight: 67
                         Layout.maximumHeight: 143
+                    }
+
+                    SFText {
+                        Layout.alignment:    Qt.AlignHCenter
+                        font.pixelSize:      12
+                        color:               Qt.rgba(255, 255, 255, 0.3)
+                        text:                [qsTrId("settings-version"), BeamGlobals.version()].join(' ')
+                    }
+
+                    Item {
+                        Layout.minimumHeight: 35
                     }
                 }
             }
@@ -1653,6 +1762,17 @@ Item
                         Layout.minimumHeight: 67
                         Layout.maximumHeight: 143
                     }
+
+                    SFText {
+                        Layout.alignment:    Qt.AlignHCenter
+                        font.pixelSize:      12
+                        color:               Qt.rgba(255, 255, 255, 0.3)
+                        text:                [qsTrId("settings-version"), BeamGlobals.version()].join(' ')
+                    }
+
+                    Item {
+                        Layout.minimumHeight: 35
+                    }
                 }
             }
         }
@@ -1872,6 +1992,17 @@ Item
                                 Layout.fillHeight: true
                                 Layout.minimumHeight: 67
                             }
+
+                            SFText {
+                                Layout.alignment:    Qt.AlignHCenter
+                                font.pixelSize:      12
+                                color:               Qt.rgba(255, 255, 255, 0.3)
+                                text:                [qsTrId("settings-version"), BeamGlobals.version()].join(' ')
+                            }
+
+                            Item {
+                                Layout.minimumHeight: 35
+                            }
                         }
                     }
 
@@ -1881,7 +2012,7 @@ Item
                         okButtonText: qsTrId("general-proceed")
                         okButtonIconSource: "qrc:/assets/icon-done.svg"
                         cancelButtonIconSource: "qrc:/assets/icon-cancel-white.svg"
-                        cancelVisible: true
+                        cancelButtonVisible: true
                         width: 460
                         height: 195
                         contentItem: Column {

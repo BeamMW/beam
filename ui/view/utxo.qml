@@ -289,14 +289,19 @@ ColumnLayout {
                 function utxoTypeText(value) {
                     switch(value) {
                         //% "Transaction fee"
+                        //: UTXO type fee
                         case UtxoType.Comission: return qsTrId("general-fee");
                         //% "Coinbase"
+                        //: UTXO type Coinbase
                         case UtxoType.Coinbase: return qsTrId("general-coinbase");
                         //% "Regular"
+                        //: UTXO type Regular
                         case UtxoType.Regular: return qsTrId("general-regular");
                         //% "Change"
+                        //: UTXO type Change
                         case UtxoType.Change: return qsTrId("general-change");
                         //% "Treasury"
+                        //: UTXO type Treasury
                         case UtxoType.Treasury: return qsTrId("general-treasury");
                         default : return "";
                     }

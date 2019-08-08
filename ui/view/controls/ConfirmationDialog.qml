@@ -6,15 +6,18 @@ import "."
 Dialog {
     id: control
     property alias text: messageText.text
+    property alias okButton: okButton
+    property alias okButtonEnable: okButton.enabled
     property alias okButtonText: okButton.text
     property alias okButtonIconSource: okButton.icon.source
+    property alias okButtonVisible: okButton.visible
     property alias okButtonColor: okButton.palette.button
-    property alias okButtonEnable: okButton.enabled
-    property alias cancelVisible: cancelButton.visible
-    property alias cancelEnable: cancelButton.enabled
-    property alias cancelButtonIconSource: cancelButton.icon.source
-    property alias okButton: okButton
     property alias cancelButton: cancelButton
+    property alias cancelButtonEnable: cancelButton.enabled
+    property alias cancelButtonText: cancelButton.text
+    property alias cancelButtonIconSource: cancelButton.icon.source
+    property alias cancelButtonVisible: cancelButton.visible
+    property alias cancelButtonColor: cancelButton.palette.button
     function confirmationHandler() {
         accepted();
         close();

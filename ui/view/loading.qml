@@ -19,14 +19,16 @@ Item
     ConfirmationDialog {
         id: confirmationDialog
         okButtonColor: Style.active
-        //% "Сhange settings"
-        okButtonText: qsTrId("loading-change-settings-button")
-        okButtonIconSource: "qrc:/assets/icon-settings-blue.svg"
-        cancelButtonIconSource: "qrc:/assets/icon-cancel-white.svg"
+        //% "Try again"
+        okButtonText: qsTrId("loading-try-again-button")
+        okButtonIconSource: "qrc:/assets/icon-restore-blue.svg"
+        //% "Change settings"
+        cancelButtonText: qsTrId("loading-change-settings-button")
+        cancelButtonIconSource: "qrc:/assets/icon-settings-white.svg"
 
         property alias titleText: title.text
         property alias messageText: message.text
-        property var acceptedCallback: undefined
+        property var rejectedCallback: undefined
 
         contentItem: Item {
             id: confirmationContent
@@ -59,8 +61,8 @@ Item
                 }
             }
         }
-        onAccepted: {
-            if (acceptedCallback) acceptedCallback();
+        onRejected: {
+            if (rejectedCallback) rejectedCallback();
         }
     }
 
@@ -74,25 +76,24 @@ Item
         }
 
         onWalletError: {
-            confirmationDialog.titleText = title;
-            confirmationDialog.messageText = message;
-
-            if (isCreating) {
-                confirmationDialog.acceptedCallback = cancelCreating;
-            } else {
-                confirmationDialog.cancelVisible    = false;
-                confirmationDialog.cancelEnable     = false;
-                confirmationDialog.closePolicy      = Popup.NoAutoClose;
-                confirmationDialog.acceptedCallback = changeNodeSettings;
-            }
-
+            confirmationDialog.titleText        = title;
+            confirmationDialog.messageText      = message;
+            confirmationDialog.okButtonVisible  = false;
+            confirmationDialog.okButtonEnable   = false;
+            confirmationDialog.closePolicy      = Popup.NoAutoClose;
+            confirmationDialog.rejectedCallback = isCreating ? cancelCreating : changeNodeSettings;
             confirmationDialog.open();
+        }
+
+        onWalletReseted: {
+            if(cancelCallback) {
+                cancelCallback();
+            }
         }
     }
 
     function cancelCreating() {
         viewModel.resetWallet();
-        cancelCallback();
     }
 
     function changeNodeSettings () {
@@ -198,10 +199,12 @@ Item
 
                         CustomButton {
                             visible: (isCreating || isRecoveryMode)
+                            enabled: true
                             //% "Cancel"
                             text: qsTrId("general-cancel")
                             icon.source: "qrc:/assets/icon-cancel.svg"
                             onClicked: {
+                                this.enabled = false;
                                 cancelCreating();
                             }
                         }
@@ -210,6 +213,17 @@ Item
                     Item {
                         Layout.fillHeight: true
                         Layout.minimumHeight: 67
+                    }
+
+                    SFText {
+                        Layout.alignment:    Qt.AlignHCenter
+                        font.pixelSize:      12
+                        color:               Qt.rgba(255, 255, 255, 0.3)
+                        text:                [qsTrId("settings-version"), BeamGlobals.version()].join(' ')
+                    }
+
+                    Item {
+                        Layout.minimumHeight: 35
                     }
                 }
             }

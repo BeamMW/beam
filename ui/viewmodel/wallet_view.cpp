@@ -33,9 +33,6 @@ using namespace beamui;
 
 namespace
 {
-    const int kDefaultFeeInGroth = 10;
-    const int kFeeInGroth_Fork1 = 100;
-
     template<typename T>
     bool compareTx(const T& lf, const T& rt, Qt::SortOrder sortOrder)
     {
@@ -45,379 +42,26 @@ namespace
     }
 }
 
-TxObject::TxObject(QObject* parent /*= nullptr*/)
-    : QObject(parent)
-{
-
-}
-
-TxObject::TxObject(const TxDescription& tx, QObject* parent/* = nullptr*/)
-    : QObject(parent)
-    , m_tx(tx)
-{
-    auto kernelID = QString::fromStdString(to_hex(m_tx.m_kernelID.m_pData, m_tx.m_kernelID.nBytes));
-    setKernelID(kernelID);
-}
-
-bool TxObject::income() const
-{
-    return m_tx.m_sender == false;
-}
-
-QString TxObject::date() const
-{
-    return toString(m_tx.m_createTime);
-}
-
-QString TxObject::user() const
-{
-    return toString(m_tx.m_peerId);
-}
-
-QString TxObject::userName() const
-{
-    return m_userName;
-}
-
-QString TxObject::displayName() const
-{
-    return m_displayName;
-}
-
-QString TxObject::comment() const
-{
-    string str{ m_tx.m_message.begin(), m_tx.m_message.end() };
-
-    return QString(str.c_str()).trimmed();
-}
-
-QString TxObject::amount() const
-{
-    return BeamToString(m_tx.m_amount);
-}
-
-QString TxObject::change() const
-{
-    if (m_tx.m_change)
-    {
-        return BeamToString(m_tx.m_change);
-    }
-    return QString{};
-}
-
-QString TxObject::status() const
-{
-    return m_tx.getStatusString().c_str();
-}
-
-bool TxObject::canCancel() const
-{
-    return m_tx.canCancel();
-}
-
-bool TxObject::canDelete() const
-{
-    return m_tx.canDelete();
-}
-
-void TxObject::setUserName(const QString& name)
-{
-    if (m_userName != name)
-    {
-        m_userName = name;
-        emit displayNameChanged();
-    }
-}
-
-void TxObject::setDisplayName(const QString& name)
-{
-    if (m_displayName != name)
-    {
-        m_displayName = name;
-        emit displayNameChanged();
-    }
-}
-
-beam::wallet::WalletID TxObject::peerId() const
-{
-    return m_tx.m_peerId;
-}
-
-QString TxObject::getSendingAddress() const
-{
-    if (m_tx.m_sender)
-    {
-        return toString(m_tx.m_myId);
-    }
-    return user();
-}
-
-QString TxObject::getReceivingAddress() const
-{
-    if (m_tx.m_sender)
-    {
-        return user();
-    }
-    return toString(m_tx.m_myId);
-}
-
-QString TxObject::getFee() const
-{
-    if (m_tx.m_fee)
-    {
-        return BeamToString(m_tx.m_fee);
-    }
-    return QString{};
-}
-
-const beam::wallet::TxDescription& TxObject::getTxDescription() const
-{
-    return m_tx;
-}
-
-void TxObject::setStatus(beam::wallet::TxStatus status)
-{
-    if (m_tx.m_status != status)
-    {
-        m_tx.m_status = status;
-        emit statusChanged();
-    }
-}
-
-QString TxObject::getKernelID() const
-{
-    return m_kernelID;
-}
-
-void TxObject::setKernelID(const QString& value)
-{
-    if (m_kernelID != value)
-    {
-        m_kernelID = value;
-        emit kernelIDChanged();
-    }
-}
-
-QString TxObject::getTransactionID() const
-{
-    return QString::fromStdString(to_hex(m_tx.m_txId.data(), m_tx.m_txId.size()));
-}
-
-QString TxObject::getFailureReason() const
-{
-    if (getTxDescription().m_status == TxStatus::Failed)
-    {
-        QString Reasons[] =
-        {
-            //% "Unexpected reason, please send wallet logs to Beam support"
-            qtTrId("tx-failture-undefined"),
-            //% "Transaction cancelled"
-            qtTrId("tx-failture-cancelled"),
-            //% "Receiver signature in not valid, please send wallet logs to Beam support"
-            qtTrId("tx-failture-receiver-signature-invalid"),
-            //% "Failed to register transaction with the blockchain, see node logs for details"
-            qtTrId("tx-failture-not-registered-in-blockchain"),
-            //% "Transaction is not valid, please send wallet logs to Beam support"
-            qtTrId("tx-failture-not-valid"),
-            //% "Invalid kernel proof provided"
-            qtTrId("tx-failture-kernel-invalid"),
-            //% "Failed to send Transaction parameters"
-            qtTrId("tx-failture-parameters-not-sended"),
-            //% "No inputs"
-            qtTrId("tx-failture-no-inputs"),
-            //% "Address is expired"
-            qtTrId("tx-failture-addr-expired"),
-            //% "Failed to get transaction parameters"
-            qtTrId("tx-failture-parameters-not-readed"),
-            //% "Transaction timed out"
-            qtTrId("tx-failture-time-out"),
-            //% "Payment not signed by the receiver, please send wallet logs to Beam support"
-            qtTrId("tx-failture-not-signed-by-receiver"),
-            //% "Kernel maximum height is too high"
-            qtTrId("tx-failture-max-height-to-high"),
-            //% "Transaction has invalid state"
-            qtTrId("tx-failture-invalid-state")
-        };
-
-        return Reasons[getTxDescription().m_failureReason];
-    }
-
-    return QString();
-}
-
-void TxObject::setFailureReason(beam::wallet::TxFailureReason reason)
-{
-    if (m_tx.m_failureReason != reason)
-    {
-        m_tx.m_failureReason = reason;
-        emit failureReasonChanged();
-    }
-}
-
-bool TxObject::hasPaymentProof() const
-{
-    return !income() && m_tx.m_status == TxStatus::Completed;
-}
-
-void TxObject::update(const beam::wallet::TxDescription& tx)
-{
-    setStatus(tx.m_status);
-    auto kernelID = QString::fromStdString(to_hex(tx.m_kernelID.m_pData, tx.m_kernelID.nBytes));
-    setKernelID(kernelID);
-    setFailureReason(tx.m_failureReason);
-}
-
-bool TxObject::inProgress() const
-{
-    switch (m_tx.m_status)
-    {
-    case TxStatus::Pending:
-    case TxStatus::InProgress:
-    case TxStatus::Registering:
-        return true;
-    default:
-        return false;
-    }
-}
-
-bool TxObject::isCompleted() const
-{
-    return m_tx.m_status == TxStatus::Completed;
-}
-
-bool TxObject::isSelfTx() const
-{
-    return m_tx.m_selfTx;
-}
-
-PaymentInfoItem* TxObject::getPaymentInfo()
-{
-    return new MyPaymentInfoItem(m_tx.m_txId, this);
-}
-
-//////////
-// PaymentInfoItem
-PaymentInfoItem::PaymentInfoItem(QObject* parent /*= nullptr*/)
-    : QObject(parent)
-{
-
-}
-
-QString PaymentInfoItem::getSender() const
-{
-    return toString(m_paymentInfo.m_Sender);
-}
-
-QString PaymentInfoItem::getReceiver() const
-{
-    return toString(m_paymentInfo.m_Receiver);
-}
-
-QString PaymentInfoItem::getAmount() const
-{
-    return BeamToString(m_paymentInfo.m_Amount);
-}
-
-QString PaymentInfoItem::getKernelID() const
-{
-    return toString(m_paymentInfo.m_KernelID);
-}
-
-bool PaymentInfoItem::isValid() const
-{
-    return m_paymentInfo.IsValid();
-}
-
-QString PaymentInfoItem::getPaymentProof() const
-{
-    return m_paymentProof;
-}
-
-void PaymentInfoItem::setPaymentProof(const QString& value)
-{
-    if (m_paymentProof != value)
-    {
-        m_paymentProof = value;
-        try
-        {
-            m_paymentInfo = wallet::storage::PaymentInfo::FromByteBuffer(from_hex(m_paymentProof.toStdString()));
-            emit paymentProofChanged();
-        }
-        catch (...)
-        {
-            reset();
-        }
-    }
-}
-
-void PaymentInfoItem::reset()
-{
-    m_paymentInfo.Reset();
-    emit paymentProofChanged();
-}
-
-//////////
-// MyPaymentInfoItem
-MyPaymentInfoItem::MyPaymentInfoItem(const TxID& txID, QObject* parent/* = nullptr*/)
-    : PaymentInfoItem(parent)
-{
-    auto model = AppModel::getInstance()->getWallet();
-    connect(model.get(), SIGNAL(paymentProofExported(const beam::wallet::TxID&, const QString&)), SLOT(onPaymentProofExported(const beam::wallet::TxID&, const QString&)));
-    model->getAsync()->exportPaymentProof(txID);
-}
-
-void MyPaymentInfoItem::onPaymentProofExported(const beam::wallet::TxID& txID, const QString& proof)
-{
-    setPaymentProof(proof);
-}
-
-
-//////////
-// WalletViewModel
 WalletViewModel::WalletViewModel()
-    : _model(*AppModel::getInstance()->getWallet())
-    , _settings(AppModel::getInstance()->getSettings())
-    , _status{ 0, 0, 0, 0, {0, 0, 0}, {} }
-    , _sendAmount("0")
-    , _amountForReceive(0.0)
-    , _feeGrothes("0")
-    , _change(0)
-    , _expires(0)
-    , _qr(std::make_unique<QR>())
+    : _model(*AppModel::getInstance().getWallet())
+    , _settings(AppModel::getInstance().getSettings())
 {
-
-    connect(&_model, SIGNAL(walletStatus(const beam::wallet::WalletStatus&)), SLOT(onStatus(const beam::wallet::WalletStatus&)));
-
     connect(&_model, SIGNAL(txStatus(beam::wallet::ChangeAction, const std::vector<beam::wallet::TxDescription>&)),
         SLOT(onTxStatus(beam::wallet::ChangeAction, const std::vector<beam::wallet::TxDescription>&)));
-
-    connect(&_model, SIGNAL(changeCalculated(beam::Amount)),
-        SLOT(onChangeCalculated(beam::Amount)));
-
-    connect(&_model, SIGNAL(changeCurrentWalletIDs(beam::wallet::WalletID, beam::wallet::WalletID)),
-        SLOT(onChangeCurrentWalletIDs(beam::wallet::WalletID, beam::wallet::WalletID)));
 
     connect(&_model, SIGNAL(addressesChanged(bool, const std::vector<beam::wallet::WalletAddress>&)),
         SLOT(onAddresses(bool, const std::vector<beam::wallet::WalletAddress>&)));
 
-    connect(&_model, SIGNAL(generatedNewAddress(const beam::wallet::WalletAddress&)),
-        SLOT(onGeneratedNewAddress(const beam::wallet::WalletAddress&)));
+    _status.setOnChanged([this]() {
+        emit stateChanged();
+    });
 
-    connect(&_model, SIGNAL(newAddressFailed()), SLOT(onNewAddressFailed()));
-
-    connect(&_model, SIGNAL(sendMoneyVerified()), SLOT(onSendMoneyVerified()));
-
-    connect(&_model, SIGNAL(cantSendToExpired()), SLOT(onCantSendToExpired()));
-
-    connect(_qr.get(), SIGNAL(qrDataChanged()), SLOT(onReceiverQRChanged()));
-
-    _model.getAsync()->getWalletStatus();
+    // TODO: This also refreshes TXs and addresses. Need to make this more transparent
+    _status.refresh();
 }
 
 WalletViewModel::~WalletViewModel()
 {
-    disconnect(_qr.get(), SIGNAL(qrDataChanged()),
-               this, SLOT(onReceiverQRChanged()));
     qDeleteAll(_txList);
 }
 
@@ -434,77 +78,6 @@ void WalletViewModel::deleteTx(TxObject* pTxObject)
     if (pTxObject->canDelete())
     {
         _model.getAsync()->deleteTx(pTxObject->getTxDescription().m_txId);
-    }
-}
-
-void WalletViewModel::generateNewAddress()
-{
-    _newReceiverAddr = {};
-    _newReceiverName = "";
-
-    _model.getAsync()->generateNewAddress();
-}
-
-void WalletViewModel::saveNewAddress()
-{
-    _newReceiverAddr.m_label = _newReceiverName.toStdString();
-    if (_expires == 1)
-    {
-        _newReceiverAddr.m_duration = 0;
-    }
-
-    _model.getAsync()->saveAddress(_newReceiverAddr, true);
-}
-
-void WalletViewModel::copyToClipboard(const QString& text)
-{
-    QApplication::clipboard()->setText(text);
-}
-
-void WalletViewModel::onStatus(const beam::wallet::WalletStatus& status)
-{
-    bool changed = false;
-
-    if (_status.available != status.available)
-    {
-        _status.available = status.available;
-
-        changed = true;
-
-        emit actualAvailableChanged();
-    }
-
-    if (_status.receiving != status.receiving)
-    {
-        _status.receiving = status.receiving;
-
-        changed = true;
-    }
-
-    if (_status.sending != status.sending)
-    {
-        _status.sending = status.sending;
-
-        changed = true;
-    }
-
-    if (_status.maturing != status.maturing)
-    {
-        _status.maturing = status.maturing;
-
-        changed = true;
-    }
-
-    if (_status.update.lastTime != status.update.lastTime)
-    {
-        _status.update.lastTime = status.update.lastTime;
-
-        changed = true;
-    }
-
-    if (changed)
-    {
-        emit stateChanged();
     }
 }
 
@@ -566,149 +139,24 @@ void WalletViewModel::onTxStatus(beam::wallet::ChangeAction action, const std::v
 
 }
 
-void WalletViewModel::onChangeCalculated(beam::Amount change)
-{
-    if (_change != change)
-    {
-        _change = change;
-        emit changeChanged();
-    }
-    emit actualAvailableChanged();
-}
-
-void WalletViewModel::onChangeCurrentWalletIDs(beam::wallet::WalletID senderID, beam::wallet::WalletID receiverID)
-{
-    //setSenderAddr(toString(senderID));
-    setReceiverAddr(toString(receiverID));
-}
-
 QString WalletViewModel::available() const
 {
-    return BeamToString(_status.available);
+    return BeamToString(_status.getAvailable());
 }
 
 QString WalletViewModel::receiving() const
 {
-    return BeamToString(_status.receiving);
+    return BeamToString(_status.getReceiving());
 }
 
 QString WalletViewModel::sending() const
 {
-    return BeamToString(_status.sending);
+    return BeamToString(_status.getSending());
 }
 
 QString WalletViewModel::maturing() const
 {
-    return BeamToString(_status.maturing);
-}
-
-QString WalletViewModel::sendAmount() const
-{
-    return _sendAmount;
-}
-
-QString WalletViewModel::getAmountMissingToSend() const
-{
-    Amount missed = calcTotalAmount() - _status.available;
-    if (missed > 99999)
-    {
-        //% "BEAM"
-        return BeamToString(missed) + " " +qtTrId("tx-curency-name");
-    }
-    //% "groths"
-    return QLocale().toString(static_cast<qulonglong>(missed)) + " " + qtTrId("tx-curency-sub-name");
-}
-
-double WalletViewModel::getAmountForReceive() const
-{
-    return _amountForReceive;
-}
-
-void WalletViewModel::setAmountForReceive(double value)
-{
-    if (value != _amountForReceive)
-    {
-        _amountForReceive = value;
-        _qr->setAmount(_amountForReceive);
-        emit amountForReceiveChanged();
-    }
-}
-
-QString WalletViewModel::feeGrothes() const
-{
-    return _feeGrothes;
-}
-
-QString WalletViewModel::getReceiverAddr() const
-{
-    return _receiverAddr;
-}
-
-void WalletViewModel::setReceiverAddr(const QString& value)
-{
-    auto trimmedValue = value.trimmed();
-    if (_receiverAddr != trimmedValue)
-    {
-        _receiverAddr = trimmedValue;
-        emit receiverAddrChanged();
-    }
-}
-
-bool WalletViewModel::isValidReceiverAddress(const QString& value)
-{
-    return check_receiver_address(value.toStdString());
-}
-
-bool WalletViewModel::isPasswordReqiredToSpendMoney() const
-{
-    return _settings.isPasswordReqiredToSpendMoney();
-}
-
-bool WalletViewModel::isPasswordValid(const QString& value) const
-{
-    SecString secretPass = value.toStdString();
-    return AppModel::getInstance()->checkWalletPassword(secretPass);
-}
-
-bool WalletViewModel::isAddressWithCommentExist(const QString& comment) const
-{
-    return _model.isAddressWithCommentExist(comment.toStdString());
-}
-
-void WalletViewModel::setSendAmount(const QString& value)
-{
-    auto trimmedValue = value.trimmed();
-    if (trimmedValue != _sendAmount)
-    {
-        _sendAmount = trimmedValue;
-        _model.getAsync()->calcChange(calcTotalAmount());
-        emit sendAmountChanged();
-    }
-}
-
-void WalletViewModel::setFeeGrothes(const QString& value)
-{
-    auto trimmedValue = value.trimmed();
-    if (trimmedValue != _feeGrothes)
-    {
-        _feeGrothes = trimmedValue;
-        _model.getAsync()->calcChange(calcTotalAmount());
-        emit feeGrothesChanged();
-    }
-}
-
-void WalletViewModel::setComment(const QString& value)
-{
-    if (_comment != value)
-    {
-        _comment = value;
-        emit commentChanged();
-    }
-}
-
-QString WalletViewModel::getComment() const
-{
-    return _comment;
+    return BeamToString(_status.getMaturing());
 }
 
 QString WalletViewModel::sortRole() const
@@ -767,30 +215,6 @@ QString WalletViewModel::getStatusRole() const
     return "status";
 }
 
-int WalletViewModel::getDefaultFeeInGroth() const
-{
-    return _model.isFork1() ? kFeeInGroth_Fork1 : kDefaultFeeInGroth;
-}
-
-int WalletViewModel::getMinFeeInGroth() const
-{
-    return _model.isFork1() ? kFeeInGroth_Fork1 : 0;
-}
-
-void WalletViewModel::setExpires(int value)
-{
-    if (value != _expires)
-    {
-        _expires = value;
-        emit expiresChanged();
-    }
-}
-
-int WalletViewModel::getExpires() const
-{
-    return _expires;
-}
-
 bool WalletViewModel::isAllowedBeamMWLinks() const
 {
     return _settings.isAllowedBeamMWLinks();
@@ -804,21 +228,6 @@ void WalletViewModel::allowBeamMWLinks(bool value)
 QQmlListProperty<TxObject> WalletViewModel::getTransactions()
 {
     return QQmlListProperty<TxObject>(this, _txList);
-}
-
-beam::Amount WalletViewModel::calcSendAmount() const
-{
-    return std::round(_sendAmount.toDouble() * Rules::Coin);
-}
-
-beam::Amount WalletViewModel::calcFeeAmount() const
-{
-    return _feeGrothes.toULongLong();
-}
-
-beam::Amount WalletViewModel::calcTotalAmount() const
-{
-    return calcSendAmount() + calcFeeAmount();
 }
 
 void WalletViewModel::sortTx()
@@ -868,65 +277,6 @@ std::function<bool(const TxObject*, const TxObject*)> WalletViewModel::generateC
     };
 }
 
-void WalletViewModel::sendMoney()
-{
-    if (/*!_senderAddr.isEmpty() && */isValidReceiverAddress(getReceiverAddr()))
-    {
-        WalletID walletID(Zero);
-
-        walletID.FromHex(getReceiverAddr().toStdString());
-
-        // TODO: show 'operation in process' animation here?
-        _model.getAsync()->sendMoney(walletID, _comment.toStdString(), calcSendAmount(), calcFeeAmount());
-    }
-}
-
-void WalletViewModel::syncWithNode()
-{
-    //setIsSyncInProgress(true);
-    _model.getAsync()->syncWithNode();
-}
-
-QString WalletViewModel::actualAvailable() const
-{
-    return BeamToString(_status.available - calcTotalAmount() - _change);
-}
-
-bool WalletViewModel::isEnoughMoney() const
-{
-    return _status.available >= calcTotalAmount() + _change;
-}
-
-QString WalletViewModel::change() const
-{
-    return BeamToString(_change);
-}
-
-QString WalletViewModel::getNewReceiverAddr() const
-{
-    return toString(_newReceiverAddr.m_walletID);
-}
-
-QString WalletViewModel::getNewReceiverAddrQR() const
-{
-    return _qr->getEncoded();
-}
-
-void WalletViewModel::setNewReceiverName(const QString& value)
-{
-    auto trimmedValue = value.trimmed();
-    if (_newReceiverName != trimmedValue)
-    {
-        _newReceiverName = trimmedValue;
-        emit newReceiverNameChanged();
-    }
-}
-
-QString WalletViewModel::getNewReceiverName() const
-{
-    return _newReceiverName;
-}
-
 void WalletViewModel::onAddresses(bool own, const std::vector<beam::wallet::WalletAddress>& addresses)
 {
     if (own)
@@ -953,31 +303,3 @@ void WalletViewModel::onAddresses(bool own, const std::vector<beam::wallet::Wall
     }
 }
 
-void WalletViewModel::onGeneratedNewAddress(const beam::wallet::WalletAddress& addr)
-{
-    _newReceiverAddr = addr;
-    setExpires(0);
-    _qr->setAddr(toString(_newReceiverAddr.m_walletID));
-}
-
-void WalletViewModel::onNewAddressFailed()
-{
-    emit newAddressFailed();
-}
-
-void WalletViewModel::onSendMoneyVerified()
-{
-    // retranslate to qml
-    emit sendMoneyVerified();
-}
-
-void WalletViewModel::onCantSendToExpired()
-{
-    // retranslate to qml
-    emit cantSendToExpired();
-}
-
-void WalletViewModel::onReceiverQRChanged()
-{
-    emit newReceiverAddrChanged();
-}

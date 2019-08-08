@@ -110,6 +110,7 @@
     </message>
     <message id="general-fee">
         <source>Transaction fee</source>
+        <extracomment>UTXO type fee</extracomment>
         <translation>Transaction fee</translation>
     </message>
     <message id="general-ok">
@@ -122,18 +123,22 @@
     </message>
     <message id="general-coinbase">
         <source>Coinbase</source>
+        <extracomment>UTXO type Coinbase</extracomment>
         <translation>Coinbase</translation>
     </message>
     <message id="general-regular">
         <source>Regular</source>
+        <extracomment>UTXO type Regular</extracomment>
         <translation>Regular</translation>
     </message>
     <message id="general-change">
         <source>Change</source>
+        <extracomment>UTXO type Change</extracomment>
         <translation>Change</translation>
     </message>
     <message id="general-treasury">
         <source>Treasury</source>
+        <extracomment>UTXO type Treasury</extracomment>
         <translation>Treasury</translation>
     </message>
     <message id="general-back">
@@ -467,8 +472,12 @@
         <translation>Info view</translation>
     </message>
     <message id="loading-change-settings-button">
-        <source>Сhange settings</source>
-        <translation>Сhange settings</translation>
+        <source>Change settings</source>
+        <translation>Change settings</translation>
+    </message>
+    <message id="loading-try-again-button">
+        <source>Try again</source>
+        <translation>Try again</translation>
     </message>
     <message id="notifications-title">
         <source>Notifications view</source>
@@ -884,8 +893,8 @@
         <translation>BEAM</translation>
     </message>
     <message id="tx-curency-sub-name">
-        <source>groths</source>
-        <translation>groths</translation>
+        <source>GROTH</source>
+        <translation>GROTH</translation>
     </message>
     <message id="utxo-utxo">
         <source>UTXO</source>
@@ -978,7 +987,7 @@
     <message id="settings-general-language">
         <source>Language</source>
         <extracomment>settings tab, general section, language label</extracomment>
-        <translation type="vanished">Language</translation>
+        <translation>Language</translation>
     </message>
     <message id="open-external-open">
         <source>Open</source>
@@ -989,8 +998,8 @@
         <translation>External link</translation>
     </message>
     <message id="open-external-message">
-        <source>Beam Wallet app requires permission to open external link in the browser. This action will expose your IP to the web server. To avoid it, choose -Cancel-. You can chage your choice in app setting anytime.</source>
-        <translation>Beam Wallet app requires permission to open external link in the browser. This action will expose your IP to the web server. To avoid it, choose &quot;Cancel&quot;. You can chage your choice in app setting anytime.</translation>
+        <source>Beam Wallet app requires permission to open external link in the browser. This action will expose your IP to the web server. To avoid it, choose -Cancel-. You can change your choice in app setting anytime.</source>
+        <translation>Beam Wallet app requires permission to open external link in the browser. This action will expose your IP to the web server. To avoid it, choose &quot;Cancel&quot;. You can change your choice in app setting anytime.</translation>
     </message>
     <message id="start-open-change-wallet-message">
         <source>If you&apos;ll restore a wallet all transaction history and addresses will be lost.</source>
@@ -1169,6 +1178,46 @@ or send this address to the sender over secure channel</translation>
         <source>Password verification is required to change that setting</source>
         <extracomment>settings tab, general section, ask password to send, confirm password dialog, message</extracomment>
         <translation>Password verification is required to change that setting</translation>
+    </message>
+    <message id="tx-failture-subtx-failed">
+        <source>Subtransaction has failed</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="tx-failture-invalid-contract-amount">
+        <source>Contract&apos;s amount is not valid</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="tx-failture-invalid-sidechain-contract">
+        <source>Side chain has invalid contract</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="tx-failture-sidechain-internal-error">
+        <source>Side chain bridge has internal error</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="tx-failture-sidechain-network-error">
+        <source>Side chain bridge has network error</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="tx-failture-invalid-sidechain-response-format">
+        <source>Side chain bridge has response format error</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="tx-failture-invalid-side-chain-credentials">
+        <source>Invalid credentials of Side chain</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="tx-failture-not-enough-time-btc-lock">
+        <source>Not enough time to finish btc lock transaction</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="tx-failture-create-multisig">
+        <source>Failed to create multi-signature</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="tx-failture-fee-too-small">
+        <source>Fee is too small</source>
+        <translation type="unfinished"></translation>
     </message>
 </context>
 </TS>

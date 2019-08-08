@@ -11,30 +11,24 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-
 #pragma once
 
 #include "wallet_model.h"
 #include "settings.h"
 #include "messages.h"
 #include "node_model.h"
+#include "helpers.h"
 #include "wallet/secstring.h"
 #include <memory>
 
-#include <QQmlApplicationEngine>
-
-class QTranslator;
-class AppModel : public QObject
+class AppModel final: public QObject
 {
     Q_OBJECT
 public:
+    static AppModel& getInstance();
 
-    static AppModel* getInstance();
-
-    AppModel(WalletSettings& settings, QQmlApplicationEngine& qmlEngine);
-    ~AppModel();
-
-    WalletModel::Ptr getWallet() const;
+    AppModel(WalletSettings& settings);
+    ~AppModel() override;
 
     bool createWallet(const beam::SecString& seed, const beam::SecString& pass);
     bool openWallet(const beam::SecString& pass);
@@ -43,35 +37,34 @@ public:
 
     void applySettingsChanges();
     void nodeSettingsChanged();
-
-    WalletSettings& getSettings();
-    MessageManager& getMessages();
-    NodeModel& getNode();
     void resetWallet();
 
+    WalletModel::Ptr getWallet() const;
+    WalletSettings& getSettings() const;
+    MessageManager& getMessages();
+    NodeModel& getNode();
+
 public slots:
-    void startedNode();
-    void stoppedNode();
+    void onStartedNode();
     void onFailedToStartNode(beam::wallet::ErrorType errorCode);
-    void onLocaleChanged();
+
+signals:
+    void walletReseted();
 
 private:
     void start();
     void startNode();
-    void OnWalledOpened(const beam::SecString& pass);
     void resetWalletImpl();
-    void loadTranslation();
+    void onWalledOpened(const beam::SecString& pass);
 
 private:
-
     WalletModel::Ptr m_wallet;
     NodeModel m_nodeModel;
     WalletSettings& m_settings;
-    QQmlApplicationEngine& m_qmlEngine;
     MessageManager m_messages;
     ECC::NoLeak<ECC::uintBig> m_passwordHash;
     beam::io::Reactor::Ptr m_walletReactor;
     beam::wallet::IWalletDB::Ptr m_db;
-    std::unique_ptr<QTranslator> m_translator;
+    Connections m_nsc; // [n]ode [s]tarting [c]connections
     static AppModel* s_instance;
 };

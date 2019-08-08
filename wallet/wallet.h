@@ -95,6 +95,7 @@ namespace beam::wallet
 
         Wallet(IWalletDB::Ptr walletDB, TxCompletedAction&& action = TxCompletedAction(), UpdateCompletedAction&& updateCompleted = UpdateCompletedAction());
         virtual ~Wallet();
+        void CleanupNetwork();
 
         void SetNodeEndpoint(std::shared_ptr<proto::FlyClient::INetwork> nodeEndpoint);
         void AddMessageEndpoint(IWalletMessageEndpoint::Ptr endpoint);
@@ -126,7 +127,6 @@ namespace beam::wallet
         void RegisterTransactionType(wallet::TxType type, wallet::BaseTransaction::Creator creator);
         
     private:
-        void RefreshTransactions();
         void ResumeTransaction(const TxDescription& tx);
         void ResumeAllTransactions();
 
@@ -150,6 +150,7 @@ namespace beam::wallet
         void OnTipUnchanged() override;
         void OnRolledBack() override;
         void get_Kdf(Key::IKdf::Ptr&) override;
+        void get_OwnerKdf(Key::IPKdf::Ptr&) override;
         Block::SystemState::IHistory& get_History() override;
         void OnOwnedNode(const PeerID&, bool bUp) override;
 

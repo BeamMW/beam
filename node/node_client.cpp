@@ -13,12 +13,9 @@
 // limitations under the License.
 
 #include "node_client.h"
-
 #include <mutex>
-
 #include "pow/external_pow.h"
 #include "utility/logger.h"
-
 #include <boost/filesystem.hpp>
 
 namespace
@@ -162,99 +159,132 @@ bool NodeClient::isNodeRunning() const
 
 void NodeClient::runLocalNode()
 {
-    Node node;
-    node.m_Cfg.m_Listen.port(m_observer->getLocalNodePort());
-    node.m_Cfg.m_Listen.ip(INADDR_ANY);
-    node.m_Cfg.m_sPathLocal = m_observer->getLocalNodeStorage();
-    node.m_Cfg.m_MiningThreads = 0;
-    node.m_Cfg.m_VerificationThreads = kVerificationThreadsMaxAvailable;
+    class ScopedNotifier final {
+    public:
+        explicit ScopedNotifier(INodeClientObserver& observer)
+            : _observer(observer)
+            , _nodeCreated(false)
+        {}
 
-    if(m_ownerKey)
-    {
-        node.m_Keys.m_pOwner = m_ownerKey;
-    }
-    else
-    {
-        node.m_Keys.SetSingleKey(m_pKdf);
-    }
-
-	node.m_Cfg.m_Horizon.m_Branching = Rules::get().Macroblock.MaxRollback / 4; // inferior branches would be pruned when height difference is this.
-	node.m_Cfg.m_Horizon.m_SchwarzschildHi = 0; // would be adjusted anyway
-	node.m_Cfg.m_Horizon.m_SchwarzschildLo = 3600 * 24 * 180 / Rules::get().DA.Target_s; // 180-day period
-
-    auto peers = m_observer->getLocalNodePeers();
-
-    for (const auto& peer : peers)
-    {
-        io::Address peer_addr;
-        if (peer_addr.resolve(peer.c_str()))
+        void notifyNodeCreated()
         {
-            node.m_Cfg.m_Connect.emplace_back(peer_addr);
+            assert(!_nodeCreated);
+            _nodeCreated = true;
+            _observer.onNodeCreated();
+        }
+
+        ~ScopedNotifier()
+        {
+            if (_nodeCreated)
+            {
+                _observer.onNodeDestroyed();
+            }
+        }
+    private:
+        INodeClientObserver& _observer;
+        bool _nodeCreated = false;
+    } notifier(*m_observer);
+
+    // Scope, just for clarity. Notifier created above
+    // should be destroyed the last
+    {
+        Node node;
+        node.m_Cfg.m_Listen.port(m_observer->getLocalNodePort());
+        node.m_Cfg.m_Listen.ip(INADDR_ANY);
+        node.m_Cfg.m_sPathLocal = m_observer->getLocalNodeStorage();
+        node.m_Cfg.m_MiningThreads = 0;
+        node.m_Cfg.m_VerificationThreads = kVerificationThreadsMaxAvailable;
+
+        if(m_ownerKey)
+        {
+            node.m_Keys.m_pOwner = m_ownerKey;
         }
         else
         {
-            LOG_ERROR() << "Unable to resolve node address: " << peer;
+            node.m_Keys.SetSingleKey(m_pKdf);
         }
-    }
 
-    LOG_INFO() << "starting a node on " << node.m_Cfg.m_Listen.port() << " port...";
+        node.m_Cfg.m_Horizon.m_Branching = Rules::get().Macroblock.MaxRollback / 4; // inferior branches would be pruned when height difference is this.
+        node.m_Cfg.m_Horizon.m_SchwarzschildHi = 0; // would be adjusted anyway
+        node.m_Cfg.m_Horizon.m_SchwarzschildLo = 3600 * 24 * 180 / Rules::get().DA.Target_s; // 180-day period
 
-    struct MyObserver
-        :public Node::IObserver
-    {
-        Node* m_pNode;
-        NodeClient* m_pModel;
+        auto peers = m_observer->getLocalNodePeers();
 
-		bool m_bReportedStarted = false;
-
-        void OnSyncProgress() override
+        for (const auto& peer : peers)
         {
-            Node::SyncStatus s = m_pNode->m_SyncStatus;
-
-			if (!m_bReportedStarted && (s.m_Done == s.m_Total))
-			{
-				m_bReportedStarted = true;
-				m_pModel->m_observer->onStartedNode();
-			}
-
-			// make sure no overflow during conversion from SyncStatus to int,int.
-			unsigned int nThreshold = static_cast<unsigned int>(std::numeric_limits<int>::max());
-            while (s.m_Total > nThreshold)
+            io::Address peer_addr;
+            if (peer_addr.resolve(peer.c_str()))
             {
-                s.m_Total >>= 1;
-                s.m_Done >>= 1;
+                node.m_Cfg.m_Connect.emplace_back(peer_addr);
+            }
+            else
+             {
+                LOG_ERROR() << "Unable to resolve node address: " << peer;
+            }
+        }
+
+        LOG_INFO() << "starting a node on " << node.m_Cfg.m_Listen.port() << " port...";
+
+        class MyObserver final: public Node::IObserver
+        {
+        public:
+            MyObserver(Node& node, NodeClient& model)
+                : m_node(node)
+                , m_model(model)
+            {
+                assert(m_model.m_observer);
             }
 
-            m_pModel->m_observer->onSyncProgressUpdated(static_cast<int>(s.m_Done), static_cast<int>(s.m_Total));
-        }
+            ~MyObserver()
+            {
+                assert(m_model.m_observer);
+                if (m_reportedStarted) m_model.m_observer->onStoppedNode();
+            }
 
-        void OnSyncError(Node::IObserver::Error error) override
+            void OnSyncProgress() override
+            {
+                Node::SyncStatus s = m_node.m_SyncStatus;
+
+                if (!m_reportedStarted && (s.m_Done == s.m_Total))
+                {
+                    m_reportedStarted = true;
+                    m_model.m_observer->onStartedNode();
+                }
+
+                // make sure no overflow during conversion from SyncStatus to int,int.
+                const auto threshold = static_cast<unsigned int>(std::numeric_limits<int>::max());
+                while (s.m_Total > threshold)
+                {
+                    s.m_Total >>= 1;
+                    s.m_Done >>= 1;
+                }
+
+                m_model.m_observer->onSyncProgressUpdated(static_cast<int>(s.m_Done), static_cast<int>(s.m_Total));
+            }
+
+            void OnSyncError(Node::IObserver::Error error) override
+            {
+                m_model.m_observer->onSyncError(error);
+            }
+
+        private:
+            Node& m_node;
+            NodeClient& m_model;
+            bool m_reportedStarted = false;
+        } obs(node, *this);
+
+        node.m_Cfg.m_Observer = &obs;
+        node.Initialize();
+        notifier.notifyNodeCreated();
+
+        if (node.get_AcessiblePeerCount() == 0)
         {
-            m_pModel->m_observer->onSyncError(error);
+            throw std::runtime_error("Resolved peer list is empty");
         }
 
-		~MyObserver()
-		{
-			if (m_bReportedStarted)
-				m_pModel->m_observer->onStoppedNode();
-		}
-
-    } obs;
-
-    obs.m_pNode = &node;
-    obs.m_pModel = this;
-
-    node.m_Cfg.m_Observer = &obs;
-    node.Initialize();
-
-    if (node.get_AcessiblePeerCount() == 0)
-    {
-        throw std::runtime_error("Resolved peer list is empty");
+        m_isRunning = true;
+        io::Reactor::get_Current().run();
+        m_isRunning = false;
     }
-    m_isRunning = true;
-
-    io::Reactor::get_Current().run();
-
-    m_isRunning = false;
 }
 }

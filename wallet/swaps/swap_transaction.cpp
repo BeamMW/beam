@@ -781,6 +781,7 @@ namespace beam::wallet
             auto transaction = lockTxBuilder->CreateTransaction();
             TxBase::Context::Params pars;
             TxBase::Context context(pars);
+            context.m_Height.m_Min = lockTxBuilder->GetMinHeight();
             if (!transaction->IsValid(context))
             {
                 OnSubTxFailed(TxFailureReason::InvalidTransaction, SubTxIndex::BEAM_LOCK_TX, true);
@@ -931,6 +932,7 @@ namespace beam::wallet
             auto transaction = builder.CreateTransaction();
             TxBase::Context::Params pars;
             TxBase::Context context(pars);
+            context.m_Height.m_Min = builder.GetMinHeight();
             if (!transaction->IsValid(context))
             {
                 OnSubTxFailed(TxFailureReason::InvalidTransaction, subTxID, true);
@@ -990,7 +992,7 @@ namespace beam::wallet
             withdrawUtxo.m_createTxId = GetTxID();
             withdrawUtxo.m_ID = GetMandatoryParameter<Coin::ID>(TxParameterID::SharedCoinID, subTxID);
 
-            GetWalletDB()->save(withdrawUtxo);
+            GetWalletDB()->saveCoin(withdrawUtxo);
         }
 
         std::vector<Coin> modified = GetWalletDB()->getCoinsByTx(GetTxID());
@@ -1010,7 +1012,7 @@ namespace beam::wallet
             }
         }
 
-        GetWalletDB()->save(modified);
+        GetWalletDB()->saveCoins(modified);
 
         return true;
     }
