@@ -263,6 +263,22 @@ ColumnLayout {
                     }
                 }
             }
+
+            SFText {
+                Layout.topMargin: 18
+                font.pixelSize:   14
+                font.weight:      Font.Bold
+                color:            Style.content_main
+                text:             qsTrId("general-rate")
+            }
+
+            SFText {
+                id:               rate
+                Layout.topMargin: 3
+                font.pixelSize:   14
+                color:            Style.content_secondary
+                text:             ["1", sendAmountInput.currencyLabel, "=", Utils.calcDisplayRate(sendAmountInput, receiveAmountInput), receiveAmountInput.currencyLabel].join(" ")
+            }
         }
     }
 

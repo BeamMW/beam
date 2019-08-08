@@ -190,7 +190,7 @@ bool QMLGlobals::canSwap()
 bool QMLGlobals::haveBtc()
 {
     // TODO:SWAP return true if btc is initialized
-    return false;
+    return true;
 }
 
 bool QMLGlobals::haveLtc()

@@ -209,6 +209,10 @@
         <source>Change settings</source>
         <translation>Change settings</translation>
     </message>
+    <message id="general-rate">
+        <source>Rate</source>
+        <translation>Rate</translation>
+    </message>
     <message id="wallet-receive-button">
         <source>Receive</source>
         <translation>Receive</translation>
