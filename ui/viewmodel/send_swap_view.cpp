@@ -15,6 +15,7 @@
 #include "model/app_model.h"
 #include "qml_globals.h"
 #include "wallet/swaps/common.h"
+#include "ui_helpers.h"
 
 SendSwapViewModel::SendSwapViewModel()
     : _sendAmount(0)
@@ -310,8 +311,11 @@ void SendSwapViewModel::recalcAvailable()
 
 QString SendSwapViewModel::getReceiverAddress() const
 {
-    // TODO:SWAP return extracted address if we have token.
-    // Now we return token, just for tests. Need to return real addres. It is used in confirmation dialog
+    auto peerID = _txParameters.GetParameter<beam::wallet::WalletID>(beam::wallet::TxParameterID::PeerID);
+    if (peerID)
+    {
+        return beamui::toString(*peerID);
+    }
     return _token;
 }
 
