@@ -1212,7 +1212,10 @@ Item
                                 return enable;
                             }
                             icon.source: "qrc:/assets/icon-next-blue.svg"
-                            onClicked: startWizzardView.push(create);
+                            onClicked: {
+                                viewModel.validateDictionary = true;
+                                startWizzardView.push(create);
+                            }
                         }
                     }
 
