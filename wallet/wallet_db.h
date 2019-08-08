@@ -238,6 +238,7 @@ namespace beam::wallet
         // Set of methods for low level database manipulation
         virtual void setVarRaw(const char* name, const void* data, size_t size) = 0;
         virtual bool getVarRaw(const char* name, void* data, int size) const = 0;
+        virtual void removeVarRaw(const char* name) = 0;
 
         virtual void setPrivateVarRaw(const char* name, const void* data, size_t size) = 0;
         virtual bool getPrivateVarRaw(const char* name, void* data, int size) const = 0;
@@ -335,6 +336,7 @@ namespace beam::wallet
 
         void setVarRaw(const char* name, const void* data, size_t size) override;
         bool getVarRaw(const char* name, void* data, int size) const override;
+        void removeVarRaw(const char* name) override;
 
         void setPrivateVarRaw(const char* name, const void* data, size_t size) override;
         bool getPrivateVarRaw(const char* name, void* data, int size) const override;

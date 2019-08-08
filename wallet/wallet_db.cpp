@@ -1729,6 +1729,15 @@ namespace beam::wallet
             stm.getBlobSafe(0, data, size);
     }
 
+    void WalletDB::removeVarRaw(const char* name)
+    {
+        const char* req = "DELETE FROM " VARIABLES_NAME " WHERE name=?1;";
+        sqlite::Statement stm(this, req);
+
+        stm.bind(1, name);
+        stm.step();
+    }
+
     void WalletDB::setPrivateVarRaw(const char* name, const void* data, size_t size)
     {
         const char* req = "INSERT or REPLACE INTO " PRIVATE_VARIABLES_NAME " (" VARIABLES_FIELDS ") VALUES(?1, ?2);";
