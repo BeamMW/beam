@@ -35,3 +35,5 @@ function calcDisplayRate(ail, air) {
     var rounder = 100000000
     return Math.round(ar / al * rounder) / rounder
 }
+
+const symbolBeam = '\u{EAFB}'
