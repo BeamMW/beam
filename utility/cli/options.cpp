@@ -137,7 +137,8 @@ namespace beam
         const char* LASER = "laser";
         const char* LASER_OPEN = "open";
         const char* LASER_TRANSFER = "transfer";
-        const char* LASER_WAIT = "wait";
+        const char* LASER_WAIT = "wait_incoming";
+        const char* LASER_SERVE = "serve";
         const char* LASER_LIST = "list";
         const char* LASER_CLOSE = "close";
         const char* LASER_AMOUNT_MY = "a_my";
@@ -289,7 +290,8 @@ namespace beam
         lazer_options.add_options()
             (cli::LASER_OPEN, "open lightning channel")
             (cli::LASER_TRANSFER, "send to lightning channel")
-            (cli::LASER_WAIT, "wait for open lightning channel")
+            (cli::LASER_WAIT, "wait for open incomming lightning channel")
+            (cli::LASER_SERVE, "listen lightning channels")
             (cli::LASER_LIST, "view all opened lightning channel")
             (cli::LASER_CLOSE, "close opened lightning channel")
             (cli::LASER_AMOUNT_MY, po::value<Positive<double>>(), "amount to lock in channel on my side (in Beams, 1 Beam = 100,000,000 groth)")

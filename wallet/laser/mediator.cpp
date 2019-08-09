@@ -209,6 +209,18 @@ void Mediator::WaitIncoming()
     LOG_INFO() << "LASER WAIT IN subscribed: " << ch;
 }
 
+bool Mediator::Serve(const std::vector<std::string>& channelIDsStr)
+{
+    uint64_t count = 0;
+    for (const auto& channelIDStr: channelIDsStr)
+    {
+        auto chId = RestoreChannel(channelIDStr);
+        if (chId) ++count;
+    }
+    LOG_INFO() << "LASER serve: " << count << " channels";
+    return count != 0;
+}
+
 void Mediator::OpenChannel(Amount aMy,
                            Amount aTrg,
                            Amount fee,
@@ -263,37 +275,7 @@ void Mediator::Close(const std::string& channelIDStr)
 
 bool Mediator::Transfer(Amount amount, const std::string& channelIDStr)
 {
-    auto chId = Channel::ChIdFromString(channelIDStr);
-    if (!chId)
-    {
-        LOG_ERROR() << "Incorrect channel ID format";
-        return false;
-    }
-
-    bool isConnected = false;
-    for (const auto& it : m_channels)
-    {
-        isConnected = *(it.first) == *chId;
-        if (isConnected)
-        {
-            chId = it.first;
-            LOG_INFO() << "LASER channel "
-                       << to_hex(chId->m_pData , chId->nBytes)
-                       << " already connected";
-            break;
-        }
-    }
-
-    if (!isConnected)
-    {
-        if (!RestoreChannel(chId))
-        {
-            LOG_INFO() << "LASER channel "
-                       << to_hex(chId->m_pData , chId->nBytes)
-                       << " not saved in DB";
-            return false;
-        }
-    }
+    auto chId = RestoreChannel(channelIDStr);
 
     auto& ch = m_channels[chId];
     return ch ? ch->Transfer(amount) : false;
@@ -366,7 +348,45 @@ void Mediator::ForgetChannel(const ChannelIDPtr& chID)
     }
 }
 
-bool Mediator::RestoreChannel(const ChannelIDPtr& chID)
+ChannelIDPtr Mediator::RestoreChannel(const std::string& channelIDStr)
+{
+    auto chId = Channel::ChIdFromString(channelIDStr);
+    if (!chId)
+    {
+        LOG_ERROR() << "Incorrect channel ID format: "
+                    << to_hex(chId->m_pData, chId->nBytes);
+        return nullptr;
+    }
+
+    bool isConnected = false;
+    for (const auto& it : m_channels)
+    {
+        isConnected = *(it.first) == *chId;
+        if (isConnected)
+        {
+            chId = it.first;
+            LOG_INFO() << "LASER channel "
+                       << to_hex(chId->m_pData , chId->nBytes)
+                       << " already connected";
+            break;
+        }
+    }
+
+    if (!isConnected)
+    {
+        if (!RestoreChannelInternal(chId))
+        {
+            LOG_INFO() << "LASER channel "
+                       << to_hex(chId->m_pData , chId->nBytes)
+                       << " not saved in DB";
+            return nullptr;
+        }
+    }
+
+    return chId;
+}
+
+bool Mediator::RestoreChannelInternal(const ChannelIDPtr& chID)
 {
     TLaserChannelEntity chDBEntity;
     if (m_pWalletDB->getLaserChannel(chID, &chDBEntity) &&

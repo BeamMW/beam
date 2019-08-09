@@ -1236,6 +1236,36 @@ namespace
         laser->WaitIncoming();
     }
 
+    void LaserServe(const unique_ptr<laser::Mediator>& laser,
+                    const IWalletDB::Ptr& walletDB,
+                    const po::variables_map& vm)
+    {
+        std::vector<std::string> channelIDsStr;
+        if (vm.count(cli::LASER_CHANNEL_ID) == 0)
+        {
+            auto chDBEntities = walletDB->loadLaserChannels();
+            channelIDsStr.reserve(chDBEntities.size());
+            for (auto& ch : chDBEntities)
+            {
+                const auto& chID = std::get<0>(ch);
+                const auto& chIdStr = channelIDsStr.emplace_back(
+                    beam::to_hex(chID.m_pData, chID.nBytes));
+                LOG_INFO() << "Channel: " << chIdStr << " will served";
+            }
+        }
+        else
+        {
+            auto chIDsStr = vm[cli::LASER_CHANNEL_ID].as<string>();
+
+            std::stringstream ss(chIDsStr);
+            std::string chIdStr;
+            while (std::getline(ss, chIdStr, ','))
+                channelIDsStr.push_back(chIdStr);
+        }
+
+        laser->Serve(channelIDsStr);
+    }
+
     bool LaserTransfer(const unique_ptr<laser::Mediator>& laser,
                    const po::variables_map& vm)
     {
@@ -1295,25 +1325,28 @@ namespace
                     const po::variables_map& vm)
     {
         laser->SetNetwork(CreateNetwork(*laser, vm));
+        auto onLaserActionCompleteOnce = [&walletDB] ()
+        {
+            io::Reactor::get_Current().stop();
+            LaserShowChannels(walletDB); 
+        };
 
         if (vm.count(cli::LASER_OPEN))
         {
-            laser->SetOnCommandCompleteAction([&walletDB] ()
-            {
-                LOG_INFO() << "onLaserCompleteActionOnce";
-                io::Reactor::get_Current().stop();
-                LaserShowChannels(walletDB); 
-            });
+            laser->SetOnCommandCompleteAction(
+                std::move(onLaserActionCompleteOnce));
             return LaserOpen(laser, vm);
         }
         else if (vm.count(cli::LASER_WAIT))
         {
-            laser->SetOnCommandCompleteAction([&walletDB] ()
-            {
-                LOG_INFO() << "onLaserCompleteAction";
-                LaserShowChannels(walletDB); 
-            });
+            laser->SetOnCommandCompleteAction(
+                std::move(onLaserActionCompleteOnce));
             LaserWait(laser, vm);
+            return true;
+        }
+        else if (vm.count(cli::LASER_SERVE))
+        {
+            LaserServe(laser, walletDB, vm);
             return true;
         }
         else if (vm.count(cli::LASER_CLOSE))
@@ -1323,6 +1356,8 @@ namespace
         }
         else if (vm.count(cli::LASER_TRANSFER))
         {
+            laser->SetOnCommandCompleteAction(
+                std::move(onLaserActionCompleteOnce));
             return LaserTransfer(laser, vm);
         }
         else if (vm.count(cli::LASER_LIST))

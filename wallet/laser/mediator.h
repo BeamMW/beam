@@ -51,6 +51,7 @@ public:
     void SetNetwork(const proto::FlyClient::NetworkStd::Ptr& net);
 
     void WaitIncoming();
+    bool Serve(const std::vector<std::string>& channelIDsStr);
     void OpenChannel(Amount aMy,
                      Amount aTrg,
                      Amount fee,
@@ -65,7 +66,8 @@ private:
     void OnIncoming(const ChannelIDPtr& chID,
                     Negotiator::Storage::Map& dataIn);
     void ForgetChannel(const ChannelIDPtr& chID);
-    bool RestoreChannel(const ChannelIDPtr& chID);
+    ChannelIDPtr RestoreChannel(const std::string& channelIDStr);
+    bool RestoreChannelInternal(const ChannelIDPtr& chID);
     void UpdateChannels();
 
     IWalletDB::Ptr m_pWalletDB;
