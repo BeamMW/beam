@@ -36,4 +36,4 @@ function calcDisplayRate(ail, air) {
     return Math.round(ar / al * rounder) / rounder
 }
 
-const symbolBeam = '\u{EAFB}'
+const symbolBeam = '\uEAFB'
