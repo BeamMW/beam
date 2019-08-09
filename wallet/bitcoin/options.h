@@ -29,5 +29,6 @@ namespace beam
         uint16_t m_confirmations = 6;
         wallet::SwapSecondSideChainType m_chainType = wallet::SwapSecondSideChainType::Mainnet;
         uint32_t m_lockTimeInBlocks = 2 * 24 * 6;
+        std::vector<std::string> m_seedPhrase;
     };
 }

@@ -87,6 +87,9 @@ namespace beam
 
     protected:
 
+        virtual uint32_t getReceivingAddressAmount() const;
+        virtual uint32_t getChangeAddressAmount() const;
+
         void sendRequest(const std::string& method, const std::string& params, std::function<bool(const Error&, const nlohmann::json&, uint64_t)> callback);
         std::string getReceivingAddress(uint32_t index) const;
         std::string getChangeAddress(uint32_t index) const;

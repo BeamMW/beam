@@ -19,6 +19,7 @@
 #include "nlohmann/json.hpp"
 
 #include "wallet/bitcoin/bitcoin_electrum.h"
+#include "wallet/litecoin/litecoin_electrum.h"
 
 #include "test_helpers.h"
 
@@ -35,6 +36,7 @@ void testAddress()
     io::Reactor::Ptr mainReactor{ io::Reactor::create() };
     io::Reactor::Scope scope(*mainReactor);
     BitcoinOptions options;
+    options.m_seedPhrase = { "child", "happy", "moment", "weird", "ten", "token", "stuff", "surface", "success", "desk", "embark", "observe" };
     options.m_chainType = wallet::SwapSecondSideChainType::Testnet;
     BitcoinElectrum electrum(*mainReactor, options);
 
@@ -49,6 +51,7 @@ void testDumpPrivKey()
     io::Reactor::Ptr mainReactor{ io::Reactor::create() };
     io::Reactor::Scope scope(*mainReactor);
     BitcoinOptions options;
+    options.m_seedPhrase = { "child", "happy", "moment", "weird", "ten", "token", "stuff", "surface", "success", "desk", "embark", "observe" };
     options.m_chainType = wallet::SwapSecondSideChainType::Testnet;
     BitcoinElectrum electrum(*mainReactor, options);
 
@@ -63,6 +66,7 @@ void testGetTxOut()
     io::Reactor::Ptr mainReactor{ io::Reactor::create() };
     io::Reactor::Scope scope(*mainReactor);
     BitcoinOptions options;
+    options.m_seedPhrase = { "child", "happy", "moment", "weird", "ten", "token", "stuff", "surface", "success", "desk", "embark", "observe" };
     options.m_chainType = wallet::SwapSecondSideChainType::Testnet;
     BitcoinElectrum electrum(*mainReactor, options);
     //const std::string txID = "d75ecb28d9289025037de08fb7ed894bda7a22a28657dd4694b947b4db22f2b6"; // for btc
@@ -85,6 +89,7 @@ void testGetBlockCount()
     io::Reactor::Ptr mainReactor{ io::Reactor::create() };
     io::Reactor::Scope scope(*mainReactor);
     BitcoinOptions options;
+    options.m_seedPhrase = { "child", "happy", "moment", "weird", "ten", "token", "stuff", "surface", "success", "desk", "embark", "observe" };
     options.m_chainType = wallet::SwapSecondSideChainType::Testnet;
     BitcoinElectrum electrum(*mainReactor, options);
 
@@ -103,6 +108,7 @@ void testListUnspent()
     io::Reactor::Ptr mainReactor{ io::Reactor::create() };
     io::Reactor::Scope scope(*mainReactor);
     BitcoinOptions options;
+    options.m_seedPhrase = { "child", "happy", "moment", "weird", "ten", "token", "stuff", "surface", "success", "desk", "embark", "observe" };
     options.m_chainType = wallet::SwapSecondSideChainType::Testnet;
     BitcoinElectrum electrum(*mainReactor, options);
 
@@ -124,6 +130,7 @@ void testGetBalance()
     io::Reactor::Ptr mainReactor{ io::Reactor::create() };
     io::Reactor::Scope scope(*mainReactor);
     BitcoinOptions options;
+    options.m_seedPhrase = { "child", "happy", "moment", "weird", "ten", "token", "stuff", "surface", "success", "desk", "embark", "observe" };
     options.m_chainType = wallet::SwapSecondSideChainType::Testnet;
     BitcoinElectrum electrum(*mainReactor, options);
 
@@ -141,18 +148,19 @@ void testFundRawTransaction()
 {
     io::Reactor::Ptr mainReactor{ io::Reactor::create() };
     io::Reactor::Scope scope(*mainReactor);
-    BitcoinOptions options;
+    LitecoinOptions options;
+    options.m_seedPhrase = { "sunny", "ridge", "neutral", "address", "fossil", "gospel", "common", "brush", "cactus", "poverty", "fitness", "duty" };
     options.m_chainType = wallet::SwapSecondSideChainType::Testnet;
-    BitcoinElectrum electrum(*mainReactor, options);
+    LitecoinElectrum electrum(*mainReactor, options);
 
     using namespace libbitcoin;
     using namespace libbitcoin::wallet;
     using namespace libbitcoin::chain;
 
-    payment_address destinationAddress("mtccjFueiCLGuvymk1Ct4QFw2tE3EUKszH");
+    payment_address destinationAddress("miFx77ae92psazXuj2b3nRw7ssbBe4fEms");
 
     script outputScript = script().to_pay_key_hash_pattern(destinationAddress.hash());
-    output output1(satoshi_per_bitcoin / 100, outputScript);
+    output output1(2 * satoshi_per_bitcoin / 100, outputScript);
 
     transaction tx;
     tx.set_version(2);
@@ -193,7 +201,7 @@ int main()
     //testGetBlockCount();
     //testGetBalance();
     //testListUnspent();
-    //testFundRawTransaction();
+    testFundRawTransaction();
 
     assert(g_failureCount == 0);
     return WALLET_CHECK_RESULT;

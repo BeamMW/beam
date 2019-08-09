@@ -58,9 +58,9 @@ namespace beam
         // btc
         //word_list my_word_list{ "child", "happy", "moment", "weird", "ten", "token", "stuff", "surface", "success", "desk", "embark", "observe" };
         //ltc
-        word_list my_word_list{ "sunny", "ridge", "neutral", "address", "fossil", "gospel", "common", "brush", "cactus", "poverty", "fitness", "duty" };
-
-        auto hd_seed = electrum::decode_mnemonic(my_word_list);
+        //word_list my_word_list{ "sunny", "ridge", "neutral", "address", "fossil", "gospel", "common", "brush", "cactus", "poverty", "fitness", "duty" };
+        word_list seedPhrase(options.m_seedPhrase);
+        auto hd_seed = electrum::decode_mnemonic(seedPhrase);
         data_chunk seed_chunk(to_chunk(hd_seed));
         hd_private masterPrivateKey(seed_chunk, hd_public::testnet);
 
@@ -492,6 +492,16 @@ namespace beam
         });
     }
 
+    uint32_t BitcoinElectrum::getReceivingAddressAmount() const
+    {
+        return 21;
+    }
+
+    uint32_t BitcoinElectrum::getChangeAddressAmount() const
+    {
+        return 6;
+    }
+
     void BitcoinElectrum::sendRequest(const std::string& method, const std::string& params, std::function<bool(const Error&, const json&, uint64_t)> callback)
     {
         std::string request(R"({"method":")" + method + R"(","params":[)" + params + R"(], "id": "test"})");
@@ -607,14 +617,14 @@ namespace beam
 
         //22 for ltc
         //21 for btc
-        for (uint32_t i = 0; i < 22; i++) 
+        for (uint32_t i = 0; i < getReceivingAddressAmount(); i++) 
         {
             result.push_back(ec_private(m_receivingPrivateKey.derive_private(i).secret(), getAddressVersion()));
         }
 
         // 8 for ltc
         // 6 for btc
-        for (uint32_t i = 0; i < 8; i++) 
+        for (uint32_t i = 0; i < getChangeAddressAmount(); i++) 
         {
             result.push_back(ec_private(m_changePrivateKey.derive_private(i).secret(), getAddressVersion()));
         }

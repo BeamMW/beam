@@ -1007,7 +1007,8 @@ namespace
 
     boost::optional<LitecoinOptions> ParseLitecoinOptions(const po::variables_map& vm)
     {
-        if (vm.count(cli::LTC_NODE_ADDR) > 0 || vm.count(cli::LTC_USER_NAME) > 0 || vm.count(cli::LTC_PASS) > 0)
+       /* if (vm.count(cli::LTC_NODE_ADDR) > 0 || vm.count(cli::LTC_USER_NAME) > 0 || vm.count(cli::LTC_PASS) > 0)*/
+        if (vm.count(cli::LTC_NODE_ADDR) > 0 || vm.count(cli::LTC_ELECTRUM) > 0)
         {
             LitecoinOptions ltcOptions;
 
@@ -1017,20 +1018,23 @@ namespace
                 throw std::runtime_error("unable to resolve litecoin node address: " + ltcNodeUri);
             }
 
-            if (vm.count(cli::LTC_USER_NAME) == 0)
+            if (vm.count(cli::LTC_ELECTRUM) == 0)
             {
-                throw std::runtime_error("user name of litecoin node should be specified");
+                throw std::runtime_error("seed phrase should be specified");
             }
 
-            ltcOptions.m_userName = vm[cli::LTC_USER_NAME].as<string>();
+            auto tempPhrase = vm[cli::LTC_ELECTRUM].as<string>();
+            boost::algorithm::trim_if(tempPhrase, [](char ch) { return ch == ';'; });
+            ltcOptions.m_seedPhrase = string_helpers::split(tempPhrase, ';');
+            //ltcOptions.m_userName = vm[cli::LTC_USER_NAME].as<string>();
 
-            // TODO roman.strilets: use SecString instead of std::string
-            if (vm.count(cli::LTC_PASS) == 0)
-            {
-                throw std::runtime_error("Please, provide password for the litecoin node.");
-            }
+            //// TODO roman.strilets: use SecString instead of std::string
+            //if (vm.count(cli::LTC_PASS) == 0)
+            //{
+            //    throw std::runtime_error("Please, provide password for the litecoin node.");
+            //}
 
-            ltcOptions.m_pass = vm[cli::LTC_PASS].as<string>();
+            //ltcOptions.m_pass = vm[cli::LTC_PASS].as<string>();
 
             if (vm.count(cli::SWAP_FEERATE) == 0)
             {

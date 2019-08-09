@@ -41,4 +41,14 @@ namespace beam
     {
         return "litecoin";
     }
+
+    uint32_t LitecoinElectrum::getReceivingAddressAmount() const
+    {
+        return 22;
+    }
+
+    uint32_t LitecoinElectrum::getChangeAddressAmount() const
+    {
+        return 8;
+    }
 }

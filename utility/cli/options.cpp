@@ -47,6 +47,7 @@ namespace beam
         const char* BTC_USER_NAME = "btc_user";
         const char* LTC_PASS = "ltc_pass";
         const char* LTC_USER_NAME = "ltc_user";
+        const char* LTC_ELECTRUM = "ltc_electrum";
         const char* QTUM_PASS = "qtum_pass";
         const char* QTUM_USER_NAME = "qtum_user";
         const char* AMOUNT = "amount";
@@ -258,6 +259,7 @@ namespace beam
             (cli::LTC_NODE_ADDR, po::value<string>(), "address of litecoin node")
             (cli::LTC_USER_NAME, po::value<string>(), "user name for the litecoin node")
             (cli::LTC_PASS, po::value<string>(), "password for the litecoin node")
+            (cli::LTC_ELECTRUM, po::value<string>(), "electrum seed phrase")
             (cli::QTUM_NODE_ADDR, po::value<string>(), "address of qtum node")
             (cli::QTUM_USER_NAME, po::value<string>(), "user name for the qtum node")
             (cli::QTUM_PASS, po::value<string>(), "password for the qtum node")

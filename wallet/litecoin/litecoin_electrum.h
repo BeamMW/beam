@@ -27,5 +27,9 @@ namespace beam
 
         uint8_t getAddressVersion() const override;
         std::string getCoinName() const override;
+
+    private:
+        uint32_t getReceivingAddressAmount() const override;
+        uint32_t getChangeAddressAmount() const override;
     };
 }
