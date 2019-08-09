@@ -57,6 +57,11 @@ namespace beam
 		return sRet;
 	}
 
+	std::wstring Utf8toUtf16(const std::string& str)
+	{
+	    return Utf8toUtf16(str.c_str());
+	}
+
 	bool DeleteFile(const char* sz)
 	{
 		return ::DeleteFileW(Utf8toUtf16(sz).c_str()) != FALSE;

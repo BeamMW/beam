@@ -70,6 +70,7 @@ WalletModel::WalletModel(IWalletDB::Ptr walletDB, const std::string& nodeAddr, R
 
 WalletModel::~WalletModel()
 {
+    stopReactor();
 }
 
 void WalletModel::onStatus(const WalletStatus& status)
@@ -272,13 +273,13 @@ void WalletModel::onNodeConnectionChanged(bool isNodeConnected)
 
 void WalletModel::onWalletError(ErrorType error)
 {
-    LOG_DEBUG() << "onNodeConnectionFailed(): error = " << static_cast<uint8_t>(error);
+    LOG_DEBUG() << "onWalletError: error = " << static_cast<int>(error);
 
     JNIEnv* env = Android_JNI_getEnv();
 
     jmethodID callback = env->GetStaticMethodID(WalletListenerClass, "onNodeConnectionFailed", "(I)V");
 
-    env->CallStaticVoidMethod(WalletListenerClass, callback, static_cast<uint8_t>(error));
+    env->CallStaticVoidMethod(WalletListenerClass, callback, static_cast<int>(error));
 }
 
 void WalletModel::FailedToStartWallet()
@@ -348,4 +349,15 @@ void WalletModel::onCoinsByTx(const std::vector<Coin>& coins)
 void WalletModel::onAddressChecked(const std::string& addr, bool isValid)
 {
 
+}
+
+void WalletModel::onImportRecoveryProgress(uint64_t done, uint64_t total)
+{
+    LOG_DEBUG() << "onImportRecoveryProgress(" << done << ", " << total << ")";
+
+    JNIEnv* env = Android_JNI_getEnv();
+
+    jmethodID callback = env->GetStaticMethodID(WalletListenerClass, "onImportRecoveryProgress", "(JJ)V");
+
+    env->CallStaticVoidMethod(WalletListenerClass, callback, done, total);
 }

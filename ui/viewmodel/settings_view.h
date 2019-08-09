@@ -75,7 +75,6 @@ public:
     Q_INVOKABLE void addLocalNodePeer(const QString& localNodePeer);
     Q_INVOKABLE void deleteLocalNodePeer(int index);
     Q_INVOKABLE void openUrl(const QString& url);
-    Q_INVOKABLE void copyToClipboard(const QString& text);
     Q_INVOKABLE void refreshWallet();
     Q_INVOKABLE void openFolder(const QString& path);
     Q_INVOKABLE bool checkWalletPassword(const QString& password) const;

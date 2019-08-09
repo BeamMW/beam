@@ -10,7 +10,7 @@ ConfirmationDialog {
     //% "Open"
     okButtonText: qsTrId("open-external-open")
     okButtonIconSource: "qrc:/assets/icon-external-link-black.svg"
-    cancelVisible: true
+    cancelButtonVisible: true
     cancelButtonIconSource: "qrc:/assets/icon-cancel-white.svg"
     width: 460
     height: 217
@@ -39,7 +39,7 @@ ConfirmationDialog {
                 color: Style.content_main
                 wrapMode: Text.Wrap
                 horizontalAlignment : Text.AlignHCenter
-                //% "Beam Wallet app requires permission to open external link in the browser. This action will expose your IP to the web server. To avoid it, choose -Cancel-. You can chage your choice in app setting anytime."
+                //% "Beam Wallet app requires permission to open external link in the browser. This action will expose your IP to the web server. To avoid it, choose -Cancel-. You can change your choice in app setting anytime."
                 text: qsTrId("open-external-message")
             }
         }

@@ -46,11 +46,15 @@ namespace
         { "zh_CN", "Chinese Simplified"},
         { "en_US", "English" },
         { "es_ES", "Español"},
+        { "be_BY", "Беларуская"},
+        { "nl_NL", "Dutch"},
         { "fr_FR", "Française"},
+        { "ja_JP", "日本語"},
         { "ru_RU", "Русский" },
+        { "sv_SE", "Svenska"},
+        { "tr_TR", "Türkçe"},
         { "vi_VI", "Tiếng việt"},
-        { "ko_KR", "한국어"},
-        { "sv_SE", "Swedish"}
+        { "ko_KR", "한국어"}
     };
 }
 
@@ -96,7 +100,7 @@ void WalletSettings::setNodeAddress(const QString& addr)
 {
     if (addr != getNodeAddress())
     {
-        auto walletModel = AppModel::getInstance()->getWallet();
+        auto walletModel = AppModel::getInstance().getWallet();
         if (walletModel)
         {
             walletModel->getAsync()->setNodeAddress(addr.toStdString());
@@ -363,5 +367,5 @@ void WalletSettings::reportProblem()
 
 void WalletSettings::applyChanges()
 {
-    AppModel::getInstance()->applySettingsChanges();
+    AppModel::getInstance().applySettingsChanges();
 }

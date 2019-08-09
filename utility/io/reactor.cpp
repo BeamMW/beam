@@ -349,19 +349,26 @@ Reactor::Reactor() :
 
     _loop.data = this;
 
-    errorCode = (ErrorCode)uv_async_init(&_loop, &_stopEvent, [](uv_async_t* handle) { uv_stop(handle->loop); });
+    errorCode = (ErrorCode)uv_async_init(&_loop, &_stopEvent, [](uv_async_t* handle) {
+        auto reactor = reinterpret_cast<Reactor*>(handle->data);
+        assert(reactor);
+        if (reactor && reactor->_stopCB) {
+            reactor->_stopCB();
+        }
+        uv_stop(handle->loop);
+    });
+
     if (errorCode != 0) {
         uv_loop_close(&_loop);
         LOG_ERROR() << "cannot initialize loop stop event, error=" << errorCode;
         IO_EXCEPTION(errorCode);
     }
+
     _stopEvent.data = this;
-
-    _pendingWrites = std::make_unique<PendingWrites>(*this);
-    _tcpConnectors = std::make_unique<TcpConnectors>(*this);
-    _tcpShutdowns = std::make_unique<TcpShutdowns>(*this);
-
-    _creatingInternalObjects=false;
+    _pendingWrites  = std::make_unique<PendingWrites>(*this);
+    _tcpConnectors  = std::make_unique<TcpConnectors>(*this);
+    _tcpShutdowns   = std::make_unique<TcpShutdowns>(*this);
+    _creatingInternalObjects = false;
 }
 
 Reactor::~Reactor() {
@@ -403,6 +410,11 @@ Reactor::~Reactor() {
         uv_run(&_loop, UV_RUN_NOWAIT);
         uv_loop_close(&_loop);
     }
+}
+
+void Reactor::run_ex(StopCallback&& scb) {
+    _stopCB = std::move(scb);
+    run();
 }
 
 void Reactor::run() {

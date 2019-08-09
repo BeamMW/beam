@@ -119,13 +119,34 @@ namespace beam::wallet
         ResumeAllTransactions();
     }
 
+    Wallet::~Wallet()
+    {
+        CleanupNetwork();
+    }
+
+    void Wallet::CleanupNetwork()
+    {
+        // clear all requests
+#define THE_MACRO(type, msgOut, msgIn) \
+                while (!m_Pending##type.empty()) \
+                    DeleteReq(*m_Pending##type.begin());
+
+        REQUEST_TYPES_All(THE_MACRO)
+#undef THE_MACRO
+
+        m_MessageEndpoints.clear();
+        m_NodeEndpoint = nullptr;
+    }
 
     // Fly client implementation
-
-    void Wallet::get_Kdf(Key::IKdf::Ptr& pKdf, Key::IPKdf::Ptr& pPKdf)
+    void Wallet::get_Kdf(Key::IKdf::Ptr& pKdf)
     {
         pKdf = m_WalletDB->get_MasterKdf();
-		pPKdf = pKdf;
+    }
+
+    void Wallet::get_OwnerKdf(Key::IPKdf::Ptr& ownerKdf)
+    {
+        ownerKdf = m_WalletDB->get_OwnerKdf();
     }
 
     // Implementation of the FlyClient protocol method
@@ -151,8 +172,6 @@ namespace beam::wallet
         return m_WalletDB->get_History();
     }
 
-    // 
-
     void Wallet::SetNodeEndpoint(std::shared_ptr<proto::FlyClient::INetwork> nodeEndpoint)
     {
         m_NodeEndpoint = nodeEndpoint;
@@ -162,7 +181,6 @@ namespace beam::wallet
     {
         m_MessageEndpoints.insert(endpoint);
     }
-
 
     // Atomic Swap related methods
     // TODO: Refactor
@@ -184,17 +202,6 @@ namespace beam::wallet
     void Wallet::initSwapConditions(Amount beamAmount, Amount swapAmount, AtomicSwapCoin swapCoin, bool isBeamSide, SwapSecondSideChainType chainType)
     {
         m_swapConditions.push_back(SwapConditions{ beamAmount, swapAmount, swapCoin, isBeamSide, chainType });
-    }
-
-    Wallet::~Wallet()
-    {
-        // clear all requests
-#define THE_MACRO(type, msgOut, msgIn) \
-        while (!m_Pending##type.empty()) \
-            DeleteReq(*m_Pending##type.begin());
-
-        REQUEST_TYPES_All(THE_MACRO)
-#undef THE_MACRO
     }
 
     TxID Wallet::transfer_money(const WalletID& from, const WalletID& to, Amount amount, Amount fee, bool sender, Height lifetime, Height responseTime, ByteBuffer&& message, bool saveReceiver)
@@ -219,22 +226,12 @@ namespace beam::wallet
                 LOG_INFO() << "Can't send to the expired address.";
                 throw AddressExpiredException();
             }
-
-            // update address comment if changed
-            auto messageStr = std::string(message.begin(), message.end());
-
-            if (messageStr != receiverAddr->m_label)
-            {
-                receiverAddr->m_label = messageStr;
-                m_WalletDB->saveAddress(*receiverAddr);
-            }
         }
         else if (saveReceiver)
         {
             WalletAddress address;
             address.m_walletID = to;
             address.m_createTime = getTimestamp();
-            address.m_label = std::string(message.begin(), message.end());
 
             m_WalletDB->saveAddress(address);
         }
@@ -828,14 +825,33 @@ namespace beam::wallet
     void Wallet::OnRequestComplete(MyRequestUtxoEvents& r)
     {
         std::vector<proto::UtxoEvent>& v = r.m_Res.m_Events;
+
+        function<Point(const Key::IDV&)> commitmentFunc;
+        if (m_KeyKeeper)
+        {
+            commitmentFunc = [this](const auto& kidv) {return m_KeyKeeper->GeneratePublicKeySync(kidv, true); };
+        }
+        else if (auto ownerKdf = m_WalletDB->get_OwnerKdf(); ownerKdf)
+        {
+            commitmentFunc = [ownerKdf](const auto& kidv)
+            {
+                Point::Native pt;
+                SwitchCommitment sw;
+
+                sw.Recover(pt, *ownerKdf, kidv);
+                Point commitment = pt;
+                return commitment;
+            };
+        }
+
 		for (size_t i = 0; i < v.size(); i++)
 		{
 			auto& event = v[i];
 
 			// filter-out false positives
-            if (m_KeyKeeper)
+            if (commitmentFunc)
             {
-                Point commitment = m_KeyKeeper->GeneratePublicKeySync(event.m_Kidv, true);
+                Point commitment = commitmentFunc(event.m_Kidv);
 			    if (commitment == event.m_Commitment)
 				    ProcessUtxoEvent(event);
 				else
@@ -845,13 +861,13 @@ namespace beam::wallet
 					{
 						event.m_Kidv.set_WorkaroundBb21();
 
-						commitment = m_KeyKeeper->GeneratePublicKeySync(event.m_Kidv, true);
+						commitment = commitmentFunc(event.m_Kidv);
 						if (commitment == event.m_Commitment)
 							ProcessUtxoEvent(event);
 					}
 				}
             }
-		}
+        }
 
 		if (r.m_Res.m_Events.size() < proto::UtxoEvent::s_Max)
 		{
@@ -937,8 +953,7 @@ namespace beam::wallet
 
         m_WalletDB->rollbackConfirmedUtxo(sTip.m_Height);
 
-        ResumeAllTransactions();
-
+        // Rollback active transaction
         for (auto it = m_ActiveTransactions.begin(); m_ActiveTransactions.end() != it; it++)
         {
             const auto& pTx = it->second;
@@ -946,6 +961,23 @@ namespace beam::wallet
             if (pTx->Rollback(sTip.m_Height))
             {
                 UpdateOnSynced(pTx);
+            }
+        }
+
+        // Rollback inactive (completed or active) transactions if applicable
+        auto txs = m_WalletDB->getTxHistory(TxType::ALL); // get list of ALL transactions
+        for (auto& tx : txs)
+        {
+            // For all transactions that are not currently in the 'active' tx list
+            if (m_ActiveTransactions.find(tx.m_txId) == m_ActiveTransactions.end())
+            {
+                // Reconstruct tx with reset parameters and add it to the active list
+                auto pTx = constructTransaction(tx.m_txId, tx.m_txType);
+                if (pTx->Rollback(sTip.m_Height))
+                {
+                    m_ActiveTransactions.emplace(tx.m_txId, pTx);
+                    UpdateOnSynced(pTx);
+                }
             }
         }
 

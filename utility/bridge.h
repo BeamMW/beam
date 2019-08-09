@@ -62,6 +62,17 @@ public:
         ); \
     }
 
+    template <typename F, typename ...Args>
+    void call_async(F&& func,  Args... args)
+    {
+        tx.send(
+            [func, args...](BridgeInterface& receiver_) mutable
+            {
+                (receiver_.*func)(std::forward<Args>(args)...);
+            }
+        );
+    }
+
 protected:
     BridgeInterface& receiver;
     RX<BridgeMessage> rx;
