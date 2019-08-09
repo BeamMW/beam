@@ -189,8 +189,8 @@ bool QMLGlobals::canSwap()
 
 bool QMLGlobals::haveBtc()
 {
-    // TODO:SWAP return true if btc is initialized
-    return false;
+    const auto btcSettings = AppModel::getInstance().getBitcoinClient()->GetSettings();
+    return btcSettings.IsInitialized();
 }
 
 bool QMLGlobals::haveLtc()

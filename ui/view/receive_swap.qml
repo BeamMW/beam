@@ -6,6 +6,7 @@ import QtGraphicalEffects 1.0
 import QtQuick.Layouts 1.3
 import Beam.Wallet 1.0
 import "controls"
+import "./utils.js" as Utils
 
 ColumnLayout {
     id: thisView
@@ -184,7 +185,7 @@ ColumnLayout {
 
                 SFText {
                     id:               expiresTitle
-                    Layout.topMargin: 26
+                    Layout.topMargin: 18
                     font.pixelSize:   14
                     color:            Style.content_main
                     text:             qsTrId("wallet-receive-offer-expires-label")
@@ -192,7 +193,7 @@ ColumnLayout {
 
                 CustomComboBox {
                     id:                  expiresCombo
-                    Layout.topMargin:    26
+                    Layout.topMargin:    18
                     Layout.minimumWidth: 75
                     height:              20
                     currentIndex:        viewModel.offerExpires
@@ -210,6 +211,22 @@ ColumnLayout {
                     property: "offerExpires"
                     value:    expiresCombo.currentIndex
                 }
+            }
+
+            SFText {
+                Layout.topMargin: 18
+                font.pixelSize:   14
+                font.weight:      Font.Bold
+                color:            Style.content_main
+                text:             qsTrId("general-rate")
+            }
+
+            SFText {
+                id:               rate
+                Layout.topMargin: 3
+                font.pixelSize:   14
+                color:            Style.content_secondary
+                text:             ["1", receiveAmountInput.currencyLabel, "=", Utils.calcDisplayRate(receiveAmountInput, sentAmountInput), sentAmountInput.currencyLabel].join(" ")
             }
         }
     }

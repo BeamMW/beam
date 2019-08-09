@@ -26,8 +26,9 @@ ColumnLayout {
         return currencies[control.currency].feeLabel
     }
 
-    readonly property bool isValidFee: hasFee ? feeInput.isValid : true
-    readonly property bool isValid: error.length == 0 && isValidFee
+    readonly property bool    isValidFee:     hasFee ? feeInput.isValid : true
+    readonly property bool    isValid:        error.length == 0 && isValidFee
+    readonly property string  currencyLabel:  getCurrencyLabel()
 
     property string   title
     property string   color:       Style.accent_incoming
