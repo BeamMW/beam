@@ -44,11 +44,11 @@ namespace beam
 
     uint32_t LitecoinElectrum::getReceivingAddressAmount() const
     {
-        return 22;
+        return 21;
     }
 
     uint32_t LitecoinElectrum::getChangeAddressAmount() const
     {
-        return 8;
+        return 6;
     }
 }

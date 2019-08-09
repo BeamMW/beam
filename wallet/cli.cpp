@@ -1562,7 +1562,7 @@ int main_impl(int argc, char* argv[])
                             }
                             else if (swapCoin == wallet::AtomicSwapCoin::Litecoin)
                             {
-                                if (!ltcOptions.is_initialized() || ltcOptions->m_userName.empty() || ltcOptions->m_pass.empty() || ltcOptions->m_address.empty())
+                                if (!ltcOptions.is_initialized()/* || ltcOptions->m_userName.empty() || ltcOptions->m_pass.empty()*/ || ltcOptions->m_address.empty())
                                 {
                                     LOG_ERROR() << "LTC node credentials should be provided";
                                     return -1;

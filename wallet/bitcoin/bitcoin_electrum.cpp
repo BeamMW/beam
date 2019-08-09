@@ -329,7 +329,10 @@ namespace beam
             {
                 try
                 {
-                    confirmations = result["confirmations"].get<uint16_t>();
+                    if (result.find("confirmations") != result.end())
+                    {
+                        confirmations = result["confirmations"].get<uint16_t>();
+                    }
 
                     for (const auto& vout : result["vout"])
                     {
@@ -359,7 +362,7 @@ namespace beam
     {
         LOG_DEBUG() << "Send getBlockCount command";
 
-        sendRequest("blockchain.scripthash.get_balance", "", [callback](IBitcoinBridge::Error error, const json& result, uint64_t)
+        sendRequest("blockchain.headers.subscribe", "", [callback](IBitcoinBridge::Error error, const json& result, uint64_t)
         {
             uint64_t blockCount = 0;
 
@@ -541,6 +544,7 @@ namespace beam
                         {
                             std::string strResponse = std::string(static_cast<const char*>(data), size);
 
+                            LOG_INFO() << "strResponse: " << strResponse;
                             try
                             {
                                 json reply = json::parse(strResponse);

@@ -65,12 +65,12 @@ void testGetTxOut()
 {
     io::Reactor::Ptr mainReactor{ io::Reactor::create() };
     io::Reactor::Scope scope(*mainReactor);
-    BitcoinOptions options;
-    options.m_seedPhrase = { "child", "happy", "moment", "weird", "ten", "token", "stuff", "surface", "success", "desk", "embark", "observe" };
+    LitecoinOptions options;
+    options.m_seedPhrase = { "ridge", "sunny", "neutral", "address", "fossil", "gospel", "common", "brush", "cactus", "poverty", "fitness", "duty" };
     options.m_chainType = wallet::SwapSecondSideChainType::Testnet;
-    BitcoinElectrum electrum(*mainReactor, options);
+    LitecoinElectrum electrum(*mainReactor, options);
     //const std::string txID = "d75ecb28d9289025037de08fb7ed894bda7a22a28657dd4694b947b4db22f2b6"; // for btc
-    const std::string txID = "0954c6affd7a98f5209b79a15596d8a087a3dab398edd50d5cf38e8fb3289f0e"; // for ltc
+    const std::string txID = "abe587dad072c847d793a626c472e712fd7a0d297fdad8a5ddd94fadf605e17e"; // for ltc
 
     electrum.getTxOut(txID, 1, [mainReactor](const IBitcoinBridge::Error&, const std::string& hex, double value, uint16_t confirmations)
     {
@@ -129,10 +129,14 @@ void testGetBalance()
 {
     io::Reactor::Ptr mainReactor{ io::Reactor::create() };
     io::Reactor::Scope scope(*mainReactor);
-    BitcoinOptions options;
-    options.m_seedPhrase = { "child", "happy", "moment", "weird", "ten", "token", "stuff", "surface", "success", "desk", "embark", "observe" };
+    LitecoinOptions options;
+    options.m_seedPhrase = { "ridge", "sunny", "neutral", "address", "fossil", "gospel", "common", "brush", "cactus", "poverty", "fitness", "duty" };
+    //sunny;ridge;neutral;address;fossil;gospel;common;brush;cactus;poverty;fitness;duty
+    //ridge;sunny;neutral;address;fossil;gospel;common;brush;cactus;poverty;fitness;duty
+
+    // snake shuffle pepper treat foam useful wife ranch cause brief lock chicken
     options.m_chainType = wallet::SwapSecondSideChainType::Testnet;
-    BitcoinElectrum electrum(*mainReactor, options);
+    LitecoinElectrum electrum(*mainReactor, options);
 
     electrum.getBalance(0, [mainReactor](const IBitcoinBridge::Error&, double balance)
     {
@@ -150,6 +154,8 @@ void testFundRawTransaction()
     io::Reactor::Scope scope(*mainReactor);
     LitecoinOptions options;
     options.m_seedPhrase = { "sunny", "ridge", "neutral", "address", "fossil", "gospel", "common", "brush", "cactus", "poverty", "fitness", "duty" };
+    //sunny;ridge;neutral;address;fossil;gospel;common;brush;cactus;poverty;fitness;duty
+    //ridge;sunny;neutral;address;fossil;gospel;common;brush;cactus;poverty;fitness;duty
     options.m_chainType = wallet::SwapSecondSideChainType::Testnet;
     LitecoinElectrum electrum(*mainReactor, options);
 
@@ -199,9 +205,9 @@ int main()
     //testDumpPrivKey();
     //testGetTxOut();
     //testGetBlockCount();
-    //testGetBalance();
+    testGetBalance();
     //testListUnspent();
-    testFundRawTransaction();
+    //testFundRawTransaction();
 
     assert(g_failureCount == 0);
     return WALLET_CHECK_RESULT;
