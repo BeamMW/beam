@@ -64,6 +64,14 @@ void Mediator::OnNewTip()
         return;
     }
 
+    Block::SystemState::ID id;
+    if (tip.m_Height)
+        tip.get_ID(id);
+    else
+        ZeroObject(id);
+    m_pWalletDB->setSystemStateID(id);
+    LOG_INFO() << "Current state is " << id;
+
     LOG_INFO() << "LASER New Tip: " << tip.m_Height;
 
     for (auto& openIt : m_openQueue)
@@ -72,35 +80,7 @@ void Mediator::OnNewTip()
     }
     m_openQueue.clear();
 
-    for (auto& it: m_channels)
-    {
-        auto& ch = it.second;
-        ch->Update();
-        if (ch->IsStateChanged())
-        {
-            if (ch->get_State() >= Lightning::Channel::State::Opening1)
-            {
-                ch->UpdateRestorePoint();
-                m_pWalletDB->saveLaserChannel(*ch);
-            }
-            if (m_onCommandComplete &&
-                ch->get_State() == Lightning::Channel::State::Open ||
-                ch->get_State() == Lightning::Channel::State::OpenFailed)
-            {
-                m_onCommandComplete();
-            }
-        }
-        
-        ch->LogNewState();
-
-        if (!ch->IsNegotiating() && ch->IsSafeToForget(kSafeForgetHeight))
-        {
-            const auto& chId = ch->get_chID();
-            LOG_ERROR() << "ForgetChannel: "
-                        << to_hex(chId->m_pData , chId->nBytes);
-            ForgetChannel(chId);
-        }
-    }
+    UpdateChannels();
 }
 
 void Mediator::OnRolledBack()
@@ -404,6 +384,39 @@ bool Mediator::RestoreChannel(const ChannelIDPtr& chID)
         return true;
     }
     return false;
+}
+
+void Mediator::UpdateChannels()
+{
+    for (auto& it: m_channels)
+    {
+        auto& ch = it.second;
+        ch->Update();
+        if (ch->IsStateChanged())
+        {
+            if (ch->get_State() >= Lightning::Channel::State::Opening1)
+            {
+                ch->UpdateRestorePoint();
+                m_pWalletDB->saveLaserChannel(*ch);
+            }
+            if (m_onCommandComplete &&
+                ch->get_State() == Lightning::Channel::State::Open ||
+                ch->get_State() == Lightning::Channel::State::OpenFailed)
+            {
+                m_onCommandComplete();
+            }
+        }
+        
+        ch->LogNewState();
+
+        if (!ch->IsNegotiating() && ch->IsSafeToForget(kSafeForgetHeight))
+        {
+            const auto& chId = ch->get_chID();
+            LOG_ERROR() << "ForgetChannel: "
+                        << to_hex(chId->m_pData , chId->nBytes);
+            ForgetChannel(chId);
+        }
+    }
 }
 
 }  // namespace beam::wallet::laser

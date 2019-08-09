@@ -41,7 +41,8 @@ Channel::Channel(IChannelHolder& holder,
                  const Amount& aMy,
                  const Amount& aTrg,
                  Height locktime)
-    : m_rHolder(holder)
+    : Lightning::Channel()
+    , m_rHolder(holder)
     , m_ID(std::make_shared<ChannelID>(Zero))
     , m_myAddr(myAddr)
     , m_widTrg(trg)
@@ -64,7 +65,8 @@ Channel::Channel(IChannelHolder& holder,
                  const Amount& aMy,
                  const Amount& aTrg,
                  Height locktime)
-    : m_rHolder(holder)
+    : Lightning::Channel()
+    , m_rHolder(holder)
     , m_ID(chID)
     , m_myAddr(myAddr)
     , m_widTrg(trg)
@@ -82,16 +84,17 @@ Channel::Channel(IChannelHolder& holder,
                  const ChannelIDPtr& chID,
                  const WalletAddress& myAddr,
                  const TLaserChannelEntity& entity)
-    : m_rHolder(holder)
+    : Lightning::Channel()
+    , m_rHolder(holder)
     , m_ID(chID)
     , m_myAddr(myAddr)
     , m_widTrg(std::get<2>(entity))
-    , m_aMy(std::get<5>(entity))
-    , m_aTrg(std::get<6>(entity))
+    , m_aMy(std::get<6>(entity))
+    , m_aTrg(std::get<7>(entity))
     , m_upReceiver(std::make_unique<Receiver>(holder, chID))
 {
-    m_Params.m_Fee = std::get<3>(entity);
-    m_Params.m_hLockTime = std::get<4>(entity);
+    m_Params.m_Fee = std::get<4>(entity);
+    m_Params.m_hLockTime = std::get<5>(entity);
 
     RestoreInternalState(std::get<10>(entity));
 
@@ -187,6 +190,93 @@ void Channel::SendPeer(Negotiator::Storage::Map&& dataOut)
 		pReq->m_Msg.m_TimePosted = getTimestamp();
 		get_Net().PostRequest(*pReq, *m_upReceiver);
 	}
+}
+
+void Channel::OnCoin(const ECC::Key::IDV& kidv,
+                     Height h,
+                     CoinState eState,
+                     bool bReverse)
+{
+    auto pWalletDB = m_rHolder.getWalletDB();
+    auto coins = pWalletDB->getCoinsByID(std::vector<ECC::Key::IDV>({kidv}));
+    if (coins.empty())
+    {
+        auto& coin = coins.emplace_back();
+        coin.m_ID = kidv;
+        coin.m_maturity = m_pOpen && m_pOpen->m_hOpened
+            ? m_Params.m_hLockTime + m_pOpen->m_hOpened
+            : m_Params.m_hLockTime + h;
+    }
+    
+    const char* szStatus = "";
+    Coin::Status coinStatus = Coin::Status::Unavailable;
+    switch (eState)
+    {
+    case CoinState::Locked:
+        szStatus = bReverse ? "Unlocked" : "Locked";
+        if (bReverse)
+        {
+            szStatus = "Unlocked";
+            coinStatus = Coin::Status::Available;
+        }
+        else
+        {
+            szStatus = "Locked";
+            coinStatus = Coin::Status::Outgoing;
+        }
+        break;
+
+    case CoinState::Spent:
+        if (bReverse)
+        {
+            szStatus = "Unspent";
+            coinStatus = Coin::Status::Available;
+        }
+        else
+        {
+            szStatus = "Spent";
+            coinStatus = Coin::Status::Spent;
+        }
+        break;
+
+    case CoinState::Confirmed:
+        szStatus = bReverse ? "Unconfirmed" : "Confirmed";
+        if (bReverse)
+        {
+            szStatus = "Unconfirmed";
+            coinStatus = Coin::Status::Incoming;
+        }
+        else
+        {
+            szStatus = "Confirmed";
+            coinStatus = Coin::Status::Available;
+        }
+        break;
+
+
+    default: // suppress warning
+        coinStatus = Coin::Status::Unavailable;
+        break;
+    }
+
+    for (auto& coin : coins)
+    {
+        coin.m_status = coinStatus;
+        switch(coinStatus)
+        {
+        case Coin::Status::Available:
+            coin.m_confirmHeight = h;
+            break;
+        case Coin::Status::Spent:
+            coin.m_spentHeight = h;
+            break;
+        default:
+            break;
+        }
+    }
+
+    pWalletDB->saveCoins(coins);
+    LOG_INFO() << "LASER Coin " << kidv.m_Value << " " << szStatus;
 }
 
 const ChannelIDPtr& Channel::get_chID() const
@@ -448,6 +538,8 @@ void Channel::RestoreInternalState(const ByteBuffer& data)
     {
 		LOG_ERROR() << "LASER RestoreInternalState failed";
 	}
+
+    m_SendMyWid = false;
 }
 
 }  // namespace beam::wallet::laser

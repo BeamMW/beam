@@ -66,6 +66,7 @@ private:
                     Negotiator::Storage::Map& dataIn);
     void ForgetChannel(const ChannelIDPtr& chID);
     bool RestoreChannel(const ChannelIDPtr& chID);
+    void UpdateChannels();
 
     IWalletDB::Ptr m_pWalletDB;
     std::shared_ptr<proto::FlyClient::INetwork> m_pConnection;

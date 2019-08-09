@@ -1274,8 +1274,8 @@ namespace
             << setw(columnWidths[0]) << "chId" << "|"
             << setw(columnWidths[1]) << "aMy" << "|"
             << setw(columnWidths[2]) << "aTrg" << "|"
-            << setw(columnWidths[3]) << "fee" << "|"
-            << setw(columnWidths[4]) << "state" << "|"
+            << setw(columnWidths[3]) << "state" << "|"
+            << setw(columnWidths[4]) << "fee" << "|"
             << setw(columnWidths[5]) << "locktime" << endl;
         for (auto& ch : walletDB->loadLaserChannels())
         {
@@ -1284,8 +1284,8 @@ namespace
                 << setw(columnWidths[0]) << beam::to_hex(chID.m_pData, chID.nBytes) << "|"
                 << setw(columnWidths[1]) << PrintableAmount(std::get<6>(ch), true) << "|"
                 << setw(columnWidths[2]) << PrintableAmount(std::get<7>(ch), true) << "|"
-                << setw(columnWidths[3]) << PrintableAmount(std::get<4>(ch), true) << "|"
-                << setw(columnWidths[4]) << std::get<3>(ch) << "|"
+                << setw(columnWidths[3]) << std::get<3>(ch) << "|"
+                << setw(columnWidths[4]) << PrintableAmount(std::get<4>(ch), true) << "|"
                 << setw(columnWidths[5]) << std::get<5>(ch) << "\n";
         }
     }

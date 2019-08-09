@@ -2199,7 +2199,7 @@ namespace beam::wallet
     bool WalletDB::getLaserChannel(const std::shared_ptr<uintBig_t<16>>& chId,
                                    TLaserChannelEntity* entity)
     {
-        const char* selectReq = "SELECT * FROM " LASER_CHANNELS_NAME " WHERE chID=?1;";
+        const char* selectReq = "SELECT  " LASER_CHANNEL_FIELDS " FROM " LASER_CHANNELS_NAME " WHERE chID=?1;";
         sqlite::Statement stm(this, selectReq);
         stm.bind(1, chId->m_pData, chId->nBytes);
 

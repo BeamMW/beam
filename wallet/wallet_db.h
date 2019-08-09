@@ -122,13 +122,13 @@ namespace beam::wallet
         virtual const std::shared_ptr<uintBig_t<16>>& get_chID() const = 0;
         virtual const WalletID& get_myWID() const = 0;
         virtual const WalletID& get_trgWID() const = 0;
+        virtual int get_State() const = 0;
         virtual const Amount& get_fee() const = 0;
         virtual const Height getLocktime() const = 0;
         virtual const Amount& get_amountMy() const = 0;
         virtual const Amount& get_amountTrg() const = 0;
         virtual const Amount& get_amountCurrentMy() const = 0;
         virtual const Amount& get_amountCurrentTrg() const = 0;
-        virtual int get_State() const = 0;
         virtual const ByteBuffer& get_Data() const = 0;
         virtual const WalletAddress& get_myAddr() const = 0;
     };
@@ -137,13 +137,13 @@ namespace beam::wallet
         uintBig_t<16>,  // 0 chID
         WalletID,       // 1 myWID
         WalletID,       // 2 trgWID
-        Amount,         // 3 fee
-        Height,         // 4 Locktime
-        Amount,         // 5 amountMy
-        Amount,         // 6 amountTrg
-        Amount,         // 7 amountCurrentMy
-        Amount,         // 8 amountCurrentTrg
-        int,            // 9 State
+        int,            // 3 State
+        Amount,         // 4 fee
+        Height,         // 5 Locktime
+        Amount,         // 6 amountMy
+        Amount,         // 7 amountTrg
+        Amount,         // 8 amountCurrentMy
+        Amount,         // 9 amountCurrentTrg
         ByteBuffer      // 10 Data
     >;
 

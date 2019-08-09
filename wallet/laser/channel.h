@@ -67,6 +67,10 @@ public:
     Amount SelectInputs(
             std::vector<Key::IDV>& vInp, Amount valRequired) override;
     void SendPeer(Negotiator::Storage::Map&& dataOut) override;
+    void OnCoin(const ECC::Key::IDV& kidv,
+                Height h,
+                CoinState eState,
+                bool bReverse) override;
 
     // ILaserChannelEntity implementation
     const ChannelIDPtr& get_chID() const override;
