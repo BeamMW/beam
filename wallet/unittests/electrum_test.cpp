@@ -22,7 +22,10 @@
 
 #include "test_helpers.h"
 
+#include <bitcoin/bitcoin.hpp>
+
 WALLET_TEST_INIT
+
 
 using namespace beam;
 using json = nlohmann::json;
@@ -62,8 +65,10 @@ void testGetTxOut()
     BitcoinOptions options;
     options.m_chainType = wallet::SwapSecondSideChainType::Testnet;
     BitcoinElectrum electrum(*mainReactor, options);
+    //const std::string txID = "d75ecb28d9289025037de08fb7ed894bda7a22a28657dd4694b947b4db22f2b6"; // for btc
+    const std::string txID = "0954c6affd7a98f5209b79a15596d8a087a3dab398edd50d5cf38e8fb3289f0e"; // for ltc
 
-    electrum.getTxOut("d75ecb28d9289025037de08fb7ed894bda7a22a28657dd4694b947b4db22f2b6", 1, [mainReactor](const IBitcoinBridge::Error&, const std::string& hex, double value, uint16_t confirmations)
+    electrum.getTxOut(txID, 1, [mainReactor](const IBitcoinBridge::Error&, const std::string& hex, double value, uint16_t confirmations)
     {
         LOG_INFO() << "hex = " << hex;
         LOG_INFO() << "value = " << value;
@@ -132,17 +137,63 @@ void testGetBalance()
     mainReactor->run();
 }
 
+void testFundRawTransaction()
+{
+    io::Reactor::Ptr mainReactor{ io::Reactor::create() };
+    io::Reactor::Scope scope(*mainReactor);
+    BitcoinOptions options;
+    options.m_chainType = wallet::SwapSecondSideChainType::Testnet;
+    BitcoinElectrum electrum(*mainReactor, options);
+
+    using namespace libbitcoin;
+    using namespace libbitcoin::wallet;
+    using namespace libbitcoin::chain;
+
+    payment_address destinationAddress("mtccjFueiCLGuvymk1Ct4QFw2tE3EUKszH");
+
+    script outputScript = script().to_pay_key_hash_pattern(destinationAddress.hash());
+    output output1(satoshi_per_bitcoin / 100, outputScript);
+
+    transaction tx;
+    tx.set_version(2);
+    tx.outputs().push_back(output1);    
+
+    std::string rawTx = encode_base16(tx.to_data());
+
+    electrum.fundRawTransaction(rawTx, 10000, [mainReactor, &electrum](const IBitcoinBridge::Error&, std::string tx, int changePos)
+    {
+        LOG_INFO() << "tx = " << tx;
+        LOG_INFO() << "changePos = " << changePos;
+
+        electrum.signRawTransaction(tx, [mainReactor, &electrum](const IBitcoinBridge::Error&, std::string tx, bool)
+        {
+            LOG_INFO() << "tx = " << tx;
+
+            electrum.sendRawTransaction(tx, [mainReactor, &electrum](const IBitcoinBridge::Error&, std::string txID)
+            {
+                LOG_INFO() << "txID = " << txID;
+                mainReactor->stop();
+            });            
+        });
+
+        //mainReactor->stop();
+    });
+
+    mainReactor->run();
+}
+
 int main()
 {
     int logLevel = LOG_LEVEL_DEBUG;
     auto logger = beam::Logger::create(logLevel, logLevel);
 
-    /*testAddress();
-    testDumpPrivKey();
-    testGetTxOut();
-    testGetBlockCount();*/
+    //testAddress();
+    //testDumpPrivKey();
+    //testGetTxOut();
+    //testGetBlockCount();
     //testGetBalance();
-    testListUnspent();
+    //testListUnspent();
+    //testFundRawTransaction();
 
     assert(g_failureCount == 0);
     return WALLET_CHECK_RESULT;

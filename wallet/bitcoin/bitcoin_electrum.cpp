@@ -52,7 +52,13 @@ namespace beam
         : Bitcoind016(reactor, options)
         , m_reactor(reactor)
     {
-        word_list my_word_list{ "child", "happy", "moment", "weird", "ten", "token", "stuff", "surface", "success", "desk", "embark", "observe" };
+        // ltc
+        //sunny ridge neutral address fossil gospel common brush cactus poverty fitness duty
+
+        // btc
+        //word_list my_word_list{ "child", "happy", "moment", "weird", "ten", "token", "stuff", "surface", "success", "desk", "embark", "observe" };
+        //ltc
+        word_list my_word_list{ "sunny", "ridge", "neutral", "address", "fossil", "gospel", "common", "brush", "cactus", "poverty", "fitness", "duty" };
 
         auto hd_seed = electrum::decode_mnemonic(my_word_list);
         data_chunk seed_chunk(to_chunk(hd_seed));
@@ -89,16 +95,30 @@ namespace beam
         }
 
         // TODO roman.strilec proccess error
+        error.m_type = ErrorType::BitcoinError;
+        error.m_message = "This address is absent in wallet!";
+        callback(error, "");
     }
 
     void BitcoinElectrum::fundRawTransaction(const std::string& rawTx, Amount feeRate, std::function<void(const IBitcoinBridge::Error&, const std::string&, int)> callback)
     {
         LOG_DEBUG() << "fundRawTransaction command";
+
         listUnspent([this, rawTx, feeRate, callback](const IBitcoinBridge::Error& error, const std::vector<BitcoinElectrum::BtcCoin>& coins)
         {
+            if (error.m_type != ErrorType::None)
+            {
+                callback(error, "", 0);
+                return;
+            }
+
+            // TODO roman.strlec it is temporary
+            constexpr Amount kDustThreshold = 546;
+
             data_chunk txData;
             decode_base16(txData, rawTx);
-            transaction tx = transaction::factory_from_data(txData);
+            transaction tx;
+            tx.from_data_without_inputs(txData);
             uint64_t total = 0;
             for (auto o : tx.outputs())
             {
@@ -119,22 +139,30 @@ namespace beam
                 points_value resultPoints;
 
                 select_outputs::select(resultPoints, unspentPoints, total);
-                // TODO roman.strilec proccess error
+
+                if (resultPoints.value() < total)
+                {
+                    IBitcoinBridge::Error internalError{ErrorType::BitcoinError, "not enough coins"};
+                    callback(internalError, "", 0);
+                    return;
+                }
 
                 transaction newTx(tx);
                 newTx.set_version(2);
 
+                uint64_t totalInputValue = 0;
                 for (auto p : resultPoints.points)
                 {
                     input in;
-                    output_point outputPoint(p.hash(), p.index());
-
+                    output_point outputPoint(p.hash(), p.index());                    
+                    totalInputValue += p.value();
                     in.set_previous_output(outputPoint);
                     newTx.inputs().push_back(in);
                 }
+                auto weight = newTx.weight();
 
-                Amount fee = static_cast<Amount>(std::round(double(newTx.weight() * getFeeRate()) / 1000));
-                auto newTxFee = newTx.fees();
+                Amount fee = static_cast<Amount>(std::round(double(weight * feeRate) / 1000));
+                auto newTxFee = totalInputValue - newTx.total_output_value();
 
                 if (fee > newTxFee)
                 {
@@ -142,23 +170,26 @@ namespace beam
                     continue;
                 }
 
-                // TODO roman.strilec need to check on dust output
                 if (fee < newTxFee)
                 {
                     payment_address destinationAddress(getChangeAddress(0));
                     script outputScript = script().to_pay_key_hash_pattern(destinationAddress.hash());
                     output out(newTxFee - fee, outputScript);
-                    Amount feeOutput = static_cast<Amount>(std::round(double(out.serialized_size() * getFeeRate()) / 1000));
+                    Amount feeOutput = static_cast<Amount>(std::round(double(out.serialized_size() * feeRate) / 1000));
 
                     if (fee + feeOutput < newTxFee)
                     {
                         out.set_value(newTxFee - (fee + feeOutput));
-                        newTx.outputs().push_back(out);
-                        changePosition = static_cast<int>(newTx.outputs().size()) - 1;
+                        if (!out.is_dust(kDustThreshold))
+                        {
+                            newTx.outputs().push_back(out);
+                            changePosition = static_cast<int>(newTx.outputs().size()) - 1;
+                        }
                     }
                 }
 
-                callback(error, encode_base16(tx.to_data()), changePosition);
+                callback(error, encode_base16(newTx.to_data()), changePosition);
+                return;
             }
         });
     }
@@ -169,6 +200,12 @@ namespace beam
 
         listUnspent([this, rawTx, callback](const IBitcoinBridge::Error& error, const std::vector<BitcoinElectrum::BtcCoin>& coins)
         {
+            if (error.m_type != ErrorType::None)
+            {
+                callback(error, "", 0);
+                return;
+            }
+
             data_chunk txData;
             decode_base16(txData, rawTx);
             transaction tx = transaction::factory_from_data(txData);
@@ -210,7 +247,7 @@ namespace beam
     {
         LOG_DEBUG() << "Send sendRawTransaction command";    
 
-        sendRequest("blockchain.transaction.broadcast", rawTx, [callback](IBitcoinBridge::Error error, const json& result, uint64_t)
+        sendRequest("blockchain.transaction.broadcast", "\"" + rawTx + "\"", [callback](IBitcoinBridge::Error error, const json& result, uint64_t)
         {
             std::string txID;
 
@@ -407,10 +444,14 @@ namespace beam
         sendRequest("blockchain.scripthash.listunspent", "\"" + generateScriptHash(privateKeys[0].to_public()) + "\"",
             [this, callback, tmp, privateKeys](IBitcoinBridge::Error error, const json& result, uint64_t tag) mutable
         {
-            if (error.m_type == IBitcoinBridge::None)
+            if (error.m_type == IBitcoinBridge::None || error.m_type == IBitcoinBridge::EmptyResult)
             {
                 TCPConnect& connection = m_connections[tag];
 
+                {
+                    payment_address addr(privateKeys[tmp.m_index].to_public().to_payment_address(getAddressVersion()));
+                    LOG_INFO() << "address = " << addr.encoded();
+                }
                 try
                 {
                     for (auto utxo : result)
@@ -442,6 +483,9 @@ namespace beam
                     }
                     return true;
                 }
+                IBitcoinBridge::Error emptyError{ ErrorType::None, "" };
+                callback(emptyError, tmp.m_coins);
+                return false;
             }
             callback(error, tmp.m_coins);
             return false;
@@ -456,8 +500,14 @@ namespace beam
         LOG_INFO() << request;
 
         Address address;
-        address.resolve("testnet1.bauerj.eu");
-        address.port(50002);
+        //btc
+        //address.resolve("testnet1.bauerj.eu");
+        //address.port(50002);
+
+        //ltc
+        address.resolve("electrum.ltc.xurious.com");
+        address.port(51002);
+
         uint64_t currentTag = m_counter++;
         TCPConnect& connection = m_connections[currentTag];
         connection.m_request = request;
@@ -555,12 +605,16 @@ namespace beam
     {
         std::vector<ec_private> result;
 
-        for (uint32_t i = 0; i < 21; i++)
+        //22 for ltc
+        //21 for btc
+        for (uint32_t i = 0; i < 22; i++) 
         {
             result.push_back(ec_private(m_receivingPrivateKey.derive_private(i).secret(), getAddressVersion()));
         }
 
-        for (uint32_t i = 0; i < 6; i++)
+        // 8 for ltc
+        // 6 for btc
+        for (uint32_t i = 0; i < 8; i++) 
         {
             result.push_back(ec_private(m_changePrivateKey.derive_private(i).secret(), getAddressVersion()));
         }

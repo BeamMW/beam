@@ -24,6 +24,7 @@ set(WALLET_SRC
     bitcoin/bitcoind017.cpp
     litecoin/litecoind016.cpp
     litecoin/litecoind017.cpp
+    litecoin/litecoin_electrum.cpp
     qtum/qtumd017.cpp
     secstring2.cpp
     unittests/util.cpp
