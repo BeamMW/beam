@@ -11,7 +11,8 @@ import "./utils.js" as Utils
 ColumnLayout {
     id: thisView
     property variant parentView: null
-    property var defaultFocusItem: comment_input
+    property var    defaultFocusItem: comment_input
+    property var    predefinedTxParams: undefined
 
     function setToken(token) {
         viewModel.token = token
@@ -44,13 +45,14 @@ ColumnLayout {
 
     SwapNADialog {
         id:         swapna
-        parent:     walletView
-        onRejected: parentView.onBadSwap()
+        // TEST ONLY!
+        // onRejected: parentView.onBadSwap()
         onAccepted: main.openSwapSettings()
     }
 
     Component.onCompleted: {
         comment_input.forceActiveFocus();
+        viewModel.setParameters(predefinedTxParams);
     }
 
     SendSwapViewModel {
@@ -86,6 +88,7 @@ ColumnLayout {
 
     ColumnLayout {
         Layout.fillWidth: true
+        visible: predefinedTxParams == undefined
 
         SFText {
             font.pixelSize:  14
@@ -275,7 +278,7 @@ ColumnLayout {
             text:                qsTrId("general-close")
             palette.buttonText:  Style.content_main
             icon.source:         "qrc:/assets/icon-cancel-white.svg"
-            onClicked:           walletView.pop();
+            onClicked:           thisView.parent.parent.pop();
         }
 
         CustomButton {

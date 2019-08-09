@@ -19,7 +19,7 @@
 #include "wallet_db.h"
 #include "wallet_network.h"
 #include "wallet_model_async.h"
-#include "swaps/swap_offers_monitor.h"
+#include "swaps/swap_offers_board.h"
 
 #include <thread>
 #include <atomic>
@@ -101,7 +101,7 @@ namespace beam::wallet
         void getAddresses(bool own) override;
         void setSwapOffersCoinType(AtomicSwapCoin type) override;
         void getSwapOffers() override;
-        void sendSwapOffer(const SwapOffer& offer) override;
+        void publishSwapOffer(const SwapOffer& offer) override;
         void cancelTx(const TxID& id) override;
         void deleteTx(const TxID& id) override;
         void getCoinsByTx(const TxID& txId) override;
@@ -131,7 +131,7 @@ namespace beam::wallet
         std::weak_ptr<proto::FlyClient::INetwork> m_nodeNetwork;
         std::weak_ptr<IWalletMessageEndpoint> m_walletNetwork;
         std::weak_ptr<Wallet> m_wallet;
-        std::weak_ptr<SwapOffersMonitor> m_offersMonitor;
+        std::weak_ptr<SwapOffersBoard> m_offersBulletinBoard;
         bool m_isConnected;
         boost::optional<ErrorType> m_walletError;
         std::string m_nodeAddrStr;

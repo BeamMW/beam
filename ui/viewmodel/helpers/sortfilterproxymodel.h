@@ -15,7 +15,6 @@
 
 #include <QtCore/qsortfilterproxymodel.h>
 #include <QtQml/qqmlparserstatus.h>
-#include <QtQml/qjsvalue.h>
 
 class SortFilterProxyModel : public QSortFilterProxyModel, public QQmlParserStatus
 {
@@ -61,7 +60,7 @@ public:
     void setFilterSyntax(FilterSyntax syntax);
 
     int count() const;
-    Q_INVOKABLE QJSValue get(int index) const;
+    Q_INVOKABLE QVariantMap get(int index) const;
 
     void classBegin();
     void componentComplete();

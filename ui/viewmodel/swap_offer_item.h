@@ -21,11 +21,12 @@
 class SwapOfferItem : public QObject
 {
     Q_OBJECT
-    Q_PROPERTY(QDateTime time   READ time       NOTIFY changed)
-    Q_PROPERTY(QString id       READ id         NOTIFY changed)
-    Q_PROPERTY(QString amount   READ amount     NOTIFY changed)
-    Q_PROPERTY(QString status   READ status     NOTIFY changed)
-    Q_PROPERTY(QString message  READ message    NOTIFY changed)
+    Q_PROPERTY(QDateTime time       READ time       NOTIFY changed)
+    Q_PROPERTY(QString id           READ id         NOTIFY changed)
+    Q_PROPERTY(QString amount       READ amount     NOTIFY changed)
+    Q_PROPERTY(QString amountSwap   READ amountSwap NOTIFY changed)
+    Q_PROPERTY(QString message      READ message    NOTIFY changed)
+    Q_PROPERTY(beam::wallet::TxParameters txParameters  READ getTxParameters    NOTIFY changed)
 
 public:
     SwapOfferItem() = default;
@@ -34,10 +35,14 @@ public:
     QDateTime time() const;
     QString id() const;
     QString amount() const;
-    QString status() const;
+    QString amountSwap() const;
     QString message() const;
 
+    beam::wallet::TxID rawId() const;
     beam::Amount rawAmount() const;
+    beam::Amount rawAmountSwap() const;
+
+    beam::wallet::TxParameters getTxParameters() const;
 
 signals:
     void changed();

@@ -252,7 +252,7 @@ void ReceiveSwapViewModel::publishToken()
 	txParameters.SetParameter(beam::wallet::TxParameterID::CreateTime, time);
 	txParameters.SetParameter(beam::wallet::TxParameterID::ModifyTime, time);
 	
-    _walletModel.getAsync()->sendSwapOffer(txParameters);
+    _walletModel.getAsync()->publishSwapOffer(txParameters);
 }
 
 void ReceiveSwapViewModel::startListen()

@@ -101,9 +101,9 @@ struct WalletModelBridge : public Bridge<IWalletModelAsync>
 		call_async(&IWalletModelAsync::getSwapOffers);
     }
 
-    void sendSwapOffer(const wallet::SwapOffer& offer)
+    void publishSwapOffer(const wallet::SwapOffer& offer)
     {
-		call_async(&IWalletModelAsync::sendSwapOffer, offer);
+		call_async(&IWalletModelAsync::publishSwapOffer, offer);
     }
 
     void cancelTx(const wallet::TxID& id) override
@@ -324,8 +324,11 @@ namespace beam::wallet
 
                     wallet_subscriber = make_unique<WalletSubscriber>(static_cast<IWalletObserver*>(this), wallet);
 
-                    auto offersMonitor = make_shared<SwapOffersMonitor>(*nodeNetwork,static_cast<IWalletObserver&>(*this), *walletNetwork);
-                    m_offersMonitor = offersMonitor;
+                    auto offersBulletinBoard = make_shared<SwapOffersBoard>(
+                        *nodeNetwork,
+                        static_cast<IWalletObserver&>(*this),
+                        *walletNetwork);
+                    m_offersBulletinBoard = offersBulletinBoard;
                     
                     if (txCreators)
                     {
@@ -594,23 +597,23 @@ namespace beam::wallet
 
     void WalletClient::setSwapOffersCoinType(AtomicSwapCoin type)
     {
-        if (auto p = m_offersMonitor.lock())
+        if (auto p = m_offersBulletinBoard.lock())
         {
-            p->listenChannel(type);
+            p->subscribe(type);
         }
     }
 
     void WalletClient::getSwapOffers()
     {
-        if (auto p = m_offersMonitor.lock())
+        if (auto p = m_offersBulletinBoard.lock())
         {
             onSwapOffersChanged(ChangeAction::Reset, p->getOffersList());
         }
     }
 
-    void WalletClient::sendSwapOffer(const SwapOffer& offer)
+    void WalletClient::publishSwapOffer(const SwapOffer& offer)
     {
-        if (auto p = m_offersMonitor.lock())
+        if (auto p = m_offersBulletinBoard.lock())
         {
             p->publishOffer(offer);
         }

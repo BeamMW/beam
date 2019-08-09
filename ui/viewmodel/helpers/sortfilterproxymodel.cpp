@@ -90,19 +90,19 @@ void SortFilterProxyModel::setFilterSyntax(SortFilterProxyModel::FilterSyntax sy
     setFilterRegExp(QRegExp(filterString(), filterCaseSensitivity(), static_cast<QRegExp::PatternSyntax>(syntax)));
 }
 
-QJSValue SortFilterProxyModel::get(int idx) const
+QVariantMap SortFilterProxyModel::get(int idx) const
 {
-    QJSEngine *engine = qmlEngine(this);
-    QJSValue value = engine->newObject();
+	QVariantMap map;
     if (idx >= 0 && idx < count()) {
         QHash<int, QByteArray> roles = roleNames();
         QHashIterator<int, QByteArray> it(roles);
         while (it.hasNext()) {
             it.next();
-            value.setProperty(QString::fromUtf8(it.value()), data(index(idx, 0), it.key()).toString());
+			auto roleName = QString::fromUtf8(it.value());
+			map[roleName] = data(index(idx, 0), it.key());
         }
     }
-    return value;
+    return map;
 }
 
 void SortFilterProxyModel::classBegin()

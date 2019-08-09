@@ -697,11 +697,12 @@
     </message>
     <message id="invalid-addr-got-it-button">
         <source>Got it</source>
-        <translation>Got it</translation>
+        <translation type="vanished">Got it</translation>
     </message>
     <message id="send-title">
-        <source>Send</source>
-        <translation>Send</translation>
+        <source></source>
+        <oldsource>Send</oldsource>
+        <translation type="unfinished">Send</translation>
     </message>
     <message id="send-send-to-label">
         <source></source>
@@ -735,11 +736,11 @@
     </message>
     <message id="send-fee-fail">
         <source>The minimum fee is %1 GROTH</source>
-        <translation>The minimum fee is %1 GROTH</translation>
+        <translation type="vanished">The minimum fee is %1 GROTH</translation>
     </message>
     <message id="send-curency-sub-name">
         <source>GROTH</source>
-        <translation>GROTH</translation>
+        <translation type="vanished">GROTH</translation>
     </message>
     <message id="send-remaining-label">
         <source></source>
@@ -761,17 +762,9 @@
         <oldsource>You do not have %1 connected.\nUpdate your settings and try again.</oldsource>
         <translation type="unfinished">You do not have %1 connected.\nUpdate your settings and try again.</translation>
     </message>
-    <message id="swap-na-message">
-        <source>You do not have any 3rd-party currencies connected.\nUpdate your settings and try again.</source>
-        <translation>You do not have any 3rd-party currencies connected.\nUpdate your settings and try again.</translation>
-    </message>
-    <message id="swap-currency-na-message">
-        <source>You do not have %1 connected.\nUpdate your settings and try again.</source>
-        <translation>You do not have %1 connected.\nUpdate your settings and try again.</translation>
-    </message>
     <message id="send-send-fail">
         <source>Address %1 is invalid</source>
-        <translation>Address %1 is invalid</translation>
+        <translation type="vanished">Address %1 is invalid</translation>
     </message>
     <message id="start-restore-confirm-button">
         <source>I agree</source>
@@ -1049,11 +1042,11 @@
     </message>
     <message id="tx-curency-name">
         <source>BEAM</source>
-        <translation>BEAM</translation>
+        <translation type="vanished">BEAM</translation>
     </message>
     <message id="tx-curency-sub-name">
         <source>GROTH</source>
-        <translation>GROTH</translation>
+        <translation type="vanished">GROTH</translation>
     </message>
     <message id="utxo-utxo">
         <source>UTXO</source>
@@ -1104,16 +1097,49 @@
         <translation>Spent</translation>
     </message>
     <message id="offers-title">
-        <source>Offers</source>
-        <translation>Offers</translation>
+        <source></source>
+        <oldsource>Offers</oldsource>
+        <translation type="unfinished">Offers</translation>
     </message>
     <message id="offers-search">
-        <source>Search...</source>
-        <translation>Search...</translation>
+        <source></source>
+        <oldsource>Search...</oldsource>
+        <translation type="unfinished">Search...</translation>
     </message>
     <message id="offers-create">
-        <source>Create offer</source>
-        <translation>Create offer</translation>
+        <source></source>
+        <oldsource>Create offer</oldsource>
+        <translation type="unfinished">Create offer</translation>
+    </message>
+    <message id="offers-last-updated">
+        <source></source>
+        <oldsource>Last updated</oldsource>
+        <translation type="unfinished">Last updated</translation>
+    </message>
+    <message id="offers-id">
+        <source></source>
+        <oldsource>Id</oldsource>
+        <translation type="unfinished">Id</translation>
+    </message>
+    <message id="offers-amount">
+        <source></source>
+        <oldsource>Amount</oldsource>
+        <translation type="unfinished">Amount</translation>
+    </message>
+    <message id="offers-amount-swap">
+        <source></source>
+        <oldsource>Swap amount</oldsource>
+        <translation type="unfinished">Swap amount</translation>
+    </message>
+    <message id="offers-message">
+        <source></source>
+        <oldsource>Message</oldsource>
+        <translation type="unfinished">Message</translation>
+    </message>
+    <message id="offers-accept">
+        <source></source>
+        <oldsource>Accept</oldsource>
+        <translation type="unfinished">Accept</translation>
     </message>
     <message id="settings-general-lock-screen-never">
         <source>Never</source>

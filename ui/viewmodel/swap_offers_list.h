@@ -32,12 +32,14 @@ public:
         IdSortRole,
         AmountRole,
         AmountSortRole,
-        StatusRole,
-        StatusSortRole,
+        AmountSwapRole,
+        AmountSwapSortRole,
         MessageRole,
-        MessageSortRole
+        MessageSortRole,
+        RawTxParametersRole
     };
-    SwapOffersList(){};
+
+    SwapOffersList();
 
     QVariant data(const QModelIndex &index, int role) const override;
     QHash<int, QByteArray> roleNames() const override;

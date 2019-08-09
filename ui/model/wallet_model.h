@@ -18,6 +18,8 @@
 
 #include "wallet/wallet_client.h"
 
+Q_DECLARE_METATYPE(beam::wallet::TxParameters)
+
 class WalletModel
     : public QObject
     , public beam::wallet::WalletClient

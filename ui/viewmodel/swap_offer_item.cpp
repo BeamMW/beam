@@ -34,19 +34,24 @@ QDateTime SwapOfferItem::time() const
     }
 }
 
-QString SwapOfferItem::id() const
+TxID SwapOfferItem::rawId() const
 {
     auto id = m_offer.GetTxID();
     
     if (id.has_value())
     {
-        auto value = id.value();
-        return QString::fromStdString(beam::to_hex(value.data(), value.size()));
+        return id.value();
     }
     else
     {
-        return QString("undefined");
+        return TxID();
     }
+}
+
+QString SwapOfferItem::id() const
+{
+    TxID txId = rawId();
+    return QString::fromStdString(beam::to_hex(txId.data(), txId.size()));
 }
 
 beam::Amount SwapOfferItem::rawAmount() const
@@ -56,10 +61,17 @@ beam::Amount SwapOfferItem::rawAmount() const
     {
         return amount;
     }
-    else
+    return 0;
+}
+
+beam::Amount SwapOfferItem::rawAmountSwap() const
+{
+    beam::Amount amount;
+    if (m_offer.GetParameter(TxParameterID::AtomicSwapAmount, amount))
     {
-        return 0;
+        return amount;
     }
+    return 0;
 }
 
 QString SwapOfferItem::amount() const
@@ -67,20 +79,9 @@ QString SwapOfferItem::amount() const
     return beamui::BeamToString(rawAmount());
 }
 
-QString SwapOfferItem::status() const
+QString SwapOfferItem::amountSwap() const
 {
-    beam::wallet::TxStatus status;
-    if (m_offer.GetParameter(TxParameterID::Status, status))
-    {
-        // todo - replace with status toString
-        beam::wallet::TxDescription desc;
-        desc.m_status = status;
-        return desc.getStatusString().c_str();
-    }
-    else
-    {
-        return QString("undefined");
-    }
+    return beamui::BeamToString(rawAmountSwap());
 }
 
 QString SwapOfferItem::message() const
@@ -88,11 +89,13 @@ QString SwapOfferItem::message() const
     beam::ByteBuffer message;
     if (m_offer.GetParameter(TxParameterID::Message, message))
     {
-        std::string string;
-        if (beam::wallet::fromByteBuffer(message, string))
-        {
-            return QString::fromStdString(string);
-        }
+        std::string s(message.begin(), message.end());
+        return QString::fromStdString(s);
     }
     return QString();
+}
+
+beam::wallet::TxParameters SwapOfferItem::getTxParameters() const
+{
+    return m_offer;
 }

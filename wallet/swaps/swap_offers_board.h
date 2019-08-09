@@ -25,18 +25,17 @@ namespace beam::wallet
     using namespace beam::proto;
 
     /**
-     *  Implementation of public swap offers broadcasting.
+     *  Implementation of public swap offers bulletin board using not crypted BBS broadcasting.
      */
-    class SwapOffersMonitor : public FlyClient::IBbsReceiver
+    class SwapOffersBoard : public FlyClient::IBbsReceiver
     {
         
     public:
-        SwapOffersMonitor(FlyClient::INetwork& network, beam::wallet::IWalletObserver &observer, IWalletMessageEndpoint& messageEndpoint);
+        SwapOffersBoard(FlyClient::INetwork& network, IWalletObserver &observer, IWalletMessageEndpoint& messageEndpoint);
 
-        // FlyClient::IBbsReceiver
-        virtual void OnMsg(proto::BbsMsg&& msg) override;
+        virtual void OnMsg(proto::BbsMsg&& msg) override;           /// FlyClient::IBbsReceiver implementation
 
-        void listenChannel(AtomicSwapCoin coinType);
+        void subscribe(AtomicSwapCoin coinType);
 
         auto getOffersList() const -> std::vector<SwapOffer>;
         void publishOffer(const SwapOffer& offer) const;
@@ -49,6 +48,8 @@ namespace beam::wallet
         static const std::map<AtomicSwapCoin, BbsChannel> m_channelsMap;
         Timestamp m_lastTimestamp = getTimestamp() - 12*60*60;
         std::optional<BbsChannel> m_activeChannel;
+
+        auto getChannel(const SwapOffer& offer) const -> std::optional<BbsChannel>;
 
         std::unordered_map<TxID, SwapOffer> m_offersCache;
     };

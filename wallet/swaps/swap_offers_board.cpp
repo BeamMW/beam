@@ -12,25 +12,25 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "swap_offers_monitor.h"
+#include "swap_offers_board.h"
 
 namespace beam::wallet
 {
-    SwapOffersMonitor::SwapOffersMonitor(FlyClient::INetwork& network, IWalletObserver& observer, IWalletMessageEndpoint& messageEndpoint)
+    SwapOffersBoard::SwapOffersBoard(FlyClient::INetwork& network, IWalletObserver& observer, IWalletMessageEndpoint& messageEndpoint)
         :   m_network(network),
             m_observer(observer),
             m_messageEndpoint(messageEndpoint)
     {
     }
 
-    const std::map<AtomicSwapCoin, BbsChannel> SwapOffersMonitor::m_channelsMap =
+    const std::map<AtomicSwapCoin, BbsChannel> SwapOffersBoard::m_channelsMap =
     {
-        {AtomicSwapCoin::Bitcoin, proto::Bbs::s_MaxChannels - 1},
-        {AtomicSwapCoin::Litecoin, proto::Bbs::s_MaxChannels - 2},
-        {AtomicSwapCoin::Qtum, proto::Bbs::s_MaxChannels - 3}
+        {AtomicSwapCoin::Bitcoin, proto::Bbs::s_MaxChannels},
+        {AtomicSwapCoin::Litecoin, proto::Bbs::s_MaxChannels + 1},
+        {AtomicSwapCoin::Qtum, proto::Bbs::s_MaxChannels + 2}
     };
 
-    void SwapOffersMonitor::OnMsg(proto::BbsMsg &&msg)
+    void SwapOffersBoard::OnMsg(proto::BbsMsg &&msg)
     {
         if (msg.m_Message.empty())
             return;
@@ -58,7 +58,7 @@ namespace beam::wallet
         }
     }
 
-    void SwapOffersMonitor::listenChannel(AtomicSwapCoin coinType)
+    void SwapOffersBoard::subscribe(AtomicSwapCoin coinType)
     {
         auto it = m_channelsMap.find(coinType);
         if (it != std::cend(m_channelsMap))
@@ -81,7 +81,7 @@ namespace beam::wallet
         
     }
 
-    auto SwapOffersMonitor::getOffersList() const -> std::vector<SwapOffer>
+    auto SwapOffersBoard::getOffersList() const -> std::vector<SwapOffer>
     {
         std::vector<SwapOffer> offers;
 
@@ -93,16 +93,32 @@ namespace beam::wallet
         return offers;
     }
 
-    void SwapOffersMonitor::publishOffer(const SwapOffer& offer) const
+    auto SwapOffersBoard::getChannel(const SwapOffer& offer) const -> std::optional<BbsChannel>
     {
-        // todo: choise channel from offer parameter
-        if (!m_activeChannel.has_value())
-            return;
-        WalletID wId;
-        wId.m_Channel = m_activeChannel.value();
+        auto coinType = offer.GetParameter<AtomicSwapCoin>(TxParameterID::AtomicSwapCoin);
+        if (coinType.has_value())
+        {
+            auto it = m_channelsMap.find(coinType.value());
+            if (it != std::cend(m_channelsMap))
+            {
+                return it->second;
+            }
+        }
+        return std::nullopt;
+    }
 
-        beam::wallet::TxToken token(offer);
-        m_messageEndpoint.SendEncryptedMessage(wId, toByteBuffer(token));
+    void SwapOffersBoard::publishOffer(const SwapOffer& offer) const
+    {
+        WalletID wId;
+        auto channel = getChannel(offer);
+        
+        // TODO: validation of offers
+        if (channel.has_value())
+        {
+            wId.m_Channel = channel.value();
+            beam::wallet::TxToken token(offer);
+            m_messageEndpoint.SendEncryptedMessage(wId, toByteBuffer(token));
+        }
     }
 
 } // namespace beam::wallet

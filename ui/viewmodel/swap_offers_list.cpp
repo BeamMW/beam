@@ -14,6 +14,10 @@
 
 #include "swap_offers_list.h"
 
+SwapOffersList::SwapOffersList()
+{
+}
+
 QHash<int, QByteArray> SwapOffersList::roleNames() const
 {
     static const auto roles = QHash<int, QByteArray>
@@ -24,10 +28,11 @@ QHash<int, QByteArray> SwapOffersList::roleNames() const
         { static_cast<int>(Roles::IdSortRole), "idSort" },
         { static_cast<int>(Roles::AmountRole), "amount" },
         { static_cast<int>(Roles::AmountSortRole), "amountSort" },
-        { static_cast<int>(Roles::StatusRole), "status" },
-        { static_cast<int>(Roles::StatusSortRole), "statusSort" },
+        { static_cast<int>(Roles::AmountSwapRole), "amountSwap" },
+        { static_cast<int>(Roles::AmountSwapSortRole), "amountSwapSort" },
         { static_cast<int>(Roles::MessageRole), "message" },
-        { static_cast<int>(Roles::MessageSortRole), "messageSort" }
+        { static_cast<int>(Roles::MessageSortRole), "messageSort" },
+        { static_cast<int>(Roles::RawTxParametersRole), "rawTxParameters" }
     };
     return roles;
 }
@@ -51,12 +56,18 @@ QVariant SwapOffersList::data(const QModelIndex &index, int role) const
         return value->amount();
     case Roles::AmountSortRole:
         return static_cast<uint>(value->rawAmount());
-    case Roles::StatusRole:
-    case Roles::StatusSortRole:
-        return value->status();
+	case Roles::AmountSwapRole:
+        return value->amountSwap();
+    case Roles::AmountSwapSortRole:
+        return static_cast<uint>(value->rawAmountSwap());
     case Roles::MessageRole:
     case Roles::MessageSortRole:
         return value->message();
+    case Roles::RawTxParametersRole:
+		{
+			auto txParams = value->getTxParameters();
+			return QVariant::fromValue(txParams);
+		}
     default:
         return QVariant();
     }

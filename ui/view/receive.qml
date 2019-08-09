@@ -10,7 +10,7 @@ import "controls"
 ColumnLayout {
     id: thisView
     
-    property bool isSwapView: false
+    property bool isSwapMode: false
     property bool isSwapOnly
     property var defaultFocusItem: null
     property var currentView: null
@@ -19,22 +19,22 @@ ColumnLayout {
         if (!currentView) {
             createChild();
         }
-        isSwapOnly = isSwapView;
+        isSwapOnly = isSwapMode;
     }
 
     Component.onDestruction: {
-        if (!isSwapView) currentView.saveAddress();
+        if (!isSwapMode) currentView.saveAddress();
     }
 
-    onIsSwapViewChanged: {
+    onIsSwapModeChanged: {
         createChild();
-        if (isSwapView && !BeamGlobals.canSwap()) swapna.open();
+        if (isSwapMode && !BeamGlobals.canSwap()) swapna.open();
 
     }
 
     SwapNADialog {
         id: swapna
-        onRejected: thisView.isSwapView = false
+        onRejected: thisView.isSwapMode = true  // TEST - normal false
         onAccepted: main.openSwapSettings()
         text:       qsTrId("swap-na-message").replace("\\n", "\n")
     }
@@ -49,27 +49,27 @@ ColumnLayout {
             font.pixelSize:      18
             font.styleName:      "Bold"; font.weight: Font.Bold
             color:               Style.content_main
-            text:                isSwapView ? qsTrId("wallet-receive-swap-title") : qsTrId("wallet-receive-title")
+            text:                isSwapMode ? qsTrId("wallet-receive-swap-title") : qsTrId("wallet-receive-title")
         }
 
         CustomSwitch {
             id:         mode
             text:       qsTrId("wallet-swap")
             x:          parent.width - width
-            checked:    isSwapView
-            enabled:    !isSwapOnly
+            checked:    isSwapMode
+            visible:    !isSwapOnly
         }
 
         Binding {
             target:     thisView
-            property:   "isSwapView"
+            property:   "isSwapMode"
             value:      mode.checked
         }
     }
 
     function createChild() {
         if (currentView) currentView.destroy();
-        currentView       = Qt.createComponent(isSwapView ? "receive_swap.qml" : "receive_regular.qml").createObject(thisView)
+        currentView       = Qt.createComponent(isSwapMode ? "receive_swap.qml" : "receive_regular.qml").createObject(thisView)
         defaultFocusItem  = currentView.defaultFocusItem
         currentView.defaultFocusItem.forceActiveFocus()
     }

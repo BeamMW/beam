@@ -10,6 +10,8 @@ Item {
     id: offersViewRoot
     anchors.fill: parent
 
+    property var copiedTxParams
+
     SwapOffersViewModel {
         id: viewModel
     }
@@ -17,7 +19,6 @@ Item {
     SFText {
         font.pixelSize: 36
         color: Style.content_main
-        //% "Offers"
         text: qsTrId("offers-title")
     }
 
@@ -42,7 +43,6 @@ Item {
                     font.pixelSize: 18
                     font.styleName: "Bold"; font.weight: Font.Bold
                     color: Style.content_main
-                    //% "Search..."
                     placeholderText: qsTrId("offers-search")
                     inputMethodHints: Qt.ImhNoPredictiveText
                 }
@@ -68,11 +68,10 @@ Item {
                     palette.button: Style.accent_outgoing
                     palette.buttonText: Style.content_opposite
                     icon.source: "qrc:/assets/icon-send-blue.svg"
-                    //% "Create offer"
                     text: qsTrId("offers-create")
 
                     onClicked: {
-                        offersStackView.push(Qt.createComponent("receive.qml"), {"isSwapView": true});
+                        offersStackView.push(Qt.createComponent("receive.qml"), {"isSwapMode": true});
                     }
                 }
             }
@@ -107,40 +106,35 @@ Item {
 
                 TableViewColumn {
                     role: "time"
-                    //% "Last updated"
-                    title: "Last updated"
+                    title: qsTrId("offers-last-updated")
                     width: parent.width / 5
                     movable: false
                 }
 
                 TableViewColumn {
                     role: "id"
-                    //% "Id"
-                    title: "Id"
+                    title: qsTrId("offers-id")
                     width: parent.width / 5
                     movable: false
                 }
 
                 TableViewColumn {
                     role: "amount"
-                    //% "Amount"
-                    title: qsTrId("general-amount")
+                    title: qsTrId("offers-amount")
                     width: parent.width / 5
                     movable: false
                 }
 
                 TableViewColumn {
-                    role: "status"
-                    //% "Status"
-                    title: qsTrId("general-status")
+                    role: "amountSwap"
+                    title: qsTrId("offers-amount-swap")
                     width: parent.width / 5
                     movable: false
                 }
 
                 TableViewColumn {
                     role: "message"
-                    //% "Message"
-                    title: "Message"
+                    title: qsTrId("offers-message")
                     width: parent.width / 5
                     movable: false
                 }
@@ -151,15 +145,38 @@ Item {
                     anchors.right: parent.right
 
                     Rectangle {
+                        anchors.fill: parent                        
+                        color: styleData.selected ? Style.row_selected : Style.background_row_even
+                        visible: styleData.selected ? true : styleData.alternate
+                    }
+                    
+                    MouseArea {
                         anchors.fill: parent
-                        color: Style.background_row_even
-                        visible: styleData.alternate
+                        acceptedButtons: Qt.RightButton
+                        onClicked: {
+                            var item = tableView.model.get(styleData.row);
+                            copiedTxParams = item.rawTxParameters;
+                            contextMenu.popup();
+                        }
                     }
                 }
 
                 itemDelegate: TableItem {
                     text: styleData.value
                     elide: Text.ElideRight
+                }
+
+                ContextMenu {
+                    id: contextMenu
+                    modal: true
+                    dim: false
+                    Action {
+                        text: qsTrId("offers-accept")
+                        icon.source: "qrc:/assets/icon-copy.svg"
+                        onTriggered: {
+                            offersStackView.push(Qt.createComponent("send.qml"), {"isSwapMode": true, "predefinedTxParams": copiedTxParams});
+                        }
+                    }
                 }
             }
         }

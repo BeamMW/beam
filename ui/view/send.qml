@@ -9,8 +9,15 @@ import "controls"
 
 ColumnLayout {
     id: thisView
-    property bool regularMode: true
-    property var  defaultFocusItem: receiverTAInput
+    property bool   isSwapMode: false
+    property var    defaultFocusItem: receiverTAInput
+    property var    predefinedTxParams: undefined
+
+    Component.onCompleted: {
+        if (isSwapMode) {
+            onSwapToken("");
+        }
+    }
 
     Row {
         Layout.alignment:    Qt.AlignHCenter
@@ -21,7 +28,7 @@ ColumnLayout {
             font.pixelSize:  18
             font.styleName:  "Bold"; font.weight: Font.Bold
             color:           Style.content_main
-            text:            regularMode ? qsTrId("send-title") : qsTrId("wallet-send-swap-title") //% "Send Beam" / "Swap"
+            text:            isSwapMode ? qsTrId("wallet-send-swap-title") : qsTrId("send-title") //% "Swap" / "Send Beam"
         }
     }
 
@@ -92,10 +99,10 @@ ColumnLayout {
 
     function onSwapToken(token) {
         if (currentView) currentView.destroy()
-        currentView            = Qt.createComponent("send_swap.qml").createObject(thisView);
+        currentView            = Qt.createComponent("send_swap.qml").createObject(thisView, {"predefinedTxParams": predefinedTxParams});
         currentView.parentView = thisView
         currentView.setToken(token)
-        regularMode = false
+        isSwapMode = true
     }
 
     function onAddress(address) {
@@ -104,14 +111,14 @@ ColumnLayout {
         currentView.parentView = thisView
         defaultFocusItem       = currentView.defaultFocusItem
         currentView.setToken(address)
-        regularMode = true
+        isSwapMode = false
     }
 
     function onBadSwap() {
-         if (currentView) {
+        if (currentView) {
             currentView.destroy()
             receiverTAInput.text = ""
             currentView = undefined
-         }
+        }
     }
 }

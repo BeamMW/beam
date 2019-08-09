@@ -38,6 +38,7 @@ WalletModel::WalletModel(IWalletDB::Ptr walletDB, const std::string& nodeAddr, b
     qRegisterMetaType<beam::wallet::WalletAddress>("beam::wallet::WalletAddress");
     qRegisterMetaType<beam::wallet::ErrorType>("beam::wallet::ErrorType");
     qRegisterMetaType<beam::wallet::TxID>("beam::wallet::TxID");
+    qRegisterMetaType<beam::wallet::TxParameters>("beam::wallet::TxParameters");
 }
 
 WalletModel::~WalletModel()
