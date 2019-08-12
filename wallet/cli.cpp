@@ -1149,7 +1149,7 @@ namespace
 
     int HandleBTC(const po::variables_map& vm, const IWalletDB::Ptr& walletDB)
     {
-        BitcoinSettingsProvider settingsProvider{ walletDB };
+        bitcoin::BitcoinSettingsProvider settingsProvider{ walletDB };
 
         if (vm.count(cli::ALTCOIN_SETTINGS_RESET))
         {
@@ -1573,7 +1573,7 @@ int main_impl(int argc, char* argv[])
                         auto swapTransactionCreator = std::make_shared<AtomicSwapTransaction::Creator>();
                         wallet.RegisterTransactionType(TxType::AtomicSwap, std::static_pointer_cast<BaseTransaction::Creator>(swapTransactionCreator));
 
-                        auto settingsProvider = std::make_shared<BitcoinSettingsProvider>(walletDB);
+                        auto settingsProvider = std::make_shared<bitcoin::BitcoinSettingsProvider>(walletDB);
                         if (settingsProvider->GetSettings().IsInitialized())
                         {
                             auto bitcoinBridge = std::make_shared<bitcoin::Bitcoind017>(io::Reactor::get_Current(), settingsProvider);

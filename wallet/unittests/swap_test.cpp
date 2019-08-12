@@ -135,7 +135,7 @@ namespace
 
 void InitBitcoin(Wallet& wallet, IWalletDB::Ptr walletDB, io::Reactor& reactor, std::shared_ptr<bitcoin::Settings> settings)
 {
-    auto settingsProvider = std::make_shared<BitcoinSettingsProvider>(walletDB);
+    auto settingsProvider = std::make_shared<bitcoin::BitcoinSettingsProvider>(walletDB);
     settingsProvider->SetSettings(*settings);
 
     auto creator = std::make_shared<AtomicSwapTransaction::Creator>();
