@@ -45,6 +45,10 @@ namespace beam
         const char* PASS = "pass";
         const char* BTC_PASS = "btc_pass";
         const char* BTC_USER_NAME = "btc_user";
+        const char* BTC_SETTINGS = "btc_settings";
+        const char* ALTCOIN_SETTINGS_SET = "set";
+        const char* ALTCOIN_SETTINGS_RESET = "reset";
+        const char* ALTCOIN_SETTINGS_SHOW = "show";
         const char* LTC_PASS = "ltc_pass";
         const char* LTC_USER_NAME = "ltc_user";
         const char* QTUM_PASS = "qtum_pass";
@@ -256,6 +260,10 @@ namespace beam
 
         po::options_description swap_options("Atomic swap options");
         swap_options.add_options()
+            (cli::BTC_SETTINGS, po::value<std::string>(), "command to work with BTC settings. Subcommand to execute [show|set|reset]")
+            (cli::ALTCOIN_SETTINGS_SET, "set new altcoin's settings")
+            (cli::ALTCOIN_SETTINGS_RESET, "reset altcoin's settings")
+            (cli::ALTCOIN_SETTINGS_SHOW, "show altcoin's settings")
             (cli::BTC_NODE_ADDR, po::value<string>(), "address of bitcoin node")
             (cli::BTC_USER_NAME, po::value<string>(), "user name for the bitcoin node")
             (cli::BTC_PASS, po::value<string>(), "password for the bitcoin node")

@@ -47,11 +47,10 @@ namespace beam::bitcoin
     
     Client::Client(wallet::IWalletDB::Ptr walletDB, io::Reactor& reactor)
         : m_status(Status::Uninitialized)
-        , m_walletDB(walletDB)
         , m_reactor(reactor)
         , m_async{ std::make_shared<BitcoinClientBridge>(*(static_cast<IClientAsync*>(this)), reactor) }
+        , m_settingsProvider{ std::make_unique<BitcoinSettingsProvider>(walletDB) }
     {
-        LoadSettings();
     }
 
     IClientAsync::Ptr Client::GetAsync()
@@ -62,27 +61,19 @@ namespace beam::bitcoin
     BitcoindSettings Client::GetBitcoindSettings() const
     {
         Lock lock(m_mutex);
-        assert(m_settings);
-        return m_settings->GetConnectionOptions();
+        return m_settingsProvider->GetBitcoindSettings();
     }
 
     Settings Client::GetSettings() const
     {
         Lock lock(m_mutex);
-        assert(m_settings);
-        return *m_settings;
+        return m_settingsProvider->GetSettings();
     }
 
     void Client::SetSettings(const Settings& settings)
     {
         Lock lock(m_mutex);
-
-        // store to DB
-        auto buffer = wallet::toByteBuffer(settings);
-        m_walletDB->setVarRaw(kBitcoinSettingsName, buffer.data(), static_cast<int>(buffer.size()));
-
-        // update m_settings
-        m_settings = std::make_unique<Settings>(settings);
+        m_settingsProvider->SetSettings(settings);
     }
 
     void Client::GetStatus()
@@ -115,37 +106,10 @@ namespace beam::bitcoin
     {
         {
             Lock lock(m_mutex);
-
-            // remove from DB
-            m_walletDB->removeVarRaw(kBitcoinSettingsName);
-
-            m_settings = std::make_unique<Settings>();
+            m_settingsProvider->ResetSettings();
         }
 
         SetStatus(Status::Uninitialized);
-    }
-
-    void Client::LoadSettings()
-    {
-        if (!m_settings)
-        {
-            m_settings = std::make_unique<Settings>();
-
-            // load from DB or use default
-            ByteBuffer settings;
-            m_walletDB->getBlob(kBitcoinSettingsName, settings);
-
-            if (!settings.empty())
-            {
-                Deserializer d;
-                d.reset(settings.data(), settings.size());
-                d& *m_settings;
-
-                assert(m_settings->GetFeeRate() > 0);
-                assert(m_settings->GetMinFeeRate() > 0);
-                assert(m_settings->GetMinFeeRate() <= m_settings->GetFeeRate());
-            }
-        }
     }
 
     void Client::SetStatus(const Status& status)

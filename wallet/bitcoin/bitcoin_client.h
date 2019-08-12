@@ -69,18 +69,18 @@ namespace beam::bitcoin
         // IClientAsync
         void GetStatus() override;
         void GetBalance() override;
+
+        // ISettingsProvider
         void ResetSettings() override;
 
-        void LoadSettings();
         void SetStatus(const Status& status);
 
     private:
         Status m_status;
-        wallet::IWalletDB::Ptr m_walletDB;
         io::Reactor& m_reactor;
         IClientAsync::Ptr m_async;
-        std::unique_ptr<Settings> m_settings;
         IBridge::Ptr m_bridge;
+        std::unique_ptr<BitcoinSettingsProvider> m_settingsProvider;
 
         mutable std::mutex m_mutex;
         using Lock = std::unique_lock<std::mutex>;

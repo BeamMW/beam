@@ -40,6 +40,10 @@ namespace beam
         extern const char* PASS;
         extern const char* BTC_PASS;
         extern const char* BTC_USER_NAME;
+        extern const char* BTC_SETTINGS;
+        extern const char* ALTCOIN_SETTINGS_SET;
+        extern const char* ALTCOIN_SETTINGS_RESET;
+        extern const char* ALTCOIN_SETTINGS_SHOW;
         extern const char* LTC_PASS;
         extern const char* LTC_USER_NAME;
         extern const char* QTUM_PASS;

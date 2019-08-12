@@ -14,6 +14,11 @@
 
 #include "bitcoin_settings.h"
 
+namespace
+{
+    const char* kBitcoinSettingsName = "BTCSettings";
+}
+
 namespace beam::bitcoin
 {
     const BitcoindSettings& Settings::GetConnectionOptions() const
@@ -79,5 +84,64 @@ namespace beam::bitcoin
     void Settings::SetChainType(wallet::SwapSecondSideChainType chainType)
     {
         m_chainType = chainType;
+    }
+
+    BitcoinSettingsProvider::BitcoinSettingsProvider(wallet::IWalletDB::Ptr walletDB)
+        : m_walletDB(walletDB)
+    {
+        LoadSettings();
+    }
+    
+    BitcoindSettings BitcoinSettingsProvider::GetBitcoindSettings() const
+    {
+        assert(m_settings);
+        return m_settings->GetConnectionOptions();
+    }
+
+    Settings BitcoinSettingsProvider::GetSettings() const
+    {
+        assert(m_settings);
+        return *m_settings;
+    }
+
+    void BitcoinSettingsProvider::SetSettings(const Settings& settings)
+    {
+        // store to DB
+        auto buffer = wallet::toByteBuffer(settings);
+        m_walletDB->setVarRaw(kBitcoinSettingsName, buffer.data(), static_cast<int>(buffer.size()));
+
+        // update m_settings
+        m_settings = std::make_unique<Settings>(settings);
+    }
+
+    void BitcoinSettingsProvider::ResetSettings()
+    {
+        // remove from DB
+        m_walletDB->removeVarRaw(kBitcoinSettingsName);
+
+        m_settings = std::make_unique<Settings>();
+    }
+
+    void BitcoinSettingsProvider::LoadSettings()
+    {
+        if (!m_settings)
+        {
+            m_settings = std::make_unique<Settings>();
+
+            // load from DB or use default
+            ByteBuffer settings;
+            m_walletDB->getBlob(kBitcoinSettingsName, settings);
+
+            if (!settings.empty())
+            {
+                Deserializer d;
+                d.reset(settings.data(), settings.size());
+                d& *m_settings;
+
+                assert(m_settings->GetFeeRate() > 0);
+                assert(m_settings->GetMinFeeRate() > 0);
+                assert(m_settings->GetMinFeeRate() <= m_settings->GetFeeRate());
+            }
+        }
     }
 } // namespace beam::bitcoin

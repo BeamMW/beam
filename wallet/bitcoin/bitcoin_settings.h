@@ -18,6 +18,7 @@
 #include "utility/io/address.h"
 #include "utility/common.h"
 #include "wallet/common.h"
+#include "wallet/wallet_db.h"
 
 namespace beam::bitcoin
 {
@@ -81,7 +82,7 @@ namespace beam::bitcoin
         void SetLockTimeInBlocks(uint32_t lockTimeInBlocks);
         void SetChainType(wallet::SwapSecondSideChainType chainType);
 
-        SERIALIZE(m_connectionSettings, m_feeRate, m_txMinConfirmations, m_chainType, m_lockTimeInBlocks);
+        SERIALIZE(m_connectionSettings, m_feeRate, m_minFeeRate, m_txMinConfirmations, m_chainType, m_lockTimeInBlocks);
 
     protected:
         BitcoindSettings m_connectionSettings;
@@ -100,5 +101,25 @@ namespace beam::bitcoin
 
         virtual Settings GetSettings() const = 0;
         virtual void SetSettings(const Settings& settings) = 0;
+        virtual void ResetSettings() = 0;
+    };
+
+    class BitcoinSettingsProvider
+        : public ISettingsProvider
+    {
+    public:
+        BitcoinSettingsProvider(wallet::IWalletDB::Ptr walletDB);
+
+        BitcoindSettings GetBitcoindSettings() const override;
+        Settings GetSettings() const override;
+        void SetSettings(const Settings& settings) override;
+        void ResetSettings() override;
+
+    protected:
+        void LoadSettings();
+
+    private:
+        wallet::IWalletDB::Ptr m_walletDB;
+        std::unique_ptr<Settings> m_settings;
     };
 } // namespace beam::bitcoin
