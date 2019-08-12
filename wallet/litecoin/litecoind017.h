@@ -17,9 +17,9 @@
 #include "wallet/bitcoin/bitcoind017.h"
 #include "litecoin_settings.h"
 
-namespace beam
+namespace beam::litecoin
 {
-    class Litecoind017 : public Bitcoind017
+    class Litecoind017 : public bitcoin::Bitcoind017
     {
     public:
         Litecoind017() = delete;
@@ -28,4 +28,4 @@ namespace beam
     protected:
         std::string getCoinName() const override;
     };
-}
+} // namespace beam::litecoin

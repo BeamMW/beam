@@ -989,11 +989,11 @@ namespace
         return swapSecondSideChainType;
     }
 
-    std::shared_ptr<BitcoinSettings> ParseBitcoinSettings(const po::variables_map& vm)
+    std::shared_ptr<bitcoin::Settings> ParseBitcoinSettings(const po::variables_map& vm)
     {
         if (vm.count(cli::BTC_NODE_ADDR) > 0 || vm.count(cli::BTC_USER_NAME) > 0 || vm.count(cli::BTC_PASS) > 0)
         {
-            BitcoindSettings bitcoindSettings;
+            bitcoin::BitcoindSettings bitcoindSettings;
 
             string btcNodeUri = vm[cli::BTC_NODE_ADDR].as<string>();
             if (!bitcoindSettings.m_address.resolve(btcNodeUri.c_str()))
@@ -1021,7 +1021,7 @@ namespace
                 throw std::runtime_error("swap fee rate is missing");
             }
 
-            auto btcSettings = std::make_shared<BitcoinSettings>();
+            auto btcSettings = std::make_shared<bitcoin::Settings>();
             btcSettings->SetConnectionOptions(bitcoindSettings);
             btcSettings->SetFeeRate(vm[cli::SWAP_FEERATE].as<Positive<Amount>>().value);
 
@@ -1037,11 +1037,11 @@ namespace
         return nullptr;
     }
 
-    std::shared_ptr<LitecoinSettings> ParseLitecoinSettings(const po::variables_map& vm)
+    std::shared_ptr<litecoin::Settings> ParseLitecoinSettings(const po::variables_map& vm)
     {
         if (vm.count(cli::LTC_NODE_ADDR) > 0 || vm.count(cli::LTC_USER_NAME) > 0 || vm.count(cli::LTC_PASS) > 0)
         {
-            LitecoindSettings litecoindSettings;
+            litecoin::LitecoindSettings litecoindSettings;
 
             string ltcNodeUri = vm[cli::LTC_NODE_ADDR].as<string>();
             if (!litecoindSettings.m_address.resolve(ltcNodeUri.c_str()))
@@ -1069,7 +1069,7 @@ namespace
                 throw std::runtime_error("swap fee rate is missing");
             }
 
-            auto ltcSettings = std::make_shared<LitecoinSettings>();
+            auto ltcSettings = std::make_shared<litecoin::Settings>();
             ltcSettings->SetConnectionOptions(litecoindSettings);
             ltcSettings->SetFeeRate(vm[cli::SWAP_FEERATE].as<Positive<Amount>>().value);
 
@@ -1085,11 +1085,11 @@ namespace
         return nullptr;
     }
 
-    std::shared_ptr<QtumSettings> ParseQtumSettings(const po::variables_map& vm)
+    std::shared_ptr<qtum::Settings> ParseQtumSettings(const po::variables_map& vm)
     {
         if (vm.count(cli::QTUM_NODE_ADDR) > 0 || vm.count(cli::QTUM_USER_NAME) > 0 || vm.count(cli::QTUM_PASS) > 0)
         {
-            QtumdSettings qtumdSettings;
+            qtum::QtumdSettings qtumdSettings;
 
             string qtumNodeUri = vm[cli::QTUM_NODE_ADDR].as<string>();
             if (!qtumdSettings.m_address.resolve(qtumNodeUri.c_str()))
@@ -1117,7 +1117,7 @@ namespace
                 throw std::runtime_error("swap fee rate is missing");
             }
 
-            auto qtumSettings = std::make_shared<QtumSettings>();
+            auto qtumSettings = std::make_shared<qtum::Settings>();
             qtumSettings->SetConnectionOptions(qtumdSettings);
             qtumSettings->SetFeeRate(vm[cli::SWAP_FEERATE].as<Positive<Amount>>().value);
 
@@ -1133,31 +1133,31 @@ namespace
         return nullptr;
     }
 
-    class BitcoinSettingsProvider : public IBitcoinSettingsProvider
+    class BitcoinSettingsProvider : public bitcoin::ISettingsProvider
     {
     public:
-        BitcoinSettingsProvider(const BitcoinSettings& settings)
+        BitcoinSettingsProvider(const bitcoin::Settings& settings)
             : m_settings{ settings }
         {
         }
 
-        BitcoindSettings GetBitcoindSettings() const override
+        bitcoin::BitcoindSettings GetBitcoindSettings() const override
         {
             return m_settings.GetConnectionOptions();
         }
 
-        BitcoinSettings GetSettings() const override
+        bitcoin::Settings GetSettings() const override
         {
             return m_settings;
         }
 
-        void SetSettings(const BitcoinSettings& settings) override
+        void SetSettings(const bitcoin::Settings& settings) override
         {
             assert(false && "readonly object!");
         }
 
     private:
-        BitcoinSettings m_settings;
+        bitcoin::Settings m_settings;
     };
 }
 
@@ -1549,24 +1549,24 @@ int main_impl(int argc, char* argv[])
                         if (btcSettings)
                         {
                             auto settingsProvider = std::make_shared<BitcoinSettingsProvider>(*btcSettings);
-                            auto bitcoinBridge = std::make_shared<Bitcoind017>(io::Reactor::get_Current(), settingsProvider);
-                            auto btcSecondSideFactory = wallet::MakeSecondSideFactory<BitcoinSide, Bitcoind017, IBitcoinSettingsProvider>(bitcoinBridge, settingsProvider);
+                            auto bitcoinBridge = std::make_shared<bitcoin::Bitcoind017>(io::Reactor::get_Current(), settingsProvider);
+                            auto btcSecondSideFactory = wallet::MakeSecondSideFactory<BitcoinSide, bitcoin::Bitcoind017, bitcoin::ISettingsProvider>(bitcoinBridge, settingsProvider);
                             swapTransactionCreator->RegisterFactory(AtomicSwapCoin::Bitcoin, btcSecondSideFactory);
                         }
 
                         if (ltcSettings)
                         {
                             auto settingsProvider = std::make_shared<BitcoinSettingsProvider>(*ltcSettings);
-                            auto litecoinBridge = std::make_shared<Litecoind017>(io::Reactor::get_Current(), settingsProvider);
-                            auto ltcSecondSideFactory = wallet::MakeSecondSideFactory<LitecoinSide, Litecoind017, ILitecoinSettingsProvider>(litecoinBridge, settingsProvider);
+                            auto litecoinBridge = std::make_shared<litecoin::Litecoind017>(io::Reactor::get_Current(), settingsProvider);
+                            auto ltcSecondSideFactory = wallet::MakeSecondSideFactory<LitecoinSide, litecoin::Litecoind017, litecoin::ISettingsProvider>(litecoinBridge, settingsProvider);
                             swapTransactionCreator->RegisterFactory(AtomicSwapCoin::Litecoin, ltcSecondSideFactory);
                         }
 
                         if (qtumSettings)
                         {
                             auto settingsProvider = std::make_shared<BitcoinSettingsProvider>(*qtumSettings);
-                            auto qtumBridge = std::make_shared<Qtumd017>(io::Reactor::get_Current(), settingsProvider);
-                            auto qtumSecondSideFactory = wallet::MakeSecondSideFactory<QtumSide, Qtumd017, IQtumSettingsProvider>(qtumBridge, settingsProvider);
+                            auto qtumBridge = std::make_shared<qtum::Qtumd017>(io::Reactor::get_Current(), settingsProvider);
+                            auto qtumSecondSideFactory = wallet::MakeSecondSideFactory<QtumSide, qtum::Qtumd017, qtum::ISettingsProvider>(qtumBridge, settingsProvider);
                             swapTransactionCreator->RegisterFactory(AtomicSwapCoin::Qtum, qtumSecondSideFactory);
                         }
 

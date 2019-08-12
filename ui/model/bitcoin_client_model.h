@@ -19,7 +19,7 @@
 
 class BitcoinClientModel
     : public QObject
-    , public beam::BitcoinClient
+    , public beam::bitcoin::Client
 {
     Q_OBJECT
 public:
@@ -28,10 +28,10 @@ public:
     BitcoinClientModel(beam::wallet::IWalletDB::Ptr walletDB, beam::io::Reactor& reactor);
 
 signals:
-    void GotStatus(beam::BitcoinClient::Status status);
-    void GotBalance(const beam::BitcoinClient::Balance& balance);
+    void GotStatus(beam::bitcoin::Client::Status status);
+    void GotBalance(const beam::bitcoin::Client::Balance& balance);
 
 private:
     void OnStatus(Status status) override;
-    void OnBalance(const BitcoinClient::Balance& balance) override;
+    void OnBalance(const Client::Balance& balance) override;
 };

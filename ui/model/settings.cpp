@@ -382,7 +382,7 @@ namespace
     const char* kSwapSecondSideChainType = "swap/chain_type";
 }
 
-std::shared_ptr<beam::BitcoinSettings> WalletSettings::getBitcoinSettings() const
+std::shared_ptr<beam::bitcoin::Settings> WalletSettings::getBitcoinSettings() const
 {
     std::string btcNodeUri, userName, password;
     beam::Amount feeRate = 0;
@@ -399,7 +399,7 @@ std::shared_ptr<beam::BitcoinSettings> WalletSettings::getBitcoinSettings() cons
         return {};
     }
 
-    beam::BitcoindSettings bitcoindSettings;
+    beam::bitcoin::BitcoindSettings bitcoindSettings;
 
     if (!bitcoindSettings.m_address.resolve(btcNodeUri.c_str()))
     {
@@ -409,7 +409,7 @@ std::shared_ptr<beam::BitcoinSettings> WalletSettings::getBitcoinSettings() cons
     bitcoindSettings.m_userName = userName;
     bitcoindSettings.m_pass = password;
 
-    auto btcSettings = make_shared<beam::BitcoinSettings>();
+    auto btcSettings = make_shared<beam::bitcoin::Settings>();
     btcSettings->SetConnectionOptions(bitcoindSettings);
     btcSettings->SetFeeRate(feeRate);
 

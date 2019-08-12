@@ -191,7 +191,7 @@ private:
     int m_currentLanguageIndex;
     int m_timerId;
 
-    boost::optional<beam::BitcoinSettings> m_bitcoinSettings;
+    boost::optional<beam::bitcoin::Settings> m_bitcoinSettings;
     QString m_bitcoinUser;
     QString m_bitcoinPass;
     QString m_bitcoinNodeAddress;

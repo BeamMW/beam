@@ -19,10 +19,10 @@ using namespace beam;
 
 
 BitcoinClientModel::BitcoinClientModel(wallet::IWalletDB::Ptr walletDB, io::Reactor& reactor)
-    : BitcoinClient(walletDB, reactor)
+    : bitcoin::Client(walletDB, reactor)
 {
-    qRegisterMetaType<beam::BitcoinClient::Status>("beam::BitcoinClient::Status");
-    qRegisterMetaType<beam::BitcoinClient::Balance>("beam::BitcoinClient::Balance");
+    qRegisterMetaType<beam::bitcoin::Client::Status>("beam::bitcoin::Client::Status");
+    qRegisterMetaType<beam::bitcoin::Client::Balance>("beam::bitcoin::Client::Balance");
 }
 
 void BitcoinClientModel::OnStatus(Status status)
@@ -30,7 +30,7 @@ void BitcoinClientModel::OnStatus(Status status)
     emit GotStatus(status);
 }
 
-void BitcoinClientModel::OnBalance(const BitcoinClient::Balance& balance)
+void BitcoinClientModel::OnBalance(const bitcoin::Client::Balance& balance)
 {
     emit GotBalance(balance);
 }

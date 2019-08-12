@@ -23,57 +23,57 @@ namespace
     const char* kBitcoinSettingsName = "BTCSettings";
 }
 
-namespace beam
+namespace beam::bitcoin
 {
-    struct BitcoinClientBridge : public Bridge<IBitcoinClientAsync>
+    struct BitcoinClientBridge : public Bridge<IClientAsync>
     {
         BRIDGE_INIT(BitcoinClientBridge);
 
         void GetStatus()
         {
-            call_async(&IBitcoinClientAsync::GetStatus);
+            call_async(&IClientAsync::GetStatus);
         }
 
         void GetBalance()
         {
-            call_async(&IBitcoinClientAsync::GetBalance);
+            call_async(&IClientAsync::GetBalance);
         }
 
         void ResetSettings()
         {
-            call_async(&IBitcoinClientAsync::ResetSettings);
+            call_async(&IClientAsync::ResetSettings);
         }
     };
     
-    BitcoinClient::BitcoinClient(wallet::IWalletDB::Ptr walletDB, io::Reactor& reactor)
+    Client::Client(wallet::IWalletDB::Ptr walletDB, io::Reactor& reactor)
         : m_status(Status::Uninitialized)
         , m_walletDB(walletDB)
         , m_reactor(reactor)
-        , m_async{ std::make_shared<BitcoinClientBridge>(*(static_cast<IBitcoinClientAsync*>(this)), reactor) }
+        , m_async{ std::make_shared<BitcoinClientBridge>(*(static_cast<IClientAsync*>(this)), reactor) }
     {
         LoadSettings();
     }
 
-    IBitcoinClientAsync::Ptr BitcoinClient::GetAsync()
+    IClientAsync::Ptr Client::GetAsync()
     {
         return m_async;
     }
 
-    BitcoindSettings BitcoinClient::GetBitcoindSettings() const
+    BitcoindSettings Client::GetBitcoindSettings() const
     {
         Lock lock(m_mutex);
         assert(m_settings);
         return m_settings->GetConnectionOptions();
     }
 
-    BitcoinSettings BitcoinClient::GetSettings() const
+    Settings Client::GetSettings() const
     {
         Lock lock(m_mutex);
         assert(m_settings);
         return *m_settings;
     }
 
-    void BitcoinClient::SetSettings(const BitcoinSettings& settings)
+    void Client::SetSettings(const Settings& settings)
     {
         Lock lock(m_mutex);
 
@@ -82,25 +82,25 @@ namespace beam
         m_walletDB->setVarRaw(kBitcoinSettingsName, buffer.data(), static_cast<int>(buffer.size()));
 
         // update m_settings
-        m_settings = std::make_unique<BitcoinSettings>(settings);
+        m_settings = std::make_unique<Settings>(settings);
     }
 
-    void BitcoinClient::GetStatus()
+    void Client::GetStatus()
     {
         OnStatus(m_status);
     }
 
-    void BitcoinClient::GetBalance()
+    void Client::GetBalance()
     {
         if (!m_bridge)
         {
             m_bridge = std::make_shared<Bitcoind017>(m_reactor, shared_from_this());
         }
 
-        m_bridge->getDetailedBalance([this] (const IBitcoinBridge::Error& error, double confirmed, double unconfirmed, double immature)
+        m_bridge->getDetailedBalance([this] (const IBridge::Error& error, double confirmed, double unconfirmed, double immature)
         {
             // TODO: check error and update status
-            SetStatus((error.m_type != IBitcoinBridge::None) ? Status::Failed : Status::Connected);
+            SetStatus((error.m_type != IBridge::None) ? Status::Failed : Status::Connected);
 
             Balance balance;
             balance.m_available = confirmed;
@@ -111,7 +111,7 @@ namespace beam
         });
     }
 
-    void BitcoinClient::ResetSettings()
+    void Client::ResetSettings()
     {
         {
             Lock lock(m_mutex);
@@ -119,17 +119,17 @@ namespace beam
             // remove from DB
             m_walletDB->removeVarRaw(kBitcoinSettingsName);
 
-            m_settings = std::make_unique<BitcoinSettings>();
+            m_settings = std::make_unique<Settings>();
         }
 
         SetStatus(Status::Uninitialized);
     }
 
-    void BitcoinClient::LoadSettings()
+    void Client::LoadSettings()
     {
         if (!m_settings)
         {
-            m_settings = std::make_unique<BitcoinSettings>();
+            m_settings = std::make_unique<Settings>();
 
             // load from DB or use default
             ByteBuffer settings;
@@ -148,9 +148,9 @@ namespace beam
         }
     }
 
-    void BitcoinClient::SetStatus(const Status& status)
+    void Client::SetStatus(const Status& status)
     {
         m_status = status;
         OnStatus(m_status);
     }
-}
+} // namespace beam::bitcoin

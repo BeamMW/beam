@@ -16,7 +16,7 @@
 
 #include "bitcoin/bitcoin.hpp"
 
-namespace beam
+namespace beam::qtum
 {
     Qtumd017::Qtumd017(io::Reactor& reactor, IQtumdSettingsProvider::Ptr settingsProvider)
         : Bitcoind017(reactor, settingsProvider)
@@ -27,4 +27,4 @@ namespace beam
     {
         return "qtum";
     }
-}
+} // namespace beam::qtum

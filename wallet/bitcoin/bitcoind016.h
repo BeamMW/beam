@@ -18,9 +18,9 @@
 #include "http/http_client.h"
 #include "bitcoin_settings.h"
 
-namespace beam
+namespace beam::bitcoin
 {
-    class Bitcoind016: public IBitcoinBridge
+    class Bitcoind016: public IBridge
     {
     public:
         Bitcoind016() = delete;
@@ -51,4 +51,4 @@ namespace beam
         HttpClient m_httpClient;
         IBitcoindSettingsProvider::Ptr m_settingsProvider;
     };
-}
+} // namespace beam::bitcoin

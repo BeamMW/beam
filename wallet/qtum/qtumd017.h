@@ -17,9 +17,9 @@
 #include "wallet/bitcoin/bitcoind017.h"
 #include "qtum_settings.h"
 
-namespace beam
+namespace beam::qtum
 {
-    class Qtumd017 : public Bitcoind017
+    class Qtumd017 : public bitcoin::Bitcoind017
     {
     public:
         Qtumd017() = delete;
@@ -28,4 +28,4 @@ namespace beam
     protected:
         std::string getCoinName() const override;
     };
-}
+} // namespace beam::qtum

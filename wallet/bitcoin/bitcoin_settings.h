@@ -19,7 +19,7 @@
 #include "utility/common.h"
 #include "wallet/common.h"
 
-namespace beam
+namespace beam::bitcoin
 {
     struct BitcoindSettings
     {
@@ -45,12 +45,12 @@ namespace beam
         virtual BitcoindSettings GetBitcoindSettings() const = 0;
     };
 
-    class IBitcoinSettings
+    class ISettings
     {
     public:
-        using Ptr = std::shared_ptr<IBitcoinSettings>;
+        using Ptr = std::shared_ptr<ISettings>;
         
-        virtual ~IBitcoinSettings() {};
+        virtual ~ISettings() {};
 
         virtual const BitcoindSettings& GetConnectionOptions() const = 0;
         virtual Amount GetFeeRate() const = 0;
@@ -61,11 +61,11 @@ namespace beam
         virtual bool IsInitialized() const = 0;
     };
 
-    class BitcoinSettings : public IBitcoinSettings
+    class Settings : public ISettings
     {
     public:
-       // BitcoinSettings() = default;
-       // ~BitcoinSettings() = default;
+       // Settings() = default;
+       // ~Settings() = default;
         const BitcoindSettings& GetConnectionOptions() const override;
         Amount GetFeeRate() const override;
         Amount GetMinFeeRate() const override;
@@ -92,13 +92,13 @@ namespace beam
         uint32_t m_lockTimeInBlocks = 2 * 24 * 6;
     };
 
-    class IBitcoinSettingsProvider
+    class ISettingsProvider
         : public IBitcoindSettingsProvider
     {
     public:
-        using Ptr = std::shared_ptr<IBitcoinSettingsProvider>;
+        using Ptr = std::shared_ptr<ISettingsProvider>;
 
-        virtual BitcoinSettings GetSettings() const = 0;
-        virtual void SetSettings(const BitcoinSettings& settings) = 0;
+        virtual Settings GetSettings() const = 0;
+        virtual void SetSettings(const Settings& settings) = 0;
     };
-}
+} // namespace beam::bitcoin

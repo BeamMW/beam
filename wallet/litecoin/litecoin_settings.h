@@ -16,21 +16,21 @@
 
 #include "wallet/bitcoin/bitcoin_settings.h"
 
-namespace beam
+namespace beam::litecoin
 {
-    using ILitecoindSettingsProvider = IBitcoindSettingsProvider;
-    using ILitecoinSettingsProvider = IBitcoinSettingsProvider;
-    using LitecoindSettings = BitcoindSettings;
+    using ILitecoindSettingsProvider = bitcoin::IBitcoindSettingsProvider;
+    using ISettingsProvider = bitcoin::ISettingsProvider;
+    using LitecoindSettings = bitcoin::BitcoindSettings;
 
-    class LitecoinSettings : public BitcoinSettings
+    class Settings : public bitcoin::Settings
     {
     public:
-        LitecoinSettings()
-            : BitcoinSettings()
+        Settings()
+            : bitcoin::Settings()
         {
             constexpr uint32_t kLTCDefaultLockTimeInBlocks = 2 * 24 * 4 * 6;
             SetLockTimeInBlocks(kLTCDefaultLockTimeInBlocks);
             SetMinFeeRate(90000);
         }
     };
-}
+} //namespace beam::litecoin

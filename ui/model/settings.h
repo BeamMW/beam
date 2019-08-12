@@ -64,7 +64,7 @@ public:
     static QStringList getSupportedLanguages();
     static void openFolder(const QString& path);
 
-    std::shared_ptr<beam::BitcoinSettings> getBitcoinSettings() const;
+    std::shared_ptr<beam::bitcoin::Settings> getBitcoinSettings() const;
 
 public:
     static const char* WalletCfg;

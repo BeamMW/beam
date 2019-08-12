@@ -16,10 +16,10 @@
 
 #include "bitcoin/bitcoin.hpp"
 
-namespace beam
+namespace beam::litecoin
 {
     Litecoind016::Litecoind016(io::Reactor& reactor, ILitecoindSettingsProvider::Ptr settingsProvider)
-        : Bitcoind016(reactor, settingsProvider)
+        : bitcoin::Bitcoind016(reactor, settingsProvider)
     {
     }
 
@@ -27,4 +27,4 @@ namespace beam
     {
         return "litecoin";
     }
-}
+} // namespace beam::litecoin

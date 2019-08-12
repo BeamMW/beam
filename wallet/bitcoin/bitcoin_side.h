@@ -28,7 +28,7 @@ namespace beam::wallet
     class BitcoinSide : public SecondSide, public std::enable_shared_from_this<BitcoinSide>
     {
     public:
-        BitcoinSide(BaseTransaction& tx, IBitcoinBridge::Ptr bitcoinBridge, IBitcoinSettingsProvider::Ptr settingsProvider, bool isBeamSide);
+        BitcoinSide(BaseTransaction& tx, bitcoin::IBridge::Ptr bitcoinBridge, bitcoin::ISettingsProvider::Ptr settingsProvider, bool isBeamSide);
 
         bool Initialize() override;
         bool InitLockTime() override;
@@ -64,20 +64,20 @@ namespace beam::wallet
         bool SendWithdrawTx(SubTxID subTxID);
         uint64_t GetBlockCount();
         std::string GetWithdrawAddress() const;
-        void SetTxError(const IBitcoinBridge::Error& error, SubTxID subTxID);
+        void SetTxError(const bitcoin::IBridge::Error& error, SubTxID subTxID);
 
-        void OnGetRawChangeAddress(const IBitcoinBridge::Error& error, const std::string& address);
-        void OnFundRawTransaction(const IBitcoinBridge::Error& error, const std::string& hexTx, int changePos);
-        void OnSignLockTransaction(const IBitcoinBridge::Error& error, const std::string& hexTx, bool complete);
-        void OnCreateWithdrawTransaction(SubTxID subTxID, const IBitcoinBridge::Error& error, const std::string& hexTx);
-        void OnDumpPrivateKey(SubTxID subTxID, const IBitcoinBridge::Error& error, const std::string& privateKey);
-        void OnGetSwapLockTxConfirmations(const IBitcoinBridge::Error& error, const std::string& hexScript, double amount, uint16_t confirmations);
-        void OnGetBlockCount(const IBitcoinBridge::Error& error, uint64_t blockCount);
+        void OnGetRawChangeAddress(const bitcoin::IBridge::Error& error, const std::string& address);
+        void OnFundRawTransaction(const bitcoin::IBridge::Error& error, const std::string& hexTx, int changePos);
+        void OnSignLockTransaction(const bitcoin::IBridge::Error& error, const std::string& hexTx, bool complete);
+        void OnCreateWithdrawTransaction(SubTxID subTxID, const bitcoin::IBridge::Error& error, const std::string& hexTx);
+        void OnDumpPrivateKey(SubTxID subTxID, const bitcoin::IBridge::Error& error, const std::string& privateKey);
+        void OnGetSwapLockTxConfirmations(const bitcoin::IBridge::Error& error, const std::string& hexScript, double amount, uint16_t confirmations);
+        void OnGetBlockCount(const bitcoin::IBridge::Error& error, uint64_t blockCount);
 
     private:
         BaseTransaction& m_tx;
-        IBitcoinBridge::Ptr m_bitcoinBridge;
-        IBitcoinSettingsProvider::Ptr m_settingsProvider;
+        bitcoin::IBridge::Ptr m_bitcoinBridge;
+        bitcoin::ISettingsProvider::Ptr m_settingsProvider;
         bool m_isBtcOwner;
         uint64_t m_blockCount = 0;
 
@@ -85,5 +85,4 @@ namespace beam::wallet
         boost::optional<std::string> m_SwapLockRawTx;
         boost::optional<std::string> m_SwapWithdrawRawTx;
     };
-
 }

@@ -20,22 +20,22 @@
 
 using json = nlohmann::json;
 
-namespace beam
+namespace beam::bitcoin
 {
     Bitcoind017::Bitcoind017(io::Reactor& reactor, IBitcoindSettingsProvider::Ptr settingsProvider)
         : Bitcoind016(reactor, settingsProvider)
     {
     }
 
-    void Bitcoind017::signRawTransaction(const std::string& rawTx, std::function<void(const IBitcoinBridge::Error&, const std::string&, bool)> callback)
+    void Bitcoind017::signRawTransaction(const std::string& rawTx, std::function<void(const IBridge::Error&, const std::string&, bool)> callback)
     {
         LOG_DEBUG() << "Send signrawtransactionwithwallet command";
 
-        sendRequest("signrawtransactionwithwallet", "\"" + rawTx + "\"", [callback](IBitcoinBridge::Error error, const json& result) {
+        sendRequest("signrawtransactionwithwallet", "\"" + rawTx + "\"", [callback](IBridge::Error error, const json& result) {
             std::string hex;
             bool isComplete = false;
 
-            if (error.m_type == IBitcoinBridge::None)
+            if (error.m_type == IBridge::None)
             {
                 try
                 {
@@ -44,7 +44,7 @@ namespace beam
                 }
                 catch (const std::exception& ex)
                 {
-                    error.m_type = IBitcoinBridge::InvalidResultFormat;
+                    error.m_type = IBridge::InvalidResultFormat;
                     error.m_message = ex.what();
                 }
             }
@@ -59,7 +59,7 @@ namespace beam
         uint64_t amount,
         int outputIndex,
         Timestamp locktime,
-        std::function<void(const IBitcoinBridge::Error&, const std::string&)> callback)
+        std::function<void(const IBridge::Error&, const std::string&)> callback)
     {
         LOG_DEBUG() << "Send createRawTransaction command";
 
@@ -70,10 +70,10 @@ namespace beam
         {
             args += "," + std::to_string(locktime);
         }
-        sendRequest("createrawtransaction", args, [callback](IBitcoinBridge::Error error, const json& result) {
+        sendRequest("createrawtransaction", args, [callback](IBridge::Error error, const json& result) {
             std::string tx;
 
-            if (error.m_type == IBitcoinBridge::None)
+            if (error.m_type == IBridge::None)
             {
                 try
                 {
@@ -81,7 +81,7 @@ namespace beam
                 }
                 catch (const std::exception& ex)
                 {
-                    error.m_type = IBitcoinBridge::InvalidResultFormat;
+                    error.m_type = IBridge::InvalidResultFormat;
                     error.m_message = ex.what();
                 }
             }
@@ -89,4 +89,4 @@ namespace beam
             callback(error, tx);
         });
     }
-}
+} // namespace beam::bitcoin

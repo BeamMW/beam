@@ -16,7 +16,7 @@
 
 #include "bitcoind016.h"
 
-namespace beam
+namespace beam::bitcoin
 {
     class Bitcoind017 : public Bitcoind016
     {
@@ -24,13 +24,13 @@ namespace beam
         Bitcoind017() = delete;
         Bitcoind017(io::Reactor& reactor, IBitcoindSettingsProvider::Ptr settingsProvider);
 
-        void signRawTransaction(const std::string& rawTx, std::function<void(const IBitcoinBridge::Error&, const std::string&, bool)> callback) override;
+        void signRawTransaction(const std::string& rawTx, std::function<void(const IBridge::Error&, const std::string&, bool)> callback) override;
         void createRawTransaction(
             const std::string& withdrawAddress,
             const std::string& contractTxId,
             uint64_t amount,
             int outputIndex,
             Timestamp locktime,
-            std::function<void(const IBitcoinBridge::Error&, const std::string&)> callback) override;
+            std::function<void(const IBridge::Error&, const std::string&)> callback) override;
     };
-}
+} // namespace beam::bitcoin
