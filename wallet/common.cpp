@@ -255,7 +255,7 @@ namespace beam::wallet
         m_Signature.Sign(hv, sk);
     }
 
-    TxParameters::TxParameters(const optional<TxID>& txID)
+    TxParameters::TxParameters(const boost::optional<TxID>& txID)
         : m_ID(txID)
     {
 
@@ -272,7 +272,7 @@ namespace beam::wallet
         return !(*this == other);
     }
 
-    std::optional<TxID> TxParameters::GetTxID() const
+    boost::optional<TxID> TxParameters::GetTxID() const
     {
         return m_ID;
     }
@@ -344,7 +344,7 @@ namespace beam::wallet
         return result;
     }
 
-    optional<TxParameters> ParseParameters(const string& text)
+    boost::optional<TxParameters> ParseParameters(const string& text)
     {
         bool isValid = true;
         ByteBuffer buffer = from_hex(text, &isValid);
@@ -372,7 +372,7 @@ namespace beam::wallet
                 d.reset(&buffer[0], buffer.size());
                 d & token;
 
-                return make_optional<TxParameters>(token.UnpackParameters());
+                return boost::make_optional<TxParameters>(token.UnpackParameters());
             }
             catch (...)
             {
@@ -384,7 +384,7 @@ namespace beam::wallet
             WalletID walletID;
             if (walletID.FromBuf(buffer))
             {
-                auto result = make_optional<TxParameters>();
+                boost::optional<TxParameters> result;
                 result->SetParameter(TxParameterID::PeerID, walletID);
                 return result;
             }
