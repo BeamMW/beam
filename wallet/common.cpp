@@ -384,7 +384,7 @@ namespace beam::wallet
             WalletID walletID;
             if (walletID.FromBuf(buffer))
             {
-                boost::optional<TxParameters> result;
+                auto result = boost::make_optional<TxParameters>({});
                 result->SetParameter(TxParameterID::PeerID, walletID);
                 return result;
             }
