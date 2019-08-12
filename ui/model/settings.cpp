@@ -52,6 +52,7 @@ namespace
         { "ja_JP", "日本語"},
         { "ru_RU", "Русский" },
         { "sv_SE", "Svenska"},
+        { "th_TH", "ภาษาไทย"},
         { "tr_TR", "Türkçe"},
         { "vi_VI", "Tiếng việt"},
         { "ko_KR", "한국어"}
