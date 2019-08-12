@@ -125,6 +125,8 @@
     each(amountTrg,        amountTrg,        INTEGER, obj) sep \
     each(amountCurrentMy,  amountCurrentMy,  INTEGER, obj) sep \
     each(amountCurrentTrg, amountCurrentTrg, INTEGER, obj) sep \
+    each(lockHeight,       lockHeight,       INTEGER, obj) sep \
+    each(bbsTimestamp,     bbsTimestamp,     INTEGER, obj) sep \
     each(data,             data,             BLOB, obj)
 
 #define LASER_CHANNEL_FIELDS ENUM_LASER_CHANNEL_FIELDS(LIST, COMMA, )
@@ -2149,6 +2151,40 @@ namespace beam::wallet
         }
     }
 
+    void WalletDB::deleteAddress(const WalletID& id, bool isLaser)
+    {
+        auto address = getAddress(id, isLaser);
+        if (address)
+        {
+            const std::string addrTableName =
+                isLaser ? LASER_ADDRESSES_NAME : ADDRESSES_NAME;
+
+            auto req = "DELETE FROM " + addrTableName + " WHERE walletID=?1;";
+            sqlite::Statement stm(this, req.c_str());
+
+            stm.bind(1, id);
+
+            stm.step();
+
+            if (!isLaser)
+            {
+                deleteAddressFromCache(id);
+
+                notifyAddressChanged(ChangeAction::Removed, {*address});
+            }
+        }
+    }
+
+    void WalletDB::insertAddressToCache(const WalletID& id, const boost::optional<WalletAddress>& address) const
+    {
+        m_AddressesCache[id] = address;
+    }
+
+    void WalletDB::deleteAddressFromCache(const WalletID& id)
+    {
+        m_AddressesCache.erase(id);
+    }
+
     void WalletDB::saveLaserChannel(const ILaserChannelEntity& ch)
     {
         LOG_INFO() << "LASER save channel: "
@@ -2159,7 +2195,7 @@ namespace beam::wallet
 
         if (stm2.step())
         {
-            const char* updateReq = "UPDATE " LASER_CHANNELS_NAME " SET myWID=?2, trgWID=?3, state=?4, fee=?5, locktime=?6, amountMy=?7, amountTrg=?8, amountCurrentMy=?9, amountCurrentTrg=?10, data=?11 WHERE chID=?1;";
+            const char* updateReq = "UPDATE " LASER_CHANNELS_NAME " SET myWID=?2, trgWID=?3, state=?4, fee=?5, locktime=?6, amountMy=?7, amountTrg=?8, amountCurrentMy=?9, amountCurrentTrg=?10, data=?13 WHERE chID=?1;";
             sqlite::Statement stm(this, updateReq);
 
             stm.bind(1, ch.get_chID()->m_pData, ch.get_chID()->nBytes);
@@ -2172,7 +2208,9 @@ namespace beam::wallet
             stm.bind(8, ch.get_amountTrg());
             stm.bind(9, ch.get_amountCurrentMy());
             stm.bind(10, ch.get_amountCurrentTrg());
-            stm.bind(11, ch.get_Data().data(), ch.get_Data().size());
+            stm.bind(11, 0);
+            stm.bind(12, 0);
+            stm.bind(13, ch.get_Data().data(), ch.get_Data().size());
             stm.step();
         }
         else
@@ -2189,7 +2227,9 @@ namespace beam::wallet
             stm.bind(8, ch.get_amountTrg());
             stm.bind(9, ch.get_amountCurrentMy());
             stm.bind(10, ch.get_amountCurrentTrg());
-            stm.bind(11, ch.get_Data().data(), ch.get_Data().size());
+            stm.bind(11, 0);
+            stm.bind(12, 0);
+            stm.bind(13, ch.get_Data().data(), ch.get_Data().size());
             stm.step();
 
             saveAddress(ch.get_myAddr(), true);
@@ -2218,6 +2258,24 @@ namespace beam::wallet
             stm.get(10, std::get<10>(*entity));
             return true;
         }
+        return false;
+    }
+
+    bool WalletDB::removeLaserChannel(const ILaserChannelEntity& ch)
+    {
+        LOG_INFO() << "LASER removing channel: "
+                   << to_hex(ch.get_chID()->m_pData, ch.get_chID()->nBytes);
+
+        const char* selectReq = "DELETE FROM " LASER_CHANNELS_NAME " WHERE chID=?1;";
+        sqlite::Statement stm(this, selectReq);
+        stm.bind(1, ch.get_chID()->m_pData, ch.get_chID()->nBytes);
+
+        if (stm.step())
+        {
+            deleteAddress(ch.get_myWID(), true);
+            return true;
+        }
+
         return false;
     }
 
@@ -2252,34 +2310,6 @@ namespace beam::wallet
         }
 
         return channels;
-    }
-
-    void WalletDB::deleteAddress(const WalletID& id)
-    {
-        auto address = getAddress(id);
-        if (address)
-        {
-            const char* req = "DELETE FROM " ADDRESSES_NAME " WHERE walletID=?1;";
-            sqlite::Statement stm(this, req);
-
-            stm.bind(1, id);
-
-            stm.step();
-
-            deleteAddressFromCache(id);
-
-            notifyAddressChanged(ChangeAction::Removed, {*address});
-        }
-    }
-
-    void WalletDB::insertAddressToCache(const WalletID& id, const boost::optional<WalletAddress>& address) const
-    {
-        m_AddressesCache[id] = address;
-    }
-
-    void WalletDB::deleteAddressFromCache(const WalletID& id)
-    {
-        m_AddressesCache.erase(id);
     }
 
     void WalletDB::subscribe(IWalletDbObserver* observer)

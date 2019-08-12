@@ -70,9 +70,7 @@ void Mediator::OnNewTip()
     else
         ZeroObject(id);
     m_pWalletDB->setSystemStateID(id);
-    LOG_INFO() << "Current state is " << id;
-
-    LOG_INFO() << "LASER New Tip: " << tip.m_Height;
+    LOG_INFO() << "LASER current state is " << id;
 
     for (auto& openIt : m_openQueue)
     {
@@ -81,6 +79,7 @@ void Mediator::OnNewTip()
     m_openQueue.clear();
 
     UpdateChannels();
+    // TODO(zavarza) update timestamp and lheight
 }
 
 void Mediator::OnRolledBack()
@@ -163,6 +162,7 @@ void Mediator::OnMsg(const ChannelIDPtr& chID, Blob&& blob)
     auto& ch = it->second;
 
     ch->OnPeerData(dataIn);
+    // TODO(zavarza) update timestamp and lheight
     
     if (ch->IsStateChanged() &&
         ch->get_State() >= Lightning::Channel::State::Opening1)
@@ -194,8 +194,11 @@ void Mediator::SetNetwork(const proto::FlyClient::NetworkStd::Ptr& net)
     m_pConnection = std::make_shared<Connection>(net);
 }
 
-void Mediator::WaitIncoming()
+void Mediator::WaitIncoming(Amount aMy, Amount fee)
 {
+    m_myInAllowed = aMy;
+    m_feeAllowed = fee;
+
     m_pInputReceiver = std::make_unique<Receiver>(*this, nullptr);
     m_myInAddr = GenerateNewAddress(
         m_pWalletDB,
@@ -214,8 +217,14 @@ bool Mediator::Serve(const std::vector<std::string>& channelIDsStr)
     uint64_t count = 0;
     for (const auto& channelIDStr: channelIDsStr)
     {
+        LOG_INFO() << "Channel: " << channelIDStr << " restore process started";
         auto chId = RestoreChannel(channelIDStr);
-        if (chId) ++count;
+        if (chId)
+        {
+            LOG_INFO() << "Channel: " << channelIDStr
+                       << " restore prcess finished";
+            ++count;
+        }
     }
     LOG_INFO() << "LASER serve: " << count << " channels";
     return count != 0;
@@ -265,12 +274,54 @@ void Mediator::OpenChannel(Amount aMy,
     });
 }
 
-void Mediator::Close(const std::string& channelIDStr)
+void Mediator::Close(const std::vector<std::string>& channelIDsStr)
 {
-    // if (m_lch)
-    // {
-    //     m_lch->Close();
-    // }
+    for (const auto& chIdStr: channelIDsStr)
+    {
+        auto chId = RestoreChannel(chIdStr);
+        if (chId)
+        {
+            auto& ch = m_channels[chId];
+            if (ch
+                && ch->get_State() <= Lightning::Channel::State::Closing1
+                && ch->get_State() != Lightning::Channel::State::OpenFailed
+                && ch->get_State() >= Lightning::Channel::State::Opening1)
+            {
+                ch->Close();
+                if (ch->IsStateChanged())
+                {
+                    m_pWalletDB->saveLaserChannel(*ch);
+                    ch->LogNewState();
+                }
+            }   
+        }
+    }
+}
+
+void Mediator::Delete(const std::vector<std::string>& channelIDsStr)
+{
+    for (const auto& chIdStr: channelIDsStr)
+    {
+        auto chId = RestoreChannel(chIdStr);
+        if (chId)
+        {
+            auto& ch = m_channels[chId];
+            if (ch &&
+                ch->get_State() == Lightning::Channel::State::Closed &&
+                m_pWalletDB->removeLaserChannel(*ch))
+            {
+                LOG_INFO() << "Channel: "
+                           << to_hex(chId->m_pData, chId->nBytes) << " deleted";
+            }
+            else
+            {
+                LOG_ERROR() << "Channel: "
+                            << to_hex(chId->m_pData, chId->nBytes)
+                            << " not found or not closed";
+            }
+            
+        }
+    }
 }
 
 bool Mediator::Transfer(Amount amount, const std::string& channelIDStr)
@@ -313,10 +364,20 @@ void Mediator::OnIncoming(const ChannelIDPtr& chID,
     Amount fee;
     if (!dataIn.Get(fee, beam::Lightning::Codes::Fee))
         return;
+    if (fee != m_feeAllowed)
+    {
+        LOG_ERROR() << "Incoming with incorrect FEE detected";
+        return;
+    }
 
     Amount aMy;
     if (!dataIn.Get(aMy, beam::Lightning::Codes::ValueYours))
         return;
+    if (aMy != m_myInAllowed)
+    {
+        LOG_ERROR() << "Incoming with incorrect AMOUNT detected";
+        return;
+    }
     
     Amount aTrg;
     if (!dataIn.Get(aTrg, beam::Lightning::Codes::ValueMy))
@@ -420,8 +481,8 @@ void Mediator::UpdateChannels()
                 m_pWalletDB->saveLaserChannel(*ch);
             }
             if (m_onCommandComplete &&
-                ch->get_State() == Lightning::Channel::State::Open ||
-                ch->get_State() == Lightning::Channel::State::OpenFailed)
+                (ch->get_State() == Lightning::Channel::State::Open ||
+                ch->get_State() == Lightning::Channel::State::OpenFailed))
             {
                 m_onCommandComplete();
             }

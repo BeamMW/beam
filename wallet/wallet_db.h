@@ -124,11 +124,13 @@ namespace beam::wallet
         virtual const WalletID& get_trgWID() const = 0;
         virtual int get_State() const = 0;
         virtual const Amount& get_fee() const = 0;
-        virtual const Height getLocktime() const = 0;
+        virtual const Height& getLocktime() const = 0;
         virtual const Amount& get_amountMy() const = 0;
         virtual const Amount& get_amountTrg() const = 0;
         virtual const Amount& get_amountCurrentMy() const = 0;
         virtual const Amount& get_amountCurrentTrg() const = 0;
+        virtual const Height& get_LockHeight() const = 0;
+        virtual const Timestamp& get_BbsTimestamp() const = 0;
         virtual const ByteBuffer& get_Data() const = 0;
         virtual const WalletAddress& get_myAddr() const = 0;
     };
@@ -144,7 +146,9 @@ namespace beam::wallet
         Amount,         // 7 amountTrg
         Amount,         // 8 amountCurrentMy
         Amount,         // 9 amountCurrentTrg
-        ByteBuffer      // 10 Data
+        Height,         // 10 lockHeight
+        Timestamp,      // 11 bbs timestamp
+        ByteBuffer      // 12 Data
     >;
 
     // Describes structure of generic transaction parameter
@@ -300,12 +304,13 @@ namespace beam::wallet
                 const WalletID&, bool isLaser = false) const = 0;
         virtual std::vector<WalletAddress> getAddresses(bool own) const = 0;
         virtual void saveAddress(const WalletAddress&, bool isLaser = false) = 0;
-        virtual void deleteAddress(const WalletID&) = 0;
+        virtual void deleteAddress(const WalletID&, bool isLaser = false) = 0;
 
         // Laser
         virtual void saveLaserChannel(const ILaserChannelEntity&) = 0;
         virtual bool getLaserChannel(const std::shared_ptr<uintBig_t<16>>& chId,
                                      TLaserChannelEntity* entity) = 0;
+        virtual bool removeLaserChannel(const ILaserChannelEntity& ch) = 0;
         virtual std::vector<TLaserChannelEntity> loadLaserChannels() = 0;
 
         // 
@@ -388,13 +393,15 @@ namespace beam::wallet
 
         std::vector<WalletAddress> getAddresses(bool own) const override;
         void saveAddress(const WalletAddress&, bool isLaser = false) override;
+        boost::optional<WalletAddress> getAddress(
+            const WalletID&, bool isLaser = false) const override;
+        void deleteAddress(const WalletID&, bool isLaser = false) override;
+
         void saveLaserChannel(const ILaserChannelEntity&) override;
         virtual bool getLaserChannel(const std::shared_ptr<uintBig_t<16>>& chId,
                                      TLaserChannelEntity* entity) override;
+        bool removeLaserChannel(const ILaserChannelEntity& ch) override;
         std::vector<TLaserChannelEntity> loadLaserChannels() override;
-        boost::optional<WalletAddress> getAddress(
-            const WalletID&, bool isLaser = false) const override;
-        void deleteAddress(const WalletID&) override;
 
         Timestamp getLastUpdateTime() const override;
         void setSystemStateID(const Block::SystemState::ID& stateID) override;

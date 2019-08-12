@@ -48,6 +48,7 @@ Channel::Channel(IChannelHolder& holder,
     , m_widTrg(trg)
     , m_aMy(aMy)
     , m_aTrg(aTrg)
+    , m_bbsTimestamp(getTimestamp())
 {
     ECC::GenRandom(*m_ID);
     m_upReceiver = std::make_unique<Receiver>(m_rHolder, m_ID);
@@ -72,6 +73,7 @@ Channel::Channel(IChannelHolder& holder,
     , m_widTrg(trg)
     , m_aMy(aMy)
     , m_aTrg(aTrg)
+    , m_bbsTimestamp(getTimestamp())
     , m_upReceiver(std::make_unique<Receiver>(holder, chID))
 {
     m_Params.m_Fee = fee;
@@ -91,14 +93,20 @@ Channel::Channel(IChannelHolder& holder,
     , m_widTrg(std::get<2>(entity))
     , m_aMy(std::get<6>(entity))
     , m_aTrg(std::get<7>(entity))
+    , m_lockHeight(std::get<10>(entity))
+    , m_bbsTimestamp(std::get<11>(entity))
     , m_upReceiver(std::make_unique<Receiver>(holder, chID))
 {
     m_Params.m_Fee = std::get<4>(entity);
     m_Params.m_hLockTime = std::get<5>(entity);
 
-    RestoreInternalState(std::get<10>(entity));
+    RestoreInternalState(std::get<12>(entity));
 
-    Subscribe();
+    if (get_State() != beam::Lightning::Channel::State::OpenFailed ||
+        get_State() != beam::Lightning::Channel::State::Closed)
+    {
+        Subscribe(); 
+    }
 }
 
 // Channel::Channel(Channel&& channel)
@@ -294,17 +302,12 @@ const WalletID& Channel::get_trgWID() const
     return m_widTrg;
 }
 
-// int Channel::get_lastState() const
-// {
-//     return m_LastState;
-// };
-
 const Amount& Channel::get_fee() const
 {
     return m_Params.m_Fee;
 }
 
-const Height Channel::getLocktime() const
+const Height& Channel::getLocktime() const
 {
     return m_Params.m_hLockTime;
 }
@@ -332,6 +335,16 @@ const Amount& Channel::get_amountCurrentTrg() const
 int Channel::get_State() const
 {
     return beam::Lightning::Channel::get_State();
+}
+
+const Height& Channel::get_LockHeight() const
+{
+    return m_lockHeight;
+}
+
+const Timestamp& Channel::get_BbsTimestamp() const
+{
+    return m_bbsTimestamp;
 }
 
 const ByteBuffer& Channel::get_Data() const

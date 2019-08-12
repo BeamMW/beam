@@ -48,6 +48,7 @@
 
 #include <boost/program_options.hpp>
 #include <boost/filesystem.hpp>
+#include <boost/format.hpp>
 #include <boost/algorithm/string/trim.hpp>
 
 #include <iomanip>
@@ -970,19 +971,19 @@ namespace
                          WalletID* receiverWalletID,
                          Height* locktime)
     {
-        if (vm.count(cli::LASER_TARGET_ARRD) == 0)
+        if (!vm.count(cli::LASER_TARGET_ADDR))
         {
             LOG_ERROR() << "receiver's address is missing";
             return false;
         }
 
-        if (vm.count(cli::LASER_AMOUNT_MY) == 0)
+        if (!vm.count(cli::LASER_AMOUNT_MY))
         {
             LOG_ERROR() << "amount is missing";
             return false;
         }
 
-        receiverWalletID->FromHex(vm[cli::LASER_TARGET_ARRD].as<string>());
+        receiverWalletID->FromHex(vm[cli::LASER_TARGET_ADDR].as<string>());
 
         auto myAmount = vm[cli::LASER_AMOUNT_MY].as<Positive<double>>().value;
         myAmount *= Rules::Coin;
@@ -993,14 +994,14 @@ namespace
             return false;
         }
 
-        if (vm.count(cli::LASER_AMOUNT_TARGET))
+        if (vm.count(cli::LASER_AMOUNT_TARGET) > 1)
         {
             auto trgAmount = vm[cli::LASER_AMOUNT_TARGET].as<Positive<double>>().value;
             trgAmount *= Rules::Coin;
             *aTrg = static_cast<ECC::Amount>(std::round(trgAmount));
         }
 
-        if (vm.count(cli::LASER_AMOUNT_TARGET) == 0)
+        if (vm.count(cli::LASER_FEE) > 1)
         {
             *fee = vm[cli::FEE].as<Nonnegative<Amount>>().value;
             if (*fee < cli::kMinimumFee)
@@ -1212,14 +1213,69 @@ namespace
         return nnet;
     }
 
+    std::vector<std::string> LoadLaserChannelsIds(
+        const IWalletDB::Ptr& walletDB,
+        const po::variables_map& vm,
+        bool all = false)
+    {
+        std::vector<std::string> channelIDsStr;
+        if (all)
+        {
+            auto chDBEntities = walletDB->loadLaserChannels();
+            channelIDsStr.reserve(chDBEntities.size());
+            for (auto& ch : chDBEntities)
+            {
+                const auto& chID = std::get<0>(ch);
+                channelIDsStr.emplace_back(
+                    beam::to_hex(chID.m_pData, chID.nBytes));
+            }
+        }
+        else if (vm.count(cli::LASER_CHANNEL_ID))
+        {
+            auto chIDsStr = vm[cli::LASER_CHANNEL_ID].as<string>();
+
+            std::stringstream ss(chIDsStr);
+            std::string chIdStr;
+            while (std::getline(ss, chIdStr, ','))
+                channelIDsStr.push_back(chIdStr);
+        }
+
+        return channelIDsStr;
+    }
+
+    const char* LaserChannelStateStr(int state)
+    {
+        switch(state)
+        {
+        case Lightning::Channel::State::None:
+        case Lightning::Channel::State::Opening0:
+        case Lightning::Channel::State::Opening1:
+        case Lightning::Channel::State::Opening2:
+            return "Opening";
+        case Lightning::Channel::State::OpenFailed:
+            return "OpenFailed";
+        case Lightning::Channel::State::Open:
+            return "Open";
+        case Lightning::Channel::State::Updating:
+            return "Updating";
+        case Lightning::Channel::State::Closing1:
+        case Lightning::Channel::State::Closing2:
+            return "Closing";
+        case Lightning::Channel::State::Closed:
+            return "Closed";
+        default:
+            return "Unknown";
+        }
+    }
+
     bool LaserOpen(const unique_ptr<laser::Mediator>& laser,
                    const po::variables_map& vm)
     {
         io::Address receiverAddr;
         Amount aMy = 0, aTrg = 0, fee = 100;
         WalletID receiverWalletID(Zero);
-
         Height lifetime = kDefaultTxLifetime;
+
         if (!LoadLaserParams(vm, &aMy, &aTrg, &fee, &receiverWalletID, &lifetime))
         {
             LOG_ERROR() << "Can't read lightning params";
@@ -1230,44 +1286,46 @@ namespace
         return true;
     }
     
-    void LaserWait(const unique_ptr<laser::Mediator>& laser,
+    bool LaserWait(const unique_ptr<laser::Mediator>& laser,
                    const po::variables_map& vm)
     {
-        laser->WaitIncoming();
-    }
-
-    void LaserServe(const unique_ptr<laser::Mediator>& laser,
-                    const IWalletDB::Ptr& walletDB,
-                    const po::variables_map& vm)
-    {
-        std::vector<std::string> channelIDsStr;
-        if (vm.count(cli::LASER_CHANNEL_ID) == 0)
+        Amount fee = 0, amountMy = 0;
+        if (vm.count(cli::LASER_AMOUNT_MY) > 1)
         {
-            auto chDBEntities = walletDB->loadLaserChannels();
-            channelIDsStr.reserve(chDBEntities.size());
-            for (auto& ch : chDBEntities)
-            {
-                const auto& chID = std::get<0>(ch);
-                const auto& chIdStr = channelIDsStr.emplace_back(
-                    beam::to_hex(chID.m_pData, chID.nBytes));
-                LOG_INFO() << "Channel: " << chIdStr << " will served";
-            }
+            amountMy = vm[cli::LASER_AMOUNT_MY].as<Nonnegative<Amount>>().value;
         }
         else
         {
-            auto chIDsStr = vm[cli::LASER_CHANNEL_ID].as<string>();
-
-            std::stringstream ss(chIDsStr);
-            std::string chIdStr;
-            while (std::getline(ss, chIdStr, ','))
-                channelIDsStr.push_back(chIdStr);
+            LOG_ERROR() << "amount is missing";
+            return false;
         }
 
-        laser->Serve(channelIDsStr);
+        if (vm.count(cli::LASER_FEE) > 1)
+        {
+            fee = vm[cli::FEE].as<Nonnegative<Amount>>().value;
+            if (fee < cli::kMinimumFee)
+            {
+                LOG_ERROR() << "Failed to initiate the send operation. The minimum fee is 100 groth.";
+                return false;
+            }
+        }
+
+        laser->WaitIncoming(amountMy, fee);
+        return true;
+    }
+
+    bool LaserServeIncoming(const unique_ptr<laser::Mediator>& laser,
+                            const IWalletDB::Ptr& walletDB,
+                            const po::variables_map& vm)
+    {
+        auto channelIDsStr = LoadLaserChannelsIds(
+            walletDB, vm, vm.count(cli::LASER_CHANNEL_ID) == 0);
+
+        return laser->Serve(channelIDsStr);
     }
 
     bool LaserTransfer(const unique_ptr<laser::Mediator>& laser,
-                   const po::variables_map& vm)
+                       const po::variables_map& vm)
     {
         if (vm.count(cli::LASER_AMOUNT_MY) == 0)
         {
@@ -1297,7 +1355,7 @@ namespace
 
     void LaserShowChannels(const IWalletDB::Ptr& walletDB)
     {
-        array<uint8_t, 6> columnWidths{ { 32, 10, 10, 10, 10, 10 } };
+        array<uint8_t, 6> columnWidths{ { 32, 10, 10, 10, 10, 8 } };
 
         cout << "Laser Channels:\n\n"
             << "  " << std::left
@@ -1314,15 +1372,52 @@ namespace
                 << setw(columnWidths[0]) << beam::to_hex(chID.m_pData, chID.nBytes) << "|"
                 << setw(columnWidths[1]) << PrintableAmount(std::get<6>(ch), true) << "|"
                 << setw(columnWidths[2]) << PrintableAmount(std::get<7>(ch), true) << "|"
-                << setw(columnWidths[3]) << std::get<3>(ch) << "|"
+                << setw(columnWidths[3]) << LaserChannelStateStr(std::get<3>(ch)) << "|"
                 << setw(columnWidths[4]) << PrintableAmount(std::get<4>(ch), true) << "|"
                 << setw(columnWidths[5]) << std::get<5>(ch) << "\n";
         }
     }
 
-    bool ServeLaser(const unique_ptr<laser::Mediator>& laser,
+    bool LaserClose(const unique_ptr<laser::Mediator>& laser,
                     const IWalletDB::Ptr& walletDB,
                     const po::variables_map& vm)
+    {
+        bool loadAll =
+            vm.count(cli::LASER_CHANNEL_ID) == 0 && vm.count(cli::LASER_ALL);
+        auto channelIDsStr = LoadLaserChannelsIds(
+            walletDB, vm, loadAll);
+
+        if (!channelIDsStr.empty())
+        {
+            laser->Close(channelIDsStr);
+            return true;
+        }
+        return false;
+    }
+
+    void LaserDeleteChannel(const unique_ptr<laser::Mediator>& laser,
+                            const IWalletDB::Ptr& walletDB,
+                            const po::variables_map& vm)
+    {
+        if (vm.count(cli::LASER_CHANNEL_ID) == 0)
+        {
+            LOG_INFO() << boost::format("Parameter --%1% must be specified")
+                       % cli::LASER_CHANNEL_ID;
+            return;
+        }
+
+        auto channelIDsStr = LoadLaserChannelsIds(
+            walletDB, vm, false);
+
+        if (!channelIDsStr.empty())
+        {
+            laser->Delete(channelIDsStr);
+        }
+    }
+
+    bool IsLaserHandled(const unique_ptr<laser::Mediator>& laser,
+                        const IWalletDB::Ptr& walletDB,
+                        const po::variables_map& vm)
     {
         laser->SetNetwork(CreateNetwork(*laser, vm));
         auto onLaserActionCompleteOnce = [&walletDB] ()
@@ -1341,24 +1436,27 @@ namespace
         {
             laser->SetOnCommandCompleteAction(
                 std::move(onLaserActionCompleteOnce));
-            LaserWait(laser, vm);
-            return true;
+            return LaserWait(laser, vm);
         }
         else if (vm.count(cli::LASER_SERVE))
         {
-            LaserServe(laser, walletDB, vm);
-            return true;
-        }
-        else if (vm.count(cli::LASER_CLOSE))
-        {
-            LOG_INFO() << "LASER CLOSE";
-            return true;
+            return LaserServeIncoming(laser, walletDB, vm);
         }
         else if (vm.count(cli::LASER_TRANSFER))
         {
             laser->SetOnCommandCompleteAction(
                 std::move(onLaserActionCompleteOnce));
             return LaserTransfer(laser, vm);
+        }
+        else if (vm.count(cli::LASER_CLOSE))
+        {
+            return LaserClose(laser, walletDB, vm);
+        }
+        else if (vm.count(cli::LASER_DELETE))
+        {
+            LaserDeleteChannel(laser, walletDB, vm);
+            LaserShowChannels(walletDB);
+            return false;
         }
         else if (vm.count(cli::LASER_LIST))
         {
@@ -1684,7 +1782,7 @@ int main_impl(int argc, char* argv[])
                     {
                         auto laser =
                             std::make_unique<laser::Mediator>(walletDB);
-                        if (ServeLaser(laser, walletDB, vm))
+                        if (IsLaserHandled(laser, walletDB, vm))
                         {
                             io::Reactor::get_Current().run();
                         }

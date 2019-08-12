@@ -76,14 +76,15 @@ public:
     const ChannelIDPtr& get_chID() const override;
     const WalletID& get_myWID() const override;
     const WalletID& get_trgWID() const override;
-    // int get_lastState() const override;
     const Amount& get_fee() const override;
-    const Height getLocktime() const override;
+    const Height& getLocktime() const override;
     const Amount& get_amountMy() const override;
     const Amount& get_amountTrg() const override;
     const Amount& get_amountCurrentMy() const override;
     const Amount& get_amountCurrentTrg() const override;
     int get_State() const override;
+    const Height& get_LockHeight() const override;
+    const Timestamp& get_BbsTimestamp() const override;
     const ByteBuffer& get_Data() const override;
     const WalletAddress& get_myAddr() const override;
 
@@ -109,9 +110,10 @@ private:
     WalletID m_widTrg;
     Amount m_aMy;
     Amount m_aTrg;
+    Height m_lockHeight = MaxHeight;
+    Timestamp m_bbsTimestamp;
     
     std::unique_ptr<Receiver> m_upReceiver;
     ByteBuffer m_data;
-    Blob m_blob;
 };
 }  // namespace beam::wallet::laser

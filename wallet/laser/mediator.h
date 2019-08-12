@@ -50,15 +50,17 @@ public:
     
     void SetNetwork(const proto::FlyClient::NetworkStd::Ptr& net);
 
-    void WaitIncoming();
-    bool Serve(const std::vector<std::string>& channelIDsStr);
+    void WaitIncoming(Amount aMy, Amount fee);
     void OpenChannel(Amount aMy,
                      Amount aTrg,
                      Amount fee,
                      const WalletID& receiverWalletID,
                      Height locktime);
-    void Close(const std::string& channelIDStr);
+    bool Serve(const std::vector<std::string>& channelIDsStr);
     bool Transfer(Amount amount, const std::string& channelIDStr);
+    void Close(const std::vector<std::string>& channelIDsStr);
+    void Delete(const std::vector<std::string>& channelIDsStr);
+    
     void SetOnCommandCompleteAction(std::function<void()>&& onCommandComplete);
 
 private:
@@ -71,9 +73,11 @@ private:
     void UpdateChannels();
 
     IWalletDB::Ptr m_pWalletDB;
-    std::shared_ptr<proto::FlyClient::INetwork> m_pConnection;
+    proto::FlyClient::INetwork::Ptr m_pConnection;
 
     std::unique_ptr<Receiver> m_pInputReceiver;
+    Amount m_myInAllowed = 0;
+    Amount m_feeAllowed = 0;
 
     std::unordered_map<ChannelIDPtr, std::unique_ptr<Channel>> m_channels;
 

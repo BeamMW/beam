@@ -143,7 +143,7 @@ public:
 
         return boost::optional<WalletAddress>();
     }
-    void deleteAddress(const WalletID&) override {}
+    void deleteAddress(const WalletID&, bool isLaser = false) override {}
 
     Height getCurrentHeight() const override
     {
