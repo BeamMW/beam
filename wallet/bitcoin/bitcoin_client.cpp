@@ -18,11 +18,6 @@
 #include "utility/logger.h"
 #include "utility/bridge.h"
 
-namespace
-{
-    const char* kBitcoinSettingsName = "BTCSettings";
-}
-
 namespace beam::bitcoin
 {
     struct BitcoinClientBridge : public Bridge<IClientAsync>
