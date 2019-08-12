@@ -117,7 +117,11 @@ Item {
                         Layout.fillHeight: true
                         Layout.fillWidth: true
 
-                        value: viewModel.available
+                        beamValue: viewModel.available
+                        btcValue:  "1"
+                        ltcValue:  "2"
+                        qtumValue: "3"
+
                         onCopyValueText: BeamGlobals.copyToClipboard(value)
                         onOpenExternal : function() {
                             var externalLink = "https://www.beam.mw/#exchanges";

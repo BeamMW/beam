@@ -36,4 +36,7 @@ function calcDisplayRate(ail, air) {
     return Math.round(ar / al * rounder) / rounder
 }
 
-const symbolBeam = '\uEAFB'
+const symbolBeam  = '\uEAFB'
+const symbolBtc   = '\u20BF'
+const symbolLtc   = '\u0141'
+const symbolQtum  = '\uFFFD' // TODO:SWAP change when available

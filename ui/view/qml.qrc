@@ -70,6 +70,9 @@
         <file>assets/fonts/SF-Pro-Display-RegularItalic.otf</file>
         <file>assets/fonts/SF-Pro-Display-UltralightItalic.otf</file>
         <file>assets/beam-circle.svg</file>
+        <file>assets/ltc-circle.svg</file>
+        <file>assets/qtum-circle.svg</file>
+        <file>assets/btc-circle.svg</file>
         <file>assets/logo.svg</file>
         <file>assets/start-logo.svg</file>
         <file>assets/icon.png</file>
