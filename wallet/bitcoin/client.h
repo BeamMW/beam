@@ -14,8 +14,8 @@
 
 #pragma once
 
-#include "bitcoin_bridge.h"
-#include "bitcoin_settings.h"
+#include "bridge.h"
+#include "settings_provider.h"
 #include "wallet/common.h"
 #include "wallet/wallet_db.h"
 
@@ -57,7 +57,7 @@ namespace beam::bitcoin
 
         IClientAsync::Ptr GetAsync();
 
-        BitcoindSettings GetBitcoindSettings() const override;
+        BitcoinCoreSettings GetBitcoinCoreSettings() const override;
         Settings GetSettings() const override;
         void SetSettings(const Settings& settings) override;
 
@@ -80,7 +80,7 @@ namespace beam::bitcoin
         io::Reactor& m_reactor;
         IClientAsync::Ptr m_async;
         IBridge::Ptr m_bridge;
-        std::unique_ptr<BitcoinSettingsProvider> m_settingsProvider;
+        std::unique_ptr<SettingsProvider> m_settingsProvider;
 
         mutable std::mutex m_mutex;
         using Lock = std::unique_lock<std::mutex>;

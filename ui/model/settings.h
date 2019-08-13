@@ -21,7 +21,7 @@
 #include <optional>
 
 #include "model/wallet_model.h"
-#include "wallet/bitcoin/bitcoin_settings.h"
+#include "wallet/bitcoin/settings.h"
 
 
 class WalletSettings : public QObject

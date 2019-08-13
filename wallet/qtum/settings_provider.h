@@ -14,23 +14,10 @@
 
 #pragma once
 
-#include "wallet/bitcoin/bitcoin_settings.h"
+#include "wallet/bitcoin/settings_provider.h"
 
-namespace beam::litecoin
+namespace beam::qtum
 {
-    using ILitecoindSettingsProvider = bitcoin::IBitcoindSettingsProvider;
-    using ISettingsProvider = bitcoin::ISettingsProvider;
-    using LitecoindSettings = bitcoin::BitcoindSettings;
-
-    class Settings : public bitcoin::Settings
-    {
-    public:
-        Settings()
-            : bitcoin::Settings()
-        {
-            constexpr uint32_t kLTCDefaultLockTimeInBlocks = 2 * 24 * 4 * 6;
-            SetLockTimeInBlocks(kLTCDefaultLockTimeInBlocks);
-            SetMinFeeRate(90000);
-        }
-    };
-} //namespace beam::litecoin
+    using IQtumdSettingsProvider = bitcoin::IBitcoinCoreSettingsProvider;
+    using ISettingsProvider = bitcoin::ISettingsProvider;    
+} // namespace beam::qtum

@@ -153,7 +153,7 @@ void SettingsViewModel::btcOff()
 
 void SettingsViewModel::applyBtcSettings()
 {
-    bitcoin::BitcoindSettings connectionSettings;
+    bitcoin::BitcoinCoreSettings connectionSettings;
     connectionSettings.m_pass = m_bitcoinPass.toStdString();
     connectionSettings.m_userName = m_bitcoinUser.toStdString();
 

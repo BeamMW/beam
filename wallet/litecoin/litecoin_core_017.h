@@ -12,19 +12,20 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "litecoind016.h"
+#pragma once
 
-#include "bitcoin/bitcoin.hpp"
+#include "wallet/bitcoin/bitcoin_core_017.h"
+#include "settings_provider.h"
 
 namespace beam::litecoin
 {
-    Litecoind016::Litecoind016(io::Reactor& reactor, ILitecoindSettingsProvider::Ptr settingsProvider)
-        : bitcoin::Bitcoind016(reactor, settingsProvider)
+    class LitecoinCore017 : public bitcoin::BitcoinCore017
     {
-    }
+    public:
+        LitecoinCore017() = delete;
+        LitecoinCore017(io::Reactor& reactor, ILitecoindSettingsProvider::Ptr settingsProvider);
 
-    std::string Litecoind016::getCoinName() const
-    {
-        return "litecoin";
-    }
+    protected:
+        std::string getCoinName() const override;
+    };
 } // namespace beam::litecoin

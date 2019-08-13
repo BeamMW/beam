@@ -14,17 +14,17 @@
 
 #pragma once
 
-#include "bitcoin_bridge.h"
+#include "bridge.h"
 #include "http/http_client.h"
-#include "bitcoin_settings.h"
+#include "settings_provider.h"
 
 namespace beam::bitcoin
 {
-    class Bitcoind016: public IBridge
+    class BitcoinCore016: public IBridge
     {
     public:
-        Bitcoind016() = delete;
-        Bitcoind016(io::Reactor& reactor, IBitcoindSettingsProvider::Ptr settingsProvider);
+        BitcoinCore016() = delete;
+        BitcoinCore016(io::Reactor& reactor, IBitcoinCoreSettingsProvider::Ptr settingsProvider);
 
         void dumpPrivKey(const std::string& btcAddress, std::function<void(const Error&, const std::string&)> callback) override;
         void fundRawTransaction(const std::string& rawTx, Amount feeRate, std::function<void(const Error&, const std::string&, int)> callback) override;
@@ -49,6 +49,6 @@ namespace beam::bitcoin
 
     private:
         HttpClient m_httpClient;
-        IBitcoindSettingsProvider::Ptr m_settingsProvider;
+        IBitcoinCoreSettingsProvider::Ptr m_settingsProvider;
     };
 } // namespace beam::bitcoin

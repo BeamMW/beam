@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "bitcoind016.h"
+#include "bitcoin_core_016.h"
 
 #include "bitcoin/bitcoin.hpp"
 #include "nlohmann/json.hpp"
@@ -44,13 +44,13 @@ namespace beam::bitcoin
         }
     }
 
-    Bitcoind016::Bitcoind016(io::Reactor& reactor, IBitcoindSettingsProvider::Ptr settingsProvider)
+    BitcoinCore016::BitcoinCore016(io::Reactor& reactor, IBitcoinCoreSettingsProvider::Ptr settingsProvider)
         : m_httpClient(reactor)
         , m_settingsProvider(settingsProvider)
     {
     }
 
-    void Bitcoind016::dumpPrivKey(const std::string& btcAddress, std::function<void(const IBridge::Error&, const std::string&)> callback)
+    void BitcoinCore016::dumpPrivKey(const std::string& btcAddress, std::function<void(const IBridge::Error&, const std::string&)> callback)
     {
         LOG_DEBUG() << "Send dumpPrivKey command";
 
@@ -74,7 +74,7 @@ namespace beam::bitcoin
         });
     }
 
-    void Bitcoind016::fundRawTransaction(const std::string& rawTx, Amount feeRate, std::function<void(const IBridge::Error&, const std::string&, int)> callback)
+    void BitcoinCore016::fundRawTransaction(const std::string& rawTx, Amount feeRate, std::function<void(const IBridge::Error&, const std::string&, int)> callback)
     {
         LOG_DEBUG() << "Send fundRawTransaction command";
 
@@ -106,7 +106,7 @@ namespace beam::bitcoin
         });
     }
 
-    void Bitcoind016::signRawTransaction(const std::string& rawTx, std::function<void(const IBridge::Error&, const std::string&, bool)> callback)
+    void BitcoinCore016::signRawTransaction(const std::string& rawTx, std::function<void(const IBridge::Error&, const std::string&, bool)> callback)
     {
         LOG_DEBUG() << "Send signRawTransaction command";
 
@@ -132,7 +132,7 @@ namespace beam::bitcoin
         });
     }
 
-    void Bitcoind016::sendRawTransaction(const std::string& rawTx, std::function<void(const IBridge::Error&, const std::string&)> callback)
+    void BitcoinCore016::sendRawTransaction(const std::string& rawTx, std::function<void(const IBridge::Error&, const std::string&)> callback)
     {
         LOG_DEBUG() << "Send sendRawTransaction command";
 
@@ -156,7 +156,7 @@ namespace beam::bitcoin
         });
     }
 
-    void Bitcoind016::getRawChangeAddress(std::function<void(const IBridge::Error&, const std::string&)> callback)
+    void BitcoinCore016::getRawChangeAddress(std::function<void(const IBridge::Error&, const std::string&)> callback)
     {
         LOG_DEBUG() << "Send getRawChangeAddress command";
 
@@ -180,7 +180,7 @@ namespace beam::bitcoin
         });
     }
 
-    void Bitcoind016::createRawTransaction(
+    void BitcoinCore016::createRawTransaction(
         const std::string& withdrawAddress,
         const std::string& contractTxId,
         uint64_t amount,
@@ -218,7 +218,7 @@ namespace beam::bitcoin
         });
     }
 
-    void Bitcoind016::getTxOut(const std::string& txid, int outputIndex, std::function<void(const IBridge::Error&, const std::string&, double, uint16_t)> callback)
+    void BitcoinCore016::getTxOut(const std::string& txid, int outputIndex, std::function<void(const IBridge::Error&, const std::string&, double, uint16_t)> callback)
     {
         LOG_DEBUG() << "Send getTxOut command";
 
@@ -252,7 +252,7 @@ namespace beam::bitcoin
         });
     }
 
-    void Bitcoind016::getBlockCount(std::function<void(const IBridge::Error&, uint64_t)> callback)
+    void BitcoinCore016::getBlockCount(std::function<void(const IBridge::Error&, uint64_t)> callback)
     {
         LOG_DEBUG() << "Send getBlockCount command";
 
@@ -281,7 +281,7 @@ namespace beam::bitcoin
         });
     }
 
-    void Bitcoind016::getBalance(uint32_t confirmations, std::function<void(const Error&, double)> callback)
+    void BitcoinCore016::getBalance(uint32_t confirmations, std::function<void(const Error&, double)> callback)
     {
         LOG_DEBUG() << "Send getBalance command";
         sendRequest("getbalance", "\"*\"," + std::to_string(confirmations), [callback](IBridge::Error error, const json& result) {
@@ -303,7 +303,7 @@ namespace beam::bitcoin
         });
     }
 
-    void Bitcoind016::getDetailedBalance(std::function<void(const Error&, double, double, double)> callback)
+    void BitcoinCore016::getDetailedBalance(std::function<void(const Error&, double, double, double)> callback)
     {
         LOG_DEBUG() << "Send getalletInfo command";
         sendRequest("getwalletinfo", "", [callback](IBridge::Error error, const json& result) {
@@ -329,15 +329,15 @@ namespace beam::bitcoin
             });
     }
 
-    std::string Bitcoind016::getCoinName() const
+    std::string BitcoinCore016::getCoinName() const
     {
         return "bitcoin";
     }
 
-    void Bitcoind016::sendRequest(const std::string& method, const std::string& params, std::function<void(const Error&, const json&)> callback)
+    void BitcoinCore016::sendRequest(const std::string& method, const std::string& params, std::function<void(const Error&, const json&)> callback)
     {
         const std::string content(R"({"method":")" + method + R"(","params":[)" + params + "]}");
-        auto settings = m_settingsProvider->GetBitcoindSettings();
+        auto settings = m_settingsProvider->GetBitcoinCoreSettings();
         const std::string authorization(generateAuthorization(settings.m_userName, settings.m_pass));
         const HeaderPair headers[] = {
             {"Authorization", authorization.data()}

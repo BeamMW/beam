@@ -22,7 +22,7 @@
 
 #include "ui/model/app_model.h"
 
-#include "wallet/bitcoin/bitcoin_settings.h"
+#include "wallet/bitcoin/settings.h"
 
 #include "version.h"
 
@@ -399,7 +399,7 @@ std::shared_ptr<beam::bitcoin::Settings> WalletSettings::getBitcoinSettings() co
         return {};
     }
 
-    beam::bitcoin::BitcoindSettings bitcoindSettings;
+    beam::bitcoin::BitcoinCoreSettings bitcoindSettings;
 
     if (!bitcoindSettings.m_address.resolve(btcNodeUri.c_str()))
     {

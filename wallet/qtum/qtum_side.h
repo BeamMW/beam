@@ -15,7 +15,7 @@
 #pragma once
 
 #include "wallet/bitcoin/bitcoin_side.h"
-#include "qtum_settings.h"
+#include "settings_provider.h"
 
 namespace beam::wallet
 {

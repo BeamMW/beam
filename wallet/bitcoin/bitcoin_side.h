@@ -18,8 +18,8 @@
 #include "wallet/swaps/common.h"
 #include "wallet/base_transaction.h"
 #include "bitcoin/bitcoin.hpp"
-#include "bitcoin_bridge.h"
-#include "bitcoin_settings.h"
+#include "bridge.h"
+#include "settings_provider.h"
 
 #include <memory>
 

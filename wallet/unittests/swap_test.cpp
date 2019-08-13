@@ -17,14 +17,14 @@
 #include "wallet/wallet.h"
 #include "wallet/wallet_transaction.h"
 #include "wallet/secstring.h"
-#include "wallet/bitcoin/bitcoin_settings.h"
-#include "wallet/litecoin/litecoin_settings.h"
-#include "wallet/qtum/qtum_settings.h"
+#include "wallet/bitcoin/settings_provider.h"
+#include "wallet/litecoin/settings_provider.h"
+#include "wallet/qtum/settings_provider.h"
 #include "wallet/swaps/common.h"
 #include "wallet/swaps/swap_transaction.h"
 #include "wallet/swaps/second_side.h"
-#include "wallet/bitcoin/bitcoin_bridge.h"
-#include "wallet/bitcoin/bitcoind017.h"
+#include "wallet/bitcoin/bridge.h"
+#include "wallet/bitcoin/bitcoin_core_017.h"
 #include "wallet/bitcoin/bitcoin_side.h"
 
 #include "http/http_client.h"
@@ -135,12 +135,12 @@ namespace
 
 void InitBitcoin(Wallet& wallet, IWalletDB::Ptr walletDB, io::Reactor& reactor, std::shared_ptr<bitcoin::Settings> settings)
 {
-    auto settingsProvider = std::make_shared<bitcoin::BitcoinSettingsProvider>(walletDB);
+    auto settingsProvider = std::make_shared<bitcoin::SettingsProvider>(walletDB);
     settingsProvider->SetSettings(*settings);
 
     auto creator = std::make_shared<AtomicSwapTransaction::Creator>();
-    auto bridge = std::make_shared<bitcoin::Bitcoind017>(reactor, settingsProvider);
-    auto factory = wallet::MakeSecondSideFactory<BitcoinSide, bitcoin::Bitcoind017, bitcoin::ISettingsProvider>(bridge, settingsProvider);
+    auto bridge = std::make_shared<bitcoin::BitcoinCore017>(reactor, settingsProvider);
+    auto factory = wallet::MakeSecondSideFactory<BitcoinSide, bitcoin::BitcoinCore017, bitcoin::ISettingsProvider>(bridge, settingsProvider);
     creator->RegisterFactory(AtomicSwapCoin::Bitcoin, factory);
     wallet.RegisterTransactionType(TxType::AtomicSwap, std::static_pointer_cast<BaseTransaction::Creator>(creator));
 }

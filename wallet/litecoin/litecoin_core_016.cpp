@@ -12,26 +12,19 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#pragma once
+#include "litecoin_core_016.h"
 
-#include <QObject>
-#include "wallet/bitcoin/client.h"
+#include "bitcoin/bitcoin.hpp"
 
-class BitcoinClientModel
-    : public QObject
-    , public beam::bitcoin::Client
+namespace beam::litecoin
 {
-    Q_OBJECT
-public:
-    using Ptr = std::shared_ptr<BitcoinClientModel>;
+    LitecoinCore016::LitecoinCore016(io::Reactor& reactor, ILitecoindSettingsProvider::Ptr settingsProvider)
+        : bitcoin::BitcoinCore016(reactor, settingsProvider)
+    {
+    }
 
-    BitcoinClientModel(beam::wallet::IWalletDB::Ptr walletDB, beam::io::Reactor& reactor);
-
-signals:
-    void GotStatus(beam::bitcoin::Client::Status status);
-    void GotBalance(const beam::bitcoin::Client::Balance& balance);
-
-private:
-    void OnStatus(Status status) override;
-    void OnBalance(const Client::Balance& balance) override;
-};
+    std::string LitecoinCore016::getCoinName() const
+    {
+        return "litecoin";
+    }
+} // namespace beam::litecoin

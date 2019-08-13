@@ -19,8 +19,8 @@
 #include <QQmlListProperty>
 
 #include "model/settings.h"
-#include "wallet/bitcoin/bitcoin_client.h"
-#include "wallet/bitcoin/bitcoin_settings.h"
+#include "wallet/bitcoin/client.h"
+#include "wallet/bitcoin/settings.h"
 
 
 
