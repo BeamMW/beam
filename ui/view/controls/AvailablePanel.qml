@@ -14,7 +14,9 @@ Control {
     property string ltcValue
     property string qtumValue
 
-    property alias color: panel.color
+    property alias  color:     panel.color
+    property string textColor: Style.content_main
+
     property var onOpenExternal: null
     signal copyValueText()
 
@@ -101,7 +103,7 @@ Control {
             BeamAmount {
                 amount:          beamValue
                 spacing:         20
-                color:           Style.content_secondary
+                color:           textColor
                 fontSize:        38
                 currencySymbol:  Utils.symbolBeam
                 iconSource:      "qrc:/assets/beam-circle.svg"
@@ -129,7 +131,7 @@ Control {
 
                 BeamAmount {
                     amount:           beamValue
-                    color:            Style.content_secondary
+                    color:            textColor
                     fontSize:         23
                     currencySymbol:   Utils.symbolBeam
                     iconSource:       "qrc:/assets/beam-circle.svg"
@@ -140,7 +142,7 @@ Control {
 
                 BeamAmount {
                     amount:           btcValue
-                    color:            Style.content_secondary
+                    color:            textColor
                     fontSize:         23
                     currencySymbol:   Utils.symbolBtc
                     visible:          BeamGlobals.haveBtc()
@@ -152,7 +154,7 @@ Control {
 
                 BeamAmount {
                     amount:           ltcValue
-                    color:            Style.content_secondary
+                    color:            textColor
                     fontSize:         23
                     currencySymbol:   Utils.symbolLtc
                     visible:          BeamGlobals.haveLtc()
@@ -164,7 +166,7 @@ Control {
 
                 BeamAmount {
                     amount:           qtumValue
-                    color:            Style.content_secondary
+                    color:            textColor
                     fontSize:         22
                     currencySymbol:   Utils.symbolQtum
                     visible:          BeamGlobals.haveQtum()

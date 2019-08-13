@@ -151,6 +151,7 @@
         <file>assets/icon-transactions.svg</file>
         <file>controls/StatusBar.qml</file>
         <file>assets/icon-maturing.svg</file>
+        <file>assets/icon-padlock.svg</file>
         <file>controls/EditAddress.qml</file>
         <file>assets/icon-repeat.svg</file>
         <file>assets/icon-repeat-white.svg</file>

@@ -138,16 +138,21 @@ Item {
 
                     SecondaryPanel {
                         Layout.minimumWidth: 350
-                        Layout.fillHeight: true
-                        Layout.fillWidth: true
-
-                        //% "In progress"
-                        title: qsTrId("wallet-in-progress-title")
-                        receiving: viewModel.receiving
-                        sending: viewModel.sending
-                        maturing: viewModel.maturing
-
-                        onCopyValueText: BeamGlobals.copyToClipboard(value)
+                        Layout.fillHeight:   true
+                        Layout.fillWidth:    true
+                        title:               qsTrId("wallet-in-progress-title")
+                        beamReceiving:       viewModel.beamReceiving
+                        beamSending:         viewModel.beamSending
+                        beamLocked:          viewModel.beamLocked
+                        btcReceiving:        viewModel.btcReceiving
+                        btcSending:          viewModel.btcSending
+                        btcLocked:           viewModel.btcLocked
+                        ltcReceiving:        viewModel.ltcReceiving
+                        ltcSending:          viewModel.ltcSending
+                        ltcLocked:           viewModel.ltcLocked
+                        qtumReceiving:       viewModel.qtumReceiving
+                        qtumSending:         viewModel.qtumSending
+                        qtumLocked:          viewModel.qtumLocked
                     }
                 }
             }

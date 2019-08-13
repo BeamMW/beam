@@ -59,7 +59,7 @@ WalletViewModel::WalletViewModel()
     // TODO: This also refreshes TXs and addresses. Need to make this more transparent
     _status.refresh();
 
-    // TODO:SWAP refresh btc, ltc & qtum balances. Emit stateChanged() on refresh
+    // TODO:SWAP refresh btc, ltc & qtum balances, receiving, sending & locked. Emit stateChanged() on refresh
 }
 
 WalletViewModel::~WalletViewModel()
@@ -150,28 +150,92 @@ double WalletViewModel::beamAvailable() const
 
 double WalletViewModel::btcAvailable() const
 {
-    return _btcAvailable;
+    // TODO:SWAP return real value
+    return 0;
 }
 
 double WalletViewModel::ltcAvailable() const
 {
-    return _ltcAvailable;
+    // TODO:SWAP return real value
+    return 0;
 }
 
 double WalletViewModel::qtumAvailable() const
 {
-    return _qtumAvailable;
+    // TODO:SWAP return real value
+    return 0;
 }
 
-QString WalletViewModel::receiving() const
+double WalletViewModel::beamReceiving() const
 {
-    return BeamToString(_status.getReceiving());
+     return _status.getReceiving();
 }
 
-QString WalletViewModel::sending() const
+double WalletViewModel::btcReceiving()  const
 {
-    return BeamToString(_status.getSending());
+    // TODO:SWAP return real value
+    return 0;
 }
+
+double WalletViewModel::ltcReceiving()  const
+{
+    // TODO:SWAP return real value
+    return 0;
+}
+
+double WalletViewModel::qtumReceiving() const
+{
+    // TODO:SWAP return real value
+    return 0;
+}
+
+double WalletViewModel::beamSending() const
+{
+     return _status.getSending();
+}
+
+double WalletViewModel::btcSending()  const
+{
+    // TODO:SWAP return real value
+    return 0;
+}
+
+double WalletViewModel::ltcSending()  const
+{
+    // TODO:SWAP return real value
+    return 0;
+}
+
+double WalletViewModel::qtumSending() const
+{
+    // TODO:SWAP return real value
+    return 0;
+}
+
+double WalletViewModel::beamLocked() const
+{
+     // TODO:SWAP return real value
+    return 0;
+}
+
+double WalletViewModel::btcLocked()  const
+{
+    // TODO:SWAP return real value
+    return 0;
+}
+
+double WalletViewModel::ltcLocked()  const
+{
+    // TODO:SWAP return real value
+    return 0;
+}
+
+double WalletViewModel::qtumLocked() const
+{
+    // TODO:SWAP return real value
+    return 0;
+}
+
 
 QString WalletViewModel::maturing() const
 {

@@ -80,6 +80,10 @@
         <source>sending</source>
         <translation>sending</translation>
     </message>
+    <message id="general-locked">
+        <source>locked</source>
+        <translation>locked</translation>
+    </message>
     <message id="general-rescan">
         <source>Rescan</source>
         <translation>Rescan</translation>
