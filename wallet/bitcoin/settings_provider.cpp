@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "bitcoin_settings.h"
+#include "settings_provider.h"
 
 namespace
 {
@@ -21,90 +21,25 @@ namespace
 
 namespace beam::bitcoin
 {
-    const BitcoindSettings& Settings::GetConnectionOptions() const
-    {
-        return m_connectionSettings;
-    }
-
-    Amount Settings::GetFeeRate() const
-    {
-        return m_feeRate;
-    }
-
-    Amount Settings::GetMinFeeRate() const
-    {
-        return m_minFeeRate;
-    }
-
-    uint16_t Settings::GetTxMinConfirmations() const
-    {
-        return m_txMinConfirmations;
-    }
-
-    uint32_t Settings::GetLockTimeInBlocks() const
-    {
-        return m_lockTimeInBlocks;
-    }
-
-    wallet::SwapSecondSideChainType Settings::GetChainType() const
-    {
-        return m_chainType;
-    }
-
-    bool Settings::IsInitialized() const
-    {
-        return m_connectionSettings.IsInitialized();
-    }
-
-    void Settings::SetConnectionOptions(const BitcoindSettings& connectionSettings)
-    {
-        m_connectionSettings = connectionSettings;
-    }
-
-    void Settings::SetFeeRate(Amount feeRate)
-    {
-        m_feeRate = feeRate;
-    }
-
-    void Settings::SetMinFeeRate(beam::Amount feeRate)
-    {
-        m_minFeeRate = feeRate;
-    }
-
-    void Settings::SetTxMinConfirmations(uint16_t txMinConfirmations)
-    {
-        m_txMinConfirmations = txMinConfirmations;
-    }
-
-    void Settings::SetLockTimeInBlocks(uint32_t lockTimeInBlocks)
-    {
-        m_lockTimeInBlocks = lockTimeInBlocks;
-    }
-
-    void Settings::SetChainType(wallet::SwapSecondSideChainType chainType)
-    {
-        m_chainType = chainType;
-    }
-
-    BitcoinSettingsProvider::BitcoinSettingsProvider(wallet::IWalletDB::Ptr walletDB)
+    SettingsProvider::SettingsProvider(wallet::IWalletDB::Ptr walletDB)
         : m_walletDB(walletDB)
     {
         LoadSettings();
     }
-    
-    BitcoindSettings BitcoinSettingsProvider::GetBitcoindSettings() const
+
+    BitcoinCoreSettings SettingsProvider::GetBitcoinCoreSettings() const
     {
         assert(m_settings);
         return m_settings->GetConnectionOptions();
     }
 
-    Settings BitcoinSettingsProvider::GetSettings() const
+    Settings SettingsProvider::GetSettings() const
     {
         assert(m_settings);
         return *m_settings;
     }
 
-    void BitcoinSettingsProvider::SetSettings(const Settings& settings)
+    void SettingsProvider::SetSettings(const Settings& settings)
     {
         // store to DB
         auto buffer = wallet::toByteBuffer(settings);
@@ -114,7 +49,7 @@ namespace beam::bitcoin
         m_settings = std::make_unique<Settings>(settings);
     }
 
-    void BitcoinSettingsProvider::ResetSettings()
+    void SettingsProvider::ResetSettings()
     {
         // remove from DB
         m_walletDB->removeVarRaw(kBitcoinSettingsName);
@@ -122,7 +57,7 @@ namespace beam::bitcoin
         m_settings = std::make_unique<Settings>();
     }
 
-    void BitcoinSettingsProvider::LoadSettings()
+    void SettingsProvider::LoadSettings()
     {
         if (!m_settings)
         {

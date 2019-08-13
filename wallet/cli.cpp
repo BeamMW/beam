@@ -21,14 +21,14 @@
 #include "wallet/secstring.h"
 
 // TODO: move this includes to one place
-#include "wallet/bitcoin/bitcoind017.h"
-#include "wallet/bitcoin/bitcoin_settings.h"
+#include "wallet/bitcoin/bitcoin_core_017.h"
+#include "wallet/bitcoin/settings_provider.h"
 #include "wallet/bitcoin/bitcoin_side.h"
-#include "wallet/litecoin/litecoind017.h"
-#include "wallet/litecoin/litecoin_settings.h"
+#include "wallet/litecoin/litecoin_core_017.h"
+#include "wallet/litecoin/settings.h"
 #include "wallet/litecoin/litecoin_side.h"
-#include "wallet/qtum/qtumd017.h"
-#include "wallet/qtum/qtum_settings.h"
+#include "wallet/qtum/qtum_core_017.h"
+#include "wallet/qtum/settings.h"
 #include "wallet/qtum/qtum_side.h"
 ///
 #include "wallet/swaps/common.h"
@@ -1007,7 +1007,7 @@ namespace
     {
         if (vm.count(cli::BTC_NODE_ADDR) > 0 || vm.count(cli::BTC_USER_NAME) > 0 || vm.count(cli::BTC_PASS) > 0)
         {
-            bitcoin::BitcoindSettings bitcoindSettings;
+            bitcoin::BitcoinCoreSettings bitcoindSettings;
 
             string btcNodeUri = vm[cli::BTC_NODE_ADDR].as<string>();
             if (!bitcoindSettings.m_address.resolve(btcNodeUri.c_str()))
@@ -1055,7 +1055,7 @@ namespace
     {
         if (vm.count(cli::LTC_NODE_ADDR) > 0 || vm.count(cli::LTC_USER_NAME) > 0 || vm.count(cli::LTC_PASS) > 0)
         {
-            litecoin::LitecoindSettings litecoindSettings;
+            litecoin::LitecoinCoreSettings litecoindSettings;
 
             string ltcNodeUri = vm[cli::LTC_NODE_ADDR].as<string>();
             if (!litecoindSettings.m_address.resolve(ltcNodeUri.c_str()))
@@ -1103,7 +1103,7 @@ namespace
     {
         if (vm.count(cli::QTUM_NODE_ADDR) > 0 || vm.count(cli::QTUM_USER_NAME) > 0 || vm.count(cli::QTUM_PASS) > 0)
         {
-            qtum::QtumdSettings qtumdSettings;
+            qtum::QtumCoreSettings qtumdSettings;
 
             string qtumNodeUri = vm[cli::QTUM_NODE_ADDR].as<string>();
             if (!qtumdSettings.m_address.resolve(qtumNodeUri.c_str()))
@@ -1149,7 +1149,7 @@ namespace
 
     int HandleBTC(const po::variables_map& vm, const IWalletDB::Ptr& walletDB)
     {
-        bitcoin::BitcoinSettingsProvider settingsProvider{ walletDB };
+        bitcoin::SettingsProvider settingsProvider{ walletDB };
 
         if (vm.count(cli::ALTCOIN_SETTINGS_RESET))
         {
@@ -1573,27 +1573,27 @@ int main_impl(int argc, char* argv[])
                         auto swapTransactionCreator = std::make_shared<AtomicSwapTransaction::Creator>();
                         wallet.RegisterTransactionType(TxType::AtomicSwap, std::static_pointer_cast<BaseTransaction::Creator>(swapTransactionCreator));
 
-                        auto settingsProvider = std::make_shared<bitcoin::BitcoinSettingsProvider>(walletDB);
+                        auto settingsProvider = std::make_shared<bitcoin::SettingsProvider>(walletDB);
                         if (settingsProvider->GetSettings().IsInitialized())
                         {
-                            auto bitcoinBridge = std::make_shared<bitcoin::Bitcoind017>(io::Reactor::get_Current(), settingsProvider);
-                            auto btcSecondSideFactory = wallet::MakeSecondSideFactory<BitcoinSide, bitcoin::Bitcoind017, bitcoin::ISettingsProvider>(bitcoinBridge, settingsProvider);
+                            auto bitcoinBridge = std::make_shared<bitcoin::BitcoinCore017>(io::Reactor::get_Current(), settingsProvider);
+                            auto btcSecondSideFactory = wallet::MakeSecondSideFactory<BitcoinSide, bitcoin::BitcoinCore017, bitcoin::ISettingsProvider>(bitcoinBridge, settingsProvider);
                             swapTransactionCreator->RegisterFactory(AtomicSwapCoin::Bitcoin, btcSecondSideFactory);
                         }
 
                         //if (ltcSettings)
                         //{
-                        //    auto settingsProvider = std::make_shared<BitcoinSettingsProvider>(*ltcSettings);
-                        //    auto litecoinBridge = std::make_shared<litecoin::Litecoind016>(io::Reactor::get_Current(), settingsProvider);
-                        //    auto ltcSecondSideFactory = wallet::MakeSecondSideFactory<LitecoinSide, litecoin::Litecoind016, litecoin::ISettingsProvider>(litecoinBridge, settingsProvider);
+                        //    auto settingsProvider = std::make_shared<SettingsProvider>(*ltcSettings);
+                        //    auto litecoinBridge = std::make_shared<litecoin::LitecoinCore016>(io::Reactor::get_Current(), settingsProvider);
+                        //    auto ltcSecondSideFactory = wallet::MakeSecondSideFactory<LitecoinSide, litecoin::LitecoinCore016, litecoin::ISettingsProvider>(litecoinBridge, settingsProvider);
                         //    swapTransactionCreator->RegisterFactory(AtomicSwapCoin::Litecoin, ltcSecondSideFactory);
                         //}
 
                         //if (qtumSettings)
                         //{
-                        //    auto settingsProvider = std::make_shared<BitcoinSettingsProvider>(*qtumSettings);
-                        //    auto qtumBridge = std::make_shared<qtum::Qtumd017>(io::Reactor::get_Current(), settingsProvider);
-                        //    auto qtumSecondSideFactory = wallet::MakeSecondSideFactory<QtumSide, qtum::Qtumd017, qtum::ISettingsProvider>(qtumBridge, settingsProvider);
+                        //    auto settingsProvider = std::make_shared<SettingsProvider>(*qtumSettings);
+                        //    auto qtumBridge = std::make_shared<qtum::QtumCore017>(io::Reactor::get_Current(), settingsProvider);
+                        //    auto qtumSecondSideFactory = wallet::MakeSecondSideFactory<QtumSide, qtum::QtumCore017, qtum::ISettingsProvider>(qtumBridge, settingsProvider);
                         //    swapTransactionCreator->RegisterFactory(AtomicSwapCoin::Qtum, qtumSecondSideFactory);
                         //}
 

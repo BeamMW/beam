@@ -14,15 +14,15 @@
 
 #pragma once
 
-#include "bitcoind016.h"
+#include "bitcoin_core_016.h"
 
 namespace beam::bitcoin
 {
-    class Bitcoind017 : public Bitcoind016
+    class BitcoinCore017 : public BitcoinCore016
     {
     public:
-        Bitcoind017() = delete;
-        Bitcoind017(io::Reactor& reactor, IBitcoindSettingsProvider::Ptr settingsProvider);
+        BitcoinCore017() = delete;
+        BitcoinCore017(io::Reactor& reactor, IBitcoinCoreSettingsProvider::Ptr settingsProvider);
 
         void signRawTransaction(const std::string& rawTx, std::function<void(const IBridge::Error&, const std::string&, bool)> callback) override;
         void createRawTransaction(

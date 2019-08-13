@@ -12,9 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "bitcoin_client.h"
+#include "client.h"
 
-#include "wallet/bitcoin/bitcoind017.h"
+#include "wallet/bitcoin/bitcoin_core_017.h"
 #include "utility/logger.h"
 #include "utility/bridge.h"
 
@@ -44,7 +44,7 @@ namespace beam::bitcoin
         : m_status(Status::Uninitialized)
         , m_reactor(reactor)
         , m_async{ std::make_shared<BitcoinClientBridge>(*(static_cast<IClientAsync*>(this)), reactor) }
-        , m_settingsProvider{ std::make_unique<BitcoinSettingsProvider>(walletDB) }
+        , m_settingsProvider{ std::make_unique<SettingsProvider>(walletDB) }
     {
     }
 
@@ -53,10 +53,10 @@ namespace beam::bitcoin
         return m_async;
     }
 
-    BitcoindSettings Client::GetBitcoindSettings() const
+    BitcoinCoreSettings Client::GetBitcoinCoreSettings() const
     {
         Lock lock(m_mutex);
-        return m_settingsProvider->GetBitcoindSettings();
+        return m_settingsProvider->GetBitcoinCoreSettings();
     }
 
     Settings Client::GetSettings() const
@@ -80,7 +80,7 @@ namespace beam::bitcoin
     {
         if (!m_bridge)
         {
-            m_bridge = std::make_shared<Bitcoind017>(m_reactor, shared_from_this());
+            m_bridge = std::make_shared<BitcoinCore017>(m_reactor, shared_from_this());
         }
 
         m_bridge->getDetailedBalance([this] (const IBridge::Error& error, double confirmed, double unconfirmed, double immature)
