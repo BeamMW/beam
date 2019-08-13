@@ -124,7 +124,8 @@ namespace beam
 		extern const char* RECOVERY_AUTO_PERIOD;
         extern const char* COLD_WALLET;
         extern const char* SWAP_INIT;
-        extern const char* SWAP_LISTEN;
+        extern const char* SWAP_ACCEPT;
+        extern const char* SWAP_TOKEN;
         extern const char* SWAP_AMOUNT;
         extern const char* SWAP_FEERATE;
         extern const char* SWAP_COIN;
