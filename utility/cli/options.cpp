@@ -125,7 +125,8 @@ namespace beam
 		const char* RECOVERY_AUTO_PERIOD = "recovery_auto_period";
         const char* COLD_WALLET = "cold_wallet";
         const char* SWAP_INIT = "swap_init";
-        const char* SWAP_LISTEN = "swap_listen";
+        const char* SWAP_ACCEPT = "swap_accept";
+        const char* SWAP_TOKEN = "swap_token";
         const char* SWAP_AMOUNT = "swap_amount";
         const char* SWAP_FEERATE = "swap_feerate";
         const char* SWAP_COIN = "swap_coin";
@@ -240,7 +241,7 @@ namespace beam
             (cli::UTXO, po::value<vector<string>>()->multitoken(), "preselected utxos to transfer")
             (cli::IMPORT_EXPORT_PATH, po::value<string>()->default_value("export.dat"), "path to import or export data (import_data|export_data)")
             (cli::COLD_WALLET, "used to init cold wallet")
-            (cli::COMMAND, po::value<string>(), "command to execute [new_addr|send|listen|init|restore|info|export_miner_key|export_owner_key|generate_phrase|change_address_expiration|address_list|rescan|export_data|import_data|tx_details|payment_proof_export|payment_proof_verify|utxo|cancel_tx|delete_tx|swap_init|swap_listen]")
+            (cli::COMMAND, po::value<string>(), "command to execute [new_addr|send|listen|init|restore|info|export_miner_key|export_owner_key|generate_phrase|change_address_expiration|address_list|rescan|export_data|import_data|tx_details|payment_proof_export|payment_proof_verify|utxo|cancel_tx|delete_tx|swap_init|swap_accept]")
             (cli::NODE_POLL_PERIOD, po::value<Nonnegative<uint32_t>>()->default_value(Nonnegative<uint32_t>(0)), "Node poll period in milliseconds. Set to 0 to keep connection. Anyway poll period would be no less than the expected rate of blocks if it is less then it will be rounded up to block rate value.");
 
         po::options_description wallet_treasury_options("Wallet treasury options");
@@ -278,7 +279,8 @@ namespace beam
             (cli::SWAP_FEERATE, po::value<Positive<Amount>>(), "The specific feerate you are willing to pay(the smallest unit of the coin per KB)")
             (cli::SWAP_NETWORK, po::value<string>(), "type of second side network(mainnet, testnet)")
             (cli::SWAP_BEAM_SIDE, "Should be set by Beam owner")
-            (cli::SWAP_TX_HISTORY, "show swap transactions history in info command");
+            (cli::SWAP_TX_HISTORY, "show swap transactions history in info command")
+            (cli::SWAP_TOKEN, po::value<string>(), "swap transaction token");
 
         po::options_description options{ "Allowed options" };
         po::options_description visible_options{ "Allowed options" };

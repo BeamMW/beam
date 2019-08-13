@@ -948,20 +948,24 @@ namespace
         return coinIDs;
     }
 
-    bool LoadBaseParamsForTX(const po::variables_map& vm, Amount& amount, Amount& fee, WalletID& receiverWalletID, bool checkFee)
+    bool LoadBaseParamsForTX(const po::variables_map& vm, Amount& amount, Amount& fee, WalletID& receiverWalletID, bool checkFee, bool skipReceiverWalletID=false)
     {
-        if (vm.count(cli::RECEIVER_ADDR) == 0)
+        if (!skipReceiverWalletID)
         {
-            LOG_ERROR() << "receiver's address is missing";
-            return false;
+
+            if (vm.count(cli::RECEIVER_ADDR) == 0)
+            {
+                LOG_ERROR() << "receiver's address is missing";
+                return false;
+            }
+            receiverWalletID.FromHex(vm[cli::RECEIVER_ADDR].as<string>());
         }
+
         if (vm.count(cli::AMOUNT) == 0)
         {
             LOG_ERROR() << "amount is missing";
             return false;
         }
-
-        receiverWalletID.FromHex(vm[cli::RECEIVER_ADDR].as<string>());
 
         auto signedAmount = vm[cli::AMOUNT].as<Positive<double>>().value;
         if (signedAmount < 0)
@@ -1306,7 +1310,7 @@ int main_impl(int argc, char* argv[])
                             cli::IMPORT_DATA,
                             cli::EXPORT_DATA,
                             cli::SWAP_INIT,
-                            cli::SWAP_LISTEN,
+                            cli::SWAP_ACCEPT,
                             cli::BTC_SETTINGS
                         };
 
@@ -1506,7 +1510,7 @@ int main_impl(int argc, char* argv[])
                     Amount amount = 0;
                     Amount fee = 0;
                     WalletID receiverWalletID(Zero);
-                    bool isTxInitiator = command == cli::SEND;
+                    bool isTxInitiator = (command == cli::SEND);
                     if (isTxInitiator && !LoadBaseParamsForTX(vm, amount, fee, receiverWalletID, isFork1))
                     {
                         return -1;
@@ -1597,7 +1601,7 @@ int main_impl(int argc, char* argv[])
                         //    swapTransactionCreator->RegisterFactory(AtomicSwapCoin::Qtum, qtumSecondSideFactory);
                         //}
 
-                        if (command == cli::SWAP_INIT || command == cli::SWAP_LISTEN)
+                        if (command == cli::SWAP_INIT)
                         {
                             if (vm.count(cli::SWAP_AMOUNT) == 0)
                             {
@@ -1606,7 +1610,6 @@ int main_impl(int argc, char* argv[])
                             }
 
                             Amount swapAmount = vm[cli::SWAP_AMOUNT].as<Positive<Amount>>().value;
-
                             SwapSecondSideChainType secondSideChainType = SwapSecondSideChainType::Mainnet;
                             wallet::AtomicSwapCoin swapCoin = wallet::AtomicSwapCoin::Bitcoin;
 
@@ -1621,22 +1624,22 @@ int main_impl(int argc, char* argv[])
                                 }
                             }
 
-                            //if (swapCoin == wallet::AtomicSwapCoin::Bitcoin)
-                            //{
-                            //    if (!btcSettings || btcSettings->GetConnectionOptions().m_userName.empty() 
-                            //        || btcSettings->GetConnectionOptions().m_pass.empty() || btcSettings->GetConnectionOptions().m_address.empty())
-                            //    {
-                            //        LOG_ERROR() << "BTC node credentials should be provided";
-                            //        return -1;
-                            //    }
+                            if (swapCoin == wallet::AtomicSwapCoin::Bitcoin)
+                            {
+                                auto btcSettings = settingsProvider->GetSettings();
+                                if (!btcSettings.IsInitialized())
+                                {
+                                    LOG_ERROR() << "BTC settings should be initialized.";
+                                    return -1;
+                                }
 
-                            //    if (!BitcoinSide::CheckAmount(swapAmount, btcSettings->GetFeeRate()))
-                            //    {
-                            //        LOG_ERROR() << "The swap amount must be greater than the redemption fee.";
-                            //        return -1;
-                            //    }
-                            //    secondSideChainType = btcSettings->GetChainType();
-                            //}
+                                if (!BitcoinSide::CheckAmount(swapAmount, btcSettings.GetFeeRate()))
+                                {
+                                    LOG_ERROR() << "The swap amount must be greater than the redemption fee.";
+                                    return -1;
+                                }
+                                secondSideChainType = btcSettings.GetChainType();
+                            }
                             //else if (swapCoin == wallet::AtomicSwapCoin::Litecoin)
                             //{
                             //    if (!ltcSettings || ltcSettings->GetConnectionOptions().m_userName.empty() 
@@ -1670,60 +1673,145 @@ int main_impl(int argc, char* argv[])
                             
                             bool isBeamSide = (vm.count(cli::SWAP_BEAM_SIDE) != 0);
 
-                            if (command == cli::SWAP_INIT)
+                            if (!LoadBaseParamsForTX(vm, amount, fee, receiverWalletID, isFork1, true))
                             {
-                                if (!LoadBaseParamsForTX(vm, amount, fee, receiverWalletID, isFork1))
-                                {
-                                    return -1;
-                                }
-
-                                if (vm.count(cli::SWAP_AMOUNT) == 0)
-                                {
-                                    LOG_ERROR() << "swap amount is missing";
-                                    return -1;
-                                }
-
-                                if (amount <= kMinFeeInGroth)
-                                {
-                                    LOG_ERROR() << "The amount must be greater than the redemption fee.";
-                                    return -1;
-                                }
-
-                                WalletAddress senderAddress = GenerateNewAddress(walletDB, "");
-
-                                auto swapParameters = InitNewSwap(senderAddress.m_walletID, amount, fee, swapCoin, swapAmount, secondSideChainType, isBeamSide);
-                                swapParameters.SetParameter(TxParameterID::MyID, senderAddress.m_walletID);
-                                currentTxID = wallet.StartTransaction(swapParameters);
-                                //currentTxID = wallet.swap_coins(senderAddress.m_walletID, receiverWalletID, 
-                                //    move(amount), move(fee), swapCoin, swapAmount, secondSideChainType, isBeamSide);
+                                return -1;
                             }
 
-                            if (command == cli::SWAP_LISTEN)
+                            if (vm.count(cli::SWAP_AMOUNT) == 0)
                             {
-                                if (vm.count(cli::AMOUNT) == 0)
+                                LOG_ERROR() << "swap amount is missing";
+                                return -1;
+                            }
+
+                            if (amount <= kMinFeeInGroth)
+                            {
+                                LOG_ERROR() << "The amount must be greater than the redemption fee.";
+                                return -1;
+                            }
+
+                            WalletAddress senderAddress = GenerateNewAddress(walletDB, "");
+
+                            auto swapTxParameters = InitNewSwap(senderAddress.m_walletID, amount, fee, swapCoin, swapAmount, secondSideChainType, isBeamSide);
+
+                            currentTxID = wallet.StartTransaction(swapTxParameters);
+
+                            // print swap tx token
+                            {
+                                // auto token = SwapTxParametersToToken(swapParameters);
+                                isBeamSide = !*swapTxParameters.GetParameter<bool>(TxParameterID::AtomicSwapIsBeamSide);
+                                swapTxParameters.SetParameter(TxParameterID::IsInitiator, !*swapTxParameters.GetParameter<bool>(TxParameterID::IsInitiator));
+                                swapTxParameters.SetParameter(TxParameterID::PeerID, *swapTxParameters.GetParameter<WalletID>(TxParameterID::MyID));
+                                swapTxParameters.SetParameter(TxParameterID::AtomicSwapIsBeamSide, isBeamSide);
+                                swapTxParameters.SetParameter(TxParameterID::IsSender, isBeamSide);
+                                swapTxParameters.DeleteParameter(TxParameterID::MyID);
+
+                                auto swapTxToken = std::to_string(swapTxParameters);
+                                LOG_INFO() << "Swap token: " << swapTxToken;
+                            }
+                        }
+
+                        if (command == cli::SWAP_ACCEPT)
+                        {
+                            if (vm.count(cli::SWAP_TOKEN) == 0)
+                            {
+                                LOG_ERROR() << "swap transaction token should be specified";
+                                return -1;
+                            }
+
+                            auto swapTxToken = vm[cli::SWAP_TOKEN].as<std::string>();
+                            auto swapTxParameters = beam::wallet::ParseParameters(swapTxToken);
+
+                            // validate TxType and parameters
+                            auto transactionType = swapTxParameters->GetParameter<TxType>(TxParameterID::TransactionType);
+                            auto isBeamSide = swapTxParameters->GetParameter<bool>(TxParameterID::AtomicSwapIsBeamSide);
+                            auto swapCoin = swapTxParameters->GetParameter<AtomicSwapCoin>(TxParameterID::AtomicSwapCoin);
+                            auto beamAmount = swapTxParameters->GetParameter<Amount>(TxParameterID::Amount);
+                            auto swapAmount = swapTxParameters->GetParameter<Amount>(TxParameterID::AtomicSwapAmount);
+                            auto chainType = swapTxParameters->GetParameter<SwapSecondSideChainType>(TxParameterID::AtomicSwapSecondSideChainType);
+                            auto peerID = swapTxParameters->GetParameter<WalletID>(TxParameterID::PeerID);
+                            auto peerResponseHeight = swapTxParameters->GetParameter<Height>(TxParameterID::PeerResponseHeight);
+
+                            bool isValidToken = isBeamSide && swapCoin && beamAmount && swapAmount && chainType && peerID && peerResponseHeight;
+
+                            if (!transactionType || *transactionType != TxType::AtomicSwap || !isValidToken)
+                            {
+                                LOG_ERROR() << "swap transaction token is invalid.";
+                                return -1;
+                            }
+
+                            SwapSecondSideChainType ownSecondSideChainType = SwapSecondSideChainType::Mainnet;
+                            Amount swapFeeRate = 0;
+
+                            if (swapCoin == wallet::AtomicSwapCoin::Bitcoin)
+                            {
+                                auto btcSettings = settingsProvider->GetSettings();
+                                if (!btcSettings.IsInitialized())
                                 {
-                                    LOG_ERROR() << "amount is missing";
-                                    return false;
-                                }
-
-                                auto signedAmount = vm[cli::AMOUNT].as<Positive<double>>().value;
-
-                                signedAmount *= Rules::Coin; // convert beams to coins
-
-                                amount = static_cast<ECC::Amount>(std::round(signedAmount));
-                                if (amount == 0)
-                                {
-                                    LOG_ERROR() << "Unable to send zero coins";
-                                    return false;
-                                }
-
-                                if (amount <= kMinFeeInGroth)
-                                {
-                                    LOG_ERROR() << "The amount must be greater than the redemption fee.";
+                                    LOG_ERROR() << "BTC settings should be initialized.";
                                     return -1;
                                 }
-                                //wallet.initSwapConditions(amount, swapAmount, swapCoin, isBeamSide, secondSideChainType);
+
+                                if (!BitcoinSide::CheckAmount(*swapAmount, btcSettings.GetFeeRate()))
+                                {
+                                    LOG_ERROR() << "The swap amount must be greater than the redemption fee.";
+                                    return -1;
+                                }
+                                ownSecondSideChainType = btcSettings.GetChainType();
+                                swapFeeRate = btcSettings.GetFeeRate();
                             }
+
+                            // validate chain types
+                            if (ownSecondSideChainType != *chainType)
+                            {
+                                LOG_ERROR() << "Incompatible options! Your sidechain type: " 
+                                    << getSwapSecondSideChainTypeText(ownSecondSideChainType)
+                                    << " Token's sidechain type: " << getSwapSecondSideChainTypeText(*chainType);
+                                return -1;
+                            }
+
+                            // display swap details to user
+                            cout << " Swap conditions: " << "\n"
+                                << " Beam side:    " << *isBeamSide << "\n"
+                                << " Swap coin:    " << getAtomicSwapCoinText(*swapCoin) << "\n"
+                                << " Beam amount:  " << PrintableAmount(*beamAmount) << "\n"
+                                << " Swap amount:  " << *swapAmount << "\n"
+                                << " Chain type:   " << getSwapSecondSideChainTypeText(*chainType) << "\n"
+                                << " Peer ID:      " << to_string(*peerID);
+
+                            // get accepting
+                            // TODO: Refactor
+                            bool isAccepted = false;
+                            while (true)
+                            {
+                                std::string result;
+                                cout << "Do you agree to these conditions? (y/n): ";
+                                cin >> result;
+
+                                if (result == "y" || result == "n")
+                                {
+                                    isAccepted = (result == "y");
+                                    break;
+                                }
+                            }
+
+                            if (!isAccepted)
+                            {
+                                LOG_INFO() << "Swap rejected!";
+                                return 0;
+                            }
+
+                            // on accepting
+                            WalletAddress senderAddress = GenerateNewAddress(walletDB, "");
+
+                            swapTxParameters->SetParameter(TxParameterID::MyID, senderAddress.m_walletID);
+
+                            // TODO: check fee
+                            swapTxParameters->SetParameter(beam::wallet::TxParameterID::Fee, beam::Amount(cli::kMinimumFee));
+                            auto subTxID = isBeamSide ? beam::wallet::SubTxIndex::REDEEM_TX : beam::wallet::SubTxIndex::LOCK_TX;
+                            swapTxParameters->SetParameter(beam::wallet::TxParameterID::Fee, swapFeeRate, subTxID);
+
+                            currentTxID = wallet.StartTransaction(*swapTxParameters);
                         }
 
                         if (isTxInitiator)
@@ -1737,7 +1825,7 @@ int main_impl(int argc, char* argv[])
                                 .SetParameter(TxParameterID::PreselectedCoins, GetPreselectedCoinIDs(vm)));
                         }
 
-                        bool deleteTx = command == cli::DELETE_TX;
+                        bool deleteTx = (command == cli::DELETE_TX);
                         if (command == cli::CANCEL_TX || deleteTx)
                         {
                             auto txIdVec = from_hex(vm[cli::TX_ID].as<string>());

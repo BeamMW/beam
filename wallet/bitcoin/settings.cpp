@@ -14,11 +14,6 @@
 
 #include "settings.h"
 
-namespace
-{
-    const char* kBitcoinSettingsName = "BTCSettings";
-}
-
 namespace beam::bitcoin
 {
     const BitcoinCoreSettings& Settings::GetConnectionOptions() const
