@@ -24,7 +24,11 @@
 class WalletViewModel : public QObject
 {
     Q_OBJECT
-    Q_PROPERTY(double  available   READ available    NOTIFY stateChanged)
+    Q_PROPERTY(double  beamAvailable   READ beamAvailable    NOTIFY stateChanged)
+    Q_PROPERTY(double  btcAvailable    READ btcAvailable     NOTIFY stateChanged)
+    Q_PROPERTY(double  ltcAvailable    READ ltcAvailable     NOTIFY stateChanged)
+    Q_PROPERTY(double  qtumAvailable   READ qtumAvailable    NOTIFY stateChanged)
+
     Q_PROPERTY(QString receiving   READ receiving    NOTIFY stateChanged)
     Q_PROPERTY(QString sending     READ sending      NOTIFY stateChanged)
     Q_PROPERTY(QString maturing    READ maturing     NOTIFY stateChanged)
@@ -51,7 +55,11 @@ public:
     WalletViewModel();
     virtual ~WalletViewModel();
 
-    double  available() const;
+    double  beamAvailable() const;
+    double  btcAvailable()  const;
+    double  ltcAvailable()  const;
+    double  qtumAvailable() const;
+
     QString receiving() const;
     QString sending() const;
     QString maturing() const;
@@ -95,6 +103,10 @@ private:
     WalletSettings& _settings;
     StatusHolder _status;
     TxList _txList;
+
+    double _btcAvailable  = 0;
+    double _ltcAvailable  = 0;
+    double _qtumAvailable = 0;
 
     Qt::SortOrder _sortOrder;
     QString _sortRole;

@@ -141,9 +141,24 @@ void WalletViewModel::onTxStatus(beam::wallet::ChangeAction action, const std::v
 
 }
 
-double WalletViewModel::available() const
+double WalletViewModel::beamAvailable() const
 {
     return double(int64_t(_status.getAvailable())) / Rules::Coin;
+}
+
+double WalletViewModel::btcAvailable() const
+{
+    return _btcAvailable;
+}
+
+double WalletViewModel::ltcAvailable() const
+{
+    return _ltcAvailable;
+}
+
+double WalletViewModel::qtumAvailable() const
+{
+    return _qtumAvailable;
 }
 
 QString WalletViewModel::receiving() const

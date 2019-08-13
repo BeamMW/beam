@@ -128,7 +128,7 @@ Control {
                 flow:               GridLayout.TopToBottom
 
                 BeamAmount {
-                    amount:           btcValue
+                    amount:           beamValue
                     color:            Style.content_secondary
                     fontSize:         23
                     currencySymbol:   Utils.symbolBeam
@@ -139,7 +139,7 @@ Control {
                 }
 
                 BeamAmount {
-                    amount:           beamValue
+                    amount:           btcValue
                     color:            Style.content_secondary
                     fontSize:         23
                     currencySymbol:   Utils.symbolBtc
