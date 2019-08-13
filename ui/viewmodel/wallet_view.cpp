@@ -58,6 +58,8 @@ WalletViewModel::WalletViewModel()
 
     // TODO: This also refreshes TXs and addresses. Need to make this more transparent
     _status.refresh();
+
+    // TODO:SWAP refresh btc, ltc & qtum balances. Emit stateChanged() on refresh
 }
 
 WalletViewModel::~WalletViewModel()
