@@ -2195,7 +2195,7 @@ namespace beam::wallet
 
         if (stm2.step())
         {
-            const char* updateReq = "UPDATE " LASER_CHANNELS_NAME " SET myWID=?2, trgWID=?3, state=?4, fee=?5, locktime=?6, amountMy=?7, amountTrg=?8, amountCurrentMy=?9, amountCurrentTrg=?10, data=?13 WHERE chID=?1;";
+            const char* updateReq = "UPDATE " LASER_CHANNELS_NAME " SET myWID=?2, trgWID=?3, state=?4, fee=?5, locktime=?6, amountMy=?7, amountTrg=?8, amountCurrentMy=?9, amountCurrentTrg=?10, lockHeight=?11, bbsTimestamp=?12, data=?13 WHERE chID=?1;";
             sqlite::Statement stm(this, updateReq);
 
             stm.bind(1, ch.get_chID()->m_pData, ch.get_chID()->nBytes);
@@ -2208,8 +2208,8 @@ namespace beam::wallet
             stm.bind(8, ch.get_amountTrg());
             stm.bind(9, ch.get_amountCurrentMy());
             stm.bind(10, ch.get_amountCurrentTrg());
-            stm.bind(11, 0);
-            stm.bind(12, 0);
+            stm.bind(11, ch.get_LockHeight());
+            stm.bind(12, ch.get_BbsTimestamp());
             stm.bind(13, ch.get_Data().data(), ch.get_Data().size());
             stm.step();
         }
@@ -2227,8 +2227,8 @@ namespace beam::wallet
             stm.bind(8, ch.get_amountTrg());
             stm.bind(9, ch.get_amountCurrentMy());
             stm.bind(10, ch.get_amountCurrentTrg());
-            stm.bind(11, 0);
-            stm.bind(12, 0);
+            stm.bind(11, ch.get_LockHeight());
+            stm.bind(12, ch.get_BbsTimestamp());
             stm.bind(13, ch.get_Data().data(), ch.get_Data().size());
             stm.step();
 
@@ -2256,6 +2256,8 @@ namespace beam::wallet
             stm.get(8, std::get<8>(*entity));
             stm.get(9, std::get<9>(*entity));
             stm.get(10, std::get<10>(*entity));
+            stm.get(11, std::get<11>(*entity));
+            stm.get(12, std::get<12>(*entity));
             return true;
         }
         return false;
@@ -2307,6 +2309,8 @@ namespace beam::wallet
             stm.get(8, std::get<8>(entity));
             stm.get(9, std::get<9>(entity));
             stm.get(10, std::get<10>(entity));
+            stm.get(11, std::get<11>(entity));
+            stm.get(12, std::get<12>(entity));
         }
 
         return channels;

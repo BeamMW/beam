@@ -55,8 +55,8 @@ public:
             const TLaserChannelEntity& entity);
     Channel(const Channel&) = delete;
     void operator=(const Channel&) = delete;
-    // Channel(Channel&& channel) = delete;
-    // void operator=(Channel&& channel) = delete;
+    Channel(Channel&& channel) = delete;
+    void operator=(Channel&& channel) = delete;
     ~Channel();
 
     // beam::Lightning::Channel implementation
@@ -89,27 +89,31 @@ public:
     const WalletAddress& get_myAddr() const override;
 
     bool Open(HeightRange openWindow);
-    bool IsStateChanged();
+    bool TransformLastState();
+    Lightning::Channel::State::Enum get_LastState() const;
+    bool CanBeServed();
+    bool CanBeClosed();
     void UpdateRestorePoint();
     void LogNewState();
-    
-    // bool IsOpen() const;
-
-private:
     void Subscribe();
     void Unsubscribe();
+
+private:
     void RestoreInternalState(const ByteBuffer& data);
 
     IChannelHolder& m_rHolder;
 
     bool m_SendMyWid = true;
-    beam::Lightning::Channel::State::Enum m_LastState = State::None;
+    beam::Lightning::Channel::State::Enum m_lastState = State::None;
+    beam::Lightning::Channel::State::Enum m_lastLoggedState = State::None;
 
     ChannelIDPtr m_ID;
     WalletAddress m_myAddr;
     WalletID m_widTrg;
     Amount m_aMy;
     Amount m_aTrg;
+    Amount m_aCurMy;
+    Amount m_aCurTrg;
     Height m_lockHeight = MaxHeight;
     Timestamp m_bbsTimestamp;
     

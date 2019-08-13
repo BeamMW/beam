@@ -48,14 +48,14 @@ Channel::Channel(IChannelHolder& holder,
     , m_widTrg(trg)
     , m_aMy(aMy)
     , m_aTrg(aTrg)
+    , m_aCurMy(aMy)
+    , m_aCurTrg(aTrg)
     , m_bbsTimestamp(getTimestamp())
 {
     ECC::GenRandom(*m_ID);
     m_upReceiver = std::make_unique<Receiver>(m_rHolder, m_ID);
     m_Params.m_Fee = fee;
     m_Params.m_hLockTime = locktime;
-
-    Subscribe();
 }
 
 Channel::Channel(IChannelHolder& holder,
@@ -73,13 +73,13 @@ Channel::Channel(IChannelHolder& holder,
     , m_widTrg(trg)
     , m_aMy(aMy)
     , m_aTrg(aTrg)
+    , m_aCurMy(aMy)
+    , m_aCurTrg(aTrg)
     , m_bbsTimestamp(getTimestamp())
     , m_upReceiver(std::make_unique<Receiver>(holder, chID))
 {
     m_Params.m_Fee = fee;
     m_Params.m_hLockTime = locktime;
-
-    Subscribe();
 }
 
 Channel::Channel(IChannelHolder& holder,
@@ -93,6 +93,8 @@ Channel::Channel(IChannelHolder& holder,
     , m_widTrg(std::get<2>(entity))
     , m_aMy(std::get<6>(entity))
     , m_aTrg(std::get<7>(entity))
+    , m_aCurMy(std::get<8>(entity))
+    , m_aCurTrg(std::get<9>(entity))
     , m_lockHeight(std::get<10>(entity))
     , m_bbsTimestamp(std::get<11>(entity))
     , m_upReceiver(std::make_unique<Receiver>(holder, chID))
@@ -101,12 +103,6 @@ Channel::Channel(IChannelHolder& holder,
     m_Params.m_hLockTime = std::get<5>(entity);
 
     RestoreInternalState(std::get<12>(entity));
-
-    if (get_State() != beam::Lightning::Channel::State::OpenFailed ||
-        get_State() != beam::Lightning::Channel::State::Closed)
-    {
-        Subscribe(); 
-    }
 }
 
 // Channel::Channel(Channel&& channel)
@@ -121,7 +117,7 @@ Channel::Channel(IChannelHolder& holder,
 
 Channel::~Channel()
 {
-    Unsubscribe();
+    // Unsubscribe();
 }
 
 Height Channel::get_Tip() const
@@ -194,7 +190,6 @@ void Channel::SendPeer(Negotiator::Storage::Map&& dataOut)
 
 	if (proto::Bbs::Encrypt(pReq->m_Msg.m_Message, m_widTrg.m_Pk, nonce, ser.buffer().first, static_cast<uint32_t>(ser.buffer().second)))
 	{
-		// skip mining!
 		pReq->m_Msg.m_TimePosted = getTimestamp();
 		get_Net().PostRequest(*pReq, *m_upReceiver);
 	}
@@ -324,17 +319,17 @@ const Amount& Channel::get_amountTrg() const
 
 const Amount& Channel::get_amountCurrentMy() const
 {
-    return m_aMy;
+    return m_aCurMy;
 }
 
 const Amount& Channel::get_amountCurrentTrg() const
 {
-    return m_aTrg;
+    return m_aCurTrg;
 }
 
 int Channel::get_State() const
 {
-    return beam::Lightning::Channel::get_State();
+    return Lightning::Channel::get_State();
 }
 
 const Height& Channel::get_LockHeight() const
@@ -362,9 +357,35 @@ bool Channel::Open(HeightRange openWindow)
     return Lightning::Channel::Open(m_aMy, m_aTrg, openWindow);
 }
 
-bool Channel::IsStateChanged()
+bool Channel::TransformLastState()
 {
-    return m_LastState != beam::Lightning::Channel::get_State();
+    auto state = beam::Lightning::Channel::get_State();
+    if (m_lastState == state)
+        return false;
+
+    m_lastState = state;
+    return true;
+}
+
+Lightning::Channel::State::Enum Channel::get_LastState() const
+{
+    return m_lastState;
+}
+
+bool Channel::CanBeServed()
+{
+    auto state = get_State();
+    return state != beam::Lightning::Channel::State::None &&
+           state != beam::Lightning::Channel::State::OpenFailed &&
+           state != beam::Lightning::Channel::State::Closed;
+}
+
+bool Channel::CanBeClosed()
+{
+    auto state = get_State();
+    return state <= Lightning::Channel::State::Closing1 &&
+           state != Lightning::Channel::State::OpenFailed &&
+           state >= Lightning::Channel::State::Opening1;
 }
 
 void Channel::UpdateRestorePoint()
@@ -414,21 +435,34 @@ void Channel::UpdateRestorePoint()
 
     Blob blob(ser.buffer().first, static_cast<uint32_t>(ser.buffer().second));
     blob.Export(m_data);
+
+    if (m_pOpen && m_pOpen->m_hOpened)
+    {
+        m_lockHeight = m_pOpen->m_hOpened + m_Params.m_hLockTime;
+    }
+    m_bbsTimestamp = getTimestamp();
+
+    if (!m_vUpdates.empty())
+    {
+        const auto& lastUpdate = m_vUpdates.back();
+        m_aCurMy = lastUpdate->m_Outp.m_Value;
+        auto total = lastUpdate->m_msMy.m_Value - m_Params.m_Fee;
+        m_aCurTrg = total - m_aCurMy;
+    }
 }
 
 void Channel::LogNewState()
 {
-    beam::Lightning::Channel::State::Enum eState =
-        beam::Lightning::Channel::get_State();
-    if (m_LastState == eState)
+    auto state = beam::Lightning::Channel::get_State();
+    if (m_lastLoggedState == state)
         return;
 
-    m_LastState = eState;
+    m_lastLoggedState = state;
 
     std::ostringstream os;
-    os << "State ";
+    os << "LASER ch:" << to_hex(m_ID->m_pData, m_ID->nBytes) << " state ";
 
-    switch (eState)
+    switch (state)
     {
     case beam::Lightning::Channel::State::Opening0:
         os << "Opening0 (early stage, safe to discard)";
@@ -443,7 +477,9 @@ void Channel::LogNewState()
         os << "OpenFailed (Not confirmed, missed height window). Waiting for 8 confirmations before forgetting";
         break;
     case beam::Lightning::Channel::State::Open:
-        os << "Open. Last Revision: " << m_vUpdates.size() << ". Balance: " << m_vUpdates.back()->m_Outp.m_Value << " / " << (m_vUpdates.back()->m_msMy.m_Value - m_Params.m_Fee);
+        os << "Open. Last Revision: " << m_vUpdates.size()
+           << ". Balance: " << m_vUpdates.back()->m_Outp.m_Value << " / "
+           << (m_vUpdates.back()->m_msMy.m_Value - m_Params.m_Fee);
         break;
     case beam::Lightning::Channel::State::Updating:
         os << "Updating (creating newer Revision)";
@@ -453,9 +489,14 @@ void Channel::LogNewState()
         break;
     case beam::Lightning::Channel::State::Closing2:
         {
-            os << "Closing2 (Phase-1 withdrawal detected). Revision: " << m_State.m_Close.m_iPath << ". Initiated by " << (m_State.m_Close.m_Initiator ? "me" : "peer");
-            if (DataUpdate::Type::Punishment == m_vUpdates[m_State.m_Close.m_iPath]->m_Type)
+            os << "Closing2 (Phase-1 withdrawal detected). Revision: "
+               << m_State.m_Close.m_iPath << ". Initiated by " 
+               << (m_State.m_Close.m_Initiator ? "me" : "peer");
+            if (DataUpdate::Type::Punishment == 
+                m_vUpdates[m_State.m_Close.m_iPath]->m_Type)
+            {
                 os << ". Fraudulent withdrawal attempt detected! Will claim everything";
+            }
         }
         break;
     case beam::Lightning::Channel::State::Closed:
@@ -465,20 +506,14 @@ void Channel::LogNewState()
         return;
     }
 
-    std::cout << os.str() << std::endl;
+    LOG_INFO() << os.str();
 }
-
-// bool Channel::IsOpen() const
-// {
-//     return beam::Lightning::Channel::get_State() ==
-//            beam::Lightning::Channel::State::Open;
-// };
 
 void Channel::Subscribe()
 {
     BbsChannel ch;
     get_myWID().m_Channel.Export(ch);
-    get_Net().BbsSubscribe(ch, getTimestamp(), m_upReceiver.get());
+    get_Net().BbsSubscribe(ch, m_bbsTimestamp, m_upReceiver.get());
     LOG_INFO() << "beam::wallet::laser::Channel subscribed: " << ch;
 }
 
@@ -517,7 +552,7 @@ void Channel::RestoreInternalState(const ByteBuffer& data)
         size_t vInpSize = 0;
         der & vInpSize;
         m_pOpen->m_vInp.reserve(vInpSize);
-        for (auto i = 0; i < vInpSize; ++i)
+        for (size_t i = 0; i < vInpSize; ++i)
         {
             Key::IDV idv;
             der & idv;
@@ -528,7 +563,7 @@ void Channel::RestoreInternalState(const ByteBuffer& data)
         size_t vUpdatesSize = 0;
         der & vUpdatesSize;
         m_vUpdates.reserve(vUpdatesSize);
-        for (auto i = 0; i < vUpdatesSize; ++i)
+        for (size_t i = 0; i < vUpdatesSize; ++i)
         {
             auto& upd = m_vUpdates.emplace_back(std::make_unique<DataUpdate>());
             der & upd->m_Comm1;
@@ -552,6 +587,7 @@ void Channel::RestoreInternalState(const ByteBuffer& data)
 		LOG_ERROR() << "LASER RestoreInternalState failed";
 	}
 
+    m_lastState = m_lastLoggedState = Lightning::Channel::get_State();
     m_SendMyWid = false;
 }
 

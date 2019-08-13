@@ -491,16 +491,6 @@ namespace
         return -1;
     }
 
-    WalletAddress GenerateNewLaserAddress(const IWalletDB::Ptr& walletDB)
-    {
-        auto address = storage::createAddress(*walletDB);
-
-        address.setExpiration(WalletAddress::ExpirationStatus::Never);
-        address.m_label = "laser_in";
-        // walletDB->saveAddress(address);
-        return address;
-    }
-
     int CreateNewAddress(const po::variables_map& vm, const IWalletDB::Ptr& walletDB)
     {
         auto comment = vm[cli::NEW_ADDRESS_COMMENT].as<string>();
@@ -964,61 +954,6 @@ namespace
         return true;
     }
 
-    bool LoadLaserParams(const po::variables_map& vm,
-                         Amount* aMy,
-                         Amount* aTrg,
-                         Amount* fee,
-                         WalletID* receiverWalletID,
-                         Height* locktime)
-    {
-        if (!vm.count(cli::LASER_TARGET_ADDR))
-        {
-            LOG_ERROR() << "receiver's address is missing";
-            return false;
-        }
-
-        if (!vm.count(cli::LASER_AMOUNT_MY))
-        {
-            LOG_ERROR() << "amount is missing";
-            return false;
-        }
-
-        receiverWalletID->FromHex(vm[cli::LASER_TARGET_ADDR].as<string>());
-
-        auto myAmount = vm[cli::LASER_AMOUNT_MY].as<Positive<double>>().value;
-        myAmount *= Rules::Coin;
-        *aMy = static_cast<ECC::Amount>(std::round(myAmount));
-        if (*aMy == 0)
-        {
-            LOG_ERROR() << "Unable to send zero coins";
-            return false;
-        }
-
-        if (vm.count(cli::LASER_AMOUNT_TARGET) > 1)
-        {
-            auto trgAmount = vm[cli::LASER_AMOUNT_TARGET].as<Positive<double>>().value;
-            trgAmount *= Rules::Coin;
-            *aTrg = static_cast<ECC::Amount>(std::round(trgAmount));
-        }
-
-        if (vm.count(cli::LASER_FEE) > 1)
-        {
-            *fee = vm[cli::FEE].as<Nonnegative<Amount>>().value;
-            if (*fee < cli::kMinimumFee)
-            {
-                LOG_ERROR() << "Failed to initiate the send operation. The minimum fee is 100 groth.";
-                return false;
-            }
-        }
-
-        if (vm.count(cli::LASER_LOCK_TIME) > 0)
-        {
-            *locktime = vm[cli::LASER_LOCK_TIME].as<Positive<uint32_t>>().value;
-        }
-
-        return true;
-    }
-
     SwapSecondSideChainType ParseSwapSecondSideChainType(const po::variables_map& vm)
     {
         SwapSecondSideChainType swapSecondSideChainType = SwapSecondSideChainType::Unknown;
@@ -1213,6 +1148,97 @@ namespace
         return nnet;
     }
 
+    class LaserObserver : public laser::Mediator::Observer
+    {
+    public:
+        std::function<void(const laser::ChannelIDPtr& chID)> onOpened = std::function<void(const laser::ChannelIDPtr& chID)>();
+        std::function<void(const laser::ChannelIDPtr& chID)> onOpenFailed = std::function<void(const laser::ChannelIDPtr& chID)>();
+        std::function<void(const laser::ChannelIDPtr& chID)> onClosed = std::function<void(const laser::ChannelIDPtr& chID)>();
+        std::function<void(const laser::ChannelIDPtr& chID)> onUpdateStarted = std::function<void(const laser::ChannelIDPtr& chID)>();
+        std::function<void(const laser::ChannelIDPtr& chID)> onUpdateFinished = std::function<void(const laser::ChannelIDPtr& chID)>();
+
+        void OnOpened(const laser::ChannelIDPtr& chID) override
+        {
+            LOG_DEBUG() << "OnOpened";
+            if (onOpened) onOpened(chID);
+        }
+        void OnOpenFailed(const laser::ChannelIDPtr& chID) override
+        {
+            LOG_DEBUG() << "OnOpenFailed";
+            if (onOpenFailed) onOpenFailed(chID);
+        }
+        void OnClosed(const laser::ChannelIDPtr& chID) override
+        {
+            LOG_DEBUG() << "OnClosed";
+            if (onClosed) onClosed(chID);
+        }
+        void OnUpdateStarted(const laser::ChannelIDPtr& chID) override
+        {
+            LOG_DEBUG() << "OnUpdateStarted";
+            if (onUpdateStarted) onUpdateStarted(chID);
+        } 
+        void OnUpdateFinished(const laser::ChannelIDPtr& chID) override
+        {
+            LOG_DEBUG() << "OnUpdateFinished";
+            if (onUpdateFinished) onUpdateFinished(chID);
+        } 
+    };
+
+    bool LoadLaserParams(const po::variables_map& vm,
+                         Amount* aMy,
+                         Amount* aTrg,
+                         Amount* fee,
+                         WalletID* receiverWalletID,
+                         Height* locktime)
+    {
+        if (!vm.count(cli::LASER_TARGET_ADDR))
+        {
+            LOG_ERROR() << "receiver's address is missing";
+            return false;
+        }
+
+        if (!vm.count(cli::LASER_AMOUNT_MY))
+        {
+            LOG_ERROR() << "amount is missing";
+            return false;
+        }
+
+        receiverWalletID->FromHex(vm[cli::LASER_TARGET_ADDR].as<string>());
+
+        auto myAmount = vm[cli::LASER_AMOUNT_MY].as<Positive<double>>().value;
+        myAmount *= Rules::Coin;
+        *aMy = static_cast<ECC::Amount>(std::round(myAmount));
+        if (*aMy == 0)
+        {
+            LOG_ERROR() << "Unable to send zero coins";
+            return false;
+        }
+
+        if (vm.count(cli::LASER_AMOUNT_TARGET))
+        {
+            auto trgAmount = vm[cli::LASER_AMOUNT_TARGET].as<Positive<double>>().value;
+            trgAmount *= Rules::Coin;
+            *aTrg = static_cast<ECC::Amount>(std::round(trgAmount));
+        }
+
+        if (vm.count(cli::LASER_FEE))
+        {
+            *fee = vm[cli::FEE].as<Nonnegative<Amount>>().value;
+            if (*fee < cli::kMinimumFee)
+            {
+                LOG_ERROR() << "Failed to initiate the send operation. The minimum fee is 100 groth.";
+                return false;
+            }
+        }
+
+        if (vm.count(cli::LASER_LOCK_TIME))
+        {
+            *locktime = vm[cli::LASER_LOCK_TIME].as<Positive<uint32_t>>().value;
+        }
+
+        return true;
+    }
+
     std::vector<std::string> LoadLaserChannelsIds(
         const IWalletDB::Ptr& walletDB,
         const po::variables_map& vm,
@@ -1290,9 +1316,11 @@ namespace
                    const po::variables_map& vm)
     {
         Amount fee = 0, amountMy = 0;
-        if (vm.count(cli::LASER_AMOUNT_MY) > 1)
+        if (vm.count(cli::LASER_AMOUNT_MY))
         {
-            amountMy = vm[cli::LASER_AMOUNT_MY].as<Nonnegative<Amount>>().value;
+            auto amount = vm[cli::LASER_AMOUNT_MY].as<Positive<double>>().value;
+            amount *= Rules::Coin;
+            amountMy = static_cast<ECC::Amount>(std::round(amount));
         }
         else
         {
@@ -1300,7 +1328,7 @@ namespace
             return false;
         }
 
-        if (vm.count(cli::LASER_FEE) > 1)
+        if (vm.count(cli::LASER_FEE))
         {
             fee = vm[cli::FEE].as<Nonnegative<Amount>>().value;
             if (fee < cli::kMinimumFee)
@@ -1327,13 +1355,13 @@ namespace
     bool LaserTransfer(const unique_ptr<laser::Mediator>& laser,
                        const po::variables_map& vm)
     {
-        if (vm.count(cli::LASER_AMOUNT_MY) == 0)
+        if (!vm.count(cli::LASER_AMOUNT_MY))
         {
             LOG_ERROR() << "amount is missing";
             return false;
         }
 
-        if (vm.count(cli::LASER_CHANNEL_ID) == 0)
+        if (!vm.count(cli::LASER_CHANNEL_ID))
         {
             LOG_ERROR() << "channel ID is missing";
             return false;
@@ -1342,7 +1370,7 @@ namespace
         auto myAmount = vm[cli::LASER_AMOUNT_MY].as<Positive<double>>().value;
         myAmount *= Rules::Coin;
         Amount amount = static_cast<ECC::Amount>(std::round(myAmount));
-        if (amount == 0)
+        if (!amount)
         {
             LOG_ERROR() << "Unable to send zero coins";
             return false;
@@ -1356,6 +1384,10 @@ namespace
     void LaserShowChannels(const IWalletDB::Ptr& walletDB)
     {
         array<uint8_t, 6> columnWidths{ { 32, 10, 10, 10, 10, 8 } };
+
+        Block::SystemState::ID id;
+        walletDB->getSystemStateID(id);
+        LOG_INFO() << "LASER current state is " << id;
 
         cout << "Laser Channels:\n\n"
             << "  " << std::left
@@ -1374,7 +1406,7 @@ namespace
                 << setw(columnWidths[2]) << PrintableAmount(std::get<7>(ch), true) << "|"
                 << setw(columnWidths[3]) << LaserChannelStateStr(std::get<3>(ch)) << "|"
                 << setw(columnWidths[4]) << PrintableAmount(std::get<4>(ch), true) << "|"
-                << setw(columnWidths[5]) << std::get<5>(ch) << "\n";
+                << setw(columnWidths[5]) << std::get<10>(ch) << "\n";
         }
     }
 
@@ -1415,41 +1447,69 @@ namespace
         }
     }
 
+    void OnLaserCommandComplete(const IWalletDB::Ptr& walletDB)
+    {
+        io::Reactor::get_Current().stop();
+        LaserShowChannels(walletDB); 
+    }
+
     bool IsLaserHandled(const unique_ptr<laser::Mediator>& laser,
                         const IWalletDB::Ptr& walletDB,
-                        const po::variables_map& vm)
+                        const po::variables_map& vm,
+                        LaserObserver* observer)
     {
+        laser->AddObserver(observer);
         laser->SetNetwork(CreateNetwork(*laser, vm));
-        auto onLaserActionCompleteOnce = [&walletDB] ()
-        {
-            io::Reactor::get_Current().stop();
-            LaserShowChannels(walletDB); 
-        };
 
+        observer->onOpenFailed = [walletDB] (const laser::ChannelIDPtr& chID) {
+            LOG_INFO() << "LASER open failed : " << to_hex(chID->m_pData, chID->nBytes);
+            io::Reactor::get_Current().stop();
+            LaserShowChannels(walletDB);
+        };
         if (vm.count(cli::LASER_OPEN))
         {
-            laser->SetOnCommandCompleteAction(
-                std::move(onLaserActionCompleteOnce));
+            observer->onOpened = [walletDB] (const laser::ChannelIDPtr& chID) {
+                LaserShowChannels(walletDB);
+                io::Reactor::get_Current().stop();
+            };
             return LaserOpen(laser, vm);
         }
         else if (vm.count(cli::LASER_WAIT))
         {
-            laser->SetOnCommandCompleteAction(
-                std::move(onLaserActionCompleteOnce));
+            observer->onOpened = [walletDB] (const laser::ChannelIDPtr& chID) {
+                LOG_INFO() << "LASER Start : " << to_hex(chID->m_pData, chID->nBytes);
+                LaserShowChannels(walletDB); 
+            };
             return LaserWait(laser, vm);
         }
         else if (vm.count(cli::LASER_SERVE))
         {
+            observer->onClosed = [&laser, walletDB] (const laser::ChannelIDPtr& chID) {
+                if (!laser->getChannelsCount())
+                {
+                    io::Reactor::get_Current().stop();
+                }
+                LOG_INFO() << "LASER closed : " << to_hex(chID->m_pData, chID->nBytes);
+                LaserShowChannels(walletDB); 
+            };
             return LaserServeIncoming(laser, walletDB, vm);
         }
         else if (vm.count(cli::LASER_TRANSFER))
         {
-            laser->SetOnCommandCompleteAction(
-                std::move(onLaserActionCompleteOnce));
+            observer->onUpdateFinished = [walletDB] (const laser::ChannelIDPtr& chID) {
+                LOG_INFO() << "LASER update finished : " << to_hex(chID->m_pData, chID->nBytes);
+                io::Reactor::get_Current().stop();
+                LaserShowChannels(walletDB);
+            };
             return LaserTransfer(laser, vm);
         }
         else if (vm.count(cli::LASER_CLOSE))
         {
+            observer->onClosed = [walletDB] (const laser::ChannelIDPtr& chID) {
+                io::Reactor::get_Current().stop();
+                LOG_INFO() << "LASER closed : " << to_hex(chID->m_pData, chID->nBytes);
+                LaserShowChannels(walletDB); 
+            };
             return LaserClose(laser, walletDB, vm);
         }
         else if (vm.count(cli::LASER_DELETE))
@@ -1782,7 +1842,9 @@ int main_impl(int argc, char* argv[])
                     {
                         auto laser =
                             std::make_unique<laser::Mediator>(walletDB);
-                        if (IsLaserHandled(laser, walletDB, vm))
+
+                        LaserObserver laserObserver;
+                        if (IsLaserHandled(laser, walletDB, vm, &laserObserver))
                         {
                             io::Reactor::get_Current().run();
                         }

@@ -33,6 +33,15 @@ class Receiver;
 class Mediator : public IChannelHolder, public proto::FlyClient
 {
 public:
+    class Observer
+    {
+    public:
+        virtual void OnOpened(const ChannelIDPtr& chID) {};
+        virtual void OnOpenFailed(const ChannelIDPtr& chID) {};
+        virtual void OnClosed(const ChannelIDPtr& chID) {};
+        virtual void OnUpdateStarted(const ChannelIDPtr& chID) {}; 
+        virtual void OnUpdateFinished(const ChannelIDPtr& chID) {}; 
+    };
     Mediator(const IWalletDB::Ptr& walletDB);
     ~Mediator();
     // proto::FlyClient
@@ -60,17 +69,21 @@ public:
     bool Transfer(Amount amount, const std::string& channelIDStr);
     void Close(const std::vector<std::string>& channelIDsStr);
     void Delete(const std::vector<std::string>& channelIDsStr);
-    
-    void SetOnCommandCompleteAction(std::function<void()>&& onCommandComplete);
+    size_t getChannelsCount() const;
+
+    void AddObserver(Observer* observer);
+    void RemoveObserver(Observer* observer);
 
 private:
     ECC::Scalar::Native get_skBbs(const ChannelIDPtr& chID);
     void OnIncoming(const ChannelIDPtr& chID,
                     Negotiator::Storage::Map& dataIn);
+    void OpenInternal(const ChannelIDPtr& chID);
     void ForgetChannel(const ChannelIDPtr& chID);
     ChannelIDPtr RestoreChannel(const std::string& channelIDStr);
     bool RestoreChannelInternal(const ChannelIDPtr& chID);
     void UpdateChannels();
+    void UpdateChannelExterior(const std::unique_ptr<Channel>& ch);
 
     IWalletDB::Ptr m_pWalletDB;
     proto::FlyClient::INetwork::Ptr m_pConnection;
@@ -78,13 +91,11 @@ private:
     std::unique_ptr<Receiver> m_pInputReceiver;
     Amount m_myInAllowed = 0;
     Amount m_feeAllowed = 0;
-
-    std::unordered_map<ChannelIDPtr, std::unique_ptr<Channel>> m_channels;
-
-    WalletAddress m_myOutAddr;
     WalletAddress m_myInAddr;
 
-    std::function<void()> m_onCommandComplete = std::function<void()>();
+    std::unordered_map<ChannelIDPtr, std::unique_ptr<Channel>> m_channels;
     std::vector<std::function<void()>> m_openQueue;
+    std::vector<ChannelIDPtr> m_readyForForgetChannels;
+    std::vector<Observer*> m_observers;
 };
 }  // namespace beam::wallet::laser
