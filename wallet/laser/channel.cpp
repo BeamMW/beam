@@ -166,9 +166,11 @@ void Channel::SendPeer(Negotiator::Storage::Map&& dataOut)
     ser & (*m_ID);
     ser & Cast::Down<FieldMap>(dataOut);
 
-    LOG_INFO() << "LASER Send From: " << std::to_string(m_myAddr.m_walletID) << " To peer " << std::to_string(m_widTrg);
+    LOG_INFO() << "LASER Send From: " << std::to_string(m_myAddr.m_walletID) 
+               << " To peer: " << std::to_string(m_widTrg);
 
-    proto::FlyClient::RequestBbsMsg::Ptr pReq(new proto::FlyClient::RequestBbsMsg);
+    proto::FlyClient::RequestBbsMsg::Ptr pReq(
+        new proto::FlyClient::RequestBbsMsg);
 	m_widTrg.m_Channel.Export(pReq->m_Msg.m_Channel);
 
 	ECC::NoLeak<ECC::Hash::Value> hvRandom;
@@ -179,7 +181,11 @@ void Channel::SendPeer(Negotiator::Storage::Map&& dataOut)
     get_Kdf(pKdf);
 	pKdf->DeriveKey(nonce, hvRandom.V);
 
-	if (proto::Bbs::Encrypt(pReq->m_Msg.m_Message, m_widTrg.m_Pk, nonce, ser.buffer().first, static_cast<uint32_t>(ser.buffer().second)))
+	if (proto::Bbs::Encrypt(pReq->m_Msg.m_Message,
+                            m_widTrg.m_Pk,
+                            nonce,
+                            ser.buffer().first,
+                            static_cast<uint32_t>(ser.buffer().second)))
 	{
 		pReq->m_Msg.m_TimePosted = getTimestamp();
 		get_Net().PostRequest(*pReq, *m_upReceiver);
@@ -363,22 +369,6 @@ Lightning::Channel::State::Enum Channel::get_LastState() const
     return m_lastState;
 }
 
-bool Channel::CanBeServed()
-{
-    auto state = get_State();
-    return state != beam::Lightning::Channel::State::None &&
-           state != beam::Lightning::Channel::State::OpenFailed &&
-           state != beam::Lightning::Channel::State::Closed;
-}
-
-bool Channel::CanBeClosed()
-{
-    auto state = get_State();
-    return state <= Lightning::Channel::State::Closing1 &&
-           state != Lightning::Channel::State::OpenFailed &&
-           state >= Lightning::Channel::State::Opening1;
-}
-
 void Channel::UpdateRestorePoint()
 {
     Serializer ser;
@@ -497,7 +487,7 @@ void Channel::LogNewState()
         return;
     }
 
-    LOG_INFO() << os.str();
+    LOG_DEBUG() << os.str();
 }
 
 void Channel::Subscribe()

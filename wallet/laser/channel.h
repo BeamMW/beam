@@ -91,8 +91,6 @@ public:
     bool Open(HeightRange openWindow);
     bool TransformLastState();
     Lightning::Channel::State::Enum get_LastState() const;
-    bool CanBeServed();
-    bool CanBeClosed();
     void UpdateRestorePoint();
     void LogNewState();
     void Subscribe();

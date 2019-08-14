@@ -24,21 +24,35 @@
 
 namespace
 {
-    const beam::Height kSafeForgetHeight = 8;
+const beam::Height kSafeForgetHeight = 8;
 
-    bool IsValidTimeStamp(beam::Timestamp currentBlockTime_s)
+bool IsValidTimeStamp(beam::Timestamp currentBlockTime_s)
+{
+    beam::Timestamp currentTime_s = beam::getTimestamp();
+    const beam::Timestamp tolerance_s = 60 * 8;
+    currentBlockTime_s += tolerance_s;
+
+    if (currentTime_s > currentBlockTime_s)
     {
-        beam::Timestamp currentTime_s = beam::getTimestamp();
-        const beam::Timestamp tolerance_s = 60 * 8;
-        currentBlockTime_s += tolerance_s;
-
-        if (currentTime_s > currentBlockTime_s)
-        {
-            LOG_INFO() << "It seems that node is not up to date";
-            return false;
-        }
-        return true;
+        LOG_INFO() << "It seems that node is not up to date";
+        return false;
     }
+    return true;
+}
+
+inline bool CanBeHandled(int state)
+{
+    return state != beam::Lightning::Channel::State::None &&
+           state != beam::Lightning::Channel::State::OpenFailed &&
+           state != beam::Lightning::Channel::State::Closed;
+}
+
+inline bool CanBeClosed(int state)
+{
+    return state <= beam::Lightning::Channel::State::Closing1 &&
+           state != beam::Lightning::Channel::State::OpenFailed &&
+           state >= beam::Lightning::Channel::State::Opening1;
+}
 
 }  // namespace
 
@@ -57,20 +71,10 @@ Mediator::~Mediator()
 
 void Mediator::OnNewTip()
 {
-    Block::SystemState::Full tip;
-    get_History().get_Tip(tip);
-    if (!IsValidTimeStamp(tip.m_TimeStamp))
+    if (!ValidateTip())
     {
         return;
     }
-
-    Block::SystemState::ID id;
-    if (tip.m_Height)
-        tip.get_ID(id);
-    else
-        ZeroObject(id);
-    m_pWalletDB->setSystemStateID(id);
-    LOG_INFO() << "LASER current state is " << id;
 
     for (auto& openIt : m_openQueue)
     {
@@ -160,6 +164,8 @@ void Mediator::OnMsg(const ChannelIDPtr& chID, Blob&& blob)
         inChID = chID;
     }
 
+    LOG_DEBUG() << "Mediator::OnMsg "
+                << to_hex(inChID->m_pData , inChID->nBytes);
     auto it = m_channels.find(inChID);
     if (it == m_channels.end())
     {
@@ -218,7 +224,7 @@ bool Mediator::Serve(const std::vector<std::string>& channelIDsStr)
             LOG_DEBUG() << "Channel: " << channelIDStr
                         << " restore process finished";
             auto& ch = m_channels[chId];
-            if (ch && ch->CanBeServed())
+            if (ch && CanBeHandled(ch->get_State()))
             {
                 ch->Subscribe();
                 ++count;
@@ -262,7 +268,7 @@ void Mediator::Close(const std::vector<std::string>& channelIDsStr)
         if (chId)
         {
             auto& ch = m_channels[chId];
-            if (ch && ch->CanBeClosed())
+            if (ch && CanBeClosed(ch->get_State()))
             {
                 ch->Close();
                 if (ch->TransformLastState())
@@ -327,7 +333,13 @@ bool Mediator::Transfer(Amount amount, const std::string& channelIDStr)
     auto chId = RestoreChannel(channelIDStr);
 
     auto& ch = m_channels[chId];
-    return ch ? ch->Transfer(amount) : false;
+    if (ch)
+    {
+        ch->Subscribe();
+        return ch->Transfer(amount);
+    }
+    LOG_DEBUG() << "Channel restored with error";
+    return false;
 }
 
 ECC::Scalar::Native Mediator::get_skBbs(const ChannelIDPtr& chID)
@@ -504,7 +516,7 @@ void Mediator::UpdateChannels()
     {
         auto& ch = it.second;
         ch->Update();
-        if (ch->CanBeServed())
+        if (CanBeHandled(ch->get_State()))
         {
             UpdateChannelExterior(ch);
         }
@@ -552,6 +564,25 @@ void Mediator::UpdateChannelExterior(const std::unique_ptr<Channel>& ch)
             }
         }
     }
+}
+
+bool Mediator::ValidateTip()
+{
+    Block::SystemState::Full tip;
+    get_History().get_Tip(tip);
+    if (!IsValidTimeStamp(tip.m_TimeStamp))
+    {
+        return false;
+    }
+
+    Block::SystemState::ID id;
+    if (tip.m_Height)
+        tip.get_ID(id);
+    else
+        ZeroObject(id);
+    m_pWalletDB->setSystemStateID(id);
+    LOG_INFO() << "LASER current state is " << id;
+    return true;
 }
 
 }  // namespace beam::wallet::laser

@@ -84,6 +84,7 @@ private:
     bool RestoreChannelInternal(const ChannelIDPtr& chID);
     void UpdateChannels();
     void UpdateChannelExterior(const std::unique_ptr<Channel>& ch);
+    bool ValidateTip();
 
     IWalletDB::Ptr m_pWalletDB;
     proto::FlyClient::INetwork::Ptr m_pConnection;

@@ -2187,8 +2187,8 @@ namespace beam::wallet
 
     void WalletDB::saveLaserChannel(const ILaserChannelEntity& ch)
     {
-        LOG_INFO() << "LASER save channel: "
-                   << to_hex(ch.get_chID()->m_pData, ch.get_chID()->nBytes);
+        LOG_DEBUG() << "LASER save channel: "
+                    << to_hex(ch.get_chID()->m_pData, ch.get_chID()->nBytes);
         const char* selectReq = "SELECT * FROM " LASER_CHANNELS_NAME " WHERE chID=?1;";
         sqlite::Statement stm2(this, selectReq);
         stm2.bind(1, ch.get_chID()->m_pData, ch.get_chID()->nBytes);

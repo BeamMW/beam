@@ -1159,27 +1159,22 @@ namespace
 
         void OnOpened(const laser::ChannelIDPtr& chID) override
         {
-            LOG_DEBUG() << "OnOpened";
             if (onOpened) onOpened(chID);
         }
         void OnOpenFailed(const laser::ChannelIDPtr& chID) override
         {
-            LOG_DEBUG() << "OnOpenFailed";
             if (onOpenFailed) onOpenFailed(chID);
         }
         void OnClosed(const laser::ChannelIDPtr& chID) override
         {
-            LOG_DEBUG() << "OnClosed";
             if (onClosed) onClosed(chID);
         }
         void OnUpdateStarted(const laser::ChannelIDPtr& chID) override
         {
-            LOG_DEBUG() << "OnUpdateStarted";
             if (onUpdateStarted) onUpdateStarted(chID);
         } 
         void OnUpdateFinished(const laser::ChannelIDPtr& chID) override
         {
-            LOG_DEBUG() << "OnUpdateFinished";
             if (onUpdateFinished) onUpdateFinished(chID);
         } 
     };
@@ -1402,8 +1397,8 @@ namespace
             const auto& chID = std::get<0>(ch);
             cout << "  " << std::left << std::boolalpha
                 << setw(columnWidths[0]) << beam::to_hex(chID.m_pData, chID.nBytes) << "|"
-                << setw(columnWidths[1]) << PrintableAmount(std::get<6>(ch), true) << "|"
-                << setw(columnWidths[2]) << PrintableAmount(std::get<7>(ch), true) << "|"
+                << setw(columnWidths[1]) << PrintableAmount(std::get<8>(ch), true) << "|"
+                << setw(columnWidths[2]) << PrintableAmount(std::get<9>(ch), true) << "|"
                 << setw(columnWidths[3]) << LaserChannelStateStr(std::get<3>(ch)) << "|"
                 << setw(columnWidths[4]) << PrintableAmount(std::get<4>(ch), true) << "|"
                 << setw(columnWidths[5]) << std::get<10>(ch) << "\n";
