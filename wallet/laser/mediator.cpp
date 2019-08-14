@@ -54,6 +54,12 @@ inline bool CanBeClosed(int state)
            state >= beam::Lightning::Channel::State::Opening1;
 }
 
+inline bool CanBeDeleted(int state)
+{
+    return state == beam::Lightning::Channel::State::None ||
+           state == beam::Lightning::Channel::State::OpenFailed ||
+           state == beam::Lightning::Channel::State::Closed;
+}
 }  // namespace
 
 namespace beam::wallet::laser
@@ -293,12 +299,21 @@ void Mediator::Delete(const std::vector<std::string>& channelIDsStr)
         if (chId)
         {
             auto& ch = m_channels[chId];
-            if (ch &&
-                ch->get_State() == Lightning::Channel::State::Closed &&
-                m_pWalletDB->removeLaserChannel(*ch))
+            if (ch && CanBeDeleted(ch->get_State()))
             {
-                LOG_INFO() << "Channel: "
-                           << to_hex(chId->m_pData, chId->nBytes) << " deleted";
+                if (m_pWalletDB->removeLaserChannel(*ch))
+                {
+                    LOG_INFO() << "Channel: "
+                               << to_hex(chId->m_pData, chId->nBytes)
+                               << " deleted";
+                }
+                else
+                {
+                    LOG_INFO() << "Channel: "
+                               << to_hex(chId->m_pData, chId->nBytes)
+                               << " not deleted";
+                }
+                
             }
             else
             {

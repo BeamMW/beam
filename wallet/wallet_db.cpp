@@ -2272,13 +2272,16 @@ namespace beam::wallet
         sqlite::Statement stm(this, selectReq);
         stm.bind(1, ch.get_chID()->m_pData, ch.get_chID()->nBytes);
 
-        if (stm.step())
+        try
         {
+            stm.step();
             deleteAddress(ch.get_myWID(), true);
             return true;
         }
-
-        return false;
+        catch (const runtime_error&)
+        {
+            return false;
+        }
     }
 
     std::vector<TLaserChannelEntity> WalletDB::loadLaserChannels()
