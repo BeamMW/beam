@@ -3743,10 +3743,16 @@ IExternalPOW::BlockFoundResult Node::Miner::OnMinedExternal()
         return IExternalPOW::solution_rejected;
     }
 
+    IExternalPOW::BlockFoundResult result(IExternalPOW::solution_accepted);
+    Merkle::Hash hv;
+    pTask->m_Hdr.get_Hash(hv);
+    result._blockhash = to_hex(hv.m_pData, hv.nBytes);
+
 	m_pTask = pTask;
     *m_pTask->m_pStop = true;
     m_pEvtMined->post();
-    return IExternalPOW::solution_accepted;
+
+    return result;
 }
 
 void Node::Miner::OnMined()
