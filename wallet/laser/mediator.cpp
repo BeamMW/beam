@@ -269,13 +269,12 @@ void Mediator::Close(const std::vector<std::string>& channelIDsStr)
                 {
                     m_pWalletDB->saveLaserChannel(*ch);
                     ch->LogNewState();
-                    if (!ch->IsNegotiating() &&
-                        ch->IsSafeToForget(kSafeForgetHeight))
-                    {
-                        m_readyForForgetChannels.push_back(ch->get_chID());
-                    }
                 }
-            }   
+            } 
+            if (!ch->IsNegotiating() && ch->IsSafeToForget(kSafeForgetHeight))
+            {
+                m_readyForForgetChannels.push_back(ch->get_chID());
+            }  
         }
     }
 }
@@ -410,7 +409,6 @@ void Mediator::OpenInternal(const ChannelIDPtr& chID)
         return;
     }
 
-
     LOG_ERROR() << "Laser open channel fail";
     m_readyForForgetChannels.push_back(chID);
 }
@@ -505,9 +503,17 @@ void Mediator::UpdateChannels()
     for (auto& it: m_channels)
     {
         auto& ch = it.second;
-        if (!ch->CanBeServed()) continue;
         ch->Update();
-        UpdateChannelExterior(ch);
+        if (ch->CanBeServed())
+        {
+            UpdateChannelExterior(ch);
+        }
+
+        if (!ch->IsNegotiating() && ch->IsSafeToForget(kSafeForgetHeight))
+        {
+            m_readyForForgetChannels.push_back(ch->get_chID());
+        }
+
         ch->LogNewState();
     }
 }
@@ -545,11 +551,6 @@ void Mediator::UpdateChannelExterior(const std::unique_ptr<Channel>& ch)
                 observer->OnUpdateFinished(ch->get_chID());
             }
         }
-    }
-
-    if (!ch->IsNegotiating() && ch->IsSafeToForget(kSafeForgetHeight))
-    {
-        m_readyForForgetChannels.push_back(ch->get_chID());
     }
 }
 

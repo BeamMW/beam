@@ -99,25 +99,16 @@ Channel::Channel(IChannelHolder& holder,
     , m_bbsTimestamp(std::get<11>(entity))
     , m_upReceiver(std::make_unique<Receiver>(holder, chID))
 {
+    m_lastState = m_lastLoggedState =
+        static_cast<Lightning::Channel::State::Enum>(std::get<3>(entity));
     m_Params.m_Fee = std::get<4>(entity);
     m_Params.m_hLockTime = std::get<5>(entity);
 
     RestoreInternalState(std::get<12>(entity));
 }
 
-// Channel::Channel(Channel&& channel)
-// { 
-//     LOG_INFO() << "Channel(Channel&& channel)";
-// }
-
-// void  Channel::operator=(Channel&& channel)
-// {
-//     LOG_INFO() << "operator=(Channel&& channel)";
-// }
-
 Channel::~Channel()
 {
-    // Unsubscribe();
 }
 
 Height Channel::get_Tip() const
@@ -587,7 +578,6 @@ void Channel::RestoreInternalState(const ByteBuffer& data)
 		LOG_ERROR() << "LASER RestoreInternalState failed";
 	}
 
-    m_lastState = m_lastLoggedState = Lightning::Channel::get_State();
     m_SendMyWid = false;
 }
 
