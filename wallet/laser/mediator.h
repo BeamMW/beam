@@ -42,7 +42,7 @@ public:
         virtual void OnUpdateStarted(const ChannelIDPtr& chID) {}; 
         virtual void OnUpdateFinished(const ChannelIDPtr& chID) {}; 
     };
-    Mediator(const IWalletDB::Ptr& walletDB);
+    explicit Mediator(const IWalletDB::Ptr& walletDB);
     ~Mediator();
     // proto::FlyClient
     void OnNewTip() override;
@@ -79,6 +79,7 @@ private:
     void OnIncoming(const ChannelIDPtr& chID,
                     Negotiator::Storage::Map& dataIn);
     void OpenInternal(const ChannelIDPtr& chID);
+    void TransferInternal(Amount amount, const ChannelIDPtr& chID);
     void ForgetChannel(const ChannelIDPtr& chID);
     ChannelIDPtr RestoreChannel(const std::string& channelIDStr);
     bool RestoreChannelInternal(const ChannelIDPtr& chID);
@@ -95,7 +96,7 @@ private:
     WalletAddress m_myInAddr;
 
     std::unordered_map<ChannelIDPtr, std::unique_ptr<Channel>> m_channels;
-    std::vector<std::function<void()>> m_openQueue;
+    std::vector<std::function<void()>> m_actionsQueue;
     std::vector<ChannelIDPtr> m_readyForForgetChannels;
     std::vector<Observer*> m_observers;
 };

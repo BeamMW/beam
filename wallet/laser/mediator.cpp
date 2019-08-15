@@ -60,6 +60,12 @@ inline bool CanBeDeleted(int state)
            state == beam::Lightning::Channel::State::OpenFailed ||
            state == beam::Lightning::Channel::State::Closed;
 }
+
+inline bool CanBeLoaded(int state)
+{
+    return state >= beam::Lightning::Channel::State::Opening1 &&
+           CanBeHandled(state);
+}
 }  // namespace
 
 namespace beam::wallet::laser
@@ -82,13 +88,13 @@ void Mediator::OnNewTip()
         return;
     }
 
-    for (auto& openIt : m_openQueue)
-    {
-        openIt();
-    }
-    m_openQueue.clear();
-
     UpdateChannels();
+
+    for (auto& sceduledAction : m_actionsQueue)
+    {
+        sceduledAction();
+    }
+    m_actionsQueue.clear();
 
     for (const auto& readyForCloseChannel : m_readyForForgetChannels)
     {
@@ -182,8 +188,8 @@ void Mediator::OnMsg(const ChannelIDPtr& chID, Blob&& blob)
     auto& ch = it->second;
 
     ch->OnPeerData(dataIn);
-    UpdateChannelExterior(ch);
     ch->LogNewState();
+    UpdateChannelExterior(ch);
 }
 
 bool  Mediator::Decrypt(const ChannelIDPtr& chID, uint8_t* pMsg, Blob* blob)
@@ -261,7 +267,7 @@ void Mediator::OpenChannel(Amount aMy,
     auto chID = channel->get_chID();
     m_channels[chID] = std::move(channel);
     
-    m_openQueue.emplace_back([this, chID] () {
+    m_actionsQueue.emplace_back([this, chID] () {
         OpenInternal(chID);
     });
 }
@@ -347,11 +353,21 @@ bool Mediator::Transfer(Amount amount, const std::string& channelIDStr)
 {
     auto chId = RestoreChannel(channelIDStr);
 
-    auto& ch = m_channels[chId];
-    if (ch)
-    {
-        ch->Subscribe();
-        return ch->Transfer(amount);
+    if (chId) {
+        auto& ch = m_channels[chId];
+        if (ch)
+        {
+            ch->Subscribe();
+            m_actionsQueue.emplace_back([this, amount, chId] () {
+                TransferInternal(amount, chId);
+            });
+            
+            LOG_DEBUG() << "Transfer: " << PrintableAmount(amount, true)
+                        << " to channel: "
+                        << to_hex(chId->m_pData, chId->nBytes)
+                        << " sceduled";
+            return true;
+        }
     }
     LOG_DEBUG() << "Channel restored with error";
     return false;
@@ -440,6 +456,26 @@ void Mediator::OpenInternal(const ChannelIDPtr& chID)
     m_readyForForgetChannels.push_back(chID);
 }
 
+void Mediator::TransferInternal(Amount amount, const ChannelIDPtr& chID)
+{
+    auto& ch = m_channels[chID];
+    if (ch && ch->Transfer(amount))
+    {
+        LOG_INFO() << "Transfer: " << PrintableAmount(amount, true)
+                   << " to channel: " << to_hex(chID->m_pData, chID->nBytes)
+                   << " started";
+        return;
+    }
+
+    LOG_ERROR() << "Transfer: " << PrintableAmount(amount, true)
+                << " to channel: " << to_hex(chID->m_pData, chID->nBytes)
+                << " failed";
+    for (auto observer : m_observers)
+    {
+        observer->OnUpdateFinished(chID);
+    }
+}
+
 void Mediator::ForgetChannel(const ChannelIDPtr& chID)
 {
     auto it = m_channels.find(chID);
@@ -518,9 +554,14 @@ bool Mediator::RestoreChannelInternal(const ChannelIDPtr& chID)
                         << std::to_string(myWID);
             return false;
         }
-        m_channels[chID] = std::make_unique<Channel>(
-            *this, chID, *myAddr, chDBEntity);
-        return true;
+
+        auto state = std::get<3>(chDBEntity);
+        if (CanBeLoaded(state))
+        {
+            m_channels[chID] = std::make_unique<Channel>(
+                *this, chID, *myAddr, chDBEntity);
+            return true;
+        }
     }
     return false;
 }
@@ -531,6 +572,8 @@ void Mediator::UpdateChannels()
     {
         auto& ch = it.second;
         ch->Update();
+        ch->LogNewState();
+
         if (CanBeHandled(ch->get_State()))
         {
             UpdateChannelExterior(ch);
@@ -540,8 +583,6 @@ void Mediator::UpdateChannels()
         {
             m_readyForForgetChannels.push_back(ch->get_chID());
         }
-
-        ch->LogNewState();
     }
 }
 

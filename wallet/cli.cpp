@@ -1457,7 +1457,8 @@ namespace
         laser->SetNetwork(CreateNetwork(*laser, vm));
 
         observer->onOpenFailed = [walletDB] (const laser::ChannelIDPtr& chID) {
-            LOG_INFO() << "LASER open failed : " << to_hex(chID->m_pData, chID->nBytes);
+            LOG_DEBUG() << "LASER open failed : "
+                        << to_hex(chID->m_pData, chID->nBytes);
             io::Reactor::get_Current().stop();
             LaserShowChannels(walletDB);
         };
@@ -1472,28 +1473,39 @@ namespace
         else if (vm.count(cli::LASER_WAIT))
         {
             observer->onOpened = [walletDB] (const laser::ChannelIDPtr& chID) {
-                LOG_INFO() << "LASER Start : " << to_hex(chID->m_pData, chID->nBytes);
+                LOG_DEBUG() << "LASER Start : "
+                            << to_hex(chID->m_pData, chID->nBytes);
                 LaserShowChannels(walletDB); 
             };
             return LaserWait(laser, vm);
         }
         else if (vm.count(cli::LASER_SERVE))
         {
-            observer->onClosed = [&laser, walletDB] (const laser::ChannelIDPtr& chID) {
+            observer->onClosed = [&laser, walletDB] (
+                const laser::ChannelIDPtr& chID) {
                 if (!laser->getChannelsCount())
                 {
                     io::Reactor::get_Current().stop();
                 }
-                LOG_INFO() << "LASER closed : " << to_hex(chID->m_pData, chID->nBytes);
+                LOG_DEBUG() << "LASER closed : "
+                            << to_hex(chID->m_pData, chID->nBytes);
                 LaserShowChannels(walletDB); 
+            };
+            observer->onUpdateFinished = [walletDB] (
+                const laser::ChannelIDPtr& chID) {
+                LOG_DEBUG() << "LASER update finished : "
+                            << to_hex(chID->m_pData, chID->nBytes);
+                LaserShowChannels(walletDB);
             };
             return LaserServeIncoming(laser, walletDB, vm);
         }
         else if (vm.count(cli::LASER_TRANSFER))
         {
-            observer->onUpdateFinished = [walletDB] (const laser::ChannelIDPtr& chID) {
-                LOG_INFO() << "LASER update finished : " << to_hex(chID->m_pData, chID->nBytes);
+            observer->onUpdateFinished = [walletDB] (
+                const laser::ChannelIDPtr& chID) {
                 io::Reactor::get_Current().stop();
+                LOG_DEBUG() << "LASER update finished : "
+                            << to_hex(chID->m_pData, chID->nBytes);
                 LaserShowChannels(walletDB);
             };
             return LaserTransfer(laser, vm);
@@ -1502,7 +1514,8 @@ namespace
         {
             observer->onClosed = [walletDB] (const laser::ChannelIDPtr& chID) {
                 io::Reactor::get_Current().stop();
-                LOG_INFO() << "LASER closed : " << to_hex(chID->m_pData, chID->nBytes);
+                LOG_DEBUG() << "LASER closed : "
+                            << to_hex(chID->m_pData, chID->nBytes);
                 LaserShowChannels(walletDB); 
             };
             return LaserClose(laser, walletDB, vm);

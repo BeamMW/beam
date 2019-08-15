@@ -23,7 +23,7 @@ using proto::FlyClient;
 class Connection final : public FlyClient::INetwork
 {
 public:
-    Connection(const FlyClient::NetworkStd::Ptr& net);
+    explicit Connection(const FlyClient::NetworkStd::Ptr& net);
     ~Connection();
 
     virtual void Connect() override;
