@@ -148,6 +148,7 @@ namespace beam
         extern const char* LASER_LOCK_TIME;
         extern const char* LASER_CHANNEL_ID;
         extern const char* LASER_ALL;
+        extern const char* LASER_CLOSE_GRACEFUL;
 
         // wallet api
         extern const char* API_USE_HTTP;

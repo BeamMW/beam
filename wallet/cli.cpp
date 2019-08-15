@@ -1362,6 +1362,8 @@ namespace
             return false;
         }
 
+        bool gracefulClose = vm.count(cli::LASER_CLOSE_GRACEFUL) != 0;
+
         auto myAmount = vm[cli::LASER_AMOUNT_MY].as<Positive<double>>().value;
         myAmount *= Rules::Coin;
         Amount amount = static_cast<ECC::Amount>(std::round(myAmount));
@@ -1373,7 +1375,7 @@ namespace
 
         auto chIdStr = vm[cli::LASER_CHANNEL_ID].as<string>();
 
-        return laser->Transfer(amount, chIdStr);  
+        return laser->Transfer(amount, chIdStr, gracefulClose);  
     }
 
     void LaserShowChannels(const IWalletDB::Ptr& walletDB)

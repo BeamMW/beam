@@ -426,8 +426,12 @@ void Channel::UpdateRestorePoint()
     if (!m_vUpdates.empty())
     {
         const auto& lastUpdate = m_vUpdates.back();
-        m_aCurMy = lastUpdate->m_Outp.m_Value;
-        auto total = lastUpdate->m_msMy.m_Value - m_Params.m_Fee;
+        m_aCurMy = lastUpdate->m_Outp.m_Value;           
+        auto total = lastUpdate->m_msMy.m_Value;
+        if (!m_gracefulClose)
+        {
+            total -= m_Params.m_Fee;
+        }
         m_aCurTrg = total - m_aCurMy;
     }
 }
@@ -504,6 +508,13 @@ void Channel::Unsubscribe()
     get_myWID().m_Channel.Export(ch);
     get_Net().BbsSubscribe(ch, 0, nullptr);
     LOG_INFO() << "beam::wallet::laser::Channel unsubscribed: " << ch;
+}
+
+bool Channel::TransferInternal(
+        Amount nMyNew, uint32_t iRole, bool bCloseGraceful)
+{
+    m_gracefulClose = bCloseGraceful;
+    return Lightning::Channel::TransferInternal(nMyNew, iRole, bCloseGraceful);
 }
 
 void Channel::RestoreInternalState(const ByteBuffer& data)

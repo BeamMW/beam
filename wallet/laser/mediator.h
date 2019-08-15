@@ -66,7 +66,7 @@ public:
                      const WalletID& receiverWalletID,
                      Height locktime);
     bool Serve(const std::vector<std::string>& channelIDsStr);
-    bool Transfer(Amount amount, const std::string& channelIDStr);
+    bool Transfer(Amount amount, const std::string& channelIDStr, bool gracefulClose);
     bool Close(const std::vector<std::string>& channelIDsStr);
     void Delete(const std::vector<std::string>& channelIDsStr);
     size_t getChannelsCount() const;
@@ -79,7 +79,8 @@ private:
     void OnIncoming(const ChannelIDPtr& chID,
                     Negotiator::Storage::Map& dataIn);
     void OpenInternal(const ChannelIDPtr& chID);
-    void TransferInternal(Amount amount, const ChannelIDPtr& chID);
+    void TransferInternal(
+        Amount amount, const ChannelIDPtr& chID, bool gracefulClose);
     void CloseInternal(const ChannelIDPtr& chID);
     void ForgetChannel(const ChannelIDPtr& chID);
     ChannelIDPtr RestoreChannel(const std::string& channelIDStr);

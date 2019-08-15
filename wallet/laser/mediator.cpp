@@ -358,7 +358,8 @@ void Mediator::RemoveObserver(Observer* observer)
         std::remove(m_observers.begin(), m_observers.end(), observer));
 }
 
-bool Mediator::Transfer(Amount amount, const std::string& channelIDStr)
+bool Mediator::Transfer(
+    Amount amount, const std::string& channelIDStr, bool gracefulClose)
 {
     auto chId = RestoreChannel(channelIDStr);
 
@@ -367,8 +368,8 @@ bool Mediator::Transfer(Amount amount, const std::string& channelIDStr)
         if (ch)
         {
             ch->Subscribe();
-            m_actionsQueue.emplace_back([this, amount, chId] () {
-                TransferInternal(amount, chId);
+            m_actionsQueue.emplace_back([this, amount, chId, gracefulClose] () {
+                TransferInternal(amount, chId, gracefulClose);
             });
             
             LOG_DEBUG() << "Transfer: " << PrintableAmount(amount, true)
@@ -465,10 +466,11 @@ void Mediator::OpenInternal(const ChannelIDPtr& chID)
     m_readyForForgetChannels.push_back(chID);
 }
 
-void Mediator::TransferInternal(Amount amount, const ChannelIDPtr& chID)
+void Mediator::TransferInternal(
+        Amount amount, const ChannelIDPtr& chID, bool gracefulClose)
 {
     auto& ch = m_channels[chID];
-    if (ch && ch->Transfer(amount))
+    if (ch && ch->Transfer(amount, gracefulClose))
     {
         LOG_INFO() << "Transfer: " << PrintableAmount(amount, true)
                    << " to channel: " << to_hex(chID->m_pData, chID->nBytes)

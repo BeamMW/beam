@@ -96,6 +96,10 @@ public:
     void Subscribe();
     void Unsubscribe();
 
+protected:
+    bool TransferInternal(
+        Amount nMyNew, uint32_t iRole, bool bCloseGraceful) override;
+
 private:
     void RestoreInternalState(const ByteBuffer& data);
 
@@ -117,5 +121,6 @@ private:
     
     std::unique_ptr<Receiver> m_upReceiver;
     ByteBuffer m_data;
+    bool m_gracefulClose = false;
 };
 }  // namespace beam::wallet::laser

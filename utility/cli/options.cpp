@@ -149,6 +149,7 @@ namespace beam
         const char* LASER_LOCK_TIME = "laser_lock_time";
         const char* LASER_CHANNEL_ID = "channel";
         const char* LASER_ALL = "all,a";
+        const char* LASER_CLOSE_GRACEFUL = "graceful_close";
 
         // wallet api
         const char* API_USE_HTTP = "use_http";
@@ -303,7 +304,8 @@ namespace beam
             (cli::LASER_FEE, po::value<Nonnegative<Amount>>()->default_value(Nonnegative<Amount>(cli::kMinimumFee)), "fee (in Groth, 100,000,000 groth = 1 Beam)")
             (cli::LASER_LOCK_TIME, po::value<Positive<uint32_t>>(), "lock time in blocks beam transaction")
             (cli::LASER_CHANNEL_ID, po::value<string>(), "laser channel ID")
-            (cli::LASER_ALL, "all channels");
+            (cli::LASER_ALL, "all channels")
+            (cli::LASER_CLOSE_GRACEFUL, "graceful close flag");
 
         po::options_description options{ "Allowed options" };
         po::options_description visible_options{ "Allowed options" };
