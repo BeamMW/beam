@@ -67,7 +67,7 @@ public:
                      Height locktime);
     bool Serve(const std::vector<std::string>& channelIDsStr);
     bool Transfer(Amount amount, const std::string& channelIDStr);
-    void Close(const std::vector<std::string>& channelIDsStr);
+    bool Close(const std::vector<std::string>& channelIDsStr);
     void Delete(const std::vector<std::string>& channelIDsStr);
     size_t getChannelsCount() const;
 
@@ -80,12 +80,14 @@ private:
                     Negotiator::Storage::Map& dataIn);
     void OpenInternal(const ChannelIDPtr& chID);
     void TransferInternal(Amount amount, const ChannelIDPtr& chID);
+    void CloseInternal(const ChannelIDPtr& chID);
     void ForgetChannel(const ChannelIDPtr& chID);
     ChannelIDPtr RestoreChannel(const std::string& channelIDStr);
     bool RestoreChannelInternal(const ChannelIDPtr& chID);
     void UpdateChannels();
     void UpdateChannelExterior(const std::unique_ptr<Channel>& ch);
     bool ValidateTip();
+    void PrepareToForget(const std::unique_ptr<Channel>& ch);
 
     IWalletDB::Ptr m_pWalletDB;
     proto::FlyClient::INetwork::Ptr m_pConnection;
