@@ -2088,7 +2088,10 @@ namespace beam::wallet
             insertAddressToCache(id, address);
             return address;
         }
-        insertAddressToCache(id, boost::optional<WalletAddress>());
+        if (!isLaser)
+        {
+            insertAddressToCache(id, boost::optional<WalletAddress>());
+        }
         return boost::optional<WalletAddress>();
     }
 
@@ -2263,25 +2266,41 @@ namespace beam::wallet
         return false;
     }
 
-    bool WalletDB::removeLaserChannel(const ILaserChannelEntity& ch)
+    bool WalletDB::removeLaserChannel(
+            const std::shared_ptr<uintBig_t<16>>& chId)
     {
         LOG_INFO() << "LASER removing channel: "
-                   << to_hex(ch.get_chID()->m_pData, ch.get_chID()->nBytes);
+                   << to_hex(chId->m_pData, chId->nBytes);
 
-        const char* selectReq = "DELETE FROM " LASER_CHANNELS_NAME " WHERE chID=?1;";
-        sqlite::Statement stm(this, selectReq);
-        stm.bind(1, ch.get_chID()->m_pData, ch.get_chID()->nBytes);
+        const char* selectReq = "SELECT chID, myWID FROM " LASER_CHANNELS_NAME " WHERE chID=?1;";
+        sqlite::Statement selectStm(this, selectReq);
+        selectStm.bind(1, chId->m_pData, chId->nBytes);
 
         try
         {
-            stm.step();
-            deleteAddress(ch.get_myWID(), true);
-            return true;
+            if (selectStm.step())
+            {
+                uintBig_t<16> checkChId;
+                WalletID myWID;
+                selectStm.get(0, checkChId);
+                selectStm.get(1, myWID);
+                if (*chId == checkChId)
+                {
+                    const char* deleteReq = "DELETE FROM " LASER_CHANNELS_NAME " WHERE chID=?1;";
+                    sqlite::Statement stm(this, deleteReq);
+                    stm.bind(1, chId->m_pData, chId->nBytes);
+
+                    stm.step();
+                    deleteAddress(myWID, true);
+                    return true;
+                }
+            }
         }
         catch (const runtime_error&)
         {
-            return false;
         }
+
+        return false;
     }
 
     std::vector<TLaserChannelEntity> WalletDB::loadLaserChannels()

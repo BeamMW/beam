@@ -33,7 +33,7 @@ namespace beam::wallet
     };
 
     using TxID = std::array<uint8_t, 16>;
-    const Height kDefaultTxLifetime = 16;
+    const Height kDefaultTxLifetime = 12 * 60;
     const Height kDefaultTxResponseTime = 12 * 60;
 
 #pragma pack (push, 1)

@@ -310,7 +310,7 @@ namespace beam::wallet
         virtual void saveLaserChannel(const ILaserChannelEntity&) = 0;
         virtual bool getLaserChannel(const std::shared_ptr<uintBig_t<16>>& chId,
                                      TLaserChannelEntity* entity) = 0;
-        virtual bool removeLaserChannel(const ILaserChannelEntity& ch) = 0;
+        virtual bool removeLaserChannel(const std::shared_ptr<uintBig_t<16>>& chId) = 0;
         virtual std::vector<TLaserChannelEntity> loadLaserChannels() = 0;
 
         // 
@@ -400,7 +400,7 @@ namespace beam::wallet
         void saveLaserChannel(const ILaserChannelEntity&) override;
         virtual bool getLaserChannel(const std::shared_ptr<uintBig_t<16>>& chId,
                                      TLaserChannelEntity* entity) override;
-        bool removeLaserChannel(const ILaserChannelEntity& ch) override;
+        bool removeLaserChannel(const std::shared_ptr<uintBig_t<16>>& chId) override;
         std::vector<TLaserChannelEntity> loadLaserChannels() override;
 
         Timestamp getLastUpdateTime() const override;

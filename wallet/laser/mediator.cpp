@@ -305,33 +305,36 @@ void Mediator::Delete(const std::vector<std::string>& channelIDsStr)
 {
     for (const auto& chIdStr: channelIDsStr)
     {
-        auto chId = RestoreChannel(chIdStr);
-        if (chId)
+        auto chId = Channel::ChIdFromString(chIdStr);
+        if (!chId)
         {
-            auto& ch = m_channels[chId];
-            if (ch && CanBeDeleted(ch->get_State()))
+            LOG_ERROR() << "Incorrect channel ID format: "
+                        << chIdStr;
+            continue;
+        }
+        TLaserChannelEntity chDBEntity;
+        if (m_pWalletDB->getLaserChannel(chId, &chDBEntity) &&
+            *chId == std::get<0>(chDBEntity) &&
+            CanBeDeleted(std::get<3>(chDBEntity)))
+        {
+            if (m_pWalletDB->removeLaserChannel(chId))
             {
-                if (m_pWalletDB->removeLaserChannel(*ch))
-                {
-                    LOG_INFO() << "Channel: "
-                               << to_hex(chId->m_pData, chId->nBytes)
-                               << " deleted";
-                }
-                else
-                {
-                    LOG_INFO() << "Channel: "
-                               << to_hex(chId->m_pData, chId->nBytes)
-                               << " not deleted";
-                }
-                
+                LOG_INFO() << "Channel: "
+                            << to_hex(chId->m_pData, chId->nBytes)
+                            << " deleted";
             }
             else
             {
-                LOG_ERROR() << "Channel: "
+                LOG_INFO() << "Channel: "
                             << to_hex(chId->m_pData, chId->nBytes)
-                            << " not found or not closed";
+                            << " not deleted";
             }
-            
+        }
+        else
+        {
+            LOG_ERROR() << "Channel: "
+                        << to_hex(chId->m_pData, chId->nBytes)
+                        << " not found or not closed";
         }
     }
 }
@@ -543,7 +546,7 @@ ChannelIDPtr Mediator::RestoreChannel(const std::string& channelIDStr)
     if (!chId)
     {
         LOG_ERROR() << "Incorrect channel ID format: "
-                    << to_hex(chId->m_pData, chId->nBytes);
+                    << channelIDStr;
         return nullptr;
     }
 
@@ -612,16 +615,9 @@ void Mediator::UpdateChannels()
     for (auto& it: m_channels)
     {
         auto& ch = it.second;
-        if (CanBeHandled(ch->get_State()))
-        {
-            ch->Update();
-            ch->LogNewState();
-            UpdateChannelExterior(ch);
-        }
-
         auto state = ch->get_State();
-        if (state == beam::Lightning::Channel::State::Closed || 
-            state == beam::Lightning::Channel::State::OpenFailed)
+        if (state == beam::Lightning::Channel::State::None) continue;
+        if (state == beam::Lightning::Channel::State::Closed)
         {
             ch->LogNewState();
             PrepareToForget(ch);
@@ -629,7 +625,18 @@ void Mediator::UpdateChannels()
             {
                 m_readyForForgetChannels.push_back(ch->get_chID());
             }
+            continue;
         }
+        if (state == Lightning::Channel::State::OpenFailed)
+        {
+            ch->LogNewState();
+            m_readyForForgetChannels.push_back(ch->get_chID());
+            continue;
+        }
+
+        ch->Update();
+        ch->LogNewState();
+        UpdateChannelExterior(ch);
     }
 }
 
