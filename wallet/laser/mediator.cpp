@@ -206,10 +206,11 @@ void Mediator::SetNetwork(const proto::FlyClient::NetworkStd::Ptr& net)
     m_pConnection = std::make_shared<Connection>(net);
 }
 
-void Mediator::WaitIncoming(Amount aMy, Amount fee)
+void Mediator::WaitIncoming(Amount aMy, Amount fee, Height locktime)
 {
     m_myInAllowed = aMy;
     m_feeAllowed = fee;
+    m_locktimeAllowed = locktime;
 
     m_pInputReceiver = std::make_unique<Receiver>(*this, nullptr);
     m_myInAddr = GenerateNewAddress(
@@ -365,7 +366,7 @@ bool Mediator::Transfer(
 
     if (chId) {
         auto& ch = m_channels[chId];
-        if (ch)
+        if (ch && ch->get_State() == beam::Lightning::Channel::State::Open)
         {
             ch->Subscribe();
             m_actionsQueue.emplace_back([this, amount, chId, gracefulClose] () {
@@ -430,7 +431,12 @@ void Mediator::OnIncoming(const ChannelIDPtr& chID,
 
     Height locktime;
     if (!dataIn.Get(locktime, beam::Lightning::Codes::HLock))
-        return;           
+        return; 
+    if (locktime != m_locktimeAllowed)
+    {
+        LOG_ERROR() << "Incoming with incorrect LOCKTIME detected";
+        return;
+    }          
 
     BbsChannel ch;
     m_myInAddr.m_walletID.m_Channel.Export(ch);

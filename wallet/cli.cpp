@@ -1236,7 +1236,7 @@ namespace
 
     std::vector<std::string> LoadLaserChannelsIds(
         const IWalletDB::Ptr& walletDB,
-        const po::variables_map& vm,
+        const std::string& chIDsStr,
         bool all = false)
     {
         std::vector<std::string> channelIDsStr;
@@ -1251,10 +1251,9 @@ namespace
                     beam::to_hex(chID.m_pData, chID.nBytes));
             }
         }
-        else if (vm.count(cli::LASER_CHANNEL_ID))
+        else
         {
-            auto chIDsStr = vm[cli::LASER_CHANNEL_ID].as<string>();
-
+            // auto chIDsStr = vm[cli::LASER_CHANNEL_ID].as<string>();
             std::stringstream ss(chIDsStr);
             std::string chIdStr;
             while (std::getline(ss, chIdStr, ','))
@@ -1295,15 +1294,16 @@ namespace
         io::Address receiverAddr;
         Amount aMy = 0, aTrg = 0, fee = 100;
         WalletID receiverWalletID(Zero);
-        Height lifetime = kDefaultTxLifetime;
+        Height locktime = kDefaultTxLifetime;
 
-        if (!LoadLaserParams(vm, &aMy, &aTrg, &fee, &receiverWalletID, &lifetime))
+        if (!LoadLaserParams(
+                vm, &aMy, &aTrg, &fee, &receiverWalletID, &locktime))
         {
             LOG_ERROR() << "Can't read lightning params";
             return false;
         }
 
-        laser->OpenChannel(aMy, aTrg, fee, receiverWalletID, lifetime);
+        laser->OpenChannel(aMy, aTrg, fee, receiverWalletID, locktime);
         return true;
     }
     
@@ -1333,7 +1333,13 @@ namespace
             }
         }
 
-        laser->WaitIncoming(amountMy, fee);
+        Height locktime = kDefaultTxLifetime;
+        if (vm.count(cli::LASER_LOCK_TIME))
+        {
+            locktime = vm[cli::LASER_LOCK_TIME].as<Positive<uint32_t>>().value;
+        }
+
+        laser->WaitIncoming(amountMy, fee, locktime);
         return true;
     }
 
@@ -1341,8 +1347,9 @@ namespace
                     const IWalletDB::Ptr& walletDB,
                     const po::variables_map& vm)
     {
+        auto chIDsStr = vm[cli::LASER_SERVE].as<string>();
         auto channelIDsStr = LoadLaserChannelsIds(
-            walletDB, vm, vm.count(cli::LASER_CHANNEL_ID) == 0);
+            walletDB, chIDsStr, chIDsStr == "all");
 
         return laser->Serve(channelIDsStr);
     }
@@ -1411,10 +1418,9 @@ namespace
                     const IWalletDB::Ptr& walletDB,
                     const po::variables_map& vm)
     {
-        bool loadAll =
-            vm.count(cli::LASER_CHANNEL_ID) == 0 && vm.count(cli::LASER_ALL);
-        auto channelIDsStr = LoadLaserChannelsIds(
-            walletDB, vm, loadAll);
+        auto chIDsStr = vm[cli::LASER_CLOSE].as<string>();
+        bool loadAll = vm.count(cli::LASER_ALL);
+        auto channelIDsStr = LoadLaserChannelsIds(walletDB, chIDsStr, loadAll);
 
         if (!channelIDsStr.empty())
         {
@@ -1427,15 +1433,8 @@ namespace
                             const IWalletDB::Ptr& walletDB,
                             const po::variables_map& vm)
     {
-        if (vm.count(cli::LASER_CHANNEL_ID) == 0)
-        {
-            LOG_INFO() << boost::format("Parameter --%1% must be specified")
-                       % cli::LASER_CHANNEL_ID;
-            return;
-        }
-
-        auto channelIDsStr = LoadLaserChannelsIds(
-            walletDB, vm, false);
+        auto chIDsStr = vm[cli::LASER_DELETE].as<string>();
+        auto channelIDsStr = LoadLaserChannelsIds(walletDB, chIDsStr, false);
 
         if (!channelIDsStr.empty())
         {

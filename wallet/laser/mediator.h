@@ -59,7 +59,7 @@ public:
     
     void SetNetwork(const proto::FlyClient::NetworkStd::Ptr& net);
 
-    void WaitIncoming(Amount aMy, Amount fee);
+    void WaitIncoming(Amount aMy, Amount fee, Height locktime);
     void OpenChannel(Amount aMy,
                      Amount aTrg,
                      Amount fee,
@@ -96,6 +96,7 @@ private:
     std::unique_ptr<Receiver> m_pInputReceiver;
     Amount m_myInAllowed = 0;
     Amount m_feeAllowed = 0;
+    Height m_locktimeAllowed = kDefaultTxLifetime;
     WalletAddress m_myInAddr;
 
     std::unordered_map<ChannelIDPtr, std::unique_ptr<Channel>> m_channels;
