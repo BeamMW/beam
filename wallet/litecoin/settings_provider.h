@@ -18,6 +18,7 @@
 
 namespace beam::litecoin
 {
-    using ILitecoindSettingsProvider = bitcoin::IBitcoinCoreSettingsProvider;
+    using ILitecoinCoreSettingsProvider = bitcoin::IBitcoinCoreSettingsProvider;
+    using IElectrumSettingsProvider = bitcoin::IElectrumSettingsProvider;
     using ISettingsProvider = bitcoin::ISettingsProvider;
 } //namespace beam::litecoin

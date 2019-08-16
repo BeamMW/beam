@@ -218,7 +218,7 @@ namespace beam::bitcoin
         });
     }
 
-    void BitcoinCore016::getTxOut(const std::string& txid, int outputIndex, std::function<void(const IBridge::Error&, const std::string&, double, uint16_t)> callback)
+    void BitcoinCore016::getTxOut(const std::string& txid, int outputIndex, std::function<void(const IBridge::Error&, const std::string&, double, uint32_t)> callback)
     {
         LOG_DEBUG() << "Send getTxOut command";
 

@@ -14,18 +14,9 @@
 
 #pragma once
 
-#include "wallet/bitcoin/bitcoin_core_016.h"
-#include "settings_provider.h"
+#include "wallet/bitcoin/electrum.h"
 
 namespace beam::litecoin
 {
-    class LitecoinCore016 : public bitcoin::BitcoinCore016
-    {
-    public:
-        LitecoinCore016() = delete;
-        LitecoinCore016(io::Reactor& reactor, ILitecoinCoreSettingsProvider::Ptr settingsProvider);
-
-    protected:
-        std::string getCoinName() const override;
-    };
+    using Electrum = bitcoin::Electrum;
 } // namespace beam::litecoin

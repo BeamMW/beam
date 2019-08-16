@@ -16,9 +16,14 @@
 
 namespace beam::bitcoin
 {
-    const BitcoinCoreSettings& Settings::GetConnectionOptions() const
+    BitcoinCoreSettings Settings::GetConnectionOptions() const
     {
         return m_connectionSettings;
+    }
+
+    ElectrumSettings Settings::GetElectrumConnectionOptions() const
+    {
+        return m_electrumConnectionSettings;
     }
 
     Amount Settings::GetFeeRate() const
@@ -48,12 +53,18 @@ namespace beam::bitcoin
 
     bool Settings::IsInitialized() const
     {
-        return m_connectionSettings.IsInitialized();
+        // TODO roman.strilets
+        return m_connectionSettings.IsInitialized()/* || m_electrumConnectionSettings.IsInitialized*/;
     }
 
     void Settings::SetConnectionOptions(const BitcoinCoreSettings& connectionSettings)
     {
         m_connectionSettings = connectionSettings;
+    }
+
+    void Settings::SetElectrumConnectionOptions(const ElectrumSettings& connectionSettings)
+    {
+        m_electrumConnectionSettings = connectionSettings;
     }
 
     void Settings::SetFeeRate(Amount feeRate)

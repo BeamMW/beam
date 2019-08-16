@@ -8,6 +8,7 @@ set(SWAP_SRC
     ../bitcoin/bitcoin_side.cpp
     ../bitcoin/bitcoin_core_016.cpp
     ../bitcoin/bitcoin_core_017.cpp
+    ../bitcoin/electrum.cpp
     ../bitcoin/settings.cpp
     ../bitcoin/settings_provider.cpp
     ../litecoin/litecoin_core_016.cpp

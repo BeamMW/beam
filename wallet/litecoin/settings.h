@@ -19,6 +19,7 @@
 namespace beam::litecoin
 {
     using LitecoinCoreSettings = bitcoin::BitcoinCoreSettings;
+    using ElectrumSettings = bitcoin::ElectrumSettings;
 
     class Settings : public bitcoin::Settings
     {

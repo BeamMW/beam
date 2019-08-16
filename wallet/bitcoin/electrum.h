@@ -15,16 +15,41 @@
 #pragma once
 
 #include "bridge.h"
-#include "http/http_client.h"
 #include "settings_provider.h"
+
+#include "bitcoin/bitcoin.hpp"
+
+#include "nlohmann/json.hpp"
+
+namespace beam::io
+{
+    class TcpStream;
+}
 
 namespace beam::bitcoin
 {
-    class BitcoinCore016: public IBridge
+    class Electrum : public IBridge
     {
+    private:
+        struct TCPConnect
+        {
+            std::string m_request;
+            std::function<bool(const Error&, const nlohmann::json&, uint64_t)> m_callback;
+            std::unique_ptr<beam::io::TcpStream> m_stream;
+        };
+
+        // TODO roman.strilets it is temporary
     public:
-        BitcoinCore016() = delete;
-        BitcoinCore016(io::Reactor& reactor, IBitcoinCoreSettingsProvider::Ptr settingsProvider);
+
+        struct BtcCoin
+        {
+            libbitcoin::wallet::ec_private m_privateKey;
+            nlohmann::json m_details;
+        };
+
+    public:
+        Electrum() = delete;
+        Electrum(beam::io::Reactor& reactor, IElectrumSettingsProvider::Ptr2 settingsProvider);
 
         void dumpPrivKey(const std::string& btcAddress, std::function<void(const Error&, const std::string&)> callback) override;
         void fundRawTransaction(const std::string& rawTx, Amount feeRate, std::function<void(const Error&, const std::string&, int)> callback) override;
@@ -41,14 +66,28 @@ namespace beam::bitcoin
         void getTxOut(const std::string& txid, int outputIndex, std::function<void(const Error&, const std::string&, double, uint32_t)> callback) override;
         void getBlockCount(std::function<void(const Error&, uint64_t)> callback) override;
         void getBalance(uint32_t confirmations, std::function<void(const Error&, double)> callback) override;
+
         void getDetailedBalance(std::function<void(const Error&, double, double, double)> callback) override;
 
+        void listUnspent(std::function<void(const Error&, const std::vector<BtcCoin>&)> callback);
+
     protected:
-        void sendRequest(const std::string& method, const std::string& params, std::function<void(const Error&, const nlohmann::json&)> callback);
-        virtual std::string getCoinName() const;
+
+        virtual uint32_t getReceivingAddressAmount() const;
+        virtual uint32_t getChangeAddressAmount() const;
+
+        void sendRequest(const std::string& method, const std::string& params, std::function<bool(const Error&, const nlohmann::json&, uint64_t)> callback);
+        std::string getReceivingAddress(uint32_t index) const;
+        std::string getChangeAddress(uint32_t index) const;
+        std::vector<libbitcoin::wallet::ec_private> generatePrivateKeyList() const;
 
     private:
-        HttpClient m_httpClient;
-        IBitcoinCoreSettingsProvider::Ptr m_settingsProvider;
+        beam::io::Reactor& m_reactor;
+        std::map<uint64_t, TCPConnect> m_connections;
+        libbitcoin::wallet::hd_private m_receivingPrivateKey;
+        libbitcoin::wallet::hd_private m_changePrivateKey;
+        uint64_t m_counter = 0;
+        uint32_t m_currentReceivingAddress = 0;
+        IElectrumSettingsProvider::Ptr2 m_settingsProvider;
     };
 } // namespace beam::bitcoin

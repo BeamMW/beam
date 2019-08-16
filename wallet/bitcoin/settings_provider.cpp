@@ -33,6 +33,12 @@ namespace beam::bitcoin
         return m_settings->GetConnectionOptions();
     }
 
+    ElectrumSettings SettingsProvider::GetElectrumSettings() const
+    {
+        assert(m_settings);
+        return m_settings->GetElectrumConnectionOptions();
+    }
+
     Settings SettingsProvider::GetSettings() const
     {
         assert(m_settings);

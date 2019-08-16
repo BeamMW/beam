@@ -3,6 +3,7 @@ cmake_minimum_required(VERSION 3.10)
 set(TARGET_NAME beam-wallet${BEAM_TARGET_SUFFIX})
 
 add_definitions( -DSQLITE_HAS_CODEC )
+add_definitions(-DWITH_ICU)
 
 set(WALLET_SRC
     common.cpp

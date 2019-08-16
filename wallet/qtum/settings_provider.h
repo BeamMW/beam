@@ -18,6 +18,7 @@
 
 namespace beam::qtum
 {
-    using IQtumdSettingsProvider = bitcoin::IBitcoinCoreSettingsProvider;
+    using IQtumCoreSettingsProvider = bitcoin::IBitcoinCoreSettingsProvider;
+    using IElectrumSettingsProvider = bitcoin::IElectrumSettingsProvider;
     using ISettingsProvider = bitcoin::ISettingsProvider;    
 } // namespace beam::qtum
