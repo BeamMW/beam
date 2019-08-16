@@ -2388,11 +2388,8 @@ struct Lelantus
 				iPos += mm.m_Casual;
 			}
 
-			static_assert(CommitmentStd::s_Generators + 1 < ECC::InnerProduct::nDim * 2);
-			const MultiMac::Prepared* pP0 = ECC::Context::get().m_Ipp.m_pGen_[0];
-
 			mm.Reset();
-			mm.m_ppPrepared[mm.m_Prepared++] = pP0 + CommitmentStd::s_Generators; // H2
+			mm.m_ppPrepared[mm.m_Prepared++] = &ECC::Context::get().m_Ipp.G_; // add gammas, split G[] into G[] and Q[]
 
 			for (uint32_t k = 0; k < Cfg::M; k++)
 			{
