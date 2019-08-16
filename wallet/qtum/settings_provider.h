@@ -12,19 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "litecoind017.h"
+#pragma once
 
-#include "bitcoin/bitcoin.hpp"
+#include "wallet/bitcoin/settings_provider.h"
 
-namespace beam
+namespace beam::qtum
 {
-    Litecoind017::Litecoind017(io::Reactor& reactor, ILitecoindSettingsProvider::Ptr settingsProvider)
-        : Bitcoind017(reactor, settingsProvider)
-    {
-    }
-
-    std::string Litecoind017::getCoinName() const
-    {
-        return "litecoin";
-    }
-}
+    using IQtumdSettingsProvider = bitcoin::IBitcoinCoreSettingsProvider;
+    using ISettingsProvider = bitcoin::ISettingsProvider;    
+} // namespace beam::qtum

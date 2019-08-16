@@ -12,19 +12,19 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "qtumd017.h"
+#include "qtum_core_017.h"
 
 #include "bitcoin/bitcoin.hpp"
 
-namespace beam
+namespace beam::qtum
 {
-    Qtumd017::Qtumd017(io::Reactor& reactor, IQtumdSettingsProvider::Ptr settingsProvider)
-        : Bitcoind017(reactor, settingsProvider)
+    QtumCore017::QtumCore017(io::Reactor& reactor, IQtumdSettingsProvider::Ptr settingsProvider)
+        : BitcoinCore017(reactor, settingsProvider)
     {
     }
 
-    std::string Qtumd017::getCoinName() const
+    std::string QtumCore017::getCoinName() const
     {
         return "qtum";
     }
-}
+} // namespace beam::qtum

@@ -14,27 +14,27 @@
 
 #pragma once
 
-#include "bitcoin_bridge.h"
-#include "bitcoin_settings.h"
+#include "bridge.h"
+#include "settings_provider.h"
 #include "wallet/common.h"
 #include "wallet/wallet_db.h"
 
-namespace beam
+namespace beam::bitcoin
 {
-    class IBitcoinClientAsync
+    class IClientAsync
     {
     public:
-        using Ptr = std::shared_ptr<IBitcoinClientAsync>;
+        using Ptr = std::shared_ptr<IClientAsync>;
 
         virtual void GetStatus() = 0;
         virtual void GetBalance() = 0;
         virtual void ResetSettings() = 0;
     };
 
-    class BitcoinClient 
-        : private IBitcoinClientAsync
-        , public IBitcoinSettingsProvider
-        , public std::enable_shared_from_this<IBitcoinSettingsProvider>
+    class Client 
+        : private IClientAsync
+        , public ISettingsProvider
+        , public std::enable_shared_from_this<ISettingsProvider>
     {
     public:
 
@@ -53,36 +53,36 @@ namespace beam
             Unknown
         };
 
-        BitcoinClient(wallet::IWalletDB::Ptr walletDB, io::Reactor& reactor);
+        Client(wallet::IWalletDB::Ptr walletDB, io::Reactor& reactor);
 
-        IBitcoinClientAsync::Ptr GetAsync();
+        IClientAsync::Ptr GetAsync();
 
-        BitcoindSettings GetBitcoindSettings() const override;
-        BitcoinSettings GetSettings() const override;
-        void SetSettings(const BitcoinSettings& settings) override;
+        BitcoinCoreSettings GetBitcoinCoreSettings() const override;
+        Settings GetSettings() const override;
+        void SetSettings(const Settings& settings) override;
 
     protected:
         virtual void OnStatus(Status status) = 0;
         virtual void OnBalance(const Balance& balance) = 0;
 
     private:
-        // IBitcoinClientAsync
+        // IClientAsync
         void GetStatus() override;
         void GetBalance() override;
+
+        // ISettingsProvider
         void ResetSettings() override;
 
-        void LoadSettings();
         void SetStatus(const Status& status);
 
     private:
         Status m_status;
-        wallet::IWalletDB::Ptr m_walletDB;
         io::Reactor& m_reactor;
-        IBitcoinClientAsync::Ptr m_async;
-        std::unique_ptr<BitcoinSettings> m_settings;
-        IBitcoinBridge::Ptr m_bridge;
+        IClientAsync::Ptr m_async;
+        IBridge::Ptr m_bridge;
+        std::unique_ptr<SettingsProvider> m_settingsProvider;
 
         mutable std::mutex m_mutex;
         using Lock = std::unique_lock<std::mutex>;
     };
-}
+} // namespace beam::bitcoin

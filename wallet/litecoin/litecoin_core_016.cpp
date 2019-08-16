@@ -12,25 +12,19 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#pragma once
+#include "litecoin_core_016.h"
 
-#include "wallet/bitcoin/bitcoin_settings.h"
+#include "bitcoin/bitcoin.hpp"
 
-namespace beam
+namespace beam::litecoin
 {
-    using ILitecoindSettingsProvider = IBitcoindSettingsProvider;
-    using ILitecoinSettingsProvider = IBitcoinSettingsProvider;
-    using LitecoindSettings = BitcoindSettings;
-
-    class LitecoinSettings : public BitcoinSettings
+    LitecoinCore016::LitecoinCore016(io::Reactor& reactor, ILitecoindSettingsProvider::Ptr settingsProvider)
+        : bitcoin::BitcoinCore016(reactor, settingsProvider)
     {
-    public:
-        LitecoinSettings()
-            : BitcoinSettings()
-        {
-            constexpr uint32_t kLTCDefaultLockTimeInBlocks = 2 * 24 * 4 * 6;
-            SetLockTimeInBlocks(kLTCDefaultLockTimeInBlocks);
-            SetMinFeeRate(90000);
-        }
-    };
-}
+    }
+
+    std::string LitecoinCore016::getCoinName() const
+    {
+        return "litecoin";
+    }
+} // namespace beam::litecoin

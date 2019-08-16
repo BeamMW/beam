@@ -19,12 +19,12 @@
 #include <string>
 #include <functional>
 
-namespace beam
+namespace beam::bitcoin
 {
-    class IBitcoinBridge
+    class IBridge
     {
     public:
-        using Ptr = std::shared_ptr<IBitcoinBridge>;
+        using Ptr = std::shared_ptr<IBridge>;
 
         enum ErrorType
         {
@@ -42,7 +42,7 @@ namespace beam
             std::string m_message;
         };
 
-        virtual ~IBitcoinBridge() {};
+        virtual ~IBridge() {};
 
         // error, private key
         virtual void dumpPrivKey(const std::string& btcAddress, std::function<void(const Error&, const std::string&)> callback) = 0;
@@ -71,4 +71,4 @@ namespace beam
         // error, confirmed, unconfirmed and immature balances
         virtual void getDetailedBalance(std::function<void(const Error&, double, double, double)> callback) = 0;
     };
-}
+} // namespace beam::bitcoin

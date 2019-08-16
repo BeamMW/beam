@@ -12,25 +12,19 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "bitcoin_client_model.h"
+#include "litecoin_core_017.h"
 
+#include "bitcoin/bitcoin.hpp"
 
-using namespace beam;
-
-
-BitcoinClientModel::BitcoinClientModel(wallet::IWalletDB::Ptr walletDB, io::Reactor& reactor)
-    : bitcoin::Client(walletDB, reactor)
+namespace beam::litecoin
 {
-    qRegisterMetaType<beam::bitcoin::Client::Status>("beam::bitcoin::Client::Status");
-    qRegisterMetaType<beam::bitcoin::Client::Balance>("beam::bitcoin::Client::Balance");
-}
+    LitecoinCore017::LitecoinCore017(io::Reactor& reactor, ILitecoindSettingsProvider::Ptr settingsProvider)
+        : bitcoin::BitcoinCore017(reactor, settingsProvider)
+    {
+    }
 
-void BitcoinClientModel::OnStatus(Status status)
-{
-    emit GotStatus(status);
-}
-
-void BitcoinClientModel::OnBalance(const bitcoin::Client::Balance& balance)
-{
-    emit GotBalance(balance);
-}
+    std::string LitecoinCore017::getCoinName() const
+    {
+        return "litecoin";
+    }
+} // namespace beam::litecoin

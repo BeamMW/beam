@@ -14,18 +14,18 @@
 
 #pragma once
 
-#include "wallet/bitcoin/bitcoind017.h"
-#include "qtum_settings.h"
+#include "wallet/bitcoin/bitcoin_core_016.h"
+#include "settings_provider.h"
 
-namespace beam
+namespace beam::litecoin
 {
-    class Qtumd017 : public Bitcoind017
+    class LitecoinCore016 : public bitcoin::BitcoinCore016
     {
     public:
-        Qtumd017() = delete;
-        Qtumd017(io::Reactor& reactor, IQtumdSettingsProvider::Ptr settingsProvider);
+        LitecoinCore016() = delete;
+        LitecoinCore016(io::Reactor& reactor, ILitecoindSettingsProvider::Ptr settingsProvider);
 
     protected:
         std::string getCoinName() const override;
     };
-}
+} // namespace beam::litecoin

@@ -35,6 +35,12 @@ ColumnLayout {
         return true;
     }
 
+    function currencyError() {
+        if (viewModel.receiveCurrency == viewModel.sentCurrency) return true;
+        if (viewModel.receiveCurrency != Currency.CurrBeam && viewModel.sentCurrency != Currency.CurrBeam) return true;
+        return false;
+    }
+
     ColumnLayout {
         //
         // My Address
@@ -75,7 +81,7 @@ ColumnLayout {
                 currency:         viewModel.receiveCurrency
                 amount:           viewModel.amountToReceive
                 multi:            true
-                currColor:        viewModel.receiveCurrency == viewModel.sentCurrency ? Style.validator_error : Style.content_main
+                currColor:        currencyError() ? Style.validator_error : Style.content_main
             }
 
             Binding {
@@ -154,7 +160,7 @@ ColumnLayout {
                 currency:         viewModel.sentCurrency
                 amount:           viewModel.amountSent
                 multi:            true
-                currColor:        viewModel.receiveCurrency == viewModel.sentCurrency ? Style.validator_error : Style.content_main
+                currColor:        currencyError() ? Style.validator_error : Style.content_main
             }
 
             Binding {

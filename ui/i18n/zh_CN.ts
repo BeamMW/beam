@@ -187,8 +187,9 @@
         <translation>收款</translation>
     </message>
     <message id="wallet-in-progress-title">
-        <source>In progress</source>
-        <translation>正在交易中</translation>
+        <source></source>
+        <oldsource>In progress</oldsource>
+        <translation type="unfinished">正在交易中</translation>
     </message>
     <message id="wallet-transactions-title">
         <source>Transactions</source>
@@ -286,12 +287,14 @@
         <translation>删除联系人</translation>
     </message>
     <message id="available-panel-available">
-        <source>Available</source>
-        <translation>可用余额</translation>
+        <source></source>
+        <oldsource>Available</oldsource>
+        <translation type="unfinished">可用余额</translation>
     </message>
     <message id="available-panel-where-to-buy">
-        <source>Where to buy BEAM?</source>
-        <translation>在哪里获取BEAM？</translation>
+        <source></source>
+        <oldsource>Where to buy BEAM?</oldsource>
+        <translation type="unfinished">在哪里获取BEAM？</translation>
     </message>
     <message id="settings-version">
         <source>Version</source>
@@ -461,7 +464,7 @@
     </message>
     <message id="secondary-panel-maturing">
         <source>Maturing</source>
-        <translation>成熟中</translation>
+        <translation type="vanished">成熟中</translation>
     </message>
     <message id="info-title">
         <source>Info view</source>
@@ -1366,6 +1369,10 @@
         <translation type="unfinished"></translation>
     </message>
     <message id="swap-currency-na-message">
+        <source></source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="general-locked">
         <source></source>
         <translation type="unfinished"></translation>
     </message>

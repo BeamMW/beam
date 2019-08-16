@@ -12,72 +12,72 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "bitcoin_settings.h"
+#include "settings.h"
 
-namespace beam
+namespace beam::bitcoin
 {
-    const BitcoindSettings& BitcoinSettings::GetConnectionOptions() const
+    const BitcoinCoreSettings& Settings::GetConnectionOptions() const
     {
         return m_connectionSettings;
     }
 
-    Amount BitcoinSettings::GetFeeRate() const
+    Amount Settings::GetFeeRate() const
     {
         return m_feeRate;
     }
 
-    Amount BitcoinSettings::GetMinFeeRate() const
+    Amount Settings::GetMinFeeRate() const
     {
         return m_minFeeRate;
     }
 
-    uint16_t BitcoinSettings::GetTxMinConfirmations() const
+    uint16_t Settings::GetTxMinConfirmations() const
     {
         return m_txMinConfirmations;
     }
 
-    uint32_t BitcoinSettings::GetLockTimeInBlocks() const
+    uint32_t Settings::GetLockTimeInBlocks() const
     {
         return m_lockTimeInBlocks;
     }
 
-    wallet::SwapSecondSideChainType BitcoinSettings::GetChainType() const
+    wallet::SwapSecondSideChainType Settings::GetChainType() const
     {
         return m_chainType;
     }
 
-    bool BitcoinSettings::IsInitialized() const
+    bool Settings::IsInitialized() const
     {
         return m_connectionSettings.IsInitialized();
     }
 
-    void BitcoinSettings::SetConnectionOptions(const BitcoindSettings& connectionSettings)
+    void Settings::SetConnectionOptions(const BitcoinCoreSettings& connectionSettings)
     {
         m_connectionSettings = connectionSettings;
     }
 
-    void BitcoinSettings::SetFeeRate(Amount feeRate)
+    void Settings::SetFeeRate(Amount feeRate)
     {
         m_feeRate = feeRate;
     }
 
-    void BitcoinSettings::SetMinFeeRate(beam::Amount feeRate)
+    void Settings::SetMinFeeRate(beam::Amount feeRate)
     {
         m_minFeeRate = feeRate;
     }
 
-    void BitcoinSettings::SetTxMinConfirmations(uint16_t txMinConfirmations)
+    void Settings::SetTxMinConfirmations(uint16_t txMinConfirmations)
     {
         m_txMinConfirmations = txMinConfirmations;
     }
 
-    void BitcoinSettings::SetLockTimeInBlocks(uint32_t lockTimeInBlocks)
+    void Settings::SetLockTimeInBlocks(uint32_t lockTimeInBlocks)
     {
         m_lockTimeInBlocks = lockTimeInBlocks;
     }
 
-    void BitcoinSettings::SetChainType(wallet::SwapSecondSideChainType chainType)
+    void Settings::SetChainType(wallet::SwapSecondSideChainType chainType)
     {
         m_chainType = chainType;
     }
-}
+} // namespace beam::bitcoin

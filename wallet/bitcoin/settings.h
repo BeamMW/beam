@@ -18,10 +18,11 @@
 #include "utility/io/address.h"
 #include "utility/common.h"
 #include "wallet/common.h"
+#include "wallet/wallet_db.h"
 
-namespace beam
+namespace beam::bitcoin
 {
-    struct BitcoindSettings
+    struct BitcoinCoreSettings
     {
         std::string m_userName;
         std::string m_pass;
@@ -35,24 +36,14 @@ namespace beam
         SERIALIZE(m_userName, m_pass, m_address);
     };
 
-    class IBitcoindSettingsProvider
+    class ISettings
     {
     public:
-        using Ptr = std::shared_ptr<IBitcoindSettingsProvider>;
-
-        virtual ~IBitcoindSettingsProvider() = default;
-
-        virtual BitcoindSettings GetBitcoindSettings() const = 0;
-    };
-
-    class IBitcoinSettings
-    {
-    public:
-        using Ptr = std::shared_ptr<IBitcoinSettings>;
+        using Ptr = std::shared_ptr<ISettings>;
         
-        virtual ~IBitcoinSettings() {};
+        virtual ~ISettings() {};
 
-        virtual const BitcoindSettings& GetConnectionOptions() const = 0;
+        virtual const BitcoinCoreSettings& GetConnectionOptions() const = 0;
         virtual Amount GetFeeRate() const = 0;
         virtual Amount GetMinFeeRate() const = 0;
         virtual uint16_t GetTxMinConfirmations() const = 0;
@@ -61,12 +52,12 @@ namespace beam
         virtual bool IsInitialized() const = 0;
     };
 
-    class BitcoinSettings : public IBitcoinSettings
+    class Settings : public ISettings
     {
     public:
-       // BitcoinSettings() = default;
-       // ~BitcoinSettings() = default;
-        const BitcoindSettings& GetConnectionOptions() const override;
+       // Settings() = default;
+       // ~Settings() = default;
+        const BitcoinCoreSettings& GetConnectionOptions() const override;
         Amount GetFeeRate() const override;
         Amount GetMinFeeRate() const override;
         uint16_t GetTxMinConfirmations() const override;
@@ -74,31 +65,21 @@ namespace beam
         wallet::SwapSecondSideChainType GetChainType() const override;
         bool IsInitialized() const override;
 
-        void SetConnectionOptions(const BitcoindSettings& connectionSettings);
+        void SetConnectionOptions(const BitcoinCoreSettings& connectionSettings);
         void SetFeeRate(Amount feeRate);
         void SetMinFeeRate(Amount feeRate);
         void SetTxMinConfirmations(uint16_t txMinConfirmations);
         void SetLockTimeInBlocks(uint32_t lockTimeInBlocks);
         void SetChainType(wallet::SwapSecondSideChainType chainType);
 
-        SERIALIZE(m_connectionSettings, m_feeRate, m_txMinConfirmations, m_chainType, m_lockTimeInBlocks);
+        SERIALIZE(m_connectionSettings, m_feeRate, m_minFeeRate, m_txMinConfirmations, m_chainType, m_lockTimeInBlocks);
 
     protected:
-        BitcoindSettings m_connectionSettings;
+        BitcoinCoreSettings m_connectionSettings;
         Amount m_feeRate = 90000;
         Amount m_minFeeRate = 50000;
         uint16_t m_txMinConfirmations = 6;
         wallet::SwapSecondSideChainType m_chainType = wallet::SwapSecondSideChainType::Mainnet;
         uint32_t m_lockTimeInBlocks = 2 * 24 * 6;
     };
-
-    class IBitcoinSettingsProvider
-        : public IBitcoindSettingsProvider
-    {
-    public:
-        using Ptr = std::shared_ptr<IBitcoinSettingsProvider>;
-
-        virtual BitcoinSettings GetSettings() const = 0;
-        virtual void SetSettings(const BitcoinSettings& settings) = 0;
-    };
-}
+} // namespace beam::bitcoin

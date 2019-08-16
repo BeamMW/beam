@@ -22,8 +22,8 @@
 #include <QTranslator>
 
 // TODO: move this includes to one place
-#include "wallet/bitcoin/bitcoind017.h"
-#include "wallet/bitcoin/bitcoin_settings.h"
+#include "wallet/bitcoin/bitcoin_core_017.h"
+#include "wallet/bitcoin/settings.h"
 #include "wallet/bitcoin/bitcoin_side.h"
 
 #if defined(BEAM_HW_WALLET)
@@ -143,8 +143,8 @@ void AppModel::startWallet()
 
     if (auto btcClient = getBitcoinClient(); btcClient)
     {
-        auto bitcoinBridge = std::make_shared<Bitcoind017>(*m_walletReactor, btcClient);
-        auto btcSecondSideFactory = beam::wallet::MakeSecondSideFactory<BitcoinSide, Bitcoind017, IBitcoinSettingsProvider>(bitcoinBridge, btcClient);
+        auto bitcoinBridge = std::make_shared<bitcoin::BitcoinCore017>(*m_walletReactor, btcClient);
+        auto btcSecondSideFactory = beam::wallet::MakeSecondSideFactory<BitcoinSide, bitcoin::BitcoinCore017, bitcoin::ISettingsProvider>(bitcoinBridge, btcClient);
         swapTransactionCreator->RegisterFactory(AtomicSwapCoin::Bitcoin, btcSecondSideFactory);
     }
 

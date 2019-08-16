@@ -21,14 +21,14 @@
 #include "wallet/secstring.h"
 
 // TODO: move this includes to one place
-#include "wallet/bitcoin/bitcoind017.h"
-#include "wallet/bitcoin/bitcoin_settings.h"
+#include "wallet/bitcoin/bitcoin_core_017.h"
+#include "wallet/bitcoin/settings_provider.h"
 #include "wallet/bitcoin/bitcoin_side.h"
-#include "wallet/litecoin/litecoind017.h"
-#include "wallet/litecoin/litecoin_settings.h"
+#include "wallet/litecoin/litecoin_core_017.h"
+#include "wallet/litecoin/settings.h"
 #include "wallet/litecoin/litecoin_side.h"
-#include "wallet/qtum/qtumd017.h"
-#include "wallet/qtum/qtum_settings.h"
+#include "wallet/qtum/qtum_core_017.h"
+#include "wallet/qtum/settings.h"
 #include "wallet/qtum/qtum_side.h"
 ///
 #include "wallet/swaps/common.h"
@@ -203,6 +203,20 @@ namespace beam
             assert(false && "Unknow SwapCoin");
         }
         return "";
+    }
+
+    const char* getSwapSecondSideChainTypeText(SwapSecondSideChainType chainType)
+    {
+        switch (chainType)
+        {
+        case SwapSecondSideChainType::Mainnet:
+            return "mainnet";
+        case SwapSecondSideChainType::Testnet:
+            return "testnet";
+        default:
+            assert(false && "Unknow chain type.");
+            return "";
+        }
     }
 }
 namespace
@@ -934,20 +948,24 @@ namespace
         return coinIDs;
     }
 
-    bool LoadBaseParamsForTX(const po::variables_map& vm, Amount& amount, Amount& fee, WalletID& receiverWalletID, bool checkFee)
+    bool LoadBaseParamsForTX(const po::variables_map& vm, Amount& amount, Amount& fee, WalletID& receiverWalletID, bool checkFee, bool skipReceiverWalletID=false)
     {
-        if (vm.count(cli::RECEIVER_ADDR) == 0)
+        if (!skipReceiverWalletID)
         {
-            LOG_ERROR() << "receiver's address is missing";
-            return false;
+
+            if (vm.count(cli::RECEIVER_ADDR) == 0)
+            {
+                LOG_ERROR() << "receiver's address is missing";
+                return false;
+            }
+            receiverWalletID.FromHex(vm[cli::RECEIVER_ADDR].as<string>());
         }
+
         if (vm.count(cli::AMOUNT) == 0)
         {
             LOG_ERROR() << "amount is missing";
             return false;
         }
-
-        receiverWalletID.FromHex(vm[cli::RECEIVER_ADDR].as<string>());
 
         auto signedAmount = vm[cli::AMOUNT].as<Positive<double>>().value;
         if (signedAmount < 0)
@@ -989,11 +1007,11 @@ namespace
         return swapSecondSideChainType;
     }
 
-    std::shared_ptr<BitcoinSettings> ParseBitcoinSettings(const po::variables_map& vm)
+    std::shared_ptr<bitcoin::Settings> ParseBitcoinSettings(const po::variables_map& vm)
     {
         if (vm.count(cli::BTC_NODE_ADDR) > 0 || vm.count(cli::BTC_USER_NAME) > 0 || vm.count(cli::BTC_PASS) > 0)
         {
-            BitcoindSettings bitcoindSettings;
+            bitcoin::BitcoinCoreSettings bitcoindSettings;
 
             string btcNodeUri = vm[cli::BTC_NODE_ADDR].as<string>();
             if (!bitcoindSettings.m_address.resolve(btcNodeUri.c_str()))
@@ -1021,7 +1039,7 @@ namespace
                 throw std::runtime_error("swap fee rate is missing");
             }
 
-            auto btcSettings = std::make_shared<BitcoinSettings>();
+            auto btcSettings = std::make_shared<bitcoin::Settings>();
             btcSettings->SetConnectionOptions(bitcoindSettings);
             btcSettings->SetFeeRate(vm[cli::SWAP_FEERATE].as<Positive<Amount>>().value);
 
@@ -1037,11 +1055,11 @@ namespace
         return nullptr;
     }
 
-    std::shared_ptr<LitecoinSettings> ParseLitecoinSettings(const po::variables_map& vm)
+    std::shared_ptr<litecoin::Settings> ParseLitecoinSettings(const po::variables_map& vm)
     {
         if (vm.count(cli::LTC_NODE_ADDR) > 0 || vm.count(cli::LTC_USER_NAME) > 0 || vm.count(cli::LTC_PASS) > 0)
         {
-            LitecoindSettings litecoindSettings;
+            litecoin::LitecoinCoreSettings litecoindSettings;
 
             string ltcNodeUri = vm[cli::LTC_NODE_ADDR].as<string>();
             if (!litecoindSettings.m_address.resolve(ltcNodeUri.c_str()))
@@ -1069,7 +1087,7 @@ namespace
                 throw std::runtime_error("swap fee rate is missing");
             }
 
-            auto ltcSettings = std::make_shared<LitecoinSettings>();
+            auto ltcSettings = std::make_shared<litecoin::Settings>();
             ltcSettings->SetConnectionOptions(litecoindSettings);
             ltcSettings->SetFeeRate(vm[cli::SWAP_FEERATE].as<Positive<Amount>>().value);
 
@@ -1085,11 +1103,11 @@ namespace
         return nullptr;
     }
 
-    std::shared_ptr<QtumSettings> ParseQtumSettings(const po::variables_map& vm)
+    std::shared_ptr<qtum::Settings> ParseQtumSettings(const po::variables_map& vm)
     {
         if (vm.count(cli::QTUM_NODE_ADDR) > 0 || vm.count(cli::QTUM_USER_NAME) > 0 || vm.count(cli::QTUM_PASS) > 0)
         {
-            QtumdSettings qtumdSettings;
+            qtum::QtumCoreSettings qtumdSettings;
 
             string qtumNodeUri = vm[cli::QTUM_NODE_ADDR].as<string>();
             if (!qtumdSettings.m_address.resolve(qtumNodeUri.c_str()))
@@ -1117,7 +1135,7 @@ namespace
                 throw std::runtime_error("swap fee rate is missing");
             }
 
-            auto qtumSettings = std::make_shared<QtumSettings>();
+            auto qtumSettings = std::make_shared<qtum::Settings>();
             qtumSettings->SetConnectionOptions(qtumdSettings);
             qtumSettings->SetFeeRate(vm[cli::SWAP_FEERATE].as<Positive<Amount>>().value);
 
@@ -1133,32 +1151,43 @@ namespace
         return nullptr;
     }
 
-    class BitcoinSettingsProvider : public IBitcoinSettingsProvider
+    int HandleBTC(const po::variables_map& vm, const IWalletDB::Ptr& walletDB)
     {
-    public:
-        BitcoinSettingsProvider(const BitcoinSettings& settings)
-            : m_settings{ settings }
+        bitcoin::SettingsProvider settingsProvider{ walletDB };
+
+        if (vm.count(cli::ALTCOIN_SETTINGS_RESET))
         {
+            settingsProvider.ResetSettings();
+            return 0;
+        }
+        else if (vm.count(cli::ALTCOIN_SETTINGS_SHOW))
+        {
+            auto settings = settingsProvider.GetSettings();
+
+            if (!settings.IsInitialized())
+            {
+                LOG_INFO() << "BTC settings are not initialized.";
+                return -1;
+            }
+
+            cout << "BTC settings" << '\n'
+                << "RPC user: " << settings.GetConnectionOptions().m_userName << '\n'
+                << "RPC node: " << settings.GetConnectionOptions().m_address.str() << '\n'
+                << "Fee rate: " << settings.GetFeeRate() << '\n'
+                << "Chain type: " << getSwapSecondSideChainTypeText(settings.GetChainType()) << '\n';
+
+            return 0;
+        }
+        else if (vm.count(cli::ALTCOIN_SETTINGS_SET))
+        {
+            auto settings = ParseBitcoinSettings(vm);
+            settingsProvider.SetSettings(*settings);
+            return 0;
         }
 
-        BitcoindSettings GetBitcoindSettings() const override
-        {
-            return m_settings.GetConnectionOptions();
-        }
-
-        BitcoinSettings GetSettings() const override
-        {
-            return m_settings;
-        }
-
-        void SetSettings(const BitcoinSettings& settings) override
-        {
-            assert(false && "readonly object!");
-        }
-
-    private:
-        BitcoinSettings m_settings;
-    };
+        LOG_INFO() << "subcommand didn't support or unspecified.";
+        return -1;
+    }
 }
 
 io::Reactor::Ptr reactor;
@@ -1281,7 +1310,8 @@ int main_impl(int argc, char* argv[])
                             cli::IMPORT_DATA,
                             cli::EXPORT_DATA,
                             cli::SWAP_INIT,
-                            cli::SWAP_LISTEN
+                            cli::SWAP_ACCEPT,
+                            cli::BTC_SETTINGS
                         };
 
                         if (find(begin(commands), end(commands), command) == end(commands))
@@ -1470,16 +1500,17 @@ int main_impl(int argc, char* argv[])
                         return ShowAddressList(walletDB);
                     }
 
-                    auto btcSettings = ParseBitcoinSettings(vm);
-                    auto ltcSettings = ParseLitecoinSettings(vm);
-                    auto qtumSettings = ParseQtumSettings(vm);
+                    if (command == cli::BTC_SETTINGS)
+                    {
+                        return HandleBTC(vm, walletDB);
+                    }
 
                     /// HERE!!
                     io::Address receiverAddr;
                     Amount amount = 0;
                     Amount fee = 0;
                     WalletID receiverWalletID(Zero);
-                    bool isTxInitiator = command == cli::SEND;
+                    bool isTxInitiator = (command == cli::SEND);
                     if (isTxInitiator && !LoadBaseParamsForTX(vm, amount, fee, receiverWalletID, isFork1))
                     {
                         return -1;
@@ -1546,31 +1577,31 @@ int main_impl(int argc, char* argv[])
                         auto swapTransactionCreator = std::make_shared<AtomicSwapTransaction::Creator>();
                         wallet.RegisterTransactionType(TxType::AtomicSwap, std::static_pointer_cast<BaseTransaction::Creator>(swapTransactionCreator));
 
-                        if (btcSettings)
+                        auto settingsProvider = std::make_shared<bitcoin::SettingsProvider>(walletDB);
+                        if (settingsProvider->GetSettings().IsInitialized())
                         {
-                            auto settingsProvider = std::make_shared<BitcoinSettingsProvider>(*btcSettings);
-                            auto bitcoinBridge = std::make_shared<Bitcoind017>(io::Reactor::get_Current(), settingsProvider);
-                            auto btcSecondSideFactory = wallet::MakeSecondSideFactory<BitcoinSide, Bitcoind017, IBitcoinSettingsProvider>(bitcoinBridge, settingsProvider);
+                            auto bitcoinBridge = std::make_shared<bitcoin::BitcoinCore017>(io::Reactor::get_Current(), settingsProvider);
+                            auto btcSecondSideFactory = wallet::MakeSecondSideFactory<BitcoinSide, bitcoin::BitcoinCore017, bitcoin::ISettingsProvider>(bitcoinBridge, settingsProvider);
                             swapTransactionCreator->RegisterFactory(AtomicSwapCoin::Bitcoin, btcSecondSideFactory);
                         }
 
-                        if (ltcSettings)
-                        {
-                            auto settingsProvider = std::make_shared<BitcoinSettingsProvider>(*ltcSettings);
-                            auto litecoinBridge = std::make_shared<Litecoind017>(io::Reactor::get_Current(), settingsProvider);
-                            auto ltcSecondSideFactory = wallet::MakeSecondSideFactory<LitecoinSide, Litecoind017, ILitecoinSettingsProvider>(litecoinBridge, settingsProvider);
-                            swapTransactionCreator->RegisterFactory(AtomicSwapCoin::Litecoin, ltcSecondSideFactory);
-                        }
+                        //if (ltcSettings)
+                        //{
+                        //    auto settingsProvider = std::make_shared<SettingsProvider>(*ltcSettings);
+                        //    auto litecoinBridge = std::make_shared<litecoin::LitecoinCore016>(io::Reactor::get_Current(), settingsProvider);
+                        //    auto ltcSecondSideFactory = wallet::MakeSecondSideFactory<LitecoinSide, litecoin::LitecoinCore016, litecoin::ISettingsProvider>(litecoinBridge, settingsProvider);
+                        //    swapTransactionCreator->RegisterFactory(AtomicSwapCoin::Litecoin, ltcSecondSideFactory);
+                        //}
 
-                        if (qtumSettings)
-                        {
-                            auto settingsProvider = std::make_shared<BitcoinSettingsProvider>(*qtumSettings);
-                            auto qtumBridge = std::make_shared<Qtumd017>(io::Reactor::get_Current(), settingsProvider);
-                            auto qtumSecondSideFactory = wallet::MakeSecondSideFactory<QtumSide, Qtumd017, IQtumSettingsProvider>(qtumBridge, settingsProvider);
-                            swapTransactionCreator->RegisterFactory(AtomicSwapCoin::Qtum, qtumSecondSideFactory);
-                        }
+                        //if (qtumSettings)
+                        //{
+                        //    auto settingsProvider = std::make_shared<SettingsProvider>(*qtumSettings);
+                        //    auto qtumBridge = std::make_shared<qtum::QtumCore017>(io::Reactor::get_Current(), settingsProvider);
+                        //    auto qtumSecondSideFactory = wallet::MakeSecondSideFactory<QtumSide, qtum::QtumCore017, qtum::ISettingsProvider>(qtumBridge, settingsProvider);
+                        //    swapTransactionCreator->RegisterFactory(AtomicSwapCoin::Qtum, qtumSecondSideFactory);
+                        //}
 
-                        if (command == cli::SWAP_INIT || command == cli::SWAP_LISTEN)
+                        if (command == cli::SWAP_INIT)
                         {
                             if (vm.count(cli::SWAP_AMOUNT) == 0)
                             {
@@ -1579,7 +1610,6 @@ int main_impl(int argc, char* argv[])
                             }
 
                             Amount swapAmount = vm[cli::SWAP_AMOUNT].as<Positive<Amount>>().value;
-
                             SwapSecondSideChainType secondSideChainType = SwapSecondSideChainType::Mainnet;
                             wallet::AtomicSwapCoin swapCoin = wallet::AtomicSwapCoin::Bitcoin;
 
@@ -1596,107 +1626,192 @@ int main_impl(int argc, char* argv[])
 
                             if (swapCoin == wallet::AtomicSwapCoin::Bitcoin)
                             {
-                                if (!btcSettings || btcSettings->GetConnectionOptions().m_userName.empty() 
-                                    || btcSettings->GetConnectionOptions().m_pass.empty() || btcSettings->GetConnectionOptions().m_address.empty())
+                                auto btcSettings = settingsProvider->GetSettings();
+                                if (!btcSettings.IsInitialized())
                                 {
-                                    LOG_ERROR() << "BTC node credentials should be provided";
+                                    LOG_ERROR() << "BTC settings should be initialized.";
                                     return -1;
                                 }
 
-                                if (!BitcoinSide::CheckAmount(swapAmount, btcSettings->GetFeeRate()))
+                                if (!BitcoinSide::CheckAmount(swapAmount, btcSettings.GetFeeRate()))
                                 {
                                     LOG_ERROR() << "The swap amount must be greater than the redemption fee.";
                                     return -1;
                                 }
-                                secondSideChainType = btcSettings->GetChainType();
+                                secondSideChainType = btcSettings.GetChainType();
                             }
-                            else if (swapCoin == wallet::AtomicSwapCoin::Litecoin)
-                            {
-                                if (!ltcSettings || ltcSettings->GetConnectionOptions().m_userName.empty() 
-                                    || ltcSettings->GetConnectionOptions().m_pass.empty() || ltcSettings->GetConnectionOptions().m_address.empty())
-                                {
-                                    LOG_ERROR() << "LTC node credentials should be provided";
-                                    return -1;
-                                }
-                                if (!LitecoinSide::CheckAmount(swapAmount, ltcSettings->GetFeeRate()))
-                                {
-                                    LOG_ERROR() << "The swap amount must be greater than the redemption fee.";
-                                    return -1;
-                                }
-                                secondSideChainType = ltcSettings->GetChainType();
-                            }
-                            else
-                            {
-                                if (!qtumSettings || qtumSettings->GetConnectionOptions().m_userName.empty()
-                                    || qtumSettings->GetConnectionOptions().m_pass.empty() || qtumSettings->GetConnectionOptions().m_address.empty())
-                                {
-                                    LOG_ERROR() << "Qtum node credentials should be provided";
-                                    return -1;
-                                }
-                                if (!QtumSide::CheckAmount(swapAmount, qtumSettings->GetFeeRate()))
-                                {
-                                    LOG_ERROR() << "The swap amount must be greater than the redemption fee.";
-                                    return -1;
-                                }
-                                secondSideChainType = qtumSettings->GetChainType();
-                            }
+                            //else if (swapCoin == wallet::AtomicSwapCoin::Litecoin)
+                            //{
+                            //    if (!ltcSettings || ltcSettings->GetConnectionOptions().m_userName.empty() 
+                            //        || ltcSettings->GetConnectionOptions().m_pass.empty() || ltcSettings->GetConnectionOptions().m_address.empty())
+                            //    {
+                            //        LOG_ERROR() << "LTC node credentials should be provided";
+                            //        return -1;
+                            //    }
+                            //    if (!LitecoinSide::CheckAmount(swapAmount, ltcSettings->GetFeeRate()))
+                            //    {
+                            //        LOG_ERROR() << "The swap amount must be greater than the redemption fee.";
+                            //        return -1;
+                            //    }
+                            //    secondSideChainType = ltcSettings->GetChainType();
+                            //}
+                            //else
+                            //{
+                            //    if (!qtumSettings || qtumSettings->GetConnectionOptions().m_userName.empty()
+                            //        || qtumSettings->GetConnectionOptions().m_pass.empty() || qtumSettings->GetConnectionOptions().m_address.empty())
+                            //    {
+                            //        LOG_ERROR() << "Qtum node credentials should be provided";
+                            //        return -1;
+                            //    }
+                            //    if (!QtumSide::CheckAmount(swapAmount, qtumSettings->GetFeeRate()))
+                            //    {
+                            //        LOG_ERROR() << "The swap amount must be greater than the redemption fee.";
+                            //        return -1;
+                            //    }
+                            //    secondSideChainType = qtumSettings->GetChainType();
+                            //}
                             
                             bool isBeamSide = (vm.count(cli::SWAP_BEAM_SIDE) != 0);
 
-                            if (command == cli::SWAP_INIT)
+                            if (!LoadBaseParamsForTX(vm, amount, fee, receiverWalletID, isFork1, true))
                             {
-                                if (!LoadBaseParamsForTX(vm, amount, fee, receiverWalletID, isFork1))
-                                {
-                                    return -1;
-                                }
-
-                                if (vm.count(cli::SWAP_AMOUNT) == 0)
-                                {
-                                    LOG_ERROR() << "swap amount is missing";
-                                    return -1;
-                                }
-
-                                if (amount <= kMinFeeInGroth)
-                                {
-                                    LOG_ERROR() << "The amount must be greater than the redemption fee.";
-                                    return -1;
-                                }
-
-                                WalletAddress senderAddress = GenerateNewAddress(walletDB, "");
-
-                                auto swapParameters = InitNewSwap(senderAddress.m_walletID, amount, fee, swapCoin, swapAmount, secondSideChainType, isBeamSide);
-                                swapParameters.SetParameter(TxParameterID::MyID, senderAddress.m_walletID);
-                                currentTxID = wallet.StartTransaction(swapParameters);
-                                //currentTxID = wallet.swap_coins(senderAddress.m_walletID, receiverWalletID, 
-                                //    move(amount), move(fee), swapCoin, swapAmount, secondSideChainType, isBeamSide);
+                                return -1;
                             }
 
-                            if (command == cli::SWAP_LISTEN)
+                            if (vm.count(cli::SWAP_AMOUNT) == 0)
                             {
-                                if (vm.count(cli::AMOUNT) == 0)
+                                LOG_ERROR() << "swap amount is missing";
+                                return -1;
+                            }
+
+                            if (amount <= kMinFeeInGroth)
+                            {
+                                LOG_ERROR() << "The amount must be greater than the redemption fee.";
+                                return -1;
+                            }
+
+                            WalletAddress senderAddress = GenerateNewAddress(walletDB, "");
+
+                            auto swapTxParameters = InitNewSwap(senderAddress.m_walletID, amount, fee, swapCoin, swapAmount, secondSideChainType, isBeamSide);
+
+                            currentTxID = wallet.StartTransaction(swapTxParameters);
+
+                            // print swap tx token
+                            {
+                                // auto token = SwapTxParametersToToken(swapParameters);
+                                isBeamSide = !*swapTxParameters.GetParameter<bool>(TxParameterID::AtomicSwapIsBeamSide);
+                                swapTxParameters.SetParameter(TxParameterID::IsInitiator, !*swapTxParameters.GetParameter<bool>(TxParameterID::IsInitiator));
+                                swapTxParameters.SetParameter(TxParameterID::PeerID, *swapTxParameters.GetParameter<WalletID>(TxParameterID::MyID));
+                                swapTxParameters.SetParameter(TxParameterID::AtomicSwapIsBeamSide, isBeamSide);
+                                swapTxParameters.SetParameter(TxParameterID::IsSender, isBeamSide);
+                                swapTxParameters.DeleteParameter(TxParameterID::MyID);
+
+                                auto swapTxToken = std::to_string(swapTxParameters);
+                                LOG_INFO() << "Swap token: " << swapTxToken;
+                            }
+                        }
+
+                        if (command == cli::SWAP_ACCEPT)
+                        {
+                            if (vm.count(cli::SWAP_TOKEN) == 0)
+                            {
+                                LOG_ERROR() << "swap transaction token should be specified";
+                                return -1;
+                            }
+
+                            auto swapTxToken = vm[cli::SWAP_TOKEN].as<std::string>();
+                            auto swapTxParameters = beam::wallet::ParseParameters(swapTxToken);
+
+                            // validate TxType and parameters
+                            auto transactionType = swapTxParameters->GetParameter<TxType>(TxParameterID::TransactionType);
+                            auto isBeamSide = swapTxParameters->GetParameter<bool>(TxParameterID::AtomicSwapIsBeamSide);
+                            auto swapCoin = swapTxParameters->GetParameter<AtomicSwapCoin>(TxParameterID::AtomicSwapCoin);
+                            auto beamAmount = swapTxParameters->GetParameter<Amount>(TxParameterID::Amount);
+                            auto swapAmount = swapTxParameters->GetParameter<Amount>(TxParameterID::AtomicSwapAmount);
+                            auto chainType = swapTxParameters->GetParameter<SwapSecondSideChainType>(TxParameterID::AtomicSwapSecondSideChainType);
+                            auto peerID = swapTxParameters->GetParameter<WalletID>(TxParameterID::PeerID);
+                            auto peerResponseHeight = swapTxParameters->GetParameter<Height>(TxParameterID::PeerResponseHeight);
+
+                            bool isValidToken = isBeamSide && swapCoin && beamAmount && swapAmount && chainType && peerID && peerResponseHeight;
+
+                            if (!transactionType || *transactionType != TxType::AtomicSwap || !isValidToken)
+                            {
+                                LOG_ERROR() << "swap transaction token is invalid.";
+                                return -1;
+                            }
+
+                            SwapSecondSideChainType ownSecondSideChainType = SwapSecondSideChainType::Mainnet;
+                            Amount swapFeeRate = 0;
+
+                            if (swapCoin == wallet::AtomicSwapCoin::Bitcoin)
+                            {
+                                auto btcSettings = settingsProvider->GetSettings();
+                                if (!btcSettings.IsInitialized())
                                 {
-                                    LOG_ERROR() << "amount is missing";
-                                    return false;
-                                }
-
-                                auto signedAmount = vm[cli::AMOUNT].as<Positive<double>>().value;
-
-                                signedAmount *= Rules::Coin; // convert beams to coins
-
-                                amount = static_cast<ECC::Amount>(std::round(signedAmount));
-                                if (amount == 0)
-                                {
-                                    LOG_ERROR() << "Unable to send zero coins";
-                                    return false;
-                                }
-
-                                if (amount <= kMinFeeInGroth)
-                                {
-                                    LOG_ERROR() << "The amount must be greater than the redemption fee.";
+                                    LOG_ERROR() << "BTC settings should be initialized.";
                                     return -1;
                                 }
-                                //wallet.initSwapConditions(amount, swapAmount, swapCoin, isBeamSide, secondSideChainType);
+
+                                if (!BitcoinSide::CheckAmount(*swapAmount, btcSettings.GetFeeRate()))
+                                {
+                                    LOG_ERROR() << "The swap amount must be greater than the redemption fee.";
+                                    return -1;
+                                }
+                                ownSecondSideChainType = btcSettings.GetChainType();
+                                swapFeeRate = btcSettings.GetFeeRate();
                             }
+
+                            // validate chain types
+                            if (ownSecondSideChainType != *chainType)
+                            {
+                                LOG_ERROR() << "Incompatible options! Your sidechain type: " 
+                                    << getSwapSecondSideChainTypeText(ownSecondSideChainType)
+                                    << " Token's sidechain type: " << getSwapSecondSideChainTypeText(*chainType);
+                                return -1;
+                            }
+
+                            // display swap details to user
+                            cout << " Swap conditions: " << "\n"
+                                << " Beam side:    " << *isBeamSide << "\n"
+                                << " Swap coin:    " << getAtomicSwapCoinText(*swapCoin) << "\n"
+                                << " Beam amount:  " << PrintableAmount(*beamAmount) << "\n"
+                                << " Swap amount:  " << *swapAmount << "\n"
+                                << " Chain type:   " << getSwapSecondSideChainTypeText(*chainType) << "\n"
+                                << " Peer ID:      " << to_string(*peerID);
+
+                            // get accepting
+                            // TODO: Refactor
+                            bool isAccepted = false;
+                            while (true)
+                            {
+                                std::string result;
+                                cout << "Do you agree to these conditions? (y/n): ";
+                                cin >> result;
+
+                                if (result == "y" || result == "n")
+                                {
+                                    isAccepted = (result == "y");
+                                    break;
+                                }
+                            }
+
+                            if (!isAccepted)
+                            {
+                                LOG_INFO() << "Swap rejected!";
+                                return 0;
+                            }
+
+                            // on accepting
+                            WalletAddress senderAddress = GenerateNewAddress(walletDB, "");
+
+                            swapTxParameters->SetParameter(TxParameterID::MyID, senderAddress.m_walletID);
+
+                            // TODO: check fee
+                            swapTxParameters->SetParameter(beam::wallet::TxParameterID::Fee, beam::Amount(cli::kMinimumFee));
+                            auto subTxID = isBeamSide ? beam::wallet::SubTxIndex::REDEEM_TX : beam::wallet::SubTxIndex::LOCK_TX;
+                            swapTxParameters->SetParameter(beam::wallet::TxParameterID::Fee, swapFeeRate, subTxID);
+
+                            currentTxID = wallet.StartTransaction(*swapTxParameters);
                         }
 
                         if (isTxInitiator)
@@ -1710,7 +1825,7 @@ int main_impl(int argc, char* argv[])
                                 .SetParameter(TxParameterID::PreselectedCoins, GetPreselectedCoinIDs(vm)));
                         }
 
-                        bool deleteTx = command == cli::DELETE_TX;
+                        bool deleteTx = (command == cli::DELETE_TX);
                         if (command == cli::CANCEL_TX || deleteTx)
                         {
                             auto txIdVec = from_hex(vm[cli::TX_ID].as<string>());

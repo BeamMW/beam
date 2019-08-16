@@ -14,18 +14,10 @@
 
 #pragma once
 
-#include "wallet/bitcoin/bitcoind017.h"
-#include "litecoin_settings.h"
+#include "wallet/bitcoin/settings_provider.h"
 
-namespace beam
+namespace beam::litecoin
 {
-    class Litecoind017 : public Bitcoind017
-    {
-    public:
-        Litecoind017() = delete;
-        Litecoind017(io::Reactor& reactor, ILitecoindSettingsProvider::Ptr settingsProvider);
-
-    protected:
-        std::string getCoinName() const override;
-    };
-}
+    using ILitecoindSettingsProvider = bitcoin::IBitcoinCoreSettingsProvider;
+    using ISettingsProvider = bitcoin::ISettingsProvider;
+} //namespace beam::litecoin

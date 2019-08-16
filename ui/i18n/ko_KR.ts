@@ -187,8 +187,9 @@
         <translation>받기</translation>
     </message>
     <message id="wallet-in-progress-title">
-        <source>In progress</source>
-        <translation>진행중</translation>
+        <source></source>
+        <oldsource>In progress</oldsource>
+        <translation type="unfinished">진행중</translation>
     </message>
     <message id="wallet-transactions-title">
         <source>Transactions</source>
@@ -286,12 +287,14 @@
         <translation>연락처 삭제</translation>
     </message>
     <message id="available-panel-available">
-        <source>Available</source>
-        <translation>사용 가능 금액</translation>
+        <source></source>
+        <oldsource>Available</oldsource>
+        <translation type="unfinished">사용 가능 금액</translation>
     </message>
     <message id="available-panel-where-to-buy">
-        <source>Where to buy BEAM?</source>
-        <translation>BEAM 은 어디서 사나요?</translation>
+        <source></source>
+        <oldsource>Where to buy BEAM?</oldsource>
+        <translation type="unfinished">BEAM 은 어디서 사나요?</translation>
     </message>
     <message id="settings-version">
         <source>Version</source>
@@ -461,7 +464,7 @@
     </message>
     <message id="secondary-panel-maturing">
         <source>Maturing</source>
-        <translation type="unfinished">Maturing</translation>
+        <translation type="obsolete">Maturing</translation>
     </message>
     <message id="info-title">
         <source>Info view</source>
@@ -1366,6 +1369,10 @@
         <translation type="unfinished"></translation>
     </message>
     <message id="swap-currency-na-message">
+        <source></source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="general-locked">
         <source></source>
         <translation type="unfinished"></translation>
     </message>

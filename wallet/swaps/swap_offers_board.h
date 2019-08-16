@@ -18,7 +18,6 @@
 #include "utility/logger.h"
 
 #include <unordered_map>
-#include <optional>
 
 namespace beam::wallet
 {
@@ -47,9 +46,9 @@ namespace beam::wallet
 
         static const std::map<AtomicSwapCoin, BbsChannel> m_channelsMap;
         Timestamp m_lastTimestamp = getTimestamp() - 12*60*60;
-        std::optional<BbsChannel> m_activeChannel;
+        boost::optional<BbsChannel> m_activeChannel;
 
-        auto getChannel(const SwapOffer& offer) const -> std::optional<BbsChannel>;
+        auto getChannel(const SwapOffer& offer) const -> boost::optional<BbsChannel>;
 
         std::unordered_map<TxID, SwapOffer> m_offersCache;
     };

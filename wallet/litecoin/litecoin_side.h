@@ -15,14 +15,14 @@
 #pragma once
 
 #include "wallet/bitcoin/bitcoin_side.h"
-#include "litecoin_settings.h"
+#include "settings_provider.h"
 
 namespace beam::wallet
 {
     class LitecoinSide : public BitcoinSide
     {
     public:
-        LitecoinSide(BaseTransaction& tx, IBitcoinBridge::Ptr bitcoinBridge, ILitecoinSettingsProvider::Ptr settingsProvider, bool isBeamSide);
+        LitecoinSide(BaseTransaction& tx, bitcoin::IBridge::Ptr bitcoinBridge, litecoin::ISettingsProvider::Ptr settingsProvider, bool isBeamSide);
 
         static bool CheckAmount(Amount amount, Amount feeRate);
 

@@ -7,31 +7,37 @@ import QtQuick.Layouts 1.3
 import Beam.Wallet 1.0
 import "../utils.js" as Utils
 
-RowLayout
-{
+Control {
     id: control
-    spacing: 3
+    spacing: 8
 
-    property double amount:      0
-    property string color:       Style.content_main
-    property bool   error:       false
-    property int    fontSize:    14
-    property int    iconSize:    14
-    property int    iconTop:     3
+    property double  amount:          0
+    property string  color:           Style.content_main
+    property bool    error:           false
+    property int     fontSize:        14
+    property string  currencySymbol:  Utils.symbolBeam
+    property string  iconSource:      undefined
+    property size    iconSize:        undefined
+    property alias   copyMenuEnabled: amountText.copyMenuEnabled
 
-    SFText {
-        id:             amountText
-        font.pixelSize: fontSize
-        font.styleName: "Light";
-        font.weight:    Font.Light
-        color:          control.error ? Style.validator_error : control.color
-        text:           Utils.formatAmount(amount).length ? Utils.formatAmount(amount) : "0"
-    }
+    contentItem: RowLayout{
+        spacing: control.spacing
 
-    SvgImage {
-        id:               beamIcon
-        Layout.topMargin: iconTop
-        sourceSize:       Qt.size(10 * iconSize / 14, 15 * iconSize / 14)
-        source:           control.error ? "qrc:/assets/b-red.svg" : "qrc:/assets/b-grey.svg"
+        SvgImage {
+            Layout.topMargin:   3
+            source:             control.iconSource
+            sourceSize:         control.iconSize
+            visible:            !!control.iconSource
+        }
+
+        SFLabel {
+            id:             amountText
+            font.pixelSize: fontSize
+            font.styleName: "Light"
+            font.weight:    Font.Light
+            color:          control.error ? Style.validator_error : control.color
+            text:           [Utils.formatAmount(amount).length ? Utils.formatAmount(amount) : "0", control.currencySymbol].join(" ")
+            onCopyText:     BeamGlobals.copyToClipboard(Utils.formatAmount(amount))
+        }
     }
 }

@@ -24,9 +24,27 @@
 class WalletViewModel : public QObject
 {
     Q_OBJECT
-    Q_PROPERTY(double  available   READ available    NOTIFY stateChanged)
-    Q_PROPERTY(QString receiving   READ receiving    NOTIFY stateChanged)
-    Q_PROPERTY(QString sending     READ sending      NOTIFY stateChanged)
+    Q_PROPERTY(double  beamAvailable   READ beamAvailable    NOTIFY stateChanged)
+    Q_PROPERTY(double  btcAvailable    READ btcAvailable     NOTIFY stateChanged)
+    Q_PROPERTY(double  ltcAvailable    READ ltcAvailable     NOTIFY stateChanged)
+    Q_PROPERTY(double  qtumAvailable   READ qtumAvailable    NOTIFY stateChanged)
+
+    Q_PROPERTY(QString beamReceiving   READ beamReceiving    NOTIFY stateChanged)
+    Q_PROPERTY(QString btcReceiving    READ btcReceiving     NOTIFY stateChanged)
+    Q_PROPERTY(QString ltcReceiving    READ ltcReceiving     NOTIFY stateChanged)
+    Q_PROPERTY(QString qtumReceiving   READ qtumReceiving    NOTIFY stateChanged)
+
+    Q_PROPERTY(QString beamSending   READ beamSending  NOTIFY stateChanged)
+    Q_PROPERTY(QString btcSending    READ btcSending   NOTIFY stateChanged)
+    Q_PROPERTY(QString ltcSending    READ ltcSending   NOTIFY stateChanged)
+    Q_PROPERTY(QString qtumSending   READ qtumSending  NOTIFY stateChanged)
+
+    Q_PROPERTY(QString beamLocked    READ beamLocked  NOTIFY stateChanged)
+    Q_PROPERTY(QString btcLocked     READ btcLocked   NOTIFY stateChanged)
+    Q_PROPERTY(QString ltcLocked     READ ltcLocked   NOTIFY stateChanged)
+    Q_PROPERTY(QString qtumLocked    READ qtumLocked  NOTIFY stateChanged)
+
+
     Q_PROPERTY(QString maturing    READ maturing     NOTIFY stateChanged)
     Q_PROPERTY(QQmlListProperty<TxObject> transactions READ getTransactions NOTIFY transactionsChanged)
     Q_PROPERTY(QString sortRole READ sortRole WRITE setSortRole)
@@ -51,11 +69,27 @@ public:
     WalletViewModel();
     virtual ~WalletViewModel();
 
-    double  available() const;
-    QString receiving() const;
-    QString sending() const;
-    QString maturing() const;
+    double  beamAvailable() const;
+    double  btcAvailable()  const;
+    double  ltcAvailable()  const;
+    double  qtumAvailable() const;
 
+    double  beamReceiving() const;
+    double  btcReceiving()  const;
+    double  ltcReceiving()  const;
+    double  qtumReceiving() const;
+
+    double  beamSending() const;
+    double  btcSending()  const;
+    double  ltcSending()  const;
+    double  qtumSending() const;
+
+    double  beamLocked() const;
+    double  btcLocked()  const;
+    double  ltcLocked()  const;
+    double  qtumLocked() const;
+
+    QString maturing() const;
     QQmlListProperty<TxObject> getTransactions();
     bool getIsOfflineStatus() const;
     bool getIsFailedStatus() const;

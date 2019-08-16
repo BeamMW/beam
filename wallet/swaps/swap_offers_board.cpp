@@ -38,17 +38,12 @@ namespace beam::wallet
         TxToken token;
         if (fromByteBuffer(msg.m_Message, token))
         {
-            auto txParams = std::make_optional<TxParameters>(token.UnpackParameters());
-
-            if (txParams.has_value())
+            auto offer = token.UnpackParameters();
+            auto txId = offer.GetTxID();
+            if (!txId)
             {
-                auto offer = txParams.value();
-                auto txId = offer.GetTxID();
-                if (txId.has_value())
-                {
-                    m_offersCache[txId.value()] = offer;
-                    m_observer.onSwapOffersChanged(ChangeAction::Added, std::vector<SwapOffer>{offer});
-                }
+                m_offersCache[*txId] = offer;
+                m_observer.onSwapOffersChanged(ChangeAction::Added, std::vector<SwapOffer>{offer});
             }
 
         }
@@ -93,18 +88,18 @@ namespace beam::wallet
         return offers;
     }
 
-    auto SwapOffersBoard::getChannel(const SwapOffer& offer) const -> std::optional<BbsChannel>
+    auto SwapOffersBoard::getChannel(const SwapOffer& offer) const -> boost::optional<BbsChannel>
     {
         auto coinType = offer.GetParameter<AtomicSwapCoin>(TxParameterID::AtomicSwapCoin);
-        if (coinType.has_value())
+        if (!coinType)
         {
-            auto it = m_channelsMap.find(coinType.value());
+            auto it = m_channelsMap.find(*coinType);
             if (it != std::cend(m_channelsMap))
             {
                 return it->second;
             }
         }
-        return std::nullopt;
+        return boost::none;
     }
 
     void SwapOffersBoard::publishOffer(const SwapOffer& offer) const
@@ -113,9 +108,9 @@ namespace beam::wallet
         auto channel = getChannel(offer);
         
         // TODO: validation of offers
-        if (channel.has_value())
+        if (!channel)
         {
-            wId.m_Channel = channel.value();
+            wId.m_Channel = *channel;
             beam::wallet::TxToken token(offer);
             m_messageEndpoint.SendEncryptedMessage(wId, toByteBuffer(token));
         }

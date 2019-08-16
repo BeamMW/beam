@@ -187,8 +187,9 @@
         <translation>Nhận</translation>
     </message>
     <message id="wallet-in-progress-title">
-        <source>In progress</source>
-        <translation>Trong quá trình</translation>
+        <source></source>
+        <oldsource>In progress</oldsource>
+        <translation type="unfinished">Trong quá trình</translation>
     </message>
     <message id="wallet-transactions-title">
         <source>Transactions</source>
@@ -286,12 +287,14 @@
         <translation>Xoá liên hệ</translation>
     </message>
     <message id="available-panel-available">
-        <source>Available</source>
-        <translation>Có sẵn</translation>
+        <source></source>
+        <oldsource>Available</oldsource>
+        <translation type="unfinished">Có sẵn</translation>
     </message>
     <message id="available-panel-where-to-buy">
-        <source>Where to buy BEAM?</source>
-        <translation>Mua BEAM ở đâu?</translation>
+        <source></source>
+        <oldsource>Where to buy BEAM?</oldsource>
+        <translation type="unfinished">Mua BEAM ở đâu?</translation>
     </message>
     <message id="settings-version">
         <source>Version</source>
@@ -461,7 +464,7 @@
     </message>
     <message id="secondary-panel-maturing">
         <source>Maturing</source>
-        <translation>Đáo hạn</translation>
+        <translation type="vanished">Đáo hạn</translation>
     </message>
     <message id="info-title">
         <source>Info view</source>
@@ -1366,6 +1369,10 @@
         <translation type="unfinished"></translation>
     </message>
     <message id="swap-currency-na-message">
+        <source></source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="general-locked">
         <source></source>
         <translation type="unfinished"></translation>
     </message>

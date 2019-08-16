@@ -25,7 +25,7 @@ namespace
 
 namespace beam::wallet
 {
-    QtumSide::QtumSide(BaseTransaction& tx, IBitcoinBridge::Ptr bitcoinBridge, IQtumSettingsProvider::Ptr settingsProvider, bool isBeamSide)
+    QtumSide::QtumSide(BaseTransaction& tx, bitcoin::IBridge::Ptr bitcoinBridge, qtum::ISettingsProvider::Ptr settingsProvider, bool isBeamSide)
         : BitcoinSide(tx, bitcoinBridge, settingsProvider, isBeamSide)
     {
     }

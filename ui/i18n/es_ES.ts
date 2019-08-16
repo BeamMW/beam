@@ -187,8 +187,9 @@
         <translation>Recibir</translation>
     </message>
     <message id="wallet-in-progress-title">
-        <source>In progress</source>
-        <translation>En progreso</translation>
+        <source></source>
+        <oldsource>In progress</oldsource>
+        <translation type="unfinished">En progreso</translation>
     </message>
     <message id="wallet-transactions-title">
         <source>Transactions</source>
@@ -286,12 +287,14 @@
         <translation>Borrar contacto</translation>
     </message>
     <message id="available-panel-available">
-        <source>Available</source>
-        <translation>Disponible</translation>
+        <source></source>
+        <oldsource>Available</oldsource>
+        <translation type="unfinished">Disponible</translation>
     </message>
     <message id="available-panel-where-to-buy">
-        <source>Where to buy BEAM?</source>
-        <translation>¿Donde comprar BEAM?</translation>
+        <source></source>
+        <oldsource>Where to buy BEAM?</oldsource>
+        <translation type="unfinished">¿Donde comprar BEAM?</translation>
     </message>
     <message id="settings-version">
         <source>Version</source>
@@ -461,7 +464,7 @@
     </message>
     <message id="secondary-panel-maturing">
         <source>Maturing</source>
-        <translation>Madurando</translation>
+        <translation type="vanished">Madurando</translation>
     </message>
     <message id="info-title">
         <source>Info view</source>
@@ -1367,6 +1370,10 @@ Escanee este código QR o envíe esta dirección al remitente a través de un ca
         <translation type="unfinished"></translation>
     </message>
     <message id="swap-currency-na-message">
+        <source></source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="general-locked">
         <source></source>
         <translation type="unfinished"></translation>
     </message>

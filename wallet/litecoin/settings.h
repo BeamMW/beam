@@ -12,25 +12,23 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "bitcoin_client_model.h"
+#pragma once
 
+#include "wallet/bitcoin/settings.h"
 
-using namespace beam;
-
-
-BitcoinClientModel::BitcoinClientModel(wallet::IWalletDB::Ptr walletDB, io::Reactor& reactor)
-    : bitcoin::Client(walletDB, reactor)
+namespace beam::litecoin
 {
-    qRegisterMetaType<beam::bitcoin::Client::Status>("beam::bitcoin::Client::Status");
-    qRegisterMetaType<beam::bitcoin::Client::Balance>("beam::bitcoin::Client::Balance");
-}
+    using LitecoinCoreSettings = bitcoin::BitcoinCoreSettings;
 
-void BitcoinClientModel::OnStatus(Status status)
-{
-    emit GotStatus(status);
-}
-
-void BitcoinClientModel::OnBalance(const bitcoin::Client::Balance& balance)
-{
-    emit GotBalance(balance);
-}
+    class Settings : public bitcoin::Settings
+    {
+    public:
+        Settings()
+            : bitcoin::Settings()
+        {
+            constexpr uint32_t kLTCDefaultLockTimeInBlocks = 2 * 24 * 4 * 6;
+            SetLockTimeInBlocks(kLTCDefaultLockTimeInBlocks);
+            SetMinFeeRate(90000);
+        }
+    };
+} //namespace beam::litecoin

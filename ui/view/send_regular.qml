@@ -175,10 +175,10 @@ ColumnLayout {
 
             BeamAmount
             {
-                Layout.topMargin:   20
+                Layout.topMargin:   15
                 Layout.rightMargin: 25
                 error:              !viewModel.isEnough
-                amount:             viewModel.totalUTXO
+                amount:             viewModel.sendAmount
             }
 
             SFText {

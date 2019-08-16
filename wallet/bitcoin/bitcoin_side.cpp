@@ -69,7 +69,7 @@ namespace
 
 namespace beam::wallet
 {
-    BitcoinSide::BitcoinSide(BaseTransaction& tx, IBitcoinBridge::Ptr bitcoinBridge, IBitcoinSettingsProvider::Ptr settingsProvider, bool isBeamSide)
+    BitcoinSide::BitcoinSide(BaseTransaction& tx, bitcoin::IBridge::Ptr bitcoinBridge, bitcoin::ISettingsProvider::Ptr settingsProvider, bool isBeamSide)
         : m_tx(tx)
         , m_bitcoinBridge(bitcoinBridge)
         , m_settingsProvider(settingsProvider)
@@ -269,7 +269,7 @@ namespace beam::wallet
         if (std::string swapPublicKeyStr; !m_tx.GetParameter(TxParameterID::AtomicSwapPublicKey, swapPublicKeyStr))
         {
             // is need to setup type 'legacy'?
-            m_bitcoinBridge->getRawChangeAddress([this, weak = this->weak_from_this()](const IBitcoinBridge::Error& error, const std::string& address)
+            m_bitcoinBridge->getRawChangeAddress([this, weak = this->weak_from_this()](const bitcoin::IBridge::Error& error, const std::string& address)
             {
                 if (!weak.expired())
                 {
@@ -327,10 +327,10 @@ namespace beam::wallet
 		uint8_t nRegistered = proto::TxStatus::Unspecified;
         if (!m_tx.GetParameter(TxParameterID::TransactionRegistered, nRegistered, subTxID))
         {
-            auto callback = [this, subTxID, weak = this->weak_from_this()](const IBitcoinBridge::Error& error, const std::string& txID) {
+            auto callback = [this, subTxID, weak = this->weak_from_this()](const bitcoin::IBridge::Error& error, const std::string& txID) {
                 if (!weak.expired())
                 {
-                    if (error.m_type != IBitcoinBridge::None)
+                    if (error.m_type != bitcoin::IBridge::None)
                     {
                         SetTxError(error, subTxID);
                         return;
@@ -381,7 +381,7 @@ namespace beam::wallet
 
             std::string hexTx = libbitcoin::encode_base16(contractTx.to_data());
 
-            m_bitcoinBridge->fundRawTransaction(hexTx, GetFeeRate(SubTxIndex::LOCK_TX), [this, weak = this->weak_from_this()](const IBitcoinBridge::Error& error, const std::string& hexTx, int changePos)
+            m_bitcoinBridge->fundRawTransaction(hexTx, GetFeeRate(SubTxIndex::LOCK_TX), [this, weak = this->weak_from_this()](const bitcoin::IBridge::Error& error, const std::string& hexTx, int changePos)
             {
                 if (!weak.expired())
                 {
@@ -422,7 +422,7 @@ namespace beam::wallet
                 locktime = m_tx.GetMandatoryParameter<Timestamp>(TxParameterID::AtomicSwapExternalLockTime);
             }
 
-            auto callback = [this, subTxID, weak = this->weak_from_this()](const IBitcoinBridge::Error& error, const std::string& hexTx) {
+            auto callback = [this, subTxID, weak = this->weak_from_this()](const bitcoin::IBridge::Error& error, const std::string& hexTx) {
                 if (!weak.expired())
                 {
                     OnCreateWithdrawTransaction(subTxID, error, hexTx);
@@ -442,7 +442,7 @@ namespace beam::wallet
             }
 
             std::string withdrawAddress = GetWithdrawAddress();
-            auto callback = [this, subTxID, weak = this->weak_from_this()](const IBitcoinBridge::Error& error, const std::string& privateKey) {
+            auto callback = [this, subTxID, weak = this->weak_from_this()](const bitcoin::IBridge::Error& error, const std::string& privateKey) {
                 if (!weak.expired())
                 {
                     OnDumpPrivateKey(subTxID, error, privateKey);
@@ -465,7 +465,7 @@ namespace beam::wallet
         auto txID = m_tx.GetMandatoryParameter<std::string>(TxParameterID::AtomicSwapExternalTxID, SubTxIndex::LOCK_TX);
         uint32_t outputIndex = m_tx.GetMandatoryParameter<uint32_t>(TxParameterID::AtomicSwapExternalTxOutputIndex, SubTxIndex::LOCK_TX);
 
-        m_bitcoinBridge->getTxOut(txID, outputIndex, [this, weak = this->weak_from_this()](const IBitcoinBridge::Error& error, const std::string& hexScript, double amount, uint16_t confirmations)
+        m_bitcoinBridge->getTxOut(txID, outputIndex, [this, weak = this->weak_from_this()](const bitcoin::IBridge::Error& error, const std::string& hexScript, double amount, uint16_t confirmations)
         {
             if (!weak.expired())
             {
@@ -492,7 +492,7 @@ namespace beam::wallet
 
     uint64_t BitcoinSide::GetBlockCount()
     {
-        m_bitcoinBridge->getBlockCount([this, weak = this->weak_from_this()](const IBitcoinBridge::Error& error, uint64_t blockCount)
+        m_bitcoinBridge->getBlockCount([this, weak = this->weak_from_this()](const bitcoin::IBridge::Error& error, uint64_t blockCount)
         {
             if (!weak.expired())
             {
@@ -509,7 +509,7 @@ namespace beam::wallet
         return swapPublicKey.to_payment_address(GetAddressVersion()).encoded();
     }
 
-    void BitcoinSide::SetTxError(const IBitcoinBridge::Error& error, SubTxID subTxID)
+    void BitcoinSide::SetTxError(const bitcoin::IBridge::Error& error, SubTxID subTxID)
     {
         TxFailureReason previousReason;
 
@@ -521,14 +521,14 @@ namespace beam::wallet
         LOG_ERROR() << m_tx.GetTxID() << "[" << static_cast<SubTxID>(subTxID) << "]" << " Bridge internal error: type = " << error.m_type << "; message = " << error.m_message;
         switch (error.m_type)
         {
-        case IBitcoinBridge::EmptyResult:
-        case IBitcoinBridge::InvalidResultFormat:
+        case bitcoin::IBridge::EmptyResult:
+        case bitcoin::IBridge::InvalidResultFormat:
             m_tx.SetParameter(TxParameterID::InternalFailureReason, TxFailureReason::SwapFormatResponseError, false, subTxID);
             break;
-        case IBitcoinBridge::IOError:
+        case bitcoin::IBridge::IOError:
             m_tx.SetParameter(TxParameterID::InternalFailureReason, TxFailureReason::SwapNetworkBridgeError, false, subTxID);
             break;
-        case IBitcoinBridge::InvalidCredentials:
+        case bitcoin::IBridge::InvalidCredentials:
             m_tx.SetParameter(TxParameterID::InternalFailureReason, TxFailureReason::InvalidCredentialsOfSideChain, false, subTxID);
             break;
         default:
@@ -538,11 +538,11 @@ namespace beam::wallet
         m_tx.UpdateAsync();
     }
 
-    void BitcoinSide::OnGetRawChangeAddress(const IBitcoinBridge::Error& error, const std::string& address)
+    void BitcoinSide::OnGetRawChangeAddress(const bitcoin::IBridge::Error& error, const std::string& address)
     {
         try
         {
-            if (error.m_type != IBitcoinBridge::None)
+            if (error.m_type != bitcoin::IBridge::None)
             {
                 SetTxError(error, SubTxIndex::LOCK_TX);
                 return;
@@ -551,7 +551,7 @@ namespace beam::wallet
             // Don't need overwrite existing public key
             if (std::string swapPublicKey; !m_tx.GetParameter(TxParameterID::AtomicSwapPublicKey, swapPublicKey))
             {
-                auto callback = [this, weak = this->weak_from_this()](const IBitcoinBridge::Error& error, const std::string& privateKey) {
+                auto callback = [this, weak = this->weak_from_this()](const bitcoin::IBridge::Error& error, const std::string& privateKey) {
                     if (!weak.expired())
                     {
                         if (std::string swapPublicKey; !m_tx.GetParameter(TxParameterID::AtomicSwapPublicKey, swapPublicKey))
@@ -575,9 +575,9 @@ namespace beam::wallet
         }
     }
 
-    void BitcoinSide::OnFundRawTransaction(const IBitcoinBridge::Error& error, const std::string& hexTx, int changePos)
+    void BitcoinSide::OnFundRawTransaction(const bitcoin::IBridge::Error& error, const std::string& hexTx, int changePos)
     {
-        if (error.m_type != IBitcoinBridge::None)
+        if (error.m_type != bitcoin::IBridge::None)
         {
             SetTxError(error, SubTxIndex::LOCK_TX);
             return;
@@ -587,7 +587,7 @@ namespace beam::wallet
         uint32_t valuePosition = changePos ? 0 : 1;
         m_tx.SetParameter(TxParameterID::AtomicSwapExternalTxOutputIndex, valuePosition, false, SubTxIndex::LOCK_TX);
 
-        m_bitcoinBridge->signRawTransaction(hexTx, [this, weak = this->weak_from_this()](const IBitcoinBridge::Error& error, const std::string& hexTx, bool complete)
+        m_bitcoinBridge->signRawTransaction(hexTx, [this, weak = this->weak_from_this()](const bitcoin::IBridge::Error& error, const std::string& hexTx, bool complete)
         {
             if (!weak.expired())
             {
@@ -596,9 +596,9 @@ namespace beam::wallet
         });
     }
 
-    void BitcoinSide::OnSignLockTransaction(const IBitcoinBridge::Error& error, const std::string& hexTx, bool complete)
+    void BitcoinSide::OnSignLockTransaction(const bitcoin::IBridge::Error& error, const std::string& hexTx, bool complete)
     {
-        if (error.m_type != IBitcoinBridge::None)
+        if (error.m_type != bitcoin::IBridge::None)
         {
             SetTxError(error, SubTxIndex::LOCK_TX);
             return;
@@ -611,9 +611,9 @@ namespace beam::wallet
         m_tx.UpdateAsync();
     }
 
-    void BitcoinSide::OnCreateWithdrawTransaction(SubTxID subTxID, const IBitcoinBridge::Error& error, const std::string& hexTx)
+    void BitcoinSide::OnCreateWithdrawTransaction(SubTxID subTxID, const bitcoin::IBridge::Error& error, const std::string& hexTx)
     {
-        if (error.m_type != IBitcoinBridge::None)
+        if (error.m_type != bitcoin::IBridge::None)
         {
             SetTxError(error, subTxID);
             return;
@@ -627,11 +627,11 @@ namespace beam::wallet
         }
     }
 
-    void BitcoinSide::OnDumpPrivateKey(SubTxID subTxID, const IBitcoinBridge::Error& error, const std::string& privateKey)
+    void BitcoinSide::OnDumpPrivateKey(SubTxID subTxID, const bitcoin::IBridge::Error& error, const std::string& privateKey)
     {
         try
         {
-            if (error.m_type != IBitcoinBridge::None)
+            if (error.m_type != bitcoin::IBridge::None)
             {
                 SetTxError(error, subTxID);
                 return;
@@ -704,11 +704,11 @@ namespace beam::wallet
         }
     }
 
-    void BitcoinSide::OnGetSwapLockTxConfirmations(const IBitcoinBridge::Error& error, const std::string& hexScript, double amount, uint16_t confirmations)
+    void BitcoinSide::OnGetSwapLockTxConfirmations(const bitcoin::IBridge::Error& error, const std::string& hexScript, double amount, uint16_t confirmations)
     {
         try
         {
-            if (error.m_type != IBitcoinBridge::None)
+            if (error.m_type != bitcoin::IBridge::None)
             {
                 SetTxError(error, SubTxIndex::LOCK_TX);
                 return;
@@ -773,11 +773,11 @@ namespace beam::wallet
         }
     }
 
-    void BitcoinSide::OnGetBlockCount(const IBitcoinBridge::Error& error, uint64_t blockCount)
+    void BitcoinSide::OnGetBlockCount(const bitcoin::IBridge::Error& error, uint64_t blockCount)
     {
         try
         {
-            if (error.m_type != IBitcoinBridge::None)
+            if (error.m_type != bitcoin::IBridge::None)
             {
                 SetTxError(error, SubTxIndex::LOCK_TX);
                 return;

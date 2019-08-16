@@ -14,19 +14,17 @@
 
 #pragma once
 
-#include "wallet/bitcoin/bitcoin_settings.h"
+#include "wallet/bitcoin/settings.h"
 
-namespace beam
+namespace beam::qtum
 {
-    using IQtumdSettingsProvider = IBitcoindSettingsProvider;
-    using IQtumSettingsProvider = IBitcoinSettingsProvider;
-    using QtumdSettings = BitcoindSettings;
+    using QtumCoreSettings = bitcoin::BitcoinCoreSettings;
 
-    class QtumSettings : public BitcoinSettings
+    class Settings : public bitcoin::Settings
     {
     public:
-        QtumSettings()
-            : BitcoinSettings()
+        Settings()
+            : bitcoin::Settings()
         {
             constexpr uint16_t kQtumDefaultTxMinConfirmations = 10;
             constexpr uint32_t kQtumDefaultLockTimeInBlocks = 2 * 600;  // 48h
@@ -36,4 +34,4 @@ namespace beam
             SetMinFeeRate(90000);
         }
     };
-}
+} // namespace beam::qtum

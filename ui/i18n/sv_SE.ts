@@ -187,8 +187,9 @@
         <translation>Motta</translation>
     </message>
     <message id="wallet-in-progress-title">
-        <source>In progress</source>
-        <translation>Pågående</translation>
+        <source></source>
+        <oldsource>In progress</oldsource>
+        <translation type="unfinished">Pågående</translation>
     </message>
     <message id="wallet-transactions-title">
         <source>Transactions</source>
@@ -286,12 +287,14 @@
         <translation>Ta bort kontakt</translation>
     </message>
     <message id="available-panel-available">
-        <source>Available</source>
-        <translation>Tillgängligt</translation>
+        <source></source>
+        <oldsource>Available</oldsource>
+        <translation type="unfinished">Tillgängligt</translation>
     </message>
     <message id="available-panel-where-to-buy">
-        <source>Where to buy BEAM?</source>
-        <translation>Vart köper man BEAM?</translation>
+        <source></source>
+        <oldsource>Where to buy BEAM?</oldsource>
+        <translation type="unfinished">Vart köper man BEAM?</translation>
     </message>
     <message id="settings-version">
         <source>Version</source>
@@ -461,7 +464,7 @@
     </message>
     <message id="secondary-panel-maturing">
         <source>Maturing</source>
-        <translation>Mognar</translation>
+        <translation type="vanished">Mognar</translation>
     </message>
     <message id="info-title">
         <source>Info view</source>
@@ -1366,6 +1369,10 @@
         <translation type="unfinished"></translation>
     </message>
     <message id="swap-currency-na-message">
+        <source></source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="general-locked">
         <source></source>
         <translation type="unfinished"></translation>
     </message>

@@ -5,15 +5,16 @@ set(SWAP_SRC
     lock_tx_builder.cpp
     shared_tx_builder.cpp
     swap_offers_board.cpp
-    ../bitcoin/bitcoin_client.cpp
+    ../bitcoin/client.cpp
     ../bitcoin/bitcoin_side.cpp
-    ../bitcoin/bitcoind016.cpp
-    ../bitcoin/bitcoind017.cpp
-    ../bitcoin/bitcoin_settings.cpp
-    ../litecoin/litecoind016.cpp
-    ../litecoin/litecoind017.cpp
+    ../bitcoin/bitcoin_core_016.cpp
+    ../bitcoin/bitcoin_core_017.cpp
+    ../bitcoin/settings.cpp
+    ../bitcoin/settings_provider.cpp
+    ../litecoin/litecoin_core_016.cpp
+    ../litecoin/litecoin_core_017.cpp
     ../litecoin/litecoin_side.cpp
-    ../qtum/qtumd017.cpp
+    ../qtum/qtum_core_017.cpp
     ../qtum/qtum_side.cpp
 )
 

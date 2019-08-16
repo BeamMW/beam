@@ -22,7 +22,6 @@
 #include "core/proto.h"
 #include "swaps/second_side.h"
 #include <algorithm>
-#include <optional>
 
 namespace beam::wallet
 {
@@ -269,12 +268,12 @@ namespace beam::wallet
     class TxParameters
     {
     public:
-        TxParameters(const std::optional<TxID>& txID = {});
+        TxParameters(const boost::optional<TxID>& txID = {});
 
         bool operator==(const TxParameters& other);
         bool operator!=(const TxParameters& other);
 
-        std::optional<TxID> GetTxID() const;
+        boost::optional<TxID> GetTxID() const;
 
         template <typename T>
         boost::optional<T> GetParameter(TxParameterID parameterID, SubTxID subTxID = kDefaultSubTxID) const
@@ -349,7 +348,7 @@ namespace beam::wallet
         TxParameters& SetParameter(TxParameterID parameterID, const ByteBuffer& parameter, SubTxID subTxID = kDefaultSubTxID);
 
     private:
-        std::optional<TxID> m_ID;
+        boost::optional<TxID> m_ID;
         std::map<SubTxID, std::map<TxParameterID, ByteBuffer>> m_Parameters;
     };
 
@@ -364,13 +363,13 @@ namespace beam::wallet
         SERIALIZE(m_Flags, m_TxID, m_Parameters);
     private:
         uint8_t m_Flags = TokenFlag;
-        std::optional<TxID> m_TxID;
+        boost::optional<TxID> m_TxID;
         PackedTxParameters m_Parameters;
     };
 
     using SwapOffer = TxParameters;
 
-    std::optional<TxParameters> ParseParameters(const std::string& text);
+    boost::optional<TxParameters> ParseParameters(const std::string& text);
 
     // Specifies key transaction parameters for interaction with Wallet Clients
     struct TxDescription : public TxParameters
