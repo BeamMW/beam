@@ -38,7 +38,7 @@ namespace
 
     std::string generateScriptHash(const ec_public& publicKey)
     {
-        payment_address addr = publicKey.to_payment_address(ec_private::testnet);
+        payment_address addr = publicKey.to_payment_address(static_cast<uint8_t>(ec_private::testnet));
         auto script = chain::script(chain::script::to_pay_key_hash_pattern(addr.hash()));
         libbitcoin::data_chunk secretHash = libbitcoin::sha256_hash_chunk(script.to_data(false));
         libbitcoin::data_chunk reverseSecretHash(secretHash.rbegin(), secretHash.rend());

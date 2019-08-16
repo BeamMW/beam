@@ -15,7 +15,9 @@
 #pragma once
 
 #include <QObject>
+#include <QTimer>
 #include "wallet/bitcoin/client.h"
+#include "model/wallet_model.h"
 
 class BitcoinClientModel
     : public QObject
@@ -27,11 +29,31 @@ public:
 
     BitcoinClientModel(beam::wallet::IWalletDB::Ptr walletDB, beam::io::Reactor& reactor);
 
+    double getAvailable();
+    double getReceiving();
+    double getSending();
+
 signals:
-    void GotStatus(beam::bitcoin::Client::Status status);
-    void GotBalance(const beam::bitcoin::Client::Balance& balance);
+    void gotStatus(beam::bitcoin::Client::Status status);
+    void gotBalance(const beam::bitcoin::Client::Balance& balance);
+    void stateChanged();
 
 private:
     void OnStatus(Status status) override;
     void OnBalance(const Client::Balance& balance) override;
+
+    void RecalculateAmounts();
+
+private slots:
+    void onTimer();
+    void onTxStatus(beam::wallet::ChangeAction, const std::vector<beam::wallet::TxDescription>&);
+
+private:
+    QTimer m_timer;
+    Client::Balance m_balance;
+    double m_receiving = 0;
+    double m_sending = 0;
+    std::weak_ptr<WalletModel> m_walletModel;
+
+    std::map<beam::wallet::TxID, beam::wallet::TxDescription> m_transactions;
 };

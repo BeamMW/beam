@@ -56,6 +56,8 @@ WalletViewModel::WalletViewModel()
         emit stateChanged();
     });
 
+    connect(&*AppModel::getInstance().getBitcoinClient(), SIGNAL(stateChanged()), SLOT(onBitcoinStateChanged()));
+
     // TODO: This also refreshes TXs and addresses. Need to make this more transparent
     _status.refresh();
 
@@ -65,6 +67,11 @@ WalletViewModel::WalletViewModel()
 WalletViewModel::~WalletViewModel()
 {
     qDeleteAll(_txList);
+}
+
+void WalletViewModel::onBitcoinStateChanged()
+{
+    emit stateChanged();
 }
 
 void WalletViewModel::cancelTx(TxObject* pTxObject)
@@ -150,8 +157,7 @@ double WalletViewModel::beamAvailable() const
 
 double WalletViewModel::btcAvailable() const
 {
-    // TODO:SWAP return real value
-    return 0;
+    return AppModel::getInstance().getBitcoinClient()->getAvailable();
 }
 
 double WalletViewModel::ltcAvailable() const
@@ -168,13 +174,12 @@ double WalletViewModel::qtumAvailable() const
 
 double WalletViewModel::beamReceiving() const
 {
-     return _status.getReceiving();
+     return double(_status.getReceiving()) / Rules::Coin;
 }
 
 double WalletViewModel::btcReceiving()  const
 {
-    // TODO:SWAP return real value
-    return 0;
+    return AppModel::getInstance().getBitcoinClient()->getReceiving();
 }
 
 double WalletViewModel::ltcReceiving()  const
@@ -191,13 +196,12 @@ double WalletViewModel::qtumReceiving() const
 
 double WalletViewModel::beamSending() const
 {
-     return _status.getSending();
+    return double(_status.getSending()) / Rules::Coin;
 }
 
 double WalletViewModel::btcSending()  const
 {
-    // TODO:SWAP return real value
-    return 0;
+    return AppModel::getInstance().getBitcoinClient()->getSending();
 }
 
 double WalletViewModel::ltcSending()  const

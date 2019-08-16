@@ -115,6 +115,8 @@ public slots:
     void onTxStatus(beam::wallet::ChangeAction action, const std::vector<beam::wallet::TxDescription>& items);
     void onAddresses(bool own, const std::vector<beam::wallet::WalletAddress>& addresses);
 
+    void onBitcoinStateChanged();
+
 signals:
     void stateChanged();
     void transactionsChanged();
