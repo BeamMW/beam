@@ -27,7 +27,6 @@
 namespace beam::wallet::laser
 {
 
-// class Connection;
 class Receiver;
 
 class Mediator : public IChannelHolder, public proto::FlyClient

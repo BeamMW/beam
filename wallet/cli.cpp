@@ -1253,7 +1253,6 @@ namespace
         }
         else
         {
-            // auto chIDsStr = vm[cli::LASER_CHANNEL_ID].as<string>();
             std::stringstream ss(chIDsStr);
             std::string chIdStr;
             while (std::getline(ss, chIdStr, ','))
@@ -1391,7 +1390,7 @@ namespace
 
         Block::SystemState::ID id;
         walletDB->getSystemStateID(id);
-        LOG_INFO() << "LASER current state is " << id;
+        LOG_INFO() << "Current state is " << id;
 
         cout << "Laser Channels:\n\n"
             << "  " << std::left
@@ -1451,7 +1450,7 @@ namespace
         laser->SetNetwork(CreateNetwork(*laser, vm));
 
         observer->onOpenFailed = [walletDB] (const laser::ChannelIDPtr& chID) {
-            LOG_DEBUG() << "LASER open failed : "
+            LOG_DEBUG() << "Open failed : "
                         << to_hex(chID->m_pData, chID->nBytes);
             io::Reactor::get_Current().stop();
             LaserShowChannels(walletDB);
@@ -1462,7 +1461,7 @@ namespace
             {
                 io::Reactor::get_Current().stop();
             }
-            LOG_DEBUG() << "LASER closed : "
+            LOG_DEBUG() << "Closed : "
                         << to_hex(chID->m_pData, chID->nBytes);
             LaserShowChannels(walletDB); 
         };
@@ -1488,7 +1487,7 @@ namespace
         {
             observer->onUpdateFinished = [walletDB] (
                     const laser::ChannelIDPtr& chID) {
-                LOG_DEBUG() << "LASER update finished : "
+                LOG_DEBUG() << "Update finished : "
                             << to_hex(chID->m_pData, chID->nBytes);
                 LaserShowChannels(walletDB);
             };
@@ -1499,7 +1498,7 @@ namespace
             observer->onUpdateFinished = [walletDB] (
                     const laser::ChannelIDPtr& chID) {
                 io::Reactor::get_Current().stop();
-                LOG_DEBUG() << "LASER update finished : "
+                LOG_DEBUG() << "Update finished : "
                             << to_hex(chID->m_pData, chID->nBytes);
                 LaserShowChannels(walletDB);
             };

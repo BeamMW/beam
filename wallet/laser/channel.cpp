@@ -166,7 +166,7 @@ void Channel::SendPeer(Negotiator::Storage::Map&& dataOut)
     ser & (*m_ID);
     ser & Cast::Down<FieldMap>(dataOut);
 
-    LOG_INFO() << "LASER Send From: " << std::to_string(m_myAddr.m_walletID) 
+    LOG_INFO() << "Send From: " << std::to_string(m_myAddr.m_walletID) 
                << " To peer: " << std::to_string(m_widTrg);
 
     proto::FlyClient::RequestBbsMsg::Ptr pReq(
@@ -254,7 +254,7 @@ void Channel::OnCoin(const ECC::Key::IDV& kidv,
         break;
 
 
-    default: // suppress warning
+    default:
         coinStatus = Coin::Status::Unavailable;
         break;
     }
@@ -276,7 +276,7 @@ void Channel::OnCoin(const ECC::Key::IDV& kidv,
     }
 
     pWalletDB->saveCoins(coins);
-    LOG_INFO() << "LASER Coin " << kidv.m_Value << " " << szStatus;
+    LOG_INFO() << "Coin " << kidv.m_Value << " " << szStatus;
 }
 
 const ChannelIDPtr& Channel::get_chID() const
@@ -445,7 +445,7 @@ void Channel::LogNewState()
     m_lastLoggedState = state;
 
     std::ostringstream os;
-    os << "LASER ch:" << to_hex(m_ID->m_pData, m_ID->nBytes) << " state ";
+    os << "Channel:" << to_hex(m_ID->m_pData, m_ID->nBytes) << " state ";
 
     switch (state)
     {
@@ -576,7 +576,7 @@ void Channel::RestoreInternalState(const ByteBuffer& data)
     }
     catch (const std::exception&)
     {
-		LOG_ERROR() << "LASER RestoreInternalState failed";
+		LOG_ERROR() << "RestoreInternalState failed";
 	}
 
     m_SendMyWid = false;

@@ -83,6 +83,7 @@ Mediator::~Mediator()
 
 void Mediator::OnNewTip()
 {
+    LOG_DEBUG() << "LASER OnNewTip";
     if (!ValidateTip())
     {
         return;
@@ -161,7 +162,7 @@ void Mediator::OnMsg(const ChannelIDPtr& chID, Blob&& blob)
 
     if (!chID && m_pInputReceiver)
     {
-        LOG_INFO() << "LASER Create incoming: "
+        LOG_INFO() << "Create incoming: "
                    << to_hex(inChID->m_pData , inChID->nBytes);
         OnIncoming(inChID, dataIn);
     }
@@ -244,7 +245,7 @@ bool Mediator::Serve(const std::vector<std::string>& channelIDsStr)
             }
         }
     }
-    LOG_INFO() << "LASER serve: " << count << " channels";
+    LOG_INFO() << "Serve: " << count << " channels";
     return count != 0;
 }
 
@@ -466,12 +467,13 @@ void Mediator::OpenInternal(const ChannelIDPtr& chID)
     auto& ch = m_channels[chID];
     if (ch && ch->Open(openWindow))
     {
-        LOG_INFO() << "LASER opening channel: "
-                << to_hex(chID->m_pData, chID->nBytes);
+        LOG_INFO() << "Opening channel: "
+                   << to_hex(chID->m_pData, chID->nBytes);
         return;
     }
 
-    LOG_ERROR() << "Laser open channel fail";
+    LOG_ERROR() << "Opening channel "
+                << to_hex(chID->m_pData, chID->nBytes) << " fail";
     m_readyForForgetChannels.push_back(chID);
 }
 
@@ -557,7 +559,7 @@ ChannelIDPtr Mediator::RestoreChannel(const std::string& channelIDStr)
         if (isConnected)
         {
             chId = it.first;
-            LOG_INFO() << "LASER channel "
+            LOG_INFO() << "Channel "
                        << to_hex(chId->m_pData , chId->nBytes)
                        << " already connected";
             break;
@@ -598,13 +600,13 @@ bool Mediator::RestoreChannelInternal(const ChannelIDPtr& chID)
         }
         else
         {
-            LOG_INFO() << "LASER channel "
+            LOG_INFO() << "Channel "
                        << to_hex(chID->m_pData , chID->nBytes)
                        << " was closed or opened with failure";
             return false;
         }
     }
-    LOG_INFO() << "LASER channel "
+    LOG_INFO() << "Channel "
                << to_hex(chID->m_pData , chID->nBytes)
                << " not saved in DB";
     return false;
@@ -691,7 +693,7 @@ bool Mediator::ValidateTip()
     else
         ZeroObject(id);
     m_pWalletDB->setSystemStateID(id);
-    LOG_INFO() << "LASER current state is " << id;
+    LOG_INFO() << "Current state is " << id;
     return true;
 }
 

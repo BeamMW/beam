@@ -2190,7 +2190,7 @@ namespace beam::wallet
 
     void WalletDB::saveLaserChannel(const ILaserChannelEntity& ch)
     {
-        LOG_DEBUG() << "LASER save channel: "
+        LOG_DEBUG() << "Save channel: "
                     << to_hex(ch.get_chID()->m_pData, ch.get_chID()->nBytes);
         const char* selectReq = "SELECT * FROM " LASER_CHANNELS_NAME " WHERE chID=?1;";
         sqlite::Statement stm2(this, selectReq);
@@ -2269,7 +2269,7 @@ namespace beam::wallet
     bool WalletDB::removeLaserChannel(
             const std::shared_ptr<uintBig_t<16>>& chId)
     {
-        LOG_INFO() << "LASER removing channel: "
+        LOG_INFO() << "Removing channel: "
                    << to_hex(chId->m_pData, chId->nBytes);
 
         const char* selectReq = "SELECT chID, myWID FROM " LASER_CHANNELS_NAME " WHERE chID=?1;";

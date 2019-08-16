@@ -47,13 +47,10 @@ void Connection::BbsSubscribe(
 void Connection::PostRequestInternal(FlyClient::Request& r)
 {
     if (FlyClient::Request::Type::Transaction == r.get_Type())
-    {
-        LOG_DEBUG() << "LASER ### Broadcasting transaction ###";
-        // return; // TEST ONLY
-    }
+        LOG_DEBUG() << "### Broadcasting transaction ###";
 
     if (FlyClient::Request::Type::BbsMsg == r.get_Type())
-        LOG_DEBUG()  << "LASER ### Bbs mesage out ###";    
+        LOG_DEBUG()  << "### Bbs mesage out ###";    
 
     m_pNet->PostRequestInternal(r);
 }
