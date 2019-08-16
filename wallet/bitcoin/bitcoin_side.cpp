@@ -704,7 +704,7 @@ namespace beam::wallet
         }
     }
 
-    void BitcoinSide::OnGetSwapLockTxConfirmations(const bitcoin::IBridge::Error& error, const std::string& hexScript, double amount, uint16_t confirmations)
+    void BitcoinSide::OnGetSwapLockTxConfirmations(const bitcoin::IBridge::Error& error, const std::string& hexScript, double amount, uint32_t confirmations)
     {
         try
         {
