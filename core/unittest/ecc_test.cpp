@@ -2122,6 +2122,7 @@ struct Lelantus
 		struct Part1
 		{
 			ECC::Scalar m_Serial;
+			ECC::Point m_Output; // result commitment. Must have the same value as the commitment being-spent
 			ECC::Point m_A, m_B, m_C, m_D;
 			ECC::Point m_pG[Cfg::M];
 			ECC::Point m_pQ[Cfg::M];
@@ -2130,6 +2131,7 @@ struct Lelantus
 			{
 				oracle
 					<< m_Serial
+					<< m_Output
 					<< m_A
 					<< m_B
 					<< m_C
@@ -2152,6 +2154,8 @@ struct Lelantus
 		{
 			ECC::Scalar m_zA, m_zC, m_zV, m_zR;
 			ECC::Scalar m_pF[Cfg::M][Cfg::n - 1];
+			ECC::Signature m_BalanceSig; // ballance proof (Schnorr's)
+
 		} m_Part2;
 
 		bool IsValid(Oracle& oracle, CmList&) const;
@@ -2167,6 +2171,7 @@ struct Lelantus
 			uint32_t m_L;
 			Amount m_V;
 			Scalar::Native m_R;
+			Scalar::Native m_R_Output;
 			Scalar::Native m_Serial;
 		};
 		NoLeak<Witness> m_Witness;
@@ -2422,13 +2427,21 @@ struct Lelantus
 
 			Scalar::Native zV(Zero), zR(Zero), xPwr(1U);
 
+			Scalar::Native kBalance = Zero;
+
 			for (uint32_t j = 0; j < Cfg::M; j++)
 			{
 				zV += m_Ro[j] * xPwr;
 				zR += m_Tau[j] * xPwr;
 
+				kBalance += m_Gamma[j] * xPwr;
+
 				xPwr *= x;
 			}
+
+			Scalar::Native dR = m_Witness.V.m_R - m_Witness.V.m_R_Output;
+			kBalance += dR * xPwr;
+			m_Proof.m_Part2.m_BalanceSig.Sign(Zero, kBalance);
 
 			zV = -zV;
 			zV += Scalar::Native(m_Witness.V.m_V) * xPwr;
@@ -2464,6 +2477,8 @@ struct Lelantus
 			ExtractGQ();
 
 			m_Proof.m_Part1.m_Serial = m_Witness.V.m_Serial;
+			m_Proof.m_Part1.m_Output = ECC::Commitment(m_Witness.V.m_R_Output, m_Witness.V.m_V);
+
 			Scalar::Native x;
 			m_Proof.m_Part1.get_Challenge(x, oracle);
 			ExtractPart2(x);
@@ -2554,26 +2569,41 @@ bool Lelantus::Proof::IsValid(Oracle& oracle, CmList& cmList) const
 	// final calculation
 	const uint32_t nSizeNaggle = 128;
 	static_assert(nSizeNaggle >= Cfg::M);
-	MultiMac_WithBufs<nSizeNaggle, 1> mm;
+	MultiMac_WithBufs<nSizeNaggle, 1> mm, mm2;
 
 	ECC::Point::Native res, comm;
 
 	// G and Q
 	Scalar::Native xPwr = 1U;
-	xPwr = -xPwr;
 	for (uint32_t j = 0; j < Cfg::M; j++)
 	{
 		if (!res.Import(m_Part1.m_pG[j]) ||
 			!comm.Import(m_Part1.m_pQ[j]))
 			return false;
 
-		res += comm; // they're multiplied by the same scalar
+		mm.m_pCasual[mm.m_Casual++].Init(res, xPwr); // G
+		mm2.m_pCasual[mm2.m_Casual++].Init(comm, xPwr); // Q
 
-		mm.m_pCasual[mm.m_Casual++].Init(res, xPwr);
 		xPwr *= mctx.x;
 	}
 
+	if (!res.Import(m_Part1.m_Output))
+		return false;
+
+	xPwr = -xPwr;
+	res = res * xPwr; // -m_Output * x^M
+
+	mm2.Calculate(comm);
+	res += comm; // sum(Q)
+	res += ECC::Context::get().G * m_Part2.m_zR;
+	res += ECC::Context::get().H_Big * m_Part2.m_zV;
+
+	if (!m_Part2.m_BalanceSig.IsValid(Zero, res))
+		return false;
+
 	mm.Calculate(res);
+	res += comm;
+	res = -res;
 
 	// Commitments from CmList
 	mm.Reset();
@@ -2658,6 +2688,7 @@ void TestLelantus()
 
 	p.m_Witness.V.m_V = 100500;
 	p.m_Witness.V.m_R = 4U;
+	p.m_Witness.V.m_R_Output = 756U;
 	p.m_Witness.V.m_L = 333;
 	SetRandom(p.m_Witness.V.m_Serial);
 
