@@ -14,7 +14,7 @@
 
 #include "wallet_client.h"
 #include "utility/log_rotation.h"
-#include "../core/block_rw.h"
+#include "core/block_rw.h"
 
 
 using namespace std;
@@ -31,19 +31,19 @@ struct ScopedSubscriber
         : m_observer(observer)
         , m_notifier(notifier)
     {
-        m_notifier->subscribe(m_observer);
+        m_notifier->Subscribe(m_observer);
     }
 
     ~ScopedSubscriber()
     {
-        m_notifier->unsubscribe(m_observer);
+        m_notifier->Unsubscribe(m_observer);
     }
 private:
     Observer * m_observer;
     std::shared_ptr<Notifier> m_notifier;
 };
 
-using WalletSubscriber = ScopedSubscriber<wallet::IWalletObserver, wallet::IWallet>;
+using WalletSubscriber = ScopedSubscriber<wallet::IWalletObserver, wallet::Wallet>;
 
 struct WalletModelBridge : public Bridge<IWalletModelAsync>
 {
@@ -520,7 +520,7 @@ namespace beam::wallet
         auto w = m_wallet.lock();
         if (w)
         {
-            static_pointer_cast<IWallet>(w)->cancel_tx(id);
+            w->CancelTransaction(id);
         }
     }
 
@@ -529,7 +529,7 @@ namespace beam::wallet
         auto w = m_wallet.lock();
         if (w)
         {
-            static_pointer_cast<IWallet>(w)->delete_tx(id);
+            w->DeleteTransaction(id);
         }
     }
 

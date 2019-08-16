@@ -34,7 +34,7 @@ namespace beam::wallet {
 
     ///////////////////////////
 
-    BaseMessageEndpoint::BaseMessageEndpoint(IWallet& w, const IWalletDB::Ptr& pWalletDB)
+    BaseMessageEndpoint::BaseMessageEndpoint(IWalletMessageConsumer& w, const IWalletDB::Ptr& pWalletDB)
         : m_Wallet(w)
         , m_WalletDB(pWalletDB)
         , m_AddressExpirationTimer(io::Timer::create(io::Reactor::get_Current()))
@@ -109,7 +109,7 @@ namespace beam::wallet {
                 WalletID wid;
                 wid.m_Pk = it->get_ParentObj().m_Pk;
                 wid.m_Channel = it->m_Value;
-                m_Wallet.OnWalletMessage(wid, std::move(msgWallet));
+                m_Wallet.OnWalletMessage(wid, msgWallet);
                 break;
             }
         }
@@ -236,7 +236,7 @@ namespace beam::wallet {
 
     ///////////////////////////
 
-    WalletNetworkViaBbs::WalletNetworkViaBbs(IWallet& w, shared_ptr<proto::FlyClient::INetwork> net, const IWalletDB::Ptr& pWalletDB)
+    WalletNetworkViaBbs::WalletNetworkViaBbs(IWalletMessageConsumer& w, shared_ptr<proto::FlyClient::INetwork> net, const IWalletDB::Ptr& pWalletDB)
         : BaseMessageEndpoint(w, pWalletDB)
         , m_NodeEndpoint(net)
 		, m_WalletDB(pWalletDB)
@@ -421,6 +421,7 @@ namespace beam::wallet {
 
 	void WalletNetworkViaBbs::OnMined(proto::BbsMsg&& msg)
 	{
+        LOG_DEBUG() << "!!!!!!!!!!!!!!!!!!!!!!!OnMined() diff: " << getTimestamp() - msg.m_TimePosted;
 		MyRequestBbsMsg::Ptr pReq(new MyRequestBbsMsg);
 
 		pReq->m_Msg = std::move(msg);
@@ -555,7 +556,7 @@ namespace beam::wallet {
 	}
 
     /////////////////////////////////
-    ColdWalletMessageEndpoint::ColdWalletMessageEndpoint(IWallet& wallet, IWalletDB::Ptr walletDB)
+    ColdWalletMessageEndpoint::ColdWalletMessageEndpoint(IWalletMessageConsumer& wallet, IWalletDB::Ptr walletDB)
         : BaseMessageEndpoint(wallet, walletDB)
         , m_WalletDB(walletDB)
     {
