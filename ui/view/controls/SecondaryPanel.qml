@@ -37,6 +37,14 @@ Control {
         color:   Style.background_second
     }
 
+    function calcColSpan(curr, valBtc, valLtc, valQtum) {
+        if (curr == Currency.CurrBtc)  return valLtc && !valQtum ? 2 : 1
+        if (curr == Currency.CurrLtc)  return valQtum && !valBtc ? 2 : 1
+        if (curr == Currency.CurrQtum) return !valLtc && !valBtc ? 2 : 1
+        return 1
+    }
+
+
     Component {
         id: columnTitle
         SFText {
@@ -95,6 +103,11 @@ Control {
                     }
 
                     GridLayout {
+                        Rectangle {
+                            anchors.fill : parent
+                            color: "red"
+                        }
+
                         Layout.alignment: Qt.AlignHCenter
                         columnSpacing: 10
                         rowSpacing:    10
@@ -103,36 +116,49 @@ Control {
                         flow:          GridLayout.TopToBottom
 
                         Loader {
-                            Layout.alignment:  Qt.AlignHCenter
-                            sourceComponent:   amountText
-                            property double    amount:       control.beamReceiving
-                            property string    amountColor:  Style.accent_incoming
-                            property string    signSymbol:   "+"
-                            property string    currSymbol:   Utils.symbolBeam
+                            Layout.alignment:   Qt.AlignHCenter
+                            sourceComponent:    amountText
+                            property double     amount:       control.beamReceiving
+                            property string     amountColor:  Style.accent_incoming
+                            property string     signSymbol:   "+"
+                            property string     currSymbol:   Utils.symbolBeam
                         }
 
                         Loader {
                             Layout.alignment:  Qt.AlignHCenter
+                            Layout.columnSpan: calcColSpan(Currency.CurrBtc, control.btcReceiving, control.ltcReceiving, control.qtumReceiving)
                             visible: control.btcReceiving > 0
                             sourceComponent:   amountText
                             property double    amount:       control.btcReceiving
                             property string    amountColor:  Style.accent_incoming
                             property string    signSymbol:   "+"
                             property string    currSymbol:   Utils.symbolBtc
+
+                             Rectangle {
+                                anchors.fill : parent
+                                color: "green"
+                            }
                         }
 
                         Loader {
                             Layout.alignment:  Qt.AlignHCenter
+                            Layout.columnSpan: calcColSpan(Currency.CurrLtc, control.btcReceiving, control.ltcReceiving, control.qtumReceiving)
                             visible: control.ltcReceiving > 0
                             sourceComponent:   amountText
                             property double    amount:       control.ltcReceiving
                             property string    amountColor:  Style.accent_incoming
                             property string    signSymbol:   "+"
                             property string    currSymbol:   Utils.symbolLtc
+
+                            Rectangle {
+                            anchors.fill : parent
+                            color: "cyan"
+                        }
                         }
 
                         Loader {
                             Layout.alignment:  Qt.AlignHCenter
+                            Layout.columnSpan: calcColSpan(Currency.CurrQtum, control.btcReceiving, control.ltcReceiving, control.qtumReceiving)
                             visible: control.qtumReceiving > 0
                             sourceComponent:   amountText
                             property double    amount:       control.qtumReceiving
@@ -179,6 +205,7 @@ Control {
 
                         Loader {
                             Layout.alignment:  Qt.AlignHCenter
+                            Layout.columnSpan: 1//calcColSpan(Currency.CurrBtc, SecondaryPanel.ColType.ColSending)
                             visible: control.btcSending > 0
                             sourceComponent:   amountText
                             property double    amount:       control.btcSending
@@ -189,6 +216,7 @@ Control {
 
                         Loader {
                             Layout.alignment:  Qt.AlignHCenter
+                            Layout.columnSpan: 1//calcColSpan(Currency.CurrLtc, SecondaryPanel.ColType.ColSending)
                             visible: control.ltcSending > 0
                             sourceComponent:   amountText
                             property double    amount:       control.ltcSending
@@ -199,6 +227,7 @@ Control {
 
                         Loader {
                             Layout.alignment:  Qt.AlignHCenter
+                            Layout.columnSpan: 1//calcColSpan(Currency.CurrQtum, SecondaryPanel.ColType.ColSending)
                             visible: control.qtumSending > 0
                             sourceComponent:   amountText
                             property double    amount:       control.qtumSending
@@ -245,6 +274,7 @@ Control {
 
                         Loader {
                             Layout.alignment:  Qt.AlignHCenter
+                            Layout.columnSpan: 1//calcColSpan(Currency.CurrBtc, SecondaryPanel.ColType.ColLocked)
                             visible: control.btcLocked > 0
                             sourceComponent:   amountText
                             property double    amount:       control.btcLocked
@@ -255,6 +285,7 @@ Control {
 
                         Loader {
                             Layout.alignment:  Qt.AlignHCenter
+                            Layout.columnSpan: 1//calcColSpan(Currency.CurrLtc, SecondaryPanel.ColType.ColLocked)
                             visible: control.ltcLocked > 0
                             sourceComponent:   amountText
                             property double    amount:       control.ltcLocked
@@ -265,6 +296,7 @@ Control {
 
                         Loader {
                             Layout.alignment:  Qt.AlignHCenter
+                            Layout.columnSpan: 1//calcColSpan(Currency.CurrQtum, SecondaryPanel.ColType.ColLocked)
                             visible: control.qtumLocked > 0
                             sourceComponent:   amountText
                             property double    amount:       control.qtumLocked
