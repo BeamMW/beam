@@ -218,8 +218,9 @@
         <translation>Change settings</translation>
     </message>
     <message id="general-rate">
-        <source>Rate</source>
-        <translation>Rate</translation>
+        <source></source>
+        <oldsource>Rate</oldsource>
+        <translation type="unfinished">Rate</translation>
     </message>
     <message id="wallet-receive-button">
         <source>Receive</source>

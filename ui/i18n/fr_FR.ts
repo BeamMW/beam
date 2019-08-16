@@ -469,7 +469,7 @@
     </message>
     <message id="loading-change-settings-button">
         <source>Change settings</source>
-        <translation>Сhange settings</translation>
+        <translation type="vanished">Сhange settings</translation>
     </message>
     <message id="loading-try-again-button">
         <source>Try again</source>
@@ -543,8 +543,8 @@
         <translation>Portefeuille</translation>
     </message>
     <message id="wallet-receive-title">
-        <source>Receive</source>
-        <oldsource>Receive Beam</oldsource>
+        <source></source>
+        <oldsource>Receive</oldsource>
         <translation type="unfinished">Recevoir Beam</translation>
     </message>
     <message id="wallet-receive-my-addr-label">
@@ -1187,7 +1187,8 @@ Vous essayez de restaurer un portefeuille Beam existant. Veuillez noter que si v
         <translation type="unfinished"></translation>
     </message>
     <message id="general-fee-fail">
-        <source>The minimum fee is %1 GROTH</source>
+        <source></source>
+        <oldsource>The minimum fee is %1 GROTH</oldsource>
         <translation type="unfinished">The minimum fee is %1 GROTH</translation>
     </message>
     <message id="wallet-swap">
@@ -1259,15 +1260,18 @@ Vous essayez de restaurer un portefeuille Beam existant. Veuillez noter que si v
         <translation type="unfinished"></translation>
     </message>
     <message id="offers-title">
-        <source>Offers</source>
+        <source></source>
+        <oldsource>Offers</oldsource>
         <translation type="unfinished"></translation>
     </message>
     <message id="offers-search">
-        <source>Search...</source>
+        <source></source>
+        <oldsource>Search...</oldsource>
         <translation type="unfinished"></translation>
     </message>
     <message id="offers-create">
-        <source>Create offer</source>
+        <source></source>
+        <oldsource>Create offer</oldsource>
         <translation type="unfinished"></translation>
     </message>
     <message id="general-address-from">
@@ -1284,6 +1288,86 @@ Vous essayez de restaurer un portefeuille Beam existant. Veuillez noter que si v
     </message>
     <message id="general-amount-received">
         <source>Received</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="general-change-settings">
+        <source>Change settings</source>
+        <translation type="unfinished">Сhange settings</translation>
+    </message>
+    <message id="settings-reset">
+        <source></source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="settings-node-address">
+        <source></source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="settings-username">
+        <source></source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="settings-password">
+        <source></source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="settings-fee-rate">
+        <source></source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="offers-last-updated">
+        <source></source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="offers-id">
+        <source></source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="offers-amount">
+        <source></source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="offers-amount-swap">
+        <source></source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="offers-message">
+        <source></source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="offers-accept">
+        <source></source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="swap-na-message">
+        <source></source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="general-rate">
+        <source></source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="wallet-receive-swap-publish">
+        <source></source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="wallet-send-invalid-token">
+        <source></source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="general-bitcoin">
+        <source></source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="general-litecoin">
+        <source></source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="general-qtum">
+        <source></source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="swap-currency-na-message">
+        <source></source>
         <translation type="unfinished"></translation>
     </message>
 </context>
