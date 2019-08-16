@@ -22,11 +22,11 @@
 #include "wallet/swaps/common.h"
 #include "wallet/swaps/swap_transaction.h"
 #include "utility/test_helpers.h"
-#include "../../core/radixtree.h"
-#include "../../core/unittest/mini_blockchain.h"
+#include "core/radixtree.h"
+#include "core/unittest/mini_blockchain.h"
 #include <string_view>
 #include "wallet/wallet_transaction.h"
-#include "../../core/negotiator.h"
+#include "core/negotiator.h"
 #include "node/node.h"
 
 #include "test_helpers.h"
@@ -594,7 +594,7 @@ void TestSwapCancelTransaction(bool isSender, wallet::AtomicSwapTransaction::Sta
         storage::getTxParameter(*walletRig->m_WalletDB, txID, wallet::kDefaultSubTxID, wallet::TxParameterID::State, txState);
         if (txState == testingState)
         {
-            walletRig->m_Wallet.cancel_tx(txID);
+            walletRig->m_Wallet.CancelTransaction(txID);
         }
         else
         {
