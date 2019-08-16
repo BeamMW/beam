@@ -377,6 +377,15 @@ JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(saveAddress)(JNIEnv *env, jobj
     walletModel->getAsync()->saveAddress(addr, own);
 }
 
+JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(importRecovery)(JNIEnv *env, jobject thiz, jstring jpath)
+{
+    auto path = JString(env, jpath).value();
+
+    LOG_DEBUG() << "importRecovery path = " << path;
+
+    walletModel->getAsync()->importRecovery(path);
+}
+
 JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(updateAddress)(JNIEnv *env, jobject thiz,
     jstring addr, jstring name, jint addressExpirationEnum)
 {

@@ -413,6 +413,7 @@ Item {
                                             font.styleName: "Bold"; font.weight: Font.Bold
                                             color: Style.content_secondary
                                             //% "Change"
+                                            //: UTXO type Change 
                                             text: qsTrId("general-change")
                                         }
 

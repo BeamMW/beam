@@ -42,6 +42,7 @@ public class Wallet
     public native void getCoinsByTx(String txID);
     public native void changeNodeAddress(String address);
     public native String exportOwnerKey(String pass);
+    public native void importRecovery(String path);
 
     // deprecated
     public native void saveAddressChanges(String addr, String name, boolean isNever, boolean makeActive, boolean makeExpired);

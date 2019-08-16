@@ -37,7 +37,7 @@
     </message>
     <message id="general-created">
         <source>Created</source>
-        <translation>创建</translation>
+        <translation>已创建</translation>
     </message>
     <message id="general-send">
         <source>Send</source>
@@ -110,6 +110,7 @@
     </message>
     <message id="general-fee">
         <source>Transaction fee</source>
+        <extracomment>UTXO type fee</extracomment>
         <translation>交易费</translation>
     </message>
     <message id="general-ok">
@@ -122,18 +123,22 @@
     </message>
     <message id="general-coinbase">
         <source>Coinbase</source>
+        <extracomment>UTXO type Coinbase</extracomment>
         <translation>Coinbase</translation>
     </message>
     <message id="general-regular">
         <source>Regular</source>
+        <extracomment>UTXO type Regular</extracomment>
         <translation>常规</translation>
     </message>
     <message id="general-change">
         <source>Change</source>
+        <extracomment>UTXO type Change</extracomment>
         <translation>找零</translation>
     </message>
     <message id="general-treasury">
         <source>Treasury</source>
+        <extracomment>UTXO type Treasury</extracomment>
         <translation>基金会</translation>
     </message>
     <message id="general-back">
@@ -146,11 +151,11 @@
     </message>
     <message id="general-create-wallet">
         <source>Create new wallet</source>
-        <translation>创建新的钱包</translation>
+        <translation>创建新钱包</translation>
     </message>
     <message id="general-restore-or-create-wallet">
         <source>Restore wallet or create a new one</source>
-        <translation>恢复钱包或创建一个新的钱包</translation>
+        <translation>恢复钱包或创建新钱包</translation>
     </message>
     <message id="general-select-db">
         <source>Select the wallet database file</source>
@@ -187,7 +192,7 @@
     </message>
     <message id="wallet-in-progress-title">
         <source>In progress</source>
-        <translation>正在交易中</translation>
+        <translation>交易中</translation>
     </message>
     <message id="wallet-transactions-title">
         <source>Transactions</source>
@@ -207,7 +212,8 @@
     </message>
     <message id="wallet-txs-delete-message">
         <source>The transaction will be deleted. This operation can not be undone</source>
-        <translation>交易将被删除。此操作无法撤销。</translation>
+        <translation>交易将被删除
+此操作无法撤销</translation>
     </message>
     <message id="wallet-txs-status-pending">
         <source>pending</source>
@@ -315,7 +321,8 @@
     <message id="settings-rescan-confirmation-message">
         <source>Rescan will sync transaction and UTXO data with the latest information on the blockchain. The process might take long time.</source>
         <extracomment>settings tab, confirm rescan dialog message</extracomment>
-        <translation>重新加载会将交易和UTXO数据与区块链上的最新信息同步。这个过程可能需要很长时间。</translation>
+        <translation>重新扫描会将交易和UTXO数据与区块链上的最新信息同步
+这个过程可能需要很长时间</translation>
     </message>
     <message id="settings-general-title">
         <source>General settings</source>
@@ -436,7 +443,8 @@
     </message>
     <message id="payment-info-proof-decode-fail">
         <source>Cannot decode a proof, illegal sequence.</source>
-        <translation>无法解码证明，非法序列。</translation>
+        <translation>无法解码证明
+非法序列</translation>
     </message>
     <message id="payment-info-proof-code-label">
         <source>Code</source>
@@ -468,11 +476,11 @@
     </message>
     <message id="loading-change-settings-button">
         <source>Change settings</source>
-        <translation>更改设置</translation>
+        <translation>修改设置</translation>
     </message>
     <message id="loading-try-again-button">
         <source>Try again</source>
-        <translation type="unfinished">Try again</translation>
+        <translation>请重试</translation>
     </message>
     <message id="notifications-title">
         <source>Notifications view</source>
@@ -514,7 +522,7 @@
     <message id="settings-rescan-confirmation-message-line-2">
         <source>Are you sure?</source>
         <extracomment>settings tab, confirm rescan dialog additional message</extracomment>
-        <translation>确定？</translation>
+        <translation>是否确定？</translation>
     </message>
     <message id="settings-title">
         <source>Settings</source>
@@ -523,7 +531,7 @@
     </message>
     <message id="cant-send-to-expired-message">
         <source>Can&apos;t send to the expired address.</source>
-        <translation>不能向失效地址付款。</translation>
+        <translation>不能向失效地址付款</translation>
     </message>
     <message id="send-confirmation-title">
         <source>Confirm transaction details</source>
@@ -583,7 +591,7 @@
     </message>
     <message id="send-contact-placeholder">
         <source>Please specify contact</source>
-        <translation>请制定联系人</translation>
+        <translation>请指定联系人</translation>
     </message>
     <message id="send-amount-label">
         <source>Transaction amount</source>
@@ -603,7 +611,7 @@
     </message>
     <message id="send-remaining-label">
         <source>Remaining</source>
-        <translation>余额</translation>
+        <translation>剩余</translation>
     </message>
     <message id="send-send-fail">
         <source>Address %1 is invalid</source>
@@ -615,11 +623,12 @@
     </message>
     <message id="start-restore-message-line">
         <source>You are trying to restore an existing Beam Wallet. Please notice that if you use your wallet on another device, your balance will be up to date, but  transaction history and addresses will be kept separately on each device.</source>
-        <translation>您正在尝试还原现有的Beam钱包。请注意，如果您在其他设备上使用该钱包，您的余额将是最新的，但交易历史和地址将分别保存在每个设备上。</translation>
+        <translation>您正在尝试还原已存在的Beam钱包
+请注意：如果您在其他设备上使用该钱包，您的余额将是最新的，但交易历史和地址将分别保存在每个设备上</translation>
     </message>
     <message id="start-migration-message">
         <source>Your wallet will be migrated to v.</source>
-        <translation>您的钱包将被迁移到v。</translation>
+        <translation>您的钱包将被迁移到v</translation>
     </message>
     <message id="start-migration-button">
         <source>Start auto migration</source>
@@ -636,7 +645,7 @@
     </message>
     <message id="kb-unit">
         <source>kb</source>
-        <translation>kb</translation>
+        <translation>KB</translation>
     </message>
     <message id="start-select-db-thead-modified">
         <source>Date modified</source>
@@ -669,19 +678,22 @@
     </message>
     <message id="start-generate-seed-phrase-message">
         <source>Your seed phrase is the access key to all the cryptocurrencies in your wallet. Write down the phrase to keep it in a safe or in a locked vault. Without the phrase you will not be able to recover your money.</source>
-        <translation>助记词是访问您账户资金的密钥。必须打印或誊写助记词，并将其妥善保存在保险箱中。如果您遗失或忘记助记词，您将无法找回或恢复钱包中的资金。</translation>
+        <translation>助记词是访问您账户资金的密钥
+必须打印或誊写助记词，并将其妥善保存在保险箱中
+如果您遗失或忘记助记词，您将无法找回或恢复钱包中的资金</translation>
     </message>
     <message id="start-confirm-seed-phrase-button">
         <source>I understand</source>
-        <translation>我了解</translation>
+        <translation>我理解</translation>
     </message>
     <message id="start-confirm-seed-phrase-message">
         <source>It is strictly recommended to write down the seed phrase on a paper. Storing it in a file makes it prone to cyber attacks and, therefore, less secure.</source>
-        <translation>强烈建议将助记词写在纸张上保存。使用电脑文件或照片等电子化保存非常容易因设备安全原因而泄露助记词，非常不安全。</translation>
+        <translation>强烈建议将助记词写在纸张上保存
+使用电脑文件或照片等电子化保存非常容易因设备安全原因而泄露助记词，非常不安全</translation>
     </message>
     <message id="start-check-seed-phrase-message">
         <source>To ensure the seed phrase is written down, please fill-in the specific words below</source>
-        <translation>为验证助记词已被您被正确誊写并保存，请根据下面数字提示输入相应的助记词。</translation>
+        <translation>为验证助记词已被您被正确誊写并保存，请根据下面数字提示输入相应的助记词</translation>
     </message>
     <message id="start-restore-message">
         <source>Type in or paste your seed phrase</source>
@@ -709,7 +721,7 @@
     </message>
     <message id="start-node-integrated-radio">
         <source>Run integrated node (recommended)</source>
-        <translation>运行集成节点（推荐）</translation>
+        <translation>运行集成节点(推荐)</translation>
     </message>
     <message id="start-node-port-label">
         <source>Enter port to listen</source>
@@ -749,7 +761,8 @@
     </message>
     <message id="appmodel-failed-start-node">
         <source>Failed to start node. Please check your node configuration</source>
-        <translation>启动节点失败。请检查节点配置</translation>
+        <translation>启动节点失败
+请检查节点配置</translation>
     </message>
     <message id="wallet-model-node-protocol-error">
         <source>Node protocol error!</source>
@@ -757,7 +770,7 @@
     </message>
     <message id="wallet-model-incompatible-peer-error">
         <source>You are trying to connect to incompatible peer.</source>
-        <translation>您正在试图连接到不兼容的节点。</translation>
+        <translation>您正在试图连接到不兼容的节点</translation>
     </message>
     <message id="wallet-model-connection-base-error">
         <source>Connection error</source>
@@ -777,11 +790,12 @@
     </message>
     <message id="wallet-model-connection-addr-in-use-error">
         <source>The port %1 is already in use. Check if a wallet is already running on this machine or change the port settings.</source>
-        <translation>端口号%1已被占用。请检查本机后台是否已启动了钱包程序或更改端口设置。</translation>
+        <translation>端口号%1已被占用
+请检查本机后台是否已启动了钱包程序或更改端口设置</translation>
     </message>
     <message id="wallet-model-time-sync-error">
         <source>System time not synchronized</source>
-        <translation>系统时间不同步。</translation>
+        <translation>系统时间不同步</translation>
     </message>
     <message id="wallet-model-host-unresolved-error">
         <source>Incorrect node name or no Internet connection.</source>
@@ -793,7 +807,8 @@
     </message>
     <message id="wallet-model-data-location-error">
         <source>Failed to start wallet. Please check your wallet data location</source>
-        <translation>启动钱包失败。请检查您的钱包数据文件位置</translation>
+        <translation>启动钱包失败
+请检查您的钱包数据文件位置</translation>
     </message>
     <message id="loading-view-download-blocks">
         <source>Downloading blocks</source>
@@ -813,11 +828,13 @@
     </message>
     <message id="start-view-printer-not-found-error">
         <source>Printer is not found. Please, check your printer preferences.</source>
-        <translation>找不到打印机。请检查您的打印机设置。</translation>
+        <translation>找不到打印机
+请检查您的打印机设置</translation>
     </message>
     <message id="start-view-printer-error">
         <source>Failed to print seed phrase. Please, check your printer.</source>
-        <translation>打印助记词失败。请检查您的打印机。</translation>
+        <translation>打印助记词失败
+请检查您的打印机</translation>
     </message>
     <message id="start-view-db-file-filter">
         <source>SQLite database file (*.db)</source>
@@ -917,7 +934,7 @@
     </message>
     <message id="utxo-status-maturing">
         <source>Maturing%1(till block height %2)</source>
-        <translation>成熟高度%1(至区块高度%2)</translation>
+        <translation>成熟高度 %1 (至区块高度 %2 )</translation>
     </message>
     <message id="utxo-status-unavailable">
         <source>Unavailable%1(mining result rollback)</source>
@@ -965,7 +982,7 @@
     </message>
     <message id="receive-amount-label">
         <source>Receive amount (optional)</source>
-        <translation>收款数量（可选）</translation>
+        <translation>收款数量 (可选)</translation>
     </message>
     <message id="tx-details-tx-id-label">
         <source>Transaction ID</source>
@@ -973,11 +990,12 @@
     </message>
     <message id="appmodel-failed-time-not-synced">
         <source>Failed to start the integrated node: the timezone settings of your machine are out of sync. Please fix them and restart the wallet.</source>
-        <translation>启动集成节点失败：您的设备时区设置未同步，请修正时区设置后重启钱包。</translation>
+        <translation>启动集成节点失败：您的设备时区设置未同步，请修正时区设置后重启钱包</translation>
     </message>
     <message id="can-not-generate-new-address-message">
         <source>You cannot generate new address. Your wallet doesn&apos;t have a master key.</source>
-        <translation>无法生成新地址。您的钱包无核心密钥。</translation>
+        <translation>无法生成新地址
+您的钱包无主密钥</translation>
     </message>
     <message id="settings-general-language">
         <source>Language</source>
@@ -993,20 +1011,23 @@
         <translation>外部链接</translation>
     </message>
     <message id="open-external-message">
-        <source>Beam Wallet app requires permission to open external link in the browser. This action will expose your IP to the web server. To avoid it, choose -Cancel-. You can chage your choice in app setting anytime.</source>
-        <translation>Beam钱包需要获取权限以在浏览器中打开外部链接。在浏览器中打开外部外链会暴露您的IP地址。如不想暴露IP地址，请选择“取消”。您可以随时在设置中修改该选项。</translation>
+        <source>Beam Wallet app requires permission to open external link in the browser. This action will expose your IP to the web server. To avoid it, choose -Cancel-. You can change your choice in app setting anytime.</source>
+        <translation>Beam钱包需要获取权限以在浏览器中打开外部链接
+
+在浏览器中打开外部外链会暴露您的IP地址；如不想暴露IP地址，请选择“取消”；您可以随时在设置中修改该选项</translation>
     </message>
     <message id="start-open-change-wallet-message">
         <source>If you&apos;ll restore a wallet all transaction history and addresses will be lost.</source>
-        <translation>如果您想要恢复钱包，本钱包所有的交易记录和地址都将丢失。</translation>
+        <translation>如果恢复钱包，本钱包所有的交易记录和地址都将丢失</translation>
     </message>
     <message id="loading-restore-message-line1">
         <source>Please wait for synchronization and do not close or minimize the application.</source>
-        <translation>请等待同步，不要关闭或最小化应用程序。</translation>
+        <translation>请等待同步，不要关闭或最小化应用程序</translation>
     </message>
     <message id="loading-restore-message-line2">
         <source>Only the wallet balance (UTXO) can be restored, transaction info and addresses are always private and never kept in the blockchain.</source>
-        <translation>仅可恢复钱包余额(UTXO)。交易历史信息保存在本地，区块链上不保存交易历史和地址信息。</translation>
+        <translation>仅可恢复钱包余额(UTXO)
+交易历史信息保存在本地，区块链上不保存交易历史</translation>
     </message>
     <message id="start-recovery-title">
         <source>Create new password</source>
@@ -1018,11 +1039,11 @@
     </message>
     <message id="start-create-pwd-strength-message">
         <source>Strong password needs to meet the following requirements:\n•  the length must be at least 10 characters\n•  must contain at least one lowercase letter\n•  must contain at least one uppercase letter\n•  must contain at least one number</source>
-        <translation>强密码需要满足以下要求：\n• 长度必须至少为10个字符\n• 必须包含至少一个小写字母\n• 必须包含至少一个大写字母\n• 必须包含至少一个数字</translation>
+        <translation>强密码需要满足以下要求：\n• 长度必须至少为10个字符 \n• 必须包含至少一个小写字母 \n• 必须包含至少一个大写字母 \n• 必须包含至少一个数字</translation>
     </message>
     <message id="start-open-caps-warning">
         <source>Caps lock is on!</source>
-        <translation>大写锁定已开启</translation>
+        <translation>大写锁定处于开启状态</translation>
     </message>
     <message id="show-qr-title">
         <source>QR code</source>
@@ -1037,7 +1058,7 @@
     <message id="show-qr-message">
         <source>Scan this QR code or send this address to the sender over secure channel</source>
         <extracomment>show QR dialog message, how to use this QR</extracomment>
-        <translation>扫描二维码  或通过外部安全媒介将此地址发送给付款方</translation>
+        <translation>扫描二维码或通过外部安全媒介将此地址发送给付款方</translation>
     </message>
     <message id="settings-peers-title">
         <source>Peers</source>
@@ -1077,7 +1098,7 @@
     <message id="edit-addr-24-option">
         <source>In 24 hours from now</source>
         <extracomment>Edit address dialog, expiration option, in 24 hours from now</extracomment>
-        <translation>从现在开始24小时后</translation>
+        <translation>24小时后</translation>
     </message>
     <message id="edit-addr-never-option">
         <source>Never</source>
@@ -1112,7 +1133,7 @@
     <message id="edit-addr-activate-addr-switch">
         <source>Activate address</source>
         <extracomment>Edit addres dialog, expiration time label</extracomment>
-        <translation>有效地址</translation>
+        <translation>激活地址</translation>
     </message>
     <message id="time-never">
         <source>Never</source>
@@ -1152,7 +1173,7 @@
     <message id="start-select-db-best-match-label">
         <source>(best match)</source>
         <extracomment>start screen, select db for migration, best match label</extracomment>
-        <translation>（最佳匹配）</translation>
+        <translation>(最佳匹配)</translation>
     </message>
     <message id="start-select-db-thead-created">
         <source>Date created</source>

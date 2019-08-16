@@ -14,7 +14,7 @@
 
 #include "wallet_client.h"
 #include "utility/log_rotation.h"
-#include "../core/block_rw.h"
+#include "core/block_rw.h"
 
 
 using namespace std;
@@ -31,19 +31,19 @@ struct ScopedSubscriber
         : m_observer(observer)
         , m_notifier(notifier)
     {
-        m_notifier->subscribe(m_observer);
+        m_notifier->Subscribe(m_observer);
     }
 
     ~ScopedSubscriber()
     {
-        m_notifier->unsubscribe(m_observer);
+        m_notifier->Unsubscribe(m_observer);
     }
 private:
     Observer * m_observer;
     std::shared_ptr<Notifier> m_notifier;
 };
 
-using WalletSubscriber = ScopedSubscriber<wallet::IWalletObserver, wallet::IWallet>;
+using WalletSubscriber = ScopedSubscriber<wallet::IWalletObserver, wallet::Wallet>;
 
 struct WalletModelBridge : public Bridge<IWalletModelAsync>
 {
@@ -157,6 +157,11 @@ struct WalletModelBridge : public Bridge<IWalletModelAsync>
     void checkAddress(const std::string& addr) override
     {
         call_async(&IWalletModelAsync::checkAddress, addr);
+    }
+
+    void importRecovery(const std::string& path) override
+    {
+        call_async(&IWalletModelAsync::importRecovery, path);
     }
 };
 }
@@ -515,7 +520,7 @@ namespace beam::wallet
         auto w = m_wallet.lock();
         if (w)
         {
-            static_pointer_cast<IWallet>(w)->cancel_tx(id);
+            w->CancelTransaction(id);
         }
     }
 
@@ -524,7 +529,7 @@ namespace beam::wallet
         auto w = m_wallet.lock();
         if (w)
         {
-            static_pointer_cast<IWallet>(w)->delete_tx(id);
+            w->DeleteTransaction(id);
         }
     }
 
@@ -670,7 +675,8 @@ namespace beam::wallet
         {
             LOG_UNHANDLED_EXCEPTION() << "what = " << e.what();
         }
-        catch (...) {
+        catch (...)
+        {
             LOG_UNHANDLED_EXCEPTION();
         }
     }
@@ -685,6 +691,30 @@ namespace beam::wallet
         io::Address nodeAddr;
 
         onAddressChecked(addr, nodeAddr.resolve(addr.c_str()));
+    }
+
+    void WalletClient::importRecovery(const std::string& path)
+    {
+        try
+        {
+            m_walletDB->ImportRecovery(path, *this);
+            return;
+        }
+        catch (const std::runtime_error& e)
+        {
+            LOG_UNHANDLED_EXCEPTION() << "what = " << e.what();
+        }
+        catch (...) 
+        {
+            LOG_UNHANDLED_EXCEPTION();
+        }
+        onWalletError(ErrorType::ImportRecoveryError);
+    }
+
+    bool WalletClient::OnProgress(uint64_t done, uint64_t total)
+    {
+        onImportRecoveryProgress(done, total);
+        return true;
     }
 
     WalletStatus WalletClient::getStatus() const

@@ -76,23 +76,19 @@ Item
         }
 
         onWalletError: {
-            confirmationDialog.titleText = title;
-            confirmationDialog.messageText = message;
-
-            if (!isCreating) {
-                confirmationDialog.rejectedCallback = cancelCreating;
-            } else {
-                confirmationDialog.okButtonVisible  = false;
-                confirmationDialog.okButtonEnable   = false;
-                confirmationDialog.closePolicy      = Popup.NoAutoClose;
-                confirmationDialog.rejectedCallback = changeNodeSettings;
-            }
-
+            confirmationDialog.titleText        = title;
+            confirmationDialog.messageText      = message;
+            confirmationDialog.okButtonVisible  = false;
+            confirmationDialog.okButtonEnable   = false;
+            confirmationDialog.closePolicy      = Popup.NoAutoClose;
+            confirmationDialog.rejectedCallback = isCreating ? cancelCreating : changeNodeSettings;
             confirmationDialog.open();
         }
 
         onWalletReseted: {
-            if(cancelCallback) cancelCallback();
+            if(cancelCallback) {
+                cancelCallback();
+            }
         }
     }
 
@@ -217,6 +213,17 @@ Item
                     Item {
                         Layout.fillHeight: true
                         Layout.minimumHeight: 67
+                    }
+
+                    SFText {
+                        Layout.alignment:    Qt.AlignHCenter
+                        font.pixelSize:      12
+                        color:               Qt.rgba(255, 255, 255, 0.3)
+                        text:                [qsTrId("settings-version"), BeamGlobals.version()].join(' ')
+                    }
+
+                    Item {
+                        Layout.minimumHeight: 35
                     }
                 }
             }

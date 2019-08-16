@@ -8,13 +8,19 @@ BEAM is a next generation scalable, confidential cryptocurrency based on an eleg
 
 ### ANNOUNCEMENTS
 
+Beam blockchian will **hard fork** on height 321,321 (approximately August 15th). Make sure to upgrade your wallets, nodes and mining software to the latest version. Hard Fork will have the following breaking changes:
+
+* PoW algorithm from Beam Hash I to Beam Hash II. More details on Beam Hash II can be found [here](https://docs.beam.mw/BeamHashII.pdf)
+* SBBS PoW (automatically performed by newer wallets) will become mandatory
+* A minimum fee of ( 10 * Number of kernels + 10 * Number of outputs ) will be enforced by the nodes. The default fee value in the wallet will be changed to 100 Groth
+* Support for Relative Time Locks
+
+
 
 
 [Download latest version](http://beam.mw/downloads)
-**Bright Boson 2.0 with ultra fast sync, payment proof and lots of improvements**
+**Clear Cathode 3.0 with Hard Fork Support**
 
-
-**Beam released Mobile Wallet for iOS**. [Download](https://www.beam.mw/downloads/mainnet-ios)
 
 
 ### JOIN OUR COMMUNITIES ON TELEGRAM

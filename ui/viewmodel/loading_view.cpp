@@ -126,6 +126,7 @@ const QString& LoadingViewModel::getProgressMessage() const
 {
     return m_progressMessage;
 }
+
 void LoadingViewModel::setProgressMessage(const QString& value)
 {
     if (m_progressMessage != value)
