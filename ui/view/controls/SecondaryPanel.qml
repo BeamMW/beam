@@ -103,11 +103,6 @@ Control {
                     }
 
                     GridLayout {
-                        Rectangle {
-                            anchors.fill : parent
-                            color: "red"
-                        }
-
                         Layout.alignment: Qt.AlignHCenter
                         columnSpacing: 10
                         rowSpacing:    10
@@ -133,11 +128,6 @@ Control {
                             property string    amountColor:  Style.accent_incoming
                             property string    signSymbol:   "+"
                             property string    currSymbol:   Utils.symbolBtc
-
-                             Rectangle {
-                                anchors.fill : parent
-                                color: "green"
-                            }
                         }
 
                         Loader {
@@ -149,11 +139,6 @@ Control {
                             property string    amountColor:  Style.accent_incoming
                             property string    signSymbol:   "+"
                             property string    currSymbol:   Utils.symbolLtc
-
-                            Rectangle {
-                            anchors.fill : parent
-                            color: "cyan"
-                        }
                         }
 
                         Loader {
