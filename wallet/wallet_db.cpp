@@ -1890,10 +1890,9 @@ namespace beam::wallet
     boost::optional<TxDescription> WalletDB::getTx(const TxID& txId) const
     {
         // load only simple TX that supported by TxDescription
-        const char* req = "SELECT * FROM " TX_PARAMS_NAME " WHERE txID=?1 AND subTxID=?2;";
+        const char* req = "SELECT * FROM " TX_PARAMS_NAME " WHERE txID=?1;";
         sqlite::Statement stm(this, req);
         stm.bind(1, txId);
-        stm.bind(2, kDefaultSubTxID);
 
         TxDescription txDescription(txId);
 
@@ -1912,59 +1911,65 @@ namespace beam::wallet
             int colIdx = 0;
             ENUM_TX_PARAMS_FIELDS(STM_GET_LIST, NOSEP, parameter);
             auto parameterID = static_cast<TxParameterID>(parameter.m_paramID);
-            gottenParams.emplace(parameterID);
-            txDescription.SetParameter(parameterID, parameter.m_value);
 
-            switch (parameterID)
+            txDescription.SetParameter(parameterID, parameter.m_value, static_cast<SubTxID>(parameter.m_subTxID));
+
+            if (parameter.m_subTxID == kDefaultSubTxID)
             {
-            case TxParameterID::TransactionType:
-                deserialize(txDescription.m_txType, parameter.m_value);
-                break;
-            case TxParameterID::Amount:
-                deserialize(txDescription.m_amount, parameter.m_value);
-                break;
-            case TxParameterID::Fee:
-                deserialize(txDescription.m_fee, parameter.m_value);
-                break;
-            case TxParameterID::MinHeight:
-                deserialize(txDescription.m_minHeight, parameter.m_value);
-                break;
-            case TxParameterID::PeerID:
-                deserialize(txDescription.m_peerId, parameter.m_value);
-                break;
-            case TxParameterID::MyID:
-                deserialize(txDescription.m_myId, parameter.m_value);
-                break;
-            case TxParameterID::CreateTime:
-                deserialize(txDescription.m_createTime, parameter.m_value);
-                break;
-            case TxParameterID::IsSender:
-                deserialize(txDescription.m_sender, parameter.m_value);
-                break;
-            case TxParameterID::Message:
-                deserialize(txDescription.m_message, parameter.m_value);
-                break;
-            case TxParameterID::Change:
-                deserialize(txDescription.m_change, parameter.m_value);
-                break;
-            case TxParameterID::ModifyTime:
-                deserialize(txDescription.m_modifyTime, parameter.m_value);
-                break;
-            case TxParameterID::Status:
-                deserialize(txDescription.m_status, parameter.m_value);
-                break;
-            case TxParameterID::KernelID:
-                deserialize(txDescription.m_kernelID, parameter.m_value);
-                break;
-            case TxParameterID::FailureReason:
-                deserialize(txDescription.m_failureReason, parameter.m_value);
-                break;
-            case TxParameterID::IsSelfTx:
-                deserialize(txDescription.m_selfTx, parameter.m_value);
-                break;
-            default:
-                break; // suppress warning
+                gottenParams.emplace(parameterID);
+
+                switch (parameterID)
+                {
+                case TxParameterID::TransactionType:
+                    deserialize(txDescription.m_txType, parameter.m_value);
+                    break;
+                case TxParameterID::Amount:
+                    deserialize(txDescription.m_amount, parameter.m_value);
+                    break;
+                case TxParameterID::Fee:
+                    deserialize(txDescription.m_fee, parameter.m_value);
+                    break;
+                case TxParameterID::MinHeight:
+                    deserialize(txDescription.m_minHeight, parameter.m_value);
+                    break;
+                case TxParameterID::PeerID:
+                    deserialize(txDescription.m_peerId, parameter.m_value);
+                    break;
+                case TxParameterID::MyID:
+                    deserialize(txDescription.m_myId, parameter.m_value);
+                    break;
+                case TxParameterID::CreateTime:
+                    deserialize(txDescription.m_createTime, parameter.m_value);
+                    break;
+                case TxParameterID::IsSender:
+                    deserialize(txDescription.m_sender, parameter.m_value);
+                    break;
+                case TxParameterID::Message:
+                    deserialize(txDescription.m_message, parameter.m_value);
+                    break;
+                case TxParameterID::Change:
+                    deserialize(txDescription.m_change, parameter.m_value);
+                    break;
+                case TxParameterID::ModifyTime:
+                    deserialize(txDescription.m_modifyTime, parameter.m_value);
+                    break;
+                case TxParameterID::Status:
+                    deserialize(txDescription.m_status, parameter.m_value);
+                    break;
+                case TxParameterID::KernelID:
+                    deserialize(txDescription.m_kernelID, parameter.m_value);
+                    break;
+                case TxParameterID::FailureReason:
+                    deserialize(txDescription.m_failureReason, parameter.m_value);
+                    break;
+                case TxParameterID::IsSelfTx:
+                    deserialize(txDescription.m_selfTx, parameter.m_value);
+                    break;
+                default:
+                    break; // suppress warning
+                }
             }
+
         }
 
         if (std::includes(gottenParams.begin(), gottenParams.end(), mandatoryParams.begin(), mandatoryParams.end()))
