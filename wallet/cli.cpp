@@ -1661,7 +1661,7 @@ int main_impl(int argc, char* argv[])
                                 {
                                     if (tx->canDelete())
                                     {
-                                        wallet.delete_tx(txId);
+                                        wallet.DeleteTransaction(txId);
                                         return 0;
                                     }
                                     else
