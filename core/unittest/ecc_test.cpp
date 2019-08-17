@@ -2127,13 +2127,12 @@ struct Lelantus
 			bc.EquationBegin();
 			FillEquation(bc, z, &bc.m_Multiplier);
 
-			ECC::Scalar::Native k(1U);
-			k = -k;
-			if (!bc.AddCasual(ptA, k))
+			ECC::Scalar::Native k = -bc.m_Multiplier;
+			if (!bc.AddCasual(ptA, k, true))
 				return false;
 
 			k *= x;
-			return bc.AddCasual(ptB, k);
+			return bc.AddCasual(ptB, k, true);
 		}
 	};
 
@@ -2553,6 +2552,9 @@ bool Lelantus::Proof::IsValid(InnerProduct::BatchContext& bc, Oracle& oracle, Cm
 	m_Part1.Expose(oracle);
 	oracle >> mctx.x;
 
+	ECC::Scalar::Native x2;
+	oracle >> x2;
+
 	// recover pF0
 	for (uint32_t j = 0; j < Cfg::M; j++)
 	{
@@ -2610,9 +2612,16 @@ bool Lelantus::Proof::IsValid(InnerProduct::BatchContext& bc, Oracle& oracle, Cm
 	// final calculation
 	const uint32_t nSizeNaggle = 128;
 	static_assert(nSizeNaggle >= Cfg::M);
-	MultiMac_WithBufs<nSizeNaggle, 1> mm, mm2;
+	MultiMac_WithBufs<nSizeNaggle, 1> mm;
 
 	ECC::Point::Native res, comm;
+
+	bc.EquationBegin();
+	ECC::Scalar::Native kMulBalance = bc.m_Multiplier;
+	ECC::Scalar::Native kMulBalanceChallenged = kMulBalance * x2;
+
+	bc.EquationBegin();
+	ECC::Scalar::Native kMulPG = bc.m_Multiplier;
 
 	// G and Q
 	Scalar::Native xPwr = 1U;
@@ -2622,38 +2631,33 @@ bool Lelantus::Proof::IsValid(InnerProduct::BatchContext& bc, Oracle& oracle, Cm
 			!comm.Import(m_Part1.m_pQ[j]))
 			return false;
 
-		mm.m_pCasual[mm.m_Casual++].Init(res, xPwr); // G
-		mm2.m_pCasual[mm2.m_Casual++].Init(comm, xPwr); // Q
+		res += comm;
+		mm.m_pCasual[mm.m_Casual++].Init(res, xPwr); // G + Q
+
+		bc.m_Multiplier = kMulBalanceChallenged;
+		bc.AddCasual(comm, xPwr);
 
 		xPwr *= mctx.x;
 	}
 
-	if (!res.Import(m_Part1.m_Output))
-		return false;
+	bc.m_Multiplier = kMulBalanceChallenged;
 
 	xPwr = -xPwr;
-	res = res * xPwr; // -m_Output * x^M
-
-	mm2.Calculate(comm);
-	res += comm; // sum(Q)
-	res += ECC::Context::get().G * m_Part2.m_zR;
-	res += ECC::Context::get().H_Big * m_Part2.m_zV;
-
-	ECC::Scalar::Native x2;
-	oracle >> x2;
-
-	ECC::Point::Native pt2;
-	if (!pt2.Import(m_Part1.m_BalanceNonce))
+	if (!bc.AddCasual(m_Part1.m_Output, xPwr))
 		return false;
 
-	pt2 += res * x2;
-	pt2 += ECC::Context::get().G * m_Part2.m_BalanceProof;
+	bc.AddPrepared(InnerProduct::BatchContext::s_Idx_G, m_Part2.m_zR);
+	bc.AddPrepared(InnerProduct::BatchContext::s_Idx_H, m_Part2.m_zV);
 
-	if (!(pt2 == Zero))
+	if (!bc.AddCasual(m_Part1.m_BalanceNonce, kMulBalance, true))
 		return false;
+
+	bc.m_Multiplier = kMulBalance;
+	bc.AddPrepared(InnerProduct::BatchContext::s_Idx_G, m_Part2.m_BalanceProof);
+
+	bc.m_Multiplier = kMulPG;
 
 	mm.Calculate(res);
-	res += comm;
 	res = -res;
 
 	// Commitments from CmList
