@@ -2610,12 +2610,6 @@ bool Lelantus::Proof::IsValid(InnerProduct::BatchContext& bc, Oracle& oracle, Cm
 	}
 
 	// final calculation
-	const uint32_t nSizeNaggle = 128;
-	static_assert(nSizeNaggle >= Cfg::M);
-	MultiMac_WithBufs<nSizeNaggle, 1> mm;
-
-	ECC::Point::Native res, comm;
-
 	bc.EquationBegin();
 	ECC::Scalar::Native kMulBalance = bc.m_Multiplier;
 	ECC::Scalar::Native kMulBalanceChallenged = kMulBalance * x2;
@@ -2627,15 +2621,14 @@ bool Lelantus::Proof::IsValid(InnerProduct::BatchContext& bc, Oracle& oracle, Cm
 	Scalar::Native xPwr = 1U;
 	for (uint32_t j = 0; j < Cfg::M; j++)
 	{
-		if (!res.Import(m_Part1.m_pG[j]) ||
-			!comm.Import(m_Part1.m_pQ[j]))
+		bc.m_Multiplier = -kMulPG;
+		if (!bc.AddCasual(m_Part1.m_pG[j], xPwr)) // + G[j] * (-mulPG)
 			return false;
 
-		res += comm;
-		mm.m_pCasual[mm.m_Casual++].Init(res, xPwr); // G + Q
 
-		bc.m_Multiplier = kMulBalanceChallenged;
-		bc.AddCasual(comm, xPwr);
+		bc.m_Multiplier += kMulBalanceChallenged;
+		if (!bc.AddCasual(m_Part1.m_pQ[j], xPwr)) // P[j] * (-mulPG + mulBalance * challenge)
+			return false;
 
 		xPwr *= mctx.x;
 	}
@@ -2657,73 +2650,42 @@ bool Lelantus::Proof::IsValid(InnerProduct::BatchContext& bc, Oracle& oracle, Cm
 
 	bc.m_Multiplier = kMulPG;
 
-	mm.Calculate(res);
-	res = -res;
-
 	// Commitments from CmList
-	mm.Reset();
-	mm.m_ppPrepared[0] = &ECC::Context::get().m_Ipp.J_;
-	ECC::Scalar::Native& kSer = mm.m_pKPrep[0];
-	kSer = Zero;
-
-	ECC::Scalar::Native kSer2 = m_Part1.m_Serial;
-	kSer2 = -kSer2;
+	ECC::Scalar::Native kSer(Zero);
 
 	for (uint32_t iPos = 0; iPos < Cfg::N; iPos++)
 	{
-		bool bEnd = (Cfg::N == iPos);
-		if (!bEnd)
-		{
 			ECC::Point pt;
-			if (cmList.get_At(pt, iPos))
-			{
-				if (!comm.Import(pt))
-					return false; //?!?
+		if (!cmList.get_At(pt, iPos))
+			break;
 
-				ECC::MultiMac::Casual& c = mm.m_pCasual[mm.m_Casual++];
-				c.Init(comm);
-				c.m_K = 1U;
+		ECC::Scalar::Native k = kMulPG;
 
 				uint32_t ij = iPos;
 
 				for (uint32_t j = 0; j < Cfg::M; j++)
 				{
 					mctx.get_F(xPwr, j, ij % Cfg::n);
-					c.m_K *= xPwr;
+			k *= xPwr;
 					ij /= Cfg::n;
 				}
 
-				kSer += c.m_K;
-			}
-			else
-			{
-				bEnd = true;
-			}
+		kSer += k;
+
+		if (!bc.AddCasual(pt, k, true))
+			return false;
 		}
 
-		if ((bEnd && mm.m_Casual) || (static_cast<uint32_t>(mm.m_Casual) == nSizeNaggle))
-		{
-			// flush
-			mm.m_Prepared = 1;
-			kSer *= kSer2;
-
-			mm.Calculate(comm);
-			res += comm;
-			mm.Reset();
-			kSer = Zero;
-		}
-
-		if (bEnd)
-			break;
-	}
+	kSer = -kSer;
+	kSer *= m_Part1.m_Serial;
+	bc.m_pKPrep[InnerProduct::BatchContext::s_Idx_J] += kSer;
 
 	// compare with target
-	comm = ECC::Context::get().G * m_Part2.m_zR;
-	comm += ECC::Context::get().H_Big * m_Part2.m_zV;
+	bc.m_Multiplier = -kMulPG;
+	bc.AddPrepared(InnerProduct::BatchContext::s_Idx_G, m_Part2.m_zR);
+	bc.AddPrepared(InnerProduct::BatchContext::s_Idx_H, m_Part2.m_zV);
 
-	comm = -comm;
-	comm += res;
-	return comm == Zero;
+	return true;
 }
 
 void TestLelantus()
