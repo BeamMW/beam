@@ -656,12 +656,13 @@ namespace ECC
 
 		static const uint32_t s_CasualCountPerProof = nCycles * 2 + 5; // L[], R[], A, S, T1, T2, Commitment
 
-		static const uint32_t s_CountPrepared = InnerProduct::nDim * 2 + 4; // [2][InnerProduct::nDim], m_GenDot_, m_Aux2_, G_, H_
+		static const uint32_t s_CountPrepared = InnerProduct::nDim * 2 + 5; // [2][InnerProduct::nDim], m_GenDot_, m_Aux2_, G_, H_, J_
 
 		static const uint32_t s_Idx_GenDot	= InnerProduct::nDim * 2;
 		static const uint32_t s_Idx_Aux2	= InnerProduct::nDim * 2 + 1;
 		static const uint32_t s_Idx_G		= InnerProduct::nDim * 2 + 2;
 		static const uint32_t s_Idx_H		= InnerProduct::nDim * 2 + 3;
+		static const uint32_t s_Idx_J		= InnerProduct::nDim * 2 + 4;
 
 		struct Bufs {
 			const Prepared* m_ppPrepared[s_CountPrepared];

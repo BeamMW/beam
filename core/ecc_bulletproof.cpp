@@ -41,6 +41,7 @@ namespace ECC {
 		m_ppPrepared[s_Idx_Aux2] = &Context::get().m_Ipp.m_Aux2_;
 		m_ppPrepared[s_Idx_G] = &Context::get().m_Ipp.G_;
 		m_ppPrepared[s_Idx_H] = &Context::get().m_Ipp.H_;
+		m_ppPrepared[s_Idx_J] = &Context::get().m_Ipp.J_;
 
 		m_Prepared = s_CountPrepared;
 	}
@@ -81,7 +82,7 @@ namespace ECC {
 		c.Init(pt, k);
 
 		if (!bPremultiplied)
-		c.m_K *= m_Multiplier;
+			c.m_K *= m_Multiplier;
 	}
 
 	void InnerProduct::BatchContext::AddPrepared(uint32_t i, const Scalar::Native& k)
