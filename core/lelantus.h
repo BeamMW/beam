@@ -45,12 +45,15 @@ namespace Lelantus {
 		static const uint32_t N = Power<M>::Of<n>::V;
 	};
 
+	namespace SpendKey {
+		void ToSerial(ECC::Scalar::Native& serial, const ECC::Point& pk);
+	}
 
 	struct Proof
 	{
 		struct Part1
 		{
-			ECC::Scalar m_Serial;
+			ECC::Point m_SpendPk;
 			ECC::Point m_Output; // result commitment. Must have the same value as the commitment being-spent
 			ECC::Point m_A, m_B, m_C, m_D;
 			ECC::Point m_pG[Cfg::M];
@@ -84,6 +87,7 @@ namespace Lelantus {
 		ECC::Scalar::Native m_Ro[Cfg::M];
 		ECC::Scalar::Native m_Tau[Cfg::M];
 		ECC::Scalar::Native m_rBalance;
+		ECC::Scalar::Native m_Serial;
 
 		// precalculated coeffs
 		ECC::Scalar::Native m_p[Cfg::M][Cfg::N]; // very large
@@ -110,7 +114,7 @@ namespace Lelantus {
 			Amount m_V;
 			ECC::Scalar::Native m_R;
 			ECC::Scalar::Native m_R_Output;
-			ECC::Scalar::Native m_Serial;
+			ECC::Scalar::Native m_SpendSk;
 		};
 		ECC::NoLeak<Witness> m_Witness;
 

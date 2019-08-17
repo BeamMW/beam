@@ -19,6 +19,15 @@ namespace Lelantus {
 
 using namespace ECC;
 
+
+void SpendKey::ToSerial(Scalar::Native& serial, const Point& pk)
+{
+	Oracle()
+		<< "L.Spend"
+		<< pk
+		>> serial;
+}
+
 ///////////////////////////
 // Calculate "standard" vector commitments of M+1 elements
 struct CommitmentStd
@@ -104,7 +113,7 @@ struct CommitmentStd
 void Proof::Part1::Expose(Oracle& oracle) const
 {
 	oracle
-		<< m_Serial
+		<< m_SpendPk
 		<< m_Output
 		<< m_BalanceNonce
 		<< m_A
@@ -280,8 +289,10 @@ bool Proof::IsValid(InnerProduct::BatchContext& bc, Oracle& oracle, CmList& cmLi
 			return false;
 	}
 
+	SpendKey::ToSerial(xPwr, m_Part1.m_SpendPk);
+
 	kSer = -kSer;
-	kSer *= m_Part1.m_Serial;
+	kSer *= xPwr;
 	bc.m_pKPrep[InnerProduct::BatchContext::s_Idx_J] += kSer;
 
 	// compare with target
@@ -484,7 +495,7 @@ void Prover::ExtractGQ()
 				kSer += m_p[k][iPos + i];
 			}
 
-			kSer *= m_Witness.V.m_Serial;
+			kSer *= m_Serial;
 			kSer = -kSer;
 
 			mm.Calculate(comm);
@@ -575,12 +586,14 @@ void Prover::ExtractPart2(const Scalar::Native& x1, const Scalar::Native& x2)
 
 void Prover::Generate(const uintBig& seed, Oracle& oracle)
 {
+	m_Proof.m_Part1.m_SpendPk = Context::get().G * m_Witness.V.m_SpendSk;
+	SpendKey::ToSerial(m_Serial, m_Proof.m_Part1.m_SpendPk);
+
 	InitNonces(seed);
 	ExtractABCD();
 	CalculateP();
 	ExtractGQ();
 
-	m_Proof.m_Part1.m_Serial = m_Witness.V.m_Serial;
 	m_Proof.m_Part1.m_Output = Commitment(m_Witness.V.m_R_Output, m_Witness.V.m_V);
 	m_Proof.m_Part1.m_BalanceNonce = Context::get().G * m_rBalance;
 

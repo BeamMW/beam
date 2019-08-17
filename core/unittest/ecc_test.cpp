@@ -2022,7 +2022,7 @@ void TestLelantus()
 	beam::Lelantus::CmListVec lst;
 	lst.m_vec.resize(1000);
 
-	ECC::Point::Native rnd;
+	Point::Native rnd;
 	SetRandom(rnd);
 
 	for (size_t i = 0; i < lst.m_vec.size(); i++, rnd += rnd)
@@ -2035,10 +2035,15 @@ void TestLelantus()
 	p.m_Witness.V.m_R = 4U;
 	p.m_Witness.V.m_R_Output = 756U;
 	p.m_Witness.V.m_L = 333;
-	SetRandom(p.m_Witness.V.m_Serial);
+	SetRandom(p.m_Witness.V.m_SpendSk);
 
-	ECC::Point::Native pt = ECC::Commitment(p.m_Witness.V.m_R, p.m_Witness.V.m_V);
-	pt += ECC::Context::get().J * p.m_Witness.V.m_Serial;
+	Point pt_ = Context::get().G * p.m_Witness.V.m_SpendSk;
+	Scalar::Native ser;
+	beam::Lelantus::SpendKey::ToSerial(ser, pt_);
+
+
+	Point::Native pt = Commitment(p.m_Witness.V.m_R, p.m_Witness.V.m_V);
+	pt += Context::get().J * ser;
 	lst.m_vec[p.m_Witness.V.m_L] = pt;
 
 	//const uint32_t N = Lelantus::Cfg::N;
