@@ -497,13 +497,10 @@ void Prover::ExtractGQ()
 		iPos += mm.m_Casual;
 	}
 
-	mm.Reset();
-	mm.m_ppPrepared[mm.m_Prepared++] = &Context::get().m_Ipp.G_; // add gammas, split G[] into G[] and Q[]
-
+	// add gammas, split G[] into G[] and Q[]
 	for (uint32_t k = 0; k < Cfg::M; k++)
 	{
-		mm.m_pKPrep[0] = m_Gamma[k];
-		mm.Calculate(comm);
+		comm = Context::get().G * m_Gamma[k];
 
 		comm2 = comm;
 		comm2 += Context::get().G * m_Tau[k];
