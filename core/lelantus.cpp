@@ -115,7 +115,7 @@ void Proof::Part1::Expose(Oracle& oracle) const
 	oracle
 		<< m_SpendPk
 		<< m_Output
-		<< m_BalanceNonce
+		<< m_NonceG
 		<< m_A
 		<< m_B
 		<< m_C
@@ -165,8 +165,9 @@ bool Proof::IsValid(InnerProduct::BatchContext& bc, Oracle& oracle, CmList& cmLi
 	m_Part1.Expose(oracle);
 	oracle >> mctx.x;
 
-	Scalar::Native x2;
-	oracle >> x2;
+	Scalar::Native x2, x3;
+	oracle >> x2; // balance proof challenge
+	oracle >> x3; // spend proof challenge
 
 	// recover pF0
 	for (uint32_t j = 0; j < Cfg::M; j++)
@@ -255,11 +256,15 @@ bool Proof::IsValid(InnerProduct::BatchContext& bc, Oracle& oracle, CmList& cmLi
 	bc.AddPrepared(InnerProduct::BatchContext::s_Idx_G, m_Part2.m_zR);
 	bc.AddPrepared(InnerProduct::BatchContext::s_Idx_H, m_Part2.m_zV);
 
-	if (!bc.AddCasual(m_Part1.m_BalanceNonce, kMulBalance, true))
+	if (!bc.AddCasual(m_Part1.m_NonceG, kMulBalance, true))
 		return false;
 
 	bc.m_Multiplier = kMulBalance;
-	bc.AddPrepared(InnerProduct::BatchContext::s_Idx_G, m_Part2.m_BalanceProof);
+
+	if (!bc.AddCasual(m_Part1.m_SpendPk, x3))
+		return false;
+
+	bc.AddPrepared(InnerProduct::BatchContext::s_Idx_G, m_Part2.m_ProofG);
 
 	bc.m_Multiplier = kMulPG;
 
@@ -532,8 +537,13 @@ void Prover::ExtractBlinded(Scalar& out, const Scalar::Native& sk, const Scalar:
 	out = val;
 }
 
-void Prover::ExtractPart2(const Scalar::Native& x1, const Scalar::Native& x2)
+void Prover::ExtractPart2(Oracle& oracle)
 {
+	Scalar::Native x1, x2, x3;
+	oracle >> x1;
+	oracle >> x2; // balance proof challenge
+	oracle >> x3; // spend proof challenge
+
 	ExtractBlinded(m_Proof.m_Part2.m_zA, m_rB, x1, m_rA);
 	ExtractBlinded(m_Proof.m_Part2.m_zC, m_rC, x1, m_rD);
 
@@ -555,8 +565,11 @@ void Prover::ExtractPart2(const Scalar::Native& x1, const Scalar::Native& x2)
 	kBalance += dR * xPwr;
 	kBalance *= x2; // challenge
 	kBalance += m_rBalance; // blinding
+
+	kBalance += x3 * m_Witness.V.m_SpendSk;
+
 	kBalance = -kBalance;
-	m_Proof.m_Part2.m_BalanceProof = kBalance;
+	m_Proof.m_Part2.m_ProofG = kBalance;
 
 	zV = -zV;
 	zV += Scalar::Native(m_Witness.V.m_V) * xPwr;
@@ -595,14 +608,11 @@ void Prover::Generate(const uintBig& seed, Oracle& oracle)
 	ExtractGQ();
 
 	m_Proof.m_Part1.m_Output = Commitment(m_Witness.V.m_R_Output, m_Witness.V.m_V);
-	m_Proof.m_Part1.m_BalanceNonce = Context::get().G * m_rBalance;
+	m_Proof.m_Part1.m_NonceG = Context::get().G * m_rBalance;
 
 	m_Proof.m_Part1.Expose(oracle);
 
-	Scalar::Native x1, x2;
-	oracle >> x1;
-	oracle >> x2;
-	ExtractPart2(x1, x2);
+	ExtractPart2(oracle);
 }
 
 

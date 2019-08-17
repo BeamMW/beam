@@ -58,7 +58,7 @@ namespace Lelantus {
 			ECC::Point m_A, m_B, m_C, m_D;
 			ECC::Point m_pG[Cfg::M];
 			ECC::Point m_pQ[Cfg::M];
-			ECC::Point m_BalanceNonce; // maybe not needed, other nonces can be used instead.
+			ECC::Point m_NonceG; // consists of G only. Used to sign both balance and spend proofs.
 
 			void Expose(ECC::Oracle& oracle) const;
 
@@ -68,7 +68,7 @@ namespace Lelantus {
 		{
 			ECC::Scalar m_zA, m_zC, m_zV, m_zR;
 			ECC::Scalar m_pF[Cfg::M][Cfg::n - 1];
-			ECC::Scalar m_BalanceProof;
+			ECC::Scalar m_ProofG; // Both balance and spend proofs
 
 		} m_Part2;
 
@@ -96,7 +96,7 @@ namespace Lelantus {
 		void CalculateP();
 		void ExtractABCD();
 		void ExtractGQ();
-		void ExtractPart2(const ECC::Scalar::Native& x1, const ECC::Scalar::Native& x2);
+		void ExtractPart2(ECC::Oracle&);
 
 		static void ExtractBlinded(ECC::Scalar& out, const ECC::Scalar::Native& sk, const ECC::Scalar::Native& challenge, const ECC::Scalar::Native& nonce);
 
