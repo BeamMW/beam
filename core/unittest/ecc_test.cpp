@@ -2062,58 +2062,78 @@ struct Lelantus
 	struct CommitmentStd
 	{
 		static const uint32_t s_Generators = Cfg::M * Cfg::n + 1;
-		typedef MultiMac_WithBufs<1, s_Generators> MultiMac;
 
-		virtual void get_At(ECC::Scalar::Native&, uint32_t j, uint32_t i) = 0;
-
-		void Calculate(ECC::Point::Native& res, MultiMac& mm, ECC::Scalar::Native& blinding)
+		struct MultiMacMy
+			:public MultiMac_WithBufs<1, s_Generators>
+		{
+			MultiMacMy()
 		{
 			static_assert(s_Generators < ECC::InnerProduct::nDim * 2);
 			const MultiMac::Prepared* pP0 = ECC::Context::get().m_Ipp.m_pGen_[0];
 
-			mm.Reset();
-
-			// A
 			for (uint32_t j = 0; j < Cfg::M; j++)
 			{
-				for (uint32_t i = 0; i < Cfg::n; i++, mm.m_Prepared++)
+					for (uint32_t i = 0; i < Cfg::n; i++, m_Prepared++)
 				{
-					get_At(mm.m_pKPrep[mm.m_Prepared], j, i);
-					mm.m_ppPrepared[mm.m_Prepared] = pP0 + mm.m_Prepared;
+						m_ppPrepared[m_Prepared] = pP0 + m_Prepared;
 				}
 			}
 
-			mm.m_pKPrep[mm.m_Prepared] = blinding;
-			mm.m_ppPrepared[mm.m_Prepared] = pP0 + mm.m_Prepared;
-			mm.m_Prepared++;
-			assert(s_Generators == mm.m_Prepared);
+				m_ppPrepared[m_Prepared] = pP0 + m_Prepared;
+				m_Prepared++;
+				assert(s_Generators == m_Prepared);
+			}
+		};
 
-			mm.Calculate(res);
+		virtual void get_At(ECC::Scalar::Native&, uint32_t j, uint32_t i) = 0;
+
+		void FillEquation(MultiMac& mm, const ECC::Scalar::Native& blinding, const ECC::Scalar::Native* pMultiplier = nullptr)
+		{
+			uint32_t iIdx = 0;
+			ECC::Scalar::Native k;
+
+			for (uint32_t j = 0; j < Cfg::M; j++)
+			{
+				for (uint32_t i = 0; i < Cfg::n; i++, iIdx++)
+				{
+					if (pMultiplier)
+					{
+						get_At(k, j, i);
+						mm.m_pKPrep[iIdx] += k * (*pMultiplier);
+					}
+					else
+						get_At(mm.m_pKPrep[iIdx], j, i);
+				}
+			}
+
+			if (pMultiplier)
+				mm.m_pKPrep[iIdx] += blinding * (*pMultiplier);
+			else
+				mm.m_pKPrep[iIdx] = blinding;
 		}
 
-		void Calculate(ECC::Point& res, MultiMac& mm, ECC::Scalar::Native& blinding)
+		void Calculate(ECC::Point& res, MultiMacMy& mm, const ECC::Scalar::Native& blinding)
 		{
+			FillEquation(mm, blinding);
 			ECC::Point::Native resN;
-			Calculate(resN, mm, blinding);
+			mm.Calculate(resN);
+
 			res = resN;
 		}
 
 		// A + B*x =?= Commitment(..., z)
-		bool IsValid(MultiMac& mm, const ECC::Point& ptA, const ECC::Point& ptB, const ECC::Scalar::Native& x, const ECC::Scalar& z)
+		bool IsValid(InnerProduct::BatchContext& bc, const ECC::Point& ptA, const ECC::Point& ptB, const ECC::Scalar::Native& x, const ECC::Scalar& z)
 		{
-			ECC::Point::Native pt0, pt1;
-			if (!pt0.Import(ptA) ||
-				!pt1.Import(ptB))
+			bc.EquationBegin();
+			FillEquation(bc, z, &bc.m_Multiplier);
+
+			ECC::Scalar::Native k(1U);
+			k = -k;
+			if (!bc.AddCasual(ptA, k))
 				return false;
 
-			pt0 += pt1 * x;
-
-			ECC::Scalar::Native k = z;
-			Calculate(pt1, mm, k);
-
-			pt1 = -pt1;
-			pt1 += pt0;
-			return (pt1 == Zero);
+			k *= x;
+			return bc.AddCasual(ptB, k);
 		}
 	};
 
@@ -2126,12 +2146,14 @@ struct Lelantus
 			ECC::Point m_A, m_B, m_C, m_D;
 			ECC::Point m_pG[Cfg::M];
 			ECC::Point m_pQ[Cfg::M];
+			ECC::Point m_BalanceNonce; // maybe not needed, other nonces can be used instead.
 
-			void get_Challenge(ECC::Scalar::Native& x, Oracle& oracle) const
+			void Expose(Oracle& oracle) const
 			{
 				oracle
 					<< m_Serial
 					<< m_Output
+					<< m_BalanceNonce
 					<< m_A
 					<< m_B
 					<< m_C
@@ -2143,9 +2165,6 @@ struct Lelantus
 						<< m_pG[k]
 						<< m_pQ[k];
 				}
-
-				oracle >> x;
-				//x = Zero;
 			}
 
 		} m_Part1;
@@ -2154,11 +2173,12 @@ struct Lelantus
 		{
 			ECC::Scalar m_zA, m_zC, m_zV, m_zR;
 			ECC::Scalar m_pF[Cfg::M][Cfg::n - 1];
-			ECC::Signature m_BalanceSig; // ballance proof (Schnorr's)
+			ECC::Scalar m_BalanceProof;
 
 		} m_Part2;
 
 		bool IsValid(Oracle& oracle, CmList&) const;
+		bool IsValid(InnerProduct::BatchContext& bc, Oracle& oracle, CmList&) const;
 	};
 
 	struct Prover
@@ -2182,6 +2202,7 @@ struct Lelantus
 		Scalar::Native m_Gamma[Cfg::M];
 		Scalar::Native m_Ro[Cfg::M];
 		Scalar::Native m_Tau[Cfg::M];
+		Scalar::Native m_rBalance;
 
 		// precalculated coeffs
 		Scalar::Native m_p[Cfg::M][Cfg::N]; // very large
@@ -2218,6 +2239,9 @@ struct Lelantus
 					m_a[j][0] += -m_a[j][i];
 				}
 			}
+
+			nonceGen
+				>> m_rBalance;
 		}
 
 		void CalculateP()
@@ -2265,7 +2289,7 @@ struct Lelantus
 
 		void ExtractABCD()
 		{
-			CommitmentStd::MultiMac mm;
+			CommitmentStd::MultiMacMy mm;
 
 			{
 				struct Commitment_A :public CommitmentStd
@@ -2420,10 +2444,10 @@ struct Lelantus
 			out = val;
 		}
 
-		void ExtractPart2(const Scalar::Native& x)
+		void ExtractPart2(const Scalar::Native& x1, const Scalar::Native& x2)
 		{
-			ExtractBlinded(m_Proof.m_Part2.m_zA, m_rB, x, m_rA);
-			ExtractBlinded(m_Proof.m_Part2.m_zC, m_rC, x, m_rD);
+			ExtractBlinded(m_Proof.m_Part2.m_zA, m_rB, x1, m_rA);
+			ExtractBlinded(m_Proof.m_Part2.m_zC, m_rC, x1, m_rD);
 
 			Scalar::Native zV(Zero), zR(Zero), xPwr(1U);
 
@@ -2436,12 +2460,15 @@ struct Lelantus
 
 				kBalance += m_Gamma[j] * xPwr;
 
-				xPwr *= x;
+				xPwr *= x1;
 			}
 
 			Scalar::Native dR = m_Witness.V.m_R - m_Witness.V.m_R_Output;
 			kBalance += dR * xPwr;
-			m_Proof.m_Part2.m_BalanceSig.Sign(Zero, kBalance);
+			kBalance *= x2; // challenge
+			kBalance += m_rBalance; // blinding
+			kBalance = -kBalance;
+			m_Proof.m_Part2.m_BalanceProof = kBalance;
 
 			zV = -zV;
 			zV += Scalar::Native(m_Witness.V.m_V) * xPwr;
@@ -2462,7 +2489,7 @@ struct Lelantus
 				{
 					xPwr = m_a[j][i];
 					if (i == i0)
-						xPwr += x;
+						xPwr += x1;
 
 					m_Proof.m_Part2.m_pF[j][i - 1] = xPwr;
 				}
@@ -2478,15 +2505,30 @@ struct Lelantus
 
 			m_Proof.m_Part1.m_Serial = m_Witness.V.m_Serial;
 			m_Proof.m_Part1.m_Output = ECC::Commitment(m_Witness.V.m_R_Output, m_Witness.V.m_V);
+			m_Proof.m_Part1.m_BalanceNonce = ECC::Context::get().G * m_rBalance;
 
-			Scalar::Native x;
-			m_Proof.m_Part1.get_Challenge(x, oracle);
-			ExtractPart2(x);
+			m_Proof.m_Part1.Expose(oracle);
+
+			Scalar::Native x1, x2;
+			oracle >> x1;
+			oracle >> x2;
+			ExtractPart2(x1, x2);
 		}
 	};
 };
 
 bool Lelantus::Proof::IsValid(Oracle& oracle, CmList& cmList) const
+{
+	if (InnerProduct::BatchContext::s_pInstance)
+		return IsValid(*InnerProduct::BatchContext::s_pInstance, oracle, cmList);
+
+	InnerProduct::BatchContextEx<4> bc;
+	return
+		IsValid(bc, oracle, cmList) &&
+		bc.Flush();
+}
+
+bool Lelantus::Proof::IsValid(InnerProduct::BatchContext& bc, Oracle& oracle, CmList& cmList) const
 {
 	ECC::Mode::Scope scope(ECC::Mode::Fast);
 
@@ -2508,7 +2550,8 @@ bool Lelantus::Proof::IsValid(Oracle& oracle, CmList& cmList) const
 
 	} mctx(*this);
 
-	m_Part1.get_Challenge(mctx.x, oracle);
+	m_Part1.Expose(oracle);
+	oracle >> mctx.x;
 
 	// recover pF0
 	for (uint32_t j = 0; j < Cfg::M; j++)
@@ -2524,8 +2567,6 @@ bool Lelantus::Proof::IsValid(Oracle& oracle, CmList& cmList) const
 
 
 	{
-		Lelantus::CommitmentStd::MultiMac mm;
-
 		// A + B*x =?= Commitment(f, Za)
 		{
 			struct Commitment_1 :public CommitmentStd
@@ -2538,7 +2579,7 @@ bool Lelantus::Proof::IsValid(Oracle& oracle, CmList& cmList) const
 			} c;
 			c.m_p = &mctx;
 
-			if (!c.IsValid(mm, m_Part1.m_A, m_Part1.m_B, mctx.x, m_Part2.m_zA))
+			if (!c.IsValid(bc, m_Part1.m_A, m_Part1.m_B, mctx.x, m_Part2.m_zA))
 				return false;
 		}
 
@@ -2561,7 +2602,7 @@ bool Lelantus::Proof::IsValid(Oracle& oracle, CmList& cmList) const
 			} c;
 			c.m_p = &mctx;
 
-			if (!c.IsValid(mm, m_Part1.m_D, m_Part1.m_C, mctx.x, m_Part2.m_zC))
+			if (!c.IsValid(bc, m_Part1.m_D, m_Part1.m_C, mctx.x, m_Part2.m_zC))
 				return false;
 		}
 	}
@@ -2598,7 +2639,17 @@ bool Lelantus::Proof::IsValid(Oracle& oracle, CmList& cmList) const
 	res += ECC::Context::get().G * m_Part2.m_zR;
 	res += ECC::Context::get().H_Big * m_Part2.m_zV;
 
-	if (!m_Part2.m_BalanceSig.IsValid(Zero, res))
+	ECC::Scalar::Native x2;
+	oracle >> x2;
+
+	ECC::Point::Native pt2;
+	if (!pt2.Import(m_Part1.m_BalanceNonce))
+		return false;
+
+	pt2 += res * x2;
+	pt2 += ECC::Context::get().G * m_Part2.m_BalanceProof;
+
+	if (!(pt2 == Zero))
 		return false;
 
 	mm.Calculate(res);
@@ -2701,8 +2752,15 @@ void TestLelantus()
 	Oracle oracle;
 	p.Generate(Zero, oracle);
 
+	typedef InnerProduct::BatchContextEx<4> MyBatch;
+	MyBatch bc;
+
 	Oracle o2;
-	verify_test(p.m_Proof.IsValid(o2, lst));
+	bool bSuccess =
+		p.m_Proof.IsValid(bc, o2, lst) &&
+		bc.Flush();
+
+	verify_test(bSuccess);
 }
 
 void TestAll()
