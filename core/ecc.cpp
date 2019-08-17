@@ -1651,7 +1651,7 @@ namespace ECC {
 
 			pBc->AddPrepared(InnerProduct::BatchContext::s_Idx_G, m_k);
 			pBc->AddCasual(pk, e);
-			pBc->AddCasual(pubNonce, 1U);
+			pBc->AddCasual(pubNonce, pBc->m_Multiplier, true);
 
 			return true;
 		}

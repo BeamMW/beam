@@ -677,8 +677,8 @@ namespace ECC
 		Scalar::Native m_Multiplier; // must be initialized in a non-trivial way
 		Point::Native m_Sum; // intermediate result, sum of Casuals
 
-		bool AddCasual(const Point& p, const Scalar::Native& k);
-		void AddCasual(const Point::Native& pt, const Scalar::Native& k);
+		bool AddCasual(const Point& p, const Scalar::Native& k, bool bPremultiplied = false);
+		void AddCasual(const Point::Native& pt, const Scalar::Native& k, bool bPremultiplied = false);
 		void AddPrepared(uint32_t i, const Scalar::Native& k);
 
 		void EquationBegin();

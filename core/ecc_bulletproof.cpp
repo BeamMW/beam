@@ -54,17 +54,17 @@ namespace ECC {
 		m_Sum += res;
 	}
 
-	bool InnerProduct::BatchContext::AddCasual(const Point& p, const Scalar::Native& k)
+	bool InnerProduct::BatchContext::AddCasual(const Point& p, const Scalar::Native& k, bool bPremultiplied /* = false */)
 	{
 		Point::Native pt;
 		if (!pt.Import(p))
 			return false;
 
-		AddCasual(pt, k);
+		AddCasual(pt, k, bPremultiplied);
 		return true;
 	}
 
-	void InnerProduct::BatchContext::AddCasual(const Point::Native& pt, const Scalar::Native& k)
+	void InnerProduct::BatchContext::AddCasual(const Point::Native& pt, const Scalar::Native& k, bool bPremultiplied /* = false */)
 	{
 		if (uint32_t(m_Casual) == m_CasualTotal)
 		{
@@ -79,6 +79,8 @@ namespace ECC {
 		Casual& c = m_pCasual[m_Casual++];
 
 		c.Init(pt, k);
+
+		if (!bPremultiplied)
 		c.m_K *= m_Multiplier;
 	}
 
