@@ -17,8 +17,9 @@
 #include "utility/logger.h"
 #include "core/proto.h"
 #include "utility/io/timer.h"
+#include "wallet/bbs_miner.h"
 #include <boost/intrusive/set.hpp>
-#include <boost/intrusive/list.hpp>
+#include "wallet_request_bbs_msg.h"
 #include "wallet.h"
 
 namespace beam::wallet
@@ -90,18 +91,9 @@ namespace beam::wallet
         std::shared_ptr<proto::FlyClient::INetwork> m_NodeEndpoint;
         IWalletDB::Ptr m_WalletDB;
 
-        struct MyRequestBbsMsg
-            :public proto::FlyClient::RequestBbsMsg
-            ,public boost::intrusive::list_base_hook<>
-        {
-            typedef boost::intrusive_ptr<MyRequestBbsMsg> Ptr;
-            virtual ~MyRequestBbsMsg() {}
-        };
-
-        typedef boost::intrusive::list<MyRequestBbsMsg> BbsMsgList;
         BbsMsgList m_PendingBbsMsgs;
 
-        void DeleteReq(MyRequestBbsMsg& r);
+        void DeleteReq(WalletRequestBbsMsg& r);
 
         struct BbsSentEvt
             :public proto::FlyClient::Request::IHandler
@@ -119,37 +111,7 @@ namespace beam::wallet
         void OnTimerBbsTmSave();
         void SaveBbsTimestamps();
 
-        struct Miner
-        {
-            // message mining
-            std::vector<std::thread> m_vThreads;
-            std::mutex m_Mutex;
-            std::condition_variable m_NewTask;
-
-            volatile bool m_Shutdown;
-            io::AsyncEvent::Ptr m_pEvt;
-
-            struct Task
-            {
-                proto::BbsMsg m_Msg;
-                ECC::Hash::Processor m_hpPartial;
-                volatile bool m_Done;
-
-                typedef std::shared_ptr<Task> Ptr;
-            };
-
-            typedef std::deque<Task::Ptr> TaskQueue;
-
-            TaskQueue m_Pending;
-            TaskQueue m_Done;
-
-            Miner() :m_Shutdown(false) {}
-            ~Miner() { Stop(); }
-
-            void Stop();
-            void Thread(uint32_t);
-
-        } m_Miner;
+        BbsMiner m_Miner;
 
         void OnMined();
         void OnMined(proto::BbsMsg&&);

@@ -10,6 +10,7 @@ set(WALLET_SRC
     wallet.cpp
     base_transaction.cpp
     base_tx_builder.cpp
+    bbs_miner.cpp
     wallet_transaction.cpp
     wallet_network.cpp
     wallet_db.cpp

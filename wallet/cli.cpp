@@ -1291,7 +1291,7 @@ namespace
                    const po::variables_map& vm)
     {
         io::Address receiverAddr;
-        Amount aMy = 0, aTrg = 0, fee = 100;
+        Amount aMy = 0, aTrg = 0, fee = cli::kMinimumFee;
         WalletID receiverWalletID(Zero);
         Height locktime = kDefaultTxLifetime;
 
@@ -1309,7 +1309,7 @@ namespace
     bool LaserWait(const unique_ptr<laser::Mediator>& laser,
                    const po::variables_map& vm)
     {
-        Amount fee = 0, amountMy = 0;
+        Amount fee = cli::kMinimumFee, amountMy = 0;
         if (vm.count(cli::LASER_AMOUNT_MY))
         {
             auto amount = vm[cli::LASER_AMOUNT_MY].as<Positive<double>>().value;
@@ -1318,10 +1318,8 @@ namespace
         }
         else
         {
-            LOG_ERROR() << "amount is missing";
-            return false;
+            LOG_INFO() << "My amount is 0.";
         }
-
         if (vm.count(cli::LASER_FEE))
         {
             fee = vm[cli::FEE].as<Nonnegative<Amount>>().value;
@@ -1390,7 +1388,6 @@ namespace
 
         Block::SystemState::ID id;
         walletDB->getSystemStateID(id);
-        LOG_INFO() << "Current state is " << id;
 
         cout << "Laser Channels:\n\n"
             << "  " << std::left
@@ -1409,8 +1406,9 @@ namespace
                 << setw(columnWidths[2]) << PrintableAmount(std::get<9>(ch), true) << "|"
                 << setw(columnWidths[3]) << LaserChannelStateStr(std::get<3>(ch)) << "|"
                 << setw(columnWidths[4]) << PrintableAmount(std::get<4>(ch), true) << "|"
-                << setw(columnWidths[5]) << std::get<10>(ch) << "\n";
+                << setw(columnWidths[5]) << std::get<10>(ch) << std::endl;
         }
+        cout << "Current state is " << id << std::endl;
     }
 
     bool LaserClose(const unique_ptr<laser::Mediator>& laser,
