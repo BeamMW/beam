@@ -2037,12 +2037,13 @@ void TestLelantus()
 	p.m_Witness.V.m_L = 333;
 	SetRandom(p.m_Witness.V.m_SpendSk);
 
-	Point pt_ = Context::get().G * p.m_Witness.V.m_SpendSk;
+	Point::Native pt = Context::get().G * p.m_Witness.V.m_SpendSk;
+	Point pt_ = pt;
 	Scalar::Native ser;
 	beam::Lelantus::SpendKey::ToSerial(ser, pt_);
 
 
-	Point::Native pt = Commitment(p.m_Witness.V.m_R, p.m_Witness.V.m_V);
+	pt = Commitment(p.m_Witness.V.m_R, p.m_Witness.V.m_V);
 	pt += Context::get().J * ser;
 	lst.m_vec[p.m_Witness.V.m_L] = pt;
 
