@@ -298,7 +298,7 @@ bool Proof::IsValid(InnerProduct::BatchContext& bc, Oracle& oracle, CmList& cmLi
 
 	kSer = -kSer;
 	kSer *= xPwr;
-	bc.m_pKPrep[InnerProduct::BatchContext::s_Idx_J] += kSer;
+	bc.AddPreparedM(InnerProduct::BatchContext::s_Idx_J, kSer);
 
 	// compare with target
 	bc.m_Multiplier = -kMulPG;

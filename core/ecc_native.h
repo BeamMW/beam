@@ -681,6 +681,7 @@ namespace ECC
 		bool AddCasual(const Point& p, const Scalar::Native& k, bool bPremultiplied = false);
 		void AddCasual(const Point::Native& pt, const Scalar::Native& k, bool bPremultiplied = false);
 		void AddPrepared(uint32_t i, const Scalar::Native& k);
+		void AddPreparedM(uint32_t i, const Scalar::Native& k);
 
 		void EquationBegin();
 

@@ -87,10 +87,13 @@ namespace ECC {
 
 	void InnerProduct::BatchContext::AddPrepared(uint32_t i, const Scalar::Native& k)
 	{
-		assert(i < s_CountPrepared);
-		Scalar::Native& trg = m_Bufs.m_pKPrep[i];
+		AddPreparedM(i, k * m_Multiplier);
+	}
 
-		trg += (k * m_Multiplier);
+	void InnerProduct::BatchContext::AddPreparedM(uint32_t i, const Scalar::Native& k)
+	{
+		assert(i < s_CountPrepared);
+		m_Bufs.m_pKPrep[i] += k;
 	}
 
 	void InnerProduct::BatchContext::Reset()
@@ -331,7 +334,7 @@ namespace ECC {
 					Scalar::Native k2;
 					m_Mod.Set(k2, k, iPos, m_j);
 
-					m_pBatchCtx->m_Bufs.m_pKPrep[iPos + m_j * InnerProduct::nDim] += k2;
+					m_pBatchCtx->AddPreparedM(iPos + m_j * InnerProduct::nDim, k2);
 				}
 				else
 				{
@@ -1105,13 +1108,20 @@ namespace ECC {
 		mul *= cs.yInv;
 		pwr = zz;
 		pwr *= cs_.m_Mul2;
+		pwr *= bc.m_Multiplier;
 
-		for (uint32_t i = 0; i < InnerProduct::nDim; i++)
+		Scalar::Native& zMul = sumY; // alias
+		zMul = cs.z * bc.m_Multiplier;
+
+		for (uint32_t i = 0; ; )
 		{
 			sum2 = pwr;
-			sum2 += cs.z;
+			sum2 += zMul;
 
-			bc.AddPrepared(InnerProduct::nDim + i, sum2);
+			bc.AddPreparedM(InnerProduct::nDim + i, sum2);
+
+			if (InnerProduct::nDim == ++i)
+				break;
 
 			pwr *= mul;
 		}
