@@ -206,7 +206,7 @@ namespace ECC
 			struct Fast
 			{
 				// In fast mode: x1 is assigned from the beginning, then on-demand calculated x2 and then only odd multiples.
-				static const int nMaxOdd = (1 << 5) - 1; // 31
+				static const int nMaxOdd = (1 << 4) - 1; // 15
 				static const int nCount = (nMaxOdd >> 1) + 2; // we need a single even: x2
 			};
 
