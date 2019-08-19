@@ -18,8 +18,6 @@
 #include <QSettings>
 #include <QDir>
 #include <mutex>
-#include <optional>
-
 #include "model/wallet_model.h"
 #include "wallet/bitcoin/settings.h"
 

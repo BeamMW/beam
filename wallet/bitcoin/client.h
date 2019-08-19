@@ -58,6 +58,7 @@ namespace beam::bitcoin
         IClientAsync::Ptr GetAsync();
 
         BitcoinCoreSettings GetBitcoinCoreSettings() const override;
+        ElectrumSettings GetElectrumSettings() const override;
         Settings GetSettings() const override;
         void SetSettings(const Settings& settings) override;
 

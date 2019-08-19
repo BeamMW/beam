@@ -59,6 +59,12 @@ namespace beam::bitcoin
         return m_settingsProvider->GetBitcoinCoreSettings();
     }
 
+    ElectrumSettings Client::GetElectrumSettings() const
+    {
+        Lock lock(m_mutex);
+        return m_settingsProvider->GetElectrumSettings();
+    }
+
     Settings Client::GetSettings() const
     {
         Lock lock(m_mutex);

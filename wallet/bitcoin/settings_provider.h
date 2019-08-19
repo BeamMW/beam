@@ -33,8 +33,19 @@ namespace beam::bitcoin
         virtual BitcoinCoreSettings GetBitcoinCoreSettings() const = 0;
     };
 
+    class IElectrumSettingsProvider
+    {
+    public:
+        using Ptr2 = std::shared_ptr<IElectrumSettingsProvider>;
+
+        virtual ~IElectrumSettingsProvider() = default;
+
+        virtual ElectrumSettings GetElectrumSettings() const = 0;
+    };
+
     class ISettingsProvider
         : public IBitcoinCoreSettingsProvider
+        , public IElectrumSettingsProvider
     {
     public:
         using Ptr = std::shared_ptr<ISettingsProvider>;
@@ -51,6 +62,7 @@ namespace beam::bitcoin
         SettingsProvider(wallet::IWalletDB::Ptr walletDB);
 
         BitcoinCoreSettings GetBitcoinCoreSettings() const override;
+        ElectrumSettings GetElectrumSettings() const override;
         Settings GetSettings() const override;
         void SetSettings(const Settings& settings) override;
         void ResetSettings() override;

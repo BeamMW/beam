@@ -35,13 +35,6 @@ namespace beam::bitcoin
             HTTP_INTERNAL_SERVER_ERROR = 500,
             HTTP_SERVICE_UNAVAILABLE = 503,
         };
-
-        std::string generateAuthorization(const std::string& userName, const std::string& pass)
-        {
-            std::string userWithPass(userName + ":" + pass);
-            libbitcoin::data_chunk t(userWithPass.begin(), userWithPass.end());
-            return std::string("Basic " + libbitcoin::encode_base64(t));
-        }
     }
 
     BitcoinCore016::BitcoinCore016(io::Reactor& reactor, IBitcoinCoreSettingsProvider::Ptr settingsProvider)
@@ -218,7 +211,7 @@ namespace beam::bitcoin
         });
     }
 
-    void BitcoinCore016::getTxOut(const std::string& txid, int outputIndex, std::function<void(const IBridge::Error&, const std::string&, double, uint16_t)> callback)
+    void BitcoinCore016::getTxOut(const std::string& txid, int outputIndex, std::function<void(const IBridge::Error&, const std::string&, double, uint32_t)> callback)
     {
         LOG_DEBUG() << "Send getTxOut command";
 
@@ -338,7 +331,7 @@ namespace beam::bitcoin
     {
         const std::string content(R"({"method":")" + method + R"(","params":[)" + params + "]}");
         auto settings = m_settingsProvider->GetBitcoinCoreSettings();
-        const std::string authorization(generateAuthorization(settings.m_userName, settings.m_pass));
+        const std::string authorization(settings.generateAuthorization());
         const HeaderPair headers[] = {
             {"Authorization", authorization.data()}
         };

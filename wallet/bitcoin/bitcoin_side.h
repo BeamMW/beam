@@ -71,7 +71,7 @@ namespace beam::wallet
         void OnSignLockTransaction(const bitcoin::IBridge::Error& error, const std::string& hexTx, bool complete);
         void OnCreateWithdrawTransaction(SubTxID subTxID, const bitcoin::IBridge::Error& error, const std::string& hexTx);
         void OnDumpPrivateKey(SubTxID subTxID, const bitcoin::IBridge::Error& error, const std::string& privateKey);
-        void OnGetSwapLockTxConfirmations(const bitcoin::IBridge::Error& error, const std::string& hexScript, double amount, uint16_t confirmations);
+        void OnGetSwapLockTxConfirmations(const bitcoin::IBridge::Error& error, const std::string& hexScript, double amount, uint32_t confirmations);
         void OnGetBlockCount(const bitcoin::IBridge::Error& error, uint64_t blockCount);
 
     private:
@@ -81,7 +81,7 @@ namespace beam::wallet
         bool m_isBtcOwner;
         uint64_t m_blockCount = 0;
 
-        uint16_t m_SwapLockTxConfirmations = 0;
+        uint32_t m_SwapLockTxConfirmations = 0;
         boost::optional<std::string> m_SwapLockRawTx;
         boost::optional<std::string> m_SwapWithdrawRawTx;
     };

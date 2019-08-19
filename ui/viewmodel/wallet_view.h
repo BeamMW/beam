@@ -29,20 +29,20 @@ class WalletViewModel : public QObject
     Q_PROPERTY(double  ltcAvailable    READ ltcAvailable     NOTIFY stateChanged)
     Q_PROPERTY(double  qtumAvailable   READ qtumAvailable    NOTIFY stateChanged)
 
-    Q_PROPERTY(QString beamReceiving   READ beamReceiving    NOTIFY stateChanged)
-    Q_PROPERTY(QString btcReceiving    READ btcReceiving     NOTIFY stateChanged)
-    Q_PROPERTY(QString ltcReceiving    READ ltcReceiving     NOTIFY stateChanged)
-    Q_PROPERTY(QString qtumReceiving   READ qtumReceiving    NOTIFY stateChanged)
+    Q_PROPERTY(double beamReceiving   READ beamReceiving    NOTIFY stateChanged)
+    Q_PROPERTY(double btcReceiving    READ btcReceiving     NOTIFY stateChanged)
+    Q_PROPERTY(double ltcReceiving    READ ltcReceiving     NOTIFY stateChanged)
+    Q_PROPERTY(double qtumReceiving   READ qtumReceiving    NOTIFY stateChanged)
 
-    Q_PROPERTY(QString beamSending   READ beamSending  NOTIFY stateChanged)
-    Q_PROPERTY(QString btcSending    READ btcSending   NOTIFY stateChanged)
-    Q_PROPERTY(QString ltcSending    READ ltcSending   NOTIFY stateChanged)
-    Q_PROPERTY(QString qtumSending   READ qtumSending  NOTIFY stateChanged)
+    Q_PROPERTY(double beamSending   READ beamSending  NOTIFY stateChanged)
+    Q_PROPERTY(double btcSending    READ btcSending   NOTIFY stateChanged)
+    Q_PROPERTY(double ltcSending    READ ltcSending   NOTIFY stateChanged)
+    Q_PROPERTY(double qtumSending   READ qtumSending  NOTIFY stateChanged)
 
-    Q_PROPERTY(QString beamLocked    READ beamLocked  NOTIFY stateChanged)
-    Q_PROPERTY(QString btcLocked     READ btcLocked   NOTIFY stateChanged)
-    Q_PROPERTY(QString ltcLocked     READ ltcLocked   NOTIFY stateChanged)
-    Q_PROPERTY(QString qtumLocked    READ qtumLocked  NOTIFY stateChanged)
+    Q_PROPERTY(double beamLocked    READ beamLocked  NOTIFY stateChanged)
+    Q_PROPERTY(double btcLocked     READ btcLocked   NOTIFY stateChanged)
+    Q_PROPERTY(double ltcLocked     READ ltcLocked   NOTIFY stateChanged)
+    Q_PROPERTY(double qtumLocked    READ qtumLocked  NOTIFY stateChanged)
 
 
     Q_PROPERTY(QString maturing    READ maturing     NOTIFY stateChanged)
@@ -114,6 +114,8 @@ public:
 public slots:
     void onTxStatus(beam::wallet::ChangeAction action, const std::vector<beam::wallet::TxDescription>& items);
     void onAddresses(bool own, const std::vector<beam::wallet::WalletAddress>& addresses);
+
+    void onBitcoinStateChanged();
 
 signals:
     void stateChanged();

@@ -28,12 +28,29 @@ namespace beam::bitcoin
         std::string m_pass;
         io::Address m_address;
 
+        std::string generateAuthorization();
+
         bool IsInitialized() const
         {
             return !m_userName.empty() && !m_pass.empty() && !m_address.empty();
         }
 
         SERIALIZE(m_userName, m_pass, m_address);
+    };
+
+    struct ElectrumSettings
+    {
+        io::Address m_address;
+        std::vector<std::string> m_secretWords;
+        uint8_t m_addressVersion;
+        bool m_isMainnet;
+
+        bool IsInitialized() const
+        {
+            return !m_secretWords.empty() && !m_address.empty();
+        }
+
+        SERIALIZE(m_address, m_secretWords, m_addressVersion, m_isMainnet);
     };
 
     class ISettings
@@ -43,7 +60,8 @@ namespace beam::bitcoin
         
         virtual ~ISettings() {};
 
-        virtual const BitcoinCoreSettings& GetConnectionOptions() const = 0;
+        virtual BitcoinCoreSettings GetConnectionOptions() const = 0;
+        virtual ElectrumSettings GetElectrumConnectionOptions() const = 0;
         virtual Amount GetFeeRate() const = 0;
         virtual Amount GetMinFeeRate() const = 0;
         virtual uint16_t GetTxMinConfirmations() const = 0;
@@ -57,7 +75,8 @@ namespace beam::bitcoin
     public:
        // Settings() = default;
        // ~Settings() = default;
-        const BitcoinCoreSettings& GetConnectionOptions() const override;
+        BitcoinCoreSettings GetConnectionOptions() const override;
+        ElectrumSettings GetElectrumConnectionOptions() const override;
         Amount GetFeeRate() const override;
         Amount GetMinFeeRate() const override;
         uint16_t GetTxMinConfirmations() const override;
@@ -66,16 +85,18 @@ namespace beam::bitcoin
         bool IsInitialized() const override;
 
         void SetConnectionOptions(const BitcoinCoreSettings& connectionSettings);
+        void SetElectrumConnectionOptions(const ElectrumSettings& connectionSettings);
         void SetFeeRate(Amount feeRate);
         void SetMinFeeRate(Amount feeRate);
         void SetTxMinConfirmations(uint16_t txMinConfirmations);
         void SetLockTimeInBlocks(uint32_t lockTimeInBlocks);
         void SetChainType(wallet::SwapSecondSideChainType chainType);
 
-        SERIALIZE(m_connectionSettings, m_feeRate, m_minFeeRate, m_txMinConfirmations, m_chainType, m_lockTimeInBlocks);
+        SERIALIZE(m_connectionSettings, m_electrumConnectionSettings, m_feeRate, m_minFeeRate, m_txMinConfirmations, m_chainType, m_lockTimeInBlocks);
 
     protected:
         BitcoinCoreSettings m_connectionSettings;
+        ElectrumSettings m_electrumConnectionSettings;
         Amount m_feeRate = 90000;
         Amount m_minFeeRate = 50000;
         uint16_t m_txMinConfirmations = 6;
