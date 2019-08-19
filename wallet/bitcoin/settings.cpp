@@ -13,9 +13,17 @@
 // limitations under the License.
 
 #include "settings.h"
+#include "bitcoin/bitcoin.hpp"
 
 namespace beam::bitcoin
 {
+    std::string BitcoinCoreSettings::generateAuthorization()
+    {
+        std::string userWithPass(m_userName + ":" + m_pass);
+        libbitcoin::data_chunk t(userWithPass.begin(), userWithPass.end());
+        return std::string("Basic " + libbitcoin::encode_base64(t));
+    }
+
     BitcoinCoreSettings Settings::GetConnectionOptions() const
     {
         return m_connectionSettings;

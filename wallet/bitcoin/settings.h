@@ -28,6 +28,8 @@ namespace beam::bitcoin
         std::string m_pass;
         io::Address m_address;
 
+        std::string generateAuthorization();
+
         bool IsInitialized() const
         {
             return !m_userName.empty() && !m_pass.empty() && !m_address.empty();
