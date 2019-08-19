@@ -20,14 +20,14 @@ namespace Lelantus {
 
 	struct CmList
 	{
-		virtual bool get_At(ECC::Point&, uint32_t iIdx) = 0;
+		virtual bool get_At(ECC::Point::Storage&, uint32_t iIdx) = 0;
 	};
 
 	struct CmListVec
 		:public CmList
 	{
-		std::vector<ECC::Point> m_vec;
-		virtual bool get_At(ECC::Point& res, uint32_t iIdx) override
+		std::vector<ECC::Point::Storage> m_vec;
+		virtual bool get_At(ECC::Point::Storage& res, uint32_t iIdx) override
 		{
 			if (iIdx >= m_vec.size())
 				return false;

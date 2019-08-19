@@ -271,10 +271,11 @@ bool Proof::IsValid(InnerProduct::BatchContext& bc, Oracle& oracle, CmList& cmLi
 	// Commitments from CmList
 	Scalar::Native kSer(Zero);
 
+	Point::Native pt;
 	for (uint32_t iPos = 0; iPos < Cfg::N; iPos++)
 	{
-		Point pt;
-		if (!cmList.get_At(pt, iPos))
+		Point::Storage pt_s;
+		if (!cmList.get_At(pt_s, iPos))
 			break;
 
 		Scalar::Native k = kMulPG;
@@ -290,8 +291,8 @@ bool Proof::IsValid(InnerProduct::BatchContext& bc, Oracle& oracle, CmList& cmLi
 
 		kSer += k;
 
-		if (!bc.AddCasual(pt, k, true))
-			return false;
+		pt.Import(pt_s);
+		bc.AddCasual(pt, k, true);
 	}
 
 	SpendKey::ToSerial(xPwr, m_Part1.m_SpendPk);
@@ -476,12 +477,11 @@ void Prover::ExtractGQ()
 	{
 		for (mm.Reset(); static_cast<uint32_t>(mm.m_Casual) < nSizeNaggle; mm.m_Casual++)
 		{
-			Point pt;
-			if (!m_List.get_At(pt, iPos + mm.m_Casual))
+			Point::Storage pt_s;
+			if (!m_List.get_At(pt_s, iPos + mm.m_Casual))
 				break;
-			if (!comm.Import(pt))
-				break; //?!?
 
+			comm.Import(pt_s);
 			mm.m_pCasual[mm.m_Casual].Init(comm);
 		}
 

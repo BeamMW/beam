@@ -2026,7 +2026,7 @@ void TestLelantus()
 	SetRandom(rnd);
 
 	for (size_t i = 0; i < lst.m_vec.size(); i++, rnd += rnd)
-		lst.m_vec[i] = rnd;
+		rnd.Export(lst.m_vec[i]);
 
 	std::unique_ptr<beam::Lelantus::Prover> pProver(std::make_unique<beam::Lelantus::Prover>(lst));
 	beam::Lelantus::Prover& p = *pProver;
@@ -2045,7 +2045,7 @@ void TestLelantus()
 
 	pt = Commitment(p.m_Witness.V.m_R, p.m_Witness.V.m_V);
 	pt += Context::get().J * ser;
-	lst.m_vec[p.m_Witness.V.m_L] = pt;
+	pt.Export(lst.m_vec[p.m_Witness.V.m_L]);
 
 	//const uint32_t N = Lelantus::Cfg::N;
 
