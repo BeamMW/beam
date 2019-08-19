@@ -63,19 +63,8 @@ namespace std
             return "";
         }
     }
-}
 
-namespace beam
-{
-    std::ostream& operator<<(std::ostream& os, const wallet::TxID& uuid)
-    {
-        stringstream ss;
-        ss << "[" << to_hex(uuid.data(), uuid.size()) << "]";
-        os << ss.str();
-        return os;
-    }
-
-    std::ostream& operator<<(std::ostream& os, const wallet::PrintableAmount& amount)
+    string to_string(const beam::wallet::PrintableAmount& amount)
     {
         stringstream ss;
 
@@ -86,7 +75,7 @@ namespace beam
             string s = ss.str();
             boost::algorithm::trim_right_if(s, boost::is_any_of("0"));
             boost::algorithm::trim_right_if(s, boost::is_any_of(",."));
-            os << s;
+            return s;
         }
         else
         {
@@ -99,8 +88,24 @@ namespace beam
             {
                 ss << c << " groth ";
             }
-            os << ss.str();
+            return ss.str();
         }
+    }
+}
+
+namespace beam
+{
+    std::ostream& operator<<(std::ostream& os, const wallet::TxID& uuid)
+    {
+        stringstream ss;
+        ss << "[" << to_hex(uuid.data(), uuid.size()) << "]";
+            os << ss.str();
+        return os;
+        }
+
+    std::ostream& operator<<(std::ostream& os, const wallet::PrintableAmount& amount)
+    {
+        os << std::to_string(amount);
         
         return os;
     }

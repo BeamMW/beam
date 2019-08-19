@@ -14,6 +14,8 @@
 
 #include "wallet/common_utils.h"
 
+#include <boost/format.hpp>
+#include "wallet/strings_resources.h"
 #include "utility/logger.h"
 
 namespace beam::wallet
@@ -33,10 +35,10 @@ WalletAddress GenerateNewAddress(
         walletDB->saveAddress(address);
     }
 
-    LOG_INFO() << "New address generated:\n\n"
-               << std::to_string(address.m_walletID) << "\n";
+    LOG_INFO() << boost::format(kAddrNewGenerated) 
+               % std::to_string(address.m_walletID);
     if (!label.empty()) {
-        LOG_INFO() << "label = " << label;
+        LOG_INFO() << boost::format(kAddrNewGeneratedLabel) % label;
     }
     return address;
 }
