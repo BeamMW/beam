@@ -621,7 +621,7 @@ namespace beam::bitcoin
 
         for (uint32_t i = 0; i < getChangeAddressAmount(); i++) 
         {
-            result.push_back(ec_private(m_changePrivateKey.derive_private(i).secret(), m_settingsProvider->GetElectrumSettings().m_addressVersion));
+            result.push_back(ec_private(m_changePrivateKey.derive_private(i).secret(), addressVersion));
         }
         return result;
     }
