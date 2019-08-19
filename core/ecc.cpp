@@ -473,6 +473,13 @@ namespace ECC {
 		return memis0(&v, sizeof(v));
 	}
 
+	void Point::Native::ExportNnz(secp256k1_ge& ge) const
+	{
+		NoLeak<secp256k1_gej> dup;
+		dup.V = *this;
+		secp256k1_ge_set_gej(&ge, &dup.V);
+	}
+
 	bool Point::Native::Export(Point& v) const
 	{
 		if (*this == Zero)
@@ -481,10 +488,8 @@ namespace ECC {
 			return false;
 		}
 
-		NoLeak<secp256k1_gej> dup;
-		dup.V = *this;
 		NoLeak<secp256k1_ge> ge;
-		secp256k1_ge_set_gej(&ge.V, &dup.V);
+		ExportNnz(ge.V);
 
 		// seems like normalization can be omitted (already done by secp256k1_ge_set_gej), but not guaranteed according to docs.
 		// But this has a negligible impact on the performance
@@ -500,6 +505,30 @@ namespace ECC {
 	{
 		secp256k1_fe_get_b32(v.m_X.m_pData, &ge.x);
 		v.m_Y = (secp256k1_fe_is_odd(&ge.y) != 0);
+	}
+
+	void Point::Native::Export(Storage& v) const
+	{
+		if (*this == Zero)
+			ZeroObject(v);
+		else
+		{
+			secp256k1_ge ge;
+			ExportNnz(ge);
+			secp256k1_ge_to_storage(&v, &ge);
+		}
+	}
+
+	void Point::Native::Import(const Storage& v)
+	{
+		if (memis0(&v, sizeof(v)))
+			*this = Zero;
+		else
+		{
+			secp256k1_ge ge;
+			secp256k1_ge_from_storage(&ge, &v);
+			secp256k1_gej_set_ge(this, &ge);
+		}
 	}
 
 	Point::Native& Point::Native::operator = (Zero_)

@@ -112,6 +112,11 @@ namespace ECC
 
     std::ostream& operator << (std::ostream&, const Scalar::Native&);
 
+	struct Point::Storage
+		:public secp256k1_ge_storage
+	{
+	};
+
 	class Point::Native
 		:private secp256k1_gej
 	{
@@ -122,6 +127,9 @@ namespace ECC
 		typedef Op::Binary<Op::Mul, Native, Scalar::Native>	Mul;
 
 		Native(const Point&);
+
+		void ExportNnz(secp256k1_ge&) const;
+
 	public:
 		secp256k1_gej& get_Raw() { return *this; } // use with care
 
@@ -157,6 +165,9 @@ namespace ECC
 		bool Export(Point&) const; // if the point is zero - returns false and zeroes the result
 
 		static void ExportEx(Point&, const secp256k1_ge&);
+
+		void Import(const Storage&);
+		void Export(Storage&) const;
 	};
 
     std::ostream& operator << (std::ostream&, const Point::Native&);

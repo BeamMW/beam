@@ -132,10 +132,11 @@ namespace ECC
 		int cmp(const Point&) const;
 		COMPARISON_VIA_CMP
 
-
 		Point& operator = (const Native&);
 		Point& operator = (const Point&);
 		Point& operator = (const Commitment&);
+
+		struct Storage;
 	};
 
 	std::ostream& operator << (std::ostream&, const Point&);
