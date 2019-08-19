@@ -1240,7 +1240,7 @@ namespace
             channelIDsStr.reserve(chDBEntities.size());
             for (auto& ch : chDBEntities)
             {
-                const auto& chID = std::get<0>(ch);
+                const auto& chID = std::get<LaserFields::LASER_CH_ID>(ch);
                 channelIDsStr.emplace_back(
                     beam::to_hex(chID.m_pData, chID.nBytes));
             }
@@ -1395,15 +1395,15 @@ namespace
 
         for (auto& ch : walletDB->loadLaserChannels())
         {
-            const auto& chID = std::get<0>(ch);
+            const auto& chID = std::get<LaserFields::LASER_CH_ID>(ch);
 
             cout << boost::format(kLaserChannelTableBody)
                 % boost::io::group(left, setw(columnWidths[0]), beam::to_hex(chID.m_pData, chID.nBytes))
-                % boost::io::group(left, setw(columnWidths[1]), to_string(PrintableAmount(std::get<8>(ch), true)))
-                % boost::io::group(left, setw(columnWidths[2]), to_string(PrintableAmount(std::get<9>(ch), true)))
-                % boost::io::group(left, setw(columnWidths[3]), LaserChannelStateStr(std::get<3>(ch)))
-                % boost::io::group(left, setw(columnWidths[4]), to_string(PrintableAmount(std::get<4>(ch), true)))
-                % boost::io::group(left, setw(columnWidths[5]), std::get<10>(ch))
+                % boost::io::group(left, setw(columnWidths[1]), to_string(PrintableAmount(std::get<LaserFields::LASER_AMOUNT_CURRENT_MY>(ch), true)))
+                % boost::io::group(left, setw(columnWidths[2]), to_string(PrintableAmount(std::get<LaserFields::LASER_AMOUNT_CURRENT_TRG>(ch), true)))
+                % boost::io::group(left, setw(columnWidths[3]), LaserChannelStateStr(std::get<LaserFields::LASER_STATE>(ch)))
+                % boost::io::group(left, setw(columnWidths[4]), to_string(PrintableAmount(std::get<LaserFields::LASER_FEE>(ch), true)))
+                % boost::io::group(left, setw(columnWidths[5]), std::get<LaserFields::LASER_LOCK_HEIGHT>(ch))
                 << std::endl;
         }
         cout << boost::format(kCurrentState) % id << std::endl;

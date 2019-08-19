@@ -315,8 +315,8 @@ void Mediator::Delete(const std::vector<std::string>& channelIDsStr)
         }
         TLaserChannelEntity chDBEntity;
         if (m_pWalletDB->getLaserChannel(chId, &chDBEntity) &&
-            *chId == std::get<0>(chDBEntity) &&
-            CanBeDeleted(std::get<3>(chDBEntity)))
+            *chId == std::get<LaserFields::LASER_CH_ID>(chDBEntity) &&
+            CanBeDeleted(std::get<LaserFields::LASER_STATE>(chDBEntity)))
         {
             if (m_pWalletDB->removeLaserChannel(chId))
             {
@@ -581,9 +581,9 @@ bool Mediator::RestoreChannelInternal(const ChannelIDPtr& chID)
 {
     TLaserChannelEntity chDBEntity;
     if (m_pWalletDB->getLaserChannel(chID, &chDBEntity) &&
-        *chID == std::get<0>(chDBEntity))
+        *chID == std::get<LaserFields::LASER_CH_ID>(chDBEntity))
     {
-        auto& myWID = std::get<1>(chDBEntity);
+        auto& myWID = std::get<LaserFields::LASER_MY_WID>(chDBEntity);
         auto myAddr = m_pWalletDB->getAddress(myWID, true);
         if (!myAddr) {
             LOG_ERROR() << "Can't load address from DB: "
@@ -591,7 +591,7 @@ bool Mediator::RestoreChannelInternal(const ChannelIDPtr& chID)
             return false;
         }
 
-        auto state = std::get<3>(chDBEntity);
+        auto state = std::get<LaserFields::LASER_STATE>(chDBEntity);
         if (CanBeLoaded(state))
         {
             m_channels[chID] = std::make_unique<Channel>(

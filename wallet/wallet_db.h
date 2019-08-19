@@ -25,6 +25,7 @@
 #  pragma clang diagnostic pop
 #endif
 
+#include <tuple>
 #include "core/common.h"
 #include "core/ecc_native.h"
 #include "wallet/common.h"
@@ -133,6 +134,24 @@ namespace beam::wallet
         virtual const Timestamp& get_BbsTimestamp() const = 0;
         virtual const ByteBuffer& get_Data() const = 0;
         virtual const WalletAddress& get_myAddr() const = 0;
+    };
+
+    class LaserFields
+    {
+    public:
+        static constexpr size_t LASER_CH_ID = 0;
+        static constexpr size_t LASER_MY_WID = 1;
+        static constexpr size_t LASER_TRG_WID = 2;
+        static constexpr size_t LASER_STATE = 3;
+        static constexpr size_t LASER_FEE = 4;
+        static constexpr size_t LASER_LOCKTIME = 5;
+        static constexpr size_t LASER_AMOUNT_MY = 6;
+        static constexpr size_t LASER_AMOUNT_TRG = 7;
+        static constexpr size_t LASER_AMOUNT_CURRENT_MY = 8;
+        static constexpr size_t LASER_AMOUNT_CURRENT_TRG = 9;
+        static constexpr size_t LASER_LOCK_HEIGHT = 10;
+        static constexpr size_t LASER_BBS_TIMESTAMP = 11;
+        static constexpr size_t LASER_DATA = 12;
     };
 
     using TLaserChannelEntity = std::tuple<

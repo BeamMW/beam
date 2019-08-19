@@ -90,21 +90,22 @@ Channel::Channel(IChannelHolder& holder,
     , m_rHolder(holder)
     , m_ID(chID)
     , m_myAddr(myAddr)
-    , m_widTrg(std::get<2>(entity))
-    , m_aMy(std::get<6>(entity))
-    , m_aTrg(std::get<7>(entity))
-    , m_aCurMy(std::get<8>(entity))
-    , m_aCurTrg(std::get<9>(entity))
-    , m_lockHeight(std::get<10>(entity))
-    , m_bbsTimestamp(std::get<11>(entity))
+    , m_widTrg(std::get<LaserFields::LASER_TRG_WID>(entity))
+    , m_aMy(std::get<LaserFields::LASER_AMOUNT_MY>(entity))
+    , m_aTrg(std::get<LaserFields::LASER_AMOUNT_TRG>(entity))
+    , m_aCurMy(std::get<LaserFields::LASER_AMOUNT_CURRENT_MY>(entity))
+    , m_aCurTrg(std::get<LaserFields::LASER_AMOUNT_CURRENT_TRG>(entity))
+    , m_lockHeight(std::get<LaserFields::LASER_LOCK_HEIGHT>(entity))
+    , m_bbsTimestamp(std::get<LaserFields::LASER_BBS_TIMESTAMP>(entity))
     , m_upReceiver(std::make_unique<Receiver>(holder, chID))
 {
     m_lastState = m_lastLoggedState =
-        static_cast<Lightning::Channel::State::Enum>(std::get<3>(entity));
-    m_Params.m_Fee = std::get<4>(entity);
-    m_Params.m_hLockTime = std::get<5>(entity);
+        static_cast<Lightning::Channel::State::Enum>(
+            std::get<LaserFields::LASER_STATE>(entity));
+    m_Params.m_Fee = std::get<LaserFields::LASER_FEE>(entity);
+    m_Params.m_hLockTime = std::get<LaserFields::LASER_LOCKTIME>(entity);
 
-    RestoreInternalState(std::get<12>(entity));
+    RestoreInternalState(std::get<LaserFields::LASER_DATA>(entity));
 }
 
 Channel::~Channel()

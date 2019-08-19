@@ -2248,19 +2248,19 @@ namespace beam::wallet
 
         if (stm.step())
         {
-            stm.get(0, std::get<0>(*entity));
-            stm.get(1, std::get<1>(*entity));
-            stm.get(2, std::get<2>(*entity));
-            stm.get(3, std::get<3>(*entity));
-            stm.get(4, std::get<4>(*entity));
-            stm.get(5, std::get<5>(*entity));
-            stm.get(6, std::get<6>(*entity));
-            stm.get(7, std::get<7>(*entity));
-            stm.get(8, std::get<8>(*entity));
-            stm.get(9, std::get<9>(*entity));
-            stm.get(10, std::get<10>(*entity));
-            stm.get(11, std::get<11>(*entity));
-            stm.get(12, std::get<12>(*entity));
+            stm.get(LaserFields::LASER_CH_ID, std::get<LaserFields::LASER_CH_ID>(*entity));
+            stm.get(LaserFields::LASER_MY_WID, std::get<LaserFields::LASER_MY_WID>(*entity));
+            stm.get(LaserFields::LASER_TRG_WID, std::get<LaserFields::LASER_TRG_WID>(*entity));
+            stm.get(LaserFields::LASER_STATE, std::get<LaserFields::LASER_STATE>(*entity));
+            stm.get(LaserFields::LASER_FEE, std::get<LaserFields::LASER_FEE>(*entity));
+            stm.get(LaserFields::LASER_LOCKTIME, std::get<LaserFields::LASER_LOCKTIME>(*entity));
+            stm.get(LaserFields::LASER_AMOUNT_MY, std::get<LaserFields::LASER_AMOUNT_MY>(*entity));
+            stm.get(LaserFields::LASER_AMOUNT_TRG, std::get<LaserFields::LASER_AMOUNT_TRG>(*entity));
+            stm.get(LaserFields::LASER_AMOUNT_CURRENT_MY, std::get<LaserFields::LASER_AMOUNT_CURRENT_MY>(*entity));
+            stm.get(LaserFields::LASER_AMOUNT_CURRENT_TRG, std::get<LaserFields::LASER_AMOUNT_CURRENT_TRG>(*entity));
+            stm.get(LaserFields::LASER_LOCK_HEIGHT, std::get<LaserFields::LASER_LOCK_HEIGHT>(*entity));
+            stm.get(LaserFields::LASER_BBS_TIMESTAMP, std::get<LaserFields::LASER_BBS_TIMESTAMP>(*entity));
+            stm.get(LaserFields::LASER_DATA, std::get<LaserFields::LASER_DATA>(*entity));
             return true;
         }
         return false;
@@ -2320,19 +2320,19 @@ namespace beam::wallet
         {
             auto& entity = channels.emplace_back();
 
-            stm.get(0, std::get<0>(entity));
-            stm.get(1, std::get<1>(entity));
-            stm.get(2, std::get<2>(entity));
-            stm.get(3, std::get<3>(entity));
-            stm.get(4, std::get<4>(entity));
-            stm.get(5, std::get<5>(entity));
-            stm.get(6, std::get<6>(entity));
-            stm.get(7, std::get<7>(entity));
-            stm.get(8, std::get<8>(entity));
-            stm.get(9, std::get<9>(entity));
-            stm.get(10, std::get<10>(entity));
-            stm.get(11, std::get<11>(entity));
-            stm.get(12, std::get<12>(entity));
+            stm.get(LaserFields::LASER_CH_ID, std::get<LaserFields::LASER_CH_ID>(entity));
+            stm.get(LaserFields::LASER_MY_WID, std::get<LaserFields::LASER_MY_WID>(entity));
+            stm.get(LaserFields::LASER_TRG_WID, std::get<LaserFields::LASER_TRG_WID>(entity));
+            stm.get(LaserFields::LASER_STATE, std::get<LaserFields::LASER_STATE>(entity));
+            stm.get(LaserFields::LASER_FEE, std::get<LaserFields::LASER_FEE>(entity));
+            stm.get(LaserFields::LASER_LOCKTIME, std::get<LaserFields::LASER_LOCKTIME>(entity));
+            stm.get(LaserFields::LASER_AMOUNT_MY, std::get<LaserFields::LASER_AMOUNT_MY>(entity));
+            stm.get(LaserFields::LASER_AMOUNT_TRG, std::get<LaserFields::LASER_AMOUNT_TRG>(entity));
+            stm.get(LaserFields::LASER_AMOUNT_CURRENT_MY, std::get<LaserFields::LASER_AMOUNT_CURRENT_MY>(entity));
+            stm.get(LaserFields::LASER_AMOUNT_CURRENT_TRG, std::get<LaserFields::LASER_AMOUNT_CURRENT_TRG>(entity));
+            stm.get(LaserFields::LASER_LOCK_HEIGHT, std::get<LaserFields::LASER_LOCK_HEIGHT>(entity));
+            stm.get(LaserFields::LASER_BBS_TIMESTAMP, std::get<LaserFields::LASER_BBS_TIMESTAMP>(entity));
+            stm.get(LaserFields::LASER_DATA, std::get<LaserFields::LASER_DATA>(entity));
         }
 
         return channels;
