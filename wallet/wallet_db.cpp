@@ -693,6 +693,7 @@ namespace beam::wallet
     namespace
     {
         const char* WalletSeed = "WalletSeed";
+        const char* OwnerKey = "OwnerKey";
         const char* Version = "Version";
         const char* SystemStateIDName = "SystemStateID";
         const char* LastUpdateTimeName = "LastUpdateTime";
@@ -1001,7 +1002,23 @@ namespace beam::wallet
             CreateStatesTable(walletDB->_db);
 
             {
+                // store master key
                 walletDB->setPrivateVarRaw(WalletSeed, &secretKey.V, sizeof(secretKey.V));
+
+                // store owner key (public)
+                {
+                    Key::IKdf::Ptr pKey = walletDB->get_MasterKdf();
+                    const ECC::HKdf& kdf = static_cast<ECC::HKdf&>(*pKey);
+
+                    auto publicKdf = make_shared<ECC::HKdfPub>();
+                    publicKdf->GenerateFrom(kdf);
+                    ECC::NoLeak<ECC::HKdfPub::Packed> packedOwnerKey;
+                    publicKdf->Export(packedOwnerKey.V);
+
+                    storage::setVar(*walletDB, OwnerKey, packedOwnerKey.V);
+                    walletDB->m_OwnerKdf = publicKdf;
+                }
+
                 storage::setVar(*walletDB, Version, DbVersion);
             }
 
@@ -1209,10 +1226,28 @@ namespace beam::wallet
                     throwIfError(ret, walletDB->_db);
                 }
 
-                ECC::NoLeak<ECC::Hash::Value> seed;
-                if (walletDB->getPrivateVarRaw(WalletSeed, &seed.V, sizeof(seed.V)))
                 {
-                    ECC::HKdf::Create(walletDB->m_pKdf, seed.V);
+                    ECC::NoLeak<ECC::Hash::Value> seed;
+                    if (walletDB->getPrivateVarRaw(WalletSeed, &seed.V, sizeof(seed.V)))
+                    {
+                        ECC::HKdf::Create(walletDB->m_pKdf, seed.V);
+                        walletDB->m_OwnerKdf = walletDB->m_pKdf;
+                    }
+                    else
+                    {
+                        ECC::NoLeak<ECC::HKdfPub::Packed> packedOwnerKey;
+                        if (storage::getVar(*walletDB, OwnerKey, packedOwnerKey.V))
+                        {
+                            auto publicKdf = make_shared<ECC::HKdfPub>();
+                            if (!publicKdf->Import(packedOwnerKey.V))
+                            {
+                                LOG_ERROR() << "Failed to load owner key";
+                                return Ptr();
+                            }
+                            walletDB->m_OwnerKdf = publicKdf;
+                        }
+
+                    }
                 }
 
                 return static_pointer_cast<IWalletDB>(walletDB);
@@ -1279,6 +1314,11 @@ namespace beam::wallet
 	{
 		return MasterKey::get_Child(get_MasterKdf(), kidv);
 	}
+
+    beam::Key::IPKdf::Ptr WalletDB::get_OwnerKdf() const
+    {
+        return m_OwnerKdf;
+    }
 
     void IWalletDB::calcCommitment(ECC::Scalar::Native& sk, ECC::Point& comm, const Coin::ID& cid)
     {
@@ -2603,7 +2643,7 @@ namespace beam::wallet
             return setTxParameter(db, txID, kDefaultSubTxID, paramID, value, shouldNotifyAboutChanges);
         }
 
-        bool changeAddressExpiration(IWalletDB& walletDB, const WalletID& walletID, bool makeEternal, bool makeActive, bool makeExpired)
+        bool changeAddressExpiration(IWalletDB& walletDB, const WalletID& walletID, WalletAddress::ExpirationStatus status)
         {
             if (walletID != Zero)
             {
@@ -2615,38 +2655,14 @@ namespace beam::wallet
                     return false;
                 }
 
-                if (makeExpired)
-                {
-                    address->makeExpired();
-                }
-                else if (makeEternal)
-                {
-                    address->makeEternal();
-                }
-                else if (makeActive)
-                {
-                    // set expiration date to 24h since now
-                    address->makeActive(WalletAddress::AddressExpiration24h);
-                }
-
+                address->setExpiration(status);
                 walletDB.saveAddress(*address);
             }
             else
             {
                 for (auto& address : walletDB.getAddresses(true))
                 {
-                    if (makeExpired)
-                    {
-                        address.makeExpired();
-                    }
-                    else if (makeEternal)
-                    {
-                        address.makeEternal();
-                    }
-                    else if (makeActive)
-                    {
-                        address.makeActive(WalletAddress::AddressExpiration24h);
-                    }
+                    address.setExpiration(status);
                     walletDB.saveAddress(address);
                 }
             }
@@ -3134,21 +3150,31 @@ namespace beam::wallet
         m_label = label;
     }
 
-    void WalletAddress::makeExpired()
+    void WalletAddress::setExpiration(WalletAddress::ExpirationStatus status)
     {
-        assert(m_createTime < getTimestamp() - 1);
-        m_duration = getTimestamp() - m_createTime - 1;
-    }
-
-    void WalletAddress::makeActive(uint64_t duration)
-    {
-        // set expiration date since current timestamp
-        auto delta = getTimestamp() - m_createTime;
-        m_duration = delta + duration;
-    }
-
-    void WalletAddress::makeEternal()
-    {
-        m_duration = AddressExpirationNever;
+        switch (status)
+        {
+        case ExpirationStatus::Expired:
+            {
+                assert(m_createTime < getTimestamp() - 1);
+                m_duration = getTimestamp() - m_createTime - 1;
+                break;
+            }
+        case ExpirationStatus::OneDay:
+            {
+                // set expiration date since current timestamp
+                auto delta = getTimestamp() - m_createTime;
+                m_duration = delta + WalletAddress::AddressExpiration24h;
+                break;
+            }
+        case ExpirationStatus::Never:
+            {
+                m_duration = AddressExpirationNever;
+                break;
+            }
+        
+        default:
+            break;
+        }
     }
 }

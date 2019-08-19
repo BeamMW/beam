@@ -132,7 +132,7 @@ namespace beam
 
 		struct {
 			bool Enabled = false;
-			bool Deposit = true; // CA emission in exchage for beams. If not specified - the emission is free
+			bool Deposit = true; // CA emission in exchange for beams. If not specified - the emission is free
 		} CA;
 
 		struct {
@@ -154,7 +154,7 @@ namespace beam
 		static void get_Emission(AmountBig::Type&, const HeightRange&);
 		static void get_Emission(AmountBig::Type&, const HeightRange&, Amount base);
 
-		HeightHash pForks[2];
+		HeightHash pForks[3];
 
 		const HeightHash& get_LastFork() const;
 		const HeightHash* FindFork(const Merkle::Hash&) const;
@@ -162,6 +162,7 @@ namespace beam
 
 	private:
 		Amount get_EmissionEx(Height, Height& hEnd, Amount base) const;
+		bool IsForkHeightsConsistent() const;
 	};
 
 	class SwitchCommitment

@@ -51,7 +51,7 @@ namespace beam
     const char kErrorTreasuryNothingRemains[] = "Nothing remains";
     const char kErrorTreasuryPlanNotFound[] = "plan not found";
     const char kErrorTreasuryInvalidResponse[] = "invalid response";
-    const char kErrorAddrExprTimeInvalid[] = "Invalid address expiration time \"%1%\".";
+    const char kErrorAddrExprTimeInvalid[] = "Operation failed: provided \"%1%\" parameter value \"%2%\" is not valid";
     const char kErrorSeedPhraseInvalid[] = "Invalid seed phrase provided: %1%";
     const char kErrorSeedPhraseNotProvided[] = "Seed phrase has not been provided.";
     const char kErrorTxIdParamReqired[] = "Failed, --tx_id param required";
@@ -67,7 +67,7 @@ namespace beam
     const char kErrorAmountMissing[] = "amount is missing";
     const char kErrorNegativeAmount[] = "Unable to send negative amount of coins";
     const char kErrorZeroAmount[] = "Unable to send zero coins";
-    const char kErrorFeeToLow[] = "Failed to initiate the send operation. The minimum fee is 100 groth.";
+    const char kErrorFeeToLow[] = "Failed to initiate the send operation. The minimum fee is 100 GROTH.";
     const char kErrorUnknownSecondSideChainForSwap[] = "Unknown type of second side chain for swap";
     const char kErrorBTCNodeAddrNotResolved[] = "unable to resolve bitcoin node address: %1%";
     const char kErrorBTCNodeUserNameUnspecified[] = "user name of bitcoin node should be specified";
@@ -81,7 +81,7 @@ namespace beam
     const char kErrorQTUMNodePwdNotProvided[] = "Please, provide password for qtum litecoin node.";
     const char kErrorCommandNotSpecified[] = "command parameter not specified.";
     const char kErrorCommandUnknown[] = "unknown command: \'%1%\'";
-    const char kErrorCantRestoreColdWallet[] = "You can't restore cold wallet.";
+    const char kErrorCantRestoreColdWallet[] = "Restoring cold wallet. You have to replace generated 'wallet.db' with your existing 'wallet.db' file.";
     const char kErrorWalletNotInitialized[] = "Please initialize your wallet first... \nExample: beam-wallet --command=init";
     const char kErrorWalletAlreadyInitialized[] = "Your wallet is already initialized.";
     const char kErrorWalletPwdNotProvided[] = "Please, provide password for the wallet.";
@@ -136,13 +136,10 @@ namespace beam
     const char kTreasuryID[] = "ID: %1%";
 
     // Address
-    const char kExprTime24h[] = "24h";
-    const char kExprTimeNever[] = "never";
-    const char kExprTimeNow[] = "now";
     const char kAllAddrExprChanged[] = "Expiration for all addresses  was changed to \"%1%\".";
     const char kAddrExprChanged[] = "Expiration for address %1% was changed to \"%2%\".";
     const char kAddrNewGenerated[] = "New address generated:\n\n%1%\n";
-    const char kAddrNewGeneratedComment[] = "comment = %1%";
+    const char kAddrNewGeneratedLabel[] = "comment = %1%";
     const char kAddrListTableHead[] = "Addresses\n\n  %1%|%2%|%3%|%4%|%5%";
     const char kAddrListColumnComment[] = "comment";
     const char kAddrListColumnAddress[] = "address";
@@ -208,7 +205,7 @@ namespace beam
     const char kRulesSignatureInfo[] = "Rules signature: %1%";
     const char kStartMessage[] = "starting a wallet...";
     const char kWalletCreatedMessage[] = "wallet successfully created...";
-    const char kDefaultAddrComment[] = "default";
+    const char kDefaultAddrLabel[] = "default";
     const char kDefaultAddrExpiration[] = "never";
     const char kWalletOpenedMessage[] = "wallet sucessfully opened...";
 

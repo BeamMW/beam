@@ -110,6 +110,7 @@
     </message>
     <message id="general-fee">
         <source>Transaction fee</source>
+        <extracomment>UTXO type fee</extracomment>
         <translation>Tarifa de la transacción</translation>
     </message>
     <message id="general-ok">
@@ -122,18 +123,22 @@
     </message>
     <message id="general-coinbase">
         <source>Coinbase</source>
+        <extracomment>UTXO type Coinbase</extracomment>
         <translation>Coinbase</translation>
     </message>
     <message id="general-regular">
         <source>Regular</source>
+        <extracomment>UTXO type Regular</extracomment>
         <translation>Regular</translation>
     </message>
     <message id="general-change">
         <source>Change</source>
+        <extracomment>UTXO type Change</extracomment>
         <translation>Cambiar</translation>
     </message>
     <message id="general-treasury">
         <source>Treasury</source>
+        <extracomment>UTXO type Treasury</extracomment>
         <translation>Tesorería</translation>
     </message>
     <message id="general-back">
@@ -467,8 +472,12 @@
         <translation>Ver información</translation>
     </message>
     <message id="loading-change-settings-button">
-        <source>Сhange settings</source>
+        <source>Change settings</source>
         <translation>Cambiar ajustes</translation>
+    </message>
+    <message id="loading-try-again-button">
+        <source>Try again</source>
+        <translation>Prueba de nuevo</translation>
     </message>
     <message id="notifications-title">
         <source>Notifications view</source>
@@ -590,8 +599,8 @@
         <translation>Fondos insuficientes: usted necesitaría un 1% para completar la transacción</translation>
     </message>
     <message id="send-fee-fail">
-        <source>The minimum fee is %1 groth</source>
-        <translation>La cuota minima es %1 groth</translation>
+        <source>The minimum fee is %1 GROTH</source>
+        <translation>La cuota minima es %1 GROTH</translation>
     </message>
     <message id="send-curency-sub-name">
         <source>GROTH</source>
@@ -884,8 +893,8 @@
         <translation>BEAM</translation>
     </message>
     <message id="tx-curency-sub-name">
-        <source>groths</source>
-        <translation>groths</translation>
+        <source>GROTH</source>
+        <translation>GROTH</translation>
     </message>
     <message id="utxo-utxo">
         <source>UTXO</source>
@@ -989,7 +998,7 @@
         <translation>Enlace externo</translation>
     </message>
     <message id="open-external-message">
-        <source>Beam Wallet app requires permission to open external link in the browser. This action will expose your IP to the web server. To avoid it, choose -Cancel-. You can chage your choice in app setting anytime.</source>
+        <source>Beam Wallet app requires permission to open external link in the browser. This action will expose your IP to the web server. To avoid it, choose -Cancel-. You can change your choice in app setting anytime.</source>
         <translation>La aplicación Beam Wallet requiere permiso para abrir un enlace externo en el navegador. Esta acción expondrá su IP al servidor web. Para evitarlo, elija -Cancelar-. Puede cambiar su elección en la configuración de la aplicación en cualquier momento.</translation>
     </message>
     <message id="start-open-change-wallet-message">

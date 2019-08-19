@@ -127,13 +127,11 @@ namespace beam
         extern const char* SWAP_NETWORK;
         extern const char* SWAP_BEAM_SIDE;
         extern const char* SWAP_TX_HISTORY;
-        extern const char* BTC_CONFIRMATIONS;
-        extern const char* LTC_CONFIRMATIONS;
-        extern const char* QTUM_CONFIRMATIONS;
-        extern const char* BTC_LOCK_TIME;
-        extern const char* LTC_LOCK_TIME;
-        extern const char* QTUM_LOCK_TIME;
         extern const char* NODE_POLL_PERIOD;
+        // values
+        extern const char* EXPIRATION_TIME_24H;
+        extern const char* EXPIRATION_TIME_NEVER;
+        extern const char* EXPIRATION_TIME_NOW;
 
         // wallet api
         extern const char* API_USE_HTTP;

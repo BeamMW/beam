@@ -1143,7 +1143,7 @@ void Node::RefreshOwnedUtxos()
 	m_Processor.get_DB().ParamGet(NodeDB::ParamID::DummyID, NULL, &blob);
 
 	if (hv0 == hv1)
-		return; // unchaged
+		return; // unchanged
 
 	m_Processor.RescanOwnedTxos();
 
@@ -1350,13 +1350,23 @@ void Node::Peer::OnMsg(proto::Authentication&& msg)
         Key::IPKdf* pOwner = m_This.m_Keys.m_pOwner.get();
         if (pOwner && IsKdfObscured(*pOwner, msg.m_ID))
         {
-            m_Flags |= Flags::Owner;
+            m_Flags |= Flags::Owner | Flags::Viewer;
             ProvePKdfObscured(*pOwner, proto::IDType::Viewer);
         }
 
         if (!b && ShouldFinalizeMining())
             m_This.m_Miner.OnFinalizerChanged(this);
     }
+
+	if (proto::IDType::Viewer == msg.m_IDType)
+	{
+		Key::IPKdf* pOwner = m_This.m_Keys.m_pOwner.get();
+		if (pOwner && IsPKdfObscured(*pOwner, msg.m_ID))
+		{
+			m_Flags |= Flags::Viewer;
+			ProvePKdfObscured(*pOwner, proto::IDType::Viewer);
+		}
+	}
 
     if (proto::IDType::Node != msg.m_IDType)
         return;
@@ -3250,7 +3260,7 @@ void Node::Peer::OnMsg(proto::GetUtxoEvents&& msg)
 {
     proto::UtxoEvents msgOut;
 
-    if (Flags::Owner & m_Flags)
+    if (Flags::Viewer & m_Flags)
     {
 		Processor& p = m_This.m_Processor;
 		NodeDB& db = p.get_DB();
@@ -3733,10 +3743,16 @@ IExternalPOW::BlockFoundResult Node::Miner::OnMinedExternal()
         return IExternalPOW::solution_rejected;
     }
 
+    IExternalPOW::BlockFoundResult result(IExternalPOW::solution_accepted);
+    Merkle::Hash hv;
+    pTask->m_Hdr.get_Hash(hv);
+    result._blockhash = to_hex(hv.m_pData, hv.nBytes);
+
 	m_pTask = pTask;
     *m_pTask->m_pStop = true;
     m_pEvtMined->post();
-    return IExternalPOW::solution_accepted;
+
+    return result;
 }
 
 void Node::Miner::OnMined()

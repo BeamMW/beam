@@ -22,11 +22,11 @@
 #include "wallet/swaps/common.h"
 #include "wallet/swaps/swap_transaction.h"
 #include "utility/test_helpers.h"
-#include "../../core/radixtree.h"
-#include "../../core/unittest/mini_blockchain.h"
+#include "core/radixtree.h"
+#include "core/unittest/mini_blockchain.h"
 #include <string_view>
 #include "wallet/wallet_transaction.h"
-#include "../../core/negotiator.h"
+#include "core/negotiator.h"
 #include "node/node.h"
 
 #include "test_helpers.h"
@@ -127,7 +127,7 @@ namespace
     }
 }
 
-void TestSwapTransaction(bool isBeamOwnerStart)
+void TestSwapTransaction(bool isBeamOwnerStart, beam::Height fork1Height)
 {
     cout << "\nTesting atomic swap transaction...\n";
 
@@ -181,7 +181,7 @@ void TestSwapTransaction(bool isBeamOwnerStart)
     NodeObserver observer([&]()
     {
         auto cursor = node.get_Processor().m_Cursor;
-        if (cursor.m_Sid.m_Height == 5)
+        if (cursor.m_Sid.m_Height == fork1Height + 5)
         {
             if (isBeamOwnerStart)
             {
@@ -594,7 +594,7 @@ void TestSwapCancelTransaction(bool isSender, wallet::AtomicSwapTransaction::Sta
         storage::getTxParameter(*walletRig->m_WalletDB, txID, wallet::kDefaultSubTxID, wallet::TxParameterID::State, txState);
         if (txState == testingState)
         {
-            walletRig->m_Wallet.cancel_tx(txID);
+            walletRig->m_Wallet.CancelTransaction(txID);
         }
         else
         {
@@ -747,9 +747,11 @@ int main()
     auto logger = beam::Logger::create(logLevel, logLevel);
     Rules::get().FakePoW = true;
     Rules::get().UpdateChecksum();
+    beam::Height fork1Height = 10;
+    Rules::get().pForks[1].m_Height = fork1Height;
 
-    TestSwapTransaction(true);
-    TestSwapTransaction(false);
+    TestSwapTransaction(true, fork1Height);
+    TestSwapTransaction(false, fork1Height);
     TestSwapTransactionWithoutChange(true);
 
     TestSwapBTCRefundTransaction();

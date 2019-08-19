@@ -150,7 +150,6 @@ Rectangle {
 	function openSendDialog() {
 		selectedItem = 0
 		content.setSource("qrc:/wallet.qml", {"toSend": true})
-        
 		viewModel.update(selectedItem)
 	}
 

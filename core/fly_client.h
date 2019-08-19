@@ -78,7 +78,8 @@ namespace proto {
 		virtual void OnNewTip() {} // tip already added
 		virtual void OnTipUnchanged() {} // we have connected to node, but the tip has not changed
 		virtual void OnRolledBack() {} // reversed states are already removed
-		virtual void get_Kdf(Key::IKdf::Ptr&) {}
+		virtual void get_Kdf(Key::IKdf::Ptr&) {} // get the master kdf. Optional
+        virtual void get_OwnerKdf(Key::IPKdf::Ptr&) {} // get the owner kdf. Optional
 		virtual Block::SystemState::IHistory& get_History() = 0;
 		virtual void OnOwnedNode(const PeerID&, bool bUp) {}
 

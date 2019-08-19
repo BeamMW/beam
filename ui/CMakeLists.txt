@@ -57,11 +57,16 @@ endif()
 list(APPEND SUPPORTED_LANGS "en_US")
 list(APPEND SUPPORTED_LANGS "ru_RU")
 list(APPEND SUPPORTED_LANGS "es_ES")
+list(APPEND SUPPORTED_LANGS "be_BY")
 list(APPEND SUPPORTED_LANGS "vi_VI")
 list(APPEND SUPPORTED_LANGS "zh_CN")
 list(APPEND SUPPORTED_LANGS "fr_FR")
+list(APPEND SUPPORTED_LANGS "ja_JP")
 list(APPEND SUPPORTED_LANGS "ko_KR")
 list(APPEND SUPPORTED_LANGS "sv_SE")
+list(APPEND SUPPORTED_LANGS "th_TH")
+list(APPEND SUPPORTED_LANGS "tr_TR")
+list(APPEND SUPPORTED_LANGS "nl_NL")
 
 set(UI_SRC
     ui.cpp
@@ -95,6 +100,18 @@ set(UI_SRC
     viewmodel/statusbar_view.cpp
     viewmodel/theme.h
     viewmodel/theme.cpp
+    viewmodel/receive_view.h
+    viewmodel/receive_view.cpp
+    viewmodel/send_view.h
+    viewmodel/send_view.cpp
+    viewmodel/status_holder.cpp
+    viewmodel/status_holder.h
+    viewmodel/tx_object.h
+    viewmodel/tx_object.cpp
+    viewmodel/payment_item.h
+    viewmodel/payment_item.cpp
+    viewmodel/qml_globals.h
+    viewmodel/qml_globals.cpp
 
     model/wallet_model.h
     model/wallet_model.cpp
@@ -110,6 +127,9 @@ set(UI_SRC
     model/node_model.cpp
     model/qr.h
     model/qr.cpp
+    model/helpers.h
+    model/translator.cpp
+    model/translator.h
 )
 
 beam_translations_update_ts("${SUPPORTED_LANGS}" TS_FILES)

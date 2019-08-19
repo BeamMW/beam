@@ -304,7 +304,6 @@ struct Client
 		// proto::FlyClient
 		virtual void OnNewTip() override { get_ParentObj().OnNewTip(); }
 		virtual void OnRolledBack() override;
-		virtual void get_Kdf(Key::IKdf::Ptr& pKdf) override { pKdf = get_ParentObj().m_pKdf; }
 		virtual Block::SystemState::IHistory& get_History() override { return get_ParentObj().m_Hdrs; }
 		virtual void OnOwnedNode(const PeerID&, bool bUp) override {}
 		// proto::FlyClient::Request::IHandler

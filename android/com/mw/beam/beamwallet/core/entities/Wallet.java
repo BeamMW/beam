@@ -31,7 +31,7 @@ public class Wallet
     public native void getAddresses(boolean own);
     public native void generateNewAddress();
     public native void saveAddress(WalletAddressDTO address, boolean own);
-    public native void saveAddressChanges(String addr, String name, boolean isNever, boolean makeActive, boolean makeExpired);
+    public native void updateAddress(String addr, String name, int addressExpirationEnum);
     public native void cancelTx(String id);
     public native void deleteTx(String id);
     public native void deleteAddress(String walletID);
@@ -42,6 +42,10 @@ public class Wallet
     public native void getCoinsByTx(String txID);
     public native void changeNodeAddress(String address);
     public native String exportOwnerKey(String pass);
+    public native void importRecovery(String path);
+
+    // deprecated
+    public native void saveAddressChanges(String addr, String name, boolean isNever, boolean makeActive, boolean makeExpired);
 
     // not implemented
     public native void changeCurrentWalletIDs(); //const beam::WalletID& senderID, const beam::WalletID& receiverID);

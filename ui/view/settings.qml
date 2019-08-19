@@ -32,7 +32,7 @@ Rectangle {
         okButtonText: qsTrId("general-rescan")
         okButtonIconSource: "qrc:/assets/icon-repeat.svg"
         cancelButtonIconSource: "qrc:/assets/icon-cancel-white.svg"
-        cancelVisible: true
+        cancelButtonVisible: true
         width: 460
         height: 243
 

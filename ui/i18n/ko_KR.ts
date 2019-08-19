@@ -110,6 +110,7 @@
     </message>
     <message id="general-fee">
         <source>Transaction fee</source>
+        <extracomment>UTXO type fee</extracomment>
         <translation>거래 수수료</translation>
     </message>
     <message id="general-ok">
@@ -122,18 +123,22 @@
     </message>
     <message id="general-coinbase">
         <source>Coinbase</source>
+        <extracomment>UTXO type Coinbase</extracomment>
         <translation>코인베이스</translation>
     </message>
     <message id="general-regular">
         <source>Regular</source>
-        <translation type="unfinished">Regular</translation>
+        <extracomment>UTXO type Regular</extracomment>
+        <translation>일반</translation>
     </message>
     <message id="general-change">
         <source>Change</source>
+        <extracomment>UTXO type Change</extracomment>
         <translation>잔액</translation>
     </message>
     <message id="general-treasury">
         <source>Treasury</source>
+        <extracomment>UTXO type Treasury</extracomment>
         <translation type="unfinished">Treasury</translation>
     </message>
     <message id="general-back">
@@ -175,7 +180,7 @@
     </message>
     <message id="general-show-in-folder">
         <source>Show in folder</source>
-        <translation type="unfinished">Show in folder</translation>
+        <translation>폴더 보기</translation>
     </message>
     <message id="general-addr-comment-error">
         <source>Address with same comment already exist</source>
@@ -286,7 +291,7 @@
     </message>
     <message id="available-panel-available">
         <source>Available</source>
-        <translation>가능함</translation>
+        <translation>사용가능</translation>
     </message>
     <message id="available-panel-where-to-buy">
         <source>Where to buy BEAM?</source>
@@ -315,7 +320,7 @@
     <message id="settings-rescan-confirmation-message">
         <source>Rescan will sync transaction and UTXO data with the latest information on the blockchain. The process might take long time.</source>
         <extracomment>settings tab, confirm rescan dialog message</extracomment>
-        <translation type="unfinished">Rescan will sync transaction and UTXO data with the latest information on the blockchain. The process might take long time.</translation>
+        <translation>다시 스캔하기를 실행하면 거래와 UTXO 데이터를 블록체인의 최신 정보로 업데이트 합니다. 이는 약간의 시간이 소요될 수 있습니다.</translation>
     </message>
     <message id="settings-general-title">
         <source>General settings</source>
@@ -349,7 +354,7 @@
     </message>
     <message id="logo-description">
         <source>Scalable confidential cryptocurrency</source>
-        <translation type="unfinished">Scalable confidential cryptocurrency</translation>
+        <translation>Scalable confidential cryptocurrency</translation>
     </message>
     <message id="change-pwd-old-empty">
         <source>Please, enter old password</source>
@@ -460,15 +465,19 @@
     </message>
     <message id="secondary-panel-maturing">
         <source>Maturing</source>
-        <translation type="unfinished">Maturing</translation>
+        <translation>형성중</translation>
     </message>
     <message id="info-title">
         <source>Info view</source>
         <translation>정보 보기</translation>
     </message>
     <message id="loading-change-settings-button">
-        <source>Сhange settings</source>
+        <source>Change settings</source>
         <translation>설정 변경</translation>
+    </message>
+    <message id="loading-try-again-button">
+        <source>Try again</source>
+        <translation>다시 시도하십시오.</translation>
     </message>
     <message id="notifications-title">
         <source>Notifications view</source>
@@ -590,8 +599,8 @@
         <translation>자금이 부족합니다 : 거래를 완료하려면 %1 만큼의 자금이 필요합니다</translation>
     </message>
     <message id="send-fee-fail">
-        <source>The minimum fee is %1 groth</source>
-        <translation>최소 수수료는 %1 groth 입니다</translation>
+        <source>The minimum fee is %1 GROTH</source>
+        <translation>최소 수수료는 %1 GROTH 입니다</translation>
     </message>
     <message id="send-curency-sub-name">
         <source>GROTH</source>
@@ -611,7 +620,7 @@
     </message>
     <message id="start-restore-message-line">
         <source>You are trying to restore an existing Beam Wallet. Please notice that if you use your wallet on another device, your balance will be up to date, but  transaction history and addresses will be kept separately on each device.</source>
-        <translation type="unfinished">You are trying to restore an existing Beam Wallet. Please notice that if you use your wallet on another device, your balance will be up to date, but  transaction history and addresses will be kept separately on each device.</translation>
+        <translation>현재 이미 존재하는 Beam 지갑을 복구하려고 하고 있습니다. 지갑을 다른 기기에서 사용한다면 그 잔고는 지속적으로 업데이트 되지만, 거래 내역은 기기 별로 분리되어서 저장될 것입니다.</translation>
     </message>
     <message id="start-migration-message">
         <source>Your wallet will be migrated to v.</source>
@@ -884,7 +893,7 @@
         <translation>BEAM</translation>
     </message>
     <message id="tx-curency-sub-name">
-        <source>groths</source>
+        <source>GROTH</source>
         <translation>GROTH</translation>
     </message>
     <message id="utxo-utxo">
@@ -901,7 +910,7 @@
     </message>
     <message id="utxo-head-maturity">
         <source>Maturity</source>
-        <translation type="unfinished">Maturity</translation>
+        <translation>형성</translation>
     </message>
     <message id="utxo-head-type">
         <source>Type</source>
@@ -909,15 +918,15 @@
     </message>
     <message id="utxo-status-available">
         <source>Available</source>
-        <translation>가능함</translation>
+        <translation>사용가능</translation>
     </message>
     <message id="utxo-status-maturing">
         <source>Maturing%1(till block height %2)</source>
-        <translation type="unfinished">Maturing%1(till block height %2)</translation>
+        <translation>형성중%1(블록 높이 %2 까지)</translation>
     </message>
     <message id="utxo-status-unavailable">
         <source>Unavailable%1(mining result rollback)</source>
-        <translation type="unfinished">Unavailable%1(mining result rollback)</translation>
+        <translation>사용 불가능%1(채굴 결과 롤백)</translation>
     </message>
     <message id="utxo-status-outgoing">
         <source>In progress%1(outgoing)</source>
@@ -969,7 +978,7 @@
     </message>
     <message id="appmodel-failed-time-not-synced">
         <source>Failed to start the integrated node: the timezone settings of your machine are out of sync. Please fix them and restart the wallet.</source>
-        <translation type="unfinished">Failed to start the integrated node: the timezone settings of your machine are out of sync. Please fix them and restart the wallet.</translation>
+        <translation>integrated node 구동을 실패했습니다 : 기기의 타임존 설정이 잘못되었습니다. 재설정하고 지갑을 다시 실행시켜주십시오.</translation>
     </message>
     <message id="can-not-generate-new-address-message">
         <source>You cannot generate new address. Your wallet doesn&apos;t have a master key.</source>
@@ -989,7 +998,7 @@
         <translation>외부 링크</translation>
     </message>
     <message id="open-external-message">
-        <source>Beam Wallet app requires permission to open external link in the browser. This action will expose your IP to the web server. To avoid it, choose -Cancel-. You can chage your choice in app setting anytime.</source>
+        <source>Beam Wallet app requires permission to open external link in the browser. This action will expose your IP to the web server. To avoid it, choose -Cancel-. You can change your choice in app setting anytime.</source>
         <translation>Beam 지갑 앱은 브라우저에서 외부 링크를 열 수 있는 권한이 필요합니다. 이를 수행하면 당신의 IP 주소가 웹 서버에 노출 될 것입니다. 원하지 않는다면 -취소- 를 선택하십시오. 설정에서 언제든지 변경할 수 있습니다.</translation>
     </message>
     <message id="start-open-change-wallet-message">
@@ -1148,7 +1157,7 @@
     <message id="start-select-db-best-match-label">
         <source>(best match)</source>
         <extracomment>start screen, select db for migration, best match label</extracomment>
-        <translation type="unfinished">(best match)</translation>
+        <translation>(완벽 일치)</translation>
     </message>
     <message id="start-select-db-thead-created">
         <source>Date created</source>

@@ -132,13 +132,10 @@ namespace beam
     extern const char kTreasuryBurst[];
     extern const char kTreasuryID[];
     // Address
-    extern const char kExprTime24h[];
-    extern const char kExprTimeNever[];
-    extern const char kExprTimeNow[];
     extern const char kAllAddrExprChanged[];
     extern const char kAddrExprChanged[];
     extern const char kAddrNewGenerated[];
-    extern const char kAddrNewGeneratedComment[];
+    extern const char kAddrNewGeneratedLabel[];
     extern const char kAddrListTableHead[];
     extern const char kAddrListColumnComment[];
     extern const char kAddrListColumnAddress[];
@@ -200,7 +197,7 @@ namespace beam
     extern const char kRulesSignatureInfo[];
     extern const char kStartMessage[];
     extern const char kWalletCreatedMessage[];
-    extern const char kDefaultAddrComment[];
+    extern const char kDefaultAddrLabel[];
     extern const char kDefaultAddrExpiration[];
     extern const char kWalletOpenedMessage[];
 
