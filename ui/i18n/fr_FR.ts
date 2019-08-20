@@ -1175,5 +1175,10 @@ Vous essayez de restaurer un portefeuille Beam existant. Veuillez noter que si v
         <extracomment>settings tab, general section, ask password to send, confirm password dialog, message</extracomment>
         <translation>La vérification du mot de passe est nécessaire pour changer ce paramètre</translation>
     </message>
+    <message id="open-in-explorer">
+        <source>Open in Blockchain Explorer</source>
+        <extracomment>transactions details, alow open in explorer link</extracomment>
+        <translation type="unfinished"></translation>
+    </message>
 </context>
 </TS>

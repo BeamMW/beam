@@ -1179,5 +1179,10 @@ or send this address to the sender over secure channel</translation>
         <extracomment>settings tab, general section, ask password to send, confirm password dialog, message</extracomment>
         <translation>Password verification is required to change that setting</translation>
     </message>
+    <message id="open-in-explorer">
+        <source>Open in Blockchain Explorer</source>
+        <extracomment>transactions details, alow open in explorer link</extracomment>
+        <translation>Open in Blockchain Explorer</translation>
+    </message>
 </context>
 </TS>

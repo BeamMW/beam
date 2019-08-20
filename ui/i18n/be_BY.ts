@@ -1174,5 +1174,10 @@
         <extracomment>settings tab, general section, ask password to send, confirm password dialog, message</extracomment>
         <translation>Калі ласка, увядзіце пароль каб змены ўступілі ў сілу</translation>
     </message>
+    <message id="open-in-explorer">
+        <source>Open in Blockchain Explorer</source>
+        <extracomment>transactions details, alow open in explorer link</extracomment>
+        <translation>Адчыніць у blockchain правадыры</translation>
+    </message>
 </context>
 </TS>

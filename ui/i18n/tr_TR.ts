@@ -1174,5 +1174,10 @@
         <extracomment>settings tab, general section, ask password to send, confirm password dialog, message</extracomment>
         <translation>Bu ayarı değiştirmek için parola doğrulaması gerekiyor</translation>
     </message>
+    <message id="open-in-explorer">
+        <source>Open in Blockchain Explorer</source>
+        <extracomment>transactions details, alow open in explorer link</extracomment>
+        <translation type="unfinished"></translation>
+    </message>
 </context>
 </TS>

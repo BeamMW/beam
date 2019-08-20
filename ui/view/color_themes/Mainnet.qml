@@ -24,4 +24,7 @@ AbstractColors {
     property color passive:               "#d6d9e0"  // silver
         
     property color caps_warning:          "#000000"
+
+    property string linkStyle: "<style>a:link {color: '#00f6d2'; text-decoration: none;}</style>"
+    property string explorerUrl: "https://explorer.beam.mw/"
 }

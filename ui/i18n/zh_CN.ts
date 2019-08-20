@@ -1190,5 +1190,10 @@
         <extracomment>settings tab, general section, ask password to send, confirm password dialog, message</extracomment>
         <translation>需验证密码来使设置变更生效</translation>
     </message>
+    <message id="open-in-explorer">
+        <source>Open in Blockchain Explorer</source>
+        <extracomment>transactions details, alow open in explorer link</extracomment>
+        <translation type="unfinished"></translation>
+    </message>
 </context>
 </TS>

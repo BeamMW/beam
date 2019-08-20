@@ -1174,5 +1174,10 @@
         <extracomment>settings tab, general section, ask password to send, confirm password dialog, message</extracomment>
         <translation>Wachtwoord verificatie is vereist om deze instelling te wijzigen</translation>
     </message>
+    <message id="open-in-explorer">
+        <source>Open in Blockchain Explorer</source>
+        <extracomment>transactions details, alow open in explorer link</extracomment>
+        <translation type="unfinished"></translation>
+    </message>
 </context>
 </TS>
