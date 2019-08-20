@@ -1680,11 +1680,18 @@ namespace ECC {
 			return true;
 		}
 
-		Point::Native pt = Context::get().G * m_k;
+		MultiMac_WithBufs<1, 1> mm;
+		mm.m_ppPrepared[0] = &Context::get().m_Ipp.G_;
+		mm.m_pKPrep[0] = m_k;
+		mm.m_Prepared = 1;
+		mm.m_pCasual[0].Init(pk);
+		mm.m_pKCasual = &e;
+		mm.m_Casual = 1;
 
-		pt += pk * e;
+		Point::Native pt;
+		mm.Calculate(pt);
+
 		pt += pubNonce;
-
 		return pt == Zero;
 	}
 
