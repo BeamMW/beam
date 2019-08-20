@@ -172,7 +172,7 @@ RowLayout {
                 id: openInExplorerIcon
                 anchors.top: parent.top
                 anchors.right: parent.right
-                source: "qrc:/assets/icon-external-link.svg"
+                source: "qrc:/assets/icon-external-link-green.svg"
             }
             MouseArea {
                 anchors.fill: parent
