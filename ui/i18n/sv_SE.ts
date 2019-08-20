@@ -188,7 +188,7 @@
     </message>
     <message id="wallet-receive-button">
         <source>Receive</source>
-        <translation>Motta</translation>
+        <translation>Ta emot</translation>
     </message>
     <message id="wallet-in-progress-title">
         <source>In progress</source>
@@ -232,7 +232,7 @@
     </message>
     <message id="wallet-txs-status-received">
         <source>received</source>
-        <translation>motta</translation>
+        <translation>mottaget</translation>
     </message>
     <message id="wallet-txs-status-sent">
         <source>sent</source>
@@ -505,7 +505,7 @@
     </message>
     <message id="tx-details-receiving-addr-label">
         <source>Receiving address</source>
-        <translation>Mottagande adresser</translation>
+        <translation>Mottagande adress</translation>
     </message>
     <message id="tx-details-error-label">
         <source>Error</source>
@@ -580,7 +580,7 @@
     </message>
     <message id="send-title">
         <source>Send Beam</source>
-        <translation>Skicka Beam</translation>
+        <translation>Skickade Beam</translation>
     </message>
     <message id="send-send-to-label">
         <source>Send To</source>
@@ -1176,7 +1176,6 @@
     </message>
     <message id="open-in-explorer">
         <source>Open in Blockchain Explorer</source>
-        <extracomment>transactions details, alow open in explorer link</extracomment>
         <translation type="unfinished"></translation>
     </message>
 </context>

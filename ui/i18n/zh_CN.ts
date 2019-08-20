@@ -480,7 +480,7 @@
     </message>
     <message id="loading-try-again-button">
         <source>Try again</source>
-        <translation>请重试</translation>
+        <translation>请再试一次</translation>
     </message>
     <message id="notifications-title">
         <source>Notifications view</source>
@@ -954,7 +954,7 @@
     </message>
     <message id="utxo-status-spent">
         <source>Spent</source>
-        <translation>已付</translation>
+        <translation>已使用</translation>
     </message>
     <message id="settings-general-lock-screen-never">
         <source>Never</source>
@@ -1192,7 +1192,6 @@
     </message>
     <message id="open-in-explorer">
         <source>Open in Blockchain Explorer</source>
-        <extracomment>transactions details, alow open in explorer link</extracomment>
         <translation type="unfinished"></translation>
     </message>
 </context>

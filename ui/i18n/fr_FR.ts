@@ -473,7 +473,7 @@
     </message>
     <message id="loading-change-settings-button">
         <source>Change settings</source>
-        <translation>Сhange settings</translation>
+        <translation>Modifier paramètres</translation>
     </message>
     <message id="loading-try-again-button">
         <source>Try again</source>
@@ -747,7 +747,7 @@ Vous essayez de restaurer un portefeuille Beam existant. Veuillez noter que si v
     </message>
     <message id="start-node-peer-error">
         <source>Incorrect address</source>
-        <translation>Merci de spécifier une paire correcte</translation>
+        <translation>Adresse incorrecte</translation>
     </message>
     <message id="start-node-empty-error">
         <source>Please specify address of the remote node</source>
@@ -1177,7 +1177,6 @@ Vous essayez de restaurer un portefeuille Beam existant. Veuillez noter que si v
     </message>
     <message id="open-in-explorer">
         <source>Open in Blockchain Explorer</source>
-        <extracomment>transactions details, alow open in explorer link</extracomment>
         <translation type="unfinished"></translation>
     </message>
 </context>

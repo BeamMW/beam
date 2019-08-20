@@ -604,7 +604,7 @@
     </message>
     <message id="send-curency-sub-name">
         <source>GROTH</source>
-        <translation>GROTH</translation>
+        <translation>Groth: đơn vị nhỏ nhất của Beam </translation>
     </message>
     <message id="send-remaining-label">
         <source>Remaining</source>
@@ -746,7 +746,7 @@
     </message>
     <message id="start-node-peer-error">
         <source>Incorrect address</source>
-        <translation>Vui lòng xác định đối tượng ngang hàng chính xác</translation>
+        <translation>Địa chỉ không chính xác</translation>
     </message>
     <message id="start-node-empty-error">
         <source>Please specify address of the remote node</source>
@@ -894,7 +894,7 @@
     </message>
     <message id="tx-curency-sub-name">
         <source>GROTH</source>
-        <translation>GROTH</translation>
+        <translation>Groth: đơn vị nhỏ nhất của Beam </translation>
     </message>
     <message id="utxo-utxo">
         <source>UTXO</source>
@@ -1176,7 +1176,6 @@
     </message>
     <message id="open-in-explorer">
         <source>Open in Blockchain Explorer</source>
-        <extracomment>transactions details, alow open in explorer link</extracomment>
         <translation type="unfinished"></translation>
     </message>
 </context>

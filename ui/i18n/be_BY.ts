@@ -1176,7 +1176,6 @@
     </message>
     <message id="open-in-explorer">
         <source>Open in Blockchain Explorer</source>
-        <extracomment>transactions details, alow open in explorer link</extracomment>
         <translation>Адчыніць у blockchain правадыры</translation>
     </message>
 </context>

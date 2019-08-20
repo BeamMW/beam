@@ -1181,7 +1181,6 @@ or send this address to the sender over secure channel</translation>
     </message>
     <message id="open-in-explorer">
         <source>Open in Blockchain Explorer</source>
-        <extracomment>transactions details, alow open in explorer link</extracomment>
         <translation>Open in Blockchain Explorer</translation>
     </message>
 </context>

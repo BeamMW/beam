@@ -51,6 +51,7 @@ namespace
         { "fr_FR", "Française"},
         { "ja_JP", "日本語"},
         { "ru_RU", "Русский" },
+        { "fi_FI", "Suomi" },
         { "sv_SE", "Svenska"},
         { "th_TH", "ภาษาไทย"},
         { "tr_TR", "Türkçe"},

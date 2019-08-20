@@ -58,7 +58,7 @@
     </message>
     <message id="general-delete">
         <source>Delete</source>
-        <translation>Удаление</translation>
+        <translation>Удалить</translation>
     </message>
     <message id="general-receiving">
         <source>receiving</source>
@@ -942,7 +942,7 @@
     </message>
     <message id="utxo-status-spent">
         <source>Spent</source>
-        <translation>Израсходовано</translation>
+        <translation>Потрачено</translation>
     </message>
     <message id="settings-general-lock-screen-never">
         <source>Never</source>
@@ -1180,7 +1180,6 @@
     </message>
     <message id="open-in-explorer">
         <source>Open in Blockchain Explorer</source>
-        <extracomment>transactions details, alow open in explorer link</extracomment>
         <translation type="unfinished">Открыть в blockchain проводнике</translation>
     </message>
 </context>

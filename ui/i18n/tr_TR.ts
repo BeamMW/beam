@@ -287,7 +287,7 @@
     </message>
     <message id="address-table-cm-delete-contact">
         <source>Delete contact</source>
-        <translation>Bağlantıyı sil</translation>
+        <translation>Kişiyi sil</translation>
     </message>
     <message id="available-panel-available">
         <source>Available</source>
@@ -1176,7 +1176,6 @@
     </message>
     <message id="open-in-explorer">
         <source>Open in Blockchain Explorer</source>
-        <extracomment>transactions details, alow open in explorer link</extracomment>
         <translation type="unfinished"></translation>
     </message>
 </context>
