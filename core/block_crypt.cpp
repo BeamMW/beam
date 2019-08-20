@@ -421,8 +421,14 @@ namespace beam
 	// TxKernel
 	bool TxKernel::Traverse(ECC::Hash::Value& hv, AmountBig::Type* pFee, ECC::Point::Native* pExcess, const TxKernel* pParent, const ECC::Hash::Value* pLockImage, const Height* pScheme) const
 	{
-		if (pScheme && (*pScheme < Rules::get().pForks[1].m_Height) && (m_CanEmbed || m_pRelativeLock))
-			return false; // unsupported for that version
+		if (pScheme)
+		{
+			if ((*pScheme < Rules::get().pForks[1].m_Height) && (m_CanEmbed || m_pRelativeLock))
+				return false; // unsupported for that version
+
+			if ((*pScheme < Rules::get().pForks[2].m_Height) && m_pSerial)
+				return false; // unsupported for that version
+		}
 
 		if (pParent)
 		{
@@ -438,7 +444,8 @@ namespace beam
 		uint8_t nFlags =
 			((m_pHashLock || pLockImage) ? 1 : 0) |
 			(m_pRelativeLock ? 2 : 0) |
-			(m_CanEmbed ? 4 : 0);
+			(m_CanEmbed ? 4 : 0) |
+			(m_pSerial ? 8 : 0);
 
 		ECC::Hash::Processor hp;
 		hp	<< m_Fee
@@ -501,7 +508,7 @@ namespace beam
 			ptExcNested = -ptExcNested;
 			ptExcNested += pt;
 
-			if (!m_Signature.IsValid(hv, ptExcNested))
+			if (!m_Signature.IsValid(hv, ptExcNested, m_pSerial.get()))
 				return false;
 
 			*pExcess += pt;
@@ -608,6 +615,7 @@ namespace beam
 
 		CMP_MEMBER_PTR(m_pHashLock)
 		CMP_MEMBER_PTR(m_pRelativeLock)
+		CMP_MEMBER_PTR(m_pSerial)
 
 		return 0;
 	}
@@ -643,6 +651,7 @@ namespace beam
 		m_AssetEmission = v.m_AssetEmission;
 		ClonePtr(m_pHashLock, v.m_pHashLock);
 		ClonePtr(m_pRelativeLock, v.m_pRelativeLock);
+		ClonePtr(m_pSerial, v.m_pSerial);
 
 		m_vNested.resize(v.m_vNested.size());
 

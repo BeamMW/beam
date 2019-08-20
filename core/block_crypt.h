@@ -322,6 +322,8 @@ namespace beam
 
 		std::unique_ptr<RelativeLock> m_pRelativeLock;
 
+		std::unique_ptr<ECC::Scalar> m_pSerial; // Lelantus
+
 		std::vector<Ptr> m_vNested; // nested kernels, included in the signature.
 
 		static const uint32_t s_MaxRecursionDepth = 2;
