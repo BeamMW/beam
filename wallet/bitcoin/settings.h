@@ -45,6 +45,9 @@ namespace beam::bitcoin
         uint8_t m_addressVersion;
         bool m_isMainnet;
 
+        uint32_t m_receivingAddressAmount = 21;
+        uint32_t m_changeAddressAmount = 6;
+
         bool IsInitialized() const
         {
             return !m_secretWords.empty() && !m_address.empty();
