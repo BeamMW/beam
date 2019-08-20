@@ -575,11 +575,12 @@ namespace ECC {
 	Point::Native& Point::Native::operator = (Mul v)
 	{
 		MultiMac::Casual mc;
-		mc.Init(v.x, v.y);
+		mc.Init(v.x);
 
 		MultiMac mm;
 		mm.m_pCasual = &mc;
 		mm.m_Casual = 1;
+		mm.m_pKCasual = Cast::NotConst(&v.y);
 		mm.Calculate(*this);
 
 		return *this;
@@ -936,12 +937,6 @@ namespace ECC {
 		}
 	}
 
-	void MultiMac::Casual::Init(const Point::Native& p, const Scalar::Native& k)
-	{
-		Init(p);
-		m_K = k;
-	}
-
 	void MultiMac::Reset()
 	{
 		m_Casual = 0;
@@ -1010,7 +1005,7 @@ namespace ECC {
 			for (int iEntry = 0; iEntry < m_Casual; iEntry++)
 			{
 				Casual& x = m_pCasual[iEntry];
-				x.m_Aux.Schedule(x.m_K, nBits, Casual::Fast::nMaxOdd, pTblCasual, iEntry + 1);
+				x.m_Aux.Schedule(m_pKCasual[iEntry], nBits, Casual::Fast::nMaxOdd, pTblCasual, iEntry + 1);
 			}
 
 		}
@@ -1052,7 +1047,7 @@ namespace ECC {
 
 					res += x.m_pPt[nElem];
 
-					x.m_Aux.Schedule(x.m_K, iBit, Casual::Fast::nMaxOdd, pTblCasual, iEntry);
+					x.m_Aux.Schedule(m_pKCasual[iEntry - 1], iBit, Casual::Fast::nMaxOdd, pTblCasual, iEntry);
 				}
 
 
@@ -1080,7 +1075,7 @@ namespace ECC {
 					{
 						Casual& x = m_pCasual[iEntry];
 
-						unsigned int nVal = GetPortion(x.m_K, iWord, iBitInWord, Casual::Secure::nBits);
+						unsigned int nVal = GetPortion(m_pKCasual[iEntry], iWord, iBitInWord, Casual::Secure::nBits);
 
 						//Point::Native ptVal;
 						//for (unsigned int i = 0; i < Casual::Secure::nCount; i++)

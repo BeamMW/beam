@@ -496,7 +496,7 @@ void Prover::ExtractGQ()
 
 			for (uint32_t i = 0; i < static_cast<uint32_t>(mm.m_Casual); i++)
 			{
-				mm.m_pCasual[i].m_K = m_p[k][iPos + i];
+				mm.m_pKCasual[i] = m_p[k][iPos + i];
 				kSer += m_p[k][iPos + i];
 			}
 

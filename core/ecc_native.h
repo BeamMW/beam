@@ -224,14 +224,11 @@ namespace ECC
 
 			Point::Native m_pPt[(Secure::nCount > Fast::nCount) ? Secure::nCount : Fast::nCount];
 
-			Scalar::Native m_K;
-
 			// used in fast mode
 			unsigned int m_nPrepared;
 			FastAux m_Aux;
 
 			void Init(const Point::Native&);
-			void Init(const Point::Native&, const Scalar::Native&);
 		};
 
 		struct Prepared
@@ -263,6 +260,7 @@ namespace ECC
 		Casual* m_pCasual;
 		const Prepared** m_ppPrepared;
 		Scalar::Native* m_pKPrep;
+		Scalar::Native* m_pKCasual;
 		FastAux* m_pAuxPrepared;
 
 		int m_Casual;
@@ -282,6 +280,7 @@ namespace ECC
 			Casual m_pCasual[nMaxCasual];
 			const Prepared* m_ppPrepared[nMaxPrepared];
 			Scalar::Native m_pKPrep[nMaxPrepared];
+			Scalar::Native m_pKCasual[nMaxCasual];
 			FastAux m_pAuxPrepared[nMaxPrepared];
 		} m_Bufs;
 
@@ -290,6 +289,7 @@ namespace ECC
 			m_pCasual		= m_Bufs.m_pCasual;
 			m_ppPrepared	= m_Bufs.m_ppPrepared;
 			m_pKPrep		= m_Bufs.m_pKPrep;
+			m_pKCasual		= m_Bufs.m_pKCasual;
 			m_pAuxPrepared	= m_Bufs.m_pAuxPrepared;
 		}
 
@@ -708,11 +708,13 @@ namespace ECC
 		:public BatchContext
 	{
 		uint64_t m_pBuf[(sizeof(MultiMac::Casual) * s_CasualCountPerProof * nBatchSize + sizeof(uint64_t) - 1) / sizeof(uint64_t)];
+		uint64_t m_pBuf2[(sizeof(Scalar::Native) * s_CasualCountPerProof * nBatchSize + sizeof(uint64_t) - 1) / sizeof(uint64_t)];
 
 		BatchContextEx()
 			:BatchContext(nBatchSize * s_CasualCountPerProof)
 		{
 			m_pCasual = (MultiMac::Casual*) m_pBuf;
+			m_pKCasual = (Scalar::Native*) m_pBuf2;
 		}
 	};
 

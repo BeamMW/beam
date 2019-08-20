@@ -77,12 +77,12 @@ namespace ECC {
 			m_Prepared = s_CountPrepared;
 		}
 
-		Casual& c = m_pCasual[m_Casual++];
-
-		c.Init(pt, k);
-
+		m_pKCasual[m_Casual] = k;
 		if (!bPremultiplied)
-			c.m_K *= m_Multiplier;
+			m_pKCasual[m_Casual] *= m_Multiplier;
+
+		m_pCasual[m_Casual++].Init(pt);
+
 	}
 
 	void InnerProduct::BatchContext::AddPrepared(uint32_t i, const Scalar::Native& k)
@@ -323,7 +323,8 @@ namespace ECC {
 			if (m_pCalc)
 			{
 				assert(iPos < _countof(m_pCalc->m_pGen[m_j]));
-				m_Mm.m_pCasual[m_Mm.m_Casual++].Init(m_pCalc->m_pGen[m_j][iPos], k);
+				m_Mm.m_pKCasual[m_Mm.m_Casual] = k;
+				m_Mm.m_pCasual[m_Mm.m_Casual++].Init(m_pCalc->m_pGen[m_j][iPos]);
 			}
 			else
 			{
@@ -748,11 +749,11 @@ namespace ECC {
 				mm2.m_Casual = 1;
 				Point::Native comm3;
 
-				mc.m_K = t1;
+				mm2.m_pKCasual = &t1;
 				mm2.Calculate(comm3);
 				comm += comm3;
 
-				mc.m_K = t2;
+				mm2.m_pKCasual = &t2;
 				mm2.Calculate(comm3);
 				comm2 += comm3;
 			}
