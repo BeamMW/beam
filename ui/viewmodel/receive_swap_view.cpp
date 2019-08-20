@@ -15,6 +15,7 @@
 #include "receive_swap_view.h"
 #include "ui_helpers.h"
 #include "model/app_model.h"
+#include "wallet/swaps/common.h"
 #include "wallet/swaps/swap_transaction.h"
 #include <QClipboard>
 
@@ -283,22 +284,18 @@ void ReceiveSwapViewModel::updateTransactionToken()
     // TODO:
     // _txParameters.SetParameter(beam::wallet::TxParameterID::PeerResponseHeight, ResponseTime(_offerExpires));
 
-    if (_sentCurrency == Currency::CurrBeam)
-    {
-        _txParameters.SetParameter(beam::wallet::TxParameterID::AtomicSwapIsBeamSide, false);
-        _txParameters.SetParameter(beam::wallet::TxParameterID::AtomicSwapAmount, static_cast<beam::Amount>(std::round(_amountToReceive * 100000000)));// TODO: us libbitcoin::satoshi_per_bitcoin)));
-        _txParameters.SetParameter(beam::wallet::TxParameterID::Amount, static_cast<beam::Amount>(std::round(_amountSent * beam::Rules::Coin)));
-        _txParameters.SetParameter(beam::wallet::TxParameterID::AtomicSwapCoin, convertCurrencyToSwapCoin(_receiveCurrency));
-    }
-    else if (_receiveCurrency == Currency::CurrBeam)
-    {
-        _txParameters.SetParameter(beam::wallet::TxParameterID::AtomicSwapIsBeamSide, true);
-        _txParameters.SetParameter(beam::wallet::TxParameterID::AtomicSwapAmount, static_cast<beam::Amount>(std::round(_amountSent * 100000000)));// TODO: us libbitcoin::satoshi_per_bitcoin)));
-        _txParameters.SetParameter(beam::wallet::TxParameterID::Amount, static_cast<beam::Amount>(std::round(_amountToReceive * beam::Rules::Coin)));
-        _txParameters.SetParameter(beam::wallet::TxParameterID::AtomicSwapCoin, convertCurrencyToSwapCoin(_sentCurrency));
-    }
+    // All parameters sets as if we were on the recipient side (mirrored)
+    bool isBeamSide = (_receiveCurrency == Currency::CurrBeam);
+    auto swapCoin = convertCurrencyToSwapCoin(isBeamSide ? _sentCurrency : _receiveCurrency);
+    auto beamAmount = isBeamSide ? _amountToReceive : _amountSent;
+    auto swapAmount = isBeamSide ? _amountSent : _amountToReceive;
+
+    _txParameters.SetParameter(beam::wallet::TxParameterID::AtomicSwapIsBeamSide, isBeamSide);
+    _txParameters.SetParameter(beam::wallet::TxParameterID::Amount, static_cast<beam::Amount>(std::round(beamAmount * beam::Rules::Coin)));
+    _txParameters.SetParameter(beam::wallet::TxParameterID::AtomicSwapCoin, swapCoin);
+    _txParameters.SetParameter(beam::wallet::TxParameterID::AtomicSwapAmount, static_cast<beam::Amount>(std::round(swapAmount * UnitsPerCoin(swapCoin))));
     _txParameters.SetParameter(beam::wallet::TxParameterID::PeerID, _receiverAddress.m_walletID);
-    _txParameters.SetParameter(beam::wallet::TxParameterID::IsSender, _receiveCurrency == Currency::CurrBeam);
+    _txParameters.SetParameter(beam::wallet::TxParameterID::IsSender, isBeamSide);
 
     setTransactionToken(QString::fromStdString(std::to_string(_txParameters)));
 }

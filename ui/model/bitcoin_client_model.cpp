@@ -15,6 +15,8 @@
 #include "bitcoin_client_model.h"
 
 #include "model/app_model.h"
+#include "wallet/common.h"
+#include "wallet/swaps/common.h"
 
 using namespace beam;
 
@@ -145,24 +147,27 @@ void BitcoinClientModel::onTxStatus(beam::wallet::ChangeAction action, const std
 
 void BitcoinClientModel::RecalculateAmounts()
 {
+    using namespace beam::wallet;
     m_sending = 0;
     m_receiving = 0;
 
-    for (const auto&[txId, txDescription] : m_transactions)
+    for (const auto& txPair : m_transactions)
     {
-        if (txDescription.m_status == wallet::TxStatus::InProgress)
+        const auto& txDescription = txPair.second;
+
+        if (txDescription.m_status == TxStatus::InProgress)
         {
-            auto isBeamSide = txDescription.GetParameter<bool>(wallet::TxParameterID::AtomicSwapIsBeamSide);
-            auto swapAmount = txDescription.GetParameter<Amount>(wallet::TxParameterID::AtomicSwapAmount);
+            auto isBeamSide = txDescription.GetParameter<bool>(TxParameterID::AtomicSwapIsBeamSide);
+            auto swapAmount = txDescription.GetParameter<Amount>(TxParameterID::AtomicSwapAmount);
             assert(isBeamSide && swapAmount);
             // if (txDescription.)
             if (*isBeamSide)
             {
-                m_receiving += double(*swapAmount) / 100000000;
+                m_receiving += double(*swapAmount) / UnitsPerCoin(AtomicSwapCoin::Bitcoin);
             }
             else
             {
-                m_sending += double(*swapAmount) / 100000000;
+                m_sending += double(*swapAmount) / UnitsPerCoin(AtomicSwapCoin::Bitcoin);
             }
         }
     }

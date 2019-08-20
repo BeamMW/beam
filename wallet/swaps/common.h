@@ -38,4 +38,6 @@ namespace beam::wallet
         SigningTx,
         Constructed
     };
+
+    uint64_t UnitsPerCoin(AtomicSwapCoin swapCoin) noexcept;
 }
