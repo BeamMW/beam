@@ -579,11 +579,11 @@ namespace ECC {
 
 	/////////////////////
 	// Bulletproof
-	void RangeProof::Confidential::Create(const Scalar::Native& sk, const CreatorParams& cp, Oracle& oracle, const Point::Native* pHGen /* = nullptr */)
+	void RangeProof::Confidential::Create(const Scalar::Native& sk, const CreatorParams& cp, Oracle& oracle, const Point::Native* pHGen /* = nullptr */, Part3* pSer /* = nullptr */, const Scalar::Native* pSkSer /* = nullptr */)
 	{
 		NoLeak<uintBig> seedSk;
         GenerateSeed(seedSk.V, sk, cp.m_Kidv.m_Value, oracle);
-        BEAM_VERIFY(CoSign(seedSk.V, sk, cp, oracle, Phase::SinglePass, pHGen));
+        BEAM_VERIFY(CoSign(seedSk.V, sk, cp, oracle, Phase::SinglePass, pHGen, pSer, pSkSer));
 	}
 
     void RangeProof::Confidential::GenerateSeed(uintBig& seedSk, const Scalar::Native& sk, Amount amount, Oracle& oracle)
@@ -642,7 +642,7 @@ namespace ECC {
 
 #pragma pack (pop)
 
-	bool RangeProof::Confidential::CoSign(const uintBig& seedSk, const Scalar::Native& sk, const CreatorParams& cp, Oracle& oracle, Phase::Enum ePhase, const Point::Native* pHGen /* = nullptr */)
+	bool RangeProof::Confidential::CoSign(const uintBig& seedSk, const Scalar::Native& sk, const CreatorParams& cp, Oracle& oracle, Phase::Enum ePhase, const Point::Native* pHGen /* = nullptr */, Part3* pSer /* = nullptr */, const Scalar::Native* pSkSer /* = nullptr */)
 	{
 		NonceGeneratorBp nonceGen(cp.m_Seed.V);
 
@@ -730,13 +730,26 @@ namespace ECC {
 			t2 += lx * rx;
 		}
 
-		MultiSig::Impl msig;
+		MultiSig::Impl msig, msigSer;
 		msig.Init(seedSk);
+		if (pSer)
+		{
+			NonceGenerator("bp-ser")
+				<< seedSk
+				>> msigSer.m_tau1
+				>> msigSer.m_tau2;
+		}
 
 		if (Phase::Finalize != ePhase) // otherwise m_Part2 already contains the whole aggregate
 		{
 			Point::Native comm2;
 			msig.AddInfo1(comm, comm2);
+
+			if (pSer)
+			{
+				comm += Context::get().J * msigSer.m_tau1;
+				comm2 += Context::get().J * msigSer.m_tau2;
+			}
 
 			if (Tag::IsCustom(pHGen))
 			{
@@ -786,11 +799,19 @@ namespace ECC {
 
 		// m_TauX = tau2*x^2 + tau1*x + sk*z^2
 		msig.AddInfo2(l0, sk, cs);
+		if (pSer)
+			msigSer.AddInfo2(yPwr, *pSkSer, cs);
 
 		if (Phase::SinglePass != ePhase)
+		{
 			l0 += m_Part3.m_TauX;
+			if (pSer)
+				yPwr += pSer->m_TauX;
+		}
 
 		m_Part3.m_TauX = l0;
+		if (pSer)
+			pSer->m_TauX = yPwr;
 
 		// m_Mu = alpha + ro*x
 		l0 = ro;
@@ -1010,18 +1031,18 @@ namespace ECC {
 		oracle >> x;
 	}
 
-	bool RangeProof::Confidential::IsValid(const Point::Native& commitment, Oracle& oracle, const Point::Native* pHGen /* = nullptr */) const
+	bool RangeProof::Confidential::IsValid(const Point::Native& commitment, Oracle& oracle, const Point::Native* pHGen /* = nullptr */, Part3* pSer /* = nullptr */) const
 	{
 		if (InnerProduct::BatchContext::s_pInstance)
 			return IsValid(commitment, oracle, *InnerProduct::BatchContext::s_pInstance, pHGen);
 
 		InnerProduct::BatchContextEx<1> bc;
 		return
-			IsValid(commitment, oracle, bc, pHGen) &&
+			IsValid(commitment, oracle, bc, pHGen, pSer) &&
 			bc.Flush();
 	}
 
-	bool RangeProof::Confidential::IsValid(const Point::Native& commitment, Oracle& oracle, InnerProduct::BatchContext& bc, const Point::Native* pHGen /* = nullptr */) const
+	bool RangeProof::Confidential::IsValid(const Point::Native& commitment, Oracle& oracle, InnerProduct::BatchContext& bc, const Point::Native* pHGen /* = nullptr */, Part3* pSer /* = nullptr */) const
 	{
 		bool bCustom = Tag::IsCustom(pHGen);
 
@@ -1078,6 +1099,9 @@ namespace ECC {
 		sumY += -delta;
 
 		bc.AddPrepared(InnerProduct::BatchContext::s_Idx_G, m_Part3.m_TauX);
+
+		if (pSer)
+			bc.AddPrepared(InnerProduct::BatchContext::s_Idx_J, pSer->m_TauX);
 
 		if (bCustom)
 			bc.AddCasual(*pHGen, sumY);
