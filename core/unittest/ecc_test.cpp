@@ -2020,7 +2020,7 @@ void TestLelantus()
 {
 
 	beam::Lelantus::CmListVec lst;
-	lst.m_vec.resize(1000);
+	lst.m_vec.resize(beam::Lelantus::Cfg::N);
 
 	Point::Native rnd;
 	SetRandom(rnd);
@@ -2055,10 +2055,22 @@ void TestLelantus()
 	typedef InnerProduct::BatchContextEx<4> MyBatch;
 	MyBatch bc;
 
-	Oracle o2;
-	bool bSuccess =
-		p.m_Proof.IsValid(bc, o2, lst) &&
-		bc.Flush();
+	std::vector<ECC::Scalar::Native> vKs;
+	vKs.resize(beam::Lelantus::Cfg::N);
+
+	bool bSuccess = true;
+
+	for (int i = 0; i < 10; i++)
+	{
+		Oracle o2;
+		if (!p.m_Proof.IsValid(bc, o2, &vKs.front()))
+			bSuccess = false;
+	}
+
+	lst.Calculate(bc.m_Sum, 0, beam::Lelantus::Cfg::N, &vKs.front());
+
+	if (!bc.Flush())
+		bSuccess = false;
 
 	verify_test(bSuccess);
 }

@@ -21,6 +21,9 @@ namespace Lelantus {
 	struct CmList
 	{
 		virtual bool get_At(ECC::Point::Storage&, uint32_t iIdx) = 0;
+
+		void Import(ECC::MultiMac&, uint32_t iPos, uint32_t nCount);
+		void Calculate(ECC::Point::Native&, uint32_t iPos, uint32_t nCount, const ECC::Scalar::Native* pKs);
 	};
 
 	struct CmListVec
@@ -72,8 +75,7 @@ namespace Lelantus {
 
 		} m_Part2;
 
-		bool IsValid(ECC::Oracle& oracle, CmList&) const;
-		bool IsValid(ECC::InnerProduct::BatchContext& bc, ECC::Oracle& oracle, CmList&) const;
+		bool IsValid(ECC::InnerProduct::BatchContext& bc, ECC::Oracle& oracle, ECC::Scalar::Native* pKs) const;
 	};
 
 	class Prover

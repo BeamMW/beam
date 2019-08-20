@@ -107,6 +107,45 @@ struct CommitmentStd
 	}
 };
 
+void CmList::Import(MultiMac& mm, uint32_t iPos, uint32_t nCount)
+{
+	Point::Native comm;
+
+	for (mm.Reset(); static_cast<uint32_t>(mm.m_Casual) < nCount; mm.m_Casual++)
+	{
+		Point::Storage pt_s;
+		if (!get_At(pt_s, iPos + mm.m_Casual))
+			break;
+
+		comm.Import(pt_s);
+		mm.m_pCasual[mm.m_Casual].Init(comm);
+	}
+}
+
+void CmList::Calculate(Point::Native& res, uint32_t iPos, uint32_t nCount, const Scalar::Native* pKs)
+{
+	Mode::Scope scope(Mode::Fast);
+
+	const uint32_t nSizeNaggle = 128;
+	MultiMac_WithBufs<nSizeNaggle, 1> mm;
+
+	Point::Native comm;
+
+	while (true)
+	{
+		Import(mm, iPos, std::min(nSizeNaggle, nCount));
+		mm.m_pKCasual = Cast::NotConst(pKs + iPos);
+
+		mm.Calculate(comm);
+		res += comm;
+
+		iPos += mm.m_Casual;
+		nCount -= mm.m_Casual;
+
+		if (!nCount || (static_cast<uint32_t>(mm.m_Casual) < nSizeNaggle))
+			break;
+	}
+}
 
 ///////////////////////////
 // Proof
@@ -129,18 +168,7 @@ void Proof::Part1::Expose(Oracle& oracle) const
 	}
 }
 
-bool Proof::IsValid(Oracle& oracle, CmList& cmList) const
-{
-	if (InnerProduct::BatchContext::s_pInstance)
-		return IsValid(*InnerProduct::BatchContext::s_pInstance, oracle, cmList);
-
-	InnerProduct::BatchContextEx<4> bc;
-	return
-		IsValid(bc, oracle, cmList) &&
-		bc.Flush();
-}
-
-bool Proof::IsValid(InnerProduct::BatchContext& bc, Oracle& oracle, CmList& cmList) const
+bool Proof::IsValid(InnerProduct::BatchContext& bc, Oracle& oracle, Scalar::Native* pKs) const
 {
 	Mode::Scope scope(Mode::Fast);
 
@@ -274,10 +302,6 @@ bool Proof::IsValid(InnerProduct::BatchContext& bc, Oracle& oracle, CmList& cmLi
 	Point::Native pt;
 	for (uint32_t iPos = 0; iPos < Cfg::N; iPos++)
 	{
-		Point::Storage pt_s;
-		if (!cmList.get_At(pt_s, iPos))
-			break;
-
 		Scalar::Native k = kMulPG;
 
 		uint32_t ij = iPos;
@@ -291,8 +315,7 @@ bool Proof::IsValid(InnerProduct::BatchContext& bc, Oracle& oracle, CmList& cmLi
 
 		kSer += k;
 
-		pt.Import(pt_s);
-		bc.AddCasual(pt, k, true);
+		pKs[iPos] += k;
 	}
 
 	SpendKey::ToSerial(xPwr, m_Part1.m_SpendPk);
@@ -475,17 +498,7 @@ void Prover::ExtractGQ()
 
 	while (true)
 	{
-		for (mm.Reset(); static_cast<uint32_t>(mm.m_Casual) < nSizeNaggle; mm.m_Casual++)
-		{
-			Point::Storage pt_s;
-			if (!m_List.get_At(pt_s, iPos + mm.m_Casual))
-				break;
-
-			comm.Import(pt_s);
-			mm.m_pCasual[mm.m_Casual].Init(comm);
-		}
-
-		bool bLast = (Cfg::N == iPos + mm.m_Casual) || (static_cast<uint32_t>(mm.m_Casual) < nSizeNaggle);
+		m_List.Import(mm, iPos, std::min(nSizeNaggle, Cfg::N - iPos));
 
 		mm.m_ppPrepared[mm.m_Prepared] = &Context::get().m_Ipp.J_;
 		Scalar::Native& kSer = mm.m_pKPrep[mm.m_Prepared++];
@@ -495,22 +508,20 @@ void Prover::ExtractGQ()
 			kSer = Zero;
 
 			for (uint32_t i = 0; i < static_cast<uint32_t>(mm.m_Casual); i++)
-			{
-				mm.m_pKCasual[i] = m_p[k][iPos + i];
 				kSer += m_p[k][iPos + i];
-			}
 
 			kSer *= m_Serial;
 			kSer = -kSer;
 
+			mm.m_pKCasual = m_p[k] + iPos;
 			mm.Calculate(comm);
 			pG[k] += comm;
 		}
 
-		if (bLast)
-			break;
-
 		iPos += mm.m_Casual;
+
+		if ((Cfg::N == iPos) || (static_cast<uint32_t>(mm.m_Casual) < nSizeNaggle))
+			break;
 	}
 
 	// add gammas, split G[] into G[] and Q[]
