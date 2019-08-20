@@ -157,8 +157,8 @@ namespace ECC
 		Point m_NoncePub;
 		Scalar m_k;
 
-		bool IsValid(const Hash::Value& msg, const Point::Native& pk) const;
-		bool IsValidPartial(const Hash::Value& msg, const Point::Native& pubNonce, const Point::Native& pk) const;
+		bool IsValid(const Hash::Value& msg, const Point::Native& pk, const Scalar* pSer = nullptr) const;
+		bool IsValidPartial(const Hash::Value& msg, const Point::Native& pubNonce, const Point::Native& pk, const Scalar* pSer = nullptr) const;
 
 		// simple signature
 		void Sign(const Hash::Value& msg, const Scalar::Native& sk);

@@ -1661,7 +1661,7 @@ namespace ECC {
 		m_k = k;
 	}
 
-	bool Signature::IsValidPartial(const Hash::Value& msg, const Point::Native& pubNonce, const Point::Native& pk) const
+	bool Signature::IsValidPartial(const Hash::Value& msg, const Point::Native& pubNonce, const Point::Native& pk, const Scalar* pSer /* = nullptr */) const
 	{
 		Mode::Scope scope(Mode::Fast);
 
@@ -1674,19 +1674,28 @@ namespace ECC {
 			pBc->EquationBegin();
 
 			pBc->AddPrepared(InnerProduct::BatchContext::s_Idx_G, m_k);
+			if (pSer)
+				pBc->AddPrepared(InnerProduct::BatchContext::s_Idx_J, *pSer);
 			pBc->AddCasual(pk, e);
 			pBc->AddCasual(pubNonce, pBc->m_Multiplier, true);
 
 			return true;
 		}
 
-		MultiMac_WithBufs<1, 1> mm;
+		MultiMac_WithBufs<1, 2> mm;
 		mm.m_ppPrepared[0] = &Context::get().m_Ipp.G_;
 		mm.m_pKPrep[0] = m_k;
 		mm.m_Prepared = 1;
 		mm.m_pCasual[0].Init(pk);
 		mm.m_pKCasual = &e;
 		mm.m_Casual = 1;
+
+		if (pSer)
+		{
+			mm.m_ppPrepared[1] = &Context::get().m_Ipp.J_;
+			mm.m_pKPrep[1] = *pSer;
+			mm.m_Prepared = 2;
+		}
 
 		Point::Native pt;
 		mm.Calculate(pt);
@@ -1695,13 +1704,13 @@ namespace ECC {
 		return pt == Zero;
 	}
 
-	bool Signature::IsValid(const Hash::Value& msg, const Point::Native& pk) const
+	bool Signature::IsValid(const Hash::Value& msg, const Point::Native& pk, const Scalar* pSer /* = nullptr */) const
 	{
 		Point::Native pubNonce;
 		if (!pubNonce.Import(m_NoncePub))
 			return false;
 
-		return IsValidPartial(msg, pubNonce, pk);
+		return IsValidPartial(msg, pubNonce, pk, pSer);
 	}
 
 	int Signature::cmp(const Signature& x) const
