@@ -1123,8 +1123,9 @@ namespace beam
 		oracle
 			<< "fork2"
 			<< pForks[2].m_Height
-			// TBD
-			// ...
+			<< (uint32_t) 1 // Lelantus enabled
+			<< Lelantus::Cfg::n
+			<< Lelantus::Cfg::M
 			// out
 			>> pForks[2].m_Hash;
 	}

@@ -15,6 +15,7 @@
 #pragma once
 #include <limits>
 #include "ecc_native.h"
+#include "lelantus.h"
 #include "merkle.h"
 #include "difficulty.h"
 

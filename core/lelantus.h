@@ -104,8 +104,9 @@ namespace Lelantus {
 
 	public:
 
-		Prover(CmList& lst)
+		Prover(CmList& lst, Proof& proof)
 			:m_List(lst)
+			,m_Proof(proof)
 		{
 		}
 
@@ -123,7 +124,7 @@ namespace Lelantus {
 		void Generate(const ECC::uintBig& seed, ECC::Oracle& oracle);
 
 		// result
-		Proof m_Proof;
+		Proof& m_Proof;
 	};
 
 } // namespace Lelantus

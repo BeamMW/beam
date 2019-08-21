@@ -2028,7 +2028,8 @@ void TestLelantus()
 	for (size_t i = 0; i < lst.m_vec.size(); i++, rnd += rnd)
 		rnd.Export(lst.m_vec[i]);
 
-	std::unique_ptr<beam::Lelantus::Prover> pProver(std::make_unique<beam::Lelantus::Prover>(lst));
+	beam::Lelantus::Proof proof;
+	std::unique_ptr<beam::Lelantus::Prover> pProver(std::make_unique<beam::Lelantus::Prover>(lst, proof));
 	beam::Lelantus::Prover& p = *pProver;
 
 	p.m_Witness.V.m_V = 100500;
@@ -2659,6 +2660,7 @@ int main()
 
 	beam::Rules::get().CA.Enabled = true;
 	beam::Rules::get().pForks[1].m_Height = g_hFork;
+	beam::Rules::get().pForks[2].m_Height = g_hFork;
 	ECC::TestAll();
 	ECC::RunBenchmark();
 
