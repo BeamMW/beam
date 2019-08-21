@@ -583,7 +583,7 @@ namespace detail
 			{
 				ar & nFlags2;
 
-				if (1 & nFlags2)
+				if ((1 & nFlags2) && !output.m_RecoveryOnly)
 					ar & *output.m_pDoubleBlind;
 			}
 
@@ -630,7 +630,10 @@ namespace detail
 				if (1 & nFlags2)
 				{
 					output.m_pDoubleBlind = std::make_unique<ECC::RangeProof::Confidential::Part3>();
-					ar & *output.m_pDoubleBlind;
+					if (output.m_RecoveryOnly)
+						ZeroObject(*output.m_pDoubleBlind);
+					else
+						ar & *output.m_pDoubleBlind;
 				}
 			}
 
