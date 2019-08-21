@@ -550,6 +550,9 @@ namespace detail
         template<typename Archive>
         static Archive& save(Archive& ar, const beam::Output& output)
         {
+			uint8_t nFlags2 =
+				(output.m_pDoubleBlind ? 1 : 0);
+
 			uint8_t nFlags =
 				(output.m_Commitment.m_Y ? 1 : 0) |
 				(output.m_Coinbase ? 2 : 0) |
@@ -557,7 +560,8 @@ namespace detail
 				(output.m_pPublic ? 8 : 0) |
 				(output.m_Incubation ? 0x10 : 0) |
 				((output.m_AssetID == beam::Zero) ? 0 : 0x20) |
-				(output.m_RecoveryOnly ? 0x40 : 0);
+				(output.m_RecoveryOnly ? 0x40 : 0) |
+				(nFlags2 ? 0x80 : 0);
 
 			ar
 				& nFlags
@@ -574,6 +578,14 @@ namespace detail
 
 			if (0x20 & nFlags)
 				ar & output.m_AssetID;
+
+			if (nFlags2)
+			{
+				ar & nFlags2;
+
+				if (1 & nFlags2)
+					ar & *output.m_pDoubleBlind;
+			}
 
             return ar;
         }
@@ -609,6 +621,18 @@ namespace detail
 				ar & output.m_AssetID;
 			else
 				output.m_AssetID = beam::Zero;
+
+			if (0x80 & nFlags)
+			{
+				uint8_t nFlags2;
+				ar & nFlags2;
+
+				if (1 & nFlags2)
+				{
+					output.m_pDoubleBlind = std::make_unique<ECC::RangeProof::Confidential::Part3>();
+					ar & *output.m_pDoubleBlind;
+				}
+			}
 
             return ar;
         }

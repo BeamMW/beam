@@ -280,10 +280,13 @@ namespace beam
 			if (m_pPublic)
 				return false;
 
-			return m_pConfidential->IsValid(comm, oracle, &sc.m_hGen);
+			if (m_pDoubleBlind && (hScheme < Rules::get().pForks[2].m_Height))
+				return false; // not supported in this version
+
+			return m_pConfidential->IsValid(comm, oracle, &sc.m_hGen, m_pDoubleBlind.get());
 		}
 
-		if (!m_pPublic)
+		if (!m_pPublic || m_pDoubleBlind)
 			return false;
 
 		if (!(Rules::get().AllowPublicUtxos || m_Coinbase))
@@ -301,6 +304,7 @@ namespace beam
 		m_AssetID = v.m_AssetID;
 		ClonePtr(m_pConfidential, v.m_pConfidential);
 		ClonePtr(m_pPublic, v.m_pPublic);
+		ClonePtr(m_pDoubleBlind, v.m_pDoubleBlind);
 	}
 
 	int Output::cmp(const Output& v) const
@@ -317,6 +321,7 @@ namespace beam
 		CMP_MEMBER_EX(m_AssetID)
 		CMP_MEMBER_PTR(m_pConfidential)
 		CMP_MEMBER_PTR(m_pPublic)
+		CMP_MEMBER_PTR(m_pDoubleBlind)
 
 		return 0;
 	}

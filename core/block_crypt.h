@@ -265,6 +265,7 @@ namespace beam
 		// one of the following *must* be specified
 		std::unique_ptr<ECC::RangeProof::Confidential>	m_pConfidential;
 		std::unique_ptr<ECC::RangeProof::Public>		m_pPublic;
+		std::unique_ptr<ECC::RangeProof::Confidential::Part3> m_pDoubleBlind; // for shielded output, complements the confidential
 
 		void Create(Height hScheme, ECC::Scalar::Native&, Key::IKdf& coinKdf, const Key::IDV&, Key::IPKdf& tagKdf, bool bPublic = false);
 

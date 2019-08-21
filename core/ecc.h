@@ -399,6 +399,7 @@ namespace ECC
 
 			struct Part3 {
 				Scalar m_TauX;
+				int cmp(const Part3& v) const { return m_TauX.cmp(v.m_TauX); }
 			} m_Part3;
 
 			Scalar m_Mu;
