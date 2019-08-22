@@ -15,6 +15,7 @@
 #pragma once
 
 #include "block_crypt.h"
+#include "mapped_file.h"
 
 namespace beam
 {
@@ -163,8 +164,10 @@ public:
 
 	size_t Count() const; // implemented via the whole tree traversing, shouldn't use frequently.
 
-private:
+protected:
 	int64_t m_RootOffset;
+
+private:
 	void set_Root(Node*);
 
 	void DeleteNode(Node*);
@@ -332,7 +335,7 @@ public:
 protected:
 	virtual Leaf* CreateLeaf() override { return new MyLeaf; }
 	virtual uint8_t* GetLeafKey(const Leaf& x) const override { return Cast::Up<MyLeaf>(Cast::NotConst(x)).m_Key.V.m_pData; }
-	virtual void DeleteLeaf(Leaf* p) override/* { delete Cast::Up<MyLeaf>(p); }*/;
+	virtual void DeleteLeaf(Leaf* p) override;
 	virtual const Merkle::Hash& get_LeafHash(Node&, Merkle::Hash&) override;
 
 	virtual MyLeaf::IDQueue* CreateIDQueue() { return new MyLeaf::IDQueue; }
@@ -362,6 +365,70 @@ protected:
 
 	void PushIDRaw(TxoID, MyLeaf::IDQueue&);
 	TxoID PopIDRaw(MyLeaf::IDQueue&);
+};
+
+class UtxoTreeMapped
+	:public UtxoTree
+{
+	MappedFile m_Mapping;
+
+	struct Type {
+		enum Enum {
+			Leaf,
+			Joint,
+			Queue,
+			Node,
+			count
+		};
+	};
+
+protected:
+
+	template <typename T>
+	T* Allocate(Type::Enum eType)
+	{
+		return (T*) m_Mapping.Allocate(eType, sizeof(T));
+
+	}
+
+	virtual intptr_t get_Base() const override;
+
+	virtual Leaf* CreateLeaf() override;
+	virtual void DeleteEmptyLeaf(Leaf*) override;
+	virtual Joint* CreateJoint() override;
+	virtual void DeleteJoint(Joint*) override;
+
+	virtual MyLeaf::IDQueue* CreateIDQueue() override;
+	virtual void DeleteIDQueue(MyLeaf::IDQueue*) override;
+	virtual MyLeaf::IDNode* CreateIDNode() override;
+	virtual void DeleteIDNode(MyLeaf::IDNode*) override;
+
+public:
+
+	virtual void OnDirty() override;
+
+	typedef Merkle::Hash Stamp;
+
+	~UtxoTreeMapped() { Close(); }
+
+	bool Open(const char* sz, const Stamp&);
+	bool IsOpen() const { return m_Mapping.get_Base() != nullptr; }
+
+	void Close();
+	void FlushStrict(const Stamp&);
+
+	void EnsureReserve();
+
+#pragma pack(push, 1)
+	struct Hdr
+	{
+		MappedFile::Offset m_Root;
+		MappedFile::Offset m_Dirty; // boolean, just aligned
+		Stamp m_Stamp;
+	};
+#pragma pack(pop)
+
+	Hdr& get_Hdr();
 };
 
 } // namespace beam
