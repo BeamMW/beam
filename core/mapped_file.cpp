@@ -202,7 +202,7 @@ namespace beam
 #endif // WIN32
 	}
 
-	void MappedFile::Open(const char* sz, const Defs& d)
+	void MappedFile::Open(const char* sz, const Defs& d, bool bReset /* = false */)
 	{
 		Close();
 
@@ -228,7 +228,7 @@ namespace beam
 		OpenMapping();
 
 		uint32_t nSizeMin = d.get_SizeMin();
-		if ((m_nMapping < nSizeMin) || memcmp(d.m_pSig, m_pMapping, d.m_nSizeSig))
+		if (bReset || (m_nMapping < nSizeMin) || memcmp(d.m_pSig, m_pMapping, d.m_nSizeSig))
 		{
 			bool bShouldZeroInit = (m_nMapping > d.m_nSizeSig);
 			CloseMapping();

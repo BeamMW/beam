@@ -69,7 +69,7 @@ namespace beam
 			uint32_t get_SizeMin() const;
 		};
 
-		void Open(const char* sz, const Defs&);
+		void Open(const char* sz, const Defs&, bool bReset = false);
 		void Close();
 
 		void* get_FixedHdr() const;
@@ -81,6 +81,7 @@ namespace beam
 		}
 
 		Offset get_Offset(const void* p) const;
+		const uint8_t* get_Base() const { return m_pMapping; }
 
 		void* Allocate(uint32_t iBank, uint32_t nSize);
 		void Free(uint32_t iBank, void*);
