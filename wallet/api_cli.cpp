@@ -41,6 +41,7 @@
 #include "wallet/bitcoin/options.h"
 #include "wallet/litecoin/options.h"
 #include "wallet/qtum/options.h"
+#include "wallet/local_private_key_keeper.h"
 
 #include "nlohmann/json.hpp"
 #include "version.h"
@@ -228,6 +229,7 @@ namespace
                 , _wallet(wallet)
                 , _api(*this, acl)
                 , _wnet(wnet)
+                , _keyKeeper(std::make_shared<LocalPrivateKeyKeeper>(_walletDB))
             {
                 _walletDB->subscribe(this);
             }
@@ -299,7 +301,7 @@ namespace
             {
                 LOG_DEBUG() << "CreateAddress(id = " << id << ")";
 
-                WalletAddress address = storage::createAddress(*_walletDB);
+                WalletAddress address = storage::createAddress(*_walletDB, _keyKeeper);
                 FillAddressData(data, address);
 
                 _walletDB->saveAddress(address);
@@ -396,7 +398,7 @@ namespace
                     }
                     else
                     {
-                        WalletAddress senderAddress = storage::createAddress(*_walletDB);
+                        WalletAddress senderAddress = storage::createAddress(*_walletDB, _keyKeeper);
                         _walletDB->saveAddress(senderAddress);
 
                         from = senderAddress.m_walletID;     
@@ -471,7 +473,7 @@ namespace
                 LOG_DEBUG() << "], fee = " << data.fee;
                 try
                 {
-                     WalletAddress senderAddress = storage::createAddress(*_walletDB);
+                     WalletAddress senderAddress = storage::createAddress(*_walletDB, _keyKeeper);
                     _walletDB->saveAddress(senderAddress);
 
                     if (data.fee < MinimumFee)
@@ -701,6 +703,7 @@ namespace
             Wallet& _wallet;
             WalletApi _api;
             IWalletMessageEndpoint& _wnet;
+            IPrivateKeyKeeper::Ptr _keyKeeper;
         };
 
         class TcpApiConnection : public ApiConnection
@@ -1072,7 +1075,8 @@ int main(int argc, char* argv[])
 
         LogRotation logRotation(*reactor, LOG_ROTATION_PERIOD, options.logCleanupPeriod);
 
-        Wallet wallet{ walletDB };
+        auto keyKeeper = std::make_shared<LocalPrivateKeyKeeper>(walletDB);
+        Wallet wallet{ walletDB, keyKeeper };
 
         auto nnet = std::make_shared<proto::FlyClient::NetworkStd>(wallet);
         nnet->m_Cfg.m_PollPeriod_ms = options.pollPeriod_ms.value;
@@ -1094,7 +1098,7 @@ int main(int argc, char* argv[])
         nnet->m_Cfg.m_vNodes.push_back(node_addr);
         nnet->Connect();
 
-        auto wnet = std::make_shared<WalletNetworkViaBbs>(wallet, nnet, walletDB);
+        auto wnet = std::make_shared<WalletNetworkViaBbs>(wallet, nnet, walletDB, keyKeeper);
 		wallet.AddMessageEndpoint(wnet);
         wallet.SetNodeEndpoint(nnet);
 

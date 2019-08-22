@@ -19,6 +19,7 @@
 #include "node_model.h"
 #include "helpers.h"
 #include "wallet/secstring.h"
+#include "wallet/private_key_keeper.h"
 #include <memory>
 
 class AppModel final: public QObject
@@ -59,6 +60,7 @@ private:
 
 private:
     WalletModel::Ptr m_wallet;
+    beam::wallet::IPrivateKeyKeeper::Ptr m_keyKeeper;
     NodeModel m_nodeModel;
     WalletSettings& m_settings;
     MessageManager m_messages;

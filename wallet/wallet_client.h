@@ -19,6 +19,7 @@
 #include "wallet_db.h"
 #include "wallet_network.h"
 #include "wallet_model_async.h"
+#include "private_key_keeper.h"
 
 #include <thread>
 #include <atomic>
@@ -48,7 +49,7 @@ namespace beam::wallet
         , private IWalletDB::IRecoveryProgress
     {
     public:
-        WalletClient(IWalletDB::Ptr walletDB, const std::string& nodeAddr, io::Reactor::Ptr reactor);
+        WalletClient(IWalletDB::Ptr walletDB, const std::string& nodeAddr, io::Reactor::Ptr reactor, IPrivateKeyKeeper::Ptr keyKeeper);
         virtual ~WalletClient();
 
         void start();
@@ -134,5 +135,6 @@ namespace beam::wallet
         bool m_isConnected;
         boost::optional<ErrorType> m_walletError;
         std::string m_nodeAddrStr;
+        IPrivateKeyKeeper::Ptr m_keyKeeper;
     };
 }

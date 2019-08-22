@@ -375,7 +375,8 @@ namespace beam::wallet
                 if (waddr && waddr->m_OwnID)
                 {
                     Scalar::Native sk;
-                    m_WalletDB->get_MasterKdf()->DeriveKey(sk, Key::ID(waddr->m_OwnID, Key::Type::Bbs));
+                    
+                    m_KeyKeeper->get_SbbsKdf()->DeriveKey(sk, Key::ID(waddr->m_OwnID, Key::Type::Bbs));
 
                     proto::Sk2Pk(widMy.m_Pk, sk);
 

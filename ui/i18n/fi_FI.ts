@@ -33,7 +33,7 @@
     </message>
     <message id="general-exp-date">
         <source>Expiration date</source>
-        <translation>Vanhentumispäivä</translation>
+        <translation>Vanhentumisaika</translation>
     </message>
     <message id="general-created">
         <source>Created</source>
@@ -62,15 +62,15 @@
     </message>
     <message id="general-receiving">
         <source>receiving</source>
-        <translation>vastaanotetaan</translation>
+        <translation>vastaanottaa</translation>
     </message>
     <message id="general-sending">
         <source>sending</source>
-        <translation>lähetetään</translation>
+        <translation>lähettää</translation>
     </message>
     <message id="general-rescan">
         <source>Rescan</source>
-        <translation>Päivitä</translation>
+        <translation>Skannaa uudelleen</translation>
     </message>
     <message id="general-change-pwd">
         <source>Change wallet password</source>
@@ -159,7 +159,7 @@
     </message>
     <message id="general-select-db">
         <source>Select the wallet database file</source>
-        <translation>Valitse lompakon tallennustiedosto (wallet.db)</translation>
+        <translation>Valitse lompakon tietokantatiedosto</translation>
     </message>
     <message id="general-restore-wallet">
         <source>Restore wallet</source>
@@ -180,7 +180,7 @@
     </message>
     <message id="general-show-in-folder">
         <source>Show in folder</source>
-        <translation>Avaa tallennuskansio</translation>
+        <translation>Näytä kansiossa</translation>
     </message>
     <message id="general-addr-comment-error">
         <source>Address with same comment already exist</source>
@@ -204,7 +204,7 @@
     </message>
     <message id="wallet-txs-date-time">
         <source>Date | Time</source>
-        <translation>Päivämäärä ja aika</translation>
+        <translation>Päivämäärä | Aika</translation>
     </message>
     <message id="wallet-txs-copy-addr-cm">
         <source>Copy address</source>
@@ -295,7 +295,7 @@
     </message>
     <message id="available-panel-where-to-buy">
         <source>Where to buy BEAM?</source>
-        <translation>Mistä voin ostaa BEAMiä?</translation>
+        <translation>Mistä ostaa BEAMiä?</translation>
     </message>
     <message id="settings-version">
         <source>Version</source>
@@ -320,7 +320,7 @@
     <message id="settings-rescan-confirmation-message">
         <source>Rescan will sync transaction and UTXO data with the latest information on the blockchain. The process might take long time.</source>
         <extracomment>settings tab, confirm rescan dialog message</extracomment>
-        <translation>Uudelleenpäivitys synkronoi tapahtuma- ja UTXO-tiedot lohkoketjun viimeisimpien tietojen kanssa. Päivitys voi kestää pitkään.</translation>
+        <translation>Uudelleenskannaus synkronoi tapahtuma- ja UTXO-tiedot lohkoketjun viimeisimpien tietojen kanssa. Päivitys voi kestää pitkään.</translation>
     </message>
     <message id="settings-general-title">
         <source>General settings</source>
@@ -330,7 +330,7 @@
     <message id="settings-general-lock-screen">
         <source>Lock screen</source>
         <extracomment>settings tab, general section, lock screen label</extracomment>
-        <translation>Lukitse näyttö</translation>
+        <translation>Lukitusnäyttö</translation>
     </message>
     <message id="settings-general-require-pwd-to-spend">
         <source>Ask password for every sending transaction</source>
@@ -424,7 +424,7 @@
     <message id="edit-addr-addr-id">
         <source>Address ID</source>
         <extracomment>Edit addres dialog, address label</extracomment>
-        <translation>Osoitteen tunnus</translation>
+        <translation>Osoitteen id</translation>
     </message>
     <message id="edit-addr-save-button">
         <source>Save</source>
@@ -465,7 +465,7 @@
     </message>
     <message id="secondary-panel-maturing">
         <source>Maturing</source>
-        <translation>Varattu</translation>
+        <translation>Odottaa</translation>
     </message>
     <message id="info-title">
         <source>Info view</source>
@@ -568,7 +568,7 @@
     </message>
     <message id="wallet-receive-qr-label">
         <source>Scan to send</source>
-        <translation>Skannaa osoite (ja summa)</translation>
+        <translation>Skannaa lähettääksesi</translation>
     </message>
     <message id="wallet-receive-propogate-addr-message">
         <source>Send this address to the sender over an external secure channel</source>
@@ -584,11 +584,11 @@
     </message>
     <message id="send-send-to-label">
         <source>Send To</source>
-        <translation>Vastaanottajan osoite</translation>
+        <translation>Vastaanottaja</translation>
     </message>
     <message id="send-contact-placeholder">
         <source>Please specify contact</source>
-        <translation>Liitä vastaanottajan osoite</translation>
+        <translation>Määritä yhteystieto</translation>
     </message>
     <message id="send-amount-label">
         <source>Transaction amount</source>
@@ -596,7 +596,7 @@
     </message>
     <message id="send-founds-fail">
         <source>Insufficient funds: you would need %1 to complete the transaction</source>
-        <translation>Saldo ei riitä. Tarvitset vähintään summan %1</translation>
+        <translation>Saldo ei riitä: tarvitset vähintään summan %1 suorittaaksesi maksutapahtuman</translation>
     </message>
     <message id="send-fee-fail">
         <source>The minimum fee is %1 GROTH</source>
@@ -646,15 +646,15 @@
     <message id="start-select-db-thead-modified">
         <source>Date modified</source>
         <extracomment>start screen, select db for migration, Date modified column title</extracomment>
-        <translation>Muokkauspäivä</translation>
+        <translation>Muokkauspäivämäärä</translation>
     </message>
     <message id="start-create-new-message-line-1">
         <source>Create new wallet with generating seed phrase.</source>
-        <translation>Luo uusi lompakko generoimalla seed phrase -palautusavain.</translation>
+        <translation>Luo uusi lompakko generoimalla seed phrase.</translation>
     </message>
     <message id="start-create-new-message-line-2">
         <source>If you ever lose your device, you will need this phrase to recover your wallet!</source>
-        <translation>Mikäli joskus kadotat laitteesi tai salasanasi, tarvitset tämän seed phrase -palautusavaimen lompakkosi saldon palauttamiseksi!</translation>
+        <translation>Mikäli joskus kadotat laitteesi tai salasanasi, tarvitset tämän seed phrasen lompakkosi saldon palauttamiseksi!</translation>
     </message>
     <message id="start-create-new-securiry-note-1">
         <source>Do not let anyone see your seed phrase</source>
@@ -666,7 +666,7 @@
     </message>
     <message id="start-create-new-securiry-note-3">
         <source>Keep the copies of your seed phrase in a safe place</source>
-        <translation>Säilytä kirjoittamiasi kopioita seed phrase -palautusavaimestasi turvallisessa paikassa</translation>
+        <translation>Säilytä kirjoittamiasi kopioita seed phrasestasi turvallisessa paikassa</translation>
     </message>
     <message id="start-generate-seed-phrase-button">
         <source>Generate seed phrase</source>
@@ -674,7 +674,7 @@
     </message>
     <message id="start-generate-seed-phrase-message">
         <source>Your seed phrase is the access key to all the cryptocurrencies in your wallet. Write down the phrase to keep it in a safe or in a locked vault. Without the phrase you will not be able to recover your money.</source>
-        <translation>Seed phrase -palautusavaimellasi pääsee käsiksi kaikkeen lompakon varallisuuteen. Tulosta tai kirjoita se huolellisesti ylös, sekä pidä se tallessa esimerkiksi kassakaapissa, pankkiholvissa tai muussa turvallisesti lukitussa tilassa. Ilman palautusavainta et voi palauttaa lompakkosi saldoa tarvittaessa.</translation>
+        <translation>Seed phrase -palautusavaimellasi pääsee käsiksi kaikkeen lompakon varallisuuteen. Tulosta tai kirjoita se huolellisesti ylös, sekä pidä se tallessa esimerkiksi kassakaapissa, pankkiholvissa tai muussa turvallisesti lukitussa tilassa. Ilman seed phrasea et voi palauttaa lompakkosi saldoa tarvittaessa.</translation>
     </message>
     <message id="start-confirm-seed-phrase-button">
         <source>I understand</source>
@@ -682,15 +682,15 @@
     </message>
     <message id="start-confirm-seed-phrase-message">
         <source>It is strictly recommended to write down the seed phrase on a paper. Storing it in a file makes it prone to cyber attacks and, therefore, less secure.</source>
-        <translation>On erittäin suositeltavaa kirjoittaa seed phrase -palautusavain huolellisesti talteen paperille. Jos tallennat palautusavaimen laitteellesi tai muulla vastaavalla tavalla digitaalisesti, esimerkiksi pilvipalveluun, se asettaa palautusavaimesi alttiiksi hakkeroinnille ja vähentää lompakon turvallisuutta.</translation>
+        <translation>On erittäin suositeltavaa kirjoittaa seed phrase huolellisesti talteen paperille. Jos tallennat seed phrasen laitteellesi tai muulla vastaavalla tavalla digitaalisesti, esimerkiksi pilvipalveluun, se asettaa seed phrasen alttiiksi hakkeroinnille ja vähentää lompakon turvallisuutta.</translation>
     </message>
     <message id="start-check-seed-phrase-message">
         <source>To ensure the seed phrase is written down, please fill-in the specific words below</source>
-        <translation>Varmistaaksesi, että seed phrase -palautusavaimesi on kirjoitettu oikein, täytä alla olevat kentät</translation>
+        <translation>Varmistaaksesi, että seed phrase on kirjoitettu talteen oikein, täytä alla olevat kentät</translation>
     </message>
     <message id="start-restore-message">
         <source>Type in or paste your seed phrase</source>
-        <translation>Kirjoita tai liitä seed phrase -palautusavaimesi</translation>
+        <translation>Kirjoita tai liitä seed phrase</translation>
     </message>
     <message id="start-create-pwd-message">
         <source>Create password to access your wallet</source>
@@ -786,11 +786,11 @@
     </message>
     <message id="wallet-model-time-sync-error">
         <source>System time not synchronized</source>
-        <translation>Järjestelmän aika ei ole synkronoitu</translation>
+        <translation>Järjestelmän aika ei yhdenmukainen</translation>
     </message>
     <message id="wallet-model-host-unresolved-error">
         <source>Incorrect node name or no Internet connection.</source>
-        <translation>Palvelimen osoite virheellinen tai ei internetyhteyttä.</translation>
+        <translation>Palvelimen (node) osoite virheellinen tai ei internetyhteyttä.</translation>
     </message>
     <message id="wallet-model-undefined-error">
         <source>Unexpected error!</source>
@@ -822,11 +822,11 @@
     </message>
     <message id="start-view-printer-error">
         <source>Failed to print seed phrase. Please, check your printer.</source>
-        <translation>Palautusavaimen tulostus epäonnistui. Ole hyvä ja tarkista tulostin.</translation>
+        <translation>Seed phrasen tulostus epäonnistui. Ole hyvä ja tarkista tulostin.</translation>
     </message>
     <message id="start-view-db-file-filter">
         <source>SQLite database file (*.db)</source>
-        <translation>SQLiten tallennustiedosto (*.db)</translation>
+        <translation>SQLiten tietokantatiedosto (*.db)</translation>
     </message>
     <message id="status-bar-view-not-connected">
         <source>Wallet is not connected to the node</source>
@@ -874,7 +874,7 @@
     </message>
     <message id="tx-failture-time-out">
         <source>Transaction timed out</source>
-        <translation>Maksutapahtuma vanhentui</translation>
+        <translation>Maksutapahtuma aikakatkaistiin</translation>
     </message>
     <message id="tx-failture-not-signed-by-receiver">
         <source>Payment not signed by the receiver, please send wallet logs to Beam support</source>
@@ -882,7 +882,7 @@
     </message>
     <message id="tx-failture-max-height-to-high">
         <source>Kernel maximum height is too high</source>
-        <translation>Kernelin maksimikorkeus on liian korkea</translation>
+        <translation>Virhe: Kernel maximum height is too high</translation>
     </message>
     <message id="tx-failture-invalid-state">
         <source>Transaction has invalid state</source>
@@ -902,15 +902,15 @@
     </message>
     <message id="utxo-blockchain-height">
         <source>Blockchain Height</source>
-        <translation>Lohkoketjun tila</translation>
+        <translation>Lohkoketjun taso</translation>
     </message>
     <message id="utxo-last-block-hash">
         <source>Last block hash</source>
-        <translation>Lohkon tiiviste (hash)</translation>
+        <translation>Lohkon tiiiviste (hash)</translation>
     </message>
     <message id="utxo-head-maturity">
         <source>Maturity</source>
-        <translation>Lohko</translation>
+        <translation>Erääntymishetki</translation>
     </message>
     <message id="utxo-head-type">
         <source>Type</source>
@@ -922,11 +922,11 @@
     </message>
     <message id="utxo-status-maturing">
         <source>Maturing%1(till block height %2)</source>
-        <translation>Varattu%1(lohkoon %2 saakka)</translation>
+        <translation>Erääntyy%1(lohkon tasolla %2 )</translation>
     </message>
     <message id="utxo-status-unavailable">
         <source>Unavailable%1(mining result rollback)</source>
-        <translation>Ei käytettävissä%1(mining result rollback)</translation>
+        <translation>Ei käytettävissä%1(louhintatulos peruttu)</translation>
     </message>
     <message id="utxo-status-outgoing">
         <source>In progress%1(outgoing)</source>
@@ -970,7 +970,7 @@
     </message>
     <message id="receive-amount-label">
         <source>Receive amount (optional)</source>
-        <translation>Summa (voidaan jättää tyhjäksi)</translation>
+        <translation>Vastaanottosumma (vapaaehtoinen valinta)</translation>
     </message>
     <message id="tx-details-tx-id-label">
         <source>Transaction ID</source>
@@ -1003,7 +1003,7 @@
     </message>
     <message id="start-open-change-wallet-message">
         <source>If you&apos;ll restore a wallet all transaction history and addresses will be lost.</source>
-        <translation>Jos haluat palauttaa vanhan lompakon palautusavaimellasi, kaikki lompakon historiatiedot tilitapahtumista ja tallennetut osoitteet katoavat pysyvästi.</translation>
+        <translation>Jos haluat palauttaa vanhan lompakon, tilitapahtumahistoria ja tallennetut osoitteet katoavat pysyvästi.</translation>
     </message>
     <message id="loading-restore-message-line1">
         <source>Please wait for synchronization and do not close or minimize the application.</source>
@@ -1152,7 +1152,7 @@
     <message id="start-migration-select-file-button">
         <source>Select wallet database file manually</source>
         <extracomment>migration screen, select db file button</extracomment>
-        <translation>Valitse lompakon tallennustiedosto (wallet.db) manuaalisesti</translation>
+        <translation>Valitse lompakon tietokantatiedosto manuaalisesti</translation>
     </message>
     <message id="start-select-db-best-match-label">
         <source>(best match)</source>
@@ -1176,19 +1176,19 @@
     </message>
     <message id="open-in-explorer">
         <source>Open in Blockchain Explorer</source>
-        <translation type="unfinished"></translation>
+        <translation>Avaa Blockchain Explorerissa</translation>
     </message>
     <message id="restore-finish-alert-button">
         <source>I understand</source>
-        <translation type="unfinished">Ymmärrän</translation>
+        <translation>Ymmärrän</translation>
     </message>
     <message id="restore-finish-alert-title">
         <source>Do not simultaneously run two wallets initiated from the same seed phrase</source>
-        <translation type="unfinished"></translation>
+        <translation>Älä käytä samaan aikaan kahta lompakkoa, jotka molemmat ovat luotu samasta seed phrasesta</translation>
     </message>
     <message id="restore-finish-alert-message-line">
         <source>Don’t use same seed phrase on several devices, your balance and transaction list won’t be synchronized.</source>
-        <translation type="unfinished"></translation>
+        <translation>Älä käytä samaa seed phrasea usealla laitteella, sillä saldosi ja tapahtumasi eivät synkronoidu.</translation>
     </message>
 </context>
 </TS>
