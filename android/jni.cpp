@@ -17,6 +17,7 @@
 #include "wallet/wallet_network.h"
 #include "wallet/wallet_model_async.h"
 #include "wallet/default_peers.h"
+#include "wallet/local_private_key_keeper.h"
 
 #include "utility/bridge.h"
 #include "utility/string_helpers.h"
@@ -131,6 +132,8 @@ JNIEXPORT jobject JNICALL BEAM_JAVA_API_INTERFACE(createWallet)(JNIEnv *env, job
     {
         LOG_DEBUG() << "wallet successfully created.";
 
+        auto keyKeeper = std::make_shared<LocalPrivateKeyKeeper>(walletDB);
+
         passwordHash.V = SecString(pass).hash().V;
         // generate default address
         
@@ -149,11 +152,11 @@ JNIEXPORT jobject JNICALL BEAM_JAVA_API_INTERFACE(createWallet)(JNIEnv *env, job
         
         if (restore)
         {
-            walletModel = make_unique<WalletModel>(walletDB, "127.0.0.1:10005", reactor);
+            walletModel = make_unique<WalletModel>(walletDB, keyKeeper, "127.0.0.1:10005", reactor);
         }
         else
         {
-            walletModel = make_unique<WalletModel>(walletDB, JString(env, nodeAddrStr).value(), reactor);
+            walletModel = make_unique<WalletModel>(walletDB, keyKeeper, JString(env, nodeAddrStr).value(), reactor);
         }
 
         jobject walletObj = env->AllocObject(WalletClass);
@@ -208,6 +211,7 @@ JNIEXPORT jobject JNICALL BEAM_JAVA_API_INTERFACE(openWallet)(JNIEnv *env, jobje
     string pass = JString(env, passStr).value();
     auto reactor = io::Reactor::create();
     auto walletDB = WalletDB::open(appData + "/" WALLET_FILENAME, pass, reactor);
+    auto keyKeeper = std::make_shared<LocalPrivateKeyKeeper>(walletDB);
 
     if(walletDB)
     {
@@ -215,7 +219,7 @@ JNIEXPORT jobject JNICALL BEAM_JAVA_API_INTERFACE(openWallet)(JNIEnv *env, jobje
 
         passwordHash.V = SecString(pass).hash().V;
         
-        walletModel = make_unique<WalletModel>(walletDB, JString(env, nodeAddrStr).value(), reactor);
+        walletModel = make_unique<WalletModel>(walletDB, keyKeeper, JString(env, nodeAddrStr).value(), reactor);
                 
         jobject walletObj = env->AllocObject(WalletClass);
 

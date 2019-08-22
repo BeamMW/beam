@@ -17,7 +17,6 @@
 #include <QObject>
 
 #include "wallet/wallet_client.h"
-#include "wallet/private_key_keeper.h"
 
 class WalletModel
     : public QObject

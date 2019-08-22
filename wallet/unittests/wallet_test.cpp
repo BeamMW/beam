@@ -1180,9 +1180,8 @@ namespace
 
         struct SenderFlyClient : public MyFlyClient
         {
-            SenderFlyClient(IWalletDB::Ptr db, const WalletID& receiverID)
-                : m_keyKeeper(make_shared<LocalPrivateKeyKeeper>(db))
-                , MyFlyClient(db, receiverID, m_keyKeeper)
+            SenderFlyClient(IWalletDB::Ptr db, const WalletID& receiverID, IPrivateKeyKeeper::Ptr keyKeeper)
+                : MyFlyClient(db, receiverID, keyKeeper)
                 , m_Timer(io::Timer::create(io::Reactor::get_Current()))
             {
             }
@@ -1223,15 +1222,13 @@ namespace
             
             io::Timer::Ptr m_Timer;
             int m_ReceivedCount = 0;
-            IPrivateKeyKeeper::Ptr m_keyKeeper;
         };
 
 
         struct ReceiverFlyClient : public MyFlyClient
         {
-            ReceiverFlyClient(IWalletDB::Ptr db, const WalletID& receiverID)
-                : m_keyKeeper(make_shared<LocalPrivateKeyKeeper>(db))
-                , MyFlyClient(db, receiverID, m_keyKeeper)
+            ReceiverFlyClient(IWalletDB::Ptr db, const WalletID& receiverID, IPrivateKeyKeeper::Ptr keyKeeper)
+                : MyFlyClient(db, receiverID, keyKeeper)
             {
                 
             }
@@ -1245,7 +1242,6 @@ namespace
             }
 
             int m_ReceivedCount = 0;
-            IPrivateKeyKeeper::Ptr m_keyKeeper;
         };
 
 
@@ -1268,10 +1264,12 @@ namespace
 
         TestWalletRig receiver("receiver", createReceiverWalletDB(), [](auto) {});
 
-        SenderFlyClient flyClient(db, receiver.m_WalletID);
+        auto senderKeyKeeper = std::make_shared<LocalPrivateKeyKeeper>(db);
+        SenderFlyClient flyClient(db, receiver.m_WalletID, senderKeyKeeper);
         flyClient.Connect(senderNodeAddress);
 
-        ReceiverFlyClient flyClinet2(receiver.m_WalletDB, flyClient.m_WalletID);
+        auto receiverKeyKeeper = std::make_shared<LocalPrivateKeyKeeper>(receiver.m_WalletDB);
+        ReceiverFlyClient flyClinet2(receiver.m_WalletDB, flyClient.m_WalletID, receiverKeyKeeper);
         flyClinet2.Connect(receiverNodeAddress);
 
         mainReactor->run();
