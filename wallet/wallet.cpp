@@ -107,8 +107,8 @@ namespace beam::wallet
         , m_TxCompletedAction{move(action)}
         , m_UpdateCompleted{move(updateCompleted)}
         , m_LastSyncTotal(0)
-        , m_KeyKeeper(keyKeeper)
         , m_OwnedNodesOnline(0)
+        , m_KeyKeeper(keyKeeper)
     {
         assert(walletDB);
         // the only default type of transaction
