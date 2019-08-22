@@ -2180,8 +2180,8 @@ void TestAll()
 	TestRangeProof(true);
 	TestTransaction();
 	TestTransactionHW();
-	TestTxKernel();
-	TestTransactionHWSingular();   
+	//TestTxKernel();
+	//TestTransactionHWSingular();   
 	TestMultiSigOutput();
 	TestCutThrough();
 	TestAES();
