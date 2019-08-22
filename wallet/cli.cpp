@@ -27,6 +27,7 @@
 #include "wallet/litecoin/litecoin_core_017.h"
 #include "wallet/litecoin/settings.h"
 #include "wallet/litecoin/litecoin_side.h"
+#include "wallet/litecoin/electrum.h"
 #include "wallet/qtum/qtum_core_017.h"
 #include "wallet/qtum/settings.h"
 #include "wallet/qtum/qtum_side.h"
@@ -1103,6 +1104,52 @@ namespace
         return nullptr;
     }
 
+    std::shared_ptr<litecoin::Settings> ParseLitecoinElectrumSettings(const po::variables_map& vm)
+    {
+        if (vm.count(cli::LTC_ELECTRUM_SEED) > 0 || vm.count(cli::LTC_ELECTRUM_ADDR) > 0)
+        {
+            litecoin::ElectrumSettings electrumSettings;
+
+            string electrumAddr = vm[cli::LTC_ELECTRUM_ADDR].as<string>();
+            if (!electrumSettings.m_address.resolve(electrumAddr.c_str()))
+            {
+                throw std::runtime_error("unable to resolve litecoin electrum address: " + electrumAddr);
+            }
+
+            if (vm.count(cli::LTC_ELECTRUM_SEED) == 0)
+            {
+                throw std::runtime_error("litectoin electrum seed should be specified");
+            }
+
+            auto tempPhrase = vm[cli::LTC_USER_NAME].as<string>();
+            boost::algorithm::trim_if(tempPhrase, [](char ch) { return ch == ';'; });
+            electrumSettings.m_secretWords = string_helpers::split(tempPhrase, ';');
+
+            if (vm.count(cli::SWAP_FEERATE) == 0)
+            {
+                throw std::runtime_error("swap fee rate is missing");
+            }
+
+            // TODO roman.strilets its temporary solution
+            electrumSettings.m_isMainnet = false;
+            electrumSettings.m_addressVersion = 48;
+
+            auto ltcSettings = std::make_shared<litecoin::Settings>();
+            ltcSettings->SetElectrumConnectionOptions(electrumSettings);
+            ltcSettings->SetFeeRate(vm[cli::SWAP_FEERATE].as<Positive<Amount>>().value);
+
+            auto swapSecondSideChainType = ParseSwapSecondSideChainType(vm);
+            if (swapSecondSideChainType != SwapSecondSideChainType::Unknown)
+            {
+                ltcSettings->SetChainType(swapSecondSideChainType);
+            }
+
+            return ltcSettings;
+        }
+
+        return nullptr;
+    }
+
     std::shared_ptr<qtum::Settings> ParseQtumSettings(const po::variables_map& vm)
     {
         if (vm.count(cli::QTUM_NODE_ADDR) > 0 || vm.count(cli::QTUM_USER_NAME) > 0 || vm.count(cli::QTUM_PASS) > 0)
@@ -1181,6 +1228,58 @@ namespace
         else if (vm.count(cli::ALTCOIN_SETTINGS_SET))
         {
             auto settings = ParseBitcoinSettings(vm);
+            settingsProvider.SetSettings(*settings);
+            return 0;
+        }
+
+        LOG_INFO() << "subcommand didn't support or unspecified.";
+        return -1;
+    }
+
+    int HandleLTC(const po::variables_map& vm, const IWalletDB::Ptr& walletDB)
+    {
+        litecoin::SettingsProvider settingsProvider{ walletDB };
+
+        if (vm.count(cli::ALTCOIN_SETTINGS_RESET))
+        {
+            settingsProvider.ResetSettings();
+            return 0;
+        }
+        else if (vm.count(cli::ALTCOIN_SETTINGS_SHOW))
+        {
+            auto settings = settingsProvider.GetSettings();
+
+            if (settings.GetConnectionOptions().IsInitialized())
+            {
+                cout << "LTC settings" << '\n'
+                    << "RPC user: " << settings.GetConnectionOptions().m_userName << '\n'
+                    << "RPC node: " << settings.GetConnectionOptions().m_address.str() << '\n'
+                    << "Fee rate: " << settings.GetFeeRate() << '\n'
+                    << "Chain type: " << getSwapSecondSideChainTypeText(settings.GetChainType()) << '\n';
+                return 0;
+            }
+
+            if (settings.GetElectrumConnectionOptions().IsInitialized())
+            {
+                cout << "LTC settings" << '\n'
+                    << "Electrum node: " << settings.GetElectrumConnectionOptions().m_address.str() << '\n'
+                    << "Fee rate: " << settings.GetFeeRate() << '\n'
+                    << "Chain type: " << getSwapSecondSideChainTypeText(settings.GetChainType()) << '\n';
+                return 0;
+            }
+            
+            LOG_INFO() << "LTC settings are not initialized.";
+            return 0;
+        }
+        else if (vm.count(cli::ALTCOIN_SETTINGS_SET))
+        {
+            auto settings = ParseLitecoinSettings(vm);
+            if (!settings)
+            {
+                settings = ParseLitecoinElectrumSettings(vm);
+                // TODO roman.strilets process error
+            }
+
             settingsProvider.SetSettings(*settings);
             return 0;
         }
@@ -1311,7 +1410,8 @@ int main_impl(int argc, char* argv[])
                             cli::EXPORT_DATA,
                             cli::SWAP_INIT,
                             cli::SWAP_ACCEPT,
-                            cli::BTC_SETTINGS
+                            cli::BTC_SETTINGS,
+                            cli::LTC_SETTINGS
                         };
 
                         if (find(begin(commands), end(commands), command) == end(commands))
@@ -1505,6 +1605,11 @@ int main_impl(int argc, char* argv[])
                         return HandleBTC(vm, walletDB);
                     }
 
+                    if (command == cli::LTC_SETTINGS)
+                    {
+                        return HandleLTC(vm, walletDB);
+                    }
+
                     /// HERE!!
                     io::Address receiverAddr;
                     Amount amount = 0;
@@ -1577,12 +1682,20 @@ int main_impl(int argc, char* argv[])
                         auto swapTransactionCreator = std::make_shared<AtomicSwapTransaction::Creator>();
                         wallet.RegisterTransactionType(TxType::AtomicSwap, std::static_pointer_cast<BaseTransaction::Creator>(swapTransactionCreator));
 
-                        auto settingsProvider = std::make_shared<bitcoin::SettingsProvider>(walletDB);
-                        if (settingsProvider->GetSettings().IsInitialized())
+                        auto btcSettingsProvider = std::make_shared<bitcoin::SettingsProvider>(walletDB);
+                        if (btcSettingsProvider->GetSettings().IsInitialized())
                         {
-                            auto bitcoinBridge = std::make_shared<bitcoin::BitcoinCore017>(io::Reactor::get_Current(), settingsProvider);
-                            auto btcSecondSideFactory = wallet::MakeSecondSideFactory<BitcoinSide, bitcoin::BitcoinCore017, bitcoin::ISettingsProvider>(bitcoinBridge, settingsProvider);
+                            auto bitcoinBridge = std::make_shared<bitcoin::BitcoinCore017>(io::Reactor::get_Current(), btcSettingsProvider);
+                            auto btcSecondSideFactory = wallet::MakeSecondSideFactory<BitcoinSide, bitcoin::BitcoinCore017, bitcoin::ISettingsProvider>(bitcoinBridge, btcSettingsProvider);
                             swapTransactionCreator->RegisterFactory(AtomicSwapCoin::Bitcoin, btcSecondSideFactory);
+                        }
+
+                        auto ltcSettingsProvider = std::make_shared<litecoin::SettingsProvider>(walletDB);
+                        if (ltcSettingsProvider->GetSettings().GetElectrumConnectionOptions().IsInitialized())
+                        {
+                            auto litecoinBridge = std::make_shared<litecoin::Electrum>(io::Reactor::get_Current(), ltcSettingsProvider);
+                            auto ltcSecondSideFactory = wallet::MakeSecondSideFactory<LitecoinSide, litecoin::Electrum, litecoin::ISettingsProvider>(litecoinBridge, ltcSettingsProvider);
+                            swapTransactionCreator->RegisterFactory(AtomicSwapCoin::Litecoin, ltcSecondSideFactory);
                         }
 
                         //if (ltcSettings)
@@ -1626,7 +1739,7 @@ int main_impl(int argc, char* argv[])
 
                             if (swapCoin == wallet::AtomicSwapCoin::Bitcoin)
                             {
-                                auto btcSettings = settingsProvider->GetSettings();
+                                auto btcSettings = btcSettingsProvider->GetSettings();
                                 if (!btcSettings.IsInitialized())
                                 {
                                     LOG_ERROR() << "BTC settings should be initialized.";
@@ -1639,6 +1752,22 @@ int main_impl(int argc, char* argv[])
                                     return -1;
                                 }
                                 secondSideChainType = btcSettings.GetChainType();
+                            }
+                            else if (swapCoin == wallet::AtomicSwapCoin::Litecoin)
+                            {
+                                auto ltcSettings = ltcSettingsProvider->GetSettings();
+                                if (!ltcSettings.GetElectrumConnectionOptions().IsInitialized())
+                                {
+                                    LOG_ERROR() << "BTC settings should be initialized.";
+                                    return -1;
+                                }
+
+                                if (!BitcoinSide::CheckAmount(swapAmount, ltcSettings.GetFeeRate()))
+                                {
+                                    LOG_ERROR() << "The swap amount must be greater than the redemption fee.";
+                                    return -1;
+                                }
+                                secondSideChainType = ltcSettings.GetChainType();
                             }
                             //else if (swapCoin == wallet::AtomicSwapCoin::Litecoin)
                             //{
@@ -1745,7 +1874,7 @@ int main_impl(int argc, char* argv[])
 
                             if (swapCoin == wallet::AtomicSwapCoin::Bitcoin)
                             {
-                                auto btcSettings = settingsProvider->GetSettings();
+                                auto btcSettings = btcSettingsProvider->GetSettings();
                                 if (!btcSettings.IsInitialized())
                                 {
                                     LOG_ERROR() << "BTC settings should be initialized.";
@@ -1759,6 +1888,24 @@ int main_impl(int argc, char* argv[])
                                 }
                                 ownSecondSideChainType = btcSettings.GetChainType();
                                 swapFeeRate = btcSettings.GetFeeRate();
+                            }
+
+                            if (swapCoin == wallet::AtomicSwapCoin::Litecoin)
+                            {
+                                auto ltcSettings = ltcSettingsProvider->GetSettings();
+                                if (!ltcSettings.GetElectrumConnectionOptions().IsInitialized())
+                                {
+                                    LOG_ERROR() << "LTC settings should be initialized.";
+                                    return -1;
+                                }
+
+                                if (!LitecoinSide::CheckAmount(*swapAmount, ltcSettings.GetFeeRate()))
+                                {
+                                    LOG_ERROR() << "The swap amount must be greater than the redemption fee.";
+                                    return -1;
+                                }
+                                ownSecondSideChainType = ltcSettings.GetChainType();
+                                swapFeeRate = ltcSettings.GetFeeRate();
                             }
 
                             // validate chain types

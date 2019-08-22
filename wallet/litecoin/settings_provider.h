@@ -21,4 +21,20 @@ namespace beam::litecoin
     using ILitecoinCoreSettingsProvider = bitcoin::IBitcoinCoreSettingsProvider;
     using IElectrumSettingsProvider = bitcoin::IElectrumSettingsProvider;
     using ISettingsProvider = bitcoin::ISettingsProvider;
+
+    class SettingsProvider : public bitcoin::SettingsProvider
+    {
+    public:
+        SettingsProvider(wallet::IWalletDB::Ptr walletDB)
+            : bitcoin::SettingsProvider(walletDB)
+        {
+        }
+
+    private:
+
+        std::string GetSettingsName() const override
+        {
+            return "LTCSettings";
+        }
+    };
 } //namespace beam::litecoin

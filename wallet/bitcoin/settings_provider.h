@@ -69,6 +69,8 @@ namespace beam::bitcoin
 
     protected:
         void LoadSettings();
+        // TODO roman.strilets maybe to use const char*
+        virtual std::string GetSettingsName() const;
 
     private:
         wallet::IWalletDB::Ptr m_walletDB;

@@ -59,8 +59,9 @@ namespace beam::bitcoin
 
         Error error{ None, "" };
         auto privateKeys = generateMasterPrivateKeys();
-        auto addressVersion = m_settingsProvider->GetElectrumSettings().m_addressVersion;
-        auto receivingAddressAmount = m_settingsProvider->GetElectrumSettings().m_receivingAddressAmount;
+        auto settings = m_settingsProvider->GetElectrumSettings();
+        auto addressVersion = settings.m_addressVersion;
+        auto receivingAddressAmount = settings.m_receivingAddressAmount;
         for (uint32_t i = 0; i < receivingAddressAmount; ++i)
         {
             if (btcAddress == getAddress(i, privateKeys.first))
@@ -71,7 +72,7 @@ namespace beam::bitcoin
             }
         }
 
-        auto changeAddressAmount = m_settingsProvider->GetElectrumSettings().m_changeAddressAmount;
+        auto changeAddressAmount = settings.m_changeAddressAmount;
         for (uint32_t i = 0; i < changeAddressAmount; ++i)
         {
             if (btcAddress == getAddress(i, privateKeys.second))
@@ -596,15 +597,16 @@ namespace beam::bitcoin
     {
         std::vector<ec_private> result;
         auto privateKeys = generateMasterPrivateKeys();
-        auto addressVersion = m_settingsProvider->GetElectrumSettings().m_addressVersion;
-        auto receivingAddressAmount = m_settingsProvider->GetElectrumSettings().m_receivingAddressAmount;
+        auto settings = m_settingsProvider->GetElectrumSettings();
+        auto addressVersion = settings.m_addressVersion;
+        auto receivingAddressAmount = settings.m_receivingAddressAmount;
 
         for (uint32_t i = 0; i < receivingAddressAmount; i++)
         {
             result.push_back(ec_private(privateKeys.first.derive_private(i).secret(), addressVersion));
         }
 
-        auto changeAddressAmount = m_settingsProvider->GetElectrumSettings().m_changeAddressAmount;
+        auto changeAddressAmount = settings.m_changeAddressAmount;
         for (uint32_t i = 0; i < changeAddressAmount; i++)
         {
             result.push_back(ec_private(privateKeys.second.derive_private(i).secret(), addressVersion));
