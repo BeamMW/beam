@@ -1129,8 +1129,8 @@ namespace beam
 			<< "fork2"
 			<< pForks[2].m_Height
 			<< (uint32_t) 1 // Lelantus enabled
-			<< Lelantus::Cfg::n
-			<< Lelantus::Cfg::M
+			<< (uint32_t) Lelantus::Cfg::n
+			<< (uint32_t) Lelantus::Cfg::M
 			// out
 			>> pForks[2].m_Hash;
 	}
