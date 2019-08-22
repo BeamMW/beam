@@ -33,7 +33,7 @@ class NodeProcessor
 
 	NodeDB::Transaction m_DbTx;
 
-	UtxoTree m_Utxos;
+	UtxoTreeMapped m_Utxos;
 
 	size_t m_nSizeUtxoComission;
 
@@ -46,6 +46,7 @@ class NodeProcessor
 	Height RaiseTxoHi(Height);
 	void Vacuum();
 	void InitializeUtxos();
+	void CommitUtxosAndDB();
 	void RequestDataInternal(const Block::SystemState::ID&, uint64_t row, bool bBlock, const NodeDB::StateID& sidTrg);
 
 	bool HandleTreasury(const Blob&);
@@ -72,6 +73,7 @@ class NodeProcessor
 	void AdjustOffset(ECC::Scalar&, uint64_t rowid, bool bAdd);
 
 	void InitCursor();
+	bool InitUtxoMapping(const char*);
 	static void OnCorrupted();
 	void get_Definition(Merkle::Hash&, bool bForNextState);
 	void get_Definition(Merkle::Hash&, const Merkle::Hash& hvHist);

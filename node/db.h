@@ -54,6 +54,7 @@ public:
 			HeightTxoHi, // Height starting from which and below Txo infi is compacted, only the commitment is left
 			SyncData,
 			LastRecoveryHeight,
+			UtxoStamp,
 		};
 	};
 

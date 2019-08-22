@@ -130,14 +130,58 @@ void NodeProcessor::Initialize(const char* szPath, const StartParams& sp)
 
 	InitCursor();
 
-	LOG_INFO() << "Loading UTXOs...";
-	InitializeUtxos();
+	if (InitUtxoMapping(szPath))
+	{
+		LOG_INFO() << "UTXO image found";
+	}
+	else
+	{
+		LOG_INFO() << "Rebuilding UTXO image...";
+		InitializeUtxos();
+	}
+
+	// final check
+	if (m_Cursor.m_ID.m_Height >= Rules::HeightGenesis)
+	{
+		get_Definition(hv, false);
+		if (m_Cursor.m_Full.m_Definition != hv)
+		{
+			LOG_ERROR() << "Definition mismatch";
+			OnCorrupted();
+		}
+	}
+
 	m_Extra.m_Txos = get_TxosBefore(m_Cursor.m_ID.m_Height + 1);
 
 	OnHorizonChanged();
 
 	if (!sp.m_ResetCursor)
 		TryGoUp();
+}
+
+bool NodeProcessor::InitUtxoMapping(const char* sz)
+{
+	// derive UTXO path from db path
+	std::string sPath(sz);
+
+	static const char szSufix[] = ".db";
+	const size_t nSufix = _countof(szSufix) - 1;
+
+	if ((sPath.size() >= nSufix) && !_strcmpi(sPath.c_str() + sPath.size() - nSufix, szSufix))
+		sPath.resize(sPath.size() - nSufix);
+
+	UtxoTreeMapped::Stamp us;
+	Blob blob(us);
+
+	// don't use the saved image if no height: we may contain treasury UTXOs, but no way to verify the contents
+	if ((m_Cursor.m_ID.m_Height < Rules::HeightGenesis) || !m_DB.ParamGet(NodeDB::ParamID::UtxoStamp, nullptr, &blob))
+	{
+		us = 1U;
+		us.Negate();
+	}
+
+	sPath += "-utxo-image.bin";
+	return m_Utxos.Open(sPath.c_str(), us);
 }
 
 void NodeProcessor::LogSyncData()
@@ -164,11 +208,36 @@ NodeProcessor::~NodeProcessor()
 	if (m_DbTx.IsInProgress())
 	{
 		try {
-			m_DbTx.Commit();
+			CommitUtxosAndDB();
 		} catch (const CorruptionException& e) {
 			LOG_ERROR() << "DB Commit failed: %s" << e.m_sErr;
 		}
 	}
+}
+
+void NodeProcessor::CommitUtxosAndDB()
+{
+	UtxoTreeMapped::Stamp us;
+
+	bool bFlushUtxos = (m_Utxos.IsOpen() && m_Utxos.get_Hdr().m_Dirty);
+
+	if (bFlushUtxos)
+	{
+		Blob blob(us);
+
+		if (m_DB.ParamGet(NodeDB::ParamID::UtxoStamp, nullptr, &blob)) {
+			ECC::Hash::Processor() << us >> us;
+		} else {
+			ECC::GenRandom(us);
+		}
+
+		m_DB.ParamSet(NodeDB::ParamID::UtxoStamp, nullptr, &blob);
+	}
+
+	m_DbTx.Commit();
+
+	if (bFlushUtxos)
+		m_Utxos.FlushStrict(us);
 }
 
 void NodeProcessor::OnHorizonChanged()
@@ -197,7 +266,7 @@ void NodeProcessor::CommitDB()
 {
 	if (m_DbTx.IsInProgress())
 	{
-		m_DbTx.Commit();
+		CommitUtxosAndDB();
 		m_DbTx.Start(m_DB);
 	}
 }
@@ -1785,6 +1854,8 @@ bool NodeProcessor::HandleValidatedBlock(TxBase::IReader&& r, const Block::BodyB
 
 bool NodeProcessor::HandleBlockElement(const Input& v, Height h, const Height* pHMax, bool bFwd)
 {
+	m_Utxos.EnsureReserve();
+
 	UtxoTree::Cursor cu;
 	UtxoTree::MyLeaf* p;
 	UtxoTree::Key::Data d;
@@ -1872,6 +1943,8 @@ bool NodeProcessor::HandleBlockElement(const Input& v, Height h, const Height* p
 
 bool NodeProcessor::HandleBlockElement(const Output& v, Height h, const Height* pHMax, bool bFwd)
 {
+	m_Utxos.EnsureReserve();
+
 	UtxoTree::Key::Data d;
 	d.m_Commitment = v.m_Commitment;
 	d.m_Maturity = v.get_MinMaturity(h);
@@ -3244,15 +3317,6 @@ void NodeProcessor::InitializeUtxos()
 
 	Walker wlk(*this);
 	EnumTxos(wlk);
-
-	if (m_Cursor.m_ID.m_Height >= Rules::HeightGenesis)
-	{
-		// final check
-		Merkle::Hash hv;
-		get_Definition(hv, false);
-		if (m_Cursor.m_Full.m_Definition != hv)
-			OnCorrupted();
-	}
 }
 
 bool NodeProcessor::GetBlock(const NodeDB::StateID& sid, ByteBuffer* pEthernal, ByteBuffer* pPerishable, Height h0, Height hLo1, Height hHi1)
