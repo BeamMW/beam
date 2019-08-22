@@ -19,10 +19,7 @@
 #include <boost/filesystem.hpp>
 #include <QApplication>
 #include <QTranslator>
-
-#if defined(BEAM_HW_WALLET)
-#include "wallet/hw_wallet.h"
-#endif
+#include "wallet/local_private_key_keeper.h"
 
 using namespace beam;
 using namespace beam::wallet;
@@ -70,7 +67,7 @@ bool AppModel::createWallet(const SecString& seed, const SecString& pass)
     if (!m_db) return false;
 
     // generate default address
-    WalletAddress address = storage::createAddress(*m_db);
+    WalletAddress address = storage::createAddress(*m_db, m_keyKeeper);
     address.m_label = "default";
     m_db->saveAddress(address);
 
@@ -197,37 +194,8 @@ void AppModel::onFailedToStartNode(beam::wallet::ErrorType errorCode)
 
 void AppModel::start()
 {
-    // TODO(alex.starun): should be uncommented when HW detection will be done
-
-//#if defined(BEAM_HW_WALLET)
-//    {
-//        HWWallet hw;
-//        auto key = hw.getOwnerKeySync();
-//        
-//        LOG_INFO() << "Owner key" << key;
-//
-//        // TODO: password encryption will be removed
-//        std::string pass = "1";
-//        KeyString ks;
-//        ks.SetPassword(Blob(pass.data(), static_cast<uint32_t>(pass.size())));
-//
-//        ks.m_sRes = key;
-//
-//        std::shared_ptr<ECC::HKdfPub> pKdf = std::make_shared<ECC::HKdfPub>();
-//
-//        if (ks.Import(*pKdf))
-//        {
-//            m_nodeModel.setOwnerKey(pKdf);
-//        }
-//        else
-//        {
-//            LOG_ERROR() << "veiw key import failed";            
-//        }
-//    }
-//#else
-    m_nodeModel.setKdf(m_db->get_MasterKdf());
     m_nodeModel.setOwnerKey(m_db->get_OwnerKdf());
-//#endif
+
     std::string nodeAddrStr = m_settings.getNodeAddress().toStdString();
     if (m_settings.getRunLocalNode())
     {
@@ -236,7 +204,9 @@ void AppModel::start()
         nodeAddrStr = nodeAddr.str();
     }
 
-    m_wallet = std::make_shared<WalletModel>(m_db, nodeAddrStr, m_walletReactor);
+    m_keyKeeper = std::make_shared<LocalPrivateKeyKeeper>(m_db);
+
+    m_wallet = std::make_shared<WalletModel>(m_db, m_keyKeeper, nodeAddrStr, m_walletReactor);
 
     if (m_settings.getRunLocalNode())
     {

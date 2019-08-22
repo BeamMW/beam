@@ -28,6 +28,7 @@
 #include "wallet/strings_resources.h"
 #include "wallet/swaps/common.h"
 #include "wallet/swaps/swap_transaction.h"
+#include "wallet/local_private_key_keeper.h"
 #include "core/ecc_native.h"
 #include "core/serialization_adapters.h"
 #include "core/treasury.h"
@@ -468,9 +469,10 @@ namespace
     WalletAddress GenerateNewAddress(
         const IWalletDB::Ptr& walletDB,
         const std::string& label,
+        IPrivateKeyKeeper::Ptr keyKeeper,
         WalletAddress::ExpirationStatus expirationStatus = WalletAddress::ExpirationStatus::OneDay)
     {
-        WalletAddress address = storage::createAddress(*walletDB);
+        WalletAddress address = storage::createAddress(*walletDB, keyKeeper);
 
         address.setExpiration(expirationStatus);
         address.m_label = label;
@@ -483,7 +485,7 @@ namespace
         return address;
     }
 
-    int CreateNewAddress(const po::variables_map& vm, const IWalletDB::Ptr& walletDB)
+    int CreateNewAddress(const po::variables_map& vm, const IWalletDB::Ptr& walletDB, IPrivateKeyKeeper::Ptr keyKeeper)
     {
         auto comment = vm[cli::NEW_ADDRESS_COMMENT].as<string>();
         auto expiration = vm[cli::EXPIRATION_TIME].as<string>();
@@ -505,7 +507,7 @@ namespace
             return -1;
         }
         
-        GenerateNewAddress(walletDB, comment, expirationStatus);
+        GenerateNewAddress(walletDB, comment, keyKeeper, expirationStatus);
         return 0;
     }
 
@@ -893,7 +895,8 @@ namespace
             return -1;
         }
         const char* p = (char*)(&buffer[0]);
-        return storage::ImportDataFromJson(*walletDB, p, buffer.size()) ? 0 : -1;
+        auto keyKeeper = std::make_shared<LocalPrivateKeyKeeper>(walletDB);
+        return storage::ImportDataFromJson(*walletDB, keyKeeper, p, buffer.size()) ? 0 : -1;
     }
 
     CoinIDList GetPreselectedCoinIDs(const po::variables_map& vm)
@@ -1313,10 +1316,11 @@ int main_impl(int argc, char* argv[])
                             return -1;
                         }
                         auto walletDB = WalletDB::init(walletPath, pass, walletSeed, reactor, coldWallet);
+                        IPrivateKeyKeeper::Ptr keyKeeper = make_shared<LocalPrivateKeyKeeper>(walletDB);
                         if (walletDB)
                         {
                             LOG_INFO() << kWalletCreatedMessage;
-                            CreateNewAddress(vm, walletDB);
+                            CreateNewAddress(vm, walletDB, keyKeeper);
                             return 0;
                         }
                         else
@@ -1332,6 +1336,8 @@ int main_impl(int argc, char* argv[])
                         LOG_ERROR() << kErrorCantOpenWallet;
                         return -1;
                     }
+
+                    IPrivateKeyKeeper::Ptr keyKeeper = make_shared<LocalPrivateKeyKeeper>(walletDB);
 
                     const auto& currHeight = walletDB->getCurrentHeight();
                     const auto& fork1Height = Rules::get().pForks[1].m_Height;
@@ -1377,7 +1383,7 @@ int main_impl(int argc, char* argv[])
 
                     if (command == cli::NEW_ADDRESS)
                     {
-                        if (!CreateNewAddress(vm, walletDB))
+                        if (!CreateNewAddress(vm, walletDB, keyKeeper))
                         {
                             return -1;
                         }
@@ -1447,7 +1453,7 @@ int main_impl(int argc, char* argv[])
                         io::Reactor::get_Current().stop();
                     };
 
-                    Wallet wallet{ walletDB, is_server ? Wallet::TxCompletedAction() : txCompleteAction,
+                    Wallet wallet{ walletDB, keyKeeper, is_server ? Wallet::TxCompletedAction() : txCompleteAction,
                                             !coldWallet ? Wallet::UpdateCompletedAction() : []() {io::Reactor::get_Current().stop(); } };
                     {
                         wallet::AsyncContextHolder holder(wallet);
@@ -1485,12 +1491,12 @@ int main_impl(int argc, char* argv[])
                             }
                             nnet->m_Cfg.m_vNodes.push_back(nodeAddress);
                             nnet->Connect();
-                            wallet.AddMessageEndpoint(make_shared<WalletNetworkViaBbs>(wallet, nnet, walletDB));
+                            wallet.AddMessageEndpoint(make_shared<WalletNetworkViaBbs>(wallet, nnet, walletDB, keyKeeper));
                             wallet.SetNodeEndpoint(nnet);
                         }
                         else
                         {
-                            wallet.AddMessageEndpoint(make_shared<ColdWalletMessageEndpoint>(wallet, walletDB));
+                            wallet.AddMessageEndpoint(make_shared<ColdWalletMessageEndpoint>(wallet, walletDB, keyKeeper));
                         }
 
                         if (btcOptions.is_initialized())
@@ -1597,7 +1603,7 @@ int main_impl(int argc, char* argv[])
                                     return -1;
                                 }
 
-                                WalletAddress senderAddress = GenerateNewAddress(walletDB, "");
+                                WalletAddress senderAddress = GenerateNewAddress(walletDB, "", keyKeeper);
 
                                 currentTxID = wallet.swap_coins(senderAddress.m_walletID, receiverWalletID, 
                                     move(amount), move(fee), swapCoin, swapAmount, secondSideChainType, isBeamSide);
@@ -1633,7 +1639,7 @@ int main_impl(int argc, char* argv[])
 
                         if (isTxInitiator)
                         {
-                            WalletAddress senderAddress = GenerateNewAddress(walletDB, "");
+                            WalletAddress senderAddress = GenerateNewAddress(walletDB, "", keyKeeper);
                             CoinIDList coinIDs = GetPreselectedCoinIDs(vm);
                             currentTxID = wallet.transfer_money(senderAddress.m_walletID, receiverWalletID, move(amount), move(fee), coinIDs, command == cli::SEND, kDefaultTxLifetime, kDefaultTxResponseTime, {}, true);
                         }

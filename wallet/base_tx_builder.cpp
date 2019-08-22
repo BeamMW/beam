@@ -366,7 +366,20 @@ namespace beam::wallet
 
         m_Kernel->get_Hash(m_Message, m_PeerLockImage.get());
 
-        m_PartialSignature = m_Tx.GetKeyKeeper()->SignSync(m_InputCoins, m_OutputCoins, m_Offset, m_NonceSlot, m_Message, GetPublicNonce() + m_PeerPublicNonce, totalPublicExcess);
+        KernelParameters kernelParameters;
+        kernelParameters.fee = m_Fee;
+        kernelParameters.height = { GetMinHeight(), GetMaxHeight() };
+        kernelParameters.commitment = totalPublicExcess;
+        if (m_PeerLockImage)
+        {
+            *kernelParameters.lockImage = *m_PeerLockImage;
+        }
+        if (m_Kernel->m_pHashLock)
+        {
+            *kernelParameters.hashLock = *m_Kernel->m_pHashLock;
+        }
+
+        m_PartialSignature = m_Tx.GetKeyKeeper()->SignSync(m_InputCoins, m_OutputCoins, m_Offset, m_NonceSlot, kernelParameters, GetPublicNonce() + m_PeerPublicNonce);
 
         StoreKernelID();
     }

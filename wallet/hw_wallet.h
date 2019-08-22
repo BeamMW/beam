@@ -16,6 +16,8 @@
 
 #include "core/common.h"
 #include "core/ecc.h"
+#include "core/ecc_native.h"
+#include "core/block_crypt.h"
 
 namespace beam
 {
@@ -28,13 +30,29 @@ namespace beam
 
         template<typename T> using Result = std::function<void(const T& key)>;
 
+        struct TxData
+        {
+            beam::HeightRange height;
+            beam::Amount fee;
+            ECC::Point kernelCommitment;
+            ECC::Point kernelNonce;
+            uint32_t nonceSlot;
+            ECC::Scalar offset;
+        };
+
         void getOwnerKey(Result<std::string> callback) const;
         void generateNonce(uint8_t slot, Result<ECC::Point> callback) const;
-        void generateKey(const ECC::Key::IDV& idv, bool isCoinKey, Result<std::string> callback) const;
+        void getNoncePublic(uint8_t slot, Result<ECC::Point> callback) const;
+        void generateKey(const ECC::Key::IDV& idv, bool isCoinKey, Result<ECC::Point> callback) const;
+        void generateRangeProof(const ECC::Key::IDV& idv, bool isCoinKey, Result<ECC::RangeProof::Confidential> callback) const;
+        void signTransaction(const std::vector<Key::IDV>& inputs, const std::vector<Key::IDV>& outputs, const TxData& tx, Result<ECC::Scalar> callback) const;
 
         std::string getOwnerKeySync() const;
         ECC::Point generateNonceSync(uint8_t slot) const;
-        std::string generateKeySync(const ECC::Key::IDV& idv, bool isCoinKey) const;
+        ECC::Point getNoncePublicSync(uint8_t slot) const;
+        ECC::Point generateKeySync(const ECC::Key::IDV& idv, bool isCoinKey) const;
+        ECC::RangeProof::Confidential generateRangeProofSync(const ECC::Key::IDV& idv, bool isCoinKey) const;
+        ECC::Scalar signTransactionSync(const std::vector<Key::IDV>& inputs, const std::vector<Key::IDV>& outputs, const TxData& tx) const;
 
     private:
         std::shared_ptr<HWWalletImpl> m_impl;
