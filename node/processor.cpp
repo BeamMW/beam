@@ -19,6 +19,7 @@
 #include "../utility/logger.h"
 #include "../utility/logger_checkpoints.h"
 #include <condition_variable>
+#include <cctype>
 
 namespace beam {
 
@@ -159,6 +160,24 @@ void NodeProcessor::Initialize(const char* szPath, const StartParams& sp)
 		TryGoUp();
 }
 
+// Ridiculous! Had to write this because strmpi isn't standard!
+int My_strcmpi(const char* sz1, const char* sz2)
+{
+	while (true)
+	{
+		int c1 = std::tolower(*sz1++);
+		int c2 = std::tolower(*sz2++);
+		if (c1 < c2)
+			return -1;
+		if (c1 > c2)
+			return 1;
+
+		if (!c1)
+			break;
+	}
+	return 0;
+}
+
 bool NodeProcessor::InitUtxoMapping(const char* sz)
 {
 	// derive UTXO path from db path
@@ -167,11 +186,7 @@ bool NodeProcessor::InitUtxoMapping(const char* sz)
 	static const char szSufix[] = ".db";
 	const size_t nSufix = _countof(szSufix) - 1;
 
-#ifndef _MVC_VER
-#	define _strcmpi strcmpi
-#endif // _MVC_VER
-
-	if ((sPath.size() >= nSufix) && !_strcmpi(sPath.c_str() + sPath.size() - nSufix, szSufix))
+	if ((sPath.size() >= nSufix) && !My_strcmpi(sPath.c_str() + sPath.size() - nSufix, szSufix))
 		sPath.resize(sPath.size() - nSufix);
 
 	UtxoTreeMapped::Stamp us;
