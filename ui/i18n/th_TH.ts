@@ -1176,19 +1176,19 @@
     </message>
     <message id="open-in-explorer">
         <source>Open in Blockchain Explorer</source>
-        <translation type="unfinished"></translation>
+        <translation>เปิดใน Block Explorer</translation>
     </message>
     <message id="restore-finish-alert-button">
         <source>I understand</source>
-        <translation type="unfinished">ฉันเข้าใจ</translation>
+        <translation>ฉันเข้าใจ</translation>
     </message>
     <message id="restore-finish-alert-title">
         <source>Do not simultaneously run two wallets initiated from the same seed phrase</source>
-        <translation type="unfinished"></translation>
+        <translation>อย่าใช้กลุ่มคำลับในกระเป๋าบนหลายๆอุปกรณ์</translation>
     </message>
     <message id="restore-finish-alert-message-line">
         <source>Don’t use same seed phrase on several devices, your balance and transaction list won’t be synchronized.</source>
-        <translation type="unfinished"></translation>
+        <translation>อย่าใช้กลุ่มคำลับเดียวกันในหลายๆอุปกรณ์ ยอดคงเหลือและข้อมูลธุรกรรมจะถูกเก็บในอุปกรณ์ใดอุปกรณ์หนึ่งเท่านั้น</translation>
     </message>
 </context>
 </TS>
