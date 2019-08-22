@@ -167,6 +167,10 @@ bool NodeProcessor::InitUtxoMapping(const char* sz)
 	static const char szSufix[] = ".db";
 	const size_t nSufix = _countof(szSufix) - 1;
 
+#ifndef _MVC_VER
+#	define strcmpi _strcmpi
+#endif // _MVC_VER
+
 	if ((sPath.size() >= nSufix) && !_strcmpi(sPath.c_str() + sPath.size() - nSufix, szSufix))
 		sPath.resize(sPath.size() - nSufix);
 
