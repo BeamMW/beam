@@ -568,7 +568,7 @@ const Merkle::Hash& UtxoTree::get_LeafHash(Node& n, Merkle::Hash& hv)
 Input::Count UtxoTree::MyLeaf::get_Count() const
 {
 	return IsExt() ?
-		static_cast<Input::Count>(m_pIDs->size()) :
+		m_pIDs.get_Strict()->m_Count :
 		1;
 }
 
@@ -583,42 +583,78 @@ bool UtxoTree::MyLeaf::IsCommitmentDuplicated() const
 	return get_Bits() <= nBitsPostCommitment;
 }
 
-UtxoTree::MyLeaf::~MyLeaf()
+void UtxoTree::DeleteLeaf(Leaf* p)
 {
-	while (IsExt())
-		PopID();
+	MyLeaf& x = *Cast::Up<MyLeaf>(p);
+
+	while (x.IsExt())
+		PopID(x);
+
+	DeleteEmptyLeaf(p);
 }
 
-void UtxoTree::MyLeaf::PushID(TxoID x)
+void UtxoTree::PushID(TxoID id, MyLeaf& x)
 {
-	if (!IsExt())
+	if (!x.IsExt())
 	{
-		TxoID val = m_ID;
+		TxoID val = x.m_ID;
 
-		m_pIDs = new std::deque<TxoID>;
-		m_Bits |= s_User;
+		MyLeaf::IDQueue* pQueue = CreateIDQueue();
 
-		m_pIDs->push_back(val);
+		x.m_pIDs.set_Strict(pQueue);
+		x.m_Bits |= MyLeaf::s_User;
+
+		pQueue->m_Count = 0;
+		pQueue->m_pTop.set(nullptr);
+
+		PushIDRaw(val, *pQueue);
 	}
 
-	m_pIDs->push_back(x);
+	PushIDRaw(id, *x.m_pIDs.get_Strict());
 }
 
-TxoID UtxoTree::MyLeaf::PopID()
+void UtxoTree::PushIDRaw(TxoID id, MyLeaf::IDQueue& q)
 {
-	assert(IsExt() && (m_pIDs->size() > 1));
+	MyLeaf::IDNode* pOld = q.m_pTop.get();
+	MyLeaf::IDNode* pNew = CreateIDNode();
 
-	TxoID ret = m_pIDs->back();
-	m_pIDs->pop_back();
+	q.m_pTop.set_Strict(pNew);
+	pNew->m_pNext.set(pOld);
+	q.m_Count++;
 
-	if (1 == m_pIDs->size())
+	pNew->m_ID = id;
+}
+
+TxoID UtxoTree::PopIDRaw(MyLeaf::IDQueue& q)
+{
+	assert(q.m_Count);
+	MyLeaf::IDNode* pN = q.m_pTop.get_Strict();
+
+	TxoID ret = pN->m_ID;
+
+	q.m_pTop.set(pN->m_pNext.get());
+	DeleteIDNode(pN);
+
+	q.m_Count--;
+	return ret;
+}
+
+TxoID UtxoTree::PopID(MyLeaf& x)
+{
+	assert(x.IsExt());
+	MyLeaf::IDQueue& q = *x.m_pIDs.get_Strict();
+
+	TxoID ret = PopIDRaw(q);
+
+	assert(q.m_Count);
+	if (1 == q.m_Count)
 	{
-		TxoID val = m_pIDs->back();
+		TxoID val = PopIDRaw(q);
 
-		delete m_pIDs;
-		m_Bits &= ~s_User;
+		DeleteIDQueue(&q);
+		x.m_Bits &= ~MyLeaf::s_User;
 
-		m_ID = val;
+		x.m_ID = val;
 	}
 
 	return ret;
@@ -642,8 +678,8 @@ void UtxoTree::SaveIntenral(ISerializer& s) const
 
 			if (x.IsExt())
 			{
-				for (auto it = x.m_pIDs->begin(); x.m_pIDs->end() != it; it++)
-					m_pS->Process(*it);
+				for (auto p = x.m_pIDs.get_Strict()->m_pTop.get_Strict(); p; p = p->m_pNext.get())
+					m_pS->Process(p->m_ID);
 			}
 			else
 				m_pS->Process(x.m_ID);
@@ -691,7 +727,7 @@ void UtxoTree::LoadIntenral(ISerializer& s)
 		{
 			TxoID val = 0;
 			s.Process(val);
-			p->PushID(val);
+			PushID(val, *p);
 		}
 	}
 }

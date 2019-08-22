@@ -218,7 +218,7 @@ namespace beam
 			var = i;
 	}
 
-	void SetLeafIDs(UtxoTree::MyLeaf& x, uint32_t i, bool bTest)
+	void SetLeafIDs(UtxoTree& t, UtxoTree::MyLeaf& x, uint32_t i, bool bTest)
 	{
 		bool bExt = !(i % 12);
 		if (bTest)
@@ -229,11 +229,11 @@ namespace beam
 			if (!bTest)
 			{
 				for (uint32_t j = 0; j < 2; j++)
-					x.PushID(0);
+					t.PushID(0, x);
 			}
 
-			for (auto it = x.m_pIDs->begin(); x.m_pIDs->end() != it; it++)
-				SetLeafID(*it, i++, bTest);
+			for (auto p = x.m_pIDs.get_Strict()->m_pTop.get_Strict(); p; p = p->m_pNext.get())
+				SetLeafID(p->m_ID, i++, bTest);
 		}
 		else
 			SetLeafID(x.m_ID, i, bTest);
@@ -267,7 +267,7 @@ namespace beam
 
 			verify_test(p && bCreate);
 
-			SetLeafIDs(*p, i, false);
+			SetLeafIDs(t, *p, i, false);
 
 			if (!(i % 17))
 			{
@@ -305,7 +305,7 @@ namespace beam
 			UtxoTree::MyLeaf* p = t.Find(cu, vKeys[i], bCreate);
 
 			verify_test(p && !bCreate);
-			SetLeafIDs(*p, i, true);
+			SetLeafIDs(t, *p, i, true);
 
 			t.Delete(cu);
 
@@ -326,7 +326,7 @@ namespace beam
 			UtxoTree::MyLeaf* p = t.Find(cu, key, bCreate);
 
 			verify_test(p && bCreate);
-			SetLeafIDs(*p, i, false);
+			SetLeafIDs(t, *p, i, false);
 
 			if (!(i % 11))
 				t.get_Hash(hv2); // try to confuse clean/dirty

@@ -514,7 +514,7 @@ struct TestBlockchain
             if (!nCountInc)
                 return false;
 
-            p->PushID(0);
+			m_Utxos.PushID(0, *p);
         }
 
         return true;
@@ -557,7 +557,7 @@ struct TestBlockchain
             m_Utxos.Delete(cu);
         else
         {
-            p->PopID();
+            m_Utxos.PopID(*p);
             cu.InvalidateElement();
 			m_Utxos.OnDirty();
         }

@@ -1837,7 +1837,7 @@ bool NodeProcessor::HandleBlockElement(const Input& v, Height h, const Height* p
 			m_Utxos.Delete(cu);
 		else
 		{
-			nID = p->PopID();
+			nID = m_Utxos.PopID(*p);
 			cu.InvalidateElement();
 			m_Utxos.OnDirty();
 		}
@@ -1861,7 +1861,7 @@ bool NodeProcessor::HandleBlockElement(const Input& v, Height h, const Height* p
 			p->m_ID = v.m_ID;
 		else
 		{
-			p->PushID(v.m_ID);
+			m_Utxos.PushID(v.m_ID, *p);
 			cu.InvalidateElement();
 			m_Utxos.OnDirty();
 		}
@@ -1907,7 +1907,7 @@ bool NodeProcessor::HandleBlockElement(const Output& v, Height h, const Height* 
 			if (!nCountInc)
 				return false;
 
-			p->PushID(nID);
+			m_Utxos.PushID(nID, *p);
 		}
 
 		m_Extra.m_Txos++;
@@ -1920,7 +1920,7 @@ bool NodeProcessor::HandleBlockElement(const Output& v, Height h, const Height* 
 		if (!p->IsExt())
 			m_Utxos.Delete(cu);
 		else
-			p->PopID();
+			m_Utxos.PopID(*p);
 	}
 
 	return true;

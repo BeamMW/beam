@@ -15,7 +15,6 @@
 #pragma once
 
 #include "block_crypt.h"
-#include <deque>
 
 namespace beam
 {
@@ -260,18 +259,23 @@ public:
 		Key m_Key;
 		Input::Count get_Count() const;
 
-		~MyLeaf();
+		struct IDNode {
+			TxoID m_ID;
+			Ptr<IDNode> m_pNext;
+		};
+
+		struct IDQueue {
+			Ptr<IDNode> m_pTop;
+			Input::Count m_Count;
+		};
 
 		union {
 			TxoID m_ID;
-			std::deque<TxoID>* m_pIDs;
+			Ptr<IDQueue> m_pIDs;
 		};
 
 		bool IsExt() const;
 		bool IsCommitmentDuplicated() const;
-
-		void PushID(TxoID);
-		TxoID PopID();
 
 		void get_Hash(Merkle::Hash&) const;
 		static void get_Hash(Merkle::Hash&, const Key&, Input::Count);
@@ -285,6 +289,9 @@ public:
 	}
 
 	~UtxoTree() { Clear(); }
+
+	void PushID(TxoID, MyLeaf&);
+	TxoID PopID(MyLeaf&);
 
     template<typename Archive>
     Archive& save(Archive& ar) const
@@ -325,8 +332,14 @@ public:
 protected:
 	virtual Leaf* CreateLeaf() override { return new MyLeaf; }
 	virtual uint8_t* GetLeafKey(const Leaf& x) const override { return Cast::Up<MyLeaf>(Cast::NotConst(x)).m_Key.V.m_pData; }
-	virtual void DeleteLeaf(Leaf* p) override { delete Cast::Up<MyLeaf>(p); }
+	virtual void DeleteLeaf(Leaf* p) override/* { delete Cast::Up<MyLeaf>(p); }*/;
 	virtual const Merkle::Hash& get_LeafHash(Node&, Merkle::Hash&) override;
+
+	virtual MyLeaf::IDQueue* CreateIDQueue() { return new MyLeaf::IDQueue; }
+	virtual void DeleteIDQueue(MyLeaf::IDQueue* p) { delete p; }
+	virtual MyLeaf::IDNode* CreateIDNode() { return new MyLeaf::IDNode; }
+	virtual void DeleteIDNode(MyLeaf::IDNode* p) { delete p; }
+	virtual void DeleteEmptyLeaf(Leaf* p) { delete Cast::Up<MyLeaf>(p); }
 
 	struct ISerializer {
 		virtual void Process(uint32_t&) = 0;
@@ -346,6 +359,9 @@ protected:
 
 	void SaveIntenral(ISerializer&) const;
 	void LoadIntenral(ISerializer&);
+
+	void PushIDRaw(TxoID, MyLeaf::IDQueue&);
+	TxoID PopIDRaw(MyLeaf::IDQueue&);
 };
 
 } // namespace beam
