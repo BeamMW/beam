@@ -23,8 +23,11 @@ namespace beam
 		typedef uint64_t Offset;
 
 	private:
-		struct Bank {
+		struct Bank
+		{
 			Offset m_Tail;
+			uint64_t m_Total;
+			uint64_t m_Free;
 		};
 
 		static uint32_t s_PageSize;
@@ -81,6 +84,8 @@ namespace beam
 
 		void* Allocate(uint32_t iBank, uint32_t nSize);
 		void Free(uint32_t iBank, void*);
+
+		void EnsureReserve(uint32_t iBank, uint32_t nSize, uint32_t nMinFree);
 	};
 
 } // namespace beam

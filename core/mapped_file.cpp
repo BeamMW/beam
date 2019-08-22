@@ -155,6 +155,8 @@ namespace beam
 
 	uint32_t MappedFile::Defs::get_SizeMin() const
 	{
+		static_assert(!(sizeof(Bank) % sizeof(Offset)), "");
+
 		return
 			get_Bank0() +
 			m_nBanks * sizeof(Bank) + 
@@ -262,11 +264,9 @@ namespace beam
 		return ((Bank*) (m_pMapping + m_nBank0))[iBank];
 	}
 
-	void* MappedFile::Allocate(uint32_t iBank, uint32_t nSize)
+	void MappedFile::EnsureReserve(uint32_t iBank, uint32_t nSize, uint32_t nMinFree)
 	{
-		assert(nSize >= sizeof(Offset));
-		Bank* pBank = &get_Bank(iBank);
-		if (!pBank->m_Tail)
+		while (get_Bank(iBank).m_Free < nMinFree)
 		{
 			// grow
 			Offset n0 = m_nMapping;
@@ -278,8 +278,8 @@ namespace beam
 			Resize(n1);
 			OpenMapping();
 
-			pBank = &get_Bank(iBank);
-			Offset* p = &pBank->m_Tail;
+			Bank& b = get_Bank(iBank);
+			Offset* p = &b.m_Tail;
 
 			while (true)
 			{
@@ -287,16 +287,28 @@ namespace beam
 				if (n0_ > m_nMapping)
 					break;
 
-				assert(! *p);
+				assert(!*p);
 				*p = n0;
 				p = &get_At<Offset>(n0);
+
+				b.m_Total++;
+				b.m_Free++;
 
 				n0 = n0_;
 			}
 		}
+	}
 
-		Offset& ret = get_At<Offset>(pBank->m_Tail);
-		pBank->m_Tail = ret;
+	void* MappedFile::Allocate(uint32_t iBank, uint32_t nSize)
+	{
+		assert(nSize >= sizeof(Offset));
+		EnsureReserve(iBank, nSize, 1);
+
+		Bank& b = get_Bank(iBank);
+
+		Offset& ret = get_At<Offset>(b.m_Tail);
+		b.m_Tail = ret;
+		b.m_Free--;
 
 		return &ret;
 	}
@@ -310,7 +322,8 @@ namespace beam
 
 		b.m_Tail = ((uint8_t*) p) - m_pMapping;
 		assert(b.m_Tail < m_nMapping);
-	}
 
+		b.m_Free++;
+	}
 
 } // namespace beam
