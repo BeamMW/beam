@@ -32,6 +32,12 @@ namespace beam::wallet
         LoadNonceSeeds();
     }
 
+    LocalPrivateKeyKeeper::~LocalPrivateKeyKeeper()
+    {
+
+    }
+
+
     void LocalPrivateKeyKeeper::GeneratePublicKeys(const vector<Key::IDV>& ids, bool createCoinKey, Callback<PublicKeys>&& resultCallback, ExceptionCallback&& exceptionCallback)
     {
         try

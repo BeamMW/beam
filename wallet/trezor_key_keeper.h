@@ -24,6 +24,7 @@ namespace beam::wallet
     {
     public:
         TrezorKeyKeeper();
+        virtual ~TrezorKeyKeeper();
 
         Key::IPKdf::Ptr get_OwnerKdf() const override;
         Key::IKdf::Ptr get_SbbsKdf() const override;

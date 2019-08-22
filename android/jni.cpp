@@ -146,7 +146,7 @@ JNIEXPORT jobject JNICALL BEAM_JAVA_API_INTERFACE(createWallet)(JNIEnv *env, job
         }
         
         // generate default address
-        WalletAddress address = storage::createAddress(*m_db, m_keyKeeper);
+        WalletAddress address = storage::createAddress(*walletDB, keyKeeper);
         address.m_label = "default";
         walletDB->saveAddress(address);
         

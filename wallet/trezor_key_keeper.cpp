@@ -27,6 +27,11 @@ namespace beam::wallet
 
     }
 
+    TrezorKeyKeeper::~TrezorKeyKeeper()
+    {
+
+    }
+
     Key::IPKdf::Ptr TrezorKeyKeeper::get_OwnerKdf() const
     {
         auto key = m_hwWallet.getOwnerKeySync();
