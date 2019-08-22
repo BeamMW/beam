@@ -503,6 +503,7 @@ struct TestBlockchain
         UtxoTree::MyLeaf* p = m_Utxos.Find(cu, key, bCreate);
 
         cu.InvalidateElement();
+		m_Utxos.OnDirty();
 
         if (bCreate)
             p->m_ID = 0;
@@ -558,6 +559,7 @@ struct TestBlockchain
         {
             p->PopID();
             cu.InvalidateElement();
+			m_Utxos.OnDirty();
         }
 
         return true;

@@ -1839,6 +1839,7 @@ bool NodeProcessor::HandleBlockElement(const Input& v, Height h, const Height* p
 		{
 			nID = p->PopID();
 			cu.InvalidateElement();
+			m_Utxos.OnDirty();
 		}
 
 		if (!pHMax)
@@ -1862,6 +1863,7 @@ bool NodeProcessor::HandleBlockElement(const Input& v, Height h, const Height* p
 		{
 			p->PushID(v.m_ID);
 			cu.InvalidateElement();
+			m_Utxos.OnDirty();
 		}
 	}
 
@@ -1890,6 +1892,7 @@ bool NodeProcessor::HandleBlockElement(const Output& v, Height h, const Height* 
 	UtxoTree::MyLeaf* p = m_Utxos.Find(cu, key, bCreate);
 
 	cu.InvalidateElement();
+	m_Utxos.OnDirty();
 
 	if (bFwd)
 	{

@@ -24,6 +24,43 @@ class RadixTree
 {
 protected:
 
+	template <typename T>
+	class Ptr
+	{
+		int64_t m_Offset;
+	public:
+
+		operator bool() const
+		{
+			return m_Offset != 0;
+		}
+
+		void set_Strict(const T* p)
+		{
+			assert(p);
+			m_Offset = reinterpret_cast<intptr_t>(p) - reinterpret_cast<intptr_t>(this);
+		}
+
+		void set(const T* p)
+		{
+			if (p)
+				set_Strict(p);
+			else
+				m_Offset = 0;
+		}
+
+		T* get_Strict() const
+		{
+			assert(m_Offset);
+			return reinterpret_cast<T*>(reinterpret_cast<intptr_t>(this) + m_Offset);
+		}
+
+		T* get() const
+		{
+			return m_Offset ? get_Strict() : nullptr;
+		}
+	};
+
 	struct Node
 	{
 		uint16_t m_Bits;
@@ -35,8 +72,8 @@ protected:
 	};
 
 	struct Joint :public Node {
-		Node* m_ppC[2];
-		const uint8_t* m_pKeyPtr; // should be equal to one of the ancestors
+		Ptr<Node> m_ppC[2];
+		Ptr<uint8_t> m_pKeyPtr; // should be equal to one of the ancestors
 	};
 
 public:
@@ -45,9 +82,13 @@ public:
 	};
 
 
+	virtual void OnDirty() {}
+
 protected:
-	Node* get_Root() const { return m_pRoot; }
+	Node* get_Root() const;
 	const uint8_t* get_NodeKey(const Node&) const;
+
+	virtual intptr_t get_Base() const { return 0; }
 
 	virtual Joint* CreateJoint() = 0;
 	virtual Leaf* CreateLeaf() = 0;
@@ -124,7 +165,8 @@ public:
 	size_t Count() const; // implemented via the whole tree traversing, shouldn't use frequently.
 
 private:
-	Node* m_pRoot;
+	int64_t m_RootOffset;
+	void set_Root(Node*);
 
 	void DeleteNode(Node*);
 	void ReplaceTip(CursorBase& cu, Node* pNew);

@@ -26,26 +26,42 @@ uint16_t RadixTree::Node::get_Bits() const
 
 const uint8_t* RadixTree::get_NodeKey(const Node& n) const
 {
-	return (Node::s_Leaf & n.m_Bits) ? GetLeafKey(Cast::Up<Leaf>(n)) : Cast::Up<Joint>(n).m_pKeyPtr;
+	return (Node::s_Leaf & n.m_Bits) ? GetLeafKey(Cast::Up<Leaf>(n)) : Cast::Up<Joint>(n).m_pKeyPtr.get_Strict();
 }
 
 RadixTree::RadixTree()
-	:m_pRoot(NULL)
+	:m_RootOffset(0)
 {
 }
 
 RadixTree::~RadixTree()
 {
-	assert(!m_pRoot);
+	assert(!m_RootOffset);
 }
 
 void RadixTree::Clear()
 {
-	if (m_pRoot)
+	if (m_RootOffset)
 	{
-		DeleteNode(m_pRoot);
-		m_pRoot = NULL;
+		OnDirty();
+
+		DeleteNode(get_Root());
+		m_RootOffset = 0;
 	}
+}
+
+RadixTree::Node* RadixTree::get_Root() const
+{
+	return m_RootOffset ?
+		reinterpret_cast<Node*>(get_Base() + m_RootOffset) :
+		nullptr;
+}
+
+void RadixTree::set_Root(Node* p)
+{
+	m_RootOffset = p ?
+		(reinterpret_cast<intptr_t>(p) - get_Base()) :
+		0;
 }
 
 void RadixTree::DeleteNode(Node* p)
@@ -57,7 +73,7 @@ void RadixTree::DeleteNode(Node* p)
 		Joint* p1 = (Joint*) p;
 
 		for (size_t i = 0; i < _countof(p1->m_ppC); i++)
-			DeleteNode(p1->m_ppC[i]);
+			DeleteNode(p1->m_ppC[i].get_Strict());
 
 		DeleteJoint(p1);
 	}
@@ -114,22 +130,22 @@ void RadixTree::ReplaceTip(CursorBase& cu, Node* pNew)
 		for (size_t i = 0; ; i++)
 		{
 			assert(i < _countof(pPrev->m_ppC));
-			if (pPrev->m_ppC[i] == pOld)
+			if (pPrev->m_ppC[i].get_Strict() == pOld)
 			{
-				pPrev->m_ppC[i] = pNew;
+				pPrev->m_ppC[i].set(pNew);
 				break;
 			}
 		}
 	} else
 	{
-		assert(m_pRoot == pOld);
-		m_pRoot = pNew;
+		assert(get_Root() == pOld);
+		set_Root(pNew);
 	}
 }
 
 bool RadixTree::Goto(CursorBase& cu, const uint8_t* pKey, uint16_t nBits) const
 {
-	Node* p = m_pRoot;
+	Node* p = get_Root();
 
 	if (p)
 	{
@@ -160,7 +176,7 @@ bool RadixTree::Goto(CursorBase& cu, const uint8_t* pKey, uint16_t nBits) const
 		assert(cu.m_nPosInLastNode == p->get_Bits());
 
 		Joint* pN = Cast::Up<Joint>(p);
-		p = pN->m_ppC[cu.get_Bit(pKey)];
+		p = pN->m_ppC[cu.get_Bit(pKey)].get_Strict();
 
 		assert(p); // joints should have both children!
 
@@ -183,7 +199,9 @@ RadixTree::Leaf* RadixTree::Find(CursorBase& cu, const uint8_t* pKey, uint16_t n
 	assert(cu.m_nBits < nBits);
 
 	if (!bCreate)
-		return NULL;
+		return nullptr;
+
+	OnDirty();
 
 	Leaf* pN = CreateLeaf();
 
@@ -219,7 +237,7 @@ RadixTree::Leaf* RadixTree::Find(CursorBase& cu, const uint8_t* pKey, uint16_t n
 
 		// split
 		Joint* pJ = CreateJoint();
-		pJ->m_pKeyPtr = pKey1;
+		pJ->m_pKeyPtr.set_Strict(pKey1);
 		pJ->m_Bits = cu.m_nPosInLastNode;
 
 		ReplaceTip(cu, pJ);
@@ -228,14 +246,14 @@ RadixTree::Leaf* RadixTree::Find(CursorBase& cu, const uint8_t* pKey, uint16_t n
 		pN->m_Bits = nBits - (cu.m_nBits + 1);
 		p->m_Bits -= cu.m_nPosInLastNode + 1;
 
-		pJ->m_ppC[iC] = pN;
-		pJ->m_ppC[!iC] = p;
+		pJ->m_ppC[iC].set_Strict(pN);
+		pJ->m_ppC[!iC].set_Strict(p);
 
 
 	} else
 	{
-		assert(!m_pRoot);
-		m_pRoot = pN;
+		assert(!m_RootOffset);
+		set_Root(pN);
 		pN->m_Bits = nBits;
 	}
 
@@ -252,6 +270,8 @@ RadixTree::Leaf* RadixTree::Find(CursorBase& cu, const uint8_t* pKey, uint16_t n
 
 void RadixTree::Delete(CursorBase& cu)
 {
+	OnDirty();
+
 	assert(cu.m_nPtrs);
 
 	cu.InvalidateElement();
@@ -265,7 +285,7 @@ void RadixTree::Delete(CursorBase& cu)
 	DeleteLeaf(p);
 
 	if (1 == cu.m_nPtrs)
-		assert(!m_pRoot);
+		assert(!m_RootOffset);
 	else
 	{
 		cu.m_nPtrs--;
@@ -274,7 +294,7 @@ void RadixTree::Delete(CursorBase& cu)
 		for (size_t i = 0; ; i++)
 		{
 			assert(i < _countof(pPrev->m_ppC));
-			Node* pN = pPrev->m_ppC[i];
+			Node* pN = pPrev->m_ppC[i].get();
 			if (pN)
 			{
 				const uint8_t* pKey1 = get_NodeKey(*pN);
@@ -283,10 +303,10 @@ void RadixTree::Delete(CursorBase& cu)
 				for (uint16_t j = cu.m_nPtrs; j--; )
 				{
 					Joint* pPrev2 = Cast::Up<Joint>(cu.m_pp[j]);
-					if (pPrev2->m_pKeyPtr != pKeyDead)
+					if (pPrev2->m_pKeyPtr.get_Strict() != pKeyDead)
 						break;
 
-					pPrev2->m_pKeyPtr = pKey1;
+					pPrev2->m_pKeyPtr.set_Strict(pKey1);
 				}
 
 				pN->m_Bits += pPrev->m_Bits + 1;
@@ -375,7 +395,7 @@ bool RadixTree::Traverse(const Node& n, ITraveler& t) const
 			continue;
 
 		t.m_pCu->m_nBits++;
-		if (!Traverse(*x.m_ppC[i], t))
+		if (!Traverse(*x.m_ppC[i].get_Strict(), t))
 			return false;
 	}
 
@@ -410,7 +430,7 @@ int RadixTree::Cmp1(uint8_t n, const uint8_t* pThreshold, uint16_t n0)
 
 bool RadixTree::Traverse(ITraveler& t) const
 {
-	if (!m_pRoot)
+	if (!m_RootOffset)
 		return true;
 
 	CursorBase cuDummy(NULL);
@@ -421,7 +441,7 @@ bool RadixTree::Traverse(ITraveler& t) const
 	t.m_pCu->m_nPtrs = 0;
 	t.m_pCu->m_nPosInLastNode = 0;
 
-	return Traverse(*m_pRoot, t);
+	return Traverse(*get_Root(), t);
 }
 
 size_t RadixTree::Count() const
@@ -457,7 +477,13 @@ const Merkle::Hash& RadixHashTree::get_Hash(Node& n, Merkle::Hash& hv)
 	if (Node::s_Leaf & n.m_Bits)
 	{
 		const Merkle::Hash& ret = get_LeafHash(n, hv);
-		n.m_Bits |= Node::s_Clean;
+
+		if (!(Node::s_Clean & n.m_Bits))
+		{
+			OnDirty();
+			n.m_Bits |= Node::s_Clean;
+		}
+
 		return ret;
 	}
 
@@ -469,8 +495,10 @@ const Merkle::Hash& RadixHashTree::get_Hash(Node& n, Merkle::Hash& hv)
 		for (size_t i = 0; i < _countof(x.m_ppC); i++)
 		{
 			ECC::Hash::Value hvPlaceholder;
-			hp << get_Hash(*x.m_ppC[i], hvPlaceholder);
+			hp << get_Hash(*x.m_ppC[i].get_Strict(), hvPlaceholder);
 		}
+
+		OnDirty();
 
 		hp >> x.m_Hash;
 		x.m_Bits |= Node::s_Clean;
@@ -494,9 +522,9 @@ void RadixHashTree::get_Proof(Merkle::Proof& proof, const CursorBase& cu)
 		const Joint& x = Cast::Up<Joint>(*pp[n]);
 
 		Merkle::Node& node = proof[nOut];
-		node.first = (x.m_ppC[0] == pPrev);
+		node.first = (x.m_ppC[0].get_Strict() == pPrev);
 
-		node.second = get_Hash(*x.m_ppC[node.first != false], node.second);
+		node.second = get_Hash(*x.m_ppC[node.first != false].get_Strict(), node.second);
 
 		pPrev = &x;
 	}
