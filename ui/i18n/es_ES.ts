@@ -188,7 +188,7 @@
     </message>
     <message id="wallet-receive-button">
         <source>Receive</source>
-        <translation>Recibir</translation>
+        <translation>Recibe</translation>
     </message>
     <message id="wallet-in-progress-title">
         <source>In progress</source>
@@ -501,11 +501,11 @@
     </message>
     <message id="tx-details-sending-addr-label">
         <source>Sending address</source>
-        <translation>Dirección de remitente</translation>
+        <translation>Enviando dirección</translation>
     </message>
     <message id="tx-details-receiving-addr-label">
         <source>Receiving address</source>
-        <translation>Dirección de destinatario</translation>
+        <translation>Recibiendo dirección</translation>
     </message>
     <message id="tx-details-error-label">
         <source>Error</source>
@@ -746,7 +746,7 @@
     </message>
     <message id="start-node-peer-error">
         <source>Incorrect address</source>
-        <translation>Por favor, especifica el par correcto</translation>
+        <translation>Dirección incorrecta</translation>
     </message>
     <message id="start-node-empty-error">
         <source>Please specify address of the remote node</source>
@@ -942,7 +942,7 @@
     </message>
     <message id="utxo-status-spent">
         <source>Spent</source>
-        <translation>Gastado</translation>
+        <translation>Agotado</translation>
     </message>
     <message id="settings-general-lock-screen-never">
         <source>Never</source>
@@ -1174,6 +1174,22 @@ Escanee este código QR o envíe esta dirección al remitente a través de un ca
         <source>Password verification is required to change that setting</source>
         <extracomment>settings tab, general section, ask password to send, confirm password dialog, message</extracomment>
         <translation>Hay que verificar la contraseña para cambiar esa configuración</translation>
+    </message>
+    <message id="open-in-explorer">
+        <source>Open in Blockchain Explorer</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="restore-finish-alert-button">
+        <source>I understand</source>
+        <translation type="unfinished">Lo entiendo</translation>
+    </message>
+    <message id="restore-finish-alert-title">
+        <source>Do not simultaneously run two wallets initiated from the same seed phrase</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="restore-finish-alert-message-line">
+        <source>Don’t use same seed phrase on several devices, your balance and transaction list won’t be synchronized.</source>
+        <translation type="unfinished"></translation>
     </message>
 </context>
 </TS>

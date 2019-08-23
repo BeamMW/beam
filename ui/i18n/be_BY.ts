@@ -1174,5 +1174,21 @@
         <extracomment>settings tab, general section, ask password to send, confirm password dialog, message</extracomment>
         <translation>Калі ласка, увядзіце пароль каб змены ўступілі ў сілу</translation>
     </message>
+    <message id="open-in-explorer">
+        <source>Open in Blockchain Explorer</source>
+        <translation>Адчыніць у blockchain правадыры</translation>
+    </message>
+    <message id="restore-finish-alert-button">
+        <source>I understand</source>
+        <translation>Мне зразумела</translation>
+    </message>
+    <message id="restore-finish-alert-title">
+        <source>Do not simultaneously run two wallets initiated from the same seed phrase</source>
+        <translation>Не запускайце больш за адзін кашалёк з аднолькавай сід фразай</translation>
+    </message>
+    <message id="restore-finish-alert-message-line">
+        <source>Don’t use same seed phrase on several devices, your balance and transaction list won’t be synchronized.</source>
+        <translation>Не выкарыстоўвайце аднолькавую сід фразу на розных дэвайсах, ваш баланс і спісак транзакцы не будзе сінхранізаваны.</translation>
+    </message>
 </context>
 </TS>

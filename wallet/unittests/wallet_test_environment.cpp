@@ -326,8 +326,8 @@ public:
 class OneTimeBbsEndpoint : public WalletNetworkViaBbs
 {
 public:
-    OneTimeBbsEndpoint(IWalletMessageConsumer& wallet, std::shared_ptr<proto::FlyClient::INetwork> nodeEndpoint, const IWalletDB::Ptr& walletDB)
-        : WalletNetworkViaBbs(wallet, nodeEndpoint, walletDB)
+    OneTimeBbsEndpoint(IWalletMessageConsumer& wallet, std::shared_ptr<proto::FlyClient::INetwork> nodeEndpoint, const IWalletDB::Ptr& walletDB, IPrivateKeyKeeper::Ptr keyKeeper)
+        : WalletNetworkViaBbs(wallet, nodeEndpoint, walletDB, keyKeeper)
     {
 
     }
@@ -348,14 +348,16 @@ struct TestWalletRig
         ColdWallet,
         Offline
     };
+
     TestWalletRig(const string& name, IWalletDB::Ptr walletDB, Wallet::TxCompletedAction&& action = Wallet::TxCompletedAction(), Type type = Type::Regular, bool oneTimeBbsEndpoint = false, uint32_t nodePollPeriod_ms = 0)
         : m_WalletDB{ walletDB }
-        , m_KeyKeeper{ make_shared<wallet::LocalPrivateKeyKeeper>(walletDB) }
-        , m_Wallet{ m_WalletDB, move(action),( type == Type::ColdWallet) ? []() {io::Reactor::get_Current().stop(); } : Wallet::UpdateCompletedAction() }
+        , m_KeyKeeper(make_shared<LocalPrivateKeyKeeper>(m_WalletDB))
+        , m_Wallet{ m_WalletDB, m_KeyKeeper, move(action),( type == Type::ColdWallet) ? []() {io::Reactor::get_Current().stop(); } : Wallet::UpdateCompletedAction() }
     {
+
         if (m_WalletDB->get_MasterKdf()) // can create secrets
         {
-            WalletAddress wa = storage::createAddress(*m_WalletDB);
+            WalletAddress wa = storage::createAddress(*m_WalletDB, m_KeyKeeper);
             m_WalletDB->saveAddress(wa);
             m_WalletID = wa.m_walletID;
         }
@@ -369,7 +371,7 @@ struct TestWalletRig
         {
         case Type::ColdWallet:
             {
-                m_Wallet.AddMessageEndpoint(make_shared<ColdWalletMessageEndpoint>(m_Wallet, m_WalletDB));
+                m_Wallet.AddMessageEndpoint(make_shared<ColdWalletMessageEndpoint>(m_Wallet, m_WalletDB, m_KeyKeeper));
                 break;
             }
 
@@ -381,11 +383,11 @@ struct TestWalletRig
                 nodeEndpoint->Connect();
                 if (oneTimeBbsEndpoint)
                 {
-                    m_Wallet.AddMessageEndpoint(make_shared<OneTimeBbsEndpoint>(m_Wallet, nodeEndpoint, m_WalletDB));
+                    m_Wallet.AddMessageEndpoint(make_shared<OneTimeBbsEndpoint>(m_Wallet, nodeEndpoint, m_WalletDB, m_KeyKeeper));
                 }
                 else
                 {
-                    m_Wallet.AddMessageEndpoint(make_shared<WalletNetworkViaBbs>(m_Wallet, nodeEndpoint, m_WalletDB));
+                    m_Wallet.AddMessageEndpoint(make_shared<WalletNetworkViaBbs>(m_Wallet, nodeEndpoint, m_WalletDB, m_KeyKeeper));
                 }
                 m_Wallet.SetNodeEndpoint(nodeEndpoint);
                 break;
@@ -503,6 +505,7 @@ struct TestBlockchain
         UtxoTree::MyLeaf* p = m_Utxos.Find(cu, key, bCreate);
 
         cu.InvalidateElement();
+		m_Utxos.OnDirty();
 
         if (bCreate)
             p->m_ID = 0;
@@ -513,7 +516,7 @@ struct TestBlockchain
             if (!nCountInc)
                 return false;
 
-            p->PushID(0);
+			m_Utxos.PushID(0, *p);
         }
 
         return true;
@@ -556,8 +559,9 @@ struct TestBlockchain
             m_Utxos.Delete(cu);
         else
         {
-            p->PopID();
+            m_Utxos.PopID(*p);
             cu.InvalidateElement();
+			m_Utxos.OnDirty();
         }
 
         return true;
@@ -821,11 +825,11 @@ class TestNode
 {
 public:
     using NewBlockFunc = std::function<void(Height)>;
-    TestNode(NewBlockFunc func = NewBlockFunc())
+    TestNode(NewBlockFunc func = NewBlockFunc(), Height height = 100500)
         : m_NewBlockFunc(func)
     {
         m_Server.Listen(io::Address::localhost().port(32125));
-        while (m_Blockchain.m_mcm.m_vStates.size() < 145)
+        while (m_Blockchain.m_mcm.m_vStates.size() < height)
             m_Blockchain.AddBlock();
     }
 

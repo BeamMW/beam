@@ -134,7 +134,7 @@
     <message id="general-change">
         <source>Change</source>
         <extracomment>UTXO type Change</extracomment>
-        <translation>Change</translation>
+        <translation>เปลี่ยน</translation>
     </message>
     <message id="general-treasury">
         <source>Treasury</source>
@@ -260,7 +260,7 @@
     </message>
     <message id="addresses-tab-active">
         <source>My active addresses</source>
-        <translation>ที่อยู่ที่ฉันใช้งาน</translation>
+        <translation>ที่อยู่ที่ฉันสามารถใช้งานได้</translation>
     </message>
     <message id="addresses-tab-expired">
         <source>My expired addresses</source>
@@ -320,7 +320,7 @@
     <message id="settings-rescan-confirmation-message">
         <source>Rescan will sync transaction and UTXO data with the latest information on the blockchain. The process might take long time.</source>
         <extracomment>settings tab, confirm rescan dialog message</extracomment>
-        <translation>การสแกนใหม่จะทำการดึงธุรกรรมและข้อมูล UTXO ล่าสุดทั้งหมดมาจากบล็อคเชน ดังนั้นการดำเนินการอาจจะใช้เวลาค่อนข้างนาน</translation>
+        <translation>การสแกนใหม่จะทำการดึงธุรกรรมและข้อมูล UTXO ล่าสุดทั้งหมดมาจากบล็อกเชน ดังนั้นการดำเนินการอาจจะใช้เวลาค่อนข้างนาน</translation>
     </message>
     <message id="settings-general-title">
         <source>General settings</source>
@@ -330,7 +330,7 @@
     <message id="settings-general-lock-screen">
         <source>Lock screen</source>
         <extracomment>settings tab, general section, lock screen label</extracomment>
-        <translation>ล็อคหน้าจอ</translation>
+        <translation>ล็อกหน้าจอ</translation>
     </message>
     <message id="settings-general-require-pwd-to-spend">
         <source>Ask password for every sending transaction</source>
@@ -354,7 +354,7 @@
     </message>
     <message id="logo-description">
         <source>Scalable confidential cryptocurrency</source>
-        <translation>คริปโตเคอเรนซี่ที่ยืดหยุดและปลอดภัย</translation>
+        <translation>คริปโตเคอเรนซี่ที่ปลอดภัยและยืดหยุ่น</translation>
     </message>
     <message id="change-pwd-old-empty">
         <source>Please, enter old password</source>
@@ -477,7 +477,7 @@
     </message>
     <message id="loading-try-again-button">
         <source>Try again</source>
-        <translation>กรุณาลองอีกครั้ง</translation>
+        <translation>ลองอีกครั้ง</translation>
     </message>
     <message id="notifications-title">
         <source>Notifications view</source>
@@ -505,7 +505,7 @@
     </message>
     <message id="tx-details-receiving-addr-label">
         <source>Receiving address</source>
-        <translation>ที่อยู่ที่กำลังรับ</translation>
+        <translation>ที่อยู่ที่ใช้รับโอน</translation>
     </message>
     <message id="tx-details-error-label">
         <source>Error</source>
@@ -564,7 +564,7 @@
     </message>
     <message id="wallet-receive-expires-never">
         <source>Never</source>
-        <translation>ไม่มีกำหนด</translation>
+        <translation>ไม่มี</translation>
     </message>
     <message id="wallet-receive-qr-label">
         <source>Scan to send</source>
@@ -814,7 +814,7 @@
     </message>
     <message id="loading-view-connection-error">
         <source>Connection error</source>
-        <translation>การเชื่อมต่อผิดพลาด</translation>
+        <translation>ผิดพลาดในการเชื่อมต่อ</translation>
     </message>
     <message id="start-view-printer-not-found-error">
         <source>Printer is not found. Please, check your printer preferences.</source>
@@ -846,7 +846,7 @@
     </message>
     <message id="tx-failture-not-registered-in-blockchain">
         <source>Failed to register transaction with the blockchain, see node logs for details</source>
-        <translation>ไม่สามารถบันทึกธุรกรรมบนบล็อคเชนได้ กรุณาดู Log เพื่อตรวจสอบรายละเอียด</translation>
+        <translation>ไม่สามารถบันทึกธุรกรรมบนบล็อกเชนได้ กรุณาดู Log เพื่อตรวจสอบรายละเอียด</translation>
     </message>
     <message id="tx-failture-not-valid">
         <source>Transaction is not valid, please send wallet logs to Beam support</source>
@@ -946,7 +946,7 @@
     </message>
     <message id="settings-general-lock-screen-never">
         <source>Never</source>
-        <translation>ไม่เคย</translation>
+        <translation>ไม่มี</translation>
     </message>
     <message id="settings-general-lock-screen-1m">
         <source>1 minute</source>
@@ -1011,7 +1011,7 @@
     </message>
     <message id="loading-restore-message-line2">
         <source>Only the wallet balance (UTXO) can be restored, transaction info and addresses are always private and never kept in the blockchain.</source>
-        <translation>มีแค่ยอดคงเหลือของกระเป๋า (UTXO) เท่านั้นที่จะสามารถกู้คืนได้ รายการธุรกรรมและรายการที่อยู่จะเก็บอยู่บนอุปกรณ์ และจะไม่ถูกนำไปบนบล็อคเชน</translation>
+        <translation>มีแค่ยอดคงเหลือของกระเป๋า (UTXO) เท่านั้นที่จะสามารถกู้คืนได้ รายการธุรกรรมและรายการที่อยู่จะเก็บอยู่บนอุปกรณ์ และจะไม่ถูกนำไปบนบล็อกเชน</translation>
     </message>
     <message id="start-recovery-title">
         <source>Create new password</source>
@@ -1173,6 +1173,22 @@
         <source>Password verification is required to change that setting</source>
         <extracomment>settings tab, general section, ask password to send, confirm password dialog, message</extracomment>
         <translation>ต้องการรหัสผ่านเพื่อที่จะเปลี่ยนแปลงการตั้งค่า</translation>
+    </message>
+    <message id="open-in-explorer">
+        <source>Open in Blockchain Explorer</source>
+        <translation>เปิดใน Block Explorer</translation>
+    </message>
+    <message id="restore-finish-alert-button">
+        <source>I understand</source>
+        <translation>ฉันเข้าใจ</translation>
+    </message>
+    <message id="restore-finish-alert-title">
+        <source>Do not simultaneously run two wallets initiated from the same seed phrase</source>
+        <translation>อย่าใช้กลุ่มคำลับในกระเป๋าบนหลายๆอุปกรณ์</translation>
+    </message>
+    <message id="restore-finish-alert-message-line">
+        <source>Don’t use same seed phrase on several devices, your balance and transaction list won’t be synchronized.</source>
+        <translation>อย่าใช้กลุ่มคำลับเดียวกันในหลายๆอุปกรณ์ ยอดคงเหลือและข้อมูลธุรกรรมจะถูกเก็บในอุปกรณ์ใดอุปกรณ์หนึ่งเท่านั้น</translation>
     </message>
 </context>
 </TS>

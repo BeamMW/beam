@@ -287,7 +287,7 @@
     </message>
     <message id="address-table-cm-delete-contact">
         <source>Delete contact</source>
-        <translation>Bağlantıyı sil</translation>
+        <translation>Kişiyi sil</translation>
     </message>
     <message id="available-panel-available">
         <source>Available</source>
@@ -1173,6 +1173,22 @@
         <source>Password verification is required to change that setting</source>
         <extracomment>settings tab, general section, ask password to send, confirm password dialog, message</extracomment>
         <translation>Bu ayarı değiştirmek için parola doğrulaması gerekiyor</translation>
+    </message>
+    <message id="open-in-explorer">
+        <source>Open in Blockchain Explorer</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="restore-finish-alert-button">
+        <source>I understand</source>
+        <translation type="unfinished">Anlıyorum</translation>
+    </message>
+    <message id="restore-finish-alert-title">
+        <source>Do not simultaneously run two wallets initiated from the same seed phrase</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="restore-finish-alert-message-line">
+        <source>Don’t use same seed phrase on several devices, your balance and transaction list won’t be synchronized.</source>
+        <translation type="unfinished"></translation>
     </message>
 </context>
 </TS>

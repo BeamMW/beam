@@ -1179,5 +1179,21 @@ or send this address to the sender over secure channel</translation>
         <extracomment>settings tab, general section, ask password to send, confirm password dialog, message</extracomment>
         <translation>Password verification is required to change that setting</translation>
     </message>
+    <message id="open-in-explorer">
+        <source>Open in Blockchain Explorer</source>
+        <translation>Open in Blockchain Explorer</translation>
+    </message>
+    <message id="restore-finish-alert-button">
+        <source>I understand</source>
+        <translation>I understand</translation>
+    </message>
+    <message id="restore-finish-alert-title">
+        <source>Do not simultaneously run two wallets initiated from the same seed phrase</source>
+        <translation>Do not simultaneously run two wallets initiated from the same seed phrase</translation>
+    </message>
+    <message id="restore-finish-alert-message-line">
+        <source>Don’t use same seed phrase on several devices, your balance and transaction list won’t be synchronized.</source>
+        <translation>Don’t use same seed phrase on several devices, your balance and transaction list won’t be synchronized.</translation>
+    </message>
 </context>
 </TS>

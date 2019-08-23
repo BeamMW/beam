@@ -604,7 +604,7 @@
     </message>
     <message id="send-curency-sub-name">
         <source>GROTH</source>
-        <translation>GROTH</translation>
+        <translation>Groth: đơn vị nhỏ nhất của Beam </translation>
     </message>
     <message id="send-remaining-label">
         <source>Remaining</source>
@@ -746,7 +746,7 @@
     </message>
     <message id="start-node-peer-error">
         <source>Incorrect address</source>
-        <translation>Vui lòng xác định đối tượng ngang hàng chính xác</translation>
+        <translation>Địa chỉ không chính xác</translation>
     </message>
     <message id="start-node-empty-error">
         <source>Please specify address of the remote node</source>
@@ -894,7 +894,7 @@
     </message>
     <message id="tx-curency-sub-name">
         <source>GROTH</source>
-        <translation>GROTH</translation>
+        <translation>Groth: đơn vị nhỏ nhất của Beam </translation>
     </message>
     <message id="utxo-utxo">
         <source>UTXO</source>
@@ -1173,6 +1173,22 @@
         <source>Password verification is required to change that setting</source>
         <extracomment>settings tab, general section, ask password to send, confirm password dialog, message</extracomment>
         <translation>Cần xác minh mật khẩu để thay đổi cài đặt đó</translation>
+    </message>
+    <message id="open-in-explorer">
+        <source>Open in Blockchain Explorer</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="restore-finish-alert-button">
+        <source>I understand</source>
+        <translation type="unfinished">Tôi đã hiểu</translation>
+    </message>
+    <message id="restore-finish-alert-title">
+        <source>Do not simultaneously run two wallets initiated from the same seed phrase</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="restore-finish-alert-message-line">
+        <source>Don’t use same seed phrase on several devices, your balance and transaction list won’t be synchronized.</source>
+        <translation type="unfinished"></translation>
     </message>
 </context>
 </TS>

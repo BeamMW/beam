@@ -13,7 +13,7 @@
     </message>
     <message id="general-comment">
         <source>Comment</source>
-        <translation>Notitie</translation>
+        <translation>Mededeling</translation>
     </message>
     <message id="general-contact">
         <source>Contact</source>
@@ -41,7 +41,7 @@
     </message>
     <message id="general-send">
         <source>Send</source>
-        <translation>Verzenden</translation>
+        <translation>Verzend</translation>
     </message>
     <message id="general-amount">
         <source>Amount</source>
@@ -449,7 +449,7 @@
     </message>
     <message id="payment-info-proof-sender-label">
         <source>Sender</source>
-        <translation>Afzender</translation>
+        <translation>Verzender</translation>
     </message>
     <message id="payment-info-proof-receiver-label">
         <source>Receiver</source>
@@ -497,7 +497,7 @@
     </message>
     <message id="tx-details-title">
         <source>General transaction info</source>
-        <translation>Algemene transactie informatie</translation>
+        <translation>Algemene transactieinformatie</translation>
     </message>
     <message id="tx-details-sending-addr-label">
         <source>Sending address</source>
@@ -505,7 +505,7 @@
     </message>
     <message id="tx-details-receiving-addr-label">
         <source>Receiving address</source>
-        <translation>Ontvangadres</translation>
+        <translation>Ontvangstadres</translation>
     </message>
     <message id="tx-details-error-label">
         <source>Error</source>
@@ -620,7 +620,7 @@
     </message>
     <message id="start-restore-message-line">
         <source>You are trying to restore an existing Beam Wallet. Please notice that if you use your wallet on another device, your balance will be up to date, but  transaction history and addresses will be kept separately on each device.</source>
-        <translation>U probeert een bestaande Beam portemonnee te herstellen. Let op dat wanneer u uw portemonnee op een ander apparaat gebruikt, uw saldo up to date zal zijn, maar de transactiegeschiedenis en adressen op ieder apparaat apart worden gehouden.</translation>
+        <translation>U probeert een bestaande Beam Portemonnee te herstellen. Let op dat wanneer u uw portemonnee op een ander apparaat gebruikt uw saldo up-to-date zal zijn, maar de transactiegeschiedenis en adressen op elk apparaat apart worden gehouden.</translation>
     </message>
     <message id="start-migration-message">
         <source>Your wallet will be migrated to v.</source>
@@ -906,7 +906,7 @@
     </message>
     <message id="utxo-last-block-hash">
         <source>Last block hash</source>
-        <translation>Laatste blok hash</translation>
+        <translation>Laatste block hash</translation>
     </message>
     <message id="utxo-head-maturity">
         <source>Maturity</source>
@@ -991,7 +991,7 @@
     </message>
     <message id="open-external-open">
         <source>Open</source>
-        <translation>Open</translation>
+        <translation>Openen</translation>
     </message>
     <message id="open-external-title">
         <source>External link</source>
@@ -999,7 +999,7 @@
     </message>
     <message id="open-external-message">
         <source>Beam Wallet app requires permission to open external link in the browser. This action will expose your IP to the web server. To avoid it, choose -Cancel-. You can change your choice in app setting anytime.</source>
-        <translation>Beam portemonnee app vereist toestemming om externe links in de browser te openen. Deze actie zal uw IP adres aan de webserver blootstellen. Kies -Annuleren- om dit te voorkomen. U kunt uw keuze op elk gewenst moment wijzigen in de app instelling.</translation>
+        <translation>Beam Portemonnee vereist toestemming om externe links in de browser te openen. Deze actie zal uw IP adres aan de webserver blootstellen. Kies -Annuleren- om dit te voorkomen. U kunt uw keuze op elk gewenst moment wijzigen in Instellingen.</translation>
     </message>
     <message id="start-open-change-wallet-message">
         <source>If you&apos;ll restore a wallet all transaction history and addresses will be lost.</source>
@@ -1023,7 +1023,7 @@
     </message>
     <message id="start-create-pwd-strength-message">
         <source>Strong password needs to meet the following requirements:\n•  the length must be at least 10 characters\n•  must contain at least one lowercase letter\n•  must contain at least one uppercase letter\n•  must contain at least one number</source>
-        <translation>Een sterk wachtwoord moet voldoen aan de volgende vereisten:\n•  de lengte moet uit ten minste 10 tekens\n•  bestaan ten minste één kleine letter\n•  moet ten minste één hoofdletter\n•  bevatten</translation>
+        <translation>Een sterk wachtwoord moet voldoen aan de volgende vereisten:\n•  moet uit ten minste 10 tekens bestaan\n•  moet ten minste één kleine letter bevatten\n•  moet ten minste één hoofdletter bevatten\n•  moet ten minste één cijfer bevatten</translation>
     </message>
     <message id="start-open-caps-warning">
         <source>Caps lock is on!</source>
@@ -1097,7 +1097,7 @@
     <message id="edit-addr-expires-label">
         <source>Expires</source>
         <extracomment>Edit addres dialog, expires label</extracomment>
-        <translation>Vervalt</translation>
+        <translation>Verloopt</translation>
     </message>
     <message id="edit-addr-expire-now-label">
         <source>Now</source>
@@ -1173,6 +1173,22 @@
         <source>Password verification is required to change that setting</source>
         <extracomment>settings tab, general section, ask password to send, confirm password dialog, message</extracomment>
         <translation>Wachtwoord verificatie is vereist om deze instelling te wijzigen</translation>
+    </message>
+    <message id="open-in-explorer">
+        <source>Open in Blockchain Explorer</source>
+        <translation>Open in Blockchain Explorer</translation>
+    </message>
+    <message id="restore-finish-alert-button">
+        <source>I understand</source>
+        <translation>Ik begrijp het</translation>
+    </message>
+    <message id="restore-finish-alert-title">
+        <source>Do not simultaneously run two wallets initiated from the same seed phrase</source>
+        <translation>Draai niet twee portemonnees die met dezelfde herstelzin geïnitieerd zijn tegelijkertijd</translation>
+    </message>
+    <message id="restore-finish-alert-message-line">
+        <source>Don’t use same seed phrase on several devices, your balance and transaction list won’t be synchronized.</source>
+        <translation>Gebruik dezelfde herstelzin niet op verschillende apparaten. Uw saldo- en transactielijst zal niet worden gesynchroniseerd.</translation>
     </message>
 </context>
 </TS>

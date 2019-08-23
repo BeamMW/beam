@@ -24,5 +24,7 @@ QtObject {
         
     property color caps_warning;
 
-	property color white:            "#ffffff"
+	property color white: "#ffffff";
+    property string linkStyle;
+    property string explorerUrl;
 }

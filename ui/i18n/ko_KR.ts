@@ -477,7 +477,7 @@
     </message>
     <message id="loading-try-again-button">
         <source>Try again</source>
-        <translation>다시 시도하십시오.</translation>
+        <translation>다시 시도하기</translation>
     </message>
     <message id="notifications-title">
         <source>Notifications view</source>
@@ -564,7 +564,7 @@
     </message>
     <message id="wallet-receive-expires-never">
         <source>Never</source>
-        <translation type="unfinished">Never</translation>
+        <translation>안함</translation>
     </message>
     <message id="wallet-receive-qr-label">
         <source>Scan to send</source>
@@ -584,7 +584,7 @@
     </message>
     <message id="send-send-to-label">
         <source>Send To</source>
-        <translation>~~ 에게 보내기</translation>
+        <translation>보내기</translation>
     </message>
     <message id="send-contact-placeholder">
         <source>Please specify contact</source>
@@ -946,7 +946,7 @@
     </message>
     <message id="settings-general-lock-screen-never">
         <source>Never</source>
-        <translation type="unfinished">Never</translation>
+        <translation>안함</translation>
     </message>
     <message id="settings-general-lock-screen-1m">
         <source>1 minute</source>
@@ -1087,7 +1087,7 @@
     <message id="edit-addr-never-option">
         <source>Never</source>
         <extracomment>Edit address dialog, expiration option, never</extracomment>
-        <translation type="unfinished">Never</translation>
+        <translation>안함</translation>
     </message>
     <message id="edit-addr-as-is-option">
         <source>Within 24 hours</source>
@@ -1112,7 +1112,7 @@
     <message id="edit-addr-expiration-time-label">
         <source>Expired on </source>
         <extracomment>Edit addres dialog, expiration time label</extracomment>
-        <translation>~~ 만료됨</translation>
+        <translation>만료됨</translation>
     </message>
     <message id="edit-addr-activate-addr-switch">
         <source>Activate address</source>
@@ -1122,7 +1122,7 @@
     <message id="time-never">
         <source>Never</source>
         <extracomment>time never string</extracomment>
-        <translation type="unfinished">Never</translation>
+        <translation>안함</translation>
     </message>
     <message id="start-pwd-difficulty-very-weak">
         <source>Very weak password</source>
@@ -1173,6 +1173,22 @@
         <source>Password verification is required to change that setting</source>
         <extracomment>settings tab, general section, ask password to send, confirm password dialog, message</extracomment>
         <translation>설정 바꾸기를 하려면 비밀번호 검증이 필요합니다</translation>
+    </message>
+    <message id="open-in-explorer">
+        <source>Open in Blockchain Explorer</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="restore-finish-alert-button">
+        <source>I understand</source>
+        <translation type="unfinished">이해합니다</translation>
+    </message>
+    <message id="restore-finish-alert-title">
+        <source>Do not simultaneously run two wallets initiated from the same seed phrase</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="restore-finish-alert-message-line">
+        <source>Don’t use same seed phrase on several devices, your balance and transaction list won’t be synchronized.</source>
+        <translation type="unfinished"></translation>
     </message>
 </context>
 </TS>

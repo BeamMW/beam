@@ -15,7 +15,7 @@
 #pragma once
 
 #include "block_crypt.h"
-#include <deque>
+#include "mapped_file.h"
 
 namespace beam
 {
@@ -23,6 +23,43 @@ namespace beam
 class RadixTree
 {
 protected:
+
+	template <typename T>
+	class Ptr
+	{
+		int64_t m_Offset;
+	public:
+
+		operator bool() const
+		{
+			return m_Offset != 0;
+		}
+
+		void set_Strict(const T* p)
+		{
+			assert(p);
+			m_Offset = reinterpret_cast<intptr_t>(p) - reinterpret_cast<intptr_t>(this);
+		}
+
+		void set(const T* p)
+		{
+			if (p)
+				set_Strict(p);
+			else
+				m_Offset = 0;
+		}
+
+		T* get_Strict() const
+		{
+			assert(m_Offset);
+			return reinterpret_cast<T*>(reinterpret_cast<intptr_t>(this) + m_Offset);
+		}
+
+		T* get() const
+		{
+			return m_Offset ? get_Strict() : nullptr;
+		}
+	};
 
 	struct Node
 	{
@@ -35,8 +72,8 @@ protected:
 	};
 
 	struct Joint :public Node {
-		Node* m_ppC[2];
-		const uint8_t* m_pKeyPtr; // should be equal to one of the ancestors
+		Ptr<Node> m_ppC[2];
+		Ptr<uint8_t> m_pKeyPtr; // should be equal to one of the ancestors
 	};
 
 public:
@@ -45,9 +82,13 @@ public:
 	};
 
 
+	virtual void OnDirty() {}
+
 protected:
-	Node* get_Root() const { return m_pRoot; }
+	Node* get_Root() const;
 	const uint8_t* get_NodeKey(const Node&) const;
+
+	virtual intptr_t get_Base() const { return 0; }
 
 	virtual Joint* CreateJoint() = 0;
 	virtual Leaf* CreateLeaf() = 0;
@@ -123,8 +164,11 @@ public:
 
 	size_t Count() const; // implemented via the whole tree traversing, shouldn't use frequently.
 
+protected:
+	int64_t m_RootOffset;
+
 private:
-	Node* m_pRoot;
+	void set_Root(Node*);
 
 	void DeleteNode(Node*);
 	void ReplaceTip(CursorBase& cu, Node* pNew);
@@ -218,18 +262,23 @@ public:
 		Key m_Key;
 		Input::Count get_Count() const;
 
-		~MyLeaf();
+		struct IDNode {
+			TxoID m_ID;
+			Ptr<IDNode> m_pNext;
+		};
+
+		struct IDQueue {
+			Ptr<IDNode> m_pTop;
+			Input::Count m_Count;
+		};
 
 		union {
 			TxoID m_ID;
-			std::deque<TxoID>* m_pIDs;
+			Ptr<IDQueue> m_pIDs;
 		};
 
 		bool IsExt() const;
 		bool IsCommitmentDuplicated() const;
-
-		void PushID(TxoID);
-		TxoID PopID();
 
 		void get_Hash(Merkle::Hash&) const;
 		static void get_Hash(Merkle::Hash&, const Key&, Input::Count);
@@ -243,6 +292,9 @@ public:
 	}
 
 	~UtxoTree() { Clear(); }
+
+	void PushID(TxoID, MyLeaf&);
+	TxoID PopID(MyLeaf&);
 
     template<typename Archive>
     Archive& save(Archive& ar) const
@@ -283,8 +335,14 @@ public:
 protected:
 	virtual Leaf* CreateLeaf() override { return new MyLeaf; }
 	virtual uint8_t* GetLeafKey(const Leaf& x) const override { return Cast::Up<MyLeaf>(Cast::NotConst(x)).m_Key.V.m_pData; }
-	virtual void DeleteLeaf(Leaf* p) override { delete Cast::Up<MyLeaf>(p); }
+	virtual void DeleteLeaf(Leaf* p) override;
 	virtual const Merkle::Hash& get_LeafHash(Node&, Merkle::Hash&) override;
+
+	virtual MyLeaf::IDQueue* CreateIDQueue() { return new MyLeaf::IDQueue; }
+	virtual void DeleteIDQueue(MyLeaf::IDQueue* p) { delete p; }
+	virtual MyLeaf::IDNode* CreateIDNode() { return new MyLeaf::IDNode; }
+	virtual void DeleteIDNode(MyLeaf::IDNode* p) { delete p; }
+	virtual void DeleteEmptyLeaf(Leaf* p) { delete Cast::Up<MyLeaf>(p); }
 
 	struct ISerializer {
 		virtual void Process(uint32_t&) = 0;
@@ -304,6 +362,73 @@ protected:
 
 	void SaveIntenral(ISerializer&) const;
 	void LoadIntenral(ISerializer&);
+
+	void PushIDRaw(TxoID, MyLeaf::IDQueue&);
+	TxoID PopIDRaw(MyLeaf::IDQueue&);
+};
+
+class UtxoTreeMapped
+	:public UtxoTree
+{
+	MappedFile m_Mapping;
+
+	struct Type {
+		enum Enum {
+			Leaf,
+			Joint,
+			Queue,
+			Node,
+			count
+		};
+	};
+
+protected:
+
+	template <typename T>
+	T* Allocate(Type::Enum eType)
+	{
+		return (T*) m_Mapping.Allocate(eType, sizeof(T));
+
+	}
+
+	virtual intptr_t get_Base() const override;
+
+	virtual Leaf* CreateLeaf() override;
+	virtual void DeleteEmptyLeaf(Leaf*) override;
+	virtual Joint* CreateJoint() override;
+	virtual void DeleteJoint(Joint*) override;
+
+	virtual MyLeaf::IDQueue* CreateIDQueue() override;
+	virtual void DeleteIDQueue(MyLeaf::IDQueue*) override;
+	virtual MyLeaf::IDNode* CreateIDNode() override;
+	virtual void DeleteIDNode(MyLeaf::IDNode*) override;
+
+public:
+
+	virtual void OnDirty() override;
+
+	typedef Merkle::Hash Stamp;
+
+	~UtxoTreeMapped() { Close(); }
+
+	bool Open(const char* sz, const Stamp&);
+	bool IsOpen() const { return m_Mapping.get_Base() != nullptr; }
+
+	void Close();
+	void FlushStrict(const Stamp&);
+
+	void EnsureReserve();
+
+#pragma pack(push, 1)
+	struct Hdr
+	{
+		MappedFile::Offset m_Root;
+		MappedFile::Offset m_Dirty; // boolean, just aligned
+		Stamp m_Stamp;
+	};
+#pragma pack(pop)
+
+	Hdr& get_Hdr();
 };
 
 } // namespace beam

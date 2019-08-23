@@ -58,7 +58,7 @@
     </message>
     <message id="general-delete">
         <source>Delete</source>
-        <translation>Удаление</translation>
+        <translation>Удалить</translation>
     </message>
     <message id="general-receiving">
         <source>receiving</source>
@@ -942,7 +942,7 @@
     </message>
     <message id="utxo-status-spent">
         <source>Spent</source>
-        <translation>Израсходовано</translation>
+        <translation>Потрачено</translation>
     </message>
     <message id="settings-general-lock-screen-never">
         <source>Never</source>
@@ -1177,6 +1177,22 @@
         <source>Password verification is required to change that setting</source>
         <extracomment>settings tab, general section, ask password to send, confirm password dialog, message</extracomment>
         <translation>Введите пароль чтобы изменения вступили в силу</translation>
+    </message>
+    <message id="open-in-explorer">
+        <source>Open in Blockchain Explorer</source>
+        <translation type="unfinished">Открыть в blockchain проводнике</translation>
+    </message>
+    <message id="restore-finish-alert-button">
+        <source>I understand</source>
+        <translation>Я понял</translation>
+    </message>
+    <message id="restore-finish-alert-title">
+        <source>Do not simultaneously run two wallets initiated from the same seed phrase</source>
+        <translation>Не запускайте больше одного кошелька с одной и той же сид фразой</translation>
+    </message>
+    <message id="restore-finish-alert-message-line">
+        <source>Don’t use same seed phrase on several devices, your balance and transaction list won’t be synchronized.</source>
+        <translation>Не используйте одну и ту же сид фразу на разных устройствах, ваш баланс и список транзакций не будут синхронизированы.</translation>
     </message>
 </context>
 </TS>

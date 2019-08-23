@@ -6,6 +6,7 @@ import QtGraphicalEffects 1.0
 import QtQuick.Layouts 1.3
 import Beam.Wallet 1.0
 import "controls"
+import "utils.js" as Utils
 
 Item {
     id: root
@@ -24,7 +25,7 @@ Item {
     }
 
     OpenExternalLinkConfirmation {
-        id: exchangesList
+        id: externalLinkConfirmation
     }   
 
     PaymentInfoDialog {
@@ -121,15 +122,7 @@ Item {
                         onCopyValueText: BeamGlobals.copyToClipboard(value)
                         onOpenExternal : function() {
                             var externalLink = "https://www.beam.mw/#exchanges";
-                            if (viewModel.isAllowedBeamMWLinks) {
-                                Qt.openUrlExternally(externalLink);
-                            } else {
-                                exchangesList.externalUrl = externalLink;
-                                exchangesList.onOkClicked = function () {
-                                    viewModel.isAllowedBeamMWLinks = true;
-                                };
-                                exchangesList.open();
-                            }
+                            Utils.openExternal(externalLink, viewModel, externalLinkConfirmation);
                         }
                     }
 
@@ -551,6 +544,10 @@ Item {
                                 id: detailsPanel
                                 width: transactionsView.width
                                 model: !!viewModel.transactions[styleData.row] ? viewModel.transactions[styleData.row] : null
+                                onOpenExternal : function() {
+                                    var url = Style.explorerUrl + "block?kernel_id=" + model.kernelID;
+                                    Utils.openExternal(url, viewModel, externalLinkConfirmation);
+                                } 
                                 onTextCopied: function (text) { BeamGlobals.copyToClipboard(text);}
                                 onShowDetails: {
                                     if (model)

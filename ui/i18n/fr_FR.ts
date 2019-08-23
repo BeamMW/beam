@@ -473,7 +473,7 @@
     </message>
     <message id="loading-change-settings-button">
         <source>Change settings</source>
-        <translation>Сhange settings</translation>
+        <translation>Modifier paramètres</translation>
     </message>
     <message id="loading-try-again-button">
         <source>Try again</source>
@@ -747,7 +747,7 @@ Vous essayez de restaurer un portefeuille Beam existant. Veuillez noter que si v
     </message>
     <message id="start-node-peer-error">
         <source>Incorrect address</source>
-        <translation>Merci de spécifier une paire correcte</translation>
+        <translation>Adresse incorrecte</translation>
     </message>
     <message id="start-node-empty-error">
         <source>Please specify address of the remote node</source>
@@ -1174,6 +1174,22 @@ Vous essayez de restaurer un portefeuille Beam existant. Veuillez noter que si v
         <source>Password verification is required to change that setting</source>
         <extracomment>settings tab, general section, ask password to send, confirm password dialog, message</extracomment>
         <translation>La vérification du mot de passe est nécessaire pour changer ce paramètre</translation>
+    </message>
+    <message id="open-in-explorer">
+        <source>Open in Blockchain Explorer</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="restore-finish-alert-button">
+        <source>I understand</source>
+        <translation type="unfinished">Je comprends</translation>
+    </message>
+    <message id="restore-finish-alert-title">
+        <source>Do not simultaneously run two wallets initiated from the same seed phrase</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="restore-finish-alert-message-line">
+        <source>Don’t use same seed phrase on several devices, your balance and transaction list won’t be synchronized.</source>
+        <translation type="unfinished"></translation>
     </message>
 </context>
 </TS>
