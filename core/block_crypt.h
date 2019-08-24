@@ -159,6 +159,7 @@ namespace beam
 
 		const HeightHash& get_LastFork() const;
 		const HeightHash* FindFork(const Merkle::Hash&) const;
+		size_t FindFork(Height) const;
 		std::string get_SignatureStr() const;
 
 	private:

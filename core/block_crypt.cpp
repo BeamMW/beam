@@ -1148,6 +1148,17 @@ namespace beam
 		return nullptr;
 	}
 
+	size_t Rules::FindFork(Height h) const
+	{
+		for (size_t i = _countof(pForks); i--; )
+		{
+			if (h >= pForks[i].m_Height)
+				return i;
+		}
+
+		return 0; // should not be reached
+	}
+
 	const HeightHash& Rules::get_LastFork() const
 	{
 		size_t i = _countof(pForks);
