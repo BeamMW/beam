@@ -113,9 +113,31 @@ namespace beam
 		return 0;
 	}
 
+	void Input::operator = (const Input& v)
+	{
+		Cast::Down<TxElement>(*this) = v;
+		m_ID = v.m_ID;
+		ClonePtr(m_pSpendProof, v.m_pSpendProof);
+	}
+
 	int Input::cmp(const Input& v) const
 	{
-		return Cast::Down<TxElement>(*this).cmp(v);
+		{
+			int n = Cast::Down<TxElement>(*this).cmp(v);
+			if (n)
+				return n;
+		}
+
+		CMP_MEMBER_PTR(m_pSpendProof)
+
+		return 0;
+	}
+
+	int Input::SpendProof::cmp(const SpendProof& v) const
+	{
+		CMP_MEMBER(m_Window0)
+		// ignore rest of the members
+		return 0;
 	}
 
 	/////////////

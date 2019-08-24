@@ -237,6 +237,26 @@ namespace beam
 			static const uint32_t s_EntriesMax = 20; // if this is the size of the vector - the result is probably trunacted
 		};
 
+		struct SpendProof
+			:public Lelantus::Proof
+		{
+			TxoID m_Window0;
+
+			int cmp(const SpendProof&) const;
+			COMPARISON_VIA_CMP
+		};
+
+		std::unique_ptr<SpendProof> m_pSpendProof;
+
+		Input() {}
+		Input(Input&& v)
+			:TxElement(v)
+		{
+			m_ID = v.m_ID;
+			m_pSpendProof = std::move(v.m_pSpendProof);
+		}
+
+		void operator = (const Input&);
 		int cmp(const Input&) const;
 		COMPARISON_VIA_CMP
 	};

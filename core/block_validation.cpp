@@ -132,6 +132,9 @@ namespace beam
 					}
 				}
 
+				if (r.m_pUtxoIn->m_pSpendProof && (m_Height.m_Min < rules.pForks[2].m_Height))
+					return false; // not supported in this version
+
 				if (!pt.Import(r.m_pUtxoIn->m_Commitment))
 					return false;
 
