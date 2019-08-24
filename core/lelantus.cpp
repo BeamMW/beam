@@ -153,7 +153,6 @@ void Proof::Part1::Expose(Oracle& oracle) const
 {
 	oracle
 		<< m_SpendPk
-		<< m_Output
 		<< m_NonceG
 		<< m_A
 		<< m_B
@@ -168,7 +167,7 @@ void Proof::Part1::Expose(Oracle& oracle) const
 	}
 }
 
-bool Proof::IsValid(InnerProduct::BatchContext& bc, Oracle& oracle, Scalar::Native* pKs) const
+bool Proof::IsValid(InnerProduct::BatchContext& bc, Oracle& oracle, const Output& outp, Scalar::Native* pKs) const
 {
 	Mode::Scope scope(Mode::Fast);
 
@@ -191,6 +190,7 @@ bool Proof::IsValid(InnerProduct::BatchContext& bc, Oracle& oracle, Scalar::Nati
 	} mctx(*this);
 
 	m_Part1.Expose(oracle);
+	oracle << outp.m_Commitment;
 	oracle >> mctx.x;
 
 	Scalar::Native x2, x3;
@@ -278,8 +278,7 @@ bool Proof::IsValid(InnerProduct::BatchContext& bc, Oracle& oracle, Scalar::Nati
 	bc.m_Multiplier = kMulBalanceChallenged;
 
 	xPwr = -xPwr;
-	if (!bc.AddCasual(m_Part1.m_Output, xPwr))
-		return false;
+	bc.AddCasual(outp.m_Pt, xPwr);
 
 	bc.AddPrepared(InnerProduct::BatchContext::s_Idx_G, m_Part2.m_zR);
 	bc.AddPrepared(InnerProduct::BatchContext::s_Idx_H, m_Part2.m_zV);
@@ -608,7 +607,7 @@ void Prover::ExtractPart2(Oracle& oracle)
 	}
 }
 
-void Prover::Generate(const uintBig& seed, Oracle& oracle)
+void Prover::Generate(Proof::Output& outp, const uintBig& seed, Oracle& oracle)
 {
 	m_Proof.m_Part1.m_SpendPk = Context::get().G * m_Witness.V.m_SpendSk;
 	SpendKey::ToSerial(m_Serial, m_Proof.m_Part1.m_SpendPk);
@@ -618,10 +617,13 @@ void Prover::Generate(const uintBig& seed, Oracle& oracle)
 	CalculateP();
 	ExtractGQ();
 
-	m_Proof.m_Part1.m_Output = Commitment(m_Witness.V.m_R_Output, m_Witness.V.m_V);
+	outp.m_Pt = Commitment(m_Witness.V.m_R_Output, m_Witness.V.m_V);
+	outp.m_Commitment = outp.m_Pt;
+
 	m_Proof.m_Part1.m_NonceG = Context::get().G * m_rBalance;
 
 	m_Proof.m_Part1.Expose(oracle);
+	oracle << outp.m_Commitment;
 
 	ExtractPart2(oracle);
 }

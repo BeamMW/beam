@@ -2110,6 +2110,7 @@ void TestLelantus()
 		rnd.Export(lst.m_vec[i]);
 
 	beam::Lelantus::Proof proof;
+	beam::Lelantus::Proof::Output outp;
 	std::unique_ptr<beam::Lelantus::Prover> pProver(std::make_unique<beam::Lelantus::Prover>(lst, proof));
 	beam::Lelantus::Prover& p = *pProver;
 
@@ -2193,7 +2194,7 @@ void TestLelantus()
 	//const uint32_t N = Lelantus::Cfg::N;
 
 	Oracle oracle;
-	p.Generate(Zero, oracle);
+	p.Generate(outp, Zero, oracle);
 
 	typedef InnerProduct::BatchContextEx<4> MyBatch;
 	MyBatch bc;
@@ -2206,7 +2207,7 @@ void TestLelantus()
 	for (int i = 0; i < 10; i++)
 	{
 		Oracle o2;
-		if (!p.m_Proof.IsValid(bc, o2, &vKs.front()))
+		if (!proof.IsValid(bc, o2, outp, &vKs.front()))
 			bSuccess = false;
 	}
 
