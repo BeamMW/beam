@@ -90,10 +90,11 @@ namespace detail
         }
     };
 
-	/// ECC::InnerProduct
-	struct InnerProductFlags
+	/// Multibit, many bits packed
+	template <uint32_t nBits>
+	struct Multibit
 	{
-		static const uint32_t N = ECC::InnerProduct::nCycles * 2;
+		static const uint32_t N = nBits;
 		static const uint32_t N_Max = (N + 7) & ~7;
 		uint8_t m_pF[N_Max >> 3];
 
@@ -117,7 +118,13 @@ namespace detail
 				x |= msk;
 			}
 		}
+	};
 
+
+	/// ECC::InnerProduct
+	struct InnerProductFlags
+		:public Multibit<ECC::InnerProduct::nCycles * 2>
+	{
 		void save(const ECC::InnerProduct& v)
 		{
 			uint32_t iBit = 0;
@@ -524,11 +531,15 @@ namespace detail
         static Archive& save(Archive& ar, const beam::Input& input)
         {
 			uint8_t nFlags =
-				(input.m_Commitment.m_Y ? 1 : 0);
+				(input.m_Commitment.m_Y ? 1 : 0) |
+				(input.m_pSpendProof ? 2 : 0);
 
 			ar
 				& nFlags
 				& input.m_Commitment.m_X;
+
+			if (input.m_pSpendProof)
+				ar & *input.m_pSpendProof;
 
             return ar;
         }
@@ -543,8 +554,133 @@ namespace detail
 
 			input.m_Commitment.m_Y = (1 & nFlags);
 
+			if (2 & nFlags)
+			{
+				input.m_pSpendProof.reset(new beam::Input::SpendProof);
+				ar & *input.m_pSpendProof;
+			}
+
             return ar;
         }
+
+		template<typename Archive>
+		static Archive& save(Archive& ar, const beam::Input::SpendProof& v)
+		{
+			ar
+				& v.m_Window0
+				& Cast::Down<beam::Lelantus::Proof>(v);
+
+			return ar;
+		}
+
+		template<typename Archive>
+		static Archive& load(Archive& ar, beam::Input::SpendProof& v)
+		{
+			ar
+				& v.m_Window0
+				& Cast::Down<beam::Lelantus::Proof>(v);
+
+			return ar;
+		}
+
+		template<typename Archive>
+		static Archive& save(Archive& ar, const beam::Lelantus::Proof& v)
+		{
+			ar
+				& v.m_Part1.m_SpendPk.m_X
+				& v.m_Part1.m_A.m_X
+				& v.m_Part1.m_B.m_X
+				& v.m_Part1.m_C.m_X
+				& v.m_Part1.m_D.m_X
+				& v.m_Part1.m_NonceG.m_X
+				& v.m_Part2.m_zA
+				& v.m_Part2.m_zC
+				& v.m_Part2.m_zV
+				& v.m_Part2.m_zR
+				& v.m_Part2.m_ProofG;
+
+			const uint32_t nFlagsTotal = beam::Lelantus::Cfg::M * 2 + 6;
+
+			Multibit<nFlagsTotal> mb;
+			ZeroObject(mb);
+			uint32_t iFlag = 0;
+
+			mb.set(iFlag++, v.m_Part1.m_SpendPk.m_Y);
+			mb.set(iFlag++, v.m_Part1.m_A.m_Y);
+			mb.set(iFlag++, v.m_Part1.m_B.m_Y);
+			mb.set(iFlag++, v.m_Part1.m_C.m_Y);
+			mb.set(iFlag++, v.m_Part1.m_D.m_Y);
+			mb.set(iFlag++, v.m_Part1.m_NonceG.m_Y);
+
+			for (uint32_t i = 0; i < beam::Lelantus::Cfg::M; i++)
+			{
+				ar
+					& v.m_Part1.m_pG[i].m_X
+					& v.m_Part1.m_pQ[i].m_X;
+
+				for (uint32_t j = 0; j < beam::Lelantus::Cfg::n - 1; j++)
+					ar & v.m_Part2.m_pF[i][j];
+
+				mb.set(iFlag++, v.m_Part1.m_pG[i].m_Y);
+				mb.set(iFlag++, v.m_Part1.m_pQ[i].m_Y);
+			}
+
+			assert(nFlagsTotal == iFlag);
+			ar & mb.m_pF;
+
+			return ar;
+		}
+
+		template<typename Archive>
+		static Archive& load(Archive& ar, beam::Lelantus::Proof& v)
+		{
+			ar
+				& v.m_Part1.m_SpendPk.m_X
+				& v.m_Part1.m_A.m_X
+				& v.m_Part1.m_B.m_X
+				& v.m_Part1.m_C.m_X
+				& v.m_Part1.m_D.m_X
+				& v.m_Part1.m_NonceG.m_X
+				& v.m_Part2.m_zA
+				& v.m_Part2.m_zC
+				& v.m_Part2.m_zV
+				& v.m_Part2.m_zR
+				& v.m_Part2.m_ProofG;
+
+			for (uint32_t i = 0; i < beam::Lelantus::Cfg::M; i++)
+			{
+				ar
+					& v.m_Part1.m_pG[i].m_X
+					& v.m_Part1.m_pQ[i].m_X;
+
+				for (uint32_t j = 0; j < beam::Lelantus::Cfg::n - 1; j++)
+					ar & v.m_Part2.m_pF[i][j];
+			}
+
+
+			const uint32_t nFlagsTotal = beam::Lelantus::Cfg::M * 2 + 6;
+
+			Multibit<nFlagsTotal> mb;
+			ar & mb.m_pF;
+			uint32_t iFlag = 0;
+
+			mb.get(iFlag++, v.m_Part1.m_SpendPk.m_Y);
+			mb.get(iFlag++, v.m_Part1.m_A.m_Y);
+			mb.get(iFlag++, v.m_Part1.m_B.m_Y);
+			mb.get(iFlag++, v.m_Part1.m_C.m_Y);
+			mb.get(iFlag++, v.m_Part1.m_D.m_Y);
+			mb.get(iFlag++, v.m_Part1.m_NonceG.m_Y);
+
+			for (uint32_t i = 0; i < beam::Lelantus::Cfg::M; i++)
+			{
+				mb.get(iFlag++, v.m_Part1.m_pG[i].m_Y);
+				mb.get(iFlag++, v.m_Part1.m_pQ[i].m_Y);
+			}
+
+			assert(nFlagsTotal == iFlag);
+
+			return ar;
+		}
 
         /// beam::Output serialization
         template<typename Archive>

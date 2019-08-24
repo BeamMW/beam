@@ -2197,6 +2197,20 @@ void TestLelantus()
 	p.Generate(outp, Zero, oracle);
 
 	typedef InnerProduct::BatchContextEx<4> MyBatch;
+
+	{
+		// serialization
+		beam::Serializer ser_;
+		ser_ & proof;
+
+		memset(&proof, 0xff, sizeof(proof));
+
+		beam::Deserializer der_;
+		der_.reset(ser_.buffer().first, ser_.buffer().second);
+		der_ & proof;
+
+		printf("Lelantus proof size = %u\n", (uint32_t)ser_.buffer().second);
+	}
 	MyBatch bc;
 
 	std::vector<ECC::Scalar::Native> vKs;
