@@ -106,6 +106,7 @@ static const unsigned LOG_ROTATION_PERIOD_SEC = 3*60*60; // 3 hours
 
 class NodeObserver : public Node::IObserver
 {
+	Height m_Done0 = MaxHeight;
 public:
     NodeObserver(Node& node) : m_pNode(&node)
     {
@@ -117,6 +118,10 @@ private:
     {
         // make sure no overflow during conversion from SyncStatus to int,int.
         Node::SyncStatus s = m_pNode->m_SyncStatus;
+
+		if (MaxHeight == m_Done0)
+			m_Done0 = s.m_Done;
+		s.ToRelative(m_Done0);
 
         unsigned int nThreshold = static_cast<unsigned int>(std::numeric_limits<int>::max());
         while (s.m_Total > nThreshold)
