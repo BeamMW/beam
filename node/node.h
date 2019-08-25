@@ -177,6 +177,8 @@ struct Node
 
 		bool operator == (const SyncStatus&) const;
 
+		void ToRelative(Height hDone0);
+
 	} m_SyncStatus;
 
 	uint32_t get_AcessiblePeerCount() const; // all the peers with known addresses. Including temporarily banned

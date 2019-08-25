@@ -36,6 +36,17 @@ bool Node::SyncStatus::operator == (const SyncStatus& x) const
 		(m_Total == x.m_Total);
 }
 
+void Node::SyncStatus::ToRelative(Height hDone0)
+{
+	hDone0 = std::min(hDone0, m_Done); // prevent overflow (though should not happen)
+
+	assert(m_Total); // never 0, accounts at least for treasury
+	hDone0 = std::min(hDone0, m_Total - 1); // prevent "indefinite" situation where sync status is 0/0
+
+	m_Done -= hDone0;
+	m_Total -= hDone0;
+}
+
 void Node::RefreshCongestions()
 {
 	for (TaskSet::iterator it = m_setTasks.begin(); m_setTasks.end() != it; it++)
