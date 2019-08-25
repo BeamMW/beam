@@ -23,8 +23,6 @@ set(WALLET_SRC
     litecoin/litecoind016.cpp
     litecoin/litecoind017.cpp
     qtum/qtumd017.cpp
-    assets/asset_transaction.cpp
-    assets/asset_issue_tx_builder.cpp
     secstring2.cpp
     unittests/util.cpp
 )
