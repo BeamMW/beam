@@ -153,6 +153,7 @@ public:
 	{
 		TxoID m_TxosTreasury;
 		TxoID m_Txos; // total num of ever created TXOs, including treasury
+		TxoID m_Shielded;
 
 		Height m_LoHorizon; // lowest accessible height
 		Height m_Fossil; // from here and down - no original blocks

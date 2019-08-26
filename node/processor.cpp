@@ -63,6 +63,7 @@ void NodeProcessor::Initialize(const char* szPath, const StartParams& sp)
 	m_Extra.m_Fossil = m_DB.ParamIntGetDef(NodeDB::ParamID::FossilHeight, Rules::HeightGenesis - 1);
 	m_Extra.m_TxoLo = m_DB.ParamIntGetDef(NodeDB::ParamID::HeightTxoLo, Rules::HeightGenesis - 1);
 	m_Extra.m_TxoHi = m_DB.ParamIntGetDef(NodeDB::ParamID::HeightTxoHi, Rules::HeightGenesis - 1);
+	m_Extra.m_Shielded = m_DB.ParamIntGetDef(NodeDB::ParamID::ShieldedPoolSize);
 
 	bool bUpdateChecksum = !m_DB.ParamGet(NodeDB::ParamID::CfgChecksum, NULL, &blob);
 	if (!bUpdateChecksum)
@@ -1654,10 +1655,9 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, MultiblockContext& m
 					}
 
 					// Append to cmList
-					uint64_t nShielded = 0;
-					m_DB.ParamGet(NodeDB::ParamID::ShieldedPoolSize, &nShielded, nullptr);
-					m_DB.ShieldedResize(nShielded + nOuts);
-					m_DB.ShieldedWrite(nShielded, pSt, nOuts);
+					m_DB.ShieldedResize(m_Extra.m_Shielded + nOuts);
+					m_DB.ShieldedWrite(m_Extra.m_Shielded, pSt, nOuts);
+					m_Extra.m_Shielded += nOuts;
 
 				}
 				ser.swap_buf(bbP);
@@ -2261,12 +2261,11 @@ void NodeProcessor::RollbackTo(Height h)
 				}
 
 				// Shrink cmList
-				uint64_t nShielded = 0;
-				m_DB.ParamGet(NodeDB::ParamID::ShieldedPoolSize, &nShielded, nullptr);
-				if (nShielded < txvp.m_vOutputs.size())
+				if (m_Extra.m_Shielded < txvp.m_vOutputs.size())
 					OnCorrupted();
 
-				m_DB.ShieldedResize(nShielded - txvp.m_vOutputs.size());
+				m_Extra.m_Shielded -= txvp.m_vOutputs.size();
+				m_DB.ShieldedResize(m_Extra.m_Shielded);
 			}
 		}
 	}
