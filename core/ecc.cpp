@@ -446,7 +446,7 @@ namespace ECC {
         secp256k1_gej_set_infinity(this);
     }
 
-	bool Point::Native::ImportNnz(const Point& v)
+	bool Point::Native::ImportNnz(const Point& v, Storage* pS /* = nullptr */)
 	{
 		if (v.m_Y > 1)
 			return false; // should always be well-formed
@@ -461,15 +461,21 @@ namespace ECC {
 
 		secp256k1_gej_set_ge(this, &ge.V);
 
+		if (pS)
+			secp256k1_ge_to_storage(pS, &ge.V);
+
 		return true;
 	}
 
-	bool Point::Native::Import(const Point& v)
+	bool Point::Native::Import(const Point& v, Storage* pS /* = nullptr */)
 	{
-		if (ImportNnz(v))
+		if (ImportNnz(v, pS))
 			return true;
 
 		*this = Zero;
+		if (pS)
+			ZeroObject(*pS);
+
 		return memis0(&v, sizeof(v));
 	}
 

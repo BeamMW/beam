@@ -160,8 +160,8 @@ namespace ECC
 		template <class Setter> Native& operator = (const Setter& v) { v.Assign(*this, true); return *this; }
 		template <class Setter> Native& operator += (const Setter& v) { v.Assign(*this, false); return *this; }
 
-		bool ImportNnz(const Point&); // won't accept zero point, doesn't zero itself in case of failure
-		bool Import(const Point&);
+		bool ImportNnz(const Point&, Storage* = nullptr); // won't accept zero point, doesn't zero itself in case of failure
+		bool Import(const Point&, Storage* = nullptr);
 		bool Export(Point&) const; // if the point is zero - returns false and zeroes the result
 
 		static void ExportEx(Point&, const secp256k1_ge&);
