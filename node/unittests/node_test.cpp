@@ -216,6 +216,30 @@ namespace beam
 		return nTips;
 	}
 
+	struct StoragePts
+	{
+		ECC::Point::Storage m_pArr[18];
+
+		void Init()
+		{
+			for (size_t i = 0; i < _countof(m_pArr); i++)
+			{
+				m_pArr[i].x.n[0] = static_cast<uint32_t>(i);
+			}
+		}
+
+		bool IsValid(size_t i0, size_t i1, uint32_t n0) const
+		{
+			for (; i0 < i1; i0++)
+			{
+				if (m_pArr[i0].x.n[0] != n0++)
+					return false;
+			}
+
+			return true;
+		}
+	};
+
 	void TestNodeDB(const char* sz)
 	{
 		NodeDB db;
@@ -535,6 +559,24 @@ namespace beam
 		db.DeleteKernel(bBodyP, 5);
 		verify_test(db.FindKernel(bBodyP) == 0);
 
+		// Shielded
+		db.ShieldedResize(16 * 1024 * 3 + 5);
+
+		StoragePts pts;
+		pts.Init();
+
+		db.ShieldedWrite(16 * 1024 * 2 - 2, pts.m_pArr, _countof(pts.m_pArr));
+
+		ZeroObject(pts.m_pArr);
+
+		db.ShieldedRead(16 * 1024 * 3 + 5 - _countof(pts.m_pArr), pts.m_pArr, _countof(pts.m_pArr));
+		verify_test(memis0(pts.m_pArr, sizeof(pts.m_pArr)));
+
+		db.ShieldedRead(16 * 1024 * 2 -2, pts.m_pArr, _countof(pts.m_pArr));
+		verify_test(pts.IsValid(0, _countof(pts.m_pArr), 0));
+
+		db.ShieldedResize(1);
+		db.ShieldedResize(0);
 
 		tr.Commit();
 	}
