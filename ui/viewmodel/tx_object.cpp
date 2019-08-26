@@ -207,7 +207,27 @@ QString TxObject::getFailureReason() const
                         //% "Kernel maximum height is too high"
                         qtTrId("tx-failture-max-height-to-high"),
                         //% "Transaction has invalid state"
-                        qtTrId("tx-failture-invalid-state")
+                        qtTrId("tx-failture-invalid-state"),
+                        //% "Subtransaction has failed"
+                        qtTrId("tx-failture-subtx-failed"),
+                        //% "Contract's amount is not valid"
+                        qtTrId("tx-failture-invalid-contract-amount"),
+                        //% "Side chain has invalid contract"
+                        qtTrId("tx-failture-invalid-sidechain-contract"),
+                        //% "Side chain bridge has internal error"
+                        qtTrId("tx-failture-sidechain-internal-error"),
+                        //% "Side chain bridge has network error"
+                        qtTrId("tx-failture-sidechain-network-error"),
+                        //% "Side chain bridge has response format error"
+                        qtTrId("tx-failture-invalid-sidechain-response-format"),
+                        //% "Invalid credentials of Side chain"
+                        qtTrId("tx-failture-invalid-side-chain-credentials"),
+                        //% "Not enough time to finish btc lock transaction"
+                        qtTrId("tx-failture-not-enough-time-btc-lock"),
+                        //% "Failed to create multi-signature"
+                        qtTrId("tx-failture-create-multisig"),
+                        //% "Fee is too small"
+                        qtTrId("tx-failture-fee-too-small")
                 };
 
         return Reasons[getTxDescription().m_failureReason];

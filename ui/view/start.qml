@@ -1266,7 +1266,24 @@ Item
                                 return enable;
                             }
                             icon.source: "qrc:/assets/icon-next-blue.svg"
-                            onClicked: seedPhraseSubmitAllert.open();
+                            onClicked: {
+                                viewModel.validateDictionary = true;
+                                onClicked: seedPhraseSubmitAllert.open();
+                            }
+                        }
+                    }
+
+                    Keys.onPressed: {
+                        if (event.key == Qt.Key_Shift)
+                        {
+                            viewModel.validateDictionary = false;
+                        }
+                    }
+
+                    Keys.onReleased: {
+                        if (event.key == Qt.Key_Shift)
+                        {
+                            viewModel.validateDictionary = true;
                         }
                     }
 

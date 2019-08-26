@@ -405,6 +405,7 @@ namespace beam::wallet
         void insertAddressToCache(const WalletID& id, const boost::optional<WalletAddress>& address) const;
         void deleteAddressFromCache(const WalletID& id);
         void flushDB();
+        void rollbackDB();
         void onModified();
         void onFlushTimer();
         void onPrepareToModify();
