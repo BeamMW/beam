@@ -43,9 +43,9 @@ namespace Lelantus {
 	struct Cfg
 	{
 		// bitness selection
-		static const uint32_t n = 4; // binary
-		static const uint32_t M = 8;
-		static const uint32_t N = Power<M>::Of<n>::V;
+		static const uint32_t n = 4;
+		static const uint32_t M = 5;
+		static const uint32_t N = Power<M>::Of<n>::V; // n^M
 	};
 
 	namespace SpendKey {
