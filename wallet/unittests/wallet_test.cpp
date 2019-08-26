@@ -778,7 +778,7 @@ namespace
 
         auto newBlockFunc = [&receiver](Height height)
         {
-            if (height == 100500+50)
+            if (height == 200)
             {
                 auto nodeEndpoint = make_shared<proto::FlyClient::NetworkStd>(receiver.m_Wallet);
                 nodeEndpoint->m_Cfg.m_vNodes.push_back(io::Address::localhost().port(32125));
@@ -1053,7 +1053,7 @@ namespace
             }
         };
 
-        TestNode node({}, 145);
+        TestNode node;
         TestWalletRig receiver("receiver", createReceiverWalletDB(), f);
         {
             TestWalletRig privateSender("sender", createSenderWalletDB(true), f, TestWalletRig::Type::ColdWallet);
@@ -1145,7 +1145,7 @@ namespace
             }
         };
 
-        TestNode node({}, 145);
+        TestNode node;
         TestWalletRig sender("sender", createSenderWalletDB(), f);
 
         {
