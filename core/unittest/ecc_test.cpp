@@ -2223,21 +2223,27 @@ void TestLelantus()
 	vKs.resize(beam::Lelantus::Cfg::N);
 
 	bool bSuccess = true;
-	const uint32_t nCycles = 10;
 
-	for (uint32_t i = 0; i < nCycles; i++)
+	for (int j = 0; j < 2; j++)
 	{
-		Oracle o2;
-		if (!proof.IsValid(bc, o2, outp, &vKs.front()))
+		const uint32_t nCycles = j ? 1 : 11;
+
+		t = beam::GetTime_ms();
+
+		for (uint32_t i = 0; i < nCycles; i++)
+		{
+			Oracle o2;
+			if (!proof.IsValid(bc, o2, outp, &vKs.front()))
+				bSuccess = false;
+		}
+
+		lst.Calculate(bc.m_Sum, 0, beam::Lelantus::Cfg::N, &vKs.front());
+
+		if (!bc.Flush())
 			bSuccess = false;
+
+		printf("\tVerify time %u overlapping proofs = %u ms\n", nCycles, beam::GetTime_ms() - t);
 	}
-
-	lst.Calculate(bc.m_Sum, 0, beam::Lelantus::Cfg::N, &vKs.front());
-
-	if (!bc.Flush())
-		bSuccess = false;
-
-	printf("\tVerify time %u overlapping proofs = %u ms\n", nCycles, beam::GetTime_ms() - t);
 
 	verify_test(bSuccess);
 }
