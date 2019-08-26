@@ -1132,7 +1132,7 @@ namespace
 
             // TODO roman.strilets its temporary solution
             electrumSettings.m_isMainnet = false;
-            electrumSettings.m_addressVersion = 48;
+            electrumSettings.m_addressVersion = 0x6f;
 
             auto ltcSettings = std::make_shared<litecoin::Settings>();
             ltcSettings->SetElectrumConnectionOptions(electrumSettings);
