@@ -66,6 +66,8 @@ bool AppModel::createWallet(const SecString& seed, const SecString& pass)
     m_db = WalletDB::init(dbFilePath, pass, seed.hash(), m_walletReactor);
     if (!m_db) return false;
 
+    m_keyKeeper = std::make_shared<LocalPrivateKeyKeeper>(m_db);
+
     // generate default address
     WalletAddress address = storage::createAddress(*m_db, m_keyKeeper);
     address.m_label = "default";
@@ -80,6 +82,8 @@ bool AppModel::openWallet(const beam::SecString& pass)
     assert(m_db == nullptr);
     m_db = WalletDB::open(m_settings.getWalletStorage(), pass, m_walletReactor);
     if (!m_db) return false;
+
+    m_keyKeeper = std::make_shared<LocalPrivateKeyKeeper>(m_db);
 
     onWalledOpened(pass);
     return true;
@@ -203,8 +207,6 @@ void AppModel::start()
         nodeAddr.port(m_settings.getLocalNodePort());
         nodeAddrStr = nodeAddr.str();
     }
-
-    m_keyKeeper = std::make_shared<LocalPrivateKeyKeeper>(m_db);
 
     m_wallet = std::make_shared<WalletModel>(m_db, m_keyKeeper, nodeAddrStr, m_walletReactor);
 
