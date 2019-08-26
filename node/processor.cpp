@@ -2583,7 +2583,7 @@ bool NodeProcessor::ValidateTxWrtHeight(const Transaction& tx, const HeightRange
 	return true;
 }
 
-bool NodeProcessor::ValidateTxContext(const Transaction& tx, const HeightRange& hr)
+bool NodeProcessor::ValidateTxContext(const Transaction& tx, const HeightRange& hr, bool bShieldedTested)
 {
 	if (!ValidateTxWrtHeight(tx, hr))
 		return false;
