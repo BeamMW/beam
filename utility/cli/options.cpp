@@ -55,6 +55,7 @@ namespace beam
         const char* LTC_ELECTRUM_SEED = "ltc_electrum_seed";
         const char* QTUM_PASS = "qtum_pass";
         const char* QTUM_USER_NAME = "qtum_user";
+        const char* QTUM_SETTINGS = "qtum_settings";
         const char* AMOUNT = "amount";
         const char* AMOUNT_FULL = "amount,a";
         const char* RECEIVER_ADDR = "receiver_addr";
@@ -266,6 +267,7 @@ namespace beam
         swap_options.add_options()
             (cli::BTC_SETTINGS, po::value<std::string>(), "command to work with BTC settings. Subcommand to execute [show|set|reset]")
             (cli::LTC_SETTINGS, po::value<std::string>(), "command to work with LTC settings. Subcommand to execute [show|set|reset]")
+            (cli::QTUM_SETTINGS, po::value<std::string>(), "command to work with QTUM settings. Subcommand to execute [show|set|reset]")
             (cli::ALTCOIN_SETTINGS_SET, "set new altcoin's settings")
             (cli::ALTCOIN_SETTINGS_RESET, "reset altcoin's settings")
             (cli::ALTCOIN_SETTINGS_SHOW, "show altcoin's settings")

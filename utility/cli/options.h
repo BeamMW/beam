@@ -50,6 +50,7 @@ namespace beam
         extern const char* LTC_ELECTRUM_SEED;
         extern const char* QTUM_PASS;
         extern const char* QTUM_USER_NAME;
+        extern const char* QTUM_SETTINGS;
         extern const char* AMOUNT;
         extern const char* AMOUNT_FULL;
         extern const char* RECEIVER_ADDR;
