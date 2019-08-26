@@ -1095,17 +1095,17 @@ bool NodeDB::get_Peer(uint64_t rowid, PeerID& peer)
 	return true;
 }
 
-void NodeDB::set_StateExtra(uint64_t rowid, const ECC::Scalar* pVal)
+void NodeDB::set_StateExtra(uint64_t rowid, const Blob* p)
 {
 	Recordset rs(*this, Query::StateSetExtra, "UPDATE " TblStates " SET " TblStates_Extra "=? WHERE rowid=?");
-	if (pVal)
-		rs.put(0, pVal->m_Value);
+	if (p)
+		rs.put(0, *p);
 	rs.put(1, rowid);
 	rs.Step();
 	TestChanged1Row();
 }
 
-bool NodeDB::get_StateExtra(uint64_t rowid, ECC::Scalar& val)
+bool NodeDB::get_StateExtra(uint64_t rowid, ECC::Scalar& val, ByteBuffer* p)
 {
 	Recordset rs(*this, Query::StateGetExtra, "SELECT " TblStates_Extra " FROM " TblStates " WHERE rowid=?");
 	rs.put(0, rowid);
@@ -1114,7 +1114,21 @@ bool NodeDB::get_StateExtra(uint64_t rowid, ECC::Scalar& val)
 	if (rs.IsNull(0))
 		return false;
 
-	rs.get(0, val.m_Value);
+	Blob b;
+	rs.get(0, b);
+
+	if (b.n < val.m_Value.nBytes)
+		return false;
+	val.m_Value = b;
+
+	if (p)
+	{
+		((const uint8_t*&) b.p) += val.m_Value.nBytes;
+		b.n -= val.m_Value.nBytes;
+
+		b.Export(*p);
+	}
+
 	return true;
 }
 

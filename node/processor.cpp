@@ -1605,7 +1605,44 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, MultiblockContext& m
 				AdjustOffset(offsAcc, row, true);
 			}
 
-			m_DB.set_StateExtra(sid.m_Row, &offsAcc);
+			// save shielded in/outs
+			uint32_t nIns = 0, nOuts = 0;
+
+			for (size_t i = 0; i < block.m_vInputs.size(); i++)
+				if (block.m_vInputs[i]->m_pSpendProof)
+					nIns++;
+			for (size_t i = 0; i < block.m_vOutputs.size(); i++)
+				if (block.m_vOutputs[i]->m_pDoubleBlind)
+					nOuts++;
+
+			if (nIns || nOuts)
+			{
+				Serializer ser;
+				bbP.clear();
+				ser.swap_buf(bbP);
+
+				ser & offsAcc;
+
+				ser & beam::uintBigFrom(nIns);
+				for (size_t i = 0; i < block.m_vInputs.size(); i++)
+					if (block.m_vInputs[i]->m_pSpendProof)
+						ser & *block.m_vInputs[i];
+
+				ser & beam::uintBigFrom(nOuts);
+				for (size_t i = 0; i < block.m_vOutputs.size(); i++)
+					if (block.m_vOutputs[i]->m_pDoubleBlind)
+						ser & *block.m_vOutputs[i];
+
+				ser.swap_buf(bbP);
+
+				Blob blob(bbP);
+				m_DB.set_StateExtra(sid.m_Row, &blob);
+			}
+			else
+			{
+				Blob blob(offsAcc.m_Value);
+				m_DB.set_StateExtra(sid.m_Row, &blob);
+			}
 
 			m_DB.set_StateTxos(sid.m_Row, &m_Extra.m_Txos);
 
@@ -1633,17 +1670,25 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, MultiblockContext& m
 		for (size_t i = 0; i < block.m_vInputs.size(); i++)
 		{
 			const Input& x = *block.m_vInputs[i];
-			m_DB.TxoSetSpent(x.m_ID, sid.m_Height);
+			if (!x.m_pSpendProof)
+				m_DB.TxoSetSpent(x.m_ID, sid.m_Height);
 		}
 
 		assert(m_Extra.m_Txos > block.m_vOutputs.size());
 		TxoID id0 = m_Extra.m_Txos - block.m_vOutputs.size() - 1;
+
 		Serializer ser;
+		bbP.clear();
+		ser.swap_buf(bbP);
 
 		for (size_t i = 0; i < block.m_vOutputs.size(); i++, id0++)
 		{
+			const Output& x = *block.m_vOutputs[i];
+			if (x.m_pDoubleBlind)
+				continue;
+
 			ser.reset();
-			ser & *block.m_vOutputs[i];
+			ser & x;
 
 			SerializeBuffer sb = ser.buffer();
 			m_DB.TxoAdd(id0, Blob(sb.first, static_cast<uint32_t>(sb.second)));
@@ -2878,7 +2923,7 @@ void NodeProcessor::ExtractBlockWithExtra(Block::Body& block, const NodeDB::Stat
 	TxoID id0;
 	TxoID id1 = m_DB.get_StateTxos(sid.m_Row);
 
-	if (!m_DB.get_StateExtra(sid.m_Row, block.m_Offset))
+	if (!m_DB.get_StateExtra(sid.m_Row, block.m_Offset, &bbE))
 		OnCorrupted();
 
 	uint64_t rowid = sid.m_Row;
@@ -2930,6 +2975,18 @@ void NodeProcessor::ExtractBlockWithExtra(Block::Body& block, const NodeDB::Stat
 		der & *pOutp;
 
 		pOutp->m_Maturity = pOutp->get_MinMaturity(sid.m_Height);
+	}
+
+	if (!bbE.empty())
+	{
+		TxVectors::Eternal txve; // dummy
+		TxVectors::Perishable txvp;
+
+		der.reset(bbE);
+		der & txvp;
+
+		TxVectors::Reader r(txvp, txve);
+		TxVectors::Writer(block, block).Dump(std::move(r));
 	}
 
 	block.NormalizeP();
@@ -3431,8 +3488,21 @@ bool NodeProcessor::GetBlock(const NodeDB::StateID& sid, ByteBuffer* pEthernal, 
 
 	TxoID id1 = m_DB.get_StateTxos(sid.m_Row);
 
-	if (!m_DB.get_StateExtra(sid.m_Row, txb.m_Offset))
+	ByteBuffer bbBlob;
+
+	if (!m_DB.get_StateExtra(sid.m_Row, txb.m_Offset, &bbBlob))
 		OnCorrupted();
+
+	TxVectors::Perishable txvpShielded;
+
+	if (!bbBlob.empty())
+	{
+		Deserializer der;
+		der.reset(bbBlob);
+		der & txvpShielded;
+
+		bbBlob.clear();
+	}
 
 	uint64_t rowid = sid.m_Row;
 	if (m_DB.get_Prev(rowid))
@@ -3443,7 +3513,7 @@ bool NodeProcessor::GetBlock(const NodeDB::StateID& sid, ByteBuffer* pEthernal, 
 	else
 		id0 = m_Extra.m_TxosTreasury;
 
-	uintBigFor<uint32_t>::Type nCount(Zero);
+	uintBigFor<uint32_t>::Type nCount(static_cast<uint32_t>(txvpShielded.m_vInputs.size()));
 
 	// inputs
 	std::vector<Input> vInputs;
@@ -3481,9 +3551,10 @@ bool NodeProcessor::GetBlock(const NodeDB::StateID& sid, ByteBuffer* pEthernal, 
 
 	for (size_t i = 0; i < vInputs.size(); i++)
 		ser & vInputs[i];
+	for (size_t i = 0; i < txvpShielded.m_vInputs.size(); i++)
+		ser & *txvpShielded.m_vInputs[i];
 
-	ByteBuffer bbBlob;
-	nCount = Zero;
+	nCount = static_cast<uint32_t>(txvpShielded.m_vOutputs.size());
 
 	// outputs
 	for (m_DB.EnumTxos(wlk, id0); wlk.MoveNext(); )
@@ -3512,6 +3583,13 @@ bool NodeProcessor::GetBlock(const NodeDB::StateID& sid, ByteBuffer* pEthernal, 
 	ser & nCount;
 	ser.swap_buf(*pPerishable);
 	pPerishable->insert(pPerishable->end(), bbBlob.begin(), bbBlob.end());
+
+	ser.swap_buf(*pPerishable);
+
+	for (size_t i = 0; i < txvpShielded.m_vOutputs.size(); i++)
+		ser & *txvpShielded.m_vOutputs[i];
+
+	ser.swap_buf(*pPerishable);
 
 	return true;
 }

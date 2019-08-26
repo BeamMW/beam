@@ -262,8 +262,8 @@ public:
 	void set_Peer(uint64_t rowid, const PeerID*);
 	bool get_Peer(uint64_t rowid, PeerID&);
 
-	void set_StateExtra(uint64_t rowid, const ECC::Scalar*);
-	bool get_StateExtra(uint64_t rowid, ECC::Scalar&);
+	void set_StateExtra(uint64_t rowid, const Blob*);
+	bool get_StateExtra(uint64_t rowid, ECC::Scalar&, ByteBuffer* = nullptr);
 
 	void set_StateTxos(uint64_t rowid, const TxoID*);
 	TxoID get_StateTxos(uint64_t rowid);
