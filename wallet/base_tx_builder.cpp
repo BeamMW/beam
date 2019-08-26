@@ -15,13 +15,6 @@
 #include "base_tx_builder.h"
 #include "core/block_crypt.h"
 #include "wallet_transaction.h"
-
-// TODO: getrandom not available until API 28 in the Android NDK 17b
-// https://github.com/boostorg/uuid/issues/76
-#if defined(__ANDROID__)
-#define BOOST_UUID_RANDOM_PROVIDER_DISABLE_GETRANDOM 1
-#endif
-
 #include <boost/uuid/uuid_generators.hpp>
 #include <numeric>
 #include "utility/logger.h"
@@ -133,7 +126,7 @@ namespace beam::wallet
         auto thisHolder = shared_from_this();
         auto txHolder = m_Tx.shared_from_this(); // increment use counter of tx object. We use it to avoid tx object desctruction during Update call.
         m_Tx.GetAsyncAcontext().OnAsyncStarted();
-        m_Tx.GetKeyKeeper()->GenerateOutputs(m_MinHeight, m_OutputCoins,
+        m_Tx.GetKeyKeeper()->GenerateOutputs(m_MinHeight, m_OutputCoins, Zero,
             [thisHolder, this, txHolder](auto&& result)
             {
                 m_Outputs = move(result);

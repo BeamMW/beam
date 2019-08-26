@@ -150,8 +150,13 @@ namespace beam
         const char* TR_COMMENT = "tr_comment";
         const char* TR_M = "tr_M";
         const char* TR_N = "tr_N";
+
         // ui
         const char* APPDATA_PATH = "appdata";
+
+        // confidential assets
+        const char* ASSET_ISSUE = "issue";
+
         // Defaults
         const Amount kMinimumFee = 100;
     }
@@ -183,7 +188,7 @@ namespace beam
         node_options.add_options()
             (cli::PORT_FULL, po::value<uint16_t>()->default_value(10000), "port to start the server on")
             (cli::STORAGE, po::value<string>()->default_value("node.db"), "node storage path")
-            //(cli::MINING_THREADS, po::value<uint32_t>()->default_value(0), "number of mining threads(there is no mining if 0)")
+            (cli::MINING_THREADS, po::value<uint32_t>()->default_value(0), "number of mining threads(there is no mining if 0)")
 
             (cli::VERIFICATION_THREADS, po::value<int>()->default_value(-1), "number of threads for cryptographic verifications (0 = single thread, -1 = auto)")
             (cli::NONCEPREFIX_DIGITS, po::value<unsigned>()->default_value(0), "number of hex digits for nonce prefix for stratum client (0..6)")
@@ -272,6 +277,10 @@ namespace beam
             (cli::SWAP_BEAM_SIDE, "Should be set by Beam owner")
             (cli::SWAP_TX_HISTORY, "show swap transactions history in info command");
 
+        //po::options_description wallet_assets_options("Confidential assets options");
+        //wallet_assets_options.add_options()
+        //    (cli::ASSET_ISSUE, "issue new asset");
+
         po::options_description options{ "Allowed options" };
         po::options_description visible_options{ "Allowed options" };
         if (flags & GENERAL_OPTIONS)
@@ -290,8 +299,10 @@ namespace beam
             options.add(wallet_options);
             options.add(wallet_treasury_options);
             options.add(swap_options);
+            //options.add(wallet_assets_options);
             visible_options.add(wallet_options);
             visible_options.add(swap_options);
+            //visible_options.add(wallet_assets_options);
         }
         if (flags & UI_OPTIONS)
         {
