@@ -1121,7 +1121,7 @@ namespace
                 throw std::runtime_error("litectoin electrum seed should be specified");
             }
 
-            auto tempPhrase = vm[cli::LTC_USER_NAME].as<string>();
+            auto tempPhrase = vm[cli::LTC_ELECTRUM_SEED].as<string>();
             boost::algorithm::trim_if(tempPhrase, [](char ch) { return ch == ';'; });
             electrumSettings.m_secretWords = string_helpers::split(tempPhrase, ';');
 
