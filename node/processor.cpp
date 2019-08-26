@@ -2069,7 +2069,7 @@ bool NodeProcessor::HandleBlockElement(const Output& v, Height h, const Height* 
 	return true;
 }
 
-bool NodeProcessor::HandleShieldedElement(const ECC::Point& comm, bool bOutp, bool bFwd)
+void NodeProcessor::SetShieldedKey(UtxoTree::Key& key, const ECC::Point& comm, bool bOutp)
 {
 	UtxoTree::Key::Data d;
 	d.m_Commitment = comm;
@@ -2078,8 +2078,13 @@ bool NodeProcessor::HandleShieldedElement(const ECC::Point& comm, bool bOutp, bo
 	if (bOutp)
 		d.m_Maturity--;
 
-	UtxoTree::Key key;
 	key = d;
+}
+
+bool NodeProcessor::HandleShieldedElement(const ECC::Point& comm, bool bOutp, bool bFwd)
+{
+	UtxoTree::Key key;
+	SetShieldedKey(key, comm, bOutp);
 
 	UtxoTree::Cursor cu;
 	bool bCreate = true;
@@ -2102,6 +2107,17 @@ bool NodeProcessor::HandleShieldedElement(const ECC::Point& comm, bool bOutp, bo
 	}
 
 	return true;
+}
+
+bool NodeProcessor::ValidateShieldedNoDup(const ECC::Point& comm, bool bOutp)
+{
+	UtxoTree::Key key;
+	SetShieldedKey(key, comm, bOutp);
+
+	UtxoTree::Cursor cu;
+	bool bCreate = false;
+	
+	return !m_Utxos.Find(cu, key, bCreate);
 }
 
 void NodeProcessor::RollbackTo(Height h)
@@ -2518,8 +2534,23 @@ bool NodeProcessor::ValidateTxContext(const Transaction& tx, const HeightRange& 
 			if (tx.m_vInputs[i + 1]->m_Commitment != v.m_Commitment)
 				break;
 
-		if (!ValidateInputs(v.m_Commitment, nCount))
-			return false; // some input UTXOs are missing
+		if (v.m_pSpendProof)
+		{
+			if (!ValidateShieldedNoDup(v.m_Commitment, false))
+				return false; // double-spending
+		}
+		else
+		{
+			if (!ValidateInputs(v.m_Commitment, nCount))
+				return false; // some input UTXOs are missing
+		}
+	}
+
+	for (size_t i = 0; i < tx.m_vOutputs.size(); i++)
+	{
+		const Output& v = *tx.m_vOutputs[i];
+		if (v.m_pDoubleBlind && !ValidateShieldedNoDup(v.m_Commitment, true))
+			return false; // shielded duplicates are not allowed
 	}
 
 	return true;

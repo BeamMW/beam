@@ -254,6 +254,8 @@ public:
 	bool ValidateTxContext(const Transaction&, const HeightRange&); // assuming context-free validation is already performed, but 
 	bool ValidateTxWrtHeight(const Transaction&, const HeightRange&);
 	bool ValidateInputs(const ECC::Point&, Input::Count = 1);
+	bool ValidateShieldedNoDup(const ECC::Point&, bool bOutp);
+	static void SetShieldedKey(UtxoTree::Key&, const ECC::Point&, bool bOutp);
 
 	struct GeneratedBlock
 	{
