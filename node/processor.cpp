@@ -65,6 +65,16 @@ void NodeProcessor::Initialize(const char* szPath, const StartParams& sp)
 	m_Extra.m_TxoHi = m_DB.ParamIntGetDef(NodeDB::ParamID::HeightTxoHi, Rules::HeightGenesis - 1);
 	m_Extra.m_Shielded = m_DB.ParamIntGetDef(NodeDB::ParamID::ShieldedPoolSize);
 
+	if (m_Extra.m_Shielded < Lelantus::Cfg::N)
+	{
+		if (m_Extra.m_Shielded)
+			OnCorrupted();
+
+		// implicit initial commitments
+		m_Extra.m_Shielded = Lelantus::Cfg::N;
+		m_DB.ShieldedResize(m_Extra.m_Shielded);
+	}
+
 	bool bUpdateChecksum = !m_DB.ParamGet(NodeDB::ParamID::CfgChecksum, NULL, &blob);
 	if (!bUpdateChecksum)
 	{
@@ -1750,6 +1760,9 @@ void NodeProcessor::RecognizeUtxos(TxBase::IReader&& r, Height hMax)
 	for ( ; r.m_pUtxoIn; r.NextUtxoIn())
 	{
 		const Input& x = *r.m_pUtxoIn;
+		if (x.m_pSpendProof)
+			continue; // irrelevant
+
 		assert(x.m_Maturity); // must've already been validated
 
 		const UtxoEvent::Key& key = x.m_Commitment;
@@ -2655,6 +2668,39 @@ bool NodeProcessor::ValidateTxContext(const Transaction& tx, const HeightRange& 
 	if (bShieldedInputs && !bShieldedTested)
 	{
 		// TODO
+
+		ECC::InnerProduct::BatchContextEx<4> bc;
+
+		std::vector<ECC::Scalar::Native> vKs;
+		vKs.resize(beam::Lelantus::Cfg::N);
+
+		beam::Lelantus::CmListVec lst;
+		lst.m_vec.resize(beam::Lelantus::Cfg::N);
+
+		for (size_t i = 0; i < tx.m_vInputs.size(); i++)
+		{
+			const Input& v = *tx.m_vInputs[i];
+			if (!v.m_pSpendProof)
+				continue;
+
+			Lelantus::Proof::Output outp;
+			outp.m_Commitment = v.m_Commitment;
+			if (!outp.m_Pt.Import(outp.m_Commitment))
+				return false;
+
+			memset0(&vKs.front(), sizeof(ECC::Scalar::Native) * beam::Lelantus::Cfg::N);
+
+			ECC::Oracle oracle;
+			if (!v.m_pSpendProof->IsValid(bc, oracle, outp, &vKs.front()))
+				return false;
+
+			m_DB.ShieldedRead(v.m_pSpendProof->m_Window0, &lst.m_vec.front(), beam::Lelantus::Cfg::N);
+
+			lst.Calculate(bc.m_Sum, 0, beam::Lelantus::Cfg::N, &vKs.front());
+		}
+
+		if (!bc.Flush())
+			return false;
 	}
 
 	return true;
