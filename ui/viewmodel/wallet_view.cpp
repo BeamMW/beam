@@ -57,6 +57,7 @@ WalletViewModel::WalletViewModel()
     });
 
     connect(&*AppModel::getInstance().getBitcoinClient(), SIGNAL(stateChanged()), SLOT(onBitcoinStateChanged()));
+    connect(&*AppModel::getInstance().getLitecoinClient(), SIGNAL(stateChanged()), SLOT(onLitecoinStateChanged()));
 
     // TODO: This also refreshes TXs and addresses. Need to make this more transparent
     _status.refresh();
@@ -70,6 +71,11 @@ WalletViewModel::~WalletViewModel()
 }
 
 void WalletViewModel::onBitcoinStateChanged()
+{
+    emit stateChanged();
+}
+
+void WalletViewModel::onLitecoinStateChanged()
 {
     emit stateChanged();
 }
@@ -162,8 +168,7 @@ double WalletViewModel::btcAvailable() const
 
 double WalletViewModel::ltcAvailable() const
 {
-    // TODO:SWAP return real value
-    return 0;
+    return AppModel::getInstance().getLitecoinClient()->getAvailable();
 }
 
 double WalletViewModel::qtumAvailable() const
@@ -184,8 +189,7 @@ double WalletViewModel::btcReceiving()  const
 
 double WalletViewModel::ltcReceiving()  const
 {
-    // TODO:SWAP return real value
-    return 0;
+    return AppModel::getInstance().getLitecoinClient()->getReceiving();
 }
 
 double WalletViewModel::qtumReceiving() const
@@ -206,8 +210,7 @@ double WalletViewModel::btcSending()  const
 
 double WalletViewModel::ltcSending()  const
 {
-    // TODO:SWAP return real value
-    return 0;
+    return AppModel::getInstance().getLitecoinClient()->getSending();
 }
 
 double WalletViewModel::qtumSending() const

@@ -45,6 +45,7 @@ public:
     MessageManager& getMessages();
     NodeModel& getNode();
     BitcoinClientModel::Ptr getBitcoinClient() const;
+    BitcoinClientModel::Ptr getLitecoinClient() const;
 
 public slots:
     void onStartedNode();
@@ -71,4 +72,5 @@ private:
     Connections m_nsc; // [n]ode [s]tarting [c]connections
     static AppModel* s_instance;
     BitcoinClientModel::Ptr m_bitcoinClient;
+    BitcoinClientModel::Ptr m_litecoinClient;
 };

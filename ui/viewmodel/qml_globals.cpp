@@ -118,14 +118,14 @@ int QMLGlobals::defFeeRateBtc()
 
 int QMLGlobals::minFeeRateLtc()
 {
-    // TODO:SWAP-SETTINGS read from settings (see btc for an example)
-    return 90000;
+    const auto ltcSettings = AppModel::getInstance().getLitecoinClient()->GetSettings();
+    return ltcSettings.GetMinFeeRate();
 }
 
 int QMLGlobals::defFeeRateLtc()
 {
-    // TODO:SWAP-SETTINGS read from settings (see btc for an example)
-    return 90000;
+    const auto ltcSettings = AppModel::getInstance().getLitecoinClient()->GetSettings();
+    return ltcSettings.GetFeeRate();
 }
 
 int QMLGlobals::minFeeRateQtum()
@@ -195,8 +195,8 @@ bool QMLGlobals::haveBtc()
 
 bool QMLGlobals::haveLtc()
 {
-    // TODO:SWAP return true if ltc is initialized
-    return false;
+    const auto ltcSettings = AppModel::getInstance().getLitecoinClient()->GetSettings();
+    return ltcSettings.IsInitialized();
 }
 
 bool QMLGlobals::haveQtum()

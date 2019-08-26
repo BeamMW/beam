@@ -19,7 +19,6 @@ namespace beam::bitcoin
     SettingsProvider::SettingsProvider(wallet::IWalletDB::Ptr walletDB)
         : m_walletDB(walletDB)
     {
-        LoadSettings();
     }
 
     BitcoinCoreSettings SettingsProvider::GetBitcoinCoreSettings() const
@@ -55,14 +54,14 @@ namespace beam::bitcoin
         // remove from DB
         m_walletDB->removeVarRaw(GetSettingsName().c_str());
 
-        m_settings = std::make_unique<Settings>();
+        m_settings = std::make_unique<Settings>(GetEmptySettings());
     }
 
-    void SettingsProvider::LoadSettings()
+    void SettingsProvider::Initialize()
     {
         if (!m_settings)
         {
-            m_settings = std::make_unique<Settings>();
+            m_settings = std::make_unique<Settings>(GetEmptySettings());
 
             // load from DB or use default
             ByteBuffer settings;
@@ -84,5 +83,10 @@ namespace beam::bitcoin
     std::string SettingsProvider::GetSettingsName() const
     {
         return "BTCSettings";
+    }
+
+    Settings SettingsProvider::GetEmptySettings()
+    {
+        return Settings{};
     }
 } // namespace beam::bitcoin

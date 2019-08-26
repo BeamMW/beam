@@ -40,11 +40,12 @@ namespace beam::bitcoin
         }
     };
     
-    Client::Client(wallet::IWalletDB::Ptr walletDB, io::Reactor& reactor)
+    Client::Client(CreateBridge bridgeCreator, std::unique_ptr<SettingsProvider> settingsProvider, io::Reactor& reactor)
         : m_status(Status::Uninitialized)
         , m_reactor(reactor)
         , m_async{ std::make_shared<BitcoinClientBridge>(*(static_cast<IClientAsync*>(this)), reactor) }
-        , m_settingsProvider{ std::make_unique<SettingsProvider>(walletDB) }
+        , m_settingsProvider{ std::move(settingsProvider) }
+        , m_bridgeCreator{ bridgeCreator }
     {
     }
 
@@ -84,12 +85,7 @@ namespace beam::bitcoin
 
     void Client::GetBalance()
     {
-        if (!m_bridge)
-        {
-            m_bridge = std::make_shared<BitcoinCore017>(m_reactor, shared_from_this());
-        }
-
-        m_bridge->getDetailedBalance([this] (const IBridge::Error& error, double confirmed, double unconfirmed, double immature)
+        GetBridge()->getDetailedBalance([this] (const IBridge::Error& error, double confirmed, double unconfirmed, double immature)
         {
             // TODO: check error and update status
             SetStatus((error.m_type != IBridge::None) ? Status::Failed : Status::Connected);
@@ -118,4 +114,14 @@ namespace beam::bitcoin
         m_status = status;
         OnStatus(m_status);
     }
+
+    beam::bitcoin::IBridge::Ptr Client::GetBridge()
+    {
+        if (!m_bridge)
+        {
+            m_bridge = m_bridgeCreator(m_reactor, shared_from_this());
+        }
+        return m_bridge;
+    }
+
 } // namespace beam::bitcoin

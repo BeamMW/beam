@@ -14,6 +14,7 @@
 
 #pragma once
 
+#include "settings.h"
 #include "wallet/bitcoin/settings_provider.h"
 
 namespace beam::litecoin
@@ -35,6 +36,11 @@ namespace beam::litecoin
         std::string GetSettingsName() const override
         {
             return "LTCSettings";
+        }
+
+        bitcoin::Settings GetEmptySettings() override
+        {
+            return Settings{};
         }
     };
 } //namespace beam::litecoin

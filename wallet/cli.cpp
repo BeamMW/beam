@@ -1201,6 +1201,7 @@ namespace
     int HandleBTC(const po::variables_map& vm, const IWalletDB::Ptr& walletDB)
     {
         bitcoin::SettingsProvider settingsProvider{ walletDB };
+        settingsProvider.Initialize();
 
         if (vm.count(cli::ALTCOIN_SETTINGS_RESET))
         {
@@ -1239,6 +1240,7 @@ namespace
     int HandleLTC(const po::variables_map& vm, const IWalletDB::Ptr& walletDB)
     {
         litecoin::SettingsProvider settingsProvider{ walletDB };
+        settingsProvider.Initialize();
 
         if (vm.count(cli::ALTCOIN_SETTINGS_RESET))
         {
@@ -1683,6 +1685,8 @@ int main_impl(int argc, char* argv[])
                         wallet.RegisterTransactionType(TxType::AtomicSwap, std::static_pointer_cast<BaseTransaction::Creator>(swapTransactionCreator));
 
                         auto btcSettingsProvider = std::make_shared<bitcoin::SettingsProvider>(walletDB);
+                        btcSettingsProvider->Initialize();
+
                         if (btcSettingsProvider->GetSettings().IsInitialized())
                         {
                             auto bitcoinBridge = std::make_shared<bitcoin::BitcoinCore017>(io::Reactor::get_Current(), btcSettingsProvider);
@@ -1691,6 +1695,8 @@ int main_impl(int argc, char* argv[])
                         }
 
                         auto ltcSettingsProvider = std::make_shared<litecoin::SettingsProvider>(walletDB);
+                        ltcSettingsProvider->Initialize();
+
                         if (ltcSettingsProvider->GetSettings().GetElectrumConnectionOptions().IsInitialized())
                         {
                             auto litecoinBridge = std::make_shared<litecoin::Electrum>(io::Reactor::get_Current(), ltcSettingsProvider);

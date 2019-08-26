@@ -116,6 +116,7 @@ public slots:
     void onAddresses(bool own, const std::vector<beam::wallet::WalletAddress>& addresses);
 
     void onBitcoinStateChanged();
+    void onLitecoinStateChanged();
 
 signals:
     void stateChanged();
