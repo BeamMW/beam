@@ -194,7 +194,6 @@ namespace ECC
 			static const uint32_t Bbs       = FOURCC_FROM(BbsM);
 			static const uint32_t Decoy     = FOURCC_FROM(dcoy);
 			static const uint32_t Treasury  = FOURCC_FROM(Tres);
-			static const uint32_t Asset     = FOURCC_FROM(Asst);
 		};
 
 		struct ID

@@ -20,7 +20,6 @@
 #include "utility/logger.h"
 #include "utility/helpers.h"
 #include "swaps/swap_transaction.h"
-#include "assets/asset_transaction.h"
 
 #include <algorithm>
 #include <random>
@@ -44,7 +43,7 @@ namespace beam::wallet
         // If it is more than 10 minutes, the walelt is considered not in sync
         bool IsValidTimeStamp(Timestamp currentBlockTime_s)
         {
-            /*Timestamp currentTime_s = getTimestamp();
+            Timestamp currentTime_s = getTimestamp();
             const Timestamp tolerance_s = 60 * 10; // 10 minutes tolerance.
             currentBlockTime_s += tolerance_s;
 
@@ -52,7 +51,7 @@ namespace beam::wallet
             {
                 LOG_INFO() << "It seems that node is not up to date";
                 return false;
-            }*/
+            }
             return true;
         }
     }
@@ -114,9 +113,6 @@ namespace beam::wallet
         assert(walletDB);
         // the only default type of transaction
         RegisterTransactionType(TxType::Simple, wallet::SimpleTransaction::Create);
-
-        // Confidential assets
-        RegisterTransactionType(TxType::AssetIssue, wallet::AssetIssueTransaction::Create);
 
         // Temporary
         RegisterTransactionType(TxType::AtomicSwap, wallet::AtomicSwapTransaction::Create);
@@ -246,56 +242,6 @@ namespace beam::wallet
         tx->SetParameter(TxParameterID::TransactionType, TxType::Simple, false);
         tx->SetParameter(TxParameterID::Lifetime, lifetime, false);
         tx->SetParameter(TxParameterID::PeerResponseHeight, responseTime); 
-        tx->SetParameter(TxParameterID::IsInitiator, true, false);
-        tx->SetParameter(TxParameterID::AmountList, amountList, false);
-        tx->SetParameter(TxParameterID::PreselectedCoins, coins, false);
-
-        TxDescription txDescription;
-
-        txDescription.m_txId = txID;
-        txDescription.m_amount = std::accumulate(amountList.begin(), amountList.end(), 0ULL);
-        txDescription.m_fee = fee;
-        txDescription.m_peerId = to;
-        txDescription.m_myId = from;
-        txDescription.m_message = move(message);
-        txDescription.m_createTime = getTimestamp();
-        txDescription.m_sender = sender;
-        txDescription.m_status = TxStatus::Pending;
-        txDescription.m_selfTx = (receiverAddr && receiverAddr->m_OwnID);
-        m_WalletDB->saveTx(txDescription);
-
-        ProcessTransaction(tx);
-        return txID;
-    }
-
-    TxID Wallet::issue_asset(const WalletID& from, const WalletID& to, Amount amount, Amount fee, const CoinIDList& coins, bool sender, Height lifetime, Height responseTime, ByteBuffer&& message, bool saveReceiver)
-    {
-        auto receiverAddr = m_WalletDB->getAddress(to);
-
-        if (receiverAddr)
-        {
-            if (receiverAddr->m_OwnID && receiverAddr->isExpired())
-            {
-                LOG_INFO() << "Can't send to the expired address.";
-                throw AddressExpiredException();
-            }
-        }
-        else if (saveReceiver)
-        {
-            WalletAddress address;
-            address.m_walletID = to;
-            address.m_createTime = getTimestamp();
-            address.m_label = "issue asset address";
-            m_WalletDB->saveAddress(address);
-        }
-
-        TxID txID = GenerateTxID();
-        auto tx = ConstructTransaction(txID, TxType::AssetIssue);
-
-        auto amountList = AmountList{amount};
-        tx->SetParameter(TxParameterID::TransactionType, TxType::Simple, false);
-        tx->SetParameter(TxParameterID::Lifetime, lifetime, false);
-        tx->SetParameter(TxParameterID::PeerResponseHeight, responseTime);
         tx->SetParameter(TxParameterID::IsInitiator, true, false);
         tx->SetParameter(TxParameterID::AmountList, amountList, false);
         tx->SetParameter(TxParameterID::PreselectedCoins, coins, false);

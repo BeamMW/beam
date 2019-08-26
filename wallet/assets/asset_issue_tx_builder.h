@@ -112,8 +112,6 @@ namespace beam::wallet
 
         // deduced values,
         TxKernel::Ptr m_Kernel;
-        TxKernel::Ptr m_EmissionKernel;
-
         ECC::Scalar::Native m_PeerSignature;
         ECC::Hash::Value m_Message;
 

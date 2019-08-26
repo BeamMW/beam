@@ -35,8 +35,6 @@ namespace beam::wallet
         , m_MaxHeight{ MaxHeight }
         , m_PeerMaxHeight{ MaxHeight }
     {
-        _assetId = assetId;
-        _skAsset = skAsset;
         if (m_AmountList.empty())
         {
             m_Tx.GetParameter(TxParameterID::AmountList, m_AmountList, m_SubTxID);
@@ -134,7 +132,7 @@ namespace beam::wallet
         auto thisHolder = shared_from_this();
         auto txHolder = m_Tx.shared_from_this(); // increment use counter of tx object. We use it to avoid tx object desctruction during Update call.
         m_Tx.GetAsyncAcontext().OnAsyncStarted();
-        m_Tx.GetKeyKeeper()->GenerateOutputs(m_MinHeight, m_OutputCoins, _assetId,
+        m_Tx.GetKeyKeeper()->GenerateOutputs(m_MinHeight, m_OutputCoins, Zero,
             [thisHolder, this, txHolder](auto&& result)
             {
                 m_Outputs = move(result);
@@ -418,18 +416,8 @@ namespace beam::wallet
 
         // create transaction
         auto transaction = make_shared<Transaction>();
-
-        //m_EmissionKernel = make_unique<TxKernel>();
-        //m_EmissionKernel->m_AssetEmission  = 500;
-        //m_EmissionKernel->m_Commitment.m_X = _assetId;
-        //m_EmissionKernel->m_Commitment.m_Y = 0;
-        //m_EmissionKernel->Sign(_skAsset);
-        //transaction->m_vKernels.push_back(move(m_EmissionKernel));
-
-        Scalar::Native tmpOffset = m_Offset + m_PeerOffset;
-        //tmpOffset += _skAsset;
         transaction->m_vKernels.push_back(move(m_Kernel));
-        transaction->m_Offset = tmpOffset;//m_Offset + m_PeerOffset ;
+        transaction->m_Offset = m_Offset + m_PeerOffset;
         transaction->m_vInputs = move(m_Inputs);
         transaction->m_vOutputs = move(m_Outputs);
         move(m_PeerInputs.begin(), m_PeerInputs.end(), back_inserter(transaction->m_vInputs));

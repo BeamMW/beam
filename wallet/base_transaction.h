@@ -67,14 +67,14 @@ namespace beam::wallet
         };
 
         virtual void GeneratePublicKeys(const std::vector<Key::IDV>& ids, bool createCoinKey, Callback<PublicKeys>&&, ExceptionCallback&&) = 0;
-        virtual void GenerateOutputs(Height schemeHeigh, const std::vector<Key::IDV>& ids, beam::AssetID assetId, Callback<Outputs>&&, ExceptionCallback&&) = 0;
+        virtual void GenerateOutputs(Height schemeHeigh, const std::vector<Key::IDV>& ids, Callback<Outputs>&&, ExceptionCallback&&) = 0;
 
         virtual size_t AllocateNonceSlot() = 0;
 
         // sync part for integration test
         virtual PublicKeys GeneratePublicKeysSync(const std::vector<Key::IDV>& ids, bool createCoinKey) = 0;
         virtual ECC::Point GeneratePublicKeySync(const Key::IDV& id, bool createCoinKey) = 0;
-        virtual Outputs GenerateOutputsSync(Height schemeHeigh, const std::vector<Key::IDV>& ids, beam::AssetID assetId) = 0;
+        virtual Outputs GenerateOutputsSync(Height schemeHeigh, const std::vector<Key::IDV>& ids) = 0;
         //virtual RangeProofs GenerateRangeProofSync(Height schemeHeigh, const std::vector<Key::IDV>& ids) = 0;
         virtual ECC::Point GenerateNonceSync(size_t slot) = 0;
         virtual ECC::Scalar SignSync(const std::vector<Key::IDV>& inputs, const std::vector<Key::IDV>& outputs, const ECC::Scalar::Native& offset, size_t nonceSlot, const ECC::Hash::Value& message, const ECC::Point::Native& publicNonce, const ECC::Point::Native& commitment) = 0;
@@ -137,13 +137,13 @@ namespace beam::wallet
         LocalPrivateKeyKeeper(IWalletDB::Ptr walletDB);
     private:
         void GeneratePublicKeys(const std::vector<Key::IDV>& ids, bool createCoinKey, Callback<PublicKeys>&& resultCallback, ExceptionCallback&& exceptionCallback) override;
-        void GenerateOutputs(Height schemeHeight, const std::vector<Key::IDV>& ids, beam::AssetID assetId, Callback<Outputs>&&, ExceptionCallback&&) override;
+        void GenerateOutputs(Height schemeHeight, const std::vector<Key::IDV>& ids, Callback<Outputs>&&, ExceptionCallback&&) override;
 
         size_t AllocateNonceSlot() override;
 
         PublicKeys GeneratePublicKeysSync(const std::vector<Key::IDV>& ids, bool createCoinKey) override;
         ECC::Point GeneratePublicKeySync(const Key::IDV& id, bool createCoinKey) override;
-        Outputs GenerateOutputsSync(Height schemeHeigh, const std::vector<Key::IDV>& ids, beam::AssetID assetId) override;
+        Outputs GenerateOutputsSync(Height schemeHeigh, const std::vector<Key::IDV>& ids) override;
         //RangeProofs GenerateRangeProofSync(Height schemeHeight, const std::vector<Key::IDV>& ids) override;
         ECC::Point GenerateNonceSync(size_t slot) override;
         ECC::Scalar SignSync(const std::vector<Key::IDV>& inputs, const std::vector<Key::IDV>& outputs, const ECC::Scalar::Native& offset, size_t nonceSlot, const ECC::Hash::Value& message, const ECC::Point::Native& publicNonce, const ECC::Point::Native& commitment) override;

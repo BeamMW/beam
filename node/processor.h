@@ -187,7 +187,7 @@ public:
 		};
 	};
 
-	bool IsTreasuryHandled() const { return true; }//return m_Extra.m_TxosTreasury > 0; }
+	bool IsTreasuryHandled() const { return m_Extra.m_TxosTreasury > 0; }
 
 	DataStatus::Enum OnState(const Block::SystemState::Full&, const PeerID&);
 	DataStatus::Enum OnStateSilent(const Block::SystemState::Full&, const PeerID&, Block::SystemState::ID&);

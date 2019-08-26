@@ -62,8 +62,7 @@ namespace beam::wallet
                                         , const TxID& txID)
         : BaseTransaction{ gateway, walletDB, keyKeeper, txID }
     {
-        SetRandom(_skAsset);
-        beam::proto::Sk2Pk(_assetId, _skAsset);
+
     }
 
     TxType AssetIssueTransaction::GetType() const

@@ -110,7 +110,7 @@ namespace beam
 		} Emission;
 
 		struct {
-			Height Coinbase	= 1; // 4 hours
+			Height Coinbase	= 240; // 4 hours
 			Height Std		= 0; // not restricted. Can spend even in the block of creation (i.e. spend it before it becomes visible)
 		} Maturity;
 
@@ -131,7 +131,7 @@ namespace beam
 		} DA;
 
 		struct {
-			bool Enabled = true;
+			bool Enabled = false;
 			bool Deposit = true; // CA emission in exchange for beams. If not specified - the emission is free
 		} CA;
 
@@ -143,7 +143,7 @@ namespace beam
 		size_t MaxBodySize = 0x100000; // 1MB
 
 		bool AllowPublicUtxos = false;
-		bool FakePoW = true;
+		bool FakePoW = false;
 
 		ECC::Hash::Value Prehistoric; // Prev hash of the 1st block
 		ECC::Hash::Value TreasuryChecksum;
@@ -255,8 +255,8 @@ namespace beam
 			:m_Coinbase(false)
 			,m_RecoveryOnly(false)
 			,m_Incubation(0)
-			,m_AssetID(Zero)
 		{
+			m_AssetID = Zero;
 		}
 
 		static const Amount s_MinimumValue = 1;

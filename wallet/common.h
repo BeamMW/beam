@@ -29,7 +29,6 @@ namespace beam::wallet
     {
         Simple,
         AtomicSwap,
-        AssetIssue,
         ALL
     };
 
