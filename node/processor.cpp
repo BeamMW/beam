@@ -1875,6 +1875,9 @@ bool NodeProcessor::HandleBlockElement(const Input& v, Height h, const Height* p
 {
 	m_Utxos.EnsureReserve();
 
+	if (v.m_pSpendProof)
+		return HandleShieldedElement(v.m_pSpendProof->m_Part1.m_SpendPk, true, bFwd);
+
 	UtxoTree::Cursor cu;
 	UtxoTree::MyLeaf* p;
 	UtxoTree::Key::Data d;
@@ -1964,6 +1967,9 @@ bool NodeProcessor::HandleBlockElement(const Output& v, Height h, const Height* 
 {
 	m_Utxos.EnsureReserve();
 
+	if (v.m_pDoubleBlind)
+		return HandleShieldedElement(v.m_Commitment, true, bFwd);
+
 	UtxoTree::Key::Data d;
 	d.m_Commitment = v.m_Commitment;
 	d.m_Maturity = v.get_MinMaturity(h);
@@ -2017,6 +2023,42 @@ bool NodeProcessor::HandleBlockElement(const Output& v, Height h, const Height* 
 
 	return true;
 }
+
+bool NodeProcessor::HandleShieldedElement(const ECC::Point& comm, bool bOutp, bool bFwd)
+{
+	UtxoTree::Key::Data d;
+	d.m_Commitment = comm;
+	d.m_Shielded = true;
+	d.m_Maturity = MaxHeight; // convention
+	if (bOutp)
+		d.m_Maturity--;
+
+	UtxoTree::Key key;
+	key = d;
+
+	UtxoTree::Cursor cu;
+	bool bCreate = true;
+	UtxoTree::MyLeaf* p = m_Utxos.Find(cu, key, bCreate);
+
+	cu.InvalidateElement();
+	m_Utxos.OnDirty();
+
+	if (bFwd)
+	{
+		if (!bCreate)
+			return false; // duplicates are not allowed
+
+		p->m_ID = 0; // not used
+	}
+	else
+	{
+		assert(!bCreate && !p->IsExt());
+		m_Utxos.Delete(cu);
+	}
+
+	return true;
+}
+
 void NodeProcessor::RollbackTo(Height h)
 {
 	assert(h <= m_Cursor.m_Sid.m_Height);

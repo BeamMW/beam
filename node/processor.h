@@ -56,6 +56,7 @@ class NodeProcessor
 	bool HandleValidatedBlock(TxBase::IReader&&, const Block::BodyBase&, Height, bool bFwd, const Height* = NULL);
 	bool HandleBlockElement(const Input&, Height, const Height*, bool bFwd);
 	bool HandleBlockElement(const Output&, Height, const Height*, bool bFwd);
+	bool HandleShieldedElement(const ECC::Point&, bool bOutp, bool bFwd);
 
 	bool ImportMacroBlockInternal(Block::BodyBase::IMacroReader&);
 	void RecognizeUtxos(TxBase::IReader&&, Height hMax);
