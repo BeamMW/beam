@@ -1343,11 +1343,11 @@ void NodeProcessor::get_Definition(Merkle::Hash& hv, bool bForNextState)
 	get_Definition(hv, bForNextState ? m_Cursor.m_HistoryNext : m_Cursor.m_History);
 }
 
-uint64_t NodeProcessor::ProcessKrnMmr(Merkle::Mmr& mmr, TxBase::IReader&& r, Height h, const Merkle::Hash& idKrn, TxKernel::Ptr* ppRes)
+uint64_t NodeProcessor::ProcessKrnMmr(Merkle::Mmr& mmr, TxBase::IReader&& r, const Merkle::Hash& idKrn, TxKernel::Ptr* ppRes)
 {
 	uint64_t iRet = uint64_t (-1);
 
-	for (uint64_t i = 0; r.m_pKernel && r.m_pKernel->m_Maturity == h; r.NextKernel(), i++)
+	for (uint64_t i = 0; r.m_pKernel; r.NextKernel(), i++)
 	{
 		Merkle::Hash hv;
 		r.m_pKernel->get_ID(hv);
@@ -1390,7 +1390,7 @@ Height NodeProcessor::get_ProofKernel(Merkle::Proof& proof, TxKernel::Ptr* ppRes
 
 	Merkle::FixedMmmr mmr;
 	mmr.Reset(txve.m_vKernels.size());
-	size_t iTrg = ProcessKrnMmr(mmr, std::move(r), 0, idKrn, ppRes);
+	size_t iTrg = ProcessKrnMmr(mmr, std::move(r), idKrn, ppRes);
 
 	if (uint64_t(-1) == iTrg)
 		OnCorrupted();
