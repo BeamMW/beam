@@ -58,6 +58,7 @@ namespace {
     DEF_LABEL(id);
     DEF_LABEL(method);
     DEF_LABEL(description);
+    DEF_LABEL(blockhash);
     DEF_LABEL(code);
     DEF_LABEL(message);
     DEF_LABEL(api_key);
@@ -203,6 +204,7 @@ bool append_json_msg(io::FragmentWriter& packer, const Result& m) {
     append_base(o, m);
     o[l_code] = m.code;
     o[l_description] = m.description;
+    if (!m.blockhash.empty()) o[l_blockhash] = m.blockhash;
     if (!m.nonceprefix.empty()) o[l_nonceprefix] = m.nonceprefix;
     if (m.forkheight != MaxHeight) o[l_forkheight] = m.forkheight;
     if (!m.blockhash.empty()) o[l_blockhash] = m.blockhash;

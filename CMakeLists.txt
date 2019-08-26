@@ -143,7 +143,7 @@ endif()
 # uncoment next line for testnet
 #set(BEAM_TESTNET TRUE)
 # uncoment next line for mainnet
-#set(BEAM_MAINNET TRUE)
+set(BEAM_MAINNET TRUE)
 
 if(BEAM_TESTNET)
     add_definitions(-DBEAM_TESTNET)

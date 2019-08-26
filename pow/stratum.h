@@ -134,6 +134,13 @@ struct Result : Message {
         code(_code),
         description(get_result_msg(_code))
     {}
+
+    Result(std::string _id, ResultCode _code, std::string _blockhash) :
+        Message(std::move(_id), result),
+        code(_code),
+        description(get_result_msg(_code)),
+        blockhash(std::move(_blockhash))
+    {}
 };
 
 struct ParserCallback {

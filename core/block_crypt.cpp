@@ -973,7 +973,11 @@ namespace beam
 
 		ZeroObject(pForks);
 
+<<<<<<< HEAD
 		pForks[1].m_Height = 199403; // not decided yet 
+=======
+		pForks[1].m_Height = 321321; // mainnet hard fork
+>>>>>>> 870ca8a559aa3beb35a883307437b9ac69d3de0b
 
 		// future forks
 		for (size_t i = 2; i < _countof(pForks); i++)
@@ -1096,7 +1100,7 @@ namespace beam
 			<< (uint32_t) Block::PoW::K
 			<< (uint32_t) Block::PoW::N
 			<< (uint32_t) Block::PoW::NonceType::nBits
-			<< uint32_t(15) // increment this whenever we change something in the protocol
+			<< uint32_t(14) // increment this whenever we change something in the protocol
 #ifndef BEAM_TESTNET
 			<< "masternet"
 #endif

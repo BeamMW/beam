@@ -354,9 +354,9 @@ matrix:
 ###############################################################################
 before_script:
   - curl -sL https://raw.githubusercontent.com/travis-ci/artifacts/master/install | bash
-  - BEAM_TARGET_SUFFIX="-masternet"
-  - BEAM_DISPLAY_SUFFIX="Masternet"
-  - BEAM_DISPLAY_SUFFIX2="-Masternet"
+  - BEAM_TARGET_SUFFIX=""
+  - BEAM_DISPLAY_SUFFIX=""
+  - BEAM_DISPLAY_SUFFIX2=""
 
 after_success:
   # deploy using ftp server

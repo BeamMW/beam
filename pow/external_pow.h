@@ -20,6 +20,7 @@ namespace beam {
 
 class IExternalPOW {
 public:
+<<<<<<< HEAD
     enum BlockFoundResultCode { solution_accepted, solution_rejected, solution_expired };
     
     struct BlockFoundResult {
@@ -31,6 +32,28 @@ public:
 
         BlockFoundResultCode _code;
         std::string _blockhash;
+=======
+    enum ResultEnum { solution_accepted, solution_rejected, solution_expired };
+    struct BlockFoundResult {
+        ResultEnum result;
+        std::string blockhash;
+
+        BlockFoundResult(ResultEnum _result):
+            result(_result) {}
+
+        BlockFoundResult(ResultEnum _result, std::string _blockhash):
+            result(_result), blockhash(std::move(_blockhash)) {}
+        
+        BlockFoundResult(ResultEnum _result, const Merkle::Hash &_blockhash):
+            result(_result) {
+                blockhash.resize(_blockhash.nBytes * 2);
+                _blockhash.Print((char*)blockhash.data());
+            }
+
+        bool operator ==(ResultEnum _result) {
+            return result == _result;
+        }
+>>>>>>> 870ca8a559aa3beb35a883307437b9ac69d3de0b
     };
 
     using BlockFound = std::function<BlockFoundResult()>;

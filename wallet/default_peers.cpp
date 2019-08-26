@@ -24,10 +24,9 @@ namespace beam
             "eu-nodes.testnet.beam.mw:8100",
             "ap-nodes.testnet.beam.mw:8100"
 #else
-            "eu-node01.masternet.beam.mw:8100",
-            "eu-node02.masternet.beam.mw:8100",
-            "eu-node03.masternet.beam.mw:8100",
-            "eu-node04.masternet.beam.mw:8100"
+            "ap-nodes.mainnet.beam.mw:8100",
+            "eu-nodes.mainnet.beam.mw:8100",
+            "us-nodes.mainnet.beam.mw:8100"
 #endif
         };
 
