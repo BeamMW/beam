@@ -2099,6 +2099,7 @@ void TestTreasury()
 
 void TestLelantus()
 {
+	printf("Lelantus [n, M, N] = [%u, %u, %u]\n", beam::Lelantus::Cfg::n, beam::Lelantus::Cfg::M, beam::Lelantus::Cfg::N);
 
 	beam::Lelantus::CmListVec lst;
 	lst.m_vec.resize(beam::Lelantus::Cfg::N);
@@ -2194,7 +2195,12 @@ void TestLelantus()
 	//const uint32_t N = Lelantus::Cfg::N;
 
 	Oracle oracle;
+
+	uint32_t t = beam::GetTime_ms();
+
 	p.Generate(outp, Zero, oracle);
+
+	printf("\tProof time = %u ms\n", beam::GetTime_ms() - t);
 
 	typedef InnerProduct::BatchContextEx<4> MyBatch;
 
@@ -2209,7 +2215,7 @@ void TestLelantus()
 		der_.reset(ser_.buffer().first, ser_.buffer().second);
 		der_ & proof;
 
-		printf("Lelantus proof size = %u\n", (uint32_t)ser_.buffer().second);
+		printf("\tProof size = %u\n", (uint32_t)ser_.buffer().second);
 	}
 	MyBatch bc;
 
@@ -2217,8 +2223,9 @@ void TestLelantus()
 	vKs.resize(beam::Lelantus::Cfg::N);
 
 	bool bSuccess = true;
+	const uint32_t nCycles = 10;
 
-	for (int i = 0; i < 10; i++)
+	for (uint32_t i = 0; i < nCycles; i++)
 	{
 		Oracle o2;
 		if (!proof.IsValid(bc, o2, outp, &vKs.front()))
@@ -2229,6 +2236,8 @@ void TestLelantus()
 
 	if (!bc.Flush())
 		bSuccess = false;
+
+	printf("\tVerify time %u overlapping proofs = %u ms\n", nCycles, beam::GetTime_ms() - t);
 
 	verify_test(bSuccess);
 }
@@ -2327,6 +2336,7 @@ void TestAll()
 	TestRandom();
 	TestFourCC();
 	TestTreasury();
+	TestLelantus();
 }
 
 
