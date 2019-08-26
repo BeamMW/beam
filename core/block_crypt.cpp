@@ -122,15 +122,10 @@ namespace beam
 
 	int Input::cmp(const Input& v) const
 	{
-		{
-			int n = Cast::Down<TxElement>(*this).cmp(v);
-			if (n)
-				return n;
-		}
-
+		// make sure shielded are after MW
 		CMP_MEMBER_PTR(m_pSpendProof)
 
-		return 0;
+		return Cast::Down<TxElement>(*this).cmp(v);
 	}
 
 	int Input::SpendProof::cmp(const SpendProof& v) const
@@ -331,6 +326,9 @@ namespace beam
 
 	int Output::cmp(const Output& v) const
 	{
+		// make sure shielded are after MW
+		CMP_MEMBER_PTR(m_pDoubleBlind)
+
 		{
 			int n = Cast::Down<TxElement>(*this).cmp(v);
 			if (n)
@@ -343,7 +341,6 @@ namespace beam
 		CMP_MEMBER_EX(m_AssetID)
 		CMP_MEMBER_PTR(m_pConfidential)
 		CMP_MEMBER_PTR(m_pPublic)
-		CMP_MEMBER_PTR(m_pDoubleBlind)
 
 		return 0;
 	}
