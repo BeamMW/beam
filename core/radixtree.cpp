@@ -743,6 +743,8 @@ UtxoTree::Key::Data& UtxoTree::Key::Data::operator = (const Key& key)
 	for (size_t i = 0; i < sizeof(m_Maturity); i++, pKey++)
 		m_Maturity = (m_Maturity << 8) | (pKey[0] << 1) | (pKey[1] >> 7);
 
+	m_Shielded = 1 & (pKey[0] >> 6);
+
 	return *this;
 }
 
@@ -762,6 +764,9 @@ UtxoTree::Key& UtxoTree::Key::operator = (const Data& d)
 		pKey[i] |= val >> 1;
 		pKey[i + 1] |= (val << 7);
 	}
+
+	if (d.m_Shielded)
+		pKey[0] |= (1 << 6);
 
 	return *this;
 }

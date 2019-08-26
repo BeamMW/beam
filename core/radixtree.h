@@ -246,6 +246,7 @@ public:
 		struct Data {
 			ECC::Point m_Commitment;
 			Height m_Maturity;
+			bool m_Shielded = false;
 			Data& operator = (const Key&);
 		};
 
