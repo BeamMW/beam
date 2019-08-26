@@ -1921,7 +1921,7 @@ bool NodeProcessor::HandleBlockElement(const Input& v, Height h, const Height* p
 	m_Utxos.EnsureReserve();
 
 	if (v.m_pSpendProof)
-		return HandleShieldedElement(v.m_pSpendProof->m_Part1.m_SpendPk, true, bFwd);
+		return HandleShieldedElement(v.m_pSpendProof->m_Part1.m_SpendPk, false, bFwd);
 
 	UtxoTree::Cursor cu;
 	UtxoTree::MyLeaf* p;
@@ -2182,9 +2182,10 @@ void NodeProcessor::RollbackTo(Height h)
 	m_DB.DeleteEventsFrom(h + 1);
 
 
-	// Kernels and cursor
+	// Kernels, shielded elements, and cursor
 	ByteBuffer bbE;
 	TxVectors::Eternal txve;
+	TxVectors::Perishable txvp;
 
 	for (; m_Cursor.m_Sid.m_Height > h; m_DB.MoveBack(m_Cursor.m_Sid))
 	{
@@ -2202,6 +2203,33 @@ void NodeProcessor::RollbackTo(Height h)
 			txve.m_vKernels[i]->get_ID(hv);
 
 			m_DB.DeleteKernel(hv, m_Cursor.m_Sid.m_Height);
+		}
+
+		ECC::Scalar offs;
+		bbE.clear();
+		m_DB.get_StateExtra(m_Cursor.m_Sid.m_Row, offs, &bbE);
+
+		if (!bbE.empty())
+		{
+			txvp.m_vInputs.clear();
+			txvp.m_vOutputs.clear();
+
+			der.reset(bbE);
+			der & txvp;
+
+			for (size_t i = 0; i < txvp.m_vInputs.size(); i++)
+			{
+				const Input& v = *txvp.m_vInputs[i];
+				assert(v.m_pSpendProof);
+				HandleShieldedElement(v.m_pSpendProof->m_Part1.m_SpendPk, false, false);
+			}
+
+			for (size_t i = 0; i < txvp.m_vOutputs.size(); i++)
+			{
+				const Output& v = *txvp.m_vOutputs[i];
+				assert(v.m_pDoubleBlind);
+				HandleShieldedElement(v.m_Commitment, true, false);
+			}
 		}
 	}
 
