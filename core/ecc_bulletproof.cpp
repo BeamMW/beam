@@ -1034,7 +1034,7 @@ namespace ECC {
 	bool RangeProof::Confidential::IsValid(const Point::Native& commitment, Oracle& oracle, const Point::Native* pHGen /* = nullptr */, Part3* pSer /* = nullptr */) const
 	{
 		if (InnerProduct::BatchContext::s_pInstance)
-			return IsValid(commitment, oracle, *InnerProduct::BatchContext::s_pInstance, pHGen);
+			return IsValid(commitment, oracle, *InnerProduct::BatchContext::s_pInstance, pHGen, pSer);
 
 		InnerProduct::BatchContextEx<1> bc;
 		return
