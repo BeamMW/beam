@@ -427,7 +427,7 @@ namespace beam::wallet
         //transaction->m_vKernels.push_back(move(m_EmissionKernel));
 
         Scalar::Native tmpOffset = m_Offset + m_PeerOffset;
-        //tmpOffset += _skAsset;
+        //tmpOffset += -_skAsset;
         transaction->m_vKernels.push_back(move(m_Kernel));
         transaction->m_Offset = tmpOffset;//m_Offset + m_PeerOffset ;
         transaction->m_vInputs = move(m_Inputs);
