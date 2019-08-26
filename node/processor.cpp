@@ -1635,7 +1635,7 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, MultiblockContext& m
 				{
 					ECC::Point::Native pt_n;
 					bbE.resize(sizeof(ECC::Point::Storage) * nOuts);
-					ECC::Point::Storage* pSt = reinterpret_cast<ECC::Point::Storage*>(bbE.front());
+					ECC::Point::Storage* pSt = reinterpret_cast<ECC::Point::Storage*>(&bbE.front());
 
 					nOuts = 0;
 					for (size_t i = 0; i < block.m_vOutputs.size(); i++)
