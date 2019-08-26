@@ -21,7 +21,6 @@
 #include "model/settings.h"
 #include "wallet/bitcoin/client.h"
 #include "wallet/bitcoin/settings.h"
-#include "wallet/litecoin/settings.h"
 
 
 
@@ -176,6 +175,7 @@ protected:
 private:
     void LoadBitcoinSettings();
     void LoadLitecoinSettings();
+    void LoadQtumSettings();
 
     WalletSettings& m_settings;
 
@@ -205,6 +205,7 @@ private:
     QString m_litecoinNodeAddress;
     int m_litecoinFeeRate = 0;
 
+    boost::optional<beam::bitcoin::Settings> m_qtumSettings;
     QString m_qtumUser;
     QString m_qtumPass;
     QString m_qtumNodeAddress;

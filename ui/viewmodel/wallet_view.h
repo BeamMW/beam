@@ -117,6 +117,7 @@ public slots:
 
     void onBitcoinStateChanged();
     void onLitecoinStateChanged();
+    void onQtumStateChanged();
 
 signals:
     void stateChanged();

@@ -58,11 +58,10 @@ WalletViewModel::WalletViewModel()
 
     connect(&*AppModel::getInstance().getBitcoinClient(), SIGNAL(stateChanged()), SLOT(onBitcoinStateChanged()));
     connect(&*AppModel::getInstance().getLitecoinClient(), SIGNAL(stateChanged()), SLOT(onLitecoinStateChanged()));
+    connect(&*AppModel::getInstance().getQtumClient(), SIGNAL(stateChanged()), SLOT(onQtumStateChanged()));
 
     // TODO: This also refreshes TXs and addresses. Need to make this more transparent
     _status.refresh();
-
-    // TODO:SWAP refresh btc, ltc & qtum balances, receiving, sending & locked. Emit stateChanged() on refresh
 }
 
 WalletViewModel::~WalletViewModel()
@@ -76,6 +75,11 @@ void WalletViewModel::onBitcoinStateChanged()
 }
 
 void WalletViewModel::onLitecoinStateChanged()
+{
+    emit stateChanged();
+}
+
+void WalletViewModel::onQtumStateChanged()
 {
     emit stateChanged();
 }
@@ -173,8 +177,7 @@ double WalletViewModel::ltcAvailable() const
 
 double WalletViewModel::qtumAvailable() const
 {
-    // TODO:SWAP return real value
-    return 0;
+    return AppModel::getInstance().getQtumClient()->getAvailable();
 }
 
 double WalletViewModel::beamReceiving() const
@@ -194,8 +197,7 @@ double WalletViewModel::ltcReceiving()  const
 
 double WalletViewModel::qtumReceiving() const
 {
-    // TODO:SWAP return real value
-    return 0;
+    return AppModel::getInstance().getQtumClient()->getReceiving();
 }
 
 double WalletViewModel::beamSending() const
@@ -215,8 +217,7 @@ double WalletViewModel::ltcSending()  const
 
 double WalletViewModel::qtumSending() const
 {
-    // TODO:SWAP return real value
-    return 0;
+    return AppModel::getInstance().getQtumClient()->getSending();
 }
 
 double WalletViewModel::beamLocked() const
