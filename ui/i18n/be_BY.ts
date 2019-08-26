@@ -1190,5 +1190,45 @@
         <source>Don’t use same seed phrase on several devices, your balance and transaction list won’t be synchronized.</source>
         <translation>Не выкарыстоўвайце аднолькавую сід фразу на розных дэвайсах, ваш баланс і спісак транзакцы не будзе сінхранізаваны.</translation>
     </message>
+    <message id="tx-failture-subtx-failed">
+        <source>Subtransaction has failed</source>
+        <translation>Падтранзакцыя завершана з памылкай</translation>
+    </message>
+    <message id="tx-failture-invalid-contract-amount">
+        <source>Contract&apos;s amount is not valid</source>
+        <translation>Сумма кантракта ня каррэктна</translation>
+    </message>
+    <message id="tx-failture-invalid-sidechain-contract">
+        <source>Side chain has invalid contract</source>
+        <translation>Старонні блокчэйн змяшчае ня каррэктны кантракт</translation>
+    </message>
+    <message id="tx-failture-sidechain-internal-error">
+        <source>Side chain bridge has internal error</source>
+        <translation>Унутранняя памылка старонняга блокчэйна</translation>
+    </message>
+    <message id="tx-failture-sidechain-network-error">
+        <source>Side chain bridge has network error</source>
+        <translation>Памылка далучэння да старонняга блокчэйна</translation>
+    </message>
+    <message id="tx-failture-invalid-sidechain-response-format">
+        <source>Side chain bridge has response format error</source>
+        <translation>Ня каррэктны адказ старонняга блокчэйна</translation>
+    </message>
+    <message id="tx-failture-invalid-side-chain-credentials">
+        <source>Invalid credentials of Side chain</source>
+        <translation>Ня каррэктная аўтарызацыя старонняга блокчэйна</translation>
+    </message>
+    <message id="tx-failture-not-enough-time-btc-lock">
+        <source>Not enough time to finish btc lock transaction</source>
+        <translation>Не дастаткова часу для выканання блакіроўкі btc</translation>
+    </message>
+    <message id="tx-failture-create-multisig">
+        <source>Failed to create multi-signature</source>
+        <translation>Не магчыма стварыць мульциподпис</translation>
+    </message>
+    <message id="tx-failture-fee-too-small">
+        <source>Fee is too small</source>
+        <translation>Памер каміссіі вельмі малы</translation>
+    </message>
 </context>
 </TS>

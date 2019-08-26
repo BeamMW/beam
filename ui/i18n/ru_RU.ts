@@ -1194,5 +1194,45 @@
         <source>Don’t use same seed phrase on several devices, your balance and transaction list won’t be synchronized.</source>
         <translation>Не используйте одну и ту же сид фразу на разных устройствах, ваш баланс и список транзакций не будут синхронизированы.</translation>
     </message>
+    <message id="tx-failture-subtx-failed">
+        <source>Subtransaction has failed</source>
+        <translation>Подтранзакция завершена с ошибкой</translation>
+    </message>
+    <message id="tx-failture-invalid-contract-amount">
+        <source>Contract&apos;s amount is not valid</source>
+        <translation>Сумма контракта не корректна</translation>
+    </message>
+    <message id="tx-failture-invalid-sidechain-contract">
+        <source>Side chain has invalid contract</source>
+        <translation>Сторонний блокчейн содержит не корректный контракт</translation>
+    </message>
+    <message id="tx-failture-sidechain-internal-error">
+        <source>Side chain bridge has internal error</source>
+        <translation>Внутренняя ошибка стороннего блокчейна</translation>
+    </message>
+    <message id="tx-failture-sidechain-network-error">
+        <source>Side chain bridge has network error</source>
+        <translation>Ошибка подключения к стороннему блокчейну</translation>
+    </message>
+    <message id="tx-failture-invalid-sidechain-response-format">
+        <source>Side chain bridge has response format error</source>
+        <translation>Не корректный ответ стороннего блокчейна</translation>
+    </message>
+    <message id="tx-failture-invalid-side-chain-credentials">
+        <source>Invalid credentials of Side chain</source>
+        <translation>Не корректная авторизация стороннего блокчейна</translation>
+    </message>
+    <message id="tx-failture-not-enough-time-btc-lock">
+        <source>Not enough time to finish btc lock transaction</source>
+        <translation>Не достаточно времени для завершения блокировки btc</translation>
+    </message>
+    <message id="tx-failture-create-multisig">
+        <source>Failed to create multi-signature</source>
+        <translation>Не возможно создать мультиподпись</translation>
+    </message>
+    <message id="tx-failture-fee-too-small">
+        <source>Fee is too small</source>
+        <translation>Размер комиссии слишком мал</translation>
+    </message>
 </context>
 </TS>
