@@ -1629,10 +1629,37 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, MultiblockContext& m
 						ser & *block.m_vInputs[i];
 
 				ser & beam::uintBigFrom(nOuts);
-				for (size_t i = 0; i < block.m_vOutputs.size(); i++)
-					if (block.m_vOutputs[i]->m_pDoubleBlind)
-						ser & *block.m_vOutputs[i];
 
+				if (nOuts)
+				{
+					ECC::Point::Native pt_n;
+					bbE.resize(sizeof(ECC::Point::Storage) * nOuts);
+					ECC::Point::Storage* pSt = (ECC::Point::Storage*) bbE.front();
+
+					nOuts = 0;
+					for (size_t i = 0; i < block.m_vOutputs.size(); i++)
+					{
+						const Output& v = *block.m_vOutputs[i];
+						if (v.m_pDoubleBlind)
+						{
+							ser & v;
+
+							ECC::Point::Storage pt_s;
+							BEAM_VERIFY(pt_n.Import(v.m_Commitment, &pt_s));
+
+							memcpy(pSt + nOuts, &pt_s, sizeof(pt_s));
+
+							nOuts++;
+						}
+					}
+
+					// Append to cmList
+					uint64_t nShielded = 0;
+					m_DB.ParamGet(NodeDB::ParamID::ShieldedPoolSize, &nShielded, nullptr);
+					m_DB.ShieldedResize(nShielded + nOuts);
+					m_DB.ShieldedWrite(nShielded, pSt, nOuts);
+
+				}
 				ser.swap_buf(bbP);
 
 				Blob blob(bbP);
@@ -2224,11 +2251,22 @@ void NodeProcessor::RollbackTo(Height h)
 				HandleShieldedElement(v.m_pSpendProof->m_Part1.m_SpendPk, false, false);
 			}
 
-			for (size_t i = 0; i < txvp.m_vOutputs.size(); i++)
+			if (!txvp.m_vOutputs.empty())
 			{
-				const Output& v = *txvp.m_vOutputs[i];
-				assert(v.m_pDoubleBlind);
-				HandleShieldedElement(v.m_Commitment, true, false);
+				for (size_t i = 0; i < txvp.m_vOutputs.size(); i++)
+				{
+					const Output& v = *txvp.m_vOutputs[i];
+					assert(v.m_pDoubleBlind);
+					HandleShieldedElement(v.m_Commitment, true, false);
+				}
+
+				// Shrink cmList
+				uint64_t nShielded = 0;
+				m_DB.ParamGet(NodeDB::ParamID::ShieldedPoolSize, &nShielded, nullptr);
+				if (nShielded < txvp.m_vOutputs.size())
+					OnCorrupted();
+
+				m_DB.ShieldedResize(nShielded - txvp.m_vOutputs.size());
 			}
 		}
 	}
@@ -2553,6 +2591,7 @@ bool NodeProcessor::ValidateTxContext(const Transaction& tx, const HeightRange& 
 
 	// Cheap tx verification. No need to update the internal structure, recalculate definition, or etc.
 	// Ensure input UTXOs are present
+	const ECC::Point* pPrevShielded = nullptr;
 	for (size_t i = 0; i < tx.m_vInputs.size(); i++)
 	{
 		Input::Count nCount = 1;
@@ -2564,7 +2603,11 @@ bool NodeProcessor::ValidateTxContext(const Transaction& tx, const HeightRange& 
 
 		if (v.m_pSpendProof)
 		{
-			if (!ValidateShieldedNoDup(v.m_Commitment, false))
+			const ECC::Point& key = v.m_pSpendProof->m_Part1.m_SpendPk;
+			if (pPrevShielded && (*pPrevShielded == key))
+				return false; // duplicated
+
+			if (!ValidateShieldedNoDup(key, false))
 				return false; // double-spending
 		}
 		else
