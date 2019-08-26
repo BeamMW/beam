@@ -711,6 +711,25 @@ void Node::Processor::OnRolledBack()
 {
     LOG_INFO() << "Rolled back to: " << m_Cursor.m_ID;
 
+	// Delete shielded txs which referenced shielded outputs which were reverted
+	TxPool::Fluff& txp = get_ParentObj().m_TxPool;
+	for (TxPool::Fluff::Queue::iterator it = txp.m_Queue.begin(); txp.m_Queue.end() != it; )
+	{
+		TxPool::Fluff::Element& x = (it++)->get_ParentObj();
+		if (x.m_pValue && !IsShieldedInPool(*x.m_pValue))
+			txp.Delete(x);
+	}
+
+	TxPool::Stem& txps = get_ParentObj().m_Dandelion;
+	for (TxPool::Stem::TimeSet::iterator it = txps.m_setTime.begin(); txps.m_setTime.end() != it; )
+	{
+		TxPool::Stem::Element& x = (it++)->get_ParentObj();
+		if (!IsShieldedInPool(*x.m_pValue))
+			txps.Delete(x);
+			
+	}
+
+
 	IObserver* pObserver = get_ParentObj().m_Cfg.m_Observer;
 	if (pObserver)
 		pObserver->OnRolledBack(m_Cursor.m_ID);

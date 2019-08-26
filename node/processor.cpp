@@ -1948,7 +1948,11 @@ bool NodeProcessor::HandleBlockElement(const Input& v, Height h, const Height* p
 	m_Utxos.EnsureReserve();
 
 	if (v.m_pSpendProof)
+	{
+		if (bFwd && !IsShieldedInPool(v))
+			return false;
 		return HandleShieldedElement(v.m_pSpendProof->m_Part1.m_SpendPk, false, bFwd);
+	}
 
 	UtxoTree::Cursor cu;
 	UtxoTree::MyLeaf* p;
@@ -2094,6 +2098,24 @@ bool NodeProcessor::HandleBlockElement(const Output& v, Height h, const Height* 
 	}
 
 	return true;
+}
+
+bool NodeProcessor::IsShieldedInPool(const Transaction& tx)
+{
+	for (size_t i = 0; i < tx.m_vInputs.size(); i++)
+	{
+		const Input& v = *tx.m_vInputs[i];
+		if (v.m_pSpendProof && !IsShieldedInPool(v))
+			return false;
+	}
+
+	return true;
+}
+
+bool NodeProcessor::IsShieldedInPool(const Input& v)
+{
+	assert(v.m_pSpendProof);
+	return (v.m_pSpendProof->m_Window0 + Lelantus::Cfg::N <= m_Extra.m_Shielded);
 }
 
 void NodeProcessor::SetShieldedKey(UtxoTree::Key& key, const ECC::Point& comm, bool bOutp)
@@ -2588,6 +2610,8 @@ bool NodeProcessor::ValidateTxContext(const Transaction& tx, const HeightRange& 
 	if (!ValidateTxWrtHeight(tx, hr))
 		return false;
 
+	bool bShieldedInputs = false;
+
 	// Cheap tx verification. No need to update the internal structure, recalculate definition, or etc.
 	// Ensure input UTXOs are present
 	const ECC::Point* pPrevShielded = nullptr;
@@ -2602,12 +2626,17 @@ bool NodeProcessor::ValidateTxContext(const Transaction& tx, const HeightRange& 
 
 		if (v.m_pSpendProof)
 		{
+			if (!IsShieldedInPool(v))
+				return false; // references invalid pool window
+
 			const ECC::Point& key = v.m_pSpendProof->m_Part1.m_SpendPk;
 			if (pPrevShielded && (*pPrevShielded == key))
 				return false; // duplicated
 
 			if (!ValidateShieldedNoDup(key, false))
 				return false; // double-spending
+
+			bShieldedInputs = true;
 		}
 		else
 		{
@@ -2621,6 +2650,11 @@ bool NodeProcessor::ValidateTxContext(const Transaction& tx, const HeightRange& 
 		const Output& v = *tx.m_vOutputs[i];
 		if (v.m_pDoubleBlind && !ValidateShieldedNoDup(v.m_Commitment, true))
 			return false; // shielded duplicates are not allowed
+	}
+
+	if (bShieldedInputs && !bShieldedTested)
+	{
+		// TODO
 	}
 
 	return true;

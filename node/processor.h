@@ -256,6 +256,8 @@ public:
 	bool ValidateTxWrtHeight(const Transaction&, const HeightRange&);
 	bool ValidateInputs(const ECC::Point&, Input::Count = 1);
 	bool ValidateShieldedNoDup(const ECC::Point&, bool bOutp);
+	bool IsShieldedInPool(const Input&);
+	bool IsShieldedInPool(const Transaction&);
 	static void SetShieldedKey(UtxoTree::Key&, const ECC::Point&, bool bOutp);
 
 	struct GeneratedBlock
