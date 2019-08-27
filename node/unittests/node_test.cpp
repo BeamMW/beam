@@ -2517,7 +2517,6 @@ int main()
 	beam::Rules::get().CA.Enabled = true;
 	beam::Rules::get().Maturity.Coinbase = 10;
 	beam::Rules::get().pForks[1].m_Height = 16;
-	beam::Rules::get().pForks[2].m_Height = 17;
 	beam::Rules::get().UpdateChecksum();
 
 	beam::PrepareTreasury();
@@ -2569,6 +2568,9 @@ int main()
 	beam::TestNodeConversation();
 	beam::DeleteFile(beam::g_sz);
 	beam::DeleteFile(beam::g_sz2);
+
+	beam::Rules::get().pForks[2].m_Height = 17;
+	beam::Rules::get().UpdateChecksum();
 
 	printf("Node <---> Client test (with proofs)...\n");
 	fflush(stdout);

@@ -541,7 +541,9 @@ namespace ECC {
 			*this = Zero;
 		else
 		{
-			secp256k1_ge ge = { 0 };
+			secp256k1_ge ge;
+			ZeroObject(ge);
+
 			secp256k1_fe_set_b32(&ge.x, v.m_X.m_pData);
 			secp256k1_fe_set_b32(&ge.y, v.m_Y.m_pData);
 
