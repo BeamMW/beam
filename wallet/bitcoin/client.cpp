@@ -85,8 +85,13 @@ namespace beam::bitcoin
 
     void Client::GetBalance()
     {
-        GetBridge()->getDetailedBalance([this] (const IBridge::Error& error, double confirmed, double unconfirmed, double immature)
+        GetBridge()->getDetailedBalance([this, weak = this->weak_from_this()] (const IBridge::Error& error, double confirmed, double unconfirmed, double immature)
         {
+            if (weak.expired())
+            {
+                return;
+            }
+
             // TODO: check error and update status
             SetStatus((error.m_type != IBridge::None) ? Status::Failed : Status::Connected);
 
