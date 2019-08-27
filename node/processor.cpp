@@ -1665,9 +1665,8 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, MultiblockContext& m
 					}
 
 					// Append to cmList
-					m_DB.ShieldedResize(m_Extra.m_Shielded + nOuts);
-					m_DB.ShieldedWrite(m_Extra.m_Shielded, pSt, nOuts);
-					m_Extra.m_Shielded += nOuts;
+					m_DB.ShieldedResize(m_Extra.m_Shielded);
+					m_DB.ShieldedWrite(m_Extra.m_Shielded - nOuts, pSt, nOuts);
 
 				}
 				ser.swap_buf(bbP);
@@ -2161,12 +2160,21 @@ bool NodeProcessor::HandleShieldedElement(const ECC::Point& comm, bool bOutp, bo
 		if (!bCreate)
 			return false; // duplicates are not allowed
 
-		p->m_ID = 0; // not used
+		if (bOutp)
+		{
+			p->m_ID = m_Extra.m_Shielded;
+			m_Extra.m_Shielded++;
+		}
+		else
+			p->m_ID = 0; // not used
 	}
 	else
 	{
 		assert(!bCreate && !p->IsExt());
 		m_Utxos.Delete(cu);
+
+		if (bOutp)
+			m_Extra.m_Shielded--;
 	}
 
 	return true;
@@ -2297,10 +2305,6 @@ void NodeProcessor::RollbackTo(Height h)
 				}
 
 				// Shrink cmList
-				if (m_Extra.m_Shielded < txvp.m_vOutputs.size())
-					OnCorrupted();
-
-				m_Extra.m_Shielded -= txvp.m_vOutputs.size();
 				m_DB.ShieldedResize(m_Extra.m_Shielded);
 			}
 		}

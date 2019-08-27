@@ -534,7 +534,7 @@ void RadixHashTree::get_Proof(Merkle::Proof& proof, const CursorBase& cu)
 
 /////////////////////////////
 // UtxoTree
-void UtxoTree::MyLeaf::get_Hash(Merkle::Hash& hv, const Key& key, Input::Count nCount)
+void UtxoTree::MyLeaf::get_Hash_MW(Merkle::Hash& hv, const Key& key, Input::Count nCount)
 {
 	ECC::Hash::Processor()
 		<< key.V // whole description of the UTXO
@@ -542,9 +542,20 @@ void UtxoTree::MyLeaf::get_Hash(Merkle::Hash& hv, const Key& key, Input::Count n
 		>> hv;
 }
 
+void UtxoTree::MyLeaf::get_Hash_Shielded(Merkle::Hash& hv, const Key& key, TxoID id)
+{
+	ECC::Hash::Processor()
+		<< key.V // whole description of the UTXO
+		<< id
+		>> hv;
+}
+
 void UtxoTree::MyLeaf::get_Hash(Merkle::Hash& hv) const
 {
-	get_Hash(hv, m_Key, get_Count());
+	if (m_Key.IsShielded())
+		get_Hash_Shielded(hv, m_Key, m_ID);
+	else
+		get_Hash_MW(hv, m_Key, get_Count());
 }
 
 void Input::State::get_ID(Merkle::Hash& hv, const ECC::Point& comm) const
@@ -556,7 +567,7 @@ void Input::State::get_ID(Merkle::Hash& hv, const ECC::Point& comm) const
 	UtxoTree::Key key;
 	key = d;
 
-	UtxoTree::MyLeaf::get_Hash(hv, key, m_Count);
+	UtxoTree::MyLeaf::get_Hash_MW(hv, key, m_Count);
 }
 
 const Merkle::Hash& UtxoTree::get_LeafHash(Node& n, Merkle::Hash& hv)
@@ -836,7 +847,7 @@ void UtxoTree::Compact::FlushInternal(uint16_t nBitsCommonNext)
 	if (m_LastCount)
 	{
 		// convert leaf -> node
-		MyLeaf::get_Hash(n.m_Hash, m_LastKey, m_LastCount);
+		MyLeaf::get_Hash_MW(n.m_Hash, m_LastKey, m_LastCount);
 		m_LastCount = 0;
 	}
 

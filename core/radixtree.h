@@ -283,7 +283,8 @@ public:
 		bool IsCommitmentDuplicated() const;
 
 		void get_Hash(Merkle::Hash&) const;
-		static void get_Hash(Merkle::Hash&, const Key&, Input::Count);
+		static void get_Hash_MW(Merkle::Hash&, const Key&, Input::Count);
+		static void get_Hash_Shielded(Merkle::Hash&, const Key&, TxoID);
 	};
 
 	typedef RadixTree::Cursor_T<Key::s_Bits> Cursor;
