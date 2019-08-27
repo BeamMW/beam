@@ -3001,6 +3001,28 @@ void Node::Peer::OnMsg(proto::GetProofShieldedTxo&& msg)
 	Send(msgOut);
 }
 
+void Node::Peer::OnMsg(proto::GetShieldedList&& msg)
+{
+	proto::ShieldedList msgOut;
+
+	Processor& p = m_This.m_Processor;
+	if ((msg.m_Id0 < p.m_Extra.m_Shielded) && msg.m_Count)
+	{
+		if (msg.m_Count > Lelantus::Cfg::N)
+			msg.m_Count = Lelantus::Cfg::N;
+
+		TxoID n = p.m_Extra.m_Shielded - msg.m_Id0;
+
+		if (msg.m_Count > n)
+			msg.m_Count = static_cast<uint32_t>(n);
+
+		msgOut.m_Items.resize(msg.m_Count);
+		p.get_DB().ShieldedRead(msg.m_Id0, &msgOut.m_Items.front(), msg.m_Count);
+	}
+
+	Send(msgOut);
+}
+
 bool Node::Processor::BuildCwp()
 {
     if (!m_Cwp.IsEmpty())
