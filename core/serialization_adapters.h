@@ -151,9 +151,28 @@ namespace detail
         /// ECC serialization adapters
         ///////////////////////////////////////////////////////////
 
-        /// ECC::Point serialization
+		/// ECC::Point serialization
+		template<typename Archive>
+		static Archive& save(Archive& ar, const ECC::Point& point)
+		{
+			ar
+				& point.m_X
+				& point.m_Y;
+			return ar;
+		}
+
+		template<typename Archive>
+		static Archive& load(Archive& ar, ECC::Point& point)
+		{
+			ar
+				& point.m_X
+				& point.m_Y;
+			return ar;
+		}
+
+		/// ECC::Point::Storage serialization
         template<typename Archive>
-        static Archive& save(Archive& ar, const ECC::Point& point)
+        static Archive& save(Archive& ar, const ECC::Point::Storage& point)
         {
             ar
                 & point.m_X
@@ -162,7 +181,7 @@ namespace detail
         }
 
         template<typename Archive>
-        static Archive& load(Archive& ar, ECC::Point& point)
+        static Archive& load(Archive& ar, ECC::Point::Storage& point)
         {
             ar
                 & point.m_X

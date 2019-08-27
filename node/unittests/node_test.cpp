@@ -224,7 +224,7 @@ namespace beam
 		{
 			for (size_t i = 0; i < _countof(m_pArr); i++)
 			{
-				m_pArr[i].x.n[0] = static_cast<uint32_t>(i);
+				m_pArr[i].m_X = i;
 			}
 		}
 
@@ -232,7 +232,7 @@ namespace beam
 		{
 			for (; i0 < i1; i0++)
 			{
-				if (m_pArr[i0].x.n[0] != n0++)
+				if (m_pArr[i0].m_X != ECC::uintBig(n0++))
 					return false;
 			}
 

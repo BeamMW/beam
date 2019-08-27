@@ -113,8 +113,11 @@ namespace ECC
     std::ostream& operator << (std::ostream&, const Scalar::Native&);
 
 	struct Point::Storage
-		:public secp256k1_ge_storage
 	{
+		uintBig m_X;
+		uintBig m_Y;
+
+		void FromNnz(secp256k1_ge&);
 	};
 
 	class Point::Native
@@ -166,7 +169,7 @@ namespace ECC
 
 		static void ExportEx(Point&, const secp256k1_ge&);
 
-		void Import(const Storage&);
+		bool Import(const Storage&, bool bVerify);
 		void Export(Storage&) const;
 	};
 

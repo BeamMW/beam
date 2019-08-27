@@ -462,9 +462,19 @@ namespace ECC {
 		secp256k1_gej_set_ge(this, &ge.V);
 
 		if (pS)
-			secp256k1_ge_to_storage(pS, &ge.V);
+			pS->FromNnz(ge.V);
 
 		return true;
+	}
+
+	void Point::Storage::FromNnz(secp256k1_ge& ge)
+	{
+		// normalization seems unnecessary, but it's minor
+		secp256k1_fe_normalize(&ge.x);
+		secp256k1_fe_normalize(&ge.y);
+
+		secp256k1_fe_get_b32(m_X.m_pData, &ge.x);
+		secp256k1_fe_get_b32(m_Y.m_pData, &ge.y);
 	}
 
 	bool Point::Native::Import(const Point& v, Storage* pS /* = nullptr */)
@@ -521,20 +531,30 @@ namespace ECC {
 		{
 			secp256k1_ge ge;
 			ExportNnz(ge);
-			secp256k1_ge_to_storage(&v, &ge);
+			v.FromNnz(ge);
 		}
 	}
 
-	void Point::Native::Import(const Storage& v)
+	bool Point::Native::Import(const Storage& v, bool bVerify)
 	{
 		if (memis0(&v, sizeof(v)))
 			*this = Zero;
 		else
 		{
-			secp256k1_ge ge;
-			secp256k1_ge_from_storage(&ge, &v);
+			secp256k1_ge ge = { 0 };
+			secp256k1_fe_set_b32(&ge.x, v.m_X.m_pData);
+			secp256k1_fe_set_b32(&ge.y, v.m_Y.m_pData);
+
+			if (bVerify && !secp256k1_ge_is_valid_var(&ge))
+			{
+				*this = Zero;
+				return false;
+			}
+
 			secp256k1_gej_set_ge(this, &ge);
 		}
+
+		return true;
 	}
 
 	Point::Native& Point::Native::operator = (Zero_)

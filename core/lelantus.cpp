@@ -117,7 +117,7 @@ void CmList::Import(MultiMac& mm, uint32_t iPos, uint32_t nCount)
 		if (!get_At(pt_s, iPos + mm.m_Casual))
 			break;
 
-		comm.Import(pt_s);
+		comm.Import(pt_s, false);
 		mm.m_pCasual[mm.m_Casual].Init(comm);
 	}
 }
