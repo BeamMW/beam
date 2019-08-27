@@ -30,6 +30,17 @@ using namespace beam;
 using namespace ECC;
 using namespace std;
 
+namespace
+{
+    QString AddressToQstring(const io::Address& address) {
+        if (!address.empty())
+        {
+            return str2qstr(address.str());
+        }
+        return {};
+    }
+}
+
 SettingsViewModel::SettingsViewModel()
     : m_settings{AppModel::getInstance().getSettings()}
     , m_isValidNodeAddress{true}
@@ -634,7 +645,7 @@ void SettingsViewModel::LoadBitcoinSettings()
     m_bitcoinSettings = AppModel::getInstance().getBitcoinClient()->GetSettings();
     setBtcUser(str2qstr(m_bitcoinSettings->GetConnectionOptions().m_userName));
     setBtcPass(str2qstr(m_bitcoinSettings->GetConnectionOptions().m_pass));
-    setBtcNodeAddress(str2qstr(m_bitcoinSettings->GetConnectionOptions().m_address.str()));
+    setBtcNodeAddress(AddressToQstring(m_bitcoinSettings->GetConnectionOptions().m_address));
     setBtcFeeRate(m_bitcoinSettings->GetFeeRate());
 }
 
@@ -643,7 +654,7 @@ void SettingsViewModel::LoadLitecoinSettings()
     m_litecoinSettings = AppModel::getInstance().getLitecoinClient()->GetSettings();
     setLtcUser(str2qstr(m_litecoinSettings->GetConnectionOptions().m_userName));
     setLtcPass(str2qstr(m_litecoinSettings->GetConnectionOptions().m_pass));
-    setLtcNodeAddress(str2qstr(m_litecoinSettings->GetConnectionOptions().m_address.str()));
+    setLtcNodeAddress(AddressToQstring(m_litecoinSettings->GetConnectionOptions().m_address));
     setLtcFeeRate(m_litecoinSettings->GetFeeRate());
 }
 
@@ -652,6 +663,6 @@ void SettingsViewModel::LoadQtumSettings()
     m_qtumSettings = AppModel::getInstance().getQtumClient()->GetSettings();
     setQtumUser(str2qstr(m_qtumSettings->GetConnectionOptions().m_userName));
     setQtumPass(str2qstr(m_qtumSettings->GetConnectionOptions().m_pass));
-    setQtumNodeAddress(str2qstr(m_qtumSettings->GetConnectionOptions().m_address.str()));
+    setQtumNodeAddress(AddressToQstring(m_qtumSettings->GetConnectionOptions().m_address));
     setQtumFeeRate(m_qtumSettings->GetFeeRate());
 }
