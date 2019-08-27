@@ -17,12 +17,17 @@
 #include "ui_helpers.h"
 #include "wallet/common.h"
 
-using namespace beam::wallet;
+SwapOfferItem::SwapOfferItem(const SwapOffer& offer, bool isOwn)
+    : m_offer{offer},
+      m_isOwnOffer{isOwn}
+{
+    m_offer.GetParameter(TxParameterID::AtomicSwapIsBeamSide, m_isBeamSide);
+}
 
-QDateTime SwapOfferItem::time() const
+QDateTime SwapOfferItem::timeCreated() const
 {
     beam::Timestamp time;
-    if (m_offer.GetParameter(TxParameterID::ModifyTime, time))
+    if (m_offer.GetParameter(TxParameterID::CreateTime, time))
     {
         QDateTime datetime;
         datetime.setTime_t(time);
@@ -34,30 +39,29 @@ QDateTime SwapOfferItem::time() const
     }
 }
 
-TxID SwapOfferItem::rawId() const
+QDateTime SwapOfferItem::timeExpiration() const
 {
-    auto id = m_offer.GetTxID();
-    
-    if (id.has_value())
+    beam::Timestamp time;
+    if (m_offer.GetParameter(TxParameterID::CreateTime, time))
     {
-        return id.value();
+        QDateTime datetime;
+        time += 60*60*24;       // defaut lifetime 24h
+        datetime.setTime_t(time);
+        // TODO : minus lifetime
+        // if (m_offer.GetParameter(beam::wallet::TxParameterID::PeerResponseHeight, x))
+        return datetime;
     }
     else
     {
-        return TxID();
+        return QDateTime();
     }
-}
-
-QString SwapOfferItem::id() const
-{
-    TxID txId = rawId();
-    return QString::fromStdString(beam::to_hex(txId.data(), txId.size()));
 }
 
 beam::Amount SwapOfferItem::rawAmount() const
 {
+    beam::wallet::TxParameterID paramID = m_isBeamSide ? TxParameterID::AtomicSwapAmount : TxParameterID::Amount;
     beam::Amount amount;
-    if (m_offer.GetParameter(TxParameterID::Amount, amount))
+    if (m_offer.GetParameter(paramID, amount))
     {
         return amount;
     }
@@ -66,36 +70,87 @@ beam::Amount SwapOfferItem::rawAmount() const
 
 beam::Amount SwapOfferItem::rawAmountSwap() const
 {
+    beam::wallet::TxParameterID paramID = m_isBeamSide ? TxParameterID::Amount : TxParameterID::AtomicSwapAmount;
     beam::Amount amount;
-    if (m_offer.GetParameter(TxParameterID::AtomicSwapAmount, amount))
+    if (m_offer.GetParameter(paramID, amount))
     {
         return amount;
     }
     return 0;
 }
 
+double SwapOfferItem::rate() const
+{
+    double amountSwap = double(int64_t(rawAmountSwap()));
+    double amount = double(int64_t(rawAmount()));
+    double rate = amountSwap / amount;
+
+    double p = pow( 10., 7 );
+    return floor( rate * p + .5 ) / p;
+}
+
 QString SwapOfferItem::amount() const
 {
-    return beamui::BeamToString(rawAmount());
+    auto coinType = getCoinType();
+    return beamui::AmountToString(rawAmount(), coinType);
 }
 
 QString SwapOfferItem::amountSwap() const
 {
-    return beamui::BeamToString(rawAmountSwap());
+    auto coinType = getSwapCoinType();
+    return beamui::AmountToString(rawAmountSwap(), coinType);
 }
 
-QString SwapOfferItem::message() const
+bool SwapOfferItem::isOwnOffer() const
 {
-    beam::ByteBuffer message;
-    if (m_offer.GetParameter(TxParameterID::Message, message))
-    {
-        std::string s(message.begin(), message.end());
-        return QString::fromStdString(s);
-    }
-    return QString();
+    return m_isOwnOffer;
 }
 
 beam::wallet::TxParameters SwapOfferItem::getTxParameters() const
 {
     return m_offer;
+}
+
+auto SwapOfferItem::getSwapCoinType() const -> beamui::Currencies
+{
+    if (m_isBeamSide)
+    {
+        return beamui::Currencies::Beam;
+    }
+    else
+    {
+        beam::wallet::AtomicSwapCoin coin;
+        if (m_offer.GetParameter(TxParameterID::AtomicSwapCoin, coin))
+        {
+            switch (coin)
+            {
+                case AtomicSwapCoin::Bitcoin:   return beamui::Currencies::Bitcoin;
+                case AtomicSwapCoin::Litecoin:  return beamui::Currencies::Bitcoin;
+                case AtomicSwapCoin::Qtum:      return beamui::Currencies::Bitcoin;
+            }
+        }
+        return beamui::Currencies::Unknown;
+    } 
+}
+
+auto SwapOfferItem::getCoinType() const -> beamui::Currencies
+{
+    if (!m_isBeamSide)
+    {
+        return beamui::Currencies::Beam;
+    }
+    else
+    {
+        beam::wallet::AtomicSwapCoin coin;
+        if (m_offer.GetParameter(TxParameterID::AtomicSwapCoin, coin))
+        {
+            switch (coin)
+            {
+                case AtomicSwapCoin::Bitcoin:   return beamui::Currencies::Bitcoin;
+                case AtomicSwapCoin::Litecoin:  return beamui::Currencies::Bitcoin;
+                case AtomicSwapCoin::Qtum:      return beamui::Currencies::Bitcoin;
+            }
+        }
+        return beamui::Currencies::Unknown;
+    }    
 }

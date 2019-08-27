@@ -243,7 +243,7 @@ double WalletViewModel::qtumLocked() const
 
 QString WalletViewModel::maturing() const
 {
-    return BeamToString(_status.getMaturing());
+    return AmountToString(_status.getMaturing(), Currencies::Beam);
 }
 
 QString WalletViewModel::sortRole() const

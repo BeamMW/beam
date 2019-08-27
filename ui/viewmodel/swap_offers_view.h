@@ -33,6 +33,7 @@ public:
 
     Q_INVOKABLE int getCoinType();
     Q_INVOKABLE void setCoinType(int coinType);
+    Q_INVOKABLE void cancelTx(QVariant txParameters);
 
 public slots:
     void onSwapDataModelChanged(beam::wallet::ChangeAction action, const std::vector<beam::wallet::SwapOffer>& offers);
@@ -42,6 +43,7 @@ signals:
 
 private:
     WalletModel& m_walletModel;
+    
     AtomicSwapCoin m_coinType;
     SwapOffersList m_offersList;
 

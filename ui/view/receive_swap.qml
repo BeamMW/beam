@@ -315,6 +315,7 @@ ColumnLayout {
                     thisView.addressSaved = true
                     viewModel.saveAddress()
                 }
+                viewModel.startListen()
                 viewModel.publishToken()
             }
         }

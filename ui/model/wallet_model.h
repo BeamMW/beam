@@ -33,6 +33,7 @@ public:
     ~WalletModel() override;
 
     QString GetErrorString(beam::wallet::ErrorType type);
+    bool isOwnAddress(beam::wallet::WalletID& walletID) const;
     bool isAddressWithCommentExist(const std::string& comment) const;
 
 signals:

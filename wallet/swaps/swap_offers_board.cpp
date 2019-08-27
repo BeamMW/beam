@@ -32,6 +32,7 @@ namespace beam::wallet
 
     void SwapOffersBoard::OnMsg(proto::BbsMsg &&msg)
     {
+        // TODO: Offers validation
         if (msg.m_Message.empty())
             return;
 
@@ -40,7 +41,7 @@ namespace beam::wallet
         {
             auto offer = token.UnpackParameters();
             auto txId = offer.GetTxID();
-            if (!txId)
+            if (txId.has_value())
             {
                 m_offersCache[*txId] = offer;
                 m_observer.onSwapOffersChanged(ChangeAction::Added, std::vector<SwapOffer>{offer});
@@ -91,7 +92,7 @@ namespace beam::wallet
     auto SwapOffersBoard::getChannel(const SwapOffer& offer) const -> boost::optional<BbsChannel>
     {
         auto coinType = offer.GetParameter<AtomicSwapCoin>(TxParameterID::AtomicSwapCoin);
-        if (!coinType)
+        if (coinType.has_value())
         {
             auto it = m_channelsMap.find(*coinType);
             if (it != std::cend(m_channelsMap))
@@ -108,7 +109,7 @@ namespace beam::wallet
         auto channel = getChannel(offer);
         
         // TODO: validation of offers
-        if (!channel)
+        if (channel.has_value())
         {
             wId.m_Channel = *channel;
             beam::wallet::TxToken token(offer);

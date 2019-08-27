@@ -53,6 +53,19 @@ QAbstractItemModel* SwapOffersViewModel::getAllOffers()
     return &m_offersList;
 }
 
+void SwapOffersViewModel::cancelTx(QVariant txParameters)
+{
+    if (!txParameters.isNull() && txParameters.isValid())
+    {
+        auto p = txParameters.value<beam::wallet::TxParameters>();
+        auto txId = p.GetTxID();
+        if (txId.has_value())
+        {
+            m_walletModel.getAsync()->cancelTx(txId.value());
+        }
+    }    
+}
+
 void SwapOffersViewModel::onSwapDataModelChanged(beam::wallet::ChangeAction action, const std::vector<beam::wallet::SwapOffer>& offers)
 {
     vector<shared_ptr<SwapOfferItem>> newOffers;
@@ -60,7 +73,12 @@ void SwapOffersViewModel::onSwapDataModelChanged(beam::wallet::ChangeAction acti
 
     for (const auto& offer : offers)
     {
-        newOffers.push_back(make_shared<SwapOfferItem>(offer));
+        // Offers without PeerID don't pass validation
+        WalletID walletID;
+        if (offer.GetParameter(TxParameterID::PeerID, walletID))
+        {
+            newOffers.push_back(make_shared<SwapOfferItem>(offer, m_walletModel.isOwnAddress(walletID)));
+        }
     }
 
     switch (action)

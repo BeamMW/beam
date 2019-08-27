@@ -17,36 +17,45 @@
 #include <QObject>
 #include <QDateTime>
 #include "model/wallet_model.h"
+#include "ui_helpers.h"
+
+using namespace beam::wallet;
 
 class SwapOfferItem : public QObject
 {
     Q_OBJECT
-    Q_PROPERTY(QDateTime time       READ time       NOTIFY changed)
-    Q_PROPERTY(QString id           READ id         NOTIFY changed)
-    Q_PROPERTY(QString amount       READ amount     NOTIFY changed)
-    Q_PROPERTY(QString amountSwap   READ amountSwap NOTIFY changed)
-    Q_PROPERTY(QString message      READ message    NOTIFY changed)
-    Q_PROPERTY(beam::wallet::TxParameters txParameters  READ getTxParameters    NOTIFY changed)
+    Q_PROPERTY(QDateTime timeCreated        READ timeCreated        NOTIFY changed)
+    Q_PROPERTY(QDateTime timeExpiration     READ timeExpiration     NOTIFY changed)
+    Q_PROPERTY(QString amount               READ amount             NOTIFY changed)
+    Q_PROPERTY(QString amountSwap           READ amountSwap         NOTIFY changed)
+    Q_PROPERTY(double rate                  READ rate               NOTIFY changed)
+    Q_PROPERTY(bool isOwnOffer              READ isOwnOffer         NOTIFY changed)
+    Q_PROPERTY(TxParameters txParameters    READ getTxParameters    NOTIFY changed)
 
 public:
     SwapOfferItem() = default;
-    SwapOfferItem(const beam::wallet::SwapOffer& offer) : m_offer{offer} {};
+    SwapOfferItem(const SwapOffer& offer, bool isOwn);
 
-    QDateTime time() const;
-    QString id() const;
+    QDateTime timeCreated() const;
+    QDateTime timeExpiration() const;
     QString amount() const;
     QString amountSwap() const;
-    QString message() const;
+    double rate() const;
+    bool isOwnOffer() const;
 
-    beam::wallet::TxID rawId() const;
     beam::Amount rawAmount() const;
     beam::Amount rawAmountSwap() const;
 
-    beam::wallet::TxParameters getTxParameters() const;
+    TxParameters getTxParameters() const;
 
 signals:
     void changed();
 
 private:
-    beam::wallet::SwapOffer m_offer;
+    auto getCoinType() const -> beamui::Currencies;
+    auto getSwapCoinType() const -> beamui::Currencies;
+
+    SwapOffer m_offer;          /// raw TxParameters
+    bool m_isOwnOffer;          /// indicates if offer belongs to this wallet
+    bool m_isBeamSide;          /// pay beam to receive other
 };

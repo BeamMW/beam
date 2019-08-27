@@ -1261,21 +1261,6 @@
         <source></source>
         <translation type="unfinished"></translation>
     </message>
-    <message id="offers-title">
-        <source></source>
-        <oldsource>Offers</oldsource>
-        <translation type="unfinished"></translation>
-    </message>
-    <message id="offers-search">
-        <source></source>
-        <oldsource>Search...</oldsource>
-        <translation type="unfinished"></translation>
-    </message>
-    <message id="offers-create">
-        <source></source>
-        <oldsource>Create offer</oldsource>
-        <translation type="unfinished"></translation>
-    </message>
     <message id="general-address-from">
         <source>From</source>
         <translation type="unfinished"></translation>
@@ -1316,30 +1301,6 @@
         <source></source>
         <translation type="unfinished"></translation>
     </message>
-    <message id="offers-last-updated">
-        <source></source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message id="offers-id">
-        <source></source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message id="offers-amount">
-        <source></source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message id="offers-amount-swap">
-        <source></source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message id="offers-message">
-        <source></source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message id="offers-accept">
-        <source></source>
-        <translation type="unfinished"></translation>
-    </message>
     <message id="swap-na-message">
         <source></source>
         <translation type="unfinished"></translation>
@@ -1373,6 +1334,62 @@
         <translation type="unfinished"></translation>
     </message>
     <message id="general-locked">
+        <source></source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="offer-book-title">
+        <source></source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="offer-book-create">
+        <source></source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="offer-book-title-2">
+        <source></source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="offer-book-coins">
+        <source></source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="offer-book-all-tab">
+        <source></source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="offer-book-mine-tab">
+        <source></source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="offer-book-others-tab">
+        <source></source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="offer-book-time-created">
+        <source></source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="offer-book-amount">
+        <source></source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="offer-book-amount-swap">
+        <source></source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="offer-book-rate">
+        <source></source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="offer-book-expiration">
+        <source></source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="offer-book-accept">
+        <source></source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="offer-book-cancel">
         <source></source>
         <translation type="unfinished"></translation>
     </message>

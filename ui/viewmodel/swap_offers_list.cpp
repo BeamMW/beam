@@ -22,16 +22,17 @@ QHash<int, QByteArray> SwapOffersList::roleNames() const
 {
     static const auto roles = QHash<int, QByteArray>
     {
-        { static_cast<int>(Roles::TimeRole), "time" },
-        { static_cast<int>(Roles::TimeSortRole), "timeSort" },
-        { static_cast<int>(Roles::IdRole), "id" },
-        { static_cast<int>(Roles::IdSortRole), "idSort" },
+        { static_cast<int>(Roles::TimeCreatedRole), "timeCreated" },
+        { static_cast<int>(Roles::TimeCreatedSortRole), "timeCreatedSort" },
         { static_cast<int>(Roles::AmountRole), "amount" },
         { static_cast<int>(Roles::AmountSortRole), "amountSort" },
         { static_cast<int>(Roles::AmountSwapRole), "amountSwap" },
         { static_cast<int>(Roles::AmountSwapSortRole), "amountSwapSort" },
-        { static_cast<int>(Roles::MessageRole), "message" },
-        { static_cast<int>(Roles::MessageSortRole), "messageSort" },
+        { static_cast<int>(Roles::RateRole), "rate" },
+        { static_cast<int>(Roles::RateSortRole), "rateSort" },
+        { static_cast<int>(Roles::ExpirationRole), "expiration" },
+        { static_cast<int>(Roles::ExpirationSortRole), "expirationSort" },
+        { static_cast<int>(Roles::IsOwnOfferRole), "isOwnOffer" },
         { static_cast<int>(Roles::RawTxParametersRole), "rawTxParameters" }
     };
     return roles;
@@ -46,12 +47,9 @@ QVariant SwapOffersList::data(const QModelIndex &index, int role) const
     auto& value = m_list[index.row()];
     switch (static_cast<Roles>(role))
     {
-    case Roles::TimeRole:
-    case Roles::TimeSortRole:
-        return value->time();
-    case Roles::IdRole:
-    case Roles::IdSortRole:
-        return value->id();
+    case Roles::TimeCreatedRole:
+    case Roles::TimeCreatedSortRole:
+        return value->timeCreated();
 	case Roles::AmountRole:
         return value->amount();
     case Roles::AmountSortRole:
@@ -60,9 +58,14 @@ QVariant SwapOffersList::data(const QModelIndex &index, int role) const
         return value->amountSwap();
     case Roles::AmountSwapSortRole:
         return static_cast<uint>(value->rawAmountSwap());
-    case Roles::MessageRole:
-    case Roles::MessageSortRole:
-        return value->message();
+    case Roles::RateRole:
+    case Roles::RateSortRole:
+        return value->rate();
+    case Roles::ExpirationRole:
+    case Roles::ExpirationSortRole:
+        return value->timeExpiration();
+    case Roles::IsOwnOfferRole:
+        return value->isOwnOffer();
     case Roles::RawTxParametersRole:
 		{
 			auto txParams = value->getTxParameters();
