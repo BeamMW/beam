@@ -2969,6 +2969,38 @@ void Node::Peer::OnMsg(proto::GetProofUtxo&& msg)
     Send(t.m_Msg);
 }
 
+void Node::Peer::OnMsg(proto::GetProofShieldedTxo&& msg)
+{
+	proto::ProofShieldedTxo msgOut;
+
+	Processor& p = m_This.m_Processor;
+	if (!p.IsFastSync())
+	{
+		UtxoTree::Key key;
+		key.SetShielded(msg.m_Commitment, true);
+
+		UtxoTree::Cursor cu;
+		bool bCreate = false;
+
+		const UtxoTree::MyLeaf* pLeaf = p.get_Utxos().Find(cu, key, bCreate);
+		if (pLeaf)
+		{
+			const UtxoTree::MyLeaf& v = *pLeaf;
+			UtxoTree::Key::Data d;
+			d = v.m_Key;
+
+			msgOut.m_ID = pLeaf->m_ID;
+			p.get_Utxos().get_Proof(msgOut.m_Proof, cu);
+
+			msgOut.m_Proof.emplace_back();
+			msgOut.m_Proof.back().first = false;
+			msgOut.m_Proof.back().second = p.m_Cursor.m_History;
+		}
+	}
+
+	Send(msgOut);
+}
+
 bool Node::Processor::BuildCwp()
 {
     if (!m_Cwp.IsEmpty())

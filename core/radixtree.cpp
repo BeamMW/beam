@@ -570,6 +570,14 @@ void Input::State::get_ID(Merkle::Hash& hv, const ECC::Point& comm) const
 	UtxoTree::MyLeaf::get_Hash_MW(hv, key, m_Count);
 }
 
+void Input::get_ShieldedID(Merkle::Hash& hv) const
+{
+	UtxoTree::Key key;
+	key.SetShielded(m_Commitment, true);
+
+	UtxoTree::MyLeaf::get_Hash_Shielded(hv, key, m_ID);
+}
+
 const Merkle::Hash& UtxoTree::get_LeafHash(Node& n, Merkle::Hash& hv)
 {
 	Cast::Up<MyLeaf>(n).get_Hash(hv);

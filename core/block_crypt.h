@@ -248,6 +248,8 @@ namespace beam
 
 		std::unique_ptr<SpendProof> m_pSpendProof;
 
+		void get_ShieldedID(Merkle::Hash&) const;
+
 		Input() {}
 		Input(Input&& v)
 			:TxElement(v)
@@ -558,6 +560,10 @@ namespace beam
 
 					// The following not only interprets the proof, but also verifies the knwon part of its structure.
 					bool IsValidProofUtxo(const ECC::Point&, const Input::Proof&) const;
+					bool IsValidProofShieldedTxo(const ECC::Point&, TxoID, const Merkle::Proof&) const;
+
+				private:
+					bool IsValidProofUtxoInternal(Merkle::Hash&, const Merkle::Proof&) const;
 				};
 			};
 

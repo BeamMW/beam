@@ -1359,17 +1359,34 @@ namespace beam
 		return m_PoW.Solve(hv.m_pData, hv.nBytes, m_Height, fnCancel);
 	}
 
-	bool Block::SystemState::Sequence::Element::IsValidProofUtxo(const ECC::Point& comm, const Input::Proof& p) const
+	bool Block::SystemState::Sequence::Element::IsValidProofUtxoInternal(Merkle::Hash& hv, const Merkle::Proof& p) const
 	{
 		// verify known part. Last node (history) should be at left
-		if (p.m_Proof.empty() || p.m_Proof.back().first)
+		if (p.empty() || p.back().first)
 			return false;
 
+		Merkle::Interpret(hv, p);
+		return hv == m_Definition;
+	}
+
+	bool Block::SystemState::Sequence::Element::IsValidProofUtxo(const ECC::Point& comm, const Input::Proof& p) const
+	{
 		Merkle::Hash hv;
 		p.m_State.get_ID(hv, comm);
 
-		Merkle::Interpret(hv, p.m_Proof);
-		return hv == m_Definition;
+		return IsValidProofUtxoInternal(hv, p.m_Proof);
+	}
+
+	bool Block::SystemState::Sequence::Element::IsValidProofShieldedTxo(const ECC::Point& comm, TxoID id, const Merkle::Proof& p) const
+	{
+		Merkle::Hash hv;
+
+		Input inp;
+		inp.m_Commitment = comm;
+		inp.m_ID = id;
+		inp.get_ShieldedID(hv);
+
+		return IsValidProofUtxoInternal(hv, p);
 	}
 
 	bool Block::SystemState::Full::IsValidProofKernel(const TxKernel& krn, const TxKernel::LongProof& proof) const
