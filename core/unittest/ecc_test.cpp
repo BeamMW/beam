@@ -2016,8 +2016,73 @@ void TestTreasury()
 	}
 }
 
+void TestAssetEmission()
+{
+	const beam::Height hScheme = g_hFork;
+
+	beam::Key::IDV kidvInp(600, 12, beam::Key::Type::Regular);
+	beam::Key::IDV kidvChange(430, 15, beam::Key::Type::Regular);
+	beam::Key::IDV kidvAsset(70, 25, beam::Key::Type::Regular);
+	const beam::Amount fee = 100;
+
+	beam::Key::IKdf::Ptr pKdf;
+	HKdf::Create(pKdf, Zero);
+
+	Scalar::Native skAssetSk, sk, kOffset(Zero);
+	pKdf->DeriveKey(skAssetSk, beam::Key::ID(1231231, beam::Key::Type::Asset));
+
+	beam::AssetID assetID;
+	beam::proto::Sk2Pk(assetID, skAssetSk);
+
+
+	beam::Transaction tx;
+
+	beam::Input::Ptr pInp(new beam::Input);
+	beam::SwitchCommitment().Create(sk, pInp->m_Commitment, *pKdf, kidvInp);
+	tx.m_vInputs.push_back(std::move(pInp));
+	kOffset += sk;
+
+	beam::Output::Ptr pOutp(new beam::Output);
+	pOutp->Create(hScheme, sk, *pKdf, kidvChange, *pKdf);
+	tx.m_vOutputs.push_back(std::move(pOutp));
+	kOffset += -sk;
+
+	pOutp.reset(new beam::Output);
+	pOutp->m_AssetID = assetID;
+	pOutp->Create(hScheme, sk, *pKdf, kidvAsset, *pKdf);
+	tx.m_vOutputs.push_back(std::move(pOutp));
+	kOffset += -sk;
+
+	beam::TxKernel::Ptr pKrn(new beam::TxKernel);
+	pKdf->DeriveKey(sk, beam::Key::ID(23123, beam::Key::Type::Kernel));
+	pKrn->m_Commitment = ECC::Context::get().G * sk;
+	pKrn->m_Fee = fee;
+	pKrn->Sign(sk);
+	tx.m_vKernels.push_back(std::move(pKrn));
+	kOffset += -sk;
+
+	pKrn.reset(new beam::TxKernel);
+	//pKrn->m_Commitment = ECC::Context::get().G * skAssetSk;
+	pKrn->m_Commitment.m_X = assetID;
+	pKrn->m_Commitment.m_Y = 0;
+	pKrn->m_AssetEmission = kidvAsset.m_Value;
+	pKrn->Sign(skAssetSk);
+	tx.m_vKernels.push_back(std::move(pKrn));
+	kOffset += -skAssetSk;
+
+	tx.m_Offset = kOffset;
+
+	beam::Transaction::Context::Params pars;
+	beam::Transaction::Context ctx(pars);
+	ctx.m_Height.m_Min = hScheme;
+	bool bIsValid = tx.IsValid(ctx);
+
+	verify_test(bIsValid);
+}
+
 void TestAll()
 {
+	TestAssetEmission();
 	TestUintBig();
 	TestHash();
 	TestScalars();
