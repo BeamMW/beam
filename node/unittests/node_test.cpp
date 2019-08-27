@@ -1614,6 +1614,169 @@ namespace beam
 				io::Reactor::get_Current().stop();
 			}
 
+			struct Shielded
+			{
+				Height m_Sent = 0;
+				bool m_Withdrew = false;
+
+				Amount m_Value;
+				ECC::Scalar::Native m_sk;
+				ECC::Scalar::Native m_skSpendKey;
+				ECC::Scalar::Native m_skSerial;
+				ECC::Point m_Commitment;
+
+			} m_Shielded;
+
+
+			bool SendShielded()
+			{
+				Height h = m_vStates.back().m_Height;
+				if (h + 1 < Rules::get().pForks[2].m_Height + 3)
+					return false;
+
+				proto::NewTransaction msgTx;
+
+				m_Shielded.m_Value = m_Wallet.MakeTxInput(msgTx.m_Transaction, h);
+				if (!m_Shielded.m_Value)
+					return false;
+
+				const Amount fee = 100;
+				m_Shielded.m_Value -= fee;
+
+				assert(msgTx.m_Transaction);
+
+				ECC::Scalar::Native kOffset = msgTx.m_Transaction->m_Offset;
+				kOffset = -kOffset;
+
+				{
+					ECC::SetRandom(m_Shielded.m_sk);
+					ECC::SetRandom(m_Shielded.m_skSpendKey);
+
+					Output::Ptr pOut(new Output);
+					pOut->m_pConfidential.reset(new ECC::RangeProof::Confidential);
+					pOut->m_pDoubleBlind.reset(new ECC::RangeProof::Confidential::Part3);
+
+					ECC::Point::Native ptN = ECC::Context::get().G * m_Shielded.m_skSpendKey;
+					ECC::Point pt = ptN;
+					Lelantus::SpendKey::ToSerial(m_Shielded.m_skSerial, pt);
+
+					ptN = ECC::Commitment(m_Shielded.m_sk, m_Shielded.m_Value);
+					ptN += ECC::Context::get().J * m_Shielded.m_skSerial;
+					pOut->m_Commitment = ptN;
+					m_Shielded.m_Commitment = pOut->m_Commitment;
+
+					ECC::Oracle oracle;
+					pOut->Prepare(oracle, h + 1);
+
+					ECC::RangeProof::CreatorParams cp;
+					ZeroObject(cp);
+					cp.m_Kidv.m_Value = m_Shielded.m_Value;
+					pOut->m_pConfidential->Create(m_Shielded.m_sk, cp, oracle, nullptr, pOut->m_pDoubleBlind.get(), &m_Shielded.m_skSerial);
+
+					verify_test(pOut->IsValid(h + 1, ptN));
+
+					msgTx.m_Transaction->m_vOutputs.push_back(std::move(pOut));
+
+					kOffset += m_Shielded.m_sk;
+				}
+
+				{
+					ECC::Scalar::Native k, ser1;
+					ECC::SetRandom(k);
+					ser1 = -m_Shielded.m_skSerial;
+
+					TxKernel::Ptr pKrn(new TxKernel);
+					pKrn->m_Fee = fee;
+					pKrn->Sign(k, ser1);
+
+					{
+						AmountBig::Type fee2;
+						ECC::Point::Native ptN;
+						verify_test(pKrn->IsValid(h + 1, fee2, ptN));
+					}
+
+					msgTx.m_Transaction->m_vKernels.push_back(std::move(pKrn));
+
+					kOffset += k;
+				}
+
+				kOffset = -kOffset;
+				msgTx.m_Transaction->m_Offset = kOffset;
+
+
+				msgTx.m_Transaction->Normalize();
+
+				Transaction::Context::Params pars;
+				Transaction::Context ctx(pars);
+				ctx.m_Height.m_Min = h + 1;
+				bool isTxValid = msgTx.m_Transaction->IsValid(ctx);
+				verify_test(isTxValid);
+
+				msgTx.m_Fluff = true;
+				Send(msgTx);
+
+				return true;
+			}
+
+			virtual void OnMsg(proto::ShieldedList&& msg) override
+			{
+				if (msg.m_Items.size() != Lelantus::Cfg::N)
+					return;
+
+				Height h = m_vStates.back().m_Height;
+
+				proto::NewTransaction msgTx;
+				msgTx.m_Transaction = std::make_shared<Transaction>();
+
+				ECC::Scalar::Native sk;
+				ECC::SetRandom(sk);
+
+				msgTx.m_Transaction->m_Offset = sk;
+
+				Input::Ptr pInp(new Input);
+				pInp->m_Commitment = ECC::Commitment(sk, m_Shielded.m_Value);
+				pInp->m_pSpendProof.reset(new Input::SpendProof);
+				pInp->m_pSpendProof->m_Window0 = 1;
+
+				Lelantus::CmListVec lst;
+				lst.m_vec.swap(msg.m_Items);
+
+				std::unique_ptr<Lelantus::Prover> pProver(new Lelantus::Prover(lst, *pInp->m_pSpendProof));
+				pProver->m_Witness.V.m_L = Lelantus::Cfg::N - 1; // last element
+				pProver->m_Witness.V.m_R = m_Shielded.m_sk;
+				pProver->m_Witness.V.m_R_Output = sk;
+				pProver->m_Witness.V.m_SpendSk = m_Shielded.m_skSpendKey;
+				pProver->m_Witness.V.m_V = m_Shielded.m_Value;
+
+				Lelantus::Proof::Output outp;
+				ECC::Oracle o1;
+				pProver->Generate(outp, Zero, o1);
+
+				{
+					// test
+				}
+
+				msgTx.m_Transaction->m_vInputs.push_back(std::move(pInp));
+
+				m_Wallet.MakeTxOutput(*msgTx.m_Transaction, h + 1, 0, m_Shielded.m_Value);
+
+				Transaction::Context::Params pars;
+				Transaction::Context ctx(pars);
+				ctx.m_Height.m_Min = h + 1;
+				verify_test(msgTx.m_Transaction->IsValid(ctx));
+
+				msgTx.m_Fluff = true;
+				Send(msgTx);
+			}
+
+			virtual void OnMsg(proto::ProofShieldedTxo&& msg) override
+			{
+				if (!msg.m_Proof.empty())
+				{
+					verify_test(m_vStates.back().IsValidProofShieldedTxo(m_Shielded.m_Commitment, msg.m_ID, msg.m_Proof));
+				}
+			}
+
 			virtual void OnMsg(proto::NewTip&& msg) override
 			{
 				if (!msg.m_Description.m_Height)
@@ -1629,6 +1792,23 @@ namespace beam
 					if (IsAllProofsReceived() && IsAllBbsReceived() && IsAllRecoveryReceived() /* && m_bCustomAssetRecognized*/)
 						io::Reactor::get_Current().stop();
 					return;
+				}
+
+				if (!m_Shielded.m_Sent && SendShielded())
+					m_Shielded.m_Sent = msg.m_Description.m_Height;
+
+				if (!m_Shielded.m_Withdrew && m_Shielded.m_Sent && (msg.m_Description.m_Height - m_Shielded.m_Sent >= 5))
+				{
+					proto::GetProofShieldedTxo msgOut;
+					msgOut.m_Commitment = m_Shielded.m_Commitment;
+					Send(msgOut);
+
+					proto::GetShieldedList msgOut2;
+					msgOut2.m_Id0 = 1;
+					msgOut2.m_Count = Lelantus::Cfg::N;
+					Send(msgOut2);
+
+					m_Shielded.m_Withdrew = true;
 				}
 
 				proto::BbsMsg msgBbs;
@@ -2337,6 +2517,7 @@ int main()
 	beam::Rules::get().CA.Enabled = true;
 	beam::Rules::get().Maturity.Coinbase = 10;
 	beam::Rules::get().pForks[1].m_Height = 16;
+	beam::Rules::get().pForks[2].m_Height = 17;
 	beam::Rules::get().UpdateChecksum();
 
 	beam::PrepareTreasury();
