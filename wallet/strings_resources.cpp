@@ -232,7 +232,7 @@ namespace beam
     const char kLaserChannelListState[] = "state";
     const char kLaserChannelListFee[] = "fee";
     const char kLaserChannelListLocktime[] = "locktime";
-    const char kLaserChannelTableBody[] = "  %1%|%2%|%3%|%4%|%5%|%6%";
+    const char kLaserChannelTableBody[] = "%1%|%2%|%3%|%4%|%5%|%6%";
     const char kLaserErrorOpenFailed[] = "Open failed : %1%";
     const char kLaserMessageClosed[] = "Closed : %1%";
     const char kLaserMessageChannelServed[] = "Channel: %1% served";
