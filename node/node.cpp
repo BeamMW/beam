@@ -1543,7 +1543,7 @@ void Node::Peer::OnDisconnect(const DisconnectReason& dr)
         break;
 
     case DisconnectReason::ProcessingExc:
-        if (dr.m_ExceptionDetails.m_ExceptionType == proto::NodeProcessingException::Type::TimeOutOfSync)
+        if (dr.m_ExceptionDetails.m_ExceptionType == proto::NodeProcessingException::Type::TimeOutOfSync && m_This.m_Cfg.m_Observer)
         {
             m_This.m_Cfg.m_Observer->OnSyncError(IObserver::Error::TimeDiffToLarge);
         }
@@ -1703,7 +1703,7 @@ void Node::Peer::OnMsg(proto::NewTip&& msg)
         switch (p.OnState(m_Tip, m_pInfo->m_ID.m_Key))
         {
         case NodeProcessor::DataStatus::Invalid:
-            m_Tip.m_TimeStamp > getTimestamp() ?
+            m_Tip.m_TimeStamp > getTimestamp() && m_This.m_Cfg.m_Observer ?
                 m_This.m_Cfg.m_Observer->OnSyncError(IObserver::Error::TimeDiffToLarge):
                 ThrowUnexpected();
             // no break;

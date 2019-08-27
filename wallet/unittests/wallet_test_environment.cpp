@@ -825,7 +825,7 @@ class TestNode
 {
 public:
     using NewBlockFunc = std::function<void(Height)>;
-    TestNode(NewBlockFunc func = NewBlockFunc(), Height height = 100500)
+    TestNode(NewBlockFunc func = NewBlockFunc(), Height height = 145)
         : m_NewBlockFunc(func)
     {
         m_Server.Listen(io::Address::localhost().port(32125));

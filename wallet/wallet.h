@@ -118,7 +118,6 @@ namespace beam::wallet
         void Unsubscribe(IWalletObserver* observer);
 
     private:
-        void RefreshTransactions();
         void ResumeTransaction(const TxDescription& tx);
         void ResumeAllTransactions();
 
