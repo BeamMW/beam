@@ -38,6 +38,8 @@ namespace beam::bitcoin
     {
     public:
 
+        using CreateBridge = std::function<IBridge::Ptr(io::Reactor& reactor, IBitcoinCoreSettingsProvider::Ptr settingsProvider)>;
+
         struct Balance
         {
             double m_available = 0;
@@ -53,7 +55,7 @@ namespace beam::bitcoin
             Unknown
         };
 
-        Client(wallet::IWalletDB::Ptr walletDB, io::Reactor& reactor);
+        Client(CreateBridge bridgeCreator, std::unique_ptr<SettingsProvider> settingsProvider, io::Reactor& reactor);
 
         IClientAsync::Ptr GetAsync();
 
@@ -75,6 +77,7 @@ namespace beam::bitcoin
         void ResetSettings() override;
 
         void SetStatus(const Status& status);
+        IBridge::Ptr GetBridge();
 
     private:
         Status m_status;
@@ -82,6 +85,7 @@ namespace beam::bitcoin
         IClientAsync::Ptr m_async;
         IBridge::Ptr m_bridge;
         std::unique_ptr<SettingsProvider> m_settingsProvider;
+        CreateBridge m_bridgeCreator;
 
         mutable std::mutex m_mutex;
         using Lock = std::unique_lock<std::mutex>;

@@ -118,26 +118,24 @@ int QMLGlobals::defFeeRateBtc()
 
 int QMLGlobals::minFeeRateLtc()
 {
-    // TODO:SWAP-SETTINGS read from settings (see btc for an example)
-    return 90000;
+    const auto ltcSettings = AppModel::getInstance().getLitecoinClient()->GetSettings();
+    return ltcSettings.GetMinFeeRate();
 }
 
 int QMLGlobals::defFeeRateLtc()
 {
-    // TODO:SWAP-SETTINGS read from settings (see btc for an example)
-    return 90000;
+    const auto ltcSettings = AppModel::getInstance().getLitecoinClient()->GetSettings();
+    return ltcSettings.GetFeeRate();
 }
 
 int QMLGlobals::minFeeRateQtum()
 {
-    // TODO:SWAP-SETTINGS read from settings (see btc for an example)
-    return 90000;
+    return AppModel::getInstance().getQtumClient()->GetSettings().GetMinFeeRate();
 }
 
 int QMLGlobals::defFeeRateQtum()
 {
-    // TODO:SWAP-SETTINGS read from settings (see btc for an example)
-    return 90000;
+    return AppModel::getInstance().getQtumClient()->GetSettings().GetFeeRate();
 }
 
 bool QMLGlobals::needPasswordToSpend()
@@ -189,18 +187,15 @@ bool QMLGlobals::canSwap()
 
 bool QMLGlobals::haveBtc()
 {
-    const auto btcSettings = AppModel::getInstance().getBitcoinClient()->GetSettings();
-    return btcSettings.IsInitialized();
+    return AppModel::getInstance().getBitcoinClient()->GetSettings().IsInitialized();
 }
 
 bool QMLGlobals::haveLtc()
 {
-    // TODO:SWAP return true if ltc is initialized
-    return false;
+    return AppModel::getInstance().getLitecoinClient()->GetSettings().IsInitialized();
 }
 
 bool QMLGlobals::haveQtum()
 {
-    // TODO:SWAP return true if qtum is initialized
-    return false;
+    return AppModel::getInstance().getQtumClient()->GetSettings().IsInitialized();
 }

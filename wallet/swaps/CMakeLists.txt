@@ -1,6 +1,7 @@
 cmake_minimum_required(VERSION 3.5)
 
 set(SWAP_SRC
+    common.cpp
     swap_transaction.cpp
     lock_tx_builder.cpp
     shared_tx_builder.cpp

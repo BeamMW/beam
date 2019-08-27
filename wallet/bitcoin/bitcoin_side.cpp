@@ -14,6 +14,8 @@
 
 #include "bitcoin_side.h"
 
+#include "common.h"
+
 #include "bitcoin/bitcoin.hpp"
 #include "nlohmann/json.hpp"
 
@@ -22,13 +24,7 @@ using json = nlohmann::json;
 
 namespace
 {
-    constexpr uint32_t kBTCLockTimeSec = 2 * 24 * 60 * 60;
-    constexpr uint32_t kBTCWithdrawTxAverageSize = 360;
     constexpr uint32_t kBTCMaxHeightDifference = 10;
-    // it's average value
-    constexpr uint32_t kBtcTxTimeInBeamBlocks = 70;
-    constexpr uint32_t kBTCTransactionVersion = 2;
-
 
     libbitcoin::chain::script AtomicSwapContract(const libbitcoin::ec_compressed& publicKeyA
         , const libbitcoin::ec_compressed& publicKeyB
@@ -213,9 +209,8 @@ namespace beam::wallet
 
     bool BitcoinSide::CheckAmount(Amount amount, Amount feeRate)
     {
-        constexpr Amount kDustThreshold = 546;
-        Amount fee = static_cast<Amount>(std::round(double(kBTCWithdrawTxAverageSize * feeRate) / 1000));
-        return amount > kDustThreshold && amount > fee;
+        Amount fee = static_cast<Amount>(std::round(double(bitcoin::kBTCWithdrawTxAverageSize * feeRate) / 1000));
+        return amount > bitcoin::kDustThreshold && amount > fee;
     }
 
     uint8_t BitcoinSide::GetAddressVersion() const
@@ -374,7 +369,7 @@ namespace beam::wallet
             Amount swapAmount = m_tx.GetMandatoryParameter<Amount>(TxParameterID::AtomicSwapAmount);
 
             libbitcoin::chain::transaction contractTx;
-            contractTx.set_version(kBTCTransactionVersion);
+            contractTx.set_version(bitcoin::kTransactionVersion);
             libbitcoin::chain::script outputScript = libbitcoin::chain::script::to_pay_script_hash_pattern(libbitcoin::bitcoin_short_hash(contractScript.to_data(false)));
             libbitcoin::chain::output output(swapAmount, outputScript);
             contractTx.outputs().push_back(output);
@@ -409,7 +404,7 @@ namespace beam::wallet
 
         if (swapTxState == SwapTxState::Initial)
         {
-            Amount fee = static_cast<Amount>(std::round(double(kBTCWithdrawTxAverageSize * GetFeeRate(subTxID)) / 1000));
+            Amount fee = static_cast<Amount>(std::round(double(bitcoin::kBTCWithdrawTxAverageSize * GetFeeRate(subTxID)) / 1000));
             Amount swapAmount = m_tx.GetMandatoryParameter<Amount>(TxParameterID::AtomicSwapAmount);
             swapAmount = swapAmount - fee;
             std::string withdrawAddress = GetWithdrawAddress();

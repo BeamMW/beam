@@ -89,13 +89,13 @@ void SendSwapViewModel::fillParameters(beam::wallet::TxParameters parameters)
             setSendCurrency(Currency::CurrBeam);
             setSendAmount(double(*beamAmount) / Rules::Coin);
             setReceiveCurrency(convertSwapCoinToCurrency(*swapCoin));
-            setReceiveAmount(double(*swapAmount) / 100000000);// TODO:SWAP us libbitcoin::satoshi_per_bitcoin);
+            setReceiveAmount(double(*swapAmount) / UnitsPerCoin(*swapCoin));
         }
         else
         {
             // Do not set fee, it is set automatically based on the currency param
             setSendCurrency(convertSwapCoinToCurrency(*swapCoin));
-            setSendAmount(double(*swapAmount) / 100000000);// TODO:SWAP us libbitcoin::satoshi_per_bitcoin);
+            setSendAmount(double(*swapAmount) / UnitsPerCoin(*swapCoin));
             setReceiveCurrency(Currency::CurrBeam);
             setReceiveAmount(double(*beamAmount) / Rules::Coin);
         }

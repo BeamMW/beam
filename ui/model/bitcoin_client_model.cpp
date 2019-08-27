@@ -15,6 +15,10 @@
 #include "bitcoin_client_model.h"
 
 #include "model/app_model.h"
+#include "wallet/common.h"
+#include "wallet/swaps/common.h"
+#include "wallet/bitcoin/bitcoin_core_017.h"
+#include "wallet/bitcoin/settings_provider.h"
 
 using namespace beam;
 
@@ -24,10 +28,15 @@ namespace
 }
 
 
-BitcoinClientModel::BitcoinClientModel(wallet::IWalletDB::Ptr walletDB, io::Reactor& reactor)
-    : bitcoin::Client(walletDB, reactor)
+BitcoinClientModel::BitcoinClientModel(beam::wallet::AtomicSwapCoin swapCoin, 
+    beam::bitcoin::Client::CreateBridge bridgeCreator,
+    std::unique_ptr<beam::bitcoin::SettingsProvider> settingsProvider,
+    io::Reactor& reactor)
+    : bitcoin::Client(bridgeCreator, std::move(settingsProvider), reactor)
     , m_timer(this)
     , m_walletModel(AppModel::getInstance().getWallet())
+    , m_reactor(reactor)
+    , m_swapCoin(swapCoin)
 {
     qRegisterMetaType<beam::bitcoin::Client::Status>("beam::bitcoin::Client::Status");
     qRegisterMetaType<beam::bitcoin::Client::Balance>("beam::bitcoin::Client::Balance");
@@ -96,45 +105,49 @@ void BitcoinClientModel::onTxStatus(beam::wallet::ChangeAction action, const std
     for (const auto& transaction : txList)
     {
         const auto txId = transaction.GetTxID();
+        auto swapCoin = transaction.GetParameter<beam::wallet::AtomicSwapCoin>(beam::wallet::TxParameterID::AtomicSwapCoin);
+
         if (txId && 
-            transaction.m_txType == wallet::TxType::AtomicSwap)
+            transaction.m_txType == wallet::TxType::AtomicSwap &&
+            swapCoin &&
+            *swapCoin == m_swapCoin)
         {
             switch (action)
             {
-            case wallet::ChangeAction::Reset:
-            case wallet::ChangeAction::Added:
-            {
-                m_transactions.emplace(*txId, transaction);
-                break;
-            }
-            case wallet::ChangeAction::Updated:
-            {
-                const auto it = m_transactions.find(*txId);
-                if (it != m_transactions.end())
-                {
-                    m_transactions[*txId] = transaction;
-                }
-                else
+                case wallet::ChangeAction::Reset:
+                case wallet::ChangeAction::Added:
                 {
                     m_transactions.emplace(*txId, transaction);
+                    break;
                 }
-                break;
-            }
-            // TODO: check, may be unused
-            case wallet::ChangeAction::Removed:
-            {
-                auto it = m_transactions.find(*txId);
-                if (it != m_transactions.end())
+                case wallet::ChangeAction::Updated:
                 {
-                    m_transactions.erase(it);
+                    const auto it = m_transactions.find(*txId);
+                    if (it != m_transactions.end())
+                    {
+                        m_transactions[*txId] = transaction;
+                    }
+                    else
+                    {
+                        m_transactions.emplace(*txId, transaction);
+                    }
+                    break;
                 }
-                break;
-            }
-            default:
-            {
-                assert(false && "unexpected ChangeAction");
-                break;
-            }
+                // TODO: check, may be unused
+                case wallet::ChangeAction::Removed:
+                {
+                    auto it = m_transactions.find(*txId);
+                    if (it != m_transactions.end())
+                    {
+                        m_transactions.erase(it);
+                    }
+                    break;
+                }
+                default:
+                {
+                    assert(false && "unexpected ChangeAction");
+                    break;
+                }
             }
         }
     }
@@ -145,24 +158,27 @@ void BitcoinClientModel::onTxStatus(beam::wallet::ChangeAction action, const std
 
 void BitcoinClientModel::RecalculateAmounts()
 {
+    using namespace beam::wallet;
     m_sending = 0;
     m_receiving = 0;
 
-    for (const auto&[txId, txDescription] : m_transactions)
+    for (const auto& txPair : m_transactions)
     {
-        if (txDescription.m_status == wallet::TxStatus::InProgress)
+        const auto& txDescription = txPair.second;
+
+        if (txDescription.m_status == beam::wallet::TxStatus::InProgress)
         {
-            auto isBeamSide = txDescription.GetParameter<bool>(wallet::TxParameterID::AtomicSwapIsBeamSide);
-            auto swapAmount = txDescription.GetParameter<Amount>(wallet::TxParameterID::AtomicSwapAmount);
+            auto isBeamSide = txDescription.GetParameter<bool>(TxParameterID::AtomicSwapIsBeamSide);
+            auto swapAmount = txDescription.GetParameter<Amount>(TxParameterID::AtomicSwapAmount);
             assert(isBeamSide && swapAmount);
-            // if (txDescription.)
+
             if (*isBeamSide)
             {
-                m_receiving += double(*swapAmount) / 100000000;
+                m_receiving += double(*swapAmount) / UnitsPerCoin(m_swapCoin);
             }
             else
             {
-                m_sending += double(*swapAmount) / 100000000;
+                m_sending += double(*swapAmount) / UnitsPerCoin(m_swapCoin);
             }
         }
     }

@@ -67,8 +67,13 @@ namespace beam::bitcoin
         void SetSettings(const Settings& settings) override;
         void ResetSettings() override;
 
+        void Initialize();
+
     protected:
-        void LoadSettings();
+
+        // TODO roman.strilets maybe to use const char*
+        virtual std::string GetSettingsName() const;
+        virtual Settings GetEmptySettings();
 
     private:
         wallet::IWalletDB::Ptr m_walletDB;

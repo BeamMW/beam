@@ -12,12 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "wallet/litecoin/litecoin_side.h"
+#include "litecoin_side.h"
+#include "wallet/bitcoin/common.h"
 
 namespace
 {
     constexpr uint32_t kLitecoinWithdrawTxAverageSize = 360;
-    constexpr beam::Amount kLitecoinDustThreshold = 546;
+    constexpr beam::Amount kLitecoinDustThreshold = beam::bitcoin::kDustThreshold;
     constexpr uint32_t kLitecoinLockTxEstimatedTimeInBeamBlocks = 20;   // it's average value
     constexpr uint8_t kLitecoinMainnetP2KH = 48;
 }
