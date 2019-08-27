@@ -1230,5 +1230,17 @@
         <source>Fee is too small</source>
         <translation>Памер каміссіі вельмі малы</translation>
     </message>
+    <message id="loading-view-estimate-minutes">
+        <source>min.</source>
+        <translation>хв.</translation>
+    </message>
+    <message id="loading-view-estimate-seconds">
+        <source>sec.</source>
+        <translation>сяк.</translation>
+    </message>
+    <message id="loading-view-estimate-time">
+        <source>Estimate time: %s</source>
+        <translation>Засталося:</translation>
+    </message>
 </context>
 </TS>
