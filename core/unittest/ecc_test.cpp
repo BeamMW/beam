@@ -2160,33 +2160,7 @@ void TestLelantus()
 	{
 		// test kernel with serial
 		beam::TxKernel krn;
-		pt = Context::get().G * p.m_Witness.V.m_R;
-		pt += Context::get().J * ser;
-		krn.m_Commitment = pt;
-
-		krn.m_pSerial.reset(new Scalar);
-
-		Scalar::Native nonce1, nonce2, k1, k2;
-		SetRandom(nonce1);
-		SetRandom(nonce2);
-
-		Signature::MultiSig msig;
-		msig.m_NoncePub = Context::get().G * nonce1;
-		msig.m_NoncePub += Context::get().J * nonce2;
-
-		krn.m_Signature.m_NoncePub = msig.m_NoncePub;
-
-		uintBig hv;
-		krn.get_Hash(hv);
-		
-		msig.m_Nonce = nonce1;
-		msig.SignPartial(k1, hv, p.m_Witness.V.m_R);
-
-		msig.m_Nonce = nonce2;
-		msig.SignPartial(k2, hv, ser);
-
-		krn.m_Signature.m_k = k1;
-		*krn.m_pSerial = k2;
+		krn.Sign(p.m_Witness.V.m_R, ser);
 
 		beam::AmountBig::Type fee;
 		verify_test(krn.IsValid(g_hFork, fee, pt));

@@ -361,7 +361,9 @@ namespace beam
 		void get_ID(Merkle::Hash&, const ECC::Hash::Value* pLockImage = NULL) const; // unique kernel identifier in the system.
 
 		bool IsValid(Height hScheme, AmountBig::Type& fee, ECC::Point::Native& exc) const;
+
 		void Sign(const ECC::Scalar::Native&); // suitable for aux kernels, created by single party
+		void Sign(const ECC::Scalar::Native& skG, const ECC::Scalar::Native& skJ); // aux kernel with serial excess
 
 		struct LongProof; // legacy
 

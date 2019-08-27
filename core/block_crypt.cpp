@@ -666,6 +666,49 @@ namespace beam
 		m_Signature.Sign(hv, sk);
 	}
 
+	void TxKernel::Sign(const ECC::Scalar::Native& skG, const ECC::Scalar::Native& skJ)
+	{
+		ECC::Point::Native pt = ECC::Context::get().G * skG;
+		pt += ECC::Context::get().J * skJ;
+		m_Commitment = pt;
+
+		m_pSerial.reset(new ECC::Scalar);
+
+		ECC::NoLeak<ECC::Scalar> s_;
+		ECC::Hash::Value& hv = s_.V.m_Value; // alias
+
+		ECC::NonceGenerator nonceGen("beam-krn-S");
+
+		s_.V = skG;
+		nonceGen << hv;
+		s_.V = skJ;
+		nonceGen << hv;
+		ECC::GenRandom(hv); // add extra randomness to the nonce, so it's derived from both deterministic and random parts
+		nonceGen << hv;
+		get_Hash(hv);
+		nonceGen << hv;
+
+		ECC::Scalar::Native kG, kJ;
+		nonceGen
+			>> kG
+			>> kJ;
+
+		ECC::Signature::MultiSig msig;
+		msig.m_NoncePub = ECC::Context::get().G * kG;
+		msig.m_NoncePub += ECC::Context::get().J * kJ;
+
+		m_Signature.m_NoncePub = msig.m_NoncePub;
+
+		msig.m_Nonce = kG;
+		msig.SignPartial(kG, hv, skG);
+
+		msig.m_Nonce = kJ;
+		msig.SignPartial(kJ, hv, skJ);
+
+		m_Signature.m_k = kG;
+		*m_pSerial = kJ;
+	}
+
 	void TxKernel::operator = (const TxKernel& v)
 	{
 		Cast::Down<TxElement>(*this) = v;
