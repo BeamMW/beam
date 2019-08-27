@@ -258,7 +258,6 @@ public:
 	bool ValidateShieldedNoDup(const ECC::Point&, bool bOutp);
 	bool IsShieldedInPool(const Input&);
 	bool IsShieldedInPool(const Transaction&);
-	static void SetShieldedKey(UtxoTree::Key&, const ECC::Point&, bool bOutp);
 
 	struct GeneratedBlock
 	{

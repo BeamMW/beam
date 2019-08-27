@@ -787,6 +787,20 @@ UtxoTree::Key& UtxoTree::Key::operator = (const Data& d)
 	return *this;
 }
 
+void UtxoTree::Key::SetShielded(const ECC::Point& comm, bool bOutp)
+{
+	Data d;
+	d.m_Commitment = comm;
+	d.m_Shielded = true;
+	d.m_Maturity = MaxHeight; // convention
+	if (bOutp)
+		d.m_Maturity--;
+
+	*this = d;
+	assert(IsShielded());
+}
+
+
 bool UtxoTree::Compact::Add(const Key& key)
 {
 	uint16_t nBitsCommon = 0;

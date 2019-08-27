@@ -2130,23 +2130,10 @@ bool NodeProcessor::IsShieldedInPool(const Input& v)
 	return (v.m_pSpendProof->m_Window0 + Lelantus::Cfg::N <= m_Extra.m_Shielded);
 }
 
-void NodeProcessor::SetShieldedKey(UtxoTree::Key& key, const ECC::Point& comm, bool bOutp)
-{
-	UtxoTree::Key::Data d;
-	d.m_Commitment = comm;
-	d.m_Shielded = true;
-	d.m_Maturity = MaxHeight; // convention
-	if (bOutp)
-		d.m_Maturity--;
-
-	key = d;
-	assert(key.IsShielded());
-}
-
 bool NodeProcessor::HandleShieldedElement(const ECC::Point& comm, bool bOutp, bool bFwd)
 {
 	UtxoTree::Key key;
-	SetShieldedKey(key, comm, bOutp);
+	key.SetShielded(comm, bOutp);
 
 	UtxoTree::Cursor cu;
 	bool bCreate = true;
@@ -2183,7 +2170,7 @@ bool NodeProcessor::HandleShieldedElement(const ECC::Point& comm, bool bOutp, bo
 bool NodeProcessor::ValidateShieldedNoDup(const ECC::Point& comm, bool bOutp)
 {
 	UtxoTree::Key key;
-	SetShieldedKey(key, comm, bOutp);
+	key.SetShielded(comm, bOutp);
 
 	UtxoTree::Cursor cu;
 	bool bCreate = false;
