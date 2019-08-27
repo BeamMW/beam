@@ -26,7 +26,7 @@ ColumnLayout {
     function isValid () {
         if (!viewModel.commentValid) return false
         if (viewModel.receiveCurrency == viewModel.sentCurrency) return false
-        return receiveAmountInput.isValid && sentAmountInput.isValid
+        return receiveAmountInput.isValid && sentAmountInput.isValid && !currencyError()
     }
 
     function canSend () {
