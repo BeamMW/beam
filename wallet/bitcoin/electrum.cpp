@@ -305,7 +305,7 @@ namespace beam::bitcoin
 
     void Electrum::getTxOut(const std::string& txid, int outputIndex, std::function<void(const IBridge::Error&, const std::string&, double, uint32_t)> callback)
     {
-        LOG_DEBUG() << "getTxOut command";
+        //LOG_DEBUG() << "getTxOut command";
         sendRequest("blockchain.transaction.get", "\"" + txid + "\", true", [callback, outputIndex](IBridge::Error error, const json& result, uint64_t)
         {
             double value = 0;
@@ -354,7 +354,7 @@ namespace beam::bitcoin
 
     void Electrum::getBlockCount(std::function<void(const IBridge::Error&, uint64_t)> callback)
     {
-        LOG_DEBUG() << "getBlockCount command";
+        //LOG_DEBUG() << "getBlockCount command";
 
         sendRequest("blockchain.headers.subscribe", "", [callback](IBridge::Error error, const json& result, uint64_t)
         {
@@ -457,7 +457,7 @@ namespace beam::bitcoin
                 TCPConnect& connection = m_connections[tag];
 
                 {
-                    payment_address addr(privateKeys[tmp.m_index].to_public().to_payment_address(m_settingsProvider->GetElectrumSettings().m_addressVersion));
+                    payment_address addr(privateKeys[tmp.m_index].to_public().to_payment_address(addressVersion));
                     LOG_INFO() << "address = " << addr.encoded();
                 }
                 try
@@ -505,7 +505,7 @@ namespace beam::bitcoin
         std::string request(R"({"method":")" + method + R"(","params":[)" + params + R"(], "id": "test"})");
         request += "\n";
 
-        LOG_INFO() << request;
+        //LOG_INFO() << request;
 
         uint64_t currentTag = m_counter++;
         TCPConnect& connection = m_connections[currentTag];
@@ -530,7 +530,7 @@ namespace beam::bitcoin
                         {
                             std::string strResponse = std::string(static_cast<const char*>(data), size);
 
-                            LOG_INFO() << "strResponse: " << strResponse;
+                            //LOG_INFO() << "strResponse: " << strResponse;
                             try
                             {
                                 json reply = json::parse(strResponse);
