@@ -748,6 +748,11 @@ UtxoTree::Key::Data& UtxoTree::Key::Data::operator = (const Key& key)
 	return *this;
 }
 
+bool UtxoTree::Key::IsShielded() const
+{
+	return 0 != (V.m_pData[ECC::uintBig::nBytes + sizeof(Height)] & (1 << 6));
+}
+
 UtxoTree::Key& UtxoTree::Key::operator = (const Data& d)
 {
 	memcpy(V.m_pData, d.m_Commitment.m_X.m_pData, d.m_Commitment.m_X.nBytes);
@@ -762,11 +767,11 @@ UtxoTree::Key& UtxoTree::Key::operator = (const Data& d)
 	{
 		uint8_t val = uint8_t(d.m_Maturity >> ((sizeof(d.m_Maturity) - i - 1) << 3));
 		pKey[i] |= val >> 1;
-		pKey[i + 1] |= (val << 7);
+		pKey[i + 1] = (val << 7);
 	}
 
 	if (d.m_Shielded)
-		pKey[0] |= (1 << 6);
+		pKey[sizeof(d.m_Maturity)] |= (1 << 6);
 
 	return *this;
 }

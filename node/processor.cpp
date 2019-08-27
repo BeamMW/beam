@@ -2141,6 +2141,7 @@ void NodeProcessor::SetShieldedKey(UtxoTree::Key& key, const ECC::Point& comm, b
 		d.m_Maturity--;
 
 	key = d;
+	assert(key.IsShielded());
 }
 
 bool NodeProcessor::HandleShieldedElement(const ECC::Point& comm, bool bOutp, bool bFwd)

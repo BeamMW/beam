@@ -254,6 +254,7 @@ public:
 		static const uint16_t s_Bytes = (s_Bits + 7) >> 3;
 
 		Key& operator = (const Data&);
+		bool IsShielded() const;
 
 		uintBig_t<s_Bytes> V;
 	};
