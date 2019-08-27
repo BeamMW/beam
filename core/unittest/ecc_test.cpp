@@ -2228,6 +2228,8 @@ void TestLelantus()
 	{
 		const uint32_t nCycles = j ? 1 : 11;
 
+		memset0(&vKs.front(), sizeof(ECC::Scalar::Native) * vKs.size());
+
 		t = beam::GetTime_ms();
 
 		for (uint32_t i = 0; i < nCycles; i++)
