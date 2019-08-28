@@ -157,6 +157,17 @@ RowLayout {
         Item {
             Layout.preferredWidth: openInExplorer.width + 10 + openInExplorerIcon.width
             Layout.preferredHeight: 16
+            function canOpenInBlockchainExplorer(status) {
+                switch(status) {
+                    case "completed":
+                    case "received":
+                    case "sent":
+                        return true;
+                    default:
+                        return false;
+                }
+            }
+            visible: model && canOpenInBlockchainExplorer(model.status)
 
             SFText {
                 id: openInExplorer

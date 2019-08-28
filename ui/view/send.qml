@@ -17,7 +17,7 @@ Item {
         }
 
         onCantSendToExpired: {
-            walletView.enabled = true;
+            sendView.enabled = true;
             Qt.createComponent("send_expired.qml")
                 .createObject(sendView)
                 .open();

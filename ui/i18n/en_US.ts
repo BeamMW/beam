@@ -1235,5 +1235,17 @@ or send this address to the sender over secure channel</translation>
         <source>Fee is too small</source>
         <translation>Fee is too small</translation>
     </message>
+    <message id="loading-view-estimate-minutes">
+        <source>min.</source>
+        <translation>min.</translation>
+    </message>
+    <message id="loading-view-estimate-seconds">
+        <source>sec.</source>
+        <translation>sec.</translation>
+    </message>
+    <message id="loading-view-estimate-time">
+        <source>Estimate time: %s</source>
+        <translation>Estimate time: %s</translation>
+    </message>
 </context>
 </TS>

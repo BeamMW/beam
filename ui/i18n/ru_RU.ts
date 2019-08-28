@@ -1234,5 +1234,17 @@
         <source>Fee is too small</source>
         <translation>Размер комиссии слишком мал</translation>
     </message>
+    <message id="loading-view-estimate-minutes">
+        <source>min.</source>
+        <translation>мин.</translation>
+    </message>
+    <message id="loading-view-estimate-seconds">
+        <source>sec.</source>
+        <translation>сек.</translation>
+    </message>
+    <message id="loading-view-estimate-time">
+        <source>Estimate time: %s</source>
+        <translation>Осталось:</translation>
+    </message>
 </context>
 </TS>

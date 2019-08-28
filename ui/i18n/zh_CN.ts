@@ -1246,5 +1246,17 @@
         <source>Fee is too small</source>
         <translation type="unfinished"></translation>
     </message>
+    <message id="loading-view-estimate-minutes">
+        <source>min.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="loading-view-estimate-seconds">
+        <source>sec.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="loading-view-estimate-time">
+        <source>Estimate time: %s</source>
+        <translation type="unfinished"></translation>
+    </message>
 </context>
 </TS>
