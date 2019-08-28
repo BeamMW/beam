@@ -950,6 +950,62 @@
         <source>Spent</source>
         <translation>Израсходовано</translation>
     </message>
+    <message id="offer-book-title">
+        <source>Offer Book</source>
+        <translation>Доска предложений</translation>
+    </message>
+    <message id="offer-book-title-2">
+        <source>Active offers</source>
+        <translation>Активные предложения</translation>
+    </message>
+    <message id="offer-book-coins">
+        <source>Coins</source>
+        <translation>Валюты</translation>
+    </message>
+    <message id="offer-book-create">
+        <source>Create an offer</source>
+        <translation>Создать предложение</translation>
+    </message>
+    <message id="offer-book-all-tab">
+        <source>All</source>
+        <translation>Все</translation>
+    </message>
+    <message id="offer-book-mine-tab">
+        <source>Mine</source>
+        <translation>Мои</translation>
+    </message>
+    <message id="offer-book-others-tab">
+        <source>Others</source>
+        <translation>Чужие</translation>
+    </message>
+    <message id="offer-book-time-created">
+        <source>Date | time</source>
+        <translation>Дата | время</translation>
+    </message>
+    <message id="offer-book-amount">
+        <source>Amount</source>
+        <translation>Количество</translation>
+    </message>
+    <message id="offer-book-amount-swap">
+        <source>Amount</source>
+        <translation>Количество</translation>
+    </message>
+    <message id="offer-book-rate">
+        <source>Rate</source>
+        <translation>Курс</translation>
+    </message>
+    <message id="offer-book-expiration">
+        <source>Expiration</source>
+        <translation>Истекает</translation>
+    </message>
+    <message id="offer-book-accept">
+        <source>Accept offer</source>
+        <translation>Принять предложение</translation>
+    </message>
+    <message id="offer-book-cancel">
+        <source>Cancel offer</source>
+        <translation>Отменить предложение</translation>
+    </message>
     <message id="settings-general-lock-screen-never">
         <source>Never</source>
         <translation>Никогда</translation>

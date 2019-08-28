@@ -1068,74 +1068,60 @@
         <translation>Spent</translation>
     </message>
     <message id="offer-book-title">
-        <source></source>
-        <oldsource>Offer Book</oldsource>
-        <translation type="unfinished">Offer Book</translation>
+        <source>Offer Book</source>
+        <translation>Offer Book</translation>
     </message>
     <message id="offer-book-title-2">
-        <source></source>
-        <oldsource>Active offers</oldsource>
-        <translation type="unfinished">Active offers</translation>
+        <source>Active offers</source>
+        <translation>Active offers</translation>
     </message>
     <message id="offer-book-coins">
-        <source></source>
-        <oldsource>Coins</oldsource>
-        <translation type="unfinished">Coins</translation>
+        <source>Coins</source>
+        <translation>Coins</translation>
     </message>
     <message id="offer-book-create">
-        <source></source>
-        <oldsource>Create an offer</oldsource>
-        <translation type="unfinished">Create an offer</translation>
+        <source>Create an offer</source>
+        <translation>Create an offer</translation>
     </message>
     <message id="offer-book-all-tab">
-        <source></source>
-        <oldsource>All</oldsource>
-        <translation type="unfinished">All</translation>
+        <source>All</source>
+        <translation>All</translation>
     </message>
     <message id="offer-book-mine-tab">
-        <source></source>
-        <oldsource>Mine</oldsource>
-        <translation type="unfinished">Mine</translation>
+        <source>Mine</source>
+        <translation>Mine</translation>
     </message>
     <message id="offer-book-others-tab">
-        <source></source>
-        <oldsource>Others</oldsource>
-        <translation type="unfinished">Others</translation>
+        <source>Others</source>
+        <translation>Others</translation>
     </message>
     <message id="offer-book-time-created">
-        <source></source>
-        <oldsource>Date | time</oldsource>
-        <translation type="unfinished">Date | time</translation>
+        <source>Date | time</source>
+        <translation>Date | time</translation>
     </message>
     <message id="offer-book-amount">
-        <source></source>
-        <oldsource>Amount</oldsource>
-        <translation type="unfinished">Amount</translation>
+        <source>Amount</source>
+        <translation>Amount</translation>
     </message>
     <message id="offer-book-amount-swap">
-        <source></source>
-        <oldsource>Amount</oldsource>
-        <translation type="unfinished">Amount</translation>
+        <source>Amount</source>
+        <translation>Amount</translation>
     </message>
     <message id="offer-book-rate">
-        <source></source>
-        <oldsource>Rate</oldsource>
-        <translation type="unfinished">Rate</translation>
+        <source>Rate</source>
+        <translation>Rate</translation>
     </message>
     <message id="offer-book-expiration">
-        <source></source>
-        <oldsource>Expiration</oldsource>
-        <translation type="unfinished">Expiration</translation>
+        <source>Expiration</source>
+        <translation>Expiration</translation>
     </message>
     <message id="offer-book-accept">
-        <source></source>
-        <oldsource>Accept offer</oldsource>
-        <translation type="unfinished">Accept offer</translation>
+        <source>Accept offer</source>
+        <translation>Accept offer</translation>
     </message>
     <message id="offer-book-cancel">
-        <source></source>
-        <oldsource>Cancel offer</oldsource>
-        <translation type="unfinished">Cancel offer</translation>
+        <source>Cancel offer</source>
+        <translation>Cancel offer</translation>
     </message>
     <message id="settings-general-lock-screen-never">
         <source>Never</source>

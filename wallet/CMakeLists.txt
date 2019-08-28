@@ -24,6 +24,7 @@ target_compile_definitions(wallet
 target_link_libraries(wallet core sqlite)
 target_compile_features(wallet PUBLIC cxx_std_17)
 
+add_subdirectory(swaps)
 
 if (NOT ANDROID)
 
@@ -84,7 +85,6 @@ if (NOT ANDROID)
     endif()
 
     add_subdirectory(unittests)
-    add_subdirectory(swaps)
 
     if (BEAM_SIGN_PACKAGE AND WIN32)
         add_custom_command(

@@ -90,8 +90,8 @@ namespace
         // test if only subscribed coin offer stored
         receiverBoard.subscribe(AtomicSwapCoin::Bitcoin);
 
-        SwapOffer offer1(TxID{1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16});
-        SwapOffer offer2(TxID{10,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16});
+        SwapOffer offer1(TxID{{1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16}});
+        SwapOffer offer2(TxID{{10,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16}});
         offer1.SetParameter(TxParameterID::AtomicSwapCoin, toByteBuffer(AtomicSwapCoin::Bitcoin));
         offer2.SetParameter(TxParameterID::AtomicSwapCoin, toByteBuffer(AtomicSwapCoin::Litecoin));
         senderBoard.publishOffer(offer1);

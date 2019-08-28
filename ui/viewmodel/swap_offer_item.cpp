@@ -123,6 +123,7 @@ auto SwapOfferItem::getSwapCoinType() const -> beamui::Currencies
             case AtomicSwapCoin::Bitcoin:   return beamui::Currencies::Bitcoin;
             case AtomicSwapCoin::Litecoin:  return beamui::Currencies::Litecoin;
             case AtomicSwapCoin::Qtum:      return beamui::Currencies::Qtum;
+            case AtomicSwapCoin::Unknown:   return beamui::Currencies::Unknown;
         }
     }
     return beamui::Currencies::Unknown;

@@ -951,6 +951,48 @@ Vous essayez de restaurer un portefeuille Beam existant. Veuillez noter que si v
         <source>Spent</source>
         <translation type="unfinished">Spent</translation>
     </message>
+    <message id="offer-book-title">
+        <source>Offer Book</source>
+    </message>
+    <message id="offer-book-title-2">
+        <source>Active offers</source>
+    </message>
+    <message id="offer-book-coins">
+        <source>Coins</source>
+    </message>
+    <message id="offer-book-create">
+        <source>Create an offer</source>
+    </message>
+    <message id="offer-book-all-tab">
+        <source>All</source>
+    </message>
+    <message id="offer-book-mine-tab">
+        <source>Mine</source>
+    </message>
+    <message id="offer-book-others-tab">
+        <source>Others</source>
+    </message>
+    <message id="offer-book-time-created">
+        <source>Date | time</source>
+    </message>
+    <message id="offer-book-amount">
+        <source>Amount</source>
+    </message>
+    <message id="offer-book-amount-swap">
+        <source>Amount</source>
+    </message>
+    <message id="offer-book-rate">
+        <source>Rate</source>
+    </message>
+    <message id="offer-book-expiration">
+        <source>Expiration</source>
+    </message>
+    <message id="offer-book-accept">
+        <source>Accept offer</source>
+    </message>
+    <message id="offer-book-cancel">
+        <source>Cancel offer</source>
+    </message>
     <message id="settings-general-lock-screen-never">
         <source>Never</source>
         <translation type="unfinished">Never</translation>
