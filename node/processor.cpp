@@ -615,6 +615,191 @@ void NodeProcessor::RequestDataInternal(const Block::SystemState::ID& id, uint64
 	}
 }
 
+struct NodeProcessor::MultiShieldedContext
+{
+	static const uint32_t s_Chunk = Lelantus::Cfg::N / 4;
+
+	struct Node
+	{
+		struct ID
+			:public boost::intrusive::set_base_hook<>
+		{
+			TxoID m_Value;
+			bool operator < (const ID& x) const { return (m_Value < x.m_Value); }
+
+			IMPLEMENT_GET_PARENT_OBJ(Node, m_ID)
+		} m_ID;
+
+		ECC::Scalar::Native m_pS[s_Chunk];
+		uint32_t m_Min, m_Max;
+
+		typedef boost::intrusive::multiset<ID> IDSet;
+	};
+
+
+	std::mutex m_Mutex;
+	Node::IDSet m_Set;
+
+	void Add(TxoID, const ECC::Scalar::Native*);
+	void ClearLocked();
+
+	~MultiShieldedContext()
+	{
+		ClearLocked();
+	}
+
+	void Calculate(ECC::Point::Native&, NodeProcessor&);
+	bool IsValid(const Input&, std::vector<ECC::Scalar::Native>& vBuf, ECC::InnerProduct::BatchContext&);
+
+private:
+
+	struct MyTask;
+
+	void DeleteRaw(Node&);
+	Lelantus::CmListVec m_Lst;
+	std::vector<ECC::Point::Native> m_vRes;
+
+};
+
+void NodeProcessor::MultiShieldedContext::ClearLocked()
+{
+	while (!m_Set.empty())
+		DeleteRaw(m_Set.begin()->get_ParentObj());
+}
+
+void NodeProcessor::MultiShieldedContext::DeleteRaw(Node& n)
+{
+	m_Set.erase(Node::IDSet::s_iterator_to(n.m_ID));
+	delete &n;
+}
+
+void NodeProcessor::MultiShieldedContext::Add(TxoID id0, const ECC::Scalar::Native* pS)
+{
+	uint32_t nCount = Lelantus::Cfg::N;
+	uint32_t nOffset = static_cast<uint32_t>(id0 % s_Chunk);
+
+	Node::ID key;
+	key.m_Value = id0 - nOffset;
+
+	std::unique_lock<std::mutex> scope(m_Mutex);
+
+	while (nCount)
+	{
+		uint32_t nPortion = std::min(nCount, s_Chunk - nOffset);
+		
+		Node::IDSet::iterator it = m_Set.find(key);
+		bool bNew = (m_Set.end() == it);
+		if (bNew)
+		{
+			Node* pN = new Node;
+			pN->m_ID = key;
+			m_Set.insert(pN->m_ID);
+			it = Node::IDSet::s_iterator_to(pN->m_ID);
+		}
+
+		Node& n = it->get_ParentObj();
+		if (bNew)
+		{
+			n.m_Min = nOffset;
+			n.m_Max = nOffset + nPortion;
+		}
+		else
+		{
+			n.m_Min = std::min(n.m_Min, nOffset);
+			n.m_Max = std::max(n.m_Max, nOffset + nPortion);
+		}
+
+		ECC::Scalar::Native* pT = n.m_pS + nOffset;
+		for (uint32_t i = 0; i < nPortion; i++)
+			pT[i] += pS[i];
+
+		pS += nPortion;
+		nCount -= nPortion;
+		key.m_Value += s_Chunk;
+		nOffset = 0;
+	}
+}
+
+struct NodeProcessor::MultiShieldedContext::MyTask
+	:public NodeProcessor::Task
+{
+	MultiShieldedContext* m_pThis;
+	const ECC::Scalar::Native* m_pS;
+	uint32_t m_iIdx;
+	uint32_t m_i0;
+	uint32_t m_nCount;
+
+	virtual ~MyTask() {}
+
+	virtual void Exec() override
+	{
+		ECC::Point::Native& val = m_pThis->m_vRes[m_iIdx];
+		val = Zero;
+
+		m_pThis->m_Lst.Calculate(val, m_i0, m_nCount, m_pS + m_i0);
+	}
+};
+
+void NodeProcessor::MultiShieldedContext::Calculate(ECC::Point::Native& res, NodeProcessor& np)
+{
+	Task::Processor& tp = np.get_TaskProcessor();
+	uint32_t nThreads = tp.get_Threads();
+
+	while (!m_Set.empty())
+	{
+		Node& n = m_Set.begin()->get_ParentObj();
+		assert(n.m_Min < n.m_Max);
+		assert(n.m_Max <= s_Chunk);
+
+		m_vRes.resize(nThreads);
+		m_Lst.m_vec.resize(s_Chunk); // will allocate if empty
+
+		np.get_DB().ShieldedRead(n.m_ID.m_Value + n.m_Min, &m_Lst.m_vec.front() + n.m_Min, n.m_Max - n.m_Min);
+
+		for (uint32_t i = 0; i < nThreads; i++)
+		{
+			uint32_t nCount = (n.m_Max - n.m_Min) / (nThreads - i);
+
+			std::unique_ptr<MyTask> pTask(new MyTask);
+			pTask->m_pThis = this;
+			pTask->m_pS = n.m_pS;
+			pTask->m_iIdx = i;
+			pTask->m_i0 = n.m_Min;
+			pTask->m_nCount = nCount;
+			tp.Push(std::move(pTask));
+
+			n.m_Min += nCount;
+		}
+
+		tp.Flush(0);
+
+		for (uint32_t i = 0; i < nThreads; i++)
+			res += m_vRes[i];
+
+		DeleteRaw(n);
+	}
+}
+
+bool NodeProcessor::MultiShieldedContext::IsValid(const Input& v, std::vector<ECC::Scalar::Native>& vKs, ECC::InnerProduct::BatchContext& bc)
+{
+	assert(v.m_pSpendProof);
+
+	Lelantus::Proof::Output outp;
+	outp.m_Commitment = v.m_Commitment;
+	if (!outp.m_Pt.Import(outp.m_Commitment))
+		return false;
+
+	vKs.resize(Lelantus::Cfg::N);
+	memset0(&vKs.front(), sizeof(ECC::Scalar::Native) * beam::Lelantus::Cfg::N);
+
+	ECC::Oracle oracle;
+	if (!v.m_pSpendProof->IsValid(bc, oracle, outp, &vKs.front()))
+		return false;
+
+	Add(v.m_pSpendProof->m_Window0, &vKs.front());
+	return true;
+}
+
 struct NodeProcessor::MultiblockContext
 {
 	NodeProcessor& m_This;
@@ -2660,36 +2845,18 @@ bool NodeProcessor::ValidateTxContext(const Transaction& tx, const HeightRange& 
 	if (bShieldedInputs && !bShieldedTested)
 	{
 		// TODO
-
 		ECC::InnerProduct::BatchContextEx<4> bc;
-
+		MultiShieldedContext msc;
 		std::vector<ECC::Scalar::Native> vKs;
-		vKs.resize(beam::Lelantus::Cfg::N);
-
-		beam::Lelantus::CmListVec lst;
-		lst.m_vec.resize(beam::Lelantus::Cfg::N);
 
 		for (size_t i = 0; i < tx.m_vInputs.size(); i++)
 		{
 			const Input& v = *tx.m_vInputs[i];
-			if (!v.m_pSpendProof)
-				continue;
-
-			Lelantus::Proof::Output outp;
-			outp.m_Commitment = v.m_Commitment;
-			if (!outp.m_Pt.Import(outp.m_Commitment))
+			if (v.m_pSpendProof && !msc.IsValid(v, vKs, bc))
 				return false;
-
-			memset0(&vKs.front(), sizeof(ECC::Scalar::Native) * beam::Lelantus::Cfg::N);
-
-			ECC::Oracle oracle;
-			if (!v.m_pSpendProof->IsValid(bc, oracle, outp, &vKs.front()))
-				return false;
-
-			m_DB.ShieldedRead(v.m_pSpendProof->m_Window0, &lst.m_vec.front(), beam::Lelantus::Cfg::N);
-
-			lst.Calculate(bc.m_Sum, 0, beam::Lelantus::Cfg::N, &vKs.front());
 		}
+
+		msc.Calculate(bc.m_Sum, *this);
 
 		if (!bc.Flush())
 			return false;

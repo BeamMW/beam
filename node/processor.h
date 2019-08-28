@@ -38,6 +38,7 @@ class NodeProcessor
 	size_t m_nSizeUtxoComission;
 
 	struct MultiblockContext;
+	struct MultiShieldedContext;
 
 	void RollbackTo(Height);
 	Height PruneOld();
