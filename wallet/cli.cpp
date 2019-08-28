@@ -1678,6 +1678,54 @@ namespace
 
         return wallet.StartTransaction(*swapTxParameters);
     }
+
+    void TryToRegisterSwapTxCreators(Wallet& wallet, IWalletDB::Ptr walletDB)
+    {
+        auto swapTransactionCreator = std::make_shared<AtomicSwapTransaction::Creator>();
+        wallet.RegisterTransactionType(TxType::AtomicSwap, std::static_pointer_cast<BaseTransaction::Creator>(swapTransactionCreator));
+
+        auto btcSettingsProvider = std::make_shared<bitcoin::SettingsProvider>(walletDB);
+        btcSettingsProvider->Initialize();
+
+        if (btcSettingsProvider->GetSettings().GetElectrumConnectionOptions().IsInitialized())
+        {
+            auto bitcoinBridge = std::make_shared<bitcoin::Electrum>(io::Reactor::get_Current(), btcSettingsProvider);
+            auto btcSecondSideFactory = wallet::MakeSecondSideFactory<BitcoinSide, bitcoin::Electrum, bitcoin::ISettingsProvider>(bitcoinBridge, btcSettingsProvider);
+            swapTransactionCreator->RegisterFactory(AtomicSwapCoin::Bitcoin, btcSecondSideFactory);
+        }
+        else if (btcSettingsProvider->GetSettings().IsInitialized())
+        {
+            auto bitcoinBridge = std::make_shared<bitcoin::BitcoinCore017>(io::Reactor::get_Current(), btcSettingsProvider);
+            auto btcSecondSideFactory = wallet::MakeSecondSideFactory<BitcoinSide, bitcoin::BitcoinCore017, bitcoin::ISettingsProvider>(bitcoinBridge, btcSettingsProvider);
+            swapTransactionCreator->RegisterFactory(AtomicSwapCoin::Bitcoin, btcSecondSideFactory);
+        }
+
+        auto ltcSettingsProvider = std::make_shared<litecoin::SettingsProvider>(walletDB);
+        ltcSettingsProvider->Initialize();
+
+        if (ltcSettingsProvider->GetSettings().GetElectrumConnectionOptions().IsInitialized())
+        {
+            auto litecoinBridge = std::make_shared<litecoin::Electrum>(io::Reactor::get_Current(), ltcSettingsProvider);
+            auto ltcSecondSideFactory = wallet::MakeSecondSideFactory<LitecoinSide, litecoin::Electrum, litecoin::ISettingsProvider>(litecoinBridge, ltcSettingsProvider);
+            swapTransactionCreator->RegisterFactory(AtomicSwapCoin::Litecoin, ltcSecondSideFactory);
+        }
+        else if (ltcSettingsProvider->GetSettings().IsInitialized())
+        {
+            auto litecoinBridge = std::make_shared<litecoin::LitecoinCore017>(io::Reactor::get_Current(), ltcSettingsProvider);
+            auto ltcSecondSideFactory = wallet::MakeSecondSideFactory<LitecoinSide, litecoin::LitecoinCore017, litecoin::ISettingsProvider>(litecoinBridge, ltcSettingsProvider);
+            swapTransactionCreator->RegisterFactory(AtomicSwapCoin::Litecoin, ltcSecondSideFactory);
+        }
+
+        auto qtumSettingsProvider = std::make_shared<qtum::SettingsProvider>(walletDB);
+        qtumSettingsProvider->Initialize();
+
+        if (qtumSettingsProvider->GetSettings().IsInitialized())
+        {
+            auto qtumBridge = std::make_shared<qtum::QtumCore017>(io::Reactor::get_Current(), qtumSettingsProvider);
+            auto qtumSecondSideFactory = wallet::MakeSecondSideFactory<QtumSide, qtum::QtumCore017, qtum::ISettingsProvider>(qtumBridge, qtumSettingsProvider);
+            swapTransactionCreator->RegisterFactory(AtomicSwapCoin::Qtum, qtumSecondSideFactory);
+        }
+    }
 }
 
 io::Reactor::Ptr reactor;
@@ -2076,50 +2124,7 @@ int main_impl(int argc, char* argv[])
                             wallet.AddMessageEndpoint(make_shared<ColdWalletMessageEndpoint>(wallet, walletDB));
                         }
 
-                        auto swapTransactionCreator = std::make_shared<AtomicSwapTransaction::Creator>();
-                        wallet.RegisterTransactionType(TxType::AtomicSwap, std::static_pointer_cast<BaseTransaction::Creator>(swapTransactionCreator));
-
-                        auto btcSettingsProvider = std::make_shared<bitcoin::SettingsProvider>(walletDB);
-                        btcSettingsProvider->Initialize();
-
-                        if (btcSettingsProvider->GetSettings().GetElectrumConnectionOptions().IsInitialized())
-                        {
-                            auto bitcoinBridge = std::make_shared<bitcoin::Electrum>(io::Reactor::get_Current(), btcSettingsProvider);
-                            auto btcSecondSideFactory = wallet::MakeSecondSideFactory<BitcoinSide, bitcoin::Electrum, bitcoin::ISettingsProvider>(bitcoinBridge, btcSettingsProvider);
-                            swapTransactionCreator->RegisterFactory(AtomicSwapCoin::Bitcoin, btcSecondSideFactory);
-                        }
-                        else if (btcSettingsProvider->GetSettings().IsInitialized())
-                        {
-                            auto bitcoinBridge = std::make_shared<bitcoin::BitcoinCore017>(io::Reactor::get_Current(), btcSettingsProvider);
-                            auto btcSecondSideFactory = wallet::MakeSecondSideFactory<BitcoinSide, bitcoin::BitcoinCore017, bitcoin::ISettingsProvider>(bitcoinBridge, btcSettingsProvider);
-                            swapTransactionCreator->RegisterFactory(AtomicSwapCoin::Bitcoin, btcSecondSideFactory);
-                        }
-
-                        auto ltcSettingsProvider = std::make_shared<litecoin::SettingsProvider>(walletDB);
-                        ltcSettingsProvider->Initialize();
-
-                        if (ltcSettingsProvider->GetSettings().GetElectrumConnectionOptions().IsInitialized())
-                        {
-                            auto litecoinBridge = std::make_shared<litecoin::Electrum>(io::Reactor::get_Current(), ltcSettingsProvider);
-                            auto ltcSecondSideFactory = wallet::MakeSecondSideFactory<LitecoinSide, litecoin::Electrum, litecoin::ISettingsProvider>(litecoinBridge, ltcSettingsProvider);
-                            swapTransactionCreator->RegisterFactory(AtomicSwapCoin::Litecoin, ltcSecondSideFactory);
-                        }
-                        else if (ltcSettingsProvider->GetSettings().IsInitialized())
-                        {
-                            auto litecoinBridge = std::make_shared<litecoin::LitecoinCore017>(io::Reactor::get_Current(), ltcSettingsProvider);
-                            auto ltcSecondSideFactory = wallet::MakeSecondSideFactory<LitecoinSide, litecoin::LitecoinCore017, litecoin::ISettingsProvider>(litecoinBridge, ltcSettingsProvider);
-                            swapTransactionCreator->RegisterFactory(AtomicSwapCoin::Litecoin, ltcSecondSideFactory);
-                        }
-
-                        auto qtumSettingsProvider = std::make_shared<qtum::SettingsProvider>(walletDB);
-                        qtumSettingsProvider->Initialize();
-
-                        if (qtumSettingsProvider->GetSettings().IsInitialized())
-                        {
-                            auto qtumBridge = std::make_shared<qtum::QtumCore017>(io::Reactor::get_Current(), qtumSettingsProvider);
-                            auto qtumSecondSideFactory = wallet::MakeSecondSideFactory<QtumSide, qtum::QtumCore017, qtum::ISettingsProvider>(qtumBridge, qtumSettingsProvider);
-                            swapTransactionCreator->RegisterFactory(AtomicSwapCoin::Qtum, qtumSecondSideFactory);
-                        }
+                        TryToRegisterSwapTxCreators(wallet, walletDB);
 
                         if (command == cli::SWAP_INIT)
                         {
