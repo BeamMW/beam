@@ -36,7 +36,7 @@ namespace beam::bitcoin
     class IElectrumSettingsProvider
     {
     public:
-        using Ptr2 = std::shared_ptr<IElectrumSettingsProvider>;
+        using Ptr = std::shared_ptr<IElectrumSettingsProvider>;
 
         virtual ~IElectrumSettingsProvider() = default;
 

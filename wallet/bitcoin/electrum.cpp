@@ -47,7 +47,7 @@ namespace
 
 namespace beam::bitcoin
 {
-    Electrum::Electrum(Reactor& reactor, IElectrumSettingsProvider::Ptr2 settingsProvider)
+    Electrum::Electrum(Reactor& reactor, IElectrumSettingsProvider::Ptr settingsProvider)
         : m_reactor(reactor)
         , m_settingsProvider(settingsProvider)
     {
