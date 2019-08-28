@@ -139,7 +139,7 @@ QString LoadingViewModel::getEstimateStr(
     }
     m_lastEstimateSeconds = estimateSeconds;
 
-    uint64_t value = 0;
+    double value = 0;
     QString units;
     if (estimateSeconds > kSecondsInMinute)
     {
@@ -154,7 +154,7 @@ QString LoadingViewModel::getEstimateStr(
         units = qtTrId("loading-view-estimate-seconds");
     }
     QString estimateSubStr = QString::asprintf(
-        "%llu %s", value, units.toStdString().c_str());
+        "%.0lf %s", value, units.toStdString().c_str());
 
     //% "Estimate time: %s"
     return " " + 
