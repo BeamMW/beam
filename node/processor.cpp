@@ -650,6 +650,7 @@ struct NodeProcessor::MultiShieldedContext
 
 	void Calculate(ECC::Point::Native&, NodeProcessor&);
 	bool IsValid(const Input&, std::vector<ECC::Scalar::Native>& vBuf, ECC::InnerProduct::BatchContext&);
+	bool IsValid(const std::vector<Input::Ptr>&, ECC::InnerProduct::BatchContext&, uint32_t iVerifier, uint32_t nTotal);
 
 private:
 
@@ -736,7 +737,7 @@ struct NodeProcessor::MultiShieldedContext::MyTask
 		ECC::Point::Native& val = m_pThis->m_vRes[m_iIdx];
 		val = Zero;
 
-		m_pThis->m_Lst.Calculate(val, m_i0, m_nCount, m_pS + m_i0);
+		m_pThis->m_Lst.Calculate(val, m_i0, m_nCount, m_pS);
 	}
 };
 
@@ -797,6 +798,26 @@ bool NodeProcessor::MultiShieldedContext::IsValid(const Input& v, std::vector<EC
 		return false;
 
 	Add(v.m_pSpendProof->m_Window0, &vKs.front());
+	return true;
+}
+
+bool NodeProcessor::MultiShieldedContext::IsValid(const std::vector<Input::Ptr>& vInp, ECC::InnerProduct::BatchContext& bc, uint32_t iVerifier, uint32_t nTotal)
+{
+	std::vector<ECC::Scalar::Native> vKs;
+
+	for (size_t i = 0; i < vInp.size(); i++)
+	{
+		const Input& v = *vInp[i];
+		if (v.m_pSpendProof)
+		{
+			if (!iVerifier && !IsValid(v, vKs, bc))
+				return false;
+
+			if (++iVerifier == nTotal)
+				iVerifier = 0;
+		}
+	}
+
 	return true;
 }
 
@@ -2844,17 +2865,11 @@ bool NodeProcessor::ValidateTxContext(const Transaction& tx, const HeightRange& 
 
 	if (bShieldedInputs && !bShieldedTested)
 	{
-		// TODO
 		ECC::InnerProduct::BatchContextEx<4> bc;
 		MultiShieldedContext msc;
-		std::vector<ECC::Scalar::Native> vKs;
 
-		for (size_t i = 0; i < tx.m_vInputs.size(); i++)
-		{
-			const Input& v = *tx.m_vInputs[i];
-			if (v.m_pSpendProof && !msc.IsValid(v, vKs, bc))
-				return false;
-		}
+		if (!msc.IsValid(tx.m_vInputs, bc, 0, 1))
+			return false;
 
 		msc.Calculate(bc.m_Sum, *this);
 
