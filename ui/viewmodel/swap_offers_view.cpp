@@ -59,7 +59,7 @@ void SwapOffersViewModel::cancelTx(QVariant txParameters)
     {
         auto p = txParameters.value<beam::wallet::TxParameters>();
         auto txId = p.GetTxID();
-        if (txId.has_value())
+        if (txId)
         {
             m_walletModel.getAsync()->cancelTx(txId.value());
         }

@@ -216,7 +216,7 @@ Item {
                 }
 
                 TableViewColumn {
-                    role: "amount"
+                    role: "amountSend"
                     title: qsTrId("offer-book-amount")
                     width: tableView.columnWidth
                     movable: false
@@ -224,7 +224,7 @@ Item {
                 }
 
                 TableViewColumn {
-                    role: "amountSwap"
+                    role: "amountReceive"
                     title: qsTrId("offer-book-amount-swap")
                     width: tableView.columnWidth
                     movable: false

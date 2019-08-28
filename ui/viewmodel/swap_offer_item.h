@@ -26,8 +26,8 @@ class SwapOfferItem : public QObject
     Q_OBJECT
     Q_PROPERTY(QDateTime timeCreated        READ timeCreated        NOTIFY changed)
     Q_PROPERTY(QDateTime timeExpiration     READ timeExpiration     NOTIFY changed)
-    Q_PROPERTY(QString amount               READ amount             NOTIFY changed)
-    Q_PROPERTY(QString amountSwap           READ amountSwap         NOTIFY changed)
+    Q_PROPERTY(QString amountSend           READ amountSend         NOTIFY changed)
+    Q_PROPERTY(QString amountReceive        READ amountReceive      NOTIFY changed)
     Q_PROPERTY(double rate                  READ rate               NOTIFY changed)
     Q_PROPERTY(bool isOwnOffer              READ isOwnOffer         NOTIFY changed)
     Q_PROPERTY(TxParameters txParameters    READ getTxParameters    NOTIFY changed)
@@ -38,13 +38,13 @@ public:
 
     QDateTime timeCreated() const;
     QDateTime timeExpiration() const;
-    QString amount() const;
-    QString amountSwap() const;
+    QString amountSend() const;
+    QString amountReceive() const;
     double rate() const;
     bool isOwnOffer() const;
 
-    beam::Amount rawAmount() const;
-    beam::Amount rawAmountSwap() const;
+    beam::Amount rawAmountSend() const;
+    beam::Amount rawAmountReceive() const;
 
     TxParameters getTxParameters() const;
 
@@ -52,7 +52,6 @@ signals:
     void changed();
 
 private:
-    auto getCoinType() const -> beamui::Currencies;
     auto getSwapCoinType() const -> beamui::Currencies;
 
     SwapOffer m_offer;          /// raw TxParameters

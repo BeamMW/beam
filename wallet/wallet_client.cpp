@@ -101,7 +101,7 @@ struct WalletModelBridge : public Bridge<IWalletModelAsync>
 		call_async(&IWalletModelAsync::getSwapOffers);
     }
 
-    void publishSwapOffer(const wallet::SwapOffer& offer)
+    void publishSwapOffer(const wallet::SwapOffer& offer) override
     {
 		call_async(&IWalletModelAsync::publishSwapOffer, offer);
     }

@@ -24,10 +24,10 @@ QHash<int, QByteArray> SwapOffersList::roleNames() const
     {
         { static_cast<int>(Roles::TimeCreatedRole), "timeCreated" },
         { static_cast<int>(Roles::TimeCreatedSortRole), "timeCreatedSort" },
-        { static_cast<int>(Roles::AmountRole), "amount" },
-        { static_cast<int>(Roles::AmountSortRole), "amountSort" },
-        { static_cast<int>(Roles::AmountSwapRole), "amountSwap" },
-        { static_cast<int>(Roles::AmountSwapSortRole), "amountSwapSort" },
+        { static_cast<int>(Roles::AmountSendRole), "amountSend" },
+        { static_cast<int>(Roles::AmountSendSortRole), "amountSendSort" },
+        { static_cast<int>(Roles::AmountReceiveRole), "amountReceive" },
+        { static_cast<int>(Roles::AmountReceiveSortRole), "amountReceiveSort" },
         { static_cast<int>(Roles::RateRole), "rate" },
         { static_cast<int>(Roles::RateSortRole), "rateSort" },
         { static_cast<int>(Roles::ExpirationRole), "expiration" },
@@ -50,14 +50,14 @@ QVariant SwapOffersList::data(const QModelIndex &index, int role) const
     case Roles::TimeCreatedRole:
     case Roles::TimeCreatedSortRole:
         return value->timeCreated();
-	case Roles::AmountRole:
-        return value->amount();
-    case Roles::AmountSortRole:
-        return static_cast<uint>(value->rawAmount());
-	case Roles::AmountSwapRole:
-        return value->amountSwap();
-    case Roles::AmountSwapSortRole:
-        return static_cast<uint>(value->rawAmountSwap());
+	case Roles::AmountSendRole:
+        return value->amountSend();
+    case Roles::AmountSendSortRole:
+        return static_cast<uint>(value->rawAmountSend());
+	case Roles::AmountReceiveRole:
+        return value->amountReceive();
+    case Roles::AmountReceiveSortRole:
+        return static_cast<uint>(value->rawAmountReceive());
     case Roles::RateRole:
     case Roles::RateSortRole:
         return value->rate();
