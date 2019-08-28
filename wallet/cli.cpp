@@ -1056,6 +1056,67 @@ namespace
         return nullptr;
     }
 
+    std::shared_ptr<bitcoin::Settings> ParseBitcoinElectrumSettings(const po::variables_map& vm)
+    {
+        if (vm.count(cli::BTC_ELECTRUM_SEED) || vm.count(cli::BTC_ELECTRUM_ADDR) || vm.count(cli::BTC_GENERATE_SEED))
+        {
+            bitcoin::ElectrumSettings electrumSettings;
+
+            string electrumAddr = vm[cli::BTC_ELECTRUM_ADDR].as<string>();
+            if (!electrumSettings.m_address.resolve(electrumAddr.c_str()))
+            {
+                throw std::runtime_error("unable to resolve litecoin electrum address: " + electrumAddr);
+            }
+
+            if (vm.count(cli::BTC_ELECTRUM_SEED))
+            {
+                auto tempPhrase = vm[cli::BTC_ELECTRUM_SEED].as<string>();
+                boost::algorithm::trim_if(tempPhrase, [](char ch) { return ch == ';'; });
+                electrumSettings.m_secretWords = string_helpers::split(tempPhrase, ';');
+            }
+            else if (vm.count(cli::BTC_GENERATE_SEED))
+            {
+                electrumSettings.m_secretWords = libbitcoin::wallet::electrum::create_mnemonic(getEntropy());
+
+                auto strSeed = std::accumulate(
+                    std::next(electrumSettings.m_secretWords.begin()), electrumSettings.m_secretWords.end(), *electrumSettings.m_secretWords.begin(),
+                    [](std::string a, std::string b)
+                {
+                    return a + ";" + b;
+                });
+
+                LOG_INFO() << "seed = " << strSeed;
+            }
+            else
+            {
+                throw std::runtime_error("bitcoin electrum seed should be specified");
+            }
+
+            if (vm.count(cli::SWAP_FEERATE) == 0)
+            {
+                throw std::runtime_error("swap fee rate is missing");
+            }
+
+            // TODO roman.strilets its temporary solution
+            electrumSettings.m_isMainnet = false;
+            electrumSettings.m_addressVersion = 0x6f;
+
+            auto btcSettings = std::make_shared<bitcoin::Settings>();
+            btcSettings->SetElectrumConnectionOptions(electrumSettings);
+            btcSettings->SetFeeRate(vm[cli::SWAP_FEERATE].as<Positive<Amount>>().value);
+
+            auto swapSecondSideChainType = ParseSwapSecondSideChainType(vm);
+            if (swapSecondSideChainType != SwapSecondSideChainType::Unknown)
+            {
+                btcSettings->SetChainType(swapSecondSideChainType);
+            }
+
+            return btcSettings;
+        }
+
+        return nullptr;
+    }
+
     std::shared_ptr<litecoin::Settings> ParseLitecoinSettings(const po::variables_map& vm)
     {
         if (vm.count(cli::LTC_NODE_ADDR) > 0 || vm.count(cli::LTC_USER_NAME) > 0 || vm.count(cli::LTC_PASS) > 0)
@@ -1106,7 +1167,7 @@ namespace
 
     std::shared_ptr<litecoin::Settings> ParseLitecoinElectrumSettings(const po::variables_map& vm)
     {
-        if (vm.count(cli::LTC_ELECTRUM_SEED) > 0 || vm.count(cli::LTC_ELECTRUM_ADDR) > 0)
+        if (vm.count(cli::LTC_ELECTRUM_SEED) || vm.count(cli::LTC_ELECTRUM_ADDR) || vm.count(cli::LTC_GENERATE_SEED))
         {
             litecoin::ElectrumSettings electrumSettings;
 
@@ -1116,14 +1177,29 @@ namespace
                 throw std::runtime_error("unable to resolve litecoin electrum address: " + electrumAddr);
             }
 
-            if (vm.count(cli::LTC_ELECTRUM_SEED) == 0)
+            if (vm.count(cli::LTC_ELECTRUM_SEED))
+            {
+                auto tempPhrase = vm[cli::LTC_ELECTRUM_SEED].as<string>();
+                boost::algorithm::trim_if(tempPhrase, [](char ch) { return ch == ';'; });
+                electrumSettings.m_secretWords = string_helpers::split(tempPhrase, ';');
+            }
+            else if (vm.count(cli::LTC_GENERATE_SEED))
+            {
+                electrumSettings.m_secretWords = libbitcoin::wallet::electrum::create_mnemonic(getEntropy());
+
+                auto strSeed = std::accumulate(
+                    std::next(electrumSettings.m_secretWords.begin()), electrumSettings.m_secretWords.end(), *electrumSettings.m_secretWords.begin(),
+                    [](std::string a, std::string b) 
+                {
+                    return a + ";" + b;
+                });
+
+                LOG_INFO() << "seed = " << strSeed;
+            }
+            else
             {
                 throw std::runtime_error("litectoin electrum seed should be specified");
             }
-
-            auto tempPhrase = vm[cli::LTC_ELECTRUM_SEED].as<string>();
-            boost::algorithm::trim_if(tempPhrase, [](char ch) { return ch == ';'; });
-            electrumSettings.m_secretWords = string_helpers::split(tempPhrase, ';');
 
             if (vm.count(cli::SWAP_FEERATE) == 0)
             {
@@ -1212,23 +1288,35 @@ namespace
         {
             auto settings = settingsProvider.GetSettings();
 
-            if (!settings.IsInitialized())
+            if (settings.GetConnectionOptions().IsInitialized())
             {
-                LOG_INFO() << "BTC settings are not initialized.";
-                return -1;
+                cout << "BTC settings" << '\n'
+                    << "RPC user: " << settings.GetConnectionOptions().m_userName << '\n'
+                    << "RPC node: " << settings.GetConnectionOptions().m_address.str() << '\n'
+                    << "Fee rate: " << settings.GetFeeRate() << '\n'
+                    << "Chain type: " << getSwapSecondSideChainTypeText(settings.GetChainType()) << '\n';
+                return 0;
             }
 
-            cout << "BTC settings" << '\n'
-                << "RPC user: " << settings.GetConnectionOptions().m_userName << '\n'
-                << "RPC node: " << settings.GetConnectionOptions().m_address.str() << '\n'
-                << "Fee rate: " << settings.GetFeeRate() << '\n'
-                << "Chain type: " << getSwapSecondSideChainTypeText(settings.GetChainType()) << '\n';
+            if (settings.GetElectrumConnectionOptions().IsInitialized())
+            {
+                cout << "BTC settings" << '\n'
+                    << "Electrum node: " << settings.GetElectrumConnectionOptions().m_address.str() << '\n'
+                    << "Fee rate: " << settings.GetFeeRate() << '\n'
+                    << "Chain type: " << getSwapSecondSideChainTypeText(settings.GetChainType()) << '\n';
+                return 0;
+            }
 
+            LOG_INFO() << "BTC settings are not initialized.";
             return 0;
         }
         else if (vm.count(cli::ALTCOIN_SETTINGS_SET))
         {
             auto settings = ParseBitcoinSettings(vm);
+            if (!settings)
+            {
+                settings = ParseBitcoinElectrumSettings(vm);
+            }
             settingsProvider.SetSettings(*settings);
             return 0;
         }
@@ -1354,7 +1442,7 @@ namespace
                 btcSettingsProvider->Initialize();
 
                 auto btcSettings = btcSettingsProvider->GetSettings();
-                if (!btcSettings.IsInitialized())
+                if (!btcSettings.IsInitialized() && !btcSettings.GetElectrumConnectionOptions().IsInitialized())
                 {
                     throw std::runtime_error("BTC settings should be initialized.");
                 }
@@ -1372,7 +1460,7 @@ namespace
                 ltcSettingsProvider->Initialize();
 
                 auto ltcSettings = ltcSettingsProvider->GetSettings();
-                if (!ltcSettings.GetElectrumConnectionOptions().IsInitialized())
+                if (!ltcSettings.IsInitialized() && !ltcSettings.GetElectrumConnectionOptions().IsInitialized())
                 {
                     throw std::runtime_error("LTC settings should be initialized.");
                 }
@@ -1486,7 +1574,7 @@ namespace
             auto btcSettingsProvider = std::make_shared<bitcoin::SettingsProvider>(walletDB);
             btcSettingsProvider->Initialize();
             auto btcSettings = btcSettingsProvider->GetSettings();
-            if (!btcSettings.IsInitialized())
+            if (!btcSettings.IsInitialized() && !btcSettings.GetElectrumConnectionOptions().IsInitialized())
             {
                 throw std::runtime_error("BTC settings should be initialized.");
             }
@@ -1503,7 +1591,7 @@ namespace
             auto ltcSettingsProvider = std::make_shared<litecoin::SettingsProvider>(walletDB);
             ltcSettingsProvider->Initialize();
             auto ltcSettings = ltcSettingsProvider->GetSettings();
-            if (!ltcSettings.GetElectrumConnectionOptions().IsInitialized())
+            if (!ltcSettings.IsInitialized() && !ltcSettings.GetElectrumConnectionOptions().IsInitialized())
             {
                 throw std::runtime_error("LTC settings should be initialized.");
             }
@@ -1994,7 +2082,13 @@ int main_impl(int argc, char* argv[])
                         auto btcSettingsProvider = std::make_shared<bitcoin::SettingsProvider>(walletDB);
                         btcSettingsProvider->Initialize();
 
-                        if (btcSettingsProvider->GetSettings().IsInitialized())
+                        if (btcSettingsProvider->GetSettings().GetElectrumConnectionOptions().IsInitialized())
+                        {
+                            auto bitcoinBridge = std::make_shared<bitcoin::Electrum>(io::Reactor::get_Current(), btcSettingsProvider);
+                            auto btcSecondSideFactory = wallet::MakeSecondSideFactory<BitcoinSide, bitcoin::Electrum, bitcoin::ISettingsProvider>(bitcoinBridge, btcSettingsProvider);
+                            swapTransactionCreator->RegisterFactory(AtomicSwapCoin::Bitcoin, btcSecondSideFactory);
+                        }
+                        else if (btcSettingsProvider->GetSettings().IsInitialized())
                         {
                             auto bitcoinBridge = std::make_shared<bitcoin::BitcoinCore017>(io::Reactor::get_Current(), btcSettingsProvider);
                             auto btcSecondSideFactory = wallet::MakeSecondSideFactory<BitcoinSide, bitcoin::BitcoinCore017, bitcoin::ISettingsProvider>(bitcoinBridge, btcSettingsProvider);
@@ -2008,6 +2102,12 @@ int main_impl(int argc, char* argv[])
                         {
                             auto litecoinBridge = std::make_shared<litecoin::Electrum>(io::Reactor::get_Current(), ltcSettingsProvider);
                             auto ltcSecondSideFactory = wallet::MakeSecondSideFactory<LitecoinSide, litecoin::Electrum, litecoin::ISettingsProvider>(litecoinBridge, ltcSettingsProvider);
+                            swapTransactionCreator->RegisterFactory(AtomicSwapCoin::Litecoin, ltcSecondSideFactory);
+                        }
+                        else if (ltcSettingsProvider->GetSettings().IsInitialized())
+                        {
+                            auto litecoinBridge = std::make_shared<litecoin::LitecoinCore017>(io::Reactor::get_Current(), ltcSettingsProvider);
+                            auto ltcSecondSideFactory = wallet::MakeSecondSideFactory<LitecoinSide, litecoin::LitecoinCore017, litecoin::ISettingsProvider>(litecoinBridge, ltcSettingsProvider);
                             swapTransactionCreator->RegisterFactory(AtomicSwapCoin::Litecoin, ltcSecondSideFactory);
                         }
 

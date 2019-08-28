@@ -46,6 +46,8 @@ namespace beam
         const char* BTC_PASS = "btc_pass";
         const char* BTC_USER_NAME = "btc_user";
         const char* BTC_SETTINGS = "btc_settings";
+        const char* BTC_ELECTRUM_SEED = "btc_electrum_seed";
+        const char* BTC_GENERATE_SEED = "btc_generate_seed";
         const char* ALTCOIN_SETTINGS_SET = "set";
         const char* ALTCOIN_SETTINGS_RESET = "reset";
         const char* ALTCOIN_SETTINGS_SHOW = "show";
@@ -53,6 +55,7 @@ namespace beam
         const char* LTC_USER_NAME = "ltc_user";
         const char* LTC_SETTINGS = "ltc_settings";
         const char* LTC_ELECTRUM_SEED = "ltc_electrum_seed";
+        const char* LTC_GENERATE_SEED = "ltc_generate_seed";
         const char* QTUM_PASS = "qtum_pass";
         const char* QTUM_USER_NAME = "qtum_user";
         const char* QTUM_SETTINGS = "qtum_settings";
@@ -63,6 +66,7 @@ namespace beam
         const char* NODE_ADDR = "node_addr";
         const char* NODE_ADDR_FULL = "node_addr,n";
         const char* BTC_NODE_ADDR = "btc_node_addr";
+        const char* BTC_ELECTRUM_ADDR = "btc_electrum_addr";
         const char* LTC_NODE_ADDR = "ltc_node_addr";
         const char* LTC_ELECTRUM_ADDR = "ltc_electrum_addr";
         const char* QTUM_NODE_ADDR = "qtum_node_addr";
@@ -274,10 +278,14 @@ namespace beam
             (cli::BTC_NODE_ADDR, po::value<string>(), "address of bitcoin node")
             (cli::BTC_USER_NAME, po::value<string>(), "user name for the bitcoin node")
             (cli::BTC_PASS, po::value<string>(), "password for the bitcoin node")
+            (cli::BTC_ELECTRUM_SEED, po::value<string>(), "bitcoin electrum seed")
+            (cli::BTC_GENERATE_SEED, "generate new electrum seed")
+            (cli::BTC_ELECTRUM_ADDR, po::value<string>(), "bitcoin electrum address")
             (cli::LTC_NODE_ADDR, po::value<string>(), "address of litecoin node")
             (cli::LTC_USER_NAME, po::value<string>(), "user name for the litecoin node")
             (cli::LTC_PASS, po::value<string>(), "password for the litecoin node")
             (cli::LTC_ELECTRUM_SEED, po::value<string>(), "litecoin electrum seed")
+            (cli::LTC_GENERATE_SEED, "generate new electrum seed")
             (cli::LTC_ELECTRUM_ADDR, po::value<string>(), "litecoin electrum address")
             (cli::QTUM_NODE_ADDR, po::value<string>(), "address of qtum node")
             (cli::QTUM_USER_NAME, po::value<string>(), "user name for the qtum node")

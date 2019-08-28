@@ -41,6 +41,8 @@ namespace beam
         extern const char* BTC_PASS;
         extern const char* BTC_USER_NAME;
         extern const char* BTC_SETTINGS;
+        extern const char* BTC_ELECTRUM_SEED;
+        extern const char* BTC_GENERATE_SEED;
         extern const char* ALTCOIN_SETTINGS_SET;
         extern const char* ALTCOIN_SETTINGS_RESET;
         extern const char* ALTCOIN_SETTINGS_SHOW;
@@ -48,6 +50,7 @@ namespace beam
         extern const char* LTC_USER_NAME;
         extern const char* LTC_SETTINGS;
         extern const char* LTC_ELECTRUM_SEED;
+        extern const char* LTC_GENERATE_SEED;
         extern const char* QTUM_PASS;
         extern const char* QTUM_USER_NAME;
         extern const char* QTUM_SETTINGS;
@@ -58,6 +61,7 @@ namespace beam
         extern const char* NODE_ADDR;
         extern const char* NODE_ADDR_FULL;
         extern const char* BTC_NODE_ADDR;
+        extern const char* BTC_ELECTRUM_ADDR;
         extern const char* LTC_NODE_ADDR;
         extern const char* LTC_ELECTRUM_ADDR;
         extern const char* QTUM_NODE_ADDR;
