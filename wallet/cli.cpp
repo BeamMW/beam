@@ -1454,7 +1454,7 @@ namespace
                 btcSettingsProvider->Initialize();
 
                 auto btcSettings = btcSettingsProvider->GetSettings();
-                if (!btcSettings.IsInitialized() && !btcSettings.GetElectrumConnectionOptions().IsInitialized())
+                if (!btcSettings.IsInitialized())
                 {
                     throw std::runtime_error("BTC settings should be initialized.");
                 }
@@ -1472,7 +1472,7 @@ namespace
                 ltcSettingsProvider->Initialize();
 
                 auto ltcSettings = ltcSettingsProvider->GetSettings();
-                if (!ltcSettings.IsInitialized() && !ltcSettings.GetElectrumConnectionOptions().IsInitialized())
+                if (!ltcSettings.IsInitialized())
                 {
                     throw std::runtime_error("LTC settings should be initialized.");
                 }
@@ -1586,7 +1586,7 @@ namespace
             auto btcSettingsProvider = std::make_shared<bitcoin::SettingsProvider>(walletDB);
             btcSettingsProvider->Initialize();
             auto btcSettings = btcSettingsProvider->GetSettings();
-            if (!btcSettings.IsInitialized() && !btcSettings.GetElectrumConnectionOptions().IsInitialized())
+            if (!btcSettings.IsInitialized())
             {
                 throw std::runtime_error("BTC settings should be initialized.");
             }
@@ -1603,7 +1603,7 @@ namespace
             auto ltcSettingsProvider = std::make_shared<litecoin::SettingsProvider>(walletDB);
             ltcSettingsProvider->Initialize();
             auto ltcSettings = ltcSettingsProvider->GetSettings();
-            if (!ltcSettings.IsInitialized() && !ltcSettings.GetElectrumConnectionOptions().IsInitialized())
+            if (!ltcSettings.IsInitialized())
             {
                 throw std::runtime_error("LTC settings should be initialized.");
             }
@@ -1705,7 +1705,7 @@ namespace
             auto btcSecondSideFactory = wallet::MakeSecondSideFactory<BitcoinSide, bitcoin::Electrum, bitcoin::ISettingsProvider>(bitcoinBridge, btcSettingsProvider);
             swapTransactionCreator->RegisterFactory(AtomicSwapCoin::Bitcoin, btcSecondSideFactory);
         }
-        else if (btcSettingsProvider->GetSettings().IsInitialized())
+        else if (btcSettingsProvider->GetSettings().GetConnectionOptions().IsInitialized())
         {
             auto bitcoinBridge = std::make_shared<bitcoin::BitcoinCore017>(io::Reactor::get_Current(), btcSettingsProvider);
             auto btcSecondSideFactory = wallet::MakeSecondSideFactory<BitcoinSide, bitcoin::BitcoinCore017, bitcoin::ISettingsProvider>(bitcoinBridge, btcSettingsProvider);
@@ -1721,7 +1721,7 @@ namespace
             auto ltcSecondSideFactory = wallet::MakeSecondSideFactory<LitecoinSide, litecoin::Electrum, litecoin::ISettingsProvider>(litecoinBridge, ltcSettingsProvider);
             swapTransactionCreator->RegisterFactory(AtomicSwapCoin::Litecoin, ltcSecondSideFactory);
         }
-        else if (ltcSettingsProvider->GetSettings().IsInitialized())
+        else if (ltcSettingsProvider->GetSettings().GetConnectionOptions().IsInitialized())
         {
             auto litecoinBridge = std::make_shared<litecoin::LitecoinCore017>(io::Reactor::get_Current(), ltcSettingsProvider);
             auto ltcSecondSideFactory = wallet::MakeSecondSideFactory<LitecoinSide, litecoin::LitecoinCore017, litecoin::ISettingsProvider>(litecoinBridge, ltcSettingsProvider);
