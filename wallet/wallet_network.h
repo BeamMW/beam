@@ -53,7 +53,7 @@ namespace beam::wallet
             Timestamp m_ExpirationTime;
         };
     public:
-        BaseMessageEndpoint(IWalletMessageConsumer&, const IWalletDB::Ptr&);
+        BaseMessageEndpoint(IWalletMessageConsumer&, const IWalletDB::Ptr&, IPrivateKeyKeeper::Ptr);
         virtual ~BaseMessageEndpoint();
         void AddOwnAddress(const WalletAddress& address);
         void DeleteOwnAddress(uint64_t ownID);
@@ -82,6 +82,8 @@ namespace beam::wallet
         IWalletMessageConsumer& m_Wallet;
         IWalletDB::Ptr m_WalletDB;
         io::Timer::Ptr m_AddressExpirationTimer;
+
+        IPrivateKeyKeeper::Ptr m_keyKeeper;
     };
 
     class WalletNetworkViaBbs
@@ -118,7 +120,7 @@ namespace beam::wallet
 
     public:
 
-        WalletNetworkViaBbs(IWalletMessageConsumer&, std::shared_ptr<proto::FlyClient::INetwork>, const IWalletDB::Ptr&);
+        WalletNetworkViaBbs(IWalletMessageConsumer&, std::shared_ptr<proto::FlyClient::INetwork>, const IWalletDB::Ptr&, IPrivateKeyKeeper::Ptr);
         virtual ~WalletNetworkViaBbs();
 
         bool m_MineOutgoing = true; // can be turned-off for testing
@@ -135,7 +137,7 @@ namespace beam::wallet
         : public BaseMessageEndpoint
     {
     public:
-        ColdWalletMessageEndpoint(IWalletMessageConsumer& wallet, IWalletDB::Ptr walletDB);
+        ColdWalletMessageEndpoint(IWalletMessageConsumer& wallet, IWalletDB::Ptr walletDB, IPrivateKeyKeeper::Ptr keyKeeper);
         ~ColdWalletMessageEndpoint();
     private:
         void SendEncryptedMessage(const WalletID& peerID, const ByteBuffer& msg) override;

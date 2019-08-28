@@ -89,6 +89,7 @@ namespace beam
         extern const char* TX_HISTORY;
         extern const char* TX_ID;
         extern const char* SEED_PHRASE;
+        extern const char* IGNORE_DICTIONARY;
         extern const char* GENERATE_PHRASE;
         extern const char* FEE;
         extern const char* FEE_FULL;

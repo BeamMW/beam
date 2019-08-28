@@ -26,26 +26,42 @@ uint16_t RadixTree::Node::get_Bits() const
 
 const uint8_t* RadixTree::get_NodeKey(const Node& n) const
 {
-	return (Node::s_Leaf & n.m_Bits) ? GetLeafKey(Cast::Up<Leaf>(n)) : Cast::Up<Joint>(n).m_pKeyPtr;
+	return (Node::s_Leaf & n.m_Bits) ? GetLeafKey(Cast::Up<Leaf>(n)) : Cast::Up<Joint>(n).m_pKeyPtr.get_Strict();
 }
 
 RadixTree::RadixTree()
-	:m_pRoot(NULL)
+	:m_RootOffset(0)
 {
 }
 
 RadixTree::~RadixTree()
 {
-	assert(!m_pRoot);
+	assert(!m_RootOffset);
 }
 
 void RadixTree::Clear()
 {
-	if (m_pRoot)
+	if (m_RootOffset)
 	{
-		DeleteNode(m_pRoot);
-		m_pRoot = NULL;
+		OnDirty();
+
+		DeleteNode(get_Root());
+		m_RootOffset = 0;
 	}
+}
+
+RadixTree::Node* RadixTree::get_Root() const
+{
+	return m_RootOffset ?
+		reinterpret_cast<Node*>(get_Base() + m_RootOffset) :
+		nullptr;
+}
+
+void RadixTree::set_Root(Node* p)
+{
+	m_RootOffset = p ?
+		(reinterpret_cast<intptr_t>(p) - get_Base()) :
+		0;
 }
 
 void RadixTree::DeleteNode(Node* p)
@@ -57,7 +73,7 @@ void RadixTree::DeleteNode(Node* p)
 		Joint* p1 = (Joint*) p;
 
 		for (size_t i = 0; i < _countof(p1->m_ppC); i++)
-			DeleteNode(p1->m_ppC[i]);
+			DeleteNode(p1->m_ppC[i].get_Strict());
 
 		DeleteJoint(p1);
 	}
@@ -114,22 +130,22 @@ void RadixTree::ReplaceTip(CursorBase& cu, Node* pNew)
 		for (size_t i = 0; ; i++)
 		{
 			assert(i < _countof(pPrev->m_ppC));
-			if (pPrev->m_ppC[i] == pOld)
+			if (pPrev->m_ppC[i].get_Strict() == pOld)
 			{
-				pPrev->m_ppC[i] = pNew;
+				pPrev->m_ppC[i].set(pNew);
 				break;
 			}
 		}
 	} else
 	{
-		assert(m_pRoot == pOld);
-		m_pRoot = pNew;
+		assert(get_Root() == pOld);
+		set_Root(pNew);
 	}
 }
 
 bool RadixTree::Goto(CursorBase& cu, const uint8_t* pKey, uint16_t nBits) const
 {
-	Node* p = m_pRoot;
+	Node* p = get_Root();
 
 	if (p)
 	{
@@ -160,7 +176,7 @@ bool RadixTree::Goto(CursorBase& cu, const uint8_t* pKey, uint16_t nBits) const
 		assert(cu.m_nPosInLastNode == p->get_Bits());
 
 		Joint* pN = Cast::Up<Joint>(p);
-		p = pN->m_ppC[cu.get_Bit(pKey)];
+		p = pN->m_ppC[cu.get_Bit(pKey)].get_Strict();
 
 		assert(p); // joints should have both children!
 
@@ -183,7 +199,9 @@ RadixTree::Leaf* RadixTree::Find(CursorBase& cu, const uint8_t* pKey, uint16_t n
 	assert(cu.m_nBits < nBits);
 
 	if (!bCreate)
-		return NULL;
+		return nullptr;
+
+	OnDirty();
 
 	Leaf* pN = CreateLeaf();
 
@@ -219,7 +237,7 @@ RadixTree::Leaf* RadixTree::Find(CursorBase& cu, const uint8_t* pKey, uint16_t n
 
 		// split
 		Joint* pJ = CreateJoint();
-		pJ->m_pKeyPtr = pKey1;
+		pJ->m_pKeyPtr.set_Strict(pKey1);
 		pJ->m_Bits = cu.m_nPosInLastNode;
 
 		ReplaceTip(cu, pJ);
@@ -228,14 +246,14 @@ RadixTree::Leaf* RadixTree::Find(CursorBase& cu, const uint8_t* pKey, uint16_t n
 		pN->m_Bits = nBits - (cu.m_nBits + 1);
 		p->m_Bits -= cu.m_nPosInLastNode + 1;
 
-		pJ->m_ppC[iC] = pN;
-		pJ->m_ppC[!iC] = p;
+		pJ->m_ppC[iC].set_Strict(pN);
+		pJ->m_ppC[!iC].set_Strict(p);
 
 
 	} else
 	{
-		assert(!m_pRoot);
-		m_pRoot = pN;
+		assert(!m_RootOffset);
+		set_Root(pN);
 		pN->m_Bits = nBits;
 	}
 
@@ -252,6 +270,8 @@ RadixTree::Leaf* RadixTree::Find(CursorBase& cu, const uint8_t* pKey, uint16_t n
 
 void RadixTree::Delete(CursorBase& cu)
 {
+	OnDirty();
+
 	assert(cu.m_nPtrs);
 
 	cu.InvalidateElement();
@@ -265,7 +285,7 @@ void RadixTree::Delete(CursorBase& cu)
 	DeleteLeaf(p);
 
 	if (1 == cu.m_nPtrs)
-		assert(!m_pRoot);
+		assert(!m_RootOffset);
 	else
 	{
 		cu.m_nPtrs--;
@@ -274,7 +294,7 @@ void RadixTree::Delete(CursorBase& cu)
 		for (size_t i = 0; ; i++)
 		{
 			assert(i < _countof(pPrev->m_ppC));
-			Node* pN = pPrev->m_ppC[i];
+			Node* pN = pPrev->m_ppC[i].get();
 			if (pN)
 			{
 				const uint8_t* pKey1 = get_NodeKey(*pN);
@@ -283,10 +303,10 @@ void RadixTree::Delete(CursorBase& cu)
 				for (uint16_t j = cu.m_nPtrs; j--; )
 				{
 					Joint* pPrev2 = Cast::Up<Joint>(cu.m_pp[j]);
-					if (pPrev2->m_pKeyPtr != pKeyDead)
+					if (pPrev2->m_pKeyPtr.get_Strict() != pKeyDead)
 						break;
 
-					pPrev2->m_pKeyPtr = pKey1;
+					pPrev2->m_pKeyPtr.set_Strict(pKey1);
 				}
 
 				pN->m_Bits += pPrev->m_Bits + 1;
@@ -375,7 +395,7 @@ bool RadixTree::Traverse(const Node& n, ITraveler& t) const
 			continue;
 
 		t.m_pCu->m_nBits++;
-		if (!Traverse(*x.m_ppC[i], t))
+		if (!Traverse(*x.m_ppC[i].get_Strict(), t))
 			return false;
 	}
 
@@ -410,7 +430,7 @@ int RadixTree::Cmp1(uint8_t n, const uint8_t* pThreshold, uint16_t n0)
 
 bool RadixTree::Traverse(ITraveler& t) const
 {
-	if (!m_pRoot)
+	if (!m_RootOffset)
 		return true;
 
 	CursorBase cuDummy(NULL);
@@ -421,7 +441,7 @@ bool RadixTree::Traverse(ITraveler& t) const
 	t.m_pCu->m_nPtrs = 0;
 	t.m_pCu->m_nPosInLastNode = 0;
 
-	return Traverse(*m_pRoot, t);
+	return Traverse(*get_Root(), t);
 }
 
 size_t RadixTree::Count() const
@@ -457,7 +477,13 @@ const Merkle::Hash& RadixHashTree::get_Hash(Node& n, Merkle::Hash& hv)
 	if (Node::s_Leaf & n.m_Bits)
 	{
 		const Merkle::Hash& ret = get_LeafHash(n, hv);
-		n.m_Bits |= Node::s_Clean;
+
+		if (!(Node::s_Clean & n.m_Bits))
+		{
+			OnDirty();
+			n.m_Bits |= Node::s_Clean;
+		}
+
 		return ret;
 	}
 
@@ -469,8 +495,10 @@ const Merkle::Hash& RadixHashTree::get_Hash(Node& n, Merkle::Hash& hv)
 		for (size_t i = 0; i < _countof(x.m_ppC); i++)
 		{
 			ECC::Hash::Value hvPlaceholder;
-			hp << get_Hash(*x.m_ppC[i], hvPlaceholder);
+			hp << get_Hash(*x.m_ppC[i].get_Strict(), hvPlaceholder);
 		}
+
+		OnDirty();
 
 		hp >> x.m_Hash;
 		x.m_Bits |= Node::s_Clean;
@@ -494,9 +522,9 @@ void RadixHashTree::get_Proof(Merkle::Proof& proof, const CursorBase& cu)
 		const Joint& x = Cast::Up<Joint>(*pp[n]);
 
 		Merkle::Node& node = proof[nOut];
-		node.first = (x.m_ppC[0] == pPrev);
+		node.first = (x.m_ppC[0].get_Strict() == pPrev);
 
-		node.second = get_Hash(*x.m_ppC[node.first != false], node.second);
+		node.second = get_Hash(*x.m_ppC[node.first != false].get_Strict(), node.second);
 
 		pPrev = &x;
 	}
@@ -540,7 +568,7 @@ const Merkle::Hash& UtxoTree::get_LeafHash(Node& n, Merkle::Hash& hv)
 Input::Count UtxoTree::MyLeaf::get_Count() const
 {
 	return IsExt() ?
-		static_cast<Input::Count>(m_pIDs->size()) :
+		m_pIDs.get_Strict()->m_Count :
 		1;
 }
 
@@ -555,42 +583,78 @@ bool UtxoTree::MyLeaf::IsCommitmentDuplicated() const
 	return get_Bits() <= nBitsPostCommitment;
 }
 
-UtxoTree::MyLeaf::~MyLeaf()
+void UtxoTree::DeleteLeaf(Leaf* p)
 {
-	while (IsExt())
-		PopID();
+	MyLeaf& x = *Cast::Up<MyLeaf>(p);
+
+	while (x.IsExt())
+		PopID(x);
+
+	DeleteEmptyLeaf(p);
 }
 
-void UtxoTree::MyLeaf::PushID(TxoID x)
+void UtxoTree::PushID(TxoID id, MyLeaf& x)
 {
-	if (!IsExt())
+	if (!x.IsExt())
 	{
-		TxoID val = m_ID;
+		TxoID val = x.m_ID;
 
-		m_pIDs = new std::deque<TxoID>;
-		m_Bits |= s_User;
+		MyLeaf::IDQueue* pQueue = CreateIDQueue();
 
-		m_pIDs->push_back(val);
+		x.m_pIDs.set_Strict(pQueue);
+		x.m_Bits |= MyLeaf::s_User;
+
+		pQueue->m_Count = 0;
+		pQueue->m_pTop.set(nullptr);
+
+		PushIDRaw(val, *pQueue);
 	}
 
-	m_pIDs->push_back(x);
+	PushIDRaw(id, *x.m_pIDs.get_Strict());
 }
 
-TxoID UtxoTree::MyLeaf::PopID()
+void UtxoTree::PushIDRaw(TxoID id, MyLeaf::IDQueue& q)
 {
-	assert(IsExt() && (m_pIDs->size() > 1));
+	MyLeaf::IDNode* pOld = q.m_pTop.get();
+	MyLeaf::IDNode* pNew = CreateIDNode();
 
-	TxoID ret = m_pIDs->back();
-	m_pIDs->pop_back();
+	q.m_pTop.set_Strict(pNew);
+	pNew->m_pNext.set(pOld);
+	q.m_Count++;
 
-	if (1 == m_pIDs->size())
+	pNew->m_ID = id;
+}
+
+TxoID UtxoTree::PopIDRaw(MyLeaf::IDQueue& q)
+{
+	assert(q.m_Count);
+	MyLeaf::IDNode* pN = q.m_pTop.get_Strict();
+
+	TxoID ret = pN->m_ID;
+
+	q.m_pTop.set(pN->m_pNext.get());
+	DeleteIDNode(pN);
+
+	q.m_Count--;
+	return ret;
+}
+
+TxoID UtxoTree::PopID(MyLeaf& x)
+{
+	assert(x.IsExt());
+	MyLeaf::IDQueue& q = *x.m_pIDs.get_Strict();
+
+	TxoID ret = PopIDRaw(q);
+
+	assert(q.m_Count);
+	if (1 == q.m_Count)
 	{
-		TxoID val = m_pIDs->back();
+		TxoID val = PopIDRaw(q);
 
-		delete m_pIDs;
-		m_Bits &= ~s_User;
+		DeleteIDQueue(&q);
+		x.m_Bits &= ~MyLeaf::s_User;
 
-		m_ID = val;
+		x.m_ID = val;
 	}
 
 	return ret;
@@ -614,8 +678,8 @@ void UtxoTree::SaveIntenral(ISerializer& s) const
 
 			if (x.IsExt())
 			{
-				for (auto it = x.m_pIDs->begin(); x.m_pIDs->end() != it; it++)
-					m_pS->Process(*it);
+				for (auto p = x.m_pIDs.get_Strict()->m_pTop.get_Strict(); p; p = p->m_pNext.get())
+					m_pS->Process(p->m_ID);
 			}
 			else
 				m_pS->Process(x.m_ID);
@@ -663,7 +727,7 @@ void UtxoTree::LoadIntenral(ISerializer& s)
 		{
 			TxoID val = 0;
 			s.Process(val);
-			p->PushID(val);
+			PushID(val, *p);
 		}
 	}
 }
@@ -780,6 +844,128 @@ void UtxoTree::Compact::FlushInternal(uint16_t nBitsCommonNext)
 			<< n1.m_Hash
 			>> n0.m_Hash;
 	}
+}
+
+/////////////////////////////
+// UtxoTreeMapped
+bool UtxoTreeMapped::Open(const char* sz, const Stamp& s)
+{
+	// change this when format changes
+	static const uint8_t s_pSig[] = {
+		0x44, 0x98, 0xFF, 0xD5,
+		0xDD, 0x1A, 0x46, 0xF8,
+		0xA1, 0xCD, 0x14, 0xEA,
+		0xFE, 0x35, 0xD7, 0x0FA
+	};
+
+	MappedFile::Defs d;
+	d.m_pSig = s_pSig;
+	d.m_nSizeSig = sizeof(s_pSig);
+	d.m_nBanks = Type::count;
+	d.m_nFixedHdr = sizeof(Hdr);
+
+	m_Mapping.Open(sz, d);
+
+	Hdr& h = get_Hdr();
+	if (!h.m_Dirty && (h.m_Stamp == s))
+	{
+		m_RootOffset = h.m_Root;
+		return true;
+	}
+
+	m_Mapping.Open(sz, d, true); // reset
+	return false;
+}
+
+void UtxoTreeMapped::Close()
+{
+	m_RootOffset = 0; // prevent cleanup
+	m_Mapping.Close();
+}
+
+UtxoTreeMapped::Hdr& UtxoTreeMapped::get_Hdr()
+{
+	return *static_cast<Hdr*>(m_Mapping.get_FixedHdr());
+}
+
+void UtxoTreeMapped::FlushStrict(const Stamp& s)
+{
+	Hdr& h = get_Hdr();
+	assert(h.m_Dirty);
+
+	h.m_Dirty = 0;
+	h.m_Root = m_RootOffset;
+	// TODO: flush
+
+	h.m_Stamp = s;
+}
+
+void UtxoTreeMapped::EnsureReserve()
+{
+	try
+	{
+		m_Mapping.EnsureReserve(Type::Leaf, sizeof(MyLeaf), 1);
+		m_Mapping.EnsureReserve(Type::Joint, sizeof(MyJoint), 1);
+		m_Mapping.EnsureReserve(Type::Queue, sizeof(MyLeaf::IDQueue), 1);
+		m_Mapping.EnsureReserve(Type::Node, sizeof(MyLeaf::IDNode), 1);
+	}
+	catch (const std::exception& e)
+	{
+		// promote it
+		CorruptionException exc;
+		exc.m_sErr = e.what();
+		throw exc;
+	}
+}
+
+void UtxoTreeMapped::OnDirty()
+{
+	get_Hdr().m_Dirty = 1;
+}
+
+intptr_t UtxoTreeMapped::get_Base() const
+{
+	return reinterpret_cast<intptr_t>(m_Mapping.get_Base());
+}
+
+RadixTree::Leaf* UtxoTreeMapped::CreateLeaf()
+{
+	return Allocate<MyLeaf>(Type::Leaf);
+}
+
+void UtxoTreeMapped::DeleteEmptyLeaf(Leaf* p)
+{
+	m_Mapping.Free(Type::Leaf, p);
+}
+
+RadixTree::Joint* UtxoTreeMapped::CreateJoint()
+{
+	return Allocate<MyJoint>(Type::Joint);
+}
+
+void UtxoTreeMapped::DeleteJoint(Joint* p)
+{
+	m_Mapping.Free(Type::Joint, p);
+}
+
+UtxoTree::MyLeaf::IDQueue* UtxoTreeMapped::CreateIDQueue()
+{
+	return Allocate<MyLeaf::IDQueue>(Type::Queue);
+}
+
+void UtxoTreeMapped::DeleteIDQueue(MyLeaf::IDQueue* p)
+{
+	m_Mapping.Free(Type::Queue, p);
+}
+
+UtxoTree::MyLeaf::IDNode* UtxoTreeMapped::CreateIDNode()
+{
+	return Allocate<MyLeaf::IDNode>(Type::Node);
+}
+
+void UtxoTreeMapped::DeleteIDNode(MyLeaf::IDNode* p)
+{
+	m_Mapping.Free(Type::Node, p);
 }
 
 } // namespace beam

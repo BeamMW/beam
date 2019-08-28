@@ -245,6 +245,10 @@ void NodeClient::runLocalNode()
             {
                 Node::SyncStatus s = m_node.m_SyncStatus;
 
+				if (MaxHeight == m_Done0)
+					m_Done0 = s.m_Done;
+				s.ToRelative(m_Done0);
+
                 if (!m_reportedStarted && (s.m_Done == s.m_Total))
                 {
                     m_reportedStarted = true;
@@ -270,6 +274,7 @@ void NodeClient::runLocalNode()
         private:
             Node& m_node;
             NodeClient& m_model;
+			Height m_Done0 = MaxHeight;
             bool m_reportedStarted = false;
         } obs(node, *this);
 

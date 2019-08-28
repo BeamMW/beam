@@ -188,7 +188,7 @@
     </message>
     <message id="wallet-receive-button">
         <source>Receive</source>
-        <translation>Motta</translation>
+        <translation>Ta emot</translation>
     </message>
     <message id="wallet-in-progress-title">
         <source>In progress</source>
@@ -232,7 +232,7 @@
     </message>
     <message id="wallet-txs-status-received">
         <source>received</source>
-        <translation>motta</translation>
+        <translation>mottaget</translation>
     </message>
     <message id="wallet-txs-status-sent">
         <source>sent</source>
@@ -505,7 +505,7 @@
     </message>
     <message id="tx-details-receiving-addr-label">
         <source>Receiving address</source>
-        <translation>Mottagande adresser</translation>
+        <translation>Mottagande adress</translation>
     </message>
     <message id="tx-details-error-label">
         <source>Error</source>
@@ -580,7 +580,7 @@
     </message>
     <message id="send-title">
         <source>Send Beam</source>
-        <translation>Skicka Beam</translation>
+        <translation>Skickade Beam</translation>
     </message>
     <message id="send-send-to-label">
         <source>Send To</source>
@@ -1173,6 +1173,74 @@
         <source>Password verification is required to change that setting</source>
         <extracomment>settings tab, general section, ask password to send, confirm password dialog, message</extracomment>
         <translation>Lösenordsverifiering krävs för att ändra denna inställning</translation>
+    </message>
+    <message id="open-in-explorer">
+        <source>Open in Blockchain Explorer</source>
+        <translation>Öppna i block-kedjans utforskare</translation>
+    </message>
+    <message id="restore-finish-alert-button">
+        <source>I understand</source>
+        <translation>Jag förstår</translation>
+    </message>
+    <message id="restore-finish-alert-title">
+        <source>Do not simultaneously run two wallets initiated from the same seed phrase</source>
+        <translation>Kör inte två plånböcker sammtidigt som har blivit initierade från samma seed phrase</translation>
+    </message>
+    <message id="restore-finish-alert-message-line">
+        <source>Don’t use same seed phrase on several devices, your balance and transaction list won’t be synchronized.</source>
+        <translation>Använd inte samma seed phrase på flera enheter, din balans samt transaktions-listan kommer inte att synkroniseras.</translation>
+    </message>
+    <message id="tx-failture-subtx-failed">
+        <source>Subtransaction has failed</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="tx-failture-invalid-contract-amount">
+        <source>Contract&apos;s amount is not valid</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="tx-failture-invalid-sidechain-contract">
+        <source>Side chain has invalid contract</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="tx-failture-sidechain-internal-error">
+        <source>Side chain bridge has internal error</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="tx-failture-sidechain-network-error">
+        <source>Side chain bridge has network error</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="tx-failture-invalid-sidechain-response-format">
+        <source>Side chain bridge has response format error</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="tx-failture-invalid-side-chain-credentials">
+        <source>Invalid credentials of Side chain</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="tx-failture-not-enough-time-btc-lock">
+        <source>Not enough time to finish btc lock transaction</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="tx-failture-create-multisig">
+        <source>Failed to create multi-signature</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="tx-failture-fee-too-small">
+        <source>Fee is too small</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="loading-view-estimate-minutes">
+        <source>min.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="loading-view-estimate-seconds">
+        <source>sec.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="loading-view-estimate-time">
+        <source>Estimate time: %s</source>
+        <translation type="unfinished"></translation>
     </message>
 </context>
 </TS>

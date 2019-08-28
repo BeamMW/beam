@@ -41,7 +41,8 @@ public:
         virtual void OnUpdateStarted(const ChannelIDPtr& chID) {}; 
         virtual void OnUpdateFinished(const ChannelIDPtr& chID) {}; 
     };
-    explicit Mediator(const IWalletDB::Ptr& walletDB);
+    explicit Mediator(const IWalletDB::Ptr& walletDB,
+                      const IPrivateKeyKeeper::Ptr& keyKeeper);
     ~Mediator();
     // proto::FlyClient
     void OnNewTip() override;
@@ -90,6 +91,7 @@ private:
     void PrepareToForget(const std::unique_ptr<Channel>& ch);
 
     IWalletDB::Ptr m_pWalletDB;
+    IPrivateKeyKeeper::Ptr m_keyKeeper;
     proto::FlyClient::INetwork::Ptr m_pConnection;
 
     std::unique_ptr<Receiver> m_pInputReceiver;

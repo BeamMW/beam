@@ -13,10 +13,18 @@
 // limitations under the License.
 
 #include "loading_view.h"
+
+#include <cmath>
 #include "model/app_model.h"
 
 using namespace beam;
 using namespace std;
+
+namespace
+{
+    Timestamp kMaxEstimate = 2 * 60 * 60;
+    double kSecondsInMinute = 60.;
+}  // namespace
 
 LoadingViewModel::LoadingViewModel()
     : m_walletModel{ *AppModel::getInstance().getWallet() }
@@ -67,11 +75,7 @@ void LoadingViewModel::resetWallet()
 
 void LoadingViewModel::updateProgress()
 {
-    double nodeSyncProgress = 0.;
-	double walletSyncProgress = 0.;
-
-	if (m_nodeTotal > 0)
-		nodeSyncProgress = std::min(1., static_cast<double>(m_nodeDone) / static_cast<double>(m_nodeTotal));
+    double progress = 0.;
 
 	bool bLocalNode = AppModel::getInstance().getSettings().getRunLocalNode();
 	QString progressMessage = "";
@@ -80,11 +84,16 @@ void LoadingViewModel::updateProgress()
     {
         //% "Downloading blocks"
         progressMessage = qtTrId("loading-view-download-blocks");
+        if (m_nodeTotal > 0)
+		    progress = std::min(
+                1., m_nodeDone / static_cast<double>(m_nodeTotal));
     }
 	else
 	{
         if (m_total > 0)
-            walletSyncProgress = std::min(1., static_cast<double>(m_done) / static_cast<double>(m_total));
+        {
+            progress = std::min(1., m_done / static_cast<double>(m_total));
+        }
 
 		if (m_done < m_total)
         {
@@ -97,15 +106,61 @@ void LoadingViewModel::updateProgress()
 		}
 	}
 
-    double p = bLocalNode ? nodeSyncProgress : walletSyncProgress;
-
-    if (p > 0)
+    auto s = getSecondsFromLastUpdate();
+    if (progress > 0)
     {
-        progressMessage.append(QString::asprintf(" %d%%", static_cast<int>(p * 100)));
+        progressMessage.append(QString::asprintf(" %.2lf%%", progress * 100));
+        progressMessage.append(getEstimateStr(s, progress));
     }
 
     setProgressMessage(progressMessage);
-    setProgress(p);
+    setProgress(progress);
+}
+
+inline
+Timestamp LoadingViewModel::getSecondsFromLastUpdate()
+{
+    m_updateTimestamp = getTimestamp();
+    auto timeDiff = m_updateTimestamp - m_lastUpdateTimestamp;
+    m_lastUpdateTimestamp = m_updateTimestamp;
+
+    return timeDiff > kMaxEstimate ? kMaxEstimate : timeDiff;
+}
+
+inline
+QString LoadingViewModel::getEstimateStr(
+        beam::Timestamp secondsFromLastUpdate, double progress)
+{
+    double estimateSeconds =
+        secondsFromLastUpdate / (progress - m_lastProgress);
+    if (estimateSeconds / m_lastEstimateSeconds > 2)
+    {
+        estimateSeconds = (estimateSeconds + m_lastEstimateSeconds) / 2;
+    }
+    m_lastEstimateSeconds = estimateSeconds;
+
+    double value = 0;
+    QString units;
+    if (estimateSeconds > kSecondsInMinute)
+    {
+        value = ceil(estimateSeconds / kSecondsInMinute);
+        //% "min."
+        units = qtTrId("loading-view-estimate-minutes");
+    }
+    else
+    {
+        value = estimateSeconds > 0. ? ceil(estimateSeconds) : 1.;
+        //% "sec."
+        units = qtTrId("loading-view-estimate-seconds");
+    }
+    QString estimateSubStr = QString::asprintf(
+        "%.0lf %s", value, units.toStdString().c_str());
+
+    //% "Estimate time: %s"
+    return " " + 
+        QString::asprintf(
+            qtTrId("loading-view-estimate-time").toStdString().c_str(),
+            estimateSubStr.toStdString().c_str());
 }
 
 double LoadingViewModel::getProgress() const
@@ -117,6 +172,7 @@ void LoadingViewModel::setProgress(double value)
 {
     if (value > m_progress)
     {
+        m_lastProgress = m_progress;
         m_progress = value;
         emit progressChanged();
     }

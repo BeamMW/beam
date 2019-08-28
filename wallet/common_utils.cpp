@@ -23,10 +23,11 @@ namespace beam::wallet
 WalletAddress GenerateNewAddress(
         const IWalletDB::Ptr& walletDB,
         const std::string& label,
+        IPrivateKeyKeeper::Ptr keyKeeper,
         WalletAddress::ExpirationStatus expirationStatus,
         bool saveRequired)
 {
-    WalletAddress address = storage::createAddress(*walletDB);
+    WalletAddress address = storage::createAddress(*walletDB, keyKeeper);
 
     address.setExpiration(expirationStatus);
     address.m_label = label;

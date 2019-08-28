@@ -158,7 +158,7 @@ bool RecoveryPhraseItem::isCorrect() const
 
 bool RecoveryPhraseItem::isAllowed() const
 {
-    return isAllowedWord(m_userInput.toStdString(), language::en);
+    return  isAllowedWord(m_userInput.toStdString(), language::en);
 }
 
 const QString& RecoveryPhraseItem::getValue() const
@@ -650,4 +650,18 @@ void StartViewModel::checkCapsLock()
 void StartViewModel::openFolder(const QString& path) const
 {
     WalletSettings::openFolder(path);
+}
+
+bool StartViewModel::getValidateDictionary() const
+{
+    return m_validateDictionary;
+}
+
+void StartViewModel::setValidateDictionary(bool value)
+{
+    if (m_validateDictionary != value)
+    {
+        m_validateDictionary = value;
+        emit validateDictionaryChanged();
+    }
 }

@@ -280,7 +280,8 @@ void NodeDB::Open(const char* szPath)
 		bCreate = !rs.Step();
 	}
 
-	const uint64_t nVersionTop = 17;
+	const uint64_t nVersion17 = 17; // before UTXO image
+	const uint64_t nVersionTop = 18;
 
 	Transaction t(*this);
 
@@ -292,8 +293,16 @@ void NodeDB::Open(const char* szPath)
 	else
 	{
 		uint64_t nVer = ParamIntGetDef(ParamID::DbVer);
-		if (nVer < nVersionTop)
-			throw NodeDBUpgradeException("Node upgrade is not supported. Please, remove node.db and tempmb files");
+		if (nVer != nVersionTop)
+		{
+			if (nVer < nVersion17)
+				throw NodeDBUpgradeException("Node upgrade is not supported. Please, remove node.db and tempmb files");
+
+			if (nVer > nVersionTop)
+				throw NodeDBUpgradeException("Unsupported db version");
+
+			ParamSet(ParamID::DbVer, &nVersionTop, NULL);
+		}
 	}
 
 	t.Commit();
