@@ -868,6 +868,8 @@ struct NodeProcessor::MultiblockContext
 	ECC::Scalar::Native m_Offset;
 	ECC::Point::Native m_Sigma;
 
+	MultiShieldedContext m_Msc;
+
 	size_t m_SizePending = 0;
 	bool m_bFail = false;
 	bool m_bBatchDirty = false;
@@ -943,22 +945,38 @@ struct NodeProcessor::MultiblockContext
 			struct Task1 :public Task
 			{
 				MultiblockContext* m_pMbc;
+				ECC::Point::Native* m_pBatchSigma;
 				virtual void Exec() override
 				{
 					ECC::InnerProduct::BatchContext* pBc = ECC::InnerProduct::BatchContext::s_pInstance;
 					if (pBc && !pBc->Flush())
-						m_pMbc->m_bFail = true;
+					{
+						{
+							std::unique_lock<std::mutex> scope(m_pMbc->m_Mutex);
+							(*m_pBatchSigma) += pBc->m_Sum;
+
+						}
+						pBc->m_Sum = Zero;
+					}
 				}
 			};
 
+			ECC::Point::Native ptBatchSigma;
+
 			Task1 t;
 			t.m_pMbc = this;
+			t.m_pBatchSigma = &ptBatchSigma;
 			m_This.get_TaskProcessor().ExecAll(t);
-
-			if (m_bFail)
-				return;
-
+			assert(!m_bFail);
 			m_bBatchDirty = false;
+
+			m_Msc.Calculate(ptBatchSigma, m_This);
+
+			if (!(ptBatchSigma == Zero))
+			{
+				m_bFail = true;
+				return;
+			}
 		}
 
 		if (m_This.IsFastSync())
@@ -1132,6 +1150,9 @@ void NodeProcessor::MultiblockContext::MyTask::SharedBlock::Exec(uint32_t iVerif
 	TemporarySwap<bool> scopeMat(TxElement::s_IgnoreMaturity, bIgnoreMaturities);
 
 	bool bValid = ctx.ValidateAndSummarize(bSparse ? txbDummy : m_Body, m_Body.get_Reader());
+
+	if (bValid)
+		bValid = m_Mbc.m_Msc.IsValid(m_Body.m_vInputs, *ECC::InnerProduct::BatchContext::s_pInstance, iVerifier, m_Ctx.m_Params.m_nVerifiers);
 
 	std::unique_lock<std::mutex> scope(m_Mbc.m_Mutex);
 
