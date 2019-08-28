@@ -14,7 +14,6 @@
 
 #pragma once
 
-// #include <QQmlListProperty>
 #include "swap_offer_item.h"
 #include "helpers/list_model.h"
 

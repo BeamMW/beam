@@ -46,7 +46,6 @@ namespace beam::wallet
                 m_offersCache[*txId] = offer;
                 m_observer.onSwapOffersChanged(ChangeAction::Added, std::vector<SwapOffer>{offer});
             }
-
         }
         else
         {
@@ -73,8 +72,7 @@ namespace beam::wallet
         else
         {
             assert(false && "Unsupported coin type");
-        }
-        
+        }        
     }
 
     auto SwapOffersBoard::getOffersList() const -> std::vector<SwapOffer>

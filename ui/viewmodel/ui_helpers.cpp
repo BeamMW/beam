@@ -9,8 +9,6 @@ using namespace beam;
 
 namespace beamui
 {
-
-
     QString toString(const beam::wallet::WalletID& walletID)
     {
         if (walletID != Zero)

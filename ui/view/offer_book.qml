@@ -133,7 +133,6 @@ Item {
                 TxFilter{
                     id: filterAll
                     Layout.alignment: Qt.AlignTop
-                    // width: 54
                     label: qsTrId("offer-book-all-tab")
                     onClicked: offersLayout.state = "all"
                     capitalization: Font.AllUppercase
@@ -143,7 +142,6 @@ Item {
                     id: filterMine
                     Layout.alignment: Qt.AlignTop
                     Layout.leftMargin: 40
-                    // width: 54
                     label: qsTrId("offer-book-mine-tab")
                     onClicked: offersLayout.state = "mine"
                     capitalization: Font.AllUppercase
@@ -153,7 +151,6 @@ Item {
                     id: filterOthers
                     Layout.alignment: Qt.AlignTop
                     Layout.leftMargin: 40
-                    // width: 54
                     label: qsTrId("offer-book-others-tab")
                     onClicked: offersLayout.state = "others"
                     capitalization: Font.AllUppercase

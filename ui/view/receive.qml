@@ -34,7 +34,7 @@ ColumnLayout {
 
     SwapNADialog {
         id: swapna
-        onRejected: thisView.isSwapMode = true  // TEST - normal false
+        onRejected: thisView.isSwapMode = false
         onAccepted: main.openSwapSettings()
         text:       qsTrId("swap-na-message").replace("\\n", "\n")
     }

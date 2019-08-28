@@ -35,26 +35,6 @@ public:
         return m_list.size();
     }
 
-    //QVariant data(const QModelIndex &index, int role) const override
-    //{
-    //    if (!index.isValid() || index.row() < 0 || index.row() >= m_list.size())
-    //    {
-    //        return QVariant();
-    //    }
-    //    return (role == Qt::DisplayRole || role == Qt::EditRole) ? QVariant::fromValue<T>(m_list.at(index.row())) : QVariant();
-    //}
-
-    //bool setData(const QModelIndex &index, const QVariant &value, int role) override
-    //{
-    //    if (index.isValid() && role == Qt::EditRole)
-    //    {
-    //        m_list.replace(index.row(), value.value<T>());
-    //        emit dataChanged(index, index);
-    //        return true;
-    //    }
-    //    return false;
-    //}
-
     void insert(const std::vector<T>& items)
     {
         int row = 0;

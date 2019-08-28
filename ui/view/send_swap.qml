@@ -45,8 +45,7 @@ ColumnLayout {
 
     SwapNADialog {
         id:         swapna
-        // TEST ONLY!
-        // onRejected: parentView.onBadSwap()
+        onRejected: parentView.onBadSwap()
         onAccepted: main.openSwapSettings()
     }
 
