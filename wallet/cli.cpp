@@ -538,8 +538,9 @@ namespace
             auto tempPhrase = vm[cli::SEED_PHRASE].as<string>();
             boost::algorithm::trim_if(tempPhrase, [](char ch) { return ch == ';'; });
             phrase = string_helpers::split(tempPhrase, ';');
-            assert(phrase.size() == WORD_COUNT);
-            if (!isValidMnemonic(phrase, language::en))
+
+            if (phrase.size() != WORD_COUNT
+                || (vm.count(cli::IGNORE_DICTIONARY) == 0 && !isValidMnemonic(phrase, language::en)))
             {
                 LOG_ERROR() << boost::format(kErrorSeedPhraseInvalid) % tempPhrase;
                 return false;
