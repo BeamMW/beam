@@ -1317,6 +1317,13 @@ namespace
             {
                 settings = ParseBitcoinElectrumSettings(vm);
             }
+
+            if (!settings)
+            {
+                LOG_INFO() << "settings should be specified.";
+                return -1;
+            }
+
             settingsProvider.SetSettings(*settings);
             return 0;
         }
@@ -1367,7 +1374,12 @@ namespace
             if (!settings)
             {
                 settings = ParseLitecoinElectrumSettings(vm);
-                // TODO roman.strilets process error
+            }
+
+            if (!settings)
+            {
+                LOG_INFO() << "settings should be specified.";
+                return -1;
             }
 
             settingsProvider.SetSettings(*settings);
