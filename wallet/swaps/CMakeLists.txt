@@ -5,6 +5,7 @@ set(SWAP_SRC
     swap_transaction.cpp
     lock_tx_builder.cpp
     shared_tx_builder.cpp
+    swap_offers_board.cpp
     ../bitcoin/client.cpp
     ../bitcoin/bitcoin_side.cpp
     ../bitcoin/bitcoin_core_016.cpp

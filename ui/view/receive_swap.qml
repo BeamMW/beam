@@ -282,7 +282,7 @@ ColumnLayout {
             palette.buttonText: Style.content_main
             icon.source: "qrc:/assets/icon-cancel-white.svg"
             onClicked: {
-                walletView.pop();
+                thisView.parent.parent.pop();
             }
         }
 
@@ -315,6 +315,7 @@ ColumnLayout {
                     thisView.addressSaved = true
                     viewModel.saveAddress()
                 }
+                viewModel.startListen()
                 viewModel.publishToken()
             }
         }

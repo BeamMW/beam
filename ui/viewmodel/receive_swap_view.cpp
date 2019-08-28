@@ -241,6 +241,21 @@ void ReceiveSwapViewModel::saveAddress()
     }
 }
 
+void ReceiveSwapViewModel::publishToken()
+{
+    using namespace beam::wallet;
+	// TODO:
+    auto txParameters = beam::wallet::TxParameters(_txParameters);
+    // txParameters.SetParameter(beam::wallet::TxParameterID::PeerResponseHeight, ResponseTime(_offerExpires));
+    txParameters.SetParameter(beam::wallet::TxParameterID::Message, beam::wallet::toByteBuffer(_addressComment.toStdString()));
+
+	auto time = beam::wallet::toByteBuffer(beam::getTimestamp());
+	txParameters.SetParameter(beam::wallet::TxParameterID::CreateTime, time);
+	txParameters.SetParameter(beam::wallet::TxParameterID::ModifyTime, time);
+	
+    _walletModel.getAsync()->publishSwapOffer(txParameters);
+}
+
 void ReceiveSwapViewModel::startListen()
 {
     using namespace beam::wallet;
@@ -298,9 +313,4 @@ void ReceiveSwapViewModel::updateTransactionToken()
     _txParameters.SetParameter(beam::wallet::TxParameterID::IsSender, isBeamSide);
 
     setTransactionToken(QString::fromStdString(std::to_string(_txParameters)));
-}
-
-void ReceiveSwapViewModel::publishToken()
-{
-    // TODO:SWAP
 }

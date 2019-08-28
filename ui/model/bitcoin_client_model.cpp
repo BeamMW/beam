@@ -166,7 +166,7 @@ void BitcoinClientModel::RecalculateAmounts()
     {
         const auto& txDescription = txPair.second;
 
-        if (txDescription.m_status == TxStatus::InProgress)
+        if (txDescription.m_status == beam::wallet::TxStatus::InProgress)
         {
             auto isBeamSide = txDescription.GetParameter<bool>(TxParameterID::AtomicSwapIsBeamSide);
             auto swapAmount = txDescription.GetParameter<Amount>(TxParameterID::AtomicSwapAmount);

@@ -36,6 +36,7 @@ Rectangle {
     property var contentItems : [
 		//"dashboard",
 		"wallet", 
+        "offer_book",
 		"addresses", 
 		"utxo",
 		//"notification", 

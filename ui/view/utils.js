@@ -36,6 +36,10 @@ function calcDisplayRate(ail, air) {
     return Math.round(ar / al * rounder) / rounder
 }
 
+function currenciesList() {
+    return ["BEAM", "BTC", "LTC", "QTUM"]
+}
+
 const symbolBeam  = '\uEAFB'
 const symbolBtc   = '\u20BF'
 const symbolLtc   = '\u0141'

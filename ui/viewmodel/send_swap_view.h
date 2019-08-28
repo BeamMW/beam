@@ -24,6 +24,7 @@ class SendSwapViewModel: public QObject
     Q_OBJECT
     Q_PROPERTY(QString    token            READ getToken            WRITE setToken       NOTIFY tokenChanged)
     Q_PROPERTY(bool       tokenValid       READ getTokenValid                            NOTIFY tokenChanged)
+    Q_PROPERTY(bool       parametersValid  READ getParametersValid                       NOTIFY parametersChanged)
     Q_PROPERTY(double     sendAmount       READ getSendAmount                            NOTIFY sendAmountChanged)
     Q_PROPERTY(int        sendFee          READ getSendFee          WRITE setSendFee     NOTIFY sendFeeChanged)
     Q_PROPERTY(double     receiveAmount    READ getReceiveAmount                         NOTIFY receiveAmountChanged)
@@ -45,6 +46,8 @@ public:
     QString getToken() const;
     void setToken(const QString& value);
     bool getTokenValid() const;
+
+    bool getParametersValid() const;
 
     double getSendAmount() const;
     void setSendAmount(double value);
@@ -79,10 +82,12 @@ public:
     QString getReceiverAddress() const;
 
 public:
+    Q_INVOKABLE void setParameters(QVariant parameters);    /// used to pass TxParameters directly without Token generation
     Q_INVOKABLE void sendMoney();
 
 signals:
     void tokenChanged();
+    void parametersChanged();
     void canSendChanged();
     void sendCurrencyChanged();
     void receiveCurrencyChanged();
@@ -99,6 +104,7 @@ public slots:
     void onChangeCalculated(beam::Amount change);
 
 private:
+    void fillParameters(beam::wallet::TxParameters parameters);
     void recalcAvailable();
 
     double    _sendAmount;

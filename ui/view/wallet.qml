@@ -77,7 +77,7 @@ Item {
                     text: qsTrId("wallet-receive-button")
 
                     onClicked: {
-                        walletView.push(Qt.createComponent("receive.qml"));
+                        walletView.push(Qt.createComponent("receive.qml"), {"isSwapView": false});
                     }
                 }
 

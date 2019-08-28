@@ -59,6 +59,7 @@ namespace beam::wallet
         // @param done - number of done tasks
         // @param total - number of total tasks
         virtual void onSyncProgress(int done, int total) = 0;
+        virtual void onSwapOffersChanged(ChangeAction action, const std::vector<SwapOffer>& offers) = 0;
     };
 
     // Interface for wallet message consumer
