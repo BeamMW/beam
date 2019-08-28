@@ -761,7 +761,7 @@ namespace beam
 				m_MyUtxos.insert(std::make_pair(h + 1 + hIncubation, utxoOut));
 			}
 
-			if (!(m_hvKrnRel == Zero))
+			if (!(m_hvKrnRel == Zero) && (h >= Rules::get().pForks[1].m_Height))
 			{
 				mk.m_hvRelLock = m_hvKrnRel;
 				m_hvKrnRel = Zero;
