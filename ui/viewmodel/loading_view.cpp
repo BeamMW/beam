@@ -154,7 +154,7 @@ QString LoadingViewModel::getEstimateStr(
         units = qtTrId("loading-view-estimate-seconds");
     }
     QString estimateSubStr = QString::asprintf(
-        "%d %s", value, units.toStdString().c_str());
+        "%llu %s", value, units.toStdString().c_str());
 
     //% "Estimate time: %s"
     return " " + 
