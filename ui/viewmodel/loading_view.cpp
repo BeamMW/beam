@@ -149,7 +149,7 @@ QString LoadingViewModel::getEstimateStr(
     }
     else
     {
-        value = ceil(estimateSeconds);
+        value = estimateSeconds > 0. ? ceil(estimateSeconds) : 1.;
         //% "sec."
         units = qtTrId("loading-view-estimate-seconds");
     }
