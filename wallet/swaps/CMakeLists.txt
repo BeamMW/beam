@@ -7,12 +7,14 @@ set(SWAP_SRC
     shared_tx_builder.cpp
     swap_offers_board.cpp
     ../bitcoin/client.cpp
+    ../bitcoin/common.cpp
     ../bitcoin/bitcoin_side.cpp
     ../bitcoin/bitcoin_core_016.cpp
     ../bitcoin/bitcoin_core_017.cpp
     ../bitcoin/electrum.cpp
     ../bitcoin/settings.cpp
     ../bitcoin/settings_provider.cpp
+    ../litecoin/common.cpp
     ../litecoin/litecoin_core_016.cpp
     ../litecoin/litecoin_core_017.cpp
     ../litecoin/litecoin_side.cpp

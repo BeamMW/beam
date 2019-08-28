@@ -13,14 +13,12 @@
 // limitations under the License.
 
 #include "litecoin_side.h"
-#include "wallet/bitcoin/common.h"
+#include "common.h"
 
 namespace
 {
-    constexpr uint32_t kLitecoinWithdrawTxAverageSize = 360;
-    constexpr beam::Amount kLitecoinDustThreshold = beam::bitcoin::kDustThreshold;
+    constexpr uint32_t kLitecoinWithdrawTxAverageSize = 360; 
     constexpr uint32_t kLitecoinLockTxEstimatedTimeInBeamBlocks = 20;   // it's average value
-    constexpr uint8_t kLitecoinMainnetP2KH = 48;
 }
 
 namespace beam::wallet
@@ -33,7 +31,7 @@ namespace beam::wallet
     bool LitecoinSide::CheckAmount(Amount amount, Amount feeRate)
     {
         Amount fee = static_cast<Amount>(std::round(double(kLitecoinWithdrawTxAverageSize * feeRate) / 1000));
-        return amount > kLitecoinDustThreshold && amount > fee;
+        return amount > litecoin::kDustThreshold && amount > fee;
     }
 
     uint32_t LitecoinSide::GetLockTxEstimatedTimeInBeamBlocks() const
@@ -43,11 +41,6 @@ namespace beam::wallet
 
     uint8_t LitecoinSide::GetAddressVersion() const
     {
-        if (IsMainnet())
-        {
-            return kLitecoinMainnetP2KH;
-        }
-
-        return libbitcoin::wallet::ec_private::testnet_p2kh;
+        return litecoin::getAddressVersion(IsMainnet());
     }
 }

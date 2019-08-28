@@ -24,10 +24,12 @@
 #include "wallet/bitcoin/bitcoin_core_017.h"
 #include "wallet/bitcoin/settings_provider.h"
 #include "wallet/bitcoin/bitcoin_side.h"
+#include "wallet/bitcoin/common.h"
 #include "wallet/litecoin/litecoin_core_017.h"
 #include "wallet/litecoin/settings.h"
 #include "wallet/litecoin/litecoin_side.h"
 #include "wallet/litecoin/electrum.h"
+#include "wallet/litecoin/common.h"
 #include "wallet/qtum/qtum_core_017.h"
 #include "wallet/qtum/settings.h"
 #include "wallet/qtum/qtum_side.h"
@@ -1097,15 +1099,14 @@ namespace
                 throw std::runtime_error("swap fee rate is missing");
             }
 
-            // TODO roman.strilets its temporary solution
-            electrumSettings.m_isMainnet = false;
-            electrumSettings.m_addressVersion = 0x6f;
+            auto swapSecondSideChainType = ParseSwapSecondSideChainType(vm);
+            electrumSettings.m_isMainnet = swapSecondSideChainType == SwapSecondSideChainType::Mainnet;
+            electrumSettings.m_addressVersion = bitcoin::getAddressVersion(electrumSettings.m_isMainnet);
 
             auto btcSettings = std::make_shared<bitcoin::Settings>();
             btcSettings->SetElectrumConnectionOptions(electrumSettings);
             btcSettings->SetFeeRate(vm[cli::SWAP_FEERATE].as<Positive<Amount>>().value);
 
-            auto swapSecondSideChainType = ParseSwapSecondSideChainType(vm);
             if (swapSecondSideChainType != SwapSecondSideChainType::Unknown)
             {
                 btcSettings->SetChainType(swapSecondSideChainType);
@@ -1206,15 +1207,14 @@ namespace
                 throw std::runtime_error("swap fee rate is missing");
             }
 
-            // TODO roman.strilets its temporary solution
-            electrumSettings.m_isMainnet = false;
-            electrumSettings.m_addressVersion = 0x6f;
+            auto swapSecondSideChainType = ParseSwapSecondSideChainType(vm);
+            electrumSettings.m_isMainnet = swapSecondSideChainType == SwapSecondSideChainType::Mainnet;
+            electrumSettings.m_addressVersion = bitcoin::getAddressVersion(electrumSettings.m_isMainnet);
 
             auto ltcSettings = std::make_shared<litecoin::Settings>();
             ltcSettings->SetElectrumConnectionOptions(electrumSettings);
             ltcSettings->SetFeeRate(vm[cli::SWAP_FEERATE].as<Positive<Amount>>().value);
 
-            auto swapSecondSideChainType = ParseSwapSecondSideChainType(vm);
             if (swapSecondSideChainType != SwapSecondSideChainType::Unknown)
             {
                 ltcSettings->SetChainType(swapSecondSideChainType);

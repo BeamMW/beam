@@ -16,11 +16,11 @@
 
 #include <stdint.h>
 
-namespace beam::bitcoin
+#include "../bitcoin/common.h"
+
+namespace beam::litecoin
 {
-    constexpr uint32_t kTransactionVersion = 2;
-    constexpr uint64_t kDustThreshold = 546;
-    constexpr uint32_t kBTCWithdrawTxAverageSize = 360;
+    constexpr uint64_t kDustThreshold = bitcoin::kDustThreshold;
 
     uint8_t getAddressVersion(bool isMainnet);
 } // namespace beam::bitcoin

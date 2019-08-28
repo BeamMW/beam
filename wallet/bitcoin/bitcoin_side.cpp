@@ -215,12 +215,7 @@ namespace beam::wallet
 
     uint8_t BitcoinSide::GetAddressVersion() const
     {
-        if (IsMainnet())
-        {
-            return libbitcoin::wallet::ec_private::mainnet_p2kh;
-        }
-
-        return libbitcoin::wallet::ec_private::testnet_p2kh;
+        return bitcoin::getAddressVersion(IsMainnet());
     }
 
     Amount BitcoinSide::GetFeeRate() const

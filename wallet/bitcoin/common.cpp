@@ -12,15 +12,19 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#pragma once
+#include "common.h"
 
-#include <stdint.h>
+#include "bitcoin/bitcoin.hpp"
 
 namespace beam::bitcoin
 {
-    constexpr uint32_t kTransactionVersion = 2;
-    constexpr uint64_t kDustThreshold = 546;
-    constexpr uint32_t kBTCWithdrawTxAverageSize = 360;
+    uint8_t getAddressVersion(bool isMainnet)
+    {
+        if (isMainnet)
+        {
+            return libbitcoin::wallet::ec_private::mainnet_p2kh;
+        }
 
-    uint8_t getAddressVersion(bool isMainnet);
+        return libbitcoin::wallet::ec_private::testnet_p2kh;
+    }
 } // namespace beam::bitcoin
