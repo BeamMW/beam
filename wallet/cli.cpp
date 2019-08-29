@@ -1075,6 +1075,11 @@ namespace
                 auto tempPhrase = vm[cli::BTC_ELECTRUM_SEED].as<string>();
                 boost::algorithm::trim_if(tempPhrase, [](char ch) { return ch == ';'; });
                 electrumSettings.m_secretWords = string_helpers::split(tempPhrase, ';');
+
+                if (!libbitcoin::wallet::electrum::validate_mnemonic(electrumSettings.m_secretWords, libbitcoin::wallet::language::electrum::en))
+                {
+                    throw std::runtime_error("seed is not valid");
+                }
             }
             else if (vm.count(cli::BTC_GENERATE_SEED))
             {
@@ -1183,6 +1188,11 @@ namespace
                 auto tempPhrase = vm[cli::LTC_ELECTRUM_SEED].as<string>();
                 boost::algorithm::trim_if(tempPhrase, [](char ch) { return ch == ';'; });
                 electrumSettings.m_secretWords = string_helpers::split(tempPhrase, ';');
+
+                if (!libbitcoin::wallet::electrum::validate_mnemonic(electrumSettings.m_secretWords, libbitcoin::wallet::language::electrum::en))
+                {
+                    throw std::runtime_error("seed is not valid");
+                }
             }
             else if (vm.count(cli::LTC_GENERATE_SEED))
             {
