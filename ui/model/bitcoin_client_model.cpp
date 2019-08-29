@@ -70,6 +70,12 @@ double BitcoinClientModel::getSending()
 void BitcoinClientModel::OnStatus(Status status)
 {
     emit gotStatus(status);
+    m_status = status;
+}
+
+beam::bitcoin::Client::Status BitcoinClientModel::getStatus() const
+{
+    return m_status;
 }
 
 void BitcoinClientModel::OnBalance(const bitcoin::Client::Balance& balance)

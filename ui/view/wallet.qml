@@ -121,6 +121,9 @@ Item {
                         btcValue:  viewModel.btcAvailable
                         ltcValue:  viewModel.ltcAvailable
                         qtumValue: viewModel.qtumAvailable
+                        btcOK:     viewModel.btcOK
+                        ltcOK:     viewModel.ltcOK
+                        qtumOK:    viewModel.qtumOK
 
                         onOpenExternal : function() {
                             var externalLink = "https://www.beam.mw/#exchanges";

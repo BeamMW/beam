@@ -35,6 +35,7 @@ public:
     double getAvailable();
     double getReceiving();
     double getSending();
+    beam::bitcoin::Client::Status getStatus() const;
 
 signals:
     void gotStatus(beam::bitcoin::Client::Status status);
@@ -44,7 +45,6 @@ signals:
 private:
     void OnStatus(Status status) override;
     void OnBalance(const Client::Balance& balance) override;
-
     void RecalculateAmounts();
 
 private slots:
@@ -54,6 +54,7 @@ private slots:
 private:
     QTimer m_timer;
     Client::Balance m_balance;
+    Status m_status = Status::Unknown;
     double m_receiving = 0;
     double m_sending = 0;
     std::weak_ptr<WalletModel> m_walletModel;

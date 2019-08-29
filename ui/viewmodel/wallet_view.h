@@ -44,6 +44,9 @@ class WalletViewModel : public QObject
     Q_PROPERTY(double ltcLocked     READ ltcLocked   NOTIFY stateChanged)
     Q_PROPERTY(double qtumLocked    READ qtumLocked  NOTIFY stateChanged)
 
+    Q_PROPERTY(bool btcOK   READ btcOK    NOTIFY stateChanged)
+    Q_PROPERTY(bool ltcOK   READ ltcOK    NOTIFY stateChanged)
+    Q_PROPERTY(bool qtumOK  READ qtumOK   NOTIFY stateChanged)
 
     Q_PROPERTY(QString maturing    READ maturing     NOTIFY stateChanged)
     Q_PROPERTY(QQmlListProperty<TxObject> transactions READ getTransactions NOTIFY transactionsChanged)
@@ -89,6 +92,10 @@ public:
     double  ltcLocked()  const;
     double  qtumLocked() const;
 
+    bool  btcOK()  const;
+    bool  ltcOK()  const;
+    bool  qtumOK() const;
+
     QString maturing() const;
     QQmlListProperty<TxObject> getTransactions();
     bool getIsOfflineStatus() const;
@@ -114,10 +121,6 @@ public:
 public slots:
     void onTxStatus(beam::wallet::ChangeAction action, const std::vector<beam::wallet::TxDescription>& items);
     void onAddresses(bool own, const std::vector<beam::wallet::WalletAddress>& addresses);
-
-    void onBitcoinStateChanged();
-    void onLitecoinStateChanged();
-    void onQtumStateChanged();
 
 signals:
     void stateChanged();

@@ -56,9 +56,29 @@ WalletViewModel::WalletViewModel()
         emit stateChanged();
     });
 
-    connect(&*AppModel::getInstance().getBitcoinClient(), SIGNAL(stateChanged()), SLOT(onBitcoinStateChanged()));
-    connect(&*AppModel::getInstance().getLitecoinClient(), SIGNAL(stateChanged()), SLOT(onLitecoinStateChanged()));
-    connect(&*AppModel::getInstance().getQtumClient(), SIGNAL(stateChanged()), SLOT(onQtumStateChanged()));
+    connect(&*AppModel::getInstance().getBitcoinClient(), &BitcoinClientModel::stateChanged, [this](){
+        emit stateChanged();
+    });
+
+    connect(&*AppModel::getInstance().getLitecoinClient(), &BitcoinClientModel::stateChanged, [this](){
+        emit stateChanged();
+    });
+
+    connect(&*AppModel::getInstance().getQtumClient(), &BitcoinClientModel::stateChanged, [this](){
+        emit stateChanged();
+    });
+
+    connect(&*AppModel::getInstance().getBitcoinClient(), &BitcoinClientModel::gotStatus, [this](beam::bitcoin::Client::Status) {
+        emit stateChanged();
+    });
+
+    connect(&*AppModel::getInstance().getLitecoinClient(), &BitcoinClientModel::gotStatus, [this](beam::bitcoin::Client::Status) {
+        emit stateChanged();
+    });
+
+    connect(&*AppModel::getInstance().getQtumClient(), &BitcoinClientModel::gotStatus, [this](beam::bitcoin::Client::Status) {
+        emit stateChanged();
+    });
 
     // TODO: This also refreshes TXs and addresses. Need to make this more transparent
     _status.refresh();
@@ -67,21 +87,6 @@ WalletViewModel::WalletViewModel()
 WalletViewModel::~WalletViewModel()
 {
     qDeleteAll(_txList);
-}
-
-void WalletViewModel::onBitcoinStateChanged()
-{
-    emit stateChanged();
-}
-
-void WalletViewModel::onLitecoinStateChanged()
-{
-    emit stateChanged();
-}
-
-void WalletViewModel::onQtumStateChanged()
-{
-    emit stateChanged();
 }
 
 void WalletViewModel::cancelTx(TxObject* pTxObject)
@@ -242,6 +247,21 @@ double WalletViewModel::qtumLocked() const
 {
     // TODO:SWAP return real value
     return 0;
+}
+
+bool WalletViewModel::btcOK()  const
+{
+    return AppModel::getInstance().getBitcoinClient()->getStatus() != beam::bitcoin::Client::Status::Failed;
+}
+
+bool WalletViewModel::ltcOK()  const
+{
+    return AppModel::getInstance().getLitecoinClient()->getStatus() != beam::bitcoin::Client::Status::Failed;
+}
+
+bool WalletViewModel::qtumOK() const
+{
+    return AppModel::getInstance().getQtumClient()->getStatus() != beam::bitcoin::Client::Status::Failed;
 }
 
 

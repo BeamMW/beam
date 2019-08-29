@@ -14,6 +14,10 @@ Control {
     property string ltcValue
     property string qtumValue
 
+    property bool btcOK:  true
+    property bool ltcOK:  true
+    property bool qtumOK: true
+
     property alias  color:     panel.color
     property string textColor: Style.content_main
 
@@ -142,10 +146,10 @@ Control {
 
                 BeamAmount {
                     amount:           btcValue
-                    color:            textColor
                     fontSize:         23
                     currencySymbol:   Utils.symbolBtc
                     visible:          BeamGlobals.haveBtc()
+                    color:            btcOK ? textColor : Style.validator_error
                     iconSource:       "qrc:/assets/btc-circle.svg"
                     iconSize:         Qt.size(23, 23)
                     copyMenuEnabled:  true
@@ -154,10 +158,10 @@ Control {
 
                 BeamAmount {
                     amount:           ltcValue
-                    color:            textColor
                     fontSize:         23
                     currencySymbol:   Utils.symbolLtc
                     visible:          BeamGlobals.haveLtc()
+                    color:            ltcOK ? textColor : Style.validator_error
                     iconSource:       "qrc:/assets/ltc-circle.svg"
                     iconSize:         Qt.size(23, 23)
                     copyMenuEnabled:  true
@@ -166,10 +170,10 @@ Control {
 
                 BeamAmount {
                     amount:           qtumValue
-                    color:            textColor
                     fontSize:         22
                     currencySymbol:   Utils.symbolQtum
                     visible:          BeamGlobals.haveQtum()
+                    color:            qtumOK ? textColor : Style.validator_error
                     iconSource:       "qrc:/assets/qtum-circle.svg"
                     iconSize:         Qt.size(23, 23)
                     copyMenuEnabled:  true
