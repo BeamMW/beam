@@ -23,24 +23,6 @@
 #include "swaps/second_side.h"
 #include <algorithm>
 
-namespace std
-{
-    template<class T, size_t N> 
-    struct hash<std::array<T, N>>
-    {
-        auto operator() (const std::array<T, N>& key) const
-        {
-            std::hash<T> hasher;
-            size_t result = 0;
-            for(size_t i = 0; i < N; ++i)
-            {
-                result = (result << 1) ^ hasher(key[i]);
-            }
-            return result;
-        }
-    };
-}
-
 namespace beam::wallet
 {
     enum class TxType : uint8_t

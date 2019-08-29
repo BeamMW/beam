@@ -40,6 +40,8 @@
 #include <string.h> // memcmp
 #include <ostream>
 
+#include <boost/functional/hash_fwd.hpp>
+
 #ifdef WIN32
 #	include <winsock2.h>
 #endif // WIN32
@@ -241,4 +243,13 @@ namespace std
 		char peekch() const;
 		void ungetch(char);
 	};
+	
+    template<class T, size_t N> 
+    struct hash<std::array<T, N>>
+    {
+        auto operator() (const std::array<T, N>& hash) const
+        {
+            return boost::hash_range(hash.begin(), hash.end());
+        }
+    };
 }
