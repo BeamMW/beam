@@ -20,22 +20,10 @@
 #include "wallet/wallet_network.h"
 #include "wallet/secstring.h"
 
-// TODO: move this includes to one place
-#include "wallet/bitcoin/bitcoin_core_017.h"
-#include "wallet/bitcoin/settings_provider.h"
-#include "wallet/bitcoin/bitcoin_side.h"
-#include "wallet/bitcoin/common.h"
-#include "wallet/litecoin/litecoin_core_017.h"
-#include "wallet/litecoin/settings.h"
-#include "wallet/litecoin/litecoin_side.h"
-#include "wallet/litecoin/electrum.h"
-#include "wallet/litecoin/common.h"
-#include "wallet/qtum/qtum_core_017.h"
-#include "wallet/qtum/settings.h"
-#include "wallet/qtum/qtum_side.h"
-#include "wallet/qtum/common.h"
-#include "wallet/qtum/electrum.h"
-///
+#include "wallet/bitcoin/bitcoin.h"
+#include "wallet/litecoin/litecoin.h"
+#include "wallet/qtum/qtum.h"
+
 #include "wallet/swaps/common.h"
 #include "wallet/swaps/swap_transaction.h"
 #include "core/ecc_native.h"
