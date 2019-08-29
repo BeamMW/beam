@@ -268,7 +268,7 @@ ColumnLayout {
         font.pixelSize:   14
         color:            Style.content_main
         //% Send this token to the sender over an external secure channel
-        text: qsTrId("wallet-swap-propogate-addr-message")
+        text: qsTrId("wallet-swap-token-message")
     }
 
     Row {

@@ -653,11 +653,15 @@
         <source>Scan to send</source>
         <translation>Scan to send</translation>
     </message>
-    <message id="wallet-receive-propogate-addr-message">
+    <message id="wallet-receive-addr-message">
+        <source>Send this address to the sender over an external secure channel or scan the QR code</source>
+        <translation>Send address to the sender over an external secure channel or scan the QR code</translation>
+    </message>
+    <message id="wallet-receive-token-message">
         <source>Send this token to the sender over an external secure channel or scan the QR code</source>
         <translation>Send this token to the sender over an external secure channel or scan the QR code</translation>
     </message>
-    <message id="wallet-swap-propogate-addr-message">
+    <message id="wallet-swap-token-message">
         <source>Send this token to the sender over an external secure channel</source>
         <translation>Send this token to the sender over an external secure channel</translation>
     </message>
@@ -675,7 +679,7 @@
     </message>
     <message id="wallet-receive-copy-address">
         <source>Copy transaction address</source>
-        <translation>Copy transaction token</translation>
+        <translation>Copy transaction address</translation>
     </message>
     <message id="invalid-addr-got-it-button">
         <source>Got it</source>

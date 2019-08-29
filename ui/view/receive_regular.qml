@@ -180,6 +180,7 @@ ColumnLayout {
         }
     }
 
+    /* Token temorarily removed, only address at the moment
     SFText {
         Layout.alignment: Qt.AlignHCenter
         Layout.topMargin: 40
@@ -211,7 +212,16 @@ ColumnLayout {
         font.pixelSize:   14
         color:            Style.content_main
         //% Send this token to the sender over an external secure channel or scan the QR code
-        text: qsTrId("wallet-receive-propogate-addr-message")
+        text: qsTrId("wallet-receive-token-message")
+    }
+    */
+    SFText {
+        Layout.alignment: Qt.AlignHCenter
+        Layout.topMargin: 30
+        font.pixelSize:   14
+        color:            Style.content_main
+        //% Send this token to the sender over an external secure channel or scan the QR code
+        text: qsTrId("wallet-receive-addr-message")
     }
 
     Row {
@@ -234,7 +244,7 @@ ColumnLayout {
             icon.color:         Style.content_opposite
             palette.button:     Style.active
             icon.source:        "qrc:/assets/icon-copy.svg"
-            onClicked:          BeamGlobals.copyToClipboard(viewModel.transactionToken);
+            onClicked:          BeamGlobals.copyToClipboard(viewModel.receiverAddress)
             enabled:            thisView.isValid()
         }
     }
