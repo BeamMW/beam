@@ -82,6 +82,13 @@ ColumnLayout {
                 amount:           viewModel.amountToReceive
                 multi:            true
                 currColor:        currencyError() ? Style.validator_error : Style.content_main
+                onCurrencyChanged: {
+                    if(receiveAmountInput.currency != Currency.CurrBeam) {
+                        if(sentAmountInput.currency != Currency.CurrBeam) {
+                            sentAmountInput.currency = Currency.CurrBeam
+                        }
+                    }
+                }
             }
 
             Binding {
@@ -161,6 +168,14 @@ ColumnLayout {
                 amount:           viewModel.amountSent
                 multi:            true
                 currColor:        currencyError() ? Style.validator_error : Style.content_main
+
+                onCurrencyChanged: {
+                    if(sentAmountInput.currency != Currency.CurrBeam) {
+                        if(receiveAmountInput.currency != Currency.CurrBeam) {
+                            receiveAmountInput.currency = Currency.CurrBeam
+                        }
+                    }
+                }
             }
 
             Binding {
