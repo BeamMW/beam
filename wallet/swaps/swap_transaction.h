@@ -110,7 +110,6 @@ namespace beam::wallet
         enum class State : uint8_t
         {
             Initial,
-            Invitation,
 
             BuildingBeamLockTX,
             BuildingBeamRefundTX,

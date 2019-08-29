@@ -78,7 +78,6 @@ namespace
     const char* getSwapTxStatus(wallet::AtomicSwapTransaction::State state)
     {
         static const char* Initial = "initial";
-        static const char* Invitation = "invitation";
         static const char* BuildingBeamLockTX = "building Beam LockTX";
         static const char* BuildingBeamRefundTX = "building Beam RefundTX";
         static const char* BuildingBeamRedeemTX = "building Beam RedeemTX";
@@ -97,8 +96,6 @@ namespace
         {
         case wallet::AtomicSwapTransaction::State::Initial:
             return Initial;
-        case wallet::AtomicSwapTransaction::State::Invitation:
-            return Invitation;
         case wallet::AtomicSwapTransaction::State::BuildingBeamLockTX:
             return BuildingBeamLockTX;
         case wallet::AtomicSwapTransaction::State::BuildingBeamRefundTX:
@@ -840,7 +837,7 @@ int main()
     ExpireByResponseTime(true);
     ExpireByResponseTime(false);
 
-    TestSwapCancelTransaction(true, wallet::AtomicSwapTransaction::State::Invitation);
+    TestSwapCancelTransaction(true, wallet::AtomicSwapTransaction::State::Initial);
 
     TestSwapCancelTransaction(true, wallet::AtomicSwapTransaction::State::BuildingBeamLockTX);
     TestSwapCancelTransaction(false, wallet::AtomicSwapTransaction::State::BuildingBeamLockTX);

@@ -677,21 +677,19 @@ namespace beam::wallet
 
             m_tx.SetParameter(TxParameterID::AtomicSwapExternalTx, *m_SwapWithdrawRawTx, subTxID);
             m_tx.SetState(SwapTxState::Constructed, subTxID);
-            m_tx.UpdateAsync();
         }
         catch (const TransactionFailedException& ex)
         {
             LOG_ERROR() << m_tx.GetTxID() << " exception msg: " << ex.what();
             m_tx.SetParameter(TxParameterID::InternalFailureReason, ex.GetReason(), false, subTxID);
-            m_tx.UpdateAsync();
         }
         catch (const std::exception& ex)
         {
             LOG_ERROR() << m_tx.GetTxID() << " exception msg: " << ex.what();
 
             m_tx.SetParameter(TxParameterID::InternalFailureReason, TxFailureReason::Unknown, false, subTxID);
-            m_tx.UpdateAsync();
         }
+        m_tx.UpdateAsync();
     }
 
     void BitcoinSide::OnGetSwapLockTxConfirmations(const bitcoin::IBridge::Error& error, const std::string& hexScript, double amount, uint32_t confirmations)

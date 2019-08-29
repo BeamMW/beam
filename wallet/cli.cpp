@@ -119,7 +119,6 @@ namespace beam
     const char* getSwapTxStatus(const IWalletDB::Ptr& walletDB, const TxDescription& tx)
     {
         static const char* Initial = "initial";
-        static const char* Invitation = "invitation";
         static const char* BuildingBeamLockTX = "building Beam LockTX";
         static const char* BuildingBeamRefundTX = "building Beam RefundTX";
         static const char* BuildingBeamRedeemTX = "building Beam RedeemTX";
@@ -142,8 +141,6 @@ namespace beam
         {
         case wallet::AtomicSwapTransaction::State::Initial:
             return Initial;
-        case wallet::AtomicSwapTransaction::State::Invitation:
-            return Invitation;
         case wallet::AtomicSwapTransaction::State::BuildingBeamLockTX:
             return BuildingBeamLockTX;
         case wallet::AtomicSwapTransaction::State::BuildingBeamRefundTX:

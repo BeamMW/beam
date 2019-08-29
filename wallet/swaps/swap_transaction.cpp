@@ -185,7 +185,6 @@ namespace beam::wallet
                 break;
             }
         case State::Initial:
-        case State::Invitation:
         case State::BuildingBeamLockTX:
         case State::BuildingBeamRedeemTX:
         case State::BuildingBeamRefundTX:
@@ -301,16 +300,11 @@ namespace beam::wallet
             {
             case State::Initial:
             {
-                if (!m_secondSide->Initialize())
-                    break;
-
-                SetNextState(State::Invitation);
-                break;
-            }
-            case State::Invitation:
-            {
                 if (IsInitiator())
                 {
+                    if (!m_secondSide->Initialize())
+                        break;
+
                     m_secondSide->InitLockTime();
                     SendInvitation();
                     LOG_INFO() << GetTxID() << " Invitation sent.";
@@ -323,6 +317,10 @@ namespace beam::wallet
                         //we doesn't have an answer from other participant
                         break;
                     }
+
+                    if (!m_secondSide->Initialize())
+                        break;
+
                     if (!m_secondSide->ValidateLockTime())
                     {
                         LOG_ERROR() << GetTxID() << "[" << static_cast<SubTxID>(SubTxIndex::LOCK_TX) << "] " << "Lock height is unacceptable.";
@@ -594,7 +592,6 @@ namespace beam::wallet
         switch (state)
         {
         case State::Initial:
-        case State::Invitation:
         {
             break;
         }
@@ -722,7 +719,6 @@ namespace beam::wallet
             switch (state)
             {
             case State::Initial:
-            case State::Invitation:
             {
                 SetState(State::Failed);
                 break;
@@ -1325,7 +1321,6 @@ namespace beam::wallet
         TxFailureReason reason = TxFailureReason::Unknown;
 
         if ((state == State::Initial ||
-            state == State::Invitation ||
             state == State::HandlingContractTX) && GetParameter(TxParameterID::InternalFailureReason, reason, SubTxIndex::LOCK_TX))
         {
             OnFailed(reason, true);
