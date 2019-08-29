@@ -71,8 +71,7 @@ namespace beam::bitcoin
 
     protected:
 
-        // TODO roman.strilets maybe to use const char*
-        virtual std::string GetSettingsName() const;
+        virtual const char* GetSettingsName() const;
         virtual Settings GetEmptySettings();
 
     private:

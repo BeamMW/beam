@@ -25,7 +25,7 @@
 #include "wallet/qtum/qtum.h"
 
 #include "wallet/swaps/common.h"
-#include "wallet/swaps/swap_transaction.h"
+#include "wallet/swaps/utils.h"
 #include "core/ecc_native.h"
 #include "core/serialization_adapters.h"
 #include "core/treasury.h"
@@ -118,65 +118,10 @@ namespace beam
 
     const char* getSwapTxStatus(const IWalletDB::Ptr& walletDB, const TxDescription& tx)
     {
-        static const char* Initial = "initial";
-        static const char* BuildingBeamLockTX = "building Beam LockTX";
-        static const char* BuildingBeamRefundTX = "building Beam RefundTX";
-        static const char* BuildingBeamRedeemTX = "building Beam RedeemTX";
-        static const char* HandlingContractTX = "handling LockTX";
-        static const char* SendingRefundTX = "sending RefundTX";
-        static const char* SendingRedeemTX = "sending RedeemTX";
-        static const char* SendingBeamLockTX = "sending Beam LockTX";
-        static const char* SendingBeamRefundTX = "sending Beam RefundTX";
-        static const char* SendingBeamRedeemTX = "sending Beam RedeemTX";
-        static const char* Completed = "completed";
-        static const char* Cancelled = "cancelled";
-        static const char* Aborted = "aborted";
-        static const char* Failed = "failed";
-        static const char* Expired = "expired";
-
         wallet::AtomicSwapTransaction::State state = wallet::AtomicSwapTransaction::State::CompleteSwap;
         storage::getTxParameter(*walletDB, tx.m_txId, wallet::TxParameterID::State, state);
 
-        switch (state)
-        {
-        case wallet::AtomicSwapTransaction::State::Initial:
-            return Initial;
-        case wallet::AtomicSwapTransaction::State::BuildingBeamLockTX:
-            return BuildingBeamLockTX;
-        case wallet::AtomicSwapTransaction::State::BuildingBeamRefundTX:
-            return BuildingBeamRefundTX;
-        case wallet::AtomicSwapTransaction::State::BuildingBeamRedeemTX:
-            return BuildingBeamRedeemTX;
-        case wallet::AtomicSwapTransaction::State::HandlingContractTX:
-            return HandlingContractTX;
-        case wallet::AtomicSwapTransaction::State::SendingRefundTX:
-            return SendingRefundTX;
-        case wallet::AtomicSwapTransaction::State::SendingRedeemTX:
-            return SendingRedeemTX;
-        case wallet::AtomicSwapTransaction::State::SendingBeamLockTX:
-            return SendingBeamLockTX;
-        case wallet::AtomicSwapTransaction::State::SendingBeamRefundTX:
-            return SendingBeamRefundTX;
-        case wallet::AtomicSwapTransaction::State::SendingBeamRedeemTX:
-            return SendingBeamRedeemTX;
-        case wallet::AtomicSwapTransaction::State::CompleteSwap:
-            return Completed;
-        case wallet::AtomicSwapTransaction::State::Cancelled:
-            return Cancelled;
-        case wallet::AtomicSwapTransaction::State::Refunded:
-            return Aborted;
-        case wallet::AtomicSwapTransaction::State::Failed:
-        {
-            TxFailureReason reason = TxFailureReason::Unknown;
-            storage::getTxParameter(*walletDB, tx.m_txId, wallet::TxParameterID::InternalFailureReason, reason);
-
-            return TxFailureReason::TransactionExpired == reason ? Expired : Failed;
-        }
-        default:
-            assert(false && "Unexpected status");
-        }
-
-        return "";
+        return wallet::getSwapTxStatus(state);
     }
 
     const char* getAtomicSwapCoinText(AtomicSwapCoin swapCoin)

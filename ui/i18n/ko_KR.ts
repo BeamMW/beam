@@ -187,8 +187,9 @@
         <translation>받기</translation>
     </message>
     <message id="wallet-in-progress-title">
-        <source>In progress</source>
-        <translation>진행중</translation>
+        <source></source>
+        <oldsource>In progress</oldsource>
+        <translation type="unfinished">진행중</translation>
     </message>
     <message id="wallet-transactions-title">
         <source>Transactions</source>
@@ -286,12 +287,14 @@
         <translation>연락처 삭제</translation>
     </message>
     <message id="available-panel-available">
-        <source>Available</source>
-        <translation>사용 가능 금액</translation>
+        <source></source>
+        <oldsource>Available</oldsource>
+        <translation type="unfinished">사용 가능 금액</translation>
     </message>
     <message id="available-panel-where-to-buy">
-        <source>Where to buy BEAM?</source>
-        <translation>BEAM 은 어디서 사나요?</translation>
+        <source></source>
+        <oldsource>Where to buy BEAM?</oldsource>
+        <translation type="unfinished">BEAM 은 어디서 사나요?</translation>
     </message>
     <message id="settings-version">
         <source>Version</source>
@@ -461,7 +464,7 @@
     </message>
     <message id="secondary-panel-maturing">
         <source>Maturing</source>
-        <translation type="unfinished">Maturing</translation>
+        <translation type="obsolete">Maturing</translation>
     </message>
     <message id="info-title">
         <source>Info view</source>
@@ -469,7 +472,7 @@
     </message>
     <message id="loading-change-settings-button">
         <source>Change settings</source>
-        <translation>설정 변경</translation>
+        <translation type="vanished">설정 변경</translation>
     </message>
     <message id="loading-try-again-button">
         <source>Try again</source>
@@ -543,8 +546,8 @@
         <translation>지갑</translation>
     </message>
     <message id="wallet-receive-title">
-        <source>Receive</source>
-        <oldsource>Receive Beam</oldsource>
+        <source></source>
+        <oldsource>Receive</oldsource>
         <translation type="unfinished">Beam 받기</translation>
     </message>
     <message id="wallet-receive-my-addr-label">
@@ -951,46 +954,74 @@
         <translation>사용됨</translation>
     </message>
     <message id="offer-book-title">
-        <source>Offer Book</source>
+        <source></source>
+        <oldsource>Offer Book</oldsource>
+        <translation type="unfinished"></translation>
     </message>
     <message id="offer-book-title-2">
-        <source>Active offers</source>
+        <source></source>
+        <oldsource>Active offers</oldsource>
+        <translation type="unfinished"></translation>
     </message>
     <message id="offer-book-coins">
-        <source>Coins</source>
+        <source></source>
+        <oldsource>Coins</oldsource>
+        <translation type="unfinished"></translation>
     </message>
     <message id="offer-book-create">
-        <source>Create an offer</source>
+        <source></source>
+        <oldsource>Create an offer</oldsource>
+        <translation type="unfinished"></translation>
     </message>
     <message id="offer-book-all-tab">
-        <source>All</source>
+        <source></source>
+        <oldsource>All</oldsource>
+        <translation type="unfinished"></translation>
     </message>
     <message id="offer-book-mine-tab">
-        <source>Mine</source>
+        <source></source>
+        <oldsource>Mine</oldsource>
+        <translation type="unfinished"></translation>
     </message>
     <message id="offer-book-others-tab">
-        <source>Others</source>
+        <source></source>
+        <oldsource>Others</oldsource>
+        <translation type="unfinished"></translation>
     </message>
     <message id="offer-book-time-created">
-        <source>Date | time</source>
+        <source></source>
+        <oldsource>Date | time</oldsource>
+        <translation type="unfinished"></translation>
     </message>
     <message id="offer-book-amount">
-        <source>Amount</source>
+        <source></source>
+        <oldsource>Amount</oldsource>
+        <translation type="unfinished"></translation>
     </message>
     <message id="offer-book-amount-swap">
-        <source>Amount</source>
+        <source></source>
+        <oldsource>Amount</oldsource>
+        <translation type="unfinished"></translation>
     </message>
     <message id="offer-book-rate">
-        <source>Rate</source>
+        <source></source>
+        <oldsource>Rate</oldsource>
+        <translation type="unfinished"></translation>
     </message>
     <message id="offer-book-expiration">
-        <source>Expiration</source>
+        <source></source>
+        <oldsource>Expiration</oldsource>
+        <translation type="unfinished"></translation>
     </message>
     <message id="offer-book-accept">
-        <source>Accept offer</source>
+        <source></source>
+        <oldsource>Accept offer</oldsource>
+        <translation type="unfinished"></translation>
     </message>
     <message id="offer-book-cancel">
-        <source>Cancel offer</source>
+        <source></source>
+        <oldsource>Cancel offer</oldsource>
+        <translation type="unfinished"></translation>
     </message>
     <message id="settings-general-lock-screen-never">
         <source>Never</source>
@@ -1228,7 +1259,8 @@
         <translation type="unfinished"></translation>
     </message>
     <message id="general-fee-fail">
-        <source>The minimum fee is %1 GROTH</source>
+        <source></source>
+        <oldsource>The minimum fee is %1 GROTH</oldsource>
         <translation type="unfinished">최소 수수료는 %1 GROTH 입니다</translation>
     </message>
     <message id="wallet-swap">
@@ -1313,6 +1345,66 @@
     </message>
     <message id="general-amount-received">
         <source>Received</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="general-locked">
+        <source></source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="general-change-settings">
+        <source>Change settings</source>
+        <translation type="unfinished">설정 변경</translation>
+    </message>
+    <message id="settings-reset">
+        <source></source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="settings-node-address">
+        <source></source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="settings-username">
+        <source></source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="settings-password">
+        <source></source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="settings-fee-rate">
+        <source></source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="swap-na-message">
+        <source></source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="general-rate">
+        <source></source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="wallet-receive-swap-publish">
+        <source></source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="wallet-send-invalid-token">
+        <source></source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="general-bitcoin">
+        <source></source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="general-litecoin">
+        <source></source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="general-qtum">
+        <source></source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="swap-currency-na-message">
+        <source></source>
         <translation type="unfinished"></translation>
     </message>
 </context>

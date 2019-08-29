@@ -33,7 +33,7 @@ namespace beam::qtum
 
     private:
 
-        std::string GetSettingsName() const override
+        const char* GetSettingsName() const override
         {
             return "QtumSettings";
         }

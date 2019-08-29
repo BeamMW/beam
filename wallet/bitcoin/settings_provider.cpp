@@ -43,7 +43,7 @@ namespace beam::bitcoin
     {
         // store to DB
         auto buffer = wallet::toByteBuffer(settings);
-        m_walletDB->setVarRaw(GetSettingsName().c_str(), buffer.data(), static_cast<int>(buffer.size()));
+        m_walletDB->setVarRaw(GetSettingsName(), buffer.data(), static_cast<int>(buffer.size()));
 
         // update m_settings
         m_settings = std::make_unique<Settings>(settings);
@@ -52,7 +52,7 @@ namespace beam::bitcoin
     void SettingsProvider::ResetSettings()
     {
         // remove from DB
-        m_walletDB->removeVarRaw(GetSettingsName().c_str());
+        m_walletDB->removeVarRaw(GetSettingsName());
 
         m_settings = std::make_unique<Settings>(GetEmptySettings());
     }
@@ -65,7 +65,7 @@ namespace beam::bitcoin
 
             // load from DB or use default
             ByteBuffer settings;
-            m_walletDB->getBlob(GetSettingsName().c_str(), settings);
+            m_walletDB->getBlob(GetSettingsName(), settings);
 
             if (!settings.empty())
             {
@@ -80,7 +80,7 @@ namespace beam::bitcoin
         }
     }
 
-    std::string SettingsProvider::GetSettingsName() const
+    const char* SettingsProvider::GetSettingsName() const
     {
         return "BTCSettings";
     }
