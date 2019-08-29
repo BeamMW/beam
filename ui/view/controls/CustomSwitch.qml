@@ -14,8 +14,9 @@ T.Switch {
                                       indicator ? indicator.implicitHeight : 0) + topPadding + bottomPadding)
     baselineOffset: contentItem.y + contentItem.baselineOffset
 
-    spacing: 12
-    palette.text: Style.content_main
+    spacing:        12
+    palette.text:   Style.content_main
+    font.pixelSize: 14
 
     contentItem: SFText {
         rightPadding: control.indicator.width + control.spacing
