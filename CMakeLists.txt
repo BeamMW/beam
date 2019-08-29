@@ -11,6 +11,21 @@ set(BEAM_SUFFIX_UPPER_CASE "Masternet")
 set(BEAM_TARGET_SUFFIX "-${BEAM_SUFFIX_LOWER_CASE}")
 set(BEAM_DISPLAY_SUFFIX " ${BEAM_SUFFIX_UPPER_CASE}")
 
+if(IOS)
+    add_compile_definitions(_LIBCPP_ENABLE_CXX17_REMOVED_AUTO_PTR)
+    add_compile_definitions(BOOST_NO_AUTO_PTR)
+
+    if (POLICY CMP0025)
+        cmake_policy(SET CMP0025 NEW)
+    endif ()
+
+    add_definitions(-DBOOST_ERROR_CODE_HEADER_ONLY)
+
+    include_directories(${BOOST_ROOT}/include)
+
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Winvalid-ios-deployment-target")
+endif()
+
 if (BEAM_SIGN_PACKAGE AND WIN32)
   #  add_custom_target(signing ALL DEPENDS beam-wallet-ui COMMENT "Signing Package...")
 
@@ -217,7 +232,7 @@ if(MSVC)
     endif()
 
 else()
-    if(NOT ANDROID)
+    if(NOT ANDROID AND NOT IOS)
         if(ARCH_NATIVE)
             set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -march=native")
         else()
@@ -249,7 +264,9 @@ if(UNIX OR WIN32)
     add_definitions(-DUV_INTERNAL)
 endif()
 
-if(ANDROID)
+if(IOS)
+    include_directories($ENV{BOOST_ROOT_IOS}/include)
+elseif(ANDROID)
     message("ANDROID_ABI: ${ANDROID_ABI}")
     add_definitions(-DBOOST_ERROR_CODE_HEADER_ONLY)
     include_directories($ENV{BOOST_ROOT_ANDROID}/include)
@@ -367,8 +384,7 @@ if(ANDROID OR BEAM_BUILD_JNI)
     add_subdirectory(android)
 endif()
 
-# TODO: uncomment this later
-if(NOT ANDROID)
+if(NOT ANDROID AND NOT IOS)
     add_subdirectory(beam)
     add_subdirectory(explorer)
 
