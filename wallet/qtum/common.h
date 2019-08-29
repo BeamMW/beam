@@ -12,24 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "common.h"
+#pragma once
 
-#include "bitcoin/bitcoin.hpp"
+#include <stdint.h>
 
-namespace
+namespace beam::qtum
 {
-    constexpr uint8_t kLitecoinMainnetP2KH = 48;
-}
-
-namespace beam::litecoin
-{
-    uint8_t getAddressVersion(bool isMainnet)
-    {
-        if (isMainnet)
-        {
-            return kLitecoinMainnetP2KH;
-        }
-
-        return libbitcoin::wallet::ec_private::testnet_p2kh;
-    }
-} // namespace beam::litecoin
+    uint8_t getAddressVersion(bool isMainnet);
+} // namespace beam::qtum

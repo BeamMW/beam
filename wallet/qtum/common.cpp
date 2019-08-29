@@ -14,22 +14,21 @@
 
 #include "common.h"
 
-#include "bitcoin/bitcoin.hpp"
-
 namespace
 {
-    constexpr uint8_t kLitecoinMainnetP2KH = 48;
+    constexpr uint8_t kQtumMainnetP2KH = 0x3a;
+    constexpr uint8_t kQtumTestnetP2KH = 0x78;
 }
 
-namespace beam::litecoin
+namespace beam::qtum
 {
     uint8_t getAddressVersion(bool isMainnet)
     {
         if (isMainnet)
         {
-            return kLitecoinMainnetP2KH;
+            return kQtumMainnetP2KH;
         }
 
-        return libbitcoin::wallet::ec_private::testnet_p2kh;
+        return kQtumTestnetP2KH;
     }
-} // namespace beam::litecoin
+} // namespace beam::qtum

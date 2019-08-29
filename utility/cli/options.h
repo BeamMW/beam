@@ -54,6 +54,8 @@ namespace beam
         extern const char* QTUM_PASS;
         extern const char* QTUM_USER_NAME;
         extern const char* QTUM_SETTINGS;
+        extern const char* QTUM_ELECTRUM_SEED;
+        extern const char* QTUM_GENERATE_SEED;
         extern const char* AMOUNT;
         extern const char* AMOUNT_FULL;
         extern const char* RECEIVER_ADDR;
@@ -65,6 +67,7 @@ namespace beam
         extern const char* LTC_NODE_ADDR;
         extern const char* LTC_ELECTRUM_ADDR;
         extern const char* QTUM_NODE_ADDR;
+        extern const char* QTUM_ELECTRUM_ADDR;
         extern const char* COMMAND;
         extern const char* NODE;
         extern const char* WALLET;

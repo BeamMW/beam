@@ -59,6 +59,8 @@ namespace beam
         const char* QTUM_PASS = "qtum_pass";
         const char* QTUM_USER_NAME = "qtum_user";
         const char* QTUM_SETTINGS = "qtum_settings";
+        const char* QTUM_ELECTRUM_SEED = "qtum_electrum_seed";
+        const char* QTUM_GENERATE_SEED = "qtum_generate_seed";
         const char* AMOUNT = "amount";
         const char* AMOUNT_FULL = "amount,a";
         const char* RECEIVER_ADDR = "receiver_addr";
@@ -70,6 +72,7 @@ namespace beam
         const char* LTC_NODE_ADDR = "ltc_node_addr";
         const char* LTC_ELECTRUM_ADDR = "ltc_electrum_addr";
         const char* QTUM_NODE_ADDR = "qtum_node_addr";
+        const char* QTUM_ELECTRUM_ADDR = "qtum_electrum_addr";
         const char* COMMAND = "command";
         const char* LISTEN = "listen";
         const char* TREASURY = "treasury";
@@ -290,6 +293,9 @@ namespace beam
             (cli::QTUM_NODE_ADDR, po::value<string>(), "address of qtum node")
             (cli::QTUM_USER_NAME, po::value<string>(), "user name for the qtum node")
             (cli::QTUM_PASS, po::value<string>(), "password for the qtum node")
+            (cli::QTUM_ELECTRUM_SEED, po::value<string>(), "qtum electrum seed")
+            (cli::QTUM_GENERATE_SEED, "generate new electrum seed")
+            (cli::QTUM_ELECTRUM_ADDR, po::value<string>(), "qtum electrum address")
             (cli::SWAP_COIN, po::value<string>(), "swap coin(btc, ltc, qtum)")
             (cli::SWAP_AMOUNT, po::value<Positive<Amount>>(), "swap amount in the smallest unit of the coin")
             (cli::SWAP_FEERATE, po::value<Positive<Amount>>(), "The specific feerate you are willing to pay(the smallest unit of the coin per KB)")

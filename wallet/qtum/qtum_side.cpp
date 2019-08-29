@@ -13,13 +13,12 @@
 // limitations under the License.
 
 #include "wallet/qtum/qtum_side.h"
+#include "common.h"
 
 namespace
 {
     constexpr uint32_t kQtumWithdrawTxAverageSize = 360;
     constexpr beam::Amount kQtumDustThreshold = 72800;
-    constexpr uint8_t kQtumMainnetP2KH = 0x3a;
-    constexpr uint8_t kQtumTestnetP2KH = 0x78;
     constexpr uint32_t kQtumLockTxEstimatedTimeInBeamBlocks = 30;   // it's average value
 }
 
@@ -43,11 +42,6 @@ namespace beam::wallet
 
     uint8_t QtumSide::GetAddressVersion() const
     {
-        if (IsMainnet())
-        {
-            return kQtumMainnetP2KH;
-        }
-
-        return kQtumTestnetP2KH;
+        return qtum::getAddressVersion(IsMainnet());
     }
 }

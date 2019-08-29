@@ -18,6 +18,7 @@ set(SWAP_SRC
     ../litecoin/litecoin_core_016.cpp
     ../litecoin/litecoin_core_017.cpp
     ../litecoin/litecoin_side.cpp
+    ../qtum/common.cpp
     ../qtum/qtum_core_017.cpp
     ../qtum/qtum_side.cpp
 )
