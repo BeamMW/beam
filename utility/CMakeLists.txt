@@ -73,7 +73,11 @@ endif()
 
 target_link_libraries(utility mnemonic)
 
-if(ANDROID)
+if (IOS)
+    target_link_libraries(utility 
+	$ENV{BOOST_ROOT_IOS}/lib/libboost_filesystem.a
+	$ENV{BOOST_ROOT_IOS}/lib/libboost_system.a)
+elseif(ANDROID)
     if(ANDROID_ABI STREQUAL "armeabi-v7a")
         target_link_libraries(utility 
             $ENV{BOOST_ROOT_ANDROID}/libs/${ANDROID_ABI}/libboost_filesystem-clang-mt-a32-1_68.a
