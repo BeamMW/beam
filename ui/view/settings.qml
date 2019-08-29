@@ -281,6 +281,7 @@ ColumnLayout {
             feeRateLabel:         BeamGlobals.qtumFeeRateLabel()
             Layout.minimumWidth:  swapGrid.width / 2 - swapGrid.columnSpacing / 2
             onApply:              viewModel.applyQtumSettings()
+            onSwitchOff:          viewModel.qtumOff()
         }
 
         Binding {

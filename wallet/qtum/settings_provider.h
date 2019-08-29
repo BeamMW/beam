@@ -14,11 +14,33 @@
 
 #pragma once
 
+#include "settings.h"
 #include "wallet/bitcoin/settings_provider.h"
 
 namespace beam::qtum
 {
     using IQtumCoreSettingsProvider = bitcoin::IBitcoinCoreSettingsProvider;
     using IElectrumSettingsProvider = bitcoin::IElectrumSettingsProvider;
-    using ISettingsProvider = bitcoin::ISettingsProvider;    
+    using ISettingsProvider = bitcoin::ISettingsProvider;
+
+    class SettingsProvider : public bitcoin::SettingsProvider
+    {
+    public:
+        SettingsProvider(wallet::IWalletDB::Ptr walletDB)
+            : bitcoin::SettingsProvider(walletDB)
+        {
+        }
+
+    private:
+
+        const char* GetSettingsName() const override
+        {
+            return "QtumSettings";
+        }
+
+        bitcoin::Settings GetEmptySettings() override
+        {
+            return Settings{};
+        }
+    };
 } // namespace beam::qtum

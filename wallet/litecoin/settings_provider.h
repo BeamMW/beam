@@ -14,6 +14,7 @@
 
 #pragma once
 
+#include "settings.h"
 #include "wallet/bitcoin/settings_provider.h"
 
 namespace beam::litecoin
@@ -21,4 +22,25 @@ namespace beam::litecoin
     using ILitecoinCoreSettingsProvider = bitcoin::IBitcoinCoreSettingsProvider;
     using IElectrumSettingsProvider = bitcoin::IElectrumSettingsProvider;
     using ISettingsProvider = bitcoin::ISettingsProvider;
+
+    class SettingsProvider : public bitcoin::SettingsProvider
+    {
+    public:
+        SettingsProvider(wallet::IWalletDB::Ptr walletDB)
+            : bitcoin::SettingsProvider(walletDB)
+        {
+        }
+
+    private:
+
+        const char* GetSettingsName() const override
+        {
+            return "LTCSettings";
+        }
+
+        bitcoin::Settings GetEmptySettings() override
+        {
+            return Settings{};
+        }
+    };
 } //namespace beam::litecoin

@@ -24,7 +24,18 @@
 // TODO: move this includes to one place
 #include "wallet/bitcoin/bitcoin_core_017.h"
 #include "wallet/bitcoin/settings.h"
+#include "wallet/bitcoin/settings_provider.h"
 #include "wallet/bitcoin/bitcoin_side.h"
+
+#include "wallet/litecoin/litecoin_core_017.h"
+#include "wallet/litecoin/litecoin_side.h"
+#include "wallet/litecoin/settings.h"
+#include "wallet/litecoin/settings_provider.h"
+
+#include "wallet/qtum/qtum_side.h"
+#include "wallet/qtum/qtum_core_017.h"
+#include "wallet/qtum/settings_provider.h"
+#include "wallet/qtum/settings.h"
 
 #if defined(BEAM_HW_WALLET)
 #include "wallet/hw_wallet.h"
@@ -148,6 +159,20 @@ void AppModel::startWallet()
         swapTransactionCreator->RegisterFactory(AtomicSwapCoin::Bitcoin, btcSecondSideFactory);
     }
 
+    if (auto ltcClient = getLitecoinClient(); ltcClient)
+    {
+        auto litecoinBridge = std::make_shared<litecoin::LitecoinCore017>(*m_walletReactor, ltcClient);
+        auto ltcSecondSideFactory = beam::wallet::MakeSecondSideFactory<LitecoinSide, litecoin::LitecoinCore017, litecoin::ISettingsProvider>(litecoinBridge, ltcClient);
+        swapTransactionCreator->RegisterFactory(AtomicSwapCoin::Litecoin, ltcSecondSideFactory);
+    }
+
+    if (auto qtumClient = getQtumClient(); qtumClient)
+    {
+        auto qtumBridge = std::make_shared<qtum::QtumCore017>(*m_walletReactor, qtumClient);
+        auto qtumSecondSideFactory = wallet::MakeSecondSideFactory<QtumSide, qtum::QtumCore017, qtum::ISettingsProvider>(qtumBridge, qtumClient);
+        swapTransactionCreator->RegisterFactory(AtomicSwapCoin::Qtum, qtumSecondSideFactory);
+    }
+
     additionalTxCreators->emplace(TxType::AtomicSwap, swapTransactionCreator);
 
     m_wallet->start(additionalTxCreators);
@@ -222,37 +247,9 @@ void AppModel::onFailedToStartNode(beam::wallet::ErrorType errorCode)
 
 void AppModel::start()
 {
-    // TODO(alex.starun): should be uncommented when HW detection will be done
-
-//#if defined(BEAM_HW_WALLET)
-//    {
-//        HWWallet hw;
-//        auto key = hw.getOwnerKeySync();
-//        
-//        LOG_INFO() << "Owner key" << key;
-//
-//        // TODO: password encryption will be removed
-//        std::string pass = "1";
-//        KeyString ks;
-//        ks.SetPassword(Blob(pass.data(), static_cast<uint32_t>(pass.size())));
-//
-//        ks.m_sRes = key;
-//
-//        std::shared_ptr<ECC::HKdfPub> pKdf = std::make_shared<ECC::HKdfPub>();
-//
-//        if (ks.Import(*pKdf))
-//        {
-//            m_nodeModel.setOwnerKey(pKdf);
-//        }
-//        else
-//        {
-//            LOG_ERROR() << "veiw key import failed";            
-//        }
-//    }
-//#else
     m_nodeModel.setKdf(m_db->get_MasterKdf());
     m_nodeModel.setOwnerKey(m_db->get_OwnerKdf());
-//#endif
+
     std::string nodeAddrStr = m_settings.getNodeAddress().toStdString();
     if (m_settings.getRunLocalNode())
     {
@@ -261,7 +258,10 @@ void AppModel::start()
         nodeAddrStr = nodeAddr.str();
     }
 
-    m_bitcoinClient = std::make_shared<BitcoinClientModel>(m_db, *m_walletReactor);
+    InitBtcClient();
+    InitLtcClient();
+    InitQtumClient();
+
     m_wallet = std::make_shared<WalletModel>(m_db, nodeAddrStr, m_walletReactor);
 
     if (m_settings.getRunLocalNode())
@@ -320,4 +320,50 @@ NodeModel& AppModel::getNode()
 BitcoinClientModel::Ptr AppModel::getBitcoinClient() const
 {
     return m_bitcoinClient;
+}
+
+BitcoinClientModel::Ptr AppModel::getLitecoinClient() const
+{
+    return m_litecoinClient;
+}
+
+BitcoinClientModel::Ptr AppModel::getQtumClient() const
+{
+    return m_qtumClient;
+}
+
+void AppModel::InitBtcClient()
+{
+    auto bitcoinBridgeCreator = [](io::Reactor& reactor, bitcoin::IBitcoinCoreSettingsProvider::Ptr settingsProvider)->bitcoin::IBridge::Ptr
+    {
+        return std::make_shared<bitcoin::BitcoinCore017>(reactor, settingsProvider);
+    };
+
+    auto settingsProvider = std::make_unique<bitcoin::SettingsProvider>(m_db);
+    settingsProvider->Initialize();
+    m_bitcoinClient = std::make_shared<BitcoinClientModel>(AtomicSwapCoin::Bitcoin, bitcoinBridgeCreator, std::move(settingsProvider), *m_walletReactor);
+}
+
+void AppModel::InitLtcClient()
+{
+    auto ltcBridgeCreator = [](io::Reactor& reactor, bitcoin::IBitcoinCoreSettingsProvider::Ptr settingsProvider)->bitcoin::IBridge::Ptr
+    {
+        return std::make_shared<litecoin::LitecoinCore017>(reactor, settingsProvider);
+    };
+
+    auto settingsProvider = std::make_unique<litecoin::SettingsProvider>(m_db);
+    settingsProvider->Initialize();
+    m_litecoinClient = std::make_shared<BitcoinClientModel>(AtomicSwapCoin::Litecoin, ltcBridgeCreator, std::move(settingsProvider), *m_walletReactor);
+}
+
+void AppModel::InitQtumClient()
+{
+    auto qtumBridgeCreator = [](io::Reactor& reactor, bitcoin::IBitcoinCoreSettingsProvider::Ptr settingsProvider)->bitcoin::IBridge::Ptr
+    {
+        return std::make_shared<qtum::QtumCore017>(reactor, settingsProvider);
+    };
+
+    auto settingsProvider = std::make_unique<qtum::SettingsProvider>(m_db);
+    settingsProvider->Initialize();
+    m_qtumClient = std::make_shared<BitcoinClientModel>(AtomicSwapCoin::Qtum, qtumBridgeCreator, std::move(settingsProvider), *m_walletReactor);
 }

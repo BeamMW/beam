@@ -230,7 +230,13 @@ void SendViewModel::onCantSendToExpired()
 
 void SendViewModel::extractParameters()
 {
-    _txParameters = *beam::wallet::ParseParameters(_receiverTA.toStdString());
+    auto txParameters = beam::wallet::ParseParameters(_receiverTA.toStdString());
+    if (!txParameters)
+    {
+        return;
+    }
+
+    _txParameters = *txParameters;
     if (auto amount = _txParameters.GetParameter<beam::Amount>(beam::wallet::TxParameterID::Amount); amount)
     {
         setSendAmount(static_cast<double>(*amount) / beam::Rules::Coin);

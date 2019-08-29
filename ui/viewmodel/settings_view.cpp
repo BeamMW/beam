@@ -23,12 +23,23 @@
 #include "wallet/secstring.h"
 #include "qml_globals.h"
 #include <algorithm>
-
+#include "wallet/litecoin/settings.h"
+#include "wallet/qtum/settings.h"
 
 using namespace beam;
 using namespace ECC;
 using namespace std;
 
+namespace
+{
+    QString AddressToQstring(const io::Address& address) {
+        if (!address.empty())
+        {
+            return str2qstr(address.str());
+        }
+        return {};
+    }
+}
 
 SettingsViewModel::SettingsViewModel()
     : m_settings{AppModel::getInstance().getSettings()}
@@ -43,9 +54,8 @@ SettingsViewModel::SettingsViewModel()
     connect(AppModel::getInstance().getWallet().get(), SIGNAL(addressChecked(const QString&, bool)), SLOT(onAddressChecked(const QString&, bool)));
 
     LoadBitcoinSettings();
-
-    // TODO:SWAP-SETTINGS load Ltc settings
-    // TODO:SWAP-SETTINGS load Qtum settings
+    LoadLitecoinSettings();
+    LoadQtumSettings();
 
     m_timerId = startTimer(CHECK_INTERVAL);
 }
@@ -174,9 +184,6 @@ void SettingsViewModel::applyBtcSettings()
 #endif
 
     AppModel::getInstance().getBitcoinClient()->SetSettings(*m_bitcoinSettings);
-
-    // TODO:SWAP-SETTINGS probably need to remove
-    AppModel::getInstance().getBitcoinClient()->GetAsync()->GetBalance();
 }
 
 QString SettingsViewModel::getLtcUser() const
@@ -241,7 +248,27 @@ void SettingsViewModel::setLtcFeeRate(int value)
 
 void SettingsViewModel::applyLtcSettings()
 {
-    // TODO:SWAP-SETTINGS save Ltc settings. These can be empty, take a look at btc apply
+    litecoin::LitecoinCoreSettings connectionSettings;
+    connectionSettings.m_pass = m_litecoinPass.toStdString();
+    connectionSettings.m_userName = m_litecoinUser.toStdString();
+
+    if (!m_litecoinNodeAddress.isEmpty())
+    {
+        const std::string address = m_litecoinNodeAddress.toStdString();
+        connectionSettings.m_address.resolve(address.c_str());
+    }
+
+    m_litecoinSettings->SetConnectionOptions(connectionSettings);
+    m_litecoinSettings->SetFeeRate(m_litecoinFeeRate);
+
+    // TODO:SWAP-SETTINGS need to be moved to config
+#ifdef BEAM_MAINNET
+    m_litecoinSettings->SetChainType(beam::wallet::SwapSecondSideChainType::Mainnet);
+#else
+    m_litecoinSettings->SetChainType(beam::wallet::SwapSecondSideChainType::Testnet);
+#endif
+
+    AppModel::getInstance().getLitecoinClient()->SetSettings(*m_litecoinSettings);
 }
 
 void SettingsViewModel::ltcOff()
@@ -250,8 +277,7 @@ void SettingsViewModel::ltcOff()
     setLtcNodeAddress("");
     setLtcPass("");
     setLtcUser("");
-    applyLtcSettings();
-    // TODO:SWAP-SETTINGS we rest settings to nothing, disconnect Ltc here
+    AppModel::getInstance().getLitecoinClient()->GetAsync()->ResetSettings();
 }
 
 QString SettingsViewModel::getQtumUser() const
@@ -316,7 +342,27 @@ void SettingsViewModel::setQtumFeeRate(int value)
 
 void SettingsViewModel::applyQtumSettings()
 {
-    // TODO:SWAP-SETTINGS save Qtum settings. These can be empty, take a look at btc apply
+    qtum::QtumCoreSettings connectionSettings;
+    connectionSettings.m_pass = m_qtumPass.toStdString();
+    connectionSettings.m_userName = m_qtumUser.toStdString();
+
+    if (!m_qtumNodeAddress.isEmpty())
+    {
+        const std::string address = m_qtumNodeAddress.toStdString();
+        connectionSettings.m_address.resolve(address.c_str());
+    }
+
+    m_qtumSettings->SetConnectionOptions(connectionSettings);
+    m_qtumSettings->SetFeeRate(m_qtumFeeRate);
+
+    // TODO:SWAP-SETTINGS need to be moved to config
+#ifdef BEAM_MAINNET
+    m_qtumSettings->SetChainType(beam::wallet::SwapSecondSideChainType::Mainnet);
+#else
+    m_qtumSettings->SetChainType(beam::wallet::SwapSecondSideChainType::Testnet);
+#endif
+
+    AppModel::getInstance().getQtumClient()->SetSettings(*m_qtumSettings);
 }
 
 void SettingsViewModel::qtumOff()
@@ -325,8 +371,7 @@ void SettingsViewModel::qtumOff()
     setQtumNodeAddress("");
     setQtumPass("");
     setQtumUser("");
-    applyQtumSettings();
-    // TODO:SWAP-SETTINGS we rest settings to nothing, disconnect Qtum here
+    AppModel::getInstance().getQtumClient()->GetAsync()->ResetSettings();
 }
 
 bool SettingsViewModel::isLocalNodeRunning() const
@@ -600,6 +645,24 @@ void SettingsViewModel::LoadBitcoinSettings()
     m_bitcoinSettings = AppModel::getInstance().getBitcoinClient()->GetSettings();
     setBtcUser(str2qstr(m_bitcoinSettings->GetConnectionOptions().m_userName));
     setBtcPass(str2qstr(m_bitcoinSettings->GetConnectionOptions().m_pass));
-    setBtcNodeAddress(str2qstr(m_bitcoinSettings->GetConnectionOptions().m_address.str()));
+    setBtcNodeAddress(AddressToQstring(m_bitcoinSettings->GetConnectionOptions().m_address));
     setBtcFeeRate(m_bitcoinSettings->GetFeeRate());
+}
+
+void SettingsViewModel::LoadLitecoinSettings()
+{
+    m_litecoinSettings = AppModel::getInstance().getLitecoinClient()->GetSettings();
+    setLtcUser(str2qstr(m_litecoinSettings->GetConnectionOptions().m_userName));
+    setLtcPass(str2qstr(m_litecoinSettings->GetConnectionOptions().m_pass));
+    setLtcNodeAddress(AddressToQstring(m_litecoinSettings->GetConnectionOptions().m_address));
+    setLtcFeeRate(m_litecoinSettings->GetFeeRate());
+}
+
+void SettingsViewModel::LoadQtumSettings()
+{
+    m_qtumSettings = AppModel::getInstance().getQtumClient()->GetSettings();
+    setQtumUser(str2qstr(m_qtumSettings->GetConnectionOptions().m_userName));
+    setQtumPass(str2qstr(m_qtumSettings->GetConnectionOptions().m_pass));
+    setQtumNodeAddress(AddressToQstring(m_qtumSettings->GetConnectionOptions().m_address));
+    setQtumFeeRate(m_qtumSettings->GetFeeRate());
 }

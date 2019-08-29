@@ -110,7 +110,6 @@ namespace beam::wallet
         enum class State : uint8_t
         {
             Initial,
-            Invitation,
 
             BuildingBeamLockTX,
             BuildingBeamRefundTX,
@@ -133,29 +132,10 @@ namespace beam::wallet
 
     public:
 
-        struct SwapConditions
-        {
-            Amount beamAmount = 0;
-            Amount swapAmount = 0;
-            AtomicSwapCoin swapCoin;
-            bool isBeamSide = false;
-            SwapSecondSideChainType sideChainType;
-
-            bool operator== (const SwapConditions& other)
-            {
-                return beamAmount == other.beamAmount &&
-                    swapAmount == other.swapAmount &&
-                    swapCoin == other.swapCoin &&
-                    isBeamSide == other.isBeamSide &&
-                    sideChainType == other.sideChainType;
-            }
-        };
-        
         class Creator : public BaseTransaction::Creator
                       , public ISecondSideProvider
         {
         public:
-            //Creator(std::vector<SwapConditions>& swapConditions);
             void RegisterFactory(AtomicSwapCoin coinType, ISecondSideFactory::Ptr factory);
         private:
             BaseTransaction::Ptr Create(INegotiatorGateway& gateway
@@ -166,7 +146,6 @@ namespace beam::wallet
 
             SecondSide::Ptr GetSecondSide(BaseTransaction& tx) override;
         private:
-            //std::vector<SwapConditions>& m_swapConditions;
             std::map<AtomicSwapCoin, ISecondSideFactory::Ptr> m_factories;
         };
 

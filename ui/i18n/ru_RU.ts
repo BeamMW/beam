@@ -187,8 +187,9 @@
         <translation>Получить</translation>
     </message>
     <message id="wallet-in-progress-title">
-        <source>In progress</source>
-        <translation>В процессе</translation>
+        <source></source>
+        <oldsource>In progress</oldsource>
+        <translation type="unfinished">В процессе</translation>
     </message>
     <message id="wallet-transactions-title">
         <source>Transactions</source>
@@ -286,12 +287,14 @@
         <translation>Удалить контакт</translation>
     </message>
     <message id="available-panel-available">
-        <source>Available</source>
-        <translation>Доступно</translation>
+        <source></source>
+        <oldsource>Available</oldsource>
+        <translation type="unfinished">Доступно</translation>
     </message>
     <message id="available-panel-where-to-buy">
-        <source>Where to buy BEAM?</source>
-        <translation>Где купить BEAM?</translation>
+        <source></source>
+        <oldsource>Where to buy BEAM?</oldsource>
+        <translation type="unfinished">Где купить BEAM?</translation>
     </message>
     <message id="settings-version">
         <source>Version</source>
@@ -461,7 +464,7 @@
     </message>
     <message id="secondary-panel-maturing">
         <source>Maturing</source>
-        <translation>Созревает</translation>
+        <translation type="vanished">Созревает</translation>
     </message>
     <message id="info-title">
         <source>Info view</source>
@@ -469,7 +472,7 @@
     </message>
     <message id="loading-change-settings-button">
         <source>Change settings</source>
-        <translation>Изменить настройки</translation>
+        <translation type="vanished">Изменить настройки</translation>
     </message>
     <message id="loading-try-again-button">
         <source>Try again</source>
@@ -543,8 +546,8 @@
         <translation>Кошелек</translation>
     </message>
     <message id="wallet-receive-title">
-        <source>Receive</source>
-        <oldsource>Receive Beam</oldsource>
+        <source></source>
+        <oldsource>Receive</oldsource>
         <translation type="unfinished">Получить Beam</translation>
     </message>
     <message id="wallet-receive-my-addr-label">
@@ -950,6 +953,76 @@
         <source>Spent</source>
         <translation>Израсходовано</translation>
     </message>
+    <message id="offer-book-title">
+        <source></source>
+        <oldsource>Offer Book</oldsource>
+        <translation type="unfinished">Доска предложений</translation>
+    </message>
+    <message id="offer-book-title-2">
+        <source></source>
+        <oldsource>Active offers</oldsource>
+        <translation type="unfinished">Активные предложения</translation>
+    </message>
+    <message id="offer-book-coins">
+        <source></source>
+        <oldsource>Coins</oldsource>
+        <translation type="unfinished">Валюты</translation>
+    </message>
+    <message id="offer-book-create">
+        <source></source>
+        <oldsource>Create an offer</oldsource>
+        <translation type="unfinished">Создать предложение</translation>
+    </message>
+    <message id="offer-book-all-tab">
+        <source></source>
+        <oldsource>All</oldsource>
+        <translation type="unfinished">Все</translation>
+    </message>
+    <message id="offer-book-mine-tab">
+        <source></source>
+        <oldsource>Mine</oldsource>
+        <translation type="unfinished">Мои</translation>
+    </message>
+    <message id="offer-book-others-tab">
+        <source></source>
+        <oldsource>Others</oldsource>
+        <translation type="unfinished">Чужие</translation>
+    </message>
+    <message id="offer-book-time-created">
+        <source></source>
+        <oldsource>Date | time</oldsource>
+        <translation type="unfinished">Дата | время</translation>
+    </message>
+    <message id="offer-book-amount">
+        <source></source>
+        <oldsource>Amount</oldsource>
+        <translation type="unfinished">Количество</translation>
+    </message>
+    <message id="offer-book-amount-swap">
+        <source></source>
+        <oldsource>Amount</oldsource>
+        <translation type="unfinished">Количество</translation>
+    </message>
+    <message id="offer-book-rate">
+        <source></source>
+        <oldsource>Rate</oldsource>
+        <translation type="unfinished">Курс</translation>
+    </message>
+    <message id="offer-book-expiration">
+        <source></source>
+        <oldsource>Expiration</oldsource>
+        <translation type="unfinished">Истекает</translation>
+    </message>
+    <message id="offer-book-accept">
+        <source></source>
+        <oldsource>Accept offer</oldsource>
+        <translation type="unfinished">Принять предложение</translation>
+    </message>
+    <message id="offer-book-cancel">
+        <source></source>
+        <oldsource>Cancel offer</oldsource>
+        <translation type="unfinished">Отменить предложение</translation>
+    </message>
     <message id="settings-general-lock-screen-never">
         <source>Never</source>
         <translation>Никогда</translation>
@@ -1190,7 +1263,8 @@
         <translation type="unfinished"></translation>
     </message>
     <message id="general-fee-fail">
-        <source>The minimum fee is %1 GROTH</source>
+        <source></source>
+        <oldsource>The minimum fee is %1 GROTH</oldsource>
         <translation type="unfinished">Минимальная комиссия %1 GROTH</translation>
     </message>
     <message id="wallet-swap">
@@ -1275,6 +1349,66 @@
     </message>
     <message id="general-amount-received">
         <source>Received</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="general-locked">
+        <source></source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="general-change-settings">
+        <source>Change settings</source>
+        <translation type="unfinished">Изменить настройки</translation>
+    </message>
+    <message id="settings-reset">
+        <source></source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="settings-node-address">
+        <source></source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="settings-username">
+        <source></source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="settings-password">
+        <source></source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="settings-fee-rate">
+        <source></source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="swap-na-message">
+        <source></source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="general-rate">
+        <source></source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="wallet-receive-swap-publish">
+        <source></source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="wallet-send-invalid-token">
+        <source></source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="general-bitcoin">
+        <source></source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="general-litecoin">
+        <source></source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="general-qtum">
+        <source></source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="swap-currency-na-message">
+        <source></source>
         <translation type="unfinished"></translation>
     </message>
 </context>

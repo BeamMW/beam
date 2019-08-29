@@ -27,7 +27,10 @@ class BitcoinClientModel
 public:
     using Ptr = std::shared_ptr<BitcoinClientModel>;
 
-    BitcoinClientModel(beam::wallet::IWalletDB::Ptr walletDB, beam::io::Reactor& reactor);
+    BitcoinClientModel(beam::wallet::AtomicSwapCoin swapCoin,
+        beam::bitcoin::Client::CreateBridge bridgeCreator,
+        std::unique_ptr<beam::bitcoin::SettingsProvider> settingsProvider,
+        beam::io::Reactor& reactor);
 
     double getAvailable();
     double getReceiving();
@@ -54,6 +57,8 @@ private:
     double m_receiving = 0;
     double m_sending = 0;
     std::weak_ptr<WalletModel> m_walletModel;
+    beam::io::Reactor& m_reactor;
+    beam::wallet::AtomicSwapCoin m_swapCoin;
 
     std::map<beam::wallet::TxID, beam::wallet::TxDescription> m_transactions;
 };

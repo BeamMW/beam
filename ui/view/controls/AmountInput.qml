@@ -14,10 +14,6 @@ ColumnLayout {
         {label: "QTUM", feeLabel: BeamGlobals.qtumFeeRateLabel(), minFee: BeamGlobals.minFeeRateQtum(), defaultFee: BeamGlobals.defFeeRateQtum()}
     ]
 
-    function currList() {
-        return ["BEAM", "BTC", "LTC", "QTUM"]
-    }
-
     function getCurrencyLabel() {
         return currencies[control.currency].label
     }
@@ -105,7 +101,7 @@ ColumnLayout {
             currentIndex:        control.currency
             color:               control.currColor
             visible:             multi
-            model:               currList()
+            model:               Utils.currenciesList()
 
             onActivated: {
                 if (multi) control.currency = index

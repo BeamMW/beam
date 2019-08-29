@@ -24,14 +24,36 @@ namespace beamui
         auto id = std::to_string(walletID);
         return QString::fromStdString(id);
     }
-
-    QString BeamToString(const Amount& value)
+    
+    QString AmountToString(const Amount& value, Currencies coinType)
     {
         auto realAmount = double(int64_t(value)) / Rules::Coin;
-        QString qstr = QLocale().toString(realAmount, 'f', QLocale::FloatingPointShortest);
-        //auto ending = QString::fromUtf16((const char16_t*)(L" ₿"));
-        auto ending = QString::fromUtf16((const char16_t*)(L" \uEAFB"));//(L" \u2042"));
-        return qstr + ending;
+        QString amount = QLocale().toString(realAmount, 'f', QLocale::FloatingPointShortest);
+
+        QString coinSign;
+        switch (coinType)
+        {
+            case Currencies::Beam:
+                coinSign = QString::fromUtf16((const char16_t*)(L" \uEAFB"));
+                break;
+
+            case Currencies::Bitcoin:
+                coinSign = QString::fromUtf16((const char16_t*)(L" \u20BF"));
+                break;
+
+            case Currencies::Litecoin:
+                coinSign = QString::fromUtf16((const char16_t*)(L" \u0141"));
+                break;
+
+            case Currencies::Qtum:
+                coinSign = QString::fromUtf16((const char16_t*)(L" \uFFFD"));
+                break;
+
+            case Currencies::Unknown:
+                coinSign = "";
+                break;
+        }
+        return amount + coinSign;
     }
 
     QString toString(const beam::Timestamp& ts)

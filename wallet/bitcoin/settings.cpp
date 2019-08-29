@@ -61,8 +61,7 @@ namespace beam::bitcoin
 
     bool Settings::IsInitialized() const
     {
-        // TODO roman.strilets
-        return m_connectionSettings.IsInitialized()/* || m_electrumConnectionSettings.IsInitialized*/;
+        return m_connectionSettings.IsInitialized() || m_electrumConnectionSettings.IsInitialized();
     }
 
     void Settings::SetConnectionOptions(const BitcoinCoreSettings& connectionSettings)

@@ -26,7 +26,7 @@ ColumnLayout {
     function isValid () {
         if (!viewModel.commentValid) return false
         if (viewModel.receiveCurrency == viewModel.sentCurrency) return false
-        return receiveAmountInput.isValid && sentAmountInput.isValid
+        return receiveAmountInput.isValid && sentAmountInput.isValid && !currencyError()
     }
 
     function canSend () {
@@ -282,7 +282,7 @@ ColumnLayout {
             palette.buttonText: Style.content_main
             icon.source: "qrc:/assets/icon-cancel-white.svg"
             onClicked: {
-                walletView.pop();
+                thisView.parent.parent.pop();
             }
         }
 
@@ -315,6 +315,7 @@ ColumnLayout {
                     thisView.addressSaved = true
                     viewModel.saveAddress()
                 }
+                viewModel.startListen()
                 viewModel.publishToken()
             }
         }

@@ -38,9 +38,6 @@ namespace beam::bitcoin
             std::unique_ptr<beam::io::TcpStream> m_stream;
         };
 
-        // TODO roman.strilets it is temporary
-    public:
-
         struct BtcCoin
         {
             libbitcoin::wallet::ec_private m_privateKey;
@@ -49,7 +46,7 @@ namespace beam::bitcoin
 
     public:
         Electrum() = delete;
-        Electrum(beam::io::Reactor& reactor, IElectrumSettingsProvider::Ptr2 settingsProvider);
+        Electrum(beam::io::Reactor& reactor, IElectrumSettingsProvider::Ptr settingsProvider);
 
         void dumpPrivKey(const std::string& btcAddress, std::function<void(const Error&, const std::string&)> callback) override;
         void fundRawTransaction(const std::string& rawTx, Amount feeRate, std::function<void(const Error&, const std::string&, int)> callback) override;
@@ -73,21 +70,16 @@ namespace beam::bitcoin
 
     protected:
 
-        virtual uint32_t getReceivingAddressAmount() const;
-        virtual uint32_t getChangeAddressAmount() const;
-
         void sendRequest(const std::string& method, const std::string& params, std::function<bool(const Error&, const nlohmann::json&, uint64_t)> callback);
-        std::string getReceivingAddress(uint32_t index) const;
-        std::string getChangeAddress(uint32_t index) const;
+        std::string getAddress(uint32_t index, const libbitcoin::wallet::hd_private& privateKey) const;
         std::vector<libbitcoin::wallet::ec_private> generatePrivateKeyList() const;
+        std::pair<libbitcoin::wallet::hd_private, libbitcoin::wallet::hd_private> generateMasterPrivateKeys() const;
 
     private:
         beam::io::Reactor& m_reactor;
         std::map<uint64_t, TCPConnect> m_connections;
-        libbitcoin::wallet::hd_private m_receivingPrivateKey;
-        libbitcoin::wallet::hd_private m_changePrivateKey;
         uint64_t m_counter = 0;
         uint32_t m_currentReceivingAddress = 0;
-        IElectrumSettingsProvider::Ptr2 m_settingsProvider;
+        IElectrumSettingsProvider::Ptr m_settingsProvider;
     };
 } // namespace beam::bitcoin
