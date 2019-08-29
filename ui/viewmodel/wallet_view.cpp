@@ -56,29 +56,12 @@ WalletViewModel::WalletViewModel()
         emit stateChanged();
     });
 
-    connect(&*AppModel::getInstance().getBitcoinClient(), &BitcoinClientModel::stateChanged, [this](){
-        emit stateChanged();
-    });
-
-    connect(&*AppModel::getInstance().getLitecoinClient(), &BitcoinClientModel::stateChanged, [this](){
-        emit stateChanged();
-    });
-
-    connect(&*AppModel::getInstance().getQtumClient(), &BitcoinClientModel::stateChanged, [this](){
-        emit stateChanged();
-    });
-
-    connect(&*AppModel::getInstance().getBitcoinClient(), &BitcoinClientModel::gotStatus, [this](beam::bitcoin::Client::Status) {
-        emit stateChanged();
-    });
-
-    connect(&*AppModel::getInstance().getLitecoinClient(), &BitcoinClientModel::gotStatus, [this](beam::bitcoin::Client::Status) {
-        emit stateChanged();
-    });
-
-    connect(&*AppModel::getInstance().getQtumClient(), &BitcoinClientModel::gotStatus, [this](beam::bitcoin::Client::Status) {
-        emit stateChanged();
-    });
+    connect(&*AppModel::getInstance().getBitcoinClient(),  &BitcoinClientModel::stateChanged, this, &WalletViewModel::onCoinStateChanged);
+    connect(&*AppModel::getInstance().getLitecoinClient(), &BitcoinClientModel::stateChanged, this, &WalletViewModel::onCoinStateChanged);
+    connect(&*AppModel::getInstance().getQtumClient(),     &BitcoinClientModel::stateChanged, this, &WalletViewModel::onCoinStateChanged);
+    connect(&*AppModel::getInstance().getBitcoinClient(),  &BitcoinClientModel::gotStatus, this, &WalletViewModel::onCoinStatusChanged);
+    connect(&*AppModel::getInstance().getLitecoinClient(), &BitcoinClientModel::gotStatus, this, &WalletViewModel::onCoinStatusChanged);
+    connect(&*AppModel::getInstance().getQtumClient(),     &BitcoinClientModel::gotStatus, this, &WalletViewModel::onCoinStatusChanged);
 
     // TODO: This also refreshes TXs and addresses. Need to make this more transparent
     _status.refresh();
@@ -87,6 +70,16 @@ WalletViewModel::WalletViewModel()
 WalletViewModel::~WalletViewModel()
 {
     qDeleteAll(_txList);
+}
+
+void WalletViewModel::onCoinStateChanged()
+{
+    emit stateChanged();
+}
+
+void WalletViewModel::onCoinStatusChanged(beam::bitcoin::Client::Status)
+{
+    emit stateChanged();
 }
 
 void WalletViewModel::cancelTx(TxObject* pTxObject)

@@ -17,6 +17,7 @@
 #include <QQmlListProperty>
 #include "model/wallet_model.h"
 #include "model/settings.h"
+#include "wallet/bitcoin/client.h"
 #include "messages_view.h"
 #include "status_holder.h"
 #include "tx_object.h"
@@ -121,6 +122,8 @@ public:
 public slots:
     void onTxStatus(beam::wallet::ChangeAction action, const std::vector<beam::wallet::TxDescription>& items);
     void onAddresses(bool own, const std::vector<beam::wallet::WalletAddress>& addresses);
+    void onCoinStateChanged();
+    void onCoinStatusChanged(beam::bitcoin::Client::Status);
 
 signals:
     void stateChanged();

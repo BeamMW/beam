@@ -27,6 +27,11 @@ public:
         for(const auto& conn: _conns) QObject::disconnect(conn);
         decltype(_conns)().swap(_conns);
     }
+
+    ~Connections() {
+        disconnect();
+    }
+
 private:
     std::vector<QMetaObject::Connection> _conns;
 };
