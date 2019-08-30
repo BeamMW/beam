@@ -17,7 +17,6 @@
 #include "wallet/swaps/second_side.h"
 #include "wallet/swaps/common.h"
 #include "wallet/base_transaction.h"
-#include "bitcoin/bitcoin.hpp"
 #include "bridge.h"
 #include "settings_provider.h"
 
@@ -56,7 +55,6 @@ namespace beam::wallet
     private:
         bool LoadSwapAddress();
         void InitSecret();
-        libbitcoin::chain::script CreateAtomicSwapContract();
         bool RegisterTx(const std::string& rawTransaction, SubTxID subTxID);
         SwapTxState BuildLockTx();
         SwapTxState BuildWithdrawTx(SubTxID subTxID);
