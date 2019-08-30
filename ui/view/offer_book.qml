@@ -21,6 +21,7 @@ Item {
     SFText {
         font.pixelSize: 36
         color: Style.content_main
+        //% "Offer Book"
         text: qsTrId("offer-book-title")
     }
 
@@ -49,6 +50,7 @@ Item {
                     palette.button: Style.active
                     palette.buttonText: Style.content_opposite
                     icon.source: "qrc:/assets/icon-send-blue.svg"
+                    //% "Create an offer"
                     text: qsTrId("offer-book-create")
                     font.pixelSize: 12
                     font.capitalization: Font.AllUppercase
@@ -74,6 +76,7 @@ Item {
                     font.capitalization: Font.AllUppercase
                     color: Style.content_main
                     opacity: 0.5
+                    //% "Active offers"
                     text: qsTrId("offer-book-title-2")
                 }
 
@@ -86,6 +89,7 @@ Item {
                     font.letterSpacing: 0.4
                     color: Style.content_main
                     opacity: 0.5
+                    //% "Coins"
                     text: qsTrId("offer-book-coins")
                 }
                 
@@ -133,6 +137,7 @@ Item {
                 TxFilter{
                     id: filterAll
                     Layout.alignment: Qt.AlignTop
+                    //% "All"
                     label: qsTrId("offer-book-all-tab")
                     onClicked: offersLayout.state = "all"
                     capitalization: Font.AllUppercase
@@ -142,6 +147,7 @@ Item {
                     id: filterMine
                     Layout.alignment: Qt.AlignTop
                     Layout.leftMargin: 40
+                    //% "Mine"
                     label: qsTrId("offer-book-mine-tab")
                     onClicked: offersLayout.state = "mine"
                     capitalization: Font.AllUppercase
@@ -151,6 +157,7 @@ Item {
                     id: filterOthers
                     Layout.alignment: Qt.AlignTop
                     Layout.leftMargin: 40
+                    //% "Others"
                     label: qsTrId("offer-book-others-tab")
                     onClicked: offersLayout.state = "others"
                     capitalization: Font.AllUppercase
@@ -209,6 +216,7 @@ Item {
 
                 TableViewColumn {
                     role: "timeCreated"
+                    //% "Date | time"
                     title: qsTrId("offer-book-time-created")
                     width: tableView.columnWidth
                     movable: false
@@ -217,6 +225,7 @@ Item {
 
                 TableViewColumn {
                     role: "amountSend"
+                    //% "Amount"
                     title: qsTrId("offer-book-amount")
                     width: tableView.columnWidth
                     movable: false
@@ -225,6 +234,7 @@ Item {
 
                 TableViewColumn {
                     role: "amountReceive"
+                    //% "Amount"
                     title: qsTrId("offer-book-amount-swap")
                     width: tableView.columnWidth
                     movable: false
@@ -233,6 +243,7 @@ Item {
 
                 TableViewColumn {
                     role: "rate"
+                    //% "Rate"
                     title: qsTrId("offer-book-rate")
                     width: tableView.columnWidth
                     movable: false
@@ -241,6 +252,7 @@ Item {
 
                 TableViewColumn {
                     role: "expiration"
+                    //% "Expiration"
                     title: qsTrId("offer-book-expiration")
                     width: tableView.columnWidth
                     movable: false
@@ -266,7 +278,11 @@ Item {
 
                                 font.pixelSize: 14
                                 color: Style.active
-                                text: isOwnOffer ? qsTrId("offer-book-cancel") : qsTrId("offer-book-accept")
+                                text: isOwnOffer
+                                                //% "Cancel offer"
+                                                ? qsTrId("offer-book-cancel")
+                                                //% "Accept offer"
+                                                : qsTrId("offer-book-accept")
 
                                 MouseArea {
                                     anchors.fill: parent

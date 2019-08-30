@@ -64,7 +64,8 @@ ColumnLayout {
             //
             AmountInput {
                 Layout.topMargin: 35
-                title:            qsTrId("receive-amount-label") //% "Receive amount (optional)"
+                //% "Receive amount (optional)"
+                title:            qsTrId("receive-amount-label")
                 id:               receiveAmountInput
                 amount:           viewModel.amountToReceive
             }
@@ -107,7 +108,7 @@ ColumnLayout {
             Item {
                 Layout.fillWidth: true
                 SFText {
-                    //% "Address with same comment already exist"
+                    //% "Address with the same comment already exists"
                     text:           qsTrId("general-addr-comment-error")
                     color:          Style.validator_error
                     font.pixelSize: 12
@@ -129,6 +130,7 @@ ColumnLayout {
                     Layout.topMargin: 26
                     font.pixelSize:   14
                     color:            Style.content_main
+                    //% "Expires in"
                     text:             qsTrId("wallet-receive-expires-label")
                 }
 
@@ -188,7 +190,7 @@ ColumnLayout {
         font.styleName:   "Bold"
         font.weight:      Font.Bold
         color:            Style.content_main
-        //% Your transaction token:
+        //% "Your transaction token:"
         text: qsTrId("wallet-receive-your-token")
     }
 
@@ -211,7 +213,7 @@ ColumnLayout {
         Layout.topMargin: 5
         font.pixelSize:   14
         color:            Style.content_main
-        //% Send this token to the sender over an external secure channel or scan the QR code
+        //% "Send this token to the sender over an external secure channel or scan the QR code"
         text: qsTrId("wallet-receive-token-message")
     }
     */
@@ -220,7 +222,7 @@ ColumnLayout {
         Layout.topMargin: 30
         font.pixelSize:   14
         color:            Style.content_main
-        //% Send this token to the sender over an external secure channel or scan the QR code
+        //% "Send this address to the sender over an external secure channel or scan the QR code"
         text: qsTrId("wallet-receive-addr-message")
     }
 

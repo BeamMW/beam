@@ -28,6 +28,7 @@ ConfirmationDialog {
                 font.pixelSize:       18
                 color:                Style.content_main
                 horizontalAlignment:  Text.AlignHCenter
+                //% "Swap"
                 text:                 qsTrId("wallet-swap")
             }
 

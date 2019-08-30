@@ -47,7 +47,8 @@ ColumnLayout {
                 font.pixelSize:  14
                 font.styleName:  "Bold"; font.weight: Font.Bold
                 color:           Style.content_main
-                text:            qsTrId("send-send-to-label") //% "Transaction token or contact"
+                //% "Transaction token or contact"
+                text:            qsTrId("send-send-to-label")
             }
 
             SFTextInput {
@@ -60,7 +61,8 @@ ColumnLayout {
                 text:             viewModel.receiverTA
                 validator:        RegExpValidator { regExp: /[0-9a-zA-Z]{1,}/ }
                 selectByMouse:    true
-                placeholderText:  qsTrId("send-contact-placeholder") //% "Please specify contact"
+                //% "Please specify contact or transaction token"
+                placeholderText:  qsTrId("send-contact-placeholder")
 
                 onTextChanged: {
                     if (BeamGlobals.isSwapToken(text)) {
@@ -76,7 +78,8 @@ ColumnLayout {
                     id:               receiverTAError
                     color:            Style.validator_error
                     font.pixelSize:   12
-                    text:             qsTrId("wallet-send-invalid-token") //% "Invalid address or token"
+                    //% "Invalid address or token"
+                    text:             qsTrId("wallet-send-invalid-token")
                     visible:          !isTAInputValid()
                 }
             }
@@ -92,11 +95,13 @@ ColumnLayout {
             //
             AmountInput {
                 Layout.topMargin: 25
-                title:            qsTrId("send-amount-label") //% "Transaction amount"
+                //% "Transaction amount"
+                title:            qsTrId("send-amount-label")
                 id:               sendAmountInput
                 amount:           viewModel.sendAmount
                 hasFee:           true
                 color:            Style.accent_outgoing
+                //% "Insufficient funds: you would need %1 to complete the transaction"
                 error:            viewModel.isEnough ? "" : qsTrId("send-founds-fail").arg(Utils.formatAmount(viewModel.missing))
             }
 
@@ -136,6 +141,7 @@ ColumnLayout {
                     color:            Style.content_secondary
                     font.italic:      true
                     font.pixelSize:   12
+                    //% "Comments are local and won't be shared"
                     text:             qsTrId("general-comment-local")
                 }
             }
@@ -170,6 +176,7 @@ ColumnLayout {
                 Layout.leftMargin: 25
                 font.pixelSize:    14
                 color:             Style.content_secondary
+                //% "Total UTXO value"
                 text:              qsTrId("send-total-label") + ":"
             }
 
@@ -186,6 +193,7 @@ ColumnLayout {
                 Layout.leftMargin: 25
                 font.pixelSize:    14
                 color:             Style.content_secondary
+                //% "Transaction amount"
                 text:              qsTrId("send-amount-label") + ":"
             }
 
@@ -219,6 +227,7 @@ ColumnLayout {
                 Layout.bottomMargin: 20
                 font.pixelSize:      14
                 color:               Style.content_secondary
+                //% "Remaining"
                 text:                qsTrId("send-remaining-label") + ":"
             }
 
@@ -253,7 +262,9 @@ ColumnLayout {
             onClicked: {
                 const dialog       = Qt.createComponent("send_confirm.qml").createObject(thisView);
                 dialog.addressText = viewModel.receiverAddress;
+                //% "BEAM"
                 dialog.amountText  = [Utils.formatAmount(viewModel.sendAmount), qsTrId("general-beam")].join(" ")
+                //% "GROTH"
                 dialog.feeText     = [Utils.formatAmount(viewModel.feeGrothes), qsTrId("general-groth")].join(" ")
                 dialog.open();
             }

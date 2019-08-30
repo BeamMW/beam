@@ -75,7 +75,8 @@ ColumnLayout {
             //
             AmountInput {
                 Layout.topMargin: 35
-                title:            qsTrId("receive-amount-swap-label") //% "Receive amount"
+                //% "Receive amount"
+                title:            qsTrId("receive-amount-swap-label")
                 id:               receiveAmountInput
                 hasFee:           true
                 currency:         viewModel.receiveCurrency
@@ -142,7 +143,7 @@ ColumnLayout {
             Item {
                 Layout.fillWidth: true
                 SFText {
-                    //% "Address with same comment already exist"
+                    //% "Address with the same comment already exists"
                     text:           qsTrId("general-addr-comment-error")
                     color:          Style.validator_error
                     font.pixelSize: 12
@@ -160,7 +161,8 @@ ColumnLayout {
             //
             AmountInput {
                 Layout.topMargin: 35
-                title:            qsTrId("sent-amount-label") //% "Sent amount"
+                //% "Sent amount"
+                title:            qsTrId("sent-amount-label")
                 id:               sentAmountInput
                 color:            Style.accent_outgoing
                 hasFee:           true
@@ -209,6 +211,7 @@ ColumnLayout {
                     Layout.topMargin: 18
                     font.pixelSize:   14
                     color:            Style.content_main
+                    //% "Offer expiration time"
                     text:             qsTrId("wallet-receive-offer-expires-label")
                 }
 
@@ -239,6 +242,7 @@ ColumnLayout {
                 font.pixelSize:   14
                 font.weight:      Font.Bold
                 color:            Style.content_main
+                //% "Rate"
                 text:             qsTrId("general-rate")
             }
 
@@ -259,7 +263,7 @@ ColumnLayout {
         font.styleName:   "Bold"
         font.weight:      Font.Bold
         color:            Style.content_main
-        //% Your transaction token:
+        //% "Your transaction token:"
         text: qsTrId("wallet-receive-your-token")
     }
 
@@ -282,7 +286,7 @@ ColumnLayout {
         Layout.topMargin: 5
         font.pixelSize:   14
         color:            Style.content_main
-        //% Send this token to the sender over an external secure channel
+        //% "Send this token to the sender over an external secure channel"
         text: qsTrId("wallet-swap-token-message")
     }
 
@@ -319,6 +323,7 @@ ColumnLayout {
         }
 
         CustomButton {
+            //% "publish transaction token"
             text:                qsTrId("wallet-receive-swap-publish")
             palette.buttonText:  Style.content_opposite
             icon.color:          Style.content_opposite

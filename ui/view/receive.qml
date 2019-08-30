@@ -36,6 +36,7 @@ ColumnLayout {
         id: swapna
         onRejected: thisView.isSwapMode = false
         onAccepted: main.openSwapSettings()
+        //% "You do not have any 3rd-party currencies connected.\nUpdate your settings and try again."
         text:       qsTrId("swap-na-message").replace("\\n", "\n")
     }
 
@@ -49,11 +50,16 @@ ColumnLayout {
             font.pixelSize:      18
             font.styleName:      "Bold"; font.weight: Font.Bold
             color:               Style.content_main
-            text:                isSwapMode ? qsTrId("wallet-receive-swap-title") : qsTrId("wallet-receive-title")
+            text:                isSwapMode
+                                            //% "Create swap offer"
+                                            ? qsTrId("wallet-receive-swap-title")
+                                            //% "Receive"
+                                            : qsTrId("wallet-receive-title")
         }
 
         CustomSwitch {
             id:         mode
+            //% "Swap"
             text:       qsTrId("wallet-swap")
             x:          parent.width - width
             checked:    isSwapMode

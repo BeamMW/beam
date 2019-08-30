@@ -237,6 +237,7 @@ Control {
                     Loader {
                         Layout.alignment: Qt.AlignHCenter
                         sourceComponent:  columnTitle
+                        //% "locked"
                         property string   titleText: qsTrId("general-locked")
                     }
 

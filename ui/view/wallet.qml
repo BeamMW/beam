@@ -143,6 +143,7 @@ Item {
                         Layout.minimumWidth: 350
                         Layout.fillHeight:   true
                         Layout.fillWidth:    true
+                        //% "In progress"
                         title:               qsTrId("wallet-in-progress-title")
                         beamReceiving:       viewModel.beamReceiving
                         beamSending:         viewModel.beamSending

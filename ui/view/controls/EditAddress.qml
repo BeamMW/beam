@@ -345,7 +345,7 @@ Dialog {
 			Item {
 				Layout.preferredHeight: 15
 				SFText {
-					//% "Address with same comment already exist"
+					//% "Address with the same comment already exists"
 					text: qsTrId("general-addr-comment-error")
 					color: Style.validator_error
 					font.pixelSize: 12

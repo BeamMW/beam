@@ -128,7 +128,11 @@ ColumnLayout {
         font.styleName:   "Bold"
         font.weight:      Font.Bold
         color:            Style.content_main
-        text:             control.currency == Currency.CurrBeam ? qsTrId("general-fee") : qsTrId("general-fee-rate")
+        text:             control.currency == Currency.CurrBeam
+                                                                //% "Transaction fee"
+                                                                ? qsTrId("general-fee")
+                                                                //% "Transaction fee rate"
+                                                                : qsTrId("general-fee-rate")
         visible:          control.hasFee
     }
 

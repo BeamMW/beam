@@ -102,6 +102,7 @@ Control {
 
             LinkButton {
                 Layout.alignment: Qt.AlignVCenter
+                //% "Switch off"
                 text:       qsTrId("settings-reset")
                 visible:    canSwitchOff()
                 onClicked:  {
@@ -123,6 +124,7 @@ Control {
             SFText {
                 font.pixelSize: 14
                 color:          Style.content_main
+                //% "Node Address"
                 text:           qsTrId("settings-node-address")
             }
 
@@ -135,6 +137,7 @@ Control {
             SFText {
                 font.pixelSize: 14
                 color:          Style.content_main
+                //% "Username"
                 text:           qsTrId("settings-username")
             }
 
@@ -149,6 +152,7 @@ Control {
             SFText {
                 font.pixelSize: 14
                 color:          Style.content_main
+                //% "Password"
                 text:           qsTrId("settings-password")
             }
 
@@ -164,6 +168,7 @@ Control {
             SFText {
                 font.pixelSize: 14
                 color: Style.content_main
+                //% "Default fee"
                 text:  qsTrId("settings-fee-rate")
             }
 

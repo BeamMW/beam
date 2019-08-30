@@ -48,6 +48,7 @@ Control {
                 font.styleName:    "Bold"
                 font.weight:       Font.Bold
                 color:             Style.content_main
+                //% "Available"
                 text:              qsTrId("available-panel-available")
             }
 
@@ -61,6 +62,7 @@ Control {
                 Layout.alignment: Qt.AlignTop
                 color:            Style.active
                 opacity:          0.5
+                //% "Where to buy BEAM?"
                 text:             qsTrId("available-panel-where-to-buy")
 
                 MouseArea {

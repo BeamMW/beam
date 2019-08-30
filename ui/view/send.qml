@@ -28,7 +28,11 @@ ColumnLayout {
             font.pixelSize:  18
             font.styleName:  "Bold"; font.weight: Font.Bold
             color:           Style.content_main
-            text:            isSwapMode ? qsTrId("wallet-send-swap-title") : qsTrId("send-title") //% "Swap" / "Send Beam"
+            text:            isSwapMode
+                                        //% "Swap currencies"
+                                        ? qsTrId("wallet-send-swap-title")
+                                        //% "Send"
+                                        : qsTrId("send-title")
         }
     }
 
@@ -43,7 +47,8 @@ ColumnLayout {
             font.pixelSize:  14
             font.styleName:  "Bold"; font.weight: Font.Bold
             color:           Style.content_main
-            text:            qsTrId("send-send-to-label") //% "Transaction token or contact"
+            //% "Transaction token or contact"
+            text:            qsTrId("send-send-to-label")
         }
 
         SFTextInput {
@@ -55,7 +60,8 @@ ColumnLayout {
             font.italic :     !isTAInputValid()
             validator:        RegExpValidator { regExp: /[0-9a-zA-Z]{1,}/ }
             selectByMouse:    true
-            placeholderText:  qsTrId("send-contact-placeholder") //% "Please specify contact"
+            //% "Please specify contact or transaction token"
+            placeholderText:  qsTrId("send-contact-placeholder")
 
             onTextChanged: {
                 if (!isTAInputValid()) return;
@@ -71,7 +77,8 @@ ColumnLayout {
                 id:               receiverTAError
                 color:            Style.validator_error
                 font.pixelSize:   12
-                text:             qsTrId("wallet-send-invalid-token") //% "Invalid address or token"
+                //% "Invalid address or token"
+                text:             qsTrId("wallet-send-invalid-token")
                 visible:          !isTAInputValid()
             }
         }

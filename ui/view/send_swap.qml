@@ -24,21 +24,25 @@ ColumnLayout {
 
         if (currency == Currency.CurrBtc) {
             canSwap  = BeamGlobals.haveBtc()
+            //% "Bitcoin"
             currname = qsTrId("general-bitcoin")
         }
 
         if (currency == Currency.CurrLtc){
             canSwap = BeamGlobals.haveLtc()
+            //% "Litecoin"
             currname = qsTrId("general-litecoin")
         }
 
         if (currency == Currency.CurrQtum) {
             canSwap = BeamGlobals.haveQtum()
+            //% "QTUM"
             currname = qsTrId("general-qtum")
         }
 
         if (canSwap) return;
 
+        //% "You do not have %1 connected.\nUpdate your settings and try again."
         swapna.text = qsTrId("swap-currency-na-message").arg(currname).replace("\\n", "\n")
         swapna.open()
     }
@@ -93,7 +97,8 @@ ColumnLayout {
             font.pixelSize:  14
             font.styleName:  "Bold"; font.weight: Font.Bold
             color:           Style.content_main
-            text:            qsTrId("send-swap-to-label") //% "Transaction token or contact"
+            //% "Transaction token"
+            text:            qsTrId("send-swap-to-label")
         }
 
         SFTextInput {
@@ -107,7 +112,8 @@ ColumnLayout {
             validator:        RegExpValidator { regExp: /[0-9a-fA-F]{1,}/ }
             selectByMouse:    true
             readOnly:         true
-            placeholderText:  qsTrId("send-contact-placeholder") //% "Please specify contact"
+            //% "Please specify contact or transaction token"
+            placeholderText:  qsTrId("send-contact-placeholder")
         }
 
         Item {
@@ -142,7 +148,8 @@ ColumnLayout {
             //
             AmountInput {
                 Layout.topMargin: 25
-                title:            qsTrId("sent-amount-label") //% "Send amount"
+                //% "Sent amount"
+                title:            qsTrId("sent-amount-label")
                 id:               sendAmountInput
                 hasFee:           true
                 amount:           viewModel.sendAmount
@@ -151,6 +158,7 @@ ColumnLayout {
                 multi:            false
                 color:            Style.accent_outgoing
                 currColor:        viewModel.receiveCurrency == viewModel.sendCurrency ? Style.validator_error : Style.content_main
+                //% "There is not enough funds to completer the transaction"
                 error:            viewModel.isEnough ? "" : qsTrId("send-not-enough")
             }
 
@@ -187,6 +195,7 @@ ColumnLayout {
                     color:            Style.content_secondary
                     font.italic:      true
                     font.pixelSize:   12
+                    //% "Comments are local and won't be shared"
                     text:             qsTrId("general-comment-local")
                 }
             }
@@ -207,7 +216,8 @@ ColumnLayout {
             //
             AmountInput {
                 Layout.topMargin: 25
-                title:            qsTrId("receive-amount-swap-label") //% "Receive amount"
+                //% "Receive amount"
+                title:            qsTrId("receive-amount-swap-label")
                 id:               receiveAmountInput
                 hasFee:           true
                 amount:           viewModel.receiveAmount
@@ -235,6 +245,7 @@ ColumnLayout {
                         font.pixelSize:   14
                         font.styleName:   "Bold"; font.weight: Font.Bold
                         color:            Style.content_main
+                        //% "Offered on"
                         text:             qsTrId("wallet-send-swap-offered-label")
                     }
 
@@ -253,6 +264,7 @@ ColumnLayout {
                         font.pixelSize:   14
                         font.styleName:   "Bold"; font.weight: Font.Bold
                         color:            Style.content_main
+                        //% "Expires on"
                         text:             qsTrId("wallet-send-swap-expires-label")
                     }
 
@@ -271,6 +283,7 @@ ColumnLayout {
                 font.pixelSize:   14
                 font.weight:      Font.Bold
                 color:            Style.content_main
+                //% "Rate"
                 text:             qsTrId("general-rate")
             }
 
@@ -297,6 +310,7 @@ ColumnLayout {
         }
 
         CustomButton {
+            //% "Swap"
             text:               qsTrId("wallet-swap")
             palette.buttonText: Style.content_opposite
             palette.button:     Style.accent_outgoing

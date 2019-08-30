@@ -156,6 +156,7 @@ ColumnLayout {
 
         CustomSwitch {
             id:                mode
+            //% "Swap"
             text:              qsTrId("wallet-swap")
             Layout.alignment:  Qt.AlignRight
             checked:           settingsView.swapMode
@@ -178,6 +179,7 @@ ColumnLayout {
 
         SwapNodeSettings {
             id:                  btcSettings
+            //% "Bitcoin"
             title:               qsTrId("general-bitcoin")
             address:             viewModel.btcNodeAddress
             username:            viewModel.btcUser
@@ -225,6 +227,7 @@ ColumnLayout {
 
         SwapNodeSettings {
             id:                ltcSettings
+            //% "Litecoin"
             title:             qsTrId("general-litecoin")
             address:           viewModel.ltcNodeAddress
             username:          viewModel.ltcUser
@@ -272,6 +275,7 @@ ColumnLayout {
 
         SwapNodeSettings {
             id:                   qtumSettings
+            //% "QTUM"
             title:                qsTrId("general-qtum")
             address:              viewModel.qtumNodeAddress
             username:             viewModel.qtumUser
