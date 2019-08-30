@@ -22,6 +22,7 @@
 #include <boost/functional/hash.hpp>
 #include <boost/filesystem.hpp>
 #include "nlohmann/json.hpp"
+#include "utility/std_extension.h"
 
 #define NOSEP
 #define COMMA ", "

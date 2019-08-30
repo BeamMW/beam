@@ -28,7 +28,7 @@
 #include <bitcoin/bitcoin/utility/data.hpp>
 #include <bitcoin/bitcoin/utility/endian.hpp>
 
-#include <utility/common.h>
+#include <utility/std_extension.h>
 
 namespace libbitcoin {
 

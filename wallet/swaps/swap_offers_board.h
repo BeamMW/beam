@@ -16,6 +16,7 @@
 
 #include "wallet/wallet.h"
 #include "utility/logger.h"
+#include "utility/std_extension.h"
 
 #include <unordered_map>
 
