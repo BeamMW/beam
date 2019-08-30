@@ -300,14 +300,30 @@ bool SendSwapViewModel::isEnough() const
     switch(_sendCurrency)
     {
     case Currency::CurrBeam:
-        {
-            auto total = std::round(_sendAmount * beam::Rules::Coin) + _sendFee + _change;
-            return _status.getAvailable() >= total;
-        }
+    {
+        auto total = std::round(_sendAmount * beam::Rules::Coin) + _sendFee + _change;
+        return _status.getAvailable() >= total;
+    }
+    case Currency::CurrBtc:
+    {
+        auto total = _sendAmount + double(_sendFee) / beam::wallet::UnitsPerCoin(beam::wallet::AtomicSwapCoin::Bitcoin);
+        return AppModel::getInstance().getBitcoinClient()->getAvailable() > total;
+    }
+    case Currency::CurrLtc:
+    {
+        auto total = _sendAmount + double(_sendFee) / beam::wallet::UnitsPerCoin(beam::wallet::AtomicSwapCoin::Litecoin);
+        return AppModel::getInstance().getLitecoinClient()->getAvailable() > total;
+    }
+    case Currency::CurrQtum:
+    {
+        auto total = _sendAmount + double(_sendFee) / beam::wallet::UnitsPerCoin(beam::wallet::AtomicSwapCoin::Qtum);
+        return AppModel::getInstance().getQtumClient()->getAvailable() > total;
+    }
     default:
-        // TODO:SWAP implement for all currencies
-        //assert(false);
+    {
+        assert(false);
         return true;
+    }
     }
 }
 
