@@ -2576,6 +2576,18 @@ int main()
 	fflush(stdout);
 
 	beam::TestNodeClientProto();
+
+	{
+		// test utxo set image rebuilding with shielded in/outs
+		std::string sPath;
+		beam::NodeProcessor::get_UtxoMappingPath(sPath, beam::g_sz);
+		beam::DeleteFile(sPath.c_str());
+
+		beam::Node node;
+		node.m_Cfg.m_sPathLocal = beam::g_sz;
+		node.Initialize();
+	}
+
 	beam::DeleteFile(beam::g_sz);
 	beam::DeleteFile(beam::g_sz2);
 

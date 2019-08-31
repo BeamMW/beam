@@ -124,6 +124,8 @@ public:
 	void Initialize(const char* szPath);
 	void Initialize(const char* szPath, const StartParams&);
 
+	static void get_UtxoMappingPath(std::string&, const char*);
+
 	virtual ~NodeProcessor();
 
 	struct Horizon {

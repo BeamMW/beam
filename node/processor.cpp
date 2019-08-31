@@ -189,16 +189,25 @@ int My_strcmpi(const char* sz1, const char* sz2)
 	return 0;
 }
 
-bool NodeProcessor::InitUtxoMapping(const char* sz)
+void NodeProcessor::get_UtxoMappingPath(std::string& sPath, const char* sz)
 {
 	// derive UTXO path from db path
-	std::string sPath(sz);
+	sPath = sz;
 
 	static const char szSufix[] = ".db";
 	const size_t nSufix = _countof(szSufix) - 1;
 
 	if ((sPath.size() >= nSufix) && !My_strcmpi(sPath.c_str() + sPath.size() - nSufix, szSufix))
 		sPath.resize(sPath.size() - nSufix);
+
+	sPath += "-utxo-image.bin";
+}
+
+bool NodeProcessor::InitUtxoMapping(const char* sz)
+{
+	// derive UTXO path from db path
+	std::string sPath;
+	get_UtxoMappingPath(sPath, sz);
 
 	UtxoTreeMapped::Stamp us;
 	Blob blob(us);
@@ -210,7 +219,6 @@ bool NodeProcessor::InitUtxoMapping(const char* sz)
 		us.Negate();
 	}
 
-	sPath += "-utxo-image.bin";
 	return m_Utxos.Open(sPath.c_str(), us);
 }
 
