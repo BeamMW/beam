@@ -2112,8 +2112,7 @@ void TestLelantus()
 
 	beam::Lelantus::Proof proof;
 	beam::Lelantus::Proof::Output outp;
-	std::unique_ptr<beam::Lelantus::Prover> pProver(std::make_unique<beam::Lelantus::Prover>(lst, proof));
-	beam::Lelantus::Prover& p = *pProver;
+	beam::Lelantus::Prover p(lst, proof);
 
 	p.m_Witness.V.m_V = 100500;
 	p.m_Witness.V.m_R = 4U;

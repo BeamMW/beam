@@ -93,17 +93,30 @@ namespace Lelantus {
 	{
 		CmList& m_List;
 
+		std::unique_ptr<ECC::Scalar::Native[]> m_vBuf; // all the needed data as one array
+
+		struct Idx
+		{
+			static const uint32_t rA = 0;
+			static const uint32_t rB = 1;
+			static const uint32_t rC = 2;
+			static const uint32_t rD = 3;
+			static const uint32_t rBalance = 4;
+			static const uint32_t Serial = 5;
+
+			static const uint32_t CountFixed = 6;
+
+			// 
+		};
+
 		// nonces
-		ECC::Scalar::Native m_rA, m_rB, m_rC, m_rD;
-		ECC::Scalar::Native m_a[Cfg::M][Cfg::n];
-		ECC::Scalar::Native m_Gamma[Cfg::M];
-		ECC::Scalar::Native m_Ro[Cfg::M];
-		ECC::Scalar::Native m_Tau[Cfg::M];
-		ECC::Scalar::Native m_rBalance;
-		ECC::Scalar::Native m_Serial;
+		ECC::Scalar::Native* m_a;
+		ECC::Scalar::Native* m_Gamma;
+		ECC::Scalar::Native* m_Ro;
+		ECC::Scalar::Native* m_Tau;
 
 		// precalculated coeffs
-		ECC::Scalar::Native m_p[Cfg::M][Cfg::N]; // very large
+		ECC::Scalar::Native* m_p;
 
 		void InitNonces(const ECC::uintBig& seed);
 		void CalculateP();

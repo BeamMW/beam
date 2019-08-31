@@ -1741,16 +1741,16 @@ namespace beam
 				Lelantus::CmListVec lst;
 				lst.m_vec.swap(msg.m_Items);
 
-				std::unique_ptr<Lelantus::Prover> pProver(new Lelantus::Prover(lst, *pInp->m_pSpendProof));
-				pProver->m_Witness.V.m_L = Lelantus::Cfg::N - 1; // last element
-				pProver->m_Witness.V.m_R = m_Shielded.m_sk;
-				pProver->m_Witness.V.m_R_Output = sk;
-				pProver->m_Witness.V.m_SpendSk = m_Shielded.m_skSpendKey;
-				pProver->m_Witness.V.m_V = m_Shielded.m_Value;
+				Lelantus::Prover p(lst, *pInp->m_pSpendProof);
+				p.m_Witness.V.m_L = Lelantus::Cfg::N - 1; // last element
+				p.m_Witness.V.m_R = m_Shielded.m_sk;
+				p.m_Witness.V.m_R_Output = sk;
+				p.m_Witness.V.m_SpendSk = m_Shielded.m_skSpendKey;
+				p.m_Witness.V.m_V = m_Shielded.m_Value;
 
 				Lelantus::Proof::Output outp;
 				ECC::Oracle o1;
-				pProver->Generate(outp, Zero, o1);
+				p.Generate(outp, Zero, o1);
 
 				{
 					// test
