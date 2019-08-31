@@ -1805,9 +1805,13 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, MultiblockContext& m
 		}
 	}
 
+	TxoID id0 = m_Extra.m_Txos;
+
 	bool bOk = HandleValidatedBlock(block.get_Reader(), block, sid.m_Height, true);
 	if (!bOk)
 		LOG_WARNING() << LogSid(m_DB, sid) << " invalid in its context";
+
+	assert(m_Extra.m_Txos > id0);
 
 	if (bFirstTime && bOk)
 	{
@@ -1945,14 +1949,12 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, MultiblockContext& m
 				m_DB.TxoSetSpent(x.m_ID, sid.m_Height);
 		}
 
-		assert(m_Extra.m_Txos > block.m_vOutputs.size());
-		TxoID id0 = m_Extra.m_Txos - block.m_vOutputs.size() - 1;
 
 		Serializer ser;
 		bbP.clear();
 		ser.swap_buf(bbP);
 
-		for (size_t i = 0; i < block.m_vOutputs.size(); i++, id0++)
+		for (size_t i = 0; i < block.m_vOutputs.size(); i++)
 		{
 			const Output& x = *block.m_vOutputs[i];
 			if (x.m_pDoubleBlind)
@@ -1962,7 +1964,7 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, MultiblockContext& m
 			ser & x;
 
 			SerializeBuffer sb = ser.buffer();
-			m_DB.TxoAdd(id0, Blob(sb.first, static_cast<uint32_t>(sb.second)));
+			m_DB.TxoAdd(id0++, Blob(sb.first, static_cast<uint32_t>(sb.second)));
 		}
 
 		auto r = block.get_Reader();
