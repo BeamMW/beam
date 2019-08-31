@@ -2192,8 +2192,6 @@ bool NodeProcessor::HandleValidatedBlock(TxBase::IReader&& r, const Block::BodyB
 
 bool NodeProcessor::HandleBlockElement(const Input& v, Height h, const Height* pHMax, bool bFwd)
 {
-	m_Utxos.EnsureReserve();
-
 	if (v.m_pSpendProof)
 	{
 		if (bFwd && !IsShieldedInPool(v))
@@ -2271,6 +2269,8 @@ bool NodeProcessor::HandleBlockElement(const Input& v, Height h, const Height* p
 		UtxoTree::Key key;
 		key = d;
 
+		m_Utxos.EnsureReserve();
+
 		p = m_Utxos.Find(cu, key, bCreate);
 
 		if (bCreate)
@@ -2288,8 +2288,6 @@ bool NodeProcessor::HandleBlockElement(const Input& v, Height h, const Height* p
 
 bool NodeProcessor::HandleBlockElement(const Output& v, Height h, const Height* pHMax, bool bFwd)
 {
-	m_Utxos.EnsureReserve();
-
 	if (v.m_pDoubleBlind)
 		return HandleShieldedElement(v.m_Commitment, true, bFwd);
 
@@ -2307,6 +2305,8 @@ bool NodeProcessor::HandleBlockElement(const Output& v, Height h, const Height* 
 
 	UtxoTree::Key key;
 	key = d;
+
+	m_Utxos.EnsureReserve();
 
 	UtxoTree::Cursor cu;
 	bool bCreate = true;
@@ -2369,6 +2369,8 @@ bool NodeProcessor::HandleShieldedElement(const ECC::Point& comm, bool bOutp, bo
 {
 	UtxoTree::Key key;
 	key.SetShielded(comm, bOutp);
+
+	m_Utxos.EnsureReserve();
 
 	UtxoTree::Cursor cu;
 	bool bCreate = true;
