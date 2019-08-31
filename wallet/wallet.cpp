@@ -232,6 +232,7 @@ namespace beam::wallet
             WalletAddress address;
             address.m_walletID = to;
             address.m_createTime = getTimestamp();
+            address.m_label = std::string(message.begin(), message.end());
 
             m_WalletDB->saveAddress(address);
         }
