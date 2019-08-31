@@ -161,9 +161,10 @@ void Proof::Part1::Expose(Oracle& oracle) const
 
 	for (uint32_t k = 0; k < Cfg::M; k++)
 	{
+		const GQ& x = m_GQ[k];
 		oracle
-			<< m_pG[k]
-			<< m_pQ[k];
+			<< x.m_G
+			<< x.m_Q;
 	}
 }
 
@@ -263,13 +264,14 @@ bool Proof::IsValid(InnerProduct::BatchContext& bc, Oracle& oracle, const Output
 	Scalar::Native xPwr = 1U;
 	for (uint32_t j = 0; j < Cfg::M; j++)
 	{
+		const Part1::GQ& x = m_Part1.m_GQ[j];
 		bc.m_Multiplier = -kMulPG;
-		if (!bc.AddCasual(m_Part1.m_pG[j], xPwr)) // + G[j] * (-mulPG)
+		if (!bc.AddCasual(x.m_G, xPwr)) // + G[j] * (-mulPG)
 			return false;
 
 
 		bc.m_Multiplier += kMulBalanceChallenged;
-		if (!bc.AddCasual(m_Part1.m_pQ[j], xPwr)) // P[j] * (-mulPG + mulBalance * challenge)
+		if (!bc.AddCasual(x.m_Q, xPwr)) // P[j] * (-mulPG + mulBalance * challenge)
 			return false;
 
 		xPwr *= mctx.x;
@@ -526,16 +528,17 @@ void Prover::ExtractGQ()
 	// add gammas, split G[] into G[] and Q[]
 	for (uint32_t k = 0; k < Cfg::M; k++)
 	{
+		Proof::Part1::GQ& res = m_Proof.m_Part1.m_GQ[k];
 		comm = Context::get().G * m_Gamma[k];
 
 		comm2 = comm;
 		comm2 += Context::get().G * m_Tau[k];
 		comm2 += Context::get().H_Big * m_Ro[k];
-		m_Proof.m_Part1.m_pQ[k] = comm2;
+		res.m_Q = comm2;
 
 		comm = -comm;
 		comm += pG[k];
-		m_Proof.m_Part1.m_pG[k] = comm;
+		res.m_G = comm;
 	}
 }
 

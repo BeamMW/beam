@@ -65,9 +65,14 @@ namespace Lelantus {
 		{
 			ECC::Point m_SpendPk;
 			ECC::Point m_A, m_B, m_C, m_D;
-			ECC::Point m_pG[Cfg::M];
-			ECC::Point m_pQ[Cfg::M];
 			ECC::Point m_NonceG; // consists of G only. Used to sign both balance and spend proofs.
+
+			struct GQ {
+				ECC::Point m_G;
+				ECC::Point m_Q;
+			};
+
+			GQ m_GQ[Cfg::M];
 
 			void Expose(ECC::Oracle& oracle) const;
 

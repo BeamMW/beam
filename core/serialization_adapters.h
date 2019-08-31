@@ -633,15 +633,17 @@ namespace detail
 
 			for (uint32_t i = 0; i < beam::Lelantus::Cfg::M; i++)
 			{
+				const auto& x = v.m_Part1.m_GQ[i];
+
 				ar
-					& v.m_Part1.m_pG[i].m_X
-					& v.m_Part1.m_pQ[i].m_X;
+					& x.m_G.m_X
+					& x.m_Q.m_X;
 
 				for (uint32_t j = 0; j < beam::Lelantus::Cfg::n - 1; j++)
 					ar & v.m_Part2.m_pF[i][j];
 
-				mb.set(iFlag++, v.m_Part1.m_pG[i].m_Y);
-				mb.set(iFlag++, v.m_Part1.m_pQ[i].m_Y);
+				mb.set(iFlag++, x.m_G.m_Y);
+				mb.set(iFlag++, x.m_Q.m_Y);
 			}
 
 			assert(nFlagsTotal == iFlag);
@@ -668,9 +670,10 @@ namespace detail
 
 			for (uint32_t i = 0; i < beam::Lelantus::Cfg::M; i++)
 			{
+				auto& x = v.m_Part1.m_GQ[i];
 				ar
-					& v.m_Part1.m_pG[i].m_X
-					& v.m_Part1.m_pQ[i].m_X;
+					& x.m_G.m_X
+					& x.m_Q.m_X;
 
 				for (uint32_t j = 0; j < beam::Lelantus::Cfg::n - 1; j++)
 					ar & v.m_Part2.m_pF[i][j];
@@ -692,8 +695,9 @@ namespace detail
 
 			for (uint32_t i = 0; i < beam::Lelantus::Cfg::M; i++)
 			{
-				mb.get(iFlag++, v.m_Part1.m_pG[i].m_Y);
-				mb.get(iFlag++, v.m_Part1.m_pQ[i].m_Y);
+				auto& x = v.m_Part1.m_GQ[i];
+				mb.get(iFlag++, x.m_G.m_Y);
+				mb.get(iFlag++, x.m_Q.m_Y);
 			}
 
 			assert(nFlagsTotal == iFlag);
