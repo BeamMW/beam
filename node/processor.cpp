@@ -3823,6 +3823,53 @@ void NodeProcessor::InitializeUtxos()
 
 	Walker wlk(*this);
 	EnumTxos(wlk);
+
+	// shielded items
+	Height h0 = Rules::get().pForks[2].m_Height;
+	if (m_Cursor.m_Sid.m_Height >= h0)
+	{
+		ByteBuffer bbE;
+		TxVectors::Perishable txvp;
+
+		TxoID nShielded = m_Extra.m_Shielded;
+		m_Extra.m_Shielded = Lelantus::Cfg::N; // implicit amount
+
+		while (true)
+		{
+			ECC::Scalar offs;
+			m_DB.get_StateExtra(FindActiveAtStrict(h0), offs, &bbE);
+
+			if (!bbE.empty())
+			{
+				txvp.m_vInputs.clear();
+				txvp.m_vOutputs.clear();
+
+				Deserializer der;
+				der.reset(bbE);
+				der & txvp;
+
+				for (size_t i = 0; i < txvp.m_vInputs.size(); i++)
+				{
+					const Input& v = *txvp.m_vInputs[i];
+					assert(v.m_pSpendProof);
+					HandleShieldedElement(v.m_pSpendProof->m_Part1.m_SpendPk, false, true);
+				}
+
+				for (size_t i = 0; i < txvp.m_vOutputs.size(); i++)
+				{
+					const Output& v = *txvp.m_vOutputs[i];
+					assert(v.m_pDoubleBlind);
+					HandleShieldedElement(v.m_Commitment, true, true);
+				}
+			}
+
+			if (++h0 > m_Cursor.m_Sid.m_Height)
+				break;
+		}
+
+		if (m_Extra.m_Shielded != nShielded)
+			OnCorrupted();
+	}
 }
 
 bool NodeProcessor::GetBlock(const NodeDB::StateID& sid, ByteBuffer* pEthernal, ByteBuffer* pPerishable, Height h0, Height hLo1, Height hHi1)
