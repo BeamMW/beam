@@ -2579,6 +2579,9 @@ int main()
 
 	{
 		// test utxo set image rebuilding with shielded in/outs
+		beam::io::Reactor::Ptr pReactor(beam::io::Reactor::create());
+		beam::io::Reactor::Scope scope(*pReactor);
+
 		std::string sPath;
 		beam::NodeProcessor::get_UtxoMappingPath(sPath, beam::g_sz);
 		beam::DeleteFile(sPath.c_str());
