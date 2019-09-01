@@ -615,7 +615,7 @@ void NodeProcessor::RequestDataInternal(const Block::SystemState::ID& id, uint64
 
 struct NodeProcessor::MultiShieldedContext
 {
-	static const uint32_t s_Chunk = Lelantus::Cfg::N / 4;
+	static const uint32_t s_Chunk = 0x400;
 
 	struct Node
 	{
@@ -2362,6 +2362,9 @@ bool NodeProcessor::IsShieldedInPool(const Transaction& tx)
 bool NodeProcessor::IsShieldedInPool(const Input& v)
 {
 	assert(v.m_pSpendProof);
+
+	// TODO: check cfg and referenced window vs current position
+
 	return (v.m_pSpendProof->m_WindowEnd <= m_Extra.m_Shielded);
 }
 
