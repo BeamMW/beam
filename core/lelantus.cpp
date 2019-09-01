@@ -38,8 +38,7 @@ struct CommitmentStd
 		MultiMacMy(const Cfg& cfg)
 		{
 			assert(cfg.get_N());
-			const uint32_t nGenerators = cfg.M * cfg.n + 1;
-			assert(nGenerators <= _countof(m_Bufs.m_pKPrep));
+			assert(cfg.M * cfg.n + 1 <= _countof(m_Bufs.m_pKPrep));
 
 			static_assert(Cfg::Max::nM + 1 <= InnerProduct::nDim * 2);
 			const MultiMac::Prepared* pP0 = Context::get().m_Ipp.m_pGen_[0];
