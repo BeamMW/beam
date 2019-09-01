@@ -182,7 +182,7 @@ bool Proof::IsValid(InnerProduct::BatchContext& bc, Oracle& oracle, const Output
 		void get_F(Scalar::Native& out, uint32_t j, uint32_t i) const
 		{
 			out = i ?
-				m_P.m_Part2.m_pF[j][i - 1] :
+				m_P.m_Part2.m_pF[j * (Cfg::n - 1) + i - 1] :
 				pF0[j];
 		}
 
@@ -199,12 +199,13 @@ bool Proof::IsValid(InnerProduct::BatchContext& bc, Oracle& oracle, const Output
 	oracle >> x3; // spend proof challenge
 
 	// recover pF0
+	const Scalar* pF = m_Part2.m_pF;
 	for (uint32_t j = 0; j < Cfg::M; j++)
 	{
-		mctx.pF0[j] = m_Part2.m_pF[j][0];
+		mctx.pF0[j] = *pF++;
 
 		for (uint32_t i = 1; i < Cfg::n - 1; i++)
-			mctx.pF0[j] += m_Part2.m_pF[j][i];
+			mctx.pF0[j] += *pF++;
 
 		mctx.pF0[j] = -mctx.pF0[j];
 		mctx.pF0[j] += mctx.x;
@@ -610,6 +611,7 @@ void Prover::ExtractPart2(Oracle& oracle)
 	uint32_t nL_Reduced = m_Witness.V.m_L;
 
 	Scalar::Native* pA = m_a;
+	Scalar* pF = m_Proof.m_Part2.m_pF;
 	for (uint32_t j = 0; j < Cfg::M; j++)
 	{
 		uint32_t i0 = nL_Reduced % Cfg::n;
@@ -621,7 +623,7 @@ void Prover::ExtractPart2(Oracle& oracle)
 			if (i == i0)
 				xPwr += x1;
 
-			m_Proof.m_Part2.m_pF[j][i - 1] = xPwr;
+			*pF++ = xPwr;
 		}
 
 		pA += Cfg::n;
