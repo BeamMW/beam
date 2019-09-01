@@ -603,6 +603,47 @@ namespace detail
 		}
 
 		template<typename Archive>
+		class MultibitVar
+		{
+			Archive& m_ar;
+			uint8_t m_Flag = 0;
+			uint8_t m_Bits = 0;
+
+		public:
+			MultibitVar(Archive& ar) :m_ar(ar) {}
+
+			void put(uint8_t i)
+			{
+				assert(i <= 1);
+				m_Flag |= (i << (7 - m_Bits));
+
+				if (++m_Bits == 8)
+				{
+					m_ar & m_Flag;
+					m_Bits = 0;
+					m_Flag = 0;
+				}
+			}
+
+			void Flush()
+			{
+				if (m_Bits)
+					m_ar & m_Flag;
+			}
+
+			void get(uint8_t& res)
+			{
+				if (!m_Bits)
+				{
+					m_ar & m_Flag;
+					m_Bits = 8;
+				}
+
+				res = 1 & (m_Flag >> (--m_Bits));
+			}
+		};
+
+		template<typename Archive>
 		static Archive& save(Archive& ar, const beam::Lelantus::Proof& v)
 		{
 			ar
@@ -618,36 +659,39 @@ namespace detail
 				& v.m_Part2.m_zR
 				& v.m_Part2.m_ProofG;
 
-			const uint32_t nFlagsTotal = beam::Lelantus::Cfg::M * 2 + 6;
-
-			Multibit<nFlagsTotal> mb;
-			ZeroObject(mb);
-			uint32_t iFlag = 0;
-
-			mb.set(iFlag++, v.m_Part1.m_SpendPk.m_Y);
-			mb.set(iFlag++, v.m_Part1.m_A.m_Y);
-			mb.set(iFlag++, v.m_Part1.m_B.m_Y);
-			mb.set(iFlag++, v.m_Part1.m_C.m_Y);
-			mb.set(iFlag++, v.m_Part1.m_D.m_Y);
-			mb.set(iFlag++, v.m_Part1.m_NonceG.m_Y);
-
-			for (uint32_t i = 0; i < beam::Lelantus::Cfg::M; i++)
+			uint32_t nSizeGQ = static_cast<uint32_t>(v.m_Part1.m_vGQ.size());
+			ar & nSizeGQ;
+			for (uint32_t i = 0; i < v.m_Part1.m_vGQ.size(); i++)
 			{
-				const auto& x = v.m_Part1.m_GQ[i];
+				const auto& x = v.m_Part1.m_vGQ[i];
 				ar
 					& x.m_G.m_X
 					& x.m_Q.m_X;
-
-				mb.set(iFlag++, x.m_G.m_Y);
-				mb.set(iFlag++, x.m_Q.m_Y);
 			}
 
-			assert(nFlagsTotal == iFlag);
-			ar & mb.m_pF;
+			MultibitVar<Archive> mb(ar);
 
-			const uint32_t nF = beam::Lelantus::Cfg::M * (beam::Lelantus::Cfg::n - 1);
-			for (uint32_t i = 0; i < nF; i++)
-				ar & v.m_Part2.m_pF[i];
+			mb.put(v.m_Part1.m_SpendPk.m_Y);
+			mb.put(v.m_Part1.m_A.m_Y);
+			mb.put(v.m_Part1.m_B.m_Y);
+			mb.put(v.m_Part1.m_C.m_Y);
+			mb.put(v.m_Part1.m_D.m_Y);
+			mb.put(v.m_Part1.m_NonceG.m_Y);
+
+			for (uint32_t i = 0; i < v.m_Part1.m_vGQ.size(); i++)
+			{
+				const auto& x = v.m_Part1.m_vGQ[i];
+				mb.put(x.m_G.m_Y);
+				mb.put(x.m_Q.m_Y);
+			}
+
+			mb.Flush();
+
+			uint32_t nSizeF = static_cast<uint32_t>(v.m_Part2.m_vF.size());
+			ar & nSizeF;
+
+			for (uint32_t i = 0; i < v.m_Part2.m_vF.size(); i++)
+				ar & v.m_Part2.m_vF[i];
 
 			return ar;
 		}
@@ -668,40 +712,40 @@ namespace detail
 				& v.m_Part2.m_zR
 				& v.m_Part2.m_ProofG;
 
-			for (uint32_t i = 0; i < beam::Lelantus::Cfg::M; i++)
+			uint32_t nSizeGQ = 0;
+			ar & nSizeGQ;
+			v.m_Part1.m_vGQ.resize(nSizeGQ);
+
+			for (uint32_t i = 0; i < v.m_Part1.m_vGQ.size(); i++)
 			{
-				auto& x = v.m_Part1.m_GQ[i];
+				auto& x = v.m_Part1.m_vGQ[i];
 				ar
 					& x.m_G.m_X
 					& x.m_Q.m_X;
 			}
 
+			MultibitVar<Archive> mb(ar);
 
-			const uint32_t nFlagsTotal = beam::Lelantus::Cfg::M * 2 + 6;
+			mb.get(v.m_Part1.m_SpendPk.m_Y);
+			mb.get(v.m_Part1.m_A.m_Y);
+			mb.get(v.m_Part1.m_B.m_Y);
+			mb.get(v.m_Part1.m_C.m_Y);
+			mb.get(v.m_Part1.m_D.m_Y);
+			mb.get(v.m_Part1.m_NonceG.m_Y);
 
-			Multibit<nFlagsTotal> mb;
-			ar & mb.m_pF;
-			uint32_t iFlag = 0;
-
-			mb.get(iFlag++, v.m_Part1.m_SpendPk.m_Y);
-			mb.get(iFlag++, v.m_Part1.m_A.m_Y);
-			mb.get(iFlag++, v.m_Part1.m_B.m_Y);
-			mb.get(iFlag++, v.m_Part1.m_C.m_Y);
-			mb.get(iFlag++, v.m_Part1.m_D.m_Y);
-			mb.get(iFlag++, v.m_Part1.m_NonceG.m_Y);
-
-			for (uint32_t i = 0; i < beam::Lelantus::Cfg::M; i++)
+			for (uint32_t i = 0; i < v.m_Part1.m_vGQ.size(); i++)
 			{
-				auto& x = v.m_Part1.m_GQ[i];
-				mb.get(iFlag++, x.m_G.m_Y);
-				mb.get(iFlag++, x.m_Q.m_Y);
+				auto& x = v.m_Part1.m_vGQ[i];
+				mb.get(x.m_G.m_Y);
+				mb.get(x.m_Q.m_Y);
 			}
 
-			assert(nFlagsTotal == iFlag);
+			uint32_t nSizeF = 0;
+			ar & nSizeF;
+			v.m_Part2.m_vF.resize(nSizeF);
 
-			const uint32_t nF = beam::Lelantus::Cfg::M * (beam::Lelantus::Cfg::n - 1);
-			for (uint32_t i = 0; i < nF; i++)
-				ar & v.m_Part2.m_pF[i];
+			for (uint32_t i = 0; i < v.m_Part2.m_vF.size(); i++)
+				ar & v.m_Part2.m_vF[i];
 
 			return ar;
 		}

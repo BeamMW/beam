@@ -72,7 +72,7 @@ namespace Lelantus {
 				ECC::Point m_Q;
 			};
 
-			GQ m_GQ[Cfg::M];
+			std::vector<GQ> m_vGQ;
 
 			void Expose(ECC::Oracle& oracle) const;
 
@@ -81,7 +81,7 @@ namespace Lelantus {
 		struct Part2
 		{
 			ECC::Scalar m_zA, m_zC, m_zV, m_zR;
-			ECC::Scalar m_pF[Cfg::M * (Cfg::n - 1)];
+			std::vector<ECC::Scalar> m_vF; //  [Cfg::M * (Cfg::n - 1)];
 			ECC::Scalar m_ProofG; // Both balance and spend proofs
 
 		} m_Part2;

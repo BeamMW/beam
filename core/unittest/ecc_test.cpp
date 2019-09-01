@@ -2182,7 +2182,8 @@ void TestLelantus()
 		beam::Serializer ser_;
 		ser_ & proof;
 
-		memset(&proof, 0xff, sizeof(proof));
+		proof.m_Part1.m_vGQ.clear();
+		proof.m_Part2.m_vF.clear();
 
 		beam::Deserializer der_;
 		der_.reset(ser_.buffer().first, ser_.buffer().second);

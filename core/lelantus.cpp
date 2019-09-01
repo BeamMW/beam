@@ -159,9 +159,9 @@ void Proof::Part1::Expose(Oracle& oracle) const
 		<< m_C
 		<< m_D;
 
-	for (uint32_t k = 0; k < Cfg::M; k++)
+	for (uint32_t k = 0; k < m_vGQ.size(); k++)
 	{
-		const GQ& x = m_GQ[k];
+		const GQ& x = m_vGQ[k];
 		oracle
 			<< x.m_G
 			<< x.m_Q;
@@ -170,6 +170,12 @@ void Proof::Part1::Expose(Oracle& oracle) const
 
 bool Proof::IsValid(InnerProduct::BatchContext& bc, Oracle& oracle, const Output& outp, Scalar::Native* pKs) const
 {
+	if (m_Part1.m_vGQ.size() != Cfg::M)
+		return false;
+
+	if (m_Part2.m_vF.size() != Cfg::M * (Cfg::n - 1))
+		return false;
+
 	Mode::Scope scope(Mode::Fast);
 
 	struct MyContext
@@ -182,7 +188,7 @@ bool Proof::IsValid(InnerProduct::BatchContext& bc, Oracle& oracle, const Output
 		void get_F(Scalar::Native& out, uint32_t j, uint32_t i) const
 		{
 			out = i ?
-				m_P.m_Part2.m_pF[j * (Cfg::n - 1) + i - 1] :
+				m_P.m_Part2.m_vF[j * (Cfg::n - 1) + i - 1] :
 				pF0[j];
 		}
 
@@ -199,13 +205,13 @@ bool Proof::IsValid(InnerProduct::BatchContext& bc, Oracle& oracle, const Output
 	oracle >> x3; // spend proof challenge
 
 	// recover pF0
-	const Scalar* pF = m_Part2.m_pF;
+	auto itF = m_Part2.m_vF.begin();
 	for (uint32_t j = 0; j < Cfg::M; j++)
 	{
-		mctx.pF0[j] = *pF++;
+		mctx.pF0[j] = *itF++;
 
 		for (uint32_t i = 1; i < Cfg::n - 1; i++)
-			mctx.pF0[j] += *pF++;
+			mctx.pF0[j] += *itF++;
 
 		mctx.pF0[j] = -mctx.pF0[j];
 		mctx.pF0[j] += mctx.x;
@@ -265,7 +271,7 @@ bool Proof::IsValid(InnerProduct::BatchContext& bc, Oracle& oracle, const Output
 	Scalar::Native xPwr = 1U;
 	for (uint32_t j = 0; j < Cfg::M; j++)
 	{
-		const Part1::GQ& x = m_Part1.m_GQ[j];
+		const Part1::GQ& x = m_Part1.m_vGQ[j];
 		bc.m_Multiplier = -kMulPG;
 		if (!bc.AddCasual(x.m_G, xPwr)) // + G[j] * (-mulPG)
 			return false;
@@ -544,7 +550,7 @@ void Prover::ExtractGQ()
 	// add gammas, split G[] into G[] and Q[]
 	for (uint32_t k = 0; k < Cfg::M; k++)
 	{
-		Proof::Part1::GQ& res = m_Proof.m_Part1.m_GQ[k];
+		Proof::Part1::GQ& res = m_Proof.m_Part1.m_vGQ[k];
 		comm = Context::get().G * m_Gamma[k];
 
 		comm2 = comm;
@@ -611,7 +617,7 @@ void Prover::ExtractPart2(Oracle& oracle)
 	uint32_t nL_Reduced = m_Witness.V.m_L;
 
 	Scalar::Native* pA = m_a;
-	Scalar* pF = m_Proof.m_Part2.m_pF;
+	auto itF = m_Proof.m_Part2.m_vF.begin();
 	for (uint32_t j = 0; j < Cfg::M; j++)
 	{
 		uint32_t i0 = nL_Reduced % Cfg::n;
@@ -623,7 +629,7 @@ void Prover::ExtractPart2(Oracle& oracle)
 			if (i == i0)
 				xPwr += x1;
 
-			*pF++ = xPwr;
+			*itF++ = xPwr;
 		}
 
 		pA += Cfg::n;
@@ -633,6 +639,9 @@ void Prover::ExtractPart2(Oracle& oracle)
 void Prover::Generate(Proof::Output& outp, const uintBig& seed, Oracle& oracle)
 {
 	m_vBuf.reset(new Scalar::Native[Idx::CountFixed + Cfg::M * (3 + Cfg::n + Cfg::N)]);
+
+	m_Proof.m_Part1.m_vGQ.resize(Cfg::M);
+	m_Proof.m_Part2.m_vF.resize(Cfg::M * (Cfg::n - 1));
 
 	m_Gamma = m_vBuf.get() + Idx::CountFixed;
 	m_Ro = m_Gamma + Cfg::M;
