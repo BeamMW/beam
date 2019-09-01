@@ -43,9 +43,18 @@ namespace Lelantus {
 	struct Cfg
 	{
 		// bitness selection
-		static const uint32_t n = 4;
-		static const uint32_t M = 5;
-		static const uint32_t N = Power<M>::Of<n>::V; // n^M
+		uint32_t n = 4;
+		uint32_t M = 5;
+
+		struct Max {
+			static const uint32_t n = 128; // typically it's 2 or 4
+			static const uint32_t M = 31;
+			static const uint32_t nM = ECC::InnerProduct::nDim * 2 - 1; // otherwise we won't have enough generators
+			static const uint32_t N = 0x100000; // 1mln. Typically it's VERY MUCH smaller.
+		};
+
+		uint32_t get_N() const; // n^M is parameters are sane, 0 otherwise
+		uint32_t get_F() const; // M * (n - 1)
 	};
 
 	namespace SpendKey {
@@ -54,6 +63,8 @@ namespace Lelantus {
 
 	struct Proof
 	{
+		Cfg m_Cfg;
+
 		struct Output
 		{
 			// not a part of the proof, a by-product
@@ -81,7 +92,7 @@ namespace Lelantus {
 		struct Part2
 		{
 			ECC::Scalar m_zA, m_zC, m_zV, m_zR;
-			std::vector<ECC::Scalar> m_vF; //  [Cfg::M * (Cfg::n - 1)];
+			std::vector<ECC::Scalar> m_vF;
 			ECC::Scalar m_ProofG; // Both balance and spend proofs
 
 		} m_Part2;

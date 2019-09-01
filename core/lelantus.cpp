@@ -32,19 +32,21 @@ void SpendKey::ToSerial(Scalar::Native& serial, const Point& pk)
 // Calculate "standard" vector commitments of M+1 elements
 struct CommitmentStd
 {
-	static const uint32_t s_Generators = Cfg::M * Cfg::n + 1;
-
 	struct MultiMacMy
-		:public MultiMac_WithBufs<1, s_Generators>
+		:public MultiMac_WithBufs<1, Cfg::Max::nM + 1>
 	{
-		MultiMacMy()
+		MultiMacMy(const Cfg& cfg)
 		{
-			static_assert(s_Generators < InnerProduct::nDim * 2);
+			assert(cfg.get_N());
+			const uint32_t nGenerators = cfg.M * cfg.n + 1;
+			assert(nGenerators <= _countof(m_Bufs.m_pKPrep));
+
+			static_assert(Cfg::Max::nM + 1 <= InnerProduct::nDim * 2);
 			const MultiMac::Prepared* pP0 = Context::get().m_Ipp.m_pGen_[0];
 
-			for (uint32_t j = 0; j < Cfg::M; j++)
+			for (uint32_t j = 0; j < cfg.M; j++)
 			{
-				for (uint32_t i = 0; i < Cfg::n; i++, m_Prepared++)
+				for (uint32_t i = 0; i < cfg.n; i++, m_Prepared++)
 				{
 					m_ppPrepared[m_Prepared] = pP0 + m_Prepared;
 				}
@@ -52,9 +54,10 @@ struct CommitmentStd
 
 			m_ppPrepared[m_Prepared] = pP0 + m_Prepared;
 			m_Prepared++;
-			assert(s_Generators == m_Prepared);
 		}
 	};
+
+	const Cfg* m_pCfg = nullptr;
 
 	virtual void get_At(Scalar::Native&, uint32_t j, uint32_t i) = 0;
 
@@ -63,9 +66,9 @@ struct CommitmentStd
 		uint32_t iIdx = 0;
 		Scalar::Native k;
 
-		for (uint32_t j = 0; j < Cfg::M; j++)
+		for (uint32_t j = 0; j < m_pCfg->M; j++)
 		{
-			for (uint32_t i = 0; i < Cfg::n; i++, iIdx++)
+			for (uint32_t i = 0; i < m_pCfg->n; i++, iIdx++)
 			{
 				if (pMultiplier)
 				{
@@ -148,6 +151,38 @@ void CmList::Calculate(Point::Native& res, uint32_t iPos, uint32_t nCount, const
 }
 
 ///////////////////////////
+// Cfg
+uint32_t Cfg::get_N() const
+{
+	// typical n is 2 or 4
+	if ((n < 2) || (n > Max::n))
+		return false;
+
+	if (!M || (M > Max::M))
+		return false;
+
+	static_assert(Max::M * Max::n <= static_cast<uint32_t>(-1), ""); // no chance of overflow
+	if (M * n > Max::nM)
+		return false;
+
+	uint64_t ret = 1;
+	for (uint32_t i = 0; i < M; i++)
+	{
+		ret *= n;
+		if (ret > Max::N)
+			return 0;
+	}
+
+	static_assert(Max::N <= static_cast<uint32_t>(-1), "");
+	return static_cast<uint32_t>(ret);
+}
+
+uint32_t Cfg::get_F() const
+{
+	return M * (n - 1);
+}
+
+///////////////////////////
 // Proof
 void Proof::Part1::Expose(Oracle& oracle) const
 {
@@ -170,10 +205,14 @@ void Proof::Part1::Expose(Oracle& oracle) const
 
 bool Proof::IsValid(InnerProduct::BatchContext& bc, Oracle& oracle, const Output& outp, Scalar::Native* pKs) const
 {
-	if (m_Part1.m_vGQ.size() != Cfg::M)
+	const uint32_t N = m_Cfg.get_N();
+	if (!N)
 		return false;
 
-	if (m_Part2.m_vF.size() != Cfg::M * (Cfg::n - 1))
+	if (m_Part1.m_vGQ.size() != m_Cfg.M)
+		return false;
+
+	if (m_Part2.m_vF.size() != m_Cfg.get_F())
 		return false;
 
 	Mode::Scope scope(Mode::Fast);
@@ -181,20 +220,24 @@ bool Proof::IsValid(InnerProduct::BatchContext& bc, Oracle& oracle, const Output
 	struct MyContext
 	{
 		const Proof& m_P;
+		uint32_t m_Pitch;
 
-		Scalar::Native pF0[Cfg::M];
+		Scalar::Native pF0[Cfg::Max::M];
 		Scalar::Native x;
 
 		void get_F(Scalar::Native& out, uint32_t j, uint32_t i) const
 		{
 			out = i ?
-				m_P.m_Part2.m_vF[j * (Cfg::n - 1) + i - 1] :
+				m_P.m_Part2.m_vF[j * m_Pitch + i - 1] :
 				pF0[j];
 		}
 
-		MyContext(const Proof& p) :m_P(p) {}
+		MyContext(const Proof& p, const Cfg& cfg)
+			:m_P(p)
+			, m_Pitch(cfg.n - 1)
+		{}
 
-	} mctx(*this);
+	} mctx(*this, m_Cfg);
 
 	m_Part1.Expose(oracle);
 	oracle << outp.m_Commitment;
@@ -206,11 +249,11 @@ bool Proof::IsValid(InnerProduct::BatchContext& bc, Oracle& oracle, const Output
 
 	// recover pF0
 	auto itF = m_Part2.m_vF.begin();
-	for (uint32_t j = 0; j < Cfg::M; j++)
+	for (uint32_t j = 0; j < m_Cfg.M; j++)
 	{
 		mctx.pF0[j] = *itF++;
 
-		for (uint32_t i = 1; i < Cfg::n - 1; i++)
+		for (uint32_t i = 1; i < m_Cfg.n - 1; i++)
 			mctx.pF0[j] += *itF++;
 
 		mctx.pF0[j] = -mctx.pF0[j];
@@ -230,6 +273,7 @@ bool Proof::IsValid(InnerProduct::BatchContext& bc, Oracle& oracle, const Output
 				}
 			} c;
 			c.m_p = &mctx;
+			c.m_pCfg = &m_Cfg;
 
 			if (!c.IsValid(bc, m_Part1.m_A, m_Part1.m_B, mctx.x, m_Part2.m_zA))
 				return false;
@@ -253,6 +297,7 @@ bool Proof::IsValid(InnerProduct::BatchContext& bc, Oracle& oracle, const Output
 				}
 			} c;
 			c.m_p = &mctx;
+			c.m_pCfg = &m_Cfg;
 
 			if (!c.IsValid(bc, m_Part1.m_D, m_Part1.m_C, mctx.x, m_Part2.m_zC))
 				return false;
@@ -269,7 +314,7 @@ bool Proof::IsValid(InnerProduct::BatchContext& bc, Oracle& oracle, const Output
 
 	// G and Q
 	Scalar::Native xPwr = 1U;
-	for (uint32_t j = 0; j < Cfg::M; j++)
+	for (uint32_t j = 0; j < m_Cfg.M; j++)
 	{
 		const Part1::GQ& x = m_Part1.m_vGQ[j];
 		bc.m_Multiplier = -kMulPG;
@@ -308,17 +353,17 @@ bool Proof::IsValid(InnerProduct::BatchContext& bc, Oracle& oracle, const Output
 	Scalar::Native kSer(Zero);
 
 	Point::Native pt;
-	for (uint32_t iPos = 0; iPos < Cfg::N; iPos++)
+	for (uint32_t iPos = 0; iPos < N; iPos++)
 	{
 		Scalar::Native k = kMulPG;
 
 		uint32_t ij = iPos;
 
-		for (uint32_t j = 0; j < Cfg::M; j++)
+		for (uint32_t j = 0; j < m_Cfg.M; j++)
 		{
-			mctx.get_F(xPwr, j, ij % Cfg::n);
+			mctx.get_F(xPwr, j, ij % m_Cfg.n);
 			k *= xPwr;
-			ij /= Cfg::n;
+			ij /= m_Cfg.n;
 		}
 
 		kSer += k;
@@ -355,20 +400,20 @@ void Prover::InitNonces(const uintBig& seed)
 		>> m_vBuf[Idx::rD];
 
 	Scalar::Native* pA = m_a;
-	for (uint32_t j = 0; j < Cfg::M; j++)
+	for (uint32_t j = 0; j < m_Proof.m_Cfg.M; j++)
 	{
 		nonceGen
 			>> m_Gamma[j]
 			>> m_Ro[j]
 			>> m_Tau[j];
 
-		for (uint32_t i = 1; i < Cfg::n; i++)
+		for (uint32_t i = 1; i < m_Proof.m_Cfg.n; i++)
 		{
 			nonceGen >> pA[i];
 			pA[0] += -pA[i];
 		}
 
-		pA += Cfg::n;
+		pA += m_Proof.m_Cfg.n;
 	}
 
 	nonceGen
@@ -379,24 +424,27 @@ void Prover::CalculateP()
 {
 	m_p[0] = 1U;
 
+	const uint32_t N = m_Proof.m_Cfg.get_N();
+	assert(N);
+
 	Scalar::Native* pA = m_a;
 	Scalar::Native* pP = m_p;
 	uint32_t nPwr = 1;
-	for (uint32_t j = 0; j < Cfg::M; j++)
+	for (uint32_t j = 0; j < m_Proof.m_Cfg.M; j++)
 	{
-		uint32_t i0 = (m_Witness.V.m_L / nPwr) % Cfg::n;
+		uint32_t i0 = (m_Witness.V.m_L / nPwr) % m_Proof.m_Cfg.n;
 
-		pP += Cfg::N;
+		pP += N;
 
-		for (uint32_t i = Cfg::n; i--; )
+		for (uint32_t i = m_Proof.m_Cfg.n; i--; )
 		{
 			bool bMatch = (i == i0);
 
-			if (j + 1 < Cfg::M)
+			if (j + 1 < m_Proof.m_Cfg.M)
 			{
 				for (uint32_t t = nPwr; t--; )
 					if (bMatch)
-						pP[i * nPwr + t] = pP[static_cast<int32_t>(t - Cfg::N)];
+						pP[i * nPwr + t] = pP[static_cast<int32_t>(t - N)];
 					else
 						pP[i * nPwr + t] = Zero;
 			}
@@ -405,7 +453,7 @@ void Prover::CalculateP()
 
 			for (uint32_t k = j; ; )
 			{
-				pP0 -= Cfg::N;
+				pP0 -= N;
 
 				for (uint32_t t = nPwr; t--; )
 				{
@@ -414,7 +462,7 @@ void Prover::CalculateP()
 					pP0[i * nPwr + t] *= pA[i];
 
 					if (bMatch && k)
-						pP0[i * nPwr + t] += pP0[static_cast<int32_t>(t - Cfg::N)];
+						pP0[i * nPwr + t] += pP0[static_cast<int32_t>(t - N)];
 				}
 
 				if (!k--)
@@ -422,14 +470,14 @@ void Prover::CalculateP()
 			}
 		}
 
-		pA += Cfg::n;
-		nPwr *= Cfg::n;
+		pA += m_Proof.m_Cfg.n;
+		nPwr *= m_Proof.m_Cfg.n;
 	}
 }
 
 void Prover::ExtractABCD()
 {
-	CommitmentStd::MultiMacMy mm;
+	CommitmentStd::MultiMacMy mm(m_Proof.m_Cfg);
 
 	{
 		struct Commitment_A :public CommitmentStd
@@ -437,10 +485,11 @@ void Prover::ExtractABCD()
 			Prover* m_p;
 			virtual void get_At(Scalar::Native& x, uint32_t j, uint32_t i) override
 			{
-				x = m_p->m_a[j * Cfg::n + i];
+				x = m_p->m_a[j * m_pCfg->n + i];
 			}
 		} c;
 		c.m_p = this;
+		c.m_pCfg = &m_Proof.m_Cfg;
 		c.Calculate(m_Proof.m_Part1.m_A, mm, m_vBuf[Idx::rA]);
 	}
 
@@ -450,19 +499,20 @@ void Prover::ExtractABCD()
 			uint32_t m_L_Reduced;
 			virtual void get_At(Scalar::Native& x, uint32_t j, uint32_t i) override
 			{
-				assert(i < Cfg::n);
+				assert(i < m_pCfg->n);
 
-				if ((m_L_Reduced % Cfg::n) == i)
+				if ((m_L_Reduced % m_pCfg->n) == i)
 					x = 1U;
 				else
 					x = Zero;
 
-				if (Cfg::n - 1 == i)
-					m_L_Reduced /= Cfg::n;
+				if (m_pCfg->n - 1 == i)
+					m_L_Reduced /= m_pCfg->n;
 			}
 		} c;
 
 		c.m_L_Reduced = m_Witness.V.m_L;
+		c.m_pCfg = &m_Proof.m_Cfg;
 		c.Calculate(m_Proof.m_Part1.m_B, mm, m_vBuf[Idx::rB]);
 	}
 
@@ -474,18 +524,19 @@ void Prover::ExtractABCD()
 
 			virtual void get_At(Scalar::Native& x, uint32_t j, uint32_t i) override
 			{
-				assert(i < Cfg::n);
-				x = m_p->m_a[j * Cfg::n + i];
+				assert(i < m_pCfg->n);
+				x = m_p->m_a[j * m_pCfg->n + i];
 
-				if ((m_L_Reduced % Cfg::n) == i)
+				if ((m_L_Reduced % m_pCfg->n) == i)
 					x = -x;
 
-				if (Cfg::n - 1 == i)
-					m_L_Reduced /= Cfg::n;
+				if (m_pCfg->n - 1 == i)
+					m_L_Reduced /= m_pCfg->n;
 			}
 		} c;
 
 		c.m_p = this;
+		c.m_pCfg = &m_Proof.m_Cfg;
 		c.m_L_Reduced = m_Witness.V.m_L;
 		c.Calculate(m_Proof.m_Part1.m_C, mm, m_vBuf[Idx::rC]);
 	}
@@ -496,13 +547,14 @@ void Prover::ExtractABCD()
 			Prover* m_p;
 			virtual void get_At(Scalar::Native& x, uint32_t j, uint32_t i) override
 			{
-				x = m_p->m_a[j * Cfg::n + i];
+				x = m_p->m_a[j * m_pCfg->n + i];
 				x *= x;
 				x = -x;
 			}
 		} c;
 
 		c.m_p = this;
+		c.m_pCfg = &m_Proof.m_Cfg;
 		c.Calculate(m_Proof.m_Part1.m_D, mm, m_vBuf[Idx::rD]);
 	}
 }
@@ -513,18 +565,21 @@ void Prover::ExtractGQ()
 	MultiMac_WithBufs<nSizeNaggle, 1> mm;
 
 	uint32_t iPos = 0;
-	Point::Native pG[Cfg::M], comm, comm2;
+	Point::Native pG[Cfg::Max::M], comm, comm2;
 	Scalar::Native s1;
+
+	const uint32_t N = m_Proof.m_Cfg.get_N();
+	assert(N);
 
 	while (true)
 	{
-		m_List.Import(mm, iPos, std::min(nSizeNaggle, Cfg::N - iPos));
+		m_List.Import(mm, iPos, std::min(nSizeNaggle, N - iPos));
 
 		mm.m_ppPrepared[mm.m_Prepared] = &Context::get().m_Ipp.J_;
 		Scalar::Native& kSer = mm.m_pKPrep[mm.m_Prepared++];
 
 		Scalar::Native* pP = m_p;
-		for (uint32_t k = 0; k < Cfg::M; k++)
+		for (uint32_t k = 0; k < m_Proof.m_Cfg.M; k++)
 		{
 			kSer = Zero;
 
@@ -538,17 +593,17 @@ void Prover::ExtractGQ()
 			mm.Calculate(comm);
 			pG[k] += comm;
 
-			pP += Cfg::N;
+			pP += N;
 		}
 
 		iPos += mm.m_Casual;
 
-		if ((Cfg::N == iPos) || (static_cast<uint32_t>(mm.m_Casual) < nSizeNaggle))
+		if ((N == iPos) || (static_cast<uint32_t>(mm.m_Casual) < nSizeNaggle))
 			break;
 	}
 
 	// add gammas, split G[] into G[] and Q[]
-	for (uint32_t k = 0; k < Cfg::M; k++)
+	for (uint32_t k = 0; k < m_Proof.m_Cfg.M; k++)
 	{
 		Proof::Part1::GQ& res = m_Proof.m_Part1.m_vGQ[k];
 		comm = Context::get().G * m_Gamma[k];
@@ -586,7 +641,7 @@ void Prover::ExtractPart2(Oracle& oracle)
 
 	Scalar::Native kBalance = Zero;
 
-	for (uint32_t j = 0; j < Cfg::M; j++)
+	for (uint32_t j = 0; j < m_Proof.m_Cfg.M; j++)
 	{
 		zV += m_Ro[j] * xPwr;
 		zR += m_Tau[j] * xPwr;
@@ -618,12 +673,12 @@ void Prover::ExtractPart2(Oracle& oracle)
 
 	Scalar::Native* pA = m_a;
 	auto itF = m_Proof.m_Part2.m_vF.begin();
-	for (uint32_t j = 0; j < Cfg::M; j++)
+	for (uint32_t j = 0; j < m_Proof.m_Cfg.M; j++)
 	{
-		uint32_t i0 = nL_Reduced % Cfg::n;
-		nL_Reduced /= Cfg::n;
+		uint32_t i0 = nL_Reduced % m_Proof.m_Cfg.n;
+		nL_Reduced /= m_Proof.m_Cfg.n;
 
-		for (uint32_t i = 1; i < Cfg::n; i++)
+		for (uint32_t i = 1; i < m_Proof.m_Cfg.n; i++)
 		{
 			xPwr = pA[i];
 			if (i == i0)
@@ -632,22 +687,25 @@ void Prover::ExtractPart2(Oracle& oracle)
 			*itF++ = xPwr;
 		}
 
-		pA += Cfg::n;
+		pA += m_Proof.m_Cfg.n;
 	}
 }
 
 void Prover::Generate(Proof::Output& outp, const uintBig& seed, Oracle& oracle)
 {
-	m_vBuf.reset(new Scalar::Native[Idx::CountFixed + Cfg::M * (3 + Cfg::n + Cfg::N)]);
+	const uint32_t N = m_Proof.m_Cfg.get_N();
+	assert(N);
 
-	m_Proof.m_Part1.m_vGQ.resize(Cfg::M);
-	m_Proof.m_Part2.m_vF.resize(Cfg::M * (Cfg::n - 1));
+	m_vBuf.reset(new Scalar::Native[Idx::CountFixed + m_Proof.m_Cfg.M * (3 + m_Proof.m_Cfg.n + N)]);
+
+	m_Proof.m_Part1.m_vGQ.resize(m_Proof.m_Cfg.M);
+	m_Proof.m_Part2.m_vF.resize(m_Proof.m_Cfg.M * (m_Proof.m_Cfg.n - 1));
 
 	m_Gamma = m_vBuf.get() + Idx::CountFixed;
-	m_Ro = m_Gamma + Cfg::M;
-	m_Tau = m_Ro + Cfg::M;
-	m_a = m_Tau + Cfg::M;
-	m_p = m_a + Cfg::M * Cfg::n;
+	m_Ro = m_Gamma + m_Proof.m_Cfg.M;
+	m_Tau = m_Ro + m_Proof.m_Cfg.M;
+	m_a = m_Tau + m_Proof.m_Cfg.M;
+	m_p = m_a + m_Proof.m_Cfg.M * m_Proof.m_Cfg.n;
 
 	m_Proof.m_Part1.m_SpendPk = Context::get().G * m_Witness.V.m_SpendSk;
 	SpendKey::ToSerial(m_vBuf[Idx::Serial], m_Proof.m_Part1.m_SpendPk);

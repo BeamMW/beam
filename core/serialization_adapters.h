@@ -647,6 +647,8 @@ namespace detail
 		static Archive& save(Archive& ar, const beam::Lelantus::Proof& v)
 		{
 			ar
+				& v.m_Cfg.n
+				& v.m_Cfg.M
 				& v.m_Part1.m_SpendPk.m_X
 				& v.m_Part1.m_A.m_X
 				& v.m_Part1.m_B.m_X
@@ -659,9 +661,8 @@ namespace detail
 				& v.m_Part2.m_zR
 				& v.m_Part2.m_ProofG;
 
-			uint32_t nSizeGQ = static_cast<uint32_t>(v.m_Part1.m_vGQ.size());
-			ar & nSizeGQ;
-			for (uint32_t i = 0; i < v.m_Part1.m_vGQ.size(); i++)
+			assert(v.m_Part1.m_vGQ.size() >= v.m_Cfg.M);
+			for (uint32_t i = 0; i < v.m_Cfg.M; i++)
 			{
 				const auto& x = v.m_Part1.m_vGQ[i];
 				ar
@@ -678,7 +679,7 @@ namespace detail
 			mb.put(v.m_Part1.m_D.m_Y);
 			mb.put(v.m_Part1.m_NonceG.m_Y);
 
-			for (uint32_t i = 0; i < v.m_Part1.m_vGQ.size(); i++)
+			for (uint32_t i = 0; i < v.m_Cfg.M; i++)
 			{
 				const auto& x = v.m_Part1.m_vGQ[i];
 				mb.put(x.m_G.m_Y);
@@ -687,10 +688,10 @@ namespace detail
 
 			mb.Flush();
 
-			uint32_t nSizeF = static_cast<uint32_t>(v.m_Part2.m_vF.size());
-			ar & nSizeF;
+			uint32_t nSizeF = v.m_Cfg.get_F();
+			assert(v.m_Part2.m_vF.size() >= nSizeF);
 
-			for (uint32_t i = 0; i < v.m_Part2.m_vF.size(); i++)
+			for (uint32_t i = 0; i < nSizeF; i++)
 				ar & v.m_Part2.m_vF[i];
 
 			return ar;
@@ -700,6 +701,8 @@ namespace detail
 		static Archive& load(Archive& ar, beam::Lelantus::Proof& v)
 		{
 			ar
+				& v.m_Cfg.n
+				& v.m_Cfg.M
 				& v.m_Part1.m_SpendPk.m_X
 				& v.m_Part1.m_A.m_X
 				& v.m_Part1.m_B.m_X
@@ -712,11 +715,11 @@ namespace detail
 				& v.m_Part2.m_zR
 				& v.m_Part2.m_ProofG;
 
-			uint32_t nSizeGQ = 0;
-			ar & nSizeGQ;
-			v.m_Part1.m_vGQ.resize(nSizeGQ);
+			if (!v.m_Cfg.get_N())
+				throw std::runtime_error("L/Cfg");
 
-			for (uint32_t i = 0; i < v.m_Part1.m_vGQ.size(); i++)
+			v.m_Part1.m_vGQ.resize(v.m_Cfg.M);
+			for (uint32_t i = 0; i < v.m_Cfg.M; i++)
 			{
 				auto& x = v.m_Part1.m_vGQ[i];
 				ar
@@ -733,18 +736,17 @@ namespace detail
 			mb.get(v.m_Part1.m_D.m_Y);
 			mb.get(v.m_Part1.m_NonceG.m_Y);
 
-			for (uint32_t i = 0; i < v.m_Part1.m_vGQ.size(); i++)
+			for (uint32_t i = 0; i < v.m_Cfg.M; i++)
 			{
 				auto& x = v.m_Part1.m_vGQ[i];
 				mb.get(x.m_G.m_Y);
 				mb.get(x.m_Q.m_Y);
 			}
 
-			uint32_t nSizeF = 0;
-			ar & nSizeF;
+			uint32_t nSizeF = v.m_Cfg.get_F();
 			v.m_Part2.m_vF.resize(nSizeF);
 
-			for (uint32_t i = 0; i < v.m_Part2.m_vF.size(); i++)
+			for (uint32_t i = 0; i < nSizeF; i++)
 				ar & v.m_Part2.m_vF[i];
 
 			return ar;
