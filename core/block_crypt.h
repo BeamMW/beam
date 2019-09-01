@@ -240,7 +240,7 @@ namespace beam
 		struct SpendProof
 			:public Lelantus::Proof
 		{
-			TxoID m_Window0;
+			TxoID m_WindowEnd; // ID of the 1st element outside the window
 
 			int cmp(const SpendProof&) const;
 			COMPARISON_VIA_CMP

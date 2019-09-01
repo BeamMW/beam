@@ -65,16 +65,6 @@ void NodeProcessor::Initialize(const char* szPath, const StartParams& sp)
 	m_Extra.m_TxoHi = m_DB.ParamIntGetDef(NodeDB::ParamID::HeightTxoHi, Rules::HeightGenesis - 1);
 	m_Extra.m_Shielded = m_DB.ParamIntGetDef(NodeDB::ParamID::ShieldedPoolSize);
 
-	if (m_Extra.m_Shielded < Lelantus::Cfg::N)
-	{
-		if (m_Extra.m_Shielded)
-			OnCorrupted();
-
-		// implicit initial commitments
-		m_Extra.m_Shielded = Lelantus::Cfg::N;
-		m_DB.ShieldedResize(m_Extra.m_Shielded);
-	}
-
 	bool bUpdateChecksum = !m_DB.ParamGet(NodeDB::ParamID::CfgChecksum, NULL, &blob);
 	if (!bUpdateChecksum)
 	{
@@ -648,7 +638,7 @@ struct NodeProcessor::MultiShieldedContext
 	std::mutex m_Mutex;
 	Node::IDSet m_Set;
 
-	void Add(TxoID, const ECC::Scalar::Native*);
+	void Add(TxoID id0, uint32_t nCount, const ECC::Scalar::Native*);
 	void ClearLocked();
 
 	~MultiShieldedContext()
@@ -682,9 +672,8 @@ void NodeProcessor::MultiShieldedContext::DeleteRaw(Node& n)
 	delete &n;
 }
 
-void NodeProcessor::MultiShieldedContext::Add(TxoID id0, const ECC::Scalar::Native* pS)
+void NodeProcessor::MultiShieldedContext::Add(TxoID id0, uint32_t nCount, const ECC::Scalar::Native* pS)
 {
-	uint32_t nCount = Lelantus::Cfg::N;
 	uint32_t nOffset = static_cast<uint32_t>(id0 % s_Chunk);
 
 	Node::ID key;
@@ -798,14 +787,23 @@ bool NodeProcessor::MultiShieldedContext::IsValid(const Input& v, std::vector<EC
 	if (!outp.m_Pt.Import(outp.m_Commitment))
 		return false;
 
-	vKs.resize(Lelantus::Cfg::N);
-	memset0(&vKs.front(), sizeof(ECC::Scalar::Native) * beam::Lelantus::Cfg::N);
+	uint32_t N = v.m_pSpendProof->m_Cfg.get_N();
+	if (!N)
+		return false;
+
+	vKs.resize(N);
+	memset0(&vKs.front(), sizeof(ECC::Scalar::Native) * N);
 
 	ECC::Oracle oracle;
 	if (!v.m_pSpendProof->IsValid(bc, oracle, outp, &vKs.front()))
 		return false;
 
-	Add(v.m_pSpendProof->m_Window0, &vKs.front());
+	TxoID id1 = v.m_pSpendProof->m_WindowEnd;
+	if (id1 >= N)
+		Add(id1 - N, N, &vKs.front());
+	else
+		Add(0, static_cast<uint32_t>(id1), &vKs.front() + N - static_cast<uint32_t>(id1));
+
 	return true;
 }
 
@@ -2364,7 +2362,7 @@ bool NodeProcessor::IsShieldedInPool(const Transaction& tx)
 bool NodeProcessor::IsShieldedInPool(const Input& v)
 {
 	assert(v.m_pSpendProof);
-	return (v.m_pSpendProof->m_Window0 + Lelantus::Cfg::N <= m_Extra.m_Shielded);
+	return (v.m_pSpendProof->m_WindowEnd <= m_Extra.m_Shielded);
 }
 
 bool NodeProcessor::HandleShieldedElement(const ECC::Point& comm, bool bOutp, bool bFwd)
@@ -3832,7 +3830,7 @@ void NodeProcessor::InitializeUtxos()
 		TxVectors::Perishable txvp;
 
 		TxoID nShielded = m_Extra.m_Shielded;
-		m_Extra.m_Shielded = Lelantus::Cfg::N; // implicit amount
+		m_Extra.m_Shielded = 0;
 
 		while (true)
 		{

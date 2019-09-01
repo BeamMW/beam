@@ -130,7 +130,7 @@ namespace beam
 
 	int Input::SpendProof::cmp(const SpendProof& v) const
 	{
-		CMP_MEMBER(m_Window0)
+		CMP_MEMBER(m_Part1.m_SpendPk)
 		// ignore rest of the members
 		return 0;
 	}

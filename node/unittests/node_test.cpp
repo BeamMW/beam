@@ -1618,6 +1618,9 @@ namespace beam
 			{
 				Height m_Sent = 0;
 				bool m_Withdrew = false;
+				TxoID m_Confirmed = MaxHeight;
+				TxoID m_Wnd0 = 0;
+				uint32_t m_N;
 
 				Amount m_Value;
 				ECC::Scalar::Native m_sk;
@@ -1720,10 +1723,11 @@ namespace beam
 
 			virtual void OnMsg(proto::ShieldedList&& msg) override
 			{
-				if (msg.m_Items.size() != Lelantus::Cfg::N)
-					return;
+				verify_test(msg.m_Items.size() <= m_Shielded.m_N);
 
-				Height h = m_vStates.back().m_Height;
+				TxoID nWnd1 = m_Shielded.m_Wnd0 + msg.m_Items.size();
+				if (nWnd1 <= m_Shielded.m_Confirmed)
+					return;
 
 				proto::NewTransaction msgTx;
 				msgTx.m_Transaction = std::make_shared<Transaction>();
@@ -1736,13 +1740,23 @@ namespace beam
 				Input::Ptr pInp(new Input);
 				pInp->m_Commitment = ECC::Commitment(sk, m_Shielded.m_Value);
 				pInp->m_pSpendProof.reset(new Input::SpendProof);
-				pInp->m_pSpendProof->m_Window0 = 1;
+				pInp->m_pSpendProof->m_WindowEnd = nWnd1;
 
 				Lelantus::CmListVec lst;
-				lst.m_vec.swap(msg.m_Items);
+
+				assert(nWnd1 <= m_Shielded.m_Wnd0 + m_Shielded.m_N);
+				if (nWnd1 == m_Shielded.m_Wnd0 + m_Shielded.m_N)
+					lst.m_vec.swap(msg.m_Items);
+				else
+				{
+					// zero-pad from left
+					lst.m_vec.resize(m_Shielded.m_N);
+					memset(&lst.m_vec.front(), 0, sizeof(ECC::Point::Storage) * (m_Shielded.m_N - msg.m_Items.size()));
+					std::copy(msg.m_Items.begin(), msg.m_Items.end(), lst.m_vec.end() - msg.m_Items.size());
+				}
 
 				Lelantus::Prover p(lst, *pInp->m_pSpendProof);
-				p.m_Witness.V.m_L = Lelantus::Cfg::N - 1; // last element
+				p.m_Witness.V.m_L = static_cast<uint32_t>(m_Shielded.m_N - m_Shielded.m_Confirmed) - 1;
 				p.m_Witness.V.m_R = m_Shielded.m_sk;
 				p.m_Witness.V.m_R_Output = sk;
 				p.m_Witness.V.m_SpendSk = m_Shielded.m_skSpendKey;
@@ -1758,6 +1772,7 @@ namespace beam
 
 				msgTx.m_Transaction->m_vInputs.push_back(std::move(pInp));
 
+				Height h = m_vStates.back().m_Height;
 				m_Wallet.MakeTxOutput(*msgTx.m_Transaction, h + 1, 0, m_Shielded.m_Value);
 
 				Transaction::Context::Params pars;
@@ -1771,10 +1786,21 @@ namespace beam
 
 			virtual void OnMsg(proto::ProofShieldedTxo&& msg) override
 			{
-				if (!msg.m_Proof.empty())
-				{
-					verify_test(m_vStates.back().IsValidProofShieldedTxo(m_Shielded.m_Commitment, msg.m_ID, msg.m_Proof));
-				}
+				if (msg.m_Proof.empty())
+					return;
+
+				verify_test(m_vStates.back().IsValidProofShieldedTxo(m_Shielded.m_Commitment, msg.m_ID, msg.m_Proof));
+				m_Shielded.m_Confirmed = msg.m_ID;
+
+				Lelantus::Cfg cfg; // def;
+				m_Shielded.m_N = cfg.get_N();
+
+				m_Shielded.m_Wnd0 = 0; // TODO - randomize m_Wnd0
+
+				proto::GetShieldedList msgOut;
+				msgOut.m_Id0 = m_Shielded.m_Wnd0;
+				msgOut.m_Count = m_Shielded.m_N;
+				Send(msgOut);
 			}
 
 			virtual void OnMsg(proto::NewTip&& msg) override
@@ -1802,11 +1828,6 @@ namespace beam
 					proto::GetProofShieldedTxo msgOut;
 					msgOut.m_Commitment = m_Shielded.m_Commitment;
 					Send(msgOut);
-
-					proto::GetShieldedList msgOut2;
-					msgOut2.m_Id0 = 1;
-					msgOut2.m_Count = Lelantus::Cfg::N;
-					Send(msgOut2);
 
 					m_Shielded.m_Withdrew = true;
 				}

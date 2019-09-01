@@ -586,7 +586,7 @@ namespace detail
 		static Archive& save(Archive& ar, const beam::Input::SpendProof& v)
 		{
 			ar
-				& v.m_Window0
+				& v.m_WindowEnd
 				& Cast::Down<beam::Lelantus::Proof>(v);
 
 			return ar;
@@ -596,7 +596,7 @@ namespace detail
 		static Archive& load(Archive& ar, beam::Input::SpendProof& v)
 		{
 			ar
-				& v.m_Window0
+				& v.m_WindowEnd
 				& Cast::Down<beam::Lelantus::Proof>(v);
 
 			return ar;
