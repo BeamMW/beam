@@ -365,6 +365,8 @@ namespace ECC {
 	{
 		Mode::Scope scope(Mode::Fast);
 
+		assert(!mod.m_pAmbient); // supported only in verification mode
+
 		Calculator c(mod);
 		c.m_GenOrder = nCycles;
 		c.m_ppSrc[0] = pA;
@@ -479,7 +481,12 @@ namespace ECC {
 		//
 		// sum( LR[iCycle][0] * k[iCycle]^2 + LR[iCycle][0] * k[iCycle]^-2 )
 
-		Scalar::Native k;
+		Scalar::Native k, mul0;
+		if (mod.m_pAmbient)
+		{
+			mul0 = bc.m_Multiplier;
+			bc.m_Multiplier *= *mod.m_pAmbient;
+		}
 
 		// calculate pairs of cs_.m_X.m_Val
 		static_assert(!(nCycles & 1), "");
@@ -531,7 +538,7 @@ namespace ECC {
 			k = m_pCondensed[j];
 			k = -k;
 
-			k *= bc.m_Multiplier;
+			k *= mod.m_pAmbient ? mul0 : bc.m_Multiplier;
 
 			k *= cs_.m_Mul1;
 
@@ -547,6 +554,9 @@ namespace ECC {
 		k *= cs_.m_Mul2;
 
 		bc.AddPrepared(BatchContext::s_Idx_GenDot, k);
+
+		if (mod.m_pAmbient)
+			bc.m_Multiplier = mul0; // restore it
 
 		return true;
 	}
@@ -610,13 +620,6 @@ namespace ECC {
 		void Init1(const Part1&, Oracle&);
 	};
 
-	struct RangeProof::Confidential::ChallengeSet2
-		:public ChallengeSet1
-	{
-		Scalar::Native yInv;
-		void Init1(const Part1&, Oracle&);
-	};
-
 #pragma pack (push, 1)
 	struct RangeProof::CreatorParams::Padded
 	{
@@ -674,7 +677,7 @@ namespace ECC {
 		//	return; // stop after A,S calculated
 
 		// get challenges
-		ChallengeSet2 cs;
+		ChallengeSet1 cs;
 		cs.Init1(m_Part1, oracle);
 
 		// calculate t1, t2 - parts of vec(L)*vec(R) which depend on (future) x and x^2.
@@ -848,8 +851,11 @@ namespace ECC {
 			yPwr *= cs.y;
 		}
 
+		Scalar::Native& yInv = alpha; // alias
+		yInv.SetInv(cs.y);
+
 		InnerProduct::Modifier::Channel ch1;
-		ch1.SetPwr(cs.yInv);
+		ch1.SetPwr(yInv);
 		InnerProduct::Modifier mod;
 		mod.m_ppC[1] = &ch1;
 
@@ -1005,12 +1011,6 @@ namespace ECC {
 		zz *= z;
 	}
 
-	void RangeProof::Confidential::ChallengeSet2::Init1(const Part1& p1, Oracle& oracle)
-	{
-		ChallengeSet1::Init1(p1, oracle);
-		yInv.SetInv(y);
-	}
-
 	void RangeProof::Confidential::ChallengeSet0::Init2(const Part2& p2, Oracle& oracle)
 	{
 		oracle << p2.m_T1 << p2.m_T2;
@@ -1034,7 +1034,7 @@ namespace ECC {
 
 		Mode::Scope scope(Mode::Fast);
 
-		ChallengeSet2 cs;
+		ChallengeSet1 cs;
 		cs.Init1(m_Part1, oracle);
 		cs.Init2(m_Part2, oracle);
 
@@ -1098,6 +1098,21 @@ namespace ECC {
 
 		bc.EquationBegin();
 
+		InnerProduct::Modifier::Channel ch0, ch1;
+
+		// powers of cs.y in reverse order
+		ch1.m_pV[InnerProduct::nDim - 1] = 1U;
+		for (uint32_t i = InnerProduct::nDim - 1; i--; )
+			ch1.m_pV[i] = ch1.m_pV[i + 1] * cs.y;
+
+		const Scalar::Native& yPwrMax = ch1.m_pV[0];
+
+		for (uint32_t i = 0; i < InnerProduct::nDim; i++)
+			ch0.m_pV[i] = yPwrMax;
+
+		delta = bc.m_Multiplier;
+		bc.m_Multiplier *= yPwrMax;
+
 		InnerProduct::Challenges cs_;
 		cs_.Init(oracle, tDot, m_P_Tag);
 
@@ -1113,20 +1128,25 @@ namespace ECC {
 		if (!bc.AddCasual(m_Part1.m_S, cs.x * cs_.m_Mul2))
 			return false;
 
-		Scalar::Native pwr, mul;
-
-		mul = 2U;
-		mul *= cs.yInv;
-		pwr = zz;
-		pwr *= cs_.m_Mul2;
-		pwr *= bc.m_Multiplier;
+		if (!bc.AddCasual(m_Part1.m_A, cs_.m_Mul2))
+			return false;
 
 		Scalar::Native& zMul = sumY; // alias
 		zMul = cs.z * bc.m_Multiplier;
 
+		bc.m_Multiplier = delta; // restore multiplier before it was multiplied by yPwrMax
+
+		Scalar::Native& pwr = delta; // alias
+		Scalar::Native mul;
+
+		mul = 2U;
+		pwr = zz;
+		pwr *= cs_.m_Mul2;
+		pwr *= bc.m_Multiplier;
+
 		for (uint32_t i = 0; ; )
 		{
-			sum2 = pwr;
+			sum2 = pwr * ch1.m_pV[i];
 			sum2 += zMul;
 
 			bc.AddPreparedM(InnerProduct::nDim + i, sum2);
@@ -1137,13 +1157,11 @@ namespace ECC {
 			pwr *= mul;
 		}
 
-		bc.AddCasual(m_Part1.m_A, cs_.m_Mul2);
-
 		// finally check the inner product
-		InnerProduct::Modifier::Channel ch1;
-		ch1.SetPwr(cs.yInv);
 		InnerProduct::Modifier mod;
+		mod.m_ppC[0] = &ch0;
 		mod.m_ppC[1] = &ch1;
+		mod.m_pAmbient = &yPwrMax;
 
 		return m_P_Tag.IsValid(bc, cs_, tDot, mod);
 	}
