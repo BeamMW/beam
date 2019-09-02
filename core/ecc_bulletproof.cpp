@@ -538,7 +538,7 @@ namespace ECC {
 			k = m_pCondensed[j];
 			k = -k;
 
-			k *= mod.m_pAmbient ? mul0 : bc.m_Multiplier;
+			k *= (mod.m_pAmbient && j) ? mul0 : bc.m_Multiplier;
 
 			k *= cs_.m_Mul1;
 
@@ -1098,7 +1098,7 @@ namespace ECC {
 
 		bc.EquationBegin();
 
-		InnerProduct::Modifier::Channel ch0, ch1;
+		InnerProduct::Modifier::Channel ch1;
 
 		// powers of cs.y in reverse order
 		ch1.m_pV[InnerProduct::nDim - 1] = 1U;
@@ -1106,9 +1106,6 @@ namespace ECC {
 			ch1.m_pV[i] = ch1.m_pV[i + 1] * cs.y;
 
 		const Scalar::Native& yPwrMax = ch1.m_pV[0];
-
-		for (uint32_t i = 0; i < InnerProduct::nDim; i++)
-			ch0.m_pV[i] = yPwrMax;
 
 		delta = bc.m_Multiplier;
 		bc.m_Multiplier *= yPwrMax;
@@ -1159,7 +1156,6 @@ namespace ECC {
 
 		// finally check the inner product
 		InnerProduct::Modifier mod;
-		mod.m_ppC[0] = &ch0;
 		mod.m_ppC[1] = &ch1;
 		mod.m_pAmbient = &yPwrMax;
 
