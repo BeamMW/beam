@@ -721,6 +721,12 @@ namespace ECC
 		}
 	};
 
+	struct InnerProduct::Modifier::Channel
+	{
+		Scalar::Native m_pV[nDim];
+		void SetPwr(const Scalar::Native& x); // m_pV[i] = x ^ i
+	};
+
 	class Commitment
 	{
 		const Scalar::Native& k;

@@ -129,6 +129,20 @@ namespace ECC {
 			Oracle() << m_Multiplier >> m_Multiplier;
 	}
 
+	void InnerProduct::Modifier::Channel::SetPwr(const Scalar::Native& x)
+	{
+		m_pV[0] = 1U;
+		for (uint32_t i = 1; i < nDim; i++)
+			m_pV[i] = m_pV[i - 1] * x;
+	}
+
+	void InnerProduct::Modifier::Set(Scalar::Native& dst, const Scalar::Native& src, int i, int j) const
+	{
+		if (m_ppC[j])
+			dst = src * m_ppC[j]->m_pV[i];
+		else
+			dst = src;
+	}
 
 	struct InnerProduct::Calculator
 	{
@@ -142,45 +156,17 @@ namespace ECC {
 			XSet m_pX[2];
 		};
 
-		struct ModifierExpanded
-		{
-			Scalar::Native m_pPwr[2][nDim];
-			bool m_pUse[2];
-
-			void Init(const Modifier& mod)
-			{
-				for (size_t j = 0; j < _countof(mod.m_pMultiplier); j++)
-				{
-					m_pUse[j] = (NULL != mod.m_pMultiplier[j]);
-					if (m_pUse[j])
-					{
-						m_pPwr[j][0] = 1U;
-						for (uint32_t i = 1; i < nDim; i++)
-							m_pPwr[j][i] = m_pPwr[j][i - 1] * *(mod.m_pMultiplier[j]);
-					}
-				}
-			}
-
-			void Set(Scalar::Native& dst, const Scalar::Native& src, int i, int j) const
-			{
-				if (m_pUse[j])
-					dst = src * m_pPwr[j][i];
-				else
-					dst = src;
-			}
-		};
-
 		struct Aggregator
 		{
 			MultiMac& m_Mm;
 			const XSet* m_pX[2];
-			const ModifierExpanded& m_Mod;
+			const Modifier& m_Mod;
 			const Calculator* m_pCalc; // set if source are already condensed points
 			InnerProduct::BatchContext* m_pBatchCtx;
 			const int m_j;
 			const unsigned int m_iCycleTrg;
 
-			Aggregator(MultiMac& mm, const XSet* pX, const XSet* pXInv, const ModifierExpanded& mod, int j, unsigned int iCycleTrg)
+			Aggregator(MultiMac& mm, const XSet* pX, const XSet* pXInv, const Modifier& mod, int j, unsigned int iCycleTrg)
 				:m_Mm(mm)
 				,m_Mod(mod)
 				,m_pCalc(NULL)
@@ -203,7 +189,7 @@ namespace ECC {
 
 		const Scalar::Native* m_ppSrc[2];
 
-		ModifierExpanded m_Mod;
+		const Modifier& m_Mod;
 		ChallengeSet m_Cs;
 
 		MultiMac_WithBufs<(nDim >> (s_iCycle0 + 1)), nDim * 2> m_Mm;
@@ -214,6 +200,8 @@ namespace ECC {
 
 		void Condense();
 		void ExtractLR(int j);
+
+		Calculator(const Modifier& mod) :m_Mod(mod) {}
 	};
 
 	void InnerProduct::Calculator::Condense()
@@ -377,8 +365,7 @@ namespace ECC {
 	{
 		Mode::Scope scope(Mode::Fast);
 
-		Calculator c;
-		c.m_Mod.Init(mod);
+		Calculator c(mod);
 		c.m_GenOrder = nCycles;
 		c.m_ppSrc[0] = pA;
 		c.m_ppSrc[1] = pB;
@@ -492,9 +479,6 @@ namespace ECC {
 		//
 		// sum( LR[iCycle][0] * k[iCycle]^2 + LR[iCycle][0] * k[iCycle]^-2 )
 
-		Calculator::ModifierExpanded modExp;
-		modExp.Init(mod);
-
 		Scalar::Native k;
 
 		// calculate pairs of cs_.m_X.m_Val
@@ -541,7 +525,7 @@ namespace ECC {
 		for (int j = 0; j < 2; j++)
 		{
 			MultiMac mmDummy;
-			Calculator::Aggregator aggr(mmDummy, &cs_.m_X, NULL, modExp, j, 0);
+			Calculator::Aggregator aggr(mmDummy, &cs_.m_X, NULL, mod, j, 0);
 			aggr.m_pBatchCtx = &bc;
 
 			k = m_pCondensed[j];
@@ -864,8 +848,10 @@ namespace ECC {
 			yPwr *= cs.y;
 		}
 
+		InnerProduct::Modifier::Channel ch1;
+		ch1.SetPwr(cs.yInv);
 		InnerProduct::Modifier mod;
-		mod.m_pMultiplier[1] = &cs.yInv;
+		mod.m_ppC[1] = &ch1;
 
 		m_P_Tag.Create(oracle, l0, pS[0], pS[1], mod);
 
@@ -1154,8 +1140,10 @@ namespace ECC {
 		bc.AddCasual(m_Part1.m_A, cs_.m_Mul2);
 
 		// finally check the inner product
+		InnerProduct::Modifier::Channel ch1;
+		ch1.SetPwr(cs.yInv);
 		InnerProduct::Modifier mod;
-		mod.m_pMultiplier[1] = &cs.yInv;
+		mod.m_ppC[1] = &ch1;
 
 		return m_P_Tag.IsValid(bc, cs_, tDot, mod);
 	}

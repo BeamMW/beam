@@ -739,9 +739,14 @@ void TestRangeProof(bool bCustomTag)
 
 	InnerProduct::get_Dot(dot, pA, pB);
 
+	InnerProduct::Modifier::Channel ch0, ch1;
 	SetRandom(pwrMul);
+	ch0.SetPwr(pwrMul);
+	SetRandom(pwrMul);
+	ch1.SetPwr(pwrMul);
 	InnerProduct::Modifier mod;
-	mod.m_pMultiplier[1] = &pwrMul;
+	mod.m_ppC[0] = &ch0;
+	mod.m_ppC[1] = &ch1;
 
 	InnerProduct sig;
 	sig.Create(comm, dot, pA, pB, mod);
