@@ -265,7 +265,7 @@ else()
         add_definitions(-DNOMINMAX)
     endif()
 
-    find_package(Boost REQUIRED)
+    find_package(Boost COMPONENTS locale REQUIRED)
 
     if(BEAM_USE_STATIC)
         include(FindBoost)
