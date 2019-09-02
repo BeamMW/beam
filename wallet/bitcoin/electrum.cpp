@@ -377,11 +377,43 @@ namespace beam::bitcoin
         });
     }
 
-    void Electrum::getBalance(uint32_t /*confirmations*/, std::function<void(const Error&, double)> callback)
+    // TODO roman.strilets check this implementation
+    void Electrum::getBalance(uint32_t confirmations, std::function<void(const Error&, double)> callback)
     {
-        getDetailedBalance([callback](const Error& error, double confirmed, double, double)
+        getBlockCount([confirmations, callback, this](const Error& error, uint64_t height)
         {
-            callback(error, confirmed);
+            if (error.m_type != ErrorType::None)
+            {
+                callback(error, 0);
+                return;
+            }
+
+            if (confirmations > height)
+            {
+                Error err{ IBridge::BitcoinError, std::string("Height should be more than confirmations") };
+                callback(err, 0);
+                return;
+            }
+            
+            listUnspent([height = height - confirmations + 1, callback](const Error& error, const std::vector<BtcCoin>& coins) 
+            {
+                if (error.m_type != ErrorType::None)
+                {
+                    callback(error, 0);
+                    return;
+                }
+
+                double balance = 0;
+                for (auto coin : coins)
+                {
+                    if (coin.m_details["height"].get<uint64_t>() <= height)
+                    {
+                        balance += coin.m_details["value"].get<uint64_t>();
+                    }
+                }
+
+                callback(error, balance);
+            });
         });
     }
 
