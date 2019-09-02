@@ -1038,19 +1038,22 @@ namespace ECC {
 		cs.Init1(m_Part1, oracle);
 		cs.Init2(m_Part2, oracle);
 
+		InnerProduct::Modifier::Channel ch1;
+
+		// powers of cs.y in reverse order
+		ch1.m_pV[InnerProduct::nDim - 1] = 1U;
+		for (uint32_t i = InnerProduct::nDim - 1; i--; )
+			ch1.m_pV[i] = ch1.m_pV[i + 1] * cs.y;
+
 		Scalar::Native xx, zz, tDot;
 
 		// calculate delta(y,z) = (z - z^2) * sumY - z^3 * sum2
-		Scalar::Native delta, sum2, sumY;
+		Scalar::Native delta, sum2, sumY(Zero);
 
-
-		sum2 = 1U;
-		sumY = Zero;
 		for (uint32_t i = 0; i < InnerProduct::nDim; i++)
-		{
-			sumY += sum2;
-			sum2 *= cs.y;
-		}
+			sumY += ch1.m_pV[i];
+
+		const Scalar::Native& yPwrMax = ch1.m_pV[0];
 
 		sum2 = Amount(-1);
 
@@ -1097,15 +1100,6 @@ namespace ECC {
 		// (P - m_Mu*G) + m_Mu*G =?= m_A + m_S*x - vec(G)*vec(z) + vec(H)*( vec(z) + vec(z^2*2^n*y^-n) )
 
 		bc.EquationBegin();
-
-		InnerProduct::Modifier::Channel ch1;
-
-		// powers of cs.y in reverse order
-		ch1.m_pV[InnerProduct::nDim - 1] = 1U;
-		for (uint32_t i = InnerProduct::nDim - 1; i--; )
-			ch1.m_pV[i] = ch1.m_pV[i + 1] * cs.y;
-
-		const Scalar::Native& yPwrMax = ch1.m_pV[0];
 
 		delta = bc.m_Multiplier;
 		bc.m_Multiplier *= yPwrMax;
