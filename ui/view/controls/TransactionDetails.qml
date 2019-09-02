@@ -150,7 +150,6 @@ RowLayout {
         }
 
         function canOpenInBlockchainExplorer(status) {
-            console.log(status);
             switch(status) {
                 case "completed":
                 case "received":
