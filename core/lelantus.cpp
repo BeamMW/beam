@@ -218,7 +218,7 @@ bool Proof::IsValid(InnerProduct::BatchContext& bc, Oracle& oracle, const Output
 
 	struct MyContext
 	{
-		const Proof& m_P;
+		const Scalar* m_pF1;
 		uint32_t m_Pitch;
 
 		Scalar::Native pF0[Cfg::Max::M];
@@ -227,16 +227,13 @@ bool Proof::IsValid(InnerProduct::BatchContext& bc, Oracle& oracle, const Output
 		void get_F(Scalar::Native& out, uint32_t j, uint32_t i) const
 		{
 			out = i ?
-				m_P.m_Part2.m_vF[j * m_Pitch + i - 1] :
+				m_pF1[j * m_Pitch + i] :
 				pF0[j];
 		}
 
-		MyContext(const Proof& p, const Cfg& cfg)
-			:m_P(p)
-			, m_Pitch(cfg.n - 1)
-		{}
-
-	} mctx(*this, m_Cfg);
+	} mctx;
+	mctx.m_pF1 = &m_Part2.m_vF.front() - 1;
+	mctx.m_Pitch = m_Cfg.n - 1;
 
 	m_Part1.Expose(oracle);
 	oracle << outp.m_Commitment;
