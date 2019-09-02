@@ -63,7 +63,7 @@ using namespace ECC;
 
 namespace beam
 {
-    std::ostream& operator<<(std::ostream& os, Coin::Status s)
+    string getCoinStatus(Coin::Status s)
     {
         stringstream ss;
         ss << "[";
@@ -80,9 +80,8 @@ namespace beam
         }
         ss << "]";
         string str = ss.str();
-        os << str;
         BOOST_ASSERT(str.length() <= 30);
-        return os;
+        return str;
     }
 
     const char* getTxStatus(const TxDescription& tx)
@@ -718,7 +717,7 @@ namespace
                  % boost::io::group(right, setw(columnWidths[1]), c.m_ID.m_Value / Rules::Coin)
                  % boost::io::group(right, setw(columnWidths[2]), c.m_ID.m_Value % Rules::Coin)
                  % boost::io::group(left, setw(columnWidths[3]), (c.IsMaturityValid() ? std::to_string(static_cast<int64_t>(c.m_maturity)) : "-"))
-                 % boost::io::group(left, setw(columnWidths[4]), c.m_status)
+                 % boost::io::group(left, setw(columnWidths[4]), getCoinStatus(c.m_status))
                  % boost::io::group(left, setw(columnWidths[5]), c.m_ID.m_Type)
                  << std::endl;
             return true;
