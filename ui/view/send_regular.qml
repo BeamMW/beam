@@ -122,7 +122,8 @@ ColumnLayout {
                 font.pixelSize:   14
                 font.styleName:   "Bold"; font.weight: Font.Bold
                 color:            Style.content_main
-                text:             qsTrId("general-comment") //% "Comment"
+                //% "Comment"
+                text:             qsTrId("general-comment")
             }
 
             SFTextInput {
@@ -248,13 +249,15 @@ ColumnLayout {
         spacing:          25
 
         CustomButton {
-            text:        qsTrId("general-back") //% "Back"
+            //% "Back"
+            text:        qsTrId("general-back")
             icon.source: "qrc:/assets/icon-back.svg"
             onClicked:   walletView.pop();
         }
 
         CustomButton {
-            text:               qsTrId("general-send") //% "Send"
+            //% "Send"
+            text:               qsTrId("general-send")
             palette.buttonText: Style.content_opposite
             palette.button:     Style.accent_outgoing
             icon.source:        "qrc:/assets/icon-send-blue.svg"

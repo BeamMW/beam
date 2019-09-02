@@ -285,9 +285,9 @@ Dialog {
 			}
 
 			SFText {
+				id: expiresLabel
 				//: Edit addres dialog, expires label
 				//% "Expires"
-				id: expiresLabel
 				text: qsTrId("edit-addr-expires-label")
 				color: Style.content_main
 				Layout.alignment: Qt.AlignLeft

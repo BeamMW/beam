@@ -84,7 +84,8 @@ ColumnLayout {
                 font.pixelSize:   14
                 font.styleName:   "Bold"; font.weight: Font.Bold
                 color:            Style.content_main
-                text:             qsTrId("general-comment") //% "Comment"
+                //% "Comment"
+                text:             qsTrId("general-comment")
             }
 
             SFTextInput {

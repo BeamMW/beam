@@ -123,7 +123,8 @@ ColumnLayout {
                 id:               receiverTAError
                 color:            Style.validator_error
                 font.pixelSize:   12
-                text:             qsTrId("general-invalid-address") //% "Invalid address"
+                //% "Invalid address"
+                text:             qsTrId("general-invalid-address")
                 visible:          !viewModel.tokenValid
             }
         }
@@ -176,7 +177,8 @@ ColumnLayout {
                 font.pixelSize:   14
                 font.styleName:   "Bold"; font.weight: Font.Bold
                 color:            Style.content_main
-                text:             qsTrId("general-comment") //% "Comment"
+                //% "Comment"
+                text:             qsTrId("general-comment")
             }
 
             SFTextInput {
