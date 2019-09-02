@@ -635,6 +635,9 @@ namespace ECC
 			MultiMac::Prepared H_;
 			MultiMac::Prepared J_;
 
+			// useful constants
+			Scalar::Native m_2Inv;
+
 		} m_Ipp;
 
 		struct Casual

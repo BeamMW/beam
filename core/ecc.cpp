@@ -1306,6 +1306,8 @@ namespace ECC {
 			Generator::FromPt(ctx.m_Casual.m_Compensation, pt);
 		}
 
+		ctx.m_Ipp.m_2Inv.SetInv(2U);
+
 		hpRes
 			<< uint32_t(2) // increment this each time we change signature formula (rangeproof and etc.)
 			>> ctx.m_hvChecksum;

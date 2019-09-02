@@ -1130,19 +1130,21 @@ namespace ECC {
 		Scalar::Native& pwr = delta; // alias
 		Scalar::Native mul;
 
-		mul = 2U;
+		mul = Context::get().m_Ipp.m_2Inv;
+		mul *= cs.y; // y/2
 		pwr = zz;
+		pwr *= (Amount(1) << (InnerProduct::nDim - 1)); // 2 ^ (nDim-1)
 		pwr *= cs_.m_Mul2;
 		pwr *= bc.m_Multiplier;
 
-		for (uint32_t i = 0; ; )
+		for (uint32_t i = InnerProduct::nDim - 1; ; )
 		{
-			sum2 = pwr * ch1.m_pV[i];
+			sum2 = pwr;
 			sum2 += zMul;
 
 			bc.AddPreparedM(InnerProduct::nDim + i, sum2);
 
-			if (InnerProduct::nDim == ++i)
+			if (!i--)
 				break;
 
 			pwr *= mul;
