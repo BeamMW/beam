@@ -121,7 +121,8 @@ namespace beam::wallet
 
         if (!GetBlockCount())
         {
-            m_tx.UpdateAsync();
+            // TODO roman.strilets investigate this code
+            //m_tx.UpdateAsync();
             return false;
         }
 
