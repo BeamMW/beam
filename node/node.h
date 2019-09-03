@@ -658,7 +658,7 @@ private:
 			IExternalPOW* m_pSolver = nullptr;
 			uint64_t m_jobID = 0;
 
-			Task::Ptr m_ppTask[3]; // backlog of potentially being-mined currently
+			Task::Ptr m_ppTask[64]; // backlog of potentially being-mined currently
 			Task::Ptr& get_At(uint64_t);
 
 		} m_External;
