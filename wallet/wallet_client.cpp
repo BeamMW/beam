@@ -178,6 +178,11 @@ struct WalletModelBridge : public Bridge<IWalletModelAsync>
     {
         call_async(&IWalletModelAsync::checkAddress, addr);
     }
+
+    void importRecovery(const std::string& path) override
+    {
+        call_async(&IWalletModelAsync::importRecovery, path);
+    }
 };
 }
 
@@ -779,7 +784,8 @@ namespace beam::wallet
         {
             LOG_UNHANDLED_EXCEPTION() << "what = " << e.what();
         }
-        catch (...) {
+        catch (...)
+        {
             LOG_UNHANDLED_EXCEPTION();
         }
     }
@@ -794,6 +800,30 @@ namespace beam::wallet
         io::Address nodeAddr;
 
         onAddressChecked(addr, nodeAddr.resolve(addr.c_str()));
+    }
+
+    void WalletClient::importRecovery(const std::string& path)
+    {
+        try
+        {
+            m_walletDB->ImportRecovery(path, *this);
+            return;
+        }
+        catch (const std::runtime_error& e)
+        {
+            LOG_UNHANDLED_EXCEPTION() << "what = " << e.what();
+        }
+        catch (...) 
+        {
+            LOG_UNHANDLED_EXCEPTION();
+        }
+        onWalletError(ErrorType::ImportRecoveryError);
+    }
+
+    bool WalletClient::OnProgress(uint64_t done, uint64_t total)
+    {
+        onImportRecoveryProgress(done, total);
+        return true;
     }
 
     WalletStatus WalletClient::getStatus() const

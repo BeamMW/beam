@@ -525,7 +525,7 @@ namespace beam::wallet
     {
         if (SetParameter(TxParameterID::Status, s, true))
         {
-            SetParameter(TxParameterID::ModifyTime, getTimestamp(), false);
+            SetParameter(TxParameterID::ModifyTime, getTimestamp(), true);
         }
     }
 

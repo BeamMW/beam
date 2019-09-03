@@ -9,7 +9,7 @@
     </message>
     <message id="general-groth">
         <source>GROTH</source>
-        <translation type="unfinished">GROTH</translation>
+        <translation>GROTH</translation>
     </message>
     <message id="general-comment">
         <source>Comment</source>
@@ -110,6 +110,7 @@
     </message>
     <message id="general-fee">
         <source>Transaction fee</source>
+        <extracomment>UTXO type fee</extracomment>
         <translation>İşlem ücreti</translation>
     </message>
     <message id="general-ok">
@@ -122,18 +123,22 @@
     </message>
     <message id="general-coinbase">
         <source>Coinbase</source>
+        <extracomment>UTXO type Coinbase</extracomment>
         <translation>Coinbase</translation>
     </message>
     <message id="general-regular">
         <source>Regular</source>
+        <extracomment>UTXO type Regular</extracomment>
         <translation>Normal</translation>
     </message>
     <message id="general-change">
         <source>Change</source>
+        <extracomment>UTXO type Change</extracomment>
         <translation>Değiştir</translation>
     </message>
     <message id="general-treasury">
         <source>Treasury</source>
+        <extracomment>UTXO type Treasury</extracomment>
         <translation>Hazine</translation>
     </message>
     <message id="general-back">
@@ -188,7 +193,7 @@
     </message>
     <message id="wallet-in-progress-title">
         <source>In progress</source>
-        <translation type="unfinished">Devam etmekte</translation>
+        <translation>Devam etmekte</translation>
     </message>
     <message id="wallet-transactions-title">
         <source>Transactions</source>
@@ -283,15 +288,15 @@
     </message>
     <message id="address-table-cm-delete-contact">
         <source>Delete contact</source>
-        <translation>Bağlantıyı sil</translation>
+        <translation>Kişiyi sil</translation>
     </message>
     <message id="available-panel-available">
         <source>Available</source>
-        <translation type="unfinished">Mevcut</translation>
+        <translation>Mevcut</translation>
     </message>
     <message id="available-panel-where-to-buy">
         <source>Where to buy BEAM?</source>
-        <translation type="unfinished">Beam nereden alınır?</translation>
+        <translation>Beam nereden alınır?</translation>
     </message>
     <message id="settings-version">
         <source>Version</source>
@@ -544,6 +549,7 @@
     </message>
     <message id="wallet-receive-title">
         <source>Receive</source>
+        <oldsource>Receive Beam</oldsource>
         <translation type="unfinished">Beam al</translation>
     </message>
     <message id="wallet-receive-my-addr-label">
@@ -553,6 +559,7 @@
     </message>
     <message id="wallet-receive-expires-label">
         <source>Expires in</source>
+        <oldsource>Expires</oldsource>
         <translation type="unfinished">Süresi dolanlar</translation>
     </message>
     <message id="wallet-receive-expires-24">
@@ -568,9 +575,8 @@
         <translation>Göndermek için tara</translation>
     </message>
     <message id="wallet-receive-propogate-addr-message">
-        <source></source>
-        <oldsource>Send this address to the sender over an external secure channel</oldsource>
-        <translation type="obsolete">Bu adresi gönderene harici güvenli bir kanal üzerinden gönderin</translation>
+        <source>Send this address to the sender over an external secure channel</source>
+        <translation type="vanished">Bu adresi gönderene harici güvenli bir kanal üzerinden gönderin</translation>
     </message>
     <message id="invalid-addr-got-it-button">
         <source>Got it</source>
@@ -578,23 +584,26 @@
     </message>
     <message id="send-title">
         <source>Send</source>
+        <oldsource>Send Beam</oldsource>
         <translation type="unfinished">Beam yolla</translation>
     </message>
     <message id="send-send-to-label">
         <source>Transaction token or contact</source>
+        <oldsource>Send To</oldsource>
         <translation type="unfinished">Yolla</translation>
     </message>
     <message id="send-contact-placeholder">
         <source>Please specify contact or transaction token</source>
+        <oldsource>Please specify contact</oldsource>
         <translation type="unfinished">Lütfen kontağı belirleyin</translation>
     </message>
     <message id="send-amount-label">
         <source>Transaction amount</source>
-        <translation type="unfinished">İşlem miktarı</translation>
+        <translation>İşlem miktarı</translation>
     </message>
     <message id="send-founds-fail">
         <source>Insufficient funds: you would need %1 to complete the transaction</source>
-        <translation type="unfinished">Yetersiz miktar: işlemi tamamlamak için %1 gerekir</translation>
+        <translation>Yetersiz miktar: işlemi tamamlamak için %1 gerekir</translation>
     </message>
     <message id="send-fee-fail">
         <source>The minimum fee is %1 GROTH</source>
@@ -606,7 +615,7 @@
     </message>
     <message id="send-remaining-label">
         <source>Remaining</source>
-        <translation type="unfinished">Kalan</translation>
+        <translation>Kalan</translation>
     </message>
     <message id="send-send-fail">
         <source>Address %1 is invalid</source>
@@ -942,62 +951,6 @@
         <source>Spent</source>
         <translation>Harcanan</translation>
     </message>
-    <message id="offer-book-title">
-        <source>Offer Book</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message id="offer-book-title-2">
-        <source>Active offers</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message id="offer-book-coins">
-        <source>Coins</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message id="offer-book-create">
-        <source>Create an offer</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message id="offer-book-all-tab">
-        <source>All</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message id="offer-book-mine-tab">
-        <source>Mine</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message id="offer-book-others-tab">
-        <source>Others</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message id="offer-book-time-created">
-        <source>Date | time</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message id="offer-book-amount">
-        <source>Amount</source>
-        <translation type="unfinished">Miktar</translation>
-    </message>
-    <message id="offer-book-amount-swap">
-        <source>Amount</source>
-        <translation type="unfinished">Miktar</translation>
-    </message>
-    <message id="offer-book-rate">
-        <source>Rate</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message id="offer-book-expiration">
-        <source>Expiration</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message id="offer-book-accept">
-        <source>Accept offer</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message id="offer-book-cancel">
-        <source>Cancel offer</source>
-        <translation type="unfinished"></translation>
-    </message>
     <message id="settings-general-lock-screen-never">
         <source>Never</source>
         <translation>Asla</translation>
@@ -1024,7 +977,7 @@
     </message>
     <message id="receive-amount-label">
         <source>Receive amount (optional)</source>
-        <translation type="unfinished">Alınacak miktar (isteğe bağlı)</translation>
+        <translation>Alınacak miktar (isteğe bağlı)</translation>
     </message>
     <message id="tx-details-tx-id-label">
         <source>Transaction ID</source>
@@ -1052,7 +1005,7 @@
         <translation>Harici link</translation>
     </message>
     <message id="open-external-message">
-        <source>Beam Wallet app requires permission to open external link in the browser. This action will expose your IP to the web server. To avoid it, choose -Cancel-. You can chage your choice in app setting anytime.</source>
+        <source>Beam Wallet app requires permission to open external link in the browser. This action will expose your IP to the web server. To avoid it, choose -Cancel-. You can change your choice in app setting anytime.</source>
         <translation>Beam Wallet uygulaması tarayıcıda harici link açmak için izin gerektirir. Bu işlem IP&apos;nizi web sunucusuna maruz bırakacaktır. Bunu önlemek için &quot;İptal&quot; i seçin. İstediğiniz zaman uygulama ayarlarında seçiminizi değiştirebilirsiniz.</translation>
     </message>
     <message id="start-open-change-wallet-message">
@@ -1228,24 +1181,128 @@
         <extracomment>settings tab, general section, ask password to send, confirm password dialog, message</extracomment>
         <translation>Bu ayarı değiştirmek için parola doğrulaması gerekiyor</translation>
     </message>
+    <message id="open-in-explorer">
+        <source>Open in Blockchain Explorer</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="restore-finish-alert-button">
+        <source>I understand</source>
+        <translation type="unfinished">Anlıyorum</translation>
+    </message>
+    <message id="restore-finish-alert-title">
+        <source>Do not simultaneously run two wallets initiated from the same seed phrase</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="restore-finish-alert-message-line">
+        <source>Don’t use same seed phrase on several devices, your balance and transaction list won’t be synchronized.</source>
+        <translation type="unfinished"></translation>
+    </message>
     <message id="general-fee-rate">
         <source>Transaction fee rate</source>
         <translation type="unfinished"></translation>
     </message>
     <message id="general-fee-fail">
         <source>The minimum fee is %1 %2</source>
-        <translation type="unfinished">Minimum işlem ücreti %1 GROTH</translation>
-    </message>
-    <message id="wallet-receive-swap-title">
-        <source>Create swap offer</source>
         <translation type="unfinished"></translation>
+    </message>
+    <message id="general-locked">
+        <source>locked</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="general-change-settings">
+        <source>Change settings</source>
+        <translation type="unfinished">Ayarları değiştir</translation>
     </message>
     <message id="wallet-swap">
         <source>Swap</source>
         <translation type="unfinished"></translation>
     </message>
-    <message id="wallet-receive-your-token">
-        <source>Your transaction token:</source>
+    <message id="settings-reset">
+        <source>Switch off</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="settings-node-address">
+        <source>Node Address</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="settings-username">
+        <source>Username</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="settings-password">
+        <source>Password</source>
+        <translation type="unfinished">Şifre</translation>
+    </message>
+    <message id="settings-fee-rate">
+        <source>Default fee</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="offer-book-title">
+        <source>Offer Book</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="offer-book-create">
+        <source>Create an offer</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="offer-book-title-2">
+        <source>Active offers</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="offer-book-coins">
+        <source>Coins</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="offer-book-all-tab">
+        <source>All</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="offer-book-mine-tab">
+        <source>Mine</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="offer-book-others-tab">
+        <source>Others</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="offer-book-time-created">
+        <source>Date | time</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="offer-book-amount">
+        <source>Amount</source>
+        <translation type="unfinished">Miktar</translation>
+    </message>
+    <message id="offer-book-amount-swap">
+        <source>Amount</source>
+        <translation type="unfinished">Miktar</translation>
+    </message>
+    <message id="offer-book-rate">
+        <source>Rate</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="offer-book-expiration">
+        <source>Expiration</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="offer-book-cancel">
+        <source>Cancel offer</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="offer-book-accept">
+        <source>Accept offer</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="swap-na-message">
+        <source>You do not have any 3rd-party currencies connected.\nUpdate your settings and try again.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="wallet-receive-swap-title">
+        <source>Create swap offer</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="wallet-receive-addr-message">
+        <source>Send this address to the sender over an external secure channel or scan the QR code</source>
         <translation type="unfinished"></translation>
     </message>
     <message id="wallet-receive-copy-address">
@@ -1272,8 +1329,28 @@
         <source>6 hours</source>
         <translation type="unfinished">24 saat {6 ?}</translation>
     </message>
+    <message id="general-rate">
+        <source>Rate</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="wallet-receive-your-token">
+        <source>Your transaction token:</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="wallet-swap-token-message">
+        <source>Send this token to the sender over an external secure channel</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="wallet-receive-swap-publish">
+        <source>publish transaction token</source>
+        <translation type="unfinished"></translation>
+    </message>
     <message id="wallet-send-swap-title">
         <source>Swap currencies</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="wallet-send-invalid-token">
+        <source>Invalid address or token</source>
         <translation type="unfinished"></translation>
     </message>
     <message id="general-comment-local">
@@ -1282,6 +1359,22 @@
     </message>
     <message id="send-total-label">
         <source>Total UTXO value</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="general-bitcoin">
+        <source>Bitcoin</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="general-litecoin">
+        <source>Litecoin</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="general-qtum">
+        <source>QTUM</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="swap-currency-na-message">
+        <source>You do not have %1 connected.\nUpdate your settings and try again.</source>
         <translation type="unfinished"></translation>
     </message>
     <message id="send-swap-to-label">
@@ -1314,74 +1407,6 @@
     </message>
     <message id="general-amount-received">
         <source>Received</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message id="general-locked">
-        <source>locked</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message id="general-change-settings">
-        <source>Change settings</source>
-        <translation type="unfinished">Ayarları değiştir</translation>
-    </message>
-    <message id="settings-reset">
-        <source>Switch off</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message id="settings-node-address">
-        <source>Node Address</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message id="settings-username">
-        <source>Username</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message id="settings-password">
-        <source>Password</source>
-        <translation type="unfinished">Şifre</translation>
-    </message>
-    <message id="settings-fee-rate">
-        <source>Default fee</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message id="swap-na-message">
-        <source>You do not have any 3rd-party currencies connected.\nUpdate your settings and try again.</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message id="general-rate">
-        <source>Rate</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message id="wallet-receive-swap-publish">
-        <source>publish transaction token</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message id="wallet-send-invalid-token">
-        <source>Invalid address or token</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message id="general-bitcoin">
-        <source>Bitcoin</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message id="general-litecoin">
-        <source>Litecoin</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message id="general-qtum">
-        <source>QTUM</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message id="swap-currency-na-message">
-        <source>You do not have %1 connected.\nUpdate your settings and try again.</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message id="wallet-receive-addr-message">
-        <source>Send this address to the sender over an external secure channel or scan the QR code</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message id="wallet-swap-token-message">
-        <source>Send this token to the sender over an external secure channel</source>
         <translation type="unfinished"></translation>
     </message>
 </context>

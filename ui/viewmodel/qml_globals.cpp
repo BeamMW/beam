@@ -15,6 +15,7 @@
 #include <QMessageBox>
 #include <QApplication>
 #include <QClipboard>
+#include "version.h"
 #include "model/app_model.h"
 #include "wallet/common.h"
 
@@ -37,6 +38,12 @@ void QMLGlobals::showMessage(const QString& message)
 void QMLGlobals::copyToClipboard(const QString& text)
 {
     QApplication::clipboard()->setText(text);
+}
+
+
+QString QMLGlobals::version()
+{
+    return QString::fromStdString(PROJECT_VERSION);
 }
 
 bool QMLGlobals::isTAValid(const QString& text)

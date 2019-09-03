@@ -81,7 +81,6 @@ namespace beam::wallet
         virtual void SendEncryptedMessage(const WalletID& peerID, const ByteBuffer& msg) = 0;
     };
 
-    // Wallet base class. 
     // Extends FlyClient protocol for communication with own or remote node
     class Wallet
         : public proto::FlyClient
@@ -118,6 +117,7 @@ namespace beam::wallet
         void ResumeTransaction(const TxDescription& tx);
         void ResumeAllTransactions();
 
+        // INegotiatorGateway
         void OnAsyncStarted() override;
         void OnAsyncFinished() override;
         void on_tx_completed(const TxID& txID) override;
@@ -130,6 +130,7 @@ namespace beam::wallet
         void register_tx(const TxID& txId, Transaction::Ptr, SubTxID subTxID) override;
         void UpdateOnNextTip(const TxID&) override;
 
+        // IWalletMessageConsumer
         void OnWalletMessage(const WalletID& peerID, const SetTxParameter&) override;
 
         // FlyClient

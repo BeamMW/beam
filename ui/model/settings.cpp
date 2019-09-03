@@ -49,12 +49,17 @@ namespace
         { "zh_CN", "Chinese Simplified"},
         { "en_US", "English" },
         { "es_ES", "Español"},
+        { "be_BY", "Беларуская"},
+        { "nl_NL", "Dutch"},
         { "fr_FR", "Française"},
+        { "ja_JP", "日本語"},
         { "ru_RU", "Русский" },
-        { "vi_VI", "Tiếng việt"},
-        { "ko_KR", "한국어"},
+        { "fi_FI", "Suomi" },
         { "sv_SE", "Svenska"},
-        { "tr_TR", "Türkçe"}
+        { "th_TH", "ภาษาไทย"},
+        { "tr_TR", "Türkçe"},
+        { "vi_VI", "Tiếng việt"},
+        { "ko_KR", "한국어"}
     };
 }
 

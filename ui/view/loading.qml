@@ -214,6 +214,17 @@ Item
                         Layout.fillHeight: true
                         Layout.minimumHeight: 67
                     }
+
+                    SFText {
+                        Layout.alignment:    Qt.AlignHCenter
+                        font.pixelSize:      12
+                        color:               Qt.rgba(255, 255, 255, 0.3)
+                        text:                [qsTrId("settings-version"), BeamGlobals.version()].join(' ')
+                    }
+
+                    Item {
+                        Layout.minimumHeight: 35
+                    }
                 }
             }
         }

@@ -542,6 +542,7 @@ namespace beam::wallet
         TimeOutOfSync,
         InternalNodeStartFailed,
         HostResolvedError,
+        ImportRecoveryError,
     };
 
     ErrorType getWalletError(proto::NodeProcessingException::Type exceptionType);
@@ -573,5 +574,6 @@ namespace std
     string to_string(const beam::wallet::WalletID&);
     string to_string(const beam::Merkle::Hash& hash);
     string to_string(beam::wallet::AtomicSwapCoin value);
+    string to_string(const beam::wallet::PrintableAmount& amount);
     string to_string(const beam::wallet::TxParameters&);
 }

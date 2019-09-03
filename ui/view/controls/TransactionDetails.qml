@@ -8,6 +8,7 @@ import "."
 RowLayout {
     id: "root"
     property TxObject model
+    property var onOpenExternal: null
     signal textCopied(string text)
     signal showDetails()
 
@@ -146,6 +147,44 @@ RowLayout {
             font.styleName: "Italic"
             elide: Text.ElideMiddle
             onCopyText: textCopied(text)
+        }
+        SFText {
+            Layout.alignment: Qt.AlignTop
+            font.pixelSize: 14
+            color: Style.content_secondary
+            text: ""
+        }
+        Item {
+            Layout.preferredWidth: openInExplorer.width + 10 + openInExplorerIcon.width
+            Layout.preferredHeight: 16
+
+            SFText {
+                id: openInExplorer
+                font.pixelSize: 14
+                anchors.left: parent.left
+                anchors.top: parent.top
+                anchors.rightMargin: 10
+                color: Style.active
+                //% "Open in Blockchain Explorer"
+                text: qsTrId("open-in-explorer")
+            }
+            SvgImage {
+                id: openInExplorerIcon
+                anchors.top: parent.top
+                anchors.right: parent.right
+                source: "qrc:/assets/icon-external-link-green.svg"
+            }
+            MouseArea {
+                anchors.fill: parent
+                acceptedButtons: Qt.LeftButton
+                cursorShape: Qt.PointingHandCursor
+                onClicked: {
+                    if (onOpenExternal && typeof onOpenExternal === 'function') {
+                        onOpenExternal();
+                    }
+                }
+                hoverEnabled: true
+            }
         }
         SFText {
             Layout.alignment: Qt.AlignTop

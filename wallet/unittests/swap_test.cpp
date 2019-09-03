@@ -30,9 +30,9 @@
 
 #include "http/http_client.h"
 #include "utility/test_helpers.h"
-#include "../../core/radixtree.h"
-#include "../../core/unittest/mini_blockchain.h"
-#include "../../core/negotiator.h"
+#include "core/radixtree.h"
+#include "core/unittest/mini_blockchain.h"
+#include "core/negotiator.h"
 #include "node/node.h"
 
 #include "test_helpers.h"

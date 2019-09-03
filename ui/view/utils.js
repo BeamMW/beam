@@ -22,6 +22,41 @@ function getLogoTopGapSize(parentHeight) {
     return parentHeight * (parentHeight < 768 ? 0.13 : 0.18)
 }
 
+function handleMousePointer(mouse, element) {
+    element.cursorShape = element.parent.linkAt(mouse.x, mouse.y).length
+        ? element.cursorShape = Qt.PointingHandCursor
+        : element.cursorShape = Qt.ArrowCursor;
+}
+
+function openExternal(externalLink, settings, dialog) {
+    if (settings.isAllowedBeamMWLinks) {
+        Qt.openUrlExternally(externalLink);
+    } else {
+        dialog.externalUrl = externalLink;
+        dialog.onOkClicked = function () {
+            settings.isAllowedBeamMWLinks = true;
+        };
+        dialog.open();
+    }
+}
+
+function handleExternalLink(mouse, element, settings, dialog) {
+    if (element.cursorShape == Qt.PointingHandCursor) {
+        var externalLink = element.parent.linkAt(mouse.x, mouse.y);
+        if (settings.isAllowedBeamMWLinks) {
+            Qt.openUrlExternally(externalLink);
+        } else {
+            dialog.externalUrl = externalLink;
+            dialog.onOkClicked = function () {
+                settings.isAllowedBeamMWLinks = true;
+            };
+            dialog.open();
+        }
+    } else {
+        settings.isAllowedBeamMWLinks = !settings.isAllowedBeamMWLinks;
+    }
+}
+
 function calcDisplayRate(ail, air) {
     // ai[X] = amount input control
     var cl = ail.currency

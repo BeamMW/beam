@@ -154,12 +154,15 @@ void WalletModel::onSwapOffersChanged(beam::wallet::ChangeAction action, const s
 
 void WalletModel::onCoinsByTx(const std::vector<beam::wallet::Coin>& coins)
 {
-
 }
 
 void WalletModel::onAddressChecked(const std::string& addr, bool isValid)
 {
     emit addressChecked(QString::fromStdString(addr), isValid);
+}
+
+void WalletModel::onImportRecoveryProgress(uint64_t done, uint64_t total)
+{
 }
 
 void WalletModel::onGeneratedNewAddress(const beam::wallet::WalletAddress& walletAddr)

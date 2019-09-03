@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!DOCTYPE TS>
-<TS version="2.1" language="zh-CN" sourcelanguage="en">
+<TS version="2.1" language="th" sourcelanguage="en">
 <context>
     <name></name>
     <message id="general-beam">
@@ -13,113 +13,113 @@
     </message>
     <message id="general-comment">
         <source>Comment</source>
-        <translation>备注</translation>
+        <translation>คอมเมนต์</translation>
     </message>
     <message id="general-contact">
         <source>Contact</source>
-        <translation>联系人</translation>
+        <translation>รายชื่อผู้ติดต่อ</translation>
     </message>
     <message id="general-category">
         <source>Category</source>
-        <translation>类别</translation>
+        <translation>หมวดหมู่</translation>
     </message>
     <message id="general-actions">
         <source>Actions</source>
-        <translation>操作</translation>
+        <translation>คำสั่ง</translation>
     </message>
     <message id="general-address">
         <source>Address</source>
-        <translation>地址</translation>
+        <translation>ที่อยู่</translation>
     </message>
     <message id="general-exp-date">
         <source>Expiration date</source>
-        <translation>失效日期</translation>
+        <translation>วันหมดอายุ</translation>
     </message>
     <message id="general-created">
         <source>Created</source>
-        <translation>已创建</translation>
+        <translation>สร้างเมื่อ</translation>
     </message>
     <message id="general-send">
         <source>Send</source>
-        <translation>付款</translation>
+        <translation>โอน</translation>
     </message>
     <message id="general-amount">
         <source>Amount</source>
-        <translation>数量</translation>
+        <translation>จำนวน</translation>
     </message>
     <message id="general-status">
         <source>Status</source>
-        <translation>状态</translation>
+        <translation>สถานะ</translation>
     </message>
     <message id="general-cancel">
         <source>Cancel</source>
         <extracomment>Edit addres dialog, cancel button</extracomment>
-        <translation>取消</translation>
+        <translation>ยกเลิก</translation>
     </message>
     <message id="general-delete">
         <source>Delete</source>
-        <translation>删除</translation>
+        <translation>ลบ</translation>
     </message>
     <message id="general-receiving">
         <source>receiving</source>
-        <translation>收款中</translation>
+        <translation>กำลังรับ</translation>
     </message>
     <message id="general-sending">
         <source>sending</source>
-        <translation>付款中</translation>
+        <translation>กำลังโอน</translation>
     </message>
     <message id="general-rescan">
         <source>Rescan</source>
-        <translation>重新扫描</translation>
+        <translation>สแกนใหม่</translation>
     </message>
     <message id="general-change-pwd">
         <source>Change wallet password</source>
-        <translation>修改钱包密码</translation>
+        <translation>เปลี่ยนรหัสผ่านของกระเป๋า</translation>
     </message>
     <message id="general-pwd-empty-error">
         <source>Please, enter password</source>
-        <translation>请输入密码</translation>
+        <translation>กรุณาใส่รหัสผ่าน</translation>
     </message>
     <message id="general-pwd-invalid">
         <source>Invalid password provided</source>
-        <translation>输入密码无效</translation>
+        <translation>รหัสผ่านไม่ถูกต้อง</translation>
     </message>
     <message id="general-payment-proof">
         <source>Payment proof</source>
-        <translation>付款证明</translation>
+        <translation>Payment proof</translation>
     </message>
     <message id="general-close">
         <source>Close</source>
-        <translation>关闭</translation>
+        <translation>ปิด</translation>
     </message>
     <message id="general-details">
         <source>Details</source>
-        <translation>详情</translation>
+        <translation>ราย​ละเอียด</translation>
     </message>
     <message id="general-kernel-id">
         <source>Kernel ID</source>
-        <translation>内核ID</translation>
+        <translation>Kernel ID</translation>
     </message>
     <message id="general-copy">
         <source>Copy</source>
-        <translation>复制</translation>
+        <translation>คัดลอก</translation>
     </message>
     <message id="general-paste">
         <source>Paste</source>
-        <translation>粘贴</translation>
+        <translation>วาง</translation>
     </message>
     <message id="general-fee">
         <source>Transaction fee</source>
         <extracomment>UTXO type fee</extracomment>
-        <translation>交易费</translation>
+        <translation>ค่าธรรมเนียมธุรกรรม</translation>
     </message>
     <message id="general-ok">
         <source>Ok</source>
-        <translation>好</translation>
+        <translation>ตกลง</translation>
     </message>
     <message id="general-invalid-address">
         <source>Invalid address</source>
-        <translation>无效地址</translation>
+        <translation>ที่อยู่ไม่ถูกต้อง</translation>
     </message>
     <message id="general-coinbase">
         <source>Coinbase</source>
@@ -129,488 +129,485 @@
     <message id="general-regular">
         <source>Regular</source>
         <extracomment>UTXO type Regular</extracomment>
-        <translation>常规</translation>
+        <translation>ปกติ</translation>
     </message>
     <message id="general-change">
         <source>Change</source>
         <extracomment>UTXO type Change</extracomment>
-        <translation>找零</translation>
+        <translation>เปลี่ยน</translation>
     </message>
     <message id="general-treasury">
         <source>Treasury</source>
         <extracomment>UTXO type Treasury</extracomment>
-        <translation>基金会</translation>
+        <translation>Treasury</translation>
     </message>
     <message id="general-back">
         <source>Back</source>
-        <translation>返回</translation>
+        <translation>ย้อนกลับ</translation>
     </message>
     <message id="general-next">
         <source>Next</source>
-        <translation>下一步</translation>
+        <translation>ถัดไป</translation>
     </message>
     <message id="general-create-wallet">
         <source>Create new wallet</source>
-        <translation>创建新钱包</translation>
+        <translation>สร้างกระเป๋าใหม่</translation>
     </message>
     <message id="general-restore-or-create-wallet">
         <source>Restore wallet or create a new one</source>
-        <translation>恢复钱包或创建新钱包</translation>
+        <translation>กู้กระเป๋าหรือสร้างกระเป๋าใหม่</translation>
     </message>
     <message id="general-select-db">
         <source>Select the wallet database file</source>
-        <translation>选择钱包数据库文件</translation>
+        <translation>เลือกไฟล์ดาต้าเบสของกระเป๋า</translation>
     </message>
     <message id="general-restore-wallet">
         <source>Restore wallet</source>
-        <translation>恢复钱包</translation>
+        <translation>กู้กระเป๋า</translation>
     </message>
     <message id="general-start-using">
         <source>Start using your wallet</source>
-        <translation>开始使用钱包</translation>
+        <translation>เริ่มต้นใช้งานกระเป๋าของคุณ</translation>
     </message>
     <message id="general-open-wallet">
         <source>Open my wallet</source>
-        <translation>打开钱包</translation>
+        <translation>เปิดกระเป๋าของฉัน</translation>
     </message>
     <message id="general-proceed">
         <source>Proceed</source>
         <extracomment>confirm password dialog, ok button</extracomment>
-        <translation>开始</translation>
+        <translation>ดำเนินการ</translation>
     </message>
     <message id="general-show-in-folder">
         <source>Show in folder</source>
-        <translation>在文件夹中显示</translation>
+        <translation>แสดงในโฟลเดอร์</translation>
     </message>
     <message id="general-addr-comment-error">
         <source>Address with the same comment already exists</source>
         <oldsource>Address with same comment already exist</oldsource>
-        <translation type="unfinished">有地址已使用了相同备注</translation>
+        <translation type="unfinished">มีที่อยู่ที่เคยใช้คอมเมนต์นี้แล้ว</translation>
     </message>
     <message id="wallet-receive-button">
         <source>Receive</source>
-        <translation>收款</translation>
+        <translation>รับ</translation>
     </message>
     <message id="wallet-in-progress-title">
         <source>In progress</source>
-        <translation>交易中</translation>
+        <translation>อยู่ระหว่างดำเนินการ</translation>
     </message>
     <message id="wallet-transactions-title">
         <source>Transactions</source>
-        <translation>交易</translation>
+        <translation>ธุรกรรม</translation>
     </message>
     <message id="wallet-verify-payment">
         <source>Verify payment</source>
-        <translation>验证付款</translation>
+        <translation>ตรวจสอบการชำระเงิน</translation>
     </message>
     <message id="wallet-txs-date-time">
         <source>Date | Time</source>
-        <translation>日期 | 时间</translation>
+        <translation>วันที่ | เวลา</translation>
     </message>
     <message id="wallet-txs-copy-addr-cm">
         <source>Copy address</source>
-        <translation>复制地址</translation>
+        <translation>คัดลอกที่อยู่</translation>
     </message>
     <message id="wallet-txs-delete-message">
         <source>The transaction will be deleted. This operation can not be undone</source>
-        <translation>交易将被删除
-此操作无法撤销</translation>
+        <translation>ธุรกรรม​จะ​ถูก​ลบออก คำสั่ง​นี้​ไม่​สามารถ​กู้​คืน​ได้</translation>
     </message>
     <message id="wallet-txs-status-pending">
         <source>pending</source>
-        <translation>待确认</translation>
+        <translation>กำลังรออยู่</translation>
     </message>
     <message id="wallet-txs-status-waiting-sender">
         <source>waiting for sender</source>
-        <translation>等待付款方</translation>
+        <translation>กำลังรอผู้โอน</translation>
     </message>
     <message id="wallet-txs-status-waiting-receiver">
         <source>waiting for receiver</source>
-        <translation>等待收款方</translation>
+        <translation>กำลังรอผู้รับ</translation>
     </message>
     <message id="wallet-txs-status-completed">
         <source>completed</source>
-        <translation>已完成</translation>
+        <translation>เรียบร้อยแล้ว</translation>
     </message>
     <message id="wallet-txs-status-received">
         <source>received</source>
-        <translation>已收</translation>
+        <translation>ได้​รับ​แล้ว</translation>
     </message>
     <message id="wallet-txs-status-sent">
         <source>sent</source>
-        <translation>已付</translation>
+        <translation>ส่งแล้ว</translation>
     </message>
     <message id="wallet-txs-status-cancelled">
         <source>cancelled</source>
-        <translation>已取消</translation>
+        <translation>ยกเลิกแล้ว</translation>
     </message>
     <message id="wallet-txs-status-expired">
         <source>expired</source>
-        <translation>已失效</translation>
+        <translation>หมดอายุ</translation>
     </message>
     <message id="wallet-txs-status-failed">
         <source>failed</source>
-        <translation>失败</translation>
+        <translation>ล้มเหลว</translation>
     </message>
     <message id="wallet-txs-status-unknown">
         <source>unknown</source>
-        <translation>未知</translation>
+        <translation>ไม่ทราบ</translation>
     </message>
     <message id="addresses-tittle">
         <source>Addresses</source>
-        <translation>地址</translation>
+        <translation>ที่อยู่</translation>
     </message>
     <message id="addresses-tab-active">
         <source>My active addresses</source>
-        <translation>有效地址</translation>
+        <translation>ที่อยู่ที่ฉันสามารถใช้งานได้</translation>
     </message>
     <message id="addresses-tab-expired">
         <source>My expired addresses</source>
-        <translation>失效地址</translation>
+        <translation>ที่อยู่ที่หมดอายุแล้ว</translation>
     </message>
     <message id="addresses-tab-contacts">
         <source>Contacts</source>
-        <translation>联系人</translation>
+        <translation>รายชื่อผู้ติดต่อ</translation>
     </message>
     <message id="address-table-cm-show-qr">
         <source>Show QR code</source>
         <extracomment>Entry in adress table context menu to show QR</extracomment>
-        <translation>显示二维码</translation>
+        <translation>แสดง QR Code</translation>
     </message>
     <message id="address-table-cm-edit">
         <source>Edit address</source>
         <extracomment>Entry in adress table context menu to edit</extracomment>
-        <translation>编辑地址</translation>
+        <translation>แก้ไขที่อยู่</translation>
     </message>
     <message id="address-table-cm-delete">
         <source>Delete address</source>
         <extracomment>Entry in adress table context menu to delete</extracomment>
-        <translation>删除地址</translation>
+        <translation>ลบที่อยู่</translation>
     </message>
     <message id="address-table-cm-delete-contact">
         <source>Delete contact</source>
-        <translation>删除联系人</translation>
+        <translation>ลบผู้ติดต่อ</translation>
     </message>
     <message id="available-panel-available">
         <source>Available</source>
-        <translation>可用余额</translation>
+        <translation>พร้อมใช้งาน</translation>
     </message>
     <message id="available-panel-where-to-buy">
         <source>Where to buy BEAM?</source>
-        <translation>在哪里获取BEAM？</translation>
+        <translation>ฉันจะซื้อ BEAM ได้ที่ไหนบ้าง?</translation>
     </message>
     <message id="settings-version">
         <source>Version</source>
         <extracomment>settings tab, version label</extracomment>
-        <translation>版本</translation>
+        <translation>เวอร์ชัน</translation>
     </message>
     <message id="settings-remote-node-ip-port">
         <source>ip:port</source>
         <extracomment>settings tab, node section, address label</extracomment>
-        <translation>IP地址:端口</translation>
+        <translation>ip:port</translation>
     </message>
     <message id="settings-local-node-run-checkbox">
         <source>Run local node</source>
         <extracomment>settings tab, node section, run node label</extracomment>
-        <translation>运行本地节点</translation>
+        <translation>รันโหนดเอง</translation>
     </message>
     <message id="settings-local-node-port">
         <source>Port</source>
         <extracomment>settings tab, node section, port label</extracomment>
-        <translation>端口</translation>
+        <translation>Port</translation>
     </message>
     <message id="settings-rescan-confirmation-message">
         <source>Rescan will sync transaction and UTXO data with the latest information on the blockchain. The process might take long time.</source>
         <extracomment>settings tab, confirm rescan dialog message</extracomment>
-        <translation>重新扫描会将交易和UTXO数据与区块链上的最新信息同步
-这个过程可能需要很长时间</translation>
+        <translation>การสแกนใหม่จะทำการดึงธุรกรรมและข้อมูล UTXO ล่าสุดทั้งหมดมาจากบล็อกเชน ดังนั้นการดำเนินการอาจจะใช้เวลาค่อนข้างนาน</translation>
     </message>
     <message id="settings-general-title">
         <source>General settings</source>
         <extracomment>settings tab, general section, title</extracomment>
-        <translation>通用设置</translation>
+        <translation>ตั้งค่าทั่วไป</translation>
     </message>
     <message id="settings-general-lock-screen">
         <source>Lock screen</source>
         <extracomment>settings tab, general section, lock screen label</extracomment>
-        <translation>锁定屏幕</translation>
+        <translation>ล็อกหน้าจอ</translation>
     </message>
     <message id="settings-general-require-pwd-to-spend">
         <source>Ask password for every sending transaction</source>
         <extracomment>settings tab, general section, ask password to send label</extracomment>
-        <translation>每次付款都需要输入密码</translation>
+        <translation>ให้ถามรหัสผ่านทุกครั้งเมื่อจะโอนธุรกรรม</translation>
     </message>
     <message id="settings-report-problem-title">
         <source>Report problem</source>
         <extracomment>settings tab, report problem section, title</extracomment>
-        <translation>报告问题</translation>
+        <translation>รายงานปัญหา</translation>
     </message>
     <message id="settings-wallet-location-label">
         <source>Wallet folder location</source>
         <extracomment>settings tab, general section, wallet data folder location label</extracomment>
-        <translation>钱包文件夹位置</translation>
+        <translation>ตำแหน่งโฟลเดอร์ของกระเป๋า</translation>
     </message>
     <message id="settings-apply">
         <source>Apply</source>
         <extracomment>settings tab, node section, apply button</extracomment>
-        <translation>应用</translation>
+        <translation>นำไปใช้</translation>
     </message>
     <message id="logo-description">
         <source>Scalable confidential cryptocurrency</source>
-        <translation>可扩展加密数字货币</translation>
+        <translation>คริปโตเคอเรนซี่ที่ปลอดภัยและยืดหยุ่น</translation>
     </message>
     <message id="change-pwd-old-empty">
         <source>Please, enter old password</source>
-        <translation>请输入旧密码</translation>
+        <translation>กรุณาใส่รหัสผ่านเก่า</translation>
     </message>
     <message id="change-pwd-new-empty">
         <source>Please, enter new password</source>
-        <translation>请输入新密码</translation>
+        <translation>กรุณากรอกรหัสผ่านใหม่</translation>
     </message>
     <message id="change-pwd-confirm-empty">
         <source>Please, confirm new password</source>
-        <translation>请确认新密码</translation>
+        <translation>กรุณากรอกรหัสผ่านใหม่เพื่อยืนยันอีกครั้ง</translation>
     </message>
     <message id="change-pwd-new-same-as-old">
         <source>New password cannot be the same as old</source>
-        <translation>新密码不能与旧密码相同</translation>
+        <translation>รหัสผ่านใหม่จะต้องไม่ซ้ำกับรหัสผ่านเก่า</translation>
     </message>
     <message id="change-pwd-confirm-fail">
         <source>New password doesn&apos;t match the confirm password</source>
-        <translation>两次密码不匹配</translation>
+        <translation>รหัสผ่านใหม่กับยืนยันรหัสผ่านใหม่ไม่ตรงกัน</translation>
     </message>
     <message id="change-pwd-old-fail">
         <source>The old password you have entered is incorrect</source>
-        <translation>您输入的旧密码不正确</translation>
+        <translation>รหัสผ่านเก่าที่คุณกรอกไม่ถูกต้อง</translation>
     </message>
     <message id="change-pwd-old-pwd-label">
         <source>Enter old password</source>
-        <translation>请输入旧密码</translation>
+        <translation>กรอกรหัสผ่านเก่า</translation>
     </message>
     <message id="change-pwd-new-pwd-label">
         <source>Enter new password</source>
-        <translation>请输入新密码</translation>
+        <translation>กรอกรหัสผ่านใหม่</translation>
     </message>
     <message id="change-pwd-confirm-pwd-label">
         <source>Confirm new password</source>
-        <translation>请确认新密码</translation>
+        <translation>ยืนยันรหัสผ่านใหม่</translation>
     </message>
     <message id="change-pwd-ok">
         <source>Сhange password</source>
-        <translation>修改密码</translation>
+        <translation>เปลี่ยนแปลงรหัสผ่าน</translation>
     </message>
     <message id="loading-loading">
         <source>Loading wallet...</source>
-        <translation>正在加载钱包...</translation>
+        <translation>กำลังเปิดกระเป๋า...</translation>
     </message>
     <message id="loading-restoring">
         <source>Restoring wallet...</source>
-        <translation>正在恢复钱包...</translation>
+        <translation>กำลังกู้กระเป๋า...</translation>
     </message>
     <message id="loading-creating">
         <source>Creating wallet...</source>
-        <translation>正在创建钱包...</translation>
+        <translation>กำลังสร้างกระเป๋า...</translation>
     </message>
     <message id="start-open-pwd-invitation">
         <source>Enter your password to access the wallet</source>
-        <translation>请输入密码以使用钱包</translation>
+        <translation>กรุณากรอกรหัสผ่านเพื่อเปิดกระเป๋า</translation>
     </message>
     <message id="open-show-wallet-button">
         <source>Show my wallet</source>
-        <translation>显示我的钱包</translation>
+        <translation>เปิดกระเป๋าของฉัน</translation>
     </message>
     <message id="edit-addr-title">
         <source>Edit address</source>
         <extracomment>Edit addres dialog title</extracomment>
-        <translation>编辑地址</translation>
+        <translation>แก้ไขที่อยู่</translation>
     </message>
     <message id="edit-addr-addr-id">
         <source>Address ID</source>
         <extracomment>Edit addres dialog, address label</extracomment>
-        <translation>地址ID</translation>
+        <translation>ที่อยู่</translation>
     </message>
     <message id="edit-addr-save-button">
         <source>Save</source>
         <extracomment>Edit addres dialog, save button</extracomment>
-        <translation>保存</translation>
+        <translation>บันทึก</translation>
     </message>
     <message id="payment-info-proof-verification">
         <source>Payment proof verification</source>
-        <translation>付款证明验证</translation>
+        <translation>ตรวจสอบ Payment Proof</translation>
     </message>
     <message id="payment-info-proof-label">
         <source>Paste your payment proof here</source>
-        <translation>请在此处粘贴付款证明</translation>
+        <translation>วาง Payment Proof ของคุณที่นี่</translation>
     </message>
     <message id="payment-info-proof-decode-fail">
         <source>Cannot decode a proof, illegal sequence.</source>
-        <translation>无法解码证明
-非法序列</translation>
+        <translation>ไม่สามารถถอดรหัส Payment Proof ได้</translation>
     </message>
     <message id="payment-info-proof-code-label">
         <source>Code</source>
-        <translation>代码</translation>
+        <translation>โค้ด</translation>
     </message>
     <message id="payment-info-proof-sender-label">
         <source>Sender</source>
-        <translation>付款人</translation>
+        <translation>ผู้โอน</translation>
     </message>
     <message id="payment-info-proof-receiver-label">
         <source>Receiver</source>
-        <translation>收款人</translation>
+        <translation>ผู้รับ</translation>
     </message>
     <message id="payment-info-copy-details-button">
         <source>Copy details</source>
-        <translation>复制详情</translation>
+        <translation>คัดลอกรายละเอียด</translation>
     </message>
     <message id="payment-info-copy-code-button">
         <source>Copy code</source>
-        <translation>复制代码</translation>
+        <translation>คัดลอกโค้ด</translation>
     </message>
     <message id="secondary-panel-maturing">
         <source>Maturing</source>
-        <translation type="vanished">成熟中</translation>
+        <translation type="vanished">รอการปลด</translation>
     </message>
     <message id="info-title">
         <source>Info view</source>
-        <translation>信息视图</translation>
+        <translation>การแสดงรายละเอียด</translation>
     </message>
     <message id="loading-change-settings-button">
         <source>Change settings</source>
-        <translation type="vanished">修改设置</translation>
+        <translation type="vanished">เปลี่ยนการตั้งค่า</translation>
     </message>
     <message id="loading-try-again-button">
         <source>Try again</source>
-        <translation>请再试一次</translation>
+        <translation>ลองอีกครั้ง</translation>
     </message>
     <message id="notifications-title">
         <source>Notifications view</source>
-        <translation>通知视图</translation>
+        <translation>การแจ้งเตือน</translation>
     </message>
     <message id="status-connecting">
         <source>connecting</source>
-        <translation>正在连接</translation>
+        <translation>กำลังเชื่อมต่อ</translation>
     </message>
     <message id="status-online">
         <source>online</source>
-        <translation>在线</translation>
+        <translation>ออนไลน์</translation>
     </message>
     <message id="status-updating">
         <source>updating</source>
-        <translation>正在更新</translation>
+        <translation>กำลังอัพเดท</translation>
     </message>
     <message id="tx-details-title">
         <source>General transaction info</source>
-        <translation>简明交易信息</translation>
+        <translation>รายละเอียดทั่วไปของธุรกรรม</translation>
     </message>
     <message id="tx-details-sending-addr-label">
         <source>Sending address</source>
-        <translation>付款地址</translation>
+        <translation>กำลังส่งที่อยู่</translation>
     </message>
     <message id="tx-details-receiving-addr-label">
         <source>Receiving address</source>
-        <translation>收款地址</translation>
+        <translation>ที่อยู่ที่ใช้รับโอน</translation>
     </message>
     <message id="tx-details-error-label">
         <source>Error</source>
-        <translation>错误</translation>
+        <translation>ผิดพลาด</translation>
     </message>
     <message id="settings-report-problem-save-log-button">
         <source>Save wallet logs</source>
         <extracomment>settings tab, report problem section, save logs button</extracomment>
-        <translation>保存钱包日志</translation>
+        <translation>เซฟ Log ของกระเป๋า</translation>
     </message>
     <message id="settings-rescan-confirmation-message-line-2">
         <source>Are you sure?</source>
         <extracomment>settings tab, confirm rescan dialog additional message</extracomment>
-        <translation>是否确定？</translation>
+        <translation>คุณแน่ใจหรือไม่?</translation>
     </message>
     <message id="settings-title">
         <source>Settings</source>
         <extracomment>settings tab title</extracomment>
-        <translation>设置</translation>
+        <translation>การตั้งค่า</translation>
     </message>
     <message id="cant-send-to-expired-message">
         <source>Can&apos;t send to the expired address.</source>
-        <translation>不能向失效地址付款</translation>
+        <translation>ไม่สามารถโอนไปที่ที่อยู่ที่หมดอายุแล้วได้</translation>
     </message>
     <message id="send-confirmation-title">
         <source>Confirm transaction details</source>
-        <translation>确认交易详情</translation>
+        <translation>ยืนยันรายละเอียดของธุรกรรม</translation>
     </message>
     <message id="send-confirmation-recipient-label">
         <source>Recipient</source>
-        <translation>收款人</translation>
+        <translation>ผู้รับ</translation>
     </message>
     <message id="send-confirmation-pwd-require-message">
         <source>To broadcast your transaction please enter your password</source>
-        <translation>请输入密码以广播交易</translation>
+        <translation>กรุณากรอกรหัสผ่านของคุณเพื่อดำเนินการธุรกรรม</translation>
     </message>
     <message id="wallet-title">
         <source>Wallet</source>
-        <translation>钱包</translation>
+        <translation>กระเป๋า</translation>
     </message>
     <message id="wallet-receive-title">
         <source>Receive</source>
         <oldsource>Receive Beam</oldsource>
-        <translation type="unfinished">接收Beam</translation>
+        <translation type="unfinished">รับ Beam</translation>
     </message>
     <message id="wallet-receive-my-addr-label">
         <source>My address (auto-generated)</source>
         <oldsource>My address</oldsource>
-        <translation type="unfinished">我的地址</translation>
+        <translation type="unfinished">ที่อยู่ของฉัน</translation>
     </message>
     <message id="wallet-receive-expires-label">
         <source>Expires in</source>
         <oldsource>Expires</oldsource>
-        <translation type="unfinished">失效</translation>
+        <translation type="unfinished">หมดอายุ</translation>
     </message>
     <message id="wallet-receive-expires-24">
         <source>24 hours</source>
-        <translation>24小时</translation>
+        <translation>24 ชั่วโมง</translation>
     </message>
     <message id="wallet-receive-expires-never">
         <source>Never</source>
-        <translation>永不</translation>
+        <translation>ไม่มี</translation>
     </message>
     <message id="wallet-receive-qr-label">
         <source>Scan to send</source>
-        <translation>扫描以付款</translation>
+        <translation>แสกนเพื่อโอน</translation>
     </message>
     <message id="wallet-receive-propogate-addr-message">
         <source>Send this address to the sender over an external secure channel</source>
-        <translation type="vanished">通过外部安全媒介将此地址发送给付款方</translation>
+        <translation type="vanished">นำที่อยู่นี้ไปให้ผู้ที่จะโอนในช่องทางอื่นๆ</translation>
     </message>
     <message id="invalid-addr-got-it-button">
         <source>Got it</source>
-        <translation type="vanished">知道了</translation>
+        <translation type="vanished">ได้รับแล้ว</translation>
     </message>
     <message id="send-title">
         <source>Send</source>
         <oldsource>Send Beam</oldsource>
-        <translation type="unfinished">付款Beam</translation>
+        <translation type="unfinished">โอน Beam</translation>
     </message>
     <message id="send-send-to-label">
         <source>Transaction token or contact</source>
         <oldsource>Send To</oldsource>
-        <translation type="unfinished">付款至</translation>
+        <translation type="unfinished">โอนไปที่</translation>
     </message>
     <message id="send-contact-placeholder">
         <source>Please specify contact or transaction token</source>
         <oldsource>Please specify contact</oldsource>
-        <translation type="unfinished">请指定联系人</translation>
+        <translation type="unfinished">กรุณาเลือกผู้ติดต่อ</translation>
     </message>
     <message id="send-amount-label">
         <source>Transaction amount</source>
-        <translation>交易数量</translation>
+        <translation>จำนวนธุรกรรม</translation>
     </message>
     <message id="send-founds-fail">
         <source>Insufficient funds: you would need %1 to complete the transaction</source>
-        <translation>资金不足：您需要%1来完成交易</translation>
+        <translation>จำนวนเงินไม่พอ: คุณจะต้องมีอีกเพิ่มอีก %1 เพื่อดำเนินการธุรกรรม</translation>
     </message>
     <message id="send-fee-fail">
         <source>The minimum fee is %1 GROTH</source>
-        <translation type="vanished">最小交易费为 %1 GROTH</translation>
+        <translation type="vanished">ค่าธรรมเนียมที่ต่ำที่สุดคือ %1 GROTH</translation>
     </message>
     <message id="send-curency-sub-name">
         <source>GROTH</source>
@@ -618,294 +615,285 @@
     </message>
     <message id="send-remaining-label">
         <source>Remaining</source>
-        <translation>剩余</translation>
+        <translation>ที่เหลืออยู่</translation>
     </message>
     <message id="send-send-fail">
         <source>Address %1 is invalid</source>
-        <translation type="vanished">地址 %1 无效</translation>
+        <translation type="vanished">ที่อยู่ %1 ไม่ถูกต้อง</translation>
     </message>
     <message id="start-restore-confirm-button">
         <source>I agree</source>
-        <translation>我同意</translation>
+        <translation>ฉันยอมรับ</translation>
     </message>
     <message id="start-restore-message-line">
         <source>You are trying to restore an existing Beam Wallet. Please notice that if you use your wallet on another device, your balance will be up to date, but  transaction history and addresses will be kept separately on each device.</source>
-        <translation>您正在尝试还原已存在的Beam钱包
-请注意：如果您在其他设备上使用该钱包，您的余额将是最新的，但交易历史和地址将分别保存在每个设备上</translation>
+        <translation>คุณกำลังดำเนินการกู้กระเป๋า กรุณาเข้าใจว่าถ้าคุณกำลังจะใช้งานกระเป๋าที่จะกู้นี้ในอุปกรณ์อื่น ยอดคงเหลือที่จะแสดงผลในอุปกรณ์นี้จะถูกอัพเดทเป็นปัจจุบัน แต่รายการประวัติธุรกรรมและที่อยู่นั้นจะถูกแยกเก็บในแต่ละอุปกรณ์</translation>
     </message>
     <message id="start-migration-message">
         <source>Your wallet will be migrated to v.</source>
-        <translation>您的钱包将被迁移到v</translation>
+        <translation>กระเป๋าของคุณจะถูกย้ายมาที่เวอร์ชั่น</translation>
     </message>
     <message id="start-migration-button">
         <source>Start auto migration</source>
         <extracomment>migration screen, start auto migration button</extracomment>
-        <translation>开始自动迁移</translation>
+        <translation>เริ่มต้นการย้ายอัตโนมัติ</translation>
     </message>
     <message id="start-select-db-thead-name">
         <source>Name</source>
-        <translation>名称</translation>
+        <translation>ชื่อ</translation>
     </message>
     <message id="start-select-db-thead-size">
         <source>Size</source>
-        <translation>大小</translation>
+        <translation>ขนาด</translation>
     </message>
     <message id="kb-unit">
         <source>kb</source>
-        <translation>KB</translation>
+        <translation>kb</translation>
     </message>
     <message id="start-select-db-thead-modified">
         <source>Date modified</source>
         <extracomment>start screen, select db for migration, Date modified column title</extracomment>
-        <translation>修改日期</translation>
+        <translation>วันที่แก้ไข</translation>
     </message>
     <message id="start-create-new-message-line-1">
         <source>Create new wallet with generating seed phrase.</source>
-        <translation>生成助记词来创建新钱包</translation>
+        <translation>สร้างกระเป๋าใหม่ด้วยการสร้างกลุ่มคำลับ</translation>
     </message>
     <message id="start-create-new-message-line-2">
         <source>If you ever lose your device, you will need this phrase to recover your wallet!</source>
-        <translation>如果您丢失了设备或密码，您可以使用该助记词来回复您的钱包！</translation>
+        <translation>ถ้าคุณทำอุปกรณ์นี้หาย คุณจะต้องใช้กลุ่มคำลับเหล่านี้ในการกู้กระเป๋าของคุณ!</translation>
     </message>
     <message id="start-create-new-securiry-note-1">
         <source>Do not let anyone see your seed phrase</source>
-        <translation>不要向任何人泄漏您的助记词</translation>
+        <translation>อย่าปล่อยให้ใครเห็นกลุ่มคำลับเหล่านี้</translation>
     </message>
     <message id="start-create-new-securiry-note-2">
         <source>Never type your seed phrase into password managers or elsewhere</source>
-        <translation>永远不要使用密码管理器或其他电子方式保存助记词</translation>
+        <translation>อย่าพิมพ์กลุ่มคำลับเหล่านี้ในโปรแกรมจัดการรหัสผ่านหรือโปรแกรมอื่นๆ</translation>
     </message>
     <message id="start-create-new-securiry-note-3">
         <source>Keep the copies of your seed phrase in a safe place</source>
-        <translation>请将助记词誊本保存在安全的地方</translation>
+        <translation>เก็บกลุ่มคำลับเหล่านี้ในที่ที่มั่นใจว่าปลอดภัยเท่านั้น</translation>
     </message>
     <message id="start-generate-seed-phrase-button">
         <source>Generate seed phrase</source>
-        <translation>生成助记词</translation>
+        <translation>สร้างกลุ่มคำลับ</translation>
     </message>
     <message id="start-generate-seed-phrase-message">
         <source>Your seed phrase is the access key to all the cryptocurrencies in your wallet. Write down the phrase to keep it in a safe or in a locked vault. Without the phrase you will not be able to recover your money.</source>
-        <translation>助记词是访问您账户资金的密钥
-必须打印或誊写助记词，并将其妥善保存在保险箱中
-如果您遗失或忘记助记词，您将无法找回或恢复钱包中的资金</translation>
+        <translation>กลุ่มคำลับเหล่านี้ของคุณเป็นกุญแจเพื่อที่จะเข้าถึงทรัพย์สินในกระเป๋าของคุณ กรุณาเขียนกลุ่มคำลับนี้ลงกระดาษเก็บไว้ในที่ปลอดภัยอย่างตู้เซฟหรือห้องนิรภัย หากไม่มีกลุ่มคำลับเหล่านี้คุณจะไม่สามารถกู้คืนทรัพย์สินของคุณได้</translation>
     </message>
     <message id="start-confirm-seed-phrase-button">
         <source>I understand</source>
-        <translation>我理解</translation>
+        <translation>ฉันเข้าใจ</translation>
     </message>
     <message id="start-confirm-seed-phrase-message">
         <source>It is strictly recommended to write down the seed phrase on a paper. Storing it in a file makes it prone to cyber attacks and, therefore, less secure.</source>
-        <translation>强烈建议将助记词写在纸张上保存
-使用电脑文件或照片等电子化保存非常容易因设备安全原因而泄露助记词，非常不安全</translation>
+        <translation>ขอแนะนำอย่างจริงจังว่าให้เขียนกลุ่มคำลับเหล่านี้ลงบนกระดาษ การบันทึกกลุ่มคำลับลงไฟล์ต่างๆเสี่ยงต่อการจะถูกโจมตีโดยผู้ไม่หวังดีและมันปลอดภัยน้อยกว่าด้วย</translation>
     </message>
     <message id="start-check-seed-phrase-message">
         <source>To ensure the seed phrase is written down, please fill-in the specific words below</source>
-        <translation>为验证助记词已被您被正确誊写并保存，请根据下面数字提示输入相应的助记词</translation>
+        <translation>เพื่อความแน่ใจว่าคุณได้ทำการเขียนกลุ่มคำลับถูกต้อง กรุณากรอกคำตามลำดับด้านล่างนี้</translation>
     </message>
     <message id="start-restore-message">
         <source>Type in or paste your seed phrase</source>
-        <translation>请输入或粘贴助记词</translation>
+        <translation>พิมพ์หรือวางกลุ่มคำลับของคุณ</translation>
     </message>
     <message id="start-create-pwd-message">
         <source>Create password to access your wallet</source>
-        <translation>创建密码以访问您的钱包</translation>
+        <translation>สร้างรหัสผ่านสำหรับเปิดกระเป๋า</translation>
     </message>
     <message id="start-pwd-label">
         <source>Password</source>
-        <translation>密码</translation>
+        <translation>รหัสผ่าน</translation>
     </message>
     <message id="start-create-pwd-confirm-label">
         <source>Confirm password</source>
-        <translation>确认密码</translation>
+        <translation>ยืนยันรหัสผ่าน</translation>
     </message>
     <message id="start-create-pwd-not-match-error">
         <source>Passwords do not match</source>
-        <translation>密码不正确</translation>
+        <translation>รหัสผ่านไม่ตรงกัน</translation>
     </message>
     <message id="start-node-title">
         <source>Setup node connectivity</source>
-        <translation>设置节点连接</translation>
+        <translation>ตั้งค่าการเชื่อมต่อ Node</translation>
     </message>
     <message id="start-node-integrated-radio">
         <source>Run integrated node (recommended)</source>
-        <translation>运行集成节点(推荐)</translation>
+        <translation>ใช้งาน Integrated Node (แนะนำ)</translation>
     </message>
     <message id="start-node-port-label">
         <source>Enter port to listen</source>
-        <translation>请输入监听端口号</translation>
+        <translation>กรอกหมายเลข Port</translation>
     </message>
     <message id="start-node-peer-label">
         <source>Peer</source>
-        <translation>节点</translation>
+        <translation>Peer</translation>
     </message>
     <message id="start-node-random-radio">
         <source>Connect to random remote node</source>
-        <translation>连接到随机远程节点</translation>
+        <translation>เชื่อมต่อไปยัง Node อื่นแบบสุ่ม</translation>
     </message>
     <message id="start-node-remote-radio">
         <source>Connect to specific remote node</source>
-        <translation>连接到指定远程节点</translation>
+        <translation>เชื่อมต่อโดยระบุ Node</translation>
     </message>
     <message id="start-node-port-empty-error">
         <source>Please specify port</source>
-        <translation>请输入端口号</translation>
+        <translation>กรุณาระบุ Port</translation>
     </message>
     <message id="start-node-port-value-error">
         <source>Port must be a number between 1 and 65535</source>
-        <translation>端口号必须是1到65535之间的数字</translation>
+        <translation>หมายเลข Port จะต้องอยู่ระหว่าง 1 ถึง 65535</translation>
     </message>
     <message id="start-node-peer-empty-error">
         <source>Please specify peer</source>
-        <translation>请指定节点</translation>
+        <translation>กรุณาระบุ Peer</translation>
     </message>
     <message id="start-node-peer-error">
         <source>Incorrect address</source>
-        <translation>地址不正确</translation>
+        <translation>ที่อยู่ไม่ถูกต้อง</translation>
     </message>
     <message id="start-node-empty-error">
         <source>Please specify address of the remote node</source>
-        <translation>请输入远程节点的地址</translation>
+        <translation>กรุณาระบุที่อยู่ของ Node ปลายทาง</translation>
     </message>
     <message id="appmodel-failed-start-node">
         <source>Failed to start node. Please check your node configuration</source>
-        <translation>启动节点失败
-请检查节点配置</translation>
+        <translation>ไม่สามารถเชื่อมต่อ Node ได้ กรุณาตรวจสอบการตั้งค่าของ Node</translation>
     </message>
     <message id="wallet-model-node-protocol-error">
         <source>Node protocol error!</source>
-        <translation>节点协议错误！</translation>
+        <translation>เกิดข้อผิดพลาดของโพรโทคอล!</translation>
     </message>
     <message id="wallet-model-incompatible-peer-error">
         <source>You are trying to connect to incompatible peer.</source>
-        <translation>您正在试图连接到不兼容的节点</translation>
+        <translation>คุณพยายามที่จะเชื่อมต่อไปยัง Peer ที่ไม่รองรับ</translation>
     </message>
     <message id="wallet-model-connection-base-error">
         <source>Connection error</source>
-        <translation>连接错误</translation>
+        <translation>ผิดพลาดในการเชื่อมต่อ</translation>
     </message>
     <message id="wallet-model-connection-time-out-error">
         <source>Connection timed out</source>
-        <translation>连接超时</translation>
+        <translation>หมดเวลาการเชื่อมต่อ</translation>
     </message>
     <message id="wallet-model-connection-refused-error">
         <source>Cannot connect to node</source>
-        <translation>无法连接到节点</translation>
+        <translation>ไม่สามารถเชื่อมต่อ Node ได้</translation>
     </message>
     <message id="wallet-model-connection-host-unreach-error">
         <source>Node is unreachable</source>
-        <translation>节点无法被连接</translation>
+        <translation>ติดต่อ Node ไม่ได้</translation>
     </message>
     <message id="wallet-model-connection-addr-in-use-error">
         <source>The port %1 is already in use. Check if a wallet is already running on this machine or change the port settings.</source>
-        <translation>端口号%1已被占用
-请检查本机后台是否已启动了钱包程序或更改端口设置</translation>
+        <translation>Port หมายเลข %1 ถูกใช้งานแล้ว กรุณาตรวจสอบดูว่ากระเป๋ากำลังใช้งานอยู่หรือตั้งค่า Port ใหม่</translation>
     </message>
     <message id="wallet-model-time-sync-error">
         <source>System time not synchronized</source>
-        <translation>系统时间不同步</translation>
+        <translation>เวลาของเครื่องไม่ตรง</translation>
     </message>
     <message id="wallet-model-host-unresolved-error">
         <source>Incorrect node name or no Internet connection.</source>
-        <translation>节点名称不正确或无网络连接</translation>
+        <translation>ชื่อของ Node ไม่ถูกต้องหรืออินเทอร์เนตไม่ได้เชื่อมต่อ</translation>
     </message>
     <message id="wallet-model-undefined-error">
         <source>Unexpected error!</source>
-        <translation>异常错误！</translation>
+        <translation>ผิดพลาดอย่างไม่คาดคิด!</translation>
     </message>
     <message id="wallet-model-data-location-error">
         <source>Failed to start wallet. Please check your wallet data location</source>
-        <translation>启动钱包失败
-请检查您的钱包数据文件位置</translation>
+        <translation>ไม่สามารถเปิดกระเป๋าได้ กรุณาตรวจสอบที่ตั้งของข้อมูลกระเป๋า</translation>
     </message>
     <message id="loading-view-download-blocks">
         <source>Downloading blocks</source>
-        <translation>正在下载区块</translation>
+        <translation>กำลังดาวน์โหลดบล็อค</translation>
     </message>
     <message id="loading-view-scaning-utxo">
         <source>Scanning UTXO %d/%d</source>
-        <translation>正在扫描UTXO %d/%d</translation>
+        <translation>กำลังสแกน UTXO %d/%d</translation>
     </message>
     <message id="loading-view-protocol-error">
         <source>Incompatible peer</source>
-        <translation>节点不兼容</translation>
+        <translation>Peer ไม่รองรับ</translation>
     </message>
     <message id="loading-view-connection-error">
         <source>Connection error</source>
-        <translation>连接错误</translation>
+        <translation>ผิดพลาดในการเชื่อมต่อ</translation>
     </message>
     <message id="start-view-printer-not-found-error">
         <source>Printer is not found. Please, check your printer preferences.</source>
-        <translation>找不到打印机
-请检查您的打印机设置</translation>
+        <translation>ไม่พบปริ้นเตอร์ กรุณาตรวจสอบการตั้งค่าปริ้นเตอร์</translation>
     </message>
     <message id="start-view-printer-error">
         <source>Failed to print seed phrase. Please, check your printer.</source>
-        <translation>打印助记词失败
-请检查您的打印机</translation>
+        <translation>ไม่สามารถพิมพ์กลุ่มคำลับได้ กรุณาตรวจสอบปริ้นเตอร์ของคุณ</translation>
     </message>
     <message id="start-view-db-file-filter">
         <source>SQLite database file (*.db)</source>
-        <translation>SQLite数据库文件(*.db)</translation>
+        <translation>ไฟล์ SQLite Database (*.db)</translation>
     </message>
     <message id="status-bar-view-not-connected">
         <source>Wallet is not connected to the node</source>
-        <translation>钱包未连接到节点</translation>
+        <translation>กระเป๋าไม่ได้เชื่อมต่อกับ Node</translation>
     </message>
     <message id="tx-failture-undefined">
         <source>Unexpected reason, please send wallet logs to Beam support</source>
-        <translation>异常原因，请将钱包日志发送到Beam技术小组</translation>
+        <translation>ไม่สามารถระบุปัญหาได้ กรุณาส่ง Log ของกระเป๋าให้กับทางฝ่ายซัพพอร์ตของ Beam</translation>
     </message>
     <message id="tx-failture-cancelled">
         <source>Transaction cancelled</source>
-        <translation>交易已取消</translation>
+        <translation>ธุรกรรมได้ถูกยกเลิก</translation>
     </message>
     <message id="tx-failture-receiver-signature-invalid">
         <source>Receiver signature in not valid, please send wallet logs to Beam support</source>
-        <translation>收款人签名无效，请将钱包日志发送到Beam技术小组</translation>
+        <translation>ลายเซนต์ของผู้รับไม่ถูกต้อง กรุณาส่ง Log ของกระเป๋าให้ทางฝ่ายซัพพอร์ตของ Beam</translation>
     </message>
     <message id="tx-failture-not-registered-in-blockchain">
         <source>Failed to register transaction with the blockchain, see node logs for details</source>
-        <translation>向区块链注册交易失败，请参阅节点日志了解详细信息</translation>
+        <translation>ไม่สามารถบันทึกธุรกรรมบนบล็อกเชนได้ กรุณาดู Log เพื่อตรวจสอบรายละเอียด</translation>
     </message>
     <message id="tx-failture-not-valid">
         <source>Transaction is not valid, please send wallet logs to Beam support</source>
-        <translation>交易无效，请将钱包日志发送到Beam技术小组</translation>
+        <translation>ธุรกรรมไม่ถูกต้อง กรุณาส่ง Log ของกระเป๋าให้ทางฝ่ายซัพพอร์ตของ Beam</translation>
     </message>
     <message id="tx-failture-kernel-invalid">
         <source>Invalid kernel proof provided</source>
-        <translation>提供的内核证明无效</translation>
+        <translation>Kernel Proof ที่แจ้งมาไม่ถูกต้อง</translation>
     </message>
     <message id="tx-failture-parameters-not-sended">
         <source>Failed to send Transaction parameters</source>
-        <translation>发送交易参数失败</translation>
+        <translation>ไม่สามารถส่งพารามิเตอร์ของธุรกรรมได้</translation>
     </message>
     <message id="tx-failture-no-inputs">
         <source>No inputs</source>
-        <translation>无输入</translation>
+        <translation>ไม่มีข้อมูล</translation>
     </message>
     <message id="tx-failture-addr-expired">
         <source>Address is expired</source>
-        <translation>地址已失效</translation>
+        <translation>ที่อยู่หมดอายุแล้ว</translation>
     </message>
     <message id="tx-failture-parameters-not-readed">
         <source>Failed to get transaction parameters</source>
-        <translation>获取交易参数失败</translation>
+        <translation>ไม่สามารถรับพารามิเตอร์ของธุรกรรมได้</translation>
     </message>
     <message id="tx-failture-time-out">
         <source>Transaction timed out</source>
-        <translation>交易超时</translation>
+        <translation>ธุรกรรมหมดเวลาเชื่อมต่อ</translation>
     </message>
     <message id="tx-failture-not-signed-by-receiver">
         <source>Payment not signed by the receiver, please send wallet logs to Beam support</source>
-        <translation>付款未被收款人签名，请发送钱包日志至Beam技术小组</translation>
+        <translation>การโอนไม่ได้ถูกเซ็นต์โดยผู้รับ กรุณาส่ง Log ของกระเป๋าให้ทางฝ่ายซัพพอร์ตของ Beam</translation>
     </message>
     <message id="tx-failture-max-height-to-high">
         <source>Kernel maximum height is too high</source>
-        <translation>内核最大高度太高</translation>
+        <translation>Height ของ Kernel สูงสุด สูงเกินไป</translation>
     </message>
     <message id="tx-failture-invalid-state">
         <source>Transaction has invalid state</source>
-        <translation>交易状态无效</translation>
+        <translation>State ของ Transaction ไม่ถูกต้อง</translation>
     </message>
     <message id="tx-curency-name">
         <source>BEAM</source>
@@ -921,297 +909,293 @@
     </message>
     <message id="utxo-blockchain-height">
         <source>Blockchain Height</source>
-        <translation>区块高度</translation>
+        <translation>Blockchain Height</translation>
     </message>
     <message id="utxo-last-block-hash">
         <source>Last block hash</source>
-        <translation>最高区块哈希值</translation>
+        <translation>Hash ของบล็อคล่าสุด</translation>
     </message>
     <message id="utxo-head-maturity">
         <source>Maturity</source>
-        <translation>成熟</translation>
+        <translation>ใช้งานได้เมื่อ</translation>
     </message>
     <message id="utxo-head-type">
         <source>Type</source>
-        <translation>类型</translation>
+        <translation>ประเภท</translation>
     </message>
     <message id="utxo-status-available">
         <source>Available</source>
-        <translation>可用余额</translation>
+        <translation>พร้อมใช้งาน</translation>
     </message>
     <message id="utxo-status-maturing">
         <source>Maturing%1(till block height %2)</source>
-        <translation>成熟高度 %1 (至区块高度 %2 )</translation>
+        <translation>รอการปลด%1(จนกระทั่ง Height ของบล็อค %2)</translation>
     </message>
     <message id="utxo-status-unavailable">
         <source>Unavailable%1(mining result rollback)</source>
-        <translation>不可用%1 (挖矿结果回滚)</translation>
+        <translation>ไม่พร้อมใช้งาน%1(Rollback ผลของการขุด)</translation>
     </message>
     <message id="utxo-status-outgoing">
         <source>In progress%1(outgoing)</source>
-        <translation>进行中%1 (出账)</translation>
+        <translation>กำลังดำเนินการ%1(โอนออก)</translation>
     </message>
     <message id="utxo-status-change">
         <source>In progress%1(change)</source>
-        <translation>进行中%1 (找零)</translation>
+        <translation>กำลังดำเนินการ%1(เงินทอน)</translation>
     </message>
     <message id="utxo-status-incoming">
         <source>In progress%1(incoming)</source>
-        <translation>进行中%1 (入账)</translation>
+        <translation>กำลังดำเนินการ%1(รับโอน)</translation>
     </message>
     <message id="utxo-status-spent">
         <source>Spent</source>
-        <translation>已使用</translation>
+        <translation>จ่ายออกแล้ว</translation>
     </message>
     <message id="settings-general-lock-screen-never">
         <source>Never</source>
-        <translation>永不</translation>
+        <translation>ไม่มี</translation>
     </message>
     <message id="settings-general-lock-screen-1m">
         <source>1 minute</source>
-        <translation>1分钟</translation>
+        <translation>1 นาที</translation>
     </message>
     <message id="settings-general-lock-screen-5m">
         <source>5 minutes</source>
-        <translation>5分钟</translation>
+        <translation>5 นาที</translation>
     </message>
     <message id="settings-general-lock-screen-15m">
         <source>15 minutes</source>
-        <translation>15分钟</translation>
+        <translation>15 นาที</translation>
     </message>
     <message id="settings-general-lock-screen-30m">
         <source>30 minutes</source>
-        <translation>30分钟</translation>
+        <translation>30 นาที</translation>
     </message>
     <message id="settings-general-lock-screen-1h">
         <source>1 hour</source>
-        <translation>1小时</translation>
+        <translation>1 ชั่วโมง</translation>
     </message>
     <message id="receive-amount-label">
         <source>Receive amount (optional)</source>
-        <translation>收款数量 (可选)</translation>
+        <translation>จำนวนที่ต้องการ (ตัวเลือก)</translation>
     </message>
     <message id="tx-details-tx-id-label">
         <source>Transaction ID</source>
-        <translation>交易ID</translation>
+        <translation>หมายเลขธุรกรรม</translation>
     </message>
     <message id="appmodel-failed-time-not-synced">
         <source>Failed to start the integrated node: the timezone settings of your machine are out of sync. Please fix them and restart the wallet.</source>
-        <translation>启动集成节点失败：您的设备时区设置未同步，请修正时区设置后重启钱包</translation>
+        <translation>ไม่สามารถเริ่ม Integrated Node ได้: การตั้งค่า Timezone ของอุปกรณ์ไม่ตรง กรุณาแก้ไขหรือปิดโปรแกรมกระเป๋าและเปิดใหม่</translation>
     </message>
     <message id="can-not-generate-new-address-message">
         <source>You cannot generate new address. Your wallet doesn&apos;t have a master key.</source>
-        <translation>无法生成新地址
-您的钱包无主密钥</translation>
+        <translation>คุณไม่สามารถสร้างที่อยู่ใหม่ได้เนื่องจากกระเป๋าของคุณไม่มี Master Key</translation>
     </message>
     <message id="settings-general-language">
         <source>Language</source>
         <extracomment>settings tab, general section, language label</extracomment>
-        <translation>语言</translation>
+        <translation>ภาษา</translation>
     </message>
     <message id="open-external-open">
         <source>Open</source>
-        <translation>打开</translation>
+        <translation>เปิด</translation>
     </message>
     <message id="open-external-title">
         <source>External link</source>
-        <translation>外部链接</translation>
+        <translation>ลิงก์ภายนอก</translation>
     </message>
     <message id="open-external-message">
         <source>Beam Wallet app requires permission to open external link in the browser. This action will expose your IP to the web server. To avoid it, choose -Cancel-. You can change your choice in app setting anytime.</source>
-        <translation>Beam钱包需要获取权限以在浏览器中打开外部链接
-
-在浏览器中打开外部外链会暴露您的IP地址；如不想暴露IP地址，请选择“取消”；您可以随时在设置中修改该选项</translation>
+        <translation>กระเป๋า Beam ต้องการการอนุญาตเพื่อที่จะเปิดลิงค์ภายนอก การกระทำนี้จะทำให้ IP ของคุณส่งไปยังเว็บปลายทาง เพื่อเป็นการป้องกัน ให้เลือก &quot;ยกเลิก&quot; และ คุณสามารถเปลี่ยนแปลงตัวเลือกนี้ได้ที่การตั้งค่าเมื่อไหร่ก็ได้</translation>
     </message>
     <message id="start-open-change-wallet-message">
         <source>If you&apos;ll restore a wallet all transaction history and addresses will be lost.</source>
-        <translation>如果恢复钱包，本钱包所有的交易记录和地址都将丢失</translation>
+        <translation>หากคุณกู้กระเป๋าของคุณจะส่งผลให้ประวัติการทำธุรกรรมและที่อยู่นั้นหายไป</translation>
     </message>
     <message id="loading-restore-message-line1">
         <source>Please wait for synchronization and do not close or minimize the application.</source>
-        <translation>请等待同步，不要关闭或最小化应用程序</translation>
+        <translation>กรุณารอการรวบรวมข้อมูลและกรุณาอย่าปิดหรือลดหน้าต่างของแอป</translation>
     </message>
     <message id="loading-restore-message-line2">
         <source>Only the wallet balance (UTXO) can be restored, transaction info and addresses are always private and never kept in the blockchain.</source>
-        <translation>仅可恢复钱包余额(UTXO)
-交易历史信息保存在本地，区块链上不保存交易历史</translation>
+        <translation>มีแค่ยอดคงเหลือของกระเป๋า (UTXO) เท่านั้นที่จะสามารถกู้คืนได้ รายการธุรกรรมและรายการที่อยู่จะเก็บอยู่บนอุปกรณ์ และจะไม่ถูกนำไปบนบล็อกเชน</translation>
     </message>
     <message id="start-recovery-title">
         <source>Create new password</source>
-        <translation>创建新密码</translation>
+        <translation>สร้างรหัสผ่านใหม่</translation>
     </message>
     <message id="start-recovery-pwd-message">
         <source>Create new password to access your wallet</source>
-        <translation>创建新密码以访问您的钱包</translation>
+        <translation>สร้างรหัสผ่านสำหรับเปิดกระเป๋า</translation>
     </message>
     <message id="start-create-pwd-strength-message">
         <source>Strong password needs to meet the following requirements:\n•  the length must be at least 10 characters\n•  must contain at least one lowercase letter\n•  must contain at least one uppercase letter\n•  must contain at least one number</source>
-        <translation>强密码需要满足以下要求：\n• 长度必须至少为10个字符 \n• 必须包含至少一个小写字母 \n• 必须包含至少一个大写字母 \n• 必须包含至少一个数字</translation>
+        <translation>รหัสผ่านที่ปลอดภัยจะต้องประกอบด้วยข้อกำหนดดังนี้:\n•  ความยาวอย่างน้อย 10 ตัวอักษร\n•  มีตัวพิมพ์เล็กอย่างน้อย 1 ตัวอักษร\n•  มีตัวพิมพ์ใหญ่อย่างน้อย 1 ตัวอักษร\n•  มีตัวเลขอย่างน้อย 1 ตัวอักษร</translation>
     </message>
     <message id="start-open-caps-warning">
         <source>Caps lock is on!</source>
-        <translation>大写锁定处于开启状态</translation>
+        <translation>Caps Lock เปิดอยู่!</translation>
     </message>
     <message id="show-qr-title">
         <source>QR code</source>
         <extracomment>show QR dialog title</extracomment>
-        <translation>二维码</translation>
+        <translation>QR code</translation>
     </message>
     <message id="show-qr-tx-token-label">
         <source>Your address</source>
         <extracomment>show qr dialog address label</extracomment>
-        <translation>您的地址</translation>
+        <translation>ที่อยู่ของคุณ</translation>
     </message>
     <message id="show-qr-message">
         <source>Scan this QR code or send this address to the sender over secure channel</source>
         <extracomment>show QR dialog message, how to use this QR</extracomment>
-        <translation>扫描二维码或通过外部安全媒介将此地址发送给付款方</translation>
+        <translation>สแกน QR Code นี้ หรือส่งที่อยู่นี้ไปให้กับผู้โอนในช่องทางที่ปลอดภัยอื่นๆ</translation>
     </message>
     <message id="settings-peers-title">
         <source>Peers</source>
         <extracomment>settings tab, node section, peers label</extracomment>
-        <translation>节点</translation>
+        <translation>Peer</translation>
     </message>
     <message id="settings-node-title">
         <source>Node</source>
         <extracomment>settings tab, node section, title</extracomment>
-        <translation>节点</translation>
+        <translation>Node</translation>
     </message>
     <message id="settings-general-allow-beammw-label">
         <source>Allow access to %1 and %2 (to fetch exchanges and transaction data)</source>
         <extracomment>general settings, label for alow open external links</extracomment>
-        <translation>允许访问从%1到%2（获取互换及交易数据）</translation>
+        <translation>อนุญาตให้เข้าถึง %1 และ %2 (สำหรับการดึงข้อมูลแลกเปลี่ยนและข้อมูลธุรกรรม)</translation>
     </message>
     <message id="settings-report-problem-message-l0">
         <source>To report a problem:</source>
-        <translation>报告问题：</translation>
+        <translation>การรายงานปัญหา:</translation>
     </message>
     <message id="settings-report-problem-message-l1">
         <source>1. Click “Save wallet logs” and choose a destination folder for log archive</source>
-        <translation>1. 点击“保存钱包日志”，并为日志记录选择所要保存至的文件夹</translation>
+        <translation>1. คลิ๊กที่ &quot;เซฟ Log ของกระเป๋า&quot; และเลือกโฟลเดอร์ปลายทางที่จะบันทึกไฟล์ Log</translation>
     </message>
     <message id="settings-report-problem-message-l2">
         <source>2. Send email to %1 or open a ticket in %2</source>
-        <translation>2. 向%1发送邮件或者在%2中打开工单</translation>
+        <translation>2. ส่งอีเมล์ไปที่ %1 หรือแจ้งได้ที่ %2</translation>
     </message>
     <message id="settings-report-problem-message-l3">
         <source>3. Don’t forget to attach logs archive</source>
-        <translation>3. 不要忘了上传日志记录</translation>
+        <translation>3. อย่าลืมแนบไฟล์ Log ไปด้วย</translation>
     </message>
     <message id="explorer">
         <source>blockchain explorer</source>
-        <translation>区块链浏览器</translation>
+        <translation>blockchain explorer</translation>
     </message>
     <message id="edit-addr-24-option">
         <source>In 24 hours from now</source>
         <extracomment>Edit address dialog, expiration option, in 24 hours from now</extracomment>
-        <translation>24小时后</translation>
+        <translation>ภายใน 24 ชั่วโมงจากนี้</translation>
     </message>
     <message id="edit-addr-never-option">
         <source>Never</source>
         <extracomment>Edit address dialog, expiration option, never</extracomment>
-        <translation>永不</translation>
+        <translation>ไม่มี</translation>
     </message>
     <message id="edit-addr-as-is-option">
         <source>Within 24 hours</source>
         <extracomment>Edit address dialog, expiration option, do not change</extracomment>
-        <translation>在24小时内</translation>
+        <translation>ภายใน 24 ชั่วโมง</translation>
     </message>
     <message id="edit-addr-expires-label">
         <source>Expires</source>
         <extracomment>Edit addres dialog, expires label</extracomment>
-        <translation>失效</translation>
+        <translation>หมดอายุ</translation>
     </message>
     <message id="edit-addr-expire-now-label">
         <source>Now</source>
         <extracomment>Edit addres dialog, expire now label</extracomment>
-        <translation>现在</translation>
+        <translation>ตอนนี้</translation>
     </message>
     <message id="edit-addr-expire-now-switch">
         <source>Expire address now</source>
         <extracomment>Edit addres dialog, expire now switch</extracomment>
-        <translation>立即令地址失效</translation>
+        <translation>ให้ที่อยู่หมดอายุเลย</translation>
     </message>
     <message id="edit-addr-expiration-time-label">
         <source>Expired on </source>
         <extracomment>Edit addres dialog, expiration time label</extracomment>
-        <translation>失效时间</translation>
+        <translation>หมดอายุเมื่อ: </translation>
     </message>
     <message id="edit-addr-activate-addr-switch">
         <source>Activate address</source>
         <extracomment>Edit addres dialog, expiration time label</extracomment>
-        <translation>激活地址</translation>
+        <translation>ใช้งานที่อยู่</translation>
     </message>
     <message id="time-never">
         <source>Never</source>
         <extracomment>time never string</extracomment>
-        <translation>永不</translation>
+        <translation>ไม่มี</translation>
     </message>
     <message id="start-pwd-difficulty-very-weak">
         <source>Very weak password</source>
         <extracomment>set passwort, difficulty message, very weak</extracomment>
-        <translation>非常弱的密码</translation>
+        <translation>รหัสผ่านไม่ปลอดภัยอย่างมาก</translation>
     </message>
     <message id="start-pwd-difficulty-weak">
         <source>Weak password</source>
         <extracomment>set passwort, difficulty message, weak</extracomment>
-        <translation>弱密码</translation>
+        <translation>รหัสผ่านไม่ปลอดภัย</translation>
     </message>
     <message id="start-pwd-difficulty-medium">
         <source>Medium strength password</source>
         <extracomment>set passwort, difficulty message, medium</extracomment>
-        <translation>中等强度的密码</translation>
+        <translation>รหัสผ่านปลอดภัยปานกลาง</translation>
     </message>
     <message id="start-pwd-difficulty-strong">
         <source>Strong password</source>
         <extracomment>set passwort, difficulty message, strong</extracomment>
-        <translation>强密码</translation>
+        <translation>รหัสผ่านปลอดภัย</translation>
     </message>
     <message id="start-pwd-difficulty-very-strong">
         <source>Very strong password</source>
         <extracomment>set passwort, difficulty message, very strong</extracomment>
-        <translation>非常强的密码</translation>
+        <translation>รหัสผ่านปลอดภัยอย่างมาก</translation>
     </message>
     <message id="start-migration-select-file-button">
         <source>Select wallet database file manually</source>
         <extracomment>migration screen, select db file button</extracomment>
-        <translation>手工选择钱包数据库文件</translation>
+        <translation>เลือกไฟล์ดาต้าเบสของกระเป๋าเอง</translation>
     </message>
     <message id="start-select-db-best-match-label">
         <source>(best match)</source>
         <extracomment>start screen, select db for migration, best match label</extracomment>
-        <translation>(最佳匹配)</translation>
+        <translation>(ตรงกันที่สุด)</translation>
     </message>
     <message id="start-select-db-thead-created">
         <source>Date created</source>
         <extracomment>start screen, select db for migration, Date created column title</extracomment>
-        <translation>创建日期</translation>
+        <translation>วันที่สร้าง</translation>
     </message>
     <message id="settings-general-require-pwd-to-spend-confirm-pwd-title">
         <source>Don’t ask password on every Send</source>
         <extracomment>settings tab, general section, ask password to send, confirm password dialog, title</extracomment>
-        <translation>每次付款不验证密码</translation>
+        <translation>ไม่ต้องถามรหัสผ่านทุกครั้งที่จะทำการโอน</translation>
     </message>
     <message id="settings-general-require-pwd-to-spend-confirm-pwd-message">
         <source>Password verification is required to change that setting</source>
         <extracomment>settings tab, general section, ask password to send, confirm password dialog, message</extracomment>
-        <translation>需验证密码来使设置变更生效</translation>
+        <translation>ต้องการรหัสผ่านเพื่อที่จะเปลี่ยนแปลงการตั้งค่า</translation>
     </message>
     <message id="open-in-explorer">
         <source>Open in Blockchain Explorer</source>
-        <translation type="unfinished"></translation>
+        <translation>เปิดใน Block Explorer</translation>
     </message>
     <message id="restore-finish-alert-button">
         <source>I understand</source>
-        <translation type="unfinished">我理解</translation>
+        <translation>ฉันเข้าใจ</translation>
     </message>
     <message id="restore-finish-alert-title">
         <source>Do not simultaneously run two wallets initiated from the same seed phrase</source>
-        <translation type="unfinished"></translation>
+        <translation>อย่าใช้กลุ่มคำลับในกระเป๋าบนหลายๆอุปกรณ์</translation>
     </message>
     <message id="restore-finish-alert-message-line">
         <source>Don’t use same seed phrase on several devices, your balance and transaction list won’t be synchronized.</source>
-        <translation type="unfinished"></translation>
+        <translation>อย่าใช้กลุ่มคำลับเดียวกันในหลายๆอุปกรณ์ ยอดคงเหลือและข้อมูลธุรกรรมจะถูกเก็บในอุปกรณ์ใดอุปกรณ์หนึ่งเท่านั้น</translation>
     </message>
     <message id="general-fee-rate">
         <source>Transaction fee rate</source>
@@ -1227,7 +1211,7 @@
     </message>
     <message id="general-change-settings">
         <source>Change settings</source>
-        <translation type="unfinished">修改设置</translation>
+        <translation type="unfinished">เปลี่ยนการตั้งค่า</translation>
     </message>
     <message id="wallet-swap">
         <source>Swap</source>
@@ -1247,7 +1231,7 @@
     </message>
     <message id="settings-password">
         <source>Password</source>
-        <translation type="unfinished">密码</translation>
+        <translation type="unfinished">รหัสผ่าน</translation>
     </message>
     <message id="settings-fee-rate">
         <source>Default fee</source>
@@ -1287,11 +1271,11 @@
     </message>
     <message id="offer-book-amount">
         <source>Amount</source>
-        <translation type="unfinished">数量</translation>
+        <translation type="unfinished">จำนวน</translation>
     </message>
     <message id="offer-book-amount-swap">
         <source>Amount</source>
-        <translation type="unfinished">数量</translation>
+        <translation type="unfinished">จำนวน</translation>
     </message>
     <message id="offer-book-rate">
         <source>Rate</source>
@@ -1339,11 +1323,11 @@
     </message>
     <message id="wallet-receive-expires-12">
         <source>12 hours</source>
-        <translation type="unfinished">24小时 {12 ?}</translation>
+        <translation type="unfinished">24 ชั่วโมง {12 ?}</translation>
     </message>
     <message id="wallet-receive-expires-6">
         <source>6 hours</source>
-        <translation type="unfinished">24小时 {6 ?}</translation>
+        <translation type="unfinished">24 ชั่วโมง {6 ?}</translation>
     </message>
     <message id="general-rate">
         <source>Rate</source>

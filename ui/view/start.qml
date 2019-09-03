@@ -83,6 +83,64 @@ Item
         }
     }
 
+    ConfirmationDialog {
+        id: seedPhraseSubmitAllert
+
+        //% "I understand"
+        okButtonText: qsTrId("restore-finish-alert-button")
+        okButtonIconSource: "qrc:/assets/icon-done.svg"
+        cancelButtonVisible: false
+        width: 460
+        height: contentItem.implicitHeight + footer.implicitHeight + 60
+        padding: 0
+
+        contentItem: Column {
+            width: parent.width
+            height: seedPhraseSubmitAllertTitle.implicitHeight + seedPhraseSubmitAllertMessage.implicitHeight
+            SFText {
+                id: seedPhraseSubmitAllertTitle
+                topPadding: 30
+                anchors.horizontalCenter: parent.horizontalCenter
+                width: 400
+                height: 42
+                horizontalAlignment: Qt.AlignHCenter
+                //% "Do not simultaneously run two wallets initiated from the same seed phrase"
+                text: qsTrId("restore-finish-alert-title")
+                color: Style.content_main
+                font.pixelSize: 18
+                font.styleName: "Bold"
+                font.weight: Font.Bold
+                wrapMode: Text.Wrap
+            }
+
+            Item {
+                height: 30
+                width: parent.width
+            }
+
+            SFText {
+                id: seedPhraseSubmitAllertMessage
+                padding: 30
+                bottomPadding: 0
+                anchors.horizontalCenter: parent.horizontalCenter
+                horizontalAlignment : Text.AlignHCenter
+                width: parent.width
+                height: 32
+                //% "Don’t use same seed phrase on several devices, your balance and transaction list won’t be synchronized."
+                text: qsTrId("restore-finish-alert-message-line")
+                color: Style.content_main
+                font.pixelSize: 14
+                wrapMode: Text.Wrap
+            }
+        }
+        onAccepted: {
+            onClicked: {
+                viewModel.isRecoveryMode = true;
+                startWizzardView.push(create);
+            }
+        }
+    }
+
     StackView {
         id: startWizzardView
         anchors.fill: parent
@@ -192,6 +250,17 @@ Item
                             Item {
                                 Layout.fillHeight: true
                                 Layout.minimumHeight: 67
+                            }
+
+                            SFText {
+                                Layout.alignment:    Qt.AlignHCenter
+                                font.pixelSize:      12
+                                color:               Qt.rgba(255, 255, 255, 0.3)
+                                text:                [qsTrId("settings-version"), BeamGlobals.version()].join(' ')
+                            }
+
+                            Item {
+                                Layout.minimumHeight: 35
                             }
                         }
                     }
@@ -310,6 +379,17 @@ Item
                             Item {
                                 Layout.fillHeight: true
                                 Layout.minimumHeight: 67
+                            }
+
+                            SFText {
+                                Layout.alignment:    Qt.AlignHCenter
+                                font.pixelSize:      12
+                                color:               Qt.rgba(255, 255, 255, 0.3)
+                                text:                [qsTrId("settings-version"), BeamGlobals.version()].join(' ')
+                            }
+
+                            Item {
+                                Layout.minimumHeight: 35
                             }
                         }
                     }
@@ -593,6 +673,17 @@ Item
                         Layout.minimumHeight: 60
                         Layout.maximumHeight: 90
                     }
+
+                    SFText {
+                        Layout.alignment:    Qt.AlignHCenter
+                        font.pixelSize:      12
+                        color:               Qt.rgba(255, 255, 255, 0.3)
+                        text:                [qsTrId("settings-version"), BeamGlobals.version()].join(' ')
+                    }
+
+                    Item {
+                        Layout.minimumHeight: 35
+                    }
                 }
             }
         }
@@ -690,6 +781,17 @@ Item
                         Layout.fillHeight: true
                         Layout.minimumHeight: 67
                         Layout.maximumHeight: 143
+                    }
+
+                    SFText {
+                        Layout.alignment:    Qt.AlignHCenter
+                        font.pixelSize:      12
+                        color:               Qt.rgba(255, 255, 255, 0.3)
+                        text:                [qsTrId("settings-version"), BeamGlobals.version()].join(' ')
+                    }
+
+                    Item {
+                        Layout.minimumHeight: 35
                     }
                 }
             }
@@ -818,6 +920,17 @@ Item
                         Layout.fillHeight: true
                         Layout.minimumHeight: 67
                         Layout.maximumHeight: 143
+                    }
+
+                    SFText {
+                        Layout.alignment:    Qt.AlignHCenter
+                        font.pixelSize:      12
+                        color:               Qt.rgba(255, 255, 255, 0.3)
+                        text:                [qsTrId("settings-version"), BeamGlobals.version()].join(' ')
+                    }
+
+                    Item {
+                        Layout.minimumHeight: 35
                     }
                 }
             }
@@ -985,6 +1098,17 @@ Item
                         Layout.minimumHeight: 67
                         Layout.maximumHeight: 143
                     }
+
+                    SFText {
+                        Layout.alignment:    Qt.AlignHCenter
+                        font.pixelSize:      12
+                        color:               Qt.rgba(255, 255, 255, 0.3)
+                        text:                [qsTrId("settings-version"), BeamGlobals.version()].join(' ')
+                    }
+
+                    Item {
+                        Layout.minimumHeight: 35
+                    }
                 }
             }
         }
@@ -1142,7 +1266,7 @@ Item
                                 return enable;
                             }
                             icon.source: "qrc:/assets/icon-next-blue.svg"
-                            onClicked: startWizzardView.push(create);
+                            onClicked: seedPhraseSubmitAllert.open();
                         }
                     }
 
@@ -1150,6 +1274,17 @@ Item
                         Layout.fillHeight: true
                         Layout.minimumHeight: 67
                         Layout.maximumHeight: 143
+                    }
+
+                    SFText {
+                        Layout.alignment:    Qt.AlignHCenter
+                        font.pixelSize:      12
+                        color:               Qt.rgba(255, 255, 255, 0.3)
+                        text:                [qsTrId("settings-version"), BeamGlobals.version()].join(' ')
+                    }
+
+                    Item {
+                        Layout.minimumHeight: 35
                     }
                 }
             }
@@ -1391,6 +1526,17 @@ Item
                         Layout.fillHeight: true
                         Layout.minimumHeight: 67
                         Layout.maximumHeight: 143
+                    }
+
+                    SFText {
+                        Layout.alignment:    Qt.AlignHCenter
+                        font.pixelSize:      12
+                        color:               Qt.rgba(255, 255, 255, 0.3)
+                        text:                [qsTrId("settings-version"), BeamGlobals.version()].join(' ')
+                    }
+
+                    Item {
+                        Layout.minimumHeight: 35
                     }
                 }
             }
@@ -1653,6 +1799,17 @@ Item
                         Layout.minimumHeight: 67
                         Layout.maximumHeight: 143
                     }
+
+                    SFText {
+                        Layout.alignment:    Qt.AlignHCenter
+                        font.pixelSize:      12
+                        color:               Qt.rgba(255, 255, 255, 0.3)
+                        text:                [qsTrId("settings-version"), BeamGlobals.version()].join(' ')
+                    }
+
+                    Item {
+                        Layout.minimumHeight: 35
+                    }
                 }
             }
         }
@@ -1871,6 +2028,17 @@ Item
                             Item {
                                 Layout.fillHeight: true
                                 Layout.minimumHeight: 67
+                            }
+
+                            SFText {
+                                Layout.alignment:    Qt.AlignHCenter
+                                font.pixelSize:      12
+                                color:               Qt.rgba(255, 255, 255, 0.3)
+                                text:                [qsTrId("settings-version"), BeamGlobals.version()].join(' ')
+                            }
+
+                            Item {
+                                Layout.minimumHeight: 35
                             }
                         }
                     }

@@ -9,7 +9,7 @@
     </message>
     <message id="general-groth">
         <source>GROTH</source>
-        <translation type="unfinished">GROTH</translation>
+        <translation>GROTH</translation>
     </message>
     <message id="general-comment">
         <source>Comment</source>
@@ -110,6 +110,7 @@
     </message>
     <message id="general-fee">
         <source>Transaction fee</source>
+        <extracomment>UTXO type fee</extracomment>
         <translation>거래 수수료</translation>
     </message>
     <message id="general-ok">
@@ -122,18 +123,22 @@
     </message>
     <message id="general-coinbase">
         <source>Coinbase</source>
+        <extracomment>UTXO type Coinbase</extracomment>
         <translation>코인베이스</translation>
     </message>
     <message id="general-regular">
         <source>Regular</source>
-        <translation type="unfinished">Regular</translation>
+        <extracomment>UTXO type Regular</extracomment>
+        <translation>일반</translation>
     </message>
     <message id="general-change">
         <source>Change</source>
+        <extracomment>UTXO type Change</extracomment>
         <translation>잔액</translation>
     </message>
     <message id="general-treasury">
         <source>Treasury</source>
+        <extracomment>UTXO type Treasury</extracomment>
         <translation type="unfinished">Treasury</translation>
     </message>
     <message id="general-back">
@@ -175,7 +180,7 @@
     </message>
     <message id="general-show-in-folder">
         <source>Show in folder</source>
-        <translation type="unfinished">Show in folder</translation>
+        <translation>폴더 보기</translation>
     </message>
     <message id="general-addr-comment-error">
         <source>Address with the same comment already exists</source>
@@ -188,7 +193,7 @@
     </message>
     <message id="wallet-in-progress-title">
         <source>In progress</source>
-        <translation type="unfinished">진행중</translation>
+        <translation>진행중</translation>
     </message>
     <message id="wallet-transactions-title">
         <source>Transactions</source>
@@ -287,11 +292,11 @@
     </message>
     <message id="available-panel-available">
         <source>Available</source>
-        <translation type="unfinished">사용 가능 금액</translation>
+        <translation>사용가능</translation>
     </message>
     <message id="available-panel-where-to-buy">
         <source>Where to buy BEAM?</source>
-        <translation type="unfinished">BEAM 은 어디서 사나요?</translation>
+        <translation>BEAM 은 어디서 사나요?</translation>
     </message>
     <message id="settings-version">
         <source>Version</source>
@@ -316,7 +321,7 @@
     <message id="settings-rescan-confirmation-message">
         <source>Rescan will sync transaction and UTXO data with the latest information on the blockchain. The process might take long time.</source>
         <extracomment>settings tab, confirm rescan dialog message</extracomment>
-        <translation type="unfinished">Rescan will sync transaction and UTXO data with the latest information on the blockchain. The process might take long time.</translation>
+        <translation>다시 스캔하기를 실행하면 거래와 UTXO 데이터를 블록체인의 최신 정보로 업데이트 합니다. 이는 약간의 시간이 소요될 수 있습니다.</translation>
     </message>
     <message id="settings-general-title">
         <source>General settings</source>
@@ -350,7 +355,7 @@
     </message>
     <message id="logo-description">
         <source>Scalable confidential cryptocurrency</source>
-        <translation type="unfinished">Scalable confidential cryptocurrency</translation>
+        <translation>Scalable confidential cryptocurrency</translation>
     </message>
     <message id="change-pwd-old-empty">
         <source>Please, enter old password</source>
@@ -461,7 +466,7 @@
     </message>
     <message id="secondary-panel-maturing">
         <source>Maturing</source>
-        <translation type="obsolete">Maturing</translation>
+        <translation type="vanished">형성중</translation>
     </message>
     <message id="info-title">
         <source>Info view</source>
@@ -473,7 +478,7 @@
     </message>
     <message id="loading-try-again-button">
         <source>Try again</source>
-        <translation type="unfinished">Try again</translation>
+        <translation>다시 시도하기</translation>
     </message>
     <message id="notifications-title">
         <source>Notifications view</source>
@@ -544,6 +549,7 @@
     </message>
     <message id="wallet-receive-title">
         <source>Receive</source>
+        <oldsource>Receive Beam</oldsource>
         <translation type="unfinished">Beam 받기</translation>
     </message>
     <message id="wallet-receive-my-addr-label">
@@ -553,6 +559,7 @@
     </message>
     <message id="wallet-receive-expires-label">
         <source>Expires in</source>
+        <oldsource>Expires</oldsource>
         <translation type="unfinished">만료</translation>
     </message>
     <message id="wallet-receive-expires-24">
@@ -561,16 +568,15 @@
     </message>
     <message id="wallet-receive-expires-never">
         <source>Never</source>
-        <translation type="unfinished">Never</translation>
+        <translation>안함</translation>
     </message>
     <message id="wallet-receive-qr-label">
         <source>Scan to send</source>
         <translation>스캔하여 보내기</translation>
     </message>
     <message id="wallet-receive-propogate-addr-message">
-        <source></source>
-        <oldsource>Send this address to the sender over an external secure channel</oldsource>
-        <translation type="obsolete">해당 주소를 외부의 보안 채널로 보내는 사람에게 보냅니다.</translation>
+        <source>Send this address to the sender over an external secure channel</source>
+        <translation type="vanished">해당 주소를 외부의 보안 채널로 보내는 사람에게 보냅니다.</translation>
     </message>
     <message id="invalid-addr-got-it-button">
         <source>Got it</source>
@@ -578,23 +584,26 @@
     </message>
     <message id="send-title">
         <source>Send</source>
+        <oldsource>Send Beam</oldsource>
         <translation type="unfinished">Beam 보내기</translation>
     </message>
     <message id="send-send-to-label">
         <source>Transaction token or contact</source>
-        <translation type="unfinished">~~ 에게 보내기</translation>
+        <oldsource>Send To</oldsource>
+        <translation type="unfinished">보내기</translation>
     </message>
     <message id="send-contact-placeholder">
         <source>Please specify contact or transaction token</source>
+        <oldsource>Please specify contact</oldsource>
         <translation type="unfinished">연락처를 명확히 하십시오</translation>
     </message>
     <message id="send-amount-label">
         <source>Transaction amount</source>
-        <translation type="unfinished">거래량</translation>
+        <translation>거래량</translation>
     </message>
     <message id="send-founds-fail">
         <source>Insufficient funds: you would need %1 to complete the transaction</source>
-        <translation type="unfinished">자금이 부족합니다 : 거래를 완료하려면 %1 만큼의 자금이 필요합니다</translation>
+        <translation>자금이 부족합니다 : 거래를 완료하려면 %1 만큼의 자금이 필요합니다</translation>
     </message>
     <message id="send-fee-fail">
         <source>The minimum fee is %1 GROTH</source>
@@ -606,7 +615,7 @@
     </message>
     <message id="send-remaining-label">
         <source>Remaining</source>
-        <translation type="unfinished">남아있는</translation>
+        <translation>남아있는</translation>
     </message>
     <message id="send-send-fail">
         <source>Address %1 is invalid</source>
@@ -618,7 +627,7 @@
     </message>
     <message id="start-restore-message-line">
         <source>You are trying to restore an existing Beam Wallet. Please notice that if you use your wallet on another device, your balance will be up to date, but  transaction history and addresses will be kept separately on each device.</source>
-        <translation type="unfinished">You are trying to restore an existing Beam Wallet. Please notice that if you use your wallet on another device, your balance will be up to date, but  transaction history and addresses will be kept separately on each device.</translation>
+        <translation>현재 이미 존재하는 Beam 지갑을 복구하려고 하고 있습니다. 지갑을 다른 기기에서 사용한다면 그 잔고는 지속적으로 업데이트 되지만, 거래 내역은 기기 별로 분리되어서 저장될 것입니다.</translation>
     </message>
     <message id="start-migration-message">
         <source>Your wallet will be migrated to v.</source>
@@ -908,7 +917,7 @@
     </message>
     <message id="utxo-head-maturity">
         <source>Maturity</source>
-        <translation type="unfinished">Maturity</translation>
+        <translation>형성</translation>
     </message>
     <message id="utxo-head-type">
         <source>Type</source>
@@ -916,15 +925,15 @@
     </message>
     <message id="utxo-status-available">
         <source>Available</source>
-        <translation>사용 가능 금액</translation>
+        <translation>사용가능</translation>
     </message>
     <message id="utxo-status-maturing">
         <source>Maturing%1(till block height %2)</source>
-        <translation type="unfinished">Maturing%1(till block height %2)</translation>
+        <translation>형성중%1(블록 높이 %2 까지)</translation>
     </message>
     <message id="utxo-status-unavailable">
         <source>Unavailable%1(mining result rollback)</source>
-        <translation type="unfinished">Unavailable%1(mining result rollback)</translation>
+        <translation>사용 불가능%1(채굴 결과 롤백)</translation>
     </message>
     <message id="utxo-status-outgoing">
         <source>In progress%1(outgoing)</source>
@@ -942,65 +951,9 @@
         <source>Spent</source>
         <translation>사용됨</translation>
     </message>
-    <message id="offer-book-title">
-        <source>Offer Book</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message id="offer-book-title-2">
-        <source>Active offers</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message id="offer-book-coins">
-        <source>Coins</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message id="offer-book-create">
-        <source>Create an offer</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message id="offer-book-all-tab">
-        <source>All</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message id="offer-book-mine-tab">
-        <source>Mine</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message id="offer-book-others-tab">
-        <source>Others</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message id="offer-book-time-created">
-        <source>Date | time</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message id="offer-book-amount">
-        <source>Amount</source>
-        <translation type="unfinished">양</translation>
-    </message>
-    <message id="offer-book-amount-swap">
-        <source>Amount</source>
-        <translation type="unfinished">양</translation>
-    </message>
-    <message id="offer-book-rate">
-        <source>Rate</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message id="offer-book-expiration">
-        <source>Expiration</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message id="offer-book-accept">
-        <source>Accept offer</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message id="offer-book-cancel">
-        <source>Cancel offer</source>
-        <translation type="unfinished"></translation>
-    </message>
     <message id="settings-general-lock-screen-never">
         <source>Never</source>
-        <translation type="unfinished">Never</translation>
+        <translation>안함</translation>
     </message>
     <message id="settings-general-lock-screen-1m">
         <source>1 minute</source>
@@ -1024,7 +977,7 @@
     </message>
     <message id="receive-amount-label">
         <source>Receive amount (optional)</source>
-        <translation type="unfinished">받는 양 (선택)</translation>
+        <translation>받는 양 (선택)</translation>
     </message>
     <message id="tx-details-tx-id-label">
         <source>Transaction ID</source>
@@ -1032,7 +985,7 @@
     </message>
     <message id="appmodel-failed-time-not-synced">
         <source>Failed to start the integrated node: the timezone settings of your machine are out of sync. Please fix them and restart the wallet.</source>
-        <translation type="unfinished">Failed to start the integrated node: the timezone settings of your machine are out of sync. Please fix them and restart the wallet.</translation>
+        <translation>integrated node 구동을 실패했습니다 : 기기의 타임존 설정이 잘못되었습니다. 재설정하고 지갑을 다시 실행시켜주십시오.</translation>
     </message>
     <message id="can-not-generate-new-address-message">
         <source>You cannot generate new address. Your wallet doesn&apos;t have a master key.</source>
@@ -1052,7 +1005,7 @@
         <translation>외부 링크</translation>
     </message>
     <message id="open-external-message">
-        <source>Beam Wallet app requires permission to open external link in the browser. This action will expose your IP to the web server. To avoid it, choose -Cancel-. You can chage your choice in app setting anytime.</source>
+        <source>Beam Wallet app requires permission to open external link in the browser. This action will expose your IP to the web server. To avoid it, choose -Cancel-. You can change your choice in app setting anytime.</source>
         <translation>Beam 지갑 앱은 브라우저에서 외부 링크를 열 수 있는 권한이 필요합니다. 이를 수행하면 당신의 IP 주소가 웹 서버에 노출 될 것입니다. 원하지 않는다면 -취소- 를 선택하십시오. 설정에서 언제든지 변경할 수 있습니다.</translation>
     </message>
     <message id="start-open-change-wallet-message">
@@ -1141,7 +1094,7 @@
     <message id="edit-addr-never-option">
         <source>Never</source>
         <extracomment>Edit address dialog, expiration option, never</extracomment>
-        <translation type="unfinished">Never</translation>
+        <translation>안함</translation>
     </message>
     <message id="edit-addr-as-is-option">
         <source>Within 24 hours</source>
@@ -1166,7 +1119,7 @@
     <message id="edit-addr-expiration-time-label">
         <source>Expired on </source>
         <extracomment>Edit addres dialog, expiration time label</extracomment>
-        <translation>~~ 만료됨</translation>
+        <translation>만료됨</translation>
     </message>
     <message id="edit-addr-activate-addr-switch">
         <source>Activate address</source>
@@ -1176,7 +1129,7 @@
     <message id="time-never">
         <source>Never</source>
         <extracomment>time never string</extracomment>
-        <translation type="unfinished">Never</translation>
+        <translation>안함</translation>
     </message>
     <message id="start-pwd-difficulty-very-weak">
         <source>Very weak password</source>
@@ -1211,7 +1164,7 @@
     <message id="start-select-db-best-match-label">
         <source>(best match)</source>
         <extracomment>start screen, select db for migration, best match label</extracomment>
-        <translation type="unfinished">(best match)</translation>
+        <translation>(완벽 일치)</translation>
     </message>
     <message id="start-select-db-thead-created">
         <source>Date created</source>
@@ -1228,20 +1181,128 @@
         <extracomment>settings tab, general section, ask password to send, confirm password dialog, message</extracomment>
         <translation>설정 바꾸기를 하려면 비밀번호 검증이 필요합니다</translation>
     </message>
+    <message id="open-in-explorer">
+        <source>Open in Blockchain Explorer</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="restore-finish-alert-button">
+        <source>I understand</source>
+        <translation type="unfinished">이해합니다</translation>
+    </message>
+    <message id="restore-finish-alert-title">
+        <source>Do not simultaneously run two wallets initiated from the same seed phrase</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="restore-finish-alert-message-line">
+        <source>Don’t use same seed phrase on several devices, your balance and transaction list won’t be synchronized.</source>
+        <translation type="unfinished"></translation>
+    </message>
     <message id="general-fee-rate">
         <source>Transaction fee rate</source>
         <translation type="unfinished"></translation>
     </message>
     <message id="general-fee-fail">
         <source>The minimum fee is %1 %2</source>
-        <translation type="unfinished">최소 수수료는 %1 GROTH 입니다</translation>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="general-locked">
+        <source>locked</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="general-change-settings">
+        <source>Change settings</source>
+        <translation type="unfinished">설정 변경</translation>
     </message>
     <message id="wallet-swap">
         <source>Swap</source>
         <translation type="unfinished"></translation>
     </message>
-    <message id="wallet-receive-your-token">
-        <source>Your transaction token:</source>
+    <message id="settings-reset">
+        <source>Switch off</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="settings-node-address">
+        <source>Node Address</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="settings-username">
+        <source>Username</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="settings-password">
+        <source>Password</source>
+        <translation type="unfinished">비밀번호</translation>
+    </message>
+    <message id="settings-fee-rate">
+        <source>Default fee</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="offer-book-title">
+        <source>Offer Book</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="offer-book-create">
+        <source>Create an offer</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="offer-book-title-2">
+        <source>Active offers</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="offer-book-coins">
+        <source>Coins</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="offer-book-all-tab">
+        <source>All</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="offer-book-mine-tab">
+        <source>Mine</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="offer-book-others-tab">
+        <source>Others</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="offer-book-time-created">
+        <source>Date | time</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="offer-book-amount">
+        <source>Amount</source>
+        <translation type="unfinished">양</translation>
+    </message>
+    <message id="offer-book-amount-swap">
+        <source>Amount</source>
+        <translation type="unfinished">양</translation>
+    </message>
+    <message id="offer-book-rate">
+        <source>Rate</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="offer-book-expiration">
+        <source>Expiration</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="offer-book-cancel">
+        <source>Cancel offer</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="offer-book-accept">
+        <source>Accept offer</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="swap-na-message">
+        <source>You do not have any 3rd-party currencies connected.\nUpdate your settings and try again.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="wallet-receive-swap-title">
+        <source>Create swap offer</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="wallet-receive-addr-message">
+        <source>Send this address to the sender over an external secure channel or scan the QR code</source>
         <translation type="unfinished"></translation>
     </message>
     <message id="wallet-receive-copy-address">
@@ -1268,12 +1329,28 @@
         <source>6 hours</source>
         <translation type="unfinished">24 시간 {6 ?}</translation>
     </message>
-    <message id="wallet-receive-swap-title">
-        <source>Create swap offer</source>
+    <message id="general-rate">
+        <source>Rate</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="wallet-receive-your-token">
+        <source>Your transaction token:</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="wallet-swap-token-message">
+        <source>Send this token to the sender over an external secure channel</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="wallet-receive-swap-publish">
+        <source>publish transaction token</source>
         <translation type="unfinished"></translation>
     </message>
     <message id="wallet-send-swap-title">
         <source>Swap currencies</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="wallet-send-invalid-token">
+        <source>Invalid address or token</source>
         <translation type="unfinished"></translation>
     </message>
     <message id="general-comment-local">
@@ -1282,6 +1359,22 @@
     </message>
     <message id="send-total-label">
         <source>Total UTXO value</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="general-bitcoin">
+        <source>Bitcoin</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="general-litecoin">
+        <source>Litecoin</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="general-qtum">
+        <source>QTUM</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="swap-currency-na-message">
+        <source>You do not have %1 connected.\nUpdate your settings and try again.</source>
         <translation type="unfinished"></translation>
     </message>
     <message id="send-swap-to-label">
@@ -1314,74 +1407,6 @@
     </message>
     <message id="general-amount-received">
         <source>Received</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message id="general-locked">
-        <source>locked</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message id="general-change-settings">
-        <source>Change settings</source>
-        <translation type="unfinished">설정 변경</translation>
-    </message>
-    <message id="settings-reset">
-        <source>Switch off</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message id="settings-node-address">
-        <source>Node Address</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message id="settings-username">
-        <source>Username</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message id="settings-password">
-        <source>Password</source>
-        <translation type="unfinished">비밀번호</translation>
-    </message>
-    <message id="settings-fee-rate">
-        <source>Default fee</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message id="swap-na-message">
-        <source>You do not have any 3rd-party currencies connected.\nUpdate your settings and try again.</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message id="general-rate">
-        <source>Rate</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message id="wallet-receive-swap-publish">
-        <source>publish transaction token</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message id="wallet-send-invalid-token">
-        <source>Invalid address or token</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message id="general-bitcoin">
-        <source>Bitcoin</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message id="general-litecoin">
-        <source>Litecoin</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message id="general-qtum">
-        <source>QTUM</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message id="swap-currency-na-message">
-        <source>You do not have %1 connected.\nUpdate your settings and try again.</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message id="wallet-receive-addr-message">
-        <source>Send this address to the sender over an external secure channel or scan the QR code</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message id="wallet-swap-token-message">
-        <source>Send this token to the sender over an external secure channel</source>
         <translation type="unfinished"></translation>
     </message>
 </context>

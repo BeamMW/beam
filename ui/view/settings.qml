@@ -3,8 +3,9 @@ import QtQuick.Controls 1.2
 import QtQuick.Controls 2.4
 import QtQuick.Controls.Styles 1.2
 import QtQuick.Layouts 1.0
-import Beam.Wallet 1.0
 import "controls"
+import "utils.js" as Utils
+import Beam.Wallet 1.0
 
 ColumnLayout {
     id: settingsView
@@ -85,31 +86,6 @@ ColumnLayout {
         onAccepted: {
             canRefresh = false;
             viewModel.refreshWallet();
-        }
-    }
-
-    function handleMousePointer(mouse, element) {
-        if (element.parent.linkAt(mouse.x, mouse.y).length) {
-            element.cursorShape = Qt.PointingHandCursor;
-        } else {
-            element.cursorShape = Qt.ArrowCursor;
-        }
-    }
-
-    function handleExternalLink(mouse, element) {
-        if (element.cursorShape == Qt.PointingHandCursor) {
-            var externalLink = element.parent.linkAt(mouse.x, mouse.y);
-            if (viewModel.isAllowedBeamMWLinks) {
-                Qt.openUrlExternally(externalLink);
-            } else {
-                externalLinkConfirmation.externalUrl = externalLink;
-                externalLinkConfirmation.onOkClicked = function () {
-                    viewModel.isAllowedBeamMWLinks = true;
-                };
-                externalLinkConfirmation.open();
-            }
-        } else {
-            viewModel.isAllowedBeamMWLinks = !viewModel.isAllowedBeamMWLinks;
         }
     }
 
@@ -790,10 +766,10 @@ ColumnLayout {
                         SFText {
                             property string beamUrl: "<a href='https://www.beam.mw/'>beam.mw</a>"
                             //% "blockchain explorer"
-                            property string explorerUrl: "<a href='https://explorer.beam.mw/'>%1</a>".arg(qsTrId("explorer"))
+                                        property string explorerUrl: "<a href='%1'>%2</a>".arg(Style.explorerUrl).arg(qsTrId("explorer"))
                             //: general settings, label for alow open external links
                             //% "Allow access to %1 and %2 (to fetch exchanges and transaction data)"
-                            text: linkStyle + qsTrId("settings-general-allow-beammw-label").arg(beamUrl).arg(explorerUrl)
+                            text: Style.linkStyle + qsTrId("settings-general-allow-beammw-label").arg(beamUrl).arg(explorerUrl)
                             textFormat: Text.RichText
                             font.pixelSize: 14
                             color: allowBeamMWLinks.palette.text
@@ -805,11 +781,11 @@ ColumnLayout {
                                 anchors.fill: parent
                                 acceptedButtons: Qt.LeftButton
                                 onClicked: {
-                                    handleExternalLink(mouse, allowOpenExternalArea);
+                                    Utils.handleExternalLink(mouse, allowOpenExternalArea, viewModel, externalLinkConfirmation);
                                 }
                                 hoverEnabled: true
                                 onPositionChanged : {
-                                    handleMousePointer(mouse, allowOpenExternalArea);
+                                    Utils.handleMousePointer(mouse, allowOpenExternalArea);
                                 }
                             }
                         }
@@ -912,7 +888,7 @@ ColumnLayout {
                         property string rpm3: qsTrId("settings-report-problem-message-l3")
                         Layout.topMargin: 7
                         Layout.preferredWidth: parent.width
-                        text: linkStyle + rpm0 + "<br />" + rpm1 + "<br />" + rpm2 + "<br />" + rpm3
+                        text: Style.linkStyle + rpm0 + "<br />" + rpm1 + "<br />" + rpm2 + "<br />" + rpm3
                         textFormat: Text.RichText
                         color: Style.content_main
                         font.pixelSize: 14
@@ -922,11 +898,11 @@ ColumnLayout {
                             anchors.fill: parent
                             acceptedButtons: Qt.LeftButton
                             onClicked: {
-                                handleExternalLink(mouse, reportProblemMessageArea);
+                                Utils.handleExternalLink(mouse, reportProblemMessageArea, viewModel, externalLinkConfirmation);
                             }
                             hoverEnabled: true
                             onPositionChanged : {
-                                handleMousePointer(mouse, reportProblemMessageArea);
+                                Utils.handleMousePointer(mouse, reportProblemMessageArea);
                             }
                         }
                     }
