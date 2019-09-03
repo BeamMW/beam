@@ -676,12 +676,10 @@ namespace beam::wallet
                 return _commited;
             }
 
-            void rollback()
+            void rollback() noexcept
             {
                 int ret = sqlite3_exec(_db, "ROLLBACK;", nullptr, nullptr, nullptr);
-                throwIfError(ret, _db);
-
-                _rollbacked = true;
+                _rollbacked = (ret == SQLITE_OK);
             }
         private:
             sqlite3 * _db;

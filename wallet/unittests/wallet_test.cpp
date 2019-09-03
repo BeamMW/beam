@@ -1387,6 +1387,63 @@ namespace
 
         mainReactor->run();
     }
+
+    void TestBbsMessages2()
+    {
+        printf("Testing bbs with wallets2 ...\n");
+        io::Reactor::Ptr mainReactor(io::Reactor::create());
+        io::Reactor::Scope scope(*mainReactor);
+        const int Count = 500;
+        string nodePath = "node.db";
+        if (boost::filesystem::exists(nodePath))
+        {
+            boost::filesystem::remove(nodePath);
+        }
+
+        int completedCount = 1;
+        auto f = [&completedCount, mainReactor](auto)
+        {
+            --completedCount;
+            if (completedCount == 0)
+            {
+                mainReactor->stop();
+            }
+        };
+
+        auto db = createSqliteWalletDB(SenderWalletDB, false);
+        auto treasury = createTreasury(db, AmountList{Amount(5*Count)});
+
+        auto nodeCreator = [](Node& node, const ByteBuffer& treasury, uint16_t port, const std::string& path, const std::vector<io::Address>& peers = {}, bool miningNode = true)->io::Address
+        {
+            InitNodeToTest(node, treasury, nullptr, port, 10000, path, peers, miningNode);
+            io::Address address;
+            address.resolve("127.0.0.1");
+            address.port(port);
+            return address;
+        };
+
+
+        Node senderNode;
+        auto senderNodeAddress = nodeCreator(senderNode, treasury, 32125, "sender_node.db");
+        Node receiverNode;
+        auto receiverNodeAddress = nodeCreator(receiverNode, treasury, 32126, "receiver_node.db", { senderNodeAddress }, false);
+
+        TestWalletRig sender("sender", db, f, TestWalletRig::Type::Regular, false, 0, senderNodeAddress);
+        TestWalletRig receiver("receiver", createReceiverWalletDB(), f, TestWalletRig::Type::Regular, false, 0, receiverNodeAddress);
+
+        sender.m_Wallet.split_coins(sender.m_WalletID, AmountList( Count, Amount(5) ), 0, true, 200);
+
+        mainReactor->run();
+
+        completedCount = 2 * Count;
+
+        for (int i = 0; i < Count; ++i)
+        {
+            sender.m_Wallet.transfer_money(sender.m_WalletID, receiver.m_WalletID, 4, 1, true, 200);
+        }
+        
+        mainReactor->run();
+    }
 }
 
 bool RunNegLoop(beam::Negotiator::IBase& a, beam::Negotiator::IBase& b, const char* szTask)
@@ -2030,6 +2087,7 @@ int main()
 #endif
 
     //TestBbsMessages();
+    //TestBbsMessages2();
 
     assert(g_failureCount == 0);
     return WALLET_CHECK_RESULT;

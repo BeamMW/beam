@@ -349,7 +349,7 @@ struct TestWalletRig
         Offline
     };
 
-    TestWalletRig(const string& name, IWalletDB::Ptr walletDB, Wallet::TxCompletedAction&& action = Wallet::TxCompletedAction(), Type type = Type::Regular, bool oneTimeBbsEndpoint = false, uint32_t nodePollPeriod_ms = 0)
+    TestWalletRig(const string& name, IWalletDB::Ptr walletDB, Wallet::TxCompletedAction&& action = Wallet::TxCompletedAction(), Type type = Type::Regular, bool oneTimeBbsEndpoint = false, uint32_t nodePollPeriod_ms = 0, io::Address nodeAddress = io::Address::localhost().port(32125))
         : m_WalletDB{ walletDB }
         , m_KeyKeeper(make_shared<LocalPrivateKeyKeeper>(m_WalletDB))
         , m_Wallet{ m_WalletDB, m_KeyKeeper, move(action),( type == Type::ColdWallet) ? []() {io::Reactor::get_Current().stop(); } : Wallet::UpdateCompletedAction() }
@@ -379,7 +379,7 @@ struct TestWalletRig
             {
                 auto nodeEndpoint = make_shared<proto::FlyClient::NetworkStd>(m_Wallet);
                 nodeEndpoint->m_Cfg.m_PollPeriod_ms = nodePollPeriod_ms;
-                nodeEndpoint->m_Cfg.m_vNodes.push_back(io::Address::localhost().port(32125));
+                nodeEndpoint->m_Cfg.m_vNodes.push_back(nodeAddress);
                 nodeEndpoint->Connect();
                 if (oneTimeBbsEndpoint)
                 {
@@ -1229,7 +1229,7 @@ ByteBuffer createTreasury(IWalletDB::Ptr db, AmountList amounts = { 5, 2, 1, 9 }
     return result;
 }
 
-void InitNodeToTest(Node& node, const ByteBuffer& binaryTreasury, Node::IObserver* observer, uint16_t port = 32125, uint32_t powSolveTime = 1000, const std::string & path = "mytest.db", const std::vector<io::Address>& peers = {})
+void InitNodeToTest(Node& node, const ByteBuffer& binaryTreasury, Node::IObserver* observer, uint16_t port = 32125, uint32_t powSolveTime = 1000, const std::string & path = "mytest.db", const std::vector<io::Address>& peers = {}, bool miningNode = true)
 {
     node.m_Cfg.m_Treasury = binaryTreasury;
     ECC::Hash::Processor() << Blob(node.m_Cfg.m_Treasury) >> Rules::get().TreasuryChecksum;
@@ -1238,7 +1238,7 @@ void InitNodeToTest(Node& node, const ByteBuffer& binaryTreasury, Node::IObserve
     node.m_Cfg.m_sPathLocal = path.c_str();
     node.m_Cfg.m_Listen.port(port);
     node.m_Cfg.m_Listen.ip(INADDR_ANY);
-    node.m_Cfg.m_MiningThreads = 1;
+    node.m_Cfg.m_MiningThreads = miningNode ? 1 : 0;
     node.m_Cfg.m_VerificationThreads = 1;
     node.m_Cfg.m_TestMode.m_FakePowSolveTime_ms = powSolveTime;
     node.m_Cfg.m_Connect = peers;

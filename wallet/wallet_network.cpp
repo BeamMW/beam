@@ -422,7 +422,6 @@ namespace beam::wallet {
 
 	void WalletNetworkViaBbs::OnMined(proto::BbsMsg&& msg)
 	{
-        LOG_DEBUG() << "!!!!!!!!!!!!!!!!!!!!!!!OnMined() diff: " << getTimestamp() - msg.m_TimePosted;
 		MyRequestBbsMsg::Ptr pReq(new MyRequestBbsMsg);
 
 		pReq->m_Msg = std::move(msg);
