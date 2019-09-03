@@ -37,9 +37,7 @@
 #include "wallet/qtum/settings_provider.h"
 #include "wallet/qtum/settings.h"
 
-#if defined(BEAM_HW_WALLET)
-#include "wallet/hw_wallet.h"
-#endif
+#include "wallet/local_private_key_keeper.h"
 
 using namespace beam;
 using namespace beam::wallet;
@@ -86,8 +84,10 @@ bool AppModel::createWallet(const SecString& seed, const SecString& pass)
     m_db = WalletDB::init(dbFilePath, pass, seed.hash(), m_walletReactor);
     if (!m_db) return false;
 
+    m_keyKeeper = std::make_shared<LocalPrivateKeyKeeper>(m_db);
+
     // generate default address
-    WalletAddress address = storage::createAddress(*m_db);
+    WalletAddress address = storage::createAddress(*m_db, m_keyKeeper);
     address.m_label = "default";
     m_db->saveAddress(address);
 
@@ -262,7 +262,7 @@ void AppModel::start()
     InitLtcClient();
     InitQtumClient();
 
-    m_wallet = std::make_shared<WalletModel>(m_db, nodeAddrStr, m_walletReactor);
+    m_wallet = std::make_shared<WalletModel>(m_db, m_keyKeeper, nodeAddrStr, m_walletReactor);
 
     if (m_settings.getRunLocalNode())
     {

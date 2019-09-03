@@ -25,7 +25,15 @@ target_include_directories(${TARGET_NAME} PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/in
 
 target_link_libraries(${TARGET_NAME} secp256k1)
 
-if(ANDROID)
+if(IOS)
+        target_link_libraries(${TARGET_NAME} 
+            $ENV{BOOST_ROOT_IOS}/lib/libboost_program_options.a 
+            $ENV{BOOST_ROOT_IOS}/lib/libboost_filesystem.a
+            $ENV{BOOST_ROOT_IOS}/lib/libboost_system.a
+            $ENV{BOOST_ROOT_IOS}/lib/libboost_thread.a
+            $ENV{BOOST_ROOT_IOS}/lib/libboost_regex.a
+            $ENV{BOOST_ROOT_IOS}/lib/libboost_log.a)
+elseif(ANDROID)
     if(ANDROID_ABI STREQUAL "armeabi-v7a")
         target_link_libraries(${TARGET_NAME} 
             $ENV{BOOST_ROOT_ANDROID}/libs/${ANDROID_ABI}/libboost_program_options-clang-mt-a32-1_68.a 

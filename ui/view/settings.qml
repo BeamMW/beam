@@ -623,13 +623,6 @@ ColumnLayout {
                                 Layout.preferredWidth: generalBlock.width * 0.33
 
                                 currentIndex: viewModel.lockTimeout
-
-                                Binding {
-                                    target: viewModel
-                                    property: "lockTimeout"
-                                    value: lockTimeoutControl.currentIndex
-                                }
-
                                 model: [
                                     //% "Never"
                                     qsTrId("settings-general-lock-screen-never"),
@@ -644,6 +637,9 @@ ColumnLayout {
                                     //% "1 hour"
                                     qsTrId("settings-general-lock-screen-1h"),
                                 ]
+                                onActivated: {
+                                    viewModel.lockTimeout = lockTimeoutControl.currentIndex;
+                                }
                             }
                         }
                     }

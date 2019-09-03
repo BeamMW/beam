@@ -16,6 +16,7 @@
 #include "wallet/wallet_network.h"
 #include "wallet/wallet.h"
 #include "wallet/wallet_transaction.h"
+#include "wallet/local_private_key_keeper.h"
 #include "wallet/secstring.h"
 #include "wallet/bitcoin/settings_provider.h"
 #include "wallet/litecoin/settings_provider.h"
@@ -522,7 +523,9 @@ void ExpireByResponseTime(bool isBeamSide)
 
     InitBitcoin(sender->m_Wallet, sender->m_WalletDB, *mainReactor, aliceSettings);
 
-    WalletAddress receiverWalletAddress = storage::createAddress(*createReceiverWalletDB());
+    auto db = createReceiverWalletDB();
+    auto keyKeeper = std::make_shared<LocalPrivateKeyKeeper>(db);
+    WalletAddress receiverWalletAddress = storage::createAddress(*db, keyKeeper);
     WalletID receiverWalletID = receiverWalletAddress.m_walletID;
 
     auto swapParameters = InitNewSwap(receiverWalletID, beamAmount, beamFee, wallet::AtomicSwapCoin::Bitcoin, swapAmount, SwapSecondSideChainType::Testnet, !isBeamSide, lifetime, responseTime);

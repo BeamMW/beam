@@ -198,6 +198,12 @@ namespace beam::wallet
         return toByteBuffer(s);
     }
 
+    Amount GetMinimumFee(size_t numberOfOutputs, size_t numberOfKenrnels /*= 1*/)
+    {
+        // Minimum Fee = (number of outputs) * 10 + (number of kernels) * 10
+        return (numberOfOutputs + numberOfKenrnels) * 10;
+    }
+
     ErrorType getWalletError(proto::NodeProcessingException::Type exceptionType)
     {
         switch (exceptionType)

@@ -148,15 +148,27 @@ RowLayout {
             elide: Text.ElideMiddle
             onCopyText: textCopied(text)
         }
-        SFText {
-            Layout.alignment: Qt.AlignTop
-            font.pixelSize: 14
-            color: Style.content_secondary
-            text: ""
+
+        function canOpenInBlockchainExplorer(status) {
+            switch(status) {
+                case "completed":
+                case "received":
+                case "sent":
+                    return true;
+                default:
+                    return false;
+            }
+        }
+
+        Item {
+            Layout.fillWidth: true
+            Layout.preferredHeight: 16
+            visible: model && parent.canOpenInBlockchainExplorer(model.status)
         }
         Item {
             Layout.preferredWidth: openInExplorer.width + 10 + openInExplorerIcon.width
             Layout.preferredHeight: 16
+            visible: model && parent.canOpenInBlockchainExplorer(model.status)
 
             SFText {
                 id: openInExplorer

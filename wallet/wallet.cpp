@@ -90,13 +90,13 @@ namespace beam::wallet
 
     const char Wallet::s_szNextUtxoEvt[] = "NextUtxoEvent";
 
-    Wallet::Wallet(IWalletDB::Ptr walletDB, TxCompletedAction&& action, UpdateCompletedAction&& updateCompleted)
+    Wallet::Wallet(IWalletDB::Ptr walletDB, IPrivateKeyKeeper::Ptr keyKeeper, TxCompletedAction&& action, UpdateCompletedAction&& updateCompleted)
         : m_WalletDB{ walletDB }
-        , m_KeyKeeper{ walletDB->get_MasterKdf() ? make_shared<LocalPrivateKeyKeeper>(walletDB): IPrivateKeyKeeper::Ptr() }
         , m_TxCompletedAction{move(action)}
         , m_UpdateCompleted{move(updateCompleted)}
         , m_LastSyncTotal(0)
         , m_OwnedNodesOnline(0)
+        , m_KeyKeeper(keyKeeper)
     {
         assert(walletDB);
         // the only default type of transaction
@@ -186,6 +186,7 @@ namespace beam::wallet
     //        WalletAddress address;
     //        address.m_walletID = to;
     //        address.m_createTime = getTimestamp();
+    //        address.m_label = std::string(message.begin(), message.end());
 
     //        m_WalletDB->saveAddress(address);
     //    }
@@ -279,9 +280,7 @@ namespace beam::wallet
 
         storage::setVar(*m_WalletDB, s_szNextUtxoEvt, 0);
         RequestUtxoEvents();
-        RefreshTransactions();
     }
-
 
     void Wallet::RegisterTransactionType(TxType type, BaseTransaction::Creator::Ptr creator)
     {
@@ -304,33 +303,6 @@ namespace beam::wallet
     {
         MakeTransactionActive(tx);
         UpdateTransaction(tx->GetTxID());
-    }
-
-    void Wallet::RefreshTransactions()
-    {
-        auto txs = m_WalletDB->getTxHistory(TxType::ALL); // get list of ALL transactions
-        for (auto& tx : txs)
-        {
-            // For all transactions that are not currently in the 'active' tx list
-            if (m_ActiveTransactions.find(tx.m_txId) == m_ActiveTransactions.end())
-            {
-                // Reconstruct tx with reset parameters and add it to the active list
-                auto transaction = ConstructTransaction(tx.m_txId, tx.m_txType);
-                if (transaction && transaction->Rollback(Height(0)))
-                {
-                    MakeTransactionActive(transaction);
-                }
-            }
-        }
-
-        // Update all transactions
-        auto transactions = m_ActiveTransactions;
-        AsyncContextHolder holder(*this);
-        for (auto& txPair : transactions)
-        {
-            auto transaction = txPair.second;
-            transaction->Update();
-        }
     }
 
     void Wallet::ResumeTransaction(const TxDescription& tx)

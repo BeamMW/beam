@@ -8,6 +8,7 @@ set(CORE_SRC
     block_validation.cpp
     difficulty.cpp
     chainwork.cpp
+    mapped_file.cpp
     navigator.cpp
     radixtree.cpp
     merkle.cpp

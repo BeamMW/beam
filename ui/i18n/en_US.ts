@@ -1202,6 +1202,58 @@ or send this address to the sender over secure channel</translation>
         <source>Don’t use same seed phrase on several devices, your balance and transaction list won’t be synchronized.</source>
         <translation>Don’t use same seed phrase on several devices, your balance and transaction list won’t be synchronized.</translation>
     </message>
+    <message id="tx-failture-subtx-failed">
+        <source>Subtransaction has failed</source>
+        <translation>Subtransaction has failed</translation>
+    </message>
+    <message id="tx-failture-invalid-contract-amount">
+        <source>Contract&apos;s amount is not valid</source>
+        <translation>Contract&apos;s amount is not valid</translation>
+    </message>
+    <message id="tx-failture-invalid-sidechain-contract">
+        <source>Side chain has invalid contract</source>
+        <translation>Side chain has invalid contract</translation>
+    </message>
+    <message id="tx-failture-sidechain-internal-error">
+        <source>Side chain bridge has internal error</source>
+        <translation>Side chain bridge has internal error</translation>
+    </message>
+    <message id="tx-failture-sidechain-network-error">
+        <source>Side chain bridge has network error</source>
+        <translation>Side chain bridge has network error</translation>
+    </message>
+    <message id="tx-failture-invalid-sidechain-response-format">
+        <source>Side chain bridge has response format error</source>
+        <translation>Side chain bridge has response format error</translation>
+    </message>
+    <message id="tx-failture-invalid-side-chain-credentials">
+        <source>Invalid credentials of Side chain</source>
+        <translation>Invalid credentials of Side chain</translation>
+    </message>
+    <message id="tx-failture-not-enough-time-btc-lock">
+        <source>Not enough time to finish btc lock transaction</source>
+        <translation>Not enough time to finish btc lock transaction</translation>
+    </message>
+    <message id="tx-failture-create-multisig">
+        <source>Failed to create multi-signature</source>
+        <translation>Failed to create multi-signature</translation>
+    </message>
+    <message id="tx-failture-fee-too-small">
+        <source>Fee is too small</source>
+        <translation>Fee is too small</translation>
+    </message>
+    <message id="loading-view-estimate-minutes">
+        <source>min.</source>
+        <translation>min.</translation>
+    </message>
+    <message id="loading-view-estimate-seconds">
+        <source>sec.</source>
+        <translation>sec.</translation>
+    </message>
+    <message id="loading-view-estimate-time">
+        <source>Estimate time: %s</source>
+        <translation>Estimate time: %s</translation>
+    </message>
     <message id="general-fee-rate">
         <source>Transaction fee rate</source>
         <translation type="unfinished"></translation>

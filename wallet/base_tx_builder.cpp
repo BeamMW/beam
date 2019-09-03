@@ -67,7 +67,8 @@ namespace beam::wallet
             }
             m_Tx.GetWalletDB()->saveCoins(coins);
         }
-        Amount amountWithFee = GetAmount() + m_Fee;
+
+        Amount amountWithFee = GetAmount() + GetFee();
         if (preselectedAmount < amountWithFee)
         {
             auto selectedCoins = m_Tx.GetWalletDB()->selectCoins(amountWithFee - preselectedAmount);
@@ -202,7 +203,7 @@ namespace beam::wallet
         // create kernel
         assert(!m_Kernel);
         m_Kernel = make_unique<TxKernel>();
-        m_Kernel->m_Fee = m_Fee;
+        m_Kernel->m_Fee = GetFee();
         m_Kernel->m_Height.m_Min = GetMinHeight();
         m_Kernel->m_Height.m_Max = GetMaxHeight();
         m_Kernel->m_Commitment = Zero;
@@ -335,6 +336,8 @@ namespace beam::wallet
         m_Tx.GetParameter(TxParameterID::Lifetime, m_Lifetime, m_SubTxID);
         m_Tx.GetParameter(TxParameterID::PeerMaxHeight, m_PeerMaxHeight, m_SubTxID);
 
+        CheckMinimumFee();
+
         return m_Tx.GetParameter(TxParameterID::Offset, m_Offset, m_SubTxID);
     }
 
@@ -366,7 +369,20 @@ namespace beam::wallet
 
         m_Kernel->get_Hash(m_Message, m_PeerLockImage.get());
 
-        m_PartialSignature = m_Tx.GetKeyKeeper()->SignSync(m_InputCoins, m_OutputCoins, m_Offset, m_NonceSlot, m_Message, GetPublicNonce() + m_PeerPublicNonce, totalPublicExcess);
+        KernelParameters kernelParameters;
+        kernelParameters.fee = m_Fee;
+        kernelParameters.height = { GetMinHeight(), GetMaxHeight() };
+        kernelParameters.commitment = totalPublicExcess;
+        if (m_PeerLockImage)
+        {
+            *kernelParameters.lockImage = *m_PeerLockImage;
+        }
+        if (m_Kernel->m_pHashLock)
+        {
+            *kernelParameters.hashLock = *m_Kernel->m_pHashLock;
+        }
+
+        m_PartialSignature = m_Tx.GetKeyKeeper()->SignSync(m_InputCoins, m_OutputCoins, m_Offset, m_NonceSlot, kernelParameters, GetPublicNonce() + m_PeerPublicNonce);
 
         StoreKernelID();
     }
@@ -609,5 +625,31 @@ namespace beam::wallet
     const std::vector<Coin::ID>& BaseTxBuilder::GetOutputCoins() const
     {
         return m_OutputCoins;
+    }
+
+    Amount BaseTxBuilder::GetMinimumFee() const
+    {
+        auto numberOfOutputs = GetAmountList().size() + 1; // +1 for possible change to simplify logic TODO: need to review
+
+        return wallet::GetMinimumFee(numberOfOutputs);
+    }
+
+    void BaseTxBuilder::CheckMinimumFee()
+    {
+        // after 1st fork fee should be >= minimal fee
+        if (Rules::get().pForks[1].m_Height <= GetMinHeight())
+        {
+            auto minimalFee = GetMinimumFee();
+            Amount userFee = 0;
+            if (m_Tx.GetParameter(TxParameterID::Fee, userFee, m_SubTxID))
+            {
+                if (userFee < minimalFee)
+                {
+                    stringstream ss;
+                    ss << "The minimum fee must be: " << minimalFee << " .";
+                    throw TransactionFailedException(false, TxFailureReason::FeeIsTooSmall, ss.str().c_str());
+                }
+            }
+        }
     }
 }

@@ -36,6 +36,17 @@ bool Node::SyncStatus::operator == (const SyncStatus& x) const
 		(m_Total == x.m_Total);
 }
 
+void Node::SyncStatus::ToRelative(Height hDone0)
+{
+	hDone0 = std::min(hDone0, m_Done); // prevent overflow (though should not happen)
+
+	assert(m_Total); // never 0, accounts at least for treasury
+	hDone0 = std::min(hDone0, m_Total - 1); // prevent "indefinite" situation where sync status is 0/0
+
+	m_Done -= hDone0;
+	m_Total -= hDone0;
+}
+
 void Node::RefreshCongestions()
 {
 	for (TaskSet::iterator it = m_setTasks.begin(); m_setTasks.end() != it; it++)
@@ -1513,7 +1524,7 @@ void Node::Peer::OnDisconnect(const DisconnectReason& dr)
         break;
 
     case DisconnectReason::ProcessingExc:
-        if (dr.m_ExceptionDetails.m_ExceptionType == proto::NodeProcessingException::Type::TimeOutOfSync)
+        if (dr.m_ExceptionDetails.m_ExceptionType == proto::NodeProcessingException::Type::TimeOutOfSync && m_This.m_Cfg.m_Observer)
         {
             m_This.m_Cfg.m_Observer->OnSyncError(IObserver::Error::TimeDiffToLarge);
         }
@@ -1673,7 +1684,7 @@ void Node::Peer::OnMsg(proto::NewTip&& msg)
         switch (p.OnState(m_Tip, m_pInfo->m_ID.m_Key))
         {
         case NodeProcessor::DataStatus::Invalid:
-            m_Tip.m_TimeStamp > getTimestamp() ?
+            m_Tip.m_TimeStamp > getTimestamp() && m_This.m_Cfg.m_Observer ?
                 m_This.m_Cfg.m_Observer->OnSyncError(IObserver::Error::TimeDiffToLarge):
                 ThrowUnexpected();
             // no break;
@@ -4079,8 +4090,8 @@ bool Node::GenerateRecoveryInfo(const char* szPath)
 
 			if (n.IsExt())
 			{
-				for (auto it = n.m_pIDs->begin(); n.m_pIDs->end() != it; it++)
-					OnUtxo(d, *it);
+				for (auto p = n.m_pIDs.get_Strict()->m_pTop.get_Strict(); p; p = p->m_pNext.get())
+					OnUtxo(d, p->m_ID);
 			}
 			else
 				OnUtxo(d, n.m_ID);

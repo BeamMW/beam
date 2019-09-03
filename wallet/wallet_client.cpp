@@ -188,12 +188,13 @@ struct WalletModelBridge : public Bridge<IWalletModelAsync>
 
 namespace beam::wallet
 {
-    WalletClient::WalletClient(IWalletDB::Ptr walletDB, const std::string& nodeAddr, io::Reactor::Ptr reactor)
+    WalletClient::WalletClient(IWalletDB::Ptr walletDB, const std::string& nodeAddr, io::Reactor::Ptr reactor, IPrivateKeyKeeper::Ptr keyKeeper)
         : m_walletDB(walletDB)
         , m_reactor{ reactor ? reactor : io::Reactor::create() }
         , m_async{ make_shared<WalletModelBridge>(*(static_cast<IWalletModelAsync*>(this)), *m_reactor) }
         , m_isConnected(false)
         , m_nodeAddrStr(nodeAddr)
+        , m_keyKeeper(keyKeeper)
     {
     }
 
@@ -247,7 +248,7 @@ namespace beam::wallet
                     static const unsigned LOG_CLEANUP_PERIOD_SEC = 120 * 3600; // 5 days
                     LogRotation logRotation(*m_reactor, LOG_ROTATION_PERIOD_SEC, LOG_CLEANUP_PERIOD_SEC);
 
-                    auto wallet = make_shared<Wallet>(m_walletDB);
+                    auto wallet = make_shared<Wallet>(m_walletDB, m_keyKeeper);
                     m_wallet = wallet;
 
                     class NodeNetwork final: public proto::FlyClient::NetworkStd
@@ -322,7 +323,7 @@ namespace beam::wallet
                     auto nodeNetwork = make_shared<NodeNetwork>(*wallet, *this, m_nodeAddrStr);
                     m_nodeNetwork = nodeNetwork;
 
-                    auto walletNetwork = make_shared<WalletNetworkViaBbs>(*wallet, nodeNetwork, m_walletDB);
+                    auto walletNetwork = make_shared<WalletNetworkViaBbs>(*wallet, nodeNetwork, m_walletDB, m_keyKeeper);
                     m_walletNetwork = walletNetwork;
                     wallet->SetNodeEndpoint(nodeNetwork);
                     wallet->AddMessageEndpoint(walletNetwork);
@@ -437,15 +438,16 @@ namespace beam::wallet
     {
         try
         {
-            WalletAddress senderAddress = storage::createAddress(*m_walletDB);
-            saveAddress(senderAddress, true); // should update the wallet_network
-
-            ByteBuffer message(comment.begin(), comment.end());
-
             assert(!m_wallet.expired());
             auto s = m_wallet.lock();
             if (s)
             {
+                WalletAddress senderAddress = storage::createAddress(*m_walletDB, m_keyKeeper);
+                saveAddress(senderAddress, true); // should update the wallet_network
+
+                ByteBuffer message(comment.begin(), comment.end());
+
+
                 s->StartTransaction(CreateSimpleTransactionParameters()
                     .SetParameter(TxParameterID::MyID, senderAddress.m_walletID)
                     .SetParameter(TxParameterID::PeerID, receiver)
@@ -479,12 +481,11 @@ namespace beam::wallet
     {
         try
         {
-            ByteBuffer message(comment.begin(), comment.end());
-
             assert(!m_wallet.expired());
             auto s = m_wallet.lock();
             if (s)
             {
+                ByteBuffer message(comment.begin(), comment.end());
                 s->StartTransaction(CreateSimpleTransactionParameters()
                     .SetParameter(TxParameterID::MyID, sender)
                     .SetParameter(TxParameterID::PeerID, receiver)
@@ -518,19 +519,19 @@ namespace beam::wallet
     {
         try
         {
-            auto myID = parameters.GetParameter<WalletID>(TxParameterID::MyID);
-            if (!myID)
-            {
-                WalletAddress senderAddress = storage::createAddress(*m_walletDB);
-                saveAddress(senderAddress, true); // should update the wallet_network
-                
-                parameters.SetParameter(TxParameterID::MyID, senderAddress.m_walletID);
-            }
-            
             assert(!m_wallet.expired());
             auto s = m_wallet.lock();
             if (s)
             {
+                auto myID = parameters.GetParameter<WalletID>(TxParameterID::MyID);
+                if (!myID)
+                {
+                    WalletAddress senderAddress = storage::createAddress(*m_walletDB, m_keyKeeper);
+                    saveAddress(senderAddress, true); // should update the wallet_network
+                
+                    parameters.SetParameter(TxParameterID::MyID, senderAddress.m_walletID);
+                }
+
                 s->StartTransaction(parameters);
             }
 
@@ -661,7 +662,7 @@ namespace beam::wallet
     {
         try
         {
-            WalletAddress address = storage::createAddress(*m_walletDB);
+            WalletAddress address = storage::createAddress(*m_walletDB, m_keyKeeper);
 
             onGeneratedNewAddress(address);
         }

@@ -1197,6 +1197,58 @@
         <source>Don’t use same seed phrase on several devices, your balance and transaction list won’t be synchronized.</source>
         <translation>อย่าใช้กลุ่มคำลับเดียวกันในหลายๆอุปกรณ์ ยอดคงเหลือและข้อมูลธุรกรรมจะถูกเก็บในอุปกรณ์ใดอุปกรณ์หนึ่งเท่านั้น</translation>
     </message>
+    <message id="tx-failture-subtx-failed">
+        <source>Subtransaction has failed</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="tx-failture-invalid-contract-amount">
+        <source>Contract&apos;s amount is not valid</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="tx-failture-invalid-sidechain-contract">
+        <source>Side chain has invalid contract</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="tx-failture-sidechain-internal-error">
+        <source>Side chain bridge has internal error</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="tx-failture-sidechain-network-error">
+        <source>Side chain bridge has network error</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="tx-failture-invalid-sidechain-response-format">
+        <source>Side chain bridge has response format error</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="tx-failture-invalid-side-chain-credentials">
+        <source>Invalid credentials of Side chain</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="tx-failture-not-enough-time-btc-lock">
+        <source>Not enough time to finish btc lock transaction</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="tx-failture-create-multisig">
+        <source>Failed to create multi-signature</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="tx-failture-fee-too-small">
+        <source>Fee is too small</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="loading-view-estimate-minutes">
+        <source>min.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="loading-view-estimate-seconds">
+        <source>sec.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="loading-view-estimate-time">
+        <source>Estimate time: %s</source>
+        <translation type="unfinished"></translation>
+    </message>
     <message id="general-fee-rate">
         <source>Transaction fee rate</source>
         <translation type="unfinished"></translation>

@@ -56,8 +56,10 @@ signals:
 
 private:
     void updateProgress();
+    beam::Timestamp getSecondsFromLastUpdate();
+    QString getEstimateStr(
+        beam::Timestamp secondsFromLastUpdate, double progress);
 
-private:
     WalletModel& m_walletModel;
     double m_progress;
     int m_nodeTotal;
@@ -67,4 +69,8 @@ private:
     bool m_hasLocalNode;
     QString m_progressMessage;
     bool m_isCreating;
+    double m_lastProgress = 0.;
+    beam::Timestamp m_lastUpdateTimestamp = 0;
+    beam::Timestamp m_updateTimestamp = 0;
+    double m_lastEstimateSeconds = 1.;
 };

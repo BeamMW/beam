@@ -27,6 +27,7 @@
 
 #include "wallet/swaps/common.h"
 #include "wallet/swaps/utils.h"
+#include "wallet/local_private_key_keeper.h"
 #include "core/ecc_native.h"
 #include "core/serialization_adapters.h"
 #include "core/treasury.h"
@@ -61,7 +62,7 @@ using namespace ECC;
 
 namespace beam
 {
-    std::ostream& operator<<(std::ostream& os, Coin::Status s)
+    string getCoinStatus(Coin::Status s)
     {
         stringstream ss;
         ss << "[";
@@ -78,9 +79,8 @@ namespace beam
         }
         ss << "]";
         string str = ss.str();
-        os << str;
         BOOST_ASSERT(str.length() <= 30);
-        return os;
+        return str;
     }
 
     const char* getTxStatus(const TxDescription& tx)
@@ -440,9 +440,10 @@ namespace
     WalletAddress GenerateNewAddress(
         const IWalletDB::Ptr& walletDB,
         const std::string& label,
+        IPrivateKeyKeeper::Ptr keyKeeper,
         WalletAddress::ExpirationStatus expirationStatus = WalletAddress::ExpirationStatus::OneDay)
     {
-        WalletAddress address = storage::createAddress(*walletDB);
+        WalletAddress address = storage::createAddress(*walletDB, keyKeeper);
 
         address.setExpiration(expirationStatus);
         address.m_label = label;
@@ -455,7 +456,7 @@ namespace
         return address;
     }
 
-    int CreateNewAddress(const po::variables_map& vm, const IWalletDB::Ptr& walletDB)
+    int CreateNewAddress(const po::variables_map& vm, const IWalletDB::Ptr& walletDB, IPrivateKeyKeeper::Ptr keyKeeper)
     {
         auto comment = vm[cli::NEW_ADDRESS_COMMENT].as<string>();
         auto expiration = vm[cli::EXPIRATION_TIME].as<string>();
@@ -477,7 +478,7 @@ namespace
             return -1;
         }
         
-        GenerateNewAddress(walletDB, comment, expirationStatus);
+        GenerateNewAddress(walletDB, comment, keyKeeper, expirationStatus);
         return 0;
     }
 
@@ -508,8 +509,9 @@ namespace
             auto tempPhrase = vm[cli::SEED_PHRASE].as<string>();
             boost::algorithm::trim_if(tempPhrase, [](char ch) { return ch == ';'; });
             phrase = string_helpers::split(tempPhrase, ';');
-            BOOST_ASSERT(phrase.size() == WORD_COUNT);
-            if (!isValidMnemonic(phrase, language::en))
+
+            if (phrase.size() != WORD_COUNT
+                || (vm.count(cli::IGNORE_DICTIONARY) == 0 && !isValidMnemonic(phrase, language::en)))
             {
                 LOG_ERROR() << boost::format(kErrorSeedPhraseInvalid) % tempPhrase;
                 return false;
@@ -687,7 +689,7 @@ namespace
                  % boost::io::group(right, setw(columnWidths[1]), c.m_ID.m_Value / Rules::Coin)
                  % boost::io::group(right, setw(columnWidths[2]), c.m_ID.m_Value % Rules::Coin)
                  % boost::io::group(left, setw(columnWidths[3]), (c.IsMaturityValid() ? std::to_string(static_cast<int64_t>(c.m_maturity)) : "-"))
-                 % boost::io::group(left, setw(columnWidths[4]), c.m_status)
+                 % boost::io::group(left, setw(columnWidths[4]), getCoinStatus(c.m_status))
                  % boost::io::group(left, setw(columnWidths[5]), c.m_ID.m_Type)
                  << std::endl;
             return true;
@@ -865,7 +867,8 @@ namespace
             return -1;
         }
         const char* p = (char*)(&buffer[0]);
-        return storage::ImportDataFromJson(*walletDB, p, buffer.size()) ? 0 : -1;
+        auto keyKeeper = std::make_shared<LocalPrivateKeyKeeper>(walletDB);
+        return storage::ImportDataFromJson(*walletDB, keyKeeper, p, buffer.size()) ? 0 : -1;
     }
 
     CoinIDList GetPreselectedCoinIDs(const po::variables_map& vm)
@@ -1464,7 +1467,7 @@ namespace
         return -1;
     }
 
-    boost::optional<TxID> InitSwap(const po::variables_map& vm, const IWalletDB::Ptr& walletDB, Wallet& wallet, bool checkFee)
+    boost::optional<TxID> InitSwap(const po::variables_map& vm, const IWalletDB::Ptr& walletDB, IPrivateKeyKeeper::Ptr keyKeeper, Wallet& wallet, bool checkFee)
     {
         if (vm.count(cli::SWAP_AMOUNT) == 0)
         {
@@ -1562,7 +1565,7 @@ namespace
             throw std::runtime_error(kErrorSwapAmountTooLow);
         }
 
-        WalletAddress senderAddress = GenerateNewAddress(walletDB, "");
+        WalletAddress senderAddress = GenerateNewAddress(walletDB, "", keyKeeper);
 
         auto swapTxParameters = InitNewSwap(senderAddress.m_walletID, amount, fee, swapCoin, swapAmount, secondSideChainType, isBeamSide);
 
@@ -1585,7 +1588,7 @@ namespace
         return currentTxID;
     }
 
-    boost::optional<TxID> AcceptSwap(const po::variables_map& vm, const IWalletDB::Ptr& walletDB, Wallet& wallet, bool checkFee)
+    boost::optional<TxID> AcceptSwap(const po::variables_map& vm, const IWalletDB::Ptr& walletDB, IPrivateKeyKeeper::Ptr keyKeeper, Wallet& wallet, bool checkFee)
     {
         if (vm.count(cli::SWAP_TOKEN) == 0)
         {
@@ -1713,7 +1716,7 @@ namespace
         }
 
         // on accepting
-        WalletAddress senderAddress = GenerateNewAddress(walletDB, "");
+        WalletAddress senderAddress = GenerateNewAddress(walletDB, "", keyKeeper);
 
         swapTxParameters->SetParameter(TxParameterID::MyID, senderAddress.m_walletID);
 
@@ -1992,10 +1995,11 @@ int main_impl(int argc, char* argv[])
                             return -1;
                         }
                         auto walletDB = WalletDB::init(walletPath, pass, walletSeed, reactor, coldWallet);
+                        IPrivateKeyKeeper::Ptr keyKeeper = make_shared<LocalPrivateKeyKeeper>(walletDB);
                         if (walletDB)
                         {
                             LOG_INFO() << kWalletCreatedMessage;
-                            CreateNewAddress(vm, walletDB);
+                            CreateNewAddress(vm, walletDB, keyKeeper);
                             return 0;
                         }
                         else
@@ -2011,6 +2015,8 @@ int main_impl(int argc, char* argv[])
                         LOG_ERROR() << kErrorCantOpenWallet;
                         return -1;
                     }
+
+                    IPrivateKeyKeeper::Ptr keyKeeper = make_shared<LocalPrivateKeyKeeper>(walletDB);
 
                     const auto& currHeight = walletDB->getCurrentHeight();
                     const auto& fork1Height = Rules::get().pForks[1].m_Height;
@@ -2056,7 +2062,7 @@ int main_impl(int argc, char* argv[])
 
                     if (command == cli::NEW_ADDRESS)
                     {
-                        if (!CreateNewAddress(vm, walletDB))
+                        if (!CreateNewAddress(vm, walletDB, keyKeeper))
                         {
                             return -1;
                         }
@@ -2137,7 +2143,7 @@ int main_impl(int argc, char* argv[])
                         io::Reactor::get_Current().stop();
                     };
 
-                    Wallet wallet{ walletDB, is_server ? Wallet::TxCompletedAction() : txCompleteAction,
+                    Wallet wallet{ walletDB, keyKeeper, is_server ? Wallet::TxCompletedAction() : txCompleteAction,
                                             !coldWallet ? Wallet::UpdateCompletedAction() : []() {io::Reactor::get_Current().stop(); } };
                     {
                         wallet::AsyncContextHolder holder(wallet);
@@ -2175,19 +2181,19 @@ int main_impl(int argc, char* argv[])
                             }
                             nnet->m_Cfg.m_vNodes.push_back(nodeAddress);
                             nnet->Connect();
-                            wallet.AddMessageEndpoint(make_shared<WalletNetworkViaBbs>(wallet, nnet, walletDB));
+                            wallet.AddMessageEndpoint(make_shared<WalletNetworkViaBbs>(wallet, nnet, walletDB, keyKeeper));
                             wallet.SetNodeEndpoint(nnet);
                         }
                         else
                         {
-                            wallet.AddMessageEndpoint(make_shared<ColdWalletMessageEndpoint>(wallet, walletDB));
+                            wallet.AddMessageEndpoint(make_shared<ColdWalletMessageEndpoint>(wallet, walletDB, keyKeeper));
                         }
 
                         TryToRegisterSwapTxCreators(wallet, walletDB);
 
                         if (command == cli::SWAP_INIT)
                         {
-                            currentTxID = InitSwap(vm, walletDB, wallet, isFork1);
+                            currentTxID = InitSwap(vm, walletDB, keyKeeper, wallet, isFork1);
                             if (!currentTxID)
                             {
                                 return -1;
@@ -2196,7 +2202,7 @@ int main_impl(int argc, char* argv[])
 
                         if (command == cli::SWAP_ACCEPT)
                         {
-                            currentTxID = AcceptSwap(vm, walletDB, wallet, isFork1);
+                            currentTxID = AcceptSwap(vm, walletDB, keyKeeper, wallet, isFork1);
                             if (!currentTxID)
                             {
                                 return -1;
@@ -2205,7 +2211,7 @@ int main_impl(int argc, char* argv[])
 
                         if (isTxInitiator)
                         {
-                            WalletAddress senderAddress = GenerateNewAddress(walletDB, "");
+                            WalletAddress senderAddress = GenerateNewAddress(walletDB, "", keyKeeper);
                             currentTxID = wallet.StartTransaction(CreateSimpleTransactionParameters()
                                 .SetParameter(TxParameterID::MyID, senderAddress.m_walletID)
                                 .SetParameter(TxParameterID::PeerID, receiverWalletID)
