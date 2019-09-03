@@ -349,10 +349,16 @@ namespace ECC
 		{
 			struct Channel;
 
-			Channel* m_ppC[2] = { 0 }; // multipliers to vector elements
-			const Scalar::Native* m_pAmbient = nullptr; // multiplier to all the other elements: LR and G
+			Channel* m_ppC[2]; // multipliers to vector elements
+			const Scalar::Native* m_pAmbient; // multiplier to all the other elements: LR and G
 
 			void Set(Scalar::Native& dst, const Scalar::Native& src, int i, int j) const;
+
+			Modifier()
+				:m_pAmbient(nullptr)
+				,m_ppC{ 0 }
+			{
+			}
 		};
 
 		void Create(Point::Native& commAB, const Scalar::Native& dotAB, const Scalar::Native* pA, const Scalar::Native* pB, const Modifier& = Modifier());
