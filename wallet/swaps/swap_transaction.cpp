@@ -303,7 +303,9 @@ namespace beam::wallet
                 if (IsInitiator())
                 {
                     if (!m_secondSide->Initialize())
+                    {
                         break;
+                    }
 
                     m_secondSide->InitLockTime();
                     SendInvitation();
@@ -319,7 +321,9 @@ namespace beam::wallet
                     }
 
                     if (!m_secondSide->Initialize())
+                    {
                         break;
+                    }
 
                     if (!m_secondSide->ValidateLockTime())
                     {

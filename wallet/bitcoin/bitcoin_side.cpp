@@ -119,9 +119,11 @@ namespace beam::wallet
             InitSecret();
         }
 
-        if (!GetBlockCount())
+        // TODO roman.strilets investigate this code
+        if (!m_blockCount)
         {
-            m_tx.UpdateAsync();
+            //m_tx.UpdateAsync();
+            GetBlockCount(true);
             return false;
         }
 
@@ -130,7 +132,9 @@ namespace beam::wallet
 
     bool BitcoinSide::InitLockTime()
     {
-        auto height = GetBlockCount();
+        // TODO roman.strilets investigate this code
+        //auto height = GetBlockCount();
+        auto height = m_blockCount;
         assert(height);
 
         auto externalLockPeriod = height + GetLockTimeInBlocks();
@@ -141,7 +145,9 @@ namespace beam::wallet
 
     bool BitcoinSide::ValidateLockTime()
     {
-        auto height = GetBlockCount();
+        // TODO roman.strilets investigate this code
+        //auto height = GetBlockCount();
+        auto height = m_blockCount;
         assert(height);
         auto externalLockTime = m_tx.GetMandatoryParameter<Height>(TxParameterID::AtomicSwapExternalLockTime);
 
@@ -483,13 +489,13 @@ namespace beam::wallet
         return true;
     }
 
-    uint64_t BitcoinSide::GetBlockCount()
+    uint64_t BitcoinSide::GetBlockCount(bool notify)
     {
-        m_bitcoinBridge->getBlockCount([this, weak = this->weak_from_this()](const bitcoin::IBridge::Error& error, uint64_t blockCount)
+        m_bitcoinBridge->getBlockCount([this, weak = this->weak_from_this(), notify](const bitcoin::IBridge::Error& error, uint64_t blockCount)
         {
             if (!weak.expired())
             {
-                OnGetBlockCount(error, blockCount);
+                OnGetBlockCount(error, blockCount, notify);
             }
         });
         return m_blockCount;
@@ -765,7 +771,7 @@ namespace beam::wallet
         }
     }
 
-    void BitcoinSide::OnGetBlockCount(const bitcoin::IBridge::Error& error, uint64_t blockCount)
+    void BitcoinSide::OnGetBlockCount(const bitcoin::IBridge::Error& error, uint64_t blockCount, bool notify)
     {
         try
         {
@@ -774,7 +780,13 @@ namespace beam::wallet
                 SetTxError(error, SubTxIndex::LOCK_TX);
                 return;
             }
+
             m_blockCount = blockCount;
+
+            if (notify)
+            {
+                m_tx.UpdateAsync();
+            }
         }
         catch (const std::exception& ex)
         {

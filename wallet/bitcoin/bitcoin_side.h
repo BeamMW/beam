@@ -60,7 +60,7 @@ namespace beam::wallet
         SwapTxState BuildWithdrawTx(SubTxID subTxID);
         void GetSwapLockTxConfirmations();
         bool SendWithdrawTx(SubTxID subTxID);
-        uint64_t GetBlockCount();
+        uint64_t GetBlockCount(bool notify = false);
         std::string GetWithdrawAddress() const;
         void SetTxError(const bitcoin::IBridge::Error& error, SubTxID subTxID);
 
@@ -70,7 +70,7 @@ namespace beam::wallet
         void OnCreateWithdrawTransaction(SubTxID subTxID, const bitcoin::IBridge::Error& error, const std::string& hexTx);
         void OnDumpPrivateKey(SubTxID subTxID, const bitcoin::IBridge::Error& error, const std::string& privateKey);
         void OnGetSwapLockTxConfirmations(const bitcoin::IBridge::Error& error, const std::string& hexScript, double amount, uint32_t confirmations);
-        void OnGetBlockCount(const bitcoin::IBridge::Error& error, uint64_t blockCount);
+        void OnGetBlockCount(const bitcoin::IBridge::Error& error, uint64_t blockCount, bool notify);
 
     private:
         BaseTransaction& m_tx;

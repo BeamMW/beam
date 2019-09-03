@@ -154,7 +154,7 @@ void testAddress()
 //    options.m_chainType = wallet::SwapSecondSideChainType::Testnet;
 //    Electrum electrum(*mainReactor, options);
 //
-//    electrum.listUnspent([mainReactor](const IBridge::Error&, const std::vector<Electrum::BtcCoin>& coins)
+//    electrum.listUnspent([mainReactor](const IBridge::Error&, const std::vector<Electrum::Utxo>& coins)
 //    {
 //        for (auto coin : coins)
 //        {
