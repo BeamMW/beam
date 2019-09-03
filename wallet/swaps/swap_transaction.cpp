@@ -304,7 +304,6 @@ namespace beam::wallet
                 {
                     if (!m_secondSide->Initialize())
                     {
-                        UpdateOnNextTip();
                         break;
                     }
 
@@ -323,7 +322,6 @@ namespace beam::wallet
 
                     if (!m_secondSide->Initialize())
                     {
-                        UpdateOnNextTip();
                         break;
                     }
 
