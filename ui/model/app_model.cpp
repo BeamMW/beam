@@ -21,21 +21,9 @@
 #include <QApplication>
 #include <QTranslator>
 
-// TODO: move this includes to one place
-#include "wallet/bitcoin/bitcoin_core_017.h"
-#include "wallet/bitcoin/settings.h"
-#include "wallet/bitcoin/settings_provider.h"
-#include "wallet/bitcoin/bitcoin_side.h"
-
-#include "wallet/litecoin/litecoin_core_017.h"
-#include "wallet/litecoin/litecoin_side.h"
-#include "wallet/litecoin/settings.h"
-#include "wallet/litecoin/settings_provider.h"
-
-#include "wallet/qtum/qtum_side.h"
-#include "wallet/qtum/qtum_core_017.h"
-#include "wallet/qtum/settings_provider.h"
-#include "wallet/qtum/settings.h"
+#include "wallet/bitcoin/bitcoin.h"
+#include "wallet/litecoin/litecoin.h"
+#include "wallet/qtum/qtum.h"
 
 #include "wallet/local_private_key_keeper.h"
 
