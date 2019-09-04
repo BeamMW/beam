@@ -1000,11 +1000,12 @@ namespace
         return nullptr;
     }
 
-    std::shared_ptr<bitcoin::Settings> ParseBitcoinElectrumSettings(const po::variables_map& vm)
+    template<typename Settings, typename ElectrumSettings>
+    std::shared_ptr<Settings> ParseElectrumSettings(const po::variables_map& vm, std::function<uint8_t(bool)> getAddressVersion)
     {
         if (vm.count(cli::ELECTRUM_SEED) || vm.count(cli::ELECTRUM_ADDR) || vm.count(cli::GENERATE_ELECTRUM_SEED))
         {
-            bitcoin::ElectrumSettings electrumSettings;
+            ElectrumSettings electrumSettings;
 
             string electrumAddr = vm[cli::ELECTRUM_ADDR].as<string>();
             if (!electrumSettings.m_address.resolve(electrumAddr.c_str()))
@@ -1038,7 +1039,7 @@ namespace
             }
             else
             {
-                throw std::runtime_error("bitcoin electrum seed should be specified");
+                throw std::runtime_error("electrum seed should be specified");
             }
 
             if (vm.count(cli::SWAP_FEERATE) == 0)
@@ -1048,9 +1049,9 @@ namespace
 
             auto swapSecondSideChainType = ParseSwapSecondSideChainType(vm);
             electrumSettings.m_isMainnet = swapSecondSideChainType == SwapSecondSideChainType::Mainnet;
-            electrumSettings.m_addressVersion = bitcoin::getAddressVersion(electrumSettings.m_isMainnet);
+            electrumSettings.m_addressVersion = getAddressVersion(electrumSettings.m_isMainnet);
 
-            auto btcSettings = std::make_shared<bitcoin::Settings>();
+            auto btcSettings = std::make_shared<Settings>();
             btcSettings->SetElectrumConnectionOptions(electrumSettings);
             btcSettings->SetFeeRate(vm[cli::SWAP_FEERATE].as<Positive<Amount>>().value);
 
@@ -1113,71 +1114,6 @@ namespace
         return nullptr;
     }
 
-    std::shared_ptr<litecoin::Settings> ParseLitecoinElectrumSettings(const po::variables_map& vm)
-    {
-        if (vm.count(cli::ELECTRUM_SEED) || vm.count(cli::ELECTRUM_ADDR) || vm.count(cli::GENERATE_ELECTRUM_SEED))
-        {
-            litecoin::ElectrumSettings electrumSettings;
-
-            string electrumAddr = vm[cli::ELECTRUM_ADDR].as<string>();
-            if (!electrumSettings.m_address.resolve(electrumAddr.c_str()))
-            {
-                throw std::runtime_error("unable to resolve litecoin electrum address: " + electrumAddr);
-            }
-
-            if (vm.count(cli::ELECTRUM_SEED))
-            {
-                auto tempPhrase = vm[cli::ELECTRUM_SEED].as<string>();
-                boost::algorithm::trim_if(tempPhrase, [](char ch) { return ch == ';'; });
-                electrumSettings.m_secretWords = string_helpers::split(tempPhrase, ';');
-
-                if (!libbitcoin::wallet::electrum::validate_mnemonic(electrumSettings.m_secretWords, libbitcoin::wallet::language::electrum::en))
-                {
-                    throw std::runtime_error("seed is not valid");
-                }
-            }
-            else if (vm.count(cli::GENERATE_ELECTRUM_SEED))
-            {
-                electrumSettings.m_secretWords = libbitcoin::wallet::electrum::create_mnemonic(getEntropy());
-
-                auto strSeed = std::accumulate(
-                    std::next(electrumSettings.m_secretWords.begin()), electrumSettings.m_secretWords.end(), *electrumSettings.m_secretWords.begin(),
-                    [](std::string a, std::string b) 
-                {
-                    return a + ";" + b;
-                });
-
-                LOG_INFO() << "seed = " << strSeed;
-            }
-            else
-            {
-                throw std::runtime_error("litectoin electrum seed should be specified");
-            }
-
-            if (vm.count(cli::SWAP_FEERATE) == 0)
-            {
-                throw std::runtime_error("swap fee rate is missing");
-            }
-
-            auto swapSecondSideChainType = ParseSwapSecondSideChainType(vm);
-            electrumSettings.m_isMainnet = swapSecondSideChainType == SwapSecondSideChainType::Mainnet;
-            electrumSettings.m_addressVersion = litecoin::getAddressVersion(electrumSettings.m_isMainnet);
-
-            auto ltcSettings = std::make_shared<litecoin::Settings>();
-            ltcSettings->SetElectrumConnectionOptions(electrumSettings);
-            ltcSettings->SetFeeRate(vm[cli::SWAP_FEERATE].as<Positive<Amount>>().value);
-
-            if (swapSecondSideChainType != SwapSecondSideChainType::Unknown)
-            {
-                ltcSettings->SetChainType(swapSecondSideChainType);
-            }
-
-            return ltcSettings;
-        }
-
-        return nullptr;
-    }
-
     std::shared_ptr<qtum::Settings> ParseQtumSettings(const po::variables_map& vm)
     {
         if (vm.count(cli::QTUM_NODE_ADDR) > 0 || vm.count(cli::QTUM_USER_NAME) > 0 || vm.count(cli::QTUM_PASS) > 0)
@@ -1215,71 +1151,6 @@ namespace
             qtumSettings->SetFeeRate(vm[cli::SWAP_FEERATE].as<Positive<Amount>>().value);
 
             auto swapSecondSideChainType = ParseSwapSecondSideChainType(vm);
-            if (swapSecondSideChainType != SwapSecondSideChainType::Unknown)
-            {
-                qtumSettings->SetChainType(swapSecondSideChainType);
-            }
-
-            return qtumSettings;
-        }
-
-        return nullptr;
-    }
-
-    std::shared_ptr<qtum::Settings> ParseQtumElectrumSettings(const po::variables_map& vm)
-    {
-        if (vm.count(cli::ELECTRUM_SEED) || vm.count(cli::ELECTRUM_ADDR) || vm.count(cli::GENERATE_ELECTRUM_SEED))
-        {
-            qtum::ElectrumSettings electrumSettings;
-
-            string electrumAddr = vm[cli::ELECTRUM_ADDR].as<string>();
-            if (!electrumSettings.m_address.resolve(electrumAddr.c_str()))
-            {
-                throw std::runtime_error("unable to resolve qtum electrum address: " + electrumAddr);
-            }
-
-            if (vm.count(cli::ELECTRUM_SEED))
-            {
-                auto tempPhrase = vm[cli::ELECTRUM_SEED].as<string>();
-                boost::algorithm::trim_if(tempPhrase, [](char ch) { return ch == ';'; });
-                electrumSettings.m_secretWords = string_helpers::split(tempPhrase, ';');
-
-                if (!libbitcoin::wallet::electrum::validate_mnemonic(electrumSettings.m_secretWords, libbitcoin::wallet::language::electrum::en))
-                {
-                    throw std::runtime_error("seed is not valid");
-                }
-            }
-            else if (vm.count(cli::GENERATE_ELECTRUM_SEED))
-            {
-                electrumSettings.m_secretWords = libbitcoin::wallet::electrum::create_mnemonic(getEntropy());
-
-                auto strSeed = std::accumulate(
-                    std::next(electrumSettings.m_secretWords.begin()), electrumSettings.m_secretWords.end(), *electrumSettings.m_secretWords.begin(),
-                    [](std::string a, std::string b)
-                {
-                    return a + ";" + b;
-                });
-
-                LOG_INFO() << "seed = " << strSeed;
-            }
-            else
-            {
-                throw std::runtime_error("qtum electrum seed should be specified");
-            }
-
-            if (vm.count(cli::SWAP_FEERATE) == 0)
-            {
-                throw std::runtime_error(kErrorSwapFeeRateMissing);
-            }
-
-            auto swapSecondSideChainType = ParseSwapSecondSideChainType(vm);
-            electrumSettings.m_isMainnet = swapSecondSideChainType == SwapSecondSideChainType::Mainnet;
-            electrumSettings.m_addressVersion = qtum::getAddressVersion(electrumSettings.m_isMainnet);
-
-            auto qtumSettings = std::make_shared<qtum::Settings>();
-            qtumSettings->SetElectrumConnectionOptions(electrumSettings);
-            qtumSettings->SetFeeRate(vm[cli::SWAP_FEERATE].as<Positive<Amount>>().value);
-
             if (swapSecondSideChainType != SwapSecondSideChainType::Unknown)
             {
                 qtumSettings->SetChainType(swapSecondSideChainType);
@@ -1332,7 +1203,7 @@ namespace
             auto settings = ParseBitcoinSettings(vm);
             if (!settings)
             {
-                settings = ParseBitcoinElectrumSettings(vm);
+                settings = ParseElectrumSettings<bitcoin::Settings, bitcoin::ElectrumSettings>(vm, bitcoin::getAddressVersion);
             }
 
             if (!settings)
@@ -1390,7 +1261,7 @@ namespace
             auto settings = ParseLitecoinSettings(vm);
             if (!settings)
             {
-                settings = ParseLitecoinElectrumSettings(vm);
+                settings = ParseElectrumSettings<litecoin::Settings, litecoin::ElectrumSettings>(vm, litecoin::getAddressVersion);
             }
 
             if (!settings)
@@ -1450,7 +1321,7 @@ namespace
             auto settings = ParseQtumSettings(vm);
             if (!settings)
             {
-                settings = ParseQtumElectrumSettings(vm);
+                settings = ParseElectrumSettings<qtum::Settings, qtum::ElectrumSettings>(vm, qtum::getAddressVersion);
             }
 
             if (!settings)
