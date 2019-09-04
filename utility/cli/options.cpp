@@ -46,21 +46,18 @@ namespace beam
         const char* BTC_PASS = "btc_pass";
         const char* BTC_USER_NAME = "btc_user";
         const char* BTC_SETTINGS = "btc_settings";
-        const char* BTC_ELECTRUM_SEED = "btc_electrum_seed";
-        const char* BTC_GENERATE_SEED = "btc_generate_seed";
         const char* ALTCOIN_SETTINGS_SET = "set";
         const char* ALTCOIN_SETTINGS_RESET = "reset";
         const char* ALTCOIN_SETTINGS_SHOW = "show";
+        const char* ELECTRUM_SEED = "electrum_seed";
+        const char* GENERATE_ELECTRUM_SEED = "generate_electrum_seed";
+        const char* ELECTRUM_ADDR = "electrum_addr";
         const char* LTC_PASS = "ltc_pass";
         const char* LTC_USER_NAME = "ltc_user";
         const char* LTC_SETTINGS = "ltc_settings";
-        const char* LTC_ELECTRUM_SEED = "ltc_electrum_seed";
-        const char* LTC_GENERATE_SEED = "ltc_generate_seed";
         const char* QTUM_PASS = "qtum_pass";
         const char* QTUM_USER_NAME = "qtum_user";
         const char* QTUM_SETTINGS = "qtum_settings";
-        const char* QTUM_ELECTRUM_SEED = "qtum_electrum_seed";
-        const char* QTUM_GENERATE_SEED = "qtum_generate_seed";
         const char* AMOUNT = "amount";
         const char* AMOUNT_FULL = "amount,a";
         const char* RECEIVER_ADDR = "receiver_addr";
@@ -68,11 +65,8 @@ namespace beam
         const char* NODE_ADDR = "node_addr";
         const char* NODE_ADDR_FULL = "node_addr,n";
         const char* BTC_NODE_ADDR = "btc_node_addr";
-        const char* BTC_ELECTRUM_ADDR = "btc_electrum_addr";
         const char* LTC_NODE_ADDR = "ltc_node_addr";
-        const char* LTC_ELECTRUM_ADDR = "ltc_electrum_addr";
         const char* QTUM_NODE_ADDR = "qtum_node_addr";
-        const char* QTUM_ELECTRUM_ADDR = "qtum_electrum_addr";
         const char* COMMAND = "command";
         const char* LISTEN = "listen";
         const char* TREASURY = "treasury";
@@ -280,24 +274,18 @@ namespace beam
             (cli::ALTCOIN_SETTINGS_SET, "set new altcoin's settings")
             (cli::ALTCOIN_SETTINGS_RESET, "reset altcoin's settings")
             (cli::ALTCOIN_SETTINGS_SHOW, "show altcoin's settings")
+            (cli::ELECTRUM_SEED, po::value<string>(), "bitcoin electrum seed")
+            (cli::GENERATE_ELECTRUM_SEED, "generate new electrum seed")
+            (cli::ELECTRUM_ADDR, po::value<string>(), "electrum address")
             (cli::BTC_NODE_ADDR, po::value<string>(), "address of bitcoin node")
             (cli::BTC_USER_NAME, po::value<string>(), "user name for the bitcoin node")
             (cli::BTC_PASS, po::value<string>(), "password for the bitcoin node")
-            (cli::BTC_ELECTRUM_SEED, po::value<string>(), "bitcoin electrum seed")
-            (cli::BTC_GENERATE_SEED, "generate new electrum seed")
-            (cli::BTC_ELECTRUM_ADDR, po::value<string>(), "bitcoin electrum address")
             (cli::LTC_NODE_ADDR, po::value<string>(), "address of litecoin node")
             (cli::LTC_USER_NAME, po::value<string>(), "user name for the litecoin node")
             (cli::LTC_PASS, po::value<string>(), "password for the litecoin node")
-            (cli::LTC_ELECTRUM_SEED, po::value<string>(), "litecoin electrum seed")
-            (cli::LTC_GENERATE_SEED, "generate new electrum seed")
-            (cli::LTC_ELECTRUM_ADDR, po::value<string>(), "litecoin electrum address")
             (cli::QTUM_NODE_ADDR, po::value<string>(), "address of qtum node")
             (cli::QTUM_USER_NAME, po::value<string>(), "user name for the qtum node")
             (cli::QTUM_PASS, po::value<string>(), "password for the qtum node")
-            (cli::QTUM_ELECTRUM_SEED, po::value<string>(), "qtum electrum seed")
-            (cli::QTUM_GENERATE_SEED, "generate new electrum seed")
-            (cli::QTUM_ELECTRUM_ADDR, po::value<string>(), "qtum electrum address")
             (cli::SWAP_COIN, po::value<string>(), "swap coin(btc, ltc, qtum)")
             (cli::SWAP_AMOUNT, po::value<Positive<Amount>>(), "swap amount in the smallest unit of the coin")
             (cli::SWAP_FEERATE, po::value<Positive<Amount>>(), "The specific feerate you are willing to pay(the smallest unit of the coin per KB)")

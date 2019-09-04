@@ -1002,19 +1002,19 @@ namespace
 
     std::shared_ptr<bitcoin::Settings> ParseBitcoinElectrumSettings(const po::variables_map& vm)
     {
-        if (vm.count(cli::BTC_ELECTRUM_SEED) || vm.count(cli::BTC_ELECTRUM_ADDR) || vm.count(cli::BTC_GENERATE_SEED))
+        if (vm.count(cli::ELECTRUM_SEED) || vm.count(cli::ELECTRUM_ADDR) || vm.count(cli::GENERATE_ELECTRUM_SEED))
         {
             bitcoin::ElectrumSettings electrumSettings;
 
-            string electrumAddr = vm[cli::BTC_ELECTRUM_ADDR].as<string>();
+            string electrumAddr = vm[cli::ELECTRUM_ADDR].as<string>();
             if (!electrumSettings.m_address.resolve(electrumAddr.c_str()))
             {
                 throw std::runtime_error("unable to resolve litecoin electrum address: " + electrumAddr);
             }
 
-            if (vm.count(cli::BTC_ELECTRUM_SEED))
+            if (vm.count(cli::ELECTRUM_SEED))
             {
-                auto tempPhrase = vm[cli::BTC_ELECTRUM_SEED].as<string>();
+                auto tempPhrase = vm[cli::ELECTRUM_SEED].as<string>();
                 boost::algorithm::trim_if(tempPhrase, [](char ch) { return ch == ';'; });
                 electrumSettings.m_secretWords = string_helpers::split(tempPhrase, ';');
 
@@ -1023,7 +1023,7 @@ namespace
                     throw std::runtime_error("seed is not valid");
                 }
             }
-            else if (vm.count(cli::BTC_GENERATE_SEED))
+            else if (vm.count(cli::GENERATE_ELECTRUM_SEED))
             {
                 electrumSettings.m_secretWords = libbitcoin::wallet::electrum::create_mnemonic(getEntropy());
 
@@ -1115,19 +1115,19 @@ namespace
 
     std::shared_ptr<litecoin::Settings> ParseLitecoinElectrumSettings(const po::variables_map& vm)
     {
-        if (vm.count(cli::LTC_ELECTRUM_SEED) || vm.count(cli::LTC_ELECTRUM_ADDR) || vm.count(cli::LTC_GENERATE_SEED))
+        if (vm.count(cli::ELECTRUM_SEED) || vm.count(cli::ELECTRUM_ADDR) || vm.count(cli::GENERATE_ELECTRUM_SEED))
         {
             litecoin::ElectrumSettings electrumSettings;
 
-            string electrumAddr = vm[cli::LTC_ELECTRUM_ADDR].as<string>();
+            string electrumAddr = vm[cli::ELECTRUM_ADDR].as<string>();
             if (!electrumSettings.m_address.resolve(electrumAddr.c_str()))
             {
                 throw std::runtime_error("unable to resolve litecoin electrum address: " + electrumAddr);
             }
 
-            if (vm.count(cli::LTC_ELECTRUM_SEED))
+            if (vm.count(cli::ELECTRUM_SEED))
             {
-                auto tempPhrase = vm[cli::LTC_ELECTRUM_SEED].as<string>();
+                auto tempPhrase = vm[cli::ELECTRUM_SEED].as<string>();
                 boost::algorithm::trim_if(tempPhrase, [](char ch) { return ch == ';'; });
                 electrumSettings.m_secretWords = string_helpers::split(tempPhrase, ';');
 
@@ -1136,7 +1136,7 @@ namespace
                     throw std::runtime_error("seed is not valid");
                 }
             }
-            else if (vm.count(cli::LTC_GENERATE_SEED))
+            else if (vm.count(cli::GENERATE_ELECTRUM_SEED))
             {
                 electrumSettings.m_secretWords = libbitcoin::wallet::electrum::create_mnemonic(getEntropy());
 
@@ -1228,19 +1228,19 @@ namespace
 
     std::shared_ptr<qtum::Settings> ParseQtumElectrumSettings(const po::variables_map& vm)
     {
-        if (vm.count(cli::QTUM_ELECTRUM_SEED) || vm.count(cli::QTUM_ELECTRUM_ADDR) || vm.count(cli::QTUM_GENERATE_SEED))
+        if (vm.count(cli::ELECTRUM_SEED) || vm.count(cli::ELECTRUM_ADDR) || vm.count(cli::GENERATE_ELECTRUM_SEED))
         {
             qtum::ElectrumSettings electrumSettings;
 
-            string electrumAddr = vm[cli::QTUM_ELECTRUM_ADDR].as<string>();
+            string electrumAddr = vm[cli::ELECTRUM_ADDR].as<string>();
             if (!electrumSettings.m_address.resolve(electrumAddr.c_str()))
             {
                 throw std::runtime_error("unable to resolve qtum electrum address: " + electrumAddr);
             }
 
-            if (vm.count(cli::QTUM_ELECTRUM_SEED))
+            if (vm.count(cli::ELECTRUM_SEED))
             {
-                auto tempPhrase = vm[cli::QTUM_ELECTRUM_SEED].as<string>();
+                auto tempPhrase = vm[cli::ELECTRUM_SEED].as<string>();
                 boost::algorithm::trim_if(tempPhrase, [](char ch) { return ch == ';'; });
                 electrumSettings.m_secretWords = string_helpers::split(tempPhrase, ';');
 
@@ -1249,7 +1249,7 @@ namespace
                     throw std::runtime_error("seed is not valid");
                 }
             }
-            else if (vm.count(cli::QTUM_GENERATE_SEED))
+            else if (vm.count(cli::GENERATE_ELECTRUM_SEED))
             {
                 electrumSettings.m_secretWords = libbitcoin::wallet::electrum::create_mnemonic(getEntropy());
 
