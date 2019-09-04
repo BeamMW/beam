@@ -355,8 +355,8 @@ namespace ECC
 			void Set(Scalar::Native& dst, const Scalar::Native& src, int i, int j) const;
 
 			Modifier()
-				:m_pAmbient(nullptr)
-				,m_ppC{ 0 }
+				:m_ppC{ 0 }
+				,m_pAmbient(nullptr)
 			{
 			}
 		};
