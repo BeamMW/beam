@@ -22,13 +22,12 @@
 #include <cstddef>
 #include <string>
 #include <vector>
+#include <boost/functional/hash_fwd.hpp>
 #include <boost/multiprecision/cpp_int.hpp>
 #include <bitcoin/bitcoin/compat.hpp>
 #include <bitcoin/bitcoin/define.hpp>
 #include <bitcoin/bitcoin/utility/data.hpp>
 #include <bitcoin/bitcoin/utility/endian.hpp>
-
-#include <utility/std_extension.h>
 
 namespace libbitcoin {
 
@@ -161,6 +160,18 @@ BC_API long_hash pkcs5_pbkdf2_hmac_sha512(data_slice passphrase,
 
 // Extend std and boost namespaces with our hash wrappers.
 //-----------------------------------------------------------------------------
+
+namespace std
+{
+template <size_t Size>
+struct hash<bc::byte_array<Size>>
+{
+    size_t operator()(const bc::byte_array<Size>& hash) const
+    {
+        return boost::hash_range(hash.begin(), hash.end());
+    }
+};
+} // namespace std
 
 namespace boost
 {
