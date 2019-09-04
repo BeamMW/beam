@@ -43,7 +43,7 @@ Dialog {
 	}
 
 	property var getExpirationTimeLabel: function() {
-		var localeName = parentModel.getLocaleName();
+		var localeName = BeamGlobals.getLocaleName();
 		if (isExpiredAddress) {
 			return addressItem
 				? Utils.formatDateTime(addressItem.expirationDate, localeName)
@@ -345,7 +345,7 @@ Dialog {
 			Item {
 				Layout.preferredHeight: 15
 				SFText {
-					//% "Address with same comment already exist"
+					//% "Address with the same comment already exists"
 					text: qsTrId("general-addr-comment-error")
 					color: Style.validator_error
 					font.pixelSize: 12

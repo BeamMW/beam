@@ -45,10 +45,19 @@ namespace beam
         const char* PASS = "pass";
         const char* BTC_PASS = "btc_pass";
         const char* BTC_USER_NAME = "btc_user";
+        const char* BTC_SETTINGS = "btc_settings";
+        const char* ALTCOIN_SETTINGS_SET = "set";
+        const char* ALTCOIN_SETTINGS_RESET = "reset";
+        const char* ALTCOIN_SETTINGS_SHOW = "show";
+        const char* ELECTRUM_SEED = "electrum_seed";
+        const char* GENERATE_ELECTRUM_SEED = "generate_electrum_seed";
+        const char* ELECTRUM_ADDR = "electrum_addr";
         const char* LTC_PASS = "ltc_pass";
         const char* LTC_USER_NAME = "ltc_user";
+        const char* LTC_SETTINGS = "ltc_settings";
         const char* QTUM_PASS = "qtum_pass";
         const char* QTUM_USER_NAME = "qtum_user";
+        const char* QTUM_SETTINGS = "qtum_settings";
         const char* AMOUNT = "amount";
         const char* AMOUNT_FULL = "amount,a";
         const char* RECEIVER_ADDR = "receiver_addr";
@@ -122,7 +131,8 @@ namespace beam
 		const char* RECOVERY_AUTO_PERIOD = "recovery_auto_period";
         const char* COLD_WALLET = "cold_wallet";
         const char* SWAP_INIT = "swap_init";
-        const char* SWAP_LISTEN = "swap_listen";
+        const char* SWAP_ACCEPT = "swap_accept";
+        const char* SWAP_TOKEN = "swap_token";
         const char* SWAP_AMOUNT = "swap_amount";
         const char* SWAP_FEERATE = "swap_feerate";
         const char* SWAP_COIN = "swap_coin";
@@ -238,7 +248,7 @@ namespace beam
             (cli::IMPORT_EXPORT_PATH, po::value<string>()->default_value("export.dat"), "path to import or export data (import_data|export_data)")
             (cli::COLD_WALLET, "used to init cold wallet")
             (cli::IGNORE_DICTIONARY, "ignore dictionaty while validating seed phrase")
-            (cli::COMMAND, po::value<string>(), "command to execute [new_addr|send|listen|init|restore|info|export_miner_key|export_owner_key|generate_phrase|change_address_expiration|address_list|rescan|export_data|import_data|tx_details|payment_proof_export|payment_proof_verify|utxo|cancel_tx|delete_tx|swap_init|swap_listen]")
+            (cli::COMMAND, po::value<string>(), "command to execute [new_addr|send|listen|init|restore|info|export_miner_key|export_owner_key|generate_phrase|change_address_expiration|address_list|rescan|export_data|import_data|tx_details|payment_proof_export|payment_proof_verify|utxo|cancel_tx|delete_tx|swap_init|swap_accept]")
             (cli::NODE_POLL_PERIOD, po::value<Nonnegative<uint32_t>>()->default_value(Nonnegative<uint32_t>(0)), "Node poll period in milliseconds. Set to 0 to keep connection. Anyway poll period would be no less than the expected rate of blocks if it is less then it will be rounded up to block rate value.");
 
         po::options_description wallet_treasury_options("Wallet treasury options");
@@ -258,6 +268,15 @@ namespace beam
 
         po::options_description swap_options("Atomic swap options");
         swap_options.add_options()
+            (cli::BTC_SETTINGS, po::value<std::string>(), "command to work with BTC settings. Subcommand to execute [show|set|reset]")
+            (cli::LTC_SETTINGS, po::value<std::string>(), "command to work with LTC settings. Subcommand to execute [show|set|reset]")
+            (cli::QTUM_SETTINGS, po::value<std::string>(), "command to work with QTUM settings. Subcommand to execute [show|set|reset]")
+            (cli::ALTCOIN_SETTINGS_SET, "set new altcoin's settings")
+            (cli::ALTCOIN_SETTINGS_RESET, "reset altcoin's settings")
+            (cli::ALTCOIN_SETTINGS_SHOW, "show altcoin's settings")
+            (cli::ELECTRUM_SEED, po::value<string>(), "bitcoin electrum seed")
+            (cli::GENERATE_ELECTRUM_SEED, "generate new electrum seed")
+            (cli::ELECTRUM_ADDR, po::value<string>(), "electrum address")
             (cli::BTC_NODE_ADDR, po::value<string>(), "address of bitcoin node")
             (cli::BTC_USER_NAME, po::value<string>(), "user name for the bitcoin node")
             (cli::BTC_PASS, po::value<string>(), "password for the bitcoin node")
@@ -272,7 +291,8 @@ namespace beam
             (cli::SWAP_FEERATE, po::value<Positive<Amount>>(), "The specific feerate you are willing to pay(the smallest unit of the coin per KB)")
             (cli::SWAP_NETWORK, po::value<string>(), "type of second side network(mainnet, testnet)")
             (cli::SWAP_BEAM_SIDE, "Should be set by Beam owner")
-            (cli::SWAP_TX_HISTORY, "show swap transactions history in info command");
+            (cli::SWAP_TX_HISTORY, "show swap transactions history in info command")
+            (cli::SWAP_TOKEN, po::value<string>(), "swap transaction token");
 
         po::options_description options{ "Allowed options" };
         po::options_description visible_options{ "Allowed options" };

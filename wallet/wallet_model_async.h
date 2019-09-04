@@ -14,9 +14,9 @@
 
 #pragma once
 
-#include "wallet/wallet.h"
-#include "wallet/wallet_db.h"
-#include "wallet/wallet_network.h"
+#include "wallet.h"
+#include "wallet_db.h"
+#include "wallet_network.h"
 
 namespace beam::wallet
 {
@@ -27,6 +27,7 @@ namespace beam::wallet
 
         virtual void sendMoney(const WalletID& receiver, const std::string& comment, Amount&& amount, Amount&& fee = 0) = 0;
         virtual void sendMoney(const WalletID& sender, const WalletID& receiver, const std::string& comment, Amount&& amount, Amount&& fee = 0) = 0;
+        virtual void startTransaction(TxParameters&& parameters) = 0;
         virtual void syncWithNode() = 0;
         virtual void calcChange(Amount&& amount) = 0;
         virtual void getWalletStatus() = 0;
@@ -38,6 +39,10 @@ namespace beam::wallet
         virtual void saveAddress(const WalletAddress& address, bool bOwn) = 0;
         virtual void generateNewAddress() = 0;
         virtual void changeCurrentWalletIDs(const WalletID& senderID, const WalletID& receiverID) = 0;
+
+        virtual void setSwapOffersCoinType(AtomicSwapCoin type) = 0;
+        virtual void getSwapOffers() = 0;
+        virtual void publishSwapOffer(const SwapOffer& offer) = 0;
 
         virtual void deleteAddress(const WalletID& id) = 0;
         virtual void updateAddress(const WalletID& id, const std::string& name, WalletAddress::ExpirationStatus status) = 0;

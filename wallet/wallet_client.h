@@ -20,6 +20,7 @@
 #include "wallet_network.h"
 #include "wallet_model_async.h"
 #include "private_key_keeper.h"
+#include "swaps/swap_offers_board.h"
 
 #include <thread>
 #include <atomic>
@@ -52,7 +53,7 @@ namespace beam::wallet
         WalletClient(IWalletDB::Ptr walletDB, const std::string& nodeAddr, io::Reactor::Ptr reactor, IPrivateKeyKeeper::Ptr keyKeeper);
         virtual ~WalletClient();
 
-        void start();
+        void start(std::shared_ptr<std::unordered_map<TxType, BaseTransaction::Creator::Ptr>> txCreators = nullptr);
 
         IWalletModelAsync::Ptr getAsync();
         std::string getNodeAddress() const;
@@ -71,6 +72,7 @@ namespace beam::wallet
         virtual void onChangeCalculated(Amount change) = 0;
         virtual void onAllUtxoChanged(const std::vector<Coin>& utxos) = 0;
         virtual void onAddresses(bool own, const std::vector<WalletAddress>& addresses) = 0;
+        virtual void onSwapOffersChanged(ChangeAction action, const std::vector<SwapOffer>& offers) override = 0;
         virtual void onGeneratedNewAddress(const WalletAddress& walletAddr) = 0;
         virtual void onNewAddressFailed() = 0;
         virtual void onChangeCurrentWalletIDs(WalletID senderID, WalletID receiverID) = 0;
@@ -87,18 +89,22 @@ namespace beam::wallet
     private:
 
         void onCoinsChanged() override;
-        void onTransactionChanged(ChangeAction action, std::vector<TxDescription>&& items) override;
+        void onTransactionChanged(ChangeAction action, const std::vector<TxDescription>& items) override;
         void onSystemStateChanged() override;
         void onAddressChanged(ChangeAction action, const std::vector<WalletAddress>& items) override;
         void onSyncProgress(int done, int total) override;
 
         void sendMoney(const WalletID& receiver, const std::string& comment, Amount&& amount, Amount&& fee) override;
         void sendMoney(const WalletID& sender, const WalletID& receiver, const std::string& comment, Amount&& amount, Amount&& fee) override;
+        void startTransaction(TxParameters&& parameters) override;
         void syncWithNode() override;
         void calcChange(Amount&& amount) override;
         void getWalletStatus() override;
         void getUtxosStatus() override;
         void getAddresses(bool own) override;
+        void setSwapOffersCoinType(AtomicSwapCoin type) override;
+        void getSwapOffers() override;
+        void publishSwapOffer(const SwapOffer& offer) override;
         void cancelTx(const TxID& id) override;
         void deleteTx(const TxID& id) override;
         void getCoinsByTx(const TxID& txId) override;
@@ -132,6 +138,7 @@ namespace beam::wallet
         std::weak_ptr<proto::FlyClient::INetwork> m_nodeNetwork;
         std::weak_ptr<IWalletMessageEndpoint> m_walletNetwork;
         std::weak_ptr<Wallet> m_wallet;
+        std::weak_ptr<SwapOffersBoard> m_offersBulletinBoard;
         bool m_isConnected;
         boost::optional<ErrorType> m_walletError;
         std::string m_nodeAddrStr;

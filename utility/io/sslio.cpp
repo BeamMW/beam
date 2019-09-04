@@ -186,7 +186,7 @@ Result SSLIO::send_pending_data(bool flush) {
     int bytes = BIO_pending(_wbio);
     if (bytes < 0) return make_unexpected(EC_SSL_ERROR);
     if (bytes > 0) {
-        LOG_DEBUG() << __FUNCTION__ << TRACE(this) << TRACE(bytes);
+        //LOG_DEBUG() << __FUNCTION__ << TRACE(this) << TRACE(bytes);
         auto p = alloc_heap((size_t) bytes);
         assert(p.first);
         int bytesRead = BIO_read(_wbio, p.first, bytes);
@@ -205,7 +205,7 @@ Result SSLIO::do_handshake() {
 }
 
 Result SSLIO::on_encrypted_data_from_stream(const void *data, size_t size) {
-    LOG_DEBUG() << TRACE(size); // << std::string((const char*)data, size);
+    //LOG_DEBUG() << TRACE(size); // << std::string((const char*)data, size);
 
     void* buf = alloca(_fragmentSize);
     auto ptr = (const uint8_t *) data;

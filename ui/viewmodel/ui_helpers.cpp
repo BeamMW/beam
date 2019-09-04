@@ -1,4 +1,4 @@
-#include "ui_helpers.h"
+﻿#include "ui_helpers.h"
 
 #include <QDateTime>
 #include <QLocale>
@@ -11,8 +11,12 @@ namespace beamui
 {
     QString toString(const beam::wallet::WalletID& walletID)
     {
-        auto id = std::to_string(walletID);
-        return QString::fromStdString(id);
+        if (walletID != Zero)
+        {
+            auto id = std::to_string(walletID);
+            return QString::fromStdString(id);
+        }
+        return "";
     }
 
     QString toString(const beam::Merkle::Hash& walletID)
@@ -20,13 +24,36 @@ namespace beamui
         auto id = std::to_string(walletID);
         return QString::fromStdString(id);
     }
-
-    QString BeamToString(const Amount& value)
+    
+    QString AmountToString(const Amount& value, Currencies coinType)
     {
         auto realAmount = double(int64_t(value)) / Rules::Coin;
-        QString qstr = QLocale().toString(realAmount, 'f', QLocale::FloatingPointShortest);
+        QString amount = QLocale().toString(realAmount, 'f', QLocale::FloatingPointShortest);
 
-        return qstr;
+        QString coinSign;
+        switch (coinType)
+        {
+            case Currencies::Beam:
+                coinSign = QString::fromUtf16((const char16_t*)(L" \uEAFB"));
+                break;
+
+            case Currencies::Bitcoin:
+                coinSign = QString::fromUtf16((const char16_t*)(L" \u20BF"));
+                break;
+
+            case Currencies::Litecoin:
+                coinSign = QString::fromUtf16((const char16_t*)(L" \u0141"));
+                break;
+
+            case Currencies::Qtum:
+                coinSign = QString::fromUtf16((const char16_t*)(L" \uFFFD"));
+                break;
+
+            case Currencies::Unknown:
+                coinSign = "";
+                break;
+        }
+        return amount + coinSign;
     }
 
     QString toString(const beam::Timestamp& ts)
@@ -36,7 +63,11 @@ namespace beamui
 
         return datetime.toString(Qt::SystemLocaleShortDate);
     }
-    
+
+    double Beam2Coins(const Amount& value)
+    {
+        return double(int64_t(value)) / Rules::Coin;
+    }
 
     Filter::Filter(size_t size)
         : _samples(size, 0.0)

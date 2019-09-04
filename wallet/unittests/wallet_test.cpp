@@ -20,13 +20,10 @@
 #include "wallet/wallet_network.h"
 #include "wallet/wallet.h"
 #include "wallet/secstring.h"
-#include "wallet/bitcoin/options.h"
-#include "wallet/litecoin/options.h"
-#include "wallet/qtum/options.h"
+#include "wallet/base58.h"
 #include "utility/test_helpers.h"
 #include "core/radixtree.h"
 #include "core/unittest/mini_blockchain.h"
-#include <string_view>
 #include "wallet/wallet_transaction.h"
 #include "core/negotiator.h"
 #include "node/node.h"
@@ -35,6 +32,7 @@
 
 #include "test_helpers.h"
 
+#include <string_view>
 #include <assert.h>
 #include <iostream>
 #include <thread>
@@ -104,7 +102,12 @@ namespace
 
         tnns.AddBlock();
 
-        sender.transfer_money(sender_id, receiver_id, 6, 1, true, 200, {});
+        sender.StartTransaction(CreateSimpleTransactionParameters()
+            .SetParameter(TxParameterID::MyID, sender_id)
+            .SetParameter(TxParameterID::PeerID, receiver_id)
+            .SetParameter(TxParameterID::Amount, Amount(6))
+            .SetParameter(TxParameterID::Fee, Amount(1))
+            .SetParameter(TxParameterID::Lifetime, Height(200)));
         mainReactor->run();
 
         WALLET_CHECK(count == 2);
@@ -136,7 +139,14 @@ namespace
         helpers::StopWatch sw;
 
         sw.start();
-        auto txId = sender.m_Wallet.transfer_money(sender.m_WalletID, sender.m_WalletID, 24, 2, true, 200);
+
+        auto txId = sender.m_Wallet.StartTransaction(CreateSimpleTransactionParameters()
+                    .SetParameter(TxParameterID::MyID, sender.m_WalletID)
+                    .SetParameter(TxParameterID::PeerID, sender.m_WalletID)
+                    .SetParameter(TxParameterID::Amount, Amount(24))
+                    .SetParameter(TxParameterID::Fee, Amount(2))
+                    .SetParameter(TxParameterID::Lifetime, Height(200)));
+
         mainReactor->run();
         sw.stop();
 
@@ -205,7 +215,12 @@ namespace
         helpers::StopWatch sw;
         sw.start();
 
-        auto txId = sender.m_Wallet.transfer_money(sender.m_WalletID, receiver.m_WalletID, 4, 2, true, 200);
+        auto txId = sender.m_Wallet.StartTransaction(CreateSimpleTransactionParameters()
+            .SetParameter(TxParameterID::MyID, sender.m_WalletID)
+            .SetParameter(TxParameterID::PeerID, receiver.m_WalletID)
+            .SetParameter(TxParameterID::Amount, Amount(4))
+            .SetParameter(TxParameterID::Fee, Amount(2))
+            .SetParameter(TxParameterID::Lifetime, Height(200)));
 
         mainReactor->run();
         sw.stop();
@@ -297,7 +312,15 @@ namespace
             preselectedIDs.push_back(c.m_ID);
         }
         sw.start();
-        txId = sender.m_Wallet.transfer_money(sender.m_WalletID, receiver.m_WalletID, 6, 0, preselectedIDs, true, 200);
+
+        txId = sender.m_Wallet.StartTransaction(CreateSimpleTransactionParameters()
+            .SetParameter(TxParameterID::MyID, sender.m_WalletID)
+            .SetParameter(TxParameterID::PeerID, receiver.m_WalletID)
+            .SetParameter(TxParameterID::Amount, Amount(6))
+            .SetParameter(TxParameterID::Fee, Amount(0))
+            .SetParameter(TxParameterID::Lifetime, Height(200))
+            .SetParameter(TxParameterID::PreselectedCoins, preselectedIDs));
+
         mainReactor->run();
         sw.stop();
         cout << "Second transfer elapsed time: " << sw.milliseconds() << " ms\n";
@@ -361,7 +384,14 @@ namespace
         // third transfer. no enough money should appear
         sw.start();
         completedCount = 1;// only one wallet takes part in tx
-        txId = sender.m_Wallet.transfer_money(sender.m_WalletID, receiver.m_WalletID, 6, 0, true, 200);
+
+        txId = sender.m_Wallet.StartTransaction(CreateSimpleTransactionParameters()
+            .SetParameter(TxParameterID::MyID, sender.m_WalletID)
+            .SetParameter(TxParameterID::PeerID, receiver.m_WalletID)
+            .SetParameter(TxParameterID::Amount, Amount(6))
+            .SetParameter(TxParameterID::Fee, Amount(0))
+            .SetParameter(TxParameterID::Lifetime, Height(200)));
+
         mainReactor->run();
         sw.stop();
         cout << "Third transfer elapsed time: " << sw.milliseconds() << " ms\n";
@@ -390,185 +420,6 @@ namespace
         WALLET_CHECK(stx->m_failureReason == TxFailureReason::NoInputs);
     }
 
-    void TestP2PWalletReverseNegotiationST()
-    {
-        cout << "\nTesting p2p wallets negotiation (reverse version)...\n";
-
-        io::Reactor::Ptr mainReactor{ io::Reactor::create() };
-        io::Reactor::Scope scope(*mainReactor);
-
-        int completedCount = 2;
-        auto f = [&completedCount, mainReactor](auto)
-        {
-            --completedCount;
-            if (completedCount == 0)
-            {
-                mainReactor->stop();
-                completedCount = 2;
-            }
-        };
-
-        TestNode node;
-        TestWalletRig sender("sender", createSenderWalletDB(), f);
-        TestWalletRig receiver("receiver", createReceiverWalletDB(), f);
-  
-        WALLET_CHECK(sender.m_WalletDB->selectCoins(6).size() == 2);
-        WALLET_CHECK(sender.m_WalletDB->getTxHistory().empty());
-        WALLET_CHECK(receiver.m_WalletDB->getTxHistory().empty());
-
-        helpers::StopWatch sw;
-        sw.start();
-
-        auto txId = receiver.m_Wallet.transfer_money(receiver.m_WalletID, sender.m_WalletID, 4, 2, false, 200);
-
-        mainReactor->run();
-        sw.stop();
-        cout << "First transfer elapsed time: " << sw.milliseconds() << " ms\n";
-
-        // check coins
-        vector<Coin> newSenderCoins = sender.GetCoins();
-        vector<Coin> newReceiverCoins = receiver.GetCoins();
-
-        WALLET_CHECK(newSenderCoins.size() == 4);
-        WALLET_CHECK(newReceiverCoins.size() == 1);
-        WALLET_CHECK(newReceiverCoins[0].m_ID.m_Value == 4);
-        WALLET_CHECK(newReceiverCoins[0].m_status == Coin::Available);
-        WALLET_CHECK(newReceiverCoins[0].m_ID.m_Type == Key::Type::Regular);
-
-        WALLET_CHECK(newSenderCoins[0].m_ID.m_Value == 5);
-        WALLET_CHECK(newSenderCoins[0].m_status == Coin::Spent);
-        WALLET_CHECK(newSenderCoins[0].m_ID.m_Type == Key::Type::Regular);
-
-        WALLET_CHECK(newSenderCoins[1].m_ID.m_Value == 2);
-        WALLET_CHECK(newSenderCoins[1].m_status == Coin::Available);
-        WALLET_CHECK(newSenderCoins[1].m_ID.m_Type == Key::Type::Regular);
-
-        WALLET_CHECK(newSenderCoins[2].m_ID.m_Value == 1);
-        WALLET_CHECK(newSenderCoins[2].m_status == Coin::Spent);
-        WALLET_CHECK(newSenderCoins[2].m_ID.m_Type == Key::Type::Regular);
-
-        WALLET_CHECK(newSenderCoins[3].m_ID.m_Value == 9);
-        WALLET_CHECK(newSenderCoins[3].m_status == Coin::Available);
-        WALLET_CHECK(newSenderCoins[3].m_ID.m_Type == Key::Type::Regular);
-
-        // Tx history check
-        auto sh = sender.m_WalletDB->getTxHistory();
-        WALLET_CHECK(sh.size() == 1);
-        auto rh = receiver.m_WalletDB->getTxHistory();
-        WALLET_CHECK(rh.size() == 1);
-        auto stx = sender.m_WalletDB->getTx(txId);
-        WALLET_CHECK(stx.is_initialized());
-        auto rtx = receiver.m_WalletDB->getTx(txId);
-        WALLET_CHECK(rtx.is_initialized());
-
-        WALLET_CHECK(stx->m_txId == rtx->m_txId);
-        WALLET_CHECK(stx->m_amount == rtx->m_amount);
-        WALLET_CHECK(stx->m_status == TxStatus::Completed);
-        WALLET_CHECK(stx->m_fee == rtx->m_fee);
-        WALLET_CHECK(stx->m_message == rtx->m_message);
-        WALLET_CHECK(stx->m_createTime >= rtx->m_createTime);
-        WALLET_CHECK(stx->m_status == rtx->m_status);
-        WALLET_CHECK(stx->m_sender == true);
-        WALLET_CHECK(rtx->m_sender == false);
-
-        // second transfer
-        sw.start();
-        txId = receiver.m_Wallet.transfer_money(receiver.m_WalletID, sender.m_WalletID, 6, 0, false, 200);
-        mainReactor->run();
-        sw.stop();
-        cout << "Second transfer elapsed time: " << sw.milliseconds() << " ms\n";
-
-        // check coins
-        newSenderCoins = sender.GetCoins();
-        newReceiverCoins = receiver.GetCoins();
-
-        WALLET_CHECK(newSenderCoins.size() == 5);
-        WALLET_CHECK(newReceiverCoins.size() == 2);
-
-        WALLET_CHECK(newReceiverCoins[0].m_ID.m_Value == 4);
-        WALLET_CHECK(newReceiverCoins[0].m_status == Coin::Available);
-        WALLET_CHECK(newReceiverCoins[0].m_ID.m_Type == Key::Type::Regular);
-
-        WALLET_CHECK(newReceiverCoins[1].m_ID.m_Value == 6);
-        WALLET_CHECK(newReceiverCoins[1].m_status == Coin::Available);
-        WALLET_CHECK(newReceiverCoins[1].m_ID.m_Type == Key::Type::Regular);
-
-
-        WALLET_CHECK(newSenderCoins[0].m_ID.m_Value == 3);
-        WALLET_CHECK(newSenderCoins[0].m_status == Coin::Available);
-        WALLET_CHECK(newSenderCoins[0].m_ID.m_Type == Key::Type::Change);
-
-        WALLET_CHECK(newSenderCoins[1].m_ID.m_Value == 5);
-        WALLET_CHECK(newSenderCoins[1].m_status == Coin::Spent);
-        WALLET_CHECK(newSenderCoins[1].m_ID.m_Type == Key::Type::Regular);
-
-        WALLET_CHECK(newSenderCoins[2].m_ID.m_Value == 2);
-        WALLET_CHECK(newSenderCoins[2].m_status == Coin::Available);
-        WALLET_CHECK(newSenderCoins[2].m_ID.m_Type == Key::Type::Regular);
-
-        WALLET_CHECK(newSenderCoins[3].m_ID.m_Value == 1);
-        WALLET_CHECK(newSenderCoins[3].m_status == Coin::Spent);
-        WALLET_CHECK(newSenderCoins[3].m_ID.m_Type == Key::Type::Regular);
-
-        WALLET_CHECK(newSenderCoins[4].m_ID.m_Value == 9);
-        WALLET_CHECK(newSenderCoins[4].m_status == Coin::Spent);
-        WALLET_CHECK(newSenderCoins[4].m_ID.m_Type == Key::Type::Regular);
-
-        // Tx history check
-        sh = sender.m_WalletDB->getTxHistory();
-        WALLET_CHECK(sh.size() == 2);
-        rh = receiver.m_WalletDB->getTxHistory();
-        WALLET_CHECK(rh.size() == 2);
-        stx = sender.m_WalletDB->getTx(txId);
-        WALLET_CHECK(stx.is_initialized());
-        rtx = receiver.m_WalletDB->getTx(txId);
-        WALLET_CHECK(rtx.is_initialized());
-
-        WALLET_CHECK(stx->m_txId == rtx->m_txId);
-        WALLET_CHECK(stx->m_amount == rtx->m_amount);
-        WALLET_CHECK(stx->m_status == TxStatus::Completed);
-        WALLET_CHECK(stx->m_message == rtx->m_message);
-        WALLET_CHECK(stx->m_createTime >= rtx->m_createTime);
-        WALLET_CHECK(stx->m_status == rtx->m_status);
-        WALLET_CHECK(stx->m_sender == true);
-        WALLET_CHECK(rtx->m_sender == false);
-
-
-        // third transfer. no enough money should appear
-        sw.start();
-
-        txId = receiver.m_Wallet.transfer_money(receiver.m_WalletID, sender.m_WalletID, 6, 0, false, 200);
-        mainReactor->run();
-        sw.stop();
-        cout << "Third transfer elapsed time: " << sw.milliseconds() << " ms\n";
-        // check coins
-        newSenderCoins = sender.GetCoins();
-        newReceiverCoins = receiver.GetCoins();
-
-        // no coins 
-        WALLET_CHECK(newSenderCoins.size() == 5);
-        WALLET_CHECK(newReceiverCoins.size() == 2);
-
-        // Tx history check. New failed tx should be added to sender and receiver
-        sh = sender.m_WalletDB->getTxHistory();
-        WALLET_CHECK(sh.size() == 3);
-        rh = receiver.m_WalletDB->getTxHistory();
-        WALLET_CHECK(rh.size() == 3);
-        stx = sender.m_WalletDB->getTx(txId);
-        WALLET_CHECK(stx.is_initialized());
-        rtx = receiver.m_WalletDB->getTx(txId);
-        WALLET_CHECK(rtx.is_initialized());
-
-        WALLET_CHECK(rtx->m_amount == 6);
-        WALLET_CHECK(rtx->m_status == TxStatus::Failed);
-        WALLET_CHECK(rtx->m_sender == false);
-
-
-        WALLET_CHECK(stx->m_amount == 6);
-        WALLET_CHECK(stx->m_status == TxStatus::Failed);
-        WALLET_CHECK(stx->m_sender == true);
-    }
-
     void TestSplitTransaction()
     {
         cout << "\nTesting split Tx...\n";
@@ -595,7 +446,11 @@ namespace
         helpers::StopWatch sw;
 
         sw.start();
-        auto txId = sender.m_Wallet.split_coins(sender.m_WalletID, { 11, 12, 13 }, 2, true, 200);
+
+        auto txId = sender.m_Wallet.StartTransaction(CreateSplitTransactionParameters(sender.m_WalletID, AmountList{ 11, 12, 13 })
+            .SetParameter(TxParameterID::Fee, Amount(2))
+            .SetParameter(TxParameterID::Lifetime, Height(200)));
+
         mainReactor->run();
         sw.stop();
 
@@ -685,7 +540,11 @@ namespace
         TestNode node;
         TestWalletRig sender("sender", senderWalletDB, [](auto) { io::Reactor::get_Current().stop(); });
 
-        auto txId = sender.m_Wallet.split_coins(sender.m_WalletID, { 11, 12, 13 }, 2, true, 200);
+
+        auto txId = sender.m_Wallet.StartTransaction(CreateSplitTransactionParameters(sender.m_WalletID, AmountList{ 11, 12, 13 })
+           .SetParameter(TxParameterID::Fee, Amount(2))
+           .SetParameter(TxParameterID::Lifetime, Height(200)));
+
         mainReactor->run();
 
         // check Tx
@@ -699,7 +558,10 @@ namespace
             WALLET_CHECK(txHistory[0].m_status == TxStatus::Failed);
         }
         
-        txId = sender.m_Wallet.split_coins(sender.m_WalletID, { 11, 12, 13 }, 42, true, 200);
+
+        txId = sender.m_Wallet.StartTransaction(CreateSplitTransactionParameters(sender.m_WalletID, AmountList{ 11, 12, 13 })
+            .SetParameter(TxParameterID::Fee, Amount(42))
+            .SetParameter(TxParameterID::Lifetime, Height(200)));
         mainReactor->run();
 
         // check Tx
@@ -715,8 +577,9 @@ namespace
         }
 
         // another attempt
-
-        txId = sender.m_Wallet.split_coins(sender.m_WalletID, { 11, 12, 13 }, 50, true, 200);
+        txId = sender.m_Wallet.StartTransaction(CreateSplitTransactionParameters(sender.m_WalletID, AmountList{ 11, 12, 13 })
+            .SetParameter(TxParameterID::Fee, Amount(50))
+            .SetParameter(TxParameterID::Lifetime, Height(200)));
         mainReactor->run();
 
         // check Tx
@@ -796,7 +659,14 @@ namespace
         WALLET_CHECK(sender.m_WalletDB->getTxHistory().empty());
         WALLET_CHECK(receiver.m_WalletDB->getTxHistory().empty());
 
-        auto txId = sender.m_Wallet.transfer_money(sender.m_WalletID, receiver.m_WalletID, 4, 2, true, 1, 10);
+        auto txId = sender.m_Wallet.StartTransaction(CreateSimpleTransactionParameters()
+            .SetParameter(TxParameterID::MyID, sender.m_WalletID)
+            .SetParameter(TxParameterID::PeerID, receiver.m_WalletID)
+            .SetParameter(TxParameterID::Amount, Amount(4))
+            .SetParameter(TxParameterID::Fee, Amount(2))
+            .SetParameter(TxParameterID::Lifetime, Height(1))
+            .SetParameter(TxParameterID::PeerResponseHeight, Height(10)));
+
         mainReactor->run();
 
         // first tx with height == 0
@@ -817,27 +687,11 @@ namespace
             WALLET_CHECK(rh[0].m_failureReason == TxFailureReason::TransactionExpired);
         }
 
-        //txId = sender.m_Wallet.transfer_money(sender.m_WalletID, receiver.m_WalletID, 4, 2, true, 0, 10);
-        //mainReactor->run();
-
-        //{
-        //    vector<Coin> newSenderCoins = sender.GetCoins();
-        //    vector<Coin> newReceiverCoins = receiver.GetCoins();
-
-        //    WALLET_CHECK(newSenderCoins.size() == 4);
-        //    WALLET_CHECK(newReceiverCoins.size() == 0);
-
-        //    auto sh = sender.m_WalletDB->getTxHistory();
-        //    WALLET_CHECK(sh.size() == 2);
-        //    WALLET_CHECK(sh[0].m_status == TxStatus::Failed);
-        //    WALLET_CHECK(sh[0].m_failureReason == TxFailureReason::TransactionExpired);
-        //    auto rh = receiver.m_WalletDB->getTxHistory();
-        //    WALLET_CHECK(rh.size() == 2);
-        //    WALLET_CHECK(rh[0].m_status == TxStatus::Failed);
-        //    WALLET_CHECK(rh[0].m_failureReason == TxFailureReason::TransactionExpired);
-        //}
-
-        txId = sender.m_Wallet.transfer_money(sender.m_WalletID, receiver.m_WalletID, 4, 2, true);
+        txId = sender.m_Wallet.StartTransaction(CreateSimpleTransactionParameters()
+            .SetParameter(TxParameterID::MyID, sender.m_WalletID)
+            .SetParameter(TxParameterID::PeerID, receiver.m_WalletID)
+            .SetParameter(TxParameterID::Amount, Amount(4))
+            .SetParameter(TxParameterID::Fee, Amount(2)));
 
         mainReactor->run();
 
@@ -870,7 +724,9 @@ namespace
         TestWalletRig receiver("receiver", createReceiverWalletDB());
 
         TxID txID = wallet::GenerateTxID();
-        auto tx = SimpleTransaction::Create(gateway, sender.m_WalletDB, sender.m_KeyKeeper, txID);
+        SimpleTransaction::Creator creator;
+        auto tx = creator.Create(gateway, sender.m_WalletDB, sender.m_KeyKeeper, txID);
+
         Height currentHeight = sender.m_WalletDB->getCurrentHeight();
 
         tx->SetParameter(wallet::TxParameterID::TransactionType, wallet::TxType::Simple, false);
@@ -879,7 +735,7 @@ namespace
         //tx->SetParameter(wallet::TxParameterID::AmountList, {1U}, false);
       //  tx->SetParameter(wallet::TxParameterID::PreselectedCoins, {}, false);
 
-        TxDescription txDescription;
+        TxDescription txDescription(txID);
 
         txDescription.m_txId = txID;
         txDescription.m_amount = 1;
@@ -918,6 +774,7 @@ namespace
         TestWalletRig receiver("receiver", createReceiverWalletDB());
         Height currentHeight = sender.m_WalletDB->getCurrentHeight();
 
+        SimpleTransaction::Creator txCreator;
         // process TransactionFailedException
         {
             struct TestGateway : EmptyTestGateway
@@ -929,13 +786,13 @@ namespace
             } gateway;
 
             TxID txID = wallet::GenerateTxID();
-            auto tx = SimpleTransaction::Create(gateway, sender.m_WalletDB, sender.m_KeyKeeper, txID);
+            auto tx = txCreator.Create(gateway, sender.m_WalletDB, sender.m_KeyKeeper, txID);
 
             tx->SetParameter(wallet::TxParameterID::TransactionType, wallet::TxType::Simple, false);
             tx->SetParameter(wallet::TxParameterID::MaxHeight, currentHeight + 2, false); // transaction is valid +lifetime blocks from currentHeight
             tx->SetParameter(wallet::TxParameterID::IsInitiator, true, false);
 
-            TxDescription txDescription;
+            TxDescription txDescription(txID);
 
             txDescription.m_txId = txID;
             txDescription.m_amount = 1;
@@ -968,13 +825,13 @@ namespace
             } gateway;
 
             TxID txID = wallet::GenerateTxID();
-            auto tx = SimpleTransaction::Create(gateway, sender.m_WalletDB, sender.m_KeyKeeper, txID);
+            auto tx = txCreator.Create(gateway, sender.m_WalletDB, sender.m_KeyKeeper, txID);
 
             tx->SetParameter(wallet::TxParameterID::TransactionType, wallet::TxType::Simple, false);
             tx->SetParameter(wallet::TxParameterID::MaxHeight, currentHeight + 2, false); // transaction is valid +lifetime blocks from currentHeight
             tx->SetParameter(wallet::TxParameterID::IsInitiator, true, false);
 
-            TxDescription txDescription;
+            TxDescription txDescription(txID);
 
             txDescription.m_txId = txID;
             txDescription.m_amount = 1;
@@ -1061,7 +918,14 @@ namespace
             WALLET_CHECK(privateSender.m_WalletDB->getTxHistory().empty());
 
             // send from cold wallet
-            privateSender.m_Wallet.transfer_money(privateSender.m_WalletID, receiver.m_WalletID, 4, 2, true, 200);
+
+            privateSender.m_Wallet.StartTransaction(CreateSimpleTransactionParameters()
+                .SetParameter(TxParameterID::MyID, privateSender.m_WalletID)
+                .SetParameter(TxParameterID::PeerID, receiver.m_WalletID)
+                .SetParameter(TxParameterID::Amount, Amount(4))
+                .SetParameter(TxParameterID::Fee, Amount(2))
+                .SetParameter(TxParameterID::Lifetime, Height(200)));
+
             mainReactor->run();
         }
 
@@ -1162,7 +1026,12 @@ namespace
             auto publicDB = WalletDB::open(publicPath, DBPassword, io::Reactor::get_Current().shared_from_this());
             TestWalletRig publicReceiver("public_receiver", publicDB, f, TestWalletRig::Type::Regular, true);
 
-            sender.m_Wallet.transfer_money(sender.m_WalletID, publicReceiver.m_WalletID, 4, 2, true, 200);
+            sender.m_Wallet.StartTransaction(CreateSimpleTransactionParameters()
+                .SetParameter(TxParameterID::MyID, sender.m_WalletID)
+                .SetParameter(TxParameterID::PeerID, publicReceiver.m_WalletID)
+                .SetParameter(TxParameterID::Amount, Amount(4))
+                .SetParameter(TxParameterID::Fee, Amount(2))
+                .SetParameter(TxParameterID::Lifetime, Height(200)));
 
             mainReactor->run();
         }
@@ -1220,7 +1089,6 @@ namespace
         WALLET_CHECK(newSenderCoins[3].m_ID.m_Type == Key::Type::Regular);
 
     }
-
 
     uintBig GetRandomSeed()
     {
@@ -1431,7 +1299,9 @@ namespace
         TestWalletRig sender("sender", db, f, TestWalletRig::Type::Regular, false, 0, senderNodeAddress);
         TestWalletRig receiver("receiver", createReceiverWalletDB(), f, TestWalletRig::Type::Regular, false, 0, receiverNodeAddress);
 
-        sender.m_Wallet.split_coins(sender.m_WalletID, AmountList( Count, Amount(5) ), 0, true, 200);
+        sender.m_Wallet.StartTransaction(CreateSplitTransactionParameters(sender.m_WalletID, AmountList(Count, Amount(5)))
+            .SetParameter(TxParameterID::Fee, Amount(0))
+            .SetParameter(TxParameterID::Lifetime, Height(200)));
 
         mainReactor->run();
 
@@ -1439,10 +1309,112 @@ namespace
 
         for (int i = 0; i < Count; ++i)
         {
-            sender.m_Wallet.transfer_money(sender.m_WalletID, receiver.m_WalletID, 4, 1, true, 200);
+            sender.m_Wallet.StartTransaction(CreateSimpleTransactionParameters()
+                .SetParameter(TxParameterID::MyID, sender.m_WalletID)
+                .SetParameter(TxParameterID::PeerID, receiver.m_WalletID)
+                .SetParameter(TxParameterID::Amount, Amount(4))
+                .SetParameter(TxParameterID::Fee, Amount(1))
+                .SetParameter(TxParameterID::Lifetime, Height(200)));
         }
         
         mainReactor->run();
+    }
+
+    void TestTxParameters()
+    {
+        std::cout << "Testing tx parameters and token...\n";
+
+        WalletID myID(Zero);
+        WALLET_CHECK(myID.FromHex("7a3b9afd0f6bba147a4e044329b135424ca3a57ab9982fe68747010a71e0cac3f3"));
+
+        WalletID peerID(Zero);
+        WALLET_CHECK(peerID.FromHex("1b516fb39884a3281bc0761f97817782a8bc51fdb1336882a2c7efebdb400d00d4"));
+        auto params = CreateSimpleTransactionParameters()
+            .SetParameter(TxParameterID::MyID, myID)
+            .SetParameter(TxParameterID::PeerID, peerID);
+
+        string token = to_string(params);
+
+        auto restoredParams = wallet::ParseParameters(token);
+
+        WALLET_CHECK(restoredParams && *restoredParams == params);
+
+        string address = to_string(myID);
+        auto addrParams = wallet::ParseParameters(address);
+        WALLET_CHECK(addrParams && *addrParams->GetParameter<WalletID>(TxParameterID::PeerID) == myID);
+    }
+
+    void TestConvertions()
+    {
+        //{
+        //    vector<uint8_t> input = { 2, 5, 6, 7 };
+        //    auto r58 = Convert(input, 10, 58);
+        //    WALLET_CHECK(r58 == vector<uint8_t>({44, 15}));
+        //    auto r256 = Convert(input, 10, 256);
+        //    WALLET_CHECK(r256 == vector<uint8_t>({ 10, 7 }));
+
+        //    auto r58_10 = Convert(r58, 58, 10);
+        //    WALLET_CHECK(r58_10 == input);
+        //    auto r256_10 = Convert(r256, 256, 10);
+        //    WALLET_CHECK(r256_10 == vector<uint8_t>({2, 5, 6, 7}));
+
+        //    auto r11 = Convert(input, 10, 11);
+        //    WALLET_CHECK(r11 == vector<uint8_t>({ 1, 10, 2, 4 }));
+
+        //    auto r58_11 = Convert(r58, 58, 11);
+        //    WALLET_CHECK(r58_11 == vector<uint8_t>({ 1, 10, 2, 4 }));
+        //    auto r256_11 = Convert(r256, 256, 11);
+        //    WALLET_CHECK(r256_11 == vector<uint8_t>({ 1, 10, 2, 4 }));
+        //}
+        {
+            vector<uint8_t> input = { 1,43,54,7,8,9,7 };
+
+            auto r58 = EncodeToBase58(input);
+            WALLET_CHECK(r58 == "3ZzuVHW5C");
+
+            auto r256 = DecodeBase58("3ZzuVHW5C");
+            WALLET_CHECK(r256 == input);
+
+            WALLET_CHECK(DecodeBase58("13ZzuVHW5C") == vector<uint8_t>({ 0, 1,43,54,7,8,9,7 }));
+            WALLET_CHECK(DecodeBase58("C") == vector<uint8_t>{11});
+
+
+            WALLET_CHECK(EncodeToBase58({}) == "");
+
+            WALLET_CHECK(DecodeBase58("") == vector<uint8_t>{});
+
+            WALLET_CHECK(DecodeBase58("3ZzuVHW5C==") == vector<uint8_t>{});
+
+        }
+        {
+            vector<pair<string, string>> tests =
+            {
+                {"10c8511e", "Rt5zm"},
+                {"00eb15231dfceb60925886b67d065299925915aeb172c06647", "1NS17iag9jJgTHD1VXjvLCEnZuQ3rJDE9L"},
+                {"00000000000000000000", "1111111111"},
+                {"", ""},
+                {"61", "2g"},
+                {"626262", "a3gV"},
+                {"636363", "aPEr"},
+                {"73696d706c792061206c6f6e6720737472696e67", "2cFupjhnEsSn59qHXstmK2ffpLv2"},
+                {"516b6fcd0f", "ABnLTmg"},
+                {"bf4f89001e670274dd", "3SEo3LWLoPntC"},
+                {"572e4794", "3EFU7m"},
+                {"ecac89cad93923c02321", "EJDM8drfXA6uyA"},
+                {"000111d38e5fc9071ffcd20b4a763cc9ae4f252bb4e48fd66a835e252ada93ff480d6dd43dc62a641155a5", "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz"},
+                {"000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f202122232425262728292a2b2c2d2e2f303132333435363738393a3b3c3d3e3f404142434445464748494a4b4c4d4e4f505152535455565758595a5b5c5d5e5f606162636465666768696a6b6c6d6e6f707172737475767778797a7b7c7d7e7f808182838485868788898a8b8c8d8e8f909192939495969798999a9b9c9d9e9fa0a1a2a3a4a5a6a7a8a9aaabacadaeafb0b1b2b3b4b5b6b7b8b9babbbcbdbebfc0c1c2c3c4c5c6c7c8c9cacbcccdcecfd0d1d2d3d4d5d6d7d8d9dadbdcdddedfe0e1e2e3e4e5e6e7e8e9eaebecedeeeff0f1f2f3f4f5f6f7f8f9fafbfcfdfeff", "1cWB5HCBdLjAuqGGReWE3R3CguuwSjw6RHn39s2yuDRTS5NsBgNiFpWgAnEx6VQi8csexkgYw3mdYrMHr8x9i7aEwP8kZ7vccXWqKDvGv3u1GxFKPuAkn8JCPPGDMf3vMMnbzm6Nh9zh1gcNsMvH3ZNLmP5fSG6DGbbi2tuwMWPthr4boWwCxf7ewSgNQeacyozhKDDQQ1qL5fQFUW52QKUZDZ5fw3KXNQJMcNTcaB723LchjeKun7MuGW5qyCBZYzA1KjofN1gYBV3NqyhQJ3Ns746GNuf9N2pQPmHz4xpnSrrfCvy6TVVz5d4PdrjeshsWQwpZsZGzvbdAdN8MKV5QsBDY"}
+            };
+
+            for (const auto& test : tests)
+            {
+                ByteBuffer value = from_hex(test.first);
+                auto to = EncodeToBase58(value);
+                auto buf = DecodeBase58(test.second);
+                auto from = EncodeToBase58(buf);
+                WALLET_CHECK(to == test.second);
+                WALLET_CHECK(to == from);
+            }
+        }
     }
 }
 
@@ -2053,10 +2025,12 @@ int main()
     Rules::get().DA.MaxAhead_s = 60 * 1;
     Rules::get().UpdateChecksum();
 
+    TestConvertions();
+    TestTxParameters();
+
 	TestNegotiation();
 
     TestP2PWalletNegotiationST();
-    //TestP2PWalletReverseNegotiationST();
 
     {
         io::Reactor::Ptr mainReactor{ io::Reactor::create() };

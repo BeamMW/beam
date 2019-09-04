@@ -25,6 +25,8 @@ namespace beam::wallet
     public:
         using Ptr = std::shared_ptr<SecondSide>;
         
+        virtual ~SecondSide() = default;
+
         virtual bool Initialize() = 0;
         virtual bool InitLockTime() = 0;
         virtual bool ValidateLockTime() = 0;
@@ -35,6 +37,5 @@ namespace beam::wallet
         virtual bool SendRedeem() = 0;
         virtual bool IsLockTimeExpired() = 0;
         virtual bool HasEnoughTimeToProcessLockTx() = 0;
-        virtual uint32_t GetTxTimeInBeamBlocks() const = 0;
     };
 }

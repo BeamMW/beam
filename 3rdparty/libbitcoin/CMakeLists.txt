@@ -2,6 +2,8 @@ set(TARGET_NAME libbitcoin)
 
 set(LIBBITCOIN_INCLUDE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/include/bitcoin/bitcoin)
 
+add_definitions(-DWITH_ICU)
+
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/include)
 
 add_subdirectory(src)
@@ -18,6 +20,8 @@ add_library(${TARGET_NAME} STATIC
 	$<TARGET_OBJECTS:libbitcoin_unicode>
 	$<TARGET_OBJECTS:libbitcoin_utility>
 	$<TARGET_OBJECTS:libbitcoin_wallet>)
+
+target_include_directories(${TARGET_NAME} PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/include")
 
 target_link_libraries(${TARGET_NAME} secp256k1)
 

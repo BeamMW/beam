@@ -6,7 +6,11 @@ set(HTTP_SRC
     ${PROJECT_SOURCE_DIR}/3rdparty/picohttpparser/picohttpparser.c)
 
 add_library(http STATIC ${HTTP_SRC})
-add_dependencies(http utility)
 target_link_libraries(http utility)
+
+target_include_directories(http
+    INTERFACE 
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/>
+)
 
 add_subdirectory(unittests)

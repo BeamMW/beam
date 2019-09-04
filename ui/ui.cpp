@@ -26,6 +26,7 @@
 #include "viewmodel/utxo_view.h"
 #include "viewmodel/utxo_view_status.h"
 #include "viewmodel/utxo_view_type.h"
+#include "viewmodel/swap_offers_view.h"
 #include "viewmodel/dashboard_view.h"
 #include "viewmodel/address_book_view.h"
 #include "viewmodel/wallet_view.h"
@@ -36,9 +37,14 @@
 #include "viewmodel/statusbar_view.h"
 #include "viewmodel/theme.h"
 #include "viewmodel/receive_view.h"
+#include "viewmodel/receive_swap_view.h"
 #include "viewmodel/send_view.h"
+#include "viewmodel/send_swap_view.h"
+#include "viewmodel/currencies.h"
 #include "model/app_model.h"
 #include "viewmodel/qml_globals.h"
+#include "viewmodel/helpers/list_model.h"
+#include "viewmodel/helpers/sortfilterproxymodel.h"
 #include "wallet/wallet_db.h"
 #include "utility/log_rotation.h"
 #include "core/ecc_native.h"
@@ -204,6 +210,7 @@ int main (int argc, char* argv[])
                         return new QMLGlobals(*engine);
                     });
 
+            qmlRegisterType<WalletCurrency>("Beam.Wallet", 1, 0, "Currency");
             qmlRegisterType<StartViewModel>("Beam.Wallet", 1, 0, "StartViewModel");
             qmlRegisterType<LoadingViewModel>("Beam.Wallet", 1, 0, "LoadingViewModel");
             qmlRegisterType<MainViewModel>("Beam.Wallet", 1, 0, "MainViewModel");
@@ -214,12 +221,15 @@ int main (int argc, char* argv[])
             qmlRegisterType<UtxoViewModel>("Beam.Wallet", 1, 0, "UtxoViewModel");
             qmlRegisterType<SettingsViewModel>("Beam.Wallet", 1, 0, "SettingsViewModel");
             qmlRegisterType<AddressBookViewModel>("Beam.Wallet", 1, 0, "AddressBookViewModel");
+            qmlRegisterType<SwapOffersViewModel>("Beam.Wallet", 1, 0, "SwapOffersViewModel");
             qmlRegisterType<NotificationsViewModel>("Beam.Wallet", 1, 0, "NotificationsViewModel");
             qmlRegisterType<HelpViewModel>("Beam.Wallet", 1, 0, "HelpViewModel");
             qmlRegisterType<MessagesViewModel>("Beam.Wallet", 1, 0, "MessagesViewModel");
             qmlRegisterType<StatusbarViewModel>("Beam.Wallet", 1, 0, "StatusbarViewModel");
             qmlRegisterType<ReceiveViewModel>("Beam.Wallet", 1, 0, "ReceiveViewModel");
+            qmlRegisterType<ReceiveSwapViewModel>("Beam.Wallet", 1, 0, "ReceiveSwapViewModel");
             qmlRegisterType<SendViewModel>("Beam.Wallet", 1, 0, "SendViewModel");
+            qmlRegisterType<SendSwapViewModel>("Beam.Wallet", 1, 0, "SendSwapViewModel");
 
             qmlRegisterType<AddressItem>("Beam.Wallet", 1, 0, "AddressItem");
             qmlRegisterType<ContactItem>("Beam.Wallet", 1, 0, "ContactItem");
@@ -227,6 +237,10 @@ int main (int argc, char* argv[])
             qmlRegisterType<UtxoItem>("Beam.Wallet", 1, 0, "UtxoItem");
             qmlRegisterType<PaymentInfoItem>("Beam.Wallet", 1, 0, "PaymentInfoItem");
             qmlRegisterType<WalletDBPathItem>("Beam.Wallet", 1, 0, "WalletDBPathItem");
+            qmlRegisterType<SwapOfferItem>("Beam.Wallet", 1, 0, "SwapOfferItem");
+            qmlRegisterType<SwapOffersList>("Beam.Wallet", 1, 0, "SwapOffersList");
+            
+            qmlRegisterType<SortFilterProxyModel>("Beam.Wallet", 1, 0, "SortFilterProxyModel");
 
             engine.load(QUrl("qrc:/root.qml"));
 

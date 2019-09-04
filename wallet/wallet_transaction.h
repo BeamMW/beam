@@ -26,6 +26,9 @@ namespace beam::wallet
 {
     class BaseTxBuilder;
 
+    TxParameters CreateSimpleTransactionParameters();
+    TxParameters CreateSplitTransactionParameters(const WalletID& myID, const AmountList& amountList);
+
     class SimpleTransaction : public BaseTransaction
     {
         enum State : uint8_t
@@ -41,10 +44,14 @@ namespace beam::wallet
             OutputsConfirmation
         };
     public:
-        static BaseTransaction::Ptr Create(INegotiatorGateway& gateway
-                                    , IWalletDB::Ptr walletDB
-                                    , IPrivateKeyKeeper::Ptr keyKeeper
-                                    , const TxID& txID);
+        class Creator : public BaseTransaction::Creator
+        {
+        public:
+            BaseTransaction::Ptr Create(INegotiatorGateway& gateway
+                                      , IWalletDB::Ptr walletDB
+                                      , IPrivateKeyKeeper::Ptr keyKeeper
+                                      , const TxID& txID) override;
+        };
     private:
         SimpleTransaction(INegotiatorGateway& gateway
                         , IWalletDB::Ptr walletDB

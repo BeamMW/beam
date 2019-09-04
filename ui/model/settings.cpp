@@ -21,6 +21,9 @@
 #include <QtQuick>
 
 #include "ui/model/app_model.h"
+
+#include "wallet/bitcoin/settings.h"
+
 #include "version.h"
 
 #include "quazip/quazip.h"
@@ -370,4 +373,55 @@ void WalletSettings::reportProblem()
 void WalletSettings::applyChanges()
 {
     AppModel::getInstance().applySettingsChanges();
+}
+
+
+// swap settings
+namespace
+{
+    // swaps
+    const char* kSwapBitcoinNodeAddress = "swap/bitcoin/node_address";
+    const char* kSwapBitcoinUserName = "swap/bitcoin/user_name";
+    const char* kSwapBitcoinPassword = "swap/bitcoin/password";
+    const char* kSwapBitcoinFeeRate = "swap/bitcoin/fee_rate";
+    const char* kSwapSecondSideChainType = "swap/chain_type";
+}
+
+std::shared_ptr<beam::bitcoin::Settings> WalletSettings::getBitcoinSettings() const
+{
+    std::string btcNodeUri, userName, password;
+    beam::Amount feeRate = 0;
+    try
+    {
+        Lock lock(m_mutex);
+        btcNodeUri = m_data.value(kSwapBitcoinNodeAddress).value<QString>().toStdString();
+        userName = m_data.value(kSwapBitcoinUserName).value<QString>().toStdString();
+        password = m_data.value(kSwapBitcoinPassword).value<QString>().toStdString();
+        feeRate = m_data.value(kSwapBitcoinFeeRate).value<beam::Amount>();
+    }
+    catch (...)
+    {
+        return {};
+    }
+
+    beam::bitcoin::BitcoinCoreSettings bitcoindSettings;
+
+    if (!bitcoindSettings.m_address.resolve(btcNodeUri.c_str()))
+    {
+        throw std::runtime_error("unable to resolve bitcoin node address: " + btcNodeUri);
+    }
+
+    bitcoindSettings.m_userName = userName;
+    bitcoindSettings.m_pass = password;
+
+    auto btcSettings = make_shared<beam::bitcoin::Settings>();
+    btcSettings->SetConnectionOptions(bitcoindSettings);
+    btcSettings->SetFeeRate(feeRate);
+
+    auto s = m_data.value(kSwapSecondSideChainType, "testnet").value<QString>().toStdString();
+
+    btcSettings->SetChainType(beam::wallet::SwapSecondSideChainTypeFromString(s));
+
+    return btcSettings;
+    
 }

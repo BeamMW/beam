@@ -56,6 +56,13 @@ WalletViewModel::WalletViewModel()
         emit stateChanged();
     });
 
+    connect(&*AppModel::getInstance().getBitcoinClient(),  &BitcoinClientModel::stateChanged, this, &WalletViewModel::onCoinStateChanged);
+    connect(&*AppModel::getInstance().getLitecoinClient(), &BitcoinClientModel::stateChanged, this, &WalletViewModel::onCoinStateChanged);
+    connect(&*AppModel::getInstance().getQtumClient(),     &BitcoinClientModel::stateChanged, this, &WalletViewModel::onCoinStateChanged);
+    connect(&*AppModel::getInstance().getBitcoinClient(),  &BitcoinClientModel::gotStatus, this, &WalletViewModel::onCoinStatusChanged);
+    connect(&*AppModel::getInstance().getLitecoinClient(), &BitcoinClientModel::gotStatus, this, &WalletViewModel::onCoinStatusChanged);
+    connect(&*AppModel::getInstance().getQtumClient(),     &BitcoinClientModel::gotStatus, this, &WalletViewModel::onCoinStatusChanged);
+
     // TODO: This also refreshes TXs and addresses. Need to make this more transparent
     _status.refresh();
 }
@@ -63,6 +70,16 @@ WalletViewModel::WalletViewModel()
 WalletViewModel::~WalletViewModel()
 {
     qDeleteAll(_txList);
+}
+
+void WalletViewModel::onCoinStateChanged()
+{
+    emit stateChanged();
+}
+
+void WalletViewModel::onCoinStatusChanged(beam::bitcoin::Client::Status)
+{
+    emit stateChanged();
 }
 
 void WalletViewModel::cancelTx(TxObject* pTxObject)
@@ -116,7 +133,9 @@ void WalletViewModel::onTxStatus(beam::wallet::ChangeAction action, const std::v
             txIt = find_if(txIt, txEnd, [&item](const auto& tx) {return item.m_txId == tx->getTxDescription().m_txId; });
             if (txIt == txEnd)
             {
-                break;
+                // insert new object
+                _txList.insert(0, new TxObject(item));
+                continue;
             }
             (*txIt)->update(item);
         }
@@ -139,24 +158,109 @@ void WalletViewModel::onTxStatus(beam::wallet::ChangeAction action, const std::v
 
 }
 
-QString WalletViewModel::available() const
+double WalletViewModel::beamAvailable() const
 {
-    return BeamToString(_status.getAvailable());
+    return double(int64_t(_status.getAvailable())) / Rules::Coin;
 }
 
-QString WalletViewModel::receiving() const
+double WalletViewModel::btcAvailable() const
 {
-    return BeamToString(_status.getReceiving());
+    return AppModel::getInstance().getBitcoinClient()->getAvailable();
 }
 
-QString WalletViewModel::sending() const
+double WalletViewModel::ltcAvailable() const
 {
-    return BeamToString(_status.getSending());
+    return AppModel::getInstance().getLitecoinClient()->getAvailable();
 }
+
+double WalletViewModel::qtumAvailable() const
+{
+    return AppModel::getInstance().getQtumClient()->getAvailable();
+}
+
+double WalletViewModel::beamReceiving() const
+{
+     return double(_status.getReceiving()) / Rules::Coin;
+}
+
+double WalletViewModel::btcReceiving()  const
+{
+    return AppModel::getInstance().getBitcoinClient()->getReceiving();
+}
+
+double WalletViewModel::ltcReceiving()  const
+{
+    return AppModel::getInstance().getLitecoinClient()->getReceiving();
+}
+
+double WalletViewModel::qtumReceiving() const
+{
+    return AppModel::getInstance().getQtumClient()->getReceiving();
+}
+
+double WalletViewModel::beamSending() const
+{
+    return double(_status.getSending()) / Rules::Coin;
+}
+
+double WalletViewModel::btcSending()  const
+{
+    return AppModel::getInstance().getBitcoinClient()->getSending();
+}
+
+double WalletViewModel::ltcSending()  const
+{
+    return AppModel::getInstance().getLitecoinClient()->getSending();
+}
+
+double WalletViewModel::qtumSending() const
+{
+    return AppModel::getInstance().getQtumClient()->getSending();
+}
+
+double WalletViewModel::beamLocked() const
+{
+     // TODO:SWAP return real value
+    return 0;
+}
+
+double WalletViewModel::btcLocked()  const
+{
+    // TODO:SWAP return real value
+    return 0;
+}
+
+double WalletViewModel::ltcLocked()  const
+{
+    // TODO:SWAP return real value
+    return 0;
+}
+
+double WalletViewModel::qtumLocked() const
+{
+    // TODO:SWAP return real value
+    return 0;
+}
+
+bool WalletViewModel::btcOK()  const
+{
+    return AppModel::getInstance().getBitcoinClient()->getStatus() != beam::bitcoin::Client::Status::Failed;
+}
+
+bool WalletViewModel::ltcOK()  const
+{
+    return AppModel::getInstance().getLitecoinClient()->getStatus() != beam::bitcoin::Client::Status::Failed;
+}
+
+bool WalletViewModel::qtumOK() const
+{
+    return AppModel::getInstance().getQtumClient()->getStatus() != beam::bitcoin::Client::Status::Failed;
+}
+
 
 QString WalletViewModel::maturing() const
 {
-    return BeamToString(_status.getMaturing());
+    return AmountToString(_status.getMaturing(), Currencies::Beam);
 }
 
 QString WalletViewModel::sortRole() const
@@ -166,8 +270,8 @@ QString WalletViewModel::sortRole() const
 
 void WalletViewModel::setSortRole(const QString& value)
 {
-    if (value != getDateRole() && value != getAmountRole() &&
-        value != getStatusRole() && value != getUserRole())
+    if (value != getDateRole() && value != getSentAmountRole() && value != getReceivedAmountRole() &&
+        value != getStatusRole() && value != getSendingAddressRole() && value != getReceivingAddressRole())
         return;
 
     _sortRole = value;
@@ -195,19 +299,29 @@ QString WalletViewModel::getDateRole() const
     return "date";
 }
 
-QString WalletViewModel::getUserRole() const
-{
-    return "user";
-}
-
 QString WalletViewModel::getDisplayNameRole() const
 {
     return "displayName";
 }
 
-QString WalletViewModel::getAmountRole() const
+QString WalletViewModel::getSendingAddressRole() const
 {
-    return "amount";
+    return "sendingAddress";
+}
+
+QString WalletViewModel::getReceivingAddressRole() const
+{
+    return "receivingAddress";
+}
+
+QString WalletViewModel::getSentAmountRole() const
+{
+    return "sentAmount";
+}
+
+QString WalletViewModel::getReceivedAmountRole() const
+{
+    return "receivedAmount";
 }
 
 QString WalletViewModel::getStatusRole() const
@@ -246,10 +360,16 @@ std::function<bool(const TxObject*, const TxObject*)> WalletViewModel::generateC
         return compareTx(lf->getTxDescription().m_sender, rt->getTxDescription().m_sender, sortOrder);
     };
 
-    if (_sortRole == getUserRole())
+    if (_sortRole == getSendingAddressRole())
         return [sortOrder = _sortOrder](const TxObject* lf, const TxObject* rt)
     {
-        return compareTx(lf->user(), rt->user(), sortOrder);
+        return compareTx(lf->getSendingAddress(), rt->getSendingAddress(), sortOrder);
+    };
+
+    if (_sortRole == getReceivingAddressRole())
+        return [sortOrder = _sortOrder](const TxObject* lf, const TxObject* rt)
+    {
+        return compareTx(lf->getReceivingAddress(), rt->getReceivingAddress(), sortOrder);
     };
 
     if (_sortRole == getDisplayNameRole())
@@ -258,10 +378,16 @@ std::function<bool(const TxObject*, const TxObject*)> WalletViewModel::generateC
         return compareTx(lf->displayName(), rt->displayName(), sortOrder);
     };
 
-    if (_sortRole == getAmountRole())
+    if (_sortRole == getSentAmountRole())
         return [sortOrder = _sortOrder](const TxObject* lf, const TxObject* rt)
     {
-        return compareTx(lf->getTxDescription().m_amount, rt->getTxDescription().m_amount, sortOrder);
+        return compareTx(lf->getSentAmountValue(), rt->getSentAmountValue(), sortOrder);
+    };
+
+    if (_sortRole == getReceivedAmountRole())
+        return [sortOrder = _sortOrder](const TxObject* lf, const TxObject* rt)
+    {
+        return compareTx(lf->getReceivedAmountValue(), rt->getReceivedAmountValue(), sortOrder);
     };
 
     if (_sortRole == getStatusRole())
@@ -298,8 +424,7 @@ void WalletViewModel::onAddresses(bool own, const std::vector<beam::wallet::Wall
             tx->setUserName(QString{});
         }
 
-        auto displayName = tx->userName().isEmpty() ? tx->user() : tx->userName();
+        auto displayName = tx->userName();// .isEmpty() ? tx->user() : tx->userName();
         tx->setDisplayName(displayName);
     }
 }
-

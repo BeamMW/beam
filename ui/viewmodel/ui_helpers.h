@@ -4,10 +4,20 @@
 
 namespace beamui
 {
+    enum class Currencies
+    {
+        Beam,
+        Bitcoin,
+        Litecoin,
+        Qtum,
+        Unknown
+    };
+
     QString toString(const beam::wallet::WalletID&);
     QString toString(const beam::Merkle::Hash&);
-    QString BeamToString(const beam::Amount& value);
+    QString AmountToString(const beam::Amount& value, Currencies coinType);
     QString toString(const beam::Timestamp& ts);
+    double  Beam2Coins(const beam::Amount& value);
 
     class Filter
     {

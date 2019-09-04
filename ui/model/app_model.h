@@ -14,6 +14,7 @@
 #pragma once
 
 #include "wallet_model.h"
+#include "bitcoin_client_model.h"
 #include "settings.h"
 #include "messages.h"
 #include "node_model.h"
@@ -44,6 +45,9 @@ public:
     WalletSettings& getSettings() const;
     MessageManager& getMessages();
     NodeModel& getNode();
+    BitcoinClientModel::Ptr getBitcoinClient() const;
+    BitcoinClientModel::Ptr getLitecoinClient() const;
+    BitcoinClientModel::Ptr getQtumClient() const;
 
 public slots:
     void onStartedNode();
@@ -55,7 +59,11 @@ signals:
 private:
     void start();
     void startNode();
+    void startWallet();
     void resetWalletImpl();
+    void InitBtcClient();
+    void InitLtcClient();
+    void InitQtumClient();
     void onWalledOpened(const beam::SecString& pass);
 
 private:
@@ -69,4 +77,7 @@ private:
     beam::wallet::IWalletDB::Ptr m_db;
     Connections m_nsc; // [n]ode [s]tarting [c]connections
     static AppModel* s_instance;
+    BitcoinClientModel::Ptr m_bitcoinClient;
+    BitcoinClientModel::Ptr m_litecoinClient;
+    BitcoinClientModel::Ptr m_qtumClient;
 };

@@ -24,19 +24,32 @@ namespace beam::wallet
     using namespace ECC;
     using namespace std;
 
+    TxParameters CreateSimpleTransactionParameters()
+    {
+        return CreateTransactionParameters(TxType::Simple).SetParameter(TxParameterID::TransactionType, TxType::Simple);
+    }
 
-    BaseTransaction::Ptr SimpleTransaction::Create(INegotiatorGateway& gateway
-        , IWalletDB::Ptr walletDB
-        , IPrivateKeyKeeper::Ptr keyKeeper
-        , const TxID& txID)
+    TxParameters CreateSplitTransactionParameters(const WalletID& myID, const AmountList& amountList)
+    {
+        return CreateSimpleTransactionParameters()
+            .SetParameter(TxParameterID::MyID, myID)
+            .SetParameter(TxParameterID::PeerID, myID)
+            .SetParameter(TxParameterID::AmountList, amountList)
+            .SetParameter(TxParameterID::Amount, std::accumulate(amountList.begin(), amountList.end(), Amount(0)));
+    }
+
+    BaseTransaction::Ptr SimpleTransaction::Creator::Create(INegotiatorGateway& gateway
+                                                          , IWalletDB::Ptr walletDB
+                                                          , IPrivateKeyKeeper::Ptr keyKeeper
+                                                          , const TxID& txID)
     {
         return BaseTransaction::Ptr(new SimpleTransaction(gateway, walletDB, keyKeeper, txID));
     }
 
     SimpleTransaction::SimpleTransaction(INegotiatorGateway& gateway
-                                        , IWalletDB::Ptr walletDB
-                                        , IPrivateKeyKeeper::Ptr keyKeeper
-                                        , const TxID& txID)
+                                       , IWalletDB::Ptr walletDB
+                                       , IPrivateKeyKeeper::Ptr keyKeeper
+                                       , const TxID& txID)
         : BaseTransaction{ gateway, walletDB, keyKeeper, txID }
     {
 
@@ -269,7 +282,7 @@ namespace beam::wallet
                 OnFailed(TxFailureReason::InvalidTransaction, true);
                 return;
             }
-            m_Gateway.register_tx(GetTxID(), transaction);
+            GetGateway().register_tx(GetTxID(), transaction);
             SetState(State::Registration);
             return;
         }

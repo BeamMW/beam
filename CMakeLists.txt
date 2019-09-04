@@ -208,6 +208,7 @@ if(MSVC)
 
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /wd4100") # unreferenced formal parameter
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /wd4324") # '__blake2b_state': structure was padded due to alignment specifier
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /Zc:__cplusplus")
 
     set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} /O2")
     set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} /O2")
@@ -281,7 +282,7 @@ else()
         add_definitions(-DNOMINMAX)
     endif()
 
-    find_package(Boost REQUIRED)
+    find_package(Boost COMPONENTS locale REQUIRED)
 
     if(BEAM_USE_STATIC)
         include(FindBoost)

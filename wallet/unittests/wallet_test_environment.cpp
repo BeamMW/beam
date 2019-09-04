@@ -33,7 +33,6 @@ struct EmptyTestGateway : wallet::INegotiatorGateway
     bool get_tip(Block::SystemState::Full& state) const override { return false; }
     void send_tx_params(const WalletID& peerID, wallet::SetTxParameter&&) override {}
     void UpdateOnNextTip(const TxID&) override {};
-    wallet::SecondSide::Ptr GetSecondSide(const TxID&) const override { return nullptr; }
 };
 
 Coin CreateAvailCoin(Amount amount, Height maturity = 10)
@@ -291,11 +290,6 @@ struct TestGateway : wallet::INegotiatorGateway
     {
         return true;
     }
-
-    wallet::SecondSide::Ptr GetSecondSide(const TxID&) const override
-    {
-        return nullptr;
-    }
 };
 
 class AsyncProcessor
@@ -410,7 +404,7 @@ struct TestWalletRig
 
     WalletID m_WalletID;
     IWalletDB::Ptr m_WalletDB;
-    wallet::IPrivateKeyKeeper::Ptr m_KeyKeeper;
+    IPrivateKeyKeeper::Ptr m_KeyKeeper;
     Wallet m_Wallet;
 };
 
@@ -1124,7 +1118,13 @@ public:
             {
                 if (sendCount--)
                 {
-                    sender.m_Wallet.transfer_money(sender.m_WalletID, receiver.m_WalletID, 5, 1, true, 10000, 10000);
+                    sender.m_Wallet.StartTransaction(CreateSimpleTransactionParameters()
+                        .SetParameter(TxParameterID::MyID, sender.m_WalletID)
+                        .SetParameter(TxParameterID::PeerID, receiver.m_WalletID)
+                        .SetParameter(TxParameterID::Amount, Amount(5))
+                        .SetParameter(TxParameterID::Fee, Amount(1))
+                        .SetParameter(TxParameterID::Lifetime, Height(10000))
+                        .SetParameter(TxParameterID::PeerResponseHeight, Height(10000)));
                 }
             }
             if (sendCount)

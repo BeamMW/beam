@@ -183,8 +183,9 @@
         <translation>แสดงในโฟลเดอร์</translation>
     </message>
     <message id="general-addr-comment-error">
-        <source>Address with same comment already exist</source>
-        <translation>มีที่อยู่ที่เคยใช้คอมเมนต์นี้แล้ว</translation>
+        <source>Address with the same comment already exists</source>
+        <oldsource>Address with same comment already exist</oldsource>
+        <translation type="unfinished">มีที่อยู่ที่เคยใช้คอมเมนต์นี้แล้ว</translation>
     </message>
     <message id="wallet-receive-button">
         <source>Receive</source>
@@ -465,7 +466,7 @@
     </message>
     <message id="secondary-panel-maturing">
         <source>Maturing</source>
-        <translation>รอการปลด</translation>
+        <translation type="vanished">รอการปลด</translation>
     </message>
     <message id="info-title">
         <source>Info view</source>
@@ -473,7 +474,7 @@
     </message>
     <message id="loading-change-settings-button">
         <source>Change settings</source>
-        <translation>เปลี่ยนการตั้งค่า</translation>
+        <translation type="vanished">เปลี่ยนการตั้งค่า</translation>
     </message>
     <message id="loading-try-again-button">
         <source>Try again</source>
@@ -547,16 +548,19 @@
         <translation>กระเป๋า</translation>
     </message>
     <message id="wallet-receive-title">
-        <source>Receive Beam</source>
-        <translation>รับ Beam</translation>
+        <source>Receive</source>
+        <oldsource>Receive Beam</oldsource>
+        <translation type="unfinished">รับ Beam</translation>
     </message>
     <message id="wallet-receive-my-addr-label">
-        <source>My address</source>
-        <translation>ที่อยู่ของฉัน</translation>
+        <source>My address (auto-generated)</source>
+        <oldsource>My address</oldsource>
+        <translation type="unfinished">ที่อยู่ของฉัน</translation>
     </message>
     <message id="wallet-receive-expires-label">
-        <source>Expires</source>
-        <translation>หมดอายุ</translation>
+        <source>Expires in</source>
+        <oldsource>Expires</oldsource>
+        <translation type="unfinished">หมดอายุ</translation>
     </message>
     <message id="wallet-receive-expires-24">
         <source>24 hours</source>
@@ -572,23 +576,26 @@
     </message>
     <message id="wallet-receive-propogate-addr-message">
         <source>Send this address to the sender over an external secure channel</source>
-        <translation>นำที่อยู่นี้ไปให้ผู้ที่จะโอนในช่องทางอื่นๆ</translation>
+        <translation type="vanished">นำที่อยู่นี้ไปให้ผู้ที่จะโอนในช่องทางอื่นๆ</translation>
     </message>
     <message id="invalid-addr-got-it-button">
         <source>Got it</source>
-        <translation>ได้รับแล้ว</translation>
+        <translation type="vanished">ได้รับแล้ว</translation>
     </message>
     <message id="send-title">
-        <source>Send Beam</source>
-        <translation>โอน Beam</translation>
+        <source>Send</source>
+        <oldsource>Send Beam</oldsource>
+        <translation type="unfinished">โอน Beam</translation>
     </message>
     <message id="send-send-to-label">
-        <source>Send To</source>
-        <translation>โอนไปที่</translation>
+        <source>Transaction token or contact</source>
+        <oldsource>Send To</oldsource>
+        <translation type="unfinished">โอนไปที่</translation>
     </message>
     <message id="send-contact-placeholder">
-        <source>Please specify contact</source>
-        <translation>กรุณาเลือกผู้ติดต่อ</translation>
+        <source>Please specify contact or transaction token</source>
+        <oldsource>Please specify contact</oldsource>
+        <translation type="unfinished">กรุณาเลือกผู้ติดต่อ</translation>
     </message>
     <message id="send-amount-label">
         <source>Transaction amount</source>
@@ -600,11 +607,11 @@
     </message>
     <message id="send-fee-fail">
         <source>The minimum fee is %1 GROTH</source>
-        <translation>ค่าธรรมเนียมที่ต่ำที่สุดคือ %1 GROTH</translation>
+        <translation type="vanished">ค่าธรรมเนียมที่ต่ำที่สุดคือ %1 GROTH</translation>
     </message>
     <message id="send-curency-sub-name">
         <source>GROTH</source>
-        <translation>GROTH</translation>
+        <translation type="vanished">GROTH</translation>
     </message>
     <message id="send-remaining-label">
         <source>Remaining</source>
@@ -612,7 +619,7 @@
     </message>
     <message id="send-send-fail">
         <source>Address %1 is invalid</source>
-        <translation>ที่อยู่ %1 ไม่ถูกต้อง</translation>
+        <translation type="vanished">ที่อยู่ %1 ไม่ถูกต้อง</translation>
     </message>
     <message id="start-restore-confirm-button">
         <source>I agree</source>
@@ -890,11 +897,11 @@
     </message>
     <message id="tx-curency-name">
         <source>BEAM</source>
-        <translation>BEAM</translation>
+        <translation type="vanished">BEAM</translation>
     </message>
     <message id="tx-curency-sub-name">
         <source>GROTH</source>
-        <translation>GROTH</translation>
+        <translation type="vanished">GROTH</translation>
     </message>
     <message id="utxo-utxo">
         <source>UTXO</source>
@@ -1240,6 +1247,218 @@
     </message>
     <message id="loading-view-estimate-time">
         <source>Estimate time: %s</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="general-fee-rate">
+        <source>Transaction fee rate</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="general-fee-fail">
+        <source>The minimum fee is %1 %2</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="general-locked">
+        <source>locked</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="general-change-settings">
+        <source>Change settings</source>
+        <translation type="unfinished">เปลี่ยนการตั้งค่า</translation>
+    </message>
+    <message id="wallet-swap">
+        <source>Swap</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="settings-reset">
+        <source>Switch off</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="settings-node-address">
+        <source>Node Address</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="settings-username">
+        <source>Username</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="settings-password">
+        <source>Password</source>
+        <translation type="unfinished">รหัสผ่าน</translation>
+    </message>
+    <message id="settings-fee-rate">
+        <source>Default fee</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="offer-book-title">
+        <source>Offer Book</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="offer-book-create">
+        <source>Create an offer</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="offer-book-title-2">
+        <source>Active offers</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="offer-book-coins">
+        <source>Coins</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="offer-book-all-tab">
+        <source>All</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="offer-book-mine-tab">
+        <source>Mine</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="offer-book-others-tab">
+        <source>Others</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="offer-book-time-created">
+        <source>Date | time</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="offer-book-amount">
+        <source>Amount</source>
+        <translation type="unfinished">จำนวน</translation>
+    </message>
+    <message id="offer-book-amount-swap">
+        <source>Amount</source>
+        <translation type="unfinished">จำนวน</translation>
+    </message>
+    <message id="offer-book-rate">
+        <source>Rate</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="offer-book-expiration">
+        <source>Expiration</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="offer-book-cancel">
+        <source>Cancel offer</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="offer-book-accept">
+        <source>Accept offer</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="swap-na-message">
+        <source>You do not have any 3rd-party currencies connected.\nUpdate your settings and try again.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="wallet-receive-swap-title">
+        <source>Create swap offer</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="wallet-receive-addr-message">
+        <source>Send this address to the sender over an external secure channel or scan the QR code</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="wallet-receive-copy-address">
+        <source>Copy transaction address</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="receive-amount-swap-label">
+        <source>Receive amount</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="sent-amount-label">
+        <source>Sent amount</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="wallet-receive-offer-expires-label">
+        <source>Offer expiration time</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="wallet-receive-expires-12">
+        <source>12 hours</source>
+        <translation type="unfinished">24 ชั่วโมง {12 ?}</translation>
+    </message>
+    <message id="wallet-receive-expires-6">
+        <source>6 hours</source>
+        <translation type="unfinished">24 ชั่วโมง {6 ?}</translation>
+    </message>
+    <message id="general-rate">
+        <source>Rate</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="wallet-receive-your-token">
+        <source>Your transaction token:</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="wallet-swap-token-message">
+        <source>Send this token to the sender over an external secure channel</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="wallet-receive-swap-publish">
+        <source>publish transaction token</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="wallet-send-swap-title">
+        <source>Swap currencies</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="wallet-send-invalid-token">
+        <source>Invalid address or token</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="general-comment-local">
+        <source>Comments are local and won&apos;t be shared</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="send-total-label">
+        <source>Total UTXO value</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="general-bitcoin">
+        <source>Bitcoin</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="general-litecoin">
+        <source>Litecoin</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="general-qtum">
+        <source>QTUM</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="swap-currency-na-message">
+        <source>You do not have %1 connected.\nUpdate your settings and try again.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="send-swap-to-label">
+        <source>Transaction token</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="send-not-enough">
+        <source>There is not enough funds to completer the transaction</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="wallet-send-swap-offered-label">
+        <source>Offered on</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="wallet-send-swap-expires-label">
+        <source>Expires on</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="general-address-from">
+        <source>From</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="general-address-to">
+        <source>To</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="general-amount-sent">
+        <source>Sent</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="general-amount-received">
+        <source>Received</source>
         <translation type="unfinished"></translation>
     </message>
 </context>

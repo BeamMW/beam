@@ -25,12 +25,6 @@
 #include <random>
 #include <iomanip>
 #include <numeric>
-#include "bitcoin/bitcoind017.h"
-#include "bitcoin/bitcoin_side.h"
-#include "litecoin/litecoind017.h"
-#include "litecoin/litecoin_side.h"
-#include "qtum/qtumd017.h"
-#include "qtum/qtum_side.h"
 
 namespace beam::wallet
 {
@@ -54,40 +48,34 @@ namespace beam::wallet
             }
             return true;
         }
-    }
 
-    int WalletID::cmp(const WalletID& x) const
-    {
-        int n = m_Channel.cmp(x.m_Channel);
-        if (n)
-            return n;
-        return m_Pk.cmp(x.m_Pk);
-    }
+        bool ApplyTransactionParameters(BaseTransaction::Ptr tx, const PackedTxParameters& parameters, bool allowPrivate = false)
+        {
+            bool txChanged = false;
+            SubTxID subTxID = kDefaultSubTxID;
 
-    bool WalletID::FromBuf(const ByteBuffer& x)
-    {
-        if (x.size() > sizeof(*this))
-            return false;
+            for (const auto& p : parameters)
+            {
+                if (p.first == TxParameterID::SubTxIndex)
+                {
+                    // change subTxID
+                    Deserializer d;
+                    d.reset(p.second.data(), p.second.size());
+                    d& subTxID;
+                    continue;
+                }
 
-        typedef uintBig_t<sizeof(*this)> BigSelf;
-        static_assert(sizeof(BigSelf) == sizeof(*this), "");
-
-        *reinterpret_cast<BigSelf*>(this) = Blob(x);
-        return true;
-    }
-
-    bool WalletID::FromHex(const std::string& s)
-    {
-        bool bValid = true;
-        ByteBuffer bb = from_hex(s, &bValid);
-
-        return bValid && FromBuf(bb);
-    }
-
-    bool WalletID::IsValid() const
-    {
-        Point::Native p;
-        return proto::ImportPeerID(p, m_Pk);
+                if (allowPrivate || p.first < TxParameterID::PrivateFirstParam)
+                {
+                    txChanged |= tx->SetParameter(p.first, p.second, subTxID);
+                }
+                else
+                {
+                    LOG_WARNING() << "Attempt to set private tx parameter";
+                }
+            }
+            return txChanged;
+        }
     }
 
     // @param SBBS address as string
@@ -112,10 +100,8 @@ namespace beam::wallet
     {
         assert(walletDB);
         // the only default type of transaction
-        RegisterTransactionType(TxType::Simple, wallet::SimpleTransaction::Create);
+        RegisterTransactionType(TxType::Simple, make_unique<SimpleTransaction::Creator>());
 
-        // Temporary
-        RegisterTransactionType(TxType::AtomicSwap, wallet::AtomicSwapTransaction::Create);
         ResumeAllTransactions();
     }
 
@@ -182,131 +168,94 @@ namespace beam::wallet
         m_MessageEndpoints.insert(endpoint);
     }
 
-    // Atomic Swap related methods
-    // TODO: Refactor
-    void Wallet::initBitcoin(io::Reactor& reactor, const BitcoinOptions& options)
-    {
-        m_bitcoinBridge = make_shared<Bitcoind017>(reactor, options);
-    }
+     //// TODO: Change flag saveReceiver to separate function for handling receiver address separately
+    //TxID Wallet::transfer_money(const WalletID& from, const WalletID& to, const AmountList& amountList, Amount fee, const CoinIDList& coins, bool sender, Height lifetime, Height responseTime, ByteBuffer&& message, bool saveReceiver)
+    //{
+    //    auto receiverAddr = m_WalletDB->getAddress(to);
 
-    void Wallet::initLitecoin(io::Reactor& reactor, const LitecoinOptions& options)
-    {
-        m_litecoinBridge = make_shared<Litecoind017>(reactor, options);
-    }
-    
-    void Wallet::initQtum(io::Reactor& reactor, const QtumOptions& options)
-    {
-        m_qtumBridge = make_shared<Qtumd017>(reactor, options);
-    }
+    //    if (receiverAddr)
+    //    {
+    //        if (receiverAddr->m_OwnID && receiverAddr->isExpired())
+    //        {
+    //            LOG_INFO() << "Can't send to the expired address.";
+    //            throw AddressExpiredException();
+    //        }
+    //    }
+    //    else if (saveReceiver)
+    //    {
+    //        WalletAddress address;
+    //        address.m_walletID = to;
+    //        address.m_createTime = getTimestamp();
+    //        address.m_label = std::string(message.begin(), message.end());
 
-    void Wallet::initSwapConditions(Amount beamAmount, Amount swapAmount, AtomicSwapCoin swapCoin, bool isBeamSide, SwapSecondSideChainType chainType)
-    {
-        m_swapConditions.push_back(SwapConditions{ beamAmount, swapAmount, swapCoin, isBeamSide, chainType });
-    }
+    //        m_WalletDB->saveAddress(address);
+    //    }
 
-    TxID Wallet::transfer_money(const WalletID& from, const WalletID& to, Amount amount, Amount fee, bool sender, Height lifetime, Height responseTime, ByteBuffer&& message, bool saveReceiver)
-    {
-        return transfer_money(from, to, AmountList{ amount }, fee, {}, sender, lifetime, responseTime, move(message), saveReceiver);
-    }
+    //    TxID txID = GenerateTxID();
+    //    auto tx = ConstructTransaction(txID, TxType::Simple);
 
-    TxID Wallet::transfer_money(const WalletID& from, const WalletID& to, Amount amount, Amount fee, const CoinIDList& coins, bool sender, Height lifetime, Height responseTime, ByteBuffer&& message, bool saveReceiver)
-    {
-        return transfer_money(from, to, AmountList{ amount }, fee, coins, sender, lifetime, responseTime, move(message), saveReceiver);
-    }
+    //    tx->SetParameter(TxParameterID::TransactionType, TxType::Simple, false);
+    //    tx->SetParameter(TxParameterID::Lifetime, lifetime, false);
+    //    tx->SetParameter(TxParameterID::PeerResponseHeight, responseTime); 
+    //    tx->SetParameter(TxParameterID::IsInitiator, true, false);
+    //    tx->SetParameter(TxParameterID::AmountList, amountList, false);
+    //    tx->SetParameter(TxParameterID::PreselectedCoins, coins, false);
 
-    // TODO: Change flag saveReceiver to separate function for handling receiver address separately
-    TxID Wallet::transfer_money(const WalletID& from, const WalletID& to, const AmountList& amountList, Amount fee, const CoinIDList& coins, bool sender, Height lifetime, Height responseTime, ByteBuffer&& message, bool saveReceiver)
-    {
-        auto receiverAddr = m_WalletDB->getAddress(to);
+    //    TxDescription txDescription(txID);
 
-        if (receiverAddr)
-        {
-            if (receiverAddr->m_OwnID && receiverAddr->isExpired())
-            {
-                LOG_INFO() << "Can't send to the expired address.";
-                throw AddressExpiredException();
-            }
-        }
-        else if (saveReceiver)
-        {
-            WalletAddress address;
-            address.m_walletID = to;
-            address.m_createTime = getTimestamp();
-            address.m_label = std::string(message.begin(), message.end());
+    //    txDescription.m_txId = txID;
+    //    txDescription.m_amount = std::accumulate(amountList.begin(), amountList.end(), 0ULL);
+    //    txDescription.m_fee = fee;
+    //    txDescription.m_peerId = to;
+    //    txDescription.m_myId = from;
+    //    txDescription.m_message = move(message);
+    //    txDescription.m_createTime = getTimestamp();
+    //    txDescription.m_sender = sender;
+    //    txDescription.m_status = TxStatus::Pending;
+    //    txDescription.m_selfTx = (receiverAddr && receiverAddr->m_OwnID);
+    //    m_WalletDB->saveTx(txDescription);
 
-            m_WalletDB->saveAddress(address);
-        }
+    //    ProcessTransaction(tx);
+    //    return txID;
+    //}
 
-        TxID txID = GenerateTxID();
-        auto tx = ConstructTransaction(txID, TxType::Simple);
+    //TxID Wallet::swap_coins(const WalletID& from, const WalletID& to, Amount amount, Amount fee, AtomicSwapCoin swapCoin,
+    //    Amount swapAmount, SwapSecondSideChainType chainType, bool isBeamSide/*=true*/,
+    //    Height lifetime/* = kDefaultTxLifetime*/, Height responseTime/* = kDefaultTxResponseTime*/)
+    //{
+    //    auto receiverAddr = m_WalletDB->getAddress(to);
 
-        tx->SetParameter(TxParameterID::TransactionType, TxType::Simple, false);
-        tx->SetParameter(TxParameterID::Lifetime, lifetime, false);
-        tx->SetParameter(TxParameterID::PeerResponseHeight, responseTime); 
-        tx->SetParameter(TxParameterID::IsInitiator, true, false);
-        tx->SetParameter(TxParameterID::AmountList, amountList, false);
-        tx->SetParameter(TxParameterID::PreselectedCoins, coins, false);
+    //    if (receiverAddr && receiverAddr->m_OwnID)
+    //    {
+    //        LOG_INFO() << "Failed to initiate the atomic swap. Not able to use own address as receiver's.";
+    //        throw FailToStartSwapException();
+    //    }
 
-        TxDescription txDescription;
+    //    auto txID = GenerateTxID();
+    //    auto tx = ConstructTransaction(txID, TxType::AtomicSwap);
 
-        txDescription.m_txId = txID;
-        txDescription.m_amount = std::accumulate(amountList.begin(), amountList.end(), 0ULL);
-        txDescription.m_fee = fee;
-        txDescription.m_peerId = to;
-        txDescription.m_myId = from;
-        txDescription.m_message = move(message);
-        txDescription.m_createTime = getTimestamp();
-        txDescription.m_sender = sender;
-        txDescription.m_status = TxStatus::Pending;
-        txDescription.m_selfTx = (receiverAddr && receiverAddr->m_OwnID);
-        m_WalletDB->saveTx(txDescription);
+    //    tx->SetParameter(TxParameterID::TransactionType, TxType::AtomicSwap, false);
+    //    tx->SetParameter(TxParameterID::CreateTime, getTimestamp(), false);
+    //    tx->SetParameter(TxParameterID::Amount, amount, false);
+    //    tx->SetParameter(TxParameterID::Fee, fee, false);
+    //    tx->SetParameter(TxParameterID::Lifetime, lifetime, false);
+    //    tx->SetParameter(TxParameterID::PeerID, to, false);
 
-        ProcessTransaction(tx);
-        return txID;
-    }
+    //    // Must be reset on first Update when we already have correct current height.
+    //    tx->SetParameter(TxParameterID::PeerResponseHeight, responseTime);
+    //    tx->SetParameter(TxParameterID::MyID, from, false);
+    //    tx->SetParameter(TxParameterID::IsSender, isBeamSide, false);
+    //    tx->SetParameter(TxParameterID::IsInitiator, true, false);
+    //    tx->SetParameter(TxParameterID::Status, TxStatus::Pending, true);
 
-    TxID Wallet::split_coins(const WalletID& from, const AmountList& amountList, Amount fee, bool sender, Height lifetime, Height responseTime,  ByteBuffer&& message)
-    {
-        return transfer_money(from, from, amountList, fee, {}, sender, lifetime, responseTime, move(message));
-    }
+    //    tx->SetParameter(TxParameterID::AtomicSwapCoin, swapCoin, false);
+    //    tx->SetParameter(TxParameterID::AtomicSwapAmount, swapAmount, false);
+    //    tx->SetParameter(TxParameterID::AtomicSwapIsBeamSide, isBeamSide, false);
+    //    tx->SetParameter(TxParameterID::AtomicSwapSecondSideChainType, chainType, false);
 
-    TxID Wallet::swap_coins(const WalletID& from, const WalletID& to, Amount amount, Amount fee, AtomicSwapCoin swapCoin,
-        Amount swapAmount, SwapSecondSideChainType chainType, bool isBeamSide/*=true*/,
-        Height lifetime/* = kDefaultTxLifetime*/, Height responseTime/* = kDefaultTxResponseTime*/)
-    {
-        auto receiverAddr = m_WalletDB->getAddress(to);
-
-        if (receiverAddr && receiverAddr->m_OwnID)
-        {
-            LOG_INFO() << "Failed to initiate the atomic swap. Not able to use own address as receiver's.";
-            throw FailToStartSwapException();
-        }
-
-        auto txID = GenerateTxID();
-        auto tx = ConstructTransaction(txID, TxType::AtomicSwap);
-
-        tx->SetParameter(TxParameterID::TransactionType, TxType::AtomicSwap, false);
-        tx->SetParameter(TxParameterID::CreateTime, getTimestamp(), false);
-        tx->SetParameter(TxParameterID::Amount, amount, false);
-        tx->SetParameter(TxParameterID::Fee, fee, false);
-        tx->SetParameter(TxParameterID::Lifetime, lifetime, false);
-        tx->SetParameter(TxParameterID::PeerID, to, false);
-
-        // Must be reset on first Update when we already have correct current height.
-        tx->SetParameter(TxParameterID::PeerResponseHeight, responseTime);
-        tx->SetParameter(TxParameterID::MyID, from, false);
-        tx->SetParameter(TxParameterID::IsSender, isBeamSide, false);
-        tx->SetParameter(TxParameterID::IsInitiator, true, false);
-        tx->SetParameter(TxParameterID::Status, TxStatus::Pending, true);
-
-        tx->SetParameter(TxParameterID::AtomicSwapCoin, swapCoin, false);
-        tx->SetParameter(TxParameterID::AtomicSwapAmount, swapAmount, false);
-        tx->SetParameter(TxParameterID::AtomicSwapIsBeamSide, isBeamSide, false);
-        tx->SetParameter(TxParameterID::AtomicSwapSecondSideChainType, chainType, false);
-
-        ProcessTransaction(tx);
-        return txID;
-    }
+    //    ProcessTransaction(tx);
+    //    return txID;
+    //}
 
     // TODO: Rename to Rescan ?
     // Reset wallet state and rescan the blockchain
@@ -333,16 +282,27 @@ namespace beam::wallet
         RequestUtxoEvents();
     }
 
-    void Wallet::ProcessTransaction(wallet::BaseTransaction::Ptr tx)
+    void Wallet::RegisterTransactionType(TxType type, BaseTransaction::Creator::Ptr creator)
     {
-        auto txID = tx->GetTxID();
-        m_ActiveTransactions.emplace(txID, tx);
-        UpdateTransaction(txID);
+        m_TxCreators[type] = move(creator);
+        ResumeAllTransactions();
     }
 
-    void Wallet::RegisterTransactionType(TxType type, BaseTransaction::Creator creator)
+    TxID Wallet::StartTransaction(const TxParameters& parameters)
     {
-        m_TxCreators[type] = creator;
+        auto tx = ConstructTransactionFromParameters(parameters);
+        if (!tx)
+        {
+            throw FailToStartNewTransactionException();
+        }
+        ProcessTransaction(tx);
+        return *parameters.GetTxID();
+    }
+
+    void Wallet::ProcessTransaction(wallet::BaseTransaction::Ptr tx)
+    {
+        MakeTransactionActive(tx);
+        UpdateTransaction(tx->GetTxID());
     }
 
     void Wallet::ResumeTransaction(const TxDescription& tx)
@@ -350,9 +310,11 @@ namespace beam::wallet
         if (tx.canResume() && m_ActiveTransactions.find(tx.m_txId) == m_ActiveTransactions.end())
         {
             auto t = ConstructTransaction(tx.m_txId, tx.m_txType);
-
-            m_ActiveTransactions.emplace(tx.m_txId, t);
-            UpdateOnSynced(t);
+            if (t)
+            {
+                MakeTransactionActive(t);
+                UpdateOnSynced(t);
+            }
         }
     }
 
@@ -531,64 +493,6 @@ namespace beam::wallet
         }
     }
 
-    // Implementation of the INegotiatorGateway::GetSecondSide
-    SecondSide::Ptr Wallet::GetSecondSide(const TxID& txID) const
-    {
-        auto it = m_ActiveTransactions.find(txID);
-        if (it != m_ActiveTransactions.end())
-        {
-            TxType type = it->second->GetMandatoryParameter<TxType>(TxParameterID::TransactionType);
-
-            if (type != TxType::AtomicSwap)
-            {
-                LOG_ERROR() << txID << "Transaction has invalid type.";
-                return nullptr;
-            }
-
-            auto swapCoin = it->second->GetMandatoryParameter<AtomicSwapCoin>(TxParameterID::AtomicSwapCoin);
-
-            if (swapCoin == AtomicSwapCoin::Bitcoin)
-            {
-                if (!m_bitcoinBridge)
-                {
-                    LOG_ERROR() << "Bitcoin bridge is not initialized";
-                    return nullptr;
-                }
-
-                bool isBeamSide = it->second->GetMandatoryParameter<bool>(TxParameterID::AtomicSwapIsBeamSide);
-                return std::make_shared<BitcoinSide>(*it->second, m_bitcoinBridge, isBeamSide);
-            }
-
-            if (swapCoin == AtomicSwapCoin::Litecoin)
-            {
-                if (!m_litecoinBridge)
-                {
-                    LOG_ERROR() << "Litecoin bridge is not initialized";
-                    return nullptr;
-                }
-
-                bool isBeamSide = it->second->GetMandatoryParameter<bool>(TxParameterID::AtomicSwapIsBeamSide);
-                return std::make_shared<LitecoinSide>(*it->second, m_litecoinBridge, isBeamSide);
-            }
-            
-            if (swapCoin == AtomicSwapCoin::Qtum)
-            {
-                if (!m_qtumBridge)
-                {
-                    LOG_ERROR() << "Qtum bridge is not initialized";
-                    return nullptr;
-                }
-
-                bool isBeamSide = it->second->GetMandatoryParameter<bool>(TxParameterID::AtomicSwapIsBeamSide);
-                return std::make_shared<QtumSide>(*it->second, m_qtumBridge, isBeamSide);
-            }
-        }
-
-        LOG_ERROR() << "Transaction is absent in wallet.";
-
-        return nullptr;
-    }
-
     void Wallet::OnWalletMessage(const WalletID& myID, const SetTxParameter& msg)
     {
         auto t = GetTransaction(myID, msg);
@@ -596,30 +500,8 @@ namespace beam::wallet
         {
             return;
         }
-        bool txChanged = false;
-        SubTxID subTxID = kDefaultSubTxID;
 
-        for (const auto& p : msg.m_Parameters)
-        {
-            if (p.first == TxParameterID::SubTxIndex)
-            {
-                // change subTxID
-                Deserializer d;
-                d.reset(p.second.data(), p.second.size());
-                d & subTxID;
-                continue;
-            }
-
-            if (p.first < TxParameterID::PrivateFirstParam)
-            {
-                txChanged |= t->SetParameter(p.first, p.second, subTxID);
-            }
-            else
-            {
-                LOG_WARNING() << "Attempt to set private tx parameter";
-            }
-        }
-        if (txChanged)
+        if (ApplyTransactionParameters(t, msg.m_Parameters))
         {
             UpdateTransaction(msg.m_TxID);
         }
@@ -1137,6 +1019,7 @@ namespace beam::wallet
             {
                 LOG_WARNING() << msg.m_TxID << " Parameters for invalid tx type";
             }
+            it->second->SetParameter(TxParameterID::PeerID, msg.m_From, false);
             return it->second;
         }
 
@@ -1153,70 +1036,87 @@ namespace beam::wallet
             return BaseTransaction::Ptr();
         }
 
-        if (msg.m_Type == TxType::AtomicSwap)
+        auto t = ConstructTransactionFromParameters(msg);
+        if (t)
         {
-            if (m_swapConditions.empty())
+            t->SetParameter(TxParameterID::TransactionType, msg.m_Type, false);
+            t->SetParameter(TxParameterID::CreateTime, getTimestamp(), false);
+            t->SetParameter(TxParameterID::MyID, myID, false);
+            t->SetParameter(TxParameterID::PeerID, msg.m_From, false);
+            t->SetParameter(TxParameterID::IsInitiator, false, false);
+            t->SetParameter(TxParameterID::Status, TxStatus::Pending, true);
+
+            auto address = m_WalletDB->getAddress(myID);
+            if (address.is_initialized())
             {
-                LOG_DEBUG() << msg.m_TxID << " Swap rejected. Swap conditions aren't initialized.";
-                return BaseTransaction::Ptr();
+                ByteBuffer message(address->m_label.begin(), address->m_label.end());
+                t->SetParameter(TxParameterID::Message, message);
             }
 
-            // validate swapConditions
-            Amount amount = 0;
-            Amount swapAmount = 0;
-            AtomicSwapCoin swapCoin = AtomicSwapCoin::Bitcoin;
-            bool isBeamSide = 0;
-            SwapSecondSideChainType chainType = SwapSecondSideChainType::Mainnet;
-
-            bool result = msg.GetParameter(TxParameterID::Amount, amount) &&
-                msg.GetParameter(TxParameterID::AtomicSwapAmount, swapAmount) &&
-                msg.GetParameter(TxParameterID::AtomicSwapCoin, swapCoin) &&
-                msg.GetParameter(TxParameterID::AtomicSwapIsBeamSide, isBeamSide) &&
-                msg.GetParameter(TxParameterID::AtomicSwapSecondSideChainType, chainType);
-
-            auto idx = std::find(m_swapConditions.begin(), m_swapConditions.end(), SwapConditions{ amount, swapAmount, swapCoin, isBeamSide, chainType });
-
-            if (!result || idx == m_swapConditions.end())
-            {
-                LOG_DEBUG() << msg.m_TxID << " Swap rejected. Invalid conditions.";
-                return BaseTransaction::Ptr();
-            }
-
-            m_swapConditions.erase(idx);
-
-            LOG_DEBUG() << msg.m_TxID << " Swap conditions match.";
+            MakeTransactionActive(t);
         }
-
-        auto t = ConstructTransaction(msg.m_TxID, msg.m_Type);
-
-        t->SetParameter(TxParameterID::TransactionType, msg.m_Type, false);
-        t->SetParameter(TxParameterID::CreateTime, getTimestamp(), false);
-        t->SetParameter(TxParameterID::MyID, myID, false);
-        t->SetParameter(TxParameterID::PeerID, msg.m_From, false);
-        t->SetParameter(TxParameterID::IsInitiator, false, false);
-        t->SetParameter(TxParameterID::Status, TxStatus::Pending, true);
-
-        auto address = m_WalletDB->getAddress(myID);
-        if (address.is_initialized())
-        {
-            ByteBuffer message(address->m_label.begin(), address->m_label.end());
-            t->SetParameter(TxParameterID::Message, message);
-        }
-
-        m_ActiveTransactions.emplace(msg.m_TxID, t);
         return t;
     }
 
-    wallet::BaseTransaction::Ptr Wallet::ConstructTransaction(const TxID& id, TxType type)
+    BaseTransaction::Ptr Wallet::ConstructTransaction(const TxID& id, TxType type)
     {
         auto it = m_TxCreators.find(type);
         if (it == m_TxCreators.end())
         {
-            LOG_ERROR() << id << " Unsupported type of transaction: " << static_cast<int>(type);
+            LOG_WARNING() << id << " Unsupported type of transaction: " << static_cast<int>(type);
             return wallet::BaseTransaction::Ptr();
         }
 
-        return it->second(*this, m_WalletDB, m_KeyKeeper, id);
+        return it->second->Create(*this, m_WalletDB, m_KeyKeeper, id);
+    }
+
+    BaseTransaction::Ptr Wallet::ConstructTransactionFromParameters(const SetTxParameter& msg)
+    {
+        auto it = m_TxCreators.find(msg.m_Type);
+        if (it == m_TxCreators.end())
+        {
+            LOG_WARNING() << msg.m_TxID << " Unsupported type of transaction: " << static_cast<int>(msg.m_Type);
+            return wallet::BaseTransaction::Ptr();
+        }
+
+        //if (!it->second->CanCreate(msg))
+        //{
+        //    LOG_ERROR() << msg.m_TxID << " It is not permited to create this transaction";
+        //    return wallet::BaseTransaction::Ptr();
+        //}
+
+        return it->second->Create(*this, m_WalletDB, m_KeyKeeper, msg.m_TxID);
+    }
+
+    BaseTransaction::Ptr Wallet::ConstructTransactionFromParameters(const TxParameters& parameters)
+    {
+        auto type = parameters.GetParameter<TxType>(TxParameterID::TransactionType);
+        if (!type)
+        {
+            return BaseTransaction::Ptr();
+        }
+
+        auto it = m_TxCreators.find(*type);
+        if (it == m_TxCreators.end())
+        {
+            LOG_ERROR() << *parameters.GetTxID() << " Unsupported type of transaction: " << static_cast<int>(*type);
+            return BaseTransaction::Ptr();
+        }
+
+        if (!it->second->CanCreate(parameters))
+        {
+            LOG_ERROR() << *parameters.GetTxID() << " It is not permited to create this transaction";
+            return wallet::BaseTransaction::Ptr();
+        }
+
+        auto newTx = it->second->Create(*this, m_WalletDB, m_KeyKeeper, *parameters.GetTxID());
+        ApplyTransactionParameters(newTx, parameters.GetParameters(), true);
+        return newTx;
+    }
+
+    void Wallet::MakeTransactionActive(BaseTransaction::Ptr tx)
+    {
+        m_ActiveTransactions.emplace(tx->GetTxID(), tx);
     }
 
     void Wallet::ProcessStoredMessages()
@@ -1225,16 +1125,14 @@ namespace beam::wallet
         {
             return;
         }
+        auto messages = m_WalletDB->getWalletMessages();
+        for (auto& message : messages)
         {
-            auto messages = m_WalletDB->getWalletMessages();
-            for (auto& message : messages)
+            for (auto& endpoint : m_MessageEndpoints)
             {
-                for (auto& endpoint : m_MessageEndpoints)
-                {
-                    endpoint->SendEncryptedMessage(message.m_PeerID, message.m_Message);
-                }
-                m_WalletDB->deleteWalletMessage(message.m_ID);
+                endpoint->SendEncryptedMessage(message.m_PeerID, message.m_Message);
             }
+            m_WalletDB->deleteWalletMessage(message.m_ID);
         }
     }
 

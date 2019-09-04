@@ -53,12 +53,12 @@ namespace
             : m_observer(observer)
             , m_notifier(notifier)
         {
-            m_notifier->subscribe(m_observer);
+            m_notifier->Subscribe(m_observer);
         }
 
         ~ScopedSubscriber()
         {
-            m_notifier->unsubscribe(m_observer);
+            m_notifier->Unsubscribe(m_observer);
         }
     private:
         Observer * m_observer;

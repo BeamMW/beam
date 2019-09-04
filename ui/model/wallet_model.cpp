@@ -30,6 +30,7 @@ WalletModel::WalletModel(IWalletDB::Ptr walletDB, IPrivateKeyKeeper::Ptr keyKeep
     qRegisterMetaType<beam::wallet::WalletStatus>("beam::wallet::WalletStatus");
     qRegisterMetaType<beam::wallet::ChangeAction>("beam::wallet::ChangeAction");
     qRegisterMetaType<vector<beam::wallet::TxDescription>>("std::vector<beam::wallet::TxDescription>");
+    qRegisterMetaType<vector<beam::wallet::SwapOffer>>("std::vector<beam::wallet::SwapOffer>");
     qRegisterMetaType<beam::Amount>("beam::Amount");
     qRegisterMetaType<vector<beam::wallet::Coin>>("std::vector<beam::wallet::Coin>");
     qRegisterMetaType<vector<beam::wallet::WalletAddress>>("std::vector<beam::wallet::WalletAddress>");
@@ -37,6 +38,7 @@ WalletModel::WalletModel(IWalletDB::Ptr walletDB, IPrivateKeyKeeper::Ptr keyKeep
     qRegisterMetaType<beam::wallet::WalletAddress>("beam::wallet::WalletAddress");
     qRegisterMetaType<beam::wallet::ErrorType>("beam::wallet::ErrorType");
     qRegisterMetaType<beam::wallet::TxID>("beam::wallet::TxID");
+    qRegisterMetaType<beam::wallet::TxParameters>("beam::wallet::TxParameters");
 }
 
 WalletModel::~WalletModel()
@@ -83,6 +85,17 @@ QString WalletModel::GetErrorString(beam::wallet::ErrorType type)
         //% "Unexpected error!"
         return qtTrId("wallet-model-undefined-error");
     }
+}
+
+bool WalletModel::isOwnAddress(WalletID& walletID) const
+{
+    for (const auto& it: m_addresses)
+    {
+        if (it.m_walletID == walletID) {
+            return true;
+        }
+    }
+    return false;
 }
 
 bool WalletModel::isAddressWithCommentExist(const std::string& comment) const
@@ -132,6 +145,11 @@ void WalletModel::onAddresses(bool own, const std::vector<beam::wallet::WalletAd
         m_addresses = addrs;
     }
     emit addressesChanged(own, addrs);
+}
+
+void WalletModel::onSwapOffersChanged(beam::wallet::ChangeAction action, const std::vector<beam::wallet::SwapOffer>& offers)
+{
+    emit swapOffersChanged(action, offers);
 }
 
 void WalletModel::onCoinsByTx(const std::vector<beam::wallet::Coin>& coins)
