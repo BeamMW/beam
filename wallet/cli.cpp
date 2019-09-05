@@ -1026,9 +1026,10 @@ namespace
         return nullptr;
     }
 
-    int HandleBTC(const po::variables_map& vm, const IWalletDB::Ptr& walletDB)
+    template<typename SettingsProvider, typename Settings, typename CoreSettings, typename ElectrumSettings>
+    int HandleSwapCoin(const po::variables_map& vm, const IWalletDB::Ptr& walletDB, uint8_t addressVersion, const char* coinName)
     {
-        bitcoin::SettingsProvider settingsProvider{ walletDB };
+        SettingsProvider settingsProvider{ walletDB };
         settingsProvider.Initialize();
 
         if (vm.count(cli::ALTCOIN_SETTINGS_RESET))
@@ -1042,7 +1043,7 @@ namespace
 
             if (settings.GetConnectionOptions().IsInitialized())
             {
-                cout << "BTC settings" << '\n'
+                cout << coinName << " settings" << '\n'
                     << "RPC user: " << settings.GetConnectionOptions().m_userName << '\n'
                     << "RPC node: " << settings.GetConnectionOptions().m_address.str() << '\n'
                     << "Fee rate: " << settings.GetFeeRate() << '\n';
@@ -1051,21 +1052,21 @@ namespace
 
             if (settings.GetElectrumConnectionOptions().IsInitialized())
             {
-                cout << "BTC settings" << '\n'
+                cout << coinName << " settings" << '\n'
                     << "Electrum node: " << settings.GetElectrumConnectionOptions().m_address.str() << '\n'
                     << "Fee rate: " << settings.GetFeeRate() << '\n';
                 return 0;
             }
 
-            LOG_INFO() << "BTC settings are not initialized.";
+            LOG_INFO() << coinName << " settings are not initialized.";
             return 0;
         }
         else if (vm.count(cli::ALTCOIN_SETTINGS_SET))
         {
-            auto settings = ParseSwapSettings<bitcoin::Settings, bitcoin::BitcoinCoreSettings>(vm);
+            auto settings = ParseSwapSettings<Settings, CoreSettings>(vm);
             if (!settings)
             {
-                settings = ParseElectrumSettings<bitcoin::Settings, bitcoin::ElectrumSettings>(vm, bitcoin::getAddressVersion());
+                settings = ParseElectrumSettings<Settings, ElectrumSettings>(vm, addressVersion);
             }
 
             if (!settings)
@@ -1079,120 +1080,6 @@ namespace
         }
 
         LOG_INFO() << "subcommand didn't support or unspecified.";
-        return -1;
-    }
-
-    int HandleLTC(const po::variables_map& vm, const IWalletDB::Ptr& walletDB)
-    {
-        litecoin::SettingsProvider settingsProvider{ walletDB };
-        settingsProvider.Initialize();
-
-        if (vm.count(cli::ALTCOIN_SETTINGS_RESET))
-        {
-            settingsProvider.ResetSettings();
-            return 0;
-        }
-        else if (vm.count(cli::ALTCOIN_SETTINGS_SHOW))
-        {
-            auto settings = settingsProvider.GetSettings();
-
-            if (settings.GetConnectionOptions().IsInitialized())
-            {
-                cout << "LTC settings" << '\n'
-                    << "RPC user: " << settings.GetConnectionOptions().m_userName << '\n'
-                    << "RPC node: " << settings.GetConnectionOptions().m_address.str() << '\n'
-                    << "Fee rate: " << settings.GetFeeRate() << '\n';
-                return 0;
-            }
-
-            if (settings.GetElectrumConnectionOptions().IsInitialized())
-            {
-                cout << "LTC settings" << '\n'
-                    << "Electrum node: " << settings.GetElectrumConnectionOptions().m_address.str() << '\n'
-                    << "Fee rate: " << settings.GetFeeRate() << '\n';
-                return 0;
-            }
-            
-            LOG_INFO() << "LTC settings are not initialized.";
-            return 0;
-        }
-        else if (vm.count(cli::ALTCOIN_SETTINGS_SET))
-        {
-            auto settings = ParseSwapSettings<litecoin::Settings, litecoin::LitecoinCoreSettings>(vm);
-            if (!settings)
-            {
-                settings = ParseElectrumSettings<litecoin::Settings, litecoin::ElectrumSettings>(vm, litecoin::getAddressVersion());
-            }
-
-            if (!settings)
-            {
-                LOG_INFO() << "settings should be specified.";
-                return -1;
-            }
-
-            settingsProvider.SetSettings(*settings);
-            return 0;
-        }
-
-        LOG_INFO() << "subcommand didn't support or unspecified.";
-        return -1;
-    }
-
-
-    int HandleQtum(const po::variables_map& vm, const IWalletDB::Ptr& walletDB)
-    {
-        qtum::SettingsProvider settingsProvider{ walletDB };
-        settingsProvider.Initialize();
-
-        if (vm.count(cli::ALTCOIN_SETTINGS_RESET))
-        {
-            settingsProvider.ResetSettings();
-            return 0;
-        }
-        else if (vm.count(cli::ALTCOIN_SETTINGS_SHOW))
-        {
-            auto settings = settingsProvider.GetSettings();
-
-            if (settings.GetConnectionOptions().IsInitialized())
-            {
-                cout << "QTUM settings" << '\n'
-                    << "RPC user: " << settings.GetConnectionOptions().m_userName << '\n'
-                    << "RPC node: " << settings.GetConnectionOptions().m_address.str() << '\n'
-                    << "Fee rate: " << settings.GetFeeRate() << '\n';
-                return 0;
-            }
-
-            if (settings.GetElectrumConnectionOptions().IsInitialized())
-            {
-                cout << "QTUM settings" << '\n'
-                    << "Electrum node: " << settings.GetElectrumConnectionOptions().m_address.str() << '\n'
-                    << "Fee rate: " << settings.GetFeeRate() << '\n';
-                return 0;
-            }
-
-            LOG_INFO() << "LTC settings are not initialized.";
-
-            return 0;
-        }
-        else if (vm.count(cli::ALTCOIN_SETTINGS_SET))
-        {
-            auto settings = ParseSwapSettings<qtum::Settings, qtum::QtumCoreSettings>(vm);
-            if (!settings)
-            {
-                settings = ParseElectrumSettings<qtum::Settings, qtum::ElectrumSettings>(vm, qtum::getAddressVersion());
-            }
-
-            if (!settings)
-            {
-                LOG_INFO() << "settings should be specified.";
-                return -1;
-            }
-
-            settingsProvider.SetSettings(*settings);
-            return 0;
-        }
-
-        LOG_INFO() << "subcommand not supported or not specified.";
         return -1;
     }
 
@@ -1816,17 +1703,20 @@ int main_impl(int argc, char* argv[])
 
                     if (command == cli::BTC_SETTINGS)
                     {
-                        return HandleBTC(vm, walletDB);
+                        return HandleSwapCoin<bitcoin::SettingsProvider, bitcoin::Settings, bitcoin::BitcoinCoreSettings, bitcoin::ElectrumSettings>
+                            (vm, walletDB, bitcoin::getAddressVersion(), "bitcoin");
                     }
 
                     if (command == cli::LTC_SETTINGS)
                     {
-                        return HandleLTC(vm, walletDB);
+                        return HandleSwapCoin<litecoin::SettingsProvider, litecoin::Settings, litecoin::LitecoinCoreSettings, litecoin::ElectrumSettings>
+                            (vm, walletDB, litecoin::getAddressVersion(), "litecoin");
                     }
 
                     if (command == cli::QTUM_SETTINGS)
                     {
-                        return HandleQtum(vm, walletDB);
+                        return HandleSwapCoin<qtum::SettingsProvider, qtum::Settings, qtum::QtumCoreSettings, qtum::ElectrumSettings>
+                            (vm, walletDB, qtum::getAddressVersion(), "qtum");
                     }
 
                     /// HERE!!
