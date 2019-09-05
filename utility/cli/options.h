@@ -38,8 +38,8 @@ namespace beam
         extern const char* NONCEPREFIX_DIGITS;
         extern const char* NODE_PEER;
         extern const char* PASS;
-        extern const char* BTC_PASS;
-        extern const char* BTC_USER_NAME;
+        extern const char* SWAP_WALLET_PASS;
+        extern const char* SWAP_WALLET_USER;
         extern const char* BTC_SETTINGS;
         extern const char* ALTCOIN_SETTINGS_SET;
         extern const char* ALTCOIN_SETTINGS_RESET;
@@ -47,11 +47,7 @@ namespace beam
         extern const char* ELECTRUM_SEED;
         extern const char* GENERATE_ELECTRUM_SEED;
         extern const char* ELECTRUM_ADDR;
-        extern const char* LTC_PASS;
-        extern const char* LTC_USER_NAME;
         extern const char* LTC_SETTINGS;
-        extern const char* QTUM_PASS;
-        extern const char* QTUM_USER_NAME;
         extern const char* QTUM_SETTINGS;
         extern const char* AMOUNT;
         extern const char* AMOUNT_FULL;
@@ -59,9 +55,7 @@ namespace beam
         extern const char* RECEIVER_ADDR_FULL;
         extern const char* NODE_ADDR;
         extern const char* NODE_ADDR_FULL;
-        extern const char* BTC_NODE_ADDR;
-        extern const char* LTC_NODE_ADDR;
-        extern const char* QTUM_NODE_ADDR;
+        extern const char* SWAP_WALLET_ADDR;
         extern const char* COMMAND;
         extern const char* NODE;
         extern const char* WALLET;
@@ -293,5 +287,4 @@ namespace beam
 
     bool read_wallet_pass(SecString& pass, const po::variables_map& vm);
     bool confirm_wallet_pass(const SecString& pass);
-    bool read_btc_pass(SecString& pass, po::variables_map& vm);
 }

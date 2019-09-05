@@ -43,8 +43,8 @@ namespace beam
         const char* NONCEPREFIX_DIGITS = "nonceprefix_digits";
         const char* NODE_PEER = "peer";
         const char* PASS = "pass";
-        const char* BTC_PASS = "btc_pass";
-        const char* BTC_USER_NAME = "btc_user";
+        const char* SWAP_WALLET_PASS = "swap_wallet_pass";
+        const char* SWAP_WALLET_USER = "swap_wallet_user";
         const char* BTC_SETTINGS = "btc_settings";
         const char* ALTCOIN_SETTINGS_SET = "set";
         const char* ALTCOIN_SETTINGS_RESET = "reset";
@@ -52,11 +52,7 @@ namespace beam
         const char* ELECTRUM_SEED = "electrum_seed";
         const char* GENERATE_ELECTRUM_SEED = "generate_electrum_seed";
         const char* ELECTRUM_ADDR = "electrum_addr";
-        const char* LTC_PASS = "ltc_pass";
-        const char* LTC_USER_NAME = "ltc_user";
         const char* LTC_SETTINGS = "ltc_settings";
-        const char* QTUM_PASS = "qtum_pass";
-        const char* QTUM_USER_NAME = "qtum_user";
         const char* QTUM_SETTINGS = "qtum_settings";
         const char* AMOUNT = "amount";
         const char* AMOUNT_FULL = "amount,a";
@@ -64,9 +60,7 @@ namespace beam
         const char* RECEIVER_ADDR_FULL = "receiver_addr,r";
         const char* NODE_ADDR = "node_addr";
         const char* NODE_ADDR_FULL = "node_addr,n";
-        const char* BTC_NODE_ADDR = "btc_node_addr";
-        const char* LTC_NODE_ADDR = "ltc_node_addr";
-        const char* QTUM_NODE_ADDR = "qtum_node_addr";
+        const char* SWAP_WALLET_ADDR = "swap_wallet_addr";
         const char* COMMAND = "command";
         const char* LISTEN = "listen";
         const char* TREASURY = "treasury";
@@ -277,15 +271,9 @@ namespace beam
             (cli::ELECTRUM_SEED, po::value<string>(), "bitcoin electrum seed")
             (cli::GENERATE_ELECTRUM_SEED, "generate new electrum seed")
             (cli::ELECTRUM_ADDR, po::value<string>(), "electrum address")
-            (cli::BTC_NODE_ADDR, po::value<string>(), "address of bitcoin node")
-            (cli::BTC_USER_NAME, po::value<string>(), "user name for the bitcoin node")
-            (cli::BTC_PASS, po::value<string>(), "password for the bitcoin node")
-            (cli::LTC_NODE_ADDR, po::value<string>(), "address of litecoin node")
-            (cli::LTC_USER_NAME, po::value<string>(), "user name for the litecoin node")
-            (cli::LTC_PASS, po::value<string>(), "password for the litecoin node")
-            (cli::QTUM_NODE_ADDR, po::value<string>(), "address of qtum node")
-            (cli::QTUM_USER_NAME, po::value<string>(), "user name for the qtum node")
-            (cli::QTUM_PASS, po::value<string>(), "password for the qtum node")
+            (cli::SWAP_WALLET_ADDR, po::value<string>(), "address of swap wallet")
+            (cli::SWAP_WALLET_USER, po::value<string>(), "user name for the swap wallet")
+            (cli::SWAP_WALLET_PASS, po::value<string>(), "password for the swap wallet")
             (cli::SWAP_COIN, po::value<string>(), "swap coin(btc, ltc, qtum)")
             (cli::SWAP_AMOUNT, po::value<Positive<Amount>>(), "swap amount in the smallest unit of the coin")
             (cli::SWAP_FEERATE, po::value<Positive<Amount>>(), "The specific feerate you are willing to pay(the smallest unit of the coin per KB)")
@@ -466,10 +454,5 @@ namespace beam
         SecString passConfirm;
         read_password("Confirm password: ", passConfirm, false);
         return passConfirm.hash().V == pass.hash().V;
-    }
-
-    bool read_btc_pass(SecString& pass, po::variables_map& vm)
-    {
-        return read_secret_impl(pass, "Enter password of bitcoin node: ", cli::BTC_PASS, vm);
     }
 }

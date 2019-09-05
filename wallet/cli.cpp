@@ -954,30 +954,30 @@ namespace
 
     std::shared_ptr<bitcoin::Settings> ParseBitcoinSettings(const po::variables_map& vm)
     {
-        if (vm.count(cli::BTC_NODE_ADDR) > 0 || vm.count(cli::BTC_USER_NAME) > 0 || vm.count(cli::BTC_PASS) > 0)
+        if (vm.count(cli::SWAP_WALLET_ADDR) > 0 || vm.count(cli::SWAP_WALLET_USER) > 0 || vm.count(cli::SWAP_WALLET_PASS) > 0)
         {
             bitcoin::BitcoinCoreSettings bitcoindSettings;
 
-            string btcNodeUri = vm[cli::BTC_NODE_ADDR].as<string>();
+            string btcNodeUri = vm[cli::SWAP_WALLET_ADDR].as<string>();
             if (!bitcoindSettings.m_address.resolve(btcNodeUri.c_str()))
             {
                 throw std::runtime_error((boost::format(kErrorBTCNodeAddrNotResolved) % btcNodeUri).str());
             }
 
-            if (vm.count(cli::BTC_USER_NAME) == 0)
+            if (vm.count(cli::SWAP_WALLET_USER) == 0)
             {
                 throw std::runtime_error(kErrorBTCNodeUserNameUnspecified);
             }
 
-            bitcoindSettings.m_userName = vm[cli::BTC_USER_NAME].as<string>();
+            bitcoindSettings.m_userName = vm[cli::SWAP_WALLET_USER].as<string>();
 
             // TODO roman.strilets: use SecString instead of std::string
-            if (vm.count(cli::BTC_PASS) == 0)
+            if (vm.count(cli::SWAP_WALLET_PASS) == 0)
             {
                 throw std::runtime_error(kErrorBTCNodePwdNotProvided);
             }
 
-            bitcoindSettings.m_pass = vm[cli::BTC_PASS].as<string>();
+            bitcoindSettings.m_pass = vm[cli::SWAP_WALLET_PASS].as<string>();
 
             if (vm.count(cli::SWAP_FEERATE) == 0)
             {
@@ -1068,30 +1068,30 @@ namespace
 
     std::shared_ptr<litecoin::Settings> ParseLitecoinSettings(const po::variables_map& vm)
     {
-        if (vm.count(cli::LTC_NODE_ADDR) > 0 || vm.count(cli::LTC_USER_NAME) > 0 || vm.count(cli::LTC_PASS) > 0)
+        if (vm.count(cli::SWAP_WALLET_ADDR) > 0 || vm.count(cli::SWAP_WALLET_USER) > 0 || vm.count(cli::SWAP_WALLET_PASS) > 0)
         {
             litecoin::LitecoinCoreSettings litecoindSettings;
 
-            string ltcNodeUri = vm[cli::LTC_NODE_ADDR].as<string>();
+            string ltcNodeUri = vm[cli::SWAP_WALLET_ADDR].as<string>();
             if (!litecoindSettings.m_address.resolve(ltcNodeUri.c_str()))
             {
                 throw std::runtime_error((boost::format(kErrorLTCNodeAddrNotResolved) % ltcNodeUri).str());
             }
 
-            if (vm.count(cli::LTC_USER_NAME) == 0)
+            if (vm.count(cli::SWAP_WALLET_USER) == 0)
             {
                 throw std::runtime_error(kErrorLTCNodeUserNameUnspecified);
             }
 
-            litecoindSettings.m_userName = vm[cli::LTC_USER_NAME].as<string>();
+            litecoindSettings.m_userName = vm[cli::SWAP_WALLET_USER].as<string>();
 
             // TODO roman.strilets: use SecString instead of std::string
-            if (vm.count(cli::LTC_PASS) == 0)
+            if (vm.count(cli::SWAP_WALLET_PASS) == 0)
             {
                 throw std::runtime_error(kErrorLTCNodePwdNotProvided);
             }
 
-            litecoindSettings.m_pass = vm[cli::LTC_PASS].as<string>();
+            litecoindSettings.m_pass = vm[cli::SWAP_WALLET_PASS].as<string>();
 
             if (vm.count(cli::SWAP_FEERATE) == 0)
             {
@@ -1116,30 +1116,30 @@ namespace
 
     std::shared_ptr<qtum::Settings> ParseQtumSettings(const po::variables_map& vm)
     {
-        if (vm.count(cli::QTUM_NODE_ADDR) > 0 || vm.count(cli::QTUM_USER_NAME) > 0 || vm.count(cli::QTUM_PASS) > 0)
+        if (vm.count(cli::SWAP_WALLET_ADDR) > 0 || vm.count(cli::SWAP_WALLET_USER) > 0 || vm.count(cli::SWAP_WALLET_PASS) > 0)
         {
             qtum::QtumCoreSettings qtumdSettings;
 
-            string qtumNodeUri = vm[cli::QTUM_NODE_ADDR].as<string>();
+            string qtumNodeUri = vm[cli::SWAP_WALLET_ADDR].as<string>();
             if (!qtumdSettings.m_address.resolve(qtumNodeUri.c_str()))
             {
                 throw std::runtime_error((boost::format(kErrorQTUMNodeAddrNotResolved) % qtumNodeUri).str());
             }
 
-            if (vm.count(cli::QTUM_USER_NAME) == 0)
+            if (vm.count(cli::SWAP_WALLET_USER) == 0)
             {
                 throw std::runtime_error(kErrorQTUMNodeUserNameUnspecified);
             }
 
-            qtumdSettings.m_userName = vm[cli::QTUM_USER_NAME].as<string>();
+            qtumdSettings.m_userName = vm[cli::SWAP_WALLET_USER].as<string>();
 
             // TODO roman.strilets: use SecString instead of std::string
-            if (vm.count(cli::QTUM_PASS) == 0)
+            if (vm.count(cli::SWAP_WALLET_PASS) == 0)
             {
                 throw std::runtime_error(kErrorQTUMNodePwdNotProvided);
             }
 
-            qtumdSettings.m_pass = vm[cli::QTUM_PASS].as<string>();
+            qtumdSettings.m_pass = vm[cli::SWAP_WALLET_PASS].as<string>();
 
             if (vm.count(cli::SWAP_FEERATE) == 0)
             {
