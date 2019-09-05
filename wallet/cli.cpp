@@ -952,54 +952,6 @@ namespace
         return swapSecondSideChainType;
     }
 
-    std::shared_ptr<bitcoin::Settings> ParseBitcoinSettings(const po::variables_map& vm)
-    {
-        if (vm.count(cli::SWAP_WALLET_ADDR) > 0 || vm.count(cli::SWAP_WALLET_USER) > 0 || vm.count(cli::SWAP_WALLET_PASS) > 0)
-        {
-            bitcoin::BitcoinCoreSettings bitcoindSettings;
-
-            string btcNodeUri = vm[cli::SWAP_WALLET_ADDR].as<string>();
-            if (!bitcoindSettings.m_address.resolve(btcNodeUri.c_str()))
-            {
-                throw std::runtime_error((boost::format(kErrorBTCNodeAddrNotResolved) % btcNodeUri).str());
-            }
-
-            if (vm.count(cli::SWAP_WALLET_USER) == 0)
-            {
-                throw std::runtime_error(kErrorBTCNodeUserNameUnspecified);
-            }
-
-            bitcoindSettings.m_userName = vm[cli::SWAP_WALLET_USER].as<string>();
-
-            // TODO roman.strilets: use SecString instead of std::string
-            if (vm.count(cli::SWAP_WALLET_PASS) == 0)
-            {
-                throw std::runtime_error(kErrorBTCNodePwdNotProvided);
-            }
-
-            bitcoindSettings.m_pass = vm[cli::SWAP_WALLET_PASS].as<string>();
-
-            if (vm.count(cli::SWAP_FEERATE) == 0)
-            {
-                throw std::runtime_error(kErrorSwapFeeRateMissing);
-            }
-
-            auto btcSettings = std::make_shared<bitcoin::Settings>();
-            btcSettings->SetConnectionOptions(bitcoindSettings);
-            btcSettings->SetFeeRate(vm[cli::SWAP_FEERATE].as<Positive<Amount>>().value);
-
-            auto swapSecondSideChainType = ParseSwapSecondSideChainType(vm);
-            if (swapSecondSideChainType != SwapSecondSideChainType::Unknown)
-            {
-                btcSettings->SetChainType(swapSecondSideChainType);
-            }
-
-            return btcSettings;
-        }
-
-        return nullptr;
-    }
-
     template<typename Settings, typename ElectrumSettings>
     std::shared_ptr<Settings> ParseElectrumSettings(const po::variables_map& vm, std::function<uint8_t(bool)> getAddressVersion)
     {
@@ -1066,97 +1018,50 @@ namespace
         return nullptr;
     }
 
-    std::shared_ptr<litecoin::Settings> ParseLitecoinSettings(const po::variables_map& vm)
+    template<typename Settings, typename CoreSettings>
+    std::shared_ptr<Settings> ParseSwapSettings(const po::variables_map& vm)
     {
         if (vm.count(cli::SWAP_WALLET_ADDR) > 0 || vm.count(cli::SWAP_WALLET_USER) > 0 || vm.count(cli::SWAP_WALLET_PASS) > 0)
         {
-            litecoin::LitecoinCoreSettings litecoindSettings;
+            CoreSettings coreSettings;
 
-            string ltcNodeUri = vm[cli::SWAP_WALLET_ADDR].as<string>();
-            if (!litecoindSettings.m_address.resolve(ltcNodeUri.c_str()))
+            string nodeUri = vm[cli::SWAP_WALLET_ADDR].as<string>();
+            if (!coreSettings.m_address.resolve(nodeUri.c_str()))
             {
-                throw std::runtime_error((boost::format(kErrorLTCNodeAddrNotResolved) % ltcNodeUri).str());
+                throw std::runtime_error((boost::format(kErrorSwapWalletAddrNotResolved) % nodeUri).str());
             }
 
             if (vm.count(cli::SWAP_WALLET_USER) == 0)
             {
-                throw std::runtime_error(kErrorLTCNodeUserNameUnspecified);
+                throw std::runtime_error(kErrorSwapWalletUserNameUnspecified);
             }
 
-            litecoindSettings.m_userName = vm[cli::SWAP_WALLET_USER].as<string>();
+            coreSettings.m_userName = vm[cli::SWAP_WALLET_USER].as<string>();
 
             // TODO roman.strilets: use SecString instead of std::string
             if (vm.count(cli::SWAP_WALLET_PASS) == 0)
             {
-                throw std::runtime_error(kErrorLTCNodePwdNotProvided);
+                throw std::runtime_error(kErrorSwapWalletPwdNotProvided);
             }
 
-            litecoindSettings.m_pass = vm[cli::SWAP_WALLET_PASS].as<string>();
+            coreSettings.m_pass = vm[cli::SWAP_WALLET_PASS].as<string>();
 
             if (vm.count(cli::SWAP_FEERATE) == 0)
             {
                 throw std::runtime_error(kErrorSwapFeeRateMissing);
             }
 
-            auto ltcSettings = std::make_shared<litecoin::Settings>();
-            ltcSettings->SetConnectionOptions(litecoindSettings);
-            ltcSettings->SetFeeRate(vm[cli::SWAP_FEERATE].as<Positive<Amount>>().value);
+            auto settings = std::make_shared<Settings>();
+            settings->SetConnectionOptions(coreSettings);
+            settings->SetFeeRate(vm[cli::SWAP_FEERATE].as<Positive<Amount>>().value);
 
             auto swapSecondSideChainType = ParseSwapSecondSideChainType(vm);
             if (swapSecondSideChainType != SwapSecondSideChainType::Unknown)
             {
-                ltcSettings->SetChainType(swapSecondSideChainType);
+                settings->SetChainType(swapSecondSideChainType);
             }
 
-            return ltcSettings;
-        }
-
-        return nullptr;
-    }
-
-    std::shared_ptr<qtum::Settings> ParseQtumSettings(const po::variables_map& vm)
-    {
-        if (vm.count(cli::SWAP_WALLET_ADDR) > 0 || vm.count(cli::SWAP_WALLET_USER) > 0 || vm.count(cli::SWAP_WALLET_PASS) > 0)
-        {
-            qtum::QtumCoreSettings qtumdSettings;
-
-            string qtumNodeUri = vm[cli::SWAP_WALLET_ADDR].as<string>();
-            if (!qtumdSettings.m_address.resolve(qtumNodeUri.c_str()))
-            {
-                throw std::runtime_error((boost::format(kErrorQTUMNodeAddrNotResolved) % qtumNodeUri).str());
-            }
-
-            if (vm.count(cli::SWAP_WALLET_USER) == 0)
-            {
-                throw std::runtime_error(kErrorQTUMNodeUserNameUnspecified);
-            }
-
-            qtumdSettings.m_userName = vm[cli::SWAP_WALLET_USER].as<string>();
-
-            // TODO roman.strilets: use SecString instead of std::string
-            if (vm.count(cli::SWAP_WALLET_PASS) == 0)
-            {
-                throw std::runtime_error(kErrorQTUMNodePwdNotProvided);
-            }
-
-            qtumdSettings.m_pass = vm[cli::SWAP_WALLET_PASS].as<string>();
-
-            if (vm.count(cli::SWAP_FEERATE) == 0)
-            {
-                throw std::runtime_error("swap fee rate is missing");
-            }
-
-            auto qtumSettings = std::make_shared<qtum::Settings>();
-            qtumSettings->SetConnectionOptions(qtumdSettings);
-            qtumSettings->SetFeeRate(vm[cli::SWAP_FEERATE].as<Positive<Amount>>().value);
-
-            auto swapSecondSideChainType = ParseSwapSecondSideChainType(vm);
-            if (swapSecondSideChainType != SwapSecondSideChainType::Unknown)
-            {
-                qtumSettings->SetChainType(swapSecondSideChainType);
-            }
-
-            return qtumSettings;
+            return settings;
         }
 
         return nullptr;
@@ -1200,7 +1105,7 @@ namespace
         }
         else if (vm.count(cli::ALTCOIN_SETTINGS_SET))
         {
-            auto settings = ParseBitcoinSettings(vm);
+            auto settings = ParseSwapSettings<bitcoin::Settings, bitcoin::BitcoinCoreSettings>(vm);
             if (!settings)
             {
                 settings = ParseElectrumSettings<bitcoin::Settings, bitcoin::ElectrumSettings>(vm, bitcoin::getAddressVersion);
@@ -1258,7 +1163,7 @@ namespace
         }
         else if (vm.count(cli::ALTCOIN_SETTINGS_SET))
         {
-            auto settings = ParseLitecoinSettings(vm);
+            auto settings = ParseSwapSettings<litecoin::Settings, litecoin::LitecoinCoreSettings>(vm);
             if (!settings)
             {
                 settings = ParseElectrumSettings<litecoin::Settings, litecoin::ElectrumSettings>(vm, litecoin::getAddressVersion);
@@ -1318,7 +1223,7 @@ namespace
         }
         else if (vm.count(cli::ALTCOIN_SETTINGS_SET))
         {
-            auto settings = ParseQtumSettings(vm);
+            auto settings = ParseSwapSettings<qtum::Settings, qtum::QtumCoreSettings>(vm);
             if (!settings)
             {
                 settings = ParseElectrumSettings<qtum::Settings, qtum::ElectrumSettings>(vm, qtum::getAddressVersion);
