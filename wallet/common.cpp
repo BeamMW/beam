@@ -171,16 +171,6 @@ namespace beam::wallet
         return AtomicSwapCoin::Unknown;
     }
 
-    SwapSecondSideChainType SwapSecondSideChainTypeFromString(const std::string& value)
-    {
-        if (value == "mainnet")
-            return SwapSecondSideChainType::Mainnet;
-        else if (value == "testnet")
-            return SwapSecondSideChainType::Testnet;
-
-        return SwapSecondSideChainType::Unknown;
-    }
-
     ByteBuffer toByteBuffer(const ECC::Point::Native& value)
     {
         ECC::Point pt;

@@ -257,7 +257,7 @@ namespace beam::wallet
 
     uint8_t BitcoinSide::GetAddressVersion() const
     {
-        return bitcoin::getAddressVersion(IsMainnet());
+        return bitcoin::getAddressVersion();
     }
 
     Amount BitcoinSide::GetFeeRate() const
@@ -288,11 +288,6 @@ namespace beam::wallet
     uint32_t BitcoinSide::GetLockTimeInBlocks() const
     {
         return m_settingsProvider->GetSettings().GetLockTimeInBlocks();
-    }
-
-    bool BitcoinSide::IsMainnet() const
-    {
-        return m_settingsProvider->GetSettings().GetChainType() == wallet::SwapSecondSideChainType::Mainnet;
     }
 
     bool BitcoinSide::LoadSwapAddress()

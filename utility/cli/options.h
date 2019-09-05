@@ -129,7 +129,6 @@ namespace beam
         extern const char* SWAP_AMOUNT;
         extern const char* SWAP_FEERATE;
         extern const char* SWAP_COIN;
-        extern const char* SWAP_NETWORK;
         extern const char* SWAP_BEAM_SIDE;
         extern const char* SWAP_TX_HISTORY;
         extern const char* NODE_POLL_PERIOD;

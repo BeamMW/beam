@@ -251,7 +251,6 @@ namespace beam::wallet
     //    tx->SetParameter(TxParameterID::AtomicSwapCoin, swapCoin, false);
     //    tx->SetParameter(TxParameterID::AtomicSwapAmount, swapAmount, false);
     //    tx->SetParameter(TxParameterID::AtomicSwapIsBeamSide, isBeamSide, false);
-    //    tx->SetParameter(TxParameterID::AtomicSwapSecondSideChainType, chainType, false);
 
     //    ProcessTransaction(tx);
     //    return txID;

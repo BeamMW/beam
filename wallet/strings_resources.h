@@ -67,7 +67,6 @@ namespace beam
     extern const char kErrorNegativeAmount[];
     extern const char kErrorZeroAmount[];
     extern const char kErrorFeeToLow[];
-    extern const char kErrorUnknownSecondSideChainForSwap[];
     extern const char kErrorSwapFeeRateMissing[];
     extern const char kErrorSwapWalletAddrNotResolved[];
     extern const char kErrorSwapWalletUserNameUnspecified[];

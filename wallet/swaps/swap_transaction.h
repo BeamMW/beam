@@ -23,7 +23,7 @@
 namespace beam::wallet
 {
     TxParameters InitNewSwap(const WalletID& myID, Amount amount, Amount fee, AtomicSwapCoin swapCoin,
-        Amount swapAmount, SwapSecondSideChainType chainType, bool isBeamSide = true,
+        Amount swapAmount, bool isBeamSide = true,
         Height lifetime = kDefaultTxLifetime, Height responseTime = kDefaultTxResponseTime);
 
     TxParameters CreateSwapParameters();

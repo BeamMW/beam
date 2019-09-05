@@ -41,6 +41,6 @@ namespace beam::wallet
 
     uint8_t LitecoinSide::GetAddressVersion() const
     {
-        return litecoin::getAddressVersion(IsMainnet());
+        return litecoin::getAddressVersion();
     }
 }

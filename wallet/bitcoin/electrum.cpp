@@ -664,8 +664,11 @@ namespace beam::bitcoin
         word_list seedPhrase(m_settingsProvider->GetElectrumSettings().m_secretWords);
         auto hd_seed = electrum::decode_mnemonic(seedPhrase);
         data_chunk seed_chunk(to_chunk(hd_seed));
-        hd_private masterPrivateKey(seed_chunk,
-            m_settingsProvider->GetElectrumSettings().m_isMainnet ? hd_public::mainnet : hd_public::testnet);
+#ifdef BEAM_MAINNET
+        hd_private masterPrivateKey(seed_chunk, hd_public::mainnet);
+#else
+        hd_private masterPrivateKey(seed_chunk, hd_public::testnet);
+#endif
 
         return std::make_pair(masterPrivateKey.derive_private(0), masterPrivateKey.derive_private(1));
     }

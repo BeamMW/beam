@@ -22,5 +22,5 @@ namespace beam::bitcoin
     constexpr uint64_t kDustThreshold = 546;
     constexpr uint32_t kBTCWithdrawTxAverageSize = 360;
 
-    uint8_t getAddressVersion(bool isMainnet);
+    uint8_t getAddressVersion();
 } // namespace beam::bitcoin

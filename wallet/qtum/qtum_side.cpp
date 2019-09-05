@@ -42,6 +42,6 @@ namespace beam::wallet
 
     uint8_t QtumSide::GetAddressVersion() const
     {
-        return qtum::getAddressVersion(IsMainnet());
+        return qtum::getAddressVersion();
     }
 }

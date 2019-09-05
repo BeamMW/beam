@@ -38,7 +38,6 @@ ReceiveSwapViewModel::ReceiveSwapViewModel()
     , _txParameters(beam::wallet::CreateSwapParameters()
         .SetParameter(beam::wallet::TxParameterID::AtomicSwapCoin, beam::wallet::AtomicSwapCoin::Bitcoin)
         .SetParameter(beam::wallet::TxParameterID::AtomicSwapIsBeamSide, true)
-        .SetParameter(beam::wallet::TxParameterID::AtomicSwapSecondSideChainType, beam::wallet::SwapSecondSideChainType::Testnet)
         .SetParameter(beam::wallet::TxParameterID::IsInitiator, true))
 {
     LOG_INFO() << "ReceiveSwapViewModel created";

@@ -18,13 +18,13 @@
 
 namespace beam::bitcoin
 {
-    uint8_t getAddressVersion(bool isMainnet)
+    uint8_t getAddressVersion()
     {
-        if (isMainnet)
-        {
-            return libbitcoin::wallet::ec_private::mainnet_p2kh;
-        }
+#ifdef BEAM_MAINNET
+        return libbitcoin::wallet::ec_private::mainnet_p2kh;
+#else
 
         return libbitcoin::wallet::ec_private::testnet_p2kh;
+#endif
     }
 } // namespace beam::bitcoin

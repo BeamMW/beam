@@ -18,5 +18,5 @@
 
 namespace beam::qtum
 {
-    uint8_t getAddressVersion(bool isMainnet);
+    uint8_t getAddressVersion();
 } // namespace beam::qtum

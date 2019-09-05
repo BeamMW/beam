@@ -22,5 +22,5 @@ namespace beam::litecoin
 {
     constexpr uint64_t kDustThreshold = bitcoin::kDustThreshold;
 
-    uint8_t getAddressVersion(bool isMainnet);
+    uint8_t getAddressVersion();
 } // namespace beam::litecoin

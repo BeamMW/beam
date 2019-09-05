@@ -184,8 +184,7 @@ namespace beam::wallet
         PeerPublicSharedBlindingFactor = 26,
 
         IsSelfTx = 27,
-       
-        AtomicSwapSecondSideChainType = 29,
+
         AtomicSwapIsBeamSide = 30,
         AtomicSwapCoin = 31,
         AtomicSwapAmount = 32,
@@ -443,15 +442,6 @@ namespace beam::wallet
     };
 
     AtomicSwapCoin from_string(const std::string& value);
-
-    enum class SwapSecondSideChainType
-    {
-        Mainnet,
-        Testnet,
-        Unknown
-    };
-
-    SwapSecondSideChainType SwapSecondSideChainTypeFromString(const std::string& value);
 
     // messages
     struct SetTxParameter

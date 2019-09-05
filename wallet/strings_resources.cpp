@@ -68,7 +68,6 @@ namespace beam
     const char kErrorNegativeAmount[] = "Unable to send negative amount of coins";
     const char kErrorZeroAmount[] = "Unable to send zero coins";
     const char kErrorFeeToLow[] = "Failed to initiate the send operation. The minimum fee is 100 GROTH.";
-    const char kErrorUnknownSecondSideChainForSwap[] = "Unknown type of second side chain for swap";
     const char kErrorSwapFeeRateMissing[] = "swap fee rate is missing";
     const char kErrorSwapWalletAddrNotResolved[] = "unable to resolve swap wallet address: %1%";
     const char kErrorSwapWalletUserNameUnspecified[] = "user name of swap wallet should be specified";

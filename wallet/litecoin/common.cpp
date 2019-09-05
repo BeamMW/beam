@@ -23,13 +23,13 @@ namespace
 
 namespace beam::litecoin
 {
-    uint8_t getAddressVersion(bool isMainnet)
+    uint8_t getAddressVersion()
     {
-        if (isMainnet)
-        {
-            return kLitecoinMainnetP2KH;
-        }
+#ifdef BEAM_MAINNET
+        return kLitecoinMainnetP2KH;
+#else
 
         return libbitcoin::wallet::ec_private::testnet_p2kh;
+#endif
     }
 } // namespace beam::litecoin

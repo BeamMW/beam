@@ -176,13 +176,6 @@ void SettingsViewModel::applyBtcSettings()
     m_bitcoinSettings->SetConnectionOptions(connectionSettings);
     m_bitcoinSettings->SetFeeRate(m_bitcoinFeeRate);
 
-    // TODO:SWAP-SETTINGS need to be moved to config
-#ifdef BEAM_MAINNET
-    m_bitcoinSettings->SetChainType(beam::wallet::SwapSecondSideChainType::Mainnet);
-#else
-    m_bitcoinSettings->SetChainType(beam::wallet::SwapSecondSideChainType::Testnet);
-#endif
-
     AppModel::getInstance().getBitcoinClient()->SetSettings(*m_bitcoinSettings);
 }
 
@@ -260,13 +253,6 @@ void SettingsViewModel::applyLtcSettings()
 
     m_litecoinSettings->SetConnectionOptions(connectionSettings);
     m_litecoinSettings->SetFeeRate(m_litecoinFeeRate);
-
-    // TODO:SWAP-SETTINGS need to be moved to config
-#ifdef BEAM_MAINNET
-    m_litecoinSettings->SetChainType(beam::wallet::SwapSecondSideChainType::Mainnet);
-#else
-    m_litecoinSettings->SetChainType(beam::wallet::SwapSecondSideChainType::Testnet);
-#endif
 
     AppModel::getInstance().getLitecoinClient()->SetSettings(*m_litecoinSettings);
 }
@@ -354,13 +340,6 @@ void SettingsViewModel::applyQtumSettings()
 
     m_qtumSettings->SetConnectionOptions(connectionSettings);
     m_qtumSettings->SetFeeRate(m_qtumFeeRate);
-
-    // TODO:SWAP-SETTINGS need to be moved to config
-#ifdef BEAM_MAINNET
-    m_qtumSettings->SetChainType(beam::wallet::SwapSecondSideChainType::Mainnet);
-#else
-    m_qtumSettings->SetChainType(beam::wallet::SwapSecondSideChainType::Testnet);
-#endif
 
     AppModel::getInstance().getQtumClient()->SetSettings(*m_qtumSettings);
 }

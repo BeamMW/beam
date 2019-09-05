@@ -22,13 +22,12 @@ namespace
 
 namespace beam::qtum
 {
-    uint8_t getAddressVersion(bool isMainnet)
+    uint8_t getAddressVersion()
     {
-        if (isMainnet)
-        {
-            return kQtumMainnetP2KH;
-        }
-
+#ifdef BEAM_MAINNET
+        return kQtumMainnetP2KH;
+#else
         return kQtumTestnetP2KH;
+#endif
     }
 } // namespace beam::qtum

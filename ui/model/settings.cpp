@@ -418,10 +418,6 @@ std::shared_ptr<beam::bitcoin::Settings> WalletSettings::getBitcoinSettings() co
     btcSettings->SetConnectionOptions(bitcoindSettings);
     btcSettings->SetFeeRate(feeRate);
 
-    auto s = m_data.value(kSwapSecondSideChainType, "testnet").value<QString>().toStdString();
-
-    btcSettings->SetChainType(beam::wallet::SwapSecondSideChainTypeFromString(s));
-
     return btcSettings;
     
 }

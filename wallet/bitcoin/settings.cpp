@@ -54,11 +54,6 @@ namespace beam::bitcoin
         return m_lockTimeInBlocks;
     }
 
-    wallet::SwapSecondSideChainType Settings::GetChainType() const
-    {
-        return m_chainType;
-    }
-
     bool Settings::IsInitialized() const
     {
         return m_connectionSettings.IsInitialized() || m_electrumConnectionSettings.IsInitialized();
@@ -92,10 +87,5 @@ namespace beam::bitcoin
     void Settings::SetLockTimeInBlocks(uint32_t lockTimeInBlocks)
     {
         m_lockTimeInBlocks = lockTimeInBlocks;
-    }
-
-    void Settings::SetChainType(wallet::SwapSecondSideChainType chainType)
-    {
-        m_chainType = chainType;
     }
 } // namespace beam::bitcoin

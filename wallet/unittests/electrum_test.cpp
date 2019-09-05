@@ -62,7 +62,6 @@ void testAddress()
     bitcoin::ElectrumSettings settings;
     settings.m_secretWords = { "child", "happy", "moment", "weird", "ten", "token", "stuff", "surface", "success", "desk", "embark", "observe" };
     settings.m_addressVersion = libbitcoin::wallet::ec_private::testnet_p2kh;
-    settings.m_isMainnet = false;
 
     io::Address address;
     //btc
@@ -79,7 +78,6 @@ void testAddress()
     io::Reactor::Scope scope(*mainReactor);
     //BitcoinOptions options;
     //options.m_seedPhrase = { "child", "happy", "moment", "weird", "ten", "token", "stuff", "surface", "success", "desk", "embark", "observe" };
-    //options.m_chainType = wallet::SwapSecondSideChainType::Testnet;
     bitcoin::Electrum electrum(*mainReactor, provider);
 
     electrum.getRawChangeAddress([](const bitcoin::IBridge::Error&, const std::string& addr)
@@ -94,7 +92,6 @@ void testAddress()
 //    io::Reactor::Scope scope(*mainReactor);
 //    BitcoinOptions options;
 //    options.m_seedPhrase = { "child", "happy", "moment", "weird", "ten", "token", "stuff", "surface", "success", "desk", "embark", "observe" };
-//    options.m_chainType = wallet::SwapSecondSideChainType::Testnet;
 //    Electrum electrum(*mainReactor, options);
 //
 //    electrum.dumpPrivKey("mkgTKdapn48BM8BaMTDSnd1miT1AZSjV7P", [](const IBridge::Error&, const std::string& privateKey)
@@ -109,7 +106,6 @@ void testAddress()
 //    io::Reactor::Scope scope(*mainReactor);
 //    LitecoinOptions options;
 //    options.m_seedPhrase = { "ridge", "sunny", "neutral", "address", "fossil", "gospel", "common", "brush", "cactus", "poverty", "fitness", "duty" };
-//    options.m_chainType = wallet::SwapSecondSideChainType::Testnet;
 //    LitecoinElectrum electrum(*mainReactor, options);
 //    //const std::string txID = "d75ecb28d9289025037de08fb7ed894bda7a22a28657dd4694b947b4db22f2b6"; // for btc
 //    const std::string txID = "abe587dad072c847d793a626c472e712fd7a0d297fdad8a5ddd94fadf605e17e"; // for ltc
@@ -132,7 +128,6 @@ void testAddress()
 //    io::Reactor::Scope scope(*mainReactor);
 //    BitcoinOptions options;
 //    options.m_seedPhrase = { "child", "happy", "moment", "weird", "ten", "token", "stuff", "surface", "success", "desk", "embark", "observe" };
-//    options.m_chainType = wallet::SwapSecondSideChainType::Testnet;
 //    Electrum electrum(*mainReactor, options);
 //
 //    electrum.getBlockCount([mainReactor](const IBridge::Error& , uint64_t height)
@@ -151,7 +146,6 @@ void testAddress()
 //    io::Reactor::Scope scope(*mainReactor);
 //    BitcoinOptions options;
 //    options.m_seedPhrase = { "child", "happy", "moment", "weird", "ten", "token", "stuff", "surface", "success", "desk", "embark", "observe" };
-//    options.m_chainType = wallet::SwapSecondSideChainType::Testnet;
 //    Electrum electrum(*mainReactor, options);
 //
 //    electrum.listUnspent([mainReactor](const IBridge::Error&, const std::vector<Electrum::Utxo>& coins)
@@ -177,7 +171,6 @@ void testAddress()
 //    //ridge;sunny;neutral;address;fossil;gospel;common;brush;cactus;poverty;fitness;duty
 //
 //    // snake shuffle pepper treat foam useful wife ranch cause brief lock chicken
-//    options.m_chainType = wallet::SwapSecondSideChainType::Testnet;
 //    LitecoinElectrum electrum(*mainReactor, options);
 //
 //    electrum.getBalance(0, [mainReactor](const IBridge::Error&, double balance)
@@ -198,7 +191,6 @@ void testAddress()
 //    options.m_seedPhrase = { "sunny", "ridge", "neutral", "address", "fossil", "gospel", "common", "brush", "cactus", "poverty", "fitness", "duty" };
 //    //sunny;ridge;neutral;address;fossil;gospel;common;brush;cactus;poverty;fitness;duty
 //    //ridge;sunny;neutral;address;fossil;gospel;common;brush;cactus;poverty;fitness;duty
-//    options.m_chainType = wallet::SwapSecondSideChainType::Testnet;
 //    LitecoinElectrum electrum(*mainReactor, options);
 //
 //    using namespace libbitcoin;

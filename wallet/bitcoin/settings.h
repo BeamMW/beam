@@ -44,7 +44,6 @@ namespace beam::bitcoin
         io::Address m_address;
         std::vector<std::string> m_secretWords;
         uint8_t m_addressVersion;
-        bool m_isMainnet;
 
         uint32_t m_receivingAddressAmount = 21;
         uint32_t m_changeAddressAmount = 6;
@@ -54,7 +53,7 @@ namespace beam::bitcoin
             return !m_secretWords.empty() && !m_address.empty();
         }
 
-        SERIALIZE(m_address, m_secretWords, m_addressVersion, m_isMainnet);
+        SERIALIZE(m_address, m_secretWords, m_addressVersion);
     };
 
     class ISettings
@@ -70,7 +69,6 @@ namespace beam::bitcoin
         virtual Amount GetMinFeeRate() const = 0;
         virtual uint16_t GetTxMinConfirmations() const = 0;
         virtual uint32_t GetLockTimeInBlocks() const = 0;
-        virtual wallet::SwapSecondSideChainType GetChainType() const = 0;
         virtual bool IsInitialized() const = 0;
     };
 
@@ -85,7 +83,6 @@ namespace beam::bitcoin
         Amount GetMinFeeRate() const override;
         uint16_t GetTxMinConfirmations() const override;
         uint32_t GetLockTimeInBlocks() const override;
-        wallet::SwapSecondSideChainType GetChainType() const override;
         bool IsInitialized() const override;
 
         void SetConnectionOptions(const BitcoinCoreSettings& connectionSettings);
@@ -94,9 +91,8 @@ namespace beam::bitcoin
         void SetMinFeeRate(Amount feeRate);
         void SetTxMinConfirmations(uint16_t txMinConfirmations);
         void SetLockTimeInBlocks(uint32_t lockTimeInBlocks);
-        void SetChainType(wallet::SwapSecondSideChainType chainType);
 
-        SERIALIZE(m_connectionSettings, m_electrumConnectionSettings, m_feeRate, m_minFeeRate, m_txMinConfirmations, m_chainType, m_lockTimeInBlocks);
+        SERIALIZE(m_connectionSettings, m_electrumConnectionSettings, m_feeRate, m_minFeeRate, m_txMinConfirmations, m_lockTimeInBlocks);
 
     protected:
         BitcoinCoreSettings m_connectionSettings;
@@ -104,7 +100,6 @@ namespace beam::bitcoin
         Amount m_feeRate = 90000;
         Amount m_minFeeRate = 50000;
         uint16_t m_txMinConfirmations = 6;
-        wallet::SwapSecondSideChainType m_chainType = wallet::SwapSecondSideChainType::Mainnet;
         uint32_t m_lockTimeInBlocks = 2 * 24 * 6;
     };
 } // namespace beam::bitcoin
