@@ -19,15 +19,15 @@
 #include "wallet/bitcoin/client.h"
 #include "model/wallet_model.h"
 
-class BitcoinClientModel
+class SwapCoinClientModel
     : public QObject
     , public beam::bitcoin::Client
 {
     Q_OBJECT
 public:
-    using Ptr = std::shared_ptr<BitcoinClientModel>;
+    using Ptr = std::shared_ptr<SwapCoinClientModel>;
 
-    BitcoinClientModel(beam::wallet::AtomicSwapCoin swapCoin,
+    SwapCoinClientModel(beam::wallet::AtomicSwapCoin swapCoin,
         beam::bitcoin::Client::CreateBridge bridgeCreator,
         std::unique_ptr<beam::bitcoin::SettingsProvider> settingsProvider,
         beam::io::Reactor& reactor);

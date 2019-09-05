@@ -56,12 +56,12 @@ WalletViewModel::WalletViewModel()
         emit stateChanged();
     });
 
-    connect(&*AppModel::getInstance().getBitcoinClient(),  &BitcoinClientModel::stateChanged, this, &WalletViewModel::onCoinStateChanged);
-    connect(&*AppModel::getInstance().getLitecoinClient(), &BitcoinClientModel::stateChanged, this, &WalletViewModel::onCoinStateChanged);
-    connect(&*AppModel::getInstance().getQtumClient(),     &BitcoinClientModel::stateChanged, this, &WalletViewModel::onCoinStateChanged);
-    connect(&*AppModel::getInstance().getBitcoinClient(),  &BitcoinClientModel::gotStatus, this, &WalletViewModel::onCoinStatusChanged);
-    connect(&*AppModel::getInstance().getLitecoinClient(), &BitcoinClientModel::gotStatus, this, &WalletViewModel::onCoinStatusChanged);
-    connect(&*AppModel::getInstance().getQtumClient(),     &BitcoinClientModel::gotStatus, this, &WalletViewModel::onCoinStatusChanged);
+    connect(&*AppModel::getInstance().getBitcoinClient(),  &SwapCoinClientModel::stateChanged, this, &WalletViewModel::onCoinStateChanged);
+    connect(&*AppModel::getInstance().getLitecoinClient(), &SwapCoinClientModel::stateChanged, this, &WalletViewModel::onCoinStateChanged);
+    connect(&*AppModel::getInstance().getQtumClient(),     &SwapCoinClientModel::stateChanged, this, &WalletViewModel::onCoinStateChanged);
+    connect(&*AppModel::getInstance().getBitcoinClient(),  &SwapCoinClientModel::gotStatus, this, &WalletViewModel::onCoinStatusChanged);
+    connect(&*AppModel::getInstance().getLitecoinClient(), &SwapCoinClientModel::gotStatus, this, &WalletViewModel::onCoinStatusChanged);
+    connect(&*AppModel::getInstance().getQtumClient(),     &SwapCoinClientModel::gotStatus, this, &WalletViewModel::onCoinStatusChanged);
 
     // TODO: This also refreshes TXs and addresses. Need to make this more transparent
     _status.refresh();

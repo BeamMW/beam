@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "bitcoin_client_model.h"
+#include "swap_coin_client_model.h"
 
 #include "model/app_model.h"
 #include "wallet/common.h"
@@ -28,7 +28,7 @@ namespace
 }
 
 
-BitcoinClientModel::BitcoinClientModel(beam::wallet::AtomicSwapCoin swapCoin, 
+SwapCoinClientModel::SwapCoinClientModel(beam::wallet::AtomicSwapCoin swapCoin, 
     beam::bitcoin::Client::CreateBridge bridgeCreator,
     std::unique_ptr<beam::bitcoin::SettingsProvider> settingsProvider,
     io::Reactor& reactor)
@@ -52,39 +52,39 @@ BitcoinClientModel::BitcoinClientModel(beam::wallet::AtomicSwapCoin swapCoin,
     m_timer.start(kUpdateInterval);
 }
 
-double BitcoinClientModel::getAvailable()
+double SwapCoinClientModel::getAvailable()
 {
     return m_balance.m_available;
 }
 
-double BitcoinClientModel::getReceiving()
+double SwapCoinClientModel::getReceiving()
 {
     return m_receiving;
 }
 
-double BitcoinClientModel::getSending()
+double SwapCoinClientModel::getSending()
 {
     return m_sending;
 }
 
-void BitcoinClientModel::OnStatus(Status status)
+void SwapCoinClientModel::OnStatus(Status status)
 {
     emit gotStatus(status);
     m_status = status;
 }
 
-beam::bitcoin::Client::Status BitcoinClientModel::getStatus() const
+beam::bitcoin::Client::Status SwapCoinClientModel::getStatus() const
 {
     return m_status;
 }
 
-void BitcoinClientModel::OnBalance(const bitcoin::Client::Balance& balance)
+void SwapCoinClientModel::OnBalance(const bitcoin::Client::Balance& balance)
 {
     m_balance = balance;
     emit stateChanged();
 }
 
-void BitcoinClientModel::onTimer()
+void SwapCoinClientModel::onTimer()
 {
     // update balance
     GetAsync()->GetBalance();
@@ -101,7 +101,7 @@ void BitcoinClientModel::onTimer()
     }
 }
 
-void BitcoinClientModel::onTxStatus(beam::wallet::ChangeAction action, const std::vector<beam::wallet::TxDescription>& txList)
+void SwapCoinClientModel::onTxStatus(beam::wallet::ChangeAction action, const std::vector<beam::wallet::TxDescription>& txList)
 {
     if (action == wallet::ChangeAction::Reset)
     {
@@ -162,7 +162,7 @@ void BitcoinClientModel::onTxStatus(beam::wallet::ChangeAction action, const std
     RecalculateAmounts();
 }
 
-void BitcoinClientModel::RecalculateAmounts()
+void SwapCoinClientModel::RecalculateAmounts()
 {
     using namespace beam::wallet;
     m_sending = 0;
