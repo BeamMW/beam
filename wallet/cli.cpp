@@ -22,6 +22,8 @@
 
 #include "wallet/strings_resources.h"
 #include "wallet/bitcoin/bitcoin.h"
+#include "wallet/litecoin/electrum.h"
+#include "wallet/qtum/electrum.h"
 #include "wallet/litecoin/litecoin.h"
 #include "wallet/qtum/qtum.h"
 
