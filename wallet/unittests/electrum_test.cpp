@@ -18,12 +18,10 @@
 #include "utility/helpers.h"
 #include "nlohmann/json.hpp"
 
-#include "wallet/bitcoin/electrum.h"
-//#include "wallet/litecoin/litecoin_electrum.h"
+#include "wallet/bitcoin/bitcoin.h"
 
 #include "test_helpers.h"
 
-//#include <3rdparty/libbitcoin/include/bitcoin/bitcoin.hpp>
 
 WALLET_TEST_INIT
 
@@ -61,174 +59,116 @@ void testAddress()
 {
     bitcoin::ElectrumSettings settings;
     settings.m_secretWords = { "child", "happy", "moment", "weird", "ten", "token", "stuff", "surface", "success", "desk", "embark", "observe" };
-    settings.m_addressVersion = libbitcoin::wallet::ec_private::testnet_p2kh;
+    settings.m_addressVersion = bitcoin::getAddressVersion();
 
-    io::Address address;
-    //btc
-    address.resolve("testnet1.bauerj.eu");
-    address.port(50002);
-    //ltc
-    //address.resolve("electrum.ltc.xurious.com");
-    //address.port(51002);
-
-    settings.m_address = address;
     auto provider = std::make_shared<bitcoin::Provider>(settings);
-
     io::Reactor::Ptr mainReactor{ io::Reactor::create() };
     io::Reactor::Scope scope(*mainReactor);
-    //BitcoinOptions options;
-    //options.m_seedPhrase = { "child", "happy", "moment", "weird", "ten", "token", "stuff", "surface", "success", "desk", "embark", "observe" };
     bitcoin::Electrum electrum(*mainReactor, provider);
 
-    electrum.getRawChangeAddress([](const bitcoin::IBridge::Error&, const std::string& addr)
+#ifdef BEAM_MAINNET
+    std::set<std::string> addresses
     {
-        LOG_INFO() << "address = " << addr;
-    });
+        "16AW2aVqy2gva1hxdtF4xhoSrTQTbGSNvM",
+        "1HC9pxNaEHSFWgsiHUDUM3QRETNqBmSQQ9",
+        "13V8K8wnLnLfiYaD3JHxTHg2SVTzdJyhgs",
+        "1gJnvfcWt9W7sboLWW15yDUzd3idFUUvp",
+        "1NGH4WK29VnNdPBJVyS6hx1t9z8Dtx1mUW",
+        "1BuUxbUAn84q4bM3uf2k2zDZZ7bzwRP3Hh",
+        "1KHdjosUP69aExUMqqq6CLH77bdR5oRoHS",
+        "1DFnVotGE4pMv1LiPfw6XQptEqWeYqgzPy",
+        "19LLcmPxnFiH7SrsgVXG5M7qWASEQ6cKNh",
+        "1MUJs4zcrDpo1UuTMLGTViHDLbhcd66oNK",
+        "1Q9RKPvseVrYebiehuXBfsZsrsdMRu6b9y",
+        "1HeTXHuqiugtF4gPwLEKQFeT2VQVqa7FsW",
+        "12H7k6V9wH4unyFqfUZ6s7pyaNXQQAH7fD",
+        "18wjL1B6KNkBaHj8F8w2nnyKTuHrWPoNpC",
+        "1KJH4e8Dwvq9CqKB2zFoUsH7tnkB8D7Wos",
+        "1N38b6D4mC9R4R9SZztyvbV97uKPfiPpvp",
+        "13oWcAxFsHW1n81gj7BVAM1x7qiqhvnjhp",
+        "1H4u6j8yZ49FS1Ft2nvXRpRKhWzaJTcCHD",
+        "1Lw1ec2Q2KsT2VcV8sXdsr3bjwkaokPE6U",
+        "1Ei6D8SRSZ7w4MgDpZsGSvpqcejjqw2ewU"
+};
+#else
+    std::set<std::string> addresses
+    {
+        "mkgTKdapn48BM8BaMTDSnd1miT1AZSjV7P",
+        "mwi781TZ3JsWHoML13BrAxck6SyY2vxW55",
+        "mi15cC2m9omvVf3pksGLHCtMJV4hWNi4B8",
+        "mgCG5ykbKuaktz5R45UNutRorceRdr4hqi",
+        "n2nEMZPzxXDdQVevDYQUXsED1yivmK7bqw",
+        "mrRSFeZ9b9W5qhpfdE17ruRtR7ChtfzfvH",
+        "myob2rxTC7aq24wyZQoU2FVRybE84CMABE",
+        "msmjnryF36Fch7pL7EuUML3D6q7MUKRu68",
+        "morHupUwbH9XtZLVQ4VduGLANA2wK1sX2M",
+        "n1zGA85bfFG3nbP54uEqKdVYCbJKXwufM2",
+        "n4fNcT1rTXHoRiCGRUVZVnnCisE4Ncgeqf",
+        "mxAQpLzpXw892BA1euChEArmtV1ChKr8CC",
+        "mgo539a8kJWAa5jTP3XUh33JSN87DyMJEV",
+        "moTgd4G58QBSMQCjxhuQciBeKttZQ9WyLh",
+        "mypEMhDCkxGPywnnkZEBJnVSknLt2DymJT",
+        "n2Z5t9J3aDafqXd4HZsMkWhTytv6gqdYpF",
+        "miKTuE3EgJwGZEVJSg9rzGEGyqKYafoxHo",
+        "mwarPnDxN5aWD7jVkMtuFjdeZWbHDDoZi4",
+        "n1Sxwf7NqMJhoc66rSW1hmFvbwMHkzCPhe",
+        "muE3WBXQFaZBqU9qY8qeGr3AUeLSoYwJyx",
+        "n1FQnSnLm6SfFWD6FiYs9wj1Eh2hYNYNRJ"
+    };
+#endif
+
+    for (int i = 0; i < 30; i++)
+    {
+        electrum.getRawChangeAddress([mainReactor, addresses](const bitcoin::IBridge::Error&, const std::string& addr)
+        {
+
+            LOG_INFO() << "generated address = " << addr;
+
+            WALLET_CHECK(addresses.find(addr) != addresses.end());
+            mainReactor->stop();
+        });
+    }
+
+    mainReactor->run();
 }
 
-//void testDumpPrivKey()
-//{
-//    io::Reactor::Ptr mainReactor{ io::Reactor::create() };
-//    io::Reactor::Scope scope(*mainReactor);
-//    BitcoinOptions options;
-//    options.m_seedPhrase = { "child", "happy", "moment", "weird", "ten", "token", "stuff", "surface", "success", "desk", "embark", "observe" };
-//    Electrum electrum(*mainReactor, options);
-//
-//    electrum.dumpPrivKey("mkgTKdapn48BM8BaMTDSnd1miT1AZSjV7P", [](const IBridge::Error&, const std::string& privateKey)
-//    {
-//        LOG_INFO() << "private key = " << privateKey;
-//    });
-//}
-//
-//void testGetTxOut()
-//{
-//    io::Reactor::Ptr mainReactor{ io::Reactor::create() };
-//    io::Reactor::Scope scope(*mainReactor);
-//    LitecoinOptions options;
-//    options.m_seedPhrase = { "ridge", "sunny", "neutral", "address", "fossil", "gospel", "common", "brush", "cactus", "poverty", "fitness", "duty" };
-//    LitecoinElectrum electrum(*mainReactor, options);
-//    //const std::string txID = "d75ecb28d9289025037de08fb7ed894bda7a22a28657dd4694b947b4db22f2b6"; // for btc
-//    const std::string txID = "abe587dad072c847d793a626c472e712fd7a0d297fdad8a5ddd94fadf605e17e"; // for ltc
-//
-//    electrum.getTxOut(txID, 1, [mainReactor](const IBridge::Error&, const std::string& hex, double value, uint16_t confirmations)
-//    {
-//        LOG_INFO() << "hex = " << hex;
-//        LOG_INFO() << "value = " << value;
-//        LOG_INFO() << "confirmations = " << confirmations;
-//
-//        mainReactor->stop();
-//    });
-//
-//    mainReactor->run();
-//}
-//
-//void testGetBlockCount()
-//{
-//    io::Reactor::Ptr mainReactor{ io::Reactor::create() };
-//    io::Reactor::Scope scope(*mainReactor);
-//    BitcoinOptions options;
-//    options.m_seedPhrase = { "child", "happy", "moment", "weird", "ten", "token", "stuff", "surface", "success", "desk", "embark", "observe" };
-//    Electrum electrum(*mainReactor, options);
-//
-//    electrum.getBlockCount([mainReactor](const IBridge::Error& , uint64_t height)
-//    {
-//        LOG_INFO() << "height = " << height;
-//        
-//        mainReactor->stop();
-//    });
-//
-//    mainReactor->run();
-//}
-//
-//void testListUnspent()
-//{
-//    io::Reactor::Ptr mainReactor{ io::Reactor::create() };
-//    io::Reactor::Scope scope(*mainReactor);
-//    BitcoinOptions options;
-//    options.m_seedPhrase = { "child", "happy", "moment", "weird", "ten", "token", "stuff", "surface", "success", "desk", "embark", "observe" };
-//    Electrum electrum(*mainReactor, options);
-//
-//    electrum.listUnspent([mainReactor](const IBridge::Error&, const std::vector<Electrum::Utxo>& coins)
-//    {
-//        for (auto coin : coins)
-//        {
-//            LOG_INFO() << "details = " << coin.m_details;
-//        }
-//
-//        mainReactor->stop();
-//    });
-//
-//    mainReactor->run();
-//}
-//
-//void testGetBalance()
-//{
-//    io::Reactor::Ptr mainReactor{ io::Reactor::create() };
-//    io::Reactor::Scope scope(*mainReactor);
-//    LitecoinOptions options;
-//    options.m_seedPhrase = { "ridge", "sunny", "neutral", "address", "fossil", "gospel", "common", "brush", "cactus", "poverty", "fitness", "duty" };
-//    //sunny;ridge;neutral;address;fossil;gospel;common;brush;cactus;poverty;fitness;duty
-//    //ridge;sunny;neutral;address;fossil;gospel;common;brush;cactus;poverty;fitness;duty
-//
-//    // snake shuffle pepper treat foam useful wife ranch cause brief lock chicken
-//    LitecoinElectrum electrum(*mainReactor, options);
-//
-//    electrum.getBalance(0, [mainReactor](const IBridge::Error&, double balance)
-//    {
-//        LOG_INFO() << "balance = " << balance;
-//
-//        mainReactor->stop();
-//    });
-//
-//    mainReactor->run();
-//}
-//
-//void testFundRawTransaction()
-//{
-//    io::Reactor::Ptr mainReactor{ io::Reactor::create() };
-//    io::Reactor::Scope scope(*mainReactor);
-//    LitecoinOptions options;
-//    options.m_seedPhrase = { "sunny", "ridge", "neutral", "address", "fossil", "gospel", "common", "brush", "cactus", "poverty", "fitness", "duty" };
-//    //sunny;ridge;neutral;address;fossil;gospel;common;brush;cactus;poverty;fitness;duty
-//    //ridge;sunny;neutral;address;fossil;gospel;common;brush;cactus;poverty;fitness;duty
-//    LitecoinElectrum electrum(*mainReactor, options);
-//
-//    using namespace libbitcoin;
-//    using namespace libbitcoin::wallet;
-//    using namespace libbitcoin::chain;
-//
-//    payment_address destinationAddress("miFx77ae92psazXuj2b3nRw7ssbBe4fEms");
-//
-//    script outputScript = script().to_pay_key_hash_pattern(destinationAddress.hash());
-//    output output1(2 * satoshi_per_bitcoin / 100, outputScript);
-//
-//    transaction tx;
-//    tx.set_version(2);
-//    tx.outputs().push_back(output1);    
-//
-//    std::string rawTx = encode_base16(tx.to_data());
-//
-//    electrum.fundRawTransaction(rawTx, 10000, [mainReactor, &electrum](const IBridge::Error&, std::string tx, int changePos)
-//    {
-//        LOG_INFO() << "tx = " << tx;
-//        LOG_INFO() << "changePos = " << changePos;
-//
-//        electrum.signRawTransaction(tx, [mainReactor, &electrum](const IBridge::Error&, std::string tx, bool)
-//        {
-//            LOG_INFO() << "tx = " << tx;
-//
-//            electrum.sendRawTransaction(tx, [mainReactor, &electrum](const IBridge::Error&, std::string txID)
-//            {
-//                LOG_INFO() << "txID = " << txID;
-//                mainReactor->stop();
-//            });            
-//        });
-//
-//        //mainReactor->stop();
-//    });
-//
-//    mainReactor->run();
-//}
+void testDumpPrivKey()
+{
+    bitcoin::ElectrumSettings settings;
+    settings.m_secretWords = { "child", "happy", "moment", "weird", "ten", "token", "stuff", "surface", "success", "desk", "embark", "observe" };
+    settings.m_addressVersion = bitcoin::getAddressVersion();
+
+    auto provider = std::make_shared<bitcoin::Provider>(settings);
+    io::Reactor::Ptr mainReactor{ io::Reactor::create() };
+    io::Reactor::Scope scope(*mainReactor);
+    bitcoin::Electrum electrum(*mainReactor, provider);
+
+#ifdef BEAM_MAINNET
+    electrum.dumpPrivKey("16AW2aVqy2gva1hxdtF4xhoSrTQTbGSNvM", [](const bitcoin::IBridge::Error&, const std::string& privateKey)
+    {
+        LOG_INFO() << "private key = " << privateKey;
+
+        libbitcoin::wallet::ec_private addressPrivateKey(privateKey, bitcoin::getAddressVersion());
+        libbitcoin::wallet::ec_public publicKey(addressPrivateKey.to_public());
+        libbitcoin::wallet::payment_address address = publicKey.to_payment_address(bitcoin::getAddressVersion());
+        LOG_INFO() << address.encoded();
+
+        WALLET_CHECK(address.encoded() == "16AW2aVqy2gva1hxdtF4xhoSrTQTbGSNvM");
+    });
+#else
+    electrum.dumpPrivKey("mkgTKdapn48BM8BaMTDSnd1miT1AZSjV7P", [](const bitcoin::IBridge::Error&, const std::string& privateKey)
+    {
+        LOG_INFO() << "private key = " << privateKey;
+
+        libbitcoin::wallet::ec_private addressPrivateKey(privateKey, bitcoin::getAddressVersion());
+        libbitcoin::wallet::ec_public publicKey(addressPrivateKey.to_public());
+        libbitcoin::wallet::payment_address address = publicKey.to_payment_address(bitcoin::getAddressVersion());
+        LOG_INFO() << address.encoded();
+
+        WALLET_CHECK(address.encoded() == "mkgTKdapn48BM8BaMTDSnd1miT1AZSjV7P");
+    });
+#endif
+}
 
 int main()
 {
@@ -236,13 +176,8 @@ int main()
     auto logger = beam::Logger::create(logLevel, logLevel);
 
     testAddress();
-    //testDumpPrivKey();
-    //testGetTxOut();
-    //testGetBlockCount();
-    //testGetBalance();
-    //testListUnspent();
-    //testFundRawTransaction();
-
+    testDumpPrivKey();
+    
     assert(g_failureCount == 0);
     return WALLET_CHECK_RESULT;
 }

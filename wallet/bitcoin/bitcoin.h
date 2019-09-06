@@ -17,4 +17,5 @@
 #include "wallet/bitcoin/bitcoin_core_017.h"
 #include "wallet/bitcoin/settings_provider.h"
 #include "wallet/bitcoin/bitcoin_side.h"
+#include "wallet/bitcoin/electrum.h"
 #include "wallet/bitcoin/common.h"
