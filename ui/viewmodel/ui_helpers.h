@@ -29,5 +29,6 @@ namespace beamui
     private:
         std::vector<double> _samples;
         size_t _index;
+        bool _is_poor;
     };
-}
+}  // namespace beamui

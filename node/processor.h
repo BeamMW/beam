@@ -216,6 +216,7 @@ public:
 	virtual void OnNewState() {}
 	virtual void OnRolledBack() {}
 	virtual void OnModified() {}
+	virtual void InitializeUtxosProgress(uint64_t done, uint64_t total) {}
 
 	// parallel context-free execution
 	struct Task

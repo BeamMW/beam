@@ -60,6 +60,11 @@ bool NodeModel::isNodeRunning() const
     return m_nodeClient.isNodeRunning();
 }
 
+void NodeModel::onInitProgressUpdated(uint64_t done, uint64_t total)
+{
+    LOG_DEBUG() << "onInitProgressUpdated(" << done << ", " << total << ")";
+}
+
 void NodeModel::onSyncProgressUpdated(int done, int total)
 {
     LOG_DEBUG() << "onNodeSyncProgressUpdated(" << done << ", " << total << ")";

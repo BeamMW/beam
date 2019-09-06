@@ -228,5 +228,14 @@ Item
                 }
             }
         }
+
+        Timer {
+            interval: 1000
+            running: true
+            repeat: true
+            onTriggered: {
+                viewModel.recalculateProgress();
+            }
+        }
     }
 }

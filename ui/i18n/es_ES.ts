@@ -1462,5 +1462,21 @@ Escanee este código QR o envíe esta dirección al remitente a través de un ca
         <source>Received</source>
         <translation type="unfinished"></translation>
     </message>
+    <message id="loading-view-estimate-hours">
+        <source>h.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="loading-view-estimate-calculating">
+        <source>calculating...</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="loading-view-net-problems">
+        <source>It may take longer when usual. Please, check your network.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="loading-view-rebuild-utxos">
+        <source>Rebuilding UTXO image</source>
+        <translation type="unfinished"></translation>
+    </message>
 </context>
 </TS>

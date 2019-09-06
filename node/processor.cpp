@@ -3216,9 +3216,13 @@ bool NodeProcessor::EnumTxos(ITxoWalker& wlkTxo, const HeightRange& hr)
 	TxoID id1 = get_TxosBefore(hr.m_Min);
 	Height h = hr.m_Min - 1; // don't care about overflow
 
+	auto totalTxos = m_DB.TxoGetCount();
+	uint64_t doneTxos = 0;
+
 	NodeDB::WalkerTxo wlk(m_DB);
 	for (m_DB.EnumTxos(wlk, id1);  wlk.MoveNext(); )
 	{
+		InitializeUtxosProgress(++doneTxos, totalTxos);
 		if (wlk.m_ID >= id1)
 		{
 			if (++h > hr.m_Max)

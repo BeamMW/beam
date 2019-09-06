@@ -1461,5 +1461,21 @@
         <source>Received</source>
         <translation type="unfinished"></translation>
     </message>
+    <message id="loading-view-estimate-calculating">
+        <source>calculating...</source>
+        <translation>вылічаецца...</translation>
+    </message>
+    <message id="loading-view-rebuild-utxos">
+        <source>Rebuilding UTXO image</source>
+        <translation> Перабудоўваецца вобраз UTXO</translation>
+    </message>
+    <message id="loading-view-estimate-hours">
+        <source>h.</source>
+        <translation>гадз.</translation>
+    </message>
+    <message id="loading-view-net-problems">
+        <source>It may take longer when usual. Please, check your network.</source>
+        <translation>Можа патрабаватца больш часу чым заўсёды. Каліласка, праверце далучэнне да интэрнэта.</translation>
+    </message>
 </context>
 </TS>

@@ -271,6 +271,11 @@ void NodeClient::runLocalNode()
                 m_model.m_observer->onSyncError(error);
             }
 
+            void InitializeUtxosProgress(uint64_t done, uint64_t total) override
+            {
+                m_model.m_observer->onInitProgressUpdated(done, total);
+            }
+
         private:
             Node& m_node;
             NodeClient& m_model;
