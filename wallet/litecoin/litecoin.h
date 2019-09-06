@@ -17,5 +17,4 @@
 #include "wallet/litecoin/litecoin_core_017.h"
 #include "wallet/litecoin/settings.h"
 #include "wallet/litecoin/litecoin_side.h"
-#include "wallet/litecoin/electrum.h"
 #include "wallet/litecoin/common.h"
