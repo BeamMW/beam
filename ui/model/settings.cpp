@@ -384,7 +384,7 @@ namespace
     const char* kSwapBitcoinUserName = "swap/bitcoin/user_name";
     const char* kSwapBitcoinPassword = "swap/bitcoin/password";
     const char* kSwapBitcoinFeeRate = "swap/bitcoin/fee_rate";
-    const char* kSwapSecondSideChainType = "swap/chain_type";
+    // const char* kSwapSecondSideChainType = "swap/chain_type";
 }
 
 std::shared_ptr<beam::bitcoin::Settings> WalletSettings::getBitcoinSettings() const
