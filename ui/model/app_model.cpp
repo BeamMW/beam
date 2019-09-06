@@ -89,6 +89,8 @@ bool AppModel::openWallet(const beam::SecString& pass)
     m_db = WalletDB::open(m_settings.getWalletStorage(), pass, m_walletReactor);
     if (!m_db) return false;
 
+    m_keyKeeper = std::make_shared<LocalPrivateKeyKeeper>(m_db);
+
     onWalledOpened(pass);
     return true;
 }
