@@ -663,7 +663,7 @@ void StartViewModel::setPassword(const QString& pass)
 
 void StartViewModel::onNodeSettingsChanged()
 {
-    AppModel::getInstance().applySettingsChanges();
+    AppModel::getInstance().nodeSettingsChanged();
 }
 
 void StartViewModel::findExistingWalletDB()

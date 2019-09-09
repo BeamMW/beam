@@ -189,10 +189,6 @@ void LoadingViewModel::updateProgress()
         if (m_total > 0)
         {
             progress = std::min(1., m_done / static_cast<double>(m_total));
-            if (m_done >= m_total)
-            {
-                emit syncCompleted();
-            }
         }
 
         if (m_hasLocalNode)
@@ -233,18 +229,24 @@ void LoadingViewModel::updateProgress()
                     estimateStr.toStdString().c_str(),
                     getEstimateStr(m_estimate).toStdString().c_str());
         }
+
+        if (m_done >= m_total)
+        {
+            emit syncCompleted();
+        }
     }
     else
     {
+       m_hasLocalNode = AppModel::getInstance().getSettings().getRunLocalNode();
         if (m_hasLocalNode)
         {
             //% "Rebuilding UTXO image"
             progressMessage = qtTrId("loading-view-rebuild-utxos");
             progress = kRebuildUTXOProgressCoefficient * m_nodeInitProgress;
-            estimateStr = QString::asprintf(
-                    estimateStr.toStdString().c_str(),
-                    calculating.toStdString().c_str());
         }
+        estimateStr = QString::asprintf(
+                estimateStr.toStdString().c_str(),
+                calculating.toStdString().c_str());       
     }
    
     if (progress < m_lastProgress)
