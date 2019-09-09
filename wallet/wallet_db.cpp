@@ -1027,7 +1027,54 @@ namespace beam::wallet
         return Ptr();
     }
 
-    IWalletDB::Ptr WalletDB::open(const string& path, const SecString& password, io::Reactor::Ptr reactor)
+#if defined(BEAM_HW_WALLET)
+    // !TODO: copypasted from init(), pls do refactoring
+    IWalletDB::Ptr WalletDB::initWithTrezor(const string& path, std::shared_ptr<ECC::HKdfPub> ownerKey, const SecString& password, io::Reactor::Ptr reactor)
+    {
+        if (!isInitialized(path))
+        {
+            sqlite3* db = nullptr;
+            {
+                int ret = sqlite3_open_v2(path.c_str(), &db, SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE, nullptr);
+                throwIfError(ret, db);
+            }
+
+            enterKey(db, password);
+            auto walletDB = make_shared<WalletDB>(db, reactor);
+
+            CreateStorageTable(walletDB->_db);
+            CreateWalletMessageTable(walletDB->_db);
+            CreatePrivateVariablesTable(walletDB->m_PrivateDB);
+            CreateVariablesTable(walletDB->_db);
+            CreateAddressesTable(walletDB->_db);
+            CreateTxParamsTable(walletDB->_db);
+            CreateStatesTable(walletDB->_db);
+
+            {
+                // store owner key (public)
+                {
+                    ECC::NoLeak<ECC::HKdfPub::Packed> packedOwnerKey;
+                    ownerKey->Export(packedOwnerKey.V);
+
+                    storage::setVar(*walletDB, OwnerKey, packedOwnerKey.V);
+                    walletDB->m_OwnerKdf = ownerKey;
+                }
+
+                storage::setVar(*walletDB, Version, DbVersion);
+            }
+
+            walletDB->flushDB();
+
+            return static_pointer_cast<IWalletDB>(walletDB);
+        }
+
+        LOG_ERROR() << path << " already exists.";
+
+        return Ptr();
+    }
+#endif
+
+    IWalletDB::Ptr WalletDB::open(const string& path, const SecString& password, io::Reactor::Ptr reactor, bool useTrezor)
     {
         try
         {
@@ -1271,6 +1318,7 @@ namespace beam::wallet
                     }
                 }
 
+                walletDB->m_useTrezor = useTrezor;
                 return static_pointer_cast<IWalletDB>(walletDB);
             }
 
@@ -1281,6 +1329,12 @@ namespace beam::wallet
         }
 
         return Ptr();
+    }
+
+    WalletDB::WalletDB(sqlite3* db, io::Reactor::Ptr reactor)
+        : WalletDB(db, reactor, db)
+    {
+
     }
 
     WalletDB::WalletDB(sqlite3* db, io::Reactor::Ptr reactor, sqlite3* sdb)
@@ -1327,7 +1381,7 @@ namespace beam::wallet
 
     Key::IKdf::Ptr WalletDB::get_MasterKdf() const
     {
-        return m_pKdf;
+        return m_useTrezor ? nullptr : m_pKdf;
     }
 
 	Key::IKdf::Ptr IWalletDB::get_ChildKdf(const Key::IDV& kidv) const

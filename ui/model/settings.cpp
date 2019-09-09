@@ -67,6 +67,9 @@ const char* WalletSettings::WalletCfg = "beam-wallet.cfg";
 const char* WalletSettings::LogsFolder = "logs";
 const char* WalletSettings::SettingsFile = "settings.ini";
 const char* WalletSettings::WalletDBFile = "wallet.db";
+#if defined(BEAM_HW_WALLET)
+const char* WalletSettings::TrezorWalletDBFile = "trezor-wallet.db";
+#endif
 const char* WalletSettings::NodeDBFile = "node.db";
 
 WalletSettings::WalletSettings(const QDir& appDataDir)
@@ -76,7 +79,21 @@ WalletSettings::WalletSettings(const QDir& appDataDir)
 
 }
 
+#if defined(BEAM_HW_WALLET)
+string WalletSettings::getTrezorWalletStorage() const
+{
+    Lock lock(m_mutex);
+    return m_appDataDir.filePath(QString::fromStdString(getWalletFolder()) + "/" + TrezorWalletDBFile).toStdString();
+}
+#endif
+
 string WalletSettings::getWalletStorage() const
+{
+    Lock lock(m_mutex);
+    return m_appDataDir.filePath(QString::fromStdString(getWalletFolder()) + "/" + WalletDBFile).toStdString();
+}
+
+string WalletSettings::getWalletFolder() const
 {
     Lock lock(m_mutex);
 
@@ -85,8 +102,8 @@ string WalletSettings::getWalletStorage() const
     {
         m_appDataDir.mkdir(version);
     }
-    
-    return m_appDataDir.filePath(version + "/" + WalletDBFile).toStdString();
+
+    return m_appDataDir.filePath(version).toStdString();
 }
 
 string WalletSettings::getAppDataPath() const

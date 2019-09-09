@@ -309,9 +309,13 @@ namespace beam::wallet
     {
     public:
         static bool isInitialized(const std::string& path);
+#if defined(BEAM_HW_WALLET)
+        static Ptr initWithTrezor(const std::string& path, std::shared_ptr<ECC::HKdfPub> ownerKey, const SecString& password, io::Reactor::Ptr reactor);
+#endif
         static Ptr init(const std::string& path, const SecString& password, const ECC::NoLeak<ECC::uintBig>& secretKey, io::Reactor::Ptr reactor, bool separateDBForPrivateData = false);
-        static Ptr open(const std::string& path, const SecString& password, io::Reactor::Ptr reactor);
+        static Ptr open(const std::string& path, const SecString& password, io::Reactor::Ptr reactor, bool useTrezor = false);
 
+        WalletDB(sqlite3* db, io::Reactor::Ptr reactor);
         WalletDB(sqlite3* db, io::Reactor::Ptr reactor, sqlite3* sdb);
         WalletDB(sqlite3* db, const ECC::NoLeak<ECC::uintBig>& secretKey, io::Reactor::Ptr reactor, sqlite3* sdb);
         ~WalletDB();
@@ -438,6 +442,8 @@ namespace beam::wallet
         
         mutable ParameterCache m_TxParametersCache;
         mutable std::map<WalletID, boost::optional<WalletAddress>> m_AddressesCache;
+
+        bool m_useTrezor = false;
     };
 
     namespace storage
