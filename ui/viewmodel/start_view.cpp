@@ -87,7 +87,10 @@ namespace
                 }
 
                 if (it->path().filename() == WalletSettings::WalletDBFile 
-                    || it->path().filename() == WalletSettings::TrezorWalletDBFile)
+#if defined(BEAM_HW_WALLET)
+                    || it->path().filename() == WalletSettings::TrezorWalletDBFile
+#endif
+                )
                 {
                     walletDBs.push_back(it->path());
                 }

@@ -73,7 +73,9 @@ public:
     static const char* LogsFolder;
     static const char* SettingsFile;
     static const char* WalletDBFile;
+#if defined(BEAM_HW_WALLET)
     static const char* TrezorWalletDBFile;
+#endif
     static const char* NodeDBFile;
 
     void applyChanges();
