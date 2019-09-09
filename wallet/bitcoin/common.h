@@ -15,6 +15,8 @@
 #pragma once
 
 #include <stdint.h>
+#include <vector>
+#include <string>
 
 namespace beam::bitcoin
 {
@@ -23,4 +25,6 @@ namespace beam::bitcoin
     constexpr uint32_t kBTCWithdrawTxAverageSize = 360;
 
     uint8_t getAddressVersion();
+    bool validateElectrumMnemonic(const std::vector<std::string>& words);
+    std::vector<std::string> createElectrumMnemonic(const std::vector<uint8_t>& entropy);
 } // namespace beam::bitcoin

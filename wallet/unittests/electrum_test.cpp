@@ -22,6 +22,7 @@
 
 #include "test_helpers.h"
 
+#include "bitcoin/bitcoin.hpp"
 
 WALLET_TEST_INIT
 

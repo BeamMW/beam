@@ -27,4 +27,14 @@ namespace beam::bitcoin
         return libbitcoin::wallet::ec_private::testnet_p2kh;
 #endif
     }
+
+    bool validateElectrumMnemonic(const std::vector<std::string>& words)
+    {
+        return libbitcoin::wallet::electrum::validate_mnemonic(words, libbitcoin::wallet::language::electrum::en);
+    }
+
+    std::vector<std::string> createElectrumMnemonic(const std::vector<uint8_t>& entropy)
+    {
+        return libbitcoin::wallet::electrum::create_mnemonic(entropy);
+    }
 } // namespace beam::bitcoin

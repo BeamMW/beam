@@ -945,14 +945,14 @@ namespace
                 boost::algorithm::trim_if(tempPhrase, [](char ch) { return ch == ';'; });
                 electrumSettings.m_secretWords = string_helpers::split(tempPhrase, ';');
 
-                if (!libbitcoin::wallet::electrum::validate_mnemonic(electrumSettings.m_secretWords, libbitcoin::wallet::language::electrum::en))
+                if (!bitcoin::validateElectrumMnemonic(electrumSettings.m_secretWords))
                 {
                     throw std::runtime_error("seed is not valid");
                 }
             }
             else if (vm.count(cli::GENERATE_ELECTRUM_SEED))
             {
-                electrumSettings.m_secretWords = libbitcoin::wallet::electrum::create_mnemonic(getEntropy());
+                electrumSettings.m_secretWords = bitcoin::createElectrumMnemonic(getEntropy());
 
                 auto strSeed = std::accumulate(
                     std::next(electrumSettings.m_secretWords.begin()), electrumSettings.m_secretWords.end(), *electrumSettings.m_secretWords.begin(),
