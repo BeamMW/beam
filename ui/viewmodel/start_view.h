@@ -246,4 +246,3 @@ private:
     std::string m_ownerKeyPass;
 #endif
 };
-
