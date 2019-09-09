@@ -283,7 +283,7 @@ else()
     endif()
 
     if(APPLE)
-        find_package(Boost COMPONENTS locale REQUIRED)
+        find_package(Boost COMPONENTS locale regex REQUIRED)
     else()
         find_package(Boost REQUIRED)
     endif()

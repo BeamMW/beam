@@ -1271,7 +1271,7 @@ namespace
         int completedCount = 1;
 
         auto timer = io::Timer::create(io::Reactor::get_Current());
-        auto f = [&completedCount, mainReactor, &timer](auto txID)
+        auto f = [&completedCount, mainReactor](auto txID)
         {
             --completedCount;
             if (completedCount == 0)
