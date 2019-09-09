@@ -1269,11 +1269,14 @@ namespace
         }
 
         int completedCount = 1;
-        auto f = [&completedCount, mainReactor](auto)
+
+        auto timer = io::Timer::create(io::Reactor::get_Current());
+        auto f = [&completedCount, mainReactor, &timer](auto txID)
         {
             --completedCount;
             if (completedCount == 0)
             {
+              //  timer->cancel();
                 mainReactor->stop();
             }
         };
@@ -1314,10 +1317,27 @@ namespace
                 .SetParameter(TxParameterID::PeerID, receiver.m_WalletID)
                 .SetParameter(TxParameterID::Amount, Amount(4))
                 .SetParameter(TxParameterID::Fee, Amount(1))
-                .SetParameter(TxParameterID::Lifetime, Height(200)));
+                .SetParameter(TxParameterID::Lifetime, Height(20))
+                .SetParameter(TxParameterID::PeerResponseHeight, Height(100)));
         }
         
         mainReactor->run();
+
+        //
+        //for (const auto& p : txMap)
+        //{
+        //    if (p.second != 2)
+        //    {
+        //        cout << p.first << '\n';
+        //    }
+        //}
+
+        auto transactions = sender.m_WalletDB->getTxHistory();
+        WALLET_CHECK(transactions.size() == Count + 1);
+        for (const auto& t : transactions)
+        {
+            WALLET_CHECK(t.m_status == TxStatus::Completed);
+        }
     }
 
     void TestTxParameters()
@@ -2019,10 +2039,13 @@ int main()
 #if LOG_VERBOSE_ENABLED
     logLevel = LOG_LEVEL_VERBOSE;
 #endif
-    auto logger = beam::Logger::create(logLevel, logLevel);
+    const auto path = boost::filesystem::system_complete("logs");
+    auto logger = beam::Logger::create(logLevel, logLevel, logLevel, "wallet_test", path.string());
+
+
     Rules::get().FakePoW = true;
 	Rules::get().pForks[1].m_Height = 100500; // needed for lightning network to work
-    Rules::get().DA.MaxAhead_s = 60 * 1;
+    //Rules::get().DA.MaxAhead_s = 90;// 60 * 1;
     Rules::get().UpdateChecksum();
 
     TestConvertions();
