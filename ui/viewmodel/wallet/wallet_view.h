@@ -58,6 +58,7 @@ class WalletViewModel : public QObject
     Q_PROPERTY(QString displayNameRole READ getDisplayNameRole CONSTANT)
     Q_PROPERTY(QString sendingAddressRole READ getSendingAddressRole CONSTANT)
     Q_PROPERTY(QString receivingAddressRole READ getReceivingAddressRole CONSTANT)
+    Q_PROPERTY(QString amountRole READ getAmountRole CONSTANT)
     Q_PROPERTY(QString sentAmountRole READ getSentAmountRole CONSTANT)
     Q_PROPERTY(QString receivedAmountRole READ getReceivedAmountRole CONSTANT)
     Q_PROPERTY(QString statusRole READ getStatusRole CONSTANT)
@@ -112,6 +113,7 @@ public:
     QString getDisplayNameRole() const;
     QString getSendingAddressRole() const;
     QString getReceivingAddressRole() const;
+    QString getAmountRole() const;
     QString getSentAmountRole() const;
     QString getReceivedAmountRole() const;
     QString getStatusRole() const;

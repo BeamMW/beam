@@ -204,8 +204,9 @@
         <translation>Verificar pago</translation>
     </message>
     <message id="wallet-txs-date-time">
-        <source>Date | Time</source>
-        <translation>Fecha | hora</translation>
+        <source>Created on</source>
+        <oldsource>Date | Time</oldsource>
+        <translation type="unfinished">Fecha | hora</translation>
     </message>
     <message id="wallet-txs-copy-addr-cm">
         <source>Copy address</source>
@@ -1452,14 +1453,6 @@ Escanee este código QR o envíe esta dirección al remitente a través de un ca
     </message>
     <message id="general-address-to">
         <source>To</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message id="general-amount-sent">
-        <source>Sent</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message id="general-amount-received">
-        <source>Received</source>
         <translation type="unfinished"></translation>
     </message>
     <message id="loading-view-estimate-hours">

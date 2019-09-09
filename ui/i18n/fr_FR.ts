@@ -204,8 +204,9 @@
         <translation>Vérifier paiement</translation>
     </message>
     <message id="wallet-txs-date-time">
-        <source>Date | Time</source>
-        <translation>Date | heure</translation>
+        <source>Created on</source>
+        <oldsource>Date | Time</oldsource>
+        <translation type="unfinished">Date | heure</translation>
     </message>
     <message id="wallet-txs-copy-addr-cm">
         <source>Copy address</source>
@@ -1452,14 +1453,6 @@ Vous essayez de restaurer un portefeuille Beam existant. Veuillez noter que si v
     </message>
     <message id="general-address-to">
         <source>To</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message id="general-amount-sent">
-        <source>Sent</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message id="general-amount-received">
-        <source>Received</source>
         <translation type="unfinished"></translation>
     </message>
     <message id="loading-view-estimate-hours">

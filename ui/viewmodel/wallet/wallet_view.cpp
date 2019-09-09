@@ -272,7 +272,7 @@ QString WalletViewModel::sortRole() const
 
 void WalletViewModel::setSortRole(const QString& value)
 {
-    if (value != getDateRole() && value != getSentAmountRole() && value != getReceivedAmountRole() &&
+    if (value != getDateRole() && value != getAmountRole() && value != getSentAmountRole() && value != getReceivedAmountRole() &&
         value != getStatusRole() && value != getSendingAddressRole() && value != getReceivingAddressRole())
         return;
 
@@ -314,6 +314,11 @@ QString WalletViewModel::getSendingAddressRole() const
 QString WalletViewModel::getReceivingAddressRole() const
 {
     return "receivingAddress";
+}
+
+QString WalletViewModel::getAmountRole() const
+{
+    return "amount";
 }
 
 QString WalletViewModel::getSentAmountRole() const
@@ -379,6 +384,13 @@ std::function<bool(const TxObject*, const TxObject*)> WalletViewModel::generateC
     {
         return compareTx(lf->displayName(), rt->displayName(), sortOrder);
     };
+
+    if (_sortRole == getAmountRole())
+        return [sortOrder = _sortOrder](const TxObject* lf, const TxObject* rt)
+    {
+        return compareTx(lf->getAmountValue(), rt->getAmountValue(), sortOrder);
+    };
+
 
     if (_sortRole == getSentAmountRole())
         return [sortOrder = _sortOrder](const TxObject* lf, const TxObject* rt)

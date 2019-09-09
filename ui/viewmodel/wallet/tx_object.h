@@ -31,6 +31,7 @@ Q_OBJECT
     Q_PROPERTY(QString userName         READ userName            NOTIFY userChanged)
     Q_PROPERTY(QString displayName      READ displayName         NOTIFY displayNameChanged)
     Q_PROPERTY(QString comment          READ comment             NOTIFY commentChanged)
+    Q_PROPERTY(QString amount           READ getAmount           NOTIFY amountChanged)
     Q_PROPERTY(QString change           READ change              NOTIFY changeChanged)
     Q_PROPERTY(QString status           READ status              NOTIFY statusChanged)
     Q_PROPERTY(bool canCancel           READ canCancel           NOTIFY statusChanged)
@@ -48,19 +49,13 @@ public:
     TxObject(QObject* parent = nullptr);
     TxObject(const beam::wallet::TxDescription& tx, QObject* parent = nullptr);
 
-    auto timeCreated() const -> QDateTime;
-    //
-    QString getSentAmount() const;
-    double getSentAmountValue() const;
-    QString getReceivedAmount() const;
-    double getReceivedAmountValue() const;
-    QString status() const;
-    //
     bool income() const;
     QString date() const;
     QString userName() const;
     QString displayName() const;
     QString comment() const;
+    QString getAmount() const;
+    double getAmountValue() const;
     QString change() const;
     bool canCancel() const;
     bool canDelete() const;

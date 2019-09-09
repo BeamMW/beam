@@ -113,20 +113,20 @@ Item {
                     spacing: 30
 
                     AvailablePanel {
-                        Layout.maximumWidth: 700
-                        Layout.minimumWidth: 350
-                        Layout.fillHeight: true
-                        Layout.fillWidth: true
+                    Layout.maximumWidth: 700
+                    Layout.minimumWidth: 350
+                    Layout.fillHeight: true
+                    Layout.fillWidth: true
 
-                        beamValue: viewModel.beamAvailable
-                        btcValue:  viewModel.btcAvailable
-                        ltcValue:  viewModel.ltcAvailable
-                        qtumValue: viewModel.qtumAvailable
-                        btcOK:     viewModel.btcOK
-                        ltcOK:     viewModel.ltcOK
-                        qtumOK:    viewModel.qtumOK
+                    beamValue: viewModel.beamAvailable
+                    btcValue:  viewModel.btcAvailable
+                    ltcValue:  viewModel.ltcAvailable
+                    qtumValue: viewModel.qtumAvailable
+                    btcOK:     viewModel.btcOK
+                    ltcOK:     viewModel.ltcOK
+                    qtumOK:    viewModel.qtumOK
 
-                        onOpenExternal : function() {
+                    onOpenExternal : function() {
                             var externalLink = "https://www.beam.mw/#exchanges";
                             Utils.openExternal(externalLink, viewModel, externalLinkConfirmation);
                         }
@@ -162,13 +162,15 @@ Item {
                 anchors.right: parent.right
 
                 SFText {
-                    x: 30
 
                     font {
-                        pixelSize: 18
+                        pixelSize: 14
+                        letterSpacing: 4
                         styleName: "Bold"; weight: Font.Bold
+                        capitalization: Font.AllUppercase
                     }
 
+                    opacity: 0.5
                     color: Style.content_main
 
                     //% "Transactions"
@@ -217,35 +219,14 @@ Item {
                     value: transactionsView.sortIndicatorOrder
                 }
 
-                property int resizableWidth: parent.width - iconColumn.width - actionsColumn.width
-
-                TableViewColumn {
-                    id: iconColumn
-                    width: 60
-                    elideMode: Text.ElideRight
-                    movable: false
-                    resizable: false
-                    delegate: Item {
-                        Item {
-                            width: parent.width
-                            height: transactionsView.rowHeight
-                            clip:true
-
-                            SvgImage {
-                                anchors.verticalCenter: parent.verticalCenter
-                                anchors.left: parent.left
-                                anchors.leftMargin: 26 
-                                source: "qrc:/assets/beam-circle.svg"
-                            }
-                        }
-                    }
-                }
+                property int resizableWidth: parent.width - actionsColumn.width
+                property double columnResizeRatio: resizableWidth / 810
 
                 TableViewColumn {
                     role: viewModel.dateRole
-                    //% "Date | Time"
+                    //% "Created on"
                     title: qsTrId("wallet-txs-date-time")
-                    width: 120 * transactionsView.resizableWidth / 960
+                    width: 120 * transactionsView.columnResizeRatio
                     elideMode: Text.ElideRight
                     resizable: false
                     movable: false
@@ -275,7 +256,7 @@ Item {
                     role: viewModel.sendingAddressRole
                     //% "From"
                     title: qsTrId("general-address-from")
-                    width: 170 * transactionsView.resizableWidth / 960
+                    width: 170 * transactionsView.columnResizeRatio
                     elideMode: Text.ElideMiddle
                     resizable: false
                     movable: false
@@ -305,7 +286,7 @@ Item {
                     role: viewModel.receivingAddressRole
                     //% "To"
                     title: qsTrId("general-address-to")
-                    width: 170 * transactionsView.resizableWidth / 960
+                    width: 170 * transactionsView.columnResizeRatio
                     elideMode: Text.ElideMiddle
                     resizable: false
                     movable: false
@@ -332,10 +313,10 @@ Item {
                 }
 
                 TableViewColumn {
-                    role: viewModel.sentAmountRole
-                    //% "Sent"
-                    title: qsTrId("general-amount-sent")
-                    width: 150 * transactionsView.resizableWidth / 960
+                    role: viewModel.amountRole
+                    //% "Amount"
+                    title: qsTrId("general-amount")
+                    width: 200 * transactionsView.columnResizeRatio
                     elideMode: Text.ElideRight
                     movable: false
                     resizable: false
@@ -343,46 +324,16 @@ Item {
                         Item {
                             width: parent.width
                             height: transactionsView.rowHeight
+                            property bool income: (styleData.row >= 0) ? viewModel.transactions[styleData.row].income : false
                             SFLabel {
                                 anchors.leftMargin: 20
                                 anchors.right: parent.right
                                 anchors.left: parent.left
-                                color: Style.accent_outgoing
+                                color: parent.income ? Style.accent_incoming : Style.accent_outgoing
                                 elide: Text.ElideRight
                                 anchors.verticalCenter: parent.verticalCenter
                                 font.pixelSize: 24
-                                text: styleData.value
-                                textFormat: Text.StyledText
-                                font.styleName: "Light"
-                                font.weight: Font.Thin
-                                copyMenuEnabled: true
-                                onCopyText: BeamGlobals.copyToClipboard(styleData.value)
-                            }
-                        }
-                    }
-                }
-
-                TableViewColumn {
-                    role: viewModel.receivedAmountRole
-                    //% "Received"
-                    title: qsTrId("general-amount-received")
-                    width: 150 * transactionsView.resizableWidth / 960
-                    elideMode: Text.ElideRight
-                    movable: false
-                    resizable: false
-                    delegate: Item {
-                        Item {
-                            width: parent.width
-                            height: transactionsView.rowHeight
-                            SFLabel {
-                                anchors.leftMargin: 20
-                                anchors.right: parent.right
-                                anchors.left: parent.left
-                                color: Style.accent_incoming
-                                elide: Text.ElideRight
-                                anchors.verticalCenter: parent.verticalCenter
-                                font.pixelSize: 24
-                                text: styleData.value
+                                text: (parent.income ? "+ " : "- ") + styleData.value
                                 textFormat: Text.StyledText
                                 font.styleName: "Light"
                                 font.weight: Font.Thin
@@ -397,7 +348,7 @@ Item {
                     role: viewModel.statusRole
                     //% "Status"
                     title: qsTrId("general-status")
-                    width: 200 * transactionsView.resizableWidth / 960
+                    width: 150 * transactionsView.columnResizeRatio
                     elideMode: Text.ElideRight
                     movable: false
                     resizable: false

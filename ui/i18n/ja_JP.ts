@@ -204,8 +204,9 @@
         <translation>支払を認証</translation>
     </message>
     <message id="wallet-txs-date-time">
-        <source>Date | Time</source>
-        <translation>日付 | 時間</translation>
+        <source>Created on</source>
+        <oldsource>Date | Time</oldsource>
+        <translation type="unfinished">日付 | 時間</translation>
     </message>
     <message id="wallet-txs-copy-addr-cm">
         <source>Copy address</source>
@@ -1451,14 +1452,6 @@
     </message>
     <message id="general-address-to">
         <source>To</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message id="general-amount-sent">
-        <source>Sent</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message id="general-amount-received">
-        <source>Received</source>
         <translation type="unfinished"></translation>
     </message>
     <message id="loading-view-estimate-hours">

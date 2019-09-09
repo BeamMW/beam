@@ -204,8 +204,9 @@
         <translation>Праверыць плацёж</translation>
     </message>
     <message id="wallet-txs-date-time">
-        <source>Date | Time</source>
-        <translation>Дата | Час</translation>
+        <source>Created on</source>
+        <oldsource>Date | Time</oldsource>
+        <translation type="unfinished">Дата | Час</translation>
     </message>
     <message id="wallet-txs-copy-addr-cm">
         <source>Copy address</source>
@@ -1451,14 +1452,6 @@
     </message>
     <message id="general-address-to">
         <source>To</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message id="general-amount-sent">
-        <source>Sent</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message id="general-amount-received">
-        <source>Received</source>
         <translation type="unfinished"></translation>
     </message>
     <message id="loading-view-estimate-calculating">

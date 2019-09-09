@@ -64,9 +64,19 @@ QString TxObject::comment() const
     return QString(str.c_str()).trimmed();
 }
 
+QString TxObject::getAmount() const
+{
+    return AmountToString(m_tx.m_amount, Currencies::Beam);
+}
+
+double TxObject::getAmountValue() const
+{
+    return m_tx.m_amount;
+}
+
 QString TxObject::getSentAmount() const
 {
-    return m_tx.m_sender ? AmountToString(m_tx.m_amount, Currencies::Beam) : "";
+    return m_tx.m_sender ? getAmount() : "";
 }
 
 double TxObject::getSentAmountValue() const
@@ -76,7 +86,7 @@ double TxObject::getSentAmountValue() const
 
 QString TxObject::getReceivedAmount() const
 {
-    return !m_tx.m_sender ? AmountToString(m_tx.m_amount, Currencies::Beam) : "";
+    return !m_tx.m_sender ? getAmount() : "";
 }
 
 double TxObject::getReceivedAmountValue() const
