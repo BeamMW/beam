@@ -2187,7 +2187,7 @@ void TestLelantus()
 		beam::Serializer ser_;
 		ser_ & proof;
 
-		proof.m_Part1.m_vGQ.clear();
+		proof.m_Part1.m_vG.clear();
 		proof.m_Part2.m_vF.clear();
 
 		beam::Deserializer der_;

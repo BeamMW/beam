@@ -187,19 +187,14 @@ void Proof::Part1::Expose(Oracle& oracle) const
 {
 	oracle
 		<< m_SpendPk
-		<< m_NonceG
+		<< m_Nonce
 		<< m_A
 		<< m_B
 		<< m_C
 		<< m_D;
 
-	for (uint32_t k = 0; k < m_vGQ.size(); k++)
-	{
-		const GQ& x = m_vGQ[k];
-		oracle
-			<< x.m_G
-			<< x.m_Q;
-	}
+	for (uint32_t k = 0; k < m_vG.size(); k++)
+		oracle << m_vG[k];
 }
 
 bool Proof::IsValid(InnerProduct::BatchContext& bc, Oracle& oracle, const Output& outp, Scalar::Native* pKs) const
@@ -208,7 +203,7 @@ bool Proof::IsValid(InnerProduct::BatchContext& bc, Oracle& oracle, const Output
 	if (!N)
 		return false;
 
-	if (m_Part1.m_vGQ.size() != m_Cfg.M)
+	if (m_Part1.m_vG.size() != m_Cfg.M)
 		return false;
 
 	if (m_Part2.m_vF.size() != m_Cfg.get_F())
@@ -240,8 +235,8 @@ bool Proof::IsValid(InnerProduct::BatchContext& bc, Oracle& oracle, const Output
 	oracle >> mctx.x;
 
 	Scalar::Native x2, x3;
-	oracle >> x2; // balance proof challenge
-	oracle >> x3; // spend proof challenge
+	oracle >> x2; // spend proof challenge
+	oracle >> x3; // output proof challenge
 
 	// recover pF0
 	auto itF = m_Part2.m_vF.begin();
@@ -302,56 +297,37 @@ bool Proof::IsValid(InnerProduct::BatchContext& bc, Oracle& oracle, const Output
 
 	// final calculation
 	bc.EquationBegin();
-	Scalar::Native kMulBalance = bc.m_Multiplier;
-	Scalar::Native kMulBalanceChallenged = kMulBalance * x2;
+
+	if (!bc.AddCasual(m_Part1.m_Nonce, bc.m_Multiplier, true))
+		return false;
+
+	if (!bc.AddCasual(m_Part1.m_SpendPk, x2))
+		return false;
+
+	bc.AddCasual(outp.m_Pt, x3);
+
+	bc.AddPrepared(InnerProduct::BatchContext::s_Idx_G, m_Part2.m_ProofG);
+	bc.AddPrepared(InnerProduct::BatchContext::s_Idx_H, m_Part2.m_ProofH);
 
 	bc.EquationBegin();
-	Scalar::Native kMulPG = bc.m_Multiplier;
 
-	// G and Q
-	Scalar::Native xPwr = 1U;
+	// G
+	Scalar::Native xPwr = -bc.m_Multiplier;
 	for (uint32_t j = 0; j < m_Cfg.M; j++)
 	{
-		const Part1::GQ& x = m_Part1.m_vGQ[j];
-		bc.m_Multiplier = -kMulPG;
-		if (!bc.AddCasual(x.m_G, xPwr)) // + G[j] * (-mulPG)
-			return false;
-
-
-		bc.m_Multiplier += kMulBalanceChallenged;
-		if (!bc.AddCasual(x.m_Q, xPwr)) // P[j] * (-mulPG + mulBalance * challenge)
+		if (!bc.AddCasual(m_Part1.m_vG[j], xPwr, true)) // - G[j] * x^j
 			return false;
 
 		xPwr *= mctx.x;
 	}
 
-	bc.m_Multiplier = kMulBalanceChallenged;
-
-	xPwr = -xPwr;
-	bc.AddCasual(outp.m_Pt, xPwr);
-
-	bc.AddPrepared(InnerProduct::BatchContext::s_Idx_G, m_Part2.m_zR);
-	bc.AddPrepared(InnerProduct::BatchContext::s_Idx_H, m_Part2.m_zV);
-
-	if (!bc.AddCasual(m_Part1.m_NonceG, kMulBalance, true))
-		return false;
-
-	bc.m_Multiplier = kMulBalance;
-
-	if (!bc.AddCasual(m_Part1.m_SpendPk, x3))
-		return false;
-
-	bc.AddPrepared(InnerProduct::BatchContext::s_Idx_G, m_Part2.m_ProofG);
-
-	bc.m_Multiplier = kMulPG;
-
 	// Commitments from CmList
-	Scalar::Native kSer(Zero);
+	Scalar::Native kBias(Zero);
 
 	Point::Native pt;
 	for (uint32_t iPos = 0; iPos < N; iPos++)
 	{
-		Scalar::Native k = kMulPG;
+		Scalar::Native k = bc.m_Multiplier;
 
 		uint32_t ij = iPos;
 
@@ -362,21 +338,20 @@ bool Proof::IsValid(InnerProduct::BatchContext& bc, Oracle& oracle, const Output
 			ij /= m_Cfg.n;
 		}
 
-		kSer += k;
+		kBias += k;
 
 		pKs[iPos] += k;
 	}
 
 	SpendKey::ToSerial(xPwr, m_Part1.m_SpendPk);
 
-	kSer = -kSer;
-	kSer *= xPwr;
-	bc.AddPreparedM(InnerProduct::BatchContext::s_Idx_J, kSer);
+	Point::Native ptBias = outp.m_Pt;
+	ptBias += Context::get().J * xPwr;
+	bc.AddCasual(ptBias, -kBias, true);
 
 	// compare with target
-	bc.m_Multiplier = -kMulPG;
+	bc.m_Multiplier = -bc.m_Multiplier;
 	bc.AddPrepared(InnerProduct::BatchContext::s_Idx_G, m_Part2.m_zR);
-	bc.AddPrepared(InnerProduct::BatchContext::s_Idx_H, m_Part2.m_zV);
 
 	return true;
 }
@@ -398,10 +373,7 @@ void Prover::InitNonces(const uintBig& seed)
 	Scalar::Native* pA = m_a;
 	for (uint32_t j = 0; j < m_Proof.m_Cfg.M; j++)
 	{
-		nonceGen
-			>> m_Gamma[j]
-			>> m_Ro[j]
-			>> m_Tau[j];
+		nonceGen >> m_Tau[j];
 
 		for (uint32_t i = 1; i < m_Proof.m_Cfg.n; i++)
 		{
@@ -413,7 +385,8 @@ void Prover::InitNonces(const uintBig& seed)
 	}
 
 	nonceGen
-		>> m_vBuf[Idx::rBalance];
+		>> m_vBuf[Idx::rNonceG]
+		>> m_vBuf[Idx::rNonceH];
 }
 
 void Prover::CalculateP()
@@ -555,37 +528,37 @@ void Prover::ExtractABCD()
 	}
 }
 
-void Prover::ExtractGQ()
+void Prover::ExtractG(const Point::Native& ptOut)
 {
 	const uint32_t nSizeNaggle = 128;
 	MultiMac_WithBufs<nSizeNaggle, 1> mm;
 
 	uint32_t iPos = 0;
 	Point::Native pG[Cfg::Max::M], comm, comm2;
-	Scalar::Native s1;
 
 	const uint32_t N = m_Proof.m_Cfg.get_N();
 	assert(N);
+
+	Point::Native ptBias = ptOut;
+	ptBias += Context::get().J * m_vBuf[Idx::Serial];
+	ptBias = -ptBias;
+
+	Scalar::Native pBias[Cfg::Max::M];
+	for (uint32_t k = 0; k < m_Proof.m_Cfg.M; k++)
+		pBias[k] = Zero;
 
 	while (true)
 	{
 		m_List.Import(mm, iPos, std::min(nSizeNaggle, N - iPos));
 
-		mm.m_ppPrepared[mm.m_Prepared] = &Context::get().m_Ipp.J_;
-		Scalar::Native& kSer = mm.m_pKPrep[mm.m_Prepared++];
-
 		Scalar::Native* pP = m_p;
 		for (uint32_t k = 0; k < m_Proof.m_Cfg.M; k++)
 		{
-			kSer = Zero;
+			mm.m_pKCasual = pP + iPos;
 
 			for (uint32_t i = 0; i < static_cast<uint32_t>(mm.m_Casual); i++)
-				kSer += pP[iPos + i];
+				pBias[k] += pP[iPos + i];
 
-			kSer *= m_vBuf[Idx::Serial];
-			kSer = -kSer;
-
-			mm.m_pKCasual = pP + iPos;
 			mm.Calculate(comm);
 			pG[k] += comm;
 
@@ -598,20 +571,21 @@ void Prover::ExtractGQ()
 			break;
 	}
 
-	// add gammas, split G[] into G[] and Q[]
+	mm.Reset();
+	mm.m_ppPrepared[0] = &Context::get().m_Ipp.G_;
+	mm.m_pCasual[0].Init(ptBias);
+	mm.m_Prepared = 1;
+	mm.m_Casual = 1;
+
 	for (uint32_t k = 0; k < m_Proof.m_Cfg.M; k++)
 	{
-		Proof::Part1::GQ& res = m_Proof.m_Part1.m_vGQ[k];
-		comm = Context::get().G * m_Gamma[k];
+		mm.m_pKPrep[0] = m_Tau[k]; // don't set it by pointer, the calculation in secure mode overwrites it!
+		mm.m_pKCasual = pBias + k;
+		mm.Calculate(comm);
 
-		comm2 = comm;
-		comm2 += Context::get().G * m_Tau[k];
-		comm2 += Context::get().H_Big * m_Ro[k];
-		res.m_Q = comm2;
-
-		comm = -comm;
 		comm += pG[k];
-		res.m_G = comm;
+
+		m_Proof.m_Part1.m_vG[k] = comm;
 	}
 }
 
@@ -627,42 +601,36 @@ void Prover::ExtractPart2(Oracle& oracle)
 {
 	Scalar::Native x1, x2, x3;
 	oracle >> x1;
-	oracle >> x2; // balance proof challenge
-	oracle >> x3; // spend proof challenge
+	oracle >> x2; // spend proof challenge
+	oracle >> x3; // output proof challenge
 
 	ExtractBlinded(m_Proof.m_Part2.m_zA, m_vBuf[Idx::rB], x1, m_vBuf[Idx::rA]);
 	ExtractBlinded(m_Proof.m_Part2.m_zC, m_vBuf[Idx::rC], x1, m_vBuf[Idx::rD]);
 
-	Scalar::Native zV(Zero), zR(Zero), xPwr(1U);
-
-	Scalar::Native kBalance = Zero;
+	Scalar::Native zR(Zero), xPwr(1U);
 
 	for (uint32_t j = 0; j < m_Proof.m_Cfg.M; j++)
 	{
-		zV += m_Ro[j] * xPwr;
 		zR += m_Tau[j] * xPwr;
-
-		kBalance += m_Gamma[j] * xPwr;
-
 		xPwr *= x1;
 	}
 
 	Scalar::Native dR = m_Witness.V.m_R - m_Witness.V.m_R_Output;
-	kBalance += dR * xPwr;
-	kBalance *= x2; // challenge
-	kBalance += m_vBuf[Idx::rBalance]; // blinding
+	Scalar::Native kG = m_vBuf[Idx::rNonceG]; // blinding
+	Scalar::Native kH = m_vBuf[Idx::rNonceH]; // blinding
 
-	kBalance += x3 * m_Witness.V.m_SpendSk;
+	kG += x2 * m_Witness.V.m_SpendSk;
+	kG += x3 * m_Witness.V.m_R_Output;
+	kH += x3 * Scalar::Native(m_Witness.V.m_V);
 
-	kBalance = -kBalance;
-	m_Proof.m_Part2.m_ProofG = kBalance;
+	kG = -kG;
+	m_Proof.m_Part2.m_ProofG = kG;
 
-	zV = -zV;
-	zV += Scalar::Native(m_Witness.V.m_V) * xPwr;
-	m_Proof.m_Part2.m_zV = zV;
+	kH = -kH;
+	m_Proof.m_Part2.m_ProofH = kH;
 
 	zR = -zR;
-	zR += m_Witness.V.m_R * xPwr;
+	zR += dR * xPwr;
 	m_Proof.m_Part2.m_zR = zR;
 
 	uint32_t nL_Reduced = m_Witness.V.m_L;
@@ -689,17 +657,18 @@ void Prover::ExtractPart2(Oracle& oracle)
 
 void Prover::Generate(Proof::Output& outp, const uintBig& seed, Oracle& oracle)
 {
+	outp.m_Pt = Commitment(m_Witness.V.m_R_Output, m_Witness.V.m_V);
+	outp.m_Commitment = outp.m_Pt;
+
 	const uint32_t N = m_Proof.m_Cfg.get_N();
 	assert(N);
 
-	m_vBuf.reset(new Scalar::Native[Idx::CountFixed + m_Proof.m_Cfg.M * (3 + m_Proof.m_Cfg.n + N)]);
+	m_vBuf.reset(new Scalar::Native[Idx::count + m_Proof.m_Cfg.M * (1 + m_Proof.m_Cfg.n + N)]);
 
-	m_Proof.m_Part1.m_vGQ.resize(m_Proof.m_Cfg.M);
+	m_Proof.m_Part1.m_vG.resize(m_Proof.m_Cfg.M);
 	m_Proof.m_Part2.m_vF.resize(m_Proof.m_Cfg.M * (m_Proof.m_Cfg.n - 1));
 
-	m_Gamma = m_vBuf.get() + Idx::CountFixed;
-	m_Ro = m_Gamma + m_Proof.m_Cfg.M;
-	m_Tau = m_Ro + m_Proof.m_Cfg.M;
+	m_Tau = m_vBuf.get() + Idx::count;
 	m_a = m_Tau + m_Proof.m_Cfg.M;
 	m_p = m_a + m_Proof.m_Cfg.M * m_Proof.m_Cfg.n;
 
@@ -709,12 +678,11 @@ void Prover::Generate(Proof::Output& outp, const uintBig& seed, Oracle& oracle)
 	InitNonces(seed);
 	ExtractABCD();
 	CalculateP();
-	ExtractGQ();
+	ExtractG(outp.m_Pt);
 
-	outp.m_Pt = Commitment(m_Witness.V.m_R_Output, m_Witness.V.m_V);
-	outp.m_Commitment = outp.m_Pt;
-
-	m_Proof.m_Part1.m_NonceG = Context::get().G * m_vBuf[Idx::rBalance];
+	Point::Native pt = Context::get().G * m_vBuf[Idx::rNonceG];
+	pt += Context::get().H_Big * m_vBuf[Idx::rNonceH];
+	m_Proof.m_Part1.m_Nonce = pt;
 
 	m_Proof.m_Part1.Expose(oracle);
 	oracle << outp.m_Commitment;
@@ -724,5 +692,5 @@ void Prover::Generate(Proof::Output& outp, const uintBig& seed, Oracle& oracle)
 
 
 
-} // namespace beam
 } // namespace Lelantus
+} // namespace beam

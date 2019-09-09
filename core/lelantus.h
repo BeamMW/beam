@@ -76,14 +76,9 @@ namespace Lelantus {
 		{
 			ECC::Point m_SpendPk;
 			ECC::Point m_A, m_B, m_C, m_D;
-			ECC::Point m_NonceG; // consists of G only. Used to sign both balance and spend proofs.
+			ECC::Point m_Nonce; // Used in signatures
 
-			struct GQ {
-				ECC::Point m_G;
-				ECC::Point m_Q;
-			};
-
-			std::vector<GQ> m_vGQ;
+			std::vector<ECC::Point> m_vG;
 
 			void Expose(ECC::Oracle& oracle) const;
 
@@ -91,9 +86,10 @@ namespace Lelantus {
 		// <- x
 		struct Part2
 		{
-			ECC::Scalar m_zA, m_zC, m_zV, m_zR;
+			ECC::Scalar m_zA, m_zC, m_zR;
 			std::vector<ECC::Scalar> m_vF;
-			ECC::Scalar m_ProofG; // Both balance and spend proofs
+			ECC::Scalar m_ProofG; // generalized proof for Outp + spend proof
+			ECC::Scalar m_ProofH; // generalized proof for Outp
 
 		} m_Part2;
 
@@ -108,22 +104,21 @@ namespace Lelantus {
 
 		struct Idx
 		{
-			static const uint32_t rA = 0;
-			static const uint32_t rB = 1;
-			static const uint32_t rC = 2;
-			static const uint32_t rD = 3;
-			static const uint32_t rBalance = 4;
-			static const uint32_t Serial = 5;
+			enum Enum {
+				rA,
+				rB,
+				rC,
+				rD,
+				rNonceG,
+				rNonceH,
+				Serial,
 
-			static const uint32_t CountFixed = 6;
-
-			// 
+				count
+			};
 		};
 
 		// nonces
 		ECC::Scalar::Native* m_a;
-		ECC::Scalar::Native* m_Gamma;
-		ECC::Scalar::Native* m_Ro;
 		ECC::Scalar::Native* m_Tau;
 
 		// precalculated coeffs
@@ -132,7 +127,7 @@ namespace Lelantus {
 		void InitNonces(const ECC::uintBig& seed);
 		void CalculateP();
 		void ExtractABCD();
-		void ExtractGQ();
+		void ExtractG(const ECC::Point::Native& ptOut);
 		void ExtractPart2(ECC::Oracle&);
 
 		static void ExtractBlinded(ECC::Scalar& out, const ECC::Scalar::Native& sk, const ECC::Scalar::Native& challenge, const ECC::Scalar::Native& nonce);

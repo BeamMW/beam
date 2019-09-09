@@ -654,21 +654,16 @@ namespace detail
 				& v.m_Part1.m_B.m_X
 				& v.m_Part1.m_C.m_X
 				& v.m_Part1.m_D.m_X
-				& v.m_Part1.m_NonceG.m_X
+				& v.m_Part1.m_Nonce.m_X
 				& v.m_Part2.m_zA
 				& v.m_Part2.m_zC
-				& v.m_Part2.m_zV
 				& v.m_Part2.m_zR
-				& v.m_Part2.m_ProofG;
+				& v.m_Part2.m_ProofG
+				& v.m_Part2.m_ProofH;
 
-			assert(v.m_Part1.m_vGQ.size() >= v.m_Cfg.M);
+			assert(v.m_Part1.m_vG.size() >= v.m_Cfg.M);
 			for (uint32_t i = 0; i < v.m_Cfg.M; i++)
-			{
-				const auto& x = v.m_Part1.m_vGQ[i];
-				ar
-					& x.m_G.m_X
-					& x.m_Q.m_X;
-			}
+				ar & v.m_Part1.m_vG[i].m_X;
 
 			MultibitVar<Archive> mb(ar);
 
@@ -677,14 +672,10 @@ namespace detail
 			mb.put(v.m_Part1.m_B.m_Y);
 			mb.put(v.m_Part1.m_C.m_Y);
 			mb.put(v.m_Part1.m_D.m_Y);
-			mb.put(v.m_Part1.m_NonceG.m_Y);
+			mb.put(v.m_Part1.m_Nonce.m_Y);
 
 			for (uint32_t i = 0; i < v.m_Cfg.M; i++)
-			{
-				const auto& x = v.m_Part1.m_vGQ[i];
-				mb.put(x.m_G.m_Y);
-				mb.put(x.m_Q.m_Y);
-			}
+				mb.put(v.m_Part1.m_vG[i].m_Y);
 
 			mb.Flush();
 
@@ -708,24 +699,19 @@ namespace detail
 				& v.m_Part1.m_B.m_X
 				& v.m_Part1.m_C.m_X
 				& v.m_Part1.m_D.m_X
-				& v.m_Part1.m_NonceG.m_X
+				& v.m_Part1.m_Nonce.m_X
 				& v.m_Part2.m_zA
 				& v.m_Part2.m_zC
-				& v.m_Part2.m_zV
 				& v.m_Part2.m_zR
-				& v.m_Part2.m_ProofG;
+				& v.m_Part2.m_ProofG
+				& v.m_Part2.m_ProofH;
 
 			if (!v.m_Cfg.get_N())
 				throw std::runtime_error("L/Cfg");
 
-			v.m_Part1.m_vGQ.resize(v.m_Cfg.M);
+			v.m_Part1.m_vG.resize(v.m_Cfg.M);
 			for (uint32_t i = 0; i < v.m_Cfg.M; i++)
-			{
-				auto& x = v.m_Part1.m_vGQ[i];
-				ar
-					& x.m_G.m_X
-					& x.m_Q.m_X;
-			}
+				ar & v.m_Part1.m_vG[i].m_X;
 
 			MultibitVar<Archive> mb(ar);
 
@@ -734,14 +720,10 @@ namespace detail
 			mb.get(v.m_Part1.m_B.m_Y);
 			mb.get(v.m_Part1.m_C.m_Y);
 			mb.get(v.m_Part1.m_D.m_Y);
-			mb.get(v.m_Part1.m_NonceG.m_Y);
+			mb.get(v.m_Part1.m_Nonce.m_Y);
 
 			for (uint32_t i = 0; i < v.m_Cfg.M; i++)
-			{
-				auto& x = v.m_Part1.m_vGQ[i];
-				mb.get(x.m_G.m_Y);
-				mb.get(x.m_Q.m_Y);
-			}
+				mb.get(v.m_Part1.m_vG[i].m_Y);
 
 			uint32_t nSizeF = v.m_Cfg.get_F();
 			v.m_Part2.m_vF.resize(nSizeF);
