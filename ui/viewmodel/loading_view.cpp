@@ -125,7 +125,7 @@ LoadingViewModel::~LoadingViewModel()
 {
 }
 
-void LoadingViewModel::onNodeInitProgressUpdated(uint64_t done, uint64_t total)
+void LoadingViewModel::onNodeInitProgressUpdated(quint64 done, quint64 total)
 {
     m_nodeInitProgress = done / static_cast<double>(total);
 }
