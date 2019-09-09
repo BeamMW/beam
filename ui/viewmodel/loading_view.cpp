@@ -15,7 +15,6 @@
 #include "loading_view.h"
 
 #include <cmath>
-#include <QMetaType>
 #include "model/app_model.h"
 #include "ui/viewmodel/ui_helpers.h"
 
