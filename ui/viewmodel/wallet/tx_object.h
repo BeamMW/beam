@@ -14,19 +14,23 @@
 #pragma once
 
 #include <QObject>
-#include "payment_item.h"
+#include <QDateTime>
+#include "viewmodel/payment_item.h"
 
 class TxObject : public QObject
 {
 Q_OBJECT
-
+    //
+    Q_PROPERTY(QDateTime    timeCreated         READ timeCreated        NOTIFY dateChanged)
+    //
+    Q_PROPERTY(QString      sentAmount          READ getSentAmount      NOTIFY sentAmountChanged)
+    Q_PROPERTY(QString      receivedAmount      READ getReceivedAmount  NOTIFY receivedAmountChanged)
+    //
     Q_PROPERTY(bool income              READ income              NOTIFY incomeChanged)
     Q_PROPERTY(QString date             READ date                NOTIFY dateChanged)
     Q_PROPERTY(QString userName         READ userName            NOTIFY userChanged)
     Q_PROPERTY(QString displayName      READ displayName         NOTIFY displayNameChanged)
     Q_PROPERTY(QString comment          READ comment             NOTIFY commentChanged)
-    Q_PROPERTY(QString sentAmount       READ getSentAmount       NOTIFY sentAmountChanged)
-    Q_PROPERTY(QString receivedAmount   READ getReceivedAmount   NOTIFY receivedAmountChanged)
     Q_PROPERTY(QString change           READ change              NOTIFY changeChanged)
     Q_PROPERTY(QString status           READ status              NOTIFY statusChanged)
     Q_PROPERTY(bool canCancel           READ canCancel           NOTIFY statusChanged)
@@ -44,17 +48,20 @@ public:
     TxObject(QObject* parent = nullptr);
     TxObject(const beam::wallet::TxDescription& tx, QObject* parent = nullptr);
 
+    auto timeCreated() const -> QDateTime;
+    //
+    QString getSentAmount() const;
+    double getSentAmountValue() const;
+    QString getReceivedAmount() const;
+    double getReceivedAmountValue() const;
+    QString status() const;
+    //
     bool income() const;
     QString date() const;
     QString userName() const;
     QString displayName() const;
     QString comment() const;
-    QString getSentAmount() const;
-    double getSentAmountValue() const;
-    QString getReceivedAmount() const;
-    double getReceivedAmountValue() const;
     QString change() const;
-    QString status() const;
     bool canCancel() const;
     bool canDelete() const;
     QString getSendingAddress() const;

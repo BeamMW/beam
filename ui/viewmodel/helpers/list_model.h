@@ -48,7 +48,12 @@ public:
 
     void update(const std::vector<T>& items)
     {
+        // todo
+    }
 
+    void remove(const std::vector<T>& items)
+    {
+        // todo
     }
 
     void reset(const std::vector<T>& items)

@@ -15,11 +15,11 @@
 
 #include <QObject>
 #include <QQmlListProperty>
+#include "wallet/bitcoin/client.h"
 #include "model/wallet_model.h"
 #include "model/settings.h"
-#include "wallet/bitcoin/client.h"
-#include "messages_view.h"
-#include "status_holder.h"
+#include "viewmodel/messages_view.h"
+#include "viewmodel/status_holder.h"
 #include "tx_object.h"
 
 class WalletViewModel : public QObject

@@ -38,7 +38,7 @@ Item {
             Layout.fillWidth: true
             Layout.fillHeight: true
 
-            state: "all"
+            state: "offers"
 
             RowLayout {
                 Layout.alignment: Qt.AlignRight | Qt.AlignTop
@@ -67,120 +67,187 @@ Item {
                 Layout.topMargin: 32
                 Layout.bottomMargin: 0
 
-                SFText {
-                    Layout.alignment: Qt.AlignTop
-
-                    font.pixelSize: 14
-                    font.letterSpacing: 4
-                    font.weight: Font.Bold
-                    font.capitalization: Font.AllUppercase
-                    color: Style.content_main
-                    opacity: 0.5
-                    //% "Active offers"
-                    text: qsTrId("offer-book-title-2")
-                }
-
-                SFText {
-                    Layout.alignment: Qt.AlignTop
-                    Layout.topMargin: 2
-                    Layout.leftMargin: 60
-
-                    font.pixelSize: 12
-                    font.letterSpacing: 0.4
-                    color: Style.content_main
-                    opacity: 0.5
-                    //% "Coins"
-                    text: qsTrId("offer-book-coins")
-                }
-                
-                CustomComboBox {
-                    id: coinTypeComboBox
-                    
-                    Layout.alignment: Qt.AlignTop
-                    Layout.topMargin: 2
-
-                    height: 32
-                    Layout.preferredWidth: 60
-                    fontPixelSize: 12
-                    fontLetterSpacing: 0.4
-                    color: Style.content_main
-
-                    currentIndex: viewModel.getCoinType()
-                    model: ["BTC", "LTC", "QTUM"] // Utils.currenciesList()   // "BEAM", "BTC", "LTC", "QTUM"
-                    onCurrentIndexChanged: viewModel.setCoinType(currentIndex)
-                }
-
-                // Image {
+                // SFText {
                 //     Layout.alignment: Qt.AlignTop
-                //     source: "qrc:/assets/icon-swap-complered.svg"
+
+                //     font.pixelSize: 14
+                //     font.letterSpacing: 4
+                //     font.weight: Font.Bold
+                //     font.capitalization: Font.AllUppercase
+                //     color: Style.content_main
+                //     opacity: 0.5
+                //     //% "Active offers"
+                //     text: qsTrId("offer-book-title-2")
                 // }
 
+                // SFText {
+                //     Layout.alignment: Qt.AlignTop
+                //     Layout.topMargin: 2
+                //     Layout.leftMargin: 60
+
+                //     font.pixelSize: 12
+                //     font.letterSpacing: 0.4
+                //     color: Style.content_main
+                //     opacity: 0.5
+                //     //% "Coins"
+                //     text: qsTrId("offer-book-coins")
+                // }
+                
                 // CustomComboBox {
+                //     id: coinTypeComboBox
+                    
                 //     Layout.alignment: Qt.AlignTop
                 //     Layout.topMargin: 2
 
                 //     height: 32
-                //     // minimalWidth: 200
+                //     Layout.preferredWidth: 60
                 //     fontPixelSize: 12
                 //     fontLetterSpacing: 0.4
                 //     color: Style.content_main
 
-                //     currentIndex: viewModel.getCoinType() + 1
-                //     model: Utils.currenciesList()   // "BEAM", "BTC", "LTC", "QTUM"
-                //     onCurrentIndexChanged: viewModel.setCoinType(currentIndex - 1)
+                //     currentIndex: viewModel.getCoinType()
+                //     model: ["BTC", "LTC", "QTUM"] // Utils.currenciesList()   // "BEAM", "BTC", "LTC", "QTUM"
+                //     onCurrentIndexChanged: viewModel.setCoinType(currentIndex)
                 // }
 
-                Item {
-                    Layout.fillWidth: true
-                }
+                // Item {
+                //     Layout.fillWidth: true
+                // }
 
                 TxFilter{
-                    id: filterAll
+                    id: offersTab
                     Layout.alignment: Qt.AlignTop
-                    //% "All"
-                    label: qsTrId("offer-book-all-tab")
-                    onClicked: offersLayout.state = "all"
+                    //% "Active offers"
+                    label: qsTrId("offer-book-active-offers-tab")
+                    onClicked: offersLayout.state = "offers"
                     capitalization: Font.AllUppercase
                 }
 
                 TxFilter{
-                    id: filterMine
+                    id: transactionsTab
                     Layout.alignment: Qt.AlignTop
                     Layout.leftMargin: 40
-                    //% "Mine"
-                    label: qsTrId("offer-book-mine-tab")
-                    onClicked: offersLayout.state = "mine"
-                    capitalization: Font.AllUppercase
-                }
-
-                TxFilter{
-                    id: filterOthers
-                    Layout.alignment: Qt.AlignTop
-                    Layout.leftMargin: 40
-                    //% "Others"
-                    label: qsTrId("offer-book-others-tab")
-                    onClicked: offersLayout.state = "others"
+                    //% "Transactions"
+                    label: qsTrId("offer-book-transactions-tab")
+                    onClicked: offersLayout.state = "transactions"
                     capitalization: Font.AllUppercase
                 }
             }
             
             states: [
                 State {
-                    name: "all"
-                    PropertyChanges { target: filterAll; state: "active" }
-                    PropertyChanges { target: proxyModel; filterString: "*" }
+                    name: "offers"
+                    PropertyChanges { target: offersTab; state: "active" }
+                    PropertyChanges { target: tableView; visible: true }
+                    PropertyChanges { target: transactionsTable; visible: false }
                 },
                 State {
-                    name: "mine"
-                    PropertyChanges { target: filterMine; state: "active" }
-                    PropertyChanges { target: proxyModel; filterString: "true" }
-                },
-                State {
-                    name: "others"
-                    PropertyChanges { target: filterOthers; state: "active" }
-                    PropertyChanges { target: proxyModel; filterString: "false" }
+                    name: "transactions"
+                    PropertyChanges { target: transactionsTab; state: "active" }
+                    PropertyChanges { target: tableView; visible: false }
+                    PropertyChanges { target: transactionsTable; visible: true }
                 }
             ]
+
+            CustomTableView {
+                id: transactionsTable
+
+                Layout.alignment: Qt.AlignTop
+                Layout.fillWidth : true
+                Layout.fillHeight : true
+                Layout.topMargin: 15
+
+                property int rowHeight: 69
+                property int columnWidth: width / 6
+
+                visible: false
+                frameVisible: false
+                selectionMode: SelectionMode.NoSelection
+                backgroundVisible: false
+                sortIndicatorVisible: true
+                sortIndicatorColumn: 0
+                sortIndicatorOrder: Qt.DescendingOrder
+
+                model: SortFilterProxyModel {
+                    id: txProxyModel
+                    source: viewModel.transactions
+
+                    sortOrder: transactionsTable.sortIndicatorOrder
+                    sortCaseSensitivity: Qt.CaseInsensitive
+                    sortRole: transactionsTable.getColumn(transactionsTable.sortIndicatorColumn).role + "Sort"
+
+                    filterRole: "isOwnOffer"
+                    // filterString: "*"
+                    filterSyntax: SortFilterProxyModel.Wildcard
+                    filterCaseSensitivity: Qt.CaseInsensitive
+                }
+
+                rowDelegate: Item {
+                    height: transactionsTable.rowHeight
+                    anchors.left: parent.left
+                    anchors.right: parent.right
+
+                    Rectangle {
+                        anchors.fill: parent                        
+                        color: styleData.selected ? Style.row_selected : Style.background_row_even
+                        visible: styleData.selected ? true : styleData.alternate
+                    }
+                }
+
+                itemDelegate: TableItem {
+                    text: styleData.value
+                    elide: Text.ElideRight
+                }
+
+                TableViewColumn {
+                    role: "timeCreated"
+                    //% "Created on"
+                    title: qsTrId("offer-book-tx-table-created")
+                    width: transactionsTable.columnWidth
+                    movable: false
+                    resizable: false
+                }
+                TableViewColumn {
+                    role: "addressFrom"
+                    //% "From"
+                    title: qsTrId("offer-book-tx-table-from")
+                    width: transactionsTable.columnWidth
+                    movable: false
+                    resizable: false
+                }
+                TableViewColumn {
+                    role: "addressTo"
+                    //% "To"
+                    title: qsTrId("offer-book-tx-table-to")
+                    width: transactionsTable.columnWidth
+                    movable: false
+                    resizable: false
+                }
+                TableViewColumn {
+                    role: "amountSend"
+                    //% "Sent"
+                    title: qsTrId("offer-book-tx-table-sent")
+                    width: transactionsTable.columnWidth
+                    movable: false
+                    resizable: false
+                }
+                TableViewColumn {
+                    role: "amountReceive"
+                    //% "Received"
+                    title: qsTrId("offer-book-tx-table-received")
+                    width: transactionsTable.columnWidth
+                    movable: false
+                    resizable: false
+                }
+                TableViewColumn {
+                    role: "status"
+                    //% "Status"
+                    title: qsTrId("offer-book-tx-table-status")
+                    width: transactionsTable.columnWidth
+                    movable: false
+                    resizable: false
+                }
+            }   // CustomTableView
 
             CustomTableView {
                 id: tableView
@@ -193,6 +260,7 @@ Item {
                 property int rowHeight: 69
                 property int columnWidth: width / 6
 
+                visible: false
                 frameVisible: false
                 selectionMode: SelectionMode.NoSelection
                 backgroundVisible: false
@@ -312,7 +380,7 @@ Item {
                         anchors.fill: parent                        
                         color: styleData.selected ? Style.row_selected : Style.background_row_even
                         visible: styleData.selected ? true : styleData.alternate
-                    }                    
+                    }
                 }
 
                 itemDelegate: TableItem {

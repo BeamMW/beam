@@ -15,7 +15,7 @@
 #pragma once
 
 #include "swap_offer_item.h"
-#include "helpers/list_model.h"
+#include "viewmodel/helpers/list_model.h"
 
 class SwapOffersList : public ListModel<std::shared_ptr<SwapOfferItem>>
 {

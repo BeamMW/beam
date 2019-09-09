@@ -17,36 +17,36 @@
 #include <QObject>
 #include <QDateTime>
 #include "model/wallet_model.h"
-#include "ui_helpers.h"
+#include "viewmodel/ui_helpers.h"
 
 using namespace beam::wallet;
 
 class SwapOfferItem : public QObject
 {
     Q_OBJECT
-    Q_PROPERTY(QDateTime timeCreated        READ timeCreated        NOTIFY changed)
-    Q_PROPERTY(QDateTime timeExpiration     READ timeExpiration     NOTIFY changed)
-    Q_PROPERTY(QString amountSend           READ amountSend         NOTIFY changed)
-    Q_PROPERTY(QString amountReceive        READ amountReceive      NOTIFY changed)
-    Q_PROPERTY(double rate                  READ rate               NOTIFY changed)
-    Q_PROPERTY(bool isOwnOffer              READ isOwnOffer         NOTIFY changed)
-    Q_PROPERTY(TxParameters txParameters    READ getTxParameters    NOTIFY changed)
+    Q_PROPERTY(QDateTime    timeCreated         READ timeCreated        NOTIFY changed)
+    Q_PROPERTY(QDateTime    timeExpiration      READ timeExpiration     NOTIFY changed)
+    Q_PROPERTY(QString      amountSend          READ amountSend         NOTIFY changed)
+    Q_PROPERTY(QString      amountReceive       READ amountReceive      NOTIFY changed)
+    Q_PROPERTY(double       rate                READ rate               NOTIFY changed)
+    Q_PROPERTY(bool         isOwnOffer          READ isOwnOffer         NOTIFY changed)
+    Q_PROPERTY(TxParameters txParameters        READ getTxParameters    NOTIFY changed)
 
 public:
     SwapOfferItem() = default;
     SwapOfferItem(const SwapOffer& offer, bool isOwn);
 
-    QDateTime timeCreated() const;
-    QDateTime timeExpiration() const;
-    QString amountSend() const;
-    QString amountReceive() const;
-    double rate() const;
-    bool isOwnOffer() const;
+    auto timeCreated() const -> QDateTime;
+    auto timeExpiration() const -> QDateTime;
+    auto amountSend() const -> QString;
+    auto amountReceive() const -> QString;
+    auto rate() const -> double;
+    auto isOwnOffer() const -> bool;
 
-    beam::Amount rawAmountSend() const;
-    beam::Amount rawAmountReceive() const;
+    auto rawAmountSend() const -> beam::Amount;
+    auto rawAmountReceive() const -> beam::Amount;
 
-    TxParameters getTxParameters() const;
+    auto getTxParameters() const -> TxParameters;
 
 signals:
     void changed();

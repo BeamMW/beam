@@ -23,12 +23,18 @@ SwapOffersViewModel::SwapOffersViewModel()
         m_coinType(AtomicSwapCoin::Bitcoin)
 {
     LOG_INFO() << "SwapOffersViewModel created";
+
+    connect(&m_walletModel,
+            SIGNAL(txStatus(beam::wallet::ChangeAction, const std::vector<beam::wallet::TxDescription>&)),
+            SLOT(onTransactionsDataModelChanged(beam::wallet::ChangeAction, const std::vector<beam::wallet::TxDescription>&)));
+
     connect(&m_walletModel,
             SIGNAL(swapOffersChanged(beam::wallet::ChangeAction, const std::vector<beam::wallet::SwapOffer>&)),
-            SLOT(onSwapDataModelChanged(beam::wallet::ChangeAction, const std::vector<beam::wallet::SwapOffer>&)));
+            SLOT(onSwapOffersDataModelChanged(beam::wallet::ChangeAction, const std::vector<beam::wallet::SwapOffer>&)));
 
     m_walletModel.getAsync()->setSwapOffersCoinType(m_coinType);
     m_walletModel.getAsync()->getSwapOffers();
+    m_walletModel.getAsync()->getWalletStatus();
 }
 
 SwapOffersViewModel::~SwapOffersViewModel()
@@ -53,6 +59,11 @@ QAbstractItemModel* SwapOffersViewModel::getAllOffers()
     return &m_offersList;
 }
 
+QAbstractItemModel* SwapOffersViewModel::getTransactions()
+{
+    return &m_transactionsList;
+}
+
 void SwapOffersViewModel::cancelTx(QVariant txParameters)
 {
     if (!txParameters.isNull() && txParameters.isValid())
@@ -66,7 +77,49 @@ void SwapOffersViewModel::cancelTx(QVariant txParameters)
     }    
 }
 
-void SwapOffersViewModel::onSwapDataModelChanged(beam::wallet::ChangeAction action, const std::vector<beam::wallet::SwapOffer>& offers)
+void SwapOffersViewModel::onTransactionsDataModelChanged(beam::wallet::ChangeAction action, const std::vector<beam::wallet::TxDescription>& transactions)
+{
+    vector<shared_ptr<TxObject>> newTransactions;
+    newTransactions.reserve(transactions.size());
+
+    for (const auto& t : transactions)
+    {
+        newTransactions.push_back(make_shared<TxObject>(t));
+    }
+
+    switch (action)
+    {
+    case ChangeAction::Reset:
+        {
+            m_transactionsList.reset(newTransactions);
+            break;
+        }
+
+    case ChangeAction::Removed:
+        {
+            // todo
+        }
+
+    case ChangeAction::Added:
+        {
+            m_transactionsList.insert(newTransactions);
+            break;
+        }
+    
+    case ChangeAction::Updated:
+        {
+            // todo
+        }
+
+    default:
+        assert(false && "Unexpected action");
+        break;
+    }
+
+    emit allTransactionsChanged();
+}
+
+void SwapOffersViewModel::onSwapOffersDataModelChanged(beam::wallet::ChangeAction action, const std::vector<beam::wallet::SwapOffer>& offers)
 {
     vector<shared_ptr<SwapOfferItem>> newOffers;
     newOffers.reserve(offers.size());

@@ -14,7 +14,6 @@
 
 #include "swap_offer_item.h"
 #include "utility/helpers.h"
-#include "ui_helpers.h"
 #include "wallet/common.h"
 
 SwapOfferItem::SwapOfferItem(const SwapOffer& offer, bool isOwn)
@@ -24,7 +23,7 @@ SwapOfferItem::SwapOfferItem(const SwapOffer& offer, bool isOwn)
     m_offer.GetParameter(TxParameterID::AtomicSwapIsBeamSide, m_isBeamSide);
 }
 
-QDateTime SwapOfferItem::timeCreated() const
+auto SwapOfferItem::timeCreated() const -> QDateTime
 {
     beam::Timestamp time;
     if (m_offer.GetParameter(TxParameterID::CreateTime, time))
@@ -39,7 +38,7 @@ QDateTime SwapOfferItem::timeCreated() const
     }
 }
 
-QDateTime SwapOfferItem::timeExpiration() const
+auto SwapOfferItem::timeExpiration() const -> QDateTime
 {
     beam::Timestamp time;
     if (m_offer.GetParameter(TxParameterID::CreateTime, time))
@@ -57,7 +56,7 @@ QDateTime SwapOfferItem::timeExpiration() const
     }
 }
 
-beam::Amount SwapOfferItem::rawAmountSend() const
+auto SwapOfferItem::rawAmountSend() const -> beam::Amount
 {
     beam::wallet::TxParameterID paramID = m_isBeamSide ? TxParameterID::AtomicSwapAmount : TxParameterID::Amount;
     beam::Amount amount;
@@ -68,7 +67,7 @@ beam::Amount SwapOfferItem::rawAmountSend() const
     return 0;
 }
 
-beam::Amount SwapOfferItem::rawAmountReceive() const
+auto SwapOfferItem::rawAmountReceive() const -> beam::Amount
 {
     beam::wallet::TxParameterID paramID = m_isBeamSide ? TxParameterID::Amount : TxParameterID::AtomicSwapAmount;
     beam::Amount amount;
@@ -79,7 +78,7 @@ beam::Amount SwapOfferItem::rawAmountReceive() const
     return 0;
 }
 
-double SwapOfferItem::rate() const
+auto SwapOfferItem::rate() const -> double
 {
     double amountReceive = double(int64_t(rawAmountReceive()));
     double amountSend = double(int64_t(rawAmountSend()));
@@ -89,26 +88,26 @@ double SwapOfferItem::rate() const
     return floor( rate * p + .5 ) / p;
 }
 
-QString SwapOfferItem::amountSend() const
+auto SwapOfferItem::amountSend() const -> QString
 {
     beamui::Currencies coinType = m_isBeamSide ? getSwapCoinType() : beamui::Currencies::Beam;
 
     return beamui::AmountToString(rawAmountSend(), coinType);
 }
 
-QString SwapOfferItem::amountReceive() const
+auto SwapOfferItem::amountReceive() const -> QString
 {
     beamui::Currencies coinType = m_isBeamSide ? beamui::Currencies::Beam : getSwapCoinType();
     
     return beamui::AmountToString(rawAmountReceive(), coinType);
 }
 
-bool SwapOfferItem::isOwnOffer() const
+auto SwapOfferItem::isOwnOffer() const -> bool
 {
     return m_isOwnOffer;
 }
 
-beam::wallet::TxParameters SwapOfferItem::getTxParameters() const
+auto SwapOfferItem::getTxParameters() const -> beam::wallet::TxParameters
 {
     return m_offer;
 }

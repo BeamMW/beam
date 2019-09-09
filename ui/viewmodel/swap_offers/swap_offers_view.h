@@ -16,6 +16,7 @@
 
 #include <QObject>
 #include "model/wallet_model.h"
+#include "viewmodel/wallet/transactions_list.h"
 #include "swap_offers_list.h"
 
 using namespace beam::wallet;
@@ -23,12 +24,14 @@ using namespace beam::wallet;
 class SwapOffersViewModel : public QObject
 {
 	Q_OBJECT
-    Q_PROPERTY(QAbstractItemModel* allOffers    READ getAllOffers   NOTIFY allOffersChanged)
+    Q_PROPERTY(QAbstractItemModel*  transactions    READ getTransactions    NOTIFY allTransactionsChanged)
+    Q_PROPERTY(QAbstractItemModel*  allOffers       READ getAllOffers       NOTIFY allOffersChanged)
 
 public:
     SwapOffersViewModel();
     virtual ~SwapOffersViewModel();
 
+    QAbstractItemModel* getTransactions();
     QAbstractItemModel* getAllOffers();
 
     Q_INVOKABLE int getCoinType();
@@ -36,15 +39,19 @@ public:
     Q_INVOKABLE void cancelTx(QVariant txParameters);
 
 public slots:
-    void onSwapDataModelChanged(beam::wallet::ChangeAction action, const std::vector<beam::wallet::SwapOffer>& offers);
+    void onTransactionsDataModelChanged(beam::wallet::ChangeAction action, const std::vector<beam::wallet::TxDescription>& transactions);
+    void onSwapOffersDataModelChanged(beam::wallet::ChangeAction action, const std::vector<beam::wallet::SwapOffer>& offers);
 
 signals:
+    void allTransactionsChanged();
     void allOffersChanged();
 
 private:
     WalletModel& m_walletModel;
     
     AtomicSwapCoin m_coinType;
+
+    TransactionsList m_transactionsList;
     SwapOffersList m_offersList;
 
 };

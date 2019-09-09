@@ -15,16 +15,18 @@
 #include "wallet_view.h"
 
 #include <iomanip>
-#include "ui_helpers.h"
+
 #include <QApplication>
-#include <QClipboard>
-#include "model/app_model.h"
-#include "qrcode/QRCodeGenerator.h"
 #include <QtGui/qimage.h>
 #include <QtCore/qbuffer.h>
 #include <QUrlQuery>
-#include "model/qr.h"
+#include <QClipboard>
+
+#include "qrcode/QRCodeGenerator.h"
 #include "utility/helpers.h"
+#include "model/app_model.h"
+#include "model/qr.h"
+#include "viewmodel/ui_helpers.h"
 
 using namespace beam;
 using namespace beam::wallet;

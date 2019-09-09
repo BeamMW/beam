@@ -71,6 +71,15 @@ list(APPEND SUPPORTED_LANGS "nl_NL")
 
 set(UI_SRC
     ui.cpp
+
+    viewmodel/helpers/list_model.h
+    viewmodel/helpers/sortfilterproxymodel.cpp
+    viewmodel/wallet/tx_object.cpp
+    viewmodel/wallet/transactions_list.cpp
+    viewmodel/wallet/wallet_view.cpp
+    viewmodel/swap_offers/swap_offer_item.cpp
+    viewmodel/swap_offers/swap_offers_list.cpp
+    viewmodel/swap_offers/swap_offers_view.cpp
     viewmodel/start_view.h
     viewmodel/start_view.cpp
     viewmodel/loading_view.h
@@ -83,8 +92,6 @@ set(UI_SRC
     viewmodel/main_view.cpp
     viewmodel/dashboard_view.h
     viewmodel/dashboard_view.cpp
-    viewmodel/wallet_view.h
-    viewmodel/wallet_view.cpp
     viewmodel/notifications_view.h
     viewmodel/notifications_view.cpp
     viewmodel/help_view.h
@@ -107,8 +114,6 @@ set(UI_SRC
     viewmodel/send_view.cpp
     viewmodel/status_holder.cpp
     viewmodel/status_holder.h
-    viewmodel/tx_object.h
-    viewmodel/tx_object.cpp
     viewmodel/payment_item.h
     viewmodel/payment_item.cpp
     viewmodel/qml_globals.h
@@ -118,12 +123,6 @@ set(UI_SRC
     viewmodel/currencies.h
     viewmodel/send_swap_view.h
     viewmodel/send_swap_view.cpp
-    viewmodel/swap_offer_item.cpp
-    viewmodel/swap_offers_list.cpp
-    viewmodel/swap_offers_view.cpp
-    viewmodel/helpers/list_model.h
-    viewmodel/helpers/sortfilterproxymodel.h
-    viewmodel/helpers/sortfilterproxymodel.cpp
 
     model/wallet_model.h
     model/wallet_model.cpp

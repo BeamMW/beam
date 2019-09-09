@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 #include "tx_object.h"
-#include "ui_helpers.h"
+#include "viewmodel/ui_helpers.h"
 
 using namespace beam;
 using namespace beam::wallet;
@@ -29,6 +29,13 @@ TxObject::TxObject(const TxDescription& tx, QObject* parent/* = nullptr*/)
 {
     auto kernelID = QString::fromStdString(to_hex(m_tx.m_kernelID.m_pData, m_tx.m_kernelID.nBytes));
     setKernelID(kernelID);
+}
+
+auto TxObject::timeCreated() const -> QDateTime
+{
+	QDateTime datetime;
+	datetime.setTime_t(m_tx.m_createTime);
+	return datetime;
 }
 
 bool TxObject::income() const
