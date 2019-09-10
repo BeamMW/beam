@@ -309,7 +309,7 @@ if(BEAM_USE_STATIC)
     elseif(UNIX)
         set(OPENSSL_LIBCRYPTO /usr/lib/x86_64-linux-gnu/libcrypto.a)
         set(OPENSSL_LIBSSL /usr/lib/x86_64-linux-gnu/libssl.a)
-
+    elseif(MSVC)
         if(MSVC_VERSION GREATER_EQUAL 1900)
             set(OPENSSL_LIBCRYPTO ${OPENSSL_LIBCRYPTO} legacy_stdio_definitions.lib)
         endif()
