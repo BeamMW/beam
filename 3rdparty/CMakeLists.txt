@@ -11,5 +11,6 @@ add_subdirectory(secp256k1-zkp)
 add_subdirectory(libbitcoin)
 add_subdirectory(sqlite)
 add_subdirectory(crypto/blake)
+add_subdirectory(libuv)
 
 #target_include_directories(pbkdf INTERFACE )

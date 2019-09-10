@@ -68,6 +68,12 @@ else()
 endif()
 
 target_link_libraries(utility OpenSSL::SSL OpenSSL::Crypto)
+if(OPENSSL_USE_STATIC_LIBS)
+    target_link_libraries(utility crypt32.lib)
+    if(MSVC AND MSVC_VERSION GREATER_EQUAL 1900)
+        target_link_libraries(utility legacy_stdio_definitions.lib)
+    endif()
+endif()
 
 if (UNIX)
     target_link_libraries(utility dl)
