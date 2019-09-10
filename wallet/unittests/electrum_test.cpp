@@ -122,15 +122,11 @@ void testAddress()
     {
         electrum.getRawChangeAddress([mainReactor, addresses](const bitcoin::IBridge::Error&, const std::string& addr)
         {
-
             LOG_INFO() << "generated address = " << addr;
 
             WALLET_CHECK(addresses.find(addr) != addresses.end());
-            mainReactor->stop();
         });
     }
-
-    mainReactor->run();
 }
 
 void testDumpPrivKey()
