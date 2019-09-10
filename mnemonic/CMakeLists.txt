@@ -17,10 +17,6 @@ add_library(${TARGET_NAME} STATIC ${MNEMONIC_SRC})
 target_include_directories(${TARGET_NAME} PRIVATE ${PROJECT_SOURCE_DIR}}/external)
 add_dependencies(${TARGET_NAME} core)
 
-if(APPLE)
-    target_link_libraries(${TARGET_NAME} core Boost::regex)
-else()
-    target_link_libraries(${TARGET_NAME} core)
-endif()
+target_link_libraries(${TARGET_NAME} core)
 
 add_subdirectory(unittests)
