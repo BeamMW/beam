@@ -23,6 +23,7 @@
 #include "ui/model/app_model.h"
 
 #include "wallet/bitcoin/settings.h"
+#include "wallet/default_peers.h"
 
 #include "version.h"
 
@@ -61,7 +62,14 @@ namespace
         { "vi_VI", "Tiếng việt"},
         { "ko_KR", "한국어"}
     };
-}
+
+    const vector<string> kOutDatedPeers = beam::getOutdatedDefaultPeers();
+    bool isOutDatedPeer(const string& peer)
+    {
+        return find(kOutDatedPeers.begin(), kOutDatedPeers.end(), peer) !=
+               kOutDatedPeers.end();
+    }
+}  // namespace
 
 const char* WalletSettings::WalletCfg = "beam-wallet.cfg";
 const char* WalletSettings::LogsFolder = "logs";
@@ -239,10 +247,29 @@ static void zipLocalFile(QuaZip& zip, const QString& path, const QString& folder
     }
 }
 
-QStringList WalletSettings::getLocalNodePeers() const
+QStringList WalletSettings::getLocalNodePeers()
 {
     Lock lock(m_mutex);
-    return m_data.value(kLocalNodePeers).value<QStringList>();
+    QStringList peers = m_data.value(kLocalNodePeers).value<QStringList>();
+    size_t outDatedCount = count_if(
+        peers.begin(),
+        peers.end(),
+        [] (const QString& peer)
+        {
+            return isOutDatedPeer(peer.toStdString());
+        });
+    if (outDatedCount >= peers.size() || peers.empty())
+    {
+        auto defaultPeers = beam::getDefaultPeers();
+        peers.clear();
+        peers.reserve(static_cast<int>(defaultPeers.size()));
+        for (const auto& it : defaultPeers)
+        {
+            peers << QString::fromStdString(it);
+        }
+        m_data.setValue(kLocalNodePeers, QVariant::fromValue(peers));
+    }
+    return peers;
 }
 
 void WalletSettings::setLocalNodePeers(const QStringList& qPeers)
@@ -435,6 +462,5 @@ std::shared_ptr<beam::bitcoin::Settings> WalletSettings::getBitcoinSettings() co
     btcSettings->SetConnectionOptions(bitcoindSettings);
     btcSettings->SetFeeRate(feeRate);
 
-    return btcSettings;
-    
+    return btcSettings;   
 }

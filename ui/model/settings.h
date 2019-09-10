@@ -17,6 +17,7 @@
 #include <QObject>
 #include <QSettings>
 #include <QDir>
+#include <QStringList>
 #include <mutex>
 #include "model/wallet_model.h"
 #include "wallet/bitcoin/settings.h"
@@ -57,7 +58,7 @@ public:
     std::string getLocalNodeStorage() const;
     std::string getTempDir() const;
 
-    QStringList getLocalNodePeers() const;
+    QStringList getLocalNodePeers();
     void setLocalNodePeers(const QStringList& qPeers);
 
     QString getLocale() const;
