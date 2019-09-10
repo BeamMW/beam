@@ -1,6 +1,7 @@
 cmake_minimum_required(VERSION 3.11)
 cmake_policy(SET CMP0074 NEW)
 
+find_package(OpenSSL REQUIRED)
 find_package(Boost 1.67 REQUIRED COMPONENTS program_options filesystem)
 
 set(UTILITY_SRC

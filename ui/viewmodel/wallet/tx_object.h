@@ -49,6 +49,15 @@ public:
     TxObject(QObject* parent = nullptr);
     TxObject(const beam::wallet::TxDescription& tx, QObject* parent = nullptr);
 
+    auto timeCreated() const->QDateTime;
+    //
+    QString getSentAmount() const;
+    double getSentAmountValue() const;
+    QString getReceivedAmount() const;
+    double getReceivedAmountValue() const;
+    QString status() const;
+    //
+
     bool income() const;
     QString date() const;
     QString userName() const;
