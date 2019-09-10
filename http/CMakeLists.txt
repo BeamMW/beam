@@ -1,3 +1,5 @@
+cmake_minimum_required(VERSION 3.11)
+
 set(HTTP_SRC
     http_msg_reader.cpp
     http_msg_creator.cpp

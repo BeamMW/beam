@@ -1,5 +1,7 @@
-cmake_minimum_required(VERSION 3.10)
+cmake_minimum_required(VERSION 3.11)
 cmake_policy(SET CMP0074 NEW)
+
+find_package(Boost 1.67 REQUIRED COMPONENTS program_options filesystem)
 
 set(UTILITY_SRC
     common.cpp
@@ -52,14 +54,10 @@ endif()
 add_library(utility STATIC ${UTILITY_SRC} ${IO_SRC})
 target_compile_features(utility PUBLIC cxx_std_17)
 
-if(ANDROID OR NOT BEAM_USE_AVX)
-    add_library(crypto STATIC ${PROJECT_SOURCE_DIR}/3rdparty/crypto/blake/ref/blake2b-ref.c)
-else()
-    add_library(crypto STATIC ${PROJECT_SOURCE_DIR}/3rdparty/crypto/blake/sse/blake2b.cpp)
-endif()
 
 #if(NOT ANDROID)
     add_library(cli STATIC ${CLI_SRC})
+    target_link_libraries(cli Boost::program_options)
 #endif()
 
 if (UV_INTERNAL)
@@ -68,13 +66,11 @@ else()
     target_link_libraries(utility uv)
 endif()
 
-target_link_libraries(utility ${OPENSSL_LIBSSL} ${OPENSSL_LIBCRYPTO})
+target_link_libraries(utility OpenSSL::SSL OpenSSL::Crypto)
 
 if (UNIX)
     target_link_libraries(utility dl)
 endif()
-
-target_link_libraries(utility mnemonic)
 
 if (IOS)
     target_link_libraries(utility 
@@ -99,14 +95,7 @@ elseif(ANDROID)
             $ENV{BOOST_ROOT_ANDROID}/libs/${ANDROID_ABI}/libboost_system-clang-mt-a64-1_68.a)
     endif()
 else()
-    if (Boost_FOUND)
-        find_package(Boost COMPONENTS program_options filesystem)
-        target_link_libraries(utility Boost::filesystem)
-        target_link_libraries(cli Boost::program_options)
-    else()
-        target_link_libraries(utility boost_filesystem boost_system)
-        target_link_libraries(cli boost_program_options)
-    endif()
+    target_link_libraries(utility Boost::filesystem)
 endif()
 
 add_subdirectory(unittest)

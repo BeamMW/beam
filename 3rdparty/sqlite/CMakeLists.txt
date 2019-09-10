@@ -1,12 +1,15 @@
+cmake_minimum_required(VERSION 3.11)
 
 add_definitions( -DSQLITE_HAS_CODEC)
+
+find_package(OpenSSL REQUIRED)
 
 set(SQLITE_SRC
     sqlite3.c
 )
 
 add_library(sqlite STATIC ${SQLITE_SRC})
-target_link_libraries(sqlite ${OPENSSL_LIBCRYPTO})
+target_link_libraries(sqlite OpenSSL::Crypto)
 
 if(UNIX AND NOT ANDROID)
     target_link_libraries(sqlite dl pthread)

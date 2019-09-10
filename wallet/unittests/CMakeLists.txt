@@ -1,3 +1,5 @@
+cmake_minimum_required(VERSION 3.11)
+
 add_definitions( -DSQLITE_HAS_CODEC )
 
 add_test_snippet(wallet_test wallet node)

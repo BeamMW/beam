@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.10)
+cmake_minimum_required(VERSION 3.11)
 
 set(TARGET_NAME beam-wallet${BEAM_TARGET_SUFFIX})
 
@@ -91,7 +91,7 @@ if (NOT ANDROID)
     configure_file("${PROJECT_SOURCE_DIR}/version.h.in" "${CMAKE_CURRENT_BINARY_DIR}/version.h")
     target_include_directories(${TARGET_NAME} PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
 
-    target_link_libraries(${TARGET_NAME} wallet utility cli swap)
+    target_link_libraries(${TARGET_NAME} wallet utility cli swap mnemonic)
 
     add_library(wallet_api_proto STATIC api.cpp)
     target_link_libraries(wallet_api_proto wallet utility http)
