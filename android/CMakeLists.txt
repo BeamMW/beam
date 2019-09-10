@@ -13,7 +13,7 @@ set(SRC
 )
 
 add_library(${TARGET_NAME} SHARED ${SRC})
-target_link_libraries(${TARGET_NAME} wallet utility node swap)
+target_link_libraries(${TARGET_NAME} wallet utility node swap mnemonic)
 
 configure_file("${PROJECT_SOURCE_DIR}/version.h.in" "${CMAKE_CURRENT_BINARY_DIR}/version.h")
 target_include_directories(${TARGET_NAME} PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
