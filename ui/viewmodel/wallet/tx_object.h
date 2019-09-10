@@ -21,7 +21,7 @@ class TxObject : public QObject
 {
 Q_OBJECT
     //
-    Q_PROPERTY(QDateTime    timeCreated         READ timeCreated        NOTIFY dateChanged)
+    // Q_PROPERTY(QDateTime    timeCreated         READ timeCreated        NOTIFY dateChanged)
     //
     Q_PROPERTY(QString      sentAmount          READ getSentAmount      NOTIFY sentAmountChanged)
     Q_PROPERTY(QString      receivedAmount      READ getReceivedAmount  NOTIFY receivedAmountChanged)

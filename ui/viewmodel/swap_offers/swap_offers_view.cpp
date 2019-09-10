@@ -98,6 +98,7 @@ void SwapOffersViewModel::onTransactionsDataModelChanged(beam::wallet::ChangeAct
     case ChangeAction::Removed:
         {
             // todo
+            break;
         }
 
     case ChangeAction::Added:
@@ -109,6 +110,7 @@ void SwapOffersViewModel::onTransactionsDataModelChanged(beam::wallet::ChangeAct
     case ChangeAction::Updated:
         {
             // todo
+            break;
         }
 
     default:
