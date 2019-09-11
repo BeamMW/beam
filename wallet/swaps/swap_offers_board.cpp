@@ -43,8 +43,29 @@ namespace beam::wallet
             auto txId = offer.GetTxID();
             if (txId)
             {
-                m_offersCache[*txId] = offer;
-                m_observer.onSwapOffersChanged(ChangeAction::Added, std::vector<SwapOffer>{offer});
+                auto offerExist = m_offersCache.find(*txId);
+                if (offerExist == m_offersCache.end())
+                {
+                    // new offer
+                    m_offersCache[*txId] = offer;
+                    m_observer.onSwapOffersChanged(ChangeAction::Added, std::vector<SwapOffer>{offer});
+                }
+                else
+                {
+                    // existing offer update
+                    TxStatus newOfferStatus;
+                    if (!offer.GetParameter(TxParameterID::Status, newOfferStatus))
+                    {
+                        return;
+                    }
+                    // TODO: check of signature
+
+                    if (newOfferStatus != TxStatus::Pending)
+                    {
+                        m_offersCache[*txId].SetParameter(TxParameterID::Status, newOfferStatus);
+                        m_observer.onSwapOffersChanged(ChangeAction::Removed, std::vector<SwapOffer>{offer});
+                    }
+                }
             }
         }
         else
@@ -81,7 +102,11 @@ namespace beam::wallet
 
         for (auto offer : m_offersCache)
         {
-            offers.push_back(offer.second);
+            auto status = offer.second.GetParameter<TxStatus>(TxParameterID::Status);
+            if (status && (status.value() == TxStatus::Pending))
+            {
+                offers.push_back(offer.second);
+            }
         }
 
         return offers;
@@ -103,15 +128,43 @@ namespace beam::wallet
 
     void SwapOffersBoard::publishOffer(const SwapOffer& offer) const
     {
-        WalletID wId;
         auto channel = getChannel(offer);
         
         // TODO: validation of offers
         if (channel)
         {
+            WalletID wId;
             wId.m_Channel = *channel;
             beam::wallet::TxToken token(offer);
             m_messageEndpoint.SendEncryptedMessage(wId, toByteBuffer(token));
+        }
+    }
+
+    void SwapOffersBoard::updateOffer(const TxID& offerTxID, TxStatus newStatus)
+    {
+        auto offerExist = m_offersCache.find(offerTxID);
+        if (offerExist != m_offersCache.end())
+        {
+            auto channel = getChannel(offerExist->second);
+
+            SwapOffer offerUpdate(offerTxID);
+            offerUpdate.SetParameter(TxParameterID::Status, newStatus);
+
+            auto peerId = offerExist->second.GetParameter(TxParameterID::PeerID);
+            if (peerId)
+            {
+                offerUpdate.SetParameter(TxParameterID::PeerID, peerId.value());
+            }
+
+            // TODO: sign of offer update
+            
+            if (channel)
+            {
+                WalletID wId;
+                wId.m_Channel = *channel;
+                beam::wallet::TxToken token(offerUpdate);
+                m_messageEndpoint.SendEncryptedMessage(wId, toByteBuffer(token));
+            }
         }
     }
 

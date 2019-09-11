@@ -75,3 +75,20 @@ QVariant SwapOffersList::data(const QModelIndex &index, int role) const
         return QVariant();
     }
 }
+
+void SwapOffersList::remove(const std::vector<std::shared_ptr<SwapOfferItem>>& items)
+{
+    for (const auto& item : items)
+    {
+        auto it = std::find_if(std::begin(m_list), std::end(m_list),
+                            [&item](const auto& element) { return element->getId() == item->getId(); });
+        
+        if (it != std::end(m_list))
+        {
+            auto index = m_list.indexOf(*it);
+            beginRemoveRows(QModelIndex(), index, index);
+            m_list.removeAt(index);
+            endRemoveRows();
+        }
+    }
+}

@@ -47,6 +47,7 @@ public:
     auto rawAmountReceive() const -> beam::Amount;
 
     auto getTxParameters() const -> TxParameters;
+    auto getId() const -> TxID;
 
 signals:
     // void changed();

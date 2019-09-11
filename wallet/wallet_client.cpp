@@ -105,6 +105,11 @@ struct WalletModelBridge : public Bridge<IWalletModelAsync>
     {
 		call_async(&IWalletModelAsync::publishSwapOffer, offer);
     }
+    
+    void cancelOffer(const TxID& offerTxID) override
+    {
+		call_async(&IWalletModelAsync::cancelOffer, offerTxID);
+    }
 
     void cancelTx(const wallet::TxID& id) override
     {
@@ -622,6 +627,14 @@ namespace beam::wallet
         if (auto p = m_offersBulletinBoard.lock())
         {
             p->publishOffer(offer);
+        }
+    }
+
+    void WalletClient::cancelOffer(const TxID& offerTxID)
+    {
+        if (auto p = m_offersBulletinBoard.lock())
+        {
+            p->updateOffer(offerTxID, beam::wallet::TxStatus::Cancelled);
         }
     }
 

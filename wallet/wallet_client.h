@@ -105,6 +105,7 @@ namespace beam::wallet
         void setSwapOffersCoinType(AtomicSwapCoin type) override;
         void getSwapOffers() override;
         void publishSwapOffer(const SwapOffer& offer) override;
+        void cancelOffer(const TxID& offerTxID) override;
         void cancelTx(const TxID& id) override;
         void deleteTx(const TxID& id) override;
         void getCoinsByTx(const TxID& txId) override;

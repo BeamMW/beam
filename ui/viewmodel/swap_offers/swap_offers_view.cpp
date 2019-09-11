@@ -73,6 +73,7 @@ void SwapOffersViewModel::cancelTx(QVariant txParameters)
         if (txId)
         {
             m_walletModel.getAsync()->cancelTx(txId.value());
+            m_walletModel.getAsync()->cancelOffer(txId.value());
         }
     }    
 }
@@ -147,6 +148,11 @@ void SwapOffersViewModel::onSwapOffersDataModelChanged(beam::wallet::ChangeActio
     case ChangeAction::Added:
         {
             m_offersList.insert(newOffers);
+            break;
+        }
+    case ChangeAction::Removed:
+        {
+            m_offersList.remove(newOffers);
             break;
         }
     
