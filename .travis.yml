@@ -53,7 +53,7 @@ matrix:
         - export OPENSSL_ROOT_DIR="/usr/local/opt/openssl"
         - export QT5_ROOT_DIR="/usr/local/qt5-static"
         - export QML_IMPORT_PATH="/usr/local/qt5-static/qml"
-        - expott CMAKE_PREFIX_PATH="/usr/local/opt/icu4c"
+        - export CMAKE_PREFIX_PATH="/usr/local/opt/icu4c"
         - openssl aes-256-cbc -K $encrypted_1f9ebee66ea9_key -iv $encrypted_1f9ebee66ea9_iv -in macos_cert.enc -out macos_cert.tar -d
         - tar xvf macos_cert.tar
         # create custom keychain
