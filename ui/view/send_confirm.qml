@@ -205,6 +205,24 @@ ConfirmationDialog
                     color: Style.validator_error
                     font.pixelSize: 14
                 }
+
+                //
+                // Wait online message
+                //
+                SFText {
+                    Layout.row: 7
+                    Layout.columnSpan: 2
+                    // Layout.topMargin: 30
+                    horizontalAlignment: Text.AlignHCenter
+                    Layout.preferredWidth: 400
+                    Layout.maximumHeight:  60
+                    Layout.minimumHeight: 16
+                    font.pixelSize: 14
+                    color: Style.content_disabled
+                    wrapMode: Text.WordWrap
+                    //% "For the transaction to complete, the recipient must get online within the next 12 hours and you should get online within 2 hours afterwards."
+                    text: qsTrId("send-confirmation-pwd-text-online-time")
+                }
             }
         }
     }

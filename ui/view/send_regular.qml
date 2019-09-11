@@ -269,6 +269,7 @@ ColumnLayout {
                 dialog.amountText  = [Utils.formatAmount(viewModel.sendAmount), qsTrId("general-beam")].join(" ")
                 //% "GROTH"
                 dialog.feeText     = [Utils.formatAmount(viewModel.feeGrothes), qsTrId("general-groth")].join(" ")
+                dialog.y = dialog.y - 36;
                 dialog.open();
             }
         }

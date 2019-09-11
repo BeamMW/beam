@@ -227,6 +227,21 @@ ColumnLayout {
         text: qsTrId("wallet-receive-addr-message")
     }
 
+    SFText {
+        Layout.alignment:      Qt.AlignHCenter
+        Layout.preferredWidth: 470
+        Layout.maximumHeight:  40
+        Layout.topMargin:      30
+        font.pixelSize:        14
+        color:                 Style.content_disabled
+        wrapMode:              Text.WordWrap
+        horizontalAlignment:   Text.AlignHCenter
+        leftPadding:           15
+        rightPadding:          15
+        //% "For the transaction to complete, you should get online during the 12 hours after Beams are sent."
+        text: qsTrId("wallet-receive-text-online-time")
+    }
+
     Row {
         Layout.alignment: Qt.AlignHCenter
         Layout.topMargin: 30
