@@ -1291,61 +1291,13 @@ Escanee este código QR o envíe esta dirección al remitente a través de un ca
         <source>Default fee</source>
         <translation type="unfinished"></translation>
     </message>
-    <message id="offer-book-title">
-        <source>Offer Book</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message id="offer-book-create">
-        <source>Create an offer</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message id="offer-book-title-2">
-        <source>Active offers</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message id="offer-book-coins">
-        <source>Coins</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message id="offer-book-all-tab">
-        <source>All</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message id="offer-book-mine-tab">
-        <source>Mine</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message id="offer-book-others-tab">
-        <source>Others</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message id="offer-book-time-created">
-        <source>Date | time</source>
-        <translation type="unfinished"></translation>
-    </message>
     <message id="offer-book-amount">
         <source>Amount</source>
-        <translation type="unfinished">Cantidad</translation>
+        <translation type="obsolete">Cantidad</translation>
     </message>
     <message id="offer-book-amount-swap">
         <source>Amount</source>
-        <translation type="unfinished">Cantidad</translation>
-    </message>
-    <message id="offer-book-rate">
-        <source>Rate</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message id="offer-book-expiration">
-        <source>Expiration</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message id="offer-book-cancel">
-        <source>Cancel offer</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message id="offer-book-accept">
-        <source>Accept offer</source>
-        <translation type="unfinished"></translation>
+        <translation type="obsolete">Cantidad</translation>
     </message>
     <message id="swap-na-message">
         <source>You do not have any 3rd-party currencies connected.\nUpdate your settings and try again.</source>
@@ -1469,6 +1421,106 @@ Escanee este código QR o envíe esta dirección al remitente a través de un ca
     </message>
     <message id="loading-view-rebuild-utxos">
         <source>Rebuilding UTXO image</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="atomic-swap-title">
+        <source>Atomic Swap</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="atomic-swap-create">
+        <source>Create offer</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="atomic-swap-active-offers-tab">
+        <source>Active offers</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="atomic-swap-transactions-tab">
+        <source>Transactions</source>
+        <translation type="unfinished">Transacciones</translation>
+    </message>
+    <message id="atomic-swap-receive-beam">
+        <source>Receive BEAM</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="atomic-swap-send-beam">
+        <source>Send BEAM</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="atomic-swap-only-my-offers">
+        <source>Only my offers</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="atomic-swap-fit-current-balance">
+        <source>Fit my current balance</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="atomic-swap-currency">
+        <source>Currency</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="atomic-swap-time-created">
+        <source>Created on</source>
+        <translation type="unfinished">Fecha | hora</translation>
+    </message>
+    <message id="atomic-swap-amount-send">
+        <source>Send</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="atomic-swap-amount-receive">
+        <source>Receive</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="atomic-swap-rate">
+        <source>Rate</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="atomic-swap-expiration">
+        <source>Expiration</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="atomic-swap-cancel">
+        <source>Cancel offer</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="atomic-swap-accept">
+        <source>Accept offer</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="atomic-swap-all-transactions-tab">
+        <source>All</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="atomic-swap-in-progress-transactions-tab">
+        <source>In progress</source>
+        <translation type="unfinished">En progreso</translation>
+    </message>
+    <message id="atomic-swap-tx-table-created">
+        <source>Created on</source>
+        <translation type="unfinished">Fecha | hora</translation>
+    </message>
+    <message id="atomic-swap-tx-table-from">
+        <source>From</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="atomic-swap-tx-table-to">
+        <source>To</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="atomic-swap-tx-table-sent">
+        <source>Sent</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="atomic-swap-tx-table-received">
+        <source>Received</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="atomic-swap-tx-table-status">
+        <source>Status</source>
+        <translation type="unfinished">Estado</translation>
+    </message>
+    <message id="general-create-trezor-wallet">
+        <source>Create new Trezor wallet</source>
         <translation type="unfinished"></translation>
     </message>
 </context>
