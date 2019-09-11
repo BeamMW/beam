@@ -2,6 +2,13 @@ cmake_minimum_required(VERSION 3.11)
 
 find_package(Boost 1.67 REQUIRED COMPONENTS system thread regex filesystem program_options log locale)
 
+# Boost::locale requires ICU & Iconv on OSX static
+if(APPLE AND Boost_USE_STATIC_LIBS)
+    set(ICU_FIND_COMPONENTS uc data i18n) # hack, the next line doesn't get components
+    find_package(ICU REQUIRED COMPONENTS uc data i18n)
+    find_package(ICONV REQUIRED)
+endif()
+
 set(TARGET_NAME libbitcoin)
 
 set(LIBBITCOIN_INCLUDE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/include/bitcoin/bitcoin)
@@ -71,6 +78,9 @@ elseif(ANDROID)
     endif()
 else()
     target_link_libraries(${TARGET_NAME} Boost::boost Boost::system Boost::thread Boost::regex Boost::filesystem Boost::program_options Boost::log Boost::locale)
+    if(APPLE AND Boost_USE_STATIC_LIBS)
+        target_link_libraries(${TARGET_NAME} ICU::uc ICU::data ICU::i18n Iconv::Iconv)
+    endif()
 endif()
 
 if(MSVC)
