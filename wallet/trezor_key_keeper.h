@@ -28,6 +28,7 @@ namespace beam::wallet
 
         Key::IPKdf::Ptr get_OwnerKdf() const override;
         Key::IKdf::Ptr get_SbbsKdf() const override;
+        void subscribe(Handler::Ptr handler) override;
 
     private:
         void GeneratePublicKeys(const std::vector<Key::IDV>& ids, bool createCoinKey, Callback<PublicKeys>&& resultCallback, ExceptionCallback&& exceptionCallback) override;
@@ -43,5 +44,7 @@ namespace beam::wallet
         beam::HWWallet m_hwWallet;
 
         size_t m_latestSlot;
+
+        std::vector<IPrivateKeyKeeper::Handler::Ptr> m_handlers;
     };
 }

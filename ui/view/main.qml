@@ -17,6 +17,10 @@ Rectangle {
         id: statusbarModel
     }
 
+    TrezorMessage {
+        id: trezorMessage
+    }
+
     color: Style.background_main
 
     MouseArea {
@@ -178,9 +182,18 @@ Rectangle {
         onGotoStartScreen: { 
             main.parent.setSource("qrc:/start.qml", {"isLockedMode": true});
         }
+
+        onShowTrezorMessage:{
+            trezorMessage.open()
+        }
+
+        onHideTrezorMessage:{
+            trezorMessage.close()
+        }
     }
 
     Component.onCompleted: {
         updateItem("wallet")
     }
+
 }

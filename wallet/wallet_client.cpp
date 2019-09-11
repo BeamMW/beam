@@ -201,6 +201,7 @@ namespace beam::wallet
         , m_nodeAddrStr(nodeAddr)
         , m_keyKeeper(keyKeeper)
     {
+        m_keyKeeper->subscribe(this);
     }
 
     WalletClient::~WalletClient()

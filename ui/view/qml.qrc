@@ -23,6 +23,7 @@
         <file>controls/ChangePasswordDialog.qml</file>
         <file>controls/ConfirmPasswordDialog.qml</file>
         <file>controls/SwapNADialog.qml</file>
+        <file>controls/TrezorMessage.qml</file>
         <file>controls/CustomTableView.qml</file>
         <file>controls/FeeSlider.qml</file>
         <file>controls/SFFontLoader.qml</file>

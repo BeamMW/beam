@@ -48,6 +48,7 @@ namespace beam::wallet
         : private IWalletObserver
         , private IWalletModelAsync
         , private IWalletDB::IRecoveryProgress
+        , private IPrivateKeyKeeper::Handler
     {
     public:
         WalletClient(IWalletDB::Ptr walletDB, const std::string& nodeAddr, io::Reactor::Ptr reactor, IPrivateKeyKeeper::Ptr keyKeeper);

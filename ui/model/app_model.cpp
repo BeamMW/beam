@@ -139,8 +139,6 @@ bool AppModel::openWallet(const beam::SecString& pass)
     }
 #endif
 
-    m_keyKeeper = std::make_shared<LocalPrivateKeyKeeper>(m_db);
-
     onWalledOpened(pass);
     return true;
 }

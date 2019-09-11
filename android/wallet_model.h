@@ -46,4 +46,6 @@ private:
     void onCoinsByTx(const std::vector<beam::wallet::Coin>& coins) override;
     void onAddressChecked(const std::string& addr, bool isValid) override;
     void onImportRecoveryProgress(uint64_t done, uint64_t total) override;
+    void onShowKeyKeeperMessage() override {}
+    void onHideKeyKeeperMessage() override {}
 };

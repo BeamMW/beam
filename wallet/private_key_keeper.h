@@ -25,9 +25,6 @@ namespace beam::wallet
         ECC::Point commitment;
         boost::optional<ECC::Hash::Value> lockImage;
         boost::optional<beam::TxKernel::HashLock> hashLock;
-        // ECC::Point kernelNonce;
-         ///uint32_t nonceSlot;
-        // ECC::Scalar offset;
     };
 
     //
@@ -36,6 +33,14 @@ namespace beam::wallet
     //
     struct IPrivateKeyKeeper
     {
+        struct Handler
+        {
+            using Ptr = Handler*;
+
+            virtual void onShowKeyKeeperMessage() = 0;
+            virtual void onHideKeyKeeperMessage() = 0;
+        };
+
         using Ptr = std::shared_ptr<IPrivateKeyKeeper>;
 
         template<typename R>
@@ -67,5 +72,7 @@ namespace beam::wallet
         virtual Key::IPKdf::Ptr get_OwnerKdf() const = 0;
 
         virtual Key::IKdf::Ptr get_SbbsKdf() const = 0;
+
+        virtual void subscribe(Handler::Ptr handler) = 0;
     };
 }

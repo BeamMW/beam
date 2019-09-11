@@ -265,9 +265,6 @@ StartViewModel::StartViewModel()
     , m_hwWallet(make_shared<beam::HWWallet>())
     , m_trezorTimer(this)
     , m_trezorThread(m_hwWallet)
-// !TODO: test data, don't forget to remove
-//    , m_ownerKeyEncrypted("Ah63SvK3Fuf1JmN8isyw+tgXsgChP30SYAUIV5BNG4C02u2T5abyd8p/0h3LyLP92OZLVDE3iXP6pWNfw13W+ygJMFbrPk4jV3A3kw2pfydfE2vetIQaN0ziBXEmVbZ1BWBEh+Vgd7LXZ0bv")
-//    , m_ownerKeyPass("1")
 #endif
 {
     if (!walletExists())
@@ -369,7 +366,7 @@ bool StartViewModel::isPinValid(const QString& pin)
         return false;
 
     KeyString ks;
-    ks.SetPassword(Blob(pin.data(), static_cast<uint32_t>(pin.size())));
+    ks.SetPassword(pin.toStdString());
 
     ks.m_sRes = m_ownerKeyEncrypted;
 
@@ -615,7 +612,7 @@ bool StartViewModel::createWallet()
         assert(!m_ownerKeyPass.empty());
 
         KeyString ks;
-        ks.SetPassword(Blob(m_ownerKeyPass.data(), static_cast<uint32_t>(m_ownerKeyPass.size())));
+        ks.SetPassword(m_ownerKeyPass);
 
         ks.m_sRes = m_ownerKeyEncrypted;
 
