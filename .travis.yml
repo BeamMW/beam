@@ -206,6 +206,7 @@ matrix:
         - sudo git clone --depth=1 https://github.com/BeamMW/openssl-android.git /usr/local/Prebuilt-OpenSSL-Android
         - export ANDROID_NDK_HOME=$ANDROID_HOME/ndk-bundle
         - export BOOST_ROOT_ANDROID=/usr/local/boost_1_68-android
+        - export BOOST_ROOT=/usr/local/boost_1_68-android
         - export OPENSSL_ROOT_DIR_ANDROID=/usr/local/Prebuilt-OpenSSL-Android
         - export PATH=$ANDROID_NDK_HOME:$PATH
       script:
