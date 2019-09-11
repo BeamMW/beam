@@ -7,6 +7,6 @@ set(P2P_SRC
     line_protocol.h)
 
 add_library(p2p STATIC ${P2P_SRC})
-target_link_libraries(p2p utility)
+target_link_libraries(p2p PUBLIC utility)
 
 add_subdirectory(unittest)
