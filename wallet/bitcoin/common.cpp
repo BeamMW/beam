@@ -30,7 +30,7 @@ namespace beam::bitcoin
 
     bool validateElectrumMnemonic(const std::vector<std::string>& words)
     {
-        return libbitcoin::wallet::electrum::validate_mnemonic(words, libbitcoin::wallet::language::electrum::en);
+        return libbitcoin::wallet::electrum::validate_mnemonic(words);
     }
 
     std::vector<std::string> createElectrumMnemonic(const std::vector<uint8_t>& entropy)

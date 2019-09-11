@@ -25,8 +25,7 @@ if(BEAM_HW_WALLET)
 endif()
 
 target_compile_definitions(wallet
-    PRIVATE SQLITE_HAS_CODEC
-    PUBLIC WITH_ICU)
+    PRIVATE SQLITE_HAS_CODEC)
 target_link_libraries(wallet core sqlite)
 target_compile_features(wallet PUBLIC cxx_std_17)
 

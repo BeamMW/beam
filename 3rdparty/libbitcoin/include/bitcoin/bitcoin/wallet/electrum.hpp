@@ -68,7 +68,6 @@ enum class seed : uint8_t
  */
 typedef string_list word_list;
 
-#ifdef WITH_ICU
 
 /**
  * Create a new mnenomic (list of words) from provided entropy, an
@@ -76,7 +75,6 @@ typedef string_list word_list;
  * later be converted to a seed for use in electrum wallet creation.
  */
 BC_API word_list create_mnemonic(const data_chunk& entropy,
-    const dictionary& lexicon=bc::wallet::language::electrum::en,
     seed prefix=electrum::seed::standard);
 
 /**
@@ -85,24 +83,7 @@ BC_API word_list create_mnemonic(const data_chunk& entropy,
  * words must have been created using electrum encoding.
  */
 BC_API bool validate_mnemonic(const word_list& mnemonic,
-    const dictionary& lexicon,
     seed prefix=electrum::seed::standard);
-
-/**
- * Checks that a mnemonic is valid in at least one of the provided languages.
- */
-BC_API bool validate_mnemonic(const word_list& mnemonic,
-    const dictionary_list& lexicons=bc::wallet::language::electrum::all,
-    seed prefix=electrum::seed::standard);
-
-/**
- * Convert an electrum mnemonic and passphrase to a wallet-generation
- * seed.  Any passphrase can be used and will change the resulting
- * seed.
- */
-BC_API long_hash decode_mnemonic(const word_list& mnemonic,
-    const std::string& passphrase);
-
 
 /**
  * Convert an electrum mnemonic without a passphrase to a
@@ -110,7 +91,6 @@ BC_API long_hash decode_mnemonic(const word_list& mnemonic,
  */
 BC_API long_hash decode_mnemonic(const word_list& mnemonic);
 
-#endif
 
 } // namespace electrum
 } // namespace wallet
