@@ -258,7 +258,7 @@ QStringList WalletSettings::getLocalNodePeers()
         {
             return isOutDatedPeer(peer.toStdString());
         });
-    if (outDatedCount >= peers.size() || peers.empty())
+    if (outDatedCount >= static_cast<size_t>(peers.size()) || peers.empty())
     {
         auto defaultPeers = beam::getDefaultPeers();
         peers.clear();
