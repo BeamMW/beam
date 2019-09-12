@@ -31,10 +31,22 @@ void NodeProcessor::OnCorrupted()
 }
 
 NodeProcessor::Horizon::Horizon()
-	:m_Branching(MaxHeight)
-	,m_SchwarzschildLo(MaxHeight)
-	,m_SchwarzschildHi(MaxHeight)
 {
+	SetInfinite();
+}
+
+void NodeProcessor::Horizon::SetInfinite()
+{
+	m_Branching = MaxHeight;
+	m_SchwarzschildLo = MaxHeight;
+	m_SchwarzschildHi = MaxHeight;
+}
+
+void NodeProcessor::Horizon::SetStdFastSync()
+{
+	m_Branching = Rules::get().Macroblock.MaxRollback / 4; // inferior branches would be pruned when height difference is this.
+	m_SchwarzschildHi = 0; // would be adjusted anyway
+	m_SchwarzschildLo = 3600 * 24 * 180 / Rules::get().DA.Target_s; // 180-day period
 }
 
 void NodeProcessor::Initialize(const char* szPath)
@@ -3216,9 +3228,13 @@ bool NodeProcessor::EnumTxos(ITxoWalker& wlkTxo, const HeightRange& hr)
 	TxoID id1 = get_TxosBefore(hr.m_Min);
 	Height h = hr.m_Min - 1; // don't care about overflow
 
+	auto totalTxos = m_DB.TxoGetCount();
+	uint64_t doneTxos = 0;
+
 	NodeDB::WalkerTxo wlk(m_DB);
 	for (m_DB.EnumTxos(wlk, id1);  wlk.MoveNext(); )
 	{
+		InitializeUtxosProgress(++doneTxos, totalTxos);
 		if (wlk.m_ID >= id1)
 		{
 			if (++h > hr.m_Max)

@@ -46,13 +46,14 @@ matrix:
         - export TZ=Etc/GMT-3
         - brew update
         - brew unlink cmake
-        - brew unlink boost 
+        - brew unlink boost
         - brew install cmake boost
         - sudo git clone --depth=1 https://github.com/nesbox/qt5-static-mac.git /usr/local/qt5-static
         - export PATH=/usr/local/qt5-static/bin:$PATH
         - export OPENSSL_ROOT_DIR="/usr/local/opt/openssl"
         - export QT5_ROOT_DIR="/usr/local/qt5-static"
         - export QML_IMPORT_PATH="/usr/local/qt5-static/qml"
+        - export CMAKE_PREFIX_PATH="/usr/local/opt/icu4c"
         - openssl aes-256-cbc -K $encrypted_1f9ebee66ea9_key -iv $encrypted_1f9ebee66ea9_iv -in macos_cert.enc -out macos_cert.tar -d
         - tar xvf macos_cert.tar
         # create custom keychain
@@ -205,6 +206,9 @@ matrix:
         - sudo git clone --depth=1 https://github.com/BeamMW/openssl-android.git /usr/local/Prebuilt-OpenSSL-Android
         - export ANDROID_NDK_HOME=$ANDROID_HOME/ndk-bundle
         - export BOOST_ROOT_ANDROID=/usr/local/boost_1_68-android
+        - export BOOST_ROOT=/usr/local/boost_1_68-android
+        - export BOOST_INCLUDEDIR=/usr/local/boost_1_68-android/include/boost
+        - export BOOST_LIBRARYDIR=/usr/local/boost_1_68-android/libs/x86
         - export OPENSSL_ROOT_DIR_ANDROID=/usr/local/Prebuilt-OpenSSL-Android
         - export PATH=$ANDROID_NDK_HOME:$PATH
       script:

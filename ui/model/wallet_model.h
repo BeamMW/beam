@@ -18,6 +18,8 @@
 
 #include "wallet/wallet_client.h"
 
+Q_DECLARE_METATYPE(beam::wallet::TxParameters)
+
 class WalletModel
     : public QObject
     , public beam::wallet::WalletClient
@@ -31,6 +33,7 @@ public:
     ~WalletModel() override;
 
     QString GetErrorString(beam::wallet::ErrorType type);
+    bool isOwnAddress(beam::wallet::WalletID& walletID) const;
     bool isAddressWithCommentExist(const std::string& comment) const;
 
 signals:
@@ -40,6 +43,7 @@ signals:
     void changeCalculated(beam::Amount change);
     void allUtxoChanged(const std::vector<beam::wallet::Coin>& utxos);
     void addressesChanged(bool own, const std::vector<beam::wallet::WalletAddress>& addresses);
+    void swapOffersChanged(beam::wallet::ChangeAction action, const std::vector<beam::wallet::SwapOffer>& offers);
     void generatedNewAddress(const beam::wallet::WalletAddress& walletAddr);
     void newAddressFailed();
     void changeCurrentWalletIDs(beam::wallet::WalletID senderID, beam::wallet::WalletID receiverID);
@@ -50,6 +54,11 @@ signals:
     void paymentProofExported(const beam::wallet::TxID& txID, const QString& proof);
     void addressChecked(const QString& addr, bool isValid);
 
+#if defined(BEAM_HW_WALLET)
+    void showTrezorMessage();
+    void hideTrezorMessage();
+#endif
+
 private:
     void onStatus(const beam::wallet::WalletStatus& status) override;
     void onTxStatus(beam::wallet::ChangeAction, const std::vector<beam::wallet::TxDescription>& items) override;
@@ -57,6 +66,7 @@ private:
     void onChangeCalculated(beam::Amount change) override;
     void onAllUtxoChanged(const std::vector<beam::wallet::Coin>& utxos) override;
     void onAddresses(bool own, const std::vector<beam::wallet::WalletAddress>& addrs) override;
+    void onSwapOffersChanged(beam::wallet::ChangeAction action, const std::vector<beam::wallet::SwapOffer>& offers) override;
     void onGeneratedNewAddress(const beam::wallet::WalletAddress& walletAddr) override;
     void onNewAddressFailed() override;
     void onChangeCurrentWalletIDs(beam::wallet::WalletID senderID, beam::wallet::WalletID receiverID) override;
@@ -69,6 +79,9 @@ private:
     void onCoinsByTx(const std::vector<beam::wallet::Coin>& coins) override;
     void onAddressChecked(const std::string& addr, bool isValid) override;
     void onImportRecoveryProgress(uint64_t done, uint64_t total) override;
+
+    void onShowKeyKeeperMessage() override;
+    void onHideKeyKeeperMessage() override;
 
 private:
     std::vector<beam::wallet::WalletAddress> m_addresses;

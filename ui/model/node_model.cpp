@@ -62,6 +62,12 @@ bool NodeModel::isNodeRunning() const
     return m_nodeClient.isNodeRunning();
 }
 
+void NodeModel::onInitProgressUpdated(uint64_t done, uint64_t total)
+{
+    emit initProgressUpdated(
+        static_cast<quint64>(done), static_cast<quint64>(total));
+}
+
 void NodeModel::onSyncProgressUpdated(int done, int total)
 {
     emit syncProgressUpdated(done, total);

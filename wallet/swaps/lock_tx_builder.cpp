@@ -224,7 +224,7 @@ namespace beam::wallet
     ECC::Point::Native LockTxBuilder::GetSharedCommitment()
     {
         Point::Native commitment(Zero);
-        // TODO: check pHGen
+
         Tag::AddValue(commitment, nullptr, GetAmount());
         commitment += GetPublicSharedBlindingFactor();
         commitment += m_Tx.GetMandatoryParameter<Point::Native>(TxParameterID::PeerPublicSharedBlindingFactor, m_SubTxID);

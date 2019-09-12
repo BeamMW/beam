@@ -969,6 +969,14 @@ void Node::Processor::OnDummy(const Key::ID& kid, Height)
 	db.InsertDummy(h, kid);
 }
 
+void Node::Processor::InitializeUtxosProgress(uint64_t done, uint64_t total)
+{
+    auto& node = get_ParentObj();
+
+    if (node.m_Cfg.m_Observer)
+        node.m_Cfg.m_Observer->InitializeUtxosProgress(done, total);   
+}
+
 void Node::Processor::OnFlushTimer()
 {
     m_bFlushPending = false;

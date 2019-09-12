@@ -11,8 +11,12 @@ namespace beamui
 {
     QString toString(const beam::wallet::WalletID& walletID)
     {
-        auto id = std::to_string(walletID);
-        return QString::fromStdString(id);
+        if (walletID != Zero)
+        {
+            auto id = std::to_string(walletID);
+            return QString::fromStdString(id);
+        }
+        return "";
     }
 
     QString toString(const beam::Merkle::Hash& walletID)
@@ -20,13 +24,36 @@ namespace beamui
         auto id = std::to_string(walletID);
         return QString::fromStdString(id);
     }
-
-    QString BeamToString(const Amount& value)
+    
+    QString AmountToString(const Amount& value, Currencies coinType)
     {
         auto realAmount = double(int64_t(value)) / Rules::Coin;
-        QString qstr = QLocale().toString(realAmount, 'f', QLocale::FloatingPointShortest);
+        QString amount = QLocale().toString(realAmount, 'f', QLocale::FloatingPointShortest);
 
-        return qstr;
+        QString coinSign;
+        switch (coinType)
+        {
+            case Currencies::Beam:
+                coinSign = QString::fromUtf16((const char16_t*)(L" \uEAFB"));
+                break;
+
+            case Currencies::Bitcoin:
+                coinSign = QString::fromUtf16((const char16_t*)(L" \u20BF"));
+                break;
+
+            case Currencies::Litecoin:
+                coinSign = QString::fromUtf16((const char16_t*)(L" \u0141"));
+                break;
+
+            case Currencies::Qtum:
+                coinSign = QString::fromUtf16((const char16_t*)(L" \uFFFD"));
+                break;
+
+            case Currencies::Unknown:
+                coinSign = "";
+                break;
+        }
+        return amount + coinSign;
     }
 
     QString toString(const beam::Timestamp& ts)
@@ -36,11 +63,16 @@ namespace beamui
 
         return datetime.toString(Qt::SystemLocaleShortDate);
     }
-    
+
+    double Beam2Coins(const Amount& value)
+    {
+        return double(int64_t(value)) / Rules::Coin;
+    }
 
     Filter::Filter(size_t size)
         : _samples(size, 0.0)
         , _index{0}
+        , _is_poor{true}
     {
     }
     
@@ -48,19 +80,25 @@ namespace beamui
     {
         _samples[_index] = value;
         _index = (_index + 1) % _samples.size();
+        if (_is_poor)
+        {
+            _is_poor = _index + 1 < _samples.size();
+        }
     }
 
     double Filter::getAverage() const
     {
         double sum = accumulate(_samples.begin(), _samples.end(), 0.0);
-        return sum / _samples.size();
+        return sum / (_is_poor ? _index : _samples.size());
     }
 
     double Filter::getMedian() const
     {
         vector<double> temp(_samples.begin(), _samples.end());
-        size_t medianPos = temp.size() / 2;
-        nth_element(temp.begin(), temp.begin() + medianPos, temp.end());
+        size_t medianPos = (_is_poor ? _index : temp.size()) / 2;
+        nth_element(temp.begin(),
+                    temp.begin() + medianPos,
+                    _is_poor ? temp.begin() + _index : temp.end());
         return temp[medianPos];
     }
-}
+}  // namespace beamui

@@ -17,6 +17,10 @@ Rectangle {
         id: statusbarModel
     }
 
+    TrezorMessage {
+        id: trezorMessage
+    }
+
     color: Style.background_main
 
     MouseArea {
@@ -36,6 +40,7 @@ Rectangle {
     property var contentItems : [
 		//"dashboard",
 		"wallet", 
+        "atomic_swap",
 		"addresses", 
 		"utxo",
 		//"notification", 
@@ -140,18 +145,33 @@ Rectangle {
         focus: true
     }
 
-    function updateItem(index)
+    function updateItem(indexOrID, props)
     {
-        selectedItem = index
-        content.setSource("qrc:/" + contentItems[index] + ".qml", {"toSend": false})
-        viewModel.update(index)
+        var update = function(index) {
+            selectedItem = index
+            content.setSource("qrc:/" + contentItems[index] + ".qml", Object.assign({"toSend": false}, props))
+            viewModel.update(index)
+        }
+
+        if (typeof(indexOrID) == "string") {
+            for (var index = 0; index < contentItems.length; index++) {
+                if (contentItems[index] == indexOrID) {
+                    return update(index);
+                }
+            }
+        }
+
+        // plain index passed
+        update(indexOrID)
     }
 
 	function openSendDialog() {
-		selectedItem = 0
-		content.setSource("qrc:/wallet.qml", {"toSend": true})
-		viewModel.update(selectedItem)
+		updateItem("wallet", {"toSend": true})
 	}
+
+	function openSwapSettings() {
+        updateItem("settings", {swapMode:true})
+    }
 
     function resetLockTimer() {
         viewModel.resetLockTimer();
@@ -162,9 +182,18 @@ Rectangle {
         onGotoStartScreen: { 
             main.parent.setSource("qrc:/start.qml", {"isLockedMode": true});
         }
+
+        onShowTrezorMessage:{
+            trezorMessage.open()
+        }
+
+        onHideTrezorMessage:{
+            trezorMessage.close()
+        }
     }
 
-    Component.onCompleted:{
-        updateItem(0) // load wallet view by default
+    Component.onCompleted: {
+        updateItem("wallet")
     }
+
 }

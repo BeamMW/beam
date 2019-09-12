@@ -11,6 +11,8 @@ ComboBox {
     
     spacing: 4
     property int fontPixelSize: 12
+    property double fontLetterSpacing: 0
+    property string color: Style.content_main
 
     delegate: ItemDelegate {
         id: itemDelegate
@@ -21,6 +23,7 @@ ComboBox {
             elide: Text.ElideMiddle
             verticalAlignment: Text.AlignVCenter
 			font.pixelSize: fontPixelSize
+			font.letterSpacing: fontLetterSpacing
         }
 
         highlighted: control.highlightedIndex === index
@@ -44,7 +47,7 @@ ComboBox {
         rightPadding: control.indicator.width + control.spacing
         clip: true
         text: control.currentText
-        color: Style.content_main
+        color: control.color
 		font.pixelSize: fontPixelSize
         verticalAlignment: Text.AlignVCenter
     }
@@ -52,7 +55,7 @@ ComboBox {
     background: Item {
         Rectangle {
             width: control.width
-            height: control.activeFocus || control.hovered ? 2 : 1
+            height: control.activeFocus || control.hovered ? 1 : 1
             y: control.height - 1
             color: Style.content_main
             opacity: (control.activeFocus || control.hovered)? 0.3 : 0.1

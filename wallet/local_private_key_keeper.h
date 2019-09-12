@@ -45,6 +45,8 @@ namespace beam::wallet
         Key::IPKdf::Ptr get_OwnerKdf() const override;
 
         Key::IKdf::Ptr get_SbbsKdf() const override;
+
+        void subscribe(Handler::Ptr handler) override;
     private:
         Key::IKdf::Ptr GetChildKdf(const Key::IDV&) const;
         ECC::Scalar::Native GetNonce(size_t slot);

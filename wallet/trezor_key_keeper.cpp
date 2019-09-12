@@ -34,6 +34,9 @@ namespace beam::wallet
 
     Key::IPKdf::Ptr TrezorKeyKeeper::get_OwnerKdf() const
     {
+        // !TODO: do we really need to call this?
+        assert(false);
+
         auto key = m_hwWallet.getOwnerKeySync();
 
         // TODO: temporary PIN to decrypt owner key, should be removed
@@ -69,7 +72,7 @@ namespace beam::wallet
 
     void TrezorKeyKeeper::GeneratePublicKeys(const std::vector<Key::IDV>& ids, bool createCoinKey, Callback<PublicKeys>&& resultCallback, ExceptionCallback&& exceptionCallback)
     {
-
+        assert(!"not implemented.");
     }
 
     void TrezorKeyKeeper::GenerateOutputs(Height schemeHeight, const std::vector<Key::IDV>& ids, Callback<Outputs>&& resultCallback, ExceptionCallback&& exceptionCallback)
@@ -165,7 +168,21 @@ namespace beam::wallet
         txData.nonceSlot = (uint32_t)nonceSlot;
         txData.offset = offset;
 
-        return m_hwWallet.signTransactionSync(inputs, outputs, txData);
+        for (auto handler : m_handlers)
+            handler->onShowKeyKeeperMessage();
+
+        auto res = m_hwWallet.signTransactionSync(inputs, outputs, txData);
+
+        for (auto handler : m_handlers)
+            handler->onHideKeyKeeperMessage();
+
+        return res;
     }
 
+    void TrezorKeyKeeper::subscribe(Handler::Ptr handler)
+    {
+        assert(std::find(m_handlers.begin(), m_handlers.end(), handler) == m_handlers.end());
+
+        m_handlers.push_back(handler);
+    }
 }

@@ -1,3 +1,5 @@
+cmake_minimum_required(VERSION 3.11)
+
 set (TARGET_NAME "beam-wallet-ui")
 
 function(BEAM_TRANSLATIONS_UPDATE_TS supported_langs out_ts_files)
@@ -71,6 +73,15 @@ list(APPEND SUPPORTED_LANGS "nl_NL")
 
 set(UI_SRC
     ui.cpp
+
+    viewmodel/helpers/list_model.h
+    viewmodel/helpers/sortfilterproxymodel.cpp
+    viewmodel/wallet/tx_object.cpp
+    viewmodel/wallet/transactions_list.cpp
+    viewmodel/wallet/wallet_view.cpp
+    viewmodel/swap_offers/swap_offer_item.cpp
+    viewmodel/swap_offers/swap_offers_list.cpp
+    viewmodel/swap_offers/swap_offers_view.cpp
     viewmodel/start_view.h
     viewmodel/start_view.cpp
     viewmodel/loading_view.h
@@ -83,8 +94,6 @@ set(UI_SRC
     viewmodel/main_view.cpp
     viewmodel/dashboard_view.h
     viewmodel/dashboard_view.cpp
-    viewmodel/wallet_view.h
-    viewmodel/wallet_view.cpp
     viewmodel/notifications_view.h
     viewmodel/notifications_view.cpp
     viewmodel/help_view.h
@@ -107,12 +116,15 @@ set(UI_SRC
     viewmodel/send_view.cpp
     viewmodel/status_holder.cpp
     viewmodel/status_holder.h
-    viewmodel/tx_object.h
-    viewmodel/tx_object.cpp
     viewmodel/payment_item.h
     viewmodel/payment_item.cpp
     viewmodel/qml_globals.h
     viewmodel/qml_globals.cpp
+    viewmodel/receive_swap_view.h
+    viewmodel/receive_swap_view.cpp
+    viewmodel/currencies.h
+    viewmodel/send_swap_view.h
+    viewmodel/send_swap_view.cpp
 
     model/wallet_model.h
     model/wallet_model.cpp
@@ -131,6 +143,8 @@ set(UI_SRC
     model/helpers.h
     model/translator.cpp
     model/translator.h
+    model/swap_coin_client_model.cpp
+    model/swap_coin_client_model.h
 )
 
 beam_translations_update_ts("${SUPPORTED_LANGS}" TS_FILES)
@@ -193,7 +207,6 @@ endif()
 
 configure_file("${PROJECT_SOURCE_DIR}/version.h.in" "${CMAKE_CURRENT_BINARY_DIR}/version.h")
 
-add_dependencies(${TARGET_NAME} wallet mnemonic qrcode cli)
 target_link_libraries(${TARGET_NAME} qrcode cli)
 if (LINUX)
     target_link_libraries(${TARGET_NAME} X11)
@@ -209,16 +222,14 @@ target_include_directories(${TARGET_NAME} PRIVATE ${CMAKE_PREFIX_PATH}/include/Q
 target_include_directories(${TARGET_NAME} PRIVATE ${PROJECT_SOURCE_DIR}/3rdparty/quazip)
 add_definitions(-DQUAZIP_STATIC)
 
-add_dependencies(${TARGET_NAME} quazip_static)
 target_link_libraries(${TARGET_NAME} quazip_static)
 
 #if (BEAM_WALLET_WITH_NODE)
     add_definitions(-DBEAM_WALLET_WITH_NODE)
-    add_dependencies(${TARGET_NAME} node external_pow)
     target_link_libraries(${TARGET_NAME} node external_pow)
 #endif()
 
-target_link_libraries(${TARGET_NAME} wallet mnemonic Qt5::Qml Qt5::Quick Qt5::Svg Qt5::PrintSupport)
+target_link_libraries(${TARGET_NAME} wallet swap mnemonic Qt5::Qml Qt5::Quick Qt5::Svg Qt5::PrintSupport)
 
 if (BEAM_SIGN_PACKAGE AND WIN32)
     add_custom_command(

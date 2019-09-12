@@ -130,6 +130,9 @@ public:
 		Height m_SchwarzschildLo; // spent behind this are completely erased
 		Height m_SchwarzschildHi; // spent behind this are compacted
 
+		void SetInfinite();
+		void SetStdFastSync(); // Hi is minimum, Lo is 180 days
+
 		Horizon(); // by default both are disabled.
 
 	} m_Horizon;
@@ -216,6 +219,7 @@ public:
 	virtual void OnNewState() {}
 	virtual void OnRolledBack() {}
 	virtual void OnModified() {}
+	virtual void InitializeUtxosProgress(uint64_t done, uint64_t total) {}
 
 	// parallel context-free execution
 	struct Task

@@ -201,6 +201,11 @@ namespace beam::wallet
         return m_WalletDB->get_MasterKdf();
     }
 
+    void LocalPrivateKeyKeeper::subscribe(Handler::Ptr handler)
+    {
+        // local Key Keeper doesn't need handler
+    }
+
     void LocalPrivateKeyKeeper::LoadNonceSeeds()
     {
         try

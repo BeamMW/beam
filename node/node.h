@@ -36,6 +36,7 @@ struct Node
 		virtual void OnSyncProgress() = 0;
 		virtual void OnStateChanged() {}
 		virtual void OnRolledBack(const Block::SystemState::ID& id) {};
+		virtual void InitializeUtxosProgress(uint64_t done, uint64_t total) {};
 
         enum Error
         {
@@ -202,6 +203,7 @@ private:
 		bool EnumViewerKeys(IKeyWalker&) override;
 		void OnUtxoEvent(const UtxoEvent::Value&) override;
 		void OnDummy(const Key::ID&, Height) override;
+		void InitializeUtxosProgress(uint64_t done, uint64_t total) override;
 		void Stop();
 
 		struct TaskProcessor
@@ -656,7 +658,7 @@ private:
 			IExternalPOW* m_pSolver = nullptr;
 			uint64_t m_jobID = 0;
 
-			Task::Ptr m_ppTask[3]; // backlog of potentially being-mined currently
+			Task::Ptr m_ppTask[64]; // backlog of potentially being-mined currently
 			Task::Ptr& get_At(uint64_t);
 
 		} m_External;

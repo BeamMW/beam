@@ -14,6 +14,10 @@ function formatDateTime(datetime, localeName) {
          + ")";
 }
 
+function formatAmount (amount, toPlainNumber) {
+    return amount ? amount.toLocaleString(toPlainNumber ? Qt.locale("C") : Qt.locale(), 'f', -128) : ""
+}
+
 function getLogoTopGapSize(parentHeight) {
     return parentHeight * (parentHeight < 768 ? 0.13 : 0.18)
 }
@@ -52,3 +56,26 @@ function handleExternalLink(mouse, element, settings, dialog) {
         settings.isAllowedBeamMWLinks = !settings.isAllowedBeamMWLinks;
     }
 }
+
+function calcDisplayRate(ail, air) {
+    // ai[X] = amount input control
+    var cl = ail.currency
+    var cr = air.currency
+    if (cl == cr) return 1;
+
+    var al = ail.amount
+    var ar = air.amount
+    if (al == 0 || ar == 0) return "?"
+
+    var rounder = 100000000
+    return Math.round(ar / al * rounder) / rounder
+}
+
+function currenciesList() {
+    return ["BEAM", "BTC", "LTC", "QTUM"]
+}
+
+const symbolBeam  = '\uEAFB'
+const symbolBtc   = '\u20BF'
+const symbolLtc   = '\u0141'
+const symbolQtum  = '\uFFFD' // TODO:SWAP change when available

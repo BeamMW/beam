@@ -78,7 +78,7 @@ Item {
                     text: qsTrId("wallet-receive-button")
 
                     onClicked: {
-                        walletView.push(Qt.createComponent("receive.qml"));
+                        walletView.push(Qt.createComponent("receive.qml"), {"isSwapView": false});
                     }
                 }
 
@@ -113,14 +113,20 @@ Item {
                     spacing: 30
 
                     AvailablePanel {
-                        Layout.maximumWidth: 700
-                        Layout.minimumWidth: 350
-                        Layout.fillHeight: true
-                        Layout.fillWidth: true
+                    Layout.maximumWidth: 700
+                    Layout.minimumWidth: 350
+                    Layout.fillHeight: true
+                    Layout.fillWidth: true
 
-                        value: viewModel.available
-                        onCopyValueText: BeamGlobals.copyToClipboard(value)
-                        onOpenExternal : function() {
+                    beamValue: viewModel.beamAvailable
+                    btcValue:  viewModel.btcAvailable
+                    ltcValue:  viewModel.ltcAvailable
+                    qtumValue: viewModel.qtumAvailable
+                    btcOK:     viewModel.btcOK
+                    ltcOK:     viewModel.ltcOK
+                    qtumOK:    viewModel.qtumOK
+
+                    onOpenExternal : function() {
                             var externalLink = "https://www.beam.mw/#exchanges";
                             Utils.openExternal(externalLink, viewModel, externalLinkConfirmation);
                         }
@@ -128,16 +134,22 @@ Item {
 
                     SecondaryPanel {
                         Layout.minimumWidth: 350
-                        Layout.fillHeight: true
-                        Layout.fillWidth: true
-
+                        Layout.fillHeight:   true
+                        Layout.fillWidth:    true
                         //% "In progress"
-                        title: qsTrId("wallet-in-progress-title")
-                        receiving: viewModel.receiving
-                        sending: viewModel.sending
-                        maturing: viewModel.maturing
-
-                        onCopyValueText: BeamGlobals.copyToClipboard(value)
+                        title:               qsTrId("wallet-in-progress-title")
+                        beamReceiving:       viewModel.beamReceiving
+                        beamSending:         viewModel.beamSending
+                        beamLocked:          viewModel.beamLocked
+                        btcReceiving:        viewModel.btcReceiving
+                        btcSending:          viewModel.btcSending
+                        btcLocked:           viewModel.btcLocked
+                        ltcReceiving:        viewModel.ltcReceiving
+                        ltcSending:          viewModel.ltcSending
+                        ltcLocked:           viewModel.ltcLocked
+                        qtumReceiving:       viewModel.qtumReceiving
+                        qtumSending:         viewModel.qtumSending
+                        qtumLocked:          viewModel.qtumLocked
                     }
                 }
             }
@@ -150,13 +162,15 @@ Item {
                 anchors.right: parent.right
 
                 SFText {
-                    x: 30
 
                     font {
-                        pixelSize: 18
+                        pixelSize: 14
+                        letterSpacing: 4
                         styleName: "Bold"; weight: Font.Bold
+                        capitalization: Font.AllUppercase
                     }
 
+                    opacity: 0.5
                     color: Style.content_main
 
                     //% "Transactions"
@@ -205,35 +219,14 @@ Item {
                     value: transactionsView.sortIndicatorOrder
                 }
 
-                property int resizableWidth: parent.width - iconColumn.width - actionsColumn.width
-
-                TableViewColumn {
-                    id: iconColumn
-                    width: 60
-                    elideMode: Text.ElideRight
-                    movable: false
-                    resizable: false
-                    delegate: Item {
-                        Item {
-                            width: parent.width
-                            height: transactionsView.rowHeight
-                            clip:true
-
-                            SvgImage {
-                                anchors.verticalCenter: parent.verticalCenter
-                                anchors.left: parent.left
-                                anchors.leftMargin: 26 
-                                source: "qrc:/assets/beam-circle.svg"
-                            }
-                        }
-                    }
-                }
+                property int resizableWidth: parent.width - actionsColumn.width
+                property double columnResizeRatio: resizableWidth / 810
 
                 TableViewColumn {
                     role: viewModel.dateRole
-                    //% "Date | Time"
+                    //% "Created on"
                     title: qsTrId("wallet-txs-date-time")
-                    width: 160 * transactionsView.resizableWidth / 960
+                    width: 120 * transactionsView.columnResizeRatio
                     elideMode: Text.ElideRight
                     resizable: false
                     movable: false
@@ -248,7 +241,7 @@ Item {
                                 anchors.left: parent.left
                                 anchors.right: parent.right
                                 anchors.leftMargin: 20
-                                elide: Text.ElideRight
+                                wrapMode: Text.WordWrap
                                 anchors.verticalCenter: parent.verticalCenter
                                 text: styleData.value
                                 color: Style.content_main
@@ -260,10 +253,40 @@ Item {
                 }
 
                 TableViewColumn {
-                    role: viewModel.userRole
-                    //% "Address"
-                    title: qsTrId("general-address")
-                    width: 400 * transactionsView.resizableWidth / 960
+                    role: viewModel.sendingAddressRole
+                    //% "From"
+                    title: qsTrId("general-address-from")
+                    width: 170 * transactionsView.columnResizeRatio
+                    elideMode: Text.ElideMiddle
+                    resizable: false
+                    movable: false
+                    delegate: Item {
+                        Item {
+                            width: parent.width
+                            height: transactionsView.rowHeight
+                            clip:true
+
+                            SFLabel {
+                                font.pixelSize: 14
+                                anchors.left: parent.left
+                                anchors.right: parent.right
+                                anchors.leftMargin: 20
+                                elide: Text.ElideMiddle
+                                anchors.verticalCenter: parent.verticalCenter
+                                text: styleData.value
+                                color: Style.content_main
+                                copyMenuEnabled: true
+                                onCopyText: BeamGlobals.copyToClipboard(text)
+                            }
+                        }
+                    }
+                }
+
+                TableViewColumn {
+                    role: viewModel.receivingAddressRole
+                    //% "To"
+                    title: qsTrId("general-address-to")
+                    width: 170 * transactionsView.columnResizeRatio
                     elideMode: Text.ElideMiddle
                     resizable: false
                     movable: false
@@ -293,7 +316,7 @@ Item {
                     role: viewModel.amountRole
                     //% "Amount"
                     title: qsTrId("general-amount")
-                    width: 200 * transactionsView.resizableWidth / 960
+                    width: 200 * transactionsView.columnResizeRatio
                     elideMode: Text.ElideRight
                     movable: false
                     resizable: false
@@ -325,7 +348,7 @@ Item {
                     role: viewModel.statusRole
                     //% "Status"
                     title: qsTrId("general-status")
-                    width: 200 * transactionsView.resizableWidth / 960
+                    width: 150 * transactionsView.columnResizeRatio
                     elideMode: Text.ElideRight
                     movable: false
                     resizable: false
