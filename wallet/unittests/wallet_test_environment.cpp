@@ -361,6 +361,8 @@ struct TestWalletRig
             m_WalletID = addresses[0].m_walletID;
         }
 
+        m_Wallet.ResumeAllTransactions();
+
         switch (type)
         {
         case Type::ColdWallet:

@@ -257,6 +257,16 @@ namespace beam::wallet
                     auto wallet = make_shared<Wallet>(m_walletDB, m_keyKeeper);
                     m_wallet = wallet;
 
+                    if (txCreators)
+                    {
+                        for (auto&[txType, creator] : *txCreators)
+                        {
+                            wallet->RegisterTransactionType(txType, creator);
+                        }
+                    }
+
+                    wallet->ResumeAllTransactions();
+
                     class NodeNetwork final: public proto::FlyClient::NetworkStd
                     {
                     public:
@@ -341,14 +351,7 @@ namespace beam::wallet
                         static_cast<IWalletObserver&>(*this),
                         *walletNetwork);
                     m_offersBulletinBoard = offersBulletinBoard;
-                    
-                    if (txCreators)
-                    {
-                        for (auto& [txType, creator] : *txCreators)
-                        {
-                            wallet->RegisterTransactionType(txType, creator);
-                        }
-                    }
+
 
                     nodeNetwork->tryToConnect();
                     m_reactor->run_ex([&wallet, &nodeNetwork](){

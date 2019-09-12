@@ -1748,6 +1748,10 @@ int main_impl(int argc, char* argv[])
                                             !coldWallet ? Wallet::UpdateCompletedAction() : []() {io::Reactor::get_Current().stop(); } };
                     {
                         wallet::AsyncContextHolder holder(wallet);
+
+                        TryToRegisterSwapTxCreators(wallet, walletDB);
+                        wallet.ResumeAllTransactions();
+
                         if (!coldWallet)
                         {
                             if (vm.count(cli::NODE_ADDR) == 0)
@@ -1789,8 +1793,6 @@ int main_impl(int argc, char* argv[])
                         {
                             wallet.AddMessageEndpoint(make_shared<ColdWalletMessageEndpoint>(wallet, walletDB, keyKeeper));
                         }
-
-                        TryToRegisterSwapTxCreators(wallet, walletDB);
 
                         if (command == cli::SWAP_INIT)
                         {

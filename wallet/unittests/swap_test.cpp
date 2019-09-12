@@ -718,6 +718,7 @@ void TestSwap120Blocks()
             {
                 receiver = std::make_unique<TestWalletRig>("receiver", receiverWalletDB, completeAction);
                 InitBitcoin(receiver->m_Wallet, receiver->m_WalletDB, *mainReactor, aliceSettings);
+                receiver->m_Wallet.ResumeAllTransactions();
             }
         }
         eventToUpdate->post();

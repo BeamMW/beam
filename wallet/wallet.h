@@ -110,11 +110,11 @@ namespace beam::wallet
         
         void Subscribe(IWalletObserver* observer);
         void Unsubscribe(IWalletObserver* observer);
+        void ResumeAllTransactions();
 
     private:
         void ProcessTransaction(BaseTransaction::Ptr tx);
         void ResumeTransaction(const TxDescription& tx);
-        void ResumeAllTransactions();
 
         // INegotiatorGateway
         void OnAsyncStarted() override;
