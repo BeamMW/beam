@@ -31,10 +31,22 @@ void NodeProcessor::OnCorrupted()
 }
 
 NodeProcessor::Horizon::Horizon()
-	:m_Branching(MaxHeight)
-	,m_SchwarzschildLo(MaxHeight)
-	,m_SchwarzschildHi(MaxHeight)
 {
+	SetInfinite();
+}
+
+void NodeProcessor::Horizon::SetInfinite()
+{
+	m_Branching = MaxHeight;
+	m_SchwarzschildLo = MaxHeight;
+	m_SchwarzschildHi = MaxHeight;
+}
+
+void NodeProcessor::Horizon::SetStdFastSync()
+{
+	m_Branching = Rules::get().Macroblock.MaxRollback / 4; // inferior branches would be pruned when height difference is this.
+	m_SchwarzschildHi = 0; // would be adjusted anyway
+	m_SchwarzschildLo = 3600 * 24 * 180 / Rules::get().DA.Target_s; // 180-day period
 }
 
 void NodeProcessor::Initialize(const char* szPath)
