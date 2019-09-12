@@ -335,6 +335,15 @@ int main_impl(int argc, char* argv[])
 					node.m_Cfg.m_Horizon.m_SchwarzschildHi = vm[cli::HORIZON_HI].as<Height>();
 					node.m_Cfg.m_Horizon.m_SchwarzschildLo = vm[cli::HORIZON_LO].as<Height>();
 
+					auto var = vm[cli::FAST_SYNC];
+					if (!var.empty())
+					{
+						if (var.as<bool>())
+							node.m_Cfg.m_Horizon.SetStdFastSync();
+						else
+							node.m_Cfg.m_Horizon.SetInfinite();
+					}
+
 					node.Initialize(stratumServer.get());
 
 					if (vm.count(cli::GENERATE_RECOVERY_PATH))

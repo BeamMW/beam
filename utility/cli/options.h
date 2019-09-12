@@ -119,6 +119,7 @@ namespace beam
         extern const char* IP_WHITELIST;
         extern const char* HORIZON_HI;
         extern const char* HORIZON_LO;
+		extern const char* FAST_SYNC;
 		extern const char* GENERATE_RECOVERY_PATH;
 		extern const char* RECOVERY_AUTO_PATH;
 		extern const char* RECOVERY_AUTO_PERIOD;
