@@ -1241,7 +1241,7 @@ Item
                             anchors.right: parent.right
                             horizontalAlignment: Qt.AlignHCenter
                             text: viewModel.isOwnerKeyImported 
-                                ? "Owner Key imported.\nPlease, enter the PIN code you used on device to decrypt your Owner Key."
+                                ? "Owner Key imported.\nPlease, enter the password you saw on device to decrypt your Owner Key."
                                 : "Please, look at your Trezor to complete actions..."
                             color: Style.content_main
                             wrapMode: Text.WordWrap
@@ -1249,7 +1249,7 @@ Item
                         }
 
                         SFTextInput {
-                            id:trezorPin
+                            id:trezorPassword
                             width: 400
                             anchors.horizontalCenter: parent.horizontalCenter
                             visible: viewModel.isOwnerKeyImported
@@ -1282,10 +1282,10 @@ Item
                             id: checkRecoveryNextButton
                             //% "Next"
                             text: qsTrId("general-next")
-                            enabled: viewModel.isOwnerKeyImported && viewModel.isPinValid(trezorPin.text)
+                            enabled: viewModel.isOwnerKeyImported && viewModel.isPasswordValid(trezorPassword.text)
                             icon.source: "qrc:/assets/icon-next-blue.svg"
                             onClicked: {
-                                viewModel.setOwnerKeyPin(trezorPin.text)
+                                viewModel.setOwnerKeyPassword(trezorPassword.text)
                                 startWizzardView.push(create)
                             }
                         }

@@ -359,14 +359,14 @@ void StartViewModel::startOwnerKeyImporting()
     if(m_ownerKeyEncrypted.empty())
         m_trezorThread.start();
 }
-// !TODO: very slow operation, should be excluded
-bool StartViewModel::isPinValid(const QString& pin)
+
+bool StartViewModel::isPasswordValid(const QString& pass)
 {
-    if (pin.isEmpty())
+    if (pass.isEmpty())
         return false;
 
     KeyString ks;
-    ks.SetPassword(pin.toStdString());
+    ks.SetPassword(pass.toStdString());
 
     ks.m_sRes = m_ownerKeyEncrypted;
 
@@ -375,9 +375,9 @@ bool StartViewModel::isPinValid(const QString& pin)
     return ks.Import(*pKdf);
 }
 
-void StartViewModel::setOwnerKeyPin(const QString& pin)
+void StartViewModel::setOwnerKeyPassword(const QString& pass)
 {
-    m_ownerKeyPass = pin.toStdString();
+    m_ownerKeyPass = pass.toStdString();
 }
 
 #endif

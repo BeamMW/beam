@@ -32,42 +32,14 @@ namespace beam::wallet
 
     }
 
-    Key::IPKdf::Ptr TrezorKeyKeeper::get_OwnerKdf() const
-    {
-        // !TODO: do we really need to call this?
-        assert(false);
-
-        auto key = m_hwWallet.getOwnerKeySync();
-
-        // TODO: temporary PIN to decrypt owner key, should be removed
-        std::string pass = "1";
-
-        KeyString ks;
-        ks.SetPassword(Blob(pass.data(), static_cast<uint32_t>(pass.size())));
-
-        ks.m_sRes = key;
-
-        std::shared_ptr<ECC::HKdfPub> pKdf = std::make_shared<ECC::HKdfPub>();
-
-        if (!ks.Import(*pKdf))
-        {
-            LOG_ERROR() << "veiw key import failed";
-        }
-
-        return pKdf;
-    }
-
     Key::IKdf::Ptr TrezorKeyKeeper::get_SbbsKdf() const
     {
         // !TODO: temporary solution to init SBBS KDF with commitment
-        Key::IDV kidv{ 0, 0, Key::Type::Regular };
-        auto key = m_hwWallet.generateKeySync(kidv, true);
+        // also, we could store SBBS Kdf in the WalletDB
+        if (!m_sbbsKdf) 
+            ECC::HKdf::Create(m_sbbsKdf, m_hwWallet.generateKeySync({ 0, 0, Key::Type::Regular }, true).m_X);
 
-        Key::IKdf::Ptr sbbsKdf;
-
-        ECC::HKdf::Create(sbbsKdf, key.m_X);
-
-        return sbbsKdf;
+        return m_sbbsKdf;
     }
 
     void TrezorKeyKeeper::GeneratePublicKeys(const std::vector<Key::IDV>& ids, bool createCoinKey, Callback<PublicKeys>&& resultCallback, ExceptionCallback&& exceptionCallback)

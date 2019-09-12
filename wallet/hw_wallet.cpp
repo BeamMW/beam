@@ -58,7 +58,7 @@ namespace beam
 
         m_trezor->callback_Failure([&](const Message& msg, std::string session, size_t queue_size)
         {
-            // !TODO: handle errors here
+            // !TODO: show error message here
             LOG_ERROR() << "FAIL REASON: " << child_cast<Message, Failure>(msg).message();
         });
 
