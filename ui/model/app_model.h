@@ -71,6 +71,7 @@ private:
     void InitQtumClient();
     void onWalledOpened(const beam::SecString& pass);
     void backupDB(const std::string& dbFilePath);
+    void generateDefaultAddress();
 
 private:
     WalletModel::Ptr m_wallet;

@@ -25,6 +25,7 @@ Dialog {
         color: Style.content_main
         wrapMode: Text.Wrap
         horizontalAlignment : Text.AlignHCenter
-        text: "Please, look at your Trezor device to complete actions..."
+        //% "Please, look at your Trezor device to complete actions..."
+        text: qsTrId("trezor-message")
     }
 }

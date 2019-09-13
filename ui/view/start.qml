@@ -834,7 +834,8 @@ Item
                         SFText {
                             anchors.horizontalCenter: parent.horizontalCenter
                             horizontalAlignment: Qt.AlignHCenter
-                            text: "Init wallet with Trezor"
+                            //% "Init wallet with Trezor"
+                            text: qsTrId("start-init-wallet-with-trezor")
                             color: Style.content_main
                             font.pixelSize: 36
                         }
@@ -842,9 +843,11 @@ Item
                         SFText {
                             anchors.horizontalCenter: parent.horizontalCenter
                             horizontalAlignment: Qt.AlignHCenter
-                            text: viewModel.isTrezorConnected 
-                                ? "Found device: " + viewModel.trezorDeviceName
-                                : "There is no device connected, please, connect your hardware wallet."
+                            text: viewModel.isTrezorConnected
+                                //% "Found device:"
+                                ? qsTrId("start-found-trezor-device") + " " + viewModel.trezorDeviceName
+                                //% "There is no device connected, please, connect your hardware wallet."
+                                : qsTrId("start-no-trezor-device-connected")
                             color: Style.content_main
                             wrapMode: Text.WordWrap
                             font.pixelSize: 14
@@ -1232,7 +1235,8 @@ Item
                         SFText {
                             anchors.horizontalCenter: parent.horizontalCenter
                             horizontalAlignment: Qt.AlignHCenter
-                            text: "Import Trezor Owner Key"
+                            //% "Import Trezor Owner Key"
+                            text: qsTrId("start-import-trezor-owner-key")
                             color: Style.content_main
                             font.pixelSize: 36
                         }
@@ -1241,8 +1245,10 @@ Item
                             anchors.right: parent.right
                             horizontalAlignment: Qt.AlignHCenter
                             text: viewModel.isOwnerKeyImported 
-                                ? "Owner Key imported.\nPlease, enter the password you saw on device to decrypt your Owner Key."
-                                : "Please, look at your Trezor to complete actions..."
+                                //% "Owner Key imported. Please, enter the password you saw on device to decrypt your Owner Key."
+                                ? qsTrId("start-owner-key-imported")
+                                //% "Please, look at your Trezor to complete actions..."
+                                : qsTrId("start-look-at-trezor-to-complete-actions")
                             color: Style.content_main
                             wrapMode: Text.WordWrap
                             font.pixelSize: 14

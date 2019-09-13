@@ -74,6 +74,14 @@ void AppModel::backupDB(const std::string& dbFilePath)
     }
 }
 
+void AppModel::generateDefaultAddress()
+{
+    // generate default address
+    WalletAddress address = storage::createAddress(*m_db, m_keyKeeper);
+    address.m_label = "default";
+    m_db->saveAddress(address);
+}
+
 bool AppModel::createWallet(const SecString& seed, const SecString& pass)
 {
     const auto dbFilePath = m_settings.getWalletStorage();
@@ -84,6 +92,7 @@ bool AppModel::createWallet(const SecString& seed, const SecString& pass)
 
     m_keyKeeper = std::make_shared<LocalPrivateKeyKeeper>(m_db);
 
+    generateDefaultAddress();
     onWalledOpened(pass);
 
     return true;
@@ -100,6 +109,7 @@ bool AppModel::createTrezorWallet(std::shared_ptr<ECC::HKdfPub> ownerKey, const 
 
     m_keyKeeper = std::make_shared<TrezorKeyKeeper>();
 
+    generateDefaultAddress();
     onWalledOpened(pass);
 
     return true;
@@ -131,11 +141,6 @@ bool AppModel::openWallet(const beam::SecString& pass)
 
 void AppModel::onWalledOpened(const beam::SecString& pass)
 {
-    // generate default address
-    WalletAddress address = storage::createAddress(*m_db, m_keyKeeper);
-    address.m_label = "default";
-    m_db->saveAddress(address);
-
     m_passwordHash = pass.hash();
     start();
 }
