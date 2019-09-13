@@ -270,6 +270,7 @@ function(CreateBoostComponentTargets listOfComponents root libPrefix libSuffix)
 
     foreach(COMPONENT ${listOfComponents})
         set(COMPONENT_LOCATION "${root}/${libPrefix}${COMPONENT}${libSuffix}")
+        message(STATUS " - ${COMPONENT_LOCATION}")
         if (EXISTS(${COMPONENT_LOCATION}))
             add_library(Boost::${COMPONENT} STATIC IMPORTED)
             set_target_properties(Boost::${COMPONENT} PROPERTIES
