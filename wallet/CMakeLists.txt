@@ -87,7 +87,10 @@ if (NOT ANDROID)
     add_executable(${TARGET_NAME} cli.cpp strings_resources.h strings_resources.cpp)
 
     if(LINUX)
-        target_link_libraries(${TARGET_NAME} -static-libstdc++ -static-libgcc)
+        target_link_libraries(${TARGET_NAME}
+            PRIVATE 
+                -static-libstdc++ 
+                -static-libgcc)
     endif()
 
     configure_file("${PROJECT_SOURCE_DIR}/version.h.in" "${CMAKE_CURRENT_BINARY_DIR}/version.h")
@@ -102,7 +105,12 @@ if (NOT ANDROID)
     )
 
     add_library(wallet_api_proto STATIC api.cpp)
-    target_link_libraries(wallet_api_proto wallet utility http)
+    target_link_libraries(wallet_api_proto
+        PUBLIC 
+            wallet 
+            utility 
+            http
+    )
 
     set(WALLET_API_NAME wallet-api${BEAM_TARGET_SUFFIX})
 

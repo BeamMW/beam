@@ -342,20 +342,35 @@ if(BEAM_USE_STATIC)
     set(OPENSSL_USE_STATIC_LIBS TRUE)
 
     # cmake can't find static lib on macos, harcoded
-    if(APPLE)
-        set(OPENSSL_LIBCRYPTO $ENV{OPENSSL_ROOT_DIR}/lib/libcrypto.a)
-        set(OPENSSL_LIBSSL $ENV{OPENSSL_ROOT_DIR}/lib/libssl.a)
-    elseif(UNIX)
-        set(OPENSSL_LIBCRYPTO /usr/lib/x86_64-linux-gnu/libcrypto.a)
-        set(OPENSSL_LIBSSL /usr/lib/x86_64-linux-gnu/libssl.a)
-    else()
+    #if(APPLE)
+    #    set(OPENSSL_LIBCRYPTO $ENV{OPENSSL_ROOT_DIR}/lib/libcrypto.a)
+    #    set(OPENSSL_LIBSSL $ENV{OPENSSL_ROOT_DIR}/lib/libssl.a)
+    #elseif(UNIX)
+    #    set(OPENSSL_LIBCRYPTO /usr/lib/x86_64-linux-gnu/libcrypto.a)
+    #    set(OPENSSL_LIBSSL /usr/lib/x86_64-linux-gnu/libssl.a)
+    #else()
         find_package(OpenSSL REQUIRED)
-    endif()
+    #endif()
 else()
     if(ANDROID)
         include_directories($ENV{OPENSSL_ROOT_DIR_ANDROID}/include)
         set(OPENSSL_LIBCRYPTO $ENV{OPENSSL_ROOT_DIR_ANDROID}/libs/${ANDROID_ABI}/libcrypto.a)
         set(OPENSSL_LIBSSL $ENV{OPENSSL_ROOT_DIR_ANDROID}/libs/${ANDROID_ABI}/libssl.a)
+
+        add_library(OpenSSL::Crypto STATIC IMPORTED)
+        set_target_properties(OpenSSL::Crypto PROPERTIES
+            INTERFACE_INCLUDE_DIRECTORIES "$ENV{OPENSSL_ROOT_DIR_ANDROID}/include")
+        set_target_properties(OpenSSL::Crypto PROPERTIES
+            IMPORTED_LINK_INTERFACE_LANGUAGES "C"
+            IMPORTED_LOCATION "$ENV{OPENSSL_ROOT_DIR_ANDROID}/libs/${ANDROID_ABI}/libcrypto.a")
+
+        add_library(OpenSSL::SSL STATIC IMPORTED)
+        set_target_properties(OpenSSL::SSL PROPERTIES
+            INTERFACE_INCLUDE_DIRECTORIES "$ENV{OPENSSL_ROOT_DIR_ANDROID}/include")
+        set_target_properties(OpenSSL::SSL PROPERTIES
+            IMPORTED_LINK_INTERFACE_LANGUAGES "C"
+            IMPORTED_LOCATION "$ENV{OPENSSL_ROOT_DIR_ANDROID}/libs/${ANDROID_ABI}/libssl.a")
+
     else()
         find_package(OpenSSL REQUIRED)
     endif()
