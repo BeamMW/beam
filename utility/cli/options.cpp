@@ -19,11 +19,97 @@
 #include "core/ecc.h"
 #include "utility/string_helpers.h"
 #include "utility/helpers.h"
-#include "wallet/secstring.h"
 #include "mnemonic/mnemonic.h"
 
 using namespace std;
 using namespace ECC;
+
+namespace
+{
+#ifndef WIN32
+
+    namespace {
+
+        int getch() {
+            int ch;
+            struct termios t_old, t_new;
+
+            tcgetattr(STDIN_FILENO, &t_old);
+            t_new = t_old;
+            t_new.c_lflag &= ~(ICANON | ECHO);
+            tcsetattr(STDIN_FILENO, TCSANOW, &t_new);
+
+            ch = getchar();
+
+            tcsetattr(STDIN_FILENO, TCSANOW, &t_old);
+            return ch;
+        }
+
+    } //namespace
+
+#endif
+
+    void read_password(const char* prompt, beam::SecString& out, bool includeTerminatingZero) {
+        std::cout << prompt;
+
+        size_t maxLen = beam::SecString::MAX_SIZE - 1;
+        unsigned char ch = 0;
+
+#ifdef WIN32
+
+        static const char BACKSPACE = 8;
+        static const char RETURN = 13;
+
+
+        DWORD con_mode;
+        DWORD dwRead;
+        HANDLE hIn = GetStdHandle(STD_INPUT_HANDLE);
+
+        GetConsoleMode(hIn, &con_mode);
+        SetConsoleMode(hIn, con_mode & ~(ENABLE_ECHO_INPUT | ENABLE_LINE_INPUT));
+
+        while (ReadConsoleA(hIn, &ch, 1, &dwRead, NULL) && ch != RETURN && out.size() < maxLen) {
+            if (ch == BACKSPACE) {
+                if (out.size() > 0) {
+                    std::cout << "\b \b";
+                    out.pop_back();
+                }
+            }
+            else {
+                out.push_back((char)ch);
+                std::cout << '*';
+            }
+        }
+
+        GetConsoleMode(hIn, &con_mode);
+        SetConsoleMode(hIn, con_mode | (ENABLE_ECHO_INPUT | ENABLE_LINE_INPUT));
+
+#else
+        static const char BACKSPACE = 127;
+        static const char RETURN = 10;
+
+        while ((ch = getch()) != RETURN && out.size() < maxLen)
+        {
+            if (ch == BACKSPACE) {
+                if (out.size() > 0) {
+                    std::cout << "\b \b";
+                    out.pop_back();
+                }
+            }
+            else {
+                out.push_back((char)ch);
+                std::cout << '*';
+            }
+        }
+
+#endif
+
+        if (includeTerminatingZero) {
+            out.push_back('\0');
+        }
+        std::cout << std::endl;
+    }
+}
 
 namespace beam
 {

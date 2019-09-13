@@ -24,19 +24,17 @@ set(CORE_SRC
 )
 
 add_library(core STATIC ${CORE_SRC})
-
 target_link_libraries(core 
-    PUBLIC 
-        pow 
+    PUBLIC
+        Boost::boost
         p2p
     PRIVATE
+        pow
         pbkdf
         secp256k1
 )
 
-#target_include_directories(core PRIVATE ${PROJECT_SOURCE_DIR}/3rdparty/secp256k1-zkp/include)
-#target_include_directories(core PRIVATE ${PROJECT_SOURCE_DIR}/3rdparty/secp256k1-zkp/src)
-#target_include_directories(core PRIVATE ${PROJECT_SOURCE_DIR}/3rdparty/)
+#target_include_directories(core PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 target_include_directories(core PUBLIC ${PROJECT_SOURCE_DIR}/core)
 
 add_subdirectory(unittest)

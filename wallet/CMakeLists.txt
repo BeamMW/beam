@@ -4,29 +4,35 @@ set(TARGET_NAME beam-wallet${BEAM_TARGET_SUFFIX})
 
 add_library(wallet STATIC)
 target_sources(wallet
-    PRIVATE common.cpp
-    PRIVATE default_peers.cpp
-    PRIVATE wallet.h
-    PRIVATE wallet.cpp
-    PRIVATE base_transaction.cpp
-    PRIVATE base_tx_builder.cpp
-    PRIVATE wallet_transaction.cpp
-    PRIVATE wallet_network.cpp
-    PRIVATE wallet_db.cpp
-    PRIVATE wallet_client.h
-    PRIVATE wallet_client.cpp
-    PRIVATE local_private_key_keeper.cpp
-    PRIVATE base58.cpp
-    PRIVATE unittests/util.cpp
+    PRIVATE
+        common.cpp
+        default_peers.cpp
+        wallet.h
+        wallet.cpp
+        base_transaction.cpp
+        base_tx_builder.cpp
+        wallet_transaction.cpp
+        wallet_network.cpp
+        wallet_db.cpp
+        wallet_client.h
+        wallet_client.cpp
+        local_private_key_keeper.cpp
+        base58.cpp
+        unittests/util.cpp
 )
 
 if(BEAM_HW_WALLET)
     target_sources(wallet PRIVATE trezor_key_keeper.cpp)
 endif()
 
-target_compile_definitions(wallet
-    PRIVATE SQLITE_HAS_CODEC)
-target_link_libraries(wallet core sqlite)
+target_link_libraries(wallet 
+    PUBLIC
+        core
+    PRIVATE
+        sqlite
+        #OpenSSLDep
+)
+
 target_compile_features(wallet PUBLIC cxx_std_17)
 
 add_subdirectory(swaps)
@@ -81,8 +87,6 @@ if (NOT ANDROID)
 
     add_executable(${TARGET_NAME} cli.cpp strings_resources.h strings_resources.cpp)
 
-    target_include_directories(${TARGET_NAME} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/external)
-
     if(LINUX)
         target_link_libraries(${TARGET_NAME} -static-libstdc++ -static-libgcc)
     endif()
@@ -90,7 +94,13 @@ if (NOT ANDROID)
     configure_file("${PROJECT_SOURCE_DIR}/version.h.in" "${CMAKE_CURRENT_BINARY_DIR}/version.h")
     target_include_directories(${TARGET_NAME} PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
 
-    target_link_libraries(${TARGET_NAME} wallet utility cli swap mnemonic)
+    target_link_libraries(${TARGET_NAME}
+        PRIVATE
+            wallet
+            cli
+            swap
+            mnemonic
+    )
 
     add_library(wallet_api_proto STATIC api.cpp)
     target_link_libraries(wallet_api_proto wallet utility http)
@@ -99,7 +109,11 @@ if (NOT ANDROID)
 
     add_executable(${WALLET_API_NAME} api_cli.cpp)
     target_include_directories(${WALLET_API_NAME} PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
-    target_link_libraries(${WALLET_API_NAME} wallet utility wallet_api_proto cli)
+    target_link_libraries(${WALLET_API_NAME}
+        PRIVATE 
+            wallet_api_proto
+            cli
+    )
 
     if(LINUX)
         target_link_libraries(${WALLET_API_NAME} -static-libstdc++ -static-libgcc)

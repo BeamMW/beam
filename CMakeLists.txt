@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.5)
+cmake_minimum_required(VERSION 3.11)
 cmake_policy(SET CMP0074 NEW)
 
 set(VERSION_MAJOR 3)
@@ -13,16 +13,10 @@ set(BEAM_DISPLAY_SUFFIX " ${BEAM_SUFFIX_UPPER_CASE}")
 
 if(IOS)
     add_compile_definitions(_LIBCPP_ENABLE_CXX17_REMOVED_AUTO_PTR)
-    add_compile_definitions(BOOST_NO_AUTO_PTR)
 
     if (POLICY CMP0025)
         cmake_policy(SET CMP0025 NEW)
     endif ()
-
-    add_definitions(-DBOOST_ERROR_CODE_HEADER_ONLY)
-
-    include_directories(${BOOST_ROOT}/include)
-
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Winvalid-ios-deployment-target")
 endif()
 
@@ -175,6 +169,7 @@ endif()
 
 option(BEAM_HW_WALLET "Build with hardware wallet support" OFF)
 
+
 if(BEAM_HW_WALLET)
 
     if(BEAM_USE_STATIC)
@@ -264,12 +259,50 @@ if(UNIX OR WIN32)
     add_definitions(-DUV_INTERNAL)
 endif()
 
+#Boost
+
+set(BEAM_BOOST_COMPONENTS system filesystem program_options thread regex log locale)
+
+function(CreateBoostComponentTargets listOfComponents root libPrefix libSuffix)
+    add_library(Boost::boost INTERFACE IMPORTED)
+    set_target_properties(Boost::boost PROPERTIES
+        INTERFACE_INCLUDE_DIRECTORIES ${root}/include)
+
+    foreach(COMPONENT ${listOfComponents})
+        set(COMPONENT_LOCATION "${root}/${libPrefix}${COMPONENT}${libSuffix}")
+        if (EXISTS(${COMPONENT_LOCATION}))
+            add_library(Boost::${COMPONENT} STATIC IMPORTED)
+            set_target_properties(Boost::${COMPONENT} PROPERTIES
+                IMPORTED_LINK_INTERFACE_LANGUAGES "CXX"
+                IMPORTED_LOCATION ${COMPONENT_LOCATION})
+        endif()
+    endforeach()
+endfunction()
+
 if(IOS)
-    include_directories($ENV{BOOST_ROOT_IOS}/include)
+    add_compile_definitions(BOOST_NO_AUTO_PTR)
+    add_definitions(-DBOOST_ERROR_CODE_HEADER_ONLY)
+    CreateBoostComponentTargets("${BEAM_BOOST_COMPOMENTS}" "$ENV{BOOST_ROOT_IOS}" "lib/libboost_" ".a")
 elseif(ANDROID)
     message("ANDROID_ABI: ${ANDROID_ABI}")
     add_definitions(-DBOOST_ERROR_CODE_HEADER_ONLY)
-    include_directories($ENV{BOOST_ROOT_ANDROID}/include)
+
+    set(ANDROID_SUFFIX "")
+
+    if(ANDROID_ABI STREQUAL "armeabi-v7a")
+        set(ANDROID_SUFFIX "-clang-mt-a32-1_68.a")
+    elseif(ANDROID_ABI STREQUAL "x86")
+        set(ANDROID_SUFFIX "-clang-mt-x32-1_68.a")
+    elseif(ANDROID_ABI STREQUAL "x86_64")
+        set(ANDROID_SUFFIX "-clang-mt-x64-1_68.a")
+    elseif(ANDROID_ABI STREQUAL "arm64-v8a")
+        set(ANDROID_SUFFIX "-clang-mt-a64-1_68.a")
+    endif()
+
+    CreateBoostComponentTargets("${BEAM_BOOST_COMPONENTS}" "$ENV{BOOST_ROOT_ANDROID}" "libs/${ANDROID_ABI}/libboost_" "${ANDROID_SUFFIX}")
+    #set (Boost_DEBUG TRUE)
+    #find_package(Boost 1.67 REQUIRED COMPONENTS ${BEAM_BOOST_COMPONENTS})
+    
 else()
 
     if(LINUX)
@@ -291,12 +324,18 @@ else()
         endif()
     endif()
 
+    #set (Boost_VERBOSE TRUE)
+    find_package(Boost 1.67 REQUIRED COMPONENTS ${BEAM_BOOST_COMPONENTS})
 endif()
+
+#Boost end
 
 include_directories(${PROJECT_SOURCE_DIR})
 add_definitions(-DPROJECT_SOURCE_DIR=\"${PROJECT_SOURCE_DIR}\")
 
 include_directories(${PROJECT_SOURCE_DIR}/3rdparty)
+
+#OpenSSL
 
 if(BEAM_USE_STATIC)
 
@@ -318,9 +357,9 @@ else()
     endif()
 endif()
 
-#set (Boost_VERBOSE TRUE)
-#find_package(Boost 1.67 REQUIRED system)
-#find_package(OpenSSL REQUIRED)
+find_package(OpenSSL REQUIRED)
+
+#OpenSSL end
 
 add_definitions(-DBC_STATIC)
 

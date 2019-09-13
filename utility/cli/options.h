@@ -15,8 +15,8 @@
 #pragma once
 
 #include <boost/program_options.hpp>
-#include "core/ecc.h"
 #include "utility/logger.h"
+#include "wallet/secstring.h"
 
 namespace beam
 {
