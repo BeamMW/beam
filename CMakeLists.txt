@@ -270,13 +270,16 @@ function(CreateBoostComponentTargets listOfComponents root libPrefix libSuffix)
 
     foreach(COMPONENT ${listOfComponents})
         set(COMPONENT_LOCATION "${root}/${libPrefix}${COMPONENT}${libSuffix}")
-        message(STATUS " - ${COMPONENT_LOCATION}")
-        if (EXISTS(${COMPONENT_LOCATION}))
+        message(STATUS "${COMPONENT_LOCATION}")
+        if (NOT TARGET Boost::${COMPONENT})
+       # if (EXISTS(${COMPONENT_LOCATION}))
             add_library(Boost::${COMPONENT} STATIC IMPORTED)
             set_target_properties(Boost::${COMPONENT} PROPERTIES
                 IMPORTED_LINK_INTERFACE_LANGUAGES "CXX"
                 IMPORTED_LOCATION ${COMPONENT_LOCATION})
-        endif()
+       else()
+           message(STATUS "Boost::${COMPONENT} is defined")
+       endif()
     endforeach()
 endfunction()
 
@@ -287,6 +290,12 @@ if(IOS)
 elseif(ANDROID)
     message("ANDROID_ABI: ${ANDROID_ABI}")
     add_definitions(-DBOOST_ERROR_CODE_HEADER_ONLY)
+
+    set (Boost_DEBUG TRUE)
+    set (Boost_COMPILER "-clang")
+    set(Boost_USE_MULTITHREADED ON)
+    set(Boost_USE_STATIC_LIBS ON)
+    find_package(Boost 1.67  COMPONENTS ${BEAM_BOOST_COMPONENTS})
 
     set(ANDROID_SUFFIX "")
 
@@ -301,8 +310,7 @@ elseif(ANDROID)
     endif()
 
     CreateBoostComponentTargets("${BEAM_BOOST_COMPONENTS}" "$ENV{BOOST_ROOT_ANDROID}" "libs/${ANDROID_ABI}/libboost_" "${ANDROID_SUFFIX}")
-    #set (Boost_DEBUG TRUE)
-    #find_package(Boost 1.67 REQUIRED COMPONENTS ${BEAM_BOOST_COMPONENTS})
+    
     
 else()
 
