@@ -14,12 +14,22 @@
 
 #include "options.h"
 
-#include "boost/lexical_cast.hpp"
+#include <boost/lexical_cast.hpp>
 #include "core/block_crypt.h"
 #include "core/ecc.h"
 #include "utility/string_helpers.h"
 #include "utility/helpers.h"
 #include "mnemonic/mnemonic.h"
+#if defined __linux__
+    #include <unistd.h>
+    #include <termios.h>
+#elif defined _WIN32
+    #define WIN32_LEAN_AND_MEAN
+    #include <windows.h>
+#else
+    #include <unistd.h>
+    #include <termios.h>
+#endif
 
 using namespace std;
 using namespace ECC;
