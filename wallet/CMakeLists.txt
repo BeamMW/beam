@@ -50,7 +50,12 @@ if (NOT ANDROID)
             ${PROJECT_SOURCE_DIR}/3rdparty/trezor-cpp-client/src/messages/messages-beam.pb.cc
         )
 
-        target_link_libraries(hw_wallet core libprotobuf libcurl)
+        target_link_libraries(hw_wallet
+            PUBLIC 
+                core
+                libprotobuf
+                libcurl
+        )
 
         if(MSVC)
             target_compile_options(hw_wallet PRIVATE "/wd4125")
@@ -80,7 +85,7 @@ if (NOT ANDROID)
             ${PROJECT_SOURCE_DIR}/3rdparty/trezor-cpp-client/src
             ${PROJECT_SOURCE_DIR}/3rdparty/trezor-cpp-client/src/messages)
 
-        target_link_libraries(trezor-cpp-client hw_wallet)
+        target_link_libraries(trezor-cpp-client PRIVATE hw_wallet)
 
     endif()
 
@@ -123,7 +128,10 @@ if (NOT ANDROID)
     )
 
     if(LINUX)
-        target_link_libraries(${WALLET_API_NAME} -static-libstdc++ -static-libgcc)
+        target_link_libraries(${WALLET_API_NAME} 
+            PRIVATE
+                -static-libstdc++
+                -static-libgcc)
     endif()
 
     add_subdirectory(unittests)
