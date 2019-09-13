@@ -27,7 +27,9 @@ namespace beam
     class HWWallet
     {
     public:
-        HWWallet();
+        using OnError = std::function<void(const std::string&)>;
+
+        HWWallet(OnError onError = OnError());
 
         using Ptr = std::shared_ptr<beam::HWWallet>;
 

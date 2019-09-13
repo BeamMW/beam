@@ -65,8 +65,7 @@ if (NOT ANDROID)
             ${PROJECT_SOURCE_DIR}/3rdparty/curl/include
             ${PROJECT_SOURCE_DIR}/3rdparty/protobuf/src)
 
-        add_dependencies(wallet hw_wallet)
-        target_link_libraries(wallet hw_wallet)
+        target_link_libraries(wallet PRIVATE hw_wallet)
 
         # build trezor usage demo
         add_executable(trezor-cpp-client ${PROJECT_SOURCE_DIR}/3rdparty/trezor-cpp-client/main.cpp)

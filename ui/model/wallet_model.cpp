@@ -179,6 +179,13 @@ void WalletModel::onHideKeyKeeperMessage()
 #endif
 }
 
+void WalletModel::onShowKeyKeeperError(const std::string& error)
+{
+#if defined(BEAM_HW_WALLET)
+    emit showTrezorError(QString::fromStdString(error));
+#endif
+}
+
 void WalletModel::onGeneratedNewAddress(const beam::wallet::WalletAddress& walletAddr)
 {
     emit generatedNewAddress(walletAddr);

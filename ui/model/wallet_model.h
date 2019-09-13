@@ -57,6 +57,7 @@ signals:
 #if defined(BEAM_HW_WALLET)
     void showTrezorMessage();
     void hideTrezorMessage();
+    void showTrezorError(const QString& error);
 #endif
 
 private:
@@ -82,6 +83,7 @@ private:
 
     void onShowKeyKeeperMessage() override;
     void onHideKeyKeeperMessage() override;
+    void onShowKeyKeeperError(const std::string&) override;
 
 private:
     std::vector<beam::wallet::WalletAddress> m_addresses;

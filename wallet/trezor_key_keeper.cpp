@@ -22,7 +22,12 @@ namespace beam::wallet
     using namespace std;
 
     TrezorKeyKeeper::TrezorKeyKeeper()
-        : m_latestSlot(0)
+        : m_hwWallet([this](const std::string& msg)
+            {
+                for (auto handler : m_handlers)
+                    handler->onShowKeyKeeperError(msg);
+            })
+        , m_latestSlot(0)
     {
 
     }

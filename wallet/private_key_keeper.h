@@ -39,6 +39,7 @@ namespace beam::wallet
 
             virtual void onShowKeyKeeperMessage() = 0;
             virtual void onHideKeyKeeperMessage() = 0;
+            virtual void onShowKeyKeeperError(const std::string&) = 0;
         };
 
         using Ptr = std::shared_ptr<IPrivateKeyKeeper>;

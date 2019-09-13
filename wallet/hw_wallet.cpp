@@ -35,7 +35,7 @@
 
 namespace beam
 {
-    HWWallet::HWWallet() 
+    HWWallet::HWWallet(OnError onError)
         : m_client(std::make_shared<Client>())
         , m_trezor(std::make_shared<DeviceManager>())
     
@@ -58,8 +58,11 @@ namespace beam
 
         m_trezor->callback_Failure([&](const Message& msg, std::string session, size_t queue_size)
         {
-            // !TODO: show error message here
-            LOG_ERROR() << "FAIL REASON: " << child_cast<Message, Failure>(msg).message();
+            auto message = child_cast<Message, Failure>(msg).message();
+
+            onError(message);
+
+            LOG_ERROR() << "FAIL REASON: " << message;
         });
 
         m_trezor->callback_Success([&](const Message& msg, std::string session, size_t queue_size)

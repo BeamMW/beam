@@ -6,6 +6,8 @@ import "."
 Dialog {
     id: control
 
+    property string message
+
     modal: true
 
     x: (parent.width - width) / 2
@@ -25,7 +27,6 @@ Dialog {
         color: Style.content_main
         wrapMode: Text.Wrap
         horizontalAlignment : Text.AlignHCenter
-        //% "Please, look at your Trezor device to complete actions..."
-        text: qsTrId("trezor-message")
+        text: control.message
     }
 }
