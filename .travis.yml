@@ -208,13 +208,10 @@ matrix:
         - sudo git clone --depth=1 https://github.com/BeamMW/openssl-android.git /usr/local/Prebuilt-OpenSSL-Android
         - export ANDROID_NDK_HOME=$ANDROID_HOME/ndk-bundle
         - export BOOST_ROOT_ANDROID=/usr/local/boost_1_68-android
-        - export BOOST_ROOT=/usr/local/boost_1_68-android
-        - export BOOST_INCLUDEDIR=/usr/local/boost_1_68-android/include/boost
-        - export BOOST_LIBRARYDIR=/usr/local/boost_1_68-android/libs/x86
         - export OPENSSL_ROOT_DIR_ANDROID=/usr/local/Prebuilt-OpenSSL-Android
         - export PATH=$ANDROID_NDK_HOME:$PATH
       script:
-        - cmake -DCMAKE_TOOLCHAIN_FILE=$ANDROID_NDK_HOME/build/cmake/android.toolchain.cmake -DANDROID_NATIVE_API_LEVEL=$ANDROID_SDK_VERSION -DANDROID_ABI=$ANDROID_ABI -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DBOOST_ROOT=/usr/local/boost_1_68-android -DBoost_COMPILER="-clang" -DBoost_ARCHITECTURE="-x86" .
+        - cmake -DCMAKE_TOOLCHAIN_FILE=$ANDROID_NDK_HOME/build/cmake/android.toolchain.cmake -DANDROID_NATIVE_API_LEVEL=$ANDROID_SDK_VERSION -DANDROID_ABI=$ANDROID_ABI -DCMAKE_BUILD_TYPE=$BUILD_TYPE .
         - make wallet-jni -j4
       after_success:
         # extract build version
@@ -256,7 +253,7 @@ matrix:
         - export OPENSSL_ROOT_DIR_ANDROID=/usr/local/Prebuilt-OpenSSL-Android
         - export PATH=$ANDROID_NDK_HOME:$PATH
       script:
-        - cmake -DCMAKE_TOOLCHAIN_FILE=$ANDROID_NDK_HOME/build/cmake/android.toolchain.cmake -DANDROID_NATIVE_API_LEVEL=$ANDROID_SDK_VERSION -DANDROID_ABI=$ANDROID_ABI -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DBOOST_ROOT=/usr/local/boost_1_68-android -DBoost_COMPILER="-clang" -DBoost_ARCHITECTURE="-x64".
+        - cmake -DCMAKE_TOOLCHAIN_FILE=$ANDROID_NDK_HOME/build/cmake/android.toolchain.cmake -DANDROID_NATIVE_API_LEVEL=$ANDROID_SDK_VERSION -DANDROID_ABI=$ANDROID_ABI -DCMAKE_BUILD_TYPE=$BUILD_TYPE .
         - make wallet-jni -j4
       after_success:
         # extract build version
@@ -298,7 +295,7 @@ matrix:
         - export OPENSSL_ROOT_DIR_ANDROID=/usr/local/Prebuilt-OpenSSL-Android
         - export PATH=$ANDROID_NDK_HOME:$PATH
       script:
-        - cmake -DCMAKE_TOOLCHAIN_FILE=$ANDROID_NDK_HOME/build/cmake/android.toolchain.cmake -DANDROID_NATIVE_API_LEVEL=$ANDROID_SDK_VERSION -DANDROID_ABI=$ANDROID_ABI -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DBOOST_ROOT=/usr/local/boost_1_68-android -DBoost_COMPILER="-clang" -DBoost_ARCHITECTURE="-a32".
+        - cmake -DCMAKE_TOOLCHAIN_FILE=$ANDROID_NDK_HOME/build/cmake/android.toolchain.cmake -DANDROID_NATIVE_API_LEVEL=$ANDROID_SDK_VERSION -DANDROID_ABI=$ANDROID_ABI -DCMAKE_BUILD_TYPE=$BUILD_TYPE .
         - make wallet-jni -j4
       after_success:
         # extract build version
@@ -333,14 +330,14 @@ matrix:
         - echo y | sdkmanager "ndk-bundle"
         - wget "https://cmake.org/files/v3.12/cmake-3.12.0-Linux-x86_64.sh"
         - sudo sh cmake-3.12.0-Linux-x86_64.sh --skip-license --prefix=/usr
-        - sudo git clone --depth=1 https://github.com/BeamMW/boost-android.git /usr/local/boost_1_68_0
+        - sudo git clone --depth=1 https://github.com/BeamMW/boost-android.git /usr/local/boost_1_68-android
         - sudo git clone --depth=1 https://github.com/BeamMW/openssl-android.git /usr/local/Prebuilt-OpenSSL-Android
         - export ANDROID_NDK_HOME=$ANDROID_HOME/ndk-bundle
-        - export BOOST_ROOT_ANDROID=/usr/local/boost_1_68_0
+        - export BOOST_ROOT_ANDROID=/usr/local/boost_1_68-android
         - export OPENSSL_ROOT_DIR_ANDROID=/usr/local/Prebuilt-OpenSSL-Android
         - export PATH=$ANDROID_NDK_HOME:$PATH
       script:
-        - cmake -DCMAKE_TOOLCHAIN_FILE=$ANDROID_NDK_HOME/build/cmake/android.toolchain.cmake -DANDROID_NATIVE_API_LEVEL=$ANDROID_SDK_VERSION -DANDROID_ABI=$ANDROID_ABI -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DBOOST_ROOT=/usr/local/boost_1_68_0 -DBOOST_INCLUDEDIR=/usr/local/boost_1_68_0/include/boost -DBOOST_LIBRARYDIR=/usr/local/boost_1_68_0/libs -DBoost_COMPILER="-clang" -DBoost_ARCHITECTURE="-a64" -DBoost_DEBUG=TRUE .
+        - cmake -DCMAKE_TOOLCHAIN_FILE=$ANDROID_NDK_HOME/build/cmake/android.toolchain.cmake -DANDROID_NATIVE_API_LEVEL=$ANDROID_SDK_VERSION -DANDROID_ABI=$ANDROID_ABI -DCMAKE_BUILD_TYPE=$BUILD_TYPE .
         - make wallet-jni -j4
       after_success:
         # extract build version

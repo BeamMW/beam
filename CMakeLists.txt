@@ -266,7 +266,7 @@ set(BEAM_BOOST_COMPONENTS system filesystem program_options thread regex log loc
 function(CreateBoostComponentTargets listOfComponents root libPrefix libSuffix)
     add_library(Boost::boost INTERFACE IMPORTED)
     set_target_properties(Boost::boost PROPERTIES
-        INTERFACE_INCLUDE_DIRECTORIES ${root}/include)
+        INTERFACE_INCLUDE_DIRECTORIES "${root}/include")
 
     foreach(COMPONENT ${listOfComponents})
         set(COMPONENT_LOCATION "${root}/${libPrefix}${COMPONENT}${libSuffix}")
@@ -275,10 +275,12 @@ function(CreateBoostComponentTargets listOfComponents root libPrefix libSuffix)
        # if (EXISTS(${COMPONENT_LOCATION}))
             add_library(Boost::${COMPONENT} STATIC IMPORTED)
             set_target_properties(Boost::${COMPONENT} PROPERTIES
+                INTERFACE_INCLUDE_DIRECTORIES "${root}/include")
+            set_target_properties(Boost::${COMPONENT} PROPERTIES
                 IMPORTED_LINK_INTERFACE_LANGUAGES "CXX"
                 IMPORTED_LOCATION ${COMPONENT_LOCATION})
        else()
-           message(STATUS "Boost::${COMPONENT} is defined")
+           message(STATUS "Boost::${COMPONENT} is already defined")
        endif()
     endforeach()
 endfunction()
@@ -291,11 +293,11 @@ elseif(ANDROID)
     message("ANDROID_ABI: ${ANDROID_ABI}")
     add_definitions(-DBOOST_ERROR_CODE_HEADER_ONLY)
 
-    set (Boost_DEBUG TRUE)
-    set (Boost_COMPILER "-clang")
-    set(Boost_USE_MULTITHREADED ON)
-    set(Boost_USE_STATIC_LIBS ON)
-    find_package(Boost 1.67  COMPONENTS ${BEAM_BOOST_COMPONENTS})
+    #set (Boost_DEBUG TRUE)
+    #set (Boost_COMPILER "-clang")
+    #set(Boost_USE_MULTITHREADED ON)
+    #set(Boost_USE_STATIC_LIBS ON)
+    #find_package(Boost 1.67  COMPONENTS ${BEAM_BOOST_COMPONENTS})
 
     set(ANDROID_SUFFIX "")
 
@@ -362,9 +364,9 @@ if(BEAM_USE_STATIC)
     #endif()
 else()
     if(ANDROID)
-        include_directories($ENV{OPENSSL_ROOT_DIR_ANDROID}/include)
-        set(OPENSSL_LIBCRYPTO $ENV{OPENSSL_ROOT_DIR_ANDROID}/libs/${ANDROID_ABI}/libcrypto.a)
-        set(OPENSSL_LIBSSL $ENV{OPENSSL_ROOT_DIR_ANDROID}/libs/${ANDROID_ABI}/libssl.a)
+        #include_directories($ENV{OPENSSL_ROOT_DIR_ANDROID}/include)
+        #set(OPENSSL_LIBCRYPTO $ENV{OPENSSL_ROOT_DIR_ANDROID}/libs/${ANDROID_ABI}/libcrypto.a)
+        #set(OPENSSL_LIBSSL $ENV{OPENSSL_ROOT_DIR_ANDROID}/libs/${ANDROID_ABI}/libssl.a)
 
         add_library(OpenSSL::Crypto STATIC IMPORTED)
         set_target_properties(OpenSSL::Crypto PROPERTIES
