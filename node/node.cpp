@@ -454,10 +454,22 @@ bool Node::TryAssignTask(Task& t, Peer& p)
 
 void Node::Peer::SetTimerWrtFirstTask()
 {
-    if (m_lstTasks.empty())
-        KillTimer();
-    else
-        SetTimer(m_lstTasks.front().m_Key.second ? m_This.m_Cfg.m_Timeout.m_GetBlock_ms : m_This.m_Cfg.m_Timeout.m_GetState_ms);
+	if (m_lstTasks.empty())
+	{
+		assert(m_pTimerRequest);
+		m_pTimerRequest->cancel();
+	}
+	else
+	{
+		uint32_t timeout_ms = m_lstTasks.front().m_Key.second ?
+			m_This.m_Cfg.m_Timeout.m_GetBlock_ms :
+			m_This.m_Cfg.m_Timeout.m_GetState_ms;
+
+		if (!m_pTimerRequest)
+			m_pTimerRequest = io::Timer::create(io::Reactor::get_Current());
+
+		m_pTimerRequest->start(timeout_ms, false, [this]() { OnRequestTimeout(); });
+	}
 }
 
 void Node::Processor::RequestData(const Block::SystemState::ID& id, bool bBlock, const PeerID* pPreferredPeer, const NodeDB::StateID& sidTrg)
@@ -1188,36 +1200,20 @@ Node::~Node()
     LOG_INFO() << "Node stopped";
 }
 
-void Node::Peer::SetTimer(uint32_t timeout_ms)
+void Node::Peer::OnRequestTimeout()
 {
-    if (!m_pTimer)
-        m_pTimer = io::Timer::create(io::Reactor::get_Current());
+	assert(Flags::Connected & m_Flags);
+	assert(!m_lstTasks.empty());
 
-    m_pTimer->start(timeout_ms, false, [this]() { OnTimer(); });
-}
+	LOG_WARNING() << "Peer " << m_RemoteAddr << " request timeout";
 
-void Node::Peer::KillTimer()
-{
-    assert(m_pTimer);
-    m_pTimer->cancel();
-}
+	if (m_pInfo)
+	{
+		ModifyRatingWrtData(0);
+		m_This.m_PeerMan.ModifyRating(*m_pInfo, PeerMan::Rating::PenaltyTimeout, false); // task (request) wasn't handled in time.
+	}
 
-void Node::Peer::OnTimer()
-{
-    if (Flags::Connected & m_Flags)
-    {
-        assert(!m_lstTasks.empty());
-
-        LOG_WARNING() << "Peer " << m_RemoteAddr << " request timeout";
-
-        if (m_pInfo)
-            m_This.m_PeerMan.ModifyRating(*m_pInfo, PeerMan::Rating::PenaltyTimeout, false); // task (request) wasn't handled in time.
-
-        DeleteSelf(false, ByeReason::Timeout);
-    }
-    else
-        // Connect didn't finish in time
-        DeleteSelf(true, 0);
+    DeleteSelf(false, ByeReason::Timeout);
 }
 
 void Node::Peer::OnResendPeers()

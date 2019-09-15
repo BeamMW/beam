@@ -492,7 +492,7 @@ private:
 
 		Bbs::Subscription::PeerSet m_Subscriptions;
 
-		io::Timer::Ptr m_pTimer;
+		io::Timer::Ptr m_pTimerRequest;
 		io::Timer::Ptr m_pTimerPeers;
 
 		Peer(Node& n) :m_This(n) {}
@@ -503,9 +503,7 @@ private:
 		void SetTimerWrtFirstTask();
 		void Unsubscribe(Bbs::Subscription&);
 		void Unsubscribe();
-		void OnTimer();
-		void SetTimer(uint32_t timeout_ms);
-		void KillTimer();
+		void OnRequestTimeout();
 		void OnResendPeers();
 		void SendBbsMsg(const NodeDB::WalkerBbs::Data&);
 		void DeleteSelf(bool bIsError, uint8_t nByeReason);
