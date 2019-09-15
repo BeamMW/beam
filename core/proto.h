@@ -291,7 +291,6 @@ namespace proto {
         static const uint8_t Viewer        = 'V';
     };
 
-    static const uint32_t g_HdrPackMaxSizeV0 = 128; // about 25K
 	static const uint32_t g_HdrPackMaxSize = 2048; // about 400K
 
     struct UtxoEvent

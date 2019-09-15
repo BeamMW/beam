@@ -317,33 +317,22 @@ void Node::Wanted::OnTimer()
 void Node::TryAssignTask(Task& t, const PeerID* pPeerID)
 {
 	// prefer to request data from nodes supporting latest protocol
-	for (uint32_t iCycle = 0; iCycle < 2; iCycle++)
+	if (pPeerID)
 	{
-		if (pPeerID)
-		{
-			bool bCreate = false;
-			PeerMan::PeerInfoPlus* pInfo = Cast::Up<PeerMan::PeerInfoPlus>(m_PeerMan.Find(*pPeerID, bCreate));
+		bool bCreate = false;
+		PeerMan::PeerInfoPlus* pInfo = Cast::Up<PeerMan::PeerInfoPlus>(m_PeerMan.Find(*pPeerID, bCreate));
 
-			if (pInfo && pInfo->m_Live.m_p && TryAssignTask(t, *pInfo->m_Live.m_p, !iCycle))
-				return;
-		}
-
-		// Prioritize w.r.t. rating!
-		for (PeerMan::LiveSet::iterator it = m_PeerMan.m_LiveSet.begin(); m_PeerMan.m_LiveSet.end() != it; it++)
-		{
-			Peer& p = *it->m_p;
-			if (TryAssignTask(t, p, !iCycle))
-				return;
-		}
+		if (pInfo && pInfo->m_Live.m_p && TryAssignTask(t, *pInfo->m_Live.m_p))
+			return;
 	}
-}
 
-bool Node::TryAssignTask(Task& t, Peer& p, bool bMustSupportLatestProto)
-{
-	if (bMustSupportLatestProto && !(proto::LoginFlags::Extension2 & p.m_LoginFlags))
-		return false;
-
-	return TryAssignTask(t, p);
+	// Prioritize w.r.t. rating!
+	for (PeerMan::LiveSet::iterator it = m_PeerMan.m_LiveSet.begin(); m_PeerMan.m_LiveSet.end() != it; it++)
+	{
+		Peer& p = *it->m_p;
+		if (TryAssignTask(t, p))
+			return;
+	}
 }
 
 bool Node::TryAssignTask(Task& t, Peer& p)
@@ -381,104 +370,52 @@ bool Node::TryAssignTask(Task& t, Peer& p)
         if (it->m_Key.second)
             nBlocks++;
 
-    // assign
-    if (t.m_Key.second)
-    {
+	// assign
+	if (t.m_Key.second)
+	{
 		if (m_nTasksPackBody >= m_Cfg.m_MaxConcurrentBlocksRequest)
 			return false; // too many blocks requested
 
 		Height hCountExtra = t.m_sidTrg.m_Height - t.m_Key.first.m_Height;
 
-		if (proto::LoginFlags::Extension2 & p.m_LoginFlags)
+		proto::GetBodyPack msg;
+
+		if (t.m_Key.first.m_Height <= m_Processor.m_SyncData.m_Target.m_Height)
 		{
-			proto::GetBodyPack msg;
-
-			if (t.m_Key.first.m_Height <= m_Processor.m_SyncData.m_Target.m_Height)
-			{
-				// fast-sync mode, diluted blocks request.
-				msg.m_Top.m_Height = m_Processor.m_SyncData.m_Target.m_Height;
-				if (m_Processor.IsFastSync())
-					m_Processor.get_DB().get_StateHash(m_Processor.m_SyncData.m_Target.m_Row, msg.m_Top.m_Hash);
-				else
-					msg.m_Top.m_Hash = Zero; // treasury
-
-				msg.m_CountExtra = m_Processor.m_SyncData.m_Target.m_Height - t.m_Key.first.m_Height;
-				msg.m_Height0 = m_Processor.m_SyncData.m_h0;
-				msg.m_HorizonLo1 = m_Processor.m_SyncData.m_TxoLo;
-				msg.m_HorizonHi1 = m_Processor.m_SyncData.m_Target.m_Height;
-			}
+			// fast-sync mode, diluted blocks request.
+			msg.m_Top.m_Height = m_Processor.m_SyncData.m_Target.m_Height;
+			if (m_Processor.IsFastSync())
+				m_Processor.get_DB().get_StateHash(m_Processor.m_SyncData.m_Target.m_Row, msg.m_Top.m_Hash);
 			else
-			{
-				// std blocks request
-				msg.m_Top.m_Height = t.m_sidTrg.m_Height;
-				m_Processor.get_DB().get_StateHash(t.m_sidTrg.m_Row, msg.m_Top.m_Hash);
-				msg.m_CountExtra = hCountExtra;
-			}
+				msg.m_Top.m_Hash = Zero; // treasury
 
-			p.Send(msg);
-
-			t.m_nCount = std::min(static_cast<uint32_t>(msg.m_CountExtra), m_Cfg.m_BandwidthCtl.m_MaxBodyPackCount) + 1; // just an estimate, the actual num of blocks can be smaller
-			m_nTasksPackBody += t.m_nCount;
+			msg.m_CountExtra = m_Processor.m_SyncData.m_Target.m_Height - t.m_Key.first.m_Height;
+			msg.m_Height0 = m_Processor.m_SyncData.m_h0;
+			msg.m_HorizonLo1 = m_Processor.m_SyncData.m_TxoLo;
+			msg.m_HorizonHi1 = m_Processor.m_SyncData.m_Target.m_Height;
 		}
 		else
 		{
-			// old peer
-			if (m_Processor.IsFastSync())
-				return false; // incompatible
-
-			for (const uint64_t* pPtr = nullptr; ; )
-			{
-				proto::GetBody msg;
-				msg.m_ID = t.m_Key.first;
-				p.Send(msg);
-
-				if (++nBlocks >= m_Cfg.m_MaxConcurrentBlocksRequest)
-					break;
-
-				if (msg.m_ID.m_Height >= t.m_sidTrg.m_Height)
-					break;
-
-				// request more blocks, if applicable
-				if (!pPtr)
-				{
-					pPtr = m_Processor.get_CachedRows(t.m_sidTrg, hCountExtra);
-					if (!pPtr)
-						break;
-				}
-
-				Task* pTask = new Task;
-				pTask->m_Key = t.m_Key;
-				m_setTasks.insert(*pTask);
-
-				pTask->m_pOwner = &p;
-				p.m_lstTasks.push_back(*pTask);
-
-				pTask->m_sidTrg = t.m_sidTrg;
-				pTask->m_bNeeded = false;
-				pTask->m_nCount = 1;
-				m_nTasksPackBody++;
-
-				t.m_Key.first.m_Height++;
-				uint64_t rowid = pPtr[t.m_sidTrg.m_Height - t.m_Key.first.m_Height];
-				m_Processor.get_DB().get_StateHash(rowid, t.m_Key.first.m_Hash);
-
-				m_setTasks.erase(TaskSet::s_iterator_to(t));
-				m_setTasks.insert(t);
-
-			}
+			// std blocks request
+			msg.m_Top.m_Height = t.m_sidTrg.m_Height;
+			m_Processor.get_DB().get_StateHash(t.m_sidTrg.m_Row, msg.m_Top.m_Hash);
+			msg.m_CountExtra = hCountExtra;
 		}
-    }
-    else
-    {
+
+		p.Send(msg);
+
+		t.m_nCount = std::min(static_cast<uint32_t>(msg.m_CountExtra), m_Cfg.m_BandwidthCtl.m_MaxBodyPackCount) + 1; // just an estimate, the actual num of blocks can be smaller
+		m_nTasksPackBody += t.m_nCount;
+	}
+	else
+	{
 		if (m_nTasksPackHdr >= proto::g_HdrPackMaxSize)
 			return false; // too many hdrs requested
 
         if (nBlocks)
             return false; // don't requests headers from the peer that transfers a block
 
-		uint32_t nPackSize = (proto::LoginFlags::Extension2 & p.m_LoginFlags) ?
-			proto::g_HdrPackMaxSize :
-			proto::g_HdrPackMaxSizeV0;
+		uint32_t nPackSize = proto::g_HdrPackMaxSize;
 
 		// make sure we're not dealing with overlaps
 		Height h0 = m_Processor.get_DB().get_HeightBelow(t.m_Key.first.m_Height);
