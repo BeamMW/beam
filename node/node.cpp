@@ -3019,19 +3019,6 @@ void Node::Peer::OnMsg(proto::GetExternalAddr&& msg)
     Send(msgOut);
 }
 
-void Node::Peer::OnMsg(proto::BbsMsgV0&& msg0)
-{
-	if (m_This.m_Processor.m_Cursor.m_ID.m_Height >= Rules::get().pForks[1].m_Height && !Rules::get().FakePoW)
-		return; // drop
-
-	proto::BbsMsg msg;
-	msg.m_Channel = msg0.m_Channel;
-	msg.m_TimePosted = msg0.m_TimePosted;
-	msg.m_Message.swap(msg0.m_Message);
-
-	OnMsg(msg, false);
-}
-
 void Node::Peer::OnMsg(proto::BbsMsg&& msg)
 {
 	if ((m_This.m_Processor.m_Cursor.m_ID.m_Height >= Rules::get().pForks[1].m_Height) && !Rules::get().FakePoW)
@@ -3044,11 +3031,6 @@ void Node::Peer::OnMsg(proto::BbsMsg&& msg)
 			return; // drop
 	}
 
-	OnMsg(msg, true);
-}
-
-void Node::Peer::OnMsg(const proto::BbsMsg& msg, bool bNonceValid)
-{
 	if (!m_This.m_Cfg.m_Bbs.IsEnabled())
 		ThrowUnexpected();
 
@@ -3072,7 +3054,6 @@ void Node::Peer::OnMsg(const proto::BbsMsg& msg, bool bNonceValid)
     wlk.m_Data.m_Channel = msg.m_Channel;
     wlk.m_Data.m_TimePosted = msg.m_TimePosted;
     wlk.m_Data.m_Message = Blob(msg.m_Message);
-	wlk.m_Data.m_bNonce = bNonceValid;
 	msg.m_Nonce.Export(wlk.m_Data.m_Nonce);
 
     Bbs::CalcMsgKey(wlk.m_Data);
@@ -3168,24 +3149,12 @@ void Node::Peer::OnMsg(proto::BbsGetMsg&& msg)
 
 void Node::Peer::SendBbsMsg(const NodeDB::WalkerBbs::Data& d)
 {
-	if (d.m_bNonce && (proto::LoginFlags::Extension1 & m_LoginFlags))
-	{
-		proto::BbsMsg msgOut;
-		msgOut.m_Channel = d.m_Channel;
-		msgOut.m_TimePosted = d.m_TimePosted;
-		d.m_Message.Export(msgOut.m_Message);
-		msgOut.m_Nonce = d.m_Nonce;
-		Send(msgOut);
-	}
-	else
-	{
-		proto::BbsMsgV0 msgOut;
-		msgOut.m_Channel = d.m_Channel;
-		msgOut.m_TimePosted = d.m_TimePosted;
-		d.m_Message.Export(msgOut.m_Message);
-		Send(msgOut);
-	}
-
+	proto::BbsMsg msgOut;
+	msgOut.m_Channel = d.m_Channel;
+	msgOut.m_TimePosted = d.m_TimePosted;
+	d.m_Message.Export(msgOut.m_Message);
+	msgOut.m_Nonce = d.m_Nonce;
+	Send(msgOut);
 }
 
 void Node::Peer::OnMsg(proto::BbsSubscribe&& msg)
@@ -3246,19 +3215,6 @@ void Node::Peer::OnMsg(proto::BbsResetSync&& msg)
 
 	m_CursorBbs = m_This.m_Processor.get_DB().BbsFindCursor(msg.m_TimeFrom) - 1;
 	BroadcastBbs();
-}
-
-void Node::Peer::OnMsg(proto::BbsPickChannelV0&& msg)
-{
-	if (!m_This.m_Cfg.m_Bbs.IsEnabled())
-		ThrowUnexpected();
-
-	if (proto::LoginFlags::Extension1 & m_LoginFlags)
-		ThrowUnexpected(); // new client shouldn't ask for it
-
-	proto::BbsPickChannelResV0 msgOut;
-	msgOut.m_Channel = m_This.RandomUInt32(proto::Bbs::s_MaxChannels);
-    Send(msgOut);
 }
 
 void Node::Peer::OnMsg(proto::MacroblockGet&& msg)

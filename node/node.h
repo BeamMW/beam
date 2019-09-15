@@ -524,8 +524,6 @@ private:
 		void OnFirstTaskDone();
 		void OnFirstTaskDone(NodeProcessor::DataStatus::Enum);
 
-		void OnMsg(const proto::BbsMsg&, bool bNonceValid);
-
 		void SendTx(Transaction::Ptr& ptx, bool bFluff);
 
 		// proto::NodeConnection
@@ -563,11 +561,9 @@ private:
 		virtual void OnMsg(proto::PeerInfo&&) override;
 		virtual void OnMsg(proto::GetExternalAddr&&) override;
 		virtual void OnMsg(proto::BbsMsg&&) override;
-		virtual void OnMsg(proto::BbsMsgV0&&) override;
 		virtual void OnMsg(proto::BbsHaveMsg&&) override;
 		virtual void OnMsg(proto::BbsGetMsg&&) override;
 		virtual void OnMsg(proto::BbsSubscribe&&) override;
-		virtual void OnMsg(proto::BbsPickChannelV0&&) override;
 		virtual void OnMsg(proto::BbsResetSync&&) override;
 		virtual void OnMsg(proto::MacroblockGet&&) override;
 		virtual void OnMsg(proto::GetUtxoEvents&&) override;
