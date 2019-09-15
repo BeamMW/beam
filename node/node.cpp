@@ -1691,25 +1691,6 @@ void Node::Peer::OnMsg(proto::GetHdr&& msg)
     }
 }
 
-void Node::Peer::OnMsg(proto::Hdr&& msg)
-{
-    Task& t = get_FirstTask();
-
-    if (t.m_Key.second || (t.m_nCount != 1))
-        ThrowUnexpected();
-
-    Block::SystemState::ID id;
-    msg.m_Description.get_ID(id);
-    if (id != t.m_Key.first)
-        ThrowUnexpected();
-
-    assert((Flags::PiRcvd & m_Flags) && m_pInfo);
-    m_This.m_PeerMan.ModifyRating(*m_pInfo, PeerMan::Rating::RewardHeader, true);
-
-    NodeProcessor::DataStatus::Enum eStatus = m_This.m_Processor.OnState(msg.m_Description, m_pInfo->m_ID.m_Key);
-    OnFirstTaskDone(eStatus);
-}
-
 void Node::Peer::OnMsg(proto::GetHdrPack&& msg)
 {
     proto::HdrPack msgOut;
