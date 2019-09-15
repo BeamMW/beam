@@ -284,10 +284,14 @@ namespace proto {
         static const uint8_t Extension3             = 0x40; // Supports Login1, Status (former Boolean) for NewTransaction result, compatible with Fork H1
 	    static const uint8_t Recognized             = 0x7f;
 
-		static const uint8_t ExtensionsAll =
+
+		static const uint8_t ExtensionsBeforeHF1 =
 			Extension1 |
 			Extension2 |
 			Extension3;
+
+		static const uint8_t ExtensionsAll =
+			ExtensionsBeforeHF1;
 	};
 
     struct IDType
@@ -529,7 +533,6 @@ namespace proto {
         io::AsyncEvent::Ptr m_pAsyncFail;
         bool m_ConnectPending;
 		bool m_RulesCfgSent;
-		bool m_PeerSupportsLogin1;
 
         SerializedMsg m_SerializeCache;
 
