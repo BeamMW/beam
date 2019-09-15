@@ -431,7 +431,18 @@ private:
 		struct PeerInfoPlus
 			:public PeerInfo
 		{
-			Peer* m_pLive;
+			struct AdjustedRatingLive
+				:public boost::intrusive::set_base_hook<>
+			{
+				Peer* m_p;
+
+				bool operator < (const AdjustedRatingLive& x) const { return (get_ParentObj().m_AdjustedRating.get() > x.get_ParentObj().m_AdjustedRating.get()); } // reverse order, begin - max
+
+				IMPLEMENT_GET_PARENT_OBJ(PeerInfoPlus, m_Live)
+			} m_Live;
+
+			void Attach(Peer&);
+			void DetachStrict();
 		};
 
 		// PeerManager
@@ -439,6 +450,9 @@ private:
 		virtual void DeactivatePeer(PeerInfo&) override;
 		virtual PeerInfo* AllocPeer() override;
 		virtual void DeletePeer(PeerInfo&) override;
+
+		typedef boost::intrusive::multiset<PeerInfoPlus::AdjustedRatingLive> LiveSet;
+		LiveSet m_LiveSet;
 
 		~PeerMan() { Clear(); }
 

@@ -324,13 +324,14 @@ void Node::TryAssignTask(Task& t, const PeerID* pPeerID)
 			bool bCreate = false;
 			PeerMan::PeerInfoPlus* pInfo = Cast::Up<PeerMan::PeerInfoPlus>(m_PeerMan.Find(*pPeerID, bCreate));
 
-			if (pInfo && pInfo->m_pLive && TryAssignTask(t, *pInfo->m_pLive, !iCycle))
+			if (pInfo && pInfo->m_Live.m_p && TryAssignTask(t, *pInfo->m_Live.m_p, !iCycle))
 				return;
 		}
 
-		for (PeerList::iterator it = m_lstPeers.begin(); m_lstPeers.end() != it; it++)
+		// Prioritize w.r.t. rating!
+		for (PeerMan::LiveSet::iterator it = m_PeerMan.m_LiveSet.begin(); m_PeerMan.m_LiveSet.end() != it; it++)
 		{
-			Peer& p = *it;
+			Peer& p = *it->m_p;
 			if (TryAssignTask(t, p, !iCycle))
 				return;
 		}
@@ -582,7 +583,7 @@ void Node::Processor::FlushInsanePeers()
 
         if (pInfo)
         {
-            Peer* pPeer = pInfo->m_pLive;
+            Peer* pPeer = pInfo->m_Live.m_p;
             if (pPeer)
                 pPeer->DeleteSelf(true, proto::NodeConnection::ByeReason::Ban);
             else
@@ -1409,21 +1410,20 @@ void Node::Peer::OnMsg(proto::Authentication&& msg)
         }
 
         // detach from it
-        m_pInfo->m_pLive = NULL;
+		PeerMan::PeerInfoPlus& pip = *m_pInfo;
+		m_pInfo->DetachStrict();
 
-        if (m_pInfo->m_ID.m_Key == Zero)
+        if (pip.m_ID.m_Key == Zero)
         {
             LOG_INFO() << "deleted anonymous PI";
-            pm.Delete(*m_pInfo); // it's anonymous.
+            pm.Delete(pip); // it's anonymous.
         }
         else
         {
             LOG_INFO() << "PeerID is different";
-            pm.OnActive(*m_pInfo, false);
-            pm.RemoveAddr(*m_pInfo); // turned-out to be wrong
+            pm.OnActive(pip, false);
+            pm.RemoveAddr(pip); // turned-out to be wrong
         }
-
-        m_pInfo = NULL;
     }
 
     if (msg.m_ID == m_This.m_MyPublicID)
@@ -1447,23 +1447,19 @@ void Node::Peer::OnMsg(proto::Authentication&& msg)
     PeerMan::PeerInfoPlus* pPi = Cast::Up<PeerMan::PeerInfoPlus>(pm.OnPeer(msg.m_ID, addr, bAddrValid));
     assert(pPi);
 
-    if (pPi->m_pLive)
+    if (pPi->m_Live.m_p)
     {
         LOG_INFO() << "Duplicate connection with the same PI.";
         // Duplicate connection. In this case we have to choose wether to terminate this connection, or the previous. The best is to do it asymmetrically.
         // We decide this based on our Node IDs.
         // In addition, if the older connection isn't completed yet (i.e. it's our connect attempt) - it's prefered for deletion, because such a connection may be impossible (firewalls and friends).
-		Peer* pDup = pPi->m_pLive;
+		Peer* pDup = pPi->m_Live.m_p;
 
         if (!pDup->IsSecureOut() || (m_This.m_MyPublicID > msg.m_ID))
         {
 			// detach from that peer
-			assert(pPi == pDup->m_pInfo);
-			pDup->m_pInfo = nullptr;
-			pPi->m_pLive = nullptr;
-
+			pPi->DetachStrict();
             pDup->DeleteSelf(false, ByeReason::Duplicate);
-            assert(!pPi->m_pLive);
         }
         else
         {
@@ -1480,8 +1476,7 @@ void Node::Peer::OnMsg(proto::Authentication&& msg)
     }
 
     // attach to it
-    pPi->m_pLive = this;
-    m_pInfo = pPi;
+	pPi->Attach(*this);
     pm.OnActive(*pPi, true);
     pm.OnSeen(*pPi);
 
@@ -1602,25 +1597,24 @@ void Node::Peer::DeleteSelf(bool bIsError, uint8_t nByeReason)
 
     if (m_pInfo)
     {
-        // detach
-        assert(this == m_pInfo->m_pLive);
-        m_pInfo->m_pLive = NULL;
+		PeerMan::PeerInfoPlus& pip = *m_pInfo;
+		m_pInfo->DetachStrict();
 
-        m_This.m_PeerMan.OnActive(*m_pInfo, false);
+		m_This.m_PeerMan.OnActive(pip, false);
 
         if (bIsError)
-            m_This.m_PeerMan.OnRemoteError(*m_pInfo, ByeReason::Ban == nByeReason);
+            m_This.m_PeerMan.OnRemoteError(pip, ByeReason::Ban == nByeReason);
 
 		if (m_This.m_PeerMan.get_Ratings().size() > m_This.m_PeerMan.m_Cfg.m_DesiredTotal)
 		{
 			bool bDelete =
-				!m_pInfo->m_LastSeen || // never seen
-				((1 == m_pInfo->m_RawRating.m_Value) && m_This.m_PeerMan.IsOutdated(*m_pInfo)); // lowest rating, not seen for a while
+				!pip.m_LastSeen || // never seen
+				((1 == pip.m_RawRating.m_Value) && m_This.m_PeerMan.IsOutdated(pip)); // lowest rating, not seen for a while
 
 			if (bDelete)
 			{
-				LOG_INFO() << *m_pInfo << " Deleted";
-				m_This.m_PeerMan.Delete(*m_pInfo);
+				LOG_INFO() << pip << " Deleted";
+				m_This.m_PeerMan.Delete(pip);
 			}
 		}
 	}
@@ -4046,13 +4040,12 @@ void Node::PeerMan::OnFlush()
 
 void Node::PeerMan::ActivatePeer(PeerInfo& pi)
 {
-    PeerInfoPlus& pip = (PeerInfoPlus&)pi;
-    if (pip.m_pLive)
+    PeerInfoPlus& pip = Cast::Up<PeerInfoPlus>(pi);
+    if (pip.m_Live.m_p)
         return; //?
 
     Peer* p = get_ParentObj().AllocPeer(pip.m_Addr.m_Value);
-    p->m_pInfo = &pip;
-    pip.m_pLive = p;
+	pip.Attach(*p);
 
     p->Connect(pip.m_Addr.m_Value);
     p->m_Port = pip.m_Addr.m_Value.port();
@@ -4061,22 +4054,37 @@ void Node::PeerMan::ActivatePeer(PeerInfo& pi)
 void Node::PeerMan::DeactivatePeer(PeerInfo& pi)
 {
     PeerInfoPlus& pip = (PeerInfoPlus&)pi;
-    if (!pip.m_pLive)
+    if (!pip.m_Live.m_p)
         return; //?
 
-    pip.m_pLive->DeleteSelf(false, proto::NodeConnection::ByeReason::Other);
+    pip.m_Live.m_p->DeleteSelf(false, proto::NodeConnection::ByeReason::Other);
 }
 
 PeerManager::PeerInfo* Node::PeerMan::AllocPeer()
 {
     PeerInfoPlus* p = new PeerInfoPlus;
-    p->m_pLive = NULL;
+    p->m_Live.m_p = nullptr;
     return p;
 }
 
 void Node::PeerMan::DeletePeer(PeerInfo& pi)
 {
-    delete (PeerInfoPlus*)&pi;
+    delete &Cast::Up<PeerInfoPlus>(pi);
+}
+
+void Node::PeerMan::PeerInfoPlus::Attach(Peer& p)
+{
+	assert(!m_Live.m_p && !p.m_pInfo);
+	m_Live.m_p = &p;
+	p.m_pInfo = this;
+}
+
+void Node::PeerMan::PeerInfoPlus::DetachStrict()
+{
+	assert(m_Live.m_p && (this == m_Live.m_p->m_pInfo));
+
+	m_Live.m_p->m_pInfo = nullptr;
+	m_Live.m_p = nullptr;
 }
 
 bool Node::GenerateRecoveryInfo(const char* szPath)
