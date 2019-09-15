@@ -366,9 +366,11 @@ bool Node::TryAssignTask(Task& t, Peer& p)
 
     // check if the peer currently transfers a block
     uint32_t nBlocks = 0;
-    for (TaskList::iterator it = p.m_lstTasks.begin(); p.m_lstTasks.end() != it; it++)
-        if (it->m_Key.second)
-            nBlocks++;
+	for (TaskList::iterator it = p.m_lstTasks.begin(); p.m_lstTasks.end() != it; it++)
+	{
+		if (it->m_Key.second)
+			nBlocks++;
+	}
 
 	// assign
 	if (t.m_Key.second)
