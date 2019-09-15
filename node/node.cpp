@@ -446,6 +446,8 @@ bool Node::TryAssignTask(Task& t, Peer& p)
     m_lstTasksUnassigned.erase(TaskList::s_iterator_to(t));
     p.m_lstTasks.push_back(t);
 
+	t.m_TimeAssigned_ms = GetTime_ms();
+
     if (bEmpty)
         p.SetTimerWrtFirstTask();
 
@@ -1668,6 +1670,19 @@ void Node::Peer::OnFirstTaskDone()
 	m_This.m_Processor.TryGoUpAsync();
 }
 
+void Node::Peer::ModifyRatingWrtData(size_t nSize)
+{
+	uint32_t dt_ms = GetTime_ms() - get_FirstTask().m_TimeAssigned_ms;
+	if (!dt_ms)
+		dt_ms = 1;
+
+	uint32_t bw_Bps = static_cast<uint32_t>(nSize * size_t(1000) / dt_ms);
+
+	// TODO ...
+	bw_Bps;
+
+}
+
 void Node::Peer::OnMsg(proto::DataMissing&&)
 {
     Task& t = get_FirstTask();
@@ -1772,25 +1787,21 @@ void Node::Peer::OnMsg(proto::HdrPack&& msg)
         s.m_ChainWork += s.m_PoW.m_Difficulty;
     }
 
-    // just to be pedantic
-    if (idLast != t.m_Key.first)
-        bInvalid = true;
+	// just to be pedantic
+	if (idLast != t.m_Key.first)
+		bInvalid = true;
 
 	LOG_INFO() << "Hdr pack received " << msg.m_Prefix.m_Height << "-" << idLast;
 
-    OnFirstTaskDone(NodeProcessor::DataStatus::Accepted);
+	ModifyRatingWrtData(sizeof(msg.m_Prefix) + msg.m_vElements.size() * sizeof(msg.m_vElements.front()));
 
-    if (nAccepted)
-    {
-        assert((Flags::PiRcvd & m_Flags) && m_pInfo);
-        m_This.m_PeerMan.ModifyRating(*m_pInfo, PeerMan::Rating::RewardHeader * nAccepted, true);
-    }
-    else
-    {
-		if (bInvalid)
-			ThrowUnexpected();
-    }
+	assert((Flags::PiRcvd & m_Flags) && m_pInfo);
+	m_This.m_PeerMan.ModifyRating(*m_pInfo, PeerMan::Rating::RewardHeader * nAccepted, true);
 
+	if (bInvalid)
+		ThrowUnexpected();
+
+	OnFirstTaskDone(NodeProcessor::DataStatus::Accepted);
 	m_This.UpdateSyncStatus();
 }
 
@@ -1937,6 +1948,7 @@ void Node::Peer::OnMsg(proto::Body&& msg)
 	if (!t.m_Key.second)
 		ThrowUnexpected();
 
+	ModifyRatingWrtData(msg.m_Body.m_Eternal.size() + msg.m_Body.m_Perishable.size());
 	assert((Flags::PiRcvd & m_Flags) && m_pInfo);
 	m_This.m_PeerMan.ModifyRating(*m_pInfo, PeerMan::Rating::RewardBlock, true);
 
@@ -1968,6 +1980,15 @@ void Node::Peer::OnMsg(proto::BodyPack&& msg)
 
 	if (msg.m_Bodies.size() > hCountExtra + 1)
 		ThrowUnexpected();
+
+	size_t nSize = 0;
+	for (size_t i = 0; i < msg.m_Bodies.size(); i++)
+	{
+		nSize +=
+			msg.m_Bodies[i].m_Eternal.size() +
+			msg.m_Bodies[i].m_Perishable.size();
+	}
+	ModifyRatingWrtData(nSize);
 
 	assert((Flags::PiRcvd & m_Flags) && m_pInfo);
 	m_This.m_PeerMan.ModifyRating(*m_pInfo, PeerMan::Rating::RewardBlock, true);

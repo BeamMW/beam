@@ -280,6 +280,7 @@ private:
 
 		bool m_bNeeded;
 		uint32_t m_nCount;
+		uint32_t m_TimeAssigned_ms;
 		NodeDB::StateID m_sidTrg;
 		Peer* m_pOwner;
 
@@ -520,6 +521,7 @@ private:
 		Task& get_FirstTask();
 		void OnFirstTaskDone();
 		void OnFirstTaskDone(NodeProcessor::DataStatus::Enum);
+		void ModifyRatingWrtData(size_t nSize);
 
 		void SendTx(Transaction::Ptr& ptx, bool bFluff);
 
