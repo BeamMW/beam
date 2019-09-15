@@ -2047,9 +2047,6 @@ void Node::Peer::OnMsg(proto::NewTransaction&& msg)
         proto::Status msgOut;
 		msgOut.m_Value = m_This.OnTransactionStem(std::move(msg.m_Transaction), this);
 
-		if (!(proto::LoginFlags::Extension3 & m_LoginFlags) && (proto::TxStatus::Ok != msgOut.m_Value))
-			msgOut.m_Value = proto::TxStatus::Unspecified; // legacy client
-
         Send(msgOut);
     }
 }
