@@ -64,7 +64,8 @@ else()
 endif()
 
 if (UNIX)
-    target_link_libraries(utility ${CMAKE_DL_LIBS})
+    message(STATUS "UNIX: Linking ${CMAKE_DL_LIBS}")
+    target_link_libraries(utility ${CMAKE_DL_LIBS} -ldl)
 endif()
 
 #find_package(Boost 1.67 REQUIRED COMPONENTS program_options filesystem)
