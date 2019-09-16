@@ -154,7 +154,7 @@ void NodeProcessor::Initialize(const char* szPath, const StartParams& sp)
 	}
 
 	// final check
-	if (m_Cursor.m_ID.m_Height >= Rules::HeightGenesis)
+	if ((m_Cursor.m_ID.m_Height >= Rules::HeightGenesis) && (m_Cursor.m_ID.m_Height >= m_SyncData.m_TxoLo))
 	{
 		get_Definition(hv, false);
 		if (m_Cursor.m_Full.m_Definition != hv)
