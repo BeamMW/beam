@@ -503,10 +503,6 @@ namespace beam::bitcoin
             {
                 TCPConnect& connection = m_connections[tag];
 
-                {
-                    payment_address addr(privateKeys[index].to_public().to_payment_address(addressVersion));
-                    LOG_INFO() << "address = " << addr.encoded();
-                }
                 try
                 {
                     for (auto utxo : result)
