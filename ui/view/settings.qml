@@ -123,8 +123,8 @@ ColumnLayout {
 
     RowLayout {
         Layout.fillWidth:    true
-        Layout.bottomMargin: 12
-        Layout.topMargin:    11
+        Layout.bottomMargin: 23
+        //Layout.topMargin:    11
 
         Item {
             Layout.fillWidth: true
