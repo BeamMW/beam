@@ -310,7 +310,8 @@ ColumnLayout {
         }
 
         CustomButton {
-            text:                qsTrId("wallet-receive-copy-address")
+            //% "copy transaction token"
+            text:                qsTrId("wallet-receive-copy-token")
             palette.buttonText:  Style.content_opposite
             icon.color:          Style.content_opposite
             palette.button:      Style.passive

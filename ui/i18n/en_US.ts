@@ -1555,5 +1555,9 @@ or send this address to the sender over secure channel</translation>
         <source>There is no device connected, please, connect your hardware wallet.</source>
         <translation>There is no device connected, please, connect your hardware wallet.</translation>
     </message>
+    <message id="wallet-receive-copy-token">
+        <source>copy transaction token</source>
+        <translation>copy transaction token</translation>
+    </message>
 </context>
 </TS>
