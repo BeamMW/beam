@@ -180,6 +180,7 @@ void SendViewModel::onChangeCalculated(beam::Amount change)
 {
     _change = change;
     emit availableChanged();
+    emit canSendChanged();
 }
 
 double SendViewModel::getChange() const
