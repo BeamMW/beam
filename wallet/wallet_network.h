@@ -69,6 +69,7 @@ namespace beam::wallet
 
         // IWalletMessageEndpoint
         void Send(const WalletID& peerID, const SetTxParameter& msg) override;
+        void SendAndSign(const ByteBuffer& msg, const BbsChannel& channel, const WalletID& wid) override;
         void OnAddressTimer();
         
     private:

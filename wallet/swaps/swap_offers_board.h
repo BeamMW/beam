@@ -39,7 +39,7 @@ namespace beam::wallet
 
         auto getOffersList() const -> std::vector<SwapOffer>;
         void publishOffer(const SwapOffer& offer) const;
-        void updateOffer(const TxID& offerTxID, TxStatus newStatus);
+        void updateOffer(const TxID& offerTxID, TxStatus newStatus) const;
 
     private:
 		FlyClient::INetwork& m_network;
