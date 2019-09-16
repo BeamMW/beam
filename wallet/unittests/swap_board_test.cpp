@@ -71,7 +71,7 @@ namespace
                 }
             }
         };
-        virtual void SendAndSign(const ByteBuffer& msg, const BbsChannel& channel, const WalletID& wid)
+        virtual void SendAndSign(const ByteBuffer& msg, const BbsChannel& channel, const WalletID& wid) override
         {
             // SwapOfferConfirmation confirmation;
 
