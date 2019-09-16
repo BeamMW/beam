@@ -82,7 +82,9 @@ ColumnLayout {
                 currency:         viewModel.receiveCurrency
                 amount:           viewModel.amountToReceive
                 multi:            true
+                resetAmount:      false
                 currColor:        currencyError() ? Style.validator_error : Style.content_main
+
                 onCurrencyChanged: {
                     if(receiveAmountInput.currency != Currency.CurrBeam) {
                         if(sentAmountInput.currency != Currency.CurrBeam) {
@@ -170,6 +172,7 @@ ColumnLayout {
                 currency:         viewModel.sentCurrency
                 amount:           viewModel.amountSent
                 multi:            true
+                resetAmount:      false
                 currColor:        currencyError() ? Style.validator_error : Style.content_main
 
                 onCurrencyChanged: {
