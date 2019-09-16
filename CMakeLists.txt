@@ -167,6 +167,8 @@ elseif(BEAM_MAINNET)
     set(BEAM_DISPLAY_SUFFIX "")
 endif()
 
+option(BEAM_ATOMIC_SWAP_SUPPORT "Build with wallet with atomic swap support" ON)
+
 option(BEAM_HW_WALLET "Build with hardware wallet support" OFF)
 
 
@@ -286,18 +288,14 @@ function(CreateBoostComponentTargets listOfComponents root libPrefix libSuffix)
 endfunction()
 
 if(IOS)
+    set(BEAM_ATOMIC_SWAP_SUPPORT OFF)
     add_compile_definitions(BOOST_NO_AUTO_PTR)
     add_definitions(-DBOOST_ERROR_CODE_HEADER_ONLY)
     CreateBoostComponentTargets("${BEAM_BOOST_COMPOMENTS}" "$ENV{BOOST_ROOT_IOS}" "lib/libboost_" ".a")
 elseif(ANDROID)
     message("ANDROID_ABI: ${ANDROID_ABI}")
+    set(BEAM_ATOMIC_SWAP_SUPPORT OFF)
     add_definitions(-DBOOST_ERROR_CODE_HEADER_ONLY)
-
-    #set (Boost_DEBUG TRUE)
-    #set (Boost_COMPILER "-clang")
-    #set(Boost_USE_MULTITHREADED ON)
-    #set(Boost_USE_STATIC_LIBS ON)
-    #find_package(Boost 1.67  COMPONENTS ${BEAM_BOOST_COMPONENTS})
 
     set(ANDROID_SUFFIX "")
 

@@ -8,7 +8,9 @@ add_library(pbkdf STATIC
 )
 
 add_subdirectory(secp256k1-zkp)
-add_subdirectory(libbitcoin)
+if (BEAM_ATOMIC_SWAP_SUPPORT)
+    add_subdirectory(libbitcoin)
+endif()
 add_subdirectory(sqlite)
 add_subdirectory(crypto/blake)
 add_subdirectory(libuv)

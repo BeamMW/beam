@@ -30,15 +30,15 @@ target_link_libraries(wallet
         core
     PRIVATE
         sqlite
-        #OpenSSLDep
 )
 
 target_compile_features(wallet PUBLIC cxx_std_17)
 
-add_subdirectory(swaps)
+if(BEAM_ATOMIC_SWAP_SUPPORT)
+    add_subdirectory(swaps)
+endif()
 
 if (NOT ANDROID)
-
     if(BEAM_HW_WALLET)
 
         target_compile_definitions(wallet PRIVATE BEAM_HW_WALLET)
@@ -105,7 +105,6 @@ if (NOT ANDROID)
         PRIVATE
             wallet
             cli
-            swap
             mnemonic
     )
 
@@ -116,6 +115,11 @@ if (NOT ANDROID)
             utility 
             http
     )
+
+    if(BEAM_ATOMIC_SWAP_SUPPORT)
+        target_compile_definitions(${TARGET_NAME} PRIVATE BEAM_ATOMIC_SWAP_SUPPORT)
+        target_link_libraries(${TARGET_NAME} PRIVATE swap)
+    endif()
 
     set(WALLET_API_NAME wallet-api${BEAM_TARGET_SUFFIX})
 
