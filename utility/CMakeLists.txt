@@ -64,7 +64,7 @@ else()
 endif()
 
 if (UNIX)
-    target_link_libraries(utility dl)
+    target_link_libraries(utility ${CMAKE_DL_LIBS})
 endif()
 
 #find_package(Boost 1.67 REQUIRED COMPONENTS program_options filesystem)
