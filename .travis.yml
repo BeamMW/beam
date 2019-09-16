@@ -47,7 +47,9 @@ matrix:
         - brew update
         - brew unlink cmake
         - brew unlink boost
-        - brew install cmake boost
+        - brew install cmake
+        - sudo git clone --depth=1 https://github.com/BeamMW/boost-osx.git /usr/local/boost_1_71_0
+        - export BOOST_ROOT="/usr/local/boost_1_71_0"
         - sudo git clone --depth=1 https://github.com/nesbox/qt5-static-mac.git /usr/local/qt5-static
         - export PATH=/usr/local/qt5-static/bin:$PATH
         - export OPENSSL_ROOT_DIR="/usr/local/opt/openssl"
@@ -206,9 +208,6 @@ matrix:
         - sudo git clone --depth=1 https://github.com/BeamMW/openssl-android.git /usr/local/Prebuilt-OpenSSL-Android
         - export ANDROID_NDK_HOME=$ANDROID_HOME/ndk-bundle
         - export BOOST_ROOT_ANDROID=/usr/local/boost_1_68-android
-        - export BOOST_ROOT=/usr/local/boost_1_68-android
-        - export BOOST_INCLUDEDIR=/usr/local/boost_1_68-android/include/boost
-        - export BOOST_LIBRARYDIR=/usr/local/boost_1_68-android/libs/x86
         - export OPENSSL_ROOT_DIR_ANDROID=/usr/local/Prebuilt-OpenSSL-Android
         - export PATH=$ANDROID_NDK_HOME:$PATH
       script:

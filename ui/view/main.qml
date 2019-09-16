@@ -184,11 +184,19 @@ Rectangle {
         }
 
         onShowTrezorMessage:{
+            //% "Please, look at your Trezor device to complete actions..."
+            trezorMessage.message = qsTrId("trezor-message")
             trezorMessage.open()
         }
 
         onHideTrezorMessage:{
             trezorMessage.close()
+        }
+
+        onShowTrezorError: function(error) {
+            console.log(error)
+            trezorMessage.message = error
+            trezorMessage.open()
         }
     }
 

@@ -201,6 +201,10 @@ endif()
 add_executable(${TARGET_NAME} ${SYSTEM_TYPE} ${UI_SRC} ${QT_RESOURCES} beam.rc ${MACOSX_BUNDLE_ICON_FILE})
 set_target_properties(${TARGET_NAME} PROPERTIES OUTPUT_NAME ${OUTPUT_NAME})
 
+if(BEAM_ATOMIC_SWAP_SUPPORT)
+    target_compile_definitions(${TARGET_NAME} PRIVATE BEAM_ATOMIC_SWAP_SUPPORT)
+endif()
+
 if(BEAM_HW_WALLET)
     target_compile_definitions(${TARGET_NAME} PRIVATE BEAM_HW_WALLET)
 endif()
@@ -226,10 +230,25 @@ target_link_libraries(${TARGET_NAME} quazip_static)
 
 #if (BEAM_WALLET_WITH_NODE)
     add_definitions(-DBEAM_WALLET_WITH_NODE)
-    target_link_libraries(${TARGET_NAME} node external_pow)
+    target_link_libraries(${TARGET_NAME}
+            node 
+            external_pow
+    )
 #endif()
 
-target_link_libraries(${TARGET_NAME} wallet swap mnemonic Qt5::Qml Qt5::Quick Qt5::Svg Qt5::PrintSupport)
+target_link_libraries(${TARGET_NAME}
+        wallet
+        swap
+        mnemonic 
+        Qt5::Qml
+        Qt5::Quick 
+        Qt5::Svg
+        Qt5::PrintSupport
+)
+
+if (BEAM_ATOMIC_SWAP_SUPPORT)
+    target_link_libraries(${TARGET_NAME} swap)
+endif()
 
 if (BEAM_SIGN_PACKAGE AND WIN32)
     add_custom_command(

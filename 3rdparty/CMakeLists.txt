@@ -8,9 +8,15 @@ add_library(pbkdf STATIC
 )
 
 add_subdirectory(secp256k1-zkp)
-add_subdirectory(libbitcoin)
+if (BEAM_ATOMIC_SWAP_SUPPORT)
+    add_subdirectory(libbitcoin)
+endif()
 add_subdirectory(sqlite)
 add_subdirectory(crypto/blake)
 add_subdirectory(libuv)
 
-#target_include_directories(pbkdf INTERFACE )
+
+#add_library(3rdparty INTERFACE IMPORTED GLOBAL)
+#set_target_properties(3rdparty PROPERTIES
+#    INTERFACE_INCLUDE_DIRECTORIES ${CMAKE_CURRENT_SOURCE_DIR})
+

@@ -460,6 +460,7 @@ namespace beam::wallet
         void deleteIncomingWalletMessage(uint64_t id) override;
 
     private:
+        static void createTables(sqlite3* db, sqlite3* privateDb);
         void removeCoinImpl(const Coin::ID& cid);
         void notifyCoinsChanged();
         void notifyTransactionChanged(ChangeAction action, const std::vector<TxDescription>& items);

@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.11)
 
 set(TARGET_NAME explorer-node${BEAM_TARGET_SUFFIX})
 
-find_package(Boost 1.67 REQUIRED)
+#find_package(Boost 1.67 REQUIRED)
 
 set(EXPLORER_SRC
     server.cpp

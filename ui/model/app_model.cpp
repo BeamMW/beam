@@ -59,40 +59,8 @@ AppModel::~AppModel()
     s_instance = nullptr;
 }
 
-bool AppModel::createWallet(const SecString& seed, const SecString& pass)
+void AppModel::backupDB(const std::string& dbFilePath)
 {
-    const auto dbFilePath = m_settings.getWalletStorage();
-    const auto wasInitialized = WalletDB::isInitialized(dbFilePath);
-    m_db.reset();
-
-    if(wasInitialized)
-    {
-        // it seems that we are trying to restore or login to another wallet.
-        // Rename/backup existing db
-        boost::filesystem::path p = dbFilePath;
-        boost::filesystem::path newName = dbFilePath + "_" + to_string(getTimestamp());
-        boost::filesystem::rename(p, newName);
-    }
-
-    m_db = WalletDB::init(dbFilePath, pass, seed.hash(), m_walletReactor);
-    if (!m_db) return false;
-
-    m_keyKeeper = std::make_shared<LocalPrivateKeyKeeper>(m_db);
-
-    // generate default address
-    WalletAddress address = storage::createAddress(*m_db, m_keyKeeper);
-    address.m_label = "default";
-    m_db->saveAddress(address);
-
-    onWalledOpened(pass);
-    return true;
-}
-
-#if defined(BEAM_HW_WALLET)
-bool AppModel::createTrezorWallet(std::shared_ptr<ECC::HKdfPub> ownerKey, const beam::SecString& pass)
-{
-    // !TODO: copypasted from createWallet, pls do refactoring and backup DB
-    const auto dbFilePath = m_settings.getTrezorWalletStorage();
     const auto wasInitialized = WalletDB::isInitialized(dbFilePath);
     m_db.reset();
 
@@ -104,18 +72,46 @@ bool AppModel::createTrezorWallet(std::shared_ptr<ECC::HKdfPub> ownerKey, const 
         boost::filesystem::path newName = dbFilePath + "_" + to_string(getTimestamp());
         boost::filesystem::rename(p, newName);
     }
+}
+
+void AppModel::generateDefaultAddress()
+{
+    // generate default address
+    WalletAddress address = storage::createAddress(*m_db, m_keyKeeper);
+    address.m_label = "default";
+    m_db->saveAddress(address);
+}
+
+bool AppModel::createWallet(const SecString& seed, const SecString& pass)
+{
+    const auto dbFilePath = m_settings.getWalletStorage();
+    backupDB(dbFilePath);
+
+    m_db = WalletDB::init(dbFilePath, pass, seed.hash(), m_walletReactor);
+    if (!m_db) return false;
+
+    m_keyKeeper = std::make_shared<LocalPrivateKeyKeeper>(m_db);
+
+    generateDefaultAddress();
+    onWalledOpened(pass);
+
+    return true;
+}
+
+#if defined(BEAM_HW_WALLET)
+bool AppModel::createTrezorWallet(std::shared_ptr<ECC::HKdfPub> ownerKey, const beam::SecString& pass)
+{
+    const auto dbFilePath = m_settings.getTrezorWalletStorage();
+    backupDB(dbFilePath);
 
     m_db = WalletDB::initWithTrezor(dbFilePath, ownerKey, pass, m_walletReactor);
     if (!m_db) return false;
 
     m_keyKeeper = std::make_shared<TrezorKeyKeeper>();
 
-    // generate default address
-    WalletAddress address = storage::createAddress(*m_db, m_keyKeeper);
-    address.m_label = "default";
-    m_db->saveAddress(address);
-
+    generateDefaultAddress();
     onWalledOpened(pass);
+
     return true;
 }
 #endif

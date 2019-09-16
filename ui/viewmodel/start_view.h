@@ -192,8 +192,8 @@ public:
 
 #if defined(BEAM_HW_WALLET)
     Q_INVOKABLE void startOwnerKeyImporting();
-    Q_INVOKABLE bool isPinValid(const QString& pin);
-    Q_INVOKABLE void setOwnerKeyPin(const QString& pin);
+    Q_INVOKABLE bool isPasswordValid(const QString& pass);
+    Q_INVOKABLE void setOwnerKeyPassword(const QString& pass);
 #endif
 
 signals:

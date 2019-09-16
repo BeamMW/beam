@@ -600,7 +600,7 @@
     </message>
     <message id="send-amount-label">
         <source>Transaction amount</source>
-        <translation>Transaktionsmängd</translation>
+        <translation>Transaktionsbelopp</translation>
     </message>
     <message id="send-founds-fail">
         <source>Insufficient funds: you would need %1 to complete the transaction</source>
@@ -850,7 +850,7 @@
     </message>
     <message id="tx-failture-receiver-signature-invalid">
         <source>Receiver signature in not valid, please send wallet logs to Beam support</source>
-        <translation>Mottagarens signatur är ogiltig, vänligen skicka plånbokens logg-filer till Beam supporten</translation>
+        <translation>Mottagarsignaturen är ogiltig, vänligen skicka plånbokens logg-filer till Beam supporten</translation>
     </message>
     <message id="tx-failture-not-registered-in-blockchain">
         <source>Failed to register transaction with the blockchain, see node logs for details</source>
@@ -978,7 +978,7 @@
     </message>
     <message id="receive-amount-label">
         <source>Receive amount (optional)</source>
-        <translation>Ta emot (valfritt)</translation>
+        <translation>Begär betalning(valfritt)</translation>
     </message>
     <message id="tx-details-tx-id-label">
         <source>Transaction ID</source>
@@ -1200,55 +1200,55 @@
     </message>
     <message id="tx-failture-subtx-failed">
         <source>Subtransaction has failed</source>
-        <translation type="unfinished"></translation>
+        <translation>Subtransaktion har misslyckats</translation>
     </message>
     <message id="tx-failture-invalid-contract-amount">
         <source>Contract&apos;s amount is not valid</source>
-        <translation type="unfinished"></translation>
+        <translation>Kontrakt&apos;s belopp är ej giltigt</translation>
     </message>
     <message id="tx-failture-invalid-sidechain-contract">
         <source>Side chain has invalid contract</source>
-        <translation type="unfinished"></translation>
+        <translation>Sidokedjan har ett ogiltigt kontrakt</translation>
     </message>
     <message id="tx-failture-sidechain-internal-error">
         <source>Side chain bridge has internal error</source>
-        <translation type="unfinished"></translation>
+        <translation>Sidokedjans bryggning har ett internt fel</translation>
     </message>
     <message id="tx-failture-sidechain-network-error">
         <source>Side chain bridge has network error</source>
-        <translation type="unfinished"></translation>
+        <translation>Sidokedjans bryggning har ett nätverksfel</translation>
     </message>
     <message id="tx-failture-invalid-sidechain-response-format">
         <source>Side chain bridge has response format error</source>
-        <translation type="unfinished"></translation>
+        <translation>Sidokedjans bryggning har ett felaktigt svarsformat</translation>
     </message>
     <message id="tx-failture-invalid-side-chain-credentials">
         <source>Invalid credentials of Side chain</source>
-        <translation type="unfinished"></translation>
+        <translation>Ogiltiga referenser för sidokedjan</translation>
     </message>
     <message id="tx-failture-not-enough-time-btc-lock">
         <source>Not enough time to finish btc lock transaction</source>
-        <translation type="unfinished"></translation>
+        <translation>Otillräckligt med tid för att avsluta btc låsnings-transaktion</translation>
     </message>
     <message id="tx-failture-create-multisig">
         <source>Failed to create multi-signature</source>
-        <translation type="unfinished"></translation>
+        <translation>Misslyckades med att skapa mång-signatur</translation>
     </message>
     <message id="tx-failture-fee-too-small">
         <source>Fee is too small</source>
-        <translation type="unfinished"></translation>
+        <translation>Avgift är för liten</translation>
     </message>
     <message id="loading-view-estimate-minutes">
         <source>min.</source>
-        <translation type="unfinished"></translation>
+        <translation>minut.</translation>
     </message>
     <message id="loading-view-estimate-seconds">
         <source>sec.</source>
-        <translation type="unfinished"></translation>
+        <translation>sekund.</translation>
     </message>
     <message id="loading-view-estimate-time">
         <source>Estimate time: %s</source>
-        <translation type="unfinished"></translation>
+        <translation>Uppskattad tid %s</translation>
     </message>
     <message id="atomic-swap-title">
         <source>Atomic Swap</source>
@@ -1386,6 +1386,10 @@
         <source>Default fee</source>
         <translation type="unfinished"></translation>
     </message>
+    <message id="trezor-message">
+        <source>Please, look at your Trezor device to complete actions...</source>
+        <translation type="unfinished"></translation>
+    </message>
     <message id="swap-na-message">
         <source>You do not have any 3rd-party currencies connected.\nUpdate your settings and try again.</source>
         <translation type="unfinished"></translation>
@@ -1483,7 +1487,7 @@
         <translation type="unfinished"></translation>
     </message>
     <message id="send-not-enough">
-        <source>There is not enough funds to completer the transaction</source>
+        <source>There is not enough funds to complete the transaction</source>
         <translation type="unfinished"></translation>
     </message>
     <message id="wallet-send-swap-offered-label">
@@ -1496,6 +1500,30 @@
     </message>
     <message id="general-create-trezor-wallet">
         <source>Create new Trezor wallet</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="start-init-wallet-with-trezor">
+        <source>Init wallet with Trezor</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="start-found-trezor-device">
+        <source>Found device:</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="start-no-trezor-device-connected">
+        <source>There is no device connected, please, connect your hardware wallet.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="start-import-trezor-owner-key">
+        <source>Import Trezor Owner Key</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="start-owner-key-imported">
+        <source>Owner Key imported. Please, enter the password you saw on device to decrypt your Owner Key.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="start-look-at-trezor-to-complete-actions">
+        <source>Please, look at your Trezor to complete actions...</source>
         <translation type="unfinished"></translation>
     </message>
     <message id="general-address-from">

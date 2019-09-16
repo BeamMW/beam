@@ -13,7 +13,7 @@
     </message>
     <message id="general-comment">
         <source>Comment</source>
-        <translation>Mededeling</translation>
+        <translation>Omschrijving</translation>
     </message>
     <message id="general-contact">
         <source>Contact</source>
@@ -74,7 +74,7 @@
     </message>
     <message id="general-change-pwd">
         <source>Change wallet password</source>
-        <translation>Wijzig portemonnee wachtwoord</translation>
+        <translation>Wijzig wallet wachtwoord</translation>
     </message>
     <message id="general-pwd-empty-error">
         <source>Please, enter password</source>
@@ -151,27 +151,27 @@
     </message>
     <message id="general-create-wallet">
         <source>Create new wallet</source>
-        <translation>Nieuwe portemonnee aanmaken</translation>
+        <translation>Nieuwe wallet aanmaken</translation>
     </message>
     <message id="general-restore-or-create-wallet">
         <source>Restore wallet or create a new one</source>
-        <translation>Herstel portemonnee of maak een nieuwe aan</translation>
+        <translation>Herstel wallet of maak een nieuwe aan</translation>
     </message>
     <message id="general-select-db">
         <source>Select the wallet database file</source>
-        <translation>Selecteer het portemonnee database bestand</translation>
+        <translation>Selecteer het wallet database bestand</translation>
     </message>
     <message id="general-restore-wallet">
         <source>Restore wallet</source>
-        <translation>Portemonnee herstellen</translation>
+        <translation>Wallet herstellen</translation>
     </message>
     <message id="general-start-using">
         <source>Start using your wallet</source>
-        <translation>Begin met het gebruik van uw portemonnee</translation>
+        <translation>Begin met het gebruik van uw wallet</translation>
     </message>
     <message id="general-open-wallet">
         <source>Open my wallet</source>
-        <translation>Mijn portemonnee openen</translation>
+        <translation>Mijn wallet openen</translation>
     </message>
     <message id="general-proceed">
         <source>Proceed</source>
@@ -347,7 +347,7 @@
     <message id="settings-wallet-location-label">
         <source>Wallet folder location</source>
         <extracomment>settings tab, general section, wallet data folder location label</extracomment>
-        <translation>Portemonnee maplocatie</translation>
+        <translation>Wallet maplocatie</translation>
     </message>
     <message id="settings-apply">
         <source>Apply</source>
@@ -400,15 +400,15 @@
     </message>
     <message id="loading-loading">
         <source>Loading wallet...</source>
-        <translation>Portemonnee laden...</translation>
+        <translation>Wallet laden...</translation>
     </message>
     <message id="loading-restoring">
         <source>Restoring wallet...</source>
-        <translation>Portemonnee herstellen...</translation>
+        <translation>Wallet herstellen...</translation>
     </message>
     <message id="loading-creating">
         <source>Creating wallet...</source>
-        <translation>Portemonnee wordt aangemaakt...</translation>
+        <translation>Wallet wordt aangemaakt...</translation>
     </message>
     <message id="start-open-pwd-invitation">
         <source>Enter your password to access the wallet</source>
@@ -416,7 +416,7 @@
     </message>
     <message id="open-show-wallet-button">
         <source>Show my wallet</source>
-        <translation>Mijn portemonnee weergeven</translation>
+        <translation>Mijn wallet weergeven</translation>
     </message>
     <message id="edit-addr-title">
         <source>Edit address</source>
@@ -516,7 +516,7 @@
     <message id="settings-report-problem-save-log-button">
         <source>Save wallet logs</source>
         <extracomment>settings tab, report problem section, save logs button</extracomment>
-        <translation>Portemonnee logs opslaan</translation>
+        <translation>Wallet logs opslaan</translation>
     </message>
     <message id="settings-rescan-confirmation-message-line-2">
         <source>Are you sure?</source>
@@ -546,7 +546,7 @@
     </message>
     <message id="wallet-title">
         <source>Wallet</source>
-        <translation>Portemonnee</translation>
+        <translation>Wallet</translation>
     </message>
     <message id="wallet-receive-title">
         <source>Receive</source>
@@ -628,11 +628,11 @@
     </message>
     <message id="start-restore-message-line">
         <source>You are trying to restore an existing Beam Wallet. Please notice that if you use your wallet on another device, your balance will be up to date, but  transaction history and addresses will be kept separately on each device.</source>
-        <translation>U probeert een bestaande Beam Portemonnee te herstellen. Let op dat wanneer u uw portemonnee op een ander apparaat gebruikt uw saldo up-to-date zal zijn, maar de transactiegeschiedenis en adressen op elk apparaat apart worden gehouden.</translation>
+        <translation>U probeert een bestaande Beam Wallet te herstellen. Let op dat wanneer u uw wallet op een ander apparaat gebruikt uw saldo up-to-date zal zijn, maar de transactiegeschiedenis en adressen op elk apparaat apart worden gehouden.</translation>
     </message>
     <message id="start-migration-message">
         <source>Your wallet will be migrated to v.</source>
-        <translation>Uw portemonnee zal worden gemigreerd naar v.</translation>
+        <translation>Uw wallet zal worden gemigreerd naar v.</translation>
     </message>
     <message id="start-migration-button">
         <source>Start auto migration</source>
@@ -658,11 +658,11 @@
     </message>
     <message id="start-create-new-message-line-1">
         <source>Create new wallet with generating seed phrase.</source>
-        <translation>Maak een nieuwe portemonnee aan met het genereren van een herstelzin.</translation>
+        <translation>Maak een nieuwe wallet aan met het genereren van een herstelzin.</translation>
     </message>
     <message id="start-create-new-message-line-2">
         <source>If you ever lose your device, you will need this phrase to recover your wallet!</source>
-        <translation>Indien u uw apparaat verliest heeft u deze zin nodig om uw portemonnee te kunnen herstellen!</translation>
+        <translation>Indien u uw apparaat verliest heeft u deze zin nodig om uw wallet te kunnen herstellen!</translation>
     </message>
     <message id="start-create-new-securiry-note-1">
         <source>Do not let anyone see your seed phrase</source>
@@ -682,7 +682,7 @@
     </message>
     <message id="start-generate-seed-phrase-message">
         <source>Your seed phrase is the access key to all the cryptocurrencies in your wallet. Write down the phrase to keep it in a safe or in a locked vault. Without the phrase you will not be able to recover your money.</source>
-        <translation>Uw herstelzin is de toegangssleutel tot alle cryptovaluta in uw portemonnee. Schrijf de zin op en bewaar deze op een veilige plaats zoals een kluis. Zonder de zin kunt u uw portemonnee, en dus uw geld, niet herstellen.</translation>
+        <translation>Uw herstelzin is de toegangssleutel tot alle cryptovaluta in uw wallet. Schrijf de zin op en bewaar deze op een veilige plaats zoals een kluis. Zonder de zin kunt u uw wallet, en dus uw geld, niet herstellen.</translation>
     </message>
     <message id="start-confirm-seed-phrase-button">
         <source>I understand</source>
@@ -702,7 +702,7 @@
     </message>
     <message id="start-create-pwd-message">
         <source>Create password to access your wallet</source>
-        <translation>Maak een wachtwoord aan om toegang te krijgen tot uw portemonnee</translation>
+        <translation>Maak een wachtwoord aan om toegang te krijgen tot uw wallet</translation>
     </message>
     <message id="start-pwd-label">
         <source>Password</source>
@@ -790,7 +790,7 @@
     </message>
     <message id="wallet-model-connection-addr-in-use-error">
         <source>The port %1 is already in use. Check if a wallet is already running on this machine or change the port settings.</source>
-        <translation>Poort %1 is al in gebruik. Controleer of er al een portemonnee op deze machine wordt uitgevoerd of wijzig de poort instellingen.</translation>
+        <translation>Poort %1 is al in gebruik. Controleer of er al een wallet op deze machine wordt uitgevoerd of wijzig de poort instellingen.</translation>
     </message>
     <message id="wallet-model-time-sync-error">
         <source>System time not synchronized</source>
@@ -806,7 +806,7 @@
     </message>
     <message id="wallet-model-data-location-error">
         <source>Failed to start wallet. Please check your wallet data location</source>
-        <translation>Starten van portemonnee mislukt. Controleer uw portemonnee gegevenslocatie</translation>
+        <translation>Starten van wallet is mislukt. Controleer uw wallet gegevenslocatie</translation>
     </message>
     <message id="loading-view-download-blocks">
         <source>Downloading blocks</source>
@@ -838,11 +838,11 @@
     </message>
     <message id="status-bar-view-not-connected">
         <source>Wallet is not connected to the node</source>
-        <translation>Portemonnee is niet met de node verbonden</translation>
+        <translation>Wallet is niet met de node verbonden</translation>
     </message>
     <message id="tx-failture-undefined">
         <source>Unexpected reason, please send wallet logs to Beam support</source>
-        <translation>Onverwachte reden, stuur portemonnee logs naar Beam support</translation>
+        <translation>Onverwachte reden, stuur wallet logs naar Beam support</translation>
     </message>
     <message id="tx-failture-cancelled">
         <source>Transaction cancelled</source>
@@ -850,7 +850,7 @@
     </message>
     <message id="tx-failture-receiver-signature-invalid">
         <source>Receiver signature in not valid, please send wallet logs to Beam support</source>
-        <translation>Handtekening van ontvanger is niet geldig, stuur portemonnee logs naar Beam support</translation>
+        <translation>Handtekening van ontvanger is niet geldig, stuur wallet logs naar Beam support</translation>
     </message>
     <message id="tx-failture-not-registered-in-blockchain">
         <source>Failed to register transaction with the blockchain, see node logs for details</source>
@@ -858,7 +858,7 @@
     </message>
     <message id="tx-failture-not-valid">
         <source>Transaction is not valid, please send wallet logs to Beam support</source>
-        <translation>Transactie is niet geldig, stuur portemonnee logs naar Beam support</translation>
+        <translation>Transactie is niet geldig, stuur wallet logs naar Beam support</translation>
     </message>
     <message id="tx-failture-kernel-invalid">
         <source>Invalid kernel proof provided</source>
@@ -886,7 +886,7 @@
     </message>
     <message id="tx-failture-not-signed-by-receiver">
         <source>Payment not signed by the receiver, please send wallet logs to Beam support</source>
-        <translation>Betaling niet door de ontvanger ondertekend, stuur portemonnee logs naar Beam support</translation>
+        <translation>Betaling niet door de ontvanger ondertekend, stuur wallet logs naar Beam support</translation>
     </message>
     <message id="tx-failture-max-height-to-high">
         <source>Kernel maximum height is too high</source>
@@ -986,11 +986,11 @@
     </message>
     <message id="appmodel-failed-time-not-synced">
         <source>Failed to start the integrated node: the timezone settings of your machine are out of sync. Please fix them and restart the wallet.</source>
-        <translation>Het starten van de geïntegreerde node is mislukt: de tijdzone instellingen van uw machine zijn niet gesynchroniseerd. Gelieve deze op te lossen en de portemonnee opnieuw te starten.</translation>
+        <translation>Het starten van de geïntegreerde node is mislukt: de tijdzone instellingen van uw machine zijn niet gesynchroniseerd. Gelieve deze op te lossen en de wallet opnieuw te starten.</translation>
     </message>
     <message id="can-not-generate-new-address-message">
         <source>You cannot generate new address. Your wallet doesn&apos;t have a master key.</source>
-        <translation>U kunt geen nieuw adres genereren. Uw portemonnee heeft geen hoofdsleutel.</translation>
+        <translation>U kunt geen nieuw adres genereren. Uw wallet heeft geen hoofdsleutel.</translation>
     </message>
     <message id="settings-general-language">
         <source>Language</source>
@@ -1007,11 +1007,11 @@
     </message>
     <message id="open-external-message">
         <source>Beam Wallet app requires permission to open external link in the browser. This action will expose your IP to the web server. To avoid it, choose -Cancel-. You can change your choice in app setting anytime.</source>
-        <translation>Beam Portemonnee vereist toestemming om externe links in de browser te openen. Deze actie zal uw IP adres aan de webserver blootstellen. Kies -Annuleren- om dit te voorkomen. U kunt uw keuze op elk gewenst moment wijzigen in Instellingen.</translation>
+        <translation>Beam Wallet vereist toestemming om externe links in de browser te openen. Deze actie zal uw IP adres aan de webserver blootstellen. Kies -Annuleren- om dit te voorkomen. U kunt uw keuze op elk gewenst moment wijzigen in Instellingen.</translation>
     </message>
     <message id="start-open-change-wallet-message">
         <source>If you&apos;ll restore a wallet all transaction history and addresses will be lost.</source>
-        <translation>Wanneer u een portemonnee herstelt zullen alle transactiegeschiedenis en adressen verloren gaan.</translation>
+        <translation>Wanneer u een wallet herstelt zullen alle transactiegeschiedenis en adressen verloren gaan.</translation>
     </message>
     <message id="loading-restore-message-line1">
         <source>Please wait for synchronization and do not close or minimize the application.</source>
@@ -1019,7 +1019,7 @@
     </message>
     <message id="loading-restore-message-line2">
         <source>Only the wallet balance (UTXO) can be restored, transaction info and addresses are always private and never kept in the blockchain.</source>
-        <translation>Alleen het portemonnee saldo (UTXO) kan worden hersteld, transactieinformatie en adressen zijn altijd privé en worden nooit in de blockchain opgeslagen.</translation>
+        <translation>Alleen het wallet saldo (UTXO) kan worden hersteld, transactieinformatie en adressen zijn altijd privé en worden nooit in de blockchain opgeslagen.</translation>
     </message>
     <message id="start-recovery-title">
         <source>Create new password</source>
@@ -1027,7 +1027,7 @@
     </message>
     <message id="start-recovery-pwd-message">
         <source>Create new password to access your wallet</source>
-        <translation>Nieuw wachtwoord aanmaken om toegang te krijgen tot uw portemonnee</translation>
+        <translation>Nieuw wachtwoord aanmaken om toegang te krijgen tot uw wallet</translation>
     </message>
     <message id="start-create-pwd-strength-message">
         <source>Strong password needs to meet the following requirements:\n•  the length must be at least 10 characters\n•  must contain at least one lowercase letter\n•  must contain at least one uppercase letter\n•  must contain at least one number</source>
@@ -1073,7 +1073,7 @@
     </message>
     <message id="settings-report-problem-message-l1">
         <source>1. Click “Save wallet logs” and choose a destination folder for log archive</source>
-        <translation>1. Klik op &quot;Sla portemonnee logs op&quot; en kies een doelmap voor log archief</translation>
+        <translation>1. Klik op &quot;Sla wallet logs op&quot; en kies een doelmap voor log archief</translation>
     </message>
     <message id="settings-report-problem-message-l2">
         <source>2. Send email to %1 or open a ticket in %2</source>
@@ -1160,7 +1160,7 @@
     <message id="start-migration-select-file-button">
         <source>Select wallet database file manually</source>
         <extracomment>migration screen, select db file button</extracomment>
-        <translation>Portemonnee database bestand handmatig selecteren</translation>
+        <translation>Wallet database bestand handmatig selecteren</translation>
     </message>
     <message id="start-select-db-best-match-label">
         <source>(best match)</source>
@@ -1192,7 +1192,7 @@
     </message>
     <message id="restore-finish-alert-title">
         <source>Do not simultaneously run two wallets initiated from the same seed phrase</source>
-        <translation>Draai niet twee portemonnees die met dezelfde herstelzin geïnitieerd zijn tegelijkertijd</translation>
+        <translation>Draai niet twee wallets die met dezelfde herstelzin geïnitieerd zijn tegelijkertijd</translation>
     </message>
     <message id="restore-finish-alert-message-line">
         <source>Don’t use same seed phrase on several devices, your balance and transaction list won’t be synchronized.</source>
@@ -1200,55 +1200,55 @@
     </message>
     <message id="tx-failture-subtx-failed">
         <source>Subtransaction has failed</source>
-        <translation type="unfinished"></translation>
+        <translation>Subtransactie is mislukt</translation>
     </message>
     <message id="tx-failture-invalid-contract-amount">
         <source>Contract&apos;s amount is not valid</source>
-        <translation type="unfinished"></translation>
+        <translation>Contract&apos;s bedrag is niet geldig</translation>
     </message>
     <message id="tx-failture-invalid-sidechain-contract">
         <source>Side chain has invalid contract</source>
-        <translation type="unfinished"></translation>
+        <translation>Side chain bevat een ongeldig contract</translation>
     </message>
     <message id="tx-failture-sidechain-internal-error">
         <source>Side chain bridge has internal error</source>
-        <translation type="unfinished"></translation>
+        <translation>Side chain bridge bevat een interne fout</translation>
     </message>
     <message id="tx-failture-sidechain-network-error">
         <source>Side chain bridge has network error</source>
-        <translation type="unfinished"></translation>
+        <translation>Side chain bridge bevat een netwerkfout</translation>
     </message>
     <message id="tx-failture-invalid-sidechain-response-format">
         <source>Side chain bridge has response format error</source>
-        <translation type="unfinished"></translation>
+        <translation>Side chain bridge bevat een response format fout</translation>
     </message>
     <message id="tx-failture-invalid-side-chain-credentials">
         <source>Invalid credentials of Side chain</source>
-        <translation type="unfinished"></translation>
+        <translation>Ongeldige inloggegevens van de Side chain</translation>
     </message>
     <message id="tx-failture-not-enough-time-btc-lock">
         <source>Not enough time to finish btc lock transaction</source>
-        <translation type="unfinished"></translation>
+        <translation>Niet genoeg tijd om btc lock transactie af te ronden</translation>
     </message>
     <message id="tx-failture-create-multisig">
         <source>Failed to create multi-signature</source>
-        <translation type="unfinished"></translation>
+        <translation>Multi-signature aanmaken mislukt</translation>
     </message>
     <message id="tx-failture-fee-too-small">
         <source>Fee is too small</source>
-        <translation type="unfinished"></translation>
+        <translation>Fee is te laag</translation>
     </message>
     <message id="loading-view-estimate-minutes">
         <source>min.</source>
-        <translation type="unfinished"></translation>
+        <translation>min.</translation>
     </message>
     <message id="loading-view-estimate-seconds">
         <source>sec.</source>
-        <translation type="unfinished"></translation>
+        <translation>sec.</translation>
     </message>
     <message id="loading-view-estimate-time">
         <source>Estimate time: %s</source>
-        <translation type="unfinished"></translation>
+        <translation>Geschatte tijd: %s</translation>
     </message>
     <message id="atomic-swap-title">
         <source>Atomic Swap</source>
@@ -1386,6 +1386,10 @@
         <source>Default fee</source>
         <translation type="unfinished"></translation>
     </message>
+    <message id="trezor-message">
+        <source>Please, look at your Trezor device to complete actions...</source>
+        <translation type="unfinished"></translation>
+    </message>
     <message id="swap-na-message">
         <source>You do not have any 3rd-party currencies connected.\nUpdate your settings and try again.</source>
         <translation type="unfinished"></translation>
@@ -1483,7 +1487,7 @@
         <translation type="unfinished"></translation>
     </message>
     <message id="send-not-enough">
-        <source>There is not enough funds to completer the transaction</source>
+        <source>There is not enough funds to complete the transaction</source>
         <translation type="unfinished"></translation>
     </message>
     <message id="wallet-send-swap-offered-label">
@@ -1496,6 +1500,30 @@
     </message>
     <message id="general-create-trezor-wallet">
         <source>Create new Trezor wallet</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="start-init-wallet-with-trezor">
+        <source>Init wallet with Trezor</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="start-found-trezor-device">
+        <source>Found device:</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="start-no-trezor-device-connected">
+        <source>There is no device connected, please, connect your hardware wallet.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="start-import-trezor-owner-key">
+        <source>Import Trezor Owner Key</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="start-owner-key-imported">
+        <source>Owner Key imported. Please, enter the password you saw on device to decrypt your Owner Key.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="start-look-at-trezor-to-complete-actions">
+        <source>Please, look at your Trezor to complete actions...</source>
         <translation type="unfinished"></translation>
     </message>
     <message id="general-address-from">

@@ -48,4 +48,5 @@ private:
     void onImportRecoveryProgress(uint64_t done, uint64_t total) override;
     void onShowKeyKeeperMessage() override {}
     void onHideKeyKeeperMessage() override {}
+    void onShowKeyKeeperError(const std::string&) override {}
 };
