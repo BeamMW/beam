@@ -362,7 +362,6 @@ public:
 			Timestamp m_TimePosted;
 			Blob m_Message;
 			uint32_t m_Nonce;
-			bool m_bNonce;
 		} m_Data;
 
 		WalkerBbs(NodeDB& db) :m_Rs(db) {}

@@ -317,32 +317,22 @@ void Node::Wanted::OnTimer()
 void Node::TryAssignTask(Task& t, const PeerID* pPeerID)
 {
 	// prefer to request data from nodes supporting latest protocol
-	for (uint32_t iCycle = 0; iCycle < 2; iCycle++)
+	if (pPeerID)
 	{
-		if (pPeerID)
-		{
-			bool bCreate = false;
-			PeerMan::PeerInfoPlus* pInfo = Cast::Up<PeerMan::PeerInfoPlus>(m_PeerMan.Find(*pPeerID, bCreate));
+		bool bCreate = false;
+		PeerMan::PeerInfoPlus* pInfo = Cast::Up<PeerMan::PeerInfoPlus>(m_PeerMan.Find(*pPeerID, bCreate));
 
-			if (pInfo && pInfo->m_pLive && TryAssignTask(t, *pInfo->m_pLive, !iCycle))
-				return;
-		}
-
-		for (PeerList::iterator it = m_lstPeers.begin(); m_lstPeers.end() != it; it++)
-		{
-			Peer& p = *it;
-			if (TryAssignTask(t, p, !iCycle))
-				return;
-		}
+		if (pInfo && pInfo->m_Live.m_p && TryAssignTask(t, *pInfo->m_Live.m_p))
+			return;
 	}
-}
 
-bool Node::TryAssignTask(Task& t, Peer& p, bool bMustSupportLatestProto)
-{
-	if (bMustSupportLatestProto && !(proto::LoginFlags::Extension2 & p.m_LoginFlags))
-		return false;
-
-	return TryAssignTask(t, p);
+	// Prioritize w.r.t. rating!
+	for (PeerMan::LiveSet::iterator it = m_PeerMan.m_LiveSet.begin(); m_PeerMan.m_LiveSet.end() != it; it++)
+	{
+		Peer& p = *it->m_p;
+		if (TryAssignTask(t, p))
+			return;
+	}
 }
 
 bool Node::TryAssignTask(Task& t, Peer& p)
@@ -376,108 +366,58 @@ bool Node::TryAssignTask(Task& t, Peer& p)
 
     // check if the peer currently transfers a block
     uint32_t nBlocks = 0;
-    for (TaskList::iterator it = p.m_lstTasks.begin(); p.m_lstTasks.end() != it; it++)
-        if (it->m_Key.second)
-            nBlocks++;
+	for (TaskList::iterator it = p.m_lstTasks.begin(); p.m_lstTasks.end() != it; it++)
+	{
+		if (it->m_Key.second)
+			nBlocks++;
+	}
 
-    // assign
-    if (t.m_Key.second)
-    {
+	// assign
+	if (t.m_Key.second)
+	{
 		if (m_nTasksPackBody >= m_Cfg.m_MaxConcurrentBlocksRequest)
 			return false; // too many blocks requested
 
 		Height hCountExtra = t.m_sidTrg.m_Height - t.m_Key.first.m_Height;
 
-		if (proto::LoginFlags::Extension2 & p.m_LoginFlags)
+		proto::GetBodyPack msg;
+
+		if (t.m_Key.first.m_Height <= m_Processor.m_SyncData.m_Target.m_Height)
 		{
-			proto::GetBodyPack msg;
-
-			if (t.m_Key.first.m_Height <= m_Processor.m_SyncData.m_Target.m_Height)
-			{
-				// fast-sync mode, diluted blocks request.
-				msg.m_Top.m_Height = m_Processor.m_SyncData.m_Target.m_Height;
-				if (m_Processor.IsFastSync())
-					m_Processor.get_DB().get_StateHash(m_Processor.m_SyncData.m_Target.m_Row, msg.m_Top.m_Hash);
-				else
-					msg.m_Top.m_Hash = Zero; // treasury
-
-				msg.m_CountExtra = m_Processor.m_SyncData.m_Target.m_Height - t.m_Key.first.m_Height;
-				msg.m_Height0 = m_Processor.m_SyncData.m_h0;
-				msg.m_HorizonLo1 = m_Processor.m_SyncData.m_TxoLo;
-				msg.m_HorizonHi1 = m_Processor.m_SyncData.m_Target.m_Height;
-			}
+			// fast-sync mode, diluted blocks request.
+			msg.m_Top.m_Height = m_Processor.m_SyncData.m_Target.m_Height;
+			if (m_Processor.IsFastSync())
+				m_Processor.get_DB().get_StateHash(m_Processor.m_SyncData.m_Target.m_Row, msg.m_Top.m_Hash);
 			else
-			{
-				// std blocks request
-				msg.m_Top.m_Height = t.m_sidTrg.m_Height;
-				m_Processor.get_DB().get_StateHash(t.m_sidTrg.m_Row, msg.m_Top.m_Hash);
-				msg.m_CountExtra = hCountExtra;
-			}
+				msg.m_Top.m_Hash = Zero; // treasury
 
-			p.Send(msg);
-
-			t.m_nCount = std::min(static_cast<uint32_t>(msg.m_CountExtra), m_Cfg.m_BandwidthCtl.m_MaxBodyPackCount) + 1; // just an estimate, the actual num of blocks can be smaller
-			m_nTasksPackBody += t.m_nCount;
+			msg.m_CountExtra = m_Processor.m_SyncData.m_Target.m_Height - t.m_Key.first.m_Height;
+			msg.m_Height0 = m_Processor.m_SyncData.m_h0;
+			msg.m_HorizonLo1 = m_Processor.m_SyncData.m_TxoLo;
+			msg.m_HorizonHi1 = m_Processor.m_SyncData.m_Target.m_Height;
 		}
 		else
 		{
-			// old peer
-			if (m_Processor.IsFastSync())
-				return false; // incompatible
-
-			for (const uint64_t* pPtr = nullptr; ; )
-			{
-				proto::GetBody msg;
-				msg.m_ID = t.m_Key.first;
-				p.Send(msg);
-
-				if (++nBlocks >= m_Cfg.m_MaxConcurrentBlocksRequest)
-					break;
-
-				if (msg.m_ID.m_Height >= t.m_sidTrg.m_Height)
-					break;
-
-				// request more blocks, if applicable
-				if (!pPtr)
-				{
-					pPtr = m_Processor.get_CachedRows(t.m_sidTrg, hCountExtra);
-					if (!pPtr)
-						break;
-				}
-
-				Task* pTask = new Task;
-				pTask->m_Key = t.m_Key;
-				m_setTasks.insert(*pTask);
-
-				pTask->m_pOwner = &p;
-				p.m_lstTasks.push_back(*pTask);
-
-				pTask->m_sidTrg = t.m_sidTrg;
-				pTask->m_bNeeded = false;
-				pTask->m_nCount = 1;
-				m_nTasksPackBody++;
-
-				t.m_Key.first.m_Height++;
-				uint64_t rowid = pPtr[t.m_sidTrg.m_Height - t.m_Key.first.m_Height];
-				m_Processor.get_DB().get_StateHash(rowid, t.m_Key.first.m_Hash);
-
-				m_setTasks.erase(TaskSet::s_iterator_to(t));
-				m_setTasks.insert(t);
-
-			}
+			// std blocks request
+			msg.m_Top.m_Height = t.m_sidTrg.m_Height;
+			m_Processor.get_DB().get_StateHash(t.m_sidTrg.m_Row, msg.m_Top.m_Hash);
+			msg.m_CountExtra = hCountExtra;
 		}
-    }
-    else
-    {
+
+		p.Send(msg);
+
+		t.m_nCount = std::min(static_cast<uint32_t>(msg.m_CountExtra), m_Cfg.m_BandwidthCtl.m_MaxBodyPackCount) + 1; // just an estimate, the actual num of blocks can be smaller
+		m_nTasksPackBody += t.m_nCount;
+	}
+	else
+	{
 		if (m_nTasksPackHdr >= proto::g_HdrPackMaxSize)
 			return false; // too many hdrs requested
 
         if (nBlocks)
             return false; // don't requests headers from the peer that transfers a block
 
-		uint32_t nPackSize = (proto::LoginFlags::Extension2 & p.m_LoginFlags) ?
-			proto::g_HdrPackMaxSize :
-			proto::g_HdrPackMaxSizeV0;
+		uint32_t nPackSize = proto::g_HdrPackMaxSize;
 
 		// make sure we're not dealing with overlaps
 		Height h0 = m_Processor.get_DB().get_HeightBelow(t.m_Key.first.m_Height);
@@ -506,6 +446,8 @@ bool Node::TryAssignTask(Task& t, Peer& p)
     m_lstTasksUnassigned.erase(TaskList::s_iterator_to(t));
     p.m_lstTasks.push_back(t);
 
+	t.m_TimeAssigned_ms = GetTime_ms();
+
     if (bEmpty)
         p.SetTimerWrtFirstTask();
 
@@ -514,10 +456,22 @@ bool Node::TryAssignTask(Task& t, Peer& p)
 
 void Node::Peer::SetTimerWrtFirstTask()
 {
-    if (m_lstTasks.empty())
-        KillTimer();
-    else
-        SetTimer(m_lstTasks.front().m_Key.second ? m_This.m_Cfg.m_Timeout.m_GetBlock_ms : m_This.m_Cfg.m_Timeout.m_GetState_ms);
+	if (m_lstTasks.empty())
+	{
+		assert(m_pTimerRequest);
+		m_pTimerRequest->cancel();
+	}
+	else
+	{
+		uint32_t timeout_ms = m_lstTasks.front().m_Key.second ?
+			m_This.m_Cfg.m_Timeout.m_GetBlock_ms :
+			m_This.m_Cfg.m_Timeout.m_GetState_ms;
+
+		if (!m_pTimerRequest)
+			m_pTimerRequest = io::Timer::create(io::Reactor::get_Current());
+
+		m_pTimerRequest->start(timeout_ms, false, [this]() { OnRequestTimeout(); });
+	}
 }
 
 void Node::Processor::RequestData(const Block::SystemState::ID& id, bool bBlock, const PeerID* pPreferredPeer, const NodeDB::StateID& sidTrg)
@@ -582,7 +536,7 @@ void Node::Processor::FlushInsanePeers()
 
         if (pInfo)
         {
-            Peer* pPeer = pInfo->m_pLive;
+            Peer* pPeer = pInfo->m_Live.m_p;
             if (pPeer)
                 pPeer->DeleteSelf(true, proto::NodeConnection::ByeReason::Ban);
             else
@@ -1248,36 +1202,20 @@ Node::~Node()
     LOG_INFO() << "Node stopped";
 }
 
-void Node::Peer::SetTimer(uint32_t timeout_ms)
+void Node::Peer::OnRequestTimeout()
 {
-    if (!m_pTimer)
-        m_pTimer = io::Timer::create(io::Reactor::get_Current());
+	assert(Flags::Connected & m_Flags);
+	assert(!m_lstTasks.empty());
 
-    m_pTimer->start(timeout_ms, false, [this]() { OnTimer(); });
-}
+	LOG_WARNING() << "Peer " << m_RemoteAddr << " request timeout";
 
-void Node::Peer::KillTimer()
-{
-    assert(m_pTimer);
-    m_pTimer->cancel();
-}
+	if (m_pInfo)
+	{
+		ModifyRatingWrtData(0);
+		m_This.m_PeerMan.ModifyRating(*m_pInfo, PeerMan::Rating::PenaltyTimeout, false); // task (request) wasn't handled in time.
+	}
 
-void Node::Peer::OnTimer()
-{
-    if (Flags::Connected & m_Flags)
-    {
-        assert(!m_lstTasks.empty());
-
-        LOG_WARNING() << "Peer " << m_RemoteAddr << " request timeout";
-
-        if (m_pInfo)
-            m_This.m_PeerMan.ModifyRating(*m_pInfo, PeerMan::Rating::PenaltyTimeout, false); // task (request) wasn't handled in time.
-
-        DeleteSelf(false, ByeReason::Timeout);
-    }
-    else
-        // Connect didn't finish in time
-        DeleteSelf(true, 0);
+    DeleteSelf(false, ByeReason::Timeout);
 }
 
 void Node::Peer::OnResendPeers()
@@ -1409,21 +1347,20 @@ void Node::Peer::OnMsg(proto::Authentication&& msg)
         }
 
         // detach from it
-        m_pInfo->m_pLive = NULL;
+		PeerMan::PeerInfoPlus& pip = *m_pInfo;
+		m_pInfo->DetachStrict();
 
-        if (m_pInfo->m_ID.m_Key == Zero)
+        if (pip.m_ID.m_Key == Zero)
         {
             LOG_INFO() << "deleted anonymous PI";
-            pm.Delete(*m_pInfo); // it's anonymous.
+            pm.Delete(pip); // it's anonymous.
         }
         else
         {
             LOG_INFO() << "PeerID is different";
-            pm.OnActive(*m_pInfo, false);
-            pm.RemoveAddr(*m_pInfo); // turned-out to be wrong
+            pm.OnActive(pip, false);
+            pm.RemoveAddr(pip); // turned-out to be wrong
         }
-
-        m_pInfo = NULL;
     }
 
     if (msg.m_ID == m_This.m_MyPublicID)
@@ -1447,23 +1384,19 @@ void Node::Peer::OnMsg(proto::Authentication&& msg)
     PeerMan::PeerInfoPlus* pPi = Cast::Up<PeerMan::PeerInfoPlus>(pm.OnPeer(msg.m_ID, addr, bAddrValid));
     assert(pPi);
 
-    if (pPi->m_pLive)
+    if (pPi->m_Live.m_p)
     {
         LOG_INFO() << "Duplicate connection with the same PI.";
         // Duplicate connection. In this case we have to choose wether to terminate this connection, or the previous. The best is to do it asymmetrically.
         // We decide this based on our Node IDs.
         // In addition, if the older connection isn't completed yet (i.e. it's our connect attempt) - it's prefered for deletion, because such a connection may be impossible (firewalls and friends).
-		Peer* pDup = pPi->m_pLive;
+		Peer* pDup = pPi->m_Live.m_p;
 
         if (!pDup->IsSecureOut() || (m_This.m_MyPublicID > msg.m_ID))
         {
 			// detach from that peer
-			assert(pPi == pDup->m_pInfo);
-			pDup->m_pInfo = nullptr;
-			pPi->m_pLive = nullptr;
-
+			pPi->DetachStrict();
             pDup->DeleteSelf(false, ByeReason::Duplicate);
-            assert(!pPi->m_pLive);
         }
         else
         {
@@ -1480,8 +1413,7 @@ void Node::Peer::OnMsg(proto::Authentication&& msg)
     }
 
     // attach to it
-    pPi->m_pLive = this;
-    m_pInfo = pPi;
+	pPi->Attach(*this);
     pm.OnActive(*pPi, true);
     pm.OnSeen(*pPi);
 
@@ -1602,25 +1534,24 @@ void Node::Peer::DeleteSelf(bool bIsError, uint8_t nByeReason)
 
     if (m_pInfo)
     {
-        // detach
-        assert(this == m_pInfo->m_pLive);
-        m_pInfo->m_pLive = NULL;
+		PeerMan::PeerInfoPlus& pip = *m_pInfo;
+		m_pInfo->DetachStrict();
 
-        m_This.m_PeerMan.OnActive(*m_pInfo, false);
+		m_This.m_PeerMan.OnActive(pip, false);
 
         if (bIsError)
-            m_This.m_PeerMan.OnRemoteError(*m_pInfo, ByeReason::Ban == nByeReason);
+            m_This.m_PeerMan.OnRemoteError(pip, ByeReason::Ban == nByeReason);
 
 		if (m_This.m_PeerMan.get_Ratings().size() > m_This.m_PeerMan.m_Cfg.m_DesiredTotal)
 		{
 			bool bDelete =
-				!m_pInfo->m_LastSeen || // never seen
-				((1 == m_pInfo->m_RawRating.m_Value) && m_This.m_PeerMan.IsOutdated(*m_pInfo)); // lowest rating, not seen for a while
+				!pip.m_LastSeen || // never seen
+				((1 == pip.m_RawRating.m_Value) && m_This.m_PeerMan.IsOutdated(pip)); // lowest rating, not seen for a while
 
 			if (bDelete)
 			{
-				LOG_INFO() << *m_pInfo << " Deleted";
-				m_This.m_PeerMan.Delete(*m_pInfo);
+				LOG_INFO() << pip << " Deleted";
+				m_This.m_PeerMan.Delete(pip);
 			}
 		}
 	}
@@ -1739,6 +1670,19 @@ void Node::Peer::OnFirstTaskDone()
 	m_This.m_Processor.TryGoUpAsync();
 }
 
+void Node::Peer::ModifyRatingWrtData(size_t nSize)
+{
+	uint32_t dt_ms = GetTime_ms() - get_FirstTask().m_TimeAssigned_ms;
+	if (!dt_ms)
+		dt_ms = 1;
+
+	uint32_t bw_Bps = static_cast<uint32_t>(nSize * size_t(1000) / dt_ms);
+
+	// TODO ...
+	bw_Bps;
+
+}
+
 void Node::Peer::OnMsg(proto::DataMissing&&)
 {
     Task& t = get_FirstTask();
@@ -1760,25 +1704,6 @@ void Node::Peer::OnMsg(proto::GetHdr&& msg)
         proto::DataMissing msgMiss(Zero);
         Send(msgMiss);
     }
-}
-
-void Node::Peer::OnMsg(proto::Hdr&& msg)
-{
-    Task& t = get_FirstTask();
-
-    if (t.m_Key.second || (t.m_nCount != 1))
-        ThrowUnexpected();
-
-    Block::SystemState::ID id;
-    msg.m_Description.get_ID(id);
-    if (id != t.m_Key.first)
-        ThrowUnexpected();
-
-    assert((Flags::PiRcvd & m_Flags) && m_pInfo);
-    m_This.m_PeerMan.ModifyRating(*m_pInfo, PeerMan::Rating::RewardHeader, true);
-
-    NodeProcessor::DataStatus::Enum eStatus = m_This.m_Processor.OnState(msg.m_Description, m_pInfo->m_ID.m_Key);
-    OnFirstTaskDone(eStatus);
 }
 
 void Node::Peer::OnMsg(proto::GetHdrPack&& msg)
@@ -1862,25 +1787,21 @@ void Node::Peer::OnMsg(proto::HdrPack&& msg)
         s.m_ChainWork += s.m_PoW.m_Difficulty;
     }
 
-    // just to be pedantic
-    if (idLast != t.m_Key.first)
-        bInvalid = true;
+	// just to be pedantic
+	if (idLast != t.m_Key.first)
+		bInvalid = true;
 
 	LOG_INFO() << "Hdr pack received " << msg.m_Prefix.m_Height << "-" << idLast;
 
-    OnFirstTaskDone(NodeProcessor::DataStatus::Accepted);
+	ModifyRatingWrtData(sizeof(msg.m_Prefix) + msg.m_vElements.size() * sizeof(msg.m_vElements.front()));
 
-    if (nAccepted)
-    {
-        assert((Flags::PiRcvd & m_Flags) && m_pInfo);
-        m_This.m_PeerMan.ModifyRating(*m_pInfo, PeerMan::Rating::RewardHeader * nAccepted, true);
-    }
-    else
-    {
-		if (bInvalid)
-			ThrowUnexpected();
-    }
+	assert((Flags::PiRcvd & m_Flags) && m_pInfo);
+	m_This.m_PeerMan.ModifyRating(*m_pInfo, PeerMan::Rating::RewardHeader * nAccepted, true);
 
+	if (bInvalid)
+		ThrowUnexpected();
+
+	OnFirstTaskDone(NodeProcessor::DataStatus::Accepted);
 	m_This.UpdateSyncStatus();
 }
 
@@ -2027,6 +1948,7 @@ void Node::Peer::OnMsg(proto::Body&& msg)
 	if (!t.m_Key.second)
 		ThrowUnexpected();
 
+	ModifyRatingWrtData(msg.m_Body.m_Eternal.size() + msg.m_Body.m_Perishable.size());
 	assert((Flags::PiRcvd & m_Flags) && m_pInfo);
 	m_This.m_PeerMan.ModifyRating(*m_pInfo, PeerMan::Rating::RewardBlock, true);
 
@@ -2058,6 +1980,15 @@ void Node::Peer::OnMsg(proto::BodyPack&& msg)
 
 	if (msg.m_Bodies.size() > hCountExtra + 1)
 		ThrowUnexpected();
+
+	size_t nSize = 0;
+	for (size_t i = 0; i < msg.m_Bodies.size(); i++)
+	{
+		nSize +=
+			msg.m_Bodies[i].m_Eternal.size() +
+			msg.m_Bodies[i].m_Perishable.size();
+	}
+	ModifyRatingWrtData(nSize);
 
 	assert((Flags::PiRcvd & m_Flags) && m_pInfo);
 	m_This.m_PeerMan.ModifyRating(*m_pInfo, PeerMan::Rating::RewardBlock, true);
@@ -2115,9 +2046,6 @@ void Node::Peer::OnMsg(proto::NewTransaction&& msg)
     {
         proto::Status msgOut;
 		msgOut.m_Value = m_This.OnTransactionStem(std::move(msg.m_Transaction), this);
-
-		if (!(proto::LoginFlags::Extension3 & m_LoginFlags) && (proto::TxStatus::Ok != msgOut.m_Value))
-			msgOut.m_Value = proto::TxStatus::Unspecified; // legacy client
 
         Send(msgOut);
     }
@@ -3025,19 +2953,6 @@ void Node::Peer::OnMsg(proto::GetExternalAddr&& msg)
     Send(msgOut);
 }
 
-void Node::Peer::OnMsg(proto::BbsMsgV0&& msg0)
-{
-	if (m_This.m_Processor.m_Cursor.m_ID.m_Height >= Rules::get().pForks[1].m_Height && !Rules::get().FakePoW)
-		return; // drop
-
-	proto::BbsMsg msg;
-	msg.m_Channel = msg0.m_Channel;
-	msg.m_TimePosted = msg0.m_TimePosted;
-	msg.m_Message.swap(msg0.m_Message);
-
-	OnMsg(msg, false);
-}
-
 void Node::Peer::OnMsg(proto::BbsMsg&& msg)
 {
 	if ((m_This.m_Processor.m_Cursor.m_ID.m_Height >= Rules::get().pForks[1].m_Height) && !Rules::get().FakePoW)
@@ -3050,11 +2965,6 @@ void Node::Peer::OnMsg(proto::BbsMsg&& msg)
 			return; // drop
 	}
 
-	OnMsg(msg, true);
-}
-
-void Node::Peer::OnMsg(const proto::BbsMsg& msg, bool bNonceValid)
-{
 	if (!m_This.m_Cfg.m_Bbs.IsEnabled())
 		ThrowUnexpected();
 
@@ -3078,7 +2988,6 @@ void Node::Peer::OnMsg(const proto::BbsMsg& msg, bool bNonceValid)
     wlk.m_Data.m_Channel = msg.m_Channel;
     wlk.m_Data.m_TimePosted = msg.m_TimePosted;
     wlk.m_Data.m_Message = Blob(msg.m_Message);
-	wlk.m_Data.m_bNonce = bNonceValid;
 	msg.m_Nonce.Export(wlk.m_Data.m_Nonce);
 
     Bbs::CalcMsgKey(wlk.m_Data);
@@ -3174,24 +3083,12 @@ void Node::Peer::OnMsg(proto::BbsGetMsg&& msg)
 
 void Node::Peer::SendBbsMsg(const NodeDB::WalkerBbs::Data& d)
 {
-	if (d.m_bNonce && (proto::LoginFlags::Extension1 & m_LoginFlags))
-	{
-		proto::BbsMsg msgOut;
-		msgOut.m_Channel = d.m_Channel;
-		msgOut.m_TimePosted = d.m_TimePosted;
-		d.m_Message.Export(msgOut.m_Message);
-		msgOut.m_Nonce = d.m_Nonce;
-		Send(msgOut);
-	}
-	else
-	{
-		proto::BbsMsgV0 msgOut;
-		msgOut.m_Channel = d.m_Channel;
-		msgOut.m_TimePosted = d.m_TimePosted;
-		d.m_Message.Export(msgOut.m_Message);
-		Send(msgOut);
-	}
-
+	proto::BbsMsg msgOut;
+	msgOut.m_Channel = d.m_Channel;
+	msgOut.m_TimePosted = d.m_TimePosted;
+	d.m_Message.Export(msgOut.m_Message);
+	msgOut.m_Nonce = d.m_Nonce;
+	Send(msgOut);
 }
 
 void Node::Peer::OnMsg(proto::BbsSubscribe&& msg)
@@ -3252,19 +3149,6 @@ void Node::Peer::OnMsg(proto::BbsResetSync&& msg)
 
 	m_CursorBbs = m_This.m_Processor.get_DB().BbsFindCursor(msg.m_TimeFrom) - 1;
 	BroadcastBbs();
-}
-
-void Node::Peer::OnMsg(proto::BbsPickChannelV0&& msg)
-{
-	if (!m_This.m_Cfg.m_Bbs.IsEnabled())
-		ThrowUnexpected();
-
-	if (proto::LoginFlags::Extension1 & m_LoginFlags)
-		ThrowUnexpected(); // new client shouldn't ask for it
-
-	proto::BbsPickChannelResV0 msgOut;
-	msgOut.m_Channel = m_This.RandomUInt32(proto::Bbs::s_MaxChannels);
-    Send(msgOut);
 }
 
 void Node::Peer::OnMsg(proto::MacroblockGet&& msg)
@@ -4046,13 +3930,12 @@ void Node::PeerMan::OnFlush()
 
 void Node::PeerMan::ActivatePeer(PeerInfo& pi)
 {
-    PeerInfoPlus& pip = (PeerInfoPlus&)pi;
-    if (pip.m_pLive)
+    PeerInfoPlus& pip = Cast::Up<PeerInfoPlus>(pi);
+    if (pip.m_Live.m_p)
         return; //?
 
     Peer* p = get_ParentObj().AllocPeer(pip.m_Addr.m_Value);
-    p->m_pInfo = &pip;
-    pip.m_pLive = p;
+	pip.Attach(*p);
 
     p->Connect(pip.m_Addr.m_Value);
     p->m_Port = pip.m_Addr.m_Value.port();
@@ -4061,22 +3944,37 @@ void Node::PeerMan::ActivatePeer(PeerInfo& pi)
 void Node::PeerMan::DeactivatePeer(PeerInfo& pi)
 {
     PeerInfoPlus& pip = (PeerInfoPlus&)pi;
-    if (!pip.m_pLive)
+    if (!pip.m_Live.m_p)
         return; //?
 
-    pip.m_pLive->DeleteSelf(false, proto::NodeConnection::ByeReason::Other);
+    pip.m_Live.m_p->DeleteSelf(false, proto::NodeConnection::ByeReason::Other);
 }
 
 PeerManager::PeerInfo* Node::PeerMan::AllocPeer()
 {
     PeerInfoPlus* p = new PeerInfoPlus;
-    p->m_pLive = NULL;
+    p->m_Live.m_p = nullptr;
     return p;
 }
 
 void Node::PeerMan::DeletePeer(PeerInfo& pi)
 {
-    delete (PeerInfoPlus*)&pi;
+    delete &Cast::Up<PeerInfoPlus>(pi);
+}
+
+void Node::PeerMan::PeerInfoPlus::Attach(Peer& p)
+{
+	assert(!m_Live.m_p && !p.m_pInfo);
+	m_Live.m_p = &p;
+	p.m_pInfo = this;
+}
+
+void Node::PeerMan::PeerInfoPlus::DetachStrict()
+{
+	assert(m_Live.m_p && (this == m_Live.m_p->m_pInfo));
+
+	m_Live.m_p->m_pInfo = nullptr;
+	m_Live.m_p = nullptr;
 }
 
 bool Node::GenerateRecoveryInfo(const char* szPath)

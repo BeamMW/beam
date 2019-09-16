@@ -1384,8 +1384,8 @@ or send this address to the sender over secure channel</translation>
         <translation>Transaction token</translation>
     </message>
     <message id="send-not-enough">
-        <source>There is not enough funds to completer the transaction</source>
-        <translation>There is not enough funds to completer the transaction</translation>
+        <source>There is not enough funds to complete the transaction</source>
+        <translation>There is not enough funds to complete the transaction</translation>
     </message>
     <message id="wallet-send-swap-offered-label">
         <source>Offered on</source>
@@ -1526,6 +1526,34 @@ or send this address to the sender over secure channel</translation>
     <message id="send-confirmation-pwd-text-online-time">
         <source>For the transaction to complete, the recipient must get online within the next 12 hours and you should get online within 2 hours afterwards.</source>
         <translation type="unfinished"></translation>
+    </message>
+    <message id="trezor-message">
+        <source>Please, look at your Trezor device to complete actions...</source>
+        <translation>Please, look at your Trezor device to complete actions...</translation>
+    </message>
+    <message id="start-init-wallet-with-trezor">
+        <source>Init wallet with Trezor</source>
+        <translation>Init wallet with Trezor</translation>
+    </message>
+    <message id="start-import-trezor-owner-key">
+        <source>Import Trezor Owner Key</source>
+        <translation>Import Trezor Owner Key</translation>
+    </message>
+    <message id="start-owner-key-imported">
+        <source>Owner Key imported. Please, enter the password you saw on device to decrypt your Owner Key.</source>
+        <translation>Owner Key imported. Please, enter the password you saw on device to decrypt your Owner Key.</translation>
+    </message>
+    <message id="start-look-at-trezor-to-complete-actions">
+        <source>Please, look at your Trezor to complete actions...</source>
+        <translation>Please, look at your Trezor to complete actions...</translation>
+    </message>
+    <message id="start-found-trezor-device">
+        <source>Found device:</source>
+        <translation>Found device:</translation>
+    </message>
+    <message id="start-no-trezor-device-connected">
+        <source>There is no device connected, please, connect your hardware wallet.</source>
+        <translation>There is no device connected, please, connect your hardware wallet.</translation>
     </message>
 </context>
 </TS>

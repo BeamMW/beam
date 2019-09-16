@@ -79,6 +79,7 @@ namespace beam::wallet
         using Ptr = std::shared_ptr<IWalletMessageEndpoint>;
         virtual void Send(const WalletID& peerID, const SetTxParameter& msg) = 0;
         virtual void SendEncryptedMessage(const WalletID& peerID, const ByteBuffer& msg) = 0;
+        virtual void SendAndSign(const ByteBuffer& msg, const BbsChannel& channel, const WalletID& wid) = 0;
     };
 
     // Extends FlyClient protocol for communication with own or remote node
@@ -110,11 +111,11 @@ namespace beam::wallet
         
         void Subscribe(IWalletObserver* observer);
         void Unsubscribe(IWalletObserver* observer);
+        void ResumeAllTransactions();
 
     private:
         void ProcessTransaction(BaseTransaction::Ptr tx);
         void ResumeTransaction(const TxDescription& tx);
-        void ResumeAllTransactions();
 
         // INegotiatorGateway
         void OnAsyncStarted() override;

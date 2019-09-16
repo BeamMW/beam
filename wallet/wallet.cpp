@@ -101,8 +101,6 @@ namespace beam::wallet
         assert(walletDB);
         // the only default type of transaction
         RegisterTransactionType(TxType::Simple, make_unique<SimpleTransaction::Creator>());
-
-        ResumeAllTransactions();
     }
 
     Wallet::~Wallet()
@@ -284,7 +282,6 @@ namespace beam::wallet
     void Wallet::RegisterTransactionType(TxType type, BaseTransaction::Creator::Ptr creator)
     {
         m_TxCreators[type] = move(creator);
-        ResumeAllTransactions();
     }
 
     TxID Wallet::StartTransaction(const TxParameters& parameters)

@@ -361,6 +361,8 @@ struct TestWalletRig
             m_WalletID = addresses[0].m_walletID;
         }
 
+        m_Wallet.ResumeAllTransactions();
+
         switch (type)
         {
         case Type::ColdWallet:
@@ -432,6 +434,10 @@ struct TestWalletNetwork
     }
 
     virtual void SendEncryptedMessage(const WalletID& peerID, const ByteBuffer& msg) override
+    {
+    }
+    
+    virtual void SendAndSign(const ByteBuffer& msg, const BbsChannel& channel, const WalletID& wid) override
     {
     }
 

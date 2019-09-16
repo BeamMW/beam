@@ -966,6 +966,17 @@ namespace beam::wallet
         }
     }
 
+    void WalletDB::createTables(sqlite3* db, sqlite3* privateDb)
+    {
+        CreateStorageTable(db);
+        CreateWalletMessageTable(db);
+        CreatePrivateVariablesTable(privateDb);
+        CreateVariablesTable(db);
+        CreateAddressesTable(db);
+        CreateTxParamsTable(db);
+        CreateStatesTable(db);
+    }
+
     IWalletDB::Ptr WalletDB::init(const string& path, const SecString& password, const ECC::NoLeak<ECC::uintBig>& secretKey, io::Reactor::Ptr reactor, bool separateDBForPrivateData)
     {
         if (!isInitialized(path))
@@ -988,13 +999,7 @@ namespace beam::wallet
             enterKey(db, password);
             auto walletDB = make_shared<WalletDB>(db, secretKey, reactor, sdb);
 
-            CreateStorageTable(walletDB->_db);
-            CreateWalletMessageTable(walletDB->_db);
-            CreatePrivateVariablesTable(walletDB->m_PrivateDB);
-            CreateVariablesTable(walletDB->_db);
-            CreateAddressesTable(walletDB->_db);
-            CreateTxParamsTable(walletDB->_db);
-            CreateStatesTable(walletDB->_db);
+            createTables(walletDB->_db, walletDB->m_PrivateDB);
 
             {
                 // store master key
@@ -1028,7 +1033,6 @@ namespace beam::wallet
     }
 
 #if defined(BEAM_HW_WALLET)
-    // !TODO: copypasted from init(), pls do refactoring
     IWalletDB::Ptr WalletDB::initWithTrezor(const string& path, std::shared_ptr<ECC::HKdfPub> ownerKey, const SecString& password, io::Reactor::Ptr reactor)
     {
         if (!isInitialized(path))
@@ -1042,13 +1046,7 @@ namespace beam::wallet
             enterKey(db, password);
             auto walletDB = make_shared<WalletDB>(db, reactor);
 
-            CreateStorageTable(walletDB->_db);
-            CreateWalletMessageTable(walletDB->_db);
-            CreatePrivateVariablesTable(walletDB->m_PrivateDB);
-            CreateVariablesTable(walletDB->_db);
-            CreateAddressesTable(walletDB->_db);
-            CreateTxParamsTable(walletDB->_db);
-            CreateStatesTable(walletDB->_db);
+            createTables(walletDB->_db, walletDB->m_PrivateDB);
 
             {
                 // store owner key (public)

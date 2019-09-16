@@ -91,6 +91,7 @@ struct WalletModelBridge : public Bridge<IWalletModelAsync>
         call_async(&IWalletModelAsync::getAddresses, own);
     }
     
+#ifdef BEAM_ATOMIC_SWAP_SUPPORT
     void setSwapOffersCoinType(AtomicSwapCoin type) override
     {
 		call_async(&IWalletModelAsync::setSwapOffersCoinType, type);
@@ -110,7 +111,7 @@ struct WalletModelBridge : public Bridge<IWalletModelAsync>
     {
 		call_async(&IWalletModelAsync::cancelOffer, offerTxID);
     }
-
+#endif
     void cancelTx(const wallet::TxID& id) override
     {
         call_async(&IWalletModelAsync::cancelTx, id);
@@ -257,6 +258,16 @@ namespace beam::wallet
                     auto wallet = make_shared<Wallet>(m_walletDB, m_keyKeeper);
                     m_wallet = wallet;
 
+                    if (txCreators)
+                    {
+                        for (auto&[txType, creator] : *txCreators)
+                        {
+                            wallet->RegisterTransactionType(txType, creator);
+                        }
+                    }
+
+                    wallet->ResumeAllTransactions();
+
                     class NodeNetwork final: public proto::FlyClient::NetworkStd
                     {
                     public:
@@ -335,20 +346,13 @@ namespace beam::wallet
                     wallet->AddMessageEndpoint(walletNetwork);
 
                     wallet_subscriber = make_unique<WalletSubscriber>(static_cast<IWalletObserver*>(this), wallet);
-
+#ifdef BEAM_ATOMIC_SWAP_SUPPORT
                     auto offersBulletinBoard = make_shared<SwapOffersBoard>(
                         *nodeNetwork,
                         static_cast<IWalletObserver&>(*this),
                         *walletNetwork);
                     m_offersBulletinBoard = offersBulletinBoard;
-                    
-                    if (txCreators)
-                    {
-                        for (auto& [txType, creator] : *txCreators)
-                        {
-                            wallet->RegisterTransactionType(txType, creator);
-                        }
-                    }
+#endif
 
                     nodeNetwork->tryToConnect();
                     m_reactor->run_ex([&wallet, &nodeNetwork](){
@@ -607,6 +611,7 @@ namespace beam::wallet
         onAddresses(own, m_walletDB->getAddresses(own));
     }
 
+#ifdef BEAM_ATOMIC_SWAP_SUPPORT
     void WalletClient::setSwapOffersCoinType(AtomicSwapCoin type)
     {
         if (auto p = m_offersBulletinBoard.lock())
@@ -638,6 +643,7 @@ namespace beam::wallet
             p->updateOffer(offerTxID, beam::wallet::TxStatus::Cancelled);
         }
     }
+#endif
 
     void WalletClient::cancelTx(const TxID& id)
     {

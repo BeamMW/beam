@@ -20,7 +20,11 @@ add_library(pow STATIC ${POW_SRC})
 
 target_compile_definitions(pow PRIVATE ENABLE_MINING)
 
-target_link_libraries(pow Boost::boost blake2b)
+target_link_libraries(pow 
+    PRIVATE
+        Boost::boost
+        blake2b
+)
 
 add_library(external_pow STATIC
     external_pow_stub.cpp
@@ -33,7 +37,7 @@ target_link_libraries(external_pow p2p pow core)
 if (NOT ANDROID AND NOT IOS)
     add_executable(miner_client miner_client.cpp ../core/block_crypt.cpp) # ???????????????????????????
 
-    find_package(Boost 1.67 REQUIRED COMPONENTS program_options)
+    #find_package(Boost 1.67 REQUIRED COMPONENTS program_options)
     target_link_libraries(miner_client external_pow Boost::program_options)
 
     add_subdirectory(unittests)

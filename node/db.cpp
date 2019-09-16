@@ -1787,10 +1787,7 @@ bool NodeDB::WalkerBbs::MoveNext()
 	m_Rs.get(2, m_Data.m_Channel);
 	m_Rs.get(3, m_Data.m_TimePosted);
 	m_Rs.get(4, m_Data.m_Message);
-
-	m_Data.m_bNonce = !m_Rs.IsNull(5);
-	if (m_Data.m_bNonce)
-		m_Rs.get(5, m_Data.m_Nonce);
+	m_Rs.get(5, m_Data.m_Nonce); // don't care if NULL, would be 0
 
 	return true;
 }
@@ -1830,8 +1827,7 @@ uint64_t NodeDB::BbsIns(const WalkerBbs::Data& d)
 	rs.put(1, d.m_Channel);
 	rs.put(2, d.m_TimePosted);
 	rs.put(3, d.m_Message);
-	if (d.m_bNonce)
-		rs.put(4, d.m_Nonce);
+	rs.put(4, d.m_Nonce);
 
 	rs.Step();
 	TestChanged1Row();

@@ -39,6 +39,7 @@ namespace beam::wallet
 
             virtual void onShowKeyKeeperMessage() = 0;
             virtual void onHideKeyKeeperMessage() = 0;
+            virtual void onShowKeyKeeperError(const std::string&) = 0;
         };
 
         using Ptr = std::shared_ptr<IPrivateKeyKeeper>;
@@ -65,14 +66,9 @@ namespace beam::wallet
         virtual PublicKeys GeneratePublicKeysSync(const std::vector<Key::IDV>& ids, bool createCoinKey) = 0;
         virtual ECC::Point GeneratePublicKeySync(const Key::IDV& id, bool createCoinKey) = 0;
         virtual Outputs GenerateOutputsSync(Height schemeHeigh, const std::vector<Key::IDV>& ids) = 0;
-        //virtual RangeProofs GenerateRangeProofSync(Height schemeHeigh, const std::vector<Key::IDV>& ids) = 0;
         virtual ECC::Point GenerateNonceSync(size_t slot) = 0;
         virtual ECC::Scalar SignSync(const std::vector<Key::IDV>& inputs, const std::vector<Key::IDV>& outputs, const ECC::Scalar::Native& offset, size_t nonceSlot, const KernelParameters& kernelParamerters, const ECC::Point::Native& publicNonce) = 0;
-
-        virtual Key::IPKdf::Ptr get_OwnerKdf() const = 0;
-
         virtual Key::IKdf::Ptr get_SbbsKdf() const = 0;
-
         virtual void subscribe(Handler::Ptr handler) = 0;
     };
 }

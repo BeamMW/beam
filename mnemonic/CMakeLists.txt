@@ -10,9 +10,15 @@ set(MNEMONIC_SRC
 if (MSVC AND (MSVC_VERSION GREATER_EQUAL 1921))
     add_compile_options("/bigobj")
 endif()
-add_library(${TARGET_NAME} STATIC ${MNEMONIC_SRC})
-target_include_directories(${TARGET_NAME} PRIVATE ${PROJECT_SOURCE_DIR}}/external)
 
-target_link_libraries(${TARGET_NAME} core pbkdf)
+add_library(${TARGET_NAME} STATIC ${MNEMONIC_SRC})
+
+target_link_libraries(${TARGET_NAME}
+    PUBLIC
+        core
+        Boost::boost
+    PRIVATE
+        pbkdf
+)
 
 add_subdirectory(unittests)
