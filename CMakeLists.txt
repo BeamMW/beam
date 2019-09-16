@@ -267,8 +267,11 @@ set(BEAM_BOOST_COMPONENTS system filesystem program_options thread regex log loc
 
 function(CreateBoostComponentTargets listOfComponents root libPrefix libSuffix)
     add_library(Boost::boost INTERFACE IMPORTED)
+    set (INCLUDE_LOCATION "${root}/include")
     set_target_properties(Boost::boost PROPERTIES
-        INTERFACE_INCLUDE_DIRECTORIES "${root}/include")
+        INTERFACE_INCLUDE_DIRECTORIES ${INCLUDE_LOCATION})
+
+    message(STATUS "Boost includes: ${INCLUDE_LOCATION}")
 
     foreach(COMPONENT ${listOfComponents})
         set(COMPONENT_LOCATION "${root}/${libPrefix}${COMPONENT}${libSuffix}")
@@ -277,7 +280,7 @@ function(CreateBoostComponentTargets listOfComponents root libPrefix libSuffix)
        # if (EXISTS(${COMPONENT_LOCATION}))
             add_library(Boost::${COMPONENT} STATIC IMPORTED)
             set_target_properties(Boost::${COMPONENT} PROPERTIES
-                INTERFACE_INCLUDE_DIRECTORIES "${root}/include")
+                INTERFACE_INCLUDE_DIRECTORIES ${INCLUDE_LOCATION})
             set_target_properties(Boost::${COMPONENT} PROPERTIES
                 IMPORTED_LINK_INTERFACE_LANGUAGES "CXX"
                 IMPORTED_LOCATION ${COMPONENT_LOCATION})
@@ -291,10 +294,11 @@ if(IOS)
     set(BEAM_ATOMIC_SWAP_SUPPORT OFF)
     add_compile_definitions(BOOST_NO_AUTO_PTR)
     add_definitions(-DBOOST_ERROR_CODE_HEADER_ONLY)
-    CreateBoostComponentTargets("${BEAM_BOOST_COMPOMENTS}" "$ENV{BOOST_ROOT_IOS}" "lib/libboost_" ".a")
+    CreateBoostComponentTargets("${BEAM_BOOST_COMPONENTS}" "$ENV{BOOST_ROOT_IOS}" "lib/libboost_" ".a")
 elseif(ANDROID)
     message("ANDROID_ABI: ${ANDROID_ABI}")
     set(BEAM_ATOMIC_SWAP_SUPPORT OFF)
+    add_compile_definitions(BOOST_ERROR_CODE_HEADER_ONLY)
     add_definitions(-DBOOST_ERROR_CODE_HEADER_ONLY)
 
     set(ANDROID_SUFFIX "")
