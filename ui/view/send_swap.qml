@@ -159,7 +159,7 @@ ColumnLayout {
                 multi:            false
                 color:            Style.accent_outgoing
                 currColor:        viewModel.receiveCurrency == viewModel.sendCurrency ? Style.validator_error : Style.content_main
-                //% "There is not enough funds to completer the transaction"
+                //% "There is not enough funds to complete the transaction"
                 error:            viewModel.isEnough ? "" : qsTrId("send-not-enough")
             }
 

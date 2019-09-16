@@ -1487,7 +1487,7 @@
         <translation type="unfinished"></translation>
     </message>
     <message id="send-not-enough">
-        <source>There is not enough funds to completer the transaction</source>
+        <source>There is not enough funds to complete the transaction</source>
         <translation type="unfinished"></translation>
     </message>
     <message id="wallet-send-swap-offered-label">

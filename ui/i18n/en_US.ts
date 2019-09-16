@@ -1384,8 +1384,8 @@ or send this address to the sender over secure channel</translation>
         <translation>Transaction token</translation>
     </message>
     <message id="send-not-enough">
-        <source>There is not enough funds to completer the transaction</source>
-        <translation>There is not enough funds to completer the transaction</translation>
+        <source>There is not enough funds to complete the transaction</source>
+        <translation>There is not enough funds to complete the transaction</translation>
     </message>
     <message id="wallet-send-swap-offered-label">
         <source>Offered on</source>
