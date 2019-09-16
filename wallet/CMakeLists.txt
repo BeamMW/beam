@@ -117,6 +117,7 @@ if (NOT ANDROID)
     )
 
     if(BEAM_ATOMIC_SWAP_SUPPORT)
+        target_compile_definitions(wallet PRIVATE BEAM_ATOMIC_SWAP_SUPPORT)
         target_compile_definitions(${TARGET_NAME} PRIVATE BEAM_ATOMIC_SWAP_SUPPORT)
         target_link_libraries(${TARGET_NAME} PRIVATE swap)
     endif()
