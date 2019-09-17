@@ -26,6 +26,11 @@ namespace beam::wallet
         TrezorKeyKeeper();
         virtual ~TrezorKeyKeeper();
 
+        struct DeviceNotConnected : std::runtime_error 
+        {
+            DeviceNotConnected() : std::runtime_error("") {}
+        };
+
         Key::IKdf::Ptr get_SbbsKdf() const override;
         void subscribe(Handler::Ptr handler) override;
 

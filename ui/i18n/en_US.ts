@@ -1559,5 +1559,9 @@ or send this address to the sender over secure channel</translation>
         <source>copy transaction token</source>
         <translation>copy transaction token</translation>
     </message>
+    <message id="wallet-model-device-not-connected">
+        <source>There is no Trezor device connected. Please, connect and try again.</source>
+        <translation>There is no Trezor device connected. Please, connect and try again.</translation>
+    </message>
 </context>
 </TS>

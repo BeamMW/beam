@@ -34,7 +34,7 @@ ReceiveViewModel::ReceiveViewModel()
     LOG_INFO() << "ReceiveViewModel created";
     connect(_qr.get(), &QR::qrDataChanged, this, &ReceiveViewModel::onReceiverQRChanged);
     connect(&_walletModel, &WalletModel::generatedNewAddress, this, &ReceiveViewModel::onGeneratedNewAddress);
-    connect(&_walletModel, &WalletModel::newAddressFailed, this,  &ReceiveViewModel::onNewAddressFailed);
+    connect(&_walletModel, &WalletModel::newAddressFailed, this, &ReceiveViewModel::newAddressFailed);
     generateNewAddress();
     updateTransactionToken();
 }
@@ -108,11 +108,6 @@ void ReceiveViewModel::generateNewAddress()
 
     setAddressComment("");
     _walletModel.getAsync()->generateNewAddress();
-}
-
-void ReceiveViewModel::onNewAddressFailed()
-{
-    emit newAddressFailed();
 }
 
 QString ReceiveViewModel::getAddressComment() const

@@ -196,6 +196,14 @@ void WalletModel::onNewAddressFailed()
     emit newAddressFailed();
 }
 
+void WalletModel::onNoDeviceConnected()
+{
+#if defined(BEAM_HW_WALLET)
+    //% "There is no Trezor device connected. Please, connect and try again."
+    showTrezorError(qtTrId("wallet-model-device-not-connected"));
+#endif
+}
+
 void WalletModel::onChangeCurrentWalletIDs(beam::wallet::WalletID senderID, beam::wallet::WalletID receiverID)
 {
     emit changeCurrentWalletIDs(senderID, receiverID);

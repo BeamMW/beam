@@ -16,7 +16,7 @@ ColumnLayout {
         onNewAddressFailed: {
             walletView.enabled = true
             Qt.createComponent("receive_addrfail.qml")
-                .createObject(sendView)
+                .createObject(thisView)
                 .open();
         }
     }
