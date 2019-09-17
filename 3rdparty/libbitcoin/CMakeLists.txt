@@ -65,7 +65,7 @@ target_link_libraries(${TARGET_NAME}
 )
 
 if(APPLE AND Boost_USE_STATIC_LIBS)
-    target_compile_definitions(${TARGET_NAME} U_STATIC_IMPLEMENTATION) 
+    target_compile_definitions(${TARGET_NAME} PRIVATE U_STATIC_IMPLEMENTATION) 
     target_link_libraries(${TARGET_NAME} 
         ICU::uc 
         ICU::data 
