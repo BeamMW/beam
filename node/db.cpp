@@ -205,7 +205,15 @@ void NodeDB::Recordset::put(int col, uint64_t x)
 
 void NodeDB::Recordset::put(int col, const Blob& x)
 {
-	m_DB.TestRet(sqlite3_bind_blob(m_pStmt, col+1, x.p, x.n, NULL));
+	// According to our convention empty blob is NOT NULL, it should be an empty BLOB field.
+	// During initialization from buffer, if the buffer size is 0 - the x.p is left uninitialized.
+	//
+	// In sqlite code if x.p is NULL - it would treat the field as NULL, rather than an empty blob.
+	// And if the uninitialized x.p is occasionally NULL - we get wrong behavior.
+	//
+	// Hence - we work this around, use `this`, as an arbitrary non-NULL pointer
+	const void* pPtr = x.n ? x.p : this;
+	m_DB.TestRet(sqlite3_bind_blob(m_pStmt, col+1, pPtr, x.n, NULL));
 }
 
 void NodeDB::Recordset::put(int col, const char* sz)
