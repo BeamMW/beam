@@ -34,6 +34,25 @@ target_include_directories(${TARGET_NAME} PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/in
 
 target_link_libraries(${TARGET_NAME} secp256k1)
 
+if(IOS)
+        target_link_libraries(${TARGET_NAME} 
+            $ENV{BOOST_ROOT_IOS}/lib/libboost_program_options.a 
+            $ENV{BOOST_ROOT_IOS}/lib/libboost_filesystem.a
+            $ENV{BOOST_ROOT_IOS}/lib/libboost_system.a
+            $ENV{BOOST_ROOT_IOS}/lib/libboost_thread.a
+            $ENV{BOOST_ROOT_IOS}/lib/libboost_regex.a
+            $ENV{BOOST_ROOT_IOS}/lib/libboost_log.a)
+elseif(ANDROID)
+    target_link_libraries(${TARGET_NAME} 
+            $ENV{BOOST_ROOT_ANDROID}/libs/${ANDROID_ABI}/libboost_program_options${ANDROID_SUFFIX} 
+            $ENV{BOOST_ROOT_ANDROID}/libs/${ANDROID_ABI}/libboost_filesystem${ANDROID_SUFFIX}
+            $ENV{BOOST_ROOT_ANDROID}/libs/${ANDROID_ABI}/libboost_system${ANDROID_SUFFIX}
+            $ENV{BOOST_ROOT_ANDROID}/libs/${ANDROID_ABI}/libboost_thread${ANDROID_SUFFIX}
+            $ENV{BOOST_ROOT_ANDROID}/libs/${ANDROID_ABI}/libboost_regex${ANDROID_SUFFIX}
+            $ENV{BOOST_ROOT_ANDROID}/libs/${ANDROID_ABI}/libboost_log${ANDROID_SUFFIX}
+)
+endif()
+
 target_link_libraries(${TARGET_NAME}
     Boost::boost 
     Boost::system 
@@ -44,7 +63,9 @@ target_link_libraries(${TARGET_NAME}
     Boost::log 
     Boost::locale
 )
+
 if(APPLE AND Boost_USE_STATIC_LIBS)
+    target_compile_definitions(${TARGET_NAME} U_STATIC_IMPLEMENTATION) 
     target_link_libraries(${TARGET_NAME} 
         ICU::uc 
         ICU::data 

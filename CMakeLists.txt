@@ -274,7 +274,7 @@ function(CreateBoostComponentTargets listOfComponents root libPrefix libSuffix)
     message(STATUS "Boost includes: ${INCLUDE_LOCATION}")
 
     foreach(COMPONENT ${listOfComponents})
-        set(COMPONENT_LOCATION "${root}/${libPrefix}${COMPONENT}${libSuffix}")
+        set(COMPONENT_LOCATION ${root}/${libPrefix}${COMPONENT}${libSuffix})
         message(STATUS "${COMPONENT_LOCATION}")
         if (NOT TARGET Boost::${COMPONENT})
        # if (EXISTS(${COMPONENT_LOCATION}))

@@ -55,7 +55,6 @@ target_include_directories(utility PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 target_compile_features(utility PUBLIC cxx_std_17)
 
 add_library(cli STATIC ${CLI_SRC})
-target_link_libraries(cli)
 
 if (UV_INTERNAL)
     target_link_libraries(utility uv_a)
@@ -64,15 +63,24 @@ else()
 endif()
 
 if (UNIX)
-    message(STATUS "UNIX: Linking ${CMAKE_DL_LIBS}")
-    target_link_libraries(utility ${CMAKE_DL_LIBS} -ldl)
+    target_link_libraries(utility ${CMAKE_DL_LIBS})
 endif()
 
-#find_package(Boost 1.67 REQUIRED COMPONENTS program_options filesystem)
-target_link_libraries(utility Boost::filesystem)
+if (IOS)
+    target_link_libraries(utility 
+        $ENV{BOOST_ROOT_IOS}/lib/libboost_filesystem.a
+        $ENV{BOOST_ROOT_IOS}/lib/libboost_system.a
+    )
+elseif(ANDROID)
+    target_link_libraries(utility 
+        $ENV{BOOST_ROOT_ANDROID}/libs/${ANDROID_ABI}/libboost_filesystem${ANDROID_SUFFIX}
+        $ENV{BOOST_ROOT_ANDROID}/libs/${ANDROID_ABI}/libboost_system${ANDROID_SUFFIX}
+    )
+endif()
+
+target_link_libraries(utility Boost::system Boost::filesystem)
 target_link_libraries(cli Boost::program_options)
 
-#find_package(OpenSSL REQUIRED)
 target_link_libraries(utility OpenSSL::SSL OpenSSL::Crypto)
 if(OPENSSL_USE_STATIC_LIBS AND MSVC)
     target_link_libraries(utility crypt32.lib)
