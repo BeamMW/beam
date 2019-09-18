@@ -314,18 +314,8 @@ void Node::Wanted::OnTimer()
     }
 }
 
-void Node::TryAssignTask(Task& t, const PeerID* pPeerID)
+void Node::TryAssignTask(Task& t)
 {
-	// prefer to request data from nodes supporting latest protocol
-	if (pPeerID)
-	{
-		bool bCreate = false;
-		PeerMan::PeerInfoPlus* pInfo = Cast::Up<PeerMan::PeerInfoPlus>(m_PeerMan.Find(*pPeerID, bCreate));
-
-		if (pInfo && pInfo->m_Live.m_p && TryAssignTask(t, *pInfo->m_Live.m_p))
-			return;
-	}
-
 	// Prioritize w.r.t. rating!
 	for (PeerMan::LiveSet::iterator it = m_PeerMan.m_LiveSet.begin(); m_PeerMan.m_LiveSet.end() != it; it++)
 	{
@@ -479,7 +469,7 @@ void Node::Peer::SetTimerWrtFirstTask()
 	}
 }
 
-void Node::Processor::RequestData(const Block::SystemState::ID& id, bool bBlock, const PeerID* pPreferredPeer, const NodeDB::StateID& sidTrg)
+void Node::Processor::RequestData(const Block::SystemState::ID& id, bool bBlock, const NodeDB::StateID& sidTrg)
 {
 	Node::Task tKey;
     tKey.m_Key.first = id;
@@ -500,7 +490,7 @@ void Node::Processor::RequestData(const Block::SystemState::ID& id, bool bBlock,
         get_ParentObj().m_setTasks.insert(*pTask);
         get_ParentObj().m_lstTasksUnassigned.push_back(*pTask);
 
-        get_ParentObj().TryAssignTask(*pTask, pPreferredPeer);
+        get_ParentObj().TryAssignTask(*pTask);
 
 	}
 	else
@@ -513,7 +503,7 @@ void Node::Processor::RequestData(const Block::SystemState::ID& id, bool bBlock,
 			if (t.m_sidTrg.m_Height < sidTrg.m_Height)
 				t.m_sidTrg = sidTrg;
 
-			get_ParentObj().TryAssignTask(t, pPreferredPeer);
+			get_ParentObj().TryAssignTask(t);
 		}
 	}
 }
@@ -1511,7 +1501,7 @@ void Node::Peer::ReleaseTask(Task& t)
     m_This.m_lstTasksUnassigned.push_back(t);
 
     if (t.m_bNeeded)
-        m_This.TryAssignTask(t, NULL);
+        m_This.TryAssignTask(t);
     else
         m_This.DeleteUnassignedTask(t);
 }

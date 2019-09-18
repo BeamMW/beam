@@ -196,7 +196,7 @@ private:
 		:public NodeProcessor
 	{
 		// NodeProcessor
-		void RequestData(const Block::SystemState::ID&, bool bBlock, const PeerID* pPreferredPeer, const NodeDB::StateID& sidTrg) override;
+		void RequestData(const Block::SystemState::ID&, bool bBlock, const NodeDB::StateID& sidTrg) override;
 		void OnPeerInsane(const PeerID&) override;
 		void OnNewState() override;
 		void OnRolledBack() override;
@@ -300,7 +300,7 @@ private:
 	void UpdateSyncStatus();
 	void UpdateSyncStatusRaw();
 
-	void TryAssignTask(Task&, const PeerID*);
+	void TryAssignTask(Task&);
 	bool TryAssignTask(Task&, Peer&);
 	void DeleteUnassignedTask(Task&);
 
