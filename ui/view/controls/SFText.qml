@@ -7,5 +7,4 @@ Text {
 		styleName: "Regular"
 		weight:    Font.Normal
 	}
-	renderType: Text.NativeRendering
 }
