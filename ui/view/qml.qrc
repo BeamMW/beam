@@ -7,6 +7,7 @@
         <file>controls/Style.qml</file>
         <file>controls/qmldir</file>
         <file>controls/SvgImage.qml</file>
+        <file>controls/SwapCurrencyAmountPane.qml</file>
         <file>controls/SFLabel.qml</file>
         <file>controls/SFText.qml</file>
         <file>controls/SFTextInput.qml</file>
@@ -139,6 +140,10 @@
         <file>assets/copy-two-paper-sheets-interface-symbol.svg</file>
         <file>assets/eye.svg</file>
         <file>assets/icon-back.svg</file>
+        <file>assets/icon-beam.svg</file>
+        <file>assets/icon-btc.svg</file>
+        <file>assets/icon-ltc.svg</file>
+        <file>assets/icon-qtum.svg</file>
         <file>assets/icon-print.svg</file>
         <file>assets/icon-recovery.svg</file>
         <file>assets/password.svg</file>

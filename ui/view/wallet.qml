@@ -119,12 +119,6 @@ Item {
                     Layout.fillWidth: true
 
                     beamValue: viewModel.beamAvailable
-                    btcValue:  viewModel.btcAvailable
-                    ltcValue:  viewModel.ltcAvailable
-                    qtumValue: viewModel.qtumAvailable
-                    btcOK:     viewModel.btcOK
-                    ltcOK:     viewModel.ltcOK
-                    qtumOK:    viewModel.qtumOK
 
                     onOpenExternal : function() {
                             var externalLink = "https://www.beam.mw/#exchanges";
@@ -141,15 +135,6 @@ Item {
                         beamReceiving:       viewModel.beamReceiving
                         beamSending:         viewModel.beamSending
                         beamLocked:          viewModel.beamLocked
-                        btcReceiving:        viewModel.btcReceiving
-                        btcSending:          viewModel.btcSending
-                        btcLocked:           viewModel.btcLocked
-                        ltcReceiving:        viewModel.ltcReceiving
-                        ltcSending:          viewModel.ltcSending
-                        ltcLocked:           viewModel.ltcLocked
-                        qtumReceiving:       viewModel.qtumReceiving
-                        qtumSending:         viewModel.qtumSending
-                        qtumLocked:          viewModel.qtumLocked
                     }
                 }
             }

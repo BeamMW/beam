@@ -74,54 +74,64 @@ Item {
             RowLayout {
                 Layout.alignment: Qt.AlignLeft | Qt.AlignTop
                 Layout.topMargin: 30
+                spacing: 5
 
-                Rectangle {
-                    Layout.rightMargin: 5
-                    width: 221
-                    height: 67
-                    // rotation: -90
-                    radius: 10
-                    opacity: 0.3
-                    gradient: Gradient {
-                        GradientStop { position: 0.0; color: "#00f6d2" }
-                        GradientStop { position: 1.0; color: "#00458f" }
+                SwapCurrencyAmountPane {
+                    gradLeft: Style.swapCurrencyPaneGrLeftBEAM
+                    currencyIcon: "qrc:/assets/icon-beam.svg"
+                    valueStr: viewModel.beamAvailable + " " + Utils.symbolBeam
+                    visible: true
+                }
+
+                SwapCurrencyAmountPane {
+                    gradLeft: Style.swapCurrencyPaneGrLeftBTC
+                    currencyIcon: "qrc:/assets/icon-btc.svg"
+                    valueStr: viewModel.btcAvailable + " " + Utils.symbolBtc
+                    isOk: viewModel.btcOK
+                    visible: BeamGlobals.haveBtc()
+                }
+
+                SwapCurrencyAmountPane {
+                    gradLeft: Style.swapCurrencyPaneGrLeftLTC
+                    currencyIcon: "qrc:/assets/icon-ltc.svg"
+                    valueStr: viewModel.ltcAvailable + " " + Utils.symbolLtc
+                    isOk: viewModel.ltcOK
+                    visible: BeamGlobals.haveLtc()
+                }
+
+                SwapCurrencyAmountPane {
+                    gradLeft: Style.swapCurrencyPaneGrLeftQTUM
+                    currencyIcon: "qrc:/assets/icon-qtum.svg"
+                    valueStr: viewModel.qtumAvailable + " " + Utils.symbolQtum
+                    isOk: viewModel.qtumOK
+                    visible: BeamGlobals.haveQtum()
+                }
+
+                SwapCurrencyAmountPane {
+                    id: swapOptions
+                    gradLeft: Style.swapCurrencyPaneGrLeftOther
+                    gradRight: Style.swapCurrencyPaneGrLeftOther
+                    //% "Connect other currency wallet to start trading"
+                    valueStr: qsTrId("atomic-swap-connect-other")
+                    textSize: 14
+                    textColor: Style.active
+                    isOk: true
+                    visible: !BeamGlobals.haveBtc() || !BeamGlobals.haveLtc() || !BeamGlobals.haveQtum()
+                    onClick: function() {
+                        main.openSwapSettings();
                     }
                 }
-                Rectangle {
-                    Layout.rightMargin: 5
-                    width: 221
-                    height: 67
-                    // rotation: -90
-                    radius: 10
-                    opacity: 0.3
-                    gradient: Gradient {
-                        GradientStop { position: 0.0; color: "#fcaf38" }
-                        GradientStop { position: 1.0; color: "#00458f" }
-                    }
+                Component.onCompleted: {
+                    var currencyIcons = [];
+                    if (!BeamGlobals.haveBtc())
+                        currencyIcons.push("qrc:/assets/icon-btc.svg");
+                    if (!BeamGlobals.haveLtc())
+                        currencyIcons.push("qrc:/assets/icon-ltc.svg");
+                    if (!BeamGlobals.haveQtum())
+                        currencyIcons.push("qrc:/assets/icon-qtum.svg");
+
+                    swapOptions.currencyIcons = currencyIcons;
                 }
-                Rectangle {
-                    Layout.rightMargin: 5
-                    width: 221
-                    height: 67
-                    // rotation: -90
-                    radius: 10
-                    opacity: 0.3
-                    gradient: Gradient {
-                        GradientStop { position: 0.0; color: "#bebebe" }
-                        GradientStop { position: 1.0; color: "#00458f" }
-                    }
-                }
-                // Rectangle {
-                //     width: 221
-                //     height: 67
-                //     // rotation: -90
-                //     radius: 10
-                //     opacity: 0.3
-                //     gradient: Gradient {
-                //         GradientStop { position: 0.0; color: "#2e9ad0" }
-                //         GradientStop { position: 1.0; color: "#00458f" }
-                //     }
-                // }
             }
 
             RowLayout {

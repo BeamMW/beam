@@ -27,4 +27,12 @@ QtObject {
 	property color white: "#ffffff";
     property string linkStyle;
     property string explorerUrl;
+
+    property color swapCurrencyPaneGrRight;
+    property color swapCurrencyPaneGrLeftBEAM;
+    property color swapCurrencyPaneGrLeftBTC;
+    property color swapCurrencyPaneGrLeftLTC;
+    property color swapCurrencyPaneGrLeftQTUM;
+    property color swapCurrencyPaneGrLeftOther;
+    property color swapCurrencyStateIndicator;
 }

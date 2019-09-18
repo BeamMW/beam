@@ -70,6 +70,7 @@ Rectangle {
             anchors.topMargin: 125
 
             Repeater{
+                id: controls
                 model: contentItems
 
                 Item {
@@ -149,6 +150,7 @@ Rectangle {
     {
         var update = function(index) {
             selectedItem = index
+            controls.itemAt(index).focus = true;
             content.setSource("qrc:/" + contentItems[index] + ".qml", Object.assign({"toSend": false}, props))
             viewModel.update(index)
         }

@@ -15,18 +15,6 @@ Control {
     property double beamSending
     property double beamLocked
 
-    property double btcReceiving
-    property double btcSending
-    property double btcLocked
-
-    property double ltcReceiving
-    property double ltcSending
-    property double ltcLocked
-
-    property double qtumReceiving
-    property double qtumSending
-    property double qtumLocked
-
     leftPadding:   25
     rightPadding:  25
     topPadding:    25
@@ -119,38 +107,6 @@ Control {
                             property string     currSymbol:   Utils.symbolBeam
                         }
 
-                        Loader {
-                            Layout.alignment:  Qt.AlignHCenter
-                            Layout.columnSpan: calcColSpan(Currency.CurrBtc, control.btcReceiving, control.ltcReceiving, control.qtumReceiving)
-                            visible: control.btcReceiving > 0
-                            sourceComponent:   amountText
-                            property double    amount:       control.btcReceiving
-                            property string    amountColor:  Style.accent_incoming
-                            property string    signSymbol:   "+"
-                            property string    currSymbol:   Utils.symbolBtc
-                        }
-
-                        Loader {
-                            Layout.alignment:  Qt.AlignHCenter
-                            Layout.columnSpan: calcColSpan(Currency.CurrLtc, control.btcReceiving, control.ltcReceiving, control.qtumReceiving)
-                            visible: control.ltcReceiving > 0
-                            sourceComponent:   amountText
-                            property double    amount:       control.ltcReceiving
-                            property string    amountColor:  Style.accent_incoming
-                            property string    signSymbol:   "+"
-                            property string    currSymbol:   Utils.symbolLtc
-                        }
-
-                        Loader {
-                            Layout.alignment:  Qt.AlignHCenter
-                            Layout.columnSpan: calcColSpan(Currency.CurrQtum, control.btcReceiving, control.ltcReceiving, control.qtumReceiving)
-                            visible: control.qtumReceiving > 0
-                            sourceComponent:   amountText
-                            property double    amount:       control.qtumReceiving
-                            property string    amountColor:  Style.accent_incoming
-                            property string    signSymbol:   "+"
-                            property string    currSymbol:   Utils.symbolQtum
-                        }
                     }
 
                     SvgImage {
@@ -188,38 +144,6 @@ Control {
                             property string   currSymbol:  Utils.symbolBeam
                         }
 
-                        Loader {
-                            Layout.alignment:  Qt.AlignHCenter
-                            Layout.columnSpan: 1//calcColSpan(Currency.CurrBtc, SecondaryPanel.ColType.ColSending)
-                            visible: control.btcSending > 0
-                            sourceComponent:   amountText
-                            property double    amount:       control.btcSending
-                            property string    amountColor:  Style.accent_outgoing
-                            property string    signSymbol:   "-"
-                            property string    currSymbol:   Utils.symbolBtc
-                        }
-
-                        Loader {
-                            Layout.alignment:  Qt.AlignHCenter
-                            Layout.columnSpan: 1//calcColSpan(Currency.CurrLtc, SecondaryPanel.ColType.ColSending)
-                            visible: control.ltcSending > 0
-                            sourceComponent:   amountText
-                            property double    amount:       control.ltcSending
-                            property string    amountColor:  Style.accent_outgoing
-                            property string    signSymbol:   "-"
-                            property string    currSymbol:   Utils.symbolLtc
-                        }
-
-                        Loader {
-                            Layout.alignment:  Qt.AlignHCenter
-                            Layout.columnSpan: 1//calcColSpan(Currency.CurrQtum, SecondaryPanel.ColType.ColSending)
-                            visible: control.qtumSending > 0
-                            sourceComponent:   amountText
-                            property double    amount:       control.qtumSending
-                            property string    amountColor:  Style.accent_outgoing
-                            property string    signSymbol:   "-"
-                            property string    currSymbol:   Utils.symbolQtum
-                        }
                     }
 
                     SvgImage {
@@ -258,38 +182,6 @@ Control {
                             property string   currSymbol:  Utils.symbolBeam
                         }
 
-                        Loader {
-                            Layout.alignment:  Qt.AlignHCenter
-                            Layout.columnSpan: 1//calcColSpan(Currency.CurrBtc, SecondaryPanel.ColType.ColLocked)
-                            visible: control.btcLocked > 0
-                            sourceComponent:   amountText
-                            property double    amount:       control.btcLocked
-                            property string    amountColor:  Style.content_main
-                            property string    signSymbol:   ""
-                            property string    currSymbol:   Utils.symbolBtc
-                        }
-
-                        Loader {
-                            Layout.alignment:  Qt.AlignHCenter
-                            Layout.columnSpan: 1//calcColSpan(Currency.CurrLtc, SecondaryPanel.ColType.ColLocked)
-                            visible: control.ltcLocked > 0
-                            sourceComponent:   amountText
-                            property double    amount:       control.ltcLocked
-                            property string    amountColor:  Style.content_main
-                            property string    signSymbol:   ""
-                            property string    currSymbol:   Utils.symbolLtc
-                        }
-
-                        Loader {
-                            Layout.alignment:  Qt.AlignHCenter
-                            Layout.columnSpan: 1//calcColSpan(Currency.CurrQtum, SecondaryPanel.ColType.ColLocked)
-                            visible: control.qtumLocked > 0
-                            sourceComponent:   amountText
-                            property double    amount:       control.qtumLocked
-                            property string    amountColor:  Style.content_main
-                            property string    signSymbol:   ""
-                            property string    currSymbol:   Utils.symbolQtum
-                        }
                     }
 
                     SvgImage {

@@ -58,13 +58,6 @@ WalletViewModel::WalletViewModel()
         emit stateChanged();
     });
 
-    connect(&*AppModel::getInstance().getBitcoinClient(),  &SwapCoinClientModel::stateChanged, this, &WalletViewModel::onCoinStateChanged);
-    connect(&*AppModel::getInstance().getLitecoinClient(), &SwapCoinClientModel::stateChanged, this, &WalletViewModel::onCoinStateChanged);
-    connect(&*AppModel::getInstance().getQtumClient(),     &SwapCoinClientModel::stateChanged, this, &WalletViewModel::onCoinStateChanged);
-    connect(&*AppModel::getInstance().getBitcoinClient(),  &SwapCoinClientModel::gotStatus, this, &WalletViewModel::onCoinStatusChanged);
-    connect(&*AppModel::getInstance().getLitecoinClient(), &SwapCoinClientModel::gotStatus, this, &WalletViewModel::onCoinStatusChanged);
-    connect(&*AppModel::getInstance().getQtumClient(),     &SwapCoinClientModel::gotStatus, this, &WalletViewModel::onCoinStatusChanged);
-
     // TODO: This also refreshes TXs and addresses. Need to make this more transparent
     _status.refresh();
 }
@@ -72,16 +65,6 @@ WalletViewModel::WalletViewModel()
 WalletViewModel::~WalletViewModel()
 {
     qDeleteAll(_txList);
-}
-
-void WalletViewModel::onCoinStateChanged()
-{
-    emit stateChanged();
-}
-
-void WalletViewModel::onCoinStatusChanged(beam::bitcoin::Client::Status)
-{
-    emit stateChanged();
 }
 
 void WalletViewModel::cancelTx(TxObject* pTxObject)
@@ -165,39 +148,9 @@ double WalletViewModel::beamAvailable() const
     return double(int64_t(_status.getAvailable())) / Rules::Coin;
 }
 
-double WalletViewModel::btcAvailable() const
-{
-    return AppModel::getInstance().getBitcoinClient()->getAvailable();
-}
-
-double WalletViewModel::ltcAvailable() const
-{
-    return AppModel::getInstance().getLitecoinClient()->getAvailable();
-}
-
-double WalletViewModel::qtumAvailable() const
-{
-    return AppModel::getInstance().getQtumClient()->getAvailable();
-}
-
 double WalletViewModel::beamReceiving() const
 {
      return double(_status.getReceiving()) / Rules::Coin;
-}
-
-double WalletViewModel::btcReceiving()  const
-{
-    return AppModel::getInstance().getBitcoinClient()->getReceiving();
-}
-
-double WalletViewModel::ltcReceiving()  const
-{
-    return AppModel::getInstance().getLitecoinClient()->getReceiving();
-}
-
-double WalletViewModel::qtumReceiving() const
-{
-    return AppModel::getInstance().getQtumClient()->getReceiving();
 }
 
 double WalletViewModel::beamSending() const
@@ -205,58 +158,10 @@ double WalletViewModel::beamSending() const
     return double(_status.getSending()) / Rules::Coin;
 }
 
-double WalletViewModel::btcSending()  const
-{
-    return AppModel::getInstance().getBitcoinClient()->getSending();
-}
-
-double WalletViewModel::ltcSending()  const
-{
-    return AppModel::getInstance().getLitecoinClient()->getSending();
-}
-
-double WalletViewModel::qtumSending() const
-{
-    return AppModel::getInstance().getQtumClient()->getSending();
-}
-
 double WalletViewModel::beamLocked() const
 {
      // TODO:SWAP return real value
     return 0;
-}
-
-double WalletViewModel::btcLocked()  const
-{
-    // TODO:SWAP return real value
-    return 0;
-}
-
-double WalletViewModel::ltcLocked()  const
-{
-    // TODO:SWAP return real value
-    return 0;
-}
-
-double WalletViewModel::qtumLocked() const
-{
-    // TODO:SWAP return real value
-    return 0;
-}
-
-bool WalletViewModel::btcOK()  const
-{
-    return AppModel::getInstance().getBitcoinClient()->getStatus() != beam::bitcoin::Client::Status::Failed;
-}
-
-bool WalletViewModel::ltcOK()  const
-{
-    return AppModel::getInstance().getLitecoinClient()->getStatus() != beam::bitcoin::Client::Status::Failed;
-}
-
-bool WalletViewModel::qtumOK() const
-{
-    return AppModel::getInstance().getQtumClient()->getStatus() != beam::bitcoin::Client::Status::Failed;
 }
 
 

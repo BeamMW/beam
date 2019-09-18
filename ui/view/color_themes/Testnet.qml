@@ -26,4 +26,12 @@ AbstractColors {
 
     property string linkStyle: "<style>a:link {color: '#00f6d2'; text-decoration: none;}</style>"
     property string explorerUrl: "https://testnet.explorer.beam.mw/"
+
+    property color swapCurrencyPaneGrRight: "#00458f"
+    property color swapCurrencyPaneGrLeftBEAM: "#00f6d2"
+    property color swapCurrencyPaneGrLeftBTC: "#fcaf38"
+    property color swapCurrencyPaneGrLeftLTC: "#bebebe"
+    property color swapCurrencyPaneGrLeftQTUM: "#2e9ad0"
+    property color swapCurrencyPaneGrLeftOther: Qt.rgba(0, 246, 210, 0.1)
+    property color swapCurrencyStateIndicator: "#ff746b"
 }

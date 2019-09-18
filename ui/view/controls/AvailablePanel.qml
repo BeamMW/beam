@@ -10,13 +10,6 @@ Control {
     id: control
 
     property string beamValue
-    property string btcValue
-    property string ltcValue
-    property string qtumValue
-
-    property bool btcOK:  true
-    property bool ltcOK:  true
-    property bool qtumOK: true
 
     property alias  color:     panel.color
     property string textColor: Style.content_main
@@ -146,41 +139,6 @@ Control {
                     spacing:          10
                 }
 
-                BeamAmount {
-                    amount:           btcValue
-                    fontSize:         23
-                    currencySymbol:   Utils.symbolBtc
-                    visible:          BeamGlobals.haveBtc()
-                    color:            btcOK ? textColor : Style.validator_error
-                    iconSource:       "qrc:/assets/btc-circle.svg"
-                    iconSize:         Qt.size(23, 23)
-                    copyMenuEnabled:  true
-                    spacing:          10
-                }
-
-                BeamAmount {
-                    amount:           ltcValue
-                    fontSize:         23
-                    currencySymbol:   Utils.symbolLtc
-                    visible:          BeamGlobals.haveLtc()
-                    color:            ltcOK ? textColor : Style.validator_error
-                    iconSource:       "qrc:/assets/ltc-circle.svg"
-                    iconSize:         Qt.size(23, 23)
-                    copyMenuEnabled:  true
-                    spacing:          10
-                }
-
-                BeamAmount {
-                    amount:           qtumValue
-                    fontSize:         22
-                    currencySymbol:   Utils.symbolQtum
-                    visible:          BeamGlobals.haveQtum()
-                    color:            qtumOK ? textColor : Style.validator_error
-                    iconSource:       "qrc:/assets/qtum-circle.svg"
-                    iconSize:         Qt.size(23, 23)
-                    copyMenuEnabled:  true
-                    spacing:          10
-                }
             }
 
             Item {Layout.fillWidth: true}
