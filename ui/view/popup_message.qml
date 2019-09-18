@@ -8,13 +8,15 @@ import Beam.Wallet 1.0
 import "controls"
 
 Dialog {
+    property string message
+
     onVisibleChanged: {
         if (!this.visible) {
             this.destroy();
         }
     }
 
-    id: newAddressFailedDialog
+    id: control
     modal: true
     width: 400
     height: 160
@@ -37,9 +39,7 @@ Dialog {
 
         SFText {
             width: parent.width
-            // text: qsTr("You cannot generate new address. Your wallet doesn't have a master key.")
-            //% "You cannot generate new address. Your wallet doesn't have a master key."
-            text: qsTrId("can-not-generate-new-address-message")
+            text: control.message
             color: Style.content_main
             font.pixelSize: 14
             font.styleName: "Bold"; font.weight: Font.Bold
@@ -52,7 +52,7 @@ Dialog {
             text: qsTrId("general-ok")
             anchors.horizontalCenter: parent.horizontalCenter
             icon.source: "qrc:/assets/icon-done.svg"
-            onClicked: newAddressFailedDialog.close()
+            onClicked: control.close()
         }
     }
 }

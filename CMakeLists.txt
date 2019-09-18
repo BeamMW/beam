@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.5)
+cmake_minimum_required(VERSION 3.11)
 cmake_policy(SET CMP0074 NEW)
 
 set(VERSION_MAJOR 3)
@@ -13,16 +13,10 @@ set(BEAM_DISPLAY_SUFFIX " ${BEAM_SUFFIX_UPPER_CASE}")
 
 if(IOS)
     add_compile_definitions(_LIBCPP_ENABLE_CXX17_REMOVED_AUTO_PTR)
-    add_compile_definitions(BOOST_NO_AUTO_PTR)
 
     if (POLICY CMP0025)
         cmake_policy(SET CMP0025 NEW)
     endif ()
-
-    add_definitions(-DBOOST_ERROR_CODE_HEADER_ONLY)
-
-    include_directories(${BOOST_ROOT}/include)
-
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Winvalid-ios-deployment-target")
 endif()
 
@@ -173,7 +167,10 @@ elseif(BEAM_MAINNET)
     set(BEAM_DISPLAY_SUFFIX "")
 endif()
 
+option(BEAM_ATOMIC_SWAP_SUPPORT "Build with wallet with atomic swap support" ON)
+
 option(BEAM_HW_WALLET "Build with hardware wallet support" OFF)
+
 
 if(BEAM_HW_WALLET)
 
@@ -264,12 +261,61 @@ if(UNIX OR WIN32)
     add_definitions(-DUV_INTERNAL)
 endif()
 
+#Boost
+
+set(BEAM_BOOST_COMPONENTS system filesystem program_options thread regex log locale)
+
+function(CreateBoostComponentTargets listOfComponents root libPrefix libSuffix)
+    add_library(Boost::boost INTERFACE IMPORTED)
+    set (INCLUDE_LOCATION "${root}/include")
+    set_target_properties(Boost::boost PROPERTIES
+        INTERFACE_INCLUDE_DIRECTORIES ${INCLUDE_LOCATION})
+
+    message(STATUS "Boost includes: ${INCLUDE_LOCATION}")
+
+    foreach(COMPONENT ${listOfComponents})
+        set(COMPONENT_LOCATION ${root}/${libPrefix}${COMPONENT}${libSuffix})
+        message(STATUS "${COMPONENT_LOCATION}")
+        if (NOT TARGET Boost::${COMPONENT})
+       # if (EXISTS(${COMPONENT_LOCATION}))
+            add_library(Boost::${COMPONENT} STATIC IMPORTED)
+            set_target_properties(Boost::${COMPONENT} PROPERTIES
+                INTERFACE_INCLUDE_DIRECTORIES ${INCLUDE_LOCATION})
+            set_target_properties(Boost::${COMPONENT} PROPERTIES
+                IMPORTED_LINK_INTERFACE_LANGUAGES "CXX"
+                IMPORTED_LOCATION ${COMPONENT_LOCATION})
+       else()
+           message(STATUS "Boost::${COMPONENT} is already defined")
+       endif()
+    endforeach()
+endfunction()
+
 if(IOS)
-    include_directories($ENV{BOOST_ROOT_IOS}/include)
+    set(BEAM_ATOMIC_SWAP_SUPPORT OFF)
+    add_compile_definitions(BOOST_NO_AUTO_PTR)
+    add_definitions(-DBOOST_ERROR_CODE_HEADER_ONLY)
+    CreateBoostComponentTargets("${BEAM_BOOST_COMPONENTS}" "$ENV{BOOST_ROOT_IOS}" "lib/libboost_" ".a")
 elseif(ANDROID)
     message("ANDROID_ABI: ${ANDROID_ABI}")
+    set(BEAM_ATOMIC_SWAP_SUPPORT OFF)
+    add_compile_definitions(BOOST_ERROR_CODE_HEADER_ONLY)
     add_definitions(-DBOOST_ERROR_CODE_HEADER_ONLY)
-    include_directories($ENV{BOOST_ROOT_ANDROID}/include)
+
+    set(ANDROID_SUFFIX "")
+
+    if(ANDROID_ABI STREQUAL "armeabi-v7a")
+        set(ANDROID_SUFFIX "-clang-mt-a32-1_68.a")
+    elseif(ANDROID_ABI STREQUAL "x86")
+        set(ANDROID_SUFFIX "-clang-mt-x32-1_68.a")
+    elseif(ANDROID_ABI STREQUAL "x86_64")
+        set(ANDROID_SUFFIX "-clang-mt-x64-1_68.a")
+    elseif(ANDROID_ABI STREQUAL "arm64-v8a")
+        set(ANDROID_SUFFIX "-clang-mt-a64-1_68.a")
+    endif()
+
+    CreateBoostComponentTargets("${BEAM_BOOST_COMPONENTS}" "$ENV{BOOST_ROOT_ANDROID}" "libs/${ANDROID_ABI}/libboost_" "${ANDROID_SUFFIX}")
+    
+    
 else()
 
     if(LINUX)
@@ -291,36 +337,59 @@ else()
         endif()
     endif()
 
+    #set (Boost_VERBOSE TRUE)
+    find_package(Boost 1.67 REQUIRED COMPONENTS ${BEAM_BOOST_COMPONENTS})
 endif()
+
+#Boost end
 
 include_directories(${PROJECT_SOURCE_DIR})
 add_definitions(-DPROJECT_SOURCE_DIR=\"${PROJECT_SOURCE_DIR}\")
 
 include_directories(${PROJECT_SOURCE_DIR}/3rdparty)
 
+#OpenSSL
+
 if(BEAM_USE_STATIC)
 
     set(OPENSSL_USE_STATIC_LIBS TRUE)
 
     # cmake can't find static lib on macos, harcoded
-    if(APPLE)
-        set(OPENSSL_LIBCRYPTO $ENV{OPENSSL_ROOT_DIR}/lib/libcrypto.a)
-        set(OPENSSL_LIBSSL $ENV{OPENSSL_ROOT_DIR}/lib/libssl.a)
-    elseif(UNIX)
-        set(OPENSSL_LIBCRYPTO /usr/lib/x86_64-linux-gnu/libcrypto.a)
-        set(OPENSSL_LIBSSL /usr/lib/x86_64-linux-gnu/libssl.a)
-    endif()
+    #if(APPLE)
+    #    set(OPENSSL_LIBCRYPTO $ENV{OPENSSL_ROOT_DIR}/lib/libcrypto.a)
+    #    set(OPENSSL_LIBSSL $ENV{OPENSSL_ROOT_DIR}/lib/libssl.a)
+    #elseif(UNIX)
+    #    set(OPENSSL_LIBCRYPTO /usr/lib/x86_64-linux-gnu/libcrypto.a)
+    #    set(OPENSSL_LIBSSL /usr/lib/x86_64-linux-gnu/libssl.a)
+    #else()
+        find_package(OpenSSL REQUIRED)
+    #endif()
 else()
     if(ANDROID)
-        include_directories($ENV{OPENSSL_ROOT_DIR_ANDROID}/include)
-        set(OPENSSL_LIBCRYPTO $ENV{OPENSSL_ROOT_DIR_ANDROID}/libs/${ANDROID_ABI}/libcrypto.a)
-        set(OPENSSL_LIBSSL $ENV{OPENSSL_ROOT_DIR_ANDROID}/libs/${ANDROID_ABI}/libssl.a)
+        #include_directories($ENV{OPENSSL_ROOT_DIR_ANDROID}/include)
+        #set(OPENSSL_LIBCRYPTO $ENV{OPENSSL_ROOT_DIR_ANDROID}/libs/${ANDROID_ABI}/libcrypto.a)
+        #set(OPENSSL_LIBSSL $ENV{OPENSSL_ROOT_DIR_ANDROID}/libs/${ANDROID_ABI}/libssl.a)
+
+        add_library(OpenSSL::Crypto STATIC IMPORTED)
+        set_target_properties(OpenSSL::Crypto PROPERTIES
+            INTERFACE_INCLUDE_DIRECTORIES "$ENV{OPENSSL_ROOT_DIR_ANDROID}/include")
+        set_target_properties(OpenSSL::Crypto PROPERTIES
+            IMPORTED_LINK_INTERFACE_LANGUAGES "C"
+            IMPORTED_LOCATION "$ENV{OPENSSL_ROOT_DIR_ANDROID}/libs/${ANDROID_ABI}/libcrypto.a")
+
+        add_library(OpenSSL::SSL STATIC IMPORTED)
+        set_target_properties(OpenSSL::SSL PROPERTIES
+            INTERFACE_INCLUDE_DIRECTORIES "$ENV{OPENSSL_ROOT_DIR_ANDROID}/include")
+        set_target_properties(OpenSSL::SSL PROPERTIES
+            IMPORTED_LINK_INTERFACE_LANGUAGES "C"
+            IMPORTED_LOCATION "$ENV{OPENSSL_ROOT_DIR_ANDROID}/libs/${ANDROID_ABI}/libssl.a")
+
+    else()
+        find_package(OpenSSL REQUIRED)
     endif()
 endif()
 
-#set (Boost_VERBOSE TRUE)
-#find_package(Boost 1.67 REQUIRED system)
-#find_package(OpenSSL REQUIRED)
+#OpenSSL end
 
 add_definitions(-DBC_STATIC)
 

@@ -154,7 +154,7 @@ void NodeProcessor::Initialize(const char* szPath, const StartParams& sp)
 	}
 
 	// final check
-	if (m_Cursor.m_ID.m_Height >= Rules::HeightGenesis)
+	if ((m_Cursor.m_ID.m_Height >= Rules::HeightGenesis) && (m_Cursor.m_ID.m_Height >= m_SyncData.m_TxoLo))
 	{
 		get_Definition(hv, false);
 		if (m_Cursor.m_Full.m_Definition != hv)
@@ -487,6 +487,20 @@ NodeProcessor::CongestionCache::TipCongestion* NodeProcessor::EnumCongestionsInt
 	return pMaxTarget;
 }
 
+template <typename T>
+bool IsBigger2(T a, T b1, T b2)
+{
+	b1 += b2;
+	return (b1 >= b2) && (a > b1);
+}
+
+template <typename T>
+bool IsBigger3(T a, T b1, T b2, T b3)
+{
+	b2 += b3;
+	return (b2 >= b3) && IsBigger2(a, b1, b2);
+}
+
 void NodeProcessor::EnumCongestions()
 {
 	if (!IsTreasuryHandled())
@@ -507,7 +521,7 @@ void NodeProcessor::EnumCongestions()
 	{
 		bool bFirstTime =
 			!IsFastSync() &&
-			(pMaxTarget->m_Height > m_Cursor.m_ID.m_Height + m_Horizon.m_SchwarzschildHi + m_Horizon.m_SchwarzschildHi / 2);
+			IsBigger3(pMaxTarget->m_Height, m_Cursor.m_ID.m_Height, m_Horizon.m_SchwarzschildHi, m_Horizon.m_SchwarzschildHi / 2);
 
 		if (bFirstTime)
 		{
@@ -524,7 +538,7 @@ void NodeProcessor::EnumCongestions()
 		// check if the target should be moved fwd
 		bool bTrgChange =
 			(IsFastSync() || bFirstTime) &&
-			(pMaxTarget->m_Height > m_SyncData.m_Target.m_Height + m_Horizon.m_SchwarzschildHi);
+			IsBigger2(pMaxTarget->m_Height, m_SyncData.m_Target.m_Height, m_Horizon.m_SchwarzschildHi);
 
 		if (bTrgChange)
 		{

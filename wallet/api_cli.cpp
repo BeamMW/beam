@@ -1091,6 +1091,8 @@ int main(int argc, char* argv[])
         auto keyKeeper = std::make_shared<LocalPrivateKeyKeeper>(walletDB);
         Wallet wallet{ walletDB, keyKeeper };
 
+        wallet.ResumeAllTransactions();
+
         auto nnet = std::make_shared<proto::FlyClient::NetworkStd>(wallet);
         nnet->m_Cfg.m_PollPeriod_ms = options.pollPeriod_ms.value;
         

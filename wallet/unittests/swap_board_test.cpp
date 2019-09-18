@@ -71,6 +71,30 @@ namespace
                 }
             }
         };
+        virtual void SendAndSign(const ByteBuffer& msg, const BbsChannel& channel, const WalletID& wid) override
+        {
+            // SwapOfferConfirmation confirmation;
+
+            // auto waddr = m_WalletDB->getAddress(wid);
+
+            // if (waddr && waddr->m_OwnID)
+            // {
+            //     ECC::Scalar::Native sk;
+                
+            //     m_keyKeeper->get_SbbsKdf()->DeriveKey(sk, ECC::Key::ID(waddr->m_OwnID, Key::Type::Bbs));
+
+            //     confirmation.Sign(sk);
+
+            //     ByteBuffer signature = toByteBuffer(confirmation.m_Signature);
+            //     ByteBuffer signedMessage(msg.size() + signature.size());
+
+            //     std::copy(std::begin(msg), std::end(msg), std::back_inserter(signedMessage));
+            //     std::copy(std::begin(signature), std::end(signature), std::back_inserter(signedMessage));
+                
+            //     SendEncryptedMessage(wid, signedMessage);
+            // }
+        }
+
 
         map<BbsChannel, pair<FlyClient::IBbsReceiver*, Timestamp>> subscriptions;
     };
@@ -90,6 +114,7 @@ namespace
         // test if only subscribed coin offer stored
         receiverBoard.subscribe(AtomicSwapCoin::Bitcoin);
 
+        // use CreateSwapParameters
         SwapOffer offer1(TxID{{1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16}});
         SwapOffer offer2(TxID{{10,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16}});
         offer1.SetParameter(TxParameterID::AtomicSwapCoin, toByteBuffer(AtomicSwapCoin::Bitcoin));
@@ -135,7 +160,7 @@ namespace
 
 int main()
 {        
-    TestSwapBoardsCommunication();        
+    // TestSwapBoardsCommunication();        
 
     assert(g_failureCount == 0);
     return WALLET_CHECK_RESULT;

@@ -35,46 +35,54 @@
 
 namespace beam
 {
-    HWWallet::HWWallet() 
-        : m_client(std::make_shared<Client>())
-        , m_trezor(std::make_shared<DeviceManager>())
-    
+    HWWallet::HWWallet(OnError onError)
+        : m_client(std::make_shared<Client>())   
     {
-        auto enumerates = m_client->enumerate();
+        //auto enumerates = m_client->enumerate();
 
-        if (enumerates.empty())
-        {
-            LOG_INFO() << "there is no Trezor device connected";
-            return;
-        }
+        //if (enumerates.empty())
+        //{
+        //    LOG_INFO() << "there is no Trezor device connected";
+        //    return;
+        //}
 
-        auto& enumerate = enumerates.front();
+        //auto& enumerate = enumerates.front();
 
-        if (enumerate.session != "null")
-        {
-            m_client->release(enumerate.session);
-            enumerate.session = "null";
-        }
+        //if (enumerate.session != "null")
+        //{
+        //    m_client->release(enumerate.session);
+        //    enumerate.session = "null";
+        //}
 
-        m_trezor->callback_Failure([&](const Message& msg, std::string session, size_t queue_size)
-        {
-            // !TODO: handle errors here
-            LOG_ERROR() << "FAIL REASON: " << child_cast<Message, Failure>(msg).message();
-        });
+        //m_trezor = std::make_shared<DeviceManager>();
 
-        m_trezor->callback_Success([&](const Message& msg, std::string session, size_t queue_size)
-        {
-            LOG_INFO() << "SUCCESS: " << child_cast<Message, Success>(msg).message();
-        });
+        //m_trezor->callback_Failure([&](const Message& msg, std::string session, size_t queue_size)
+        //{
+        //    auto message = child_cast<Message, Failure>(msg).message();
 
-        try
-        {
-            m_trezor->init(enumerate);
-        }
-        catch (std::runtime_error e)
-        {
-            LOG_ERROR() << e.what();
-        }
+        //    onError(message);
+
+        //    LOG_ERROR() << "FAIL REASON: " << message;
+        //});
+
+        //m_trezor->callback_Success([&](const Message& msg, std::string session, size_t queue_size)
+        //{
+        //    LOG_INFO() << "SUCCESS: " << child_cast<Message, Success>(msg).message();
+        //});
+
+        //try
+        //{
+        //    m_trezor->init(enumerate);
+        //}
+        //catch (std::runtime_error e)
+        //{
+        //    LOG_ERROR() << e.what();
+        //}
+    }
+
+    bool HWWallet::isConnected() const
+    {
+        return !m_client->enumerate().empty();
     }
 
     std::vector<std::string> HWWallet::getDevices() const
@@ -98,15 +106,56 @@ namespace beam
         return items;
     }
 
+    std::shared_ptr<DeviceManager> getTrezor(std::shared_ptr<Client> client)
+    {
+        auto enumerates = client->enumerate();
+        auto& enumerate = enumerates.front();
+
+        if (enumerate.session != "null")
+        {
+            client->release(enumerate.session);
+            enumerate.session = "null";
+        }
+
+        auto trezor = std::make_shared<DeviceManager>();
+
+        trezor->callback_Failure([&](const Message& msg, std::string session, size_t queue_size)
+        {
+            auto message = child_cast<Message, Failure>(msg).message();
+
+            //onError(message);
+
+            LOG_ERROR() << "TREZOR FAIL REASON: " << message;
+        });
+
+        trezor->callback_Success([&](const Message& msg, std::string session, size_t queue_size)
+        {
+            LOG_INFO() << "TREZOR SUCCESS: " << child_cast<Message, Success>(msg).message();
+        });
+
+        try
+        {
+            trezor->init(enumerate);
+        }
+        catch (std::runtime_error e)
+        {
+            LOG_ERROR() << e.what();
+        }
+
+        return trezor;
+    }
+
     void HWWallet::getOwnerKey(Result<std::string> callback) const
     {
-        assert(m_trezor);
+        assert(isConnected());
 
         std::atomic_flag m_runningFlag;
         m_runningFlag.test_and_set();
         std::string result;
 
-        m_trezor->call_BeamGetOwnerKey(true, [&m_runningFlag, &result](const Message& msg, std::string session, size_t queue_size)
+        auto trezor = getTrezor(m_client);
+
+        trezor->call_BeamGetOwnerKey(true, [&m_runningFlag, &result](const Message& msg, std::string session, size_t queue_size)
         {
             result = child_cast<Message, hw::trezor::messages::beam::BeamOwnerKey>(msg).key();
             m_runningFlag.clear();
@@ -119,13 +168,15 @@ namespace beam
 
     void HWWallet::generateNonce(uint8_t slot, Result<ECC::Point> callback) const
     {
-        assert(m_trezor);
+        assert(isConnected());
 
         std::atomic_flag m_runningFlag;
         m_runningFlag.test_and_set();
         ECC::Point result;
 
-        m_trezor->call_BeamGenerateNonce(slot, [&m_runningFlag, &result](const Message& msg, std::string session, size_t queue_size)
+        auto trezor = getTrezor(m_client);
+
+        trezor->call_BeamGenerateNonce(slot, [&m_runningFlag, &result](const Message& msg, std::string session, size_t queue_size)
             {
                 result.m_X = beam::Blob(child_cast<Message, hw::trezor::messages::beam::BeamECCPoint>(msg).x().c_str(), 32);
                 result.m_Y = child_cast<Message, hw::trezor::messages::beam::BeamECCPoint>(msg).y();
@@ -139,13 +190,15 @@ namespace beam
 
     void HWWallet::getNoncePublic(uint8_t slot, Result<ECC::Point> callback) const
     {
-        assert(m_trezor);
+        assert(isConnected());
 
         std::atomic_flag m_runningFlag;
         m_runningFlag.test_and_set();
         ECC::Point result;
 
-        m_trezor->call_BeamGetNoncePublic(slot, [&m_runningFlag, &result](const Message& msg, std::string session, size_t queue_size)
+        auto trezor = getTrezor(m_client);
+
+        trezor->call_BeamGetNoncePublic(slot, [&m_runningFlag, &result](const Message& msg, std::string session, size_t queue_size)
             {
                 result.m_X = beam::Blob(child_cast<Message, hw::trezor::messages::beam::BeamECCPoint>(msg).x().c_str(), 32);
                 result.m_Y = child_cast<Message, hw::trezor::messages::beam::BeamECCPoint>(msg).y();
@@ -159,13 +212,15 @@ namespace beam
 
     void HWWallet::generateKey(const ECC::Key::IDV& idv, bool isCoinKey, Result<ECC::Point> callback) const
     {
-        assert(m_trezor);
+        assert(isConnected());
 
         std::atomic_flag m_runningFlag;
         m_runningFlag.test_and_set();
         ECC::Point result;
 
-        m_trezor->call_BeamGenerateKey(idv.m_Idx, idv.m_Type, idv.m_SubIdx, idv.m_Value, isCoinKey, [&m_runningFlag, &result](const Message& msg, std::string session, size_t queue_size)
+        auto trezor = getTrezor(m_client);
+
+        trezor->call_BeamGenerateKey(idv.m_Idx, idv.m_Type, idv.m_SubIdx, idv.m_Value, isCoinKey, [&m_runningFlag, &result](const Message& msg, std::string session, size_t queue_size)
             {
                 result.m_X = beam::Blob(child_cast<Message, hw::trezor::messages::beam::BeamECCPoint>(msg).x().c_str(), 32);
                 result.m_Y = child_cast<Message, hw::trezor::messages::beam::BeamECCPoint>(msg).y();
@@ -179,13 +234,15 @@ namespace beam
 
     void HWWallet::generateRangeProof(const ECC::Key::IDV& idv, bool isCoinKey, Result<ECC::RangeProof::Confidential> callback) const
     {
-        assert(m_trezor);
+        assert(isConnected());
 
         std::atomic_flag m_runningFlag;
         m_runningFlag.test_and_set();
         ECC::RangeProof::Confidential result;
 
-        m_trezor->call_BeamGenerateRangeproof(idv.m_Idx, idv.m_Type, idv.m_SubIdx, idv.m_Value, isCoinKey, [&m_runningFlag, &result](const Message& msg, std::string session, size_t queue_size)
+        auto trezor = getTrezor(m_client);
+
+        trezor->call_BeamGenerateRangeproof(idv.m_Idx, idv.m_Type, idv.m_SubIdx, idv.m_Value, isCoinKey, [&m_runningFlag, &result](const Message& msg, std::string session, size_t queue_size)
             {
                 const uint8_t* rp_raw = reinterpret_cast<const uint8_t*>(child_cast<Message, hw::trezor::messages::beam::BeamRangeproofData>(msg).data().c_str());
                 rangeproof_confidential_packed_t rp;
@@ -237,7 +294,7 @@ namespace beam
 
     void HWWallet::signTransaction(const std::vector<Key::IDV>& inputs, const std::vector<Key::IDV>& outputs, const TxData& tx, Result<ECC::Scalar> callback) const
     {
-        assert(m_trezor);
+        assert(isConnected());
 
         std::atomic_flag m_runningFlag;
         m_runningFlag.test_and_set();
@@ -281,7 +338,9 @@ namespace beam
         _tx.nonce_slot = tx.nonceSlot;
         std::memcpy(_tx.offset, tx.offset.m_Value.m_pData, 32);
 
-        m_trezor->call_BeamSignTransaction(_inputs, _outputs, _tx, [&m_runningFlag, &result](const Message& msg, std::string session, size_t queue_size)
+        auto trezor = getTrezor(m_client);
+
+        trezor->call_BeamSignTransaction(_inputs, _outputs, _tx, [&m_runningFlag, &result](const Message& msg, std::string session, size_t queue_size)
             {
                 result.m_Value = beam::Blob(child_cast<Message, hw::trezor::messages::beam::BeamSignedTransaction>(msg).signature().c_str(), 32);
 

@@ -155,11 +155,11 @@
     </message>
     <message id="general-restore-or-create-wallet">
         <source>Restore wallet or create a new one</source>
-        <translation>Аднавіць кашалёк або стварыць новы</translation>
+        <translation>Аднавіць гаманец альбо стварыць новы</translation>
     </message>
     <message id="general-select-db">
         <source>Select the wallet database file</source>
-        <translation>Выбраць файл базы дадзеных кашалька</translation>
+        <translation>Выбраць файл базы дадзеных гаманца</translation>
     </message>
     <message id="general-restore-wallet">
         <source>Restore wallet</source>
@@ -171,7 +171,7 @@
     </message>
     <message id="general-open-wallet">
         <source>Open my wallet</source>
-        <translation>Адкрыць кашалёк</translation>
+        <translation>Адкрыць мой гаманец</translation>
     </message>
     <message id="general-proceed">
         <source>Proceed</source>
@@ -250,7 +250,7 @@
     </message>
     <message id="wallet-txs-status-failed">
         <source>failed</source>
-        <translation>памылка</translation>
+        <translation>няўдалая</translation>
     </message>
     <message id="wallet-txs-status-unknown">
         <source>unknown</source>
@@ -266,7 +266,7 @@
     </message>
     <message id="addresses-tab-expired">
         <source>My expired addresses</source>
-        <translation>Пратэрмінаваныя</translation>
+        <translation>Мае пратэрмінаваныя адрасы</translation>
     </message>
     <message id="addresses-tab-contacts">
         <source>Contacts</source>
@@ -337,7 +337,7 @@
     <message id="settings-general-require-pwd-to-spend">
         <source>Ask password for every sending transaction</source>
         <extracomment>settings tab, general section, ask password to send label</extracomment>
-        <translation>Пытаць пароль для кожнай выходнаяй транзакцыі</translation>
+        <translation>Пытаць пароль для кожнай выходнай транзакцыі</translation>
     </message>
     <message id="settings-report-problem-title">
         <source>Report problem</source>
@@ -347,7 +347,7 @@
     <message id="settings-wallet-location-label">
         <source>Wallet folder location</source>
         <extracomment>settings tab, general section, wallet data folder location label</extracomment>
-        <translation>Тэчка дадзеных</translation>
+        <translation>Тэчка дадзеных гаманца</translation>
     </message>
     <message id="settings-apply">
         <source>Apply</source>
@@ -368,7 +368,7 @@
     </message>
     <message id="change-pwd-confirm-empty">
         <source>Please, confirm new password</source>
-        <translation>Калі ласка, увядзіце пацвярджэнне новага пароля</translation>
+        <translation>Калі ласка, пацвердзiце новы пароль</translation>
     </message>
     <message id="change-pwd-new-same-as-old">
         <source>New password cannot be the same as old</source>
@@ -376,7 +376,7 @@
     </message>
     <message id="change-pwd-confirm-fail">
         <source>New password doesn&apos;t match the confirm password</source>
-        <translation>Няправільнае пацвярджэнне новага паролю</translation>
+        <translation>Новы пароль не супадае з пацвярдженнем</translation>
     </message>
     <message id="change-pwd-old-fail">
         <source>The old password you have entered is incorrect</source>
@@ -400,15 +400,15 @@
     </message>
     <message id="loading-loading">
         <source>Loading wallet...</source>
-        <translation>Загрузка кашалька...</translation>
+        <translation>Загрузка гаманца...</translation>
     </message>
     <message id="loading-restoring">
         <source>Restoring wallet...</source>
-        <translation>Аднаўленне кашалька...</translation>
+        <translation>Аднаўленне гаманца...</translation>
     </message>
     <message id="loading-creating">
         <source>Creating wallet...</source>
-        <translation>Стварэнне кашалька...</translation>
+        <translation>Стварэнне гаманца...</translation>
     </message>
     <message id="start-open-pwd-invitation">
         <source>Enter your password to access the wallet</source>
@@ -416,7 +416,7 @@
     </message>
     <message id="open-show-wallet-button">
         <source>Show my wallet</source>
-        <translation>Адкрыць кашалёк</translation>
+        <translation>Адкрыць гаманец</translation>
     </message>
     <message id="edit-addr-title">
         <source>Edit address</source>
@@ -546,7 +546,7 @@
     </message>
     <message id="wallet-title">
         <source>Wallet</source>
-        <translation>Кашалёк</translation>
+        <translation>Гаманец</translation>
     </message>
     <message id="wallet-receive-title">
         <source>Receive</source>
@@ -1030,8 +1030,13 @@
         <translation>Стварыць новы пароль для доступу да вашага кашальку</translation>
     </message>
     <message id="start-create-pwd-strength-message">
-        <source>Strong password needs to meet the following requirements:\n•  the length must be at least 10 characters\n•  must contain at least one lowercase letter\n•  must contain at least one uppercase letter\n•  must contain at least one number</source>
-        <translation>Добры пароль павінен адпавядаць наступным патрабаванням:\n•  даўжыня мінімум 10 сімвалаў\n•  змяшчае хаця б адну маленькую літару\n•  змяшчае хаця б адну вялікую літару\n•  змяшчае хаця б адну лічбу</translation>
+        <source>Strong password needs to meet the following requirements:
+•  the length must be at least 10 characters
+•  must contain at least one lowercase letter
+•  must contain at least one uppercase letter
+•  must contain at least one number</source>
+        <oldsource>Strong password needs to meet the following requirements:\n•  the length must be at least 10 characters\n•  must contain at least one lowercase letter\n•  must contain at least one uppercase letter\n•  must contain at least one number</oldsource>
+        <translation type="unfinished">Добры пароль павінен адпавядаць наступным патрабаванням:\n•  даўжыня мінімум 10 сімвалаў\n•  змяшчае хаця б адну маленькую літару\n•  змяшчае хаця б адну вялікую літару\n•  змяшчае хаця б адну лічбу</translation>
     </message>
     <message id="start-open-caps-warning">
         <source>Caps lock is on!</source>
@@ -1188,7 +1193,7 @@
     </message>
     <message id="restore-finish-alert-button">
         <source>I understand</source>
-        <translation>Мне зразумела</translation>
+        <translation>Ясна</translation>
     </message>
     <message id="restore-finish-alert-title">
         <source>Do not simultaneously run two wallets initiated from the same seed phrase</source>
@@ -1299,7 +1304,9 @@
         <translation type="obsolete">Колькасць</translation>
     </message>
     <message id="swap-na-message">
-        <source>You do not have any 3rd-party currencies connected.\nUpdate your settings and try again.</source>
+        <source>You do not have any 3rd-party currencies connected.
+Update your settings and try again.</source>
+        <oldsource>You do not have any 3rd-party currencies connected.\nUpdate your settings and try again.</oldsource>
         <translation type="unfinished"></translation>
     </message>
     <message id="wallet-receive-swap-title">
@@ -1379,7 +1386,9 @@
         <translation type="unfinished"></translation>
     </message>
     <message id="swap-currency-na-message">
-        <source>You do not have %1 connected.\nUpdate your settings and try again.</source>
+        <source>You do not have %1 connected.
+Update your settings and try again.</source>
+        <oldsource>You do not have %1 connected.\nUpdate your settings and try again.</oldsource>
         <translation type="unfinished"></translation>
     </message>
     <message id="send-swap-to-label">
@@ -1387,7 +1396,7 @@
         <translation type="unfinished"></translation>
     </message>
     <message id="send-not-enough">
-        <source>There is not enough funds to completer the transaction</source>
+        <source>There is not enough funds to complete the transaction</source>
         <translation type="unfinished"></translation>
     </message>
     <message id="wallet-send-swap-offered-label">
@@ -1528,6 +1537,38 @@
     </message>
     <message id="send-confirmation-pwd-text-online-time">
         <source>For the transaction to complete, the recipient must get online within the next 12 hours and you should get online within 2 hours afterwards.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="trezor-message">
+        <source>Please, look at your Trezor device to complete actions...</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="start-init-wallet-with-trezor">
+        <source>Init wallet with Trezor</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="start-found-trezor-device">
+        <source>Found device:</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="start-no-trezor-device-connected">
+        <source>There is no device connected, please, connect your hardware wallet.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="start-import-trezor-owner-key">
+        <source>Import Trezor Owner Key</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="start-owner-key-imported">
+        <source>Owner Key imported. Please, enter the password you saw on device to decrypt your Owner Key.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="start-look-at-trezor-to-complete-actions">
+        <source>Please, look at your Trezor to complete actions...</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="wallet-receive-copy-token">
+        <source>copy transaction token</source>
         <translation type="unfinished"></translation>
     </message>
     <message id="atomic-swap-connect-other">

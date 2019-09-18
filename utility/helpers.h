@@ -98,10 +98,6 @@ void block_sigpipe();
 /// 2/ until signal arrives otherwise
 void wait_for_termination(int nSec);
 
-/// reads sensible strings from console input
-void read_password(const char* prompt, SecString& out, bool includeTerminatingZero=false);
-
-
 /// Functor for async call
 using Functor = std::function<void()>;
 /// Functor which should be called when functor will be completed 

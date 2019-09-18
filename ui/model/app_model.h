@@ -65,11 +65,13 @@ private:
     void start();
     void startNode();
     void startWallet();
-    void resetWalletImpl();
+    void resetWalletImpl(); 
     void InitBtcClient();
     void InitLtcClient();
     void InitQtumClient();
     void onWalledOpened(const beam::SecString& pass);
+    void backupDB(const std::string& dbFilePath);
+    void generateDefaultAddress();
 
 private:
     WalletModel::Ptr m_wallet;

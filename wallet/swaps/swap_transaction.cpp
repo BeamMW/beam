@@ -19,6 +19,7 @@
 #include "lock_tx_builder.h"
 #include "shared_tx_builder.h"
 #include "wallet/bitcoin/bitcoin_side.h"
+#include "wallet/wallet.h"
 
 using namespace ECC;
 
@@ -99,6 +100,11 @@ namespace beam::wallet
 
     ////////////
     // Creator
+    AtomicSwapTransaction::Creator::Creator(IWalletDB::Ptr walletDB)
+        : m_walletDB(walletDB)
+    {
+
+    }
 
     void AtomicSwapTransaction::Creator::RegisterFactory(AtomicSwapCoin coinType, ISecondSideFactory::Ptr factory)
     {
@@ -125,40 +131,19 @@ namespace beam::wallet
         return it->second->CreateSecondSide(tx, isBeamSide);
     }
 
-    bool AtomicSwapTransaction::Creator::CanCreate(const TxParameters& parameters)
+    void AtomicSwapTransaction::Creator::CheckParameters(const TxParameters& parameters)
     {
-        //if (m_swapConditions.empty())
-        //{
-        //    LOG_DEBUG() << parameters.GetTxID() << " Swap rejected. Swap conditions aren't initialized.";
-        //    return false;
-        //}
-
-        //// validate swapConditions
-        //Amount amount = 0;
-        //Amount swapAmount = 0;
-        //AtomicSwapCoin swapCoin = AtomicSwapCoin::Bitcoin;
-        //bool isBeamSide = 0;
-
-        //bool result = parameters.GetParameter(TxParameterID::Amount, amount) &&
-        //    parameters.GetParameter(TxParameterID::AtomicSwapAmount, swapAmount) &&
-        //    parameters.GetParameter(TxParameterID::AtomicSwapCoin, swapCoin) &&
-        //    parameters.GetParameter(TxParameterID::AtomicSwapIsBeamSide, isBeamSide);
-
-        //auto idx = std::find(m_swapConditions.begin(), m_swapConditions.end(), SwapConditions{ amount, swapAmount, swapCoin, isBeamSide, chainType });
-
-        //if (!result || idx == m_swapConditions.end())
-        //{
-        //    LOG_DEBUG() << parameters.GetTxID() << " Swap rejected. Invalid conditions.";
-        //    return false;
-        //}
-
-        //m_swapConditions.erase(idx);
-
-        //LOG_DEBUG() << parameters.GetTxID() << " Swap conditions match.";
-
-        return true;
+        auto peerID = parameters.GetParameter<WalletID>(TxParameterID::PeerID);
+        if (peerID)
+        {
+            auto receiverAddr = m_walletDB->getAddress(*peerID);
+            if (receiverAddr && receiverAddr->m_OwnID)
+            {
+                LOG_INFO() << "Failed to initiate the atomic swap. Not able to use own address as receiver's.";
+                throw FailToStartSwapException();
+            }
+        }
     }
-
 
     AtomicSwapTransaction::AtomicSwapTransaction(INegotiatorGateway& gateway
                                                , IWalletDB::Ptr walletDB

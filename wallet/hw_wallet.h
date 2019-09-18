@@ -27,11 +27,14 @@ namespace beam
     class HWWallet
     {
     public:
-        HWWallet();
+        using OnError = std::function<void(const std::string&)>;
+
+        HWWallet(OnError onError = OnError());
 
         using Ptr = std::shared_ptr<beam::HWWallet>;
 
         std::vector<std::string> getDevices() const;
+        bool isConnected() const;
 
         template<typename T> using Result = std::function<void(const T& key)>;
 
@@ -61,6 +64,5 @@ namespace beam
 
     private:
         std::shared_ptr<Client> m_client;
-        std::shared_ptr<DeviceManager> m_trezor;
     };
 }

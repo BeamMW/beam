@@ -179,6 +179,13 @@ void WalletModel::onHideKeyKeeperMessage()
 #endif
 }
 
+void WalletModel::onShowKeyKeeperError(const std::string& error)
+{
+#if defined(BEAM_HW_WALLET)
+    emit showTrezorError(QString::fromStdString(error));
+#endif
+}
+
 void WalletModel::onGeneratedNewAddress(const beam::wallet::WalletAddress& walletAddr)
 {
     emit generatedNewAddress(walletAddr);
@@ -187,6 +194,14 @@ void WalletModel::onGeneratedNewAddress(const beam::wallet::WalletAddress& walle
 void WalletModel::onNewAddressFailed()
 {
     emit newAddressFailed();
+}
+
+void WalletModel::onNoDeviceConnected()
+{
+#if defined(BEAM_HW_WALLET)
+    //% "There is no Trezor device connected. Please, connect and try again."
+    showTrezorError(qtTrId("wallet-model-device-not-connected"));
+#endif
 }
 
 void WalletModel::onChangeCurrentWalletIDs(beam::wallet::WalletID senderID, beam::wallet::WalletID receiverID)

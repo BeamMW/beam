@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.11)
 
-find_package(Boost 1.67 REQUIRED COMPONENTS system thread regex filesystem program_options log locale)
+#find_package(Boost 1.67 REQUIRED COMPONENTS system thread regex filesystem program_options log locale)
 
 # Boost::locale requires ICU & Iconv on OSX static
 if(APPLE AND Boost_USE_STATIC_LIBS)
@@ -43,44 +43,35 @@ if(IOS)
             $ENV{BOOST_ROOT_IOS}/lib/libboost_regex.a
             $ENV{BOOST_ROOT_IOS}/lib/libboost_log.a)
 elseif(ANDROID)
-    if(ANDROID_ABI STREQUAL "armeabi-v7a")
-        target_link_libraries(${TARGET_NAME} 
-            $ENV{BOOST_ROOT_ANDROID}/libs/${ANDROID_ABI}/libboost_program_options-clang-mt-a32-1_68.a 
-            $ENV{BOOST_ROOT_ANDROID}/libs/${ANDROID_ABI}/libboost_filesystem-clang-mt-a32-1_68.a
-            $ENV{BOOST_ROOT_ANDROID}/libs/${ANDROID_ABI}/libboost_system-clang-mt-a32-1_68.a
-            $ENV{BOOST_ROOT_ANDROID}/libs/${ANDROID_ABI}/libboost_thread-clang-mt-a32-1_68.a
-            $ENV{BOOST_ROOT_ANDROID}/libs/${ANDROID_ABI}/libboost_regex-clang-mt-a32-1_68.a
-            $ENV{BOOST_ROOT_ANDROID}/libs/${ANDROID_ABI}/libboost_log-clang-mt-a32-1_68.a)
-    elseif(ANDROID_ABI STREQUAL "x86")
-        target_link_libraries(${TARGET_NAME} 
-            $ENV{BOOST_ROOT_ANDROID}/libs/${ANDROID_ABI}/libboost_program_options-clang-mt-x32-1_68.a 
-            $ENV{BOOST_ROOT_ANDROID}/libs/${ANDROID_ABI}/libboost_filesystem-clang-mt-x32-1_68.a
-            $ENV{BOOST_ROOT_ANDROID}/libs/${ANDROID_ABI}/libboost_system-clang-mt-x32-1_68.a
-            $ENV{BOOST_ROOT_ANDROID}/libs/${ANDROID_ABI}/libboost_thread-clang-mt-x32-1_68.a
-            $ENV{BOOST_ROOT_ANDROID}/libs/${ANDROID_ABI}/libboost_regex-clang-mt-x32-1_68.a
-            $ENV{BOOST_ROOT_ANDROID}/libs/${ANDROID_ABI}/libboost_log-clang-mt-x32-1_68.a)
-    elseif(ANDROID_ABI STREQUAL "x86_64")
-        target_link_libraries(${TARGET_NAME} 
-            $ENV{BOOST_ROOT_ANDROID}/libs/${ANDROID_ABI}/libboost_program_options-clang-mt-x64-1_68.a 
-            $ENV{BOOST_ROOT_ANDROID}/libs/${ANDROID_ABI}/libboost_filesystem-clang-mt-x64-1_68.a
-            $ENV{BOOST_ROOT_ANDROID}/libs/${ANDROID_ABI}/libboost_system-clang-mt-x64-1_68.a
-            $ENV{BOOST_ROOT_ANDROID}/libs/${ANDROID_ABI}/libboost_thread-clang-mt-x64-1_68.a
-            $ENV{BOOST_ROOT_ANDROID}/libs/${ANDROID_ABI}/libboost_regex-clang-mt-x64-1_68.a
-            $ENV{BOOST_ROOT_ANDROID}/libs/${ANDROID_ABI}/libboost_log-clang-mt-x64-1_68.a)
-    elseif(ANDROID_ABI STREQUAL "arm64-v8a")
-        target_link_libraries(${TARGET_NAME} 
-            $ENV{BOOST_ROOT_ANDROID}/libs/${ANDROID_ABI}/libboost_program_options-clang-mt-a64-1_68.a 
-            $ENV{BOOST_ROOT_ANDROID}/libs/${ANDROID_ABI}/libboost_filesystem-clang-mt-a64-1_68.a
-            $ENV{BOOST_ROOT_ANDROID}/libs/${ANDROID_ABI}/libboost_system-clang-mt-a64-1_68.a
-            $ENV{BOOST_ROOT_ANDROID}/libs/${ANDROID_ABI}/libboost_thread-clang-mt-a64-1_68.a
-            $ENV{BOOST_ROOT_ANDROID}/libs/${ANDROID_ABI}/libboost_regex-clang-mt-a64-1_68.a
-            $ENV{BOOST_ROOT_ANDROID}/libs/${ANDROID_ABI}/libboost_log-clang-mt-a64-1_68.a)
-    endif()
-else()
-    target_link_libraries(${TARGET_NAME} Boost::boost Boost::system Boost::thread Boost::regex Boost::filesystem Boost::program_options Boost::log Boost::locale)
-    if(APPLE AND Boost_USE_STATIC_LIBS)
-        target_link_libraries(${TARGET_NAME} ICU::uc ICU::data ICU::i18n Iconv::Iconv)
-    endif()
+    target_link_libraries(${TARGET_NAME} 
+            $ENV{BOOST_ROOT_ANDROID}/libs/${ANDROID_ABI}/libboost_program_options${ANDROID_SUFFIX} 
+            $ENV{BOOST_ROOT_ANDROID}/libs/${ANDROID_ABI}/libboost_filesystem${ANDROID_SUFFIX}
+            $ENV{BOOST_ROOT_ANDROID}/libs/${ANDROID_ABI}/libboost_system${ANDROID_SUFFIX}
+            $ENV{BOOST_ROOT_ANDROID}/libs/${ANDROID_ABI}/libboost_thread${ANDROID_SUFFIX}
+            $ENV{BOOST_ROOT_ANDROID}/libs/${ANDROID_ABI}/libboost_regex${ANDROID_SUFFIX}
+            $ENV{BOOST_ROOT_ANDROID}/libs/${ANDROID_ABI}/libboost_log${ANDROID_SUFFIX}
+)
+endif()
+
+target_link_libraries(${TARGET_NAME}
+    Boost::boost 
+    Boost::system 
+    Boost::thread 
+    Boost::regex 
+    Boost::filesystem 
+    Boost::program_options 
+    Boost::log 
+    Boost::locale
+)
+
+if(APPLE AND Boost_USE_STATIC_LIBS)
+    target_compile_definitions(${TARGET_NAME} PRIVATE U_STATIC_IMPLEMENTATION) 
+    target_link_libraries(${TARGET_NAME} 
+        ICU::uc 
+        ICU::data 
+        ICU::i18n 
+        Iconv::Iconv
+    )
 endif()
 
 if(MSVC)

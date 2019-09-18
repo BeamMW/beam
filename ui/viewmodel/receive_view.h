@@ -68,7 +68,6 @@ private:
 private slots:
     void onGeneratedNewAddress(const beam::wallet::WalletAddress& walletAddr);
     void onReceiverQRChanged();
-    void onNewAddressFailed();
 
 private:
     double  _amountToReceive;
