@@ -1335,6 +1335,7 @@ void Node::Peer::OnMsg(proto::Authentication&& msg)
     LOG_INFO() << m_RemoteAddr << " received PI";
 
     PeerMan& pm = m_This.m_PeerMan; // alias
+	PeerManager::TimePoint tp;
 
     if (m_pInfo)
     {

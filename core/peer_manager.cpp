@@ -289,7 +289,7 @@ void PeerManager::OnActive(PeerInfo& pi, bool bActive)
 	if (pi.m_Active.m_Now != bActive)
 	{
 		pi.m_Active.m_Now = bActive;
-		pi.m_LastActivity_ms = GetTimeNnz_ms();
+		pi.m_LastActivity_ms = TimePoint::get();
 
 		if (bActive)
 			m_Active.push_back(pi.m_Active);
