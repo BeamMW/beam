@@ -14,6 +14,7 @@
 
 #include "peer_manager.h"
 #include "../utility/logger.h"
+#include <math.h> // log, exp
 
 namespace beam {
 
