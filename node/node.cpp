@@ -458,6 +458,8 @@ void Node::Peer::SetTimerWrtFirstTask()
 	}
 	else
 	{
+		// TODO - timer w.r.t. rating, i.e. should not exceed much the best avail peer rating
+
 		uint32_t timeout_ms = m_lstTasks.front().m_Key.second ?
 			m_This.m_Cfg.m_Timeout.m_GetBlock_ms :
 			m_This.m_Cfg.m_Timeout.m_GetState_ms;
@@ -1210,10 +1212,7 @@ void Node::Peer::OnRequestTimeout()
 	LOG_WARNING() << "Peer " << m_RemoteAddr << " request timeout";
 
 	if (m_pInfo)
-	{
-		ModifyRatingWrtData(0);
-		m_This.m_PeerMan.ModifyRating(*m_pInfo, PeerMan::Rating::PenaltyTimeout, false); // task (request) wasn't handled in time.
-	}
+		ModifyRatingWrtData(0); // task (request) wasn't handled in time.
 
     DeleteSelf(false, ByeReason::Timeout);
 }
@@ -1540,13 +1539,24 @@ void Node::Peer::DeleteSelf(bool bIsError, uint8_t nByeReason)
 
 		m_This.m_PeerMan.OnActive(pip, false);
 
-        if (bIsError)
-            m_This.m_PeerMan.OnRemoteError(pip, ByeReason::Ban == nByeReason);
+		if (bIsError)
+		{
+			if (ByeReason::Ban == nByeReason)
+				m_This.m_PeerMan.Ban(pip);
+			else
+			{
+				PeerManager::TimePoint tp;
+				uint32_t dt_ms = tp.get() - pip.m_LastActivity_ms;
+				if (dt_ms < m_This.m_PeerMan.m_Cfg.m_TimeoutDisconnect_ms)
+					m_This.m_PeerMan.SetRating(pip, pip.m_RawRating.m_Value > PeerManager::Rating::PenaltyNetworkErr ? (pip.m_RawRating.m_Value - PeerManager::Rating::PenaltyNetworkErr) : 1);
+			}
+		}
 
 		if (m_This.m_PeerMan.get_Ratings().size() > m_This.m_PeerMan.m_Cfg.m_DesiredTotal)
 		{
 			bool bDelete =
 				!pip.m_LastSeen || // never seen
+				// TODO - define the lowest-threshold rating, below which it's ok to delete
 				((1 == pip.m_RawRating.m_Value) && m_This.m_PeerMan.IsOutdated(pip)); // lowest rating, not seen for a while
 
 			if (bDelete)
@@ -1630,7 +1640,7 @@ void Node::Peer::OnMsg(proto::NewTip&& msg)
             // no break;
 
         case NodeProcessor::DataStatus::Accepted:
-            m_This.m_PeerMan.ModifyRating(*m_pInfo, PeerMan::Rating::RewardHeader, true);
+			m_This.m_PeerMan.SetRating(*m_pInfo, m_pInfo->m_RawRating.m_Value + PeerMan::Rating::RewardFirstHeader);
             m_This.RefreshCongestions();
             break; // since we made OnPeerInsane handling asynchronous - no need to return rapidly
 
@@ -1761,7 +1771,6 @@ void Node::Peer::OnMsg(proto::HdrPack&& msg)
     Cast::Down<Block::SystemState::Sequence::Prefix>(s) = msg.m_Prefix;
     Cast::Down<Block::SystemState::Sequence::Element>(s) = msg.m_vElements.back();
 
-    uint32_t nAccepted = 0;
     bool bInvalid = false;
 
 	Block::SystemState::ID idLast;
@@ -1776,7 +1785,7 @@ void Node::Peer::OnMsg(proto::HdrPack&& msg)
             break;
 
         case NodeProcessor::DataStatus::Accepted:
-            nAccepted++;
+			// no break;
 
         default:
             break; // suppress warning
@@ -1797,9 +1806,6 @@ void Node::Peer::OnMsg(proto::HdrPack&& msg)
 	LOG_INFO() << "Hdr pack received " << msg.m_Prefix.m_Height << "-" << idLast;
 
 	ModifyRatingWrtData(sizeof(msg.m_Prefix) + msg.m_vElements.size() * sizeof(msg.m_vElements.front()));
-
-	assert((Flags::PiRcvd & m_Flags) && m_pInfo);
-	m_This.m_PeerMan.ModifyRating(*m_pInfo, PeerMan::Rating::RewardHeader * nAccepted, true);
 
 	if (bInvalid)
 		ThrowUnexpected();
@@ -1952,8 +1958,6 @@ void Node::Peer::OnMsg(proto::Body&& msg)
 		ThrowUnexpected();
 
 	ModifyRatingWrtData(msg.m_Body.m_Eternal.size() + msg.m_Body.m_Perishable.size());
-	assert((Flags::PiRcvd & m_Flags) && m_pInfo);
-	m_This.m_PeerMan.ModifyRating(*m_pInfo, PeerMan::Rating::RewardBlock, true);
 
 	const Block::SystemState::ID& id = t.m_Key.first;
 	Height h = id.m_Height;
@@ -1992,9 +1996,6 @@ void Node::Peer::OnMsg(proto::BodyPack&& msg)
 			msg.m_Bodies[i].m_Perishable.size();
 	}
 	ModifyRatingWrtData(nSize);
-
-	assert((Flags::PiRcvd & m_Flags) && m_pInfo);
-	m_This.m_PeerMan.ModifyRating(*m_pInfo, PeerMan::Rating::RewardBlock, true);
 
 	NodeProcessor::DataStatus::Enum eStatus = NodeProcessor::DataStatus::Rejected;
 	if (!msg.m_Bodies.empty())
@@ -3894,15 +3895,12 @@ void Node::PeerMan::Initialize()
             if (!pPi)
                 continue;
 
-            // set rating (akward, TODO - fix this)
+            // set rating
             uint32_t r = wlk.m_Data.m_Rating;
             if (!r)
                 Ban(*pPi);
             else
-                if (r > pPi->m_RawRating.m_Value)
-                    ModifyRating(*pPi, r - pPi->m_RawRating.m_Value, true);
-                else
-                    ModifyRating(*pPi, pPi->m_RawRating.m_Value - r, false);
+                SetRating(*pPi, r);
 
             pPi->m_LastSeen = wlk.m_Data.m_LastSeen;
         }

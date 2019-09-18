@@ -50,17 +50,10 @@ namespace beam {
 		struct Rating
 		{
 			static const uint32_t Initial = 1024;
-			static const uint32_t RewardHeader = 64;
-			static const uint32_t RewardBlock = 512;
-			static const uint32_t PenaltyTimeout = 256;
+			static const uint32_t RewardFirstHeader = 64;
 			static const uint32_t PenaltyNetworkErr = 128;
-			static const uint32_t Max = 10240; // saturation
 
 			static const uint32_t Starvation_s_ToRatio = 1; // increase per second
-
-			static uint32_t Saturate(uint32_t);
-			static void Inc(uint32_t& r, uint32_t delta);
-			static void Dec(uint32_t& r, uint32_t delta);
 		};
 
 		struct Cfg {
@@ -144,11 +137,10 @@ namespace beam {
 		PeerInfo* Find(const PeerID& id, bool& bCreate);
 
 		void OnActive(PeerInfo&, bool bActive);
-		void ModifyRating(PeerInfo&, uint32_t, bool bAdd);
+		void SetRating(PeerInfo&, uint32_t);
 		void Ban(PeerInfo&);
 		void ResetRatingBoost(PeerInfo&);
 		void OnSeen(PeerInfo&);
-		void OnRemoteError(PeerInfo&, bool bShouldBan);
 		bool IsOutdated(const PeerInfo&) const;
 		void ModifyAddr(PeerInfo&, const io::Address&);
 		void RemoveAddr(PeerInfo&);
@@ -175,7 +167,7 @@ namespace beam {
 		uint32_t m_TicksLast_ms = 0;
 
 		void ActivatePeerInternal(PeerInfo&, uint32_t nTicks_ms, uint32_t& nSelected);
-		void ModifyRatingInternal(PeerInfo&, uint32_t, bool bAdd, bool ban);
+		void SetRatingInternal(PeerInfo&, uint32_t, bool ban);
 	};
 
 	std::ostream& operator << (std::ostream& s, const PeerManager::PeerInfo&);

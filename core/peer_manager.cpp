@@ -37,22 +37,6 @@ uint32_t PeerManager::TimePoint::get()
 	return s_Value_ms ? s_Value_ms : GetTimeNnz_ms();
 }
 
-uint32_t PeerManager::Rating::Saturate(uint32_t v)
-{
-	// try not to take const refernce on Max, so its value can directly be substituted (otherwise gcc link error)
-	return (v < Max) ? v : Max;
-}
-
-void PeerManager::Rating::Inc(uint32_t& r, uint32_t delta)
-{
-	r = Saturate(r + delta);
-}
-
-void PeerManager::Rating::Dec(uint32_t& r, uint32_t delta)
-{
-	r = (r > delta) ? (r - delta) : 1;
-}
-
 uint32_t PeerManager::PeerInfo::AdjustedRating::get() const
 {
 	uint32_t val = get_ParentObj().m_RawRating.m_Value;
@@ -82,7 +66,7 @@ void PeerManager::Update()
 
 			uint32_t dtThis_ms = nTicks_ms - pi.m_LastActivity_ms;
 			if (dtThis_ms >= m_Cfg.m_TimeoutBan_ms)
-				ModifyRatingInternal(pi, 1, true, false);
+				SetRatingInternal(pi, 1, false);
 		}
 	}
 
@@ -194,14 +178,14 @@ void PeerManager::OnSeen(PeerInfo& pi)
 	pi.m_LastSeen = getTimestamp();
 }
 
-void PeerManager::ModifyRating(PeerInfo& pi, uint32_t delta, bool bAdd)
+void PeerManager::SetRating(PeerInfo& pi, uint32_t val)
 {
-	ModifyRatingInternal(pi, delta, bAdd, false);
+	SetRatingInternal(pi, val, false);
 }
 
 void PeerManager::Ban(PeerInfo& pi)
 {
-	ModifyRatingInternal(pi, 0, false, true);
+	SetRatingInternal(pi, 0, true);
 }
 
 void PeerManager::ResetRatingBoost(PeerInfo& pi)
@@ -215,7 +199,7 @@ void PeerManager::ResetRatingBoost(PeerInfo& pi)
 	m_AdjustedRatings.insert(pi.m_AdjustedRating);
 }
 
-void PeerManager::ModifyRatingInternal(PeerInfo& pi, uint32_t delta, bool bAdd, bool ban)
+void PeerManager::SetRatingInternal(PeerInfo& pi, uint32_t val, bool ban)
 {
 	TimePoint tp;
 
@@ -232,12 +216,7 @@ void PeerManager::ModifyRatingInternal(PeerInfo& pi, uint32_t delta, bool bAdd, 
 	}
 	else
 	{
-		if (bAdd)
-			Rating::Inc(pi.m_RawRating.m_Value, delta);
-		else
-			Rating::Dec(pi.m_RawRating.m_Value, delta);
-
-		assert(pi.m_RawRating.m_Value);
+		pi.m_RawRating.m_Value = val ? val : 1;
 
 		if (bWasBanned)
 			pi.m_AdjustedRating.m_BoostFrom_ms = tp.get();
@@ -295,19 +274,6 @@ void PeerManager::OnActive(PeerInfo& pi, bool bActive)
 			m_Active.push_back(pi.m_Active);
 		else
 			m_Active.erase(ActiveList::s_iterator_to(pi.m_Active));
-	}
-}
-
-void PeerManager::OnRemoteError(PeerInfo& pi, bool bShouldBan)
-{
-	if (bShouldBan)
-		Ban(pi);
-	else
-	{
-		TimePoint tp;
-		uint32_t dt_ms = tp.get() - pi.m_LastActivity_ms;
-		if (dt_ms < m_Cfg.m_TimeoutDisconnect_ms)
-			ModifyRating(pi, Rating::PenaltyNetworkErr, false);
 	}
 }
 
