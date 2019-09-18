@@ -1035,6 +1035,11 @@ uint32_t Node::get_AcessiblePeerCount() const
 	return static_cast<uint32_t>(m_PeerMan.get_Addrs().size());
 }
 
+const PeerManager::AddrSet& Node::get_AcessiblePeerAddrs() const
+{
+    return m_PeerMan.get_Addrs();
+}
+
 void Node::InitKeys()
 {
 	if (m_Keys.m_pOwner)

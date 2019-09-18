@@ -183,6 +183,7 @@ struct Node
 	} m_SyncStatus;
 
 	uint32_t get_AcessiblePeerCount() const; // all the peers with known addresses. Including temporarily banned
+    const PeerManager::AddrSet& get_AcessiblePeerAddrs() const;
 
 	bool m_UpdatedFromPeers = false;
 	bool m_PostStartSynced = false;
