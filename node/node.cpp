@@ -1537,32 +1537,33 @@ void Node::Peer::DeleteSelf(bool bIsError, uint8_t nByeReason)
 		PeerMan::PeerInfoPlus& pip = *m_pInfo;
 		m_pInfo->DetachStrict();
 
-		m_This.m_PeerMan.OnActive(pip, false);
+		PeerManager& pm = m_This.m_PeerMan; // alias
+
+		pm.OnActive(pip, false);
 
 		if (bIsError)
 		{
 			if (ByeReason::Ban == nByeReason)
-				m_This.m_PeerMan.Ban(pip);
+				pm.Ban(pip);
 			else
 			{
 				PeerManager::TimePoint tp;
 				uint32_t dt_ms = tp.get() - pip.m_LastActivity_ms;
-				if (dt_ms < m_This.m_PeerMan.m_Cfg.m_TimeoutDisconnect_ms)
-					m_This.m_PeerMan.SetRating(pip, pip.m_RawRating.m_Value > PeerManager::Rating::PenaltyNetworkErr ? (pip.m_RawRating.m_Value - PeerManager::Rating::PenaltyNetworkErr) : 1);
+				if (dt_ms < pm.m_Cfg.m_TimeoutDisconnect_ms)
+					pm.SetRating(pip, pip.m_RawRating.m_Value > PeerManager::Rating::PenaltyNetworkErr ? (pip.m_RawRating.m_Value - PeerManager::Rating::PenaltyNetworkErr) : 1);
 			}
 		}
 
-		if (m_This.m_PeerMan.get_Ratings().size() > m_This.m_PeerMan.m_Cfg.m_DesiredTotal)
+		if (pm.get_Ratings().size() > pm.m_Cfg.m_DesiredTotal)
 		{
 			bool bDelete =
 				!pip.m_LastSeen || // never seen
-				// TODO - define the lowest-threshold rating, below which it's ok to delete
-				((1 == pip.m_RawRating.m_Value) && m_This.m_PeerMan.IsOutdated(pip)); // lowest rating, not seen for a while
+				((1 == pip.m_RawRating.m_Value) && pm.IsOutdated(pip)); // lowest rating, not seen for a while
 
 			if (bDelete)
 			{
 				LOG_INFO() << pip << " Deleted";
-				m_This.m_PeerMan.Delete(pip);
+				pm.Delete(pip);
 			}
 		}
 	}
