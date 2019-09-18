@@ -555,16 +555,26 @@ namespace beam::bitcoin
         connection.m_request = request;
         connection.m_callback = callback;
 
-        m_reactor.tcp_connect(m_settingsProvider->GetElectrumSettings().m_address, currentTag, [this](uint64_t tag, std::unique_ptr<TcpStream>&& newStream, ErrorCode status)
+        m_reactor.tcp_connect(m_settingsProvider->GetElectrumSettings().m_address, currentTag, [this, weak = this->weak_from_this()](uint64_t tag, std::unique_ptr<TcpStream>&& newStream, ErrorCode status)
         {
+            if (weak.expired())
+            {
+                return;
+            }
+
             if (newStream) {
                 assert(status == EC_OK);
                 TCPConnect& connection = m_connections[tag];
 
                 connection.m_stream = std::move(newStream);
 
-                connection.m_stream->enable_read([this, tag](ErrorCode what, void* data, size_t size) -> bool
+                connection.m_stream->enable_read([this, weak, tag](ErrorCode what, void* data, size_t size) -> bool
                 {
+                    if (weak.expired())
+                    {
+                        return false;
+                    }
+
                     bool isFinished = true;
                     Error error{ None, "" };
                     json result;

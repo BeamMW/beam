@@ -19,6 +19,8 @@
 
 #include "nlohmann/json.hpp"
 
+#include <memory>
+
 namespace beam::io
 {
     class TcpStream;
@@ -33,7 +35,7 @@ namespace libbitcoin::wallet
 namespace beam::bitcoin
 {
     // TODO roman.strilets maybe should to use std::enable_shared_from_this
-    class Electrum : public IBridge
+    class Electrum : public IBridge, public std::enable_shared_from_this<Electrum>
     {
     private:
         struct TCPConnect
