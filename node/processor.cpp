@@ -510,7 +510,7 @@ void NodeProcessor::EnumCongestions()
 		NodeDB::StateID sidTrg;
 		sidTrg.SetNull();
 
-		RequestData(id, true, nullptr, sidTrg);
+		RequestData(id, true, sidTrg);
 		return;
 	}
 
@@ -619,10 +619,7 @@ void NodeProcessor::RequestDataInternal(const Block::SystemState::ID& id, uint64
 {
 	if (id.m_Height >= m_Extra.m_LoHorizon)
 	{
-		PeerID peer;
-		bool bPeer = m_DB.get_Peer(row, peer);
-
-		RequestData(id, bBlock, bPeer ? &peer : NULL, sidTrg);
+		RequestData(id, bBlock, sidTrg);
 	}
 	else
 	{

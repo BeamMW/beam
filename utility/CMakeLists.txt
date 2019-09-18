@@ -62,10 +62,6 @@ else()
     target_link_libraries(utility uv)
 endif()
 
-if (UNIX)
-    target_link_libraries(utility ${CMAKE_DL_LIBS})
-endif()
-
 if (IOS)
     target_link_libraries(utility 
         $ENV{BOOST_ROOT_IOS}/lib/libboost_filesystem.a
@@ -82,11 +78,19 @@ target_link_libraries(utility Boost::system Boost::filesystem)
 target_link_libraries(cli Boost::program_options)
 
 target_link_libraries(utility OpenSSL::SSL OpenSSL::Crypto)
+if (LINUX)
+    target_link_libraries(utility ${OPENSSL_SSL_LIBRARY} ${OPENSSL_CRYPTO_LIBRARY})
+endif()
+
 if(OPENSSL_USE_STATIC_LIBS AND MSVC)
     target_link_libraries(utility crypt32.lib)
     if(MSVC_VERSION GREATER_EQUAL 1900)
         target_link_libraries(utility legacy_stdio_definitions.lib)
     endif()
+endif()
+
+if (UNIX)
+    target_link_libraries(utility ${CMAKE_DL_LIBS})
 endif()
 
 add_subdirectory(unittest)

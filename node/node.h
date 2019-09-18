@@ -183,6 +183,7 @@ struct Node
 	} m_SyncStatus;
 
 	uint32_t get_AcessiblePeerCount() const; // all the peers with known addresses. Including temporarily banned
+    const PeerManager::AddrSet& get_AcessiblePeerAddrs() const;
 
 	bool m_UpdatedFromPeers = false;
 	bool m_PostStartSynced = false;
@@ -195,7 +196,7 @@ private:
 		:public NodeProcessor
 	{
 		// NodeProcessor
-		void RequestData(const Block::SystemState::ID&, bool bBlock, const PeerID* pPreferredPeer, const NodeDB::StateID& sidTrg) override;
+		void RequestData(const Block::SystemState::ID&, bool bBlock, const NodeDB::StateID& sidTrg) override;
 		void OnPeerInsane(const PeerID&) override;
 		void OnNewState() override;
 		void OnRolledBack() override;
@@ -299,7 +300,7 @@ private:
 	void UpdateSyncStatus();
 	void UpdateSyncStatusRaw();
 
-	void TryAssignTask(Task&, const PeerID*);
+	void TryAssignTask(Task&);
 	bool TryAssignTask(Task&, Peer&);
 	void DeleteUnassignedTask(Task&);
 
@@ -436,7 +437,7 @@ private:
 			{
 				Peer* m_p;
 
-				bool operator < (const AdjustedRatingLive& x) const { return (get_ParentObj().m_AdjustedRating.get() > x.get_ParentObj().m_AdjustedRating.get()); } // reverse order, begin - max
+				bool operator < (const AdjustedRatingLive& x) const { return (get_ParentObj().m_AdjustedRating < x.get_ParentObj().m_AdjustedRating); }
 
 				IMPLEMENT_GET_PARENT_OBJ(PeerInfoPlus, m_Live)
 			} m_Live;
