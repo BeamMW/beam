@@ -1295,6 +1295,18 @@ or send this address to the sender over secure channel</translation>
         <source>Default fee</source>
         <translation>Default fee</translation>
     </message>
+    <message id="swap-beta-message">
+        <source>Atomic Swap functionality is Beta at the moment. We recommend you not to send large amounts.</source>
+        <translation>Atomic Swap functionality is Beta at the moment. We recommend you not to send large amounts.</translation>
+    </message>
+    <message id="swap-beta-title">
+        <source>Atomic Swap is in BETA</source>
+        <translation>Atomic Swap is in BETA</translation>
+    </message>
+    <message id="swap-beta-button">
+        <source>I understand</source>
+        <translation>I understand</translation>
+    </message>
     <message id="swap-na-message">
         <source>You do not have any 3rd-party currencies connected.\nUpdate your settings and try again.</source>
         <translation>You do not have any 3rd-party currencies connected.\nUpdate your settings and try again.</translation>

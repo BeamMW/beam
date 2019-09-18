@@ -241,3 +241,8 @@ void SwapOffersViewModel::onSwapCoinClientChanged()
 {
     emit stateChanged();
 }
+
+bool SwapOffersViewModel::showBetaWarning() const
+{
+    return true;
+}

@@ -35,8 +35,8 @@ T.Switch {
         x:              control.width - width - control.rightPadding
         y:              parent.height / 2 - height / 2
         radius:         13
-        color:          "transparent"
-        border.color:   Style.content_secondary
+        color:          control.checked ? Qt.rgba(Style.active.r, Style.active.g, Style.active.b, 0.2): "transparent"
+        border.color:   control.checked ? Style.active : Style.content_secondary
 
         Rectangle {
             id:           handle

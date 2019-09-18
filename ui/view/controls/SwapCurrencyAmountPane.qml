@@ -3,6 +3,8 @@ import QtQuick.Layouts 1.3
 
 Rectangle {
 
+    property color borderColor: Style.sawpCurrencyOptionsBorder
+    property int borderSize: 0
     property color gradLeft: Style.swapCurrencyPaneGrLeftBEAM
     property color gradRight: Style.swapCurrencyPaneGrRight
     property string currencyIcon: ""
@@ -29,6 +31,10 @@ Rectangle {
         gradient: Gradient {
             GradientStop { position: 0.0; color: gradLeft }
             GradientStop { position: 1.0; color: gradRight }
+        }
+        border {
+            width: borderSize
+            color: borderColor
         }
     }
     Item {

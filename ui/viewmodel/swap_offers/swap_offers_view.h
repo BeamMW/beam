@@ -26,15 +26,16 @@ using namespace beam::wallet;
 class SwapOffersViewModel : public QObject
 {
 	Q_OBJECT
-    Q_PROPERTY(QAbstractItemModel*  transactions    READ getTransactions    NOTIFY allTransactionsChanged)
-    Q_PROPERTY(QAbstractItemModel*  allOffers       READ getAllOffers       NOTIFY allOffersChanged)
-    Q_PROPERTY(double               beamAvailable   READ beamAvailable      NOTIFY stateChanged)
-    Q_PROPERTY(double               btcAvailable    READ btcAvailable       NOTIFY stateChanged)
-    Q_PROPERTY(double               ltcAvailable    READ ltcAvailable       NOTIFY stateChanged)
-    Q_PROPERTY(double               qtumAvailable   READ qtumAvailable      NOTIFY stateChanged)
-    Q_PROPERTY(bool                 btcOK           READ btcOK              NOTIFY stateChanged)
-    Q_PROPERTY(bool                 ltcOK           READ ltcOK              NOTIFY stateChanged)
-    Q_PROPERTY(bool                 qtumOK          READ qtumOK             NOTIFY stateChanged)
+    Q_PROPERTY(QAbstractItemModel*  transactions     READ getTransactions    NOTIFY allTransactionsChanged)
+    Q_PROPERTY(QAbstractItemModel*  allOffers        READ getAllOffers       NOTIFY allOffersChanged)
+    Q_PROPERTY(double               beamAvailable    READ beamAvailable      NOTIFY stateChanged)
+    Q_PROPERTY(double               btcAvailable     READ btcAvailable       NOTIFY stateChanged)
+    Q_PROPERTY(double               ltcAvailable     READ ltcAvailable       NOTIFY stateChanged)
+    Q_PROPERTY(double               qtumAvailable    READ qtumAvailable      NOTIFY stateChanged)
+    Q_PROPERTY(bool                 btcOK            READ btcOK              NOTIFY stateChanged)
+    Q_PROPERTY(bool                 ltcOK            READ ltcOK              NOTIFY stateChanged)
+    Q_PROPERTY(bool                 qtumOK           READ qtumOK             NOTIFY stateChanged)
+    Q_PROPERTY(bool                 showBetaWarning  READ showBetaWarning    NOTIFY showBetaWarningChanged)
 
 public:
     SwapOffersViewModel();
@@ -49,6 +50,7 @@ public:
     bool  btcOK()  const;
     bool  ltcOK()  const;
     bool  qtumOK() const;
+    bool  showBetaWarning() const;
 
     Q_INVOKABLE int getCoinType();
     Q_INVOKABLE void setCoinType(int coinType);
@@ -68,6 +70,7 @@ signals:
     void allTransactionsChanged();
     void allOffersChanged();
     void stateChanged();
+    void showBetaWarningChanged();
 
 private:
     WalletModel& m_walletModel;

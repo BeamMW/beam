@@ -5,7 +5,7 @@ import QtQuick.Controls.Styles 1.2
 import QtQuick.Layouts 1.3
 import "controls"
 import "utils.js" as Utils
-import Beam.Wallet 1.0;
+import Beam.Wallet 1.0
 
 Item {
     id: offersViewRoot
@@ -16,6 +16,25 @@ Item {
 
     SwapOffersViewModel {
         id: viewModel
+    }
+
+    ConfirmationDialog {
+        id: betaDialog
+        //% "Atomic Swap is in BETA"
+        title: qsTrId("swap-beta-title")
+        //% "I understand"
+        okButtonText:        qsTrId("swap-beta-button")
+        okButtonIconSource:  "qrc:/assets/icon-done.svg"
+        cancelButtonVisible: false
+        width: 470
+        //% "Atomic Swap functionality is Beta at the moment. We recommend you not to send large amounts."
+        text: qsTrId("swap-beta-message")
+    }
+
+    Component.onCompleted: {
+        if (viewModel.showBetaWarning) {
+            betaDialog.open()
+        }
     }
 
     RowLayout {
@@ -74,7 +93,7 @@ Item {
             RowLayout {
                 Layout.alignment: Qt.AlignLeft | Qt.AlignTop
                 Layout.topMargin: 30
-                spacing: 5
+                spacing: 10
 
                 SwapCurrencyAmountPane {
                     gradLeft: Style.swapCurrencyPaneGrLeftBEAM
@@ -116,9 +135,15 @@ Item {
                     textSize: 14
                     textColor: Style.active
                     isOk: true
+                    borderSize: 1
                     visible: !BeamGlobals.haveBtc() || !BeamGlobals.haveLtc() || !BeamGlobals.haveQtum()
-                    onClick: function() {
-                        main.openSwapSettings();
+                    MouseArea {
+                        id:                clickArea
+                        anchors.fill:      parent
+                        acceptedButtons:   Qt.LeftButton
+                        onClicked:         main.openSwapSettings()
+                        hoverEnabled:      true
+                        onPositionChanged: clickArea.cursorShape = Qt.PointingHandCursor;
                     }
                 }
                 Component.onCompleted: {
@@ -138,11 +163,11 @@ Item {
                 Layout.alignment: Qt.AlignTop
                 Layout.fillWidth: true
                 Layout.topMargin: 50
-                // Layout.bottomMargin: 20
 
                 TxFilter {
                     id: offersTabSelector
                     Layout.alignment: Qt.AlignTop
+                    Layout.leftMargin: 7
                     //% "Active offers"
                     label: qsTrId("atomic-swap-active-offers-tab")
                     onClicked: atomicSwapLayout.state = "offers"
@@ -179,11 +204,13 @@ Item {
                 id: activeOffersTab
                 visible: false
 
-                Layout.fillWidth : true
-                Layout.fillHeight : true
+                Layout.fillWidth:  true
+                Layout.fillHeight: true
+                Layout.topMargin:  20
 
                 RowLayout {
-                    
+                    spacing: 0
+
                     SFText {
                         Layout.alignment: Qt.AlignHCenter | Qt.AlignLeft
                         font.pixelSize: 14
@@ -195,13 +222,15 @@ Item {
 
                     CustomSwitch {
                         Layout.alignment: Qt.AlignHCenter | Qt.AlignLeft
+                        opacity: 0.6
                         onClicked: {
                             console.log("todo: send/receive switch pressed");
                         }
                     }
 
                     SFText {
-                        Layout.alignment: Qt.AlignHCenter | Qt.AlignLeft
+                        Layout.alignment:  Qt.AlignHCenter | Qt.AlignLeft
+                        Layout.leftMargin: 10
                         font.pixelSize: 14
                         color: Style.content_main
                         opacity: 0.6
@@ -211,13 +240,10 @@ Item {
 
                     CustomCheckBox {
                         id: checkboxOnlyMyOffers
-                        Layout.alignment: Qt.AlignHCenter | Qt.AlignLeft
+                        Layout.alignment:  Qt.AlignHCenter
                         Layout.leftMargin: 60
                         //% "Only my offers"
-                        text: qsTrId("atomic-swap-only-my-offers")
-                        // opacity: 0.5
-                        // font.pixelSize: 14
-                        // color: Style.content_main
+                        text:           qsTrId("atomic-swap-only-my-offers")
                     }
 
                     CustomCheckBox {
@@ -225,9 +251,6 @@ Item {
                         Layout.leftMargin: 60
                         //% "Fit my current balance"
                         text: qsTrId("atomic-swap-fit-current-balance")
-                        // opacity: 0.5
-                        // font.pixelSize: 14
-                        // color: Style.content_main
                         onClicked: {
                             console.log("todo: fit current balance checkbox pressed");
                         }
@@ -412,8 +435,9 @@ Item {
                 id: transactionsTab
                 visible: false
 
-                Layout.fillWidth : true
-                Layout.fillHeight : true
+                Layout.fillWidth:  true
+                Layout.fillHeight: true
+                Layout.topMargin:  14
 
                 state: "filterAllTransactions"
 
@@ -422,6 +446,7 @@ Item {
                     TxFilter {
                         id: allTabSelector
                         Layout.rightMargin: 40
+                        Layout.leftMargin: 7
                         //% "All"
                         label: qsTrId("atomic-swap-all-transactions-tab")
                         onClicked: transactionsTab.state = "filterAllTransactions"
@@ -448,7 +473,7 @@ Item {
                         // shadowSamples: 7
                         // Layout.margins: shadowRadius
                         // leftPadding: 5
-                        // rightPadding: 5
+                        rightPadding: 5
                         textOpacity: 0
                         icon.source: "qrc:/assets/icon-delete.svg"
                         // enabled: localNodeRun.checked
@@ -475,7 +500,7 @@ Item {
                     Layout.alignment: Qt.AlignTop
                     Layout.fillWidth: true
                     Layout.fillHeight: true
-                    Layout.topMargin: 14
+                    Layout.topMargin: 12
 
                     property int rowHeight: 56
                     property int columnWidth: width / 6
