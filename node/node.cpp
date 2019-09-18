@@ -446,7 +446,12 @@ bool Node::TryAssignTask(Task& t, Peer& p)
     m_lstTasksUnassigned.erase(TaskList::s_iterator_to(t));
     p.m_lstTasks.push_back(t);
 
-	t.m_TimeAssigned_ms = GetTime_ms();
+	PeerManager::TimePoint tp;
+	m_PeerMan.m_LiveSet.erase(PeerMan::LiveSet::s_iterator_to(Cast::Up<PeerMan::PeerInfoPlus>(p.m_pInfo)->m_Live));
+	m_PeerMan.ResetRatingBoost(*p.m_pInfo);
+	m_PeerMan.m_LiveSet.insert(Cast::Up<PeerMan::PeerInfoPlus>(p.m_pInfo)->m_Live);
+
+	t.m_TimeAssigned_ms = tp.get();
 
     if (bEmpty)
         p.SetTimerWrtFirstTask();

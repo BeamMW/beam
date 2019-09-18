@@ -146,6 +146,7 @@ namespace beam {
 		void OnActive(PeerInfo&, bool bActive);
 		void ModifyRating(PeerInfo&, uint32_t, bool bAdd);
 		void Ban(PeerInfo&);
+		void ResetRatingBoost(PeerInfo&);
 		void OnSeen(PeerInfo&);
 		void OnRemoteError(PeerInfo&, bool bShouldBan);
 		bool IsOutdated(const PeerInfo&) const;

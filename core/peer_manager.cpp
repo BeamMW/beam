@@ -204,6 +204,17 @@ void PeerManager::Ban(PeerInfo& pi)
 	ModifyRatingInternal(pi, 0, false, true);
 }
 
+void PeerManager::ResetRatingBoost(PeerInfo& pi)
+{
+	if (!pi.m_RawRating.m_Value)
+		return; //?!
+
+	m_AdjustedRatings.erase(AdjustedRatingSet::s_iterator_to(pi.m_AdjustedRating));
+
+	pi.m_AdjustedRating.m_BoostFrom_ms = TimePoint::get();
+	m_AdjustedRatings.insert(pi.m_AdjustedRating);
+}
+
 void PeerManager::ModifyRatingInternal(PeerInfo& pi, uint32_t delta, bool bAdd, bool ban)
 {
 	TimePoint tp;
