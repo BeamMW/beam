@@ -1692,8 +1692,17 @@ void Node::Peer::ModifyRatingWrtData(size_t nSize)
 
 	uint32_t bw_Bps = static_cast<uint32_t>(nSize * size_t(1000) / dt_ms);
 
-	// TODO ...
-	bw_Bps;
+	uint32_t nRating = PeerManager::Rating::FromBps(bw_Bps);
+
+	// calc weighted avg with previous rating. The weight is dt, consider the prev as 10 sec.
+	const uint32_t nPrev_ms = 10000;
+	uint32_t nWeightTotal_ms = nPrev_ms + dt_ms;
+	if (nWeightTotal_ms < nPrev_ms)
+		return; // crazy overflow?
+
+	uint32_t nRatingAvg = (m_pInfo->m_RawRating.m_Value * nPrev_ms + nRating * dt_ms) / nWeightTotal_ms;
+
+	m_This.m_PeerMan.SetRating(*m_pInfo, nRatingAvg);
 
 }
 

@@ -37,6 +37,26 @@ uint32_t PeerManager::TimePoint::get()
 	return s_Value_ms ? s_Value_ms : GetTimeNnz_ms();
 }
 
+uint32_t PeerManager::Rating::FromBps(uint32_t x)
+{
+	if (x < kNorm)
+		return 0;
+
+	double xRel = double(x) / double(kNorm);
+	return static_cast<uint32_t>(log(xRel) * kA);
+}
+
+uint32_t PeerManager::Rating::ToBps(uint32_t x)
+{
+	if (!x)
+		return 0;
+
+	double ret = exp(double(x) / kA) * kNorm;
+
+	return static_cast<uint32_t>(ret); // don't care about overflow, it's only for logging/UI, and shouldn't happen: we only apply this to raw rating
+}
+
+
 uint32_t PeerManager::PeerInfo::AdjustedRating::get() const
 {
 	uint32_t val = get_ParentObj().m_RawRating.m_Value;
@@ -226,7 +246,7 @@ void PeerManager::SetRatingInternal(PeerInfo& pi, uint32_t val, bool ban)
 
 	m_Ratings.insert(pi.m_RawRating);
 
-	LOG_INFO() << pi << " Rating " << r0 << " -> " << pi.m_RawRating.m_Value;
+	LOG_INFO() << pi << " Rating " << r0 << " -> " << pi.m_RawRating.m_Value << ", <Bps>=" << Rating::ToBps(pi.m_RawRating.m_Value);
 }
 
 void PeerManager::RemoveAddr(PeerInfo& pi)

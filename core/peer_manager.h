@@ -27,8 +27,9 @@ namespace beam {
 	public:
 
 		// Rating system:
+		//	Represents the "effective" bandwidth" on a logarithmic scale, i.e. Rating = A*Log(Bw/norm)
 		//	Initially set to default (non-zero)
-		//	Increased after a valid data is received from this peer (minor for header and transaction, major for a block)
+		//	Adjusted each time the data download (by request) has been completed
 		//	Decreased if the peer fails to accomplish the data request ()
 		//	Decreased on network error shortly after connect/accept (or inability to connect)
 		//	Reset to 0 for banned peers. Triggered upon:
@@ -39,21 +40,41 @@ namespace beam {
 		//	Connection to banned peers is disallowed for at least specified time period (even if no other options left)
 		//	We calculate two ratings for all the peers:
 		//		Raw rating, based on its behavior
-		//		Adjusted rating, which is increased with the starvation time, i.e. how long ago it was connected
+		//		Adjusted rating, which is increased with the starvation time, i.e. how long ago anything was requested from this peer
 		//	The selection of the peer to performed by selecting two (non-overlapping) groups.
 		//		Those with highest ratings
 		//		Those with highest *adjusted* ratings.
 		//	So that we effectively always try to maintain connection with the best peers, but also shuffle and connect to others.
 		//
 		//	There is a min threshold for connection time, i.e. we won't disconnect shortly after connecting because the rating of this peer went slightly below another candidate
+		//
+		//	At any moment when we need data - it's requested from the connected peer with max adjusted rating. The "starvation bonus" for this peer is immediately reset.
 
 		struct Rating
 		{
 			static const uint32_t Initial = 1024;
+
 			static const uint32_t RewardFirstHeader = 64;
 			static const uint32_t PenaltyNetworkErr = 128;
 
 			static const uint32_t Starvation_s_ToRatio = 1; // increase per second
+
+			// Our Bps -> rating convertion formula:
+			//	Rating = A * log (Bps / norm)
+			// 
+			// We want x2 bw difference be equivalent to ~300 rating units. Means, for a x2 difference the slower peer gets prioity after 5 minutes of starvation.
+			// Hence: A = 430 (roughly)
+			//
+			// The initial rating (for unknown peer) considered to be ~100 KBps.
+			// Hence: 1024 = 430 * log(100 KBps / norm)
+			// norm = 9242 Bps (roughly)
+
+			static const uint32_t kA = 430;
+			static const uint32_t kNorm = 9242;
+
+			static uint32_t FromBps(uint32_t);
+			static uint32_t ToBps(uint32_t);
+
 		};
 
 		struct Cfg {
