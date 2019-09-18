@@ -62,15 +62,15 @@ namespace beam {
 			// Our Bps -> rating convertion formula:
 			//	Rating = A * log (Bps / norm)
 			// 
-			// We want x2 bw difference be equivalent to ~300 rating units. Means, for a x2 difference the slower peer gets prioity after 5 minutes of starvation.
-			// Hence: A = 430 (roughly)
+			// We want x2 bw difference be equivalent to ~120 rating units. Means, for a x2 difference the slower peer gets prioity after 2 minutes of starvation.
+			// Hence: A = 172 (roughly)
 			//
 			// The initial rating (for unknown peer) considered to be ~100 KBps.
-			// Hence: 1024 = 430 * log(100 KBps / norm)
-			// norm = 9242 Bps (roughly)
+			// Hence: 1024 = 172 * log(100 KBps / norm)
+			// norm = 255 Bps (roughly)
 
-			static const uint32_t kA = 430;
-			static const uint32_t kNorm = 9242;
+			static const uint32_t kA = 172;
+			static const uint32_t kNorm = 255;
 
 			static uint32_t FromBps(uint32_t);
 			static uint32_t ToBps(uint32_t);
