@@ -10,7 +10,7 @@ import "./utils.js" as Utils
 
 ColumnLayout {
     id: thisView
-    property var  defaultFocusItem: receiveAmountInput.amountInput
+    property var  defaultFocusItem: sentAmountInput.amountInput
     property bool addressSaved: false
 
     ReceiveSwapViewModel {
@@ -70,25 +70,27 @@ ColumnLayout {
 
         ColumnLayout {
             width: parent.width / 2 - parent.columnSpacing / 2
+
             //
-            // Amount
+            // Sent amount
             //
             AmountInput {
                 Layout.topMargin: 35
-                //% "Receive amount"
-                title:            qsTrId("receive-amount-swap-label")
-                id:               receiveAmountInput
+                //% "Sent amount"
+                title:            qsTrId("sent-amount-label")
+                id:               sentAmountInput
+                color:            Style.accent_outgoing
                 hasFee:           true
-                currency:         viewModel.receiveCurrency
-                amount:           viewModel.amountToReceive
+                currency:         viewModel.sentCurrency
+                amount:           viewModel.amountSent
                 multi:            true
                 resetAmount:      false
                 currColor:        currencyError() ? Style.validator_error : Style.content_main
 
                 onCurrencyChanged: {
-                    if(receiveAmountInput.currency != Currency.CurrBeam) {
-                        if(sentAmountInput.currency != Currency.CurrBeam) {
-                            sentAmountInput.currency = Currency.CurrBeam
+                    if(sentAmountInput.currency != Currency.CurrBeam) {
+                        if(receiveAmountInput.currency != Currency.CurrBeam) {
+                            receiveAmountInput.currency = Currency.CurrBeam
                         }
                     }
                 }
@@ -96,20 +98,20 @@ ColumnLayout {
 
             Binding {
                 target:   viewModel
-                property: "amountToReceive"
-                value:    receiveAmountInput.amount
+                property: "amountSent"
+                value:    sentAmountInput.amount
             }
 
             Binding {
                 target:   viewModel
-                property: "receiveCurrency"
-                value:    receiveAmountInput.currency
+                property: "sentCurrency"
+                value:    sentAmountInput.currency
             }
 
             Binding {
                 target:   viewModel
-                property: "receiveFee"
-                value:    receiveAmountInput.fee
+                property: "sentFee"
+                value:    sentAmountInput.fee
             }
 
             //
@@ -160,25 +162,24 @@ ColumnLayout {
             width: parent.width / 2 - parent.columnSpacing / 2
 
             //
-            // Sent amount
+            // Receive Amount
             //
             AmountInput {
                 Layout.topMargin: 35
-                //% "Sent amount"
-                title:            qsTrId("sent-amount-label")
-                id:               sentAmountInput
-                color:            Style.accent_outgoing
+                //% "Receive amount"
+                title:            qsTrId("receive-amount-swap-label")
+                id:               receiveAmountInput
                 hasFee:           true
-                currency:         viewModel.sentCurrency
-                amount:           viewModel.amountSent
+                currency:         viewModel.receiveCurrency
+                amount:           viewModel.amountToReceive
                 multi:            true
                 resetAmount:      false
                 currColor:        currencyError() ? Style.validator_error : Style.content_main
 
                 onCurrencyChanged: {
-                    if(sentAmountInput.currency != Currency.CurrBeam) {
-                        if(receiveAmountInput.currency != Currency.CurrBeam) {
-                            receiveAmountInput.currency = Currency.CurrBeam
+                    if(receiveAmountInput.currency != Currency.CurrBeam) {
+                        if(sentAmountInput.currency != Currency.CurrBeam) {
+                            sentAmountInput.currency = Currency.CurrBeam
                         }
                     }
                 }
@@ -186,20 +187,20 @@ ColumnLayout {
 
             Binding {
                 target:   viewModel
-                property: "amountSent"
-                value:    sentAmountInput.amount
+                property: "amountToReceive"
+                value:    receiveAmountInput.amount
             }
 
             Binding {
                 target:   viewModel
-                property: "sentCurrency"
-                value:    sentAmountInput.currency
+                property: "receiveCurrency"
+                value:    receiveAmountInput.currency
             }
 
             Binding {
                 target:   viewModel
-                property: "sentFee"
-                value:    sentAmountInput.fee
+                property: "receiveFee"
+                value:    receiveAmountInput.fee
             }
 
             //
@@ -250,12 +251,73 @@ ColumnLayout {
                 text:             qsTrId("general-rate")
             }
 
-            SFText {
-                id:               rate
+            RowLayout
+            {
+                id: rateRow
                 Layout.topMargin: 3
-                font.pixelSize:   14
-                color:            Style.content_secondary
-                text:             ["1", receiveAmountInput.currencyLabel, "=", Utils.calcDisplayRate(receiveAmountInput, sentAmountInput), sentAmountInput.currencyLabel].join(" ")
+                Layout.fillWidth: true
+
+                function calcRate () {
+                    if (sentAmountInput.amount == 0) return 0
+                    if (rate.text == "?" || rate.text == "") return 0
+                    return parseFloat(rate.text)
+                }
+
+                function calcRAmount () {
+                    var rate = calcRate()
+                    if (rate == 0) return 0
+                    var ramount = sentAmountInput.amount / rate
+                    return ramount.toFixed(8).replace(/\.?0+$/,"")
+                }
+
+                function rateValid () {
+                    var ramount = calcRAmount()
+                    var rate = calcRate()
+                    return rate == 0 || (ramount >= 0.00000001 && ramount <= 99999999)
+                }
+
+                SFText {
+                    font.pixelSize:   14
+                    color:            rateRow.rateValid() ? Style.content_secondary : Style.validator_error
+                    text:             ["1", receiveAmountInput.currencyLabel, "="].join(" ")
+                }
+
+                SFTextInput {
+                    id:               rate
+                    activeFocusOnTab: true
+                    font.pixelSize:   14
+                    color:            rateRow.rateValid() ? Style.content_main : Style.validator_error
+                    backgroundColor:  rateRow.rateValid() ? Style.content_main : Style.validator_error
+                    text:             Utils.calcDisplayRate(receiveAmountInput, sentAmountInput, rate.focus)
+                    selectByMouse:    true
+                    maximumLength:    30
+                    validator:        DoubleValidator {
+                                         bottom: 0.00000001;
+                                         top: 9999999900000000;
+                                         notation: DoubleValidator.StandardNotation
+                                      }
+                    onTextEdited: {
+                        // unbind
+                        text = text
+                        // update
+                        if (sentAmountInput.amount == 0) sentAmountInput.amount = 1
+                        if (rateRow.calcRAmount()) receiveAmountInput.amount = rateRow.calcRAmount()
+                    }
+
+                    onFocusChanged: {
+                        if (!focus) {
+                            text = Qt.binding(function() {
+                                    return Utils.calcDisplayRate(receiveAmountInput, sentAmountInput, rate.focus)
+                                })
+                        }
+                    }
+                }
+
+                SFText {
+                    font.pixelSize:  14
+                    color:           rateRow.rateValid() ? Style.content_secondary : Style.validator_error
+                    text:            sentAmountInput.currencyLabel
+                }
             }
         }
     }
