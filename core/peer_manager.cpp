@@ -17,6 +17,26 @@
 
 namespace beam {
 
+thread_local uint32_t PeerManager::TimePoint::s_Value_ms = 0;
+
+PeerManager::TimePoint::TimePoint()
+{
+	m_Set = !s_Value_ms;
+	if (m_Set)
+		s_Value_ms = GetTimeNnz_ms();
+}
+
+PeerManager::TimePoint::~TimePoint()
+{
+	if (m_Set)
+		s_Value_ms = 0;
+}
+
+uint32_t PeerManager::TimePoint::get()
+{
+	return s_Value_ms ? s_Value_ms : GetTimeNnz_ms();
+}
+
 uint32_t PeerManager::Rating::Saturate(uint32_t v)
 {
 	// try not to take const refernce on Max, so its value can directly be substituted (otherwise gcc link error)
@@ -35,15 +55,36 @@ void PeerManager::Rating::Dec(uint32_t& r, uint32_t delta)
 
 uint32_t PeerManager::PeerInfo::AdjustedRating::get() const
 {
-	return Rating::Saturate(get_ParentObj().m_RawRating.m_Value + m_Increment);
+	uint32_t val = get_ParentObj().m_RawRating.m_Value;
+	if (val)
+	{
+		uint32_t dt_ms = TimePoint::get() - m_BoostFrom_ms;
+		uint32_t dt_s = dt_ms / 1000;
+		val += dt_s * Rating::Starvation_s_ToRatio;
+	}
+
+	return val;
 }
 
 void PeerManager::Update()
 {
-	uint32_t nTicks_ms = GetTimeNnz_ms();
+	TimePoint tp;
+	uint32_t nTicks_ms = tp.get();
 
 	if (m_TicksLast_ms)
-		UpdateRatingsInternal(nTicks_ms);
+	{
+		// unban peers
+		for (RawRatingSet::reverse_iterator it = m_Ratings.rbegin(); m_Ratings.rend() != it; )
+		{
+			PeerInfo& pi = (it++)->get_ParentObj();
+			if (pi.m_RawRating.m_Value)
+				break; // starting from this - not banned
+
+			uint32_t dtThis_ms = nTicks_ms - pi.m_LastActivity_ms;
+			if (dtThis_ms >= m_Cfg.m_TimeoutBan_ms)
+				ModifyRatingInternal(pi, 1, true, false);
+		}
+	}
 
 	m_TicksLast_ms = nTicks_ms;
 
@@ -110,54 +151,6 @@ void PeerManager::ActivatePeerInternal(PeerInfo& pi, uint32_t nTicks_ms, uint32_
 	}
 }
 
-void PeerManager::UpdateRatingsInternal(uint32_t t_ms)
-{
-	// calc dt in seconds, resistant to rounding
-	uint32_t dt_ms = t_ms - m_TicksLast_ms;
-	uint32_t dt_s = dt_ms / 1000;
-	if ((t_ms % 1000) < (m_TicksLast_ms % 1000))
-		dt_s++;
-
-	uint32_t rInc = dt_s * m_Cfg.m_StarvationRatioInc;
-	uint32_t rDec = dt_s * m_Cfg.m_StarvationRatioDec;
-
-	// First unban peers
-	for (RawRatingSet::reverse_iterator it = m_Ratings.rbegin(); m_Ratings.rend() != it; )
-	{
-		PeerInfo& pi = (it++)->get_ParentObj();
-		if (pi.m_RawRating.m_Value)
-			break; // starting from this - not banned
-
-		assert(!pi.m_AdjustedRating.m_Increment); // shouldn't be adjusted while banned
-
-		uint32_t dtThis_ms = t_ms - pi.m_LastActivity_ms;
-		if (dtThis_ms >= m_Cfg.m_TimeoutBan_ms)
-			ModifyRatingInternal(pi, 1, true, false);
-	}
-
-	// For inactive peers: modify adjusted ratings in-place, no need to rebuild the tree. For active (presumably lesser part) rebuild is necessary
-	for (AdjustedRatingSet::iterator it = m_AdjustedRatings.begin(); m_AdjustedRatings.end() != it; )
-	{
-		PeerInfo& pi = (it++)->get_ParentObj();
-
-		if (pi.m_Active.m_Now)
-			m_AdjustedRatings.erase(AdjustedRatingSet::s_iterator_to(pi.m_AdjustedRating));
-		else
-			Rating::Inc(pi.m_AdjustedRating.m_Increment, rInc);
-	}
-
-	for (ActiveList::iterator it = m_Active.begin(); m_Active.end() != it; it++)
-	{
-		PeerInfo& pi = it->get_ParentObj();
-		assert(pi.m_Active.m_Now);
-		assert(pi.m_RawRating.m_Value); // must not be banned (i.e. must be re-inserted into m_AdjustedRatings).
-
-		uint32_t& val = pi.m_AdjustedRating.m_Increment;
-		val = (val > rDec) ? (val - rDec) : 0;
-		m_AdjustedRatings.insert(pi.m_AdjustedRating);
-	}
-}
-
 PeerManager::PeerInfo* PeerManager::Find(const PeerID& id, bool& bCreate)
 {
 	PeerInfo::ID pid;
@@ -175,6 +168,8 @@ PeerManager::PeerInfo* PeerManager::Find(const PeerID& id, bool& bCreate)
 
 	PeerInfo* ret = AllocPeer();
 
+	TimePoint tp;
+
 	ret->m_ID.m_Key = id;
 	if (!(id == Zero))
 		m_IDs.insert(ret->m_ID);
@@ -182,7 +177,7 @@ PeerManager::PeerInfo* PeerManager::Find(const PeerID& id, bool& bCreate)
 	ret->m_RawRating.m_Value = Rating::Initial;
 	m_Ratings.insert(ret->m_RawRating);
 
-	ret->m_AdjustedRating.m_Increment = 0;
+	ret->m_AdjustedRating.m_BoostFrom_ms = tp.get();
 	m_AdjustedRatings.insert(ret->m_AdjustedRating);
 
 	ret->m_Active.m_Now = false;
@@ -211,16 +206,18 @@ void PeerManager::Ban(PeerInfo& pi)
 
 void PeerManager::ModifyRatingInternal(PeerInfo& pi, uint32_t delta, bool bAdd, bool ban)
 {
+	TimePoint tp;
+
 	uint32_t r0 = pi.m_RawRating.m_Value;
 
 	m_Ratings.erase(RawRatingSet::s_iterator_to(pi.m_RawRating));
-	if (pi.m_RawRating.m_Value)
+	bool bWasBanned = !pi.m_RawRating.m_Value;
+	if (!bWasBanned)
 		m_AdjustedRatings.erase(AdjustedRatingSet::s_iterator_to(pi.m_AdjustedRating));
 
 	if (ban)
 	{
 		pi.m_RawRating.m_Value = 0;
-		pi.m_AdjustedRating.m_Increment = 0;
 	}
 	else
 	{
@@ -230,6 +227,10 @@ void PeerManager::ModifyRatingInternal(PeerInfo& pi, uint32_t delta, bool bAdd, 
 			Rating::Dec(pi.m_RawRating.m_Value, delta);
 
 		assert(pi.m_RawRating.m_Value);
+
+		if (bWasBanned)
+			pi.m_AdjustedRating.m_BoostFrom_ms = tp.get();
+
 		m_AdjustedRatings.insert(pi.m_AdjustedRating);
 	}
 
@@ -292,7 +293,8 @@ void PeerManager::OnRemoteError(PeerInfo& pi, bool bShouldBan)
 		Ban(pi);
 	else
 	{
-		uint32_t dt_ms = GetTimeNnz_ms() - pi.m_LastActivity_ms;
+		TimePoint tp;
+		uint32_t dt_ms = tp.get() - pi.m_LastActivity_ms;
 		if (dt_ms < m_Cfg.m_TimeoutDisconnect_ms)
 			ModifyRating(pi, Rating::PenaltyNetworkErr, false);
 	}

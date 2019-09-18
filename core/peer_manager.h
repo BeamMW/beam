@@ -51,11 +51,12 @@ namespace beam {
 		{
 			static const uint32_t Initial = 1024;
 			static const uint32_t RewardHeader = 64;
-			static const uint32_t RewardTx = 16;
 			static const uint32_t RewardBlock = 512;
 			static const uint32_t PenaltyTimeout = 256;
 			static const uint32_t PenaltyNetworkErr = 128;
 			static const uint32_t Max = 10240; // saturation
+
+			static const uint32_t Starvation_s_ToRatio = 1; // increase per second
 
 			static uint32_t Saturate(uint32_t);
 			static void Inc(uint32_t& r, uint32_t delta);
@@ -69,10 +70,18 @@ namespace beam {
 			uint32_t m_TimeoutReconnect_ms	= 1000;
 			uint32_t m_TimeoutBan_ms		= 1000 * 60 * 10;
 			uint32_t m_TimeoutAddrChange_s	= 60 * 60 * 2;
-			uint32_t m_StarvationRatioInc	= 1; // increase per second while not connected
-			uint32_t m_StarvationRatioDec	= 2; // decrease per second while connected (until starvation reward is zero)
 		} m_Cfg;
 
+		class TimePoint
+		{
+			static thread_local uint32_t s_Value_ms;
+			bool m_Set;
+
+		public:
+			TimePoint();
+			~TimePoint();
+			static uint32_t get();
+		};
 
 		struct PeerInfo
 		{
@@ -97,7 +106,7 @@ namespace beam {
 			struct AdjustedRating
 				:public boost::intrusive::set_base_hook<>
 			{
-				uint32_t m_Increment;
+				uint32_t m_BoostFrom_ms;
 				uint32_t get() const;
 				bool operator < (const AdjustedRating& x) const { return (get() > x.get()); } // reverse order, begin - max
 
@@ -163,8 +172,6 @@ namespace beam {
 		AddrSet m_Addr;
 		ActiveList m_Active;
 		uint32_t m_TicksLast_ms = 0;
-
-		void UpdateRatingsInternal(uint32_t t_ms);
 
 		void ActivatePeerInternal(PeerInfo&, uint32_t nTicks_ms, uint32_t& nSelected);
 		void ModifyRatingInternal(PeerInfo&, uint32_t, bool bAdd, bool ban);
