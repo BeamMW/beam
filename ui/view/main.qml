@@ -17,10 +17,6 @@ Rectangle {
         id: statusbarModel
     }
 
-    TrezorMessage {
-        id: trezorMessage
-    }
-
     color: Style.background_main
 
     MouseArea {
@@ -177,6 +173,8 @@ Rectangle {
         viewModel.resetLockTimer();
     }
 
+    property var trezor_popup
+
     Connections {
         target: viewModel
         onGotoStartScreen: { 
@@ -184,19 +182,25 @@ Rectangle {
         }
 
         onShowTrezorMessage:{
+            trezor_popup = Qt.createComponent("popup_message.qml").createObject(main)
+
             //% "Please, look at your Trezor device to complete actions..."
-            trezorMessage.message = qsTrId("trezor-message")
-            trezorMessage.open()
+            trezor_popup.message = qsTrId("trezor-message")
+            trezor_popup.open()
         }
 
         onHideTrezorMessage:{
-            trezorMessage.close()
+            trezor_popup.close()
         }
 
         onShowTrezorError: function(error) {
             console.log(error)
-            trezorMessage.message = error
-            trezorMessage.open()
+            trezor_popup = Qt.createComponent("popup_message.qml").createObject(main)
+
+            //% "Please, look at your Trezor device to complete actions..."
+            trezor_popup.message = error
+            trezor_popup.open()
+
         }
     }
 

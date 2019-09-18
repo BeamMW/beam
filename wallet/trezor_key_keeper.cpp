@@ -48,7 +48,6 @@ namespace beam::wallet
             {
                 ECC::HKdf::Create(m_sbbsKdf, m_hwWallet.generateKeySync({ 0, 0, Key::Type::Regular }, true).m_X);
             }
-            // throw DeviceNotConnected();
         }
            
         return m_sbbsKdf;

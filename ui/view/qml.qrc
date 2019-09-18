@@ -33,6 +33,7 @@
         <file>controls/IPAddrInput.qml</file>
         <file>controls/SwapNodeSettings.qml</file>
         <file>controls/LinkButton.qml</file>
+        <file>popup_message.qml</file>
         <file>root.qml</file>
         <file>start.qml</file>
         <file>main.qml</file>
@@ -47,7 +48,6 @@
         <file>receive.qml</file>
         <file>receive_regular.qml</file>
         <file>receive_swap.qml</file>
-        <file>receive_addrfail.qml</file>
         <file>send.qml</file>
         <file>send_regular.qml</file>
         <file>send_swap.qml</file>
