@@ -1677,7 +1677,9 @@ void Node::Peer::OnFirstTaskDone()
 
 void Node::Peer::ModifyRatingWrtData(size_t nSize)
 {
-	uint32_t dt_ms = GetTime_ms() - get_FirstTask().m_TimeAssigned_ms;
+	PeerManager::TimePoint tp;
+
+	uint32_t dt_ms = tp.get() - get_FirstTask().m_TimeAssigned_ms;
 	if (!dt_ms)
 		dt_ms = 1;
 
@@ -3972,11 +3974,16 @@ void Node::PeerMan::PeerInfoPlus::Attach(Peer& p)
 	assert(!m_Live.m_p && !p.m_pInfo);
 	m_Live.m_p = &p;
 	p.m_pInfo = this;
+
+	PeerManager::TimePoint tp;
+	p.m_This.m_PeerMan.m_LiveSet.insert(m_Live);
 }
 
 void Node::PeerMan::PeerInfoPlus::DetachStrict()
 {
 	assert(m_Live.m_p && (this == m_Live.m_p->m_pInfo));
+
+	m_Live.m_p->m_This.m_PeerMan.m_LiveSet.erase(PeerMan::LiveSet::s_iterator_to(m_Live));
 
 	m_Live.m_p->m_pInfo = nullptr;
 	m_Live.m_p = nullptr;

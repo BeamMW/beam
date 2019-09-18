@@ -437,7 +437,7 @@ private:
 			{
 				Peer* m_p;
 
-				bool operator < (const AdjustedRatingLive& x) const { return (get_ParentObj().m_AdjustedRating.get() > x.get_ParentObj().m_AdjustedRating.get()); } // reverse order, begin - max
+				bool operator < (const AdjustedRatingLive& x) const { return (get_ParentObj().m_AdjustedRating < x.get_ParentObj().m_AdjustedRating); }
 
 				IMPLEMENT_GET_PARENT_OBJ(PeerInfoPlus, m_Live)
 			} m_Live;
