@@ -136,17 +136,19 @@ namespace beam::wallet
                       , public ISecondSideProvider
         {
         public:
+            Creator(IWalletDB::Ptr walletDB);
             void RegisterFactory(AtomicSwapCoin coinType, ISecondSideFactory::Ptr factory);
         private:
             BaseTransaction::Ptr Create(INegotiatorGateway& gateway
                                       , IWalletDB::Ptr walletDB
                                       , IPrivateKeyKeeper::Ptr keyKeeper
                                       , const TxID& txID) override;
-            bool CanCreate(const TxParameters& parameters) override;
+            void CheckParameters(const TxParameters& parameters) override;
 
             SecondSide::Ptr GetSecondSide(BaseTransaction& tx) override;
         private:
             std::map<AtomicSwapCoin, ISecondSideFactory::Ptr> m_factories;
+            IWalletDB::Ptr m_walletDB;
         };
 
         AtomicSwapTransaction(INegotiatorGateway& gateway

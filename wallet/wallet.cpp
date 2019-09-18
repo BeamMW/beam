@@ -100,7 +100,7 @@ namespace beam::wallet
     {
         assert(walletDB);
         // the only default type of transaction
-        RegisterTransactionType(TxType::Simple, make_unique<SimpleTransaction::Creator>());
+        RegisterTransactionType(TxType::Simple, make_unique<SimpleTransaction::Creator>(m_WalletDB));
     }
 
     Wallet::~Wallet()
@@ -1075,12 +1075,6 @@ namespace beam::wallet
             return wallet::BaseTransaction::Ptr();
         }
 
-        //if (!it->second->CanCreate(msg))
-        //{
-        //    LOG_ERROR() << msg.m_TxID << " It is not permited to create this transaction";
-        //    return wallet::BaseTransaction::Ptr();
-        //}
-
         return it->second->Create(*this, m_WalletDB, m_KeyKeeper, msg.m_TxID);
     }
 
@@ -1099,11 +1093,7 @@ namespace beam::wallet
             return BaseTransaction::Ptr();
         }
 
-        if (!it->second->CanCreate(parameters))
-        {
-            LOG_ERROR() << *parameters.GetTxID() << " It is not permited to create this transaction";
-            return wallet::BaseTransaction::Ptr();
-        }
+        it->second->CheckParameters(parameters);
 
         auto newTx = it->second->Create(*this, m_WalletDB, m_KeyKeeper, *parameters.GetTxID());
         ApplyTransactionParameters(newTx, parameters.GetParameters(), true);

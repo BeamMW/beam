@@ -724,7 +724,8 @@ namespace
         TestWalletRig receiver("receiver", createReceiverWalletDB());
 
         TxID txID = wallet::GenerateTxID();
-        SimpleTransaction::Creator creator;
+        SimpleTransaction::Creator simpleCreator(sender.m_WalletDB);
+        BaseTransaction::Creator& creator = simpleCreator;
         auto tx = creator.Create(gateway, sender.m_WalletDB, sender.m_KeyKeeper, txID);
 
         Height currentHeight = sender.m_WalletDB->getCurrentHeight();
@@ -774,7 +775,8 @@ namespace
         TestWalletRig receiver("receiver", createReceiverWalletDB());
         Height currentHeight = sender.m_WalletDB->getCurrentHeight();
 
-        SimpleTransaction::Creator txCreator;
+        SimpleTransaction::Creator simpleTxCreator(sender.m_WalletDB);
+        BaseTransaction::Creator& txCreator = simpleTxCreator;
         // process TransactionFailedException
         {
             struct TestGateway : EmptyTestGateway

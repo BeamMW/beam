@@ -79,7 +79,7 @@ void InitBitcoin(Wallet& wallet, IWalletDB::Ptr walletDB, io::Reactor& reactor, 
     auto settingsProvider = std::make_shared<bitcoin::SettingsProvider>(walletDB);
     settingsProvider->SetSettings(*settings);
 
-    auto creator = std::make_shared<AtomicSwapTransaction::Creator>();
+    auto creator = std::make_shared<AtomicSwapTransaction::Creator>(walletDB);
     auto bridge = std::make_shared<bitcoin::BitcoinCore017>(reactor, settingsProvider);
     auto factory = wallet::MakeSecondSideFactory<BitcoinSide, bitcoin::BitcoinCore017, bitcoin::ISettingsProvider>(bridge, settingsProvider);
     creator->RegisterFactory(AtomicSwapCoin::Bitcoin, factory);
@@ -91,7 +91,7 @@ void InitElectrum(Wallet& wallet, IWalletDB::Ptr walletDB, io::Reactor& reactor,
     auto settingsProvider = std::make_shared<bitcoin::SettingsProvider>(walletDB);
     settingsProvider->SetSettings(*settings);
 
-    auto creator = std::make_shared<AtomicSwapTransaction::Creator>();
+    auto creator = std::make_shared<AtomicSwapTransaction::Creator>(walletDB);
     auto bridge = std::make_shared<bitcoin::Electrum>(reactor, settingsProvider);
     auto factory = wallet::MakeSecondSideFactory<BitcoinSide, bitcoin::Electrum, bitcoin::ISettingsProvider>(bridge, settingsProvider);
     creator->RegisterFactory(AtomicSwapCoin::Bitcoin, factory);

@@ -1328,7 +1328,7 @@ namespace
 
     void TryToRegisterSwapTxCreators(Wallet& wallet, IWalletDB::Ptr walletDB)
     {
-        auto swapTransactionCreator = std::make_shared<AtomicSwapTransaction::Creator>();
+        auto swapTransactionCreator = std::make_shared<AtomicSwapTransaction::Creator>(walletDB);
         wallet.RegisterTransactionType(TxType::AtomicSwap, std::static_pointer_cast<BaseTransaction::Creator>(swapTransactionCreator));
 
         {

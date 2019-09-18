@@ -28,7 +28,7 @@ ColumnLayout {
         onCantSendToExpired: {
             thisView.enabled = true;
             Qt.createComponent("send_expired.qml")
-                .createObject(sendView)
+                .createObject(thisView)
                 .open();
         }
     }
