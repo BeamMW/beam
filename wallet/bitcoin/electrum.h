@@ -34,7 +34,6 @@ namespace libbitcoin::wallet
 
 namespace beam::bitcoin
 {
-    // TODO roman.strilets maybe should to use std::enable_shared_from_this
     class Electrum : public IBridge, public std::enable_shared_from_this<Electrum>
     {
     private:
