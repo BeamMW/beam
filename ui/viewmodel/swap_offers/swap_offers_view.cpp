@@ -13,6 +13,7 @@
 // limitations under the License.
 
 #include "model/app_model.h"
+#include "model/settings.h"
 #include "swap_offers_view.h"
 using namespace beam;
 using namespace beam::wallet;
@@ -249,5 +250,11 @@ void SwapOffersViewModel::onSwapCoinClientChanged()
 
 bool SwapOffersViewModel::showBetaWarning() const
 {
-    return true;
+    auto& settings = AppModel::getInstance().getSettings();
+    bool showWarning = settings.showSwapBetaWarning();
+    if (showWarning)
+    {
+        settings.setShowSwapBetaWarning(false);
+    }
+    return showWarning;
 }
