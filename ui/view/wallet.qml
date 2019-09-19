@@ -71,18 +71,6 @@ Item {
                 spacing: 19
 
                 CustomButton {
-                    palette.button: Style.accent_incoming
-                    palette.buttonText: Style.content_opposite
-                    icon.source: "qrc:/assets/icon-receive-blue.svg"
-                    //% "Receive"
-                    text: qsTrId("wallet-receive-button")
-
-                    onClicked: {
-                        walletView.push(Qt.createComponent("receive.qml"), {"isSwapView": false});
-                    }
-                }
-
-                CustomButton {
                     palette.button: Style.accent_outgoing
                     palette.buttonText: Style.content_opposite
                     icon.source: "qrc:/assets/icon-send-blue.svg"
@@ -91,6 +79,18 @@ Item {
 
                     onClicked: {
                         walletView.push(Qt.createComponent("send.qml"));
+                    }
+                }
+
+                CustomButton {
+                    palette.button: Style.accent_incoming
+                    palette.buttonText: Style.content_opposite
+                    icon.source: "qrc:/assets/icon-receive-blue.svg"
+                    //% "Receive"
+                    text: qsTrId("wallet-receive-button")
+
+                    onClicked: {
+                        walletView.push(Qt.createComponent("receive.qml"), {"isSwapView": false});
                     }
                 }
             }
@@ -175,15 +175,12 @@ Item {
             }
 
             CustomTableView {
-
                 id: transactionsView
-
                 anchors.fill: parent
                 anchors.topMargin: 394-33
                 Layout.bottomMargin: 9
 
-                property int rowHeight: 69
-
+                property int rowHeight: 56
                 frameVisible: false
                 selectionMode: SelectionMode.NoSelection
                 backgroundVisible: false
@@ -514,10 +511,9 @@ Item {
 
                     width: parent.width
                     Rectangle {
-                            height: transactionsView.rowHeight
-                            width: parent.width
-                            color: Style.background_row_even
-                            visible: styleData.alternate
+                        height: transactionsView.rowHeight
+                        width: parent.width
+                        color: styleData.alternate ? Style.background_row_even : Style.background_row_odd
                     }
 
                     Column {

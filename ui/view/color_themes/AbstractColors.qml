@@ -15,10 +15,12 @@ QtObject {
     property color background_main_top;
     property color background_second;
     property color background_row_even;
+    property color background_row_odd;
     property color background_details;
     property color background_button;
     property color row_selected;
     property color separator;
+    property color table_header;
 
     property color active;
     property color passive;
