@@ -1181,7 +1181,9 @@ namespace
 
         WalletAddress senderAddress = GenerateNewAddress(walletDB, "", keyKeeper);
 
-        auto swapTxParameters = InitNewSwap(senderAddress.m_walletID, amount, fee, swapCoin, swapAmount, isBeamSide);
+        // TODO:SWAP use async callbacks or IWalletObserver?
+        Height minHeight = walletDB->getCurrentHeight();
+        auto swapTxParameters = InitNewSwap(senderAddress.m_walletID, minHeight, amount, fee, swapCoin, swapAmount, isBeamSide);
 
         boost::optional<TxID> currentTxID = wallet.StartTransaction(swapTxParameters);
 

@@ -26,7 +26,7 @@ using namespace ECC;
 namespace beam::wallet
 {
     /// Swap Parameters 
-    TxParameters InitNewSwap(const WalletID& myID, Amount amount, Amount fee, AtomicSwapCoin swapCoin,
+    TxParameters InitNewSwap(const WalletID& myID, Height minHeight, Amount amount, Amount fee, AtomicSwapCoin swapCoin,
         Amount swapAmount, bool isBeamSide /*= true*/,
         Height lifetime /*= kDefaultTxLifetime*/, Height responseTime/* = kDefaultTxResponseTime*/)
     {
@@ -38,8 +38,8 @@ namespace beam::wallet
         parameters.SetParameter(TxParameterID::Fee, fee);
         parameters.SetParameter(TxParameterID::Lifetime, lifetime);
 
-        // Must be reset on first Update when we already have correct current height.
-        parameters.SetParameter(TxParameterID::PeerResponseHeight, responseTime);
+        parameters.SetParameter(TxParameterID::MinHeight, minHeight);
+        parameters.SetParameter(TxParameterID::PeerResponseHeight, minHeight + responseTime);
         parameters.SetParameter(TxParameterID::MyID, myID);
         parameters.SetParameter(TxParameterID::IsSender, isBeamSide);
         parameters.SetParameter(TxParameterID::IsInitiator, false);
@@ -51,14 +51,10 @@ namespace beam::wallet
         return parameters;
     }
 
-
     TxParameters CreateSwapParameters()
     {
         return CreateTransactionParameters(TxType::AtomicSwap)
-            .SetParameter(TxParameterID::TransactionType, TxType::AtomicSwap)
-            .SetParameter(TxParameterID::IsSender, true)
-            .SetParameter(TxParameterID::IsInitiator, false)
-            .SetParameter(TxParameterID::AtomicSwapIsBeamSide, true);
+            .SetParameter(TxParameterID::IsInitiator, false);
     }
 
     TxParameters AcceptSwapParameters(const TxParameters& initialParameters, const WalletID& myID)
@@ -268,15 +264,6 @@ namespace beam::wallet
 
             State state = GetState(kDefaultSubTxID);
             bool isBeamOwner = IsBeamSide();
-
-            if (Height minHeight = 0; (state == State::Initial) && IsInitiator() && !GetParameter(TxParameterID::MinHeight, minHeight))
-            {
-                // init all heights
-                Height currentHeight = m_WalletDB->getCurrentHeight();
-                Height responseTime = GetMandatoryParameter<Height>(TxParameterID::PeerResponseHeight);
-                SetParameter(TxParameterID::MinHeight, currentHeight, false);
-                SetParameter(TxParameterID::PeerResponseHeight, responseTime + currentHeight);
-            }
 
             switch (state)
             {
@@ -1176,7 +1163,6 @@ namespace beam::wallet
         auto swapCoin = GetMandatoryParameter<AtomicSwapCoin>(TxParameterID::AtomicSwapCoin);
         auto swapPublicKey = GetMandatoryParameter<std::string>(TxParameterID::AtomicSwapPublicKey);
         auto swapLockTime = GetMandatoryParameter<Timestamp>(TxParameterID::AtomicSwapExternalLockTime);
-        auto minHeight = GetMandatoryParameter<Height>(TxParameterID::MinHeight);
         auto lifetime = GetMandatoryParameter<Height>(TxParameterID::Lifetime);
 
         // send invitation
@@ -1184,7 +1170,6 @@ namespace beam::wallet
         msg.AddParameter(TxParameterID::Amount, GetAmount())
             .AddParameter(TxParameterID::Fee, GetMandatoryParameter<Amount>(TxParameterID::Fee))
             .AddParameter(TxParameterID::IsSender, !IsSender())
-            .AddParameter(TxParameterID::MinHeight, minHeight)
             .AddParameter(TxParameterID::Lifetime, lifetime)
             .AddParameter(TxParameterID::AtomicSwapAmount, swapAmount)
             .AddParameter(TxParameterID::AtomicSwapCoin, swapCoin)

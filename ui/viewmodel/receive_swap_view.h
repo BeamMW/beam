@@ -94,6 +94,7 @@ private:
 private slots:
     void onGeneratedNewAddress(const beam::wallet::WalletAddress& walletAddr);
     void onNewAddressFailed();
+    void onWalletStatus(const beam::wallet::WalletStatus& status);
 
 private:
     double  _amountToReceive;
@@ -108,4 +109,5 @@ private:
     beam::wallet::WalletAddress _receiverAddress;
     WalletModel& _walletModel;
     beam::wallet::TxParameters _txParameters;
+    beam::Height _currentHeight;
 };
