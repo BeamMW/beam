@@ -38,15 +38,16 @@ Rectangle {
     }
     Item {
         anchors.fill: parent
-        anchors.margins: {
-            left: 20
-            right: 10
-        }
 
         Item {
             id: currencyLogo
             width: childrenRect.width
+            height: childrenRect.height
             anchors.verticalCenter: parent.verticalCenter
+            anchors.left: parent.left
+            anchors.margins: {
+                left: 20
+            }
             Image {
                 anchors.verticalCenter: parent.verticalCenter
                 source: currencyIcon
@@ -59,17 +60,18 @@ Rectangle {
                 
                 Image {
                     anchors.verticalCenter: parent.verticalCenter
-                    x: parent.x + index * 15
+                    x: parent.x + index * 15 - 20
                     source: currencyIcons[index]
                 }
             }
         }
 
         SFText {
-            anchors.left: parent.left
+            id: amountValue
+            anchors.left: currencyLogo.right
             anchors.right: parent.right
             anchors.verticalCenter: parent.verticalCenter
-            leftPadding: 20 + currencyLogo.width
+            leftPadding: 20
             font.pixelSize: textSize
             color: textColor
             elide: Text.ElideRight
@@ -78,10 +80,11 @@ Rectangle {
         }
 
         SFText {
-            anchors.left: parent.left
-            anchors.right: parent.right
+            id: connectionError
+            anchors.left: currencyLogo.right
+            anchors.right: connectionErrorIndicator.left
             anchors.verticalCenter: parent.verticalCenter
-            leftPadding: 5 + currencyLogo.width
+            leftPadding: 5
             rightPadding: 5
             font.pixelSize: 12
             verticalAlignment: Text.AlignVCenter
@@ -98,6 +101,7 @@ Rectangle {
         }
 
         Item {
+            id: connectionErrorIndicator
             anchors.right: parent.right
             anchors.verticalCenter: parent.verticalCenter
             width: childrenRect.width
@@ -113,15 +117,6 @@ Rectangle {
                 height: parent.radius * 2
                 radius: parent.radius
                 color: stateIndicatorColor
-            }
-        }
-    }
-    MouseArea {
-        anchors.fill: parent
-        acceptedButtons: Qt.LeftButton
-        onClicked: {
-            if (onClick && typeof onClick === 'function') {
-                onClick();
             }
         }
     }
