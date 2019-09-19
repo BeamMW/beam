@@ -27,8 +27,6 @@ SwapOffersViewModel::SwapOffersViewModel()
         m_ltcClient(AppModel::getInstance().getLitecoinClient()),
         m_qtumClient(AppModel::getInstance().getQtumClient())
 {
-    LOG_INFO() << "SwapOffersViewModel created";
-
     connect(&m_walletModel,
             SIGNAL(txStatus(beam::wallet::ChangeAction, const std::vector<beam::wallet::TxDescription>&)),
             SLOT(onTransactionsDataModelChanged(beam::wallet::ChangeAction, const std::vector<beam::wallet::TxDescription>&)));
@@ -154,37 +152,37 @@ void SwapOffersViewModel::deleteTx(QVariant variantTxID)
 
 void SwapOffersViewModel::onTransactionsDataModelChanged(beam::wallet::ChangeAction action, const std::vector<beam::wallet::TxDescription>& transactions)
 {
-    vector<shared_ptr<TxObject>> newTransactions;
-    newTransactions.reserve(transactions.size());
+    vector<shared_ptr<TxObject>> modifiedTransactions;
+    modifiedTransactions.reserve(transactions.size());
 
     for (const auto& t : transactions)
     {
-        newTransactions.push_back(make_shared<TxObject>(t));
+        modifiedTransactions.push_back(make_shared<TxObject>(t));
     }
 
     switch (action)
     {
     case ChangeAction::Reset:
         {
-            m_transactionsList.reset(newTransactions);
+            m_transactionsList.reset(modifiedTransactions);
             break;
         }
 
     case ChangeAction::Removed:
         {
-            // todo
+            m_transactionsList.remove(modifiedTransactions);
             break;
         }
 
     case ChangeAction::Added:
         {
-            m_transactionsList.insert(newTransactions);
+            m_transactionsList.insert(modifiedTransactions);
             break;
         }
     
     case ChangeAction::Updated:
         {
-            // todo
+            m_transactionsList.update(modifiedTransactions);
             break;
         }
 
@@ -198,8 +196,8 @@ void SwapOffersViewModel::onTransactionsDataModelChanged(beam::wallet::ChangeAct
 
 void SwapOffersViewModel::onSwapOffersDataModelChanged(beam::wallet::ChangeAction action, const std::vector<beam::wallet::SwapOffer>& offers)
 {
-    vector<shared_ptr<SwapOfferItem>> newOffers;
-    newOffers.reserve(offers.size());
+    vector<shared_ptr<SwapOfferItem>> modifiedOffers;
+    modifiedOffers.reserve(offers.size());
 
     for (const auto& offer : offers)
     {
@@ -207,7 +205,7 @@ void SwapOffersViewModel::onSwapOffersDataModelChanged(beam::wallet::ChangeActio
         WalletID walletID;
         if (offer.GetParameter(TxParameterID::PeerID, walletID))
         {
-            newOffers.push_back(make_shared<SwapOfferItem>(offer, m_walletModel.isOwnAddress(walletID)));
+            modifiedOffers.push_back(make_shared<SwapOfferItem>(offer, m_walletModel.isOwnAddress(walletID)));
         }
     }
 
@@ -215,18 +213,19 @@ void SwapOffersViewModel::onSwapOffersDataModelChanged(beam::wallet::ChangeActio
     {
     case ChangeAction::Reset:
         {
-            m_offersList.reset(newOffers);
+            m_offersList.reset(modifiedOffers);
             break;
         }
 
     case ChangeAction::Added:
         {
-            m_offersList.insert(newOffers);
+            m_offersList.insert(modifiedOffers);
             break;
         }
+
     case ChangeAction::Removed:
         {
-            m_offersList.remove(newOffers);
+            m_offersList.remove(modifiedOffers);
             break;
         }
     

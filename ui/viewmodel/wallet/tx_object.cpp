@@ -43,6 +43,28 @@ auto TxObject::getTxID() const -> beam::wallet::TxID
     return m_tx.m_txId;
 }
 
+auto TxObject::isBeamSideSwap() const -> bool
+{
+    auto isBeamSide = m_tx.GetParameter<bool>(TxParameterID::AtomicSwapIsBeamSide);
+    return isBeamSide.value();
+}
+
+auto TxObject::getSwapCoinType() const -> beamui::Currencies
+{
+    beam::wallet::AtomicSwapCoin coin;
+    if (m_tx.GetParameter(TxParameterID::AtomicSwapCoin, coin))
+    {
+        switch (coin)
+        {
+            case AtomicSwapCoin::Bitcoin:   return beamui::Currencies::Bitcoin;
+            case AtomicSwapCoin::Litecoin:  return beamui::Currencies::Litecoin;
+            case AtomicSwapCoin::Qtum:      return beamui::Currencies::Qtum;
+            case AtomicSwapCoin::Unknown:   return beamui::Currencies::Unknown;
+        }
+    }
+    return beamui::Currencies::Unknown;
+}
+
 bool TxObject::income() const
 {
     return m_tx.m_sender == false;

@@ -50,4 +50,7 @@ public:
 
     QVariant data(const QModelIndex &index, int role) const override;
     QHash<int, QByteArray> roleNames() const override;
+
+    void remove(const std::vector<std::shared_ptr<TxObject>>& items);
+    void update(const std::vector<std::shared_ptr<TxObject>>& items);
 };

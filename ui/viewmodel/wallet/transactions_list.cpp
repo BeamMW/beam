@@ -106,3 +106,42 @@ auto TransactionsList::data(const QModelIndex &index, int role) const -> QVarian
             return QVariant();
     }
 }
+
+void TransactionsList::remove(const std::vector<std::shared_ptr<TxObject>>& items)
+{
+    for (const auto& item : items)
+    {
+        auto it = std::find_if(std::begin(m_list), std::end(m_list),
+                            [&item](const auto& element) { return element->getTxID() == item->getTxID(); });
+        
+        if (it != std::end(m_list))
+        {
+            auto index = m_list.indexOf(*it);
+            beginRemoveRows(QModelIndex(), index, index);
+            m_list.removeAt(index);
+            endRemoveRows();
+        }
+    }
+}
+
+void TransactionsList::update(const std::vector<std::shared_ptr<TxObject>>& items)
+{
+    for (const auto& item : items)
+    {
+        auto it = std::find_if(std::begin(m_list), std::end(m_list),
+                            [&item](const auto& element) { return element->getTxID() == item->getTxID(); });
+        
+        if (it != std::end(m_list))
+        {
+            auto index = m_list.indexOf(*it);
+
+            beginRemoveRows(QModelIndex(), index, index);
+            m_list.removeAt(index);
+            endRemoveRows();
+
+            beginInsertRows(QModelIndex(), index, index);
+            m_list.insert(index, item);
+            endInsertRows();
+        }
+    }
+}
