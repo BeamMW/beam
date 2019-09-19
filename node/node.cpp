@@ -1641,7 +1641,7 @@ void Node::Peer::OnMsg(proto::NewTip&& msg)
             // no break;
 
         case NodeProcessor::DataStatus::Accepted:
-			m_This.m_PeerMan.SetRating(*m_pInfo, m_pInfo->m_RawRating.m_Value + PeerMan::Rating::RewardFirstHeader);
+			// don't give explicit reward for this header. Instead - most likely we'll request this block from that peer, and it'll have a chance to boost its rating
             m_This.RefreshCongestions();
             break; // since we made OnPeerInsane handling asynchronous - no need to return rapidly
 
