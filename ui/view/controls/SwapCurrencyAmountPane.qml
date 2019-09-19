@@ -2,7 +2,6 @@ import QtQuick 2.11
 import QtQuick.Layouts 1.3
 
 Rectangle {
-
     property color borderColor: Style.swapCurrencyOptionsBorder
     property int borderSize: 0
     property color gradLeft: Style.swapCurrencyPaneGrLeftBEAM
@@ -41,16 +40,15 @@ Rectangle {
         anchors.fill: parent
         anchors.margins: {
             left: 20
-            right: 14
-            top: 23
-            bottom: 23
+            right: 10
         }
 
         Item {
             id: currencyLogo
             width: childrenRect.width
-            height: childrenRect.height
+            anchors.verticalCenter: parent.verticalCenter
             Image {
+                anchors.verticalCenter: parent.verticalCenter
                 source: currencyIcon
                 visible: currencyIcon.length
             }
@@ -60,19 +58,43 @@ Rectangle {
                 visible: currencyIcons.length
                 
                 Image {
+                    anchors.verticalCenter: parent.verticalCenter
                     x: parent.x + index * 15
                     source: currencyIcons[index]
                 }
             }
         }
+
         SFText {
             anchors.left: parent.left
             anchors.right: parent.right
+            anchors.verticalCenter: parent.verticalCenter
             leftPadding: 20 + currencyLogo.width
             font.pixelSize: textSize
             color: textColor
             elide: Text.ElideRight
             text: valueStr
+            visible: isOk
+        }
+
+        SFText {
+            anchors.left: parent.left
+            anchors.right: parent.right
+            anchors.verticalCenter: parent.verticalCenter
+            leftPadding: 5 + currencyLogo.width
+            rightPadding: 5
+            font.pixelSize: 12
+            verticalAlignment: Text.AlignVCenter
+            color: Style.validator_error
+            elide: Text.ElideRight
+            wrapMode: Text.Wrap
+            //% "Cannot connect to peer. Please check in the address in settings and retry."
+            text: qsTrId("swap-beta-connection-error")
+            visible: !isOk
+
+            Component.onCompleted: {
+                console.log(anchors.margins);
+            }
         }
 
         Item {

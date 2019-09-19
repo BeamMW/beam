@@ -1581,5 +1581,9 @@ you do not send large amounts.</oldsource>
         <source>Atomic Swap is in BETA</source>
         <translation type="unfinished"></translation>
     </message>
+    <message id="swap-beta-connection-error">
+        <source>Cannot connect to peer. Please check in the address in settings and retry.</source>
+        <translation type="unfinished"></translation>
+    </message>
 </context>
 </TS>
