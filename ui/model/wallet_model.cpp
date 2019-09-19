@@ -30,6 +30,7 @@ WalletModel::WalletModel(IWalletDB::Ptr walletDB, IPrivateKeyKeeper::Ptr keyKeep
     qRegisterMetaType<beam::wallet::WalletStatus>("beam::wallet::WalletStatus");
     qRegisterMetaType<beam::wallet::ChangeAction>("beam::wallet::ChangeAction");
     qRegisterMetaType<vector<beam::wallet::TxDescription>>("std::vector<beam::wallet::TxDescription>");
+    qRegisterMetaType<vector<beam::wallet::SwapOffer>>("std::vector<beam::wallet::SwapOffer>");
     qRegisterMetaType<beam::Amount>("beam::Amount");
     qRegisterMetaType<vector<beam::wallet::Coin>>("std::vector<beam::wallet::Coin>");
     qRegisterMetaType<vector<beam::wallet::WalletAddress>>("std::vector<beam::wallet::WalletAddress>");
@@ -37,6 +38,7 @@ WalletModel::WalletModel(IWalletDB::Ptr walletDB, IPrivateKeyKeeper::Ptr keyKeep
     qRegisterMetaType<beam::wallet::WalletAddress>("beam::wallet::WalletAddress");
     qRegisterMetaType<beam::wallet::ErrorType>("beam::wallet::ErrorType");
     qRegisterMetaType<beam::wallet::TxID>("beam::wallet::TxID");
+    qRegisterMetaType<beam::wallet::TxParameters>("beam::wallet::TxParameters");
 }
 
 WalletModel::~WalletModel()
@@ -83,6 +85,17 @@ QString WalletModel::GetErrorString(beam::wallet::ErrorType type)
         //% "Unexpected error!"
         return qtTrId("wallet-model-undefined-error");
     }
+}
+
+bool WalletModel::isOwnAddress(WalletID& walletID) const
+{
+    for (const auto& it: m_addresses)
+    {
+        if (it.m_walletID == walletID) {
+            return true;
+        }
+    }
+    return false;
 }
 
 bool WalletModel::isAddressWithCommentExist(const std::string& comment) const
@@ -134,6 +147,11 @@ void WalletModel::onAddresses(bool own, const std::vector<beam::wallet::WalletAd
     emit addressesChanged(own, addrs);
 }
 
+void WalletModel::onSwapOffersChanged(beam::wallet::ChangeAction action, const std::vector<beam::wallet::SwapOffer>& offers)
+{
+    emit swapOffersChanged(action, offers);
+}
+
 void WalletModel::onCoinsByTx(const std::vector<beam::wallet::Coin>& coins)
 {
 }
@@ -147,6 +165,27 @@ void WalletModel::onImportRecoveryProgress(uint64_t done, uint64_t total)
 {
 }
 
+void WalletModel::onShowKeyKeeperMessage()
+{
+#if defined(BEAM_HW_WALLET)
+    emit showTrezorMessage();
+#endif
+}
+
+void WalletModel::onHideKeyKeeperMessage()
+{
+#if defined(BEAM_HW_WALLET)
+    emit hideTrezorMessage();
+#endif
+}
+
+void WalletModel::onShowKeyKeeperError(const std::string& error)
+{
+#if defined(BEAM_HW_WALLET)
+    emit showTrezorError(QString::fromStdString(error));
+#endif
+}
+
 void WalletModel::onGeneratedNewAddress(const beam::wallet::WalletAddress& walletAddr)
 {
     emit generatedNewAddress(walletAddr);
@@ -155,6 +194,14 @@ void WalletModel::onGeneratedNewAddress(const beam::wallet::WalletAddress& walle
 void WalletModel::onNewAddressFailed()
 {
     emit newAddressFailed();
+}
+
+void WalletModel::onNoDeviceConnected()
+{
+#if defined(BEAM_HW_WALLET)
+    //% "There is no Trezor device connected. Please, connect and try again."
+    showTrezorError(qtTrId("wallet-model-device-not-connected"));
+#endif
 }
 
 void WalletModel::onChangeCurrentWalletIDs(beam::wallet::WalletID senderID, beam::wallet::WalletID receiverID)

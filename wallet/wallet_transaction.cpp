@@ -14,6 +14,7 @@
 
 #include "wallet_transaction.h"
 #include "base_tx_builder.h"
+#include "wallet.h"
 #include "core/block_crypt.h"
 
 #include <numeric>
@@ -24,19 +25,55 @@ namespace beam::wallet
     using namespace ECC;
     using namespace std;
 
+    TxParameters CreateSimpleTransactionParameters()
+    {
+        return CreateTransactionParameters(TxType::Simple).SetParameter(TxParameterID::TransactionType, TxType::Simple);
+    }
 
-    BaseTransaction::Ptr SimpleTransaction::Create(INegotiatorGateway& gateway
-        , IWalletDB::Ptr walletDB
-        , IPrivateKeyKeeper::Ptr keyKeeper
-        , const TxID& txID)
+    TxParameters CreateSplitTransactionParameters(const WalletID& myID, const AmountList& amountList)
+    {
+        return CreateSimpleTransactionParameters()
+            .SetParameter(TxParameterID::MyID, myID)
+            .SetParameter(TxParameterID::PeerID, myID)
+            .SetParameter(TxParameterID::AmountList, amountList)
+            .SetParameter(TxParameterID::Amount, std::accumulate(amountList.begin(), amountList.end(), Amount(0)));
+    }
+
+    SimpleTransaction::Creator::Creator(IWalletDB::Ptr walletDB)
+        : m_WalletDB(walletDB)
+    {
+
+    }
+
+    BaseTransaction::Ptr SimpleTransaction::Creator::Create(INegotiatorGateway& gateway
+                                                          , IWalletDB::Ptr walletDB
+                                                          , IPrivateKeyKeeper::Ptr keyKeeper
+                                                          , const TxID& txID)
     {
         return BaseTransaction::Ptr(new SimpleTransaction(gateway, walletDB, keyKeeper, txID));
     }
 
+    void SimpleTransaction::Creator::CheckParameters(const TxParameters& parameters)
+    {
+        auto peerID = parameters.GetParameter<WalletID>(TxParameterID::PeerID);
+        if (peerID)
+        {
+            auto receiverAddr = m_WalletDB->getAddress(*peerID);
+            if (receiverAddr)
+            {
+                if (receiverAddr->m_OwnID && receiverAddr->isExpired())
+                {
+                    LOG_INFO() << "Can't send to the expired address.";
+                    throw AddressExpiredException();
+                }
+            }
+        }
+    }
+
     SimpleTransaction::SimpleTransaction(INegotiatorGateway& gateway
-                                        , IWalletDB::Ptr walletDB
-                                        , IPrivateKeyKeeper::Ptr keyKeeper
-                                        , const TxID& txID)
+                                       , IWalletDB::Ptr walletDB
+                                       , IPrivateKeyKeeper::Ptr keyKeeper
+                                       , const TxID& txID)
         : BaseTransaction{ gateway, walletDB, keyKeeper, txID }
     {
 
@@ -269,7 +306,7 @@ namespace beam::wallet
                 OnFailed(TxFailureReason::InvalidTransaction, true);
                 return;
             }
-            m_Gateway.register_tx(GetTxID(), transaction);
+            GetGateway().register_tx(GetTxID(), transaction);
             SetState(State::Registration);
             return;
         }

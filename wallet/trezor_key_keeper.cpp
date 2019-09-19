@@ -22,7 +22,12 @@ namespace beam::wallet
     using namespace std;
 
     TrezorKeyKeeper::TrezorKeyKeeper()
-        : m_latestSlot(0)
+        : m_hwWallet([this](const std::string& msg)
+            {
+                for (auto handler : m_handlers)
+                    handler->onShowKeyKeeperError(msg);
+            })
+        , m_latestSlot(0)
     {
 
     }
@@ -32,44 +37,25 @@ namespace beam::wallet
 
     }
 
-    Key::IPKdf::Ptr TrezorKeyKeeper::get_OwnerKdf() const
-    {
-        auto key = m_hwWallet.getOwnerKeySync();
-
-        // TODO: temporary PIN to decrypt owner key, should be removed
-        std::string pass = "1";
-
-        KeyString ks;
-        ks.SetPassword(Blob(pass.data(), static_cast<uint32_t>(pass.size())));
-
-        ks.m_sRes = key;
-
-        std::shared_ptr<ECC::HKdfPub> pKdf = std::make_shared<ECC::HKdfPub>();
-
-        if (!ks.Import(*pKdf))
-        {
-            LOG_ERROR() << "veiw key import failed";
-        }
-
-        return pKdf;
-    }
-
     Key::IKdf::Ptr TrezorKeyKeeper::get_SbbsKdf() const
     {
         // !TODO: temporary solution to init SBBS KDF with commitment
-        Key::IDV kidv{ 0, 0, Key::Type::Regular };
-        auto key = m_hwWallet.generateKeySync(kidv, true);
+        // also, we could store SBBS Kdf in the WalletDB
 
-        Key::IKdf::Ptr sbbsKdf;
-
-        ECC::HKdf::Create(sbbsKdf, key.m_X);
-
-        return sbbsKdf;
+        if (!m_sbbsKdf)
+        {
+            if (m_hwWallet.isConnected())
+            {
+                ECC::HKdf::Create(m_sbbsKdf, m_hwWallet.generateKeySync({ 0, 0, Key::Type::Regular }, true).m_X);
+            }
+        }
+           
+        return m_sbbsKdf;
     }
 
     void TrezorKeyKeeper::GeneratePublicKeys(const std::vector<Key::IDV>& ids, bool createCoinKey, Callback<PublicKeys>&& resultCallback, ExceptionCallback&& exceptionCallback)
     {
-
+        assert(!"not implemented.");
     }
 
     void TrezorKeyKeeper::GenerateOutputs(Height schemeHeight, const std::vector<Key::IDV>& ids, Callback<Outputs>&& resultCallback, ExceptionCallback&& exceptionCallback)
@@ -165,7 +151,21 @@ namespace beam::wallet
         txData.nonceSlot = (uint32_t)nonceSlot;
         txData.offset = offset;
 
-        return m_hwWallet.signTransactionSync(inputs, outputs, txData);
+        for (auto handler : m_handlers)
+            handler->onShowKeyKeeperMessage();
+
+        auto res = m_hwWallet.signTransactionSync(inputs, outputs, txData);
+
+        for (auto handler : m_handlers)
+            handler->onHideKeyKeeperMessage();
+
+        return res;
     }
 
+    void TrezorKeyKeeper::subscribe(Handler::Ptr handler)
+    {
+        assert(std::find(m_handlers.begin(), m_handlers.end(), handler) == m_handlers.end());
+
+        m_handlers.push_back(handler);
+    }
 }

@@ -38,6 +38,18 @@ namespace beam::wallet
         return txID;
     }
 
+    TxParameters CreateTransactionParameters(TxType type)
+    {
+        return TxParameters(GenerateTxID())
+            .SetParameter(TxParameterID::TransactionType, type)
+            .SetParameter(TxParameterID::Lifetime, kDefaultTxLifetime)
+            .SetParameter(TxParameterID::PeerResponseHeight, kDefaultTxResponseTime)
+            .SetParameter(TxParameterID::IsInitiator, true)
+            .SetParameter(TxParameterID::IsSender, true)
+            .SetParameter(TxParameterID::CreateTime, getTimestamp());
+
+    }
+
     std::string GetFailureMessage(TxFailureReason reason)
     {
         switch (reason)
@@ -98,7 +110,7 @@ namespace beam::wallet
 
     bool BaseTransaction::GetTip(Block::SystemState::Full& state) const
     {
-        return m_Gateway.get_tip(state);
+        return GetGateway().get_tip(state);
     }
 
     void BaseTransaction::UpdateAsync()
@@ -168,7 +180,7 @@ namespace beam::wallet
             }
             UpdateTxDescription(TxStatus::Cancelled);
             RollbackTx();
-            m_Gateway.on_tx_completed(GetTxID());
+            GetGateway().on_tx_completed(GetTxID());
         }
         else
         {
@@ -194,6 +206,11 @@ namespace beam::wallet
     {
         LOG_INFO() << GetTxID() << " Transaction failed. Rollback...";
         m_WalletDB->rollbackTx(GetTxID());
+    }
+
+    INegotiatorGateway& BaseTransaction::GetGateway() const
+    {
+        return m_Gateway;
     }
 
     bool BaseTransaction::CheckExpired()
@@ -262,19 +279,19 @@ namespace beam::wallet
     void BaseTransaction::ConfirmKernel(const Merkle::Hash& kernelID)
     {
         UpdateTxDescription(TxStatus::Registering);
-        m_Gateway.confirm_kernel(GetTxID(), kernelID);
+        GetGateway().confirm_kernel(GetTxID(), kernelID);
     }
 
     void BaseTransaction::UpdateOnNextTip()
     {
-        m_Gateway.UpdateOnNextTip(GetTxID());
+        GetGateway().UpdateOnNextTip(GetTxID());
     }
 
     void BaseTransaction::CompleteTx()
     {
         LOG_INFO() << GetTxID() << " Transaction completed";
         UpdateTxDescription(TxStatus::Completed);
-        m_Gateway.on_tx_completed(GetTxID());
+        GetGateway().on_tx_completed(GetTxID());
     }
 
     void BaseTransaction::UpdateTxDescription(TxStatus s)
@@ -298,7 +315,7 @@ namespace beam::wallet
         UpdateTxDescription((reason == TxFailureReason::Cancelled) ? TxStatus::Cancelled : TxStatus::Failed);
         RollbackTx();
 
-        m_Gateway.on_tx_completed(GetTxID());
+        GetGateway().on_tx_completed(GetTxID());
     }
 
     void BaseTransaction::NotifyFailure(TxFailureReason reason)
@@ -333,7 +350,7 @@ namespace beam::wallet
 
     IAsyncContext& BaseTransaction::GetAsyncAcontext() const
     {
-        return m_Gateway;
+        return GetGateway();
     }
 
     bool BaseTransaction::SendTxParameters(SetTxParameter && msg) const
@@ -345,7 +362,7 @@ namespace beam::wallet
         if (GetParameter(TxParameterID::MyID, msg.m_From)
             && GetParameter(TxParameterID::PeerID, peerID))
         {
-            m_Gateway.send_tx_params(peerID, move(msg));
+            GetGateway().send_tx_params(peerID, move(msg));
             return true;
         }
         return false;

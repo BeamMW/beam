@@ -245,7 +245,7 @@ void TestStoreTxRecord()
     cout << "\nWallet database transactions test\n";
     auto walletDB = createSqliteWalletDB();
     TxID id = {{1, 3, 4, 5 ,65}};
-    TxDescription tr;
+    TxDescription tr(id);
     tr.m_txId = id;
     tr.m_amount = 34;
     tr.m_peerId.m_Pk = unsigned(23);
@@ -620,8 +620,7 @@ void TestExportImportTx()
     WalletAddress wa;
     wa.m_OwnID = (*walletDB).AllocateKidRange(1);
     wa.m_walletID = storage::generateWalletIDFromIndex(keyKeeper, wa.m_OwnID);
-    TxDescription tr;
-    tr.m_txId = {{4, 5, 6, 7, 65}};
+    TxDescription tr = { { {4, 5, 6, 7, 65} } };
     tr.m_amount = 52;
     tr.m_createTime = 45613;
     tr.m_minHeight = 185;
@@ -641,8 +640,7 @@ void TestExportImportTx()
     WalletAddress wa2;
     wa2.m_OwnID = (*walletDB).AllocateKidRange(1);
     wa2.m_walletID = storage::generateWalletIDFromIndex(keyKeeper, wa2.m_OwnID);
-    TxDescription tr2;
-    tr2.m_txId = {{7, 8, 9, 13}};
+    TxDescription tr2 = { { {7, 8, 9, 13} } };
     tr2.m_amount = 71;
     tr2.m_minHeight = 285;
     tr2.m_createTime = 4628;

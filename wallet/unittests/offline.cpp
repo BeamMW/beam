@@ -27,7 +27,7 @@ struct WalletDBObserver : IWalletDbObserver {
     void onCoinsChanged() {
         LOG_DEBUG() << _who << " " << __FUNCTION__;
     }
-    void onTransactionChanged(ChangeAction, std::vector<TxDescription>&& )  {
+    void onTransactionChanged(ChangeAction, const std::vector<TxDescription>& )  {
         LOG_INFO() << _who << " QQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQ " << __FUNCTION__;
     }
     void onSystemStateChanged()  {
@@ -82,7 +82,11 @@ WaitHandle run_wallet(const WalletParams& params) {
 			wallet.SetNodeEndpoint(nnet);
 
             if (sender) {
-                wallet.transfer_money(params.sendFrom, params.sendTo, 1000000, 100000, true);
+                wallet.StartTransaction(CreateSimpleTransactionParameters()
+                    .SetParameter(TxParameterID::MyID, params.sendFrom)
+                    .SetParameter(TxParameterID::PeerID, params.sendTo)
+                    .SetParameter(TxParameterID::Amount, Amount(1000000))
+                    .SetParameter(TxParameterID::Fee, Amount(100000)));
             }
 
 			io::Reactor::get_Current().run();

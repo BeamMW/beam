@@ -314,7 +314,6 @@ NodeConnection::NodeConnection()
     :m_Protocol('B', 'm', 10, sizeof(HighestMsgCode), *this, 20000)
     ,m_ConnectPending(false)
 	,m_RulesCfgSent(false)
-	,m_PeerSupportsLogin1(false)
 {
 #define THE_MACRO(code, msg) \
     m_Protocol.add_message_handler<NodeConnection, msg##_NoInit, &NodeConnection::OnMsgInternal>(uint8_t(code), this, 0, 1024*1024*10);
@@ -337,7 +336,6 @@ void NodeConnection::Reset()
     }
 
 	m_RulesCfgSent = false;
-	m_PeerSupportsLogin1 = false;
     m_Connection = NULL;
     m_pAsyncFail = NULL;
 
@@ -622,41 +620,30 @@ void NodeConnection::SendLogin()
 
 	const Rules& r = Rules::get();
 
-	if (m_PeerSupportsLogin1)
+	if (!m_RulesCfgSent)
 	{
+		m_RulesCfgSent = true;
 
-		if (!m_RulesCfgSent)
+		Height hMin = get_MinPeerFork();
+		size_t iFork = _countof(r.pForks);
+		while (iFork)
 		{
-			m_RulesCfgSent = true;
-
-			Height hMin = get_MinPeerFork();
-			size_t iFork = _countof(r.pForks);
-			while (iFork)
-			{
-				if (r.pForks[--iFork].m_Height <= hMin)
-					break;
-			}
-
-			msg.m_Cfgs.reserve(_countof(r.pForks) - iFork);
-
-			for (; iFork < _countof(r.pForks); iFork++)
-			{
-				const HeightHash& x = r.pForks[iFork];
-				if (MaxHeight == x.m_Height)
-					break;
-				msg.m_Cfgs.push_back(r.pForks[iFork].m_Hash);
-			}
+			if (r.pForks[--iFork].m_Height <= hMin)
+				break;
 		}
 
-		Send(msg);
+		msg.m_Cfgs.reserve(_countof(r.pForks) - iFork);
+
+		for (; iFork < _countof(r.pForks); iFork++)
+		{
+			const HeightHash& x = r.pForks[iFork];
+			if (MaxHeight == x.m_Height)
+				break;
+			msg.m_Cfgs.push_back(r.pForks[iFork].m_Hash);
+		}
 	}
-	else
-	{
-		Login0 msg0;
-		msg0.m_CfgChecksum = r.pForks[0].m_Hash;
-		msg0.m_Flags = static_cast<uint8_t>(msg.m_Flags);
-		Send(msg0);
-	}
+
+	Send(msg);
 }
 
 void NodeConnection::SetupLogin(Login&)
@@ -682,12 +669,6 @@ void NodeConnection::OnMsg(Login0&& msg0)
 		os << "Incompatible peer cfg: " << msg0.m_CfgChecksum;
 
 		ThrowUnexpected(os.str().c_str(), NodeProcessingException::Type::Incompatible);
-	}
-
-	if (!m_PeerSupportsLogin1 && (LoginFlags::Extension3 & msg0.m_Flags))
-	{
-		m_PeerSupportsLogin1 = true;
-		SendLogin();
 	}
 
 	Login msg;
@@ -744,6 +725,12 @@ void NodeConnection::OnMsg(Login&& msg)
 
 void NodeConnection::OnLoginInternal(Height hScheme, Login&& msg)
 {
+	if (LoginFlags::ExtensionsBeforeHF1 != (LoginFlags::ExtensionsBeforeHF1 & msg.m_Flags))
+	{
+		LOG_WARNING() << "Peer " << m_Connection->peer_address() << " uses legacy protocol";
+		ThrowUnexpected("Legacy", NodeProcessingException::Type::Incompatible);
+	}
+
 	if ((~LoginFlags::Recognized) & msg.m_Flags) {
 		LOG_WARNING() << "Peer " << m_Connection->peer_address() << " Uses newer protocol.";
 	}

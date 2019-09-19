@@ -13,13 +13,24 @@
 // limitations under the License.
 
 #include "app_model.h"
+#include "wallet/swaps/swap_transaction.h"
 #include "utility/common.h"
 #include "utility/logger.h"
 #include "utility/fsutils.h"
 #include <boost/filesystem.hpp>
 #include <QApplication>
 #include <QTranslator>
+
+#include "wallet/bitcoin/bitcoin.h"
+#include "wallet/litecoin/litecoin.h"
+#include "wallet/qtum/qtum.h"
+
 #include "wallet/local_private_key_keeper.h"
+
+#if defined(BEAM_HW_WALLET)
+#include "core/block_rw.h"
+#include "wallet/trezor_key_keeper.h"
+#endif
 
 using namespace beam;
 using namespace beam::wallet;
@@ -48,13 +59,12 @@ AppModel::~AppModel()
     s_instance = nullptr;
 }
 
-bool AppModel::createWallet(const SecString& seed, const SecString& pass)
+void AppModel::backupDB(const std::string& dbFilePath)
 {
-    const auto dbFilePath = m_settings.getWalletStorage();
     const auto wasInitialized = WalletDB::isInitialized(dbFilePath);
     m_db.reset();
 
-    if(wasInitialized)
+    if (wasInitialized)
     {
         // it seems that we are trying to restore or login to another wallet.
         // Rename/backup existing db
@@ -62,28 +72,68 @@ bool AppModel::createWallet(const SecString& seed, const SecString& pass)
         boost::filesystem::path newName = dbFilePath + "_" + to_string(getTimestamp());
         boost::filesystem::rename(p, newName);
     }
+}
+
+void AppModel::generateDefaultAddress()
+{
+    // generate default address
+    WalletAddress address = storage::createAddress(*m_db, m_keyKeeper);
+    address.m_label = "default";
+    m_db->saveAddress(address);
+}
+
+bool AppModel::createWallet(const SecString& seed, const SecString& pass)
+{
+    const auto dbFilePath = m_settings.getWalletStorage();
+    backupDB(dbFilePath);
 
     m_db = WalletDB::init(dbFilePath, pass, seed.hash(), m_walletReactor);
     if (!m_db) return false;
 
     m_keyKeeper = std::make_shared<LocalPrivateKeyKeeper>(m_db);
 
-    // generate default address
-    WalletAddress address = storage::createAddress(*m_db, m_keyKeeper);
-    address.m_label = "default";
-    m_db->saveAddress(address);
-
+    generateDefaultAddress();
     onWalledOpened(pass);
+
     return true;
 }
+
+#if defined(BEAM_HW_WALLET)
+bool AppModel::createTrezorWallet(std::shared_ptr<ECC::HKdfPub> ownerKey, const beam::SecString& pass)
+{
+    const auto dbFilePath = m_settings.getTrezorWalletStorage();
+    backupDB(dbFilePath);
+
+    m_db = WalletDB::initWithTrezor(dbFilePath, ownerKey, pass, m_walletReactor);
+    if (!m_db) return false;
+
+    m_keyKeeper = std::make_shared<TrezorKeyKeeper>();
+
+    generateDefaultAddress();
+    onWalledOpened(pass);
+
+    return true;
+}
+#endif
 
 bool AppModel::openWallet(const beam::SecString& pass)
 {
     assert(m_db == nullptr);
-    m_db = WalletDB::open(m_settings.getWalletStorage(), pass, m_walletReactor);
-    if (!m_db) return false;
 
-    m_keyKeeper = std::make_shared<LocalPrivateKeyKeeper>(m_db);
+    if (WalletDB::isInitialized(m_settings.getWalletStorage()))
+    {
+        m_db = WalletDB::open(m_settings.getWalletStorage(), pass, m_walletReactor);
+        if (!m_db) return false;
+        m_keyKeeper = std::make_shared<LocalPrivateKeyKeeper>(m_db);
+    }
+#if defined(BEAM_HW_WALLET)
+    else if (WalletDB::isInitialized(m_settings.getTrezorWalletStorage()))
+    {
+        m_db = WalletDB::open(m_settings.getTrezorWalletStorage(), pass, m_walletReactor, true);
+        if (!m_db) return false;
+        m_keyKeeper = std::make_shared<TrezorKeyKeeper>();
+    }
+#endif
 
     onWalledOpened(pass);
     return true;
@@ -124,9 +174,47 @@ void AppModel::resetWalletImpl()
     m_db.reset();
 
     fsutils::remove(getSettings().getWalletStorage());
+
+#if defined(BEAM_HW_WALLET)
+    fsutils::remove(getSettings().getTrezorWalletStorage());
+#endif
+
     fsutils::remove(getSettings().getLocalNodeStorage());
 
     emit walletReseted();
+}
+
+void AppModel::startWallet()
+{
+    assert(!m_wallet->isRunning());
+
+    auto additionalTxCreators = std::make_shared<std::unordered_map<TxType, BaseTransaction::Creator::Ptr>>();
+    auto swapTransactionCreator = std::make_shared<beam::wallet::AtomicSwapTransaction::Creator>(m_db);
+
+    if (auto btcClient = getBitcoinClient(); btcClient)
+    {
+        auto bitcoinBridge = std::make_shared<bitcoin::BitcoinCore017>(*m_walletReactor, btcClient);
+        auto btcSecondSideFactory = beam::wallet::MakeSecondSideFactory<BitcoinSide, bitcoin::BitcoinCore017, bitcoin::ISettingsProvider>(bitcoinBridge, btcClient);
+        swapTransactionCreator->RegisterFactory(AtomicSwapCoin::Bitcoin, btcSecondSideFactory);
+    }
+
+    if (auto ltcClient = getLitecoinClient(); ltcClient)
+    {
+        auto litecoinBridge = std::make_shared<litecoin::LitecoinCore017>(*m_walletReactor, ltcClient);
+        auto ltcSecondSideFactory = beam::wallet::MakeSecondSideFactory<LitecoinSide, litecoin::LitecoinCore017, litecoin::ISettingsProvider>(litecoinBridge, ltcClient);
+        swapTransactionCreator->RegisterFactory(AtomicSwapCoin::Litecoin, ltcSecondSideFactory);
+    }
+
+    if (auto qtumClient = getQtumClient(); qtumClient)
+    {
+        auto qtumBridge = std::make_shared<qtum::QtumCore017>(*m_walletReactor, qtumClient);
+        auto qtumSecondSideFactory = wallet::MakeSecondSideFactory<QtumSide, qtum::QtumCore017, qtum::ISettingsProvider>(qtumBridge, qtumClient);
+        swapTransactionCreator->RegisterFactory(AtomicSwapCoin::Qtum, qtumSecondSideFactory);
+    }
+
+    additionalTxCreators->emplace(TxType::AtomicSwap, swapTransactionCreator);
+
+    m_wallet->start(additionalTxCreators);
 }
 
 void AppModel::applySettingsChanges()
@@ -159,7 +247,7 @@ void AppModel::nodeSettingsChanged()
     {
         if (!m_wallet->isRunning())
         {
-            m_wallet->start();
+            startWallet();
         }
     }
 }
@@ -171,7 +259,7 @@ void AppModel::onStartedNode()
 
     if (!m_wallet->isRunning())
     {
-        m_wallet->start();
+        startWallet();
     }
 }
 
@@ -208,6 +296,10 @@ void AppModel::start()
         nodeAddrStr = nodeAddr.str();
     }
 
+    InitBtcClient();
+    InitLtcClient();
+    InitQtumClient();
+
     m_wallet = std::make_shared<WalletModel>(m_db, m_keyKeeper, nodeAddrStr, m_walletReactor);
 
     if (m_settings.getRunLocalNode())
@@ -216,7 +308,7 @@ void AppModel::start()
     }
     else
     {
-        m_wallet->start();
+        startWallet();
     }
 }
 
@@ -261,4 +353,55 @@ MessageManager& AppModel::getMessages()
 NodeModel& AppModel::getNode()
 {
     return m_nodeModel;
+}
+
+SwapCoinClientModel::Ptr AppModel::getBitcoinClient() const
+{
+    return m_bitcoinClient;
+}
+
+SwapCoinClientModel::Ptr AppModel::getLitecoinClient() const
+{
+    return m_litecoinClient;
+}
+
+SwapCoinClientModel::Ptr AppModel::getQtumClient() const
+{
+    return m_qtumClient;
+}
+
+void AppModel::InitBtcClient()
+{
+    auto bitcoinBridgeCreator = [](io::Reactor& reactor, bitcoin::IBitcoinCoreSettingsProvider::Ptr settingsProvider)->bitcoin::IBridge::Ptr
+    {
+        return std::make_shared<bitcoin::BitcoinCore017>(reactor, settingsProvider);
+    };
+
+    auto settingsProvider = std::make_unique<bitcoin::SettingsProvider>(m_db);
+    settingsProvider->Initialize();
+    m_bitcoinClient = std::make_shared<SwapCoinClientModel>(AtomicSwapCoin::Bitcoin, bitcoinBridgeCreator, std::move(settingsProvider), *m_walletReactor);
+}
+
+void AppModel::InitLtcClient()
+{
+    auto ltcBridgeCreator = [](io::Reactor& reactor, bitcoin::IBitcoinCoreSettingsProvider::Ptr settingsProvider)->bitcoin::IBridge::Ptr
+    {
+        return std::make_shared<litecoin::LitecoinCore017>(reactor, settingsProvider);
+    };
+
+    auto settingsProvider = std::make_unique<litecoin::SettingsProvider>(m_db);
+    settingsProvider->Initialize();
+    m_litecoinClient = std::make_shared<SwapCoinClientModel>(AtomicSwapCoin::Litecoin, ltcBridgeCreator, std::move(settingsProvider), *m_walletReactor);
+}
+
+void AppModel::InitQtumClient()
+{
+    auto qtumBridgeCreator = [](io::Reactor& reactor, bitcoin::IBitcoinCoreSettingsProvider::Ptr settingsProvider)->bitcoin::IBridge::Ptr
+    {
+        return std::make_shared<qtum::QtumCore017>(reactor, settingsProvider);
+    };
+
+    auto settingsProvider = std::make_unique<qtum::SettingsProvider>(m_db);
+    settingsProvider->Initialize();
+    m_qtumClient = std::make_shared<SwapCoinClientModel>(AtomicSwapCoin::Qtum, qtumBridgeCreator, std::move(settingsProvider), *m_walletReactor);
 }

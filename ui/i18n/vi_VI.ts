@@ -183,8 +183,8 @@
         <translation>Hiển thị trong thư mục</translation>
     </message>
     <message id="general-addr-comment-error">
-        <source>Address with same comment already exist</source>
-        <translation>Địa chỉ có cùng nhận xét đã tồn tại</translation>
+        <source>Address with the same comment already exists</source>
+        <translation type="unfinished">Địa chỉ có cùng nhận xét đã tồn tại</translation>
     </message>
     <message id="wallet-receive-button">
         <source>Receive</source>
@@ -203,8 +203,8 @@
         <translation>Xác minh thanh toán</translation>
     </message>
     <message id="wallet-txs-date-time">
-        <source>Date | Time</source>
-        <translation>Ngày | thời gian</translation>
+        <source>Created on</source>
+        <translation type="unfinished">Ngày | thời gian</translation>
     </message>
     <message id="wallet-txs-copy-addr-cm">
         <source>Copy address</source>
@@ -465,7 +465,7 @@
     </message>
     <message id="secondary-panel-maturing">
         <source>Maturing</source>
-        <translation>Đáo hạn</translation>
+        <translation type="vanished">Đáo hạn</translation>
     </message>
     <message id="info-title">
         <source>Info view</source>
@@ -473,7 +473,7 @@
     </message>
     <message id="loading-change-settings-button">
         <source>Change settings</source>
-        <translation>Thay đổi cài đặt</translation>
+        <translation type="vanished">Thay đổi cài đặt</translation>
     </message>
     <message id="loading-try-again-button">
         <source>Try again</source>
@@ -547,16 +547,16 @@
         <translation>Ví</translation>
     </message>
     <message id="wallet-receive-title">
-        <source>Receive Beam</source>
-        <translation>Nhận Beam</translation>
+        <source>Receive</source>
+        <translation type="unfinished">Nhận Beam</translation>
     </message>
     <message id="wallet-receive-my-addr-label">
-        <source>My address</source>
-        <translation>Địa chỉ của tôi</translation>
+        <source>My address (auto-generated)</source>
+        <translation type="unfinished">Địa chỉ của tôi</translation>
     </message>
     <message id="wallet-receive-expires-label">
-        <source>Expires</source>
-        <translation>Hết hạn</translation>
+        <source>Expires in</source>
+        <translation type="unfinished">Hết hạn</translation>
     </message>
     <message id="wallet-receive-expires-24">
         <source>24 hours</source>
@@ -572,23 +572,23 @@
     </message>
     <message id="wallet-receive-propogate-addr-message">
         <source>Send this address to the sender over an external secure channel</source>
-        <translation>Gửi địa chỉ này cho người gửi qua kênh bảo mật bên ngoài</translation>
+        <translation type="vanished">Gửi địa chỉ này cho người gửi qua kênh bảo mật bên ngoài</translation>
     </message>
     <message id="invalid-addr-got-it-button">
         <source>Got it</source>
-        <translation>Lấy</translation>
+        <translation type="vanished">Lấy</translation>
     </message>
     <message id="send-title">
-        <source>Send Beam</source>
-        <translation>Gửi Beam</translation>
+        <source>Send</source>
+        <translation type="unfinished">Gửi Beam</translation>
     </message>
     <message id="send-send-to-label">
-        <source>Send To</source>
-        <translation>Gửi tới</translation>
+        <source>Transaction token or contact</source>
+        <translation type="unfinished">Gửi tới</translation>
     </message>
     <message id="send-contact-placeholder">
-        <source>Please specify contact</source>
-        <translation>Vui lòng xác định liên hệ</translation>
+        <source>Please specify contact or transaction token</source>
+        <translation type="unfinished">Vui lòng xác định liên hệ</translation>
     </message>
     <message id="send-amount-label">
         <source>Transaction amount</source>
@@ -600,11 +600,11 @@
     </message>
     <message id="send-fee-fail">
         <source>The minimum fee is %1 GROTH</source>
-        <translation>Phí tối thiểu là %1 GROTH</translation>
+        <translation type="vanished">Phí tối thiểu là %1 GROTH</translation>
     </message>
     <message id="send-curency-sub-name">
         <source>GROTH</source>
-        <translation>Groth: đơn vị nhỏ nhất của Beam </translation>
+        <translation type="vanished">Groth: đơn vị nhỏ nhất của Beam </translation>
     </message>
     <message id="send-remaining-label">
         <source>Remaining</source>
@@ -612,7 +612,7 @@
     </message>
     <message id="send-send-fail">
         <source>Address %1 is invalid</source>
-        <translation>Địa chỉ %1 không hợp lệ</translation>
+        <translation type="vanished">Địa chỉ %1 không hợp lệ</translation>
     </message>
     <message id="start-restore-confirm-button">
         <source>I agree</source>
@@ -890,11 +890,11 @@
     </message>
     <message id="tx-curency-name">
         <source>BEAM</source>
-        <translation>BEAM</translation>
+        <translation type="vanished">BEAM</translation>
     </message>
     <message id="tx-curency-sub-name">
         <source>GROTH</source>
-        <translation>Groth: đơn vị nhỏ nhất của Beam </translation>
+        <translation type="vanished">Groth: đơn vị nhỏ nhất của Beam </translation>
     </message>
     <message id="utxo-utxo">
         <source>UTXO</source>
@@ -1023,7 +1023,12 @@
     </message>
     <message id="start-create-pwd-strength-message">
         <source>Strong password needs to meet the following requirements:\n•  the length must be at least 10 characters\n•  must contain at least one lowercase letter\n•  must contain at least one uppercase letter\n•  must contain at least one number</source>
-        <translation>Mật khẩu mạnh cần đáp ứng các yêu cầu sau:\n• độ dài ít nhất 10 ký tự\n• phải chứa ít nhất một chữ cái viết thường\n• phải chứa ít nhất một chữ cái viết hoa\n• phải chứa ít nhất một số</translation>
+        <oldsource>Strong password needs to meet the following requirements:
+•  the length must be at least 10 characters
+•  must contain at least one lowercase letter
+•  must contain at least one uppercase letter
+•  must contain at least one number</oldsource>
+        <translation type="unfinished">Mật khẩu mạnh cần đáp ứng các yêu cầu sau:\n• độ dài ít nhất 10 ký tự\n• phải chứa ít nhất một chữ cái viết thường\n• phải chứa ít nhất một chữ cái viết hoa\n• phải chứa ít nhất một số</translation>
     </message>
     <message id="start-open-caps-warning">
         <source>Caps lock is on!</source>
@@ -1176,70 +1181,404 @@
     </message>
     <message id="open-in-explorer">
         <source>Open in Blockchain Explorer</source>
-        <translation type="unfinished"></translation>
+        <translation>Mở trong Blockchain Explorer</translation>
     </message>
     <message id="restore-finish-alert-button">
         <source>I understand</source>
-        <translation type="unfinished">Tôi đã hiểu</translation>
+        <translation>Tôi đã hiểu</translation>
     </message>
     <message id="restore-finish-alert-title">
         <source>Do not simultaneously run two wallets initiated from the same seed phrase</source>
-        <translation type="unfinished"></translation>
+        <translation type="unfinished">Do not simultaneously run two wallets initiated from the same seed phrase</translation>
     </message>
     <message id="restore-finish-alert-message-line">
         <source>Don’t use same seed phrase on several devices, your balance and transaction list won’t be synchronized.</source>
-        <translation type="unfinished"></translation>
+        <translation type="unfinished">Don’t use same seed phrase on several devices, your balance and transaction list won’t be synchronized.</translation>
     </message>
     <message id="tx-failture-subtx-failed">
         <source>Subtransaction has failed</source>
-        <translation type="unfinished"></translation>
+        <translation type="unfinished">Subtransaction has failed</translation>
     </message>
     <message id="tx-failture-invalid-contract-amount">
         <source>Contract&apos;s amount is not valid</source>
-        <translation type="unfinished"></translation>
+        <translation type="unfinished">Contract&apos;s amount is not valid</translation>
     </message>
     <message id="tx-failture-invalid-sidechain-contract">
         <source>Side chain has invalid contract</source>
-        <translation type="unfinished"></translation>
+        <translation type="unfinished">Side chain has invalid contract</translation>
     </message>
     <message id="tx-failture-sidechain-internal-error">
         <source>Side chain bridge has internal error</source>
-        <translation type="unfinished"></translation>
+        <translation type="unfinished">Side chain bridge has internal error</translation>
     </message>
     <message id="tx-failture-sidechain-network-error">
         <source>Side chain bridge has network error</source>
-        <translation type="unfinished"></translation>
+        <translation type="unfinished">Side chain bridge has network error</translation>
     </message>
     <message id="tx-failture-invalid-sidechain-response-format">
         <source>Side chain bridge has response format error</source>
-        <translation type="unfinished"></translation>
+        <translation type="unfinished">Side chain bridge has response format error</translation>
     </message>
     <message id="tx-failture-invalid-side-chain-credentials">
         <source>Invalid credentials of Side chain</source>
-        <translation type="unfinished"></translation>
+        <translation type="unfinished">Invalid credentials of Side chain</translation>
     </message>
     <message id="tx-failture-not-enough-time-btc-lock">
         <source>Not enough time to finish btc lock transaction</source>
-        <translation type="unfinished"></translation>
+        <translation type="unfinished">Not enough time to finish btc lock transaction</translation>
     </message>
     <message id="tx-failture-create-multisig">
         <source>Failed to create multi-signature</source>
-        <translation type="unfinished"></translation>
+        <translation type="unfinished">Failed to create multi-signature</translation>
     </message>
     <message id="tx-failture-fee-too-small">
         <source>Fee is too small</source>
-        <translation type="unfinished"></translation>
+        <translation>Phí quá nhỏ</translation>
     </message>
     <message id="loading-view-estimate-minutes">
         <source>min.</source>
-        <translation type="unfinished"></translation>
+        <translation type="unfinished">min.</translation>
     </message>
     <message id="loading-view-estimate-seconds">
         <source>sec.</source>
-        <translation type="unfinished"></translation>
+        <translation type="unfinished">sec.</translation>
     </message>
     <message id="loading-view-estimate-time">
         <source>Estimate time: %s</source>
+        <translation>Thời gian dự kiến: %s</translation>
+    </message>
+    <message id="atomic-swap-title">
+        <source>Atomic Swap</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="atomic-swap-create">
+        <source>Create offer</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="atomic-swap-active-offers-tab">
+        <source>Active offers</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="atomic-swap-transactions-tab">
+        <source>Transactions</source>
+        <translation type="unfinished">Giao dịch</translation>
+    </message>
+    <message id="atomic-swap-receive-beam">
+        <source>Receive BEAM</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="atomic-swap-send-beam">
+        <source>Send BEAM</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="atomic-swap-only-my-offers">
+        <source>Only my offers</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="atomic-swap-fit-current-balance">
+        <source>Fit my current balance</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="atomic-swap-currency">
+        <source>Currency</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="atomic-swap-time-created">
+        <source>Created on</source>
+        <translation type="unfinished">Ngày | thời gian</translation>
+    </message>
+    <message id="atomic-swap-amount-send">
+        <source>Send</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="atomic-swap-amount-receive">
+        <source>Receive</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="atomic-swap-rate">
+        <source>Rate</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="atomic-swap-expiration">
+        <source>Expiration</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="atomic-swap-cancel">
+        <source>Cancel offer</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="atomic-swap-accept">
+        <source>Accept offer</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="atomic-swap-all-transactions-tab">
+        <source>All</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="atomic-swap-in-progress-transactions-tab">
+        <source>In progress</source>
+        <translation type="unfinished">Trong quá trình</translation>
+    </message>
+    <message id="atomic-swap-tx-table-created">
+        <source>Created on</source>
+        <translation type="unfinished">Ngày | thời gian</translation>
+    </message>
+    <message id="atomic-swap-tx-table-from">
+        <source>From</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="atomic-swap-tx-table-to">
+        <source>To</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="atomic-swap-tx-table-sent">
+        <source>Sent</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="atomic-swap-tx-table-received">
+        <source>Received</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="atomic-swap-tx-table-status">
+        <source>Status</source>
+        <translation type="unfinished">Trạng thái</translation>
+    </message>
+    <message id="general-fee-rate">
+        <source>Transaction fee rate</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="general-fee-fail">
+        <source>The minimum fee is %1 %2</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="general-locked">
+        <source>locked</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="general-change-settings">
+        <source>Change settings</source>
+        <translation type="unfinished">Thay đổi cài đặt</translation>
+    </message>
+    <message id="wallet-swap">
+        <source>Swap</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="settings-reset">
+        <source>Switch off</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="settings-node-address">
+        <source>Node Address</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="settings-username">
+        <source>Username</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="settings-password">
+        <source>Password</source>
+        <translation type="unfinished">Mật khẩu</translation>
+    </message>
+    <message id="settings-fee-rate">
+        <source>Default fee</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="trezor-message">
+        <source>Please, look at your Trezor device to complete actions...</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="swap-na-message">
+        <source>You do not have any 3rd-party currencies connected.\nUpdate your settings and try again.</source>
+        <oldsource>You do not have any 3rd-party currencies connected.
+Update your settings and try again.</oldsource>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="wallet-receive-swap-title">
+        <source>Create swap offer</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="wallet-receive-addr-message">
+        <source>Send this address to the sender over an external secure channel or scan the QR code</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="wallet-receive-text-online-time">
+        <source>For the transaction to complete, you should get online during the 12 hours after Beams are sent.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="wallet-receive-copy-address">
+        <source>Copy transaction address</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="receive-amount-swap-label">
+        <source>Receive amount</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="sent-amount-label">
+        <source>Sent amount</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="wallet-receive-offer-expires-label">
+        <source>Offer expiration time</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="wallet-receive-expires-12">
+        <source>12 hours</source>
+        <translation type="unfinished">24 tiếng {12 ?}</translation>
+    </message>
+    <message id="wallet-receive-expires-6">
+        <source>6 hours</source>
+        <translation type="unfinished">24 tiếng {6 ?}</translation>
+    </message>
+    <message id="general-rate">
+        <source>Rate</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="wallet-receive-your-token">
+        <source>Your transaction token:</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="wallet-swap-token-message">
+        <source>Send this token to the sender over an external secure channel</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="wallet-receive-swap-publish">
+        <source>publish transaction token</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="wallet-send-swap-title">
+        <source>Swap currencies</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="wallet-send-invalid-token">
+        <source>Invalid address or token</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="send-confirmation-pwd-text-online-time">
+        <source>For the transaction to complete, the recipient must get online within the next 12 hours and you should get online within 2 hours afterwards.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="general-comment-local">
+        <source>Comments are local and won&apos;t be shared</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="send-total-label">
+        <source>Total UTXO value</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="general-bitcoin">
+        <source>Bitcoin</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="general-litecoin">
+        <source>Litecoin</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="general-qtum">
+        <source>QTUM</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="swap-currency-na-message">
+        <source>You do not have %1 connected.\nUpdate your settings and try again.</source>
+        <oldsource>You do not have %1 connected.
+Update your settings and try again.</oldsource>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="send-swap-to-label">
+        <source>Transaction token</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="send-not-enough">
+        <source>There is not enough funds to complete the transaction</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="wallet-send-swap-offered-label">
+        <source>Offered on</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="wallet-send-swap-expires-label">
+        <source>Expires on</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="general-create-trezor-wallet">
+        <source>Create new Trezor wallet</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="start-init-wallet-with-trezor">
+        <source>Init wallet with Trezor</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="start-found-trezor-device">
+        <source>Found device:</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="start-no-trezor-device-connected">
+        <source>There is no device connected, please, connect your hardware wallet.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="start-import-trezor-owner-key">
+        <source>Import Trezor Owner Key</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="start-owner-key-imported">
+        <source>Owner Key imported. Please, enter the password you saw on device to decrypt your Owner Key.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="start-look-at-trezor-to-complete-actions">
+        <source>Please, look at your Trezor to complete actions...</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="general-address-from">
+        <source>From</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="general-address-to">
+        <source>To</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="loading-view-estimate-hours">
+        <source>h.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="loading-view-estimate-calculating">
+        <source>calculating...</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="loading-view-net-problems">
+        <source>It may take longer when usual. Please, check your network.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="loading-view-rebuild-utxos">
+        <source>Rebuilding UTXO image</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="wallet-receive-copy-token">
+        <source>copy transaction token</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="atomic-swap-connect-other">
+        <source>Connect other currency wallet to start trading</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="wallet-model-device-not-connected">
+        <source>There is no Trezor device connected. Please, connect and try again.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="swap-beta-button">
+        <source>I understand</source>
+        <translation type="unfinished">Tôi đã hiểu</translation>
+    </message>
+    <message id="swap-beta-message">
+        <source>Atomic Swap functionality is Beta at the moment. We recommend you not to send large amounts.</source>
+        <oldsource>Atomic Swap functionality is Beta at the moment. We recommend
+you do not send large amounts.</oldsource>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="swap-beta-title">
+        <source>Atomic Swap is in BETA</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="swap-beta-connection-error">
+        <source>Cannot connect to peer. Please check in the address in settings and retry.</source>
         <translation type="unfinished"></translation>
     </message>
 </context>

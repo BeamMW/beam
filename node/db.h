@@ -146,6 +146,7 @@ public:
 			TxoDelFrom,
 			TxoSetSpent,
 			TxoDelSpentFrom,
+			TxoCount,
 			TxoEnum,
 			TxoEnumBySpent,
 			TxoDelSpentTxosFrom,
@@ -366,7 +367,6 @@ public:
 			Timestamp m_TimePosted;
 			Blob m_Message;
 			uint32_t m_Nonce;
-			bool m_bNonce;
 		} m_Data;
 
 		WalkerBbs(NodeDB& db) :m_Rs(db) {}
@@ -452,6 +452,7 @@ public:
 		bool MoveNext();
 	};
 
+	uint64_t TxoGetCount();
 	void EnumTxos(WalkerTxo&, TxoID id0);
 	void EnumTxosBySpent(WalkerTxo&, const HeightRange&);
 	uint64_t DeleteSpentTxos(const HeightRange&, TxoID id0); // delete Txos where (SpendHeight is within range) AND (TxoID >= id0)

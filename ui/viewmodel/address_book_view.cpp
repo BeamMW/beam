@@ -260,12 +260,6 @@ QString AddressBookViewModel::generateQR(
 }
 
 // static
-QString AddressBookViewModel::getLocaleName()
-{
-    const auto& settings = AppModel::getInstance().getSettings();
-    return settings.getLocale();
-}
-
 bool AddressBookViewModel::isAddressWithCommentExist(const QString& comment) const
 {
     return m_model.isAddressWithCommentExist(comment.toStdString());

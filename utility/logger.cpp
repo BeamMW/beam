@@ -14,7 +14,7 @@
 
 #include "logger_checkpoints.h"
 #include "helpers.h"
-#include "core/common.h"
+#include "common.h"
 #include <boost/filesystem.hpp>
 #include <boost/iostreams/device/back_inserter.hpp>
 

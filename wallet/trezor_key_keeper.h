@@ -26,8 +26,13 @@ namespace beam::wallet
         TrezorKeyKeeper();
         virtual ~TrezorKeyKeeper();
 
-        Key::IPKdf::Ptr get_OwnerKdf() const override;
+        struct DeviceNotConnected : std::runtime_error 
+        {
+            DeviceNotConnected() : std::runtime_error("") {}
+        };
+
         Key::IKdf::Ptr get_SbbsKdf() const override;
+        void subscribe(Handler::Ptr handler) override;
 
     private:
         void GeneratePublicKeys(const std::vector<Key::IDV>& ids, bool createCoinKey, Callback<PublicKeys>&& resultCallback, ExceptionCallback&& exceptionCallback) override;
@@ -41,7 +46,10 @@ namespace beam::wallet
 
     private:
         beam::HWWallet m_hwWallet;
+        mutable Key::IKdf::Ptr m_sbbsKdf;
 
         size_t m_latestSlot;
+
+        std::vector<IPrivateKeyKeeper::Handler::Ptr> m_handlers;
     };
 }

@@ -22,6 +22,7 @@
 #include <boost/functional/hash.hpp>
 #include <boost/filesystem.hpp>
 #include "nlohmann/json.hpp"
+#include "utility/std_extension.h"
 
 #define NOSEP
 #define COMMA ", "
@@ -121,21 +122,6 @@ namespace std
         result_type operator()(const argument_type& a) const noexcept
         {
             return boost::hash<argument_type>()(a);
-        }
-    };
-
-    template<class T, size_t N> 
-    struct hash<std::array<T, N>>
-    {
-        auto operator() (const std::array<T, N>& key) const
-        {
-            std::hash<T> hasher;
-            size_t result = 0;
-            for(size_t i = 0; i < N; ++i)
-            {
-                result = (result << 1) ^ hasher(key[i]);
-            }
-            return result;
         }
     };
 }
@@ -676,12 +662,10 @@ namespace beam::wallet
                 return _commited;
             }
 
-            void rollback()
+            void rollback() noexcept
             {
                 int ret = sqlite3_exec(_db, "ROLLBACK;", nullptr, nullptr, nullptr);
-                throwIfError(ret, _db);
-
-                _rollbacked = true;
+                _rollbacked = (ret == SQLITE_OK);
             }
         private:
             sqlite3 * _db;
@@ -982,6 +966,17 @@ namespace beam::wallet
         }
     }
 
+    void WalletDB::createTables(sqlite3* db, sqlite3* privateDb)
+    {
+        CreateStorageTable(db);
+        CreateWalletMessageTable(db);
+        CreatePrivateVariablesTable(privateDb);
+        CreateVariablesTable(db);
+        CreateAddressesTable(db);
+        CreateTxParamsTable(db);
+        CreateStatesTable(db);
+    }
+
     IWalletDB::Ptr WalletDB::init(const string& path, const SecString& password, const ECC::NoLeak<ECC::uintBig>& secretKey, io::Reactor::Ptr reactor, bool separateDBForPrivateData)
     {
         if (!isInitialized(path))
@@ -1004,13 +999,7 @@ namespace beam::wallet
             enterKey(db, password);
             auto walletDB = make_shared<WalletDB>(db, secretKey, reactor, sdb);
 
-            CreateStorageTable(walletDB->_db);
-            CreateWalletMessageTable(walletDB->_db);
-            CreatePrivateVariablesTable(walletDB->m_PrivateDB);
-            CreateVariablesTable(walletDB->_db);
-            CreateAddressesTable(walletDB->_db);
-            CreateTxParamsTable(walletDB->_db);
-            CreateStatesTable(walletDB->_db);
+            createTables(walletDB->_db, walletDB->m_PrivateDB);
 
             {
                 // store master key
@@ -1043,7 +1032,47 @@ namespace beam::wallet
         return Ptr();
     }
 
-    IWalletDB::Ptr WalletDB::open(const string& path, const SecString& password, io::Reactor::Ptr reactor)
+#if defined(BEAM_HW_WALLET)
+    IWalletDB::Ptr WalletDB::initWithTrezor(const string& path, std::shared_ptr<ECC::HKdfPub> ownerKey, const SecString& password, io::Reactor::Ptr reactor)
+    {
+        if (!isInitialized(path))
+        {
+            sqlite3* db = nullptr;
+            {
+                int ret = sqlite3_open_v2(path.c_str(), &db, SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE, nullptr);
+                throwIfError(ret, db);
+            }
+
+            enterKey(db, password);
+            auto walletDB = make_shared<WalletDB>(db, reactor);
+
+            createTables(walletDB->_db, walletDB->m_PrivateDB);
+
+            {
+                // store owner key (public)
+                {
+                    ECC::NoLeak<ECC::HKdfPub::Packed> packedOwnerKey;
+                    ownerKey->Export(packedOwnerKey.V);
+
+                    storage::setVar(*walletDB, OwnerKey, packedOwnerKey.V);
+                    walletDB->m_OwnerKdf = ownerKey;
+                }
+
+                storage::setVar(*walletDB, Version, DbVersion);
+            }
+
+            walletDB->flushDB();
+
+            return static_pointer_cast<IWalletDB>(walletDB);
+        }
+
+        LOG_ERROR() << path << " already exists.";
+
+        return Ptr();
+    }
+#endif
+
+    IWalletDB::Ptr WalletDB::open(const string& path, const SecString& password, io::Reactor::Ptr reactor, bool useTrezor)
     {
         try
         {
@@ -1287,6 +1316,7 @@ namespace beam::wallet
                     }
                 }
 
+                walletDB->m_useTrezor = useTrezor;
                 return static_pointer_cast<IWalletDB>(walletDB);
             }
 
@@ -1297,6 +1327,12 @@ namespace beam::wallet
         }
 
         return Ptr();
+    }
+
+    WalletDB::WalletDB(sqlite3* db, io::Reactor::Ptr reactor)
+        : WalletDB(db, reactor, db)
+    {
+
     }
 
     WalletDB::WalletDB(sqlite3* db, io::Reactor::Ptr reactor, sqlite3* sdb)
@@ -1343,7 +1379,7 @@ namespace beam::wallet
 
     Key::IKdf::Ptr WalletDB::get_MasterKdf() const
     {
-        return m_pKdf;
+        return m_useTrezor ? nullptr : m_pKdf;
     }
 
 	Key::IKdf::Ptr IWalletDB::get_ChildKdf(const Key::IDV& kidv) const
@@ -1765,6 +1801,15 @@ namespace beam::wallet
             stm.getBlobSafe(0, data, size);
     }
 
+    void WalletDB::removeVarRaw(const char* name)
+    {
+        const char* req = "DELETE FROM " VARIABLES_NAME " WHERE name=?1;";
+        sqlite::Statement stm(this, req);
+
+        stm.bind(1, name);
+        stm.step();
+    }
+
     void WalletDB::setPrivateVarRaw(const char* name, const void* data, size_t size)
     {
         const char* req = "INSERT or REPLACE INTO " PRIVATE_VARIABLES_NAME " (" VARIABLES_FIELDS ") VALUES(?1, ?2);";
@@ -1917,17 +1962,18 @@ namespace beam::wallet
     boost::optional<TxDescription> WalletDB::getTx(const TxID& txId) const
     {
         // load only simple TX that supported by TxDescription
-        const char* req = "SELECT * FROM " TX_PARAMS_NAME " WHERE txID=?1 AND subTxID=?2;";
+        const char* req = "SELECT * FROM " TX_PARAMS_NAME " WHERE txID=?1;";
         sqlite::Statement stm(this, req);
         stm.bind(1, txId);
-        stm.bind(2, kDefaultSubTxID);
 
-        TxDescription txDescription;
-        txDescription.m_txId = txId;
+        TxDescription txDescription(txId);
 
-        const std::set<TxParameterID> mandatoryParams{ TxParameterID::Amount, TxParameterID::Fee,
-            TxParameterID::PeerID,
-            TxParameterID::MyID, TxParameterID::CreateTime,
+        const std::set<TxParameterID> mandatoryParams{ 
+            TxParameterID::Amount,
+            TxParameterID::Fee,
+         //   TxParameterID::PeerID,
+            TxParameterID::MyID, 
+            TxParameterID::CreateTime,
             TxParameterID::IsSender };
         std::set<TxParameterID> gottenParams;
 
@@ -1936,59 +1982,66 @@ namespace beam::wallet
             TxParameter parameter = {};
             int colIdx = 0;
             ENUM_TX_PARAMS_FIELDS(STM_GET_LIST, NOSEP, parameter);
+            auto parameterID = static_cast<TxParameterID>(parameter.m_paramID);
 
-            gottenParams.emplace(static_cast<TxParameterID>(parameter.m_paramID));
+            txDescription.SetParameter(parameterID, parameter.m_value, static_cast<SubTxID>(parameter.m_subTxID));
 
-            switch (static_cast<TxParameterID>(parameter.m_paramID))
+            if (parameter.m_subTxID == kDefaultSubTxID)
             {
-            case TxParameterID::TransactionType:
-                deserialize(txDescription.m_txType, parameter.m_value);
-                break;
-            case TxParameterID::Amount:
-                deserialize(txDescription.m_amount, parameter.m_value);
-                break;
-            case TxParameterID::Fee:
-                deserialize(txDescription.m_fee, parameter.m_value);
-                break;
-            case TxParameterID::MinHeight:
-                deserialize(txDescription.m_minHeight, parameter.m_value);
-                break;
-            case TxParameterID::PeerID:
-                deserialize(txDescription.m_peerId, parameter.m_value);
-                break;
-            case TxParameterID::MyID:
-                deserialize(txDescription.m_myId, parameter.m_value);
-                break;
-            case TxParameterID::CreateTime:
-                deserialize(txDescription.m_createTime, parameter.m_value);
-                break;
-            case TxParameterID::IsSender:
-                deserialize(txDescription.m_sender, parameter.m_value);
-                break;
-            case TxParameterID::Message:
-                deserialize(txDescription.m_message, parameter.m_value);
-                break;
-            case TxParameterID::Change:
-                deserialize(txDescription.m_change, parameter.m_value);
-                break;
-            case TxParameterID::ModifyTime:
-                deserialize(txDescription.m_modifyTime, parameter.m_value);
-                break;
-            case TxParameterID::Status:
-                deserialize(txDescription.m_status, parameter.m_value);
-                break;
-            case TxParameterID::KernelID:
-                deserialize(txDescription.m_kernelID, parameter.m_value);
-                break;
-            case TxParameterID::FailureReason:
-                deserialize(txDescription.m_failureReason, parameter.m_value);
-                break;
-            case TxParameterID::IsSelfTx:
-                deserialize(txDescription.m_selfTx, parameter.m_value);
-                break;
-            default:
-                break; // suppress warning
+                gottenParams.emplace(parameterID);
+
+                switch (parameterID)
+                {
+                case TxParameterID::TransactionType:
+                    deserialize(txDescription.m_txType, parameter.m_value);
+                    break;
+                case TxParameterID::Amount:
+                    deserialize(txDescription.m_amount, parameter.m_value);
+                    break;
+                case TxParameterID::Fee:
+                    deserialize(txDescription.m_fee, parameter.m_value);
+                    break;
+                case TxParameterID::MinHeight:
+                    deserialize(txDescription.m_minHeight, parameter.m_value);
+                    break;
+                case TxParameterID::PeerID:
+                    deserialize(txDescription.m_peerId, parameter.m_value);
+                    break;
+                case TxParameterID::MyID:
+                    deserialize(txDescription.m_myId, parameter.m_value);
+                    break;
+                case TxParameterID::CreateTime:
+                    deserialize(txDescription.m_createTime, parameter.m_value);
+                    break;
+                case TxParameterID::IsSender:
+                    deserialize(txDescription.m_sender, parameter.m_value);
+                    break;
+                case TxParameterID::Message:
+                    deserialize(txDescription.m_message, parameter.m_value);
+                    break;
+                case TxParameterID::Change:
+                    deserialize(txDescription.m_change, parameter.m_value);
+                    break;
+                case TxParameterID::ModifyTime:
+                    deserialize(txDescription.m_modifyTime, parameter.m_value);
+                    break;
+                case TxParameterID::Status:
+                    deserialize(txDescription.m_status, parameter.m_value);
+                    break;
+                case TxParameterID::KernelID:
+                    deserialize(txDescription.m_kernelID, parameter.m_value);
+                    break;
+                case TxParameterID::FailureReason:
+                    deserialize(txDescription.m_failureReason, parameter.m_value);
+                    break;
+                case TxParameterID::IsSelfTx:
+                    deserialize(txDescription.m_selfTx, parameter.m_value);
+                    break;
+                default:
+                    break; // suppress warning
+                }
             }
+
         }
 
         if (std::includes(gottenParams.begin(), gottenParams.end(), mandatoryParams.begin(), mandatoryParams.end()))
@@ -2385,11 +2438,11 @@ namespace beam::wallet
         for (auto sub : m_subscribers) sub->onCoinsChanged();
     }
 
-    void WalletDB::notifyTransactionChanged(ChangeAction action, vector<TxDescription>&& items)
+    void WalletDB::notifyTransactionChanged(ChangeAction action, const vector<TxDescription>& items)
     {
         for (auto sub : m_subscribers)
         {
-            sub->onTransactionChanged(action, move(items));
+            sub->onTransactionChanged(action, items);
         }
     }
 

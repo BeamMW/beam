@@ -32,6 +32,4 @@ else()
     target_compile_options(${TARGET_NAME} PUBLIC -Wno-unused-variable)
 endif()
 
-if(Boost_FOUND)
-    target_link_libraries(${TARGET_NAME} boost)
-endif()
+target_link_libraries(${TARGET_NAME} Boost::boost)

@@ -38,9 +38,6 @@
 
 #include "wallet/wallet_db.h"
 #include "wallet/wallet_network.h"
-#include "wallet/bitcoin/options.h"
-#include "wallet/litecoin/options.h"
-#include "wallet/qtum/options.h"
 #include "wallet/local_private_key_keeper.h"
 
 #include "nlohmann/json.hpp"
@@ -435,7 +432,14 @@ namespace
                         return;
                     }
 
-                    auto txId = _wallet.transfer_money(from, data.address, data.value, data.fee, coins, true, kDefaultTxLifetime, kDefaultTxResponseTime, std::move(message), true);
+                    
+                    auto txId = _wallet.StartTransaction(CreateSimpleTransactionParameters()
+                        .SetParameter(TxParameterID::MyID, from)
+                        .SetParameter(TxParameterID::PeerID, data.address)
+                        .SetParameter(TxParameterID::Amount, data.value)
+                        .SetParameter(TxParameterID::Fee, data.fee)
+                        .SetParameter(TxParameterID::PreselectedCoins, coins)
+                        .SetParameter(TxParameterID::Message, message));
 
                     doResponse(id, Send::Response{ txId });
                 }
@@ -489,7 +493,9 @@ namespace
                         return;
                     }
 
-                    auto txId = _wallet.split_coins(senderAddress.m_walletID, data.coins, data.fee);
+                    auto txId = _wallet.StartTransaction(CreateSplitTransactionParameters(senderAddress.m_walletID, data.coins)
+                        .SetParameter(TxParameterID::Fee, data.fee));
+
                     doResponse(id, Send::Response{ txId });
                 }
                 catch(...)
@@ -1084,6 +1090,8 @@ int main(int argc, char* argv[])
 
         auto keyKeeper = std::make_shared<LocalPrivateKeyKeeper>(walletDB);
         Wallet wallet{ walletDB, keyKeeper };
+
+        wallet.ResumeAllTransactions();
 
         auto nnet = std::make_shared<proto::FlyClient::NetworkStd>(wallet);
         nnet->m_Cfg.m_PollPeriod_ms = options.pollPeriod_ms.value;

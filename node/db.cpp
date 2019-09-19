@@ -209,7 +209,15 @@ void NodeDB::Recordset::put(int col, uint64_t x)
 
 void NodeDB::Recordset::put(int col, const Blob& x)
 {
-	m_DB.TestRet(sqlite3_bind_blob(m_pStmt, col+1, x.p, x.n, NULL));
+	// According to our convention empty blob is NOT NULL, it should be an empty BLOB field.
+	// During initialization from buffer, if the buffer size is 0 - the x.p is left uninitialized.
+	//
+	// In sqlite code if x.p is NULL - it would treat the field as NULL, rather than an empty blob.
+	// And if the uninitialized x.p is occasionally NULL - we get wrong behavior.
+	//
+	// Hence - we work this around, use `this`, as an arbitrary non-NULL pointer
+	const void* pPtr = x.n ? x.p : this;
+	m_DB.TestRet(sqlite3_bind_blob(m_pStmt, col+1, pPtr, x.n, NULL));
 }
 
 void NodeDB::Recordset::put(int col, const char* sz)
@@ -1821,10 +1829,7 @@ bool NodeDB::WalkerBbs::MoveNext()
 	m_Rs.get(2, m_Data.m_Channel);
 	m_Rs.get(3, m_Data.m_TimePosted);
 	m_Rs.get(4, m_Data.m_Message);
-
-	m_Data.m_bNonce = !m_Rs.IsNull(5);
-	if (m_Data.m_bNonce)
-		m_Rs.get(5, m_Data.m_Nonce);
+	m_Rs.get(5, m_Data.m_Nonce); // don't care if NULL, would be 0
 
 	return true;
 }
@@ -1864,8 +1869,7 @@ uint64_t NodeDB::BbsIns(const WalkerBbs::Data& d)
 	rs.put(1, d.m_Channel);
 	rs.put(2, d.m_TimePosted);
 	rs.put(3, d.m_Message);
-	if (d.m_bNonce)
-		rs.put(4, d.m_Nonce);
+	rs.put(4, d.m_Nonce);
 
 	rs.Step();
 	TestChanged1Row();
@@ -2072,6 +2076,18 @@ void NodeDB::TxoDelSpentFrom(Height h)
 	Recordset rs(*this, Query::TxoDelSpentFrom, "UPDATE " TblTxo " SET " TblTxo_SpendHeight "=NULL WHERE " TblTxo_SpendHeight ">=?");
 	rs.put(0, h);
 	rs.Step();
+}
+
+uint64_t NodeDB::TxoGetCount()
+{
+	Recordset rs(*this, Query::TxoCount, "SELECT COUNT(*) FROM " TblTxo);
+	uint64_t count = 0;
+	if (rs.Step())
+	{
+		rs.get(0, count);
+	}
+
+	return count;
 }
 
 void NodeDB::EnumTxos(WalkerTxo& wlk, TxoID id0)

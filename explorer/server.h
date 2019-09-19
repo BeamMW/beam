@@ -52,6 +52,7 @@ private:
     bool send_status(const HttpConnection::Ptr& conn);
     bool send_block(const HttpConnection::Ptr& conn);
     bool send_blocks(const HttpConnection::Ptr& conn);
+    bool send_peers(const HttpConnection::Ptr& conn);
     bool send(const HttpConnection::Ptr& conn, int code, const char* message);
 
     HttpMsgCreator _msgCreator;

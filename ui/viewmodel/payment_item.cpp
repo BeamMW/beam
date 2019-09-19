@@ -27,22 +27,22 @@ PaymentInfoItem::PaymentInfoItem(QObject* parent /*= nullptr*/)
 
 QString PaymentInfoItem::getSender() const
 {
-    return beamui::toString(m_paymentInfo.m_Sender);
+    return toString(m_paymentInfo.m_Sender);
 }
 
 QString PaymentInfoItem::getReceiver() const
 {
-    return beamui::toString(m_paymentInfo.m_Receiver);
+    return toString(m_paymentInfo.m_Receiver);
 }
 
 QString PaymentInfoItem::getAmount() const
 {
-    return beamui::BeamToString(m_paymentInfo.m_Amount);
+    return AmountToString(m_paymentInfo.m_Amount, Currencies::Beam);
 }
 
 QString PaymentInfoItem::getKernelID() const
 {
-    return beamui::toString(m_paymentInfo.m_KernelID);
+    return toString(m_paymentInfo.m_KernelID);
 }
 
 bool PaymentInfoItem::isValid() const

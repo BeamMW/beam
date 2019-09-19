@@ -36,6 +36,7 @@ struct Node
 		virtual void OnSyncProgress() = 0;
 		virtual void OnStateChanged() {}
 		virtual void OnRolledBack(const Block::SystemState::ID& id) {};
+		virtual void InitializeUtxosProgress(uint64_t done, uint64_t total) {};
 
         enum Error
         {
@@ -182,6 +183,7 @@ struct Node
 	} m_SyncStatus;
 
 	uint32_t get_AcessiblePeerCount() const; // all the peers with known addresses. Including temporarily banned
+    const PeerManager::AddrSet& get_AcessiblePeerAddrs() const;
 
 	bool m_UpdatedFromPeers = false;
 	bool m_PostStartSynced = false;
@@ -194,7 +196,7 @@ private:
 		:public NodeProcessor
 	{
 		// NodeProcessor
-		void RequestData(const Block::SystemState::ID&, bool bBlock, const PeerID* pPreferredPeer, const NodeDB::StateID& sidTrg) override;
+		void RequestData(const Block::SystemState::ID&, bool bBlock, const NodeDB::StateID& sidTrg) override;
 		void OnPeerInsane(const PeerID&) override;
 		void OnNewState() override;
 		void OnRolledBack() override;
@@ -202,6 +204,7 @@ private:
 		bool EnumViewerKeys(IKeyWalker&) override;
 		void OnUtxoEvent(const UtxoEvent::Value&) override;
 		void OnDummy(const Key::ID&, Height) override;
+		void InitializeUtxosProgress(uint64_t done, uint64_t total) override;
 		void Stop();
 
 		struct TaskProcessor
@@ -278,6 +281,7 @@ private:
 
 		bool m_bNeeded;
 		uint32_t m_nCount;
+		uint32_t m_TimeAssigned_ms;
 		NodeDB::StateID m_sidTrg;
 		Peer* m_pOwner;
 
@@ -296,9 +300,8 @@ private:
 	void UpdateSyncStatus();
 	void UpdateSyncStatusRaw();
 
-	void TryAssignTask(Task&, const PeerID*);
+	void TryAssignTask(Task&);
 	bool TryAssignTask(Task&, Peer&);
-	bool TryAssignTask(Task&, Peer&, bool bMustSupportLatestProto);
 	void DeleteUnassignedTask(Task&);
 
 	void InitKeys();
@@ -429,7 +432,18 @@ private:
 		struct PeerInfoPlus
 			:public PeerInfo
 		{
-			Peer* m_pLive;
+			struct AdjustedRatingLive
+				:public boost::intrusive::set_base_hook<>
+			{
+				Peer* m_p;
+
+				bool operator < (const AdjustedRatingLive& x) const { return (get_ParentObj().m_AdjustedRating < x.get_ParentObj().m_AdjustedRating); }
+
+				IMPLEMENT_GET_PARENT_OBJ(PeerInfoPlus, m_Live)
+			} m_Live;
+
+			void Attach(Peer&);
+			void DetachStrict();
 		};
 
 		// PeerManager
@@ -437,6 +451,9 @@ private:
 		virtual void DeactivatePeer(PeerInfo&) override;
 		virtual PeerInfo* AllocPeer() override;
 		virtual void DeletePeer(PeerInfo&) override;
+
+		typedef boost::intrusive::multiset<PeerInfoPlus::AdjustedRatingLive> LiveSet;
+		LiveSet m_LiveSet;
 
 		~PeerMan() { Clear(); }
 
@@ -477,7 +494,7 @@ private:
 
 		Bbs::Subscription::PeerSet m_Subscriptions;
 
-		io::Timer::Ptr m_pTimer;
+		io::Timer::Ptr m_pTimerRequest;
 		io::Timer::Ptr m_pTimerPeers;
 
 		Peer(Node& n) :m_This(n) {}
@@ -488,9 +505,7 @@ private:
 		void SetTimerWrtFirstTask();
 		void Unsubscribe(Bbs::Subscription&);
 		void Unsubscribe();
-		void OnTimer();
-		void SetTimer(uint32_t timeout_ms);
-		void KillTimer();
+		void OnRequestTimeout();
 		void OnResendPeers();
 		void SendBbsMsg(const NodeDB::WalkerBbs::Data&);
 		void DeleteSelf(bool bIsError, uint8_t nByeReason);
@@ -507,8 +522,7 @@ private:
 		Task& get_FirstTask();
 		void OnFirstTaskDone();
 		void OnFirstTaskDone(NodeProcessor::DataStatus::Enum);
-
-		void OnMsg(const proto::BbsMsg&, bool bNonceValid);
+		void ModifyRatingWrtData(size_t nSize);
 
 		void SendTx(Transaction::Ptr& ptx, bool bFluff);
 
@@ -528,7 +542,6 @@ private:
 		virtual void OnMsg(proto::DataMissing&&) override;
 		virtual void OnMsg(proto::GetHdr&&) override;
 		virtual void OnMsg(proto::GetHdrPack&&) override;
-		virtual void OnMsg(proto::Hdr&&) override;
 		virtual void OnMsg(proto::HdrPack&&) override;
 		virtual void OnMsg(proto::GetBody&&) override;
 		virtual void OnMsg(proto::GetBodyPack&&) override;
@@ -549,11 +562,9 @@ private:
 		virtual void OnMsg(proto::PeerInfo&&) override;
 		virtual void OnMsg(proto::GetExternalAddr&&) override;
 		virtual void OnMsg(proto::BbsMsg&&) override;
-		virtual void OnMsg(proto::BbsMsgV0&&) override;
 		virtual void OnMsg(proto::BbsHaveMsg&&) override;
 		virtual void OnMsg(proto::BbsGetMsg&&) override;
 		virtual void OnMsg(proto::BbsSubscribe&&) override;
-		virtual void OnMsg(proto::BbsPickChannelV0&&) override;
 		virtual void OnMsg(proto::BbsResetSync&&) override;
 		virtual void OnMsg(proto::MacroblockGet&&) override;
 		virtual void OnMsg(proto::GetUtxoEvents&&) override;

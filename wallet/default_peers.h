@@ -19,4 +19,5 @@
 namespace beam
 {
     std::vector<std::string> getDefaultPeers();
+    std::vector<std::string> getOutdatedDefaultPeers();
 }

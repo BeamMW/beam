@@ -31,10 +31,22 @@ void NodeProcessor::OnCorrupted()
 }
 
 NodeProcessor::Horizon::Horizon()
-	:m_Branching(MaxHeight)
-	,m_SchwarzschildLo(MaxHeight)
-	,m_SchwarzschildHi(MaxHeight)
 {
+	SetInfinite();
+}
+
+void NodeProcessor::Horizon::SetInfinite()
+{
+	m_Branching = MaxHeight;
+	m_SchwarzschildLo = MaxHeight;
+	m_SchwarzschildHi = MaxHeight;
+}
+
+void NodeProcessor::Horizon::SetStdFastSync()
+{
+	m_Branching = Rules::get().Macroblock.MaxRollback / 4; // inferior branches would be pruned when height difference is this.
+	m_SchwarzschildHi = 0; // would be adjusted anyway
+	m_SchwarzschildLo = 3600 * 24 * 180 / Rules::get().DA.Target_s; // 180-day period
 }
 
 void NodeProcessor::Initialize(const char* szPath)
@@ -143,7 +155,7 @@ void NodeProcessor::Initialize(const char* szPath, const StartParams& sp)
 	}
 
 	// final check
-	if (m_Cursor.m_ID.m_Height >= Rules::HeightGenesis)
+	if ((m_Cursor.m_ID.m_Height >= Rules::HeightGenesis) && (m_Cursor.m_ID.m_Height >= m_SyncData.m_TxoLo))
 	{
 		get_Definition(hv, false);
 		if (m_Cursor.m_Full.m_Definition != hv)
@@ -484,6 +496,20 @@ NodeProcessor::CongestionCache::TipCongestion* NodeProcessor::EnumCongestionsInt
 	return pMaxTarget;
 }
 
+template <typename T>
+bool IsBigger2(T a, T b1, T b2)
+{
+	b1 += b2;
+	return (b1 >= b2) && (a > b1);
+}
+
+template <typename T>
+bool IsBigger3(T a, T b1, T b2, T b3)
+{
+	b2 += b3;
+	return (b2 >= b3) && IsBigger2(a, b1, b2);
+}
+
 void NodeProcessor::EnumCongestions()
 {
 	if (!IsTreasuryHandled())
@@ -493,7 +519,7 @@ void NodeProcessor::EnumCongestions()
 		NodeDB::StateID sidTrg;
 		sidTrg.SetNull();
 
-		RequestData(id, true, nullptr, sidTrg);
+		RequestData(id, true, sidTrg);
 		return;
 	}
 
@@ -504,7 +530,7 @@ void NodeProcessor::EnumCongestions()
 	{
 		bool bFirstTime =
 			!IsFastSync() &&
-			(pMaxTarget->m_Height > m_Cursor.m_ID.m_Height + m_Horizon.m_SchwarzschildHi + m_Horizon.m_SchwarzschildHi / 2);
+			IsBigger3(pMaxTarget->m_Height, m_Cursor.m_ID.m_Height, m_Horizon.m_SchwarzschildHi, m_Horizon.m_SchwarzschildHi / 2);
 
 		if (bFirstTime)
 		{
@@ -521,7 +547,7 @@ void NodeProcessor::EnumCongestions()
 		// check if the target should be moved fwd
 		bool bTrgChange =
 			(IsFastSync() || bFirstTime) &&
-			(pMaxTarget->m_Height > m_SyncData.m_Target.m_Height + m_Horizon.m_SchwarzschildHi);
+			IsBigger2(pMaxTarget->m_Height, m_SyncData.m_Target.m_Height, m_Horizon.m_SchwarzschildHi);
 
 		if (bTrgChange)
 		{
@@ -602,10 +628,7 @@ void NodeProcessor::RequestDataInternal(const Block::SystemState::ID& id, uint64
 {
 	if (id.m_Height >= m_Extra.m_LoHorizon)
 	{
-		PeerID peer;
-		bool bPeer = m_DB.get_Peer(row, peer);
-
-		RequestData(id, bBlock, bPeer ? &peer : NULL, sidTrg);
+		RequestData(id, bBlock, sidTrg);
 	}
 	else
 	{
@@ -3704,9 +3727,13 @@ bool NodeProcessor::EnumTxos(ITxoWalker& wlkTxo, const HeightRange& hr)
 	TxoID id1 = get_TxosBefore(hr.m_Min);
 	Height h = hr.m_Min - 1; // don't care about overflow
 
+	auto totalTxos = m_DB.TxoGetCount();
+	uint64_t doneTxos = 0;
+
 	NodeDB::WalkerTxo wlk(m_DB);
 	for (m_DB.EnumTxos(wlk, id1);  wlk.MoveNext(); )
 	{
+		InitializeUtxosProgress(++doneTxos, totalTxos);
 		if (wlk.m_ID >= id1)
 		{
 			if (++h > hr.m_Max)

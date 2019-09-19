@@ -190,12 +190,6 @@ namespace beam::wallet
         return Scalar(partialSignature);
     }
 
-    // !TODO: move this to the wallet DB????
-    Key::IPKdf::Ptr LocalPrivateKeyKeeper::get_OwnerKdf() const
-    {
-        return m_WalletDB->get_OwnerKdf();
-    }
-
     Key::IKdf::Ptr LocalPrivateKeyKeeper::get_SbbsKdf() const
     {
         return m_WalletDB->get_MasterKdf();

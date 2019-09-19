@@ -30,6 +30,12 @@ public:
 signals:
     void gotoStartScreen();
 
+#if defined(BEAM_HW_WALLET)
+    void showTrezorMessage();
+    void hideTrezorMessage();
+    void showTrezorError(const QString&);
+#endif
+
 public slots:
 	void update(int page);
     void lockWallet();

@@ -14,6 +14,7 @@
 #pragma once
 
 #include "wallet_model.h"
+#include "swap_coin_client_model.h"
 #include "settings.h"
 #include "messages.h"
 #include "node_model.h"
@@ -32,6 +33,11 @@ public:
     ~AppModel() override;
 
     bool createWallet(const beam::SecString& seed, const beam::SecString& pass);
+
+#if defined(BEAM_HW_WALLET)
+    bool createTrezorWallet(std::shared_ptr<ECC::HKdfPub> ownerKey, const beam::SecString& pass);
+#endif
+
     bool openWallet(const beam::SecString& pass);
     bool checkWalletPassword(const beam::SecString& pass) const;
     void changeWalletPassword(const std::string& pass);
@@ -44,6 +50,9 @@ public:
     WalletSettings& getSettings() const;
     MessageManager& getMessages();
     NodeModel& getNode();
+    SwapCoinClientModel::Ptr getBitcoinClient() const;
+    SwapCoinClientModel::Ptr getLitecoinClient() const;
+    SwapCoinClientModel::Ptr getQtumClient() const;
 
 public slots:
     void onStartedNode();
@@ -55,8 +64,14 @@ signals:
 private:
     void start();
     void startNode();
-    void resetWalletImpl();
+    void startWallet();
+    void resetWalletImpl(); 
+    void InitBtcClient();
+    void InitLtcClient();
+    void InitQtumClient();
     void onWalledOpened(const beam::SecString& pass);
+    void backupDB(const std::string& dbFilePath);
+    void generateDefaultAddress();
 
 private:
     WalletModel::Ptr m_wallet;
@@ -69,4 +84,7 @@ private:
     beam::wallet::IWalletDB::Ptr m_db;
     Connections m_nsc; // [n]ode [s]tarting [c]connections
     static AppModel* s_instance;
+    SwapCoinClientModel::Ptr m_bitcoinClient;
+    SwapCoinClientModel::Ptr m_litecoinClient;
+    SwapCoinClientModel::Ptr m_qtumClient;
 };

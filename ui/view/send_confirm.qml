@@ -20,21 +20,21 @@ ConfirmationDialog
     property alias addressText:      addressLabel.text
     property alias amountText:       amountLabel.text
     property alias feeText:          feeLabel.text
-    property Item defaultFocusItem:  viewModel.needPassword() ? requirePasswordInput : cancelButton
+    property Item defaultFocusItem:  BeamGlobals.needPasswordToSpend() ? requirePasswordInput : cancelButton
 
     okButtonColor:           Style.accent_outgoing
     okButtonText:            qsTrId("general-send")
     okButtonIconSource:      "qrc:/assets/icon-send-blue.svg"
-    okButtonEnable:          viewModel.needPassword() ? requirePasswordInput.text.length : true
+    okButtonEnable:          BeamGlobals.needPasswordToSpend() ? requirePasswordInput.text.length : true
     cancelButtonIconSource:  "qrc:/assets/icon-cancel-white.svg"
 
     function confirmationHandler() {
-        if (viewModel.needPassword()) {
+        if (BeamGlobals.needPasswordToSpend()) {
             if (requirePasswordInput.text.length == 0) {
                 requirePasswordInput.forceActiveFocus(Qt.TabFocusReason);
                 return;
             }
-            if (!viewModel.isPasswordValid(requirePasswordInput.text)) {
+            if (!BeamGlobals.isPasswordValid(requirePasswordInput.text)) {
                 requirePasswordInput.forceActiveFocus(Qt.TabFocusReason);
                 requirePasswordError.text = qsTrId("general-pwd-invalid");
                 return;
@@ -56,7 +56,7 @@ ConfirmationDialog
 
     onAccepted: {
         viewModel.sendMoney();
-        sendView.enabled = false;
+        parent.enabled = false;
     }
 
     contentItem: Item {
@@ -167,7 +167,7 @@ ConfirmationDialog
                 //
                 SFText {
                     id: requirePasswordLabel
-                    visible: viewModel.needPassword()
+                    visible: BeamGlobals.needPasswordToSpend()
                     Layout.row: 4
                     Layout.columnSpan: 2
                     Layout.topMargin: 50
@@ -182,7 +182,7 @@ ConfirmationDialog
 
                 SFTextInput {
                     id: requirePasswordInput
-                    visible: viewModel.needPassword()
+                    visible: BeamGlobals.needPasswordToSpend()
                     Layout.row: 5
                     Layout.columnSpan: 2
                     Layout.fillWidth: true
@@ -197,13 +197,31 @@ ConfirmationDialog
 
                 SFText {
                     id: requirePasswordError
-                    visible: viewModel.needPassword()
+                    visible: BeamGlobals.needPasswordToSpend()
                     Layout.row: 6
                     Layout.columnSpan: 2
                     height: 16
                     width: parent.width
                     color: Style.validator_error
                     font.pixelSize: 14
+                }
+
+                //
+                // Wait online message
+                //
+                SFText {
+                    Layout.row: 7
+                    Layout.columnSpan: 2
+                    // Layout.topMargin: 30
+                    horizontalAlignment: Text.AlignHCenter
+                    Layout.preferredWidth: 400
+                    Layout.maximumHeight:  60
+                    Layout.minimumHeight: 16
+                    font.pixelSize: 14
+                    color: Style.content_disabled
+                    wrapMode: Text.WordWrap
+                    //% "For the transaction to complete, the recipient must get online within the next 12 hours and you should get online within 2 hours afterwards."
+                    text: qsTrId("send-confirmation-pwd-text-online-time")
                 }
             }
         }

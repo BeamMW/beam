@@ -1,59 +1,37 @@
 import QtQuick 2.11
-import QtQuick.Templates 2.4 as T
-import QtQuick.Controls 2.4
+import QtQuick.Controls 1.4
+import QtQuick.Controls.Styles 1.4
 import QtQuick.Controls.impl 2.4
 
-T.CheckBox {
+CheckBox {
     id: control
-    palette.windowText: Style.content_main
-    palette.text: Style.active
-    implicitWidth: Math.max(background ? background.implicitWidth : 0,
-                            contentItem.implicitWidth + leftPadding + rightPadding)
-    implicitHeight: Math.max(background ? background.implicitHeight : 0,
-                             Math.max(contentItem.implicitHeight,
-                                      indicator ? indicator.implicitHeight : 0) + topPadding + bottomPadding)
-    baselineOffset: contentItem.y + contentItem.baselineOffset
+    property color mainColor: control.checkedState == Qt.Checked ? Style.active : Style.content_main
 
-    padding: 6
-    spacing: 6
-
-    // keep in sync with CheckDelegate.qml (shared CheckIndicator.qml was removed for performance reasons)
-    indicator: Rectangle {
-        implicitWidth: 16
-        implicitHeight: 16
-
-        x: text ? (control.mirrored ? control.width - width - control.rightPadding : control.leftPadding) : control.leftPadding + (control.availableWidth - width) / 2
-        y: control.topPadding + (control.availableHeight - height) / 2
-
-        color: "transparent"
-        border.width: control.visualFocus ? 2 : 1
-        border.color: control.visualFocus ? control.palette.highlight :  Style.content_secondary
-
-        ColorImage {
-            x: (parent.width - width) / 2
-            y: (parent.height - height) / 2
-            defaultColor: "#353637"
-            color: control.enabled ? control.palette.text : Style.content_disabled
-            source: "qrc:/qt-project.org/imports/QtQuick/Controls.2/images/check.png"
-            visible: control.checkState === Qt.Checked
+    style: CheckBoxStyle {
+        indicator: Rectangle {
+            implicitWidth:  16
+            implicitHeight: 16
+            border.color:   Qt.rgba(mainColor.r, mainColor.g, mainColor.b, 0.5)
+            border.width:   1
+            radius:         1
+            color:          control.checkedState == Qt.Checked ? Qt.rgba(mainColor.r, mainColor.g, mainColor.b, 0.5) : "transparent"
+            ColorImage {
+                visible: control.checkedState == Qt.Checked
+                source:  "qrc:/qt-project.org/imports/QtQuick/Controls.2/images/check.png"
+                color:   "transparent"
+                anchors.fill: parent
+            }
         }
-
-        Rectangle {
-            x: (parent.width - width) / 2
-            y: (parent.height - height) / 2
-            width: 8
-            height: 2
-            color: control.palette.text
-            visible: control.checkState === Qt.PartiallyChecked
+        label: Text {
+            text:  control.text
+            color: Qt.rgba(mainColor.r, mainColor.g, mainColor.b, 0.5)
+            leftPadding: 5
+            font {
+                family:     "SF Pro Display"
+                styleName:  "Regular"
+                weight:     Font.Normal
+                pixelSize:  14
+            }
         }
-    }
-
-    contentItem: CheckLabel {
-        leftPadding: control.indicator && !control.mirrored ? control.indicator.width + control.spacing : 0
-        rightPadding: control.indicator && control.mirrored ? control.indicator.width + control.spacing : 0
-
-        text: control.text
-        font: control.font
-        color: control.palette.windowText
     }
 }

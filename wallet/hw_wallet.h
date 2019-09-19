@@ -19,14 +19,22 @@
 #include "core/ecc_native.h"
 #include "core/block_crypt.h"
 
+class Client;
+class DeviceManager;
+
 namespace beam
 {
-    class HWWalletImpl;
-
     class HWWallet
     {
     public:
-        HWWallet();
+        using OnError = std::function<void(const std::string&)>;
+
+        HWWallet(OnError onError = OnError());
+
+        using Ptr = std::shared_ptr<beam::HWWallet>;
+
+        std::vector<std::string> getDevices() const;
+        bool isConnected() const;
 
         template<typename T> using Result = std::function<void(const T& key)>;
 
@@ -55,6 +63,6 @@ namespace beam
         ECC::Scalar signTransactionSync(const std::vector<Key::IDV>& inputs, const std::vector<Key::IDV>& outputs, const TxData& tx) const;
 
     private:
-        std::shared_ptr<HWWalletImpl> m_impl;
+        std::shared_ptr<Client> m_client;
     };
 }

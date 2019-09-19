@@ -2175,10 +2175,6 @@ namespace beam
 				OnBbsMsg(msg.m_Message);
 			}
 
-			virtual void OnMsg(proto::BbsMsgV0&& msg) override {
-				OnBbsMsg(msg.m_Message);
-			}
-
 			void OnBbsMsg(const ByteBuffer& msg)
 			{
 				verify_test(msg.size() == 1);

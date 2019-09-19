@@ -114,7 +114,8 @@ namespace beam::wallet
         void setExpiration(ExpirationStatus status);
 
         static constexpr uint64_t AddressExpirationNever = 0;
-        static constexpr uint64_t AddressExpiration24h = 24*60*60;
+        static constexpr uint64_t AddressExpiration24h   = 24 * 60 * 60;
+        static constexpr uint64_t AddressExpiration1h    = 60 * 60;
     };
 
     // Describes structure of generic transaction parameter
@@ -164,7 +165,7 @@ namespace beam::wallet
     struct IWalletDbObserver
     {
         virtual void onCoinsChanged() {};
-        virtual void onTransactionChanged(ChangeAction action, std::vector<TxDescription>&& items) {};
+        virtual void onTransactionChanged(ChangeAction action, const std::vector<TxDescription>& items) {};
         virtual void onSystemStateChanged() {};
         virtual void onAddressChanged(ChangeAction action, const std::vector<WalletAddress>& items) {};
     };
@@ -238,6 +239,7 @@ namespace beam::wallet
         // Set of methods for low level database manipulation
         virtual void setVarRaw(const char* name, const void* data, size_t size) = 0;
         virtual bool getVarRaw(const char* name, void* data, int size) const = 0;
+        virtual void removeVarRaw(const char* name) = 0;
 
         virtual void setPrivateVarRaw(const char* name, const void* data, size_t size) = 0;
         virtual bool getPrivateVarRaw(const char* name, void* data, int size) const = 0;
@@ -307,9 +309,13 @@ namespace beam::wallet
     {
     public:
         static bool isInitialized(const std::string& path);
+#if defined(BEAM_HW_WALLET)
+        static Ptr initWithTrezor(const std::string& path, std::shared_ptr<ECC::HKdfPub> ownerKey, const SecString& password, io::Reactor::Ptr reactor);
+#endif
         static Ptr init(const std::string& path, const SecString& password, const ECC::NoLeak<ECC::uintBig>& secretKey, io::Reactor::Ptr reactor, bool separateDBForPrivateData = false);
-        static Ptr open(const std::string& path, const SecString& password, io::Reactor::Ptr reactor);
+        static Ptr open(const std::string& path, const SecString& password, io::Reactor::Ptr reactor, bool useTrezor = false);
 
+        WalletDB(sqlite3* db, io::Reactor::Ptr reactor);
         WalletDB(sqlite3* db, io::Reactor::Ptr reactor, sqlite3* sdb);
         WalletDB(sqlite3* db, const ECC::NoLeak<ECC::uintBig>& secretKey, io::Reactor::Ptr reactor, sqlite3* sdb);
         ~WalletDB();
@@ -335,6 +341,7 @@ namespace beam::wallet
 
         void setVarRaw(const char* name, const void* data, size_t size) override;
         bool getVarRaw(const char* name, void* data, int size) const override;
+        void removeVarRaw(const char* name) override;
 
         void setPrivateVarRaw(const char* name, const void* data, size_t size) override;
         bool getPrivateVarRaw(const char* name, void* data, int size) const override;
@@ -384,9 +391,10 @@ namespace beam::wallet
         void deleteIncomingWalletMessage(uint64_t id) override;
 
     private:
+        static void createTables(sqlite3* db, sqlite3* privateDb);
         void removeCoinImpl(const Coin::ID& cid);
         void notifyCoinsChanged();
-        void notifyTransactionChanged(ChangeAction action, std::vector<TxDescription>&& items);
+        void notifyTransactionChanged(ChangeAction action, const std::vector<TxDescription>& items);
         void notifySystemStateChanged();
         void notifyAddressChanged(ChangeAction action, const std::vector<WalletAddress>& items);
 
@@ -435,6 +443,8 @@ namespace beam::wallet
         
         mutable ParameterCache m_TxParametersCache;
         mutable std::map<WalletID, boost::optional<WalletAddress>> m_AddressesCache;
+
+        bool m_useTrezor = false;
     };
 
     namespace storage
