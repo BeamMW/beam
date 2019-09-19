@@ -54,7 +54,6 @@ namespace beam {
 		{
 			static const uint32_t Initial = 1024;
 
-			static const uint32_t RewardFirstHeader = 64;
 			static const uint32_t PenaltyNetworkErr = 128;
 
 			static const uint32_t Starvation_s_ToRatio = 1; // increase per second

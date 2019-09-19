@@ -320,9 +320,8 @@ Item {
                         anchors.right: parent.right
 
                         Rectangle {
-                            anchors.fill: parent                        
-                            color: styleData.selected ? Style.row_selected : Style.background_row_even
-                            visible: styleData.selected ? true : styleData.alternate
+                            anchors.fill: parent
+                            color: styleData.selected ? Style.row_selected : (styleData.alternate ? Style.background_row_even : Style.background_row_odd)
                         }
                     }
 
