@@ -34,5 +34,5 @@ AbstractColors {
     property color swapCurrencyPaneGrLeftQTUM:  "#2e9ad0"
     property color swapCurrencyPaneGrLeftOther: Qt.rgba(0, 246, 210, 0.1)
     property color swapCurrencyStateIndicator:  "#ff746b"
-    property color sawpCurrencyOptionsBorder:   Qt.rgba(0, 246, 210, 0.15)
+    property color swapCurrencyOptionsBorder:   Qt.rgba(0, 246, 210, 0.15)
 }

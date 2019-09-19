@@ -35,5 +35,5 @@ QtObject {
     property color swapCurrencyPaneGrLeftQTUM;
     property color swapCurrencyPaneGrLeftOther;
     property color swapCurrencyStateIndicator;
-    property color sawpCurrencyOptionsBorder;
+    property color swapCurrencyOptionsBorder;
 }

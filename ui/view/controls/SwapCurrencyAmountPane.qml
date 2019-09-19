@@ -3,7 +3,7 @@ import QtQuick.Layouts 1.3
 
 Rectangle {
 
-    property color borderColor: Style.sawpCurrencyOptionsBorder
+    property color borderColor: Style.swapCurrencyOptionsBorder
     property int borderSize: 0
     property color gradLeft: Style.swapCurrencyPaneGrLeftBEAM
     property color gradRight: Style.swapCurrencyPaneGrRight
