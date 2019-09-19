@@ -301,7 +301,7 @@ ColumnLayout {
                         text = text
                         // update
                         if (sentAmountInput.amount == 0) sentAmountInput.amount = 1
-                        if (rateRow.calcRAmount()) receiveAmountInput.amount = rateRow.calcRAmount()
+                        receiveAmountInput.amount = rateRow.calcRAmount()
                     }
 
                     onFocusChanged: {
