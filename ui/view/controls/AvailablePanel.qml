@@ -9,143 +9,121 @@ import "../utils.js" as Utils
 Control {
     id: control
 
-    property string beamValue
-
-    property alias  color:     panel.color
-    property string textColor: Style.content_main
+    property int available
+    property int locked
+    property int sending
+    property int receiving
 
     property var onOpenExternal: null
     signal copyValueText()
 
     background: Rectangle {
-        id:      panel
-        radius:  10
-        color:   Style.background_second
+        id:       panel
+        color:    "transparent"
+
+        Rectangle {
+            width:  parent.height
+            height: parent.width
+            anchors.centerIn: parent
+            rotation: 90
+            radius:   10
+            opacity:  0.3
+            gradient: Gradient {
+                GradientStop { position: 0.0; color: "#00458f" }
+                GradientStop { position: 1.0; color: "#00B4A3" }
+            }
+        }
     }
 
-    leftPadding:   25
-    rightPadding:  25
-    topPadding:    25
-    bottomPadding: 25
+    leftPadding:   20
+    rightPadding:  20
+    topPadding:    8
+    bottomPadding: 12
 
-    function onlyBeam () {
-        return !BeamGlobals.haveBtc() && ! BeamGlobals.haveLtc() && !BeamGlobals.haveQtum()
-    }
+    contentItem: RowLayout {
+        spacing: 0
 
-    contentItem: ColumnLayout {
-        RowLayout {
-            Layout.fillWidth: true
+        RowLayout{
+            Layout.preferredWidth: receiving > 0 || sending > 0 ? parent.width / 2 : parent.width
 
-            SFText {
-                font.pixelSize:    18
-                font.styleName:    "Bold"
-                font.weight:       Font.Bold
-                color:             Style.content_main
+            BeamAmount {
+                amount:            available
+                spacing:           15
+                lightFont:         false
+                fontSize:          16
+                currencySymbol:    Utils.symbolBeam
+                iconSource:        "qrc:/assets/icon-beam.svg"
+                iconSize:          Qt.size(22, 22)
+                copyMenuEnabled:   true
                 //% "Available"
-                text:              qsTrId("available-panel-available")
+                caption:           qsTrId("available-panel-available")
             }
 
             Item {
                 Layout.fillWidth: true
             }
 
-            SFText {
-                id:               whereToBuy
-                font.pixelSize:   14
-                Layout.alignment: Qt.AlignTop
-                color:            Style.active
-                opacity:          0.5
-                //% "Where to buy BEAM?"
-                text:             qsTrId("available-panel-where-to-buy")
-
-                MouseArea {
-                    anchors.fill:    parent
-                    acceptedButtons: Qt.LeftButton
-                    cursorShape:     Qt.PointingHandCursor
-                    onClicked: {
-                        if (onOpenExternal && typeof onOpenExternal === 'function') {
-                            onOpenExternal();
-                        }
-                    }
-                    hoverEnabled: true
-                }
+            BeamAmount {
+                amount:            locked
+                lightFont:         false
+                fontSize:          16
+                currencySymbol:    Utils.symbolBeam
+                copyMenuEnabled:   true
+                //% "Locked"
+                caption:           qsTrId("available-panel-locked")
+                visible:           locked > 0
             }
 
-            SvgImage {
-                id:                whereToBuyIcon
-                Layout.alignment:  Qt.AlignTop
-                source:            "qrc:/assets/icon-external-link.svg"
-                sourceSize:        Qt.size(14, 14)
-
-                MouseArea {
-                    anchors.fill:    parent
-                    acceptedButtons: Qt.LeftButton
-                    cursorShape:     Qt.PointingHandCursor
-                    onClicked: {
-                        if (onOpenExternal && typeof onOpenExternal === 'function') {
-                            onOpenExternal();
-                        }
-                    }
-                    hoverEnabled: true
-                }
+            Item {
+                Layout.fillWidth: true
             }
         }
 
-        RowLayout {
-            id:                amount
-            visible:           onlyBeam()
-            Layout.topMargin:  35
-            Layout.fillWidth:  true
+        RowLayout{
+            Layout.preferredWidth: parent.width / 2
+            visible: receiving > 0 || sending > 0
 
-            Item {Layout.fillWidth: true}
+            Rectangle {
+                color:   Qt.rgba(255, 255, 255, 0.1)
+                width:   1
+                height:  45
+
+            }
 
             BeamAmount {
-                amount:          beamValue
-                spacing:         20
-                color:           textColor
-                fontSize:        38
-                currencySymbol:  Utils.symbolBeam
-                iconSource:      "qrc:/assets/beam-circle.svg"
-                iconSize:        Qt.size(34, 34)
-                copyMenuEnabled: true
+                Layout.leftMargin: 20
+                amount:            sending
+                color:             Style.accent_outgoing
+                lightFont:         false
+                fontSize:          16
+                currencySymbol:    Utils.symbolBeam
+                copyMenuEnabled:   true
+                //% "Sending"
+                caption:           qsTrId("available-panel-sending")
+                showZero:          false
+                prefix:            "-"
             }
 
-            Item {Layout.fillWidth: true}
-        }
-
-        Item {Layout.fillHeight: true}
-
-        RowLayout {
-            Layout.fillWidth:   true
-
-            Item {Layout.fillWidth: true}
-
-            GridLayout {
-                columnSpacing:      25
-                rowSpacing:         20
-                columns:            2
-                rows:               2
-                visible:            !onlyBeam()
-                flow:               GridLayout.TopToBottom
-
-                BeamAmount {
-                    amount:           beamValue
-                    color:            textColor
-                    fontSize:         23
-                    currencySymbol:   Utils.symbolBeam
-                    iconSource:       "qrc:/assets/beam-circle.svg"
-                    iconSize:         Qt.size(23, 23)
-                    copyMenuEnabled:  true
-                    spacing:          10
-                }
-
+            Item {
+                Layout.fillWidth: true
             }
 
-            Item {Layout.fillWidth: true}
-        }
+            BeamAmount {
+                amount:            receiving
+                color:             Style.accent_incoming
+                lightFont:         false
+                fontSize:          16
+                currencySymbol:    Utils.symbolBeam
+                copyMenuEnabled:   true
+                //% "Receiving"
+                caption:           qsTrId("available-panel-receiving")
+                showZero:          false
+                prefix:            "+"
+            }
 
-        Item {
-            Layout.fillHeight: true
+            Item {
+                Layout.fillWidth: true
+            }
         }
     }
 }

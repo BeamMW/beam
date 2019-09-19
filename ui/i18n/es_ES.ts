@@ -192,7 +192,7 @@
     </message>
     <message id="wallet-in-progress-title">
         <source>In progress</source>
-        <translation>En progreso</translation>
+        <translation type="vanished">En progreso</translation>
     </message>
     <message id="wallet-transactions-title">
         <source>Transactions</source>
@@ -295,7 +295,7 @@
     </message>
     <message id="available-panel-where-to-buy">
         <source>Where to buy BEAM?</source>
-        <translation>¿Donde comprar BEAM?</translation>
+        <translation type="vanished">¿Donde comprar BEAM?</translation>
     </message>
     <message id="settings-version">
         <source>Version</source>
@@ -1022,12 +1022,12 @@
         <translation>Crea una nueva contraseña para acceder a tu wallet</translation>
     </message>
     <message id="start-create-pwd-strength-message">
-        <source>Strong password needs to meet the following requirements:\n•  the length must be at least 10 characters\n•  must contain at least one lowercase letter\n•  must contain at least one uppercase letter\n•  must contain at least one number</source>
-        <oldsource>Strong password needs to meet the following requirements:
+        <source>Strong password needs to meet the following requirements:
 •  the length must be at least 10 characters
 •  must contain at least one lowercase letter
 •  must contain at least one uppercase letter
-•  must contain at least one number</oldsource>
+•  must contain at least one number</source>
+        <oldsource>Strong password needs to meet the following requirements:\n•  the length must be at least 10 characters\n•  must contain at least one lowercase letter\n•  must contain at least one uppercase letter\n•  must contain at least one number</oldsource>
         <translation type="unfinished">La contraseña segura debe cumplir los siguientes requisitos:\n• la longitud debe ser de al menos 10 caracteres\n• debe contener al menos una letra minúscula\n• debe contener al menos una letra mayúscula\n• debe contener al menos un número</translation>
     </message>
     <message id="start-open-caps-warning">
@@ -1389,9 +1389,9 @@ Escanee este código QR o envíe esta dirección al remitente a través de un ca
         <translation type="unfinished"></translation>
     </message>
     <message id="swap-na-message">
-        <source>You do not have any 3rd-party currencies connected.\nUpdate your settings and try again.</source>
-        <oldsource>You do not have any 3rd-party currencies connected.
-Update your settings and try again.</oldsource>
+        <source>You do not have any 3rd-party currencies connected.
+Update your settings and try again.</source>
+        <oldsource>You do not have any 3rd-party currencies connected.\nUpdate your settings and try again.</oldsource>
         <translation type="unfinished"></translation>
     </message>
     <message id="wallet-receive-swap-title">
@@ -1479,9 +1479,9 @@ Update your settings and try again.</oldsource>
         <translation type="unfinished"></translation>
     </message>
     <message id="swap-currency-na-message">
-        <source>You do not have %1 connected.\nUpdate your settings and try again.</source>
-        <oldsource>You do not have %1 connected.
-Update your settings and try again.</oldsource>
+        <source>You do not have %1 connected.
+Update your settings and try again.</source>
+        <oldsource>You do not have %1 connected.\nUpdate your settings and try again.</oldsource>
         <translation type="unfinished"></translation>
     </message>
     <message id="send-swap-to-label">
@@ -1580,6 +1580,18 @@ you do not send large amounts.</oldsource>
     </message>
     <message id="swap-beta-connection-error">
         <source>Cannot connect to peer. Please check in the address in settings and retry.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="available-panel-locked">
+        <source>Locked</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="available-panel-sending">
+        <source>Sending</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="available-panel-receiving">
+        <source>Receiving</source>
         <translation type="unfinished"></translation>
     </message>
 </context>

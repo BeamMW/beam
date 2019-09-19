@@ -295,6 +295,18 @@
         <source>Available</source>
         <translation>Available</translation>
     </message>
+    <message id="available-panel-locked">
+        <source>Locked</source>
+        <translation>Locked</translation>
+    </message>
+    <message id="available-panel-sending">
+        <source>Sending</source>
+        <translation>Sending</translation>
+    </message>
+    <message id="available-panel-receiving">
+        <source>Receiving</source>
+        <translation>Receiving</translation>
+    </message>
     <message id="available-panel-where-to-buy">
         <source>Where to buy BEAM?</source>
         <translation>Where to buy BEAM?</translation>

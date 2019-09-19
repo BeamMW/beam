@@ -95,53 +95,26 @@ Item {
                 }
             }
 
-            Item {
-                y: 97
-                height: 206
-
-                anchors.left: parent.left
+            RowLayout {
+                y: 100
+                height: 67
+                anchors.left:  parent.left
                 anchors.right: parent.right
 
-                RowLayout {
+                AvailablePanel {
+                    Layout.minimumWidth:  viewModel.beamSending > 0 || viewModel.beamReceiving > 0 ? parent.width : parent.width / 2
+                    Layout.minimumHeight: parent.height
 
-                    id: wide_panels
-
-                    anchors.left: parent.left
-                    anchors.right: parent.right
-                    height: parent.height
-
-                    spacing: 30
-
-                    AvailablePanel {
-                    Layout.maximumWidth: 700
-                    Layout.minimumWidth: 350
-                    Layout.fillHeight: true
-                    Layout.fillWidth: true
-
-                    beamValue: viewModel.beamAvailable
-
-                    onOpenExternal : function() {
-                            var externalLink = "https://www.beam.mw/#exchanges";
-                            Utils.openExternal(externalLink, viewModel, externalLinkConfirmation);
-                        }
-                    }
-
-                    SecondaryPanel {
-                        Layout.minimumWidth: 350
-                        Layout.fillHeight:   true
-                        Layout.fillWidth:    true
-                        //% "In progress"
-                        title:               qsTrId("wallet-in-progress-title")
-                        beamReceiving:       viewModel.beamReceiving
-                        beamSending:         viewModel.beamSending
-                        beamLocked:          viewModel.beamLocked
-                    }
+                    available: viewModel.beamAvailable
+                    locked:    viewModel.beamLocked
+                    sending:   viewModel.beamSending
+                    receiving: viewModel.beamReceiving
                 }
             }
 
             Item
             {
-                y: 320
+                y: 220
 
                 anchors.left: parent.left
                 anchors.right: parent.right
@@ -179,7 +152,7 @@ Item {
                 id: transactionsView
 
                 anchors.fill: parent
-                anchors.topMargin: 394-33
+                anchors.topMargin: 255
                 Layout.bottomMargin: 9
 
                 property int rowHeight: 69

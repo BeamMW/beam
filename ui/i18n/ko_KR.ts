@@ -192,7 +192,7 @@
     </message>
     <message id="wallet-in-progress-title">
         <source>In progress</source>
-        <translation>진행중</translation>
+        <translation type="vanished">진행중</translation>
     </message>
     <message id="wallet-transactions-title">
         <source>Transactions</source>
@@ -295,7 +295,7 @@
     </message>
     <message id="available-panel-where-to-buy">
         <source>Where to buy BEAM?</source>
-        <translation>BEAM 은 어디서 사나요?</translation>
+        <translation type="vanished">BEAM 은 어디서 사나요?</translation>
     </message>
     <message id="settings-version">
         <source>Version</source>
@@ -1022,12 +1022,12 @@
         <translation>지갑에 접근하기 위해서 새 비밀번호를 생성해야합니다.</translation>
     </message>
     <message id="start-create-pwd-strength-message">
-        <source>Strong password needs to meet the following requirements:\n•  the length must be at least 10 characters\n•  must contain at least one lowercase letter\n•  must contain at least one uppercase letter\n•  must contain at least one number</source>
-        <oldsource>Strong password needs to meet the following requirements:
+        <source>Strong password needs to meet the following requirements:
 •  the length must be at least 10 characters
 •  must contain at least one lowercase letter
 •  must contain at least one uppercase letter
-•  must contain at least one number</oldsource>
+•  must contain at least one number</source>
+        <oldsource>Strong password needs to meet the following requirements:\n•  the length must be at least 10 characters\n•  must contain at least one lowercase letter\n•  must contain at least one uppercase letter\n•  must contain at least one number</oldsource>
         <translation type="unfinished">보안성이 강한 비밀번호를 만들기 위해서는 아래의 조건들을 충족시켜야 합니다 : \n• 최소한 10개의 글자로 이루어져야합니다.\n• 최소한 1개의 소문자가 포함되어야 합니다.\n• 최소한 1개의 대문자가 포함되어야 합니다.\n• 최소한 1개의 숫자가 포함되어야 합니다.</translation>
     </message>
     <message id="start-open-caps-warning">
@@ -1388,9 +1388,9 @@
         <translation type="unfinished"></translation>
     </message>
     <message id="swap-na-message">
-        <source>You do not have any 3rd-party currencies connected.\nUpdate your settings and try again.</source>
-        <oldsource>You do not have any 3rd-party currencies connected.
-Update your settings and try again.</oldsource>
+        <source>You do not have any 3rd-party currencies connected.
+Update your settings and try again.</source>
+        <oldsource>You do not have any 3rd-party currencies connected.\nUpdate your settings and try again.</oldsource>
         <translation type="unfinished"></translation>
     </message>
     <message id="wallet-receive-swap-title">
@@ -1478,9 +1478,9 @@ Update your settings and try again.</oldsource>
         <translation type="unfinished"></translation>
     </message>
     <message id="swap-currency-na-message">
-        <source>You do not have %1 connected.\nUpdate your settings and try again.</source>
-        <oldsource>You do not have %1 connected.
-Update your settings and try again.</oldsource>
+        <source>You do not have %1 connected.
+Update your settings and try again.</source>
+        <oldsource>You do not have %1 connected.\nUpdate your settings and try again.</oldsource>
         <translation type="unfinished"></translation>
     </message>
     <message id="send-swap-to-label">
@@ -1579,6 +1579,18 @@ you do not send large amounts.</oldsource>
     </message>
     <message id="swap-beta-connection-error">
         <source>Cannot connect to peer. Please check in the address in settings and retry.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="available-panel-locked">
+        <source>Locked</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="available-panel-sending">
+        <source>Sending</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="available-panel-receiving">
+        <source>Receiving</source>
         <translation type="unfinished"></translation>
     </message>
 </context>
