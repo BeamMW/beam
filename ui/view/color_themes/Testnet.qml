@@ -10,8 +10,9 @@ AbstractColors {
     property color validator_warning:     "#f4ce4a"
     property color validator_error:       "#ff625c"
 
-    property color navigation_background: "#181223"
+    property color navigation_background: "#000000"
     property color background_main:       "#1e172c"
+    property color background_main_top:   "#035b8f"
     property color background_second:     "#342e41"
     property color background_row_even:   "#292236"
     property color background_details:    "#3e384a"

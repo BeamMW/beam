@@ -12,6 +12,7 @@ QtObject {
 
     property color navigation_background;
     property color background_main;
+    property color background_main_top;
     property color background_second;
     property color background_row_even;
     property color background_details;

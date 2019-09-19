@@ -13,11 +13,24 @@ Rectangle {
 
 	MainViewModel {id: viewModel}
 
+    property color topColor: Style.background_main_top
+    property color topGradientColor: Qt.rgba(Style.background_main_top.r, Style.background_main_top.g, Style.background_main_top.b, 0)
+
     StatusbarViewModel {
         id: statusbarModel
     }
 
     color: Style.background_main
+
+    Rectangle {
+        anchors.left: parent.left
+        anchors.right: parent.right
+        height: 230
+        gradient: Gradient {
+            GradientStop { position: 0.0; color: main.topColor }
+            GradientStop { position: 1.0; color: main.topGradientColor }
+        }
+    }
 
     MouseArea {
         id: mainMouseArea
@@ -44,16 +57,20 @@ Rectangle {
 		"settings"]
     property int selectedItem
 
-    Rectangle {
+    Item {
         id: sidebar
         width: 70
         height: 0
-        color: Style.navigation_background
-        border.width: 0
         anchors.bottom: parent.bottom
         anchors.left: parent.left
         anchors.top: parent.top
 
+        Rectangle {
+            anchors.fill: parent
+            color: Style.navigation_background
+            opacity: 0.1
+            border.width: 0
+        }
 
         Column {
             width: 0
