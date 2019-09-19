@@ -132,18 +132,23 @@ QAbstractItemModel* SwapOffersViewModel::getTransactions()
     return &m_transactionsList;
 }
 
-void SwapOffersViewModel::cancelTx(QVariant txParameters)
+void SwapOffersViewModel::cancelTx(QVariant variantTxID)
 {
-    if (!txParameters.isNull() && txParameters.isValid())
+    if (!variantTxID.isNull() && variantTxID.isValid())
     {
-        auto p = txParameters.value<beam::wallet::TxParameters>();
-        auto txId = p.GetTxID();
-        if (txId)
-        {
-            m_walletModel.getAsync()->cancelTx(txId.value());
-            m_walletModel.getAsync()->cancelOffer(txId.value());
-        }
-    }    
+        auto txId = variantTxID.value<beam::wallet::TxID>();
+        m_walletModel.getAsync()->cancelTx(txId);
+        m_walletModel.getAsync()->cancelOffer(txId);
+    }
+}
+
+void SwapOffersViewModel::deleteTx(QVariant variantTxID)
+{
+    if (!variantTxID.isNull() && variantTxID.isValid())
+    {
+        auto txId = variantTxID.value<beam::wallet::TxID>();
+        m_walletModel.getAsync()->deleteTx(txId);
+    }
 }
 
 void SwapOffersViewModel::onTransactionsDataModelChanged(beam::wallet::ChangeAction action, const std::vector<beam::wallet::TxDescription>& transactions)

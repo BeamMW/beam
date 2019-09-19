@@ -18,7 +18,7 @@ using namespace beam;
 using namespace beam::wallet;
 using namespace beamui;
 
-TxObject::TxObject(QObject* parent /*= nullptr*/)
+TxObject::TxObject(QObject* parent)
         : QObject(parent)
 {
 }
@@ -36,6 +36,11 @@ auto TxObject::timeCreated() const -> QDateTime
 	QDateTime datetime;
 	datetime.setTime_t(m_tx.m_createTime);
 	return datetime;
+}
+
+auto TxObject::getTxID() const -> beam::wallet::TxID
+{
+    return m_tx.m_txId;
 }
 
 bool TxObject::income() const

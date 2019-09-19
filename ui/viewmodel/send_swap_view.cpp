@@ -17,6 +17,8 @@
 #include "wallet/swaps/common.h"
 #include "ui_helpers.h"
 
+Q_DECLARE_METATYPE(beam::wallet::TxParameters)
+
 SendSwapViewModel::SendSwapViewModel()
     : _sendAmount(0)
     , _sendFee(0)

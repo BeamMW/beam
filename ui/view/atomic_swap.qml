@@ -12,8 +12,6 @@ Item {
     Layout.fillWidth: true
     Layout.fillHeight: true
 
-    property var copiedTxParams
-
     SwapOffersViewModel {
         id: viewModel
     }
@@ -293,13 +291,13 @@ Item {
                     Layout.topMargin: 14
 
                     property int rowHeight: 56
-                    property int columnWidth: (width - 76) / 6
+                    property int columnWidth: (width - 66) / 6
 
                     frameVisible: false
                     selectionMode: SelectionMode.NoSelection
                     backgroundVisible: false
                     sortIndicatorVisible: true
-                    sortIndicatorColumn: 0
+                    sortIndicatorColumn: 1
                     sortIndicatorOrder: Qt.DescendingOrder
 
                     model: SortFilterProxyModel {
@@ -316,9 +314,26 @@ Item {
                         filterCaseSensitivity: Qt.CaseInsensitive
                     }
 
+                    rowDelegate: Item {
+                        height: offersTable.rowHeight
+                        anchors.left: parent.left
+                        anchors.right: parent.right
+
+                        Rectangle {
+                            anchors.fill: parent                        
+                            color: styleData.selected ? Style.row_selected : Style.background_row_even
+                            visible: styleData.selected ? true : styleData.alternate
+                        }
+                    }
+
+                    itemDelegate: TableItem {
+                        text: styleData.value
+                        elide: Text.ElideRight
+                    }
+
                     TableViewColumn {
                         // role: ""
-                        width: 76
+                        width: 66
                         movable: false
                         resizable: false
                     }
@@ -339,6 +354,11 @@ Item {
                         width: offersTable.columnWidth
                         movable: false
                         resizable: false
+                        delegate: TableItem {
+                            text: styleData.value
+                            elide: Text.ElideRight
+                            fontWeight: Font.Bold
+                        }
                     }
 
                     TableViewColumn {
@@ -348,6 +368,11 @@ Item {
                         width: offersTable.columnWidth
                         movable: false
                         resizable: false
+                        delegate: TableItem {
+                            text: styleData.value
+                            elide: Text.ElideRight
+                            fontWeight: Font.Bold
+                        }
                     }
 
                     TableViewColumn {
@@ -386,7 +411,8 @@ Item {
                                     anchors.rightMargin: 20
 
                                     font.pixelSize: 14
-                                    color: Style.active
+                                    color: isOwnOffer ? "#ffffff" : "#00f6d2"
+                                    opacity: isOwnOffer ? 0.5 : 1.0
                                     text: isOwnOffer
                                                     //% "Cancel offer"
                                                     ? qsTrId("atomic-swap-cancel")
@@ -398,35 +424,18 @@ Item {
                                         acceptedButtons: Qt.LeftButton
                                         onClicked: {
                                             if (isOwnOffer) {
-                                                copiedTxParams = offersTable.model.get(styleData.row).rawTxParameters;
-                                                viewModel.cancelTx(copiedTxParams);
+                                                var txID = offersTable.model.get(styleData.row).rawTxID
+                                                viewModel.cancelTx(txID);
                                             }
                                             else {
-                                                copiedTxParams = offersTable.model.get(styleData.row).rawTxParameters;
-                                                offersStackView.push(Qt.createComponent("send.qml"), {"isSwapMode": true, "predefinedTxParams": copiedTxParams});
+                                                var txParameters = offersTable.model.get(styleData.row).rawTxParameters;
+                                                offersStackView.push(Qt.createComponent("send.qml"), {"isSwapMode": true, "predefinedTxParams": txParameters});
                                             }
                                         }
                                     }
                                 }
                             }
                         }
-                    }
-
-                    rowDelegate: Item {
-                        height: offersTable.rowHeight
-                        anchors.left: parent.left
-                        anchors.right: parent.right
-
-                        Rectangle {
-                            anchors.fill: parent                        
-                            color: styleData.selected ? Style.row_selected : Style.background_row_even
-                            visible: styleData.selected ? true : styleData.alternate
-                        }
-                    }
-
-                    itemDelegate: TableItem {
-                        text: styleData.value
-                        elide: Text.ElideRight
                     }
                 }   // CustomTableView : offersTable
             }   // ColumnLayout : activeOffersTab
@@ -503,13 +512,13 @@ Item {
                     Layout.topMargin: 12
 
                     property int rowHeight: 56
-                    property int columnWidth: width / 6
+                    property int columnWidth: (width - 106) / 6
 
                     frameVisible: false
                     selectionMode: SelectionMode.NoSelection
                     backgroundVisible: false
                     sortIndicatorVisible: true
-                    sortIndicatorColumn: 0
+                    sortIndicatorColumn: 1
                     sortIndicatorOrder: Qt.DescendingOrder
 
                     model: SortFilterProxyModel {
@@ -544,6 +553,12 @@ Item {
                     }
 
                     TableViewColumn {
+                        width: 66
+                        movable: false
+                        resizable: false
+                    }
+
+                    TableViewColumn {
                         role: "timeCreated"
                         //% "Created on"
                         title: qsTrId("atomic-swap-tx-table-created")
@@ -574,6 +589,12 @@ Item {
                         width: transactionsTable.columnWidth
                         movable: false
                         resizable: false
+                        delegate: TableItem {
+                            text: (styleData.value === '' ? '' : '-') + styleData.value
+                            elide: Text.ElideRight
+                            fontWeight: Font.Bold
+                            color: "#da68f5"
+                        }
                     }
                     TableViewColumn {
                         role: "amountReceive"
@@ -582,6 +603,12 @@ Item {
                         width: transactionsTable.columnWidth
                         movable: false
                         resizable: false
+                        delegate: TableItem {
+                            text: (styleData.value === '' ? '' : '+') + styleData.value
+                            elide: Text.ElideRight
+                            fontWeight: Font.Bold
+                            color: "#0bccf7"
+                        }
                     }
                     TableViewColumn {
                         role: "status"
@@ -590,8 +617,170 @@ Item {
                         width: transactionsTable.columnWidth
                         movable: false
                         resizable: false
+                        delegate: Item {
+                            width: parent.width
+                            height: transactionsTable.rowHeight
+
+                            RowLayout {
+                                anchors.fill: parent
+                                anchors.leftMargin: 10
+                                // spacing: 14
+
+                                SvgImage {
+                                    Layout.alignment: Qt.AlignHCenter
+                                    sourceSize: Qt.size(20, 20)
+                                    source: getIconSource()
+
+                                    function getIconSource() {
+                                        if (transactionsTable.model.get(styleData.row).isSelfTransaction) {
+                                            return "qrc:/assets/icon-transfer.svg";
+                                        }
+                                        return transactionsTable.model.get(styleData.row).isIncome ?
+                                            "qrc:/assets/icon-received.svg" :
+                                            "qrc:/assets/icon-sent.svg";
+                                    }
+                                }
+
+                                SFLabel {
+                                    Layout.alignment: Qt.AlignHCenter
+                                    font.pixelSize: 14
+                                    font.italic: true
+                                    elide: Text.ElideRight
+                                    text: getStatusText(styleData.value)
+                                    color: getTextColor()
+
+                                    function getTextColor () {
+                                        if (transactionsTable.model.get(styleData.row).IsInProgress || transactionsTable.model.get(styleData.row).IsCompleted) {
+                                            if (transactionsTable.model.get(styleData.row).isSelfTransaction) {
+                                                return Style.content_main;
+                                            }
+                                            return transactionsTable.model.get(styleData.row).isIncome ? Style.accent_incoming : Style.accent_outgoing;
+                                        }
+
+                                        return Style.content_main;
+                                    }
+
+                                    function getStatusText(value) {
+                                        switch(value) {
+                                            //% "pending"
+                                            case "pending": return qsTrId("wallet-txs-status-pending");
+                                            //% "waiting for sender"
+                                            case "waiting for sender": return qsTrId("wallet-txs-status-waiting-sender");
+                                            //% "waiting for receiver"
+                                            case "waiting for receiver": return qsTrId("wallet-txs-status-waiting-receiver");
+                                            //% "receiving"
+                                            case "receiving": return qsTrId("general-receiving");
+                                            //% "sending"
+                                            case "sending": return qsTrId("general-sending");
+                                            //% "completed"
+                                            case "completed": return qsTrId("wallet-txs-status-completed");
+                                            //% "received"
+                                            case "received": return qsTrId("wallet-txs-status-received");
+                                            //% "sent"
+                                            case "sent": return qsTrId("wallet-txs-status-sent");
+                                            //% "cancelled"
+                                            case "cancelled": return qsTrId("wallet-txs-status-cancelled");
+                                            //% "expired"
+                                            case "expired": return qsTrId("wallet-txs-status-expired");
+                                            //% "failed"
+                                            case "failed": return qsTrId("wallet-txs-status-failed");
+                                            //% "unknown"
+                                            default: return qsTrId("wallet-txs-status-unknown");
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    TableViewColumn {
+                        id: actionsColumn
+                        title: ""
+                        width: 40
+                        movable: false
+                        resizable: false
+                        delegate: txActions
+                    }
+
+                    Component {
+                        id: txActions
+                        Item {
+                            Item {
+                                width: parent.width
+                                height: transactionsTable.rowHeight
+
+                                Row{
+                                    anchors.right: parent.right
+                                    anchors.rightMargin: 12
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    spacing: 10
+                                    CustomToolButton {
+                                        icon.source: "qrc:/assets/icon-actions.svg"
+                                        //% "Actions"
+                                        ToolTip.text: qsTrId("general-actions")
+                                        onClicked: {
+                                            txContextMenu.address = transactionsTable.model.get(styleData.row).addressTo;
+                                            txContextMenu.cancelEnabled = transactionsTable.model.get(styleData.row).isCancelAvailable;
+                                            txContextMenu.deleteEnabled = transactionsTable.model.get(styleData.row).isDeleteAvailable;
+                                            txContextMenu.txID = transactionsTable.model.get(styleData.row).rawTxID;
+                                            txContextMenu.popup();
+                                        }
+                                    }
+                                }
+                            }
+                        }
                     }
                 }   // CustomTableView : transactionsTable
+
+                ContextMenu {
+                    id: txContextMenu
+                    modal: true
+                    dim: false
+                    property bool cancelEnabled
+                    property bool deleteEnabled
+                    property var address
+                    property var txID
+                    Action {
+                        //% "Copy address"
+                        text: qsTrId("wallet-txs-copy-addr-cm")
+                        icon.source: "qrc:/assets/icon-copy.svg"
+                        onTriggered: {
+                            BeamGlobals.copyToClipboard(txContextMenu.address);
+                        }
+                    }
+                    Action {
+                        //% "Cancel"
+                        text: qsTrId("general-cancel")
+                        icon.source: "qrc:/assets/icon-cancel.svg"
+                        enabled: txContextMenu.cancelEnabled
+                        onTriggered: {
+                            viewModel.cancelTx(txContextMenu.txID);
+                        }
+                    }
+                    Action {
+                        //% "Delete"
+                        text: qsTrId("general-delete")
+                        icon.source: "qrc:/assets/icon-delete.svg"
+                        enabled: txContextMenu.deleteEnabled
+                        onTriggered: {
+                            //% "The transaction will be deleted. This operation can not be undone"
+                            deleteTransactionDialog.text = qsTrId("wallet-txs-delete-message");
+                            deleteTransactionDialog.open();
+                        }
+                    }
+                    Connections {
+                        target: deleteTransactionDialog
+                        onAccepted: {
+                            viewModel.deleteTx(txContextMenu.txID);
+                        }
+                    }
+                }
+                
+                ConfirmationDialog {
+                    id: deleteTransactionDialog
+                    //% "Delete"
+                    okButtonText: qsTrId("general-delete")
+                }
             }   // ColumnLayout : transactionsTab
         } // ColumnLayout : 
     } // Component : offersViewComponent

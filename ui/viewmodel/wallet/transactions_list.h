@@ -25,19 +25,25 @@ class TransactionsList : public ListModel<std::shared_ptr<TxObject>>
 public:
     enum class Roles
     {
-        TimeCreatedRole = Qt::UserRole + 1,
-        TimeCreatedSortRole,
-        AmountSendRole,
-        AmountSendSortRole,
-        AmountReceiveRole,
-        AmountReceiveSortRole,
-        AddressFromRole,
-        AddressFromSortRole,
-        AddressToRole,
-        AddressToSortRole,
-        StatusRole,
-        StatusSortRole,
-        RawTxParametersRole
+        TimeCreated = Qt::UserRole + 1,
+        TimeCreatedSort,
+        AmountSend,
+        AmountSendSort,
+        AmountReceive,
+        AmountReceiveSort,
+        AddressFrom,
+        AddressFromSort,
+        AddressTo,
+        AddressToSort,
+        Status,
+        StatusSort,
+        IsCancelAvailable,
+        IsDeleteAvailable,
+        IsSelfTransaction,
+        IsIncome,
+        IsInProgress,
+        IsCompleted,
+        RawTxID
     };
 
     TransactionsList();

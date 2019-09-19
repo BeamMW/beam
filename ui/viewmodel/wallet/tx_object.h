@@ -49,7 +49,8 @@ public:
     TxObject(QObject* parent = nullptr);
     TxObject(const beam::wallet::TxDescription& tx, QObject* parent = nullptr);
 
-    auto timeCreated() const->QDateTime;
+    auto timeCreated() const -> QDateTime;
+    auto getTxID() const -> beam::wallet::TxID;
     //
     QString getSentAmount() const;
     double getSentAmountValue() const;

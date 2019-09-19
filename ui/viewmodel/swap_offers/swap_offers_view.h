@@ -54,7 +54,8 @@ public:
 
     Q_INVOKABLE int getCoinType();
     Q_INVOKABLE void setCoinType(int coinType);
-    Q_INVOKABLE void cancelTx(QVariant txParameters);
+    Q_INVOKABLE void cancelTx(QVariant variantTxID);
+    Q_INVOKABLE void deleteTx(QVariant variantTxID);
 
 public slots:
     void onTransactionsDataModelChanged(
