@@ -16,6 +16,8 @@
 #include "model/app_model.h"
 #include "model/settings.h"
 #include "swap_offers_view.h"
+#include "viewmodel/ui_helpers.h"
+
 using namespace beam;
 using namespace beam::wallet;
 using namespace std;
@@ -209,7 +211,17 @@ void SwapOffersViewModel::onSwapOffersDataModelChanged(beam::wallet::ChangeActio
         WalletID walletID;
         if (offer.GetParameter(TxParameterID::PeerID, walletID))
         {
-            modifiedOffers.push_back(make_shared<SwapOfferItem>(offer, m_walletModel.isOwnAddress(walletID)));
+            QDateTime timeExpiration;
+
+            auto expiresHeight = offer.GetParameter<Height>(beam::wallet::TxParameterID::PeerResponseHeight);
+            auto currentHeight = m_status.getCurrentHeight();
+
+            if (currentHeight && expiresHeight)
+            {
+                timeExpiration = beamui::CalculateExpiresTime(currentHeight, *expiresHeight);
+            }
+
+            modifiedOffers.push_back(make_shared<SwapOfferItem>(offer, m_walletModel.isOwnAddress(walletID), timeExpiration));
         }
     }
 
