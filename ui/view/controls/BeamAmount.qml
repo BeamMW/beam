@@ -15,6 +15,7 @@ Control {
     property string  color:           Style.content_main
     property bool    error:           false
     property bool    showZero:        true
+    property bool    showDrop:        false
     property int     fontSize:        14
     property bool    lightFont:       true
     property string  currencySymbol:  Utils.symbolBeam
@@ -42,17 +43,23 @@ Control {
                 font.pixelSize: captionFontSize
                 font.styleName: "Light"
                 font.weight:    Font.Light
-                color:          "#5faec4"
+                color:          Qt.rgba(Style.content_main.r, Style.content_main.g, Style.content_main.b, 0.5)
             }
 
-            SFLabel {
-                id:             amountText
-                font.pixelSize: fontSize
-                font.styleName: lightFont ? "Light" : "Normal"
-                font.weight:    lightFont ? Font.Light : Font.Normal
-                color:          control.error ? Style.validator_error : control.color
-                text:           showZero || amount > 0 ? prefix + [Utils.formatAmount(amount).length ? Utils.formatAmount(amount) : "0", control.currencySymbol].join(" ") : "-"
-                onCopyText:     BeamGlobals.copyToClipboard(Utils.formatAmount(amount))
+            RowLayout {
+                SFLabel {
+                    id:             amountText
+                    font.pixelSize: fontSize
+                    font.styleName: lightFont ? "Light" : "Normal"
+                    font.weight:    lightFont ? Font.Light : Font.Normal
+                    color:          control.error ? Style.validator_error : control.color
+                    text:           showZero || amount > 0 ? prefix + [Utils.formatAmount(amount).length ? Utils.formatAmount(amount) : "0", control.currencySymbol].join(" ") : "-"
+                    onCopyText:     BeamGlobals.copyToClipboard(Utils.formatAmount(amount))
+                }
+                Image {
+                    visible: showDrop
+                    source:  "qrc:/assets/icon-down.svg"
+                }
             }
         }
     }

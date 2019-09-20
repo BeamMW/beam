@@ -95,21 +95,20 @@ Item {
                 }
             }
 
-            RowLayout {
+            AvailablePanel {
                 y: 100
                 height: 67
                 anchors.left:  parent.left
-                anchors.right: parent.right
+                anchors.right: viewModel.beamSending > 0 || viewModel.beamReceiving > 0 ? parent.right : parent.horizontalCenter
 
-                AvailablePanel {
-                    Layout.minimumWidth:  viewModel.beamSending > 0 || viewModel.beamReceiving > 0 ? parent.width : parent.width / 2
-                    Layout.minimumHeight: parent.height
-
-                    available: viewModel.beamAvailable
-                    locked:    viewModel.beamLocked
-                    sending:   viewModel.beamSending
-                    receiving: viewModel.beamReceiving
-                }
+                available:         viewModel.beamAvailable
+                locked:            viewModel.beamLocked
+                lockedAtomic:      viewModel.beamLockedAtomic
+                lockedMaturing:    viewModel.beamLockedMaturing
+                sending:           viewModel.beamSending
+                receiving:         viewModel.beamReceiving
+                receivingChange:   viewModel.beamReceivingChange
+                receivingIncoming: viewModel.beamReceivingIncoming
             }
 
             Item

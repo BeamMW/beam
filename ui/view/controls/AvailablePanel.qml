@@ -9,10 +9,14 @@ import "../utils.js" as Utils
 Control {
     id: control
 
-    property int available
-    property int locked
-    property int sending
-    property int receiving
+    property double available
+    property double locked
+    property double lockedAtomic
+    property double lockedMaturing
+    property double sending
+    property double receiving
+    property double receivingChange
+    property double receivingIncoming
 
     property var onOpenExternal: null
     signal copyValueText()
@@ -40,12 +44,132 @@ Control {
     topPadding:    8
     bottomPadding: 12
 
+    Control {
+        id:            lockedTip
+        visible:       lockedArea.containsMouse
+        x:             lockedAmount.x + lockedAmount.parent.x
+        y:             lockedAmount.y + lockedAmount.parent.y + lockedAmount.height + 15
+
+        leftPadding:   14
+        rightPadding:  14
+        topPadding:    13
+        bottomPadding: 13
+
+        background: Rectangle {
+            anchors.fill: parent
+            color:  Qt.rgba(255, 255, 255, 0.15)
+            radius: 10
+        }
+
+        contentItem:  GridLayout {
+            columnSpacing: 15
+            rowSpacing:    10
+            columns:       2
+            rows:          2
+
+            SFText {
+                font.pixelSize: 12
+                font.styleName: "Light"
+                font.weight:    Font.Light
+                color:          Qt.rgba(Style.content_main.r, Style.content_main.g, Style.content_main.b, 0.5)
+                //% "Maturing"
+                text:           qsTrId("available-panel-maturing")
+            }
+
+            BeamAmount {
+                amount:            lockedMaturing
+                spacing:           15
+                lightFont:         false
+                fontSize:          12
+                currencySymbol:    Utils.symbolBeam
+            }
+
+            SFText {
+                font.pixelSize: 12
+                font.styleName: "Light"
+                font.weight:    Font.Light
+                color:          Qt.rgba(Style.content_main.r, Style.content_main.g, Style.content_main.b, 0.5)
+                //% "Atomic Swap"
+                text:           qsTrId("available-panel-aswap")
+            }
+
+            BeamAmount {
+                amount:            lockedAtomic
+                spacing:           15
+                lightFont:         false
+                fontSize:          12
+                currencySymbol:    Utils.symbolBeam
+            }
+        }
+    }
+
+    Control {
+        id:            receivingTip
+        visible:       receivingArea.containsMouse
+        x:             receivingAmount.x + receivingAmount.parent.x
+        y:             receivingAmount.y + receivingAmount.parent.y + receivingAmount.height + 15
+
+        leftPadding:   14
+        rightPadding:  14
+        topPadding:    13
+        bottomPadding: 13
+
+        background: Rectangle {
+            anchors.fill: parent
+            color:  Qt.rgba(255, 255, 255, 0.15)
+            radius: 10
+        }
+
+        contentItem:  GridLayout {
+            columnSpacing: 15
+            rowSpacing:    10
+            columns:       2
+            rows:          2
+
+            SFText {
+                font.pixelSize: 12
+                font.styleName: "Light"
+                font.weight:    Font.Light
+                color:          Qt.rgba(Style.content_main.r, Style.content_main.g, Style.content_main.b, 0.5)
+                //% "Change"
+                text:           qsTrId("available-panel-change")
+            }
+
+            BeamAmount {
+                amount:            receivingChange
+                spacing:           15
+                lightFont:         false
+                fontSize:          12
+                currencySymbol:    Utils.symbolBeam
+                color:             Style.accent_incoming
+                prefix:            "+"
+            }
+
+            SFText {
+                font.pixelSize: 12
+                font.styleName: "Light"
+                font.weight:    Font.Light
+                color:          Qt.rgba(Style.content_main.r, Style.content_main.g, Style.content_main.b, 0.5)
+                //% "Incoming"
+                text:           qsTrId("available-panel-incoming")
+            }
+
+            BeamAmount {
+                amount:            receivingIncoming
+                spacing:           15
+                lightFont:         false
+                fontSize:          12
+                currencySymbol:    Utils.symbolBeam
+                color:             Style.accent_incoming
+                prefix:            "+"
+            }
+        }
+    }
+
     contentItem: RowLayout {
         spacing: 0
-
         RowLayout{
             Layout.preferredWidth: receiving > 0 || sending > 0 ? parent.width / 2 : parent.width
-
             BeamAmount {
                 amount:            available
                 spacing:           15
@@ -64,6 +188,7 @@ Control {
             }
 
             BeamAmount {
+                id:                lockedAmount
                 amount:            locked
                 lightFont:         false
                 fontSize:          16
@@ -72,6 +197,13 @@ Control {
                 //% "Locked"
                 caption:           qsTrId("available-panel-locked")
                 visible:           locked > 0
+                showDrop:          true
+
+                 MouseArea {
+                    id: lockedArea
+                    anchors.fill: parent
+                    hoverEnabled: true
+                }
             }
 
             Item {
@@ -87,7 +219,6 @@ Control {
                 color:   Qt.rgba(255, 255, 255, 0.1)
                 width:   1
                 height:  45
-
             }
 
             BeamAmount {
@@ -109,6 +240,7 @@ Control {
             }
 
             BeamAmount {
+                id:                receivingAmount
                 amount:            receiving
                 color:             Style.accent_incoming
                 lightFont:         false
@@ -119,6 +251,16 @@ Control {
                 caption:           qsTrId("available-panel-receiving")
                 showZero:          false
                 prefix:            "+"
+                showDrop:          true
+
+                //ToolTip.visible: receivingArea.containsMouse
+                //ToolTip.text: qsTr("Save the active project")
+
+                MouseArea {
+                    id: receivingArea
+                    anchors.fill: parent
+                    hoverEnabled: true
+                }
             }
 
             Item {

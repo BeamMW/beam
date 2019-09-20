@@ -25,11 +25,14 @@
 class WalletViewModel : public QObject
 {
     Q_OBJECT
-    Q_PROPERTY(double  beamAvailable   READ beamAvailable    NOTIFY stateChanged)
-    Q_PROPERTY(double beamReceiving   READ beamReceiving    NOTIFY stateChanged)
-    Q_PROPERTY(double beamSending   READ beamSending  NOTIFY stateChanged)
-    Q_PROPERTY(double beamLocked    READ beamLocked  NOTIFY stateChanged)
-    Q_PROPERTY(QString maturing    READ maturing     NOTIFY stateChanged)
+    Q_PROPERTY(double beamAvailable          READ beamAvailable          NOTIFY stateChanged)
+    Q_PROPERTY(double beamReceiving          READ beamReceiving          NOTIFY stateChanged)
+    Q_PROPERTY(double beamSending            READ beamSending            NOTIFY stateChanged)
+    Q_PROPERTY(double beamLocked             READ beamLocked             NOTIFY stateChanged)
+    Q_PROPERTY(double beamLockedMaturing     READ beamLockedMaturing     NOTIFY stateChanged)
+    Q_PROPERTY(double beamLockedAtomic       READ beamLockedAtomic       NOTIFY stateChanged)
+    Q_PROPERTY(double beamReceivingChange    READ beamReceivingChange    NOTIFY stateChanged)
+    Q_PROPERTY(double beamReceivingIncoming  READ beamReceivingIncoming  NOTIFY stateChanged)
     Q_PROPERTY(QQmlListProperty<TxObject> transactions READ getTransactions NOTIFY transactionsChanged)
     Q_PROPERTY(QString sortRole READ sortRole WRITE setSortRole)
     Q_PROPERTY(Qt::SortOrder sortOrder READ sortOrder WRITE setSortOrder)
@@ -58,7 +61,11 @@ public:
     double  beamReceiving() const;
     double  beamSending() const;
     double  beamLocked() const;
-    QString maturing() const;
+    double  beamLockedAtomic() const;
+    double  beamLockedMaturing() const;
+    double  beamReceivingChange() const;
+    double  beamReceivingIncoming() const;
+
     QQmlListProperty<TxObject> getTransactions();
     bool getIsOfflineStatus() const;
     bool getIsFailedStatus() const;

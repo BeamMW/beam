@@ -307,9 +307,21 @@
         <source>Receiving</source>
         <translation>Receiving</translation>
     </message>
-    <message id="available-panel-where-to-buy">
-        <source>Where to buy BEAM?</source>
-        <translation>Where to buy BEAM?</translation>
+    <message id="available-panel-maturing">
+        <source>Maturing</source>
+        <translation>Maturing</translation>
+    </message>
+    <message id="available-panel-aswap">
+        <source>Atomic Swap</source>
+        <translation>Atomic Swap</translation>
+    </message>
+    <message id="available-panel-change">
+        <source>Change</source>
+        <translation>Change</translation>
+    </message>
+    <message id="available-panel-incoming">
+        <source>Incoming</source>
+        <translation>Incoming</translation>
     </message>
     <message id="settings-version">
         <source>Version</source>
@@ -476,10 +488,6 @@
     <message id="payment-info-copy-code-button">
         <source>Copy code</source>
         <translation>Copy code</translation>
-    </message>
-    <message id="secondary-panel-maturing">
-        <source>Maturing</source>
-        <translation type="vanished">Maturing</translation>
     </message>
     <message id="info-title">
         <source>Info view</source>

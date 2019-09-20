@@ -150,7 +150,9 @@ double WalletViewModel::beamAvailable() const
 
 double WalletViewModel::beamReceiving() const
 {
-     return double(_status.getReceiving()) / Rules::Coin;
+    // TODO:SWAP return real value
+    // beamReceivingChange() + beamReceivingIncoming();
+    return double(_status.getReceiving()) / Rules::Coin;
 }
 
 double WalletViewModel::beamSending() const
@@ -158,16 +160,32 @@ double WalletViewModel::beamSending() const
     return double(_status.getSending()) / Rules::Coin;
 }
 
-double WalletViewModel::beamLocked() const
+double WalletViewModel::beamReceivingChange() const
 {
-     // TODO:SWAP return real value
+    // TODO:SWAP return real value
     return 0;
 }
 
-
-QString WalletViewModel::maturing() const
+double WalletViewModel::beamReceivingIncoming() const
 {
-    return AmountToString(_status.getMaturing(), Currencies::Beam);
+    // TODO:SWAP return real value
+    return 0;
+}
+
+double WalletViewModel::beamLocked() const
+{
+    return beamLockedAtomic() + beamLockedMaturing();
+}
+
+double WalletViewModel::beamLockedAtomic() const
+{
+     // TODO:SWAP return real value
+     return 0;
+}
+
+double WalletViewModel::beamLockedMaturing() const
+{
+    return _status.getMaturing();
 }
 
 QString WalletViewModel::sortRole() const
