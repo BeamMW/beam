@@ -49,20 +49,20 @@ auto TxObject::isBeamSideSwap() const -> bool
     return isBeamSide.value();
 }
 
-auto TxObject::getSwapCoinType() const -> beamui::Currencies
+auto TxObject::getSwapCoinType() const -> QString
 {
     beam::wallet::AtomicSwapCoin coin;
     if (m_tx.GetParameter(TxParameterID::AtomicSwapCoin, coin))
     {
         switch (coin)
         {
-            case AtomicSwapCoin::Bitcoin:   return beamui::Currencies::Bitcoin;
-            case AtomicSwapCoin::Litecoin:  return beamui::Currencies::Litecoin;
-            case AtomicSwapCoin::Qtum:      return beamui::Currencies::Qtum;
-            case AtomicSwapCoin::Unknown:   return beamui::Currencies::Unknown;
+            case AtomicSwapCoin::Bitcoin:   return QString("btc");
+            case AtomicSwapCoin::Litecoin:  return QString("ltc");
+            case AtomicSwapCoin::Qtum:      return QString("qtum");
+            case AtomicSwapCoin::Unknown:   return QString("unknown");
         }
     }
-    return beamui::Currencies::Unknown;
+    return QString("unknown");
 }
 
 bool TxObject::income() const

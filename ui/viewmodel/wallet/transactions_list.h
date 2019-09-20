@@ -43,6 +43,8 @@ public:
         IsIncome,
         IsInProgress,
         IsCompleted,
+        IsBeamSideSwap,
+        SwapCoin,
         RawTxID
     };
 

@@ -475,16 +475,9 @@ Item {
 
                     CustomButton {
                         Layout.alignment: Qt.AlignRight
-                        // Layout.minimumHeight: 20
-                        // Layout.minimumWidth: 20
-                        // shadowRadius: 5
-                        // shadowSamples: 7
-                        // Layout.margins: shadowRadius
-                        // leftPadding: 5
                         rightPadding: 5
                         textOpacity: 0
                         icon.source: "qrc:/assets/icon-delete.svg"
-                        // enabled: localNodeRun.checked
                         onClicked: console.log("todo: delete button pressed");
                     }
                 }
@@ -498,7 +491,7 @@ Item {
                     State {
                         name: "filterInProgressTransactions"
                         PropertyChanges { target: inProgressTabSelector; state: "active" }
-                        PropertyChanges { target: txProxyModel; filterString: "pending" } // "in progress" - should be
+                        PropertyChanges { target: txProxyModel; filterString: "pending" } // "in progress" state should be
                     }
                 ]
 
@@ -511,7 +504,7 @@ Item {
                     Layout.topMargin: 12
 
                     property int rowHeight: 56
-                    property int columnWidth: (width - 106) / 6
+                    property int columnWidth: (width - 95) / 6
 
                     frameVisible: false
                     selectionMode: SelectionMode.NoSelection
@@ -552,9 +545,43 @@ Item {
                     }
 
                     TableViewColumn {
-                        width: 66
+                        role: "swapCoin"
+                        width: 55
                         movable: false
                         resizable: false
+                        delegate: Item {
+                            id: coinLabels
+                            width: parent.width
+                            height: transactionsTable.rowHeight
+                            property var swapCoin: styleData.value
+                            property var isSendBeam: transactionsTable.model.get(styleData.row).isBeamSideSwap
+                            
+                            anchors.fill: parent
+                            anchors.leftMargin: 20
+                            anchors.rightMargin: 20
+                            anchors.topMargin: 18
+
+                            RowLayout {
+                                layoutDirection: Qt.RightToLeft
+                                spacing: -4
+                                SvgImage {
+                                    sourceSize: Qt.size(20, 20)
+                                    source: isSendBeam ? getCoinIcon(swapCoin) : "qrc:/assets/icon-beam.svg"
+                                }
+                                SvgImage {
+                                    sourceSize: Qt.size(20, 20)
+                                    source: isSendBeam ? "qrc:/assets/icon-beam.svg" : getCoinIcon(swapCoin)
+                                }
+                            }
+                            function getCoinIcon(coin) {
+                                switch(coin) {
+                                    case "btc": return "qrc:/assets/icon-btc.svg";
+                                    case "ltc": return "qrc:/assets/icon-ltc.svg";
+                                    case "qtum": return "qrc:/assets/icon-qtum.svg";
+                                    default: return "";
+                                }
+                            }
+                        }
                     }
 
                     TableViewColumn {
