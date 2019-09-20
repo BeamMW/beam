@@ -1116,11 +1116,11 @@ int main()
     TestSwap120Blocks();
 
 #ifndef BEAM_MAINNET
-    /*TestElectrumSwapTransaction(true, fork1Height);
+    TestElectrumSwapTransaction(true, fork1Height);
     TestElectrumSwapTransaction(false, fork1Height);
 
     TestElectrumSwapBTCRefundTransaction();
-    TestElectrumSwapBeamRefundTransaction();*/
+    TestElectrumSwapBeamRefundTransaction();
 #endif // BEAM_TESTNET
 
     assert(g_failureCount == 0);

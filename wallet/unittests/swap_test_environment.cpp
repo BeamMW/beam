@@ -287,9 +287,13 @@ private:
             m_connections[peer.u64()] = std::move(newStream);
             m_connections[peer.u64()]->enable_read([this, peerId = peer.u64()](io::ErrorCode errorCode, void* data, size_t size) -> bool
             {
-                std::string result = "";
-                if (size > 0 && data)
+                if (errorCode != 0)
                 {
+                    m_connections.erase(peerId);
+                }
+                else if (size > 0 && data)
+                {
+                    std::string result = "";
                     std::string strResponse = std::string(static_cast<const char*>(data), size);
 
                     try
@@ -356,13 +360,14 @@ private:
                     catch (const std::exception& /*ex*/)
                     {
                     }
+
+                    m_connections[peerId]->write(result.data(), result.size());
                 }
                 else
                 {
                 }
 
-                m_connections[peerId]->write(result.data(), result.size());
-                return true;
+                return false;
             });
         }
         else
