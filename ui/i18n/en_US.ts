@@ -193,7 +193,7 @@
     </message>
     <message id="wallet-in-progress-title">
         <source>In progress</source>
-        <translation>In progress</translation>
+        <translation type="vanished">In progress</translation>
     </message>
     <message id="wallet-transactions-title">
         <source>Transactions</source>
@@ -1601,6 +1601,18 @@ or send this address to the sender over secure channel</translation>
     </message>
     <message id="swap-beta-connection-error">
         <source>Cannot connect to peer. Please check in the address in settings and retry.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="atomic-swap-active-tx-count">
+        <source>%1 active transactions</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="atomic-swap-1active-tx-count">
+        <source>1 active transaction</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="swap-beta-tx-in-progress">
+        <source>Transaction is in progress</source>
         <translation type="unfinished"></translation>
     </message>
 </context>

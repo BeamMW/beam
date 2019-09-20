@@ -94,34 +94,83 @@ Item {
                 spacing: 10
 
                 SwapCurrencyAmountPane {
+                    function activeTxCountStr() {
+                        if (viewModel.activeTxCount == 1) {
+                            //% "1 active transaction"
+                            return qsTrId("atomic-swap-1active-tx-count")
+                        }
+                        return viewModel.activeTxCount
+                            //% "%1 active transactions"
+                            ? qsTrId("atomic-swap-active-tx-count")
+                                .arg(viewModel.activeTxCount)
+                            : "";
+                    }
                     gradLeft: Style.swapCurrencyPaneGrLeftBEAM
                     currencyIcon: "qrc:/assets/icon-beam.svg"
                     valueStr: viewModel.beamAvailable + " " + Utils.symbolBeam
+                    vatueSecondaryStr: activeTxCountStr()
                     visible: true
+                }
+
+                function btcAmount() {
+                    return viewModel.hasBtcTx ? "" : viewModel.btcAvailable + " " + Utils.symbolBtc;
+                }
+
+                function ltcAmount() {
+                    return viewModel.hasLtcTx ? "" : viewModel.ltcAvailable + " " + Utils.symbolLtc;
+                }
+
+                function qtumAmount() {
+                    return viewModel.hasQtumTx ? "" : viewModel.qtumAvailable + " " + Utils.symbolQtum;
+                }
+
+                //% "Transaction is in progress"
+                property string kTxInProgress: qsTrId("swap-beta-tx-in-progress")
+
+                function btcActiveTxStr() {
+                    return viewModel.hasBtcTx ? kTxInProgress : "";
+                }
+
+                function ltcActiveTxStr() {
+                    return viewModel.hasLtcTx ? kTxInProgress : "";
+                }
+
+                function qtumActiveTxStr() {
+                    return viewModel.hasQtumTx ? kTxInProgress : "";
                 }
 
                 SwapCurrencyAmountPane {
                     gradLeft: Style.swapCurrencyPaneGrLeftBTC
                     currencyIcon: "qrc:/assets/icon-btc.svg"
-                    valueStr: viewModel.btcAvailable + " " + Utils.symbolBtc
+                    valueStr: parent.btcAmount()
+                    vatueSecondaryStr: parent.btcActiveTxStr()
+                    showLoader: parent.btcActiveTxStr().length
                     isOk: viewModel.btcOK
                     visible: BeamGlobals.haveBtc()
+                    //% "Cannot connect to peer. Please check in the address in settings and retry."
+                    textConnectionError: qsTrId("swap-beta-connection-error")
                 }
 
                 SwapCurrencyAmountPane {
                     gradLeft: Style.swapCurrencyPaneGrLeftLTC
                     currencyIcon: "qrc:/assets/icon-ltc.svg"
-                    valueStr: viewModel.ltcAvailable + " " + Utils.symbolLtc
+                    valueStr: parent.ltcAmount()
+                    vatueSecondaryStr: parent.ltcActiveTxStr()
+                    showLoader: parent.ltcActiveTxStr().length
                     isOk: viewModel.ltcOK
                     visible: BeamGlobals.haveLtc()
+                    textConnectionError: qsTrId("swap-beta-connection-error")
                 }
 
                 SwapCurrencyAmountPane {
                     gradLeft: Style.swapCurrencyPaneGrLeftQTUM
                     currencyIcon: "qrc:/assets/icon-qtum.svg"
-                    valueStr: viewModel.qtumAvailable + " " + Utils.symbolQtum
+                    valueStr: parent.qtumAmount()
+                    vatueSecondaryStr: parent.qtumActiveTxStr()
+                    showLoader: parent.qtumActiveTxStr().length
                     isOk: viewModel.qtumOK
                     visible: BeamGlobals.haveQtum()
+                    textConnectionError: qsTrId("swap-beta-connection-error")
                 }
 
                 SwapCurrencyAmountPane {

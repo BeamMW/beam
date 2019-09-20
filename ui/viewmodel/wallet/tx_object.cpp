@@ -18,6 +18,11 @@ using namespace beam;
 using namespace beam::wallet;
 using namespace beamui;
 
+const char* TxObject::coinTypeBtc = "btc";
+const char* TxObject::coinTypeLtc = "ltc";
+const char* TxObject::coinTypeQtum = "qtum";
+const char* TxObject::coinTypeUnknown = "unknown";
+
 TxObject::TxObject(QObject* parent)
         : QObject(parent)
 {
@@ -56,10 +61,10 @@ auto TxObject::getSwapCoinType() const -> QString
     {
         switch (coin)
         {
-            case AtomicSwapCoin::Bitcoin:   return QString("btc");
-            case AtomicSwapCoin::Litecoin:  return QString("ltc");
-            case AtomicSwapCoin::Qtum:      return QString("qtum");
-            case AtomicSwapCoin::Unknown:   return QString("unknown");
+            case AtomicSwapCoin::Bitcoin:   return QString(coinTypeBtc);
+            case AtomicSwapCoin::Litecoin:  return QString(coinTypeLtc);
+            case AtomicSwapCoin::Qtum:      return QString(coinTypeQtum);
+            case AtomicSwapCoin::Unknown:   return QString(coinTypeUnknown);
         }
     }
     return QString("unknown");
