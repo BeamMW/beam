@@ -153,9 +153,7 @@ Item {
                 Layout.bottomMargin: 9
 
                 property int rowHeight: 56
-                frameVisible: false
                 selectionMode: SelectionMode.NoSelection
-                backgroundVisible: false
 
                 sortIndicatorVisible: true
                 sortIndicatorColumn: 1
@@ -173,10 +171,11 @@ Item {
                     value: transactionsView.sortIndicatorOrder
                 }
 
-                property int resizableWidth: parent.width - actionsColumn.width
+                property double resizableWidth: transactionsView.width - actionsColumn.width
                 property double columnResizeRatio: resizableWidth / 810
 
                 TableViewColumn {
+                    id: dateTimeColumn
                     role: viewModel.dateRole
                     //% "Created on"
                     title: qsTrId("wallet-txs-date-time")
@@ -207,6 +206,7 @@ Item {
                 }
 
                 TableViewColumn {
+                    id: senderColumn
                     role: viewModel.sendingAddressRole
                     //% "From"
                     title: qsTrId("general-address-from")
@@ -237,6 +237,7 @@ Item {
                 }
 
                 TableViewColumn {
+                    id: receiverColumn
                     role: viewModel.receivingAddressRole
                     //% "To"
                     title: qsTrId("general-address-to")
@@ -267,6 +268,7 @@ Item {
                 }
 
                 TableViewColumn {
+                    id: amountColumn
                     role: viewModel.amountRole
                     //% "Amount"
                     title: qsTrId("general-amount")
@@ -298,11 +300,15 @@ Item {
                     }
                 }
 
+                property double statusWidth: resizableWidth - dateTimeColumn.width - senderColumn.width - receiverColumn.width - amountColumn.width
+
                 TableViewColumn {
+                    id: statusColumn
                     role: viewModel.statusRole
                     //% "Status"
                     title: qsTrId("general-status")
-                    width: 150 * transactionsView.columnResizeRatio
+
+                    width: transactionsView.statusWidth//150 * transactionsView.columnResizeRatio
                     elideMode: Text.ElideRight
                     movable: false
                     resizable: false

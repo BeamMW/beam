@@ -120,7 +120,7 @@ ColumnLayout {
 
     CustomTableView {
         id: tableView
-        property int rowHeight: 69
+        property int rowHeight: 56
         Layout.fillWidth: true
         Layout.fillHeight: true
         Layout.bottomMargin: 9
