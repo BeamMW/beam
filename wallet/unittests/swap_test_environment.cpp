@@ -61,7 +61,6 @@ private:
     {
         if (errorCode == 0)
         {
-            LOG_DEBUG() << "Stream accepted";
             uint64_t peerId = m_lastId++;
             m_connections[peerId] = std::make_unique<HttpConnection>(
                 peerId,
@@ -280,7 +279,6 @@ private:
     {
         if (errorCode == 0)
         {
-            LOG_DEBUG() << "Stream accepted";
             auto peer = newStream->peer_address();
 
             newStream->enable_keepalive(2);

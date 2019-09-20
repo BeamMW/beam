@@ -98,7 +98,6 @@ private:
     {
         if (errorCode == 0)
         {
-            LOG_DEBUG() << "Stream accepted";
             uint64_t peerId = m_lastId++;
             m_connections[peerId] = std::make_unique<HttpConnection>(
                 peerId,
