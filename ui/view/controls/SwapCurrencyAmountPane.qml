@@ -72,10 +72,12 @@ Rectangle {
             anchors.right: parent.right
             anchors.verticalCenter: parent.verticalCenter
             leftPadding: 20
+            rightPadding: 20
             font.pixelSize: textSize
             color: textColor
             elide: Text.ElideRight
             text: valueStr
+            wrapMode: Text.Wrap
             visible: isOk
         }
 
@@ -84,8 +86,8 @@ Rectangle {
             anchors.left: currencyLogo.right
             anchors.right: connectionErrorIndicator.left
             anchors.verticalCenter: parent.verticalCenter
-            leftPadding: 5
-            rightPadding: 5
+            leftPadding: 10
+            rightPadding: 10
             font.pixelSize: 12
             verticalAlignment: Text.AlignVCenter
             color: Style.validator_error
@@ -104,6 +106,9 @@ Rectangle {
             id: connectionErrorIndicator
             anchors.right: parent.right
             anchors.verticalCenter: parent.verticalCenter
+            anchors.margins: {
+                right: 15
+            }
             width: childrenRect.width
             visible: !isOk
 
