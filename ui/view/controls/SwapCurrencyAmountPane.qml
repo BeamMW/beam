@@ -48,7 +48,7 @@ Rectangle {
             anchors.margins: {
                 left: 20
             }
-            Image {
+            SvgImage {
                 anchors.verticalCenter: parent.verticalCenter
                 source: currencyIcon
                 visible: currencyIcon.length
