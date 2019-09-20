@@ -157,7 +157,10 @@ void SwapOffersViewModel::onTransactionsDataModelChanged(beam::wallet::ChangeAct
 
     for (const auto& t : transactions)
     {
-        modifiedTransactions.push_back(make_shared<TxObject>(t));
+        if (t.GetParameter<TxType>(TxParameterID::TransactionType) == TxType::AtomicSwap)
+        {
+            modifiedTransactions.push_back(make_shared<TxObject>(t));
+        }
     }
 
     switch (action)
