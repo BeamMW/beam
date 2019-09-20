@@ -143,7 +143,7 @@ namespace beam::wallet
                                       , IWalletDB::Ptr walletDB
                                       , IPrivateKeyKeeper::Ptr keyKeeper
                                       , const TxID& txID) override;
-            void CheckParameters(const TxParameters& parameters) override;
+            TxParameters CheckAndCompleteParameters(const TxParameters& parameters) override;
 
             SecondSide::Ptr GetSecondSide(BaseTransaction& tx) override;
         private:
