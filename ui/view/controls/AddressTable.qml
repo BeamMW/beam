@@ -9,7 +9,7 @@ import Beam.Wallet 1.0
 CustomTableView {
     id: rootControl
 
-    property int rowHeight: 69
+    property int rowHeight: 56
     property int resizableWidth: parent.width - actions.width
     property double columnResizeRatio: resizableWidth / 750
 
@@ -141,8 +141,8 @@ CustomTableView {
         Rectangle {
             anchors.fill: parent
 
-            color: styleData.selected ? Style.row_selected : Style.background_row_even
-            visible: styleData.selected ? true : styleData.alternate
+            color: styleData.selected ? Style.row_selected :
+                    (styleData.alternate ? Style.background_row_even : Style.background_row_odd)
         }
         MouseArea {
             anchors.fill: parent
