@@ -60,8 +60,8 @@ TableView {
             visible: true
         }
 
-        property bool lastColumn: false//styleData.column == tableView.columnCount-1
-        property bool firstOrLastColumn : false//styleData.column == 0 || lastColumn
+        property bool lastColumn: styleData.column == tableView.columnCount-1
+        property bool firstOrLastColumn : styleData.column == 0 || lastColumn
         
         clip: firstOrLastColumn
         Rectangle {
