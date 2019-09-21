@@ -40,6 +40,8 @@ auto TransactionsList::roleNames() const -> QHash<int, QByteArray>
         { static_cast<int>(Roles::IsIncome), "isIncome" },
         { static_cast<int>(Roles::IsInProgress), "isInProgress" },
         { static_cast<int>(Roles::IsCompleted), "isCompleted" },
+        { static_cast<int>(Roles::IsBeamSideSwap), "isBeamSideSwap" },
+        { static_cast<int>(Roles::SwapCoin), "swapCoin" },
         { static_cast<int>(Roles::RawTxID), "rawTxID" }
     };
     return roles;
@@ -98,6 +100,12 @@ auto TransactionsList::data(const QModelIndex &index, int role) const -> QVarian
 
         case Roles::IsCompleted:
             return value->isCompleted();
+
+        case Roles::IsBeamSideSwap:
+            return value->isBeamSideSwap();
+
+        case Roles::SwapCoin:
+            return value->getSwapCoinType();
 
         case Roles::RawTxID:
             return QVariant::fromValue(value->getTxID());

@@ -55,6 +55,12 @@ void StatusHolder::onStatusChanged(const beam::wallet::WalletStatus& status)
         changed = true;
     }
 
+    if (_status.stateID.m_Height != status.stateID.m_Height)
+    {
+        _status.stateID.m_Height = status.stateID.m_Height;
+        changed = true;
+    }
+
     if (changed && _changedCB)
     {
         _changedCB();

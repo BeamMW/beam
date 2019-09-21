@@ -1723,7 +1723,6 @@ int main_impl(int argc, char* argv[])
                             (vm, walletDB, qtum::getAddressVersion(), "qtum");
                     }
 
-                    /// HERE!!
                     io::Address receiverAddr;
                     Amount amount = 0;
                     Amount fee = 0;

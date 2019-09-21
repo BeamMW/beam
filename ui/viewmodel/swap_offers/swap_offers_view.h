@@ -14,7 +14,9 @@
 
 #pragma once
 
+#include <string>
 #include <QObject>
+
 #include "model/wallet_model.h"
 #include "model/swap_coin_client_model.h"
 #include "viewmodel/status_holder.h"
@@ -35,7 +37,11 @@ class SwapOffersViewModel : public QObject
     Q_PROPERTY(bool                 btcOK            READ btcOK              NOTIFY stateChanged)
     Q_PROPERTY(bool                 ltcOK            READ ltcOK              NOTIFY stateChanged)
     Q_PROPERTY(bool                 qtumOK           READ qtumOK             NOTIFY stateChanged)
-    Q_PROPERTY(bool                 showBetaWarning  READ showBetaWarning    NOTIFY showBetaWarningChanged)
+    Q_PROPERTY(bool                 showBetaWarning  READ showBetaWarning)
+    Q_PROPERTY(int                  activeTxCount    READ getActiveTxCount   NOTIFY stateChanged)
+    Q_PROPERTY(bool                 hasBtcTx         READ hasBtcTx           NOTIFY stateChanged)
+    Q_PROPERTY(bool                 hasLtcTx         READ hasLtcTx           NOTIFY stateChanged)
+    Q_PROPERTY(bool                 hasQtumTx        READ hasQtumTx          NOTIFY stateChanged)
 
 public:
     SwapOffersViewModel();
@@ -47,10 +53,14 @@ public:
     double  btcAvailable() const;
     double  ltcAvailable() const;
     double  qtumAvailable() const;
-    bool  btcOK()  const;
-    bool  ltcOK()  const;
-    bool  qtumOK() const;
-    bool  showBetaWarning() const;
+    bool btcOK()  const;
+    bool ltcOK()  const;
+    bool qtumOK() const;
+    bool showBetaWarning() const;
+    int getActiveTxCount() const;
+    bool hasBtcTx() const;
+    bool hasLtcTx() const;
+    bool hasQtumTx() const;
 
     Q_INVOKABLE int getCoinType();
     Q_INVOKABLE void setCoinType(int coinType);
@@ -71,9 +81,9 @@ signals:
     void allTransactionsChanged();
     void allOffersChanged();
     void stateChanged();
-    void showBetaWarningChanged();
 
 private:
+    bool hasActiveTx(const std::string& swapCoin) const;
     WalletModel& m_walletModel;
     
     AtomicSwapCoin m_coinType;

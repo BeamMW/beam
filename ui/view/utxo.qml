@@ -120,7 +120,7 @@ ColumnLayout {
 
     CustomTableView {
         id: tableView
-        property int rowHeight: 69
+        property int rowHeight: 56
         Layout.fillWidth: true
         Layout.fillHeight: true
         Layout.bottomMargin: 9
@@ -318,9 +318,7 @@ ColumnLayout {
 
             Rectangle {
                 anchors.fill: parent
-
-                color: Style.background_row_even
-                visible: styleData.alternate
+                color: styleData.alternate ? Style.background_row_even : Style.background_row_odd
             }
         }
 

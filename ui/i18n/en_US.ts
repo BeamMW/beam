@@ -193,7 +193,7 @@
     </message>
     <message id="wallet-in-progress-title">
         <source>In progress</source>
-        <translation>In progress</translation>
+        <translation type="vanished">In progress</translation>
     </message>
     <message id="wallet-transactions-title">
         <source>Transactions</source>
@@ -295,9 +295,33 @@
         <source>Available</source>
         <translation>Available</translation>
     </message>
-    <message id="available-panel-where-to-buy">
-        <source>Where to buy BEAM?</source>
-        <translation>Where to buy BEAM?</translation>
+    <message id="available-panel-locked">
+        <source>Locked</source>
+        <translation>Locked</translation>
+    </message>
+    <message id="available-panel-sending">
+        <source>Sending</source>
+        <translation>Sending</translation>
+    </message>
+    <message id="available-panel-receiving">
+        <source>Receiving</source>
+        <translation>Receiving</translation>
+    </message>
+    <message id="available-panel-maturing">
+        <source>Maturing</source>
+        <translation>Maturing</translation>
+    </message>
+    <message id="available-panel-aswap">
+        <source>Atomic Swap</source>
+        <translation>Atomic Swap</translation>
+    </message>
+    <message id="available-panel-change">
+        <source>Change</source>
+        <translation>Change</translation>
+    </message>
+    <message id="available-panel-incoming">
+        <source>Incoming</source>
+        <translation>Incoming</translation>
     </message>
     <message id="settings-version">
         <source>Version</source>
@@ -464,10 +488,6 @@
     <message id="payment-info-copy-code-button">
         <source>Copy code</source>
         <translation>Copy code</translation>
-    </message>
-    <message id="secondary-panel-maturing">
-        <source>Maturing</source>
-        <translation type="vanished">Maturing</translation>
     </message>
     <message id="info-title">
         <source>Info view</source>
@@ -1581,6 +1601,18 @@ or send this address to the sender over secure channel</translation>
     </message>
     <message id="swap-beta-connection-error">
         <source>Cannot connect to peer. Please check in the address in settings and retry.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="atomic-swap-active-tx-count">
+        <source>%1 active transactions</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="atomic-swap-1active-tx-count">
+        <source>1 active transaction</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="swap-beta-tx-in-progress">
+        <source>Transaction is in progress</source>
         <translation type="unfinished"></translation>
     </message>
 </context>

@@ -53,21 +53,26 @@ namespace beam::wallet
         return BaseTransaction::Ptr(new SimpleTransaction(gateway, walletDB, keyKeeper, txID));
     }
 
-    void SimpleTransaction::Creator::CheckParameters(const TxParameters& parameters)
+    TxParameters SimpleTransaction::Creator::CheckAndCompleteParameters(const TxParameters& parameters)
     {
         auto peerID = parameters.GetParameter<WalletID>(TxParameterID::PeerID);
-        if (peerID)
+        if (!peerID)
         {
-            auto receiverAddr = m_WalletDB->getAddress(*peerID);
-            if (receiverAddr)
-            {
-                if (receiverAddr->m_OwnID && receiverAddr->isExpired())
-                {
-                    LOG_INFO() << "Can't send to the expired address.";
-                    throw AddressExpiredException();
-                }
-            }
+            throw InvalidTransactionParametersException();
         }
+        auto receiverAddr = m_WalletDB->getAddress(*peerID);
+        if (receiverAddr)
+        {
+            if (receiverAddr->m_OwnID && receiverAddr->isExpired())
+            {
+                LOG_INFO() << "Can't send to the expired address.";
+                throw AddressExpiredException();
+            }
+            TxParameters temp{ parameters };
+            temp.SetParameter(TxParameterID::IsSelfTx, receiverAddr->m_OwnID != 0);
+            return temp;
+        }
+        return parameters;
     }
 
     SimpleTransaction::SimpleTransaction(INegotiatorGateway& gateway

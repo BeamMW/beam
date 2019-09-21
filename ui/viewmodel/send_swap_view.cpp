@@ -31,11 +31,20 @@ SendSwapViewModel::SendSwapViewModel()
 {
     LOG_INFO() << "SendSwapViewModel created";
     connect(&_walletModel, &WalletModel::changeCalculated,  this,  &SendSwapViewModel::onChangeCalculated);
-    //connect(&_walletModel, &WalletModel::sendMoneyVerified,      this,  &SendViewModel::onSendMoneyVerified);
-    //connect(&_walletModel, &WalletModel::cantSendToExpired,      this,  &SendViewModel::onCantSendToExpired);
 
     _status.setOnChanged([this]() {
         recalcAvailable();
+
+        if (!_expiresTime.isValid())
+        {
+            auto expiresHeight = _txParameters.GetParameter<beam::Height>(beam::wallet::TxParameterID::PeerResponseHeight);
+            auto currentHeight = _status.getCurrentHeight();
+
+            if (currentHeight && expiresHeight)
+            {
+                setExpiresTime(beamui::CalculateExpiresTime(currentHeight, *expiresHeight));
+            }
+        }
     });
 
     _status.refresh();
@@ -81,9 +90,10 @@ void SendSwapViewModel::fillParameters(beam::wallet::TxParameters parameters)
     auto swapAmount = parameters.GetParameter<Amount>(TxParameterID::AtomicSwapAmount);
     auto peerID = parameters.GetParameter<WalletID>(TxParameterID::PeerID);
     auto peerResponseHeight = parameters.GetParameter<Height>(TxParameterID::PeerResponseHeight);
+    auto offeredTime = parameters.GetParameter<Timestamp>(TxParameterID::CreateTime);
 
     if (peerID && swapAmount && beamAmount
-        && swapCoin && isBeamSide && peerResponseHeight)
+        && swapCoin && isBeamSide && peerResponseHeight && offeredTime)
     {
         if (*isBeamSide) // other participant is not a beam side
         {
@@ -101,8 +111,13 @@ void SendSwapViewModel::fillParameters(beam::wallet::TxParameters parameters)
             setReceiveCurrency(Currency::CurrBeam);
             setReceiveAmount(double(*beamAmount) / Rules::Coin);
         }
-        setOfferedTime(QDateTime::currentDateTime()); // TODO:SWAP use peerResponseHeight
-        setExpiresTime(QDateTime::currentDateTime().addSecs(12*3600)); //
+        setOfferedTime(QDateTime::fromSecsSinceEpoch(*offeredTime));
+
+        auto currentHeight = _status.getCurrentHeight();
+        if (currentHeight)
+        {
+            setExpiresTime(beamui::CalculateExpiresTime(currentHeight, *peerResponseHeight));
+        }
         _txParameters = parameters;
     }
 }
@@ -377,5 +392,5 @@ void SendSwapViewModel::sendMoney()
     txParameters.SetParameter(beam::wallet::TxParameterID::Fee, beam::Amount(beamFee));
     txParameters.SetParameter(beam::wallet::TxParameterID::Fee, beam::Amount(swapFee), subTxID);
 
-    _walletModel.getAsync()->startTransaction(beam::wallet::TxParameters(txParameters));
+    _walletModel.getAsync()->startTransaction(std::move(txParameters));
 }

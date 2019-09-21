@@ -371,8 +371,8 @@ namespace beam::wallet
         {
             return {};
         }
-        
-        if (buffer[0] & TxToken::TokenFlag) // token
+
+        if (buffer.size() > 33 && buffer[0] & TxToken::TokenFlag) // token
         {
             try
             {

@@ -34,7 +34,7 @@ class SwapOfferItem : public QObject
 
 public:
     SwapOfferItem() = default;
-    SwapOfferItem(const SwapOffer& offer, bool isOwn);
+    SwapOfferItem(const SwapOffer& offer, bool isOwn, const QDateTime& timeExpiration);
 
     auto timeCreated() const -> QDateTime;
     auto timeExpiration() const -> QDateTime;
@@ -58,4 +58,5 @@ private:
     SwapOffer m_offer;          /// raw TxParameters
     bool m_isOwnOffer;          /// indicates if offer belongs to this wallet
     bool m_isBeamSide;          /// pay beam to receive other
+    QDateTime m_timeExpiration;
 };

@@ -94,34 +94,83 @@ Item {
                 spacing: 10
 
                 SwapCurrencyAmountPane {
+                    function activeTxCountStr() {
+                        if (viewModel.activeTxCount == 1) {
+                            //% "1 active transaction"
+                            return qsTrId("atomic-swap-1active-tx-count")
+                        }
+                        return viewModel.activeTxCount
+                            //% "%1 active transactions"
+                            ? qsTrId("atomic-swap-active-tx-count")
+                                .arg(viewModel.activeTxCount)
+                            : "";
+                    }
                     gradLeft: Style.swapCurrencyPaneGrLeftBEAM
                     currencyIcon: "qrc:/assets/icon-beam.svg"
                     valueStr: viewModel.beamAvailable + " " + Utils.symbolBeam
+                    vatueSecondaryStr: activeTxCountStr()
                     visible: true
+                }
+
+                function btcAmount() {
+                    return viewModel.hasBtcTx ? "" : viewModel.btcAvailable + " " + Utils.symbolBtc;
+                }
+
+                function ltcAmount() {
+                    return viewModel.hasLtcTx ? "" : viewModel.ltcAvailable + " " + Utils.symbolLtc;
+                }
+
+                function qtumAmount() {
+                    return viewModel.hasQtumTx ? "" : viewModel.qtumAvailable + " " + Utils.symbolQtum;
+                }
+
+                //% "Transaction is in progress"
+                property string kTxInProgress: qsTrId("swap-beta-tx-in-progress")
+
+                function btcActiveTxStr() {
+                    return viewModel.hasBtcTx ? kTxInProgress : "";
+                }
+
+                function ltcActiveTxStr() {
+                    return viewModel.hasLtcTx ? kTxInProgress : "";
+                }
+
+                function qtumActiveTxStr() {
+                    return viewModel.hasQtumTx ? kTxInProgress : "";
                 }
 
                 SwapCurrencyAmountPane {
                     gradLeft: Style.swapCurrencyPaneGrLeftBTC
                     currencyIcon: "qrc:/assets/icon-btc.svg"
-                    valueStr: viewModel.btcAvailable + " " + Utils.symbolBtc
+                    valueStr: parent.btcAmount()
+                    vatueSecondaryStr: parent.btcActiveTxStr()
+                    showLoader: parent.btcActiveTxStr().length
                     isOk: viewModel.btcOK
                     visible: BeamGlobals.haveBtc()
+                    //% "Cannot connect to peer. Please check in the address in settings and retry."
+                    textConnectionError: qsTrId("swap-beta-connection-error")
                 }
 
                 SwapCurrencyAmountPane {
                     gradLeft: Style.swapCurrencyPaneGrLeftLTC
                     currencyIcon: "qrc:/assets/icon-ltc.svg"
-                    valueStr: viewModel.ltcAvailable + " " + Utils.symbolLtc
+                    valueStr: parent.ltcAmount()
+                    vatueSecondaryStr: parent.ltcActiveTxStr()
+                    showLoader: parent.ltcActiveTxStr().length
                     isOk: viewModel.ltcOK
                     visible: BeamGlobals.haveLtc()
+                    textConnectionError: qsTrId("swap-beta-connection-error")
                 }
 
                 SwapCurrencyAmountPane {
                     gradLeft: Style.swapCurrencyPaneGrLeftQTUM
                     currencyIcon: "qrc:/assets/icon-qtum.svg"
-                    valueStr: viewModel.qtumAvailable + " " + Utils.symbolQtum
+                    valueStr: parent.qtumAmount()
+                    vatueSecondaryStr: parent.qtumActiveTxStr()
+                    showLoader: parent.qtumActiveTxStr().length
                     isOk: viewModel.qtumOK
                     visible: BeamGlobals.haveQtum()
+                    textConnectionError: qsTrId("swap-beta-connection-error")
                 }
 
                 SwapCurrencyAmountPane {
@@ -320,9 +369,8 @@ Item {
                         anchors.right: parent.right
 
                         Rectangle {
-                            anchors.fill: parent                        
-                            color: styleData.selected ? Style.row_selected : Style.background_row_even
-                            visible: styleData.selected ? true : styleData.alternate
+                            anchors.fill: parent
+                            color: styleData.selected ? Style.row_selected : (styleData.alternate ? Style.background_row_even : Style.background_row_odd)
                         }
                     }
 
@@ -476,16 +524,9 @@ Item {
 
                     CustomButton {
                         Layout.alignment: Qt.AlignRight
-                        // Layout.minimumHeight: 20
-                        // Layout.minimumWidth: 20
-                        // shadowRadius: 5
-                        // shadowSamples: 7
-                        // Layout.margins: shadowRadius
-                        // leftPadding: 5
                         rightPadding: 5
                         textOpacity: 0
                         icon.source: "qrc:/assets/icon-delete.svg"
-                        // enabled: localNodeRun.checked
                         onClicked: console.log("todo: delete button pressed");
                     }
                 }
@@ -499,7 +540,7 @@ Item {
                     State {
                         name: "filterInProgressTransactions"
                         PropertyChanges { target: inProgressTabSelector; state: "active" }
-                        PropertyChanges { target: txProxyModel; filterString: "pending" } // "in progress" - should be
+                        PropertyChanges { target: txProxyModel; filterString: "pending" } // "in progress" state should be
                     }
                 ]
 
@@ -512,7 +553,7 @@ Item {
                     Layout.topMargin: 12
 
                     property int rowHeight: 56
-                    property int columnWidth: (width - 106) / 6
+                    property int columnWidth: (width - 95) / 6
 
                     frameVisible: false
                     selectionMode: SelectionMode.NoSelection
@@ -553,9 +594,43 @@ Item {
                     }
 
                     TableViewColumn {
-                        width: 66
+                        role: "swapCoin"
+                        width: 55
                         movable: false
                         resizable: false
+                        delegate: Item {
+                            id: coinLabels
+                            width: parent.width
+                            height: transactionsTable.rowHeight
+                            property var swapCoin: styleData.value
+                            property var isSendBeam: transactionsTable.model.get(styleData.row).isBeamSideSwap
+                            
+                            anchors.fill: parent
+                            anchors.leftMargin: 20
+                            anchors.rightMargin: 20
+                            anchors.topMargin: 18
+
+                            RowLayout {
+                                layoutDirection: Qt.RightToLeft
+                                spacing: -4
+                                SvgImage {
+                                    sourceSize: Qt.size(20, 20)
+                                    source: isSendBeam ? getCoinIcon(swapCoin) : "qrc:/assets/icon-beam.svg"
+                                }
+                                SvgImage {
+                                    sourceSize: Qt.size(20, 20)
+                                    source: isSendBeam ? "qrc:/assets/icon-beam.svg" : getCoinIcon(swapCoin)
+                                }
+                            }
+                            function getCoinIcon(coin) {
+                                switch(coin) {
+                                    case "btc": return "qrc:/assets/icon-btc.svg";
+                                    case "ltc": return "qrc:/assets/icon-ltc.svg";
+                                    case "qtum": return "qrc:/assets/icon-qtum.svg";
+                                    default: return "";
+                                }
+                            }
+                        }
                     }
 
                     TableViewColumn {

@@ -47,13 +47,18 @@ Q_OBJECT
 
 public:
 
+    static const char* coinTypeBtc;
+    static const char* coinTypeLtc;
+    static const char* coinTypeQtum;
+    static const char* coinTypeUnknown;
+
     TxObject(QObject* parent = nullptr);
     TxObject(const beam::wallet::TxDescription& tx, QObject* parent = nullptr);
 
     auto timeCreated() const -> QDateTime;
     auto getTxID() const -> beam::wallet::TxID;
     auto isBeamSideSwap() const -> bool;
-    auto getSwapCoinType() const -> beamui::Currencies;
+    auto getSwapCoinType() const -> QString;
     //
     QString getSentAmount() const;
     double getSentAmountValue() const;

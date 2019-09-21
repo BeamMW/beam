@@ -10,9 +10,14 @@ Rectangle {
     property var currencyIcons: []
     property color stateIndicatorColor: Style.swapCurrencyStateIndicator
     property string valueStr: ""
+    property string vatueSecondaryStr: ""
     property bool isOk: true
     property int textSize: 16
+    property int textSecondarySize: 12
     property color textColor: Style.content_main
+    property color textSecondaryColor: Style.content_secondary
+    property string textConnectionError: "error"
+    property bool showLoader: false
     property var onClick: function() {}
 
     Layout.fillWidth: true
@@ -42,13 +47,12 @@ Rectangle {
         Item {
             id: currencyLogo
             width: childrenRect.width
-            height: childrenRect.height
             anchors.verticalCenter: parent.verticalCenter
             anchors.left: parent.left
             anchors.margins: {
                 left: 20
             }
-            Image {
+            SvgImage {
                 anchors.verticalCenter: parent.verticalCenter
                 source: currencyIcon
                 visible: currencyIcon.length
@@ -58,7 +62,7 @@ Rectangle {
                 model: currencyIcons.length
                 visible: currencyIcons.length
                 
-                Image {
+                SvgImage {
                     anchors.verticalCenter: parent.verticalCenter
                     x: parent.x + index * 15 - 20
                     source: currencyIcons[index]
@@ -66,17 +70,35 @@ Rectangle {
             }
         }
 
-        SFText {
-            id: amountValue
+        Column {
             anchors.left: currencyLogo.right
             anchors.right: parent.right
             anchors.verticalCenter: parent.verticalCenter
-            leftPadding: 20
-            font.pixelSize: textSize
-            color: textColor
-            elide: Text.ElideRight
-            text: valueStr
             visible: isOk
+            SFText {
+                anchors.left: parent.left
+                anchors.right: parent.right
+                leftPadding: 20
+                rightPadding: 20
+                font.pixelSize: textSize
+                color: textColor
+                elide: Text.ElideRight
+                text: valueStr
+                wrapMode: Text.Wrap
+                visible: valueStr.length
+            }
+            SFText {
+                anchors.left: parent.left
+                anchors.right: parent.right
+                leftPadding: 20
+                rightPadding: 20
+                font.pixelSize: textSecondarySize
+                color: textSecondaryColor
+                elide: Text.ElideRight
+                wrapMode: Text.Wrap
+                text: vatueSecondaryStr
+                visible: vatueSecondaryStr.length
+            }
         }
 
         SFText {
@@ -84,19 +106,32 @@ Rectangle {
             anchors.left: currencyLogo.right
             anchors.right: connectionErrorIndicator.left
             anchors.verticalCenter: parent.verticalCenter
-            leftPadding: 5
-            rightPadding: 5
+            leftPadding: 10
+            rightPadding: 10
             font.pixelSize: 12
             verticalAlignment: Text.AlignVCenter
             color: Style.validator_error
             elide: Text.ElideRight
             wrapMode: Text.Wrap
-            //% "Cannot connect to peer. Please check in the address in settings and retry."
-            text: qsTrId("swap-beta-connection-error")
+            text: textConnectionError
             visible: !isOk
+        }
 
-            Component.onCompleted: {
-                console.log(anchors.margins);
+        SvgImage {
+            id: loader
+            property double angleValue: 0
+            visible: showLoader
+            anchors.verticalCenter: parent.verticalCenter
+            anchors.right: parent.right
+            anchors.margins: {
+                right: 15
+            }
+
+            source: "qrc:/assets/loading-spinner.svg"            
+            rotation: loader.angleValue
+            Timer {
+                interval: 200; running: true; repeat: true
+                onTriggered: loader.angleValue += 15
             }
         }
 
@@ -104,6 +139,9 @@ Rectangle {
             id: connectionErrorIndicator
             anchors.right: parent.right
             anchors.verticalCenter: parent.verticalCenter
+            anchors.margins: {
+                right: 15
+            }
             width: childrenRect.width
             visible: !isOk
 

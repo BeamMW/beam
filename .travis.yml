@@ -10,13 +10,12 @@ matrix:
 
     - os: osx
       language: cpp
-      osx_image: xcode9.3
+      osx_image: xcode10.1
       install: 
         - export TZ=Etc/GMT-3
         - brew update
         - brew unlink cmake
-        - brew unlink boost
-        - brew install cmake boost
+        - brew install cmake
         - curl -O https://raw.githubusercontent.com/Homebrew/homebrew-core/56c500b569c724b049be7ab9e12d9693f85522f9/Formula/qt.rb
         - brew install ./qt.rb
         - brew link qt5 --force
@@ -46,16 +45,12 @@ matrix:
         - export TZ=Etc/GMT-3
         - brew update
         - brew unlink cmake
-        - brew unlink boost
         - brew install cmake
-        - sudo git clone --depth=1 https://github.com/BeamMW/boost-osx.git /usr/local/boost_1_71_0
-        - export BOOST_ROOT="/usr/local/boost_1_71_0"
         - sudo git clone --depth=1 https://github.com/nesbox/qt5-static-mac.git /usr/local/qt5-static
         - export PATH=/usr/local/qt5-static/bin:$PATH
         - export OPENSSL_ROOT_DIR="/usr/local/opt/openssl"
         - export QT5_ROOT_DIR="/usr/local/qt5-static"
         - export QML_IMPORT_PATH="/usr/local/qt5-static/qml"
-        - export CMAKE_PREFIX_PATH="/usr/local/opt/icu4c"
         - openssl aes-256-cbc -K $encrypted_1f9ebee66ea9_key -iv $encrypted_1f9ebee66ea9_iv -in macos_cert.enc -out macos_cert.tar -d
         - tar xvf macos_cert.tar
         # create custom keychain

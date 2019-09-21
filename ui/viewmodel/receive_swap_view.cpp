@@ -298,11 +298,10 @@ void ReceiveSwapViewModel::publishToken()
 {
     // using namespace beam::wallet;
     auto txParameters = beam::wallet::TxParameters(_txParameters);
-
-	// auto time = beam::wallet::toByteBuffer(beam::getTimestamp());
-	// txParameters.SetParameter(beam::wallet::TxParameterID::CreateTime, time);
-	txParameters.SetParameter(beam::wallet::TxParameterID::Status, beam::wallet::TxStatus::Pending);
-	
+    
+    // TODO:SWAP need to consider the creation of separate struct
+    txParameters.SetParameter(beam::wallet::TxParameterID::Status, beam::wallet::TxStatus::Pending);
+    
     _walletModel.getAsync()->publishSwapOffer(txParameters);
 }
 
