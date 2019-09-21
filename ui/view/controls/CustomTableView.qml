@@ -25,6 +25,17 @@ TableView {
         }
     }
 
+    function getAdjustedColumnWidth(column) {
+        var acc = 0;
+        for (var i = 0; i < columnCount; ++i)
+        {
+            var c = getColumn(i);
+            if (c == column) continue;
+            acc += c.width;
+        }
+        return width - acc;
+    }
+
     frameVisible: false
     backgroundVisible: false
     horizontalScrollBarPolicy: Qt.ScrollBarAlwaysOff
@@ -38,8 +49,9 @@ TableView {
         ShaderEffectSource {
             id: shaderSrc
             objectName: "renderRect"
-            sourceRect.x: rect.mapToItem(null, rect.x, rect.y).x
-            sourceRect.y: rect.mapToItem(null, rect.x, rect.y).y
+
+            sourceRect.x: rect.mapToItem(main.backgroundRect, rect.x, rect.y).x
+            sourceRect.y: rect.mapToItem(main.backgroundRect, rect.x, rect.y).y
             sourceRect.width: rect.width
             sourceRect.height: rect.height
             width: rect.width

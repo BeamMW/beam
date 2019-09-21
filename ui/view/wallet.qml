@@ -175,7 +175,6 @@ Item {
                 property double columnResizeRatio: resizableWidth / 810
 
                 TableViewColumn {
-                    id: dateTimeColumn
                     role: viewModel.dateRole
                     //% "Created on"
                     title: qsTrId("wallet-txs-date-time")
@@ -206,7 +205,6 @@ Item {
                 }
 
                 TableViewColumn {
-                    id: senderColumn
                     role: viewModel.sendingAddressRole
                     //% "From"
                     title: qsTrId("general-address-from")
@@ -237,7 +235,6 @@ Item {
                 }
 
                 TableViewColumn {
-                    id: receiverColumn
                     role: viewModel.receivingAddressRole
                     //% "To"
                     title: qsTrId("general-address-to")
@@ -268,7 +265,6 @@ Item {
                 }
 
                 TableViewColumn {
-                    id: amountColumn
                     role: viewModel.amountRole
                     //% "Amount"
                     title: qsTrId("general-amount")
@@ -300,15 +296,13 @@ Item {
                     }
                 }
 
-                property double statusWidth: resizableWidth - dateTimeColumn.width - senderColumn.width - receiverColumn.width - amountColumn.width
-
                 TableViewColumn {
                     id: statusColumn
                     role: viewModel.statusRole
                     //% "Status"
                     title: qsTrId("general-status")
 
-                    width: transactionsView.statusWidth//150 * transactionsView.columnResizeRatio
+                    width: transactionsView.getAdjustedColumnWidth(statusColumn)//150 * transactionsView.columnResizeRatio
                     elideMode: Text.ElideRight
                     movable: false
                     resizable: false
