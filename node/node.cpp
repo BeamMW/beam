@@ -1550,7 +1550,13 @@ void Node::Peer::DeleteSelf(bool bIsError, uint8_t nByeReason)
 				PeerManager::TimePoint tp;
 				uint32_t dt_ms = tp.get() - pip.m_LastActivity_ms;
 				if (dt_ms < pm.m_Cfg.m_TimeoutDisconnect_ms)
-					pm.SetRating(pip, pip.m_RawRating.m_Value > PeerManager::Rating::PenaltyNetworkErr ? (pip.m_RawRating.m_Value - PeerManager::Rating::PenaltyNetworkErr) : 1);
+				{
+					uint32_t val =
+						(pip.m_RawRating.m_Value > PeerManager::Rating::PenaltyNetworkErr) ?
+						(pip.m_RawRating.m_Value - PeerManager::Rating::PenaltyNetworkErr) :
+						1;
+					pm.SetRating(pip, val);
+				}
 			}
 		}
 
@@ -1685,23 +1691,24 @@ void Node::Peer::OnFirstTaskDone()
 void Node::Peer::ModifyRatingWrtData(size_t nSize)
 {
 	PeerManager::TimePoint tp;
-
 	uint32_t dt_ms = tp.get() - get_FirstTask().m_TimeAssigned_ms;
-	if (!dt_ms)
-		dt_ms = 1;
 
-	uint32_t bw_Bps = static_cast<uint32_t>(nSize * size_t(1000) / dt_ms);
+	// Calculate the weighted average of the effective bandwidth.
+	// We assume the "previous" bandwidth bw0 was calculated within "previous" window t0, and the total download amount was v0 = t0 * bw0.
+	// Hence, after accounting for newly-downloaded data, the average bandwidth becomes:
+	// <bw> = (v0 + v1) / (t0 + t1) = (bw0 * t0 + v1) / (t0 + t1)
+	//
+	const uint32_t t0_s = 10;
+	const uint32_t t0_ms = t0_s * 1000;
+	uint64_t tTotal_ms = static_cast<uint64_t>(t0_ms) + dt_ms;
+	assert(tTotal_ms); // can't overflow
 
-	uint32_t nRating = PeerManager::Rating::FromBps(bw_Bps);
+	uint32_t bw0 = PeerManager::Rating::ToBps(m_pInfo->m_RawRating.m_Value);
+	uint64_t v = static_cast<uint64_t>(bw0) * t0_s + nSize;
 
-	// calc weighted avg with previous rating. The weight is dt, consider the prev as 10 sec.
-	const uint32_t nPrev_ms = 10000;
-	uint32_t nWeightTotal_ms = nPrev_ms + dt_ms;
-	if (nWeightTotal_ms < nPrev_ms)
-		return; // crazy overflow?
+	uint32_t bwAvg = static_cast<uint32_t>(v * 1000 / tTotal_ms);
 
-	uint32_t nRatingAvg = (m_pInfo->m_RawRating.m_Value * nPrev_ms + nRating * dt_ms) / nWeightTotal_ms;
-
+	uint32_t nRatingAvg = PeerManager::Rating::FromBps(bwAvg);
 	m_This.m_PeerMan.SetRating(*m_pInfo, nRatingAvg);
 
 }
