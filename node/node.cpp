@@ -1869,7 +1869,7 @@ void Node::Peer::OnMsg(proto::GetBodyPack&& msg)
 						sid.m_Row = p.FindActiveAtStrict(sid.m_Height);
 
 						proto::BodyBuffers bb;
-						if (!GetBlock(bb, sid, msg))
+						if (!GetBlock(bb, sid, msg, true))
 							break;
 
 						nSize += bb.m_Eternal.size() + bb.m_Perishable.size();
@@ -1889,7 +1889,7 @@ void Node::Peer::OnMsg(proto::GetBodyPack&& msg)
 			else
 			{
 				proto::Body msgBody;
-				if (GetBlock(msgBody.m_Body, sid, msg))
+				if (GetBlock(msgBody.m_Body, sid, msg, false))
 				{
 					Send(msgBody);
 					return;
@@ -1914,7 +1914,7 @@ void Node::Peer::OnMsg(proto::GetBodyPack&& msg)
     Send(msgMiss);
 }
 
-bool Node::Peer::GetBlock(proto::BodyBuffers& out, const NodeDB::StateID& sid, const proto::GetBodyPack& msg)
+bool Node::Peer::GetBlock(proto::BodyBuffers& out, const NodeDB::StateID& sid, const proto::GetBodyPack& msg, bool bActive)
 {
 	ByteBuffer* pP = nullptr;
 	ByteBuffer* pE = nullptr;
@@ -1942,7 +1942,7 @@ bool Node::Peer::GetBlock(proto::BodyBuffers& out, const NodeDB::StateID& sid, c
 		ThrowUnexpected();
 	}
 
-	if (!m_This.m_Processor.GetBlock(sid, pE, pP, msg.m_Height0, msg.m_HorizonLo1, msg.m_HorizonHi1))
+	if (!m_This.m_Processor.GetBlock(sid, pE, pP, msg.m_Height0, msg.m_HorizonLo1, msg.m_HorizonHi1, bActive))
 		return false;
 
 	if (proto::BodyBuffers::Recovery1 == msg.m_FlagP)
