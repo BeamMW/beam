@@ -1061,7 +1061,7 @@ namespace beam
 			sid.m_Height = h;
 
 			ByteBuffer bbE, bbP;
-			verify_test(npSrc.GetBlock(sid, &bbE, &bbP, 0, np.m_SyncData.m_TxoLo, np.m_SyncData.m_Target.m_Height));
+			verify_test(npSrc.GetBlock(sid, &bbE, &bbP, 0, np.m_SyncData.m_TxoLo, np.m_SyncData.m_Target.m_Height, true));
 
 			if (!bTampered)
 			{
@@ -1108,7 +1108,7 @@ namespace beam
 			sid.m_Height = h;
 
 			ByteBuffer bbE, bbP;
-			verify_test(npSrc.GetBlock(sid, &bbE, &bbP, 0, np.m_SyncData.m_TxoLo, np.m_SyncData.m_Target.m_Height));
+			verify_test(npSrc.GetBlock(sid, &bbE, &bbP, 0, np.m_SyncData.m_TxoLo, np.m_SyncData.m_Target.m_Height, true));
 
 			if (!bTampered)
 			{
@@ -1149,7 +1149,7 @@ namespace beam
 			sid.m_Height = h;
 
 			ByteBuffer bbE, bbP;
-			verify_test(npSrc.GetBlock(sid, &bbE, &bbP, 0, np.m_SyncData.m_TxoLo, np.m_SyncData.m_Target.m_Height));
+			verify_test(npSrc.GetBlock(sid, &bbE, &bbP, 0, np.m_SyncData.m_TxoLo, np.m_SyncData.m_Target.m_Height, true));
 
 			if (!bTampered)
 			{
@@ -1209,7 +1209,7 @@ namespace beam
 			sid.m_Height = h;
 
 			ByteBuffer bbE, bbP;
-			verify_test(npSrc.GetBlock(sid, &bbE, &bbP, 0, np.m_SyncData.m_TxoLo, np.m_SyncData.m_Target.m_Height));
+			verify_test(npSrc.GetBlock(sid, &bbE, &bbP, 0, np.m_SyncData.m_TxoLo, np.m_SyncData.m_Target.m_Height, true));
 
 			if (!bTampered)
 			{
@@ -1271,7 +1271,7 @@ namespace beam
 			sid.m_Height = h;
 
 			ByteBuffer bbE, bbP;
-			verify_test(npSrc.GetBlock(sid, &bbE, &bbP, 0, np.m_SyncData.m_TxoLo, np.m_SyncData.m_Target.m_Height));
+			verify_test(npSrc.GetBlock(sid, &bbE, &bbP, 0, np.m_SyncData.m_TxoLo, np.m_SyncData.m_Target.m_Height, true));
 
 			if (!hTampered)
 			{
@@ -1329,7 +1329,7 @@ namespace beam
 			sid.m_Height = h;
 
 			ByteBuffer bbE, bbP;
-			verify_test(npSrc.GetBlock(sid, &bbE, &bbP, 0, np.m_SyncData.m_TxoLo, np.m_SyncData.m_Target.m_Height));
+			verify_test(npSrc.GetBlock(sid, &bbE, &bbP, 0, np.m_SyncData.m_TxoLo, np.m_SyncData.m_Target.m_Height, true));
 
 			Block::SystemState::ID id;
 			blockChain[h - 1]->m_Hdr.get_ID(id);

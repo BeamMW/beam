@@ -514,7 +514,7 @@ private:
 		void BroadcastBbs(Bbs::Subscription&);
 		void OnChocking();
 		void SetTxCursor(TxPool::Fluff::Element*);
-		bool GetBlock(proto::BodyBuffers&, const NodeDB::StateID&, const proto::GetBodyPack&);
+		bool GetBlock(proto::BodyBuffers&, const NodeDB::StateID&, const proto::GetBodyPack&, bool bActive);
 
 		bool IsChocking(size_t nExtra = 0);
 		bool ShouldAssignTasks();

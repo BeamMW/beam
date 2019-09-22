@@ -1334,7 +1334,7 @@ void NodeProcessor::TryGoUp()
 							NodeDB::StateID sid = m_Cursor.m_Sid;
 
 							bbP.clear();
-							if (!GetBlock(sid, &bbE, &bbP, m_SyncData.m_h0, m_SyncData.m_TxoLo, m_SyncData.m_Target.m_Height))
+							if (!GetBlock(sid, &bbE, &bbP, m_SyncData.m_h0, m_SyncData.m_TxoLo, m_SyncData.m_Target.m_Height, true))
 								OnCorrupted();
 
 							if (sidFail.m_Height == sid.m_Height)
@@ -3900,7 +3900,7 @@ void NodeProcessor::InitializeUtxos()
 	}
 }
 
-bool NodeProcessor::GetBlock(const NodeDB::StateID& sid, ByteBuffer* pEthernal, ByteBuffer* pPerishable, Height h0, Height hLo1, Height hHi1)
+bool NodeProcessor::GetBlock(const NodeDB::StateID& sid, ByteBuffer* pEthernal, ByteBuffer* pPerishable, Height h0, Height hLo1, Height hHi1, bool bActive)
 {
 	// h0 - current peer Height
 	// hLo1 - HorizonLo that peer needs after the sync
@@ -3941,8 +3941,8 @@ bool NodeProcessor::GetBlock(const NodeDB::StateID& sid, ByteBuffer* pEthernal, 
 		return true;
 
 	// re-create it from Txos
-	if (!(m_DB.GetStateFlags(sid.m_Row) & NodeDB::StateFlags::Active))
-		return false;
+	if (!bActive && !(m_DB.GetStateFlags(sid.m_Row) & NodeDB::StateFlags::Active))
+		return false; // only active states are supported
 
 	TxBase txb;
 

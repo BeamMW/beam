@@ -286,6 +286,7 @@ ColumnLayout {
 
             property int rowHeight: 56
             property int resizableWidth: parent.width - actions.width
+            property double columnResizeRatio: resizableWidth / 740
 
             anchors.fill: parent
             frameVisible: false
@@ -297,7 +298,7 @@ ColumnLayout {
                 role: viewModel.nameRole
                 //% "Comment"
                 title: qsTrId("general-comment")
-                width: 280 * contactsView.resizableWidth / 740
+                width: 280 * contactsView.columnResizeRatio
                 movable: false
             }
 
@@ -305,7 +306,7 @@ ColumnLayout {
                 role: viewModel.addressRole
                 //% "Contact"
                 title: qsTrId("general-contact")
-                width: 170 * contactsView.resizableWidth / 740
+                width: 170 * contactsView.columnResizeRatio
                 movable: false
                 delegate: Item {
                     Item {
@@ -330,10 +331,11 @@ ColumnLayout {
             }
 
             TableViewColumn {
+                id: categoryColumn
                 role: viewModel.categoryRole
                 //% "Category"
                 title: qsTrId("general-category")
-                width: 290 * contactsView.resizableWidth / 740
+                width: contactsView.getAdjustedColumnWidth(categoryColumn)//290 * contactsView.columnResizeRatio
                 movable: false
             }
 
@@ -356,7 +358,8 @@ ColumnLayout {
 
                 Rectangle {
                     anchors.fill: parent
-                    color: styleData.selected ? Style.row_selected : (styleData.alternate ? Style.background_row_even : Style.background_row_odd)
+                    color: styleData.selected ? Style.row_selected :
+                            (styleData.alternate ? Style.background_row_even : Style.background_row_odd)
                 }
                 MouseArea {
                     anchors.fill: parent

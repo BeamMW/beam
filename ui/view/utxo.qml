@@ -144,11 +144,13 @@ ColumnLayout {
             value: tableView.sortIndicatorOrder
         }
 
+        property double columnResizeRatio: tableView.width / 800
+
         TableViewColumn {
             role: viewModel.amountRole
             //% "Amount"
             title: qsTrId("general-amount")
-            width: 300 * parent.width / 800
+            width: 300 * tableView.columnResizeRatio
             movable: false
         }
 
@@ -156,7 +158,7 @@ ColumnLayout {
             role: viewModel.maturityRole
             //% "Maturity"
             title: qsTrId("utxo-head-maturity")
-            width: 150 * parent.width / 800
+            width: 150 * tableView.columnResizeRatio
             movable: false
         }
 
@@ -164,7 +166,7 @@ ColumnLayout {
             role: viewModel.statusRole
             //% "Status"
             title: qsTrId("general-status")
-            width: 200 * parent.width / 800
+            width: 200 * tableView.columnResizeRatio
             movable: false
             resizable: false
             delegate: Item {
@@ -259,10 +261,11 @@ ColumnLayout {
 
 
         TableViewColumn {
+            id: typeColumn
             role: viewModel.typeRole
             //% "Type"
             title: qsTrId("utxo-head-type")
-            width: 150 * parent.width / 800
+            width: tableView.getAdjustedColumnWidth(typeColumn)//150 * columnResizeRatio
             movable: false
             delegate: Item {
                 id: utxoTypeDelegate

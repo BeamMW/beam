@@ -298,7 +298,7 @@ public:
 
 	bool GenerateNewBlock(BlockContext&);
 
-	bool GetBlock(const NodeDB::StateID&, ByteBuffer* pEthernal, ByteBuffer* pPerishable, Height h0, Height hLo1, Height hHi1);
+	bool GetBlock(const NodeDB::StateID&, ByteBuffer* pEthernal, ByteBuffer* pPerishable, Height h0, Height hLo1, Height hHi1, bool bActive);
 
 	struct ITxoWalker
 	{
