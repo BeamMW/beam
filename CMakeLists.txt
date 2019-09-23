@@ -128,7 +128,7 @@ if (BEAM_NO_QT_UI_WALLET)
     set(BEAM_QT_UI_WALLET FALSE)    
 endif()
 
-option(BEAM_USE_STATIC "Build with static link" FALSE)
+set(BEAM_USE_STATIC FALSE)
 if(BEAM_LINK_TYPE MATCHES "Static")
     set(BEAM_USE_STATIC TRUE)
 endif()
@@ -353,22 +353,11 @@ include_directories(${PROJECT_SOURCE_DIR}/3rdparty)
 if(BEAM_USE_STATIC)
 
     set(OPENSSL_USE_STATIC_LIBS TRUE)
+    set(OPENSSL_MSVC_STATIC_RT TRUE)
+    find_package(OpenSSL REQUIRED)
 
-    # cmake can't find static lib on macos, harcoded
-    #if(APPLE)
-    #    set(OPENSSL_LIBCRYPTO $ENV{OPENSSL_ROOT_DIR}/lib/libcrypto.a)
-    #    set(OPENSSL_LIBSSL $ENV{OPENSSL_ROOT_DIR}/lib/libssl.a)
-    #elseif(UNIX)
-    #    set(OPENSSL_LIBCRYPTO /usr/lib/x86_64-linux-gnu/libcrypto.a)
-    #    set(OPENSSL_LIBSSL /usr/lib/x86_64-linux-gnu/libssl.a)
-    #else()
-        find_package(OpenSSL REQUIRED)
-    #endif()
 else()
     if(ANDROID)
-        #include_directories($ENV{OPENSSL_ROOT_DIR_ANDROID}/include)
-        #set(OPENSSL_LIBCRYPTO $ENV{OPENSSL_ROOT_DIR_ANDROID}/libs/${ANDROID_ABI}/libcrypto.a)
-        #set(OPENSSL_LIBSSL $ENV{OPENSSL_ROOT_DIR_ANDROID}/libs/${ANDROID_ABI}/libssl.a)
 
         add_library(OpenSSL::Crypto STATIC IMPORTED)
         set_target_properties(OpenSSL::Crypto PROPERTIES
