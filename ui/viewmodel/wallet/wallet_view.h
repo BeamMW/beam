@@ -25,31 +25,14 @@
 class WalletViewModel : public QObject
 {
     Q_OBJECT
-    Q_PROPERTY(double  beamAvailable   READ beamAvailable    NOTIFY stateChanged)
-    Q_PROPERTY(double  btcAvailable    READ btcAvailable     NOTIFY stateChanged)
-    Q_PROPERTY(double  ltcAvailable    READ ltcAvailable     NOTIFY stateChanged)
-    Q_PROPERTY(double  qtumAvailable   READ qtumAvailable    NOTIFY stateChanged)
-
-    Q_PROPERTY(double beamReceiving   READ beamReceiving    NOTIFY stateChanged)
-    Q_PROPERTY(double btcReceiving    READ btcReceiving     NOTIFY stateChanged)
-    Q_PROPERTY(double ltcReceiving    READ ltcReceiving     NOTIFY stateChanged)
-    Q_PROPERTY(double qtumReceiving   READ qtumReceiving    NOTIFY stateChanged)
-
-    Q_PROPERTY(double beamSending   READ beamSending  NOTIFY stateChanged)
-    Q_PROPERTY(double btcSending    READ btcSending   NOTIFY stateChanged)
-    Q_PROPERTY(double ltcSending    READ ltcSending   NOTIFY stateChanged)
-    Q_PROPERTY(double qtumSending   READ qtumSending  NOTIFY stateChanged)
-
-    Q_PROPERTY(double beamLocked    READ beamLocked  NOTIFY stateChanged)
-    Q_PROPERTY(double btcLocked     READ btcLocked   NOTIFY stateChanged)
-    Q_PROPERTY(double ltcLocked     READ ltcLocked   NOTIFY stateChanged)
-    Q_PROPERTY(double qtumLocked    READ qtumLocked  NOTIFY stateChanged)
-
-    Q_PROPERTY(bool btcOK   READ btcOK    NOTIFY stateChanged)
-    Q_PROPERTY(bool ltcOK   READ ltcOK    NOTIFY stateChanged)
-    Q_PROPERTY(bool qtumOK  READ qtumOK   NOTIFY stateChanged)
-
-    Q_PROPERTY(QString maturing    READ maturing     NOTIFY stateChanged)
+    Q_PROPERTY(double beamAvailable          READ beamAvailable          NOTIFY stateChanged)
+    Q_PROPERTY(double beamReceiving          READ beamReceiving          NOTIFY stateChanged)
+    Q_PROPERTY(double beamSending            READ beamSending            NOTIFY stateChanged)
+    Q_PROPERTY(double beamLocked             READ beamLocked             NOTIFY stateChanged)
+    Q_PROPERTY(double beamLockedMaturing     READ beamLockedMaturing     NOTIFY stateChanged)
+    Q_PROPERTY(double beamLockedAtomic       READ beamLockedAtomic       NOTIFY stateChanged)
+    Q_PROPERTY(double beamReceivingChange    READ beamReceivingChange    NOTIFY stateChanged)
+    Q_PROPERTY(double beamReceivingIncoming  READ beamReceivingIncoming  NOTIFY stateChanged)
     Q_PROPERTY(QQmlListProperty<TxObject> transactions READ getTransactions NOTIFY transactionsChanged)
     Q_PROPERTY(QString sortRole READ sortRole WRITE setSortRole)
     Q_PROPERTY(Qt::SortOrder sortOrder READ sortOrder WRITE setSortOrder)
@@ -75,30 +58,14 @@ public:
     virtual ~WalletViewModel();
 
     double  beamAvailable() const;
-    double  btcAvailable()  const;
-    double  ltcAvailable()  const;
-    double  qtumAvailable() const;
-
     double  beamReceiving() const;
-    double  btcReceiving()  const;
-    double  ltcReceiving()  const;
-    double  qtumReceiving() const;
-
     double  beamSending() const;
-    double  btcSending()  const;
-    double  ltcSending()  const;
-    double  qtumSending() const;
-
     double  beamLocked() const;
-    double  btcLocked()  const;
-    double  ltcLocked()  const;
-    double  qtumLocked() const;
+    double  beamLockedAtomic() const;
+    double  beamLockedMaturing() const;
+    double  beamReceivingChange() const;
+    double  beamReceivingIncoming() const;
 
-    bool  btcOK()  const;
-    bool  ltcOK()  const;
-    bool  qtumOK() const;
-
-    QString maturing() const;
     QQmlListProperty<TxObject> getTransactions();
     bool getIsOfflineStatus() const;
     bool getIsFailedStatus() const;
@@ -124,8 +91,6 @@ public:
 public slots:
     void onTxStatus(beam::wallet::ChangeAction action, const std::vector<beam::wallet::TxDescription>& items);
     void onAddresses(bool own, const std::vector<beam::wallet::WalletAddress>& addresses);
-    void onCoinStateChanged();
-    void onCoinStatusChanged(beam::bitcoin::Client::Status);
 
 signals:
     void stateChanged();

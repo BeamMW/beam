@@ -612,8 +612,8 @@ Item
 
                             Rectangle {
                                 anchors.fill: parent
-                                color: styleData.selected ? Style.row_selected : Style.background_row_even
-                                visible: styleData.alternate || styleData.selected
+                                color: styleData.selected ? Style.row_selected :
+                                        (styleData.alternate ? Style.background_row_even : Style.background_row_odd)
                             }
                         }
 

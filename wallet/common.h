@@ -541,18 +541,32 @@ namespace beam::wallet
     ErrorType getWalletError(proto::NodeProcessingException::Type exceptionType);
     ErrorType getWalletError(io::ErrorCode errorCode);
 
-    struct PaymentConfirmation
+    struct ConfirmationBase
+    {
+        ECC::Signature m_Signature;
+        
+        virtual void get_Hash(ECC::Hash::Value&) const = 0;
+
+        bool IsValid(const PeerID&) const;
+        void Sign(const ECC::Scalar::Native& sk);
+    };
+
+    struct PaymentConfirmation : public ConfirmationBase
     {
         // I, the undersigned, being healthy in mind and body, hereby accept they payment specified below, that shall be delivered by the following kernel ID.
         Amount m_Value;
         ECC::Hash::Value m_KernelID;
         PeerID m_Sender;
-        ECC::Signature m_Signature;
 
-        void get_Hash(ECC::Hash::Value&) const;
-        bool IsValid(const PeerID&) const;
+        void get_Hash(ECC::Hash::Value&) const override;
+    };
+    
+    struct SwapOfferConfirmation : public ConfirmationBase
+    {
+        // Identifies owner for swap offer modification
+        ByteBuffer m_offerData;
 
-        void Sign(const ECC::Scalar::Native& sk);
+        void get_Hash(ECC::Hash::Value&) const override;
     };
 
     uint64_t get_RandomID();

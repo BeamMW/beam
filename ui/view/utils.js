@@ -57,7 +57,7 @@ function handleExternalLink(mouse, element, settings, dialog) {
     }
 }
 
-function calcDisplayRate(ail, air) {
+function calcDisplayRate(ail, air, numOnly) {
     // ai[X] = amount input control
     var cl = ail.currency
     var cr = air.currency
@@ -65,10 +65,10 @@ function calcDisplayRate(ail, air) {
 
     var al = ail.amount
     var ar = air.amount
-    if (al == 0 || ar == 0) return "?"
+    if (al == 0 || ar == 0) return numOnly ? "" : "?"
 
     var rounder = 100000000
-    return Math.round(ar / al * rounder) / rounder
+    return (ar / al).toFixed(10).replace(/\.?0+$/,"")
 }
 
 function currenciesList() {

@@ -226,17 +226,7 @@ namespace beam::wallet
         }
     }
 
-    void PaymentConfirmation::get_Hash(Hash::Value& hv) const
-    {
-        Hash::Processor()
-            << "PaymentConfirmation"
-            << m_KernelID
-            << m_Sender
-            << m_Value
-            >> hv;
-    }
-
-    bool PaymentConfirmation::IsValid(const PeerID& pid) const
+    bool ConfirmationBase::IsValid(const PeerID& pid) const
     {
         Point::Native pk;
         if (!proto::ImportPeerID(pk, pid))
@@ -248,12 +238,31 @@ namespace beam::wallet
         return m_Signature.IsValid(hv, pk);
     }
 
-    void PaymentConfirmation::Sign(const Scalar::Native& sk)
+    void ConfirmationBase::Sign(const Scalar::Native& sk)
     {
         Hash::Value hv;
         get_Hash(hv);
 
         m_Signature.Sign(hv, sk);
+    }
+
+    void PaymentConfirmation::get_Hash(Hash::Value& hv) const
+    {
+        Hash::Processor()
+            << "PaymentConfirmation"
+            << m_KernelID
+            << m_Sender
+            << m_Value
+            >> hv;
+    }
+
+    void SwapOfferConfirmation::get_Hash(Hash::Value& hv) const
+    {
+        beam::Blob data(m_offerData);
+        Hash::Processor()
+            << "SwapOfferSignature"
+            << data
+            >> hv;
     }
 
     TxParameters::TxParameters(const boost::optional<TxID>& txID)
@@ -362,8 +371,8 @@ namespace beam::wallet
         {
             return {};
         }
-        
-        if (buffer[0] & TxToken::TokenFlag) // token
+
+        if (buffer.size() > 33 && buffer[0] & TxToken::TokenFlag) // token
         {
             try
             {

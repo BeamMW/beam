@@ -88,6 +88,7 @@ namespace beam::wallet
         virtual void onCoinsByTx(const std::vector<Coin>& coins) = 0;
         virtual void onAddressChecked(const std::string& addr, bool isValid) = 0;
         virtual void onImportRecoveryProgress(uint64_t done, uint64_t total) = 0;
+        virtual void onNoDeviceConnected() = 0;
 
     private:
 

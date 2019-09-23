@@ -184,7 +184,6 @@
     </message>
     <message id="general-addr-comment-error">
         <source>Address with the same comment already exists</source>
-        <oldsource>Address with same comment already exist</oldsource>
         <translation type="unfinished">Todavia existe una dirección con el mismo comentario</translation>
     </message>
     <message id="wallet-receive-button">
@@ -193,7 +192,7 @@
     </message>
     <message id="wallet-in-progress-title">
         <source>In progress</source>
-        <translation>En progreso</translation>
+        <translation type="vanished">En progreso</translation>
     </message>
     <message id="wallet-transactions-title">
         <source>Transactions</source>
@@ -205,7 +204,6 @@
     </message>
     <message id="wallet-txs-date-time">
         <source>Created on</source>
-        <oldsource>Date | Time</oldsource>
         <translation type="unfinished">Fecha | hora</translation>
     </message>
     <message id="wallet-txs-copy-addr-cm">
@@ -297,7 +295,7 @@
     </message>
     <message id="available-panel-where-to-buy">
         <source>Where to buy BEAM?</source>
-        <translation>¿Donde comprar BEAM?</translation>
+        <translation type="vanished">¿Donde comprar BEAM?</translation>
     </message>
     <message id="settings-version">
         <source>Version</source>
@@ -550,17 +548,14 @@
     </message>
     <message id="wallet-receive-title">
         <source>Receive</source>
-        <oldsource>Receive Beam</oldsource>
         <translation type="unfinished">Recibir Beam</translation>
     </message>
     <message id="wallet-receive-my-addr-label">
         <source>My address (auto-generated)</source>
-        <oldsource>My address</oldsource>
         <translation type="unfinished">Mi dirección</translation>
     </message>
     <message id="wallet-receive-expires-label">
         <source>Expires in</source>
-        <oldsource>Expires</oldsource>
         <translation type="unfinished">Caduca</translation>
     </message>
     <message id="wallet-receive-expires-24">
@@ -585,17 +580,14 @@
     </message>
     <message id="send-title">
         <source>Send</source>
-        <oldsource>Send Beam</oldsource>
         <translation type="unfinished">Enviar Beam</translation>
     </message>
     <message id="send-send-to-label">
         <source>Transaction token or contact</source>
-        <oldsource>Send To</oldsource>
         <translation type="unfinished">Enviar a</translation>
     </message>
     <message id="send-contact-placeholder">
         <source>Please specify contact or transaction token</source>
-        <oldsource>Please specify contact</oldsource>
         <translation type="unfinished">Por favor especifique el contacto</translation>
     </message>
     <message id="send-amount-label">
@@ -1031,7 +1023,12 @@
     </message>
     <message id="start-create-pwd-strength-message">
         <source>Strong password needs to meet the following requirements:\n•  the length must be at least 10 characters\n•  must contain at least one lowercase letter\n•  must contain at least one uppercase letter\n•  must contain at least one number</source>
-        <translation>La contraseña segura debe cumplir los siguientes requisitos:\n• la longitud debe ser de al menos 10 caracteres\n• debe contener al menos una letra minúscula\n• debe contener al menos una letra mayúscula\n• debe contener al menos un número</translation>
+        <oldsource>Strong password needs to meet the following requirements:
+•  the length must be at least 10 characters
+•  must contain at least one lowercase letter
+•  must contain at least one uppercase letter
+•  must contain at least one number</oldsource>
+        <translation type="unfinished">La contraseña segura debe cumplir los siguientes requisitos:\n• la longitud debe ser de al menos 10 caracteres\n• debe contener al menos una letra minúscula\n• debe contener al menos una letra mayúscula\n• debe contener al menos un número</translation>
     </message>
     <message id="start-open-caps-warning">
         <source>Caps lock is on!</source>
@@ -1393,6 +1390,8 @@ Escanee este código QR o envíe esta dirección al remitente a través de un ca
     </message>
     <message id="swap-na-message">
         <source>You do not have any 3rd-party currencies connected.\nUpdate your settings and try again.</source>
+        <oldsource>You do not have any 3rd-party currencies connected.
+Update your settings and try again.</oldsource>
         <translation type="unfinished"></translation>
     </message>
     <message id="wallet-receive-swap-title">
@@ -1481,6 +1480,8 @@ Escanee este código QR o envíe esta dirección al remitente a través de un ca
     </message>
     <message id="swap-currency-na-message">
         <source>You do not have %1 connected.\nUpdate your settings and try again.</source>
+        <oldsource>You do not have %1 connected.
+Update your settings and try again.</oldsource>
         <translation type="unfinished"></translation>
     </message>
     <message id="send-swap-to-label">
@@ -1549,6 +1550,76 @@ Escanee este código QR o envíe esta dirección al remitente a través de un ca
     </message>
     <message id="loading-view-rebuild-utxos">
         <source>Rebuilding UTXO image</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="wallet-receive-copy-token">
+        <source>copy transaction token</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="atomic-swap-connect-other">
+        <source>Connect other currency wallet to start trading</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="wallet-model-device-not-connected">
+        <source>There is no Trezor device connected. Please, connect and try again.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="swap-beta-button">
+        <source>I understand</source>
+        <translation type="unfinished">Lo entiendo</translation>
+    </message>
+    <message id="swap-beta-message">
+        <source>Atomic Swap functionality is Beta at the moment. We recommend you not to send large amounts.</source>
+        <oldsource>Atomic Swap functionality is Beta at the moment. We recommend
+you do not send large amounts.</oldsource>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="swap-beta-title">
+        <source>Atomic Swap is in BETA</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="swap-beta-connection-error">
+        <source>Cannot connect to peer. Please check in the address in settings and retry.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="available-panel-locked">
+        <source>Locked</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="available-panel-sending">
+        <source>Sending</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="available-panel-receiving">
+        <source>Receiving</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="available-panel-maturing">
+        <source>Maturing</source>
+        <translation type="unfinished">Madurando</translation>
+    </message>
+    <message id="available-panel-aswap">
+        <source>Atomic Swap</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="available-panel-change">
+        <source>Change</source>
+        <translation type="unfinished">Cambiar</translation>
+    </message>
+    <message id="available-panel-incoming">
+        <source>Incoming</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="atomic-swap-active-tx-count">
+        <source>%1 active transactions</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="atomic-swap-1active-tx-count">
+        <source>1 active transaction</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="swap-beta-tx-in-progress">
+        <source>Transaction is in progress</source>
         <translation type="unfinished"></translation>
     </message>
 </context>

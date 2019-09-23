@@ -25,7 +25,7 @@ namespace beam::wallet
     class AddressExpiredException : public std::runtime_error
     {
     public:
-        explicit AddressExpiredException()
+        AddressExpiredException()
             : std::runtime_error("")
         {
         }
@@ -35,7 +35,7 @@ namespace beam::wallet
     class FailToStartSwapException : public std::runtime_error
     {
     public:
-        explicit FailToStartSwapException()
+        FailToStartSwapException()
             : std::runtime_error("")
         {
         }
@@ -45,11 +45,20 @@ namespace beam::wallet
     class FailToStartNewTransactionException : public std::runtime_error
     {
     public:
-        explicit FailToStartNewTransactionException()
+        FailToStartNewTransactionException()
             : std::runtime_error("")
         {
         }
 
+    };
+
+    class InvalidTransactionParametersException : public std::runtime_error
+    {
+    public:
+        InvalidTransactionParametersException()
+            : std::runtime_error("")
+        {
+        }
     };
 
     // Interface for wallet observer. 
@@ -79,6 +88,7 @@ namespace beam::wallet
         using Ptr = std::shared_ptr<IWalletMessageEndpoint>;
         virtual void Send(const WalletID& peerID, const SetTxParameter& msg) = 0;
         virtual void SendEncryptedMessage(const WalletID& peerID, const ByteBuffer& msg) = 0;
+        virtual void SendAndSign(const ByteBuffer& msg, const BbsChannel& channel, const WalletID& wid) = 0;
     };
 
     // Extends FlyClient protocol for communication with own or remote node

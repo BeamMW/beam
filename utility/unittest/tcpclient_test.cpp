@@ -107,7 +107,7 @@ int tcpclient_test(bool ssl) {
         reactor->cancel_tcp_connect(tag_cancelled);
 
         Timer::Ptr timer = Timer::create(*reactor);
-        int x = 15;
+        int x = 20;
         timer->start(200, true, [&x, &reactor]{
             if (--x == 0 || callbackCount == 0) {
                 reactor->stop();

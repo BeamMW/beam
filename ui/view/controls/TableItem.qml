@@ -7,6 +7,8 @@ import "."
 Item {
 	property alias text: itemText.text
     property alias elide: itemText.elide
+    property alias color: itemText.color
+    property alias fontWeight: itemText.font.weight
     anchors.fill: parent
 
     SFText {

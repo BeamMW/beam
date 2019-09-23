@@ -22,18 +22,20 @@ QHash<int, QByteArray> SwapOffersList::roleNames() const
 {
     static const auto roles = QHash<int, QByteArray>
     {
-        { static_cast<int>(Roles::TimeCreatedRole), "timeCreated" },
-        { static_cast<int>(Roles::TimeCreatedSortRole), "timeCreatedSort" },
-        { static_cast<int>(Roles::AmountSendRole), "amountSend" },
-        { static_cast<int>(Roles::AmountSendSortRole), "amountSendSort" },
-        { static_cast<int>(Roles::AmountReceiveRole), "amountReceive" },
-        { static_cast<int>(Roles::AmountReceiveSortRole), "amountReceiveSort" },
-        { static_cast<int>(Roles::RateRole), "rate" },
-        { static_cast<int>(Roles::RateSortRole), "rateSort" },
-        { static_cast<int>(Roles::ExpirationRole), "expiration" },
-        { static_cast<int>(Roles::ExpirationSortRole), "expirationSort" },
-        { static_cast<int>(Roles::IsOwnOfferRole), "isOwnOffer" },
-        { static_cast<int>(Roles::RawTxParametersRole), "rawTxParameters" }
+        { static_cast<int>(Roles::TimeCreated), "timeCreated" },
+        { static_cast<int>(Roles::TimeCreatedSort), "timeCreatedSort" },
+        { static_cast<int>(Roles::AmountSend), "amountSend" },
+        { static_cast<int>(Roles::AmountSendSort), "amountSendSort" },
+        { static_cast<int>(Roles::AmountReceive), "amountReceive" },
+        { static_cast<int>(Roles::AmountReceiveSort), "amountReceiveSort" },
+        { static_cast<int>(Roles::Rate), "rate" },
+        { static_cast<int>(Roles::RateSort), "rateSort" },
+        { static_cast<int>(Roles::Expiration), "expiration" },
+        { static_cast<int>(Roles::ExpirationSort), "expirationSort" },
+        { static_cast<int>(Roles::IsOwnOffer), "isOwnOffer" },
+        { static_cast<int>(Roles::RawTxID), "rawTxID" },
+        { static_cast<int>(Roles::RawTxParameters), "rawTxParameters" }
+        
     };
     return roles;
 }
@@ -47,32 +49,41 @@ QVariant SwapOffersList::data(const QModelIndex &index, int role) const
     auto& value = m_list[index.row()];
     switch (static_cast<Roles>(role))
     {
-    case Roles::TimeCreatedRole:
-    case Roles::TimeCreatedSortRole:
-        return value->timeCreated();
-	case Roles::AmountSendRole:
-        return value->amountSend();
-    case Roles::AmountSendSortRole:
-        return static_cast<uint>(value->rawAmountSend());
-	case Roles::AmountReceiveRole:
-        return value->amountReceive();
-    case Roles::AmountReceiveSortRole:
-        return static_cast<uint>(value->rawAmountReceive());
-    case Roles::RateRole:
-    case Roles::RateSortRole:
-        return value->rate();
-    case Roles::ExpirationRole:
-    case Roles::ExpirationSortRole:
-        return value->timeExpiration();
-    case Roles::IsOwnOfferRole:
-        return value->isOwnOffer();
-    case Roles::RawTxParametersRole:
-		{
-			auto txParams = value->getTxParameters();
-			return QVariant::fromValue(txParams);
-		}
-    default:
-        return QVariant();
+        case Roles::TimeCreated:
+        case Roles::TimeCreatedSort:
+            return value->timeCreated();
+
+        case Roles::AmountSend:
+            return value->amountSend();
+
+        case Roles::AmountSendSort:
+            return static_cast<uint>(value->rawAmountSend());
+
+        case Roles::AmountReceive:
+            return value->amountReceive();
+
+        case Roles::AmountReceiveSort:
+            return static_cast<uint>(value->rawAmountReceive());
+
+        case Roles::Rate:
+        case Roles::RateSort:
+            return value->rate();
+
+        case Roles::Expiration:
+        case Roles::ExpirationSort:
+            return value->timeExpiration();
+
+        case Roles::IsOwnOffer:
+            return value->isOwnOffer();
+
+        case Roles::RawTxID:
+            return QVariant::fromValue(value->getTxID());
+
+        case Roles::RawTxParameters:
+            return QVariant::fromValue(value->getTxParameters());
+            
+        default:
+            return QVariant();
     }
 }
 
@@ -81,7 +92,7 @@ void SwapOffersList::remove(const std::vector<std::shared_ptr<SwapOfferItem>>& i
     for (const auto& item : items)
     {
         auto it = std::find_if(std::begin(m_list), std::end(m_list),
-                            [&item](const auto& element) { return element->getId() == item->getId(); });
+                            [&item](const auto& element) { return element->getTxID() == item->getTxID(); });
         
         if (it != std::end(m_list))
         {

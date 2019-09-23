@@ -120,7 +120,7 @@ ColumnLayout {
 
     CustomTableView {
         id: tableView
-        property int rowHeight: 69
+        property int rowHeight: 56
         Layout.fillWidth: true
         Layout.fillHeight: true
         Layout.bottomMargin: 9
@@ -144,11 +144,13 @@ ColumnLayout {
             value: tableView.sortIndicatorOrder
         }
 
+        property double columnResizeRatio: tableView.width / 800
+
         TableViewColumn {
             role: viewModel.amountRole
             //% "Amount"
             title: qsTrId("general-amount")
-            width: 300 * parent.width / 800
+            width: 300 * tableView.columnResizeRatio
             movable: false
         }
 
@@ -156,7 +158,7 @@ ColumnLayout {
             role: viewModel.maturityRole
             //% "Maturity"
             title: qsTrId("utxo-head-maturity")
-            width: 150 * parent.width / 800
+            width: 150 * tableView.columnResizeRatio
             movable: false
         }
 
@@ -164,7 +166,7 @@ ColumnLayout {
             role: viewModel.statusRole
             //% "Status"
             title: qsTrId("general-status")
-            width: 200 * parent.width / 800
+            width: 200 * tableView.columnResizeRatio
             movable: false
             resizable: false
             delegate: Item {
@@ -259,10 +261,11 @@ ColumnLayout {
 
 
         TableViewColumn {
+            id: typeColumn
             role: viewModel.typeRole
             //% "Type"
             title: qsTrId("utxo-head-type")
-            width: 150 * parent.width / 800
+            width: tableView.getAdjustedColumnWidth(typeColumn)//150 * columnResizeRatio
             movable: false
             delegate: Item {
                 id: utxoTypeDelegate
@@ -318,9 +321,7 @@ ColumnLayout {
 
             Rectangle {
                 anchors.fill: parent
-
-                color: Style.background_row_even
-                visible: styleData.alternate
+                color: styleData.alternate ? Style.background_row_even : Style.background_row_odd
             }
         }
 

@@ -868,11 +868,11 @@ namespace
         if (!skipReceiverWalletID)
         {
 
-        if (vm.count(cli::RECEIVER_ADDR) == 0)
-        {
-            LOG_ERROR() << kErrorReceiverAddrMissing;
-            return false;
-        }
+            if (vm.count(cli::RECEIVER_ADDR) == 0)
+            {
+                LOG_ERROR() << kErrorReceiverAddrMissing;
+                return false;
+            }
             receiverWalletID.FromHex(vm[cli::RECEIVER_ADDR].as<string>());
         }
 
@@ -930,8 +930,8 @@ namespace
                 if (!bitcoin::validateElectrumMnemonic(electrumSettings.m_secretWords))
                 {
                     throw std::runtime_error("seed is not valid");
-        }
-    }
+                }
+            }
             else if (vm.count(cli::GENERATE_ELECTRUM_SEED))
             {
                 electrumSettings.m_secretWords = bitcoin::createElectrumMnemonic(getEntropy());
@@ -939,14 +939,14 @@ namespace
                 auto strSeed = std::accumulate(
                     std::next(electrumSettings.m_secretWords.begin()), electrumSettings.m_secretWords.end(), *electrumSettings.m_secretWords.begin(),
                     [](std::string a, std::string b)
-    {
+                {
                     return a + ";" + b;
                 });
 
                 LOG_INFO() << "seed = " << strSeed;
             }
             else
-        {
+            {
                 throw std::runtime_error("electrum seed should be specified");
             }
 
@@ -971,7 +971,7 @@ namespace
     std::shared_ptr<Settings> ParseSwapSettings(const po::variables_map& vm)
     {
         if (vm.count(cli::SWAP_WALLET_ADDR) > 0 || vm.count(cli::SWAP_WALLET_USER) > 0 || vm.count(cli::SWAP_WALLET_PASS) > 0)
-            {
+        {
             CoreSettings coreSettings;
 
             string nodeUri = vm[cli::SWAP_WALLET_ADDR].as<string>();
@@ -1078,9 +1078,9 @@ namespace
         wallet::AtomicSwapCoin swapCoin = wallet::AtomicSwapCoin::Bitcoin;
 
         if (vm.count(cli::SWAP_COIN) > 0)
-            {
+        {
             swapCoin = wallet::from_string(vm[cli::SWAP_COIN].as<string>());
-            }
+        }
 
         switch (swapCoin)
         {
@@ -1091,9 +1091,9 @@ namespace
 
                 auto btcSettings = btcSettingsProvider->GetSettings();
                 if (!btcSettings.IsInitialized())
-            {
+                {
                     throw std::runtime_error("BTC settings should be initialized.");
-            }
+                }
 
                 if (!BitcoinSide::CheckAmount(swapAmount, btcSettings.GetFeeRate()))
                 {
@@ -1128,7 +1128,7 @@ namespace
                     throw std::runtime_error("Qtum settings should be initialized.");
                 }
                 if (!QtumSide::CheckAmount(swapAmount, qtumSettings.GetFeeRate()))
-            {
+                {
                     throw std::runtime_error("The swap amount must be greater than the redemption fee.");
                 }
                 break;
@@ -1138,7 +1138,7 @@ namespace
                 throw std::runtime_error("Unsupported coin for swap");
                 break;
             }
-            }
+        }
 
         bool isBeamSide = (vm.count(cli::SWAP_BEAM_SIDE) != 0);
 
@@ -1147,14 +1147,14 @@ namespace
         WalletID receiverWalletID(Zero);
 
         if (!LoadBaseParamsForTX(vm, amount, fee, receiverWalletID, checkFee, true))
-            {
+        {
             return boost::none;
-            }
+        }
 
         if (vm.count(cli::SWAP_AMOUNT) == 0)
-            {
+        {
             throw std::runtime_error(kErrorSwapAmountMissing);
-            }
+        }
 
         if (amount <= kMinFeeInGroth)
         {
@@ -1163,7 +1163,9 @@ namespace
 
         WalletAddress senderAddress = GenerateNewAddress(walletDB, "", keyKeeper);
 
-        auto swapTxParameters = InitNewSwap(senderAddress.m_walletID, amount, fee, swapCoin, swapAmount, isBeamSide);
+        // TODO:SWAP use async callbacks or IWalletObserver?
+        Height minHeight = walletDB->getCurrentHeight();
+        auto swapTxParameters = InitNewSwap(senderAddress.m_walletID, minHeight, amount, fee, swapCoin, swapAmount, isBeamSide);
 
         boost::optional<TxID> currentTxID = wallet.StartTransaction(swapTxParameters);
 
@@ -1206,14 +1208,14 @@ namespace
         bool isValidToken = isBeamSide && swapCoin && beamAmount && swapAmount && peerID && peerResponseHeight;
 
         if (!transactionType || *transactionType != TxType::AtomicSwap || !isValidToken)
-            {
+        {
             throw std::runtime_error("swap transaction token is invalid.");
-            }
+        }
 
         Amount swapFeeRate = 0;
 
         if (swapCoin == wallet::AtomicSwapCoin::Bitcoin)
-            {
+        {
             auto btcSettingsProvider = std::make_shared<bitcoin::SettingsProvider>(walletDB);
             btcSettingsProvider->Initialize();
             auto btcSettings = btcSettingsProvider->GetSettings();
@@ -1261,9 +1263,9 @@ namespace
             swapFeeRate = qtumSettings.GetFeeRate();
         }
         else
-            {
+        {
             throw std::runtime_error("Unsupported swap coin.");
-            }
+        }
 
         // display swap details to user
         cout << " Swap conditions: " << "\n"
@@ -1290,7 +1292,7 @@ namespace
         }
 
         if (!isAccepted)
-            {
+        {
             LOG_INFO() << "Swap rejected!";
             return boost::none;
         }
@@ -1306,14 +1308,14 @@ namespace
         swapTxParameters->SetParameter(beam::wallet::TxParameterID::Fee, swapFeeRate, subTxID);
 
         return wallet.StartTransaction(*swapTxParameters);
-            }
+    }
 
     void TryToRegisterSwapTxCreators(Wallet& wallet, IWalletDB::Ptr walletDB)
     {
-        auto swapTransactionCreator = std::make_shared<AtomicSwapTransaction::Creator>();
+        auto swapTransactionCreator = std::make_shared<AtomicSwapTransaction::Creator>(walletDB);
         wallet.RegisterTransactionType(TxType::AtomicSwap, std::static_pointer_cast<BaseTransaction::Creator>(swapTransactionCreator));
 
-            {
+        {
             auto btcSettingsProvider = std::make_shared<bitcoin::SettingsProvider>(walletDB);
             btcSettingsProvider->Initialize();
 
@@ -1329,7 +1331,7 @@ namespace
                 auto btcSecondSideFactory = wallet::MakeSecondSideFactory<BitcoinSide, bitcoin::BitcoinCore017, bitcoin::ISettingsProvider>(bitcoinBridge, btcSettingsProvider);
                 swapTransactionCreator->RegisterFactory(AtomicSwapCoin::Bitcoin, btcSecondSideFactory);
             }
-            }
+        }
 
         {
             auto ltcSettingsProvider = std::make_shared<litecoin::SettingsProvider>(walletDB);
@@ -1340,7 +1342,7 @@ namespace
                 auto litecoinBridge = std::make_shared<litecoin::Electrum>(io::Reactor::get_Current(), ltcSettingsProvider);
                 auto ltcSecondSideFactory = wallet::MakeSecondSideFactory<LitecoinSide, litecoin::Electrum, litecoin::ISettingsProvider>(litecoinBridge, ltcSettingsProvider);
                 swapTransactionCreator->RegisterFactory(AtomicSwapCoin::Litecoin, ltcSecondSideFactory);
-        }
+            }
             else if (ltcSettingsProvider->GetSettings().GetConnectionOptions().IsInitialized())
             {
                 auto litecoinBridge = std::make_shared<litecoin::LitecoinCore017>(io::Reactor::get_Current(), ltcSettingsProvider);
@@ -2204,22 +2206,22 @@ int main_impl(int argc, char* argv[])
                                 make_shared<ColdWalletMessageEndpoint>(wallet, walletDB, keyKeeper));
                         }
 
-                            if (command == cli::SWAP_INIT)
-                            {
+                        if (command == cli::SWAP_INIT)
+                        {
                             currentTxID = InitSwap(vm, walletDB, keyKeeper, wallet, isFork1);
                             if (!currentTxID)
-                                {
-                                    return -1;
-                                }
-                                }
+                            {
+                                return -1;
+                            }
+                        }
 
                         if (command == cli::SWAP_ACCEPT)
-                                {
+                        {
                             currentTxID = AcceptSwap(vm, walletDB, keyKeeper, wallet, isFork1);
                             if (!currentTxID)
-                                {
-                                    return -1;
-                                }
+                            {
+                                return -1;
+                            }
                         }
 
                         if (isTxInitiator)

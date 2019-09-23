@@ -71,18 +71,6 @@ Item {
                 spacing: 19
 
                 CustomButton {
-                    palette.button: Style.accent_incoming
-                    palette.buttonText: Style.content_opposite
-                    icon.source: "qrc:/assets/icon-receive-blue.svg"
-                    //% "Receive"
-                    text: qsTrId("wallet-receive-button")
-
-                    onClicked: {
-                        walletView.push(Qt.createComponent("receive.qml"), {"isSwapView": false});
-                    }
-                }
-
-                CustomButton {
                     palette.button: Style.accent_outgoing
                     palette.buttonText: Style.content_opposite
                     icon.source: "qrc:/assets/icon-send-blue.svg"
@@ -93,70 +81,39 @@ Item {
                         walletView.push(Qt.createComponent("send.qml"));
                     }
                 }
-            }
 
-            Item {
-                y: 97
-                height: 206
+                CustomButton {
+                    palette.button: Style.accent_incoming
+                    palette.buttonText: Style.content_opposite
+                    icon.source: "qrc:/assets/icon-receive-blue.svg"
+                    //% "Receive"
+                    text: qsTrId("wallet-receive-button")
 
-                anchors.left: parent.left
-                anchors.right: parent.right
-
-                RowLayout {
-
-                    id: wide_panels
-
-                    anchors.left: parent.left
-                    anchors.right: parent.right
-                    height: parent.height
-
-                    spacing: 30
-
-                    AvailablePanel {
-                    Layout.maximumWidth: 700
-                    Layout.minimumWidth: 350
-                    Layout.fillHeight: true
-                    Layout.fillWidth: true
-
-                    beamValue: viewModel.beamAvailable
-                    btcValue:  viewModel.btcAvailable
-                    ltcValue:  viewModel.ltcAvailable
-                    qtumValue: viewModel.qtumAvailable
-                    btcOK:     viewModel.btcOK
-                    ltcOK:     viewModel.ltcOK
-                    qtumOK:    viewModel.qtumOK
-
-                    onOpenExternal : function() {
-                            var externalLink = "https://www.beam.mw/#exchanges";
-                            Utils.openExternal(externalLink, viewModel, externalLinkConfirmation);
-                        }
-                    }
-
-                    SecondaryPanel {
-                        Layout.minimumWidth: 350
-                        Layout.fillHeight:   true
-                        Layout.fillWidth:    true
-                        //% "In progress"
-                        title:               qsTrId("wallet-in-progress-title")
-                        beamReceiving:       viewModel.beamReceiving
-                        beamSending:         viewModel.beamSending
-                        beamLocked:          viewModel.beamLocked
-                        btcReceiving:        viewModel.btcReceiving
-                        btcSending:          viewModel.btcSending
-                        btcLocked:           viewModel.btcLocked
-                        ltcReceiving:        viewModel.ltcReceiving
-                        ltcSending:          viewModel.ltcSending
-                        ltcLocked:           viewModel.ltcLocked
-                        qtumReceiving:       viewModel.qtumReceiving
-                        qtumSending:         viewModel.qtumSending
-                        qtumLocked:          viewModel.qtumLocked
+                    onClicked: {
+                        walletView.push(Qt.createComponent("receive.qml"), {"isSwapView": false});
                     }
                 }
             }
 
+            AvailablePanel {
+                y: 100
+                height: 67
+                anchors.left:  parent.left
+                anchors.right: viewModel.beamSending > 0 || viewModel.beamReceiving > 0 ? parent.right : parent.horizontalCenter
+
+                available:         viewModel.beamAvailable
+                locked:            viewModel.beamLocked
+                lockedAtomic:      viewModel.beamLockedAtomic
+                lockedMaturing:    viewModel.beamLockedMaturing
+                sending:           viewModel.beamSending
+                receiving:         viewModel.beamReceiving
+                receivingChange:   viewModel.beamReceivingChange
+                receivingIncoming: viewModel.beamReceivingIncoming
+            }
+
             Item
             {
-                y: 320
+                y: 220
 
                 anchors.left: parent.left
                 anchors.right: parent.right
@@ -190,18 +147,13 @@ Item {
             }
 
             CustomTableView {
-
                 id: transactionsView
-
                 anchors.fill: parent
-                anchors.topMargin: 394-33
+                anchors.topMargin: 255
                 Layout.bottomMargin: 9
 
-                property int rowHeight: 69
-
-                frameVisible: false
+                property int rowHeight: 56
                 selectionMode: SelectionMode.NoSelection
-                backgroundVisible: false
 
                 sortIndicatorVisible: true
                 sortIndicatorColumn: 1
@@ -219,7 +171,7 @@ Item {
                     value: transactionsView.sortIndicatorOrder
                 }
 
-                property int resizableWidth: parent.width - actionsColumn.width
+                property double resizableWidth: transactionsView.width - actionsColumn.width
                 property double columnResizeRatio: resizableWidth / 810
 
                 TableViewColumn {
@@ -345,10 +297,12 @@ Item {
                 }
 
                 TableViewColumn {
+                    id: statusColumn
                     role: viewModel.statusRole
                     //% "Status"
                     title: qsTrId("general-status")
-                    width: 150 * transactionsView.columnResizeRatio
+
+                    width: transactionsView.getAdjustedColumnWidth(statusColumn)//150 * transactionsView.columnResizeRatio
                     elideMode: Text.ElideRight
                     movable: false
                     resizable: false
@@ -529,10 +483,9 @@ Item {
 
                     width: parent.width
                     Rectangle {
-                            height: transactionsView.rowHeight
-                            width: parent.width
-                            color: Style.background_row_even
-                            visible: styleData.alternate
+                        height: transactionsView.rowHeight
+                        width: parent.width
+                        color: styleData.alternate ? Style.background_row_even : Style.background_row_odd
                     }
 
                     Column {

@@ -214,7 +214,7 @@ public:
 
 	static bool IsRemoteTipNeeded(const Block::SystemState::Full& sTipRemote, const Block::SystemState::Full& sTipMy);
 
-	virtual void RequestData(const Block::SystemState::ID&, bool bBlock, const PeerID* pPreferredPeer, const NodeDB::StateID& sidTrg) {}
+	virtual void RequestData(const Block::SystemState::ID&, bool bBlock, const NodeDB::StateID& sidTrg) {}
 	virtual void OnPeerInsane(const PeerID&) {}
 	virtual void OnNewState() {}
 	virtual void OnRolledBack() {}
@@ -290,7 +290,7 @@ public:
 
 	bool GenerateNewBlock(BlockContext&);
 
-	bool GetBlock(const NodeDB::StateID&, ByteBuffer* pEthernal, ByteBuffer* pPerishable, Height h0, Height hLo1, Height hHi1);
+	bool GetBlock(const NodeDB::StateID&, ByteBuffer* pEthernal, ByteBuffer* pPerishable, Height h0, Height hLo1, Height hHi1, bool bActive);
 
 	struct ITxoWalker
 	{

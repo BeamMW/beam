@@ -41,9 +41,15 @@ namespace beam::wallet
     {
         // !TODO: temporary solution to init SBBS KDF with commitment
         // also, we could store SBBS Kdf in the WalletDB
-        if (!m_sbbsKdf) 
-            ECC::HKdf::Create(m_sbbsKdf, m_hwWallet.generateKeySync({ 0, 0, Key::Type::Regular }, true).m_X);
 
+        if (!m_sbbsKdf)
+        {
+            if (m_hwWallet.isConnected())
+            {
+                ECC::HKdf::Create(m_sbbsKdf, m_hwWallet.generateKeySync({ 0, 0, Key::Type::Regular }, true).m_X);
+            }
+        }
+           
         return m_sbbsKdf;
     }
 

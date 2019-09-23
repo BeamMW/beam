@@ -18,7 +18,12 @@ using namespace beam;
 using namespace beam::wallet;
 using namespace beamui;
 
-TxObject::TxObject(QObject* parent /*= nullptr*/)
+const char* TxObject::coinTypeBtc = "btc";
+const char* TxObject::coinTypeLtc = "ltc";
+const char* TxObject::coinTypeQtum = "qtum";
+const char* TxObject::coinTypeUnknown = "unknown";
+
+TxObject::TxObject(QObject* parent)
         : QObject(parent)
 {
 }
@@ -36,6 +41,33 @@ auto TxObject::timeCreated() const -> QDateTime
 	QDateTime datetime;
 	datetime.setTime_t(m_tx.m_createTime);
 	return datetime;
+}
+
+auto TxObject::getTxID() const -> beam::wallet::TxID
+{
+    return m_tx.m_txId;
+}
+
+auto TxObject::isBeamSideSwap() const -> bool
+{
+    auto isBeamSide = m_tx.GetParameter<bool>(TxParameterID::AtomicSwapIsBeamSide);
+    return isBeamSide.value();
+}
+
+auto TxObject::getSwapCoinType() const -> QString
+{
+    beam::wallet::AtomicSwapCoin coin;
+    if (m_tx.GetParameter(TxParameterID::AtomicSwapCoin, coin))
+    {
+        switch (coin)
+        {
+            case AtomicSwapCoin::Bitcoin:   return QString(coinTypeBtc);
+            case AtomicSwapCoin::Litecoin:  return QString(coinTypeLtc);
+            case AtomicSwapCoin::Qtum:      return QString(coinTypeQtum);
+            case AtomicSwapCoin::Unknown:   return QString(coinTypeUnknown);
+        }
+    }
+    return QString("unknown");
 }
 
 bool TxObject::income() const

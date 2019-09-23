@@ -16,9 +16,10 @@
 #include "utility/helpers.h"
 #include "wallet/common.h"
 
-SwapOfferItem::SwapOfferItem(const SwapOffer& offer, bool isOwn)
-    : m_offer{offer},
-      m_isOwnOffer{isOwn}
+SwapOfferItem::SwapOfferItem(const SwapOffer& offer, bool isOwn, const QDateTime& timeExpiration)
+    : m_offer{offer}
+    , m_isOwnOffer{isOwn}
+    , m_timeExpiration{timeExpiration}
 {
     m_offer.GetParameter(TxParameterID::AtomicSwapIsBeamSide, m_isBeamSide);
 }
@@ -40,20 +41,7 @@ auto SwapOfferItem::timeCreated() const -> QDateTime
 
 auto SwapOfferItem::timeExpiration() const -> QDateTime
 {
-    beam::Timestamp time;
-    if (m_offer.GetParameter(TxParameterID::CreateTime, time))
-    {
-        QDateTime datetime;
-        time += 60*60*24;       // defaut lifetime 24h
-        datetime.setTime_t(time);
-        // TODO : minus lifetime
-        // if (m_offer.GetParameter(beam::wallet::TxParameterID::PeerResponseHeight, x))
-        return datetime;
-    }
-    else
-    {
-        return QDateTime();
-    }
+    return m_timeExpiration;
 }
 
 auto SwapOfferItem::rawAmountSend() const -> beam::Amount
@@ -112,7 +100,7 @@ auto SwapOfferItem::getTxParameters() const -> beam::wallet::TxParameters
     return m_offer;
 }
 
-auto SwapOfferItem::getId() const -> TxID
+auto SwapOfferItem::getTxID() const -> TxID
 {
     return m_offer.GetTxID().value();    
 }

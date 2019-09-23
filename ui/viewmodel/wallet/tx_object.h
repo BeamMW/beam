@@ -16,6 +16,7 @@
 #include <QObject>
 #include <QDateTime>
 #include "viewmodel/payment_item.h"
+#include "viewmodel/ui_helpers.h"
 
 class TxObject : public QObject
 {
@@ -46,10 +47,18 @@ Q_OBJECT
 
 public:
 
+    static const char* coinTypeBtc;
+    static const char* coinTypeLtc;
+    static const char* coinTypeQtum;
+    static const char* coinTypeUnknown;
+
     TxObject(QObject* parent = nullptr);
     TxObject(const beam::wallet::TxDescription& tx, QObject* parent = nullptr);
 
-    auto timeCreated() const->QDateTime;
+    auto timeCreated() const -> QDateTime;
+    auto getTxID() const -> beam::wallet::TxID;
+    auto isBeamSideSwap() const -> bool;
+    auto getSwapCoinType() const -> QString;
     //
     QString getSentAmount() const;
     double getSentAmountValue() const;

@@ -30,6 +30,8 @@ public:
     beam::Amount getSending()   const {return _status.sending;}
     beam::Amount getMaturing()  const {return _status.maturing;}
 
+    beam::Height getCurrentHeight() const { return _status.stateID.m_Height; }
+
     void setOnChanged(std::function<void()>&& cb) { _changedCB = std::move(cb); }
     void refresh();
 

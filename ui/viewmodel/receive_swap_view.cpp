@@ -24,6 +24,27 @@ namespace {
         OfferExpires12h = 0,
         OfferExpires6h  = 1
     };
+
+    uint16_t GetHourCount(int offerExpires)
+    {
+        switch (offerExpires)
+        {
+        case OfferExpires12h:
+            return 12;
+        case OfferExpires6h:
+            return 6;
+        default:
+        {
+            assert(false && "Unexpected value!");
+            return 0;
+        }
+        }
+    }
+
+    beam::Height GetBlockCount(int offerExpires)
+    {
+        return GetHourCount(offerExpires) * 60;
+    }
 }
 
 ReceiveSwapViewModel::ReceiveSwapViewModel()
@@ -39,12 +60,15 @@ ReceiveSwapViewModel::ReceiveSwapViewModel()
         .SetParameter(beam::wallet::TxParameterID::AtomicSwapCoin, beam::wallet::AtomicSwapCoin::Bitcoin)
         .SetParameter(beam::wallet::TxParameterID::AtomicSwapIsBeamSide, true)
         .SetParameter(beam::wallet::TxParameterID::IsInitiator, true))
+    , _currentHeight(0)
 {
     LOG_INFO() << "ReceiveSwapViewModel created";
     connect(&_walletModel, &WalletModel::generatedNewAddress, this, &ReceiveSwapViewModel::onGeneratedNewAddress);
     connect(&_walletModel, &WalletModel::newAddressFailed, this,  &ReceiveSwapViewModel::onNewAddressFailed);
+    connect(&_walletModel, SIGNAL(walletStatus(const beam::wallet::WalletStatus&)), SLOT(onWalletStatus(const beam::wallet::WalletStatus&)));
     generateNewAddress();
 
+    _walletModel.getAsync()->getWalletStatus();
     updateTransactionToken();
 }
 
@@ -171,6 +195,7 @@ void ReceiveSwapViewModel::setOfferExpires(int value)
     {
         _offerExpires = value;
         emit offerExpiresChanged();
+        updateTransactionToken();
     }
 }
 
@@ -191,6 +216,15 @@ void ReceiveSwapViewModel::generateNewAddress()
 void ReceiveSwapViewModel::onNewAddressFailed()
 {
     emit newAddressFailed();
+}
+
+void ReceiveSwapViewModel::onWalletStatus(const beam::wallet::WalletStatus& status)
+{
+    if (status.stateID.m_Height != _currentHeight)
+    {
+        _currentHeight = status.stateID.m_Height;
+        updateTransactionToken();
+    }
 }
 
 void ReceiveSwapViewModel::setTransactionToken(const QString& value)
@@ -235,23 +269,9 @@ void ReceiveSwapViewModel::saveAddress()
 
     if (getCommentValid()) {
         _receiverAddress.m_label = _addressComment.toStdString();
-        _receiverAddress.m_duration = _offerExpires * WalletAddress::AddressExpiration1h;
+        _receiverAddress.m_duration = GetHourCount(_offerExpires) * WalletAddress::AddressExpiration1h;
         _walletModel.getAsync()->saveAddress(_receiverAddress, true);
     }
-}
-
-void ReceiveSwapViewModel::publishToken()
-{
-    using namespace beam::wallet;
-	// TODO:
-    auto txParameters = beam::wallet::TxParameters(_txParameters);
-    // txParameters.SetParameter(beam::wallet::TxParameterID::PeerResponseHeight, ResponseTime(_offerExpires));
-    // txParameters.SetParameter(beam::wallet::TxParameterID::Message, beam::wallet::toByteBuffer(_addressComment.toStdString()));
-
-	auto time = beam::wallet::toByteBuffer(beam::getTimestamp());
-	txParameters.SetParameter(beam::wallet::TxParameterID::CreateTime, time);
-	
-    _walletModel.getAsync()->publishSwapOffer(txParameters);
 }
 
 void ReceiveSwapViewModel::startListen()
@@ -274,6 +294,17 @@ void ReceiveSwapViewModel::startListen()
     _walletModel.getAsync()->startTransaction(std::move(txParameters));
 }
 
+void ReceiveSwapViewModel::publishToken()
+{
+    // using namespace beam::wallet;
+    auto txParameters = beam::wallet::TxParameters(_txParameters);
+    
+    // TODO:SWAP need to consider the creation of separate struct
+    txParameters.SetParameter(beam::wallet::TxParameterID::Status, beam::wallet::TxStatus::Pending);
+    
+    _walletModel.getAsync()->publishSwapOffer(txParameters);
+}
+
 namespace
 {
     beam::wallet::AtomicSwapCoin convertCurrencyToSwapCoin(Currency currency)
@@ -294,8 +325,8 @@ namespace
 
 void ReceiveSwapViewModel::updateTransactionToken()
 {
-    // TODO:
-    // _txParameters.SetParameter(beam::wallet::TxParameterID::PeerResponseHeight, ResponseTime(_offerExpires));
+    _txParameters.SetParameter(beam::wallet::TxParameterID::MinHeight, _currentHeight);
+    _txParameters.SetParameter(beam::wallet::TxParameterID::PeerResponseHeight, _currentHeight + GetBlockCount(_offerExpires));
 
     // All parameters sets as if we were on the recipient side (mirrored)
     bool isBeamSide = (_receiveCurrency == Currency::CurrBeam);

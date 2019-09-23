@@ -15,9 +15,12 @@ ColumnLayout {
         id: viewModel
         onNewAddressFailed: {
             walletView.enabled = true
-            Qt.createComponent("receive_addrfail.qml")
-                .createObject(sendView)
-                .open();
+            var popup = Qt.createComponent("popup_message.qml")
+                .createObject(thisView)
+
+            //% "You cannot generate new address. Your wallet doesn't have a master key."
+            popup.message = qsTrId("can-not-generate-new-address-message")
+            popup.open()
         }
     }
 

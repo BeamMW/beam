@@ -154,7 +154,7 @@ void NodeProcessor::Initialize(const char* szPath, const StartParams& sp)
 	}
 
 	// final check
-	if (m_Cursor.m_ID.m_Height >= Rules::HeightGenesis)
+	if ((m_Cursor.m_ID.m_Height >= Rules::HeightGenesis) && (m_Cursor.m_ID.m_Height >= m_SyncData.m_TxoLo))
 	{
 		get_Definition(hv, false);
 		if (m_Cursor.m_Full.m_Definition != hv)
@@ -487,6 +487,20 @@ NodeProcessor::CongestionCache::TipCongestion* NodeProcessor::EnumCongestionsInt
 	return pMaxTarget;
 }
 
+template <typename T>
+bool IsBigger2(T a, T b1, T b2)
+{
+	b1 += b2;
+	return (b1 >= b2) && (a > b1);
+}
+
+template <typename T>
+bool IsBigger3(T a, T b1, T b2, T b3)
+{
+	b2 += b3;
+	return (b2 >= b3) && IsBigger2(a, b1, b2);
+}
+
 void NodeProcessor::EnumCongestions()
 {
 	if (!IsTreasuryHandled())
@@ -496,7 +510,7 @@ void NodeProcessor::EnumCongestions()
 		NodeDB::StateID sidTrg;
 		sidTrg.SetNull();
 
-		RequestData(id, true, nullptr, sidTrg);
+		RequestData(id, true, sidTrg);
 		return;
 	}
 
@@ -507,7 +521,7 @@ void NodeProcessor::EnumCongestions()
 	{
 		bool bFirstTime =
 			!IsFastSync() &&
-			(pMaxTarget->m_Height > m_Cursor.m_ID.m_Height + m_Horizon.m_SchwarzschildHi + m_Horizon.m_SchwarzschildHi / 2);
+			IsBigger3(pMaxTarget->m_Height, m_Cursor.m_ID.m_Height, m_Horizon.m_SchwarzschildHi, m_Horizon.m_SchwarzschildHi / 2);
 
 		if (bFirstTime)
 		{
@@ -524,7 +538,7 @@ void NodeProcessor::EnumCongestions()
 		// check if the target should be moved fwd
 		bool bTrgChange =
 			(IsFastSync() || bFirstTime) &&
-			(pMaxTarget->m_Height > m_SyncData.m_Target.m_Height + m_Horizon.m_SchwarzschildHi);
+			IsBigger2(pMaxTarget->m_Height, m_SyncData.m_Target.m_Height, m_Horizon.m_SchwarzschildHi);
 
 		if (bTrgChange)
 		{
@@ -605,10 +619,7 @@ void NodeProcessor::RequestDataInternal(const Block::SystemState::ID& id, uint64
 {
 	if (id.m_Height >= m_Extra.m_LoHorizon)
 	{
-		PeerID peer;
-		bool bPeer = m_DB.get_Peer(row, peer);
-
-		RequestData(id, bBlock, bPeer ? &peer : NULL, sidTrg);
+		RequestData(id, bBlock, sidTrg);
 	}
 	else
 	{
@@ -1079,7 +1090,7 @@ void NodeProcessor::TryGoUp()
 							NodeDB::StateID sid = m_Cursor.m_Sid;
 
 							bbP.clear();
-							if (!GetBlock(sid, &bbE, &bbP, m_SyncData.m_h0, m_SyncData.m_TxoLo, m_SyncData.m_Target.m_Height))
+							if (!GetBlock(sid, &bbE, &bbP, m_SyncData.m_h0, m_SyncData.m_TxoLo, m_SyncData.m_Target.m_Height, true))
 								OnCorrupted();
 
 							if (sidFail.m_Height == sid.m_Height)
@@ -3354,7 +3365,7 @@ void NodeProcessor::InitializeUtxos()
 	EnumTxos(wlk);
 }
 
-bool NodeProcessor::GetBlock(const NodeDB::StateID& sid, ByteBuffer* pEthernal, ByteBuffer* pPerishable, Height h0, Height hLo1, Height hHi1)
+bool NodeProcessor::GetBlock(const NodeDB::StateID& sid, ByteBuffer* pEthernal, ByteBuffer* pPerishable, Height h0, Height hLo1, Height hHi1, bool bActive)
 {
 	// h0 - current peer Height
 	// hLo1 - HorizonLo that peer needs after the sync
@@ -3395,8 +3406,8 @@ bool NodeProcessor::GetBlock(const NodeDB::StateID& sid, ByteBuffer* pEthernal, 
 		return true;
 
 	// re-create it from Txos
-	if (!(m_DB.GetStateFlags(sid.m_Row) & NodeDB::StateFlags::Active))
-		return false;
+	if (!bActive && !(m_DB.GetStateFlags(sid.m_Row) & NodeDB::StateFlags::Active))
+		return false; // only active states are supported
 
 	TxBase txb;
 

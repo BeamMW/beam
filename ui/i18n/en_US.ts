@@ -192,7 +192,7 @@
     </message>
     <message id="wallet-in-progress-title">
         <source>In progress</source>
-        <translation>In progress</translation>
+        <translation type="vanished">In progress</translation>
     </message>
     <message id="wallet-transactions-title">
         <source>Transactions</source>
@@ -293,9 +293,33 @@
         <source>Available</source>
         <translation>Available</translation>
     </message>
-    <message id="available-panel-where-to-buy">
-        <source>Where to buy BEAM?</source>
-        <translation>Where to buy BEAM?</translation>
+    <message id="available-panel-locked">
+        <source>Locked</source>
+        <translation>Locked</translation>
+    </message>
+    <message id="available-panel-sending">
+        <source>Sending</source>
+        <translation>Sending</translation>
+    </message>
+    <message id="available-panel-receiving">
+        <source>Receiving</source>
+        <translation>Receiving</translation>
+    </message>
+    <message id="available-panel-maturing">
+        <source>Maturing</source>
+        <translation>Maturing</translation>
+    </message>
+    <message id="available-panel-aswap">
+        <source>Atomic Swap</source>
+        <translation>Atomic Swap</translation>
+    </message>
+    <message id="available-panel-change">
+        <source>Change</source>
+        <translation>Change</translation>
+    </message>
+    <message id="available-panel-incoming">
+        <source>Incoming</source>
+        <translation>Incoming</translation>
     </message>
     <message id="settings-version">
         <source>Version</source>
@@ -1251,6 +1275,18 @@ or send this address to the sender over secure channel</translation>
         <source>Default fee</source>
         <translation>Default fee</translation>
     </message>
+    <message id="swap-beta-message">
+        <source>Atomic Swap functionality is Beta at the moment. We recommend you not to send large amounts.</source>
+        <translation>Atomic Swap functionality is Beta at the moment. We recommend you not to send large amounts.</translation>
+    </message>
+    <message id="swap-beta-title">
+        <source>Atomic Swap is in BETA</source>
+        <translation>Atomic Swap is in BETA</translation>
+    </message>
+    <message id="swap-beta-button">
+        <source>I understand</source>
+        <translation>I understand</translation>
+    </message>
     <message id="swap-na-message">
         <source>You do not have any 3rd-party currencies connected.\nUpdate your settings and try again.</source>
         <translation>You do not have any 3rd-party currencies connected.\nUpdate your settings and try again.</translation>
@@ -1477,11 +1513,15 @@ or send this address to the sender over secure channel</translation>
     </message>
     <message id="wallet-receive-text-online-time">
         <source>For the transaction to complete, you should get online during the 12 hours after Beams are sent.</source>
-        <translation type="unfinished"></translation>
+        <translation>For the transaction to complete, you should get online during the 12 hours after Beams are sent.</translation>
     </message>
     <message id="send-confirmation-pwd-text-online-time">
         <source>For the transaction to complete, the recipient must get online within the next 12 hours and you should get online within 2 hours afterwards.</source>
-        <translation type="unfinished"></translation>
+        <translation>For the transaction to complete, the recipient must get online within the next 12 hours and you should get online within 2 hours afterwards.</translation>
+    </message>
+    <message id="atomic-swap-connect-other">
+        <source>Connect other currency wallet to start trading</source>
+        <translation>Connect other currency wallet to start trading</translation>
     </message>
     <message id="trezor-message">
         <source>Please, look at your Trezor device to complete actions...</source>
@@ -1510,6 +1550,30 @@ or send this address to the sender over secure channel</translation>
     <message id="start-no-trezor-device-connected">
         <source>There is no device connected, please, connect your hardware wallet.</source>
         <translation>There is no device connected, please, connect your hardware wallet.</translation>
+    </message>
+    <message id="wallet-receive-copy-token">
+        <source>copy transaction token</source>
+        <translation>copy transaction token</translation>
+    </message>
+    <message id="wallet-model-device-not-connected">
+        <source>There is no Trezor device connected. Please, connect and try again.</source>
+        <translation>There is no Trezor device connected. Please, connect and try again.</translation>
+    </message>
+    <message id="swap-beta-connection-error">
+        <source>Cannot connect to peer. Please check in the address in settings and retry.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="atomic-swap-active-tx-count">
+        <source>%1 active transactions</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="atomic-swap-1active-tx-count">
+        <source>1 active transaction</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="swap-beta-tx-in-progress">
+        <source>Transaction is in progress</source>
+        <translation type="unfinished"></translation>
     </message>
 </context>
 </TS>

@@ -184,7 +184,6 @@
     </message>
     <message id="general-addr-comment-error">
         <source>Address with the same comment already exists</source>
-        <oldsource>Address with same comment already exist</oldsource>
         <translation type="unfinished">Aynı yorumu içeren adres hali hazırda var</translation>
     </message>
     <message id="wallet-receive-button">
@@ -193,7 +192,7 @@
     </message>
     <message id="wallet-in-progress-title">
         <source>In progress</source>
-        <translation>Devam etmekte</translation>
+        <translation type="vanished">Devam etmekte</translation>
     </message>
     <message id="wallet-transactions-title">
         <source>Transactions</source>
@@ -205,7 +204,6 @@
     </message>
     <message id="wallet-txs-date-time">
         <source>Created on</source>
-        <oldsource>Date | Time</oldsource>
         <translation type="unfinished">Tarih | Saat</translation>
     </message>
     <message id="wallet-txs-copy-addr-cm">
@@ -297,7 +295,7 @@
     </message>
     <message id="available-panel-where-to-buy">
         <source>Where to buy BEAM?</source>
-        <translation>Beam nereden alınır?</translation>
+        <translation type="vanished">Beam nereden alınır?</translation>
     </message>
     <message id="settings-version">
         <source>Version</source>
@@ -550,17 +548,14 @@
     </message>
     <message id="wallet-receive-title">
         <source>Receive</source>
-        <oldsource>Receive Beam</oldsource>
         <translation type="unfinished">Beam al</translation>
     </message>
     <message id="wallet-receive-my-addr-label">
         <source>My address (auto-generated)</source>
-        <oldsource>My address</oldsource>
         <translation type="unfinished">Adresim</translation>
     </message>
     <message id="wallet-receive-expires-label">
         <source>Expires in</source>
-        <oldsource>Expires</oldsource>
         <translation type="unfinished">Süresi dolanlar</translation>
     </message>
     <message id="wallet-receive-expires-24">
@@ -585,17 +580,14 @@
     </message>
     <message id="send-title">
         <source>Send</source>
-        <oldsource>Send Beam</oldsource>
         <translation type="unfinished">Beam yolla</translation>
     </message>
     <message id="send-send-to-label">
         <source>Transaction token or contact</source>
-        <oldsource>Send To</oldsource>
         <translation type="unfinished">Yolla</translation>
     </message>
     <message id="send-contact-placeholder">
         <source>Please specify contact or transaction token</source>
-        <oldsource>Please specify contact</oldsource>
         <translation type="unfinished">Lütfen kontağı belirleyin</translation>
     </message>
     <message id="send-amount-label">
@@ -1031,7 +1023,12 @@
     </message>
     <message id="start-create-pwd-strength-message">
         <source>Strong password needs to meet the following requirements:\n•  the length must be at least 10 characters\n•  must contain at least one lowercase letter\n•  must contain at least one uppercase letter\n•  must contain at least one number</source>
-        <translation>Güçlü bir parolanın aşağıdaki gereksinimleri karşılaması gerekir:\n• uzunluk en az 10 karakter olmalı\n• en az bir küçük harf içermeli\n • en az bir büyük harf içermeli \n• en az bir sayı içermeli</translation>
+        <oldsource>Strong password needs to meet the following requirements:
+•  the length must be at least 10 characters
+•  must contain at least one lowercase letter
+•  must contain at least one uppercase letter
+•  must contain at least one number</oldsource>
+        <translation type="unfinished">Güçlü bir parolanın aşağıdaki gereksinimleri karşılaması gerekir:\n• uzunluk en az 10 karakter olmalı\n• en az bir küçük harf içermeli\n • en az bir büyük harf içermeli \n• en az bir sayı içermeli</translation>
     </message>
     <message id="start-open-caps-warning">
         <source>Caps lock is on!</source>
@@ -1392,6 +1389,8 @@
     </message>
     <message id="swap-na-message">
         <source>You do not have any 3rd-party currencies connected.\nUpdate your settings and try again.</source>
+        <oldsource>You do not have any 3rd-party currencies connected.
+Update your settings and try again.</oldsource>
         <translation type="unfinished"></translation>
     </message>
     <message id="wallet-receive-swap-title">
@@ -1480,6 +1479,8 @@
     </message>
     <message id="swap-currency-na-message">
         <source>You do not have %1 connected.\nUpdate your settings and try again.</source>
+        <oldsource>You do not have %1 connected.
+Update your settings and try again.</oldsource>
         <translation type="unfinished"></translation>
     </message>
     <message id="send-swap-to-label">
@@ -1548,6 +1549,76 @@
     </message>
     <message id="loading-view-rebuild-utxos">
         <source>Rebuilding UTXO image</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="wallet-receive-copy-token">
+        <source>copy transaction token</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="atomic-swap-connect-other">
+        <source>Connect other currency wallet to start trading</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="wallet-model-device-not-connected">
+        <source>There is no Trezor device connected. Please, connect and try again.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="swap-beta-button">
+        <source>I understand</source>
+        <translation type="unfinished">Anlıyorum</translation>
+    </message>
+    <message id="swap-beta-message">
+        <source>Atomic Swap functionality is Beta at the moment. We recommend you not to send large amounts.</source>
+        <oldsource>Atomic Swap functionality is Beta at the moment. We recommend
+you do not send large amounts.</oldsource>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="swap-beta-title">
+        <source>Atomic Swap is in BETA</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="swap-beta-connection-error">
+        <source>Cannot connect to peer. Please check in the address in settings and retry.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="available-panel-locked">
+        <source>Locked</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="available-panel-sending">
+        <source>Sending</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="available-panel-receiving">
+        <source>Receiving</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="available-panel-maturing">
+        <source>Maturing</source>
+        <translation type="unfinished">Olgunlaştırılıyor</translation>
+    </message>
+    <message id="available-panel-aswap">
+        <source>Atomic Swap</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="available-panel-change">
+        <source>Change</source>
+        <translation type="unfinished">Değiştir</translation>
+    </message>
+    <message id="available-panel-incoming">
+        <source>Incoming</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="atomic-swap-active-tx-count">
+        <source>%1 active transactions</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="atomic-swap-1active-tx-count">
+        <source>1 active transaction</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="swap-beta-tx-in-progress">
+        <source>Transaction is in progress</source>
         <translation type="unfinished"></translation>
     </message>
 </context>

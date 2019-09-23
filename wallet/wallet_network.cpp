@@ -218,6 +218,43 @@ namespace beam::wallet {
         }
     }
 
+    /**
+     * Sign message with private key and send it without encryption
+     *
+     * @param msg       Message data
+     * @param channel   BBS channel to send message
+     * @param wid       Public key used in signature creation
+     */
+    void BaseMessageEndpoint::SendAndSign(const ByteBuffer& msg, const BbsChannel& channel, const WalletID& wid)
+    {
+        SwapOfferConfirmation confirmation;
+
+        auto waddr = m_WalletDB->getAddress(wid);
+
+        if (waddr && waddr->m_OwnID)
+        {
+            ECC::Scalar::Native sk;
+            
+            m_keyKeeper->get_SbbsKdf()->DeriveKey(sk, ECC::Key::ID(waddr->m_OwnID, Key::Type::Bbs));
+            PeerID generatedPk;
+            proto::Sk2Pk(generatedPk, sk);
+
+            confirmation.m_offerData = msg;
+            confirmation.Sign(sk);
+
+            ByteBuffer signature = toByteBuffer(confirmation.m_Signature);
+            ByteBuffer signedMessage;
+            signedMessage.reserve(msg.size() + signature.size());
+
+            std::copy(std::begin(msg), std::end(msg), std::back_inserter(signedMessage));
+            std::copy(std::begin(signature), std::end(signature), std::back_inserter(signedMessage));
+            
+            WalletID dummyWId;
+            dummyWId.m_Channel = channel;
+            SendEncryptedMessage(dummyWId, signedMessage);
+        }
+    }
+
     void BaseMessageEndpoint::OnAddressTimer()
     {
         vector<Addr*> addressesToDelete;

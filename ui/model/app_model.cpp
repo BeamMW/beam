@@ -189,7 +189,7 @@ void AppModel::startWallet()
     assert(!m_wallet->isRunning());
 
     auto additionalTxCreators = std::make_shared<std::unordered_map<TxType, BaseTransaction::Creator::Ptr>>();
-    auto swapTransactionCreator = std::make_shared<beam::wallet::AtomicSwapTransaction::Creator>();
+    auto swapTransactionCreator = std::make_shared<beam::wallet::AtomicSwapTransaction::Creator>(m_db);
 
     if (auto btcClient = getBitcoinClient(); btcClient)
     {

@@ -13,15 +13,29 @@ Rectangle {
 
 	MainViewModel {id: viewModel}
 
+    property color topColor: Style.background_main_top
+    property color topGradientColor: Qt.rgba(Style.background_main_top.r, Style.background_main_top.g, Style.background_main_top.b, 0)
+
     StatusbarViewModel {
         id: statusbarModel
     }
 
-    TrezorMessage {
-        id: trezorMessage
-    }
+    property alias backgroundRect: mainBackground
+    Rectangle {
+        id: mainBackground
+        anchors.fill: parent
+        color: Style.background_main
 
-    color: Style.background_main
+        Rectangle {
+            anchors.left: parent.left
+            anchors.right: parent.right
+            height: 230
+            gradient: Gradient {
+                GradientStop { position: 0.0; color: main.topColor }
+                GradientStop { position: 1.0; color: main.topGradientColor }
+            }
+        }
+    }
 
     MouseArea {
         id: mainMouseArea
@@ -48,16 +62,20 @@ Rectangle {
 		"settings"]
     property int selectedItem
 
-    Rectangle {
+    Item {
         id: sidebar
         width: 70
         height: 0
-        color: Style.navigation_background
-        border.width: 0
         anchors.bottom: parent.bottom
         anchors.left: parent.left
         anchors.top: parent.top
 
+        Rectangle {
+            anchors.fill: parent
+            color: Style.navigation_background
+            opacity: 0.1
+            border.width: 0
+        }
 
         Column {
             width: 0
@@ -70,6 +88,7 @@ Rectangle {
             anchors.topMargin: 125
 
             Repeater{
+                id: controls
                 model: contentItems
 
                 Item {
@@ -149,6 +168,7 @@ Rectangle {
     {
         var update = function(index) {
             selectedItem = index
+            controls.itemAt(index).focus = true;
             content.setSource("qrc:/" + contentItems[index] + ".qml", Object.assign({"toSend": false}, props))
             viewModel.update(index)
         }
@@ -177,6 +197,8 @@ Rectangle {
         viewModel.resetLockTimer();
     }
 
+    property var trezor_popup
+
     Connections {
         target: viewModel
         onGotoStartScreen: { 
@@ -184,19 +206,25 @@ Rectangle {
         }
 
         onShowTrezorMessage:{
+            trezor_popup = Qt.createComponent("popup_message.qml").createObject(main)
+
             //% "Please, look at your Trezor device to complete actions..."
-            trezorMessage.message = qsTrId("trezor-message")
-            trezorMessage.open()
+            trezor_popup.message = qsTrId("trezor-message")
+            trezor_popup.open()
         }
 
         onHideTrezorMessage:{
-            trezorMessage.close()
+            trezor_popup.close()
         }
 
         onShowTrezorError: function(error) {
             console.log(error)
-            trezorMessage.message = error
-            trezorMessage.open()
+            trezor_popup = Qt.createComponent("popup_message.qml").createObject(main)
+
+            //% "Please, look at your Trezor device to complete actions..."
+            trezor_popup.message = error
+            trezor_popup.open()
+
         }
     }
 

@@ -13,10 +13,23 @@ ColumnLayout {
     property var    defaultFocusItem: receiverTAInput
     property var    predefinedTxParams: undefined
 
+    property color mainTopColor: null
+    property color mainTopGradientColor: null
+
     Component.onCompleted: {
         if (isSwapMode) {
             onSwapToken("");
         }
+        mainTopColor = main.topColor;
+        mainTopGradientColor = main.topGradientColor;
+        main.topColor = Qt.rgba(Style.accent_outgoing.r, Style.accent_outgoing.g, Style.accent_outgoing.b, 0.5);
+        main.topGradientColor = Qt.rgba(Style.accent_outgoing.r, Style.accent_outgoing.g, Style.accent_outgoing.b, 0.0);
+    }
+
+    Component.onDestruction: {
+        main.topColor = mainTopColor;
+        main.topGradientColor = mainTopGradientColor;
+        
     }
 
     Row {

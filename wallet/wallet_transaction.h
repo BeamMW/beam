@@ -47,10 +47,15 @@ namespace beam::wallet
         class Creator : public BaseTransaction::Creator
         {
         public:
+            Creator(IWalletDB::Ptr walletDB);
+        private:
             BaseTransaction::Ptr Create(INegotiatorGateway& gateway
                                       , IWalletDB::Ptr walletDB
                                       , IPrivateKeyKeeper::Ptr keyKeeper
                                       , const TxID& txID) override;
+            TxParameters CheckAndCompleteParameters(const TxParameters& parameters) override;
+        private:
+            IWalletDB::Ptr m_WalletDB;
         };
     private:
         SimpleTransaction(INegotiatorGateway& gateway

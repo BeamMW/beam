@@ -53,9 +53,10 @@ namespace beam::wallet
         {
             bool txChanged = false;
             SubTxID subTxID = kDefaultSubTxID;
-
+            auto counter = parameters.size();
             for (const auto& p : parameters)
             {
+                --counter;
                 if (p.first == TxParameterID::SubTxIndex)
                 {
                     // change subTxID
@@ -67,7 +68,8 @@ namespace beam::wallet
 
                 if (allowPrivate || p.first < TxParameterID::PrivateFirstParam)
                 {
-                    txChanged |= tx->SetParameter(p.first, p.second, subTxID);
+                    bool notify = (counter == 0);
+                    txChanged |= tx->SetParameter(p.first, p.second, notify, subTxID);
                 }
                 else
                 {
@@ -100,7 +102,7 @@ namespace beam::wallet
     {
         assert(walletDB);
         // the only default type of transaction
-        RegisterTransactionType(TxType::Simple, make_unique<SimpleTransaction::Creator>());
+        RegisterTransactionType(TxType::Simple, make_unique<SimpleTransaction::Creator>(m_WalletDB));
     }
 
     Wallet::~Wallet()
@@ -1075,12 +1077,6 @@ namespace beam::wallet
             return wallet::BaseTransaction::Ptr();
         }
 
-        //if (!it->second->CanCreate(msg))
-        //{
-        //    LOG_ERROR() << msg.m_TxID << " It is not permited to create this transaction";
-        //    return wallet::BaseTransaction::Ptr();
-        //}
-
         return it->second->Create(*this, m_WalletDB, m_KeyKeeper, msg.m_TxID);
     }
 
@@ -1099,14 +1095,10 @@ namespace beam::wallet
             return BaseTransaction::Ptr();
         }
 
-        if (!it->second->CanCreate(parameters))
-        {
-            LOG_ERROR() << *parameters.GetTxID() << " It is not permited to create this transaction";
-            return wallet::BaseTransaction::Ptr();
-        }
+        auto completedParameters = it->second->CheckAndCompleteParameters(parameters);
 
         auto newTx = it->second->Create(*this, m_WalletDB, m_KeyKeeper, *parameters.GetTxID());
-        ApplyTransactionParameters(newTx, parameters.GetParameters(), true);
+        ApplyTransactionParameters(newTx, completedParameters.GetParameters(), true);
         return newTx;
     }
 

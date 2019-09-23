@@ -41,6 +41,9 @@ public:
     bool isAllowedBeamMWLinks() const;
     void setAllowedBeamMWLinks(bool value);
 
+    bool showSwapBetaWarning();
+    void setShowSwapBetaWarning(bool value);
+
     void initModel(WalletModel::Ptr model);
 #if defined(BEAM_HW_WALLET)
     std::string getTrezorWalletStorage() const;

@@ -25,18 +25,19 @@ class SwapOffersList : public ListModel<std::shared_ptr<SwapOfferItem>>
 public:
     enum class Roles
     {
-        TimeCreatedRole = Qt::UserRole + 1,
-        TimeCreatedSortRole,
-        AmountSendRole,
-        AmountSendSortRole,
-        AmountReceiveRole,
-        AmountReceiveSortRole,
-        RateRole,
-        RateSortRole,
-        ExpirationRole,
-        ExpirationSortRole,
-        IsOwnOfferRole,
-        RawTxParametersRole
+        TimeCreated = Qt::UserRole + 1,
+        TimeCreatedSort,
+        AmountSend,
+        AmountSendSort,
+        AmountReceive,
+        AmountReceiveSort,
+        Rate,
+        RateSort,
+        Expiration,
+        ExpirationSort,
+        IsOwnOffer,
+        RawTxID,
+        RawTxParameters
     };
 
     SwapOffersList();

@@ -19,13 +19,14 @@
 #include "lock_tx_builder.h"
 #include "shared_tx_builder.h"
 #include "wallet/bitcoin/bitcoin_side.h"
+#include "wallet/wallet.h"
 
 using namespace ECC;
 
 namespace beam::wallet
 {
     /// Swap Parameters 
-    TxParameters InitNewSwap(const WalletID& myID, Amount amount, Amount fee, AtomicSwapCoin swapCoin,
+    TxParameters InitNewSwap(const WalletID& myID, Height minHeight, Amount amount, Amount fee, AtomicSwapCoin swapCoin,
         Amount swapAmount, bool isBeamSide /*= true*/,
         Height lifetime /*= kDefaultTxLifetime*/, Height responseTime/* = kDefaultTxResponseTime*/)
     {
@@ -37,8 +38,8 @@ namespace beam::wallet
         parameters.SetParameter(TxParameterID::Fee, fee);
         parameters.SetParameter(TxParameterID::Lifetime, lifetime);
 
-        // Must be reset on first Update when we already have correct current height.
-        parameters.SetParameter(TxParameterID::PeerResponseHeight, responseTime);
+        parameters.SetParameter(TxParameterID::MinHeight, minHeight);
+        parameters.SetParameter(TxParameterID::PeerResponseHeight, minHeight + responseTime);
         parameters.SetParameter(TxParameterID::MyID, myID);
         parameters.SetParameter(TxParameterID::IsSender, isBeamSide);
         parameters.SetParameter(TxParameterID::IsInitiator, false);
@@ -50,14 +51,10 @@ namespace beam::wallet
         return parameters;
     }
 
-
     TxParameters CreateSwapParameters()
     {
         return CreateTransactionParameters(TxType::AtomicSwap)
-            .SetParameter(TxParameterID::TransactionType, TxType::AtomicSwap)
-            .SetParameter(TxParameterID::IsSender, true)
-            .SetParameter(TxParameterID::IsInitiator, false)
-            .SetParameter(TxParameterID::AtomicSwapIsBeamSide, true);
+            .SetParameter(TxParameterID::IsInitiator, false);
     }
 
     TxParameters AcceptSwapParameters(const TxParameters& initialParameters, const WalletID& myID)
@@ -99,6 +96,11 @@ namespace beam::wallet
 
     ////////////
     // Creator
+    AtomicSwapTransaction::Creator::Creator(IWalletDB::Ptr walletDB)
+        : m_walletDB(walletDB)
+    {
+
+    }
 
     void AtomicSwapTransaction::Creator::RegisterFactory(AtomicSwapCoin coinType, ISecondSideFactory::Ptr factory)
     {
@@ -125,40 +127,20 @@ namespace beam::wallet
         return it->second->CreateSecondSide(tx, isBeamSide);
     }
 
-    bool AtomicSwapTransaction::Creator::CanCreate(const TxParameters& parameters)
+    TxParameters AtomicSwapTransaction::Creator::CheckAndCompleteParameters(const TxParameters& parameters)
     {
-        //if (m_swapConditions.empty())
-        //{
-        //    LOG_DEBUG() << parameters.GetTxID() << " Swap rejected. Swap conditions aren't initialized.";
-        //    return false;
-        //}
-
-        //// validate swapConditions
-        //Amount amount = 0;
-        //Amount swapAmount = 0;
-        //AtomicSwapCoin swapCoin = AtomicSwapCoin::Bitcoin;
-        //bool isBeamSide = 0;
-
-        //bool result = parameters.GetParameter(TxParameterID::Amount, amount) &&
-        //    parameters.GetParameter(TxParameterID::AtomicSwapAmount, swapAmount) &&
-        //    parameters.GetParameter(TxParameterID::AtomicSwapCoin, swapCoin) &&
-        //    parameters.GetParameter(TxParameterID::AtomicSwapIsBeamSide, isBeamSide);
-
-        //auto idx = std::find(m_swapConditions.begin(), m_swapConditions.end(), SwapConditions{ amount, swapAmount, swapCoin, isBeamSide, chainType });
-
-        //if (!result || idx == m_swapConditions.end())
-        //{
-        //    LOG_DEBUG() << parameters.GetTxID() << " Swap rejected. Invalid conditions.";
-        //    return false;
-        //}
-
-        //m_swapConditions.erase(idx);
-
-        //LOG_DEBUG() << parameters.GetTxID() << " Swap conditions match.";
-
-        return true;
+        auto peerID = parameters.GetParameter<WalletID>(TxParameterID::PeerID);
+        if (peerID)
+        {
+            auto receiverAddr = m_walletDB->getAddress(*peerID);
+            if (receiverAddr && receiverAddr->m_OwnID)
+            {
+                LOG_INFO() << "Failed to initiate the atomic swap. Not able to use own address as receiver's.";
+                throw FailToStartSwapException();
+            }
+        }
+        return parameters;
     }
-
 
     AtomicSwapTransaction::AtomicSwapTransaction(INegotiatorGateway& gateway
                                                , IWalletDB::Ptr walletDB
@@ -283,15 +265,6 @@ namespace beam::wallet
 
             State state = GetState(kDefaultSubTxID);
             bool isBeamOwner = IsBeamSide();
-
-            if (Height minHeight = 0; (state == State::Initial) && IsInitiator() && !GetParameter(TxParameterID::MinHeight, minHeight))
-            {
-                // init all heights
-                Height currentHeight = m_WalletDB->getCurrentHeight();
-                Height responseTime = GetMandatoryParameter<Height>(TxParameterID::PeerResponseHeight);
-                SetParameter(TxParameterID::MinHeight, currentHeight, false);
-                SetParameter(TxParameterID::PeerResponseHeight, responseTime + currentHeight);
-            }
 
             switch (state)
             {
@@ -1191,7 +1164,6 @@ namespace beam::wallet
         auto swapCoin = GetMandatoryParameter<AtomicSwapCoin>(TxParameterID::AtomicSwapCoin);
         auto swapPublicKey = GetMandatoryParameter<std::string>(TxParameterID::AtomicSwapPublicKey);
         auto swapLockTime = GetMandatoryParameter<Timestamp>(TxParameterID::AtomicSwapExternalLockTime);
-        auto minHeight = GetMandatoryParameter<Height>(TxParameterID::MinHeight);
         auto lifetime = GetMandatoryParameter<Height>(TxParameterID::Lifetime);
 
         // send invitation
@@ -1199,7 +1171,6 @@ namespace beam::wallet
         msg.AddParameter(TxParameterID::Amount, GetAmount())
             .AddParameter(TxParameterID::Fee, GetMandatoryParameter<Amount>(TxParameterID::Fee))
             .AddParameter(TxParameterID::IsSender, !IsSender())
-            .AddParameter(TxParameterID::MinHeight, minHeight)
             .AddParameter(TxParameterID::Lifetime, lifetime)
             .AddParameter(TxParameterID::AtomicSwapAmount, swapAmount)
             .AddParameter(TxParameterID::AtomicSwapCoin, swapCoin)

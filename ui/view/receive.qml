@@ -15,15 +15,26 @@ ColumnLayout {
     property var defaultFocusItem: null
     property var currentView: null
 
+    property color mainTopColor: null;
+    property color mainTopGradientColor: null;
+
     Component.onCompleted: {
         if (!currentView) {
             createChild();
         }
         isSwapOnly = isSwapMode;
+
+        mainTopColor = main.topColor;
+        mainTopGradientColor = main.topGradientColor;
+        main.topColor = Qt.rgba(Style.accent_incoming.r, Style.accent_incoming.g, Style.accent_incoming.b, 0.5);
+        main.topGradientColor = Qt.rgba(Style.accent_incoming.r, Style.accent_incoming.g, Style.accent_incoming.b, 0.0);
     }
 
     Component.onDestruction: {
         if (!isSwapMode) currentView.saveAddress();
+
+        main.topColor = mainTopColor;
+        main.topGradientColor = mainTopGradientColor;
     }
 
     onIsSwapModeChanged: {

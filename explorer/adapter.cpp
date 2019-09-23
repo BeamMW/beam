@@ -116,8 +116,8 @@ public:
 
 private:
     void init_helper_fragments() {
-        static const char* s = "[,]";
-        io::SharedBuffer buf(s, 3);
+        static const char* s = "[,]\"";
+        io::SharedBuffer buf(s, 4);
         _leftBrace = buf;
         _leftBrace.size = 1;
         _comma = buf;
@@ -126,6 +126,9 @@ private:
         _rightBrace = buf;
         _rightBrace.size = 1;
         _rightBrace.data += 2;
+        _quote = buf;
+        _quote.size = 1;
+        _quote.data += 3;
     }
 
     /// Returns body for /status request
@@ -174,7 +177,8 @@ private:
                     { "height", _cache.currentHeight },
                     { "low_horizon", _nodeBackend.m_Extra.m_LoHorizon },
                     { "hash", hash_to_hex(buf, cursor.m_ID.m_Hash) },
-                    { "chainwork",  uint256_to_hex(buf, cursor.m_Full.m_ChainWork) }
+                    { "chainwork",  uint256_to_hex(buf, cursor.m_Full.m_ChainWork) },
+                    { "peers_count", _node.get_AcessiblePeerCount() }
                 }
             )) {
                 return false;
@@ -389,6 +393,34 @@ private:
         return true;
     }
 
+    bool get_peers(io::SerializedMsg& out) override
+    {
+        auto& peers = _node.get_AcessiblePeerAddrs();
+
+        out.push_back(_leftBrace);
+
+        for (auto& peer : peers)
+        {
+            auto addr = peer.get_ParentObj().m_Addr.m_Value.str();
+
+            {
+                out.push_back(_quote);
+                out.push_back({ addr.data(), addr.size() });
+                out.push_back(_quote);
+            }
+
+            out.push_back(_comma);
+        }
+
+        // remove last comma
+        if (!peers.empty())
+            out.pop_back();
+
+        out.push_back(_rightBrace);
+
+        return true;
+    }
+
     HttpMsgCreator _packer;
 
     // node db interface
@@ -396,7 +428,7 @@ private:
     NodeProcessor& _nodeBackend;
 
     // helper fragments
-    io::SharedBuffer _leftBrace, _comma, _rightBrace;
+    io::SharedBuffer _leftBrace, _comma, _rightBrace, _quote;
 
     // If true then status boby needs to be refreshed
     bool _statusDirty;

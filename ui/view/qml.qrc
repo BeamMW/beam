@@ -7,6 +7,7 @@
         <file>controls/Style.qml</file>
         <file>controls/qmldir</file>
         <file>controls/SvgImage.qml</file>
+        <file>controls/SwapCurrencyAmountPane.qml</file>
         <file>controls/SFLabel.qml</file>
         <file>controls/SFText.qml</file>
         <file>controls/SFTextInput.qml</file>
@@ -33,6 +34,7 @@
         <file>controls/IPAddrInput.qml</file>
         <file>controls/SwapNodeSettings.qml</file>
         <file>controls/LinkButton.qml</file>
+        <file>popup_message.qml</file>
         <file>root.qml</file>
         <file>start.qml</file>
         <file>main.qml</file>
@@ -47,7 +49,6 @@
         <file>receive.qml</file>
         <file>receive_regular.qml</file>
         <file>receive_swap.qml</file>
-        <file>receive_addrfail.qml</file>
         <file>send.qml</file>
         <file>send_regular.qml</file>
         <file>send_swap.qml</file>
@@ -92,6 +93,7 @@
         <file>assets/icon-atomic_swap.svg</file>
         <file>assets/icon-atomic_swap-active.svg</file>
         <file>assets/icon-wallet-small.svg</file>
+        <file>assets/loading-spinner.png</file>
         <file>assets/icon-notification.svg</file>
         <file>assets/icon-notification-active.svg</file>
         <file>assets/icon-info.svg</file>
@@ -139,6 +141,10 @@
         <file>assets/copy-two-paper-sheets-interface-symbol.svg</file>
         <file>assets/eye.svg</file>
         <file>assets/icon-back.svg</file>
+        <file>assets/icon-beam.svg</file>
+        <file>assets/icon-btc.svg</file>
+        <file>assets/icon-ltc.svg</file>
+        <file>assets/icon-qtum.svg</file>
         <file>assets/icon-print.svg</file>
         <file>assets/icon-recovery.svg</file>
         <file>assets/password.svg</file>
