@@ -802,12 +802,14 @@ Vous essayez de restaurer un portefeuille Beam existant. Veuillez noter que si v
         <translation>Impossible de démarrer le portefeuille. Veuillez vérifier l&apos;emplacement des données de votre portefeuille</translation>
     </message>
     <message id="loading-view-download-blocks">
-        <source>Downloading blocks</source>
-        <translation>Blocs en cours de téléchargement</translation>
+        <source>Downloading new blocks</source>
+        <oldsource>Downloading blocks</oldsource>
+        <translation type="unfinished">Blocs en cours de téléchargement</translation>
     </message>
     <message id="loading-view-scaning-utxo">
-        <source>Scanning UTXO %d/%d</source>
-        <translation>En cours de scan de l&apos;UTXO</translation>
+        <source>Scanning new blocks %d/%d</source>
+        <oldsource>Scanning UTXO %d/%d</oldsource>
+        <translation type="unfinished">En cours de scan de l&apos;UTXO</translation>
     </message>
     <message id="loading-view-protocol-error">
         <source>Incompatible peer</source>
@@ -1549,7 +1551,8 @@ Update your settings and try again.</oldsource>
         <translation type="unfinished"></translation>
     </message>
     <message id="loading-view-rebuild-utxos">
-        <source>Rebuilding UTXO image</source>
+        <source>Scanning existing blocks</source>
+        <oldsource>Rebuilding UTXO image</oldsource>
         <translation type="unfinished"></translation>
     </message>
     <message id="wallet-receive-copy-token">
@@ -1597,10 +1600,6 @@ you do not send large amounts.</oldsource>
     <message id="available-panel-maturing">
         <source>Maturing</source>
         <translation type="unfinished">Maturité</translation>
-    </message>
-    <message id="available-panel-aswap">
-        <source>Atomic Swap</source>
-        <translation type="unfinished"></translation>
     </message>
     <message id="available-panel-change">
         <source>Change</source>

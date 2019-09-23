@@ -27,6 +27,8 @@ public:
 
     beam::Amount getAvailable() const {return _status.available;}
     beam::Amount getReceiving() const {return _status.receiving;}
+    beam::Amount getReceivingIncoming() const { return _status.receivingIncoming; }
+    beam::Amount getReceivingChange() const { return _status.receivingChange; }
     beam::Amount getSending()   const {return _status.sending;}
     beam::Amount getMaturing()  const {return _status.maturing;}
 

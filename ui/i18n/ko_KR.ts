@@ -801,12 +801,14 @@
         <translation>지갑을 실행하지 못했습니다. 지갑 데이터 위치를 확인하십시오</translation>
     </message>
     <message id="loading-view-download-blocks">
-        <source>Downloading blocks</source>
-        <translation>블록 다운로딩중</translation>
+        <source>Downloading new blocks</source>
+        <oldsource>Downloading blocks</oldsource>
+        <translation type="unfinished">블록 다운로딩중</translation>
     </message>
     <message id="loading-view-scaning-utxo">
-        <source>Scanning UTXO %d/%d</source>
-        <translation>UTXO %d/%d 스캔하는중</translation>
+        <source>Scanning new blocks %d/%d</source>
+        <oldsource>Scanning UTXO %d/%d</oldsource>
+        <translation type="unfinished">UTXO %d/%d 스캔하는중</translation>
     </message>
     <message id="loading-view-protocol-error">
         <source>Incompatible peer</source>
@@ -1548,7 +1550,8 @@ Update your settings and try again.</oldsource>
         <translation type="unfinished"></translation>
     </message>
     <message id="loading-view-rebuild-utxos">
-        <source>Rebuilding UTXO image</source>
+        <source>Scanning existing blocks</source>
+        <oldsource>Rebuilding UTXO image</oldsource>
         <translation type="unfinished"></translation>
     </message>
     <message id="wallet-receive-copy-token">
@@ -1596,10 +1599,6 @@ you do not send large amounts.</oldsource>
     <message id="available-panel-maturing">
         <source>Maturing</source>
         <translation type="unfinished">형성중</translation>
-    </message>
-    <message id="available-panel-aswap">
-        <source>Atomic Swap</source>
-        <translation type="unfinished"></translation>
     </message>
     <message id="available-panel-change">
         <source>Change</source>

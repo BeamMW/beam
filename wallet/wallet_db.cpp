@@ -3017,7 +3017,20 @@ namespace beam::wallet
                     Unspent += v;
                     break;
 
-                case Coin::Status::Incoming: Incoming += v; break;
+                case Coin::Status::Incoming:
+                {
+                    Incoming += v;
+                    if (c.m_ID.m_Type == Key::Type::Change)
+                    {
+                        ReceivingChange += v;
+                    }
+                    else
+                    {
+                        ReceivingIncoming += v;
+                    }
+
+                    break;
+                }
                 case Coin::Status::Outgoing: Outgoing += v; break;
                 case Coin::Status::Unavailable: Unavail += v; break;
 

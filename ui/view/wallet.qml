@@ -103,7 +103,6 @@ Item {
 
                 available:         viewModel.beamAvailable
                 locked:            viewModel.beamLocked
-                lockedAtomic:      viewModel.beamLockedAtomic
                 lockedMaturing:    viewModel.beamLockedMaturing
                 sending:           viewModel.beamSending
                 receiving:         viewModel.beamReceiving
@@ -156,7 +155,7 @@ Item {
                 selectionMode: SelectionMode.NoSelection
 
                 sortIndicatorVisible: true
-                sortIndicatorColumn: 1
+                sortIndicatorColumn: 0
                 sortIndicatorOrder: Qt.DescendingOrder
 
                 Binding{

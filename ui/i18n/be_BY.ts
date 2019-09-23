@@ -801,12 +801,12 @@
         <translation>Немагчыма запусціць праграмму. Праверце пуць да дадзеных кашалька</translation>
     </message>
     <message id="loading-view-download-blocks">
-        <source>Downloading blocks</source>
-        <translation>Загрузка блокаў</translation>
+        <source>Downloading new blocks</source>
+        <translation>Загрузка новых блокаў</translation>
     </message>
     <message id="loading-view-scaning-utxo">
-        <source>Scanning UTXO %d/%d</source>
-        <translation>Сканаванне UTXO %d/%d</translation>
+        <source>Scanning new blocks %d/%d</source>
+        <translation>Сканаванне новых блокаў %d/%d</translation>
     </message>
     <message id="loading-view-protocol-error">
         <source>Incompatible peer</source>
@@ -1507,20 +1507,20 @@ Update your settings and try again.</oldsource>
         <source>To</source>
         <translation type="unfinished"></translation>
     </message>
+    <message id="loading-view-estimate-calculating">
+        <source>calculating...</source>
+        <translation>вылічаецца...</translation>
+    </message>
+    <message id="loading-view-rebuild-utxos">
+        <source>Scanning existing blocks</source>
+        <translation>Сканаванне існуючых блокаў</translation>
+    </message>
     <message id="loading-view-estimate-hours">
         <source>h.</source>
         <translation type="unfinished"></translation>
     </message>
-    <message id="loading-view-estimate-calculating">
-        <source>calculating...</source>
-        <translation type="unfinished"></translation>
-    </message>
     <message id="loading-view-net-problems">
         <source>It may take longer when usual. Please, check your network.</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message id="loading-view-rebuild-utxos">
-        <source>Rebuilding UTXO image</source>
         <translation type="unfinished"></translation>
     </message>
     <message id="trezor-message">
@@ -1596,10 +1596,6 @@ you do not send large amounts.</oldsource>
     <message id="available-panel-maturing">
         <source>Maturing</source>
         <translation type="unfinished">Спее</translation>
-    </message>
-    <message id="available-panel-aswap">
-        <source>Atomic Swap</source>
-        <translation type="unfinished"></translation>
     </message>
     <message id="available-panel-change">
         <source>Change</source>

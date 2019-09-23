@@ -857,6 +857,8 @@ namespace beam::wallet
         storage::Totals totals(*m_walletDB);
 
         status.available = totals.Avail;
+        status.receivingIncoming = totals.ReceivingIncoming;
+        status.receivingChange = totals.ReceivingChange;
         status.receiving = totals.Incoming;
         status.sending = totals.Outgoing;
         status.maturing = totals.Maturing;

@@ -426,9 +426,14 @@ namespace
         return -1;
     }
 
-    int CreateNewAddress(const po::variables_map& vm, const IWalletDB::Ptr& walletDB, IPrivateKeyKeeper::Ptr keyKeeper)
+    int CreateNewAddress(const po::variables_map& vm,
+                         const IWalletDB::Ptr& walletDB,
+                         IPrivateKeyKeeper::Ptr keyKeeper,
+                         const std::string& defaultComment = "")
     {
-        auto comment = vm[cli::NEW_ADDRESS_COMMENT].as<string>();
+        auto comment = defaultComment.empty() 
+            ? vm[cli::NEW_ADDRESS_COMMENT].as<string>()
+            : defaultComment;
         auto expiration = vm[cli::EXPIRATION_TIME].as<string>();
 
         WalletAddress::ExpirationStatus expirationStatus;
@@ -2007,7 +2012,8 @@ int main_impl(int argc, char* argv[])
                         if (walletDB)
                         {
                             LOG_INFO() << kWalletCreatedMessage;
-                            CreateNewAddress(vm, walletDB, keyKeeper);
+                            CreateNewAddress(vm, walletDB,
+                                             keyKeeper, kDefaultAddrLabel);
                             return 0;
                         }
                         else

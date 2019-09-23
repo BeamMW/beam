@@ -20,7 +20,7 @@ Control {
     property bool    lightFont:       true
     property string  currencySymbol:  Utils.symbolBeam
     property string  iconSource:      ""
-    property size    iconSize:        QSize(0, 0)
+    property size    iconSize:        Qt.size(0, 0)
     property alias   copyMenuEnabled: amountText.copyMenuEnabled
     property alias   caption:         captionText.text
     property int     captionFontSize: 12

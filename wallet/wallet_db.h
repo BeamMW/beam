@@ -599,6 +599,8 @@ namespace beam::wallet
             Amount Avail = 0;
             Amount Maturing = 0;
             Amount Incoming = 0;
+            Amount ReceivingIncoming = 0;
+            Amount ReceivingChange = 0;
             Amount Unavail = 0;
             Amount Outgoing = 0;
             Amount AvailCoinbase = 0;

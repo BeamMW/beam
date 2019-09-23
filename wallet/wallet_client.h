@@ -33,6 +33,8 @@ namespace beam::wallet
     {
         Amount available = 0;
         Amount receiving = 0;
+        Amount receivingIncoming = 0;
+        Amount receivingChange = 0;
         Amount sending = 0;
         Amount maturing = 0;
 

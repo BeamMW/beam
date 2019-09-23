@@ -309,10 +309,6 @@
         <source>Maturing</source>
         <translation>Maturing</translation>
     </message>
-    <message id="available-panel-aswap">
-        <source>Atomic Swap</source>
-        <translation>Atomic Swap</translation>
-    </message>
     <message id="available-panel-change">
         <source>Change</source>
         <translation>Change</translation>
@@ -797,12 +793,12 @@
         <translation>Failed to start wallet. Please check your wallet data location</translation>
     </message>
     <message id="loading-view-download-blocks">
-        <source>Downloading blocks</source>
-        <translation>Downloading blocks</translation>
+        <source>Downloading new blocks</source>
+        <translation>Downloading new blocks</translation>
     </message>
     <message id="loading-view-scaning-utxo">
-        <source>Scanning UTXO %d/%d</source>
-        <translation>Scanning UTXO %d/%d</translation>
+        <source>Scanning new blocks %d/%d</source>
+        <translation>Scanning new blocks %d/%d</translation>
     </message>
     <message id="loading-view-protocol-error">
         <source>Incompatible peer</source>
@@ -1400,8 +1396,8 @@ or send this address to the sender over secure channel</translation>
         <translation>calculating...</translation>
     </message>
     <message id="loading-view-rebuild-utxos">
-        <source>Rebuilding UTXO image</source>
-        <translation>Rebuilding UTXO image</translation>
+        <source>Scanning existing blocks</source>
+        <translation>Scanning existing blocks</translation>
     </message>
     <message id="loading-view-estimate-hours">
         <source>h.</source>

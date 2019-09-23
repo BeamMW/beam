@@ -16,7 +16,7 @@
 
 StatusHolder::StatusHolder()
     : _model(*AppModel::getInstance().getWallet())
-    , _status{ 0, 0, 0, 0, {0, 0, 0}, {}}
+    , _status{ 0, 0, 0, 0, 0, 0, {0, 0, 0}, {}}
 {
     connect(&_model, &WalletModel::walletStatus, this, &StatusHolder::onStatusChanged);
 }
@@ -34,6 +34,18 @@ void StatusHolder::onStatusChanged(const beam::wallet::WalletStatus& status)
     if (_status.receiving != status.receiving)
     {
         _status.receiving = status.receiving;
+        changed = true;
+    }
+
+    if (_status.receivingIncoming != status.receivingIncoming)
+    {
+        _status.receivingIncoming = status.receivingIncoming;
+        changed = true;
+    }
+
+    if (_status.receivingChange != status.receivingChange)
+    {
+        _status.receivingChange = status.receivingChange;
         changed = true;
     }
 

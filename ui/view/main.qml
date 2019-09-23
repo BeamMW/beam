@@ -221,7 +221,6 @@ Rectangle {
             console.log(error)
             trezor_popup = Qt.createComponent("popup_message.qml").createObject(main)
 
-            //% "Please, look at your Trezor device to complete actions..."
             trezor_popup.message = error
             trezor_popup.open()
 

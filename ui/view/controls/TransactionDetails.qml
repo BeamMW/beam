@@ -8,6 +8,18 @@ import "."
 RowLayout {
     id: "root"
     property TxObject model
+    property var sendAddress:       model ? model.sendingAddress : ""
+    property var receiveAddress:    model ? model.receivingAddress : ""
+    property var fee:               model ? model.fee : ""
+    property var comment:           model ? model.comment : ""
+    property var txID:              model ? model.transactionID : ""
+    property var kernelID:          model ? model.kernelID : ""
+    property var status:            model ? model.status : ""
+    property var failureReason:     model ? model.failureReason : ""
+    property var isIncome:          model ? model.income : false
+    property var hasPaymentProof:   model ? model.hasPaymentProof : false
+    property var isSelfTx:          model ? model.isSelfTx() : false
+
     property var onOpenExternal: null
     signal textCopied(string text)
     signal showDetails()
@@ -46,9 +58,7 @@ RowLayout {
             color: Style.content_main
             //wrapMode: Text.Wrap
             elide: Text.ElideMiddle
-            text: {
-                return model ? model.sendingAddress : "";
-            }
+            text: root.sendAddress
             onCopyText: textCopied(text)
         }
 
@@ -66,9 +76,7 @@ RowLayout {
             color: Style.content_main
             //wrapMode: Text.Wrap
             elide: Text.ElideMiddle
-            text: {
-                return model ? model.receivingAddress : "";
-            }
+            text: root.receiveAddress
             onCopyText: textCopied(text)
         }
         
@@ -84,9 +92,7 @@ RowLayout {
             copyMenuEnabled: true
             font.pixelSize: 14
             color: Style.content_main
-            text:{
-                return model ? model.fee : "";
-            }
+            text: root.fee
             onCopyText: textCopied(text)
         }
         
@@ -104,9 +110,7 @@ RowLayout {
             font.pixelSize: 14
             color: Style.content_main
             wrapMode: Text.Wrap
-            text: {
-                return model ? model.comment : "";
-            }
+            text: root.comment
             font.styleName: "Italic"
             elide: Text.ElideRight
             onCopyText: textCopied(text)
@@ -124,7 +128,7 @@ RowLayout {
             copyMenuEnabled: true
             font.pixelSize: 14
             color: Style.content_main
-            text: model ? model.transactionID : ""
+            text: root.txID
             font.styleName: "Italic"
             elide: Text.ElideMiddle
             onCopyText: textCopied(text)
@@ -143,7 +147,7 @@ RowLayout {
             font.pixelSize: 14
             color: Style.content_main
             //wrapMode: Text.Wrap
-            text: model ? model.kernelID : ""
+            text: root.kernelID
             font.styleName: "Italic"
             elide: Text.ElideMiddle
             onCopyText: textCopied(text)
@@ -163,12 +167,12 @@ RowLayout {
         Item {
             Layout.fillWidth: true
             Layout.preferredHeight: 16
-            visible: model && parent.canOpenInBlockchainExplorer(model.status)
+            visible: parent.canOpenInBlockchainExplorer(root.status)
         }
         Item {
             Layout.preferredWidth: openInExplorer.width + 10 + openInExplorerIcon.width
             Layout.preferredHeight: 16
-            visible: model && parent.canOpenInBlockchainExplorer(model.status)
+            visible: parent.canOpenInBlockchainExplorer(root.status)
 
             SFText {
                 id: openInExplorer
@@ -204,7 +208,7 @@ RowLayout {
             color: Style.content_secondary
             //% "Error"
             text: qsTrId("tx-details-error-label") + ":"
-            visible: model ? model.failureReason.length > 0 : false
+            visible: root.failureReason.length > 0
         }
         SFLabel {
             id: failureReason
@@ -213,14 +217,8 @@ RowLayout {
             font.pixelSize: 14
             color: Style.content_main
             wrapMode: Text.Wrap
-            visible: model ? model.failureReason.length > 0 : false
-            text: {
-                if(model && model.failureReason.length > 0)
-                {
-                    return model.failureReason;
-                }
-                return "";
-            }
+            visible: root.failureReason.length > 0
+            text: root.failureReason.length > 0 ? root.failureReason : ""
             font.styleName: "Italic"
             elide: Text.ElideRight
             onCopyText: textCopied(text)
@@ -237,7 +235,7 @@ RowLayout {
         columns: 2
         columnSpacing: 44
         rowSpacing: 14
-        visible:  model ? !model.income : false
+        visible: !root.isIncome
         
         Item {
             Layout.fillWidth: true
@@ -260,29 +258,26 @@ RowLayout {
                 icon.source: "qrc:/assets/icon-details.svg"
                 icon.width: 21
                 icon.height: 14
-                enabled: model ? model.hasPaymentProof && !model.isSelfTx() : false
+                enabled: root.hasPaymentProof && !root.isSelfTx
                 onClicked: showDetails();
             }
             CustomButton {
                 //% "Copy"
                 text: qsTrId("general-copy")
                 icon.source: "qrc:/assets/icon-copy.svg"
-                enabled: model ? model.hasPaymentProof && !model.isSelfTx() : false
+                enabled: root.hasPaymentProof && !root.isSelfTx
                 onClicked: {
-                     if (model) 
-                     {
-                         var paymentInfo = model.getPaymentInfo();
-                         if (paymentInfo.paymentProof.length == 0)
-                         {
-                            paymentInfo.paymentProofChanged.connect(function() {
-                                textCopied(paymentInfo.paymentProof);
-                            });
-                         }
-                         else
-                         {
+                    var paymentInfo = model.getPaymentInfo();
+                    if (paymentInfo.paymentProof.length == 0)
+                    {
+                        paymentInfo.paymentProofChanged.connect(function() {
                             textCopied(paymentInfo.paymentProof);
-                         }
-                     }
+                        });
+                    }
+                    else
+                    {
+                        textCopied(paymentInfo.paymentProof);
+                    }
                 }
             }
         }
