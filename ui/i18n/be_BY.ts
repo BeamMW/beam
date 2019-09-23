@@ -801,12 +801,12 @@
         <translation>Немагчыма запусціць праграмму. Праверце пуць да дадзеных кашалька</translation>
     </message>
     <message id="loading-view-download-blocks">
-        <source>Downloading blocks</source>
-        <translation>Загрузка блокаў</translation>
+        <source>Downloading new blocks</source>
+        <translation>Загрузка новых блокаў</translation>
     </message>
     <message id="loading-view-scaning-utxo">
-        <source>Scanning UTXO %d/%d</source>
-        <translation>Сканаванне UTXO %d/%d</translation>
+        <source>Scanning new blocks %d/%d</source>
+        <translation>Сканаванне новых блокаў %d/%d</translation>
     </message>
     <message id="loading-view-protocol-error">
         <source>Incompatible peer</source>
@@ -1412,8 +1412,8 @@ Update your settings and try again.</oldsource>
         <translation>вылічаецца...</translation>
     </message>
     <message id="loading-view-rebuild-utxos">
-        <source>Rebuilding UTXO image</source>
-        <translation> Перабудоўваецца вобраз UTXO</translation>
+        <source>Scanning existing blocks</source>
+        <translation>Сканаванне існуючых блокаў</translation>
     </message>
     <message id="loading-view-estimate-hours">
         <source>h.</source>

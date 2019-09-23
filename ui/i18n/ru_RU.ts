@@ -801,12 +801,13 @@
         <translation>Невозможно запустить приложение. Проверьте путь к данным кошелька.</translation>
     </message>
     <message id="loading-view-download-blocks">
-        <source>Downloading blocks</source>
-        <translation>Загрузка блоков</translation>
+        <source>Downloading new blocks</source>
+        <oldsource>Downloading blocks</oldsource>
+        <translation>Загрузка новых блоков</translation>
     </message>
     <message id="loading-view-scaning-utxo">
-        <source>Scanning UTXO %d/%d</source>
-        <translation>Сканирование UTXO %d/%d</translation>
+        <source>Scanning new blocks %d/%d</source>
+        <translation>Сканирование новых блоков %d/%d</translation>
     </message>
     <message id="loading-view-protocol-error">
         <source>Incompatible peer</source>
@@ -1552,8 +1553,8 @@ Update your settings and try again.</oldsource>
         <translation type="unfinished"></translation>
     </message>
     <message id="loading-view-rebuild-utxos">
-        <source>Rebuilding UTXO image</source>
-        <translation type="unfinished"></translation>
+        <source>Scanning existing blocks</source>
+        <translation>Сканирование существующих блоков</translation>
     </message>
     <message id="wallet-receive-copy-token">
         <source>copy transaction token</source>

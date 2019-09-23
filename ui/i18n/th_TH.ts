@@ -801,12 +801,14 @@
         <translation>ไม่สามารถเปิดกระเป๋าได้ กรุณาตรวจสอบที่ตั้งของข้อมูลกระเป๋า</translation>
     </message>
     <message id="loading-view-download-blocks">
-        <source>Downloading blocks</source>
-        <translation>กำลังดาวน์โหลดบล็อค</translation>
+        <source>Downloading new blocks</source>
+        <oldsource>Downloading blocks</oldsource>
+        <translation type="unfinished">กำลังดาวน์โหลดบล็อค</translation>
     </message>
     <message id="loading-view-scaning-utxo">
-        <source>Scanning UTXO %d/%d</source>
-        <translation>กำลังสแกน UTXO %d/%d</translation>
+        <source>Scanning new blocks %d/%d</source>
+        <oldsource>Scanning UTXO %d/%d</oldsource>
+        <translation type="unfinished">กำลังสแกน UTXO %d/%d</translation>
     </message>
     <message id="loading-view-protocol-error">
         <source>Incompatible peer</source>
@@ -1548,7 +1550,8 @@ Update your settings and try again.</oldsource>
         <translation type="unfinished"></translation>
     </message>
     <message id="loading-view-rebuild-utxos">
-        <source>Rebuilding UTXO image</source>
+        <source>Scanning existing blocks</source>
+        <oldsource>Rebuilding UTXO image</oldsource>
         <translation type="unfinished"></translation>
     </message>
     <message id="wallet-receive-copy-token">
