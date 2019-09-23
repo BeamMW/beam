@@ -103,7 +103,6 @@ Item {
 
                 available:         viewModel.beamAvailable
                 locked:            viewModel.beamLocked
-                lockedAtomic:      viewModel.beamLockedAtomic
                 lockedMaturing:    viewModel.beamLockedMaturing
                 sending:           viewModel.beamSending
                 receiving:         viewModel.beamReceiving
