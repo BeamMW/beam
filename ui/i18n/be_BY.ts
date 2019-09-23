@@ -1605,10 +1605,6 @@ you do not send large amounts.</oldsource>
         <source>Maturing</source>
         <translation type="unfinished">Спее</translation>
     </message>
-    <message id="available-panel-aswap">
-        <source>Atomic Swap</source>
-        <translation type="unfinished"></translation>
-    </message>
     <message id="available-panel-change">
         <source>Change</source>
         <translation type="unfinished">Рэшта</translation>

@@ -311,10 +311,6 @@
         <source>Maturing</source>
         <translation>Maturing</translation>
     </message>
-    <message id="available-panel-aswap">
-        <source>Atomic Swap</source>
-        <translation>Atomic Swap</translation>
-    </message>
     <message id="available-panel-change">
         <source>Change</source>
         <translation>Change</translation>
