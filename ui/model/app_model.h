@@ -57,15 +57,16 @@ public:
 public slots:
     void onStartedNode();
     void onFailedToStartNode(beam::wallet::ErrorType errorCode);
+    void onResetWallet();
 
 signals:
-    void walletReseted();
+    void walletReset();
+    void walletResetCompleted();
 
 private:
     void start();
     void startNode();
     void startWallet();
-    void resetWalletImpl(); 
     void InitBtcClient();
     void InitLtcClient();
     void InitQtumClient();
@@ -82,7 +83,8 @@ private:
     ECC::NoLeak<ECC::uintBig> m_passwordHash;
     beam::io::Reactor::Ptr m_walletReactor;
     beam::wallet::IWalletDB::Ptr m_db;
-    Connections m_nsc; // [n]ode [s]tarting [c]connections
+    Connections m_nsc; // [n]ode [s]tarting [c]onnections
+    Connections m_walletConnections;
     static AppModel* s_instance;
     SwapCoinClientModel::Ptr m_bitcoinClient;
     SwapCoinClientModel::Ptr m_litecoinClient;

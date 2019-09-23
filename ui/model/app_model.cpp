@@ -154,23 +154,30 @@ void AppModel::resetWallet()
         auto dconn = MakeConnectionPtr();
         *dconn = connect(&m_nodeModel, &NodeModel::destroyedNode, [this, dconn]() {
             QObject::disconnect(*dconn);
-            resetWalletImpl();
+            emit walletReset();
         });
 
         m_nodeModel.stopNode();
         return;
     }
 
-    resetWalletImpl();
+    onResetWallet();
 }
 
-void AppModel::resetWalletImpl()
+void AppModel::onResetWallet()
 {
+    m_walletConnections.disconnect();
+
     assert(m_wallet);
     assert(m_wallet.use_count() == 1);
     assert(m_db);
 
     m_wallet.reset();
+    m_keyKeeper.reset();
+    m_bitcoinClient.reset();
+    m_litecoinClient.reset();
+    m_qtumClient.reset();
+
     m_db.reset();
 
     fsutils::remove(getSettings().getWalletStorage());
@@ -181,7 +188,7 @@ void AppModel::resetWalletImpl()
 
     fsutils::remove(getSettings().getLocalNodeStorage());
 
-    emit walletReseted();
+    emit walletResetCompleted();
 }
 
 void AppModel::startWallet()
@@ -286,6 +293,8 @@ void AppModel::onFailedToStartNode(beam::wallet::ErrorType errorCode)
 
 void AppModel::start()
 {
+    m_walletConnections << connect(this, &AppModel::walletReset, this, &AppModel::onResetWallet);
+
     m_nodeModel.setOwnerKey(m_db->get_OwnerKdf());
 
     std::string nodeAddrStr = m_settings.getNodeAddress().toStdString();
