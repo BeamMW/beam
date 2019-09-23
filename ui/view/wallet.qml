@@ -155,7 +155,7 @@ Item {
                 selectionMode: SelectionMode.NoSelection
 
                 sortIndicatorVisible: true
-                sortIndicatorColumn: 1
+                sortIndicatorColumn: 0
                 sortIndicatorOrder: Qt.DescendingOrder
 
                 Binding{
