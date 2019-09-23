@@ -581,20 +581,174 @@ Item {
                         }
 
                         rowDelegate: Item {
+                            id: rowItem
                             height: transactionsTable.rowHeight
                             anchors.left: parent.left
                             anchors.right: parent.right
+                            property bool collapsed: true
 
                             Rectangle {
                                 anchors.fill: parent                        
                                 color: styleData.selected ? Style.row_selected :
                                         (styleData.alternate ? Style.background_row_even : Style.background_row_odd)
                             }
+
+                            ColumnLayout {
+                                id: rowColumn
+                                width: parent.width
+                                Rectangle {
+                                    height: rowItem.height
+                                    width: parent.width
+                                    color: "transparent"
+                                }
+                                Item {
+                                    id: txDetails
+                                    height: 0
+                                    // visible: height > 0
+                                    width: parent.width
+                                    clip: true
+
+                                    property int maximumHeight: detailsPanel.height
+
+                                    onMaximumHeightChanged: {
+                                        if (!rowItem.collapsed) {
+                                            rowItem.height = maximumHeight + rowItem.height
+                                            txDetails.height = maximumHeight
+                                        }
+                                    }
+
+                                    Rectangle {
+                                        anchors.fill: parent
+                                        color: Style.background_details
+                                    }
+                                    TransactionDetails {
+                                        id: detailsPanel
+                                        width: transactionsTable.width
+                                        model: null
+
+                                        property var txRolesMap: transactionsTable.model.get(styleData.row)
+                                        sendAddress:        txRolesMap.addressTo ? txRolesMap.addressTo : ""
+                                        receiveAddress:     txRolesMap.addressFrom ? txRolesMap.addressFrom : ""
+                                        fee:                txRolesMap.fee ? txRolesMap.fee : ""
+                                        comment:            txRolesMap.comment ? txRolesMap.comment : ""
+                                        txID:               txRolesMap.txID ? txRolesMap.txID : ""
+                                        kernelID:           txRolesMap.kernelID ? txRolesMap.kernelID : ""
+                                        status:             txRolesMap.status ? txRolesMap.status : ""
+                                        failureReason:      txRolesMap.failureReason ? txRolesMap.failureReason : ""
+                                        isIncome:           txRolesMap.isIncome ? txRolesMap.isIncome : false
+                                        hasPaymentProof:    txRolesMap.hasPaymentProof ? txRolesMap.hasPaymentProof : false
+                                        isSelfTx:           txRolesMap.isSelfTransaction ? txRolesMap.isSelfTransaction : false
+                                        
+                                        onOpenExternal : function() {
+                                            var url = Style.explorerUrl + "block?kernel_id=" + model.kernelID;
+                                            Utils.openExternal(url, viewModel, externalLinkConfirmation);
+                                        } 
+                                        onTextCopied: function (text) { BeamGlobals.copyToClipboard(text);}
+                                        onShowDetails: {
+                                            if (model)
+                                            {
+                                                paymentInfoDialog.model = model.getPaymentInfo();
+                                                paymentInfoDialog.open();
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+
+                            MouseArea {
+                                anchors.top: parent.top
+                                anchors.left: parent.left
+                                height: rowItem.height
+                                width: parent.width
+
+                                acceptedButtons: Qt.LeftButton | Qt.RightButton
+                                onClicked: {
+                                    if (styleData.row === undefined 
+                                    || styleData.row < 0
+                                    || styleData.row >= txProxyModel.count)
+                                    {
+                                        return;
+                                    }
+                                    if (mouse.button === Qt.RightButton )
+                                    {
+                                        txContextMenu.address = transactionsTable.model.get(styleData.row).addressTo;
+                                        txContextMenu.cancelEnabled = transactionsTable.model.get(styleData.row).isCancelAvailable;
+                                        txContextMenu.deleteEnabled = transactionsTable.model.get(styleData.row).isDeleteAvailable;
+                                        txContextMenu.txID = transactionsTable.model.get(styleData.row).rawTxID;
+                                        txContextMenu.popup();
+                                    }
+                                    else if (mouse.button === Qt.LeftButton)
+                                    {
+                                        if (parent.collapsed)
+                                        {
+                                            expand.start()
+                                        }
+                                        else 
+                                        {
+                                            collapse.start()
+                                        }
+                                        parent.collapsed = !parent.collapsed;
+                                    }
+                                }
+                            }
+
+                            ParallelAnimation {
+                                id: expand
+                                running: false
+
+                                property int expandDuration: 200
+
+                                NumberAnimation {
+                                    target: rowItem
+                                    easing.type: Easing.Linear
+                                    property: "height"
+                                    to: rowItem.height + txDetails.maximumHeight
+                                    duration: expand.expandDuration
+                                }
+
+                                NumberAnimation {
+                                    target: txDetails
+                                    easing.type: Easing.Linear
+                                    property: "height"
+                                    to: txDetails.maximumHeight
+                                    duration: expand.expandDuration
+                                }
+                            }
+
+                            ParallelAnimation {
+                                id: collapse
+                                running: false
+
+                                property int collapseDuration: 200
+
+                                NumberAnimation {
+                                    target: rowItem
+                                    easing.type: Easing.Linear
+                                    property: "height"
+                                    to: transactionsTable.rowHeight
+                                    duration: collapse.collapseDuration
+                                }
+
+                                NumberAnimation {
+                                    target: txDetails
+                                    easing.type: Easing.Linear
+                                    property: "height"
+                                    to: 0
+                                    duration: collapse.collapseDuration
+                                }
+                            }
                         }
 
-                        itemDelegate: TableItem {
-                            text: styleData.value
-                            elide: Text.ElideRight
+                        itemDelegate: Item {
+                            Item {
+                                width: parent.width
+                                height: transactionsTable.rowHeight
+
+                                TableItem {
+                                    text: styleData.value
+                                    elide: styleData.elideMode
+                                }
+                            }
                         }
 
                         TableViewColumn {
@@ -602,45 +756,39 @@ Item {
                             width: 55
                             movable: false
                             resizable: false
+                            elideMode: Text.ElideRight
                             delegate: Item {
                                 id: coinLabels
                                 width: parent.width
                                 height: transactionsTable.rowHeight
                                 property var swapCoin: styleData.value
                                 property var isSendBeam: transactionsTable.model.get(styleData.row).isBeamSideSwap
-                            
-                                anchors.fill: parent
-                                anchors.leftMargin: 20
-                                anchors.rightMargin: 20
-                                anchors.topMargin: 18
+                                
+                                    anchors.fill: parent
+                                    anchors.leftMargin: 20
+                                    anchors.rightMargin: 20
+                                    anchors.topMargin: 18
 
-                                RowLayout {
-                                    layoutDirection: Qt.RightToLeft
-                                    spacing: -4
-                                    SvgImage {
-                                        sourceSize: Qt.size(20, 20)
-                                        source: isSendBeam ? getCoinIcon(swapCoin) : "qrc:/assets/icon-beam.svg"
-                                    }
-                                    SvgImage {
-                                        sourceSize: Qt.size(20, 20)
-                                        source: isSendBeam ? "qrc:/assets/icon-beam.svg" : getCoinIcon(swapCoin)
-                                    }
-                                }
-                                function getCoinIcon(coin) {
-                                    switch(coin) {
-                                        case "btc": return "qrc:/assets/icon-btc.svg";
-                                        case "ltc": return "qrc:/assets/icon-ltc.svg";
-                                        case "qtum": return "qrc:/assets/icon-qtum.svg";
-                                        default: return "";
+                                    RowLayout {
+                                        layoutDirection: Qt.RightToLeft
+                                        spacing: -4
+                                        SvgImage {
+                                            sourceSize: Qt.size(20, 20)
+                                            source: isSendBeam ? getCoinIcon(swapCoin) : "qrc:/assets/icon-beam.svg"
+                                        }
+                                        SvgImage {
+                                            sourceSize: Qt.size(20, 20)
+                                            source: isSendBeam ? "qrc:/assets/icon-beam.svg" : getCoinIcon(swapCoin)
+                                        }
                                     }
                                 }
                             }
-                        }
 
                         TableViewColumn {
                             role: "timeCreated"
                             //% "Created on"
                             title: qsTrId("atomic-swap-tx-table-created")
+                            elideMode: Text.ElideRight
                             width: transactionsTable.columnWidth
                             movable: false
                             resizable: false
@@ -649,6 +797,7 @@ Item {
                             role: "addressFrom"
                             //% "From"
                             title: qsTrId("atomic-swap-tx-table-from")
+                            elideMode: Text.ElideMiddle
                             width: transactionsTable.columnWidth
                             movable: false
                             resizable: false
@@ -657,6 +806,7 @@ Item {
                             role: "addressTo"
                             //% "To"
                             title: qsTrId("atomic-swap-tx-table-to")
+                            elideMode: Text.ElideMiddle
                             width: transactionsTable.columnWidth
                             movable: false
                             resizable: false
@@ -665,107 +815,87 @@ Item {
                             role: "amountSend"
                             //% "Sent"
                             title: qsTrId("atomic-swap-tx-table-sent")
+                            elideMode: Text.ElideRight
                             width: transactionsTable.columnWidth
                             movable: false
                             resizable: false
-                            delegate: TableItem {
-                                text: (styleData.value === '' ? '' : '-') + styleData.value
-                                elide: Text.ElideRight
-                                fontWeight: Font.Bold
-                                color: "#da68f5"
+                            delegate: Item {
+                                Item {
+                                    width: parent.width
+                                    height: transactionsTable.rowHeight
+                                    TableItem {
+                                        text: (styleData.value === '' ? '' : '-') + styleData.value
+                                        fontWeight: Font.Bold
+                                        color: "#da68f5"
+                                    }
+                                }
                             }
                         }
                         TableViewColumn {
                             role: "amountReceive"
                             //% "Received"
                             title: qsTrId("atomic-swap-tx-table-received")
+                            elideMode: Text.ElideRight
                             width: transactionsTable.columnWidth
                             movable: false
                             resizable: false
-                            delegate: TableItem {
-                                text: (styleData.value === '' ? '' : '+') + styleData.value
-                                elide: Text.ElideRight
-                                fontWeight: Font.Bold
-                                color: "#0bccf7"
+                            delegate: Item {
+                                Item {
+                                    width: parent.width
+                                    height: transactionsTable.rowHeight
+                                    TableItem {
+                                        text: (styleData.value === '' ? '' : '-') + styleData.value
+                                        fontWeight: Font.Bold
+                                        color: "#0bccf7"
+                                    }
+                                }
                             }
                         }
                         TableViewColumn {
-                            id: txStatusColumn
                             role: "status"
                             //% "Status"
                             title: qsTrId("atomic-swap-tx-table-status")
-                            width: transactionsTable.getAdjustedColumnWidth(txStatusColumn)
+                            elideMode: Text.ElideRight
+                            width: transactionsTable.columnWidth
                             movable: false
                             resizable: false
                             delegate: Item {
-                                width: parent.width
-                                height: transactionsTable.rowHeight
+                                Item {
+                                    width: parent.width
+                                    height: transactionsTable.rowHeight
 
-                                RowLayout {
-                                    anchors.fill: parent
-                                    anchors.leftMargin: 10
-                                    // spacing: 14
+                                    RowLayout {
+                                        anchors.fill: parent
+                                        anchors.leftMargin: 10
 
-                                    SvgImage {
-                                        Layout.alignment: Qt.AlignHCenter
-                                        sourceSize: Qt.size(20, 20)
-                                        source: getIconSource()
-
-                                        function getIconSource() {
-                                            if (transactionsTable.model.get(styleData.row).isSelfTransaction) {
-                                                return "qrc:/assets/icon-transfer.svg";
-                                            }
-                                            return transactionsTable.model.get(styleData.row).isIncome ?
-                                                "qrc:/assets/icon-received.svg" :
-                                                "qrc:/assets/icon-sent.svg";
-                                        }
-                                    }
-
-                                    SFLabel {
-                                        Layout.alignment: Qt.AlignHCenter
-                                        font.pixelSize: 14
-                                        font.italic: true
-                                        elide: Text.ElideRight
-                                        text: getStatusText(styleData.value)
-                                        color: getTextColor()
-
-                                        function getTextColor () {
-                                            if (transactionsTable.model.get(styleData.row).IsInProgress || transactionsTable.model.get(styleData.row).IsCompleted) {
+                                        SvgImage {
+                                            Layout.alignment: Qt.AlignHCenter
+                                            sourceSize: Qt.size(20, 20)
+                                            source: getIconSource()
+                                            function getIconSource() {
                                                 if (transactionsTable.model.get(styleData.row).isSelfTransaction) {
-                                                    return Style.content_main;
+                                                    return "qrc:/assets/icon-transfer.svg";
                                                 }
-                                                return transactionsTable.model.get(styleData.row).isIncome ? Style.accent_incoming : Style.accent_outgoing;
+                                                return transactionsTable.model.get(styleData.row).isIncome ?
+                                                    "qrc:/assets/icon-received.svg" :
+                                                    "qrc:/assets/icon-sent.svg";
                                             }
-
-                                            return Style.content_main;
                                         }
-
-                                        function getStatusText(value) {
-                                            switch(value) {
-                                                //% "pending"
-                                                case "pending": return qsTrId("wallet-txs-status-pending");
-                                                //% "waiting for sender"
-                                                case "waiting for sender": return qsTrId("wallet-txs-status-waiting-sender");
-                                                //% "waiting for receiver"
-                                                case "waiting for receiver": return qsTrId("wallet-txs-status-waiting-receiver");
-                                                //% "receiving"
-                                                case "receiving": return qsTrId("general-receiving");
-                                                //% "sending"
-                                                case "sending": return qsTrId("general-sending");
-                                                //% "completed"
-                                                case "completed": return qsTrId("wallet-txs-status-completed");
-                                                //% "received"
-                                                case "received": return qsTrId("wallet-txs-status-received");
-                                                //% "sent"
-                                                case "sent": return qsTrId("wallet-txs-status-sent");
-                                                //% "cancelled"
-                                                case "cancelled": return qsTrId("wallet-txs-status-cancelled");
-                                                //% "expired"
-                                                case "expired": return qsTrId("wallet-txs-status-expired");
-                                                //% "failed"
-                                                case "failed": return qsTrId("wallet-txs-status-failed");
-                                                //% "unknown"
-                                                default: return qsTrId("wallet-txs-status-unknown");
+                                        SFLabel {
+                                            Layout.alignment: Qt.AlignHCenter
+                                            font.pixelSize: 14
+                                            font.italic: true
+                                            elide: Text.ElideRight
+                                            text: getStatusText(styleData.value)
+                                            color: getTextColor()
+                                            function getTextColor () {
+                                                if (transactionsTable.model.get(styleData.row).IsInProgress || transactionsTable.model.get(styleData.row).IsCompleted) {
+                                                    if (transactionsTable.model.get(styleData.row).isSelfTransaction) {
+                                                        return Style.content_main;
+                                                    }
+                                                    return transactionsTable.model.get(styleData.row).isIncome ? Style.accent_incoming : Style.accent_outgoing;
+                                                }
+                                                else return Style.content_main;
                                             }
                                         }
                                     }
@@ -775,7 +905,7 @@ Item {
 
                         TableViewColumn {
                             id: actionsColumn
-                            title: ""
+                            elideMode: Text.ElideRight
                             width: 40
                             movable: false
                             resizable: false
@@ -861,9 +991,9 @@ Item {
                         //% "Delete"
                         okButtonText: qsTrId("general-delete")
                     }
-                }   // ColumnLayout : transactionsTab
-            } // Item
-        } // ColumnLayout : 
+                }   // CustomTableView : transactionsTable
+            }   // ColumnLayout : transactionsTab
+        } // Item : 
     } // Component : offersViewComponent
     
     StackView {
@@ -889,6 +1019,44 @@ Item {
             if (currentItem && currentItem.defaultFocusItem) {
                 offersStackView.currentItem.defaultFocusItem.forceActiveFocus();
             }
+        }
+    }
+    
+    function getCoinIcon(coin) {
+        switch(coin) {
+            case "btc": return "qrc:/assets/icon-btc.svg";
+            case "ltc": return "qrc:/assets/icon-ltc.svg";
+            case "qtum": return "qrc:/assets/icon-qtum.svg";
+            default: return "";
+        }
+    }
+
+    function getStatusText(value) {
+        switch(value) {
+            //% "pending"
+            case "pending": return qsTrId("wallet-txs-status-pending");
+            //% "waiting for sender"
+            case "waiting for sender": return qsTrId("wallet-txs-status-waiting-sender");
+            //% "waiting for receiver"
+            case "waiting for receiver": return qsTrId("wallet-txs-status-waiting-receiver");
+            //% "receiving"
+            case "receiving": return qsTrId("general-receiving");
+            //% "sending"
+            case "sending": return qsTrId("general-sending");
+            //% "completed"
+            case "completed": return qsTrId("wallet-txs-status-completed");
+            //% "received"
+            case "received": return qsTrId("wallet-txs-status-received");
+            //% "sent"
+            case "sent": return qsTrId("wallet-txs-status-sent");
+            //% "cancelled"
+            case "cancelled": return qsTrId("wallet-txs-status-cancelled");
+            //% "expired"
+            case "expired": return qsTrId("wallet-txs-status-expired");
+            //% "failed"
+            case "failed": return qsTrId("wallet-txs-status-failed");
+            //% "unknown"
+            default: return qsTrId("wallet-txs-status-unknown");
         }
     }
 }
