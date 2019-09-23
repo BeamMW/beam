@@ -144,7 +144,7 @@ Item {
                     currencyIcon: "qrc:/assets/icon-btc.svg"
                     valueStr: parent.btcAmount()
                     vatueSecondaryStr: parent.btcActiveTxStr()
-                    showLoader: parent.btcActiveTxStr().length
+                    showLoader: viewModel.btcOK && parent.btcActiveTxStr().length
                     isOk: viewModel.btcOK
                     visible: BeamGlobals.haveBtc()
                     //% "Cannot connect to peer. Please check in the address in settings and retry."
@@ -156,7 +156,7 @@ Item {
                     currencyIcon: "qrc:/assets/icon-ltc.svg"
                     valueStr: parent.ltcAmount()
                     vatueSecondaryStr: parent.ltcActiveTxStr()
-                    showLoader: parent.ltcActiveTxStr().length
+                    showLoader: viewModel.ltcOK && parent.ltcActiveTxStr().length
                     isOk: viewModel.ltcOK
                     visible: BeamGlobals.haveLtc()
                     textConnectionError: qsTrId("swap-beta-connection-error")
@@ -167,7 +167,7 @@ Item {
                     currencyIcon: "qrc:/assets/icon-qtum.svg"
                     valueStr: parent.qtumAmount()
                     vatueSecondaryStr: parent.qtumActiveTxStr()
-                    showLoader: parent.qtumActiveTxStr().length
+                    showLoader: viewModel.qtumOK && parent.qtumActiveTxStr().length
                     isOk: viewModel.qtumOK
                     visible: BeamGlobals.haveQtum()
                     textConnectionError: qsTrId("swap-beta-connection-error")

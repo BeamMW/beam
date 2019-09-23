@@ -127,7 +127,7 @@ Rectangle {
                 right: 15
             }
 
-            source: "qrc:/assets/loading-spinner.svg"            
+            source: "qrc:/assets/loading-spinner.png"            
             rotation: loader.angleValue
             Timer {
                 interval: 200; running: true; repeat: true
