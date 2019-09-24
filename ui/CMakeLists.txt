@@ -40,7 +40,7 @@ if(LINUX)
 else()
     set (OUTPUT_NAME "Beam Wallet${BEAM_DISPLAY_SUFFIX}")
 endif()
-set (CMAKE_PREFIX_PATH $ENV{QT5_ROOT_DIR},$ENV{QT5_ROOT_DIR}/bin)
+set (CMAKE_PREFIX_PATH $ENV{QT5_ROOT_DIR})
 
 find_package(Qt5 COMPONENTS Qml Quick Svg PrintSupport REQUIRED)
 
