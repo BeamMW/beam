@@ -1098,7 +1098,7 @@ namespace beam::wallet
         auto completedParameters = it->second->CheckAndCompleteParameters(parameters);
 
         auto newTx = it->second->Create(*this, m_WalletDB, m_KeyKeeper, *parameters.GetTxID());
-        ApplyTransactionParameters(newTx, completedParameters.GetParameters(), true);
+        ApplyTransactionParameters(newTx, completedParameters.GetParameters());
         return newTx;
     }
 
