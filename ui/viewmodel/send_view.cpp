@@ -206,12 +206,13 @@ void SendViewModel::sendMoney()
     if(canSend())
     {
         // TODO:SWAP show 'operation in process' animation here?
+        auto messageString = _comment.toStdString();
 
         auto p = beam::wallet::CreateSimpleTransactionParameters()
             .SetParameter(beam::wallet::TxParameterID::PeerID, *_txParameters.GetParameter<beam::wallet::WalletID>(beam::wallet::TxParameterID::PeerID))
             .SetParameter(beam::wallet::TxParameterID::Amount, calcSendAmount())
             .SetParameter(beam::wallet::TxParameterID::Fee, calcFeeAmount())
-            .SetParameter(beam::wallet::TxParameterID::Message, beam::wallet::toByteBuffer(_comment.toStdString()));
+            .SetParameter(beam::wallet::TxParameterID::Message, beam::ByteBuffer(messageString.begin(), messageString.end()));
 
         _walletModel.getAsync()->startTransaction(std::move(p));
     }
