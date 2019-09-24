@@ -20,41 +20,23 @@
 #include "model/settings.h"
 #include "viewmodel/messages_view.h"
 #include "viewmodel/status_holder.h"
-#include "tx_object.h"
+#include "transactions_list.h"
 
 class WalletViewModel : public QObject
 {
     Q_OBJECT
-    Q_PROPERTY(double beamAvailable          READ beamAvailable          NOTIFY stateChanged)
-    Q_PROPERTY(double beamReceiving          READ beamReceiving          NOTIFY stateChanged)
-    Q_PROPERTY(double beamSending            READ beamSending            NOTIFY stateChanged)
-    Q_PROPERTY(double beamLocked             READ beamLocked             NOTIFY stateChanged)
-    Q_PROPERTY(double beamLockedMaturing     READ beamLockedMaturing     NOTIFY stateChanged)
-    Q_PROPERTY(double beamReceivingChange    READ beamReceivingChange    NOTIFY stateChanged)
-    Q_PROPERTY(double beamReceivingIncoming  READ beamReceivingIncoming  NOTIFY stateChanged)
-    Q_PROPERTY(QQmlListProperty<TxObject> transactions READ getTransactions NOTIFY transactionsChanged)
-    Q_PROPERTY(QString sortRole READ sortRole WRITE setSortRole)
-    Q_PROPERTY(Qt::SortOrder sortOrder READ sortOrder WRITE setSortOrder)
-    Q_PROPERTY(QString incomeRole READ getIncomeRole CONSTANT)
-    Q_PROPERTY(QString dateRole READ getDateRole CONSTANT)
-    Q_PROPERTY(QString displayNameRole READ getDisplayNameRole CONSTANT)
-    Q_PROPERTY(QString sendingAddressRole READ getSendingAddressRole CONSTANT)
-    Q_PROPERTY(QString receivingAddressRole READ getReceivingAddressRole CONSTANT)
-    Q_PROPERTY(QString amountRole READ getAmountRole CONSTANT)
-    Q_PROPERTY(QString sentAmountRole READ getSentAmountRole CONSTANT)
-    Q_PROPERTY(QString receivedAmountRole READ getReceivedAmountRole CONSTANT)
-    Q_PROPERTY(QString statusRole READ getStatusRole CONSTANT)
-    Q_PROPERTY(bool isAllowedBeamMWLinks READ isAllowedBeamMWLinks WRITE allowBeamMWLinks NOTIFY beamMWLinksAllowed)
+    Q_PROPERTY(double beamAvailable                 READ beamAvailable              NOTIFY stateChanged)
+    Q_PROPERTY(double beamReceiving                 READ beamReceiving              NOTIFY stateChanged)
+    Q_PROPERTY(double beamSending                   READ beamSending                NOTIFY stateChanged)
+    Q_PROPERTY(double beamLocked                    READ beamLocked                 NOTIFY stateChanged)
+    Q_PROPERTY(double beamLockedMaturing            READ beamLockedMaturing         NOTIFY stateChanged)
+    Q_PROPERTY(double beamReceivingChange           READ beamReceivingChange        NOTIFY stateChanged)
+    Q_PROPERTY(double beamReceivingIncoming         READ beamReceivingIncoming      NOTIFY stateChanged)
+    Q_PROPERTY(bool isAllowedBeamMWLinks            READ isAllowedBeamMWLinks       WRITE allowBeamMWLinks      NOTIFY beamMWLinksAllowed)
+    Q_PROPERTY(QAbstractItemModel* transactions     READ getTransactions            NOTIFY transactionsChanged)
 
 public:
-    Q_INVOKABLE void cancelTx(TxObject* pTxObject);
-    Q_INVOKABLE void deleteTx(TxObject* pTxObject);
-
-public:
-    using TxList = QList<TxObject*>;
-
     WalletViewModel();
-    virtual ~WalletViewModel();
 
     double  beamAvailable() const;
     double  beamReceiving() const;
@@ -64,31 +46,19 @@ public:
     double  beamReceivingChange() const;
     double  beamReceivingIncoming() const;
 
-    QQmlListProperty<TxObject> getTransactions();
+    QAbstractItemModel* getTransactions();
     bool getIsOfflineStatus() const;
     bool getIsFailedStatus() const;
     QString getWalletStatusErrorMsg() const;
-
-    QString sortRole() const;
-    void setSortRole(const QString&);
-    Qt::SortOrder sortOrder() const;
-    void setSortOrder(Qt::SortOrder);
-    QString getIncomeRole() const;
-    QString getDateRole() const;
-    QString getDisplayNameRole() const;
-    QString getSendingAddressRole() const;
-    QString getReceivingAddressRole() const;
-    QString getAmountRole() const;
-    QString getSentAmountRole() const;
-    QString getReceivedAmountRole() const;
-    QString getStatusRole() const;
-
-    Q_INVOKABLE bool isAllowedBeamMWLinks() const;
     void allowBeamMWLinks(bool value);
+
+    Q_INVOKABLE void cancelTx(QVariant variantTxID);
+    Q_INVOKABLE void deleteTx(QVariant variantTxID);
+    Q_INVOKABLE PaymentInfoItem* getPaymentInfo(QVariant variantTxID);
+    Q_INVOKABLE bool isAllowedBeamMWLinks() const;
 
 public slots:
     void onTxStatus(beam::wallet::ChangeAction action, const std::vector<beam::wallet::TxDescription>& items);
-    void onAddresses(bool own, const std::vector<beam::wallet::WalletAddress>& addresses);
 
 signals:
     void stateChanged();
@@ -96,15 +66,8 @@ signals:
     void beamMWLinksAllowed();
 
 private:
-    void sortTx();
-    std::function<bool(const TxObject*, const TxObject*)> generateComparer();
-
-private:
     WalletModel& _model;
     WalletSettings& _settings;
     StatusHolder _status;
-    TxList _txList;
-
-    Qt::SortOrder _sortOrder;
-    QString _sortRole;
+    TransactionsList _transactionsList;
 };
