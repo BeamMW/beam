@@ -2302,17 +2302,15 @@ Difficulty NodeProcessor::get_NextDifficulty()
 
 	THW thw0, thw1;
 
-	get_MovingMedianEx(m_Cursor.m_Sid.m_Row, r.DA.WindowMedian1, thw1);
+	get_MovingMedianEx(m_Cursor.m_Sid.m_Height, r.DA.WindowMedian1, thw1);
 
 	if (m_Cursor.m_Full.m_Height - Rules::HeightGenesis >= r.DA.WindowWork)
 	{
-		uint64_t row0 = FindActiveAtStrict(m_Cursor.m_Full.m_Height - r.DA.WindowWork);
-		get_MovingMedianEx(row0, r.DA.WindowMedian1, thw0);
+		get_MovingMedianEx(m_Cursor.m_Full.m_Height - r.DA.WindowWork, r.DA.WindowMedian1, thw0);
 	}
 	else
 	{
-		uint64_t row0 = FindActiveAtStrict(Rules::HeightGenesis);
-		get_MovingMedianEx(row0, r.DA.WindowMedian1, thw0); // awkward to look for median, since they're immaginary. But makes sure we stick to the same median search and rounding (in case window is even).
+		get_MovingMedianEx(Rules::HeightGenesis, r.DA.WindowMedian1, thw0); // awkward to look for median, since they're immaginary. But makes sure we stick to the same median search and rounding (in case window is even).
 
 		// how many immaginary prehistoric blocks should be offset
 		uint32_t nDelta = r.DA.WindowWork - static_cast<uint32_t>(m_Cursor.m_Full.m_Height - Rules::HeightGenesis);
@@ -2368,28 +2366,44 @@ Difficulty NodeProcessor::get_NextDifficulty()
 	return res;
 }
 
-void NodeProcessor::get_MovingMedianEx(uint64_t rowLast, uint32_t nWindow, THW& res)
+void NodeProcessor::get_MovingMedianEx(Height hLast, uint32_t nWindow, THW& res)
 {
 	std::vector<THW> v;
 	v.reserve(nWindow);
 
-	assert(rowLast);
+	assert(hLast >= Rules::HeightGenesis);
+	uint64_t rowLast = 0;
+
 	while (v.size() < nWindow)
 	{
 		v.emplace_back();
 		THW& thw = v.back();
 
-		if (rowLast)
+		if (hLast >= Rules::HeightGenesis)
 		{
-			Block::SystemState::Full s;
-			m_DB.get_State(rowLast, s);
+			const RecentStates::Entry* pE = m_RecentStates.Get(hLast);
+
+			Block::SystemState::Full sDb;
+			if (!pE)
+			{
+				if (rowLast)
+				{
+					if (!m_DB.get_Prev(rowLast))
+						OnCorrupted();
+				}
+				else
+					rowLast = FindActiveAtStrict(hLast);
+
+				m_DB.get_State(rowLast, sDb);
+			}
+
+			const Block::SystemState::Full& s = pE ? pE->m_State : sDb;
 
 			thw.first = s.m_TimeStamp;
 			thw.second.first = s.m_Height;
 			thw.second.second = s.m_ChainWork;
 
-			if (!m_DB.get_Prev(rowLast))
-				rowLast = 0;
+			hLast--;
 		}
 		else
 		{
@@ -2414,7 +2428,7 @@ Timestamp NodeProcessor::get_MovingMedian()
 		return 0;
 
 	THW thw;
-	get_MovingMedianEx(m_Cursor.m_Sid.m_Row, Rules::get().DA.WindowMedian0, thw);
+	get_MovingMedianEx(m_Cursor.m_Sid.m_Height, Rules::get().DA.WindowMedian0, thw);
 	return thw.first;
 }
 

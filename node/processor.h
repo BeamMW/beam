@@ -81,7 +81,7 @@ class NodeProcessor
 	typedef std::pair<int64_t, std::pair<int64_t, Difficulty::Raw> > THW; // Time-Height-Work. Time and Height are signed
 	Difficulty get_NextDifficulty();
 	Timestamp get_MovingMedian();
-	void get_MovingMedianEx(uint64_t rowLast, uint32_t nWindow, THW&);
+	void get_MovingMedianEx(Height, uint32_t nWindow, THW&);
 
 	struct CongestionCache
 	{
