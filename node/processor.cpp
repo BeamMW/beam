@@ -1675,6 +1675,8 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, MultiblockContext& m
 		auto r = block.get_Reader();
 		r.Reset();
 		RecognizeUtxos(std::move(r), sid.m_Height);
+
+		m_RecentStates.Push(sid.m_Row, s);
 	}
 
 	return bOk;
@@ -2125,6 +2127,8 @@ void NodeProcessor::RollbackTo(Height h)
 		}
 	}
 
+	m_RecentStates.RollbackTo(h);
+
 	InitCursor();
 	OnRolledBack();
 
@@ -2271,6 +2275,10 @@ bool NodeProcessor::IsRemoteTipNeeded(const Block::SystemState::Full& sTipRemote
 
 uint64_t NodeProcessor::FindActiveAtStrict(Height h)
 {
+	const RecentStates::Entry* pE = m_RecentStates.Get(h);
+	if (pE)
+		return pE->m_RowID;
+
 	NodeDB::WalkerState ws(m_DB);
 	m_DB.EnumStatesAt(ws, h);
 	while (true)
@@ -3499,6 +3507,66 @@ bool NodeProcessor::GetBlock(const NodeDB::StateID& sid, ByteBuffer* pEthernal, 
 	pPerishable->insert(pPerishable->end(), bbBlob.begin(), bbBlob.end());
 
 	return true;
+}
+
+NodeProcessor::RecentStates::Entry& NodeProcessor::RecentStates::get_FromTail(size_t x) const
+{
+	assert((x < m_Count) && (m_Count <= m_vec.size()));
+	return Cast::NotConst(m_vec[(m_i0 + m_Count - x - 1) % m_vec.size()]);
+}
+
+const NodeProcessor::RecentStates::Entry* NodeProcessor::RecentStates::Get(Height h) const
+{
+	if (!m_Count)
+		return nullptr;
+
+	const Entry& e = get_FromTail(0);
+	if (h > e.m_State.m_Height)
+		return nullptr;
+
+	Height dh = e.m_State.m_Height - h;
+	if (dh >= m_Count)
+		return nullptr;
+
+	const Entry& e2 = get_FromTail(static_cast<size_t>(dh));
+	assert(e2.m_State.m_Height == h);
+	return &e2;
+}
+
+void NodeProcessor::RecentStates::RollbackTo(Height h)
+{
+	for (; m_Count; m_Count--)
+	{
+		const Entry& e = get_FromTail(0);
+		if (e.m_State.m_Height == h)
+			break;
+	}
+}
+
+void NodeProcessor::RecentStates::Push(uint64_t rowID, const Block::SystemState::Full& s)
+{
+	if (m_vec.empty())
+	{
+		// we use this cache mainly to improve difficulty calculation. Hence the cache size is appropriate
+		const Rules& r = Rules::get();
+	
+		const size_t n = std::max(r.DA.WindowWork + r.DA.WindowMedian1, r.DA.WindowMedian0) + 5;
+		m_vec.resize(n);
+	}
+	else
+	{
+		// ensure we don't have out-of-order entries
+		RollbackTo(s.m_Height - 1);
+	}
+
+	if (m_Count < m_vec.size())
+		m_Count++;
+	else
+		m_i0++;
+
+	Entry& e = get_FromTail(0);
+	e.m_RowID = rowID;
+	e.m_State = s;
 }
 
 } // namespace beam

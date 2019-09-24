@@ -108,6 +108,27 @@ class NodeProcessor
 
 	CongestionCache::TipCongestion* EnumCongestionsInternal();
 
+	struct RecentStates
+	{
+		struct Entry
+		{
+			uint64_t m_RowID;
+			Block::SystemState::Full m_State;
+		};
+
+		std::vector<Entry> m_vec;
+		// cyclic buffer
+		size_t m_i0 = 0;
+		size_t m_Count = 0;
+
+		Entry& get_FromTail(size_t) const;
+
+		const Entry* Get(Height) const;
+		void RollbackTo(Height);
+		void Push(uint64_t rowID, const Block::SystemState::Full&);
+
+	} m_RecentStates;
+
 	void DeleteBlocksInRange(const NodeDB::StateID& sidTop, Height hStop);
 
 public:
