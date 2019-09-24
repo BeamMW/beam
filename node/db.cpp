@@ -42,6 +42,7 @@ namespace beam {
 #define TblStates_ChainWork		"ChainWork"
 #define TblStates_Txos			"Txos"
 #define TblStates_Extra			"Extra"
+#define TblStates_Inputs		"Inputs"
 
 #define TblTips					"Tips"
 #define TblTipsReachable		"TipsReachable"
@@ -352,6 +353,7 @@ void NodeDB::Create()
 		"[" TblStates_ChainWork		"] BLOB,"
 		"[" TblStates_Txos			"] INTEGER,"
 		"[" TblStates_Extra			"] BLOB,"
+		"[" TblStates_Inputs		"] BLOB,"
 		"PRIMARY KEY (" TblStates_Height "," TblStates_Hash "),"
 		"FOREIGN KEY (" TblStates_RowPrev ") REFERENCES " TblStates "(OID))");
 
@@ -1174,6 +1176,34 @@ bool NodeDB::get_StateExtra(uint64_t rowid, ECC::Scalar& val)
 		return false;
 
 	rs.get(0, val.m_Value);
+	return true;
+}
+
+void NodeDB::set_StateInputs(uint64_t rowid, StateInput* p, size_t n)
+{
+	Recordset rs(*this, Query::StateSetInputs, "UPDATE " TblStates " SET " TblStates_Inputs "=? WHERE rowid=?");
+	if (n)
+		rs.put(0, Blob(p, static_cast<uint32_t>(sizeof(StateInput) * n)));
+	rs.put(1, rowid);
+	rs.Step();
+	TestChanged1Row();
+}
+
+
+bool NodeDB::get_StateInputs(uint64_t rowid, std::vector<StateInput>& v)
+{
+	Recordset rs(*this, Query::StateGetInputs, "SELECT " TblStates_Inputs " FROM " TblStates " WHERE rowid=?");
+	rs.put(0, rowid);
+	rs.StepStrict();
+
+	Blob blob;
+	rs.get(0, blob); // if NULL empty blob will be returned
+
+	v.resize(blob.n / sizeof(StateInput));
+	if (v.empty())
+		return false;
+
+	memcpy(&v.front(), blob.p, v.size() * sizeof(StateInput)); // don't use blob size, it may be bigger if blob.n isn't multiple of sizeof(StateInput)
 	return true;
 }
 

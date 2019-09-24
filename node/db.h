@@ -94,6 +94,8 @@ public:
 			StateGetPeer,
 			StateSetExtra,
 			StateGetExtra,
+			StateSetInputs,
+			StateGetInputs,
 			StateSetTxos,
 			StateGetTxos,
 			StateFindByTxos,
@@ -292,6 +294,19 @@ public:
 		WalkerState(NodeDB& db) :m_Rs(db) {}
 		bool MoveNext();
 	};
+
+#pragma pack (push, 1)
+	struct StateInput
+	{
+		ECC::uintBig m_CommX;
+		TxoID m_Txo_AndY;
+
+		static const TxoID s_Y = TxoID(1) << (sizeof(TxoID) * 8 - 1);
+	};
+#pragma pack (pop)
+
+	void set_StateInputs(uint64_t rowid, StateInput*, size_t);
+	bool get_StateInputs(uint64_t rowid, std::vector<StateInput>&);
 
 	void EnumTips(WalkerState&); // height lowest to highest
 	void EnumFunctionalTips(WalkerState&); // chainwork highest to lowest
