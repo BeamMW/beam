@@ -127,7 +127,7 @@ namespace beam::wallet
         return it->second->CreateSecondSide(tx, isBeamSide);
     }
 
-    void AtomicSwapTransaction::Creator::CheckParameters(const TxParameters& parameters)
+    TxParameters AtomicSwapTransaction::Creator::CheckAndCompleteParameters(const TxParameters& parameters)
     {
         auto peerID = parameters.GetParameter<WalletID>(TxParameterID::PeerID);
         if (peerID)
@@ -139,6 +139,7 @@ namespace beam::wallet
                 throw FailToStartSwapException();
             }
         }
+        return parameters;
     }
 
     AtomicSwapTransaction::AtomicSwapTransaction(INegotiatorGateway& gateway

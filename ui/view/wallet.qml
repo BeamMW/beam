@@ -103,7 +103,6 @@ Item {
 
                 available:         viewModel.beamAvailable
                 locked:            viewModel.beamLocked
-                lockedAtomic:      viewModel.beamLockedAtomic
                 lockedMaturing:    viewModel.beamLockedMaturing
                 sending:           viewModel.beamSending
                 receiving:         viewModel.beamReceiving
@@ -153,12 +152,10 @@ Item {
                 Layout.bottomMargin: 9
 
                 property int rowHeight: 56
-                frameVisible: false
                 selectionMode: SelectionMode.NoSelection
-                backgroundVisible: false
 
                 sortIndicatorVisible: true
-                sortIndicatorColumn: 1
+                sortIndicatorColumn: 0
                 sortIndicatorOrder: Qt.DescendingOrder
 
                 Binding{
@@ -173,7 +170,7 @@ Item {
                     value: transactionsView.sortIndicatorOrder
                 }
 
-                property int resizableWidth: parent.width - actionsColumn.width
+                property double resizableWidth: transactionsView.width - actionsColumn.width
                 property double columnResizeRatio: resizableWidth / 810
 
                 TableViewColumn {
@@ -299,10 +296,12 @@ Item {
                 }
 
                 TableViewColumn {
+                    id: statusColumn
                     role: viewModel.statusRole
                     //% "Status"
                     title: qsTrId("general-status")
-                    width: 150 * transactionsView.columnResizeRatio
+
+                    width: transactionsView.getAdjustedColumnWidth(statusColumn)//150 * transactionsView.columnResizeRatio
                     elideMode: Text.ElideRight
                     movable: false
                     resizable: false

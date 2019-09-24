@@ -150,7 +150,7 @@ void LoadingViewModel::resetWallet()
     disconnect(&m_walletModel, SIGNAL(syncProgressUpdated(int, int)), this, SLOT(onSyncProgressUpdated(int, int)));
     disconnect(&m_walletModel, SIGNAL(nodeConnectionChanged(bool)), this, SLOT(onNodeConnectionChanged(bool)));
     disconnect(&m_walletModel, SIGNAL(walletError(beam::wallet::ErrorType)), this, SLOT(onGetWalletError(beam::wallet::ErrorType)));
-    connect(&AppModel::getInstance(), SIGNAL(walletReseted()), this, SLOT(onWalletReseted()));
+    connect(&AppModel::getInstance(), SIGNAL(walletResetCompleted()), this, SIGNAL(walletResetCompleted()));
     AppModel::getInstance().resetWallet();
 }
 
@@ -193,12 +193,12 @@ void LoadingViewModel::updateProgress()
 
         if (m_hasLocalNode)
         {
-            //% "Downloading blocks"
+            //% "Downloading new blocks"
             progressMessage = qtTrId("loading-view-download-blocks");
         }
         else
         {
-            //% "Scanning UTXO %d/%d"
+            //% "Scanning new blocks %d/%d"
             progressMessage = QString::asprintf(
                 qtTrId("loading-view-scaning-utxo").toStdString().c_str(),
                 m_done,
@@ -240,7 +240,7 @@ void LoadingViewModel::updateProgress()
        m_hasLocalNode = AppModel::getInstance().getSettings().getRunLocalNode();
         if (m_hasLocalNode)
         {
-            //% "Rebuilding UTXO image"
+            //% "Scanning existing blocks"
             progressMessage = qtTrId("loading-view-rebuild-utxos");
             progress = kRebuildUTXOProgressCoefficient * m_nodeInitProgress;
         }
@@ -254,7 +254,10 @@ void LoadingViewModel::updateProgress()
 
     progressMessage.append(
         QString::asprintf(getPercentagePlaceholder(progress), progress * 100));
-    progressMessage.append(" " + estimateStr);
+    if (m_isDownloadStarted)
+    {
+        progressMessage.append(" " + estimateStr);
+    }
 
     setProgressMessage(progressMessage);
     setProgress(progress);
@@ -418,7 +421,3 @@ void LoadingViewModel::onGetWalletError(beam::wallet::ErrorType error)
     emit syncCompleted();
 }
 
-void LoadingViewModel::onWalletReseted()
-{
-    emit walletReseted();
-}

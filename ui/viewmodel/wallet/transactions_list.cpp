@@ -34,12 +34,20 @@ auto TransactionsList::roleNames() const -> QHash<int, QByteArray>
         { static_cast<int>(Roles::AddressToSort), "addressToSort" },
         { static_cast<int>(Roles::Status), "status" },
         { static_cast<int>(Roles::StatusSort), "statusSort" },
+        { static_cast<int>(Roles::Fee), "fee" },
+        { static_cast<int>(Roles::Comment), "comment" },
+        { static_cast<int>(Roles::TxID), "txID" },
+        { static_cast<int>(Roles::KernelID), "kernelID" },
+        { static_cast<int>(Roles::FailureReason), "failureReason" },
         { static_cast<int>(Roles::IsCancelAvailable), "isCancelAvailable" },
         { static_cast<int>(Roles::IsDeleteAvailable), "isDeleteAvailable" },
         { static_cast<int>(Roles::IsSelfTransaction), "isSelfTransaction" },
         { static_cast<int>(Roles::IsIncome), "isIncome" },
         { static_cast<int>(Roles::IsInProgress), "isInProgress" },
         { static_cast<int>(Roles::IsCompleted), "isCompleted" },
+        { static_cast<int>(Roles::IsBeamSideSwap), "isBeamSideSwap" },
+        { static_cast<int>(Roles::HasPaymentProof), "hasPaymentProof" },
+        { static_cast<int>(Roles::SwapCoin), "swapCoin" },
         { static_cast<int>(Roles::RawTxID), "rawTxID" }
     };
     return roles;
@@ -81,6 +89,21 @@ auto TransactionsList::data(const QModelIndex &index, int role) const -> QVarian
         case Roles::StatusSort:
             return value->status();
 
+        case Roles::Fee:
+            return value->getFee();
+
+        case Roles::Comment:
+            return value->comment();
+
+        case Roles::TxID:
+            return value->getTransactionID();
+
+        case Roles::KernelID:
+            return value->getKernelID();
+
+        case Roles::FailureReason:
+            return value->getFailureReason();
+
         case Roles::IsCancelAvailable:
             return value->canCancel();
 
@@ -98,6 +121,15 @@ auto TransactionsList::data(const QModelIndex &index, int role) const -> QVarian
 
         case Roles::IsCompleted:
             return value->isCompleted();
+
+        case Roles::IsBeamSideSwap:
+            return value->isBeamSideSwap();
+
+        case Roles::HasPaymentProof:
+            return value->hasPaymentProof();
+
+        case Roles::SwapCoin:
+            return value->getSwapCoinType();
 
         case Roles::RawTxID:
             return QVariant::fromValue(value->getTxID());

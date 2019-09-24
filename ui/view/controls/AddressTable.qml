@@ -9,8 +9,10 @@ import Beam.Wallet 1.0
 CustomTableView {
     id: rootControl
 
-    property int rowHeight: 69
+    property int rowHeight: 56
     property int resizableWidth: parent.width - actions.width
+    property double columnResizeRatio: resizableWidth / 750
+
     property var parentModel
     property bool isExpired: false
     property var editDialog
@@ -24,7 +26,7 @@ CustomTableView {
         role: parentModel.nameRole
         //% "Comment"
         title: qsTrId("general-comment")
-        width: 150 * rootControl.resizableWidth / 750
+        width: 150 * rootControl.columnResizeRatio
         resizable: false
         movable: false
     }
@@ -33,7 +35,7 @@ CustomTableView {
         role: parentModel.addressRole
         //% "Address"
         title: qsTrId("general-address")
-        width: 150 *  rootControl.resizableWidth / 750
+        width: 150 *  rootControl.columnResizeRatio
         movable: false
         resizable: false
         delegate: Item {
@@ -62,7 +64,7 @@ CustomTableView {
         role: parentModel.categoryRole
         //% "Category"
         title: qsTrId("general-category")
-        width: 150 *  rootControl.resizableWidth / 750
+        width: 150 *  rootControl.columnResizeRatio
         resizable: false
         movable: false
     }
@@ -71,7 +73,7 @@ CustomTableView {
         role: parentModel.expirationRole
         //% "Expiration date"
         title: qsTrId("general-exp-date")
-        width: 150 *  rootControl.resizableWidth / 750
+        width: 150 *  rootControl.columnResizeRatio
         resizable: false
         movable: false
         delegate: Item {
@@ -94,10 +96,11 @@ CustomTableView {
     }
 
     TableViewColumn {
+        id: createdColumn
         role:parentModel.createdRole
         //% "Created"
         title: qsTrId("general-created")
-        width: 150 *  rootControl.resizableWidth / 750
+        width: rootControl.getAdjustedColumnWidth(createdColumn)//150 *  rootControl.columnResizeRatio
         resizable: false
         movable: false
         delegate: Item {
@@ -138,8 +141,8 @@ CustomTableView {
         Rectangle {
             anchors.fill: parent
 
-            color: styleData.selected ? Style.row_selected : Style.background_row_even
-            visible: styleData.selected ? true : styleData.alternate
+            color: styleData.selected ? Style.row_selected :
+                    (styleData.alternate ? Style.background_row_even : Style.background_row_odd)
         }
         MouseArea {
             anchors.fill: parent

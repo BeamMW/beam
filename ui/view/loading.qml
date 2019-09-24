@@ -85,7 +85,7 @@ Item
             confirmationDialog.open();
         }
 
-        onWalletReseted: {
+        onWalletResetCompleted: {
             if(cancelCallback) {
                 cancelCallback();
             }

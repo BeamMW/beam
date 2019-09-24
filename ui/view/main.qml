@@ -20,15 +20,20 @@ Rectangle {
         id: statusbarModel
     }
 
-    color: Style.background_main
-
+    property alias backgroundRect: mainBackground
     Rectangle {
-        anchors.left: parent.left
-        anchors.right: parent.right
-        height: 230
-        gradient: Gradient {
-            GradientStop { position: 0.0; color: main.topColor }
-            GradientStop { position: 1.0; color: main.topGradientColor }
+        id: mainBackground
+        anchors.fill: parent
+        color: Style.background_main
+
+        Rectangle {
+            anchors.left: parent.left
+            anchors.right: parent.right
+            height: 230
+            gradient: Gradient {
+                GradientStop { position: 0.0; color: main.topColor }
+                GradientStop { position: 1.0; color: main.topGradientColor }
+            }
         }
     }
 
@@ -215,8 +220,6 @@ Rectangle {
         onShowTrezorError: function(error) {
             console.log(error)
             trezor_popup = Qt.createComponent("popup_message.qml").createObject(main)
-
-            //% "Please, look at your Trezor device to complete actions..."
             trezor_popup.message = error
             trezor_popup.open()
 

@@ -11,7 +11,6 @@ Control {
 
     property double available
     property double locked
-    property double lockedAtomic
     property double lockedMaturing
     property double sending
     property double receiving
@@ -78,23 +77,6 @@ Control {
 
             BeamAmount {
                 amount:            lockedMaturing
-                spacing:           15
-                lightFont:         false
-                fontSize:          12
-                currencySymbol:    Utils.symbolBeam
-            }
-
-            SFText {
-                font.pixelSize: 12
-                font.styleName: "Light"
-                font.weight:    Font.Light
-                color:          Qt.rgba(Style.content_main.r, Style.content_main.g, Style.content_main.b, 0.5)
-                //% "Atomic Swap"
-                text:           qsTrId("available-panel-aswap")
-            }
-
-            BeamAmount {
-                amount:            lockedAtomic
                 spacing:           15
                 lightFont:         false
                 fontSize:          12

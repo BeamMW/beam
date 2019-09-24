@@ -31,4 +31,6 @@ namespace beamui
         size_t _index;
         bool _is_poor;
     };
+
+    QDateTime CalculateExpiresTime(beam::Height currentHeight, beam::Height expiresHeight);
 }  // namespace beamui

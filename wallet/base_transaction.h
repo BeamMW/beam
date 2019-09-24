@@ -74,8 +74,8 @@ namespace beam::wallet
             // Ñreates new instance of transaction (virtual constructor)
             virtual BaseTransaction::Ptr Create(INegotiatorGateway& gateway, WalletDB::Ptr, IPrivateKeyKeeper::Ptr, const TxID&) = 0;
             
-            // Allows to add any additional user's checks of parameters. Should throw exceptions if something is wrong
-            virtual void CheckParameters(const TxParameters&) {};
+            // Allows to add any additional user's checks and enhancements of parameters. Should throw exceptions if something is wrong
+            virtual TxParameters CheckAndCompleteParameters(const TxParameters& p) { return p; } // TODO: find better solution without redundant copies
         };
 
         BaseTransaction(INegotiatorGateway& gateway

@@ -37,12 +37,20 @@ public:
         AddressToSort,
         Status,
         StatusSort,
+        Fee,
+        Comment,
+        TxID,
+        KernelID,
+        FailureReason,
         IsCancelAvailable,
         IsDeleteAvailable,
         IsSelfTransaction,
         IsIncome,
         IsInProgress,
         IsCompleted,
+        IsBeamSideSwap,
+        HasPaymentProof,
+        SwapCoin,
         RawTxID
     };
 

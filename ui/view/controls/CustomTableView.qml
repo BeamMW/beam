@@ -3,6 +3,7 @@ import QtQuick.Controls 1.2
 import QtQuick.Controls.impl 2.4
 import QtQuick.Layouts 1.0
 import QtQuick.Controls.Styles 1.2
+import QtGraphicalEffects 1.0
 import "."
 
 TableView {
@@ -23,12 +24,53 @@ TableView {
             opacity: 0.1
         }
     }
+
+    function getAdjustedColumnWidth(column) {
+        var acc = 0;
+        for (var i = 0; i < columnCount; ++i)
+        {
+            var c = getColumn(i);
+            if (c == column) continue;
+            acc += c.width;
+        }
+        return width - acc;
+    }
+
+    frameVisible: false
+    backgroundVisible: false
     horizontalScrollBarPolicy: Qt.ScrollBarAlwaysOff
 
     headerDelegate: Rectangle {
+        id: rect
         height: headerHeight
+       
+        color:"transparent"// Style.background_main
 
-        color: Style.background_second
+        ShaderEffectSource {
+            id: shaderSrc
+            objectName: "renderRect"
+
+            sourceRect.x: rect.mapToItem(main.backgroundRect, rect.x, rect.y).x
+            sourceRect.y: rect.mapToItem(main.backgroundRect, rect.x, rect.y).y
+            sourceRect.width: rect.width
+            sourceRect.height: rect.height
+            width: rect.width
+            height: rect.height
+            sourceItem: main.backgroundRect//backRect
+            visible: true
+        }
+
+        property bool lastColumn: styleData.column == tableView.columnCount-1
+        property bool firstOrLastColumn : styleData.column == 0 || lastColumn
+        
+        clip: firstOrLastColumn
+        Rectangle {
+            x: lastColumn ? -12 : 0
+            width: parent.width + (firstOrLastColumn ? 12 : 0)
+            height: parent.height + (firstOrLastColumn ? 12 : 0)
+            color: Style.table_header
+            radius: firstOrLastColumn ? 10 : 0
+        }
 
         IconLabel {
             anchors.verticalCenter: parent.verticalCenter

@@ -53,9 +53,10 @@ namespace beam::wallet
         {
             bool txChanged = false;
             SubTxID subTxID = kDefaultSubTxID;
-
+            auto counter = parameters.size();
             for (const auto& p : parameters)
             {
+                --counter;
                 if (p.first == TxParameterID::SubTxIndex)
                 {
                     // change subTxID
@@ -67,7 +68,8 @@ namespace beam::wallet
 
                 if (allowPrivate || p.first < TxParameterID::PrivateFirstParam)
                 {
-                    txChanged |= tx->SetParameter(p.first, p.second, subTxID);
+                    bool notify = (counter == 0);
+                    txChanged |= tx->SetParameter(p.first, p.second, notify, subTxID);
                 }
                 else
                 {
@@ -1093,10 +1095,10 @@ namespace beam::wallet
             return BaseTransaction::Ptr();
         }
 
-        it->second->CheckParameters(parameters);
+        auto completedParameters = it->second->CheckAndCompleteParameters(parameters);
 
         auto newTx = it->second->Create(*this, m_WalletDB, m_KeyKeeper, *parameters.GetTxID());
-        ApplyTransactionParameters(newTx, parameters.GetParameters(), true);
+        ApplyTransactionParameters(newTx, completedParameters.GetParameters(), true);
         return newTx;
     }
 

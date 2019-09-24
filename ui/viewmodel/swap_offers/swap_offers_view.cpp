@@ -12,9 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include <qdebug.h>
 #include "model/app_model.h"
 #include "model/settings.h"
 #include "swap_offers_view.h"
+#include "viewmodel/ui_helpers.h"
+
 using namespace beam;
 using namespace beam::wallet;
 using namespace std;
@@ -157,7 +160,10 @@ void SwapOffersViewModel::onTransactionsDataModelChanged(beam::wallet::ChangeAct
 
     for (const auto& t : transactions)
     {
-        modifiedTransactions.push_back(make_shared<TxObject>(t));
+        if (t.GetParameter<TxType>(TxParameterID::TransactionType) == TxType::AtomicSwap)
+        {
+            modifiedTransactions.push_back(make_shared<TxObject>(t));
+        }
     }
 
     switch (action)
@@ -205,7 +211,17 @@ void SwapOffersViewModel::onSwapOffersDataModelChanged(beam::wallet::ChangeActio
         WalletID walletID;
         if (offer.GetParameter(TxParameterID::PeerID, walletID))
         {
-            modifiedOffers.push_back(make_shared<SwapOfferItem>(offer, m_walletModel.isOwnAddress(walletID)));
+            QDateTime timeExpiration;
+
+            auto expiresHeight = offer.GetParameter<Height>(beam::wallet::TxParameterID::PeerResponseHeight);
+            auto currentHeight = m_status.getCurrentHeight();
+
+            if (currentHeight && expiresHeight)
+            {
+                timeExpiration = beamui::CalculateExpiresTime(currentHeight, *expiresHeight);
+            }
+
+            modifiedOffers.push_back(make_shared<SwapOfferItem>(offer, m_walletModel.isOwnAddress(walletID), timeExpiration));
         }
     }
 
@@ -256,4 +272,75 @@ bool SwapOffersViewModel::showBetaWarning() const
         settings.setShowSwapBetaWarning(false);
     }
     return showWarning;
+}
+
+int SwapOffersViewModel::getActiveTxCount() const
+{
+    int count = 0;
+    for (int i = 0; i < m_transactionsList.rowCount(); ++i)
+    {
+        auto index = m_transactionsList.index(i, 0);
+        try
+        {
+            bool isInProgress = m_transactionsList.data(
+                index,
+                static_cast<int>(TransactionsList::Roles::IsInProgress))
+                .toBool();
+            if (isInProgress)
+            {
+                ++count;
+            }
+        }
+        catch(...)
+        {
+            qDebug() << "Wrong ROLE data";
+        }
+    }
+
+    return count;
+}
+
+bool SwapOffersViewModel::hasBtcTx() const
+{
+    return hasActiveTx(TxObject::coinTypeBtc);
+}
+
+bool SwapOffersViewModel::hasLtcTx() const
+{
+    return hasActiveTx(TxObject::coinTypeLtc);
+}
+
+bool SwapOffersViewModel::hasQtumTx() const
+{
+    return hasActiveTx(TxObject::coinTypeQtum);
+}
+
+bool SwapOffersViewModel::hasActiveTx(const std::string& swapCoin) const
+{
+    for (int i = 0; i < m_transactionsList.rowCount(); ++i)
+    {
+        auto index = m_transactionsList.index(i, 0);
+        try
+        {
+            bool isInProgress = m_transactionsList.data(
+                index,
+                static_cast<int>(TransactionsList::Roles::IsInProgress))
+                .toBool();
+            auto mySwapCoin = m_transactionsList.data(
+                index,
+                static_cast<int>(TransactionsList::Roles::SwapCoin))
+                .toString();
+            if (isInProgress &&
+                mySwapCoin.toStdString() == swapCoin)
+            {
+                return true;
+            }
+        }
+        catch(...)
+        {
+            qDebug() << "Wrong ROLE data";
+        }
+    }
+
+    return false;
 }

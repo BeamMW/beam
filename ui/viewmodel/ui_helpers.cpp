@@ -101,4 +101,22 @@ namespace beamui
                     _is_poor ? temp.begin() + _index : temp.end());
         return temp[medianPos];
     }
+
+    QDateTime CalculateExpiresTime(beam::Height currentHeight, beam::Height expiresHeight)
+    {
+        auto currentDateTime = QDateTime::currentDateTime();
+        QDateTime expiresTime = currentDateTime;
+
+        if (currentHeight <= expiresHeight)
+        {
+            expiresTime = currentDateTime.addSecs((expiresHeight - currentHeight) * 60);
+        }
+        else
+        {
+            auto dateTimeSecs = currentDateTime.toSecsSinceEpoch() - (currentHeight - expiresHeight) * 60;
+            expiresTime.setSecsSinceEpoch(dateTimeSecs);
+        }
+
+        return expiresTime;
+    }
 }  // namespace beamui
