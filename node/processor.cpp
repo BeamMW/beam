@@ -3312,13 +3312,9 @@ bool NodeProcessor::EnumTxos(ITxoWalker& wlkTxo, const HeightRange& hr)
 	TxoID id1 = get_TxosBefore(hr.m_Min);
 	Height h = hr.m_Min - 1; // don't care about overflow
 
-	auto totalTxos = m_DB.TxoGetCount();
-	uint64_t doneTxos = 0;
-
 	NodeDB::WalkerTxo wlk(m_DB);
 	for (m_DB.EnumTxos(wlk, id1);  wlk.MoveNext(); )
 	{
-		InitializeUtxosProgress(++doneTxos, totalTxos);
 		if (wlk.m_ID >= id1)
 		{
 			if (++h > hr.m_Max)
@@ -3421,8 +3417,15 @@ void NodeProcessor::InitializeUtxos()
 	struct Walker
 		:public ITxoWalker_UnspentNaked
 	{
+		TxoID m_TxosTotal;
 		NodeProcessor& m_This;
 		Walker(NodeProcessor& x) :m_This(x) {}
+
+		virtual bool OnTxo(const NodeDB::WalkerTxo& wlk, Height hCreate) override
+		{
+			m_This.InitializeUtxosProgress(wlk.m_ID, m_TxosTotal);
+			return ITxoWalker_UnspentNaked::OnTxo(wlk, hCreate);
+		}
 
 		virtual bool OnTxo(const NodeDB::WalkerTxo& wlk, Height hCreate, Output& outp) override
 		{
@@ -3435,6 +3438,7 @@ void NodeProcessor::InitializeUtxos()
 	};
 
 	Walker wlk(*this);
+	wlk.m_TxosTotal = get_TxosBefore(m_Cursor.m_ID.m_Height + 1);
 	EnumTxos(wlk);
 }
 

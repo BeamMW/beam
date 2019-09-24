@@ -2149,18 +2149,6 @@ void NodeDB::TxoSetSpent(TxoID id, Height h)
 	TestChanged1Row();
 }
 
-uint64_t NodeDB::TxoGetCount()
-{
-	Recordset rs(*this, Query::TxoCount, "SELECT COUNT(*) FROM " TblTxo);
-	uint64_t count = 0;
-	if (rs.Step())
-	{
-		rs.get(0, count);
-	}
-
-	return count;
-}
-
 void NodeDB::EnumTxos(WalkerTxo& wlk, TxoID id0)
 {
 	wlk.m_Rs.Reset(Query::TxoEnum, "SELECT " TblTxo_ID "," TblTxo_Value "," TblTxo_SpendHeight " FROM " TblTxo " WHERE " TblTxo_ID ">=? ORDER BY " TblTxo_ID);

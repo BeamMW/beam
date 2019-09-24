@@ -146,7 +146,6 @@ public:
 			TxoDel,
 			TxoDelFrom,
 			TxoSetSpent,
-			TxoCount,
 			TxoEnum,
 			TxoEnumBySpentMigrate,
 			TxoSetValue,
@@ -468,7 +467,6 @@ public:
 		bool MoveNext();
 	};
 
-	uint64_t TxoGetCount();
 	void EnumTxos(WalkerTxo&, TxoID id0);
 	void TxoSetValue(TxoID, const Blob&);
 	void TxoGetValue(WalkerTxo&, TxoID);
