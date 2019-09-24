@@ -34,8 +34,8 @@ namespace beam::wallet
 
             if (m_Tx.IsInitiator())
             {
-                Height responseTime = m_Tx.GetMandatoryParameter<Height>(TxParameterID::PeerResponseHeight);
-                m_Tx.SetParameter(TxParameterID::PeerResponseHeight, responseTime, m_SubTxID);
+                Height responseTime = m_Tx.GetMandatoryParameter<Height>(TxParameterID::PeerResponseTime);
+                m_Tx.SetParameter(TxParameterID::PeerResponseHeight, minHeight + responseTime, m_SubTxID);
             }
         }
     }
