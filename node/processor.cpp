@@ -1287,7 +1287,7 @@ Height NodeProcessor::RaiseTxoLo(Height hTrg)
 
 		for (size_t i = 0; i < v.size(); i++)
 		{
-			TxoID id = v[i].m_Txo_AndY & ~NodeDB::StateInput::s_Y;
+			TxoID id = v[i].get_ID();
 			if (id >= m_Extra.m_TxosTreasury)
 				m_DB.TxoDel(id);
 		}
@@ -1320,7 +1320,7 @@ Height NodeProcessor::RaiseTxoHi(Height hTrg)
 
 		for (size_t i = 0; i < v.size(); i++)
 		{
-			TxoID id = v[i].m_Txo_AndY & ~NodeDB::StateInput::s_Y;
+			TxoID id = v[i].get_ID();
 
 			m_DB.TxoGetValue(wlk, id);
 
@@ -1697,10 +1697,7 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, MultiblockContext& m
 			const Input& x = *block.m_vInputs[i];
 			m_DB.TxoSetSpent(x.m_ID, sid.m_Height);
 
-			v[i].m_Txo_AndY = x.m_ID;
-			v[i].m_CommX = x.m_Commitment.m_X;
-			if (x.m_Commitment.m_Y)
-				v[i].m_Txo_AndY |= NodeDB::StateInput::s_Y;
+			v[i].Set(x.m_ID, x.m_Commitment);
 		}
 
 		if (!v.empty())
@@ -2106,7 +2103,7 @@ void NodeProcessor::RollbackTo(Height h)
 
 		for (size_t i = 0; i < v.size(); i++)
 		{
-			TxoID id = v[i].m_Txo_AndY & ~NodeDB::StateInput::s_Y;
+			TxoID id = v[i].get_ID();
 			if (id >= id0)
 				continue; // created and spent within this range - skip it
 
@@ -2955,7 +2952,7 @@ void NodeProcessor::ExtractBlockWithExtra(Block::Body& block, const NodeDB::Stat
 
 	for (size_t i = 0; i < v.size(); i++)
 	{
-		TxoID id = v[i].m_Txo_AndY & ~NodeDB::StateInput::s_Y;
+		TxoID id = v[i].get_ID();
 
 		m_DB.TxoGetValue(wlk, id);
 

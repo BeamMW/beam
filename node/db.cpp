@@ -1222,6 +1222,30 @@ bool NodeDB::get_StateInputs(uint64_t rowid, std::vector<StateInput>& v)
 	return true;
 }
 
+void NodeDB::StateInput::Set(TxoID id, const ECC::Point& pt)
+{
+	Set(id, pt.m_X, pt.m_Y);
+}
+
+void NodeDB::StateInput::Set(TxoID id, const ECC::uintBig& x, uint8_t y)
+{
+	m_Txo_AndY = id;
+	m_CommX = x;
+	if (y)
+		m_Txo_AndY |= s_Y;
+}
+
+TxoID NodeDB::StateInput::get_ID() const
+{
+	return m_Txo_AndY & ~s_Y;
+}
+
+void NodeDB::StateInput::Get(ECC::Point& pt) const
+{
+	pt.m_X = m_CommX;
+	pt.m_Y = (s_Y & m_Txo_AndY) ? 1 : 0;
+}
+
 void NodeDB::set_StateTxos(uint64_t rowid, const TxoID* pId)
 {
 	Recordset rs(*this, Query::StateSetTxos, "UPDATE " TblStates " SET " TblStates_Txos "=? WHERE rowid=?");
