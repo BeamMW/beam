@@ -1614,7 +1614,7 @@ you do not send large amounts.</oldsource>
         <translation type="unfinished"></translation>
     </message>
     <message id="settings-new-seed">
-        <source></source>
+        <source>Double click to generate new seed phrase</source>
         <translation type="unfinished"></translation>
     </message>
     <message id="atomic-swap-active-tx-count">
@@ -1630,7 +1630,7 @@ you do not send large amounts.</oldsource>
         <translation type="unfinished"></translation>
     </message>
     <message id="settings-invalid-seed">
-        <source></source>
+        <source>Invalid seed phrase</source>
         <translation type="unfinished"></translation>
     </message>
 </context>

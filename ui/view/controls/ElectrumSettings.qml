@@ -151,6 +151,7 @@ Control {
                     font.italic:         text.length && !acceptableInput
                     color:               text.length && !acceptableInput ? Style.validator_error : Style.content_secondary
                     backgroundColor:     text.length && !acceptableInput ? Style.validator_error : Style.content_secondary
+                    //% "Double click to generate new seed phrase"
                     placeholderText:     qsTrId("settings-new-seed")
                     horizontalAlignment: focus || text.length > 0 ? Text.AlignLeft : Text.AlignHCenter
 
@@ -168,6 +169,7 @@ Control {
                         font.pixelSize: 12
                         font.italic:    true
                         color:          Style.validator_error
+                        //% "Invalid seed phrase"
                         text:           qsTrId("settings-invalid-seed")
                         visible:        seedInput.text.length && !seedInput.acceptableInput
                     }
