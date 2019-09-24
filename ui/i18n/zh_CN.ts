@@ -1625,5 +1625,13 @@ you do not send large amounts.</oldsource>
         <source>Incoming</source>
         <translation type="unfinished"></translation>
     </message>
+    <message id="general-electrum">
+        <source></source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="settings-new-seed">
+        <source></source>
+        <translation type="unfinished"></translation>
+    </message>
 </context>
 </TS>

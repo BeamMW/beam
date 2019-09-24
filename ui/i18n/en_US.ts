@@ -333,6 +333,10 @@
         <extracomment>settings tab, node section, address label</extracomment>
         <translation>ip:port</translation>
     </message>
+    <message id="settings-new-seed">
+        <source>Double click to generate new seed phrase</source>
+        <translation>Double click to generate new seed phrase</translation>
+    </message>
     <message id="settings-local-node-run-checkbox">
         <source>Run local node</source>
         <extracomment>settings tab, node section, run node label</extracomment>
@@ -1406,6 +1410,10 @@ or send this address to the sender over secure channel</translation>
     <message id="general-qtum">
         <source>QTUM</source>
         <translation>QTUM</translation>
+    </message>
+    <message id="general-electrum">
+        <source>Electrum</source>
+        <translation>Electrum</translation>
     </message>
     <message id="swap-currency-na-message">
         <source>You do not have %1 connected.\nUpdate your settings and try again.</source>
