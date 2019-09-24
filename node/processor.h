@@ -69,6 +69,8 @@ class NodeProcessor
 	static void TxoToNaked(uint8_t* pBuf, Blob&);
 	static bool TxoIsNaked(const Blob&);
 
+	void ToInputWithMaturity(Input&, TxoID);
+
 	TxoID get_TxosBefore(Height);
 	void AdjustOffset(ECC::Scalar&, uint64_t rowid, bool bAdd);
 

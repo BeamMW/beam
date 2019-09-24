@@ -2087,6 +2087,35 @@ bool NodeProcessor::HandleBlockElement(const Output& v, Height h, const Height* 
 
 	return true;
 }
+
+void NodeProcessor::ToInputWithMaturity(Input& inp, TxoID id)
+{
+	// awkward and relatively used, but this is not used frequently.
+	// NodeDB::StateInput doesn't contain the maturity of the spent UTXO. Hence we reconstruct it
+	// We find the original UTXO height, and then decode the UTXO body, and check its additional maturity factors (coinbase, incubation)
+
+	NodeDB::WalkerTxo wlk(m_DB);
+	m_DB.TxoGetValue(wlk, id);
+
+	uint8_t pNaked[s_TxoNakedMax];
+	Blob val = wlk.m_Value;
+	TxoToNaked(pNaked, val);
+
+	Deserializer der;
+	der.reset(val.p, val.n);
+
+	Output outp;
+	der & outp;
+
+	inp.m_Commitment = outp.m_Commitment;
+	inp.m_ID = id;
+
+	NodeDB::StateID sidPrev;
+	m_DB.FindStateByTxoID(sidPrev, id); // relatively heavy operation: search for the original txo height
+
+	inp.m_Maturity = outp.get_MinMaturity(sidPrev.m_Height);
+}
+
 void NodeProcessor::RollbackTo(Height h)
 {
 	assert(h <= m_Cursor.m_Sid.m_Height);
@@ -2107,28 +2136,8 @@ void NodeProcessor::RollbackTo(Height h)
 			if (id >= id0)
 				continue; // created and spent within this range - skip it
 
-			NodeDB::WalkerTxo wlk(m_DB);
-			m_DB.TxoGetValue(wlk, id);
-
-			uint8_t pNaked[s_TxoNakedMax];
-			Blob val = wlk.m_Value;
-			TxoToNaked(pNaked, val);
-
-			Deserializer der;
-			der.reset(val.p, val.n);
-
-			Output outp;
-			der & outp;
-
 			Input inp;
-			inp.m_Commitment = outp.m_Commitment;
-			inp.m_ID = id;
-
-			NodeDB::StateID sidPrev;
-			m_DB.FindStateByTxoID(sidPrev, id); // relatively heavy operation: search for the original txo height
-			assert(sidPrev.m_Height <= h);
-
-			inp.m_Maturity = outp.get_MinMaturity(sidPrev.m_Height);
+			ToInputWithMaturity(inp, id);
 
 			if (!HandleBlockElement(inp, 0, nullptr, false))
 				OnCorrupted();
@@ -2954,25 +2963,11 @@ void NodeProcessor::ExtractBlockWithExtra(Block::Body& block, const NodeDB::Stat
 	{
 		TxoID id = v[i].get_ID();
 
-		m_DB.TxoGetValue(wlk, id);
-
-		uint8_t pNaked[s_TxoNakedMax];
-		TxoToNaked(pNaked, wlk.m_Value);
-
-		der.reset(wlk.m_Value.p, wlk.m_Value.n);
-
-		Output outp;
-		der & outp;
-
-		NodeDB::StateID sidPrev;
-		m_DB.FindStateByTxoID(sidPrev, id); // relatively heavy operation: search for the original txo height
-
 		block.m_vInputs.emplace_back();
 		Input::Ptr& pInp = block.m_vInputs.back();
 		pInp.reset(new Input);
 
-		pInp->m_Commitment = outp.m_Commitment;
-		pInp->m_Maturity = outp.get_MinMaturity(sidPrev.m_Height);
+		ToInputWithMaturity(*pInp, id);
 	}
 
 	// outputs
