@@ -257,6 +257,7 @@ namespace beam::wallet
         PreImage = 201,
         AtomicSwapSecretPrivateKey = 202,
         AtomicSwapSecretPublicKey = 203,
+        Confirmations = 204,
 
         InternalFailureReason = 210,
     
