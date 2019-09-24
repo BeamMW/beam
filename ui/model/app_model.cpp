@@ -381,9 +381,12 @@ SwapCoinClientModel::Ptr AppModel::getQtumClient() const
 
 void AppModel::InitBtcClient()
 {
-    auto bitcoinBridgeCreator = [](io::Reactor& reactor, bitcoin::IBitcoinCoreSettingsProvider::Ptr settingsProvider)->bitcoin::IBridge::Ptr
+    auto bitcoinBridgeCreator = [](io::Reactor& reactor, bitcoin::ISettingsProvider::Ptr settingsProvider)->bitcoin::IBridge::Ptr
     {
-        return std::make_shared<bitcoin::BitcoinCore017>(reactor, settingsProvider);
+        if (settingsProvider->GetBitcoinCoreSettings().IsInitialized())
+            return std::make_shared<bitcoin::BitcoinCore017>(reactor, settingsProvider);
+
+        return std::make_shared<bitcoin::Electrum>(reactor, settingsProvider);
     };
 
     auto settingsProvider = std::make_unique<bitcoin::SettingsProvider>(m_db);
@@ -393,9 +396,12 @@ void AppModel::InitBtcClient()
 
 void AppModel::InitLtcClient()
 {
-    auto ltcBridgeCreator = [](io::Reactor& reactor, bitcoin::IBitcoinCoreSettingsProvider::Ptr settingsProvider)->bitcoin::IBridge::Ptr
+    auto ltcBridgeCreator = [](io::Reactor& reactor, bitcoin::ISettingsProvider::Ptr settingsProvider)->bitcoin::IBridge::Ptr
     {
-        return std::make_shared<litecoin::LitecoinCore017>(reactor, settingsProvider);
+        if (settingsProvider->GetBitcoinCoreSettings().IsInitialized())
+            return std::make_shared<litecoin::LitecoinCore017>(reactor, settingsProvider);
+
+        return std::make_shared<litecoin::Electrum>(reactor, settingsProvider);
     };
 
     auto settingsProvider = std::make_unique<litecoin::SettingsProvider>(m_db);
@@ -405,9 +411,12 @@ void AppModel::InitLtcClient()
 
 void AppModel::InitQtumClient()
 {
-    auto qtumBridgeCreator = [](io::Reactor& reactor, bitcoin::IBitcoinCoreSettingsProvider::Ptr settingsProvider)->bitcoin::IBridge::Ptr
+    auto qtumBridgeCreator = [](io::Reactor& reactor, bitcoin::ISettingsProvider::Ptr settingsProvider)->bitcoin::IBridge::Ptr
     {
-        return std::make_shared<qtum::QtumCore017>(reactor, settingsProvider);
+        if (settingsProvider->GetBitcoinCoreSettings().IsInitialized())
+            return std::make_shared<qtum::QtumCore017>(reactor, settingsProvider);
+
+        return std::make_shared<qtum::Electrum>(reactor, settingsProvider);
     };
 
     auto settingsProvider = std::make_unique<qtum::SettingsProvider>(m_db);
