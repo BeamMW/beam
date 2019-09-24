@@ -216,7 +216,7 @@ public:
 	bool IsTreasuryHandled() const { return m_Extra.m_TxosTreasury > 0; }
 
 	DataStatus::Enum OnState(const Block::SystemState::Full&, const PeerID&);
-	DataStatus::Enum OnStateSilent(const Block::SystemState::Full&, const PeerID&, Block::SystemState::ID&);
+	DataStatus::Enum OnStateSilent(const Block::SystemState::Full&, const PeerID&, Block::SystemState::ID&, bool bAlreadyChecked);
 	DataStatus::Enum OnBlock(const Block::SystemState::ID&, const Blob& bbP, const Blob& bbE, const PeerID&);
 	DataStatus::Enum OnBlock(const NodeDB::StateID&, const Blob& bbP, const Blob& bbE, const PeerID&);
 	DataStatus::Enum OnTreasury(const Blob&);
@@ -362,7 +362,7 @@ public:
 private:
 	size_t GenerateNewBlockInternal(BlockContext&);
 	void GenerateNewHdr(BlockContext&);
-	DataStatus::Enum OnStateInternal(const Block::SystemState::Full&, Block::SystemState::ID&);
+	DataStatus::Enum OnStateInternal(const Block::SystemState::Full&, Block::SystemState::ID&, bool bAlreadyChecked);
 };
 
 struct LogSid

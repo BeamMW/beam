@@ -2135,11 +2135,11 @@ void NodeProcessor::RollbackTo(Height h)
 	m_Extra.m_Txos = id0;
 }
 
-NodeProcessor::DataStatus::Enum NodeProcessor::OnStateInternal(const Block::SystemState::Full& s, Block::SystemState::ID& id)
+NodeProcessor::DataStatus::Enum NodeProcessor::OnStateInternal(const Block::SystemState::Full& s, Block::SystemState::ID& id, bool bAlreadyChecked)
 {
 	s.get_ID(id);
 
-	if (!s.IsValid())
+	if (!(bAlreadyChecked || s.IsValid()))
 	{
 		LOG_WARNING() << id << " header invalid!";
 		return DataStatus::Invalid;
@@ -2169,7 +2169,7 @@ NodeProcessor::DataStatus::Enum NodeProcessor::OnState(const Block::SystemState:
 {
 	Block::SystemState::ID id;
 
-	DataStatus::Enum ret = OnStateSilent(s, peer, id);
+	DataStatus::Enum ret = OnStateSilent(s, peer, id, false);
 	if (DataStatus::Accepted == ret)
 	{
 		LOG_INFO() << id << " Header accepted";
@@ -2178,9 +2178,9 @@ NodeProcessor::DataStatus::Enum NodeProcessor::OnState(const Block::SystemState:
 	return ret;
 }
 
-NodeProcessor::DataStatus::Enum NodeProcessor::OnStateSilent(const Block::SystemState::Full& s, const PeerID& peer, Block::SystemState::ID& id)
+NodeProcessor::DataStatus::Enum NodeProcessor::OnStateSilent(const Block::SystemState::Full& s, const PeerID& peer, Block::SystemState::ID& id, bool bAlreadyChecked)
 {
-	DataStatus::Enum ret = OnStateInternal(s, id);
+	DataStatus::Enum ret = OnStateInternal(s, id, bAlreadyChecked);
 	if (DataStatus::Accepted == ret)
 	{
 		uint64_t rowid = m_DB.InsertState(s);
@@ -3094,7 +3094,7 @@ bool NodeProcessor::ImportMacroBlockInternal(Block::BodyBase::IMacroReader& r)
 		if (id.m_Height >= Rules::HeightGenesis)
 			cmmr.Append(id.m_Hash);
 
-		switch (OnStateInternal(s, id))
+		switch (OnStateInternal(s, id, false))
 		{
 		case DataStatus::Invalid:
 		{
