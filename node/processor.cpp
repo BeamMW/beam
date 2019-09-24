@@ -1675,6 +1675,8 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, MultiblockContext& m
 		auto r = block.get_Reader();
 		r.Reset();
 		RecognizeUtxos(std::move(r), sid.m_Height);
+
+		m_RecentStates.Push(sid.m_Row, s);
 	}
 
 	return bOk;
@@ -2125,17 +2127,19 @@ void NodeProcessor::RollbackTo(Height h)
 		}
 	}
 
+	m_RecentStates.RollbackTo(h);
+
 	InitCursor();
 	OnRolledBack();
 
 	m_Extra.m_Txos = id0;
 }
 
-NodeProcessor::DataStatus::Enum NodeProcessor::OnStateInternal(const Block::SystemState::Full& s, Block::SystemState::ID& id)
+NodeProcessor::DataStatus::Enum NodeProcessor::OnStateInternal(const Block::SystemState::Full& s, Block::SystemState::ID& id, bool bAlreadyChecked)
 {
 	s.get_ID(id);
 
-	if (!s.IsValid())
+	if (!(bAlreadyChecked || s.IsValid()))
 	{
 		LOG_WARNING() << id << " header invalid!";
 		return DataStatus::Invalid;
@@ -2165,7 +2169,7 @@ NodeProcessor::DataStatus::Enum NodeProcessor::OnState(const Block::SystemState:
 {
 	Block::SystemState::ID id;
 
-	DataStatus::Enum ret = OnStateSilent(s, peer, id);
+	DataStatus::Enum ret = OnStateSilent(s, peer, id, false);
 	if (DataStatus::Accepted == ret)
 	{
 		LOG_INFO() << id << " Header accepted";
@@ -2174,9 +2178,9 @@ NodeProcessor::DataStatus::Enum NodeProcessor::OnState(const Block::SystemState:
 	return ret;
 }
 
-NodeProcessor::DataStatus::Enum NodeProcessor::OnStateSilent(const Block::SystemState::Full& s, const PeerID& peer, Block::SystemState::ID& id)
+NodeProcessor::DataStatus::Enum NodeProcessor::OnStateSilent(const Block::SystemState::Full& s, const PeerID& peer, Block::SystemState::ID& id, bool bAlreadyChecked)
 {
-	DataStatus::Enum ret = OnStateInternal(s, id);
+	DataStatus::Enum ret = OnStateInternal(s, id, bAlreadyChecked);
 	if (DataStatus::Accepted == ret)
 	{
 		uint64_t rowid = m_DB.InsertState(s);
@@ -2271,6 +2275,10 @@ bool NodeProcessor::IsRemoteTipNeeded(const Block::SystemState::Full& sTipRemote
 
 uint64_t NodeProcessor::FindActiveAtStrict(Height h)
 {
+	const RecentStates::Entry* pE = m_RecentStates.Get(h);
+	if (pE)
+		return pE->m_RowID;
+
 	NodeDB::WalkerState ws(m_DB);
 	m_DB.EnumStatesAt(ws, h);
 	while (true)
@@ -2294,17 +2302,15 @@ Difficulty NodeProcessor::get_NextDifficulty()
 
 	THW thw0, thw1;
 
-	get_MovingMedianEx(m_Cursor.m_Sid.m_Row, r.DA.WindowMedian1, thw1);
+	get_MovingMedianEx(m_Cursor.m_Sid.m_Height, r.DA.WindowMedian1, thw1);
 
 	if (m_Cursor.m_Full.m_Height - Rules::HeightGenesis >= r.DA.WindowWork)
 	{
-		uint64_t row0 = FindActiveAtStrict(m_Cursor.m_Full.m_Height - r.DA.WindowWork);
-		get_MovingMedianEx(row0, r.DA.WindowMedian1, thw0);
+		get_MovingMedianEx(m_Cursor.m_Full.m_Height - r.DA.WindowWork, r.DA.WindowMedian1, thw0);
 	}
 	else
 	{
-		uint64_t row0 = FindActiveAtStrict(Rules::HeightGenesis);
-		get_MovingMedianEx(row0, r.DA.WindowMedian1, thw0); // awkward to look for median, since they're immaginary. But makes sure we stick to the same median search and rounding (in case window is even).
+		get_MovingMedianEx(Rules::HeightGenesis, r.DA.WindowMedian1, thw0); // awkward to look for median, since they're immaginary. But makes sure we stick to the same median search and rounding (in case window is even).
 
 		// how many immaginary prehistoric blocks should be offset
 		uint32_t nDelta = r.DA.WindowWork - static_cast<uint32_t>(m_Cursor.m_Full.m_Height - Rules::HeightGenesis);
@@ -2360,28 +2366,44 @@ Difficulty NodeProcessor::get_NextDifficulty()
 	return res;
 }
 
-void NodeProcessor::get_MovingMedianEx(uint64_t rowLast, uint32_t nWindow, THW& res)
+void NodeProcessor::get_MovingMedianEx(Height hLast, uint32_t nWindow, THW& res)
 {
 	std::vector<THW> v;
 	v.reserve(nWindow);
 
-	assert(rowLast);
+	assert(hLast >= Rules::HeightGenesis);
+	uint64_t rowLast = 0;
+
 	while (v.size() < nWindow)
 	{
 		v.emplace_back();
 		THW& thw = v.back();
 
-		if (rowLast)
+		if (hLast >= Rules::HeightGenesis)
 		{
-			Block::SystemState::Full s;
-			m_DB.get_State(rowLast, s);
+			const RecentStates::Entry* pE = m_RecentStates.Get(hLast);
+
+			Block::SystemState::Full sDb;
+			if (!pE)
+			{
+				if (rowLast)
+				{
+					if (!m_DB.get_Prev(rowLast))
+						OnCorrupted();
+				}
+				else
+					rowLast = FindActiveAtStrict(hLast);
+
+				m_DB.get_State(rowLast, sDb);
+			}
+
+			const Block::SystemState::Full& s = pE ? pE->m_State : sDb;
 
 			thw.first = s.m_TimeStamp;
 			thw.second.first = s.m_Height;
 			thw.second.second = s.m_ChainWork;
 
-			if (!m_DB.get_Prev(rowLast))
-				rowLast = 0;
+			hLast--;
 		}
 		else
 		{
@@ -2406,7 +2428,7 @@ Timestamp NodeProcessor::get_MovingMedian()
 		return 0;
 
 	THW thw;
-	get_MovingMedianEx(m_Cursor.m_Sid.m_Row, Rules::get().DA.WindowMedian0, thw);
+	get_MovingMedianEx(m_Cursor.m_Sid.m_Height, Rules::get().DA.WindowMedian0, thw);
 	return thw.first;
 }
 
@@ -3072,7 +3094,7 @@ bool NodeProcessor::ImportMacroBlockInternal(Block::BodyBase::IMacroReader& r)
 		if (id.m_Height >= Rules::HeightGenesis)
 			cmmr.Append(id.m_Hash);
 
-		switch (OnStateInternal(s, id))
+		switch (OnStateInternal(s, id, false))
 		{
 		case DataStatus::Invalid:
 		{
@@ -3499,6 +3521,66 @@ bool NodeProcessor::GetBlock(const NodeDB::StateID& sid, ByteBuffer* pEthernal, 
 	pPerishable->insert(pPerishable->end(), bbBlob.begin(), bbBlob.end());
 
 	return true;
+}
+
+NodeProcessor::RecentStates::Entry& NodeProcessor::RecentStates::get_FromTail(size_t x) const
+{
+	assert((x < m_Count) && (m_Count <= m_vec.size()));
+	return Cast::NotConst(m_vec[(m_i0 + m_Count - x - 1) % m_vec.size()]);
+}
+
+const NodeProcessor::RecentStates::Entry* NodeProcessor::RecentStates::Get(Height h) const
+{
+	if (!m_Count)
+		return nullptr;
+
+	const Entry& e = get_FromTail(0);
+	if (h > e.m_State.m_Height)
+		return nullptr;
+
+	Height dh = e.m_State.m_Height - h;
+	if (dh >= m_Count)
+		return nullptr;
+
+	const Entry& e2 = get_FromTail(static_cast<size_t>(dh));
+	assert(e2.m_State.m_Height == h);
+	return &e2;
+}
+
+void NodeProcessor::RecentStates::RollbackTo(Height h)
+{
+	for (; m_Count; m_Count--)
+	{
+		const Entry& e = get_FromTail(0);
+		if (e.m_State.m_Height == h)
+			break;
+	}
+}
+
+void NodeProcessor::RecentStates::Push(uint64_t rowID, const Block::SystemState::Full& s)
+{
+	if (m_vec.empty())
+	{
+		// we use this cache mainly to improve difficulty calculation. Hence the cache size is appropriate
+		const Rules& r = Rules::get();
+	
+		const size_t n = std::max(r.DA.WindowWork + r.DA.WindowMedian1, r.DA.WindowMedian0) + 5;
+		m_vec.resize(n);
+	}
+	else
+	{
+		// ensure we don't have out-of-order entries
+		RollbackTo(s.m_Height - 1);
+	}
+
+	if (m_Count < m_vec.size())
+		m_Count++;
+	else
+		m_i0++;
+
+	Entry& e = get_FromTail(0);
+	e.m_RowID = rowID;
+	e.m_State = s;
 }
 
 } // namespace beam

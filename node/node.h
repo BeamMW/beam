@@ -190,6 +190,8 @@ struct Node
 
 	bool GenerateRecoveryInfo(const char*);
 
+	bool DecodeAndCheckHdrs(std::vector<Block::SystemState::Full>&, const proto::HdrPack&);
+
 private:
 
 	struct Processor

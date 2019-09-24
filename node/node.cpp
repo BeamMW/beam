@@ -1738,40 +1738,106 @@ void Node::Peer::OnMsg(proto::GetHdr&& msg)
 
 void Node::Peer::OnMsg(proto::GetHdrPack&& msg)
 {
-    proto::HdrPack msgOut;
+	proto::HdrPack msgOut;
 
-    if (msg.m_Count)
-    {
+	if (msg.m_Count)
+	{
 		// don't throw unexpected if pack size is bigger than max. In case it'll be increased in future versions - just truncate it.
 		msg.m_Count = std::min(msg.m_Count, proto::g_HdrPackMaxSize);
 
-        NodeDB& db = m_This.m_Processor.get_DB();
-        uint64_t rowid = db.StateFindSafe(msg.m_Top);
-        if (rowid)
-        {
-            msgOut.m_vElements.reserve(msg.m_Count);
+		NodeDB& db = m_This.m_Processor.get_DB();
 
-            Block::SystemState::Full s;
-            for (uint32_t n = 0; ; )
-            {
-                db.get_State(rowid, s);
-                msgOut.m_vElements.push_back(s);
+		NodeDB::StateID sid;
+		sid.m_Row = db.StateFindSafe(msg.m_Top);
+		if (sid.m_Row)
+		{
+			sid.m_Height = msg.m_Top.m_Height;
 
-                if (++n == msg.m_Count)
-                    break;
+			NodeDB::WalkerSystemState wlk(db);
+			for (db.EnumSystemStatesBkwd(wlk, sid); wlk.MoveNext(); )
+			{
+				if (msgOut.m_vElements.empty())
+					msgOut.m_vElements.reserve(msg.m_Count);
 
-                if (!db.get_Prev(rowid))
-                    break;
-            }
+				msgOut.m_vElements.push_back(wlk.m_State);
 
-            msgOut.m_Prefix = s;
-        }
-    }
+				if (msgOut.m_vElements.size() == msg.m_Count)
+					break;
+			}
 
-    if (msgOut.m_vElements.empty())
-        Send(proto::DataMissing(Zero));
-    else
-        Send(msgOut);
+			if (!msgOut.m_vElements.empty())
+				msgOut.m_Prefix = wlk.m_State;
+		}
+	}
+
+	if (msgOut.m_vElements.empty())
+		Send(proto::DataMissing(Zero));
+	else
+		Send(msgOut);
+}
+
+bool Node::DecodeAndCheckHdrs(std::vector<Block::SystemState::Full>& v, const proto::HdrPack& msg)
+{
+	if (msg.m_vElements.empty() || (msg.m_vElements.size() > proto::g_HdrPackMaxSize))
+		return false;
+
+	// PoW verification is heavy for big packs. Do it in parallel
+	v.resize(msg.m_vElements.size());
+
+	Cast::Down<Block::SystemState::Sequence::Prefix>(v.front()) = msg.m_Prefix;
+	Cast::Down<Block::SystemState::Sequence::Element>(v.front()) = msg.m_vElements.back();
+
+	for (size_t i = 1; i < msg.m_vElements.size(); i++)
+	{
+		Block::SystemState::Full& s0 = v[i - 1];
+		Block::SystemState::Full& s1 = v[i];
+
+		s0.get_Hash(s1.m_Prev);
+		s1.m_Height = s0.m_Height + 1;
+		Cast::Down<Block::SystemState::Sequence::Element>(s1) = msg.m_vElements[msg.m_vElements.size() - i - 1];
+		s1.m_ChainWork = s0.m_ChainWork + s1.m_PoW.m_Difficulty;
+	}
+
+	struct MyTask
+		:public NodeProcessor::Task
+	{
+		const Block::SystemState::Full* m_pV;
+		size_t m_Count;
+		bool* m_pValid;
+
+		virtual ~MyTask() {}
+
+		virtual void Exec() override
+		{
+			for (size_t i = 0; i < m_Count; i++)
+				if (!m_pV[i].IsValid())
+					*m_pValid = false;
+		}
+	};
+
+	Processor::Task::Processor& tp = m_Processor.m_TaskProcessor;
+	uint32_t nThreads = tp.get_Threads();
+
+	const Block::SystemState::Full* pV = &v.front();
+	size_t nCount = v.size();
+	bool bValid = true;
+
+	for (; nThreads; nThreads--)
+	{
+		std::unique_ptr<MyTask> pTask(new MyTask);
+		pTask->m_pValid = &bValid;
+		pTask->m_pV = pV;
+		pTask->m_Count = nCount / nThreads;
+
+		pV += pTask->m_Count;
+		nCount -= pTask->m_Count;
+
+		tp.Push(std::move(pTask));
+	}
+
+	tp.Flush(0);
+
+	return bValid;
 }
 
 void Node::Peer::OnMsg(proto::HdrPack&& msg)
@@ -1781,25 +1847,25 @@ void Node::Peer::OnMsg(proto::HdrPack&& msg)
     if (t.m_Key.second || !t.m_nCount)
         ThrowUnexpected();
 
-    if (msg.m_vElements.empty() || (msg.m_vElements.size() > proto::g_HdrPackMaxSize))
+	std::vector<Block::SystemState::Full> v;
+	if (!m_This.DecodeAndCheckHdrs(v, msg))
         ThrowUnexpected();
 
-    Block::SystemState::Full s;
-    Cast::Down<Block::SystemState::Sequence::Prefix>(s) = msg.m_Prefix;
-    Cast::Down<Block::SystemState::Sequence::Element>(s) = msg.m_vElements.back();
-
-    bool bInvalid = false;
-
+	// just to be pedantic
 	Block::SystemState::ID idLast;
+	v.back().get_ID(idLast);
+	if (idLast != t.m_Key.first)
+		ThrowUnexpected();
 
-    for (size_t i = msg.m_vElements.size(); ; )
+    for (size_t i = 0; i < v.size(); i++)
     {
-        NodeProcessor::DataStatus::Enum eStatus = m_This.m_Processor.OnStateSilent(s, m_pInfo->m_ID.m_Key, idLast);
+        NodeProcessor::DataStatus::Enum eStatus = m_This.m_Processor.OnStateSilent(v[i], m_pInfo->m_ID.m_Key, idLast, true);
         switch (eStatus)
         {
         case NodeProcessor::DataStatus::Invalid:
-            bInvalid = true;
-            break;
+			// though PoW was already tested, header can still be invalid. For instance, due to improper Timestamp
+			ThrowUnexpected();
+			break;
 
         case NodeProcessor::DataStatus::Accepted:
 			// no break;
@@ -1807,25 +1873,11 @@ void Node::Peer::OnMsg(proto::HdrPack&& msg)
         default:
             break; // suppress warning
         }
-
-        if (! --i)
-            break;
-
-        s.NextPrefix();
-        Cast::Down<Block::SystemState::Sequence::Element>(s) = msg.m_vElements[i - 1];
-        s.m_ChainWork += s.m_PoW.m_Difficulty;
     }
-
-	// just to be pedantic
-	if (idLast != t.m_Key.first)
-		bInvalid = true;
 
 	LOG_INFO() << "Hdr pack received " << msg.m_Prefix.m_Height << "-" << idLast;
 
 	ModifyRatingWrtData(sizeof(msg.m_Prefix) + msg.m_vElements.size() * sizeof(msg.m_vElements.front()));
-
-	if (bInvalid)
-		ThrowUnexpected();
 
 	OnFirstTaskDone(NodeProcessor::DataStatus::Accepted);
 	m_This.UpdateSyncStatus();
