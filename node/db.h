@@ -77,6 +77,7 @@ public:
 			StateGetHeightAndPrev,
 			StateFind,
 			StateFind2,
+			StateFindWithFlag,
 			StateFindWorkGreater,
 			StateUpdPrevRow,
 			StateGetNextFCount,
@@ -248,6 +249,7 @@ public:
 
 	uint64_t InsertState(const Block::SystemState::Full&); // Fails if state already exists
 
+	uint64_t FindActiveStateStrict(Height);
 	uint64_t StateFindSafe(const Block::SystemState::ID&);
 	void get_State(uint64_t rowid, Block::SystemState::Full&);
 	void get_StateHash(uint64_t rowid, Merkle::Hash&);

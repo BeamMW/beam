@@ -854,6 +854,19 @@ uint64_t NodeDB::StateFindSafe(const Block::SystemState::ID& k)
 	return rowid;
 }
 
+uint64_t NodeDB::FindActiveStateStrict(Height h)
+{
+	Recordset rs(*this, Query::StateFindWithFlag, "SELECT rowid FROM " TblStates " WHERE " TblStates_Height "=? AND (" TblStates_Flags " & ?)");
+	rs.put(0, h);
+	rs.put(1, StateFlags::Active);
+	rs.StepStrict();
+
+	uint64_t rowid;
+	rs.get(0, rowid);
+	assert(rowid);
+	return rowid;
+}
+
 void NodeDB::SetNextCount(uint64_t rowid, uint32_t n)
 {
 	Recordset rs(*this, Query::StateSetNextCount, "UPDATE " TblStates " SET " TblStates_CountNext "=? WHERE rowid=?");

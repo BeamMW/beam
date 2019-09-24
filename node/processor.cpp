@@ -2279,16 +2279,7 @@ uint64_t NodeProcessor::FindActiveAtStrict(Height h)
 	if (pE)
 		return pE->m_RowID;
 
-	NodeDB::WalkerState ws(m_DB);
-	m_DB.EnumStatesAt(ws, h);
-	while (true)
-	{
-		if (!ws.MoveNext())
-			OnCorrupted();
-
-		if (NodeDB::StateFlags::Active & m_DB.GetStateFlags(ws.m_Sid.m_Row))
-			return ws.m_Sid.m_Row;
-	}
+	return m_DB.FindActiveStateStrict(h);
 }
 
 /////////////////////////////
