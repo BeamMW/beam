@@ -13,6 +13,8 @@
 // limitations under the License.
 
 #include "db.h"
+#include "../core/peer_manager.h"
+#include "../utility/logger.h"
 
 namespace beam {
 
@@ -290,7 +292,8 @@ void NodeDB::Open(const char* szPath)
 	}
 
 	const uint64_t nVersion17 = 17; // before UTXO image
-	const uint64_t nVersionTop = 18;
+	const uint64_t nVersion18 = 18; // ridiculous rating values, no States.Inputs column, Txo.SpendHeight is still indexed
+	const uint64_t nVersionTop = 19;
 
 	Transaction t(*this);
 
@@ -304,11 +307,25 @@ void NodeDB::Open(const char* szPath)
 		uint64_t nVer = ParamIntGetDef(ParamID::DbVer);
 		if (nVer != nVersionTop)
 		{
-			if (nVer < nVersion17)
-				throw NodeDBUpgradeException("Node upgrade is not supported. Please, remove node.db and tempmb files");
+			switch (nVer)
+			{
+			case nVersion17:
+				// no break;
 
-			if (nVer > nVersionTop)
-				throw NodeDBUpgradeException("Unsupported db version");
+			case nVersion18:
+
+				LOG_INFO() << "DB migrate from" << nVersion18;
+				MigrateFrom18();
+				break;
+
+			default:
+				if (nVer < nVersion17)
+					throw NodeDBUpgradeException("Node upgrade is not supported. Please, remove node.db and tempmb files");
+
+				if (nVer > nVersionTop)
+					throw NodeDBUpgradeException("Unsupported db version");
+
+			}
 
 			ParamSet(ParamID::DbVer, &nVersionTop, NULL);
 		}
@@ -2158,6 +2175,71 @@ void NodeDB::TxoGetValue(WalkerTxo& wlk, TxoID id0)
 
 	wlk.m_Rs.StepStrict();
 	wlk.m_Rs.get(0, wlk.m_Value);
+}
+
+void NodeDB::MigrateFrom18()
+{
+	{
+		LOG_INFO() << "Resetting peer ratings...";
+
+		std::vector<WalkerPeer::Data> v;
+
+		{
+			WalkerPeer wlk(*this);
+			for (EnumPeers(wlk); wlk.MoveNext(); )
+				v.push_back(wlk.m_Data);
+		}
+
+		PeersDel();
+
+		for (size_t i = 0; i < v.size(); i++)
+		{
+			WalkerPeer::Data& d = v[i];
+			d.m_Rating = PeerManager::Rating::Initial;
+			PeerIns(d);
+		}
+	}
+
+	LOG_INFO() << "Migrating inputs...";
+
+	ExecQuick("ALTER TABLE " TblStates " ADD COLUMN "  "[" TblStates_Inputs	"] BLOB");
+
+	std::vector<StateInput> vInps;
+	Height h = 0;
+
+	WalkerTxo wlk(*this);
+	wlk.m_Rs.Reset(Query::TxoEnumBySpentMigrate, "SELECT " TblTxo_ID "," TblTxo_Value "," TblTxo_SpendHeight " FROM " TblTxo " WHERE " TblTxo_SpendHeight " IS NOT NULL ORDER BY " TblTxo_SpendHeight "," TblTxo_ID);
+	while (true)
+	{
+		bool bNext = wlk.MoveNext();
+
+		bool bFlush = !vInps.empty() && (!bNext || (wlk.m_SpendHeight != h));
+		if (bFlush)
+		{
+			uint64_t rowid = FindActiveStateStrict(h);
+			set_StateInputs(rowid, &vInps.front(), vInps.size());
+			vInps.clear();
+		}
+
+		if (!bNext)
+			break;
+
+		h = wlk.m_SpendHeight;
+
+		// extract input from output (which may be naked already)
+		if (wlk.m_Value.n < sizeof(ECC::Point))
+			ThrowInconsistent();
+		const uint8_t* pSrc = reinterpret_cast<const uint8_t*>(wlk.m_Value.p);
+
+		StateInput& x = vInps.emplace_back();
+
+		x.m_Txo_AndY = wlk.m_ID;
+		memcpy(x.m_CommX.m_pData, pSrc + 1, x.m_CommX.nBytes);
+		if (1 & pSrc[0])
+			x.m_Txo_AndY |= StateInput::s_Y;
+	}
+
+	ExecQuick("DROP INDEX [Idx" TblTxo "SH]");
 }
 
 } // namespace beam

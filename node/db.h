@@ -148,6 +148,7 @@ public:
 			TxoSetSpent,
 			TxoCount,
 			TxoEnum,
+			TxoEnumBySpentMigrate,
 			TxoSetValue,
 			TxoGetValue,
 			BlockFind,
@@ -522,6 +523,8 @@ private:
 	void put_Cursor(const StateID& sid); // jump
 
 	void TestChanged1Row();
+
+	void MigrateFrom18();
 
 	struct Dmmr;
 };
