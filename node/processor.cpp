@@ -1024,9 +1024,10 @@ void NodeProcessor::TryGoUp()
 		MultiblockContext mbc(*this);
 		bool bContextFail = false;
 
+		NodeDB::StateID sidFwd = m_Cursor.m_Sid;
+
 		for (size_t i = vPath.size(); i--; )
 		{
-			NodeDB::StateID sidFwd;
 			sidFwd.m_Height = m_Cursor.m_Sid.m_Height + 1;
 			sidFwd.m_Row = vPath[i];
 
@@ -1113,6 +1114,9 @@ void NodeProcessor::TryGoUp()
 						}
 
 						mbc.OnFastSyncFailed(false);
+
+						sidFwd = m_Cursor.m_Sid; // don't delete any more blocks
+
 					}
 				}
 				else
@@ -1144,11 +1148,9 @@ void NodeProcessor::TryGoUp()
 		if (!bContextFail)
 			LOG_WARNING() << "Context-free verification failed";
 
-		NodeDB::StateID sidTop = m_Cursor.m_Sid;
-
 		RollbackTo(mbc.m_InProgress.m_Min - 1);
 
-		DeleteBlocksInRange(sidTop, m_Cursor.m_Sid.m_Height); // blocks from this peer
+		DeleteBlocksInRange(sidFwd, m_Cursor.m_Sid.m_Height); // blocks from this peer
 		OnPeerInsane(mbc.m_pidLast);
 	}
 
