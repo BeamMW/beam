@@ -2084,6 +2084,14 @@ void NodeDB::TxoAdd(TxoID id, const Blob& b)
 	rs.Step();
 }
 
+void NodeDB::TxoDel(TxoID id)
+{
+	Recordset rs(*this, Query::TxoDel, "DELETE FROM " TblTxo " WHERE " TblTxo_ID "=?");
+	rs.put(0, id);
+	rs.Step();
+	TestChanged1Row();
+}
+
 void NodeDB::TxoDelFrom(TxoID id)
 {
 	Recordset rs(*this, Query::TxoDelFrom, "DELETE FROM " TblTxo " WHERE " TblTxo_ID ">=?");
@@ -2094,7 +2102,8 @@ void NodeDB::TxoDelFrom(TxoID id)
 void NodeDB::TxoSetSpent(TxoID id, Height h)
 {
 	Recordset rs(*this, Query::TxoSetSpent, "UPDATE " TblTxo " SET " TblTxo_SpendHeight "=? WHERE " TblTxo_ID "=?");
-	rs.put(0, h);
+	if (MaxHeight != h)
+		rs.put(0, h);
 	rs.put(1, id);
 
 	rs.Step();

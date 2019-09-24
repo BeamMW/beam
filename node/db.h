@@ -143,6 +143,7 @@ public:
 			KernelFind,
 			KernelDel,
 			TxoAdd,
+			TxoDel,
 			TxoDelFrom,
 			TxoSetSpent,
 			TxoDelSpentFrom,
@@ -448,6 +449,7 @@ public:
 	uint64_t FindStateWorkGreater(const Difficulty::Raw&);
 
 	void TxoAdd(TxoID, const Blob&);
+	void TxoDel(TxoID);
 	void TxoDelFrom(TxoID);
 	void TxoSetSpent(TxoID, Height);
 	void TxoDelSpentFrom(Height);
