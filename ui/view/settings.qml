@@ -224,7 +224,7 @@ ColumnLayout {
                 feeRate:             viewModel.btcFeeRate
                 minFeeRate:          BeamGlobals.minFeeRateBtc()
                 feeRateLabel:        BeamGlobals.btcFeeRateLabel()
-                Layout.minimumWidth: swapBtcGrid.width / 2 - swapBtcGrid.spacing - btcUseEL.width
+                Layout.minimumWidth: swapBtcGrid.width / 2 - swapBtcGrid.spacing - btcUseEL.width / 2
                 opacity:             viewModel.btcUseEL ? 0.4 : 1
 
                 Connections {
@@ -264,8 +264,7 @@ ColumnLayout {
             }
 
             CustomSwitch {
-                Layout.fillWidth: true
-                id:      btcUseEL
+                id:       btcUseEL
                 spacing:  0
                 colored:  false
                 checked:  viewModel.btcUseEL
@@ -333,7 +332,7 @@ ColumnLayout {
                 feeRate:             viewModel.ltcFeeRate
                 minFeeRate:          BeamGlobals.minFeeRateLtc()
                 feeRateLabel:        BeamGlobals.ltcFeeRateLabel()
-                Layout.minimumWidth: swapLtcGrid.width / 2 - swapLtcGrid.spacing - ltcUseEL.width
+                Layout.minimumWidth: swapLtcGrid.width / 2 - swapLtcGrid.spacing - ltcUseEL.width  / 2
                 opacity:             viewModel.ltcUseEL ? 0.4 : 1
 
                 Connections {
@@ -373,7 +372,6 @@ ColumnLayout {
             }
 
             CustomSwitch {
-                Layout.fillWidth: true
                 id:      ltcUseEL
                 spacing:  0
                 colored:  false
@@ -442,7 +440,7 @@ ColumnLayout {
                 feeRate:              viewModel.qtumFeeRate
                 minFeeRate:           BeamGlobals.minFeeRateQtum()
                 feeRateLabel:         BeamGlobals.qtumFeeRateLabel()
-                Layout.minimumWidth:  swapQtumGrid.width / 2 - swapQtumGrid.spacing - qtumUseEL.width
+                Layout.minimumWidth:  swapQtumGrid.width / 2 - swapQtumGrid.spacing - qtumUseEL.width / 2
                 opacity:              viewModel.qtumUseEL ? 0.4 : 1
 
                 Connections {
@@ -482,7 +480,6 @@ ColumnLayout {
             }
 
             CustomSwitch {
-                Layout.fillWidth: true
                 id:       qtumUseEL
                 spacing:  0
                 colored:  false
