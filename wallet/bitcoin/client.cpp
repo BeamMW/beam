@@ -76,6 +76,7 @@ namespace beam::bitcoin
     {
         Lock lock(m_mutex);
         m_settingsProvider->SetSettings(settings);
+        m_bridge.reset();
     }
 
     void Client::GetStatus()
@@ -109,6 +110,7 @@ namespace beam::bitcoin
         {
             Lock lock(m_mutex);
             m_settingsProvider->ResetSettings();
+            m_bridge.reset();
         }
 
         SetStatus(Status::Uninitialized);

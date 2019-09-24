@@ -156,6 +156,7 @@ public:
 			FindHeightBelow,
 			ShieldedIns,
 			ShieldedDel,
+			EnumSystemStatesBkwd,
 
 			Dbg0,
 			Dbg1,
@@ -465,6 +466,18 @@ public:
 
 	// reset cursor to zero. Keep all the data: local peers, bbs, dummy UTXOs
 	void ResetCursor();
+
+	struct WalkerSystemState
+	{
+		Recordset m_Rs;
+		uint64_t m_RowTrg;
+		Block::SystemState::Full m_State;
+
+		WalkerSystemState(NodeDB& db) :m_Rs(db) {}
+		bool MoveNext();
+	};
+
+	void EnumSystemStatesBkwd(WalkerSystemState&, const StateID&);
 
 private:
 

@@ -24,6 +24,8 @@ auto TransactionsList::roleNames() const -> QHash<int, QByteArray>
     {
         { static_cast<int>(Roles::TimeCreated), "timeCreated" },
         { static_cast<int>(Roles::TimeCreatedSort), "timeCreatedSort" },
+        { static_cast<int>(Roles::AmountGeneral), "amountGeneral" },
+        { static_cast<int>(Roles::AmountGeneralSort), "amountGeneralSort" },
         { static_cast<int>(Roles::AmountSend), "amountSend" },
         { static_cast<int>(Roles::AmountSendSort), "amountSendSort" },
         { static_cast<int>(Roles::AmountReceive), "amountReceive" },
@@ -34,6 +36,11 @@ auto TransactionsList::roleNames() const -> QHash<int, QByteArray>
         { static_cast<int>(Roles::AddressToSort), "addressToSort" },
         { static_cast<int>(Roles::Status), "status" },
         { static_cast<int>(Roles::StatusSort), "statusSort" },
+        { static_cast<int>(Roles::Fee), "fee" },
+        { static_cast<int>(Roles::Comment), "comment" },
+        { static_cast<int>(Roles::TxID), "txID" },
+        { static_cast<int>(Roles::KernelID), "kernelID" },
+        { static_cast<int>(Roles::FailureReason), "failureReason" },
         { static_cast<int>(Roles::IsCancelAvailable), "isCancelAvailable" },
         { static_cast<int>(Roles::IsDeleteAvailable), "isDeleteAvailable" },
         { static_cast<int>(Roles::IsSelfTransaction), "isSelfTransaction" },
@@ -41,6 +48,7 @@ auto TransactionsList::roleNames() const -> QHash<int, QByteArray>
         { static_cast<int>(Roles::IsInProgress), "isInProgress" },
         { static_cast<int>(Roles::IsCompleted), "isCompleted" },
         { static_cast<int>(Roles::IsBeamSideSwap), "isBeamSideSwap" },
+        { static_cast<int>(Roles::HasPaymentProof), "hasPaymentProof" },
         { static_cast<int>(Roles::SwapCoin), "swapCoin" },
         { static_cast<int>(Roles::RawTxID), "rawTxID" }
     };
@@ -60,6 +68,11 @@ auto TransactionsList::data(const QModelIndex &index, int role) const -> QVarian
         case Roles::TimeCreated:
         case Roles::TimeCreatedSort:
             return value->timeCreated();
+
+        case Roles::AmountGeneral:
+            return value->getAmount();
+        case Roles::AmountGeneralSort:
+            return value->getAmountValue();
             
         case Roles::AmountSend:
             return value->getSentAmount();
@@ -83,6 +96,21 @@ auto TransactionsList::data(const QModelIndex &index, int role) const -> QVarian
         case Roles::StatusSort:
             return value->status();
 
+        case Roles::Fee:
+            return value->getFee();
+
+        case Roles::Comment:
+            return value->comment();
+
+        case Roles::TxID:
+            return value->getTransactionID();
+
+        case Roles::KernelID:
+            return value->getKernelID();
+
+        case Roles::FailureReason:
+            return value->getFailureReason();
+
         case Roles::IsCancelAvailable:
             return value->canCancel();
 
@@ -103,6 +131,9 @@ auto TransactionsList::data(const QModelIndex &index, int role) const -> QVarian
 
         case Roles::IsBeamSideSwap:
             return value->isBeamSideSwap();
+
+        case Roles::HasPaymentProof:
+            return value->hasPaymentProof();
 
         case Roles::SwapCoin:
             return value->getSwapCoinType();

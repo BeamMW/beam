@@ -38,7 +38,7 @@ namespace beam::bitcoin
     {
     public:
 
-        using CreateBridge = std::function<IBridge::Ptr(io::Reactor& reactor, IBitcoinCoreSettingsProvider::Ptr settingsProvider)>;
+        using CreateBridge = std::function<IBridge::Ptr(io::Reactor& reactor, ISettingsProvider::Ptr settingsProvider)>;
 
         struct Balance
         {

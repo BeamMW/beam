@@ -44,8 +44,10 @@ T.TextField {
         opacity: 0.5
         color: control.color
         verticalAlignment: control.verticalAlignment
-        visible: !control.length && !control.preeditText && (!control.activeFocus || control.horizontalAlignment !== Qt.AlignHCenter)
+        horizontalAlignment: control.horizontalAlignment
+        visible:  !control.activeFocus && !control.length && !control.preeditText
         elide: Text.ElideRight
+        wrapMode: control.wrapMode
     }
 
     background: Rectangle {

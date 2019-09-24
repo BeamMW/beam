@@ -99,7 +99,6 @@ public:
     Q_INVOKABLE bool inProgress() const;
     Q_INVOKABLE bool isCompleted() const;
     Q_INVOKABLE bool isSelfTx() const;
-    Q_INVOKABLE PaymentInfoItem* getPaymentInfo();
 
 signals:
     void incomeChanged();

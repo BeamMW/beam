@@ -27,6 +27,8 @@ public:
     {
         TimeCreated = Qt::UserRole + 1,
         TimeCreatedSort,
+        AmountGeneral,
+        AmountGeneralSort,
         AmountSend,
         AmountSendSort,
         AmountReceive,
@@ -37,6 +39,11 @@ public:
         AddressToSort,
         Status,
         StatusSort,
+        Fee,
+        Comment,
+        TxID,
+        KernelID,
+        FailureReason,
         IsCancelAvailable,
         IsDeleteAvailable,
         IsSelfTransaction,
@@ -44,6 +51,7 @@ public:
         IsInProgress,
         IsCompleted,
         IsBeamSideSwap,
+        HasPaymentProof,
         SwapCoin,
         RawTxID
     };

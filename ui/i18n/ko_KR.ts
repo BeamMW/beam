@@ -801,12 +801,14 @@
         <translation>지갑을 실행하지 못했습니다. 지갑 데이터 위치를 확인하십시오</translation>
     </message>
     <message id="loading-view-download-blocks">
-        <source>Downloading blocks</source>
-        <translation>블록 다운로딩중</translation>
+        <source>Downloading new blocks</source>
+        <oldsource>Downloading blocks</oldsource>
+        <translation type="unfinished">블록 다운로딩중</translation>
     </message>
     <message id="loading-view-scaning-utxo">
-        <source>Scanning UTXO %d/%d</source>
-        <translation>UTXO %d/%d 스캔하는중</translation>
+        <source>Scanning new blocks %d/%d</source>
+        <oldsource>Scanning UTXO %d/%d</oldsource>
+        <translation type="unfinished">UTXO %d/%d 스캔하는중</translation>
     </message>
     <message id="loading-view-protocol-error">
         <source>Incompatible peer</source>
@@ -1022,12 +1024,12 @@
         <translation>지갑에 접근하기 위해서 새 비밀번호를 생성해야합니다.</translation>
     </message>
     <message id="start-create-pwd-strength-message">
-        <source>Strong password needs to meet the following requirements:\n•  the length must be at least 10 characters\n•  must contain at least one lowercase letter\n•  must contain at least one uppercase letter\n•  must contain at least one number</source>
-        <oldsource>Strong password needs to meet the following requirements:
+        <source>Strong password needs to meet the following requirements:
 •  the length must be at least 10 characters
 •  must contain at least one lowercase letter
 •  must contain at least one uppercase letter
-•  must contain at least one number</oldsource>
+•  must contain at least one number</source>
+        <oldsource>Strong password needs to meet the following requirements:\n•  the length must be at least 10 characters\n•  must contain at least one lowercase letter\n•  must contain at least one uppercase letter\n•  must contain at least one number</oldsource>
         <translation type="unfinished">보안성이 강한 비밀번호를 만들기 위해서는 아래의 조건들을 충족시켜야 합니다 : \n• 최소한 10개의 글자로 이루어져야합니다.\n• 최소한 1개의 소문자가 포함되어야 합니다.\n• 최소한 1개의 대문자가 포함되어야 합니다.\n• 최소한 1개의 숫자가 포함되어야 합니다.</translation>
     </message>
     <message id="start-open-caps-warning">
@@ -1388,9 +1390,9 @@
         <translation type="unfinished"></translation>
     </message>
     <message id="swap-na-message">
-        <source>You do not have any 3rd-party currencies connected.\nUpdate your settings and try again.</source>
-        <oldsource>You do not have any 3rd-party currencies connected.
-Update your settings and try again.</oldsource>
+        <source>You do not have any 3rd-party currencies connected.
+Update your settings and try again.</source>
+        <oldsource>You do not have any 3rd-party currencies connected.\nUpdate your settings and try again.</oldsource>
         <translation type="unfinished"></translation>
     </message>
     <message id="wallet-receive-swap-title">
@@ -1478,9 +1480,9 @@ Update your settings and try again.</oldsource>
         <translation type="unfinished"></translation>
     </message>
     <message id="swap-currency-na-message">
-        <source>You do not have %1 connected.\nUpdate your settings and try again.</source>
-        <oldsource>You do not have %1 connected.
-Update your settings and try again.</oldsource>
+        <source>You do not have %1 connected.
+Update your settings and try again.</source>
+        <oldsource>You do not have %1 connected.\nUpdate your settings and try again.</oldsource>
         <translation type="unfinished"></translation>
     </message>
     <message id="send-swap-to-label">
@@ -1548,7 +1550,8 @@ Update your settings and try again.</oldsource>
         <translation type="unfinished"></translation>
     </message>
     <message id="loading-view-rebuild-utxos">
-        <source>Rebuilding UTXO image</source>
+        <source>Scanning existing blocks</source>
+        <oldsource>Rebuilding UTXO image</oldsource>
         <translation type="unfinished"></translation>
     </message>
     <message id="wallet-receive-copy-token">
@@ -1597,10 +1600,6 @@ you do not send large amounts.</oldsource>
         <source>Maturing</source>
         <translation type="unfinished">형성중</translation>
     </message>
-    <message id="available-panel-aswap">
-        <source>Atomic Swap</source>
-        <translation type="unfinished"></translation>
-    </message>
     <message id="available-panel-change">
         <source>Change</source>
         <translation type="unfinished">잔액</translation>
@@ -1619,6 +1618,18 @@ you do not send large amounts.</oldsource>
     </message>
     <message id="swap-beta-tx-in-progress">
         <source>Transaction is in progress</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="general-electrum">
+        <source></source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="settings-new-seed">
+        <source>Double click to generate new seed phrase</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="settings-invalid-seed">
+        <source>Invalid seed phrase</source>
         <translation type="unfinished"></translation>
     </message>
 </context>

@@ -205,8 +205,7 @@
     </message>
     <message id="wallet-txs-date-time">
         <source>Created on</source>
-        <oldsource>Date | Time</oldsource>
-        <translation>Date | Time</translation>
+        <translation>Created on</translation>
     </message>
     <message id="wallet-txs-copy-addr-cm">
         <source>Copy address</source>
@@ -311,10 +310,6 @@
         <source>Maturing</source>
         <translation>Maturing</translation>
     </message>
-    <message id="available-panel-aswap">
-        <source>Atomic Swap</source>
-        <translation>Atomic Swap</translation>
-    </message>
     <message id="available-panel-change">
         <source>Change</source>
         <translation>Change</translation>
@@ -332,6 +327,10 @@
         <source>ip:port</source>
         <extracomment>settings tab, node section, address label</extracomment>
         <translation>ip:port</translation>
+    </message>
+    <message id="settings-new-seed">
+        <source>Double click to generate new seed phrase</source>
+        <translation>Double click to generate new seed phrase</translation>
     </message>
     <message id="settings-local-node-run-checkbox">
         <source>Run local node</source>
@@ -829,12 +828,12 @@
         <translation>Failed to start wallet. Please check your wallet data location</translation>
     </message>
     <message id="loading-view-download-blocks">
-        <source>Downloading blocks</source>
-        <translation>Downloading blocks</translation>
+        <source>Downloading new blocks</source>
+        <translation>Downloading new blocks</translation>
     </message>
     <message id="loading-view-scaning-utxo">
-        <source>Scanning UTXO %d/%d</source>
-        <translation>Scanning UTXO %d/%d</translation>
+        <source>Scanning new blocks %d/%d</source>
+        <translation>Scanning new blocks %d/%d</translation>
     </message>
     <message id="loading-view-protocol-error">
         <source>Incompatible peer</source>
@@ -1407,6 +1406,11 @@ or send this address to the sender over secure channel</translation>
         <source>QTUM</source>
         <translation>QTUM</translation>
     </message>
+    <message id="general-electrum">
+        <source></source>
+        <oldsource>Electrum</oldsource>
+        <translation type="unfinished">Electrum</translation>
+    </message>
     <message id="swap-currency-na-message">
         <source>You do not have %1 connected.\nUpdate your settings and try again.</source>
         <translation>You do not have %1 connected.\nUpdate your settings and try again.</translation>
@@ -1440,8 +1444,8 @@ or send this address to the sender over secure channel</translation>
         <translation>calculating...</translation>
     </message>
     <message id="loading-view-rebuild-utxos">
-        <source>Rebuilding UTXO image</source>
-        <translation>Rebuilding UTXO image</translation>
+        <source>Scanning existing blocks</source>
+        <translation>Scanning existing blocks</translation>
     </message>
     <message id="loading-view-estimate-hours">
         <source>h.</source>
@@ -1614,6 +1618,10 @@ or send this address to the sender over secure channel</translation>
     <message id="swap-beta-tx-in-progress">
         <source>Transaction is in progress</source>
         <translation type="unfinished"></translation>
+    </message>
+    <message id="settings-invalid-seed">
+        <source>Invalid seed phrase</source>
+        <translation>Invalid seed phrase</translation>
     </message>
 </context>
 </TS>

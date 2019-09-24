@@ -801,12 +801,13 @@
         <translation>Невозможно запустить приложение. Проверьте путь к данным кошелька.</translation>
     </message>
     <message id="loading-view-download-blocks">
-        <source>Downloading blocks</source>
-        <translation>Загрузка блоков</translation>
+        <source>Downloading new blocks</source>
+        <oldsource>Downloading blocks</oldsource>
+        <translation>Загрузка новых блоков</translation>
     </message>
     <message id="loading-view-scaning-utxo">
-        <source>Scanning UTXO %d/%d</source>
-        <translation>Сканирование UTXO %d/%d</translation>
+        <source>Scanning new blocks %d/%d</source>
+        <translation>Сканирование новых блоков %d/%d</translation>
     </message>
     <message id="loading-view-protocol-error">
         <source>Incompatible peer</source>
@@ -1022,12 +1023,12 @@
         <translation>Создать новый пароль для доступа к вашему кошельку</translation>
     </message>
     <message id="start-create-pwd-strength-message">
-        <source>Strong password needs to meet the following requirements:\n•  the length must be at least 10 characters\n•  must contain at least one lowercase letter\n•  must contain at least one uppercase letter\n•  must contain at least one number</source>
-        <oldsource>Strong password needs to meet the following requirements:
+        <source>Strong password needs to meet the following requirements:
 •  the length must be at least 10 characters
 •  must contain at least one lowercase letter
 •  must contain at least one uppercase letter
-•  must contain at least one number</oldsource>
+•  must contain at least one number</source>
+        <oldsource>Strong password needs to meet the following requirements:\n•  the length must be at least 10 characters\n•  must contain at least one lowercase letter\n•  must contain at least one uppercase letter\n•  must contain at least one number</oldsource>
         <translation type="unfinished">Хороший пароль должен соответствовать следующим требованиям:
         •  длина минимум 10 символов
         •  содержит хотя бы одну строчную букву
@@ -1392,9 +1393,9 @@
         <translation type="unfinished"></translation>
     </message>
     <message id="swap-na-message">
-        <source>You do not have any 3rd-party currencies connected.\nUpdate your settings and try again.</source>
-        <oldsource>You do not have any 3rd-party currencies connected.
-Update your settings and try again.</oldsource>
+        <source>You do not have any 3rd-party currencies connected.
+Update your settings and try again.</source>
+        <oldsource>You do not have any 3rd-party currencies connected.\nUpdate your settings and try again.</oldsource>
         <translation type="unfinished"></translation>
     </message>
     <message id="wallet-receive-swap-title">
@@ -1482,9 +1483,9 @@ Update your settings and try again.</oldsource>
         <translation type="unfinished"></translation>
     </message>
     <message id="swap-currency-na-message">
-        <source>You do not have %1 connected.\nUpdate your settings and try again.</source>
-        <oldsource>You do not have %1 connected.
-Update your settings and try again.</oldsource>
+        <source>You do not have %1 connected.
+Update your settings and try again.</source>
+        <oldsource>You do not have %1 connected.\nUpdate your settings and try again.</oldsource>
         <translation type="unfinished"></translation>
     </message>
     <message id="send-swap-to-label">
@@ -1552,8 +1553,8 @@ Update your settings and try again.</oldsource>
         <translation type="unfinished"></translation>
     </message>
     <message id="loading-view-rebuild-utxos">
-        <source>Rebuilding UTXO image</source>
-        <translation type="unfinished"></translation>
+        <source>Scanning existing blocks</source>
+        <translation>Сканирование существующих блоков</translation>
     </message>
     <message id="wallet-receive-copy-token">
         <source>copy transaction token</source>
@@ -1601,10 +1602,6 @@ you do not send large amounts.</oldsource>
         <source>Maturing</source>
         <translation type="unfinished">Созревает</translation>
     </message>
-    <message id="available-panel-aswap">
-        <source>Atomic Swap</source>
-        <translation type="unfinished"></translation>
-    </message>
     <message id="available-panel-change">
         <source>Change</source>
         <translation type="unfinished">Сдача</translation>
@@ -1623,6 +1620,18 @@ you do not send large amounts.</oldsource>
     </message>
     <message id="swap-beta-tx-in-progress">
         <source>Transaction is in progress</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="general-electrum">
+        <source></source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="settings-new-seed">
+        <source>Double click to generate new seed phrase</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="settings-invalid-seed">
+        <source>Invalid seed phrase</source>
         <translation type="unfinished"></translation>
     </message>
 </context>

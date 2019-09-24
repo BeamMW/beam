@@ -894,6 +894,44 @@ void NodeDB::SetNextCountFunctional(uint64_t rowid, uint32_t n)
 	TestChanged1Row();
 }
 
+void NodeDB::EnumSystemStatesBkwd(WalkerSystemState& x, const StateID& sid)
+{
+#define THE_MACRO_1(dbname, extname) TblStates_##dbname
+	x.m_Rs.Reset(Query::EnumSystemStatesBkwd,
+		"SELECT rowid," TblStates_RowPrev "," StateCvt_Fields(THE_MACRO_1, THE_MACRO_COMMA_S)
+		" FROM " TblStates " WHERE " TblStates_Height "<=? ORDER BY " TblStates_Height " DESC");
+#undef THE_MACRO_1
+
+	x.m_RowTrg = sid.m_Row;
+
+	x.m_Rs.put(0, sid.m_Height);
+}
+
+bool NodeDB::WalkerSystemState::MoveNext()
+{
+	while (true)
+	{
+		if (!m_Rs.Step())
+			return false;
+
+		uint64_t rowID;
+		m_Rs.get(0, rowID);
+
+		if (m_RowTrg == rowID)
+			break;
+	}
+
+	m_Rs.get(1, m_RowTrg);
+
+	int iCol = 2;
+
+#define THE_MACRO_1(dbname, extname) m_Rs.get(iCol++, m_State.extname);
+	StateCvt_Fields(THE_MACRO_1, THE_MACRO_NOP0)
+#undef THE_MACRO_1
+
+	return true;
+}
+
 void NodeDB::TipAdd(uint64_t rowid, Height h)
 {
 	Recordset rs(*this, Query::TipAdd, "INSERT INTO " TblTips " VALUES(?,?)");

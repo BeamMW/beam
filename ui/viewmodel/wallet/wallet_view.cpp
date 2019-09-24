@@ -33,26 +33,12 @@ using namespace beam::wallet;
 using namespace std;
 using namespace beamui;
 
-namespace
-{
-    template<typename T>
-    bool compareTx(const T& lf, const T& rt, Qt::SortOrder sortOrder)
-    {
-        if (sortOrder == Qt::DescendingOrder)
-            return lf > rt;
-        return lf < rt;
-    }
-}
-
 WalletViewModel::WalletViewModel()
     : _model(*AppModel::getInstance().getWallet())
     , _settings(AppModel::getInstance().getSettings())
 {
     connect(&_model, SIGNAL(txStatus(beam::wallet::ChangeAction, const std::vector<beam::wallet::TxDescription>&)),
         SLOT(onTxStatus(beam::wallet::ChangeAction, const std::vector<beam::wallet::TxDescription>&)));
-
-    connect(&_model, SIGNAL(addressesChanged(bool, const std::vector<beam::wallet::WalletAddress>&)),
-        SLOT(onAddresses(bool, const std::vector<beam::wallet::WalletAddress>&)));
 
     _status.setOnChanged([this]() {
         emit stateChanged();
@@ -62,85 +48,85 @@ WalletViewModel::WalletViewModel()
     _status.refresh();
 }
 
-WalletViewModel::~WalletViewModel()
+QAbstractItemModel* WalletViewModel::getTransactions()
 {
-    qDeleteAll(_txList);
+    return &_transactionsList;
 }
 
-void WalletViewModel::cancelTx(TxObject* pTxObject)
+void WalletViewModel::cancelTx(QVariant variantTxID)
 {
-    if (pTxObject->canCancel())
+    if (!variantTxID.isNull() && variantTxID.isValid())
     {
-        _model.getAsync()->cancelTx(pTxObject->getTxDescription().m_txId);
+        auto txId = variantTxID.value<beam::wallet::TxID>();
+        _model.getAsync()->cancelTx(txId);
+        _model.getAsync()->cancelOffer(txId);
     }
 }
 
-void WalletViewModel::deleteTx(TxObject* pTxObject)
+void WalletViewModel::deleteTx(QVariant variantTxID)
 {
-    if (pTxObject->canDelete())
+    if (!variantTxID.isNull() && variantTxID.isValid())
     {
-        _model.getAsync()->deleteTx(pTxObject->getTxDescription().m_txId);
+        auto txId = variantTxID.value<beam::wallet::TxID>();
+        _model.getAsync()->deleteTx(txId);
     }
 }
 
-void WalletViewModel::onTxStatus(beam::wallet::ChangeAction action, const std::vector<beam::wallet::TxDescription>& items)
+PaymentInfoItem* WalletViewModel::getPaymentInfo(QVariant variantTxID)
 {
-    QList<TxObject*> deletedObjects;
-    if (action == beam::wallet::ChangeAction::Reset)
+    if (!variantTxID.isNull() && variantTxID.isValid())
     {
-        deletedObjects.swap(_txList);
-        _txList.clear();
-        for (const auto& item : items)
+        auto txId = variantTxID.value<beam::wallet::TxID>();
+        return new MyPaymentInfoItem(txId, this);
+    }
+    else return Q_NULLPTR;
+}
+
+void WalletViewModel::onTxStatus(beam::wallet::ChangeAction action, const std::vector<beam::wallet::TxDescription>& transactions)
+{
+    vector<shared_ptr<TxObject>> modifiedTransactions;
+    modifiedTransactions.reserve(transactions.size());
+
+    for (const auto& t : transactions)
+    {
+        if (t.GetParameter<TxType>(TxParameterID::TransactionType) != TxType::AtomicSwap)
         {
-            _txList.push_back(new TxObject(item));
+            modifiedTransactions.push_back(make_shared<TxObject>(t));
         }
-        sortTx();
     }
-    else if (action == beam::wallet::ChangeAction::Removed)
+
+    switch (action)
     {
-        for (const auto& item : items)
-        {
-            auto it = find_if(_txList.begin(), _txList.end(), [&item](const auto& tx) {return item.m_txId == tx->getTxDescription().m_txId; });
-            if (it != _txList.end())
+        case ChangeAction::Reset:
             {
-                deletedObjects.push_back(*it);
-                _txList.erase(it);
+                _transactionsList.reset(modifiedTransactions);
+                break;
             }
-        }
-        emit transactionsChanged();
-    }
-    else if (action == beam::wallet::ChangeAction::Updated)
-    {
-        auto txIt = _txList.begin();
-        auto txEnd = _txList.end();
-        for (const auto& item : items)
-        {
-            txIt = find_if(txIt, txEnd, [&item](const auto& tx) {return item.m_txId == tx->getTxDescription().m_txId; });
-            if (txIt == txEnd)
+
+        case ChangeAction::Removed:
             {
-                // insert new object
-                _txList.insert(0, new TxObject(item));
-                continue;
+                _transactionsList.remove(modifiedTransactions);
+                break;
             }
-            (*txIt)->update(item);
-        }
-        sortTx();
+
+        case ChangeAction::Added:
+            {
+                _transactionsList.insert(modifiedTransactions);
+                break;
+            }
+        
+        case ChangeAction::Updated:
+            {
+                _transactionsList.update(modifiedTransactions);
+                break;
+            }
+
+        default:
+            assert(false && "Unexpected action");
+            break;
     }
-    else if (action == beam::wallet::ChangeAction::Added)
-    {
-        // TODO in sort order
-        for (const auto& item : items)
-        {
-            _txList.insert(0, new TxObject(item));
-        }
-        sortTx();
-    }
 
-    qDeleteAll(deletedObjects);
-
-    // Get info for TxObject::_user_name (get wallets labels)
-    _model.getAsync()->getAddresses(false);
-
+    emit transactionsChanged();
 }
 
 double WalletViewModel::beamAvailable() const
@@ -151,8 +137,7 @@ double WalletViewModel::beamAvailable() const
 double WalletViewModel::beamReceiving() const
 {
     // TODO:SWAP return real value
-    // beamReceivingChange() + beamReceivingIncoming();
-    return double(_status.getReceiving()) / Rules::Coin;
+    return beamReceivingChange() + beamReceivingIncoming();
 }
 
 double WalletViewModel::beamSending() const
@@ -163,100 +148,23 @@ double WalletViewModel::beamSending() const
 double WalletViewModel::beamReceivingChange() const
 {
     // TODO:SWAP return real value
-    return 0;
+    return double(_status.getReceivingChange()) / Rules::Coin;
 }
 
 double WalletViewModel::beamReceivingIncoming() const
 {
     // TODO:SWAP return real value
-    return 0;
+    return double(_status.getReceivingIncoming()) / Rules::Coin;
 }
 
 double WalletViewModel::beamLocked() const
 {
-    return beamLockedAtomic() + beamLockedMaturing();
-}
-
-double WalletViewModel::beamLockedAtomic() const
-{
-     // TODO:SWAP return real value
-     return 0;
+    return beamLockedMaturing();
 }
 
 double WalletViewModel::beamLockedMaturing() const
 {
-    return _status.getMaturing();
-}
-
-QString WalletViewModel::sortRole() const
-{
-    return _sortRole;
-}
-
-void WalletViewModel::setSortRole(const QString& value)
-{
-    if (value != getDateRole() && value != getAmountRole() && value != getSentAmountRole() && value != getReceivedAmountRole() &&
-        value != getStatusRole() && value != getSendingAddressRole() && value != getReceivingAddressRole())
-        return;
-
-    _sortRole = value;
-    sortTx();
-}
-
-Qt::SortOrder WalletViewModel::sortOrder() const
-{
-    return _sortOrder;
-}
-
-void WalletViewModel::setSortOrder(Qt::SortOrder value)
-{
-    _sortOrder = value;
-    sortTx();
-}
-
-QString WalletViewModel::getIncomeRole() const
-{
-    return "income";
-}
-
-QString WalletViewModel::getDateRole() const
-{
-    return "date";
-}
-
-QString WalletViewModel::getDisplayNameRole() const
-{
-    return "displayName";
-}
-
-QString WalletViewModel::getSendingAddressRole() const
-{
-    return "sendingAddress";
-}
-
-QString WalletViewModel::getReceivingAddressRole() const
-{
-    return "receivingAddress";
-}
-
-QString WalletViewModel::getAmountRole() const
-{
-    return "amount";
-}
-
-QString WalletViewModel::getSentAmountRole() const
-{
-    return "sentAmount";
-}
-
-QString WalletViewModel::getReceivedAmountRole() const
-{
-    return "receivedAmount";
-}
-
-QString WalletViewModel::getStatusRole() const
-{
-    return "status";
+    return double(_status.getMaturing()) / Rules::Coin;
 }
 
 bool WalletViewModel::isAllowedBeamMWLinks() const
@@ -267,101 +175,4 @@ bool WalletViewModel::isAllowedBeamMWLinks() const
 void WalletViewModel::allowBeamMWLinks(bool value)
 {
     _settings.setAllowedBeamMWLinks(value);
-}
-
-QQmlListProperty<TxObject> WalletViewModel::getTransactions()
-{
-    return QQmlListProperty<TxObject>(this, _txList);
-}
-
-void WalletViewModel::sortTx()
-{
-    auto cmp = generateComparer();
-    std::sort(_txList.begin(), _txList.end(), cmp);
-
-    emit transactionsChanged();
-}
-
-std::function<bool(const TxObject*, const TxObject*)> WalletViewModel::generateComparer()
-{
-    if (_sortRole == getIncomeRole())
-        return [sortOrder = _sortOrder](const TxObject* lf, const TxObject* rt)
-    {
-        return compareTx(lf->getTxDescription().m_sender, rt->getTxDescription().m_sender, sortOrder);
-    };
-
-    if (_sortRole == getSendingAddressRole())
-        return [sortOrder = _sortOrder](const TxObject* lf, const TxObject* rt)
-    {
-        return compareTx(lf->getSendingAddress(), rt->getSendingAddress(), sortOrder);
-    };
-
-    if (_sortRole == getReceivingAddressRole())
-        return [sortOrder = _sortOrder](const TxObject* lf, const TxObject* rt)
-    {
-        return compareTx(lf->getReceivingAddress(), rt->getReceivingAddress(), sortOrder);
-    };
-
-    if (_sortRole == getDisplayNameRole())
-        return [sortOrder = _sortOrder](const TxObject* lf, const TxObject* rt)
-    {
-        return compareTx(lf->displayName(), rt->displayName(), sortOrder);
-    };
-
-    if (_sortRole == getAmountRole())
-        return [sortOrder = _sortOrder](const TxObject* lf, const TxObject* rt)
-    {
-        return compareTx(lf->getAmountValue(), rt->getAmountValue(), sortOrder);
-    };
-
-
-    if (_sortRole == getSentAmountRole())
-        return [sortOrder = _sortOrder](const TxObject* lf, const TxObject* rt)
-    {
-        return compareTx(lf->getSentAmountValue(), rt->getSentAmountValue(), sortOrder);
-    };
-
-    if (_sortRole == getReceivedAmountRole())
-        return [sortOrder = _sortOrder](const TxObject* lf, const TxObject* rt)
-    {
-        return compareTx(lf->getReceivedAmountValue(), rt->getReceivedAmountValue(), sortOrder);
-    };
-
-    if (_sortRole == getStatusRole())
-        return [sortOrder = _sortOrder](const TxObject* lf, const TxObject* rt)
-    {
-        return compareTx(lf->status(), rt->status(), sortOrder);
-    };
-
-    // defult for dateRole
-    return [sortOrder = _sortOrder](const TxObject* lf, const TxObject* rt)
-    {
-        return compareTx(lf->getTxDescription().m_createTime, rt->getTxDescription().m_createTime, sortOrder);
-    };
-}
-
-void WalletViewModel::onAddresses(bool own, const std::vector<beam::wallet::WalletAddress>& addresses)
-{
-    if (own)
-    {
-        return;
-    }
-
-    for (auto* tx : _txList)
-    {
-        auto foundIter = std::find_if(addresses.cbegin(), addresses.cend(),
-                                      [tx](const auto& address) { return address.m_walletID == tx->peerId(); });
-
-        if (foundIter != addresses.cend())
-        {
-            tx->setUserName(QString::fromStdString(foundIter->m_label));
-        }
-        else if (!tx->userName().isEmpty())
-        {
-            tx->setUserName(QString{});
-        }
-
-        auto displayName = tx->userName();// .isEmpty() ? tx->user() : tx->userName();
-        tx->setDisplayName(displayName);
-    }
 }

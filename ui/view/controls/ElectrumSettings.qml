@@ -16,11 +16,11 @@ Control {
 
     property alias  title:        controlTitle.text
     property alias  address:      addressInput.address
-    property alias  username:     usernameInput.text
-    property alias  password:     passwordInput.text
+    property alias  seed:         seedInput.text
     property string feeRateLabel: ""
     property int    feeRate:      0
     property int    minFeeRate:   0
+    signal newSeed()
 
     signal apply
     signal switchOff
@@ -28,15 +28,13 @@ Control {
     QtObject {
         id: internal
         property string initialAddress
-        property string initialUsername
-        property string initialPassword
+        property string initialSeed
         property int    initialFeeRate
         property bool   changed: false
 
         function restore() {
             address  = initialAddress
-            username = initialUsername
-            password = initialPassword
+            seed     = initialSeed
             feeRate  = initialFeeRate
             feeRateInput.fee = initialFeeRate
             changed  = false
@@ -44,9 +42,8 @@ Control {
 
         function save() {
             initialAddress  = address
-            initialUsername = username
+            initialSeed     = seed
             initialFeeRate  = feeRate
-            initialPassword = password
             changed = false
         }
     }
@@ -56,7 +53,7 @@ Control {
     }
 
     function canApply() {
-        return internal.changed && feeRate >= minFeeRate && password.length && username.length && addressInput.isValid
+        return internal.changed && feeRate >= minFeeRate && seedInput.acceptableInput && addressInput.isValid
     }
 
     function cancelChanges() {
@@ -70,14 +67,12 @@ Control {
 
     function canSwitchOff () {
         return internal.initialAddress.length  != 0 ||
-               internal.initialUsername.length != 0 ||
-               internal.initialPassword.length != 0
+               internal.initialSeed.length != 0
     }
 
     onTitleChanged:    internal.changed = true
     onAddressChanged:  internal.changed = true
-    onUsernameChanged: internal.changed = true
-    onPasswordChanged: internal.changed = true
+    onSeedChanged:     internal.changed = true
     onFeeRateChanged:  internal.changed = true
 
     background: Rectangle {
@@ -132,37 +127,53 @@ Control {
                 id:               addressInput
                 Layout.fillWidth: true
                 color:            Style.content_secondary
+                ipOnly:           false
             }
 
             SFText {
                 font.pixelSize: 14
                 color:          Style.content_main
-                //% "Username"
-                text:           qsTrId("settings-username")
+                ////% "Username"
+                text:           "Seed Phrase"
             }
 
-            SFTextInput {
-                id:               usernameInput
+            ColumnLayout {
                 Layout.fillWidth: true
-                font.pixelSize:   14
-                color:            Style.content_secondary
-                activeFocusOnTab: true
-            }
 
-            SFText {
-                font.pixelSize: 14
-                color:          Style.content_main
-                //% "Password"
-                text:           qsTrId("settings-password")
-            }
+                SFTextInput {
+                    id:                  seedInput
+                    Layout.fillWidth:    true
+                    font.pixelSize:      14
+                    activeFocusOnTab:    true
+                    wrapMode:            TextInput.Wrap
+                    implicitHeight:      50
+                    validator:           RegExpValidator {regExp: /^([a-z]{2,20}\ ){11}([a-z]{2,20}){1}$/g}
+                    font.italic:         text.length && !acceptableInput
+                    color:               text.length && !acceptableInput ? Style.validator_error : Style.content_secondary
+                    backgroundColor:     text.length && !acceptableInput ? Style.validator_error : Style.content_secondary
+                    //% "Double click to generate new seed phrase"
+                    placeholderText:     qsTrId("settings-new-seed")
+                    horizontalAlignment: focus || text.length > 0 ? Text.AlignLeft : Text.AlignHCenter
 
-            SFTextInput {
-                id:               passwordInput
-                Layout.fillWidth: true
-                font.pixelSize:   14
-                color:            Style.content_secondary
-                activeFocusOnTab: true
-                echoMode:         TextInput.Password
+                    MouseArea {
+                        anchors.fill: parent;
+                        acceptedButtons: Qt.LeftButton
+                        onDoubleClicked: if (seedInput.text.length == 0) thisControl.newSeed()
+                        onClicked: parent.forceActiveFocus()
+                    }
+                }
+
+                Item {
+                    Layout.fillWidth: true
+                    SFText {
+                        font.pixelSize: 12
+                        font.italic:    true
+                        color:          Style.validator_error
+                        //% "Invalid seed phrase"
+                        text:           qsTrId("settings-invalid-seed")
+                        visible:        seedInput.text.length && !seedInput.acceptableInput
+                    }
+                }
             }
 
             SFText {

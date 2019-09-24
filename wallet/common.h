@@ -180,6 +180,7 @@ namespace beam::wallet
         PeerProtoVersion = 16,
         MaxHeight = 17,
 
+        PeerResponseHeight = 24,
         SubTxIndex = 25,
         PeerPublicSharedBlindingFactor = 26,
 
@@ -230,7 +231,6 @@ namespace beam::wallet
         BlindingExcess = 130,
 
         KernelUnconfirmedHeight = 133,
-        PeerResponseHeight = 134,
 
         Offset = 140,
 

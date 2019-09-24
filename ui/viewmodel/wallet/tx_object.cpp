@@ -51,7 +51,11 @@ auto TxObject::getTxID() const -> beam::wallet::TxID
 auto TxObject::isBeamSideSwap() const -> bool
 {
     auto isBeamSide = m_tx.GetParameter<bool>(TxParameterID::AtomicSwapIsBeamSide);
-    return isBeamSide.value();
+    if (isBeamSide)
+    {
+        return isBeamSide.value();
+    }
+    else return false;    
 }
 
 auto TxObject::getSwapCoinType() const -> QString
@@ -332,10 +336,3 @@ bool TxObject::isSelfTx() const
 {
     return m_tx.m_selfTx;
 }
-
-PaymentInfoItem* TxObject::getPaymentInfo()
-{
-    return new MyPaymentInfoItem(m_tx.m_txId, this);
-}
-
-

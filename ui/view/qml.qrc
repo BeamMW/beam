@@ -34,6 +34,7 @@
         <file>controls/IPAddrInput.qml</file>
         <file>controls/SwapNodeSettings.qml</file>
         <file>controls/LinkButton.qml</file>
+        <file>controls/ElectrumSettings.qml</file>
         <file>popup_message.qml</file>
         <file>root.qml</file>
         <file>start.qml</file>

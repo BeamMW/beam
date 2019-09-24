@@ -353,6 +353,127 @@ void SettingsViewModel::qtumOff()
     AppModel::getInstance().getQtumClient()->GetAsync()->ResetSettings();
 }
 
+QString SettingsViewModel::getBtcSeedEL() const
+{
+    return "";
+}
+
+void SettingsViewModel::setBtcSeedEL(const QString& value)
+{
+}
+
+QString SettingsViewModel::getBtcNodeAddressEL() const
+{
+    return "";
+}
+
+void SettingsViewModel::setBtcNodeAddressEL(const QString& value)
+{
+}
+
+int SettingsViewModel::getBtcFeeRateEL() const
+{
+    return 90000;
+}
+
+
+void SettingsViewModel::setBtcFeeRateEL(int value)
+{
+}
+
+void SettingsViewModel::applyBtcSettingsEL()
+{
+    LOG_INFO() << "apply btc settings EL";
+}
+
+void SettingsViewModel::btcOffEL()
+{
+    LOG_INFO() << "btcOffEL";
+}
+
+QString SettingsViewModel::getLtcSeedEL() const
+{
+    return "";
+}
+
+void SettingsViewModel::setLtcSeedEL(const QString& value)
+{
+}
+
+QString SettingsViewModel::getLtcNodeAddressEL() const
+{
+    return "";
+}
+
+void SettingsViewModel::setLtcNodeAddressEL(const QString& value)
+{
+}
+
+int SettingsViewModel::getLtcFeeRateEL() const
+{
+    return 90000;
+}
+
+
+void SettingsViewModel::setLtcFeeRateEL(int value)
+{
+}
+
+void SettingsViewModel::SettingsViewModel::applyLtcSettingsEL()
+{
+}
+
+void SettingsViewModel::ltcOffEL()
+{
+}
+
+void SettingsViewModel::SettingsViewModel::applyQtumSettingsEL()
+{
+}
+
+QString SettingsViewModel::getQtumSeedEL() const
+{
+    return "";
+}
+
+void SettingsViewModel::setQtumSeedEL(const QString& value)
+{
+}
+
+QString SettingsViewModel::getQtumNodeAddressEL() const
+{
+    return "";
+}
+
+void SettingsViewModel::setQtumNodeAddressEL(const QString& value)
+{
+}
+
+int SettingsViewModel::getQtumFeeRateEL() const
+{
+    return 90000;
+}
+
+void SettingsViewModel::setQtumFeeRateEL(int value)
+{
+}
+
+void SettingsViewModel::qtumOffEL()
+{
+}
+
+void SettingsViewModel::btcNewSeedEL()
+{
+}
+
+void SettingsViewModel::ltcNewSeedEL()
+{
+}
+
+void SettingsViewModel::qtumNewSeedEL()
+{
+}
+
 bool SettingsViewModel::isLocalNodeRunning() const
 {
     return AppModel::getInstance().getNode().isNodeRunning();
