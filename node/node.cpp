@@ -1844,8 +1844,10 @@ void Node::Peer::OnMsg(proto::HdrPack&& msg)
 {
     Task& t = get_FirstTask();
 
-    if (t.m_Key.second || !t.m_nCount)
-        ThrowUnexpected();
+	if (t.m_Key.second || !t.m_nCount) {
+		// stupid compiler insists on parentheses here!
+		ThrowUnexpected();
+	}
 
 	std::vector<Block::SystemState::Full> v;
 	if (!m_This.DecodeAndCheckHdrs(v, msg))
