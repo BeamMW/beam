@@ -146,11 +146,8 @@ public:
 			TxoDel,
 			TxoDelFrom,
 			TxoSetSpent,
-			TxoDelSpentFrom,
 			TxoCount,
 			TxoEnum,
-			TxoEnumBySpent,
-			TxoDelSpentTxosFrom,
 			TxoSetValue,
 			TxoGetValue,
 			BlockFind,
@@ -452,7 +449,6 @@ public:
 	void TxoDel(TxoID);
 	void TxoDelFrom(TxoID);
 	void TxoSetSpent(TxoID, Height);
-	void TxoDelSpentFrom(Height);
 
 	struct WalkerTxo
 	{
@@ -467,8 +463,6 @@ public:
 
 	uint64_t TxoGetCount();
 	void EnumTxos(WalkerTxo&, TxoID id0);
-	void EnumTxosBySpent(WalkerTxo&, const HeightRange&);
-	uint64_t DeleteSpentTxos(const HeightRange&, TxoID id0); // delete Txos where (SpendHeight is within range) AND (TxoID >= id0)
 	void TxoSetValue(TxoID, const Blob&);
 	void TxoGetValue(WalkerTxo&, TxoID);
 

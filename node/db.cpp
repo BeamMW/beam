@@ -426,8 +426,6 @@ void NodeDB::CreateTableTxos()
 		"[" TblTxo_ID				"] INTEGER NOT NULL PRIMARY KEY,"
 		"[" TblTxo_Value			"] BLOB NOT NULL,"
 		"[" TblTxo_SpendHeight		"] INTEGER)");
-
-	ExecQuick("CREATE INDEX [Idx" TblTxo "SH] ON [" TblTxo "] ([" TblTxo_SpendHeight "])");
 }
 
 void NodeDB::Vacuum()
@@ -2110,13 +2108,6 @@ void NodeDB::TxoSetSpent(TxoID id, Height h)
 	TestChanged1Row();
 }
 
-void NodeDB::TxoDelSpentFrom(Height h)
-{
-	Recordset rs(*this, Query::TxoDelSpentFrom, "UPDATE " TblTxo " SET " TblTxo_SpendHeight "=NULL WHERE " TblTxo_SpendHeight ">=?");
-	rs.put(0, h);
-	rs.Step();
-}
-
 uint64_t NodeDB::TxoGetCount()
 {
 	Recordset rs(*this, Query::TxoCount, "SELECT COUNT(*) FROM " TblTxo);
@@ -2135,13 +2126,6 @@ void NodeDB::EnumTxos(WalkerTxo& wlk, TxoID id0)
 	wlk.m_Rs.put(0, id0);
 }
 
-void NodeDB::EnumTxosBySpent(WalkerTxo& wlk, const HeightRange& hr)
-{
-	wlk.m_Rs.Reset(Query::TxoEnumBySpent, "SELECT " TblTxo_ID "," TblTxo_Value "," TblTxo_SpendHeight " FROM " TblTxo " WHERE " TblTxo_SpendHeight ">=? AND " TblTxo_SpendHeight "<=? ORDER BY " TblTxo_SpendHeight);
-	wlk.m_Rs.put(0, hr.m_Min);
-	wlk.m_Rs.put(1, std::min(hr.m_Max, (MaxHeight >> 1))); // sqlite uses signed int64
-}
-
 bool NodeDB::WalkerTxo::MoveNext()
 {
 	if (!m_Rs.Step())
@@ -2156,19 +2140,6 @@ bool NodeDB::WalkerTxo::MoveNext()
 		m_Rs.get(2, m_SpendHeight);
 
 	return true;
-}
-
-uint64_t NodeDB::DeleteSpentTxos(const HeightRange& hr, TxoID id0)
-{
-	assert(!hr.IsEmpty());
-
-	Recordset rs(*this, Query::TxoDelSpentTxosFrom, "DELETE FROM " TblTxo " WHERE " TblTxo_SpendHeight ">=? AND " TblTxo_SpendHeight "<=? AND " TblTxo_ID ">=?");
-	rs.put(0, hr.m_Min);
-	rs.put(1, hr.m_Max);
-	rs.put(2, id0);
-	rs.Step();
-
-	return static_cast<uint64_t>(get_RowsChanged());
 }
 
 void NodeDB::TxoSetValue(TxoID id, const Blob& v)
