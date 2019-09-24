@@ -155,179 +155,67 @@ ColumnLayout {
             Layout.fillWidth: true
 
             TxFilter {
-                id: directTabSelector
+                id: btcTabSelector
                 Layout.alignment: Qt.AlignTop
                 Layout.leftMargin: 7
-                label: "Direct"
-                onClicked: swapLayout.state = "swap-direct"
+                label: qsTrId("general-bitcoin")
+                onClicked: swapLayout.state = "swap-btc"
                 capitalization: Font.AllUppercase
             }
 
             TxFilter {
-                id: electrumTabSelector
+                id: ltcTabSelector
                 Layout.alignment: Qt.AlignTop
-                Layout.leftMargin: 40
-                label: "Electrum"
-                onClicked: swapLayout.state = "swap-electrum"
+                Layout.leftMargin: 17
+                label: qsTrId("general-litecoin")
+                onClicked: swapLayout.state = "swap-ltc"
                 capitalization: Font.AllUppercase
             }
+
+            TxFilter {
+                id: qtumTabSelector
+                Layout.alignment: Qt.AlignTop
+                Layout.leftMargin: 17
+                label: qsTrId("general-qtum")
+                onClicked: swapLayout.state = "swap-qtum"
+                capitalization: Font.AllUppercase
+            }
+
             visible: swapMode
         }
 
-        state:  "swap-direct"
+        state:  "swap-btc"
         states: [
             State {
-                name: "swap-direct"
-                PropertyChanges { target: directTabSelector; state: "active" }
-                PropertyChanges { target: swapDirectGrid; visible: true }
-                PropertyChanges { target: swapElectrumGrid; visible: false }
+                name: "swap-btc"
+                PropertyChanges { target: btcTabSelector; state: "active" }
+                PropertyChanges { target: swapBtcGrid; visible: true }
+                PropertyChanges { target: swapLtcGrid; visible: false }
+                PropertyChanges { target: swapQtumGrid; visible: false }
             },
             State {
-                name: "swap-electrum"
-                PropertyChanges { target: electrumTabSelector; state: "active" }
-                PropertyChanges { target: swapDirectGrid; visible: false }
-                PropertyChanges { target: swapElectrumGrid; visible: true }
+                name: "swap-ltc"
+                PropertyChanges { target: ltcTabSelector; state: "active" }
+                PropertyChanges { target: swapBtcGrid; visible: false }
+                PropertyChanges { target: swapLtcGrid; visible: true }
+                PropertyChanges { target: swapQtumGrid; visible: false }
+            },
+            State {
+                name: "swap-qtum"
+                PropertyChanges { target: qtumTabSelector; state: "active" }
+                PropertyChanges { target: swapBtcGrid; visible: false }
+                PropertyChanges { target: swapLtcGrid; visible: false }
+                PropertyChanges { target: swapQtumGrid; visible: true }
             }
         ]
 
-        GridLayout {
-            id:                swapElectrumGrid
+        RowLayout {
+            id:                swapBtcGrid
             Layout.fillWidth:  true
-            columnSpacing:     20
-            rowSpacing:        20
-            columns:           2
-
-            ElectrumSettings {
-
-                id:                  btcSettingsEL
-                title:               qsTrId("general-electrum") + " - " + qsTrId("general-bitcoin")
-                address:             viewModel.btcNodeAddressEL
-                seed:                viewModel.btcSeedEL
-                feeRate:             viewModel.btcFeeRateEL
-                minFeeRate:          BeamGlobals.minFeeRateBtc()
-                feeRateLabel:        BeamGlobals.btcFeeRateLabel()
-                Layout.minimumWidth: swapDirectGrid.width / 2 - swapDirectGrid.columnSpacing / 2
-
-                Connections {
-                    target: viewModel
-                    onBtcNodeAddressELChanged: btcSettingsEL.address = viewModel.btcNodeAddressEL
-                    onBtcSeedELChanged:        btcSettingsEL.seed    = viewModel.btcSeedEL
-                    onBtcFeeRateELChanged:     btcSettingsEL.feeRate = viewModel.btcFeeRateEL
-                }
-
-                onApply: viewModel.applyBtcSettingsEL()
-                onSwitchOff: viewModel.btcOffEL()
-                onNewSeed: viewModel.btcNewSeedEL()
-            }
-
-            Binding {
-                target:   viewModel
-                property: "btcNodeAddressEL"
-                value:    btcSettingsEL.address
-            }
-
-            Binding {
-                target:   viewModel
-                property: "btcSeedEL"
-                value:    btcSettingsEL.seed
-            }
-
-            Binding {
-                target:   viewModel
-                property: "btcFeeRateEL"
-                value:    btcSettingsEL.feeRate
-            }
-
-            ElectrumSettings {
-                id:                  ltcSettingsEL
-                title:               qsTrId("general-electrum") + " - " + qsTrId("general-litecoin")
-                address:             viewModel.ltcNodeAddressEL
-                seed:                viewModel.ltcSeedEL
-                feeRate:             viewModel.ltcFeeRateEL
-                minFeeRate:          BeamGlobals.minFeeRateLtc()
-                feeRateLabel:        BeamGlobals.ltcFeeRateLabel()
-                Layout.minimumWidth: swapDirectGrid.width / 2 - swapDirectGrid.columnSpacing / 2
-
-                Connections {
-                    target: viewModel
-                    onLtcNodeAddressELChanged: ltcSettingsEL.address = viewModel.ltcNodeAddressEL
-                    onLtcSeedELChanged:        ltcSettingsEL.seed    = viewModel.ltcSeedEL
-                    onLtcFeeRateELChanged:     ltcSettingsEL.feeRate = viewModel.ltcFeeRateEL
-                }
-
-                onApply: viewModel.applyLtcSettingsEL()
-                onSwitchOff: viewModel.ltcOffEL()
-                onNewSeed: viewModel.ltcNewSeedEL()
-            }
-
-            Binding {
-                target:   viewModel
-                property: "ltcNodeAddressEL"
-                value:    ltcSettingsEL.address
-            }
-
-            Binding {
-                target:   viewModel
-                property: "ltcSeedEL"
-                value:    ltcSettingsEL.seed
-            }
-
-            Binding {
-                target:   viewModel
-                property: "ltcFeeRateEL"
-                value:    ltcSettingsEL.feeRate
-            }
-
-            ElectrumSettings {
-                id:                  qtumSettingsEL
-                title:               qsTrId("general-electrum") + " - " + qsTrId("general-qtum")
-                address:             viewModel.qtumNodeAddressEL
-                seed:                viewModel.qtumSeedEL
-                feeRate:             viewModel.qtumFeeRateEL
-                minFeeRate:          BeamGlobals.minFeeRateQtum()
-                feeRateLabel:        BeamGlobals.qtumFeeRateLabel()
-                Layout.minimumWidth: swapDirectGrid.width / 2 - swapDirectGrid.columnSpacing / 2
-
-                Connections {
-                    target: viewModel
-                    onQtumNodeAddressELChanged: qtumSettingsEL.address = viewModel.qtumNodeAddressEL
-                    onQtumSeedELChanged:        qtumSettingsEL.seed    = viewModel.qtumSeedEL
-                    onQtumFeeRateELChanged:     qtumSettingsEL.feeRate = viewModel.qtumFeeRateEL
-                }
-
-                onApply: viewModel.applyQtumSettingsEL()
-                onSwitchOff: viewModel.qtumOffEL()
-                onNewSeed: viewModel.qtumNewSeedEL()
-            }
-
-            Binding {
-                target:   viewModel
-                property: "qtumNodeAddressEL"
-                value:    qtumSettingsEL.address
-            }
-
-            Binding {
-                target:   viewModel
-                property: "qtumSeedEL"
-                value:    qtumSettingsEL.seed
-            }
-
-            Binding {
-                target:   viewModel
-                property: "qtumFeeRateEL"
-                value:    qtumSettingsEL.feeRate
-            }
-        }
-
-        GridLayout {
-            id:                swapDirectGrid
-            Layout.fillWidth:  true
-            columnSpacing:     20
-            rowSpacing:        20
-            columns:           2
+            spacing:           10
 
             SwapNodeSettings {
-                id:                  btcSettings
+                id:               btcSettings
                 //% "Bitcoin"
                 title:               qsTrId("general-bitcoin")
                 address:             viewModel.btcNodeAddress
@@ -336,7 +224,8 @@ ColumnLayout {
                 feeRate:             viewModel.btcFeeRate
                 minFeeRate:          BeamGlobals.minFeeRateBtc()
                 feeRateLabel:        BeamGlobals.btcFeeRateLabel()
-                Layout.minimumWidth: swapDirectGrid.width / 2 - swapDirectGrid.columnSpacing / 2
+                Layout.minimumWidth: swapBtcGrid.width / 2 - swapBtcGrid.spacing - btcUseEL.width
+                opacity:             viewModel.btcUseEL ? 0.4 : 1
 
                 Connections {
                     target: viewModel
@@ -374,17 +263,78 @@ ColumnLayout {
                 value:    btcSettings.feeRate
             }
 
+            CustomSwitch {
+                Layout.fillWidth: true
+                id:      btcUseEL
+                spacing:  0
+                colored:  false
+                checked:  viewModel.btcUseEL
+                Binding {
+                   target: viewModel
+                   property: "btcUseEL"
+                   value: btcUseEL.checked
+               }
+            }
+
+            ElectrumSettings {
+                id:               btcSettingsEL
+                title:            qsTrId("general-electrum") + " - " + qsTrId("general-bitcoin")
+                address:          viewModel.btcNodeAddressEL
+                seed:             viewModel.btcSeedEL
+                feeRate:          viewModel.btcFeeRateEL
+                minFeeRate:       BeamGlobals.minFeeRateBtc()
+                feeRateLabel:     BeamGlobals.btcFeeRateLabel()
+                Layout.fillWidth: true
+                opacity:          viewModel.btcUseEL ? 1 : 0.4
+
+                Connections {
+                    target: viewModel
+                    onBtcNodeAddressELChanged: btcSettingsEL.address = viewModel.btcNodeAddressEL
+                    onBtcSeedELChanged:        btcSettingsEL.seed    = viewModel.btcSeedEL
+                    onBtcFeeRateELChanged:     btcSettingsEL.feeRate = viewModel.btcFeeRateEL
+                }
+
+                onApply: viewModel.applyBtcSettingsEL()
+                onSwitchOff: viewModel.btcOffEL()
+                onNewSeed: viewModel.btcNewSeedEL()
+            }
+
+            Binding {
+                target:   viewModel
+                property: "btcNodeAddressEL"
+                value:    btcSettingsEL.address
+            }
+
+            Binding {
+                target:   viewModel
+                property: "btcSeedEL"
+                value:    btcSettingsEL.seed
+            }
+
+            Binding {
+                target:   viewModel
+                property: "btcFeeRateEL"
+                value:    btcSettingsEL.feeRate
+            }
+        }
+
+        RowLayout {
+            id:                swapLtcGrid
+            Layout.fillWidth:  true
+            spacing:           10
+
             SwapNodeSettings {
                 id:                ltcSettings
                 //% "Litecoin"
-                title:             qsTrId("general-litecoin")
-                address:           viewModel.ltcNodeAddress
-                username:          viewModel.ltcUser
-                password:          viewModel.ltcPass
-                feeRate:           viewModel.ltcFeeRate
-                minFeeRate:        BeamGlobals.minFeeRateLtc()
-                feeRateLabel:      BeamGlobals.ltcFeeRateLabel()
-                Layout.fillWidth:  true
+                title:               qsTrId("general-litecoin")
+                address:             viewModel.ltcNodeAddress
+                username:            viewModel.ltcUser
+                password:            viewModel.ltcPass
+                feeRate:             viewModel.ltcFeeRate
+                minFeeRate:          BeamGlobals.minFeeRateLtc()
+                feeRateLabel:        BeamGlobals.ltcFeeRateLabel()
+                Layout.minimumWidth: swapLtcGrid.width / 2 - swapLtcGrid.spacing - ltcUseEL.width
+                opacity:             viewModel.ltcUseEL ? 0.4 : 1
 
                 Connections {
                     target: viewModel
@@ -422,6 +372,66 @@ ColumnLayout {
                 value:    ltcSettings.feeRate
             }
 
+            CustomSwitch {
+                Layout.fillWidth: true
+                id:      ltcUseEL
+                spacing:  0
+                colored:  false
+                checked:  viewModel.ltcUseEL
+                Binding {
+                   target: viewModel
+                   property: "ltcUseEL"
+                   value: ltcUseEL.checked
+               }
+            }
+
+            ElectrumSettings {
+                id:                  ltcSettingsEL
+                title:               qsTrId("general-electrum") + " - " + qsTrId("general-litecoin")
+                address:             viewModel.ltcNodeAddressEL
+                seed:                viewModel.ltcSeedEL
+                feeRate:             viewModel.ltcFeeRateEL
+                minFeeRate:          BeamGlobals.minFeeRateLtc()
+                feeRateLabel:        BeamGlobals.ltcFeeRateLabel()
+                Layout.fillWidth:    true
+                opacity:             viewModel.ltcUseEL ? 1 : 0.4
+
+                Connections {
+                    target: viewModel
+                    onLtcNodeAddressELChanged: ltcSettingsEL.address = viewModel.ltcNodeAddressEL
+                    onLtcSeedELChanged:        ltcSettingsEL.seed    = viewModel.ltcSeedEL
+                    onLtcFeeRateELChanged:     ltcSettingsEL.feeRate = viewModel.ltcFeeRateEL
+                }
+
+                onApply: viewModel.applyLtcSettingsEL()
+                onSwitchOff: viewModel.ltcOffEL()
+                onNewSeed: viewModel.ltcNewSeedEL()
+            }
+
+            Binding {
+                target:   viewModel
+                property: "ltcNodeAddressEL"
+                value:    ltcSettingsEL.address
+            }
+
+            Binding {
+                target:   viewModel
+                property: "ltcSeedEL"
+                value:    ltcSettingsEL.seed
+            }
+
+            Binding {
+                target:   viewModel
+                property: "ltcFeeRateEL"
+                value:    ltcSettingsEL.feeRate
+            }
+        }
+
+        RowLayout {
+            id:                swapQtumGrid
+            Layout.fillWidth:  true
+            spacing:           10
+
             SwapNodeSettings {
                 id:                   qtumSettings
                 //% "QTUM"
@@ -432,7 +442,17 @@ ColumnLayout {
                 feeRate:              viewModel.qtumFeeRate
                 minFeeRate:           BeamGlobals.minFeeRateQtum()
                 feeRateLabel:         BeamGlobals.qtumFeeRateLabel()
-                Layout.minimumWidth:  swapDirectGrid.width / 2 - swapDirectGrid.columnSpacing / 2
+                Layout.minimumWidth:  swapQtumGrid.width / 2 - swapQtumGrid.spacing - qtumUseEL.width
+                opacity:              viewModel.qtumUseEL ? 0.4 : 1
+
+                Connections {
+                    target: viewModel
+                    onQtumNodeAddressChanged: qtumSettings.address = viewModel.qtumNodeAddress
+                    onQtumUserChanged: qtumSettings.username = viewModel.qtumUser
+                    onQtumPassChanged: qtumSettings.password = viewModel.qtumPass
+                    onQtumFeeRateChanged: qtumSettings.feeRate = viewModel.qtumFeeRate
+                }
+
                 onApply:              viewModel.applyQtumSettings()
                 onSwitchOff:          viewModel.qtumOff()
             }
@@ -459,6 +479,60 @@ ColumnLayout {
                 target:   viewModel
                 property: "qtumFeeRate"
                 value:    qtumSettings.feeRate
+            }
+
+            CustomSwitch {
+                Layout.fillWidth: true
+                id:       qtumUseEL
+                spacing:  0
+                colored:  false
+                checked:  viewModel.qtumUseEL
+                Binding {
+                   target: viewModel
+                   property: "qtumUseEL"
+                   value: qtumUseEL.checked
+               }
+            }
+
+            ElectrumSettings {
+                id:                  qtumSettingsEL
+                title:               qsTrId("general-electrum") + " - " + qsTrId("general-qtum")
+                address:             viewModel.qtumNodeAddressEL
+                seed:                viewModel.qtumSeedEL
+                feeRate:             viewModel.qtumFeeRateEL
+                minFeeRate:          BeamGlobals.minFeeRateQtum()
+                feeRateLabel:        BeamGlobals.qtumFeeRateLabel()
+                Layout.fillWidth:    true
+                opacity:             viewModel.qtumUseEL ? 1 : 0.4
+
+                Connections {
+                    target: viewModel
+                    onQtumNodeAddressELChanged: qtumSettingsEL.address = viewModel.qtumNodeAddressEL
+                    onQtumSeedELChanged:        qtumSettingsEL.seed    = viewModel.qtumSeedEL
+                    onQtumFeeRateELChanged:     qtumSettingsEL.feeRate = viewModel.qtumFeeRateEL
+                }
+
+                onApply: viewModel.applyQtumSettingsEL()
+                onSwitchOff: viewModel.qtumOffEL()
+                onNewSeed: viewModel.qtumNewSeedEL()
+            }
+
+            Binding {
+                target:   viewModel
+                property: "qtumNodeAddressEL"
+                value:    qtumSettingsEL.address
+            }
+
+            Binding {
+                target:   viewModel
+                property: "qtumSeedEL"
+                value:    qtumSettingsEL.seed
+            }
+
+            Binding {
+                target:   viewModel
+                property: "qtumFeeRateEL"
+                value:    qtumSettingsEL.feeRate
             }
         }
     }

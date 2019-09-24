@@ -1296,8 +1296,8 @@ or send this address to the sender over secure channel</translation>
         <translation>Swap</translation>
     </message>
     <message id="settings-reset">
-        <source>Switch off</source>
-        <translation>Switch off</translation>
+        <source>Clear</source>
+        <translation>Clear</translation>
     </message>
     <message id="settings-node-address">
         <source>Node Address</source>
