@@ -247,7 +247,7 @@ void SendViewModel::extractParameters()
     {
         setFeeGrothes(static_cast<int>(*fee));
     }
-    if (auto comment = _txParameters.GetParameter<beam::ByteBuffer>(beam::wallet::TxParameterID::Message); comment)
+    if (auto comment = _txParameters.GetParameter(beam::wallet::TxParameterID::Message); comment)
     {
         std::string s(comment->begin(), comment->end());
         setComment(QString::fromStdString(s));
