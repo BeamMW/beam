@@ -86,8 +86,11 @@ void SwapCoinClientModel::OnBalance(const bitcoin::Client::Balance& balance)
 
 void SwapCoinClientModel::onTimer()
 {
-    // update balance
-    GetAsync()->GetBalance();
+    if (GetSettings().IsInitialized())
+    {
+        // update balance
+        GetAsync()->GetBalance();
+    }
 
     // connect to walletModel if we haven't connected yet
     if (m_walletModel.expired() && AppModel::getInstance().getWallet())
