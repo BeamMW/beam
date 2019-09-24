@@ -32,7 +32,8 @@ function(BEAM_TRANSLATIONS_COMPILE_QM ts_files out_qm_files)
     if (Qt5LinguistTools_FOUND)
         if(LINUX)
             execute_process(COMMAND awk -F= "/^NAME/{print $2}" /etc/os-release
-                            OUTPUT_VARIABLE DISTR_NAME)
+                            OUTPUT_VARIABLE DISTR_NAME
+                            OUTPUT_STRIP_TRAILING_WHITESPACE)
         endif()
         foreach(TS_FILE ${ts_files})
             message("compile: ${TS_FILE}")
