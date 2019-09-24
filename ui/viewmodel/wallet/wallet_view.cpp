@@ -178,7 +178,7 @@ double WalletViewModel::beamLocked() const
 
 double WalletViewModel::beamLockedMaturing() const
 {
-    return _status.getMaturing();
+    return double(_status.getMaturing()) / Rules::Coin;
 }
 
 QString WalletViewModel::sortRole() const
