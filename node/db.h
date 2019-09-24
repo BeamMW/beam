@@ -107,7 +107,6 @@ public:
 			EnumAncestors,
 			StateGetPrev,
 			Unactivate,
-			UnactivateAll,
 			Activate,
 			MmrGet,
 			MmrSet,
@@ -141,7 +140,6 @@ public:
 			KernelIns,
 			KernelFind,
 			KernelDel,
-			KernelDelAll,
 			TxoAdd,
 			TxoDelFrom,
 			TxoSetSpent,
@@ -456,9 +454,6 @@ public:
 	uint64_t DeleteSpentTxos(const HeightRange&, TxoID id0); // delete Txos where (SpendHeight is within range) AND (TxoID >= id0)
 	void TxoSetValue(TxoID, const Blob&);
 	void TxoGetValue(WalkerTxo&, TxoID);
-
-	// reset cursor to zero. Keep all the data: local peers, bbs, dummy UTXOs
-	void ResetCursor();
 
 	struct WalkerSystemState
 	{

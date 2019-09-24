@@ -133,14 +133,6 @@ void NodeProcessor::Initialize(const char* szPath, const StartParams& sp)
 	else
 		m_DB.ParamGet(NodeDB::ParamID::Treasury, &m_Extra.m_TxosTreasury, nullptr, nullptr);
 
-	if (sp.m_ResetCursor)
-	{
-		m_DB.ResetCursor();
-
-		m_DB.TxoDelFrom(m_Extra.m_TxosTreasury);
-		m_DB.TxoDelSpentFrom(Rules::HeightGenesis);
-	}
-
 	InitCursor();
 
 	if (InitUtxoMapping(szPath))
@@ -168,8 +160,22 @@ void NodeProcessor::Initialize(const char* szPath, const StartParams& sp)
 
 	OnHorizonChanged();
 
-	if (!sp.m_ResetCursor)
+	if (sp.m_ResetCursor)
+	{
+		RollbackTo(Rules::HeightGenesis - 1);
+
+		m_Extra.m_TxoLo = 0;
+		m_Extra.m_TxoHi = 0;
+		m_Extra.m_Fossil = 0;
+		m_DB.ParamSet(NodeDB::ParamID::HeightTxoLo, &m_Extra.m_TxoLo, nullptr);
+		m_DB.ParamSet(NodeDB::ParamID::HeightTxoHi, &m_Extra.m_TxoHi, nullptr);
+		m_DB.ParamSet(NodeDB::ParamID::FossilHeight, &m_Extra.m_Fossil, nullptr);
+
+	}
+	else
+	{
 		TryGoUp();
+	}
 }
 
 // Ridiculous! Had to write this because strmpi isn't standard!

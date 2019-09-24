@@ -1989,23 +1989,6 @@ void NodeDB::SetDummyHeight(const Key::ID& kid, Height h)
 	TestChanged1Row();
 }
 
-void NodeDB::ResetCursor()
-{
-	Recordset rs(*this, Query::UnactivateAll, "UPDATE " TblStates " SET " TblStates_Flags "=" TblStates_Flags " & ?");
-	rs.put(0, ~uint32_t(StateFlags::Active));
-	rs.Step();
-
-	rs.Reset(Query::KernelDelAll, "DELETE FROM " TblKernels);
-	rs.Step();
-
-	DeleteEventsFrom(Rules::HeightGenesis);
-
-	StateID sid;
-	sid.m_Row = 0;
-	sid.m_Height = Rules::HeightGenesis - 1;
-	put_Cursor(sid);
-}
-
 void NodeDB::InsertKernel(const Blob& key, Height h)
 {
 	assert(h >= Rules::HeightGenesis);
