@@ -1738,40 +1738,42 @@ void Node::Peer::OnMsg(proto::GetHdr&& msg)
 
 void Node::Peer::OnMsg(proto::GetHdrPack&& msg)
 {
-    proto::HdrPack msgOut;
+	proto::HdrPack msgOut;
 
-    if (msg.m_Count)
-    {
+	if (msg.m_Count)
+	{
 		// don't throw unexpected if pack size is bigger than max. In case it'll be increased in future versions - just truncate it.
 		msg.m_Count = std::min(msg.m_Count, proto::g_HdrPackMaxSize);
 
-        NodeDB& db = m_This.m_Processor.get_DB();
-        uint64_t rowid = db.StateFindSafe(msg.m_Top);
-        if (rowid)
-        {
-            msgOut.m_vElements.reserve(msg.m_Count);
+		NodeDB& db = m_This.m_Processor.get_DB();
 
-            Block::SystemState::Full s;
-            for (uint32_t n = 0; ; )
-            {
-                db.get_State(rowid, s);
-                msgOut.m_vElements.push_back(s);
+		NodeDB::StateID sid;
+		sid.m_Row = db.StateFindSafe(msg.m_Top);
+		if (sid.m_Row)
+		{
+			sid.m_Height = msg.m_Top.m_Height;
 
-                if (++n == msg.m_Count)
-                    break;
+			NodeDB::WalkerSystemState wlk(db);
+			for (db.EnumSystemStatesBkwd(wlk, sid); wlk.MoveNext(); )
+			{
+				if (msgOut.m_vElements.empty())
+					msgOut.m_vElements.reserve(msg.m_Count);
 
-                if (!db.get_Prev(rowid))
-                    break;
-            }
+				msgOut.m_vElements.push_back(wlk.m_State);
 
-            msgOut.m_Prefix = s;
-        }
-    }
+				if (msgOut.m_vElements.size() == msg.m_Count)
+					break;
+			}
 
-    if (msgOut.m_vElements.empty())
-        Send(proto::DataMissing(Zero));
-    else
-        Send(msgOut);
+			if (!msgOut.m_vElements.empty())
+				msgOut.m_Prefix = wlk.m_State;
+		}
+	}
+
+	if (msgOut.m_vElements.empty())
+		Send(proto::DataMissing(Zero));
+	else
+		Send(msgOut);
 }
 
 void Node::Peer::OnMsg(proto::HdrPack&& msg)
