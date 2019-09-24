@@ -86,21 +86,21 @@ auto TransactionsList::data(const QModelIndex &index, int role) const -> QVarian
 
         case Roles::AddressFrom:
         case Roles::AddressFromSort:
-            return value->getSendingAddress();
+            return value->getAddressFrom();
 
         case Roles::AddressTo:
         case Roles::AddressToSort:
-            return value->getReceivingAddress();
+            return value->getAddressTo();
 
         case Roles::Status:
         case Roles::StatusSort:
-            return value->status();
+            return value->getStatus();
 
         case Roles::Fee:
             return value->getFee();
 
         case Roles::Comment:
-            return value->comment();
+            return value->getComment();
 
         case Roles::TxID:
             return value->getTransactionID();
@@ -112,19 +112,19 @@ auto TransactionsList::data(const QModelIndex &index, int role) const -> QVarian
             return value->getFailureReason();
 
         case Roles::IsCancelAvailable:
-            return value->canCancel();
+            return value->isCancelAvailable();
 
         case Roles::IsDeleteAvailable:
-            return value->canDelete();
+            return value->isDeleteAvailable();
 
         case Roles::IsSelfTransaction:
             return value->isSelfTx();
 
         case Roles::IsIncome:
-            return value->income();
+            return value->isIncome();
 
         case Roles::IsInProgress:
-            return value->inProgress();
+            return value->isInProgress();
 
         case Roles::IsCompleted:
             return value->isCompleted();

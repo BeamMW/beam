@@ -24,13 +24,6 @@ using namespace beam::wallet;
 class SwapOfferItem : public QObject
 {
     Q_OBJECT
-    // Q_PROPERTY(QDateTime    timeCreated         READ timeCreated        NOTIFY changed)
-    // Q_PROPERTY(QDateTime    timeExpiration      READ timeExpiration     NOTIFY changed)
-    // Q_PROPERTY(QString      amountSend          READ amountSend         NOTIFY changed)
-    // Q_PROPERTY(QString      amountReceive       READ amountReceive      NOTIFY changed)
-    // Q_PROPERTY(double       rate                READ rate               NOTIFY changed)
-    // Q_PROPERTY(bool         isOwnOffer          READ isOwnOffer         NOTIFY changed)
-    // Q_PROPERTY(TxParameters txParameters        READ getTxParameters    NOTIFY changed)
 
 public:
     SwapOfferItem() = default;
