@@ -220,6 +220,24 @@ ColumnLayout {
                 onNewSeed: viewModel.btcNewSeedEL()
             }
 
+            Binding {
+                target:   viewModel
+                property: "btcNodeAddressEL"
+                value:    btcSettingsEL.address
+            }
+
+            Binding {
+                target:   viewModel
+                property: "btcSeedEL"
+                value:    btcSettingsEL.seed
+            }
+
+            Binding {
+                target:   viewModel
+                property: "btcFeeRateEL"
+                value:    btcSettingsEL.feeRate
+            }
+
             ElectrumSettings {
                 id:                  ltcSettingsEL
                 title:               qsTrId("general-electrum") + " - " + qsTrId("general-litecoin")
@@ -242,6 +260,24 @@ ColumnLayout {
                 onNewSeed: viewModel.ltcNewSeedEL()
             }
 
+            Binding {
+                target:   viewModel
+                property: "ltcNodeAddressEL"
+                value:    ltcSettingsEL.address
+            }
+
+            Binding {
+                target:   viewModel
+                property: "ltcSeedEL"
+                value:    ltcSettingsEL.seed
+            }
+
+            Binding {
+                target:   viewModel
+                property: "ltcFeeRateEL"
+                value:    ltcSettingsEL.feeRate
+            }
+
             ElectrumSettings {
                 id:                  qtumSettingsEL
                 title:               qsTrId("general-electrum") + " - " + qsTrId("general-qtum")
@@ -262,6 +298,24 @@ ColumnLayout {
                 onApply: viewModel.applyQtumSettingsEL()
                 onSwitchOff: viewModel.qtumOffEL()
                 onNewSeed: viewModel.qtumNewSeedEL()
+            }
+
+            Binding {
+                target:   viewModel
+                property: "qtumNodeAddressEL"
+                value:    qtumSettingsEL.address
+            }
+
+            Binding {
+                target:   viewModel
+                property: "qtumSeedEL"
+                value:    qtumSettingsEL.seed
+            }
+
+            Binding {
+                target:   viewModel
+                property: "qtumFeeRateEL"
+                value:    qtumSettingsEL.feeRate
             }
         }
 

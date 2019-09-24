@@ -1619,5 +1619,9 @@ or send this address to the sender over secure channel</translation>
         <source>Transaction is in progress</source>
         <translation type="unfinished"></translation>
     </message>
+    <message id="settings-invalid-seed">
+        <source>Invalid seed phrase</source>
+        <translation>Invalid seed phrase</translation>
+    </message>
 </context>
 </TS>

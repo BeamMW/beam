@@ -168,7 +168,7 @@ Control {
                         font.pixelSize: 12
                         font.italic:    true
                         color:          Style.validator_error
-                        text:           qsTrId("general-invalid-address")
+                        text:           qsTrId("settings-invalid-seed")
                         visible:        seedInput.text.length && !seedInput.acceptableInput
                     }
                 }
