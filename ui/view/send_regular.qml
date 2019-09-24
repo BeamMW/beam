@@ -186,7 +186,7 @@ ColumnLayout {
                 Layout.topMargin:   15
                 Layout.rightMargin: 25
                 error:              !viewModel.isEnough
-                amount:             viewModel.sendAmount
+                amount:             viewModel.totalUTXO
             }
 
             SFText {
