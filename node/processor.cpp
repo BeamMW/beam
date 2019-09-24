@@ -3506,40 +3506,45 @@ bool NodeProcessor::GetBlock(const NodeDB::StateID& sid, ByteBuffer* pEthernal, 
 	else
 		id0 = m_Extra.m_TxosTreasury;
 
-	uintBigFor<uint32_t>::Type nCount(Zero);
+	Serializer ser;
+	ser & txb;
+
+	uintBigFor<uint32_t>::Type nCount;
 
 	// inputs
 	std::vector<NodeDB::StateInput> v;
-	std::vector<Input> vInputs;
 	m_DB.get_StateInputs(sid.m_Row, v);
-	for (size_t i = 0; i < v.size(); i++)
+
+	for (uint32_t iCycle = 0; ; iCycle++)
 	{
-		TxoID id = v[i].m_Txo_AndY & ~NodeDB::StateInput::s_Y;
+		nCount = Zero;
 
-		//	if SpendHeight > hLo1 then transfer
-		//	if CreateHeight <= h0 then transfer
-		//	Otherwise - don't transfer
-		if ((sid.m_Height > hLo1) || (id < idInpCut))
+		for (size_t i = 0; i < v.size(); i++)
 		{
-			vInputs.emplace_back();
-			Input& inp = vInputs.back();
-			ECC::Point& pt = inp.m_Commitment; // alias
+			TxoID id = v[i].get_ID();
 
-			pt.m_X = v[i].m_CommX;
-			pt.m_Y = (NodeDB::StateInput::s_Y & v[i].m_Txo_AndY) ? 1 : 0;
+			//	if SpendHeight > hLo1 then transfer
+			//	if CreateHeight <= h0 then transfer
+			//	Otherwise - don't transfer
+			if ((sid.m_Height > hLo1) || (id < idInpCut))
+			{
+				if (iCycle)
+				{
+					// write
+					Input inp;
+					v[i].Get(inp.m_Commitment);
+					ser & inp;
+				}
 
-			nCount.Inc();
+				nCount.Inc();
+			}
 		}
+
+		if (iCycle)
+			break;
+
+		ser & nCount;
 	}
-
-	std::sort(vInputs.begin(), vInputs.end()); // seems unnecessary - though inputs are filtered, the remaining are in exactly the same order as in original block
-
-	Serializer ser;
-	ser & txb;
-	ser & nCount;
-
-	for (size_t i = 0; i < vInputs.size(); i++)
-		ser & vInputs[i];
 
 	ByteBuffer bbBlob;
 	nCount = Zero;
