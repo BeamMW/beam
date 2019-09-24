@@ -205,8 +205,7 @@
     </message>
     <message id="wallet-txs-date-time">
         <source>Created on</source>
-        <oldsource>Date | Time</oldsource>
-        <translation>Date | Time</translation>
+        <translation>Created on</translation>
     </message>
     <message id="wallet-txs-copy-addr-cm">
         <source>Copy address</source>
@@ -1408,8 +1407,9 @@ or send this address to the sender over secure channel</translation>
         <translation>QTUM</translation>
     </message>
     <message id="general-electrum">
-        <source>Electrum</source>
-        <translation>Electrum</translation>
+        <source></source>
+        <oldsource>Electrum</oldsource>
+        <translation type="unfinished">Electrum</translation>
     </message>
     <message id="swap-currency-na-message">
         <source>You do not have %1 connected.\nUpdate your settings and try again.</source>

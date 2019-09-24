@@ -24,6 +24,8 @@ auto TransactionsList::roleNames() const -> QHash<int, QByteArray>
     {
         { static_cast<int>(Roles::TimeCreated), "timeCreated" },
         { static_cast<int>(Roles::TimeCreatedSort), "timeCreatedSort" },
+        { static_cast<int>(Roles::AmountGeneral), "amountGeneral" },
+        { static_cast<int>(Roles::AmountGeneralSort), "amountGeneralSort" },
         { static_cast<int>(Roles::AmountSend), "amountSend" },
         { static_cast<int>(Roles::AmountSendSort), "amountSendSort" },
         { static_cast<int>(Roles::AmountReceive), "amountReceive" },
@@ -66,6 +68,11 @@ auto TransactionsList::data(const QModelIndex &index, int role) const -> QVarian
         case Roles::TimeCreated:
         case Roles::TimeCreatedSort:
             return value->timeCreated();
+
+        case Roles::AmountGeneral:
+            return value->getAmount();
+        case Roles::AmountGeneralSort:
+            return value->getAmountValue();
             
         case Roles::AmountSend:
             return value->getSentAmount();

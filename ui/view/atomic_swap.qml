@@ -464,7 +464,7 @@ Item {
                                         anchors.rightMargin: 20
 
                                         font.pixelSize: 14
-                                        color: isOwnOffer ? "#ffffff" : "#00f6d2"
+                                        color: isOwnOffer ? Style.content_main : Style.active
                                         opacity: isOwnOffer ? 0.5 : 1.0
                                         text: isOwnOffer
                                                         //% "Cancel offer"
@@ -604,7 +604,6 @@ Item {
                                 Item {
                                     id: txDetails
                                     height: 0
-                                    // visible: height > 0
                                     width: parent.width
                                     clip: true
 
@@ -624,7 +623,6 @@ Item {
                                     TransactionDetails {
                                         id: detailsPanel
                                         width: transactionsTable.width
-                                        model: null
 
                                         property var txRolesMap: transactionsTable.model.get(styleData.row)
                                         sendAddress:        txRolesMap.addressTo ? txRolesMap.addressTo : ""
@@ -638,16 +636,35 @@ Item {
                                         isIncome:           txRolesMap.isIncome ? txRolesMap.isIncome : false
                                         hasPaymentProof:    txRolesMap.hasPaymentProof ? txRolesMap.hasPaymentProof : false
                                         isSelfTx:           txRolesMap.isSelfTransaction ? txRolesMap.isSelfTransaction : false
+                                        rawTxID:            txRolesMap.rawTxID ? txRolesMap.rawTxID : null
                                         
                                         onOpenExternal : function() {
-                                            var url = Style.explorerUrl + "block?kernel_id=" + model.kernelID;
+                                            var url = Style.explorerUrl + "block?kernel_id=" + detailsPanel.kernelID;
                                             Utils.openExternal(url, viewModel, externalLinkConfirmation);
                                         } 
-                                        onTextCopied: function (text) { BeamGlobals.copyToClipboard(text);}
-                                        onShowDetails: {
-                                            if (model)
+                                        onTextCopied: function (text) {
+                                            BeamGlobals.copyToClipboard(text);
+                                        }
+                                        onCopyPaymentProof: function() {
+                                            if (detailsPanel.rawTxID)
                                             {
-                                                paymentInfoDialog.model = model.getPaymentInfo();
+                                                var paymentInfo = viewModel.getPaymentInfo(detailsPanel.rawTxID);
+                                                if (paymentInfo.paymentProof.length == 0)
+                                                {
+                                                    paymentInfo.paymentProofChanged.connect(function() {
+                                                        textCopied(paymentInfo.paymentProof);
+                                                    });
+                                                }
+                                                else
+                                                {
+                                                    textCopied(paymentInfo.paymentProof);
+                                                }
+                                            }
+                                        }
+                                        onShowPaymentProof: {
+                                            if (detailsPanel.rawTxID)
+                                            {
+                                                paymentInfoDialog.model = viewModel.getPaymentInfo(detailsPanel.rawTxID);
                                                 paymentInfoDialog.open();
                                             }
                                         }
@@ -826,7 +843,7 @@ Item {
                                     TableItem {
                                         text: (styleData.value === '' ? '' : '-') + styleData.value
                                         fontWeight: Font.Bold
-                                        color: "#da68f5"
+                                        color: Style.accent_outgoing
                                     }
                                 }
                             }
@@ -846,7 +863,7 @@ Item {
                                     TableItem {
                                         text: (styleData.value === '' ? '' : '-') + styleData.value
                                         fontWeight: Font.Bold
-                                        color: "#0bccf7"
+                                        color: Style.accent_incoming
                                     }
                                 }
                             }
@@ -889,11 +906,12 @@ Item {
                                             text: getStatusText(styleData.value)
                                             color: getTextColor()
                                             function getTextColor () {
-                                                if (transactionsTable.model.get(styleData.row).IsInProgress || transactionsTable.model.get(styleData.row).IsCompleted) {
-                                                    if (transactionsTable.model.get(styleData.row).isSelfTransaction) {
+                                                var item = transactionsTable.model.get(styleData.row);
+                                                if (item.IsInProgress || item.IsCompleted) {
+                                                    if (item.isSelfTransaction) {
                                                         return Style.content_main;
                                                     }
-                                                    return transactionsTable.model.get(styleData.row).isIncome ? Style.accent_incoming : Style.accent_outgoing;
+                                                    return item.isIncome ? Style.accent_incoming : Style.accent_outgoing;
                                                 }
                                                 else return Style.content_main;
                                             }
@@ -902,7 +920,6 @@ Item {
                                 }
                             }
                         }
-
                         TableViewColumn {
                             id: actionsColumn
                             elideMode: Text.ElideRight

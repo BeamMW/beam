@@ -73,8 +73,6 @@ SwapOffersViewModel::~SwapOffersViewModel()
     disconnect(m_btcClient.get(), 0, this, 0);
     disconnect(m_ltcClient.get(), 0, this, 0);
     disconnect(m_qtumClient.get(), 0, this, 0);
-
-    LOG_INFO() << "SwapOffersViewModel destroyed";
 }
 
 int SwapOffersViewModel::getCoinType()
@@ -153,6 +151,16 @@ void SwapOffersViewModel::deleteTx(QVariant variantTxID)
     }
 }
 
+PaymentInfoItem* SwapOffersViewModel::getPaymentInfo(QVariant variantTxID)
+{
+    if (!variantTxID.isNull() && variantTxID.isValid())
+    {
+        auto txId = variantTxID.value<beam::wallet::TxID>();
+        return new MyPaymentInfoItem(txId, this);
+    }
+    else return Q_NULLPTR;
+}
+
 void SwapOffersViewModel::onTransactionsDataModelChanged(beam::wallet::ChangeAction action, const std::vector<beam::wallet::TxDescription>& transactions)
 {
     vector<shared_ptr<TxObject>> modifiedTransactions;
@@ -168,33 +176,33 @@ void SwapOffersViewModel::onTransactionsDataModelChanged(beam::wallet::ChangeAct
 
     switch (action)
     {
-    case ChangeAction::Reset:
-        {
-            m_transactionsList.reset(modifiedTransactions);
-            break;
-        }
+        case ChangeAction::Reset:
+            {
+                m_transactionsList.reset(modifiedTransactions);
+                break;
+            }
 
-    case ChangeAction::Removed:
-        {
-            m_transactionsList.remove(modifiedTransactions);
-            break;
-        }
+        case ChangeAction::Removed:
+            {
+                m_transactionsList.remove(modifiedTransactions);
+                break;
+            }
 
-    case ChangeAction::Added:
-        {
-            m_transactionsList.insert(modifiedTransactions);
-            break;
-        }
-    
-    case ChangeAction::Updated:
-        {
-            m_transactionsList.update(modifiedTransactions);
-            break;
-        }
+        case ChangeAction::Added:
+            {
+                m_transactionsList.insert(modifiedTransactions);
+                break;
+            }
+        
+        case ChangeAction::Updated:
+            {
+                m_transactionsList.update(modifiedTransactions);
+                break;
+            }
 
-    default:
-        assert(false && "Unexpected action");
-        break;
+        default:
+            assert(false && "Unexpected action");
+            break;
     }
 
     emit allTransactionsChanged();
@@ -227,27 +235,27 @@ void SwapOffersViewModel::onSwapOffersDataModelChanged(beam::wallet::ChangeActio
 
     switch (action)
     {
-    case ChangeAction::Reset:
-        {
-            m_offersList.reset(modifiedOffers);
-            break;
-        }
+        case ChangeAction::Reset:
+            {
+                m_offersList.reset(modifiedOffers);
+                break;
+            }
 
-    case ChangeAction::Added:
-        {
-            m_offersList.insert(modifiedOffers);
-            break;
-        }
+        case ChangeAction::Added:
+            {
+                m_offersList.insert(modifiedOffers);
+                break;
+            }
 
-    case ChangeAction::Removed:
-        {
-            m_offersList.remove(modifiedOffers);
+        case ChangeAction::Removed:
+            {
+                m_offersList.remove(modifiedOffers);
+                break;
+            }
+        
+        default:
+            assert(false && "Unexpected action");
             break;
-        }
-    
-    default:
-        assert(false && "Unexpected action");
-        break;
     }
     
     emit allOffersChanged();
