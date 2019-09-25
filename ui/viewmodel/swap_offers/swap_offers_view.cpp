@@ -221,12 +221,14 @@ void SwapOffersViewModel::onSwapOffersDataModelChanged(beam::wallet::ChangeActio
         {
             QDateTime timeExpiration;
 
-            auto expiresHeight = offer.GetParameter<Height>(beam::wallet::TxParameterID::PeerResponseHeight);
+            auto peerResponseTime = offer.GetParameter<beam::Height>(beam::wallet::TxParameterID::PeerResponseTime);
+            auto minHeight = offer.GetParameter<beam::Height>(beam::wallet::TxParameterID::MinHeight);
             auto currentHeight = m_status.getCurrentHeight();
 
-            if (currentHeight && expiresHeight)
+            if (currentHeight && peerResponseTime && minHeight)
             {
-                timeExpiration = beamui::CalculateExpiresTime(currentHeight, *expiresHeight);
+                auto expiresHeight = *minHeight + *peerResponseTime;
+                timeExpiration = beamui::CalculateExpiresTime(currentHeight, expiresHeight);
             }
 
             modifiedOffers.push_back(make_shared<SwapOfferItem>(offer, m_walletModel.isOwnAddress(walletID), timeExpiration));
