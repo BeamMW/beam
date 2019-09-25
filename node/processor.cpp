@@ -3476,7 +3476,7 @@ bool NodeProcessor::GetBlock(const NodeDB::StateID& sid, ByteBuffer* pEthernal, 
 	if (IsFastSync() && (sid.m_Height > m_Cursor.m_ID.m_Height))
 		return false;
 
-	bool bFullBlock = (sid.m_Height >= hHi1);
+	bool bFullBlock = (sid.m_Height >= hHi1) && (sid.m_Height > hLo1);
 	m_DB.GetStateBlock(sid.m_Row, bFullBlock ? pPerishable : nullptr, pEthernal);
 
 	if (!(pPerishable && pPerishable->empty()))
