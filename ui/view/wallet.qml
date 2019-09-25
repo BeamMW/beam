@@ -209,8 +209,8 @@ Item {
                 State {
                     name: "inProgress"
                     PropertyChanges { target: inProgressTabSelector; state: "active" }
-                    PropertyChanges { target: txProxyModel; filterRole: "status" }
-                    PropertyChanges { target: txProxyModel; filterString: "*" }
+                    PropertyChanges { target: txProxyModel; filterRole: "isInProgress" }
+                    PropertyChanges { target: txProxyModel; filterString: "true" }
                 },
                 State {
                     name: "sent"
@@ -541,18 +541,19 @@ Item {
                                     text: getStatusText(styleData.value)
                                     color: getTextColor()
                                     function getTextColor () {
-                                        var item = transactionsTable.model.get(styleData.row);
-                                        if (item.IsInProgress || item.IsCompleted) {
+                                        var item = transactionsTable.model.get(styleData.row);                                        
+                                        if (item.isInProgress || item.isCompleted) {
                                             if (item.isSelfTransaction) {
                                                 return Style.content_main;
                                             }
                                             return item.isIncome ? Style.accent_incoming : Style.accent_outgoing;
                                         }
-                                        else return Style.content_main;
+                                        else {
+                                            return Style.content_main;
+                                        }
                                     }
                                 }
                                 Item {
-                                    Layout.fillHeight: true
                                     Layout.fillWidth: true
                                 }
                             }

@@ -898,11 +898,14 @@ Item {
                                     height: transactionsTable.rowHeight
 
                                     RowLayout {
+                                        Layout.alignment: Qt.AlignLeft
                                         anchors.fill: parent
                                         anchors.leftMargin: 10
+                                        spacing: 10
 
                                         SvgImage {
-                                            Layout.alignment: Qt.AlignHCenter
+                                            Layout.alignment: Qt.AlignLeft
+
                                             sourceSize: Qt.size(20, 20)
                                             source: getIconSource()
                                             function getIconSource() {
@@ -915,7 +918,8 @@ Item {
                                             }
                                         }
                                         SFLabel {
-                                            Layout.alignment: Qt.AlignHCenter
+                                            Layout.alignment: Qt.AlignLeft
+
                                             font.pixelSize: 14
                                             font.italic: true
                                             elide: Text.ElideRight
@@ -923,7 +927,7 @@ Item {
                                             color: getTextColor()
                                             function getTextColor () {
                                                 var item = transactionsTable.model.get(styleData.row);
-                                                if (item.IsInProgress || item.IsCompleted) {
+                                                if (item.isInProgress || item.isCompleted) {
                                                     if (item.isSelfTransaction) {
                                                         return Style.content_main;
                                                     }
@@ -931,6 +935,9 @@ Item {
                                                 }
                                                 else return Style.content_main;
                                             }
+                                        }
+                                        Item {
+                                            Layout.fillWidth: true
                                         }
                                     }
                                 }
