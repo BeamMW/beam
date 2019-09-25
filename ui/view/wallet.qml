@@ -307,8 +307,8 @@ Item {
                                 width: transactionsTable.width
 
                                 property var txRolesMap: transactionsTable.model.get(styleData.row)
-                                sendAddress:        txRolesMap.addressTo ? txRolesMap.addressTo : ""
-                                receiveAddress:     txRolesMap.addressFrom ? txRolesMap.addressFrom : ""
+                                sendAddress:        txRolesMap.addressFrom ? txRolesMap.addressFrom : ""
+                                receiveAddress:     txRolesMap.addressTo ? txRolesMap.addressTo : ""
                                 fee:                txRolesMap.fee ? txRolesMap.fee : ""
                                 comment:            txRolesMap.comment ? txRolesMap.comment : ""
                                 txID:               txRolesMap.txID ? txRolesMap.txID : ""

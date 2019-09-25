@@ -53,10 +53,8 @@ namespace beam::wallet
         {
             bool txChanged = false;
             SubTxID subTxID = kDefaultSubTxID;
-            auto counter = parameters.size();
             for (const auto& p : parameters)
             {
-                --counter;
                 if (p.first == TxParameterID::SubTxIndex)
                 {
                     // change subTxID
@@ -68,8 +66,7 @@ namespace beam::wallet
 
                 if (allowPrivate || p.first < TxParameterID::PrivateFirstParam)
                 {
-                    bool notify = (counter == 0);
-                    txChanged |= tx->SetParameter(p.first, p.second, notify, subTxID);
+                    txChanged |= tx->SetParameter(p.first, p.second, subTxID);
                 }
                 else
                 {
