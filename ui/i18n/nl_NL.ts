@@ -801,13 +801,13 @@
         <translation>Starten van wallet is mislukt. Controleer uw wallet gegevenslocatie</translation>
     </message>
     <message id="loading-view-download-blocks">
-        <source>Downloading new blocks</source>
-        <oldsource>Downloading blocks</oldsource>
+        <source>Synching with blockchain</source>
+        <oldsource>Downloading new blocks</oldsource>
         <translation type="unfinished">Blokken downloaden</translation>
     </message>
     <message id="loading-view-scaning-utxo">
-        <source>Scanning new blocks %d/%d</source>
-        <oldsource>Scanning UTXO %d/%d</oldsource>
+        <source>Locating your funds %d/%d</source>
+        <oldsource>Scanning new blocks %d/%d</oldsource>
         <translation type="unfinished">Scannen UTXO %d/%d</translation>
     </message>
     <message id="loading-view-protocol-error">
@@ -1550,8 +1550,8 @@ Update your settings and try again.</oldsource>
         <translation type="unfinished"></translation>
     </message>
     <message id="loading-view-rebuild-utxos">
-        <source>Scanning existing blocks</source>
-        <oldsource>Rebuilding UTXO image</oldsource>
+        <source>Rebuilding data</source>
+        <oldsource>Scanning existing blocks</oldsource>
         <translation type="unfinished"></translation>
     </message>
     <message id="wallet-receive-copy-token">

@@ -828,12 +828,12 @@
         <translation>Failed to start wallet. Please check your wallet data location</translation>
     </message>
     <message id="loading-view-download-blocks">
-        <source>Downloading new blocks</source>
-        <translation>Downloading new blocks</translation>
+        <source>Synching with blockchain</source>
+        <translation>Synching with blockchain</translation>
     </message>
     <message id="loading-view-scaning-utxo">
-        <source>Scanning new blocks %d/%d</source>
-        <translation>Scanning new blocks %d/%d</translation>
+        <source>Locating your funds %d/%d</source>
+        <translation>Locating your funds %d/%d</translation>
     </message>
     <message id="loading-view-protocol-error">
         <source>Incompatible peer</source>
@@ -1444,8 +1444,8 @@ or send this address to the sender over secure channel</translation>
         <translation>calculating...</translation>
     </message>
     <message id="loading-view-rebuild-utxos">
-        <source>Scanning existing blocks</source>
-        <translation>Scanning existing blocks</translation>
+        <source>Rebuilding data</source>
+        <translation>Rebuilding data</translation>
     </message>
     <message id="loading-view-estimate-hours">
         <source>h.</source>

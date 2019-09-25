@@ -801,12 +801,12 @@
         <translation>Немагчыма запусціць праграмму. Праверце пуць да дадзеных кашалька</translation>
     </message>
     <message id="loading-view-download-blocks">
-        <source>Downloading new blocks</source>
-        <translation>Загрузка новых блокаў</translation>
+        <source>Synching with blockchain</source>
+        <translation>Сінхранізацыя з блокчэйнам</translation>
     </message>
     <message id="loading-view-scaning-utxo">
-        <source>Scanning new blocks %d/%d</source>
-        <translation>Сканаванне новых блокаў %d/%d</translation>
+        <source>Locating your funds %d/%d</source>
+        <translation>Пошук вашых сродкаў %d/%d</translation>
     </message>
     <message id="loading-view-protocol-error">
         <source>Incompatible peer</source>
@@ -1412,8 +1412,8 @@ Update your settings and try again.</oldsource>
         <translation>вылічаецца...</translation>
     </message>
     <message id="loading-view-rebuild-utxos">
-        <source>Scanning existing blocks</source>
-        <translation>Сканаванне існуючых блокаў</translation>
+        <source>Rebuilding data</source>
+        <translation>Перабудаванне дадзенных</translation>
     </message>
     <message id="loading-view-estimate-hours">
         <source>h.</source>
