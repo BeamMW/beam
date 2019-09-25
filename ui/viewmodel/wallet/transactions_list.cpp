@@ -170,17 +170,20 @@ void TransactionsList::update(const std::vector<std::shared_ptr<TxObject>>& item
         auto it = std::find_if(std::begin(m_list), std::end(m_list),
                             [&item](const auto& element) { return element->getTxID() == item->getTxID(); });
         
+        // index to add item on last position by default
+        int index = m_list.count() - 1;
+
         if (it != std::end(m_list))
         {
-            auto index = m_list.indexOf(*it);
+            index = m_list.indexOf(*it);
 
             beginRemoveRows(QModelIndex(), index, index);
             m_list.removeAt(index);
             endRemoveRows();
-
-            beginInsertRows(QModelIndex(), index, index);
-            m_list.insert(index, item);
-            endInsertRows();
         }
+
+        beginInsertRows(QModelIndex(), index, index);
+        m_list.insert(index, item);
+        endInsertRows();
     }
 }
