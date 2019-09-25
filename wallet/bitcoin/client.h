@@ -68,6 +68,10 @@ namespace beam::bitcoin
         virtual void OnStatus(Status status) = 0;
         virtual void OnBalance(const Balance& balance) = 0;
 
+        bool CanModify() const override;
+        void AddRef() override;
+        void Release() override;
+
     private:
         // IClientAsync
         void GetStatus() override;
@@ -89,5 +93,6 @@ namespace beam::bitcoin
 
         mutable std::mutex m_mutex;
         using Lock = std::unique_lock<std::mutex>;
+        size_t m_refCount = 0;
     };
 } // namespace beam::bitcoin
