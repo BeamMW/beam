@@ -1633,5 +1633,9 @@ you do not send large amounts.</oldsource>
         <source>Invalid seed phrase</source>
         <translation type="unfinished"></translation>
     </message>
+    <message id="settings-see-seed">
+        <source>Click to see seed phrase</source>
+        <translation type="unfinished"></translation>
+    </message>
 </context>
 </TS>

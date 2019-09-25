@@ -328,6 +328,10 @@
         <extracomment>settings tab, node section, address label</extracomment>
         <translation>ip:port</translation>
     </message>
+    <message id="settings-see-seed">
+        <source>Click to see seed phrase</source>
+        <translation>Click to see seed phrase</translation>
+    </message>
     <message id="settings-new-seed">
         <source>Double click to generate new seed phrase</source>
         <translation>Double click to generate new seed phrase</translation>

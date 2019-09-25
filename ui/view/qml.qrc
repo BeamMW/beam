@@ -178,6 +178,7 @@
         <file>assets/icon-details.svg</file>
         <file>assets/beta-label.svg</file>
         <file>controls/OpenExternalLinkConfirmation.qml</file>
+        <file>controls/SeedInput.qml</file>
         <file>utils.js</file>
         <file>qmldir</file>
     </qresource>

@@ -138,29 +138,22 @@ Control {
             }
 
             ColumnLayout {
-                Layout.fillWidth: true
+                Layout.fillWidth:    true
+                Layout.topMargin:    5
+                Layout.bottomMargin: 5
+                spacing:             0
 
-                SFTextInput {
+                SeedInput {
                     id:                  seedInput
                     Layout.fillWidth:    true
                     font.pixelSize:      14
                     activeFocusOnTab:    true
-                    wrapMode:            TextInput.Wrap
                     implicitHeight:      70
-                    validator:           RegExpValidator {regExp: /^([a-z]{2,20}\ ){11}([a-z]{2,20}){1}$/g}
-                    font.italic:         text.length && !acceptableInput
-                    color:               text.length && !acceptableInput ? Style.validator_error : Style.content_secondary
-                    backgroundColor:     text.length && !acceptableInput ? Style.validator_error : Style.content_secondary
-                    //% "Double click to generate new seed phrase"
-                    placeholderText:     qsTrId("settings-new-seed")
-                    horizontalAlignment: focus || text.length > 0 ? Text.AlignLeft : Text.AlignHCenter
-
-                    MouseArea {
-                        anchors.fill: parent;
-                        acceptedButtons: Qt.LeftButton
-                        onDoubleClicked: if (seedInput.text.length == 0) thisControl.newSeed()
-                        onClicked: parent.forceActiveFocus()
-                    }
+                    placeholderText:     text.length > 0 ?
+                                            //% "Click to see seed phrase"
+                                            qsTrId("settings-see-seed") :
+                                            //% "Double click to generate new seed phrase"
+                                            qsTrId("settings-new-seed")
                 }
 
                 Item {
@@ -191,6 +184,7 @@ Control {
                 minFee:           thisControl.minFeeRate
                 feeLabel:         thisControl.feeRateLabel
                 color:            Style.content_secondary
+                spacing:          0
 
                 Connections {
                     target: thisControl

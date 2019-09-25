@@ -6,6 +6,7 @@ import Beam.Wallet 1.0
 
 ColumnLayout {
     id: control
+    spacing: 0
 
     property bool ipOnly:   true
     property string color:  Style.content_main
