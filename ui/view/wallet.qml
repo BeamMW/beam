@@ -109,9 +109,10 @@ Item {
             AvailablePanel {
                 Layout.topMargin: 28
                 Layout.alignment: Qt.AlignTop | Qt.AlignLeft
-                Layout.fillWidth : true
                 Layout.maximumHeight: 67
                 Layout.minimumHeight: 67
+
+                width: viewModel.beamSending > 0 || viewModel.beamReceiving > 0 ? parent.width : (parent.width / 2)
 
                 available:         viewModel.beamAvailable
                 locked:            viewModel.beamLocked
