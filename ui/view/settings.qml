@@ -277,6 +277,7 @@ ColumnLayout {
 
             ElectrumSettings {
                 id:               btcSettingsEL
+                //% "Electrum"
                 title:            qsTrId("general-electrum") + " - " + qsTrId("general-bitcoin")
                 address:          viewModel.btcNodeAddressEL
                 seed:             viewModel.btcSeedEL
@@ -385,6 +386,7 @@ ColumnLayout {
 
             ElectrumSettings {
                 id:                  ltcSettingsEL
+                //% "Electrum"
                 title:               qsTrId("general-electrum") + " - " + qsTrId("general-litecoin")
                 address:             viewModel.ltcNodeAddressEL
                 seed:                viewModel.ltcSeedEL
@@ -493,6 +495,7 @@ ColumnLayout {
 
             ElectrumSettings {
                 id:                  qtumSettingsEL
+                //% "Electrum"
                 title:               qsTrId("general-electrum") + " - " + qsTrId("general-qtum")
                 address:             viewModel.qtumNodeAddressEL
                 seed:                viewModel.qtumSeedEL

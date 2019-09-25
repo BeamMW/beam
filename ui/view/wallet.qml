@@ -400,7 +400,7 @@ Item {
                 }
                 TableViewColumn {
                     role: "amountGeneral"
-                    //% "Sent"
+                    //% "Amount"
                     title: qsTrId("general-amount")
                     elideMode: Text.ElideRight
                     width: transactionsTable.columnWidth
