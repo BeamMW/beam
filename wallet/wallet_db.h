@@ -108,7 +108,8 @@ namespace beam::wallet
         {
             Expired = 0,
             OneDay,
-            Never
+            Never,
+            AsIs
         };
         void setLabel(const std::string& label);
         void setExpiration(ExpirationStatus status);

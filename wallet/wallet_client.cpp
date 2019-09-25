@@ -730,7 +730,8 @@ namespace beam::wallet
 
             if (addr)
             {
-                if (addr->m_OwnID)
+                if (addr->m_OwnID &&
+                    status != WalletAddress::ExpirationStatus::AsIs)
                 {
                     addr->setExpiration(status);
                 }

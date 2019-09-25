@@ -410,7 +410,8 @@ Dialog {
 					const expirationStatusEnum = {
 						Expired: 0,
 						OneDay: 1,
-						Never: 2
+						Never: 2,
+						AsIs: 3
 					}
 
 					if (rootControl.isExpiredAddress) {
@@ -445,9 +446,12 @@ Dialog {
 								case 2:
 									expirationStatus = expirationStatusEnum.Never;
 									break;
+								default:
+									expirationStatus = expirationStatusEnum.AsIs;
 							}
 						}
 					}
+					console.log(expirationStatus);
 					parentModel.saveChanges(addressID.text, addressName.text, expirationStatus);
 					rootControl.accepted();
                     rootControl.close();
