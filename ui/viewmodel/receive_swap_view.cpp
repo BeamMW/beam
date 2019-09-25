@@ -326,7 +326,7 @@ namespace
 void ReceiveSwapViewModel::updateTransactionToken()
 {
     _txParameters.SetParameter(beam::wallet::TxParameterID::MinHeight, _currentHeight);
-    _txParameters.SetParameter(beam::wallet::TxParameterID::PeerResponseHeight, _currentHeight + GetBlockCount(_offerExpires));
+    _txParameters.SetParameter(beam::wallet::TxParameterID::PeerResponseTime, GetBlockCount(_offerExpires));
 
     // All parameters sets as if we were on the recipient side (mirrored)
     bool isBeamSide = (_receiveCurrency == Currency::CurrBeam);
