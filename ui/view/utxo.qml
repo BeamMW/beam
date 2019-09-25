@@ -132,6 +132,14 @@ ColumnLayout {
         sortIndicatorColumn: 1
         sortIndicatorOrder: Qt.DescendingOrder
 
+        onSortIndicatorColumnChanged: {
+            if (sortIndicatorColumn == 0) {
+                sortIndicatorOrder = Qt.AscendingOrder;
+            } else if (sortIndicatorColumn == 1) {
+                sortIndicatorOrder = Qt.DescendingOrder;
+            }
+        }
+
         Binding{
             target: viewModel
             property: "sortRole"
