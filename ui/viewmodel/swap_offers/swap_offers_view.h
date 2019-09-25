@@ -66,6 +66,7 @@ public:
     Q_INVOKABLE void setCoinType(int coinType);
     Q_INVOKABLE void cancelTx(QVariant variantTxID);
     Q_INVOKABLE void deleteTx(QVariant variantTxID);
+    Q_INVOKABLE PaymentInfoItem* getPaymentInfo(QVariant variantTxID);
 
 public slots:
     void onTransactionsDataModelChanged(

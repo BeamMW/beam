@@ -474,6 +474,49 @@ void SettingsViewModel::qtumNewSeedEL()
 {
 }
 
+bool SettingsViewModel::getBtcUseEL() const
+{
+    return m_btcUseEL;
+}
+
+void SettingsViewModel::setBtcUseEL(bool value)
+{
+    if (m_btcUseEL != value)
+    {
+        m_btcUseEL = value;
+        emit btcUseELChanged();
+    }
+}
+
+bool SettingsViewModel::getLtcUseEL() const
+{
+    return m_ltcUseEL;
+}
+
+void SettingsViewModel::setLtcUseEL(bool value)
+{
+    if (m_ltcUseEL != value)
+    {
+        m_ltcUseEL = value;
+        emit ltcUseELChanged();
+    }
+}
+
+bool SettingsViewModel::getQtumUseEL() const
+{
+    return m_qtumUseEL;
+}
+
+void SettingsViewModel::setQtumUseEL(bool value)
+{
+    if (m_qtumUseEL != value)
+    {
+        m_qtumUseEL = value;
+        emit qtumUseELChanged();
+    }
+}
+
+
 bool SettingsViewModel::isLocalNodeRunning() const
 {
     return AppModel::getInstance().getNode().isNodeRunning();

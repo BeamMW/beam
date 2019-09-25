@@ -205,8 +205,7 @@
     </message>
     <message id="wallet-txs-date-time">
         <source>Created on</source>
-        <oldsource>Date | Time</oldsource>
-        <translation>Date | Time</translation>
+        <translation>Created on</translation>
     </message>
     <message id="wallet-txs-copy-addr-cm">
         <source>Copy address</source>
@@ -1297,7 +1296,8 @@ or send this address to the sender over secure channel</translation>
     </message>
     <message id="settings-reset">
         <source>Switch off</source>
-        <translation>Switch off</translation>
+        <oldsource>Clear</oldsource>
+        <translation type="unfinished">Clear</translation>
     </message>
     <message id="settings-node-address">
         <source>Node Address</source>

@@ -220,7 +220,8 @@ namespace
             .SetParameter(TxParameterID::PeerID, receiver.m_WalletID)
             .SetParameter(TxParameterID::Amount, Amount(4))
             .SetParameter(TxParameterID::Fee, Amount(2))
-            .SetParameter(TxParameterID::Lifetime, Height(200)));
+            .SetParameter(TxParameterID::Lifetime, Height(200))
+            .SetParameter(TxParameterID::PeerResponseTime, Height(20)));
 
         mainReactor->run();
         sw.stop();
@@ -664,8 +665,8 @@ namespace
             .SetParameter(TxParameterID::PeerID, receiver.m_WalletID)
             .SetParameter(TxParameterID::Amount, Amount(4))
             .SetParameter(TxParameterID::Fee, Amount(2))
-            .SetParameter(TxParameterID::Lifetime, Height(1))
-            .SetParameter(TxParameterID::PeerResponseHeight, Height(10)));
+            .SetParameter(TxParameterID::Lifetime, Height(0))
+            .SetParameter(TxParameterID::PeerResponseTime, Height(10)));
 
         mainReactor->run();
 
@@ -1320,7 +1321,7 @@ namespace
                 .SetParameter(TxParameterID::Amount, Amount(4))
                 .SetParameter(TxParameterID::Fee, Amount(1))
                 .SetParameter(TxParameterID::Lifetime, Height(20))
-                .SetParameter(TxParameterID::PeerResponseHeight, Height(100)));
+                .SetParameter(TxParameterID::PeerResponseTime, Height(100)));
         }
         
         mainReactor->run();

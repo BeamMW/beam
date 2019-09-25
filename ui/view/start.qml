@@ -1463,9 +1463,10 @@ Item
                             text: qsTrId("general-next")
                             enabled: {
                                 var enable = true;
-                                for(var i = 0; i < viewModel.recoveryPhrases.length; ++i)
-                                {
-                                    enable &= viewModel.recoveryPhrases[i].isAllowed;
+                                if (viewModel.validateDictionary) {
+                                    for(var i = 0; i < viewModel.recoveryPhrases.length; ++i) {
+                                        enable &= viewModel.recoveryPhrases[i].isAllowed;
+                                    }
                                 }
                                 return enable;
                             }

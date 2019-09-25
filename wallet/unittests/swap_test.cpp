@@ -169,7 +169,7 @@ void TestSwapTransaction(bool isBeamOwnerStart, beam::Height fork1Height)
                 .SetParameter(TxParameterID::AtomicSwapCoin, wallet::AtomicSwapCoin::Bitcoin)
                 .SetParameter(TxParameterID::AtomicSwapAmount, swapAmount)
                 .SetParameter(TxParameterID::MinHeight, currentHeight)
-                .SetParameter(TxParameterID::PeerResponseHeight, currentHeight + kDefaultTxResponseTime)
+                .SetParameter(TxParameterID::PeerResponseTime, kDefaultTxResponseTime)
                 .SetParameter(TxParameterID::IsInitiator, false);
 
             if (isBeamOwnerStart)
@@ -283,7 +283,7 @@ void TestElectrumSwapTransaction(bool isBeamOwnerStart, beam::Height fork1Height
                     .SetParameter(TxParameterID::AtomicSwapCoin, wallet::AtomicSwapCoin::Bitcoin)
                     .SetParameter(TxParameterID::AtomicSwapAmount, swapAmount)
                     .SetParameter(TxParameterID::MinHeight, currentHeight)
-                    .SetParameter(TxParameterID::PeerResponseHeight, currentHeight + kDefaultTxResponseTime)
+                    .SetParameter(TxParameterID::PeerResponseTime, kDefaultTxResponseTime)
                     .SetParameter(TxParameterID::IsInitiator, false);
 
                 if (isBeamOwnerStart)

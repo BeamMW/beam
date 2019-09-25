@@ -7,22 +7,23 @@ import "."
 
 RowLayout {
     id: "root"
-    property TxObject model
-    property var sendAddress:       model ? model.sendingAddress : ""
-    property var receiveAddress:    model ? model.receivingAddress : ""
-    property var fee:               model ? model.fee : ""
-    property var comment:           model ? model.comment : ""
-    property var txID:              model ? model.transactionID : ""
-    property var kernelID:          model ? model.kernelID : ""
-    property var status:            model ? model.status : ""
-    property var failureReason:     model ? model.failureReason : ""
-    property var isIncome:          model ? model.income : false
-    property var hasPaymentProof:   model ? model.hasPaymentProof : false
-    property var isSelfTx:          model ? model.isSelfTx() : false
+    property var sendAddress
+    property var receiveAddress
+    property var fee
+    property var comment
+    property var txID
+    property var kernelID
+    property var status
+    property var failureReason
+    property var isIncome
+    property var hasPaymentProof
+    property var isSelfTx
+    property var rawTxID
 
     property var onOpenExternal: null
     signal textCopied(string text)
-    signal showDetails()
+    signal copyPaymentProof()
+    signal showPaymentProof()
 
     spacing: 30
     GridLayout {
@@ -259,7 +260,9 @@ RowLayout {
                 icon.width: 21
                 icon.height: 14
                 enabled: root.hasPaymentProof && !root.isSelfTx
-                onClicked: showDetails();
+                onClicked: {
+                    showPaymentProof();
+                }
             }
             CustomButton {
                 //% "Copy"
@@ -267,17 +270,7 @@ RowLayout {
                 icon.source: "qrc:/assets/icon-copy.svg"
                 enabled: root.hasPaymentProof && !root.isSelfTx
                 onClicked: {
-                    var paymentInfo = model.getPaymentInfo();
-                    if (paymentInfo.paymentProof.length == 0)
-                    {
-                        paymentInfo.paymentProofChanged.connect(function() {
-                            textCopied(paymentInfo.paymentProof);
-                        });
-                    }
-                    else
-                    {
-                        textCopied(paymentInfo.paymentProof);
-                    }
+                    copyPaymentProof();
                 }
             }
         }

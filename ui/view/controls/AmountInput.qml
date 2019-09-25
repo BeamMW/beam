@@ -65,7 +65,7 @@ ColumnLayout {
             readOnly:         control.readOnlyA
 
             onTextChanged: {
-                if (focus) control.amount = text ? parseFloat(text) : 0;
+                if (ainput.focus) control.amount = text ? parseFloat(text) : 0;
             }
 
             onFocusChanged: {
@@ -73,12 +73,16 @@ ColumnLayout {
             }
 
             function formatAmount() {
-                return Utils.formatAmount(control.amount, focus)
+                return Utils.formatAmount(control.amount, ainput.focus)
             }
 
             Connections {
                 target: control
-                onAmountChanged: ainput.text = ainput.formatAmount()
+                onAmountChanged: {
+                    if (!ainput.focus) {
+                        ainput.text = ainput.formatAmount()
+                    }
+                }
             }
         }
 

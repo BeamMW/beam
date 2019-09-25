@@ -69,6 +69,8 @@ class NodeProcessor
 	static void TxoToNaked(uint8_t* pBuf, Blob&);
 	static bool TxoIsNaked(const Blob&);
 
+	void ToInputWithMaturity(Input&, TxoID);
+
 	TxoID get_TxosBefore(Height);
 	void AdjustOffset(ECC::Scalar&, uint64_t rowid, bool bAdd);
 
@@ -81,7 +83,7 @@ class NodeProcessor
 	typedef std::pair<int64_t, std::pair<int64_t, Difficulty::Raw> > THW; // Time-Height-Work. Time and Height are signed
 	Difficulty get_NextDifficulty();
 	Timestamp get_MovingMedian();
-	void get_MovingMedianEx(uint64_t rowLast, uint32_t nWindow, THW&);
+	void get_MovingMedianEx(Height, uint32_t nWindow, THW&);
 
 	struct CongestionCache
 	{
@@ -107,6 +109,27 @@ class NodeProcessor
 	} m_CongestionCache;
 
 	CongestionCache::TipCongestion* EnumCongestionsInternal();
+
+	struct RecentStates
+	{
+		struct Entry
+		{
+			uint64_t m_RowID;
+			Block::SystemState::Full m_State;
+		};
+
+		std::vector<Entry> m_vec;
+		// cyclic buffer
+		size_t m_i0 = 0;
+		size_t m_Count = 0;
+
+		Entry& get_FromTail(size_t) const;
+
+		const Entry* Get(Height) const;
+		void RollbackTo(Height);
+		void Push(uint64_t rowID, const Block::SystemState::Full&);
+
+	} m_RecentStates;
 
 	void DeleteBlocksInRange(const NodeDB::StateID& sidTop, Height hStop);
 
@@ -195,7 +218,7 @@ public:
 	bool IsTreasuryHandled() const { return m_Extra.m_TxosTreasury > 0; }
 
 	DataStatus::Enum OnState(const Block::SystemState::Full&, const PeerID&);
-	DataStatus::Enum OnStateSilent(const Block::SystemState::Full&, const PeerID&, Block::SystemState::ID&);
+	DataStatus::Enum OnStateSilent(const Block::SystemState::Full&, const PeerID&, Block::SystemState::ID&, bool bAlreadyChecked);
 	DataStatus::Enum OnBlock(const Block::SystemState::ID&, const Blob& bbP, const Blob& bbE, const PeerID&);
 	DataStatus::Enum OnBlock(const NodeDB::StateID&, const Blob& bbP, const Blob& bbE, const PeerID&);
 	DataStatus::Enum OnTreasury(const Blob&);
@@ -341,7 +364,7 @@ public:
 private:
 	size_t GenerateNewBlockInternal(BlockContext&);
 	void GenerateNewHdr(BlockContext&);
-	DataStatus::Enum OnStateInternal(const Block::SystemState::Full&, Block::SystemState::ID&);
+	DataStatus::Enum OnStateInternal(const Block::SystemState::Full&, Block::SystemState::ID&, bool bAlreadyChecked);
 };
 
 struct LogSid

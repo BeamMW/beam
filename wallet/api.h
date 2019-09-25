@@ -32,6 +32,7 @@ namespace beam::wallet
     constexpr Amount DefaultFee = 100;
 
     using json = nlohmann::json;
+    using JsonRpcId = json;
 
 #define API_WRITE_ACCESS true
 #define API_READ_ACCESS false
@@ -236,7 +237,7 @@ namespace beam::wallet
         virtual void onInvalidJsonRpc(const json& msg) = 0;
 
 #define MESSAGE_FUNC(api, name, _) \
-        virtual void onMessage(int id, const api& data) = 0;
+        virtual void onMessage(const JsonRpcId& id, const api& data) = 0;
 
         WALLET_API_METHODS(MESSAGE_FUNC)
 
@@ -253,7 +254,7 @@ namespace beam::wallet
         WalletApi(IWalletApiHandler& handler, ACL acl = boost::none);
 
 #define RESPONSE_FUNC(api, name, _) \
-        void getResponse(int id, const api::Response& data, json& msg);
+        void getResponse(const JsonRpcId& id, const api::Response& data, json& msg);
 
         WALLET_API_METHODS(RESPONSE_FUNC)
 
@@ -264,7 +265,7 @@ namespace beam::wallet
     private:
 
 #define MESSAGE_FUNC(api, name, _) \
-        void on##api##Message(int id, const json& msg);
+        void on##api##Message(const JsonRpcId& id, const json& msg);
 
         WALLET_API_METHODS(MESSAGE_FUNC)
 
@@ -275,7 +276,7 @@ namespace beam::wallet
 
         struct FuncInfo
         {
-            std::function<void(int id, const json& msg)> func;
+            std::function<void(const JsonRpcId& id, const json& msg)> func;
             bool writeAccess;
         };
 

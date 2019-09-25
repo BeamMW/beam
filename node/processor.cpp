@@ -133,14 +133,6 @@ void NodeProcessor::Initialize(const char* szPath, const StartParams& sp)
 	else
 		m_DB.ParamGet(NodeDB::ParamID::Treasury, &m_Extra.m_TxosTreasury, nullptr, nullptr);
 
-	if (sp.m_ResetCursor)
-	{
-		m_DB.ResetCursor();
-
-		m_DB.TxoDelFrom(m_Extra.m_TxosTreasury);
-		m_DB.TxoDelSpentFrom(Rules::HeightGenesis);
-	}
-
 	InitCursor();
 
 	if (InitUtxoMapping(szPath))
@@ -168,8 +160,22 @@ void NodeProcessor::Initialize(const char* szPath, const StartParams& sp)
 
 	OnHorizonChanged();
 
-	if (!sp.m_ResetCursor)
+	if (sp.m_ResetCursor)
+	{
+		RollbackTo(Rules::HeightGenesis - 1);
+
+		m_Extra.m_TxoLo = 0;
+		m_Extra.m_TxoHi = 0;
+		m_Extra.m_Fossil = 0;
+		m_DB.ParamSet(NodeDB::ParamID::HeightTxoLo, &m_Extra.m_TxoLo, nullptr);
+		m_DB.ParamSet(NodeDB::ParamID::HeightTxoHi, &m_Extra.m_TxoHi, nullptr);
+		m_DB.ParamSet(NodeDB::ParamID::FossilHeight, &m_Extra.m_Fossil, nullptr);
+
+	}
+	else
+	{
 		TryGoUp();
+	}
 }
 
 // Ridiculous! Had to write this because strmpi isn't standard!
@@ -1018,9 +1024,10 @@ void NodeProcessor::TryGoUp()
 		MultiblockContext mbc(*this);
 		bool bContextFail = false;
 
+		NodeDB::StateID sidFwd = m_Cursor.m_Sid;
+
 		for (size_t i = vPath.size(); i--; )
 		{
-			NodeDB::StateID sidFwd;
 			sidFwd.m_Height = m_Cursor.m_Sid.m_Height + 1;
 			sidFwd.m_Row = vPath[i];
 
@@ -1107,6 +1114,9 @@ void NodeProcessor::TryGoUp()
 						}
 
 						mbc.OnFastSyncFailed(false);
+
+						sidFwd = m_Cursor.m_Sid; // don't delete any more blocks
+
 					}
 				}
 				else
@@ -1138,11 +1148,9 @@ void NodeProcessor::TryGoUp()
 		if (!bContextFail)
 			LOG_WARNING() << "Context-free verification failed";
 
-		NodeDB::StateID sidTop = m_Cursor.m_Sid;
-
 		RollbackTo(mbc.m_InProgress.m_Min - 1);
 
-		DeleteBlocksInRange(sidTop, m_Cursor.m_Sid.m_Height); // blocks from this peer
+		DeleteBlocksInRange(sidFwd, m_Cursor.m_Sid.m_Height); // blocks from this peer
 		OnPeerInsane(mbc.m_pidLast);
 	}
 
@@ -1268,7 +1276,26 @@ Height NodeProcessor::RaiseTxoLo(Height hTrg)
 	if (hTrg <= m_Extra.m_TxoLo)
 		return 0;
 
-	Height hRet = m_DB.DeleteSpentTxos(HeightRange(m_Extra.m_TxoLo + 1, hTrg), m_Extra.m_TxosTreasury);
+	Height hRet = 0;
+	std::vector<NodeDB::StateInput> v;
+
+	while (m_Extra.m_TxoLo < hTrg)
+	{
+		uint64_t rowid = FindActiveAtStrict(++m_Extra.m_TxoLo);
+		if (!m_DB.get_StateInputs(rowid, v))
+			continue;
+
+		for (size_t i = 0; i < v.size(); i++)
+		{
+			TxoID id = v[i].get_ID();
+			if (id >= m_Extra.m_TxosTreasury)
+				m_DB.TxoDel(id);
+		}
+
+		hRet += v.size();
+
+		m_DB.set_StateInputs(rowid, nullptr, 0);
+	}
 
 	m_Extra.m_TxoLo = hTrg;
 	m_DB.ParamSet(NodeDB::ParamID::HeightTxoLo, &m_Extra.m_TxoLo, NULL);
@@ -1282,23 +1309,32 @@ Height NodeProcessor::RaiseTxoHi(Height hTrg)
 		return 0;
 
 	Height hRet = 0;
+	std::vector<NodeDB::StateInput> v;
 
 	NodeDB::WalkerTxo wlk(m_DB);
-	for (m_DB.EnumTxosBySpent(wlk, HeightRange(m_Extra.m_TxoHi + 1, hTrg)); wlk.MoveNext(); )
+
+	while (m_Extra.m_TxoHi < hTrg)
 	{
-		assert(wlk.m_SpendHeight <= hTrg);
+		uint64_t rowid = FindActiveAtStrict(++m_Extra.m_TxoHi);
+		m_DB.get_StateInputs(rowid, v);
 
-		if (TxoIsNaked(wlk.m_Value))
-			continue;
+		for (size_t i = 0; i < v.size(); i++)
+		{
+			TxoID id = v[i].get_ID();
 
-		uint8_t pNaked[s_TxoNakedMax];
-		TxoToNaked(pNaked, wlk.m_Value);
+			m_DB.TxoGetValue(wlk, id);
 
-		m_DB.TxoSetValue(wlk.m_ID, wlk.m_Value);
-		hRet++;
+			if (TxoIsNaked(wlk.m_Value))
+				continue; //?!
+
+			uint8_t pNaked[s_TxoNakedMax];
+			TxoToNaked(pNaked, wlk.m_Value);
+
+			m_DB.TxoSetValue(id, wlk.m_Value);
+			hRet++;
+		}
 	}
 
-	m_Extra.m_TxoHi = hTrg;
 	m_DB.ParamSet(NodeDB::ParamID::HeightTxoHi, &m_Extra.m_TxoHi, NULL);
 
 	return hRet;
@@ -1653,11 +1689,20 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, MultiblockContext& m
 		for (size_t i = 0; i < vKrnID.size(); i++)
 			m_DB.InsertKernel(vKrnID[i], sid.m_Height);
 
+		std::vector<NodeDB::StateInput> v;
+		v.resize(block.m_vInputs.size());
+
 		for (size_t i = 0; i < block.m_vInputs.size(); i++)
 		{
 			const Input& x = *block.m_vInputs[i];
 			m_DB.TxoSetSpent(x.m_ID, sid.m_Height);
+
+			v[i].Set(x.m_ID, x.m_Commitment);
 		}
+
+		if (!v.empty())
+			m_DB.set_StateInputs(sid.m_Row, &v.front(), v.size());
+
 
 		assert(m_Extra.m_Txos > block.m_vOutputs.size());
 		TxoID id0 = m_Extra.m_Txos - block.m_vOutputs.size() - 1;
@@ -1675,6 +1720,8 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, MultiblockContext& m
 		auto r = block.get_Reader();
 		r.Reset();
 		RecognizeUtxos(std::move(r), sid.m_Height);
+
+		m_RecentStates.Push(sid.m_Row, s);
 	}
 
 	return bOk;
@@ -2040,6 +2087,35 @@ bool NodeProcessor::HandleBlockElement(const Output& v, Height h, const Height* 
 
 	return true;
 }
+
+void NodeProcessor::ToInputWithMaturity(Input& inp, TxoID id)
+{
+	// awkward and relatively used, but this is not used frequently.
+	// NodeDB::StateInput doesn't contain the maturity of the spent UTXO. Hence we reconstruct it
+	// We find the original UTXO height, and then decode the UTXO body, and check its additional maturity factors (coinbase, incubation)
+
+	NodeDB::WalkerTxo wlk(m_DB);
+	m_DB.TxoGetValue(wlk, id);
+
+	uint8_t pNaked[s_TxoNakedMax];
+	Blob val = wlk.m_Value;
+	TxoToNaked(pNaked, val);
+
+	Deserializer der;
+	der.reset(val.p, val.n);
+
+	Output outp;
+	der & outp;
+
+	inp.m_Commitment = outp.m_Commitment;
+	inp.m_ID = id;
+
+	NodeDB::StateID sidPrev;
+	m_DB.FindStateByTxoID(sidPrev, id); // relatively heavy operation: search for the original txo height
+
+	inp.m_Maturity = outp.get_MinMaturity(sidPrev.m_Height);
+}
+
 void NodeProcessor::RollbackTo(Height h)
 {
 	assert(h <= m_Cursor.m_Sid.m_Height);
@@ -2049,34 +2125,30 @@ void NodeProcessor::RollbackTo(Height h)
 	TxoID id0 = get_TxosBefore(h + 1);
 
 	// undo inputs
-	NodeDB::WalkerTxo wlk(m_DB);
-	for (m_DB.EnumTxosBySpent(wlk, HeightRange(h + 1, m_Cursor.m_Sid.m_Height)); wlk.MoveNext(); )
+	for (NodeDB::StateID sid = m_Cursor.m_Sid; sid.m_Height > h; )
 	{
-		if (wlk.m_ID >= id0)
-			continue; // created and spent within this range - skip it
+		std::vector<NodeDB::StateInput> v;
+		m_DB.get_StateInputs(sid.m_Row, v);
 
-		uint8_t pNaked[s_TxoNakedMax];
-		Blob val = wlk.m_Value;
-		TxoToNaked(pNaked, val);
+		for (size_t i = 0; i < v.size(); i++)
+		{
+			TxoID id = v[i].get_ID();
+			if (id >= id0)
+				continue; // created and spent within this range - skip it
 
-		Deserializer der;
-		der.reset(val.p, val.n);
+			Input inp;
+			ToInputWithMaturity(inp, id);
 
-		Output outp;
-		der & outp;
+			if (!HandleBlockElement(inp, 0, nullptr, false))
+				OnCorrupted();
 
-		Input inp;
-		inp.m_Commitment = outp.m_Commitment;
-		inp.m_ID = wlk.m_ID;
+			m_DB.TxoSetSpent(id, MaxHeight);
+		}
 
-		NodeDB::StateID sidPrev;
-		m_DB.FindStateByTxoID(sidPrev, wlk.m_ID); // relatively heavy operation: search for the original txo height
-		assert(sidPrev.m_Height <= h);
+		m_DB.set_StateInputs(sid.m_Row, nullptr, 0);
 
-		inp.m_Maturity = outp.get_MinMaturity(sidPrev.m_Height);
-
-		if (!HandleBlockElement(inp, 0, nullptr, false))
-			OnCorrupted();
+		if (!m_DB.get_Prev(sid))
+			ZeroObject(sid);
 	}
 
 	// undo outputs
@@ -2098,7 +2170,6 @@ void NodeProcessor::RollbackTo(Height h)
 	EnumTxos(wlk2, HeightRange(h + 1, m_Cursor.m_Sid.m_Height));
 
 	m_DB.TxoDelFrom(id0);
-	m_DB.TxoDelSpentFrom(h + 1);
 	m_DB.DeleteEventsFrom(h + 1);
 
 
@@ -2125,17 +2196,19 @@ void NodeProcessor::RollbackTo(Height h)
 		}
 	}
 
+	m_RecentStates.RollbackTo(h);
+
 	InitCursor();
 	OnRolledBack();
 
 	m_Extra.m_Txos = id0;
 }
 
-NodeProcessor::DataStatus::Enum NodeProcessor::OnStateInternal(const Block::SystemState::Full& s, Block::SystemState::ID& id)
+NodeProcessor::DataStatus::Enum NodeProcessor::OnStateInternal(const Block::SystemState::Full& s, Block::SystemState::ID& id, bool bAlreadyChecked)
 {
 	s.get_ID(id);
 
-	if (!s.IsValid())
+	if (!(bAlreadyChecked || s.IsValid()))
 	{
 		LOG_WARNING() << id << " header invalid!";
 		return DataStatus::Invalid;
@@ -2165,7 +2238,7 @@ NodeProcessor::DataStatus::Enum NodeProcessor::OnState(const Block::SystemState:
 {
 	Block::SystemState::ID id;
 
-	DataStatus::Enum ret = OnStateSilent(s, peer, id);
+	DataStatus::Enum ret = OnStateSilent(s, peer, id, false);
 	if (DataStatus::Accepted == ret)
 	{
 		LOG_INFO() << id << " Header accepted";
@@ -2174,9 +2247,9 @@ NodeProcessor::DataStatus::Enum NodeProcessor::OnState(const Block::SystemState:
 	return ret;
 }
 
-NodeProcessor::DataStatus::Enum NodeProcessor::OnStateSilent(const Block::SystemState::Full& s, const PeerID& peer, Block::SystemState::ID& id)
+NodeProcessor::DataStatus::Enum NodeProcessor::OnStateSilent(const Block::SystemState::Full& s, const PeerID& peer, Block::SystemState::ID& id, bool bAlreadyChecked)
 {
-	DataStatus::Enum ret = OnStateInternal(s, id);
+	DataStatus::Enum ret = OnStateInternal(s, id, bAlreadyChecked);
 	if (DataStatus::Accepted == ret)
 	{
 		uint64_t rowid = m_DB.InsertState(s);
@@ -2271,16 +2344,11 @@ bool NodeProcessor::IsRemoteTipNeeded(const Block::SystemState::Full& sTipRemote
 
 uint64_t NodeProcessor::FindActiveAtStrict(Height h)
 {
-	NodeDB::WalkerState ws(m_DB);
-	m_DB.EnumStatesAt(ws, h);
-	while (true)
-	{
-		if (!ws.MoveNext())
-			OnCorrupted();
+	const RecentStates::Entry* pE = m_RecentStates.Get(h);
+	if (pE)
+		return pE->m_RowID;
 
-		if (NodeDB::StateFlags::Active & m_DB.GetStateFlags(ws.m_Sid.m_Row))
-			return ws.m_Sid.m_Row;
-	}
+	return m_DB.FindActiveStateStrict(h);
 }
 
 /////////////////////////////
@@ -2294,17 +2362,15 @@ Difficulty NodeProcessor::get_NextDifficulty()
 
 	THW thw0, thw1;
 
-	get_MovingMedianEx(m_Cursor.m_Sid.m_Row, r.DA.WindowMedian1, thw1);
+	get_MovingMedianEx(m_Cursor.m_Sid.m_Height, r.DA.WindowMedian1, thw1);
 
 	if (m_Cursor.m_Full.m_Height - Rules::HeightGenesis >= r.DA.WindowWork)
 	{
-		uint64_t row0 = FindActiveAtStrict(m_Cursor.m_Full.m_Height - r.DA.WindowWork);
-		get_MovingMedianEx(row0, r.DA.WindowMedian1, thw0);
+		get_MovingMedianEx(m_Cursor.m_Full.m_Height - r.DA.WindowWork, r.DA.WindowMedian1, thw0);
 	}
 	else
 	{
-		uint64_t row0 = FindActiveAtStrict(Rules::HeightGenesis);
-		get_MovingMedianEx(row0, r.DA.WindowMedian1, thw0); // awkward to look for median, since they're immaginary. But makes sure we stick to the same median search and rounding (in case window is even).
+		get_MovingMedianEx(Rules::HeightGenesis, r.DA.WindowMedian1, thw0); // awkward to look for median, since they're immaginary. But makes sure we stick to the same median search and rounding (in case window is even).
 
 		// how many immaginary prehistoric blocks should be offset
 		uint32_t nDelta = r.DA.WindowWork - static_cast<uint32_t>(m_Cursor.m_Full.m_Height - Rules::HeightGenesis);
@@ -2360,28 +2426,44 @@ Difficulty NodeProcessor::get_NextDifficulty()
 	return res;
 }
 
-void NodeProcessor::get_MovingMedianEx(uint64_t rowLast, uint32_t nWindow, THW& res)
+void NodeProcessor::get_MovingMedianEx(Height hLast, uint32_t nWindow, THW& res)
 {
 	std::vector<THW> v;
 	v.reserve(nWindow);
 
-	assert(rowLast);
+	assert(hLast >= Rules::HeightGenesis);
+	uint64_t rowLast = 0;
+
 	while (v.size() < nWindow)
 	{
 		v.emplace_back();
 		THW& thw = v.back();
 
-		if (rowLast)
+		if (hLast >= Rules::HeightGenesis)
 		{
-			Block::SystemState::Full s;
-			m_DB.get_State(rowLast, s);
+			const RecentStates::Entry* pE = m_RecentStates.Get(hLast);
+
+			Block::SystemState::Full sDb;
+			if (!pE)
+			{
+				if (rowLast)
+				{
+					if (!m_DB.get_Prev(rowLast))
+						OnCorrupted();
+				}
+				else
+					rowLast = FindActiveAtStrict(hLast);
+
+				m_DB.get_State(rowLast, sDb);
+			}
+
+			const Block::SystemState::Full& s = pE ? pE->m_State : sDb;
 
 			thw.first = s.m_TimeStamp;
 			thw.second.first = s.m_Height;
 			thw.second.second = s.m_ChainWork;
 
-			if (!m_DB.get_Prev(rowLast))
-				rowLast = 0;
+			hLast--;
 		}
 		else
 		{
@@ -2406,7 +2488,7 @@ Timestamp NodeProcessor::get_MovingMedian()
 		return 0;
 
 	THW thw;
-	get_MovingMedianEx(m_Cursor.m_Sid.m_Row, Rules::get().DA.WindowMedian0, thw);
+	get_MovingMedianEx(m_Cursor.m_Sid.m_Height, Rules::get().DA.WindowMedian0, thw);
 	return thw.first;
 }
 
@@ -2873,28 +2955,19 @@ void NodeProcessor::ExtractBlockWithExtra(Block::Body& block, const NodeDB::Stat
 
 	// inputs
 	NodeDB::WalkerTxo wlk(m_DB);
-	for (m_DB.EnumTxosBySpent(wlk, sid.m_Height); wlk.MoveNext(); )
+
+	std::vector<NodeDB::StateInput> v;
+	m_DB.get_StateInputs(sid.m_Row, v);
+
+	for (size_t i = 0; i < v.size(); i++)
 	{
-		assert(wlk.m_SpendHeight == sid.m_Height);
-
-		uint8_t pNaked[s_TxoNakedMax];
-		TxoToNaked(pNaked, wlk.m_Value);
-
-		der.reset(wlk.m_Value.p, wlk.m_Value.n);
-
-		Output outp;
-		der & outp;
-
-		NodeDB::StateID sidPrev;
-		m_DB.FindStateByTxoID(sidPrev, wlk.m_ID); // relatively heavy operation: search for the original txo height
-
+		TxoID id = v[i].get_ID();
 
 		block.m_vInputs.emplace_back();
 		Input::Ptr& pInp = block.m_vInputs.back();
 		pInp.reset(new Input);
 
-		pInp->m_Commitment = outp.m_Commitment;
-		pInp->m_Maturity = outp.get_MinMaturity(sidPrev.m_Height);
+		ToInputWithMaturity(*pInp, id);
 	}
 
 	// outputs
@@ -3072,7 +3145,7 @@ bool NodeProcessor::ImportMacroBlockInternal(Block::BodyBase::IMacroReader& r)
 		if (id.m_Height >= Rules::HeightGenesis)
 			cmmr.Append(id.m_Hash);
 
-		switch (OnStateInternal(s, id))
+		switch (OnStateInternal(s, id, false))
 		{
 		case DataStatus::Invalid:
 		{
@@ -3239,13 +3312,9 @@ bool NodeProcessor::EnumTxos(ITxoWalker& wlkTxo, const HeightRange& hr)
 	TxoID id1 = get_TxosBefore(hr.m_Min);
 	Height h = hr.m_Min - 1; // don't care about overflow
 
-	auto totalTxos = m_DB.TxoGetCount();
-	uint64_t doneTxos = 0;
-
 	NodeDB::WalkerTxo wlk(m_DB);
 	for (m_DB.EnumTxos(wlk, id1);  wlk.MoveNext(); )
 	{
-		InitializeUtxosProgress(++doneTxos, totalTxos);
 		if (wlk.m_ID >= id1)
 		{
 			if (++h > hr.m_Max)
@@ -3348,8 +3417,15 @@ void NodeProcessor::InitializeUtxos()
 	struct Walker
 		:public ITxoWalker_UnspentNaked
 	{
+		TxoID m_TxosTotal;
 		NodeProcessor& m_This;
 		Walker(NodeProcessor& x) :m_This(x) {}
+
+		virtual bool OnTxo(const NodeDB::WalkerTxo& wlk, Height hCreate) override
+		{
+			m_This.InitializeUtxosProgress(wlk.m_ID, m_TxosTotal);
+			return ITxoWalker_UnspentNaked::OnTxo(wlk, hCreate);
+		}
 
 		virtual bool OnTxo(const NodeDB::WalkerTxo& wlk, Height hCreate, Output& outp) override
 		{
@@ -3362,6 +3438,7 @@ void NodeProcessor::InitializeUtxos()
 	};
 
 	Walker wlk(*this);
+	wlk.m_TxosTotal = get_TxosBefore(m_Cursor.m_ID.m_Height + 1);
 	EnumTxos(wlk);
 }
 
@@ -3399,7 +3476,7 @@ bool NodeProcessor::GetBlock(const NodeDB::StateID& sid, ByteBuffer* pEthernal, 
 	if (IsFastSync() && (sid.m_Height > m_Cursor.m_ID.m_Height))
 		return false;
 
-	bool bFullBlock = (sid.m_Height >= hHi1);
+	bool bFullBlock = (sid.m_Height >= hHi1) && (sid.m_Height > hLo1);
 	m_DB.GetStateBlock(sid.m_Row, bFullBlock ? pPerishable : nullptr, pEthernal);
 
 	if (!(pPerishable && pPerishable->empty()))
@@ -3428,49 +3505,51 @@ bool NodeProcessor::GetBlock(const NodeDB::StateID& sid, ByteBuffer* pEthernal, 
 	else
 		id0 = m_Extra.m_TxosTreasury;
 
-	uintBigFor<uint32_t>::Type nCount(Zero);
-
-	// inputs
-	std::vector<Input> vInputs;
-	NodeDB::WalkerTxo wlk(m_DB);
-	for (m_DB.EnumTxosBySpent(wlk, sid.m_Height); wlk.MoveNext(); )
-	{
-		assert(wlk.m_SpendHeight == sid.m_Height);
-
-		//	if SpendHeight > hLo1 then transfer
-		//	if CreateHeight <= h0 then transfer
-		//	Otherwise - don't transfer
-		if ((sid.m_Height > hLo1) || (wlk.m_ID < idInpCut))
-		{
-			vInputs.emplace_back();
-			Input& inp = vInputs.back();
-			ECC::Point& pt = inp.m_Commitment; // alias
-
-			// extract input from output (which may be naked already)
-			if (wlk.m_Value.n < sizeof(pt))
-				OnCorrupted();
-
-			const uint8_t* pSrc = reinterpret_cast<const uint8_t*>(wlk.m_Value.p);
-			pt.m_Y = 1 & pSrc[0];
-			memcpy(pt.m_X.m_pData, pSrc + 1, pt.m_X.nBytes);
-
-			nCount.Inc();
-		}
-	}
-
-	std::sort(vInputs.begin(), vInputs.end());
-
 	Serializer ser;
 	ser & txb;
-	ser & nCount;
 
-	for (size_t i = 0; i < vInputs.size(); i++)
-		ser & vInputs[i];
+	uintBigFor<uint32_t>::Type nCount;
+
+	// inputs
+	std::vector<NodeDB::StateInput> v;
+	m_DB.get_StateInputs(sid.m_Row, v);
+
+	for (uint32_t iCycle = 0; ; iCycle++)
+	{
+		nCount = Zero;
+
+		for (size_t i = 0; i < v.size(); i++)
+		{
+			TxoID id = v[i].get_ID();
+
+			//	if SpendHeight > hLo1 then transfer
+			//	if CreateHeight <= h0 then transfer
+			//	Otherwise - don't transfer
+			if ((sid.m_Height > hLo1) || (id < idInpCut))
+			{
+				if (iCycle)
+				{
+					// write
+					Input inp;
+					v[i].Get(inp.m_Commitment);
+					ser & inp;
+				}
+
+				nCount.Inc();
+			}
+		}
+
+		if (iCycle)
+			break;
+
+		ser & nCount;
+	}
 
 	ByteBuffer bbBlob;
 	nCount = Zero;
 
 	// outputs
+	NodeDB::WalkerTxo wlk(m_DB);
 	for (m_DB.EnumTxos(wlk, id0); wlk.MoveNext(); )
 	{
 		if (wlk.m_ID >= id1)
@@ -3499,6 +3578,66 @@ bool NodeProcessor::GetBlock(const NodeDB::StateID& sid, ByteBuffer* pEthernal, 
 	pPerishable->insert(pPerishable->end(), bbBlob.begin(), bbBlob.end());
 
 	return true;
+}
+
+NodeProcessor::RecentStates::Entry& NodeProcessor::RecentStates::get_FromTail(size_t x) const
+{
+	assert((x < m_Count) && (m_Count <= m_vec.size()));
+	return Cast::NotConst(m_vec[(m_i0 + m_Count - x - 1) % m_vec.size()]);
+}
+
+const NodeProcessor::RecentStates::Entry* NodeProcessor::RecentStates::Get(Height h) const
+{
+	if (!m_Count)
+		return nullptr;
+
+	const Entry& e = get_FromTail(0);
+	if (h > e.m_State.m_Height)
+		return nullptr;
+
+	Height dh = e.m_State.m_Height - h;
+	if (dh >= m_Count)
+		return nullptr;
+
+	const Entry& e2 = get_FromTail(static_cast<size_t>(dh));
+	assert(e2.m_State.m_Height == h);
+	return &e2;
+}
+
+void NodeProcessor::RecentStates::RollbackTo(Height h)
+{
+	for (; m_Count; m_Count--)
+	{
+		const Entry& e = get_FromTail(0);
+		if (e.m_State.m_Height == h)
+			break;
+	}
+}
+
+void NodeProcessor::RecentStates::Push(uint64_t rowID, const Block::SystemState::Full& s)
+{
+	if (m_vec.empty())
+	{
+		// we use this cache mainly to improve difficulty calculation. Hence the cache size is appropriate
+		const Rules& r = Rules::get();
+	
+		const size_t n = std::max(r.DA.WindowWork + r.DA.WindowMedian1, r.DA.WindowMedian0) + 5;
+		m_vec.resize(n);
+	}
+	else
+	{
+		// ensure we don't have out-of-order entries
+		RollbackTo(s.m_Height - 1);
+	}
+
+	if (m_Count < m_vec.size())
+		m_Count++;
+	else
+		m_i0++;
+
+	Entry& e = get_FromTail(0);
+	e.m_RowID = rowID;
+	e.m_State = s;
 }
 
 } // namespace beam

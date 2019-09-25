@@ -146,7 +146,7 @@ Control {
                     font.pixelSize:      14
                     activeFocusOnTab:    true
                     wrapMode:            TextInput.Wrap
-                    implicitHeight:      50
+                    implicitHeight:      70
                     validator:           RegExpValidator {regExp: /^([a-z]{2,20}\ ){11}([a-z]{2,20}){1}$/g}
                     font.italic:         text.length && !acceptableInput
                     color:               text.length && !acceptableInput ? Style.validator_error : Style.content_secondary
