@@ -75,7 +75,7 @@ namespace
     }
 }
 
-void InitBitcoin(Wallet& wallet, IWalletDB::Ptr walletDB, io::Reactor& reactor, std::shared_ptr<bitcoin::Settings> settings)
+bitcoin::ISettingsProvider::Ptr InitBitcoin(Wallet& wallet, IWalletDB::Ptr walletDB, io::Reactor& reactor, std::shared_ptr<bitcoin::Settings> settings)
 {
     auto settingsProvider = std::make_shared<bitcoin::SettingsProvider>(walletDB);
     settingsProvider->SetSettings(*settings);
@@ -85,6 +85,7 @@ void InitBitcoin(Wallet& wallet, IWalletDB::Ptr walletDB, io::Reactor& reactor, 
     auto factory = wallet::MakeSecondSideFactory<BitcoinSide, bitcoin::BitcoinCore017, bitcoin::ISettingsProvider>(bridge, settingsProvider);
     creator->RegisterFactory(AtomicSwapCoin::Bitcoin, factory);
     wallet.RegisterTransactionType(TxType::AtomicSwap, std::static_pointer_cast<BaseTransaction::Creator>(creator));
+    return settingsProvider;
 }
 
 void InitElectrum(Wallet& wallet, IWalletDB::Ptr walletDB, io::Reactor& reactor, std::shared_ptr<bitcoin::Settings> settings)
@@ -144,8 +145,11 @@ void TestSwapTransaction(bool isBeamOwnerStart, beam::Height fork1Height)
     TestWalletRig sender("sender", senderWalletDB, completeAction);
     TestWalletRig receiver("receiver", createReceiverWalletDB(), completeAction);
 
-    InitBitcoin(sender.m_Wallet, sender.m_WalletDB, *mainReactor, bobSettings);
-    InitBitcoin(receiver.m_Wallet, receiver.m_WalletDB, *mainReactor, aliceSettings);
+    auto senderSP = InitBitcoin(sender.m_Wallet, sender.m_WalletDB, *mainReactor, bobSettings);
+    auto receiverSP = InitBitcoin(receiver.m_Wallet, receiver.m_WalletDB, *mainReactor, aliceSettings);
+
+    WALLET_CHECK(senderSP->CanModify() == true);
+    WALLET_CHECK(receiverSP->CanModify() == true);
 
     receiverBtcWallet.addPeer(senderAddress);
 
@@ -169,7 +173,7 @@ void TestSwapTransaction(bool isBeamOwnerStart, beam::Height fork1Height)
                 .SetParameter(TxParameterID::AtomicSwapCoin, wallet::AtomicSwapCoin::Bitcoin)
                 .SetParameter(TxParameterID::AtomicSwapAmount, swapAmount)
                 .SetParameter(TxParameterID::MinHeight, currentHeight)
-                .SetParameter(TxParameterID::PeerResponseHeight, currentHeight + kDefaultTxResponseTime)
+                .SetParameter(TxParameterID::PeerResponseTime, kDefaultTxResponseTime)
                 .SetParameter(TxParameterID::IsInitiator, false);
 
             if (isBeamOwnerStart)
@@ -194,6 +198,9 @@ void TestSwapTransaction(bool isBeamOwnerStart, beam::Height fork1Height)
     InitNodeToTest(node, binaryTreasury, &observer);
 
     mainReactor->run();
+
+    WALLET_CHECK(senderSP->CanModify() == true);
+    WALLET_CHECK(receiverSP->CanModify() == true);
 
     receiverCoins = receiver.GetCoins();
     WALLET_CHECK(receiverCoins.size() == 1);
@@ -237,8 +244,7 @@ void TestElectrumSwapTransaction(bool isBeamOwnerStart, beam::Height fork1Height
         }
     };
 
-    io::Address address;
-    address.resolve("127.0.0.1:10400");
+    std::string address("127.0.0.1:10400");
 
     Amount beamAmount = 300;
     Amount beamFee = 100;
@@ -283,7 +289,7 @@ void TestElectrumSwapTransaction(bool isBeamOwnerStart, beam::Height fork1Height
                     .SetParameter(TxParameterID::AtomicSwapCoin, wallet::AtomicSwapCoin::Bitcoin)
                     .SetParameter(TxParameterID::AtomicSwapAmount, swapAmount)
                     .SetParameter(TxParameterID::MinHeight, currentHeight)
-                    .SetParameter(TxParameterID::PeerResponseHeight, currentHeight + kDefaultTxResponseTime)
+                    .SetParameter(TxParameterID::PeerResponseTime, kDefaultTxResponseTime)
                     .SetParameter(TxParameterID::IsInitiator, false);
 
                 if (isBeamOwnerStart)
@@ -525,8 +531,7 @@ void TestElectrumSwapBTCRefundTransaction()
         mainReactor->stop();
     };
 
-    io::Address address;
-    address.resolve("127.0.0.1:10400");
+    std::string address("127.0.0.1:10400");
 
     Amount beamAmount = 300;
     Amount beamFee = 100;
@@ -718,8 +723,7 @@ void TestElectrumSwapBeamRefundTransaction()
         mainReactor->stop();
     };
 
-    io::Address address;
-    address.resolve("127.0.0.1:10400");
+    std::string address("127.0.0.1:10400");
 
     Amount beamAmount = 300;
     Amount beamFee = 100;

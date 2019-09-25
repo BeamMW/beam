@@ -53,6 +53,9 @@ namespace beam::bitcoin
         virtual Settings GetSettings() const = 0;
         virtual void SetSettings(const Settings& settings) = 0;
         virtual void ResetSettings() = 0;
+        virtual bool CanModify() const = 0;
+        virtual void AddRef() = 0;
+        virtual void Release() = 0;
     };
 
     class SettingsProvider
@@ -71,11 +74,16 @@ namespace beam::bitcoin
 
     protected:
 
+        bool CanModify() const override;
+        void AddRef() override;
+        void Release() override;
+
         virtual const char* GetSettingsName() const;
         virtual Settings GetEmptySettings();
 
     private:
         wallet::IWalletDB::Ptr m_walletDB;
         std::unique_ptr<Settings> m_settings;
+        size_t m_refCount = 0;
     };
 } // namespace beam::bitcoin

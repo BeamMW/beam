@@ -36,9 +36,7 @@ Item {
     }
 
     RowLayout {
-        SFText {
-            font.pixelSize: 36
-            color: Style.content_main
+        Title {
             //% "Atomic Swap"
             text: qsTrId("atomic-swap-title")
         }
@@ -69,12 +67,30 @@ Item {
             RowLayout {
                 Layout.alignment: Qt.AlignRight | Qt.AlignTop
                 Layout.topMargin: 33
+                spacing: 20
+
+                CustomButton {
+                    id: acceptOfferButton
+                    Layout.minimumWidth: 172
+                    Layout.minimumHeight: 32
+                    palette.button: Style.accent_outgoing
+                    palette.buttonText: Style.content_opposite
+                    icon.source: "qrc:/assets/icon-receive-blue.svg"
+                    //% "Accept offer"
+                    text: qsTrId("atomic-swap-accept")
+                    font.pixelSize: 12
+                    font.capitalization: Font.AllUppercase
+
+                    onClicked: {
+                        // todo
+                    }
+                }
                 
                 CustomButton {
                     id: sendOfferButton
                     Layout.minimumWidth: 172
                     Layout.minimumHeight: 32
-                    palette.button: Style.active
+                    palette.button: Style.accent_incoming
                     palette.buttonText: Style.content_opposite
                     icon.source: "qrc:/assets/icon-send-blue.svg"
                     //% "Create offer"
@@ -448,7 +464,7 @@ Item {
                         TableViewColumn {
                             id: offerActionsColumn
                             title: ""
-                            width: offersTable.getAdjustedColumnWidth(offerActionsColumn)//offersTable.columnWidth
+                            width: offersTable.getAdjustedColumnWidth(offerActionsColumn)
                             movable: false
                             resizable: false
                             delegate: Component {
@@ -882,11 +898,14 @@ Item {
                                     height: transactionsTable.rowHeight
 
                                     RowLayout {
+                                        Layout.alignment: Qt.AlignLeft
                                         anchors.fill: parent
                                         anchors.leftMargin: 10
+                                        spacing: 10
 
                                         SvgImage {
-                                            Layout.alignment: Qt.AlignHCenter
+                                            Layout.alignment: Qt.AlignLeft
+
                                             sourceSize: Qt.size(20, 20)
                                             source: getIconSource()
                                             function getIconSource() {
@@ -899,7 +918,8 @@ Item {
                                             }
                                         }
                                         SFLabel {
-                                            Layout.alignment: Qt.AlignHCenter
+                                            Layout.alignment: Qt.AlignLeft
+
                                             font.pixelSize: 14
                                             font.italic: true
                                             elide: Text.ElideRight
@@ -907,7 +927,7 @@ Item {
                                             color: getTextColor()
                                             function getTextColor () {
                                                 var item = transactionsTable.model.get(styleData.row);
-                                                if (item.IsInProgress || item.IsCompleted) {
+                                                if (item.isInProgress || item.isCompleted) {
                                                     if (item.isSelfTransaction) {
                                                         return Style.content_main;
                                                     }
@@ -916,6 +936,9 @@ Item {
                                                 else return Style.content_main;
                                             }
                                         }
+                                        Item {
+                                            Layout.fillWidth: true
+                                        }
                                     }
                                 }
                             }
@@ -923,7 +946,7 @@ Item {
                         TableViewColumn {
                             id: actionsColumn
                             elideMode: Text.ElideRight
-                            width: 40
+                            width: transactionsTable.getAdjustedColumnWidth(actionsColumn)
                             movable: false
                             resizable: false
                             delegate: txActions

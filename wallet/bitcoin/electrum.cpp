@@ -441,7 +441,7 @@ namespace beam::bitcoin
 
     void Electrum::getDetailedBalance(std::function<void(const Error&, double, double, double)> callback)
     {
-        LOG_DEBUG() << "getDetailedBalance command";
+        //LOG_DEBUG() << "getDetailedBalance command";
 
         size_t index = 0;
         double confirmed = 0;
@@ -550,12 +550,21 @@ namespace beam::bitcoin
 
         //LOG_INFO() << request;
 
-        uint64_t currentTag = m_tagCounter++;
-        TCPConnect& connection = m_connections[currentTag];
+        uint64_t currentId = m_idCounter++;
+        TCPConnect& connection = m_connections[currentId];
         connection.m_request = request;
         connection.m_callback = callback;
 
-        m_reactor.tcp_connect(m_settingsProvider->GetElectrumSettings().m_address, currentTag, [this, weak = this->weak_from_this()](uint64_t tag, std::unique_ptr<TcpStream>&& newStream, ErrorCode status)
+        io::Address address;
+        if (!address.resolve(m_settingsProvider->GetElectrumSettings().m_address.c_str()))
+        {
+            // TODO process error
+            LOG_ERROR() << "unable to resolve electrum address: " << m_settingsProvider->GetElectrumSettings().m_address;
+            return;
+        }
+
+        auto tag = uint64_t(&connection);
+        m_reactor.tcp_connect(address, tag, [this, currentId, weak = this->weak_from_this()](uint64_t tag, std::unique_ptr<TcpStream>&& newStream, ErrorCode status)
         {
             if (weak.expired())
             {
@@ -564,11 +573,11 @@ namespace beam::bitcoin
 
             if (newStream) {
                 assert(status == EC_OK);
-                TCPConnect& connection = m_connections[tag];
+                TCPConnect& connection = m_connections[currentId];
 
                 connection.m_stream = std::move(newStream);
 
-                connection.m_stream->enable_read([this, weak, tag](ErrorCode what, void* data, size_t size) -> bool
+                connection.m_stream->enable_read([this, weak, currentId](ErrorCode what, void* data, size_t size) -> bool
                 {
                     if (weak.expired())
                     {
@@ -615,12 +624,12 @@ namespace beam::bitcoin
                             error.m_message = "Empty response.";
                         }
 
-                        TCPConnect& connection = m_connections[tag];
-                        isFinished = !connection.m_callback(error, result, tag);
+                        TCPConnect& connection = m_connections[currentId];
+                        isFinished = !connection.m_callback(error, result, currentId);
                     }
                     if (isFinished)
                     {
-                        m_connections.erase(tag);
+                        m_connections.erase(currentId);
                         return false;
                     }
                     return true;

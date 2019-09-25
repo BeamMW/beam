@@ -28,6 +28,7 @@ namespace beam::wallet
     {
     public:
         BitcoinSide(BaseTransaction& tx, bitcoin::IBridge::Ptr bitcoinBridge, bitcoin::ISettingsProvider::Ptr settingsProvider, bool isBeamSide);
+        virtual ~BitcoinSide();
 
         bool Initialize() override;
         bool InitLockTime() override;

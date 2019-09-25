@@ -298,7 +298,7 @@ namespace beam::bitcoin
 
     void BitcoinCore016::getDetailedBalance(std::function<void(const Error&, double, double, double)> callback)
     {
-        LOG_DEBUG() << "Send getWalletInfo command";
+        //LOG_DEBUG() << "Send getWalletInfo command";
         sendRequest("getwalletinfo", "", [callback](IBridge::Error error, const json& result) {
             double confirmed = 0;
             double unconfirmed = 0;

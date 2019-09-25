@@ -39,7 +39,7 @@ namespace beam::wallet
         parameters.SetParameter(TxParameterID::Lifetime, lifetime);
 
         parameters.SetParameter(TxParameterID::MinHeight, minHeight);
-        parameters.SetParameter(TxParameterID::PeerResponseHeight, minHeight + responseTime);
+        parameters.SetParameter(TxParameterID::PeerResponseTime, responseTime);
         parameters.SetParameter(TxParameterID::MyID, myID);
         parameters.SetParameter(TxParameterID::IsSender, isBeamSide);
         parameters.SetParameter(TxParameterID::IsInitiator, false);

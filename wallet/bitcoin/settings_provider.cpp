@@ -80,6 +80,24 @@ namespace beam::bitcoin
         }
     }
 
+    bool SettingsProvider::CanModify() const
+    {
+        return m_refCount == 0;
+    }
+
+    void SettingsProvider::AddRef()
+    {
+        ++m_refCount;
+    }
+
+    void SettingsProvider::Release()
+    {
+        if (m_refCount)
+        {
+            --m_refCount;
+        }
+    }
+
     const char* SettingsProvider::GetSettingsName() const
     {
         return "BTCSettings";

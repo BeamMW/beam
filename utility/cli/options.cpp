@@ -161,7 +161,6 @@ namespace beam
         const char* LISTEN = "listen";
         const char* TREASURY = "treasury";
         const char* TREASURY_BLOCK = "treasury_path";
-        const char* RESYNC = "resync";
         const char* RESET_ID = "reset_id";
         const char* ERASE_ID = "erase_id";
         const char* CHECKDB = "check_db";
@@ -214,8 +213,6 @@ namespace beam
         const char* IMPORT_DATA = "import_data";
         const char* IMPORT_EXPORT_PATH = "file_location";
         const char* IP_WHITELIST = "ip_whitelist";
-        const char* HORIZON_HI = "horizon_hi";
-        const char* HORIZON_LO = "horizon_lo";
 		const char* FAST_SYNC = "fast_sync";
 		const char* GENERATE_RECOVERY_PATH = "generate_recovery";
 		const char* RECOVERY_AUTO_PATH = "recovery_auto_path";
@@ -292,7 +289,6 @@ namespace beam
             (cli::STRATUM_PORT, po::value<uint16_t>()->default_value(0), "port to start stratum server on")
             (cli::STRATUM_SECRETS_PATH, po::value<string>()->default_value("."), "path to stratum server api keys file, and tls certificate and private key")
             (cli::STRATUM_USE_TLS, po::value<bool>()->default_value(true), "enable TLS on startum server")
-            (cli::RESYNC, po::value<bool>()->default_value(false), "Enforce re-synchronization (soft reset)")
             (cli::RESET_ID, po::value<bool>()->default_value(false), "Reset self ID (used for network authentication). Must do if the node is cloned")
             (cli::ERASE_ID, po::value<bool>()->default_value(false), "Reset self ID (used for network authentication) and stop before re-creating the new one.")
             (cli::CHECKDB, po::value<bool>()->default_value(false), "DB integrity check and compact (vacuum)")
@@ -304,8 +300,6 @@ namespace beam
             (cli::KEY_MINE, po::value<string>(), "Standalone miner key (deprecated)")
             (cli::PASS, po::value<string>(), "password for keys")
             (cli::LOG_UTXOS, po::value<bool>()->default_value(false), "Log recovered UTXOs (make sure the log file is not exposed)")
-            (cli::HORIZON_HI, po::value<Height>()->default_value(MaxHeight), "spent TXO Hi-Horizon")
-            (cli::HORIZON_LO, po::value<Height>()->default_value(MaxHeight), "spent TXO Lo-Horizon")
 			(cli::FAST_SYNC, po::value<bool>(), "Fast sync on/off (override horizons)")
 			(cli::GENERATE_RECOVERY_PATH, po::value<string>(), "Recovery file to generate immediately after start")
 			(cli::RECOVERY_AUTO_PATH, po::value<string>(), "path and file prefix for recovery auto-generation")

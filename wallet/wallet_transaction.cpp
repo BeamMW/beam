@@ -72,6 +72,18 @@ namespace beam::wallet
             temp.SetParameter(TxParameterID::IsSelfTx, receiverAddr->m_OwnID != 0);
             return temp;
         }
+        else
+        {
+            WalletAddress address;
+            address.m_walletID = *peerID;
+            address.m_createTime = getTimestamp();
+            if (auto message = parameters.GetParameter(TxParameterID::Message); message)
+            {
+                address.m_label = std::string(message->begin(), message->end());
+            }
+
+            m_WalletDB->saveAddress(address);
+        }
         return parameters;
     }
 

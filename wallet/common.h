@@ -180,7 +180,7 @@ namespace beam::wallet
         PeerProtoVersion = 16,
         MaxHeight = 17,
 
-        PeerResponseHeight = 24,
+        PeerResponseTime = 24,
         SubTxIndex = 25,
         PeerPublicSharedBlindingFactor = 26,
 
@@ -231,6 +231,7 @@ namespace beam::wallet
         BlindingExcess = 130,
 
         KernelUnconfirmedHeight = 133,
+        PeerResponseHeight = 134,
 
         Offset = 140,
 
@@ -281,6 +282,7 @@ namespace beam::wallet
         template <typename T>
         boost::optional<T> GetParameter(TxParameterID parameterID, SubTxID subTxID = kDefaultSubTxID) const
         {
+            static_assert(std::is_same<T, ByteBuffer>::value == false);
             auto buffer = GetParameter(parameterID, subTxID);
             if (buffer && !buffer->empty())
             {
@@ -324,6 +326,7 @@ namespace beam::wallet
         template <typename T>
         TxParameters& SetParameter(TxParameterID parameterID, const T& value, SubTxID subTxID = kDefaultSubTxID)
         {
+            static_assert(std::is_same<T, ByteBuffer>::value == false);
             return SetParameter(parameterID, toByteBuffer(value), subTxID);
         }
 

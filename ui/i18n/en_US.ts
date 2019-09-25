@@ -548,7 +548,6 @@
     </message>
     <message id="settings-title">
         <source>Settings</source>
-        <extracomment>settings tab title</extracomment>
         <translation>Settings</translation>
     </message>
     <message id="cant-send-to-expired-message">
@@ -832,12 +831,12 @@
         <translation>Failed to start wallet. Please check your wallet data location</translation>
     </message>
     <message id="loading-view-download-blocks">
-        <source>Downloading new blocks</source>
-        <translation>Downloading new blocks</translation>
+        <source>Synching with blockchain</source>
+        <translation>Synching with blockchain</translation>
     </message>
     <message id="loading-view-scaning-utxo">
-        <source>Scanning new blocks %d/%d</source>
-        <translation>Scanning new blocks %d/%d</translation>
+        <source>Locating your funds %d/%d</source>
+        <translation>Locating your funds %d/%d</translation>
     </message>
     <message id="loading-view-protocol-error">
         <source>Incompatible peer</source>
@@ -1299,8 +1298,9 @@ or send this address to the sender over secure channel</translation>
         <translation>Swap</translation>
     </message>
     <message id="settings-reset">
-        <source>Clear</source>
-        <translation>Clear</translation>
+        <source>Switch off</source>
+        <oldsource>Clear</oldsource>
+        <translation type="unfinished">Clear</translation>
     </message>
     <message id="settings-node-address">
         <source>Node Address</source>
@@ -1411,9 +1411,8 @@ or send this address to the sender over secure channel</translation>
         <translation>QTUM</translation>
     </message>
     <message id="general-electrum">
-        <source></source>
-        <oldsource>Electrum</oldsource>
-        <translation type="unfinished">Electrum</translation>
+        <source>Electrum</source>
+        <translation>Electrum</translation>
     </message>
     <message id="swap-currency-na-message">
         <source>You do not have %1 connected.\nUpdate your settings and try again.</source>
@@ -1448,8 +1447,8 @@ or send this address to the sender over secure channel</translation>
         <translation>calculating...</translation>
     </message>
     <message id="loading-view-rebuild-utxos">
-        <source>Scanning existing blocks</source>
-        <translation>Scanning existing blocks</translation>
+        <source>Rebuilding data</source>
+        <translation>Rebuilding data</translation>
     </message>
     <message id="loading-view-estimate-hours">
         <source>h.</source>
@@ -1626,6 +1625,22 @@ or send this address to the sender over secure channel</translation>
     <message id="settings-invalid-seed">
         <source>Invalid seed phrase</source>
         <translation>Invalid seed phrase</translation>
+    </message>
+    <message id="wallet-transactions-all-tab">
+        <source>All</source>
+        <translation type="unfinished">All</translation>
+    </message>
+    <message id="wallet-transactions-in-progress-tab">
+        <source>In progress</source>
+        <translation type="unfinished">In progress</translation>
+    </message>
+    <message id="wallet-transactions-sent-tab">
+        <source>Sent</source>
+        <translation type="unfinished">Sent</translation>
+    </message>
+    <message id="wallet-transactions-received-tab">
+        <source>Received</source>
+        <translation type="unfinished">Received</translation>
     </message>
 </context>
 </TS>

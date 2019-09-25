@@ -66,6 +66,7 @@ auto TransactionsList::data(const QModelIndex &index, int role) const -> QVarian
     switch (static_cast<Roles>(role))
     {
         case Roles::TimeCreated:
+            return value->timeCreated().toString(Qt::SystemLocaleShortDate);
         case Roles::TimeCreatedSort:
             return value->timeCreated();
 
@@ -86,21 +87,21 @@ auto TransactionsList::data(const QModelIndex &index, int role) const -> QVarian
 
         case Roles::AddressFrom:
         case Roles::AddressFromSort:
-            return value->getSendingAddress();
+            return value->getAddressFrom();
 
         case Roles::AddressTo:
         case Roles::AddressToSort:
-            return value->getReceivingAddress();
+            return value->getAddressTo();
 
         case Roles::Status:
         case Roles::StatusSort:
-            return value->status();
+            return value->getStatus();
 
         case Roles::Fee:
             return value->getFee();
 
         case Roles::Comment:
-            return value->comment();
+            return value->getComment();
 
         case Roles::TxID:
             return value->getTransactionID();
@@ -112,19 +113,19 @@ auto TransactionsList::data(const QModelIndex &index, int role) const -> QVarian
             return value->getFailureReason();
 
         case Roles::IsCancelAvailable:
-            return value->canCancel();
+            return value->isCancelAvailable();
 
         case Roles::IsDeleteAvailable:
-            return value->canDelete();
+            return value->isDeleteAvailable();
 
         case Roles::IsSelfTransaction:
             return value->isSelfTx();
 
         case Roles::IsIncome:
-            return value->income();
+            return value->isIncome();
 
         case Roles::IsInProgress:
-            return value->inProgress();
+            return value->isInProgress();
 
         case Roles::IsCompleted:
             return value->isCompleted();
@@ -170,17 +171,20 @@ void TransactionsList::update(const std::vector<std::shared_ptr<TxObject>>& item
         auto it = std::find_if(std::begin(m_list), std::end(m_list),
                             [&item](const auto& element) { return element->getTxID() == item->getTxID(); });
         
+        // index to add item on last position by default
+        int index = m_list.count() - 1;
+
         if (it != std::end(m_list))
         {
-            auto index = m_list.indexOf(*it);
+            index = m_list.indexOf(*it);
 
             beginRemoveRows(QModelIndex(), index, index);
             m_list.removeAt(index);
             endRemoveRows();
-
-            beginInsertRows(QModelIndex(), index, index);
-            m_list.insert(index, item);
-            endInsertRows();
         }
+
+        beginInsertRows(QModelIndex(), index, index);
+        m_list.insert(index, item);
+        endInsertRows();
     }
 }
