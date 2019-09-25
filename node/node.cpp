@@ -1023,8 +1023,6 @@ void Node::Initialize(IExternalPOW* externalPOW)
 	m_Processor.get_DB().get_BbsTotals(m_Bbs.m_Totals);
     m_Bbs.Cleanup();
 	m_Bbs.m_HighestPosted_s = m_Processor.get_DB().get_BbsMaxTime();
-
-	m_Processor.OnHorizonChanged(); // invoke it once again, after the Compressor initialized and maybe deleted some of backlog, perhaps fossil height may go up
 }
 
 uint32_t Node::get_AcessiblePeerCount() const
