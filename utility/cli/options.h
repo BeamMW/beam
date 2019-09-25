@@ -62,7 +62,6 @@ namespace beam
         extern const char* LISTEN;
         extern const char* TREASURY;
         extern const char* TREASURY_BLOCK;
-        extern const char* RESYNC;
         extern const char* RESET_ID;
         extern const char* ERASE_ID;
         extern const char* CHECKDB;
@@ -117,8 +116,6 @@ namespace beam
         extern const char* IMPORT_DATA;
         extern const char* IMPORT_EXPORT_PATH;
         extern const char* IP_WHITELIST;
-        extern const char* HORIZON_HI;
-        extern const char* HORIZON_LO;
 		extern const char* FAST_SYNC;
 		extern const char* GENERATE_RECOVERY_PATH;
 		extern const char* RECOVERY_AUTO_PATH;
