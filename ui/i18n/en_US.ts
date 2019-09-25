@@ -544,7 +544,6 @@
     </message>
     <message id="settings-title">
         <source>Settings</source>
-        <extracomment>settings tab title</extracomment>
         <translation>Settings</translation>
     </message>
     <message id="cant-send-to-expired-message">
@@ -1622,6 +1621,22 @@ or send this address to the sender over secure channel</translation>
     <message id="settings-invalid-seed">
         <source>Invalid seed phrase</source>
         <translation>Invalid seed phrase</translation>
+    </message>
+    <message id="wallet-transactions-all-tab">
+        <source>All</source>
+        <translation type="unfinished">All</translation>
+    </message>
+    <message id="wallet-transactions-in-progress-tab">
+        <source>In progress</source>
+        <translation type="unfinished">In progress</translation>
+    </message>
+    <message id="wallet-transactions-sent-tab">
+        <source>Sent</source>
+        <translation type="unfinished">Sent</translation>
+    </message>
+    <message id="wallet-transactions-received-tab">
+        <source>Received</source>
+        <translation type="unfinished">Received</translation>
     </message>
 </context>
 </TS>

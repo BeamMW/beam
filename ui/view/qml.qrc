@@ -162,6 +162,7 @@
         <file>controls/AddressTable.qml</file>
         <file>assets/icon-transactions.svg</file>
         <file>controls/StatusBar.qml</file>
+        <file>controls/Title.qml</file>
         <file>assets/icon-maturing.svg</file>
         <file>assets/icon-padlock.svg</file>
         <file>controls/EditAddress.qml</file>

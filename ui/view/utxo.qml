@@ -9,6 +9,16 @@ ColumnLayout {
     anchors.fill: parent
     UtxoViewModel {id: viewModel}
 
+    Title {
+        //% "UTXO"
+        text: qsTrId("utxo-utxo")
+    }
+
+    StatusBar {
+        id: status_bar
+        model: statusbarModel
+    }
+
     RowLayout {
         Layout.fillWidth: true
         Layout.alignment: Qt.AlignTop
@@ -16,17 +26,6 @@ ColumnLayout {
 
         height: 80
         spacing: 10
-
-        SFText {
-            Layout.alignment: Qt.AlignTop
-            Layout.minimumHeight: 40
-            Layout.maximumHeight: 40
-            font.pixelSize: 36
-            color: Style.content_main
-            //% "UTXO"
-            text: qsTrId("utxo-utxo")
-            font.capitalization: Font.AllUppercase
-        }
 
         Item {
             Layout.fillWidth: true
@@ -111,11 +110,6 @@ ColumnLayout {
                 opacity: 0.1
             }
         }
-    }
-
-    StatusBar {
-        id: status_bar
-        model: statusbarModel
     }
 
     CustomTableView {

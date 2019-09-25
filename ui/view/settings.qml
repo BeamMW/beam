@@ -94,11 +94,7 @@ ColumnLayout {
         Layout.preferredHeight: 40
         Layout.alignment:       Qt.AlignTop
 
-        SFText {
-            Layout.alignment: Qt.AlignBottom | Qt.AlignLeft
-            font.pixelSize: 36
-            color: Style.content_main
-            //: settings tab title
+        Title {
             //% "Settings"
             text: qsTrId("settings-title")
         }

@@ -36,9 +36,7 @@ Item {
     }
 
     RowLayout {
-        SFText {
-            font.pixelSize: 36
-            color: Style.content_main
+        Title {
             //% "Atomic Swap"
             text: qsTrId("atomic-swap-title")
         }
@@ -69,12 +67,30 @@ Item {
             RowLayout {
                 Layout.alignment: Qt.AlignRight | Qt.AlignTop
                 Layout.topMargin: 33
+                spacing: 20
+
+                CustomButton {
+                    id: acceptOfferButton
+                    Layout.minimumWidth: 172
+                    Layout.minimumHeight: 32
+                    palette.button: Style.accent_outgoing
+                    palette.buttonText: Style.content_opposite
+                    icon.source: "qrc:/assets/icon-receive-blue.svg"
+                    //% "Accept offer"
+                    text: qsTrId("atomic-swap-accept")
+                    font.pixelSize: 12
+                    font.capitalization: Font.AllUppercase
+
+                    onClicked: {
+                        // todo
+                    }
+                }
                 
                 CustomButton {
                     id: sendOfferButton
                     Layout.minimumWidth: 172
                     Layout.minimumHeight: 32
-                    palette.button: Style.active
+                    palette.button: Style.accent_incoming
                     palette.buttonText: Style.content_opposite
                     icon.source: "qrc:/assets/icon-send-blue.svg"
                     //% "Create offer"
@@ -448,7 +464,7 @@ Item {
                         TableViewColumn {
                             id: offerActionsColumn
                             title: ""
-                            width: offersTable.getAdjustedColumnWidth(offerActionsColumn)//offersTable.columnWidth
+                            width: offersTable.getAdjustedColumnWidth(offerActionsColumn)
                             movable: false
                             resizable: false
                             delegate: Component {
@@ -923,7 +939,7 @@ Item {
                         TableViewColumn {
                             id: actionsColumn
                             elideMode: Text.ElideRight
-                            width: 40
+                            width: transactionsTable.getAdjustedColumnWidth(actionsColumn)
                             movable: false
                             resizable: false
                             delegate: txActions

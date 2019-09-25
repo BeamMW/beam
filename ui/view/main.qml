@@ -85,7 +85,7 @@ Rectangle {
             anchors.left: parent.left
             anchors.leftMargin: 0
             anchors.top: parent.top
-            anchors.topMargin: 125
+            anchors.topMargin: 130
 
             Repeater{
                 id: controls
@@ -158,8 +158,8 @@ Rectangle {
         id: content
         anchors.topMargin: 50
         anchors.bottomMargin: 0
-        anchors.rightMargin: 30
-        anchors.leftMargin: 100
+        anchors.rightMargin: 20
+        anchors.leftMargin: 90
         anchors.fill: parent
         focus: true
     }
