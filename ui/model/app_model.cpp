@@ -68,8 +68,14 @@ void AppModel::backupDB(const std::string& dbFilePath)
     {
         // it seems that we are trying to restore or login to another wallet.
         // Rename/backup existing db
+#if WIN32
+        boost::filesystem::path p = Utf8toUtf16(dbFilePath);
+        boost::filesystem::path newName = Utf8toUtf16(dbFilePath + "_" + to_string(getTimestamp()));
+#else
         boost::filesystem::path p = dbFilePath;
         boost::filesystem::path newName = dbFilePath + "_" + to_string(getTimestamp());
+#endif
+        
         boost::filesystem::rename(p, newName);
     }
 }
