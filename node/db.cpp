@@ -13,6 +13,8 @@
 // limitations under the License.
 
 #include "db.h"
+#include "../core/peer_manager.h"
+#include "../utility/logger.h"
 
 namespace beam {
 
@@ -42,6 +44,7 @@ namespace beam {
 #define TblStates_ChainWork		"ChainWork"
 #define TblStates_Txos			"Txos"
 #define TblStates_Extra			"Extra"
+#define TblStates_Inputs		"Inputs"
 
 #define TblTips					"Tips"
 #define TblTipsReachable		"TipsReachable"
@@ -298,8 +301,9 @@ void NodeDB::Open(const char* szPath)
 	}
 
 	const uint64_t nVersion17 = 17; // before UTXO image
-	const uint64_t nVersion18 = 18; // before Shielded shards
-	const uint64_t nVersionTop = 19;
+	const uint64_t nVersion18 = 18; // ridiculous rating values, no States.Inputs column, Txo.SpendHeight is still indexed
+	const uint64_t nVersion19 = 19; // before Shielded shards
+	const uint64_t nVersionTop = 20;
 
 	Transaction t(*this);
 
@@ -318,6 +322,11 @@ void NodeDB::Open(const char* szPath)
 
 		case nVersion18:
 
+			LOG_INFO() << "DB migrate from" << nVersion18;
+			MigrateFrom18();
+			// no break;
+
+		case nVersion19:
 			CreateTableShielded();
 			ParamSet(ParamID::DbVer, &nVersionTop, NULL);
 			// no break;
@@ -328,6 +337,7 @@ void NodeDB::Open(const char* szPath)
 		default:
 			if (nVer < nVersion17)
 				throw NodeDBUpgradeException("Node upgrade is not supported. Please, remove node.db and tempmb files");
+
 			if (nVer > nVersionTop)
 				throw NodeDBUpgradeException("Unsupported db version");
 		}
@@ -372,6 +382,7 @@ void NodeDB::Create()
 		"[" TblStates_ChainWork		"] BLOB,"
 		"[" TblStates_Txos			"] INTEGER,"
 		"[" TblStates_Extra			"] BLOB,"
+		"[" TblStates_Inputs		"] BLOB,"
 		"PRIMARY KEY (" TblStates_Height "," TblStates_Hash "),"
 		"FOREIGN KEY (" TblStates_RowPrev ") REFERENCES " TblStates "(OID))");
 
@@ -435,8 +446,6 @@ void NodeDB::Create()
 		"[" TblTxo_ID				"] INTEGER NOT NULL PRIMARY KEY,"
 		"[" TblTxo_Value			"] BLOB NOT NULL,"
 		"[" TblTxo_SpendHeight		"] INTEGER)");
-
-	ExecQuick("CREATE INDEX [Idx" TblTxo "SH] ON [" TblTxo "] ([" TblTxo_SpendHeight "])");
 
 	CreateTableShielded();
 }
@@ -874,6 +883,19 @@ uint64_t NodeDB::StateFindSafe(const Block::SystemState::ID& k)
 	return rowid;
 }
 
+uint64_t NodeDB::FindActiveStateStrict(Height h)
+{
+	Recordset rs(*this, Query::StateFindWithFlag, "SELECT rowid FROM " TblStates " WHERE " TblStates_Height "=? AND (" TblStates_Flags " & ?)");
+	rs.put(0, h);
+	rs.put(1, StateFlags::Active);
+	rs.StepStrict();
+
+	uint64_t rowid;
+	rs.get(0, rowid);
+	assert(rowid);
+	return rowid;
+}
+
 void NodeDB::SetNextCount(uint64_t rowid, uint32_t n)
 {
 	Recordset rs(*this, Query::StateSetNextCount, "UPDATE " TblStates " SET " TblStates_CountNext "=? WHERE rowid=?");
@@ -1196,6 +1218,58 @@ bool NodeDB::get_StateExtra(uint64_t rowid, ECC::Scalar& val, ByteBuffer* p)
 	}
 
 	return true;
+}
+
+void NodeDB::set_StateInputs(uint64_t rowid, StateInput* p, size_t n)
+{
+	Recordset rs(*this, Query::StateSetInputs, "UPDATE " TblStates " SET " TblStates_Inputs "=? WHERE rowid=?");
+	if (n)
+		rs.put(0, Blob(p, static_cast<uint32_t>(sizeof(StateInput) * n)));
+	rs.put(1, rowid);
+	rs.Step();
+	TestChanged1Row();
+}
+
+
+bool NodeDB::get_StateInputs(uint64_t rowid, std::vector<StateInput>& v)
+{
+	Recordset rs(*this, Query::StateGetInputs, "SELECT " TblStates_Inputs " FROM " TblStates " WHERE rowid=?");
+	rs.put(0, rowid);
+	rs.StepStrict();
+
+	Blob blob;
+	rs.get(0, blob); // if NULL empty blob will be returned
+
+	v.resize(blob.n / sizeof(StateInput));
+	if (v.empty())
+		return false;
+
+	memcpy(&v.front(), blob.p, v.size() * sizeof(StateInput)); // don't use blob size, it may be bigger if blob.n isn't multiple of sizeof(StateInput)
+	return true;
+}
+
+void NodeDB::StateInput::Set(TxoID id, const ECC::Point& pt)
+{
+	Set(id, pt.m_X, pt.m_Y);
+}
+
+void NodeDB::StateInput::Set(TxoID id, const ECC::uintBig& x, uint8_t y)
+{
+	m_Txo_AndY = id;
+	m_CommX = x;
+	if (y)
+		m_Txo_AndY |= s_Y;
+}
+
+TxoID NodeDB::StateInput::get_ID() const
+{
+	return m_Txo_AndY & ~s_Y;
+}
+
+void NodeDB::StateInput::Get(ECC::Point& pt) const
+{
+	pt.m_X = m_CommX;
+	pt.m_Y = (s_Y & m_Txo_AndY) ? 1 : 0;
 }
 
 void NodeDB::set_StateTxos(uint64_t rowid, const TxoID* pId)
@@ -2010,23 +2084,6 @@ void NodeDB::SetDummyHeight(const Key::ID& kid, Height h)
 	TestChanged1Row();
 }
 
-void NodeDB::ResetCursor()
-{
-	Recordset rs(*this, Query::UnactivateAll, "UPDATE " TblStates " SET " TblStates_Flags "=" TblStates_Flags " & ?");
-	rs.put(0, ~uint32_t(StateFlags::Active));
-	rs.Step();
-
-	rs.Reset(Query::KernelDelAll, "DELETE FROM " TblKernels);
-	rs.Step();
-
-	DeleteEventsFrom(Rules::HeightGenesis);
-
-	StateID sid;
-	sid.m_Row = 0;
-	sid.m_Height = Rules::HeightGenesis - 1;
-	put_Cursor(sid);
-}
-
 void NodeDB::InsertKernel(const Blob& key, Height h)
 {
 	assert(h >= Rules::HeightGenesis);
@@ -2092,6 +2149,14 @@ void NodeDB::TxoAdd(TxoID id, const Blob& b)
 	rs.Step();
 }
 
+void NodeDB::TxoDel(TxoID id)
+{
+	Recordset rs(*this, Query::TxoDel, "DELETE FROM " TblTxo " WHERE " TblTxo_ID "=?");
+	rs.put(0, id);
+	rs.Step();
+	TestChanged1Row();
+}
+
 void NodeDB::TxoDelFrom(TxoID id)
 {
 	Recordset rs(*this, Query::TxoDelFrom, "DELETE FROM " TblTxo " WHERE " TblTxo_ID ">=?");
@@ -2102,43 +2167,18 @@ void NodeDB::TxoDelFrom(TxoID id)
 void NodeDB::TxoSetSpent(TxoID id, Height h)
 {
 	Recordset rs(*this, Query::TxoSetSpent, "UPDATE " TblTxo " SET " TblTxo_SpendHeight "=? WHERE " TblTxo_ID "=?");
-	rs.put(0, h);
+	if (MaxHeight != h)
+		rs.put(0, h);
 	rs.put(1, id);
 
 	rs.Step();
 	TestChanged1Row();
 }
 
-void NodeDB::TxoDelSpentFrom(Height h)
-{
-	Recordset rs(*this, Query::TxoDelSpentFrom, "UPDATE " TblTxo " SET " TblTxo_SpendHeight "=NULL WHERE " TblTxo_SpendHeight ">=?");
-	rs.put(0, h);
-	rs.Step();
-}
-
-uint64_t NodeDB::TxoGetCount()
-{
-	Recordset rs(*this, Query::TxoCount, "SELECT COUNT(*) FROM " TblTxo);
-	uint64_t count = 0;
-	if (rs.Step())
-	{
-		rs.get(0, count);
-	}
-
-	return count;
-}
-
 void NodeDB::EnumTxos(WalkerTxo& wlk, TxoID id0)
 {
 	wlk.m_Rs.Reset(Query::TxoEnum, "SELECT " TblTxo_ID "," TblTxo_Value "," TblTxo_SpendHeight " FROM " TblTxo " WHERE " TblTxo_ID ">=? ORDER BY " TblTxo_ID);
 	wlk.m_Rs.put(0, id0);
-}
-
-void NodeDB::EnumTxosBySpent(WalkerTxo& wlk, const HeightRange& hr)
-{
-	wlk.m_Rs.Reset(Query::TxoEnumBySpent, "SELECT " TblTxo_ID "," TblTxo_Value "," TblTxo_SpendHeight " FROM " TblTxo " WHERE " TblTxo_SpendHeight ">=? AND " TblTxo_SpendHeight "<=? ORDER BY " TblTxo_SpendHeight);
-	wlk.m_Rs.put(0, hr.m_Min);
-	wlk.m_Rs.put(1, std::min(hr.m_Max, (MaxHeight >> 1))); // sqlite uses signed int64
 }
 
 bool NodeDB::WalkerTxo::MoveNext()
@@ -2155,19 +2195,6 @@ bool NodeDB::WalkerTxo::MoveNext()
 		m_Rs.get(2, m_SpendHeight);
 
 	return true;
-}
-
-uint64_t NodeDB::DeleteSpentTxos(const HeightRange& hr, TxoID id0)
-{
-	assert(!hr.IsEmpty());
-
-	Recordset rs(*this, Query::TxoDelSpentTxosFrom, "DELETE FROM " TblTxo " WHERE " TblTxo_SpendHeight ">=? AND " TblTxo_SpendHeight "<=? AND " TblTxo_ID ">=?");
-	rs.put(0, hr.m_Min);
-	rs.put(1, hr.m_Max);
-	rs.put(2, id0);
-	rs.Step();
-
-	return static_cast<uint64_t>(get_RowsChanged());
 }
 
 void NodeDB::TxoSetValue(TxoID id, const Blob& v)
@@ -2267,5 +2294,69 @@ void NodeDB::ShieldedRead(uint64_t pos, ECC::Point::Storage* p, uint64_t nCount)
 	ShieldeIO(pos, p, nCount, false);
 }
 
+void NodeDB::MigrateFrom18()
+{
+	{
+		LOG_INFO() << "Resetting peer ratings...";
+
+		std::vector<WalkerPeer::Data> v;
+
+		{
+			WalkerPeer wlk(*this);
+			for (EnumPeers(wlk); wlk.MoveNext(); )
+				v.push_back(wlk.m_Data);
+		}
+
+		PeersDel();
+
+		for (size_t i = 0; i < v.size(); i++)
+		{
+			WalkerPeer::Data& d = v[i];
+			d.m_Rating = PeerManager::Rating::Initial;
+			PeerIns(d);
+		}
+	}
+
+	LOG_INFO() << "Migrating inputs...";
+
+	ExecQuick("ALTER TABLE " TblStates " ADD COLUMN "  "[" TblStates_Inputs	"] BLOB");
+
+	std::vector<StateInput> vInps;
+	Height h = 0;
+
+	WalkerTxo wlk(*this);
+	wlk.m_Rs.Reset(Query::TxoEnumBySpentMigrate, "SELECT " TblTxo_ID "," TblTxo_Value "," TblTxo_SpendHeight " FROM " TblTxo " WHERE " TblTxo_SpendHeight " IS NOT NULL ORDER BY " TblTxo_SpendHeight "," TblTxo_ID);
+	while (true)
+	{
+		bool bNext = wlk.MoveNext();
+
+		bool bFlush = !vInps.empty() && (!bNext || (wlk.m_SpendHeight != h));
+		if (bFlush)
+		{
+			uint64_t rowid = FindActiveStateStrict(h);
+			set_StateInputs(rowid, &vInps.front(), vInps.size());
+			vInps.clear();
+		}
+
+		if (!bNext)
+			break;
+
+		h = wlk.m_SpendHeight;
+
+		// extract input from output (which may be naked already)
+		if (wlk.m_Value.n < sizeof(ECC::Point))
+			ThrowInconsistent();
+		const uint8_t* pSrc = reinterpret_cast<const uint8_t*>(wlk.m_Value.p);
+
+		StateInput& x = vInps.emplace_back();
+
+		x.m_Txo_AndY = wlk.m_ID;
+		memcpy(x.m_CommX.m_pData, pSrc + 1, x.m_CommX.nBytes);
+		if (1 & pSrc[0])
+			x.m_Txo_AndY |= StateInput::s_Y;
+	}
+
+	ExecQuick("DROP INDEX [Idx" TblTxo "SH]");
+}
 
 } // namespace beam

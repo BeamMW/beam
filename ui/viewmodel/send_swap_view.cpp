@@ -89,11 +89,11 @@ void SendSwapViewModel::fillParameters(beam::wallet::TxParameters parameters)
     auto beamAmount = parameters.GetParameter<Amount>(TxParameterID::Amount);
     auto swapAmount = parameters.GetParameter<Amount>(TxParameterID::AtomicSwapAmount);
     auto peerID = parameters.GetParameter<WalletID>(TxParameterID::PeerID);
-    auto peerResponseHeight = parameters.GetParameter<Height>(TxParameterID::PeerResponseHeight);
+    auto peerResponseTime = parameters.GetParameter<Height>(TxParameterID::PeerResponseTime);
     auto offeredTime = parameters.GetParameter<Timestamp>(TxParameterID::CreateTime);
 
     if (peerID && swapAmount && beamAmount
-        && swapCoin && isBeamSide && peerResponseHeight && offeredTime)
+        && swapCoin && isBeamSide && peerResponseTime && offeredTime)
     {
         if (*isBeamSide) // other participant is not a beam side
         {
@@ -116,7 +116,7 @@ void SendSwapViewModel::fillParameters(beam::wallet::TxParameters parameters)
         auto currentHeight = _status.getCurrentHeight();
         if (currentHeight)
         {
-            setExpiresTime(beamui::CalculateExpiresTime(currentHeight, *peerResponseHeight));
+            setExpiresTime(beamui::CalculateExpiresTime(currentHeight, *peerResponseTime));
         }
         _txParameters = parameters;
     }

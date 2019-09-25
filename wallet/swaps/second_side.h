@@ -32,6 +32,8 @@ namespace beam::wallet
         virtual bool ValidateLockTime() = 0;
         virtual void AddTxDetails(SetTxParameter&) = 0;
         virtual bool ConfirmLockTx() = 0;
+        virtual bool ConfirmRefundTx() = 0;
+        virtual bool ConfirmRedeemTx() = 0;
         virtual bool SendLockTx() = 0;
         virtual bool SendRefund() = 0;
         virtual bool SendRedeem() = 0;

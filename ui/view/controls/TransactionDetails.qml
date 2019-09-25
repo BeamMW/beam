@@ -261,7 +261,6 @@ RowLayout {
                 icon.height: 14
                 enabled: root.hasPaymentProof && !root.isSelfTx
                 onClicked: {
-                    console.log("showPaymentProof()");
                     showPaymentProof();
                 }
             }
@@ -271,7 +270,6 @@ RowLayout {
                 icon.source: "qrc:/assets/icon-copy.svg"
                 enabled: root.hasPaymentProof && !root.isSelfTx
                 onClicked: {
-                    console.log("copyPaymentProof()");
                     copyPaymentProof();
                 }
             }

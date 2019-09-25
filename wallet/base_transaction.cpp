@@ -43,7 +43,7 @@ namespace beam::wallet
         return TxParameters(GenerateTxID())
             .SetParameter(TxParameterID::TransactionType, type)
             .SetParameter(TxParameterID::Lifetime, kDefaultTxLifetime)
-            .SetParameter(TxParameterID::PeerResponseHeight, kDefaultTxResponseTime)
+            .SetParameter(TxParameterID::PeerResponseTime, kDefaultTxResponseTime)
             .SetParameter(TxParameterID::IsInitiator, true)
             .SetParameter(TxParameterID::IsSender, true)
             .SetParameter(TxParameterID::CreateTime, getTimestamp());

@@ -244,14 +244,14 @@ namespace
             virtual void serializeMsg(const json& msg) = 0;
 
             template<typename T>
-            void doResponse(int id, const T& response)
+            void doResponse(const JsonRpcId& id, const T& response)
             {
                 json msg;
                 _api.getResponse(id, response, msg);
                 serializeMsg(msg);
             }
 
-            void doError(int id, int code, const std::string& info)
+            void doError(const JsonRpcId& id, int code, const std::string& info)
             {
                 json msg
                 {
@@ -299,7 +299,7 @@ namespace
                 }
             }
 
-            void onMessage(int id, const CreateAddress& data) override 
+            void onMessage(const JsonRpcId& id, const CreateAddress& data) override 
             {
                 LOG_DEBUG() << "CreateAddress(id = " << id << ")";
 
@@ -311,7 +311,7 @@ namespace
                 doResponse(id, CreateAddress::Response{ address.m_walletID });
             }
 
-            void onMessage(int id, const DeleteAddress& data) override
+            void onMessage(const JsonRpcId& id, const DeleteAddress& data) override
             {
                 LOG_DEBUG() << "DeleteAddress(id = " << id << " address = " << std::to_string(data.address) << ")";
 
@@ -329,7 +329,7 @@ namespace
                 }
             }
 
-            void onMessage(int id, const EditAddress& data) override
+            void onMessage(const JsonRpcId& id, const EditAddress& data) override
             {
                 LOG_DEBUG() << "EditAddress(id = " << id << " address = " << std::to_string(data.address) << ")";
 
@@ -355,14 +355,14 @@ namespace
                 }
             }
 
-            void onMessage(int id, const AddrList& data) override
+            void onMessage(const JsonRpcId& id, const AddrList& data) override
             {
                 LOG_DEBUG() << "AddrList(id = " << id << ")";
 
                 doResponse(id, AddrList::Response{ _walletDB->getAddresses(data.own) });
             }
 
-            void onMessage(int id, const ValidateAddress& data) override
+            void onMessage(const JsonRpcId& id, const ValidateAddress& data) override
             {
                 LOG_DEBUG() << "ValidateAddress( address = " << std::to_string(data.address) << ")";
 
@@ -371,7 +371,7 @@ namespace
                 doResponse(id, ValidateAddress::Response{ data.address.IsValid() && (isMine ? !addr->isExpired() : true), isMine});
             }
 
-            void onMessage(int id, const Send& data) override
+            void onMessage(const JsonRpcId& id, const Send& data) override
             {
                 LOG_DEBUG() << "Send(id = " << id << " amount = " << data.value << " fee = " << data.fee <<  " address = " << std::to_string(data.address) << ")";
 
@@ -449,7 +449,7 @@ namespace
                 }
             }
 
-            void onMessage(int id, const Status& data) override
+            void onMessage(const JsonRpcId& id, const Status& data) override
             {
                 LOG_DEBUG() << "Status(txId = " << to_hex(data.txId.data(), data.txId.size()) << ")";
 
@@ -476,7 +476,7 @@ namespace
                 }
             }
 
-            void onMessage(int id, const Split& data) override
+            void onMessage(const JsonRpcId& id, const Split& data) override
             {
                 LOG_DEBUG() << "Split(id = " << id << " coins = [";
                 for (auto& coin : data.coins) LOG_DEBUG() << coin << ",";
@@ -504,7 +504,7 @@ namespace
                 }
             }
 
-            void onMessage(int id, const TxCancel& data) override
+            void onMessage(const JsonRpcId& id, const TxCancel& data) override
             {
                 LOG_DEBUG() << "TxCancel(txId = " << to_hex(data.txId.data(), data.txId.size()) << ")";
 
@@ -529,7 +529,7 @@ namespace
                 }
             }
 
-            void onMessage(int id, const TxDelete& data) override
+            void onMessage(const JsonRpcId& id, const TxDelete& data) override
             {
                 LOG_DEBUG() << "TxDelete(txId = " << to_hex(data.txId.data(), data.txId.size()) << ")";
 
@@ -580,7 +580,7 @@ namespace
                 }
             }
 
-            void onMessage(int id, const GetUtxo& data) override 
+            void onMessage(const JsonRpcId& id, const GetUtxo& data) override 
             {
                 LOG_DEBUG() << "GetUtxo(id = " << id << ")";
 
@@ -596,7 +596,7 @@ namespace
                 doResponse(id, response);
             }
 
-            void onMessage(int id, const WalletStatus& data) override
+            void onMessage(const JsonRpcId& id, const WalletStatus& data) override
             {
                 LOG_DEBUG() << "WalletStatus(id = " << id << ")";
 
@@ -627,7 +627,7 @@ namespace
                 doResponse(id, response);
             }
 
-            void onMessage(int id, const Lock& data) override
+            void onMessage(const JsonRpcId& id, const Lock& data) override
             {
                 LOG_DEBUG() << "Lock(id = " << id << ")";
 
@@ -638,7 +638,7 @@ namespace
                 doResponse(id, response);
             }
 
-            void onMessage(int id, const Unlock& data) override
+            void onMessage(const JsonRpcId& id, const Unlock& data) override
             {
                 LOG_DEBUG() << "Unlock(id = " << id << " session = " << data.session << ")";
 
@@ -649,7 +649,7 @@ namespace
                 doResponse(id, response);
             }
 
-            void onMessage(int id, const TxList& data) override
+            void onMessage(const JsonRpcId& id, const TxList& data) override
             {
                 LOG_DEBUG() << "List(filter.status = " << (data.filter.status ? std::to_string((uint32_t)*data.filter.status) : "nul") << ")";
 
@@ -706,7 +706,7 @@ namespace
             }
 
         private:
-            void methodNotImplementedYet(int id)
+            void methodNotImplementedYet(const JsonRpcId& id)
             {
                 doError(id, NOTFOUND_JSON_RPC, "Method not implemented yet.");
             }

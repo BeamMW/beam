@@ -71,6 +71,11 @@ class SettingsViewModel : public QObject
     Q_PROPERTY(QString  qtumNodeAddressEL READ getQtumNodeAddressEL  WRITE setQtumNodeAddressEL  NOTIFY qtumNodeAddressELChanged)
     Q_PROPERTY(int      qtumFeeRateEL     READ getQtumFeeRateEL      WRITE setQtumFeeRateEL      NOTIFY qtumFeeRateELChanged)
 
+     Q_PROPERTY(bool btcUseEL   READ getBtcUseEL    WRITE setBtcUseEL    NOTIFY btcUseELChanged)
+     Q_PROPERTY(bool ltcUseEL   READ getLtcUseEL    WRITE setLtcUseEL    NOTIFY ltcUseELChanged)
+     Q_PROPERTY(bool qtumUseEL  READ getQtumUseEL   WRITE setQtumUseEL   NOTIFY qtumUseELChanged)
+
+
 public:
 
     SettingsViewModel();
@@ -140,6 +145,15 @@ public:
     void setQtumNodeAddressEL(const QString& value);
     int getQtumFeeRateEL() const;
     void setQtumFeeRateEL(int value);
+
+    bool getBtcUseEL() const;
+    void setBtcUseEL(bool value);
+
+    bool getLtcUseEL() const;
+    void setLtcUseEL(bool value);
+
+    bool getQtumUseEL() const;
+    void setQtumUseEL(bool value);
 
     Q_INVOKABLE uint coreAmount() const;
     Q_INVOKABLE void addLocalNodePeer(const QString& localNodePeer);
@@ -224,6 +238,10 @@ signals:
     void qtumNodeAddressChanged();
     void qtumFeeRateChanged();
 
+    void btcUseELChanged();
+    void ltcUseELChanged();
+    void qtumUseELChanged();
+
 protected:
     void timerEvent(QTimerEvent *event) override;
 
@@ -265,6 +283,10 @@ private:
     QString m_qtumPass;
     QString m_qtumNodeAddress;
     int m_qtumFeeRate = 0;
+
+    bool m_btcUseEL = false;
+    bool m_ltcUseEL = false;
+    bool m_qtumUseEL = false;
 
     const int CHECK_INTERVAL = 1000;
 };
