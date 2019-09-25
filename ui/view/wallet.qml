@@ -162,6 +162,12 @@ Item {
                 sortIndicatorColumn: 0
                 sortIndicatorOrder: Qt.DescendingOrder
 
+                onSortIndicatorColumnChanged: {
+                    sortIndicatorOrder = sortIndicatorColumn != 0
+                        ? Qt.AscendingOrder
+                        : Qt.DescendingOrder;
+                }
+
                 model: SortFilterProxyModel {
                     id: txProxyModel
                     source: viewModel.transactions
