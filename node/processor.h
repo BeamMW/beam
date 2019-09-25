@@ -149,18 +149,25 @@ public:
 
 	struct Horizon {
 
-		Height m_Branching; // branches behind this are pruned
-		Height m_SchwarzschildLo; // spent behind this are completely erased
-		Height m_SchwarzschildHi; // spent behind this are compacted
+		// branches behind this are pruned
+		Height m_Branching;
+
+		struct m_Schwarzschild {
+			Height Lo; // spent behind this are completely erased
+			Height Hi; // spent behind this are compacted
+		};
+
+		m_Schwarzschild m_Sync; // how deep to sync
+		m_Schwarzschild m_Local; // how deep to keep
 
 		void SetInfinite();
 		void SetStdFastSync(); // Hi is minimum, Lo is 180 days
 
-		Horizon(); // by default both are disabled.
+		void Normalize(); // make sure parameters are consistent w.r.t. each other and MaxRollback
+
+		Horizon(); // by default all horizons are disabled, i.e. full archieve.
 
 	} m_Horizon;
-
-	void OnHorizonChanged();
 
 	struct Cursor
 	{
