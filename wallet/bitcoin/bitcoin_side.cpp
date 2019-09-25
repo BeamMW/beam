@@ -107,6 +107,12 @@ namespace beam::wallet
         , m_settingsProvider(settingsProvider)
         , m_isBtcOwner(!isBeamSide)
     {
+        m_settingsProvider->AddRef();
+    }
+
+    BitcoinSide::~BitcoinSide()
+    {
+        m_settingsProvider->Release();
     }
 
     bool BitcoinSide::Initialize()
