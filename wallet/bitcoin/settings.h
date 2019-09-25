@@ -41,7 +41,7 @@ namespace beam::bitcoin
     struct ElectrumSettings
     {
         // TODO roman.strilets maybe should store domen address instead of ip address
-        io::Address m_address;
+        std::string m_address;
         std::vector<std::string> m_secretWords;
         uint8_t m_addressVersion;
 

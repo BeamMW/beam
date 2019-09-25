@@ -244,8 +244,7 @@ void TestElectrumSwapTransaction(bool isBeamOwnerStart, beam::Height fork1Height
         }
     };
 
-    io::Address address;
-    address.resolve("127.0.0.1:10400");
+    std::string address("127.0.0.1:10400");
 
     Amount beamAmount = 300;
     Amount beamFee = 100;
@@ -532,8 +531,7 @@ void TestElectrumSwapBTCRefundTransaction()
         mainReactor->stop();
     };
 
-    io::Address address;
-    address.resolve("127.0.0.1:10400");
+    std::string address("127.0.0.1:10400");
 
     Amount beamAmount = 300;
     Amount beamFee = 100;
@@ -725,8 +723,7 @@ void TestElectrumSwapBeamRefundTransaction()
         mainReactor->stop();
     };
 
-    io::Address address;
-    address.resolve("127.0.0.1:10400");
+    std::string address("127.0.0.1:10400");
 
     Amount beamAmount = 300;
     Amount beamFee = 100;

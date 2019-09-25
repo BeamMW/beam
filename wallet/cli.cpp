@@ -938,10 +938,10 @@ namespace
         {
             ElectrumSettings electrumSettings;
 
-            string electrumAddr = vm[cli::ELECTRUM_ADDR].as<string>();
-            if (!electrumSettings.m_address.resolve(electrumAddr.c_str()))
+            electrumSettings.m_address = vm[cli::ELECTRUM_ADDR].as<string>();
+            if (!io::Address().resolve(electrumSettings.m_address.c_str()))
             {
-                throw std::runtime_error("unable to resolve litecoin electrum address: " + electrumAddr);
+                throw std::runtime_error("unable to resolve electrum address: " + electrumSettings.m_address);
             }
 
             if (vm.count(cli::ELECTRUM_SEED))
@@ -1060,7 +1060,7 @@ namespace
             if (settings.GetElectrumConnectionOptions().IsInitialized())
             {
                 cout << coinName << " settings" << '\n'
-                    << "Electrum node: " << settings.GetElectrumConnectionOptions().m_address.str() << '\n'
+                    << "Electrum node: " << settings.GetElectrumConnectionOptions().m_address << '\n'
                     << "Fee rate: " << settings.GetFeeRate() << '\n';
                 return 0;
             }
