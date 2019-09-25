@@ -39,7 +39,7 @@ namespace beam::wallet
         parameters.SetParameter(TxParameterID::Lifetime, lifetime);
 
         parameters.SetParameter(TxParameterID::MinHeight, minHeight);
-        parameters.SetParameter(TxParameterID::PeerResponseHeight, minHeight + responseTime);
+        parameters.SetParameter(TxParameterID::PeerResponseTime, responseTime);
         parameters.SetParameter(TxParameterID::MyID, myID);
         parameters.SetParameter(TxParameterID::IsSender, isBeamSide);
         parameters.SetParameter(TxParameterID::IsInitiator, false);
@@ -385,6 +385,12 @@ namespace beam::wallet
                 if (!m_secondSide->SendRefund())
                     break;
 
+                if (!m_secondSide->ConfirmRefundTx())
+                {
+                    UpdateOnNextTip();
+                    break;
+                }
+
                 LOG_INFO() << GetTxID() << " RefundTX completed!";
                 SetNextState(State::Refunded);
                 break;
@@ -394,6 +400,12 @@ namespace beam::wallet
                 assert(isBeamOwner);
                 if (!m_secondSide->SendRedeem())
                     break;
+
+                if (!m_secondSide->ConfirmRedeemTx())
+                {
+                    UpdateOnNextTip();
+                    break;
+                }
 
                 LOG_INFO() << GetTxID() << " RedeemTX completed!";
                 SetNextState(State::CompleteSwap);

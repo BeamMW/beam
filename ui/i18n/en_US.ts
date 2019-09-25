@@ -1295,8 +1295,8 @@ or send this address to the sender over secure channel</translation>
         <translation>Swap</translation>
     </message>
     <message id="settings-reset">
-        <source>Switch off</source>
-        <translation>Switch off</translation>
+        <source>Clear</source>
+        <translation>Clear</translation>
     </message>
     <message id="settings-node-address">
         <source>Node Address</source>
@@ -1407,9 +1407,8 @@ or send this address to the sender over secure channel</translation>
         <translation>QTUM</translation>
     </message>
     <message id="general-electrum">
-        <source></source>
-        <oldsource>Electrum</oldsource>
-        <translation type="unfinished">Electrum</translation>
+        <source>Electrum</source>
+        <translation>Electrum</translation>
     </message>
     <message id="swap-currency-na-message">
         <source>You do not have %1 connected.\nUpdate your settings and try again.</source>

@@ -74,27 +74,12 @@ auto TxObject::getSwapCoinType() const -> QString
     return QString("unknown");
 }
 
-bool TxObject::income() const
+bool TxObject::isIncome() const
 {
     return m_tx.m_sender == false;
 }
 
-QString TxObject::date() const
-{
-    return toString(m_tx.m_createTime);
-}
-
-QString TxObject::userName() const
-{
-    return m_userName;
-}
-
-QString TxObject::displayName() const
-{
-    return m_displayName;
-}
-
-QString TxObject::comment() const
+QString TxObject::getComment() const
 {
     std::string str{ m_tx.m_message.begin(), m_tx.m_message.end() };
     return QString(str.c_str()).trimmed();
@@ -130,59 +115,27 @@ double TxObject::getReceivedAmountValue() const
     return !m_tx.m_sender ? m_tx.m_amount : 0;
 }
 
-QString TxObject::change() const
-{
-    if (m_tx.m_change)
-    {
-        return AmountToString(m_tx.m_change, Currencies::Beam);
-    }
-    return QString{};
-}
-
-QString TxObject::status() const
+QString TxObject::getStatus() const
 {
     return m_tx.getStatusString().c_str();
 }
 
-bool TxObject::canCancel() const
+bool TxObject::isCancelAvailable() const
 {
     return m_tx.canCancel();
 }
 
-bool TxObject::canDelete() const
+bool TxObject::isDeleteAvailable() const
 {
     return m_tx.canDelete();
 }
 
-void TxObject::setUserName(const QString& name)
-{
-    if (m_userName != name)
-    {
-        m_userName = name;
-        emit displayNameChanged();
-    }
-}
-
-void TxObject::setDisplayName(const QString& name)
-{
-    if (m_displayName != name)
-    {
-        m_displayName = name;
-        emit displayNameChanged();
-    }
-}
-
-beam::wallet::WalletID TxObject::peerId() const
-{
-    return m_tx.m_peerId;
-}
-
-QString TxObject::getSendingAddress() const
+QString TxObject::getAddressFrom() const
 {
     return toString(m_tx.m_sender ? m_tx.m_myId : m_tx.m_peerId);
 }
 
-QString TxObject::getReceivingAddress() const
+QString TxObject::getAddressTo() const
 {
     return toString(!m_tx.m_sender ? m_tx.m_myId : m_tx.m_peerId);
 }
@@ -303,7 +256,7 @@ void TxObject::setFailureReason(beam::wallet::TxFailureReason reason)
 
 bool TxObject::hasPaymentProof() const
 {
-    return !income() && m_tx.m_status == TxStatus::Completed;
+    return !isIncome() && m_tx.m_status == TxStatus::Completed;
 }
 
 void TxObject::update(const beam::wallet::TxDescription& tx)
@@ -314,7 +267,7 @@ void TxObject::update(const beam::wallet::TxDescription& tx)
     setFailureReason(tx.m_failureReason);
 }
 
-bool TxObject::inProgress() const
+bool TxObject::isInProgress() const
 {
     switch (m_tx.m_status)
     {

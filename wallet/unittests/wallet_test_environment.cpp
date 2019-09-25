@@ -1130,7 +1130,7 @@ public:
                         .SetParameter(TxParameterID::Amount, Amount(5))
                         .SetParameter(TxParameterID::Fee, Amount(1))
                         .SetParameter(TxParameterID::Lifetime, Height(10000))
-                        .SetParameter(TxParameterID::PeerResponseHeight, Height(10000)));
+                        .SetParameter(TxParameterID::PeerResponseTime, Height(10000)));
                 }
             }
             if (sendCount)

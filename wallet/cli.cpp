@@ -1226,9 +1226,9 @@ namespace
         auto beamAmount = swapTxParameters->GetParameter<Amount>(TxParameterID::Amount);
         auto swapAmount = swapTxParameters->GetParameter<Amount>(TxParameterID::AtomicSwapAmount);
         auto peerID = swapTxParameters->GetParameter<WalletID>(TxParameterID::PeerID);
-        auto peerResponseHeight = swapTxParameters->GetParameter<Height>(TxParameterID::PeerResponseHeight);
+        auto peerResponseTime = swapTxParameters->GetParameter<Height>(TxParameterID::PeerResponseTime);
 
-        bool isValidToken = isBeamSide && swapCoin && beamAmount && swapAmount && peerID && peerResponseHeight;
+        bool isValidToken = isBeamSide && swapCoin && beamAmount && swapAmount && peerID && peerResponseTime;
 
         if (!transactionType || *transactionType != TxType::AtomicSwap || !isValidToken)
         {
