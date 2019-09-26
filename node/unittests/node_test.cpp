@@ -2091,6 +2091,7 @@ namespace beam
 		{
 			io::Timer::Ptr m_pTimer;
 
+			bool m_bRunning;
 			bool m_bTip;
 			Height m_hRolledTo;
 			uint32_t m_nProofsExpected;
@@ -2116,8 +2117,11 @@ namespace beam
 
 			void MaybeStop()
 			{
-				if (m_bTip && !m_nProofsExpected && m_bBbsReceived)
+				if (m_bRunning && m_bTip && !m_nProofsExpected && m_bBbsReceived)
+				{
 					io::Reactor::get_Current().stop();
+					m_bRunning = false;
+				}
 			}
 
 			virtual void OnRolledBack() override
@@ -2197,6 +2201,7 @@ namespace beam
 				net.BbsSubscribe(m_LastBbsChannel, 0, this);
 
 				SetTimer(90 * 1000);
+				m_bRunning = true;
 				io::Reactor::get_Current().run();
 				KillTimer();
 			}
