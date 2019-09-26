@@ -219,7 +219,7 @@ void LoadingViewModel::updateProgress()
         }
         else if (detectNetworkProblems())
         {
-            //% "It may take longer when usual. Please, check your network."
+            //% "It may take longer then usual. Please, check your network."
             estimateStr = qtTrId("loading-view-net-problems");
         }
         else

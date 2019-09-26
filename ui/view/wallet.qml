@@ -236,7 +236,9 @@ Item {
                 Layout.bottomMargin: 9
 
                 property int rowHeight: 56
-                property int columnWidth: (width - 40) / 5
+
+                property double resizableWidth: transactionsTable.width - actionsColumn.width
+                property double columnResizeRatio: resizableWidth / 810
 
                 selectionMode: SelectionMode.NoSelection
                 sortIndicatorVisible: true
@@ -372,7 +374,6 @@ Item {
                             if (mouse.button === Qt.RightButton )
                             {
                                 var item = transactionsTable.model.get(styleData.row);
-                                txContextMenu.address = item.addressTo;
                                 txContextMenu.cancelEnabled = item.isCancelAvailable;
                                 txContextMenu.deleteEnabled = item.isDeleteAvailable;
                                 txContextMenu.txID = item.rawTxID;
@@ -448,6 +449,7 @@ Item {
                         TableItem {
                             text: styleData.value
                             elide: styleData.elideMode
+                            onCopyText: BeamGlobals.copyToClipboard(styleData.value)
                         }
                     }
                 }
@@ -457,7 +459,7 @@ Item {
                     //% "Created on"
                     title: qsTrId("wallet-txs-date-time")
                     elideMode: Text.ElideRight
-                    width: transactionsTable.columnWidth
+                    width: 120 * transactionsTable.columnResizeRatio
                     movable: false
                     resizable: false
                 }
@@ -466,7 +468,7 @@ Item {
                     //% "From"
                     title: qsTrId("general-address-from")
                     elideMode: Text.ElideMiddle
-                    width: transactionsTable.columnWidth
+                    width: 200 * transactionsTable.columnResizeRatio
                     movable: false
                     resizable: false
                 }
@@ -475,7 +477,7 @@ Item {
                     //% "To"
                     title: qsTrId("general-address-to")
                     elideMode: Text.ElideMiddle
-                    width: transactionsTable.columnWidth
+                    width: 200 * transactionsTable.columnResizeRatio
                     movable: false
                     resizable: false
                 }
@@ -484,7 +486,7 @@ Item {
                     //% "Amount"
                     title: qsTrId("general-amount")
                     elideMode: Text.ElideRight
-                    width: transactionsTable.columnWidth
+                    width: 140 * transactionsTable.columnResizeRatio
                     movable: false
                     resizable: false
                     delegate: Item {
@@ -496,16 +498,18 @@ Item {
                                 text: (parent.isIncome ? "+ " : "- ") + styleData.value
                                 fontWeight: Font.Bold
                                 color: parent.isIncome ? Style.accent_incoming : Style.accent_outgoing
+                                onCopyText: BeamGlobals.copyToClipboard(Utils.getAmountWithoutCurrency(styleData.value)) 
                             }
                         }
                     }
                 }
                 TableViewColumn {
+                    id: statusColumn
                     role: "status"
                     //% "Status"
                     title: qsTrId("general-status")
                     elideMode: Text.ElideRight
-                    width: transactionsTable.columnWidth
+                    width: transactionsTable.getAdjustedColumnWidth(statusColumn)//150 * transactionsTable.columnResizeRatio
                     movable: false
                     resizable: false
                     delegate: Item {
@@ -564,7 +568,7 @@ Item {
                 TableViewColumn {
                     id: actionsColumn
                     elideMode: Text.ElideRight
-                    width: transactionsTable.getAdjustedColumnWidth(actionsColumn)
+                    width: 40
                     movable: false
                     resizable: false
                     delegate: txActions
@@ -588,7 +592,6 @@ Item {
                                     ToolTip.text: qsTrId("general-actions")
                                     onClicked: {
                                         var item = transactionsTable.model.get(styleData.row);
-                                        txContextMenu.address = item.addressTo;
                                         txContextMenu.cancelEnabled = item.isCancelAvailable;
                                         txContextMenu.deleteEnabled = item.isDeleteAvailable;
                                         txContextMenu.txID = item.rawTxID;
@@ -606,16 +609,8 @@ Item {
                     dim: false
                     property bool cancelEnabled
                     property bool deleteEnabled
-                    property var address
                     property var txID
-                    Action {
-                        //% "Copy address"
-                        text: qsTrId("wallet-txs-copy-addr-cm")
-                        icon.source: "qrc:/assets/icon-copy.svg"
-                        onTriggered: {
-                            BeamGlobals.copyToClipboard(txContextMenu.address);
-                        }
-                    }
+
                     Action {
                         //% "Cancel"
                         text: qsTrId("general-cancel")

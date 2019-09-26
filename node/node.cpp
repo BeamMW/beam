@@ -912,17 +912,17 @@ bool Node::Processor::EnumViewerKeys(IKeyWalker& w)
     return true;
 }
 
-void Node::Processor::OnUtxoEvent(const UtxoEvent::Value& evt)
+void Node::Processor::OnUtxoEvent(const UtxoEvent::Value& evt, Height h)
 {
 	if (get_ParentObj().m_Cfg.m_LogUtxos)
 	{
 		ECC::Key::IDV kidv;
 		kidv = evt.m_Kidv;
 
-		Height h;
-		evt.m_Maturity.Export(h);
+		Height hMaturity;
+		evt.m_Maturity.Export(hMaturity);
 
-		LOG_INFO() << "Utxo " << kidv << ", Maturity=" << h << ", Added=" << static_cast<uint32_t>(evt.m_Added);
+		LOG_INFO() << "Utxo " << kidv << ", Maturity=" << hMaturity << ", Added=" << static_cast<uint32_t>(evt.m_Added) << ", Height=" << h;
 	}
 }
 
@@ -1715,7 +1715,7 @@ void Node::Peer::ModifyRatingWrtData(size_t nSize)
 	// Hence, after accounting for newly-downloaded data, the average bandwidth becomes:
 	// <bw> = (v0 + v1) / (t0 + t1) = (bw0 * t0 + v1) / (t0 + t1)
 	//
-	const uint32_t t0_s = 10;
+	const uint32_t t0_s = 3;
 	const uint32_t t0_ms = t0_s * 1000;
 	uint64_t tTotal_ms = static_cast<uint64_t>(t0_ms) + dt_ms;
 	assert(tTotal_ms); // can't overflow
@@ -1726,8 +1726,10 @@ void Node::Peer::ModifyRatingWrtData(size_t nSize)
 	uint32_t bwAvg = static_cast<uint32_t>(v * 1000 / tTotal_ms);
 
 	uint32_t nRatingAvg = PeerManager::Rating::FromBps(bwAvg);
-	m_This.m_PeerMan.SetRating(*m_pInfo, nRatingAvg);
 
+	m_This.m_PeerMan.m_LiveSet.erase(PeerMan::LiveSet::s_iterator_to(Cast::Up<PeerMan::PeerInfoPlus>(m_pInfo)->m_Live));
+	m_This.m_PeerMan.SetRating(*m_pInfo, nRatingAvg);
+	m_This.m_PeerMan.m_LiveSet.insert(Cast::Up<PeerMan::PeerInfoPlus>(m_pInfo)->m_Live);
 }
 
 void Node::Peer::OnMsg(proto::DataMissing&&)

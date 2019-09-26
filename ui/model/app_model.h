@@ -75,6 +75,11 @@ private:
     void generateDefaultAddress();
 
 private:
+    // SwapCoinClientModels must be destroyed after WalletModel
+    SwapCoinClientModel::Ptr m_bitcoinClient;
+    SwapCoinClientModel::Ptr m_litecoinClient;
+    SwapCoinClientModel::Ptr m_qtumClient;
+
     WalletModel::Ptr m_wallet;
     beam::wallet::IPrivateKeyKeeper::Ptr m_keyKeeper;
     NodeModel m_nodeModel;
@@ -86,7 +91,4 @@ private:
     Connections m_nsc; // [n]ode [s]tarting [c]onnections
     Connections m_walletConnections;
     static AppModel* s_instance;
-    SwapCoinClientModel::Ptr m_bitcoinClient;
-    SwapCoinClientModel::Ptr m_litecoinClient;
-    SwapCoinClientModel::Ptr m_qtumClient;
 };

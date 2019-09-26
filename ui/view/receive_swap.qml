@@ -404,6 +404,7 @@ ColumnLayout {
                 }
                 viewModel.startListen()
                 viewModel.publishToken()
+                thisView.parent.parent.pop();
             }
         }
     }

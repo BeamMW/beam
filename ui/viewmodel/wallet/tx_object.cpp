@@ -31,6 +31,7 @@ TxObject::TxObject(QObject* parent)
 TxObject::TxObject(const TxDescription& tx, QObject* parent/* = nullptr*/)
         : QObject(parent)
         , m_tx(tx)
+        , m_type(*m_tx.GetParameter<TxType>(TxParameterID::TransactionType))
 {
     auto kernelID = QString::fromStdString(to_hex(m_tx.m_kernelID.m_pData, m_tx.m_kernelID.nBytes));
     setKernelID(kernelID);
@@ -97,22 +98,75 @@ double TxObject::getAmountValue() const
 
 QString TxObject::getSentAmount() const
 {
+    if (m_type == TxType::AtomicSwap)
+    {
+        return getSwapAmount(true);
+    }
     return m_tx.m_sender ? getAmount() : "";
 }
 
 double TxObject::getSentAmountValue() const
 {
+    if (m_type == TxType::AtomicSwap)
+    {
+        return getSwapAmountValue(true);
+    }
+
     return m_tx.m_sender ? m_tx.m_amount : 0;
 }
 
 QString TxObject::getReceivedAmount() const
 {
+    if (m_type == TxType::AtomicSwap)
+    {
+        return getSwapAmount(false);
+    }
     return !m_tx.m_sender ? getAmount() : "";
 }
 
 double TxObject::getReceivedAmountValue() const
 {
+    if (m_type == TxType::AtomicSwap)
+    {
+        return getSwapAmountValue(false);
+    }
+
     return !m_tx.m_sender ? m_tx.m_amount : 0;
+}
+
+QString TxObject::getSwapAmount(bool sent) const
+{
+    auto isBeamSide = m_tx.GetParameter<bool>(TxParameterID::AtomicSwapIsBeamSide);
+    if (!isBeamSide)
+    {
+        return "";
+    }
+
+    bool s = sent ? !*isBeamSide : *isBeamSide;
+    if (s)
+    {
+        auto swapAmount = m_tx.GetParameter<Amount>(TxParameterID::AtomicSwapAmount);
+        auto swapCoin = m_tx.GetParameter<AtomicSwapCoin>(TxParameterID::AtomicSwapCoin);
+        return AmountToString(*swapAmount, beamui::convertSwapCoinToCurrency(*swapCoin));
+    }
+    return getAmount();
+}
+
+double TxObject::getSwapAmountValue(bool sent) const
+{
+    auto isBeamSide = m_tx.GetParameter<bool>(TxParameterID::AtomicSwapIsBeamSide);
+    if (!isBeamSide)
+    {
+        return 0.0;
+    }
+
+    bool s = sent ? !*isBeamSide : *isBeamSide;
+    if (s)
+    {
+        auto swapAmount = m_tx.GetParameter<Amount>(TxParameterID::AtomicSwapAmount);
+        return *swapAmount;
+    }
+    return m_tx.m_amount;
 }
 
 QString TxObject::getStatus() const

@@ -82,7 +82,12 @@ bitcoin::ISettingsProvider::Ptr InitBitcoin(Wallet& wallet, IWalletDB::Ptr walle
 
     auto creator = std::make_shared<AtomicSwapTransaction::Creator>(walletDB);
     auto bridge = std::make_shared<bitcoin::BitcoinCore017>(reactor, settingsProvider);
-    auto factory = wallet::MakeSecondSideFactory<BitcoinSide, bitcoin::BitcoinCore017, bitcoin::ISettingsProvider>(bridge, settingsProvider);
+    // TODO should refactored this code
+    auto bitcoinBridgeCreator = [bridge]() -> bitcoin::IBridge::Ptr
+    {
+        return bridge;
+    };
+    auto factory = wallet::MakeSecondSideFactory<BitcoinSide, bitcoin::BitcoinCore017, bitcoin::ISettingsProvider>(bitcoinBridgeCreator, settingsProvider);
     creator->RegisterFactory(AtomicSwapCoin::Bitcoin, factory);
     wallet.RegisterTransactionType(TxType::AtomicSwap, std::static_pointer_cast<BaseTransaction::Creator>(creator));
     return settingsProvider;
@@ -95,7 +100,12 @@ void InitElectrum(Wallet& wallet, IWalletDB::Ptr walletDB, io::Reactor& reactor,
 
     auto creator = std::make_shared<AtomicSwapTransaction::Creator>(walletDB);
     auto bridge = std::make_shared<bitcoin::Electrum>(reactor, settingsProvider);
-    auto factory = wallet::MakeSecondSideFactory<BitcoinSide, bitcoin::Electrum, bitcoin::ISettingsProvider>(bridge, settingsProvider);
+    // TODO should refactored this code
+    auto bitcoinBridgeCreator = [bridge]() -> bitcoin::IBridge::Ptr
+    {
+        return bridge;
+    };
+    auto factory = wallet::MakeSecondSideFactory<BitcoinSide, bitcoin::Electrum, bitcoin::ISettingsProvider>(bitcoinBridgeCreator, settingsProvider);
     creator->RegisterFactory(AtomicSwapCoin::Bitcoin, factory);
     wallet.RegisterTransactionType(TxType::AtomicSwap, std::static_pointer_cast<BaseTransaction::Creator>(creator));
 }

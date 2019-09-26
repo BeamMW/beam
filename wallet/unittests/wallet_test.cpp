@@ -2098,10 +2098,12 @@ int main()
     TestColdWalletReceiving();
 
     TestTxExceptionHandling();
-#if defined(BEAM_HW_WALLET)
-    TestHWCommitment();
-    TestHWWallet();
-#endif
+
+    // @nesbox: disabled tests, they work only if device connected
+//#if defined(BEAM_HW_WALLET)
+//    TestHWCommitment();
+//    TestHWWallet();
+//#endif
 
     //TestBbsMessages();
     //TestBbsMessages2();

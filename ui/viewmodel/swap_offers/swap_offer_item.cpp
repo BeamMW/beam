@@ -15,6 +15,7 @@
 #include "swap_offer_item.h"
 #include "utility/helpers.h"
 #include "wallet/common.h"
+#include "ui/viewmodel/ui_helpers.h"
 
 SwapOfferItem::SwapOfferItem(const SwapOffer& offer, bool isOwn, const QDateTime& timeExpiration)
     : m_offer{offer}
@@ -115,13 +116,7 @@ auto SwapOfferItem::getSwapCoinType() const -> beamui::Currencies
     beam::wallet::AtomicSwapCoin coin;
     if (m_offer.GetParameter(TxParameterID::AtomicSwapCoin, coin))
     {
-        switch (coin)
-        {
-            case AtomicSwapCoin::Bitcoin:   return beamui::Currencies::Bitcoin;
-            case AtomicSwapCoin::Litecoin:  return beamui::Currencies::Litecoin;
-            case AtomicSwapCoin::Qtum:      return beamui::Currencies::Qtum;
-            case AtomicSwapCoin::Unknown:   return beamui::Currencies::Unknown;
-        }
+        return beamui::convertSwapCoinToCurrency(coin);
     }
     return beamui::Currencies::Unknown;
 }

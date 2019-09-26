@@ -82,7 +82,9 @@ Item {
                     font.capitalization: Font.AllUppercase
 
                     onClicked: {
-                        // todo
+                        offersStackView.push(Qt.createComponent("send.qml"));
+                        atomicSwapLayout.state = "transactions";
+                        transactionsTab.state = "filterInProgressTransactions";
                     }
                 }
                 
@@ -290,9 +292,6 @@ Item {
                             id: sendReceiveBeamSwitch
                             Layout.alignment: Qt.AlignHCenter | Qt.AlignLeft
                             opacity: 0.6
-                            onClicked: {
-                                console.log("todo: send/receive switch pressed");
-                            }
                         }
 
                         SFText {
@@ -716,7 +715,6 @@ Item {
                                     }
                                     if (mouse.button === Qt.RightButton )
                                     {
-                                        txContextMenu.address = transactionsTable.model.get(styleData.row).addressTo;
                                         txContextMenu.cancelEnabled = transactionsTable.model.get(styleData.row).isCancelAvailable;
                                         txContextMenu.deleteEnabled = transactionsTable.model.get(styleData.row).isDeleteAvailable;
                                         txContextMenu.txID = transactionsTable.model.get(styleData.row).rawTxID;
@@ -872,6 +870,7 @@ Item {
                                         text: (styleData.value === '' ? '' : '-') + styleData.value
                                         fontWeight: Font.Bold
                                         color: Style.accent_outgoing
+                                        onCopyText: BeamGlobals.copyToClipboard(Utils.getAmountWithoutCurrency(styleData.value)) 
                                     }
                                 }
                             }
@@ -889,9 +888,10 @@ Item {
                                     width: parent.width
                                     height: transactionsTable.rowHeight
                                     TableItem {
-                                        text: (styleData.value === '' ? '' : '-') + styleData.value
+                                        text: (styleData.value === '' ? '' : '+') + styleData.value
                                         fontWeight: Font.Bold
                                         color: Style.accent_incoming
+                                        onCopyText: BeamGlobals.copyToClipboard(Utils.getAmountWithoutCurrency(styleData.value)) 
                                     }
                                 }
                             }
@@ -981,7 +981,6 @@ Item {
                                             //% "Actions"
                                             ToolTip.text: qsTrId("general-actions")
                                             onClicked: {
-                                                txContextMenu.address = transactionsTable.model.get(styleData.row).addressTo;
                                                 txContextMenu.cancelEnabled = transactionsTable.model.get(styleData.row).isCancelAvailable;
                                                 txContextMenu.deleteEnabled = transactionsTable.model.get(styleData.row).isDeleteAvailable;
                                                 txContextMenu.txID = transactionsTable.model.get(styleData.row).rawTxID;
@@ -1000,16 +999,8 @@ Item {
                         dim: false
                         property bool cancelEnabled
                         property bool deleteEnabled
-                        property var address
                         property var txID
-                        Action {
-                            //% "Copy address"
-                            text: qsTrId("wallet-txs-copy-addr-cm")
-                            icon.source: "qrc:/assets/icon-copy.svg"
-                            onTriggered: {
-                                BeamGlobals.copyToClipboard(txContextMenu.address);
-                            }
-                        }
+
                         Action {
                             //% "Cancel"
                             text: qsTrId("general-cancel")

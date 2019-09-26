@@ -40,6 +40,11 @@ QString PaymentInfoItem::getAmount() const
     return AmountToString(m_paymentInfo.m_Amount, Currencies::Beam);
 }
 
+QString PaymentInfoItem::getAmountValue() const
+{
+    return AmountToString(m_paymentInfo.m_Amount, Currencies::Unknown);
+}
+
 QString PaymentInfoItem::getKernelID() const
 {
     return toString(m_paymentInfo.m_KernelID);

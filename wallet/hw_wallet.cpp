@@ -95,12 +95,11 @@ namespace beam
 
         for (auto device : devices)
         {
-            items.push_back((std::stringstream() 
-                << "Trezor(device.path=" << device.path 
-                << ",product=" << device.product 
-                << ",session=" << device.session 
-                << ",vendor=" << device.vendor 
-                << ")").str());
+            items.push_back("Trezor(device.path=" + device.path
+                + ",product=" + std::to_string(device.product)
+                + ",session=" + device.session
+                + ",vendor=" + std::to_string(device.vendor)
+                + ")");
         }
 
         return items;

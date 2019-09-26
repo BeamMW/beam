@@ -91,15 +91,13 @@ WalletSettings::WalletSettings(const QDir& appDataDir)
 #if defined(BEAM_HW_WALLET)
 string WalletSettings::getTrezorWalletStorage() const
 {
-    Lock lock(m_mutex);
-    return m_appDataDir.filePath(QString::fromStdString(getWalletFolder()) + "/" + TrezorWalletDBFile).toStdString();
+    return getWalletFolder() + "/" + TrezorWalletDBFile;
 }
 #endif
 
 string WalletSettings::getWalletStorage() const
 {
-    Lock lock(m_mutex);
-    return m_appDataDir.filePath(QString::fromStdString(getWalletFolder()) + "/" + WalletDBFile).toStdString();
+    return getWalletFolder() + "/" + WalletDBFile;
 }
 
 string WalletSettings::getWalletFolder() const

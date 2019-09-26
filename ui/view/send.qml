@@ -106,7 +106,9 @@ ColumnLayout {
                 text:               qsTrId("general-close")
                 palette.buttonText: Style.content_main
                 icon.source:        "qrc:/assets/icon-cancel-white.svg"
-                onClicked:          walletView.pop();
+                onClicked:          {
+                    thisView.parent.pop();
+                }
             }
         }
 

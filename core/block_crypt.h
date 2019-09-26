@@ -189,11 +189,6 @@ namespace beam
 	struct TxElement
 	{
 		ECC::Point m_Commitment;
-		Height m_Maturity; // Used in macroblocks only.
-
-		TxElement() :m_Maturity(0) {}
-
-		static thread_local bool s_IgnoreMaturity; // should maturity be ignored incomparison?
 
 		int cmp(const TxElement&) const;
 		COMPARISON_VIA_CMP
@@ -205,6 +200,7 @@ namespace beam
 		// used internally. Not serialized/transferred
 		struct Internal
 		{
+			Height m_Maturity = 0; // of the consumed (being-spent) UTXO
 			TxoID m_ID = 0;
 		} m_Internal;
 

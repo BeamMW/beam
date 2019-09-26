@@ -20,7 +20,19 @@ CustomTableView {
     anchors.fill: parent
     frameVisible: false
     selectionMode: SelectionMode.NoSelection
-    backgroundVisible: false    
+    backgroundVisible: false
+    sortIndicatorVisible: true
+    sortIndicatorColumn: 4
+    sortIndicatorOrder: Qt.DescendingOrder
+
+    onSortIndicatorColumnChanged: {
+        if (sortIndicatorColumn != 3 &&
+            sortIndicatorColumn != 4) {
+            sortIndicatorOrder = Qt.AscendingOrder;
+        } else {
+            sortIndicatorOrder = Qt.DescendingOrder;
+        }
+    }
 
     TableViewColumn {
         role: parentModel.nameRole
