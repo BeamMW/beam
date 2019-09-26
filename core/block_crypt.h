@@ -626,9 +626,6 @@ namespace beam
 			};
 
 			void Merge(const BodyBase& next);
-
-			// suitable for big (compressed) blocks
-			class RW;
 		};
 
 		struct Body
