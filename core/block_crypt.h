@@ -195,7 +195,11 @@ namespace beam
 	struct Input
 		:public TxElement
 	{
-		TxoID m_ID = 0; // used internally. Not serialized/transferred
+		// used internally. Not serialized/transferred
+		struct Internal
+		{
+			TxoID m_ID = 0;
+		} m_Internal;
 
 		typedef std::unique_ptr<Input> Ptr;
 		typedef uint32_t Count; // the type for count of duplicate UTXOs in the system

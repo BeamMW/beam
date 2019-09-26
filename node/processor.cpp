@@ -1623,7 +1623,7 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, MultiblockContext& m
 			// make sure no spent txos above the requested h0
 			for (size_t i = 0; i < block.m_vInputs.size(); i++)
 			{
-				if (block.m_vInputs[i]->m_ID >= mbc.m_id0)
+				if (block.m_vInputs[i]->m_Internal.m_ID >= mbc.m_id0)
 				{
 					LOG_WARNING() << LogSid(m_DB, sid) << " Invalid input in sparse block";
 					bOk = false;
@@ -1664,9 +1664,9 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, MultiblockContext& m
 		for (size_t i = 0; i < block.m_vInputs.size(); i++)
 		{
 			const Input& x = *block.m_vInputs[i];
-			m_DB.TxoSetSpent(x.m_ID, sid.m_Height);
+			m_DB.TxoSetSpent(x.m_Internal.m_ID, sid.m_Height);
 
-			v[i].Set(x.m_ID, x.m_Commitment);
+			v[i].Set(x.m_Internal.m_ID, x.m_Commitment);
 		}
 
 		if (!v.empty())
@@ -1974,7 +1974,7 @@ bool NodeProcessor::HandleBlockElement(const Input& v, Height h, const Height* p
 		if (!pHMax)
 		{
 			Cast::NotConst(v).m_Maturity = d.m_Maturity;
-			Cast::NotConst(v).m_ID = nID;
+			Cast::NotConst(v).m_Internal.m_ID = nID;
 		}
 	} else
 	{
@@ -1987,10 +1987,10 @@ bool NodeProcessor::HandleBlockElement(const Input& v, Height h, const Height* p
 		p = m_Utxos.Find(cu, key, bCreate);
 
 		if (bCreate)
-			p->m_ID = v.m_ID;
+			p->m_ID = v.m_Internal.m_ID;
 		else
 		{
-			m_Utxos.PushID(v.m_ID, *p);
+			m_Utxos.PushID(v.m_Internal.m_ID, *p);
 			cu.InvalidateElement();
 			m_Utxos.OnDirty();
 		}
@@ -2077,7 +2077,7 @@ void NodeProcessor::ToInputWithMaturity(Input& inp, TxoID id)
 	der & outp;
 
 	inp.m_Commitment = outp.m_Commitment;
-	inp.m_ID = id;
+	inp.m_Internal.m_ID = id;
 
 	NodeDB::StateID sidPrev;
 	m_DB.FindStateByTxoID(sidPrev, id); // relatively heavy operation: search for the original txo height
