@@ -1382,11 +1382,11 @@ void NodeProcessor::get_Definition(Merkle::Hash& hv, bool bForNextState)
 	get_Definition(hv, bForNextState ? m_Cursor.m_HistoryNext : m_Cursor.m_History);
 }
 
-uint64_t NodeProcessor::ProcessKrnMmr(Merkle::Mmr& mmr, TxBase::IReader&& r, Height h, const Merkle::Hash& idKrn, TxKernel::Ptr* ppRes)
+uint64_t NodeProcessor::ProcessKrnMmr(Merkle::Mmr& mmr, TxBase::IReader&& r, const Merkle::Hash& idKrn, TxKernel::Ptr* ppRes)
 {
 	uint64_t iRet = uint64_t (-1);
 
-	for (uint64_t i = 0; r.m_pKernel && r.m_pKernel->m_Maturity == h; r.NextKernel(), i++)
+	for (uint64_t i = 0; r.m_pKernel; r.NextKernel(), i++)
 	{
 		Merkle::Hash hv;
 		r.m_pKernel->get_ID(hv);
@@ -1429,7 +1429,7 @@ Height NodeProcessor::get_ProofKernel(Merkle::Proof& proof, TxKernel::Ptr* ppRes
 
 	Merkle::FixedMmmr mmr;
 	mmr.Reset(txve.m_vKernels.size());
-	size_t iTrg = ProcessKrnMmr(mmr, std::move(r), 0, idKrn, ppRes);
+	size_t iTrg = ProcessKrnMmr(mmr, std::move(r), idKrn, ppRes);
 
 	if (uint64_t(-1) == iTrg)
 		OnCorrupted();
@@ -1474,12 +1474,12 @@ bool NodeProcessor::HandleTreasury(const Blob& blob)
 
 	for (size_t iG = 0; iG < td.m_vGroups.size(); iG++)
 	{
-		if (!HandleValidatedTx(td.m_vGroups[iG].m_Data.get_Reader(), 0, true, NULL))
+		if (!HandleValidatedTx(td.m_vGroups[iG].m_Data.get_Reader(), 0, true))
 		{
 			// undo partial changes
 			while (iG--)
 			{
-				if (!HandleValidatedTx(td.m_vGroups[iG].m_Data.get_Reader(), 0, false, NULL))
+				if (!HandleValidatedTx(td.m_vGroups[iG].m_Data.get_Reader(), 0, false))
 					OnCorrupted(); // although should not happen anyway
 			}
 
@@ -1836,7 +1836,7 @@ bool NodeProcessor::IsDummy(const Key::IDV&  kidv)
 	return !kidv.m_Value && (Key::Type::Decoy == kidv.m_Type);
 }
 
-bool NodeProcessor::HandleValidatedTx(TxBase::IReader&& r, Height h, bool bFwd, const Height* pHMax)
+bool NodeProcessor::HandleValidatedTx(TxBase::IReader&& r, Height h, bool bFwd)
 {
 	uint32_t nInp = 0, nOut = 0;
 	r.Reset();
@@ -1852,13 +1852,13 @@ bool NodeProcessor::HandleValidatedTx(TxBase::IReader&& r, Height h, bool bFwd, 
 			return false;
 
 		HeightAdd(h0, x.m_LockHeight);
-		if (h0 > (pHMax ? *pHMax : h))
+		if (h0 > h)
 			return false;
 	}
 
 	bool bOk = true;
 	for (; r.m_pUtxoIn; r.NextUtxoIn(), nInp++)
-		if (!HandleBlockElement(*r.m_pUtxoIn, h, pHMax, bFwd))
+		if (!HandleBlockElement(*r.m_pUtxoIn, h, bFwd))
 		{
 			bOk = false;
 			break;
@@ -1866,7 +1866,7 @@ bool NodeProcessor::HandleValidatedTx(TxBase::IReader&& r, Height h, bool bFwd, 
 
 	if (bOk)
 		for (; r.m_pUtxoOut; r.NextUtxoOut(), nOut++)
-			if (!HandleBlockElement(*r.m_pUtxoOut, h, pHMax, bFwd))
+			if (!HandleBlockElement(*r.m_pUtxoOut, h, bFwd))
 			{
 				bOk = false;
 				break;
@@ -1882,15 +1882,15 @@ bool NodeProcessor::HandleValidatedTx(TxBase::IReader&& r, Height h, bool bFwd, 
 	r.Reset();
 
 	for (; nOut--; r.NextUtxoOut())
-		HandleBlockElement(*r.m_pUtxoOut, h, pHMax, false);
+		HandleBlockElement(*r.m_pUtxoOut, h, false);
 
 	for (; nInp--; r.NextUtxoIn())
-		HandleBlockElement(*r.m_pUtxoIn, h, pHMax, false);
+		HandleBlockElement(*r.m_pUtxoIn, h, false);
 
 	return false;
 }
 
-bool NodeProcessor::HandleValidatedBlock(TxBase::IReader&& r, const Block::BodyBase& body, Height h, bool bFwd, const Height* pHMax)
+bool NodeProcessor::HandleValidatedBlock(TxBase::IReader&& r, const Block::BodyBase& body, Height h, bool bFwd)
 {
 	// make sure we adjust txo count, to prevent the same Txos for consecutive blocks after cut-through
 	if (!bFwd)
@@ -1899,7 +1899,7 @@ bool NodeProcessor::HandleValidatedBlock(TxBase::IReader&& r, const Block::BodyB
 		m_Extra.m_Txos--;
 	}
 
-	if (!HandleValidatedTx(std::move(r), h, bFwd, pHMax))
+	if (!HandleValidatedTx(std::move(r), h, bFwd))
 		return false;
 
 	// currently there's no extra info in the block that's needed
@@ -1910,7 +1910,7 @@ bool NodeProcessor::HandleValidatedBlock(TxBase::IReader&& r, const Block::BodyB
 	return true;
 }
 
-bool NodeProcessor::HandleBlockElement(const Input& v, Height h, const Height* pHMax, bool bFwd)
+bool NodeProcessor::HandleBlockElement(const Input& v, Height h, bool bFwd)
 {
 	m_Utxos.EnsureReserve();
 
@@ -1930,22 +1930,10 @@ bool NodeProcessor::HandleBlockElement(const Input& v, Height h, const Height* p
 
 		UtxoTree::Key kMin, kMax;
 
-		if (!pHMax)
-		{
-			d.m_Maturity = 0;
-			kMin = d;
-			d.m_Maturity = h - 1;
-			kMax = d;
-		}
-		else
-		{
-			if (v.m_Maturity >= *pHMax)
-				return false;
-
-			d.m_Maturity = v.m_Maturity;
-			kMin = d;
-			kMax = kMin;
-		}
+		d.m_Maturity = Rules::HeightGenesis - 1;
+		kMin = d;
+		d.m_Maturity = h - 1;
+		kMax = d;
 
 		t.m_pCu = &cu;
 		t.m_pBound[0] = kMin.V.m_pData;
@@ -1958,7 +1946,7 @@ bool NodeProcessor::HandleBlockElement(const Input& v, Height h, const Height* p
 
 		d = p->m_Key;
 		assert(d.m_Commitment == v.m_Commitment);
-		assert(d.m_Maturity <= (pHMax ? *pHMax : h));
+		assert(d.m_Maturity < h);
 
 		TxoID nID = p->m_ID;
 
@@ -1971,11 +1959,9 @@ bool NodeProcessor::HandleBlockElement(const Input& v, Height h, const Height* p
 			m_Utxos.OnDirty();
 		}
 
-		if (!pHMax)
-		{
-			Cast::NotConst(v).m_Maturity = d.m_Maturity;
-			Cast::NotConst(v).m_Internal.m_ID = nID;
-		}
+		Cast::NotConst(v).m_Maturity = d.m_Maturity;
+		Cast::NotConst(v).m_Internal.m_ID = nID;
+
 	} else
 	{
 		d.m_Maturity = v.m_Maturity;
@@ -1999,21 +1985,13 @@ bool NodeProcessor::HandleBlockElement(const Input& v, Height h, const Height* p
 	return true;
 }
 
-bool NodeProcessor::HandleBlockElement(const Output& v, Height h, const Height* pHMax, bool bFwd)
+bool NodeProcessor::HandleBlockElement(const Output& v, Height h, bool bFwd)
 {
 	m_Utxos.EnsureReserve();
 
 	UtxoTree::Key::Data d;
 	d.m_Commitment = v.m_Commitment;
 	d.m_Maturity = v.get_MinMaturity(h);
-
-	if (pHMax)
-	{
-		if (v.m_Maturity < d.m_Maturity)
-			return false; // decrease not allowed
-
-		d.m_Maturity = v.m_Maturity;
-	}
 
 	UtxoTree::Key key;
 	key = d;
@@ -2108,7 +2086,7 @@ void NodeProcessor::RollbackTo(Height h)
 			Input inp;
 			ToInputWithMaturity(inp, id);
 
-			if (!HandleBlockElement(inp, 0, nullptr, false))
+			if (!HandleBlockElement(inp, 0, false))
 				OnCorrupted();
 
 			m_DB.TxoSetSpent(id, MaxHeight);
@@ -2128,7 +2106,7 @@ void NodeProcessor::RollbackTo(Height h)
 
 		virtual bool OnTxo(const NodeDB::WalkerTxo& wlk, Height hCreate, Output& outp) override
 		{
-			if (!m_pThis->HandleBlockElement(outp, hCreate, nullptr, false))
+			if (!m_pThis->HandleBlockElement(outp, hCreate, false))
 				OnCorrupted();
 			return true;
 		}
@@ -2575,7 +2553,7 @@ size_t NodeProcessor::GenerateNewBlockInternal(BlockContext& bc)
 	{
 		if (pOutp)
 		{
-			if (!HandleBlockElement(*pOutp, h, NULL, true))
+			if (!HandleBlockElement(*pOutp, h, true))
 				return 0;
 
 			bc.m_Block.m_vOutputs.push_back(std::move(pOutp));
@@ -2662,7 +2640,7 @@ size_t NodeProcessor::GenerateNewBlockInternal(BlockContext& bc)
 		if (bc.m_Fees)
 		{
 			bb.AddFees(bc.m_Fees, pOutp);
-			if (!HandleBlockElement(*pOutp, h, NULL, true))
+			if (!HandleBlockElement(*pOutp, h, true))
 				return 0;
 
 			bc.m_Block.m_vOutputs.push_back(std::move(pOutp));
@@ -3105,7 +3083,7 @@ void NodeProcessor::InitializeUtxos()
 		virtual bool OnTxo(const NodeDB::WalkerTxo& wlk, Height hCreate, Output& outp) override
 		{
 			m_This.m_Extra.m_Txos = wlk.m_ID;
-			if (!m_This.HandleBlockElement(outp, hCreate, nullptr, true))
+			if (!m_This.HandleBlockElement(outp, hCreate, true))
 				OnCorrupted();
 
 			return true;
