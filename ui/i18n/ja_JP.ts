@@ -523,7 +523,6 @@
     </message>
     <message id="settings-title">
         <source>Settings</source>
-        <extracomment>settings tab title</extracomment>
         <translation>設定</translation>
     </message>
     <message id="cant-send-to-expired-message">
@@ -806,8 +805,8 @@
         <translation type="unfinished">ブロックをダウンロード中</translation>
     </message>
     <message id="loading-view-scaning-utxo">
-        <source>Locating your funds %d/%d</source>
-        <oldsource>Scanning new blocks %d/%d</oldsource>
+        <source>Loading wallet data %d/%d</source>
+        <oldsource>Locating your funds %d/%d</oldsource>
         <translation type="unfinished">UTXOをスキャン中 %d/%d</translation>
     </message>
     <message id="loading-view-protocol-error">
@@ -1550,8 +1549,8 @@ Update your settings and try again.</oldsource>
         <translation type="unfinished"></translation>
     </message>
     <message id="loading-view-rebuild-utxos">
-        <source>Rebuilding data</source>
-        <oldsource>Scanning existing blocks</oldsource>
+        <source>Rebuilding wallet data</source>
+        <oldsource>Rebuilding data</oldsource>
         <translation type="unfinished"></translation>
     </message>
     <message id="wallet-receive-copy-token">
@@ -1634,6 +1633,22 @@ you do not send large amounts.</oldsource>
     </message>
     <message id="settings-see-seed">
         <source>Click to see seed phrase</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="wallet-transactions-all-tab">
+        <source>All</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="wallet-transactions-in-progress-tab">
+        <source>In progress</source>
+        <translation type="unfinished">進行中</translation>
+    </message>
+    <message id="wallet-transactions-sent-tab">
+        <source>Sent</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="wallet-transactions-received-tab">
+        <source>Received</source>
         <translation type="unfinished"></translation>
     </message>
 </context>
