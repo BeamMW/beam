@@ -56,10 +56,8 @@ class NodeProcessor
 	bool HandleBlockElement(const Input&, Height, const Height*, bool bFwd);
 	bool HandleBlockElement(const Output&, Height, const Height*, bool bFwd);
 
-	bool ImportMacroBlockInternal(Block::BodyBase::IMacroReader&);
 	void RecognizeUtxos(TxBase::IReader&&, Height hMax);
 
-	static void SquashOnce(std::vector<Block::Body>&);
 	static uint64_t ProcessKrnMmr(Merkle::Mmr&, TxBase::IReader&&, Height, const Merkle::Hash& idKrn, TxKernel::Ptr* ppRes);
 
 	static const uint32_t s_TxoNakedMin = sizeof(ECC::Point); // minimal output size - commitment
@@ -204,11 +202,7 @@ public:
 	void SaveSyncData();
 	void LogSyncData();
 
-	// Export compressed history elements. Suitable only for "small" ranges, otherwise may be both time & memory consumng.
 	void ExtractBlockWithExtra(Block::Body&, const NodeDB::StateID&);
-	void ExportMacroBlock(Block::BodyBase::IMacroWriter&, const HeightRange&);
-	void ExportHdrRange(const HeightRange&, Block::SystemState::Sequence::Prefix&, std::vector<Block::SystemState::Sequence::Element>&);
-	bool ImportMacroBlock(Block::BodyBase::IMacroReader&);
 
 	struct DataStatus {
 		enum Enum {

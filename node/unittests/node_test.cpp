@@ -824,58 +824,6 @@ namespace beam
 			blockChain.push_back(std::move(pBlock));
 		}
 
-		Block::BodyBase::RW rwData;
-		rwData.m_sPath = g_sz3;
-
-		//Height hMid = blockChain.size() / 2 + Rules::HeightGenesis;
-		Height hMid = Rules::get().pForks[1].m_Height - 1;
-
-		{
-			DeleteFile(g_sz2);
-
-			NodeProcessor np2;
-			np2.Initialize(g_sz2);
-			np2.OnTreasury(g_Treasury);
-
-			rwData.m_hvContentTag = Zero;
-			rwData.WCreate();
-			np.ExportMacroBlock(rwData, HeightRange(Rules::HeightGenesis, hMid)); // first half
-			rwData.Close();
-
-			rwData.ROpen();
-			verify_test(np2.ImportMacroBlock(rwData));
-			rwData.Close();
-
-			rwData.m_hvContentTag.Inc();
-			rwData.WCreate();
-			np.ExportMacroBlock(rwData, HeightRange(hMid + 1, Rules::HeightGenesis + blockChain.size() - 1)); // second half
-			rwData.Close();
-
-			rwData.ROpen();
-			verify_test(np2.ImportMacroBlock(rwData));
-			rwData.Close();
-
-			// try kernel proofs.
-			for (size_t i = 0; i < np.m_Wallet.m_MyKernels.size(); i++)
-			{
-				TxKernel krn;
-				np.m_Wallet.m_MyKernels[i].Export(krn);
-
-				Merkle::Hash id;
-				krn.get_ID(id);
-
-				Merkle::Proof proof;
-				TxKernel::Ptr pKrn;
-				Height h = np2.get_ProofKernel(proof, &pKrn, id);
-				verify_test(h >= Rules::HeightGenesis);
-
-				Merkle::Interpret(id, proof);
-				verify_test(blockChain[h - Rules::HeightGenesis]->m_Hdr.m_Kernels == id);
-			}
-			
-
-			rwData.Delete();
-		}
 	}
 
 
