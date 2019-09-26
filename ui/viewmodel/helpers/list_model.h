@@ -40,6 +40,10 @@ public:
 
     void insert(const std::vector<T>& items)
     {
+        if (items.size() == 0)
+        {
+            return;
+        }
         int row = 0;
         beginInsertRows(QModelIndex(), row, row + int(items.size()) - 1);
         for (const auto& item : items)

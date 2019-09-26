@@ -1647,10 +1647,6 @@ you do not send large amounts.</oldsource>
         <source>Invalid seed phrase</source>
         <translation type="unfinished"></translation>
     </message>
-    <message id="settings-see-seed">
-        <source>Click to see seed phrase</source>
-        <translation type="unfinished"></translation>
-    </message>
     <message id="wallet-transactions-all-tab">
         <source>All</source>
         <translation type="unfinished"></translation>
@@ -1665,6 +1661,10 @@ you do not send large amounts.</oldsource>
     </message>
     <message id="wallet-transactions-received-tab">
         <source>Received</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="settings-see-seed">
+        <source>Click to see seed phrase</source>
         <translation type="unfinished"></translation>
     </message>
 </context>

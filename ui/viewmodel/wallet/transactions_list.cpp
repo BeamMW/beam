@@ -172,7 +172,7 @@ void TransactionsList::update(const std::vector<std::shared_ptr<TxObject>>& item
                             [&item](const auto& element) { return element->getTxID() == item->getTxID(); });
         
         // index to add item on last position by default
-        int index = m_list.count() - 1;
+        int index = (m_list.count() == 0) ? 0 : m_list.count() - 1;
 
         if (it != std::end(m_list))
         {
