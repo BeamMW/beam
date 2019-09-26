@@ -542,11 +542,11 @@ namespace beam
 #ifdef WIN32
 		const char* g_sz = "mytest.db";
 		const char* g_sz2 = "mytest2.db";
-		const char* g_sz3 = "macroblock_";
+		const char* g_sz3 = "recovery_info";
 #else // WIN32
 		const char* g_sz = "/tmp/mytest.db";
 		const char* g_sz2 = "/tmp/mytest2.db";
-		const char* g_sz3 = "/tmp/macroblock_";
+		const char* g_sz3 = "/tmp/recovery_info";
 #endif // WIN32
 
 	void TestNodeDB()
@@ -772,7 +772,6 @@ namespace beam
 	{
 		MyNodeProcessor1 np;
 		np.m_Horizon.m_Branching = 35;
-		//np.m_Horizon.m_SchwarzschildHi = 40; - will prevent extracting some macroblock ranges
 		np.Initialize(g_sz);
 		np.OnTreasury(g_Treasury);
 
