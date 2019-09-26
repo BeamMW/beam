@@ -46,7 +46,7 @@ void NodeProcessor::Horizon::SetInfinite()
 
 void NodeProcessor::Horizon::SetStdFastSync()
 {
-	uint32_t r = Rules::get().Macroblock.MaxRollback;
+	uint32_t r = Rules::get().MaxRollback;
 	m_Branching = r / 4; // inferior branches would be pruned when height difference is this.
 
 	m_Sync.Hi = r;
@@ -60,7 +60,7 @@ void NodeProcessor::Horizon::Normalize()
 {
 	m_Branching = std::max(m_Branching, Height(1));
 
-	Height r = Rules::get().Macroblock.MaxRollback;
+	Height r = Rules::get().MaxRollback;
 
 	m_Sync.Hi = std::max(m_Sync.Hi, std::max(r, m_Branching));
 	m_Sync.Lo = std::max(m_Sync.Lo, m_Sync.Hi);
@@ -643,7 +643,7 @@ Height NodeProcessor::get_LowestReturnHeight() const
 	Height hRet = m_Extra.m_TxoHi;
 
 	Height h0 = IsFastSync() ? m_SyncData.m_h0 : m_Cursor.m_ID.m_Height;
-	Height hMaxRollback = Rules::get().Macroblock.MaxRollback;
+	Height hMaxRollback = Rules::get().MaxRollback;
 
 	if (h0 > hMaxRollback)
 	{
