@@ -888,7 +888,7 @@ Item {
                                     width: parent.width
                                     height: transactionsTable.rowHeight
                                     TableItem {
-                                        text: (styleData.value === '' ? '' : '-') + styleData.value
+                                        text: (styleData.value === '' ? '' : '+') + styleData.value
                                         fontWeight: Font.Bold
                                         color: Style.accent_incoming
                                         onCopyText: BeamGlobals.copyToClipboard(Utils.getAmountWithoutCurrency(styleData.value)) 
