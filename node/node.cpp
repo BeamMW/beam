@@ -1696,7 +1696,7 @@ void Node::Peer::ModifyRatingWrtData(size_t nSize)
 	// Hence, after accounting for newly-downloaded data, the average bandwidth becomes:
 	// <bw> = (v0 + v1) / (t0 + t1) = (bw0 * t0 + v1) / (t0 + t1)
 	//
-	const uint32_t t0_s = 10;
+	const uint32_t t0_s = 3;
 	const uint32_t t0_ms = t0_s * 1000;
 	uint64_t tTotal_ms = static_cast<uint64_t>(t0_ms) + dt_ms;
 	assert(tTotal_ms); // can't overflow
