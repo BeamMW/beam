@@ -209,7 +209,7 @@
     </message>
     <message id="wallet-txs-copy-addr-cm">
         <source>Copy address</source>
-        <translation>Copy address</translation>
+        <translation type="vanished">Copy address</translation>
     </message>
     <message id="wallet-txs-delete-message">
         <source>The transaction will be deleted. This operation can not be undone</source>
@@ -1455,8 +1455,8 @@ or send this address to the sender over secure channel</translation>
         <translation>h.</translation>
     </message>
     <message id="loading-view-net-problems">
-        <source>It may take longer when usual. Please, check your network.</source>
-        <translation>It may take longer when usual. Please, check your network.</translation>
+        <source>It may take longer then usual. Please, check your network.</source>
+        <translation type="unfinished">It may take longer then usual. Please, check your network.</translation>
     </message>
     <message id="atomic-swap-title">
         <source>Atomic Swap</source>

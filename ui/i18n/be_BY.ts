@@ -208,7 +208,7 @@
     </message>
     <message id="wallet-txs-copy-addr-cm">
         <source>Copy address</source>
-        <translation>Капіяваць адрас</translation>
+        <translation type="vanished">Капіяваць адрас</translation>
     </message>
     <message id="wallet-txs-delete-message">
         <source>The transaction will be deleted. This operation can not be undone</source>
@@ -1419,7 +1419,7 @@ Update your settings and try again.</oldsource>
         <translation>гадз.</translation>
     </message>
     <message id="loading-view-net-problems">
-        <source>It may take longer when usual. Please, check your network.</source>
+        <source>It may take longer then usual. Please, check your network.</source>
         <translation>Можа патрабаватца больш часу чым заўсёды. Каліласка, праверце далучэнне да интэрнэта.</translation>
     </message>
     <message id="atomic-swap-title">

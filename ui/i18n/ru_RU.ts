@@ -208,7 +208,7 @@
     </message>
     <message id="wallet-txs-copy-addr-cm">
         <source>Copy address</source>
-        <translation>Копировать адрес</translation>
+        <translation type="vanished">Копировать адрес</translation>
     </message>
     <message id="wallet-txs-delete-message">
         <source>The transaction will be deleted. This operation can not be undone</source>
@@ -1547,7 +1547,7 @@ Update your settings and try again.</oldsource>
         <translation type="unfinished"></translation>
     </message>
     <message id="loading-view-net-problems">
-        <source>It may take longer when usual. Please, check your network.</source>
+        <source>It may take longer then usual. Please, check your network.</source>
         <translation type="unfinished"></translation>
     </message>
     <message id="loading-view-rebuild-utxos">
