@@ -715,7 +715,6 @@ Item {
                                     }
                                     if (mouse.button === Qt.RightButton )
                                     {
-                                        txContextMenu.address = transactionsTable.model.get(styleData.row).addressTo;
                                         txContextMenu.cancelEnabled = transactionsTable.model.get(styleData.row).isCancelAvailable;
                                         txContextMenu.deleteEnabled = transactionsTable.model.get(styleData.row).isDeleteAvailable;
                                         txContextMenu.txID = transactionsTable.model.get(styleData.row).rawTxID;
@@ -871,6 +870,7 @@ Item {
                                         text: (styleData.value === '' ? '' : '-') + styleData.value
                                         fontWeight: Font.Bold
                                         color: Style.accent_outgoing
+                                        onCopyText: BeamGlobals.copyToClipboard(Utils.getAmountWithoutCurrency(styleData.value)) 
                                     }
                                 }
                             }
@@ -891,6 +891,7 @@ Item {
                                         text: (styleData.value === '' ? '' : '-') + styleData.value
                                         fontWeight: Font.Bold
                                         color: Style.accent_incoming
+                                        onCopyText: BeamGlobals.copyToClipboard(Utils.getAmountWithoutCurrency(styleData.value)) 
                                     }
                                 }
                             }
@@ -980,7 +981,6 @@ Item {
                                             //% "Actions"
                                             ToolTip.text: qsTrId("general-actions")
                                             onClicked: {
-                                                txContextMenu.address = transactionsTable.model.get(styleData.row).addressTo;
                                                 txContextMenu.cancelEnabled = transactionsTable.model.get(styleData.row).isCancelAvailable;
                                                 txContextMenu.deleteEnabled = transactionsTable.model.get(styleData.row).isDeleteAvailable;
                                                 txContextMenu.txID = transactionsTable.model.get(styleData.row).rawTxID;
@@ -999,16 +999,8 @@ Item {
                         dim: false
                         property bool cancelEnabled
                         property bool deleteEnabled
-                        property var address
                         property var txID
-                        Action {
-                            //% "Copy address"
-                            text: qsTrId("wallet-txs-copy-addr-cm")
-                            icon.source: "qrc:/assets/icon-copy.svg"
-                            onTriggered: {
-                                BeamGlobals.copyToClipboard(txContextMenu.address);
-                            }
-                        }
+
                         Action {
                             //% "Cancel"
                             text: qsTrId("general-cancel")

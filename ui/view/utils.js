@@ -71,6 +71,10 @@ function calcDisplayRate(ail, air, numOnly) {
     return (ar / al).toFixed(10).replace(/\.?0+$/,"")
 }
 
+function getAmountWithoutCurrency(amountWithCurrency) {
+    return amountWithCurrency.split(" ")[0];
+}
+
 function currenciesList() {
     return ["BEAM", "BTC", "LTC", "QTUM"]
 }
