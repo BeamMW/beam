@@ -372,7 +372,6 @@ Item {
                             if (mouse.button === Qt.RightButton )
                             {
                                 var item = transactionsTable.model.get(styleData.row);
-                                txContextMenu.address = item.addressTo;
                                 txContextMenu.cancelEnabled = item.isCancelAvailable;
                                 txContextMenu.deleteEnabled = item.isDeleteAvailable;
                                 txContextMenu.txID = item.rawTxID;
@@ -589,7 +588,6 @@ Item {
                                     ToolTip.text: qsTrId("general-actions")
                                     onClicked: {
                                         var item = transactionsTable.model.get(styleData.row);
-                                        txContextMenu.address = item.addressTo;
                                         txContextMenu.cancelEnabled = item.isCancelAvailable;
                                         txContextMenu.deleteEnabled = item.isDeleteAvailable;
                                         txContextMenu.txID = item.rawTxID;
@@ -607,16 +605,8 @@ Item {
                     dim: false
                     property bool cancelEnabled
                     property bool deleteEnabled
-                    property var address
                     property var txID
-                    Action {
-                        //% "Copy address"
-                        text: qsTrId("wallet-txs-copy-addr-cm")
-                        icon.source: "qrc:/assets/icon-copy.svg"
-                        onTriggered: {
-                            BeamGlobals.copyToClipboard(txContextMenu.address);
-                        }
-                    }
+
                     Action {
                         //% "Cancel"
                         text: qsTrId("general-cancel")
