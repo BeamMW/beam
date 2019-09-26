@@ -236,7 +236,9 @@ Item {
                 Layout.bottomMargin: 9
 
                 property int rowHeight: 56
-                property int columnWidth: (width - 40) / 5
+
+                property double resizableWidth: transactionsTable.width - actionsColumn.width
+                property double columnResizeRatio: resizableWidth / 810
 
                 selectionMode: SelectionMode.NoSelection
                 sortIndicatorVisible: true
@@ -447,6 +449,7 @@ Item {
                         TableItem {
                             text: styleData.value
                             elide: styleData.elideMode
+                            onCopyText: BeamGlobals.copyToClipboard(styleData.value)
                         }
                     }
                 }
@@ -456,7 +459,7 @@ Item {
                     //% "Created on"
                     title: qsTrId("wallet-txs-date-time")
                     elideMode: Text.ElideRight
-                    width: transactionsTable.columnWidth
+                    width: 120 * transactionsTable.columnResizeRatio
                     movable: false
                     resizable: false
                 }
@@ -465,7 +468,7 @@ Item {
                     //% "From"
                     title: qsTrId("general-address-from")
                     elideMode: Text.ElideMiddle
-                    width: transactionsTable.columnWidth
+                    width: 170 * transactionsTable.columnResizeRatio
                     movable: false
                     resizable: false
                 }
@@ -474,7 +477,7 @@ Item {
                     //% "To"
                     title: qsTrId("general-address-to")
                     elideMode: Text.ElideMiddle
-                    width: transactionsTable.columnWidth
+                    width: 170 * transactionsTable.columnResizeRatio
                     movable: false
                     resizable: false
                 }
@@ -483,7 +486,7 @@ Item {
                     //% "Amount"
                     title: qsTrId("general-amount")
                     elideMode: Text.ElideRight
-                    width: transactionsTable.columnWidth
+                    width: 200 * transactionsTable.columnResizeRatio
                     movable: false
                     resizable: false
                     delegate: Item {
@@ -501,11 +504,12 @@ Item {
                     }
                 }
                 TableViewColumn {
+                    id: statusColumn
                     role: "status"
                     //% "Status"
                     title: qsTrId("general-status")
                     elideMode: Text.ElideRight
-                    width: transactionsTable.columnWidth
+                    width: transactionsTable.getAdjustedColumnWidth(statusColumn)//150 * transactionsTable.columnResizeRatio
                     movable: false
                     resizable: false
                     delegate: Item {
@@ -564,7 +568,7 @@ Item {
                 TableViewColumn {
                     id: actionsColumn
                     elideMode: Text.ElideRight
-                    width: transactionsTable.getAdjustedColumnWidth(actionsColumn)
+                    width: 40
                     movable: false
                     resizable: false
                     delegate: txActions
