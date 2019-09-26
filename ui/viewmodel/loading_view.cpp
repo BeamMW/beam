@@ -198,7 +198,7 @@ void LoadingViewModel::updateProgress()
         }
         else
         {
-            //% "Locating your funds %d/%d"
+            //% "Loading wallet data %d/%d"
             progressMessage = QString::asprintf(
                 qtTrId("loading-view-scaning-utxo").toStdString().c_str(),
                 m_done,
@@ -240,7 +240,7 @@ void LoadingViewModel::updateProgress()
        m_hasLocalNode = AppModel::getInstance().getSettings().getRunLocalNode();
         if (m_hasLocalNode)
         {
-            //% "Rebuilding data"
+            //% "Rebuilding wallet data"
             progressMessage = qtTrId("loading-view-rebuild-utxos");
             progress = kRebuildUTXOProgressCoefficient * m_nodeInitProgress;
         }

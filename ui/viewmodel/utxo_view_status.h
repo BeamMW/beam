@@ -25,9 +25,9 @@ public:
     enum EnStatus
     {
         Undefined = 0,
-        Unavailable,
         Available,
         Maturing,
+        Unavailable,
         Outgoing,
         Incoming,
         Spent,

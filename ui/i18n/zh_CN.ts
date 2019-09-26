@@ -526,7 +526,6 @@
     </message>
     <message id="settings-title">
         <source>Settings</source>
-        <extracomment>settings tab title</extracomment>
         <translation>设置</translation>
     </message>
     <message id="cant-send-to-expired-message">
@@ -816,8 +815,8 @@
         <translation type="unfinished">正在下载区块</translation>
     </message>
     <message id="loading-view-scaning-utxo">
-        <source>Locating your funds %d/%d</source>
-        <oldsource>Scanning new blocks %d/%d</oldsource>
+        <source>Loading wallet data %d/%d</source>
+        <oldsource>Locating your funds %d/%d</oldsource>
         <translation type="unfinished">正在扫描UTXO %d/%d</translation>
     </message>
     <message id="loading-view-protocol-error">
@@ -1566,8 +1565,8 @@ Update your settings and try again.</oldsource>
         <translation type="unfinished"></translation>
     </message>
     <message id="loading-view-rebuild-utxos">
-        <source>Rebuilding data</source>
-        <oldsource>Scanning existing blocks</oldsource>
+        <source>Rebuilding wallet data</source>
+        <oldsource>Rebuilding data</oldsource>
         <translation type="unfinished"></translation>
     </message>
     <message id="wallet-receive-copy-token">
@@ -1646,6 +1645,22 @@ you do not send large amounts.</oldsource>
     </message>
     <message id="settings-invalid-seed">
         <source>Invalid seed phrase</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="wallet-transactions-all-tab">
+        <source>All</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="wallet-transactions-in-progress-tab">
+        <source>In progress</source>
+        <translation type="unfinished">交易中</translation>
+    </message>
+    <message id="wallet-transactions-sent-tab">
+        <source>Sent</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="wallet-transactions-received-tab">
+        <source>Received</source>
         <translation type="unfinished"></translation>
     </message>
     <message id="settings-see-seed">

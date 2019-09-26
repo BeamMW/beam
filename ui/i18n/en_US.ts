@@ -835,8 +835,8 @@
         <translation>Synching with blockchain</translation>
     </message>
     <message id="loading-view-scaning-utxo">
-        <source>Locating your funds %d/%d</source>
-        <translation>Locating your funds %d/%d</translation>
+        <source>Loading wallet data %d/%d</source>
+        <translation>Loading wallet data %d/%d</translation>
     </message>
     <message id="loading-view-protocol-error">
         <source>Incompatible peer</source>
@@ -1447,8 +1447,8 @@ or send this address to the sender over secure channel</translation>
         <translation>calculating...</translation>
     </message>
     <message id="loading-view-rebuild-utxos">
-        <source>Rebuilding data</source>
-        <translation>Rebuilding data</translation>
+        <source>Rebuilding wallet data</source>
+        <translation>Rebuilding wallet data</translation>
     </message>
     <message id="loading-view-estimate-hours">
         <source>h.</source>
