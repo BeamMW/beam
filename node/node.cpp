@@ -1707,8 +1707,10 @@ void Node::Peer::ModifyRatingWrtData(size_t nSize)
 	uint32_t bwAvg = static_cast<uint32_t>(v * 1000 / tTotal_ms);
 
 	uint32_t nRatingAvg = PeerManager::Rating::FromBps(bwAvg);
-	m_This.m_PeerMan.SetRating(*m_pInfo, nRatingAvg);
 
+	m_This.m_PeerMan.m_LiveSet.erase(PeerMan::LiveSet::s_iterator_to(Cast::Up<PeerMan::PeerInfoPlus>(m_pInfo)->m_Live));
+	m_This.m_PeerMan.SetRating(*m_pInfo, nRatingAvg);
+	m_This.m_PeerMan.m_LiveSet.insert(Cast::Up<PeerMan::PeerInfoPlus>(m_pInfo)->m_Live);
 }
 
 void Node::Peer::OnMsg(proto::DataMissing&&)
