@@ -69,6 +69,22 @@ namespace beamui
         return double(int64_t(value)) / Rules::Coin;
     }
 
+    Currencies convertSwapCoinToCurrency(wallet::AtomicSwapCoin coin)
+    {
+        switch (coin)
+        {
+        case wallet::AtomicSwapCoin::Bitcoin:
+            return beamui::Currencies::Bitcoin;
+        case wallet::AtomicSwapCoin::Litecoin:
+            return beamui::Currencies::Litecoin;
+        case wallet::AtomicSwapCoin::Qtum:
+            return beamui::Currencies::Qtum;
+        case wallet::AtomicSwapCoin::Unknown:
+        default:
+            return beamui::Currencies::Unknown;
+        }
+    }
+
     Filter::Filter(size_t size)
         : _samples(size, 0.0)
         , _index{0}
