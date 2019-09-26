@@ -18,6 +18,7 @@ namespace beamui
     QString AmountToString(const beam::Amount& value, Currencies coinType);
     QString toString(const beam::Timestamp& ts);
     double  Beam2Coins(const beam::Amount& value);
+    Currencies convertSwapCoinToCurrency(beam::wallet::AtomicSwapCoin coin);
 
     class Filter
     {

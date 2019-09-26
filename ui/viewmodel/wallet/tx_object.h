@@ -71,7 +71,10 @@ signals:
 
 private:
     auto getTxDescription() const -> const beam::wallet::TxDescription&;
+    QString getSwapAmount(bool sent) const;
+    double getSwapAmountValue(bool sent) const;
 
     beam::wallet::TxDescription m_tx;
     QString m_kernelID;
+    beam::wallet::TxType m_type;
 };
