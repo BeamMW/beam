@@ -1729,7 +1729,7 @@ void NodeProcessor::RecognizeUtxos(TxBase::IReader&& r, Height h)
 			evt.m_Added = 0;
 
 			m_DB.InsertEvent(h, Blob(&evt, sizeof(evt)), Blob(&key, sizeof(key)));
-			OnUtxoEvent(evt);
+			OnUtxoEvent(evt, h);
 		}
 	}
 
@@ -1757,7 +1757,7 @@ void NodeProcessor::RecognizeUtxos(TxBase::IReader&& r, Height h)
 
 			const UtxoEvent::Key& key = x.m_Commitment;
 			m_DB.InsertEvent(h, Blob(&evt, sizeof(evt)), Blob(&key, sizeof(key)));
-			OnUtxoEvent(evt);
+			OnUtxoEvent(evt, h);
 		}
 	}
 }
@@ -1793,7 +1793,7 @@ void NodeProcessor::RescanOwnedTxos()
 			const UtxoEvent::Key& key = outp.m_Commitment;
 
 			m_This.get_DB().InsertEvent(hCreate, Blob(&evt, sizeof(evt)), Blob(&key, sizeof(key)));
-			m_This.OnUtxoEvent(evt);
+			m_This.OnUtxoEvent(evt, hCreate);
 
 			m_Total++;
 
@@ -1803,7 +1803,7 @@ void NodeProcessor::RescanOwnedTxos()
 			{
 				evt.m_Added = 0;
 				m_This.get_DB().InsertEvent(wlk.m_SpendHeight, Blob(&evt, sizeof(evt)), Blob(&key, sizeof(key)));
-				m_This.OnUtxoEvent(evt);
+				m_This.OnUtxoEvent(evt, wlk.m_SpendHeight);
 			}
 
 			return true;

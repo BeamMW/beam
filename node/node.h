@@ -204,7 +204,7 @@ private:
 		void OnRolledBack() override;
 		void OnModified() override;
 		bool EnumViewerKeys(IKeyWalker&) override;
-		void OnUtxoEvent(const UtxoEvent::Value&) override;
+		void OnUtxoEvent(const UtxoEvent::Value&, Height) override;
 		void OnDummy(const Key::ID&, Height) override;
 		void InitializeUtxosProgress(uint64_t done, uint64_t total) override;
 		void Stop();
