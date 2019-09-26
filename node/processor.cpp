@@ -973,9 +973,6 @@ void NodeProcessor::MultiblockContext::MyTask::SharedBlock::Exec(uint32_t iVerif
 	if (bSparse)
 		txbDummy.m_Offset = Zero;
 
-	bool bIgnoreMaturities = true;
-	TemporarySwap<bool> scopeMat(TxElement::s_IgnoreMaturity, bIgnoreMaturities);
-
 	bool bValid = ctx.ValidateAndSummarize(bSparse ? txbDummy : m_Body, m_Body.get_Reader());
 
 	std::unique_lock<std::mutex> scope(m_Mbc.m_Mutex);
@@ -1710,14 +1707,14 @@ void NodeProcessor::AdjustOffset(ECC::Scalar& offs, uint64_t rowid, bool bAdd)
 	offs = s;
 }
 
-void NodeProcessor::RecognizeUtxos(TxBase::IReader&& r, Height hMax)
+void NodeProcessor::RecognizeUtxos(TxBase::IReader&& r, Height h)
 {
 	NodeDB::WalkerEvent wlk(m_DB);
 
 	for ( ; r.m_pUtxoIn; r.NextUtxoIn())
 	{
 		const Input& x = *r.m_pUtxoIn;
-		assert(x.m_Maturity); // must've already been validated
+		assert(x.m_Internal.m_Maturity); // must've already been validated
 
 		const UtxoEvent::Key& key = x.m_Commitment;
 
@@ -1728,11 +1725,10 @@ void NodeProcessor::RecognizeUtxos(TxBase::IReader&& r, Height hMax)
 				OnCorrupted();
 
 			UtxoEvent::Value evt = *reinterpret_cast<const UtxoEvent::Value*>(wlk.m_Body.p); // copy
-			evt.m_Maturity = x.m_Maturity;
+			evt.m_Maturity = x.m_Internal.m_Maturity;
 			evt.m_Added = 0;
 
-			// In case of macroblock we can't recover the original input height.
-			m_DB.InsertEvent(hMax, Blob(&evt, sizeof(evt)), Blob(&key, sizeof(key)));
+			m_DB.InsertEvent(h, Blob(&evt, sizeof(evt)), Blob(&key, sizeof(key)));
 			OnUtxoEvent(evt);
 		}
 	}
@@ -1742,12 +1738,12 @@ void NodeProcessor::RecognizeUtxos(TxBase::IReader&& r, Height hMax)
 		const Output& x = *r.m_pUtxoOut;
 
 		Key::IDV kidv;
-		if (Recover(kidv, x, hMax))
+		if (Recover(kidv, x, h))
 		{
 			// filter-out dummies
 			if (IsDummy(kidv))
 			{
-				OnDummy(kidv, hMax);
+				OnDummy(kidv, h);
 				continue;
 			}
 
@@ -1757,18 +1753,7 @@ void NodeProcessor::RecognizeUtxos(TxBase::IReader&& r, Height hMax)
 			evt.m_Added = 1;
 			evt.m_AssetID = r.m_pUtxoOut->m_AssetID;
 
-			Height h;
-			if (x.m_Maturity)
-			{
-				evt.m_Maturity = x.m_Maturity;
-				// try to reverse-engineer the original block from the maturity
-				h = x.m_Maturity - x.get_MinMaturity(0);
-			}
-			else
-			{
-				h = hMax;
-				evt.m_Maturity = x.get_MinMaturity(h);
-			}
+			evt.m_Maturity = x.get_MinMaturity(h);
 
 			const UtxoEvent::Key& key = x.m_Commitment;
 			m_DB.InsertEvent(h, Blob(&evt, sizeof(evt)), Blob(&key, sizeof(key)));
@@ -1959,12 +1944,12 @@ bool NodeProcessor::HandleBlockElement(const Input& v, Height h, bool bFwd)
 			m_Utxos.OnDirty();
 		}
 
-		Cast::NotConst(v).m_Maturity = d.m_Maturity;
+		Cast::NotConst(v).m_Internal.m_Maturity = d.m_Maturity;
 		Cast::NotConst(v).m_Internal.m_ID = nID;
 
 	} else
 	{
-		d.m_Maturity = v.m_Maturity;
+		d.m_Maturity = v.m_Internal.m_Maturity;
 
 		bool bCreate = true;
 		UtxoTree::Key key;
@@ -2060,7 +2045,7 @@ void NodeProcessor::ToInputWithMaturity(Input& inp, TxoID id)
 	NodeDB::StateID sidPrev;
 	m_DB.FindStateByTxoID(sidPrev, id); // relatively heavy operation: search for the original txo height
 
-	inp.m_Maturity = outp.get_MinMaturity(sidPrev.m_Height);
+	inp.m_Internal.m_Maturity = outp.get_MinMaturity(sidPrev.m_Height);
 }
 
 void NodeProcessor::RollbackTo(Height h)
@@ -2733,7 +2718,7 @@ bool NodeProcessor::GenerateNewBlock(BlockContext& bc)
 
 	// reset input maturities
 	for (size_t i = 0; i < bc.m_Block.m_vInputs.size(); i++)
-		bc.m_Block.m_vInputs[i]->m_Maturity = 0;
+		bc.m_Block.m_vInputs[i]->m_Internal.m_Maturity = 0;
 
 	if (!nSizeEstimated)
 		return false;
@@ -2882,9 +2867,6 @@ void NodeProcessor::ExtractBlockWithExtra(Block::Body& block, const NodeDB::Stat
 	der.reset(bbE);
 	der & Cast::Down<TxVectors::Eternal>(block);
 
-	for (size_t i = 0; i < block.m_vKernels.size(); i++)
-		block.m_vKernels[i]->m_Maturity = sid.m_Height;
-
 	TxoID id0;
 	TxoID id1 = m_DB.get_StateTxos(sid.m_Row);
 
@@ -2929,8 +2911,6 @@ void NodeProcessor::ExtractBlockWithExtra(Block::Body& block, const NodeDB::Stat
 
 		der.reset(wlk.m_Value.p, wlk.m_Value.n);
 		der & *pOutp;
-
-		pOutp->m_Maturity = pOutp->get_MinMaturity(sid.m_Height);
 	}
 
 	block.NormalizeP();
@@ -3019,7 +2999,7 @@ bool NodeProcessor::ITxoRecover::OnTxo(const NodeDB::WalkerTxo& wlk, Height hCre
 	return OnTxo(wlk, hCreate, outp, kidv);
 }
 
-bool NodeProcessor::Recover(Key::IDV& kidv, const Output& outp, Height hMax)
+bool NodeProcessor::Recover(Key::IDV& kidv, const Output& outp, Height h)
 {
 	struct Walker :public IKeyWalker
 	{
@@ -3040,7 +3020,7 @@ bool NodeProcessor::Recover(Key::IDV& kidv, const Output& outp, Height hMax)
 
 	} wlk(kidv, outp);
 
-	wlk.m_Height = hMax;
+	wlk.m_Height = h;
 
 	return !EnumViewerKeys(wlk);
 }

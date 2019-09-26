@@ -56,7 +56,7 @@ class NodeProcessor
 	bool HandleBlockElement(const Input&, Height, bool bFwd);
 	bool HandleBlockElement(const Output&, Height, bool bFwd);
 
-	void RecognizeUtxos(TxBase::IReader&&, Height hMax);
+	void RecognizeUtxos(TxBase::IReader&&, Height h);
 
 	static uint64_t ProcessKrnMmr(Merkle::Mmr&, TxBase::IReader&&, const Merkle::Hash& idKrn, TxKernel::Ptr* ppRes);
 
@@ -272,7 +272,7 @@ public:
 	};
 	virtual bool EnumViewerKeys(IKeyWalker&) { return true; }
 
-	bool Recover(Key::IDV&, const Output&, Height hMax);
+	bool Recover(Key::IDV&, const Output&, Height h);
 
 	void RescanOwnedTxos();
 
