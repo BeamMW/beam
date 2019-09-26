@@ -116,7 +116,7 @@ namespace beam
 	void Input::operator = (const Input& v)
 	{
 		Cast::Down<TxElement>(*this) = v;
-		m_ID = v.m_ID;
+		m_Internal = v.m_Internal;
 		ClonePtr(m_pSpendProof, v.m_pSpendProof);
 	}
 
@@ -1381,7 +1381,7 @@ namespace beam
 
 		Input inp;
 		inp.m_Commitment = comm;
-		inp.m_ID = id;
+		inp.m_Internal.m_ID = id;
 		inp.get_ShieldedID(hv);
 
 		return IsValidProofUtxoInternal(hv, p);

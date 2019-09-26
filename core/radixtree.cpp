@@ -575,7 +575,7 @@ void Input::get_ShieldedID(Merkle::Hash& hv) const
 	UtxoTree::Key key;
 	key.SetShielded(m_Commitment, true);
 
-	UtxoTree::MyLeaf::get_Hash_Shielded(hv, key, m_ID);
+	UtxoTree::MyLeaf::get_Hash_Shielded(hv, key, m_Internal.m_ID);
 }
 
 const Merkle::Hash& UtxoTree::get_LeafHash(Node& n, Merkle::Hash& hv)

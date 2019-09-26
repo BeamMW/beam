@@ -260,7 +260,7 @@ namespace beam
 		Input(Input&& v)
 			:TxElement(v)
 		{
-			m_ID = v.m_ID;
+			m_Internal = v.m_Internal;
 			m_pSpendProof = std::move(v.m_pSpendProof);
 		}
 
