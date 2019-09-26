@@ -185,7 +185,6 @@ public:
 		TxoID m_TxosTreasury;
 		TxoID m_Txos; // total num of ever created TXOs, including treasury
 
-		Height m_LoHorizon; // lowest accessible height
 		Height m_TxoLo;
 		Height m_TxoHi;
 
@@ -239,6 +238,9 @@ public:
 	void EnumCongestions();
 	const uint64_t* get_CachedRows(const NodeDB::StateID&, Height nCountExtra); // retval valid till next call to this func, or to EnumCongestions()
 	void TryGoUp();
+
+	// Lowest height to which it's possible to rollback.
+	Height get_LowestReturnHeight() const;
 
 	static bool IsRemoteTipNeeded(const Block::SystemState::Full& sTipRemote, const Block::SystemState::Full& sTipMy);
 

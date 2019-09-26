@@ -99,7 +99,6 @@ void NodeProcessor::Initialize(const char* szPath, const StartParams& sp)
 	Blob blob(hv);
 
 	ZeroObject(m_Extra);
-	m_Extra.m_LoHorizon = m_DB.ParamIntGetDef(NodeDB::ParamID::LoHorizon, Rules::HeightGenesis - 1);
 	m_Extra.m_TxoLo = m_DB.ParamIntGetDef(NodeDB::ParamID::HeightTxoLo, Rules::HeightGenesis - 1);
 	m_Extra.m_TxoHi = m_DB.ParamIntGetDef(NodeDB::ParamID::HeightTxoHi, Rules::HeightGenesis - 1);
 
@@ -639,9 +638,25 @@ const uint64_t* NodeProcessor::get_CachedRows(const NodeDB::StateID& sid, Height
 	return nullptr;
 }
 
+Height NodeProcessor::get_LowestReturnHeight() const
+{
+	Height hRet = m_Extra.m_TxoHi;
+
+	Height h0 = IsFastSync() ? m_SyncData.m_h0 : m_Cursor.m_ID.m_Height;
+	Height hMaxRollback = Rules::get().Macroblock.MaxRollback;
+
+	if (h0 > hMaxRollback)
+	{
+		h0 -= hMaxRollback;
+		hRet = std::max(hRet, h0);
+	}
+
+	return hRet;
+}
+
 void NodeProcessor::RequestDataInternal(const Block::SystemState::ID& id, uint64_t row, bool bBlock, const NodeDB::StateID& sidTrg)
 {
-	if (id.m_Height >= m_Extra.m_LoHorizon)
+	if (id.m_Height >= get_LowestReturnHeight())
 	{
 		RequestData(id, bBlock, sidTrg);
 	}
@@ -1145,9 +1160,6 @@ void NodeProcessor::TryGoUp()
 					RaiseTxoHi(m_Cursor.m_ID.m_Height);
 					RaiseTxoLo(m_SyncData.m_TxoLo);
 
-					m_Extra.m_LoHorizon = m_Cursor.m_ID.m_Height;
-					m_DB.ParamSet(NodeDB::ParamID::LoHorizon, &m_Extra.m_LoHorizon, NULL);
-
 					ZeroObject(m_SyncData);
 					SaveSyncData();
 				}
@@ -1636,18 +1648,6 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, MultiblockContext& m
 			m_DB.set_StateExtra(sid.m_Row, &offsAcc);
 
 			m_DB.set_StateTxos(sid.m_Row, &m_Extra.m_Txos);
-
-			if (!IsFastSync())
-			{
-				// no need to adjust LoHorizon in batch mode
-				assert(m_Extra.m_LoHorizon <= m_Cursor.m_Sid.m_Height);
-				if (m_Cursor.m_Sid.m_Height - m_Extra.m_LoHorizon > Rules::get().Macroblock.MaxRollback)
-				{
-					m_Extra.m_LoHorizon = m_Cursor.m_Sid.m_Height - Rules::get().Macroblock.MaxRollback;
-					m_DB.ParamSet(NodeDB::ParamID::LoHorizon, &m_Extra.m_LoHorizon, NULL);
-				}
-			}
-
 		}
 		else
             BEAM_VERIFY(HandleValidatedBlock(block.get_Reader(), block, sid.m_Height, false));
@@ -2194,7 +2194,7 @@ NodeProcessor::DataStatus::Enum NodeProcessor::OnStateInternal(const Block::Syst
 		}
 	}
 
-	if (s.m_Height < m_Extra.m_LoHorizon)
+	if (s.m_Height < get_LowestReturnHeight())
 		return DataStatus::Unreachable;
 
 	if (m_DB.StateFindSafe(id))
@@ -2257,7 +2257,7 @@ NodeProcessor::DataStatus::Enum NodeProcessor::OnBlock(const NodeDB::StateID& si
 		return DataStatus::Rejected;
 	}
 
-	if (sid.m_Height < m_Extra.m_LoHorizon)
+	if (sid.m_Height < get_LowestReturnHeight())
 		return DataStatus::Unreachable;
 
 	m_DB.SetStateBlock(sid.m_Row, bbP, bbE);
@@ -3237,9 +3237,8 @@ bool NodeProcessor::ImportMacroBlockInternal(Block::BodyBase::IMacroReader& r)
 		m_DB.MoveFwd(sid);
 	}
 
-	m_Extra.m_LoHorizon = m_Extra.m_TxoHi = m_Extra.m_TxoLo = id.m_Height;
+	m_Extra.m_TxoHi = m_Extra.m_TxoLo = id.m_Height;
 
-	m_DB.ParamSet(NodeDB::ParamID::LoHorizon, &id.m_Height, NULL);
 	m_DB.ParamSet(NodeDB::ParamID::HeightTxoLo, &id.m_Height, NULL);
 	m_DB.ParamSet(NodeDB::ParamID::HeightTxoHi, &id.m_Height, NULL);
 
