@@ -3224,14 +3224,6 @@ void Node::Peer::OnMsg(proto::BbsResetSync&& msg)
 	BroadcastBbs();
 }
 
-void Node::Peer::OnMsg(proto::MacroblockGet&& msg)
-{
-    if (msg.m_Data >= Block::BodyBase::RW::Type::count)
-        ThrowUnexpected();
-
-    Send(proto::Macroblock()); // deprecated
-}
-
 void Node::Peer::OnMsg(proto::GetUtxoEvents&& msg)
 {
     proto::UtxoEvents msgOut;
