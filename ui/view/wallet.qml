@@ -468,7 +468,7 @@ Item {
                     //% "From"
                     title: qsTrId("general-address-from")
                     elideMode: Text.ElideMiddle
-                    width: 170 * transactionsTable.columnResizeRatio
+                    width: 200 * transactionsTable.columnResizeRatio
                     movable: false
                     resizable: false
                 }
@@ -477,7 +477,7 @@ Item {
                     //% "To"
                     title: qsTrId("general-address-to")
                     elideMode: Text.ElideMiddle
-                    width: 170 * transactionsTable.columnResizeRatio
+                    width: 200 * transactionsTable.columnResizeRatio
                     movable: false
                     resizable: false
                 }
@@ -486,7 +486,7 @@ Item {
                     //% "Amount"
                     title: qsTrId("general-amount")
                     elideMode: Text.ElideRight
-                    width: 200 * transactionsTable.columnResizeRatio
+                    width: 140 * transactionsTable.columnResizeRatio
                     movable: false
                     resizable: false
                     delegate: Item {
