@@ -289,6 +289,12 @@ ColumnLayout {
             selectionMode: SelectionMode.NoSelection
             backgroundVisible: false
             model: viewModel.contacts
+            sortIndicatorVisible: true
+            sortIndicatorColumn: 0
+            sortIndicatorOrder: Qt.AscendingOrder
+            onSortIndicatorColumnChanged: {
+                sortIndicatorOrder = Qt.AscendingOrder;
+            }
 
             TableViewColumn {
                 role: viewModel.nameRole
