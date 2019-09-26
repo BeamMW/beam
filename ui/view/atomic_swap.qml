@@ -82,7 +82,9 @@ Item {
                     font.capitalization: Font.AllUppercase
 
                     onClicked: {
-                        // todo
+                        offersStackView.push(Qt.createComponent("send.qml"));
+                        atomicSwapLayout.state = "transactions";
+                        transactionsTab.state = "filterInProgressTransactions";
                     }
                 }
                 
@@ -290,9 +292,6 @@ Item {
                             id: sendReceiveBeamSwitch
                             Layout.alignment: Qt.AlignHCenter | Qt.AlignLeft
                             opacity: 0.6
-                            onClicked: {
-                                console.log("todo: send/receive switch pressed");
-                            }
                         }
 
                         SFText {
