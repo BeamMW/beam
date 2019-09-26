@@ -533,7 +533,7 @@ namespace beam::wallet
             case State::Refunded:
             {
                 LOG_INFO() << GetTxID() << " Swap has not succeeded.";
-                UpdateTxDescription(TxStatus::Completed);
+                UpdateTxDescription(TxStatus::Failed);
                 GetGateway().on_tx_completed(GetTxID());
                 break;
             }
