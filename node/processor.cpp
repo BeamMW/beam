@@ -100,7 +100,6 @@ void NodeProcessor::Initialize(const char* szPath, const StartParams& sp)
 
 	ZeroObject(m_Extra);
 	m_Extra.m_LoHorizon = m_DB.ParamIntGetDef(NodeDB::ParamID::LoHorizon, Rules::HeightGenesis - 1);
-	m_Extra.m_Fossil = m_DB.ParamIntGetDef(NodeDB::ParamID::FossilHeight, Rules::HeightGenesis - 1);
 	m_Extra.m_TxoLo = m_DB.ParamIntGetDef(NodeDB::ParamID::HeightTxoLo, Rules::HeightGenesis - 1);
 	m_Extra.m_TxoHi = m_DB.ParamIntGetDef(NodeDB::ParamID::HeightTxoHi, Rules::HeightGenesis - 1);
 
@@ -197,10 +196,8 @@ void NodeProcessor::Initialize(const char* szPath, const StartParams& sp)
 
 		m_Extra.m_TxoLo = 0;
 		m_Extra.m_TxoHi = 0;
-		m_Extra.m_Fossil = 0;
 		m_DB.ParamSet(NodeDB::ParamID::HeightTxoLo, &m_Extra.m_TxoLo, nullptr);
 		m_DB.ParamSet(NodeDB::ParamID::HeightTxoHi, &m_Extra.m_TxoHi, nullptr);
-		m_DB.ParamSet(NodeDB::ParamID::FossilHeight, &m_Extra.m_Fossil, nullptr);
 
 	}
 	else
@@ -1144,8 +1141,7 @@ void NodeProcessor::TryGoUp()
 				{
 					LOG_INFO() << "Fast-sync succeeded";
 
-					// raise fossil height, hTxoLo, hTxoHi
-					RaiseFossil(m_Cursor.m_ID.m_Height);
+					// raise hTxoLo, hTxoHi
 					RaiseTxoHi(m_Cursor.m_ID.m_Height);
 					RaiseTxoLo(m_SyncData.m_TxoLo);
 
@@ -1235,53 +1231,12 @@ Height NodeProcessor::PruneOld()
 		}
 	}
 
-	if (m_Cursor.m_Sid.m_Height - 1 > m_Extra.m_Fossil + Rules::get().Macroblock.MaxRollback)
-	{
-		Height hTrg = m_Cursor.m_Sid.m_Height - 1 - Rules::get().Macroblock.MaxRollback;
-		assert(hTrg > m_Extra.m_Fossil);
-
-		hRet += RaiseFossil(hTrg);
-	}
-
 	if (IsBigger2(m_Cursor.m_Sid.m_Height, m_Extra.m_TxoLo, m_Horizon.m_Local.Lo))
 		hRet += RaiseTxoLo(m_Cursor.m_Sid.m_Height - m_Horizon.m_Local.Lo);
 
 	if (IsBigger2(m_Cursor.m_Sid.m_Height, m_Extra.m_TxoHi, m_Horizon.m_Local.Hi))
 		hRet += RaiseTxoHi(m_Cursor.m_Sid.m_Height - m_Horizon.m_Local.Hi);
 
-	return hRet;
-}
-
-Height NodeProcessor::RaiseFossil(Height hTrg)
-{
-	if (hTrg <= m_Extra.m_Fossil)
-		return 0;
-
-	Height hRet = 0;
-
-	while (m_Extra.m_Fossil < hTrg)
-	{
-		m_Extra.m_Fossil++;
-
-		NodeDB::WalkerState ws(m_DB);
-		for (m_DB.EnumStatesAt(ws, m_Extra.m_Fossil); ws.MoveNext(); )
-		{
-			if (NodeDB::StateFlags::Active & m_DB.GetStateFlags(ws.m_Sid.m_Row))
-				m_DB.DelStateBlockPP(ws.m_Sid.m_Row);
-			else
-			{
-				m_DB.SetStateNotFunctional(ws.m_Sid.m_Row);
-
-				m_DB.DelStateBlockAll(ws.m_Sid.m_Row);
-				m_DB.set_Peer(ws.m_Sid.m_Row, NULL);
-			}
-
-			hRet++;
-		}
-
-	}
-
-	m_DB.ParamSet(NodeDB::ParamID::FossilHeight, &m_Extra.m_Fossil, NULL);
 	return hRet;
 }
 
@@ -3282,10 +3237,9 @@ bool NodeProcessor::ImportMacroBlockInternal(Block::BodyBase::IMacroReader& r)
 		m_DB.MoveFwd(sid);
 	}
 
-	m_Extra.m_LoHorizon = m_Extra.m_Fossil = m_Extra.m_TxoHi = m_Extra.m_TxoLo = id.m_Height;
+	m_Extra.m_LoHorizon = m_Extra.m_TxoHi = m_Extra.m_TxoLo = id.m_Height;
 
 	m_DB.ParamSet(NodeDB::ParamID::LoHorizon, &id.m_Height, NULL);
-	m_DB.ParamSet(NodeDB::ParamID::FossilHeight, &id.m_Height, NULL);
 	m_DB.ParamSet(NodeDB::ParamID::HeightTxoLo, &id.m_Height, NULL);
 	m_DB.ParamSet(NodeDB::ParamID::HeightTxoHi, &id.m_Height, NULL);
 

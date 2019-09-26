@@ -41,7 +41,6 @@ class NodeProcessor
 
 	void RollbackTo(Height);
 	Height PruneOld();
-	Height RaiseFossil(Height);
 	Height RaiseTxoLo(Height);
 	Height RaiseTxoHi(Height);
 	void Vacuum();
@@ -187,7 +186,6 @@ public:
 		TxoID m_Txos; // total num of ever created TXOs, including treasury
 
 		Height m_LoHorizon; // lowest accessible height
-		Height m_Fossil; // from here and down - no original blocks
 		Height m_TxoLo;
 		Height m_TxoHi;
 
