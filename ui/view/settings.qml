@@ -94,11 +94,7 @@ ColumnLayout {
         Layout.preferredHeight: 40
         Layout.alignment:       Qt.AlignTop
 
-        SFText {
-            Layout.alignment: Qt.AlignBottom | Qt.AlignLeft
-            font.pixelSize: 36
-            color: Style.content_main
-            //: settings tab title
+        Title {
             //% "Settings"
             text: qsTrId("settings-title")
         }
@@ -277,6 +273,7 @@ ColumnLayout {
 
             ElectrumSettings {
                 id:               btcSettingsEL
+                //% "Electrum"
                 title:            qsTrId("general-electrum") + " - " + qsTrId("general-bitcoin")
                 address:          viewModel.btcNodeAddressEL
                 seed:             viewModel.btcSeedEL
@@ -385,6 +382,7 @@ ColumnLayout {
 
             ElectrumSettings {
                 id:                  ltcSettingsEL
+                //% "Electrum"
                 title:               qsTrId("general-electrum") + " - " + qsTrId("general-litecoin")
                 address:             viewModel.ltcNodeAddressEL
                 seed:                viewModel.ltcSeedEL
@@ -493,6 +491,7 @@ ColumnLayout {
 
             ElectrumSettings {
                 id:                  qtumSettingsEL
+                //% "Electrum"
                 title:               qsTrId("general-electrum") + " - " + qsTrId("general-qtum")
                 address:             viewModel.qtumNodeAddressEL
                 seed:                viewModel.qtumSeedEL

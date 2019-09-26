@@ -51,7 +51,6 @@ struct ResponseCache {
     io::SharedBuffer status;
     std::map<Height, io::SharedBuffer> blocks;
     Height currentHeight=0;
-    Height lowHorizon=0;
 
     explicit ResponseCache(size_t depth) : _depth(depth)
     {}
@@ -145,7 +144,6 @@ private:
     void OnStateChanged() override {
         const auto& cursor = _nodeBackend.m_Cursor;
         _cache.currentHeight = cursor.m_Sid.m_Height;
-        _cache.lowHorizon = _nodeBackend.m_Extra.m_LoHorizon;
         _statusDirty = true;
         if (_nextHook) _nextHook->OnStateChanged();
     }
@@ -164,7 +162,6 @@ private:
             const auto& cursor = _nodeBackend.m_Cursor;
 
             _cache.currentHeight = cursor.m_Sid.m_Height;
-            _cache.lowHorizon = _nodeBackend.m_Extra.m_LoHorizon;
 
             char buf[80];
 
@@ -175,7 +172,7 @@ private:
                 json{
                     { "timestamp", cursor.m_Full.m_TimeStamp },
                     { "height", _cache.currentHeight },
-                    { "low_horizon", _nodeBackend.m_Extra.m_LoHorizon },
+                    { "low_horizon", _nodeBackend.m_Extra.m_TxoHi },
                     { "hash", hash_to_hex(buf, cursor.m_ID.m_Hash) },
                     { "chainwork",  uint256_to_hex(buf, cursor.m_Full.m_ChainWork) },
                     { "peers_count", _node.get_AcessiblePeerCount() }
@@ -319,11 +316,10 @@ private:
         if (_statusDirty) {
             const auto &cursor = _nodeBackend.m_Cursor;
             _cache.currentHeight = cursor.m_Sid.m_Height;
-            _cache.lowHorizon = _nodeBackend.m_Extra.m_LoHorizon;
         }
 
         io::SharedBuffer body;
-        bool blockAvailable = (/*height >= _cache.lowHorizon && */height <= _cache.currentHeight);
+        bool blockAvailable = (height <= _cache.currentHeight);
         if (blockAvailable) {
             json j;
             if (!extract_block(j, height, row, prevRow)) {

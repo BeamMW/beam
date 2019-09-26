@@ -43,11 +43,11 @@ public:
 			DbVer,
 			CursorRow,
 			CursorHeight,
-			FossilHeight, // Height starting from which and below original blocks are erased
+			Deprecated_1,
 			CfgChecksum,
 			MyID,
 			SyncTarget, // deprecated
-			LoHorizon, // Height of no-return. Navigation is impossible below it
+			Deprecated_2,
 			Treasury,
 			DummyID, // hash of keys used to create UTXOs (owner key, dummy key)
 			HeightTxoLo, // Height starting from which and below Txo info is totally erased.

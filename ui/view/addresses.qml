@@ -24,11 +24,7 @@ ColumnLayout {
 
     anchors.fill: parent
     state: "active"
-	SFText {
-        Layout.minimumHeight: 40
-        Layout.maximumHeight: 40
-        font.pixelSize: 36
-        color: Style.content_main
+	Title {
         //% "Addresses"
         text: qsTrId("addresses-tittle")
     }

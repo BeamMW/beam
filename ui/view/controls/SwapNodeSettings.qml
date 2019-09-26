@@ -180,6 +180,7 @@ Control {
                 minFee:           thisControl.minFeeRate
                 feeLabel:         thisControl.feeRateLabel
                 color:            Style.content_secondary
+                spacing:          0
 
                 Connections {
                     target: thisControl

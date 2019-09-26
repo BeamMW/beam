@@ -250,6 +250,13 @@ private:
     void LoadLitecoinSettings();
     void LoadQtumSettings();
 
+    void SetDefaultBtcSettings();
+    void SetDefaultBtcSettingsEL();
+    void SetDefaultLtcSettings();
+    void SetDefaultLtcSettingsEL();
+    void SetDefaultQtumSettings();
+    void SetDefaultQtumSettingsEL();
+
     WalletSettings& m_settings;
 
     QString m_nodeAddress;
@@ -272,17 +279,29 @@ private:
     QString m_bitcoinNodeAddress;
     int m_bitcoinFeeRate = 0;
 
+    QString m_bitcoinSeedEl;
+    QString m_bitcoinNodeAddressEl;
+    int m_bitcoinFeeRateEl = 0;
+
     boost::optional<beam::bitcoin::Settings> m_litecoinSettings;
     QString m_litecoinUser;
     QString m_litecoinPass;
     QString m_litecoinNodeAddress;
     int m_litecoinFeeRate = 0;
 
+    QString m_litecoinSeedEl;
+    QString m_litecoinNodeAddressEl;
+    int m_litecoinFeeRateEl = 0;
+
     boost::optional<beam::bitcoin::Settings> m_qtumSettings;
     QString m_qtumUser;
     QString m_qtumPass;
     QString m_qtumNodeAddress;
     int m_qtumFeeRate = 0;
+
+    QString m_qtumSeedEl;
+    QString m_qtumNodeAddressEl;
+    int m_qtumFeeRateEl = 0;
 
     bool m_btcUseEL = false;
     bool m_ltcUseEL = false;

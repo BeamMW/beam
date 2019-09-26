@@ -162,6 +162,7 @@
         <file>controls/AddressTable.qml</file>
         <file>assets/icon-transactions.svg</file>
         <file>controls/StatusBar.qml</file>
+        <file>controls/Title.qml</file>
         <file>assets/icon-maturing.svg</file>
         <file>assets/icon-padlock.svg</file>
         <file>controls/EditAddress.qml</file>
@@ -178,6 +179,7 @@
         <file>assets/icon-details.svg</file>
         <file>assets/beta-label.svg</file>
         <file>controls/OpenExternalLinkConfirmation.qml</file>
+        <file>controls/SeedInput.qml</file>
         <file>utils.js</file>
         <file>qmldir</file>
     </qresource>

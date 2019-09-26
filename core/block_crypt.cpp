@@ -1167,8 +1167,8 @@ namespace beam
 			<< DA.WindowMedian0
 			<< DA.WindowMedian1
 			<< DA.Difficulty0.m_Packed
-			<< Macroblock.MaxRollback
-			<< Macroblock.Granularity
+			<< MaxRollback
+			<< uint32_t(720) // deprecated parameter
 			<< (uint32_t) Block::PoW::K
 			<< (uint32_t) Block::PoW::N
 			<< (uint32_t) Block::PoW::NonceType::nBits

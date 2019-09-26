@@ -1042,8 +1042,6 @@ void Node::Initialize(IExternalPOW* externalPOW)
 	m_Processor.get_DB().get_BbsTotals(m_Bbs.m_Totals);
     m_Bbs.Cleanup();
 	m_Bbs.m_HighestPosted_s = m_Processor.get_DB().get_BbsMaxTime();
-
-	m_Processor.OnHorizonChanged(); // invoke it once again, after the Compressor initialized and maybe deleted some of backlog, perhaps fossil height may go up
 }
 
 uint32_t Node::get_AcessiblePeerCount() const
@@ -3297,14 +3295,6 @@ void Node::Peer::OnMsg(proto::BbsResetSync&& msg)
 
 	m_CursorBbs = m_This.m_Processor.get_DB().BbsFindCursor(msg.m_TimeFrom) - 1;
 	BroadcastBbs();
-}
-
-void Node::Peer::OnMsg(proto::MacroblockGet&& msg)
-{
-    if (msg.m_Data >= Block::BodyBase::RW::Type::count)
-        ThrowUnexpected();
-
-    Send(proto::Macroblock()); // deprecated
 }
 
 void Node::Peer::OnMsg(proto::GetUtxoEvents&& msg)

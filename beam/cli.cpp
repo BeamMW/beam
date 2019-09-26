@@ -316,9 +316,6 @@ int main_impl(int argc, char* argv[])
 						}
 					}
 
-					if (vm.count(cli::RESYNC))
-						node.m_Cfg.m_ProcessorParams.m_ResetCursor = vm[cli::RESYNC].as<bool>();
-
 					if (vm.count(cli::CHECKDB))
 						node.m_Cfg.m_ProcessorParams.m_CheckIntegrityAndVacuum = vm[cli::CHECKDB].as<bool>();
 
@@ -330,10 +327,6 @@ int main_impl(int argc, char* argv[])
 
 					if (!vm[cli::BBS_ENABLE].as<bool>())
 						ZeroObject(node.m_Cfg.m_Bbs.m_Limit);
-
-					node.m_Cfg.m_Horizon.m_Branching = Rules::get().Macroblock.MaxRollback / 4; // inferior branches would be pruned when height difference is this.
-					node.m_Cfg.m_Horizon.m_SchwarzschildHi = vm[cli::HORIZON_HI].as<Height>();
-					node.m_Cfg.m_Horizon.m_SchwarzschildLo = vm[cli::HORIZON_LO].as<Height>();
 
 					auto var = vm[cli::FAST_SYNC];
 					if (!var.empty())

@@ -36,6 +36,7 @@ public:
         Expiration,
         ExpirationSort,
         IsOwnOffer,
+        IsBeamSide,
         RawTxID,
         RawTxParameters
     };

@@ -193,16 +193,6 @@ namespace proto {
     macro(uint8_t, IDType) \
     macro(ECC::Signature, Sig)
 
-#define BeamNodeMsg_MacroblockGet(macro) \
-    macro(Block::SystemState::ID, ID) \
-    macro(uint8_t, Data) \
-    macro(uint64_t, Offset)
-
-#define BeamNodeMsg_Macroblock(macro) \
-    macro(Block::SystemState::ID, ID) \
-    macro(ByteBuffer, Portion) \
-    macro(uint64_t, SizeTotal)
-
 #define BeamNodeMsg_GetUtxoEvents(macro) \
     macro(Height, HeightMin)
 
@@ -250,8 +240,8 @@ namespace proto {
     macro(0x1c, ProofUtxo) \
     macro(0x1d, GetProofChainWork) \
     macro(0x1e, ProofChainWork) \
-    macro(0x20, MacroblockGet) \
-    macro(0x21, Macroblock) \
+    /* macro(0x20, MacroblockGet) Deprecated */ \
+    /* macro(0x21, Macroblock) Deprecated */ \
     macro(0x22, GetCommonState) \
     macro(0x23, ProofCommonState) \
     macro(0x24, GetProofKernel2) \

@@ -1,9 +1,6 @@
 import QtQuick 2.11
-import QtQuick.Controls 1.2
+import QtQuick.Layouts 1.1
 import QtQuick.Controls 2.4
-import QtQuick.Controls.Styles 1.2
-import QtGraphicalEffects 1.0
-import QtQuick.Layouts 1.3
 import Beam.Wallet 1.0
 import "controls"
 import "./utils.js" as Utils
@@ -263,14 +260,14 @@ ColumnLayout {
             icon.source:        "qrc:/assets/icon-send-blue.svg"
             enabled:            viewModel.canSend
             onClicked: {
-                const dialog       = Qt.createComponent("send_confirm.qml").createObject(thisView);
-                dialog.addressText = viewModel.receiverAddress;
-                //% "BEAM"
-                dialog.amountText  = [Utils.formatAmount(viewModel.sendAmount), qsTrId("general-beam")].join(" ")
-                //% "GROTH"
-                dialog.feeText     = [Utils.formatAmount(viewModel.feeGrothes), qsTrId("general-groth")].join(" ")
-                dialog.y = dialog.y - 36;
-                dialog.open();
+                Qt.createComponent("send_confirm.qml").createObject(thisView, {
+                    ownerView: thisView,
+                    addressText: viewModel.receiverAddress,
+                    //% "BEAM"
+                    amountText: [Utils.formatAmount(viewModel.sendAmount), qsTrId("general-beam")].join(" "),
+                    //% "GROTH"
+                    feeText: [Utils.formatAmount(viewModel.feeGrothes), qsTrId("general-groth")].join(" ")
+                }).open();
             }
         }
     }

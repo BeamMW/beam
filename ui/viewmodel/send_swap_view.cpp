@@ -37,12 +37,14 @@ SendSwapViewModel::SendSwapViewModel()
 
         if (!_expiresTime.isValid())
         {
-            auto expiresHeight = _txParameters.GetParameter<beam::Height>(beam::wallet::TxParameterID::PeerResponseHeight);
+            auto peerResponseTime = _txParameters.GetParameter<beam::Height>(beam::wallet::TxParameterID::PeerResponseTime);
+            auto minHeight = _txParameters.GetParameter<beam::Height>(beam::wallet::TxParameterID::MinHeight);
             auto currentHeight = _status.getCurrentHeight();
 
-            if (currentHeight && expiresHeight)
+            if (currentHeight && minHeight && peerResponseTime)
             {
-                setExpiresTime(beamui::CalculateExpiresTime(currentHeight, *expiresHeight));
+                auto expiresHeight = *minHeight + *peerResponseTime;
+                setExpiresTime(beamui::CalculateExpiresTime(currentHeight, expiresHeight));
             }
         }
     });
@@ -91,9 +93,10 @@ void SendSwapViewModel::fillParameters(beam::wallet::TxParameters parameters)
     auto peerID = parameters.GetParameter<WalletID>(TxParameterID::PeerID);
     auto peerResponseTime = parameters.GetParameter<Height>(TxParameterID::PeerResponseTime);
     auto offeredTime = parameters.GetParameter<Timestamp>(TxParameterID::CreateTime);
+    auto minHeight = parameters.GetParameter<Height>(TxParameterID::MinHeight);
 
-    if (peerID && swapAmount && beamAmount
-        && swapCoin && isBeamSide && peerResponseTime && offeredTime)
+    if (peerID && swapAmount && beamAmount && swapCoin && isBeamSide
+        && peerResponseTime && offeredTime && minHeight)
     {
         if (*isBeamSide) // other participant is not a beam side
         {
@@ -116,7 +119,8 @@ void SendSwapViewModel::fillParameters(beam::wallet::TxParameters parameters)
         auto currentHeight = _status.getCurrentHeight();
         if (currentHeight)
         {
-            setExpiresTime(beamui::CalculateExpiresTime(currentHeight, *peerResponseTime));
+            auto expiresHeight = *minHeight + *peerResponseTime;
+            setExpiresTime(beamui::CalculateExpiresTime(currentHeight, expiresHeight));
         }
         _txParameters = parameters;
     }

@@ -42,7 +42,6 @@ class NodeProcessor
 
 	void RollbackTo(Height);
 	Height PruneOld();
-	Height RaiseFossil(Height);
 	Height RaiseTxoLo(Height);
 	Height RaiseTxoHi(Height);
 	void Vacuum();
@@ -59,10 +58,8 @@ class NodeProcessor
 	bool HandleBlockElement(const Output&, Height, const Height*, bool bFwd);
 	bool HandleShieldedElement(const ECC::Point&, bool bOutp, bool bFwd);
 
-	bool ImportMacroBlockInternal(Block::BodyBase::IMacroReader&);
 	void RecognizeUtxos(TxBase::IReader&&, Height hMax);
 
-	static void SquashOnce(std::vector<Block::Body>&);
 	static uint64_t ProcessKrnMmr(Merkle::Mmr&, TxBase::IReader&&, const Merkle::Hash& idKrn, TxKernel::Ptr* ppRes);
 
 	static const uint32_t s_TxoNakedMin = sizeof(ECC::Point); // minimal output size - commitment
@@ -153,18 +150,25 @@ public:
 
 	struct Horizon {
 
-		Height m_Branching; // branches behind this are pruned
-		Height m_SchwarzschildLo; // spent behind this are completely erased
-		Height m_SchwarzschildHi; // spent behind this are compacted
+		// branches behind this are pruned
+		Height m_Branching;
+
+		struct m_Schwarzschild {
+			Height Lo; // spent behind this are completely erased
+			Height Hi; // spent behind this are compacted
+		};
+
+		m_Schwarzschild m_Sync; // how deep to sync
+		m_Schwarzschild m_Local; // how deep to keep
 
 		void SetInfinite();
 		void SetStdFastSync(); // Hi is minimum, Lo is 180 days
 
-		Horizon(); // by default both are disabled.
+		void Normalize(); // make sure parameters are consistent w.r.t. each other and MaxRollback
+
+		Horizon(); // by default all horizons are disabled, i.e. full archieve.
 
 	} m_Horizon;
-
-	void OnHorizonChanged();
 
 	struct Cursor
 	{
@@ -184,8 +188,6 @@ public:
 		TxoID m_Txos; // total num of ever created TXOs, including treasury
 		TxoID m_Shielded;
 
-		Height m_LoHorizon; // lowest accessible height
-		Height m_Fossil; // from here and down - no original blocks
 		Height m_TxoLo;
 		Height m_TxoHi;
 
@@ -205,11 +207,7 @@ public:
 	void SaveSyncData();
 	void LogSyncData();
 
-	// Export compressed history elements. Suitable only for "small" ranges, otherwise may be both time & memory consumng.
 	void ExtractBlockWithExtra(Block::Body&, const NodeDB::StateID&);
-	void ExportMacroBlock(Block::BodyBase::IMacroWriter&, const HeightRange&);
-	void ExportHdrRange(const HeightRange&, Block::SystemState::Sequence::Prefix&, std::vector<Block::SystemState::Sequence::Element>&);
-	bool ImportMacroBlock(Block::BodyBase::IMacroReader&);
 
 	struct DataStatus {
 		enum Enum {
@@ -239,6 +237,9 @@ public:
 	void EnumCongestions();
 	const uint64_t* get_CachedRows(const NodeDB::StateID&, Height nCountExtra); // retval valid till next call to this func, or to EnumCongestions()
 	void TryGoUp();
+
+	// Lowest height to which it's possible to rollback.
+	Height get_LowestReturnHeight() const;
 
 	static bool IsRemoteTipNeeded(const Block::SystemState::Full& sTipRemote, const Block::SystemState::Full& sTipMy);
 

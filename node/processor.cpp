@@ -38,15 +38,43 @@ NodeProcessor::Horizon::Horizon()
 void NodeProcessor::Horizon::SetInfinite()
 {
 	m_Branching = MaxHeight;
-	m_SchwarzschildLo = MaxHeight;
-	m_SchwarzschildHi = MaxHeight;
+	m_Sync.Lo = MaxHeight;
+	m_Sync.Hi = MaxHeight;
+	m_Local.Lo = MaxHeight;
+	m_Local.Hi = MaxHeight;
 }
 
 void NodeProcessor::Horizon::SetStdFastSync()
 {
-	m_Branching = Rules::get().Macroblock.MaxRollback / 4; // inferior branches would be pruned when height difference is this.
-	m_SchwarzschildHi = 0; // would be adjusted anyway
-	m_SchwarzschildLo = 3600 * 24 * 180 / Rules::get().DA.Target_s; // 180-day period
+	uint32_t r = Rules::get().MaxRollback;
+	m_Branching = r / 4; // inferior branches would be pruned when height difference is this.
+
+	m_Sync.Hi = r;
+	m_Sync.Lo = r * 3; // 3-day period
+
+	m_Local.Hi = r * 2; // slightly higher than m_Sync.Loc, to feed other fast synchers
+	m_Local.Lo = r * 180; // 180-day period
+}
+
+void NodeProcessor::Horizon::Normalize()
+{
+	m_Branching = std::max(m_Branching, Height(1));
+
+	Height r = Rules::get().MaxRollback;
+
+	m_Sync.Hi = std::max(m_Sync.Hi, std::max(r, m_Branching));
+	m_Sync.Lo = std::max(m_Sync.Lo, m_Sync.Hi);
+
+	// Some nodes in production have a bug: if (Sync.Lo == Sync.Hi) - the last generated block that they send may be incorrect
+	// Workaround: make sure (Sync.Lo > Sync.Hi), at least by 1
+	//
+	// After HF2 the workaround can be removed
+	if ((m_Sync.Lo == m_Sync.Hi) && (m_Sync.Hi < MaxHeight))
+		m_Sync.Lo++;
+
+	// though not required, we prefer m_Local to be no less than m_Sync
+	m_Local.Hi = std::max(m_Local.Hi, m_Sync.Hi);
+	m_Local.Lo = std::max(m_Local.Lo, std::max(m_Local.Hi, m_Sync.Lo));
 }
 
 void NodeProcessor::Initialize(const char* szPath)
@@ -71,8 +99,6 @@ void NodeProcessor::Initialize(const char* szPath, const StartParams& sp)
 	Blob blob(hv);
 
 	ZeroObject(m_Extra);
-	m_Extra.m_LoHorizon = m_DB.ParamIntGetDef(NodeDB::ParamID::LoHorizon, Rules::HeightGenesis - 1);
-	m_Extra.m_Fossil = m_DB.ParamIntGetDef(NodeDB::ParamID::FossilHeight, Rules::HeightGenesis - 1);
 	m_Extra.m_TxoLo = m_DB.ParamIntGetDef(NodeDB::ParamID::HeightTxoLo, Rules::HeightGenesis - 1);
 	m_Extra.m_TxoHi = m_DB.ParamIntGetDef(NodeDB::ParamID::HeightTxoHi, Rules::HeightGenesis - 1);
 	m_Extra.m_Shielded = m_DB.ParamIntGetDef(NodeDB::ParamID::ShieldedPoolSize);
@@ -159,7 +185,10 @@ void NodeProcessor::Initialize(const char* szPath, const StartParams& sp)
 
 	m_Extra.m_Txos = get_TxosBefore(m_Cursor.m_ID.m_Height + 1);
 
-	OnHorizonChanged();
+	m_Horizon.Normalize();
+
+	if (PruneOld())
+		Vacuum();
 
 	if (sp.m_ResetCursor)
 	{
@@ -167,10 +196,8 @@ void NodeProcessor::Initialize(const char* szPath, const StartParams& sp)
 
 		m_Extra.m_TxoLo = 0;
 		m_Extra.m_TxoHi = 0;
-		m_Extra.m_Fossil = 0;
 		m_DB.ParamSet(NodeDB::ParamID::HeightTxoLo, &m_Extra.m_TxoLo, nullptr);
 		m_DB.ParamSet(NodeDB::ParamID::HeightTxoHi, &m_Extra.m_TxoHi, nullptr);
-		m_DB.ParamSet(NodeDB::ParamID::FossilHeight, &m_Extra.m_Fossil, nullptr);
 
 	}
 	else
@@ -284,16 +311,6 @@ void NodeProcessor::CommitUtxosAndDB()
 
 	if (bFlushUtxos)
 		m_Utxos.FlushStrict(us);
-}
-
-void NodeProcessor::OnHorizonChanged()
-{
-	m_Horizon.m_SchwarzschildHi = std::max(m_Horizon.m_SchwarzschildHi, m_Horizon.m_Branching);
-	m_Horizon.m_SchwarzschildHi = std::max(m_Horizon.m_SchwarzschildHi, (Height) Rules::get().Macroblock.MaxRollback);
-	m_Horizon.m_SchwarzschildLo = std::max(m_Horizon.m_SchwarzschildLo, m_Horizon.m_SchwarzschildHi);
-
-	if (PruneOld())
-		Vacuum();
 }
 
 void NodeProcessor::Vacuum()
@@ -536,7 +553,7 @@ void NodeProcessor::EnumCongestions()
 	{
 		bool bFirstTime =
 			!IsFastSync() &&
-			IsBigger3(pMaxTarget->m_Height, m_Cursor.m_ID.m_Height, m_Horizon.m_SchwarzschildHi, m_Horizon.m_SchwarzschildHi / 2);
+			IsBigger3(pMaxTarget->m_Height, m_Cursor.m_ID.m_Height, m_Horizon.m_Sync.Hi, m_Horizon.m_Sync.Hi / 2);
 
 		if (bFirstTime)
 		{
@@ -544,8 +561,8 @@ void NodeProcessor::EnumCongestions()
 			// TODO - verify the headers w.r.t. difficulty and Chainwork
 			m_SyncData.m_h0 = pMaxTarget->m_Height - pMaxTarget->m_Rows.size();
 
-			if (pMaxTarget->m_Height > m_Horizon.m_SchwarzschildLo)
-				m_SyncData.m_TxoLo = pMaxTarget->m_Height - m_Horizon.m_SchwarzschildLo;
+			if (pMaxTarget->m_Height > m_Horizon.m_Sync.Lo)
+				m_SyncData.m_TxoLo = pMaxTarget->m_Height - m_Horizon.m_Sync.Lo;
 
 			m_SyncData.m_TxoLo = std::max(m_SyncData.m_TxoLo, m_Extra.m_TxoLo);
 		}
@@ -553,13 +570,13 @@ void NodeProcessor::EnumCongestions()
 		// check if the target should be moved fwd
 		bool bTrgChange =
 			(IsFastSync() || bFirstTime) &&
-			IsBigger2(pMaxTarget->m_Height, m_SyncData.m_Target.m_Height, m_Horizon.m_SchwarzschildHi);
+			IsBigger2(pMaxTarget->m_Height, m_SyncData.m_Target.m_Height, m_Horizon.m_Sync.Hi);
 
 		if (bTrgChange)
 		{
 			Height hTargetPrev = bFirstTime ? (pMaxTarget->m_Height - pMaxTarget->m_Rows.size()) : m_SyncData.m_Target.m_Height;
 
-			m_SyncData.m_Target.m_Height = pMaxTarget->m_Height - m_Horizon.m_SchwarzschildHi;
+			m_SyncData.m_Target.m_Height = pMaxTarget->m_Height - m_Horizon.m_Sync.Hi;
 			m_SyncData.m_Target.m_Row = pMaxTarget->m_Rows.at(pMaxTarget->m_Height - m_SyncData.m_Target.m_Height);
 
 			if (m_SyncData.m_TxoLo)
@@ -630,9 +647,25 @@ const uint64_t* NodeProcessor::get_CachedRows(const NodeDB::StateID& sid, Height
 	return nullptr;
 }
 
+Height NodeProcessor::get_LowestReturnHeight() const
+{
+	Height hRet = m_Extra.m_TxoHi;
+
+	Height h0 = IsFastSync() ? m_SyncData.m_h0 : m_Cursor.m_ID.m_Height;
+	Height hMaxRollback = Rules::get().MaxRollback;
+
+	if (h0 > hMaxRollback)
+	{
+		h0 -= hMaxRollback;
+		hRet = std::max(hRet, h0);
+	}
+
+	return hRet;
+}
+
 void NodeProcessor::RequestDataInternal(const Block::SystemState::ID& id, uint64_t row, bool bBlock, const NodeDB::StateID& sidTrg)
 {
-	if (id.m_Height >= m_Extra.m_LoHorizon)
+	if (id.m_Height >= get_LowestReturnHeight())
 	{
 		RequestData(id, bBlock, sidTrg);
 	}
@@ -1367,13 +1400,9 @@ void NodeProcessor::TryGoUp()
 				{
 					LOG_INFO() << "Fast-sync succeeded";
 
-					// raise fossil height, hTxoLo, hTxoHi
-					RaiseFossil(m_Cursor.m_ID.m_Height);
+					// raise hTxoLo, hTxoHi
 					RaiseTxoHi(m_Cursor.m_ID.m_Height);
 					RaiseTxoLo(m_SyncData.m_TxoLo);
-
-					m_Extra.m_LoHorizon = m_Cursor.m_ID.m_Height;
-					m_DB.ParamSet(NodeDB::ParamID::LoHorizon, &m_Extra.m_LoHorizon, NULL);
 
 					ZeroObject(m_SyncData);
 					SaveSyncData();
@@ -1458,60 +1487,12 @@ Height NodeProcessor::PruneOld()
 		}
 	}
 
-	if (m_Cursor.m_Sid.m_Height - 1 > m_Extra.m_Fossil + Rules::get().Macroblock.MaxRollback)
-	{
-		Height hTrg = m_Cursor.m_Sid.m_Height - 1 - Rules::get().Macroblock.MaxRollback;
-		assert(hTrg > m_Extra.m_Fossil);
+	if (IsBigger2(m_Cursor.m_Sid.m_Height, m_Extra.m_TxoLo, m_Horizon.m_Local.Lo))
+		hRet += RaiseTxoLo(m_Cursor.m_Sid.m_Height - m_Horizon.m_Local.Lo);
 
-		hRet += RaiseFossil(hTrg);
-	}
+	if (IsBigger2(m_Cursor.m_Sid.m_Height, m_Extra.m_TxoHi, m_Horizon.m_Local.Hi))
+		hRet += RaiseTxoHi(m_Cursor.m_Sid.m_Height - m_Horizon.m_Local.Hi);
 
-	// add some reserve to Lo/Hi, to give some time to fast-syncing peers to download it
-	Height hReserve = Rules::get().Macroblock.MaxRollback / 2;
-	if (m_Cursor.m_Sid.m_Height > hReserve)
-	{
-		Height h = m_Cursor.m_Sid.m_Height - 1 - hReserve;
-
-		if (h > m_Extra.m_TxoLo + m_Horizon.m_SchwarzschildLo)
-			hRet += RaiseTxoLo(h - m_Horizon.m_SchwarzschildLo);
-
-		if (h > m_Extra.m_TxoHi + m_Horizon.m_SchwarzschildHi)
-			hRet += RaiseTxoHi(h - m_Horizon.m_SchwarzschildHi);
-	}
-
-	return hRet;
-}
-
-Height NodeProcessor::RaiseFossil(Height hTrg)
-{
-	if (hTrg <= m_Extra.m_Fossil)
-		return 0;
-
-	Height hRet = 0;
-
-	while (m_Extra.m_Fossil < hTrg)
-	{
-		m_Extra.m_Fossil++;
-
-		NodeDB::WalkerState ws(m_DB);
-		for (m_DB.EnumStatesAt(ws, m_Extra.m_Fossil); ws.MoveNext(); )
-		{
-			if (NodeDB::StateFlags::Active & m_DB.GetStateFlags(ws.m_Sid.m_Row))
-				m_DB.DelStateBlockPP(ws.m_Sid.m_Row);
-			else
-			{
-				m_DB.SetStateNotFunctional(ws.m_Sid.m_Row);
-
-				m_DB.DelStateBlockAll(ws.m_Sid.m_Row);
-				m_DB.set_Peer(ws.m_Sid.m_Row, NULL);
-			}
-
-			hRet++;
-		}
-
-	}
-
-	m_DB.ParamSet(NodeDB::ParamID::FossilHeight, &m_Extra.m_Fossil, NULL);
 	return hRet;
 }
 
@@ -1890,7 +1871,7 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, MultiblockContext& m
 			// make sure no spent txos above the requested h0
 			for (size_t i = 0; i < block.m_vInputs.size(); i++)
 			{
-				if (block.m_vInputs[i]->m_ID >= mbc.m_id0)
+				if (block.m_vInputs[i]->m_Internal.m_ID >= mbc.m_id0)
 				{
 					LOG_WARNING() << LogSid(m_DB, sid) << " Invalid input in sparse block";
 					bOk = false;
@@ -1977,18 +1958,6 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, MultiblockContext& m
 			}
 
 			m_DB.set_StateTxos(sid.m_Row, &m_Extra.m_Txos);
-
-			if (!IsFastSync())
-			{
-				// no need to adjust LoHorizon in batch mode
-				assert(m_Extra.m_LoHorizon <= m_Cursor.m_Sid.m_Height);
-				if (m_Cursor.m_Sid.m_Height - m_Extra.m_LoHorizon > Rules::get().Macroblock.MaxRollback)
-				{
-					m_Extra.m_LoHorizon = m_Cursor.m_Sid.m_Height - Rules::get().Macroblock.MaxRollback;
-					m_DB.ParamSet(NodeDB::ParamID::LoHorizon, &m_Extra.m_LoHorizon, NULL);
-				}
-			}
-
 		}
 		else
             BEAM_VERIFY(HandleValidatedBlock(block.get_Reader(), block, sid.m_Height, false));
@@ -2007,8 +1976,8 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, MultiblockContext& m
 			const Input& x = *block.m_vInputs[i];
 			if (!x.m_pSpendProof)
 			{
-				m_DB.TxoSetSpent(x.m_ID, sid.m_Height);
-				v.emplace_back().Set(x.m_ID, x.m_Commitment);
+				m_DB.TxoSetSpent(x.m_Internal.m_ID, sid.m_Height);
+				v.emplace_back().Set(x.m_Internal.m_ID, x.m_Commitment);
 			}
 		}
 
@@ -2329,7 +2298,7 @@ bool NodeProcessor::HandleBlockElement(const Input& v, Height h, const Height* p
 		if (!pHMax)
 		{
 			Cast::NotConst(v).m_Maturity = d.m_Maturity;
-			Cast::NotConst(v).m_ID = nID;
+			Cast::NotConst(v).m_Internal.m_ID = nID;
 		}
 	} else
 	{
@@ -2344,10 +2313,10 @@ bool NodeProcessor::HandleBlockElement(const Input& v, Height h, const Height* p
 		p = m_Utxos.Find(cu, key, bCreate);
 
 		if (bCreate)
-			p->m_ID = v.m_ID;
+			p->m_ID = v.m_Internal.m_ID;
 		else
 		{
-			m_Utxos.PushID(v.m_ID, *p);
+			m_Utxos.PushID(v.m_Internal.m_ID, *p);
 			cu.InvalidateElement();
 			m_Utxos.OnDirty();
 		}
@@ -2508,7 +2477,7 @@ void NodeProcessor::ToInputWithMaturity(Input& inp, TxoID id)
 	der & outp;
 
 	inp.m_Commitment = outp.m_Commitment;
-	inp.m_ID = id;
+	inp.m_Internal.m_ID = id;
 
 	NodeDB::StateID sidPrev;
 	m_DB.FindStateByTxoID(sidPrev, id); // relatively heavy operation: search for the original txo height
@@ -2659,7 +2628,7 @@ NodeProcessor::DataStatus::Enum NodeProcessor::OnStateInternal(const Block::Syst
 		}
 	}
 
-	if (s.m_Height < m_Extra.m_LoHorizon)
+	if (s.m_Height < get_LowestReturnHeight())
 		return DataStatus::Unreachable;
 
 	if (m_DB.StateFindSafe(id))
@@ -2722,7 +2691,7 @@ NodeProcessor::DataStatus::Enum NodeProcessor::OnBlock(const NodeDB::StateID& si
 		return DataStatus::Rejected;
 	}
 
-	if (sid.m_Height < m_Extra.m_LoHorizon)
+	if (sid.m_Height < get_LowestReturnHeight())
 		return DataStatus::Unreachable;
 
 	m_DB.SetStateBlock(sid.m_Row, bbP, bbE);
@@ -3474,300 +3443,6 @@ void NodeProcessor::ExtractBlockWithExtra(Block::Body& block, const NodeDB::Stat
 	}
 
 	block.NormalizeP();
-}
-
-void NodeProcessor::SquashOnce(std::vector<Block::Body>& v)
-{
-	assert(v.size() >= 2);
-
-	Block::Body& trg = v[v.size() - 2];
-	const Block::Body& src0 = v.back();
-	Block::Body src1 = std::move(trg);
-
-	trg.Merge(src0);
-
-	bool bStop = false;
-	TxVectors::Writer(trg, trg).Combine(src0.get_Reader(), src1.get_Reader(), bStop);
-
-	v.pop_back();
-}
-
-void NodeProcessor::ExportMacroBlock(Block::BodyBase::IMacroWriter& w, const HeightRange& hr)
-{
-	assert(hr.m_Min <= hr.m_Max);
-	NodeDB::StateID sid;
-	sid.m_Row = FindActiveAtStrict(hr.m_Max);
-	sid.m_Height = hr.m_Max;
-
-	std::vector<Block::Body> vBlocks;
-
-	for (uint32_t i = 0; ; i++)
-	{
-		vBlocks.resize(vBlocks.size() + 1);
-		ExtractBlockWithExtra(vBlocks.back(), sid);
-
-		if (hr.m_Min == sid.m_Height)
-			break;
-
-		if (!m_DB.get_Prev(sid))
-			OnCorrupted();
-
-		for (uint32_t j = i; 1 & j; j >>= 1)
-			SquashOnce(vBlocks);
-	}
-
-	while (vBlocks.size() > 1)
-		SquashOnce(vBlocks);
-
-	std::vector<Block::SystemState::Sequence::Element> vElem;
-	Block::SystemState::Sequence::Prefix prefix;
-	ExportHdrRange(hr, prefix, vElem);
-
-	w.put_Start(vBlocks[0], prefix);
-
-	for (size_t i = 0; i < vElem.size(); i++)
-		w.put_NextHdr(vElem[i]);
-
-	w.Dump(vBlocks[0].get_Reader());
-}
-
-void NodeProcessor::ExportHdrRange(const HeightRange& hr, Block::SystemState::Sequence::Prefix& prefix, std::vector<Block::SystemState::Sequence::Element>& v)
-{
-	if (hr.m_Min > hr.m_Max) // can happen for empty range
-		ZeroObject(prefix);
-	else
-	{
-		v.resize(hr.m_Max - hr.m_Min + 1);
-
-		NodeDB::StateID sid;
-		sid.m_Row = FindActiveAtStrict(hr.m_Max);
-		sid.m_Height = hr.m_Max;
-
-		while (true)
-		{
-			Block::SystemState::Full s;
-			m_DB.get_State(sid.m_Row, s);
-
-			v[sid.m_Height - hr.m_Min] = s;
-
-			if (sid.m_Height == hr.m_Min)
-			{
-				prefix = s;
-				break;
-			}
-
-			if (!m_DB.get_Prev(sid))
-				OnCorrupted();
-		}
-	}
-}
-
-bool NodeProcessor::ImportMacroBlock(Block::BodyBase::IMacroReader& r)
-{
-	if (!ImportMacroBlockInternal(r))
-		return false;
-
-	TryGoUp();
-	return true;
-}
-
-bool NodeProcessor::ImportMacroBlockInternal(Block::BodyBase::IMacroReader& r)
-{
-	Block::BodyBase body;
-	Block::SystemState::Full s;
-	Block::SystemState::ID id;
-
-	r.Reset();
-	r.get_Start(body, s);
-
-	id.m_Height = s.m_Height - 1;
-	id.m_Hash = s.m_Prev;
-
-	if ((m_Cursor.m_ID.m_Height + 1 != s.m_Height) || (m_Cursor.m_ID.m_Hash != s.m_Prev))
-	{
-		LOG_WARNING() << "Incompatible state for import. My Tip: " << m_Cursor.m_ID << ", Macroblock starts at " << id;
-		return false; // incompatible beginning state
-	}
-
-	if (r.m_pKernel && r.m_pKernel->m_Maturity < s.m_Height)
-	{
-		LOG_WARNING() << "Kernel maturity OOB";
-		return false; // incompatible beginning state
-	}
-
-	Merkle::CompactMmr cmmr, cmmrKrn;
-	if (m_Cursor.m_ID.m_Height > Rules::HeightGenesis)
-	{
-		Merkle::ProofBuilderHard bld;
-		m_DB.get_Proof(bld, m_Cursor.m_Sid, m_Cursor.m_Sid.m_Height - 1);
-
-		cmmr.m_vNodes.swap(bld.m_Proof);
-		std::reverse(cmmr.m_vNodes.begin(), cmmr.m_vNodes.end());
-		cmmr.m_Count = m_Cursor.m_Sid.m_Height - 1 - Rules::HeightGenesis;
-
-		cmmr.Append(m_Cursor.m_Full.m_Prev);
-	}
-
-	LOG_INFO() << "Verifying headers...";
-
-	for (bool bFirstTime = true ; r.get_NextHdr(s); s.NextPrefix())
-	{
-		// Difficulty check?!
-
-		if (bFirstTime)
-		{
-			bFirstTime = false;
-
-			Difficulty::Raw wrk = m_Cursor.m_Full.m_ChainWork + s.m_PoW.m_Difficulty;
-
-			if (wrk != s.m_ChainWork)
-			{
-				LOG_WARNING() << id << " Chainwork expected=" << wrk << ", actual=" << s.m_ChainWork;
-				return false;
-			}
-		}
-		else
-			s.m_ChainWork += s.m_PoW.m_Difficulty;
-
-		if (id.m_Height >= Rules::HeightGenesis)
-			cmmr.Append(id.m_Hash);
-
-		switch (OnStateInternal(s, id, false))
-		{
-		case DataStatus::Invalid:
-		{
-			LOG_WARNING() << "Invald header encountered: " << id;
-			return false;
-		}
-
-		case DataStatus::Accepted:
-			m_DB.InsertState(s);
-
-		default: // suppress the warning of not handling all the enum values
-			break;
-		}
-
-		// verify kernel commitment
-		cmmrKrn.m_Count = 0;
-		cmmrKrn.m_vNodes.clear();
-
-		// don't care if kernels are out-of-order, this will be handled during the context-free validation.
-		for (; r.m_pKernel && (r.m_pKernel->m_Maturity == s.m_Height); r.NextKernel())
-		{
-			Merkle::Hash hv;
-			r.m_pKernel->get_ID(hv);
-			cmmrKrn.Append(hv);
-		}
-
-		Merkle::Hash hv;
-		cmmrKrn.get_Hash(hv);
-
-		if (s.m_Kernels != hv)
-		{
-			LOG_WARNING() << id << " Kernel commitment mismatch";
-			return false;
-		}
-	}
-
-	if (r.m_pKernel)
-	{
-		LOG_WARNING() << "Kernel maturity OOB";
-		return false;
-	}
-
-	LOG_INFO() << "Context-free validation...";
-
-	if (!VerifyBlock(body, std::move(r), HeightRange(m_Cursor.m_ID.m_Height + 1, id.m_Height)))
-	{
-		LOG_WARNING() << "Context-free verification failed";
-		return false;
-	}
-
-	LOG_INFO() << "Applying macroblock...";
-
-	if (!HandleValidatedBlock(std::move(r), body, m_Cursor.m_ID.m_Height + 1, true, &id.m_Height))
-	{
-		LOG_WARNING() << "Invalid in its context";
-		return false;
-	}
-
-	// evaluate the Definition
-	Merkle::Hash hvDef, hv;
-	cmmr.get_Hash(hv);
-	get_Definition(hvDef, hv);
-
-	if (s.m_Definition != hvDef)
-	{
-		LOG_WARNING() << "Definition mismatch";
-
-        BEAM_VERIFY(HandleValidatedBlock(std::move(r), body, m_Cursor.m_ID.m_Height + 1, false, &id.m_Height));
-
-		return false;
-	}
-
-	// Update DB state flags and cursor. This will also buils the MMR for prev states
-	LOG_INFO() << "Building auxilliary datas...";
-
-	TxVectors::Full txv;
-	TxVectors::Writer txwr(txv, txv);
-	ByteBuffer bbE;
-
-	r.Reset();
-	r.get_Start(body, s);
-	for (bool bFirstTime = true; r.get_NextHdr(s); s.NextPrefix())
-	{
-		if (bFirstTime)
-			bFirstTime = false;
-		else
-			s.m_ChainWork += s.m_PoW.m_Difficulty;
-
-		s.get_ID(id);
-
-		NodeDB::StateID sid;
-		sid.m_Row = m_DB.StateFindSafe(id);
-		if (!sid.m_Row)
-			OnCorrupted();
-
-		m_DB.SetStateFunctional(sid.m_Row);
-
-		m_DB.DelStateBlockPP(sid.m_Row); // if somehow it was downloaded
-
-		txv.m_vKernels.clear();
-		bbE.clear();
-
-		for (; r.m_pKernel && (r.m_pKernel->m_Maturity == s.m_Height); r.NextKernel())
-		{
-			txwr.Write(*r.m_pKernel);
-
-			r.m_pKernel->get_ID(hv);
-			m_DB.InsertKernel(hv, r.m_pKernel->m_Maturity);
-		}
-
-		Serializer ser;
-		ser.swap_buf(bbE);
-		ser & Cast::Down<TxVectors::Eternal>(txv);
-		ser.swap_buf(bbE);
-
-		Blob bEmpty(nullptr, 0);
-		m_DB.SetStateBlock(sid.m_Row, bEmpty, bbE);
-
-		sid.m_Height = id.m_Height;
-		m_DB.MoveFwd(sid);
-	}
-
-	m_Extra.m_LoHorizon = m_Extra.m_Fossil = m_Extra.m_TxoHi = m_Extra.m_TxoLo = id.m_Height;
-
-	m_DB.ParamSet(NodeDB::ParamID::LoHorizon, &id.m_Height, NULL);
-	m_DB.ParamSet(NodeDB::ParamID::FossilHeight, &id.m_Height, NULL);
-	m_DB.ParamSet(NodeDB::ParamID::HeightTxoLo, &id.m_Height, NULL);
-	m_DB.ParamSet(NodeDB::ParamID::HeightTxoHi, &id.m_Height, NULL);
-
-	InitCursor();
-	RescanOwnedTxos();
-
-	LOG_INFO() << "Macroblock import succeeded";
-
-	return true;
 }
 
 TxoID NodeProcessor::get_TxosBefore(Height h)

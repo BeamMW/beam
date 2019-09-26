@@ -131,4 +131,22 @@ namespace beam::bitcoin
         return m_bridge;
     }
 
+    bool Client::CanModify() const
+    {
+        return m_refCount == 0;
+    }
+
+    void Client::AddRef()
+    {
+        ++m_refCount;
+    }
+
+    void Client::Release()
+    {
+        if (m_refCount)
+        {
+            --m_refCount;
+        }
+    }
+
 } // namespace beam::bitcoin

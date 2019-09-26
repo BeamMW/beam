@@ -49,9 +49,7 @@ Item {
         }
     }
     
-    SFText {
-        font.pixelSize: 36
-        color: Style.content_main
+    Title {
         //% "Wallet"
         text: qsTrId("wallet-title")
     }
@@ -62,20 +60,30 @@ Item {
     }
 
     Component {
-        id: wallet_layout
-        Item {            
+        id: walletLayout
+
+        ColumnLayout {
+            id: transactionsLayout
+            Layout.alignment: Qt.AlignTop
+            Layout.fillWidth: true
+            Layout.fillHeight: true
+
+            state: "all"
             
-            Row{
-                anchors.top: parent.top
-                anchors.right: parent.right
-                spacing: 19
+            Row {
+                Layout.alignment: Qt.AlignTop | Qt.AlignRight
+                Layout.topMargin: 33
+                spacing: 20
 
                 CustomButton {
+                    height: 32
                     palette.button: Style.accent_outgoing
                     palette.buttonText: Style.content_opposite
-                    icon.source: "qrc:/assets/icon-send-blue.svg"
+                    icon.source: "qrc:/assets/icon-receive-blue.svg"
                     //% "Send"
                     text: qsTrId("general-send")
+                    font.pixelSize: 12
+                    font.capitalization: Font.AllUppercase
 
                     onClicked: {
                         walletView.push(Qt.createComponent("send.qml"));
@@ -83,11 +91,14 @@ Item {
                 }
 
                 CustomButton {
+                    height: 32
                     palette.button: Style.accent_incoming
                     palette.buttonText: Style.content_opposite
-                    icon.source: "qrc:/assets/icon-receive-blue.svg"
+                    icon.source: "qrc:/assets/icon-send-blue.svg"
                     //% "Receive"
                     text: qsTrId("wallet-receive-button")
+                    font.pixelSize: 12
+                    font.capitalization: Font.AllUppercase
 
                     onClicked: {
                         walletView.push(Qt.createComponent("receive.qml"), {"isSwapView": false});
@@ -96,10 +107,12 @@ Item {
             }
 
             AvailablePanel {
-                y: 100
-                height: 67
-                anchors.left:  parent.left
-                anchors.right: viewModel.beamSending > 0 || viewModel.beamReceiving > 0 ? parent.right : parent.horizontalCenter
+                Layout.topMargin: 28
+                Layout.alignment: Qt.AlignTop | Qt.AlignLeft
+                Layout.maximumHeight: 67
+                Layout.minimumHeight: 67
+
+                width: viewModel.beamSending > 0 || viewModel.beamReceiving > 0 ? parent.width : (parent.width / 2)
 
                 available:         viewModel.beamAvailable
                 locked:            viewModel.beamLocked
@@ -110,12 +123,10 @@ Item {
                 receivingIncoming: viewModel.beamReceivingIncoming
             }
 
-            Item
-            {
-                y: 220
-
-                anchors.left: parent.left
-                anchors.right: parent.right
+            Item {
+                Layout.topMargin: 45
+                Layout.alignment: Qt.AlignTop
+                Layout.fillWidth : true
 
                 SFText {
 
@@ -132,9 +143,53 @@ Item {
                     //% "Transactions"
                     text: qsTrId("wallet-transactions-title")
                 }
+            }
+            
+            RowLayout {
+                Layout.alignment: Qt.AlignTop
+                Layout.fillWidth: true
+                Layout.topMargin: 30
+                spacing: 40
 
+                TxFilter {
+                    id: allTabSelector
+                    Layout.alignment: Qt.AlignTop
+                    Layout.leftMargin: 7
+                    //% "All"
+                    label: qsTrId("wallet-transactions-all-tab")
+                    onClicked: transactionsLayout.state = "all"
+                    capitalization: Font.AllUppercase
+                }
+                TxFilter {
+                    id: inProgressTabSelector
+                    Layout.alignment: Qt.AlignTop
+                    //% "In progress"
+                    label: qsTrId("wallet-transactions-in-progress-tab")
+                    onClicked: transactionsLayout.state = "inProgress"
+                    capitalization: Font.AllUppercase
+                }
+                TxFilter {
+                    id: sentTabSelector
+                    Layout.alignment: Qt.AlignTop
+                    //% "Sent"
+                    label: qsTrId("wallet-transactions-sent-tab")
+                    onClicked: transactionsLayout.state = "sent"
+                    capitalization: Font.AllUppercase
+                }
+                TxFilter {
+                    id: receivedTabSelector
+                    Layout.alignment: Qt.AlignTop
+                    //% "Received"
+                    label: qsTrId("wallet-transactions-received-tab")
+                    onClicked: transactionsLayout.state = "received"
+                    capitalization: Font.AllUppercase
+                }
+                Item {
+                    Layout.alignment: Qt.AlignTop
+                    Layout.fillWidth: true
+                }
                 CustomToolButton {
-                    anchors.right: parent.right
+                    Layout.alignment: Qt.AlignTop | Qt.AlignRight
                     icon.source: "qrc:/assets/icon-proof.svg"
                     //% "Verify payment"
                     ToolTip.text: qsTrId("wallet-verify-payment")
@@ -144,23 +199,55 @@ Item {
                     }
                 }
             }
+            
+            states: [
+                State {
+                    name: "all"
+                    PropertyChanges { target: allTabSelector; state: "active" }
+                    PropertyChanges { target: txProxyModel; filterRole: "status" }
+                    PropertyChanges { target: txProxyModel; filterString: "*" }
+                },
+                State {
+                    name: "inProgress"
+                    PropertyChanges { target: inProgressTabSelector; state: "active" }
+                    PropertyChanges { target: txProxyModel; filterRole: "isInProgress" }
+                    PropertyChanges { target: txProxyModel; filterString: "true" }
+                },
+                State {
+                    name: "sent"
+                    PropertyChanges { target: sentTabSelector; state: "active" }
+                    PropertyChanges { target: txProxyModel; filterRole: "status" }
+                    PropertyChanges { target: txProxyModel; filterString: "sent" }
+                },
+                State {
+                    name: "received"
+                    PropertyChanges { target: receivedTabSelector; state: "active" }
+                    PropertyChanges { target: txProxyModel; filterRole: "status" }
+                    PropertyChanges { target: txProxyModel; filterString: "received" }
+                }
+            ]
 
             CustomTableView {
                 id: transactionsTable
 
-                anchors.fill: parent
-                anchors.topMargin: 255
+                Layout.alignment: Qt.AlignTop
+                Layout.fillWidth : true
+                Layout.fillHeight : true
                 Layout.bottomMargin: 9
 
                 property int rowHeight: 56
                 property int columnWidth: (width - 40) / 5
 
-                // frameVisible: false
                 selectionMode: SelectionMode.NoSelection
-                // backgroundVisible: false
                 sortIndicatorVisible: true
                 sortIndicatorColumn: 0
                 sortIndicatorOrder: Qt.DescendingOrder
+
+                onSortIndicatorColumnChanged: {
+                    sortIndicatorOrder = sortIndicatorColumn != 0
+                        ? Qt.AscendingOrder
+                        : Qt.DescendingOrder;
+                }
 
                 model: SortFilterProxyModel {
                     id: txProxyModel
@@ -221,8 +308,8 @@ Item {
                                 width: transactionsTable.width
 
                                 property var txRolesMap: transactionsTable.model.get(styleData.row)
-                                sendAddress:        txRolesMap.addressTo ? txRolesMap.addressTo : ""
-                                receiveAddress:     txRolesMap.addressFrom ? txRolesMap.addressFrom : ""
+                                sendAddress:        txRolesMap.addressFrom ? txRolesMap.addressFrom : ""
+                                receiveAddress:     txRolesMap.addressTo ? txRolesMap.addressTo : ""
                                 fee:                txRolesMap.fee ? txRolesMap.fee : ""
                                 comment:            txRolesMap.comment ? txRolesMap.comment : ""
                                 txID:               txRolesMap.txID ? txRolesMap.txID : ""
@@ -394,7 +481,7 @@ Item {
                 }
                 TableViewColumn {
                     role: "amountGeneral"
-                    //% "Sent"
+                    //% "Amount"
                     title: qsTrId("general-amount")
                     elideMode: Text.ElideRight
                     width: transactionsTable.columnWidth
@@ -427,11 +514,14 @@ Item {
                             height: transactionsTable.rowHeight
 
                             RowLayout {
+                                Layout.alignment: Qt.AlignLeft
                                 anchors.fill: parent
                                 anchors.leftMargin: 10
+                                spacing: 10
 
                                 SvgImage {
-                                    Layout.alignment: Qt.AlignHCenter
+                                    Layout.alignment: Qt.AlignLeft
+                                    
                                     sourceSize: Qt.size(20, 20)
                                     source: getIconSource()
                                     function getIconSource() {
@@ -444,22 +534,28 @@ Item {
                                     }
                                 }
                                 SFLabel {
-                                    Layout.alignment: Qt.AlignHCenter
+                                    Layout.alignment: Qt.AlignLeft
+                                    
                                     font.pixelSize: 14
                                     font.italic: true
                                     elide: Text.ElideRight
                                     text: getStatusText(styleData.value)
                                     color: getTextColor()
                                     function getTextColor () {
-                                        var item = transactionsTable.model.get(styleData.row);
-                                        if (item.IsInProgress || item.IsCompleted) {
+                                        var item = transactionsTable.model.get(styleData.row);                                        
+                                        if (item.isInProgress || item.isCompleted) {
                                             if (item.isSelfTransaction) {
                                                 return Style.content_main;
                                             }
                                             return item.isIncome ? Style.accent_incoming : Style.accent_outgoing;
                                         }
-                                        else return Style.content_main;
+                                        else {
+                                            return Style.content_main;
+                                        }
                                     }
+                                }
+                                Item {
+                                    Layout.fillWidth: true
                                 }
                             }
                         }
@@ -468,7 +564,7 @@ Item {
                 TableViewColumn {
                     id: actionsColumn
                     elideMode: Text.ElideRight
-                    width: 40
+                    width: transactionsTable.getAdjustedColumnWidth(actionsColumn)
                     movable: false
                     resizable: false
                     delegate: txActions
@@ -560,7 +656,7 @@ Item {
     StackView {
         id: walletView
         anchors.fill: parent
-        initialItem: wallet_layout
+        initialItem: walletLayout
 
         pushEnter: Transition {
             enabled: false
