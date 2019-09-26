@@ -496,6 +496,7 @@ Item {
                                 text: (parent.isIncome ? "+ " : "- ") + styleData.value
                                 fontWeight: Font.Bold
                                 color: parent.isIncome ? Style.accent_incoming : Style.accent_outgoing
+                                onCopyText: BeamGlobals.copyToClipboard(styleData.value.split(" ")[0]) 
                             }
                         }
                     }
