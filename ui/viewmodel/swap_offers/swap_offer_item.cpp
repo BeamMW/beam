@@ -95,6 +95,11 @@ auto SwapOfferItem::isOwnOffer() const -> bool
     return m_isOwnOffer;
 }
 
+auto SwapOfferItem::isBeamSide() const -> bool
+{
+    return m_isBeamSide;
+}
+
 auto SwapOfferItem::getTxParameters() const -> beam::wallet::TxParameters
 {
     return m_offer;

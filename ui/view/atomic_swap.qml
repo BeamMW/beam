@@ -287,6 +287,7 @@ Item {
                         }
 
                         CustomSwitch {
+                            id: sendReceiveBeamSwitch
                             Layout.alignment: Qt.AlignHCenter | Qt.AlignLeft
                             opacity: 0.6
                             onClicked: {
@@ -370,7 +371,18 @@ Item {
 
                         model: SortFilterProxyModel {
                             id: proxyModel
-                            source: viewModel.allOffers
+                            source: SortFilterProxyModel {
+                                source: viewModel.allOffers
+
+                                sortOrder: offersTable.sortIndicatorOrder
+                                sortCaseSensitivity: Qt.CaseInsensitive
+                                sortRole: offersTable.getColumn(offersTable.sortIndicatorColumn).role + "Sort"
+
+                                filterRole: "isBeamSide"
+                                filterString: sendReceiveBeamSwitch.checked ? "false" : "true"
+                                filterSyntax: SortFilterProxyModel.Wildcard
+                                filterCaseSensitivity: Qt.CaseInsensitive
+                            }
 
                             sortOrder: offersTable.sortIndicatorOrder
                             sortCaseSensitivity: Qt.CaseInsensitive
