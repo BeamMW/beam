@@ -24,8 +24,14 @@ CustomTableView {
     sortIndicatorVisible: true
     sortIndicatorColumn: 4
     sortIndicatorOrder: Qt.DescendingOrder
+
     onSortIndicatorColumnChanged: {
-        sortIndicatorOrder = Qt.AscendingOrder;
+        if (sortIndicatorColumn != 3 &&
+            sortIndicatorColumn != 4) {
+            sortIndicatorOrder = Qt.AscendingOrder;
+        } else {
+            sortIndicatorOrder = Qt.DescendingOrder;
+        }
     }
 
     TableViewColumn {
