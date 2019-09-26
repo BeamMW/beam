@@ -52,25 +52,25 @@ namespace beam::wallet
     class SecondSideFactory : public ISecondSideFactory
     {
     public:
-        SecondSideFactory(typename Bridge::Ptr bridge, typename SettingsProvider::Ptr settingsProvider)
-            : m_bridge{ bridge }
+        SecondSideFactory(std::function<typename Bridge::Ptr()> bridgeCreator, typename SettingsProvider::Ptr settingsProvider)
+            : m_bridgeCreator{ bridgeCreator }
             , m_settingsProvider{ settingsProvider }
         {
         }
     private:
         SecondSide::Ptr CreateSecondSide(BaseTransaction& tx, bool isBeamSide) override
         {
-            return std::make_shared<BridgeSide>(tx, m_bridge, m_settingsProvider, isBeamSide);
+            return std::make_shared<BridgeSide>(tx, m_bridgeCreator(), m_settingsProvider, isBeamSide);
         }
     private:
-        typename Bridge::Ptr m_bridge;
+        std::function<typename Bridge::Ptr()> m_bridgeCreator;
         typename SettingsProvider::Ptr m_settingsProvider;
     };
 
     template<typename BridgeSide, typename Bridge, typename SettingsProvider>
-    ISecondSideFactory::Ptr MakeSecondSideFactory(typename Bridge::Ptr bridge, typename SettingsProvider::Ptr settingsProvider)
+    ISecondSideFactory::Ptr MakeSecondSideFactory(std::function<typename Bridge::Ptr()> bridgeCreator, typename SettingsProvider::Ptr settingsProvider)
     {
-        return std::make_shared<SecondSideFactory<BridgeSide, Bridge, SettingsProvider>>(bridge, settingsProvider);
+        return std::make_shared<SecondSideFactory<BridgeSide, Bridge, SettingsProvider>>(bridgeCreator, settingsProvider);
     }
 
     class LockTxBuilder;
