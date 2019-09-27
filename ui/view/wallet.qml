@@ -79,7 +79,7 @@ Item {
                     height: 32
                     palette.button: Style.accent_outgoing
                     palette.buttonText: Style.content_opposite
-                    icon.source: "qrc:/assets/icon-receive-blue.svg"
+                    icon.source: "qrc:/assets/icon-send-blue.svg"
                     //% "Send"
                     text: qsTrId("general-send")
                     font.pixelSize: 12
@@ -94,7 +94,7 @@ Item {
                     height: 32
                     palette.button: Style.accent_incoming
                     palette.buttonText: Style.content_opposite
-                    icon.source: "qrc:/assets/icon-send-blue.svg"
+                    icon.source: "qrc:/assets/icon-receive-blue.svg"
                     //% "Receive"
                     text: qsTrId("wallet-receive-button")
                     font.pixelSize: 12
