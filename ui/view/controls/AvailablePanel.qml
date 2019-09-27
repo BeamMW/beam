@@ -32,8 +32,8 @@ Control {
             radius:   10
             opacity:  0.3
             gradient: Gradient {
-                GradientStop { position: 0.0; color: "#00458f" }
-                GradientStop { position: 1.0; color: "#00B4A3" }
+                GradientStop { position: 0.0; color: Style.swapCurrencyPaneGrRight }
+                GradientStop { position: 1.0; color: Style.swapCurrencyPaneGrLeftBEAM }
             }
         }
     }

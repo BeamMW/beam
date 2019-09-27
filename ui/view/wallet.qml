@@ -50,6 +50,7 @@ Item {
     }
     
     Title {
+        x: 0
         //% "Wallet"
         text: qsTrId("wallet-title")
     }
@@ -72,7 +73,7 @@ Item {
             
             Row {
                 Layout.alignment: Qt.AlignTop | Qt.AlignRight
-                Layout.topMargin: 33
+                Layout.topMargin: 36
                 spacing: 20
 
                 CustomButton {
@@ -107,7 +108,7 @@ Item {
             }
 
             AvailablePanel {
-                Layout.topMargin: 28
+                Layout.topMargin: 27
                 Layout.alignment: Qt.AlignTop | Qt.AlignLeft
                 Layout.maximumHeight: 67
                 Layout.minimumHeight: 67

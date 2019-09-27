@@ -23,18 +23,18 @@ Rectangle {
     Layout.fillWidth: true
     height: 67
     radius: 10
-    color: Style.background_main
+    color: "transparent"
 
     Rectangle {
         anchors.centerIn: parent
         width: parent.height
         height: parent.width
         radius: 10
-        rotation: -90
+        rotation: 90
         opacity: 0.3
         gradient: Gradient {
-            GradientStop { position: 0.0; color: gradLeft }
-            GradientStop { position: 1.0; color: gradRight }
+            GradientStop { position: 0.0; color: gradRight }
+            GradientStop { position: 1.0; color: gradLeft }
         }
         border {
             width: borderSize
@@ -78,8 +78,8 @@ Rectangle {
             SFText {
                 anchors.left: parent.left
                 anchors.right: parent.right
-                leftPadding: 20
-                rightPadding: 20
+                leftPadding: 15
+                rightPadding: 15
                 font.pixelSize: textSize
                 color: textColor
                 elide: Text.ElideRight
