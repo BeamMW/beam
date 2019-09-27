@@ -534,6 +534,11 @@ ColumnLayout {
         }
     }
 
+    Item {
+        Layout.fillHeight: true
+        visible: swapMode
+    }
+
     ScrollView {
         Layout.fillWidth: true
         Layout.fillHeight: true
