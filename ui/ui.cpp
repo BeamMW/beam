@@ -40,6 +40,7 @@
 #include "viewmodel/receive_swap_view.h"
 #include "viewmodel/send_view.h"
 #include "viewmodel/send_swap_view.h"
+#include "viewmodel/el_seed_validator.h"
 #include "viewmodel/currencies.h"
 #include "model/app_model.h"
 #include "viewmodel/qml_globals.h"
@@ -230,6 +231,7 @@ int main (int argc, char* argv[])
             qmlRegisterType<ReceiveSwapViewModel>("Beam.Wallet", 1, 0, "ReceiveSwapViewModel");
             qmlRegisterType<SendViewModel>("Beam.Wallet", 1, 0, "SendViewModel");
             qmlRegisterType<SendSwapViewModel>("Beam.Wallet", 1, 0, "SendSwapViewModel");
+            qmlRegisterType<ELSeedValidator>("Beam.Wallet", 1, 0, "ELSeedValidator");
 
             qmlRegisterType<AddressItem>("Beam.Wallet", 1, 0, "AddressItem");
             qmlRegisterType<ContactItem>("Beam.Wallet", 1, 0, "ContactItem");

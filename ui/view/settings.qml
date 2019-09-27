@@ -1021,7 +1021,10 @@ ColumnLayout {
                                 anchors.fill: parent
                                 acceptedButtons: Qt.LeftButton
                                 onClicked: {
-                                    Utils.handleExternalLink(mouse, allowOpenExternalArea, viewModel, externalLinkConfirmation);
+                                    if(!Utils.handleExternalLink(mouse, allowOpenExternalArea, viewModel, externalLinkConfirmation))
+                                    {
+                                        viewModel.isAllowedBeamMWLinks = !viewModel.isAllowedBeamMWLinks;
+                                    }
                                 }
                                 hoverEnabled: true
                                 onPositionChanged : {
