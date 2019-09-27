@@ -61,25 +61,26 @@ Item {
             id: atomicSwapLayout
             Layout.fillWidth: true
             Layout.fillHeight: true
-
+            spacing: 0
             state: "offers"
 
             RowLayout {
                 Layout.alignment: Qt.AlignRight | Qt.AlignTop
-                Layout.topMargin: 36
+                Layout.topMargin: 33
                 spacing: 20
 
                 CustomButton {
                     id: acceptOfferButton
                     Layout.minimumWidth: 172
-                    Layout.minimumHeight: 32
+                    Layout.preferredHeight: 32
+                    Layout.maximumHeight: 32
                     palette.button: Style.accent_outgoing
                     palette.buttonText: Style.content_opposite
                     icon.source: "qrc:/assets/icon-receive-blue.svg"
                     //% "Accept offer"
                     text: qsTrId("atomic-swap-accept")
                     font.pixelSize: 12
-                    font.capitalization: Font.AllUppercase
+                    //font.capitalization: Font.AllUppercase
 
                     onClicked: {
                         offersStackView.push(Qt.createComponent("send.qml"));
@@ -91,14 +92,15 @@ Item {
                 CustomButton {
                     id: sendOfferButton
                     Layout.minimumWidth: 172
-                    Layout.minimumHeight: 32
+                    Layout.preferredHeight: 32
+                    Layout.maximumHeight: 32
                     palette.button: Style.accent_incoming
                     palette.buttonText: Style.content_opposite
                     icon.source: "qrc:/assets/icon-send-blue.svg"
                     //% "Create offer"
                     text: qsTrId("atomic-swap-create")
                     font.pixelSize: 12
-                    font.capitalization: Font.AllUppercase
+                    //font.capitalization: Font.AllUppercase
 
                     onClicked: {
                         offersStackView.push(Qt.createComponent("receive.qml"), {"isSwapMode": true});
@@ -108,7 +110,8 @@ Item {
 
             RowLayout {
                 Layout.alignment: Qt.AlignLeft | Qt.AlignTop
-                Layout.topMargin: 27
+                Layout.fillWidth: true
+                Layout.topMargin: 32
                 spacing: 10
 
                 SwapCurrencyAmountPane {
@@ -198,6 +201,7 @@ Item {
                     //% "Connect other currency wallet to start trading"
                     valueStr: qsTrId("atomic-swap-connect-other")
                     textSize: 14
+                    rectOpacity: 1.0
                     textColor: Style.active
                     isOk: true
                     borderSize: 1
@@ -232,7 +236,6 @@ Item {
                 TxFilter {
                     id: offersTabSelector
                     Layout.alignment: Qt.AlignTop
-                    Layout.leftMargin: 7
                     //% "Active offers"
                     label: qsTrId("atomic-swap-active-offers-tab")
                     onClicked: atomicSwapLayout.state = "offers"
@@ -242,7 +245,6 @@ Item {
                 TxFilter {
                     id: transactionsTabSelector
                     Layout.alignment: Qt.AlignTop
-                    Layout.leftMargin: 40
                     //% "Transactions"
                     label: qsTrId("atomic-swap-transactions-tab")
                     onClicked: atomicSwapLayout.state = "transactions"
@@ -560,8 +562,6 @@ Item {
 
                         TxFilter {
                             id: allTabSelector
-                            Layout.rightMargin: 40
-                            Layout.leftMargin: 7
                             //% "All"
                             label: qsTrId("atomic-swap-all-transactions-tab")
                             onClicked: transactionsTab.state = "filterAllTransactions"

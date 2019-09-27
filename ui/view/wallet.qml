@@ -68,12 +68,12 @@ Item {
             Layout.alignment: Qt.AlignTop
             Layout.fillWidth: true
             Layout.fillHeight: true
-
+            spacing: 0
             state: "all"
             
             Row {
                 Layout.alignment: Qt.AlignTop | Qt.AlignRight
-                Layout.topMargin: 36
+                Layout.topMargin: 33
                 spacing: 20
 
                 CustomButton {
@@ -84,7 +84,7 @@ Item {
                     //% "Send"
                     text: qsTrId("general-send")
                     font.pixelSize: 12
-                    font.capitalization: Font.AllUppercase
+                    //font.capitalization: Font.AllUppercase
 
                     onClicked: {
                         walletView.push(Qt.createComponent("send.qml"));
@@ -99,7 +99,7 @@ Item {
                     //% "Receive"
                     text: qsTrId("wallet-receive-button")
                     font.pixelSize: 12
-                    font.capitalization: Font.AllUppercase
+                    //font.capitalization: Font.AllUppercase
 
                     onClicked: {
                         walletView.push(Qt.createComponent("receive.qml"), {"isSwapView": false});
@@ -108,7 +108,7 @@ Item {
             }
 
             AvailablePanel {
-                Layout.topMargin: 27
+                Layout.topMargin: 32
                 Layout.alignment: Qt.AlignTop | Qt.AlignLeft
                 Layout.maximumHeight: 67
                 Layout.minimumHeight: 67
@@ -150,12 +150,10 @@ Item {
                 Layout.alignment: Qt.AlignTop
                 Layout.fillWidth: true
                 Layout.topMargin: 30
-                spacing: 40
 
                 TxFilter {
                     id: allTabSelector
                     Layout.alignment: Qt.AlignTop
-                    Layout.leftMargin: 7
                     //% "All"
                     label: qsTrId("wallet-transactions-all-tab")
                     onClicked: transactionsLayout.state = "all"

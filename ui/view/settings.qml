@@ -154,7 +154,6 @@ ColumnLayout {
             TxFilter {
                 id: btcTabSelector
                 Layout.alignment: Qt.AlignTop
-                Layout.leftMargin: 7
                 label: qsTrId("general-bitcoin")
                 onClicked: swapLayout.state = "swap-btc"
                 capitalization: Font.AllUppercase
@@ -163,7 +162,6 @@ ColumnLayout {
             TxFilter {
                 id: ltcTabSelector
                 Layout.alignment: Qt.AlignTop
-                Layout.leftMargin: 17
                 label: qsTrId("general-litecoin")
                 onClicked: swapLayout.state = "swap-ltc"
                 capitalization: Font.AllUppercase
@@ -172,7 +170,6 @@ ColumnLayout {
             TxFilter {
                 id: qtumTabSelector
                 Layout.alignment: Qt.AlignTop
-                Layout.leftMargin: 17
                 label: qsTrId("general-qtum")
                 onClicked: swapLayout.state = "swap-qtum"
                 capitalization: Font.AllUppercase

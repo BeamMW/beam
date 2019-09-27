@@ -10,7 +10,7 @@ Item  {
     property string label
     property var capitalization: Font.MixedCase
 
-    width: text_label.width
+    width: led.width
     height: 20
 
     state: "normal"
@@ -39,10 +39,10 @@ Item  {
     Rectangle {
         id: led
 
-        anchors.horizontalCenter: parent.horizontalCenter
+//        anchors.horizontalCenter: parent.horizontalCenter
         anchors.bottom: parent.bottom
 
-        width: text_label.width + 16
+        width: text_label.width + 16*2
         height: 2
 
         color: Style.active
@@ -63,6 +63,8 @@ Item  {
     states: [
         State {
             name: "normal"
+            PropertyChanges {target: text_label; font.weight: Font.Normal}
+            PropertyChanges {target: text_label; font.styleName: "Normal"}
         },
         State {
             name: "active"

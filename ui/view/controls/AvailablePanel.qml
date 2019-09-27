@@ -28,6 +28,7 @@ Control {
             width:  parent.height
             height: parent.width
             anchors.centerIn: parent
+            anchors.alignWhenCentered: false
             rotation: 90
             radius:   10
             opacity:  0.3
