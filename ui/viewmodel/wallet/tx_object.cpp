@@ -61,10 +61,10 @@ auto TxObject::getSwapCoinName() const -> QString
     {
         switch (coin)
         {
-            case AtomicSwapCoin::Bitcoin:   return QString(beamui::coinTypeBtc);
-            case AtomicSwapCoin::Litecoin:  return QString(beamui::coinTypeLtc);
-            case AtomicSwapCoin::Qtum:      return QString(beamui::coinTypeQtum);
-            case AtomicSwapCoin::Unknown:   return QString(beamui::coinTypeUnknown);
+            case AtomicSwapCoin::Bitcoin:   return toString(beamui::Currencies::Bitcoin);
+            case AtomicSwapCoin::Litecoin:  return toString(beamui::Currencies::Litecoin);
+            case AtomicSwapCoin::Qtum:      return toString(beamui::Currencies::Qtum);
+            case AtomicSwapCoin::Unknown:   return toString(beamui::Currencies::Unknown);
         }
     }
     return QString("unknown");

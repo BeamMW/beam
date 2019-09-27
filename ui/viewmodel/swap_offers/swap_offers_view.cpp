@@ -312,17 +312,17 @@ int SwapOffersViewModel::getActiveTxCount() const
 
 bool SwapOffersViewModel::hasBtcTx() const
 {
-    return hasActiveTx(beamui::coinTypeBtc);
+    return hasActiveTx(toStdString(beamui::Currencies::Bitcoin));
 }
 
 bool SwapOffersViewModel::hasLtcTx() const
 {
-    return hasActiveTx(beamui::coinTypeLtc);
+    return hasActiveTx(toStdString(beamui::Currencies::Bitcoin));
 }
 
 bool SwapOffersViewModel::hasQtumTx() const
 {
-    return hasActiveTx(beamui::coinTypeQtum);
+    return hasActiveTx(toStdString(beamui::Currencies::Bitcoin));
 }
 
 bool SwapOffersViewModel::hasActiveTx(const std::string& swapCoin) const
