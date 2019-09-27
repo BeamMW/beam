@@ -52,8 +52,7 @@ function handleExternalLink(mouse, element, settings, dialog) {
             };
             dialog.open();
         }
-    } else {
-        settings.isAllowedBeamMWLinks = !settings.isAllowedBeamMWLinks;
+        return true;
     }
 }
 
