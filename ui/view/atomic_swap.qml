@@ -359,7 +359,7 @@ Item {
                         Layout.topMargin: 14
 
                         property int rowHeight: 56
-                        property int columnWidth: (width - 66) / 6
+                        property int columnWidth: (width - swapCoinsColumn.width) / 6
 
                         frameVisible: false
                         selectionMode: SelectionMode.NoSelection
@@ -411,10 +411,37 @@ Item {
                         }
 
                         TableViewColumn {
-                            // role: ""
-                            width: 66
+                            id: swapCoinsColumn
+                            role: "swapCoin"
+                            width: 55
                             movable: false
                             resizable: false
+                            elideMode: Text.ElideRight
+                            delegate: Item {
+                                id: coinLabels
+                                width: parent.width
+                                height: transactionsTable.rowHeight
+                                property var swapCoin: styleData.value
+                                property var isSendBeam: transactionsTable.model.get(styleData.row).isBeamSide
+                                
+                                anchors.fill: parent
+                                anchors.leftMargin: 20
+                                anchors.rightMargin: 20
+                                anchors.topMargin: 18
+
+                                RowLayout {
+                                    layoutDirection: Qt.RightToLeft
+                                    spacing: -4
+                                    SvgImage {
+                                        sourceSize: Qt.size(20, 20)
+                                        source: isSendBeam ? "qrc:/assets/icon-beam.svg" : getCoinIcon(swapCoin)
+                                    }
+                                    SvgImage {
+                                        sourceSize: Qt.size(20, 20)
+                                        source: isSendBeam ? getCoinIcon(swapCoin) : "qrc:/assets/icon-beam.svg"
+                                    }
+                                }
+                            }
                         }
 
                         TableViewColumn {
@@ -584,7 +611,7 @@ Item {
                         Layout.topMargin: 12
 
                         property int rowHeight: 56
-                        property int columnWidth: (width - 95) / 6
+                        property int columnWidth: (width - txSwapCoinsColumn.width - 40) / 6
 
                         frameVisible: false
                         selectionMode: SelectionMode.NoSelection
@@ -795,6 +822,7 @@ Item {
                         }
 
                         TableViewColumn {
+                            id: txSwapCoinsColumn
                             role: "swapCoin"
                             width: 55
                             movable: false
@@ -807,25 +835,25 @@ Item {
                                 property var swapCoin: styleData.value
                                 property var isSendBeam: transactionsTable.model.get(styleData.row).isBeamSideSwap
                                 
-                                    anchors.fill: parent
-                                    anchors.leftMargin: 20
-                                    anchors.rightMargin: 20
-                                    anchors.topMargin: 18
+                                anchors.fill: parent
+                                anchors.leftMargin: 20
+                                anchors.rightMargin: 20
+                                anchors.topMargin: 18
 
-                                    RowLayout {
-                                        layoutDirection: Qt.RightToLeft
-                                        spacing: -4
-                                        SvgImage {
-                                            sourceSize: Qt.size(20, 20)
-                                            source: isSendBeam ? getCoinIcon(swapCoin) : "qrc:/assets/icon-beam.svg"
-                                        }
-                                        SvgImage {
-                                            sourceSize: Qt.size(20, 20)
-                                            source: isSendBeam ? "qrc:/assets/icon-beam.svg" : getCoinIcon(swapCoin)
-                                        }
+                                RowLayout {
+                                    layoutDirection: Qt.RightToLeft
+                                    spacing: -4
+                                    SvgImage {
+                                        sourceSize: Qt.size(20, 20)
+                                        source: isSendBeam ? getCoinIcon(swapCoin) : "qrc:/assets/icon-beam.svg"
+                                    }
+                                    SvgImage {
+                                        sourceSize: Qt.size(20, 20)
+                                        source: isSendBeam ? "qrc:/assets/icon-beam.svg" : getCoinIcon(swapCoin)
                                     }
                                 }
                             }
+                        }
 
                         TableViewColumn {
                             role: "timeCreated"

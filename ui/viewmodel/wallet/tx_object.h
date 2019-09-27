@@ -23,11 +23,6 @@ class TxObject : public QObject
     Q_OBJECT
 
 public:
-    static const char* coinTypeBtc;
-    static const char* coinTypeLtc;
-    static const char* coinTypeQtum;
-    static const char* coinTypeUnknown;
-
     TxObject(QObject* parent = nullptr);
     TxObject(const beam::wallet::TxDescription& tx, QObject* parent = nullptr);
 
@@ -57,7 +52,7 @@ public:
     bool isSelfTx() const;
 
     auto isBeamSideSwap() const -> bool;
-    auto getSwapCoinType() const -> QString;
+    auto getSwapCoinName() const -> QString;
 
     void setKernelID(const QString& value);
     void setStatus(beam::wallet::TxStatus status);

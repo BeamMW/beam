@@ -13,6 +13,11 @@ namespace beamui
         Unknown
     };
 
+    static const char* coinTypeBtc = "btc";
+    static const char* coinTypeLtc = "ltc";
+    static const char* coinTypeQtum = "qtum";
+    static const char* coinTypeUnknown = "unknown";
+
     QString toString(const beam::wallet::WalletID&);
     QString toString(const beam::Merkle::Hash&);
     QString AmountToString(const beam::Amount& value, Currencies coinType);
