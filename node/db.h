@@ -43,7 +43,7 @@ public:
 			DbVer,
 			CursorRow,
 			CursorHeight,
-			Deprecated_1,
+			FossilHeight, // Height starting from which and below original blocks are erased
 			CfgChecksum,
 			MyID,
 			SyncTarget, // deprecated
