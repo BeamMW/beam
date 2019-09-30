@@ -76,7 +76,7 @@ Item {
                     Layout.maximumHeight: 32
                     palette.button: Style.accent_outgoing
                     palette.buttonText: Style.content_opposite
-                    icon.source: "qrc:/assets/icon-receive-blue.svg"
+                    icon.source: "qrc:/assets/icon-accept-offer.svg"
                     //% "Accept offer"
                     text: qsTrId("atomic-swap-accept")
                     font.pixelSize: 12
@@ -96,7 +96,7 @@ Item {
                     Layout.maximumHeight: 32
                     palette.button: Style.accent_incoming
                     palette.buttonText: Style.content_opposite
-                    icon.source: "qrc:/assets/icon-send-blue.svg"
+                    icon.source: "qrc:/assets/icon-create-offer.svg"
                     //% "Create offer"
                     text: qsTrId("atomic-swap-create")
                     font.pixelSize: 12
@@ -422,9 +422,9 @@ Item {
                             delegate: Item {
                                 id: coinLabels
                                 width: parent.width
-                                height: transactionsTable.rowHeight
+                                height: offersTable.rowHeight
                                 property var swapCoin: styleData.value
-                                property var isSendBeam: transactionsTable.model.get(styleData.row).isBeamSide
+                                property var isSendBeam: offersTable.model.get(styleData.row).isBeamSide
                                 
                                 anchors.fill: parent
                                 anchors.leftMargin: 20
@@ -636,7 +636,7 @@ Item {
 
                         rowDelegate: Item {
                             id: rowItem
-                            height: transactionsTable.rowHeight
+                            height: collapsed ? transactionsTable.rowHeight : transactionsTable.rowHeight + txDetails.maximumHeight
                             anchors.left: parent.left
                             anchors.right: parent.right
                             property bool collapsed: true
@@ -674,7 +674,7 @@ Item {
                                         anchors.fill: parent
                                         color: Style.background_details
                                     }
-                                    TransactionDetails {
+                                    SwapTransactionDetails {
                                         id: detailsPanel
                                         width: transactionsTable.width
 
@@ -729,7 +729,7 @@ Item {
                             MouseArea {
                                 anchors.top: parent.top
                                 anchors.left: parent.left
-                                height: rowItem.height
+                                height: transactionsTable.rowHeight
                                 width: parent.width
 
                                 acceptedButtons: Qt.LeftButton | Qt.RightButton
