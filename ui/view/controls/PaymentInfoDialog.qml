@@ -38,7 +38,7 @@
 
         background: Rectangle {
             radius: 10
-            color: Style.background_second
+            color: Style.background_popup
             anchors.fill: parent
         }
 

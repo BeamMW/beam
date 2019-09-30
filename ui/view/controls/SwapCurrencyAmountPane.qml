@@ -4,6 +4,7 @@ import QtQuick.Layouts 1.3
 Rectangle {
     property color borderColor: Style.swapCurrencyOptionsBorder
     property int borderSize: 0
+    property alias rectOpacity: rect.opacity
     property color gradLeft: Style.swapCurrencyPaneGrLeftBEAM
     property color gradRight: Style.swapCurrencyPaneGrRight
     property string currencyIcon: ""
@@ -22,15 +23,16 @@ Rectangle {
 
     Layout.fillWidth: true
     height: 67
-    radius: 10
     color: "transparent"
 
     Rectangle {
-        anchors.centerIn: parent
-        width: parent.height
+        id: rect
+        width:  parent.height
         height: parent.width
-        radius: 10
+        anchors.centerIn: parent
+        anchors.alignWhenCentered: false
         rotation: 90
+        radius:   10
         opacity: 0.3
         gradient: Gradient {
             GradientStop { position: 0.0; color: gradRight }
@@ -78,8 +80,8 @@ Rectangle {
             SFText {
                 anchors.left: parent.left
                 anchors.right: parent.right
-                leftPadding: 15
-                rightPadding: 15
+                leftPadding: 20
+                rightPadding: 20
                 font.pixelSize: textSize
                 color: textColor
                 elide: Text.ElideRight

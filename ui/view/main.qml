@@ -94,9 +94,9 @@ Rectangle {
                 Item {
                     id: control
                     width: parent.width
-                    height: parent.width
+                    height: 66
                     activeFocusOnTab: true
-                    
+
                     SvgImage {
 						id: icon
                         x: 21
