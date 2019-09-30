@@ -1,0 +1,90 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!-- Created with Inkscape (http://www.inkscape.org/) -->
+
+<svg
+   xmlns:dc="http://purl.org/dc/elements/1.1/"
+   xmlns:cc="http://creativecommons.org/ns#"
+   xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+   xmlns:svg="http://www.w3.org/2000/svg"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   width="210mm"
+   height="297mm"
+   viewBox="0 0 210 297"
+   version="1.1"
+   id="svg8"
+   inkscape:version="0.92.4 (5da689c313, 2019-01-14)"
+   sodipodi:docname="q-regular.svg">
+  <defs
+     id="defs2" />
+  <sodipodi:namedview
+     id="base"
+     pagecolor="#ffffff"
+     bordercolor="#666666"
+     borderopacity="1.0"
+     inkscape:pageopacity="0.0"
+     inkscape:pageshadow="2"
+     inkscape:zoom="1.4"
+     inkscape:cx="303.08493"
+     inkscape:cy="203.73018"
+     inkscape:document-units="mm"
+     inkscape:current-layer="layer1"
+     showgrid="false"
+     inkscape:window-width="3840"
+     inkscape:window-height="2066"
+     inkscape:window-x="3829"
+     inkscape:window-y="-11"
+     inkscape:window-maximized="1" />
+  <metadata
+     id="metadata5">
+    <rdf:RDF>
+      <cc:Work
+         rdf:about="">
+        <dc:format>image/svg+xml</dc:format>
+        <dc:type
+           rdf:resource="http://purl.org/dc/dcmitype/StillImage" />
+        <dc:title></dc:title>
+      </cc:Work>
+    </rdf:RDF>
+  </metadata>
+  <g
+     inkscape:label="Layer 1"
+     inkscape:groupmode="layer"
+     id="layer1">
+    <g
+       id="Page-1"
+       transform="matrix(8.5459294,0,0,8.5459294,3.6366193,75.299204)"
+       style="fill:none;fill-rule:evenodd;stroke:none;stroke-width:1">
+      <g
+         transform="translate(-110,-111)"
+         id="currency-symbol-qtum"
+         style="fill:#000000">
+        <g
+           transform="translate(110,111)"
+           id="Group">
+          <path
+             id="Combined-Shape"
+             d="M 11,0 C 17.075132,0 22,4.7010101 22,10.5 22,16.29899 17.075132,21 11,21 4.9248677,21 0,16.29899 0,10.5 0,4.7010101 4.9248677,0 11,0 Z m 0,2 C 6.0294372,2 2,5.8055796 2,10.5 2,15.19442 6.0294372,19 11,19 15.970563,19 20,15.19442 20,10.5 20,5.8055796 15.970563,2 11,2 Z"
+             inkscape:connector-curvature="0" />
+          <path
+             id="path390"
+             d="m 10.057511,14 c 3.145868,0 5.962397,1.276219 7.852039,3.287828 0.402396,0.428368 -0.574927,0.687405 -2.194908,0.805415 -1.52625,-1.240326 -3.497306,-2.008482 -5.657131,-2.008482 -1.8594785,0 -3.5919427,0.535702 -5.0239149,1.443265 C 3.4826752,17.229952 2.6150671,16.842313 3.1666509,16.392814 4.9919728,14.905313 7.4079307,14 10.057511,14 Z"
+             inkscape:connector-curvature="0" />
+          <polygon
+             points="22.424049,15.433539 22.492299,21.094223 20.560548,21.079242 20.492299,15.418558 "
+             transform="rotate(-35,21.492299,18.25639)"
+             id="Rectangle" />
+          <polygon
+             points="19.979845,18.25101 20.036034,22.882479 18.092223,22.867498 18.036034,18.23603 "
+             transform="rotate(-35,19.036034,20.559254)"
+             id="polygon393" />
+          <polygon
+             points="22.402073,15.321593 22.457002,20.982277 20.902274,20.967296 20.847345,15.306612 "
+             transform="rotate(-35,21.652174,18.144444)"
+             id="polygon395" />
+        </g>
+      </g>
+    </g>
+  </g>
+</svg>

@@ -46,7 +46,7 @@ namespace beamui
                 break;
 
             case Currencies::Qtum:
-                coinSign = QString::fromUtf16((const char16_t*)(L" \uFFFD"));
+                coinSign = QString::fromUtf16((const char16_t*)(L" \uEAFD"));
                 break;
 
             case Currencies::Unknown:
