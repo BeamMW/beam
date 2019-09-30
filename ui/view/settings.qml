@@ -91,9 +91,9 @@ ColumnLayout {
 
     RowLayout {
         id: mainColumn
-        Layout.fillWidth:       true
-        Layout.preferredHeight: 40
-        Layout.alignment:       Qt.AlignTop
+        Layout.fillWidth:     true
+        Layout.minimumHeight: 40
+        Layout.alignment:     Qt.AlignTop
 
         Title {
             //% "Settings"
@@ -609,6 +609,7 @@ ColumnLayout {
     Item {
         Layout.fillHeight: true
         visible: swapMode
+        Layout.bottomMargin: 10
     }
 
     ScrollView {
