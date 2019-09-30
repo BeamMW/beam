@@ -418,7 +418,7 @@ void AppModel::InitBtcClient()
 
     auto settingsProvider = std::make_unique<bitcoin::SettingsProvider>(m_db);
     settingsProvider->Initialize();
-    m_bitcoinClient = std::make_shared<SwapCoinClientModel>(AtomicSwapCoin::Bitcoin, bitcoinBridgeCreator, std::move(settingsProvider), *m_walletReactor);
+    m_bitcoinClient = std::make_shared<SwapCoinClientModel>(bitcoinBridgeCreator, std::move(settingsProvider), *m_walletReactor);
 }
 
 void AppModel::InitLtcClient()
@@ -433,7 +433,7 @@ void AppModel::InitLtcClient()
 
     auto settingsProvider = std::make_unique<litecoin::SettingsProvider>(m_db);
     settingsProvider->Initialize();
-    m_litecoinClient = std::make_shared<SwapCoinClientModel>(AtomicSwapCoin::Litecoin, ltcBridgeCreator, std::move(settingsProvider), *m_walletReactor);
+    m_litecoinClient = std::make_shared<SwapCoinClientModel>(ltcBridgeCreator, std::move(settingsProvider), *m_walletReactor);
 }
 
 void AppModel::InitQtumClient()
@@ -448,5 +448,5 @@ void AppModel::InitQtumClient()
 
     auto settingsProvider = std::make_unique<qtum::SettingsProvider>(m_db);
     settingsProvider->Initialize();
-    m_qtumClient = std::make_shared<SwapCoinClientModel>(AtomicSwapCoin::Qtum, qtumBridgeCreator, std::move(settingsProvider), *m_walletReactor);
+    m_qtumClient = std::make_shared<SwapCoinClientModel>(qtumBridgeCreator, std::move(settingsProvider), *m_walletReactor);
 }

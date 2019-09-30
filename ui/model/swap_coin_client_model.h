@@ -17,7 +17,6 @@
 #include <QObject>
 #include <QTimer>
 #include "wallet/bitcoin/client.h"
-#include "model/wallet_model.h"
 
 class SwapCoinClientModel
     : public QObject
@@ -27,14 +26,11 @@ class SwapCoinClientModel
 public:
     using Ptr = std::shared_ptr<SwapCoinClientModel>;
 
-    SwapCoinClientModel(beam::wallet::AtomicSwapCoin swapCoin,
-        beam::bitcoin::Client::CreateBridge bridgeCreator,
+    SwapCoinClientModel(beam::bitcoin::Client::CreateBridge bridgeCreator,
         std::unique_ptr<beam::bitcoin::SettingsProvider> settingsProvider,
         beam::io::Reactor& reactor);
 
     double getAvailable();
-    double getReceiving();
-    double getSending();
     beam::bitcoin::Client::Status getStatus() const;
 
 signals:
@@ -49,17 +45,9 @@ private:
 
 private slots:
     void onTimer();
-    void onTxStatus(beam::wallet::ChangeAction, const std::vector<beam::wallet::TxDescription>&);
 
 private:
     QTimer m_timer;
     Client::Balance m_balance;
     Status m_status = Status::Unknown;
-    double m_receiving = 0;
-    double m_sending = 0;
-    std::weak_ptr<WalletModel> m_walletModel;
-    beam::io::Reactor& m_reactor;
-    beam::wallet::AtomicSwapCoin m_swapCoin;
-
-    std::map<beam::wallet::TxID, beam::wallet::TxDescription> m_transactions;
 };
