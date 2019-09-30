@@ -211,6 +211,28 @@ ColumnLayout {
             Layout.fillWidth:  true
             spacing:           10
 
+            Item {
+                Layout.fillWidth: true
+                visible:          !viewModel.canEditBTC
+            }
+
+            SFText {
+                Layout.topMargin:     100
+                visible:              !viewModel.canEditBTC
+                horizontalAlignment:  Text.AlignHCenter
+                font.pixelSize:       20
+                wrapMode:             Text.WordWrap
+                color:                Style.content_secondary
+                lineHeight:           1.2
+                //% "You cannot change settings\nwhile active transaction is in progress"
+                text:                 qsTrId("settings-progress-na")
+            }
+
+            Item {
+                Layout.fillWidth: true
+                visible:          !viewModel.canEditBTC
+            }
+
             SwapNodeSettings {
                 id:               btcSettings
                 //% "Bitcoin"
@@ -223,6 +245,7 @@ ColumnLayout {
                 feeRateLabel:        BeamGlobals.btcFeeRateLabel()
                 Layout.minimumWidth: swapBtcGrid.width / 2 - swapBtcGrid.spacing - btcUseEL.width / 2
                 opacity:             viewModel.btcUseEL ? 0.4 : 1
+                visible:             viewModel.canEditBTC
 
                 Connections {
                     target: viewModel
@@ -265,6 +288,7 @@ ColumnLayout {
                 spacing:  0
                 colored:  false
                 checked:  viewModel.btcUseEL
+                visible:  viewModel.canEditBTC
                 Binding {
                    target: viewModel
                    property: "btcUseEL"
@@ -283,6 +307,7 @@ ColumnLayout {
                 feeRateLabel:     BeamGlobals.btcFeeRateLabel()
                 Layout.fillWidth: true
                 opacity:          viewModel.btcUseEL ? 1 : 0.4
+                visible:          viewModel.canEditBTC
 
                 Connections {
                     target: viewModel
@@ -320,6 +345,28 @@ ColumnLayout {
             Layout.fillWidth:  true
             spacing:           10
 
+            Item {
+                Layout.fillWidth: true
+                visible:          !viewModel.canEditLTC
+            }
+
+            SFText {
+                Layout.topMargin:     100
+                visible:              !viewModel.canEditLTC
+                horizontalAlignment:  Text.AlignHCenter
+                font.pixelSize:       20
+                wrapMode:             Text.WordWrap
+                color:                Style.content_secondary
+                lineHeight:           1.2
+                //% "You cannot change settings\nwhile active transaction is in progress"
+                text:                 qsTrId("settings-progress-na")
+            }
+
+            Item {
+                Layout.fillWidth: true
+                visible:          !viewModel.canEditLTC
+            }
+
             SwapNodeSettings {
                 id:                ltcSettings
                 //% "Litecoin"
@@ -332,6 +379,7 @@ ColumnLayout {
                 feeRateLabel:        BeamGlobals.ltcFeeRateLabel()
                 Layout.minimumWidth: swapLtcGrid.width / 2 - swapLtcGrid.spacing - ltcUseEL.width  / 2
                 opacity:             viewModel.ltcUseEL ? 0.4 : 1
+                visible:             viewModel.canEditLTC
 
                 Connections {
                     target: viewModel
@@ -374,6 +422,7 @@ ColumnLayout {
                 spacing:  0
                 colored:  false
                 checked:  viewModel.ltcUseEL
+                visible:  viewModel.canEditLTC
                 Binding {
                    target: viewModel
                    property: "ltcUseEL"
@@ -392,6 +441,7 @@ ColumnLayout {
                 feeRateLabel:        BeamGlobals.ltcFeeRateLabel()
                 Layout.fillWidth:    true
                 opacity:             viewModel.ltcUseEL ? 1 : 0.4
+                visible:             viewModel.canEditLTC
 
                 Connections {
                     target: viewModel
@@ -429,6 +479,28 @@ ColumnLayout {
             Layout.fillWidth:  true
             spacing:           10
 
+            Item {
+                Layout.fillWidth: true
+                visible:          !viewModel.canEditQTUM
+            }
+
+            SFText {
+                Layout.topMargin:     100
+                visible:              !viewModel.canEditQTUM
+                horizontalAlignment:  Text.AlignHCenter
+                font.pixelSize:       20
+                wrapMode:             Text.WordWrap
+                color:                Style.content_secondary
+                lineHeight:           1.2
+                //% "You cannot change settings\nwhile active transaction is in progress"
+                text:                 qsTrId("settings-progress-na")
+            }
+
+            Item {
+                Layout.fillWidth: true
+                visible:          !viewModel.canEditQTUM
+            }
+
             SwapNodeSettings {
                 id:                   qtumSettings
                 //% "QTUM"
@@ -441,6 +513,7 @@ ColumnLayout {
                 feeRateLabel:         BeamGlobals.qtumFeeRateLabel()
                 Layout.minimumWidth:  swapQtumGrid.width / 2 - swapQtumGrid.spacing - qtumUseEL.width / 2
                 opacity:              viewModel.qtumUseEL ? 0.4 : 1
+                visible:             viewModel.canEditQTUM
 
                 Connections {
                     target: viewModel
@@ -483,6 +556,7 @@ ColumnLayout {
                 spacing:  0
                 colored:  false
                 checked:  viewModel.qtumUseEL
+                visible:  viewModel.canEditQTUM
                 Binding {
                    target: viewModel
                    property: "qtumUseEL"
@@ -501,6 +575,7 @@ ColumnLayout {
                 feeRateLabel:        BeamGlobals.qtumFeeRateLabel()
                 Layout.fillWidth:    true
                 opacity:             viewModel.qtumUseEL ? 1 : 0.4
+                visible:             viewModel.canEditQTUM
 
                 Connections {
                     target: viewModel

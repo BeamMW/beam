@@ -71,10 +71,13 @@ class SettingsViewModel : public QObject
     Q_PROPERTY(QString  qtumNodeAddressEL READ getQtumNodeAddressEL  WRITE setQtumNodeAddressEL  NOTIFY qtumNodeAddressELChanged)
     Q_PROPERTY(int      qtumFeeRateEL     READ getQtumFeeRateEL      WRITE setQtumFeeRateEL      NOTIFY qtumFeeRateELChanged)
 
-     Q_PROPERTY(bool btcUseEL   READ getBtcUseEL    WRITE setBtcUseEL    NOTIFY btcUseELChanged)
-     Q_PROPERTY(bool ltcUseEL   READ getLtcUseEL    WRITE setLtcUseEL    NOTIFY ltcUseELChanged)
-     Q_PROPERTY(bool qtumUseEL  READ getQtumUseEL   WRITE setQtumUseEL   NOTIFY qtumUseELChanged)
+    Q_PROPERTY(bool btcUseEL   READ getBtcUseEL    WRITE setBtcUseEL    NOTIFY btcUseELChanged)
+    Q_PROPERTY(bool ltcUseEL   READ getLtcUseEL    WRITE setLtcUseEL    NOTIFY ltcUseELChanged)
+    Q_PROPERTY(bool qtumUseEL  READ getQtumUseEL   WRITE setQtumUseEL   NOTIFY qtumUseELChanged)
 
+    Q_PROPERTY(bool canEditBTC   READ getCanEditBTC   NOTIFY canEditBTCChanged)
+    Q_PROPERTY(bool canEditLTC   READ getCanEditLTC   NOTIFY canEditLTCChanged)
+    Q_PROPERTY(bool canEditQTUM  READ getCanEditQTUM  NOTIFY canEditQTUMChanged)
 
 public:
 
@@ -154,6 +157,10 @@ public:
 
     bool getQtumUseEL() const;
     void setQtumUseEL(bool value);
+
+    bool getCanEditBTC() const;
+    bool getCanEditLTC() const;
+    bool getCanEditQTUM() const;
 
     Q_INVOKABLE uint coreAmount() const;
     Q_INVOKABLE void addLocalNodePeer(const QString& localNodePeer);
@@ -241,6 +248,10 @@ signals:
     void btcUseELChanged();
     void ltcUseELChanged();
     void qtumUseELChanged();
+
+    void canEditBTCChanged();
+    void canEditLTCChanged();
+    void canEditQTUMChanged();
 
 protected:
     void timerEvent(QTimerEvent *event) override;
