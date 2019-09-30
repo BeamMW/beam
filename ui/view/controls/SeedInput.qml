@@ -2,6 +2,7 @@ import QtQuick 2.11
 import QtQuick.Controls 2.4
 import QtQuick.Controls.impl 2.4
 import QtQuick.Templates 2.4 as T
+import Beam.Wallet 1.0
 import "."
 
 T.TextField {
@@ -18,7 +19,7 @@ T.TextField {
     verticalAlignment:     TextInput.AlignVCenter
     horizontalAlignment:   focus ? Text.AlignLeft : Text.AlignHCenter
 	selectByMouse:         true
-	validator:             RegExpValidator {regExp: /^([a-z]{2,20}\ ){11}([a-z]{2,20}){1}$/g}
+	validator:             ELSeedValidator {}
 	wrapMode:              TextInput.Wrap
 	property bool isValid: text.length ? acceptableInput : true
 

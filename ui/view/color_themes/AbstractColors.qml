@@ -18,6 +18,7 @@ QtObject {
     property color background_row_odd;
     property color background_details;
     property color background_button;
+    property color background_popup;
     property color row_selected;
     property color separator;
     property color table_header;

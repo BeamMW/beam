@@ -13,6 +13,8 @@ namespace beamui
         Unknown
     };
 
+    QString toString(Currencies currency);
+    std::string toStdString(Currencies currency);
     QString toString(const beam::wallet::WalletID&);
     QString toString(const beam::Merkle::Hash&);
     QString AmountToString(const beam::Amount& value, Currencies coinType);

@@ -137,7 +137,7 @@ auto TransactionsList::data(const QModelIndex &index, int role) const -> QVarian
             return value->hasPaymentProof();
 
         case Roles::SwapCoin:
-            return value->getSwapCoinType();
+            return value->getSwapCoinName();
 
         case Roles::RawTxID:
             return QVariant::fromValue(value->getTxID());

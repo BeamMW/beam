@@ -152,6 +152,8 @@ set(UI_SRC
     viewmodel/currencies.h
     viewmodel/send_swap_view.h
     viewmodel/send_swap_view.cpp
+    viewmodel/el_seed_validator.h
+    viewmodel/el_seed_validator.cpp
 
     model/wallet_model.h
     model/wallet_model.cpp

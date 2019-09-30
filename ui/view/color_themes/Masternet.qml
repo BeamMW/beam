@@ -13,11 +13,12 @@ AbstractColors {
     property color navigation_background: "#000000"
     property color background_main:       "#171717"
     property color background_main_top:   "#035b8f"
-    property color background_second:     "#323232"
+    property color background_second:     Qt.rgba(255, 255, 255, 0.05)
     property color background_row_even:   "#07ffffff"
     property color background_row_odd:    "#0cffffff"
     property color background_details:    "#3d3d3d"
     property color background_button:     "#474646"
+    property color background_popup:      "#323232"
     property color row_selected:          "#353636"
     property color separator:             "#353636"
     property color table_header:          Qt.rgba(0, 246, 210, 0.1)

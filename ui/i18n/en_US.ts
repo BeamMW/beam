@@ -1642,5 +1642,11 @@ or send this address to the sender over secure channel</translation>
         <source>Received</source>
         <translation type="unfinished">Received</translation>
     </message>
+    <message id="settings-progress-na">
+        <source>You cannot change settings
+while active transaction is in progress</source>
+        <translation>You cannot change settings
+while active transaction is in progress</translation>
+    </message>
 </context>
 </TS>

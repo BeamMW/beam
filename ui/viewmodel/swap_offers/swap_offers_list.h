@@ -35,6 +35,7 @@ public:
         RateSort,
         Expiration,
         ExpirationSort,
+        SwapCoin,
         IsOwnOffer,
         IsBeamSide,
         RawTxID,

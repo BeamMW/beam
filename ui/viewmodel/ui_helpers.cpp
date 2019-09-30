@@ -135,4 +135,21 @@ namespace beamui
 
         return expiresTime;
     }
+
+    QString toString(Currencies currency)
+    {
+        switch(currency)
+        {
+            case Currencies::Beam: return "beam";
+            case Currencies::Bitcoin: return "btc";
+            case Currencies::Litecoin: return "ltc";
+            case Currencies::Qtum: return "qtum";
+            default: return "unknown";
+        }
+    }
+
+    std::string toStdString(Currencies currency)
+    {
+        return toString(currency).toStdString();
+    }
 }  // namespace beamui

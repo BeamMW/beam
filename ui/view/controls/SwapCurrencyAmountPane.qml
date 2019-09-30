@@ -4,6 +4,7 @@ import QtQuick.Layouts 1.3
 Rectangle {
     property color borderColor: Style.swapCurrencyOptionsBorder
     property int borderSize: 0
+    property alias rectOpacity: rect.opacity
     property color gradLeft: Style.swapCurrencyPaneGrLeftBEAM
     property color gradRight: Style.swapCurrencyPaneGrRight
     property string currencyIcon: ""
@@ -22,19 +23,20 @@ Rectangle {
 
     Layout.fillWidth: true
     height: 67
-    radius: 10
-    color: Style.background_main
+    color: "transparent"
 
     Rectangle {
-        anchors.centerIn: parent
-        width: parent.height
+        id: rect
+        width:  parent.height
         height: parent.width
-        radius: 10
-        rotation: -90
+        anchors.centerIn: parent
+        anchors.alignWhenCentered: false
+        rotation: 90
+        radius:   10
         opacity: 0.3
         gradient: Gradient {
-            GradientStop { position: 0.0; color: gradLeft }
-            GradientStop { position: 1.0; color: gradRight }
+            GradientStop { position: 0.0; color: gradRight }
+            GradientStop { position: 1.0; color: gradLeft }
         }
         border {
             width: borderSize

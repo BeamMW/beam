@@ -42,15 +42,15 @@ public:
 
     auto getTxParameters() const -> TxParameters;
     auto getTxID() const -> TxID;
+    auto getSwapCoinName() const -> QString;
 
 signals:
-    // void changed();
 
 private:
     auto getSwapCoinType() const -> beamui::Currencies;
 
     SwapOffer m_offer;          /// raw TxParameters
     bool m_isOwnOffer;          /// indicates if offer belongs to this wallet
-    bool m_isBeamSide;          /// pay beam to receive other
+    bool m_isBeamSide;          /// pay beam to receive other coin
     QDateTime m_timeExpiration;
 };

@@ -120,3 +120,14 @@ auto SwapOfferItem::getSwapCoinType() const -> beamui::Currencies
     }
     return beamui::Currencies::Unknown;
 }
+
+auto SwapOfferItem::getSwapCoinName() const -> QString
+{
+    switch (getSwapCoinType())
+    {
+        case beamui::Currencies::Bitcoin:   return toString(beamui::Currencies::Bitcoin);
+        case beamui::Currencies::Litecoin:  return toString(beamui::Currencies::Litecoin);
+        case beamui::Currencies::Qtum:      return toString(beamui::Currencies::Qtum);
+        default:                            return toString(beamui::Currencies::Unknown);
+    }
+}
