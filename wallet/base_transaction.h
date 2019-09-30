@@ -27,7 +27,7 @@
 namespace beam::wallet
 {
     TxID GenerateTxID();
-    TxParameters CreateTransactionParameters(TxType type);
+    TxParameters CreateTransactionParameters(TxType type, TxID txID);
     //
     // Interface for all possible transaction types
     //

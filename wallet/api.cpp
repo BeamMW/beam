@@ -256,6 +256,19 @@ namespace beam::wallet
             send.comment = params["comment"];
         }
 
+        if (existsJsonParam(params, "txId"))
+        {
+            auto txIdSrc = from_hex(params["txId"]);
+            TxID txId;
+
+            if (txIdSrc.size() != txId.size())
+                throwInvalidJsonRpc(id);
+
+            std::copy_n(txIdSrc.begin(), txId.size(), txId.begin());
+
+            send.txId = txId;
+        }
+
         _handler.onMessage(id, send);
     }
 

@@ -53,7 +53,7 @@ namespace beam::wallet
 
     TxParameters CreateSwapParameters()
     {
-        return CreateTransactionParameters(TxType::AtomicSwap)
+        return CreateTransactionParameters(TxType::AtomicSwap, GenerateTxID())
             .SetParameter(TxParameterID::IsInitiator, false);
     }
 

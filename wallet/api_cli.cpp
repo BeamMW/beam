@@ -432,8 +432,8 @@ namespace
                         return;
                     }
 
-                    
-                    auto txId = _wallet.StartTransaction(CreateSimpleTransactionParameters()
+                    auto txId = _wallet.StartTransaction(CreateTransactionParameters(TxType::Simple, data.txId ? *data.txId : GenerateTxID())
+                        .SetParameter(TxParameterID::TransactionType, TxType::Simple)
                         .SetParameter(TxParameterID::MyID, from)
                         .SetParameter(TxParameterID::PeerID, data.address)
                         .SetParameter(TxParameterID::Amount, data.value)
