@@ -627,6 +627,13 @@ namespace
                 doResponse(id, response);
             }
 
+            void onMessage(const JsonRpcId& id, const GenerateTxId& data) override
+            {
+                LOG_DEBUG() << "GenerateTxId(id = " << id << ")";
+
+                doResponse(id, GenerateTxId::Response{ wallet::GenerateTxID() });
+            }
+
             void onMessage(const JsonRpcId& id, const Lock& data) override
             {
                 LOG_DEBUG() << "Lock(id = " << id << ")";

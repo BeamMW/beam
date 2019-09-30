@@ -52,7 +52,8 @@ namespace beam::wallet
     macro(Lock,             "lock",             API_WRITE_ACCESS)   \
     macro(Unlock,           "unlock",           API_WRITE_ACCESS)   \
     macro(TxList,           "tx_list",          API_READ_ACCESS)    \
-    macro(WalletStatus,     "wallet_status",    API_READ_ACCESS)
+    macro(WalletStatus,     "wallet_status",    API_READ_ACCESS)    \
+    macro(GenerateTxId,     "generate_tx_id",   API_WRITE_ACCESS)
 
     struct AddressData
     {
@@ -228,6 +229,14 @@ namespace beam::wallet
             Amount sending = 0;
             Amount maturing = 0;
             double difficulty = 0;
+        };
+    };
+
+    struct GenerateTxId
+    {
+        struct Response
+        {
+            TxID txId;
         };
     };
 

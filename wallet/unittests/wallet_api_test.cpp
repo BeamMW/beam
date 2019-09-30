@@ -463,6 +463,45 @@ namespace
         }
     }
 
+    void testGenerateTxIdJsonRpc(const std::string& msg)
+    {
+        class WalletApiHandler : public WalletApiHandlerBase
+        {
+        public:
+
+            void onInvalidJsonRpc(const json& msg) override
+            {
+                WALLET_CHECK(!"invalid list api json!!!");
+
+                cout << msg["error"]["message"] << endl;
+            }
+
+            void onMessage(const JsonRpcId& id, const GenerateTxId& data) override
+            {
+                WALLET_CHECK(id > 0);
+            }
+        };
+
+        WalletApiHandler handler;
+        WalletApi api(handler);
+
+        WALLET_CHECK(api.parse(msg.data(), msg.size()));
+
+        {
+            json res;
+            GenerateTxId::Response response{};
+
+            auto id = "10c4b760c842433cb58339a0fafef3db";
+            std::copy_n(from_hex(id).begin(), response.txId.size(), response.txId.begin());
+
+            api.getResponse(123, response, res);
+            testResultHeader(res);
+
+            WALLET_CHECK(res["id"] == 123);
+            WALLET_CHECK(res["result"] == id);
+        }
+    }
+
     template<typename T>
     void testJsonRpcIdAsValue(const std::string& msg, const T& value)
     {
@@ -757,6 +796,13 @@ int main()
     {
         "jsonrpc": "2.0",
         "id" : null
+    }));
+
+    testGenerateTxIdJsonRpc(JSON_CODE(
+    {
+        "jsonrpc": "2.0",
+        "id" : "123",
+        "method" : "generate_tx_id"
     }));
 
     return WALLET_CHECK_RESULT;

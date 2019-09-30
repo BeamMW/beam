@@ -20,6 +20,9 @@ using json = nlohmann::json;
 
 namespace beam::wallet
 {
+    static const char JsonRpcHrd[] = "jsonrpc";
+    static const char JsonRpcVerHrd[] = "2.0";
+
     namespace
     {
         std::string txIDToString(const TxID& txId)
@@ -426,11 +429,17 @@ namespace beam::wallet
         _handler.onMessage(id, walletStatus);
     }
 
+    void WalletApi::onGenerateTxIdMessage(const JsonRpcId& id, const nlohmann::json& params)
+    {
+        GenerateTxId generateTxId;
+        _handler.onMessage(id, generateTxId);
+    }
+
     void WalletApi::getResponse(const JsonRpcId& id, const CreateAddress::Response& res, json& msg)
     {
         msg = json
         {
-            {"jsonrpc", "2.0"},
+            {JsonRpcHrd, JsonRpcVerHrd},
             {"id", id},
             {"result", std::to_string(res.address)}
         };
@@ -440,7 +449,7 @@ namespace beam::wallet
     {
         msg = json
         {
-            {"jsonrpc", "2.0"},
+            {JsonRpcHrd, JsonRpcVerHrd},
             {"id", id},
             {"result", "done"}
         };
@@ -450,7 +459,7 @@ namespace beam::wallet
     {
         msg = json
         {
-            {"jsonrpc", "2.0"},
+            {JsonRpcHrd, JsonRpcVerHrd},
             {"id", id},
             {"result", "done"}
         };
@@ -460,7 +469,7 @@ namespace beam::wallet
     {
         msg = json
         {
-            {"jsonrpc", "2.0"},
+            {JsonRpcHrd, JsonRpcVerHrd},
             {"id", id},
             {"result", json::array()}
         };
@@ -484,7 +493,7 @@ namespace beam::wallet
     {
         msg = json
         {
-            {"jsonrpc", "2.0"},
+            {JsonRpcHrd, JsonRpcVerHrd},
             {"id", id},
             {"result", 
                 {
@@ -499,7 +508,7 @@ namespace beam::wallet
     {
         msg = json
         {
-            {"jsonrpc", "2.0"},
+            {JsonRpcHrd, JsonRpcVerHrd},
             {"id", id},
             {"result", json::array()}
         };
@@ -528,7 +537,7 @@ namespace beam::wallet
     {
         msg = json
         {
-            {"jsonrpc", "2.0"},
+            {JsonRpcHrd, JsonRpcVerHrd},
             {"id", id},
             {"result", 
                 {
@@ -578,7 +587,7 @@ namespace beam::wallet
     {
         msg = json
         {
-            {"jsonrpc", "2.0"},
+            {JsonRpcHrd, JsonRpcVerHrd},
             {"id", id},
             {"result", {}}
         };
@@ -590,7 +599,7 @@ namespace beam::wallet
     {
         msg = json
         {
-            {"jsonrpc", "2.0"},
+            {JsonRpcHrd, JsonRpcVerHrd},
             {"id", id},
             {"result",
                 {
@@ -604,7 +613,7 @@ namespace beam::wallet
     {
         msg = json
         {
-            {"jsonrpc", "2.0"},
+            {JsonRpcHrd, JsonRpcVerHrd},
             {"id", id},
             {"result", res.result}
         };
@@ -614,7 +623,7 @@ namespace beam::wallet
     {
         msg = json
         {
-            {"jsonrpc", "2.0"},
+            {JsonRpcHrd, JsonRpcVerHrd},
             {"id", id},
             {"result", res.result}
         };
@@ -624,7 +633,7 @@ namespace beam::wallet
     {
         msg = json
         {
-            {"jsonrpc", "2.0"},
+            {JsonRpcHrd, JsonRpcVerHrd},
             {"id", id},
             {"result", json::array()}
         };
@@ -641,7 +650,7 @@ namespace beam::wallet
     {
         msg = json
         {
-            {"jsonrpc", "2.0"},
+            {JsonRpcHrd, JsonRpcVerHrd},
             {"id", id},
             {"result",
                 {
@@ -658,11 +667,21 @@ namespace beam::wallet
         };
     }
 
+    void WalletApi::getResponse(const JsonRpcId& id, const GenerateTxId::Response& res, json& msg)
+    {
+        msg = json
+        {
+            {JsonRpcHrd, JsonRpcVerHrd},
+            {"id", id},
+            {"result", txIDToString(res.txId)}
+        };
+    }
+
     void WalletApi::getResponse(const JsonRpcId& id, const Lock::Response& res, json& msg)
     {
         msg = json
         {
-            {"jsonrpc", "2.0"},
+            {JsonRpcHrd, JsonRpcVerHrd},
             {"id", id},
             {"result", res.result}
         };        
@@ -672,7 +691,7 @@ namespace beam::wallet
     {
         msg = json
         {
-            {"jsonrpc", "2.0"},
+            {JsonRpcHrd, JsonRpcVerHrd},
             {"id", id},
             {"result", res.result}
         };
@@ -684,7 +703,7 @@ namespace beam::wallet
         {
             json msg
             {
-                {"jsonrpc", "2.0"},
+                {JsonRpcHrd, JsonRpcVerHrd},
                 {"error",
                     {
                         {"code", INVALID_JSON_RPC},
@@ -701,7 +720,7 @@ namespace beam::wallet
         {
             json msg = json::parse(data, data + size);
 
-            if (msg["jsonrpc"] != "2.0") throwInvalidJsonRpc();
+            if (msg[JsonRpcHrd] != JsonRpcVerHrd) throwInvalidJsonRpc();
 
             if(!msg["id"].is_number_integer() 
                 && !msg["id"].is_string())
@@ -738,7 +757,7 @@ namespace beam::wallet
         {
             json msg
             {
-                {"jsonrpc", "2.0"},
+                {JsonRpcHrd, JsonRpcVerHrd},
                 {"error",
                     {
                         {"code", e.code},
@@ -756,7 +775,7 @@ namespace beam::wallet
         {
             json msg
             {
-                {"jsonrpc", "2.0"},
+                {JsonRpcHrd, JsonRpcVerHrd},
                 {"error",
                     {
                         {"code", INTERNAL_JSON_RPC_ERROR},
