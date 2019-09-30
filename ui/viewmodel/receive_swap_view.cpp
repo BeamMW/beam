@@ -17,6 +17,9 @@
 #include "model/app_model.h"
 #include "wallet/swaps/common.h"
 #include "wallet/swaps/swap_transaction.h"
+#include "wallet/bitcoin/bitcoin_side.h"
+#include "wallet/litecoin/litecoin_side.h"
+#include "wallet/qtum/qtum_side.h"
 #include <QClipboard>
 
 namespace {
@@ -68,6 +71,11 @@ ReceiveSwapViewModel::ReceiveSwapViewModel()
     connect(&_walletModel, SIGNAL(walletStatus(const beam::wallet::WalletStatus&)), SLOT(onWalletStatus(const beam::wallet::WalletStatus&)));
     generateNewAddress();
 
+    _status.setOnChanged([this]() {
+        emit enoughChanged();
+    });
+
+    _status.refresh();
     _walletModel.getAsync()->getWalletStatus();
     updateTransactionToken();
 }
@@ -263,6 +271,74 @@ bool ReceiveSwapViewModel::getCommentValid() const
     return !_walletModel.isAddressWithCommentExist(_addressComment.toStdString());
 }
 
+bool ReceiveSwapViewModel::isEnough() const
+{
+    switch (_sentCurrency)
+    {
+    case Currency::CurrBeam:
+    {
+        auto total = std::round(_amountSent * beam::Rules::Coin) + _sentFee;
+        return _status.getAvailable() >= total;
+    }
+    case Currency::CurrBtc:
+    {
+        // TODO sentFee is fee rate. should be corrected
+        auto total = _amountSent + double(_sentFee) / beam::wallet::UnitsPerCoin(beam::wallet::AtomicSwapCoin::Bitcoin);
+        return AppModel::getInstance().getBitcoinClient()->getAvailable() > total;
+    }
+    case Currency::CurrLtc:
+    {
+        auto total = _amountSent + double(_sentFee) / beam::wallet::UnitsPerCoin(beam::wallet::AtomicSwapCoin::Litecoin);
+        return AppModel::getInstance().getLitecoinClient()->getAvailable() > total;
+    }
+    case Currency::CurrQtum:
+    {
+        auto total = _amountSent + double(_sentFee) / beam::wallet::UnitsPerCoin(beam::wallet::AtomicSwapCoin::Qtum);
+        return AppModel::getInstance().getQtumClient()->getAvailable() > total;
+    }
+    default:
+    {
+        assert(false);
+        return true;
+    }
+    }
+}
+
+bool ReceiveSwapViewModel::isGreatThanFee() const
+{
+    if (_amountSent == 0)
+        return true;
+
+    switch (_sentCurrency)
+    {
+    case Currency::CurrBeam:
+    {
+        auto total = std::round(_amountSent * beam::Rules::Coin) + _sentFee;
+        return total > 100;
+    }
+    case Currency::CurrBtc:
+    {
+        auto total = _amountSent * beam::wallet::UnitsPerCoin(beam::wallet::AtomicSwapCoin::Bitcoin);
+        return beam::wallet::BitcoinSide::CheckAmount(total, _sentFee);
+    }
+    case Currency::CurrLtc:
+    {
+        auto total = _amountSent * beam::wallet::UnitsPerCoin(beam::wallet::AtomicSwapCoin::Litecoin);
+        return beam::wallet::LitecoinSide::CheckAmount(total, _sentFee);
+    }
+    case Currency::CurrQtum:
+    {
+        auto total = _amountSent * beam::wallet::UnitsPerCoin(beam::wallet::AtomicSwapCoin::Qtum);
+        return beam::wallet::QtumSide::CheckAmount(total, _sentFee);
+    }
+    default:
+    {
+        assert(false);
+        return true;
+    }
+    }
+}
+
 void ReceiveSwapViewModel::saveAddress()
 {
     using namespace beam::wallet;
@@ -325,6 +401,8 @@ namespace
 
 void ReceiveSwapViewModel::updateTransactionToken()
 {
+    emit enoughChanged();
+    emit lessThanFeeChanged();
     _txParameters.SetParameter(beam::wallet::TxParameterID::MinHeight, _currentHeight);
     _txParameters.SetParameter(beam::wallet::TxParameterID::PeerResponseTime, GetBlockCount(_offerExpires));
 

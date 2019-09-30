@@ -16,6 +16,7 @@
 #include <QObject>
 #include "model/wallet_model.h"
 #include "currencies.h"
+#include "status_holder.h"
 
 class ReceiveSwapViewModel: public QObject
 {
@@ -29,6 +30,8 @@ class ReceiveSwapViewModel: public QObject
     Q_PROPERTY(QString  receiverAddress    READ getReceiverAddress                               NOTIFY  receiverAddressChanged)
     Q_PROPERTY(QString  transactionToken   READ getTransactionToken   WRITE  setTransactionToken NOTIFY  transactionTokenChanged)
     Q_PROPERTY(bool     commentValid       READ getCommentValid                                  NOTIFY  commentValidChanged)
+    Q_PROPERTY(bool     isEnough           READ isEnough                                         NOTIFY  enoughChanged)
+    Q_PROPERTY(bool     isGreatThanFee      READ isGreatThanFee                                    NOTIFY  lessThanFeeChanged)
 
     Q_PROPERTY(WalletCurrency::Currency  receiveCurrency    READ getReceiveCurrency    WRITE  setReceiveCurrency  NOTIFY  receiveCurrencyChanged)
     Q_PROPERTY(WalletCurrency::Currency  sentCurrency       READ getSentCurrency       WRITE  setSentCurrency     NOTIFY  sentCurrencyChanged)
@@ -50,6 +53,8 @@ signals:
     void transactionTokenChanged();
     void newAddressFailed();
     void commentValidChanged();
+    void enoughChanged();
+    void lessThanFeeChanged();
 
 public:
     Q_INVOKABLE void generateNewAddress();
@@ -88,6 +93,8 @@ private:
     QString getTransactionToken() const;
 
     bool getCommentValid() const;
+    bool isEnough() const;
+    bool isGreatThanFee() const;
 
     void updateTransactionToken();
 
@@ -107,6 +114,7 @@ private:
     QString _addressComment;
     QString _token;
     beam::wallet::WalletAddress _receiverAddress;
+    StatusHolder _status;
     WalletModel& _walletModel;
     beam::wallet::TxParameters _txParameters;
     beam::Height _currentHeight;
