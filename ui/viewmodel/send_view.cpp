@@ -24,7 +24,7 @@ SendViewModel::SendViewModel()
     , _change(0)
     , _walletModel(*AppModel::getInstance().getWallet())
 {
-    LOG_INFO() << "SendViewModel created";
+    LOG_DEBUG() << "SendViewModel created";
     connect(&_walletModel, &WalletModel::changeCalculated,       this,  &SendViewModel::onChangeCalculated);
     connect(&_walletModel, &WalletModel::sendMoneyVerified,      this,  &SendViewModel::onSendMoneyVerified);
     connect(&_walletModel, &WalletModel::cantSendToExpired,      this,  &SendViewModel::onCantSendToExpired);
@@ -38,7 +38,7 @@ SendViewModel::SendViewModel()
 
 SendViewModel::~SendViewModel()
 {
-    LOG_INFO() << "SendViewModel destroyed";
+    LOG_DEBUG() << "SendViewModel destroyed";
 }
 
 int SendViewModel::getFeeGrothes() const
@@ -48,7 +48,6 @@ int SendViewModel::getFeeGrothes() const
 
 void SendViewModel::setFeeGrothes(int value)
 {
-    LOG_INFO() << "setFeeGrothes " << value;
     if (value != _feeGrothes)
     {
         _feeGrothes = value;
@@ -65,7 +64,6 @@ QString SendViewModel::getComment() const
 
 void SendViewModel::setComment(const QString& value)
 {
-    LOG_INFO() << "setComment " << value.toStdString();
     if (_comment != value)
     {
         _comment = value;
@@ -80,7 +78,6 @@ double SendViewModel::getSendAmount() const
 
 void SendViewModel::setSendAmount(double value)
 {
-    LOG_INFO() << "setSendAmount " << value;
     if (value != _sendAmount)
     {
         _sendAmount = value;
@@ -97,7 +94,6 @@ QString SendViewModel::getReceiverTA() const
 
 void SendViewModel::setReceiverTA(const QString& value)
 {
-    LOG_INFO() << "setReceiverTA " << value.toStdString();
     if (_receiverTA != value)
     {
        _receiverTA = value;

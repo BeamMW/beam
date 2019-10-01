@@ -65,7 +65,7 @@ ReceiveSwapViewModel::ReceiveSwapViewModel()
         .SetParameter(beam::wallet::TxParameterID::IsInitiator, true))
     , _currentHeight(0)
 {
-    LOG_INFO() << "ReceiveSwapViewModel created";
+    LOG_DEBUG() << "ReceiveSwapViewModel created";
     connect(&_walletModel, &WalletModel::generatedNewAddress, this, &ReceiveSwapViewModel::onGeneratedNewAddress);
     connect(&_walletModel, &WalletModel::newAddressFailed, this,  &ReceiveSwapViewModel::onNewAddressFailed);
     connect(&_walletModel, SIGNAL(walletStatus(const beam::wallet::WalletStatus&)), SLOT(onWalletStatus(const beam::wallet::WalletStatus&)));
@@ -82,7 +82,7 @@ ReceiveSwapViewModel::ReceiveSwapViewModel()
 
 ReceiveSwapViewModel::~ReceiveSwapViewModel()
 {
-    LOG_INFO() << "ReceiveSwapViewModel destroyed";
+    LOG_DEBUG() << "ReceiveSwapViewModel destroyed";
 }
 
 void ReceiveSwapViewModel::onGeneratedNewAddress(const beam::wallet::WalletAddress& addr)
@@ -99,7 +99,6 @@ double ReceiveSwapViewModel::getAmountToReceive() const
 
 void ReceiveSwapViewModel::setAmountToReceive(double value)
 {
-    LOG_INFO() << "setAmountToReceive " << value;
     if (value != _amountToReceive)
     {
         _amountToReceive = value;
@@ -120,7 +119,6 @@ int ReceiveSwapViewModel::getReceiveFee() const
 
 void ReceiveSwapViewModel::setAmountSent(double value)
 {
-    LOG_INFO() << "setAmountSent " << value;
     if (value != _amountSent)
     {
         _amountSent = value;
@@ -136,7 +134,6 @@ int ReceiveSwapViewModel::getSentFee() const
 
 void ReceiveSwapViewModel::setSentFee(int value)
 {
-    LOG_INFO() << "setSentFee " << value;
     if (value != _sentFee)
     {
         _sentFee = value;
@@ -153,7 +150,6 @@ Currency ReceiveSwapViewModel::getReceiveCurrency() const
 void ReceiveSwapViewModel::setReceiveCurrency(Currency value)
 {
     assert(value > Currency::CurrStart && value < Currency::CurrEnd);
-    LOG_INFO() << "setReceiveCurrency " << static_cast<int>(value);
 
     if (value != _receiveCurrency)
     {
@@ -170,7 +166,6 @@ Currency ReceiveSwapViewModel::getSentCurrency() const
 void ReceiveSwapViewModel::setSentCurrency(Currency value)
 {
     assert(value > Currency::CurrStart && value < Currency::CurrEnd);
-    LOG_INFO() << "setSentCurrency " << static_cast<int>(value);
 
     if (value != _sentCurrency)
     {
@@ -182,7 +177,6 @@ void ReceiveSwapViewModel::setSentCurrency(Currency value)
 
 void ReceiveSwapViewModel::setReceiveFee(int value)
 {
-    LOG_INFO() << "setReceiveFee " << value;
     if (value != _receiveFee)
     {
         _receiveFee = value;
@@ -198,7 +192,6 @@ int ReceiveSwapViewModel::getOfferExpires() const
 
 void ReceiveSwapViewModel::setOfferExpires(int value)
 {
-    LOG_INFO() << "setOfferExpires " << value;
     if (value != _offerExpires)
     {
         _offerExpires = value;
@@ -256,7 +249,6 @@ QString ReceiveSwapViewModel::getAddressComment() const
 
 void ReceiveSwapViewModel::setAddressComment(const QString& value)
 {
-    LOG_INFO() << "setAddressComment " << value.toStdString();
     auto trimmed = value.trimmed();
     if (_addressComment != trimmed)
     {

@@ -29,7 +29,7 @@ SendSwapViewModel::SendSwapViewModel()
     , _change(0)
     , _walletModel(*AppModel::getInstance().getWallet())
 {
-    LOG_INFO() << "SendSwapViewModel created";
+    LOG_DEBUG() << "SendSwapViewModel created";
     connect(&_walletModel, &WalletModel::changeCalculated,  this,  &SendSwapViewModel::onChangeCalculated);
 
     _status.setOnChanged([this]() {
@@ -54,7 +54,7 @@ SendSwapViewModel::SendSwapViewModel()
 
 SendSwapViewModel::~SendSwapViewModel()
 {
-    LOG_INFO() << "SendSwapViewModel destroyed";
+    LOG_DEBUG() << "SendSwapViewModel destroyed";
 }
 
 QString SendSwapViewModel::getToken() const
@@ -173,7 +173,6 @@ double SendSwapViewModel::getSendAmount() const
 
 void SendSwapViewModel::setSendAmount(double value)
 {
-    LOG_INFO() << "setSendAmount " << value;
     if (value != _sendAmount)
     {
         _sendAmount = value;
@@ -189,7 +188,6 @@ int SendSwapViewModel::getSendFee() const
 
 void SendSwapViewModel::setSendFee(int value)
 {
-    LOG_INFO() << "setSendFee " << value;
     if (value != _sendFee)
     {
         _sendFee = value;
@@ -206,7 +204,6 @@ Currency SendSwapViewModel::getSendCurrency() const
 void SendSwapViewModel::setSendCurrency(Currency value)
 {
     assert(value > Currency::CurrStart && value < Currency::CurrEnd);
-    LOG_INFO() << "setSendCurrency " << static_cast<int>(value);
 
     if (value != _sendCurrency)
     {
@@ -223,7 +220,6 @@ double SendSwapViewModel::getReceiveAmount() const
 
 void SendSwapViewModel::setReceiveAmount(double value)
 {
-    LOG_INFO() << "setReceiveAmount " << value;
     if (value != _receiveAmount)
     {
         _receiveAmount = value;
@@ -238,7 +234,6 @@ int SendSwapViewModel::getReceiveFee() const
 
 void SendSwapViewModel::setReceiveFee(int value)
 {
-    LOG_INFO() << "setReceiveFee " << value;
     if (value != _receiveFee)
     {
         _receiveFee = value;
@@ -254,7 +249,6 @@ Currency SendSwapViewModel::getReceiveCurrency() const
 void SendSwapViewModel::setReceiveCurrency(Currency value)
 {
     assert(value > Currency::CurrStart && value < Currency::CurrEnd);
-    LOG_INFO() << "setReceiveCurrency " << static_cast<int>(value);
 
     if (value != _receiveCurrency)
     {
@@ -270,8 +264,6 @@ QString SendSwapViewModel::getComment() const
 
 void SendSwapViewModel::setComment(const QString& value)
 {
-    LOG_INFO() << "setComment " << value.toStdString();
-
     if (_comment != value)
     {
         _comment = value;
@@ -286,7 +278,6 @@ QDateTime SendSwapViewModel::getOfferedTime() const
 
 void SendSwapViewModel::setOfferedTime(const QDateTime& value)
 {
-    LOG_INFO() << "setOfferedTime " << value.toString().toStdString();
     if (_offeredTime != value)
     {
         _offeredTime = value;
@@ -301,7 +292,6 @@ QDateTime SendSwapViewModel::getExpiresTime() const
 
 void SendSwapViewModel::setExpiresTime(const QDateTime& value)
 {
-    LOG_INFO() << "setExpiresTime " << value.toString().toStdString();
     if (_expiresTime != value)
     {
         _expiresTime = value;
