@@ -42,6 +42,16 @@ namespace beam::bitcoin
 
         struct Balance
         {
+            bool operator == (const Balance& other) const
+            {
+                return m_available == other.m_available && m_unconfirmed == other.m_unconfirmed && m_immature == other.m_immature;
+            }
+
+            bool operator != (const Balance& other) const
+            {
+                return !(*this == other);
+            }
+
             double m_available = 0;
             double m_unconfirmed = 0;
             double m_immature = 0;
@@ -67,10 +77,11 @@ namespace beam::bitcoin
     protected:
         virtual void OnStatus(Status status) = 0;
         virtual void OnBalance(const Balance& balance) = 0;
+        virtual void OnCanModifySettingsChanged(bool canModify) = 0;
 
         bool CanModify() const override;
         void AddRef() override;
-        void Release() override;
+        void ReleaseRef() override;
 
     private:
         // IClientAsync

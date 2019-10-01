@@ -209,7 +209,7 @@ public:
 	void SaveSyncData();
 	void LogSyncData();
 
-	void ExtractBlockWithExtra(Block::Body&, const NodeDB::StateID&);
+	bool ExtractBlockWithExtra(Block::Body&, const NodeDB::StateID&);
 
 	struct DataStatus {
 		enum Enum {
@@ -376,6 +376,7 @@ private:
 	size_t GenerateNewBlockInternal(BlockContext&);
 	void GenerateNewHdr(BlockContext&);
 	DataStatus::Enum OnStateInternal(const Block::SystemState::Full&, Block::SystemState::ID&, bool bAlreadyChecked);
+	bool GetBlockInternal(const NodeDB::StateID&, ByteBuffer* pEthernal, ByteBuffer* pPerishable, Height h0, Height hLo1, Height hHi1, bool bActive, Block::Body*);
 };
 
 struct LogSid

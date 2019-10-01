@@ -17,7 +17,6 @@
 #include <QObject>
 #include <QTimer>
 #include "wallet/bitcoin/client.h"
-#include "model/wallet_model.h"
 
 class SwapCoinClientModel
     : public QObject
@@ -27,39 +26,38 @@ class SwapCoinClientModel
 public:
     using Ptr = std::shared_ptr<SwapCoinClientModel>;
 
-    SwapCoinClientModel(beam::wallet::AtomicSwapCoin swapCoin,
-        beam::bitcoin::Client::CreateBridge bridgeCreator,
+    SwapCoinClientModel(beam::bitcoin::Client::CreateBridge bridgeCreator,
         std::unique_ptr<beam::bitcoin::SettingsProvider> settingsProvider,
         beam::io::Reactor& reactor);
 
     double getAvailable();
-    double getReceiving();
-    double getSending();
     beam::bitcoin::Client::Status getStatus() const;
+    bool CanModifySettings() const;
 
 signals:
     void gotStatus(beam::bitcoin::Client::Status status);
     void gotBalance(const beam::bitcoin::Client::Balance& balance);
+    void gotCanModifySettings(bool canModify);
+
     void stateChanged();
+    void canModifySettingsChanged();
+    void balanceChanged();
+    void statusChanged();
 
 private:
     void OnStatus(Status status) override;
     void OnBalance(const Client::Balance& balance) override;
-    void RecalculateAmounts();
+    void OnCanModifySettingsChanged(bool canModify) override;
 
 private slots:
     void onTimer();
-    void onTxStatus(beam::wallet::ChangeAction, const std::vector<beam::wallet::TxDescription>&);
+    void SetBalance(const beam::bitcoin::Client::Balance& balance);
+    void SetStatus(beam::bitcoin::Client::Status status);
+    void SetCanModifySettings(bool canModify);
 
 private:
     QTimer m_timer;
     Client::Balance m_balance;
     Status m_status = Status::Unknown;
-    double m_receiving = 0;
-    double m_sending = 0;
-    std::weak_ptr<WalletModel> m_walletModel;
-    beam::io::Reactor& m_reactor;
-    beam::wallet::AtomicSwapCoin m_swapCoin;
-
-    std::map<beam::wallet::TxID, beam::wallet::TxDescription> m_transactions;
+    bool m_canModifySettings = true;
 };

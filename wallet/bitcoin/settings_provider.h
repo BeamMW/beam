@@ -55,7 +55,7 @@ namespace beam::bitcoin
         virtual void ResetSettings() = 0;
         virtual bool CanModify() const = 0;
         virtual void AddRef() = 0;
-        virtual void Release() = 0;
+        virtual void ReleaseRef() = 0;
     };
 
     class SettingsProvider
@@ -76,7 +76,7 @@ namespace beam::bitcoin
 
         bool CanModify() const override;
         void AddRef() override;
-        void Release() override;
+        void ReleaseRef() override;
 
         virtual const char* GetSettingsName() const;
         virtual Settings GetEmptySettings();

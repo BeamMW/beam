@@ -181,6 +181,7 @@
         <file>assets/beta-label.svg</file>
         <file>assets/icon-accept-offer.svg</file>
         <file>assets/icon-create-offer.svg</file>
+        <file>assets/atomic-empty-state.svg</file>
         <file>controls/OpenExternalLinkConfirmation.qml</file>
         <file>controls/SeedInput.qml</file>
         <file>utils.js</file>

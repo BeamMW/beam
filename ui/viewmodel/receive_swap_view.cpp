@@ -17,6 +17,9 @@
 #include "model/app_model.h"
 #include "wallet/swaps/common.h"
 #include "wallet/swaps/swap_transaction.h"
+#include "wallet/bitcoin/bitcoin_side.h"
+#include "wallet/litecoin/litecoin_side.h"
+#include "wallet/qtum/qtum_side.h"
 #include <QClipboard>
 
 namespace {
@@ -62,19 +65,24 @@ ReceiveSwapViewModel::ReceiveSwapViewModel()
         .SetParameter(beam::wallet::TxParameterID::IsInitiator, true))
     , _currentHeight(0)
 {
-    LOG_INFO() << "ReceiveSwapViewModel created";
+    LOG_DEBUG() << "ReceiveSwapViewModel created";
     connect(&_walletModel, &WalletModel::generatedNewAddress, this, &ReceiveSwapViewModel::onGeneratedNewAddress);
     connect(&_walletModel, &WalletModel::newAddressFailed, this,  &ReceiveSwapViewModel::onNewAddressFailed);
     connect(&_walletModel, SIGNAL(walletStatus(const beam::wallet::WalletStatus&)), SLOT(onWalletStatus(const beam::wallet::WalletStatus&)));
     generateNewAddress();
 
+    _status.setOnChanged([this]() {
+        emit enoughChanged();
+    });
+
+    _status.refresh();
     _walletModel.getAsync()->getWalletStatus();
     updateTransactionToken();
 }
 
 ReceiveSwapViewModel::~ReceiveSwapViewModel()
 {
-    LOG_INFO() << "ReceiveSwapViewModel destroyed";
+    LOG_DEBUG() << "ReceiveSwapViewModel destroyed";
 }
 
 void ReceiveSwapViewModel::onGeneratedNewAddress(const beam::wallet::WalletAddress& addr)
@@ -91,7 +99,6 @@ double ReceiveSwapViewModel::getAmountToReceive() const
 
 void ReceiveSwapViewModel::setAmountToReceive(double value)
 {
-    LOG_INFO() << "setAmountToReceive " << value;
     if (value != _amountToReceive)
     {
         _amountToReceive = value;
@@ -112,7 +119,6 @@ int ReceiveSwapViewModel::getReceiveFee() const
 
 void ReceiveSwapViewModel::setAmountSent(double value)
 {
-    LOG_INFO() << "setAmountSent " << value;
     if (value != _amountSent)
     {
         _amountSent = value;
@@ -128,7 +134,6 @@ int ReceiveSwapViewModel::getSentFee() const
 
 void ReceiveSwapViewModel::setSentFee(int value)
 {
-    LOG_INFO() << "setSentFee " << value;
     if (value != _sentFee)
     {
         _sentFee = value;
@@ -145,7 +150,6 @@ Currency ReceiveSwapViewModel::getReceiveCurrency() const
 void ReceiveSwapViewModel::setReceiveCurrency(Currency value)
 {
     assert(value > Currency::CurrStart && value < Currency::CurrEnd);
-    LOG_INFO() << "setReceiveCurrency " << static_cast<int>(value);
 
     if (value != _receiveCurrency)
     {
@@ -162,7 +166,6 @@ Currency ReceiveSwapViewModel::getSentCurrency() const
 void ReceiveSwapViewModel::setSentCurrency(Currency value)
 {
     assert(value > Currency::CurrStart && value < Currency::CurrEnd);
-    LOG_INFO() << "setSentCurrency " << static_cast<int>(value);
 
     if (value != _sentCurrency)
     {
@@ -174,7 +177,6 @@ void ReceiveSwapViewModel::setSentCurrency(Currency value)
 
 void ReceiveSwapViewModel::setReceiveFee(int value)
 {
-    LOG_INFO() << "setReceiveFee " << value;
     if (value != _receiveFee)
     {
         _receiveFee = value;
@@ -190,7 +192,6 @@ int ReceiveSwapViewModel::getOfferExpires() const
 
 void ReceiveSwapViewModel::setOfferExpires(int value)
 {
-    LOG_INFO() << "setOfferExpires " << value;
     if (value != _offerExpires)
     {
         _offerExpires = value;
@@ -248,7 +249,6 @@ QString ReceiveSwapViewModel::getAddressComment() const
 
 void ReceiveSwapViewModel::setAddressComment(const QString& value)
 {
-    LOG_INFO() << "setAddressComment " << value.toStdString();
     auto trimmed = value.trimmed();
     if (_addressComment != trimmed)
     {
@@ -261,6 +261,77 @@ void ReceiveSwapViewModel::setAddressComment(const QString& value)
 bool ReceiveSwapViewModel::getCommentValid() const
 {
     return !_walletModel.isAddressWithCommentExist(_addressComment.toStdString());
+}
+
+bool ReceiveSwapViewModel::isEnough() const
+{
+    if (_amountSent == 0)
+        return true;
+
+    switch (_sentCurrency)
+    {
+    case Currency::CurrBeam:
+    {
+        auto total = std::round(_amountSent * beam::Rules::Coin) + _sentFee;
+        return _status.getAvailable() >= total;
+    }
+    case Currency::CurrBtc:
+    {
+        // TODO sentFee is fee rate. should be corrected
+        auto total = _amountSent + double(_sentFee) / beam::wallet::UnitsPerCoin(beam::wallet::AtomicSwapCoin::Bitcoin);
+        return AppModel::getInstance().getBitcoinClient()->getAvailable() > total;
+    }
+    case Currency::CurrLtc:
+    {
+        auto total = _amountSent + double(_sentFee) / beam::wallet::UnitsPerCoin(beam::wallet::AtomicSwapCoin::Litecoin);
+        return AppModel::getInstance().getLitecoinClient()->getAvailable() > total;
+    }
+    case Currency::CurrQtum:
+    {
+        auto total = _amountSent + double(_sentFee) / beam::wallet::UnitsPerCoin(beam::wallet::AtomicSwapCoin::Qtum);
+        return AppModel::getInstance().getQtumClient()->getAvailable() > total;
+    }
+    default:
+    {
+        assert(false);
+        return true;
+    }
+    }
+}
+
+bool ReceiveSwapViewModel::isGreatThanFee() const
+{
+    if (_amountSent == 0)
+        return true;
+
+    switch (_sentCurrency)
+    {
+    case Currency::CurrBeam:
+    {
+        auto total = std::round(_amountSent * beam::Rules::Coin) + _sentFee;
+        return total > 100;
+    }
+    case Currency::CurrBtc:
+    {
+        auto total = _amountSent * beam::wallet::UnitsPerCoin(beam::wallet::AtomicSwapCoin::Bitcoin);
+        return beam::wallet::BitcoinSide::CheckAmount(total, _sentFee);
+    }
+    case Currency::CurrLtc:
+    {
+        auto total = _amountSent * beam::wallet::UnitsPerCoin(beam::wallet::AtomicSwapCoin::Litecoin);
+        return beam::wallet::LitecoinSide::CheckAmount(total, _sentFee);
+    }
+    case Currency::CurrQtum:
+    {
+        auto total = _amountSent * beam::wallet::UnitsPerCoin(beam::wallet::AtomicSwapCoin::Qtum);
+        return beam::wallet::QtumSide::CheckAmount(total, _sentFee);
+    }
+    default:
+    {
+        assert(false);
+        return true;
+    }
+    }
 }
 
 void ReceiveSwapViewModel::saveAddress()
@@ -325,6 +396,8 @@ namespace
 
 void ReceiveSwapViewModel::updateTransactionToken()
 {
+    emit enoughChanged();
+    emit lessThanFeeChanged();
     _txParameters.SetParameter(beam::wallet::TxParameterID::MinHeight, _currentHeight);
     _txParameters.SetParameter(beam::wallet::TxParameterID::PeerResponseTime, GetBlockCount(_offerExpires));
 

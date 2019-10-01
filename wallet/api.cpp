@@ -20,6 +20,9 @@ using json = nlohmann::json;
 
 namespace beam::wallet
 {
+    static const char JsonRpcHrd[] = "jsonrpc";
+    static const char JsonRpcVerHrd[] = "2.0";
+
     namespace
     {
         std::string txIDToString(const TxID& txId)
@@ -30,20 +33,10 @@ namespace beam::wallet
 
     struct jsonrpc_exception
     {
-        int code;
-        std::string message;
+        ApiError code;
+        std::string data;
         JsonRpcId id;
     };
-
-    void throwInvalidJsonRpc(const JsonRpcId& id = nullptr)
-    {
-        throw jsonrpc_exception{ INVALID_JSON_RPC , "Invalid JSON-RPC.", id };
-    }
-
-    void throwUnknownJsonRpc(const JsonRpcId& id)
-    {
-        throw jsonrpc_exception{ NOTFOUND_JSON_RPC , "Procedure not found.", id};
-    }
 
     std::string getJsonString(const char* data, size_t size)
     {
@@ -70,7 +63,7 @@ namespace beam::wallet
     void checkJsonParam(const nlohmann::json& params, const std::string& name, const JsonRpcId& id)
     {
         if (!existsJsonParam(params, name))
-            throwInvalidJsonRpc(id);
+            throw jsonrpc_exception{ ApiError::InvalidJsonRpc, "Parameter '" + name + "' doesn't exist.", id };
     }
 
     void FillAddressData(const JsonRpcId& id, const nlohmann::json& params, AddressData& data)
@@ -93,7 +86,8 @@ namespace beam::wallet
                 {"never", AddressData::Never},
             };
 
-            if(Items.count(expiration) == 0) throwInvalidJsonRpc(id);
+            if(Items.count(expiration) == 0)
+                throw jsonrpc_exception{ ApiError::InvalidJsonRpc, "Unknown value for the 'expiration' parameter.", id };
 
             data.expiration = Items[expiration];
         }
@@ -122,7 +116,7 @@ namespace beam::wallet
         checkJsonParam(params, "address", id);
 
         if (!existsJsonParam(params, "comment") && !existsJsonParam(params, "expiration"))
-            throwInvalidJsonRpc(id);
+            throw jsonrpc_exception{ ApiError::InvalidJsonRpc, "Comment or Expiration parameter must be specified.", id };
 
         EditAddress editAddress;
         editAddress.address.FromHex(params["address"]);
@@ -149,7 +143,7 @@ namespace beam::wallet
         checkJsonParam(params, "address", id);
 
         if (params["address"].empty())
-            throwInvalidJsonRpc(id);
+            throw jsonrpc_exception{ ApiError::InvalidAddress, "Address is empty.", id };
 
         ValidateAddress validateAddress;
         validateAddress.address.FromHex(params["address"]);
@@ -162,7 +156,7 @@ namespace beam::wallet
         CoinIDList coins;
 
         if (!params["coins"].is_array() || params["coins"].size() <= 0)
-            throw jsonrpc_exception{ INVALID_PARAMS_JSON_RPC , "Invalid 'coins' parameter.", id };
+            throw jsonrpc_exception{ ApiError::InvalidParamsJsonRpc , "Invalid 'coins' parameter.", id };
 
         for (const auto& cid : params["coins"])
         {
@@ -180,7 +174,7 @@ namespace beam::wallet
             }
 
             if (!done)
-                throw jsonrpc_exception{ INVALID_PARAMS_JSON_RPC , "Invalid 'coin ID' parameter.", id };
+                throw jsonrpc_exception{ ApiError::InvalidParamsJsonRpc , "Invalid 'coin ID' parameter.", id };
         }
 
         return coins;
@@ -194,7 +188,7 @@ namespace beam::wallet
         {
             session = params["session"];
         }
-        else throw jsonrpc_exception{ INVALID_JSON_RPC , "Invalid 'session' parameter.", id };
+        else throw jsonrpc_exception{ ApiError::InvalidJsonRpc, "Invalid 'session' parameter.", id };
 
         return session;
     }
@@ -205,10 +199,10 @@ namespace beam::wallet
         checkJsonParam(params, "address", id);
 
         if (params["value"] <= 0)
-            throwInvalidJsonRpc(id);
+            throw jsonrpc_exception{ ApiError::InvalidJsonRpc, "Value must be >= 0.", id };
 
         if (params["address"].empty())
-            throwInvalidJsonRpc(id);
+            throw jsonrpc_exception{ ApiError::InvalidAddress, "Address is empty.", id };
 
         Send send;
         send.value = params["value"];
@@ -224,7 +218,7 @@ namespace beam::wallet
 
         if (!send.address.FromHex(params["address"]))
         {
-            throw jsonrpc_exception{ INVALID_PARAMS_JSON_RPC , "Invalid receiver address.", id };
+            throw jsonrpc_exception{ ApiError::InvalidAddress , "Invalid receiver address.", id };
         }
 
         if (existsJsonParam(params, "from"))
@@ -236,14 +230,14 @@ namespace beam::wallet
             }
             else
             {
-                throw jsonrpc_exception{ INVALID_PARAMS_JSON_RPC , "Invalid sender address.", id };
+                throw jsonrpc_exception{ ApiError::InvalidAddress, "Invalid sender address.", id };
             }
         }
 
         if (existsJsonParam(params, "fee"))
         {
-            if(params["fee"] < 0)
-                throwInvalidJsonRpc(id);
+            if(params["fee"] <= 0)
+                throw jsonrpc_exception{ ApiError::InvalidJsonRpc, "Invalid fee.", id };
 
             send.fee = params["fee"];
         }
@@ -251,6 +245,19 @@ namespace beam::wallet
         if (existsJsonParam(params, "comment"))
         {
             send.comment = params["comment"];
+        }
+
+        if (existsJsonParam(params, "txId"))
+        {
+            auto txIdSrc = from_hex(params["txId"]);
+            TxID txId;
+
+            if (txIdSrc.size() != txId.size())
+                throw jsonrpc_exception{ ApiError::InvalidTxId, "", id };
+
+            std::copy_n(txIdSrc.begin(), txId.size(), txId.begin());
+
+            send.txId = txId;
         }
 
         _handler.onMessage(id, send);
@@ -265,7 +272,7 @@ namespace beam::wallet
         auto txId = from_hex(params["txId"]);
 
         if (txId.size() != status.txId.size())
-            throwInvalidJsonRpc(id);
+            throw jsonrpc_exception{ ApiError::InvalidTxId, "", id };
 
         std::copy_n(txId.begin(), status.txId.size(), status.txId.begin());
 
@@ -277,19 +284,22 @@ namespace beam::wallet
         checkJsonParam(params, "coins", id);
 
         if (!params["coins"].is_array() || params["coins"].size() <= 0)
-            throwInvalidJsonRpc(id);
+            throw jsonrpc_exception{ ApiError::InvalidParamsJsonRpc, "Coins parameter must be a nonempty array.", id };
 
         Split split;
 
         for (const auto& amount : params["coins"])
         {
+            if(amount <= 0)
+                throw jsonrpc_exception{ ApiError::InvalidParamsJsonRpc, "Coin amount must be > 0.", id };
+
             split.coins.push_back(amount);
         }
 
         if (existsJsonParam(params, "fee"))
         {
-            if (params["fee"] < 0)
-                throwInvalidJsonRpc(id);
+            if (params["fee"] <= 0)
+                throw jsonrpc_exception{ ApiError::InvalidParamsJsonRpc, "Invalid fee.", id };
 
             split.fee = params["fee"];
         }
@@ -309,7 +319,7 @@ namespace beam::wallet
         TxCancel txCancel;
 
         if (txId.size() != txCancel.txId.size())
-            throwInvalidJsonRpc(id);
+            throw jsonrpc_exception{ ApiError::InvalidTxId, "", id };
 
         std::copy_n(txId.begin(), txCancel.txId.size(), txCancel.txId.begin());
 
@@ -324,7 +334,7 @@ namespace beam::wallet
         TxDelete txDelete;
 
         if (txId.size() != txDelete.txId.size())
-            throwInvalidJsonRpc(id);
+            throw jsonrpc_exception{ ApiError::InvalidTxId, "", id };
 
         std::copy_n(txId.begin(), txDelete.txId.size(), txDelete.txId.begin());
 
@@ -341,7 +351,7 @@ namespace beam::wallet
             {
                 getUtxo.count = params["count"];
             }
-            else throw jsonrpc_exception{ INVALID_JSON_RPC , "Invalid 'count' parameter.", id };
+            else throw jsonrpc_exception{ ApiError::InvalidJsonRpc, "Invalid 'count' parameter.", id };
         }
 
         if (existsJsonParam(params, "skip"))
@@ -350,7 +360,7 @@ namespace beam::wallet
             {
                 getUtxo.skip = params["skip"];
             }
-            else throw jsonrpc_exception{ INVALID_JSON_RPC , "Invalid 'skip' parameter.", id };
+            else throw jsonrpc_exception{ ApiError::InvalidJsonRpc, "Invalid 'skip' parameter.", id };
         }
 
         _handler.onMessage(id, getUtxo);
@@ -405,7 +415,7 @@ namespace beam::wallet
             {
                 txList.count = params["count"];
             }
-            else throw jsonrpc_exception{ INVALID_JSON_RPC , "Invalid 'count' parameter.", id };
+            else throw jsonrpc_exception{ ApiError::InvalidJsonRpc, "Invalid 'count' parameter.", id };
         }
 
         if (existsJsonParam(params, "skip"))
@@ -414,7 +424,7 @@ namespace beam::wallet
             {
                 txList.skip = params["skip"];
             }
-            else throw jsonrpc_exception{ INVALID_JSON_RPC , "Invalid 'skip' parameter.", id };
+            else throw jsonrpc_exception{ ApiError::InvalidJsonRpc, "Invalid 'skip' parameter.", id };
         }
 
         _handler.onMessage(id, txList);
@@ -426,11 +436,17 @@ namespace beam::wallet
         _handler.onMessage(id, walletStatus);
     }
 
+    void WalletApi::onGenerateTxIdMessage(const JsonRpcId& id, const nlohmann::json& params)
+    {
+        GenerateTxId generateTxId;
+        _handler.onMessage(id, generateTxId);
+    }
+
     void WalletApi::getResponse(const JsonRpcId& id, const CreateAddress::Response& res, json& msg)
     {
         msg = json
         {
-            {"jsonrpc", "2.0"},
+            {JsonRpcHrd, JsonRpcVerHrd},
             {"id", id},
             {"result", std::to_string(res.address)}
         };
@@ -440,7 +456,7 @@ namespace beam::wallet
     {
         msg = json
         {
-            {"jsonrpc", "2.0"},
+            {JsonRpcHrd, JsonRpcVerHrd},
             {"id", id},
             {"result", "done"}
         };
@@ -450,7 +466,7 @@ namespace beam::wallet
     {
         msg = json
         {
-            {"jsonrpc", "2.0"},
+            {JsonRpcHrd, JsonRpcVerHrd},
             {"id", id},
             {"result", "done"}
         };
@@ -460,7 +476,7 @@ namespace beam::wallet
     {
         msg = json
         {
-            {"jsonrpc", "2.0"},
+            {JsonRpcHrd, JsonRpcVerHrd},
             {"id", id},
             {"result", json::array()}
         };
@@ -484,7 +500,7 @@ namespace beam::wallet
     {
         msg = json
         {
-            {"jsonrpc", "2.0"},
+            {JsonRpcHrd, JsonRpcVerHrd},
             {"id", id},
             {"result", 
                 {
@@ -499,7 +515,7 @@ namespace beam::wallet
     {
         msg = json
         {
-            {"jsonrpc", "2.0"},
+            {JsonRpcHrd, JsonRpcVerHrd},
             {"id", id},
             {"result", json::array()}
         };
@@ -528,7 +544,7 @@ namespace beam::wallet
     {
         msg = json
         {
-            {"jsonrpc", "2.0"},
+            {JsonRpcHrd, JsonRpcVerHrd},
             {"id", id},
             {"result", 
                 {
@@ -578,7 +594,7 @@ namespace beam::wallet
     {
         msg = json
         {
-            {"jsonrpc", "2.0"},
+            {JsonRpcHrd, JsonRpcVerHrd},
             {"id", id},
             {"result", {}}
         };
@@ -590,7 +606,7 @@ namespace beam::wallet
     {
         msg = json
         {
-            {"jsonrpc", "2.0"},
+            {JsonRpcHrd, JsonRpcVerHrd},
             {"id", id},
             {"result",
                 {
@@ -604,7 +620,7 @@ namespace beam::wallet
     {
         msg = json
         {
-            {"jsonrpc", "2.0"},
+            {JsonRpcHrd, JsonRpcVerHrd},
             {"id", id},
             {"result", res.result}
         };
@@ -614,7 +630,7 @@ namespace beam::wallet
     {
         msg = json
         {
-            {"jsonrpc", "2.0"},
+            {JsonRpcHrd, JsonRpcVerHrd},
             {"id", id},
             {"result", res.result}
         };
@@ -624,7 +640,7 @@ namespace beam::wallet
     {
         msg = json
         {
-            {"jsonrpc", "2.0"},
+            {JsonRpcHrd, JsonRpcVerHrd},
             {"id", id},
             {"result", json::array()}
         };
@@ -641,7 +657,7 @@ namespace beam::wallet
     {
         msg = json
         {
-            {"jsonrpc", "2.0"},
+            {JsonRpcHrd, JsonRpcVerHrd},
             {"id", id},
             {"result",
                 {
@@ -658,11 +674,21 @@ namespace beam::wallet
         };
     }
 
+    void WalletApi::getResponse(const JsonRpcId& id, const GenerateTxId::Response& res, json& msg)
+    {
+        msg = json
+        {
+            {JsonRpcHrd, JsonRpcVerHrd},
+            {"id", id},
+            {"result", txIDToString(res.txId)}
+        };
+    }
+
     void WalletApi::getResponse(const JsonRpcId& id, const Lock::Response& res, json& msg)
     {
         msg = json
         {
-            {"jsonrpc", "2.0"},
+            {JsonRpcHrd, JsonRpcVerHrd},
             {"id", id},
             {"result", res.result}
         };        
@@ -672,7 +698,7 @@ namespace beam::wallet
     {
         msg = json
         {
-            {"jsonrpc", "2.0"},
+            {JsonRpcHrd, JsonRpcVerHrd},
             {"id", id},
             {"result", res.result}
         };
@@ -684,10 +710,10 @@ namespace beam::wallet
         {
             json msg
             {
-                {"jsonrpc", "2.0"},
+                {JsonRpcHrd, JsonRpcVerHrd},
                 {"error",
                     {
-                        {"code", INVALID_JSON_RPC},
+                        {"code", ApiError::InvalidJsonRpc},
                         {"message", "Empty JSON request."},
                     }
                 }
@@ -701,51 +727,68 @@ namespace beam::wallet
         {
             json msg = json::parse(data, data + size);
 
-            if (msg["jsonrpc"] != "2.0") throwInvalidJsonRpc();
-
             if(!msg["id"].is_number_integer() 
                 && !msg["id"].is_string())
-                throwInvalidJsonRpc();
+                throw jsonrpc_exception{ ApiError::InvalidJsonRpc, "ID can be integer or string only." };
+
+            JsonRpcId id = msg["id"];
+
+            if (msg[JsonRpcHrd] != JsonRpcVerHrd) 
+                throw jsonrpc_exception{ ApiError::InvalidJsonRpc, "ID can be integer or string only.", id };
 
             if (_acl)
             {
-                if (msg["key"] == nullptr) throw jsonrpc_exception{ INVALID_PARAMS_JSON_RPC , "API key not specified.", msg["id"] };
-                if (_acl->count(msg["key"]) == 0) throw jsonrpc_exception{ UNKNOWN_API_KEY , "Unknown API key.", msg["id"] };
+                if (msg["key"] == nullptr) 
+                    throw jsonrpc_exception{ ApiError::InvalidParamsJsonRpc , "API key not specified.", id };
+
+                if (_acl->count(msg["key"]) == 0) 
+                    throw jsonrpc_exception{ ApiError::UnknownApiKey , msg["key"], id };
             }
 
-            if (msg["method"] == nullptr) throwInvalidJsonRpc();
-            if (_methods.find(msg["method"]) == _methods.end()) throwUnknownJsonRpc(msg["id"]);
+            checkJsonParam(msg, "method", id);
+
+            JsonRpcId method = msg["method"];
+
+            if (_methods.find(method) == _methods.end())
+            {
+                throw jsonrpc_exception{ ApiError::NotFoundJsonRpc, method, id };
+            }
 
             try
             {
-                auto& info = _methods[msg["method"]];
+                auto& info = _methods[method];
 
                 if(_acl && info.writeAccess && _acl.get()[msg["key"]] == false)
                 {
-                    throw jsonrpc_exception{ INVALID_PARAMS_JSON_RPC , "User doesn't have permissions to call this method.", msg["id"] };
+                    throw jsonrpc_exception{ ApiError::InvalidParamsJsonRpc , "User doesn't have permissions to call this method.", id };
                 }
 
-                info.func(msg["id"], msg["params"] == nullptr ? json::object() : msg["params"]);
+                info.func(id, msg["params"] == nullptr ? json::object() : msg["params"]);
             }
             catch (const nlohmann::detail::exception& e)
             {
                 LOG_ERROR() << "json parse: " << e.what() << "\n" << getJsonString(data, size);
 
-                throwInvalidJsonRpc(msg["id"]);
+                throw jsonrpc_exception{ ApiError::InvalidJsonRpc , e.what(), id };
             }
         }
         catch (const jsonrpc_exception& e)
         {
             json msg
             {
-                {"jsonrpc", "2.0"},
+                {JsonRpcHrd, JsonRpcVerHrd},
                 {"error",
                     {
                         {"code", e.code},
-                        {"message", e.message},
+                        {"message", getErrorMessage(e.code)},
                     }
                 }
             };
+
+            if (!e.data.empty())
+            {
+                msg["error"]["data"] = e.data;
+            }
 
             if (e.id.is_number_integer() || e.id.is_string()) msg["id"] = e.id;
             else msg.erase("id");
@@ -756,10 +799,10 @@ namespace beam::wallet
         {
             json msg
             {
-                {"jsonrpc", "2.0"},
+                {JsonRpcHrd, JsonRpcVerHrd},
                 {"error",
                     {
-                        {"code", INTERNAL_JSON_RPC_ERROR},
+                        {"code", ApiError::InternalErrorJsonRpc},
                         {"message", e.what()},
                     }
                 }
@@ -769,5 +812,16 @@ namespace beam::wallet
         }
 
         return true;
+    }
+
+    const char* WalletApi::getErrorMessage(ApiError code)
+    {
+#define ERROR_ITEM(_, item, info) case item: return info;
+        switch (code) { JSON_RPC_ERRORS(ERROR_ITEM) }
+#undef ERROR_ITEM
+
+        assert(false);
+
+        return "unknown error.";
     }
 }

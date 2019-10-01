@@ -13,6 +13,9 @@
 // limitations under the License.
 #include "el_seed_validator.h"
 
+#include "utility/string_helpers.h"
+#include "wallet/bitcoin/common.h"
+
 ELSeedValidator::ELSeedValidator(QObject* parent):
     QValidator(parent)
 {
@@ -20,7 +23,24 @@ ELSeedValidator::ELSeedValidator(QObject* parent):
 
 QValidator::State ELSeedValidator::validate(QString& s, int& pos) const
 {
-    if (s.length() == 0) return QValidator::State::Intermediate;
-    if (s.contains('a')) return QValidator::State::Invalid;
-    return QValidator::State::Acceptable;
+    QRegularExpression re("^([a-z]{2,20}\\ ){11}([a-z]{2,20}){1}$");
+    QRegularExpressionMatch match = re.match(s, 0, QRegularExpression::PartialPreferCompleteMatch);
+
+    if (match.hasMatch()) {
+        auto secretWords = string_helpers::split(s.toStdString(), ' ');
+
+        if (beam::bitcoin::validateElectrumMnemonic(secretWords))
+        {
+            return Acceptable;
+        }
+        return Intermediate;
+    }
+    else if (s.isEmpty() || match.hasPartialMatch()) 
+    {
+        return Intermediate;
+    }
+    else
+    {
+        return Invalid;
+    }
 }

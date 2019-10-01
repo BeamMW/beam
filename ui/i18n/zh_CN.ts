@@ -1440,11 +1440,11 @@ Update your settings and try again.</source>
     </message>
     <message id="wallet-receive-expires-12">
         <source>12 hours</source>
-        <translation type="unfinished">24小时 {12 ?}</translation>
+        <translation type="unfinished">12小时</translation>
     </message>
     <message id="wallet-receive-expires-6">
         <source>6 hours</source>
-        <translation type="unfinished">24小时 {6 ?}</translation>
+        <translation type="unfinished">6小时</translation>
     </message>
     <message id="general-rate">
         <source>Rate</source>
@@ -1670,6 +1670,16 @@ you do not send large amounts.</oldsource>
     <message id="settings-progress-na">
         <source>You cannot change settings
 while active transaction is in progress</source>
+        <oldsource>You cannot change settings\nwhile active transaction is in progress</oldsource>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="send-less-than-fee">
+        <source>The swap amount must be greater than the redemption fee.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="atomic-no-offers">
+        <source>There are no active offers at the moment.
+Please try again later or create an offer yourself.</source>
         <translation type="unfinished"></translation>
     </message>
 </context>

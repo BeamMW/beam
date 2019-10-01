@@ -81,4 +81,4 @@ function currenciesList() {
 const symbolBeam  = '\uEAFB'
 const symbolBtc   = '\u20BF'
 const symbolLtc   = '\u0141'
-const symbolQtum  = '\uFFFD' // TODO:SWAP change when available
+const symbolQtum  = '\uEAFD'

@@ -865,6 +865,23 @@ namespace beam
 			blockChain.push_back(std::move(pBlock));
 		}
 
+		for (Height h = 1; h <= np.m_Cursor.m_ID.m_Height; h++)
+		{
+			NodeDB::StateID sid;
+			sid.m_Height = h;
+			sid.m_Row = np.FindActiveAtStrict(h);
+
+			Block::Body block;
+			np.ExtractBlockWithExtra(block, sid);
+
+			// inputs must come with maturities!
+			for (size_t i = 0; i < block.m_vInputs.size(); i++)
+			{
+				const Input& inp = *block.m_vInputs[i];
+				verify_test(inp.m_Internal.m_ID && inp.m_Internal.m_Maturity);
+			}
+		}
+
 	}
 
 

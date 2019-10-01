@@ -279,8 +279,8 @@ namespace beam::wallet
         virtual void setSystemStateID(const Block::SystemState::ID& stateID) = 0;
         virtual bool getSystemStateID(Block::SystemState::ID& stateID) const = 0;
 
-        virtual void subscribe(IWalletDbObserver* observer) = 0;
-        virtual void unsubscribe(IWalletDbObserver* observer) = 0;
+        virtual void Subscribe(IWalletDbObserver* observer) = 0;
+        virtual void Unsubscribe(IWalletDbObserver* observer) = 0;
 
         virtual void changePassword(const SecString& password) = 0;
 
@@ -366,8 +366,8 @@ namespace beam::wallet
         void setSystemStateID(const Block::SystemState::ID& stateID) override;
         bool getSystemStateID(Block::SystemState::ID& stateID) const override;
 
-        void subscribe(IWalletDbObserver* observer) override;
-        void unsubscribe(IWalletDbObserver* observer) override;
+        void Subscribe(IWalletDbObserver* observer) override;
+        void Unsubscribe(IWalletDbObserver* observer) override;
 
         void changePassword(const SecString& password) override;
 

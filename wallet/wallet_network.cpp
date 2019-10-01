@@ -290,12 +290,12 @@ namespace beam::wallet {
 		}
 
         Subscribe();
-        m_WalletDB->subscribe(this);
+        m_WalletDB->Subscribe(this);
 	}
 
 	WalletNetworkViaBbs::~WalletNetworkViaBbs()
 	{
-        m_WalletDB->unsubscribe(this);
+        m_WalletDB->Unsubscribe(this);
 		m_Miner.Stop();
 
 		while (!m_PendingBbsMsgs.empty())

@@ -1360,11 +1360,11 @@ or send this address to the sender over secure channel</translation>
     </message>
     <message id="wallet-receive-expires-12">
         <source>12 hours</source>
-        <translation>24 hours {12 ?}</translation>
+        <translation>12 hours</translation>
     </message>
     <message id="wallet-receive-expires-6">
         <source>6 hours</source>
-        <translation>24 hours {6 ?}</translation>
+        <translation>6 hours</translation>
     </message>
     <message id="general-rate">
         <source>Rate</source>
@@ -1643,10 +1643,21 @@ or send this address to the sender over secure channel</translation>
         <translation type="unfinished">Received</translation>
     </message>
     <message id="settings-progress-na">
-        <source>You cannot change settings
-while active transaction is in progress</source>
-        <translation>You cannot change settings
+        <source>You cannot change settings\nwhile active transaction is in progress</source>
+        <oldsource>You cannot change settings
+while active transaction is in progress</oldsource>
+        <translation type="unfinished">You cannot change settings
 while active transaction is in progress</translation>
+    </message>
+    <message id="atomic-no-offers">
+        <source>There are no active offers at the moment.
+Please try again later or create an offer yourself.</source>
+        <translation>There are no active offers at the moment.
+Please try again later or create an offer yourself.</translation>
+    </message>
+    <message id="send-less-than-fee">
+        <source>The swap amount must be greater than the redemption fee.</source>
+        <translation type="unfinished"></translation>
     </message>
 </context>
 </TS>

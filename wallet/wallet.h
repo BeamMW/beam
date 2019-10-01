@@ -70,6 +70,12 @@ namespace beam::wallet
         virtual void onSyncProgress(int done, int total) = 0;
         virtual void onSwapOffersChanged(ChangeAction action, const std::vector<SwapOffer>& offers) = 0;
     };
+    
+    // Interface for swap bulletin board observer. 
+    struct ISwapOffersObserver
+    {
+        virtual void onSwapOffersChanged(ChangeAction action, const std::vector<SwapOffer>& offers) = 0;
+    };
 
     // Interface for wallet message consumer
     struct IWalletMessageConsumer

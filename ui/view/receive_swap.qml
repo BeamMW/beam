@@ -86,6 +86,10 @@ ColumnLayout {
                 multi:            true
                 resetAmount:      false
                 currColor:        currencyError() ? Style.validator_error : Style.content_main
+                //% "There is not enough funds to complete the transaction"
+                error:            viewModel.isGreatThanFee ? (viewModel.isEnough ? "" : qsTrId("send-not-enough")) 
+                                    //% "The swap amount must be greater than the redemption fee."
+                                    : qsTrId("send-less-than-fee")
 
                 onCurrencyChanged: {
                     if(sentAmountInput.currency != Currency.CurrBeam) {

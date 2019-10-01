@@ -128,21 +128,21 @@ Item {
                     }
                     gradLeft: Style.swapCurrencyPaneGrLeftBEAM
                     currencyIcon: "qrc:/assets/icon-beam.svg"
-                    valueStr: viewModel.beamAvailable + " " + Utils.symbolBeam
+                    valueStr: [Utils.formatAmount(viewModel.beamAvailable), Utils.symbolBeam].join(" ")
                     vatueSecondaryStr: activeTxCountStr()
                     visible: true
                 }
 
                 function btcAmount() {
-                    return viewModel.hasBtcTx ? "" : viewModel.btcAvailable + " " + Utils.symbolBtc;
+                    return viewModel.hasBtcTx ? "" : Utils.formatAmount(viewModel.btcAvailable) + " " + Utils.symbolBtc;
                 }
 
                 function ltcAmount() {
-                    return viewModel.hasLtcTx ? "" : viewModel.ltcAvailable + " " + Utils.symbolLtc;
+                    return viewModel.hasLtcTx ? "" : Utils.formatAmount(viewModel.ltcAvailable) + " " + Utils.symbolLtc;
                 }
 
                 function qtumAmount() {
-                    return viewModel.hasQtumTx ? "" : viewModel.qtumAvailable + " " + Utils.symbolQtum;
+                    return viewModel.hasQtumTx ? "" : Utils.formatAmount(viewModel.qtumAvailable) + " " + Utils.symbolQtum;
                 }
 
                 //% "Transaction is in progress"
@@ -247,7 +247,10 @@ Item {
                     Layout.alignment: Qt.AlignTop
                     //% "Transactions"
                     label: qsTrId("atomic-swap-transactions-tab")
-                    onClicked: atomicSwapLayout.state = "transactions"
+                    onClicked: {
+                        atomicSwapLayout.state = "transactions";
+                        transactionsTab.state = "filterAllTransactions"
+                    }
                     capitalization: Font.AllUppercase
                 }
             }
@@ -285,7 +288,7 @@ Item {
                             Layout.alignment: Qt.AlignHCenter | Qt.AlignLeft
                             font.pixelSize: 14
                             color: Style.content_main
-                            opacity: 0.6
+                            // opacity: 0.6
                             //% "Receive BEAM"
                             text: qsTrId("atomic-swap-receive-beam")
                         }
@@ -293,7 +296,7 @@ Item {
                         CustomSwitch {
                             id: sendReceiveBeamSwitch
                             Layout.alignment: Qt.AlignHCenter | Qt.AlignLeft
-                            opacity: 0.6
+                            // opacity: 0.6
                         }
 
                         SFText {
@@ -301,7 +304,7 @@ Item {
                             Layout.leftMargin: 10
                             font.pixelSize: 14
                             color: Style.content_main
-                            opacity: 0.6
+                            // opacity: 0.6
                             //% "Send BEAM"
                             text: qsTrId("atomic-swap-send-beam")
                         }
@@ -352,13 +355,43 @@ Item {
                         }
                     }   // RowLayout
 
-                    CustomTableView {
+                    ColumnLayout {
+                        Layout.minimumWidth: parent.width
+                        Layout.minimumHeight: parent.height
+                        visible: offersTable.model.count == 0
+
+                        SvgImage {
+                            Layout.topMargin: 100
+                            Layout.alignment: Qt.AlignHCenter
+                            source:     "qrc:/assets/atomic-empty-state.svg"
+                            sourceSize: Qt.size(60, 60)
+                        }
+
+                        SFText {
+                            Layout.topMargin:     30
+                            Layout.alignment:     Qt.AlignHCenter
+                            horizontalAlignment:  Text.AlignHCenter
+                            font.pixelSize:       14
+                            color:                Style.content_main
+                            opacity:              0.5
+                            lineHeight:           1.43
+                            //% "There are no active offers at the moment.\nPlease try again later or create an offer yourself."
+                            text:                 qsTrId("atomic-no-offers")
+                        }
+
+                        Item {
+                            Layout.fillHeight: true
+                        }
+                    }
+
+                     CustomTableView {
                         id: offersTable
 
                         Layout.alignment: Qt.AlignTop
                         Layout.fillWidth : true
                         Layout.fillHeight : true
                         Layout.topMargin: 14
+                        visible: offersTable.model.count > 0
 
                         property int rowHeight: 56
                         property int columnWidth: (width - swapCoinsColumn.width) / 6
@@ -490,6 +523,9 @@ Item {
                             width: offersTable.columnWidth
                             movable: false
                             resizable: false
+                            delegate: TableItem {
+                                text: Utils.formatAmount(styleData.value)
+                            }
                         }
 
                         TableViewColumn {
@@ -598,7 +634,7 @@ Item {
                         State {
                             name: "filterInProgressTransactions"
                             PropertyChanges { target: inProgressTabSelector; state: "active" }
-                            PropertyChanges { target: txProxyModel; filterString: "pending" } // "in progress" state should be
+                            PropertyChanges { target: txProxyModel; filterString: "true" }
                         }
                     ]
 
@@ -628,7 +664,7 @@ Item {
                             sortCaseSensitivity: Qt.CaseInsensitive
                             sortRole: transactionsTable.getColumn(transactionsTable.sortIndicatorColumn).role + "Sort"
 
-                            filterRole: "status"
+                            filterRole: "isInProgress"
                             // filterString: "*"
                             filterSyntax: SortFilterProxyModel.Wildcard
                             filterCaseSensitivity: Qt.CaseInsensitive
