@@ -64,7 +64,7 @@ Item  {
         State {
             name: "normal"
             PropertyChanges {target: text_label; font.weight: Font.Normal}
-            PropertyChanges {target: text_label; font.styleName: "Normal"}
+            PropertyChanges {target: text_label; font.styleName: "Regular"}
         },
         State {
             name: "active"
