@@ -1657,5 +1657,10 @@ you do not send large amounts.</oldsource>
 while active transaction is in progress</source>
         <translation type="unfinished"></translation>
     </message>
+    <message id="atomic-no-offers">
+        <source>There are no active offers at the moment.
+Please try again later or create an offer yourself.</source>
+        <translation type="unfinished"></translation>
+    </message>
 </context>
 </TS>

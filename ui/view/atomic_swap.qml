@@ -352,13 +352,43 @@ Item {
                         }
                     }   // RowLayout
 
-                    CustomTableView {
+                    ColumnLayout {
+                        Layout.minimumWidth: parent.width
+                        Layout.minimumHeight: parent.height
+                        visible: offersTable.model.count == 0
+
+                        SvgImage {
+                            Layout.topMargin: 100
+                            Layout.alignment: Qt.AlignHCenter
+                            source:     "qrc:/assets/atomic-empty-state.svg"
+                            sourceSize: Qt.size(60, 60)
+                        }
+
+                        SFText {
+                            Layout.topMargin:     30
+                            Layout.alignment:     Qt.AlignHCenter
+                            horizontalAlignment:  Text.AlignHCenter
+                            font.pixelSize:       14
+                            color:                Style.content_main
+                            opacity:              0.5
+                            lineHeight:           1.43
+                            //% "There are no active offers at the moment.\nPlease try again later or create an offer yourself."
+                            text:                 qsTrId("atomic-no-offers")
+                        }
+
+                        Item {
+                            Layout.fillHeight: true
+                        }
+                    }
+
+                     CustomTableView {
                         id: offersTable
 
                         Layout.alignment: Qt.AlignTop
                         Layout.fillWidth : true
                         Layout.fillHeight : true
                         Layout.topMargin: 14
+                        visible: offersTable.model.count > 0
 
                         property int rowHeight: 56
                         property int columnWidth: (width - swapCoinsColumn.width) / 6

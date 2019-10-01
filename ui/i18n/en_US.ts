@@ -1648,5 +1648,11 @@ while active transaction is in progress</source>
         <translation>You cannot change settings
 while active transaction is in progress</translation>
     </message>
+    <message id="atomic-no-offers">
+        <source>There are no active offers at the moment.
+Please try again later or create an offer yourself.</source>
+        <translation>There are no active offers at the moment.
+Please try again later or create an offer yourself.</translation>
+    </message>
 </context>
 </TS>
