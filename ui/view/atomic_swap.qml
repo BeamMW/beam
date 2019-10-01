@@ -247,7 +247,10 @@ Item {
                     Layout.alignment: Qt.AlignTop
                     //% "Transactions"
                     label: qsTrId("atomic-swap-transactions-tab")
-                    onClicked: atomicSwapLayout.state = "transactions"
+                    onClicked: {
+                        atomicSwapLayout.state = "transactions";
+                        transactionsTab.state = "filterAllTransactions"
+                    }
                     capitalization: Font.AllUppercase
                 }
             }
