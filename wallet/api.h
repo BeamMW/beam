@@ -19,20 +19,29 @@
 #include "wallet/wallet.h"
 #include "nlohmann/json.hpp"
 
-#define INVALID_JSON_RPC -32600
-#define NOTFOUND_JSON_RPC -32601
-#define INVALID_PARAMS_JSON_RPC -32602
-#define INTERNAL_JSON_RPC_ERROR -32603
-#define INVALID_TX_STATUS -32001
-#define UNKNOWN_API_KEY -32002
-#define INVALID_ADDRESS -32003
-
 namespace beam::wallet
 {
     constexpr Amount DefaultFee = 100;
 
     using json = nlohmann::json;
     using JsonRpcId = json;
+
+#define JSON_RPC_ERRORS(macro) \
+    macro(-32600, InvalidJsonRpc,       "Invalid JSON-RPC.")        \
+    macro(-32601, NotFoundJsonRpc,      "Procedure not found.")     \
+    macro(-32602, InvalidParamsJsonRpc, "Invalid parameters.")      \
+    macro(-32603, InternalErrorJsonRpc, "Internal JSON-RPC error.") \
+    macro(-32001, InvalidTxStatus,      "Invalid TX status.")       \
+    macro(-32002, UnknownApiKey,        "Unknown API key.")         \
+    macro(-32003, InvalidAddress,       "Invalid address.")         \
+    macro(-32004, InvalidTxId,          "Invalid transaction ID.")
+
+    enum ApiError
+    {
+#define ERROR_ITEM(code, item, _) item = code,
+        JSON_RPC_ERRORS(ERROR_ITEM)
+#undef ERROR_ITEM
+    };
 
 #define API_WRITE_ACCESS true
 #define API_READ_ACCESS false
@@ -53,7 +62,7 @@ namespace beam::wallet
     macro(Unlock,           "unlock",           API_WRITE_ACCESS)   \
     macro(TxList,           "tx_list",          API_READ_ACCESS)    \
     macro(WalletStatus,     "wallet_status",    API_READ_ACCESS)    \
-    macro(GenerateTxId,     "generate_tx_id",   API_WRITE_ACCESS)
+    macro(GenerateTxId,     "generate_tx_id",   API_READ_ACCESS)
 
     struct AddressData
     {
@@ -271,6 +280,8 @@ namespace beam::wallet
 #undef RESPONSE_FUNC
 
         bool parse(const char* data, size_t size);
+
+        static const char* getErrorMessage(ApiError code);
 
     private:
 
