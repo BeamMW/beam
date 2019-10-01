@@ -1360,11 +1360,11 @@ or send this address to the sender over secure channel</translation>
     </message>
     <message id="wallet-receive-expires-12">
         <source>12 hours</source>
-        <translation>24 hours {12 ?}</translation>
+        <translation>12 hours</translation>
     </message>
     <message id="wallet-receive-expires-6">
         <source>6 hours</source>
-        <translation>24 hours {6 ?}</translation>
+        <translation>6 hours</translation>
     </message>
     <message id="general-rate">
         <source>Rate</source>
