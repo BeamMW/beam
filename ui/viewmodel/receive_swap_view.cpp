@@ -265,6 +265,9 @@ bool ReceiveSwapViewModel::getCommentValid() const
 
 bool ReceiveSwapViewModel::isEnough() const
 {
+    if (_amountSent == 0)
+        return true;
+
     switch (_sentCurrency)
     {
     case Currency::CurrBeam:
