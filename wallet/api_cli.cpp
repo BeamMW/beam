@@ -233,12 +233,12 @@ namespace
                 , _wnet(wnet)
                 , _keyKeeper(std::make_shared<LocalPrivateKeyKeeper>(_walletDB))
             {
-                _walletDB->subscribe(this);
+                _walletDB->Subscribe(this);
             }
 
             virtual ~ApiConnection()
             {
-                _walletDB->unsubscribe(this);
+                _walletDB->Unsubscribe(this);
             }
 
             virtual void serializeMsg(const json& msg) = 0;

@@ -50,6 +50,7 @@ namespace beam::wallet
 
     class WalletClient
         : private IWalletObserver
+        , private ISwapOffersObserver
         , private IWalletModelAsync
         , private IWalletDB::IRecoveryProgress
         , private IPrivateKeyKeeper::Handler
@@ -112,7 +113,6 @@ namespace beam::wallet
         void setSwapOffersCoinType(AtomicSwapCoin type) override;
         void getSwapOffers() override;
         void publishSwapOffer(const SwapOffer& offer) override;
-        void cancelOffer(const TxID& offerTxID) override;
 #endif
         void cancelTx(const TxID& id) override;
         void deleteTx(const TxID& id) override;

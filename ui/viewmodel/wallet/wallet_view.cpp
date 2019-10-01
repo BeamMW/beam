@@ -59,7 +59,6 @@ void WalletViewModel::cancelTx(QVariant variantTxID)
     {
         auto txId = variantTxID.value<beam::wallet::TxID>();
         _model.getAsync()->cancelTx(txId);
-        _model.getAsync()->cancelOffer(txId);
     }
 }
 

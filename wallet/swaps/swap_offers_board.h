@@ -27,30 +27,43 @@ namespace beam::wallet
     /**
      *  Implementation of public swap offers bulletin board using not crypted BBS broadcasting.
      */
-    class SwapOffersBoard : public FlyClient::IBbsReceiver
+    class SwapOffersBoard
+        : public FlyClient::IBbsReceiver,
+          public IWalletDbObserver
     {
-        
     public:
-        SwapOffersBoard(FlyClient::INetwork& network, IWalletObserver &observer, IWalletMessageEndpoint& messageEndpoint);
+        SwapOffersBoard(FlyClient::INetwork& network, IWalletMessageEndpoint& messageEndpoint);
 
-        virtual void OnMsg(proto::BbsMsg&& msg) override;           /// FlyClient::IBbsReceiver implementation
+        /**
+         *  FlyClient::IBbsReceiver implementation
+         *  Executed to catch BBS messages received on subscribed channels
+         */
+        virtual void OnMsg(proto::BbsMsg&& msg) override;
+        /**
+         *  IWalletDbObserver implementation
+         *  Watch for swap transaction status changes to update linked offer on board
+         */
+        virtual void onTransactionChanged(ChangeAction action, const std::vector<TxDescription>& items) override;
 
-        void subscribe(AtomicSwapCoin coinType);
+        void selectSwapCoin(AtomicSwapCoin coinType);
 
         auto getOffersList() const -> std::vector<SwapOffer>;
         void publishOffer(const SwapOffer& offer) const;
-        void updateOffer(const TxID& offerTxID, TxStatus newStatus) const;
+        
+        void Subscribe(ISwapOffersObserver* observer);
+        void Unsubscribe(ISwapOffersObserver* observer);
 
     private:
-		FlyClient::INetwork& m_network;
-        IWalletObserver& m_observer;
-        IWalletMessageEndpoint& m_messageEndpoint;
+		FlyClient::INetwork& m_network;                     /// source of incoming BBS messages
+        std::vector<ISwapOffersObserver*> m_subscribers;    /// used to notify subscribers about offers changes
+        IWalletMessageEndpoint& m_messageEndpoint;          /// destination of outgoing BBS messages
 
         static const std::map<AtomicSwapCoin, BbsChannel> m_channelsMap;
         Timestamp m_lastTimestamp = getTimestamp() - 12*60*60;
         boost::optional<BbsChannel> m_activeChannel;
 
         auto getChannel(const SwapOffer& offer) const -> boost::optional<BbsChannel>;
+        void updateOffer(const TxID& offerTxID, TxStatus newStatus) const;
 
         std::unordered_map<TxID, SwapOffer> m_offersCache;
     };
