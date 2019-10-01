@@ -1211,9 +1211,6 @@ Height NodeProcessor::PruneOld()
 	if (IsFastSync())
 		return 0; // don't remove anything while in fast-sync mode
 
-	if (m_Cursor.m_Sid.m_Height < Rules::HeightGenesis)
-		return 0;
-
 	Height hRet = 0;
 
 	if (m_Cursor.m_Sid.m_Height > m_Horizon.m_Branching + Rules::HeightGenesis - 1)
