@@ -128,21 +128,21 @@ Item {
                     }
                     gradLeft: Style.swapCurrencyPaneGrLeftBEAM
                     currencyIcon: "qrc:/assets/icon-beam.svg"
-                    valueStr: viewModel.beamAvailable + " " + Utils.symbolBeam
+                    valueStr: [Utils.formatAmount(viewModel.beamAvailable), Utils.symbolBeam].join(" ")
                     vatueSecondaryStr: activeTxCountStr()
                     visible: true
                 }
 
                 function btcAmount() {
-                    return viewModel.hasBtcTx ? "" : viewModel.btcAvailable + " " + Utils.symbolBtc;
+                    return viewModel.hasBtcTx ? "" : Utils.formatAmount(viewModel.btcAvailable) + " " + Utils.symbolBtc;
                 }
 
                 function ltcAmount() {
-                    return viewModel.hasLtcTx ? "" : viewModel.ltcAvailable + " " + Utils.symbolLtc;
+                    return viewModel.hasLtcTx ? "" : Utils.formatAmount(viewModel.ltcAvailable) + " " + Utils.symbolLtc;
                 }
 
                 function qtumAmount() {
-                    return viewModel.hasQtumTx ? "" : viewModel.qtumAvailable + " " + Utils.symbolQtum;
+                    return viewModel.hasQtumTx ? "" : Utils.formatAmount(viewModel.qtumAvailable) + " " + Utils.symbolQtum;
                 }
 
                 //% "Transaction is in progress"
@@ -523,6 +523,9 @@ Item {
                             width: offersTable.columnWidth
                             movable: false
                             resizable: false
+                            delegate: TableItem {
+                                text: Utils.formatAmount(styleData.value)
+                            }
                         }
 
                         TableViewColumn {
