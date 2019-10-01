@@ -81,6 +81,11 @@ namespace beam::wallet
 
     SecondSide::Ptr AtomicSwapTransaction::WrapperSecondSide::operator -> ()
     {
+        return GetSecondSide();
+    }
+
+    SecondSide::Ptr AtomicSwapTransaction::WrapperSecondSide::GetSecondSide()
+    {
         if (!m_secondSide)
         {
             m_secondSide = m_gateway.GetSecondSide(m_tx);
@@ -283,6 +288,10 @@ namespace beam::wallet
                 }
                 else
                 {
+                    // TODO: refactor this
+                    // hack, used for increase refCount!
+                    auto secondSide = m_secondSide.GetSecondSide();
+
                     Height lockTime = 0;
                     if (!GetParameter(TxParameterID::AtomicSwapExternalLockTime, lockTime))
                     {
@@ -290,12 +299,12 @@ namespace beam::wallet
                         break;
                     }
 
-                    if (!m_secondSide->Initialize())
+                    if (!secondSide->Initialize())
                     {
                         break;
                     }
 
-                    if (!m_secondSide->ValidateLockTime())
+                    if (!secondSide->ValidateLockTime())
                     {
                         LOG_ERROR() << GetTxID() << "[" << static_cast<SubTxID>(SubTxIndex::LOCK_TX) << "] " << "Lock height is unacceptable.";
                         OnSubTxFailed(TxFailureReason::InvalidTransaction, SubTxIndex::LOCK_TX, true);
