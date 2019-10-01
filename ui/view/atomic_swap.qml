@@ -285,7 +285,7 @@ Item {
                             Layout.alignment: Qt.AlignHCenter | Qt.AlignLeft
                             font.pixelSize: 14
                             color: Style.content_main
-                            opacity: 0.6
+                            // opacity: 0.6
                             //% "Receive BEAM"
                             text: qsTrId("atomic-swap-receive-beam")
                         }
@@ -293,7 +293,7 @@ Item {
                         CustomSwitch {
                             id: sendReceiveBeamSwitch
                             Layout.alignment: Qt.AlignHCenter | Qt.AlignLeft
-                            opacity: 0.6
+                            // opacity: 0.6
                         }
 
                         SFText {
@@ -301,7 +301,7 @@ Item {
                             Layout.leftMargin: 10
                             font.pixelSize: 14
                             color: Style.content_main
-                            opacity: 0.6
+                            // opacity: 0.6
                             //% "Send BEAM"
                             text: qsTrId("atomic-swap-send-beam")
                         }
@@ -598,7 +598,7 @@ Item {
                         State {
                             name: "filterInProgressTransactions"
                             PropertyChanges { target: inProgressTabSelector; state: "active" }
-                            PropertyChanges { target: txProxyModel; filterString: "pending" } // "in progress" state should be
+                            PropertyChanges { target: txProxyModel; filterString: "true" }
                         }
                     ]
 
@@ -628,7 +628,7 @@ Item {
                             sortCaseSensitivity: Qt.CaseInsensitive
                             sortRole: transactionsTable.getColumn(transactionsTable.sortIndicatorColumn).role + "Sort"
 
-                            filterRole: "status"
+                            filterRole: "isInProgress"
                             // filterString: "*"
                             filterSyntax: SortFilterProxyModel.Wildcard
                             filterCaseSensitivity: Qt.CaseInsensitive

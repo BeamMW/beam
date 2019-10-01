@@ -52,6 +52,7 @@ QVariant SwapOffersList::data(const QModelIndex &index, int role) const
     switch (static_cast<Roles>(role))
     {
         case Roles::TimeCreated:
+            return value->timeCreated().toString(Qt::SystemLocaleShortDate);
         case Roles::TimeCreatedSort:
             return value->timeCreated();
 
@@ -72,6 +73,7 @@ QVariant SwapOffersList::data(const QModelIndex &index, int role) const
             return value->rate();
 
         case Roles::Expiration:
+            return value->timeExpiration().toString(Qt::SystemLocaleShortDate);
         case Roles::ExpirationSort:
             return value->timeExpiration();
 
