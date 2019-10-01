@@ -388,7 +388,7 @@ namespace
                     {
                         if(!data.from->IsValid())
                         {
-                            doError(id, ApiError::InternalErrorJsonRpc, "Invalid sender address.");
+                            doError(id, ApiError::InvalidAddress, "Invalid sender address.");
                             return;
                         }
 
@@ -397,7 +397,13 @@ namespace
 
                         if(!isMine)
                         {
-                            doError(id, ApiError::InternalErrorJsonRpc, "It's not your own address.");
+                            doError(id, ApiError::InvalidAddress, "It's not your own address.");
+                            return;
+                        }
+
+                        if (addr->isExpired())
+                        {
+                            doError(id, ApiError::InvalidAddress, "Sender address is expired.");
                             return;
                         }
 
