@@ -2895,62 +2895,24 @@ bool NodeProcessor::VerifyBlock(const Block::BodyBase& block, TxBase::IReader&& 
 		ctx.IsValidBlock();
 }
 
-void NodeProcessor::ExtractBlockWithExtra(Block::Body& block, const NodeDB::StateID& sid)
+bool NodeProcessor::ExtractBlockWithExtra(Block::Body& block, const NodeDB::StateID& sid)
 {
 	ByteBuffer bbE;
-	m_DB.GetStateBlock(sid.m_Row, nullptr, &bbE);
+	if (!GetBlockInternal(sid, &bbE, nullptr, 0, 0, 0, false, &block))
+		return false;
 
 	Deserializer der;
 	der.reset(bbE);
 	der & Cast::Down<TxVectors::Eternal>(block);
 
-	TxoID id0;
-	TxoID id1 = m_DB.get_StateTxos(sid.m_Row);
-
-	if (!m_DB.get_StateExtra(sid.m_Row, block.m_Offset))
-		OnCorrupted();
-
-	uint64_t rowid = sid.m_Row;
-	if (m_DB.get_Prev(rowid))
+	// Set maturity to inputs
+	for (size_t i = 0; i < block.m_vInputs.size(); i++)
 	{
-		AdjustOffset(block.m_Offset, rowid, false);
-		id0 = m_DB.get_StateTxos(rowid);
-	}
-	else
-		id0 = m_Extra.m_TxosTreasury;
-
-	// inputs
-	NodeDB::WalkerTxo wlk(m_DB);
-
-	std::vector<NodeDB::StateInput> v;
-	m_DB.get_StateInputs(sid.m_Row, v);
-
-	for (size_t i = 0; i < v.size(); i++)
-	{
-		TxoID id = v[i].get_ID();
-
-		block.m_vInputs.emplace_back();
-		Input::Ptr& pInp = block.m_vInputs.back();
-		pInp.reset(new Input);
-
-		ToInputWithMaturity(*pInp, id);
+		Input& inp = *block.m_vInputs[i];
+		ToInputWithMaturity(inp, inp.m_Internal.m_ID);
 	}
 
-	// outputs
-	for (m_DB.EnumTxos(wlk, id0); wlk.MoveNext(); )
-	{
-		if (wlk.m_ID >= id1)
-			break;
-
-		block.m_vOutputs.emplace_back();
-		Output::Ptr& pOutp = block.m_vOutputs.back();
-		pOutp.reset(new Output);
-
-		der.reset(wlk.m_Value.p, wlk.m_Value.n);
-		der & *pOutp;
-	}
-
-	block.NormalizeP();
+	return true;
 }
 
 TxoID NodeProcessor::get_TxosBefore(Height h)
@@ -3114,6 +3076,11 @@ void NodeProcessor::InitializeUtxos()
 
 bool NodeProcessor::GetBlock(const NodeDB::StateID& sid, ByteBuffer* pEthernal, ByteBuffer* pPerishable, Height h0, Height hLo1, Height hHi1, bool bActive)
 {
+	return GetBlockInternal(sid, pEthernal, pPerishable, h0, hLo1, hHi1, bActive, nullptr);
+}
+
+bool NodeProcessor::GetBlockInternal(const NodeDB::StateID& sid, ByteBuffer* pEthernal, ByteBuffer* pPerishable, Height h0, Height hLo1, Height hHi1, bool bActive, Block::Body* pBody)
+{
 	// h0 - current peer Height
 	// hLo1 - HorizonLo that peer needs after the sync
 	// hHi1 - HorizonL1 that peer needs after the sync
@@ -3146,10 +3113,10 @@ bool NodeProcessor::GetBlock(const NodeDB::StateID& sid, ByteBuffer* pEthernal, 
 	if (IsFastSync() && (sid.m_Height > m_Cursor.m_ID.m_Height))
 		return false;
 
-	bool bFullBlock = (sid.m_Height >= hHi1) && (sid.m_Height > hLo1);
+	bool bFullBlock = (sid.m_Height >= hHi1) && (sid.m_Height > hLo1) && !pBody;
 	m_DB.GetStateBlock(sid.m_Row, bFullBlock ? pPerishable : nullptr, pEthernal);
 
-	if (!(pPerishable && pPerishable->empty()))
+	if (!pBody && !(pPerishable && pPerishable->empty()))
 		return true;
 
 	// re-create it from Txos
@@ -3176,9 +3143,12 @@ bool NodeProcessor::GetBlock(const NodeDB::StateID& sid, ByteBuffer* pEthernal, 
 		id0 = m_Extra.m_TxosTreasury;
 
 	Serializer ser;
-	ser & txb;
+	if (pBody)
+		Cast::Down<TxBase>(*pBody) = std::move(txb);
+	else
+		ser & txb;
 
-	uintBigFor<uint32_t>::Type nCount;
+	uint32_t nCount = 0;
 
 	// inputs
 	std::vector<NodeDB::StateInput> v;
@@ -3186,8 +3156,6 @@ bool NodeProcessor::GetBlock(const NodeDB::StateID& sid, ByteBuffer* pEthernal, 
 
 	for (uint32_t iCycle = 0; ; iCycle++)
 	{
-		nCount = Zero;
-
 		for (size_t i = 0; i < v.size(); i++)
 		{
 			TxoID id = v[i].get_ID();
@@ -3199,26 +3167,44 @@ bool NodeProcessor::GetBlock(const NodeDB::StateID& sid, ByteBuffer* pEthernal, 
 			{
 				if (iCycle)
 				{
-					// write
-					Input inp;
-					v[i].Get(inp.m_Commitment);
-					ser & inp;
-				}
+					const NodeDB::StateInput& si = v[i];
 
-				nCount.Inc();
+					if (pBody)
+					{
+						Input::Ptr& pInp = pBody->m_vInputs.emplace_back();
+						pInp.reset(new Input);
+						si.Get(pInp->m_Commitment);
+						pInp->m_Internal.m_ID = si.get_ID();
+					}
+					else
+					{
+						// write
+						Input inp;
+						si.Get(inp.m_Commitment);
+						ser & inp;
+					}
+				}
+				else
+					nCount++;
 			}
 		}
 
 		if (iCycle)
 			break;
 
-		ser & nCount;
+		if (pBody)
+			pBody->m_vInputs.reserve(nCount);
+		else
+			ser & uintBigFrom(nCount);
 	}
 
 	ByteBuffer bbBlob;
-	nCount = Zero;
+	nCount = 0;
 
 	// outputs
+	if (pBody)
+		pBody->m_vOutputs.reserve(static_cast<size_t>(id1 - id0 - 1)); // num of original outputs
+
 	NodeDB::WalkerTxo wlk(m_DB);
 	for (m_DB.EnumTxos(wlk, id0); wlk.MoveNext(); )
 	{
@@ -3237,15 +3223,30 @@ bool NodeProcessor::GetBlock(const NodeDB::StateID& sid, ByteBuffer* pEthernal, 
 		if (wlk.m_SpendHeight <= hHi1)
 			TxoToNaked(pNaked, wlk.m_Value);
 
-		nCount.Inc();
+		if (pBody)
+		{
+			Deserializer der;
+			der.reset(wlk.m_Value.p, wlk.m_Value.n);
 
-		const uint8_t* p = reinterpret_cast<const uint8_t*>(wlk.m_Value.p);
-		bbBlob.insert(bbBlob.end(), p, p + wlk.m_Value.n);
+			Output::Ptr& pOutp = pBody->m_vOutputs.emplace_back();
+			pOutp.reset(new Output);
+			der & *pOutp;
+		}
+		else
+		{
+			nCount++;
+
+			const uint8_t* p = reinterpret_cast<const uint8_t*>(wlk.m_Value.p);
+			bbBlob.insert(bbBlob.end(), p, p + wlk.m_Value.n);
+		}
 	}
 
-	ser & nCount;
-	ser.swap_buf(*pPerishable);
-	pPerishable->insert(pPerishable->end(), bbBlob.begin(), bbBlob.end());
+	if (!pBody)
+	{
+		ser & uintBigFrom(nCount);
+		ser.swap_buf(*pPerishable);
+		pPerishable->insert(pPerishable->end(), bbBlob.begin(), bbBlob.end());
+	}
 
 	return true;
 }
