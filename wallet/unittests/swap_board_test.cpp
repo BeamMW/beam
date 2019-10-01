@@ -108,11 +108,11 @@ namespace
 
         MockNetwork mockNetwork;
 
-        SwapOffersBoard senderBoard(mockNetwork, senderObserver, mockNetwork);
-        SwapOffersBoard receiverBoard(mockNetwork, receiverObserver, mockNetwork);
+        SwapOffersBoard senderBoard(mockNetwork, mockNetwork);
+        SwapOffersBoard receiverBoard(mockNetwork, mockNetwork);
 
         // test if only subscribed coin offer stored
-        receiverBoard.subscribe(AtomicSwapCoin::Bitcoin);
+        receiverBoard.selectSwapCoin(AtomicSwapCoin::Bitcoin);
 
         // use CreateSwapParameters
         SwapOffer offer1(TxID{{1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16}});
@@ -127,7 +127,7 @@ namespace
         WALLET_CHECK(offersList.size() == 1);
 
         // test backward offers transmition
-        senderBoard.subscribe(AtomicSwapCoin::Qtum);
+        senderBoard.selectSwapCoin(AtomicSwapCoin::Qtum);
 
         offer2.SetParameter(TxParameterID::AtomicSwapCoin, toByteBuffer(AtomicSwapCoin::Bitcoin));
         senderBoard.publishOffer(offer2);
@@ -145,7 +145,7 @@ namespace
         WALLET_CHECK(offersList.size() == 2);
 
         // test offer corruption
-        receiverBoard.subscribe(AtomicSwapCoin::Litecoin);
+        receiverBoard.selectSwapCoin(AtomicSwapCoin::Litecoin);
         offersList = receiverBoard.getOffersList();
         WALLET_CHECK(offersList.size() == 0);
 

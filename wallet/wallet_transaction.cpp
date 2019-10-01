@@ -27,7 +27,7 @@ namespace beam::wallet
 
     TxParameters CreateSimpleTransactionParameters()
     {
-        return CreateTransactionParameters(TxType::Simple).SetParameter(TxParameterID::TransactionType, TxType::Simple);
+        return CreateTransactionParameters(TxType::Simple, GenerateTxID()).SetParameter(TxParameterID::TransactionType, TxType::Simple);
     }
 
     TxParameters CreateSplitTransactionParameters(const WalletID& myID, const AmountList& amountList)

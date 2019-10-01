@@ -261,6 +261,7 @@ ColumnLayout {
             enabled:            viewModel.canSend
             onClicked: {
                 Qt.createComponent("send_confirm.qml").createObject(thisView, {
+                    isSwapMode: false,
                     ownerView: thisView,
                     addressText: viewModel.receiverAddress,
                     //% "BEAM"

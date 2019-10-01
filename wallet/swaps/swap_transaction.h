@@ -99,6 +99,7 @@ namespace beam::wallet
         public:
             WrapperSecondSide(ISecondSideProvider& gateway, BaseTransaction& tx);
             SecondSide::Ptr operator -> ();
+            SecondSide::Ptr GetSecondSide();
 
         private:
             ISecondSideProvider& m_gateway;

@@ -1594,9 +1594,9 @@ int main_impl(int argc, char* argv[])
                             return -1;
                         }
                         auto walletDB = WalletDB::init(walletPath, pass, walletSeed, reactor, coldWallet);
-                        IPrivateKeyKeeper::Ptr keyKeeper = make_shared<LocalPrivateKeyKeeper>(walletDB);
                         if (walletDB)
                         {
+                            IPrivateKeyKeeper::Ptr keyKeeper = make_shared<LocalPrivateKeyKeeper>(walletDB);
                             LOG_INFO() << kWalletCreatedMessage;
                             CreateNewAddress(vm, walletDB,
                                              keyKeeper, kDefaultAddrLabel);

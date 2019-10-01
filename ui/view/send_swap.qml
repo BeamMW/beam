@@ -319,7 +319,9 @@ ColumnLayout {
             icon.source:        "qrc:/assets/icon-send-blue.svg"
             enabled:            viewModel.canSend
             onClicked: {
-                const dialog       = Qt.createComponent("send_confirm.qml").createObject(thisView);
+                const dialog       = Qt.createComponent("send_confirm.qml").
+                                        createObject(thisView, {ownerView: thisView, 
+                                                                isSwapMode: true});
                 dialog.addressText = viewModel.receiverAddress;
                 dialog.amountText  = [Utils.formatAmount(viewModel.sendAmount), sendAmountInput.getCurrencyLabel()].join(" ")
                 dialog.feeText     = [Utils.formatAmount(viewModel.sendFee), sendAmountInput.getFeeLabel()].join(" ")

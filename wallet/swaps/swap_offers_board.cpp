@@ -16,9 +16,8 @@
 
 namespace beam::wallet
 {
-    SwapOffersBoard::SwapOffersBoard(FlyClient::INetwork& network, IWalletObserver& observer, IWalletMessageEndpoint& messageEndpoint)
+    SwapOffersBoard::SwapOffersBoard(FlyClient::INetwork& network, IWalletMessageEndpoint& messageEndpoint)
         :   m_network(network),
-            m_observer(observer),
             m_messageEndpoint(messageEndpoint)
     {
     }
@@ -63,7 +62,10 @@ namespace beam::wallet
             {
                 // new offer
                 m_offersCache[*txId] = offer;
-                m_observer.onSwapOffersChanged(ChangeAction::Added, std::vector<SwapOffer>{offer});
+                for (auto sub : m_subscribers)
+                {
+                    sub->onSwapOffersChanged(ChangeAction::Added, std::vector<SwapOffer>{offer});
+                }
             }
             else
             {
@@ -77,13 +79,32 @@ namespace beam::wallet
                 if (newOfferStatus != TxStatus::Pending)
                 {
                     m_offersCache[*txId].SetParameter(TxParameterID::Status, newOfferStatus);
-                    m_observer.onSwapOffersChanged(ChangeAction::Removed, std::vector<SwapOffer>{offer});
+                    for (auto sub : m_subscribers)
+                    {
+                        sub->onSwapOffersChanged(ChangeAction::Removed, std::vector<SwapOffer>{offer});
+                    }
                 }
             }
         }
     }
 
-    void SwapOffersBoard::subscribe(AtomicSwapCoin coinType)
+    void SwapOffersBoard::onTransactionChanged(ChangeAction action, const std::vector<TxDescription>& items)
+    {
+        if (action == ChangeAction::Updated)
+        {
+            for (const auto& item : items)
+            {
+                if (item.m_status == TxStatus::InProgress ||
+                    item.m_status == TxStatus::Failed ||
+                    item.m_status == TxStatus::Cancelled)
+                {
+                    updateOffer(item.m_txId, item.m_status);
+                }
+            }
+        }
+    }
+
+    void SwapOffersBoard::selectSwapCoin(AtomicSwapCoin coinType)
     {
         auto it = m_channelsMap.find(coinType);
         if (it != std::cend(m_channelsMap))
@@ -154,8 +175,9 @@ namespace beam::wallet
         {
             auto channel = getChannel(offerExist->second);
             auto peerId = offerExist->second.GetParameter<WalletID>(TxParameterID::PeerID);
+            auto currentStatus = offerExist->second.GetParameter<TxStatus>(TxParameterID::Status);
 
-            if (peerId && channel)
+            if (peerId && channel && currentStatus && *currentStatus != newStatus)
             {
                 SwapOffer offerUpdate(offerTxID);
                 offerUpdate.SetParameter(TxParameterID::Status, newStatus);
@@ -165,6 +187,22 @@ namespace beam::wallet
                 m_messageEndpoint.SendAndSign(toByteBuffer(token), channel.value(), peerId.value());
             }
         }
+    }
+    
+    void SwapOffersBoard::Subscribe(ISwapOffersObserver* observer)
+    {
+        assert(std::find(m_subscribers.begin(), m_subscribers.end(), observer) == m_subscribers.end());
+
+        m_subscribers.push_back(observer);
+    }
+
+    void SwapOffersBoard::Unsubscribe(ISwapOffersObserver* observer)
+    {
+        auto it = std::find(m_subscribers.begin(), m_subscribers.end(), observer);
+
+        assert(it != m_subscribers.end());
+
+        m_subscribers.erase(it);
     }
 
 } // namespace beam::wallet

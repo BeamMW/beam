@@ -90,7 +90,7 @@ namespace beam::bitcoin
         ++m_refCount;
     }
 
-    void SettingsProvider::Release()
+    void SettingsProvider::ReleaseRef()
     {
         if (m_refCount)
         {

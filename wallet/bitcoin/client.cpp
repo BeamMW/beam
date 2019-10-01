@@ -139,13 +139,15 @@ namespace beam::bitcoin
     void Client::AddRef()
     {
         ++m_refCount;
+        OnCanModifySettingsChanged(CanModify());
     }
 
-    void Client::Release()
+    void Client::ReleaseRef()
     {
         if (m_refCount)
         {
             --m_refCount;
+            OnCanModifySettingsChanged(CanModify());
         }
     }
 

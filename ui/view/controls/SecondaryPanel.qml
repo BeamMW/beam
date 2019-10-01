@@ -50,7 +50,7 @@ Control {
     Component {
         id: amountText
         SFLabel {
-            font.styleName:  "Light"
+            font.styleName:  "Regular"
             font.weight:     Font.Normal
             font.pixelSize:  20
             color:           amountColor

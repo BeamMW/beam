@@ -1643,9 +1643,10 @@ or send this address to the sender over secure channel</translation>
         <translation type="unfinished">Received</translation>
     </message>
     <message id="settings-progress-na">
-        <source>You cannot change settings
-while active transaction is in progress</source>
-        <translation>You cannot change settings
+        <source>You cannot change settings\nwhile active transaction is in progress</source>
+        <oldsource>You cannot change settings
+while active transaction is in progress</oldsource>
+        <translation type="unfinished">You cannot change settings
 while active transaction is in progress</translation>
     </message>
     <message id="atomic-no-offers">
@@ -1653,6 +1654,10 @@ while active transaction is in progress</translation>
 Please try again later or create an offer yourself.</source>
         <translation>There are no active offers at the moment.
 Please try again later or create an offer yourself.</translation>
+    </message>
+    <message id="send-less-than-fee">
+        <source>The swap amount must be greater than the redemption fee.</source>
+        <translation type="unfinished"></translation>
     </message>
 </context>
 </TS>

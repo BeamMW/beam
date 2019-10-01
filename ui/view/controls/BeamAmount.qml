@@ -50,7 +50,7 @@ Control {
                 SFLabel {
                     id:             amountText
                     font.pixelSize: fontSize
-                    font.styleName: lightFont ? "Light" : "Normal"
+                    font.styleName: lightFont ? "Light" : "Regular"
                     font.weight:    lightFont ? Font.Light : Font.Normal
                     color:          control.error ? Style.validator_error : control.color
                     text:           showZero || amount > 0 ? prefix + [Utils.formatAmount(amount).length ? Utils.formatAmount(amount) : "0", control.currencySymbol].join(" ") : "-"

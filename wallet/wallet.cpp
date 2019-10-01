@@ -903,7 +903,7 @@ namespace beam::wallet
 
         m_subscribers.push_back(observer);
 
-        m_WalletDB->subscribe(observer);
+        m_WalletDB->Subscribe(observer);
     }
 
     void Wallet::Unsubscribe(IWalletObserver* observer)
@@ -914,7 +914,7 @@ namespace beam::wallet
 
         m_subscribers.erase(it);
 
-        m_WalletDB->unsubscribe(observer);
+        m_WalletDB->Unsubscribe(observer);
     }
 
     BaseTransaction::Ptr Wallet::GetTransaction(const WalletID& myID, const SetTxParameter& msg)

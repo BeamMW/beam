@@ -112,7 +112,7 @@ namespace beam::wallet
 
     BitcoinSide::~BitcoinSide()
     {
-        m_settingsProvider->Release();
+        m_settingsProvider->ReleaseRef();
     }
 
     bool BitcoinSide::Initialize()

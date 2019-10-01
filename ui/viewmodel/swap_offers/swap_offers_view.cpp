@@ -138,7 +138,6 @@ void SwapOffersViewModel::cancelTx(QVariant variantTxID)
     {
         auto txId = variantTxID.value<beam::wallet::TxID>();
         m_walletModel.getAsync()->cancelTx(txId);
-        m_walletModel.getAsync()->cancelOffer(txId);
     }
 }
 

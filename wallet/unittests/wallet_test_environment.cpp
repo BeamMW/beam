@@ -103,8 +103,8 @@ public:
     void setSystemStateID(const Block::SystemState::ID&) override {};
     bool getSystemStateID(Block::SystemState::ID&) const override { return false; };
 
-    void subscribe(IWalletDbObserver* observer) override {}
-    void unsubscribe(IWalletDbObserver* observer) override {}
+    void Subscribe(IWalletDbObserver* observer) override {}
+    void Unsubscribe(IWalletDbObserver* observer) override {}
 
     std::vector<TxDescription> getTxHistory(wallet::TxType, uint64_t, int) const override { return {}; };
     boost::optional<TxDescription> getTx(const TxID&) const override { return boost::optional<TxDescription>{}; };

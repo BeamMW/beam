@@ -190,8 +190,8 @@ void test_offline(bool twoNodes) {
 
     WalletDBObserver senderObserver("AAAAAAAAAAAAAAAAAAAAAA"), receiverObserver("BBBBBBBBBBBBBBBBBBBBBB");
 
-    senderParams.walletDB->subscribe(&senderObserver);
-    receiverParams.walletDB->subscribe(&receiverObserver);
+    senderParams.walletDB->Subscribe(&senderObserver);
+    receiverParams.walletDB->Subscribe(&receiverObserver);
 
     WaitHandle node2WH;
     if (twoNodes) {
