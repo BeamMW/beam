@@ -32,22 +32,32 @@ public:
 
     double getAvailable();
     beam::bitcoin::Client::Status getStatus() const;
+    bool CanModifySettings() const;
 
 signals:
     void gotStatus(beam::bitcoin::Client::Status status);
     void gotBalance(const beam::bitcoin::Client::Balance& balance);
+    void gotCanModifySettings(bool canModify);
+
     void stateChanged();
+    void canModifySettingsChanged();
+    void balanceChanged();
+    void statusChanged();
 
 private:
     void OnStatus(Status status) override;
     void OnBalance(const Client::Balance& balance) override;
-    void RecalculateAmounts();
+    void OnCanModifySettingsChanged(bool canModify) override;
 
 private slots:
     void onTimer();
+    void SetBalance(const beam::bitcoin::Client::Balance& balance);
+    void SetStatus(beam::bitcoin::Client::Status status);
+    void SetCanModifySettings(bool canModify);
 
 private:
     QTimer m_timer;
     Client::Balance m_balance;
     Status m_status = Status::Unknown;
+    bool m_canModifySettings = true;
 };

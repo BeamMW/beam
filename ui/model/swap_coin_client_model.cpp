@@ -38,6 +38,12 @@ SwapCoinClientModel::SwapCoinClientModel(beam::bitcoin::Client::CreateBridge bri
     qRegisterMetaType<beam::bitcoin::Client::Balance>("beam::bitcoin::Client::Balance");
 
     connect(&m_timer, SIGNAL(timeout()), this, SLOT(onTimer()));
+
+    // connect to myself for save values in UI(main) thread
+    connect(this, SIGNAL(gotBalance(const beam::bitcoin::Client::Balance&)), this, SLOT(SetBalance(const beam::bitcoin::Client::Balance&)));
+    connect(this, SIGNAL(gotStatus(beam::bitcoin::Client::Status)), this, SLOT(SetStatus(beam::bitcoin::Client::Status)));
+    auto result = connect(this, SIGNAL(gotCanModifySettings(bool)), this, SLOT(SetCanModifySettings(bool)));
+
     m_timer.start(kUpdateInterval);
 }
 
@@ -49,7 +55,6 @@ double SwapCoinClientModel::getAvailable()
 void SwapCoinClientModel::OnStatus(Status status)
 {
     emit gotStatus(status);
-    m_status = status;
 }
 
 beam::bitcoin::Client::Status SwapCoinClientModel::getStatus() const
@@ -57,10 +62,19 @@ beam::bitcoin::Client::Status SwapCoinClientModel::getStatus() const
     return m_status;
 }
 
+bool SwapCoinClientModel::CanModifySettings() const
+{
+    return m_canModifySettings;
+}
+
 void SwapCoinClientModel::OnBalance(const bitcoin::Client::Balance& balance)
 {
-    m_balance = balance;
-    emit stateChanged();
+    emit gotBalance(balance);
+}
+
+void SwapCoinClientModel::OnCanModifySettingsChanged(bool canModify)
+{
+    emit gotCanModifySettings(canModify);
 }
 
 void SwapCoinClientModel::onTimer()
@@ -69,5 +83,33 @@ void SwapCoinClientModel::onTimer()
     {
         // update balance
         GetAsync()->GetBalance();
+    }
+}
+
+void SwapCoinClientModel::SetBalance(const beam::bitcoin::Client::Balance& balance)
+{
+    if (m_balance != balance)
+    {
+        m_balance = balance;
+        emit balanceChanged();
+        emit stateChanged();
+    }
+}
+
+void SwapCoinClientModel::SetStatus(beam::bitcoin::Client::Status status)
+{
+    if (m_status != status)
+    {
+        m_status = status;
+        emit statusChanged();
+    }
+}
+
+void SwapCoinClientModel::SetCanModifySettings(bool canModify)
+{
+    if (m_canModifySettings != canModify)
+    {
+        m_canModifySettings = canModify;
+        emit canModifySettingsChanged();
     }
 }

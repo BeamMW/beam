@@ -1033,15 +1033,15 @@ void SettingsViewModel::SetDefaultQtumSettingsEL()
 
 bool SettingsViewModel::getCanEditBTC() const
 {
-    return true;
+    return AppModel::getInstance().getBitcoinClient()->CanModifySettings();
 }
 
 bool SettingsViewModel::getCanEditLTC() const
 {
-    return true;
+    return AppModel::getInstance().getLitecoinClient()->CanModifySettings();
 }
 
 bool SettingsViewModel::getCanEditQTUM() const
 {
-    return true;
+    return AppModel::getInstance().getQtumClient()->CanModifySettings();
 }
