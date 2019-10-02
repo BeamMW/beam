@@ -681,10 +681,10 @@ Item {
             case "waiting for sender": return qsTrId("wallet-txs-status-waiting-sender");
             //% "waiting for receiver"
             case "waiting for receiver": return qsTrId("wallet-txs-status-waiting-receiver");
-            //% "receiving"
-            case "receiving": return qsTrId("general-receiving");
-            //% "sending"
-            case "sending": return qsTrId("general-sending");
+            //% "in progress"
+            case "receiving": return qsTrId("wallet-txs-status-in-progress");
+            //% "in progress"
+            case "sending": return qsTrId("wallet-txs-status-in-progress");
             //% "completed"
             case "completed": return qsTrId("wallet-txs-status-completed");
             //% "received"
