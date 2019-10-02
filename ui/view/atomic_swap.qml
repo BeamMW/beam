@@ -384,7 +384,7 @@ Item {
                         }
                     }
 
-                     CustomTableView {
+                    CustomTableView {
                         id: offersTable
 
                         Layout.alignment: Qt.AlignTop
@@ -402,6 +402,12 @@ Item {
                         sortIndicatorVisible: true
                         sortIndicatorColumn: 1
                         sortIndicatorOrder: Qt.DescendingOrder
+
+                        onSortIndicatorColumnChanged: {
+                            sortIndicatorOrder = sortIndicatorColumn == 1 || sortIndicatorColumn == 5
+                                ? Qt.DescendingOrder
+                                : Qt.AscendingOrder;
+                        }
 
                         model: SortFilterProxyModel {
                             id: proxyModel
@@ -657,6 +663,12 @@ Item {
                         sortIndicatorVisible: true
                         sortIndicatorColumn: 1
                         sortIndicatorOrder: Qt.DescendingOrder
+
+                        onSortIndicatorColumnChanged: {
+                            sortIndicatorOrder = sortIndicatorColumn == 1 
+                                ? Qt.DescendingOrder
+                                : Qt.AscendingOrder;
+                        }
 
                         model: SortFilterProxyModel {
                             id: txProxyModel
