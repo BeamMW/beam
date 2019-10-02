@@ -645,7 +645,7 @@ void TestExportImportTx()
     tr2.m_minHeight = 285;
     tr2.m_createTime = 4628;
     tr2.m_modifyTime = 45285;
-    tr2.m_status = TxStatus::Cancelled;
+    tr2.m_status = TxStatus::Canceled;
     tr2.m_change = 8;
     tr2.m_myId = wa2.m_walletID;
     walletDB->saveTx(tr2); // without MyAddressID

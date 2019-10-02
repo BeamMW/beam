@@ -346,3 +346,18 @@ bool TxObject::isSelfTx() const
 {
     return m_tx.m_selfTx;
 }
+
+bool TxObject::isCanceled() const
+{
+    return m_tx.m_status == TxStatus::Canceled;
+}
+
+bool TxObject::isFailed() const
+{
+    return m_tx.m_status == TxStatus::Failed;
+}
+
+bool TxObject::isExpired() const
+{
+    return isFailed() && m_tx.m_failureReason == TxFailureReason::TransactionExpired;
+}

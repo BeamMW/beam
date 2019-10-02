@@ -529,12 +529,29 @@ Item {
                                     sourceSize: Qt.size(20, 20)
                                     source: getIconSource()
                                     function getIconSource() {
-                                        if (transactionsTable.model.get(styleData.row).isSelfTransaction) {
-                                            return "qrc:/assets/icon-transfer.svg";
+                                        var item = transactionsTable.model.get(styleData.row);
+                                        
+                                        if (item.isInProgress) {
+                                            if (item.isSelfTransaction) {
+                                                return "qrc:/assets/icon-sending-own.svg";
+                                            }
+                                            return item.isIncome ? "qrc:/assets/icon-receiving.svg"
+                                                                 : "qrc:/assets/icon-sending.svg";
                                         }
-                                        return transactionsTable.model.get(styleData.row).isIncome ?
-                                            "qrc:/assets/icon-received.svg" :
-                                            "qrc:/assets/icon-sent.svg";
+                                        else if (item.isCompleted) {
+                                            if (item.isSelfTransaction) {
+                                                return "qrc:/assets/icon-sent-own.svg";
+                                            }
+                                            return item.isIncome ? "qrc:/assets/icon-received.svg"
+                                                                 : "qrc:/assets/icon-sent.svg";
+                                        }
+                                        else if (item.isExpired) {
+                                            return "qrc:/assets/icon-failed.svg" 
+                                        }
+                                        else {
+                                            return item.isIncome ? "qrc:/assets/icon-receive-canceled.svg"
+                                                                 : "qrc:/assets/icon-send-canceled.svg";
+                                        }
                                     }
                                 }
                                 SFLabel {
@@ -555,7 +572,7 @@ Item {
                                             return item.isIncome ? Style.accent_incoming : Style.accent_outgoing;
                                         }
                                         else {
-                                            return Style.content_main;
+                                            return Style.content_secondary;
                                         }
                                     }
                                 }

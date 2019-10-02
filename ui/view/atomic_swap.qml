@@ -1002,12 +1002,15 @@ Item {
                                             sourceSize: Qt.size(20, 20)
                                             source: getIconSource()
                                             function getIconSource() {
-                                                if (transactionsTable.model.get(styleData.row).isSelfTransaction) {
-                                                    return "qrc:/assets/icon-transfer.svg";
-                                                }
-                                                return transactionsTable.model.get(styleData.row).isIncome ?
-                                                    "qrc:/assets/icon-received.svg" :
-                                                    "qrc:/assets/icon-sent.svg";
+                                                var item = transactionsTable.model.get(styleData.row);
+                                                if (item.isInProgress)
+                                                    return "qrc:/assets/icon-swap-in-progress.svg";
+                                                else if (item.isCompleted)
+                                                    return "qrc:/assets/icon-swap-completed.svg";
+                                                else if (item.isExpired)
+                                                    return "qrc:/assets/icon-failed.svg";
+                                                else
+                                                    return "qrc:/assets/icon-swap-failed.svg";
                                             }
                                         }
                                         SFLabel {
@@ -1022,12 +1025,11 @@ Item {
                                             function getTextColor () {
                                                 var item = transactionsTable.model.get(styleData.row);
                                                 if (item.isInProgress || item.isCompleted) {
-                                                    if (item.isSelfTransaction) {
-                                                        return Style.content_main;
-                                                    }
-                                                    return item.isIncome ? Style.accent_incoming : Style.accent_outgoing;
+                                                     return Style.accent_swap;
                                                 }
-                                                else return Style.content_main;
+                                                else {
+                                                    return Style.content_secondary;
+                                                }
                                             }
                                         }
                                         Item {

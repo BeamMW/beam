@@ -584,7 +584,7 @@ namespace beam::wallet
         {
             msg["failure_reason"] = wallet::GetFailureMessage(tx.m_failureReason);
         }
-        else if (tx.m_status != TxStatus::Cancelled)
+        else if (tx.m_status != TxStatus::Canceled)
         {
             msg["kernel"] = to_hex(tx.m_kernelID.m_pData, tx.m_kernelID.nBytes);
         }
