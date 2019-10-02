@@ -141,8 +141,12 @@ QString TxObject::getSwapAmount(bool sent) const
     if (s)
     {
         auto swapAmount = m_tx.GetParameter<Amount>(TxParameterID::AtomicSwapAmount);
-        auto swapCoin = m_tx.GetParameter<AtomicSwapCoin>(TxParameterID::AtomicSwapCoin);
-        return AmountToString(*swapAmount, beamui::convertSwapCoinToCurrency(*swapCoin));
+        if (swapAmount)
+        {
+            auto swapCoin = m_tx.GetParameter<AtomicSwapCoin>(TxParameterID::AtomicSwapCoin);
+            return AmountToString(*swapAmount, beamui::convertSwapCoinToCurrency(*swapCoin));
+        }
+        return "";
     }
     return getAmount();
 }
@@ -159,7 +163,11 @@ double TxObject::getSwapAmountValue(bool sent) const
     if (s)
     {
         auto swapAmount = m_tx.GetParameter<Amount>(TxParameterID::AtomicSwapAmount);
-        return *swapAmount;
+        if (swapAmount)
+        {
+            return *swapAmount;
+        }
+        return 0.0;
     }
     return m_tx.m_amount;
 }

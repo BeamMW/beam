@@ -499,6 +499,7 @@ Item {
                                 text: styleData.value
                                 elide: Text.ElideRight
                                 fontWeight: Font.Bold
+                                fontSizeMode: Text.Fit
                             }
                         }
 
@@ -513,6 +514,7 @@ Item {
                                 text: styleData.value
                                 elide: Text.ElideRight
                                 fontWeight: Font.Bold
+                                fontSizeMode: Text.Fit
                             }
                         }
 
@@ -647,7 +649,7 @@ Item {
                         Layout.topMargin: 12
 
                         property int rowHeight: 56
-                        property int columnWidth: (width - txSwapCoinsColumn.width - 40) / 6
+                        property int columnWidth: (width - txSwapCoinsColumn.width - txSwapActionColumn.width) / 6
 
                         frameVisible: false
                         selectionMode: SelectionMode.NoSelection
@@ -933,6 +935,7 @@ Item {
                                     TableItem {
                                         text: (styleData.value === '' ? '' : '-') + styleData.value
                                         fontWeight: Font.Bold
+                                        fontSizeMode: Text.Fit
                                         color: Style.accent_outgoing
                                         onCopyText: BeamGlobals.copyToClipboard(Utils.getAmountWithoutCurrency(styleData.value)) 
                                     }
@@ -954,6 +957,7 @@ Item {
                                     TableItem {
                                         text: (styleData.value === '' ? '' : '+') + styleData.value
                                         fontWeight: Font.Bold
+                                        fontSizeMode: Text.Fit
                                         color: Style.accent_incoming
                                         onCopyText: BeamGlobals.copyToClipboard(Utils.getAmountWithoutCurrency(styleData.value)) 
                                     }
@@ -961,11 +965,12 @@ Item {
                             }
                         }
                         TableViewColumn {
+                            id: txStatusColumn
                             role: "status"
                             //% "Status"
                             title: qsTrId("atomic-swap-tx-table-status")
                             elideMode: Text.ElideRight
-                            width: transactionsTable.columnWidth
+                            width: transactionsTable.getAdjustedColumnWidth(txStatusColumn)
                             movable: false
                             resizable: false
                             delegate: Item {
@@ -1000,6 +1005,7 @@ Item {
                                             font.italic: true
                                             elide: Text.ElideRight
                                             text: getStatusText(styleData.value)
+                                            verticalAlignment: Text.AlignBottom
                                             color: getTextColor()
                                             function getTextColor () {
                                                 var item = transactionsTable.model.get(styleData.row);
@@ -1020,9 +1026,9 @@ Item {
                             }
                         }
                         TableViewColumn {
-                            id: actionsColumn
+                            id: txSwapActionColumn
                             elideMode: Text.ElideRight
-                            width: transactionsTable.getAdjustedColumnWidth(actionsColumn)
+                            width: 50
                             movable: false
                             resizable: false
                             delegate: txActions
@@ -1031,26 +1037,18 @@ Item {
                         Component {
                             id: txActions
                             Item {
-                                Item {
-                                    width: parent.width
-                                    height: transactionsTable.rowHeight
-
-                                    Row{
-                                        anchors.right: parent.right
-                                        anchors.rightMargin: 12
-                                        anchors.verticalCenter: parent.verticalCenter
-                                        spacing: 10
-                                        CustomToolButton {
-                                            icon.source: "qrc:/assets/icon-actions.svg"
-                                            //% "Actions"
-                                            ToolTip.text: qsTrId("general-actions")
-                                            onClicked: {
-                                                txContextMenu.cancelEnabled = transactionsTable.model.get(styleData.row).isCancelAvailable;
-                                                txContextMenu.deleteEnabled = transactionsTable.model.get(styleData.row).isDeleteAvailable;
-                                                txContextMenu.txID = transactionsTable.model.get(styleData.row).rawTxID;
-                                                txContextMenu.popup();
-                                            }
-                                        }
+                                CustomToolButton {
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    anchors.right: parent.right
+                                    anchors.rightMargin: 12
+                                    icon.source: "qrc:/assets/icon-actions.svg"
+                                    //% "Actions"
+                                    ToolTip.text: qsTrId("general-actions")
+                                    onClicked: {
+                                        txContextMenu.cancelEnabled = transactionsTable.model.get(styleData.row).isCancelAvailable;
+                                        txContextMenu.deleteEnabled = transactionsTable.model.get(styleData.row).isDeleteAvailable;
+                                        txContextMenu.txID = transactionsTable.model.get(styleData.row).rawTxID;
+                                        txContextMenu.popup();
                                     }
                                 }
                             }

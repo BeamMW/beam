@@ -496,6 +496,7 @@ Item {
                             TableItem {
                                 text: (parent.isIncome ? "+ " : "- ") + styleData.value
                                 fontWeight: Font.Bold
+                                fontSizeMode: Text.Fit
                                 color: parent.isIncome ? Style.accent_incoming : Style.accent_outgoing
                                 onCopyText: BeamGlobals.copyToClipboard(Utils.getAmountWithoutCurrency(styleData.value)) 
                             }
@@ -543,6 +544,7 @@ Item {
                                     font.italic: true
                                     elide: Text.ElideRight
                                     text: getStatusText(styleData.value)
+                                    verticalAlignment: Text.AlignBottom
                                     color: getTextColor()
                                     function getTextColor () {
                                         var item = transactionsTable.model.get(styleData.row);                                        
@@ -576,27 +578,19 @@ Item {
                 Component {
                     id: txActions
                     Item {
-                        Item {
-                            width: parent.width
-                            height: transactionsTable.rowHeight
-
-                            Row {
-                                anchors.right: parent.right
-                                anchors.rightMargin: 12
-                                anchors.verticalCenter: parent.verticalCenter
-                                spacing: 10
-                                CustomToolButton {
-                                    icon.source: "qrc:/assets/icon-actions.svg"
-                                    //% "Actions"
-                                    ToolTip.text: qsTrId("general-actions")
-                                    onClicked: {
-                                        var item = transactionsTable.model.get(styleData.row);
-                                        txContextMenu.cancelEnabled = item.isCancelAvailable;
-                                        txContextMenu.deleteEnabled = item.isDeleteAvailable;
-                                        txContextMenu.txID = item.rawTxID;
-                                        txContextMenu.popup();
-                                    }
-                                }
+                        CustomToolButton {
+                            anchors.verticalCenter: parent.verticalCenter
+                            anchors.right: parent.right
+                            anchors.rightMargin: 12
+                            icon.source: "qrc:/assets/icon-actions.svg"
+                            //% "Actions"
+                            ToolTip.text: qsTrId("general-actions")
+                            onClicked: {
+                                var item = transactionsTable.model.get(styleData.row);
+                                txContextMenu.cancelEnabled = item.isCancelAvailable;
+                                txContextMenu.deleteEnabled = item.isDeleteAvailable;
+                                txContextMenu.txID = item.rawTxID;
+                                txContextMenu.popup();
                             }
                         }
                     }
