@@ -14,6 +14,7 @@
 
 #include "http/http_client.h"
 #include "core/treasury.h"
+#include <tuple>
 
 using namespace beam;
 using namespace beam::wallet;
@@ -332,7 +333,56 @@ private:
     }
 
 };
+
+class TestWallet : public Wallet
+{
+public:
+    TestWallet(IWalletDB::Ptr walletDB, IPrivateKeyKeeper::Ptr keyKeeper, TxCompletedAction&& action = TxCompletedAction(), UpdateCompletedAction&& updateCompleted = UpdateCompletedAction())
+        : Wallet{ walletDB, keyKeeper, std::move(action), std::move(updateCompleted)}
+    {
+
+    }
+
+    void SetBufferSize(size_t s)
+    {
+        FlushBuffer();
+        m_Buffer.reserve(s);
+    }
+private:
+    void register_tx(const TxID& txID, Transaction::Ptr tx, SubTxID subTxID = kDefaultSubTxID) override
+    {
+        if (m_Buffer.capacity() == 0)
+        {
+            Wallet::SendTransactionToNode(txID, tx, subTxID);
+            return;
+        }
         
+        for (const auto& t : m_Buffer)
+        {
+            if (get<0>(t) == txID) return;
+        }
+
+        assert(m_Buffer.size() < m_Buffer.capacity());
+        
+        m_Buffer.push_back(std::make_tuple(txID, tx, subTxID));
+
+        if (m_Buffer.size() == m_Buffer.capacity())
+        {
+            FlushBuffer();
+        }
+    }
+
+    void FlushBuffer()
+    {
+        for (const auto& t : m_Buffer)
+        {
+            Wallet::SendTransactionToNode(std::get<0>(t), std::get<1>(t), std::get<2>(t));
+        }
+        m_Buffer.clear();
+    }
+
+    vector<tuple<TxID, Transaction::Ptr, SubTxID>> m_Buffer;
+};
 
 struct TestWalletRig
 {
@@ -407,7 +457,7 @@ struct TestWalletRig
     WalletID m_WalletID;
     IWalletDB::Ptr m_WalletDB;
     IPrivateKeyKeeper::Ptr m_KeyKeeper;
-    Wallet m_Wallet;
+    TestWallet m_Wallet;
 };
 
 struct TestWalletNetwork
