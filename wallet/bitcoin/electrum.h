@@ -91,7 +91,6 @@ namespace beam::bitcoin
         beam::io::Reactor& m_reactor;
         std::map<uint64_t, TCPConnect> m_connections;
         uint64_t m_idCounter = 0;
-        uint32_t m_currentReceivingAddress = 0;
         IElectrumSettingsProvider::Ptr m_settingsProvider;
     };
 } // namespace beam::bitcoin
