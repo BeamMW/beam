@@ -103,6 +103,7 @@ private:
 
 private slots:
     void setStatus(const beam::wallet::WalletStatus& status);
+    void setAddresses(bool own, const std::vector<beam::wallet::WalletAddress>& addrs);
 
 private:
     std::vector<beam::wallet::WalletAddress> m_addresses;

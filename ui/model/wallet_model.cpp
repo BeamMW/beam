@@ -41,6 +41,8 @@ WalletModel::WalletModel(IWalletDB::Ptr walletDB, IPrivateKeyKeeper::Ptr keyKeep
     qRegisterMetaType<beam::wallet::TxParameters>("beam::wallet::TxParameters");
 
     connect(this, SIGNAL(walletStatus(const beam::wallet::WalletStatus&)), this, SLOT(setStatus(const beam::wallet::WalletStatus&)));
+    connect(this, SIGNAL(addressesChanged(bool, const std::vector<beam::wallet::WalletAddress>&)),
+            this, SLOT(setAddresses(bool, const std::vector<beam::wallet::WalletAddress>&)));
 }
 
 WalletModel::~WalletModel()
@@ -142,10 +144,6 @@ void WalletModel::onAllUtxoChanged(const std::vector<beam::wallet::Coin>& utxos)
 
 void WalletModel::onAddresses(bool own, const std::vector<beam::wallet::WalletAddress>& addrs)
 {
-    if (own)
-    {
-        m_addresses = addrs;
-    }
     emit addressesChanged(own, addrs);
 }
 
@@ -328,5 +326,13 @@ void WalletModel::setStatus(const beam::wallet::WalletStatus& status)
     {
         m_status.stateID = status.stateID;
         emit stateIDChanged();
+    }
+}
+
+void WalletModel::setAddresses(bool own, const std::vector<beam::wallet::WalletAddress>& addrs)
+{
+    if (own)
+    {
+        m_addresses = addrs;
     }
 }
