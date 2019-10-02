@@ -27,7 +27,6 @@ namespace
     const int kUpdateInterval = 5000;
 }
 
-
 SwapCoinClientModel::SwapCoinClientModel(beam::bitcoin::Client::CreateBridge bridgeCreator,
     std::unique_ptr<beam::bitcoin::SettingsProvider> settingsProvider,
     io::Reactor& reactor)
@@ -40,9 +39,9 @@ SwapCoinClientModel::SwapCoinClientModel(beam::bitcoin::Client::CreateBridge bri
     connect(&m_timer, SIGNAL(timeout()), this, SLOT(onTimer()));
 
     // connect to myself for save values in UI(main) thread
-    connect(this, SIGNAL(gotBalance(const beam::bitcoin::Client::Balance&)), this, SLOT(SetBalance(const beam::bitcoin::Client::Balance&)));
-    connect(this, SIGNAL(gotStatus(beam::bitcoin::Client::Status)), this, SLOT(SetStatus(beam::bitcoin::Client::Status)));
-    auto result = connect(this, SIGNAL(gotCanModifySettings(bool)), this, SLOT(SetCanModifySettings(bool)));
+    connect(this, SIGNAL(gotBalance(const beam::bitcoin::Client::Balance&)), this, SLOT(setBalance(const beam::bitcoin::Client::Balance&)));
+    connect(this, SIGNAL(gotStatus(beam::bitcoin::Client::Status)), this, SLOT(setStatus(beam::bitcoin::Client::Status)));
+    connect(this, SIGNAL(gotCanModifySettings(bool)), this, SLOT(setCanModifySettings(bool)));
 
     m_timer.start(kUpdateInterval);
 }
@@ -62,7 +61,7 @@ beam::bitcoin::Client::Status SwapCoinClientModel::getStatus() const
     return m_status;
 }
 
-bool SwapCoinClientModel::CanModifySettings() const
+bool SwapCoinClientModel::canModifySettings() const
 {
     return m_canModifySettings;
 }
@@ -86,17 +85,16 @@ void SwapCoinClientModel::onTimer()
     }
 }
 
-void SwapCoinClientModel::SetBalance(const beam::bitcoin::Client::Balance& balance)
+void SwapCoinClientModel::setBalance(const beam::bitcoin::Client::Balance& balance)
 {
     if (m_balance != balance)
     {
         m_balance = balance;
         emit balanceChanged();
-        emit stateChanged();
     }
 }
 
-void SwapCoinClientModel::SetStatus(beam::bitcoin::Client::Status status)
+void SwapCoinClientModel::setStatus(beam::bitcoin::Client::Status status)
 {
     if (m_status != status)
     {
@@ -105,7 +103,7 @@ void SwapCoinClientModel::SetStatus(beam::bitcoin::Client::Status status)
     }
 }
 
-void SwapCoinClientModel::SetCanModifySettings(bool canModify)
+void SwapCoinClientModel::setCanModifySettings(bool canModify)
 {
     if (m_canModifySettings != canModify)
     {

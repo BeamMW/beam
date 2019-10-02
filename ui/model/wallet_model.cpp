@@ -39,6 +39,8 @@ WalletModel::WalletModel(IWalletDB::Ptr walletDB, IPrivateKeyKeeper::Ptr keyKeep
     qRegisterMetaType<beam::wallet::ErrorType>("beam::wallet::ErrorType");
     qRegisterMetaType<beam::wallet::TxID>("beam::wallet::TxID");
     qRegisterMetaType<beam::wallet::TxParameters>("beam::wallet::TxParameters");
+
+    connect(this, SIGNAL(walletStatus(const beam::wallet::WalletStatus&)), this, SLOT(setStatus(const beam::wallet::WalletStatus&)));
 }
 
 WalletModel::~WalletModel()
@@ -242,4 +244,89 @@ void WalletModel::onPaymentProofExported(const beam::wallet::TxID& txID, const b
 
     beam::to_hex(str.data(), proof.data(), proof.size());
     emit paymentProofExported(txID, QString::fromStdString(str));
+}
+
+beam::Amount WalletModel::getAvailable() const
+{
+    return m_status.available;
+}
+
+beam::Amount WalletModel::getReceiving() const
+{
+    return m_status.receiving;
+}
+
+beam::Amount WalletModel::getReceivingIncoming() const
+{
+    return m_status.receivingIncoming;
+}
+
+beam::Amount WalletModel::getReceivingChange() const
+{
+    return m_status.receivingChange;
+}
+
+beam::Amount WalletModel::getSending() const
+{
+    return m_status.sending;
+}
+
+beam::Amount WalletModel::getMaturing() const
+{
+    return m_status.maturing;
+}
+
+beam::Height WalletModel::getCurrentHeight() const
+{
+    return m_status.stateID.m_Height;
+}
+
+beam::Block::SystemState::ID WalletModel::getCurrentStateID() const
+{
+    return m_status.stateID;
+}
+
+void WalletModel::setStatus(const beam::wallet::WalletStatus& status)
+{
+    if (m_status.available != status.available)
+    {
+        m_status.available = status.available;
+        emit availableChanged();
+    }
+
+    if (m_status.receiving != status.receiving)
+    {
+        m_status.receiving = status.receiving;
+        emit receivingChanged();
+    }
+
+    if (m_status.receivingIncoming != status.receivingIncoming)
+    {
+        m_status.receivingIncoming = status.receivingIncoming;
+        emit receivingIncomingChanged();
+    }
+
+    if (m_status.receivingChange != status.receivingChange)
+    {
+        m_status.receivingChange = status.receivingChange;
+        emit receivingChangeChanged();
+    }
+
+    if (m_status.sending != status.sending)
+    {
+        m_status.sending = status.sending;
+        emit sendingChanged();
+    }
+
+    if (m_status.maturing != status.maturing)
+    {
+        m_status.maturing = status.maturing;
+        emit maturingChanged();
+    }
+
+    if (m_status.stateID != status.stateID)
+    {
+        m_status.stateID = status.stateID;
+        emit stateIDChanged();
+    }
 }

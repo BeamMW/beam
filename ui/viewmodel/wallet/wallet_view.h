@@ -19,19 +19,18 @@
 #include "model/wallet_model.h"
 #include "model/settings.h"
 #include "viewmodel/messages_view.h"
-#include "viewmodel/status_holder.h"
 #include "transactions_list.h"
 
 class WalletViewModel : public QObject
 {
     Q_OBJECT
-    Q_PROPERTY(double beamAvailable                 READ beamAvailable              NOTIFY stateChanged)
-    Q_PROPERTY(double beamReceiving                 READ beamReceiving              NOTIFY stateChanged)
-    Q_PROPERTY(double beamSending                   READ beamSending                NOTIFY stateChanged)
-    Q_PROPERTY(double beamLocked                    READ beamLocked                 NOTIFY stateChanged)
-    Q_PROPERTY(double beamLockedMaturing            READ beamLockedMaturing         NOTIFY stateChanged)
-    Q_PROPERTY(double beamReceivingChange           READ beamReceivingChange        NOTIFY stateChanged)
-    Q_PROPERTY(double beamReceivingIncoming         READ beamReceivingIncoming      NOTIFY stateChanged)
+    Q_PROPERTY(double beamAvailable                 READ beamAvailable              NOTIFY beamAvailableChanged)
+    Q_PROPERTY(double beamReceiving                 READ beamReceiving              NOTIFY beamReceivingChanged)
+    Q_PROPERTY(double beamSending                   READ beamSending                NOTIFY beamSendingChanged)
+    Q_PROPERTY(double beamLocked                    READ beamLocked                 NOTIFY beamLockedChanged)
+    Q_PROPERTY(double beamLockedMaturing            READ beamLockedMaturing         NOTIFY beamLockedChanged)
+    Q_PROPERTY(double beamReceivingChange           READ beamReceivingChange        NOTIFY beamReceivingChangeChanged)
+    Q_PROPERTY(double beamReceivingIncoming         READ beamReceivingIncoming      NOTIFY beamReceivingIncomingChanged)
     Q_PROPERTY(bool isAllowedBeamMWLinks            READ isAllowedBeamMWLinks       WRITE allowBeamMWLinks      NOTIFY beamMWLinksAllowed)
     Q_PROPERTY(QAbstractItemModel* transactions     READ getTransactions            NOTIFY transactionsChanged)
 
@@ -61,13 +60,18 @@ public slots:
     void onTxStatus(beam::wallet::ChangeAction action, const std::vector<beam::wallet::TxDescription>& items);
 
 signals:
-    void stateChanged();
+    void beamAvailableChanged();
+    void beamReceivingChanged();
+    void beamSendingChanged();
+    void beamLockedChanged();
+    void beamReceivingChangeChanged();
+    void beamReceivingIncomingChanged();
+
     void transactionsChanged();
     void beamMWLinksAllowed();
 
 private:
     WalletModel& _model;
     WalletSettings& _settings;
-    StatusHolder _status;
     TransactionsList _transactionsList;
 };

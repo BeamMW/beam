@@ -32,14 +32,13 @@ public:
 
     double getAvailable();
     beam::bitcoin::Client::Status getStatus() const;
-    bool CanModifySettings() const;
+    bool canModifySettings() const;
 
 signals:
     void gotStatus(beam::bitcoin::Client::Status status);
     void gotBalance(const beam::bitcoin::Client::Balance& balance);
     void gotCanModifySettings(bool canModify);
 
-    void stateChanged();
     void canModifySettingsChanged();
     void balanceChanged();
     void statusChanged();
@@ -51,9 +50,9 @@ private:
 
 private slots:
     void onTimer();
-    void SetBalance(const beam::bitcoin::Client::Balance& balance);
-    void SetStatus(beam::bitcoin::Client::Status status);
-    void SetCanModifySettings(bool canModify);
+    void setBalance(const beam::bitcoin::Client::Balance& balance);
+    void setStatus(beam::bitcoin::Client::Status status);
+    void setCanModifySettings(bool canModify);
 
 private:
     QTimer m_timer;

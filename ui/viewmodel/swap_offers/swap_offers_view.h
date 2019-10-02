@@ -19,7 +19,6 @@
 
 #include "model/wallet_model.h"
 #include "model/swap_coin_client_model.h"
-#include "viewmodel/status_holder.h"
 #include "viewmodel/wallet/transactions_list.h"
 #include "swap_offers_list.h"
 
@@ -30,13 +29,13 @@ class SwapOffersViewModel : public QObject
 	Q_OBJECT
     Q_PROPERTY(QAbstractItemModel*  transactions     READ getTransactions    NOTIFY allTransactionsChanged)
     Q_PROPERTY(QAbstractItemModel*  allOffers        READ getAllOffers       NOTIFY allOffersChanged)
-    Q_PROPERTY(double               beamAvailable    READ beamAvailable      NOTIFY stateChanged)
-    Q_PROPERTY(double               btcAvailable     READ btcAvailable       NOTIFY stateChanged)
-    Q_PROPERTY(double               ltcAvailable     READ ltcAvailable       NOTIFY stateChanged)
-    Q_PROPERTY(double               qtumAvailable    READ qtumAvailable      NOTIFY stateChanged)
-    Q_PROPERTY(bool                 btcOK            READ btcOK              NOTIFY stateChanged)
-    Q_PROPERTY(bool                 ltcOK            READ ltcOK              NOTIFY stateChanged)
-    Q_PROPERTY(bool                 qtumOK           READ qtumOK             NOTIFY stateChanged)
+    Q_PROPERTY(double               beamAvailable    READ beamAvailable      NOTIFY beamAvailableChanged)
+    Q_PROPERTY(double               btcAvailable     READ btcAvailable       NOTIFY btcAvailableChanged)
+    Q_PROPERTY(double               ltcAvailable     READ ltcAvailable       NOTIFY ltcAvailableChanged)
+    Q_PROPERTY(double               qtumAvailable    READ qtumAvailable      NOTIFY qtumAvailableChanged)
+    Q_PROPERTY(bool                 btcOK            READ btcOK              NOTIFY btcOKChanged)
+    Q_PROPERTY(bool                 ltcOK            READ ltcOK              NOTIFY ltcOKChanged)
+    Q_PROPERTY(bool                 qtumOK           READ qtumOK             NOTIFY qtumOKChanged)
     Q_PROPERTY(bool                 showBetaWarning  READ showBetaWarning)
     Q_PROPERTY(int                  activeTxCount    READ getActiveTxCount   NOTIFY stateChanged)
     Q_PROPERTY(bool                 hasBtcTx         READ hasBtcTx           NOTIFY stateChanged)
@@ -45,7 +44,6 @@ class SwapOffersViewModel : public QObject
 
 public:
     SwapOffersViewModel();
-    virtual ~SwapOffersViewModel();
 
     QAbstractItemModel* getTransactions();
     QAbstractItemModel* getAllOffers();
@@ -75,13 +73,18 @@ public slots:
     void onSwapOffersDataModelChanged(
         beam::wallet::ChangeAction action,
         const std::vector<beam::wallet::SwapOffer>& offers);
-    void onSwapCoinClientChanged(beam::bitcoin::Client::Status status);
-    void onSwapCoinClientChanged();
 
 signals:
     void allTransactionsChanged();
     void allOffersChanged();
     void stateChanged();
+    void beamAvailableChanged();
+    void btcAvailableChanged();
+    void ltcAvailableChanged();
+    void qtumAvailableChanged();
+    void btcOKChanged();
+    void ltcOKChanged();
+    void qtumOKChanged();
 
 private:
     bool hasActiveTx(const std::string& swapCoin) const;
@@ -91,7 +94,6 @@ private:
 
     TransactionsList m_transactionsList;
     SwapOffersList m_offersList;
-    StatusHolder m_status;
     SwapCoinClientModel::Ptr m_btcClient;
     SwapCoinClientModel::Ptr m_ltcClient;
     SwapCoinClientModel::Ptr m_qtumClient;

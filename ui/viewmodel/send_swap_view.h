@@ -17,7 +17,6 @@
 #include <QDateTime>
 #include "model/wallet_model.h"
 #include "currencies.h"
-#include "status_holder.h"
 
 class SendSwapViewModel: public QObject
 {
@@ -41,7 +40,6 @@ class SendSwapViewModel: public QObject
 
 public:
     SendSwapViewModel();
-    ~SendSwapViewModel() override;
 
     QString getToken() const;
     void setToken(const QString& value);
@@ -119,7 +117,6 @@ private:
     QString   _comment;
     QString   _token;
 
-    StatusHolder _status;
     WalletModel& _walletModel;
     beam::wallet::TxParameters _txParameters;
 };

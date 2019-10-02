@@ -40,12 +40,15 @@ WalletViewModel::WalletViewModel()
     connect(&_model, SIGNAL(txStatus(beam::wallet::ChangeAction, const std::vector<beam::wallet::TxDescription>&)),
         SLOT(onTxStatus(beam::wallet::ChangeAction, const std::vector<beam::wallet::TxDescription>&)));
 
-    _status.setOnChanged([this]() {
-        emit stateChanged();
-    });
+    connect(&_model, SIGNAL(availableChanged()), this, SIGNAL(beamAvailableChanged()));
+    connect(&_model, SIGNAL(receivingChanged()), this, SIGNAL(beamReceivingChanged()));
+    connect(&_model, SIGNAL(sendingChanged()), this, SIGNAL(beamSendingChanged()));
+    connect(&_model, SIGNAL(maturingChanged()), this, SIGNAL(beamLockedChanged()));
+    connect(&_model, SIGNAL(receivingChangeChanged()), this, SIGNAL(beamReceivingChangeChanged()));
+    connect(&_model, SIGNAL(receivingIncomingChanged()), this, SIGNAL(beamReceivingIncomingChanged()));
 
     // TODO: This also refreshes TXs and addresses. Need to make this more transparent
-    _status.refresh();
+    _model.getAsync()->getWalletStatus();
 }
 
 QAbstractItemModel* WalletViewModel::getTransactions()
@@ -130,7 +133,7 @@ void WalletViewModel::onTxStatus(beam::wallet::ChangeAction action, const std::v
 
 double WalletViewModel::beamAvailable() const
 {
-    return double(int64_t(_status.getAvailable())) / Rules::Coin;
+    return double(int64_t(_model.getAvailable())) / Rules::Coin;
 }
 
 double WalletViewModel::beamReceiving() const
@@ -141,19 +144,19 @@ double WalletViewModel::beamReceiving() const
 
 double WalletViewModel::beamSending() const
 {
-    return double(_status.getSending()) / Rules::Coin;
+    return double(_model.getSending()) / Rules::Coin;
 }
 
 double WalletViewModel::beamReceivingChange() const
 {
     // TODO:SWAP return real value
-    return double(_status.getReceivingChange()) / Rules::Coin;
+    return double(_model.getReceivingChange()) / Rules::Coin;
 }
 
 double WalletViewModel::beamReceivingIncoming() const
 {
     // TODO:SWAP return real value
-    return double(_status.getReceivingIncoming()) / Rules::Coin;
+    return double(_model.getReceivingIncoming()) / Rules::Coin;
 }
 
 double WalletViewModel::beamLocked() const
@@ -163,7 +166,7 @@ double WalletViewModel::beamLocked() const
 
 double WalletViewModel::beamLockedMaturing() const
 {
-    return double(_status.getMaturing()) / Rules::Coin;
+    return double(_model.getMaturing()) / Rules::Coin;
 }
 
 bool WalletViewModel::isAllowedBeamMWLinks() const

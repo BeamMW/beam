@@ -30,6 +30,7 @@ SwapOffersViewModel::SwapOffersViewModel()
         m_ltcClient(AppModel::getInstance().getLitecoinClient()),
         m_qtumClient(AppModel::getInstance().getQtumClient())
 {
+    connect(&m_walletModel, SIGNAL(availableChanged()), this, SIGNAL(beamAvailableChanged()));
     connect(&m_walletModel,
             SIGNAL(txStatus(beam::wallet::ChangeAction, const std::vector<beam::wallet::TxDescription>&)),
             SLOT(onTransactionsDataModelChanged(beam::wallet::ChangeAction, const std::vector<beam::wallet::TxDescription>&)));
@@ -38,41 +39,16 @@ SwapOffersViewModel::SwapOffersViewModel()
             SIGNAL(swapOffersChanged(beam::wallet::ChangeAction, const std::vector<beam::wallet::SwapOffer>&)),
             SLOT(onSwapOffersDataModelChanged(beam::wallet::ChangeAction, const std::vector<beam::wallet::SwapOffer>&)));
 
+    connect(m_btcClient.get(),  SIGNAL(balanceChanged()), this, SIGNAL(btcAvailableChanged()));
+    connect(m_ltcClient.get(), SIGNAL(balanceChanged()), this, SIGNAL(ltcAvailableChanged()));
+    connect(m_qtumClient.get(), SIGNAL(balanceChanged()), this, SIGNAL(qtumAvailableChanged()));
+    connect(m_btcClient.get(), SIGNAL(statusChanged()), this, SIGNAL(btcOKChanged()));
+    connect(m_ltcClient.get(), SIGNAL(statusChanged()), this, SIGNAL(ltcOKChanged()));
+    connect(m_qtumClient.get(), SIGNAL(statusChanged()), this, SIGNAL(qtumOKChanged()));
+
     m_walletModel.getAsync()->setSwapOffersCoinType(m_coinType);
     m_walletModel.getAsync()->getSwapOffers();
     m_walletModel.getAsync()->getWalletStatus();
-
-    m_status.setOnChanged([this]() {
-        emit stateChanged();
-    });
-
-    connect(m_btcClient.get(),  SIGNAL(stateChanged()),
-            this, SLOT(onSwapCoinClientChanged()));
-    connect(m_ltcClient.get(), SIGNAL(stateChanged()),
-            this, SLOT(onSwapCoinClientChanged()));
-    connect(m_qtumClient.get(), SIGNAL(stateChanged()),
-            this, SLOT(onSwapCoinClientChanged()));
-    connect(m_btcClient.get(),
-            SIGNAL(gotStatus(beam::bitcoin::Client::Status)),
-            this,
-            SLOT(onSwapCoinClientChanged(beam::bitcoin::Client::Status)));
-    connect(m_ltcClient.get(),
-            SIGNAL(gotStatus(beam::bitcoin::Client::Status)),
-            this,
-            SLOT(onSwapCoinClientChanged(beam::bitcoin::Client::Status)));
-    connect(m_qtumClient.get(),
-            SIGNAL(gotStatus(beam::bitcoin::Client::Status)),
-            this,
-            SLOT(onSwapCoinClientChanged(beam::bitcoin::Client::Status)));
-
-    m_status.refresh();
-}
-
-SwapOffersViewModel::~SwapOffersViewModel()
-{
-    disconnect(m_btcClient.get(), 0, this, 0);
-    disconnect(m_ltcClient.get(), 0, this, 0);
-    disconnect(m_qtumClient.get(), 0, this, 0);
 }
 
 int SwapOffersViewModel::getCoinType()
@@ -94,7 +70,7 @@ QAbstractItemModel* SwapOffersViewModel::getAllOffers()
 
 double  SwapOffersViewModel::beamAvailable() const
 {
-    return double(int64_t(m_status.getAvailable())) / Rules::Coin;
+    return double(int64_t(m_walletModel.getAvailable())) / Rules::Coin;
 }
 
 double  SwapOffersViewModel::btcAvailable() const
@@ -222,7 +198,7 @@ void SwapOffersViewModel::onSwapOffersDataModelChanged(beam::wallet::ChangeActio
 
             auto peerResponseTime = offer.GetParameter<beam::Height>(beam::wallet::TxParameterID::PeerResponseTime);
             auto minHeight = offer.GetParameter<beam::Height>(beam::wallet::TxParameterID::MinHeight);
-            auto currentHeight = m_status.getCurrentHeight();
+            auto currentHeight = m_walletModel.getCurrentHeight();
 
             if (currentHeight && peerResponseTime && minHeight)
             {
@@ -260,16 +236,6 @@ void SwapOffersViewModel::onSwapOffersDataModelChanged(beam::wallet::ChangeActio
     }
     
     emit allOffersChanged();
-}
-
-void SwapOffersViewModel::onSwapCoinClientChanged(Client::Status status)
-{
-    onSwapCoinClientChanged();
-}
-
-void SwapOffersViewModel::onSwapCoinClientChanged()
-{
-    emit stateChanged();
 }
 
 bool SwapOffersViewModel::showBetaWarning() const
