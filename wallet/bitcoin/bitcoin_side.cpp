@@ -524,7 +524,7 @@ namespace beam::wallet
                 if (m_RefundTxConfirmations != confirmations)
                 {
                     LOG_DEBUG() << m_tx.GetTxID() << "[" << static_cast<SubTxID>(SubTxIndex::REFUND_TX) << "] " << confirmations << "/"
-                        << GetTxMinConfirmations() << " confirmations are received.";
+                        << GetTxMinConfirmations() << " confirmations for Refund TX are received.";
                     m_RefundTxConfirmations = confirmations;
                     m_tx.SetParameter(TxParameterID::Confirmations, m_RefundTxConfirmations, true, SubTxIndex::REFUND_TX);
                 }
@@ -545,7 +545,7 @@ namespace beam::wallet
                 if (m_RedeemTxConfirmations != confirmations)
                 {
                     LOG_DEBUG() << m_tx.GetTxID() << "[" << static_cast<SubTxID>(SubTxIndex::REDEEM_TX) << "] " << confirmations << "/"
-                        << GetTxMinConfirmations() << " confirmations are received.";
+                        << GetTxMinConfirmations() << " confirmations for Redeem TC are received.";
                     m_RedeemTxConfirmations = confirmations;
                     m_tx.SetParameter(TxParameterID::Confirmations, m_RedeemTxConfirmations, true, SubTxIndex::REDEEM_TX);
                 }
@@ -832,7 +832,7 @@ namespace beam::wallet
             if (m_SwapLockTxConfirmations != confirmations)
             {
                 LOG_DEBUG() << m_tx.GetTxID() << "[" << static_cast<SubTxID>(SubTxIndex::LOCK_TX) << "] " << confirmations << "/"
-                    << GetTxMinConfirmations() << " confirmations are received.";
+                    << GetTxMinConfirmations() << " confirmations for Lock TX are received.";
                 m_SwapLockTxConfirmations = confirmations;
                 m_tx.SetParameter(TxParameterID::Confirmations, m_SwapLockTxConfirmations, true, SubTxIndex::LOCK_TX);
             }
