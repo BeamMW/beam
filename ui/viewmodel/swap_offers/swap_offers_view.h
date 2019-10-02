@@ -37,10 +37,10 @@ class SwapOffersViewModel : public QObject
     Q_PROPERTY(bool                 ltcOK            READ ltcOK              NOTIFY ltcOKChanged)
     Q_PROPERTY(bool                 qtumOK           READ qtumOK             NOTIFY qtumOKChanged)
     Q_PROPERTY(bool                 showBetaWarning  READ showBetaWarning)
-    Q_PROPERTY(int                  activeTxCount    READ getActiveTxCount   NOTIFY stateChanged)
-    Q_PROPERTY(bool                 hasBtcTx         READ hasBtcTx           NOTIFY stateChanged)
-    Q_PROPERTY(bool                 hasLtcTx         READ hasLtcTx           NOTIFY stateChanged)
-    Q_PROPERTY(bool                 hasQtumTx        READ hasQtumTx          NOTIFY stateChanged)
+    Q_PROPERTY(int                  activeTxCount    READ getActiveTxCount   NOTIFY allTransactionsChanged)
+    Q_PROPERTY(bool                 hasBtcTx         READ hasBtcTx           NOTIFY allTransactionsChanged)
+    Q_PROPERTY(bool                 hasLtcTx         READ hasLtcTx           NOTIFY allTransactionsChanged)
+    Q_PROPERTY(bool                 hasQtumTx        READ hasQtumTx          NOTIFY allTransactionsChanged)
 
 public:
     SwapOffersViewModel();
@@ -77,7 +77,6 @@ public slots:
 signals:
     void allTransactionsChanged();
     void allOffersChanged();
-    void stateChanged();
     void beamAvailableChanged();
     void btcAvailableChanged();
     void ltcAvailableChanged();
