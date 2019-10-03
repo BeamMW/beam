@@ -191,6 +191,13 @@ namespace beam::wallet
         else throw jsonrpc_exception{ ApiError::InvalidJsonRpc, "Invalid 'session' parameter.", id };
 
         return session;
+    
+    }
+
+    void checkTxId(const ByteBuffer& txId, const JsonRpcId& id)
+    {
+        if (txId.size() != TxID().size())
+            throw jsonrpc_exception{ ApiError::InvalidTxId, "Transaction ID has wrong format.", id };
     }
 
     boost::optional<TxID> readTxIdParameter(const JsonRpcId& id, const nlohmann::json& params)
@@ -202,10 +209,9 @@ namespace beam::wallet
             TxID txIdDst;
             auto txIdSrc = from_hex(params["txId"]);
 
-            if (txIdSrc.size() != txIdDst.size())
-                throw jsonrpc_exception{ ApiError::InvalidTxId, "", id };
+            checkTxId(txIdSrc, id);
 
-            std::copy_n(txIdSrc.begin(), txIdDst.size(), txIdDst.begin());
+            std::copy_n(txIdSrc.begin(), TxID().size(), txIdDst.begin());
             txId = txIdDst;
         }
 
@@ -279,8 +285,7 @@ namespace beam::wallet
 
         auto txId = from_hex(params["txId"]);
 
-        if (txId.size() != status.txId.size())
-            throw jsonrpc_exception{ ApiError::InvalidTxId, "", id };
+        checkTxId(txId, id);
 
         std::copy_n(txId.begin(), status.txId.size(), status.txId.begin());
 
@@ -328,8 +333,7 @@ namespace beam::wallet
 
         TxCancel txCancel;
 
-        if (txId.size() != txCancel.txId.size())
-            throw jsonrpc_exception{ ApiError::InvalidTxId, "", id };
+        checkTxId(txId, id);
 
         std::copy_n(txId.begin(), txCancel.txId.size(), txCancel.txId.begin());
 
@@ -343,8 +347,7 @@ namespace beam::wallet
 
         TxDelete txDelete;
 
-        if (txId.size() != txDelete.txId.size())
-            throw jsonrpc_exception{ ApiError::InvalidTxId, "", id };
+        checkTxId(txId, id);
 
         std::copy_n(txId.begin(), txDelete.txId.size(), txDelete.txId.begin());
 
