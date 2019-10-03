@@ -34,19 +34,19 @@ namespace beamui
         switch (coinType)
         {
             case Currencies::Beam:
-                coinSign = QString::fromUtf16((const char16_t*)(L" \uEAFB"));
+                coinSign = QString::fromUtf16(u" \uEAFB");
                 break;
 
             case Currencies::Bitcoin:
-                coinSign = QString::fromUtf16((const char16_t*)(L" \u20BF"));
+                coinSign = QString::fromUtf16(u" \u20BF");
                 break;
 
             case Currencies::Litecoin:
-                coinSign = QString::fromUtf16((const char16_t*)(L" \u0141"));
+                coinSign = QString::fromUtf16(u" \u0141");
                 break;
 
             case Currencies::Qtum:
-                coinSign = QString::fromUtf16((const char16_t*)(L" \uEAFD"));
+                coinSign = QString::fromUtf16(u" \uEAFD");
                 break;
 
             case Currencies::Unknown:

@@ -500,6 +500,7 @@ Item {
                                 text: styleData.value
                                 elide: Text.ElideRight
                                 fontWeight: Font.Bold
+                                fontStyleName: "Bold"
                                 fontSizeMode: Text.Fit
                             }
                         }
@@ -515,6 +516,7 @@ Item {
                                 text: styleData.value
                                 elide: Text.ElideRight
                                 fontWeight: Font.Bold
+                                fontStyleName: "Bold"
                                 fontSizeMode: Text.Fit
                             }
                         }
@@ -942,6 +944,7 @@ Item {
                                     TableItem {
                                         text: (styleData.value === '' ? '' : '-') + styleData.value
                                         fontWeight: Font.Bold
+                                        fontStyleName: "Bold"
                                         fontSizeMode: Text.Fit
                                         color: Style.accent_outgoing
                                         onCopyText: BeamGlobals.copyToClipboard(Utils.getAmountWithoutCurrency(styleData.value)) 
@@ -964,6 +967,7 @@ Item {
                                     TableItem {
                                         text: (styleData.value === '' ? '' : '+') + styleData.value
                                         fontWeight: Font.Bold
+                                        fontStyleName: "Bold"
                                         fontSizeMode: Text.Fit
                                         color: Style.accent_incoming
                                         onCopyText: BeamGlobals.copyToClipboard(Utils.getAmountWithoutCurrency(styleData.value)) 

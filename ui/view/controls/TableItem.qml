@@ -10,6 +10,7 @@ Item {
     property alias elide: itemText.elide
     property alias color: itemText.color
     property alias fontWeight: itemText.font.weight
+    property alias fontStyleName: itemText.font.styleName
     property alias copyMenuEnabled: itemText.copyMenuEnabled
     property alias fontSizeMode: itemText.fontSizeMode
     signal copyText

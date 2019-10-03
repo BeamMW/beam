@@ -496,6 +496,7 @@ Item {
                             TableItem {
                                 text: (parent.isIncome ? "+ " : "- ") + styleData.value
                                 fontWeight: Font.Bold
+                                fontStyleName: "Bold"
                                 fontSizeMode: Text.Fit
                                 color: parent.isIncome ? Style.accent_incoming : Style.accent_outgoing
                                 onCopyText: BeamGlobals.copyToClipboard(Utils.getAmountWithoutCurrency(styleData.value)) 
