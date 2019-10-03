@@ -117,6 +117,9 @@ namespace beam::wallet
                     case TxStatus::Canceled:
                         updateOffer(item.m_txId, SwapOfferStatus::Cancelled);
                         break;
+                    default:
+                        assert(false && "Unexpected tx status");
+                        break;
                 }
             }
         }

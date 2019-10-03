@@ -434,7 +434,7 @@ namespace beam::wallet
         {
             if (!m_SwapLockRawTx.is_initialized())
             {
-                LOG_ERROR() << m_tx.GetTxID() << "[" << SubTxIndex::LOCK_TX << "]" << " Incorrect state, rebuilding.";
+                LOG_ERROR() << m_tx.GetTxID() << "[" << (int)SubTxIndex::LOCK_TX << "]" << " Incorrect state, rebuilding.";
                 m_tx.SetState(SwapTxState::Initial, SubTxIndex::LOCK_TX);
                 m_tx.UpdateAsync();
                 return SwapTxState::Initial;
