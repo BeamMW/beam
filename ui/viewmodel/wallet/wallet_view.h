@@ -29,8 +29,8 @@ class WalletViewModel : public QObject
     Q_PROPERTY(double beamSending                   READ beamSending                NOTIFY beamSendingChanged)
     Q_PROPERTY(double beamLocked                    READ beamLocked                 NOTIFY beamLockedChanged)
     Q_PROPERTY(double beamLockedMaturing            READ beamLockedMaturing         NOTIFY beamLockedChanged)
-    Q_PROPERTY(double beamReceivingChange           READ beamReceivingChange        NOTIFY beamReceivingChangeChanged)
-    Q_PROPERTY(double beamReceivingIncoming         READ beamReceivingIncoming      NOTIFY beamReceivingIncomingChanged)
+    Q_PROPERTY(double beamReceivingChange           READ beamReceivingChange        NOTIFY beamReceivingChanged)
+    Q_PROPERTY(double beamReceivingIncoming         READ beamReceivingIncoming      NOTIFY beamReceivingChanged)
     Q_PROPERTY(bool isAllowedBeamMWLinks            READ isAllowedBeamMWLinks       WRITE allowBeamMWLinks      NOTIFY beamMWLinksAllowed)
     Q_PROPERTY(QAbstractItemModel* transactions     READ getTransactions            NOTIFY transactionsChanged)
 
@@ -64,8 +64,6 @@ signals:
     void beamReceivingChanged();
     void beamSendingChanged();
     void beamLockedChanged();
-    void beamReceivingChangeChanged();
-    void beamReceivingIncomingChanged();
 
     void transactionsChanged();
     void beamMWLinksAllowed();

@@ -44,8 +44,8 @@ WalletViewModel::WalletViewModel()
     connect(&_model, SIGNAL(receivingChanged()), this, SIGNAL(beamReceivingChanged()));
     connect(&_model, SIGNAL(sendingChanged()), this, SIGNAL(beamSendingChanged()));
     connect(&_model, SIGNAL(maturingChanged()), this, SIGNAL(beamLockedChanged()));
-    connect(&_model, SIGNAL(receivingChangeChanged()), this, SIGNAL(beamReceivingChangeChanged()));
-    connect(&_model, SIGNAL(receivingIncomingChanged()), this, SIGNAL(beamReceivingIncomingChanged()));
+    connect(&_model, SIGNAL(receivingChangeChanged()), this, SIGNAL(beamReceivingChanged()));
+    connect(&_model, SIGNAL(receivingIncomingChanged()), this, SIGNAL(beamReceivingChanged()));
 
     // TODO: This also refreshes TXs and addresses. Need to make this more transparent
     _model.getAsync()->getWalletStatus();
