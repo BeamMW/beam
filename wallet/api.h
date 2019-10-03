@@ -147,9 +147,9 @@ namespace beam::wallet
 
     struct Split
     {
-        //int session;
         Amount fee = DefaultFee;
         AmountList coins;
+        boost::optional<TxID> txId;
 
         struct Response
         {

@@ -25,14 +25,14 @@ namespace beam::wallet
     using namespace ECC;
     using namespace std;
 
-    TxParameters CreateSimpleTransactionParameters()
+    TxParameters CreateSimpleTransactionParameters(boost::optional<TxID> txId)
     {
-        return CreateTransactionParameters(TxType::Simple, GenerateTxID()).SetParameter(TxParameterID::TransactionType, TxType::Simple);
+        return CreateTransactionParameters(TxType::Simple, txId ? *txId : GenerateTxID()).SetParameter(TxParameterID::TransactionType, TxType::Simple);
     }
 
-    TxParameters CreateSplitTransactionParameters(const WalletID& myID, const AmountList& amountList)
+    TxParameters CreateSplitTransactionParameters(const WalletID& myID, const AmountList& amountList, boost::optional<TxID> txId)
     {
-        return CreateSimpleTransactionParameters()
+        return CreateSimpleTransactionParameters(txId)
             .SetParameter(TxParameterID::MyID, myID)
             .SetParameter(TxParameterID::PeerID, myID)
             .SetParameter(TxParameterID::AmountList, amountList)

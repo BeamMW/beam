@@ -180,7 +180,7 @@ namespace beam::wallet
         return coins;
     }
 
-    static uint64_t readSessionParameter(const JsonRpcId& id, const nlohmann::json& params)
+    uint64_t readSessionParameter(const JsonRpcId& id, const nlohmann::json& params)
     {
         uint64_t session = 0;
 
@@ -191,6 +191,25 @@ namespace beam::wallet
         else throw jsonrpc_exception{ ApiError::InvalidJsonRpc, "Invalid 'session' parameter.", id };
 
         return session;
+    }
+
+    boost::optional<TxID> readTxIdParameter(const JsonRpcId& id, const nlohmann::json& params)
+    {
+        boost::optional<TxID> txId;
+
+        if (existsJsonParam(params, "txId"))
+        {
+            TxID txIdDst;
+            auto txIdSrc = from_hex(params["txId"]);
+
+            if (txIdSrc.size() != txIdDst.size())
+                throw jsonrpc_exception{ ApiError::InvalidTxId, "", id };
+
+            std::copy_n(txIdSrc.begin(), txIdDst.size(), txIdDst.begin());
+            txId = txIdDst;
+        }
+
+        return txId;
     }
 
     void WalletApi::onSendMessage(const JsonRpcId& id, const nlohmann::json& params)
@@ -247,18 +266,7 @@ namespace beam::wallet
             send.comment = params["comment"];
         }
 
-        if (existsJsonParam(params, "txId"))
-        {
-            auto txIdSrc = from_hex(params["txId"]);
-            TxID txId;
-
-            if (txIdSrc.size() != txId.size())
-                throw jsonrpc_exception{ ApiError::InvalidTxId, "", id };
-
-            std::copy_n(txIdSrc.begin(), txId.size(), txId.begin());
-
-            send.txId = txId;
-        }
+        send.txId = readTxIdParameter(id, params);
 
         _handler.onMessage(id, send);
     }
@@ -307,6 +315,8 @@ namespace beam::wallet
         {
             split.fee = std::max(wallet::GetMinimumFee(split.coins.size() + 1), DefaultFee); // +1 extra output for change
         }
+
+        split.txId = readTxIdParameter(id, params);
 
         _handler.onMessage(id, split);
     }
