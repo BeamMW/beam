@@ -86,6 +86,7 @@ namespace beam::wallet
         uint32_t m_SwapLockTxConfirmations = 0;
         uint32_t m_RefundTxConfirmations = 0;
         uint32_t m_RedeemTxConfirmations = 0;
+        uint32_t m_LockTxValuePosition = 0;
         boost::optional<std::string> m_SwapLockRawTx;
         boost::optional<std::string> m_SwapWithdrawRawTx;
     };
