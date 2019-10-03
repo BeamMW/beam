@@ -11,7 +11,7 @@ Rectangle {
     property var currencyIcons: []
     property color stateIndicatorColor: Style.swapCurrencyStateIndicator
     property string valueStr: ""
-    property string vatueSecondaryStr: ""
+    property string valueSecondaryStr: ""
     property bool isOk: true
     property int textSize: 16
     property int textSecondarySize: 12
@@ -98,8 +98,8 @@ Rectangle {
                 color: textSecondaryColor
                 elide: Text.ElideRight
                 wrapMode: Text.Wrap
-                text: vatueSecondaryStr
-                visible: vatueSecondaryStr.length
+                text: valueSecondaryStr
+                visible: valueSecondaryStr.length
             }
         }
 
