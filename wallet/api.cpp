@@ -744,7 +744,7 @@ namespace beam::wallet
             JsonRpcId id = msg["id"];
 
             if (msg[JsonRpcHrd] != JsonRpcVerHrd) 
-                throw jsonrpc_exception{ ApiError::InvalidJsonRpc, "ID can be integer or string only.", id };
+                throw jsonrpc_exception{ ApiError::InvalidJsonRpc, "Invalid JSON-RPC 2.0 header.", id };
 
             if (_acl)
             {
