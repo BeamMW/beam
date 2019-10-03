@@ -295,11 +295,12 @@ ColumnLayout {
                     text:             Utils.calcDisplayRate(receiveAmountInput, sentAmountInput, rate.focus)
                     selectByMouse:    true
                     maximumLength:    30
-                    validator:        DoubleValidator {
-                                         bottom: 0.00000001;
-                                         top: 9999999900000000;
-                                         notation: DoubleValidator.StandardNotation
-                                      }
+                    validator:        RegExpValidator {regExp: /^(([1-9][0-9]{0,7})|(1[0-9]{8})|(2[0-4][0-9]{7})|(25[0-3][0-9]{6})|(0))(\.[0-9]{0,7}[1-9])?$/}
+                    //DoubleValidator {
+                    //                     bottom: 0.00000001;
+                    //                     top: 9999999900000000;
+                    //                     notation: DoubleValidator.StandardNotation
+                    //                  }
                     onTextEdited: {
                         // unbind
                         text = text
