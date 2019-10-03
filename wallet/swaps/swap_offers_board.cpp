@@ -114,7 +114,7 @@ namespace beam::wallet
                     case TxStatus::Failed:
                         updateOffer(item.m_txId, SwapOfferStatus::Failed);
                         break;
-                    case TxStatus::Cancelled:
+                    case TxStatus::Canceled:
                         updateOffer(item.m_txId, SwapOfferStatus::Cancelled);
                         break;
                 }
