@@ -413,11 +413,6 @@ Item {
                             id: proxyModel
                             source: SortFilterProxyModel {
                                 source: viewModel.allOffers
-
-                                sortOrder: offersTable.sortIndicatorOrder
-                                sortCaseSensitivity: Qt.CaseInsensitive
-                                sortRole: offersTable.getColumn(offersTable.sortIndicatorColumn).role + "Sort"
-
                                 filterRole: "isBeamSide"
                                 filterString: sendReceiveBeamSwitch.checked ? "false" : "true"
                                 filterSyntax: SortFilterProxyModel.Wildcard
