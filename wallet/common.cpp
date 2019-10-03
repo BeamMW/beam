@@ -419,7 +419,7 @@ namespace beam::wallet
     {
         return m_status == TxStatus::Failed
             || m_status == TxStatus::Completed
-            || m_status == TxStatus::Cancelled;
+            || m_status == TxStatus::Canceled;
     }
 
     std::string TxDescription::getStatusString() const
@@ -440,7 +440,7 @@ namespace beam::wallet
             }
             return m_sender == false ? "received" : "sent";
         }
-        case TxStatus::Cancelled:
+        case TxStatus::Canceled:
             return "cancelled";
         case TxStatus::Failed:
             if (TxFailureReason::TransactionExpired == m_failureReason)

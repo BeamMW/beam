@@ -16,7 +16,6 @@
 #include <QObject>
 #include "model/wallet_model.h"
 #include "currencies.h"
-#include "status_holder.h"
 
 class ReceiveSwapViewModel: public QObject
 {
@@ -38,7 +37,6 @@ class ReceiveSwapViewModel: public QObject
 
 public:
     ReceiveSwapViewModel();
-    ~ReceiveSwapViewModel() override;
 
 signals:
     void amountToReceiveChanged();
@@ -100,8 +98,6 @@ private:
 
 private slots:
     void onGeneratedNewAddress(const beam::wallet::WalletAddress& walletAddr);
-    void onNewAddressFailed();
-    void onWalletStatus(const beam::wallet::WalletStatus& status);
 
 private:
     double  _amountToReceive;
@@ -114,8 +110,6 @@ private:
     QString _addressComment;
     QString _token;
     beam::wallet::WalletAddress _receiverAddress;
-    StatusHolder _status;
     WalletModel& _walletModel;
     beam::wallet::TxParameters _txParameters;
-    beam::Height _currentHeight;
 };

@@ -384,7 +384,7 @@ Item {
                         }
                     }
 
-                     CustomTableView {
+                    CustomTableView {
                         id: offersTable
 
                         Layout.alignment: Qt.AlignTop
@@ -402,6 +402,12 @@ Item {
                         sortIndicatorVisible: true
                         sortIndicatorColumn: 1
                         sortIndicatorOrder: Qt.DescendingOrder
+
+                        onSortIndicatorColumnChanged: {
+                            sortIndicatorOrder = sortIndicatorColumn == 1 || sortIndicatorColumn == 5
+                                ? Qt.DescendingOrder
+                                : Qt.AscendingOrder;
+                        }
 
                         model: SortFilterProxyModel {
                             id: proxyModel
@@ -499,6 +505,7 @@ Item {
                                 text: styleData.value
                                 elide: Text.ElideRight
                                 fontWeight: Font.Bold
+                                fontSizeMode: Text.Fit
                             }
                         }
 
@@ -513,6 +520,7 @@ Item {
                                 text: styleData.value
                                 elide: Text.ElideRight
                                 fontWeight: Font.Bold
+                                fontSizeMode: Text.Fit
                             }
                         }
 
@@ -647,7 +655,7 @@ Item {
                         Layout.topMargin: 12
 
                         property int rowHeight: 56
-                        property int columnWidth: (width - txSwapCoinsColumn.width - 40) / 6
+                        property int columnWidth: (width - txSwapCoinsColumn.width - txSwapActionColumn.width) / 6
 
                         frameVisible: false
                         selectionMode: SelectionMode.NoSelection
@@ -655,6 +663,12 @@ Item {
                         sortIndicatorVisible: true
                         sortIndicatorColumn: 1
                         sortIndicatorOrder: Qt.DescendingOrder
+
+                        onSortIndicatorColumnChanged: {
+                            sortIndicatorOrder = sortIndicatorColumn == 1 
+                                ? Qt.DescendingOrder
+                                : Qt.AscendingOrder;
+                        }
 
                         model: SortFilterProxyModel {
                             id: txProxyModel
@@ -933,6 +947,7 @@ Item {
                                     TableItem {
                                         text: (styleData.value === '' ? '' : '-') + styleData.value
                                         fontWeight: Font.Bold
+                                        fontSizeMode: Text.Fit
                                         color: Style.accent_outgoing
                                         onCopyText: BeamGlobals.copyToClipboard(Utils.getAmountWithoutCurrency(styleData.value)) 
                                     }
@@ -954,6 +969,7 @@ Item {
                                     TableItem {
                                         text: (styleData.value === '' ? '' : '+') + styleData.value
                                         fontWeight: Font.Bold
+                                        fontSizeMode: Text.Fit
                                         color: Style.accent_incoming
                                         onCopyText: BeamGlobals.copyToClipboard(Utils.getAmountWithoutCurrency(styleData.value)) 
                                     }
@@ -961,11 +977,12 @@ Item {
                             }
                         }
                         TableViewColumn {
+                            id: txStatusColumn
                             role: "status"
                             //% "Status"
                             title: qsTrId("atomic-swap-tx-table-status")
                             elideMode: Text.ElideRight
-                            width: transactionsTable.columnWidth
+                            width: transactionsTable.getAdjustedColumnWidth(txStatusColumn)
                             movable: false
                             resizable: false
                             delegate: Item {
@@ -985,12 +1002,15 @@ Item {
                                             sourceSize: Qt.size(20, 20)
                                             source: getIconSource()
                                             function getIconSource() {
-                                                if (transactionsTable.model.get(styleData.row).isSelfTransaction) {
-                                                    return "qrc:/assets/icon-transfer.svg";
-                                                }
-                                                return transactionsTable.model.get(styleData.row).isIncome ?
-                                                    "qrc:/assets/icon-received.svg" :
-                                                    "qrc:/assets/icon-sent.svg";
+                                                var item = transactionsTable.model.get(styleData.row);
+                                                if (item.isInProgress)
+                                                    return "qrc:/assets/icon-swap-in-progress.svg";
+                                                else if (item.isCompleted)
+                                                    return "qrc:/assets/icon-swap-completed.svg";
+                                                else if (item.isExpired)
+                                                    return "qrc:/assets/icon-failed.svg";
+                                                else
+                                                    return "qrc:/assets/icon-swap-failed.svg";
                                             }
                                         }
                                         SFLabel {
@@ -1000,16 +1020,16 @@ Item {
                                             font.italic: true
                                             elide: Text.ElideRight
                                             text: getStatusText(styleData.value)
+                                            verticalAlignment: Text.AlignBottom
                                             color: getTextColor()
                                             function getTextColor () {
                                                 var item = transactionsTable.model.get(styleData.row);
                                                 if (item.isInProgress || item.isCompleted) {
-                                                    if (item.isSelfTransaction) {
-                                                        return Style.content_main;
-                                                    }
-                                                    return item.isIncome ? Style.accent_incoming : Style.accent_outgoing;
+                                                     return Style.accent_swap;
                                                 }
-                                                else return Style.content_main;
+                                                else {
+                                                    return Style.content_secondary;
+                                                }
                                             }
                                         }
                                         Item {
@@ -1020,9 +1040,9 @@ Item {
                             }
                         }
                         TableViewColumn {
-                            id: actionsColumn
+                            id: txSwapActionColumn
                             elideMode: Text.ElideRight
-                            width: transactionsTable.getAdjustedColumnWidth(actionsColumn)
+                            width: 50
                             movable: false
                             resizable: false
                             delegate: txActions
@@ -1031,26 +1051,18 @@ Item {
                         Component {
                             id: txActions
                             Item {
-                                Item {
-                                    width: parent.width
-                                    height: transactionsTable.rowHeight
-
-                                    Row{
-                                        anchors.right: parent.right
-                                        anchors.rightMargin: 12
-                                        anchors.verticalCenter: parent.verticalCenter
-                                        spacing: 10
-                                        CustomToolButton {
-                                            icon.source: "qrc:/assets/icon-actions.svg"
-                                            //% "Actions"
-                                            ToolTip.text: qsTrId("general-actions")
-                                            onClicked: {
-                                                txContextMenu.cancelEnabled = transactionsTable.model.get(styleData.row).isCancelAvailable;
-                                                txContextMenu.deleteEnabled = transactionsTable.model.get(styleData.row).isDeleteAvailable;
-                                                txContextMenu.txID = transactionsTable.model.get(styleData.row).rawTxID;
-                                                txContextMenu.popup();
-                                            }
-                                        }
+                                CustomToolButton {
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    anchors.right: parent.right
+                                    anchors.rightMargin: 12
+                                    icon.source: "qrc:/assets/icon-actions.svg"
+                                    //% "Actions"
+                                    ToolTip.text: qsTrId("general-actions")
+                                    onClicked: {
+                                        txContextMenu.cancelEnabled = transactionsTable.model.get(styleData.row).isCancelAvailable;
+                                        txContextMenu.deleteEnabled = transactionsTable.model.get(styleData.row).isDeleteAvailable;
+                                        txContextMenu.txID = transactionsTable.model.get(styleData.row).rawTxID;
+                                        txContextMenu.popup();
                                     }
                                 }
                             }
@@ -1146,10 +1158,10 @@ Item {
             case "waiting for sender": return qsTrId("wallet-txs-status-waiting-sender");
             //% "waiting for receiver"
             case "waiting for receiver": return qsTrId("wallet-txs-status-waiting-receiver");
-            //% "receiving"
-            case "receiving": return qsTrId("general-receiving");
-            //% "sending"
-            case "sending": return qsTrId("general-sending");
+            //% "in progress"
+            case "receiving": return qsTrId("wallet-txs-status-in-progress");
+            //% "in progress"
+            case "sending": return qsTrId("wallet-txs-status-in-progress");
             //% "completed"
             case "completed": return qsTrId("wallet-txs-status-completed");
             //% "received"

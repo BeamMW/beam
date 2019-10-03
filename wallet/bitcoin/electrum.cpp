@@ -226,6 +226,7 @@ namespace beam::bitcoin
                         }
                         else
                         {
+                            LOG_DEBUG() << "signRawTransaction command: failed in lockingScript.create_endorsement";
                             callback({IBridge::BitcoinError, "Transaction is not signed"}, "", false);
                             return;
                         }
@@ -235,6 +236,7 @@ namespace beam::bitcoin
 
                 if (!isFoundCoin)
                 {
+                    LOG_DEBUG() << "signRawTransaction command: coin is not found";
                     callback({ IBridge::BitcoinError, "Transaction is not signed" }, "", false);
                     return;
                 }
@@ -282,13 +284,10 @@ namespace beam::bitcoin
 
         Error error{ None, "" };
         auto privateKeys = generateMasterPrivateKeys();
-        callback(error, getAddress(m_currentReceivingAddress++, privateKeys.first));
+        std::srand(static_cast<unsigned int>(std::time(0)));
+        uint32_t index = static_cast<uint32_t>(std::rand() % m_settingsProvider->GetElectrumSettings().m_receivingAddressAmount);
 
-        auto receivingAddressAmount = m_settingsProvider->GetElectrumSettings().m_receivingAddressAmount;
-        if (m_currentReceivingAddress >= receivingAddressAmount)
-        {
-            m_currentReceivingAddress = 0;
-        }
+        callback(error, getAddress(index, privateKeys.first));
     }
 
     void Electrum::createRawTransaction(

@@ -173,7 +173,7 @@ namespace beam::wallet
         case State::BuildingBeamRedeemTX:
         case State::BuildingBeamRefundTX:
         {
-            SetNextState(State::Cancelled);
+            SetNextState(State::Canceled);
             return;
         }
         default:
@@ -505,11 +505,11 @@ namespace beam::wallet
                 GetGateway().on_tx_completed(GetTxID());
                 break;
             }
-            case State::Cancelled:
+            case State::Canceled:
             {
                 LOG_INFO() << GetTxID() << " Transaction cancelled.";
-                NotifyFailure(TxFailureReason::Cancelled);
-                UpdateTxDescription(TxStatus::Cancelled);
+                NotifyFailure(TxFailureReason::Canceled);
+                UpdateTxDescription(TxStatus::Canceled);
 
                 RollbackTx();
 
@@ -521,7 +521,7 @@ namespace beam::wallet
                 TxFailureReason reason = TxFailureReason::Unknown;
                 if (GetParameter(TxParameterID::FailureReason, reason))
                 {
-                    if (reason == TxFailureReason::Cancelled)
+                    if (reason == TxFailureReason::Canceled)
                     {
                         LOG_ERROR() << GetTxID() << " Swap cancelled. The other side has cancelled the transaction.";
                     }
@@ -662,7 +662,7 @@ namespace beam::wallet
         TxStatus s = TxStatus::Failed;
         if (GetParameter(TxParameterID::Status, s)
             && (s == TxStatus::Failed
-                || s == TxStatus::Cancelled
+                || s == TxStatus::Canceled
                 || s == TxStatus::Completed))
         {
             return false;

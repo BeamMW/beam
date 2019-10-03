@@ -955,10 +955,10 @@ void TestSwapCancelTransaction(bool isSender, wallet::AtomicSwapTransaction::Sta
     // validate sender TX state
     wallet::AtomicSwapTransaction::State txState = wallet::AtomicSwapTransaction::State::Initial;
     storage::getTxParameter(*sender->m_WalletDB, txID, wallet::kDefaultSubTxID, wallet::TxParameterID::State, txState);
-    WALLET_CHECK(txState == (isSender ? wallet::AtomicSwapTransaction::State::Cancelled : wallet::AtomicSwapTransaction::State::Failed));
+    WALLET_CHECK(txState == (isSender ? wallet::AtomicSwapTransaction::State::Canceled : wallet::AtomicSwapTransaction::State::Failed));
 
     storage::getTxParameter(*receiver->m_WalletDB, txID, wallet::kDefaultSubTxID, wallet::TxParameterID::State, txState);
-    WALLET_CHECK(txState == (isSender ? wallet::AtomicSwapTransaction::State::Failed : wallet::AtomicSwapTransaction::State::Cancelled));
+    WALLET_CHECK(txState == (isSender ? wallet::AtomicSwapTransaction::State::Failed : wallet::AtomicSwapTransaction::State::Canceled));
 
     auto senderCoins = sender->GetCoins();
     WALLET_CHECK(senderCoins.size() == 4);

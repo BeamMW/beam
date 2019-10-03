@@ -50,6 +50,9 @@ public:
     bool isInProgress() const;
     bool isCompleted() const;
     bool isSelfTx() const;
+    bool isCanceled() const;
+    bool isFailed() const;
+    bool isExpired() const;
 
     auto isBeamSideSwap() const -> bool;
     auto getSwapCoinName() const -> QString;

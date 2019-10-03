@@ -61,12 +61,14 @@
         <translation>Delete</translation>
     </message>
     <message id="general-receiving">
-        <source>receiving</source>
-        <translation>receiving</translation>
+        <source></source>
+        <oldsource>receiving</oldsource>
+        <translation type="unfinished">receiving</translation>
     </message>
     <message id="general-sending">
-        <source>sending</source>
-        <translation>sending</translation>
+        <source></source>
+        <oldsource>sending</oldsource>
+        <translation type="unfinished">sending</translation>
     </message>
     <message id="general-rescan">
         <source>Rescan</source>
@@ -1650,13 +1652,18 @@ while active transaction is in progress</oldsource>
 while active transaction is in progress</translation>
     </message>
     <message id="atomic-no-offers">
-        <source>There are no active offers at the moment.
-Please try again later or create an offer yourself.</source>
-        <translation>There are no active offers at the moment.
+        <source>There are no active offers at the moment.\nPlease try again later or create an offer yourself.</source>
+        <oldsource>There are no active offers at the moment.
+Please try again later or create an offer yourself.</oldsource>
+        <translation type="unfinished">There are no active offers at the moment.
 Please try again later or create an offer yourself.</translation>
     </message>
     <message id="send-less-than-fee">
         <source>The swap amount must be greater than the redemption fee.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="wallet-txs-status-in-progress">
+        <source>in progress</source>
         <translation type="unfinished"></translation>
     </message>
 </context>

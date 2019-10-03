@@ -127,7 +127,8 @@ namespace beam::wallet
         void Subscribe(IWalletObserver* observer);
         void Unsubscribe(IWalletObserver* observer);
         void ResumeAllTransactions();
-
+    protected:
+        void SendTransactionToNode(const TxID& txId, Transaction::Ptr, SubTxID subTxID);
     private:
         void ProcessTransaction(BaseTransaction::Ptr tx);
         void ResumeTransaction(const TxDescription& tx);

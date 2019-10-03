@@ -124,7 +124,7 @@ namespace beam::wallet
             SendingBeamRefundTX,
             SendingBeamRedeemTX,
 
-            Cancelled,
+            Canceled,
 
             CompleteSwap,
             Failed,

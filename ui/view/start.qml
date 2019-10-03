@@ -188,7 +188,7 @@ Item
                             Item {
                                 Layout.fillHeight: true
                                 Layout.minimumHeight: 40
-                                Layout.maximumHeight: 140
+                                Layout.maximumHeight: 180
                             }
 
                             RowLayout {
@@ -331,9 +331,8 @@ Item
                             }
 
                             Item {
-                                Layout.fillHeight: true
                                 Layout.minimumHeight: 30
-                                Layout.maximumHeight: 130
+                                Layout.preferredHeight: 100
                             }
 
                             RowLayout {
@@ -665,9 +664,8 @@ Item
                     }
 
                     Item {
-                        Layout.fillHeight: true
                         Layout.minimumHeight: 30
-                        Layout.maximumHeight: 65
+                        Layout.preferredHeight: 100
                     }
 
                     SFText {

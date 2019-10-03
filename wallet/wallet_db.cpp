@@ -2883,7 +2883,7 @@ namespace beam::wallet
             {
                 switch (txStatus)
                 {
-                case TxStatus::Cancelled:
+                case TxStatus::Canceled:
                 case TxStatus::Failed:
                 case TxStatus::Completed:
                     break;

@@ -141,8 +141,6 @@ set(UI_SRC
     viewmodel/receive_view.cpp
     viewmodel/send_view.h
     viewmodel/send_view.cpp
-    viewmodel/status_holder.cpp
-    viewmodel/status_holder.h
     viewmodel/payment_item.h
     viewmodel/payment_item.cpp
     viewmodel/qml_globals.h

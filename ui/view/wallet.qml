@@ -496,6 +496,7 @@ Item {
                             TableItem {
                                 text: (parent.isIncome ? "+ " : "- ") + styleData.value
                                 fontWeight: Font.Bold
+                                fontSizeMode: Text.Fit
                                 color: parent.isIncome ? Style.accent_incoming : Style.accent_outgoing
                                 onCopyText: BeamGlobals.copyToClipboard(Utils.getAmountWithoutCurrency(styleData.value)) 
                             }
@@ -528,12 +529,29 @@ Item {
                                     sourceSize: Qt.size(20, 20)
                                     source: getIconSource()
                                     function getIconSource() {
-                                        if (transactionsTable.model.get(styleData.row).isSelfTransaction) {
-                                            return "qrc:/assets/icon-transfer.svg";
+                                        var item = transactionsTable.model.get(styleData.row);
+                                        
+                                        if (item.isInProgress) {
+                                            if (item.isSelfTransaction) {
+                                                return "qrc:/assets/icon-sending-own.svg";
+                                            }
+                                            return item.isIncome ? "qrc:/assets/icon-receiving.svg"
+                                                                 : "qrc:/assets/icon-sending.svg";
                                         }
-                                        return transactionsTable.model.get(styleData.row).isIncome ?
-                                            "qrc:/assets/icon-received.svg" :
-                                            "qrc:/assets/icon-sent.svg";
+                                        else if (item.isCompleted) {
+                                            if (item.isSelfTransaction) {
+                                                return "qrc:/assets/icon-sent-own.svg";
+                                            }
+                                            return item.isIncome ? "qrc:/assets/icon-received.svg"
+                                                                 : "qrc:/assets/icon-sent.svg";
+                                        }
+                                        else if (item.isExpired) {
+                                            return "qrc:/assets/icon-failed.svg" 
+                                        }
+                                        else {
+                                            return item.isIncome ? "qrc:/assets/icon-receive-canceled.svg"
+                                                                 : "qrc:/assets/icon-send-canceled.svg";
+                                        }
                                     }
                                 }
                                 SFLabel {
@@ -543,6 +561,7 @@ Item {
                                     font.italic: true
                                     elide: Text.ElideRight
                                     text: getStatusText(styleData.value)
+                                    verticalAlignment: Text.AlignBottom
                                     color: getTextColor()
                                     function getTextColor () {
                                         var item = transactionsTable.model.get(styleData.row);                                        
@@ -553,7 +572,7 @@ Item {
                                             return item.isIncome ? Style.accent_incoming : Style.accent_outgoing;
                                         }
                                         else {
-                                            return Style.content_main;
+                                            return Style.content_secondary;
                                         }
                                     }
                                 }
@@ -576,27 +595,19 @@ Item {
                 Component {
                     id: txActions
                     Item {
-                        Item {
-                            width: parent.width
-                            height: transactionsTable.rowHeight
-
-                            Row {
-                                anchors.right: parent.right
-                                anchors.rightMargin: 12
-                                anchors.verticalCenter: parent.verticalCenter
-                                spacing: 10
-                                CustomToolButton {
-                                    icon.source: "qrc:/assets/icon-actions.svg"
-                                    //% "Actions"
-                                    ToolTip.text: qsTrId("general-actions")
-                                    onClicked: {
-                                        var item = transactionsTable.model.get(styleData.row);
-                                        txContextMenu.cancelEnabled = item.isCancelAvailable;
-                                        txContextMenu.deleteEnabled = item.isDeleteAvailable;
-                                        txContextMenu.txID = item.rawTxID;
-                                        txContextMenu.popup();
-                                    }
-                                }
+                        CustomToolButton {
+                            anchors.verticalCenter: parent.verticalCenter
+                            anchors.right: parent.right
+                            anchors.rightMargin: 12
+                            icon.source: "qrc:/assets/icon-actions.svg"
+                            //% "Actions"
+                            ToolTip.text: qsTrId("general-actions")
+                            onClicked: {
+                                var item = transactionsTable.model.get(styleData.row);
+                                txContextMenu.cancelEnabled = item.isCancelAvailable;
+                                txContextMenu.deleteEnabled = item.isDeleteAvailable;
+                                txContextMenu.txID = item.rawTxID;
+                                txContextMenu.popup();
                             }
                         }
                     }
@@ -687,10 +698,10 @@ Item {
             case "waiting for sender": return qsTrId("wallet-txs-status-waiting-sender");
             //% "waiting for receiver"
             case "waiting for receiver": return qsTrId("wallet-txs-status-waiting-receiver");
-            //% "receiving"
-            case "receiving": return qsTrId("general-receiving");
-            //% "sending"
-            case "sending": return qsTrId("general-sending");
+            //% "in progress"
+            case "receiving": return qsTrId("wallet-txs-status-in-progress");
+            //% "in progress"
+            case "sending": return qsTrId("wallet-txs-status-in-progress");
             //% "completed"
             case "completed": return qsTrId("wallet-txs-status-completed");
             //% "received"

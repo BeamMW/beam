@@ -61,12 +61,14 @@
         <translation>Borrar</translation>
     </message>
     <message id="general-receiving">
-        <source>receiving</source>
-        <translation>recibiendo</translation>
+        <source></source>
+        <oldsource>receiving</oldsource>
+        <translation type="unfinished">recibiendo</translation>
     </message>
     <message id="general-sending">
-        <source>sending</source>
-        <translation>enviando</translation>
+        <source></source>
+        <oldsource>sending</oldsource>
+        <translation type="unfinished">enviando</translation>
     </message>
     <message id="general-rescan">
         <source>Rescan</source>
@@ -1023,12 +1025,12 @@
         <translation>Crea una nueva contraseña para acceder a tu wallet</translation>
     </message>
     <message id="start-create-pwd-strength-message">
-        <source>Strong password needs to meet the following requirements:
+        <source>Strong password needs to meet the following requirements:\n•  the length must be at least 10 characters\n•  must contain at least one lowercase letter\n•  must contain at least one uppercase letter\n•  must contain at least one number</source>
+        <oldsource>Strong password needs to meet the following requirements:
 •  the length must be at least 10 characters
 •  must contain at least one lowercase letter
 •  must contain at least one uppercase letter
-•  must contain at least one number</source>
-        <oldsource>Strong password needs to meet the following requirements:\n•  the length must be at least 10 characters\n•  must contain at least one lowercase letter\n•  must contain at least one uppercase letter\n•  must contain at least one number</oldsource>
+•  must contain at least one number</oldsource>
         <translation type="unfinished">La contraseña segura debe cumplir los siguientes requisitos:\n• la longitud debe ser de al menos 10 caracteres\n• debe contener al menos una letra minúscula\n• debe contener al menos una letra mayúscula\n• debe contener al menos un número</translation>
     </message>
     <message id="start-open-caps-warning">
@@ -1390,9 +1392,9 @@ Escanee este código QR o envíe esta dirección al remitente a través de un ca
         <translation type="unfinished"></translation>
     </message>
     <message id="swap-na-message">
-        <source>You do not have any 3rd-party currencies connected.
-Update your settings and try again.</source>
-        <oldsource>You do not have any 3rd-party currencies connected.\nUpdate your settings and try again.</oldsource>
+        <source>You do not have any 3rd-party currencies connected.\nUpdate your settings and try again.</source>
+        <oldsource>You do not have any 3rd-party currencies connected.
+Update your settings and try again.</oldsource>
         <translation type="unfinished"></translation>
     </message>
     <message id="wallet-receive-swap-title">
@@ -1480,9 +1482,9 @@ Update your settings and try again.</source>
         <translation type="unfinished"></translation>
     </message>
     <message id="swap-currency-na-message">
-        <source>You do not have %1 connected.
-Update your settings and try again.</source>
-        <oldsource>You do not have %1 connected.\nUpdate your settings and try again.</oldsource>
+        <source>You do not have %1 connected.\nUpdate your settings and try again.</source>
+        <oldsource>You do not have %1 connected.
+Update your settings and try again.</oldsource>
         <translation type="unfinished"></translation>
     </message>
     <message id="send-swap-to-label">
@@ -1653,9 +1655,9 @@ you do not send large amounts.</oldsource>
         <translation type="unfinished"></translation>
     </message>
     <message id="settings-progress-na">
-        <source>You cannot change settings
-while active transaction is in progress</source>
-        <oldsource>You cannot change settings\nwhile active transaction is in progress</oldsource>
+        <source>You cannot change settings\nwhile active transaction is in progress</source>
+        <oldsource>You cannot change settings
+while active transaction is in progress</oldsource>
         <translation type="unfinished"></translation>
     </message>
     <message id="send-less-than-fee">
@@ -1663,8 +1665,13 @@ while active transaction is in progress</source>
         <translation type="unfinished"></translation>
     </message>
     <message id="atomic-no-offers">
-        <source>There are no active offers at the moment.
-Please try again later or create an offer yourself.</source>
+        <source>There are no active offers at the moment.\nPlease try again later or create an offer yourself.</source>
+        <oldsource>There are no active offers at the moment.
+Please try again later or create an offer yourself.</oldsource>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="wallet-txs-status-in-progress">
+        <source>in progress</source>
         <translation type="unfinished"></translation>
     </message>
 </context>

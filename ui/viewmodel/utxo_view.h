@@ -78,7 +78,6 @@ public:
     void setSortOrder(Qt::SortOrder);
 public slots:
     void onAllUtxoChanged(const std::vector<beam::wallet::Coin>& utxos);
-    void onStatus(const beam::wallet::WalletStatus& status);
 signals:
     void allUtxoChanged();
     void stateChanged();
@@ -95,8 +94,6 @@ private:
     std::function<bool(const UtxoItem*, const UtxoItem*)> generateComparer();
 
     QList<UtxoItem*> _allUtxos;
-    QString _currentHeight;
-    QString _currentStateHash;
     WalletModel& _model;
     Qt::SortOrder _sortOrder;
     QString _sortRole;

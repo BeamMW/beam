@@ -1264,7 +1264,7 @@ namespace
         printf("Testing bbs with wallets2 ...\n");
         io::Reactor::Ptr mainReactor(io::Reactor::create());
         io::Reactor::Scope scope(*mainReactor);
-        const int Count = 500;
+        const int Count = 30;
         string nodePath = "node.db";
         if (boost::filesystem::exists(nodePath))
         {
@@ -1310,6 +1310,8 @@ namespace
             .SetParameter(TxParameterID::Lifetime, Height(200)));
 
         mainReactor->run();
+
+        sender.m_Wallet.SetBufferSize(10);
 
         completedCount = 2 * Count;
 
@@ -1455,6 +1457,11 @@ namespace
                 WALLET_CHECK(to == from);
             }
         }
+    }
+
+    void LogSqliteError(void* pArg, int iErrCode, const char* zMsg)
+    {
+        LOG_ERROR() << "(" << iErrCode << ") " << zMsg;
     }
 }
 
@@ -2068,37 +2075,39 @@ int main()
     //Rules::get().DA.MaxAhead_s = 90;// 60 * 1;
     Rules::get().UpdateChecksum();
 
+    sqlite3_config(SQLITE_CONFIG_LOG, LogSqliteError, nullptr);
+
     TestConvertions();
     TestTxParameters();
-
+   
 	TestNegotiation();
-
+   
     TestP2PWalletNegotiationST();
-
+   
     {
         io::Reactor::Ptr mainReactor{ io::Reactor::create() };
         io::Reactor::Scope scope(*mainReactor);
         //TestWalletNegotiation(CreateWalletDB<TestWalletDB>(), CreateWalletDB<TestWalletDB2>());
         TestWalletNegotiation(createSenderWalletDB(), createReceiverWalletDB());
     }
-
+   
     TestSplitTransaction();
-
+   
     TestMinimalFeeTransaction();
-
+   
     TestTxToHimself();
-
+   
     TestExpiredTransaction();
-
+   
     TestTransactionUpdate();
     //TestTxPerformance();
     //TestTxNonces();
-
+   
     TestColdWalletSending();
     TestColdWalletReceiving();
-
+   
     TestTxExceptionHandling();
-
+   
     // @nesbox: disabled tests, they work only if device connected
 //#if defined(BEAM_HW_WALLET)
 //    TestHWCommitment();

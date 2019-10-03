@@ -63,26 +63,15 @@ ReceiveSwapViewModel::ReceiveSwapViewModel()
         .SetParameter(beam::wallet::TxParameterID::AtomicSwapCoin, beam::wallet::AtomicSwapCoin::Bitcoin)
         .SetParameter(beam::wallet::TxParameterID::AtomicSwapIsBeamSide, true)
         .SetParameter(beam::wallet::TxParameterID::IsInitiator, true))
-    , _currentHeight(0)
 {
-    LOG_DEBUG() << "ReceiveSwapViewModel created";
     connect(&_walletModel, &WalletModel::generatedNewAddress, this, &ReceiveSwapViewModel::onGeneratedNewAddress);
-    connect(&_walletModel, &WalletModel::newAddressFailed, this,  &ReceiveSwapViewModel::onNewAddressFailed);
-    connect(&_walletModel, SIGNAL(walletStatus(const beam::wallet::WalletStatus&)), SLOT(onWalletStatus(const beam::wallet::WalletStatus&)));
+    connect(&_walletModel, SIGNAL(newAddressFailed()), this, SIGNAL(newAddressFailed()));
+    connect(&_walletModel, &WalletModel::stateIDChanged, this, &ReceiveSwapViewModel::updateTransactionToken);
+
     generateNewAddress();
 
-    _status.setOnChanged([this]() {
-        emit enoughChanged();
-    });
-
-    _status.refresh();
     _walletModel.getAsync()->getWalletStatus();
     updateTransactionToken();
-}
-
-ReceiveSwapViewModel::~ReceiveSwapViewModel()
-{
-    LOG_DEBUG() << "ReceiveSwapViewModel destroyed";
 }
 
 void ReceiveSwapViewModel::onGeneratedNewAddress(const beam::wallet::WalletAddress& addr)
@@ -214,20 +203,6 @@ void ReceiveSwapViewModel::generateNewAddress()
     _walletModel.getAsync()->generateNewAddress();
 }
 
-void ReceiveSwapViewModel::onNewAddressFailed()
-{
-    emit newAddressFailed();
-}
-
-void ReceiveSwapViewModel::onWalletStatus(const beam::wallet::WalletStatus& status)
-{
-    if (status.stateID.m_Height != _currentHeight)
-    {
-        _currentHeight = status.stateID.m_Height;
-        updateTransactionToken();
-    }
-}
-
 void ReceiveSwapViewModel::setTransactionToken(const QString& value)
 {
     if (_token != value)
@@ -273,7 +248,7 @@ bool ReceiveSwapViewModel::isEnough() const
     case Currency::CurrBeam:
     {
         auto total = std::round(_amountSent * beam::Rules::Coin) + _sentFee;
-        return _status.getAvailable() >= total;
+        return _walletModel.getAvailable() >= total;
     }
     case Currency::CurrBtc:
     {
@@ -398,7 +373,7 @@ void ReceiveSwapViewModel::updateTransactionToken()
 {
     emit enoughChanged();
     emit lessThanFeeChanged();
-    _txParameters.SetParameter(beam::wallet::TxParameterID::MinHeight, _currentHeight);
+    _txParameters.SetParameter(beam::wallet::TxParameterID::MinHeight, _walletModel.getCurrentHeight());
     _txParameters.SetParameter(beam::wallet::TxParameterID::PeerResponseTime, GetBlockCount(_offerExpires));
 
     // All parameters sets as if we were on the recipient side (mirrored)

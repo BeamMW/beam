@@ -15,7 +15,6 @@
 
 #include <QObject>
 #include "model/wallet_model.h"
-#include "status_holder.h"
 
 class SendViewModel: public QObject
 {
@@ -38,7 +37,6 @@ class SendViewModel: public QObject
 
 public:
     SendViewModel();
-    ~SendViewModel();
 
     int  getFeeGrothes() const;
     void setFeeGrothes(int amount);
@@ -77,8 +75,6 @@ signals:
 
 public slots:
     void onChangeCalculated(beam::Amount change);
-    void onSendMoneyVerified();
-    void onCantSendToExpired();
 
 private:
     beam::Amount calcTotalAmount() const;
@@ -90,7 +86,6 @@ private:
     double  _sendAmount;
     QString _comment;
     QString _receiverTA;
-    StatusHolder _status;
     beam::Amount _change;
     WalletModel& _walletModel;
     beam::wallet::TxParameters _txParameters;

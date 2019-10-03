@@ -175,10 +175,10 @@ namespace beam::wallet
                     return;
                 }
                 // notify about cancellation if we have started negotiations
-                NotifyFailure(TxFailureReason::Cancelled);
+                NotifyFailure(TxFailureReason::Canceled);
 
             }
-            UpdateTxDescription(TxStatus::Cancelled);
+            UpdateTxDescription(TxStatus::Canceled);
             RollbackTx();
             GetGateway().on_tx_completed(GetTxID());
         }
@@ -218,7 +218,7 @@ namespace beam::wallet
         TxStatus s = TxStatus::Failed;
         if (GetParameter(TxParameterID::Status, s)
             && (s == TxStatus::Failed
-                || s == TxStatus::Cancelled
+                || s == TxStatus::Canceled
                 || s == TxStatus::Completed))
         {
             return false;
@@ -312,7 +312,7 @@ namespace beam::wallet
         }
 
         SetParameter(TxParameterID::FailureReason, reason, false);
-        UpdateTxDescription((reason == TxFailureReason::Cancelled) ? TxStatus::Cancelled : TxStatus::Failed);
+        UpdateTxDescription((reason == TxFailureReason::Canceled) ? TxStatus::Canceled : TxStatus::Failed);
         RollbackTx();
 
         GetGateway().on_tx_completed(GetTxID());

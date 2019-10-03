@@ -24,21 +24,12 @@ SendViewModel::SendViewModel()
     , _change(0)
     , _walletModel(*AppModel::getInstance().getWallet())
 {
-    LOG_DEBUG() << "SendViewModel created";
-    connect(&_walletModel, &WalletModel::changeCalculated,       this,  &SendViewModel::onChangeCalculated);
-    connect(&_walletModel, &WalletModel::sendMoneyVerified,      this,  &SendViewModel::onSendMoneyVerified);
-    connect(&_walletModel, &WalletModel::cantSendToExpired,      this,  &SendViewModel::onCantSendToExpired);
+    connect(&_walletModel, &WalletModel::changeCalculated, this, &SendViewModel::onChangeCalculated);
+    connect(&_walletModel, SIGNAL(sendMoneyVerified()), this, SIGNAL(sendMoneyVerified()));
+    connect(&_walletModel, SIGNAL(cantSendToExpired()), this, SIGNAL(cantSendToExpired()));
+    connect(&_walletModel, SIGNAL(availableChanged()), this, SIGNAL(availableChanged()));
 
-    _status.setOnChanged([this]() {
-        emit availableChanged();
-    });
-
-    _status.refresh();
-}
-
-SendViewModel::~SendViewModel()
-{
-    LOG_DEBUG() << "SendViewModel destroyed";
+    _walletModel.getAsync()->getWalletStatus();
 }
 
 int SendViewModel::getFeeGrothes() const
@@ -159,17 +150,17 @@ beam::Amount SendViewModel::calcTotalAmount() const
 
 double SendViewModel::getAvailable() const
 {
-    return beamui::Beam2Coins(_status.getAvailable() - calcTotalAmount() - _change);
+    return beamui::Beam2Coins(_walletModel.getAvailable() - calcTotalAmount() - _change);
 }
 
 double SendViewModel::getMissing() const
 {
-    return beamui::Beam2Coins(calcTotalAmount() - _status.getAvailable());
+    return beamui::Beam2Coins(calcTotalAmount() - _walletModel.getAvailable());
 }
 
 bool SendViewModel::isEnough() const
 {
-    return _status.getAvailable() >= calcTotalAmount() + _change;
+    return _walletModel.getAvailable() >= calcTotalAmount() + _change;
 }
 
 void SendViewModel::onChangeCalculated(beam::Amount change)
@@ -212,18 +203,6 @@ void SendViewModel::sendMoney()
 
         _walletModel.getAsync()->startTransaction(std::move(p));
     }
-}
-
-void SendViewModel::onSendMoneyVerified()
-{
-    // forward to qml
-    emit sendMoneyVerified();
-}
-
-void SendViewModel::onCantSendToExpired()
-{
-    // forward to qml
-    emit cantSendToExpired();
 }
 
 void SendViewModel::extractParameters()

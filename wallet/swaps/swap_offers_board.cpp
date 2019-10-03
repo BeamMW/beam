@@ -96,7 +96,7 @@ namespace beam::wallet
             {
                 if (item.m_status == TxStatus::InProgress ||
                     item.m_status == TxStatus::Failed ||
-                    item.m_status == TxStatus::Cancelled)
+                    item.m_status == TxStatus::Canceled)
                 {
                     updateOffer(item.m_txId, item.m_status);
                 }

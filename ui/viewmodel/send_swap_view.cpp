@@ -29,32 +29,10 @@ SendSwapViewModel::SendSwapViewModel()
     , _change(0)
     , _walletModel(*AppModel::getInstance().getWallet())
 {
-    LOG_DEBUG() << "SendSwapViewModel created";
     connect(&_walletModel, &WalletModel::changeCalculated,  this,  &SendSwapViewModel::onChangeCalculated);
+    connect(&_walletModel, &WalletModel::availableChanged, this, &SendSwapViewModel::recalcAvailable);
 
-    _status.setOnChanged([this]() {
-        recalcAvailable();
-
-        if (!_expiresTime.isValid())
-        {
-            auto peerResponseTime = _txParameters.GetParameter<beam::Height>(beam::wallet::TxParameterID::PeerResponseTime);
-            auto minHeight = _txParameters.GetParameter<beam::Height>(beam::wallet::TxParameterID::MinHeight);
-            auto currentHeight = _status.getCurrentHeight();
-
-            if (currentHeight && minHeight && peerResponseTime)
-            {
-                auto expiresHeight = *minHeight + *peerResponseTime;
-                setExpiresTime(beamui::CalculateExpiresTime(currentHeight, expiresHeight));
-            }
-        }
-    });
-
-    _status.refresh();
-}
-
-SendSwapViewModel::~SendSwapViewModel()
-{
-    LOG_DEBUG() << "SendSwapViewModel destroyed";
+    _walletModel.getAsync()->getWalletStatus();
 }
 
 QString SendSwapViewModel::getToken() const
@@ -116,12 +94,11 @@ void SendSwapViewModel::fillParameters(beam::wallet::TxParameters parameters)
         }
         setOfferedTime(QDateTime::fromSecsSinceEpoch(*offeredTime));
 
-        auto currentHeight = _status.getCurrentHeight();
-        if (currentHeight)
-        {
-            auto expiresHeight = *minHeight + *peerResponseTime;
-            setExpiresTime(beamui::CalculateExpiresTime(currentHeight, expiresHeight));
-        }
+        auto currentHeight = _walletModel.getCurrentHeight();
+        assert(currentHeight);
+        auto expiresHeight = *minHeight + *peerResponseTime;
+        setExpiresTime(beamui::CalculateExpiresTime(currentHeight, expiresHeight));
+
         _txParameters = parameters;
     }
 }
@@ -313,7 +290,7 @@ bool SendSwapViewModel::isEnough() const
     case Currency::CurrBeam:
     {
         auto total = std::round(_sendAmount * beam::Rules::Coin) + _sendFee + _change;
-        return _status.getAvailable() >= total;
+        return _walletModel.getAvailable() >= total;
     }
     case Currency::CurrBtc:
     {

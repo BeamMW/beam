@@ -11,6 +11,7 @@ Item {
     property alias color: itemText.color
     property alias fontWeight: itemText.font.weight
     property alias copyMenuEnabled: itemText.copyMenuEnabled
+    property alias fontSizeMode: itemText.fontSizeMode
     signal copyText
     anchors.fill: parent
 
@@ -24,6 +25,7 @@ Item {
         color: Style.content_main
         copyMenuEnabled: true
         onCopyText: parent.copyText()
+        verticalAlignment: Text.AlignBottom
     }
 
     onCopyText: BeamGlobals.copyToClipboard(itemText.text)

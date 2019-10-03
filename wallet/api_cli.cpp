@@ -443,8 +443,13 @@ namespace
                         return;
                     }
 
-                    auto txId = _wallet.StartTransaction(CreateTransactionParameters(TxType::Simple, data.txId ? *data.txId : GenerateTxID())
-                        .SetParameter(TxParameterID::TransactionType, TxType::Simple)
+                    if (data.txId && _walletDB->getTx(*data.txId))
+                    {
+                        doError(id, ApiError::InvalidTxId, "Provided transaction ID already exists in the wallet.");
+                        return;
+                    }
+
+                    auto txId = _wallet.StartTransaction(CreateSimpleTransactionParameters(data.txId)
                         .SetParameter(TxParameterID::MyID, from)
                         .SetParameter(TxParameterID::PeerID, data.address)
                         .SetParameter(TxParameterID::Amount, data.value)
@@ -504,7 +509,7 @@ namespace
                         return;
                     }
 
-                    auto txId = _wallet.StartTransaction(CreateSplitTransactionParameters(senderAddress.m_walletID, data.coins)
+                    auto txId = _wallet.StartTransaction(CreateSplitTransactionParameters(senderAddress.m_walletID, data.coins, data.txId)
                         .SetParameter(TxParameterID::Fee, data.fee));
 
                     doResponse(id, Send::Response{ txId });

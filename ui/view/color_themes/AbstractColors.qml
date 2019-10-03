@@ -4,6 +4,7 @@ QtObject {
     property color content_main;
     property color accent_outgoing;
     property color accent_incoming;
+    property color accent_swap;
     property color content_secondary;
     property color content_disabled;
     property color content_opposite;

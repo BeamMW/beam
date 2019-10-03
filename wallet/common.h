@@ -88,7 +88,7 @@ namespace beam::wallet
     {
         Pending,
         InProgress,
-        Cancelled,
+        Canceled,
         Completed,
         Failed,
         Registering
@@ -96,7 +96,7 @@ namespace beam::wallet
 
 #define BEAM_TX_FAILURE_REASON_MAP(MACRO) \
     MACRO(Unknown,                      0, "Unknown reason") \
-    MACRO(Cancelled,                    1, "Transaction was cancelled") \
+    MACRO(Canceled,                    1, "Transaction was cancelled") \
     MACRO(InvalidPeerSignature,         2, "Peer's signature is not valid ") \
     MACRO(FailedToRegister,             3, "Failed to register transaction") \
     MACRO(InvalidTransaction,           4, "Transaction is not valid") \
