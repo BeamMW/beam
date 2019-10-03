@@ -376,6 +376,11 @@ namespace
                 doResponse(id, ValidateAddress::Response{ data.address.IsValid() && (isMine ? !addr->isExpired() : true), isMine});
             }
 
+            void doTxAlreadyExistsError(const JsonRpcId& id)
+            {
+                doError(id, ApiError::InvalidTxId, "Provided transaction ID already exists in the wallet.");
+            }
+
             void onMessage(const JsonRpcId& id, const Send& data) override
             {
                 LOG_DEBUG() << "Send(id = " << id << " amount = " << data.value << " fee = " << data.fee <<  " address = " << std::to_string(data.address) << ")";
@@ -445,7 +450,7 @@ namespace
 
                     if (data.txId && _walletDB->getTx(*data.txId))
                     {
-                        doError(id, ApiError::InvalidTxId, "Provided transaction ID already exists in the wallet.");
+                        doTxAlreadyExistsError(id);
                         return;
                     }
 
@@ -506,6 +511,12 @@ namespace
                     if (data.fee < minimumFee)
                     {
                         doError(id, ApiError::InternalErrorJsonRpc, getMinimumFeeError(minimumFee));
+                        return;
+                    }
+
+                    if (data.txId && _walletDB->getTx(*data.txId))
+                    {
+                        doTxAlreadyExistsError(id);
                         return;
                     }
 
