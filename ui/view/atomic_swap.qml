@@ -129,7 +129,7 @@ Item {
                     gradLeft: Style.swapCurrencyPaneGrLeftBEAM
                     currencyIcon: "qrc:/assets/icon-beam.svg"
                     valueStr: [Utils.formatAmount(viewModel.beamAvailable), Utils.symbolBeam].join(" ")
-                    vatueSecondaryStr: activeTxCountStr()
+                    valueSecondaryStr: activeTxCountStr()
                     visible: true
                 }
 
@@ -164,7 +164,7 @@ Item {
                     gradLeft: Style.swapCurrencyPaneGrLeftBTC
                     currencyIcon: "qrc:/assets/icon-btc.svg"
                     valueStr: parent.btcAmount()
-                    vatueSecondaryStr: parent.btcActiveTxStr()
+                    valueSecondaryStr: parent.btcActiveTxStr()
                     showLoader: viewModel.btcOK && parent.btcActiveTxStr().length
                     isOk: viewModel.btcOK
                     visible: BeamGlobals.haveBtc()
@@ -176,7 +176,7 @@ Item {
                     gradLeft: Style.swapCurrencyPaneGrLeftLTC
                     currencyIcon: "qrc:/assets/icon-ltc.svg"
                     valueStr: parent.ltcAmount()
-                    vatueSecondaryStr: parent.ltcActiveTxStr()
+                    valueSecondaryStr: parent.ltcActiveTxStr()
                     showLoader: viewModel.ltcOK && parent.ltcActiveTxStr().length
                     isOk: viewModel.ltcOK
                     visible: BeamGlobals.haveLtc()
@@ -187,7 +187,7 @@ Item {
                     gradLeft: Style.swapCurrencyPaneGrLeftQTUM
                     currencyIcon: "qrc:/assets/icon-qtum.svg"
                     valueStr: parent.qtumAmount()
-                    vatueSecondaryStr: parent.qtumActiveTxStr()
+                    valueSecondaryStr: parent.qtumActiveTxStr()
                     showLoader: viewModel.qtumOK && parent.qtumActiveTxStr().length
                     isOk: viewModel.qtumOK
                     visible: BeamGlobals.haveQtum()

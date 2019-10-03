@@ -60,13 +60,13 @@ QVariant SwapOffersList::data(const QModelIndex &index, int role) const
             return value->amountSend();
 
         case Roles::AmountSendSort:
-            return value->rawAmountSend();
+            return static_cast<qulonglong>(value->rawAmountSend());
 
         case Roles::AmountReceive:
             return value->amountReceive();
 
         case Roles::AmountReceiveSort:
-            return value->rawAmountReceive();
+            return static_cast<qulonglong>(value->rawAmountReceive());
 
         case Roles::Rate:
         case Roles::RateSort:
