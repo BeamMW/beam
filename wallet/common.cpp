@@ -429,9 +429,21 @@ namespace beam::wallet
         case TxStatus::Pending:
             return "pending";
         case TxStatus::InProgress:
+        {
+            if (m_selfTx)
+            {
+                return "self sending";
+            }
             return m_sender == false ? "waiting for sender" : "waiting for receiver";
+        }
         case TxStatus::Registering:
+        {
+            if (m_selfTx)
+            {
+                return "self sending";
+            }
             return m_sender == false ? "receiving" : "sending";
+        }
         case TxStatus::Completed:
         {
             if (m_selfTx)

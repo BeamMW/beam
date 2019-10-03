@@ -1015,7 +1015,7 @@ Item {
                                         }
                                         SFLabel {
                                             Layout.alignment: Qt.AlignLeft
-
+                                            Layout.fillWidth: true
                                             font.pixelSize: 14
                                             font.italic: true
                                             elide: Text.ElideRight
@@ -1032,9 +1032,6 @@ Item {
                                                 }
                                             }
                                         }
-                                        Item {
-                                            Layout.fillWidth: true
-                                        }
                                     }
                                 }
                             }
@@ -1042,7 +1039,7 @@ Item {
                         TableViewColumn {
                             id: txSwapActionColumn
                             elideMode: Text.ElideRight
-                            width: 50
+                            width: 40
                             movable: false
                             resizable: false
                             delegate: txActions

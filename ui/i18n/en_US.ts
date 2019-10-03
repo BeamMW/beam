@@ -1666,5 +1666,13 @@ Please try again later or create an offer yourself.</translation>
         <source>in progress</source>
         <translation type="unfinished"></translation>
     </message>
+    <message id="wallet-txs-status-own-sent">
+        <source>sent to own address</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="wallet-txs-status-own-sending">
+        <source>sending to own address</source>
+        <translation type="unfinished"></translation>
+    </message>
 </context>
 </TS>

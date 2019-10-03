@@ -467,7 +467,7 @@ Item {
                     //% "From"
                     title: qsTrId("general-address-from")
                     elideMode: Text.ElideMiddle
-                    width: 205 * transactionsTable.columnResizeRatio
+                    width: 200 * transactionsTable.columnResizeRatio
                     movable: false
                     resizable: false
                 }
@@ -476,7 +476,7 @@ Item {
                     //% "To"
                     title: qsTrId("general-address-to")
                     elideMode: Text.ElideMiddle
-                    width: 205 * transactionsTable.columnResizeRatio
+                    width: 200 * transactionsTable.columnResizeRatio
                     movable: false
                     resizable: false
                 }
@@ -556,7 +556,7 @@ Item {
                                 }
                                 SFLabel {
                                     Layout.alignment: Qt.AlignLeft
-                                    
+                                    Layout.fillWidth: true
                                     font.pixelSize: 14
                                     font.italic: true
                                     elide: Text.ElideRight
@@ -575,9 +575,6 @@ Item {
                                             return Style.content_secondary;
                                         }
                                     }
-                                }
-                                Item {
-                                    Layout.fillWidth: true
                                 }
                             }
                         }
@@ -702,8 +699,10 @@ Item {
             case "receiving": return qsTrId("wallet-txs-status-in-progress");
             //% "in progress"
             case "sending": return qsTrId("wallet-txs-status-in-progress");
-            //% "completed"
-            case "completed": return qsTrId("wallet-txs-status-completed");
+            //% "sent to own address"
+            case "completed": return qsTrId("wallet-txs-status-own-sent");
+            //% "sending to own address"
+            case "self sending": return qsTrId("wallet-txs-status-own-sending");
             //% "received"
             case "received": return qsTrId("wallet-txs-status-received");
             //% "sent"
