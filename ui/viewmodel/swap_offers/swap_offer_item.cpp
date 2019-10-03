@@ -108,7 +108,7 @@ auto SwapOfferItem::getTxParameters() const -> beam::wallet::TxParameters
 
 auto SwapOfferItem::getTxID() const -> TxID
 {
-    return m_offer.GetTxID().value();    
+    return m_offer.m_txId;    
 }
 
 auto SwapOfferItem::getSwapCoinType() const -> beamui::Currencies

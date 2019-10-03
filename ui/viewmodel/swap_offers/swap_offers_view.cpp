@@ -138,14 +138,14 @@ PaymentInfoItem* SwapOffersViewModel::getPaymentInfo(QVariant variantTxID)
 
 void SwapOffersViewModel::onTransactionsDataModelChanged(beam::wallet::ChangeAction action, const std::vector<beam::wallet::TxDescription>& transactions)
 {
-    vector<shared_ptr<TxObject>> modifiedTransactions;
-    modifiedTransactions.reserve(transactions.size());
+    vector<shared_ptr<TxObject>> swapTransactions;
+    swapTransactions.reserve(transactions.size());
 
     for (const auto& t : transactions)
     {
         if (t.GetParameter<TxType>(TxParameterID::TransactionType) == TxType::AtomicSwap)
         {
-            modifiedTransactions.push_back(make_shared<TxObject>(t));
+            swapTransactions.push_back(make_shared<TxObject>(t));
         }
     }
 
@@ -153,25 +153,25 @@ void SwapOffersViewModel::onTransactionsDataModelChanged(beam::wallet::ChangeAct
     {
         case ChangeAction::Reset:
             {
-                m_transactionsList.reset(modifiedTransactions);
+                m_transactionsList.reset(swapTransactions);
                 break;
             }
 
         case ChangeAction::Removed:
             {
-                m_transactionsList.remove(modifiedTransactions);
+                m_transactionsList.remove(swapTransactions);
                 break;
             }
 
         case ChangeAction::Added:
             {
-                m_transactionsList.insert(modifiedTransactions);
+                m_transactionsList.insert(swapTransactions);
                 break;
             }
         
         case ChangeAction::Updated:
             {
-                m_transactionsList.update(modifiedTransactions);
+                m_transactionsList.update(swapTransactions);
                 break;
             }
 
@@ -190,24 +190,19 @@ void SwapOffersViewModel::onSwapOffersDataModelChanged(beam::wallet::ChangeActio
 
     for (const auto& offer : offers)
     {
-        // Offers without PeerID don't pass validation
-        WalletID walletID;
-        if (offer.GetParameter(TxParameterID::PeerID, walletID))
+        // Offers without publisherID don't pass validation
+        auto peerResponseTime = offer.GetParameter<beam::Height>(beam::wallet::TxParameterID::PeerResponseTime);
+        auto minHeight = offer.GetParameter<beam::Height>(beam::wallet::TxParameterID::MinHeight);
+        auto currentHeight = m_walletModel.getCurrentHeight();
+
+        QDateTime timeExpiration;
+        if (currentHeight && peerResponseTime && minHeight)
         {
-            QDateTime timeExpiration;
-
-            auto peerResponseTime = offer.GetParameter<beam::Height>(beam::wallet::TxParameterID::PeerResponseTime);
-            auto minHeight = offer.GetParameter<beam::Height>(beam::wallet::TxParameterID::MinHeight);
-            auto currentHeight = m_walletModel.getCurrentHeight();
-
-            if (currentHeight && peerResponseTime && minHeight)
-            {
-                auto expiresHeight = *minHeight + *peerResponseTime;
-                timeExpiration = beamui::CalculateExpiresTime(currentHeight, expiresHeight);
-            }
-
-            modifiedOffers.push_back(make_shared<SwapOfferItem>(offer, m_walletModel.isOwnAddress(walletID), timeExpiration));
+            auto expiresHeight = *minHeight + *peerResponseTime;
+            timeExpiration = beamui::CalculateExpiresTime(currentHeight, expiresHeight);
         }
+
+        modifiedOffers.push_back(make_shared<SwapOfferItem>(offer, m_walletModel.isOwnAddress(offer.m_publisherId), timeExpiration));
     }
 
     switch (action)

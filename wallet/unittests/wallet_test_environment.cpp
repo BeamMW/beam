@@ -487,7 +487,7 @@ struct TestWalletNetwork
     {
     }
     
-    virtual void SendAndSign(const ByteBuffer& msg, const BbsChannel& channel, const WalletID& wid) override
+    virtual void SendAndSign(const ByteBuffer& msg, const BbsChannel& channel, const WalletID& wid, uint8_t version) override
     {
     }
 

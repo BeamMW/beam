@@ -225,7 +225,7 @@ namespace beam::wallet {
      * @param channel   BBS channel to send message
      * @param wid       Public key used in signature creation
      */
-    void BaseMessageEndpoint::SendAndSign(const ByteBuffer& msg, const BbsChannel& channel, const WalletID& wid)
+    void BaseMessageEndpoint::SendAndSign(const ByteBuffer& msg, const BbsChannel& channel, const WalletID& wid, uint8_t version)
     {
         SwapOfferConfirmation confirmation;
 
@@ -243,15 +243,20 @@ namespace beam::wallet {
             confirmation.Sign(sk);
 
             ByteBuffer signature = toByteBuffer(confirmation.m_Signature);
-            ByteBuffer signedMessage;
-            signedMessage.reserve(msg.size() + signature.size());
 
-            std::copy(std::begin(msg), std::end(msg), std::back_inserter(signedMessage));
-            std::copy(std::begin(signature), std::end(signature), std::back_inserter(signedMessage));
+            size_t bodySize = msg.size() + signature.size();
+            assert(bodySize <= UINT32_MAX);
+            MsgHeader header(0, 0, version, 0, static_cast<uint32_t>(bodySize));
+
+            ByteBuffer finalMessage(header.SIZE);
+            header.write(finalMessage.data());
+            finalMessage.reserve(header.size + header.SIZE);
+            std::copy(std::begin(msg), std::end(msg), std::back_inserter(finalMessage));
+            std::copy(std::begin(signature), std::end(signature), std::back_inserter(finalMessage));
             
             WalletID dummyWId;
             dummyWId.m_Channel = channel;
-            SendEncryptedMessage(dummyWId, signedMessage);
+            SendEncryptedMessage(dummyWId, finalMessage);
         }
     }
 

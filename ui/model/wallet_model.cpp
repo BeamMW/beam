@@ -91,7 +91,7 @@ QString WalletModel::GetErrorString(beam::wallet::ErrorType type)
     }
 }
 
-bool WalletModel::isOwnAddress(WalletID& walletID) const
+bool WalletModel::isOwnAddress(const WalletID& walletID) const
 {
     for (const auto& it: m_addresses)
     {
