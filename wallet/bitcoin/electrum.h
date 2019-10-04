@@ -20,6 +20,7 @@
 #include "nlohmann/json.hpp"
 
 #include <memory>
+#include <chrono>
 
 namespace beam::io
 {
@@ -48,6 +49,13 @@ namespace beam::bitcoin
         {
             size_t m_index;
             nlohmann::json m_details;
+        };
+
+        struct LockUtxo
+        {
+            std::string m_txHash;
+            uint32_t m_pos;
+            std::chrono::system_clock::time_point m_time;
         };
 
     public:
@@ -87,10 +95,19 @@ namespace beam::bitcoin
         // the second key is changing master private key
         std::pair<libbitcoin::wallet::hd_private, libbitcoin::wallet::hd_private> generateMasterPrivateKeys() const;
 
+        void lockUtxo(std::string hash, uint32_t pos);
+        bool isLockedUtxo(std::string hash, uint32_t pos);
+        void reviewLockedUtxo();
+
     private:
         beam::io::Reactor& m_reactor;
         std::map<uint64_t, TCPConnect> m_connections;
         uint64_t m_idCounter = 0;
         IElectrumSettingsProvider::Ptr m_settingsProvider;
+
+        std::vector<LockUtxo> m_lockedUtxo;
+        std::vector<Utxo> m_cache;
+        std::chrono::system_clock::time_point m_lastCache;
+        io::AsyncEvent::Ptr m_asyncEvent;
     };
 } // namespace beam::bitcoin

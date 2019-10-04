@@ -563,7 +563,7 @@ namespace beam::wallet
                 if (m_RedeemTxConfirmations != confirmations)
                 {
                     LOG_DEBUG() << m_tx.GetTxID() << "[" << static_cast<SubTxID>(SubTxIndex::REDEEM_TX) << "] " << confirmations << "/"
-                        << GetTxMinConfirmations() << " confirmations for Redeem TC are received.";
+                        << GetTxMinConfirmations() << " confirmations for Redeem TX are received.";
                     m_RedeemTxConfirmations = confirmations;
                     m_tx.SetParameter(TxParameterID::Confirmations, m_RedeemTxConfirmations, true, SubTxIndex::REDEEM_TX);
                 }

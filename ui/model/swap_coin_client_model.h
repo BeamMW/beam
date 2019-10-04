@@ -26,7 +26,7 @@ class SwapCoinClientModel
 public:
     using Ptr = std::shared_ptr<SwapCoinClientModel>;
 
-    SwapCoinClientModel(beam::bitcoin::Client::CreateBridge bridgeCreator,
+    SwapCoinClientModel(beam::bitcoin::IBridgeHolder::Ptr bridgeHolder,
         std::unique_ptr<beam::bitcoin::SettingsProvider> settingsProvider,
         beam::io::Reactor& reactor);
 

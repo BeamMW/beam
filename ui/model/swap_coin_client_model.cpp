@@ -27,10 +27,10 @@ namespace
     const int kUpdateInterval = 5000;
 }
 
-SwapCoinClientModel::SwapCoinClientModel(beam::bitcoin::Client::CreateBridge bridgeCreator,
+SwapCoinClientModel::SwapCoinClientModel(beam::bitcoin::IBridgeHolder::Ptr bridgeHolder,
     std::unique_ptr<beam::bitcoin::SettingsProvider> settingsProvider,
     io::Reactor& reactor)
-    : bitcoin::Client(bridgeCreator, std::move(settingsProvider), reactor)
+    : bitcoin::Client(bridgeHolder, std::move(settingsProvider), reactor)
     , m_timer(this)
 {
     qRegisterMetaType<beam::bitcoin::Client::Status>("beam::bitcoin::Client::Status");
