@@ -275,6 +275,13 @@ namespace beam::wallet
             {
             case State::Initial:
             {
+                if (Height responseHeight = MaxHeight; !GetParameter(TxParameterID::PeerResponseHeight, responseHeight))
+                {
+                    Height minHeight = GetMandatoryParameter<Height>(TxParameterID::MinHeight);
+                    Height responseTime = GetMandatoryParameter<Height>(TxParameterID::PeerResponseTime);
+                    SetParameter(TxParameterID::PeerResponseHeight, minHeight + responseTime);
+                }
+
                 if (IsInitiator())
                 {
                     if (!m_secondSide->Initialize())
@@ -296,6 +303,7 @@ namespace beam::wallet
                     if (!GetParameter(TxParameterID::AtomicSwapExternalLockTime, lockTime))
                     {
                         //we doesn't have an answer from other participant
+                        UpdateOnNextTip();
                         break;
                     }
 
@@ -670,7 +678,7 @@ namespace beam::wallet
 
         Height lockTxMaxHeight = MaxHeight;
         if (!GetParameter(TxParameterID::MaxHeight, lockTxMaxHeight, SubTxIndex::BEAM_LOCK_TX)
-            && !GetParameter(TxParameterID::PeerResponseHeight, lockTxMaxHeight, SubTxIndex::BEAM_LOCK_TX))
+            && !GetParameter(TxParameterID::PeerResponseHeight, lockTxMaxHeight))
         {
             return false;
         }
