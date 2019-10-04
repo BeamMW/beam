@@ -344,7 +344,9 @@ Item {
                         CustomComboBox {
                             Layout.alignment: Qt.AlignHCenter | Qt.AlignRight
                             height: 32
-                            Layout.preferredWidth: 65
+                            Layout.minimumWidth: 70
+                            Layout.maximumWidth: 80
+
                             fontPixelSize: 14
                             fontLetterSpacing: 0.47
                             color: Style.content_main
@@ -980,7 +982,6 @@ Item {
                             role: "status"
                             //% "Status"
                             title: qsTrId("atomic-swap-tx-table-status")
-                            elideMode: Text.ElideRight
                             width: transactionsTable.getAdjustedColumnWidth(txStatusColumn)
                             movable: false
                             resizable: false
@@ -1017,7 +1018,7 @@ Item {
                                             Layout.fillWidth: true
                                             font.pixelSize: 14
                                             font.italic: true
-                                            elide: Text.ElideRight
+                                            wrapMode: Text.WordWrap
                                             text: getStatusText(styleData.value)
                                             verticalAlignment: Text.AlignBottom
                                             color: getTextColor()

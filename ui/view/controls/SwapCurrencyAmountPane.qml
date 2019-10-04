@@ -86,7 +86,7 @@ Rectangle {
                 color: textColor
                 elide: Text.ElideRight
                 text: valueStr
-                wrapMode: Text.Wrap
+                fontSizeMode: Text.Fit
                 visible: valueStr.length
             }
             SFText {

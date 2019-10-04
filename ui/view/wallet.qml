@@ -509,7 +509,6 @@ Item {
                     role: "status"
                     //% "Status"
                     title: qsTrId("general-status")
-                    elideMode: Text.ElideRight
                     width: transactionsTable.getAdjustedColumnWidth(statusColumn)//150 * transactionsTable.columnResizeRatio
                     movable: false
                     resizable: false
@@ -560,7 +559,7 @@ Item {
                                     Layout.fillWidth: true
                                     font.pixelSize: 14
                                     font.italic: true
-                                    elide: Text.ElideRight
+                                    wrapMode: Text.WordWrap
                                     text: getStatusText(styleData.value)
                                     verticalAlignment: Text.AlignBottom
                                     color: getTextColor()
