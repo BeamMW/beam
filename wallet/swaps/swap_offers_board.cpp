@@ -112,8 +112,17 @@ namespace beam::wallet
                         updateOffer(item.m_txId, SwapOfferStatus::InProgress);
                         break;
                     case TxStatus::Failed:
-                        updateOffer(item.m_txId, SwapOfferStatus::Failed);
+                    {
+                        auto reason = item.GetParameter<TxFailureReason>(TxParameterID::InternalFailureReason);
+                        SwapOfferStatus status = SwapOfferStatus::Failed;
+
+                        if (reason && *reason == TxFailureReason::TransactionExpired)
+                        {
+                            status = SwapOfferStatus::Expired;
+                        }
+                        updateOffer(item.m_txId, status);
                         break;
+                    }
                     case TxStatus::Canceled:
                         updateOffer(item.m_txId, SwapOfferStatus::Cancelled);
                         break;
