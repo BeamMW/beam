@@ -524,13 +524,13 @@ Item {
                                 spacing: 10
 
                                 SvgImage {
+                                    id: statusIcon;
                                     Layout.alignment: Qt.AlignLeft
                                     
                                     sourceSize: Qt.size(20, 20)
                                     source: getIconSource()
                                     function getIconSource() {
                                         var item = transactionsTable.model.get(styleData.row);
-                                        
                                         if (item.isInProgress) {
                                             if (item.isSelfTransaction) {
                                                 return "qrc:/assets/icon-sending-own.svg";
@@ -564,7 +564,7 @@ Item {
                                     verticalAlignment: Text.AlignBottom
                                     color: getTextColor()
                                     function getTextColor () {
-                                        var item = transactionsTable.model.get(styleData.row);                                        
+                                        var item = transactionsTable.model.get(styleData.row);
                                         if (item.isInProgress || item.isCompleted) {
                                             if (item.isSelfTransaction) {
                                                 return Style.content_main;
@@ -574,6 +574,10 @@ Item {
                                         else {
                                             return Style.content_secondary;
                                         }
+                                    }
+                                    onTextChanged: {
+                                        color = getTextColor();
+                                        statusIcon.source = statusIcon.getIconSource();
                                     }
                                 }
                             }

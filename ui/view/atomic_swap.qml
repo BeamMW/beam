@@ -997,6 +997,7 @@ Item {
                                         spacing: 10
 
                                         SvgImage {
+                                            id: statusIcon
                                             Layout.alignment: Qt.AlignLeft
 
                                             sourceSize: Qt.size(20, 20)
@@ -1030,6 +1031,10 @@ Item {
                                                 else {
                                                     return Style.content_secondary;
                                                 }
+                                            }
+                                            onTextChanged: {
+                                                color = getTextColor();
+                                                statusIcon.source = statusIcon.getIconSource();
                                             }
                                         }
                                     }
