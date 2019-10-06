@@ -596,19 +596,23 @@ Item {
                 Component {
                     id: txActions
                     Item {
-                        CustomToolButton {
-                            anchors.verticalCenter: parent.verticalCenter
-                            anchors.right: parent.right
-                            anchors.rightMargin: 12
-                            icon.source: "qrc:/assets/icon-actions.svg"
-                            //% "Actions"
-                            ToolTip.text: qsTrId("general-actions")
-                            onClicked: {
-                                var item = transactionsTable.model.get(styleData.row);
-                                txContextMenu.cancelEnabled = item.isCancelAvailable;
-                                txContextMenu.deleteEnabled = item.isDeleteAvailable;
-                                txContextMenu.txID = item.rawTxID;
-                                txContextMenu.popup();
+                        Item {
+                            width: parent.width
+                            height: transactionsTable.rowHeight
+                            CustomToolButton {
+                                anchors.verticalCenter: parent.verticalCenter
+                                anchors.right: parent.right
+                                anchors.rightMargin: 12
+                                icon.source: "qrc:/assets/icon-actions.svg"
+                                //% "Actions"
+                                ToolTip.text: qsTrId("general-actions")
+                                onClicked: {
+                                    var item = transactionsTable.model.get(styleData.row);
+                                    txContextMenu.cancelEnabled = item.isCancelAvailable;
+                                    txContextMenu.deleteEnabled = item.isDeleteAvailable;
+                                    txContextMenu.txID = item.rawTxID;
+                                    txContextMenu.popup();
+                                }
                             }
                         }
                     }
