@@ -251,6 +251,46 @@ namespace
         }
     }
 
+    using TestErrorFunc = std::function<void(const json& msg)>;
+    template <typename T> using TestSuccessFunc = std::function<void(const JsonRpcId& id, const T& data)>;
+    using TestFinishFunc = std::function<void()>;
+
+    template<typename T> void testJsonRpc(const std::string& msg
+        , TestErrorFunc onError
+        , TestSuccessFunc<T> onSuccess = []() {}
+        , TestFinishFunc onFinish = []() {})
+    {
+        class WalletApiHandler : public WalletApiHandlerBase
+        {
+        public:
+
+            WalletApiHandler(TestErrorFunc onError, std::function<void(const JsonRpcId& id, const T& data)> onSuccess) 
+                : _onError(onError), _onSuccess(onSuccess) {}
+
+            void onInvalidJsonRpc(const json& msg) override { _onError(msg); }
+            void onMessage(const JsonRpcId& id, const T& data) override { _onSuccess(id, data); }
+
+            TestErrorFunc _onError;
+            std::function<void(const JsonRpcId& id, const T& data)> _onSuccess;
+        };
+
+        WalletApiHandler handler(onError, onSuccess);
+        WalletApi api(handler);
+
+        WALLET_CHECK(api.parse(msg.data(), msg.size()));
+
+        {
+            json res;
+            T::Response response;
+
+            api.getResponse(123, response, res);
+            testResultHeader(res);
+
+            WALLET_CHECK(res["id"] == 123);
+            onFinish();
+        }
+    }
+
     void testInvalidSendJsonRpc(const std::string& msg)
     {
         class WalletApiHandler : public WalletApiHandlerBase
@@ -669,6 +709,25 @@ int main()
             "address" : "472e17b0419055ffee3b3813b98ae671579b0ac0dcd6f1a23b11a75ab148cc67"
         }
     }));
+
+    testJsonRpc<Send>(JSON_CODE(
+    {
+        "jsonrpc": "2.0",
+        "id" : 12345,
+        "method" : "tx_send",
+        "params" :
+        {
+            "session" : 15,
+            "value" : 1234234200000000000000000000000,
+            "from" : "19d0adff5f02787819d8df43b442a49b43e72a8b0d04a7cf995237a0422d2be83b6",
+            "address" : "472e17b0419055ffee3b3813b98ae671579b0ac0dcd6f1a23b11a75ab148cc67"
+        }
+    }), 
+    [](const json& msg) {}, 
+    [](const JsonRpcId& id, const Send& data)
+    {
+        WALLET_CHECK(!"The value is invalid!!!");
+    });
 
     testInvalidSendJsonRpc(JSON_CODE(
     {
