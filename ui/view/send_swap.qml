@@ -9,10 +9,11 @@ import "controls"
 import "./utils.js" as Utils
 
 ColumnLayout {
-    id: thisView
-    property variant parentView: null
-    property var    defaultFocusItem: comment_input
-    property var    predefinedTxParams: undefined
+    id: sendSwapView
+    property var defaultFocusItem: comment_input
+    property var predefinedTxParams: undefined
+    property var onAccepted: undefined
+    property var onClosed: undefined
 
     function setToken(token) {
         viewModel.token = token
@@ -49,13 +50,13 @@ ColumnLayout {
 
     SwapNADialog {
         id:         swapna
-        onRejected: parentView.onBadSwap()
-        onAccepted: main.openSwapSettings()
+        onRejected: onClosed();
+        onAccepted: main.openSwapSettings();
     }
 
     Component.onCompleted: {
         comment_input.forceActiveFocus();
-        viewModel.setParameters(predefinedTxParams);
+        if (predefinedTxParams != undefined) viewModel.setParameters(predefinedTxParams);
     }
 
     SendSwapViewModel {
@@ -86,6 +87,20 @@ ColumnLayout {
             const expired = viewModel.expiresTime < (new Date())
             expiresTitle.color = expired ? Style.validator_error : Style.content_main
             expires.color = expired ? Style.validator_error : Style.content_secondary
+        }
+    }
+
+    Row {
+        Layout.alignment:    Qt.AlignHCenter
+        Layout.topMargin:    75
+        Layout.bottomMargin: 40
+
+        SFText {
+            font.pixelSize:  18
+            font.styleName:  "Bold"; font.weight: Font.Bold
+            color:           Style.content_main
+            //% "Swap currencies"
+            text:            qsTrId("wallet-send-swap-title")
         }
     }
 
@@ -308,7 +323,7 @@ ColumnLayout {
             text:                qsTrId("general-close")
             palette.buttonText:  Style.content_main
             icon.source:         "qrc:/assets/icon-cancel-white.svg"
-            onClicked:           thisView.parent.parent.pop();
+            onClicked:           onClosed();
         }
 
         CustomButton {
@@ -319,13 +334,19 @@ ColumnLayout {
             icon.source:        "qrc:/assets/icon-send-blue.svg"
             enabled:            viewModel.canSend
             onClicked: {
-                const dialog       = Qt.createComponent("send_confirm.qml").
-                                        createObject(thisView, {ownerView: thisView, 
-                                                                isSwapMode: true});
-                dialog.addressText = viewModel.receiverAddress;
-                dialog.amountText  = [Utils.formatAmount(viewModel.sendAmount), sendAmountInput.getCurrencyLabel()].join(" ")
-                dialog.feeText     = [Utils.formatAmount(viewModel.sendFee), sendAmountInput.getFeeLabel()].join(" ")
-                dialog.open();
+                const dialogComponent = Qt.createComponent("send_confirm.qml");
+                var dialogObject = dialogComponent.createObject(sendSwapView,
+                    {
+                        addressText: viewModel.receiverAddress,
+                        amountText: [Utils.formatAmount(viewModel.sendAmount), sendAmountInput.getCurrencyLabel()].join(" "),
+                        feeText: [Utils.formatAmount(viewModel.sendFee), sendAmountInput.getFeeLabel()].join(" "),
+                        onAccepted: acceptedCallback()
+                    }).open();
+
+                function acceptedCallback() {
+                    viewModel.sendMoney();
+                    onAccepted();
+                }
             }
         }
     }

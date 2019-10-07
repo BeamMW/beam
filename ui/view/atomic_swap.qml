@@ -64,6 +64,28 @@ Item {
             spacing: 0
             state: "offers"
 
+            // callbacks for send views
+            function onAccepted() {
+                            offersStackView.pop();
+                            atomicSwapLayout.state = "transactions";
+                            transactionsTab.state = "filterInProgressTransactions";
+            }
+            function onClosed() {
+                offersStackView.pop();
+            }
+            function onSwapToken(token) {
+                offersStackView.pop();
+                offersStackView.push(Qt.createComponent("send_swap.qml"),
+                                    {"onAccepted": onAccepted,
+                                        "onClosed": onClosed});
+                offersStackView.currentItem.setToken(token);
+            }
+            function onAddress() {
+                Qt.createComponent("send_only_token_allowed.qml")
+                    .createObject(offersStackView.currentItem)
+                    .open();
+            }
+
             RowLayout {
                 Layout.alignment: Qt.AlignRight | Qt.AlignTop
                 Layout.topMargin: 33
@@ -83,9 +105,11 @@ Item {
                     //font.capitalization: Font.AllUppercase
 
                     onClicked: {
-                        offersStackView.push(Qt.createComponent("send.qml"));
-                        atomicSwapLayout.state = "transactions";
-                        transactionsTab.state = "filterInProgressTransactions";
+                        offersStackView.push(Qt.createComponent("send.qml"),
+                                            {"isSwapMode": true,
+                                             "onClosed": onClosed,
+                                             "onSwapToken": onSwapToken,
+                                             "onAddress": onAddress});
                     }
                 }
                 
@@ -581,7 +605,10 @@ Item {
                                                 }
                                                 else {
                                                     var txParameters = offersTable.model.get(styleData.row).rawTxParameters;
-                                                    offersStackView.push(Qt.createComponent("send.qml"), {"isSwapMode": true, "predefinedTxParams": txParameters});
+                                                    offersStackView.push(Qt.createComponent("send_swap.qml"),
+                                                                        {"predefinedTxParams": txParameters,
+                                                                         "onAccepted": onAccepted,
+                                                                         "onClosed": onClosed});
                                                 }
                                             }
                                         }
@@ -1146,7 +1173,7 @@ Item {
             }
         }
     }
-    
+
     function getCoinIcon(coin) {
         switch(coin) {
             case "btc": return "qrc:/assets/icon-btc.svg";

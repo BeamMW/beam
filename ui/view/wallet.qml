@@ -77,6 +77,7 @@ Item {
                 spacing: 20
 
                 CustomButton {
+                    id: sendButton
                     height: 32
                     palette.button: Style.accent_outgoing
                     palette.buttonText: Style.content_opposite
@@ -87,7 +88,32 @@ Item {
                     //font.capitalization: Font.AllUppercase
 
                     onClicked: {
-                        walletView.push(Qt.createComponent("send.qml"));
+                        walletStackView.push(Qt.createComponent("send.qml"),
+                                            {"isSwapMode": false,
+                                             "onClosed": onClosed,
+                                             "onSwapToken": onSwapToken,
+                                             "onAddress": onAddress});
+                        function onAccepted() {
+                            walletStackView.pop();
+                        }
+                        function onClosed() {
+                            walletStackView.pop();
+                        }
+                        function onSwapToken(token) {
+                            walletStackView.pop();
+                            walletStackView.push(Qt.createComponent("send_swap.qml"),
+                                                {"onAccepted": onAccepted,
+                                                 "onClosed": onClosed});
+                            walletStackView.currentItem.setToken(token);
+                        }
+                        function onAddress(token) {
+                            walletStackView.pop();
+                            walletStackView.push(Qt.createComponent("send_regular.qml"),
+                                                {"onAccepted": onAccepted,
+                                                 "onClosed": onClosed,
+                                                 "onSwapToken": onSwapToken});
+                            walletStackView.currentItem.setToken(token);
+                        }
                     }
                 }
 
@@ -102,7 +128,7 @@ Item {
                     //font.capitalization: Font.AllUppercase
 
                     onClicked: {
-                        walletView.push(Qt.createComponent("receive.qml"), {"isSwapView": false});
+                        walletStackView.push(Qt.createComponent("receive.qml"), {"isSwapView": false});
                     }
                 }
             }
@@ -679,7 +705,7 @@ Item {
     }
 
     StackView {
-        id: walletView
+        id: walletStackView
         anchors.fill: parent
         initialItem: walletLayout
 
@@ -698,14 +724,14 @@ Item {
 
         onCurrentItemChanged: {
             if (currentItem && currentItem.defaultFocusItem) {
-                walletView.currentItem.defaultFocusItem.forceActiveFocus();
+                walletStackView.currentItem.defaultFocusItem.forceActiveFocus();
             }
         }
     }
 
     Component.onCompleted: {
         if (root.toSend) {
-            walletView.push(Qt.createComponent("send.qml"));
+            sendButton.clicked();
             root.toSend = false;
         }
     }
