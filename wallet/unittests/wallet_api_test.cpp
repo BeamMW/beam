@@ -281,7 +281,7 @@ namespace
 
         {
             json res;
-            T::Response response;
+            typename T::Response response;
 
             api.getResponse(123, response, res);
             testResultHeader(res);
