@@ -2309,6 +2309,8 @@ uint8_t Node::OnTransactionStem(Transaction::Ptr&& ptx, const Peer* pPeer)
 
 void Node::OnTransactionAggregated(TxPool::Stem::Element& x)
 {
+	m_Dandelion.DeleteAggr(x);
+
     // must have at least 1 peer to continue the stem phase
     uint32_t nStemPeers = 0;
 
@@ -2386,10 +2388,8 @@ void Node::PerformAggregation(TxPool::Stem::Element& x)
     }
 
     if (x.m_pValue->m_vOutputs.size() >= m_Cfg.m_Dandelion.m_OutputsMin)
-    {
-        m_Dandelion.DeleteAggr(x);
         OnTransactionAggregated(x);
-    } else
+    else
         m_Dandelion.SetTimer(m_Cfg.m_Dandelion.m_AggregationTime_ms, x);
 }
 
