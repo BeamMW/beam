@@ -2150,6 +2150,9 @@ uint8_t Node::ValidateTx(Transaction::Context& ctx, const Transaction& tx)
 
 void Node::LogTx(const Transaction& tx, uint8_t nStatus, const Transaction::KeyType& key)
 {
+	if (!m_Cfg.m_LogTxFluff)
+		return;
+
     std::ostringstream os;
 
     os << "Tx " << key;
@@ -2187,6 +2190,9 @@ void Node::LogTx(const Transaction& tx, uint8_t nStatus, const Transaction::KeyT
 
 void Node::LogTxStem(const Transaction& tx, const char* szTxt)
 {
+	if (!m_Cfg.m_LogTxStem)
+		return;
+
 	std::ostringstream os;
 	os << "Stem-Tx ";
 
