@@ -2185,6 +2185,27 @@ void Node::LogTx(const Transaction& tx, uint8_t nStatus, const Transaction::KeyT
     LOG_INFO() << os.str();
 }
 
+void Node::LogTxStem(const Transaction& tx, const char* szTxt)
+{
+	std::ostringstream os;
+	os << "Stem-Tx ";
+
+	for (size_t i = 0; i < tx.m_vKernels.size(); i++)
+	{
+		const TxKernel& krn = *tx.m_vKernels[i];
+		Merkle::Hash hv;
+		krn.get_ID(hv);
+
+		char sz[Merkle::Hash::nTxtLen + 1];
+		hv.Print(sz);
+
+		os << "\n\tK: " << sz << " Fee=" << krn.m_Fee;
+	}
+
+	os << szTxt;
+	LOG_INFO() << os.str();
+}
+
 const ECC::uintBig& Node::NextNonce()
 {
     ECC::Scalar::Native sk;
@@ -2245,17 +2266,25 @@ uint8_t Node::OnTransactionStem(Transaction::Ptr&& ptx, const Peer* pPeer)
         bool bElemCovers = true, bNewCovers = true;
         pElem->m_pValue->get_Reader().Compare(std::move(ptx->get_Reader()), bElemCovers, bNewCovers);
 
-        if (!bNewCovers)
-            return proto::TxStatus::Obscured; // the new tx is reduced, drop it
+		if (!bNewCovers)
+		{
+			LogTxStem(*ptx, "obscured by another tx. Deleting");
+			LogTxStem(*pElem->m_pValue, "Remaining");
+			return proto::TxStatus::Obscured; // the new tx is reduced, drop it
+		}
 
         if (bElemCovers)
         {
             pDup = pElem; // exact match
 
-            if (pDup->m_bAggregating)
-                return proto::TxStatus::Ok; // it shouldn't have been received, but nevermind, just ignore
+			if (pDup->m_bAggregating)
+			{
+				LogTxStem(*ptx, "Received despite being-aggregated");
+				return proto::TxStatus::Ok; // it shouldn't have been received, but nevermind, just ignore
+			}
 
-            break;
+			LogTxStem(*ptx, "Already received");
+			break;
         }
 
 		if (!bTested)
@@ -2267,6 +2296,7 @@ uint8_t Node::OnTransactionStem(Transaction::Ptr&& ptx, const Peer* pPeer)
 			bTested = true;
 		}
 
+		LogTxStem(*pElem->m_pValue, "obscured by newer tx. Deleting");
         m_Dandelion.Delete(*pElem);
     }
 
@@ -2292,6 +2322,8 @@ uint8_t Node::OnTransactionStem(Transaction::Ptr&& ptx, const Peer* pPeer)
         m_Dandelion.InsertKrn(*pGuard);
 
         pDup = pGuard.release();
+
+		LogTxStem(*pDup->m_pValue, "New");
     }
 
     assert(!pDup->m_bAggregating);
@@ -2310,6 +2342,7 @@ uint8_t Node::OnTransactionStem(Transaction::Ptr&& ptx, const Peer* pPeer)
 void Node::OnTransactionAggregated(TxPool::Stem::Element& x)
 {
 	m_Dandelion.DeleteAggr(x);
+	LogTxStem(*x.m_pValue, "Aggregation finished");
 
     // must have at least 1 peer to continue the stem phase
     uint32_t nStemPeers = 0;
@@ -2334,7 +2367,8 @@ void Node::OnTransactionAggregated(TxPool::Stem::Element& x)
             for (PeerList::iterator it = m_lstPeers.begin(); ; it++)
                 if ((it->m_LoginFlags & proto::LoginFlags::SpreadingTransactions) && !nRandomPeerIdx--)
                 {
-                    it->SendTx(x.m_pValue, false);
+					LogTxStem(*x.m_pValue, "Stem continues");
+					it->SendTx(x.m_pValue, false);
                     break;
                 }
 
@@ -2346,7 +2380,8 @@ void Node::OnTransactionAggregated(TxPool::Stem::Element& x)
         }
     }
 
-    OnTransactionFluff(std::move(x.m_pValue), NULL, &x);
+	LogTxStem(*x.m_pValue, "Going to fluff");
+	OnTransactionFluff(std::move(x.m_pValue), NULL, &x);
 }
 
 void Node::PerformAggregation(TxPool::Stem::Element& x)
@@ -2387,10 +2422,15 @@ void Node::PerformAggregation(TxPool::Stem::Element& x)
         }
     }
 
+	LogTxStem(*x.m_pValue, "Aggregated so far");
+
     if (x.m_pValue->m_vOutputs.size() >= m_Cfg.m_Dandelion.m_OutputsMin)
         OnTransactionAggregated(x);
-    else
-        m_Dandelion.SetTimer(m_Cfg.m_Dandelion.m_AggregationTime_ms, x);
+	else
+	{
+		LogTxStem(*x.m_pValue, "Aggregation pending");
+		m_Dandelion.SetTimer(m_Cfg.m_Dandelion.m_AggregationTime_ms, x);
+	}
 }
 
 void Node::AddDummyInputs(Transaction& tx)
@@ -2628,9 +2668,14 @@ void Node::Dandelion::OnTimedOut(Element& x)
     if (x.m_bAggregating)
     {
         get_ParentObj().AddDummyOutputs(*x.m_pValue);
-        get_ParentObj().OnTransactionAggregated(x);
-    } else
-        get_ParentObj().OnTransactionFluff(std::move(x.m_pValue), NULL, &x);
+		get_ParentObj().LogTxStem(*x.m_pValue, "Aggregation timed-out, dummies added");
+		get_ParentObj().OnTransactionAggregated(x);
+	}
+	else
+	{
+		get_ParentObj().LogTxStem(*x.m_pValue, "Fluff timeod-out. Emergency fluff");
+		get_ParentObj().OnTransactionFluff(std::move(x.m_pValue), NULL, &x);
+	}
 }
 
 bool Node::Dandelion::ValidateTxContext(const Transaction& tx, const HeightRange& hr)

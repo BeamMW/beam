@@ -376,6 +376,7 @@ private:
 
 	uint8_t ValidateTx(Transaction::Context&, const Transaction&); // complete validation
 	void LogTx(const Transaction&, uint8_t nStatus, const Transaction::KeyType&);
+	void LogTxStem(const Transaction&, const char* szTxt);
 
 	struct Bbs
 	{
