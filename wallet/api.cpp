@@ -223,8 +223,8 @@ namespace beam::wallet
         checkJsonParam(params, "value", id);
         checkJsonParam(params, "address", id);
 
-        if (params["value"] <= 0)
-            throw jsonrpc_exception{ ApiError::InvalidJsonRpc, "Value must be >= 0.", id };
+        if (!params["value"].is_number_unsigned() || params["value"] == 0)
+            throw jsonrpc_exception{ ApiError::InvalidJsonRpc, "Value must be non zero 64bit unsigned integer.", id };
 
         if (params["address"].empty())
             throw jsonrpc_exception{ ApiError::InvalidAddress, "Address is empty.", id };
@@ -261,7 +261,7 @@ namespace beam::wallet
 
         if (existsJsonParam(params, "fee"))
         {
-            if(params["fee"] <= 0)
+            if(!params["fee"].is_number_unsigned() || params["fee"] == 0)
                 throw jsonrpc_exception{ ApiError::InvalidJsonRpc, "Invalid fee.", id };
 
             send.fee = params["fee"];
@@ -303,15 +303,15 @@ namespace beam::wallet
 
         for (const auto& amount : params["coins"])
         {
-            if(amount <= 0)
-                throw jsonrpc_exception{ ApiError::InvalidParamsJsonRpc, "Coin amount must be > 0.", id };
+            if(!amount.is_number_unsigned() || amount == 0)
+                throw jsonrpc_exception{ ApiError::InvalidParamsJsonRpc, "Coin amount must be non zero 64bit unsigned integer.", id };
 
             split.coins.push_back(amount);
         }
 
         if (existsJsonParam(params, "fee"))
         {
-            if (params["fee"] <= 0)
+            if (!params["fee"].is_number_unsigned() || params["fee"] == 0)
                 throw jsonrpc_exception{ ApiError::InvalidParamsJsonRpc, "Invalid fee.", id };
 
             split.fee = params["fee"];

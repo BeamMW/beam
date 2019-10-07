@@ -118,8 +118,11 @@ namespace beam::bitcoin
 
     void Client::SetStatus(const Status& status)
     {
-        m_status = status;
-        OnStatus(m_status);
+        if (m_status != status)
+        {
+            m_status = status;
+            OnStatus(m_status);
+        }
     }
 
     beam::bitcoin::IBridge::Ptr Client::GetBridge()

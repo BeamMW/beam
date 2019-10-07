@@ -77,6 +77,7 @@ Item {
                 spacing: 20
 
                 CustomButton {
+                    id: sendButton
                     height: 32
                     palette.button: Style.accent_outgoing
                     palette.buttonText: Style.content_opposite
@@ -87,7 +88,32 @@ Item {
                     //font.capitalization: Font.AllUppercase
 
                     onClicked: {
-                        walletView.push(Qt.createComponent("send.qml"));
+                        walletStackView.push(Qt.createComponent("send.qml"),
+                                            {"isSwapMode": false,
+                                             "onClosed": onClosed,
+                                             "onSwapToken": onSwapToken,
+                                             "onAddress": onAddress});
+                        function onAccepted() {
+                            walletStackView.pop();
+                        }
+                        function onClosed() {
+                            walletStackView.pop();
+                        }
+                        function onSwapToken(token) {
+                            walletStackView.pop();
+                            walletStackView.push(Qt.createComponent("send_swap.qml"),
+                                                {"onAccepted": onAccepted,
+                                                 "onClosed": onClosed});
+                            walletStackView.currentItem.setToken(token);
+                        }
+                        function onAddress(token) {
+                            walletStackView.pop();
+                            walletStackView.push(Qt.createComponent("send_regular.qml"),
+                                                {"onAccepted": onAccepted,
+                                                 "onClosed": onClosed,
+                                                 "onSwapToken": onSwapToken});
+                            walletStackView.currentItem.setToken(token);
+                        }
                     }
                 }
 
@@ -102,7 +128,7 @@ Item {
                     //font.capitalization: Font.AllUppercase
 
                     onClicked: {
-                        walletView.push(Qt.createComponent("receive.qml"), {"isSwapView": false});
+                        walletStackView.push(Qt.createComponent("receive.qml"), {"isSwapView": false});
                     }
                 }
             }
@@ -150,10 +176,12 @@ Item {
                 Layout.alignment: Qt.AlignTop
                 Layout.fillWidth: true
                 Layout.topMargin: 30
+                Layout.preferredHeight: 32
+                Layout.bottomMargin: 10
 
                 TxFilter {
                     id: allTabSelector
-                    Layout.alignment: Qt.AlignTop
+                    Layout.alignment: Qt.AlignVCenter
                     //% "All"
                     label: qsTrId("wallet-transactions-all-tab")
                     onClicked: transactionsLayout.state = "all"
@@ -161,7 +189,7 @@ Item {
                 }
                 TxFilter {
                     id: inProgressTabSelector
-                    Layout.alignment: Qt.AlignTop
+                    Layout.alignment: Qt.AlignVCenter
                     //% "In progress"
                     label: qsTrId("wallet-transactions-in-progress-tab")
                     onClicked: transactionsLayout.state = "inProgress"
@@ -169,7 +197,7 @@ Item {
                 }
                 TxFilter {
                     id: sentTabSelector
-                    Layout.alignment: Qt.AlignTop
+                    Layout.alignment: Qt.AlignVCenter
                     //% "Sent"
                     label: qsTrId("wallet-transactions-sent-tab")
                     onClicked: transactionsLayout.state = "sent"
@@ -177,18 +205,25 @@ Item {
                 }
                 TxFilter {
                     id: receivedTabSelector
-                    Layout.alignment: Qt.AlignTop
+                    Layout.alignment: Qt.AlignVCenter
                     //% "Received"
                     label: qsTrId("wallet-transactions-received-tab")
                     onClicked: transactionsLayout.state = "received"
                     capitalization: Font.AllUppercase
                 }
                 Item {
-                    Layout.alignment: Qt.AlignTop
+                    Layout.alignment: Qt.AlignVCenter
                     Layout.fillWidth: true
                 }
+                SearchBox {
+                    id: searchBox
+                    Layout.preferredWidth: 400
+                    Layout.alignment: Qt.AlignVCenter
+                    //% "Transaction or kernel ID, comment, address or contact"
+                    placeholderText: qsTrId("wallet-search-transactions-placeholder")
+                }
                 CustomToolButton {
-                    Layout.alignment: Qt.AlignTop | Qt.AlignRight
+                    Layout.alignment: Qt.AlignVCenter | Qt.AlignRight
                     icon.source: "qrc:/assets/icon-proof.svg"
                     //% "Verify payment"
                     ToolTip.text: qsTrId("wallet-verify-payment")
@@ -252,14 +287,19 @@ Item {
 
                 model: SortFilterProxyModel {
                     id: txProxyModel
-                    source: viewModel.transactions
+                    source: SortFilterProxyModel {
+                        
+                        source: viewModel.transactions
+                        filterRole: "search"
+                        filterString: "*" + searchBox.text + "*"
+                        filterSyntax: SortFilterProxyModel.Wildcard
+                        filterCaseSensitivity: Qt.CaseInsensitive
+                    }
 
                     sortOrder: transactionsTable.sortIndicatorOrder
                     sortCaseSensitivity: Qt.CaseInsensitive
                     sortRole: transactionsTable.getColumn(transactionsTable.sortIndicatorColumn).role + "Sort"
 
-                    filterRole: "timeCreated"
-                    // filterString: "*"
                     filterSyntax: SortFilterProxyModel.Wildcard
                     filterCaseSensitivity: Qt.CaseInsensitive
                 }
@@ -321,7 +361,8 @@ Item {
                                 hasPaymentProof:    txRolesMap && txRolesMap.hasPaymentProof ? txRolesMap.hasPaymentProof : false
                                 isSelfTx:           txRolesMap && txRolesMap.isSelfTransaction ? txRolesMap.isSelfTransaction : false
                                 rawTxID:            txRolesMap && txRolesMap.rawTxID ? txRolesMap.rawTxID : null
-                                
+                                //searchFilter:       searchBox.text
+
                                 onOpenExternal : function() {
                                     var url = Style.explorerUrl + "block?kernel_id=" + detailsPanel.kernelID;
                                     Utils.openExternal(url, viewModel, externalLinkConfirmation);
@@ -664,7 +705,7 @@ Item {
     }
 
     StackView {
-        id: walletView
+        id: walletStackView
         anchors.fill: parent
         initialItem: walletLayout
 
@@ -683,14 +724,14 @@ Item {
 
         onCurrentItemChanged: {
             if (currentItem && currentItem.defaultFocusItem) {
-                walletView.currentItem.defaultFocusItem.forceActiveFocus();
+                walletStackView.currentItem.defaultFocusItem.forceActiveFocus();
             }
         }
     }
 
     Component.onCompleted: {
         if (root.toSend) {
-            walletView.push(Qt.createComponent("send.qml"));
+            sendButton.clicked();
             root.toSend = false;
         }
     }

@@ -1683,5 +1683,9 @@ Please try again later or create an offer yourself.</source>
         <source>sending to own address</source>
         <translation type="unfinished"></translation>
     </message>
+    <message id="wallet-search-transactions-placeholder">
+        <source>Transaction or kernel ID, comment, address or contact</source>
+        <translation type="unfinished"></translation>
+    </message>
 </context>
 </TS>

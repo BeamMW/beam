@@ -14,8 +14,7 @@ ConfirmationDialog {
     id: sendViewConfirm
     parent: Overlay.overlay
 
-    property bool isSwapMode:        false
-    property var ownerView
+    property var onAcceptedCallback: undefined
     property alias addressText:      addressLabel.text
     property alias amountText:       amountLabel.text
     property alias feeText:          feeLabel.text
@@ -54,13 +53,7 @@ ConfirmationDialog {
     }
 
     onAccepted: {
-        viewModel.sendMoney();
-        if (!isSwapMode) {
-            ownerView.enabled = false;
-        }
-        else {
-            ownerView.parent.parent.pop();
-        }
+        onAcceptedCallback();
     }
 
     contentItem: Item {

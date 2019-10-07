@@ -32,13 +32,13 @@ namespace beam
     extern const char kTxStatusPending[];
     extern const char kTxStatusWaitingForSender[];
     extern const char kTxStatusWaitingForReceiver[];
-    extern const char kTxStatusSending[];
-    extern const char kTxStatusReceiving[];
+    extern const char kTxStatusInProgress[];
+    extern const char kTxStatusSendingToOwn[];
     extern const char kTxStatusCancelled[];
     extern const char kTxStatusSent[];
     extern const char kTxStatusReceived[];
     extern const char kTxStatusFailed[];
-    extern const char kTxStatusCompleted[];
+    extern const char kTxStatusSentToOwn[];
     extern const char kTxStatusExpired[];
     // Errors
     extern const char kErrorUnknownCoinStatus[];

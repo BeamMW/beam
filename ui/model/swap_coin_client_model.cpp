@@ -24,7 +24,7 @@ using namespace beam;
 
 namespace
 {
-    const int kUpdateInterval = 5000;
+    const int kUpdateInterval = 10000;
 }
 
 SwapCoinClientModel::SwapCoinClientModel(beam::bitcoin::IBridgeHolder::Ptr bridgeHolder,
@@ -42,6 +42,8 @@ SwapCoinClientModel::SwapCoinClientModel(beam::bitcoin::IBridgeHolder::Ptr bridg
     connect(this, SIGNAL(gotBalance(const beam::bitcoin::Client::Balance&)), this, SLOT(setBalance(const beam::bitcoin::Client::Balance&)));
     connect(this, SIGNAL(gotStatus(beam::bitcoin::Client::Status)), this, SLOT(setStatus(beam::bitcoin::Client::Status)));
     connect(this, SIGNAL(gotCanModifySettings(bool)), this, SLOT(setCanModifySettings(bool)));
+
+    requestBalance();
 
     m_timer.start(kUpdateInterval);
 }
@@ -76,13 +78,18 @@ void SwapCoinClientModel::OnCanModifySettingsChanged(bool canModify)
     emit gotCanModifySettings(canModify);
 }
 
-void SwapCoinClientModel::onTimer()
+void SwapCoinClientModel::requestBalance()
 {
     if (GetSettings().IsInitialized())
     {
         // update balance
         GetAsync()->GetBalance();
     }
+}
+
+void SwapCoinClientModel::onTimer()
+{
+    requestBalance();
 }
 
 void SwapCoinClientModel::setBalance(const beam::bitcoin::Client::Balance& balance)

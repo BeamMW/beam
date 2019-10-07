@@ -6,8 +6,10 @@ import "controls"
 import "./utils.js" as Utils
 
 ColumnLayout {
-    id: thisView
-    property variant parentView: null
+    id: sendRegularView
+    property var onAccepted: undefined
+    property var onClosed: undefined
+    property var onSwapToken: undefined
 
     function setToken(token) {
         viewModel.receiverTA = token
@@ -18,20 +20,32 @@ ColumnLayout {
         id: viewModel
 
         onSendMoneyVerified: {
-           thisView.enabled = true
-           walletView.pop()
+            onAccepted();
         }
 
         onCantSendToExpired: {
-            thisView.enabled = true;
             Qt.createComponent("send_expired.qml")
-                .createObject(thisView)
+                .createObject(sendRegularView)
                 .open();
         }
     }
 
     function isTAInputValid() {
         return viewModel.receiverTA.length == 0 || viewModel.receiverTAValid
+    }
+
+    Row {
+        Layout.alignment:    Qt.AlignHCenter
+        Layout.topMargin:    75
+        Layout.bottomMargin: 40
+
+        SFText {
+            font.pixelSize:  18
+            font.styleName:  "Bold"; font.weight: Font.Bold
+            color:           Style.content_main
+            //% "Send"
+            text:            qsTrId("send-title")
+        }
     }
 
     GridLayout  {
@@ -63,7 +77,7 @@ ColumnLayout {
 
                 onTextChanged: {
                     if (BeamGlobals.isSwapToken(text)) {
-                        parentView.onSwapToken(text)
+                        onSwapToken(text);
                     }
                 }
             }
@@ -249,7 +263,7 @@ ColumnLayout {
             //% "Back"
             text:        qsTrId("general-back")
             icon.source: "qrc:/assets/icon-back.svg"
-            onClicked:   walletView.pop();
+            onClicked:   onClosed();
         }
 
         CustomButton {
@@ -259,16 +273,22 @@ ColumnLayout {
             palette.button:     Style.accent_outgoing
             icon.source:        "qrc:/assets/icon-send-blue.svg"
             enabled:            viewModel.canSend
-            onClicked: {
-                Qt.createComponent("send_confirm.qml").createObject(thisView, {
-                    isSwapMode: false,
-                    ownerView: thisView,
-                    addressText: viewModel.receiverAddress,
-                    //% "BEAM"
-                    amountText: [Utils.formatAmount(viewModel.sendAmount), qsTrId("general-beam")].join(" "),
-                    //% "GROTH"
-                    feeText: [Utils.formatAmount(viewModel.feeGrothes), qsTrId("general-groth")].join(" ")
-                }).open();
+            onClicked: {                
+                const dialogComponent = Qt.createComponent("send_confirm.qml");
+                const dialogObject = dialogComponent.createObject(sendRegularView,
+                    {
+                        addressText: viewModel.receiverAddress,
+                        //% "BEAM"
+                        amountText: [Utils.formatAmount(viewModel.sendAmount), qsTrId("general-beam")].join(" "),
+                        //% "GROTH"
+                        feeText: [Utils.formatAmount(viewModel.feeGrothes), qsTrId("general-groth")].join(" "),
+                        onAcceptedCallback: acceptedCallback
+                    }).open();
+
+                function acceptedCallback() {
+                    console.log("acceptedCallback");
+                    viewModel.sendMoney();
+                }
             }
         }
     }
