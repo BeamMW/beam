@@ -2194,7 +2194,7 @@ void Node::LogTxStem(const Transaction& tx, const char* szTxt)
 		return;
 
 	std::ostringstream os;
-	os << "Stem-Tx ";
+	os << "Stem-Tx " << szTxt;
 
 	for (size_t i = 0; i < tx.m_vKernels.size(); i++)
 	{
@@ -2205,10 +2205,9 @@ void Node::LogTxStem(const Transaction& tx, const char* szTxt)
 		char sz[Merkle::Hash::nTxtLen + 1];
 		hv.Print(sz);
 
-		os << "\n\tK: " << sz << " Fee=" << krn.m_Fee;
+		os << "\n\tK: " << sz;
 	}
 
-	os << szTxt;
 	LOG_INFO() << os.str();
 }
 
@@ -2373,7 +2372,11 @@ void Node::OnTransactionAggregated(TxPool::Stem::Element& x)
             for (PeerList::iterator it = m_lstPeers.begin(); ; it++)
                 if ((it->m_LoginFlags & proto::LoginFlags::SpreadingTransactions) && !nRandomPeerIdx--)
                 {
-					LogTxStem(*x.m_pValue, "Stem continues");
+					if (m_Cfg.m_LogTxStem)
+					{
+						LOG_INFO() << "Stem continues to " << it->m_RemoteAddr;
+					}
+
 					it->SendTx(x.m_pValue, false);
                     break;
                 }
@@ -2679,7 +2682,7 @@ void Node::Dandelion::OnTimedOut(Element& x)
 	}
 	else
 	{
-		get_ParentObj().LogTxStem(*x.m_pValue, "Fluff timeod-out. Emergency fluff");
+		get_ParentObj().LogTxStem(*x.m_pValue, "Fluff timed-out. Emergency fluff");
 		get_ParentObj().OnTransactionFluff(std::move(x.m_pValue), NULL, &x);
 	}
 }
