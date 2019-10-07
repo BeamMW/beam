@@ -685,10 +685,17 @@ Item {
 
                         rowDelegate: Item {
                             id: rowItem
-                            height: collapsed ? transactionsTable.rowHeight : transactionsTable.rowHeight + txDetails.maximumHeight
+                            height: ctransactionsTable.rowHeight
                             anchors.left: parent.left
                             anchors.right: parent.right
                             property bool collapsed: true
+
+                            property var myModel: parent.model
+
+                            onMyModelChanged: {
+                                collapsed = true;
+                                height = Qt.binding(function(){ return transactionsTable.rowHeight;});
+                            }
 
                             Rectangle {
                                 anchors.fill: parent                        
@@ -710,14 +717,7 @@ Item {
                                     width: parent.width
                                     clip: true
 
-                                    property int maximumHeight: detailsPanel.height
-
-                                    onMaximumHeightChanged: {
-                                        if (!rowItem.collapsed) {
-                                            rowItem.height = maximumHeight + rowItem.height
-                                            txDetails.height = maximumHeight
-                                        }
-                                    }
+                                    property int maximumHeight: detailsPanel.implicitHeight
 
                                     Rectangle {
                                         anchors.fill: parent
@@ -727,19 +727,19 @@ Item {
                                         id: detailsPanel
                                         width: transactionsTable.width
 
-                                        property var txRolesMap: transactionsTable.model.get(styleData.row)
-                                        sendAddress:        txRolesMap.addressTo ? txRolesMap.addressTo : ""
-                                        receiveAddress:     txRolesMap.addressFrom ? txRolesMap.addressFrom : ""
-                                        fee:                txRolesMap.fee ? txRolesMap.fee : ""
-                                        comment:            txRolesMap.comment ? txRolesMap.comment : ""
-                                        txID:               txRolesMap.txID ? txRolesMap.txID : ""
-                                        kernelID:           txRolesMap.kernelID ? txRolesMap.kernelID : ""
-                                        status:             txRolesMap.status ? txRolesMap.status : ""
-                                        failureReason:      txRolesMap.failureReason ? txRolesMap.failureReason : ""
-                                        isIncome:           txRolesMap.isIncome ? txRolesMap.isIncome : false
-                                        hasPaymentProof:    txRolesMap.hasPaymentProof ? txRolesMap.hasPaymentProof : false
-                                        isSelfTx:           txRolesMap.isSelfTransaction ? txRolesMap.isSelfTransaction : false
-                                        rawTxID:            txRolesMap.rawTxID ? txRolesMap.rawTxID : null
+                                        property var txRolesMap: myModel
+                                        sendAddress:        txRolesMap && txRolesMap.addressTo ? txRolesMap.addressTo : ""
+                                        receiveAddress:     txRolesMap && txRolesMap.addressFrom ? txRolesMap.addressFrom : ""
+                                        fee:                txRolesMap && txRolesMap.fee ? txRolesMap.fee : ""
+                                        comment:            txRolesMap && txRolesMap.comment ? txRolesMap.comment : ""
+                                        txID:               txRolesMap && txRolesMap.txID ? txRolesMap.txID : ""
+                                        kernelID:           txRolesMap && txRolesMap.kernelID ? txRolesMap.kernelID : ""
+                                        status:             txRolesMap && txRolesMap.status ? txRolesMap.status : ""
+                                        failureReason:      txRolesMap && txRolesMap.failureReason ? txRolesMap.failureReason : ""
+                                        isIncome:           txRolesMap && txRolesMap.isIncome ? txRolesMap.isIncome : false
+                                        hasPaymentProof:    txRolesMap && txRolesMap.hasPaymentProof ? txRolesMap.hasPaymentProof : false
+                                        isSelfTx:           txRolesMap && txRolesMap.isSelfTransaction ? txRolesMap.isSelfTransaction : false
+                                        rawTxID:            txRolesMap && txRolesMap.rawTxID ? txRolesMap.rawTxID : null
                                         
                                         onOpenExternal : function() {
                                             var url = Style.explorerUrl + "block?kernel_id=" + detailsPanel.kernelID;
@@ -821,7 +821,7 @@ Item {
                                     target: rowItem
                                     easing.type: Easing.Linear
                                     property: "height"
-                                    to: rowItem.height + txDetails.maximumHeight
+                                    to: transactionsTable.rowHeight + txDetails.maximumHeight
                                     duration: expand.expandDuration
                                 }
 
