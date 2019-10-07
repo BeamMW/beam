@@ -143,13 +143,12 @@ Rectangle {
             }
         }
 
-        Image {
+        SvgImage {
             id: image
-            y: 50
+            y:  50
             anchors.horizontalCenter: parent.horizontalCenter
-            width: 40
-            height: 28
             source: "qrc:/assets/logo.svg"
+            smooth: true
         }
 
     }
