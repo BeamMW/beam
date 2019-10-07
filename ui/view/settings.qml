@@ -142,94 +142,21 @@ ColumnLayout {
         }
     }
 
-    ColumnLayout {
-        id:               swapLayout
+    ScrollView {
         Layout.fillWidth: true
-        visible:          swapMode
-        spacing:          20
+        Layout.fillHeight: true
+        Layout.bottomMargin: 10
+        clip: true
+        visible: swapMode
+        ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
+        ScrollBar.vertical.policy: ScrollBar.AsNeeded
 
-        RowLayout {
-            Layout.alignment: Qt.AlignTop
-            Layout.fillWidth: true
-
-            TxFilter {
-                id: btcTabSelector
-                Layout.alignment: Qt.AlignTop
-                label: qsTrId("general-bitcoin")
-                onClicked: swapLayout.state = "swap-btc"
-                capitalization: Font.AllUppercase
-            }
-
-            TxFilter {
-                id: ltcTabSelector
-                Layout.alignment: Qt.AlignTop
-                label: qsTrId("general-litecoin")
-                onClicked: swapLayout.state = "swap-ltc"
-                capitalization: Font.AllUppercase
-            }
-
-            TxFilter {
-                id: qtumTabSelector
-                Layout.alignment: Qt.AlignTop
-                label: qsTrId("general-qtum")
-                onClicked: swapLayout.state = "swap-qtum"
-                capitalization: Font.AllUppercase
-            }
-
-            visible: swapMode
-        }
-
-        state:  "swap-btc"
-        states: [
-            State {
-                name: "swap-btc"
-                PropertyChanges { target: btcTabSelector; state: "active" }
-                PropertyChanges { target: swapBtcGrid; visible: true }
-                PropertyChanges { target: swapLtcGrid; visible: false }
-                PropertyChanges { target: swapQtumGrid; visible: false }
-            },
-            State {
-                name: "swap-ltc"
-                PropertyChanges { target: ltcTabSelector; state: "active" }
-                PropertyChanges { target: swapBtcGrid; visible: false }
-                PropertyChanges { target: swapLtcGrid; visible: true }
-                PropertyChanges { target: swapQtumGrid; visible: false }
-            },
-            State {
-                name: "swap-qtum"
-                PropertyChanges { target: qtumTabSelector; state: "active" }
-                PropertyChanges { target: swapBtcGrid; visible: false }
-                PropertyChanges { target: swapLtcGrid; visible: false }
-                PropertyChanges { target: swapQtumGrid; visible: true }
-            }
-        ]
-
-        RowLayout {
-            id:                swapBtcGrid
-            Layout.fillWidth:  true
-            spacing:           10
-
-            Item {
-                Layout.fillWidth: true
-                visible:          !viewModel.canEditBTC
-            }
-
-            SFText {
-                Layout.topMargin:     100
-                visible:              !viewModel.canEditBTC
-                horizontalAlignment:  Text.AlignHCenter
-                font.pixelSize:       20
-                wrapMode:             Text.WordWrap
-                color:                Style.content_secondary
-                lineHeight:           1.2
-                //% "You cannot change settings\nwhile active transaction is in progress"
-                text:                 qsTrId("settings-progress-na")
-            }
-
-            Item {
-                Layout.fillWidth: true
-                visible:          !viewModel.canEditBTC
-            }
+        GridLayout {
+            id:               swapLayout
+            width:            mainColumn.width
+            rowSpacing:       20
+            columnSpacing:    20
+            columns:          2
 
             SwapNodeSettings {
                 id:               btcSettings
@@ -237,9 +164,9 @@ ColumnLayout {
                 title:               qsTrId("general-bitcoin")
                 minFeeRate:          BeamGlobals.minFeeRateBtc()
                 feeRateLabel:        BeamGlobals.btcFeeRateLabel()
-                Layout.minimumWidth: swapBtcGrid.width / 2
-                visible:             viewModel.canEditBTC
+                Layout.minimumWidth: swapLayout.width / 2 - swapLayout.columnSpacing / 2
                 useElectrum:         viewModel.btcUseEL
+                canEdit:             viewModel.canEditBTC
 
                 //
                 // Node
@@ -328,48 +255,15 @@ ColumnLayout {
                 value:    btcSettings.feeRateEL
             }
 
-            Item {
-                Layout.fillWidth: true
-                visible:          viewModel.canEditBTC
-            }
-        }
-
-        RowLayout {
-            id:                swapLtcGrid
-            Layout.fillWidth:  true
-            spacing:           10
-
-            Item {
-                Layout.fillWidth: true
-                visible:          !viewModel.canEditLTC
-            }
-
-            SFText {
-                Layout.topMargin:     100
-                visible:              !viewModel.canEditLTC
-                horizontalAlignment:  Text.AlignHCenter
-                font.pixelSize:       20
-                wrapMode:             Text.WordWrap
-                color:                Style.content_secondary
-                lineHeight:           1.2
-                //% "You cannot change settings\nwhile active transaction is in progress"
-                text:                 qsTrId("settings-progress-na")
-            }
-
-            Item {
-                Layout.fillWidth: true
-                visible:          !viewModel.canEditLTC
-            }
-
             SwapNodeSettings {
                 id:                ltcSettings
                 //% "Litecoin"
                 title:               qsTrId("general-litecoin")
                 minFeeRate:          BeamGlobals.minFeeRateLtc()
                 feeRateLabel:        BeamGlobals.ltcFeeRateLabel()
-                Layout.minimumWidth: swapLtcGrid.width / 2
-                visible:             viewModel.canEditLTC
+                Layout.fillWidth:    true
                 useElectrum:         viewModel.ltcUseEL
+                canEdit:             viewModel.canEditLTC
 
                 //
                 // Node
@@ -458,48 +352,15 @@ ColumnLayout {
                 value:    ltcSettings.feeRateEL
             }
 
-            Item {
-                Layout.fillWidth: true
-                visible:          viewModel.canEditLTC
-            }
-        }
-
-        RowLayout {
-            id:                swapQtumGrid
-            Layout.fillWidth:  true
-            spacing:           10
-
-            Item {
-                Layout.fillWidth: true
-                visible:          !viewModel.canEditQTUM
-            }
-
-            SFText {
-                Layout.topMargin:     100
-                visible:              !viewModel.canEditQTUM
-                horizontalAlignment:  Text.AlignHCenter
-                font.pixelSize:       20
-                wrapMode:             Text.WordWrap
-                color:                Style.content_secondary
-                lineHeight:           1.2
-                //% "You cannot change settings\nwhile active transaction is in progress"
-                text:                 qsTrId("settings-progress-na")
-            }
-
-            Item {
-                Layout.fillWidth: true
-                visible:          !viewModel.canEditQTUM
-            }
-
             SwapNodeSettings {
                 id:                   qtumSettings
                 //% "QTUM"
                 title:                qsTrId("general-qtum")
                 minFeeRate:           BeamGlobals.minFeeRateQtum()
                 feeRateLabel:         BeamGlobals.qtumFeeRateLabel()
-                Layout.minimumWidth:  swapQtumGrid.width / 2
-                visible:              viewModel.canEditQTUM
+                Layout.minimumWidth:  swapLayout.width / 2 - swapLayout.columnSpacing / 2
                 useElectrum:          viewModel.qtumUseEL
+                canEdit:              viewModel.canEditQTUM
 
                 //
                 // Node
@@ -587,19 +448,14 @@ ColumnLayout {
                 property: "qtumFeeRateEL"
                 value:    qtumSettings.feeRateEL
             }
-
-            Item {
-                Layout.fillWidth: true
-                visible:          viewModel.canEditQTUM
-            }
         }
     }
 
-    Item {
-        Layout.fillHeight: true
-        visible: swapMode
-        Layout.bottomMargin: 10
-    }
+    // {
+    //    Layout.fillHeight: true
+    //    visible: swapMode
+    //    Layout.bottomMargin: 10
+    //}
 
     ScrollView {
         Layout.fillWidth: true

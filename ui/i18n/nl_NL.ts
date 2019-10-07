@@ -1686,5 +1686,21 @@ Please try again later or create an offer yourself.</source>
         <source>Transaction or kernel ID, comment, address or contact</source>
         <translation type="unfinished"></translation>
     </message>
+    <message id="wallet-clear-search">
+        <source>Clear search</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="wallet-search">
+        <source>Search</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="only-swap-token-allowed">
+        <source>Only swap token is allowed to use here.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="settings-swap-node">
+        <source>Node</source>
+        <translation type="unfinished">Node</translation>
+    </message>
 </context>
 </TS>

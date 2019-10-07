@@ -13,7 +13,7 @@ T.TextField {
     padding:               6
     leftPadding:           0
     font.italic:           text.length && !acceptableInput
-    color:                 placeholder.visible ? "transparent" : (control.isValid ? Style.content_secondary : Style.validator_error)
+    color:                 placeholder.visible ? "transparent" : (control.isValid ? Style.content_main : Style.validator_error)
     selectionColor:        control.palette.highlight
     selectedTextColor:     control.palette.highlightedText
     verticalAlignment:     TextInput.AlignVCenter
@@ -100,8 +100,8 @@ T.TextField {
         height:   control.height - (control.topPadding + control.bottomPadding)
         text:     control.placeholderText
         font:     control.font
-        opacity:  0.5
-        color:    control.isValid ? Style.content_secondary : Style.validator_error
+        opacity:  control.isValid ? 1 : 0.5
+        color:    control.isValid ? Style.content_main : Style.validator_error
         visible:  (text.length > 0 && !control.focus) || (!control.activeFocus && !control.length && !control.preeditText)
         elide:    Text.ElideRight
         wrapMode: control.wrapMode

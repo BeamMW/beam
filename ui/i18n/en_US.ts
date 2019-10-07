@@ -1677,5 +1677,9 @@ Please try again later or create an offer yourself.</translation>
         <source>Transaction or kernel ID, comment, address or contact</source>
         <translation type="unfinished"></translation>
     </message>
+    <message id="settings-swap-node">
+        <source>Node</source>
+        <translation>Node</translation>
+    </message>
 </context>
 </TS>
