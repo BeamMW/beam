@@ -56,7 +56,8 @@ public:
         IsBeamSideSwap,
         HasPaymentProof,
         SwapCoin,
-        RawTxID
+        RawTxID,
+        Search
     };
 
     TransactionsList();
