@@ -91,13 +91,13 @@ namespace beam
         {
         case TxStatus::Pending: return kTxStatusPending;
         case TxStatus::InProgress: return tx.m_sender ? kTxStatusWaitingForReceiver : kTxStatusWaitingForSender;
-        case TxStatus::Registering: return tx.m_sender ? kTxStatusSending : kTxStatusReceiving;
+        case TxStatus::Registering: return tx.m_selfTx ? kTxStatusSendingToOwn : kTxStatusInProgress;
         case TxStatus::Canceled: return kTxStatusCancelled;
         case TxStatus::Completed:
         {
             if (tx.m_selfTx)
             {
-                return kTxStatusCompleted;
+                return kTxStatusSentToOwn;
             }
             return tx.m_sender ? kTxStatusSent : kTxStatusReceived;
         }
