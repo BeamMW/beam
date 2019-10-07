@@ -21,7 +21,9 @@ T.TextField {
 	selectByMouse:         true
 	validator:             ELSeedValidator {}
 	wrapMode:              TextInput.Wrap
+
 	property bool isValid: text.length ? acceptableInput : true
+    signal newSeed
 
     background: Rectangle {
 	    id:      backgroundRect
@@ -52,7 +54,7 @@ T.TextField {
     MouseArea {
         anchors.fill: parent;
         acceptedButtons: Qt.LeftButton
-        onDoubleClicked: if (seedInput.text.length == 0) thisControl.newSeed()
+        onDoubleClicked: if (control.text.length == 0) newSeed()
         onClicked: parent.forceActiveFocus()
     }
 

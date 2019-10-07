@@ -1023,12 +1023,12 @@
         <translation>Стварыць новы пароль для доступу да вашага кашальку</translation>
     </message>
     <message id="start-create-pwd-strength-message">
-        <source>Strong password needs to meet the following requirements:\n•  the length must be at least 10 characters\n•  must contain at least one lowercase letter\n•  must contain at least one uppercase letter\n•  must contain at least one number</source>
-        <oldsource>Strong password needs to meet the following requirements:
+        <source>Strong password needs to meet the following requirements:
 •  the length must be at least 10 characters
 •  must contain at least one lowercase letter
 •  must contain at least one uppercase letter
-•  must contain at least one number</oldsource>
+•  must contain at least one number</source>
+        <oldsource>Strong password needs to meet the following requirements:\n•  the length must be at least 10 characters\n•  must contain at least one lowercase letter\n•  must contain at least one uppercase letter\n•  must contain at least one number</oldsource>
         <translation type="unfinished">Добры пароль павінен адпавядаць наступным патрабаванням:\n•  даўжыня мінімум 10 сімвалаў\n•  змяшчае хаця б адну маленькую літару\n•  змяшчае хаця б адну вялікую літару\n•  змяшчае хаця б адну лічбу</translation>
     </message>
     <message id="start-open-caps-warning">
@@ -1269,7 +1269,8 @@
         <translation type="unfinished"></translation>
     </message>
     <message id="settings-reset">
-        <source>Switch off</source>
+        <source>Disconnect</source>
+        <oldsource>Switch off</oldsource>
         <translation type="unfinished"></translation>
     </message>
     <message id="settings-node-address">
@@ -1297,9 +1298,9 @@
         <translation type="obsolete">Колькасць</translation>
     </message>
     <message id="swap-na-message">
-        <source>You do not have any 3rd-party currencies connected.\nUpdate your settings and try again.</source>
-        <oldsource>You do not have any 3rd-party currencies connected.
-Update your settings and try again.</oldsource>
+        <source>You do not have any 3rd-party currencies connected.
+Update your settings and try again.</source>
+        <oldsource>You do not have any 3rd-party currencies connected.\nUpdate your settings and try again.</oldsource>
         <translation type="unfinished"></translation>
     </message>
     <message id="wallet-receive-swap-title">
@@ -1379,9 +1380,9 @@ Update your settings and try again.</oldsource>
         <translation type="unfinished"></translation>
     </message>
     <message id="swap-currency-na-message">
-        <source>You do not have %1 connected.\nUpdate your settings and try again.</source>
-        <oldsource>You do not have %1 connected.
-Update your settings and try again.</oldsource>
+        <source>You do not have %1 connected.
+Update your settings and try again.</source>
+        <oldsource>You do not have %1 connected.\nUpdate your settings and try again.</oldsource>
         <translation type="unfinished"></translation>
     </message>
     <message id="send-swap-to-label">
@@ -1659,9 +1660,9 @@ you do not send large amounts.</oldsource>
         <translation type="unfinished"></translation>
     </message>
     <message id="settings-progress-na">
-        <source>You cannot change settings\nwhile active transaction is in progress</source>
-        <oldsource>You cannot change settings
-while active transaction is in progress</oldsource>
+        <source>You cannot change settings
+while active transaction is in progress</source>
+        <oldsource>You cannot change settings\nwhile active transaction is in progress</oldsource>
         <translation type="unfinished"></translation>
     </message>
     <message id="send-less-than-fee">
@@ -1669,9 +1670,9 @@ while active transaction is in progress</oldsource>
         <translation type="unfinished"></translation>
     </message>
     <message id="atomic-no-offers">
-        <source>There are no active offers at the moment.\nPlease try again later or create an offer yourself.</source>
-        <oldsource>There are no active offers at the moment.
-Please try again later or create an offer yourself.</oldsource>
+        <source>There are no active offers at the moment.
+Please try again later or create an offer yourself.</source>
+        <oldsource>There are no active offers at the moment.\nPlease try again later or create an offer yourself.</oldsource>
         <translation type="unfinished"></translation>
     </message>
     <message id="wallet-txs-status-in-progress">
