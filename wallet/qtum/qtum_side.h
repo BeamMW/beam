@@ -23,7 +23,7 @@ namespace beam::wallet
     {
     public:
 
-        QtumSide(BaseTransaction& tx, bitcoin::IBridge::Ptr bitcoinBridge, qtum::ISettingsProvider::Ptr settingsProvider, bool isBeamSide);
+        QtumSide(BaseTransaction& tx, bitcoin::IBridge::Ptr bitcoinBridge, qtum::ISettingsProvider& settingsProvider, bool isBeamSide);
         static bool CheckAmount(Amount amount, Amount feeRate);
 
     protected:

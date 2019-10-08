@@ -127,7 +127,7 @@ namespace beam::bitcoin
 
     beam::bitcoin::IBridge::Ptr Client::GetBridge()
     {
-        return m_bridgeHolder->Get(m_reactor, shared_from_this());
+        return m_bridgeHolder->Get(m_reactor, *this);
     }
 
     bool Client::CanModify() const

@@ -52,7 +52,7 @@ namespace beam::wallet
     class SecondSideFactory : public ISecondSideFactory
     {
     public:
-        SecondSideFactory(std::function<typename Bridge::Ptr()> bridgeCreator, typename SettingsProvider::Ptr settingsProvider)
+        SecondSideFactory(std::function<typename Bridge::Ptr()> bridgeCreator, typename SettingsProvider& settingsProvider)
             : m_bridgeCreator{ bridgeCreator }
             , m_settingsProvider{ settingsProvider }
         {
@@ -64,11 +64,11 @@ namespace beam::wallet
         }
     private:
         std::function<typename Bridge::Ptr()> m_bridgeCreator;
-        typename SettingsProvider::Ptr m_settingsProvider;
+        typename SettingsProvider& m_settingsProvider;
     };
 
     template<typename BridgeSide, typename Bridge, typename SettingsProvider>
-    ISecondSideFactory::Ptr MakeSecondSideFactory(std::function<typename Bridge::Ptr()> bridgeCreator, typename SettingsProvider::Ptr settingsProvider)
+    ISecondSideFactory::Ptr MakeSecondSideFactory(std::function<typename Bridge::Ptr()> bridgeCreator, typename SettingsProvider& settingsProvider)
     {
         return std::make_shared<SecondSideFactory<BridgeSide, Bridge, SettingsProvider>>(bridgeCreator, settingsProvider);
     }
