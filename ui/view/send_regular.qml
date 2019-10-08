@@ -286,7 +286,6 @@ ColumnLayout {
                     }).open();
 
                 function acceptedCallback() {
-                    console.log("acceptedCallback");
                     viewModel.sendMoney();
                 }
             }

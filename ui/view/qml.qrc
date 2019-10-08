@@ -54,7 +54,6 @@
         <file>send_swap.qml</file>
         <file>send_confirm.qml</file>
         <file>send_expired.qml</file>
-        <file>send_only_token_allowed.qml</file>
         <file>assets/fonts/SF-Pro-Display-Black.otf</file>
         <file>assets/fonts/SF-Pro-Display-Light.otf</file>
         <file>assets/fonts/SF-Pro-Display-Semibold.otf</file>

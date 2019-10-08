@@ -21,7 +21,7 @@ Item {
         //% "Atomic Swap is in BETA"
         title: qsTrId("swap-beta-title")
         //% "I understand"
-        okButtonText:        qsTrId("swap-beta-button")
+        okButtonText:        qsTrId("swap-alert-confirm-button")
         okButtonIconSource:  "qrc:/assets/icon-done.svg"
         cancelButtonVisible: false
         width: 470
@@ -81,9 +81,18 @@ Item {
                 offersStackView.currentItem.setToken(token);
             }
             function onAddress() {
-                Qt.createComponent("send_only_token_allowed.qml")
-                    .createObject(offersStackView.currentItem)
-                    .open();
+                onlySwapTokenAlert.open();
+            }
+            ConfirmationDialog {
+                id:                     onlySwapTokenAlert
+                //% "Only swap token is allowed to use here."
+                title:                  qsTrId("only-swap-token-allowed-allert-head")
+                //% "You have provided a wallet address.\nPlease fill in swap token and try again."
+                text:                   qsTrId("only-swap-token-allowed-allert-body")
+                //% "I understand"
+                okButtonText:           qsTrId("swap-alert-confirm-button")
+                okButtonIconSource:     "qrc:/assets/icon-done.svg"
+                cancelButtonVisible:    false
             }
 
             RowLayout {
