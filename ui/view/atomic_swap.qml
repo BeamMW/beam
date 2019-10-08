@@ -191,7 +191,10 @@ Item {
                     valueSecondaryStr: parent.btcActiveTxStr()
                     showLoader: viewModel.btcOK && parent.btcActiveTxStr().length
                     isOk: viewModel.btcOK
+                    isConnecting: viewModel.btcConnecting
                     visible: BeamGlobals.haveBtc()
+                    //% "Connecting..."
+                    textConnecting: qsTrId("swap-connecting")
                     //% "Cannot connect to peer. Please check in the address in settings and retry."
                     textConnectionError: qsTrId("swap-beta-connection-error")
                 }
@@ -203,7 +206,9 @@ Item {
                     valueSecondaryStr: parent.ltcActiveTxStr()
                     showLoader: viewModel.ltcOK && parent.ltcActiveTxStr().length
                     isOk: viewModel.ltcOK
+                    isConnecting: viewModel.ltcConnecting
                     visible: BeamGlobals.haveLtc()
+                    textConnecting: qsTrId("swap-connecting")
                     textConnectionError: qsTrId("swap-beta-connection-error")
                 }
 
@@ -214,7 +219,9 @@ Item {
                     valueSecondaryStr: parent.qtumActiveTxStr()
                     showLoader: viewModel.qtumOK && parent.qtumActiveTxStr().length
                     isOk: viewModel.qtumOK
+                    isConnecting: viewModel.qtumConnecting
                     visible: BeamGlobals.haveQtum()
+                    textConnecting: qsTrId("swap-connecting")
                     textConnectionError: qsTrId("swap-beta-connection-error")
                 }
 

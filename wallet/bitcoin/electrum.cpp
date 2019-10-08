@@ -594,9 +594,10 @@ namespace beam::bitcoin
                 return;
             }
 
+            TCPConnect& connection = m_connections[currentId];
+
             if (newStream) {
                 assert(status == EC_OK);
-                TCPConnect& connection = m_connections[currentId];
 
                 connection.m_stream = std::move(newStream);
 
@@ -666,6 +667,10 @@ namespace beam::bitcoin
             else
             {
                 // error
+                Error error{ IOError, "stream is empty" };
+                json result;
+                connection.m_callback(error, result, currentId);
+                m_connections.erase(currentId);
             }
         }, 2000, true);
     }

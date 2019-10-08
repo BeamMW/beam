@@ -103,6 +103,21 @@ bool SwapOffersViewModel::qtumOK() const
     return m_qtumClient->getStatus() == Client::Status::Connected;
 }
 
+bool SwapOffersViewModel::btcConnecting()  const
+{
+    return m_btcClient->getStatus() == Client::Status::Connecting;
+}
+
+bool SwapOffersViewModel::ltcConnecting()  const
+{
+    return m_ltcClient->getStatus() == Client::Status::Connecting;
+}
+
+bool SwapOffersViewModel::qtumConnecting()  const
+{
+    return m_qtumClient->getStatus() == Client::Status::Connecting;
+}
+
 QAbstractItemModel* SwapOffersViewModel::getTransactions()
 {
     return &m_transactionsList;

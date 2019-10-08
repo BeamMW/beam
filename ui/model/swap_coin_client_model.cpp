@@ -36,7 +36,7 @@ SwapCoinClientModel::SwapCoinClientModel(beam::bitcoin::IBridgeHolder::Ptr bridg
     qRegisterMetaType<beam::bitcoin::Client::Status>("beam::bitcoin::Client::Status");
     qRegisterMetaType<beam::bitcoin::Client::Balance>("beam::bitcoin::Client::Balance");
 
-    connect(&m_timer, SIGNAL(timeout()), this, SLOT(onTimer()));
+    connect(&m_timer, SIGNAL(timeout()), this, SLOT(requestBalance()));
 
     // connect to myself for save values in UI(main) thread
     connect(this, SIGNAL(gotBalance(const beam::bitcoin::Client::Balance&)), this, SLOT(setBalance(const beam::bitcoin::Client::Balance&)));
@@ -46,6 +46,8 @@ SwapCoinClientModel::SwapCoinClientModel(beam::bitcoin::IBridgeHolder::Ptr bridg
     requestBalance();
 
     m_timer.start(kUpdateInterval);
+
+    GetAsync()->GetStatus();
 }
 
 double SwapCoinClientModel::getAvailable()
@@ -85,11 +87,6 @@ void SwapCoinClientModel::requestBalance()
         // update balance
         GetAsync()->GetBalance();
     }
-}
-
-void SwapCoinClientModel::onTimer()
-{
-    requestBalance();
 }
 
 void SwapCoinClientModel::setBalance(const beam::bitcoin::Client::Balance& balance)

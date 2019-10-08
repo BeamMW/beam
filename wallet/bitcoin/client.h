@@ -59,6 +59,7 @@ namespace beam::bitcoin
         enum class Status
         {
             Uninitialized,
+            Connecting,
             Connected,
             Failed,
             Unknown
