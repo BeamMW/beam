@@ -43,6 +43,7 @@ public:
     auto getTransactionID() const -> QString;
     auto getFailureReason() const -> QString;
     auto hasPaymentProof() const -> bool;
+    QString getToken() const;
 
     bool isIncome() const;
     bool isCancelAvailable() const;

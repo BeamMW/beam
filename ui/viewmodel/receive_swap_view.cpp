@@ -342,7 +342,7 @@ void ReceiveSwapViewModel::startListen()
 
 void ReceiveSwapViewModel::publishToken()
 {
-    auto packedTxParams = _txParameters.GetParameters();
+    auto packedTxParams = _txParameters.Pack();
     
     auto txId = _txParameters.GetTxID();
     auto publisherId = _txParameters.GetParameter<beam::wallet::WalletID>(beam::wallet::TxParameterID::PeerID);

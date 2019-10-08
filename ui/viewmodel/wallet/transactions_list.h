@@ -57,7 +57,8 @@ public:
         HasPaymentProof,
         SwapCoin,
         RawTxID,
-        Search
+        Search,
+        Token
     };
 
     TransactionsList();

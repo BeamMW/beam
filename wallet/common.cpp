@@ -308,7 +308,7 @@ namespace beam::wallet
         return *this;
     }
 
-    PackedTxParameters TxParameters::GetParameters() const
+    PackedTxParameters TxParameters::Pack() const
     {
         PackedTxParameters parameters;
         for (const auto& subTx : m_Parameters)
@@ -328,7 +328,7 @@ namespace beam::wallet
     TxToken::TxToken(const TxParameters& parameters)
         : m_Flags(TxToken::TokenFlag)
         , m_TxID(parameters.GetTxID())
-        , m_Parameters(parameters.GetParameters())
+        , m_Parameters(parameters.Pack())
     {
 
     }

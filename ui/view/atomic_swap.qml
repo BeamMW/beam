@@ -834,10 +834,7 @@ Item {
                                     }
                                     if (mouse.button === Qt.RightButton )
                                     {
-                                        txContextMenu.cancelEnabled = transactionsTable.model.get(styleData.row).isCancelAvailable;
-                                        txContextMenu.deleteEnabled = transactionsTable.model.get(styleData.row).isDeleteAvailable;
-                                        txContextMenu.txID = transactionsTable.model.get(styleData.row).rawTxID;
-                                        txContextMenu.popup();
+                                        transactionsTable.showContextMenu(styleData.row);
                                     }
                                     else if (mouse.button === Qt.LeftButton)
                                     {
@@ -1093,6 +1090,16 @@ Item {
                             delegate: txActions
                         }
 
+                        function showContextMenu(row) {
+                            var data = transactionsTable.model.get(row);
+                            txContextMenu.canCopyToken = true;
+                            txContextMenu.token = data.token;
+                            txContextMenu.cancelEnabled = data.isCancelAvailable;
+                            txContextMenu.deleteEnabled = data.isDeleteAvailable;
+                            txContextMenu.txID = data.rawTxID;
+                            txContextMenu.popup();
+                        }
+
                         Component {
                             id: txActions
                             Item {
@@ -1107,10 +1114,7 @@ Item {
                                         //% "Actions"
                                         ToolTip.text: qsTrId("general-actions")
                                         onClicked: {
-                                            txContextMenu.cancelEnabled = transactionsTable.model.get(styleData.row).isCancelAvailable;
-                                            txContextMenu.deleteEnabled = transactionsTable.model.get(styleData.row).isDeleteAvailable;
-                                            txContextMenu.txID = transactionsTable.model.get(styleData.row).rawTxID;
-                                            txContextMenu.popup();
+                                            transactionsTable.showContextMenu(styleData.row);
                                         }
                                     }
                                 }
@@ -1122,9 +1126,21 @@ Item {
                         id: txContextMenu
                         modal: true
                         dim: false
+                        property bool canCopyToken
                         property bool cancelEnabled
                         property bool deleteEnabled
                         property var txID
+                        property string token
+
+                        Action {
+                            //% "Copy token"
+                            text: qsTrId("swap-copy-token")
+                            icon.source: "qrc:/assets/icon-copy.svg"
+                            enabled: txContextMenu.canCopyToken
+                            onTriggered: {
+                                BeamGlobals.copyToClipboard(txContextMenu.token);
+                            }
+                        }
 
                         Action {
                             //% "Cancel"

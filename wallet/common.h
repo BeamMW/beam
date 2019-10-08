@@ -358,7 +358,7 @@ namespace beam::wallet
             return true;
         }
 
-        PackedTxParameters GetParameters() const;
+        PackedTxParameters Pack() const;
 
         boost::optional<ByteBuffer> GetParameter(TxParameterID parameterID, SubTxID subTxID = kDefaultSubTxID) const;
         TxParameters& SetParameter(TxParameterID parameterID, const ByteBuffer& parameter, SubTxID subTxID = kDefaultSubTxID);
@@ -409,7 +409,7 @@ namespace beam::wallet
             : m_TxID(offer.m_txId),
               m_status(offer.m_status),
               m_publisherId(offer.m_publisherId),
-              m_Parameters(offer.GetParameters()) {};
+              m_Parameters(offer.Pack()) {};
         
         SwapOffer Unpack() const;
         SERIALIZE(m_TxID, m_status, m_publisherId, m_Parameters);
