@@ -7,6 +7,8 @@ import "./utils.js" as Utils
 
 ColumnLayout {
     id: sendRegularView
+
+    // callbacks set by parent
     property var onAccepted: undefined
     property var onClosed: undefined
     property var onSwapToken: undefined

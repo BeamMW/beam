@@ -11,12 +11,14 @@ ColumnLayout {
     id: sendView
     property bool   isSwapMode: false
     property var    defaultFocusItem: receiverTAInput
-    property var    onClosed: undefined
-    property var    onSwapToken: undefined
-    property var    onAddress: undefined
 
     property color mainTopColor: null
     property color mainTopGradientColor: null
+
+    // callbacks set by parent
+    property var    onClosed: undefined
+    property var    onSwapToken: undefined
+    property var    onAddress: undefined
 
     Component.onCompleted: {
         mainTopColor = main.topColor;

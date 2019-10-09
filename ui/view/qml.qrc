@@ -46,7 +46,6 @@
         <file>addresses.qml</file>
         <file>utxo.qml</file>
         <file>atomic_swap.qml</file>
-        <file>receive.qml</file>
         <file>receive_regular.qml</file>
         <file>receive_swap.qml</file>
         <file>send.qml</file>

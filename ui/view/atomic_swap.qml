@@ -136,7 +136,10 @@ Item {
                     //font.capitalization: Font.AllUppercase
 
                     onClicked: {
-                        offersStackView.push(Qt.createComponent("receive.qml"), {"isSwapMode": true});
+                        offersStackView.push(Qt.createComponent("receive_swap.qml"),
+                                            {"modeSwitchEnabled": false,
+                                             "onClosed": onClosed});
+                        function onClosed() { offersStackView.pop(); }
                     }
                 }
             }

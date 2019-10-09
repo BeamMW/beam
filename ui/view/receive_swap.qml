@@ -10,8 +10,16 @@ import "./utils.js" as Utils
 
 ColumnLayout {
     id: thisView
+
     property var  defaultFocusItem: sentAmountInput.amountInput
     property bool addressSaved: false
+    property color mainTopColor: null;
+    property color mainTopGradientColor: null;
+    
+    // callbacks set by parent
+    property var    modeSwitchEnabled: true
+    property var    onClosed: undefined
+    property var    onRegularMode: undefined
 
     ReceiveSwapViewModel {
         id: viewModel
@@ -39,6 +47,56 @@ ColumnLayout {
         if (viewModel.receiveCurrency == viewModel.sentCurrency) return true;
         if (viewModel.receiveCurrency != Currency.CurrBeam && viewModel.sentCurrency != Currency.CurrBeam) return true;
         return false;
+    }
+
+    Component.onCompleted: {
+        mainTopColor = main.topColor;
+        mainTopGradientColor = main.topGradientColor;
+        main.topColor = Qt.rgba(Style.accent_incoming.r, Style.accent_incoming.g, Style.accent_incoming.b, 0.5);
+        main.topGradientColor = Qt.rgba(Style.accent_incoming.r, Style.accent_incoming.g, Style.accent_incoming.b, 0.0);
+        
+        if (!BeamGlobals.canSwap()) swapna.open();
+    }
+
+    Component.onDestruction: {
+        main.topColor = mainTopColor;
+        main.topGradientColor = mainTopGradientColor;
+    }
+    
+    SwapNADialog {
+        id: swapna
+        onRejected: thisView.onClosed()
+        onAccepted: main.openSwapSettings()
+        //% "You do not have any 3rd-party currencies connected.\nUpdate your settings and try again."
+        text:       qsTrId("swap-na-message").replace("\\n", "\n")
+    }
+
+    Item {
+        Layout.fillWidth:    true
+        Layout.topMargin:    75
+        Layout.bottomMargin: 50
+
+        SFText {
+            x:                   parent.width / 2 - width / 2
+            font.pixelSize:      18
+            font.styleName:      "Bold"; font.weight: Font.Bold
+            color:               Style.content_main
+            //% "Create swap offer"
+            text:                qsTrId("wallet-receive-swap-title")
+        }
+
+        CustomSwitch {
+            id:         mode
+            //% "Swap"
+            text:       qsTrId("wallet-swap")
+            x:          parent.width - width
+            checked:    true
+            enabled:    modeSwitchEnabled
+            visible:    modeSwitchEnabled
+            onClicked: {
+                if (!checked) onRegularMode();
+            }
+        }
     }
 
     ColumnLayout {
@@ -372,7 +430,7 @@ ColumnLayout {
             palette.buttonText: Style.content_main
             icon.source: "qrc:/assets/icon-cancel-white.svg"
             onClicked: {
-                thisView.parent.parent.pop();
+                onClosed();
             }
         }
 
@@ -409,7 +467,7 @@ ColumnLayout {
                 }
                 viewModel.startListen()
                 viewModel.publishToken()
-                thisView.parent.parent.pop();
+                onClosed();
             }
         }
     }

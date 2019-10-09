@@ -93,12 +93,9 @@ Item {
                                              "onClosed": onClosed,
                                              "onSwapToken": onSwapToken,
                                              "onAddress": onAddress});
-                        function onAccepted() {
-                            walletStackView.pop();
-                        }
-                        function onClosed() {
-                            walletStackView.pop();
-                        }
+
+                        function onAccepted() { walletStackView.pop(); }
+                        function onClosed() { walletStackView.pop(); }
                         function onSwapToken(token) {
                             walletStackView.pop();
                             walletStackView.push(Qt.createComponent("send_swap.qml"),
@@ -128,7 +125,22 @@ Item {
                     //font.capitalization: Font.AllUppercase
 
                     onClicked: {
-                        walletStackView.push(Qt.createComponent("receive.qml"), {"isSwapView": false});
+                        walletStackView.push(Qt.createComponent("receive_regular.qml"),
+                                            {"onClosed": onClosed,
+                                             "onSwapMode": onSwapMode});
+                        function onClosed() { walletStackView.pop(); }
+                        function onSwapMode() {
+                            walletStackView.pop();
+                            walletStackView.push(Qt.createComponent("receive_swap.qml"),
+                                                {"onClosed": onClosed,
+                                                 "onRegularMode": onRegularMode});
+                        }
+                        function onRegularMode() {
+                            walletStackView.pop();
+                            walletStackView.push(Qt.createComponent("receive_regular.qml"),
+                                                {"onClosed": onClosed,
+                                                 "onSwapMode": onSwapMode});
+                        }
                     }
                 }
             }

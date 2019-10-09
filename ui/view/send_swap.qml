@@ -10,8 +10,11 @@ import "./utils.js" as Utils
 
 ColumnLayout {
     id: sendSwapView
+    
     property var defaultFocusItem: comment_input
     property var predefinedTxParams: undefined
+
+    // callbacks set by parent
     property var onAccepted: undefined
     property var onClosed: undefined
 
