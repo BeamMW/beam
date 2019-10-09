@@ -90,6 +90,7 @@ Rectangle {
                 text: valueStr
                 fontSizeMode: Text.Fit
                 visible: valueStr.length
+                wrapMode: Text.Wrap
             }
             SFText {
                 anchors.left: parent.left
