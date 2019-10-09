@@ -292,12 +292,12 @@ bool SwapOffersViewModel::hasBtcTx() const
 
 bool SwapOffersViewModel::hasLtcTx() const
 {
-    return hasActiveTx(toStdString(beamui::Currencies::Bitcoin));
+    return hasActiveTx(toStdString(beamui::Currencies::Litecoin));
 }
 
 bool SwapOffersViewModel::hasQtumTx() const
 {
-    return hasActiveTx(toStdString(beamui::Currencies::Bitcoin));
+    return hasActiveTx(toStdString(beamui::Currencies::Qtum));
 }
 
 bool SwapOffersViewModel::hasActiveTx(const std::string& swapCoin) const
