@@ -362,7 +362,7 @@ Item {
                                 isSelfTx:           txRolesMap && txRolesMap.isSelfTransaction ? txRolesMap.isSelfTransaction : false
                                 rawTxID:            txRolesMap && txRolesMap.rawTxID ? txRolesMap.rawTxID : null
                                 searchFilter:       searchBox.text
-                                hideFiltered:       true
+                                hideFiltered:       false
 
                                 onOpenExternal : function() {
                                     var url = Style.explorerUrl + "block?kernel_id=" + detailsPanel.kernelID;
