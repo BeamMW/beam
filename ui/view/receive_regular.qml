@@ -11,12 +11,15 @@ ColumnLayout {
     id: receiveView
 
     property var defaultFocusItem: addressComment
-    property color mainTopColor: null;
-    property color mainTopGradientColor: null;
 
     // callbacks set by parent
     property var    onClosed: undefined
     property var    onSwapMode: undefined
+
+    TopGradient {
+        mainRoot: main
+        topColor: Style.accent_incoming
+    }
 
     ReceiveViewModel {
         id: viewModel
@@ -29,18 +32,6 @@ ColumnLayout {
             popup.message = qsTrId("can-not-generate-new-address-message")
             popup.open()
         }
-    }
-
-    Component.onCompleted: {
-        mainTopColor = main.topColor;
-        mainTopGradientColor = main.topGradientColor;
-        main.topColor = Qt.rgba(Style.accent_incoming.r, Style.accent_incoming.g, Style.accent_incoming.b, 0.5);
-        main.topGradientColor = Qt.rgba(Style.accent_incoming.r, Style.accent_incoming.g, Style.accent_incoming.b, 0.0);
-    }
-
-    Component.onDestruction: {
-        main.topColor = mainTopColor;
-        main.topGradientColor = mainTopGradientColor;
     }
 
     function isValid() {

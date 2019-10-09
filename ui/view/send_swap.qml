@@ -18,6 +18,11 @@ ColumnLayout {
     property var onAccepted: undefined
     property var onClosed: undefined
 
+    TopGradient {
+        mainRoot: main
+        topColor: Style.accent_outgoing
+    }
+
     function validateCoin() {
         var currency = viewModel.sendCurrency
         if (currency == Currency.CurrBeam) {

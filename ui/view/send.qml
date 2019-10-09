@@ -12,24 +12,14 @@ ColumnLayout {
     property bool   isSwapMode: false
     property var    defaultFocusItem: receiverTAInput
 
-    property color mainTopColor: null
-    property color mainTopGradientColor: null
-
     // callbacks set by parent
     property var    onClosed: undefined
     property var    onSwapToken: undefined
     property var    onAddress: undefined
 
-    Component.onCompleted: {
-        mainTopColor = main.topColor;
-        mainTopGradientColor = main.topGradientColor;
-        main.topColor = Qt.rgba(Style.accent_outgoing.r, Style.accent_outgoing.g, Style.accent_outgoing.b, 0.5);
-        main.topGradientColor = Qt.rgba(Style.accent_outgoing.r, Style.accent_outgoing.g, Style.accent_outgoing.b, 0.0);
-    }
-
-    Component.onDestruction: {
-        main.topColor = mainTopColor;
-        main.topGradientColor = mainTopGradientColor;
+    TopGradient {
+        mainRoot: main
+        topColor: Style.accent_outgoing
     }
 
     Row {

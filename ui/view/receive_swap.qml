@@ -13,13 +13,16 @@ ColumnLayout {
 
     property var  defaultFocusItem: sentAmountInput.amountInput
     property bool addressSaved: false
-    property color mainTopColor: null;
-    property color mainTopGradientColor: null;
-    
+
     // callbacks set by parent
     property var    modeSwitchEnabled: true
     property var    onClosed: undefined
     property var    onRegularMode: undefined
+
+    TopGradient {
+        mainRoot: main
+        topColor: Style.accent_incoming
+    }
 
     ReceiveSwapViewModel {
         id: viewModel
@@ -50,19 +53,9 @@ ColumnLayout {
     }
 
     Component.onCompleted: {
-        mainTopColor = main.topColor;
-        mainTopGradientColor = main.topGradientColor;
-        main.topColor = Qt.rgba(Style.accent_incoming.r, Style.accent_incoming.g, Style.accent_incoming.b, 0.5);
-        main.topGradientColor = Qt.rgba(Style.accent_incoming.r, Style.accent_incoming.g, Style.accent_incoming.b, 0.0);
-        
         if (!BeamGlobals.canSwap()) swapna.open();
     }
 
-    Component.onDestruction: {
-        main.topColor = mainTopColor;
-        main.topGradientColor = mainTopGradientColor;
-    }
-    
     SwapNADialog {
         id: swapna
         onRejected: thisView.onClosed()

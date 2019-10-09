@@ -13,6 +13,11 @@ ColumnLayout {
     property var onClosed: undefined
     property var onSwapToken: undefined
 
+    TopGradient {
+        mainRoot: main
+        topColor: Style.accent_outgoing
+    }
+
     function setToken(token) {
         viewModel.receiverTA = token
         sendAmountInput.amountInput.forceActiveFocus();
