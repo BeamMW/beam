@@ -29,6 +29,26 @@ Item {
         text: qsTrId("swap-beta-message")
     }
 
+    ConfirmationDialog {
+        id:                     cancelOfferDialog
+        property var txId: undefined
+        width:                  460
+        //% "Cancel offer"
+        title:                  qsTrId("atomic-swap-cancel")
+        //% "Are you sure you want to cancel your offer?"
+        text:                   qsTrId("atomic-swap-cancel-text")
+        //% "cancel offer"
+        okButtonText:           qsTrId("atomic-swap-cancel-button")
+        okButtonIconSource:     "qrc:/assets/icon-cancel-black.svg"
+        okButtonColor:          Style.swapCurrencyStateIndicator
+        //% "back"
+        cancelButtonText:       qsTrId("atomic-swap-back-button")
+        cancelButtonIconSource: "qrc:/assets/icon-back.svg"
+        onAccepted: {
+            viewModel.cancelTx(cancelOfferDialog.txId);
+        }
+    }
+
     Component.onCompleted: {
         if (viewModel.showBetaWarning) {
             betaDialog.open()
@@ -606,8 +626,7 @@ Item {
                                         anchors.rightMargin: 20
 
                                         font.pixelSize: 14
-                                        color: isOwnOffer ? Style.content_main : Style.active
-                                        opacity: isOwnOffer ? 0.5 : 1.0
+                                        color: isOwnOffer ? Style.swapCurrencyStateIndicator : Style.active
                                         text: isOwnOffer
                                                         //% "Cancel offer"
                                                         ? qsTrId("atomic-swap-cancel")
@@ -619,8 +638,8 @@ Item {
                                             acceptedButtons: Qt.LeftButton
                                             onClicked: {
                                                 if (isOwnOffer) {
-                                                    var txID = offersTable.model.get(styleData.row).rawTxID
-                                                    viewModel.cancelTx(txID);
+                                                    cancelOfferDialog.txId = offersTable.model.get(styleData.row).rawTxID;
+                                                    cancelOfferDialog.open();
                                                 }
                                                 else {
                                                     var txParameters = offersTable.model.get(styleData.row).rawTxParameters;
