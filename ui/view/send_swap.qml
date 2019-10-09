@@ -15,10 +15,13 @@ ColumnLayout {
     property var onAccepted: undefined
     property var onClosed: undefined
 
-    function setToken(token) {
-        viewModel.token = token
+    function validateCoin() {
         var currency = viewModel.sendCurrency
-        if (currency == Currency.CurrBeam) return;
+        if (currency == Currency.CurrBeam) {
+            currency = viewModel.receiveCurrency;
+
+            if (currency == Currency.CurrBeam) return;
+        }
 
         var isOtherCurrActive  = false
         var currname = ""
@@ -45,7 +48,15 @@ ColumnLayout {
             //% "You do not have %1 connected.\nUpdate your settings and try again."
             swapna.text = qsTrId("swap-currency-na-message").arg(currname).replace("\\n", "\n")
             swapna.open()
+            return false;
         }
+
+        return true;
+    }
+
+    function setToken(token) {
+        viewModel.token = token
+        validateCoin();
     }
 
     SwapNADialog {
@@ -350,6 +361,8 @@ ColumnLayout {
             icon.source:        "qrc:/assets/icon-send-blue.svg"
             enabled:            viewModel.canSend
             onClicked: {
+                if (!validateCoin()) return;
+
                 const dialogComponent = Qt.createComponent("send_confirm.qml");
                 var dialogObject = dialogComponent.createObject(sendSwapView,
                     {
