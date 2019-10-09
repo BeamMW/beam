@@ -17,7 +17,7 @@ T.TextField {
     selectionColor:        control.palette.highlight
     selectedTextColor:     control.palette.highlightedText
     verticalAlignment:     TextInput.AlignVCenter
-    horizontalAlignment:   focus ? Text.AlignLeft : Text.AlignHCenter
+    horizontalAlignment:   control.activeFocus || contextMenu.visible ? Text.AlignLeft : Text.AlignHCenter
 	selectByMouse:         true
 	validator:             ELSeedValidator {}
 	wrapMode:              TextInput.Wrap
@@ -40,6 +40,7 @@ T.TextField {
         hoverEnabled:    true
 
         onClicked: {
+            if (!control.activeFocus && control.text.length) return
             var selectStart = control.selectionStart
             var selectEnd = control.selectionEnd
             var curPos = control.cursorPosition
@@ -62,6 +63,10 @@ T.TextField {
         id:    contextMenu
         modal: true
         dim:   false
+
+        onClosed: {
+            if(control.text.length) control.forceActiveFocus()
+        }
 
         Action {
             //% "Copy"
@@ -102,7 +107,7 @@ T.TextField {
         font:     control.font
         opacity:  control.isValid ? 1 : 0.5
         color:    control.isValid ? Style.content_main : Style.validator_error
-        visible:  (text.length > 0 && !control.focus) || (!control.activeFocus && !control.length && !control.preeditText)
+        visible:  (text.length > 0 && !control.activeFocus && !contextMenu.visible) || (!control.activeFocus && !contextMenu.visible && !control.length && !control.preeditText)
         elide:    Text.ElideRight
         wrapMode: control.wrapMode
 
