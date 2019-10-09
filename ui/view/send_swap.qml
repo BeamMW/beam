@@ -65,6 +65,9 @@ ColumnLayout {
         okButtonText:           qsTrId("swap-alert-confirm-button")
         okButtonIconSource:     "qrc:/assets/icon-done.svg"
         cancelButtonVisible:    false
+        onAccepted: {
+            sendSwapView.onClosed();
+        }
     }
 
     Component.onCompleted: {
