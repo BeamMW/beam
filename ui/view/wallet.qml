@@ -361,7 +361,8 @@ Item {
                                 hasPaymentProof:    txRolesMap && txRolesMap.hasPaymentProof ? txRolesMap.hasPaymentProof : false
                                 isSelfTx:           txRolesMap && txRolesMap.isSelfTransaction ? txRolesMap.isSelfTransaction : false
                                 rawTxID:            txRolesMap && txRolesMap.rawTxID ? txRolesMap.rawTxID : null
-                                //searchFilter:       searchBox.text
+                                searchFilter:       searchBox.text
+                                hideFiltered:       true
 
                                 onOpenExternal : function() {
                                     var url = Style.explorerUrl + "block?kernel_id=" + detailsPanel.kernelID;
@@ -413,11 +414,7 @@ Item {
                             }
                             if (mouse.button === Qt.RightButton )
                             {
-                                var item = transactionsTable.model.get(styleData.row);
-                                txContextMenu.cancelEnabled = item.isCancelAvailable;
-                                txContextMenu.deleteEnabled = item.isDeleteAvailable;
-                                txContextMenu.txID = item.rawTxID;
-                                txContextMenu.popup();
+                                transactionsTable.showContextMenu(styleData.row);
                             }
                             else if (mouse.button === Qt.LeftButton)
                             {
@@ -634,6 +631,14 @@ Item {
                     delegate: txActions
                 }
 
+                function showContextMenu(row) {
+                    var item = transactionsTable.model.get(row);
+                    txContextMenu.cancelEnabled = item.isCancelAvailable;
+                    txContextMenu.deleteEnabled = item.isDeleteAvailable;
+                    txContextMenu.txID = item.rawTxID;
+                    txContextMenu.popup();
+                }
+
                 Component {
                     id: txActions
                     Item {
@@ -648,11 +653,7 @@ Item {
                                 //% "Actions"
                                 ToolTip.text: qsTrId("general-actions")
                                 onClicked: {
-                                    var item = transactionsTable.model.get(styleData.row);
-                                    txContextMenu.cancelEnabled = item.isCancelAvailable;
-                                    txContextMenu.deleteEnabled = item.isDeleteAvailable;
-                                    txContextMenu.txID = item.rawTxID;
-                                    txContextMenu.popup();
+                                    transactionsTable.showContextMenu(styleData.row);
                                 }
                             }
                         }
