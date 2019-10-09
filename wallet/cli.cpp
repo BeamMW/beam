@@ -1342,6 +1342,7 @@ namespace
             auto btcSettingsProvider = std::make_shared<bitcoin::SettingsProvider>(walletDB);
             btcSettingsProvider->Initialize();
 
+            // btcSettingsProvider stored in bitcoinBridgeCreator
             auto bitcoinBridgeCreator = [settingsProvider = btcSettingsProvider]() -> bitcoin::IBridge::Ptr
             {
                 if (settingsProvider->GetElectrumSettings().IsInitialized())
@@ -1358,6 +1359,7 @@ namespace
             auto ltcSettingsProvider = std::make_shared<litecoin::SettingsProvider>(walletDB);
             ltcSettingsProvider->Initialize();
 
+            // ltcSettingsProvider stored in litecoinBridgeCreator
             auto litecoinBridgeCreator = [settingsProvider = ltcSettingsProvider]() -> bitcoin::IBridge::Ptr
             {
                 if (settingsProvider->GetElectrumSettings().IsInitialized())
@@ -1374,6 +1376,7 @@ namespace
             auto qtumSettingsProvider = std::make_shared<qtum::SettingsProvider>(walletDB);
             qtumSettingsProvider->Initialize();
 
+            // qtumSettingsProvider stored in qtumBridgeCreator
             auto qtumBridgeCreator = [settingsProvider = qtumSettingsProvider]() -> bitcoin::IBridge::Ptr
             {
                 if (settingsProvider->GetElectrumSettings().IsInitialized())
