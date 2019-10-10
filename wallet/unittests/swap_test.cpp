@@ -16,7 +16,7 @@
 #include "wallet/wallet_network.h"
 #include "wallet/wallet.h"
 #include "wallet/wallet_transaction.h"
-#include "wallet/local_private_key_keeper.h"
+#include "keykeeper/local_private_key_keeper.h"
 #include "wallet/secstring.h"
 #include "wallet/swaps/common.h"
 #include "wallet/swaps/swap_transaction.h"

@@ -25,11 +25,11 @@
 #include "wallet/litecoin/litecoin.h"
 #include "wallet/qtum/qtum.h"
 
-#include "wallet/local_private_key_keeper.h"
+#include "keykeeper/local_private_key_keeper.h"
 
 #if defined(BEAM_HW_WALLET)
 #include "core/block_rw.h"
-#include "wallet/trezor_key_keeper.h"
+#include "keykeeper/trezor_key_keeper.h"
 #endif
 
 using namespace beam;

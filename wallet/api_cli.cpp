@@ -38,7 +38,7 @@
 
 #include "wallet/wallet_db.h"
 #include "wallet/wallet_network.h"
-#include "wallet/local_private_key_keeper.h"
+#include "keykeeper/local_private_key_keeper.h"
 
 #include "nlohmann/json.hpp"
 #include "version.h"

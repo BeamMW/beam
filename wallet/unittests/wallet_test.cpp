@@ -27,8 +27,8 @@
 #include "wallet/wallet_transaction.h"
 #include "core/negotiator.h"
 #include "node/node.h"
-#include "wallet/local_private_key_keeper.h"
-#include "wallet/trezor_key_keeper.h"
+#include "keykeeper/local_private_key_keeper.h"
+#include "keykeeper/trezor_key_keeper.h"
 
 #include "test_helpers.h"
 
@@ -45,7 +45,7 @@
 #include <boost/intrusive/list.hpp>
 
 #if defined(BEAM_HW_WALLET)
-#include "wallet/hw_wallet.h"
+#include "keykeeper/hw_wallet.h"
 #endif
 
 using namespace beam;

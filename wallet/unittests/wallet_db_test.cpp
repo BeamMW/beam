@@ -21,7 +21,7 @@
 #include <boost/filesystem.hpp>
 #include <numeric>
 
-#include "wallet/local_private_key_keeper.h"
+#include "keykeeper/local_private_key_keeper.h"
 
 using namespace std;
 using namespace ECC;
