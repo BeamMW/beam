@@ -267,11 +267,9 @@ int SwapOffersViewModel::getActiveTxCount() const
         auto index = m_transactionsList.index(i, 0);
         try
         {
-            bool isInProgress = m_transactionsList.data(
-                index,
-                static_cast<int>(TransactionsList::Roles::IsInProgress))
-                .toBool();
-            if (isInProgress)
+            bool isInProgress = m_transactionsList.data(index, static_cast<int>(TransactionsList::Roles::IsInProgress)).toBool();
+            bool isPending = m_transactionsList.data(index, static_cast<int>(TransactionsList::Roles::IsPending)).toBool();
+            if (!isPending && isInProgress)
             {
                 ++count;
             }
@@ -307,15 +305,11 @@ bool SwapOffersViewModel::hasActiveTx(const std::string& swapCoin) const
         auto index = m_transactionsList.index(i, 0);
         try
         {
-            bool isInProgress = m_transactionsList.data(
-                index,
-                static_cast<int>(TransactionsList::Roles::IsInProgress))
-                .toBool();
-            auto mySwapCoin = m_transactionsList.data(
-                index,
-                static_cast<int>(TransactionsList::Roles::SwapCoin))
-                .toString();
-            if (isInProgress &&
+            bool isInProgress = m_transactionsList.data(index, static_cast<int>(TransactionsList::Roles::IsInProgress)).toBool();
+            bool isPending = m_transactionsList.data(index, static_cast<int>(TransactionsList::Roles::IsPending)).toBool();
+            auto mySwapCoin = m_transactionsList.data(index, static_cast<int>(TransactionsList::Roles::SwapCoin)).toString();
+            if (!isPending &&
+                isInProgress &&
                 mySwapCoin.toStdString() == swapCoin)
             {
                 return true;

@@ -338,6 +338,11 @@ bool TxObject::isInProgress() const
     }
 }
 
+bool TxObject::isPending() const
+{
+    return m_tx.m_status == TxStatus::Pending;
+}
+
 bool TxObject::isCompleted() const
 {
     return m_tx.m_status == TxStatus::Completed;

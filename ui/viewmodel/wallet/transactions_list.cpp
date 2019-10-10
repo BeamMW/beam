@@ -46,6 +46,7 @@ auto TransactionsList::roleNames() const -> QHash<int, QByteArray>
         { static_cast<int>(Roles::IsSelfTransaction), "isSelfTransaction" },
         { static_cast<int>(Roles::IsIncome), "isIncome" },
         { static_cast<int>(Roles::IsInProgress), "isInProgress" },
+        { static_cast<int>(Roles::IsPending), "isPending" },
         { static_cast<int>(Roles::IsCompleted), "isCompleted" },
         { static_cast<int>(Roles::IsCanceled), "isCanceled" },
         { static_cast<int>(Roles::IsFailed), "isFailed" },
@@ -131,6 +132,9 @@ auto TransactionsList::data(const QModelIndex &index, int role) const -> QVarian
 
         case Roles::IsInProgress:
             return value->isInProgress();
+
+        case Roles::IsPending:
+            return value->isPending();
 
         case Roles::IsCompleted:
             return value->isCompleted();

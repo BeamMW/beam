@@ -49,6 +49,7 @@ public:
     bool isCancelAvailable() const;
     bool isDeleteAvailable() const;
     bool isInProgress() const;
+    bool isPending() const;
     bool isCompleted() const;
     bool isSelfTx() const;
     bool isCanceled() const;

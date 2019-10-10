@@ -49,6 +49,7 @@ public:
         IsSelfTransaction,
         IsIncome,
         IsInProgress,
+        IsPending,
         IsCompleted,
         IsCanceled,
         IsFailed,
