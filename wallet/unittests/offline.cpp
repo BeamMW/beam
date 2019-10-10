@@ -71,7 +71,7 @@ WaitHandle run_wallet(const WalletParams& params) {
 //                params.walletDB->addPeer(receiverPeer);
 //            }
 
-            auto keyKeeper = std::make_shared<LocalPrivateKeyKeeper>(params.walletDB);
+            auto keyKeeper = std::make_shared<LocalPrivateKeyKeeper>(params.walletDB, params.walletDB->get_MasterKdf());
 			Wallet wallet{ params.walletDB, keyKeeper, [](auto) { io::Reactor::get_Current().stop(); } };
 
 			auto nnet = std::make_shared<proto::FlyClient::NetworkStd>(wallet);
@@ -176,7 +176,7 @@ void test_offline(bool twoNodes) {
 
     senderParams.reactor = io::Reactor::create();
     senderParams.walletDB = init_wallet_db("_sender", &nodeParams.walletSeed, senderParams.reactor);
-    auto keyKeeper = std::make_shared<LocalPrivateKeyKeeper>(senderParams.walletDB);
+    auto keyKeeper = std::make_shared<LocalPrivateKeyKeeper>(senderParams.walletDB, senderParams.walletDB->get_MasterKdf());
 
     receiverParams.reactor = io::Reactor::create();
     receiverParams.walletDB = init_wallet_db("_receiver", 0, receiverParams.reactor);

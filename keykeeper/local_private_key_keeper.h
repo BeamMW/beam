@@ -27,7 +27,7 @@ namespace beam::wallet
         , public std::enable_shared_from_this<LocalPrivateKeyKeeper>
     {
     public:
-        LocalPrivateKeyKeeper(IWalletDB::Ptr walletDB);
+        LocalPrivateKeyKeeper(IVariablesDB::Ptr walletDB, Key::IKdf::Ptr kdf);
         virtual ~LocalPrivateKeyKeeper();
     private:
         void GeneratePublicKeys(const std::vector<Key::IDV>& ids, bool createCoinKey, Callback<PublicKeys>&& resultCallback, ExceptionCallback&& exceptionCallback) override;
@@ -52,7 +52,7 @@ namespace beam::wallet
         void LoadNonceSeeds();
         void SaveNonceSeeds();
     private:
-        IWalletDB::Ptr m_WalletDB;
+        IVariablesDB::Ptr m_Variables;
         Key::IKdf::Ptr m_MasterKdf;
 
         struct MyNonce :public ECC::NoLeak<ECC::Hash::Value> {

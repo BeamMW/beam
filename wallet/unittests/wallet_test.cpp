@@ -64,13 +64,13 @@ namespace
 
         io::Reactor::Ptr mainReactor{ io::Reactor::create() };
         io::Reactor::Scope scope(*mainReactor);
-        auto receiverKeyKeeper = std::make_shared<LocalPrivateKeyKeeper>(receiverWalletDB);
+        auto receiverKeyKeeper = std::make_shared<LocalPrivateKeyKeeper>(receiverWalletDB, receiverWalletDB->get_MasterKdf());
 
         WalletAddress wa = storage::createAddress(*receiverWalletDB, receiverKeyKeeper);
         receiverWalletDB->saveAddress(wa);
         WalletID receiver_id = wa.m_walletID;
 
-        auto senderKeyKeeper = std::make_shared<LocalPrivateKeyKeeper>(senderWalletDB);
+        auto senderKeyKeeper = std::make_shared<LocalPrivateKeyKeeper>(senderWalletDB, senderWalletDB->get_MasterKdf());
         wa = storage::createAddress(*senderWalletDB, senderKeyKeeper);
         senderWalletDB->saveAddress(wa);
         WalletID sender_id = wa.m_walletID;
@@ -1315,11 +1315,11 @@ namespace
 
         TestWalletRig receiver("receiver", createReceiverWalletDB(), [](auto) {});
 
-        auto senderKeyKeeper = std::make_shared<LocalPrivateKeyKeeper>(db);
+        auto senderKeyKeeper = std::make_shared<LocalPrivateKeyKeeper>(db, db->get_MasterKdf());
         SenderFlyClient flyClient(db, receiver.m_WalletID, senderKeyKeeper);
         flyClient.Connect(senderNodeAddress);
 
-        auto receiverKeyKeeper = std::make_shared<LocalPrivateKeyKeeper>(receiver.m_WalletDB);
+        auto receiverKeyKeeper = std::make_shared<LocalPrivateKeyKeeper>(receiver.m_WalletDB, receiver.m_WalletDB->get_MasterKdf());
         ReceiverFlyClient flyClinet2(receiver.m_WalletDB, flyClient.m_WalletID, receiverKeyKeeper);
         flyClinet2.Connect(receiverNodeAddress);
 
@@ -2102,7 +2102,8 @@ void TestHWWallet()
         io::Reactor::Ptr mainReactor{ io::Reactor::create() };
         io::Reactor::Scope scope(*mainReactor);
         TrezorKeyKeeper tk;
-        LocalPrivateKeyKeeper lpkk(createSqliteWalletDB());
+        auto db = createSqliteWalletDB();
+        LocalPrivateKeyKeeper lpkk(db, db->get_MasterKdf());
         IPrivateKeyKeeper& pkk = tk;
         ECC::Point::Native comm2;
         auto outputs = pkk.GenerateOutputsSync(scheme, { kidv });
@@ -2114,7 +2115,8 @@ void TestHWWallet()
         io::Reactor::Ptr mainReactor{ io::Reactor::create() };
         io::Reactor::Scope scope(*mainReactor);
 
-        LocalPrivateKeyKeeper lpkk(createSqliteWalletDB());
+        auto db = createSqliteWalletDB();
+        LocalPrivateKeyKeeper lpkk(db, db->get_MasterKdf());
         TestHWTransaction(lpkk);
     }
 

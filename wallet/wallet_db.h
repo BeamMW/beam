@@ -171,7 +171,23 @@ namespace beam::wallet
         virtual void onAddressChanged(ChangeAction action, const std::vector<WalletAddress>& items) {};
     };
 
-    struct IWalletDB
+    struct IVariablesDB
+    {
+        using Ptr = std::shared_ptr<IVariablesDB>;
+
+        // Set of methods for low level database manipulation
+        virtual void setVarRaw(const char* name, const void* data, size_t size) = 0;
+        virtual bool getVarRaw(const char* name, void* data, int size) const = 0;
+        virtual void removeVarRaw(const char* name) = 0;
+
+        virtual void setPrivateVarRaw(const char* name, const void* data, size_t size) = 0;
+        virtual bool getPrivateVarRaw(const char* name, void* data, int size) const = 0;
+
+        // TODO: Consider refactoring
+        virtual bool getBlob(const char* name, ByteBuffer& var) const = 0;
+    };
+
+    struct IWalletDB : IVariablesDB
     {
         using Ptr = std::shared_ptr<IWalletDB>;
         virtual ~IWalletDB() {}
@@ -236,17 +252,6 @@ namespace beam::wallet
         virtual bool lockCoins(const CoinIDList& list, uint64_t session) = 0;
         virtual bool unlockCoins(uint64_t session) = 0;
         virtual CoinIDList getLockedCoins(uint64_t session) const = 0;
-
-        // Set of methods for low level database manipulation
-        virtual void setVarRaw(const char* name, const void* data, size_t size) = 0;
-        virtual bool getVarRaw(const char* name, void* data, int size) const = 0;
-        virtual void removeVarRaw(const char* name) = 0;
-
-        virtual void setPrivateVarRaw(const char* name, const void* data, size_t size) = 0;
-        virtual bool getPrivateVarRaw(const char* name, void* data, int size) const = 0;
-
-        // TODO: Consider refactoring
-        virtual bool getBlob(const char* name, ByteBuffer& var) const = 0;
 
         // Returns currently known blockchain height
         virtual Height getCurrentHeight() const = 0;

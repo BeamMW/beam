@@ -884,7 +884,7 @@ void ExpireByResponseTime(bool isBeamSide)
     InitBitcoin(sender->m_Wallet, sender->m_WalletDB, *mainReactor, *senderSP);
 
     auto db = createReceiverWalletDB();
-    auto keyKeeper = std::make_shared<LocalPrivateKeyKeeper>(db);
+    auto keyKeeper = std::make_shared<LocalPrivateKeyKeeper>(db, db->get_MasterKdf());
     WalletAddress receiverWalletAddress = storage::createAddress(*db, keyKeeper);
     WalletID receiverWalletID = receiverWalletAddress.m_walletID;
 

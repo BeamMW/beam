@@ -860,7 +860,7 @@ namespace
             return -1;
         }
         const char* p = (char*)(&buffer[0]);
-        auto keyKeeper = std::make_shared<LocalPrivateKeyKeeper>(walletDB);
+        auto keyKeeper = std::make_shared<LocalPrivateKeyKeeper>(walletDB, walletDB->get_MasterKdf());
         return storage::ImportDataFromJson(*walletDB, keyKeeper, p, buffer.size()) ? 0 : -1;
     }
 
@@ -1599,7 +1599,7 @@ int main_impl(int argc, char* argv[])
                         auto walletDB = WalletDB::init(walletPath, pass, walletSeed, reactor, coldWallet);
                         if (walletDB)
                         {
-                            IPrivateKeyKeeper::Ptr keyKeeper = make_shared<LocalPrivateKeyKeeper>(walletDB);
+                            IPrivateKeyKeeper::Ptr keyKeeper = make_shared<LocalPrivateKeyKeeper>(walletDB, walletDB->get_MasterKdf());
                             LOG_INFO() << kWalletCreatedMessage;
                             CreateNewAddress(vm, walletDB,
                                              keyKeeper, kDefaultAddrLabel);
@@ -1619,7 +1619,7 @@ int main_impl(int argc, char* argv[])
                         return -1;
                     }
 
-                    IPrivateKeyKeeper::Ptr keyKeeper = make_shared<LocalPrivateKeyKeeper>(walletDB);
+                    IPrivateKeyKeeper::Ptr keyKeeper = make_shared<LocalPrivateKeyKeeper>(walletDB, walletDB->get_MasterKdf());
 
                     const auto& currHeight = walletDB->getCurrentHeight();
                     const auto& fork1Height = Rules::get().pForks[1].m_Height;
