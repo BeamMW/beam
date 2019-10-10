@@ -1339,7 +1339,8 @@ void Node::Peer::OnMsg(proto::Authentication&& msg)
         // probably we connected by the address
         if (m_pInfo->m_ID.m_Key == msg.m_ID)
         {
-            pm.OnSeen(*m_pInfo);
+			if (!(Flags::Accepted & m_Flags))
+				pm.OnSeen(*m_pInfo);
             TakeTasks();
             return; // all settled (already)
         }
@@ -1413,7 +1414,9 @@ void Node::Peer::OnMsg(proto::Authentication&& msg)
     // attach to it
 	pPi->Attach(*this);
     pm.OnActive(*pPi, true);
-    pm.OnSeen(*pPi);
+
+	if (!(Flags::Accepted & m_Flags))
+		pm.OnSeen(*pPi);
 
     LOG_INFO() << *m_pInfo << " connected, info updated";
 
