@@ -13,7 +13,7 @@ if(BEAM_HW_WALLET)
     target_sources(keykeeper PRIVATE trezor_key_keeper.cpp)
 endif()
 
-target_link_libraries(keykeeper PRIVATE Boost::boost)
+target_link_libraries(keykeeper PRIVATE Boost::boost utility)
 
 configure_file("${PROJECT_SOURCE_DIR}/version.h.in" "${CMAKE_CURRENT_BINARY_DIR}/version.h")
 
