@@ -1230,8 +1230,8 @@ void Node::Peer::OnResendPeers()
 		if (!pi.m_RawRating.m_Value)
 			continue; // banned
 
-		if (!pi.m_LastSeen)
-			continue; // recommend only verified peers
+		if (getTimestamp() - pi.m_LastSeen > pm.m_Cfg.m_TimeoutRecommend_s)
+			continue; // not seen for a while
 
 		if (pi.m_Addr.m_Value.empty())
 			continue; // address unknown, can't recommend
