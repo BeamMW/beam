@@ -464,8 +464,16 @@ namespace
             client.OnRolledBack();
             // emulating what FlyClient does on rollback
             sender.m_WalletDB->get_History().AddStates(&tip, 1);
+            node.AddBlock();
+            sender.m_WalletDB->get_History().AddStates(&node.m_Blockchain.m_mcm.m_vStates.back().m_Hdr, 1);
             client.OnNewTip();
         }
+
+       // disconnect wallet from the blockchain for a while
+       for (int i = 0; i < 1; ++i)
+       {
+           node.AddBlock();
+       }
 
         completedCount = 1;
         TestWalletRig sender("sender", senderDB, f, TestWalletRig::Type::Regular, false, 0);
