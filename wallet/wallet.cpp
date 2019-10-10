@@ -1012,7 +1012,7 @@ namespace beam::wallet
         auto completedParameters = it->second->CheckAndCompleteParameters(parameters);
 
         auto newTx = it->second->Create(*this, m_WalletDB, m_KeyKeeper, *parameters.GetTxID());
-        ApplyTransactionParameters(newTx, completedParameters.GetParameters());
+        ApplyTransactionParameters(newTx, completedParameters.Pack());
         return newTx;
     }
 

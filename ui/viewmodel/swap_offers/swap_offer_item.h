@@ -49,7 +49,7 @@ signals:
 private:
     auto getSwapCoinType() const -> beamui::Currencies;
 
-    SwapOffer m_offer;          /// raw TxParameters
+    SwapOffer m_offer;          /// TxParameters subclass
     bool m_isOwnOffer;          /// indicates if offer belongs to this wallet
     bool m_isBeamSide;          /// pay beam to receive other coin
     QDateTime m_timeExpiration;

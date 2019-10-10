@@ -30,7 +30,7 @@
 #include "wallet/common.h"
 #include "utility/io/address.h"
 #include "secstring.h"
-#include "private_key_keeper.h"
+#include "keykeeper/private_key_keeper.h"
 
 struct sqlite3;
 

@@ -12,19 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "litecoin_core_016.h"
-
-#include "bitcoin/bitcoin.hpp"
-
-namespace beam::litecoin
+int main()
 {
-    LitecoinCore016::LitecoinCore016(io::Reactor& reactor, ILitecoinCoreSettingsProvider& settingsProvider)
-        : bitcoin::BitcoinCore016(reactor, settingsProvider)
-    {
-    }
-
-    std::string LitecoinCore016::getCoinName() const
-    {
-        return "litecoin";
-    }
-} // namespace beam::litecoin
+    return 0;
+}

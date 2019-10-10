@@ -36,6 +36,9 @@ class SwapOffersViewModel : public QObject
     Q_PROPERTY(bool                 btcOK            READ btcOK              NOTIFY btcOKChanged)
     Q_PROPERTY(bool                 ltcOK            READ ltcOK              NOTIFY ltcOKChanged)
     Q_PROPERTY(bool                 qtumOK           READ qtumOK             NOTIFY qtumOKChanged)
+    Q_PROPERTY(bool                 btcConnecting    READ btcConnecting      NOTIFY btcOKChanged)
+    Q_PROPERTY(bool                 ltcConnecting    READ ltcConnecting      NOTIFY ltcOKChanged)
+    Q_PROPERTY(bool                 qtumConnecting   READ qtumConnecting     NOTIFY qtumOKChanged)
     Q_PROPERTY(bool                 showBetaWarning  READ showBetaWarning)
     Q_PROPERTY(int                  activeTxCount    READ getActiveTxCount   NOTIFY allTransactionsChanged)
     Q_PROPERTY(bool                 hasBtcTx         READ hasBtcTx           NOTIFY allTransactionsChanged)
@@ -54,6 +57,9 @@ public:
     bool btcOK()  const;
     bool ltcOK()  const;
     bool qtumOK() const;
+    bool btcConnecting() const;
+    bool ltcConnecting() const;
+    bool qtumConnecting() const;
     bool showBetaWarning() const;
     int getActiveTxCount() const;
     bool hasBtcTx() const;

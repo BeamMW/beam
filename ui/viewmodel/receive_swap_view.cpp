@@ -342,13 +342,20 @@ void ReceiveSwapViewModel::startListen()
 
 void ReceiveSwapViewModel::publishToken()
 {
-    // using namespace beam::wallet;
-    auto txParameters = beam::wallet::TxParameters(_txParameters);
+    auto packedTxParams = _txParameters.Pack();
     
-    // TODO:SWAP need to consider the creation of separate struct
-    txParameters.SetParameter(beam::wallet::TxParameterID::Status, beam::wallet::TxStatus::Pending);
-    
-    _walletModel.getAsync()->publishSwapOffer(txParameters);
+    auto txId = _txParameters.GetTxID();
+    auto publisherId = _txParameters.GetParameter<beam::wallet::WalletID>(beam::wallet::TxParameterID::PeerID);
+    if (publisherId && txId)
+    {
+        beam::wallet::SwapOffer offer(*txId);
+        offer.m_txId = *txId;
+        offer.m_publisherId = *publisherId;
+        offer.m_status = beam::wallet::SwapOfferStatus::Pending;
+        offer.SetTxParameters(packedTxParams);
+        
+        _walletModel.getAsync()->publishSwapOffer(offer);
+    }
 }
 
 namespace

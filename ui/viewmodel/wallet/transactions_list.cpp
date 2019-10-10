@@ -53,7 +53,9 @@ auto TransactionsList::roleNames() const -> QHash<int, QByteArray>
         { static_cast<int>(Roles::IsBeamSideSwap), "isBeamSideSwap" },
         { static_cast<int>(Roles::HasPaymentProof), "hasPaymentProof" },
         { static_cast<int>(Roles::SwapCoin), "swapCoin" },
-        { static_cast<int>(Roles::RawTxID), "rawTxID" }
+        { static_cast<int>(Roles::RawTxID), "rawTxID" },
+        { static_cast<int>(Roles::Search), "search" },
+        { static_cast<int>(Roles::Token), "token" }
     };
     return roles;
 }
@@ -153,6 +155,23 @@ auto TransactionsList::data(const QModelIndex &index, int role) const -> QVarian
 
         case Roles::RawTxID:
             return QVariant::fromValue(value->getTxID());
+
+        case Roles::Token:
+            return value->getToken();
+
+        case Roles::Search: 
+        {
+            QString r = value->getTransactionID();
+            r.append(" ");
+            r.append(value->getKernelID());
+            r.append(" ");
+            r.append(value->getAddressFrom());
+            r.append(" ");
+            r.append(value->getAddressTo());
+            r.append(" ");
+            r.append(value->getComment());
+            return r;
+        }
 
         default:
             return QVariant();

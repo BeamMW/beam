@@ -19,7 +19,7 @@
 #include "utility/logger.h"
 #include <future>
 #include <boost/filesystem.hpp>
-#include "wallet/local_private_key_keeper.h"
+#include "keykeeper/local_private_key_keeper.h"
 
 namespace beam {
     using namespace wallet;

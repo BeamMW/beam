@@ -15,7 +15,7 @@
 #include "wallet_client.h"
 #include "utility/log_rotation.h"
 #include "core/block_rw.h"
-#include "trezor_key_keeper.h"
+#include "keykeeper/trezor_key_keeper.h"
 
 using namespace std;
 

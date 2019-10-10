@@ -308,7 +308,7 @@ namespace beam::wallet
         return *this;
     }
 
-    PackedTxParameters TxParameters::GetParameters() const
+    PackedTxParameters TxParameters::Pack() const
     {
         PackedTxParameters parameters;
         for (const auto& subTx : m_Parameters)
@@ -328,7 +328,7 @@ namespace beam::wallet
     TxToken::TxToken(const TxParameters& parameters)
         : m_Flags(TxToken::TokenFlag)
         , m_TxID(parameters.GetTxID())
-        , m_Parameters(parameters.GetParameters())
+        , m_Parameters(parameters.Pack())
     {
 
     }
@@ -402,6 +402,35 @@ namespace beam::wallet
         return {};
     }
 
+    void SwapOffer::SetTxParameters(const PackedTxParameters& parameters)
+    {
+        SubTxID subTxID = kDefaultSubTxID;
+        Deserializer d;
+        for (const auto& p : parameters)
+        {
+            if (p.first == TxParameterID::SubTxIndex)
+            {
+                // change subTxID
+                d.reset(p.second.data(), p.second.size());
+                d & subTxID;
+                continue;
+            }
+
+            SetParameter(p.first, p.second, subTxID);
+        }
+    }
+
+    SwapOffer SwapOfferToken::Unpack() const
+    {
+        SwapOffer result(m_TxID);
+        result.SetTxParameters(m_Parameters);
+
+        if (m_TxID) result.m_txId = *m_TxID;
+        if (m_status) result.m_status = *m_status;
+        if (m_publisherId) result.m_publisherId = *m_publisherId;
+        return result;
+    }
+
     bool TxDescription::canResume() const
     {
         return m_status == TxStatus::Pending
@@ -429,9 +458,21 @@ namespace beam::wallet
         case TxStatus::Pending:
             return "pending";
         case TxStatus::InProgress:
+        {
+            if (m_selfTx)
+            {
+                return "self sending";
+            }
             return m_sender == false ? "waiting for sender" : "waiting for receiver";
+        }
         case TxStatus::Registering:
+        {
+            if (m_selfTx)
+            {
+                return "self sending";
+            }
             return m_sender == false ? "receiving" : "sending";
+        }
         case TxStatus::Completed:
         {
             if (m_selfTx)

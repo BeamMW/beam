@@ -49,7 +49,7 @@ namespace beam::wallet
 
         auto getOffersList() const -> std::vector<SwapOffer>;
         void publishOffer(const SwapOffer& offer) const;
-        
+
         void Subscribe(ISwapOffersObserver* observer);
         void Unsubscribe(ISwapOffersObserver* observer);
 
@@ -59,13 +59,14 @@ namespace beam::wallet
         IWalletMessageEndpoint& m_messageEndpoint;          /// destination of outgoing BBS messages
 
         static const std::map<AtomicSwapCoin, BbsChannel> m_channelsMap;
+        static constexpr uint8_t m_protocolVersion = 1;
         Timestamp m_lastTimestamp = getTimestamp() - 12*60*60;
         boost::optional<BbsChannel> m_activeChannel;
+        std::unordered_map<TxID, SwapOffer> m_offersCache;
 
         auto getChannel(const SwapOffer& offer) const -> boost::optional<BbsChannel>;
-        void updateOffer(const TxID& offerTxID, TxStatus newStatus) const;
+        void updateOffer(const TxID& offerTxID, SwapOfferStatus newStatus) const;
 
-        std::unordered_map<TxID, SwapOffer> m_offersCache;
     };
 
 } // namespace beam::wallet

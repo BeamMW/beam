@@ -17,7 +17,7 @@
 #include "wallet/wallet_network.h"
 #include "wallet/wallet_model_async.h"
 #include "wallet/default_peers.h"
-#include "wallet/local_private_key_keeper.h"
+#include "keykeeper/local_private_key_keeper.h"
 
 #include "utility/bridge.h"
 #include "utility/string_helpers.h"

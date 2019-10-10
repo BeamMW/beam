@@ -26,7 +26,7 @@ class SwapCoinClientModel
 public:
     using Ptr = std::shared_ptr<SwapCoinClientModel>;
 
-    SwapCoinClientModel(beam::bitcoin::Client::CreateBridge bridgeCreator,
+    SwapCoinClientModel(beam::bitcoin::IBridgeHolder::Ptr bridgeHolder,
         std::unique_ptr<beam::bitcoin::SettingsProvider> settingsProvider,
         beam::io::Reactor& reactor);
 
@@ -49,7 +49,7 @@ private:
     void OnCanModifySettingsChanged(bool canModify) override;
 
 private slots:
-    void onTimer();
+    void requestBalance();
     void setBalance(const beam::bitcoin::Client::Balance& balance);
     void setStatus(beam::bitcoin::Client::Status status);
     void setCanModifySettings(bool canModify);

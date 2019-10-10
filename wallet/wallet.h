@@ -68,7 +68,6 @@ namespace beam::wallet
         // @param done - number of done tasks
         // @param total - number of total tasks
         virtual void onSyncProgress(int done, int total) = 0;
-        virtual void onSwapOffersChanged(ChangeAction action, const std::vector<SwapOffer>& offers) = 0;
     };
     
     // Interface for swap bulletin board observer. 
@@ -94,7 +93,7 @@ namespace beam::wallet
         using Ptr = std::shared_ptr<IWalletMessageEndpoint>;
         virtual void Send(const WalletID& peerID, const SetTxParameter& msg) = 0;
         virtual void SendEncryptedMessage(const WalletID& peerID, const ByteBuffer& msg) = 0;
-        virtual void SendAndSign(const ByteBuffer& msg, const BbsChannel& channel, const WalletID& wid) = 0;
+        virtual void SendAndSign(const ByteBuffer& msg, const BbsChannel& channel, const WalletID& wid, uint8_t version) = 0;
     };
 
     // Extends FlyClient protocol for communication with own or remote node
@@ -281,6 +280,11 @@ namespace beam::wallet
         
         std::shared_ptr<proto::FlyClient::INetwork> m_NodeEndpoint;
 
+        // List of registered transaction creators
+        // Creators can store some objects for the transactions, 
+        // so they have to be destroyed after the transactions
+        std::unordered_map<wallet::TxType, wallet::BaseTransaction::Creator::Ptr> m_TxCreators;
+
         // List of currently active (incomplete) transactions
         std::map<TxID, BaseTransaction::Ptr> m_ActiveTransactions;
 
@@ -289,9 +293,6 @@ namespace beam::wallet
 
         // List of transactions that are waiting for the next tip (new block) to arrive
         std::unordered_set<BaseTransaction::Ptr> m_NextTipTransactionToUpdate;
-
-        // List of registered transaction creators
-        std::unordered_map<wallet::TxType, wallet::BaseTransaction::Creator::Ptr> m_TxCreators;
 
         // Functor for callback when transaction completed
         TxCompletedAction m_TxCompletedAction;

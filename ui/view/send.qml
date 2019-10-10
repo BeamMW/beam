@@ -8,28 +8,18 @@ import Beam.Wallet 1.0
 import "controls"
 
 ColumnLayout {
-    id: thisView
+    id: sendView
     property bool   isSwapMode: false
     property var    defaultFocusItem: receiverTAInput
-    property var    predefinedTxParams: undefined
 
-    property color mainTopColor: null
-    property color mainTopGradientColor: null
+    // callbacks set by parent
+    property var    onClosed: undefined
+    property var    onSwapToken: undefined
+    property var    onAddress: undefined
 
-    Component.onCompleted: {
-        if (isSwapMode) {
-            onSwapToken("");
-        }
-        mainTopColor = main.topColor;
-        mainTopGradientColor = main.topGradientColor;
-        main.topColor = Qt.rgba(Style.accent_outgoing.r, Style.accent_outgoing.g, Style.accent_outgoing.b, 0.5);
-        main.topGradientColor = Qt.rgba(Style.accent_outgoing.r, Style.accent_outgoing.g, Style.accent_outgoing.b, 0.0);
-    }
-
-    Component.onDestruction: {
-        main.topColor = mainTopColor;
-        main.topGradientColor = mainTopGradientColor;
-        
+    TopGradient {
+        mainRoot: main
+        topColor: Style.accent_outgoing
     }
 
     Row {
@@ -54,8 +44,7 @@ ColumnLayout {
     }
 
     ColumnLayout {
-        visible: currentView === undefined
-
+        
         SFText {
             font.pixelSize:  14
             font.styleName:  "Bold"; font.weight: Font.Bold
@@ -107,7 +96,7 @@ ColumnLayout {
                 palette.buttonText: Style.content_main
                 icon.source:        "qrc:/assets/icon-cancel-white.svg"
                 onClicked:          {
-                    thisView.parent.pop();
+                    onClosed();
                 }
             }
         }
@@ -115,32 +104,5 @@ ColumnLayout {
         Item {
             Layout.fillHeight: true
         }
-    }
-
-    property var currentView: undefined
-
-    function onSwapToken(token) {
-        if (currentView) currentView.destroy()
-        currentView            = Qt.createComponent("send_swap.qml").createObject(thisView, {"predefinedTxParams": predefinedTxParams});
-        currentView.parentView = thisView
-        currentView.setToken(token)
-        isSwapMode = true
-    }
-
-    function onAddress(address) {
-        if (currentView) currentView.destroy()
-        currentView            = Qt.createComponent("send_regular.qml").createObject(thisView)
-        currentView.parentView = thisView
-        defaultFocusItem       = currentView.defaultFocusItem
-        currentView.setToken(address)
-        isSwapMode = false
-    }
-
-    function onBadSwap() {
-        if (currentView) {
-            currentView.destroy()
-            receiverTAInput.text = ""
-            currentView = undefined
-        }
-    }
+    }    
 }

@@ -11,13 +11,15 @@ Rectangle {
     property var currencyIcons: []
     property color stateIndicatorColor: Style.swapCurrencyStateIndicator
     property string valueStr: ""
-    property string vatueSecondaryStr: ""
+    property string valueSecondaryStr: ""
     property bool isOk: true
+    property bool isConnecting: false
     property int textSize: 16
     property int textSecondarySize: 12
     property color textColor: Style.content_main
     property color textSecondaryColor: Style.content_secondary
     property string textConnectionError: "error"
+    property string textConnecting: "connectring..."
     property bool showLoader: false
     property var onClick: function() {}
 
@@ -86,8 +88,9 @@ Rectangle {
                 color: textColor
                 elide: Text.ElideRight
                 text: valueStr
-                wrapMode: Text.Wrap
+                fontSizeMode: Text.Fit
                 visible: valueStr.length
+                wrapMode: Text.Wrap
             }
             SFText {
                 anchors.left: parent.left
@@ -98,8 +101,8 @@ Rectangle {
                 color: textSecondaryColor
                 elide: Text.ElideRight
                 wrapMode: Text.Wrap
-                text: vatueSecondaryStr
-                visible: vatueSecondaryStr.length
+                text: valueSecondaryStr
+                visible: valueSecondaryStr.length
             }
         }
 
@@ -116,7 +119,23 @@ Rectangle {
             elide: Text.ElideRight
             wrapMode: Text.Wrap
             text: textConnectionError
-            visible: !isOk
+            visible: !isOk && !isConnecting
+        }
+
+        SFText {
+            id: connecting
+            anchors.left: currencyLogo.right
+            anchors.right: parent.right
+            anchors.verticalCenter: parent.verticalCenter
+            leftPadding: 10
+            rightPadding: 10
+            font.pixelSize: 12
+            verticalAlignment: Text.AlignVCenter
+            color: textColor
+            elide: Text.ElideRight
+            wrapMode: Text.Wrap
+            text: textConnecting
+            visible: isConnecting
         }
 
         SvgImage {
@@ -129,7 +148,7 @@ Rectangle {
                 right: 15
             }
 
-            source: "qrc:/assets/loading-spinner.svg"            
+            source: "qrc:/assets/loading-spinner.svg"
             rotation: loader.angleValue
             Timer {
                 interval: 200; running: true; repeat: true
@@ -145,7 +164,7 @@ Rectangle {
                 right: 15
             }
             width: childrenRect.width
-            visible: !isOk
+            visible: !isOk && !isConnecting
 
             property int radius: 5
 

@@ -13,15 +13,17 @@ T.TextField {
     padding:               6
     leftPadding:           0
     font.italic:           text.length && !acceptableInput
-    color:                 placeholder.visible ? "transparent" : (control.isValid ? Style.content_secondary : Style.validator_error)
+    color:                 placeholder.visible ? "transparent" : (control.isValid ? Style.content_main : Style.validator_error)
     selectionColor:        control.palette.highlight
     selectedTextColor:     control.palette.highlightedText
     verticalAlignment:     TextInput.AlignVCenter
-    horizontalAlignment:   focus ? Text.AlignLeft : Text.AlignHCenter
+    horizontalAlignment:   control.activeFocus || contextMenu.visible ? Text.AlignLeft : Text.AlignHCenter
 	selectByMouse:         true
 	validator:             ELSeedValidator {}
 	wrapMode:              TextInput.Wrap
+
 	property bool isValid: text.length ? acceptableInput : true
+    signal newSeed
 
     background: Rectangle {
 	    id:      backgroundRect
@@ -38,6 +40,7 @@ T.TextField {
         hoverEnabled:    true
 
         onClicked: {
+            if (!control.activeFocus && control.text.length) return
             var selectStart = control.selectionStart
             var selectEnd = control.selectionEnd
             var curPos = control.cursorPosition
@@ -52,7 +55,7 @@ T.TextField {
     MouseArea {
         anchors.fill: parent;
         acceptedButtons: Qt.LeftButton
-        onDoubleClicked: if (seedInput.text.length == 0) thisControl.newSeed()
+        onDoubleClicked: if (control.text.length == 0) newSeed()
         onClicked: parent.forceActiveFocus()
     }
 
@@ -60,6 +63,10 @@ T.TextField {
         id:    contextMenu
         modal: true
         dim:   false
+
+        onClosed: {
+            if(control.text.length) control.forceActiveFocus()
+        }
 
         Action {
             //% "Copy"
@@ -98,9 +105,9 @@ T.TextField {
         height:   control.height - (control.topPadding + control.bottomPadding)
         text:     control.placeholderText
         font:     control.font
-        opacity:  0.5
-        color:    control.isValid ? Style.content_secondary : Style.validator_error
-        visible:  (text.length > 0 && !control.focus) || (!control.activeFocus && !control.length && !control.preeditText)
+        opacity:  control.isValid ? 1 : 0.5
+        color:    control.isValid ? Style.content_main : Style.validator_error
+        visible:  (text.length > 0 && !control.activeFocus && !contextMenu.visible) || (!control.activeFocus && !contextMenu.visible && !control.length && !control.preeditText)
         elide:    Text.ElideRight
         wrapMode: control.wrapMode
 

@@ -94,6 +94,16 @@ namespace beam::wallet
         Registering
     };
 
+    enum class SwapOfferStatus : uint32_t
+    {
+        Pending,
+        InProgress,
+        Completed,
+        Cancelled,
+        Expired,
+        Failed
+    };
+
 #define BEAM_TX_FAILURE_REASON_MAP(MACRO) \
     MACRO(Unknown,                      0, "Unknown reason") \
     MACRO(Canceled,                    1, "Transaction was cancelled") \
@@ -348,7 +358,7 @@ namespace beam::wallet
             return true;
         }
 
-        PackedTxParameters GetParameters() const;
+        PackedTxParameters Pack() const;
 
         boost::optional<ByteBuffer> GetParameter(TxParameterID parameterID, SubTxID subTxID = kDefaultSubTxID) const;
         TxParameters& SetParameter(TxParameterID parameterID, const ByteBuffer& parameter, SubTxID subTxID = kDefaultSubTxID);
@@ -373,7 +383,42 @@ namespace beam::wallet
         PackedTxParameters m_Parameters;
     };
 
-    using SwapOffer = TxParameters;
+    struct SwapOffer : public TxParameters
+    {
+        SwapOffer() = default;
+        SwapOffer(const boost::optional<TxID>& txID)
+            : TxParameters(txID) {};
+        SwapOffer(const TxID& txId, SwapOfferStatus status, WalletID publisherId)
+            : TxParameters(txId),
+              m_txId(txId),
+              m_status(status),
+              m_publisherId(publisherId) {};
+
+        void SetTxParameters(const PackedTxParameters&);
+
+        TxID m_txId = {};
+        SwapOfferStatus m_status = SwapOfferStatus::Pending;
+        WalletID m_publisherId = {};
+    };
+
+    class SwapOfferToken
+    {
+    public:
+        SwapOfferToken() = default;
+        SwapOfferToken(const SwapOffer& offer)
+            : m_TxID(offer.m_txId),
+              m_status(offer.m_status),
+              m_publisherId(offer.m_publisherId),
+              m_Parameters(offer.Pack()) {};
+        
+        SwapOffer Unpack() const;
+        SERIALIZE(m_TxID, m_status, m_publisherId, m_Parameters);
+    private:
+        boost::optional<TxID> m_TxID;
+        boost::optional<SwapOfferStatus> m_status;
+        boost::optional<WalletID> m_publisherId;
+        PackedTxParameters m_Parameters;
+    };
 
     boost::optional<TxParameters> ParseParameters(const std::string& text);
 

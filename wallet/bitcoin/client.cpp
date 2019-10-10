@@ -40,12 +40,12 @@ namespace beam::bitcoin
         }
     };
     
-    Client::Client(CreateBridge bridgeCreator, std::unique_ptr<SettingsProvider> settingsProvider, io::Reactor& reactor)
-        : m_status(Status::Uninitialized)
+    Client::Client(IBridgeHolder::Ptr bridgeHolder, std::unique_ptr<SettingsProvider> settingsProvider, io::Reactor& reactor)
+        : m_status(settingsProvider->GetSettings().IsInitialized() ? Status::Connecting : Status::Uninitialized)
         , m_reactor(reactor)
         , m_async{ std::make_shared<BitcoinClientBridge>(*(static_cast<IClientAsync*>(this)), reactor) }
         , m_settingsProvider{ std::move(settingsProvider) }
-        , m_bridgeCreator{ bridgeCreator }
+        , m_bridgeHolder(bridgeHolder)
     {
     }
 
@@ -76,7 +76,7 @@ namespace beam::bitcoin
     {
         Lock lock(m_mutex);
         m_settingsProvider->SetSettings(settings);
-        m_bridge.reset();
+        m_bridgeHolder->Reset();
     }
 
     void Client::GetStatus()
@@ -110,7 +110,7 @@ namespace beam::bitcoin
         {
             Lock lock(m_mutex);
             m_settingsProvider->ResetSettings();
-            m_bridge.reset();
+            m_bridgeHolder->Reset();
         }
 
         SetStatus(Status::Uninitialized);
@@ -118,17 +118,16 @@ namespace beam::bitcoin
 
     void Client::SetStatus(const Status& status)
     {
-        m_status = status;
-        OnStatus(m_status);
+        if (m_status != status)
+        {
+            m_status = status;
+            OnStatus(m_status);
+        }
     }
 
     beam::bitcoin::IBridge::Ptr Client::GetBridge()
     {
-        if (!m_bridge)
-        {
-            m_bridge = m_bridgeCreator(m_reactor, shared_from_this());
-        }
-        return m_bridge;
+        return m_bridgeHolder->Get(m_reactor, *this);
     }
 
     bool Client::CanModify() const

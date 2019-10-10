@@ -16,7 +16,7 @@
 #include "wallet/wallet_network.h"
 #include "wallet/wallet.h"
 #include "wallet/wallet_transaction.h"
-#include "wallet/local_private_key_keeper.h"
+#include "keykeeper/local_private_key_keeper.h"
 #include "wallet/secstring.h"
 #include "wallet/swaps/common.h"
 #include "wallet/swaps/swap_transaction.h"
@@ -75,11 +75,15 @@ namespace
     }
 }
 
-bitcoin::ISettingsProvider::Ptr InitBitcoin(Wallet& wallet, IWalletDB::Ptr walletDB, io::Reactor& reactor, std::shared_ptr<bitcoin::Settings> settings)
+bitcoin::ISettingsProvider::Ptr InitSettingsProvider(IWalletDB::Ptr walletDB, std::shared_ptr<bitcoin::Settings> settings)
 {
     auto settingsProvider = std::make_shared<bitcoin::SettingsProvider>(walletDB);
     settingsProvider->SetSettings(*settings);
+    return settingsProvider;
+}
 
+void InitBitcoin(Wallet& wallet, IWalletDB::Ptr walletDB, io::Reactor& reactor, bitcoin::ISettingsProvider& settingsProvider)
+{
     auto creator = std::make_shared<AtomicSwapTransaction::Creator>(walletDB);
     auto bridge = std::make_shared<bitcoin::BitcoinCore017>(reactor, settingsProvider);
     // TODO should refactored this code
@@ -90,14 +94,10 @@ bitcoin::ISettingsProvider::Ptr InitBitcoin(Wallet& wallet, IWalletDB::Ptr walle
     auto factory = wallet::MakeSecondSideFactory<BitcoinSide, bitcoin::BitcoinCore017, bitcoin::ISettingsProvider>(bitcoinBridgeCreator, settingsProvider);
     creator->RegisterFactory(AtomicSwapCoin::Bitcoin, factory);
     wallet.RegisterTransactionType(TxType::AtomicSwap, std::static_pointer_cast<BaseTransaction::Creator>(creator));
-    return settingsProvider;
 }
 
-void InitElectrum(Wallet& wallet, IWalletDB::Ptr walletDB, io::Reactor& reactor, std::shared_ptr<bitcoin::Settings> settings)
+void InitElectrum(Wallet& wallet, IWalletDB::Ptr walletDB, io::Reactor& reactor, bitcoin::ISettingsProvider& settingsProvider)
 {
-    auto settingsProvider = std::make_shared<bitcoin::SettingsProvider>(walletDB);
-    settingsProvider->SetSettings(*settings);
-
     auto creator = std::make_shared<AtomicSwapTransaction::Creator>(walletDB);
     auto bridge = std::make_shared<bitcoin::Electrum>(reactor, settingsProvider);
     // TODO should refactored this code
@@ -152,11 +152,16 @@ void TestSwapTransaction(bool isBeamOwnerStart, beam::Height fork1Height)
 
     TestBitcoinWallet senderBtcWallet = GetSenderBTCWallet(*mainReactor, senderAddress, swapAmount);
     TestBitcoinWallet receiverBtcWallet = GetReceiverBTCWallet(*mainReactor, receiverAddress, swapAmount);
-    TestWalletRig sender("sender", senderWalletDB, completeAction);
-    TestWalletRig receiver("receiver", createReceiverWalletDB(), completeAction);
 
-    auto senderSP = InitBitcoin(sender.m_Wallet, sender.m_WalletDB, *mainReactor, bobSettings);
-    auto receiverSP = InitBitcoin(receiver.m_Wallet, receiver.m_WalletDB, *mainReactor, aliceSettings);
+    auto senderSP = InitSettingsProvider(senderWalletDB, bobSettings);
+    auto receiverWalletDB = createReceiverWalletDB();
+    auto receiverSP = InitSettingsProvider(receiverWalletDB, aliceSettings);
+
+    TestWalletRig sender("sender", senderWalletDB, completeAction);
+    TestWalletRig receiver("receiver", receiverWalletDB, completeAction);
+
+    InitBitcoin(sender.m_Wallet, sender.m_WalletDB, *mainReactor, *senderSP);
+    InitBitcoin(receiver.m_Wallet, receiver.m_WalletDB, *mainReactor, *receiverSP);
 
     WALLET_CHECK(senderSP->CanModify() == true);
     WALLET_CHECK(receiverSP->CanModify() == true);
@@ -273,11 +278,14 @@ void TestElectrumSwapTransaction(bool isBeamOwnerStart, beam::Height fork1Height
     aliceSettings->SetFeeRate(feeRate);
 
     TestElectrumWallet btcWallet(*mainReactor, address);
+    auto senderSP = InitSettingsProvider(senderWalletDB, bobSettings);
+    auto receiverWalletDB = createReceiverWalletDB();
+    auto receiverSP = InitSettingsProvider(receiverWalletDB, aliceSettings);
     TestWalletRig sender("sender", senderWalletDB, completeAction);
-    TestWalletRig receiver("receiver", createReceiverWalletDB(), completeAction);
+    TestWalletRig receiver("receiver", receiverWalletDB, completeAction);
 
-    InitElectrum(sender.m_Wallet, sender.m_WalletDB, *mainReactor, bobSettings);
-    InitElectrum(receiver.m_Wallet, receiver.m_WalletDB, *mainReactor, aliceSettings);
+    InitElectrum(sender.m_Wallet, sender.m_WalletDB, *mainReactor, *senderSP);
+    InitElectrum(receiver.m_Wallet, receiver.m_WalletDB, *mainReactor, *receiverSP);
 
     TxID txID = { {0} };
 
@@ -387,11 +395,15 @@ void TestSwapTransactionWithoutChange(bool isBeamOwnerStart)
     aliceSettings->SetFeeRate(feeRate);
     TestBitcoinWallet senderBtcWallet = GetSenderBTCWallet(*mainReactor, senderAddress, swapAmount);
     TestBitcoinWallet receiverBtcWallet = GetReceiverBTCWallet(*mainReactor, receiverAddress, swapAmount);
-    TestWalletRig sender("sender", createSenderWalletDB(false, kDefaultTestAmounts), completeAction);
-    TestWalletRig receiver("receiver", createReceiverWalletDB(), completeAction);
+    auto senderWalletDB = createSenderWalletDB(false, kDefaultTestAmounts);
+    auto senderSP = InitSettingsProvider(senderWalletDB, bobSettings);
+    auto receiverWalletDB = createReceiverWalletDB();
+    auto receiverSP = InitSettingsProvider(receiverWalletDB, aliceSettings);
+    TestWalletRig sender("sender", senderWalletDB, completeAction);
+    TestWalletRig receiver("receiver", receiverWalletDB, completeAction);
 
-    InitBitcoin(sender.m_Wallet, sender.m_WalletDB, *mainReactor, bobSettings);
-    InitBitcoin(receiver.m_Wallet, receiver.m_WalletDB, *mainReactor, aliceSettings);
+    InitBitcoin(sender.m_Wallet, sender.m_WalletDB, *mainReactor, *senderSP);
+    InitBitcoin(receiver.m_Wallet, receiver.m_WalletDB, *mainReactor, *receiverSP);
 
     receiverBtcWallet.addPeer(senderAddress);
 
@@ -469,12 +481,17 @@ void TestSwapBTCRefundTransaction()
 
     TestBitcoinWallet senderBtcWallet = GetSenderBTCWallet(*mainReactor, senderAddress, swapAmount);
     TestBitcoinWallet receiverBtcWallet = GetReceiverBTCWallet(*mainReactor, receiverAddress, swapAmount);
-    auto sender = std::make_unique<TestWalletRig>("sender", createSenderWalletDB(false, kDefaultTestAmounts), completedAction);
-    auto receiver = std::make_shared<TestWalletRig>("receiver", createReceiverWalletDB(), completedAction);
-
     receiverBtcWallet.addPeer(senderAddress);
-    InitBitcoin(sender->m_Wallet, sender->m_WalletDB, *mainReactor, bobSettings);
-    InitBitcoin(receiver->m_Wallet, receiver->m_WalletDB, *mainReactor, aliceSettings);
+
+    auto senderWalletDB = createSenderWalletDB(false, kDefaultTestAmounts);
+    auto senderSP = InitSettingsProvider(senderWalletDB, bobSettings);
+    auto receiverWalletDB = createReceiverWalletDB();
+    auto receiverSP = InitSettingsProvider(receiverWalletDB, aliceSettings);
+    auto sender = std::make_unique<TestWalletRig>("sender", senderWalletDB, completedAction);
+    auto receiver = std::make_shared<TestWalletRig>("receiver", receiverWalletDB, completedAction);
+
+    InitBitcoin(sender->m_Wallet, sender->m_WalletDB, *mainReactor, *senderSP);
+    InitBitcoin(receiver->m_Wallet, receiver->m_WalletDB, *mainReactor, *receiverSP);
 
     TestNode node{ TestNode::NewBlockFunc(), kNodeStartHeight };
     Height currentHeight = node.m_Blockchain.m_mcm.m_vStates.size();
@@ -559,12 +576,16 @@ void TestElectrumSwapBTCRefundTransaction()
     aliceSettings->SetFeeRate(feeRate);
     aliceSettings->SetLockTimeInBlocks(lockTimeInBlocks);
 
+    auto senderWalletDB = createSenderWalletDB(false, kDefaultTestAmounts);
+    auto senderSP = InitSettingsProvider(senderWalletDB, bobSettings);
+    auto receiverWalletDB = createReceiverWalletDB();
+    auto receiverSP = InitSettingsProvider(receiverWalletDB, aliceSettings);
     TestElectrumWallet btcWallet(*mainReactor, address);
-    auto sender = std::make_unique<TestWalletRig>("sender", createSenderWalletDB(false, kDefaultTestAmounts), completedAction);
-    auto receiver = std::make_shared<TestWalletRig>("receiver", createReceiverWalletDB(), completedAction);
+    auto sender = std::make_unique<TestWalletRig>("sender", senderWalletDB, completedAction);
+    auto receiver = std::make_shared<TestWalletRig>("receiver", receiverWalletDB, completedAction);
 
-    InitElectrum(sender->m_Wallet, sender->m_WalletDB, *mainReactor, bobSettings);
-    InitElectrum(receiver->m_Wallet, receiver->m_WalletDB, *mainReactor, aliceSettings);
+    InitElectrum(sender->m_Wallet, sender->m_WalletDB, *mainReactor, *senderSP);
+    InitElectrum(receiver->m_Wallet, receiver->m_WalletDB, *mainReactor, *receiverSP);
 
     TestNode node{ TestNode::NewBlockFunc(), kNodeStartHeight };
     Height currentHeight = node.m_Blockchain.m_mcm.m_vStates.size();
@@ -649,12 +670,17 @@ void TestSwapBeamRefundTransaction()
     aliceSettings->SetFeeRate(feeRate);
     TestBitcoinWallet senderBtcWallet = GetSenderBTCWallet(*mainReactor, senderAddress, swapAmount);
     TestBitcoinWallet receiverBtcWallet = GetReceiverBTCWallet(*mainReactor, receiverAddress, swapAmount);
-    auto sender = std::make_unique<TestWalletRig>("sender", createSenderWalletDB(false, kDefaultTestAmounts), completedAction);
-    auto receiver = std::make_unique<TestWalletRig>("receiver", createReceiverWalletDB(), completedAction);
-
     receiverBtcWallet.addPeer(senderAddress);
-    InitBitcoin(sender->m_Wallet, sender->m_WalletDB, *mainReactor, bobSettings);
-    InitBitcoin(receiver->m_Wallet, receiver->m_WalletDB, *mainReactor, aliceSettings);
+
+    auto senderWalletDB = createSenderWalletDB(false, kDefaultTestAmounts);
+    auto senderSP = InitSettingsProvider(senderWalletDB, bobSettings);
+    auto receiverWalletDB = createReceiverWalletDB();
+    auto receiverSP = InitSettingsProvider(receiverWalletDB, aliceSettings);
+    auto sender = std::make_unique<TestWalletRig>("sender", senderWalletDB, completedAction);
+    auto receiver = std::make_unique<TestWalletRig>("receiver", receiverWalletDB, completedAction);
+
+    InitBitcoin(sender->m_Wallet, sender->m_WalletDB, *mainReactor, *senderSP);
+    InitBitcoin(receiver->m_Wallet, receiver->m_WalletDB, *mainReactor, *receiverSP);
 
     TestNode node{ TestNode::NewBlockFunc(), kNodeStartHeight };
     Height currentHeight = node.m_Blockchain.m_mcm.m_vStates.size();
@@ -748,11 +774,15 @@ void TestElectrumSwapBeamRefundTransaction()
     aliceSettings->SetElectrumConnectionOptions({ address, {"rib", "genuine", "fury", "advance", "train", "capable", "rough", "silk", "march", "vague", "notice", "sphere"}, bitcoin::getAddressVersion() });
     aliceSettings->SetFeeRate(feeRate);
     TestElectrumWallet btcWallet(*mainReactor, address);
-    auto sender = std::make_unique<TestWalletRig>("sender", createSenderWalletDB(false, kDefaultTestAmounts), completedAction);
-    auto receiver = std::make_unique<TestWalletRig>("receiver", createReceiverWalletDB(), completedAction);
+    auto senderWalletDB = createSenderWalletDB(false, kDefaultTestAmounts);
+    auto senderSP = InitSettingsProvider(senderWalletDB, bobSettings);
+    auto receiverWalletDB = createReceiverWalletDB();
+    auto receiverSP = InitSettingsProvider(receiverWalletDB, aliceSettings);
+    auto sender = std::make_unique<TestWalletRig>("sender", senderWalletDB, completedAction);
+    auto receiver = std::make_unique<TestWalletRig>("receiver", receiverWalletDB, completedAction);
 
-    InitElectrum(sender->m_Wallet, sender->m_WalletDB, *mainReactor, bobSettings);
-    InitElectrum(receiver->m_Wallet, receiver->m_WalletDB, *mainReactor, aliceSettings);
+    InitElectrum(sender->m_Wallet, sender->m_WalletDB, *mainReactor, *senderSP);
+    InitElectrum(receiver->m_Wallet, receiver->m_WalletDB, *mainReactor, *receiverSP);
 
     TestNode node{ TestNode::NewBlockFunc(), kNodeStartHeight };
     Height currentHeight = node.m_Blockchain.m_mcm.m_vStates.size();
@@ -847,9 +877,11 @@ void ExpireByResponseTime(bool isBeamSide)
     aliceSettings->SetConnectionOptions({ "Alice", "123", senderAddress });
     aliceSettings->SetFeeRate(feeRate);
     TestBitcoinWallet senderBtcWallet = GetSenderBTCWallet(*mainReactor, senderAddress, swapAmount);
-    auto sender = std::make_unique<TestWalletRig>("sender", createSenderWalletDB(false, kDefaultTestAmounts), completedAction);
+    auto senderWalletDB = createSenderWalletDB(false, kDefaultTestAmounts);
+    auto senderSP = InitSettingsProvider(senderWalletDB, aliceSettings);
+    auto sender = std::make_unique<TestWalletRig>("sender", senderWalletDB, completedAction);
 
-    InitBitcoin(sender->m_Wallet, sender->m_WalletDB, *mainReactor, aliceSettings);
+    InitBitcoin(sender->m_Wallet, sender->m_WalletDB, *mainReactor, *senderSP);
 
     auto db = createReceiverWalletDB();
     auto keyKeeper = std::make_shared<LocalPrivateKeyKeeper>(db);
@@ -915,12 +947,16 @@ void TestSwapCancelTransaction(bool isSender, wallet::AtomicSwapTransaction::Sta
     aliceSettings->SetFeeRate(feeRate);
     TestBitcoinWallet senderBtcWallet = GetSenderBTCWallet(*mainReactor, senderAddress, swapAmount);
     TestBitcoinWallet receiverBtcWallet = GetReceiverBTCWallet(*mainReactor, receiverAddress, swapAmount);
-    auto sender = std::make_unique<TestWalletRig>("sender", createSenderWalletDB(false, kDefaultTestAmounts), isSender ? Wallet::TxCompletedAction() : completedAction);
-    auto receiver = std::make_unique<TestWalletRig>("receiver", createReceiverWalletDB(), isSender ? completedAction : Wallet::TxCompletedAction());
+    auto senderWalletDB = createSenderWalletDB(false, kDefaultTestAmounts);
+    auto senderSP = InitSettingsProvider(senderWalletDB, bobSettings);
+    auto receiverWalletDB = createReceiverWalletDB();
+    auto receiverSP = InitSettingsProvider(receiverWalletDB, aliceSettings);
+    auto sender = std::make_unique<TestWalletRig>("sender", senderWalletDB, isSender ? Wallet::TxCompletedAction() : completedAction);
+    auto receiver = std::make_unique<TestWalletRig>("receiver", receiverWalletDB, isSender ? completedAction : Wallet::TxCompletedAction());
 
     receiverBtcWallet.addPeer(senderAddress);
-    InitBitcoin(sender->m_Wallet, sender->m_WalletDB, *mainReactor, bobSettings);
-    InitBitcoin(receiver->m_Wallet, receiver->m_WalletDB, *mainReactor, aliceSettings);
+    InitBitcoin(sender->m_Wallet, sender->m_WalletDB, *mainReactor, *senderSP);
+    InitBitcoin(receiver->m_Wallet, receiver->m_WalletDB, *mainReactor, *receiverSP);
     TestNode node{ TestNode::NewBlockFunc(), kNodeStartHeight };
     Height currentHeight = node.m_Blockchain.m_mcm.m_vStates.size();
     auto parameters = InitNewSwap(receiver->m_WalletID, currentHeight, beamAmount, beamFee, wallet::AtomicSwapCoin::Bitcoin, swapAmount, false);
@@ -1012,6 +1048,8 @@ void TestSwap120Blocks()
     TestBitcoinWallet receiverBtcWallet = GetReceiverBTCWallet(*mainReactor, receiverAddress, swapAmount);
     auto receiverWalletDB = createReceiverWalletDB();
     auto senderWalletDB = createSenderWalletDB(0, 0);
+    auto senderSP = InitSettingsProvider(senderWalletDB, bobSettings);
+    auto receiverSP = InitSettingsProvider(receiverWalletDB, aliceSettings);
     auto binaryTreasury = createTreasury(senderWalletDB, kDefaultTestAmounts);
     auto sender = std::make_unique<TestWalletRig>("sender", senderWalletDB, completeAction);
     auto receiver = std::make_unique<TestWalletRig>("receiver", receiverWalletDB);
@@ -1051,7 +1089,7 @@ void TestSwap120Blocks()
             if (sender->m_WalletDB->getCurrentHeight() - currentHeight >= 110)
             {
                 receiver = std::make_unique<TestWalletRig>("receiver", receiverWalletDB, completeAction);
-                InitBitcoin(receiver->m_Wallet, receiver->m_WalletDB, *mainReactor, aliceSettings);
+                InitBitcoin(receiver->m_Wallet, receiver->m_WalletDB, *mainReactor, *receiverSP);
                 receiver->m_Wallet.ResumeAllTransactions();
             }
         }
@@ -1066,8 +1104,8 @@ void TestSwap120Blocks()
         auto cursor = node.get_Processor().m_Cursor;
         if (cursor.m_Sid.m_Height == minHeight)
         {
-            InitBitcoin(sender->m_Wallet, sender->m_WalletDB, *mainReactor, bobSettings);
-            InitBitcoin(receiver->m_Wallet, receiver->m_WalletDB, *mainReactor, aliceSettings);
+            InitBitcoin(sender->m_Wallet, sender->m_WalletDB, *mainReactor, *senderSP);
+            InitBitcoin(receiver->m_Wallet, receiver->m_WalletDB, *mainReactor, *receiverSP);
 
             auto parameters = InitNewSwap(receiver->m_WalletID, minHeight, beamAmount, beamFee, wallet::AtomicSwapCoin::Bitcoin, swapAmount, false);
             receiver->m_Wallet.StartTransaction(parameters);

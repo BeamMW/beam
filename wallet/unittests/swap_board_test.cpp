@@ -29,11 +29,10 @@ using namespace std;
 
 namespace
 {
-    struct Observer : public IWalletObserver
+    struct Observer : public ISwapOffersObserver
     {
         Observer(string name) :
             m_name(name) {};
-        virtual void onSyncProgress(int done, int total) override {};
         virtual void onSwapOffersChanged(ChangeAction action, const vector<SwapOffer>& offers) override
         {
             cout << "Observer " << m_name << ": swap offer changed\n";
@@ -71,7 +70,7 @@ namespace
                 }
             }
         };
-        virtual void SendAndSign(const ByteBuffer& msg, const BbsChannel& channel, const WalletID& wid) override
+        virtual void SendAndSign(const ByteBuffer& msg, const BbsChannel& channel, const WalletID& wid, uint8_t version) override
         {
             // SwapOfferConfirmation confirmation;
 

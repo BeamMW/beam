@@ -146,7 +146,7 @@ namespace ECC {
 		int hFile = open("/dev/urandom", O_RDONLY);
 		if (hFile >= 0)
 		{
-			if (read(hFile, p, nSize) == nSize)
+			if (read(hFile, p, nSize) == static_cast<ssize_t>(nSize))
 				bRet = true;
 
 			close(hFile);

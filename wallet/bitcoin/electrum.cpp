@@ -35,6 +35,7 @@ using namespace libbitcoin::chain;
 
 namespace
 {
+    const std::chrono::seconds kRequestPeriod = std::chrono::seconds(10);
     std::string generateScriptHash(const ec_public& publicKey, uint8_t addressVersion)
     {
         payment_address addr = publicKey.to_payment_address(addressVersion);
@@ -47,7 +48,7 @@ namespace
 
 namespace beam::bitcoin
 {
-    Electrum::Electrum(Reactor& reactor, IElectrumSettingsProvider::Ptr settingsProvider)
+    Electrum::Electrum(Reactor& reactor, IElectrumSettingsProvider& settingsProvider)
         : m_reactor(reactor)
         , m_settingsProvider(settingsProvider)
     {
@@ -59,7 +60,7 @@ namespace beam::bitcoin
 
         Error error{ None, "" };
         auto privateKeys = generateMasterPrivateKeys();
-        auto settings = m_settingsProvider->GetElectrumSettings();
+        auto settings = m_settingsProvider.GetElectrumSettings();
         auto addressVersion = settings.m_addressVersion;
         auto receivingAddressAmount = settings.m_receivingAddressAmount;
         for (uint32_t i = 0; i < receivingAddressAmount; ++i)
@@ -100,6 +101,8 @@ namespace beam::bitcoin
                 return;
             }
 
+            reviewLockedUtxo();
+
             data_chunk txData;
             decode_base16(txData, rawTx);
             transaction tx;
@@ -113,6 +116,8 @@ namespace beam::bitcoin
             points_value unspentPoints;
             for (auto coin : coins)
             {
+                if (isLockedUtxo(coin.m_details["tx_hash"].get<std::string>(), coin.m_details["tx_pos"].get<uint32_t>()))
+                    continue;
                 hash_digest txHash;
                 decode_hash(txHash, coin.m_details["tx_hash"].get<std::string>());
                 unspentPoints.points.push_back(point_value(point(txHash, coin.m_details["tx_pos"].get<uint32_t>()), coin.m_details["value"].get<uint64_t>()));
@@ -174,6 +179,11 @@ namespace beam::bitcoin
                     }
                 }
 
+                for (auto p : resultPoints.points)
+                {
+                    lockUtxo(encode_hash(p.hash()), p.index());
+                }
+
                 callback(error, encode_base16(newTx.to_data()), changePosition);
                 return;
             }
@@ -211,7 +221,7 @@ namespace beam::bitcoin
                     {
                         isFoundCoin = true;
                         ec_private privateKey = privateKeys[coin.m_index];
-                        script lockingScript = script().to_pay_key_hash_pattern(privateKey.to_public().to_payment_address(m_settingsProvider->GetElectrumSettings().m_addressVersion).hash());
+                        script lockingScript = script().to_pay_key_hash_pattern(privateKey.to_public().to_payment_address(m_settingsProvider.GetElectrumSettings().m_addressVersion).hash());
                         endorsement sig;
                         if (lockingScript.create_endorsement(sig, privateKey.secret(), lockingScript, tx, static_cast<uint32_t>(ind), machine::sighash_algorithm::all))
                         {
@@ -285,7 +295,7 @@ namespace beam::bitcoin
         Error error{ None, "" };
         auto privateKeys = generateMasterPrivateKeys();
         std::srand(static_cast<unsigned int>(std::time(0)));
-        uint32_t index = static_cast<uint32_t>(std::rand() % m_settingsProvider->GetElectrumSettings().m_receivingAddressAmount);
+        uint32_t index = static_cast<uint32_t>(std::rand() % m_settingsProvider.GetElectrumSettings().m_receivingAddressAmount);
 
         callback(error, getAddress(index, privateKeys.first));
     }
@@ -446,7 +456,7 @@ namespace beam::bitcoin
         double confirmed = 0;
         double unconfirmed = 0;
         auto privateKeys = generatePrivateKeyList();
-        auto addressVersion = m_settingsProvider->GetElectrumSettings().m_addressVersion;
+        auto addressVersion = m_settingsProvider.GetElectrumSettings().m_addressVersion;
 
         sendRequest("blockchain.scripthash.get_balance", "\"" + generateScriptHash(privateKeys[0].to_public(), addressVersion) + "\"",
             [this, callback, index, confirmed, unconfirmed, privateKeys, addressVersion](IBridge::Error error, const json& result, uint64_t tag) mutable
@@ -493,53 +503,67 @@ namespace beam::bitcoin
         size_t index = 0;
         std::vector<Utxo> coins;
         auto privateKeys = generatePrivateKeyList();
-        auto addressVersion = m_settingsProvider->GetElectrumSettings().m_addressVersion;
+        auto addressVersion = m_settingsProvider.GetElectrumSettings().m_addressVersion;
 
-        sendRequest("blockchain.scripthash.listunspent", "\"" + generateScriptHash(privateKeys[0].to_public(), addressVersion) + "\"",
-            [this, callback, index, coins, privateKeys, addressVersion](IBridge::Error error, const json& result, uint64_t tag) mutable
+        if (m_cache.empty() || (std::chrono::system_clock::now() - m_lastCache > kRequestPeriod))
         {
-            if (error.m_type == IBridge::None || error.m_type == IBridge::EmptyResult)
+            sendRequest("blockchain.scripthash.listunspent", "\"" + generateScriptHash(privateKeys[0].to_public(), addressVersion) + "\"",
+                [this, callback, index, coins, privateKeys, addressVersion](IBridge::Error error, const json& result, uint64_t tag) mutable
             {
-                TCPConnect& connection = m_connections[tag];
-
-                try
+                if (error.m_type == IBridge::None || error.m_type == IBridge::EmptyResult)
                 {
-                    for (auto utxo : result)
+                    TCPConnect& connection = m_connections[tag];
+
+                    try
                     {
-                        Utxo coin;
-                        coin.m_index = index;
-                        coin.m_details = utxo;
-                        coins.push_back(coin);
+                        for (auto utxo : result)
+                        {
+                            Utxo coin;
+                            coin.m_index = index;
+                            coin.m_details = utxo;
+                            coins.push_back(coin);
+                        }
                     }
-                }
-                catch (const std::exception& ex)
-                {
-                    error.m_type = IBridge::InvalidResultFormat;
-                    error.m_message = ex.what();
+                    catch (const std::exception& ex)
+                    {
+                        error.m_type = IBridge::InvalidResultFormat;
+                        error.m_message = ex.what();
 
-                    callback(error, coins);
+                        callback(error, coins);
 
+                        return false;
+                    }
+
+                    if (++index < privateKeys.size())
+                    {
+                        std::string request = R"({"method":"blockchain.scripthash.listunspent","params":[")" + generateScriptHash(privateKeys[index].to_public(), addressVersion) + R"("], "id": "teste"})";
+                        request += "\n";
+
+                        Result res = connection.m_stream->write(request.data(), request.size());
+                        if (!res) {
+                            LOG_ERROR() << error_str(res.error());
+                        }
+                        return true;
+                    }
+                    m_lastCache = std::chrono::system_clock::now();
+                    m_cache = coins;
+                    IBridge::Error emptyError{ ErrorType::None, "" };
+                    callback(emptyError, coins);
                     return false;
                 }
-
-                if (++index < privateKeys.size())
-                {
-                    std::string request = R"({"method":"blockchain.scripthash.listunspent","params":[")" + generateScriptHash(privateKeys[index].to_public(), addressVersion) + R"("], "id": "teste"})";
-                    request += "\n";
-
-                    Result res = connection.m_stream->write(request.data(), request.size());
-                    if (!res) {
-                        LOG_ERROR() << error_str(res.error());
-                    }
-                    return true;
-                }
-                IBridge::Error emptyError{ ErrorType::None, "" };
-                callback(emptyError, coins);
+                callback(error, coins);
                 return false;
-            }
-            callback(error, coins);
-            return false;
-        });
+            });
+        }
+        else
+        {
+            m_asyncEvent = io::AsyncEvent::create(io::Reactor::get_Current(), [callback, cache = m_cache]()
+            {
+                Error error{ None, "" };
+                callback(error, cache);
+            });
+            m_asyncEvent->post();
+        }
     }
 
     void Electrum::sendRequest(const std::string& method, const std::string& params, std::function<bool(const Error&, const json&, uint64_t)> callback)
@@ -555,10 +579,10 @@ namespace beam::bitcoin
         connection.m_callback = callback;
 
         io::Address address;
-        if (!address.resolve(m_settingsProvider->GetElectrumSettings().m_address.c_str()))
+        if (!address.resolve(m_settingsProvider.GetElectrumSettings().m_address.c_str()))
         {
             // TODO process error
-            LOG_ERROR() << "unable to resolve electrum address: " << m_settingsProvider->GetElectrumSettings().m_address;
+            LOG_ERROR() << "unable to resolve electrum address: " << m_settingsProvider.GetElectrumSettings().m_address;
             return;
         }
 
@@ -570,9 +594,10 @@ namespace beam::bitcoin
                 return;
             }
 
+            TCPConnect& connection = m_connections[currentId];
+
             if (newStream) {
                 assert(status == EC_OK);
-                TCPConnect& connection = m_connections[currentId];
 
                 connection.m_stream = std::move(newStream);
 
@@ -642,6 +667,10 @@ namespace beam::bitcoin
             else
             {
                 // error
+                Error error{ IOError, "stream is empty" };
+                json result;
+                connection.m_callback(error, result, currentId);
+                m_connections.erase(currentId);
             }
         }, 2000, true);
     }
@@ -649,7 +678,7 @@ namespace beam::bitcoin
     std::string Electrum::getAddress(uint32_t index, const hd_private& privateKey) const
     {
         ec_public publicKey(privateKey.to_public().derive_public(index).point());
-        payment_address address = publicKey.to_payment_address(m_settingsProvider->GetElectrumSettings().m_addressVersion);
+        payment_address address = publicKey.to_payment_address(m_settingsProvider.GetElectrumSettings().m_addressVersion);
 
         return address.encoded();
     }    
@@ -658,7 +687,7 @@ namespace beam::bitcoin
     {
         std::vector<ec_private> result;
         auto privateKeys = generateMasterPrivateKeys();
-        auto settings = m_settingsProvider->GetElectrumSettings();
+        auto settings = m_settingsProvider.GetElectrumSettings();
         auto addressVersion = settings.m_addressVersion;
         auto receivingAddressAmount = settings.m_receivingAddressAmount;
 
@@ -677,7 +706,7 @@ namespace beam::bitcoin
 
     std::pair<hd_private, hd_private> Electrum::generateMasterPrivateKeys() const
     {
-        word_list seedPhrase(m_settingsProvider->GetElectrumSettings().m_secretWords);
+        word_list seedPhrase(m_settingsProvider.GetElectrumSettings().m_secretWords);
         auto hd_seed = electrum::decode_mnemonic(seedPhrase);
         data_chunk seed_chunk(to_chunk(hd_seed));
 #ifdef BEAM_MAINNET
@@ -687,5 +716,29 @@ namespace beam::bitcoin
 #endif
 
         return std::make_pair(masterPrivateKey.derive_private(0), masterPrivateKey.derive_private(1));
+    }
+
+    void Electrum::lockUtxo(std::string hash, uint32_t pos)
+    {
+        LockUtxo utxo{ hash, pos, std::chrono::system_clock::now() };
+        m_lockedUtxo.push_back(utxo);
+    }
+
+    bool Electrum::isLockedUtxo(std::string hash, uint32_t pos)
+    {
+        return std::find_if(m_lockedUtxo.begin(), m_lockedUtxo.end(), [hash, pos](const LockUtxo& u) -> bool
+        {
+            return u.m_txHash == hash && u.m_pos == pos;
+        }) != m_lockedUtxo.end();
+    }
+
+    void Electrum::reviewLockedUtxo()
+    {
+        auto idx = std::remove_if(m_lockedUtxo.begin(), m_lockedUtxo.end(), [now = std::chrono::system_clock::now()](const LockUtxo& u) -> bool
+        {
+            return (now - u.m_time) > std::chrono::hours(2);
+        });
+
+        m_lockedUtxo.erase(idx, m_lockedUtxo.end());
     }
 } // namespace beam::bitcoin

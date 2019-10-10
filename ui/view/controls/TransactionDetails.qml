@@ -19,6 +19,9 @@ RowLayout {
     property var hasPaymentProof
     property var isSelfTx
     property var rawTxID
+    property string searchFilter: ""
+    property bool hideFiltered: false
+    property var searchRegExp: { return new RegExp(root.searchFilter, "gi");}
 
     property var onOpenExternal: null
     signal textCopied(string text)
@@ -26,6 +29,29 @@ RowLayout {
     signal showPaymentProof()
 
     spacing: 30
+
+    function isFieldVisible() {
+        return root.searchFilter.length == 0 || hideFiltered == false;
+    }
+
+    function isTextFieldVisible(text) {
+        return isFieldVisible()
+        || (root.searchFilter.length > 0 && text.search(root.searchFilter) >= 0);
+    }
+
+    function getHighlitedText(text) {
+        if (root.searchFilter.length == 0)
+            return text;
+
+        var start = text.search(root.searchFilter);
+        if (start == -1)
+            return text;
+
+        var s = text.substr(start, root.searchFilter.length);
+        
+        return text.replace(root.searchRegExp, "<font color=\"" + Style.active.toString() + "\">" + s + "</font>");
+    }
+
     GridLayout {
         Layout.fillWidth: true
         Layout.preferredWidth: 4
@@ -43,6 +69,7 @@ RowLayout {
             text: qsTrId("tx-details-title")
             font.styleName: "Bold"; font.weight: Font.Bold
             Layout.columnSpan: 2
+            visible: root.isFieldVisible()
         }
         
         SFText {
@@ -51,16 +78,18 @@ RowLayout {
             color: Style.content_secondary
             //% "Sending address"
             text: qsTrId("tx-details-sending-addr-label") + ":"
+            visible: sendAddressField.visible
         }
         SFLabel {
+            id: sendAddressField
             Layout.fillWidth: true
             copyMenuEnabled: true
             font.pixelSize: 14
             color: Style.content_main
-            //wrapMode: Text.Wrap
             elide: Text.ElideMiddle
-            text: root.sendAddress
+            text: getHighlitedText(root.sendAddress)
             onCopyText: textCopied(text)
+            visible: isTextFieldVisible(text)
         }
 
         SFText {
@@ -69,16 +98,19 @@ RowLayout {
             color: Style.content_secondary
             //% "Receiving address"
             text: qsTrId("tx-details-receiving-addr-label") + ":"
+            visible: receiveAddressField.visible
         }
         SFLabel {
+            id: receiveAddressField
             Layout.fillWidth: true
             copyMenuEnabled: true
             font.pixelSize: 14
             color: Style.content_main
             //wrapMode: Text.Wrap
             elide: Text.ElideMiddle
-            text: root.receiveAddress
+            text: getHighlitedText(root.receiveAddress)
             onCopyText: textCopied(text)
+            visible: isTextFieldVisible(text)
         }
         
         SFText {
@@ -87,6 +119,7 @@ RowLayout {
             color: Style.content_secondary
             //% "Transaction fee"
             text: qsTrId("general-fee") + ":"
+            visible: root.isFieldVisible()
         }
         SFLabel {
             Layout.fillWidth: true
@@ -95,6 +128,7 @@ RowLayout {
             color: Style.content_main
             text: root.fee
             onCopyText: textCopied(text)
+            visible: root.isFieldVisible()
         }
         
         SFText {
@@ -103,6 +137,7 @@ RowLayout {
             color: Style.content_secondary
             //% "Comment"
             text: qsTrId("general-comment") + ":"
+            visible: commentTx.visible
         }
         SFLabel {
             Layout.fillWidth: true
@@ -111,10 +146,11 @@ RowLayout {
             font.pixelSize: 14
             color: Style.content_main
             wrapMode: Text.Wrap
-            text: root.comment
+            text: getHighlitedText(root.comment)
             font.styleName: "Italic"
             elide: Text.ElideRight
             onCopyText: textCopied(text)
+            visible: isTextFieldVisible(text)
         }
         SFText {
             Layout.alignment: Qt.AlignTop
@@ -122,6 +158,7 @@ RowLayout {
             color: Style.content_secondary
             //% "Transaction ID"
             text: qsTrId("tx-details-tx-id-label") + ":"
+            visible: transactionID.visible
         }
         SFLabel {
             Layout.fillWidth: true
@@ -129,10 +166,11 @@ RowLayout {
             copyMenuEnabled: true
             font.pixelSize: 14
             color: Style.content_main
-            text: root.txID
+            text: getHighlitedText(root.txID)
             font.styleName: "Italic"
             elide: Text.ElideMiddle
             onCopyText: textCopied(text)
+            visible: isTextFieldVisible(text)
         }
         SFText {
             Layout.alignment: Qt.AlignTop
@@ -140,6 +178,7 @@ RowLayout {
             color: Style.content_secondary
             //% "Kernel ID"
             text: qsTrId("general-kernel-id") + ":"
+            visible: kernelID.visible
         }
         SFLabel {
             Layout.fillWidth: true
@@ -148,10 +187,11 @@ RowLayout {
             font.pixelSize: 14
             color: Style.content_main
             //wrapMode: Text.Wrap
-            text: root.kernelID
+            text: getHighlitedText(root.kernelID)
             font.styleName: "Italic"
             elide: Text.ElideMiddle
             onCopyText: textCopied(text)
+            visible: isTextFieldVisible(text)
         }
 
         function canOpenInBlockchainExplorer(status) {
@@ -168,12 +208,12 @@ RowLayout {
         Item {
             Layout.fillWidth: true
             Layout.preferredHeight: 16
-            visible: parent.canOpenInBlockchainExplorer(root.status)
+            visible: parent.canOpenInBlockchainExplorer(root.status) && root.isFieldVisible()
         }
         Item {
             Layout.preferredWidth: openInExplorer.width + 10 + openInExplorerIcon.width
             Layout.preferredHeight: 16
-            visible: parent.canOpenInBlockchainExplorer(root.status)
+            visible: parent.canOpenInBlockchainExplorer(root.status) && root.isFieldVisible()
 
             SFText {
                 id: openInExplorer
@@ -209,7 +249,7 @@ RowLayout {
             color: Style.content_secondary
             //% "Error"
             text: qsTrId("tx-details-error-label") + ":"
-            visible: root.failureReason.length > 0
+            visible: root.failureReason.length > 0 && root.isFieldVisible()
         }
         SFLabel {
             id: failureReason
@@ -218,7 +258,7 @@ RowLayout {
             font.pixelSize: 14
             color: Style.content_main
             wrapMode: Text.Wrap
-            visible: root.failureReason.length > 0
+            visible: root.failureReason.length > 0 && root.isFieldVisible()
             text: root.failureReason.length > 0 ? root.failureReason : ""
             font.styleName: "Italic"
             elide: Text.ElideRight
@@ -236,8 +276,8 @@ RowLayout {
         columns: 2
         columnSpacing: 44
         rowSpacing: 14
-        visible: !root.isIncome
-        
+        visible: !root.isIncome && root.isFieldVisible()
+
         Item {
             Layout.fillWidth: true
             Layout.fillHeight: true

@@ -22,7 +22,7 @@ namespace beam::wallet
     class LitecoinSide : public BitcoinSide
     {
     public:
-        LitecoinSide(BaseTransaction& tx, bitcoin::IBridge::Ptr bitcoinBridge, litecoin::ISettingsProvider::Ptr settingsProvider, bool isBeamSide);
+        LitecoinSide(BaseTransaction& tx, bitcoin::IBridge::Ptr bitcoinBridge, litecoin::ISettingsProvider& settingsProvider, bool isBeamSide);
 
         static bool CheckAmount(Amount amount, Amount feeRate);
 

@@ -73,6 +73,8 @@ struct Node
 		uint32_t m_MiningThreads = 0; // by default disabled
 
 		bool m_LogUtxos = false; // may be insecure. Off by default.
+		bool m_LogTxStem = true;
+		bool m_LogTxFluff = true;
 
 		// Number of verification threads for CPU-hungry cryptography. Currently used for block validation only.
 		// 0: single threaded
@@ -376,6 +378,7 @@ private:
 
 	uint8_t ValidateTx(Transaction::Context&, const Transaction&); // complete validation
 	void LogTx(const Transaction&, uint8_t nStatus, const Transaction::KeyType&);
+	void LogTxStem(const Transaction&, const char* szTxt);
 
 	struct Bbs
 	{
@@ -479,6 +482,7 @@ private:
 			static const uint16_t HasTreasury	= 0x100;
 			static const uint16_t Chocking		= 0x200;
 			static const uint16_t Viewer		= 0x400;
+			static const uint16_t Accepted		= 0x800;
 		};
 
 		uint16_t m_Flags;

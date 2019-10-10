@@ -20,7 +20,8 @@
 #include "node_model.h"
 #include "helpers.h"
 #include "wallet/secstring.h"
-#include "wallet/private_key_keeper.h"
+#include "keykeeper/private_key_keeper.h"
+#include "wallet/bitcoin/bridge_holder.h"
 #include <memory>
 
 class AppModel final: public QObject
@@ -79,6 +80,10 @@ private:
     SwapCoinClientModel::Ptr m_bitcoinClient;
     SwapCoinClientModel::Ptr m_litecoinClient;
     SwapCoinClientModel::Ptr m_qtumClient;
+
+    beam::bitcoin::IBridgeHolder::Ptr m_btcBridgeHolder;
+    beam::bitcoin::IBridgeHolder::Ptr m_ltcBridgeHolder;
+    beam::bitcoin::IBridgeHolder::Ptr m_qtumBridgeHolder;
 
     WalletModel::Ptr m_wallet;
     beam::wallet::IPrivateKeyKeeper::Ptr m_keyKeeper;

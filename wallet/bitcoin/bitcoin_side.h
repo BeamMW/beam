@@ -27,7 +27,7 @@ namespace beam::wallet
     class BitcoinSide : public SecondSide, public std::enable_shared_from_this<BitcoinSide>
     {
     public:
-        BitcoinSide(BaseTransaction& tx, bitcoin::IBridge::Ptr bitcoinBridge, bitcoin::ISettingsProvider::Ptr settingsProvider, bool isBeamSide);
+        BitcoinSide(BaseTransaction& tx, bitcoin::IBridge::Ptr bitcoinBridge, bitcoin::ISettingsProvider& settingsProvider, bool isBeamSide);
         virtual ~BitcoinSide();
 
         bool Initialize() override;
@@ -79,13 +79,14 @@ namespace beam::wallet
     private:
         BaseTransaction& m_tx;
         bitcoin::IBridge::Ptr m_bitcoinBridge;
-        bitcoin::ISettingsProvider::Ptr m_settingsProvider;
+        bitcoin::ISettingsProvider& m_settingsProvider;
         bool m_isBtcOwner;
         uint64_t m_blockCount = 0;
 
         uint32_t m_SwapLockTxConfirmations = 0;
         uint32_t m_RefundTxConfirmations = 0;
         uint32_t m_RedeemTxConfirmations = 0;
+        uint32_t m_LockTxValuePosition = 0;
         boost::optional<std::string> m_SwapLockRawTx;
         boost::optional<std::string> m_SwapWithdrawRawTx;
     };

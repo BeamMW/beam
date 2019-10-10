@@ -42,7 +42,7 @@
 
 #if defined(BEAM_HW_WALLET)
 #include "core/block_rw.h"
-#include "wallet/hw_wallet.h"
+#include "keykeeper/hw_wallet.h"
 #endif
 
 using namespace beam;

@@ -18,6 +18,7 @@ T.Switch {
     palette.text:   Style.content_main
     font.pixelSize: 14
     property bool colored: true
+    property bool alwaysGreen: false
 
     contentItem: SFText {
         rightPadding: control.indicator.width + control.spacing
@@ -36,8 +37,8 @@ T.Switch {
         x:              control.width - width - control.rightPadding
         y:              parent.height / 2 - height / 2
         radius:         13
-        color:          colored && control.checked ? Qt.rgba(Style.active.r, Style.active.g, Style.active.b, 0.2): "transparent"
-        border.color:   colored && control.checked ? Style.active : Style.content_secondary
+        color:          (colored && control.checked) || alwaysGreen ? Qt.rgba(Style.active.r, Style.active.g, Style.active.b, 0.2): "transparent"
+        border.color:   (colored && control.checked) || alwaysGreen ? Style.active : Style.content_secondary
 
         Rectangle {
             id:           handle
@@ -46,7 +47,7 @@ T.Switch {
             width:        parent.height - 4
             height:       parent.height - 4
             radius:       (parent.height - 4) / 2
-            color:        colored && control.checked ? Style.active : Style.content_secondary
+            color:        (colored && control.checked) || alwaysGreen ? Style.active : Style.content_secondary
         }
     }
 }

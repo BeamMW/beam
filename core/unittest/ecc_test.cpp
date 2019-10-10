@@ -72,7 +72,7 @@
 #endif // TREZOR_DEBUG
 
 #if defined(BEAM_HW_WALLET)
-#include "wallet/hw_wallet.h"
+#include "keykeeper/hw_wallet.h"
 #endif
 
 // Needed for test

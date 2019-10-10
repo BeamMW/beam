@@ -32,13 +32,13 @@ namespace beam
     const char kTxStatusPending[] = "pending";
     const char kTxStatusWaitingForSender[] = "waiting for sender";
     const char kTxStatusWaitingForReceiver[] = "waiting for receiver";
-    const char kTxStatusSending[] = "sending";
-    const char kTxStatusReceiving[] = "receiving";
+    const char kTxStatusInProgress[] = "in progress";
+    const char kTxStatusSendingToOwn[] = "sending to own address";
     const char kTxStatusCancelled[] = "cancelled";
     const char kTxStatusSent[] = "sent";
     const char kTxStatusReceived[] = "received";
     const char kTxStatusFailed[] = "failed";
-    const char kTxStatusCompleted[] = "completed";
+    const char kTxStatusSentToOwn[] = "sent to own address";
     const char kTxStatusExpired[] = "expired";
 
     // Errors

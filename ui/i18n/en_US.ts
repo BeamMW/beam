@@ -1300,9 +1300,8 @@ or send this address to the sender over secure channel</translation>
         <translation>Swap</translation>
     </message>
     <message id="settings-reset">
-        <source>Switch off</source>
-        <oldsource>Clear</oldsource>
-        <translation type="unfinished">Clear</translation>
+        <source>Disconnect</source>
+        <translation>Disconnect</translation>
     </message>
     <message id="settings-node-address">
         <source>Node Address</source>
@@ -1327,10 +1326,6 @@ or send this address to the sender over secure channel</translation>
     <message id="swap-beta-title">
         <source>Atomic Swap is in BETA</source>
         <translation>Atomic Swap is in BETA</translation>
-    </message>
-    <message id="swap-beta-button">
-        <source>I understand</source>
-        <translation>I understand</translation>
     </message>
     <message id="swap-na-message">
         <source>You do not have any 3rd-party currencies connected.\nUpdate your settings and try again.</source>
@@ -1608,22 +1603,6 @@ or send this address to the sender over secure channel</translation>
         <source>There is no Trezor device connected. Please, connect and try again.</source>
         <translation>There is no Trezor device connected. Please, connect and try again.</translation>
     </message>
-    <message id="swap-beta-connection-error">
-        <source>Cannot connect to peer. Please check in the address in settings and retry.</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message id="atomic-swap-active-tx-count">
-        <source>%1 active transactions</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message id="atomic-swap-1active-tx-count">
-        <source>1 active transaction</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message id="swap-beta-tx-in-progress">
-        <source>Transaction is in progress</source>
-        <translation type="unfinished"></translation>
-    </message>
     <message id="settings-invalid-seed">
         <source>Invalid seed phrase</source>
         <translation>Invalid seed phrase</translation>
@@ -1664,6 +1643,89 @@ Please try again later or create an offer yourself.</translation>
     </message>
     <message id="wallet-txs-status-in-progress">
         <source>in progress</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="wallet-txs-status-own-sent">
+        <source>sent to own address</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="wallet-txs-status-own-sending">
+        <source>sending to own address</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="wallet-search-transactions-placeholder">
+        <source>Transaction or kernel ID, comment, address or contact</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="settings-swap-node">
+        <source>Node</source>
+        <translation>Node</translation>
+    </message>
+    <message id="wallet-clear-search">
+        <source>Clear search</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="wallet-search">
+        <source>Search</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="atomic-swap-1active-tx-count">
+        <source>1 active transaction</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="atomic-swap-active-tx-count">
+        <source>%1 active transactions</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="swap-beta-tx-in-progress">
+        <source>Transaction is in progress</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="swap-connecting">
+        <source>Connecting...</source>
+        <oldsource>Connecting.</oldsource>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="swap-beta-connection-error">
+        <source>Cannot connect to peer. Please check in the address in settings and retry.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="swap-alert-confirm-button">
+        <source>I understand</source>
+        <translation type="unfinished">I understand</translation>
+    </message>
+    <message id="only-swap-token-allowed-allert-head">
+        <source>Only swap token is allowed to use here.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="only-swap-token-allowed-allert-body">
+        <source>You have provided a wallet address.\nPlease fill in swap token and try again.</source>
+        <translation type="unfinished">You have provided a wallet address.
+Please fill in swap token and try again.</translation>
+    </message>
+    <message id="accept-own-offer-allert-head">
+        <source>Own offer can’t be accepted</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="accept-own-offer-allert-body">
+        <source>The transaction token was generated by you, therefore it is not allowed to accept your own offer.\nPlease check the swap token and try again.</source>
+        <translation type="unfinished">The transaction token was generated by you, therefore it is not allowed to accept your own offer.
+Please check the swap token and try again.</translation>
+    </message>
+    <message id="swap-copy-token">
+        <source>Copy token</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="atomic-swap-cancel-text">
+        <source>Are you sure you want to cancel your offer?</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="atomic-swap-cancel-button">
+        <source>cancel offer</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="atomic-swap-back-button">
+        <source>back</source>
         <translation type="unfinished"></translation>
     </message>
 </context>

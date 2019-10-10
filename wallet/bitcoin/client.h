@@ -18,6 +18,7 @@
 #include "settings_provider.h"
 #include "wallet/common.h"
 #include "wallet/wallet_db.h"
+#include "bridge_holder.h"
 
 namespace beam::bitcoin
 {
@@ -37,8 +38,6 @@ namespace beam::bitcoin
         , public std::enable_shared_from_this<ISettingsProvider>
     {
     public:
-
-        using CreateBridge = std::function<IBridge::Ptr(io::Reactor& reactor, ISettingsProvider::Ptr settingsProvider)>;
 
         struct Balance
         {
@@ -60,12 +59,13 @@ namespace beam::bitcoin
         enum class Status
         {
             Uninitialized,
+            Connecting,
             Connected,
             Failed,
             Unknown
         };
 
-        Client(CreateBridge bridgeCreator, std::unique_ptr<SettingsProvider> settingsProvider, io::Reactor& reactor);
+        Client(IBridgeHolder::Ptr bridgeHolder, std::unique_ptr<SettingsProvider> settingsProvider, io::Reactor& reactor);
 
         IClientAsync::Ptr GetAsync();
 
@@ -98,9 +98,8 @@ namespace beam::bitcoin
         Status m_status;
         io::Reactor& m_reactor;
         IClientAsync::Ptr m_async;
-        IBridge::Ptr m_bridge;
         std::unique_ptr<SettingsProvider> m_settingsProvider;
-        CreateBridge m_bridgeCreator;
+        IBridgeHolder::Ptr m_bridgeHolder;
 
         mutable std::mutex m_mutex;
         using Lock = std::unique_lock<std::mutex>;

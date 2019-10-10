@@ -191,6 +191,13 @@ namespace beam::wallet
         else throw jsonrpc_exception{ ApiError::InvalidJsonRpc, "Invalid 'session' parameter.", id };
 
         return session;
+    
+    }
+
+    void checkTxId(const ByteBuffer& txId, const JsonRpcId& id)
+    {
+        if (txId.size() != TxID().size())
+            throw jsonrpc_exception{ ApiError::InvalidTxId, "Transaction ID has wrong format.", id };
     }
 
     boost::optional<TxID> readTxIdParameter(const JsonRpcId& id, const nlohmann::json& params)
@@ -202,10 +209,9 @@ namespace beam::wallet
             TxID txIdDst;
             auto txIdSrc = from_hex(params["txId"]);
 
-            if (txIdSrc.size() != txIdDst.size())
-                throw jsonrpc_exception{ ApiError::InvalidTxId, "", id };
+            checkTxId(txIdSrc, id);
 
-            std::copy_n(txIdSrc.begin(), txIdDst.size(), txIdDst.begin());
+            std::copy_n(txIdSrc.begin(), TxID().size(), txIdDst.begin());
             txId = txIdDst;
         }
 
@@ -217,8 +223,8 @@ namespace beam::wallet
         checkJsonParam(params, "value", id);
         checkJsonParam(params, "address", id);
 
-        if (params["value"] <= 0)
-            throw jsonrpc_exception{ ApiError::InvalidJsonRpc, "Value must be >= 0.", id };
+        if (!params["value"].is_number_unsigned() || params["value"] == 0)
+            throw jsonrpc_exception{ ApiError::InvalidJsonRpc, "Value must be non zero 64bit unsigned integer.", id };
 
         if (params["address"].empty())
             throw jsonrpc_exception{ ApiError::InvalidAddress, "Address is empty.", id };
@@ -255,7 +261,7 @@ namespace beam::wallet
 
         if (existsJsonParam(params, "fee"))
         {
-            if(params["fee"] <= 0)
+            if(!params["fee"].is_number_unsigned() || params["fee"] == 0)
                 throw jsonrpc_exception{ ApiError::InvalidJsonRpc, "Invalid fee.", id };
 
             send.fee = params["fee"];
@@ -279,8 +285,7 @@ namespace beam::wallet
 
         auto txId = from_hex(params["txId"]);
 
-        if (txId.size() != status.txId.size())
-            throw jsonrpc_exception{ ApiError::InvalidTxId, "", id };
+        checkTxId(txId, id);
 
         std::copy_n(txId.begin(), status.txId.size(), status.txId.begin());
 
@@ -298,15 +303,15 @@ namespace beam::wallet
 
         for (const auto& amount : params["coins"])
         {
-            if(amount <= 0)
-                throw jsonrpc_exception{ ApiError::InvalidParamsJsonRpc, "Coin amount must be > 0.", id };
+            if(!amount.is_number_unsigned() || amount == 0)
+                throw jsonrpc_exception{ ApiError::InvalidParamsJsonRpc, "Coin amount must be non zero 64bit unsigned integer.", id };
 
             split.coins.push_back(amount);
         }
 
         if (existsJsonParam(params, "fee"))
         {
-            if (params["fee"] <= 0)
+            if (!params["fee"].is_number_unsigned() || params["fee"] == 0)
                 throw jsonrpc_exception{ ApiError::InvalidParamsJsonRpc, "Invalid fee.", id };
 
             split.fee = params["fee"];
@@ -328,8 +333,7 @@ namespace beam::wallet
 
         TxCancel txCancel;
 
-        if (txId.size() != txCancel.txId.size())
-            throw jsonrpc_exception{ ApiError::InvalidTxId, "", id };
+        checkTxId(txId, id);
 
         std::copy_n(txId.begin(), txCancel.txId.size(), txCancel.txId.begin());
 
@@ -343,8 +347,7 @@ namespace beam::wallet
 
         TxDelete txDelete;
 
-        if (txId.size() != txDelete.txId.size())
-            throw jsonrpc_exception{ ApiError::InvalidTxId, "", id };
+        checkTxId(txId, id);
 
         std::copy_n(txId.begin(), txDelete.txId.size(), txDelete.txId.begin());
 
