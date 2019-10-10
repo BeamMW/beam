@@ -462,6 +462,9 @@ namespace
 
             proto::FlyClient& client = sender.m_Wallet;
             client.OnRolledBack();
+            // emulating what FlyClient does on rollback
+            sender.m_WalletDB->get_History().AddStates(&tip, 1);
+            client.OnNewTip();
         }
 
         completedCount = 1;
