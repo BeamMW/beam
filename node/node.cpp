@@ -1256,7 +1256,7 @@ void Node::Peer::OnConnectedSecure()
 
     m_Flags |= Flags::Connected;
 
-    if (m_Port && m_This.m_Cfg.m_Listen.port())
+    if (!(Flags::Accepted & m_Flags) && m_This.m_Cfg.m_Listen.port())
     {
         // we've connected to the peer, let it now know our port
         proto::PeerInfoSelf msgPi;
@@ -3416,6 +3416,7 @@ void Node::Server::OnAccepted(io::TcpStream::Ptr&& newStream, int errorCode)
         LOG_DEBUG() << "New peer connected: " << newStream->address();
         Peer* p = get_ParentObj().AllocPeer(newStream->peer_address());
         p->Accept(std::move(newStream));
+		p->m_Flags |= Peer::Flags::Accepted;
         p->SecureConnect();
     }
 }
