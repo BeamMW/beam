@@ -19,7 +19,7 @@
 namespace beam::wallet
 {
     // TODO: remove after tests
-    constexpr uint32_t kBeamLockTimeInBlocks = 30;
+    constexpr uint32_t kBeamLockTimeInBlocks = 60;
     // TODO: uncomment after tests
     /*constexpr uint32_t kBeamLockTimeInBlocks = 24 * 60;*/
     constexpr Amount kMinFeeInGroth = 100;
