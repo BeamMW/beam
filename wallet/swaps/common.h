@@ -18,7 +18,10 @@
 
 namespace beam::wallet
 {
-    constexpr uint32_t kBeamLockTimeInBlocks = 24 * 60;
+    // TODO: remove after tests
+    constexpr uint32_t kBeamLockTimeInBlocks = 30;
+    // TODO: uncomment after tests
+    /*constexpr uint32_t kBeamLockTimeInBlocks = 24 * 60;*/
     constexpr Amount kMinFeeInGroth = 100;
 
     enum SubTxIndex : SubTxID
