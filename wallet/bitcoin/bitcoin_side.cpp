@@ -380,7 +380,7 @@ namespace beam::wallet
 
                     if (!txID.empty())
                     {
-                        m_tx.SetParameter(TxParameterID::Confirmations, 0, false, subTxID);
+                        m_tx.SetParameter(TxParameterID::Confirmations, uint32_t(0), false, subTxID);
                         m_tx.SetParameter(TxParameterID::AtomicSwapExternalTxID, txID, false, subTxID);
                     }
 
