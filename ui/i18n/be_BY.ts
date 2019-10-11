@@ -1736,5 +1736,41 @@ while active transaction is in progress</oldsource>
         <source>back</source>
         <translation type="unfinished"></translation>
     </message>
+    <message id="swap-details-lock-tx-id">
+        <source>lock transaction ID</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="swap-details-lock-tx-conf">
+        <source>lock transaction confirmations</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="swap-details-beam-lock-kernel-id">
+        <source>Beam lock transaction kernel ID</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="swap-details-beam-redeem-kernel-id">
+        <source>Beam redeem transaction kernel ID</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="swap-details-redeem-tx-id">
+        <source>redeem transaction ID</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="swap-details-redeem-tx-conf">
+        <source>redeem transaction confirmations</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="swap-details-beam-refund-kernel-id">
+        <source>Beam refund transaction kernel ID</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="swap-details-refund-tx-id">
+        <source>refund transaction ID</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="swap-details-refund-tx-conf">
+        <source>refund transaction confirmations</source>
+        <translation type="unfinished"></translation>
+    </message>
 </context>
 </TS>

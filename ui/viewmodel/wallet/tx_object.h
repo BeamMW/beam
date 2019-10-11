@@ -45,6 +45,17 @@ public:
     auto hasPaymentProof() const -> bool;
     QString getToken() const;
 
+    bool isProofReceived() const;
+    auto getSwapCoinLockTxId() const -> QString;
+    auto getSwapCoinLockTxConfirmations() const -> QString;
+    auto getSwapCoinRedeemTxId() const -> QString;
+    auto getSwapCoinRedeemTxConfirmations() const -> QString;
+    auto getSwapCoinRefundTxId() const -> QString;
+    auto getSwapCoinRefundTxConfirmations() const -> QString;
+    auto getBeamLockTxKernelId() const -> QString;
+    auto getBeamRedeemTxKernelId() const -> QString;
+    auto getBeamRefundTxKernelId() const -> QString;
+
     bool isIncome() const;
     bool isCancelAvailable() const;
     bool isDeleteAvailable() const;

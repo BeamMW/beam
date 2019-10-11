@@ -793,48 +793,25 @@ Item {
                                         width: transactionsTable.width
 
                                         property var txRolesMap: myModel
-                                        sendAddress:        txRolesMap && txRolesMap.addressTo ? txRolesMap.addressTo : ""
-                                        receiveAddress:     txRolesMap && txRolesMap.addressFrom ? txRolesMap.addressFrom : ""
-                                        fee:                txRolesMap && txRolesMap.fee ? txRolesMap.fee : ""
-                                        comment:            txRolesMap && txRolesMap.comment ? txRolesMap.comment : ""
-                                        txID:               txRolesMap && txRolesMap.txID ? txRolesMap.txID : ""
-                                        kernelID:           txRolesMap && txRolesMap.kernelID ? txRolesMap.kernelID : ""
-                                        status:             txRolesMap && txRolesMap.status ? txRolesMap.status : ""
-                                        failureReason:      txRolesMap && txRolesMap.failureReason ? txRolesMap.failureReason : ""
-                                        isIncome:           txRolesMap && txRolesMap.isIncome ? txRolesMap.isIncome : false
-                                        hasPaymentProof:    txRolesMap && txRolesMap.hasPaymentProof ? txRolesMap.hasPaymentProof : false
-                                        isSelfTx:           txRolesMap && txRolesMap.isSelfTransaction ? txRolesMap.isSelfTransaction : false
-                                        rawTxID:            txRolesMap && txRolesMap.rawTxID ? txRolesMap.rawTxID : null
+                                        swapCoinName:                   txRolesMap && txRolesMap.swapCoin ? txRolesMap.swapCoin : ""
+                                        isBeamSide:                     txRolesMap && txRolesMap.isBeamSideSwap ? txRolesMap.isBeamSideSwap : false
+                                        isProofReceived:                txRolesMap && txRolesMap.isProofReceived ? txRolesMap.isProofReceived : false
+                                        swapCoinLockTxId:               txRolesMap && txRolesMap.swapCoinLockTxId ? txRolesMap.swapCoinLockTxId : ""
+                                        swapCoinLockTxConfirmations:    txRolesMap && txRolesMap.swapCoinLockTxConfirmations ? txRolesMap.swapCoinLockTxConfirmations : ""
+                                        swapCoinRedeemTxId:             txRolesMap && txRolesMap.swapCoinRedeemTxId ? txRolesMap.swapCoinRedeemTxId : ""
+                                        swapCoinRedeemTxConfirmations:  txRolesMap && txRolesMap.swapCoinRedeemTxConfirmations ? txRolesMap.swapCoinRedeemTxConfirmations : ""
+                                        swapCoinRefundTxId:             txRolesMap && txRolesMap.swapCoinRefundTxId ? txRolesMap.swapCoinRefundTxId : ""
+                                        swapCoinRefundTxConfirmations:  txRolesMap && txRolesMap.swapCoinRefundTxConfirmations ? txRolesMap.swapCoinRefundTxConfirmations : ""
+                                        beamLockTxKernelId:             txRolesMap && txRolesMap.beamLockTxKernelId ? txRolesMap.beamLockTxKernelId : ""
+                                        beamRedeemTxKernelId:           txRolesMap && txRolesMap.beamRedeemTxKernelId ? txRolesMap.beamRedeemTxKernelId : ""
+                                        beamRefundTxKernelId:           txRolesMap && txRolesMap.beamRefundTxKernelId ? txRolesMap.beamRefundTxKernelId : ""
                                         
-                                        onOpenExternal : function() {
-                                            var url = Style.explorerUrl + "block?kernel_id=" + detailsPanel.kernelID;
-                                            Utils.openExternal(url, viewModel, externalLinkConfirmation);
-                                        } 
+                                        // onOpenExternal : function() {
+                                        //     var url = Style.explorerUrl + "block?kernel_id=" + detailsPanel.kernelID;
+                                        //     Utils.openExternal(url, viewModel, externalLinkConfirmation);
+                                        // } 
                                         onTextCopied: function (text) {
                                             BeamGlobals.copyToClipboard(text);
-                                        }
-                                        onCopyPaymentProof: function() {
-                                            if (detailsPanel.rawTxID)
-                                            {
-                                                var paymentInfo = viewModel.getPaymentInfo(detailsPanel.rawTxID);
-                                                if (paymentInfo.paymentProof.length == 0)
-                                                {
-                                                    paymentInfo.paymentProofChanged.connect(function() {
-                                                        textCopied(paymentInfo.paymentProof);
-                                                    });
-                                                }
-                                                else
-                                                {
-                                                    textCopied(paymentInfo.paymentProof);
-                                                }
-                                            }
-                                        }
-                                        onShowPaymentProof: {
-                                            if (detailsPanel.rawTxID)
-                                            {
-                                                paymentInfoDialog.model = viewModel.getPaymentInfo(detailsPanel.rawTxID);
-                                                paymentInfoDialog.open();
-                                            }
                                         }
                                     }
                                 }

@@ -59,7 +59,18 @@ public:
         SwapCoin,
         RawTxID,
         Search,
-        Token
+        Token,
+        //
+        IsProofReceived,
+        SwapCoinLockTxId,
+        SwapCoinLockTxConfirmations,
+        SwapCoinRedeemTxId,
+        SwapCoinRedeemTxConfirmations,
+        SwapCoinRefundTxId,
+        SwapCoinRefundTxConfirmations,
+        BeamLockTxKernelId,
+        BeamRedeemTxKernelId,
+        BeamRefundTxKernelId
     };
 
     TransactionsList();
