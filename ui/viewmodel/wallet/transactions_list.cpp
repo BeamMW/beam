@@ -46,6 +46,7 @@ auto TransactionsList::roleNames() const -> QHash<int, QByteArray>
         { static_cast<int>(Roles::IsSelfTransaction), "isSelfTransaction" },
         { static_cast<int>(Roles::IsIncome), "isIncome" },
         { static_cast<int>(Roles::IsInProgress), "isInProgress" },
+        { static_cast<int>(Roles::IsPending), "isPending" },
         { static_cast<int>(Roles::IsCompleted), "isCompleted" },
         { static_cast<int>(Roles::IsCanceled), "isCanceled" },
         { static_cast<int>(Roles::IsFailed), "isFailed" },
@@ -55,7 +56,17 @@ auto TransactionsList::roleNames() const -> QHash<int, QByteArray>
         { static_cast<int>(Roles::SwapCoin), "swapCoin" },
         { static_cast<int>(Roles::RawTxID), "rawTxID" },
         { static_cast<int>(Roles::Search), "search" },
-        { static_cast<int>(Roles::Token), "token" }
+        { static_cast<int>(Roles::Token), "token" },
+        { static_cast<int>(Roles::IsProofReceived), "isProofReceived" },
+        { static_cast<int>(Roles::SwapCoinLockTxId), "swapCoinLockTxId" },
+        { static_cast<int>(Roles::SwapCoinLockTxConfirmations), "swapCoinLockTxConfirmations" },
+        { static_cast<int>(Roles::SwapCoinRedeemTxId), "swapCoinRedeemTxId" },
+        { static_cast<int>(Roles::SwapCoinRedeemTxConfirmations), "swapCoinRedeemTxConfirmations" },
+        { static_cast<int>(Roles::SwapCoinRefundTxId), "swapCoinRefundTxId" },
+        { static_cast<int>(Roles::SwapCoinRefundTxConfirmations), "swapCoinRefundTxConfirmations" },
+        { static_cast<int>(Roles::BeamLockTxKernelId), "beamLockTxKernelId" },
+        { static_cast<int>(Roles::BeamRedeemTxKernelId), "beamRedeemTxKernelId" },
+        { static_cast<int>(Roles::BeamRefundTxKernelId), "beamRefundTxKernelId" }
     };
     return roles;
 }
@@ -132,6 +143,9 @@ auto TransactionsList::data(const QModelIndex &index, int role) const -> QVarian
         case Roles::IsInProgress:
             return value->isInProgress();
 
+        case Roles::IsPending:
+            return value->isPending();
+
         case Roles::IsCompleted:
             return value->isCompleted();
 
@@ -172,6 +186,36 @@ auto TransactionsList::data(const QModelIndex &index, int role) const -> QVarian
             r.append(value->getComment());
             return r;
         }
+
+        case Roles::IsProofReceived:
+            return value->isProofReceived();
+
+        case Roles::SwapCoinLockTxId:
+            return value->getSwapCoinLockTxId();
+
+        case Roles::SwapCoinLockTxConfirmations:
+            return value->getSwapCoinLockTxConfirmations();
+
+        case Roles::SwapCoinRedeemTxId:
+            return value->getSwapCoinRedeemTxId();
+
+        case Roles::SwapCoinRedeemTxConfirmations:
+            return value->getSwapCoinRedeemTxConfirmations();
+
+        case Roles::SwapCoinRefundTxId:
+            return value->getSwapCoinRefundTxId();
+
+        case Roles::SwapCoinRefundTxConfirmations:
+            return value->getSwapCoinRefundTxConfirmations();
+
+        case Roles::BeamLockTxKernelId:
+            return value->getBeamLockTxKernelId();
+
+        case Roles::BeamRedeemTxKernelId:
+            return value->getBeamRedeemTxKernelId();
+
+        case Roles::BeamRefundTxKernelId:
+            return value->getBeamRefundTxKernelId();
 
         default:
             return QVariant();

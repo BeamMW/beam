@@ -3237,7 +3237,7 @@ void Node::Peer::OnMsg(proto::BbsMsg&& msg)
         Bbs::Subscription& s = range.first->get_ParentObj();
 		assert(s.m_Cursor < id);
 
-        if ((this == s.m_pPeer) || s.m_pPeer->IsChocking())
+        if (s.m_pPeer->IsChocking())
             continue;
 
         s.m_pPeer->SendBbsMsg(wlk.m_Data);

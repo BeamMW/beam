@@ -231,7 +231,7 @@ namespace
                 , _wallet(wallet)
                 , _api(*this, acl)
                 , _wnet(wnet)
-                , _keyKeeper(std::make_shared<LocalPrivateKeyKeeper>(_walletDB))
+                , _keyKeeper(std::make_shared<LocalPrivateKeyKeeper>(_walletDB, _walletDB->get_MasterKdf()))
             {
                 _walletDB->Subscribe(this);
             }
@@ -1116,7 +1116,7 @@ int main(int argc, char* argv[])
 
         LogRotation logRotation(*reactor, LOG_ROTATION_PERIOD, options.logCleanupPeriod);
 
-        auto keyKeeper = std::make_shared<LocalPrivateKeyKeeper>(walletDB);
+        auto keyKeeper = std::make_shared<LocalPrivateKeyKeeper>(walletDB, walletDB->get_MasterKdf());
         Wallet wallet{ walletDB, keyKeeper };
 
         wallet.ResumeAllTransactions();

@@ -14,6 +14,7 @@
 #include "tx_object.h"
 #include "viewmodel/ui_helpers.h"
 #include "wallet/common.h"
+#include "wallet/swaps/common.h"
 
 using namespace beam;
 using namespace beam::wallet;
@@ -338,6 +339,11 @@ bool TxObject::isInProgress() const
     }
 }
 
+bool TxObject::isPending() const
+{
+    return m_tx.m_status == TxStatus::Pending;
+}
+
 bool TxObject::isCompleted() const
 {
     return m_tx.m_status == TxStatus::Completed;
@@ -381,6 +387,37 @@ namespace
             dest.SetParameter(id, inverse ? !*p : *p);
         }
     }
+
+    template<size_t V>
+    QString getSwapCoinTxId(const TxParameters& source)
+    {
+        if (auto res = source.GetParameter<std::string>(TxParameterID::AtomicSwapExternalTxID, V))
+        {
+            return QString(res->c_str());
+        }
+        else return QString();
+    }
+    
+    template<size_t V>
+    QString getSwapCoinTxConfirmations(const TxParameters& source)
+    {
+        if (auto res = source.GetParameter<uint32_t>(TxParameterID::Confirmations, V))
+        {
+            auto n = std::to_string(*res);
+            return QString::fromStdString(n);
+        }
+        else return QString();
+    }
+
+    template<size_t V>
+    QString getBeamTxKernelId(const TxParameters& source)
+    {
+        if (auto res = source.GetParameter<Merkle::Hash>(TxParameterID::KernelID, V))
+        {
+            return QString::fromStdString(to_hex(res->m_pData, res->nBytes));
+        }
+        else return QString();
+    }
 }
 
 QString TxObject::getToken() const
@@ -421,4 +458,59 @@ QString TxObject::getToken() const
     copyParameter<AtomicSwapCoin>(TxParameterID::AtomicSwapCoin, m_tx, tokenParams);
 
     return QString::fromStdString(std::to_string(tokenParams));
+}
+
+bool TxObject::isProofReceived() const
+{
+    Height proofHeight;
+    if (m_tx.GetParameter(TxParameterID::KernelProofHeight, proofHeight, SubTxIndex::BEAM_LOCK_TX))
+    {
+        return true;
+    }
+    else return false;
+}
+
+QString TxObject::getSwapCoinLockTxId() const
+{
+    return getSwapCoinTxId<SubTxIndex::LOCK_TX>(m_tx);
+}
+
+QString TxObject::getSwapCoinRedeemTxId() const
+{
+    return getSwapCoinTxId<SubTxIndex::REDEEM_TX>(m_tx);
+}
+
+QString TxObject::getSwapCoinRefundTxId() const
+{
+    return getSwapCoinTxId<SubTxIndex::REFUND_TX>(m_tx);
+}
+
+QString TxObject::getSwapCoinLockTxConfirmations() const
+{
+    return getSwapCoinTxConfirmations<SubTxIndex::LOCK_TX>(m_tx);
+}
+
+QString TxObject::getSwapCoinRedeemTxConfirmations() const
+{
+    return getSwapCoinTxConfirmations<SubTxIndex::REDEEM_TX>(m_tx);
+}
+
+QString TxObject::getSwapCoinRefundTxConfirmations() const
+{
+    return getSwapCoinTxConfirmations<SubTxIndex::REFUND_TX>(m_tx);
+}
+
+QString TxObject::getBeamLockTxKernelId() const
+{
+    return getBeamTxKernelId<SubTxIndex::BEAM_LOCK_TX>(m_tx);
+}
+
+QString TxObject::getBeamRedeemTxKernelId() const
+{
+    return getBeamTxKernelId<SubTxIndex::REDEEM_TX>(m_tx);
+}
+
+QString TxObject::getBeamRefundTxKernelId() const
+{
+    return getBeamTxKernelId<SubTxIndex::REFUND_TX>(m_tx);
 }

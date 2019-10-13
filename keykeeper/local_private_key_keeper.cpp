@@ -25,9 +25,9 @@ namespace beam::wallet
         const size_t kMaxNonces = 1000000;
     }
 
-    LocalPrivateKeyKeeper::LocalPrivateKeyKeeper(IWalletDB::Ptr walletDB)
-        : m_WalletDB(walletDB)
-        , m_MasterKdf(walletDB->get_MasterKdf())
+    LocalPrivateKeyKeeper::LocalPrivateKeyKeeper(IVariablesDB::Ptr walletDB, Key::IKdf::Ptr kdf)
+        : m_Variables(walletDB)
+        , m_MasterKdf(kdf)
     {
         LoadNonceSeeds();
     }
@@ -192,7 +192,7 @@ namespace beam::wallet
 
     Key::IKdf::Ptr LocalPrivateKeyKeeper::get_SbbsKdf() const
     {
-        return m_WalletDB->get_MasterKdf();
+        return m_MasterKdf;
     }
 
     void LocalPrivateKeyKeeper::LoadNonceSeeds()
@@ -200,7 +200,7 @@ namespace beam::wallet
         try
         {
             ByteBuffer buffer;
-            if (m_WalletDB->getBlob(LOCAL_NONCE_SEEDS, buffer) && !buffer.empty())
+            if (m_Variables->getBlob(LOCAL_NONCE_SEEDS, buffer) && !buffer.empty())
             {
                 Deserializer d;
                 d.reset(buffer);
@@ -224,7 +224,7 @@ namespace beam::wallet
         s& m_NonceSlotLast;
         ByteBuffer buffer;
         s.swap_buf(buffer);
-        m_WalletDB->setVarRaw(LOCAL_NONCE_SEEDS, buffer.data(), buffer.size());
+        m_Variables->setVarRaw(LOCAL_NONCE_SEEDS, buffer.data(), buffer.size());
     }
 
     ////

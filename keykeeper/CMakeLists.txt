@@ -17,9 +17,9 @@ target_link_libraries(keykeeper PRIVATE Boost::boost utility)
 
 configure_file("${PROJECT_SOURCE_DIR}/version.h.in" "${CMAKE_CURRENT_BINARY_DIR}/version.h")
 
-add_executable(${TARGET_NAME} main.cpp)
-target_include_directories(${TARGET_NAME} PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
-target_link_libraries(${TARGET_NAME} keykeeper)
+#add_executable(${TARGET_NAME} main.cpp)
+#target_include_directories(${TARGET_NAME} PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
+#target_link_libraries(${TARGET_NAME} PRIVATE Boost::boost keykeeper core mnemonic)
 
 #add_subdirectory(unittest)
 
