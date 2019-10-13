@@ -1922,90 +1922,88 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, MultiblockContext& m
 		}
 
 		if (bOk)
-		{
-			ECC::Scalar offsAcc = block.m_Offset;
-
-			if (sid.m_Height > Rules::HeightGenesis)
-			{
-				uint64_t row = sid.m_Row;
-				if (!m_DB.get_Prev(row))
-					OnCorrupted();
-
-				AdjustOffset(offsAcc, row, true);
-			}
-
-			// save shielded in/outs
-			uint32_t nIns = 0, nOuts = 0;
-
-			for (size_t i = 0; i < block.m_vInputs.size(); i++)
-				if (block.m_vInputs[i]->m_pSpendProof)
-					nIns++;
-			for (size_t i = 0; i < block.m_vOutputs.size(); i++)
-				if (block.m_vOutputs[i]->m_pDoubleBlind)
-					nOuts++;
-
-			if (nIns || nOuts)
-			{
-				Serializer ser;
-				bbP.clear();
-				ser.swap_buf(bbP);
-
-				ser & offsAcc;
-
-				ser & beam::uintBigFrom(nIns);
-				for (size_t i = 0; i < block.m_vInputs.size(); i++)
-					if (block.m_vInputs[i]->m_pSpendProof)
-						ser & *block.m_vInputs[i];
-
-				ser & beam::uintBigFrom(nOuts);
-
-				if (nOuts)
-				{
-					ECC::Point::Native pt_n;
-					bbE.resize(sizeof(ECC::Point::Storage) * nOuts);
-					ECC::Point::Storage* pSt = reinterpret_cast<ECC::Point::Storage*>(&bbE.front());
-
-					nOuts = 0;
-					for (size_t i = 0; i < block.m_vOutputs.size(); i++)
-					{
-						const Output& v = *block.m_vOutputs[i];
-						if (v.m_pDoubleBlind)
-						{
-							ser & v;
-
-							ECC::Point::Storage pt_s;
-							BEAM_VERIFY(pt_n.Import(v.m_Commitment, &pt_s));
-
-							memcpy(pSt + nOuts, &pt_s, sizeof(pt_s));
-
-							nOuts++;
-						}
-					}
-
-					// Append to cmList
-					m_DB.ShieldedResize(m_Extra.m_Shielded);
-					m_DB.ShieldedWrite(m_Extra.m_Shielded - nOuts, pSt, nOuts);
-
-				}
-				ser.swap_buf(bbP);
-
-				Blob blob(bbP);
-				m_DB.set_StateExtra(sid.m_Row, &blob);
-			}
-			else
-			{
-				Blob blob(offsAcc.m_Value);
-				m_DB.set_StateExtra(sid.m_Row, &blob);
-			}
-
 			m_DB.set_StateTxos(sid.m_Row, &m_Extra.m_Txos);
-		}
 		else
             BEAM_VERIFY(HandleValidatedBlock(block.get_Reader(), block, sid.m_Height, false));
 	}
 
 	if (bOk)
 	{
+		ECC::Scalar offsAcc = block.m_Offset;
+
+		if (sid.m_Height > Rules::HeightGenesis)
+		{
+			uint64_t row = sid.m_Row;
+			if (!m_DB.get_Prev(row))
+				OnCorrupted();
+
+			AdjustOffset(offsAcc, row, true);
+		}
+
+		// save shielded in/outs
+		uint32_t nIns = 0, nOuts = 0;
+
+		for (size_t i = 0; i < block.m_vInputs.size(); i++)
+			if (block.m_vInputs[i]->m_pSpendProof)
+				nIns++;
+		for (size_t i = 0; i < block.m_vOutputs.size(); i++)
+			if (block.m_vOutputs[i]->m_pDoubleBlind)
+				nOuts++;
+
+		if (nIns || nOuts)
+		{
+			Serializer ser;
+			bbP.clear();
+			ser.swap_buf(bbP);
+
+			ser & offsAcc;
+
+			ser & beam::uintBigFrom(nIns);
+			for (size_t i = 0; i < block.m_vInputs.size(); i++)
+				if (block.m_vInputs[i]->m_pSpendProof)
+					ser & *block.m_vInputs[i];
+
+			ser & beam::uintBigFrom(nOuts);
+
+			if (nOuts)
+			{
+				ECC::Point::Native pt_n;
+				bbE.resize(sizeof(ECC::Point::Storage) * nOuts);
+				ECC::Point::Storage* pSt = reinterpret_cast<ECC::Point::Storage*>(&bbE.front());
+
+				nOuts = 0;
+				for (size_t i = 0; i < block.m_vOutputs.size(); i++)
+				{
+					const Output& v = *block.m_vOutputs[i];
+					if (v.m_pDoubleBlind)
+					{
+						ser & v;
+
+						ECC::Point::Storage pt_s;
+						BEAM_VERIFY(pt_n.Import(v.m_Commitment, &pt_s));
+
+						memcpy(pSt + nOuts, &pt_s, sizeof(pt_s));
+
+						nOuts++;
+					}
+				}
+
+				// Append to cmList
+				m_DB.ShieldedResize(m_Extra.m_Shielded);
+				m_DB.ShieldedWrite(m_Extra.m_Shielded - nOuts, pSt, nOuts);
+
+			}
+			ser.swap_buf(bbP);
+
+			Blob blob(bbP);
+			m_DB.set_StateExtra(sid.m_Row, &blob);
+		}
+		else
+		{
+			Blob blob(offsAcc.m_Value);
+			m_DB.set_StateExtra(sid.m_Row, &blob);
+		}
+
 		for (size_t i = 0; i < vKrnID.size(); i++)
 			m_DB.InsertKernel(vKrnID[i], sid.m_Height);
 
