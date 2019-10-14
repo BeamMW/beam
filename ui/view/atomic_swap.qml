@@ -806,10 +806,6 @@ Item {
                                         beamRedeemTxKernelId:           txRolesMap && txRolesMap.beamRedeemTxKernelId ? txRolesMap.beamRedeemTxKernelId : ""
                                         beamRefundTxKernelId:           txRolesMap && txRolesMap.beamRefundTxKernelId ? txRolesMap.beamRefundTxKernelId : ""
                                         
-                                        // onOpenExternal : function() {
-                                        //     var url = Style.explorerUrl + "block?kernel_id=" + detailsPanel.kernelID;
-                                        //     Utils.openExternal(url, viewModel, externalLinkConfirmation);
-                                        // } 
                                         onTextCopied: function (text) {
                                             BeamGlobals.copyToClipboard(text);
                                         }
