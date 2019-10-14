@@ -194,12 +194,9 @@ ColumnLayout {
         ColumnLayout {
             width: parent.width / 2 - parent.columnSpacing / 2
 
-            //
-            // Send Amount
-            //
             AmountInput {
                 Layout.topMargin: 25
-                //% "Sent amount"
+                //% "Send amount"
                 title:            qsTrId("sent-amount-label")
                 id:               sendAmountInput
                 hasFee:           true
