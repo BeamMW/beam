@@ -1348,8 +1348,8 @@ or send this address to the sender over secure channel</translation>
         <translation>Receive amount</translation>
     </message>
     <message id="sent-amount-label">
-        <source>Sent amount</source>
-        <translation>Sent amount</translation>
+        <source>Send amount</source>
+        <translation>Send amount</translation>
     </message>
     <message id="wallet-receive-offer-expires-label">
         <source>Offer expiration time</source>

@@ -1344,7 +1344,7 @@ Update your settings and try again.</oldsource>
         <translation type="unfinished"></translation>
     </message>
     <message id="sent-amount-label">
-        <source>Sent amount</source>
+        <source>Send amount</source>
         <translation type="unfinished"></translation>
     </message>
     <message id="wallet-receive-offer-expires-label">
