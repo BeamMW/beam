@@ -12,13 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "transactions_list.h"
+#include "tx_object_list.h"
 
-TransactionsList::TransactionsList()
+TxObjectList::TxObjectList()
 {
 }
 
-auto TransactionsList::roleNames() const -> QHash<int, QByteArray>
+auto TxObjectList::roleNames() const -> QHash<int, QByteArray>
 {
     static const auto roles = QHash<int, QByteArray>
     {
@@ -26,10 +26,6 @@ auto TransactionsList::roleNames() const -> QHash<int, QByteArray>
         { static_cast<int>(Roles::TimeCreatedSort), "timeCreatedSort" },
         { static_cast<int>(Roles::AmountGeneral), "amountGeneral" },
         { static_cast<int>(Roles::AmountGeneralSort), "amountGeneralSort" },
-        { static_cast<int>(Roles::AmountSend), "amountSend" },
-        { static_cast<int>(Roles::AmountSendSort), "amountSendSort" },
-        { static_cast<int>(Roles::AmountReceive), "amountReceive" },
-        { static_cast<int>(Roles::AmountReceiveSort), "amountReceiveSort" },
         { static_cast<int>(Roles::AddressFrom), "addressFrom" },
         { static_cast<int>(Roles::AddressFromSort), "addressFromSort" },
         { static_cast<int>(Roles::AddressTo), "addressTo" },
@@ -51,27 +47,14 @@ auto TransactionsList::roleNames() const -> QHash<int, QByteArray>
         { static_cast<int>(Roles::IsCanceled), "isCanceled" },
         { static_cast<int>(Roles::IsFailed), "isFailed" },
         { static_cast<int>(Roles::IsExpired), "isExpired" },
-        { static_cast<int>(Roles::IsBeamSideSwap), "isBeamSideSwap" },
         { static_cast<int>(Roles::HasPaymentProof), "hasPaymentProof" },
-        { static_cast<int>(Roles::SwapCoin), "swapCoin" },
         { static_cast<int>(Roles::RawTxID), "rawTxID" },
-        { static_cast<int>(Roles::Search), "search" },
-        { static_cast<int>(Roles::Token), "token" },
-        { static_cast<int>(Roles::IsProofReceived), "isProofReceived" },
-        { static_cast<int>(Roles::SwapCoinLockTxId), "swapCoinLockTxId" },
-        { static_cast<int>(Roles::SwapCoinLockTxConfirmations), "swapCoinLockTxConfirmations" },
-        { static_cast<int>(Roles::SwapCoinRedeemTxId), "swapCoinRedeemTxId" },
-        { static_cast<int>(Roles::SwapCoinRedeemTxConfirmations), "swapCoinRedeemTxConfirmations" },
-        { static_cast<int>(Roles::SwapCoinRefundTxId), "swapCoinRefundTxId" },
-        { static_cast<int>(Roles::SwapCoinRefundTxConfirmations), "swapCoinRefundTxConfirmations" },
-        { static_cast<int>(Roles::BeamLockTxKernelId), "beamLockTxKernelId" },
-        { static_cast<int>(Roles::BeamRedeemTxKernelId), "beamRedeemTxKernelId" },
-        { static_cast<int>(Roles::BeamRefundTxKernelId), "beamRefundTxKernelId" }
+        { static_cast<int>(Roles::Search), "search" }
     };
     return roles;
 }
 
-auto TransactionsList::data(const QModelIndex &index, int role) const -> QVariant
+auto TxObjectList::data(const QModelIndex &index, int role) const -> QVariant
 {
     if (!index.isValid() || index.row() < 0 || index.row() >= m_list.size())
     {
@@ -91,16 +74,6 @@ auto TransactionsList::data(const QModelIndex &index, int role) const -> QVarian
         case Roles::AmountGeneralSort:
             return value->getAmountValue();
             
-        case Roles::AmountSend:
-            return value->getSentAmount();
-        case Roles::AmountSendSort:
-            return static_cast<double>(value->getSentAmountValue());
-
-        case Roles::AmountReceive:
-            return value->getReceivedAmount();
-        case Roles::AmountReceiveSort:
-            return static_cast<double>(value->getReceivedAmountValue());
-
         case Roles::AddressFrom:
         case Roles::AddressFromSort:
             return value->getAddressFrom();
@@ -158,20 +131,11 @@ auto TransactionsList::data(const QModelIndex &index, int role) const -> QVarian
         case Roles::IsExpired:
             return value->isExpired();
 
-        case Roles::IsBeamSideSwap:
-            return value->isBeamSideSwap();
-
         case Roles::HasPaymentProof:
             return value->hasPaymentProof();
 
-        case Roles::SwapCoin:
-            return value->getSwapCoinName();
-
         case Roles::RawTxID:
             return QVariant::fromValue(value->getTxID());
-
-        case Roles::Token:
-            return value->getToken();
 
         case Roles::Search: 
         {
@@ -187,42 +151,12 @@ auto TransactionsList::data(const QModelIndex &index, int role) const -> QVarian
             return r;
         }
 
-        case Roles::IsProofReceived:
-            return value->isProofReceived();
-
-        case Roles::SwapCoinLockTxId:
-            return value->getSwapCoinLockTxId();
-
-        case Roles::SwapCoinLockTxConfirmations:
-            return value->getSwapCoinLockTxConfirmations();
-
-        case Roles::SwapCoinRedeemTxId:
-            return value->getSwapCoinRedeemTxId();
-
-        case Roles::SwapCoinRedeemTxConfirmations:
-            return value->getSwapCoinRedeemTxConfirmations();
-
-        case Roles::SwapCoinRefundTxId:
-            return value->getSwapCoinRefundTxId();
-
-        case Roles::SwapCoinRefundTxConfirmations:
-            return value->getSwapCoinRefundTxConfirmations();
-
-        case Roles::BeamLockTxKernelId:
-            return value->getBeamLockTxKernelId();
-
-        case Roles::BeamRedeemTxKernelId:
-            return value->getBeamRedeemTxKernelId();
-
-        case Roles::BeamRefundTxKernelId:
-            return value->getBeamRefundTxKernelId();
-
         default:
             return QVariant();
     }
 }
 
-void TransactionsList::remove(const std::vector<std::shared_ptr<TxObject>>& items)
+void TxObjectList::remove(const std::vector<std::shared_ptr<TxObject>>& items)
 {
     for (const auto& item : items)
     {
@@ -239,7 +173,7 @@ void TransactionsList::remove(const std::vector<std::shared_ptr<TxObject>>& item
     }
 }
 
-void TransactionsList::update(const std::vector<std::shared_ptr<TxObject>>& items)
+void TxObjectList::update(const std::vector<std::shared_ptr<TxObject>>& items)
 {
     for (const auto& item : items)
     {
