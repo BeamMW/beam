@@ -62,12 +62,10 @@
     </message>
     <message id="general-receiving">
         <source></source>
-        <oldsource>receiving</oldsource>
         <translation type="unfinished">กำลังรับ</translation>
     </message>
     <message id="general-sending">
         <source></source>
-        <oldsource>sending</oldsource>
         <translation type="unfinished">กำลังโอน</translation>
     </message>
     <message id="general-rescan">
@@ -803,12 +801,10 @@
     </message>
     <message id="loading-view-download-blocks">
         <source>Synching with blockchain</source>
-        <oldsource>Downloading new blocks</oldsource>
         <translation type="unfinished">กำลังดาวน์โหลดบล็อค</translation>
     </message>
     <message id="loading-view-scaning-utxo">
         <source>Loading wallet data %d/%d</source>
-        <oldsource>Locating your funds %d/%d</oldsource>
         <translation type="unfinished">กำลังสแกน UTXO %d/%d</translation>
     </message>
     <message id="loading-view-protocol-error">
@@ -1292,7 +1288,6 @@
     </message>
     <message id="settings-reset">
         <source>Disconnect</source>
-        <oldsource>Switch off</oldsource>
         <translation type="unfinished"></translation>
     </message>
     <message id="settings-node-address">
@@ -1477,7 +1472,6 @@ Update your settings and try again.</oldsource>
     </message>
     <message id="loading-view-rebuild-utxos">
         <source>Rebuilding wallet data</source>
-        <oldsource>Rebuilding data</oldsource>
         <translation type="unfinished"></translation>
     </message>
     <message id="wallet-receive-copy-token">
@@ -1616,7 +1610,6 @@ while active transaction is in progress</oldsource>
     </message>
     <message id="swap-connecting">
         <source>Connecting...</source>
-        <oldsource>Connecting.</oldsource>
         <translation type="unfinished"></translation>
     </message>
     <message id="swap-beta-connection-error">
@@ -1740,11 +1733,11 @@ while active transaction is in progress</oldsource>
         <translation type="unfinished"></translation>
     </message>
     <message id="swap-details-beam-lock-kernel-id">
-        <source>Beam lock transaction kernel ID</source>
+        <source>BEAM lock transaction kernel ID</source>
         <translation type="unfinished"></translation>
     </message>
     <message id="swap-details-beam-redeem-kernel-id">
-        <source>Beam redeem transaction kernel ID</source>
+        <source>BEAM redeem transaction kernel ID</source>
         <translation type="unfinished"></translation>
     </message>
     <message id="swap-details-redeem-tx-id">
@@ -1756,7 +1749,7 @@ while active transaction is in progress</oldsource>
         <translation type="unfinished"></translation>
     </message>
     <message id="swap-details-beam-refund-kernel-id">
-        <source>Beam refund transaction kernel ID</source>
+        <source>BEAM refund transaction kernel ID</source>
         <translation type="unfinished"></translation>
     </message>
     <message id="swap-details-refund-tx-id">

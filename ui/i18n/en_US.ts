@@ -62,12 +62,10 @@
     </message>
     <message id="general-receiving">
         <source></source>
-        <oldsource>receiving</oldsource>
         <translation type="unfinished">receiving</translation>
     </message>
     <message id="general-sending">
         <source></source>
-        <oldsource>sending</oldsource>
         <translation type="unfinished">sending</translation>
     </message>
     <message id="general-rescan">
@@ -186,7 +184,6 @@
     </message>
     <message id="general-addr-comment-error">
         <source>Address with the same comment already exists</source>
-        <oldsource>Address with same comment already exist</oldsource>
         <translation>Address with same comment already exist</translation>
     </message>
     <message id="wallet-receive-button">
@@ -574,17 +571,14 @@
     </message>
     <message id="wallet-receive-title">
         <source>Receive</source>
-        <oldsource>Receive Beam</oldsource>
         <translation>Receive Beam</translation>
     </message>
     <message id="wallet-receive-my-addr-label">
         <source>My address (auto-generated)</source>
-        <oldsource>My address</oldsource>
         <translation>My address</translation>
     </message>
     <message id="wallet-receive-expires-label">
         <source>Expires in</source>
-        <oldsource>Expires</oldsource>
         <translation>Expires</translation>
     </message>
     <message id="wallet-receive-expires-24">
@@ -609,17 +603,14 @@
     </message>
     <message id="send-title">
         <source>Send</source>
-        <oldsource>Send Beam</oldsource>
         <translation>Send Beam</translation>
     </message>
     <message id="send-send-to-label">
         <source>Transaction token or contact</source>
-        <oldsource>Send To</oldsource>
         <translation>Send To</translation>
     </message>
     <message id="send-contact-placeholder">
         <source>Please specify contact or transaction token</source>
-        <oldsource>Please specify contact</oldsource>
         <translation>Please specify contact</translation>
     </message>
     <message id="send-amount-label">
@@ -1683,7 +1674,6 @@ Please try again later or create an offer yourself.</translation>
     </message>
     <message id="swap-connecting">
         <source>Connecting...</source>
-        <oldsource>Connecting.</oldsource>
         <translation type="unfinished"></translation>
     </message>
     <message id="swap-beta-connection-error">
@@ -1737,11 +1727,11 @@ Please check the swap token and try again.</translation>
         <translation type="unfinished"></translation>
     </message>
     <message id="swap-details-beam-lock-kernel-id">
-        <source>Beam lock transaction kernel ID</source>
+        <source>BEAM lock transaction kernel ID</source>
         <translation type="unfinished"></translation>
     </message>
     <message id="swap-details-beam-redeem-kernel-id">
-        <source>Beam redeem transaction kernel ID</source>
+        <source>BEAM redeem transaction kernel ID</source>
         <translation type="unfinished"></translation>
     </message>
     <message id="swap-details-redeem-tx-id">
@@ -1753,7 +1743,7 @@ Please check the swap token and try again.</translation>
         <translation type="unfinished"></translation>
     </message>
     <message id="swap-details-beam-refund-kernel-id">
-        <source>Beam refund transaction kernel ID</source>
+        <source>BEAM refund transaction kernel ID</source>
         <translation type="unfinished"></translation>
     </message>
     <message id="swap-details-refund-tx-id">
