@@ -66,7 +66,7 @@ function calcDisplayRate(aiReceive, aiSend, numOnly) {
     var amr = aiReceive.amount
     if (ams == 0 || amr == 0) return numOnly ? "" : "?"
 
-    return (ams / amr).toLocaleString(numOnly ? Qt.locale("C") : Qt.locale(), 'f', 17).replace(/\.?0+$/,"")
+    return (ams / amr).toLocaleString(numOnly ? Qt.locale("C") : Qt.locale(), 'f', 28).replace(/\.?0+$/,"")
 }
 
 function getAmountWithoutCurrency(amountWithCurrency) {

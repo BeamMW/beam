@@ -343,7 +343,7 @@ ColumnLayout {
                     text:             Utils.calcDisplayRate(receiveAmountInput, sentAmountInput, rateInput.focus)
                     selectByMouse:    true
                     maximumLength:    30
-                    validator:        RegExpValidator {regExp: /^(([1-9][0-9]{0,7})|(1[0-9]{8})|(2[0-4][0-9]{7})|(25[0-3][0-9]{6})|(0))(\.[0-9]{0,16}[1-9])?$/}
+                    validator:        RegExpValidator {regExp: /^(([1-9][0-9]{0,7})|(1[0-9]{8})|(2[0-4][0-9]{7})|(25[0-3][0-9]{6})|(0))(\.[0-9]{0,27}[1-9])?$/}
 
                     onTextEdited: {
                         // unbind
