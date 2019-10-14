@@ -82,7 +82,7 @@ Rectangle {
             SFText {
                 anchors.left: parent.left
                 anchors.right: parent.right
-                leftPadding: 20
+                leftPadding: 15
                 rightPadding: 20
                 font.pixelSize: textSize
                 color: textColor
@@ -95,7 +95,7 @@ Rectangle {
             SFText {
                 anchors.left: parent.left
                 anchors.right: parent.right
-                leftPadding: 20
+                leftPadding: 15
                 rightPadding: 20
                 font.pixelSize: textSecondarySize
                 color: textSecondaryColor
@@ -145,7 +145,7 @@ Rectangle {
             anchors.verticalCenter: parent.verticalCenter
             anchors.right: parent.right
             anchors.margins: {
-                right: 15
+                right: 10
             }
 
             source: "qrc:/assets/loading-spinner.svg"
