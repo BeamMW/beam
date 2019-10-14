@@ -101,18 +101,18 @@ namespace
 
 namespace beam::wallet
 {
-    BitcoinSide::BitcoinSide(BaseTransaction& tx, bitcoin::IBridge::Ptr bitcoinBridge, bitcoin::ISettingsProvider::Ptr settingsProvider, bool isBeamSide)
+    BitcoinSide::BitcoinSide(BaseTransaction& tx, bitcoin::IBridge::Ptr bitcoinBridge, bitcoin::ISettingsProvider& settingsProvider, bool isBeamSide)
         : m_tx(tx)
         , m_bitcoinBridge(bitcoinBridge)
         , m_settingsProvider(settingsProvider)
         , m_isBtcOwner(!isBeamSide)
     {
-        m_settingsProvider->AddRef();
+        m_settingsProvider.AddRef();
     }
 
     BitcoinSide::~BitcoinSide()
     {
-        m_settingsProvider->ReleaseRef();
+        m_settingsProvider.ReleaseRef();
     }
 
     bool BitcoinSide::Initialize()
@@ -304,7 +304,7 @@ namespace beam::wallet
 
     Amount BitcoinSide::GetFeeRate() const
     {
-        return m_settingsProvider->GetSettings().GetFeeRate();
+        return m_settingsProvider.GetSettings().GetFeeRate();
     }
 
     Amount BitcoinSide::GetFeeRate(SubTxID subTxID) const
@@ -324,12 +324,12 @@ namespace beam::wallet
 
     uint16_t BitcoinSide::GetTxMinConfirmations() const
     {
-        return m_settingsProvider->GetSettings().GetTxMinConfirmations();
+        return m_settingsProvider.GetSettings().GetTxMinConfirmations();
     }
 
     uint32_t BitcoinSide::GetLockTimeInBlocks() const
     {
-        return m_settingsProvider->GetSettings().GetLockTimeInBlocks();
+        return m_settingsProvider.GetSettings().GetLockTimeInBlocks();
     }
 
     bool BitcoinSide::LoadSwapAddress()
@@ -380,7 +380,7 @@ namespace beam::wallet
 
                     if (!txID.empty())
                     {
-                        m_tx.SetParameter(TxParameterID::Confirmations, 0, false, subTxID);
+                        m_tx.SetParameter(TxParameterID::Confirmations, uint32_t(0), false, subTxID);
                         m_tx.SetParameter(TxParameterID::AtomicSwapExternalTxID, txID, false, subTxID);
                     }
 

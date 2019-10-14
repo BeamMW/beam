@@ -238,7 +238,7 @@ namespace beam::wallet
     {
         if (m_AsyncUpdateCounter == 0)
         {
-            LOG_VERBOSE() << "Async update started!";
+            LOG_DEBUG() << "Async update started!";
         }
         ++m_AsyncUpdateCounter;
     }
@@ -247,7 +247,7 @@ namespace beam::wallet
     {
         if (--m_AsyncUpdateCounter == 0)
         {
-            LOG_VERBOSE() << "Async update finished!";
+            LOG_DEBUG() << "Async update finished!";
             if (m_UpdateCompleted)
             {
                 m_UpdateCompleted();

@@ -19,7 +19,7 @@
 #include "model/wallet_model.h"
 #include "model/settings.h"
 #include "viewmodel/messages_view.h"
-#include "transactions_list.h"
+#include "tx_object_list.h"
 
 class WalletViewModel : public QObject
 {
@@ -71,5 +71,5 @@ signals:
 private:
     WalletModel& _model;
     WalletSettings& _settings;
-    TransactionsList _transactionsList;
+    TxObjectList _transactionsList;
 };

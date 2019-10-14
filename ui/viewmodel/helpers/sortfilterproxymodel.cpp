@@ -13,13 +13,13 @@
 // limitations under the License.
 
 #include "sortfilterproxymodel.h"
-#include <QtDebug>
-#include <QtQml>
 
 SortFilterProxyModel::SortFilterProxyModel(QObject *parent) : QSortFilterProxyModel(parent), m_complete(false)
 {
-    connect(this, &QSortFilterProxyModel::rowsInserted, this, &SortFilterProxyModel::countChanged);
-    connect(this, &QSortFilterProxyModel::rowsRemoved, this, &SortFilterProxyModel::countChanged);
+    connect(this, &QAbstractItemModel::rowsInserted, this, &SortFilterProxyModel::countChanged);
+    connect(this, &QAbstractItemModel::rowsRemoved, this, &SortFilterProxyModel::countChanged);
+    connect(this, &QAbstractItemModel::modelReset, this, &SortFilterProxyModel::countChanged);
+    connect(this, &QAbstractItemModel::layoutChanged, this, &SortFilterProxyModel::countChanged);
 }
 
 int SortFilterProxyModel::count() const
@@ -103,6 +103,20 @@ QVariantMap SortFilterProxyModel::get(int idx) const
         }
     }
     return map;
+}
+
+QVariant SortFilterProxyModel::getRoleValue(int idx, QByteArray roleName) const
+{
+    QHash<int, QByteArray> roles = roleNames();
+    QHashIterator<int, QByteArray> it(roles);
+    while (it.hasNext()) {
+        it.next();
+        if (roleName == it.value())
+        {
+            return data(index(idx, 0), it.key());
+        }
+    }
+    return QVariant();
 }
 
 void SortFilterProxyModel::classBegin()

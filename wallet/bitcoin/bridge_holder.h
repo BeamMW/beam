@@ -28,7 +28,7 @@ namespace beam::bitcoin
 
         virtual ~IBridgeHolder() {};
 
-        virtual IBridge::Ptr Get(io::Reactor& reactor, ISettingsProvider::Ptr settingsProvider) = 0;
+        virtual IBridge::Ptr Get(io::Reactor& reactor, ISettingsProvider& settingsProvider) = 0;
         virtual void Reset() = 0;
     };
 
@@ -49,15 +49,15 @@ namespace beam::bitcoin
         {
         }
 
-        IBridge::Ptr Get(io::Reactor& reactor, ISettingsProvider::Ptr settingsProvider) override
+        IBridge::Ptr Get(io::Reactor& reactor, ISettingsProvider& settingsProvider) override
         {
-            if (settingsProvider->GetBitcoinCoreSettings().IsInitialized() && m_type != Core)
+            if (settingsProvider.GetBitcoinCoreSettings().IsInitialized() && m_type != Core)
             {
                 m_bridge = std::make_shared<CoreBridge>(reactor, settingsProvider);
                 m_type = Core;
             }
 
-            if (settingsProvider->GetElectrumSettings().IsInitialized() && m_type != Electrum)
+            if (settingsProvider.GetElectrumSettings().IsInitialized() && m_type != Electrum)
             {
                 m_bridge = std::make_shared<ElectrumBridge>(reactor, settingsProvider);
                 m_type = Electrum;

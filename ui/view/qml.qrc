@@ -34,6 +34,7 @@
         <file>controls/IPAddrInput.qml</file>
         <file>controls/SwapNodeSettings.qml</file>
         <file>controls/LinkButton.qml</file>
+        <file>controls/TopGradient.qml</file>
         <file>popup_message.qml</file>
         <file>root.qml</file>
         <file>start.qml</file>
@@ -46,7 +47,6 @@
         <file>addresses.qml</file>
         <file>utxo.qml</file>
         <file>atomic_swap.qml</file>
-        <file>receive.qml</file>
         <file>receive_regular.qml</file>
         <file>receive_swap.qml</file>
         <file>send.qml</file>
@@ -125,6 +125,7 @@
         <file>assets/icon-cancel.svg</file>
         <file>assets/icon-cancel-16.svg</file>
         <file>assets/icon-cancel-white.svg</file>
+        <file>assets/icon-cancel-black.svg</file>
         <file>assets/icon-done.svg</file>
         <file>assets/icon-add.svg</file>
         <file>assets/icon-add-blue.svg</file>

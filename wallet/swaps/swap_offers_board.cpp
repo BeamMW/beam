@@ -81,9 +81,13 @@ namespace beam::wallet
         {
             // new offer
             m_offersCache[txId] = offer;
-            for (auto sub : m_subscribers)
+
+            if (status == SwapOfferStatus::Pending)
             {
-                sub->onSwapOffersChanged(ChangeAction::Added, std::vector<SwapOffer>{offer});
+                for (auto sub : m_subscribers)
+                {
+                    sub->onSwapOffersChanged(ChangeAction::Added, std::vector<SwapOffer>{offer});
+                }
             }
         }
         else

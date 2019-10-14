@@ -62,12 +62,10 @@
     </message>
     <message id="general-receiving">
         <source></source>
-        <oldsource>receiving</oldsource>
         <translation type="unfinished">атрыманне</translation>
     </message>
     <message id="general-sending">
         <source></source>
-        <oldsource>sending</oldsource>
         <translation type="unfinished">адпраўленне</translation>
     </message>
     <message id="general-rescan">
@@ -1270,7 +1268,6 @@
     </message>
     <message id="settings-reset">
         <source>Disconnect</source>
-        <oldsource>Switch off</oldsource>
         <translation type="unfinished"></translation>
     </message>
     <message id="settings-node-address">
@@ -1320,7 +1317,7 @@ Update your settings and try again.</oldsource>
         <translation type="unfinished"></translation>
     </message>
     <message id="sent-amount-label">
-        <source>Sent amount</source>
+        <source>Send amount</source>
         <translation type="unfinished"></translation>
     </message>
     <message id="wallet-receive-offer-expires-label">
@@ -1621,7 +1618,6 @@ while active transaction is in progress</oldsource>
     </message>
     <message id="swap-connecting">
         <source>Connecting...</source>
-        <oldsource>Connecting.</oldsource>
         <translation type="unfinished"></translation>
     </message>
     <message id="swap-beta-connection-error">
@@ -1722,6 +1718,54 @@ while active transaction is in progress</oldsource>
     </message>
     <message id="swap-copy-token">
         <source>Copy token</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="atomic-swap-cancel-text">
+        <source>Are you sure you want to cancel your offer?</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="atomic-swap-cancel-button">
+        <source>cancel offer</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="atomic-swap-back-button">
+        <source>back</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="swap-details-lock-tx-id">
+        <source>lock transaction ID</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="swap-details-lock-tx-conf">
+        <source>lock transaction confirmations</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="swap-details-beam-lock-kernel-id">
+        <source>BEAM lock transaction kernel ID</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="swap-details-beam-redeem-kernel-id">
+        <source>BEAM redeem transaction kernel ID</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="swap-details-redeem-tx-id">
+        <source>redeem transaction ID</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="swap-details-redeem-tx-conf">
+        <source>redeem transaction confirmations</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="swap-details-beam-refund-kernel-id">
+        <source>BEAM refund transaction kernel ID</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="swap-details-refund-tx-id">
+        <source>refund transaction ID</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="swap-details-refund-tx-conf">
+        <source>refund transaction confirmations</source>
         <translation type="unfinished"></translation>
     </message>
 </context>

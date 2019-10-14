@@ -31,7 +31,6 @@ ReceiveViewModel::ReceiveViewModel()
     , _qr(std::make_unique<QR>())
     , _walletModel(*AppModel::getInstance().getWallet())
 {
-    LOG_DEBUG() << "ReceiveViewModel created";
     connect(_qr.get(), &QR::qrDataChanged, this, &ReceiveViewModel::onReceiverQRChanged);
     connect(&_walletModel, &WalletModel::generatedNewAddress, this, &ReceiveViewModel::onGeneratedNewAddress);
     connect(&_walletModel, &WalletModel::newAddressFailed, this, &ReceiveViewModel::newAddressFailed);
@@ -42,7 +41,6 @@ ReceiveViewModel::ReceiveViewModel()
 ReceiveViewModel::~ReceiveViewModel()
 {
     disconnect(_qr.get(), &QR::qrDataChanged, this, &ReceiveViewModel::onReceiverQRChanged);
-    LOG_DEBUG() << "ReceiveViewModel destroyed";
 }
 
 void ReceiveViewModel::onGeneratedNewAddress(const beam::wallet::WalletAddress& addr)

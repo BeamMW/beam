@@ -280,6 +280,11 @@ namespace beam::wallet
         
         std::shared_ptr<proto::FlyClient::INetwork> m_NodeEndpoint;
 
+        // List of registered transaction creators
+        // Creators can store some objects for the transactions, 
+        // so they have to be destroyed after the transactions
+        std::unordered_map<wallet::TxType, wallet::BaseTransaction::Creator::Ptr> m_TxCreators;
+
         // List of currently active (incomplete) transactions
         std::map<TxID, BaseTransaction::Ptr> m_ActiveTransactions;
 
@@ -288,9 +293,6 @@ namespace beam::wallet
 
         // List of transactions that are waiting for the next tip (new block) to arrive
         std::unordered_set<BaseTransaction::Ptr> m_NextTipTransactionToUpdate;
-
-        // List of registered transaction creators
-        std::unordered_map<wallet::TxType, wallet::BaseTransaction::Creator::Ptr> m_TxCreators;
 
         // Functor for callback when transaction completed
         TxCompletedAction m_TxCompletedAction;

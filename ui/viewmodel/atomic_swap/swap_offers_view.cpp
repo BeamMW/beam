@@ -153,14 +153,14 @@ PaymentInfoItem* SwapOffersViewModel::getPaymentInfo(QVariant variantTxID)
 
 void SwapOffersViewModel::onTransactionsDataModelChanged(beam::wallet::ChangeAction action, const std::vector<beam::wallet::TxDescription>& transactions)
 {
-    vector<shared_ptr<TxObject>> swapTransactions;
+    vector<shared_ptr<SwapTxObject>> swapTransactions;
     swapTransactions.reserve(transactions.size());
 
     for (const auto& t : transactions)
     {
         if (t.GetParameter<TxType>(TxParameterID::TransactionType) == TxType::AtomicSwap)
         {
-            swapTransactions.push_back(make_shared<TxObject>(t));
+            swapTransactions.push_back(make_shared<SwapTxObject>(t));
         }
     }
 
@@ -267,11 +267,9 @@ int SwapOffersViewModel::getActiveTxCount() const
         auto index = m_transactionsList.index(i, 0);
         try
         {
-            bool isInProgress = m_transactionsList.data(
-                index,
-                static_cast<int>(TransactionsList::Roles::IsInProgress))
-                .toBool();
-            if (isInProgress)
+            bool isInProgress = m_transactionsList.data(index, static_cast<int>(SwapTxObjectList::Roles::IsInProgress)).toBool();
+            bool isPending = m_transactionsList.data(index, static_cast<int>(SwapTxObjectList::Roles::IsPending)).toBool();
+            if (!isPending && isInProgress)
             {
                 ++count;
             }
@@ -292,12 +290,12 @@ bool SwapOffersViewModel::hasBtcTx() const
 
 bool SwapOffersViewModel::hasLtcTx() const
 {
-    return hasActiveTx(toStdString(beamui::Currencies::Bitcoin));
+    return hasActiveTx(toStdString(beamui::Currencies::Litecoin));
 }
 
 bool SwapOffersViewModel::hasQtumTx() const
 {
-    return hasActiveTx(toStdString(beamui::Currencies::Bitcoin));
+    return hasActiveTx(toStdString(beamui::Currencies::Qtum));
 }
 
 bool SwapOffersViewModel::hasActiveTx(const std::string& swapCoin) const
@@ -307,15 +305,11 @@ bool SwapOffersViewModel::hasActiveTx(const std::string& swapCoin) const
         auto index = m_transactionsList.index(i, 0);
         try
         {
-            bool isInProgress = m_transactionsList.data(
-                index,
-                static_cast<int>(TransactionsList::Roles::IsInProgress))
-                .toBool();
-            auto mySwapCoin = m_transactionsList.data(
-                index,
-                static_cast<int>(TransactionsList::Roles::SwapCoin))
-                .toString();
-            if (isInProgress &&
+            bool isInProgress = m_transactionsList.data(index, static_cast<int>(SwapTxObjectList::Roles::IsInProgress)).toBool();
+            bool isPending = m_transactionsList.data(index, static_cast<int>(SwapTxObjectList::Roles::IsPending)).toBool();
+            auto mySwapCoin = m_transactionsList.data(index, static_cast<int>(SwapTxObjectList::Roles::SwapCoin)).toString();
+            if (!isPending &&
+                isInProgress &&
                 mySwapCoin.toStdString() == swapCoin)
             {
                 return true;

@@ -20,7 +20,7 @@
 #include "node_model.h"
 #include "helpers.h"
 #include "wallet/secstring.h"
-#include "wallet/private_key_keeper.h"
+#include "keykeeper/private_key_keeper.h"
 #include "wallet/bitcoin/bridge_holder.h"
 #include <memory>
 

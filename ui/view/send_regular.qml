@@ -7,9 +7,16 @@ import "./utils.js" as Utils
 
 ColumnLayout {
     id: sendRegularView
+
+    // callbacks set by parent
     property var onAccepted: undefined
     property var onClosed: undefined
     property var onSwapToken: undefined
+
+    TopGradient {
+        mainRoot: main
+        topColor: Style.accent_outgoing
+    }
 
     function setToken(token) {
         viewModel.receiverTA = token

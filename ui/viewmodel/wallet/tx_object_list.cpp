@@ -12,13 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "transactions_list.h"
+#include "tx_object_list.h"
 
-TransactionsList::TransactionsList()
+TxObjectList::TxObjectList()
 {
 }
 
-auto TransactionsList::roleNames() const -> QHash<int, QByteArray>
+auto TxObjectList::roleNames() const -> QHash<int, QByteArray>
 {
     static const auto roles = QHash<int, QByteArray>
     {
@@ -26,10 +26,6 @@ auto TransactionsList::roleNames() const -> QHash<int, QByteArray>
         { static_cast<int>(Roles::TimeCreatedSort), "timeCreatedSort" },
         { static_cast<int>(Roles::AmountGeneral), "amountGeneral" },
         { static_cast<int>(Roles::AmountGeneralSort), "amountGeneralSort" },
-        { static_cast<int>(Roles::AmountSend), "amountSend" },
-        { static_cast<int>(Roles::AmountSendSort), "amountSendSort" },
-        { static_cast<int>(Roles::AmountReceive), "amountReceive" },
-        { static_cast<int>(Roles::AmountReceiveSort), "amountReceiveSort" },
         { static_cast<int>(Roles::AddressFrom), "addressFrom" },
         { static_cast<int>(Roles::AddressFromSort), "addressFromSort" },
         { static_cast<int>(Roles::AddressTo), "addressTo" },
@@ -46,21 +42,19 @@ auto TransactionsList::roleNames() const -> QHash<int, QByteArray>
         { static_cast<int>(Roles::IsSelfTransaction), "isSelfTransaction" },
         { static_cast<int>(Roles::IsIncome), "isIncome" },
         { static_cast<int>(Roles::IsInProgress), "isInProgress" },
+        { static_cast<int>(Roles::IsPending), "isPending" },
         { static_cast<int>(Roles::IsCompleted), "isCompleted" },
         { static_cast<int>(Roles::IsCanceled), "isCanceled" },
         { static_cast<int>(Roles::IsFailed), "isFailed" },
         { static_cast<int>(Roles::IsExpired), "isExpired" },
-        { static_cast<int>(Roles::IsBeamSideSwap), "isBeamSideSwap" },
         { static_cast<int>(Roles::HasPaymentProof), "hasPaymentProof" },
-        { static_cast<int>(Roles::SwapCoin), "swapCoin" },
         { static_cast<int>(Roles::RawTxID), "rawTxID" },
-        { static_cast<int>(Roles::Search), "search" },
-        { static_cast<int>(Roles::Token), "token" }
+        { static_cast<int>(Roles::Search), "search" }
     };
     return roles;
 }
 
-auto TransactionsList::data(const QModelIndex &index, int role) const -> QVariant
+auto TxObjectList::data(const QModelIndex &index, int role) const -> QVariant
 {
     if (!index.isValid() || index.row() < 0 || index.row() >= m_list.size())
     {
@@ -80,16 +74,6 @@ auto TransactionsList::data(const QModelIndex &index, int role) const -> QVarian
         case Roles::AmountGeneralSort:
             return value->getAmountValue();
             
-        case Roles::AmountSend:
-            return value->getSentAmount();
-        case Roles::AmountSendSort:
-            return static_cast<double>(value->getSentAmountValue());
-
-        case Roles::AmountReceive:
-            return value->getReceivedAmount();
-        case Roles::AmountReceiveSort:
-            return static_cast<double>(value->getReceivedAmountValue());
-
         case Roles::AddressFrom:
         case Roles::AddressFromSort:
             return value->getAddressFrom();
@@ -132,6 +116,9 @@ auto TransactionsList::data(const QModelIndex &index, int role) const -> QVarian
         case Roles::IsInProgress:
             return value->isInProgress();
 
+        case Roles::IsPending:
+            return value->isPending();
+
         case Roles::IsCompleted:
             return value->isCompleted();
 
@@ -144,20 +131,11 @@ auto TransactionsList::data(const QModelIndex &index, int role) const -> QVarian
         case Roles::IsExpired:
             return value->isExpired();
 
-        case Roles::IsBeamSideSwap:
-            return value->isBeamSideSwap();
-
         case Roles::HasPaymentProof:
             return value->hasPaymentProof();
 
-        case Roles::SwapCoin:
-            return value->getSwapCoinName();
-
         case Roles::RawTxID:
             return QVariant::fromValue(value->getTxID());
-
-        case Roles::Token:
-            return value->getToken();
 
         case Roles::Search: 
         {
@@ -178,7 +156,7 @@ auto TransactionsList::data(const QModelIndex &index, int role) const -> QVarian
     }
 }
 
-void TransactionsList::remove(const std::vector<std::shared_ptr<TxObject>>& items)
+void TxObjectList::remove(const std::vector<std::shared_ptr<TxObject>>& items)
 {
     for (const auto& item : items)
     {
@@ -195,7 +173,7 @@ void TransactionsList::remove(const std::vector<std::shared_ptr<TxObject>>& item
     }
 }
 
-void TransactionsList::update(const std::vector<std::shared_ptr<TxObject>>& items)
+void TxObjectList::update(const std::vector<std::shared_ptr<TxObject>>& items)
 {
     for (const auto& item : items)
     {

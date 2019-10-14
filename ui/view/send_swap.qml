@@ -10,15 +10,26 @@ import "./utils.js" as Utils
 
 ColumnLayout {
     id: sendSwapView
+    
     property var defaultFocusItem: comment_input
     property var predefinedTxParams: undefined
+
+    // callbacks set by parent
     property var onAccepted: undefined
     property var onClosed: undefined
 
-    function setToken(token) {
-        viewModel.token = token
+    TopGradient {
+        mainRoot: main
+        topColor: Style.accent_outgoing
+    }
+
+    function validateCoin() {
         var currency = viewModel.sendCurrency
-        if (currency == Currency.CurrBeam) return;
+        if (currency == Currency.CurrBeam) {
+            currency = viewModel.receiveCurrency;
+
+            if (currency == Currency.CurrBeam) return;
+        }
 
         var isOtherCurrActive  = false
         var currname = ""
@@ -45,7 +56,15 @@ ColumnLayout {
             //% "You do not have %1 connected.\nUpdate your settings and try again."
             swapna.text = qsTrId("swap-currency-na-message").arg(currname).replace("\\n", "\n")
             swapna.open()
+            return false;
         }
+
+        return true;
+    }
+
+    function setToken(token) {
+        viewModel.token = token
+        validateCoin();
     }
 
     SwapNADialog {
@@ -65,6 +84,9 @@ ColumnLayout {
         okButtonText:           qsTrId("swap-alert-confirm-button")
         okButtonIconSource:     "qrc:/assets/icon-done.svg"
         cancelButtonVisible:    false
+        onAccepted: {
+            sendSwapView.onClosed();
+        }
     }
 
     Component.onCompleted: {
@@ -172,12 +194,9 @@ ColumnLayout {
         ColumnLayout {
             width: parent.width / 2 - parent.columnSpacing / 2
 
-            //
-            // Send Amount
-            //
             AmountInput {
                 Layout.topMargin: 25
-                //% "Sent amount"
+                //% "Send amount"
                 title:            qsTrId("sent-amount-label")
                 id:               sendAmountInput
                 hasFee:           true
@@ -347,6 +366,8 @@ ColumnLayout {
             icon.source:        "qrc:/assets/icon-send-blue.svg"
             enabled:            viewModel.canSend
             onClicked: {
+                if (!validateCoin()) return;
+
                 const dialogComponent = Qt.createComponent("send_confirm.qml");
                 var dialogObject = dialogComponent.createObject(sendSwapView,
                     {

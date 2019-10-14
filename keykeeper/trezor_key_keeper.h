@@ -14,7 +14,7 @@
 
 #pragma once
 
-#include "private_key_keeper.h"
+#include "keykeeper/private_key_keeper.h"
 #include "hw_wallet.h"
 
 namespace beam::wallet

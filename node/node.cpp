@@ -1230,8 +1230,8 @@ void Node::Peer::OnResendPeers()
 		if (!pi.m_RawRating.m_Value)
 			continue; // banned
 
-		if (!pi.m_LastSeen)
-			continue; // recommend only verified peers
+		if (getTimestamp() - pi.m_LastSeen > pm.m_Cfg.m_TimeoutRecommend_s)
+			continue; // not seen for a while
 
 		if (pi.m_Addr.m_Value.empty())
 			continue; // address unknown, can't recommend
@@ -1256,7 +1256,7 @@ void Node::Peer::OnConnectedSecure()
 
     m_Flags |= Flags::Connected;
 
-    if (m_Port && m_This.m_Cfg.m_Listen.port())
+    if (!(Flags::Accepted & m_Flags) && m_This.m_Cfg.m_Listen.port())
     {
         // we've connected to the peer, let it now know our port
         proto::PeerInfoSelf msgPi;
@@ -1339,7 +1339,8 @@ void Node::Peer::OnMsg(proto::Authentication&& msg)
         // probably we connected by the address
         if (m_pInfo->m_ID.m_Key == msg.m_ID)
         {
-            pm.OnSeen(*m_pInfo);
+			if (!(Flags::Accepted & m_Flags))
+				pm.OnSeen(*m_pInfo);
             TakeTasks();
             return; // all settled (already)
         }
@@ -1413,7 +1414,9 @@ void Node::Peer::OnMsg(proto::Authentication&& msg)
     // attach to it
 	pPi->Attach(*this);
     pm.OnActive(*pPi, true);
-    pm.OnSeen(*pPi);
+
+	if (!(Flags::Accepted & m_Flags))
+		pm.OnSeen(*pPi);
 
     LOG_INFO() << *m_pInfo << " connected, info updated";
 
@@ -3161,7 +3164,7 @@ void Node::Peer::OnMsg(proto::BbsMsg&& msg)
         Bbs::Subscription& s = range.first->get_ParentObj();
 		assert(s.m_Cursor < id);
 
-        if ((this == s.m_pPeer) || s.m_pPeer->IsChocking())
+        if (s.m_pPeer->IsChocking())
             continue;
 
         s.m_pPeer->SendBbsMsg(wlk.m_Data);
@@ -3416,6 +3419,7 @@ void Node::Server::OnAccepted(io::TcpStream::Ptr&& newStream, int errorCode)
         LOG_DEBUG() << "New peer connected: " << newStream->address();
         Peer* p = get_ParentObj().AllocPeer(newStream->peer_address());
         p->Accept(std::move(newStream));
+		p->m_Flags |= Peer::Flags::Accepted;
         p->SecureConnect();
     }
 }

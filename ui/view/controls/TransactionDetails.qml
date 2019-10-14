@@ -20,6 +20,7 @@ RowLayout {
     property var isSelfTx
     property var rawTxID
     property string searchFilter: ""
+    property bool hideFiltered: false
     property var searchRegExp: { return new RegExp(root.searchFilter, "gi");}
 
     property var onOpenExternal: null
@@ -29,8 +30,12 @@ RowLayout {
 
     spacing: 30
 
+    function isFieldVisible() {
+        return root.searchFilter.length == 0 || hideFiltered == false;
+    }
+
     function isTextFieldVisible(text) {
-        return root.searchFilter.length == 0 
+        return isFieldVisible()
         || (root.searchFilter.length > 0 && text.search(root.searchFilter) >= 0);
     }
 
@@ -64,7 +69,7 @@ RowLayout {
             text: qsTrId("tx-details-title")
             font.styleName: "Bold"; font.weight: Font.Bold
             Layout.columnSpan: 2
-            visible: root.searchFilter.length == 0
+            visible: root.isFieldVisible()
         }
         
         SFText {
@@ -114,7 +119,7 @@ RowLayout {
             color: Style.content_secondary
             //% "Transaction fee"
             text: qsTrId("general-fee") + ":"
-            visible: root.searchFilter.length == 0
+            visible: root.isFieldVisible()
         }
         SFLabel {
             Layout.fillWidth: true
@@ -123,7 +128,7 @@ RowLayout {
             color: Style.content_main
             text: root.fee
             onCopyText: textCopied(text)
-            visible: root.searchFilter.length == 0
+            visible: root.isFieldVisible()
         }
         
         SFText {
@@ -203,12 +208,12 @@ RowLayout {
         Item {
             Layout.fillWidth: true
             Layout.preferredHeight: 16
-            visible: parent.canOpenInBlockchainExplorer(root.status) && root.searchFilter.length == 0
+            visible: parent.canOpenInBlockchainExplorer(root.status) && root.isFieldVisible()
         }
         Item {
             Layout.preferredWidth: openInExplorer.width + 10 + openInExplorerIcon.width
             Layout.preferredHeight: 16
-            visible: parent.canOpenInBlockchainExplorer(root.status) && root.searchFilter.length == 0
+            visible: parent.canOpenInBlockchainExplorer(root.status) && root.isFieldVisible()
 
             SFText {
                 id: openInExplorer
@@ -244,7 +249,7 @@ RowLayout {
             color: Style.content_secondary
             //% "Error"
             text: qsTrId("tx-details-error-label") + ":"
-            visible: root.failureReason.length > 0 && root.searchFilter.length == 0
+            visible: root.failureReason.length > 0 && root.isFieldVisible()
         }
         SFLabel {
             id: failureReason
@@ -253,7 +258,7 @@ RowLayout {
             font.pixelSize: 14
             color: Style.content_main
             wrapMode: Text.Wrap
-            visible: root.failureReason.length > 0 && root.searchFilter.length == 0
+            visible: root.failureReason.length > 0 && root.isFieldVisible()
             text: root.failureReason.length > 0 ? root.failureReason : ""
             font.styleName: "Italic"
             elide: Text.ElideRight
@@ -271,7 +276,7 @@ RowLayout {
         columns: 2
         columnSpacing: 44
         rowSpacing: 14
-        visible: !root.isIncome && searchFilter.length == 0
+        visible: !root.isIncome && root.isFieldVisible()
 
         Item {
             Layout.fillWidth: true

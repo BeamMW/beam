@@ -29,6 +29,26 @@ Item {
         text: qsTrId("swap-beta-message")
     }
 
+    ConfirmationDialog {
+        id:                     cancelOfferDialog
+        property var txId: undefined
+        width:                  460
+        //% "Cancel offer"
+        title:                  qsTrId("atomic-swap-cancel")
+        //% "Are you sure you want to cancel your offer?"
+        text:                   qsTrId("atomic-swap-cancel-text")
+        //% "cancel offer"
+        okButtonText:           qsTrId("atomic-swap-cancel-button")
+        okButtonIconSource:     "qrc:/assets/icon-cancel-black.svg"
+        okButtonColor:          Style.swapCurrencyStateIndicator
+        //% "back"
+        cancelButtonText:       qsTrId("atomic-swap-back-button")
+        cancelButtonIconSource: "qrc:/assets/icon-back.svg"
+        onAccepted: {
+            viewModel.cancelTx(cancelOfferDialog.txId);
+        }
+    }
+
     Component.onCompleted: {
         if (viewModel.showBetaWarning) {
             betaDialog.open()
@@ -136,7 +156,10 @@ Item {
                     //font.capitalization: Font.AllUppercase
 
                     onClicked: {
-                        offersStackView.push(Qt.createComponent("receive.qml"), {"isSwapMode": true});
+                        offersStackView.push(Qt.createComponent("receive_swap.qml"),
+                                            {"modeSwitchEnabled": false,
+                                             "onClosed": onClosed});
+                        function onClosed() { offersStackView.pop(); }
                     }
                 }
             }
@@ -500,7 +523,7 @@ Item {
                                 width: parent.width
                                 height: offersTable.rowHeight
                                 property var swapCoin: styleData.value
-                                property var isSendBeam: offersTable.model.get(styleData.row).isBeamSide
+                                property var isSendBeam: offersTable.model.getRoleValue(styleData.row, "isBeamSide")
                                 
                                 anchors.fill: parent
                                 anchors.leftMargin: 20
@@ -595,7 +618,7 @@ Item {
                                 Item {
                                     Layout.fillWidth : true
                                     Layout.fillHeight : true
-                                    property var isOwnOffer: offersTable.model.get(styleData.row).isOwnOffer
+                                    property var isOwnOffer: offersTable.model.getRoleValue(styleData.row, "isOwnOffer")
 
                                     SFText {
                                         anchors.right: parent.right
@@ -603,8 +626,7 @@ Item {
                                         anchors.rightMargin: 20
 
                                         font.pixelSize: 14
-                                        color: isOwnOffer ? Style.content_main : Style.active
-                                        opacity: isOwnOffer ? 0.5 : 1.0
+                                        color: isOwnOffer ? Style.swapCurrencyStateIndicator : Style.active
                                         text: isOwnOffer
                                                         //% "Cancel offer"
                                                         ? qsTrId("atomic-swap-cancel")
@@ -616,11 +638,11 @@ Item {
                                             acceptedButtons: Qt.LeftButton
                                             onClicked: {
                                                 if (isOwnOffer) {
-                                                    var txID = offersTable.model.get(styleData.row).rawTxID
-                                                    viewModel.cancelTx(txID);
+                                                    cancelOfferDialog.txId = offersTable.model.getRoleValue(styleData.row, "rawTxID");
+                                                    cancelOfferDialog.open();
                                                 }
                                                 else {
-                                                    var txParameters = offersTable.model.get(styleData.row).rawTxParameters;
+                                                    var txParameters = offersTable.model.getRoleValue(styleData.row, "rawTxParameters");
                                                     offersStackView.push(Qt.createComponent("send_swap.qml"),
                                                                         {"predefinedTxParams": txParameters,
                                                                          "onAccepted": onAccepted,
@@ -771,48 +793,21 @@ Item {
                                         width: transactionsTable.width
 
                                         property var txRolesMap: myModel
-                                        sendAddress:        txRolesMap && txRolesMap.addressTo ? txRolesMap.addressTo : ""
-                                        receiveAddress:     txRolesMap && txRolesMap.addressFrom ? txRolesMap.addressFrom : ""
-                                        fee:                txRolesMap && txRolesMap.fee ? txRolesMap.fee : ""
-                                        comment:            txRolesMap && txRolesMap.comment ? txRolesMap.comment : ""
-                                        txID:               txRolesMap && txRolesMap.txID ? txRolesMap.txID : ""
-                                        kernelID:           txRolesMap && txRolesMap.kernelID ? txRolesMap.kernelID : ""
-                                        status:             txRolesMap && txRolesMap.status ? txRolesMap.status : ""
-                                        failureReason:      txRolesMap && txRolesMap.failureReason ? txRolesMap.failureReason : ""
-                                        isIncome:           txRolesMap && txRolesMap.isIncome ? txRolesMap.isIncome : false
-                                        hasPaymentProof:    txRolesMap && txRolesMap.hasPaymentProof ? txRolesMap.hasPaymentProof : false
-                                        isSelfTx:           txRolesMap && txRolesMap.isSelfTransaction ? txRolesMap.isSelfTransaction : false
-                                        rawTxID:            txRolesMap && txRolesMap.rawTxID ? txRolesMap.rawTxID : null
+                                        swapCoinName:                   txRolesMap && txRolesMap.swapCoin ? txRolesMap.swapCoin : ""
+                                        isBeamSide:                     txRolesMap && txRolesMap.isBeamSideSwap ? txRolesMap.isBeamSideSwap : false
+                                        isProofReceived:                txRolesMap && txRolesMap.isProofReceived ? txRolesMap.isProofReceived : false
+                                        swapCoinLockTxId:               txRolesMap && txRolesMap.swapCoinLockTxId ? txRolesMap.swapCoinLockTxId : ""
+                                        swapCoinLockTxConfirmations:    txRolesMap && txRolesMap.swapCoinLockTxConfirmations ? txRolesMap.swapCoinLockTxConfirmations : ""
+                                        swapCoinRedeemTxId:             txRolesMap && txRolesMap.swapCoinRedeemTxId ? txRolesMap.swapCoinRedeemTxId : ""
+                                        swapCoinRedeemTxConfirmations:  txRolesMap && txRolesMap.swapCoinRedeemTxConfirmations ? txRolesMap.swapCoinRedeemTxConfirmations : ""
+                                        swapCoinRefundTxId:             txRolesMap && txRolesMap.swapCoinRefundTxId ? txRolesMap.swapCoinRefundTxId : ""
+                                        swapCoinRefundTxConfirmations:  txRolesMap && txRolesMap.swapCoinRefundTxConfirmations ? txRolesMap.swapCoinRefundTxConfirmations : ""
+                                        beamLockTxKernelId:             txRolesMap && txRolesMap.beamLockTxKernelId ? txRolesMap.beamLockTxKernelId : ""
+                                        beamRedeemTxKernelId:           txRolesMap && txRolesMap.beamRedeemTxKernelId ? txRolesMap.beamRedeemTxKernelId : ""
+                                        beamRefundTxKernelId:           txRolesMap && txRolesMap.beamRefundTxKernelId ? txRolesMap.beamRefundTxKernelId : ""
                                         
-                                        onOpenExternal : function() {
-                                            var url = Style.explorerUrl + "block?kernel_id=" + detailsPanel.kernelID;
-                                            Utils.openExternal(url, viewModel, externalLinkConfirmation);
-                                        } 
                                         onTextCopied: function (text) {
                                             BeamGlobals.copyToClipboard(text);
-                                        }
-                                        onCopyPaymentProof: function() {
-                                            if (detailsPanel.rawTxID)
-                                            {
-                                                var paymentInfo = viewModel.getPaymentInfo(detailsPanel.rawTxID);
-                                                if (paymentInfo.paymentProof.length == 0)
-                                                {
-                                                    paymentInfo.paymentProofChanged.connect(function() {
-                                                        textCopied(paymentInfo.paymentProof);
-                                                    });
-                                                }
-                                                else
-                                                {
-                                                    textCopied(paymentInfo.paymentProof);
-                                                }
-                                            }
-                                        }
-                                        onShowPaymentProof: {
-                                            if (detailsPanel.rawTxID)
-                                            {
-                                                paymentInfoDialog.model = viewModel.getPaymentInfo(detailsPanel.rawTxID);
-                                                paymentInfoDialog.open();
-                                            }
                                         }
                                     }
                                 }
@@ -922,7 +917,7 @@ Item {
                                 width: parent.width
                                 height: transactionsTable.rowHeight
                                 property var swapCoin: styleData.value
-                                property var isSendBeam: transactionsTable.model.get(styleData.row).isBeamSideSwap
+                                property var isSendBeam: transactionsTable.model.getRoleValue(styleData.row, "isBeamSideSwap")
                                 
                                 anchors.fill: parent
                                 anchors.leftMargin: 20
@@ -1031,10 +1026,15 @@ Item {
                                     height: transactionsTable.rowHeight
 
                                     RowLayout {
+                                        id: statusRow
                                         Layout.alignment: Qt.AlignLeft
                                         anchors.fill: parent
                                         anchors.leftMargin: 10
                                         spacing: 10
+
+                                        property var isInProgress: transactionsTable.model.getRoleValue(styleData.row, "isInProgress")
+                                        property var isCompleted: transactionsTable.model.getRoleValue(styleData.row, "isCompleted")
+                                        property var isExpired: transactionsTable.model.getRoleValue(styleData.row, "isExpired")
 
                                         SvgImage {
                                             id: statusIcon
@@ -1043,12 +1043,11 @@ Item {
                                             sourceSize: Qt.size(20, 20)
                                             source: getIconSource()
                                             function getIconSource() {
-                                                var item = transactionsTable.model.get(styleData.row);
-                                                if (item.isInProgress)
+                                                if (statusRow.isInProgress)
                                                     return "qrc:/assets/icon-swap-in-progress.svg";
-                                                else if (item.isCompleted)
+                                                else if (statusRow.isCompleted)
                                                     return "qrc:/assets/icon-swap-completed.svg";
-                                                else if (item.isExpired)
+                                                else if (statusRow.isExpired)
                                                     return "qrc:/assets/icon-failed.svg";
                                                 else
                                                     return "qrc:/assets/icon-swap-failed.svg";
@@ -1064,8 +1063,7 @@ Item {
                                             verticalAlignment: Text.AlignBottom
                                             color: getTextColor()
                                             function getTextColor () {
-                                                var item = transactionsTable.model.get(styleData.row);
-                                                if (item.isInProgress || item.isCompleted) {
+                                                if (statusRow.isInProgress || statusRow.isCompleted) {
                                                      return Style.accent_swap;
                                                 }
                                                 else {
@@ -1091,12 +1089,11 @@ Item {
                         }
 
                         function showContextMenu(row) {
-                            var data = transactionsTable.model.get(row);
                             txContextMenu.canCopyToken = true;
-                            txContextMenu.token = data.token;
-                            txContextMenu.cancelEnabled = data.isCancelAvailable;
-                            txContextMenu.deleteEnabled = data.isDeleteAvailable;
-                            txContextMenu.txID = data.rawTxID;
+                            txContextMenu.token = transactionsTable.model.getRoleValue(row, "token");
+                            txContextMenu.cancelEnabled = transactionsTable.model.getRoleValue(row, "isCancelAvailable");
+                            txContextMenu.deleteEnabled = transactionsTable.model.getRoleValue(row, "isDeleteAvailable");
+                            txContextMenu.txID = transactionsTable.model.getRoleValue(row, "rawTxID");
                             txContextMenu.popup();
                         }
 

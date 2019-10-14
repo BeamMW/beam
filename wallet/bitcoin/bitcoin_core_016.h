@@ -24,7 +24,7 @@ namespace beam::bitcoin
     {
     public:
         BitcoinCore016() = delete;
-        BitcoinCore016(io::Reactor& reactor, IBitcoinCoreSettingsProvider::Ptr settingsProvider);
+        BitcoinCore016(io::Reactor& reactor, IBitcoinCoreSettingsProvider& settingsProvider);
 
         void dumpPrivKey(const std::string& btcAddress, std::function<void(const Error&, const std::string&)> callback) override;
         void fundRawTransaction(const std::string& rawTx, Amount feeRate, std::function<void(const Error&, const std::string&, int)> callback) override;
@@ -49,6 +49,6 @@ namespace beam::bitcoin
 
     private:
         HttpClient m_httpClient;
-        IBitcoinCoreSettingsProvider::Ptr m_settingsProvider;
+        IBitcoinCoreSettingsProvider& m_settingsProvider;
     };
 } // namespace beam::bitcoin

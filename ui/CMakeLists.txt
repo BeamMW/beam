@@ -104,11 +104,13 @@ set(UI_SRC
     viewmodel/helpers/list_model.h
     viewmodel/helpers/sortfilterproxymodel.cpp
     viewmodel/wallet/tx_object.cpp
-    viewmodel/wallet/transactions_list.cpp
+    viewmodel/wallet/tx_object_list.cpp
     viewmodel/wallet/wallet_view.cpp
-    viewmodel/swap_offers/swap_offer_item.cpp
-    viewmodel/swap_offers/swap_offers_list.cpp
-    viewmodel/swap_offers/swap_offers_view.cpp
+    viewmodel/atomic_swap/swap_offer_item.cpp
+    viewmodel/atomic_swap/swap_offers_list.cpp
+    viewmodel/atomic_swap/swap_tx_object.cpp
+    viewmodel/atomic_swap/swap_tx_object_list.cpp
+    viewmodel/atomic_swap/swap_offers_view.cpp
     viewmodel/start_view.h
     viewmodel/start_view.cpp
     viewmodel/loading_view.h

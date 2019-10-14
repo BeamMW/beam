@@ -30,10 +30,6 @@ public:
     auto getTxID() const -> beam::wallet::TxID;
     auto getAmount() const -> QString;
     auto getAmountValue() const -> double;
-    auto getSentAmount() const -> QString;
-    auto getSentAmountValue() const -> double;
-    auto getReceivedAmount() const -> QString;
-    auto getReceivedAmountValue() const -> double;
     auto getStatus() const -> QString;
     auto getComment() const -> QString;
     auto getAddressFrom() const -> QString;
@@ -43,20 +39,17 @@ public:
     auto getTransactionID() const -> QString;
     auto getFailureReason() const -> QString;
     auto hasPaymentProof() const -> bool;
-    QString getToken() const;
 
     bool isIncome() const;
     bool isCancelAvailable() const;
     bool isDeleteAvailable() const;
     bool isInProgress() const;
+    bool isPending() const;
     bool isCompleted() const;
     bool isSelfTx() const;
     bool isCanceled() const;
     bool isFailed() const;
     bool isExpired() const;
-
-    auto isBeamSideSwap() const -> bool;
-    auto getSwapCoinName() const -> QString;
 
     void setKernelID(const QString& value);
     void setStatus(beam::wallet::TxStatus status);
@@ -68,11 +61,9 @@ signals:
     void kernelIDChanged();
     void failureReasonChanged();
 
-private:
+protected:
     auto getTxDescription() const -> const beam::wallet::TxDescription&;
-    QString getSwapAmount(bool sent) const;
-    double getSwapAmountValue(bool sent) const;
-
+ 
     beam::wallet::TxDescription m_tx;
     QString m_kernelID;
     beam::wallet::TxType m_type;
