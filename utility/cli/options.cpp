@@ -139,17 +139,17 @@ namespace beam
         const char* NONCEPREFIX_DIGITS = "nonceprefix_digits";
         const char* NODE_PEER = "peer";
         const char* PASS = "pass";
+        const char* SET_SWAP_SETTINGS = "set_swap_settings";
+        const char* ACTIVE_CONNECTION = "active_connection";
+        const char* SWAP_CONNECTION = "swap_connection";
         const char* SWAP_WALLET_PASS = "swap_wallet_pass";
         const char* SWAP_WALLET_USER = "swap_wallet_user";
-        const char* BTC_SETTINGS = "btc_settings";
         const char* ALTCOIN_SETTINGS_SET = "set";
         const char* ALTCOIN_SETTINGS_RESET = "reset";
-        const char* ALTCOIN_SETTINGS_SHOW = "show";
+        const char* SHOW_SWAP_SETTINGS = "show_swap_settings";
         const char* ELECTRUM_SEED = "electrum_seed";
         const char* GENERATE_ELECTRUM_SEED = "generate_electrum_seed";
         const char* ELECTRUM_ADDR = "electrum_addr";
-        const char* LTC_SETTINGS = "ltc_settings";
-        const char* QTUM_SETTINGS = "qtum_settings";
         const char* AMOUNT = "amount";
         const char* AMOUNT_FULL = "amount,a";
         const char* RECEIVER_ADDR = "receiver_addr";
@@ -353,12 +353,12 @@ namespace beam
 
         po::options_description swap_options("Atomic swap options");
         swap_options.add_options()
-            (cli::BTC_SETTINGS, po::value<std::string>(), "command to work with BTC settings. Subcommand to execute [show|set|reset]")
-            (cli::LTC_SETTINGS, po::value<std::string>(), "command to work with LTC settings. Subcommand to execute [show|set|reset]")
-            (cli::QTUM_SETTINGS, po::value<std::string>(), "command to work with QTUM settings. Subcommand to execute [show|set|reset]")
+            (cli::SET_SWAP_SETTINGS, po::value<std::string>(), "command to work with swap settings.")
             (cli::ALTCOIN_SETTINGS_SET, "set new altcoin's settings")
-            (cli::ALTCOIN_SETTINGS_RESET, "reset altcoin's settings")
-            (cli::ALTCOIN_SETTINGS_SHOW, "show altcoin's settings")
+            (cli::ALTCOIN_SETTINGS_RESET, po::value<std::string>(), "reset altcoin's settings")
+            (cli::ACTIVE_CONNECTION, po::value<string>(), "set active connection")
+            (cli::SWAP_CONNECTION, po::value<string>(), "")
+            (cli::SHOW_SWAP_SETTINGS, "show altcoin's settings")
             (cli::ELECTRUM_SEED, po::value<string>(), "bitcoin electrum seed")
             (cli::GENERATE_ELECTRUM_SEED, "generate new electrum seed")
             (cli::ELECTRUM_ADDR, po::value<string>(), "electrum address")

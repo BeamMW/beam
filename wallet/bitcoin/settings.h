@@ -40,7 +40,6 @@ namespace beam::bitcoin
 
     struct ElectrumSettings
     {
-        // TODO roman.strilets maybe should store domen address instead of ip address
         std::string m_address;
         std::vector<std::string> m_secretWords;
         uint8_t m_addressVersion;
@@ -60,17 +59,31 @@ namespace beam::bitcoin
     {
     public:
         using Ptr = std::shared_ptr<ISettings>;
+
+        enum ConnectionType
+        {
+            None,
+            Core,
+            Electrum
+        };
         
         virtual ~ISettings() {};
 
         virtual BitcoinCoreSettings GetConnectionOptions() const = 0;
+        virtual bool IsCoreActivated() const = 0;
         virtual ElectrumSettings GetElectrumConnectionOptions() const = 0;
+        virtual bool IsElectrumActivated() const = 0;
         virtual Amount GetFeeRate() const = 0;
         virtual Amount GetMinFeeRate() const = 0;
         virtual uint16_t GetTxMinConfirmations() const = 0;
         virtual uint32_t GetLockTimeInBlocks() const = 0;
         virtual bool IsInitialized() const = 0;
+        virtual bool IsActivated() const = 0;
+        virtual ConnectionType GetCurrentConnectionType() const = 0;
     };
+
+    boost::optional<ISettings::ConnectionType> from_string(const std::string&);
+    std::string to_string(ISettings::ConnectionType);
 
     class Settings : public ISettings
     {
@@ -78,12 +91,16 @@ namespace beam::bitcoin
        // Settings() = default;
        // ~Settings() = default;
         BitcoinCoreSettings GetConnectionOptions() const override;
+        bool IsCoreActivated() const override;
         ElectrumSettings GetElectrumConnectionOptions() const override;
+        bool IsElectrumActivated() const override;
         Amount GetFeeRate() const override;
         Amount GetMinFeeRate() const override;
         uint16_t GetTxMinConfirmations() const override;
         uint32_t GetLockTimeInBlocks() const override;
         bool IsInitialized() const override;
+        bool IsActivated() const override;
+        ConnectionType GetCurrentConnectionType() const override;
 
         void SetConnectionOptions(const BitcoinCoreSettings& connectionSettings);
         void SetElectrumConnectionOptions(const ElectrumSettings& connectionSettings);
@@ -91,8 +108,9 @@ namespace beam::bitcoin
         void SetMinFeeRate(Amount feeRate);
         void SetTxMinConfirmations(uint16_t txMinConfirmations);
         void SetLockTimeInBlocks(uint32_t lockTimeInBlocks);
+        void ChangeConnectionType(ConnectionType type);
 
-        SERIALIZE(m_connectionSettings, m_electrumConnectionSettings, m_feeRate, m_minFeeRate, m_txMinConfirmations, m_lockTimeInBlocks);
+        SERIALIZE(m_connectionSettings, m_electrumConnectionSettings, m_feeRate, m_minFeeRate, m_txMinConfirmations, m_lockTimeInBlocks, m_connectionType);
 
     protected:
         BitcoinCoreSettings m_connectionSettings;
@@ -104,5 +122,6 @@ namespace beam::bitcoin
         uint32_t m_lockTimeInBlocks = 60;
         // TODO: uncomment after tests
         //uint32_t m_lockTimeInBlocks = 2 * 24 * 6;
+        ConnectionType m_connectionType = None;
     };
 } // namespace beam::bitcoin

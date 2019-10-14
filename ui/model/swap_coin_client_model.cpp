@@ -82,7 +82,7 @@ void SwapCoinClientModel::OnCanModifySettingsChanged(bool canModify)
 
 void SwapCoinClientModel::requestBalance()
 {
-    if (GetSettings().IsInitialized())
+    if (GetSettings().IsActivated())
     {
         // update balance
         GetAsync()->GetBalance();

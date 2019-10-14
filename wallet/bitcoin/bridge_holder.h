@@ -35,32 +35,33 @@ namespace beam::bitcoin
     template<typename ElectrumBridge, typename CoreBridge>
     class BridgeHolder : public IBridgeHolder
     {
-        enum TypeBridge
-        {
-            None,
-            Electrum,
-            Core
-        };
     public:
-        BridgeHolder(/*io::Reactor& reactor, ISettingsProvider::Ptr settingsProvider*/)
-            : /*m_reactor(reactor)
-            , m_settingsProvider(settingsProvider)
-            , */m_type(None)
+        BridgeHolder()
+            : m_bridgeConnectionType(ISettings::ConnectionType::None)
         {
         }
 
         IBridge::Ptr Get(io::Reactor& reactor, ISettingsProvider& settingsProvider) override
         {
-            if (settingsProvider.GetBitcoinCoreSettings().IsInitialized() && m_type != Core)
+            if (settingsProvider.GetSettings().IsCoreActivated())
             {
-                m_bridge = std::make_shared<CoreBridge>(reactor, settingsProvider);
-                m_type = Core;
+                if (m_bridgeConnectionType != ISettings::ConnectionType::Core)
+                {
+                    m_bridge = std::make_shared<CoreBridge>(reactor, settingsProvider);
+                    m_bridgeConnectionType = ISettings::ConnectionType::Core;
+                }
             }
-
-            if (settingsProvider.GetElectrumSettings().IsInitialized() && m_type != Electrum)
+            else if (settingsProvider.GetSettings().IsElectrumActivated())
             {
-                m_bridge = std::make_shared<ElectrumBridge>(reactor, settingsProvider);
-                m_type = Electrum;
+                if (m_bridgeConnectionType != ISettings::ConnectionType::Electrum)
+                {
+                    m_bridge = std::make_shared<ElectrumBridge>(reactor, settingsProvider);
+                    m_bridgeConnectionType = ISettings::ConnectionType::Electrum;
+                }
+            }
+            else
+            {
+                Reset();
             }
 
             return m_bridge;
@@ -69,13 +70,11 @@ namespace beam::bitcoin
         void Reset() override
         {
             m_bridge.reset();
-            m_type = None;
+            m_bridgeConnectionType = ISettings::ConnectionType::None;
         }
 
     private:
-        /*io::Reactor& m_reactor;
-        ISettingsProvider::Ptr m_settingsProvider;*/
         IBridge::Ptr m_bridge;
-        TypeBridge m_type;
+        ISettings::ConnectionType m_bridgeConnectionType;
     };
 }
