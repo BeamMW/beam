@@ -130,6 +130,7 @@ class NodeProcessor
 	} m_RecentStates;
 
 	void DeleteBlocksInRange(const NodeDB::StateID& sidTop, Height hStop);
+	void DeleteBlock(uint64_t);
 
 public:
 

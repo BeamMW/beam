@@ -1203,14 +1203,19 @@ void NodeProcessor::DeleteBlocksInRange(const NodeDB::StateID& sidTop, Height hS
 {
 	for (NodeDB::StateID sid = sidTop; sid.m_Height > hStop; )
 	{
-		m_DB.DelStateBlockAll(sid.m_Row);
-		m_DB.SetStateNotFunctional(sid.m_Row);
-		m_DB.set_StateExtra(sid.m_Row, nullptr);
-		m_DB.set_StateTxos(sid.m_Row, nullptr);
+		DeleteBlock(sid.m_Row);
 
 		if (!m_DB.get_Prev(sid))
 			sid.SetNull();
 	}
+}
+
+void NodeProcessor::DeleteBlock(uint64_t row)
+{
+	m_DB.DelStateBlockAll(row);
+	m_DB.SetStateNotFunctional(row);
+	m_DB.set_StateExtra(row, nullptr);
+	m_DB.set_StateTxos(row, nullptr);
 }
 
 Height NodeProcessor::PruneOld()
