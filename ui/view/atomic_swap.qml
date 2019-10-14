@@ -523,7 +523,7 @@ Item {
                                 width: parent.width
                                 height: offersTable.rowHeight
                                 property var swapCoin: styleData.value
-                                property var isSendBeam: offersTable.model.get(styleData.row).isBeamSide
+                                property var isSendBeam: offersTable.model.getRoleValue(styleData.row, "isBeamSide")
                                 
                                 anchors.fill: parent
                                 anchors.leftMargin: 20
@@ -618,7 +618,7 @@ Item {
                                 Item {
                                     Layout.fillWidth : true
                                     Layout.fillHeight : true
-                                    property var isOwnOffer: offersTable.model.get(styleData.row).isOwnOffer
+                                    property var isOwnOffer: offersTable.model.getRoleValue(styleData.row, "isOwnOffer")
 
                                     SFText {
                                         anchors.right: parent.right
@@ -638,11 +638,11 @@ Item {
                                             acceptedButtons: Qt.LeftButton
                                             onClicked: {
                                                 if (isOwnOffer) {
-                                                    cancelOfferDialog.txId = offersTable.model.get(styleData.row).rawTxID;
+                                                    cancelOfferDialog.txId = offersTable.model.getRoleValue(styleData.row, "rawTxID");
                                                     cancelOfferDialog.open();
                                                 }
                                                 else {
-                                                    var txParameters = offersTable.model.get(styleData.row).rawTxParameters;
+                                                    var txParameters = offersTable.model.getRoleValue(styleData.row, "rawTxParameters");
                                                     offersStackView.push(Qt.createComponent("send_swap.qml"),
                                                                         {"predefinedTxParams": txParameters,
                                                                          "onAccepted": onAccepted,
@@ -921,7 +921,7 @@ Item {
                                 width: parent.width
                                 height: transactionsTable.rowHeight
                                 property var swapCoin: styleData.value
-                                property var isSendBeam: transactionsTable.model.get(styleData.row).isBeamSideSwap
+                                property var isSendBeam: transactionsTable.model.getRoleValue(styleData.row, "isBeamSideSwap")
                                 
                                 anchors.fill: parent
                                 anchors.leftMargin: 20
@@ -1030,10 +1030,15 @@ Item {
                                     height: transactionsTable.rowHeight
 
                                     RowLayout {
+                                        id: statusRow
                                         Layout.alignment: Qt.AlignLeft
                                         anchors.fill: parent
                                         anchors.leftMargin: 10
                                         spacing: 10
+
+                                        property var isInProgress: transactionsTable.model.getRoleValue(styleData.row, "isInProgress")
+                                        property var isCompleted: transactionsTable.model.getRoleValue(styleData.row, "isCompleted")
+                                        property var isExpired: transactionsTable.model.getRoleValue(styleData.row, "isExpired")
 
                                         SvgImage {
                                             id: statusIcon
@@ -1042,12 +1047,11 @@ Item {
                                             sourceSize: Qt.size(20, 20)
                                             source: getIconSource()
                                             function getIconSource() {
-                                                var item = transactionsTable.model.get(styleData.row);
-                                                if (item.isInProgress)
+                                                if (statusRow.isInProgress)
                                                     return "qrc:/assets/icon-swap-in-progress.svg";
-                                                else if (item.isCompleted)
+                                                else if (statusRow.isCompleted)
                                                     return "qrc:/assets/icon-swap-completed.svg";
-                                                else if (item.isExpired)
+                                                else if (statusRow.isExpired)
                                                     return "qrc:/assets/icon-failed.svg";
                                                 else
                                                     return "qrc:/assets/icon-swap-failed.svg";
@@ -1063,8 +1067,7 @@ Item {
                                             verticalAlignment: Text.AlignBottom
                                             color: getTextColor()
                                             function getTextColor () {
-                                                var item = transactionsTable.model.get(styleData.row);
-                                                if (item.isInProgress || item.isCompleted) {
+                                                if (statusRow.isInProgress || statusRow.isCompleted) {
                                                      return Style.accent_swap;
                                                 }
                                                 else {
@@ -1090,12 +1093,11 @@ Item {
                         }
 
                         function showContextMenu(row) {
-                            var data = transactionsTable.model.get(row);
                             txContextMenu.canCopyToken = true;
-                            txContextMenu.token = data.token;
-                            txContextMenu.cancelEnabled = data.isCancelAvailable;
-                            txContextMenu.deleteEnabled = data.isDeleteAvailable;
-                            txContextMenu.txID = data.rawTxID;
+                            txContextMenu.token = transactionsTable.model.getRoleValue(row, "token");
+                            txContextMenu.cancelEnabled = transactionsTable.model.getRoleValue(row, "isCancelAvailable");
+                            txContextMenu.deleteEnabled = transactionsTable.model.getRoleValue(row, "isDeleteAvailable");
+                            txContextMenu.txID = transactionsTable.model.getRoleValue(row, "rawTxID");
                             txContextMenu.popup();
                         }
 

@@ -542,7 +542,7 @@ Item {
                         Item {
                             width: parent.width
                             height: transactionsTable.rowHeight
-                            property var isIncome: !!styleData.value && transactionsTable.model.get(styleData.row).isIncome
+                            property var isIncome: !!styleData.value && transactionsTable.model.getRoleValue(styleData.row, "isIncome")
                             TableItem {
                                 text: (parent.isIncome ? "+ " : "- ") + styleData.value
                                 fontWeight: Font.Bold
@@ -568,10 +568,17 @@ Item {
                             height: transactionsTable.rowHeight
 
                             RowLayout {
+                                id: statusRow
                                 Layout.alignment: Qt.AlignLeft
                                 anchors.fill: parent
                                 anchors.leftMargin: 10
                                 spacing: 10
+
+                                property var isInProgress: transactionsTable.model.getRoleValue(styleData.row, "isInProgress")
+                                property var isSelfTransaction: transactionsTable.model.getRoleValue(styleData.row, "isSelfTransaction")
+                                property var isIncome: transactionsTable.model.getRoleValue(styleData.row, "isIncome")
+                                property var isCompleted: transactionsTable.model.getRoleValue(styleData.row, "isCompleted")
+                                property var isExpired: transactionsTable.model.getRoleValue(styleData.row, "isExpired")
 
                                 SvgImage {
                                     id: statusIcon;
@@ -580,26 +587,25 @@ Item {
                                     sourceSize: Qt.size(20, 20)
                                     source: getIconSource()
                                     function getIconSource() {
-                                        var item = transactionsTable.model.get(styleData.row);
-                                        if (item.isInProgress) {
-                                            if (item.isSelfTransaction) {
+                                        if (statusRow.isInProgress) {
+                                            if (statusRow.isSelfTransaction) {
                                                 return "qrc:/assets/icon-sending-own.svg";
                                             }
-                                            return item.isIncome ? "qrc:/assets/icon-receiving.svg"
+                                            return statusRow.isIncome ? "qrc:/assets/icon-receiving.svg"
                                                                  : "qrc:/assets/icon-sending.svg";
                                         }
-                                        else if (item.isCompleted) {
-                                            if (item.isSelfTransaction) {
+                                        else if (statusRow.isCompleted) {
+                                            if (statusRow.isSelfTransaction) {
                                                 return "qrc:/assets/icon-sent-own.svg";
                                             }
-                                            return item.isIncome ? "qrc:/assets/icon-received.svg"
+                                            return statusRow.isIncome ? "qrc:/assets/icon-received.svg"
                                                                  : "qrc:/assets/icon-sent.svg";
                                         }
-                                        else if (item.isExpired) {
+                                        else if (statusRow.isExpired) {
                                             return "qrc:/assets/icon-failed.svg" 
                                         }
                                         else {
-                                            return item.isIncome ? "qrc:/assets/icon-receive-canceled.svg"
+                                            return statusRow.isIncome ? "qrc:/assets/icon-receive-canceled.svg"
                                                                  : "qrc:/assets/icon-send-canceled.svg";
                                         }
                                     }
@@ -614,12 +620,11 @@ Item {
                                     verticalAlignment: Text.AlignBottom
                                     color: getTextColor()
                                     function getTextColor () {
-                                        var item = transactionsTable.model.get(styleData.row);
-                                        if (item.isInProgress || item.isCompleted) {
-                                            if (item.isSelfTransaction) {
+                                        if (statusRow.isInProgress || statusRow.isCompleted) {
+                                            if (statusRow.isSelfTransaction) {
                                                 return Style.content_main;
                                             }
-                                            return item.isIncome ? Style.accent_incoming : Style.accent_outgoing;
+                                            return statusRow.isIncome ? Style.accent_incoming : Style.accent_outgoing;
                                         }
                                         else {
                                             return Style.content_secondary;
@@ -644,10 +649,9 @@ Item {
                 }
 
                 function showContextMenu(row) {
-                    var item = transactionsTable.model.get(row);
-                    txContextMenu.cancelEnabled = item.isCancelAvailable;
-                    txContextMenu.deleteEnabled = item.isDeleteAvailable;
-                    txContextMenu.txID = item.rawTxID;
+                    txContextMenu.cancelEnabled = transactionsTable.model.getRoleValue(row, "isCancelAvailable");
+                    txContextMenu.deleteEnabled = transactionsTable.model.getRoleValue(row, "isDeleteAvailable");
+                    txContextMenu.txID = transactionsTable.model.getRoleValue(row, "rawTxID");
                     txContextMenu.popup();
                 }
 
