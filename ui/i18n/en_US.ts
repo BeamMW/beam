@@ -1754,5 +1754,9 @@ Please check the swap token and try again.</translation>
         <source>refund transaction confirmations</source>
         <translation type="unfinished"></translation>
     </message>
+    <message id="swap-invalid-rate">
+        <source>Invalid rate</source>
+        <translation>Invalid rate</translation>
+    </message>
 </context>
 </TS>
