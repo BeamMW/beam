@@ -236,7 +236,7 @@ public:
 	const uint64_t* get_CachedRows(const NodeDB::StateID&, Height nCountExtra); // retval valid till next call to this func, or to EnumCongestions()
 	void TryGoUp();
 	void TryGoTo(NodeDB::StateID&);
-	void OnFastSyncOver(MultiblockContext&, NodeDB::StateID& sidFwd, bool& bContextFail);
+	void OnFastSyncOver(MultiblockContext&, bool& bContextFail);
 
 	// Lowest height to which it's possible to rollback.
 	Height get_LowestReturnHeight() const;

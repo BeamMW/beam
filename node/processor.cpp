@@ -1068,14 +1068,15 @@ void NodeProcessor::TryGoTo(NodeDB::StateID& sidTrg)
 	RollbackTo(sidTrg.m_Height);
 
 	MultiblockContext mbc(*this);
-	bool bContextFail = false;
+	bool bContextFail = false, bKeepBlocks = false;
 
 	NodeDB::StateID sidFwd = m_Cursor.m_Sid;
 
-	for (size_t i = vPath.size(); i--; )
+	size_t iPos = vPath.size();
+	while (iPos)
 	{
 		sidFwd.m_Height = m_Cursor.m_Sid.m_Height + 1;
-		sidFwd.m_Row = vPath[i];
+		sidFwd.m_Row = vPath[--iPos];
 
 		if (!HandleBlock(sidFwd, mbc))
 		{
@@ -1098,7 +1099,10 @@ void NodeProcessor::TryGoTo(NodeDB::StateID& sidTrg)
 			if (!mbc.Flush())
 				break;
 
-			OnFastSyncOver(mbc, sidFwd, bContextFail);
+			OnFastSyncOver(mbc, bContextFail);
+
+			if (mbc.m_bFail)
+				bKeepBlocks = true;
 		}
 
 		if (mbc.m_bFail)
@@ -1113,11 +1117,36 @@ void NodeProcessor::TryGoTo(NodeDB::StateID& sidTrg)
 
 	RollbackTo(mbc.m_InProgress.m_Min - 1);
 
-	DeleteBlocksInRange(sidFwd, m_Cursor.m_Sid.m_Height); // blocks from this peer
-	OnPeerInsane(mbc.m_pidLast);
+	if (bKeepBlocks)
+		return;
+
+	HeightRange hrDel(m_Cursor.m_Sid.m_Height + 1, sidFwd.m_Height);
+
+	if (!(mbc.m_pidLast == Zero))
+	{
+		OnPeerInsane(mbc.m_pidLast);
+
+		// delete all the consequent blocks from this peer
+		for (; iPos; iPos--)
+		{
+			PeerID pid;
+			if (!m_DB.get_Peer(vPath[iPos - 1], pid))
+				break;
+
+			if (pid != mbc.m_pidLast)
+				break;
+
+			hrDel.m_Max++;
+		}
+	}
+
+	LOG_INFO() << "Deleting blocks range: " << hrDel.m_Min << "-" <<  hrDel.m_Max;
+
+	for (; !hrDel.IsEmpty(); iPos++, hrDel.m_Max--)
+		DeleteBlock(vPath[iPos]);
 }
 
-void NodeProcessor::OnFastSyncOver(MultiblockContext& mbc, NodeDB::StateID& sidFwd, bool& bContextFail)
+void NodeProcessor::OnFastSyncOver(MultiblockContext& mbc, bool& bContextFail)
 {
 	assert(mbc.m_InProgress.m_Max == m_SyncData.m_Target.m_Height);
 
@@ -1180,9 +1209,6 @@ void NodeProcessor::OnFastSyncOver(MultiblockContext& mbc, NodeDB::StateID& sidF
 			}
 
 			mbc.OnFastSyncFailed(false);
-
-			sidFwd = m_Cursor.m_Sid; // don't delete any more blocks
-
 		}
 	}
 	else
