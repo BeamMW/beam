@@ -255,29 +255,29 @@ ColumnLayout {
                 text:             qsTrId("general-rate")
             }
 
-            RowLayout
-            {
+            RowLayout {
                 id: rateRow
                 Layout.topMargin: 3
                 Layout.fillWidth: true
 
-                function calcRate () {
-                    if (sentAmountInput.amount == 0) return 0
-                    if (rate.text == "?" || rate.text == "") return 0
-                    return parseFloat(rate.text)
-                }
+                property double maxAmount: 254000000
+                property double minAmount: 0.00000001
 
-                function calcRAmount () {
-                    var rate = calcRate()
-                    if (rate == 0) return 0
-                    var ramount = sentAmountInput.amount / rate
-                    return ramount.toFixed(8).replace(/\.?0+$/,"")
+                function calcReceiveAmount () {
+                    var rate = parseFloat(rateInput.text) || 0
+                    if (rate == 0) return {amount:0, error: false}
+
+                    var ramount = sentAmountInput.amount * maxAmount / rate / maxAmount
+                    var error = ramount > maxAmount || ramount < minAmount
+
+                    if (ramount > maxAmount) ramount = maxAmount
+                    if (ramount < minAmount) ramount = minAmount
+
+                    return {amount: ramount.toFixed(8).replace(/\.?0+$/,""), error: error}
                 }
 
                 function rateValid () {
-                    var ramount = calcRAmount()
-                    var rate = calcRate()
-                    return rate == 0 || (ramount >= 0.00000001 && ramount <= 99999999)
+                    return !calcReceiveAmount().error
                 }
 
                 SFText {
@@ -287,32 +287,28 @@ ColumnLayout {
                 }
 
                 SFTextInput {
-                    id:               rate
+                    id:               rateInput
                     activeFocusOnTab: true
                     font.pixelSize:   14
                     color:            rateRow.rateValid() ? Style.content_main : Style.validator_error
                     backgroundColor:  rateRow.rateValid() ? Style.content_main : Style.validator_error
-                    text:             Utils.calcDisplayRate(receiveAmountInput, sentAmountInput, rate.focus)
+                    text:             Utils.calcDisplayRate(receiveAmountInput, sentAmountInput, rateInput.focus)
                     selectByMouse:    true
                     maximumLength:    30
-                    validator:        RegExpValidator {regExp: /^(([1-9][0-9]{0,7})|(1[0-9]{8})|(2[0-4][0-9]{7})|(25[0-3][0-9]{6})|(0))(\.[0-9]{0,7}[1-9])?$/}
-                    //DoubleValidator {
-                    //                     bottom: 0.00000001;
-                    //                     top: 9999999900000000;
-                    //                     notation: DoubleValidator.StandardNotation
-                    //                  }
+                    validator:        RegExpValidator {regExp: /^(([1-9][0-9]{0,7})|(1[0-9]{8})|(2[0-4][0-9]{7})|(25[0-3][0-9]{6})|(0))(\.[0-9]{0,16}[1-9])?$/}
+
                     onTextEdited: {
                         // unbind
                         text = text
                         // update
                         if (sentAmountInput.amount == 0) sentAmountInput.amount = 1
-                        receiveAmountInput.amount = rateRow.calcRAmount()
+                        receiveAmountInput.amount = rateRow.calcReceiveAmount().amount
                     }
 
                     onFocusChanged: {
                         if (!focus) {
                             text = Qt.binding(function() {
-                                    return Utils.calcDisplayRate(receiveAmountInput, sentAmountInput, rate.focus)
+                                    return Utils.calcDisplayRate(receiveAmountInput, sentAmountInput, rateInput.focus)
                                 })
                         }
                     }
@@ -322,6 +318,19 @@ ColumnLayout {
                     font.pixelSize:  14
                     color:           rateRow.rateValid() ? Style.content_secondary : Style.validator_error
                     text:            sentAmountInput.currencyLabel
+                }
+            }
+
+            Item {
+                Layout.leftMargin: rateInput.x
+                SFText {
+                    color:               Style.validator_error
+                    font.pixelSize:      12
+                    font.styleName:      "Italic"
+                    width:               parent.width
+                    //% "Invalid rate"
+                    text:                qsTrId("swap-invalid-rate")
+                    visible:             !rateRow.rateValid()
                 }
             }
         }

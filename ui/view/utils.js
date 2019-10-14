@@ -67,7 +67,7 @@ function calcDisplayRate(ail, air, numOnly) {
     if (al == 0 || ar == 0) return numOnly ? "" : "?"
 
     var rounder = 100000000
-    return (ar / al).toFixed(10).replace(/\.?0+$/,"")
+    return (ar / al).toFixed(17).replace(/\.?0+$/,"")
 }
 
 function getAmountWithoutCurrency(amountWithCurrency) {
