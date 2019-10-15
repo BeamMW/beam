@@ -350,26 +350,42 @@ Item {
                         SFText {
                             Layout.alignment: Qt.AlignHCenter | Qt.AlignLeft
                             font.pixelSize: 14
-                            color: Style.content_main
-                            // opacity: 0.6
+                            color: sendReceiveBeamSwitch.checked
+                                ? Qt.rgba(Style.content_main.r, Style.content_main.g, Style.content_main.b, 0.5)
+                                : Style.active
                             //% "Receive BEAM"
                             text: qsTrId("atomic-swap-receive-beam")
+                            MouseArea {
+                                anchors.fill: parent
+                                acceptedButtons: Qt.LeftButton
+                                onClicked: {
+                                    sendReceiveBeamSwitch.checked = !sendReceiveBeamSwitch.checked;
+                                }
+                            }
                         }
 
                         CustomSwitch {
                             id: sendReceiveBeamSwitch
+                            alwaysGreen: true
                             Layout.alignment: Qt.AlignHCenter | Qt.AlignLeft
-                            // opacity: 0.6
                         }
 
                         SFText {
                             Layout.alignment:  Qt.AlignHCenter | Qt.AlignLeft
                             Layout.leftMargin: 10
                             font.pixelSize: 14
-                            color: Style.content_main
-                            // opacity: 0.6
+                            color: sendReceiveBeamSwitch.checked
+                                ? Style.active
+                                : Qt.rgba(Style.content_main.r, Style.content_main.g, Style.content_main.b, 0.5)
                             //% "Send BEAM"
                             text: qsTrId("atomic-swap-send-beam")
+                            MouseArea {
+                                anchors.fill: parent
+                                acceptedButtons: Qt.LeftButton
+                                onClicked: {
+                                    sendReceiveBeamSwitch.checked = !sendReceiveBeamSwitch.checked;
+                                }
+                            }
                         }
 
                         CustomCheckBox {
@@ -477,7 +493,7 @@ Item {
                         model: SortFilterProxyModel {
                             id: proxyModel
                             source: SortFilterProxyModel {
-                                source: viewModel.allOffers
+                                source: viewModel.allOffers                                
                                 filterRole: "isBeamSide"
                                 filterString: sendReceiveBeamSwitch.checked ? "false" : "true"
                                 filterSyntax: SortFilterProxyModel.Wildcard
@@ -536,13 +552,13 @@ Item {
                                     spacing: -4
                                     SvgImage {
                                         sourceSize: Qt.size(20, 20)
-                                        source: isSendBeam && isOwnOffer
+                                        source: isSendBeam
                                             ? "qrc:/assets/icon-beam.svg"
                                             : getCoinIcon(swapCoin)
                                     }
                                     SvgImage {
                                         sourceSize: Qt.size(20, 20)
-                                        source: isSendBeam && isOwnOffer
+                                        source: isSendBeam
                                             ? getCoinIcon(swapCoin)
                                             : "qrc:/assets/icon-beam.svg"
                                     }
