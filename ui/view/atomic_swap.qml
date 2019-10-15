@@ -524,6 +524,7 @@ Item {
                                 height: offersTable.rowHeight
                                 property var swapCoin: styleData.value
                                 property var isSendBeam: offersTable.model.getRoleValue(styleData.row, "isBeamSide")
+                                property var isOwnOffer: offersTable.model.getRoleValue(styleData.row, "isOwnOffer")
                                 
                                 anchors.fill: parent
                                 anchors.leftMargin: 20
@@ -535,11 +536,15 @@ Item {
                                     spacing: -4
                                     SvgImage {
                                         sourceSize: Qt.size(20, 20)
-                                        source: isSendBeam ? "qrc:/assets/icon-beam.svg" : getCoinIcon(swapCoin)
+                                        source: isSendBeam && isOwnOffer
+                                            ? "qrc:/assets/icon-beam.svg"
+                                            : getCoinIcon(swapCoin)
                                     }
                                     SvgImage {
                                         sourceSize: Qt.size(20, 20)
-                                        source: isSendBeam ? getCoinIcon(swapCoin) : "qrc:/assets/icon-beam.svg"
+                                        source: isSendBeam && isOwnOffer
+                                            ? getCoinIcon(swapCoin)
+                                            : "qrc:/assets/icon-beam.svg"
                                     }
                                 }
                             }
