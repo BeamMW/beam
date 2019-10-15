@@ -56,18 +56,17 @@ function handleExternalLink(mouse, element, settings, dialog) {
     }
 }
 
-function calcDisplayRate(ail, air, numOnly) {
+function calcDisplayRate(aiReceive, aiSend, numOnly) {
     // ai[X] = amount input control
-    var cl = ail.currency
-    var cr = air.currency
-    if (cl == cr) return 1;
+    var cr = aiReceive.currency
+    var cs = aiSend.currency
+    if (cr == cs) return 1
 
-    var al = ail.amount
-    var ar = air.amount
-    if (al == 0 || ar == 0) return numOnly ? "" : "?"
+    var ams = aiSend.amount
+    var amr = aiReceive.amount
+    if (ams == 0 || amr == 0) return numOnly ? "" : "?"
 
-    var rounder = 100000000
-    return (ar / al).toFixed(10).replace(/\.?0+$/,"")
+    return (ams / amr).toLocaleString(numOnly ? Qt.locale("C") : Qt.locale(), 'f', 28).replace(/\.?0+$/,"")
 }
 
 function getAmountWithoutCurrency(amountWithCurrency) {

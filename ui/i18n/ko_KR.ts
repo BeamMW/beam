@@ -62,12 +62,10 @@
     </message>
     <message id="general-receiving">
         <source></source>
-        <oldsource>receiving</oldsource>
         <translation type="unfinished">받는 중</translation>
     </message>
     <message id="general-sending">
         <source></source>
-        <oldsource>sending</oldsource>
         <translation type="unfinished">보내는 중</translation>
     </message>
     <message id="general-rescan">
@@ -803,12 +801,10 @@
     </message>
     <message id="loading-view-download-blocks">
         <source>Synching with blockchain</source>
-        <oldsource>Downloading new blocks</oldsource>
         <translation type="unfinished">블록 다운로딩중</translation>
     </message>
     <message id="loading-view-scaning-utxo">
         <source>Loading wallet data %d/%d</source>
-        <oldsource>Locating your funds %d/%d</oldsource>
         <translation type="unfinished">UTXO %d/%d 스캔하는중</translation>
     </message>
     <message id="loading-view-protocol-error">
@@ -1025,12 +1021,12 @@
         <translation>지갑에 접근하기 위해서 새 비밀번호를 생성해야합니다.</translation>
     </message>
     <message id="start-create-pwd-strength-message">
-        <source>Strong password needs to meet the following requirements:\n•  the length must be at least 10 characters\n•  must contain at least one lowercase letter\n•  must contain at least one uppercase letter\n•  must contain at least one number</source>
-        <oldsource>Strong password needs to meet the following requirements:
+        <source>Strong password needs to meet the following requirements:
 •  the length must be at least 10 characters
 •  must contain at least one lowercase letter
 •  must contain at least one uppercase letter
-•  must contain at least one number</oldsource>
+•  must contain at least one number</source>
+        <oldsource>Strong password needs to meet the following requirements:\n•  the length must be at least 10 characters\n•  must contain at least one lowercase letter\n•  must contain at least one uppercase letter\n•  must contain at least one number</oldsource>
         <translation type="unfinished">보안성이 강한 비밀번호를 만들기 위해서는 아래의 조건들을 충족시켜야 합니다 : \n• 최소한 10개의 글자로 이루어져야합니다.\n• 최소한 1개의 소문자가 포함되어야 합니다.\n• 최소한 1개의 대문자가 포함되어야 합니다.\n• 최소한 1개의 숫자가 포함되어야 합니다.</translation>
     </message>
     <message id="start-open-caps-warning">
@@ -1292,7 +1288,6 @@
     </message>
     <message id="settings-reset">
         <source>Disconnect</source>
-        <oldsource>Switch off</oldsource>
         <translation type="unfinished"></translation>
     </message>
     <message id="settings-node-address">
@@ -1316,9 +1311,9 @@
         <translation type="unfinished"></translation>
     </message>
     <message id="swap-na-message">
-        <source>You do not have any 3rd-party currencies connected.\nUpdate your settings and try again.</source>
-        <oldsource>You do not have any 3rd-party currencies connected.
-Update your settings and try again.</oldsource>
+        <source>You do not have any 3rd-party currencies connected.
+Update your settings and try again.</source>
+        <oldsource>You do not have any 3rd-party currencies connected.\nUpdate your settings and try again.</oldsource>
         <translation type="unfinished"></translation>
     </message>
     <message id="wallet-receive-swap-title">
@@ -1342,7 +1337,7 @@ Update your settings and try again.</oldsource>
         <translation type="unfinished"></translation>
     </message>
     <message id="sent-amount-label">
-        <source>Sent amount</source>
+        <source>Send amount</source>
         <translation type="unfinished"></translation>
     </message>
     <message id="wallet-receive-offer-expires-label">
@@ -1406,9 +1401,9 @@ Update your settings and try again.</oldsource>
         <translation type="unfinished"></translation>
     </message>
     <message id="swap-currency-na-message">
-        <source>You do not have %1 connected.\nUpdate your settings and try again.</source>
-        <oldsource>You do not have %1 connected.
-Update your settings and try again.</oldsource>
+        <source>You do not have %1 connected.
+Update your settings and try again.</source>
+        <oldsource>You do not have %1 connected.\nUpdate your settings and try again.</oldsource>
         <translation type="unfinished"></translation>
     </message>
     <message id="send-swap-to-label">
@@ -1477,7 +1472,6 @@ Update your settings and try again.</oldsource>
     </message>
     <message id="loading-view-rebuild-utxos">
         <source>Rebuilding wallet data</source>
-        <oldsource>Rebuilding data</oldsource>
         <translation type="unfinished"></translation>
     </message>
     <message id="wallet-receive-copy-token">
@@ -1545,9 +1539,9 @@ Update your settings and try again.</oldsource>
         <translation type="unfinished"></translation>
     </message>
     <message id="settings-progress-na">
-        <source>You cannot change settings\nwhile active transaction is in progress</source>
-        <oldsource>You cannot change settings
-while active transaction is in progress</oldsource>
+        <source>You cannot change settings
+while active transaction is in progress</source>
+        <oldsource>You cannot change settings\nwhile active transaction is in progress</oldsource>
         <translation type="unfinished"></translation>
     </message>
     <message id="send-less-than-fee">
@@ -1616,7 +1610,6 @@ while active transaction is in progress</oldsource>
     </message>
     <message id="swap-connecting">
         <source>Connecting...</source>
-        <oldsource>Connecting.</oldsource>
         <translation type="unfinished"></translation>
     </message>
     <message id="swap-beta-connection-error">
@@ -1652,7 +1645,9 @@ while active transaction is in progress</oldsource>
         <translation type="unfinished"></translation>
     </message>
     <message id="atomic-no-offers">
-        <source>There are no active offers at the moment.\nPlease try again later or create an offer yourself.</source>
+        <source>There are no active offers at the moment.
+Please try again later or create an offer yourself.</source>
+        <oldsource>There are no active offers at the moment.\nPlease try again later or create an offer yourself.</oldsource>
         <translation type="unfinished"></translation>
     </message>
     <message id="atomic-swap-amount-send">
@@ -1704,7 +1699,9 @@ while active transaction is in progress</oldsource>
         <translation type="unfinished"></translation>
     </message>
     <message id="only-swap-token-allowed-allert-body">
-        <source>You have provided a wallet address.\nPlease fill in swap token and try again.</source>
+        <source>You have provided a wallet address.
+Please fill in swap token and try again.</source>
+        <oldsource>You have provided a wallet address.\nPlease fill in swap token and try again.</oldsource>
         <translation type="unfinished"></translation>
     </message>
     <message id="accept-own-offer-allert-head">
@@ -1712,7 +1709,9 @@ while active transaction is in progress</oldsource>
         <translation type="unfinished"></translation>
     </message>
     <message id="accept-own-offer-allert-body">
-        <source>The transaction token was generated by you, therefore it is not allowed to accept your own offer.\nPlease check the swap token and try again.</source>
+        <source>The transaction token was generated by you, therefore it is not allowed to accept your own offer.
+Please check the swap token and try again.</source>
+        <oldsource>The transaction token was generated by you, therefore it is not allowed to accept your own offer.\nPlease check the swap token and try again.</oldsource>
         <translation type="unfinished"></translation>
     </message>
     <message id="swap-copy-token">
@@ -1740,11 +1739,11 @@ while active transaction is in progress</oldsource>
         <translation type="unfinished"></translation>
     </message>
     <message id="swap-details-beam-lock-kernel-id">
-        <source>Beam lock transaction kernel ID</source>
+        <source>BEAM lock transaction kernel ID</source>
         <translation type="unfinished"></translation>
     </message>
     <message id="swap-details-beam-redeem-kernel-id">
-        <source>Beam redeem transaction kernel ID</source>
+        <source>BEAM redeem transaction kernel ID</source>
         <translation type="unfinished"></translation>
     </message>
     <message id="swap-details-redeem-tx-id">
@@ -1756,7 +1755,7 @@ while active transaction is in progress</oldsource>
         <translation type="unfinished"></translation>
     </message>
     <message id="swap-details-beam-refund-kernel-id">
-        <source>Beam refund transaction kernel ID</source>
+        <source>BEAM refund transaction kernel ID</source>
         <translation type="unfinished"></translation>
     </message>
     <message id="swap-details-refund-tx-id">
@@ -1765,6 +1764,10 @@ while active transaction is in progress</oldsource>
     </message>
     <message id="swap-details-refund-tx-conf">
         <source>refund transaction confirmations</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="swap-invalid-rate">
+        <source>Invalid rate</source>
         <translation type="unfinished"></translation>
     </message>
 </context>

@@ -61,6 +61,7 @@ public:
 
     int count() const;
     Q_INVOKABLE QVariantMap get(int index) const;
+    Q_INVOKABLE QVariant getRoleValue(int index, QByteArray roleName) const;
 
     void classBegin();
     void componentComplete();

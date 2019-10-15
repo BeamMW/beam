@@ -19,8 +19,8 @@
 
 #include "model/wallet_model.h"
 #include "model/swap_coin_client_model.h"
-#include "viewmodel/wallet/transactions_list.h"
 #include "swap_offers_list.h"
+#include "swap_tx_object_list.h"
 
 using namespace beam::wallet;
 
@@ -97,7 +97,7 @@ private:
     
     AtomicSwapCoin m_coinType;
 
-    TransactionsList m_transactionsList;
+    SwapTxObjectList m_transactionsList;
     SwapOffersList m_offersList;
     SwapCoinClientModel::Ptr m_btcClient;
     SwapCoinClientModel::Ptr m_ltcClient;

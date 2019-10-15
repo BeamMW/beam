@@ -17,7 +17,7 @@
 #include "tx_object.h"
 #include "viewmodel/helpers/list_model.h"
 
-class TransactionsList : public ListModel<std::shared_ptr<TxObject>>
+class TxObjectList : public ListModel<std::shared_ptr<TxObject>>
 {
 
     Q_OBJECT
@@ -29,10 +29,6 @@ public:
         TimeCreatedSort,
         AmountGeneral,
         AmountGeneralSort,
-        AmountSend,
-        AmountSendSort,
-        AmountReceive,
-        AmountReceiveSort,
         AddressFrom,
         AddressFromSort,
         AddressTo,
@@ -54,26 +50,12 @@ public:
         IsCanceled,
         IsFailed,
         IsExpired,
-        IsBeamSideSwap,
         HasPaymentProof,
-        SwapCoin,
         RawTxID,
-        Search,
-        Token,
-        //
-        IsProofReceived,
-        SwapCoinLockTxId,
-        SwapCoinLockTxConfirmations,
-        SwapCoinRedeemTxId,
-        SwapCoinRedeemTxConfirmations,
-        SwapCoinRefundTxId,
-        SwapCoinRefundTxConfirmations,
-        BeamLockTxKernelId,
-        BeamRedeemTxKernelId,
-        BeamRefundTxKernelId
+        Search
     };
 
-    TransactionsList();
+    TxObjectList();
 
     QVariant data(const QModelIndex &index, int role) const override;
     QHash<int, QByteArray> roleNames() const override;

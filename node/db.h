@@ -311,6 +311,8 @@ public:
 
 		TxoID get_ID() const;
 		void Get(ECC::Point&) const;
+
+		static bool IsLess(const StateInput&, const StateInput&);
 	};
 #pragma pack (pop)
 

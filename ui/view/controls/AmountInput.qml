@@ -66,6 +66,7 @@ ColumnLayout {
 
             onTextChanged: {
                 if (ainput.focus) control.amount = text ? parseFloat(text) : 0;
+                else ainput.select(0, 0)
             }
 
             onFocusChanged: {

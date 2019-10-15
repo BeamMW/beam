@@ -48,7 +48,7 @@ RowLayout {
             font.pixelSize: 14
             color: Style.content_secondary
             //% "lock transaction ID"
-            text: swapCoinName + ' ' + qsTrId("swap-details-lock-tx-id") + ":"
+            text: swapCoinName.toUpperCase() + ' ' + qsTrId("swap-details-lock-tx-id") + ":"
         }
         SFLabel {
             Layout.fillWidth: true
@@ -66,7 +66,7 @@ RowLayout {
             font.pixelSize: 14
             color: Style.content_secondary
             //% "lock transaction confirmations"
-            text: swapCoinName + ' ' + qsTrId("swap-details-lock-tx-conf") + ":"
+            text: swapCoinName.toUpperCase() + ' ' + qsTrId("swap-details-lock-tx-conf") + ":"
         }
         SFLabel {
             Layout.fillWidth: true
@@ -83,7 +83,7 @@ RowLayout {
             Layout.alignment: Qt.AlignTop
             font.pixelSize: 14
             color: Style.content_secondary
-            //% "Beam lock transaction kernel ID"
+            //% "BEAM lock transaction kernel ID"
             text: qsTrId("swap-details-beam-lock-kernel-id") + ":"
         }
         SFLabel {
@@ -99,14 +99,16 @@ RowLayout {
         
         SFText {
             enabled: isBeamSide || (!isBeamSide && isProofReceived)
+            visible: enabled
             Layout.alignment: Qt.AlignTop
             font.pixelSize: 14
             color: Style.content_secondary
-            //% "Beam redeem transaction kernel ID"
+            //% "BEAM redeem transaction kernel ID"
             text: qsTrId("swap-details-beam-redeem-kernel-id") + ":"
         }
         SFLabel {
             enabled: isBeamSide || (!isBeamSide && isProofReceived)
+            visible: enabled
             Layout.fillWidth: true
             copyMenuEnabled: true
             font.pixelSize: 14
@@ -119,14 +121,16 @@ RowLayout {
 
         SFText {
             enabled: isBeamSide && isProofReceived
+            visible: enabled
             Layout.alignment: Qt.AlignTop
             font.pixelSize: 14
             color: Style.content_secondary
             //% "redeem transaction ID"
-            text: swapCoinName + ' ' + qsTrId("swap-details-redeem-tx-id") + ":"
+            text: swapCoinName.toUpperCase() + ' ' + qsTrId("swap-details-redeem-tx-id") + ":"
         }
         SFLabel {
             enabled: isBeamSide && isProofReceived
+            visible: enabled
             Layout.fillWidth: true
             copyMenuEnabled: true
             font.pixelSize: 14
@@ -139,14 +143,16 @@ RowLayout {
 
         SFText {
             enabled: isBeamSide && isProofReceived
+            visible: enabled
             Layout.alignment: Qt.AlignTop
             font.pixelSize: 14
             color: Style.content_secondary
             //% "redeem transaction confirmations"
-            text: swapCoinName + ' ' + qsTrId("swap-details-redeem-tx-conf") + ":"
+            text: swapCoinName.toUpperCase() + ' ' + qsTrId("swap-details-redeem-tx-conf") + ":"
         }
         SFLabel {
             enabled: isBeamSide && isProofReceived
+            visible: enabled
             Layout.fillWidth: true
             copyMenuEnabled: true
             font.pixelSize: 14
@@ -159,14 +165,16 @@ RowLayout {
         
         SFText {
             enabled: isBeamSide && !isProofReceived
+            visible: enabled
             Layout.alignment: Qt.AlignTop
             font.pixelSize: 14
             color: Style.content_secondary
-            //% "Beam refund transaction kernel ID"
+            //% "BEAM refund transaction kernel ID"
             text: qsTrId("swap-details-beam-refund-kernel-id") + ":"
         }
         SFLabel {
             enabled: isBeamSide && !isProofReceived
+            visible: enabled
             Layout.fillWidth: true
             copyMenuEnabled: true
             font.pixelSize: 14
@@ -179,14 +187,16 @@ RowLayout {
 
         SFText {
             enabled: !isBeamSide && !isProofReceived
+            visible: enabled
             Layout.alignment: Qt.AlignTop
             font.pixelSize: 14
             color: Style.content_secondary
             //% "refund transaction ID"
-            text: swapCoinName + ' ' + qsTrId("swap-details-refund-tx-id") + ":"
+            text: swapCoinName.toUpperCase() + ' ' + qsTrId("swap-details-refund-tx-id") + ":"
         }
         SFLabel {
             enabled: !isBeamSide && !isProofReceived
+            visible: enabled
             Layout.fillWidth: true
             copyMenuEnabled: true
             font.pixelSize: 14
@@ -199,14 +209,16 @@ RowLayout {
 
         SFText {
             enabled: !isBeamSide && !isProofReceived
+            visible: enabled
             Layout.alignment: Qt.AlignTop
             font.pixelSize: 14
             color: Style.content_secondary
             //% "refund transaction confirmations"
-            text: swapCoinName + ' ' + qsTrId("swap-details-refund-tx-conf") + ":"
+            text: swapCoinName.toUpperCase() + ' ' + qsTrId("swap-details-refund-tx-conf") + ":"
         }
         SFLabel {
             enabled: !isBeamSide && !isProofReceived
+            visible: enabled
             Layout.fillWidth: true
             copyMenuEnabled: true
             font.pixelSize: 14
@@ -228,65 +240,5 @@ RowLayout {
                     return false;
             }
         }
-
-        // Item {
-        //     Layout.fillWidth: true
-        //     Layout.preferredHeight: 16
-        //     visible: parent.canOpenInBlockchainExplorer(root.status)
-        // }
-        // Item {
-        //     Layout.preferredWidth: openInExplorer.width + 10 + openInExplorerIcon.width
-        //     Layout.preferredHeight: 16
-        //     visible: parent.canOpenInBlockchainExplorer(root.status)
-
-        //     SFText {
-        //         id: openInExplorer
-        //         font.pixelSize: 14
-        //         anchors.left: parent.left
-        //         anchors.top: parent.top
-        //         anchors.rightMargin: 10
-        //         color: Style.active
-        //         //% "Open in Blockchain Explorer"
-        //         text: qsTrId("open-in-explorer")
-        //     }
-        //     SvgImage {
-        //         id: openInExplorerIcon
-        //         anchors.top: parent.top
-        //         anchors.right: parent.right
-        //         source: "qrc:/assets/icon-external-link-green.svg"
-        //     }
-        //     MouseArea {
-        //         anchors.fill: parent
-        //         acceptedButtons: Qt.LeftButton
-        //         cursorShape: Qt.PointingHandCursor
-        //         onClicked: {
-        //             if (onOpenExternal && typeof onOpenExternal === 'function') {
-        //                 onOpenExternal();
-        //             }
-        //         }
-        //         hoverEnabled: true
-        //     }
-        // }
-        // SFText {
-        //     Layout.alignment: Qt.AlignTop
-        //     font.pixelSize: 14
-        //     color: Style.content_secondary
-        //     //% "Error"
-        //     text: qsTrId("tx-details-error-label") + ":"
-        //     visible: root.failureReason.length > 0
-        // }
-        // SFLabel {
-        //     id: failureReason
-        //     Layout.fillWidth: true
-        //     copyMenuEnabled: true
-        //     font.pixelSize: 14
-        //     color: Style.content_main
-        //     wrapMode: Text.Wrap
-        //     visible: root.failureReason.length > 0
-        //     text: root.failureReason.length > 0 ? root.failureReason : ""
-        //     font.styleName: "Italic"
-        //     elide: Text.ElideRight
-        //     onCopyText: textCopied(text)
-        // }
     }
 }

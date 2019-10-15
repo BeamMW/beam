@@ -26,7 +26,7 @@
 #include "viewmodel/utxo_view.h"
 #include "viewmodel/utxo_view_status.h"
 #include "viewmodel/utxo_view_type.h"
-#include "viewmodel/swap_offers/swap_offers_view.h"
+#include "viewmodel/atomic_swap/swap_offers_view.h"
 #include "viewmodel/dashboard_view.h"
 #include "viewmodel/address_book_view.h"
 #include "viewmodel/wallet/wallet_view.h"

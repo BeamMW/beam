@@ -105,6 +105,20 @@ QVariantMap SortFilterProxyModel::get(int idx) const
     return map;
 }
 
+QVariant SortFilterProxyModel::getRoleValue(int idx, QByteArray roleName) const
+{
+    QHash<int, QByteArray> roles = roleNames();
+    QHashIterator<int, QByteArray> it(roles);
+    while (it.hasNext()) {
+        it.next();
+        if (roleName == it.value())
+        {
+            return data(index(idx, 0), it.key());
+        }
+    }
+    return QVariant();
+}
+
 void SortFilterProxyModel::classBegin()
 {
 }

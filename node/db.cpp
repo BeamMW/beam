@@ -1272,6 +1272,14 @@ void NodeDB::StateInput::Get(ECC::Point& pt) const
 	pt.m_Y = (s_Y & m_Txo_AndY) ? 1 : 0;
 }
 
+bool NodeDB::StateInput::IsLess(const StateInput& x1, const StateInput& x2)
+{
+	ECC::Point pt1, pt2;
+	x1.Get(pt1);
+	x2.Get(pt2);
+	return pt1 < pt2;
+}
+
 void NodeDB::set_StateTxos(uint64_t rowid, const TxoID* pId)
 {
 	Recordset rs(*this, Query::StateSetTxos, "UPDATE " TblStates " SET " TblStates_Txos "=? WHERE rowid=?");
@@ -2333,6 +2341,8 @@ void NodeDB::MigrateFrom18()
 		bool bFlush = !vInps.empty() && (!bNext || (wlk.m_SpendHeight != h));
 		if (bFlush)
 		{
+			std::sort(vInps.begin(), vInps.end(), StateInput::IsLess);
+
 			uint64_t rowid = FindActiveStateStrict(h);
 			set_StateInputs(rowid, &vInps.front(), vInps.size());
 			vInps.clear();
