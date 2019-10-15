@@ -949,18 +949,20 @@ namespace ECC {
 	{
 		if (Mode::Fast == g_Mode)
 		{
-			m_nPrepared = 1;
-			m_pPt[1] = p;
+			Fast& f = U.F.get();
+			f.m_nPrepared = 1;
+			f.m_pPt[1] = p;
 		}
 		else
 		{
+			Secure& s = U.S.get();
 			secp256k1_ge ge;
-			Generator::ToPt(m_pPt[0], ge, Context::get().m_Casual.m_Nums, true);
+			Generator::ToPt(s.m_pPt[0], ge, Context::get().m_Casual.m_Nums, true);
 
 			for (unsigned int i = 1; i < Secure::nCount; i++)
 			{
-				m_pPt[i] = m_pPt[i - 1];
-				m_pPt[i] += p;
+				s.m_pPt[i] = s.m_pPt[i - 1];
+				s.m_pPt[i] += p;
 			}
 		}
 	}
@@ -1033,7 +1035,7 @@ namespace ECC {
 			for (int iEntry = 0; iEntry < m_Casual; iEntry++)
 			{
 				Casual& x = m_pCasual[iEntry];
-				x.m_Aux.Schedule(m_pKCasual[iEntry], nBits, Casual::Fast::nMaxOdd, pTblCasual, iEntry + 1);
+				x.U.F.get().m_Aux.Schedule(m_pKCasual[iEntry], nBits, Casual::Fast::nMaxOdd, pTblCasual, iEntry + 1);
 			}
 
 		}
@@ -1059,23 +1061,24 @@ namespace ECC {
 				{
 					unsigned int iEntry = pTblCasual[iBit];
 					Casual& x = m_pCasual[iEntry - 1];
-					pTblCasual[iBit] = x.m_Aux.m_nNextItem;
+					Casual::Fast& f = x.U.F.get();
+					pTblCasual[iBit] = f.m_Aux.m_nNextItem;
 
 					assert(1 & x.m_Aux.m_nOdd);
-					unsigned int nElem = (x.m_Aux.m_nOdd >> 1) + 1;
+					unsigned int nElem = (f.m_Aux.m_nOdd >> 1) + 1;
 					assert(nElem < Casual::Fast::nCount);
 
-					for (; x.m_nPrepared < nElem; x.m_nPrepared++)
+					for (; f.m_nPrepared < nElem; f.m_nPrepared++)
 					{
-						if (1 == x.m_nPrepared)
-							x.m_pPt[0] = x.m_pPt[1] * Two;
+						if (1 == f.m_nPrepared)
+							f.m_pPt[0] = f.m_pPt[1] * Two;
 
-						x.m_pPt[x.m_nPrepared + 1] = x.m_pPt[x.m_nPrepared] + x.m_pPt[0];
+						f.m_pPt[f.m_nPrepared + 1] = f.m_pPt[f.m_nPrepared] + f.m_pPt[0];
 					}
 
-					res += x.m_pPt[nElem];
+					res += f.m_pPt[nElem];
 
-					x.m_Aux.Schedule(m_pKCasual[iEntry - 1], iBit, Casual::Fast::nMaxOdd, pTblCasual, iEntry);
+					f.m_Aux.Schedule(m_pKCasual[iEntry - 1], iBit, Casual::Fast::nMaxOdd, pTblCasual, iEntry);
 				}
 
 
@@ -1111,7 +1114,7 @@ namespace ECC {
 						//
 						//res += ptVal;
 
-						res += x.m_pPt[nVal]; // cmov seems not needed, since the table is relatively small, and not in global mem (less predicatble addresses)
+						res += x.U.S.get().m_pPt[nVal]; // cmov seems not needed, since the table is relatively small, and not in global mem (less predicatble addresses)
 						// The version with cmov (commented-out above) is ~15% slower
 					}
 				}
@@ -1200,7 +1203,7 @@ namespace ECC {
 
 	/////////////////////
 	// Context
-	alignas(64) char g_pContextBuf[sizeof(Context)];
+	AlignedBuf<Context> g_ContextBuf;
 
 	// Currently - auto-init in global obj c'tor
 	Initializer g_Initializer;
@@ -1212,12 +1215,12 @@ namespace ECC {
 	const Context& Context::get()
 	{
 		assert(g_bContextInitialized);
-		return *reinterpret_cast<Context*>(g_pContextBuf);
+		return g_ContextBuf.get();
 	}
 
 	void InitializeContext()
 	{
-		Context& ctx = *reinterpret_cast<Context*>(g_pContextBuf);
+		Context& ctx = g_ContextBuf.get();
 
 		Mode::Scope scope(Mode::Fast);
 

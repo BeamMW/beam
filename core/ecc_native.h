@@ -200,6 +200,13 @@ namespace ECC
 
 #endif // ECC_COMPACT_GEN
 
+	template <typename T, size_t nCount = 1>
+	struct AlignedBuf
+	{
+		alignas(64) char m_p[sizeof(T) * nCount];
+		T& get() const { return *reinterpret_cast<T*>((char*) m_p); }
+	};
+
 	struct MultiMac
 	{
 		struct FastAux {
@@ -211,10 +218,13 @@ namespace ECC
 
 		struct Casual
 		{
-			struct Secure {
+			struct Secure
+			{
 				// In secure mode: all the values are precalculated from the beginning, with the "nums" added (for futher obscuring)
 				static const int nBits = 4;
 				static const int nCount = 1 << nBits;
+
+				Point::Native m_pPt[Secure::nCount];
 			};
 
 			struct Fast
@@ -222,14 +232,17 @@ namespace ECC
 				// In fast mode: x1 is assigned from the beginning, then on-demand calculated x2 and then only odd multiples.
 				static const int nMaxOdd = (1 << 4) - 1; // 15
 				static const int nCount = (nMaxOdd >> 1) + 2; // we need a single even: x2
+
+				Point::Native m_pPt[Fast::nCount];
+				unsigned int m_nPrepared;
+				FastAux m_Aux;
 			};
 
-
-			Point::Native m_pPt[(Secure::nCount > Fast::nCount) ? Secure::nCount : Fast::nCount];
-
-			// used in fast mode
-			unsigned int m_nPrepared;
-			FastAux m_Aux;
+			union
+			{
+				AlignedBuf<Secure> S;
+				AlignedBuf<Fast> F;
+			} U;
 
 			void Init(const Point::Native&);
 		};
@@ -713,14 +726,15 @@ namespace ECC
 	struct InnerProduct::BatchContextEx
 		:public BatchContext
 	{
-		uint64_t m_pBuf[(sizeof(MultiMac::Casual) * s_CasualCountPerProof * nBatchSize + sizeof(uint64_t) - 1) / sizeof(uint64_t)];
-		uint64_t m_pBuf2[(sizeof(Scalar::Native) * s_CasualCountPerProof * nBatchSize + sizeof(uint64_t) - 1) / sizeof(uint64_t)];
+		static const uint32_t s_Count = s_CasualCountPerProof * nBatchSize;
+		AlignedBuf<MultiMac::Casual, s_Count> m_Buf1;
+		AlignedBuf<Scalar::Native, s_Count> m_Buf2;
 
 		BatchContextEx()
-			:BatchContext(nBatchSize * s_CasualCountPerProof)
+			:BatchContext(s_Count)
 		{
-			m_pCasual = (MultiMac::Casual*) m_pBuf;
-			m_pKCasual = (Scalar::Native*) m_pBuf2;
+			m_pCasual = &m_Buf1.get();
+			m_pKCasual = &m_Buf2.get();
 		}
 	};
 
