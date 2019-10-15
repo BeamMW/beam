@@ -21,7 +21,7 @@ Label {
 
     background: Rectangle {
 	    id: backgroundRect
-        visible: enableBackgroundRect & contextMenu.opened
+        visible: false// enableBackgroundRect & contextMenu.opened
         anchors.left: control.left
         anchors.top: control.top
         height: control.height
@@ -39,29 +39,36 @@ Label {
         hoverEnabled: true
 
         onClicked: {
+            var contextMenu = contextMenuComponent.createObject(control)
             contextMenu.x = mouse.x
             contextMenu.y = mouse.y
             contextMenu.open()
+
         }
     }
 
-    ContextMenu {
-        id: contextMenu
-        modal: true
-        dim: false
-        enabled: control.copyMenuEnabled
-        Action {
-            //% "Copy"
-            text: qsTrId("general-copy")
-            icon.source: "qrc:/assets/icon-copy.svg"
-            enabled: control.enabled && control.copyMenuEnabled
-            onTriggered: control.copyText()
-        }
-        onOpened: {
-            control.color = control.selectedTextColor;
-        }
-        onClosed: {
-            control.color = control.textColor;
+    Component {
+        id: contextMenuComponent
+        ContextMenu {
+            modal: true
+            dim: false
+            enabled: parent.copyMenuEnabled
+            Action {
+                //% "Copy"
+                text: qsTrId("general-copy")
+                icon.source: "qrc:/assets/icon-copy.svg"
+                enabled: parent.enabled && parent.copyMenuEnabled
+                onTriggered: parent.copyText()
+            }
+            onOpened: {
+                if (parent.enableBackgroundRect)
+                    parent.background.visible = true;
+                parent.color = parent.selectedTextColor;
+            }
+            onClosed: {
+                parent.color = parent.textColor;
+                parent.background.visible = false;
+            }
         }
     }
 
