@@ -196,7 +196,23 @@ namespace beam::wallet
         
         if (channel)
         {
-            LOG_INFO() << offer.m_txId << " Publish offer";
+            {
+                auto isBeamSide = offer.GetParameter<bool>(TxParameterID::AtomicSwapIsBeamSide);
+                auto swapCoin = offer.GetParameter<AtomicSwapCoin>(TxParameterID::AtomicSwapCoin);
+                auto amount = offer.GetParameter<Amount>(TxParameterID::Amount);
+                auto swapAmount = offer.GetParameter<Amount>(TxParameterID::AtomicSwapAmount);
+                auto responseTime = offer.GetParameter<Height>(TxParameterID::PeerResponseTime);
+                auto minimalHeight = offer.GetParameter<Height>(TxParameterID::MinHeight);
+
+                LOG_INFO() << offer.m_txId << " Publish offer.\n\t"
+                           << "isBeamSide: " << (*isBeamSide ? "false" : "true") << "\n\t"
+                           << "swapCoin: " << std::to_string(*swapCoin) << "\n\t"
+                           << "amount: " << *amount << "\n\t"
+                           << "swapAmount: " << *swapAmount << "\n\t"
+                           << "responseTime: " << *responseTime << "\n\t"
+                           << "minimalHeight: " << *minimalHeight;
+            }
+            
             beam::wallet::SwapOfferToken token(offer);
             m_messageEndpoint.SendAndSign(toByteBuffer(token), *channel, offer.m_publisherId, m_protocolVersion);
         }

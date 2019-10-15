@@ -117,22 +117,6 @@ namespace beam
 
         return wallet::getSwapTxStatus(state);
     }
-
-    const char* getAtomicSwapCoinText(AtomicSwapCoin swapCoin)
-    {
-        switch (swapCoin)
-        {
-        case AtomicSwapCoin::Bitcoin:
-            return kSwapCoinBTC;
-        case AtomicSwapCoin::Litecoin:
-            return kSwapCoinLTC;
-        case AtomicSwapCoin::Qtum:
-            return kSwapCoinQTUM;
-        default:
-            BOOST_ASSERT_MSG(false, kErrorUnknownSwapCoin);
-        }
-        return "";
-    }
 }
 namespace
 {
@@ -651,7 +635,7 @@ namespace
                 storage::getTxParameter(*walletDB, tx.m_txId, wallet::kDefaultSubTxID, wallet::TxParameterID::AtomicSwapCoin, swapCoin);
 
                 stringstream ss;
-                ss << (isBeamSide ? kBEAM : getAtomicSwapCoinText(swapCoin)) << " <--> " << (!isBeamSide ? kBEAM : getAtomicSwapCoinText(swapCoin));
+                ss << (isBeamSide ? kBEAM : to_string(swapCoin)) << " <--> " << (!isBeamSide ? kBEAM : to_string(swapCoin));
 
                 cout << boost::format(kSwapTxHistoryTableFormat)
                      % boost::io::group(left, setw(columnWidths[0]), format_timestamp(kTimeStampFormat3x3, tx.m_createTime * 1000, false))
@@ -1293,7 +1277,7 @@ namespace
         // display swap details to user
         cout << " Swap conditions: " << "\n"
             << " Beam side:    " << *isBeamSide << "\n"
-            << " Swap coin:    " << getAtomicSwapCoinText(*swapCoin) << "\n"
+            << " Swap coin:    " << to_string(*swapCoin) << "\n"
             << " Beam amount:  " << PrintableAmount(*beamAmount) << "\n"
             << " Swap amount:  " << *swapAmount << "\n"
             << " Peer ID:      " << to_string(*peerID) << "\n";

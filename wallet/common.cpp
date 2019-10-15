@@ -56,11 +56,11 @@ namespace std
         switch (value)
         {
         case beam::wallet::AtomicSwapCoin::Bitcoin:
-            return "btc";
+            return "BTC";
         case beam::wallet::AtomicSwapCoin::Litecoin:
-            return "ltc";
+            return "LTC";
         case beam::wallet::AtomicSwapCoin::Qtum:
-            return "qtum";
+            return "QTUM";
         default:
             return "";
         }

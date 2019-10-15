@@ -45,7 +45,7 @@ Item {
         cancelButtonText:       qsTrId("atomic-swap-back-button")
         cancelButtonIconSource: "qrc:/assets/icon-back.svg"
         onAccepted: {
-            viewModel.cancelTx(cancelOfferDialog.txId);
+            viewModel.cancelOffer(cancelOfferDialog.txId);
         }
     }
 

@@ -68,6 +68,7 @@ public:
 
     Q_INVOKABLE int getCoinType();
     Q_INVOKABLE void setCoinType(int coinType);
+    Q_INVOKABLE void cancelOffer(QVariant variantTxID);
     Q_INVOKABLE void cancelTx(QVariant variantTxID);
     Q_INVOKABLE void deleteTx(QVariant variantTxID);
     Q_INVOKABLE PaymentInfoItem* getPaymentInfo(QVariant variantTxID);
