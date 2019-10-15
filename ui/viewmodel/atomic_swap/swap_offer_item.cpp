@@ -47,7 +47,7 @@ auto SwapOfferItem::timeExpiration() const -> QDateTime
 
 auto SwapOfferItem::rawAmountSend() const -> beam::Amount
 {
-    auto paramID = m_isBeamSide && m_isOwnOffer
+    auto paramID = isBeamSide()
         ? TxParameterID::AtomicSwapAmount
         : TxParameterID::Amount;
     beam::Amount amount;
@@ -60,7 +60,7 @@ auto SwapOfferItem::rawAmountSend() const -> beam::Amount
 
 auto SwapOfferItem::rawAmountReceive() const -> beam::Amount
 {
-    auto paramID = m_isBeamSide && m_isOwnOffer
+    auto paramID = isBeamSide()
         ? TxParameterID::Amount
         : TxParameterID::AtomicSwapAmount;
     beam::Amount amount;
@@ -83,7 +83,7 @@ auto SwapOfferItem::rate() const -> double
 
 auto SwapOfferItem::amountSend() const -> QString
 {
-    auto coinType = m_isBeamSide && m_isOwnOffer
+    auto coinType = isBeamSide()
         ? getSwapCoinType()
         : beamui::Currencies::Beam;
 
@@ -92,7 +92,7 @@ auto SwapOfferItem::amountSend() const -> QString
 
 auto SwapOfferItem::amountReceive() const -> QString
 {
-    auto coinType = m_isBeamSide && m_isOwnOffer
+    auto coinType = isBeamSide()
         ? beamui::Currencies::Beam
         : getSwapCoinType();
     
@@ -106,7 +106,7 @@ auto SwapOfferItem::isOwnOffer() const -> bool
 
 auto SwapOfferItem::isBeamSide() const -> bool
 {
-    return m_isBeamSide;
+    return m_isOwnOffer ? m_isBeamSide : !m_isBeamSide;
 }
 
 auto SwapOfferItem::getTxParameters() const -> beam::wallet::TxParameters

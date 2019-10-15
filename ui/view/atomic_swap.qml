@@ -477,7 +477,7 @@ Item {
                         model: SortFilterProxyModel {
                             id: proxyModel
                             source: SortFilterProxyModel {
-                                source: viewModel.allOffers
+                                source: viewModel.allOffers                                
                                 filterRole: "isBeamSide"
                                 filterString: sendReceiveBeamSwitch.checked ? "false" : "true"
                                 filterSyntax: SortFilterProxyModel.Wildcard
@@ -536,13 +536,13 @@ Item {
                                     spacing: -4
                                     SvgImage {
                                         sourceSize: Qt.size(20, 20)
-                                        source: isSendBeam && isOwnOffer
+                                        source: isSendBeam
                                             ? "qrc:/assets/icon-beam.svg"
                                             : getCoinIcon(swapCoin)
                                     }
                                     SvgImage {
                                         sourceSize: Qt.size(20, 20)
-                                        source: isSendBeam && isOwnOffer
+                                        source: isSendBeam
                                             ? getCoinIcon(swapCoin)
                                             : "qrc:/assets/icon-beam.svg"
                                     }
