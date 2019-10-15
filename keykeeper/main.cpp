@@ -15,8 +15,28 @@
 #include "local_private_key_keeper.h"
 #include "mnemonic/mnemonic.h"
 
+namespace beam
+{
+    bool Block::PoW::IsValid(const void* pInput, uint32_t nSizeInput, Height h) const
+    {
+        return false;
+    }
+
+    bool Block::PoW::Solve(const void* pInput, uint32_t nSizeInput, Height h, const Cancel& fnCancel)
+    {
+        return false;
+    }
+
+    void Input::State::get_ID(Merkle::Hash& hv, const ECC::Point& comm) const
+    {
+
+    }
+}
+
 int main()
 {
+    std::cout << "Start Key Keeper Test..." << std::endl;
+
     using namespace beam;
     using namespace beam::wallet;
 
@@ -42,7 +62,28 @@ int main()
 
     IPrivateKeyKeeper::Ptr keyKeeper = std::make_shared<LocalPrivateKeyKeeper>(vars, kdf);
 
-    keyKeeper->get_SbbsKdf();
+    {
+        std::cout << std::endl << "Generating Nonce..." << std::endl;
+        std::cout << "===================" << std::endl;
 
+        auto slot = keyKeeper->AllocateNonceSlot();
+        auto nonce = keyKeeper->GenerateNonceSync(slot);
+
+        std::cout << "Nonce[" << slot << "] = " << nonce << std::endl;
+    }
+
+    {
+        std::cout << std::endl << "Generating Public Key..." << std::endl;
+        std::cout << "===================" << std::endl;
+
+        const ECC::Key::IDV kidv(100500, 15, Key::Type::Regular, 7, ECC::Key::IDV::Scheme::V0);
+
+        std::cout << kidv << std::endl;
+
+        ECC::Point pt2 = keyKeeper->GeneratePublicKeySync(kidv, true);
+
+        std::cout << "Public key: " << pt2 << std::endl;
+    }
+    
     return 0;
 }
