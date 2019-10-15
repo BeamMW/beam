@@ -69,7 +69,7 @@ ColumnLayout {
 
     SwapNADialog {
         id:         swapna
-        onRejected: onClosed();
+        onRejected: sendSwapView.onClosed();
         onAccepted: main.openSwapSettings();
     }
 
@@ -91,7 +91,10 @@ ColumnLayout {
 
     Component.onCompleted: {
         comment_input.forceActiveFocus();
-        if (predefinedTxParams != undefined) viewModel.setParameters(predefinedTxParams);
+        if (predefinedTxParams != undefined) {
+            viewModel.setParameters(predefinedTxParams);
+            validateCoin();
+        }
     }
 
     SendSwapViewModel {
@@ -355,7 +358,7 @@ ColumnLayout {
             text:                qsTrId("general-close")
             palette.buttonText:  Style.content_main
             icon.source:         "qrc:/assets/icon-cancel-white.svg"
-            onClicked:           onClosed();
+            onClicked:           sendSwapView.onClosed();
         }
 
         CustomButton {
@@ -383,7 +386,7 @@ ColumnLayout {
                         return;
                     }
                     viewModel.sendMoney();
-                    onAccepted();
+                    sendSwapView.onAccepted();
                 }
             }
         }
