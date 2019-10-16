@@ -185,6 +185,39 @@ namespace ECC
 			virtual bool MovePrev(Element&) = 0;
 
 			void Normalize();
+
+			static void get_As(secp256k1_ge&, const Point::Native& ptNormalized);
+			static void get_As(secp256k1_ge_storage&, const Point::Native& ptNormalized);
+		};
+
+		struct BatchNormalizer_Arr
+			:public BatchNormalizer
+		{
+			uint32_t m_iIdx;
+			uint32_t m_Size;
+			Point::Native* m_pPts;
+			secp256k1_fe* m_pFes;
+
+			void get_At(Element& el, uint32_t iIdx);
+
+			virtual void Reset() override;
+			virtual bool MoveNext(Element& el) override;
+			virtual bool MovePrev(Element& el) override;
+		};
+
+		template <uint32_t nSize>
+		struct BatchNormalizer_Arr_T
+			:public BatchNormalizer_Arr
+		{
+			Point::Native m_pPtsBuf[nSize];
+			secp256k1_fe m_pFesBuf[nSize];
+
+			BatchNormalizer_Arr_T()
+			{
+				m_pPts = m_pPtsBuf;
+				m_pFes = m_pFesBuf;
+				m_Size = nSize;
+			}
 		};
 	};
 

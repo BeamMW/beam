@@ -559,6 +559,92 @@ namespace ECC {
 		return true;
 	}
 
+	void Point::Native::BatchNormalizer::Normalize()
+	{
+		uint32_t iIdx = 0;
+		Element elPrev = { 0 }; // init not necessary, just suppress the warning
+
+		for (Reset(); ; iIdx++)
+		{
+			Element el;
+			if (!MoveNext(el))
+				break;
+
+			if (iIdx)
+				secp256k1_fe_mul(el.m_pFe, elPrev.m_pFe, &el.m_pPoint->z);
+			else
+				*el.m_pFe = el.m_pPoint->z;
+
+			elPrev = el;
+		}
+
+		if (!iIdx--)
+			return;
+
+		NoLeak<secp256k1_fe> zInv;
+		secp256k1_fe_inv(&zInv.V, elPrev.m_pFe); // the only expensive call
+
+		while (iIdx--)
+		{
+			Element el;
+			BEAM_VERIFY(MovePrev(el));
+
+			secp256k1_fe_mul(elPrev.m_pFe, el.m_pFe, &zInv.V);
+			secp256k1_fe_mul(&zInv.V, &zInv.V, &elPrev.m_pPoint->z);
+
+			secp256k1_gej_rescale(elPrev.m_pPoint, elPrev.m_pFe);
+
+			elPrev = el;
+		}
+
+		secp256k1_gej_rescale(elPrev.m_pPoint, &zInv.V);
+	}
+
+	void Point::Native::BatchNormalizer::get_As(secp256k1_ge& ge, const Point::Native& ptNormalized)
+	{
+		ge.x = ptNormalized.x;
+		ge.y = ptNormalized.y;
+		ge.infinity = ptNormalized.infinity;
+	}
+
+	void Point::Native::BatchNormalizer::get_As(secp256k1_ge_storage& ge_s, const Point::Native& ptNormalized)
+	{
+		secp256k1_ge ge;
+		get_As(ge, ptNormalized);
+		secp256k1_ge_to_storage(&ge_s, &ge);
+	}
+
+	void Point::Native::BatchNormalizer_Arr::get_At(Element& el, uint32_t iIdx)
+	{
+		el.m_pPoint = m_pPts + iIdx;
+		el.m_pFe = m_pFes + iIdx;
+	}
+
+	void Point::Native::BatchNormalizer_Arr::Reset()
+	{
+		m_iIdx = 0;
+	}
+
+	bool Point::Native::BatchNormalizer_Arr::MoveNext(Element& el)
+	{
+		if (m_iIdx == m_Size)
+			return false;
+
+		get_At(el, m_iIdx);
+		m_iIdx++;
+		return true;
+	}
+
+	bool Point::Native::BatchNormalizer_Arr::MovePrev(Element& el)
+	{
+		if (m_iIdx < 2)
+			return false;
+
+		m_iIdx--;
+		get_At(el, m_iIdx - 1);
+		return true;
+	}
+
 	Point::Native& Point::Native::operator = (Zero_)
 	{
 		secp256k1_gej_set_infinity(this);
