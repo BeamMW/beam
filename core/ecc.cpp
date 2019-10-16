@@ -983,34 +983,42 @@ namespace ECC {
 	struct MultiMac::Wnaf::Context
 	{
 		const Scalar::Native::uint* m_p;
-		unsigned int m_nWnd;
+		unsigned int m_Flag;
 		unsigned int m_iBit;
+		unsigned int m_Carry;
 
 		unsigned int NextOdd();
 
-		bool IsFin() const { return m_iBit >= ECC::nBits; }
+		void OnBit(unsigned int& res, unsigned int x)
+		{
+			if (x)
+			{
+				res |= m_Flag;
+				m_Carry = 0;
+			}
+		}
 	};
 
 	unsigned int MultiMac::Wnaf::Context::NextOdd()
 	{
 		const unsigned int nWordBits = sizeof(*m_p) << 3;
 		const unsigned int nMsk = nWordBits - 1;
-		const unsigned int nFlag = 1 << m_nWnd;
 
 		unsigned int res = 0;
 
 		while (true)
 		{
-			if (IsFin())
+			if (m_iBit >= ECC::nBits)
 			{
+				OnBit(res, m_Carry);
+
 				if (!res)
 					break;
 			}
 			else
 			{
 				unsigned int n = m_p[m_iBit / nWordBits] >> (m_iBit & nMsk);
-				if (1 & n)
-					res |= nFlag;
+				OnBit(res, (1 & n) != m_Carry);
 			}
 
 			m_iBit++;
@@ -1026,11 +1034,15 @@ namespace ECC {
 	void MultiMac::Wnaf::Init(const Scalar::Native& k, unsigned int nWndBits)
 	{
 		ZeroObject(m_pVal);
+		ZeroObject(m_pNeg);
+
+		const unsigned int nWndConsume = nWndBits + 1;
 
 		Context ctx;
 		ctx.m_p = k.get().d;
 		ctx.m_iBit = 0;
-		ctx.m_nWnd = nWndBits;
+		ctx.m_Carry = 0;
+		ctx.m_Flag = 1 << nWndConsume;
 
 		while (true)
 		{
@@ -1038,14 +1050,36 @@ namespace ECC {
 			if (!nOdd)
 				break;
 
+			assert(!ctx.m_Carry);
 			assert(1 & nOdd);
-			assert(!(nOdd >> nWndBits));
+			assert(!(nOdd >> nWndConsume));
 
-			assert(ctx.m_iBit >= ctx.m_nWnd);
-			assert(ctx.m_iBit - ctx.m_nWnd < ECC::nBits);
+			assert(ctx.m_iBit >= nWndConsume);
+			unsigned int iIdx = ctx.m_iBit - nWndConsume;
+			assert(iIdx < _countof(m_pVal)); // ?!
 
-			m_pVal[ctx.m_iBit - ctx.m_nWnd] = static_cast<ValueType>(nOdd);
+			if (nOdd >> nWndBits)
+			{
+				// hi bit is ON
+				nOdd ^= (1 << nWndConsume) - 2;
+
+				assert(1 & nOdd);
+				assert(!(nOdd >> nWndBits));
+
+				m_pNeg[iIdx >> 3] |= (1 << (7 & iIdx));
+				assert(IsNeg(iIdx));
+
+				ctx.m_Carry = 1;
+			}
+
+			m_pVal[iIdx] = static_cast<ValueType>(nOdd);
 		}
+	}
+
+	bool MultiMac::Wnaf::IsNeg(unsigned int iBit) const
+	{
+		assert(iBit < N);
+		return !!(m_pNeg[iBit >> 3] & (1 << (7 & iBit)));
 	}
 
 	void MultiMac::Calculate(Point::Native& res) const
@@ -1079,18 +1113,22 @@ namespace ECC {
 
 		NoLeak<secp256k1_ge> ge;
 		NoLeak<CompactPoint> ge_s;
+		Point::Native ptTmp;
+
+		unsigned int iBit = ECC::nBits;
 
 		if (Mode::Secure == g_Mode)
+		{
 			for (int iEntry = 0; iEntry < m_Prepared; iEntry++)
 				m_pKPrep[iEntry] += m_ppPrepared[iEntry]->m_Secure.m_Scalar;
+		}
+		else
+			iBit++;
 
-		for (unsigned int iBit = ECC::nBits; iBit--; )
+		while (iBit--)
 		{
 			if (!(res == Zero))
 				res = res * Two;
-
-			unsigned int iWord = iBit / nBitsPerWord;
-			unsigned int iBitInWord = iBit & (nBitsPerWord - 1);
 
 			if (Mode::Fast == g_Mode)
 			{
@@ -1115,12 +1153,19 @@ namespace ECC {
 						f.m_pPt[f.m_nPrepared + 1] = f.m_pPt[f.m_nPrepared] + f.m_pPt[0];
 					}
 
-					res += f.m_pPt[nElem];
+					if (f.m_Wnaf.IsNeg(iBit))
+					{
+						ptTmp = -f.m_pPt[nElem];
+						res += ptTmp;
+					}
+					else
+						res += f.m_pPt[nElem];
 				}
 
 				for (int iEntry = 0; iEntry < m_Prepared; iEntry++)
 				{
-					unsigned int nOdd = m_pWnafPrepared[iEntry].m_pVal[iBit];
+					const Wnaf& wnaf = m_pWnafPrepared[iEntry];
+					unsigned int nOdd = wnaf.m_pVal[iBit];
 					if (!nOdd)
 						continue;
 
@@ -1128,11 +1173,28 @@ namespace ECC {
 					unsigned int nElem = (nOdd >> 1);
 					assert(nElem < Prepared::Fast::nCount);
 
-					Generator::ToPt(res, ge.V, m_ppPrepared[iEntry]->m_Fast.m_pPt[nElem], false);
+					const CompactPoint& ptC = m_ppPrepared[iEntry]->m_Fast.m_pPt[nElem];
+
+					if (wnaf.IsNeg(iBit))
+					{
+#ifdef ECC_COMPACT_GEN
+						secp256k1_ge_from_storage(&ge.V, &ptC);
+						secp256k1_ge_neg(&ge.V, &ge.V);
+						secp256k1_gej_add_ge(&res.get_Raw(), &res.get_Raw(), &ge.V);
+#else // ECC_COMPACT_GEN
+						ptTmp = -(const Point::Native&) ptC;
+						res += ptTmp;
+#endif // ECC_COMPACT_GEN
+					}
+					else
+						Generator::ToPt(res, ge.V, ptC, false);
 				}
 			}
 			else
 			{
+				unsigned int iWord = iBit / nBitsPerWord;
+				unsigned int iBitInWord = iBit & (nBitsPerWord - 1);
+
 				// secure mode
 				if (!(iBit & (Casual::Secure::nBits - 1)))
 				{

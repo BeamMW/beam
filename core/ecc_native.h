@@ -213,8 +213,14 @@ namespace ECC
 		{
 			// window NAF (wNAF) representation
 			typedef uint8_t ValueType;
-			ValueType m_pVal[ECC::nBits];
+			static const uint32_t N = ECC::nBits + 1;
+
+			ValueType m_pVal[N];
+			uint8_t m_pNeg[(N + 7) >> 3];
+
 			void Init(const Scalar::Native& k, unsigned int nWndBits);
+
+			bool IsNeg(unsigned int) const;
 
 			struct Context;
 		};
