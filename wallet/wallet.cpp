@@ -436,7 +436,7 @@ namespace beam::wallet
         }
         else
         {
-            m_WalletDB->deleteTx(txId);
+            LOG_WARNING() << "Transaction already inactive";
         }
     }
 
