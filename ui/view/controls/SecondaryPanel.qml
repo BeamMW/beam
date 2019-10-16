@@ -87,6 +87,7 @@ Control {
                     Loader {
                         Layout.alignment: Qt.AlignHCenter
                         sourceComponent: columnTitle
+                        //% "receiving"
                         property string titleText: qsTrId("general-receiving")
                     }
 
@@ -124,6 +125,7 @@ Control {
                     Loader {
                         Layout.alignment: Qt.AlignHCenter
                         sourceComponent:  columnTitle
+                        //% "sending"
                         property string  titleText: qsTrId("general-sending")
                     }
 

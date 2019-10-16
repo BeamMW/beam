@@ -65,7 +65,9 @@ namespace beam::wallet
         std::unordered_map<TxID, SwapOffer> m_offersCache;
 
         auto getChannel(const SwapOffer& offer) const -> boost::optional<BbsChannel>;
-        void updateOffer(const TxID& offerTxID, SwapOfferStatus newStatus) const;
+        void sendUpdateToNetwork(const TxID&, const WalletID&, BbsChannel, SwapOfferStatus) const;
+        void updateOffer(const TxID& offerTxID, SwapOfferStatus newStatus);
+        void notifySubscribers(ChangeAction action, const std::vector<SwapOffer>& offers) const;
 
     };
 

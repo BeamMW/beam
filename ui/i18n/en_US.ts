@@ -61,11 +61,11 @@
         <translation>Delete</translation>
     </message>
     <message id="general-receiving">
-        <source></source>
+        <source>receiving</source>
         <translation type="unfinished">receiving</translation>
     </message>
     <message id="general-sending">
-        <source></source>
+        <source>sending</source>
         <translation type="unfinished">sending</translation>
     </message>
     <message id="general-rescan">
@@ -1684,15 +1684,6 @@ Please try again later or create an offer yourself.</translation>
         <source>I understand</source>
         <translation type="unfinished">I understand</translation>
     </message>
-    <message id="only-swap-token-allowed-allert-head">
-        <source>Only swap token is allowed to use here.</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message id="only-swap-token-allowed-allert-body">
-        <source>You have provided a wallet address.\nPlease fill in swap token and try again.</source>
-        <translation type="unfinished">You have provided a wallet address.
-Please fill in swap token and try again.</translation>
-    </message>
     <message id="accept-own-offer-allert-head">
         <source>Own offer can’t be accepted</source>
         <translation type="unfinished"></translation>
@@ -1757,6 +1748,14 @@ Please check the swap token and try again.</translation>
     <message id="swap-invalid-rate">
         <source>Invalid rate</source>
         <translation>Invalid rate</translation>
+    </message>
+    <message id="swap-details-tx-id">
+        <source>Transaction ID</source>
+        <translation type="unfinished">Transaction ID</translation>
+    </message>
+    <message id="swap-details-tx-fee">
+        <source>Transaction fee</source>
+        <translation type="unfinished">Transaction fee</translation>
     </message>
 </context>
 </TS>

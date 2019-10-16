@@ -61,12 +61,12 @@
         <translation>删除</translation>
     </message>
     <message id="general-receiving">
-        <source></source>
-        <translation type="unfinished">收款中</translation>
+        <source>receiving</source>
+        <translation type="unfinished">receiving</translation>
     </message>
     <message id="general-sending">
-        <source></source>
-        <translation type="unfinished">付款中</translation>
+        <source>sending</source>
+        <translation type="unfinished">sending</translation>
     </message>
     <message id="general-rescan">
         <source>Rescan</source>
@@ -184,7 +184,7 @@
     </message>
     <message id="general-addr-comment-error">
         <source>Address with the same comment already exists</source>
-        <translation type="unfinished">有地址已使用了相同备注</translation>
+        <translation>有地址已使用了相同备注</translation>
     </message>
     <message id="wallet-receive-button">
         <source>Receive</source>
@@ -204,7 +204,7 @@
     </message>
     <message id="wallet-txs-date-time">
         <source>Created on</source>
-        <translation type="unfinished">日期 | 时间</translation>
+        <translation type="unfinished">Created on</translation>
     </message>
     <message id="wallet-txs-copy-addr-cm">
         <source>Copy address</source>
@@ -294,9 +294,29 @@
         <source>Available</source>
         <translation>可用余额</translation>
     </message>
-    <message id="available-panel-where-to-buy">
-        <source>Where to buy BEAM?</source>
-        <translation type="vanished">在哪里获取BEAM？</translation>
+    <message id="available-panel-locked">
+        <source>Locked</source>
+        <translation type="unfinished">Locked</translation>
+    </message>
+    <message id="available-panel-sending">
+        <source>Sending</source>
+        <translation>付款中</translation>
+    </message>
+    <message id="available-panel-receiving">
+        <source>Receiving</source>
+        <translation>收款中</translation>
+    </message>
+    <message id="available-panel-maturing">
+        <source>Maturing</source>
+        <translation>成熟中</translation>
+    </message>
+    <message id="available-panel-change">
+        <source>Change</source>
+        <translation>找零</translation>
+    </message>
+    <message id="available-panel-incoming">
+        <source>Incoming</source>
+        <translation>入账</translation>
     </message>
     <message id="settings-version">
         <source>Version</source>
@@ -307,6 +327,14 @@
         <source>ip:port</source>
         <extracomment>settings tab, node section, address label</extracomment>
         <translation>IP地址:端口</translation>
+    </message>
+    <message id="settings-see-seed">
+        <source>Click to see seed phrase</source>
+        <translation type="unfinished">Click to see seed phrase</translation>
+    </message>
+    <message id="settings-new-seed">
+        <source>Double click to generate new seed phrase</source>
+        <translation type="unfinished">Double click to generate new seed phrase</translation>
     </message>
     <message id="settings-local-node-run-checkbox">
         <source>Run local node</source>
@@ -466,10 +494,6 @@
         <source>Copy code</source>
         <translation>复制代码</translation>
     </message>
-    <message id="secondary-panel-maturing">
-        <source>Maturing</source>
-        <translation type="vanished">成熟中</translation>
-    </message>
     <message id="info-title">
         <source>Info view</source>
         <translation>信息视图</translation>
@@ -550,15 +574,15 @@
     </message>
     <message id="wallet-receive-title">
         <source>Receive</source>
-        <translation type="unfinished">接收Beam</translation>
+        <translation>收款</translation>
     </message>
     <message id="wallet-receive-my-addr-label">
         <source>My address (auto-generated)</source>
-        <translation type="unfinished">我的地址</translation>
+        <translation>地址(自动生成)</translation>
     </message>
     <message id="wallet-receive-expires-label">
         <source>Expires in</source>
-        <translation type="unfinished">失效</translation>
+        <translation>失效期限</translation>
     </message>
     <message id="wallet-receive-expires-24">
         <source>24 hours</source>
@@ -582,15 +606,15 @@
     </message>
     <message id="send-title">
         <source>Send</source>
-        <translation type="unfinished">付款Beam</translation>
+        <translation>付款</translation>
     </message>
     <message id="send-send-to-label">
         <source>Transaction token or contact</source>
-        <translation type="unfinished">付款至</translation>
+        <translation type="unfinished">Transaction token or contact</translation>
     </message>
     <message id="send-contact-placeholder">
         <source>Please specify contact or transaction token</source>
-        <translation type="unfinished">请指定联系人</translation>
+        <translation type="unfinished">Please specify contact or transaction token</translation>
     </message>
     <message id="send-amount-label">
         <source>Transaction amount</source>
@@ -811,11 +835,11 @@
     </message>
     <message id="loading-view-download-blocks">
         <source>Synching with blockchain</source>
-        <translation type="unfinished">正在下载区块</translation>
+        <translation type="unfinished">Synching with blockchain</translation>
     </message>
     <message id="loading-view-scaning-utxo">
         <source>Loading wallet data %d/%d</source>
-        <translation type="unfinished">正在扫描UTXO %d/%d</translation>
+        <translation type="unfinished">Loading wallet data %d/%d</translation>
     </message>
     <message id="loading-view-protocol-error">
         <source>Incompatible peer</source>
@@ -1037,13 +1061,8 @@
         <translation>创建新密码以访问您的钱包</translation>
     </message>
     <message id="start-create-pwd-strength-message">
-        <source>Strong password needs to meet the following requirements:
-•  the length must be at least 10 characters
-•  must contain at least one lowercase letter
-•  must contain at least one uppercase letter
-•  must contain at least one number</source>
-        <oldsource>Strong password needs to meet the following requirements:\n•  the length must be at least 10 characters\n•  must contain at least one lowercase letter\n•  must contain at least one uppercase letter\n•  must contain at least one number</oldsource>
-        <translation type="unfinished">强密码需要满足以下要求：\n• 长度必须至少为10个字符 \n• 必须包含至少一个小写字母 \n• 必须包含至少一个大写字母 \n• 必须包含至少一个数字</translation>
+        <source>Strong password needs to meet the following requirements:\n•  the length must be at least 10 characters\n•  must contain at least one lowercase letter\n•  must contain at least one uppercase letter\n•  must contain at least one number</source>
+        <translation>强密码需要满足以下要求：\n• 长度必须至少为10个字符 \n• 必须包含至少一个小写字母 \n• 必须包含至少一个大写字母 \n• 必须包含至少一个数字</translation>
     </message>
     <message id="start-open-caps-warning">
         <source>Caps lock is on!</source>
@@ -1204,169 +1223,147 @@
     </message>
     <message id="restore-finish-alert-title">
         <source>Do not simultaneously run two wallets initiated from the same seed phrase</source>
-        <translation type="unfinished">Do not simultaneously run two wallets initiated from the same seed phrase</translation>
+        <translation>不要同时运行同一助记词下的两个钱包</translation>
     </message>
     <message id="restore-finish-alert-message-line">
         <source>Don’t use same seed phrase on several devices, your balance and transaction list won’t be synchronized.</source>
-        <translation type="unfinished">Don’t use same seed phrase on several devices, your balance and transaction list won’t be synchronized.</translation>
+        <translation>请勿在多个设备上使用相同助记词 余额和交易历史无法在多个设备间完全同步</translation>
     </message>
     <message id="tx-failture-subtx-failed">
         <source>Subtransaction has failed</source>
-        <translation type="unfinished">Subtransaction has failed</translation>
+        <translation>子交易失败</translation>
     </message>
     <message id="tx-failture-invalid-contract-amount">
         <source>Contract&apos;s amount is not valid</source>
-        <translation type="unfinished">Contract&apos;s amount is not valid</translation>
+        <translation>合约&apos;数额无效</translation>
     </message>
     <message id="tx-failture-invalid-sidechain-contract">
         <source>Side chain has invalid contract</source>
-        <translation type="unfinished">Side chain has invalid contract</translation>
+        <translation>侧链有无效合约</translation>
     </message>
     <message id="tx-failture-sidechain-internal-error">
         <source>Side chain bridge has internal error</source>
-        <translation type="unfinished">Side chain bridge has internal error</translation>
+        <translation>侧链桥接发生内部错误</translation>
     </message>
     <message id="tx-failture-sidechain-network-error">
         <source>Side chain bridge has network error</source>
-        <translation type="unfinished">Side chain bridge has network error</translation>
+        <translation>侧链桥接发生网络错误</translation>
     </message>
     <message id="tx-failture-invalid-sidechain-response-format">
         <source>Side chain bridge has response format error</source>
-        <translation type="unfinished">Side chain bridge has response format error</translation>
+        <translation>侧链桥接发生响应格式错误</translation>
     </message>
     <message id="tx-failture-invalid-side-chain-credentials">
         <source>Invalid credentials of Side chain</source>
-        <translation type="unfinished">Invalid credentials of Side chain</translation>
+        <translation>侧链无效证书</translation>
     </message>
     <message id="tx-failture-not-enough-time-btc-lock">
         <source>Not enough time to finish btc lock transaction</source>
-        <translation type="unfinished">Not enough time to finish btc lock transaction</translation>
+        <translation>无充足时间完成比特币锁定交易</translation>
     </message>
     <message id="tx-failture-create-multisig">
         <source>Failed to create multi-signature</source>
-        <translation type="unfinished">Failed to create multi-signature</translation>
+        <translation>创建多签失败</translation>
     </message>
     <message id="tx-failture-fee-too-small">
         <source>Fee is too small</source>
-        <translation type="unfinished">Fee is too small</translation>
+        <translation>手续费过低</translation>
     </message>
     <message id="loading-view-estimate-minutes">
         <source>min.</source>
-        <translation type="unfinished">min.</translation>
+        <translation>分</translation>
     </message>
     <message id="loading-view-estimate-seconds">
         <source>sec.</source>
-        <translation type="unfinished">sec.</translation>
+        <translation>秒</translation>
     </message>
     <message id="loading-view-estimate-time">
         <source>Estimate time: %s</source>
-        <translation type="unfinished">Estimate time: %s</translation>
-    </message>
-    <message id="atomic-swap-transactions-tab">
-        <source>Transactions</source>
-        <translation type="unfinished">交易</translation>
-    </message>
-    <message id="atomic-swap-time-created">
-        <source>Created on</source>
-        <translation type="unfinished">日期 | 时间</translation>
-    </message>
-    <message id="atomic-swap-in-progress-transactions-tab">
-        <source>In progress</source>
-        <translation type="unfinished">交易中</translation>
-    </message>
-    <message id="atomic-swap-tx-table-created">
-        <source>Created on</source>
-        <translation type="unfinished">日期 | 时间</translation>
-    </message>
-    <message id="atomic-swap-tx-table-status">
-        <source>Status</source>
-        <translation type="unfinished">状态</translation>
+        <translation>预计时间: %s</translation>
     </message>
     <message id="general-fee-rate">
         <source>Transaction fee rate</source>
-        <translation type="unfinished"></translation>
+        <translation>交易费率</translation>
     </message>
     <message id="general-fee-fail">
         <source>The minimum fee is %1 %2</source>
-        <translation type="unfinished"></translation>
+        <translation>最小交易费为%1%2</translation>
     </message>
     <message id="general-locked">
         <source>locked</source>
-        <translation type="unfinished"></translation>
+        <translation>已锁定</translation>
     </message>
     <message id="general-change-settings">
         <source>Change settings</source>
-        <translation type="unfinished">修改设置</translation>
+        <translation>修改设置</translation>
     </message>
     <message id="wallet-swap">
         <source>Swap</source>
-        <translation type="unfinished"></translation>
+        <translation>交换</translation>
     </message>
     <message id="settings-reset">
         <source>Disconnect</source>
-        <translation type="unfinished"></translation>
+        <translation type="unfinished">Disconnect</translation>
     </message>
     <message id="settings-node-address">
         <source>Node Address</source>
-        <translation type="unfinished"></translation>
+        <translation>节点地址</translation>
     </message>
     <message id="settings-username">
         <source>Username</source>
-        <translation type="unfinished"></translation>
+        <translation>用户名</translation>
     </message>
     <message id="settings-password">
         <source>Password</source>
-        <translation type="unfinished">密码</translation>
+        <translation>密码</translation>
     </message>
     <message id="settings-fee-rate">
         <source>Default fee</source>
-        <translation type="unfinished"></translation>
+        <translation>默认交易费</translation>
     </message>
-    <message id="trezor-message">
-        <source>Please, look at your Trezor device to complete actions...</source>
-        <translation type="unfinished"></translation>
+    <message id="swap-beta-message">
+        <source>Atomic Swap functionality is Beta at the moment. We recommend you not to send large amounts.</source>
+        <translation type="unfinished">Atomic Swap functionality is Beta at the moment. We recommend you not to send large amounts.</translation>
+    </message>
+    <message id="swap-beta-title">
+        <source>Atomic Swap is in BETA</source>
+        <translation type="unfinished">Atomic Swap is in BETA</translation>
     </message>
     <message id="swap-na-message">
-        <source>You do not have any 3rd-party currencies connected.
-Update your settings and try again.</source>
-        <oldsource>You do not have any 3rd-party currencies connected.\nUpdate your settings and try again.</oldsource>
-        <translation type="unfinished"></translation>
+        <source>You do not have any 3rd-party currencies connected.\nUpdate your settings and try again.</source>
+        <translation>无任何第三方货币连接\n请更新设置后重试</translation>
     </message>
     <message id="wallet-receive-swap-title">
         <source>Create swap offer</source>
-        <translation type="unfinished"></translation>
+        <translation>创建交换报价</translation>
     </message>
     <message id="wallet-receive-addr-message">
         <source>Send this address to the sender over an external secure channel or scan the QR code</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message id="wallet-receive-text-online-time">
-        <source>For the transaction to complete, you should get online during the 12 hours after Beams are sent.</source>
-        <translation type="unfinished"></translation>
+        <translation>通过外部安全媒介将此地址发送给付款方或扫描二维码</translation>
     </message>
     <message id="wallet-receive-copy-address">
         <source>Copy transaction address</source>
-        <translation type="unfinished"></translation>
+        <translation>复制交易地址</translation>
     </message>
     <message id="receive-amount-swap-label">
         <source>Receive amount</source>
-        <translation type="unfinished"></translation>
+        <translation>收款金额</translation>
     </message>
     <message id="sent-amount-label">
         <source>Send amount</source>
-        <translation type="unfinished"></translation>
+        <translation type="unfinished">Send amount</translation>
     </message>
     <message id="wallet-receive-offer-expires-label">
         <source>Offer expiration time</source>
-        <translation type="unfinished"></translation>
+        <translation>报价失效时间</translation>
     </message>
     <message id="wallet-receive-expires-12">
         <source>12 hours</source>
-        <translation type="unfinished">12小时</translation>
+        <translation>12小时</translation>
     </message>
     <message id="wallet-receive-expires-6">
         <source>6 hours</source>
-        <translation type="unfinished">6小时</translation>
+        <translation>6小时</translation>
     </message>
     <message id="general-rate">
         <source>Exchange rate</source>
@@ -1375,418 +1372,400 @@ Update your settings and try again.</source>
     </message>
     <message id="wallet-receive-your-token">
         <source>Your transaction token:</source>
-        <translation type="unfinished"></translation>
+        <translation type="unfinished">Your transaction token:</translation>
     </message>
     <message id="wallet-swap-token-message">
         <source>Send this token to the sender over an external secure channel</source>
-        <translation type="unfinished"></translation>
+        <translation type="unfinished">Send this token to the sender over an external secure channel</translation>
     </message>
     <message id="wallet-receive-swap-publish">
         <source>publish transaction token</source>
-        <translation type="unfinished"></translation>
+        <translation type="unfinished">publish transaction token</translation>
     </message>
     <message id="wallet-send-swap-title">
         <source>Swap currencies</source>
-        <translation type="unfinished"></translation>
+        <translation type="unfinished">Swap currencies</translation>
     </message>
     <message id="wallet-send-invalid-token">
         <source>Invalid address or token</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message id="send-confirmation-pwd-text-online-time">
-        <source>For the transaction to complete, the recipient must get online within the next 12 hours and you should get online within 2 hours afterwards.</source>
-        <translation type="unfinished"></translation>
+        <translation type="unfinished">Invalid address or token</translation>
     </message>
     <message id="general-comment-local">
         <source>Comments are local and won&apos;t be shared</source>
-        <translation type="unfinished"></translation>
+        <translation type="unfinished">Comments are local and won&apos;t be shared</translation>
     </message>
     <message id="send-total-label">
         <source>Total UTXO value</source>
-        <translation type="unfinished"></translation>
+        <translation>总UTXO价值</translation>
     </message>
     <message id="general-bitcoin">
         <source>Bitcoin</source>
-        <translation type="unfinished"></translation>
+        <translation>比特币</translation>
     </message>
     <message id="general-litecoin">
         <source>Litecoin</source>
-        <translation type="unfinished"></translation>
+        <translation>莱特币</translation>
     </message>
     <message id="general-qtum">
         <source>QTUM</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message id="swap-currency-na-message">
-        <source>You do not have %1 connected.
-Update your settings and try again.</source>
-        <oldsource>You do not have %1 connected.\nUpdate your settings and try again.</oldsource>
-        <translation type="unfinished"></translation>
-    </message>
-    <message id="send-swap-to-label">
-        <source>Transaction token</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message id="send-not-enough">
-        <source>There is not enough funds to complete the transaction</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message id="wallet-send-swap-offered-label">
-        <source>Offered on</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message id="wallet-send-swap-expires-label">
-        <source>Expires on</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message id="general-create-trezor-wallet">
-        <source>Create new Trezor wallet</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message id="start-init-wallet-with-trezor">
-        <source>Init wallet with Trezor</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message id="start-found-trezor-device">
-        <source>Found device:</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message id="start-no-trezor-device-connected">
-        <source>There is no device connected, please, connect your hardware wallet.</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message id="start-import-trezor-owner-key">
-        <source>Import Trezor Owner Key</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message id="start-owner-key-imported">
-        <source>Owner Key imported. Please, enter the password you saw on device to decrypt your Owner Key.</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message id="start-look-at-trezor-to-complete-actions">
-        <source>Please, look at your Trezor to complete actions...</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message id="general-address-from">
-        <source>From</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message id="general-address-to">
-        <source>To</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message id="loading-view-estimate-hours">
-        <source>h.</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message id="loading-view-estimate-calculating">
-        <source>calculating...</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message id="loading-view-net-problems">
-        <source>It may take longer then usual. Please, check your network.</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message id="loading-view-rebuild-utxos">
-        <source>Rebuilding wallet data</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message id="wallet-receive-copy-token">
-        <source>copy transaction token</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message id="wallet-model-device-not-connected">
-        <source>There is no Trezor device connected. Please, connect and try again.</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message id="available-panel-locked">
-        <source>Locked</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message id="available-panel-sending">
-        <source>Sending</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message id="available-panel-receiving">
-        <source>Receiving</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message id="available-panel-maturing">
-        <source>Maturing</source>
-        <translation type="unfinished">成熟中</translation>
-    </message>
-    <message id="available-panel-change">
-        <source>Change</source>
-        <translation type="unfinished">找零</translation>
-    </message>
-    <message id="available-panel-incoming">
-        <source>Incoming</source>
-        <translation type="unfinished"></translation>
+        <translation>QTUM币</translation>
     </message>
     <message id="general-electrum">
         <source>Electrum</source>
-        <translation type="unfinished"></translation>
+        <translation type="unfinished">Electrum</translation>
     </message>
-    <message id="settings-new-seed">
-        <source>Double click to generate new seed phrase</source>
-        <translation type="unfinished"></translation>
+    <message id="swap-currency-na-message">
+        <source>You do not have %1 connected.\nUpdate your settings and try again.</source>
+        <translation>未连接到 %1 \n请更新设置后重试</translation>
     </message>
-    <message id="settings-invalid-seed">
-        <source>Invalid seed phrase</source>
-        <translation type="unfinished"></translation>
+    <message id="send-swap-to-label">
+        <source>Transaction token</source>
+        <translation type="unfinished">Transaction token</translation>
     </message>
-    <message id="wallet-transactions-all-tab">
-        <source>All</source>
-        <translation type="unfinished"></translation>
+    <message id="send-not-enough">
+        <source>There is not enough funds to complete the transaction</source>
+        <translation type="unfinished">There is not enough funds to complete the transaction</translation>
     </message>
-    <message id="wallet-transactions-in-progress-tab">
-        <source>In progress</source>
-        <translation type="unfinished">交易中</translation>
+    <message id="wallet-send-swap-offered-label">
+        <source>Offered on</source>
+        <translation type="unfinished">Offered on</translation>
     </message>
-    <message id="wallet-transactions-sent-tab">
-        <source>Sent</source>
-        <translation type="unfinished"></translation>
+    <message id="wallet-send-swap-expires-label">
+        <source>Expires on</source>
+        <translation>失效于</translation>
     </message>
-    <message id="wallet-transactions-received-tab">
-        <source>Received</source>
-        <translation type="unfinished"></translation>
+    <message id="general-address-from">
+        <source>From</source>
+        <translation>从</translation>
     </message>
-    <message id="settings-see-seed">
-        <source>Click to see seed phrase</source>
-        <translation type="unfinished"></translation>
+    <message id="general-address-to">
+        <source>To</source>
+        <translation>至</translation>
     </message>
-    <message id="settings-progress-na">
-        <source>You cannot change settings
-while active transaction is in progress</source>
-        <oldsource>You cannot change settings\nwhile active transaction is in progress</oldsource>
-        <translation type="unfinished"></translation>
+    <message id="loading-view-estimate-calculating">
+        <source>calculating...</source>
+        <translation>正在计算...</translation>
     </message>
-    <message id="send-less-than-fee">
-        <source>The swap amount must be greater than the redemption fee.</source>
-        <translation type="unfinished"></translation>
+    <message id="loading-view-rebuild-utxos">
+        <source>Rebuilding wallet data</source>
+        <translation type="unfinished">Rebuilding wallet data</translation>
     </message>
-    <message id="wallet-txs-status-in-progress">
-        <source>in progress</source>
-        <translation type="unfinished"></translation>
+    <message id="loading-view-estimate-hours">
+        <source>h.</source>
+        <translation>小时</translation>
     </message>
-    <message id="wallet-txs-status-own-sent">
-        <source>sent to own address</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message id="wallet-txs-status-own-sending">
-        <source>sending to own address</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message id="wallet-search-transactions-placeholder">
-        <source>Transaction or kernel ID, comment, address or contact</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message id="wallet-clear-search">
-        <source>Clear search</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message id="wallet-search">
-        <source>Search</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message id="settings-swap-node">
-        <source>Node</source>
-        <translation type="unfinished">节点</translation>
-    </message>
-    <message id="swap-beta-title">
-        <source>Atomic Swap is in BETA</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message id="swap-beta-message">
-        <source>Atomic Swap functionality is Beta at the moment. We recommend you not to send large amounts.</source>
-        <translation type="unfinished"></translation>
+    <message id="loading-view-net-problems">
+        <source>It may take longer then usual. Please, check your network.</source>
+        <translation type="unfinished">It may take longer then usual. Please, check your network.</translation>
     </message>
     <message id="atomic-swap-title">
         <source>Atomic Swap</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message id="atomic-swap-accept">
-        <source>Accept offer</source>
-        <translation type="unfinished"></translation>
+        <translation type="unfinished">Atomic Swap</translation>
     </message>
     <message id="atomic-swap-create">
         <source>Create offer</source>
-        <translation type="unfinished"></translation>
+        <translation type="unfinished">Create offer</translation>
+    </message>
+    <message id="atomic-swap-active-offers-tab">
+        <source>Active offers</source>
+        <translation>有效报价</translation>
+    </message>
+    <message id="atomic-swap-transactions-tab">
+        <source>Transactions</source>
+        <translation>交易</translation>
+    </message>
+    <message id="atomic-swap-receive-beam">
+        <source>Receive BEAM</source>
+        <translation>接收Beam</translation>
+    </message>
+    <message id="atomic-swap-send-beam">
+        <source>Send BEAM</source>
+        <translation>支付Beam</translation>
+    </message>
+    <message id="atomic-swap-only-my-offers">
+        <source>Only my offers</source>
+        <translation type="unfinished">Only my offers</translation>
+    </message>
+    <message id="atomic-swap-fit-current-balance">
+        <source>Fit my current balance</source>
+        <translation type="unfinished">Fit my current balance</translation>
+    </message>
+    <message id="atomic-swap-currency">
+        <source>Currency</source>
+        <translation type="unfinished">Currency</translation>
+    </message>
+    <message id="atomic-swap-time-created">
+        <source>Created on</source>
+        <translation type="unfinished">Created on</translation>
+    </message>
+    <message id="atomic-swap-amount-send">
+        <source>Send</source>
+        <translation>付款</translation>
+    </message>
+    <message id="atomic-swap-amount-receive">
+        <source>Receive</source>
+        <translation>收款</translation>
+    </message>
+    <message id="atomic-swap-rate">
+        <source>Rate</source>
+        <translation>评价</translation>
+    </message>
+    <message id="atomic-swap-expiration">
+        <source>Expiration</source>
+        <translation>过期</translation>
+    </message>
+    <message id="atomic-swap-cancel">
+        <source>Cancel offer</source>
+        <translation>取消报价</translation>
+    </message>
+    <message id="atomic-swap-accept">
+        <source>Accept offer</source>
+        <translation>接受报价</translation>
+    </message>
+    <message id="atomic-swap-all-transactions-tab">
+        <source>All</source>
+        <translation>所有</translation>
+    </message>
+    <message id="atomic-swap-in-progress-transactions-tab">
+        <source>In progress</source>
+        <translation>交易中</translation>
+    </message>
+    <message id="atomic-swap-tx-table-created">
+        <source>Created on</source>
+        <translation type="unfinished">Created on</translation>
+    </message>
+    <message id="atomic-swap-tx-table-from">
+        <source>From</source>
+        <translation>从</translation>
+    </message>
+    <message id="atomic-swap-tx-table-to">
+        <source>To</source>
+        <translation>至</translation>
+    </message>
+    <message id="atomic-swap-tx-table-sent">
+        <source>Sent</source>
+        <translation>已付</translation>
+    </message>
+    <message id="atomic-swap-tx-table-received">
+        <source>Received</source>
+        <translation>已收</translation>
+    </message>
+    <message id="atomic-swap-tx-table-status">
+        <source>Status</source>
+        <translation>状态</translation>
+    </message>
+    <message id="general-create-trezor-wallet">
+        <source>Create new Trezor wallet</source>
+        <translation type="unfinished">Create new Trezor wallet</translation>
+    </message>
+    <message id="wallet-receive-text-online-time">
+        <source>For the transaction to complete, you should get online during the 12 hours after Beams are sent.</source>
+        <translation>为使交易顺利完成，您需要在支付完Beam后12小时内上线同步钱包</translation>
+    </message>
+    <message id="send-confirmation-pwd-text-online-time">
+        <source>For the transaction to complete, the recipient must get online within the next 12 hours and you should get online within 2 hours afterwards.</source>
+        <translation>为使交易顺利完成，收款人应于12小时内上线同步其钱包至最新高度，而后您应于2小时内再次上线同步钱包</translation>
+    </message>
+    <message id="atomic-swap-connect-other">
+        <source>Connect other currency wallet to start trading</source>
+        <translation type="unfinished">Connect other currency wallet to start trading</translation>
+    </message>
+    <message id="trezor-message">
+        <source>Please, look at your Trezor device to complete actions...</source>
+        <translation type="unfinished">Please, look at your Trezor device to complete actions...</translation>
+    </message>
+    <message id="start-init-wallet-with-trezor">
+        <source>Init wallet with Trezor</source>
+        <translation type="unfinished">Init wallet with Trezor</translation>
+    </message>
+    <message id="start-import-trezor-owner-key">
+        <source>Import Trezor Owner Key</source>
+        <translation type="unfinished">Import Trezor Owner Key</translation>
+    </message>
+    <message id="start-owner-key-imported">
+        <source>Owner Key imported. Please, enter the password you saw on device to decrypt your Owner Key.</source>
+        <translation type="unfinished">Owner Key imported. Please, enter the password you saw on device to decrypt your Owner Key.</translation>
+    </message>
+    <message id="start-look-at-trezor-to-complete-actions">
+        <source>Please, look at your Trezor to complete actions...</source>
+        <translation type="unfinished">Please, look at your Trezor to complete actions...</translation>
+    </message>
+    <message id="start-found-trezor-device">
+        <source>Found device:</source>
+        <translation type="unfinished">Found device:</translation>
+    </message>
+    <message id="start-no-trezor-device-connected">
+        <source>There is no device connected, please, connect your hardware wallet.</source>
+        <translation type="unfinished">There is no device connected, please, connect your hardware wallet.</translation>
+    </message>
+    <message id="wallet-receive-copy-token">
+        <source>copy transaction token</source>
+        <translation type="unfinished">copy transaction token</translation>
+    </message>
+    <message id="wallet-model-device-not-connected">
+        <source>There is no Trezor device connected. Please, connect and try again.</source>
+        <translation type="unfinished">There is no Trezor device connected. Please, connect and try again.</translation>
+    </message>
+    <message id="settings-invalid-seed">
+        <source>Invalid seed phrase</source>
+        <translation type="unfinished">Invalid seed phrase</translation>
+    </message>
+    <message id="wallet-transactions-all-tab">
+        <source>All</source>
+        <translation>所有</translation>
+    </message>
+    <message id="wallet-transactions-in-progress-tab">
+        <source>In progress</source>
+        <translation>交易中</translation>
+    </message>
+    <message id="wallet-transactions-sent-tab">
+        <source>Sent</source>
+        <translation>已付</translation>
+    </message>
+    <message id="wallet-transactions-received-tab">
+        <source>Received</source>
+        <translation>已收</translation>
+    </message>
+    <message id="settings-progress-na">
+        <source>You cannot change settings\nwhile active transaction is in progress</source>
+        <oldsource>You cannot change settings
+while active transaction is in progress</oldsource>
+        <translation type="unfinished">You cannot change settings\nwhile active transaction is in progress</translation>
+    </message>
+    <message id="atomic-no-offers">
+        <source>There are no active offers at the moment.\nPlease try again later or create an offer yourself.</source>
+        <oldsource>There are no active offers at the moment.
+Please try again later or create an offer yourself.</oldsource>
+        <translation type="unfinished">There are no active offers at the moment.\nPlease try again later or create an offer yourself.</translation>
+    </message>
+    <message id="send-less-than-fee">
+        <source>The swap amount must be greater than the redemption fee.</source>
+        <translation type="unfinished">The swap amount must be greater than the redemption fee.</translation>
+    </message>
+    <message id="wallet-txs-status-in-progress">
+        <source>in progress</source>
+        <translation type="unfinished">in progress</translation>
+    </message>
+    <message id="wallet-txs-status-own-sent">
+        <source>sent to own address</source>
+        <translation type="unfinished">sent to own address</translation>
+    </message>
+    <message id="wallet-txs-status-own-sending">
+        <source>sending to own address</source>
+        <translation type="unfinished">sending to own address</translation>
+    </message>
+    <message id="wallet-search-transactions-placeholder">
+        <source>Transaction or kernel ID, comment, address or contact</source>
+        <translation type="unfinished">Transaction or kernel ID, comment, address or contact</translation>
+    </message>
+    <message id="settings-swap-node">
+        <source>Node</source>
+        <translation>节点</translation>
+    </message>
+    <message id="wallet-clear-search">
+        <source>Clear search</source>
+        <translation type="unfinished">Clear search</translation>
+    </message>
+    <message id="wallet-search">
+        <source>Search</source>
+        <translation>搜索</translation>
     </message>
     <message id="atomic-swap-1active-tx-count">
         <source>1 active transaction</source>
-        <translation type="unfinished"></translation>
+        <translation type="unfinished">1 active transaction</translation>
     </message>
     <message id="atomic-swap-active-tx-count">
         <source>%1 active transactions</source>
-        <translation type="unfinished"></translation>
+        <translation type="unfinished">%1 active transactions</translation>
     </message>
     <message id="swap-beta-tx-in-progress">
         <source>Transaction is in progress</source>
-        <translation type="unfinished"></translation>
+        <translation type="unfinished">Transaction is in progress</translation>
     </message>
     <message id="swap-connecting">
         <source>Connecting...</source>
-        <translation type="unfinished"></translation>
+        <translation>正在连接...</translation>
     </message>
     <message id="swap-beta-connection-error">
         <source>Cannot connect to peer. Please check the address and retry.</source>
         <oldsource>Cannot connect to peer. Please check in the address in settings and retry.</oldsource>
         <translation type="unfinished"></translation>
     </message>
-    <message id="atomic-swap-connect-other">
-        <source>Connect other currency wallet to start trading</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message id="atomic-swap-active-offers-tab">
-        <source>Active offers</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message id="atomic-swap-receive-beam">
-        <source>Receive BEAM</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message id="atomic-swap-send-beam">
-        <source>Send BEAM</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message id="atomic-swap-only-my-offers">
-        <source>Only my offers</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message id="atomic-swap-fit-current-balance">
-        <source>Fit my current balance</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message id="atomic-swap-currency">
-        <source>Currency</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message id="atomic-no-offers">
-        <source>There are no active offers at the moment.
-Please try again later or create an offer yourself.</source>
-        <oldsource>There are no active offers at the moment.\nPlease try again later or create an offer yourself.</oldsource>
-        <translation type="unfinished"></translation>
-    </message>
-    <message id="atomic-swap-amount-send">
-        <source>Send</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message id="atomic-swap-amount-receive">
-        <source>Receive</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message id="atomic-swap-rate">
-        <source>Rate</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message id="atomic-swap-expiration">
-        <source>Expiration</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message id="atomic-swap-cancel">
-        <source>Cancel offer</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message id="atomic-swap-all-transactions-tab">
-        <source>All</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message id="atomic-swap-tx-table-from">
-        <source>From</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message id="atomic-swap-tx-table-to">
-        <source>To</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message id="atomic-swap-tx-table-sent">
-        <source>Sent</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message id="atomic-swap-tx-table-received">
-        <source>Received</source>
-        <translation type="unfinished"></translation>
-    </message>
     <message id="swap-alert-confirm-button">
         <source>I understand</source>
-        <translation type="unfinished">我理解</translation>
-    </message>
-    <message id="only-swap-token-allowed-allert-head">
-        <source>Only swap token is allowed to use here.</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message id="only-swap-token-allowed-allert-body">
-        <source>You have provided a wallet address.
-Please fill in swap token and try again.</source>
-        <oldsource>You have provided a wallet address.\nPlease fill in swap token and try again.</oldsource>
-        <translation type="unfinished"></translation>
+        <translation>我理解</translation>
     </message>
     <message id="accept-own-offer-allert-head">
         <source>Own offer can’t be accepted</source>
-        <translation type="unfinished"></translation>
+        <translation type="unfinished">Own offer can’t be accepted</translation>
     </message>
     <message id="accept-own-offer-allert-body">
-        <source>The transaction token was generated by you, therefore it is not allowed to accept your own offer.
-Please check the swap token and try again.</source>
-        <oldsource>The transaction token was generated by you, therefore it is not allowed to accept your own offer.\nPlease check the swap token and try again.</oldsource>
-        <translation type="unfinished"></translation>
+        <source>The transaction token was generated by you, therefore it is not allowed to accept your own offer.\nPlease check the swap token and try again.</source>
+        <translation type="unfinished">The transaction token was generated by you, therefore it is not allowed to accept your own offer.\nPlease check the swap token and try again.</translation>
     </message>
     <message id="swap-copy-token">
         <source>Copy token</source>
-        <translation type="unfinished"></translation>
+        <translation type="unfinished">Copy token</translation>
     </message>
     <message id="atomic-swap-cancel-text">
         <source>Are you sure you want to cancel your offer?</source>
-        <translation type="unfinished"></translation>
+        <translation type="unfinished">Are you sure you want to cancel your offer?</translation>
     </message>
     <message id="atomic-swap-cancel-button">
         <source>cancel offer</source>
-        <translation type="unfinished"></translation>
+        <translation type="unfinished">cancel offer</translation>
     </message>
     <message id="atomic-swap-back-button">
         <source>back</source>
-        <translation type="unfinished"></translation>
+        <translation type="unfinished">back</translation>
     </message>
     <message id="swap-details-lock-tx-id">
         <source>lock transaction ID</source>
-        <translation type="unfinished"></translation>
+        <translation type="unfinished">lock transaction ID</translation>
     </message>
     <message id="swap-details-lock-tx-conf">
         <source>lock transaction confirmations</source>
-        <translation type="unfinished"></translation>
+        <translation type="unfinished">lock transaction confirmations</translation>
     </message>
     <message id="swap-details-beam-lock-kernel-id">
         <source>BEAM lock transaction kernel ID</source>
-        <translation type="unfinished"></translation>
+        <translation type="unfinished">BEAM lock transaction kernel ID</translation>
     </message>
     <message id="swap-details-beam-redeem-kernel-id">
         <source>BEAM redeem transaction kernel ID</source>
-        <translation type="unfinished"></translation>
+        <translation type="unfinished">BEAM redeem transaction kernel ID</translation>
     </message>
     <message id="swap-details-redeem-tx-id">
         <source>redeem transaction ID</source>
-        <translation type="unfinished"></translation>
+        <translation type="unfinished">redeem transaction ID</translation>
     </message>
     <message id="swap-details-redeem-tx-conf">
         <source>redeem transaction confirmations</source>
-        <translation type="unfinished"></translation>
+        <translation type="unfinished">redeem transaction confirmations</translation>
     </message>
     <message id="swap-details-beam-refund-kernel-id">
         <source>BEAM refund transaction kernel ID</source>
-        <translation type="unfinished"></translation>
+        <translation type="unfinished">BEAM refund transaction kernel ID</translation>
     </message>
     <message id="swap-details-refund-tx-id">
         <source>refund transaction ID</source>
-        <translation type="unfinished"></translation>
+        <translation type="unfinished">refund transaction ID</translation>
     </message>
     <message id="swap-details-refund-tx-conf">
         <source>refund transaction confirmations</source>
-        <translation type="unfinished"></translation>
+        <translation type="unfinished">refund transaction confirmations</translation>
     </message>
     <message id="swap-invalid-rate">
         <source>Invalid rate</source>
-        <translation type="unfinished"></translation>
+        <translation type="unfinished">Invalid rate</translation>
+    </message>
+    <message id="swap-details-tx-id">
+        <source>Transaction ID</source>
+        <translation>交易ID</translation>
+    </message>
+    <message id="swap-details-tx-fee">
+        <source>Transaction fee</source>
+        <translation>交易费</translation>
     </message>
 </context>
 </TS>

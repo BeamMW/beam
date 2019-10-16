@@ -112,13 +112,7 @@ void SendViewModel::setReceiverTA(const QString& value)
 
 bool SendViewModel::getRreceiverTAValid() const
 {
-    if (QMLGlobals::isTransactionToken(_receiverTA))
-    {
-        // TODO:SWAP check if token is valid. It MUST include at least target address
-        return true;
-    }
-
-    return beam::wallet::check_receiver_address(_receiverTA.toStdString());
+    return QMLGlobals::isTAValid(_receiverTA);
 }
 
 QString SendViewModel::getReceiverAddress() const

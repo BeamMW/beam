@@ -99,7 +99,7 @@ namespace beam::wallet
         Pending,
         InProgress,
         Completed,
-        Cancelled,
+        Canceled,
         Expired,
         Failed
     };
@@ -261,7 +261,7 @@ namespace beam::wallet
 
         Inputs = 180,
         InputCoins = 183,
-        OutputCoins = 184,           
+        OutputCoins = 184,
         Outputs = 190,
 
         Kernel = 200,
@@ -630,6 +630,7 @@ namespace std
     string to_string(const beam::wallet::WalletID&);
     string to_string(const beam::Merkle::Hash& hash);
     string to_string(beam::wallet::AtomicSwapCoin value);
+    string to_string(beam::wallet::SwapOfferStatus status);
     string to_string(const beam::wallet::PrintableAmount& amount);
     string to_string(const beam::wallet::TxParameters&);
 }
