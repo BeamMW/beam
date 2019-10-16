@@ -1064,7 +1064,7 @@ namespace ECC {
 					Casual::Fast& f = x.U.F.get();
 					pTblCasual[iBit] = f.m_Aux.m_nNextItem;
 
-					assert(1 & x.m_Aux.m_nOdd);
+					assert(1 & f.m_Aux.m_nOdd);
 					unsigned int nElem = (f.m_Aux.m_nOdd >> 1) + 1;
 					assert(nElem < Casual::Fast::nCount);
 
