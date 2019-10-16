@@ -1677,14 +1677,6 @@ Please try again later or create an offer yourself.</oldsource>
         <source>I understand</source>
         <translation>Ik begrijp het</translation>
     </message>
-    <message id="only-swap-token-allowed-allert-head">
-        <source>Only swap token is allowed to use here.</source>
-        <translation>U kunt hier alleen token swap gebruiken.</translation>
-    </message>
-    <message id="only-swap-token-allowed-allert-body">
-        <source>You have provided a wallet address.\nPlease fill in swap token and try again.</source>
-        <translation>U heeft een wallet adres ingevoerd.\nVul swap token in en probeer het opnieuw.</translation>
-    </message>
     <message id="accept-own-offer-allert-head">
         <source>Own offer can’t be accepted</source>
         <translation>Eigen aanbieding kan niet worden geaccepteerd</translation>

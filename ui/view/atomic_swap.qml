@@ -96,23 +96,11 @@ Item {
             function onSwapToken(token) {
                 offersStackView.pop();
                 offersStackView.push(Qt.createComponent("send_swap.qml"),
-                                    {"onAccepted": onAccepted,
-                                        "onClosed": onClosed});
+                                     {
+                                         "onAccepted": onAccepted,
+                                         "onClosed": onClosed
+                                     });
                 offersStackView.currentItem.setToken(token);
-            }
-            function onAddress() {
-                onlySwapTokenAlert.open();
-            }
-            ConfirmationDialog {
-                id:                     onlySwapTokenAlert
-                //% "Only swap token is allowed to use here."
-                title:                  qsTrId("only-swap-token-allowed-allert-head")
-                //% "You have provided a wallet address.\nPlease fill in swap token and try again."
-                text:                   qsTrId("only-swap-token-allowed-allert-body")
-                //% "I understand"
-                okButtonText:           qsTrId("swap-alert-confirm-button")
-                okButtonIconSource:     "qrc:/assets/icon-done.svg"
-                cancelButtonVisible:    false
             }
 
             RowLayout {
@@ -135,10 +123,11 @@ Item {
 
                     onClicked: {
                         offersStackView.push(Qt.createComponent("send.qml"),
-                                            {"isSwapMode": true,
-                                             "onClosed": onClosed,
-                                             "onSwapToken": onSwapToken,
-                                             "onAddress": onAddress});
+                                             {
+                                                "isSwapMode": true,
+                                                "onClosed": onClosed,
+                                                "onSwapToken": onSwapToken
+                                             });
                     }
                 }
                 

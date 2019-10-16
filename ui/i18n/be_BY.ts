@@ -1677,14 +1677,6 @@ Please try again later or create an offer yourself.</oldsource>
         <source>I understand</source>
         <translation>Ясна</translation>
     </message>
-    <message id="only-swap-token-allowed-allert-head">
-        <source>Only swap token is allowed to use here.</source>
-        <translation type="unfinished">Only swap token is allowed to use here.</translation>
-    </message>
-    <message id="only-swap-token-allowed-allert-body">
-        <source>You have provided a wallet address.\nPlease fill in swap token and try again.</source>
-        <translation type="unfinished">You have provided a wallet address.\nPlease fill in swap token and try again.</translation>
-    </message>
     <message id="accept-own-offer-allert-head">
         <source>Own offer can’t be accepted</source>
         <translation type="unfinished">Own offer can’t be accepted</translation>

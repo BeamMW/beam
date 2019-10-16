@@ -1677,14 +1677,6 @@ Please try again later or create an offer yourself.</oldsource>
         <source>I understand</source>
         <translation>Ymmärrän</translation>
     </message>
-    <message id="only-swap-token-allowed-allert-head">
-        <source>Only swap token is allowed to use here.</source>
-        <translation>Vain swap-tunnistetta voi käyttää tässä.</translation>
-    </message>
-    <message id="only-swap-token-allowed-allert-body">
-        <source>You have provided a wallet address.\nPlease fill in swap token and try again.</source>
-        <translation>Olet antanut lompakon osoitteen.\nLisää swap-tunniste ja yritä uudelleen.</translation>
-    </message>
     <message id="accept-own-offer-allert-head">
         <source>Own offer can’t be accepted</source>
         <translation>Omaa tarjousta ei voi hyväksyä</translation>
