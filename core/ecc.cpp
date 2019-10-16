@@ -773,20 +773,22 @@ namespace ECC {
 		m_Batch.m_Size++;
 	}
 
+	void Point::Compact::Assign(Point::Native& p, bool bSet) const
+	{
+		NoLeak<secp256k1_ge> ge;
+
+		secp256k1_ge_from_storage(&ge.V, this);
+
+		if (bSet)
+			secp256k1_gej_set_ge(&p.get_Raw(), &ge.V);
+		else
+			secp256k1_gej_add_ge(&p.get_Raw(), &p.get_Raw(), &ge.V);
+	}
+
 	/////////////////////
 	// Generator
 	namespace Generator
 	{
-		void ToPt(Point::Native& p, secp256k1_ge& ge, const Point::Compact& ge_s, bool bSet)
-		{
-			secp256k1_ge_from_storage(&ge, &ge_s);
-
-			if (bSet)
-				secp256k1_gej_set_ge(&p.get_Raw(), &ge);
-			else
-				secp256k1_gej_add_ge(&p.get_Raw(), &p.get_Raw(), &ge);
-		}
-
 		void CreatePointNnz(Point::Native& out, Oracle& oracle, Hash::Processor* phpRes)
 		{
 			Point pt;
@@ -849,7 +851,6 @@ namespace ECC {
 			static_assert(!(nLevelsPerWord & (nLevelsPerWord - 1)), "should be power-of-2");
 
 			NoLeak<Point::Compact> ge_s;
-			NoLeak<secp256k1_ge> ge;
 
 			// iterating in lsb to msb order
 			for (int iWord = 0; iWord < nWords; iWord++)
@@ -882,8 +883,13 @@ namespace ECC {
 					else
 						pSel = pPts + nSel;
 
-					ToPt(res, ge.V, *pSel, bSet);
-					bSet = false;
+					if (bSet)
+					{
+						bSet = false;
+						res = *pSel;
+					}
+					else
+						res += *pSel;
 				}
 			}
 		}
@@ -927,8 +933,7 @@ namespace ECC {
 		{
 			if (Mode::Secure == g_Mode)
 			{
-				secp256k1_ge ge;
-				ToPt(res, ge, m_AddPt, bSet);
+				m_AddPt.Assign(res, bSet);
 
 				kTmp = k + m_AddScalar;
 
@@ -1033,8 +1038,7 @@ namespace ECC {
 
 	void MultiMac::Prepared::Assign(Point::Native& out, bool bSet) const
 	{
-		secp256k1_ge ge; // not secret
-		Generator::ToPt(out, ge, m_Fast.m_pPt[0], bSet);
+		m_Fast.m_pPt[0].Assign(out, bSet);
 	}
 
 	void MultiMac::Casual::Init(const Point::Native& p)
@@ -1048,8 +1052,7 @@ namespace ECC {
 		else
 		{
 			Secure& s = U.S.get();
-			secp256k1_ge ge;
-			Generator::ToPt(s.m_pPt[0], ge, Context::get().m_Casual.m_Nums, true);
+			s.m_pPt[0] = Context::get().m_Casual.m_Nums;
 
 			for (unsigned int i = 1; i < Secure::nCount; i++)
 			{
@@ -1381,7 +1384,7 @@ namespace ECC {
 						for (unsigned int i = 0; i < _countof(x.m_pPt); i++)
 							object_cmov(ge_s.V, x.m_pPt[i], i == nVal);
 
-						Generator::ToPt(res, ge.V, ge_s.V, false);
+						res += ge_s.V;
 					}
 				}
 			}
@@ -1393,11 +1396,11 @@ namespace ECC {
 			{
 				const Prepared::Secure& x = m_ppPrepared[iEntry]->m_Secure;
 
-				Generator::ToPt(res, ge.V, x.m_Compensation, false);
+				res += x.m_Compensation;
 			}
 
 			for (int iEntry = 0; iEntry < m_Casual; iEntry++)
-				Generator::ToPt(res, ge.V, Context::get().m_Casual.m_Compensation, false);
+				res += Context::get().m_Casual.m_Compensation;
 
 		}
 	}

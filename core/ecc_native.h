@@ -124,6 +124,7 @@ namespace ECC
 		:public secp256k1_ge_storage
 	{
 		struct Converter;
+		void Assign(Point::Native&, bool bSet) const;
 	};
 
 	class Point::Native
@@ -440,8 +441,6 @@ namespace ECC
 
 	namespace Generator
 	{
-		void ToPt(Point::Native&, secp256k1_ge& ge, const Point::Compact&, bool bSet);
-
 		static const uint32_t nBitsPerLevel = 4;
 		static const uint32_t nPointsPerLevel = 1 << nBitsPerLevel; // 16
 

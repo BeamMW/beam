@@ -869,7 +869,6 @@ namespace ECC {
 		Point::Native comm = Context::get().G * alpha;
 
 		{
-			NoLeak<secp256k1_ge> ge;
 			NoLeak<Point::Compact> ge_s;
 
 			for (uint32_t i = 0; i < InnerProduct::nDim; i++)
@@ -880,7 +879,7 @@ namespace ECC {
 				object_cmov(ge_s.V, Context::get().m_Ipp.m_pGet1_Minus[i], 0 == iBit);
 				object_cmov(ge_s.V, Context::get().m_Ipp.m_pGen_[0][i].m_Fast.m_pPt[0], 1 == iBit);
 
-				Generator::ToPt(comm, ge.V, ge_s.V, false);
+				comm += ge_s.V;
 			}
 		}
 
