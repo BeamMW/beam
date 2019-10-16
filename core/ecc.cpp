@@ -748,12 +748,12 @@ namespace ECC {
         return data;
     }
 
-	CompactPointConverter::CompactPointConverter()
+	Point::Compact::Converter::Converter()
 	{
 		m_Batch.m_Size = 0;
 	}
 
-	void CompactPointConverter::Flush()
+	void Point::Compact::Converter::Flush()
 	{
 		m_Batch.Normalize();
 
@@ -763,7 +763,7 @@ namespace ECC {
 		m_Batch.m_Size = 0;
 	}
 
-	void CompactPointConverter::set_Deferred(CompactPoint& trg, Point::Native& src)
+	void Point::Compact::Converter::set_Deferred(Compact& trg, Point::Native& src)
 	{
 		if (m_Batch.m_Size == N)
 			Flush();
@@ -777,7 +777,7 @@ namespace ECC {
 	// Generator
 	namespace Generator
 	{
-		void ToPt(Point::Native& p, secp256k1_ge& ge, const CompactPoint& ge_s, bool bSet)
+		void ToPt(Point::Native& p, secp256k1_ge& ge, const Point::Compact& ge_s, bool bSet)
 		{
 			secp256k1_ge_from_storage(&ge, &ge_s);
 
@@ -800,7 +800,7 @@ namespace ECC {
 				*phpRes << pt;
 		}
 
-		bool CreatePts(CompactPoint* pPts, Point::Native& gpos, uint32_t nLevels, Oracle& oracle, CompactPointConverter& cpc)
+		bool CreatePts(Point::Compact* pPts, Point::Native& gpos, uint32_t nLevels, Oracle& oracle, Point::Compact::Converter& cpc)
 		{
 			Point::Native nums, npos, pt;
 			CreatePointNnz(nums, oracle, NULL);
@@ -842,13 +842,13 @@ namespace ECC {
 			return true;
 		}
 
-		void SetMul(Point::Native& res, bool bSet, const CompactPoint* pPts, const Scalar::Native::uint* p, int nWords)
+		void SetMul(Point::Native& res, bool bSet, const Point::Compact* pPts, const Scalar::Native::uint* p, int nWords)
 		{
 			static_assert(8 % nBitsPerLevel == 0, "");
 			const int nLevelsPerWord = (sizeof(Scalar::Native::uint) << 3) / nBitsPerLevel;
 			static_assert(!(nLevelsPerWord & (nLevelsPerWord - 1)), "should be power-of-2");
 
-			NoLeak<CompactPoint> ge_s;
+			NoLeak<Point::Compact> ge_s;
 			NoLeak<secp256k1_ge> ge;
 
 			// iterating in lsb to msb order
@@ -872,7 +872,7 @@ namespace ECC {
 					*    (http://www.tau.ac.il/~tromer/papers/cache.pdf)
 					*/
 
-					const CompactPoint* pSel;
+					const Point::Compact* pSel;
 					if (Mode::Secure == g_Mode)
 					{
 						pSel = &ge_s.V;
@@ -888,12 +888,12 @@ namespace ECC {
 			}
 		}
 
-		void SetMul(Point::Native& res, bool bSet, const CompactPoint* pPts, const Scalar::Native& k)
+		void SetMul(Point::Native& res, bool bSet, const Point::Compact* pPts, const Scalar::Native& k)
 		{
 			SetMul(res, bSet, pPts, k.get().d, _countof(k.get().d));
 		}
 
-		void GeneratePts(const Point::Native& pt, Oracle& oracle, CompactPoint* pPts, uint32_t nLevels, CompactPointConverter& cpc)
+		void GeneratePts(const Point::Native& pt, Oracle& oracle, Point::Compact* pPts, uint32_t nLevels, Point::Compact::Converter& cpc)
 		{
 			while (true)
 			{
@@ -903,7 +903,7 @@ namespace ECC {
 			}
 		}
 
-		void Obscured::Initialize(const Point::Native& pt, Oracle& oracle, CompactPointConverter& cpc)
+		void Obscured::Initialize(const Point::Native& pt, Oracle& oracle, Point::Compact::Converter& cpc)
 		{
 			Point::Native pt2;
 			while (true)
@@ -957,14 +957,14 @@ namespace ECC {
 
 	/////////////////////
 	// MultiMac
-	void MultiMac::Prepared::Initialize(Oracle& oracle, Hash::Processor& hpRes, CompactPointConverter& cpc)
+	void MultiMac::Prepared::Initialize(Oracle& oracle, Hash::Processor& hpRes, Point::Compact::Converter& cpc)
 	{
 		Point::Native val;
 		Generator::CreatePointNnz(val, oracle, &hpRes);
 		Initialize(val, oracle, cpc);
 	}
 
-	void MultiMac::Prepared::Initialize(Point::Native& val, Oracle& oracle, CompactPointConverter& cpc)
+	void MultiMac::Prepared::Initialize(Point::Native& val, Oracle& oracle, Point::Compact::Converter& cpc)
 	{
 		Point::Native npos = val, nums = val * Two;
 
@@ -1232,7 +1232,7 @@ namespace ECC {
 		res = Zero;
 
 		NoLeak<secp256k1_ge> ge;
-		NoLeak<CompactPoint> ge_s;
+		NoLeak<Point::Compact> ge_s;
 		Point::Native ptTmp;
 
 		WnafBase::Shared wsP, wsC;
@@ -1335,7 +1335,7 @@ namespace ECC {
 					unsigned int nElem = (nOdd >> 1);
 					assert(nElem < Prepared::Fast::nCount);
 
-					const CompactPoint& ptC = m_ppPrepared[iElement]->m_Fast.m_pPt[nElem];
+					const Point::Compact& ptC = m_ppPrepared[iElement]->m_Fast.m_pPt[nElem];
 
 					secp256k1_ge_from_storage(&ge.V, &ptC);
 
@@ -1478,7 +1478,7 @@ namespace ECC {
 		Oracle oracle;
 		oracle << "Let the generator generation begin!";
 
-		CompactPointConverter cpc;
+		Point::Compact::Converter cpc;
 
 		// make sure we get the same G,H for different generator kinds
 		Point::Native G_raw, H_raw, J_raw;

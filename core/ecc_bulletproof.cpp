@@ -870,7 +870,7 @@ namespace ECC {
 
 		{
 			NoLeak<secp256k1_ge> ge;
-			NoLeak<CompactPoint> ge_s;
+			NoLeak<Point::Compact> ge_s;
 
 			for (uint32_t i = 0; i < InnerProduct::nDim; i++)
 			{

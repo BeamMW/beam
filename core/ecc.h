@@ -136,7 +136,8 @@ namespace ECC
 		Point& operator = (const Point&);
 		Point& operator = (const Commitment&);
 
-		struct Storage;
+		struct Storage; // affine form, platform-independent.
+		struct Compact; // affine form, platform-dependent. For internal tables
 	};
 
 	std::ostream& operator << (std::ostream&, const Point&);

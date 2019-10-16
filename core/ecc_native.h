@@ -120,6 +120,12 @@ namespace ECC
 		void FromNnz(secp256k1_ge&);
 	};
 
+	struct Point::Compact
+		:public secp256k1_ge_storage
+	{
+		struct Converter;
+	};
+
 	class Point::Native
 		:private secp256k1_gej
 	{
@@ -223,23 +229,21 @@ namespace ECC
 
     std::ostream& operator << (std::ostream&, const Point::Native&);
 
-    secp256k1_pubkey ConvertPointToPubkey(const Point& point);
-    std::vector<uint8_t> SerializePubkey(const secp256k1_pubkey& pubkey);
-
-	typedef secp256k1_ge_storage CompactPoint;
-
-	struct CompactPointConverter
+	struct Point::Compact::Converter
 	{
 		static const uint32_t N = 0x100;
-		Point::Native::BatchNormalizer_Arr_T<N> m_Batch;
+		Native::BatchNormalizer_Arr_T<N> m_Batch;
 
-		CompactPoint* m_ppC[N];
+		Compact* m_ppC[N];
 
-		CompactPointConverter();
+		Converter();
 		void Flush();
 
-		void set_Deferred(CompactPoint& trg, Point::Native& src);
+		void set_Deferred(Compact& trg, Native& src);
 	};
+
+	secp256k1_pubkey ConvertPointToPubkey(const Point& point);
+	std::vector<uint8_t> SerializePubkey(const secp256k1_pubkey& pubkey);
 
 	template <typename T, size_t nCount = 1>
 	struct AlignedBuf
@@ -349,7 +353,7 @@ namespace ECC
 				// For 127 precalculated odds single bulletproof verfication is slower by about 6%.
 				// The difference deminishes for batch verifications (performance is dominated by non-prepared point multiplication).
 				static const int nCount = (nMaxOdd >> 1) + 1;
-				CompactPoint m_pPt[nCount]; // odd powers
+				Point::Compact m_pPt[nCount]; // odd powers
 
 				typedef Wnaf_T<nBits> Wnaf;
 
@@ -358,13 +362,13 @@ namespace ECC
 			struct Secure {
 				// A variant of Generator::Obscured. Much less space & init time. Slower for single multiplication, nearly equal in MultiMac.
 				static const int nBits = 4;
-				CompactPoint m_pPt[(1 << nBits)];
-				CompactPoint m_Compensation;
+				Point::Compact m_pPt[(1 << nBits)];
+				Point::Compact m_Compensation;
 				Scalar::Native m_Scalar;
 			} m_Secure;
 
-			void Initialize(Oracle&, Hash::Processor& hpRes, CompactPointConverter&);
-			void Initialize(Point::Native&, Oracle&, CompactPointConverter&);
+			void Initialize(Oracle&, Hash::Processor& hpRes, Point::Compact::Converter&);
+			void Initialize(Point::Native&, Oracle&, Point::Compact::Converter&);
 
 			void Assign(Point::Native&, bool bSet) const;
 		};
@@ -436,7 +440,7 @@ namespace ECC
 
 	namespace Generator
 	{
-		void ToPt(Point::Native&, secp256k1_ge& ge, const CompactPoint&, bool bSet);
+		void ToPt(Point::Native&, secp256k1_ge& ge, const Point::Compact&, bool bSet);
 
 		static const uint32_t nBitsPerLevel = 4;
 		static const uint32_t nPointsPerLevel = 1 << nBitsPerLevel; // 16
@@ -448,11 +452,11 @@ namespace ECC
 			static const uint32_t nLevels = nBits_ / nBitsPerLevel;
 			static_assert(nLevels * nBitsPerLevel == nBits_, "");
 
-			CompactPoint m_pPts[nLevels * nPointsPerLevel];
+			Point::Compact m_pPts[nLevels * nPointsPerLevel];
 		};
 
-		void GeneratePts(const Point::Native&, Oracle&, CompactPoint* pPts, uint32_t nLevels, CompactPointConverter&);
-		void SetMul(Point::Native& res, bool bSet, const CompactPoint* pPts, const Scalar::Native::uint* p, int nWords);
+		void GeneratePts(const Point::Native&, Oracle&, Point::Compact* pPts, uint32_t nLevels, Point::Compact::Converter&);
+		void SetMul(Point::Native& res, bool bSet, const Point::Compact* pPts, const Scalar::Native::uint* p, int nWords);
 
 		template <uint32_t nBits_>
 		class Simple
@@ -489,7 +493,7 @@ namespace ECC
 			};
 
 		public:
-			void Initialize(const Point::Native& p, Oracle& oracle, CompactPointConverter& cpc)
+			void Initialize(const Point::Native& p, Oracle& oracle, Point::Compact::Converter& cpc)
 			{
 				GeneratePts(p, oracle, Base<nBits_>::m_pPts, Base<nBits_>::nLevels, cpc);
 			}
@@ -501,7 +505,7 @@ namespace ECC
 		class Obscured
 			:public Base<nBits>
 		{
-			CompactPoint m_AddPt;
+			Point::Compact m_AddPt;
 			Scalar::Native m_AddScalar;
 
 			template <typename TScalar>
@@ -517,7 +521,7 @@ namespace ECC
 			void AssignInternal(Point::Native& res, bool bSet, Scalar::Native& kTmp, const Scalar::Native&) const;
 
 		public:
-			void Initialize(const Point::Native&, Oracle&, CompactPointConverter&);
+			void Initialize(const Point::Native&, Oracle&, Point::Compact::Converter&);
 
 			template <typename TScalar>
 			Mul<TScalar> operator * (const TScalar& k) const { return Mul<TScalar>(*this, k); }
@@ -737,7 +741,7 @@ namespace ECC
 		{
 			// generators used for inner product proof
 			MultiMac::Prepared m_pGen_[2][InnerProduct::nDim];
-			CompactPoint m_pGet1_Minus[InnerProduct::nDim];
+			Point::Compact m_pGet1_Minus[InnerProduct::nDim];
 			MultiMac::Prepared m_GenDot_; // seems that it's not necessary, can use G instead
 			MultiMac::Prepared m_Aux2_;
 			MultiMac::Prepared G_;
@@ -751,8 +755,8 @@ namespace ECC
 
 		struct Casual
 		{
-			CompactPoint m_Nums;
-			CompactPoint m_Compensation;
+			Point::Compact m_Nums;
+			Point::Compact m_Compensation;
 
 		} m_Casual;
 
