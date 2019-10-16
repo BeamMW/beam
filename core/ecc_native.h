@@ -209,20 +209,59 @@ namespace ECC
 
 	struct MultiMac
 	{
-		struct Wnaf
+		struct WnafBase
 		{
 			// window NAF (wNAF) representation
-			typedef uint8_t ValueType;
-			static const uint32_t N = ECC::nBits + 1;
 
-			ValueType m_pVal[N];
-			uint8_t m_pNeg[(N + 7) >> 3];
+			struct Entry
+			{
+				uint16_t m_Odd;
+				uint16_t m_iBit;
 
-			void Init(const Scalar::Native& k, unsigned int nWndBits);
+				static const uint16_t s_Negative = uint16_t(1) << 15;
+			};
 
-			bool IsNeg(unsigned int) const;
+			struct Link
+			{
+				unsigned int m_iElement;
+				unsigned int m_iEntry; // 1-based
+
+			} m_Next;
+
+			struct Shared
+			{
+				Link m_pTable[ECC::nBits + 1];
+
+				void Reset();
+
+				void Add(Entry* pTrg, const Scalar::Native& k, unsigned int nWndBits, WnafBase&, unsigned int iElement);
+
+				unsigned int Fetch(unsigned int iBit, WnafBase&, const Entry*, bool& bNeg);
+			};
+
+		protected:
+
 
 			struct Context;
+		};
+
+		template <unsigned int nWndBits>
+		struct Wnaf_T
+			:public WnafBase
+		{
+			static const unsigned int nMaxEntries = ECC::nBits / (nWndBits + 1) + 1;
+
+			Entry m_pVals[nMaxEntries];
+
+			void Init(Shared& s, const Scalar::Native& k, unsigned int iElement)
+			{
+				s.Add(m_pVals, k, nWndBits, *this, iElement);
+			}
+
+			unsigned int Fetch(Shared& s, unsigned int iBit, bool& bNeg)
+			{
+				return s.Fetch(iBit, *this, m_pVals, bNeg);
+			}
 		};
 
 		struct Casual
@@ -246,6 +285,7 @@ namespace ECC
 				Point::Native m_pPt[Fast::nCount];
 				unsigned int m_nPrepared;
 
+				typedef Wnaf_T<nBits> Wnaf;
 				Wnaf m_Wnaf;
 			};
 
@@ -269,6 +309,9 @@ namespace ECC
 				// The difference deminishes for batch verifications (performance is dominated by non-prepared point multiplication).
 				static const int nCount = (nMaxOdd >> 1) + 1;
 				CompactPoint m_pPt[nCount]; // odd powers
+
+				typedef Wnaf_T<nBits> Wnaf;
+
 			} m_Fast;
 
 			struct Secure {
@@ -289,7 +332,7 @@ namespace ECC
 		const Prepared** m_ppPrepared;
 		Scalar::Native* m_pKPrep;
 		Scalar::Native* m_pKCasual;
-		Wnaf* m_pWnafPrepared;
+		Prepared::Fast::Wnaf* m_pWnafPrepared;
 
 		int m_Casual;
 		int m_Prepared;
@@ -309,7 +352,7 @@ namespace ECC
 			const Prepared* m_ppPrepared[nMaxPrepared];
 			Scalar::Native m_pKPrep[nMaxPrepared];
 			Scalar::Native m_pKCasual[nMaxCasual];
-			Wnaf m_pWnafPrepared[nMaxPrepared];
+			Prepared::Fast::Wnaf m_pWnafPrepared[nMaxPrepared];
 		} m_Bufs;
 
 		MultiMac_WithBufs()
@@ -709,7 +752,7 @@ namespace ECC
 		struct Bufs {
 			const Prepared* m_ppPrepared[s_CountPrepared];
 			Scalar::Native m_pKPrep[s_CountPrepared];
-			Wnaf m_pWnafPrepared[s_CountPrepared];
+			Prepared::Fast::Wnaf m_pWnafPrepared[s_CountPrepared];
 		} m_Bufs;
 
 

@@ -913,7 +913,7 @@ namespace ECC {
 			const Prepared* ppPrep[] = { this };
 			mm.m_ppPrepared = ppPrep;
 			mm.m_pKPrep = &m_Secure.m_Scalar;
-			Wnaf wnaf;
+			Prepared::Fast::Wnaf wnaf;
 			mm.m_pWnafPrepared = &wnaf;
 			mm.m_Prepared = 1;
 
@@ -980,7 +980,7 @@ namespace ECC {
 		return (n >> (iBitInWord & ~(nBitsWnd - 1))) & ((1 << nBitsWnd) - 1);
 	}
 
-	struct MultiMac::Wnaf::Context
+	struct MultiMac::WnafBase::Context
 	{
 		const Scalar::Native::uint* m_p;
 		unsigned int m_Flag;
@@ -999,7 +999,7 @@ namespace ECC {
 		}
 	};
 
-	unsigned int MultiMac::Wnaf::Context::NextOdd()
+	unsigned int MultiMac::WnafBase::Context::NextOdd()
 	{
 		const unsigned int nWordBits = sizeof(*m_p) << 3;
 		const unsigned int nMsk = nWordBits - 1;
@@ -1031,11 +1031,13 @@ namespace ECC {
 		return res;
 	}
 
-	void MultiMac::Wnaf::Init(const Scalar::Native& k, unsigned int nWndBits)
+	void MultiMac::WnafBase::Shared::Reset()
 	{
-		ZeroObject(m_pVal);
-		ZeroObject(m_pNeg);
+		ZeroObject(m_pTable);
+	}
 
+	void MultiMac::WnafBase::Shared::Add(Entry* pTrg, const Scalar::Native& k, unsigned int nWndBits, WnafBase& wnaf, unsigned int iElement)
+	{
 		const unsigned int nWndConsume = nWndBits + 1;
 
 		Context ctx;
@@ -1044,7 +1046,9 @@ namespace ECC {
 		ctx.m_Carry = 0;
 		ctx.m_Flag = 1 << nWndConsume;
 
-		while (true)
+		unsigned int iEntry = 0;
+
+		for ( ; ; iEntry++)
 		{
 			unsigned int nOdd = ctx.NextOdd();
 			if (!nOdd)
@@ -1056,7 +1060,10 @@ namespace ECC {
 
 			assert(ctx.m_iBit >= nWndConsume);
 			unsigned int iIdx = ctx.m_iBit - nWndConsume;
-			assert(iIdx < _countof(m_pVal)); // ?!
+			assert(iIdx < _countof(m_pTable));
+
+			Entry& x = pTrg[iEntry];
+			x.m_iBit = static_cast<uint16_t>(iIdx);
 
 			if (nOdd >> nWndBits)
 			{
@@ -1066,20 +1073,58 @@ namespace ECC {
 				assert(1 & nOdd);
 				assert(!(nOdd >> nWndBits));
 
-				m_pNeg[iIdx >> 3] |= (1 << (7 & iIdx));
-				assert(IsNeg(iIdx));
+				x.m_Odd = static_cast<int16_t>(nOdd) | Entry::s_Negative;
 
 				ctx.m_Carry = 1;
 			}
+			else
+				x.m_Odd = static_cast<int16_t>(nOdd);
+		}
 
-			m_pVal[iIdx] = static_cast<ValueType>(nOdd);
+		if (iEntry--)
+		{
+			// add the highest bit
+			const Entry& x = pTrg[iEntry];
+			Link& lnk = m_pTable[x.m_iBit];
+			
+			wnaf.m_Next = lnk;
+			lnk.m_iElement = iElement;
+			lnk.m_iEntry = iEntry;
 		}
 	}
 
-	bool MultiMac::Wnaf::IsNeg(unsigned int iBit) const
+	unsigned int MultiMac::WnafBase::Shared::Fetch(unsigned int iBit, WnafBase& wnaf, const Entry* pE, bool& bNeg)
 	{
-		assert(iBit < N);
-		return !!(m_pNeg[iBit >> 3] & (1 << (7 & iBit)));
+		Link& lnkTop = m_pTable[iBit]; // alias
+		Link lnkThis = lnkTop;
+
+		const Entry& e = pE[lnkThis.m_iEntry];
+		assert(e.m_iBit == iBit);
+
+		lnkTop = wnaf.m_Next; // pop this entry
+
+		if (lnkThis.m_iEntry)
+		{
+			// insert next entry
+			lnkThis.m_iEntry--;
+
+			const Entry& e2 = pE[lnkThis.m_iEntry];
+			assert(e2.m_iBit < iBit);
+
+			Link& lnkTop2 = m_pTable[e2.m_iBit];
+			wnaf.m_Next = lnkTop2;
+			lnkTop2 = lnkThis;
+		}
+
+		unsigned int nOdd = e.m_Odd;
+		assert(1 & nOdd);
+
+		bNeg = !!(e.m_Odd & e.s_Negative);
+
+		if (bNeg)
+			nOdd &= ~e.s_Negative;
+
+		return nOdd;
 	}
 
 	void MultiMac::Calculate(Point::Native& res) const
@@ -1091,39 +1136,39 @@ namespace ECC {
 
 		res = Zero;
 
-		if (Mode::Fast == g_Mode)
-		{
-			for (int iEntry = 0; iEntry < m_Prepared; iEntry++)
-			{
-				static_assert(sizeof(Wnaf::ValueType) * 8 >= Prepared::Fast::nBits);
-				m_pWnafPrepared[iEntry].Init(m_pKPrep[iEntry], Prepared::Fast::nBits);
-			}
-
-			for (int iEntry = 0; iEntry < m_Casual; iEntry++)
-			{
-				static_assert(sizeof(Wnaf::ValueType) * 8 >= Casual::Fast::nBits);
-
-				Casual& x = m_pCasual[iEntry];
-				Casual::Fast& f = x.U.F.get();
-
-				f.m_Wnaf.Init(m_pKCasual[iEntry], Casual::Fast::nBits);
-			}
-
-		}
-
 		NoLeak<secp256k1_ge> ge;
 		NoLeak<CompactPoint> ge_s;
 		Point::Native ptTmp;
 
+		WnafBase::Shared wsP, wsC;
+
 		unsigned int iBit = ECC::nBits;
 
-		if (Mode::Secure == g_Mode)
+		if (Mode::Fast == g_Mode)
+		{
+			iBit++; // extra bit may be necessary because of interleaving
+
+			wsP.Reset();
+			wsC.Reset();
+
+			for (int iEntry = 0; iEntry < m_Prepared; iEntry++)
+			{
+				m_pWnafPrepared[iEntry].Init(wsP, m_pKPrep[iEntry], iEntry + 1);
+			}
+
+			for (int iEntry = 0; iEntry < m_Casual; iEntry++)
+			{
+				Casual& x = m_pCasual[iEntry];
+				Casual::Fast& f = x.U.F.get();
+				f.m_Wnaf.Init(wsC, m_pKCasual[iEntry], iEntry + 1);
+			}
+
+		}
+		else
 		{
 			for (int iEntry = 0; iEntry < m_Prepared; iEntry++)
 				m_pKPrep[iEntry] += m_ppPrepared[iEntry]->m_Secure.m_Scalar;
 		}
-		else
-			iBit++;
 
 		while (iBit--)
 		{
@@ -1132,16 +1177,16 @@ namespace ECC {
 
 			if (Mode::Fast == g_Mode)
 			{
-
-				for (int iEntry = 0; iEntry < m_Casual; iEntry++)
+				WnafBase::Link& lnkC = wsC.m_pTable[iBit]; // alias
+				while (lnkC.m_iElement)
 				{
-					Casual& x = m_pCasual[iEntry];
+					Casual& x = m_pCasual[lnkC.m_iElement - 1];
 					Casual::Fast& f = x.U.F.get();
-					unsigned int nOdd = f.m_Wnaf.m_pVal[iBit];
-					if (!nOdd)
-						continue;
+					Casual::Fast::Wnaf& wnaf = f.m_Wnaf;
 
-					assert(1 & nOdd);
+					bool bNeg;
+					unsigned int nOdd = wnaf.Fetch(wsC, iBit, bNeg);
+
 					unsigned int nElem = (nOdd >> 1) + 1;
 					assert(nElem < Casual::Fast::nCount);
 
@@ -1153,7 +1198,7 @@ namespace ECC {
 						f.m_pPt[f.m_nPrepared + 1] = f.m_pPt[f.m_nPrepared] + f.m_pPt[0];
 					}
 
-					if (f.m_Wnaf.IsNeg(iBit))
+					if (bNeg)
 					{
 						ptTmp = -f.m_pPt[nElem];
 						res += ptTmp;
@@ -1162,20 +1207,22 @@ namespace ECC {
 						res += f.m_pPt[nElem];
 				}
 
-				for (int iEntry = 0; iEntry < m_Prepared; iEntry++)
+				WnafBase::Link& lnkP = wsP.m_pTable[iBit]; // alias
+				while (lnkP.m_iElement)
 				{
-					const Wnaf& wnaf = m_pWnafPrepared[iEntry];
-					unsigned int nOdd = wnaf.m_pVal[iBit];
-					if (!nOdd)
-						continue;
+					unsigned int iElement = lnkP.m_iElement - 1;
 
-					assert(1 & nOdd);
+					Prepared::Fast::Wnaf& wnaf = m_pWnafPrepared[iElement];
+
+					bool bNeg;
+					unsigned int nOdd = wnaf.Fetch(wsP, iBit, bNeg);
+
 					unsigned int nElem = (nOdd >> 1);
 					assert(nElem < Prepared::Fast::nCount);
 
-					const CompactPoint& ptC = m_ppPrepared[iEntry]->m_Fast.m_pPt[nElem];
+					const CompactPoint& ptC = m_ppPrepared[iElement]->m_Fast.m_pPt[nElem];
 
-					if (wnaf.IsNeg(iBit))
+					if (bNeg)
 					{
 #ifdef ECC_COMPACT_GEN
 						secp256k1_ge_from_storage(&ge.V, &ptC);
