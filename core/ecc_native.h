@@ -230,7 +230,8 @@ namespace ECC
 			struct Fast
 			{
 				// In fast mode: x1 is assigned from the beginning, then on-demand calculated x2 and then only odd multiples.
-				static const int nMaxOdd = (1 << 4) - 1; // 15
+				static const int nBits = 4;
+				static const int nMaxOdd = (1 << nBits) - 1; // 15
 				static const int nCount = (nMaxOdd >> 1) + 2; // we need a single even: x2
 
 				Point::Native m_pPt[Fast::nCount];
@@ -250,7 +251,8 @@ namespace ECC
 		struct Prepared
 		{
 			struct Fast {
-				static const int nMaxOdd = 0xff; // 255
+				static const int nBits = 8;
+				static const int nMaxOdd = (1 << nBits) - 1; // 255
 				// Currently we precalculate odd power up to 255.
 				// For 511 precalculated odds nearly x2 global data increase (2.5MB instead of 1.3MB). For single bulletproof verification the performance gain is ~8%.
 				// For 127 precalculated odds single bulletproof verfication is slower by about 6%.
