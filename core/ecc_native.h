@@ -171,6 +171,21 @@ namespace ECC
 
 		bool Import(const Storage&, bool bVerify);
 		void Export(Storage&) const;
+
+		struct BatchNormalizer
+		{
+			struct Element
+			{
+				Point::Native* m_pPoint;
+				secp256k1_fe* m_pFe; // temp
+			};
+
+			virtual void Reset() = 0;
+			virtual bool MoveNext(Element&) = 0;
+			virtual bool MovePrev(Element&) = 0;
+
+			void Normalize();
+		};
 	};
 
     std::ostream& operator << (std::ostream&, const Point::Native&);

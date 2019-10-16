@@ -520,6 +520,75 @@ void TestPoints()
 	p1 = -p1;
 	p1 += p0;
 	verify_test(p1 == Zero);
+
+	// batch normalization
+	const uint32_t nBatch = 10;
+	struct MyBatch
+		:public Point::Native::BatchNormalizer
+	{
+		uint32_t m_iIdx;
+		Point::Native m_pPt[nBatch];
+		secp256k1_fe m_pFe[nBatch]; // temp
+
+		void get_At(Element& el, uint32_t iIdx)
+		{
+			el.m_pPoint = m_pPt + iIdx;
+			el.m_pFe = m_pFe + iIdx;
+		}
+
+		virtual void Reset() override
+		{
+			m_iIdx = 0;
+		}
+
+		virtual bool MoveNext(Element& el) override
+		{
+			if (m_iIdx == nBatch)
+				return false;
+
+			get_At(el, m_iIdx);
+			m_iIdx++;
+			return true;
+		}
+
+		virtual bool MovePrev(Element& el) override
+		{
+			if (m_iIdx < 2)
+				return false;
+
+			m_iIdx--;
+			get_At(el, m_iIdx - 1);
+			return true;
+		}
+
+	} ctx;
+
+	Point::Native pPts[nBatch];
+	SetRandom(pPts[0]);
+	pPts[0] = pPts[0] * Two; // make sure it's not normalized
+
+	for (uint32_t i = 1; i < nBatch; i++)
+		pPts[i] = pPts[i-1] + pPts[0];
+
+	memcpy(ctx.m_pPt, pPts, sizeof(pPts));
+
+	ctx.Normalize();
+
+	// test
+	for (uint32_t i = 0; i < nBatch; i++)
+	{
+		pPts[i] = -pPts[i];
+
+		// treat the normalized point as affine
+		secp256k1_ge ge;
+		ge.x = ctx.m_pPt[i].get_Raw().x;
+		ge.y = ctx.m_pPt[i].get_Raw().y;
+		ge.infinity = ctx.m_pPt[i].get_Raw().infinity;
+
+		secp256k1_gej_add_ge(&pPts[i].get_Raw(), &pPts[i].get_Raw(), &ge);
+
+		verify_test(pPts[i] == Zero);
+	}
 }
 
 void TestSigning()
