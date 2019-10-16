@@ -1236,6 +1236,7 @@ namespace ECC {
 		if (Mode::Fast == g_Mode)
 		{
 			iBit++; // extra bit may be necessary because of interleaving
+			assert(iBit == _countof(wsP.m_pTable));
 
 			wsP.Reset();
 			wsC.Reset();
