@@ -1774,5 +1774,13 @@ Please check the swap token and try again.</source>
         <source>Invalid rate</source>
         <translation type="unfinished"></translation>
     </message>
+    <message id="swap-details-tx-id">
+        <source>Transaction ID</source>
+        <translation type="unfinished">Идентификатор транзакции</translation>
+    </message>
+    <message id="swap-details-tx-fee">
+        <source>Transaction fee</source>
+        <translation type="unfinished">Комиссия</translation>
+    </message>
 </context>
 </TS>
