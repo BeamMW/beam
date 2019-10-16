@@ -209,11 +209,14 @@ namespace ECC
 
 	struct MultiMac
 	{
-		struct FastAux {
-			unsigned int m_nNextItem;
-			unsigned int m_nOdd;
+		struct Wnaf
+		{
+			// window NAF (wNAF) representation
+			typedef uint8_t ValueType;
+			ValueType m_pVal[ECC::nBits];
+			void Init(const Scalar::Native& k, unsigned int nWndBits);
 
-			void Schedule(const Scalar::Native& k, unsigned int iBitsRemaining, unsigned int nMaxOdd, unsigned int* pTbl, unsigned int iThisEntry);
+			struct Context;
 		};
 
 		struct Casual
@@ -236,7 +239,8 @@ namespace ECC
 
 				Point::Native m_pPt[Fast::nCount];
 				unsigned int m_nPrepared;
-				FastAux m_Aux;
+
+				Wnaf m_Wnaf;
 			};
 
 			union
@@ -279,7 +283,7 @@ namespace ECC
 		const Prepared** m_ppPrepared;
 		Scalar::Native* m_pKPrep;
 		Scalar::Native* m_pKCasual;
-		FastAux* m_pAuxPrepared;
+		Wnaf* m_pWnafPrepared;
 
 		int m_Casual;
 		int m_Prepared;
@@ -299,7 +303,7 @@ namespace ECC
 			const Prepared* m_ppPrepared[nMaxPrepared];
 			Scalar::Native m_pKPrep[nMaxPrepared];
 			Scalar::Native m_pKCasual[nMaxCasual];
-			FastAux m_pAuxPrepared[nMaxPrepared];
+			Wnaf m_pWnafPrepared[nMaxPrepared];
 		} m_Bufs;
 
 		MultiMac_WithBufs()
@@ -308,7 +312,7 @@ namespace ECC
 			m_ppPrepared	= m_Bufs.m_ppPrepared;
 			m_pKPrep		= m_Bufs.m_pKPrep;
 			m_pKCasual		= m_Bufs.m_pKCasual;
-			m_pAuxPrepared	= m_Bufs.m_pAuxPrepared;
+			m_pWnafPrepared	= m_Bufs.m_pWnafPrepared;
 		}
 
 		void Calculate(Point::Native& res)
@@ -699,7 +703,7 @@ namespace ECC
 		struct Bufs {
 			const Prepared* m_ppPrepared[s_CountPrepared];
 			Scalar::Native m_pKPrep[s_CountPrepared];
-			FastAux m_pAuxPrepared[s_CountPrepared];
+			Wnaf m_pWnafPrepared[s_CountPrepared];
 		} m_Bufs;
 
 

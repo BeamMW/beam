@@ -31,7 +31,7 @@ namespace ECC {
 
 		m_ppPrepared = m_Bufs.m_ppPrepared;
 		m_pKPrep = m_Bufs.m_pKPrep;
-		m_pAuxPrepared = m_Bufs.m_pAuxPrepared;
+		m_pWnafPrepared = m_Bufs.m_pWnafPrepared;
 
 		for (uint32_t j = 0; j < 2; j++)
 			for (uint32_t i = 0; i < InnerProduct::nDim; i++)

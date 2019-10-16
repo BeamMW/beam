@@ -913,8 +913,8 @@ namespace ECC {
 			const Prepared* ppPrep[] = { this };
 			mm.m_ppPrepared = ppPrep;
 			mm.m_pKPrep = &m_Secure.m_Scalar;
-			FastAux aux;
-			mm.m_pAuxPrepared = &aux;
+			Wnaf wnaf;
+			mm.m_pWnafPrepared = &wnaf;
 			mm.m_Prepared = 1;
 
 			mm.Calculate(npos);
@@ -980,35 +980,71 @@ namespace ECC {
 		return (n >> (iBitInWord & ~(nBitsWnd - 1))) & ((1 << nBitsWnd) - 1);
 	}
 
-
-	void MultiMac::FastAux::Schedule(const Scalar::Native& k, unsigned int iBitsRemaining, unsigned int nMaxOdd, unsigned int* pTbl, unsigned int iThisEntry)
+	struct MultiMac::Wnaf::Context
 	{
-		const Scalar::Native::uint* p = k.get().d;
-		const uint32_t nWordBits = sizeof(*p) << 3;
+		const Scalar::Native::uint* m_p;
+		unsigned int m_nWnd;
+		unsigned int m_iBit;
 
-		assert(1 & nMaxOdd); // must be odd
-		unsigned int nVal = 0, nBitTrg = 0;
+		unsigned int NextOdd();
 
-		while (iBitsRemaining--)
+		bool IsFin() const { return m_iBit >= ECC::nBits; }
+	};
+
+	unsigned int MultiMac::Wnaf::Context::NextOdd()
+	{
+		const unsigned int nWordBits = sizeof(*m_p) << 3;
+		const unsigned int nMsk = nWordBits - 1;
+		const unsigned int nFlag = 1 << m_nWnd;
+
+		unsigned int res = 0;
+
+		while (true)
 		{
-			nVal <<= 1;
-			if (nVal > nMaxOdd)
-				break;
-
-			uint32_t n = p[iBitsRemaining / nWordBits] >> (iBitsRemaining & (nWordBits - 1));
-
-			if (1 & n)
+			if (IsFin())
 			{
-				nVal |= 1;
-				m_nOdd = nVal;
-				nBitTrg = iBitsRemaining;
+				if (!res)
+					break;
 			}
+			else
+			{
+				unsigned int n = m_p[m_iBit / nWordBits] >> (m_iBit & nMsk);
+				if (1 & n)
+					res |= nFlag;
+			}
+
+			m_iBit++;
+			res >>= 1;
+
+			if (1 & res)
+				break;
 		}
 
-		if (nVal > 0)
+		return res;
+	}
+
+	void MultiMac::Wnaf::Init(const Scalar::Native& k, unsigned int nWndBits)
+	{
+		ZeroObject(m_pVal);
+
+		Context ctx;
+		ctx.m_p = k.get().d;
+		ctx.m_iBit = 0;
+		ctx.m_nWnd = nWndBits;
+
+		while (true)
 		{
-			m_nNextItem = pTbl[nBitTrg];
-			pTbl[nBitTrg] = iThisEntry;
+			unsigned int nOdd = ctx.NextOdd();
+			if (!nOdd)
+				break;
+
+			assert(1 & nOdd);
+			assert(!(nOdd >> nWndBits));
+
+			assert(ctx.m_iBit >= ctx.m_nWnd);
+			assert(ctx.m_iBit - ctx.m_nWnd < ECC::nBits);
+
+			m_pVal[ctx.m_iBit - ctx.m_nWnd] = static_cast<ValueType>(nOdd);
 		}
 	}
 
@@ -1021,21 +1057,22 @@ namespace ECC {
 
 		res = Zero;
 
-		unsigned int pTblCasual[nBits];
-		unsigned int pTblPrepared[nBits];
-
 		if (Mode::Fast == g_Mode)
 		{
-			ZeroObject(pTblCasual);
-			ZeroObject(pTblPrepared);
-
 			for (int iEntry = 0; iEntry < m_Prepared; iEntry++)
-				m_pAuxPrepared[iEntry].Schedule(m_pKPrep[iEntry], nBits, Prepared::Fast::nMaxOdd, pTblPrepared, iEntry + 1);
+			{
+				static_assert(sizeof(Wnaf::ValueType) * 8 >= Prepared::Fast::nBits);
+				m_pWnafPrepared[iEntry].Init(m_pKPrep[iEntry], Prepared::Fast::nBits);
+			}
 
 			for (int iEntry = 0; iEntry < m_Casual; iEntry++)
 			{
+				static_assert(sizeof(Wnaf::ValueType) * 8 >= Casual::Fast::nBits);
+
 				Casual& x = m_pCasual[iEntry];
-				x.U.F.get().m_Aux.Schedule(m_pKCasual[iEntry], nBits, Casual::Fast::nMaxOdd, pTblCasual, iEntry + 1);
+				Casual::Fast& f = x.U.F.get();
+
+				f.m_Wnaf.Init(m_pKCasual[iEntry], Casual::Fast::nBits);
 			}
 
 		}
@@ -1057,15 +1094,17 @@ namespace ECC {
 
 			if (Mode::Fast == g_Mode)
 			{
-				while (pTblCasual[iBit])
-				{
-					unsigned int iEntry = pTblCasual[iBit];
-					Casual& x = m_pCasual[iEntry - 1];
-					Casual::Fast& f = x.U.F.get();
-					pTblCasual[iBit] = f.m_Aux.m_nNextItem;
 
-					assert(1 & f.m_Aux.m_nOdd);
-					unsigned int nElem = (f.m_Aux.m_nOdd >> 1) + 1;
+				for (int iEntry = 0; iEntry < m_Casual; iEntry++)
+				{
+					Casual& x = m_pCasual[iEntry];
+					Casual::Fast& f = x.U.F.get();
+					unsigned int nOdd = f.m_Wnaf.m_pVal[iBit];
+					if (!nOdd)
+						continue;
+
+					assert(1 & nOdd);
+					unsigned int nElem = (nOdd >> 1) + 1;
 					assert(nElem < Casual::Fast::nCount);
 
 					for (; f.m_nPrepared < nElem; f.m_nPrepared++)
@@ -1077,24 +1116,19 @@ namespace ECC {
 					}
 
 					res += f.m_pPt[nElem];
-
-					f.m_Aux.Schedule(m_pKCasual[iEntry - 1], iBit, Casual::Fast::nMaxOdd, pTblCasual, iEntry);
 				}
 
-
-				while (pTblPrepared[iBit])
+				for (int iEntry = 0; iEntry < m_Prepared; iEntry++)
 				{
-					unsigned int iEntry = pTblPrepared[iBit];
-					FastAux& x = m_pAuxPrepared[iEntry - 1];
-					pTblPrepared[iBit] = x.m_nNextItem;
+					unsigned int nOdd = m_pWnafPrepared[iEntry].m_pVal[iBit];
+					if (!nOdd)
+						continue;
 
-					assert(1 & x.m_nOdd);
-					unsigned int nElem = (x.m_nOdd >> 1);
+					assert(1 & nOdd);
+					unsigned int nElem = (nOdd >> 1);
 					assert(nElem < Prepared::Fast::nCount);
 
-					Generator::ToPt(res, ge.V, m_ppPrepared[iEntry - 1]->m_Fast.m_pPt[nElem], false);
-
-					x.Schedule(m_pKPrep[iEntry - 1], iBit, Prepared::Fast::nMaxOdd, pTblPrepared, iEntry);
+					Generator::ToPt(res, ge.V, m_ppPrepared[iEntry]->m_Fast.m_pPt[nElem], false);
 				}
 			}
 			else
