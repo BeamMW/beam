@@ -261,7 +261,7 @@ namespace beam::wallet
 
         Inputs = 180,
         InputCoins = 183,
-        OutputCoins = 184,           
+        OutputCoins = 184,
         Outputs = 190,
 
         Kernel = 200,
