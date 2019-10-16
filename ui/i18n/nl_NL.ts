@@ -1770,5 +1770,13 @@ Please check the swap token and try again.</oldsource>
         <source>Invalid rate</source>
         <translation type="unfinished"></translation>
     </message>
+    <message id="swap-details-tx-id">
+        <source>Transaction ID</source>
+        <translation type="unfinished">Transactie ID</translation>
+    </message>
+    <message id="swap-details-tx-fee">
+        <source>Transaction fee</source>
+        <translation type="unfinished">Transactiekosten</translation>
+    </message>
 </context>
 </TS>
