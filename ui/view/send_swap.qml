@@ -335,7 +335,7 @@ ColumnLayout {
                 font.pixelSize:   14
                 font.weight:      Font.Bold
                 color:            Style.content_main
-                //% "Rate"
+                //% "Exchange rate"
                 text:             qsTrId("general-rate")
             }
 

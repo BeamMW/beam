@@ -299,7 +299,7 @@ ColumnLayout {
                 font.pixelSize:   14
                 font.weight:      Font.Bold
                 color:            Style.content_main
-                //% "Rate"
+                //% "Exchange rate"
                 text:             qsTrId("general-rate")
             }
 
@@ -331,19 +331,21 @@ ColumnLayout {
                 SFText {
                     font.pixelSize:   14
                     color:            rateRow.rateValid() ? Style.content_secondary : Style.validator_error
-                    text:             ["1", receiveAmountInput.currencyLabel, "="].join(" ")
+                    text:             ["1", sentAmountInput.currencyLabel, "="].join(" ")
                 }
 
                 SFTextInput {
-                    id:               rateInput
-                    activeFocusOnTab: true
-                    font.pixelSize:   14
-                    color:            rateRow.rateValid() ? Style.content_main : Style.validator_error
-                    backgroundColor:  rateRow.rateValid() ? Style.content_main : Style.validator_error
-                    text:             Utils.calcDisplayRate(receiveAmountInput, sentAmountInput, rateInput.focus)
-                    selectByMouse:    true
-                    maximumLength:    30
-                    validator:        RegExpValidator {regExp: /^(([1-9][0-9]{0,7})|(1[0-9]{8})|(2[0-4][0-9]{7})|(25[0-3][0-9]{6})|(0))(\.[0-9]{0,27}[1-9])?$/}
+                    id:                  rateInput
+                    padding:             0
+                    Layout.minimumWidth: 22
+                    activeFocusOnTab:    true
+                    font.pixelSize:      14
+                    color:               rateRow.rateValid() ? Style.content_main : Style.validator_error
+                    backgroundColor:     rateRow.rateValid() ? Style.content_main : Style.validator_error
+                    text:                Utils.calcDisplayRate(receiveAmountInput, sentAmountInput, rateInput.focus)
+                    selectByMouse:       true
+                    maximumLength:       30
+                    validator:           RegExpValidator {regExp: /^(([1-9][0-9]{0,7})|(1[0-9]{8})|(2[0-4][0-9]{7})|(25[0-3][0-9]{6})|(0))(\.[0-9]{0,27}[1-9])?$/}
 
                     onTextEdited: {
                         // unbind
@@ -365,7 +367,7 @@ ColumnLayout {
                 SFText {
                     font.pixelSize:  14
                     color:           rateRow.rateValid() ? Style.content_secondary : Style.validator_error
-                    text:            sentAmountInput.currencyLabel
+                    text:            receiveAmountInput.currencyLabel
                 }
             }
 

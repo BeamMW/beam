@@ -227,7 +227,7 @@ Item {
                     visible: BeamGlobals.haveBtc()
                     //% "Connecting..."
                     textConnecting: qsTrId("swap-connecting")
-                    //% "Cannot connect to peer. Please check in the address in settings and retry."
+                    //% "Cannot connect to peer. Please check the address and retry."
                     textConnectionError: qsTrId("swap-beta-connection-error")
                 }
 

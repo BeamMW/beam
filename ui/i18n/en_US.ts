@@ -1355,8 +1355,8 @@ or send this address to the sender over secure channel</translation>
         <translation>6 hours</translation>
     </message>
     <message id="general-rate">
-        <source>Rate</source>
-        <translation>Rate</translation>
+        <source>Exchange rate</source>
+        <translation>Exchange rate</translation>
     </message>
     <message id="wallet-receive-your-token">
         <source>Your transaction token:</source>
@@ -1677,8 +1677,8 @@ Please try again later or create an offer yourself.</translation>
         <translation type="unfinished"></translation>
     </message>
     <message id="swap-beta-connection-error">
-        <source>Cannot connect to peer. Please check in the address in settings and retry.</source>
-        <translation type="unfinished"></translation>
+        <source>Cannot connect to peer. Please check the address and retry.</source>
+        <translation>Cannot connect to peer. Please check the address and retry.</translation>
     </message>
     <message id="swap-alert-confirm-button">
         <source>I understand</source>

@@ -1354,7 +1354,8 @@ Update your settings and try again.</source>
         <translation type="unfinished">6 heure</translation>
     </message>
     <message id="general-rate">
-        <source>Rate</source>
+        <source>Exchange rate</source>
+        <oldsource>Rate</oldsource>
         <translation type="unfinished"></translation>
     </message>
     <message id="wallet-receive-your-token">
@@ -1614,7 +1615,8 @@ while active transaction is in progress</source>
         <translation type="unfinished"></translation>
     </message>
     <message id="swap-beta-connection-error">
-        <source>Cannot connect to peer. Please check in the address in settings and retry.</source>
+        <source>Cannot connect to peer. Please check the address and retry.</source>
+        <oldsource>Cannot connect to peer. Please check in the address in settings and retry.</oldsource>
         <translation type="unfinished"></translation>
     </message>
     <message id="atomic-swap-connect-other">
