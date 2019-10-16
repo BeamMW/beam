@@ -226,15 +226,6 @@ namespace ECC
     secp256k1_pubkey ConvertPointToPubkey(const Point& point);
     std::vector<uint8_t> SerializePubkey(const secp256k1_pubkey& pubkey);
 
-#ifdef NDEBUG
-#	define ECC_COMPACT_GEN // init time is insignificant in release build. ~1sec in debug.
-#endif // NDEBUG
-
-#ifdef ECC_COMPACT_GEN
-
-	// Generator tables are stored in compact structs (x,y in canonical form). Memory footprint: ~1.3MB. Slightly faster (probably due to better cache)
-	// Disadvantage: slower initialization, because needs "normalizing". Insignificant in release build, ~1sec in debug.
-
 	typedef secp256k1_ge_storage CompactPoint;
 
 	struct CompactPointConverter
@@ -249,25 +240,6 @@ namespace ECC
 
 		void set_Deferred(CompactPoint& trg, Point::Native& src);
 	};
-
-#else // ECC_COMPACT_GEN
-
-	// Generator tables are stored in "jacobian" form. Memory footprint ~2.6. Slightly slower (probably due to increased mem)
-	// Initialization is fast
-	//
-	// Currently used in debug to speed-up initialization.
-
-	typedef secp256k1_gej CompactPoint;
-
-	struct CompactPointConverter
-	{
-		CompactPointConverter() {}
-		void Flush() {}
-
-		void set_Deferred(CompactPoint& trg, Point::Native& src) { trg = src.get_Raw(); }
-	};
-
-#endif // ECC_COMPACT_GEN
 
 	template <typename T, size_t nCount = 1>
 	struct AlignedBuf

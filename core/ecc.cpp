@@ -748,8 +748,6 @@ namespace ECC {
         return data;
     }
 
-#ifdef ECC_COMPACT_GEN
-
 	CompactPointConverter::CompactPointConverter()
 	{
 		m_Batch.m_Size = 0;
@@ -775,44 +773,18 @@ namespace ECC {
 		m_Batch.m_Size++;
 	}
 
-#endif // ECC_COMPACT_GEN
-
 	/////////////////////
 	// Generator
 	namespace Generator
 	{
-		void FromPt(CompactPoint& out, Point::Native& p)
-		{
-#ifdef ECC_COMPACT_GEN
-			secp256k1_ge ge; // used only for non-secret
-			secp256k1_ge_set_gej(&ge, &p.get_Raw());
-			secp256k1_ge_to_storage(&out, &ge);
-#else // ECC_COMPACT_GEN
-			out = p.get_Raw();
-#endif // ECC_COMPACT_GEN
-		}
-
 		void ToPt(Point::Native& p, secp256k1_ge& ge, const CompactPoint& ge_s, bool bSet)
 		{
-#ifdef ECC_COMPACT_GEN
-
 			secp256k1_ge_from_storage(&ge, &ge_s);
 
 			if (bSet)
 				secp256k1_gej_set_ge(&p.get_Raw(), &ge);
 			else
 				secp256k1_gej_add_ge(&p.get_Raw(), &p.get_Raw(), &ge);
-
-#else // ECC_COMPACT_GEN
-
-			static_assert(sizeof(p) == sizeof(ge_s));
-
-			if (bSet)
-				p = (const Point::Native&) ge_s;
-			else
-				p += (const Point::Native&) ge_s;
-
-#endif // ECC_COMPACT_GEN
 		}
 
 		void CreatePointNnz(Point::Native& out, Oracle& oracle, Hash::Processor* phpRes)
@@ -1365,19 +1337,12 @@ namespace ECC {
 
 					const CompactPoint& ptC = m_ppPrepared[iElement]->m_Fast.m_pPt[nElem];
 
+					secp256k1_ge_from_storage(&ge.V, &ptC);
+
 					if (bNeg)
-					{
-#ifdef ECC_COMPACT_GEN
-						secp256k1_ge_from_storage(&ge.V, &ptC);
 						secp256k1_ge_neg(&ge.V, &ge.V);
-						secp256k1_gej_add_ge(&res.get_Raw(), &res.get_Raw(), &ge.V);
-#else // ECC_COMPACT_GEN
-						ptTmp = -(const Point::Native&) ptC;
-						res += ptTmp;
-#endif // ECC_COMPACT_GEN
-					}
-					else
-						Generator::ToPt(res, ge.V, ptC, false);
+
+					secp256k1_gej_add_ge(&res.get_Raw(), &res.get_Raw(), &ge.V);
 				}
 			}
 			else
@@ -1553,20 +1518,10 @@ namespace ECC {
 
 				if (1 == j)
 				{
-#ifdef ECC_COMPACT_GEN
-
 					secp256k1_ge ge;
 					secp256k1_ge_from_storage(&ge, &p.m_Fast.m_pPt[0]);
 					secp256k1_ge_neg(&ge, &ge);
 					secp256k1_ge_to_storage(&ctx.m_Ipp.m_pGet1_Minus[i], &ge);
-
-#else // ECC_COMPACT_GEN
-
-					pt = p;
-					pt = -pt;
-					Generator::FromPt(ctx.m_Ipp.m_pGet1_Minus[i], pt);
-
-#endif // ECC_COMPACT_GEN
 				}
 				else
 					ptAux2 += p;
