@@ -66,6 +66,28 @@ namespace std
         }
     }
 
+    string to_string(beam::wallet::SwapOfferStatus status)
+    {
+        switch (status)
+        {
+        case beam::wallet::SwapOfferStatus::Pending:
+            return "Pending";
+        case beam::wallet::SwapOfferStatus::InProgress:
+            return "InProgress";
+        case beam::wallet::SwapOfferStatus::Completed:
+            return "Completed";
+        case beam::wallet::SwapOfferStatus::Canceled:
+            return "Canceled";
+        case beam::wallet::SwapOfferStatus::Expired:
+            return "Expired";
+        case beam::wallet::SwapOfferStatus::Failed:
+            return "Failed";
+
+        default:
+            return "";
+        }
+    }
+
     string to_string(const beam::wallet::PrintableAmount& amount)
     {
         stringstream ss;
