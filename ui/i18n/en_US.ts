@@ -61,11 +61,11 @@
         <translation>Delete</translation>
     </message>
     <message id="general-receiving">
-        <source></source>
+        <source>receiving</source>
         <translation type="unfinished">receiving</translation>
     </message>
     <message id="general-sending">
-        <source></source>
+        <source>sending</source>
         <translation type="unfinished">sending</translation>
     </message>
     <message id="general-rescan">
