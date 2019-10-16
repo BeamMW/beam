@@ -748,6 +748,35 @@ namespace ECC {
         return data;
     }
 
+#ifdef ECC_COMPACT_GEN
+
+	CompactPointConverter::CompactPointConverter()
+	{
+		m_Batch.m_Size = 0;
+	}
+
+	void CompactPointConverter::Flush()
+	{
+		m_Batch.Normalize();
+
+		for (uint32_t i = 0; i < m_Batch.m_Size; i++)
+			m_Batch.get_As(*m_ppC[i], m_Batch.m_pPts[i]);
+
+		m_Batch.m_Size = 0;
+	}
+
+	void CompactPointConverter::set_Deferred(CompactPoint& trg, Point::Native& src)
+	{
+		if (m_Batch.m_Size == N)
+			Flush();
+
+		m_ppC[m_Batch.m_Size] = &trg;
+		m_Batch.m_pPts[m_Batch.m_Size] = src;
+		m_Batch.m_Size++;
+	}
+
+#endif // ECC_COMPACT_GEN
+
 	/////////////////////
 	// Generator
 	namespace Generator
@@ -799,7 +828,7 @@ namespace ECC {
 				*phpRes << pt;
 		}
 
-		bool CreatePts(CompactPoint* pPts, Point::Native& gpos, uint32_t nLevels, Oracle& oracle)
+		bool CreatePts(CompactPoint* pPts, Point::Native& gpos, uint32_t nLevels, Oracle& oracle, CompactPointConverter& cpc)
 		{
 			Point::Native nums, npos, pt;
 			CreatePointNnz(nums, oracle, NULL);
@@ -816,7 +845,7 @@ namespace ECC {
 					if (pt == Zero)
 						return false;
 
-					FromPt(*pPts++, pt);
+					cpc.set_Deferred(*pPts++, pt);
 
 					if (iPt == nPointsPerLevel)
 						break;
@@ -892,30 +921,32 @@ namespace ECC {
 			SetMul(res, bSet, pPts, k.get().d, _countof(k.get().d));
 		}
 
-		void GeneratePts(const Point::Native& pt, Oracle& oracle, CompactPoint* pPts, uint32_t nLevels)
+		void GeneratePts(const Point::Native& pt, Oracle& oracle, CompactPoint* pPts, uint32_t nLevels, CompactPointConverter& cpc)
 		{
 			while (true)
 			{
 				Point::Native pt2 = pt;
-				if (CreatePts(pPts, pt2, nLevels, oracle))
+				if (CreatePts(pPts, pt2, nLevels, oracle, cpc))
 					break;
 			}
 		}
 
-		void Obscured::Initialize(const Point::Native& pt, Oracle& oracle)
+		void Obscured::Initialize(const Point::Native& pt, Oracle& oracle, CompactPointConverter& cpc)
 		{
 			Point::Native pt2;
 			while (true)
 			{
 				pt2 = pt;
-				if (CreatePts(m_pPts, pt2, nLevels, oracle))
+				if (CreatePts(m_pPts, pt2, nLevels, oracle, cpc))
 					break;
 			}
 
 			oracle >> m_AddScalar;
 
+			cpc.Flush(); // using self
+
 			Generator::SetMul(pt2, true, m_pPts, m_AddScalar); // pt2 = G * blind
-			FromPt(m_AddPt, pt2);
+			cpc.set_Deferred(m_AddPt, pt2);
 
 			m_AddScalar = -m_AddScalar;
 		}
@@ -954,14 +985,14 @@ namespace ECC {
 
 	/////////////////////
 	// MultiMac
-	void MultiMac::Prepared::Initialize(Oracle& oracle, Hash::Processor& hpRes)
+	void MultiMac::Prepared::Initialize(Oracle& oracle, Hash::Processor& hpRes, CompactPointConverter& cpc)
 	{
 		Point::Native val;
 		Generator::CreatePointNnz(val, oracle, &hpRes);
-		Initialize(val, oracle);
+		Initialize(val, oracle, cpc);
 	}
 
-	void MultiMac::Prepared::Initialize(Point::Native& val, Oracle& oracle)
+	void MultiMac::Prepared::Initialize(Point::Native& val, Oracle& oracle, CompactPointConverter& cpc)
 	{
 		Point::Native npos = val, nums = val * Two;
 
@@ -970,7 +1001,7 @@ namespace ECC {
 			if (i)
 				npos += nums;
 
-			Generator::FromPt(m_Fast.m_pPt[i], npos);
+			cpc.set_Deferred(m_Fast.m_pPt[i], npos);
 		}
 
 		while (true)
@@ -985,13 +1016,16 @@ namespace ECC {
 			{
 				if (npos == Zero)
 					bOk = false;
-				Generator::FromPt(m_Secure.m_pPt[i], npos);
+
+				cpc.set_Deferred(m_Secure.m_pPt[i], npos);
 
 				if (++i == _countof(m_Secure.m_pPt))
 					break;
 
 				npos += val;
 			}
+
+			cpc.Flush(); // we use fast data in secure init
 
 			assert(Mode::Fast == g_Mode);
 			MultiMac mm;
@@ -1019,7 +1053,7 @@ namespace ECC {
 			if (bOk)
 			{
 				npos = -npos;
-				Generator::FromPt(m_Secure.m_Compensation, npos);
+				cpc.set_Deferred(m_Secure.m_Compensation, npos);
 				break;
 			}
 		}
@@ -1479,6 +1513,8 @@ namespace ECC {
 		Oracle oracle;
 		oracle << "Let the generator generation begin!";
 
+		CompactPointConverter cpc;
+
 		// make sure we get the same G,H for different generator kinds
 		Point::Native G_raw, H_raw, J_raw;
 
@@ -1493,23 +1529,27 @@ namespace ECC {
 		Generator::CreatePointNnz(J_raw, oracle, &hpRes);
 
 
-		ctx.G.Initialize(G_raw, oracle);
-		ctx.H.Initialize(H_raw, oracle);
-		ctx.H_Big.Initialize(H_raw, oracle);
-		ctx.J.Initialize(J_raw, oracle);
+		ctx.G.Initialize(G_raw, oracle, cpc);
+		ctx.H.Initialize(H_raw, oracle, cpc);
+		ctx.H_Big.Initialize(H_raw, oracle, cpc);
+		ctx.J.Initialize(J_raw, oracle, cpc);
+
+		cpc.Flush();
 
 		Point::Native pt, ptAux2(Zero);
 
-		ctx.m_Ipp.G_.Initialize(G_raw, oracle);
-		ctx.m_Ipp.H_.Initialize(H_raw, oracle);
-		ctx.m_Ipp.J_.Initialize(J_raw, oracle);
+		ctx.m_Ipp.G_.Initialize(G_raw, oracle, cpc);
+		ctx.m_Ipp.H_.Initialize(H_raw, oracle, cpc);
+		ctx.m_Ipp.J_.Initialize(J_raw, oracle, cpc);
 
 		for (uint32_t i = 0; i < InnerProduct::nDim; i++)
 		{
 			for (uint32_t j = 0; j < 2; j++)
 			{
 				MultiMac::Prepared& p = ctx.m_Ipp.m_pGen_[j][i];
-				p.Initialize(oracle, hpRes);
+				p.Initialize(oracle, hpRes, cpc);
+
+				// fast data is already flushed
 
 				if (1 == j)
 				{
@@ -1534,9 +1574,9 @@ namespace ECC {
 		}
 
 		ptAux2 = -ptAux2;
-		ctx.m_Ipp.m_Aux2_.Initialize(ptAux2, oracle);
+		ctx.m_Ipp.m_Aux2_.Initialize(ptAux2, oracle, cpc);
 
-		ctx.m_Ipp.m_GenDot_.Initialize(oracle, hpRes);
+		ctx.m_Ipp.m_GenDot_.Initialize(oracle, hpRes, cpc);
 
 		const MultiMac::Prepared& genericNums = ctx.m_Ipp.m_GenDot_;
 		ctx.m_Casual.m_Nums = genericNums.m_Fast.m_pPt[0]; // whatever
@@ -1558,10 +1598,12 @@ namespace ECC {
 			mm.m_Prepared = 1;
 
 			mm.Calculate(pt);
-			Generator::FromPt(ctx.m_Casual.m_Compensation, pt);
+			cpc.set_Deferred(ctx.m_Casual.m_Compensation, pt);
 		}
 
 		ctx.m_Ipp.m_2Inv.SetInv(2U);
+
+		cpc.Flush();
 
 		hpRes
 			<< uint32_t(2) // increment this each time we change signature formula (rangeproof and etc.)

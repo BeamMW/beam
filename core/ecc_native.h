@@ -237,6 +237,19 @@ namespace ECC
 
 	typedef secp256k1_ge_storage CompactPoint;
 
+	struct CompactPointConverter
+	{
+		static const uint32_t N = 0x100;
+		Point::Native::BatchNormalizer_Arr_T<N> m_Batch;
+
+		CompactPoint* m_ppC[N];
+
+		CompactPointConverter();
+		void Flush();
+
+		void set_Deferred(CompactPoint& trg, Point::Native& src);
+	};
+
 #else // ECC_COMPACT_GEN
 
 	// Generator tables are stored in "jacobian" form. Memory footprint ~2.6. Slightly slower (probably due to increased mem)
@@ -245,6 +258,14 @@ namespace ECC
 	// Currently used in debug to speed-up initialization.
 
 	typedef secp256k1_gej CompactPoint;
+
+	struct CompactPointConverter
+	{
+		CompactPointConverter() {}
+		void Flush() {}
+
+		void set_Deferred(CompactPoint& trg, Point::Native& src) { trg = src.get_Raw(); }
+	};
 
 #endif // ECC_COMPACT_GEN
 
@@ -370,8 +391,8 @@ namespace ECC
 				Scalar::Native m_Scalar;
 			} m_Secure;
 
-			void Initialize(Oracle&, Hash::Processor& hpRes);
-			void Initialize(Point::Native&, Oracle&);
+			void Initialize(Oracle&, Hash::Processor& hpRes, CompactPointConverter&);
+			void Initialize(Point::Native&, Oracle&, CompactPointConverter&);
 
 			void Assign(Point::Native&, bool bSet) const;
 		};
@@ -458,7 +479,7 @@ namespace ECC
 			CompactPoint m_pPts[nLevels * nPointsPerLevel];
 		};
 
-		void GeneratePts(const Point::Native&, Oracle&, CompactPoint* pPts, uint32_t nLevels);
+		void GeneratePts(const Point::Native&, Oracle&, CompactPoint* pPts, uint32_t nLevels, CompactPointConverter&);
 		void SetMul(Point::Native& res, bool bSet, const CompactPoint* pPts, const Scalar::Native::uint* p, int nWords);
 
 		template <uint32_t nBits_>
@@ -496,9 +517,9 @@ namespace ECC
 			};
 
 		public:
-			void Initialize(const Point::Native& p, Oracle& oracle)
+			void Initialize(const Point::Native& p, Oracle& oracle, CompactPointConverter& cpc)
 			{
-				GeneratePts(p, oracle, Base<nBits_>::m_pPts, Base<nBits_>::nLevels);
+				GeneratePts(p, oracle, Base<nBits_>::m_pPts, Base<nBits_>::nLevels, cpc);
 			}
 
 			template <typename TScalar>
@@ -524,7 +545,7 @@ namespace ECC
 			void AssignInternal(Point::Native& res, bool bSet, Scalar::Native& kTmp, const Scalar::Native&) const;
 
 		public:
-			void Initialize(const Point::Native&, Oracle&);
+			void Initialize(const Point::Native&, Oracle&, CompactPointConverter&);
 
 			template <typename TScalar>
 			Mul<TScalar> operator * (const TScalar& k) const { return Mul<TScalar>(*this, k); }
