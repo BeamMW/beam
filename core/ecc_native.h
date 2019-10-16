@@ -234,7 +234,7 @@ namespace ECC
 
 				void Reset();
 
-				void Add(Entry* pTrg, const Scalar::Native& k, unsigned int nWndBits, WnafBase&, unsigned int iElement);
+				unsigned int Add(Entry* pTrg, const Scalar::Native& k, unsigned int nWndBits, WnafBase&, unsigned int iElement);
 
 				unsigned int Fetch(unsigned int iBit, WnafBase&, const Entry*, bool& bNeg);
 			};
@@ -253,9 +253,9 @@ namespace ECC
 
 			Entry m_pVals[nMaxEntries];
 
-			void Init(Shared& s, const Scalar::Native& k, unsigned int iElement)
+			unsigned int Init(Shared& s, const Scalar::Native& k, unsigned int iElement)
 			{
-				s.Add(m_pVals, k, nWndBits, *this, iElement);
+				return s.Add(m_pVals, k, nWndBits, *this, iElement);
 			}
 
 			unsigned int Fetch(Shared& s, unsigned int iBit, bool& bNeg)

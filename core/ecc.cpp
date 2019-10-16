@@ -1036,7 +1036,7 @@ namespace ECC {
 		ZeroObject(m_pTable);
 	}
 
-	void MultiMac::WnafBase::Shared::Add(Entry* pTrg, const Scalar::Native& k, unsigned int nWndBits, WnafBase& wnaf, unsigned int iElement)
+	unsigned int MultiMac::WnafBase::Shared::Add(Entry* pTrg, const Scalar::Native& k, unsigned int nWndBits, WnafBase& wnaf, unsigned int iElement)
 	{
 		const unsigned int nWndConsume = nWndBits + 1;
 
@@ -1081,7 +1081,8 @@ namespace ECC {
 				x.m_Odd = static_cast<int16_t>(nOdd);
 		}
 
-		if (iEntry--)
+		unsigned int ret = iEntry--;
+		if (ret)
 		{
 			// add the highest bit
 			const Entry& x = pTrg[iEntry];
@@ -1091,6 +1092,8 @@ namespace ECC {
 			lnk.m_iElement = iElement;
 			lnk.m_iEntry = iEntry;
 		}
+
+		return ret;
 	}
 
 	unsigned int MultiMac::WnafBase::Shared::Fetch(unsigned int iBit, WnafBase& wnaf, const Entry* pE, bool& bNeg)
@@ -1153,14 +1156,41 @@ namespace ECC {
 
 			for (int iEntry = 0; iEntry < m_Prepared; iEntry++)
 			{
-				m_pWnafPrepared[iEntry].Init(wsP, m_pKPrep[iEntry], iEntry + 1);
+				unsigned int nEntries = m_pWnafPrepared[iEntry].Init(wsP, m_pKPrep[iEntry], iEntry + 1);
+				assert(nEntries <= _countof(m_pWnafPrepared[iEntry].m_pVals));
+				nEntries; // suppress warning in release build
 			}
 
 			for (int iEntry = 0; iEntry < m_Casual; iEntry++)
 			{
 				Casual& x = m_pCasual[iEntry];
 				Casual::Fast& f = x.U.F.get();
-				f.m_Wnaf.Init(wsC, m_pKCasual[iEntry], iEntry + 1);
+				unsigned int nEntries = f.m_Wnaf.Init(wsC, m_pKCasual[iEntry], iEntry + 1);
+				assert(nEntries <= _countof(f.m_Wnaf.m_pVals));
+
+				// Find highest needed element, calculate all the needed ones
+				unsigned int nMaxElement = 0;
+				for (unsigned int i = 0; i < nEntries; i++)
+				{
+					const WnafBase::Entry& e = f.m_Wnaf.m_pVals[i];
+
+					unsigned int nOdd = e.m_Odd & ~e.s_Negative;
+					assert(nOdd & 1);
+
+					unsigned int nElem = (nOdd >> 1) + 1;
+					nMaxElement = std::max(nMaxElement, nElem);
+				}
+
+				// Find highest needed element, calculate all the needed ones. Note - when invoked repeatedly, some elements may already be calculated
+				assert(nMaxElement < Casual::Fast::nCount);
+
+				for (; f.m_nPrepared < nMaxElement; f.m_nPrepared++)
+				{
+					if (1 == f.m_nPrepared)
+						f.m_pPt[0] = f.m_pPt[1] * Two;
+
+					f.m_pPt[f.m_nPrepared + 1] = f.m_pPt[f.m_nPrepared] + f.m_pPt[0];
+				}
 			}
 
 		}
@@ -1188,15 +1218,7 @@ namespace ECC {
 					unsigned int nOdd = wnaf.Fetch(wsC, iBit, bNeg);
 
 					unsigned int nElem = (nOdd >> 1) + 1;
-					assert(nElem < Casual::Fast::nCount);
-
-					for (; f.m_nPrepared < nElem; f.m_nPrepared++)
-					{
-						if (1 == f.m_nPrepared)
-							f.m_pPt[0] = f.m_pPt[1] * Two;
-
-						f.m_pPt[f.m_nPrepared + 1] = f.m_pPt[f.m_nPrepared] + f.m_pPt[0];
-					}
+					assert(nElem <= f.m_nPrepared);
 
 					if (bNeg)
 					{
