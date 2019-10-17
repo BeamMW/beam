@@ -333,9 +333,10 @@ namespace ECC
 				// In fast mode: x1 is assigned from the beginning, then on-demand calculated x2 and then only odd multiples.
 				static const int nBits = 4;
 				static const int nMaxOdd = (1 << nBits) - 1; // 15
-				static const int nCount = (nMaxOdd >> 1) + 2; // we need a single even: x2
+				static const int nCount = (nMaxOdd >> 1) + 1;
 
 				Point::Native m_pPt[Fast::nCount];
+				Point::Native m_PtX2;
 				unsigned int m_nPrepared;
 
 				typedef Wnaf_T<nBits> Wnaf;

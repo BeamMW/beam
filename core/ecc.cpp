@@ -1065,7 +1065,7 @@ namespace ECC {
 		{
 			Fast& f = U.F.get();
 			f.m_nPrepared = 1;
-			f.m_pPt[1] = p;
+			f.m_pPt[0] = p;
 		}
 		else
 		{
@@ -1283,7 +1283,7 @@ namespace ECC {
 				assert(nEntries <= _countof(f.m_Wnaf.m_pVals));
 
 				// Find highest needed element, calculate all the needed ones
-				unsigned int nMaxElement = 0;
+				unsigned int nNeeded = 0;
 				for (unsigned int i = 0; i < nEntries; i++)
 				{
 					const WnafBase::Entry& e = f.m_Wnaf.m_pVals[i];
@@ -1291,19 +1291,20 @@ namespace ECC {
 					unsigned int nOdd = e.m_Odd & ~e.s_Negative;
 					assert(nOdd & 1);
 
-					unsigned int nElem = (nOdd >> 1) + 1;
-					nMaxElement = std::max(nMaxElement, nElem);
+					unsigned int nElem = (nOdd >> 1);
+					nNeeded = std::max(nNeeded, nElem + 1);
 				}
 
 				// Find highest needed element, calculate all the needed ones. Note - when invoked repeatedly, some elements may already be calculated
-				assert(nMaxElement < Casual::Fast::nCount);
+				assert(nNeeded <= Casual::Fast::nCount);
+				assert(f.m_nPrepared); // 1st point is always set
 
-				for (; f.m_nPrepared < nMaxElement; f.m_nPrepared++)
+				for (; f.m_nPrepared < nNeeded; f.m_nPrepared++)
 				{
 					if (1 == f.m_nPrepared)
-						f.m_pPt[0] = f.m_pPt[1] * Two;
+						f.m_PtX2 = f.m_pPt[0] * Two;
 
-					f.m_pPt[f.m_nPrepared + 1] = f.m_pPt[f.m_nPrepared] + f.m_pPt[0];
+					f.m_pPt[f.m_nPrepared] = f.m_pPt[f.m_nPrepared - 1] + f.m_PtX2;
 				}
 			}
 
@@ -1331,8 +1332,8 @@ namespace ECC {
 					bool bNeg;
 					unsigned int nOdd = wnaf.Fetch(wsC, iBit, bNeg);
 
-					unsigned int nElem = (nOdd >> 1) + 1;
-					assert(nElem <= f.m_nPrepared);
+					unsigned int nElem = (nOdd >> 1);
+					assert(nElem < f.m_nPrepared);
 
 					if (bNeg)
 					{
