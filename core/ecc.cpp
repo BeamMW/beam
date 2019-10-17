@@ -1243,6 +1243,116 @@ namespace ECC {
 		return nOdd;
 	}
 
+	struct MultiMac::Normalizer
+		:public Point::Native::BatchNormalizer
+	{
+		const MultiMac& m_This;
+
+		Normalizer(const MultiMac& mm) :m_This(mm) {}
+
+		struct Cursor
+		{
+			int m_iElement;
+			uint32_t m_iEntry;
+		};
+
+		Cursor m_Cursor;
+
+		void FromCursor(Element& el, const Cursor& cu) const;
+		bool MoveBkwd(Cursor& cu) const;
+
+		virtual void Reset() override;
+		virtual bool MoveNext(Element& el) override;
+
+		virtual bool MovePrev(Element& el) override;
+	};
+
+	void MultiMac::Normalizer::FromCursor(Element& el, const Cursor& cu) const
+	{
+		Casual& x = m_This.m_pCasual[cu.m_iElement];
+		Casual::Fast& f = x.U.F.get();
+
+		el.m_pPoint = f.m_pPt + cu.m_iEntry;
+		el.m_pFe = f.m_pFe + cu.m_iEntry;
+	}
+
+	bool MultiMac::Normalizer::MoveBkwd(Cursor& cu) const
+	{
+		while (true)
+		{
+			if (cu.m_iElement < m_This.m_Casual)
+			{
+				Casual& x = m_This.m_pCasual[cu.m_iElement];
+				Casual::Fast& f = x.U.F.get();
+
+				assert(cu.m_iEntry <= f.m_nNeeded);
+				f; // suppress warning in release build
+
+				if (cu.m_iEntry)
+				{
+					cu.m_iEntry--;
+					break;
+				}
+			}
+
+			if (!cu.m_iElement)
+				return false;
+
+			cu.m_iElement--;
+
+			Casual& x = m_This.m_pCasual[cu.m_iElement];
+			Casual::Fast& f = x.U.F.get();
+
+			cu.m_iEntry = f.m_nNeeded;
+		}
+
+		return true;
+	}
+
+	void MultiMac::Normalizer::Reset()
+	{
+		ZeroObject(m_Cursor);
+	}
+
+	bool MultiMac::Normalizer::MoveNext(Element& el)
+	{
+		while (true)
+		{
+			if (m_Cursor.m_iElement == m_This.m_Casual)
+				return false;
+
+			Casual& x = m_This.m_pCasual[m_Cursor.m_iElement];
+			Casual::Fast& f = x.U.F.get();
+
+			if (m_Cursor.m_iEntry < f.m_nNeeded)
+				break;
+
+			m_Cursor.m_iElement++;
+			m_Cursor.m_iEntry = 0;
+
+		}
+
+		FromCursor(el, m_Cursor);
+		m_Cursor.m_iEntry++;
+
+		return true;
+	}
+
+	bool MultiMac::Normalizer::MovePrev(Element& el)
+	{
+		Cursor cu1 = m_Cursor;
+		if (!MoveBkwd(cu1))
+			return false;
+
+		Cursor cu2 = cu1;
+		if (!MoveBkwd(cu2))
+			return false;
+
+		m_Cursor = cu1;
+		FromCursor(el, cu2);
+		return true;
+	}
+
 	void MultiMac::Calculate(Point::Native& res) const
 	{
 		const unsigned int nBitsPerWord = sizeof(Scalar::Native::uint) << 3;
@@ -1254,7 +1364,6 @@ namespace ECC {
 
 		NoLeak<secp256k1_ge> ge;
 		NoLeak<Point::Compact> ge_s;
-		Point::Native ptTmp;
 		secp256k1_fe zDenom;
 
 		WnafBase::Shared wsP, wsC;
@@ -1310,111 +1419,7 @@ namespace ECC {
 			}
 
 			// Bring everything to the same denominator
-			struct Normalizer
-				:public Point::Native::BatchNormalizer
-			{
-				const MultiMac& m_This;
-
-				Normalizer(const MultiMac& mm) :m_This(mm) {}
-
-				struct Cursor
-				{
-					int m_iElement;
-					uint32_t m_iEntry;
-				};
-
-				Cursor m_Cursor;
-
-				void FromCursor(Element& el, const Cursor& cu) const
-				{
-					Casual& x = m_This.m_pCasual[cu.m_iElement];
-					Casual::Fast& f = x.U.F.get();
-
-					el.m_pPoint = f.m_pPt + cu.m_iEntry;
-					el.m_pFe = f.m_pFe + cu.m_iEntry;
-				}
-
-				virtual void Reset() override
-				{
-					ZeroObject(m_Cursor);
-				}
-
-				virtual bool MoveNext(Element& el) override
-				{
-					while (true)
-					{
-						if (m_Cursor.m_iElement == m_This.m_Casual)
-							return false;
-
-						Casual& x = m_This.m_pCasual[m_Cursor.m_iElement];
-						Casual::Fast& f = x.U.F.get();
-
-						if (m_Cursor.m_iEntry < f.m_nNeeded)
-							break;
-
-						m_Cursor.m_iElement++;
-						m_Cursor.m_iEntry = 0;
-
-					}
-
-					FromCursor(el, m_Cursor);
-					m_Cursor.m_iEntry++;
-
-					return true;
-				}
-
-				bool MoveBkwd(Cursor& cu) const
-				{
-					while (true)
-					{
-						if (cu.m_iElement < m_This.m_Casual)
-						{
-							Casual& x = m_This.m_pCasual[cu.m_iElement];
-							Casual::Fast& f = x.U.F.get();
-
-							assert(cu.m_iEntry <= f.m_nNeeded);
-							f; // suppress warning in release build
-
-							if (cu.m_iEntry)
-							{
-								cu.m_iEntry--;
-								break;
-							}
-						}
-
-						if (!cu.m_iElement)
-							return false;
-
-						cu.m_iElement--;
-
-						Casual& x = m_This.m_pCasual[cu.m_iElement];
-						Casual::Fast& f = x.U.F.get();
-
-						cu.m_iEntry = f.m_nNeeded;
-					}
-
-					return true;
-
-				}
-
-				virtual bool MovePrev(Element& el) override
-				{
-					Cursor cu1 = m_Cursor;
-					if (!MoveBkwd(cu1))
-						return false;
-
-					Cursor cu2 = cu1;
-					if (!MoveBkwd(cu2))
-						return false;
-
-					m_Cursor = cu1;
-					FromCursor(el, cu2);
-					return true;
-				}
-			};
-
 			Normalizer nrm(*this);
-
 			nrm.ToCommonDenominator(zDenom);
 		}
 		else

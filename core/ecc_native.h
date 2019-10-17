@@ -397,6 +397,10 @@ namespace ECC
 
 		void Reset();
 		void Calculate(Point::Native&) const;
+
+	private:
+
+		struct Normalizer;
 	};
 
 	template <int nMaxCasual, int nMaxPrepared>
