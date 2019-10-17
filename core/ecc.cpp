@@ -563,10 +563,10 @@ namespace ECC {
 	{
 		uint32_t iIdx = 0;
 		Element elPrev = { 0 }; // init not necessary, just suppress the warning
+		Element el = { 0 };
 
 		for (Reset(); ; iIdx++)
 		{
-			Element el;
 			if (!MoveNext(el))
 				break;
 
@@ -586,7 +586,6 @@ namespace ECC {
 
 		while (iIdx--)
 		{
-			Element el;
 			BEAM_VERIFY(MovePrev(el));
 
 			secp256k1_fe_mul(elPrev.m_pFe, el.m_pFe, &zInv.V);

@@ -213,19 +213,22 @@ namespace ECC
 		};
 
 		template <uint32_t nSize>
-		struct BatchNormalizer_Arr_T
-			:public BatchNormalizer_Arr
-		{
-			Point::Native m_pPtsBuf[nSize];
-			secp256k1_fe m_pFesBuf[nSize];
+		struct BatchNormalizer_Arr_T;
+	};
 
-			BatchNormalizer_Arr_T()
-			{
-				m_pPts = m_pPtsBuf;
-				m_pFes = m_pFesBuf;
-				m_Size = nSize;
-			}
-		};
+	template <uint32_t nSize>
+	struct Point::Native::BatchNormalizer_Arr_T
+		:public BatchNormalizer_Arr
+	{
+		Point::Native m_pPtsBuf[nSize];
+		secp256k1_fe m_pFesBuf[nSize];
+
+		BatchNormalizer_Arr_T()
+		{
+			m_pPts = m_pPtsBuf;
+			m_pFes = m_pFesBuf;
+			m_Size = nSize;
+		}
 	};
 
     std::ostream& operator << (std::ostream&, const Point::Native&);
