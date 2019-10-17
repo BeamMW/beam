@@ -176,6 +176,7 @@ void SettingsViewModel::applyBtcSettings()
 
     m_bitcoinSettings->SetConnectionOptions(connectionSettings);
     m_bitcoinSettings->SetFeeRate(m_bitcoinFeeRate);
+    m_bitcoinSettings->ChangeConnectionType(beam::bitcoin::ISettings::Core);
 
     AppModel::getInstance().getBitcoinClient()->SetSettings(*m_bitcoinSettings);
     SetDefaultBtcSettingsEL();
@@ -255,6 +256,7 @@ void SettingsViewModel::applyLtcSettings()
 
     m_litecoinSettings->SetConnectionOptions(connectionSettings);
     m_litecoinSettings->SetFeeRate(m_litecoinFeeRate);
+    m_litecoinSettings->ChangeConnectionType(beam::bitcoin::ISettings::Core);
 
     AppModel::getInstance().getLitecoinClient()->SetSettings(*m_litecoinSettings);
     SetDefaultLtcSettingsEL();
@@ -340,6 +342,7 @@ void SettingsViewModel::applyQtumSettings()
 
     m_qtumSettings->SetConnectionOptions(connectionSettings);
     m_qtumSettings->SetFeeRate(m_qtumFeeRate);
+    m_qtumSettings->ChangeConnectionType(beam::bitcoin::ISettings::Core);
 
     AppModel::getInstance().getQtumClient()->SetSettings(*m_qtumSettings);
     SetDefaultQtumSettingsEL();
@@ -419,6 +422,7 @@ void SettingsViewModel::applyBtcSettingsEL()
 
     m_bitcoinSettings->SetElectrumConnectionOptions(electrumSettings);
     m_bitcoinSettings->SetFeeRate(m_bitcoinFeeRateEl);
+    m_bitcoinSettings->ChangeConnectionType(beam::bitcoin::ISettings::Electrum);
 
     AppModel::getInstance().getBitcoinClient()->SetSettings(*m_bitcoinSettings);
     SetDefaultBtcSettings();
@@ -498,6 +502,7 @@ void SettingsViewModel::SettingsViewModel::applyLtcSettingsEL()
 
     m_litecoinSettings->SetElectrumConnectionOptions(electrumSettings);
     m_litecoinSettings->SetFeeRate(m_bitcoinFeeRateEl);
+    m_litecoinSettings->ChangeConnectionType(beam::bitcoin::ISettings::Electrum);
 
     AppModel::getInstance().getLitecoinClient()->SetSettings(*m_litecoinSettings);
     SetDefaultLtcSettings();
@@ -531,6 +536,7 @@ void SettingsViewModel::SettingsViewModel::applyQtumSettingsEL()
 
     m_qtumSettings->SetElectrumConnectionOptions(electrumSettings);
     m_qtumSettings->SetFeeRate(m_bitcoinFeeRateEl);
+    m_qtumSettings->ChangeConnectionType(beam::bitcoin::ISettings::Electrum);
 
     AppModel::getInstance().getQtumClient()->SetSettings(*m_qtumSettings);
     SetDefaultQtumSettings();
