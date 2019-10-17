@@ -192,9 +192,13 @@ namespace ECC
 			virtual bool MovePrev(Element&) = 0;
 
 			void Normalize();
+			void ToCommonDenominator(secp256k1_fe& zDenom);
 
 			static void get_As(secp256k1_ge&, const Point::Native& ptNormalized);
 			static void get_As(secp256k1_ge_storage&, const Point::Native& ptNormalized);
+
+		private:
+			void NormalizeInternal(secp256k1_fe&, bool bNormalize);
 		};
 
 		struct BatchNormalizer_Arr

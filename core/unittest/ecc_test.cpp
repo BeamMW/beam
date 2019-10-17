@@ -539,16 +539,42 @@ void TestPoints()
 	// test
 	for (uint32_t i = 0; i < nBatch; i++)
 	{
-		pPts[i] = -pPts[i];
+		p0 = -pPts[i];
 
 		// treat the normalized point as affine
 		secp256k1_ge ge;
 		bctx.get_As(ge, bctx.m_pPts[i]);
 
-		secp256k1_gej_add_ge(&pPts[i].get_Raw(), &pPts[i].get_Raw(), &ge);
+		secp256k1_gej_add_ge(&p0.get_Raw(), &p0.get_Raw(), &ge);
 
-		verify_test(pPts[i] == Zero);
+		verify_test(p0 == Zero);
 	}
+
+	// bringing to the same denominator
+	memcpy(bctx.m_pPtsBuf, pPts, sizeof(pPts));
+
+	secp256k1_fe zDen;
+	bctx.ToCommonDenominator(zDen);
+
+	// test. Points brought to the same denominator can be added as if they were normalized, and only the final result should account for the denominator
+	p0 = Zero;
+	p1 = Zero;
+	for (uint32_t i = 0; i < nBatch; i++)
+	{
+		p1 += pPts[i];
+
+		// treat the normalized point as affine
+		secp256k1_ge ge;
+		bctx.get_As(ge, bctx.m_pPts[i]);
+
+		secp256k1_gej_add_ge(&p0.get_Raw(), &p0.get_Raw(), &ge);
+	}
+
+	secp256k1_fe_mul(&p0.get_Raw().z, &p0.get_Raw().z, &zDen);
+
+	p0 = -p0;
+	p0 += p1;
+	verify_test(p0 == Zero);
 }
 
 void TestSigning()

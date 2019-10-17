@@ -561,42 +561,61 @@ namespace ECC {
 
 	void Point::Native::BatchNormalizer::Normalize()
 	{
-		uint32_t iIdx = 0;
+		secp256k1_fe zDenom;
+		NormalizeInternal(zDenom, true);
+	}
+
+	void Point::Native::BatchNormalizer::ToCommonDenominator(secp256k1_fe& zDenom)
+	{
+		secp256k1_fe_set_int(&zDenom, 1);
+		NormalizeInternal(zDenom, false);
+	}
+
+	void Point::Native::BatchNormalizer::NormalizeInternal(secp256k1_fe& zDenom, bool bNormalize)
+	{
+		bool bEmpty = true;
 		Element elPrev = { 0 }; // init not necessary, just suppress the warning
 		Element el = { 0 };
 
-		for (Reset(); ; iIdx++)
+		for (Reset(); ; )
 		{
 			if (!MoveNext(el))
 				break;
 
-			if (iIdx)
-				secp256k1_fe_mul(el.m_pFe, elPrev.m_pFe, &el.m_pPoint->z);
-			else
+			if (bEmpty)
+			{
+				bEmpty = false;
 				*el.m_pFe = el.m_pPoint->z;
+			}
+			else
+				secp256k1_fe_mul(el.m_pFe, elPrev.m_pFe, &el.m_pPoint->z);
 
 			elPrev = el;
 		}
 
-		if (!iIdx--)
+		if (bEmpty)
 			return;
 
-		NoLeak<secp256k1_fe> zInv;
-		secp256k1_fe_inv(&zInv.V, elPrev.m_pFe); // the only expensive call
+		if (bNormalize)
+			secp256k1_fe_inv(&zDenom, elPrev.m_pFe); // the only expensive call
 
-		while (iIdx--)
+		while (true)
 		{
-			BEAM_VERIFY(MovePrev(el));
+			bool bFetched = MovePrev(el);
+			if (bFetched) 
+				secp256k1_fe_mul(elPrev.m_pFe, el.m_pFe, &zDenom);
+			else
+				*elPrev.m_pFe = zDenom;
 
-			secp256k1_fe_mul(elPrev.m_pFe, el.m_pFe, &zInv.V);
-			secp256k1_fe_mul(&zInv.V, &zInv.V, &elPrev.m_pPoint->z);
+			secp256k1_fe_mul(&zDenom, &zDenom, &elPrev.m_pPoint->z);
 
 			secp256k1_gej_rescale(elPrev.m_pPoint, elPrev.m_pFe);
 
+			if (!bFetched)
+				break;
+
 			elPrev = el;
 		}
-
-		secp256k1_gej_rescale(elPrev.m_pPoint, &zInv.V);
 	}
 
 	void Point::Native::BatchNormalizer::get_As(secp256k1_ge& ge, const Point::Native& ptNormalized)
