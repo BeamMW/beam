@@ -337,7 +337,9 @@ namespace ECC
 
 				Point::Native m_pPt[Fast::nCount];
 				Point::Native m_PtX2;
+				secp256k1_fe m_pFe[Fast::nCount];
 				unsigned int m_nPrepared;
+				unsigned int m_nNeeded;
 
 				typedef Wnaf_T<nBits> Wnaf;
 				Wnaf m_Wnaf;

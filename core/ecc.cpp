@@ -1255,6 +1255,7 @@ namespace ECC {
 		NoLeak<secp256k1_ge> ge;
 		NoLeak<Point::Compact> ge_s;
 		Point::Native ptTmp;
+		secp256k1_fe zDenom;
 
 		WnafBase::Shared wsP, wsC;
 
@@ -1283,7 +1284,7 @@ namespace ECC {
 				assert(nEntries <= _countof(f.m_Wnaf.m_pVals));
 
 				// Find highest needed element, calculate all the needed ones
-				unsigned int nNeeded = 0;
+				f.m_nNeeded = 0;
 				for (unsigned int i = 0; i < nEntries; i++)
 				{
 					const WnafBase::Entry& e = f.m_Wnaf.m_pVals[i];
@@ -1292,14 +1293,14 @@ namespace ECC {
 					assert(nOdd & 1);
 
 					unsigned int nElem = (nOdd >> 1);
-					nNeeded = std::max(nNeeded, nElem + 1);
+					f.m_nNeeded = std::max(f.m_nNeeded, nElem + 1);
 				}
 
 				// Find highest needed element, calculate all the needed ones. Note - when invoked repeatedly, some elements may already be calculated
-				assert(nNeeded <= Casual::Fast::nCount);
+				assert(f.m_nNeeded <= Casual::Fast::nCount);
 				assert(f.m_nPrepared); // 1st point is always set
 
-				for (; f.m_nPrepared < nNeeded; f.m_nPrepared++)
+				for (; f.m_nPrepared < f.m_nNeeded; f.m_nPrepared++)
 				{
 					if (1 == f.m_nPrepared)
 						f.m_PtX2 = f.m_pPt[0] * Two;
@@ -1308,6 +1309,113 @@ namespace ECC {
 				}
 			}
 
+			// Bring everything to the same denominator
+			struct Normalizer
+				:public Point::Native::BatchNormalizer
+			{
+				const MultiMac& m_This;
+
+				Normalizer(const MultiMac& mm) :m_This(mm) {}
+
+				struct Cursor
+				{
+					int m_iElement;
+					uint32_t m_iEntry;
+				};
+
+				Cursor m_Cursor;
+
+				void FromCursor(Element& el, const Cursor& cu) const
+				{
+					Casual& x = m_This.m_pCasual[cu.m_iElement];
+					Casual::Fast& f = x.U.F.get();
+
+					el.m_pPoint = f.m_pPt + cu.m_iEntry;
+					el.m_pFe = f.m_pFe + cu.m_iEntry;
+				}
+
+				virtual void Reset() override
+				{
+					ZeroObject(m_Cursor);
+				}
+
+				virtual bool MoveNext(Element& el) override
+				{
+					while (true)
+					{
+						if (m_Cursor.m_iElement == m_This.m_Casual)
+							return false;
+
+						Casual& x = m_This.m_pCasual[m_Cursor.m_iElement];
+						Casual::Fast& f = x.U.F.get();
+
+						if (m_Cursor.m_iEntry < f.m_nNeeded)
+							break;
+
+						m_Cursor.m_iElement++;
+						m_Cursor.m_iEntry = 0;
+
+					}
+
+					FromCursor(el, m_Cursor);
+					m_Cursor.m_iEntry++;
+
+					return true;
+				}
+
+				bool MoveBkwd(Cursor& cu) const
+				{
+					while (true)
+					{
+						if (cu.m_iElement < m_This.m_Casual)
+						{
+							Casual& x = m_This.m_pCasual[cu.m_iElement];
+							Casual::Fast& f = x.U.F.get();
+
+							assert(cu.m_iEntry <= f.m_nNeeded);
+							f; // suppress warning in release build
+
+							if (cu.m_iEntry)
+							{
+								cu.m_iEntry--;
+								break;
+							}
+						}
+
+						if (!cu.m_iElement)
+							return false;
+
+						cu.m_iElement--;
+
+						Casual& x = m_This.m_pCasual[cu.m_iElement];
+						Casual::Fast& f = x.U.F.get();
+
+						cu.m_iEntry = f.m_nNeeded;
+					}
+
+					return true;
+
+				}
+
+				virtual bool MovePrev(Element& el) override
+				{
+					Cursor cu1 = m_Cursor;
+					if (!MoveBkwd(cu1))
+						return false;
+
+					Cursor cu2 = cu1;
+					if (!MoveBkwd(cu2))
+						return false;
+
+					m_Cursor = cu1;
+					FromCursor(el, cu2);
+					return true;
+				}
+			};
+
+			Normalizer nrm(*this);
+
+			nrm.ToCommonDenominator(zDenom);
 		}
 		else
 		{
@@ -1335,13 +1443,12 @@ namespace ECC {
 					unsigned int nElem = (nOdd >> 1);
 					assert(nElem < f.m_nPrepared);
 
+					Point::Native::BatchNormalizer::get_As(ge.V, f.m_pPt[nElem]);
+
 					if (bNeg)
-					{
-						ptTmp = -f.m_pPt[nElem];
-						res += ptTmp;
-					}
-					else
-						res += f.m_pPt[nElem];
+						secp256k1_ge_neg(&ge.V, &ge.V);
+
+					secp256k1_gej_add_ge(&res.get_Raw(), &res.get_Raw(), &ge.V);
 				}
 
 				WnafBase::Link& lnkP = wsP.m_pTable[iBit]; // alias
@@ -1364,7 +1471,7 @@ namespace ECC {
 					if (bNeg)
 						secp256k1_ge_neg(&ge.V, &ge.V);
 
-					secp256k1_gej_add_ge(&res.get_Raw(), &res.get_Raw(), &ge.V);
+					secp256k1_gej_add_zinv_var(&res.get_Raw(), &res.get_Raw(), &ge.V, &zDenom);
 				}
 			}
 			else
@@ -1420,7 +1527,11 @@ namespace ECC {
 
 			for (int iEntry = 0; iEntry < m_Casual; iEntry++)
 				res += Context::get().m_Casual.m_Compensation;
-
+		}
+		else
+		{
+			// fix denominator
+			secp256k1_fe_mul(&res.get_Raw().z, &res.get_Raw().z, &zDenom);
 		}
 	}
 
