@@ -1757,5 +1757,13 @@ Please check the swap token and try again.</translation>
         <source>Transaction fee</source>
         <translation type="unfinished">Transaction fee</translation>
     </message>
+    <message id="swap-details-tx-comment">
+        <source>Comment</source>
+        <translation type="unfinished">Comment</translation>
+    </message>
+    <message id="swap-details-tx-fee-rate">
+        <source>Transaction fee rate</source>
+        <translation type="unfinished">Transaction fee rate</translation>
+    </message>
 </context>
 </TS>

@@ -14,36 +14,39 @@
 
 #include "swap_tx_object.h"
 #include "wallet/swaps/common.h"
+#include "viewmodel/qml_globals.h"
 
 using namespace beam;
 using namespace beam::wallet;
 
 SwapTxObject::SwapTxObject(QObject* parent)
-        : TxObject(parent)
+        : TxObject(parent),
+          m_isBeamSide(boost::none),
+          m_swapCoin(boost::none)
 {
 }
 
 SwapTxObject::SwapTxObject(const TxDescription& tx, QObject* parent/* = nullptr*/)
-        : TxObject(tx, parent)
+        : TxObject(tx, parent),
+          m_isBeamSide(m_tx.GetParameter<bool>(TxParameterID::AtomicSwapIsBeamSide)),
+          m_swapCoin(m_tx.GetParameter<AtomicSwapCoin>(TxParameterID::AtomicSwapCoin))
 {
 }
 
 auto SwapTxObject::isBeamSideSwap() const -> bool
 {
-    auto isBeamSide = m_tx.GetParameter<bool>(TxParameterID::AtomicSwapIsBeamSide);
-    if (isBeamSide)
+    if (m_isBeamSide)
     {
-        return isBeamSide.value();
+        return *m_isBeamSide;
     }
-    else return false;    
+    else return false;
 }
 
 auto SwapTxObject::getSwapCoinName() const -> QString
 {
-    beam::wallet::AtomicSwapCoin coin;
-    if (m_tx.GetParameter(TxParameterID::AtomicSwapCoin, coin))
+    if (m_swapCoin)
     {
-        switch (coin)
+        switch (*m_swapCoin)
         {
             case AtomicSwapCoin::Bitcoin:   return toString(beamui::Currencies::Bitcoin);
             case AtomicSwapCoin::Litecoin:  return toString(beamui::Currencies::Litecoin);
@@ -94,20 +97,18 @@ double SwapTxObject::getReceivedAmountValue() const
 
 QString SwapTxObject::getSwapAmount(bool sent) const
 {
-    auto isBeamSide = m_tx.GetParameter<bool>(TxParameterID::AtomicSwapIsBeamSide);
-    if (!isBeamSide)
+    if (!m_isBeamSide)
     {
         return "";
     }
 
-    bool s = sent ? !*isBeamSide : *isBeamSide;
+    bool s = sent ? !*m_isBeamSide : *m_isBeamSide;
     if (s)
     {
         auto swapAmount = m_tx.GetParameter<Amount>(TxParameterID::AtomicSwapAmount);
         if (swapAmount)
         {
-            auto swapCoin = m_tx.GetParameter<AtomicSwapCoin>(TxParameterID::AtomicSwapCoin);
-            return AmountToString(*swapAmount, beamui::convertSwapCoinToCurrency(*swapCoin));
+            return AmountToString(*swapAmount, beamui::convertSwapCoinToCurrency(*m_swapCoin));
         }
         return "";
     }
@@ -116,13 +117,12 @@ QString SwapTxObject::getSwapAmount(bool sent) const
 
 double SwapTxObject::getSwapAmountValue(bool sent) const
 {
-    auto isBeamSide = m_tx.GetParameter<bool>(TxParameterID::AtomicSwapIsBeamSide);
-    if (!isBeamSide)
+    if (!m_isBeamSide)
     {
         return 0.0;
     }
 
-    bool s = sent ? !*isBeamSide : *isBeamSide;
+    bool s = sent ? !*m_isBeamSide : *m_isBeamSide;
     if (s)
     {
         auto swapAmount = m_tx.GetParameter<Amount>(TxParameterID::AtomicSwapAmount);
@@ -133,6 +133,37 @@ double SwapTxObject::getSwapAmountValue(bool sent) const
         return 0.0;
     }
     return m_tx.m_amount;
+}
+
+QString SwapTxObject::getFeeRate() const
+{
+    auto feeRate = m_tx.GetParameter<beam::Amount>(TxParameterID::Fee, *m_isBeamSide ? SubTxIndex::REDEEM_TX : SubTxIndex::LOCK_TX);
+
+    if (feeRate && m_swapCoin)
+    {
+        QString value = AmountToString(*feeRate, beamui::Currencies::Unknown);
+
+        QString rateMeasure;
+        switch (*m_swapCoin)
+        {
+        case AtomicSwapCoin::Bitcoin:
+            rateMeasure = QMLGlobals::btcFeeRateLabel();
+            break;
+
+        case AtomicSwapCoin::Litecoin:
+            rateMeasure = QMLGlobals::ltcFeeRateLabel();
+            break;
+
+        case AtomicSwapCoin::Qtum:
+            rateMeasure = QMLGlobals::qtumFeeRateLabel();
+            break;
+        
+        default:
+            break;
+        }
+        return value + " " + rateMeasure;
+    }
+    return QString();
 }
 
 namespace

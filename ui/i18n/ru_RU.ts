@@ -1755,5 +1755,13 @@ Please try again later or create an offer yourself.</oldsource>
         <source>Transaction fee</source>
         <translation>Комиссия</translation>
     </message>
+    <message id="swap-details-tx-comment">
+        <source>Comment</source>
+        <translation type="unfinished">Комментарий</translation>
+    </message>
+    <message id="swap-details-tx-fee-rate">
+        <source>Transaction fee rate</source>
+        <translation type="unfinished">Transaction fee rate</translation>
+    </message>
 </context>
 </TS>

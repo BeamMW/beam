@@ -1751,5 +1751,13 @@ Please try again later or create an offer yourself.</oldsource>
         <source>Transaction fee</source>
         <translation>ค่าธรรมเนียมธุรกรรม</translation>
     </message>
+    <message id="swap-details-tx-comment">
+        <source>Comment</source>
+        <translation type="unfinished">คอมเมนต์</translation>
+    </message>
+    <message id="swap-details-tx-fee-rate">
+        <source>Transaction fee rate</source>
+        <translation type="unfinished">ค่าธรรมเนียมธุรกรรม</translation>
+    </message>
 </context>
 </TS>

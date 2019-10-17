@@ -62,6 +62,7 @@ public:
         AmountReceiveSort,
         Token,
         SwapCoin,
+        FeeRate,
         SwapCoinLockTxId,
         SwapCoinLockTxConfirmations,
         SwapCoinRedeemTxId,

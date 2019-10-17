@@ -1767,5 +1767,13 @@ Please try again later or create an offer yourself.</oldsource>
         <source>Transaction fee</source>
         <translation>交易费</translation>
     </message>
+    <message id="swap-details-tx-comment">
+        <source>Comment</source>
+        <translation type="unfinished">备注</translation>
+    </message>
+    <message id="swap-details-tx-fee-rate">
+        <source>Transaction fee rate</source>
+        <translation type="unfinished">交易费率</translation>
+    </message>
 </context>
 </TS>

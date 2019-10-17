@@ -805,6 +805,8 @@ Item {
                                         property var txRolesMap: myModel
                                         txId:                           txRolesMap && txRolesMap.txID ? txRolesMap.txID : ""
                                         fee:                            txRolesMap && txRolesMap.fee ? txRolesMap.fee : ""
+                                        feeRate:                        txRolesMap && txRolesMap.feeRate ? txRolesMap.feeRate : ""
+                                        comment:                        txRolesMap && txRolesMap.comment ? txRolesMap.comment : ""
                                         swapCoinName:                   txRolesMap && txRolesMap.swapCoin ? txRolesMap.swapCoin : ""
                                         isBeamSide:                     txRolesMap && txRolesMap.isBeamSideSwap ? txRolesMap.isBeamSideSwap : false
                                         isProofReceived:                txRolesMap && txRolesMap.isProofReceived ? txRolesMap.isProofReceived : false

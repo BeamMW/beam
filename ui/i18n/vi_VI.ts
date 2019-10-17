@@ -1751,5 +1751,13 @@ Please try again later or create an offer yourself.</oldsource>
         <source>Transaction fee</source>
         <translation>Phí giao dịch</translation>
     </message>
+    <message id="swap-details-tx-comment">
+        <source>Comment</source>
+        <translation type="unfinished">Bình luận</translation>
+    </message>
+    <message id="swap-details-tx-fee-rate">
+        <source>Transaction fee rate</source>
+        <translation type="unfinished">Tỷ lệ phí giao dịch</translation>
+    </message>
 </context>
 </TS>

@@ -12,6 +12,8 @@ RowLayout {
 
     property var    txId
     property var    fee
+    property var    feeRate
+    property var    comment
     property var    swapCoinLockTxId
     property var    swapCoinLockTxConfirmations
     property var    beamLockTxKernelId
@@ -62,6 +64,29 @@ RowLayout {
             text: root.txId
             onCopyText: textCopied(text)
         }
+        
+        SFText {
+            enabled: commentLabel.enabled
+            visible: enabled
+            Layout.alignment: Qt.AlignTop
+            font.pixelSize: 14
+            color: Style.content_secondary
+            //% "Comment"
+            text: qsTrId("swap-details-tx-comment") + ":"
+        }
+        SFLabel {
+            id: commentLabel
+            enabled: text != ""
+            visible: enabled
+            Layout.fillWidth: true
+            copyMenuEnabled: true
+            font.pixelSize: 14
+            color: Style.content_main
+            //wrapMode: Text.Wrap
+            elide: Text.ElideMiddle
+            text: root.comment
+            onCopyText: textCopied(text)
+        }
 
         SFText {
             Layout.alignment: Qt.AlignTop
@@ -78,6 +103,24 @@ RowLayout {
             //wrapMode: Text.Wrap
             elide: Text.ElideMiddle
             text: root.fee
+            onCopyText: textCopied(text)
+        }
+
+        SFText {
+            Layout.alignment: Qt.AlignTop
+            font.pixelSize: 14
+            color: Style.content_secondary
+            //% "Transaction fee rate"
+            text: qsTrId("swap-details-tx-fee-rate") + ":"
+        }
+        SFLabel {
+            Layout.fillWidth: true
+            copyMenuEnabled: true
+            font.pixelSize: 14
+            color: Style.content_main
+            //wrapMode: Text.Wrap
+            elide: Text.ElideMiddle
+            text: root.feeRate
             onCopyText: textCopied(text)
         }
         
