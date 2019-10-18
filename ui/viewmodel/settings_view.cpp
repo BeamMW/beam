@@ -120,7 +120,7 @@ QString SwapCoinSettingsItem::getGeneralTitle() const
             //% "Litecoin"
             return qtTrId("general-litecoin");
         case wallet::AtomicSwapCoin::Qtum:
-            //% "Qtum"
+            //% "QTUM"
             return qtTrId("general-qtum");
         default:
         {
