@@ -68,21 +68,25 @@ QAbstractItemModel* SwapOffersViewModel::getAllOffers()
     return &m_offersList;
 }
 
+// TODO:double
 double  SwapOffersViewModel::beamAvailable() const
 {
     return double(int64_t(m_walletModel.getAvailable())) / Rules::Coin;
 }
 
+// TODO:double
 double  SwapOffersViewModel::btcAvailable() const
 {
     return m_btcClient->getAvailable();
 }
 
+// TODO:double
 double  SwapOffersViewModel::ltcAvailable() const
 {
     return m_ltcClient->getAvailable();
 }
 
+// TODO:double
 double  SwapOffersViewModel::qtumAvailable() const
 {
     return m_qtumClient->getAvailable();

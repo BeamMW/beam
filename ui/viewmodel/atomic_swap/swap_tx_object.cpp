@@ -63,6 +63,7 @@ QString SwapTxObject::getSentAmount() const
     return m_tx.m_sender ? getAmount() : "";
 }
 
+// TODO:double
 double SwapTxObject::getSentAmountValue() const
 {
     if (m_type == TxType::AtomicSwap)
@@ -82,6 +83,7 @@ QString SwapTxObject::getReceivedAmount() const
     return !m_tx.m_sender ? getAmount() : "";
 }
 
+// TODO:double
 double SwapTxObject::getReceivedAmountValue() const
 {
     if (m_type == TxType::AtomicSwap)
@@ -114,6 +116,7 @@ QString SwapTxObject::getSwapAmount(bool sent) const
     return getAmount();
 }
 
+// TODO:double
 double SwapTxObject::getSwapAmountValue(bool sent) const
 {
     auto isBeamSide = m_tx.GetParameter<bool>(TxParameterID::AtomicSwapIsBeamSide);

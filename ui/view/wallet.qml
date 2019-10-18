@@ -151,7 +151,7 @@ Item {
                 Layout.maximumHeight: 67
                 Layout.minimumHeight: 67
 
-                width: viewModel.beamSending > 0 || viewModel.beamReceiving > 0 ? parent.width : (parent.width / 2)
+                width: parseFloat(viewModel.beamSending) > 0 || parseFloat(viewModel.beamReceiving) > 0 ? parent.width : (parent.width / 2)
 
                 available:         viewModel.beamAvailable
                 locked:            viewModel.beamLocked

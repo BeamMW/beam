@@ -173,21 +173,21 @@ Item {
                     }
                     gradLeft: Style.swapCurrencyPaneGrLeftBEAM
                     currencyIcon: "qrc:/assets/icon-beam.svg"
-                    valueStr: [Utils.formatAmount(viewModel.beamAvailable, false, true), Utils.symbolBeam].join(" ")
+                    valueStr: [Utils.number2Locale(viewModel.beamAvailable), Utils.symbolBeam].join(" ")
                     valueSecondaryStr: activeTxCountStr()
                     visible: true
                 }
 
                 function btcAmount() {
-                    return viewModel.hasBtcTx ? "" : Utils.formatAmount(viewModel.btcAvailable, false, true) + " " + Utils.symbolBtc;
+                    return viewModel.hasBtcTx ? "" : Utils.number2Locale(viewModel.btcAvailable) + " " + Utils.symbolBtc;
                 }
 
                 function ltcAmount() {
-                    return viewModel.hasLtcTx ? "" : Utils.formatAmount(viewModel.ltcAvailable, false, true) + " " + Utils.symbolLtc;
+                    return viewModel.hasLtcTx ? "" : Utils.number2Locale(viewModel.ltcAvailable) + " " + Utils.symbolLtc;
                 }
 
                 function qtumAmount() {
-                    return viewModel.hasQtumTx ? "" : Utils.formatAmount(viewModel.qtumAvailable, false, true) + " " + Utils.symbolQtum;
+                    return viewModel.hasQtumTx ? "" : Utils.number2Locale(viewModel.qtumAvailable) + " " + Utils.symbolQtum;
                 }
 
                 //% "Transaction is in progress"
@@ -604,7 +604,7 @@ Item {
                             movable: false
                             resizable: false
                             delegate: TableItem {
-                                text: Utils.formatAmount(styleData.value, false, true)
+                                text: Utils.number2Locale(styleData.value)
                             }
                         }
 

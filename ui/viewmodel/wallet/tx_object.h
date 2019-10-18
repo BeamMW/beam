@@ -29,7 +29,7 @@ public:
     auto timeCreated() const -> QDateTime;
     auto getTxID() const -> beam::wallet::TxID;
     auto getAmount() const -> QString;
-    auto getAmountValue() const -> double;
+    auto getAmountValue() const -> double; // TODO:double
     auto getStatus() const -> QString;
     auto getComment() const -> QString;
     auto getAddressFrom() const -> QString;

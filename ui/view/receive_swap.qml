@@ -42,7 +42,7 @@ ColumnLayout {
 
     function canSend () {
         if (!isValid()) return false;
-        if (viewModel.amountToReceive <= 0 || viewModel.amountSent <= 0) return false;
+        if (parseFloat(viewModel.amountToReceive) <= 0 || parseFloat(viewModel.amountSent) <= 0) return false;
         return true;
     }
 

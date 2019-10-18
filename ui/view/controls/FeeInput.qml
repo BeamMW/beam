@@ -59,7 +59,7 @@ ColumnLayout {
         Layout.fillWidth: true
         SFText {
             //% "The minimum fee is %1 %2"
-            text:            qsTrId("general-fee-fail").arg(Utils.formatAmount(control.minFee)).arg(control.feeLabel)
+            text:            qsTrId("general-fee-fail").arg(Utils.amount2locale(control.minFee)).arg(control.feeLabel)
             color:           Style.validator_error
             font.pixelSize:  12
             font.styleName:  "Italic"

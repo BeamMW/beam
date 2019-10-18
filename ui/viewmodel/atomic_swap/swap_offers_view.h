@@ -29,9 +29,13 @@ class SwapOffersViewModel : public QObject
 	Q_OBJECT
     Q_PROPERTY(QAbstractItemModel*  transactions     READ getTransactions    NOTIFY allTransactionsChanged)
     Q_PROPERTY(QAbstractItemModel*  allOffers        READ getAllOffers       NOTIFY allOffersChanged)
+    // TODO:double
     Q_PROPERTY(double               beamAvailable    READ beamAvailable      NOTIFY beamAvailableChanged)
+    // TODO:double
     Q_PROPERTY(double               btcAvailable     READ btcAvailable       NOTIFY btcAvailableChanged)
+    // TODO:double
     Q_PROPERTY(double               ltcAvailable     READ ltcAvailable       NOTIFY ltcAvailableChanged)
+    // TODO:double
     Q_PROPERTY(double               qtumAvailable    READ qtumAvailable      NOTIFY qtumAvailableChanged)
     Q_PROPERTY(bool                 btcOK            READ btcOK              NOTIFY btcOKChanged)
     Q_PROPERTY(bool                 ltcOK            READ ltcOK              NOTIFY ltcOKChanged)
@@ -50,9 +54,13 @@ public:
 
     QAbstractItemModel* getTransactions();
     QAbstractItemModel* getAllOffers();
+    // TODO:double
     double  beamAvailable() const;
+    // TODO:double
     double  btcAvailable() const;
+    // TODO:double
     double  ltcAvailable() const;
+    // TODO:double
     double  qtumAvailable() const;
     bool btcOK()  const;
     bool ltcOK()  const;

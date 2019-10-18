@@ -180,12 +180,12 @@ auto SwapTxObjectList::data(const QModelIndex &index, int role) const -> QVarian
         case Roles::AmountSend:
             return value->getSentAmount();
         case Roles::AmountSendSort:
-            return static_cast<double>(value->getSentAmountValue());
+            return static_cast<double>(value->getSentAmountValue()); // TODO:double
 
         case Roles::AmountReceive:
             return value->getReceivedAmount();
         case Roles::AmountReceiveSort:
-            return static_cast<double>(value->getReceivedAmountValue());
+            return static_cast<double>(value->getReceivedAmountValue()); // TODO:double
 
         case Roles::Token:
             return value->getToken();

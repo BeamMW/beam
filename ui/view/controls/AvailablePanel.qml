@@ -9,13 +9,13 @@ import "../utils.js" as Utils
 Control {
     id: control
 
-    property double available
-    property double locked
-    property double lockedMaturing
-    property double sending
-    property double receiving
-    property double receivingChange
-    property double receivingIncoming
+    property string available
+    property string locked
+    property string lockedMaturing
+    property string sending
+    property string receiving
+    property string receivingChange
+    property string receivingIncoming
 
     property var onOpenExternal: null
     signal copyValueText()
@@ -152,7 +152,7 @@ Control {
     contentItem: RowLayout {
         spacing: 0
         RowLayout{
-            Layout.preferredWidth: receiving > 0 || sending > 0 ? parent.width / 2 : parent.width
+            Layout.preferredWidth: parseFloat(receiving) > 0 || parseFloat(sending) > 0 ? parent.width / 2 : parent.width
             BeamAmount {
                 amount:            available
                 spacing:           15
@@ -179,7 +179,7 @@ Control {
                 copyMenuEnabled:   true
                 //% "Locked"
                 caption:           qsTrId("available-panel-locked")
-                visible:           locked > 0
+                visible:           parseFloat(locked) > 0
                 showDrop:          true
 
                  MouseArea {
@@ -196,7 +196,7 @@ Control {
 
         RowLayout{
             Layout.preferredWidth: parent.width / 2
-            visible: receiving > 0 || sending > 0
+            visible: parseFloat(receiving) > 0 || parseFloat(sending) > 0
 
             Rectangle {
                 color:   Qt.rgba(255, 255, 255, 0.1)

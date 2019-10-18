@@ -11,7 +11,7 @@ Control {
     id: control
     spacing: 8
 
-    property double  amount:          0
+    property string  amount:          "0"
     property string  color:           Style.content_main
     property bool    error:           false
     property bool    showZero:        true
@@ -53,8 +53,8 @@ Control {
                     font.styleName: lightFont ? "Light" : "Regular"
                     font.weight:    lightFont ? Font.Light : Font.Normal
                     color:          control.error ? Style.validator_error : control.color
-                    text:           showZero || amount > 0 ? prefix + [Utils.formatAmount(amount).length ? Utils.formatAmount(amount) : "0", control.currencySymbol].join(" ") : "-"
-                    onCopyText:     BeamGlobals.copyToClipboard(Utils.formatAmount(amount))
+                    text:           parseFloat(amount) > 0 || showZero ? prefix + [Utils.amount2locale(amount), control.currencySymbol].join(" ") : "-"
+                    onCopyText:     BeamGlobals.copyToClipboard(Utils.amount2locale(amount))
                 }
                 Image {
                     visible: showDrop

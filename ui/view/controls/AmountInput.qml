@@ -32,7 +32,7 @@ ColumnLayout {
     property bool     hasFee:      false
     property bool     multi:       false // changing this property in runtime would reset bindings
     property int      currency:    Currency.CurrBeam
-    property double   amount:      0
+    property string   amount:      "0"
     property int      fee:         currencies[currency].defaultFee
     property alias    error:       errmsg.text
     property bool     readOnlyA:   false
@@ -61,27 +61,31 @@ ColumnLayout {
             backgroundColor:  error.length ? Style.validator_error : Style.content_main
             validator:        RegExpValidator {regExp: /^(([1-9][0-9]{0,7})|(1[0-9]{8})|(2[0-4][0-9]{7})|(25[0-3][0-9]{6})|(0))(\.[0-9]{0,7}[1-9])?$/}
             selectByMouse:    true
-            text:             formatAmount()
+            text:             formatDisplayedAmount()
             readOnly:         control.readOnlyA
 
             onTextChanged: {
-                if (ainput.focus) control.amount = text ? parseFloat(text) : 0;
-                else ainput.select(0, 0)
+                if (ainput.focus) {
+                    // if nothing then "0", remove insignificant zeroes and "." in floats
+                    control.amount = text ? text.replace(/\.0*$|(\.\d*[1-9])0+$/,'$1') : "0"
+                } else {
+                    ainput.select(0, 0)
+                }
             }
 
             onFocusChanged: {
-                text = formatAmount()
+                text = formatDisplayedAmount()
             }
 
-            function formatAmount() {
-                return Utils.formatAmount(control.amount, ainput.focus)
+            function formatDisplayedAmount() {
+                return control.amount == "0" ? "" : (ainput.focus ? control.amount : Utils.amount2locale(control.amount))
             }
 
             Connections {
                 target: control
                 onAmountChanged: {
                     if (!ainput.focus) {
-                        ainput.text = ainput.formatAmount()
+                        ainput.text = ainput.formatDisplayedAmount()
                     }
                 }
             }

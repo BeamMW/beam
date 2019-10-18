@@ -50,6 +50,7 @@ SwapCoinClientModel::SwapCoinClientModel(beam::bitcoin::IBridgeHolder::Ptr bridg
     GetAsync()->GetStatus();
 }
 
+//TODO:double
 double SwapCoinClientModel::getAvailable()
 {
     return m_balance.m_available;
