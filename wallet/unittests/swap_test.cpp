@@ -138,6 +138,7 @@ void TestSwapTransaction(bool isBeamOwnerStart, beam::Height fork1Height)
     Amount beamFee = 100;
     Amount swapAmount = 2000;
     Amount feeRate = 256;
+    uint16_t btcTxMinConfirmations = 2;
 
     auto senderWalletDB = createSenderWalletDB(0, 0);
     auto binaryTreasury = createTreasury(senderWalletDB, kDefaultTestAmounts);
@@ -145,10 +146,12 @@ void TestSwapTransaction(bool isBeamOwnerStart, beam::Height fork1Height)
     auto bobSettings = std::make_shared<bitcoin::Settings>();
     bobSettings->SetConnectionOptions({ "Bob", "123", senderAddress });
     bobSettings->SetFeeRate(feeRate);
+    bobSettings->SetTxMinConfirmations(btcTxMinConfirmations);
 
     auto aliceSettings = std::make_shared<bitcoin::Settings>();
     aliceSettings->SetConnectionOptions({ "Alice", "123", receiverAddress });
     aliceSettings->SetFeeRate(feeRate);
+    aliceSettings->SetTxMinConfirmations(btcTxMinConfirmations);
 
     TestBitcoinWallet senderBtcWallet = GetSenderBTCWallet(*mainReactor, senderAddress, swapAmount);
     TestBitcoinWallet receiverBtcWallet = GetReceiverBTCWallet(*mainReactor, receiverAddress, swapAmount);
@@ -210,7 +213,7 @@ void TestSwapTransaction(bool isBeamOwnerStart, beam::Height fork1Height)
         }
     });
 
-    InitNodeToTest(node, binaryTreasury, &observer, 32125, 2000);
+    InitNodeToTest(node, binaryTreasury, &observer, 32125, 1000);
 
     mainReactor->run();
 
@@ -265,6 +268,7 @@ void TestElectrumSwapTransaction(bool isBeamOwnerStart, beam::Height fork1Height
     Amount beamFee = 100;
     Amount swapAmount = 200000;
     Amount feeRate = 80000;
+    uint16_t btcTxMinConfirmations = 2;
 
     auto senderWalletDB = createSenderWalletDB(0, 0);
     auto binaryTreasury = createTreasury(senderWalletDB, kDefaultTestAmounts);
@@ -272,10 +276,12 @@ void TestElectrumSwapTransaction(bool isBeamOwnerStart, beam::Height fork1Height
     auto bobSettings = std::make_shared<bitcoin::Settings>();
     bobSettings->SetElectrumConnectionOptions({ address, {"unveil", "shadow", "gold", "piece", "salad", "parent", "leisure", "obtain", "wave", "eternal", "suggest", "artwork"}, bitcoin::getAddressVersion() });
     bobSettings->SetFeeRate(feeRate);
+    bobSettings->SetTxMinConfirmations(btcTxMinConfirmations);
 
     auto aliceSettings = std::make_shared<bitcoin::Settings>();
     aliceSettings->SetElectrumConnectionOptions({ address, {"rib", "genuine", "fury", "advance", "train", "capable", "rough", "silk", "march", "vague", "notice", "sphere"}, bitcoin::getAddressVersion() });
     aliceSettings->SetFeeRate(feeRate);
+    aliceSettings->SetTxMinConfirmations(btcTxMinConfirmations);
 
     TestElectrumWallet btcWallet(*mainReactor, address);
     auto senderSP = InitSettingsProvider(senderWalletDB, bobSettings);
@@ -385,14 +391,18 @@ void TestSwapTransactionWithoutChange(bool isBeamOwnerStart)
     Amount beamFee = 100;
     Amount swapAmount = 2000;
     Amount feeRate = 256;
+    uint16_t btcTxMinConfirmations = 2;
 
     auto bobSettings = std::make_shared<bitcoin::Settings>();
     bobSettings->SetConnectionOptions({ "Bob", "123", senderAddress });
     bobSettings->SetFeeRate(feeRate);
+    bobSettings->SetTxMinConfirmations(btcTxMinConfirmations);
 
     auto aliceSettings = std::make_shared<bitcoin::Settings>();
     aliceSettings->SetConnectionOptions({ "Alice", "123", receiverAddress });
     aliceSettings->SetFeeRate(feeRate);
+    aliceSettings->SetTxMinConfirmations(btcTxMinConfirmations);
+
     TestBitcoinWallet senderBtcWallet = GetSenderBTCWallet(*mainReactor, senderAddress, swapAmount);
     TestBitcoinWallet receiverBtcWallet = GetReceiverBTCWallet(*mainReactor, receiverAddress, swapAmount);
     auto senderWalletDB = createSenderWalletDB(false, kDefaultTestAmounts);
@@ -428,7 +438,7 @@ void TestSwapTransactionWithoutChange(bool isBeamOwnerStart)
     WALLET_CHECK(receiverCoins.empty());
 
     io::Timer::Ptr timer = io::Timer::create(*mainReactor);
-    timer->start(5000, true, [&node]() {node.AddBlock(); });
+    timer->start(1000, true, [&node]() {node.AddBlock(); });
 
     mainReactor->run();
 
@@ -467,7 +477,7 @@ void TestSwapBTCRefundTransaction()
     Amount beamFee = 100;
     Amount swapAmount = 2000;
     Amount feeRate = 256;
-    uint32_t lockTimeInBlocks = 200;
+    uint32_t lockTimeInBlocks = 100;
 
     auto bobSettings = std::make_shared<bitcoin::Settings>();
     bobSettings->SetConnectionOptions({ "Bob", "123", senderAddress });
@@ -504,7 +514,7 @@ void TestSwapBTCRefundTransaction()
     WALLET_CHECK(receiverCoins.empty());
 
     io::Timer::Ptr timer = io::Timer::create(*mainReactor);
-    timer->start(5000, true, [&node]() {node.AddBlock(); });
+    timer->start(1000, true, [&node]() {node.AddBlock(); });
 
     io::AsyncEvent::Ptr eventToUpdate;
 
@@ -564,7 +574,7 @@ void TestElectrumSwapBTCRefundTransaction()
     Amount beamFee = 100;
     Amount swapAmount = 200000;
     Amount feeRate = 80000;
-    uint32_t lockTimeInBlocks = 200;
+    uint32_t lockTimeInBlocks = 100;
 
     auto bobSettings = std::make_shared<bitcoin::Settings>();
     bobSettings->SetElectrumConnectionOptions({ address, {"unveil", "shadow", "gold", "piece", "salad", "parent", "leisure", "obtain", "wave", "eternal", "suggest", "artwork"}, bitcoin::getAddressVersion() });
@@ -598,7 +608,7 @@ void TestElectrumSwapBTCRefundTransaction()
     WALLET_CHECK(receiverCoins.empty());
 
     io::Timer::Ptr timer = io::Timer::create(*mainReactor);
-    timer->start(5000, true, [&node]() {node.AddBlock(); });
+    timer->start(1000, true, [&node]() {node.AddBlock(); });
 
     io::AsyncEvent::Ptr eventToUpdate;
 
@@ -720,7 +730,7 @@ void TestSwapBeamRefundTransaction()
     });
 
     io::Timer::Ptr timer = io::Timer::create(*mainReactor);
-    timer->start(5000, true, [&node]() {node.AddBlock(); });
+    timer->start(1000, true, [&node]() {node.AddBlock(); });
 
     eventToUpdate->post();
     mainReactor->run();
@@ -822,7 +832,7 @@ void TestElectrumSwapBeamRefundTransaction()
     });
 
     io::Timer::Ptr timer = io::Timer::create(*mainReactor);
-    timer->start(5000, true, [&node]() {node.AddBlock(); });
+    timer->start(1000, true, [&node]() {node.AddBlock(); });
 
     eventToUpdate->post();
     mainReactor->run();
@@ -983,7 +993,7 @@ void TestSwapCancelTransaction(bool isSender, wallet::AtomicSwapTransaction::Sta
     });
 
     io::Timer::Ptr timer = io::Timer::create(*mainReactor);
-    timer->start(2000, true, [&node]() {node.AddBlock(); });
+    timer->start(1000, true, [&node]() {node.AddBlock(); });
 
     eventToUpdate->post();
     mainReactor->run();
