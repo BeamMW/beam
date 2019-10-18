@@ -213,7 +213,7 @@ void TestSwapTransaction(bool isBeamOwnerStart, beam::Height fork1Height)
         }
     });
 
-    InitNodeToTest(node, binaryTreasury, &observer, 32125, 1000);
+    InitNodeToTest(node, binaryTreasury, &observer, 32125, 2000);
 
     mainReactor->run();
 
