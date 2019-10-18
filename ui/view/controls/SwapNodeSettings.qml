@@ -420,16 +420,16 @@ Control {
                 }
 
                 FeeInput {
-                    id:               feeRateInput
-                    Layout.fillWidth: true
-                    fillWidth:        true
-                    preferredInputWidth: -1
-                    minFee:           control.minFeeRate
-                    feeLabel:         control.feeRateLabel
-                    color:            Style.content_main
-                    spacing:          0
-                    underlineVisible: canEdit
-                    readOnly:         !canEdit
+                    id:                  feeRateInput
+                    Layout.fillWidth:    true
+                    fillWidth:           true
+                    inputPreferredWidth: -1
+                    minFee:              control.minFeeRate
+                    feeLabel:            control.feeRateLabel
+                    color:               Style.content_main
+                    spacing:             0
+                    underlineVisible:    canEdit
+                    readOnly:            !canEdit
                 }
             }
 
