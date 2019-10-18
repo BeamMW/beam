@@ -550,6 +550,7 @@ void Prover::ExtractG(const Point::Native& ptOut)
 	while (true)
 	{
 		m_List.Import(mm, iPos, std::min(nSizeNaggle, N - iPos));
+		mm.m_ReuseFlag = MultiMac::Reuse::Generate;
 
 		Scalar::Native* pP = m_p;
 		for (uint32_t k = 0; k < m_Proof.m_Cfg.M; k++)
@@ -561,6 +562,8 @@ void Prover::ExtractG(const Point::Native& ptOut)
 
 			mm.Calculate(comm);
 			pG[k] += comm;
+
+			mm.m_ReuseFlag = MultiMac::Reuse::UseGenerated;
 
 			pP += N;
 		}

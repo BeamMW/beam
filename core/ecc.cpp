@@ -1064,7 +1064,6 @@ namespace ECC {
 		if (Mode::Fast == g_Mode)
 		{
 			Fast& f = U.F.get();
-			f.m_nPrepared = 1;
 			f.m_pPt[0] = p;
 		}
 		else
@@ -1084,6 +1083,7 @@ namespace ECC {
 	{
 		m_Casual = 0;
 		m_Prepared = 0;
+		m_ReuseFlag = Reuse::None;
 	}
 
 	unsigned int GetPortion(const Scalar::Native& k, unsigned int iWord, unsigned int iBitInWord, unsigned int nBitsWnd)
@@ -1392,35 +1392,51 @@ namespace ECC {
 				unsigned int nEntries = f.m_Wnaf.Init(wsC, m_pKCasual[iEntry], iEntry + 1);
 				assert(nEntries <= _countof(f.m_Wnaf.m_pVals));
 
-				// Find highest needed element, calculate all the needed ones
-				f.m_nNeeded = 0;
-				for (unsigned int i = 0; i < nEntries; i++)
+				if (Reuse::UseGenerated == m_ReuseFlag)
+					continue;
+
+				if (Reuse::Generate == m_ReuseFlag)
+					f.m_nNeeded = Casual::Fast::nCount; // all
+				else
 				{
-					const WnafBase::Entry& e = f.m_Wnaf.m_pVals[i];
+					// Find highest needed element, calculate all the needed ones
+					f.m_nNeeded = 0;
+					for (unsigned int i = 0; i < nEntries; i++)
+					{
+						const WnafBase::Entry& e = f.m_Wnaf.m_pVals[i];
 
-					unsigned int nOdd = e.m_Odd & ~e.s_Negative;
-					assert(nOdd & 1);
+						unsigned int nOdd = e.m_Odd & ~e.s_Negative;
+						assert(nOdd & 1);
 
-					unsigned int nElem = (nOdd >> 1);
-					f.m_nNeeded = std::max(f.m_nNeeded, nElem + 1);
+						unsigned int nElem = (nOdd >> 1);
+						f.m_nNeeded = std::max(f.m_nNeeded, nElem + 1);
+					}
+					assert(f.m_nNeeded <= Casual::Fast::nCount);
+
+					if (f.m_nNeeded <= 1)
+						continue;
 				}
 
-				// Find highest needed element, calculate all the needed ones. Note - when invoked repeatedly, some elements may already be calculated
-				assert(f.m_nNeeded <= Casual::Fast::nCount);
-				assert(f.m_nPrepared); // 1st point is always set
+				// Calculate all the needed elements
+				Point::Native ptX2 = f.m_pPt[0] * Two;
 
-				for (; f.m_nPrepared < f.m_nNeeded; f.m_nPrepared++)
-				{
-					if (1 == f.m_nPrepared)
-						f.m_PtX2 = f.m_pPt[0] * Two;
-
-					f.m_pPt[f.m_nPrepared] = f.m_pPt[f.m_nPrepared - 1] + f.m_PtX2;
-				}
+				for (uint32_t nPrepared = 1; nPrepared < f.m_nNeeded; nPrepared++)
+					f.m_pPt[nPrepared] = f.m_pPt[nPrepared - 1] + ptX2;
 			}
 
-			// Bring everything to the same denominator
-			Normalizer nrm(*this);
-			nrm.ToCommonDenominator(zDenom);
+			if (Reuse::UseGenerated == m_ReuseFlag)
+			{
+				if (m_Casual)
+					zDenom = m_pCasual[0].U.F.get().m_pPt[0].get_Raw().z;
+				else
+					secp256k1_fe_set_int(&zDenom, 1);
+			}
+			else
+			{
+				// Bring everything to the same denominator
+				Normalizer nrm(*this);
+				nrm.ToCommonDenominator(zDenom);
+			}
 		}
 		else
 		{
@@ -1446,7 +1462,7 @@ namespace ECC {
 					unsigned int nOdd = wnaf.Fetch(wsC, iBit, bNeg);
 
 					unsigned int nElem = (nOdd >> 1);
-					assert(nElem < f.m_nPrepared);
+					assert(nElem < f.m_nNeeded);
 
 					Point::Native::BatchNormalizer::get_As(ge.V, f.m_pPt[nElem]);
 
