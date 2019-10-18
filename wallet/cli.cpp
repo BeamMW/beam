@@ -1121,8 +1121,8 @@ namespace
                 throw std::runtime_error("active_connection is wrong");
             }
 
-            if (*typeConnection == bitcoin::ISettings::ConnectionType::Core && !settings.GetConnectionOptions().IsInitialized()
-                || *typeConnection == bitcoin::ISettings::ConnectionType::Electrum && !settings.GetElectrumConnectionOptions().IsInitialized())
+            if ((*typeConnection == bitcoin::ISettings::ConnectionType::Core && !settings.GetConnectionOptions().IsInitialized())
+                || (*typeConnection == bitcoin::ISettings::ConnectionType::Electrum && !settings.GetElectrumConnectionOptions().IsInitialized()))
             {
                 throw std::runtime_error(vm[cli::ACTIVE_CONNECTION].as<string>() + " is not initialized");
             }
