@@ -54,7 +54,7 @@ if(EMSCRIPTEN)
     )
 
     set(CMAKE_EXECUTABLE_SUFFIX ".html")
-    set_target_properties(${TARGET_NAME} PROPERTIES LINK_FLAGS "-s WASM=1 -s ERROR_ON_UNDEFINED_SYMBOLS=0")   
+    set_target_properties(${TARGET_NAME} PROPERTIES LINK_FLAGS "--bind -s WASM=1 -s ERROR_ON_UNDEFINED_SYMBOLS=0")
 else()
 
     target_link_libraries(keykeeper PRIVATE Boost::boost utility)
