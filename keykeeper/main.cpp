@@ -15,8 +15,45 @@
 #include "local_private_key_keeper.h"
 #include "mnemonic/mnemonic.h"
 
-int main()
+#include <emscripten/bind.h>
+
+using namespace emscripten;
+
+struct KeyKeeper
 {
+    KeyKeeper(const beam::WordList& words)
+    {
+        ECC::NoLeak<ECC::uintBig> seed;
+        auto buf = beam::decodeMnemonic(words);
+        ECC::Hash::Processor() << beam::Blob(buf.data(), (uint32_t)buf.size()) >> seed.V;
+        ECC::HKdf::Create(_kdf, seed.V);
+
+        std::cout << seed.V << std::endl;
+    }
+
+private:
+    beam::Key::IKdf::Ptr _kdf;
+};
+
+// Binding code
+EMSCRIPTEN_BINDINGS() {
+
+    register_vector<std::string>("WordList");
+    class_<KeyKeeper>("KeyKeeper")
+        .constructor<const beam::WordList&>()
+        // .function("func", &KeyKeeper::func)
+        // .property("prop", &KeyKeeper::getProp, &KeyKeeper::setProp)
+        // .class_function("StaticFunc", &KeyKeeper::StaticFunc)
+        ;
+}
+
+extern "C"
+{
+
+void runTest()
+{
+    std::cout << "Start Key Keeper Test..." << std::endl;
+
     using namespace beam;
     using namespace beam::wallet;
 
@@ -42,7 +79,28 @@ int main()
 
     IPrivateKeyKeeper::Ptr keyKeeper = std::make_shared<LocalPrivateKeyKeeper>(vars, kdf);
 
-    keyKeeper->get_SbbsKdf();
+    {
+        std::cout << std::endl << "Generating Nonce..." << std::endl;
+        std::cout << "===================" << std::endl;
 
-    return 0;
+        auto slot = keyKeeper->AllocateNonceSlot();
+        auto nonce = keyKeeper->GenerateNonceSync(slot);
+
+        std::cout << "Nonce[" << slot << "] = " << nonce << std::endl;
+    }
+
+    {
+        std::cout << std::endl << "Generating Public Key..." << std::endl;
+        std::cout << "===================" << std::endl;
+
+        const ECC::Key::IDV kidv(100500, 15, Key::Type::Regular, 7, ECC::Key::IDV::Scheme::V0);
+
+        std::cout << kidv << std::endl;
+
+        ECC::Point pt2 = keyKeeper->GeneratePublicKeySync(kidv, true);
+
+        std::cout << "Public key: " << pt2 << std::endl;
+    }
+}
+
 }

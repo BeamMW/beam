@@ -41,7 +41,7 @@ namespace beam::bitcoin
     };
     
     Client::Client(IBridgeHolder::Ptr bridgeHolder, std::unique_ptr<SettingsProvider> settingsProvider, io::Reactor& reactor)
-        : m_status(settingsProvider->GetSettings().IsInitialized() ? Status::Connecting : Status::Uninitialized)
+        : m_status(settingsProvider->GetSettings().IsActivated() ? Status::Connecting : Status::Uninitialized)
         , m_reactor(reactor)
         , m_async{ std::make_shared<BitcoinClientBridge>(*(static_cast<IClientAsync*>(this)), reactor) }
         , m_settingsProvider{ std::move(settingsProvider) }

@@ -38,6 +38,7 @@ public:
     auto getBeamRedeemTxKernelId() const -> QString;
     auto getBeamRefundTxKernelId() const -> QString;
     auto getSwapCoinName() const -> QString;
+    auto getFeeRate() const -> QString;
 
     bool isProofReceived() const;
     bool isBeamSideSwap() const;
@@ -47,4 +48,7 @@ signals:
 private:
     auto getSwapAmountValue(bool sent) const -> double;
     auto getSwapAmount(bool sent) const -> QString;
+
+    boost::optional<bool> m_isBeamSide;
+    boost::optional<beam::wallet::AtomicSwapCoin> m_swapCoin;
 };

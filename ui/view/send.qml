@@ -43,6 +43,20 @@ ColumnLayout {
         return receiverTAInput.text.length == 0 || BeamGlobals.isTAValid(receiverTAInput.text)
     }
 
+    function setInputErrorMode() {
+        receiverTAInput.backgroundColor =
+            receiverTAInput.color = Style.validator_error;
+        receiverTAError.visible =
+            receiverTAInput.font.italic = true;
+    }
+
+    function setInputNormalMode() {
+        receiverTAInput.backgroundColor =
+            receiverTAInput.color = Style.content_main;
+        receiverTAError.visible =
+            receiverTAInput.font.italic = false;
+    }
+
     ColumnLayout {
         
         SFText {
@@ -57,18 +71,31 @@ ColumnLayout {
             Layout.fillWidth: true
             id:               receiverTAInput
             font.pixelSize:   14
-            color:            isTAInputValid() ? Style.content_main : Style.validator_error
-            backgroundColor:  isTAInputValid() ? Style.content_main : Style.validator_error
-            font.italic :     !isTAInputValid()
+            color:            Style.content_main
+            backgroundColor:  Style.content_main
             validator:        RegExpValidator { regExp: /[0-9a-zA-Z]{1,}/ }
             selectByMouse:    true
             //% "Please specify contact or transaction token"
             placeholderText:  qsTrId("send-contact-placeholder")
 
             onTextChanged: {
-                if (!isTAInputValid()) return;
+                if (!isTAInputValid()) {
+                    setInputErrorMode();
+
+                } else {
+                    setInputNormalMode();
+                }
                 if (receiverTAInput.text.length == 0) return;
-                BeamGlobals.isSwapToken(receiverTAInput.text) ? onSwapToken(receiverTAInput.text) : onAddress(receiverTAInput.text);
+                if (BeamGlobals.isSwapToken(receiverTAInput.text) &&
+                    typeof onSwapToken == "function") {
+                    onSwapToken(receiverTAInput.text);
+                    return;
+                } else if (isSwapMode) {
+                    setInputErrorMode();
+                } 
+                if (typeof onAddress == "function") {
+                    onAddress(receiverTAInput.text);
+                }
             }
         }
 
@@ -81,7 +108,7 @@ ColumnLayout {
                 font.pixelSize:   12
                 //% "Invalid address or token"
                 text:             qsTrId("wallet-send-invalid-token")
-                visible:          !isTAInputValid()
+                visible:          false
             }
         }
 

@@ -148,7 +148,8 @@ ColumnLayout {
         Layout.bottomMargin: 10
         clip: true
         visible: swapMode
-        ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
+        // horizontal scroll is temporary enabled
+        ScrollBar.horizontal.policy: ScrollBar.AsNeeded
         ScrollBar.vertical.policy: ScrollBar.AsNeeded
 
         GridLayout {
@@ -158,304 +159,106 @@ ColumnLayout {
             columnSpacing:    20
             columns:          2
 
-            SwapNodeSettings {
-                id:               btcSettings
-                //% "Bitcoin"
-                title:               qsTrId("general-bitcoin")
-                minFeeRate:          BeamGlobals.minFeeRateBtc()
-                feeRateLabel:        BeamGlobals.btcFeeRateLabel()
-                Layout.minimumWidth: swapLayout.width / 2 - swapLayout.columnSpacing / 2
-                useElectrum:         viewModel.btcUseEL
-                canEdit:             viewModel.canEditBTC
+            Repeater {
+                model: viewModel.swapCoinSettings
+                SwapNodeSettings {
+                    id:                  swapCoinsettings
+                    Layout.minimumWidth: swapLayout.width / 2 - swapLayout.columnSpacing / 2
+                    
+                    title:                modelData.title
+                    minFeeRate:           modelData.minFeeRate
+                    feeRateLabel:         modelData.feeRateLabel
+                    canEdit:              modelData.canEdit
+                    isConnected:          modelData.isConnected
+                    isNodeConnection:     modelData.isNodeConnection
+                    isElectrumConnection: modelData.isElectrumConnection
 
-                //
-                // Node
-                //
-                address:             viewModel.btcNodeAddress
-                username:            viewModel.btcUser
-                password:            viewModel.btcPass
-                feeRate:             viewModel.btcFeeRate
-
-                //
-                // Electrum
-                //
-                addressEL:            viewModel.btcNodeAddressEL
-                seedEL:               viewModel.btcSeedEL
-                feeRateEL:            viewModel.btcFeeRateEL
-
-                Connections {
-                    target: viewModel
                     //
                     // Node
                     //
-                    onBtcNodeAddressChanged: btcSettings.address = viewModel.btcNodeAddress
-                    onBtcUserChanged:        btcSettings.username = viewModel.btcUser
-                    onBtcPassChanged:        btcSettings.password = viewModel.btcPass
-                    onBtcFeeRateChanged:     btcSettings.feeRate = viewModel.btcFeeRate
+                    address:             modelData.nodeAddress
+                    username:            modelData.nodeUser
+                    password:            modelData.nodePass
+                    feeRate:             modelData.feeRate
+
                     //
                     // Electrum
                     //
-                    onBtcNodeAddressELChanged: btcSettings.addressEL = viewModel.btcNodeAddressEL
-                    onBtcSeedELChanged:        btcSettings.seedEL    = viewModel.btcSeedEL
-                    onBtcFeeRateELChanged:     btcSettings.feeRateEL = viewModel.btcFeeRateEL
+                    addressElectrum:            modelData.nodeAddressElectrum
+                    seedElectrum:               modelData.seedElectrum
+
+                    Connections {
+                        target: modelData
+                        onFeeRateChanged:        swapCoinsettings.feeRate = modelData.feeRate
+                        onCanEditChanged:        swapCoinsettings.canEdit = modelData.canEdit
+                        onConnectionTypeChanged: { 
+                            swapCoinsettings.isConnected          = modelData.isConnected;
+                            swapCoinsettings.isNodeConnection     = modelData.isNodeConnection;
+                            swapCoinsettings.isElectrumConnection = modelData.isElectrumConnection;
+                            swapCoinsettings.title                = modelData.title;
+                        }
+
+                        //
+                        // Node
+                        //
+                        onNodeAddressChanged: swapCoinsettings.address  = modelData.nodeAddress
+                        onNodeUserChanged:    swapCoinsettings.username = modelData.nodeUser
+                        onNodePassChanged:    swapCoinsettings.password = modelData.nodePass
+                        //
+                        // Electrum
+                        //
+                        onNodeAddressElectrumChanged: swapCoinsettings.addressElectrum = modelData.nodeAddressElectrum
+                        onSeedElectrumChanged:        swapCoinsettings.seedElectrum    = modelData.seedElectrum
+                    }
+
+                    onApplyNode:         modelData.applyNodeSettings()
+                    onClearNode:         modelData.resetNodeSettings()
+                    onApplyElectrum:     modelData.applyElectrumSettings()
+                    onClearElectrum:     modelData.resetElectrumSettings()
+                    onNewSeedElectrum:   modelData.newElectrumSeed()
+                    onDisconnect:        modelData.disconnect()
+                    onConnectToNode:     modelData.connectToNode()
+                    onConnectToElectrum: modelData.connectToElectrum()
+
+                    Binding {
+                        target:   modelData
+                        property: "nodeAddress"
+                        value:    swapCoinsettings.address
+                    }
+
+                    Binding {
+                        target:   modelData
+                        property: "nodeUser"
+                        value:    swapCoinsettings.username
+                    }
+
+                    Binding {
+                        target:   modelData
+                        property: "nodePass"
+                        value:    swapCoinsettings.password
+                    }
+
+                    Binding {
+                        target:   modelData
+                        property: "feeRate"
+                        value:    swapCoinsettings.feeRate
+                    }
+
+                    Binding {
+                        target:   modelData
+                        property: "nodeAddressElectrum"
+                        value:    swapCoinsettings.addressElectrum
+                    }
+
+                    Binding {
+                        target:   modelData
+                        property: "seedElectrum"
+                        value:    swapCoinsettings.seedElectrum
+                    }
                 }
-
-                onApplyNode:      viewModel.applyBtcSettings()
-                onSwitchOffNode:  viewModel.btcOff()
-                onApplyEL:        viewModel.applyBtcSettingsEL()
-                onSwitchOffEL:    viewModel.btcOffEL()
-                onNewSeedEL:      viewModel.btcNewSeedEL()
-            }
-
-            Binding {
-                target:   viewModel
-                property: "btcNodeAddress"
-                value:    btcSettings.address
-            }
-
-            Binding {
-                target:   viewModel
-                property: "btcUser"
-                value:    btcSettings.username
-            }
-
-            Binding {
-                target:   viewModel
-                property: "btcPass"
-                value:    btcSettings.password
-            }
-
-            Binding {
-                target:   viewModel
-                property: "btcFeeRate"
-                value:    btcSettings.feeRate
-            }
-
-            Binding {
-               target:   viewModel
-               property: "btcUseEL"
-               value:    btcSettings.useElectrum
-            }
-
-            Binding {
-                target:   viewModel
-                property: "btcNodeAddressEL"
-                value:    btcSettings.addressEL
-            }
-
-            Binding {
-                target:   viewModel
-                property: "btcSeedEL"
-                value:    btcSettings.seedEL
-            }
-
-            Binding {
-                target:   viewModel
-                property: "btcFeeRateEL"
-                value:    btcSettings.feeRateEL
-            }
-
-            SwapNodeSettings {
-                id:                ltcSettings
-                //% "Litecoin"
-                title:               qsTrId("general-litecoin")
-                minFeeRate:          BeamGlobals.minFeeRateLtc()
-                feeRateLabel:        BeamGlobals.ltcFeeRateLabel()
-                Layout.fillWidth:    true
-                useElectrum:         viewModel.ltcUseEL
-                canEdit:             viewModel.canEditLTC
-
-                //
-                // Node
-                //
-                address:             viewModel.ltcNodeAddress
-                username:            viewModel.ltcUser
-                password:            viewModel.ltcPass
-                feeRate:             viewModel.ltcFeeRate
-
-                //
-                // Electrum
-                //
-                addressEL:            viewModel.ltcNodeAddressEL
-                seedEL:               viewModel.ltcSeedEL
-                feeRateEL:            viewModel.ltcFeeRateEL
-
-                Connections {
-                    target: viewModel
-                    //
-                    // Node
-                    //
-                    onLtcNodeAddressChanged: ltcSettings.address  = viewModel.ltcNodeAddress
-                    onLtcUserChanged:        ltcSettings.username = viewModel.ltcUser
-                    onLtcPassChanged:        ltcSettings.password = viewModel.ltcPass
-                    onLtcFeeRateChanged:     ltcSettings.feeRate  = viewModel.ltcFeeRate
-                    //
-                    // Electrum
-                    //
-                    onLtcNodeAddressELChanged: ltcSettings.addressEL = viewModel.ltcNodeAddressEL
-                    onLtcSeedELChanged:        ltcSettings.seedEL    = viewModel.ltcSeedEL
-                    onLtcFeeRateELChanged:     ltcSettings.feeRateEL = viewModel.ltcFeeRateEL
-                }
-
-                onApplyNode:      viewModel.applyLtcSettings()
-                onSwitchOffNode:  viewModel.ltcOff()
-                onApplyEL:        viewModel.applyLtcSettingsEL()
-                onSwitchOffEL:    viewModel.ltcOffEL()
-                onNewSeedEL:      viewModel.ltcNewSeedEL()
-            }
-
-            Binding {
-                target:   viewModel
-                property: "ltcNodeAddress"
-                value:    ltcSettings.address
-            }
-
-            Binding {
-                target:   viewModel
-                property: "ltcUser"
-                value:    ltcSettings.username
-            }
-
-            Binding {
-                target:   viewModel
-                property: "ltcPass"
-                value:    ltcSettings.password
-            }
-
-            Binding {
-                target:   viewModel
-                property: "ltcFeeRate"
-                value:    ltcSettings.feeRate
-            }
-
-            Binding {
-               target:   viewModel
-               property: "ltcUseEL"
-               value:    ltcSettings.useElectrum
-            }
-
-            Binding {
-                target:   viewModel
-                property: "ltcNodeAddressEL"
-                value:    ltcSettings.addressEL
-            }
-
-            Binding {
-                target:   viewModel
-                property: "ltcSeedEL"
-                value:    ltcSettings.seedEL
-            }
-
-            Binding {
-                target:   viewModel
-                property: "ltcFeeRateEL"
-                value:    ltcSettings.feeRateEL
-            }
-
-            SwapNodeSettings {
-                id:                   qtumSettings
-                //% "QTUM"
-                title:                qsTrId("general-qtum")
-                minFeeRate:           BeamGlobals.minFeeRateQtum()
-                feeRateLabel:         BeamGlobals.qtumFeeRateLabel()
-                Layout.minimumWidth:  swapLayout.width / 2 - swapLayout.columnSpacing / 2
-                useElectrum:          viewModel.qtumUseEL
-                canEdit:              viewModel.canEditQTUM
-
-                //
-                // Node
-                //
-                address:              viewModel.qtumNodeAddress
-                username:             viewModel.qtumUser
-                password:             viewModel.qtumPass
-                feeRate:              viewModel.qtumFeeRate
-
-                //
-                // Electrum
-                //
-                addressEL:            viewModel.qtumNodeAddressEL
-                seedEL:               viewModel.qtumSeedEL
-                feeRateEL:            viewModel.qtumFeeRateEL
-
-                Connections {
-                    target: viewModel
-                    //
-                    // Node
-                    //
-                    onQtumNodeAddressChanged: qtumSettings.address  = viewModel.qtumNodeAddress
-                    onQtumUserChanged:        qtumSettings.username = viewModel.qtumUser
-                    onQtumPassChanged:        qtumSettings.password = viewModel.qtumPass
-                    onQtumFeeRateChanged:     qtumSettings.feeRate  = viewModel.qtumFeeRate
-                    //
-                    // Electrum
-                    //
-                    onQtumNodeAddressELChanged: qtumSettings.addressEL = viewModel.qtumNodeAddressEL
-                    onQtumSeedELChanged:        qtumSettings.seedEL    = viewModel.qtumSeedEL
-                    onQtumFeeRateELChanged:     qtumSettings.feeRateEL = viewModel.qtumFeeRateEL
-                }
-
-                onApplyNode:      viewModel.applyQtumSettings()
-                onSwitchOffNode:  viewModel.qtumOff()
-                onApplyEL:        viewModel.applyQtumSettingsEL()
-                onSwitchOffEL:    viewModel.qtumOffEL()
-                onNewSeedEL:      viewModel.qtumNewSeedEL()
-            }
-
-            Binding {
-                target:   viewModel
-                property: "qtumNodeAddress"
-                value:    qtumSettings.address
-            }
-
-            Binding {
-                target:   viewModel
-                property: "qtumUser"
-                value:    qtumSettings.username
-            }
-
-            Binding {
-                target:   viewModel
-                property: "qtumPass"
-                value:    qtumSettings.password
-            }
-
-            Binding {
-                target:   viewModel
-                property: "qtumFeeRate"
-                value:    qtumSettings.feeRate
-            }
-
-            Binding {
-               target:   viewModel
-               property: "qtumUseEL"
-               value:    qtumSettings.useElectrum
-            }
-
-            Binding {
-                target:   viewModel
-                property: "qtumNodeAddressEL"
-                value:    qtumSettings.addressEL
-            }
-
-            Binding {
-                target:   viewModel
-                property: "qtumSeedEL"
-                value:    qtumSettings.seedEL
-            }
-
-            Binding {
-                target:   viewModel
-                property: "qtumFeeRateEL"
-                value:    qtumSettings.feeRateEL
             }
         }
     }
-
-    // {
-    //    Layout.fillHeight: true
-    //    visible: swapMode
-    //    Layout.bottomMargin: 10
-    //}
 
     ScrollView {
         Layout.fillWidth: true

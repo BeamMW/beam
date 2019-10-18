@@ -364,14 +364,33 @@ bool SendSwapViewModel::canSend() const
 
 void SendSwapViewModel::sendMoney()
 {
+    using beam::wallet::TxParameterID;
+    
     auto txParameters = beam::wallet::TxParameters(_txParameters);
-    auto isBeamSide = txParameters.GetParameter<bool>(beam::wallet::TxParameterID::AtomicSwapIsBeamSide);
+    auto isBeamSide = txParameters.GetParameter<bool>(TxParameterID::AtomicSwapIsBeamSide);
     auto beamFee = (*isBeamSide) ? getSendFee() : getReceiveFee();
     auto swapFee = (*isBeamSide) ? getReceiveFee() : getSendFee();
     auto subTxID = isBeamSide ? beam::wallet::SubTxIndex::REDEEM_TX : beam::wallet::SubTxIndex::LOCK_TX;
 
-    txParameters.SetParameter(beam::wallet::TxParameterID::Fee, beam::Amount(beamFee));
-    txParameters.SetParameter(beam::wallet::TxParameterID::Fee, beam::Amount(swapFee), subTxID);
+    {
+        auto txID = txParameters.GetTxID();
+        auto swapCoin = txParameters.GetParameter<beam::wallet::AtomicSwapCoin>(TxParameterID::AtomicSwapCoin);
+        auto amount = txParameters.GetParameter<beam::Amount>(TxParameterID::Amount);
+        auto swapAmount = txParameters.GetParameter<beam::Amount>(TxParameterID::AtomicSwapAmount);
+        auto responseHeight = txParameters.GetParameter<beam::Height>(TxParameterID::PeerResponseTime);
+        auto minimalHeight = txParameters.GetParameter<beam::Height>(TxParameterID::MinHeight);
+
+        LOG_INFO() << *txID << " Accept offer.\n\t"
+                    << "isBeamSide: " << (*isBeamSide ? "true" : "false") << "\n\t"
+                    << "swapCoin: " << std::to_string(*swapCoin) << "\n\t"
+                    << "amount: " << *amount << "\n\t"
+                    << "swapAmount: " << *swapAmount << "\n\t"
+                    << "responseHeight: " << *responseHeight << "\n\t"
+                    << "minimalHeight: " << *minimalHeight;
+    }
+
+    txParameters.SetParameter(TxParameterID::Fee, beam::Amount(beamFee));
+    txParameters.SetParameter(TxParameterID::Fee, beam::Amount(swapFee), subTxID);
 
     _walletModel.getAsync()->startTransaction(std::move(txParameters));
 }

@@ -15,7 +15,7 @@
 #pragma once
 
 #include "keykeeper/private_key_keeper.h"
-#include "wallet/wallet_db.h"
+#include "wallet/variables_db.h"
 
 namespace beam::wallet
 {
@@ -27,7 +27,7 @@ namespace beam::wallet
         , public std::enable_shared_from_this<LocalPrivateKeyKeeper>
     {
     public:
-        LocalPrivateKeyKeeper(IVariablesDB::Ptr walletDB, Key::IKdf::Ptr kdf);
+        LocalPrivateKeyKeeper(IVariablesDB::Ptr variablesDB, Key::IKdf::Ptr kdf);
         virtual ~LocalPrivateKeyKeeper();
     private:
         void GeneratePublicKeys(const std::vector<Key::IDV>& ids, bool createCoinKey, Callback<PublicKeys>&& resultCallback, ExceptionCallback&& exceptionCallback) override;

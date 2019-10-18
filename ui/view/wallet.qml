@@ -340,7 +340,7 @@ Item {
                         id: rowColumn
                         width: parent.width
                         Rectangle {
-                            height: rowItem.height
+                            height: 56
                             width: parent.width
                             color: "transparent"
                         }
@@ -387,7 +387,7 @@ Item {
                                     if (detailsPanel.rawTxID)
                                     {
                                         var paymentInfo = viewModel.getPaymentInfo(detailsPanel.rawTxID);
-                                        if (paymentInfo.paymentProof.length == 0)
+                                        if (paymentInfo.paymentProof.length === 0)
                                         {
                                             paymentInfo.paymentProofChanged.connect(function() {
                                                 textCopied(paymentInfo.paymentProof);

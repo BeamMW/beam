@@ -42,8 +42,27 @@ namespace beam::bitcoin
     void SettingsProvider::SetSettings(const Settings& settings)
     {
         // store to DB
-        auto buffer = wallet::toByteBuffer(settings);
-        m_walletDB->setVarRaw(GetSettingsName(), buffer.data(), static_cast<int>(buffer.size()));
+        {
+            auto coreSettings = settings.GetConnectionOptions();
+
+            WriteToDb(GetUserName(), coreSettings.m_userName);
+            WriteToDb(GetPassName(), coreSettings.m_pass);
+            WriteToDb(GetAddressName(), coreSettings.m_address);
+        }
+
+        {
+            auto electrumSettings = settings.GetElectrumConnectionOptions();
+
+            WriteToDb(GetElectrumAddressName(), electrumSettings.m_address);
+            WriteToDb(GetSecretWordsName(), electrumSettings.m_secretWords);
+            WriteToDb(GetAddressVersionName(), electrumSettings.m_addressVersion);
+        }
+
+        WriteToDb(GetFeeRateName(), settings.GetFeeRate());
+        WriteToDb(GetMinFeeRateName(), settings.GetMinFeeRate());
+        WriteToDb(GetTxMinConfirmationsName(), settings.GetTxMinConfirmations());
+        WriteToDb(GetLockTimeInBlocksName(), settings.GetLockTimeInBlocks());
+        WriteToDb(GetConnectrionTypeName(), settings.GetCurrentConnectionType());
 
         // update m_settings
         m_settings = std::make_unique<Settings>(settings);
@@ -52,7 +71,7 @@ namespace beam::bitcoin
     void SettingsProvider::ResetSettings()
     {
         // remove from DB
-        m_walletDB->removeVarRaw(GetSettingsName());
+        m_walletDB->removeVarRaw(GetSettingsName().c_str());
 
         m_settings = std::make_unique<Settings>(GetEmptySettings());
     }
@@ -63,19 +82,53 @@ namespace beam::bitcoin
         {
             m_settings = std::make_unique<Settings>(GetEmptySettings());
 
-            // load from DB or use default
-            ByteBuffer settings;
-            m_walletDB->getBlob(GetSettingsName(), settings);
-
-            if (!settings.empty())
             {
-                Deserializer d;
-                d.reset(settings.data(), settings.size());
-                d& *m_settings;
+                BitcoinCoreSettings settings;
 
-                assert(m_settings->GetFeeRate() > 0);
-                assert(m_settings->GetMinFeeRate() > 0);
-                assert(m_settings->GetMinFeeRate() <= m_settings->GetFeeRate());
+                ReadFromDB(GetUserName(), settings.m_userName);
+                ReadFromDB(GetPassName(), settings.m_pass);
+                ReadFromDB(GetAddressName(), settings.m_address);
+
+                m_settings->SetConnectionOptions(settings);
+            }
+            {
+                ElectrumSettings settings;
+
+                ReadFromDB(GetElectrumAddressName(), settings.m_address);
+                ReadFromDB(GetSecretWordsName(), settings.m_secretWords);
+                ReadFromDB(GetAddressVersionName(), settings.m_addressVersion);
+
+                m_settings->SetElectrumConnectionOptions(settings);
+            }
+
+            {
+                auto feeRate = m_settings->GetFeeRate();
+                ReadFromDB(GetFeeRateName(), feeRate);
+                m_settings->SetFeeRate(feeRate);
+            }
+
+            {
+                auto minFeeRate = m_settings->GetMinFeeRate();
+                ReadFromDB(GetMinFeeRateName(), minFeeRate);
+                m_settings->SetMinFeeRate(minFeeRate);
+            }
+
+            {
+                auto txMinConfirmations = m_settings->GetTxMinConfirmations();
+                ReadFromDB(GetTxMinConfirmationsName(), txMinConfirmations);
+                m_settings->SetTxMinConfirmations(txMinConfirmations);
+            }
+
+            {
+                auto lockTimeInBlocks = m_settings->GetLockTimeInBlocks();
+                ReadFromDB(GetLockTimeInBlocksName(), lockTimeInBlocks);
+                m_settings->SetLockTimeInBlocks(lockTimeInBlocks);
+            }
+
+            {
+                auto connectionType = m_settings->GetCurrentConnectionType();
+                ReadFromDB(GetConnectrionTypeName(), connectionType);
+                m_settings->ChangeConnectionType(connectionType);
             }
         }
     }
@@ -98,7 +151,7 @@ namespace beam::bitcoin
         }
     }
 
-    const char* SettingsProvider::GetSettingsName() const
+    std::string SettingsProvider::GetSettingsName() const
     {
         return "BTCSettings";
     }
@@ -106,5 +159,60 @@ namespace beam::bitcoin
     Settings SettingsProvider::GetEmptySettings()
     {
         return Settings{};
+    }
+
+    std::string SettingsProvider::GetUserName() const
+    {
+        return GetSettingsName() + "_UserName";
+    }
+
+    std::string SettingsProvider::GetPassName() const
+    {
+        return GetSettingsName() + "_Pass";
+    }
+
+    std::string SettingsProvider::GetAddressName() const
+    {
+        return GetSettingsName() + "_Address";
+    }
+
+    std::string SettingsProvider::GetElectrumAddressName() const
+    {
+        return GetSettingsName() + "_ElectrumAddress";
+    }
+
+    std::string SettingsProvider::GetSecretWordsName() const
+    {
+        return GetSettingsName() + "_SecretWords";
+    }
+
+    std::string SettingsProvider::GetAddressVersionName() const
+    {
+        return GetSettingsName() + "_AddressVersion";
+    }
+
+    std::string SettingsProvider::GetFeeRateName() const
+    {
+        return GetSettingsName() + "_FeeRate";
+    }
+
+    std::string SettingsProvider::GetMinFeeRateName() const
+    {
+        return GetSettingsName() + "_MinFeeRate";
+    }
+
+    std::string SettingsProvider::GetTxMinConfirmationsName() const
+    {
+        return GetSettingsName() + "_TxMinConfirmations";
+    }
+
+    std::string SettingsProvider::GetLockTimeInBlocksName() const
+    {
+        return GetSettingsName() + "_LockTimeInBlocks";
+    }
+
+    std::string SettingsProvider::GetConnectrionTypeName() const
+    {
+        return GetSettingsName() + "_ConnectionType";
     }
 } // namespace beam::bitcoin

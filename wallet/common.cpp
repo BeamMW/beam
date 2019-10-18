@@ -56,11 +56,33 @@ namespace std
         switch (value)
         {
         case beam::wallet::AtomicSwapCoin::Bitcoin:
-            return "btc";
+            return "BTC";
         case beam::wallet::AtomicSwapCoin::Litecoin:
-            return "ltc";
+            return "LTC";
         case beam::wallet::AtomicSwapCoin::Qtum:
-            return "qtum";
+            return "QTUM";
+        default:
+            return "";
+        }
+    }
+
+    string to_string(beam::wallet::SwapOfferStatus status)
+    {
+        switch (status)
+        {
+        case beam::wallet::SwapOfferStatus::Pending:
+            return "Pending";
+        case beam::wallet::SwapOfferStatus::InProgress:
+            return "InProgress";
+        case beam::wallet::SwapOfferStatus::Completed:
+            return "Completed";
+        case beam::wallet::SwapOfferStatus::Canceled:
+            return "Canceled";
+        case beam::wallet::SwapOfferStatus::Expired:
+            return "Expired";
+        case beam::wallet::SwapOfferStatus::Failed:
+            return "Failed";
+
         default:
             return "";
         }

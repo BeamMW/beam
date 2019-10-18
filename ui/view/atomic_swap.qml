@@ -45,7 +45,7 @@ Item {
         cancelButtonText:       qsTrId("atomic-swap-back-button")
         cancelButtonIconSource: "qrc:/assets/icon-back.svg"
         onAccepted: {
-            viewModel.cancelTx(cancelOfferDialog.txId);
+            viewModel.cancelOffer(cancelOfferDialog.txId);
         }
     }
 
@@ -96,23 +96,11 @@ Item {
             function onSwapToken(token) {
                 offersStackView.pop();
                 offersStackView.push(Qt.createComponent("send_swap.qml"),
-                                    {"onAccepted": onAccepted,
-                                        "onClosed": onClosed});
+                                     {
+                                         "onAccepted": onAccepted,
+                                         "onClosed": onClosed
+                                     });
                 offersStackView.currentItem.setToken(token);
-            }
-            function onAddress() {
-                onlySwapTokenAlert.open();
-            }
-            ConfirmationDialog {
-                id:                     onlySwapTokenAlert
-                //% "Only swap token is allowed to use here."
-                title:                  qsTrId("only-swap-token-allowed-allert-head")
-                //% "You have provided a wallet address.\nPlease fill in swap token and try again."
-                text:                   qsTrId("only-swap-token-allowed-allert-body")
-                //% "I understand"
-                okButtonText:           qsTrId("swap-alert-confirm-button")
-                okButtonIconSource:     "qrc:/assets/icon-done.svg"
-                cancelButtonVisible:    false
             }
 
             RowLayout {
@@ -135,10 +123,11 @@ Item {
 
                     onClicked: {
                         offersStackView.push(Qt.createComponent("send.qml"),
-                                            {"isSwapMode": true,
-                                             "onClosed": onClosed,
-                                             "onSwapToken": onSwapToken,
-                                             "onAddress": onAddress});
+                                             {
+                                                "isSwapMode": true,
+                                                "onClosed": onClosed,
+                                                "onSwapToken": onSwapToken
+                                             });
                     }
                 }
                 
@@ -227,7 +216,7 @@ Item {
                     visible: BeamGlobals.haveBtc()
                     //% "Connecting..."
                     textConnecting: qsTrId("swap-connecting")
-                    //% "Cannot connect to peer. Please check in the address in settings and retry."
+                    //% "Cannot connect to peer. Please check the address and retry."
                     textConnectionError: qsTrId("swap-beta-connection-error")
                 }
 
@@ -350,26 +339,42 @@ Item {
                         SFText {
                             Layout.alignment: Qt.AlignHCenter | Qt.AlignLeft
                             font.pixelSize: 14
-                            color: Style.content_main
-                            // opacity: 0.6
+                            color: sendReceiveBeamSwitch.checked
+                                ? Qt.rgba(Style.content_main.r, Style.content_main.g, Style.content_main.b, 0.5)
+                                : Style.active
                             //% "Receive BEAM"
                             text: qsTrId("atomic-swap-receive-beam")
+                            MouseArea {
+                                anchors.fill: parent
+                                acceptedButtons: Qt.LeftButton
+                                onClicked: {
+                                    sendReceiveBeamSwitch.checked = !sendReceiveBeamSwitch.checked;
+                                }
+                            }
                         }
 
                         CustomSwitch {
                             id: sendReceiveBeamSwitch
+                            alwaysGreen: true
                             Layout.alignment: Qt.AlignHCenter | Qt.AlignLeft
-                            // opacity: 0.6
                         }
 
                         SFText {
                             Layout.alignment:  Qt.AlignHCenter | Qt.AlignLeft
                             Layout.leftMargin: 10
                             font.pixelSize: 14
-                            color: Style.content_main
-                            // opacity: 0.6
+                            color: sendReceiveBeamSwitch.checked
+                                ? Style.active
+                                : Qt.rgba(Style.content_main.r, Style.content_main.g, Style.content_main.b, 0.5)
                             //% "Send BEAM"
                             text: qsTrId("atomic-swap-send-beam")
+                            MouseArea {
+                                anchors.fill: parent
+                                acceptedButtons: Qt.LeftButton
+                                onClicked: {
+                                    sendReceiveBeamSwitch.checked = !sendReceiveBeamSwitch.checked;
+                                }
+                            }
                         }
 
                         CustomCheckBox {
@@ -477,7 +482,7 @@ Item {
                         model: SortFilterProxyModel {
                             id: proxyModel
                             source: SortFilterProxyModel {
-                                source: viewModel.allOffers
+                                source: viewModel.allOffers                                
                                 filterRole: "isBeamSide"
                                 filterString: sendReceiveBeamSwitch.checked ? "false" : "true"
                                 filterSyntax: SortFilterProxyModel.Wildcard
@@ -524,6 +529,7 @@ Item {
                                 height: offersTable.rowHeight
                                 property var swapCoin: styleData.value
                                 property var isSendBeam: offersTable.model.getRoleValue(styleData.row, "isBeamSide")
+                                property var isOwnOffer: offersTable.model.getRoleValue(styleData.row, "isOwnOffer")
                                 
                                 anchors.fill: parent
                                 anchors.leftMargin: 20
@@ -535,11 +541,15 @@ Item {
                                     spacing: -4
                                     SvgImage {
                                         sourceSize: Qt.size(20, 20)
-                                        source: isSendBeam ? "qrc:/assets/icon-beam.svg" : getCoinIcon(swapCoin)
+                                        source: isSendBeam
+                                            ? "qrc:/assets/icon-beam.svg"
+                                            : getCoinIcon(swapCoin)
                                     }
                                     SvgImage {
                                         sourceSize: Qt.size(20, 20)
-                                        source: isSendBeam ? getCoinIcon(swapCoin) : "qrc:/assets/icon-beam.svg"
+                                        source: isSendBeam
+                                            ? getCoinIcon(swapCoin)
+                                            : "qrc:/assets/icon-beam.svg"
                                     }
                                 }
                             }
@@ -793,6 +803,10 @@ Item {
                                         width: transactionsTable.width
 
                                         property var txRolesMap: myModel
+                                        txId:                           txRolesMap && txRolesMap.txID ? txRolesMap.txID : ""
+                                        fee:                            txRolesMap && txRolesMap.fee ? txRolesMap.fee : ""
+                                        feeRate:                        txRolesMap && txRolesMap.feeRate ? txRolesMap.feeRate : ""
+                                        comment:                        txRolesMap && txRolesMap.comment ? txRolesMap.comment : ""
                                         swapCoinName:                   txRolesMap && txRolesMap.swapCoin ? txRolesMap.swapCoin : ""
                                         isBeamSide:                     txRolesMap && txRolesMap.isBeamSideSwap ? txRolesMap.isBeamSideSwap : false
                                         isProofReceived:                txRolesMap && txRolesMap.isProofReceived ? txRolesMap.isProofReceived : false

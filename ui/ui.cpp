@@ -18,7 +18,9 @@
 
 #include <QInputDialog>
 #include <QMessageBox>
-
+// uncomment for QML profiling
+//#include <QQmlDebuggingEnabler>
+//QQmlDebuggingEnabler enabler;
 #include <qqmlcontext.h>
 #include "viewmodel/start_view.h"
 #include "viewmodel/loading_view.h"
