@@ -2173,6 +2173,7 @@ void TestLelantus()
 		rnd.Export(lst.m_vec[i]);
 
 	beam::Lelantus::Proof proof;
+	proof.m_Cfg = cfg;
 	beam::Lelantus::Proof::Output outp;
 	beam::Lelantus::Prover p(lst, proof);
 
