@@ -571,6 +571,18 @@ namespace ECC {
 		NormalizeInternal(zDenom, false);
 	}
 
+	void secp256k1_gej_rescale_XY(secp256k1_gej& gej, const secp256k1_fe& z)
+	{
+		// equivalent of secp256k1_gej_rescale, but doesn't change z coordinate
+		// A bit more effective when the value of z is know in advance (such as when normalizing)
+		secp256k1_fe zz;
+		secp256k1_fe_sqr(&zz, &z);
+
+		secp256k1_fe_mul(&gej.x, &gej.x, &zz);
+		secp256k1_fe_mul(&gej.y, &gej.y, &zz);
+		secp256k1_fe_mul(&gej.y, &gej.y, &z);
+	}
+
 	void Point::Native::BatchNormalizer::NormalizeInternal(secp256k1_fe& zDenom, bool bNormalize)
 	{
 		bool bEmpty = true;
@@ -609,7 +621,8 @@ namespace ECC {
 
 			secp256k1_fe_mul(&zDenom, &zDenom, &elPrev.m_pPoint->z);
 
-			secp256k1_gej_rescale(elPrev.m_pPoint, elPrev.m_pFe);
+			secp256k1_gej_rescale_XY(*elPrev.m_pPoint, *elPrev.m_pFe);
+			elPrev.m_pPoint->z = zDenom;
 
 			if (!bFetched)
 				break;
