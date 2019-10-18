@@ -8,7 +8,7 @@ import "."
 import "../utils.js" as Utils
 
 Control {
-    id:            thisControl
+    id:            control
     leftPadding:   25
     rightPadding:  25
     topPadding:    20
@@ -21,8 +21,12 @@ Control {
     property string feeRateLabel: ""
     property int    minFeeRate:   0
     property string color: Qt.rgba(Style.content_main.r, Style.content_main.g, Style.content_main.b, 0.5)
-    property alias  useElectrum:  useELSwitch.checked
+    property alias  editElectrum:  useElectrumSwitch.checked
     property bool   canEdit: true
+
+    property bool isConnected: false
+    property bool isNodeConnection: false
+    property bool isElectrumConnection: false
 
     //
     // Node props
@@ -30,112 +34,185 @@ Control {
     property alias  address:      addressInput.address
     property alias  username:     usernameInput.text
     property alias  password:     passwordInput.text
-    property int    feeRate:      0
+    property alias  feeRate:      feeRateInput.fee
+    property bool   canEditNode:  !control.isNodeConnection
 
-    onAddressChanged:  internalNode.changed = true
-    onUsernameChanged: internalNode.changed = true
-    onPasswordChanged: internalNode.changed = true
-    onFeeRateChanged:  internalNode.changed = true
+    //
+    // Electrum props
+    //
+    property alias addressElectrum:  addressInputElectrum.address
+    property alias seedElectrum:     seedInputElectrum.text
+    property bool  canEditElectrum:  !control.isElectrumConnection
 
+    //
+    // signals
+    //
+    signal disconnect
+    // node
     signal applyNode
-    signal switchOffNode
+    signal clearNode
+    signal connectToNode
+    // electrum
+    signal newSeedElectrum
+    signal applyElectrum
+    signal clearElectrum
+    signal connectToElectrum
+
+    QtObject {
+        id: internalCommon
+        property int    initialFeeRate
+        function restore() {
+            feeRate  = initialFeeRate
+        }
+
+        function save() {
+            initialFeeRate  = feeRate
+        }
+
+        function isChanged() {
+            return initialFeeRate  !== feeRate
+        }
+    }
 
     QtObject {
         id: internalNode
         property string initialAddress
         property string initialUsername
-        property string initialPassword
-        property int    initialFeeRate
-        property bool   changed: false
+        property string initialPassword        
 
         function restore() {
             address  = initialAddress
             username = initialUsername
             password = initialPassword
-            feeRate  = initialFeeRate
-            feeRateInput.fee = initialFeeRate
-            changed  = false
         }
 
         function save() {
             initialAddress  = address
             initialUsername = username
-            initialFeeRate  = feeRate
             initialPassword = password
-            changed = false
+        }
+
+        function isChanged() {
+            return initialAddress  !== address
+                || initialUsername !== username
+                || initialPassword !== password
         }
     }
 
+    function isSettingsChanged() {
+        return  internalCommon.isChanged() || (editElectrum ? internalElectrum.isChanged() : internalNode.isChanged());
+    }
+
+    function canApplySettings() {
+        return editElectrum ? canApplyElectrum() : canApplyNode();
+    }
+
+    function applyChanges() {
+        internalCommon.save();
+        return editElectrum ? applyChangesElectrum() : applyChangesNode();
+    }
+
+    function restoreSettings() {
+        internalCommon.restore();
+        return editElectrum ? internalElectrum.restore() : internalNode.restore();
+    }
+
+    function haveSettings() {
+        return editElectrum ? haveElectrumSettings() : haveNodeSettings();
+    }
+
+    function clear() {
+        internalCommon.save();
+        if (editElectrum) {
+            control.clearElectrum();
+            internalElectrum.save();
+        }
+        else {
+            control.clearNode();
+            internalNode.save();
+        }
+    }
+
+    function canClear() {
+        return control.canEdit && (editElectrum ? canClearElectrum() : canClearNode());
+    }
+
+    function canDisconnect() {
+        return control.canEdit && isConnected && (editElectrum ? canDisconnectElectrum() : canDisconnectNode());
+    }
+
     function canApplyNode() {
-        return internalNode.changed && feeRate >= minFeeRate && password.length && username.length && addressInput.isValid
+        return feeRate >= minFeeRate && password.length && username.length && addressInput.isValid
     }
 
     function applyChangesNode() {
         internalNode.save()
-        thisControl.applyNode()
+        control.applyNode()
     }
 
-    function canSwitchOffNode () {
-        return internalNode.initialAddress.length  != 0 ||
-               internalNode.initialUsername.length != 0 ||
-               internalNode.initialPassword.length != 0
+    function canClearNode() {
+        return !isNodeConnection && (internalNode.initialPassword.length || internalNode.initialUsername.length || internalNode.initialAddress.length);
+    }
+
+    function canDisconnectNode() {
+        return isNodeConnection;
+    }
+
+    function haveNodeSettings() {
+        return feeRate >= minFeeRate && password.length && username.length && addressInput.isValid;
     }
 
     //
     // Electrum props
     //
-    property alias  addressEL:    addressInputEL.address
-    property alias  seedEL:       seedInputEL.text
-    property int    feeRateEL:    0
-
-    onAddressELChanged:  internalEL.changed = true
-    onSeedELChanged:     internalEL.changed = true
-    onFeeRateELChanged:  internalEL.changed = true
-
-    signal newSeedEL
-    signal applyEL
-    signal switchOffEL
 
     QtObject {
-        id: internalEL
+        id: internalElectrum
         property string initialAddress
         property string initialSeed
-        property int    initialFeeRate
-        property bool   changed: false
 
         function restore() {
-            addressEL = initialAddress
-            seedEL    = initialSeed
-            feeRateEL = initialFeeRate
-            feeRateInputEL.fee = initialFeeRate
-            changed  = false
+            addressElectrum = initialAddress
+            seedElectrum    = initialSeed
         }
 
         function save() {
-            initialAddress  = addressEL
-            initialSeed     = seedEL
-            initialFeeRate  = feeRateEL
-            changed = false
+            initialAddress  = addressElectrum
+            initialSeed     = seedElectrum
+        }
+
+        function isChanged() {
+            return initialAddress !== addressElectrum
+                || initialSeed !== seedElectrum
         }
     }
 
-    function canApplyEL() {
-        return internalEL.changed && feeRateEL >= minFeeRate && seedInputEL.acceptableInput && addressInputEL.isValid
+    function canApplyElectrum() {
+        return feeRate >= minFeeRate && seedInputElectrum.acceptableInput && addressInputElectrum.isValid
     }
 
-    function applyChangesEL() {
-        internalEL.save()
-        thisControl.applyEL()
+    function canClearElectrum() {
+        return !isElectrumConnection && (internalElectrum.initialAddress.length || internalElectrum.initialSeed.length);
     }
 
-    function canSwitchOffEL () {
-        return internalEL.initialAddress.length  != 0 ||
-               internalEL.initialSeed.length != 0
+    function canDisconnectElectrum() {
+        return isElectrumConnection;
+    }
+
+    function applyChangesElectrum() {
+        internalElectrum.save();
+        control.applyElectrum();
+    }
+
+    function haveElectrumSettings() {
+        return feeRate >= minFeeRate && seedInputElectrum.acceptableInput && addressInputElectrum.isValid;
     }
 
     Component.onCompleted: {
-        internalNode.save()
-        internalEL.save()
+        control.editElectrum = control.isElectrumConnection;
+        internalCommon.save();
+        internalNode.save();
+        internalElectrum.save();
     }
 
     background: Rectangle {
@@ -147,62 +224,24 @@ Control {
         RowLayout {
             width: parent.width
 
+            // TODO: indicator
+
             SFText {
                 id:                  controlTitle
-                color:               thisControl.color
+                color:               control.color
                 font.pixelSize:      14
                 font.weight:         Font.Bold
                 font.capitalization: Font.AllUppercase
                 font.letterSpacing:  3.11
             }
-
-            Item {
-                Layout.fillWidth: true
-            }
-
-            LinkButton {
-                Layout.alignment: Qt.AlignVCenter
-                //% "Disconnect"
-                text:       qsTrId("settings-reset")
-                visible:    thisControl.canEdit && !useElectrum && canSwitchOffNode()
-                onClicked:  {
-                    thisControl.switchOffNode()
-                    internalNode.save()
-                }
-            }
-
-            LinkButton {
-                Layout.alignment: Qt.AlignVCenter
-                //% "Disconnect"
-                text:       qsTrId("settings-reset")
-                visible:    thisControl.canEdit && useElectrum && canSwitchOffEL()
-                onClicked:  {
-                    thisControl.switchOffEL()
-                    internalEL.save()
-                }
-            }
-        }
-
-        SFText {
-            visible:                 !thisControl.canEdit
-            Layout.fillWidth:        true
-            Layout.preferredHeight:  editableLayout.height
-            horizontalAlignment:     Text.AlignHCenter
-            verticalAlignment:       Text.AlignVCenter
-            font.pixelSize:          14
-            wrapMode:                Text.WordWrap
-            color:                   thisControl.color
-            lineHeight:              1.1
-            //% "You cannot change settings\nwhile active transaction is in progress"
-            text:                    qsTrId("settings-progress-na")
         }
 
         ColumnLayout {
             id: editableLayout
             Layout.fillHeight: true
             Layout.fillWidth:  true
-            visible: thisControl.canEdit
 
+            // Node & Electrum switch
             RowLayout {
                 Layout.topMargin: 18
                 Layout.bottomMargin: 18
@@ -211,12 +250,12 @@ Control {
                 SFText {
                     //% "Node"
                     text:  qsTrId("settings-swap-node")
-                    color: useELSwitch.checked ? thisControl.color : Style.active
+                    color: useElectrumSwitch.checked ? control.color : Style.active
                     font.pixelSize: 14
                 }
 
                 CustomSwitch {
-                    id:          useELSwitch
+                    id:          useElectrumSwitch
                     alwaysGreen: true
                     spacing:     0
                 }
@@ -224,256 +263,244 @@ Control {
                 SFText {
                     //% "Electrum"
                     text: qsTrId("general-electrum")
-                    color: useELSwitch.checked ? Style.active : thisControl.color
+                    color: useElectrumSwitch.checked ? Style.active : control.color
                     font.pixelSize: 14
                 }
-            }
 
-            ColumnLayout {
-                visible: !useElectrum
-                id:      nodeLayout
-
-                //
-                // My Address
-                //
-                GridLayout{
-                    columns:          2
-                    columnSpacing:    30
-                    rowSpacing:       15
-
-                    SFText {
-                        font.pixelSize: 14
-                        color:          thisControl.color
-                        //% "Node Address"
-                        text:           qsTrId("settings-node-address")
-                    }
-
-                    IPAddrInput {
-                        id:               addressInput
-                        Layout.fillWidth: true
-                        color:            Style.content_main
-                    }
-
-                    SFText {
-                        font.pixelSize: 14
-                        color:          thisControl.color
-                        //% "Username"
-                        text:           qsTrId("settings-username")
-                    }
-
-                    SFTextInput {
-                        id:               usernameInput
-                        Layout.fillWidth: true
-                        font.pixelSize:   14
-                        color:            Style.content_main
-                        activeFocusOnTab: true
-                    }
-
-                    SFText {
-                        font.pixelSize: 14
-                        color:          thisControl.color
-                        //% "Password"
-                        text:           qsTrId("settings-password")
-                    }
-
-                    SFTextInput {
-                        id:               passwordInput
-                        Layout.fillWidth: true
-                        font.pixelSize:   14
-                        color:            Style.content_main
-                        activeFocusOnTab: true
-                        echoMode:         TextInput.Password
-                    }
-
-                    SFText {
-                        font.pixelSize: 14
-                        color: thisControl.color
-                        //% "Default fee"
-                        text:  qsTrId("settings-fee-rate")
-                    }
-
-                    FeeInput {
-                        id:               feeRateInput
-                        Layout.fillWidth: true
-                        fillWidth:        true
-                        fee:              thisControl.feeRate
-                        minFee:           thisControl.minFeeRate
-                        feeLabel:         thisControl.feeRateLabel
-                        color:            Style.content_main
-                        spacing:          0
-
-                        Connections {
-                            target: thisControl
-                            onFeeRateChanged: feeRateInput.fee = thisControl.feeRate
-                        }
-                    }
-
-                    Binding {
-                        target:   thisControl
-                        property: "feeRate"
-                        value:    feeRateInput.fee
-                    }
+                Item {
+                    Layout.fillWidth: true
                 }
 
-                RowLayout {
-                    Layout.fillWidth: true
-                    Layout.topMargin: 25
-                    spacing: 15
+                LinkButton {
+                    Layout.alignment: Qt.AlignVCenter
+                    linkStyle: "<style>a:link {color: '#f9605b'; text-decoration: none;}</style>"
+                    //% "Clear"
+                    text:       qsTrId("settings-reset")
+                    visible:    canClear()
+                    onClicked:  clear()
+                }
 
-                    Item {
-                        Layout.fillWidth: true
-                    }
-
-                    CustomButton {
-                        Layout.preferredHeight: 38
-                        Layout.preferredWidth:  130
-                        leftPadding:  25
-                        rightPadding: 25
-                        text:         qsTrId("general-cancel")
-                        icon.source:  "qrc:/assets/icon-cancel-white.svg"
-                        enabled:      internalNode.changed
-                        onClicked:    internalNode.restore()
-                    }
-
-                    PrimaryButton {
-                        leftPadding:  25
-                        rightPadding: 25
-                        text:         qsTrId("settings-apply")
-                        icon.source:  "qrc:/assets/icon-done.svg"
-                        enabled:      canApplyNode()
-                        onClicked:    applyChangesNode()
-                        Layout.preferredHeight: 38
-                        Layout.preferredWidth:  130
-                    }
+                LinkButton {
+                    Layout.alignment: Qt.AlignVCenter
+                    linkStyle: "<style>a:link {color: '#f9605b'; text-decoration: none;}</style>"
+                    //% "Disconnect"
+                    text:       qsTrId("settings-swap-disconnect")
+                    visible:    canDisconnect()
+                    onClicked:  disconnect()
                 }
             }
 
-            ColumnLayout {
-                visible: useElectrum
-                id:      electrumLayout
+            GridLayout {
+                columns:          2
+                columnSpacing:    30
+                rowSpacing:       15
 
-                //
-                // My Address
-                //
-                GridLayout{
-                    columns:          2
-                    columnSpacing:    30
-                    rowSpacing:       12
+                SFText {
+                    visible:        !editElectrum
+                    font.pixelSize: 14
+                    color:          control.color
+                    //% "Node Address"
+                    text:           qsTrId("settings-node-address")
+                }
 
-                    SFText {
-                        font.pixelSize: 14
-                        color:          thisControl.color
-                        //% "Node Address"
-                        text:           qsTrId("settings-node-address")
-                    }
+                IPAddrInput {
+                    id:               addressInput
+                    visible:          !editElectrum
+                    Layout.fillWidth: true
+                    color:            Style.content_main
+                    underlineVisible: canEditNode
+                    readOnly:         !canEditNode
+                }
 
-                    IPAddrInput {
-                        id:               addressInputEL
+                SFText {
+                    visible:        !editElectrum
+                    font.pixelSize: 14
+                    color:          control.color
+                    //% "Username"
+                    text:           qsTrId("settings-username")
+                }
+
+                SFTextInput {
+                    id:               usernameInput
+                    visible:          !editElectrum
+                    Layout.fillWidth: true
+                    font.pixelSize:   14
+                    color:            Style.content_main
+                    activeFocusOnTab: true
+                    underlineVisible: canEditNode
+                    readOnly:         !canEditNode
+                }
+
+                SFText {
+                    visible:        !editElectrum
+                    font.pixelSize: 14
+                    color:          control.color
+                    //% "Password"
+                    text:           qsTrId("settings-password")
+                }
+
+                SFTextInput {
+                    id:               passwordInput
+                    visible:          !editElectrum
+                    Layout.fillWidth: true
+                    font.pixelSize:   14
+                    color:            Style.content_main
+                    activeFocusOnTab: true
+                    echoMode:         TextInput.Password
+                    underlineVisible: canEditNode
+                    readOnly:         !canEditNode
+                }
+
+                // electrum settings
+                SFText {
+                    visible:        editElectrum
+                    font.pixelSize: 14
+                    color:          control.color
+                    //% "Node Address"
+                    text:           qsTrId("settings-node-address")
+                }
+
+                IPAddrInput {
+                    visible:          editElectrum
+                    id:               addressInputElectrum
+                    Layout.fillWidth: true
+                    color:            Style.content_main
+                    ipOnly:           false
+                    underlineVisible: canEditElectrum
+                    readOnly:         !canEditElectrum
+                }
+
+                SFText {
+                    visible:        editElectrum
+                    font.pixelSize: 14
+                    color:          control.color
+                    //% "Seed Phrase"
+                    text:           qsTrId("settings-swap-seed-phrase")
+                }
+
+                ColumnLayout {
+                    visible:             editElectrum
+                    Layout.fillWidth:    true
+                    Layout.topMargin:    3
+                    spacing:             0
+
+                    SeedInput {
+                        id:               seedInputElectrum
                         Layout.fillWidth: true
-                        color:            Style.content_main
-                        ipOnly:           false
+                        font.pixelSize:   14
+                        activeFocusOnTab: true
+                        implicitHeight:   70
+                        placeholderText:  text.length > 0 ?
+                                          //% "Click to see seed phrase"
+                                          qsTrId("settings-see-seed") :
+                                          //% "Double click to generate new seed phrase"
+                                          qsTrId("settings-new-seed")
+                        onNewSeed:        newSeedElectrum()
                     }
 
-                    SFText {
-                        font.pixelSize: 14
-                        color:          thisControl.color
-                        ////% "Username"
-                        text:           "Seed Phrase"
-                    }
-
-                    ColumnLayout {
-                        Layout.fillWidth:    true
-                        Layout.topMargin:    5
-                        Layout.bottomMargin: 6
-                        spacing:             0
-
-                        SeedInput {
-                            id:                  seedInputEL
-                            Layout.fillWidth:    true
-                            font.pixelSize:      14
-                            activeFocusOnTab:    true
-                            implicitHeight:      70
-                            placeholderText:     text.length > 0 ?
-                                                    //% "Click to see seed phrase"
-                                                    qsTrId("settings-see-seed") :
-                                                    //% "Double click to generate new seed phrase"
-                                                    qsTrId("settings-new-seed")
-                            onNewSeed: newSeedEL()
+                    Item {
+                        Layout.fillWidth:   true
+                        SFText {
+                            font.pixelSize: 12
+                            font.italic:    true
+                            color:          Style.validator_error
+                            //% "Invalid seed phrase"
+                            text:           qsTrId("settings-invalid-seed")
+                            visible:        seedInputElectrum.text.length && !seedInputElectrum.acceptableInput
                         }
-
-                        Item {
-                            Layout.fillWidth: true
-                            SFText {
-                                font.pixelSize: 12
-                                font.italic:    true
-                                color:          Style.validator_error
-                                //% "Invalid seed phrase"
-                                text:           qsTrId("settings-invalid-seed")
-                                visible:        seedInputEL.text.length && !seedInputEL.acceptableInput
-                            }
-                        }
-                    }
-
-                    SFText {
-                        font.pixelSize: 14
-                        color: thisControl.color
-                        //% "Default fee"
-                        text:  qsTrId("settings-fee-rate")
-                    }
-
-                    FeeInput {
-                        id:               feeRateInputEL
-                        Layout.fillWidth: true
-                        fillWidth:        true
-                        fee:              thisControl.feeRateEL
-                        minFee:           thisControl.minFeeRate
-                        feeLabel:         thisControl.feeRateLabel
-                        color:            Style.content_main
-                        spacing:          0
-
-                        Connections {
-                            target: thisControl
-                            onFeeRateChanged: feeRateInputEL.fee = thisControl.feeRateEL
-                        }
-                    }
-
-                    Binding {
-                        target:   thisControl
-                        property: "feeRateEL"
-                        value:    feeRateInputEL.fee
                     }
                 }
 
-                RowLayout {
+                // common fee rate
+                SFText {
+                    font.pixelSize: 14
+                    color:          control.color
+                    //% "Default fee"
+                    text:           qsTrId("settings-fee-rate")
+                }
+
+                FeeInput {
+                    id:               feeRateInput
                     Layout.fillWidth: true
-                    Layout.topMargin: 25
-                    spacing: 15
+                    fillWidth:        true
+                    minFee:           control.minFeeRate
+                    feeLabel:         control.feeRateLabel
+                    color:            Style.content_main
+                    spacing:          0
+                    underlineVisible: canEdit
+                    readOnly:         !canEdit
+                }
+            }
 
-                    Item {
-                        Layout.fillWidth: true
-                    }
+            // alert text if we have active transactions
+            SFText {
+                visible:               !control.canEdit
+                Layout.preferredWidth: 500
+                horizontalAlignment:   Text.AlignHCenter
+                verticalAlignment:     Text.AlignVCenter
+                font.pixelSize:        14
+                wrapMode:              Text.WordWrap
+                color:                 control.color
+                lineHeight:            1.1 
+                //% "You cannot disconnect wallet, edit seed phrase or change default fee while you have\ntransactions in progress. Please wait untill transactions are completed\nand try again."
+                text:                  qsTrId("settings-progress-na")
+            }
 
-                    CustomButton {
-                        Layout.preferredHeight: 38
-                        Layout.preferredWidth:  130
-                        leftPadding:  25
-                        rightPadding: 25
-                        text:         qsTrId("general-cancel")
-                        icon.source:  "qrc:/assets/icon-cancel-white.svg"
-                        enabled:      internalEL.changed
-                        onClicked:    internalEL.restore()
-                    }
+            // buttons
+            // "cancel" "apply"
+            // "connect to node" or "connect to electrum"
+            RowLayout {
+                visible:          control.canEdit
+                Layout.fillWidth: true
+                Layout.topMargin: 25
+                spacing:          15
 
-                    PrimaryButton {
-                        leftPadding:  25
-                        rightPadding: 25
-                        text:         qsTrId("settings-apply")
-                        icon.source:  "qrc:/assets/icon-done.svg"
-                        enabled:      canApplyEL()
-                        onClicked:    applyChangesEL()
-                        Layout.preferredHeight: 38
-                        Layout.preferredWidth:  130
-                    }
+                Item {
+                    Layout.fillWidth: true
+                }
+
+                CustomButton {
+                    visible:                !connectButtonId.visible
+                    Layout.preferredHeight: 38
+                    Layout.preferredWidth:  130
+                    leftPadding:  25
+                    rightPadding: 25
+                    text:         qsTrId("general-cancel")
+                    icon.source:  "qrc:/assets/icon-cancel-white.svg"
+                    enabled:      isSettingsChanged()
+                    onClicked:    restoreSettings()
+                }
+
+                PrimaryButton {
+                    visible:                !connectButtonId.visible
+                    leftPadding:            25
+                    rightPadding:           25
+                    text:                   qsTrId("settings-apply")
+                    icon.source:            "qrc:/assets/icon-done.svg"
+                    enabled:                isSettingsChanged() && canApplySettings()
+                    onClicked:              applyChanges()
+                    Layout.preferredHeight: 38
+                    Layout.preferredWidth:  130
+                }
+
+                PrimaryButton {
+                    id:                     connectButtonId
+                    visible:                !isSettingsChanged() && haveSettings() && (editElectrum ? !isElectrumConnection : !isNodeConnection)
+                    leftPadding:            25
+                    rightPadding:           25
+                    text:                   editElectrum ?
+                                            //% "connect to electrum node"
+                                            qsTrId("connect to electrum node") :
+                                            //% "connect to node"
+                                            qsTrId("connect to node");
+                    icon.source:            "qrc:/assets/icon-connect.svg"
+                    onClicked:              editElectrum ? connectToElectrum() : connectToNode();
+                    Layout.preferredHeight: 38
+                    Layout.preferredWidth:  editElectrum ? 250 : 195
+                }
+
+                Item {
+                    Layout.fillWidth: true
                 }
             }
         }

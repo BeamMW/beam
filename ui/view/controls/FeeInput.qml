@@ -14,14 +14,14 @@ ColumnLayout {
     property string  feeLabel:  undefined
     property string  color:     Style.content_main
     readonly property bool isValid: control.fee >= control.minFee
+    property alias underlineVisible: feeInput.underlineVisible
 
     RowLayout {
         Layout.fillWidth: true
 
         SFTextInput {
             id:                    feeInput
-            Layout.fillWidth:      control.fillWidth
-            Layout.preferredWidth: 150
+            Layout.fillWidth:      control.fillWidth && control.underlineVisible && !control.readOnly
             font.pixelSize:        14
             font.styleName:        "Light"
             font.weight:           Font.Light
@@ -52,6 +52,11 @@ ColumnLayout {
             color:          Style.content_main
             text:           control.feeLabel
             visible:        (control.feeLabel || "").length
+        }
+
+        Item {
+            enabled: !control.underlineVisible && control.readOnly
+            Layout.fillWidth: true
         }
     }
 
