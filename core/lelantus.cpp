@@ -660,6 +660,9 @@ void Prover::ExtractPart2(Oracle& oracle)
 
 void Prover::Generate(Proof::Output& outp, const uintBig& seed, Oracle& oracle)
 {
+	// Since this is a heavy proof, do it in 'fast' mode. Use 'secure' mode only for the most sensitive part - the SpendSk
+	Mode::Scope scope(Mode::Fast);
+
 	outp.m_Pt = Commitment(m_Witness.V.m_R_Output, m_Witness.V.m_V);
 	outp.m_Commitment = outp.m_Pt;
 
@@ -683,9 +686,14 @@ void Prover::Generate(Proof::Output& outp, const uintBig& seed, Oracle& oracle)
 	CalculateP();
 	ExtractG(outp.m_Pt);
 
-	Point::Native pt = Context::get().G * m_vBuf[Idx::rNonceG];
-	pt += Context::get().H_Big * m_vBuf[Idx::rNonceH];
-	m_Proof.m_Part1.m_Nonce = pt;
+	{
+		// SpendSk is protected by rNonceG. This is where 'secure' mode is needed
+		Mode::Scope scope2(Mode::Secure);
+
+		Point::Native pt = Context::get().G * m_vBuf[Idx::rNonceG];
+		pt += Context::get().H_Big * m_vBuf[Idx::rNonceH];
+		m_Proof.m_Part1.m_Nonce = pt;
+	}
 
 	m_Proof.m_Part1.Expose(oracle);
 	oracle << outp.m_Commitment;
