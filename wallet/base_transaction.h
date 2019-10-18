@@ -154,6 +154,7 @@ namespace beam::wallet
         virtual void UpdateImpl() = 0;
 
         virtual bool ShouldNotifyAboutChanges(TxParameterID paramID) const { return true; };
+        void SetCompletedTxCoinStatuses(Height proofHeight);
     protected:
 
         INegotiatorGateway& m_Gateway;
