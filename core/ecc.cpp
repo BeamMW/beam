@@ -800,7 +800,12 @@ namespace ECC {
 		if (bSet)
 			secp256k1_gej_set_ge(&p.get_Raw(), &ge.V);
 		else
+		{
+			if (Mode::Secure == ECC::g_Mode)
 			secp256k1_gej_add_ge(&p.get_Raw(), &p.get_Raw(), &ge.V);
+			else
+				secp256k1_gej_add_ge_var(&p.get_Raw(), &p.get_Raw(), &ge.V, nullptr);
+		}
 	}
 
 	/////////////////////
@@ -1389,6 +1394,11 @@ namespace ECC {
 			{
 				Casual& x = m_pCasual[iEntry];
 				Casual::Fast& f = x.U.F.get();
+
+				Point::Native& pt = f.m_pPt[0];
+				if (pt == Zero)
+					continue;
+
 				unsigned int nEntries = f.m_Wnaf.Init(wsC, m_pKCasual[iEntry], iEntry + 1);
 				assert(nEntries <= _countof(f.m_Wnaf.m_pVals));
 
@@ -1418,7 +1428,7 @@ namespace ECC {
 				}
 
 				// Calculate all the needed elements
-				Point::Native ptX2 = f.m_pPt[0] * Two;
+				Point::Native ptX2 = pt * Two;
 
 				for (uint32_t nPrepared = 1; nPrepared < f.m_nNeeded; nPrepared++)
 					f.m_pPt[nPrepared] = f.m_pPt[nPrepared - 1] + ptX2;
@@ -1469,7 +1479,7 @@ namespace ECC {
 					if (bNeg)
 						secp256k1_ge_neg(&ge.V, &ge.V);
 
-					secp256k1_gej_add_ge(&res.get_Raw(), &res.get_Raw(), &ge.V);
+					secp256k1_gej_add_ge_var(&res.get_Raw(), &res.get_Raw(), &ge.V, nullptr);
 				}
 
 				WnafBase::Link& lnkP = wsP.m_pTable[iBit]; // alias
