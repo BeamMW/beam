@@ -226,6 +226,30 @@ bool Proof::IsValid(InnerProduct::BatchContext& bc, Oracle& oracle, const Output
 				pF0[j];
 		}
 
+		Scalar::Native m_kBias;
+		Scalar::Native* m_pKs;
+		uint32_t m_n;
+
+		void FillKs(const Scalar::Native& k, uint32_t iBit)
+		{
+			if (!iBit--)
+			{
+				*m_pKs++ += k;
+				m_kBias += k;
+				return;
+			}
+
+			Scalar::Native k2;
+
+			for (uint32_t i = 0; i < m_n; i++)
+			{
+				get_F(k2, iBit, i);
+				k2 *= k;
+
+				FillKs(k2, iBit);
+			}
+		}
+
 	} mctx;
 	mctx.m_pF1 = &m_Part2.m_vF.front() - 1;
 	mctx.m_Pitch = m_Cfg.n - 1;
@@ -322,32 +346,17 @@ bool Proof::IsValid(InnerProduct::BatchContext& bc, Oracle& oracle, const Output
 	}
 
 	// Commitments from CmList
-	Scalar::Native kBias(Zero);
+	mctx.m_pKs = pKs;
+	mctx.m_n = m_Cfg.n;
+	mctx.m_kBias = Zero;
 
-	Point::Native pt;
-	for (uint32_t iPos = 0; iPos < N; iPos++)
-	{
-		Scalar::Native k = bc.m_Multiplier;
-
-		uint32_t ij = iPos;
-
-		for (uint32_t j = 0; j < m_Cfg.M; j++)
-		{
-			mctx.get_F(xPwr, j, ij % m_Cfg.n);
-			k *= xPwr;
-			ij /= m_Cfg.n;
-		}
-
-		kBias += k;
-
-		pKs[iPos] += k;
-	}
+	mctx.FillKs(bc.m_Multiplier, m_Cfg.M);
 
 	SpendKey::ToSerial(xPwr, m_Part1.m_SpendPk);
 
 	Point::Native ptBias = outp.m_Pt;
 	ptBias += Context::get().J * xPwr;
-	bc.AddCasual(ptBias, -kBias, true);
+	bc.AddCasual(ptBias, -mctx.m_kBias, true);
 
 	// compare with target
 	bc.m_Multiplier = -bc.m_Multiplier;
