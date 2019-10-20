@@ -30,7 +30,6 @@ ColumnLayout {
             font.italic:           !isValid
             color:                 isValid ? control.color : Style.validator_error
             backgroundColor:       isValid ? Style.content_main : Style.validator_error
-            maximumLength:         9
             selectByMouse:         true
             validator:             IntValidator {bottom: control.minFee}
             readOnly:              control.readOnly
