@@ -324,6 +324,7 @@ ColumnLayout {
                     return {
                         amount:    ramount.toFixed(8).replace(/\.?0+$/,""),
                         error:     error,
+                        //% "Invalid rate"
                         errorText: qsTrId("swap-invalid-rate")
                     }
                 }

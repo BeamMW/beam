@@ -1751,8 +1751,7 @@ Please check the swap token and try again.</source>
         <translation>palautustapahtuman vahvistukset</translation>
     </message>
     <message id="swap-invalid-rate">
-        <source></source>
-        <oldsource>Invalid rate</oldsource>
+        <source>Invalid rate</source>
         <translation type="unfinished">Invalid rate</translation>
     </message>
     <message id="swap-details-tx-id">
