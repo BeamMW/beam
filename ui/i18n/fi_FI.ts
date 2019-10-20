@@ -62,11 +62,11 @@
     </message>
     <message id="general-receiving">
         <source>receiving</source>
-        <translation type="unfinished">receiving</translation>
+        <translation type="obsolete">receiving</translation>
     </message>
     <message id="general-sending">
         <source>sending</source>
-        <translation type="unfinished">sending</translation>
+        <translation type="obsolete">sending</translation>
     </message>
     <message id="general-rescan">
         <source>Rescan</source>
@@ -1045,8 +1045,13 @@
         <translation>Luo lompakkoosi uusi salasana</translation>
     </message>
     <message id="start-create-pwd-strength-message">
-        <source>Strong password needs to meet the following requirements:\n•  the length must be at least 10 characters\n•  must contain at least one lowercase letter\n•  must contain at least one uppercase letter\n•  must contain at least one number</source>
-        <translation>Vahvan salasanan tulee täyttää seuraavat kriteerit:\n•  salasanassa täytyy olla vähintään 10 merkkiä\n•  vähintään yksi kirjain pienellä\n•  vähintään yksi kirjain isolla\n•  vähintään yksi numero</translation>
+        <source>Strong password needs to meet the following requirements:
+•  the length must be at least 10 characters
+•  must contain at least one lowercase letter
+•  must contain at least one uppercase letter
+•  must contain at least one number</source>
+        <oldsource>Strong password needs to meet the following requirements:\n•  the length must be at least 10 characters\n•  must contain at least one lowercase letter\n•  must contain at least one uppercase letter\n•  must contain at least one number</oldsource>
+        <translation type="unfinished">Vahvan salasanan tulee täyttää seuraavat kriteerit:\n•  salasanassa täytyy olla vähintään 10 merkkiä\n•  vähintään yksi kirjain pienellä\n•  vähintään yksi kirjain isolla\n•  vähintään yksi numero</translation>
     </message>
     <message id="start-open-caps-warning">
         <source>Caps lock is on!</source>
@@ -1275,7 +1280,7 @@
     </message>
     <message id="general-locked">
         <source>locked</source>
-        <translation>lukittu</translation>
+        <translation type="vanished">lukittu</translation>
     </message>
     <message id="general-change-settings">
         <source>Change settings</source>
@@ -1314,8 +1319,10 @@
         <translation>Atomic Swap on BETA-vaiheessa</translation>
     </message>
     <message id="swap-na-message">
-        <source>You do not have any 3rd-party currencies connected.\nUpdate your settings and try again.</source>
-        <translation>Sinulla ei ole ulkoisia valuuttoja yhdistettynä.\nPäivitä asetuksesi ja yritä uudelleen.</translation>
+        <source>You do not have any 3rd-party currencies connected.
+Update your settings and try again.</source>
+        <oldsource>You do not have any 3rd-party currencies connected.\nUpdate your settings and try again.</oldsource>
+        <translation type="unfinished">Sinulla ei ole ulkoisia valuuttoja yhdistettynä.\nPäivitä asetuksesi ja yritä uudelleen.</translation>
     </message>
     <message id="wallet-receive-swap-title">
         <source>Create swap offer</source>
@@ -1399,8 +1406,10 @@
         <translation>Electrum</translation>
     </message>
     <message id="swap-currency-na-message">
-        <source>You do not have %1 connected.\nUpdate your settings and try again.</source>
-        <translation>Sinulla ei ole %1 yhdistettynä.\nPäivitä asetuksesi ja yritä uudelleen.</translation>
+        <source>You do not have %1 connected.
+Update your settings and try again.</source>
+        <oldsource>You do not have %1 connected.\nUpdate your settings and try again.</oldsource>
+        <translation type="unfinished">Sinulla ei ole %1 yhdistettynä.\nPäivitä asetuksesi ja yritä uudelleen.</translation>
     </message>
     <message id="send-swap-to-label">
         <source>Transaction token</source>
@@ -1611,16 +1620,16 @@
         <translation>Vastaanotettu</translation>
     </message>
     <message id="settings-progress-na">
-        <source>You cannot change settings\nwhile active transaction is in progress</source>
-        <oldsource>You cannot change settings
-while active transaction is in progress</oldsource>
-        <translation>Et voi vaihtaa asetuksia,\nkun tapahtumaa käsitellään</translation>
+        <source>You cannot change settings
+while active transaction is in progress</source>
+        <oldsource>You cannot change settings\nwhile active transaction is in progress</oldsource>
+        <translation type="unfinished">Et voi vaihtaa asetuksia,\nkun tapahtumaa käsitellään</translation>
     </message>
     <message id="atomic-no-offers">
-        <source>There are no active offers at the moment.\nPlease try again later or create an offer yourself.</source>
-        <oldsource>There are no active offers at the moment.
-Please try again later or create an offer yourself.</oldsource>
-        <translation>Ei yhtään voimassa olevaa tarjousta.\nTee oma tarjous tai yritä myöhemmin uudelleen.</translation>
+        <source>There are no active offers at the moment.
+Please try again later or create an offer yourself.</source>
+        <oldsource>There are no active offers at the moment.\nPlease try again later or create an offer yourself.</oldsource>
+        <translation type="unfinished">Ei yhtään voimassa olevaa tarjousta.\nTee oma tarjous tai yritä myöhemmin uudelleen.</translation>
     </message>
     <message id="send-less-than-fee">
         <source>The swap amount must be greater than the redemption fee.</source>
@@ -1684,8 +1693,10 @@ Please try again later or create an offer yourself.</oldsource>
         <translation>Omaa tarjousta ei voi hyväksyä</translation>
     </message>
     <message id="accept-own-offer-allert-body">
-        <source>The transaction token was generated by you, therefore it is not allowed to accept your own offer.\nPlease check the swap token and try again.</source>
-        <translation>Olet itse luonut kyseisen tapahtuman tunnisteen, eikä omaa tarjousta voida hyväksyä.\nTarkista swap-tunniste ja yritä uudelleen.</translation>
+        <source>The transaction token was generated by you, therefore it is not allowed to accept your own offer.
+Please check the swap token and try again.</source>
+        <oldsource>The transaction token was generated by you, therefore it is not allowed to accept your own offer.\nPlease check the swap token and try again.</oldsource>
+        <translation type="unfinished">Olet itse luonut kyseisen tapahtuman tunnisteen, eikä omaa tarjousta voida hyväksyä.\nTarkista swap-tunniste ja yritä uudelleen.</translation>
     </message>
     <message id="swap-copy-token">
         <source>Copy token</source>
@@ -1740,7 +1751,8 @@ Please try again later or create an offer yourself.</oldsource>
         <translation>palautustapahtuman vahvistukset</translation>
     </message>
     <message id="swap-invalid-rate">
-        <source>Invalid rate</source>
+        <source></source>
+        <oldsource>Invalid rate</oldsource>
         <translation type="unfinished">Invalid rate</translation>
     </message>
     <message id="swap-details-tx-id">

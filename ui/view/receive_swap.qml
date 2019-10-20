@@ -37,7 +37,7 @@ ColumnLayout {
     function isValid () {
         if (!viewModel.commentValid) return false
         if (viewModel.receiveCurrency == viewModel.sentCurrency) return false
-        return receiveAmountInput.isValid && sentAmountInput.isValid && !currencyError()
+        return receiveAmountInput.isValid && sentAmountInput.isValid && !currencyError() && rateRow.rateValid()
     }
 
     function canSend () {
@@ -315,17 +315,34 @@ ColumnLayout {
                     var rate = parseFloat(rateInput.text) || 0
                     if (rate == 0) return {amount:0, error: false}
 
-                    var ramount = sentAmountInput.amount * maxAmount / rate / maxAmount
+                    var ramount = sentAmountInput.amount * rate
                     var error = ramount > maxAmount || ramount < minAmount
 
                     if (ramount > maxAmount) ramount = maxAmount
                     if (ramount < minAmount) ramount = minAmount
 
-                    return {amount: ramount.toFixed(8).replace(/\.?0+$/,""), error: error}
+                    return {
+                        amount:    ramount.toFixed(8).replace(/\.?0+$/,""),
+                        error:     error,
+                        errorText: qsTrId("swap-invalid-rate")
+                    }
+                }
+
+                function calcRate () {
+                    return Utils.calcDisplayRate(receiveAmountInput, sentAmountInput, rateInput.focus)
                 }
 
                 function rateValid () {
-                    return !calcReceiveAmount().error
+                   return !calcReceiveAmount().error && !calcRate().error
+                }
+
+                function rateError () {
+                    return calcRate().errorText || calcReceiveAmount().errorText || ""
+                }
+
+                function recalcAmount () {
+                     if (sentAmountInput.amount == 0) sentAmountInput.amount = 1
+                     receiveAmountInput.amount = calcReceiveAmount().amount
                 }
 
                 SFText {
@@ -342,7 +359,7 @@ ColumnLayout {
                     font.pixelSize:      14
                     color:               rateRow.rateValid() ? Style.content_main : Style.validator_error
                     backgroundColor:     rateRow.rateValid() ? Style.content_main : Style.validator_error
-                    text:                Utils.calcDisplayRate(receiveAmountInput, sentAmountInput, rateInput.focus)
+                    text:                rateRow.calcRate().displayRate
                     selectByMouse:       true
                     maximumLength:       30
                     validator:           RegExpValidator {regExp: /^(([1-9][0-9]{0,7})|(1[0-9]{8})|(2[0-4][0-9]{7})|(25[0-3][0-9]{6})|(0))(\.[0-9]{0,27}[1-9])?$/}
@@ -351,14 +368,20 @@ ColumnLayout {
                         // unbind
                         text = text
                         // update
-                        if (sentAmountInput.amount == 0) sentAmountInput.amount = 1
-                        receiveAmountInput.amount = rateRow.calcReceiveAmount().amount
+                        rateRow.recalcAmount()
                     }
 
                     onFocusChanged: {
+                        if (focus) {
+                            var rcalc = rateRow.calcRate()
+                            if (rcalc.rate < rcalc.minRate) {
+                                text = rcalc.minDisplayRate
+                                rateRow.recalcAmount()
+                            }
+                        }
                         if (!focus) {
                             text = Qt.binding(function() {
-                                    return Utils.calcDisplayRate(receiveAmountInput, sentAmountInput, rateInput.focus)
+                                    return rateRow.calcRate().displayRate
                                 })
                         }
                     }
@@ -379,7 +402,7 @@ ColumnLayout {
                     font.styleName:      "Italic"
                     width:               parent.width
                     //% "Invalid rate"
-                    text:                qsTrId("swap-invalid-rate")
+                    text:                rateRow.rateError()
                     visible:             !rateRow.rateValid()
                 }
             }

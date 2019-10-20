@@ -1757,5 +1757,9 @@ Please check the swap token and try again.</translation>
         <source>Transaction fee</source>
         <translation type="unfinished">Transaction fee</translation>
     </message>
+    <message id="invalid-rate-min">
+        <source>Rate cannot be less than %1</source>
+        <translation>Rate cannot be less than %1</translation>
+    </message>
 </context>
 </TS>

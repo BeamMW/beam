@@ -344,7 +344,7 @@ ColumnLayout {
                 Layout.topMargin: 3
                 font.pixelSize:   14
                 color:            Style.content_secondary
-                text:             ["1", sendAmountInput.currencyLabel, "=", Utils.calcDisplayRate(sendAmountInput, receiveAmountInput), receiveAmountInput.currencyLabel].join(" ")
+                text:             ["1", sendAmountInput.currencyLabel, "=", Utils.calcDisplayRate(receiveAmountInput, sendAmountInput).displayRate, receiveAmountInput.currencyLabel].join(" ")
             }
         }
     }

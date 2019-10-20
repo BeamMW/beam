@@ -62,11 +62,11 @@
     </message>
     <message id="general-receiving">
         <source>receiving</source>
-        <translation type="unfinished">receiving</translation>
+        <translation type="obsolete">receiving</translation>
     </message>
     <message id="general-sending">
         <source>sending</source>
-        <translation type="unfinished">sending</translation>
+        <translation type="obsolete">sending</translation>
     </message>
     <message id="general-rescan">
         <source>Rescan</source>
@@ -1046,8 +1046,13 @@ Vous essayez de restaurer un portefeuille Beam existant. Veuillez noter que si v
         <translation>Créer un mot de passe pour accéder à votre portefeuille</translation>
     </message>
     <message id="start-create-pwd-strength-message">
-        <source>Strong password needs to meet the following requirements:\n•  the length must be at least 10 characters\n•  must contain at least one lowercase letter\n•  must contain at least one uppercase letter\n•  must contain at least one number</source>
-        <translation>Un mot de passe sécurisé doit remplir les conditions suivantes: \ n • la longueur doit être au moins de 10 caractères \ n • doit contenir au moins une lettre minuscule \ n • doit contenir au moins une lettre majuscule \ n • doit contenir au moins un chiffre</translation>
+        <source>Strong password needs to meet the following requirements:
+•  the length must be at least 10 characters
+•  must contain at least one lowercase letter
+•  must contain at least one uppercase letter
+•  must contain at least one number</source>
+        <oldsource>Strong password needs to meet the following requirements:\n•  the length must be at least 10 characters\n•  must contain at least one lowercase letter\n•  must contain at least one uppercase letter\n•  must contain at least one number</oldsource>
+        <translation type="unfinished">Un mot de passe sécurisé doit remplir les conditions suivantes: \ n • la longueur doit être au moins de 10 caractères \ n • doit contenir au moins une lettre minuscule \ n • doit contenir au moins une lettre majuscule \ n • doit contenir au moins un chiffre</translation>
     </message>
     <message id="start-open-caps-warning">
         <source>Caps lock is on!</source>
@@ -1276,7 +1281,7 @@ Vous essayez de restaurer un portefeuille Beam existant. Veuillez noter que si v
     </message>
     <message id="general-locked">
         <source>locked</source>
-        <translation type="unfinished">locked</translation>
+        <translation type="obsolete">locked</translation>
     </message>
     <message id="general-change-settings">
         <source>Change settings</source>
@@ -1315,7 +1320,9 @@ Vous essayez de restaurer un portefeuille Beam existant. Veuillez noter que si v
         <translation type="unfinished">Atomic Swap is in BETA</translation>
     </message>
     <message id="swap-na-message">
-        <source>You do not have any 3rd-party currencies connected.\nUpdate your settings and try again.</source>
+        <source>You do not have any 3rd-party currencies connected.
+Update your settings and try again.</source>
+        <oldsource>You do not have any 3rd-party currencies connected.\nUpdate your settings and try again.</oldsource>
         <translation type="unfinished">You do not have any 3rd-party currencies connected.\nUpdate your settings and try again.</translation>
     </message>
     <message id="wallet-receive-swap-title">
@@ -1400,7 +1407,9 @@ Vous essayez de restaurer un portefeuille Beam existant. Veuillez noter que si v
         <translation type="unfinished">Electrum</translation>
     </message>
     <message id="swap-currency-na-message">
-        <source>You do not have %1 connected.\nUpdate your settings and try again.</source>
+        <source>You do not have %1 connected.
+Update your settings and try again.</source>
+        <oldsource>You do not have %1 connected.\nUpdate your settings and try again.</oldsource>
         <translation type="unfinished">You do not have %1 connected.\nUpdate your settings and try again.</translation>
     </message>
     <message id="send-swap-to-label">
@@ -1612,15 +1621,15 @@ Vous essayez de restaurer un portefeuille Beam existant. Veuillez noter que si v
         <translation>Reçu</translation>
     </message>
     <message id="settings-progress-na">
-        <source>You cannot change settings\nwhile active transaction is in progress</source>
-        <oldsource>You cannot change settings
-while active transaction is in progress</oldsource>
+        <source>You cannot change settings
+while active transaction is in progress</source>
+        <oldsource>You cannot change settings\nwhile active transaction is in progress</oldsource>
         <translation type="unfinished">You cannot change settings\nwhile active transaction is in progress</translation>
     </message>
     <message id="atomic-no-offers">
-        <source>There are no active offers at the moment.\nPlease try again later or create an offer yourself.</source>
-        <oldsource>There are no active offers at the moment.
-Please try again later or create an offer yourself.</oldsource>
+        <source>There are no active offers at the moment.
+Please try again later or create an offer yourself.</source>
+        <oldsource>There are no active offers at the moment.\nPlease try again later or create an offer yourself.</oldsource>
         <translation type="unfinished">There are no active offers at the moment.\nPlease try again later or create an offer yourself.</translation>
     </message>
     <message id="send-less-than-fee">
@@ -1685,7 +1694,9 @@ Please try again later or create an offer yourself.</oldsource>
         <translation type="unfinished">Own offer can’t be accepted</translation>
     </message>
     <message id="accept-own-offer-allert-body">
-        <source>The transaction token was generated by you, therefore it is not allowed to accept your own offer.\nPlease check the swap token and try again.</source>
+        <source>The transaction token was generated by you, therefore it is not allowed to accept your own offer.
+Please check the swap token and try again.</source>
+        <oldsource>The transaction token was generated by you, therefore it is not allowed to accept your own offer.\nPlease check the swap token and try again.</oldsource>
         <translation type="unfinished">The transaction token was generated by you, therefore it is not allowed to accept your own offer.\nPlease check the swap token and try again.</translation>
     </message>
     <message id="swap-copy-token">
@@ -1741,7 +1752,8 @@ Please try again later or create an offer yourself.</oldsource>
         <translation type="unfinished">refund transaction confirmations</translation>
     </message>
     <message id="swap-invalid-rate">
-        <source>Invalid rate</source>
+        <source></source>
+        <oldsource>Invalid rate</oldsource>
         <translation type="unfinished">Invalid rate</translation>
     </message>
     <message id="swap-details-tx-id">
