@@ -1291,8 +1291,8 @@ or send this address to the sender over secure channel</translation>
         <translation>Swap</translation>
     </message>
     <message id="settings-reset">
-        <source>Disconnect</source>
-        <translation>Disconnect</translation>
+        <source>Clear</source>
+        <translation>Clear</translation>
     </message>
     <message id="settings-node-address">
         <source>Node Address</source>
@@ -1615,11 +1615,10 @@ or send this address to the sender over secure channel</translation>
         <translation type="unfinished">Received</translation>
     </message>
     <message id="settings-progress-na">
-        <source>You cannot change settings\nwhile active transaction is in progress</source>
-        <oldsource>You cannot change settings
-while active transaction is in progress</oldsource>
-        <translation type="unfinished">You cannot change settings
-while active transaction is in progress</translation>
+        <source>You cannot disconnect wallet, edit seed phrase or change default fee while you have\ntransactions in progress. Please wait untill transactions are completed\nand try again.</source>
+        <translation>You cannot disconnect wallet, edit seed phrase or change default fee while you have
+transactions in progress. Please wait untill transactions are completed
+and try again.</translation>
     </message>
     <message id="atomic-no-offers">
         <source>There are no active offers at the moment.\nPlease try again later or create an offer yourself.</source>
@@ -1756,6 +1755,54 @@ Please check the swap token and try again.</translation>
     <message id="swap-details-tx-fee">
         <source>Transaction fee</source>
         <translation type="unfinished">Transaction fee</translation>
+    </message>
+    <message id="swap-details-tx-comment">
+        <source>Comment</source>
+        <translation type="unfinished">Comment</translation>
+    </message>
+    <message id="swap-details-tx-fee-rate">
+        <source>Transaction fee rate</source>
+        <translation type="unfinished">Transaction fee rate</translation>
+    </message>
+    <message id="settings-swap-disconnect">
+        <source>Disconnect</source>
+        <translation>Disconnect</translation>
+    </message>
+    <message id="settings-swap-seed-phrase">
+        <source>Seed Phrase</source>
+        <translation>Seed Phrase</translation>
+    </message>
+    <message id="settings-swap-bitcoin-node">
+        <source>Bitcoin node</source>
+        <translation>Bitcoin node</translation>
+    </message>
+    <message id="settings-swap-litecoin-node">
+        <source>Litecoin node</source>
+        <translation>Litecoin node</translation>
+    </message>
+    <message id="settings-swap-qtum-node">
+        <source>Qtum node</source>
+        <translation>Qtum node</translation>
+    </message>
+    <message id="settings-swap-bitcoin-electrum">
+        <source>Bitcoin electrum</source>
+        <translation>Bitcoin electrum</translation>
+    </message>
+    <message id="settings-swap-litecoin-electrum">
+        <source>Litecoin electrum</source>
+        <translation>Litecoin electrum</translation>
+    </message>
+    <message id="settings-swap-qtum-electrum">
+        <source>Qtum electrum</source>
+        <translation>Qtum electrum</translation>
+    </message>
+    <message id="connect to electrum node">
+        <source>connect to electrum node</source>
+        <translation>connect to electrum node</translation>
+    </message>
+    <message id="connect to node">
+        <source>connect to node</source>
+        <translation>connect to node</translation>
     </message>
     <message id="invalid-rate-min">
         <source>Rate cannot be less than %1</source>

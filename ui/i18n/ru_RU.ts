@@ -1295,7 +1295,8 @@
         <translation>Своп</translation>
     </message>
     <message id="settings-reset">
-        <source>Disconnect</source>
+        <source>Clear</source>
+        <oldsource>Disconnect</oldsource>
         <translation type="unfinished">Disconnect</translation>
     </message>
     <message id="settings-node-address">
@@ -1624,8 +1625,7 @@ Update your settings and try again.</source>
         <translation>Получено</translation>
     </message>
     <message id="settings-progress-na">
-        <source>You cannot change settings
-while active transaction is in progress</source>
+        <source>You cannot disconnect wallet, edit seed phrase or change default fee while you have\ntransactions in progress. Please wait untill transactions are completed\nand try again.</source>
         <oldsource>You cannot change settings\nwhile active transaction is in progress</oldsource>
         <translation type="unfinished">You cannot change settings\nwhile active transaction is in progress</translation>
     </message>
@@ -1765,6 +1765,54 @@ Please check the swap token and try again.</source>
     <message id="swap-details-tx-fee">
         <source>Transaction fee</source>
         <translation>Комиссия</translation>
+    </message>
+    <message id="swap-details-tx-comment">
+        <source>Comment</source>
+        <translation type="unfinished">Комментарий</translation>
+    </message>
+    <message id="swap-details-tx-fee-rate">
+        <source>Transaction fee rate</source>
+        <translation type="unfinished">Transaction fee rate</translation>
+    </message>
+    <message id="settings-swap-disconnect">
+        <source>Disconnect</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="settings-swap-seed-phrase">
+        <source>Seed Phrase</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="settings-swap-bitcoin-node">
+        <source>Bitcoin node</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="settings-swap-litecoin-node">
+        <source>Litecoin node</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="settings-swap-qtum-node">
+        <source>Qtum node</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="settings-swap-bitcoin-electrum">
+        <source>Bitcoin electrum</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="settings-swap-litecoin-electrum">
+        <source>Litecoin electrum</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="settings-swap-qtum-electrum">
+        <source>Qtum electrum</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="connect to electrum node">
+        <source>connect to electrum node</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="connect to node">
+        <source>connect to node</source>
+        <translation type="unfinished"></translation>
     </message>
 </context>
 </TS>

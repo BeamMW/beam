@@ -22,6 +22,111 @@
 #include "wallet/bitcoin/client.h"
 #include "wallet/bitcoin/settings.h"
 
+class SwapCoinClientModel;
+
+class SwapCoinSettingsItem : public QObject
+{
+    Q_OBJECT
+
+    Q_PROPERTY(QString  feeRateLabel READ getFeeRateLabel                         CONSTANT)
+    Q_PROPERTY(int      minFeeRate   READ getMinFeeRate                           CONSTANT)
+    Q_PROPERTY(QString  title        READ getTitle                                NOTIFY titleChanged)
+    Q_PROPERTY(int      feeRate      READ getFeeRate      WRITE setFeeRate        NOTIFY feeRateChanged)
+    // node settings
+    Q_PROPERTY(QString  nodeUser     READ getNodeUser     WRITE setNodeUser       NOTIFY nodeUserChanged)
+    Q_PROPERTY(QString  nodePass     READ getNodePass     WRITE setNodePass       NOTIFY nodePassChanged)
+    Q_PROPERTY(QString  nodeAddress  READ getNodeAddress  WRITE setNodeAddress    NOTIFY nodeAddressChanged)
+    // electrum settings
+    Q_PROPERTY(QString  seedElectrum        READ getSeedElectrum         WRITE setSeedElectrum         NOTIFY seedElectrumChanged)
+    Q_PROPERTY(QString  nodeAddressElectrum READ getNodeAddressElectrum  WRITE setNodeAddressElectrum  NOTIFY nodeAddressElectrumChanged)
+
+    Q_PROPERTY(bool canEdit      READ getCanEdit                            NOTIFY canEditChanged)
+
+    Q_PROPERTY(bool isConnected  READ getIsConnected                        NOTIFY connectionTypeChanged)
+    Q_PROPERTY(bool isNodeConnection READ getIsNodeConnection               NOTIFY connectionTypeChanged)
+    Q_PROPERTY(bool isElectrumConnection READ getIsElectrumConnection       NOTIFY connectionTypeChanged)
+
+public:
+    SwapCoinSettingsItem(SwapCoinClientModel& coinClient, beam::wallet::AtomicSwapCoin swapCoin);
+
+
+    QString getFeeRateLabel() const;
+    int getMinFeeRate() const;
+
+    QString getTitle() const;
+
+    int getFeeRate() const;
+    void setFeeRate(int value);
+    QString getNodeUser() const;
+    void setNodeUser(const QString& value);
+    QString getNodePass() const;
+    void setNodePass(const QString& value);
+    QString getNodeAddress() const;
+    void setNodeAddress(const QString& value);
+
+    QString getSeedElectrum() const;
+    void setSeedElectrum(const QString& value);
+    QString getNodeAddressElectrum() const;
+    void setNodeAddressElectrum(const QString& value);
+
+    bool getCanEdit() const;
+
+    bool getIsConnected() const;
+    bool getIsNodeConnection() const;
+    bool getIsElectrumConnection() const;
+
+    Q_INVOKABLE void applyNodeSettings();
+    Q_INVOKABLE void applyElectrumSettings();
+
+    Q_INVOKABLE void resetNodeSettings();
+    Q_INVOKABLE void resetElectrumSettings();
+
+    Q_INVOKABLE void newElectrumSeed();
+
+    Q_INVOKABLE void disconnect();
+    Q_INVOKABLE void connectToNode();
+    Q_INVOKABLE void connectToElectrum();
+
+signals:
+
+    void titleChanged();
+    void feeRateChanged();
+    void nodeUserChanged();
+    void nodePassChanged();
+    void nodeAddressChanged();
+
+    void seedElectrumChanged();
+    void nodeAddressElectrumChanged();
+
+    void useElectrumChanged();
+    void canEditChanged();
+    void connectionTypeChanged();
+
+private:
+    QString getGeneralTitle() const;
+    QString getConnectedNodeTitle() const;
+    QString getConnectedElectrumTitle() const;
+
+    void LoadSettings();
+    void SetDefaultNodeSettings();
+    void SetDefaultElectrumSettings();
+    void setConnectionType(beam::bitcoin::ISettings::ConnectionType type);
+
+private:
+    beam::wallet::AtomicSwapCoin m_swapCoin;
+    SwapCoinClientModel& m_coinClient;
+
+    boost::optional<beam::bitcoin::Settings> m_settings;
+    int m_feeRate = 0;
+
+    beam::bitcoin::ISettings::ConnectionType m_connectionType = beam::bitcoin::ISettings::None;
+    QString m_nodeUser;
+    QString m_nodePass;
+    QString m_nodeAddress;
+
+    QString m_seedElectrum;
+    QString m_nodeAddressElectrum;
+};
 
 
 class SettingsViewModel : public QObject
@@ -44,44 +149,12 @@ class SettingsViewModel : public QObject
     Q_PROPERTY(QString currentLanguage READ getCurrentLanguage WRITE setCurrentLanguage)
     Q_PROPERTY(bool isValidNodeAddress READ isValidNodeAddress NOTIFY validNodeAddressChanged)
 
-    Q_PROPERTY(QString  btcUser        READ getBtcUser         WRITE setBtcUser         NOTIFY btcUserChanged)
-    Q_PROPERTY(QString  btcPass        READ getBtcPass         WRITE setBtcPass         NOTIFY btcPassChanged)
-    Q_PROPERTY(QString  btcNodeAddress READ getBtcNodeAddress  WRITE setBtcNodeAddress  NOTIFY btcNodeAddressChanged)
-    Q_PROPERTY(int      btcFeeRate     READ getBtcFeeRate      WRITE setBtcFeeRate      NOTIFY btcFeeRateChanged)
-
-    Q_PROPERTY(QString  ltcUser        READ getLtcUser         WRITE setLtcUser         NOTIFY ltcUserChanged)
-    Q_PROPERTY(QString  ltcPass        READ getLtcPass         WRITE setLtcPass         NOTIFY ltcPassChanged)
-    Q_PROPERTY(QString  ltcNodeAddress READ getLtcNodeAddress  WRITE setLtcNodeAddress  NOTIFY ltcNodeAddressChanged)
-    Q_PROPERTY(int      ltcFeeRate     READ getLtcFeeRate      WRITE setLtcFeeRate      NOTIFY ltcFeeRateChanged)
-
-    Q_PROPERTY(QString  qtumUser        READ getQtumUser         WRITE setQtumUser         NOTIFY qtumUserChanged)
-    Q_PROPERTY(QString  qtumPass        READ getQtumPass         WRITE setQtumPass         NOTIFY qtumPassChanged)
-    Q_PROPERTY(QString  qtumNodeAddress READ getQtumNodeAddress  WRITE setQtumNodeAddress  NOTIFY qtumNodeAddressChanged)
-    Q_PROPERTY(int      qtumFeeRate     READ getQtumFeeRate      WRITE setQtumFeeRate      NOTIFY qtumFeeRateChanged)
-
-    Q_PROPERTY(QString  btcSeedEL        READ getBtcSeedEL         WRITE setBtcSeedEL         NOTIFY btcSeedELChanged)
-    Q_PROPERTY(QString  btcNodeAddressEL READ getBtcNodeAddressEL  WRITE setBtcNodeAddressEL  NOTIFY btcNodeAddressELChanged)
-    Q_PROPERTY(int      btcFeeRateEL     READ getBtcFeeRateEL      WRITE setBtcFeeRateEL      NOTIFY btcFeeRateELChanged)
-
-    Q_PROPERTY(QString  ltcSeedEL        READ getLtcSeedEL         WRITE setLtcSeedEL         NOTIFY ltcSeedELChanged)
-    Q_PROPERTY(QString  ltcNodeAddressEL READ getLtcNodeAddressEL  WRITE setLtcNodeAddressEL  NOTIFY ltcNodeAddressELChanged)
-    Q_PROPERTY(int      ltcFeeRateEL     READ getLtcFeeRateEL      WRITE setLtcFeeRateEL      NOTIFY ltcFeeRateELChanged)
-
-    Q_PROPERTY(QString  qtumSeedEL        READ getQtumSeedEL         WRITE setQtumSeedEL         NOTIFY qtumSeedELChanged)
-    Q_PROPERTY(QString  qtumNodeAddressEL READ getQtumNodeAddressEL  WRITE setQtumNodeAddressEL  NOTIFY qtumNodeAddressELChanged)
-    Q_PROPERTY(int      qtumFeeRateEL     READ getQtumFeeRateEL      WRITE setQtumFeeRateEL      NOTIFY qtumFeeRateELChanged)
-
-    Q_PROPERTY(bool btcUseEL   READ getBtcUseEL    WRITE setBtcUseEL    NOTIFY btcUseELChanged)
-    Q_PROPERTY(bool ltcUseEL   READ getLtcUseEL    WRITE setLtcUseEL    NOTIFY ltcUseELChanged)
-    Q_PROPERTY(bool qtumUseEL  READ getQtumUseEL   WRITE setQtumUseEL   NOTIFY qtumUseELChanged)
-
-    Q_PROPERTY(bool canEditBTC   READ getCanEditBTC   NOTIFY canEditBTCChanged)
-    Q_PROPERTY(bool canEditLTC   READ getCanEditLTC   NOTIFY canEditLTCChanged)
-    Q_PROPERTY(bool canEditQTUM  READ getCanEditQTUM  NOTIFY canEditQTUMChanged)
+    Q_PROPERTY(QList<QObject*> swapCoinSettings READ getSwapCoinSettings CONSTANT)
 
 public:
 
     SettingsViewModel();
+    virtual ~SettingsViewModel();
 
     QString getNodeAddress() const;
     void setNodeAddress(const QString& value);
@@ -110,57 +183,7 @@ public:
 
     bool isChanged() const;
 
-    QString getBtcUser() const;
-    void setBtcUser(const QString& value);
-    QString getBtcPass() const;
-    void setBtcPass(const QString& value);
-    QString getBtcNodeAddress() const;
-    void setBtcNodeAddress(const QString& value);
-    int getBtcFeeRate() const;
-    void setBtcFeeRate(int value);
-
-    QString getLtcUser() const;
-    void setLtcUser(const QString& value);
-    QString getLtcPass() const;
-    void setLtcPass(const QString& value);
-    QString getLtcNodeAddress() const;
-    void setLtcNodeAddress(const QString& value);
-    int getLtcFeeRate() const;
-    void setLtcFeeRate(int value);
-
-    QString getBtcSeedEL() const;
-    void setBtcSeedEL(const QString& value);
-    QString getBtcNodeAddressEL() const;
-    void setBtcNodeAddressEL(const QString& value);
-    int getBtcFeeRateEL() const;
-    void setBtcFeeRateEL(int value);
-
-    QString getLtcSeedEL() const;
-    void setLtcSeedEL(const QString& value);
-    QString getLtcNodeAddressEL() const;
-    void setLtcNodeAddressEL(const QString& value);
-    int getLtcFeeRateEL() const;
-    void setLtcFeeRateEL(int value);
-
-    QString getQtumSeedEL() const;
-    void setQtumSeedEL(const QString& value);
-    QString getQtumNodeAddressEL() const;
-    void setQtumNodeAddressEL(const QString& value);
-    int getQtumFeeRateEL() const;
-    void setQtumFeeRateEL(int value);
-
-    bool getBtcUseEL() const;
-    void setBtcUseEL(bool value);
-
-    bool getLtcUseEL() const;
-    void setLtcUseEL(bool value);
-
-    bool getQtumUseEL() const;
-    void setQtumUseEL(bool value);
-
-    bool getCanEditBTC() const;
-    bool getCanEditLTC() const;
-    bool getCanEditQTUM() const;
+    const QList<QObject*>& getSwapCoinSettings();
 
     Q_INVOKABLE uint coreAmount() const;
     Q_INVOKABLE void addLocalNodePeer(const QString& localNodePeer);
@@ -169,32 +192,6 @@ public:
     Q_INVOKABLE void refreshWallet();
     Q_INVOKABLE void openFolder(const QString& path);
     Q_INVOKABLE bool checkWalletPassword(const QString& password) const;
-    Q_INVOKABLE void applyBtcSettings();
-    Q_INVOKABLE void applyLtcSettings();
-    Q_INVOKABLE void applyQtumSettings();
-    Q_INVOKABLE void applyBtcSettingsEL();
-    Q_INVOKABLE void applyLtcSettingsEL();
-    Q_INVOKABLE void applyQtumSettingsEL();
-
-    Q_INVOKABLE void btcOff();
-    Q_INVOKABLE void ltcOff();
-    Q_INVOKABLE void qtumOff();
-    Q_INVOKABLE void btcOffEL();
-    Q_INVOKABLE void ltcOffEL();
-    Q_INVOKABLE void qtumOffEL();
-
-    Q_INVOKABLE void btcNewSeedEL();
-    Q_INVOKABLE void ltcNewSeedEL();
-    Q_INVOKABLE void qtumNewSeedEL();
-
-    QString getQtumUser() const;
-    void setQtumUser(const QString& value);
-    QString getQtumPass() const;
-    void setQtumPass(const QString& value);
-    QString getQtumNodeAddress() const;
-    void setQtumNodeAddress(const QString& value);
-    int getQtumFeeRate() const;
-    void setQtumFeeRate(int value);
 
 public slots:
     void applyChanges();
@@ -218,57 +215,12 @@ signals:
     void currentLanguageIndexChanged();
     void beamMWLinksAllowed();
 
-    void btcUserChanged();
-    void btcPassChanged();
-    void btcNodeAddressChanged();
-    void btcFeeRateChanged();
-
-    void btcSeedELChanged();
-    void btcNodeAddressELChanged();
-    void btcFeeRateELChanged();
-
-    void ltcSeedELChanged();
-    void ltcNodeAddressELChanged();
-    void ltcFeeRateELChanged();
-
-    void qtumSeedELChanged();
-    void qtumNodeAddressELChanged();
-    void qtumFeeRateELChanged();
-
-    void ltcUserChanged();
-    void ltcPassChanged();
-    void ltcNodeAddressChanged();
-    void ltcFeeRateChanged();
-
-    void qtumUserChanged();
-    void qtumPassChanged();
-    void qtumNodeAddressChanged();
-    void qtumFeeRateChanged();
-
-    void btcUseELChanged();
-    void ltcUseELChanged();
-    void qtumUseELChanged();
-
-    void canEditBTCChanged();
-    void canEditLTCChanged();
-    void canEditQTUMChanged();
-
 protected:
     void timerEvent(QTimerEvent *event) override;
 
 private:
-    void LoadBitcoinSettings();
-    void LoadLitecoinSettings();
-    void LoadQtumSettings();
-
-    void SetDefaultBtcSettings();
-    void SetDefaultBtcSettingsEL();
-    void SetDefaultLtcSettings();
-    void SetDefaultLtcSettingsEL();
-    void SetDefaultQtumSettings();
-    void SetDefaultQtumSettingsEL();
-
     WalletSettings& m_settings;
+    QList<QObject*> m_swapSettings;
 
     QString m_nodeAddress;
     bool m_localNodeRun;
@@ -283,40 +235,6 @@ private:
     QStringList m_supportedLanguages;
     int m_currentLanguageIndex;
     int m_timerId;
-
-    boost::optional<beam::bitcoin::Settings> m_bitcoinSettings;
-    QString m_bitcoinUser;
-    QString m_bitcoinPass;
-    QString m_bitcoinNodeAddress;
-    int m_bitcoinFeeRate = 0;
-
-    QString m_bitcoinSeedEl;
-    QString m_bitcoinNodeAddressEl;
-    int m_bitcoinFeeRateEl = 0;
-
-    boost::optional<beam::bitcoin::Settings> m_litecoinSettings;
-    QString m_litecoinUser;
-    QString m_litecoinPass;
-    QString m_litecoinNodeAddress;
-    int m_litecoinFeeRate = 0;
-
-    QString m_litecoinSeedEl;
-    QString m_litecoinNodeAddressEl;
-    int m_litecoinFeeRateEl = 0;
-
-    boost::optional<beam::bitcoin::Settings> m_qtumSettings;
-    QString m_qtumUser;
-    QString m_qtumPass;
-    QString m_qtumNodeAddress;
-    int m_qtumFeeRate = 0;
-
-    QString m_qtumSeedEl;
-    QString m_qtumNodeAddressEl;
-    int m_qtumFeeRateEl = 0;
-
-    bool m_btcUseEL = false;
-    bool m_ltcUseEL = false;
-    bool m_qtumUseEL = false;
 
     const int CHECK_INTERVAL = 1000;
 };

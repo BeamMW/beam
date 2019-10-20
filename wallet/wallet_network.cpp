@@ -300,22 +300,24 @@ namespace beam::wallet {
 
 	WalletNetworkViaBbs::~WalletNetworkViaBbs()
 	{
-        m_WalletDB->Unsubscribe(this);
-		m_Miner.Stop();
+        try 
+        {
+            m_WalletDB->Unsubscribe(this);
+		    m_Miner.Stop();
 
-		while (!m_PendingBbsMsgs.empty())
-			DeleteReq(m_PendingBbsMsgs.front());
+		    while (!m_PendingBbsMsgs.empty())
+			    DeleteReq(m_PendingBbsMsgs.front());
 
-        Unsubscribe();
-
-		try {
+            Unsubscribe();
+		
 			SaveBbsTimestamps();
 		} 
         catch (const std::exception& e)
         {
             LOG_UNHANDLED_EXCEPTION() << "what = " << e.what();
         }
-        catch (...) {
+        catch (...)
+        {
             LOG_UNHANDLED_EXCEPTION();
 		}
 	}

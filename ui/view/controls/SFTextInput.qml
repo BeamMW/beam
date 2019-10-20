@@ -28,6 +28,7 @@ T.TextField {
     verticalAlignment: TextInput.AlignVCenter
 
     property alias backgroundColor : backgroundRect.color
+    property alias underlineVisible : backgroundRect.visible
     backgroundColor: Style.content_main
 
 	selectByMouse: true

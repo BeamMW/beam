@@ -194,15 +194,15 @@ bool QMLGlobals::canSwap()
 
 bool QMLGlobals::haveBtc()
 {
-    return AppModel::getInstance().getBitcoinClient()->GetSettings().IsInitialized();
+    return AppModel::getInstance().getBitcoinClient()->GetSettings().IsActivated();
 }
 
 bool QMLGlobals::haveLtc()
 {
-    return AppModel::getInstance().getLitecoinClient()->GetSettings().IsInitialized();
+    return AppModel::getInstance().getLitecoinClient()->GetSettings().IsActivated();
 }
 
 bool QMLGlobals::haveQtum()
 {
-    return AppModel::getInstance().getQtumClient()->GetSettings().IsInitialized();
+    return AppModel::getInstance().getQtumClient()->GetSettings().IsActivated();
 }

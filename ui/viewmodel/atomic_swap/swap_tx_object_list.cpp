@@ -59,6 +59,7 @@ auto SwapTxObjectList::roleNames() const -> QHash<int, QByteArray>
         { static_cast<int>(Roles::AmountReceiveSort), "amountReceiveSort" },
         { static_cast<int>(Roles::Token), "token" },
         { static_cast<int>(Roles::SwapCoin), "swapCoin" },
+        { static_cast<int>(Roles::FeeRate), "feeRate" },
         { static_cast<int>(Roles::SwapCoinLockTxId), "swapCoinLockTxId" },
         { static_cast<int>(Roles::SwapCoinLockTxConfirmations), "swapCoinLockTxConfirmations" },
         { static_cast<int>(Roles::SwapCoinRedeemTxId), "swapCoinRedeemTxId" },
@@ -192,6 +193,9 @@ auto SwapTxObjectList::data(const QModelIndex &index, int role) const -> QVarian
 
         case Roles::SwapCoin:
             return value->getSwapCoinName();
+
+        case Roles::FeeRate:
+            return value->getFeeRate();
 
         case Roles::SwapCoinLockTxId:
             return value->getSwapCoinLockTxId();

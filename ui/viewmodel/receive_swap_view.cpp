@@ -147,7 +147,6 @@ void ReceiveSwapViewModel::setSentFee(unsigned int value)
     {
         _sentFeeGrothes = value;
         emit sentFeeChanged();
-        updateTransactionToken();
     }
 }
 
@@ -190,7 +189,6 @@ void ReceiveSwapViewModel::setReceiveFee(unsigned int value)
     {
         _receiveFeeGrothes = value;
         emit receiveFeeChanged();
-        updateTransactionToken();
     }
 }
 
@@ -356,6 +354,11 @@ void ReceiveSwapViewModel::startListen()
     txParameters.SetParameter(TxParameterID::Fee, beam::Amount(swapFee), isBeamSide ? SubTxIndex::REDEEM_TX : SubTxIndex::LOCK_TX);
     txParameters.SetParameter(TxParameterID::AtomicSwapIsBeamSide, isBeamSide);
     txParameters.SetParameter(TxParameterID::IsSender, isBeamSide);
+    if (getCommentValid())
+    {
+        std::string localComment = _addressComment.toStdString();
+        txParameters.SetParameter(TxParameterID::Message, beam::ByteBuffer(localComment.begin(), localComment.end()));
+    }
 
     _walletModel.getAsync()->startTransaction(std::move(txParameters));
 }

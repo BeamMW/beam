@@ -374,7 +374,7 @@ namespace beam::wallet
                     }
 
                     bool isRegistered = !txID.empty();
-                    LOG_DEBUG() << m_tx.GetTxID() << "[" << subTxID << "]" << (isRegistered ? " has registered." : " has failed to register.");
+                    LOG_DEBUG() << m_tx.GetTxID() << "[" << subTxID << "]" << (isRegistered ? " has registered. External txid: " + txID : " has failed to register.");
 
                     uint8_t nRegistered = isRegistered ? proto::TxStatus::Ok : proto::TxStatus::Unspecified;
                     m_tx.SetParameter(TxParameterID::TransactionRegistered, nRegistered, false, subTxID);

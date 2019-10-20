@@ -78,8 +78,41 @@ namespace beam::bitcoin
         void AddRef() override;
         void ReleaseRef() override;
 
-        virtual const char* GetSettingsName() const;
+        virtual std::string GetSettingsName() const;
         virtual Settings GetEmptySettings();
+
+        std::string GetUserName() const;
+        std::string GetPassName() const;
+        std::string GetAddressName() const;
+        std::string GetElectrumAddressName() const;
+        std::string GetSecretWordsName() const;
+        std::string GetAddressVersionName() const;
+        std::string GetFeeRateName() const;
+        std::string GetMinFeeRateName() const;
+        std::string GetTxMinConfirmationsName() const;
+        std::string GetLockTimeInBlocksName() const;
+        std::string GetConnectrionTypeName() const;
+
+        template<typename T>
+        void ReadFromDB(const std::string& name, T& value)
+        {
+            ByteBuffer settings;
+            m_walletDB->getBlob(name.c_str(), settings);
+
+            if (!settings.empty())
+            {
+                Deserializer d;
+                d.reset(settings.data(), settings.size());
+                d& value;
+            }
+        }
+
+        template<typename T>
+        void WriteToDb(const std::string& name, const T& value)
+        {
+            auto buffer = wallet::toByteBuffer(value);
+            m_walletDB->setVarRaw(name.c_str(), buffer.data(), buffer.size());
+        }
 
     private:
         wallet::IWalletDB::Ptr m_walletDB;

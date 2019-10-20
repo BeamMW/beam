@@ -15,25 +15,42 @@
 #include "local_private_key_keeper.h"
 #include "mnemonic/mnemonic.h"
 
-namespace beam
+#include <emscripten/bind.h>
+
+using namespace emscripten;
+
+struct KeyKeeper
 {
-    bool Block::PoW::IsValid(const void* pInput, uint32_t nSizeInput, Height h) const
+    KeyKeeper(const beam::WordList& words)
     {
-        return false;
+        ECC::NoLeak<ECC::uintBig> seed;
+        auto buf = beam::decodeMnemonic(words);
+        ECC::Hash::Processor() << beam::Blob(buf.data(), (uint32_t)buf.size()) >> seed.V;
+        ECC::HKdf::Create(_kdf, seed.V);
+
+        std::cout << seed.V << std::endl;
     }
 
-    bool Block::PoW::Solve(const void* pInput, uint32_t nSizeInput, Height h, const Cancel& fnCancel)
-    {
-        return false;
-    }
+private:
+    beam::Key::IKdf::Ptr _kdf;
+};
 
-    void Input::State::get_ID(Merkle::Hash& hv, const ECC::Point& comm) const
-    {
+// Binding code
+EMSCRIPTEN_BINDINGS() {
 
-    }
+    register_vector<std::string>("WordList");
+    class_<KeyKeeper>("KeyKeeper")
+        .constructor<const beam::WordList&>()
+        // .function("func", &KeyKeeper::func)
+        // .property("prop", &KeyKeeper::getProp, &KeyKeeper::setProp)
+        // .class_function("StaticFunc", &KeyKeeper::StaticFunc)
+        ;
 }
 
-int main()
+extern "C"
+{
+
+void runTest()
 {
     std::cout << "Start Key Keeper Test..." << std::endl;
 
@@ -84,6 +101,6 @@ int main()
 
         std::cout << "Public key: " << pt2 << std::endl;
     }
-    
-    return 0;
+}
+
 }
