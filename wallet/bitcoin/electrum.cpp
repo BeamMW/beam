@@ -59,13 +59,13 @@ namespace beam::bitcoin
         LOG_DEBUG() << "dumpPrivKey command";
 
         Error error{ None, "" };
-        auto privateKeys = generateMasterPrivateKeys();
+        auto privateKeys = generateElectrumMasterPrivateKeys(m_settingsProvider.GetElectrumSettings().m_secretWords);
         auto settings = m_settingsProvider.GetElectrumSettings();
         auto addressVersion = settings.m_addressVersion;
         auto receivingAddressAmount = settings.m_receivingAddressAmount;
         for (uint32_t i = 0; i < receivingAddressAmount; ++i)
         {
-            if (btcAddress == getAddress(i, privateKeys.first))
+            if (btcAddress == getElectrumAddress(privateKeys.first, i, addressVersion))
             {
                 ec_private privateKey(privateKeys.first.derive_private(i).secret(), addressVersion);
                 callback(error, privateKey.encoded());
@@ -76,7 +76,7 @@ namespace beam::bitcoin
         auto changeAddressAmount = settings.m_changeAddressAmount;
         for (uint32_t i = 0; i < changeAddressAmount; ++i)
         {
-            if (btcAddress == getAddress(i, privateKeys.second))
+            if (btcAddress == getElectrumAddress(privateKeys.second, i, addressVersion))
             {
                 ec_private privateKey(privateKeys.second.derive_private(i).secret(), addressVersion);
                 callback(error, privateKey.encoded());
@@ -123,7 +123,7 @@ namespace beam::bitcoin
                 unspentPoints.points.push_back(point_value(point(txHash, coin.m_details["tx_pos"].get<uint32_t>()), coin.m_details["value"].get<uint64_t>()));
             }
 
-            auto privateKeys = generateMasterPrivateKeys();
+            auto privateKeys = generateElectrumMasterPrivateKeys(m_settingsProvider.GetElectrumSettings().m_secretWords);
             while (true)
             {
                 int changePosition = -1;
@@ -163,7 +163,7 @@ namespace beam::bitcoin
 
                 if (fee < newTxFee)
                 {
-                    payment_address destinationAddress(getAddress(0, privateKeys.second));
+                    payment_address destinationAddress(getElectrumAddress(privateKeys.second, 0, m_settingsProvider.GetElectrumSettings().m_addressVersion));
                     script outputScript = script().to_pay_key_hash_pattern(destinationAddress.hash());
                     output out(newTxFee - fee, outputScript);
                     Amount feeOutput = static_cast<Amount>(std::round(double(out.serialized_size() * feeRate) / 1000));
@@ -293,11 +293,11 @@ namespace beam::bitcoin
         LOG_DEBUG() << "getRawChangeAddress command";
 
         Error error{ None, "" };
-        auto privateKeys = generateMasterPrivateKeys();
+        auto privateKeys = generateElectrumMasterPrivateKeys(m_settingsProvider.GetElectrumSettings().m_secretWords);
         std::srand(static_cast<unsigned int>(std::time(0)));
         uint32_t index = static_cast<uint32_t>(std::rand() % m_settingsProvider.GetElectrumSettings().m_receivingAddressAmount);
 
-        callback(error, getAddress(index, privateKeys.first));
+        callback(error, getElectrumAddress(privateKeys.first, index, m_settingsProvider.GetElectrumSettings().m_addressVersion));
     }
 
     void Electrum::createRawTransaction(
@@ -675,18 +675,10 @@ namespace beam::bitcoin
         }, 2000, true);
     }
 
-    std::string Electrum::getAddress(uint32_t index, const hd_private& privateKey) const
-    {
-        ec_public publicKey(privateKey.to_public().derive_public(index).point());
-        payment_address address = publicKey.to_payment_address(m_settingsProvider.GetElectrumSettings().m_addressVersion);
-
-        return address.encoded();
-    }    
-
     std::vector<libbitcoin::wallet::ec_private> Electrum::generatePrivateKeyList() const
     {
         std::vector<ec_private> result;
-        auto privateKeys = generateMasterPrivateKeys();
+        auto privateKeys = generateElectrumMasterPrivateKeys(m_settingsProvider.GetElectrumSettings().m_secretWords);
         auto settings = m_settingsProvider.GetElectrumSettings();
         auto addressVersion = settings.m_addressVersion;
         auto receivingAddressAmount = settings.m_receivingAddressAmount;
@@ -702,20 +694,6 @@ namespace beam::bitcoin
             result.push_back(ec_private(privateKeys.second.derive_private(i).secret(), addressVersion));
         }
         return result;
-    }
-
-    std::pair<hd_private, hd_private> Electrum::generateMasterPrivateKeys() const
-    {
-        word_list seedPhrase(m_settingsProvider.GetElectrumSettings().m_secretWords);
-        auto hd_seed = electrum::decode_mnemonic(seedPhrase);
-        data_chunk seed_chunk(to_chunk(hd_seed));
-#ifdef BEAM_MAINNET
-        hd_private masterPrivateKey(seed_chunk, hd_public::mainnet);
-#else
-        hd_private masterPrivateKey(seed_chunk, hd_public::testnet);
-#endif
-
-        return std::make_pair(masterPrivateKey.derive_private(0), masterPrivateKey.derive_private(1));
     }
 
     void Electrum::lockUtxo(std::string hash, uint32_t pos)

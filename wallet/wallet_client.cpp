@@ -91,12 +91,7 @@ struct WalletModelBridge : public Bridge<IWalletModelAsync>
         call_async(&IWalletModelAsync::getAddresses, own);
     }
     
-#ifdef BEAM_ATOMIC_SWAP_SUPPORT
-    void setSwapOffersCoinType(AtomicSwapCoin type) override
-    {
-		call_async(&IWalletModelAsync::setSwapOffersCoinType, type);
-    }
-    
+#ifdef BEAM_ATOMIC_SWAP_SUPPORT    
     void getSwapOffers() override
     {
 		call_async(&IWalletModelAsync::getSwapOffers);
@@ -614,14 +609,6 @@ namespace beam::wallet
     }
 
 #ifdef BEAM_ATOMIC_SWAP_SUPPORT
-    void WalletClient::setSwapOffersCoinType(AtomicSwapCoin type)
-    {
-        if (auto p = m_offersBulletinBoard.lock())
-        {
-            p->selectSwapCoin(type);
-        }
-    }
-
     void WalletClient::getSwapOffers()
     {
         if (auto p = m_offersBulletinBoard.lock())

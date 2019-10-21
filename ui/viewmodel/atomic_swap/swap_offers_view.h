@@ -29,6 +29,7 @@ class SwapOffersViewModel : public QObject
 	Q_OBJECT
     Q_PROPERTY(QAbstractItemModel*  transactions     READ getTransactions    NOTIFY allTransactionsChanged)
     Q_PROPERTY(QAbstractItemModel*  allOffers        READ getAllOffers       NOTIFY allOffersChanged)
+    Q_PROPERTY(int                  selectedCoin     READ getSelectedCoin    NOTIFY selectedCoinChanged     WRITE   setSelectedCoin)
     // TODO:double
     Q_PROPERTY(double               beamAvailable    READ beamAvailable      NOTIFY beamAvailableChanged)
     // TODO:double
@@ -54,6 +55,8 @@ public:
 
     QAbstractItemModel* getTransactions();
     QAbstractItemModel* getAllOffers();
+    int getSelectedCoin();
+    void setSelectedCoin(int coinType);
     // TODO:double
     double  beamAvailable() const;
     // TODO:double
@@ -74,8 +77,6 @@ public:
     bool hasLtcTx() const;
     bool hasQtumTx() const;
 
-    Q_INVOKABLE int getCoinType();
-    Q_INVOKABLE void setCoinType(int coinType);
     Q_INVOKABLE void cancelOffer(QVariant variantTxID);
     Q_INVOKABLE void cancelTx(QVariant variantTxID);
     Q_INVOKABLE void deleteTx(QVariant variantTxID);
@@ -92,6 +93,7 @@ public slots:
 signals:
     void allTransactionsChanged();
     void allOffersChanged();
+    void selectedCoinChanged();
     void beamAvailableChanged();
     void btcAvailableChanged();
     void ltcAvailableChanged();
@@ -104,7 +106,7 @@ private:
     bool hasActiveTx(const std::string& swapCoin) const;
     WalletModel& m_walletModel;
     
-    AtomicSwapCoin m_coinType;
+    AtomicSwapCoin m_selectedCoin;
 
     SwapTxObjectList m_transactionsList;
     SwapOffersList m_offersList;

@@ -110,7 +110,6 @@ namespace beam::wallet
         void getUtxosStatus() override;
         void getAddresses(bool own) override;
 #ifdef BEAM_ATOMIC_SWAP_SUPPORT
-        void setSwapOffersCoinType(AtomicSwapCoin type) override;
         void getSwapOffers() override;
         void publishSwapOffer(const SwapOffer& offer) override;
 #endif
