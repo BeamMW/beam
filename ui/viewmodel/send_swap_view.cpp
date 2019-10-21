@@ -377,6 +377,14 @@ void SendSwapViewModel::sendMoney()
     auto swapFee = (*isBeamSide) ? getReceiveFee() : getSendFee();
     auto subTxID = isBeamSide ? beam::wallet::SubTxIndex::REDEEM_TX : beam::wallet::SubTxIndex::LOCK_TX;
 
+    txParameters.SetParameter(TxParameterID::Fee, beam::Amount(beamFee));
+    txParameters.SetParameter(TxParameterID::Fee, beam::Amount(swapFee), subTxID);
+    if (!_comment.isEmpty())
+    {
+        std::string localComment = _comment.toStdString();
+        txParameters.SetParameter(TxParameterID::Message, beam::ByteBuffer(localComment.begin(), localComment.end()));
+    }
+
     {
         auto txID = txParameters.GetTxID();
         auto swapCoin = txParameters.GetParameter<beam::wallet::AtomicSwapCoin>(TxParameterID::AtomicSwapCoin);
@@ -393,9 +401,6 @@ void SendSwapViewModel::sendMoney()
                     << "responseHeight: " << *responseHeight << "\n\t"
                     << "minimalHeight: " << *minimalHeight;
     }
-
-    txParameters.SetParameter(TxParameterID::Fee, beam::Amount(beamFee));
-    txParameters.SetParameter(TxParameterID::Fee, beam::Amount(swapFee), subTxID);
 
     _walletModel.getAsync()->startTransaction(std::move(txParameters));
 }

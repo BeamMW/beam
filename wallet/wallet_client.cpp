@@ -424,7 +424,7 @@ namespace beam::wallet
         onStatus(getStatus());
     }
 
-    void WalletClient::onSystemStateChanged()
+    void WalletClient::onSystemStateChanged(const Block::SystemState::ID& stateID)
     {
         onStatus(getStatus());
     }

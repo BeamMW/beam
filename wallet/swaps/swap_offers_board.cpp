@@ -119,6 +119,29 @@ namespace beam::wallet
         }
     }
 
+    void SwapOffersBoard::onSystemStateChanged(const Block::SystemState::ID& stateID)
+    {
+        Height currentHeight = stateID.m_Height;
+
+        for (auto& pair : m_offersCache)
+        {
+            if (pair.second.m_status != SwapOfferStatus::Pending) continue;    // have to be already removed from board
+
+            auto peerResponseTime = pair.second.GetParameter<Height>(TxParameterID::PeerResponseTime);
+            auto minHeight = pair.second.GetParameter<Height>(TxParameterID::MinHeight);
+            if (peerResponseTime && minHeight)
+            {
+                auto expiresHeight = *minHeight + *peerResponseTime;
+
+                if (expiresHeight <= currentHeight)
+                {
+                    pair.second.m_status = SwapOfferStatus::Expired;
+                    notifySubscribers(ChangeAction::Removed, std::vector<SwapOffer>{pair.second});
+                }
+            }
+        }
+    }
+
     void SwapOffersBoard::onTransactionChanged(ChangeAction action, const std::vector<TxDescription>& items)
     {
         if (action != ChangeAction::Removed)
