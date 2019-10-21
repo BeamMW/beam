@@ -13,7 +13,6 @@
         <file>controls/SFText.qml</file>
         <file>controls/SFTextInput.qml</file>
         <file>controls/AvailablePanel.qml</file>
-        <file>controls/SecondaryPanel.qml</file>
         <file>controls/Led.qml</file>
         <file>controls/TxFilter.qml</file>
         <file>controls/TableItem.qml</file>

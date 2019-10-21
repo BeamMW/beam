@@ -14,8 +14,16 @@ function formatDateTime(datetime, localeName) {
          + ")";
 }
 
-function formatAmount (amount, toPlainNumber, showZero) {
-    return amount ? amount.toLocaleString(toPlainNumber ? Qt.locale("C") : Qt.locale(), 'f', -128) : (showZero ? "0" : "")
+function number2Locale (amount) {
+    return amount.toLocaleString(Qt.locale(), 'f', -128)
+}
+
+// @arg amount - any number or float string in "C" locale
+function amount2locale (amount) {
+    var locale = Qt.locale()
+    var parts  = amount.toString().split(".")
+    var left   = parts[0].replace(/(\d)(?=(?:\d{3})+\b)/g, "$1" + locale.groupSeparator)
+    return parts[1] ? [left, parts[1]].join(locale.decimalPoint) : left
 }
 
 function getLogoTopGapSize(parentHeight) {
@@ -60,14 +68,26 @@ function calcDisplayRate(aiReceive, aiSend, numOnly) {
     // ai[X] = amount input control
     var cr = aiReceive.currency
     var cs = aiSend.currency
-    if (cr == cs) return 1
+    if (cr == cs) return {rate: 1, displayRate: "1", error: false}
 
     var ams = aiSend.amount
     var amr = aiReceive.amount
-    if (ams == 0 || amr == 0) return ""
+    if (ams == 0 || amr == 0) return {rate: 0, displayRate: "", error: false}
 
-    return (ams / amr).toLocaleString(numOnly ? Qt.locale("C") : Qt.locale(), 'f', 28).replace(/\.?0+$/,"")
-    return (amr / ams).toLocaleString(numOnly ? Qt.locale("C") : Qt.locale(), 'f', 28).replace(/\.?0+$/,"")
+    var minRate     = 0.00000001
+    var rate        = amr / ams
+    var format      = function (value) {return value.toLocaleString(numOnly ? Qt.locale("C") : Qt.locale(), 'f', value < minRate ? 17 : 8).replace(/\.?0+$/,"")}
+    var displayRate = format(rate)
+
+    return {
+        rate: rate,
+        displayRate: displayRate,
+        error: rate < minRate,
+        //% "Rate cannot be less than %1"
+        errorText: rate < minRate ? qtTrId("invalid-rate-min").arg(minRate) : undefined,
+        minRate: minRate,
+        minDisplayRate: format(minRate)
+    }
 }
 
 function getAmountWithoutCurrency(amountWithCurrency) {

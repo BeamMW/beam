@@ -179,21 +179,21 @@ Item {
                     }
                     gradLeft: Style.swapCurrencyPaneGrLeftBEAM
                     currencyIcon: "qrc:/assets/icon-beam.svg"
-                    valueStr: [Utils.formatAmount(viewModel.beamAvailable, false, true), Utils.symbolBeam].join(" ")
+                    valueStr: [Utils.number2Locale(viewModel.beamAvailable), Utils.symbolBeam].join(" ")
                     valueSecondaryStr: activeTxCountStr()
                     visible: true
                 }
 
                 function btcAmount() {
-                    return viewModel.hasBtcTx ? "" : Utils.formatAmount(viewModel.btcAvailable, false, true) + " " + Utils.symbolBtc;
+                    return viewModel.hasBtcTx ? "" : Utils.number2Locale(viewModel.btcAvailable) + " " + Utils.symbolBtc;
                 }
 
                 function ltcAmount() {
-                    return viewModel.hasLtcTx ? "" : Utils.formatAmount(viewModel.ltcAvailable, false, true) + " " + Utils.symbolLtc;
+                    return viewModel.hasLtcTx ? "" : Utils.number2Locale(viewModel.ltcAvailable) + " " + Utils.symbolLtc;
                 }
 
                 function qtumAmount() {
-                    return viewModel.hasQtumTx ? "" : Utils.formatAmount(viewModel.qtumAvailable, false, true) + " " + Utils.symbolQtum;
+                    return viewModel.hasQtumTx ? "" : Utils.number2Locale(viewModel.qtumAvailable) + " " + Utils.symbolQtum;
                 }
 
                 //% "Transaction is in progress"
@@ -416,6 +416,7 @@ Item {
                         }
                     
                         CustomComboBox {
+                            id: coinSelector
                             Layout.alignment: Qt.AlignHCenter | Qt.AlignRight
                             height: 32
                             Layout.minimumWidth: 70
@@ -424,10 +425,12 @@ Item {
                             fontPixelSize: 14
                             fontLetterSpacing: 0.47
                             color: Style.content_main
-
-                            currentIndex: viewModel.getCoinType()
                             model: ["BTC", "LTC", "QTUM"]
-                            onCurrentIndexChanged: viewModel.setCoinType(currentIndex)
+                        }                        
+                        Binding {
+                            target:   viewModel
+                            property: "selectedCoin"
+                            value:    coinSelector.currentIndex
                         }
                     }   // RowLayout
 
@@ -488,7 +491,14 @@ Item {
                         model: SortFilterProxyModel {
                             id: proxyModel
                             source: SortFilterProxyModel {
-                                source: viewModel.allOffers                                
+                                source: SortFilterProxyModel {
+                                    // filter all offers by selected coin
+                                    source: viewModel.allOffers                                
+                                    filterRole: "swapCoin"
+                                    filterString: getCoinName(viewModel.selectedCoin)
+                                    filterSyntax: SortFilterProxyModel.Wildcard
+                                    filterCaseSensitivity: Qt.CaseInsensitive
+                                }
                                 filterRole: "isBeamSide"
                                 filterString: sendReceiveBeamSwitch.checked ? "false" : "true"
                                 filterSyntax: SortFilterProxyModel.Wildcard
@@ -610,7 +620,7 @@ Item {
                             movable: false
                             resizable: false
                             delegate: TableItem {
-                                text: Utils.formatAmount(styleData.value, false, true)
+                                text: Utils.number2Locale(styleData.value)
                             }
                         }
 
@@ -1227,6 +1237,15 @@ Item {
             if (currentItem && currentItem.defaultFocusItem) {
                 offersStackView.currentItem.defaultFocusItem.forceActiveFocus();
             }
+        }
+    }
+    
+    function getCoinName(idx) {
+        switch(idx) {
+            case 0: return "btc";
+            case 1: return "ltc";
+            case 2: return "qtum";
+            default: return "";
         }
     }
 

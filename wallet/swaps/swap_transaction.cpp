@@ -1076,10 +1076,19 @@ namespace beam::wallet
         if (!GetParameter(TxParameterID::TransactionRegistered, nRegistered, subTxID))
         {
             GetGateway().register_tx(GetTxID(), transaction, subTxID);
-            return (proto::TxStatus::Ok == nRegistered);
+            return false;
         }
 
-        if (proto::TxStatus::Ok != nRegistered)
+        if (proto::TxStatus::InvalidContext == nRegistered) // we have to ensure that this transaction hasn't already added to blockchain)
+        {
+            Height lastUnconfirmedHeight = 0;
+            if (GetParameter(TxParameterID::KernelUnconfirmedHeight, lastUnconfirmedHeight) && lastUnconfirmedHeight > 0)
+            {
+                OnSubTxFailed(TxFailureReason::FailedToRegister, subTxID, subTxID == SubTxIndex::BEAM_LOCK_TX);
+                return false;
+            }
+        } 
+        else if (proto::TxStatus::Ok != nRegistered)
         {
             OnSubTxFailed(TxFailureReason::FailedToRegister, subTxID, subTxID == SubTxIndex::BEAM_LOCK_TX);
             return false;
@@ -1121,24 +1130,7 @@ namespace beam::wallet
             GetWalletDB()->saveCoin(withdrawUtxo);
         }
 
-        std::vector<Coin> modified = GetWalletDB()->getCoinsByTx(GetTxID());
-        for (auto& coin : modified)
-        {
-            bool bIn = (coin.m_createTxId == m_ID);
-            bool bOut = (coin.m_spentTxId == m_ID);
-            if (bIn || bOut)
-            {
-                if (bIn)
-                {
-                    coin.m_confirmHeight = std::min(coin.m_confirmHeight, hProof);
-                    coin.m_maturity = hProof + Rules::get().Maturity.Std; // so far we don't use incubation for our created outputs
-                }
-                if (bOut)
-                    coin.m_spentHeight = std::min(coin.m_spentHeight, hProof);
-            }
-        }
-
-        GetWalletDB()->saveCoins(modified);
+        SetCompletedTxCoinStatuses(hProof);
 
         return true;
     }

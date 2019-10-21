@@ -1808,6 +1808,10 @@ Please check the swap token and try again.</translation>
         <source>connect to node</source>
         <translation>connect to node</translation>
     </message>
+    <message id="invalid-rate-min">
+        <source>Rate cannot be less than %1</source>
+        <translation>Rate cannot be less than %1</translation>
+    </message>
     <message id="swap-offer-duplicate-title">
         <source>Оffer is already accepted</source>
         <translation type="unfinished"></translation>

@@ -22,7 +22,6 @@ namespace beamui
     QString toString(const beam::Merkle::Hash&);
     QString AmountToString(const beam::Amount& value, Currencies coinType);
     QString toString(const beam::Timestamp& ts);
-    double  Beam2Coins(const beam::Amount& value);
     Currencies convertSwapCoinToCurrency(beam::wallet::AtomicSwapCoin coin);
 
     class Filter
@@ -37,6 +36,11 @@ namespace beamui
         size_t _index;
         bool _is_poor;
     };
-
     QDateTime CalculateExpiresTime(beam::Height currentHeight, beam::Height expiresHeight);
+
+    // convert amount to ui string with "." as a separator
+    QString amount2ui(beam::Amount amount);
+
+    // expects ui string with a "." as a separator
+    beam::Amount ui2amount(const QString& uistr);
 }  // namespace beamui

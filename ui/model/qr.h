@@ -16,6 +16,7 @@
 
 #include <QObject>
 #include <QtCore>
+#include "utility/common.h"
 
 class QR : public QObject {
     Q_OBJECT
@@ -24,9 +25,9 @@ public:
     QR(const QString& addr,
        uint width = 200,
        uint height = 200,
-       double amount = 0);
+       beam::Amount amount = 0);
        ~QR();
-    void setAmount(double amount);
+    void setAmount(beam::Amount amount);
     void setAddr(const QString& addr);
     void setDimensions(uint width, uint height);
 
@@ -41,6 +42,6 @@ private:
     QString m_addr;
     uint m_width = 200;
     uint m_height = 200;
-    double m_amount = 0;
+    beam::Amount m_amountGrothes = 0;
     QString m_qrData;
 };

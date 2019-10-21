@@ -18,13 +18,13 @@
 #include "ui_helpers.h"
 
 SendSwapViewModel::SendSwapViewModel()
-    : _sendAmount(0)
-    , _sendFee(0)
+    : _sendAmountGrothes(0)
+    , _sendFeeGrothes(0)
     , _sendCurrency(Currency::CurrBeam)
-    , _receiveAmount(0)
-    , _receiveFee(0)
+    , _receiveAmountGrothes(0)
+    , _receiveFeeGrothes(0)
     , _receiveCurrency(Currency::CurrBtc)
-    , _change(0)
+    , _changeGrothes(0)
     , _walletModel(*AppModel::getInstance().getWallet())
 {
     connect(&_walletModel, &WalletModel::changeCalculated,  this,  &SendSwapViewModel::onChangeCalculated);
@@ -78,17 +78,17 @@ void SendSwapViewModel::fillParameters(beam::wallet::TxParameters parameters)
         {
             // Do not set fee, it is set automatically based on the currency param
             setSendCurrency(Currency::CurrBeam);
-            setSendAmount(double(*beamAmount) / Rules::Coin);
+            setSendAmount(beamui::amount2ui(*beamAmount));
             setReceiveCurrency(convertSwapCoinToCurrency(*swapCoin));
-            setReceiveAmount(double(*swapAmount) / UnitsPerCoin(*swapCoin));
+            setReceiveAmount(beamui::amount2ui(*swapAmount));
         }
         else
         {
             // Do not set fee, it is set automatically based on the currency param
             setSendCurrency(convertSwapCoinToCurrency(*swapCoin));
-            setSendAmount(double(*swapAmount) / UnitsPerCoin(*swapCoin));
+            setSendAmount(beamui::amount2ui(*swapAmount));
             setReceiveCurrency(Currency::CurrBeam);
-            setReceiveAmount(double(*beamAmount) / Rules::Coin);
+            setReceiveAmount(beamui::amount2ui(*beamAmount));
         }
         setOfferedTime(QDateTime::fromSecsSinceEpoch(*offeredTime));
 
@@ -141,31 +141,32 @@ bool SendSwapViewModel::getParametersValid() const
     return type && *type == beam::wallet::TxType::AtomicSwap;
 }
 
-double SendSwapViewModel::getSendAmount() const
+QString SendSwapViewModel::getSendAmount() const
 {
-    return _sendAmount;
+    return beamui::amount2ui(_sendAmountGrothes);
 }
 
-void SendSwapViewModel::setSendAmount(double value)
+void SendSwapViewModel::setSendAmount(QString value)
 {
-    if (value != _sendAmount)
+    const auto amount = beamui::ui2amount(value);
+    if (amount != _sendAmountGrothes)
     {
-        _sendAmount = value;
+        _sendAmountGrothes = amount;
         emit sendAmountChanged();
         recalcAvailable();
     }
 }
 
-int SendSwapViewModel::getSendFee() const
+unsigned int SendSwapViewModel::getSendFee() const
 {
-    return _sendFee;
+    return _sendFeeGrothes;
 }
 
-void SendSwapViewModel::setSendFee(int value)
+void SendSwapViewModel::setSendFee(unsigned int value)
 {
-    if (value != _sendFee)
+    if (value != _sendFeeGrothes)
     {
-        _sendFee = value;
+        _sendFeeGrothes = value;
         emit sendFeeChanged();
         recalcAvailable();
     }
@@ -188,30 +189,31 @@ void SendSwapViewModel::setSendCurrency(Currency value)
     }
 }
 
-double SendSwapViewModel::getReceiveAmount() const
+QString SendSwapViewModel::getReceiveAmount() const
 {
-    return _receiveAmount;
+    return beamui::amount2ui(_receiveAmountGrothes);
 }
 
-void SendSwapViewModel::setReceiveAmount(double value)
+void SendSwapViewModel::setReceiveAmount(QString value)
 {
-    if (value != _receiveAmount)
+    const auto amount = beamui::ui2amount(value);
+    if (amount != _receiveAmountGrothes)
     {
-        _receiveAmount = value;
+        _receiveAmountGrothes = amount;
         emit receiveAmountChanged();
     }
 }
 
-int SendSwapViewModel::getReceiveFee() const
+unsigned int SendSwapViewModel::getReceiveFee() const
 {
-    return _receiveFee;
+    return _receiveFeeGrothes;
 }
 
-void SendSwapViewModel::setReceiveFee(int value)
+void SendSwapViewModel::setReceiveFee(unsigned int value)
 {
-    if (value != _receiveFee)
+    if (value != _receiveFeeGrothes)
     {
-        _receiveFee = value;
+        _receiveFeeGrothes = value;
         emit receiveFeeChanged();
     }
 }
@@ -276,7 +278,7 @@ void SendSwapViewModel::setExpiresTime(const QDateTime& value)
 
 void SendSwapViewModel::onChangeCalculated(beam::Amount change)
 {
-    _change = change;
+    _changeGrothes = change;
     emit enoughChanged();
     emit canSendChanged();
 }
@@ -287,22 +289,25 @@ bool SendSwapViewModel::isEnough() const
     {
     case Currency::CurrBeam:
     {
-        auto total = std::round(_sendAmount * beam::Rules::Coin) + _sendFee + _change;
+        const auto total = _sendAmountGrothes + _sendFeeGrothes + _changeGrothes;
         return _walletModel.getAvailable() >= total;
     }
     case Currency::CurrBtc:
     {
-        auto total = _sendAmount + double(_sendFee) / beam::wallet::UnitsPerCoin(beam::wallet::AtomicSwapCoin::Bitcoin);
+        //TODO:double
+        const auto total = static_cast<double>(_sendAmountGrothes + _sendFeeGrothes) / beam::wallet::UnitsPerCoin(beam::wallet::AtomicSwapCoin::Bitcoin);
         return AppModel::getInstance().getBitcoinClient()->getAvailable() > total;
     }
     case Currency::CurrLtc:
     {
-        auto total = _sendAmount + double(_sendFee) / beam::wallet::UnitsPerCoin(beam::wallet::AtomicSwapCoin::Litecoin);
+        //TODO:double
+        const auto total = static_cast<double>(_sendAmountGrothes + _sendFeeGrothes) / beam::wallet::UnitsPerCoin(beam::wallet::AtomicSwapCoin::Litecoin);
         return AppModel::getInstance().getLitecoinClient()->getAvailable() > total;
     }
     case Currency::CurrQtum:
     {
-        auto total = _sendAmount + double(_sendFee) / beam::wallet::UnitsPerCoin(beam::wallet::AtomicSwapCoin::Qtum);
+        //TODO:double
+        const auto total = static_cast<double>(_sendAmountGrothes + _sendFeeGrothes) / beam::wallet::UnitsPerCoin(beam::wallet::AtomicSwapCoin::Qtum);
         return AppModel::getInstance().getQtumClient()->getAvailable() > total;
     }
     default:
@@ -318,13 +323,13 @@ void SendSwapViewModel::recalcAvailable()
     switch(_sendCurrency)
     {
     case Currency::CurrBeam:
-        _change = 0;
-        _walletModel.getAsync()->calcChange(std::round(_sendAmount * beam::Rules::Coin) + _sendFee);
+        _changeGrothes = 0;
+        _walletModel.getAsync()->calcChange(_sendAmountGrothes + _sendFeeGrothes);
         return;
     default:
         // TODO:SWAP implement for all currencies
         //assert(false);
-        _change = 0;
+        _changeGrothes = 0;
     }
 
     emit enoughChanged();
@@ -354,7 +359,7 @@ bool SendSwapViewModel::isOwnAddress() const
 bool SendSwapViewModel::canSend() const
 {
     // TODO:SWAP check if correct
-    return QMLGlobals::isFeeOK(_sendFee, _sendCurrency) &&
+    return QMLGlobals::isFeeOK(_sendFeeGrothes, _sendCurrency) &&
            _sendCurrency != _receiveCurrency &&
            isEnough() &&
            QDateTime::currentDateTime() < _expiresTime;

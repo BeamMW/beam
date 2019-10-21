@@ -35,18 +35,18 @@ public:
     Q_INVOKABLE static bool isPasswordValid(const QString& value);
 
     // Currency utils
-    static bool isFeeOK(int fee, Currency currency);
+    static bool isFeeOK(unsigned int fee, Currency currency);
     static int  getMinFeeOrRate(Currency currency);
 
-    Q_INVOKABLE static int minFeeBeam();
-    Q_INVOKABLE static int minFeeRateBtc();
-    Q_INVOKABLE static int minFeeRateLtc();
-    Q_INVOKABLE static int minFeeRateQtum();
+    Q_INVOKABLE static unsigned int minFeeBeam();
+    Q_INVOKABLE static unsigned int minFeeRateBtc();
+    Q_INVOKABLE static unsigned int minFeeRateLtc();
+    Q_INVOKABLE static unsigned int minFeeRateQtum();
 
-    Q_INVOKABLE static int defFeeBeam();
-    Q_INVOKABLE static int defFeeRateBtc();
-    Q_INVOKABLE static int defFeeRateLtc();
-    Q_INVOKABLE static int defFeeRateQtum();
+    Q_INVOKABLE static unsigned int defFeeBeam();
+    Q_INVOKABLE static unsigned int defFeeRateBtc();
+    Q_INVOKABLE static unsigned int defFeeRateLtc();
+    Q_INVOKABLE static unsigned int defFeeRateQtum();
 
     Q_INVOKABLE static QString beamFeeRateLabel();
     Q_INVOKABLE static QString btcFeeRateLabel();

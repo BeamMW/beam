@@ -31,6 +31,7 @@ namespace beam::wallet
 
     bool QtumSide::CheckAmount(Amount amount, Amount feeRate)
     {
+        //TODO:double?
         Amount fee = static_cast<Amount>(std::round(double(kQtumWithdrawTxAverageSize * feeRate) / 1000));
         return amount > kQtumDustThreshold && amount > fee;
     }

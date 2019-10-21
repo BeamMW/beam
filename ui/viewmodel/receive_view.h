@@ -20,7 +20,7 @@ class QR;
 class ReceiveViewModel: public QObject
 {
     Q_OBJECT
-    Q_PROPERTY(double   amountToReceive    READ getAmountToReceive    WRITE  setAmountToReceive  NOTIFY  amountToReceiveChanged)
+    Q_PROPERTY(QString  amountToReceive    READ getAmountToReceive    WRITE  setAmountToReceive  NOTIFY  amountToReceiveChanged)
     Q_PROPERTY(int      addressExpires     READ getAddressExpires     WRITE  setAddressExpires   NOTIFY  addressExpiresChanged)
     Q_PROPERTY(QString  addressComment     READ getAddressComment     WRITE  setAddressComment   NOTIFY  addressCommentChanged)
     Q_PROPERTY(QString  receiverAddress    READ getReceiverAddress                               NOTIFY  receiverAddressChanged)
@@ -46,8 +46,8 @@ public:
     Q_INVOKABLE void saveAddress();
 
 private:
-    double getAmountToReceive() const;
-    void   setAmountToReceive(double value);
+    QString getAmountToReceive() const;
+    void    setAmountToReceive(QString value);
 
     void setAddressExpires(int value);
     int  getAddressExpires() const;
@@ -70,10 +70,10 @@ private slots:
     void onReceiverQRChanged();
 
 private:
-    double  _amountToReceive;
-    int     _addressExpires;
-    QString _addressComment;
-    QString _token;
+    beam::Amount _amountToReceiveGrothes;
+    int          _addressExpires;
+    QString      _addressComment;
+    QString      _token;
     beam::wallet::WalletAddress _receiverAddress;
 
     std::unique_ptr<QR> _qr;

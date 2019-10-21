@@ -90,6 +90,7 @@ Rectangle {
                 text: valueStr
                 fontSizeMode: Text.Fit
                 visible: valueStr.length
+                verticalAlignment: Text.AlignVCenter
                 wrapMode: Text.Wrap
             }
             SFText {

@@ -87,7 +87,7 @@ int QMLGlobals::maxCommentLength()
     return 1024;
 }
 
-bool QMLGlobals::isFeeOK(int fee, Currency currency)
+bool QMLGlobals::isFeeOK(uint32_t fee, Currency currency)
 {
     switch (currency)
     {
@@ -101,47 +101,47 @@ bool QMLGlobals::isFeeOK(int fee, Currency currency)
     }
 }
 
-int QMLGlobals::minFeeBeam()
+uint32_t QMLGlobals::minFeeBeam()
 {
     assert(AppModel::getInstance().getWallet());
     return AppModel::getInstance().getWallet()->isFork1() ? kFeeInGroth_Fork1 : kDefaultFeeInGroth;
 }
 
-int QMLGlobals::defFeeBeam()
+uint32_t QMLGlobals::defFeeBeam()
 {
     return minFeeBeam();
 }
 
-int QMLGlobals::minFeeRateBtc()
+uint32_t QMLGlobals::minFeeRateBtc()
 {
      const auto btcSettings = AppModel::getInstance().getBitcoinClient()->GetSettings();
      return btcSettings.GetMinFeeRate();
 }
 
-int QMLGlobals::defFeeRateBtc()
+uint32_t QMLGlobals::defFeeRateBtc()
 {
      const auto btcSettings = AppModel::getInstance().getBitcoinClient()->GetSettings();
      return btcSettings.GetFeeRate();
 }
 
-int QMLGlobals::minFeeRateLtc()
+uint32_t QMLGlobals::minFeeRateLtc()
 {
     const auto ltcSettings = AppModel::getInstance().getLitecoinClient()->GetSettings();
     return ltcSettings.GetMinFeeRate();
 }
 
-int QMLGlobals::defFeeRateLtc()
+uint32_t QMLGlobals::defFeeRateLtc()
 {
     const auto ltcSettings = AppModel::getInstance().getLitecoinClient()->GetSettings();
     return ltcSettings.GetFeeRate();
 }
 
-int QMLGlobals::minFeeRateQtum()
+uint32_t QMLGlobals::minFeeRateQtum()
 {
     return AppModel::getInstance().getQtumClient()->GetSettings().GetMinFeeRate();
 }
 
-int QMLGlobals::defFeeRateQtum()
+uint32_t QMLGlobals::defFeeRateQtum()
 {
     return AppModel::getInstance().getQtumClient()->GetSettings().GetFeeRate();
 }

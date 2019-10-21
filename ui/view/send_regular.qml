@@ -120,7 +120,7 @@ ColumnLayout {
                 hasFee:           true
                 color:            Style.accent_outgoing
                 //% "Insufficient funds: you would need %1 to complete the transaction"
-                error:            viewModel.isEnough ? "" : qsTrId("send-founds-fail").arg(Utils.formatAmount(viewModel.missing))
+                error:            viewModel.isEnough ? "" : qsTrId("send-founds-fail").arg(Utils.amount2locale(viewModel.missing))
             }
 
             Binding {
@@ -255,7 +255,7 @@ ColumnLayout {
                 Layout.topMargin:    15
                 Layout.rightMargin:  25
                 Layout.bottomMargin: 20
-                error:               viewModel.available < 0
+                error:               !viewModel.isEnough
                 amount:              viewModel.available
             }
         }
@@ -286,9 +286,9 @@ ColumnLayout {
                     {
                         addressText: viewModel.receiverAddress,
                         //% "BEAM"
-                        amountText: [Utils.formatAmount(viewModel.sendAmount), qsTrId("general-beam")].join(" "),
+                        amountText: [Utils.amount2locale(viewModel.sendAmount), qsTrId("general-beam")].join(" "),
                         //% "GROTH"
-                        feeText: [Utils.formatAmount(viewModel.feeGrothes), qsTrId("general-groth")].join(" "),
+                        feeText: [Utils.amount2locale(viewModel.feeGrothes), qsTrId("general-groth")].join(" "),
                         onAcceptedCallback: acceptedCallback
                     }).open();
 

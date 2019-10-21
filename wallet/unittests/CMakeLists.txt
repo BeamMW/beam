@@ -13,7 +13,7 @@ endif()
 if (BEAM_ATOMIC_SWAP_SUPPORT)
     add_test_snippet(bitcoin_rpc_test swap)
     add_test_snippet(swap_test node swap http)
-    add_test_snippet(swap_board_test wallet)
+    add_test_snippet(swap_board_test wallet node)
     add_test_snippet(electrum_test swap)
 endif()
 
