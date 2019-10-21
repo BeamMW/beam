@@ -22,6 +22,10 @@ namespace beam::wallet
         :   m_network(network),
             m_messageEndpoint(messageEndpoint)
     {
+        for (auto channel : m_channelsMap)
+        {
+            m_network.BbsSubscribe(channel.second, m_lastTimestamp, this);
+        }
     }
 
     const std::map<AtomicSwapCoin, BbsChannel> SwapOffersBoard::m_channelsMap =
@@ -73,8 +77,17 @@ namespace beam::wallet
             return;
         }
 
-        auto offerExist = m_offersCache.find(newOffer.m_txId);
-        if (offerExist == m_offersCache.end())
+        if (  !(newOffer.m_coin == AtomicSwapCoin::Bitcoin ||
+                newOffer.m_coin == AtomicSwapCoin::Litecoin ||
+                newOffer.m_coin == AtomicSwapCoin::Qtum ||
+                newOffer.m_status <= SwapOfferStatus::Failed) )
+        {
+            LOG_WARNING() << "offer board message is invalid";
+            return;
+        }
+
+        auto it = m_offersCache.find(newOffer.m_txId);
+        if (it == m_offersCache.end())
         {
             m_offersCache[newOffer.m_txId] = newOffer;
 
@@ -82,15 +95,15 @@ namespace beam::wallet
             {
                 notifySubscribers(ChangeAction::Added, std::vector<SwapOffer>{newOffer});
             }
-            else {} // no sense to push irrelevant offers to UI
+            else {} // don't push irrelevant offers to subscribers
         }
-        else   // existing offer update
+        else    // existing offer update
         {
-            auto existedStatus = m_offersCache[newOffer.m_txId].m_status;
+            SwapOfferStatus existingStatus = m_offersCache[newOffer.m_txId].m_status;
 
             if (newOffer.m_status != SwapOfferStatus::Pending)
             {
-                if (existedStatus != newOffer.m_status)
+                if (existingStatus != newOffer.m_status)
                 {
                     m_offersCache[newOffer.m_txId].m_status = newOffer.m_status;
                     notifySubscribers(ChangeAction::Removed, std::vector<SwapOffer>{newOffer});
@@ -98,10 +111,9 @@ namespace beam::wallet
             }
             else    // if incomplete offer already exist. fill it and send to network.
             {
-                if (existedStatus != SwapOfferStatus::Pending)
+                if (existingStatus != SwapOfferStatus::Pending)
                 {
-                    auto channel = getChannel(newOffer);
-                    sendUpdateToNetwork(newOffer.m_txId, newOffer.m_publisherId, *channel, existedStatus);
+                    sendUpdateToNetwork(newOffer.m_txId, newOffer.m_publisherId, newOffer.m_coin, existingStatus);
                 }
             }
         }
@@ -113,6 +125,8 @@ namespace beam::wallet
         {
             for (const auto& item : items)
             {
+                if (item.m_txType != TxType::AtomicSwap) continue;
+
                 switch (item.m_status)
                 {
                     case TxStatus::InProgress:
@@ -141,35 +155,13 @@ namespace beam::wallet
         }
     }
 
-    void SwapOffersBoard::selectSwapCoin(AtomicSwapCoin coinType)
-    {
-        auto it = m_channelsMap.find(coinType);
-        if (it != std::cend(m_channelsMap))
-        {
-            auto channel = it->second;
-            if (m_activeChannel && *m_activeChannel != channel)
-            {
-                // unsubscribe from active channel
-                m_network.BbsSubscribe(*m_activeChannel, 0, nullptr);
-                m_offersCache.clear();
-            }
-            // subscribe to new channel
-            m_network.BbsSubscribe(channel, m_lastTimestamp, this);
-            m_activeChannel = channel;
-        }
-        else
-        {
-            assert(false && "Unsupported coin type");
-        }
-    }
-
     auto SwapOffersBoard::getOffersList() const -> std::vector<SwapOffer>
     {
         std::vector<SwapOffer> offers;
 
         for (auto offer : m_offersCache)
         {
-            auto status = offer.second.m_status;
+            SwapOfferStatus status = offer.second.m_status;
             if (status == SwapOfferStatus::Pending)
             {
                 offers.push_back(offer.second);
@@ -179,70 +171,62 @@ namespace beam::wallet
         return offers;
     }
 
-    auto SwapOffersBoard::getChannel(const SwapOffer& offer) const -> boost::optional<BbsChannel>
+    auto SwapOffersBoard::getChannel(AtomicSwapCoin coin) const -> BbsChannel
     {
-        auto coinType = offer.GetParameter<AtomicSwapCoin>(TxParameterID::AtomicSwapCoin);
-        if (coinType)
-        {
-            auto it = m_channelsMap.find(*coinType);
-            if (it != std::cend(m_channelsMap))
-            {
-                return it->second;
-            }
-        }
-        return boost::none;
+        auto it = m_channelsMap.find(coin);
+        assert(it != std::cend(m_channelsMap));
+        return it->second;
     }
 
     void SwapOffersBoard::publishOffer(const SwapOffer& offer) const
     {
-        auto channel = getChannel(offer);
-        
-        if (channel)
-        {
-            {
-                auto isBeamSide = offer.GetParameter<bool>(TxParameterID::AtomicSwapIsBeamSide);
-                auto swapCoin = offer.GetParameter<AtomicSwapCoin>(TxParameterID::AtomicSwapCoin);
-                auto amount = offer.GetParameter<Amount>(TxParameterID::Amount);
-                auto swapAmount = offer.GetParameter<Amount>(TxParameterID::AtomicSwapAmount);
-                auto responseTime = offer.GetParameter<Height>(TxParameterID::PeerResponseTime);
-                auto minimalHeight = offer.GetParameter<Height>(TxParameterID::MinHeight);
+        auto swapCoin = offer.GetParameter<AtomicSwapCoin>(TxParameterID::AtomicSwapCoin);
+        auto isBeamSide = offer.GetParameter<bool>(TxParameterID::AtomicSwapIsBeamSide);
+        auto amount = offer.GetParameter<Amount>(TxParameterID::Amount);
+        auto swapAmount = offer.GetParameter<Amount>(TxParameterID::AtomicSwapAmount);
+        auto responseTime = offer.GetParameter<Height>(TxParameterID::PeerResponseTime);
+        auto minimalHeight = offer.GetParameter<Height>(TxParameterID::MinHeight);
 
-                LOG_INFO() << offer.m_txId << " Publish offer.\n\t"
-                           << "isBeamSide: " << (*isBeamSide ? "false" : "true") << "\n\t"
-                           << "swapCoin: " << std::to_string(*swapCoin) << "\n\t"
-                           << "amount: " << *amount << "\n\t"
-                           << "swapAmount: " << *swapAmount << "\n\t"
-                           << "responseTime: " << *responseTime << "\n\t"
-                           << "minimalHeight: " << *minimalHeight;
-            }
-            
-            beam::wallet::SwapOfferToken token(offer);
-            m_messageEndpoint.SendAndSign(toByteBuffer(token), *channel, offer.m_publisherId, m_protocolVersion);
+        if (!swapCoin || !isBeamSide || !amount || !swapAmount || !responseTime || !minimalHeight)
+        {
+            LOG_WARNING() << offer.m_txId << " Can't publish invalid offer.\n\t";
+            return;
         }
+
+        LOG_INFO() << offer.m_txId << " Publish offer.\n\t"
+                    << "isBeamSide: " << (*isBeamSide ? "false" : "true") << "\n\t"
+                    << "swapCoin: " << std::to_string(*swapCoin) << "\n\t"
+                    << "amount: " << *amount << "\n\t"
+                    << "swapAmount: " << *swapAmount << "\n\t"
+                    << "responseTime: " << *responseTime << "\n\t"
+                    << "minimalHeight: " << *minimalHeight;
+        
+        beam::wallet::SwapOfferToken token(offer);
+        m_messageEndpoint.SendAndSign(toByteBuffer(token), getChannel(*swapCoin), offer.m_publisherId, m_protocolVersion);
     }
 
-    void SwapOffersBoard::sendUpdateToNetwork(const TxID& offerID, const WalletID& publisherID, BbsChannel channel, SwapOfferStatus newStatus) const
+    void SwapOffersBoard::sendUpdateToNetwork(const TxID& offerID, const WalletID& publisherID, AtomicSwapCoin coin, SwapOfferStatus newStatus) const
     {
         LOG_INFO() << offerID << " Update offer status to " << std::to_string(newStatus);
-                        
-        beam::wallet::SwapOfferToken token(SwapOffer(offerID, newStatus, publisherID));
-        m_messageEndpoint.SendAndSign(toByteBuffer(token), channel, publisherID, m_protocolVersion);
+
+        beam::wallet::SwapOfferToken token(SwapOffer(offerID, newStatus, publisherID, coin));
+        m_messageEndpoint.SendAndSign(toByteBuffer(token), getChannel(coin), publisherID, m_protocolVersion);
     }
 
     void SwapOffersBoard::updateOffer(const TxID& offerTxID, SwapOfferStatus newStatus)
     {
-        auto offerExist = m_offersCache.find(offerTxID);
-        if (offerExist != m_offersCache.end())
+        auto offerIt = m_offersCache.find(offerTxID);
+        if (offerIt != m_offersCache.end())
         {
-            auto channel = getChannel(offerExist->second);
-            auto publisherId = offerExist->second.m_publisherId;
-            auto currentStatus = offerExist->second.m_status;
+            AtomicSwapCoin coin = offerIt->second.m_coin;
+            WalletID publisherId = offerIt->second.m_publisherId;
+            SwapOfferStatus  currentStatus = offerIt->second.m_status;
 
-            if (channel && currentStatus != newStatus)
+            if (currentStatus != newStatus)
             {
                 m_offersCache[offerTxID].m_status = newStatus;
                 notifySubscribers(ChangeAction::Removed, std::vector<SwapOffer>{m_offersCache[offerTxID]});
-                sendUpdateToNetwork(offerTxID, publisherId, *channel, newStatus);
+                sendUpdateToNetwork(offerTxID, publisherId, coin, newStatus);
             }
         }
         else    // case: updateOffer() was called before board loaded all offers

@@ -365,17 +365,17 @@ void ReceiveSwapViewModel::startListen()
 
 void ReceiveSwapViewModel::publishToken()
 {
-    auto packedTxParams = _txParameters.Pack();
-    
     auto txId = _txParameters.GetTxID();
     auto publisherId = _txParameters.GetParameter<beam::wallet::WalletID>(beam::wallet::TxParameterID::PeerID);
-    if (publisherId && txId)
+    auto coin = _txParameters.GetParameter<beam::wallet::AtomicSwapCoin>(beam::wallet::TxParameterID::AtomicSwapCoin);
+    if (publisherId && txId && coin)
     {
         beam::wallet::SwapOffer offer(*txId);
         offer.m_txId = *txId;
         offer.m_publisherId = *publisherId;
         offer.m_status = beam::wallet::SwapOfferStatus::Pending;
-        offer.SetTxParameters(packedTxParams);
+        offer.m_coin = *coin;
+        offer.SetTxParameters(_txParameters.Pack());
         
         _walletModel.getAsync()->publishSwapOffer(offer);
     }

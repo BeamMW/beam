@@ -381,24 +381,39 @@ namespace beam::wallet
         uint8_t m_Flags = TokenFlag;
         boost::optional<TxID> m_TxID;
         PackedTxParameters m_Parameters;
+    };    
+
+    enum class AtomicSwapCoin
+    {
+        Bitcoin,
+        Litecoin,
+        Qtum,
+        Unknown
     };
+
+    AtomicSwapCoin from_string(const std::string& value);
 
     struct SwapOffer : public TxParameters
     {
         SwapOffer() = default;
         SwapOffer(const boost::optional<TxID>& txID)
             : TxParameters(txID) {};
-        SwapOffer(const TxID& txId, SwapOfferStatus status, WalletID publisherId)
+        SwapOffer(const TxID& txId, SwapOfferStatus status, WalletID publisherId, AtomicSwapCoin coin)
             : TxParameters(txId),
               m_txId(txId),
               m_status(status),
-              m_publisherId(publisherId) {};
+              m_publisherId(publisherId),
+              m_coin(coin) {};
 
+        /**
+         * Used to set m_Parameters on default constructed SwapOffer
+         */
         void SetTxParameters(const PackedTxParameters&);
 
         TxID m_txId = {};
         SwapOfferStatus m_status = SwapOfferStatus::Pending;
         WalletID m_publisherId = {};
+        AtomicSwapCoin m_coin = AtomicSwapCoin::Unknown;
     };
 
     class SwapOfferToken
@@ -409,14 +424,16 @@ namespace beam::wallet
             : m_TxID(offer.m_txId),
               m_status(offer.m_status),
               m_publisherId(offer.m_publisherId),
+              m_coin(offer.m_coin),
               m_Parameters(offer.Pack()) {};
         
         SwapOffer Unpack() const;
-        SERIALIZE(m_TxID, m_status, m_publisherId, m_Parameters);
+        SERIALIZE(m_TxID, m_status, m_publisherId, m_coin, m_Parameters);
     private:
         boost::optional<TxID> m_TxID;
         boost::optional<SwapOfferStatus> m_status;
         boost::optional<WalletID> m_publisherId;
+        boost::optional<AtomicSwapCoin> m_coin;
         PackedTxParameters m_Parameters;
     };
 
@@ -481,16 +498,6 @@ namespace beam::wallet
         Merkle::Hash m_kernelID = Zero;
         TxFailureReason m_failureReason = TxFailureReason::Unknown;
     };
-
-    enum class AtomicSwapCoin
-    {
-        Bitcoin,
-        Litecoin,
-        Qtum,
-        Unknown
-    };
-
-    AtomicSwapCoin from_string(const std::string& value);
 
     // messages
     struct SetTxParameter
