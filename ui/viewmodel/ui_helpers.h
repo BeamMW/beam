@@ -2,6 +2,9 @@
 #include <QObject>
 #include "wallet/common.h"
 
+Q_DECLARE_METATYPE(beam::wallet::TxID)
+Q_DECLARE_METATYPE(beam::wallet::TxParameters)
+
 namespace beamui
 {
     enum class Currencies

@@ -86,21 +86,27 @@ Item {
 
             // callbacks for send views
             function onAccepted() {
-                            offersStackView.pop();
-                            atomicSwapLayout.state = "transactions";
-                            transactionsTab.state = "filterInProgressTransactions";
+                offersStackView.pop();
+                atomicSwapLayout.state = "transactions";
+                transactionsTab.state = "filterInProgressTransactions";
             }
             function onClosed() {
                 offersStackView.pop();
             }
             function onSwapToken(token) {
-                offersStackView.pop();
-                offersStackView.push(Qt.createComponent("send_swap.qml"),
-                                     {
-                                         "onAccepted": onAccepted,
-                                         "onClosed": onClosed
-                                     });
-                offersStackView.currentItem.setToken(token);
+                console.log(token);
+                // swapDuplicateAlert.open();
+                // offersStackView.pop();
+                // offersStackView.push(Qt.createComponent("send_swap.qml"),
+                //                      {
+                //                          "onAccepted": onAccepted,
+                //                          "onClosed": onClosed
+                //                      });
+                // offersStackView.currentItem.setToken(token);
+            }
+
+            SwapDuplicateAlert {
+                id: swapDuplicateAlert
             }
 
             RowLayout {
@@ -653,10 +659,17 @@ Item {
                                                 }
                                                 else {
                                                     var txParameters = offersTable.model.getRoleValue(styleData.row, "rawTxParameters");
-                                                    offersStackView.push(Qt.createComponent("send_swap.qml"),
-                                                                        {"predefinedTxParams": txParameters,
-                                                                         "onAccepted": onAccepted,
-                                                                         "onClosed": onClosed});
+                                                    var txId = offersTable.model.getRoleValue(styleData.row, "rawTxID");
+                                                    console.log(BeamGlobals.variantToTxIdStr(txId));
+                                                    // for (a in txParameters) {
+                                                    //     // console.log(a);
+                                                    //     console.log("txId." + a + " = " + txParameters[a]);
+                                                    // }
+                                                    // console.log(txId);
+                                                    // offersStackView.push(Qt.createComponent("send_swap.qml"),
+                                                    //                     {"predefinedTxParams": txParameters,
+                                                    //                      "onAccepted": onAccepted,
+                                                    //                      "onClosed": onClosed});
                                                 }
                                             }
                                         }

@@ -48,6 +48,10 @@ Item {
             BeamGlobals.copyToClipboard(text);
         }
     }
+
+    SwapDuplicateAlert {
+        id: swapDuplicateAlert
+    }
     
     Title {
         x: 0
@@ -89,19 +93,24 @@ Item {
 
                     onClicked: {
                         walletStackView.push(Qt.createComponent("send.qml"),
-                                            {"isSwapMode": false,
-                                             "onClosed": onClosed,
-                                             "onSwapToken": onSwapToken,
-                                             "onAddress": onAddress});
+                                             {
+                                                 "isSwapMode": false,
+                                                 "onClosed": onClosed,
+                                                 "onSwapToken": onSwapToken,
+                                                 "onAddress": onAddress
+                                             });
 
                         function onAccepted() { walletStackView.pop(); }
                         function onClosed() { walletStackView.pop(); }
                         function onSwapToken(token) {
-                            walletStackView.pop();
-                            walletStackView.push(Qt.createComponent("send_swap.qml"),
-                                                {"onAccepted": onAccepted,
-                                                 "onClosed": onClosed});
-                            walletStackView.currentItem.setToken(token);
+                            console.log("onSwapToken");
+                            console.log(token);
+                            // swapDuplicateAlert.open();
+                            // walletStackView.pop();
+                            // walletStackView.push(Qt.createComponent("send_swap.qml"),
+                            //                     {"onAccepted": onAccepted,
+                            //                      "onClosed": onClosed});
+                            // walletStackView.currentItem.setToken(token);
                         }
                         function onAddress(token) {
                             walletStackView.pop();

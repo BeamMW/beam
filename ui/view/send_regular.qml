@@ -97,7 +97,7 @@ ColumnLayout {
                     color:            Style.validator_error
                     font.pixelSize:   12
                     //% "Invalid address or token"
-                    text:             qsTrId("wallet-send-invalid-token")
+                    text:             qsTrId("wallet-send-invalid-address-or-token")
                     visible:          !isTAInputValid()
                 }
             }

@@ -1286,7 +1286,7 @@ or send this address to the sender over secure channel</translation>
         <source>Change settings</source>
         <translation>Change settings</translation>
     </message>
-    <message id="wallet-swap">
+    <message id="general-swap">
         <source>Swap</source>
         <translation>Swap</translation>
     </message>
@@ -1375,6 +1375,10 @@ or send this address to the sender over secure channel</translation>
         <translation>Swap currencies</translation>
     </message>
     <message id="wallet-send-invalid-token">
+        <source>Invalid token</source>
+        <translation>Invalid token</translation>
+    </message>
+    <message id="wallet-send-invalid-address-or-token">
         <source>Invalid address or token</source>
         <translation>Invalid address or token</translation>
     </message>
@@ -1803,6 +1807,19 @@ Please check the swap token and try again.</translation>
     <message id="connect to node">
         <source>connect to node</source>
         <translation>connect to node</translation>
+    </message>
+    <message id="swap-offer-duplicate-title">
+        <source>Оffer is already accepted</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="swap-offer-duplicate-message">
+        <source>The offer with this transaction token is already accepted.\nPlease check the swap token and try again.</source>
+        <translation>The offer with this transaction token is already accepted.
+Please check the swap token and try again.</translation>
+    </message>
+    <message id="swap-offer-duplicate-confirm-button">
+        <source>ok</source>
+        <translation type="unfinished"></translation>
     </message>
 </context>
 </TS>

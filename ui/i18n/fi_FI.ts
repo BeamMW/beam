@@ -1281,7 +1281,7 @@
         <source>Change settings</source>
         <translation>Muuta asetuksia</translation>
     </message>
-    <message id="wallet-swap">
+    <message id="general-swap">
         <source>Swap</source>
         <translation>Swap</translation>
     </message>
@@ -1372,8 +1372,9 @@
         <translation>Vaihda valuutat</translation>
     </message>
     <message id="wallet-send-invalid-token">
-        <source>Invalid address or token</source>
-        <translation>Virheellinen osoite tai tunniste</translation>
+        <source>Invalid token</source>
+        <oldsource>Invalid address or token</oldsource>
+        <translation type="unfinished">Virheellinen osoite tai tunniste</translation>
     </message>
     <message id="general-comment-local">
         <source>Comments are local and won&apos;t be shared</source>
@@ -1797,6 +1798,22 @@ Please try again later or create an offer yourself.</oldsource>
     </message>
     <message id="connect to node">
         <source>connect to node</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="swap-offer-duplicate-title">
+        <source>Оffer is already accepted</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="swap-offer-duplicate-message">
+        <source>The offer with this transaction token is already accepted.\nPlease check the swap token and try again.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="swap-offer-duplicate-confirm-button">
+        <source>ok</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="wallet-send-invalid-address-or-token">
+        <source>Invalid address or token</source>
         <translation type="unfinished"></translation>
     </message>
 </context>

@@ -18,6 +18,7 @@
 #include "version.h"
 #include "model/app_model.h"
 #include "wallet/common.h"
+#include "ui_helpers.h"
 
 namespace
 {
@@ -206,3 +207,17 @@ bool QMLGlobals::haveQtum()
 {
     return AppModel::getInstance().getQtumClient()->GetSettings().IsActivated();
 }
+
+QString QMLGlobals::variantToTxIdStr(QVariant variantTxID)
+{
+    if (!variantTxID.isNull() && variantTxID.isValid())
+    {
+        auto txId = variantTxID.value<beam::wallet::TxID>();
+        LOG_INFO() << txId;
+        // auto a = beam::to_hex(txId.data(), txId.size());
+        // return QString::fromStdString(a);
+    }
+    return "";
+}
+
+

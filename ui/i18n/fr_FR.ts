@@ -1282,7 +1282,7 @@ Vous essayez de restaurer un portefeuille Beam existant. Veuillez noter que si v
         <source>Change settings</source>
         <translation>Modifier paramètres</translation>
     </message>
-    <message id="wallet-swap">
+    <message id="general-swap">
         <source>Swap</source>
         <translation>Permuter</translation>
     </message>
@@ -1373,7 +1373,8 @@ Vous essayez de restaurer un portefeuille Beam existant. Veuillez noter que si v
         <translation type="unfinished">Swap currencies</translation>
     </message>
     <message id="wallet-send-invalid-token">
-        <source>Invalid address or token</source>
+        <source>Invalid token</source>
+        <oldsource>Invalid address or token</oldsource>
         <translation type="unfinished">Invalid address or token</translation>
     </message>
     <message id="general-comment-local">
@@ -1798,6 +1799,22 @@ Please try again later or create an offer yourself.</oldsource>
     </message>
     <message id="connect to node">
         <source>connect to node</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="swap-offer-duplicate-title">
+        <source>Оffer is already accepted</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="swap-offer-duplicate-message">
+        <source>The offer with this transaction token is already accepted.\nPlease check the swap token and try again.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="swap-offer-duplicate-confirm-button">
+        <source>ok</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="wallet-send-invalid-address-or-token">
+        <source>Invalid address or token</source>
         <translation type="unfinished"></translation>
     </message>
 </context>

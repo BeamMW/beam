@@ -10,6 +10,7 @@ import "controls"
 ColumnLayout {
     id: sendView
     property bool   isSwapMode: false
+    property bool   pasteEventComplete: false
     property var    defaultFocusItem: receiverTAInput
 
     // callbacks set by parent
@@ -39,13 +40,18 @@ ColumnLayout {
         }
     }
 
-    function isTAInputValid() {
-        return receiverTAInput.text.length == 0 || BeamGlobals.isTAValid(receiverTAInput.text)
+    function isTAInputValid(token) {
+        return token.length == 0 || BeamGlobals.isTAValid(token)
     }
 
     function setInputErrorMode() {
         receiverTAInput.backgroundColor =
             receiverTAInput.color = Style.validator_error;
+        receiverTAError.text = isSwapMode
+            //% "Invalid token"
+            ? qsTrId("wallet-send-invalid-token")
+            //% "Invalid address or token"
+            : qsTrId("wallet-send-invalid-address-or-token");
         receiverTAError.visible =
             receiverTAInput.font.italic = true;
     }
@@ -55,6 +61,27 @@ ColumnLayout {
             receiverTAInput.color = Style.content_main;
         receiverTAError.visible =
             receiverTAInput.font.italic = false;
+    }
+
+    function checkToken(token) {
+        if (!isTAInputValid(token)) {
+            setInputErrorMode();
+            actionButton.enabled = false;
+            return;
+        }
+
+        if (BeamGlobals.isSwapToken(receiverTAInput.text) &&
+            typeof onSwapToken == "function") {
+            isSwapMode = true;
+            onSwapToken(receiverTAInput.text);
+            return;
+        } else if (isSwapMode) {
+            setInputErrorMode();
+        }
+
+        if (typeof onAddress == "function") {
+            onAddress(receiverTAInput.text);
+        }
     }
 
     ColumnLayout {
@@ -78,23 +105,20 @@ ColumnLayout {
             //% "Please specify contact or transaction token"
             placeholderText:  qsTrId("send-contact-placeholder")
 
-            onTextChanged: {
-                if (!isTAInputValid()) {
-                    setInputErrorMode();
+            Keys.onPressed: function(keyEvent) {
+                pasteEventComplete = keyEvent.matches(StandardKey.Paste);
+            }
 
-                } else {
-                    setInputNormalMode();
-                }
-                if (receiverTAInput.text.length == 0) return;
-                if (BeamGlobals.isSwapToken(receiverTAInput.text) &&
-                    typeof onSwapToken == "function") {
-                    onSwapToken(receiverTAInput.text);
+            onTextChanged: {
+                setInputNormalMode();
+                if (receiverTAInput.text.length == 0) {
+                    actionButton.enabled = false;
                     return;
-                } else if (isSwapMode) {
-                    setInputErrorMode();
-                } 
-                if (typeof onAddress == "function") {
-                    onAddress(receiverTAInput.text);
+                }
+                actionButton.enabled = true;
+
+                if (pasteEventComplete) {
+                    checkToken(receiverTAInput.text);
                 }
             }
         }
@@ -106,8 +130,6 @@ ColumnLayout {
                 id:               receiverTAError
                 color:            Style.validator_error
                 font.pixelSize:   12
-                //% "Invalid address or token"
-                text:             qsTrId("wallet-send-invalid-token")
                 visible:          false
             }
         }
@@ -123,8 +145,24 @@ ColumnLayout {
                 palette.buttonText: Style.content_main
                 icon.source:        "qrc:/assets/icon-cancel-white.svg"
                 onClicked:          {
-                    onClosed();
+                    if (typeof onClosed == "function") {
+                        onClosed();
+                    }
                 }
+            }
+            
+            CustomButton {
+                id: actionButton
+                text: isSwapMode
+                    //% "Swap"
+                    ? qsTrId("general-swap")
+                    //% "Send"
+                    : qsTrId("general-send")
+                palette.buttonText: Style.content_opposite
+                palette.button: Style.accent_outgoing
+                icon.source: "qrc:/assets/icon-send-blue.svg"
+                enabled: false
+                onClicked: checkToken(receiverTAInput.text)
             }
         }
 

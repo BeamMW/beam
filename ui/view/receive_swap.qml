@@ -81,7 +81,7 @@ ColumnLayout {
         CustomSwitch {
             id:         mode
             //% "Swap"
-            text:       qsTrId("wallet-swap")
+            text:       qsTrId("general-swap")
             x:          parent.width - width
             checked:    true
             enabled:    modeSwitchEnabled
