@@ -8,6 +8,19 @@
 				["copy", "vendor", "shallow", "raven", "coffee", "appear", "book", "blast", "lock", "exchange", "farm", "glue"].forEach((word) => wordList.push_back(word));
 
 				var keykeeper = new Module.KeyKeeper(wordList);
+
+				{
+					var kidv = new Module.KeyIDV();
+
+        			kidv.value = 4000000;
+        			kidv.idx = 180003423;
+        			kidv.type = 1852797549;
+        			kidv.subIdx = 16777216;
+
+					var pk = keykeeper.generatePublicKey(kidv, true);
+
+					console.log("ownerKey is: " + keykeeper.ownerKey);
+				}
 			}
 		};
 	</script>
