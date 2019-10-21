@@ -85,15 +85,8 @@ namespace beam::bitcoin
 
         void sendRequest(const std::string& method, const std::string& params, std::function<bool(const Error&, const nlohmann::json&, uint64_t)> callback);
 
-        // return the indexth address for private key
-        std::string getAddress(uint32_t index, const libbitcoin::wallet::hd_private& privateKey) const;
-
         // return the list of all private keys (receiving and changing)
         std::vector<libbitcoin::wallet::ec_private> generatePrivateKeyList() const;
-
-        // the first key is receiving master private key
-        // the second key is changing master private key
-        std::pair<libbitcoin::wallet::hd_private, libbitcoin::wallet::hd_private> generateMasterPrivateKeys() const;
 
         void lockUtxo(std::string hash, uint32_t pos);
         bool isLockedUtxo(std::string hash, uint32_t pos);

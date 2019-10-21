@@ -14,8 +14,13 @@ function formatDateTime(datetime, localeName) {
          + ")";
 }
 
-function number2Locale (amount) {
-    return amount.toLocaleString(Qt.locale(), 'f', -128)
+function number2Locale (number) {
+    return number.toLocaleString(Qt.locale(), 'f', -128)
+}
+
+function number2LocaleFixed (number) {
+    if (number < 0.00000001) number = 0.00000001;
+    return number.toLocaleString(Qt.locale(), 'f', 8).replace(/\.?0+$/,"")
 }
 
 // @arg amount - any number or float string in "C" locale
