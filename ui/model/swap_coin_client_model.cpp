@@ -81,6 +81,11 @@ void SwapCoinClientModel::OnCanModifySettingsChanged(bool canModify)
     emit gotCanModifySettings(canModify);
 }
 
+void SwapCoinClientModel::OnChangedSettings()
+{
+    requestBalance();
+}
+
 void SwapCoinClientModel::requestBalance()
 {
     if (GetSettings().IsActivated())
