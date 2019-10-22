@@ -234,7 +234,7 @@ Control {
                 caption:           qsTrId("available-panel-receiving")
                 showZero:          false
                 prefix:            "+"
-                showDrop:          true
+                showDrop:          parseFloat(receiving) > 0
 
                 //ToolTip.visible: receivingArea.containsMouse
                 //ToolTip.text: qsTr("Save the active project")
@@ -242,7 +242,7 @@ Control {
                 MouseArea {
                     id: receivingArea
                     anchors.fill: parent
-                    hoverEnabled: true
+                    hoverEnabled: parseFloat(receiving) > 0
                 }
             }
 

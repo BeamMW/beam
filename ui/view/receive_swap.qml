@@ -473,6 +473,7 @@ ColumnLayout {
                     viewModel.saveAddress()
                 }
                 viewModel.startListen()
+                onClosed()
             }
         }
 
@@ -491,7 +492,7 @@ ColumnLayout {
                 }
                 viewModel.startListen()
                 viewModel.publishToken()
-                onClosed();
+                onClosed()
             }
         }
     }

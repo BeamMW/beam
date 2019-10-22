@@ -307,7 +307,10 @@ void Node::Wanted::OnTimer()
     {
         Item& n = m_lst.front();
         if (t_ms - n.m_Advertised_ms < timeout_ms)
+        {
+            SetTimer();
             break;
+        }
 
         OnExpired(n.m_Key); // should not invalidate our structure
         Delete(n); // will also reschedule the timer
@@ -2651,7 +2654,7 @@ bool Node::OnTransactionFluff(Transaction::Ptr&& ptxArg, const Peer* pPeer, TxPo
 		m_TxPool.Delete(txDel);
 	}
 
-	if (!pNewTxElem)
+    if (!pNewTxElem)
 		return false;
 
     proto::HaveTransaction msgOut;
@@ -3093,9 +3096,9 @@ void Node::Peer::OnMsg(proto::BbsMsg&& msg)
 		ECC::Hash::Value hv;
 		proto::Bbs::get_Hash(hv, msg);
 
-		if (!proto::Bbs::IsHashValid(hv))
+        if (!proto::Bbs::IsHashValid(hv))
 			return; // drop
-	}
+    }
 
 	if (!m_This.m_Cfg.m_Bbs.IsEnabled())
 		ThrowUnexpected();
@@ -3105,14 +3108,14 @@ void Node::Peer::OnMsg(proto::BbsMsg&& msg)
 
 	Timestamp t = getTimestamp();
 
-	if (msg.m_TimePosted > t + Rules::get().DA.MaxAhead_s)
+    if (msg.m_TimePosted > t + Rules::get().DA.MaxAhead_s)
 		return; // too much ahead of time
 
-	if (msg.m_TimePosted + m_This.m_Cfg.m_Bbs.m_MessageTimeout_s  < t)
-		return; // too old
+    if (msg.m_TimePosted + m_This.m_Cfg.m_Bbs.m_MessageTimeout_s < t)
+        return; // too old
 
-	if (msg.m_TimePosted + Rules::get().DA.MaxAhead_s < m_This.m_Bbs.m_HighestPosted_s)
-		return; // don't allow too much out-of-order messages
+    if (msg.m_TimePosted + Rules::get().DA.MaxAhead_s < m_This.m_Bbs.m_HighestPosted_s)
+        return; // don't allow too much out-of-order messages
 
     NodeDB& db = m_This.m_Processor.get_DB();
     NodeDB::WalkerBbs wlk(db);
@@ -3176,7 +3179,7 @@ void Node::Peer::OnMsg(proto::BbsMsg&& msg)
 
 void Node::Peer::OnMsg(proto::BbsHaveMsg&& msg)
 {
-	if (!m_This.m_Cfg.m_Bbs.IsEnabled())
+    if (!m_This.m_Cfg.m_Bbs.IsEnabled())
 		ThrowUnexpected();
 
     NodeDB& db = m_This.m_Processor.get_DB();
@@ -3189,9 +3192,6 @@ void Node::Peer::OnMsg(proto::BbsHaveMsg&& msg)
 		// stupid compiler insists on parentheses here!
 		return; // already waiting for it
 	}
-
-	NodeDB::WalkerBbs wlk(db);
-	wlk.m_Data.m_Key = msg.m_Key;
 
     proto::BbsGetMsg msgOut;
     msgOut.m_Key = msg.m_Key;
