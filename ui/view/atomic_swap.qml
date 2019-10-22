@@ -12,6 +12,19 @@ Item {
     Layout.fillWidth: true
     Layout.fillHeight: true
 
+    // callbacks for send views
+    function onAccepted() {
+        offersStackView.pop();
+        offersViewComponent.atomicSwapLayout.state = "transactions";
+        offersViewComponent.transactionsTab.state = "filterInProgressTransactions";
+    }
+    function onClosed() {
+        offersStackView.pop();
+    }
+    function onSwapToken(token) {
+        tokenDuplicateChecker.checkTokenForDuplicate(token);
+    }
+
     SwapOffersViewModel {
         id: viewModel
     }
@@ -49,6 +62,25 @@ Item {
         }
     }
 
+    TokenDuplicateChecker {
+        id: tokenDuplicateChecker
+        Connections {
+            target: tokenDuplicateChecker.model
+            onTokenPreviousAccepted: function(token) {
+                tokenDuplicateChecker.open();
+            }
+            onTokenFirstTimeAccepted: function(token) {
+                offersStackView.pop();
+                offersStackView.push(Qt.createComponent("send_swap.qml"),
+                                     {
+                                         "onAccepted": onAccepted,
+                                         "onClosed": onClosed
+                                     });
+                offersStackView.currentItem.setToken(token);
+            }
+        }
+    }
+
     Component.onCompleted: {
         if (viewModel.showBetaWarning) {
             betaDialog.open()
@@ -83,31 +115,6 @@ Item {
             Layout.fillHeight: true
             spacing: 0
             state: "offers"
-
-            // callbacks for send views
-            function onAccepted() {
-                offersStackView.pop();
-                atomicSwapLayout.state = "transactions";
-                transactionsTab.state = "filterInProgressTransactions";
-            }
-            function onClosed() {
-                offersStackView.pop();
-            }
-            function onSwapToken(token) {
-                console.log(token);
-                // swapDuplicateAlert.open();
-                // offersStackView.pop();
-                // offersStackView.push(Qt.createComponent("send_swap.qml"),
-                //                      {
-                //                          "onAccepted": onAccepted,
-                //                          "onClosed": onClosed
-                //                      });
-                // offersStackView.currentItem.setToken(token);
-            }
-
-            SwapDuplicateAlert {
-                id: swapDuplicateAlert
-            }
 
             RowLayout {
                 Layout.alignment: Qt.AlignRight | Qt.AlignTop
@@ -669,17 +676,8 @@ Item {
                                                 }
                                                 else {
                                                     var txParameters = offersTable.model.getRoleValue(styleData.row, "rawTxParameters");
-                                                    var txId = offersTable.model.getRoleValue(styleData.row, "rawTxID");
-                                                    console.log(BeamGlobals.variantToTxIdStr(txId));
-                                                    // for (a in txParameters) {
-                                                    //     // console.log(a);
-                                                    //     console.log("txId." + a + " = " + txParameters[a]);
-                                                    // }
-                                                    // console.log(txId);
-                                                    // offersStackView.push(Qt.createComponent("send_swap.qml"),
-                                                    //                     {"predefinedTxParams": txParameters,
-                                                    //                      "onAccepted": onAccepted,
-                                                    //                      "onClosed": onClosed});
+                                                    var token = BeamGlobals.rawTxParametrsToTokenStr(txParameters);
+                                                    tokenDuplicateChecker.checkTokenForDuplicate(token);
                                                 }
                                             }
                                         }

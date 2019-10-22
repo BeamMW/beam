@@ -83,7 +83,8 @@ ColumnLayout {
                 placeholderText:  qsTrId("send-contact-placeholder")
 
                 onTextChanged: {
-                    if (BeamGlobals.isSwapToken(text)) {
+                    if (BeamGlobals.isSwapToken(text)&&
+                        typeof onSwapToken == "function") {
                         onSwapToken(text);
                     }
                 }

@@ -208,16 +208,12 @@ bool QMLGlobals::haveQtum()
     return AppModel::getInstance().getQtumClient()->GetSettings().IsActivated();
 }
 
-QString QMLGlobals::variantToTxIdStr(QVariant variantTxID)
+QString QMLGlobals::rawTxParametrsToTokenStr(QVariant variantTxParams)
 {
-    if (!variantTxID.isNull() && variantTxID.isValid())
+    if (!variantTxParams.isNull() && variantTxParams.isValid())
     {
-        auto txId = variantTxID.value<beam::wallet::TxID>();
-        LOG_INFO() << txId;
-        // auto a = beam::to_hex(txId.data(), txId.size());
-        // return QString::fromStdString(a);
+        auto txParameters = variantTxParams.value<beam::wallet::TxParameters>();
+        return QString::fromStdString(std::to_string(txParameters));
     }
     return "";
 }
-
-

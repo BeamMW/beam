@@ -103,6 +103,7 @@ set(UI_SRC
 
     viewmodel/helpers/list_model.h
     viewmodel/helpers/sortfilterproxymodel.cpp
+    viewmodel/helpers/token_bootstrap_manager.cpp
     viewmodel/wallet/tx_object.cpp
     viewmodel/wallet/tx_object_list.cpp
     viewmodel/wallet/wallet_view.cpp

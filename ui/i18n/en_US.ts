@@ -62,11 +62,11 @@
     </message>
     <message id="general-receiving">
         <source>receiving</source>
-        <translation type="unfinished">receiving</translation>
+        <translation type="obsolete">receiving</translation>
     </message>
     <message id="general-sending">
         <source>sending</source>
-        <translation type="unfinished">sending</translation>
+        <translation type="obsolete">sending</translation>
     </message>
     <message id="general-rescan">
         <source>Rescan</source>
@@ -1280,7 +1280,7 @@ or send this address to the sender over secure channel</translation>
     </message>
     <message id="general-locked">
         <source>locked</source>
-        <translation>locked</translation>
+        <translation type="vanished">locked</translation>
     </message>
     <message id="general-change-settings">
         <source>Change settings</source>
@@ -1810,20 +1810,20 @@ Please check the swap token and try again.</translation>
     </message>
     <message id="invalid-rate-min">
         <source>Rate cannot be less than %1</source>
-        <translation>Rate cannot be less than %1</translation>
-    </message>
-    <message id="swap-offer-duplicate-title">
-        <source>Оffer is already accepted</source>
-        <translation type="unfinished"></translation>
+        <translation type="vanished">Rate cannot be less than %1</translation>
     </message>
     <message id="swap-offer-duplicate-message">
         <source>The offer with this transaction token is already accepted.\nPlease check the swap token and try again.</source>
         <translation>The offer with this transaction token is already accepted.
 Please check the swap token and try again.</translation>
     </message>
+    <message id="swap-offer-duplicate-title">
+        <source>Оffer is already accepted</source>
+        <translation>Оffer is already accepted</translation>
+    </message>
     <message id="swap-offer-duplicate-confirm-button">
         <source>ok</source>
-        <translation type="unfinished"></translation>
+        <translation>ok</translation>
     </message>
 </context>
 </TS>

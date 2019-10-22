@@ -8,7 +8,6 @@
         <file>controls/qmldir</file>
         <file>controls/SvgImage.qml</file>
         <file>controls/SwapCurrencyAmountPane.qml</file>
-        <file>controls/SwapDuplicateAlert.qml</file>
         <file>controls/SFLabel.qml</file>
         <file>controls/SFText.qml</file>
         <file>controls/SFTextInput.qml</file>
@@ -34,6 +33,7 @@
         <file>controls/IPAddrInput.qml</file>
         <file>controls/SwapNodeSettings.qml</file>
         <file>controls/LinkButton.qml</file>
+        <file>controls/TokenDuplicateChecker.qml</file>
         <file>controls/TopGradient.qml</file>
         <file>popup_message.qml</file>
         <file>root.qml</file>

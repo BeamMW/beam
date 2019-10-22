@@ -1,4 +1,13 @@
+import Beam.Wallet 1.0
+
 ConfirmationDialog {
+    TokenBootstrapManager {
+        id: instance
+    }
+    property alias model: instance
+    property var checkTokenForDuplicate: function(token) {
+        model.checkTokenForDuplicate(token);
+    }
     width:                  460
     //% "Оffer is already accepted"
     title:                  qsTrId("swap-offer-duplicate-title")
