@@ -59,6 +59,9 @@ public:
     Q_INVOKABLE static bool haveLtc();
     Q_INVOKABLE static bool haveQtum();
 
+    Q_INVOKABLE static QString rawTxParametrsToTokenStr(
+            QVariant variantTxParams);
+
 private:
     QQmlEngine& _engine;
 };

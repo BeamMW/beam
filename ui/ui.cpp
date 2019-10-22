@@ -48,6 +48,7 @@
 #include "viewmodel/qml_globals.h"
 #include "viewmodel/helpers/list_model.h"
 #include "viewmodel/helpers/sortfilterproxymodel.h"
+#include "viewmodel/helpers/token_bootstrap_manager.h"
 #include "wallet/wallet_db.h"
 #include "utility/log_rotation.h"
 #include "core/ecc_native.h"
@@ -242,6 +243,7 @@ int main (int argc, char* argv[])
             qmlRegisterType<WalletDBPathItem>("Beam.Wallet", 1, 0, "WalletDBPathItem");
             qmlRegisterType<SwapOfferItem>("Beam.Wallet", 1, 0, "SwapOfferItem");
             qmlRegisterType<SwapOffersList>("Beam.Wallet", 1, 0, "SwapOffersList");
+            qmlRegisterType<TokenBootstrapManager>("Beam.Wallet", 1, 0, "TokenBootstrapManager");
             
             qmlRegisterType<SortFilterProxyModel>("Beam.Wallet", 1, 0, "SortFilterProxyModel");
 

@@ -48,6 +48,25 @@ Item {
             BeamGlobals.copyToClipboard(text);
         }
     }
+
+    TokenDuplicateChecker {
+        id: tokenDuplicateChecker
+        Connections {
+            target: tokenDuplicateChecker.model
+            onTokenPreviousAccepted: function(token) {
+                tokenDuplicateChecker.open();
+            }
+            onTokenFirstTimeAccepted: function(token) {
+                walletStackView.pop();
+                walletStackView.push(Qt.createComponent("send_swap.qml"),
+                                     {
+                                         "onAccepted": onAccepted,
+                                         "onClosed": onClosed
+                                     });
+                walletStackView.currentItem.setToken(token);
+            }
+        }
+    }
     
     Title {
         x: 0
@@ -89,19 +108,26 @@ Item {
 
                     onClicked: {
                         walletStackView.push(Qt.createComponent("send.qml"),
-                                            {"isSwapMode": false,
-                                             "onClosed": onClosed,
-                                             "onSwapToken": onSwapToken,
-                                             "onAddress": onAddress});
+                                             {
+                                                 "isSwapMode": false,
+                                                 "onClosed": onClosed,
+                                                 "onSwapToken": onSwapToken,
+                                                 "onAddress": onAddress
+                                             });
 
                         function onAccepted() { walletStackView.pop(); }
                         function onClosed() { walletStackView.pop(); }
                         function onSwapToken(token) {
-                            walletStackView.pop();
-                            walletStackView.push(Qt.createComponent("send_swap.qml"),
-                                                {"onAccepted": onAccepted,
-                                                 "onClosed": onClosed});
-                            walletStackView.currentItem.setToken(token);
+                            tokenDuplicateChecker.checkTokenForDuplicate(token);
+                            // console.log("onSwapToken");
+                            // console.log(token);
+
+                            // tokenBootstrapManager.open();
+                            // walletStackView.pop();
+                            // walletStackView.push(Qt.createComponent("send_swap.qml"),
+                            //                     {"onAccepted": onAccepted,
+                            //                      "onClosed": onClosed});
+                            // walletStackView.currentItem.setToken(token);
                         }
                         function onAddress(token) {
                             walletStackView.pop();

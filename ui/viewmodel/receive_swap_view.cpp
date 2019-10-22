@@ -354,7 +354,7 @@ void ReceiveSwapViewModel::startListen()
     txParameters.SetParameter(TxParameterID::Fee, beam::Amount(swapFee), isBeamSide ? SubTxIndex::REDEEM_TX : SubTxIndex::LOCK_TX);
     txParameters.SetParameter(TxParameterID::AtomicSwapIsBeamSide, isBeamSide);
     txParameters.SetParameter(TxParameterID::IsSender, isBeamSide);
-    if (getCommentValid())
+    if (!_addressComment.isEmpty())
     {
         std::string localComment = _addressComment.toStdString();
         txParameters.SetParameter(TxParameterID::Message, beam::ByteBuffer(localComment.begin(), localComment.end()));

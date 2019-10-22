@@ -29,7 +29,6 @@ namespace beam::bitcoin
 
         virtual void GetStatus() = 0;
         virtual void GetBalance() = 0;
-        virtual void ResetSettings() = 0;
     };
 
     class Client 
@@ -78,6 +77,7 @@ namespace beam::bitcoin
         virtual void OnStatus(Status status) = 0;
         virtual void OnBalance(const Balance& balance) = 0;
         virtual void OnCanModifySettingsChanged(bool canModify) = 0;
+        virtual void OnChangedSettings() = 0;
 
         bool CanModify() const override;
         void AddRef() override;

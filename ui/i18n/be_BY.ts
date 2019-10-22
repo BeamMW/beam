@@ -1045,12 +1045,12 @@
         <translation>Стварыць новы пароль для доступу да вашага кашальку</translation>
     </message>
     <message id="start-create-pwd-strength-message">
-        <source>Strong password needs to meet the following requirements:
+        <source>Strong password needs to meet the following requirements:\n•  the length must be at least 10 characters\n•  must contain at least one lowercase letter\n•  must contain at least one uppercase letter\n•  must contain at least one number</source>
+        <oldsource>Strong password needs to meet the following requirements:
 •  the length must be at least 10 characters
 •  must contain at least one lowercase letter
 •  must contain at least one uppercase letter
-•  must contain at least one number</source>
-        <oldsource>Strong password needs to meet the following requirements:\n•  the length must be at least 10 characters\n•  must contain at least one lowercase letter\n•  must contain at least one uppercase letter\n•  must contain at least one number</oldsource>
+•  must contain at least one number</oldsource>
         <translation type="unfinished">Добры пароль павінен адпавядаць наступным патрабаванням:\n•  даўжыня мінімум 10 сімвалаў\n•  змяшчае хаця б адну маленькую літару\n•  змяшчае хаця б адну вялікую літару\n•  змяшчае хаця б адну лічбу</translation>
     </message>
     <message id="start-open-caps-warning">
@@ -1286,7 +1286,7 @@
         <source>Change settings</source>
         <translation>Змяніць усталёўкі</translation>
     </message>
-    <message id="wallet-swap">
+    <message id="general-swap">
         <source>Swap</source>
         <translation type="unfinished">Swap</translation>
     </message>
@@ -1320,9 +1320,9 @@
         <translation type="unfinished">Atomic Swap is in BETA</translation>
     </message>
     <message id="swap-na-message">
-        <source>You do not have any 3rd-party currencies connected.
-Update your settings and try again.</source>
-        <oldsource>You do not have any 3rd-party currencies connected.\nUpdate your settings and try again.</oldsource>
+        <source>You do not have any 3rd-party currencies connected.\nUpdate your settings and try again.</source>
+        <oldsource>You do not have any 3rd-party currencies connected.
+Update your settings and try again.</oldsource>
         <translation type="unfinished">You do not have any 3rd-party currencies connected.\nUpdate your settings and try again.</translation>
     </message>
     <message id="wallet-receive-swap-title">
@@ -1379,7 +1379,8 @@ Update your settings and try again.</source>
         <translation type="unfinished">Swap currencies</translation>
     </message>
     <message id="wallet-send-invalid-token">
-        <source>Invalid address or token</source>
+        <source>Invalid token</source>
+        <oldsource>Invalid address or token</oldsource>
         <translation type="unfinished">Invalid address or token</translation>
     </message>
     <message id="general-comment-local">
@@ -1407,9 +1408,9 @@ Update your settings and try again.</source>
         <translation type="unfinished">Electrum</translation>
     </message>
     <message id="swap-currency-na-message">
-        <source>You do not have %1 connected.
-Update your settings and try again.</source>
-        <oldsource>You do not have %1 connected.\nUpdate your settings and try again.</oldsource>
+        <source>You do not have %1 connected.\nUpdate your settings and try again.</source>
+        <oldsource>You do not have %1 connected.
+Update your settings and try again.</oldsource>
         <translation type="unfinished">You do not have %1 connected.\nUpdate your settings and try again.</translation>
     </message>
     <message id="send-swap-to-label">
@@ -1626,9 +1627,9 @@ Update your settings and try again.</source>
         <translation type="unfinished">You cannot change settings\nwhile active transaction is in progress</translation>
     </message>
     <message id="atomic-no-offers">
-        <source>There are no active offers at the moment.
-Please try again later or create an offer yourself.</source>
-        <oldsource>There are no active offers at the moment.\nPlease try again later or create an offer yourself.</oldsource>
+        <source>There are no active offers at the moment.\nPlease try again later or create an offer yourself.</source>
+        <oldsource>There are no active offers at the moment.
+Please try again later or create an offer yourself.</oldsource>
         <translation type="unfinished">There are no active offers at the moment.\nPlease try again later or create an offer yourself.</translation>
     </message>
     <message id="send-less-than-fee">
@@ -1692,9 +1693,9 @@ Please try again later or create an offer yourself.</source>
         <translation type="unfinished">Own offer can’t be accepted</translation>
     </message>
     <message id="accept-own-offer-allert-body">
-        <source>The transaction token was generated by you, therefore it is not allowed to accept your own offer.
-Please check the swap token and try again.</source>
-        <oldsource>The transaction token was generated by you, therefore it is not allowed to accept your own offer.\nPlease check the swap token and try again.</oldsource>
+        <source>The transaction token was generated by you, therefore it is not allowed to accept your own offer.\nPlease check the swap token and try again.</source>
+        <oldsource>The transaction token was generated by you, therefore it is not allowed to accept your own offer.
+Please check the swap token and try again.</oldsource>
         <translation type="unfinished">The transaction token was generated by you, therefore it is not allowed to accept your own offer.\nPlease check the swap token and try again.</translation>
     </message>
     <message id="swap-copy-token">
@@ -1807,6 +1808,22 @@ Please check the swap token and try again.</source>
     </message>
     <message id="connect to node">
         <source>connect to node</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="wallet-send-invalid-address-or-token">
+        <source>Invalid address or token</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="swap-offer-duplicate-title">
+        <source>Оffer is already accepted</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="swap-offer-duplicate-message">
+        <source>The offer with this transaction token is already accepted.\nPlease check the swap token and try again.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="swap-offer-duplicate-confirm-button">
+        <source>ok</source>
         <translation type="unfinished"></translation>
     </message>
 </context>

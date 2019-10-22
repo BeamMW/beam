@@ -83,7 +83,8 @@ ColumnLayout {
                 placeholderText:  qsTrId("send-contact-placeholder")
 
                 onTextChanged: {
-                    if (BeamGlobals.isSwapToken(text)) {
+                    if (BeamGlobals.isSwapToken(text)&&
+                        typeof onSwapToken == "function") {
                         onSwapToken(text);
                     }
                 }
@@ -97,7 +98,7 @@ ColumnLayout {
                     color:            Style.validator_error
                     font.pixelSize:   12
                     //% "Invalid address or token"
-                    text:             qsTrId("wallet-send-invalid-token")
+                    text:             qsTrId("wallet-send-invalid-address-or-token")
                     visible:          !isTAInputValid()
                 }
             }

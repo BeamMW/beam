@@ -363,7 +363,7 @@ ColumnLayout {
 
         CustomButton {
             //% "Swap"
-            text:               qsTrId("wallet-swap")
+            text:               qsTrId("general-swap")
             palette.buttonText: Style.content_opposite
             palette.button:     Style.accent_outgoing
             icon.source:        "qrc:/assets/icon-send-blue.svg"

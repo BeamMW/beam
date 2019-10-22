@@ -48,6 +48,7 @@ private:
     void OnStatus(Status status) override;
     void OnBalance(const Client::Balance& balance) override;
     void OnCanModifySettingsChanged(bool canModify) override;
+    void OnChangedSettings() override;
 
 private slots:
     void requestBalance();

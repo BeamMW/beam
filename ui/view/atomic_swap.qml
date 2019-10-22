@@ -12,6 +12,19 @@ Item {
     Layout.fillWidth: true
     Layout.fillHeight: true
 
+    // callbacks for send views
+    function onAccepted() {
+        offersStackView.pop();
+        offersViewComponent.atomicSwapLayout.state = "transactions";
+        offersViewComponent.transactionsTab.state = "filterInProgressTransactions";
+    }
+    function onClosed() {
+        offersStackView.pop();
+    }
+    function onSwapToken(token) {
+        tokenDuplicateChecker.checkTokenForDuplicate(token);
+    }
+
     SwapOffersViewModel {
         id: viewModel
     }
@@ -49,6 +62,25 @@ Item {
         }
     }
 
+    TokenDuplicateChecker {
+        id: tokenDuplicateChecker
+        Connections {
+            target: tokenDuplicateChecker.model
+            onTokenPreviousAccepted: function(token) {
+                tokenDuplicateChecker.open();
+            }
+            onTokenFirstTimeAccepted: function(token) {
+                offersStackView.pop();
+                offersStackView.push(Qt.createComponent("send_swap.qml"),
+                                     {
+                                         "onAccepted": onAccepted,
+                                         "onClosed": onClosed
+                                     });
+                offersStackView.currentItem.setToken(token);
+            }
+        }
+    }
+
     Component.onCompleted: {
         if (viewModel.showBetaWarning) {
             betaDialog.open()
@@ -83,25 +115,6 @@ Item {
             Layout.fillHeight: true
             spacing: 0
             state: "offers"
-
-            // callbacks for send views
-            function onAccepted() {
-                            offersStackView.pop();
-                            atomicSwapLayout.state = "transactions";
-                            transactionsTab.state = "filterInProgressTransactions";
-            }
-            function onClosed() {
-                offersStackView.pop();
-            }
-            function onSwapToken(token) {
-                offersStackView.pop();
-                offersStackView.push(Qt.createComponent("send_swap.qml"),
-                                     {
-                                         "onAccepted": onAccepted,
-                                         "onClosed": onClosed
-                                     });
-                offersStackView.currentItem.setToken(token);
-            }
 
             RowLayout {
                 Layout.alignment: Qt.AlignRight | Qt.AlignTop
@@ -210,7 +223,6 @@ Item {
                     currencyIcon: "qrc:/assets/icon-btc.svg"
                     valueStr: parent.btcAmount()
                     valueSecondaryStr: parent.btcActiveTxStr()
-                    showLoader: viewModel.btcOK && parent.btcActiveTxStr().length
                     isOk: viewModel.btcOK
                     isConnecting: viewModel.btcConnecting
                     visible: BeamGlobals.haveBtc()
@@ -225,7 +237,6 @@ Item {
                     currencyIcon: "qrc:/assets/icon-ltc.svg"
                     valueStr: parent.ltcAmount()
                     valueSecondaryStr: parent.ltcActiveTxStr()
-                    showLoader: viewModel.ltcOK && parent.ltcActiveTxStr().length
                     isOk: viewModel.ltcOK
                     isConnecting: viewModel.ltcConnecting
                     visible: BeamGlobals.haveLtc()
@@ -238,7 +249,6 @@ Item {
                     currencyIcon: "qrc:/assets/icon-qtum.svg"
                     valueStr: parent.qtumAmount()
                     valueSecondaryStr: parent.qtumActiveTxStr()
-                    showLoader: viewModel.qtumOK && parent.qtumActiveTxStr().length
                     isOk: viewModel.qtumOK
                     isConnecting: viewModel.qtumConnecting
                     visible: BeamGlobals.haveQtum()
@@ -663,10 +673,8 @@ Item {
                                                 }
                                                 else {
                                                     var txParameters = offersTable.model.getRoleValue(styleData.row, "rawTxParameters");
-                                                    offersStackView.push(Qt.createComponent("send_swap.qml"),
-                                                                        {"predefinedTxParams": txParameters,
-                                                                         "onAccepted": onAccepted,
-                                                                         "onClosed": onClosed});
+                                                    var token = BeamGlobals.rawTxParametrsToTokenStr(txParameters);
+                                                    tokenDuplicateChecker.checkTokenForDuplicate(token);
                                                 }
                                             }
                                         }

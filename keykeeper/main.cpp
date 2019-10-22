@@ -18,89 +18,103 @@
 #include <emscripten/bind.h>
 
 using namespace emscripten;
+using namespace beam;
+using namespace beam::wallet;
+
+struct KeyIDV : Key::IDV
+{   
+    // !TODO: unfortunately, wasm doesn't support uint64_t as values 
+    // max Number value in JS is 2^53-1, as variant, we could set hi/low bits for 64 bit values
+    // or we could pass values as String and parse then
+    // proof: https://emscripten.org/docs/getting_started/FAQ.html#how-do-i-pass-int64-t-and-uint64-t-values-from-js-into-wasm-functions
+
+    uint32_t    getValue() const {return m_Value;}
+    void        setValue(uint32_t value) {m_Value = value;}
+
+    uint32_t    getIdx() const {return m_Idx;}
+    void        setIdx(uint32_t value) {m_Idx = value;}
+
+    uint32_t    getType() const {return m_Type;}
+    void        setType(uint32_t value) {m_Type = value;}
+
+    uint32_t    getSubIdx() const {return m_SubIdx;}
+    void        setSubIdx(uint32_t value) {m_SubIdx = value;}    
+};
 
 struct KeyKeeper
 {
     KeyKeeper(const beam::WordList& words)
     {
+
         ECC::NoLeak<ECC::uintBig> seed;
         auto buf = beam::decodeMnemonic(words);
         ECC::Hash::Processor() << beam::Blob(buf.data(), (uint32_t)buf.size()) >> seed.V;
         ECC::HKdf::Create(_kdf, seed.V);
 
-        std::cout << seed.V << std::endl;
+        std::cout << "KeyKeeper(): " << seed.V << std::endl;
+
+        struct VariablesDB : IVariablesDB
+        {
+            void setVarRaw(const char* name, const void* data, size_t size) override {};
+            bool getVarRaw(const char* name, void* data, int size) const override { return false; };
+            void removeVarRaw(const char* name) override {};
+            void setPrivateVarRaw(const char* name, const void* data, size_t size) override {};
+            bool getPrivateVarRaw(const char* name, void* data, int size) const override { return false; };
+            bool getBlob(const char* name, ByteBuffer& var) const override { return false; };
+        };
+
+        IVariablesDB::Ptr vars = std::make_shared<VariablesDB>();
+
+        _impl = std::make_shared<LocalPrivateKeyKeeper>(vars, _kdf);
+    }
+
+    ECC::Point GeneratePublicKey(const KeyIDV& id, bool createCoinKey) const
+    {
+        auto res = _impl->GeneratePublicKeySync(id, createCoinKey);
+
+        std::cout << "GeneratePublicKey(): " << res << std::endl;
+
+        return res;
+    }
+
+    std::string GetOwnerKey() const
+    {
+        const ECC::HKdf& kdf = static_cast<ECC::HKdf&>(*_kdf);
+
+        auto publicKdf = std::make_shared<ECC::HKdfPub>();
+        publicKdf->GenerateFrom(kdf);
+
+        return "!TODO: convert to base16";
     }
 
 private:
-    beam::Key::IKdf::Ptr _kdf;
+    Key::IKdf::Ptr _kdf;
+    IPrivateKeyKeeper::Ptr _impl;
 };
 
 // Binding code
-EMSCRIPTEN_BINDINGS() {
-
+EMSCRIPTEN_BINDINGS() 
+{
     register_vector<std::string>("WordList");
+
+    class_<KeyIDV>("KeyIDV")
+        .constructor()
+        .property("value",  &KeyIDV::getValue,  &KeyIDV::setValue)
+        .property("idx",    &KeyIDV::getIdx,    &KeyIDV::setIdx)
+        .property("type",   &KeyIDV::getType,   &KeyIDV::setType)
+        .property("subIdx", &KeyIDV::getSubIdx, &KeyIDV::setSubIdx)
+    ;
+
+    class_<ECC::Point>("ECCPoint")
+        .constructor()
+    ;
+
     class_<KeyKeeper>("KeyKeeper")
         .constructor<const beam::WordList&>()
+        .function("generatePublicKey", &KeyKeeper::GeneratePublicKey)
+        .property("ownerKey", &KeyKeeper::GetOwnerKey)
         // .function("func", &KeyKeeper::func)
         // .property("prop", &KeyKeeper::getProp, &KeyKeeper::setProp)
         // .class_function("StaticFunc", &KeyKeeper::StaticFunc)
         ;
-}
-
-extern "C"
-{
-
-void runTest()
-{
-    std::cout << "Start Key Keeper Test..." << std::endl;
-
-    using namespace beam;
-    using namespace beam::wallet;
-
-    struct VariablesDB : IVariablesDB
-    {
-        void setVarRaw(const char* name, const void* data, size_t size) override {};
-        bool getVarRaw(const char* name, void* data, int size) const override { return false; };
-        void removeVarRaw(const char* name) override {};
-        void setPrivateVarRaw(const char* name, const void* data, size_t size) override {};
-        bool getPrivateVarRaw(const char* name, void* data, int size) const override { return false; };
-        bool getBlob(const char* name, ByteBuffer& var) const override { return false; };
-    };
-
-    IVariablesDB::Ptr vars = std::make_shared<VariablesDB>();
-
-    Key::IKdf::Ptr kdf;
-    {
-        ECC::NoLeak<ECC::uintBig> seed;
-        auto buf = beam::decodeMnemonic({ "copy", "vendor", "shallow", "raven", "coffee", "appear", "book", "blast", "lock", "exchange", "farm", "glue" });
-        ECC::Hash::Processor() << Blob(buf.data(), (uint32_t)buf.size()) >> seed.V;
-        ECC::HKdf::Create(kdf, seed.V);
-    }
-
-    IPrivateKeyKeeper::Ptr keyKeeper = std::make_shared<LocalPrivateKeyKeeper>(vars, kdf);
-
-    {
-        std::cout << std::endl << "Generating Nonce..." << std::endl;
-        std::cout << "===================" << std::endl;
-
-        auto slot = keyKeeper->AllocateNonceSlot();
-        auto nonce = keyKeeper->GenerateNonceSync(slot);
-
-        std::cout << "Nonce[" << slot << "] = " << nonce << std::endl;
-    }
-
-    {
-        std::cout << std::endl << "Generating Public Key..." << std::endl;
-        std::cout << "===================" << std::endl;
-
-        const ECC::Key::IDV kidv(100500, 15, Key::Type::Regular, 7, ECC::Key::IDV::Scheme::V0);
-
-        std::cout << kidv << std::endl;
-
-        ECC::Point pt2 = keyKeeper->GeneratePublicKeySync(kidv, true);
-
-        std::cout << "Public key: " << pt2 << std::endl;
-    }
-}
-
 }

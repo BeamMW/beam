@@ -29,7 +29,7 @@ ConfirmationDialog {
                 color:                Style.content_main
                 horizontalAlignment:  Text.AlignHCenter
                 //% "Swap"
-                text:                 qsTrId("wallet-swap")
+                text:                 qsTrId("general-swap")
             }
 
             SFText {

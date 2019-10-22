@@ -18,6 +18,7 @@
 #include "version.h"
 #include "model/app_model.h"
 #include "wallet/common.h"
+#include "ui_helpers.h"
 
 namespace
 {
@@ -205,4 +206,14 @@ bool QMLGlobals::haveLtc()
 bool QMLGlobals::haveQtum()
 {
     return AppModel::getInstance().getQtumClient()->GetSettings().IsActivated();
+}
+
+QString QMLGlobals::rawTxParametrsToTokenStr(QVariant variantTxParams)
+{
+    if (!variantTxParams.isNull() && variantTxParams.isValid())
+    {
+        auto txParameters = variantTxParams.value<beam::wallet::TxParameters>();
+        return QString::fromStdString(std::to_string(txParameters));
+    }
+    return "";
 }

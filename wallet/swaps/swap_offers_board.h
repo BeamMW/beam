@@ -41,9 +41,13 @@ namespace beam::wallet
         virtual void OnMsg(proto::BbsMsg&& msg) override;
         /**
          *  IWalletDbObserver implementation
-         *  Watch for swap transaction status changes to update linked offer on board
+         *  Watches for swap transaction status changes to update linked offers on board
          */
         virtual void onTransactionChanged(ChangeAction action, const std::vector<TxDescription>& items) override;
+        /**
+         *  Watches for system state to remove stuck expired offers from board
+         */
+        virtual void onSystemStateChanged(const Block::SystemState::ID& stateID) override;
 
         auto getOffersList() const -> std::vector<SwapOffer>;
         void publishOffer(const SwapOffer& offer) const;
