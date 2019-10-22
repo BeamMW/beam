@@ -1856,7 +1856,7 @@ namespace beam::wallet
     {
         storage::setVar(*this, SystemStateIDName, stateID);
         storage::setVar(*this, LastUpdateTimeName, getTimestamp());
-        notifySystemStateChanged();
+        notifySystemStateChanged(stateID);
     }
 
     bool WalletDB::getSystemStateID(Block::SystemState::ID& stateID) const
@@ -2446,9 +2446,9 @@ namespace beam::wallet
         }
     }
 
-    void WalletDB::notifySystemStateChanged()
+    void WalletDB::notifySystemStateChanged(const Block::SystemState::ID& stateID)
     {
-        for (auto sub : m_subscribers) sub->onSystemStateChanged();
+        for (auto sub : m_subscribers) sub->onSystemStateChanged(stateID);
     }
 
     void WalletDB::notifyAddressChanged(ChangeAction action, const vector<WalletAddress>& items)
