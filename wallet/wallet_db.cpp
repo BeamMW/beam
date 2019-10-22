@@ -2584,7 +2584,7 @@ namespace beam::wallet
 
     uint64_t WalletDB::saveIncomingWalletMessage(BbsChannel channel, const ByteBuffer& message)
     {
-        const char* req = "INSERT INTO " INCOMING_WALLET_MESSAGE_NAME " (Channel, Message) VALUES(?,?)";
+        const char* req = "INSERT INTO " INCOMING_WALLET_MESSAGE_NAME " (Channel, Message) VALUES(?,?);";
         sqlite::Statement stm(this, req);
         stm.bind(1, channel);
         stm.bind(2, message);
@@ -2604,8 +2604,8 @@ namespace beam::wallet
     bool WalletDB::History::Enum(IWalker& w, const Height* pBelow)
     {
         const char* req = pBelow ?
-            "SELECT " TblStates_Hdr " FROM " TblStates " WHERE " TblStates_Height "<? ORDER BY " TblStates_Height " DESC" :
-            "SELECT " TblStates_Hdr " FROM " TblStates " ORDER BY " TblStates_Height " DESC";
+            "SELECT " TblStates_Hdr " FROM " TblStates " WHERE " TblStates_Height "<? ORDER BY " TblStates_Height " DESC;" :
+            "SELECT " TblStates_Hdr " FROM " TblStates " ORDER BY " TblStates_Height " DESC;";
 
         sqlite::Statement stm(&get_ParentObj(), req);
 

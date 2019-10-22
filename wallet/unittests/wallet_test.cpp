@@ -1342,7 +1342,7 @@ namespace
         printf("Testing bbs with wallets2 ...\n");
         io::Reactor::Ptr mainReactor(io::Reactor::create());
         io::Reactor::Scope scope(*mainReactor);
-        const int Count = 30;
+        const int Count = 1000;
         string nodePath = "node.db";
         if (boost::filesystem::exists(nodePath))
         {
@@ -1400,7 +1400,7 @@ namespace
                 .SetParameter(TxParameterID::PeerID, receiver.m_WalletID)
                 .SetParameter(TxParameterID::Amount, Amount(4))
                 .SetParameter(TxParameterID::Fee, Amount(1))
-                .SetParameter(TxParameterID::Lifetime, Height(20))
+                .SetParameter(TxParameterID::Lifetime, Height(30))
                 .SetParameter(TxParameterID::PeerResponseTime, Height(100)));
         }
         
