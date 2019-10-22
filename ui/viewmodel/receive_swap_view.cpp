@@ -163,6 +163,7 @@ void ReceiveSwapViewModel::setReceiveCurrency(Currency value)
     {
         _receiveCurrency = value;
         emit receiveCurrencyChanged();
+        updateTransactionToken();
     }
 }
 
