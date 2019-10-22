@@ -67,6 +67,7 @@ Item {
         Connections {
             target: tokenDuplicateChecker.model
             onTokenPreviousAccepted: function(token) {
+                tokenDuplicateChecker.isOwn = false;
                 tokenDuplicateChecker.open();
             }
             onTokenFirstTimeAccepted: function(token) {
@@ -77,6 +78,10 @@ Item {
                                          "onClosed": onClosed
                                      });
                 offersStackView.currentItem.setToken(token);
+            }
+            onTokenOwnGenerated: function(token) {
+                tokenDuplicateChecker.isOwn = true;
+                tokenDuplicateChecker.open();
             }
         }
     }

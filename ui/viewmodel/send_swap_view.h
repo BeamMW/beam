@@ -34,7 +34,6 @@ class SendSwapViewModel: public QObject
     Q_PROPERTY(bool          canSend          READ canSend                                  NOTIFY canSendChanged)
     Q_PROPERTY(QString       comment          READ getComment          WRITE setComment     NOTIFY commentChanged)
     Q_PROPERTY(QString       receiverAddress  READ getReceiverAddress                       NOTIFY tokenChanged)
-    Q_PROPERTY(bool          isOwnAddress     READ isOwnAddress                             NOTIFY tokenChanged)
 
     Q_PROPERTY(WalletCurrency::Currency  receiveCurrency  READ getReceiveCurrency  NOTIFY  receiveCurrencyChanged)
     Q_PROPERTY(WalletCurrency::Currency  sendCurrency     READ getSendCurrency     NOTIFY  sendCurrencyChanged)
@@ -79,7 +78,6 @@ public:
     bool canSend() const;
 
     QString getReceiverAddress() const;
-    bool isOwnAddress() const;
 
 public:
     Q_INVOKABLE void setParameters(QVariant parameters);    /// used to pass TxParameters directly without Token generation
