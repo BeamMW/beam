@@ -47,7 +47,7 @@ Control {
     Control {
         id:            lockedTip
         visible:       lockedArea.containsMouse
-        x:             lockedAmount.x + lockedAmount.parent.x
+        x:             lockedAmount.x + lockedAmount.parent.x + lockedAmount.parent.parent.x + lockedAmount.width / 2 - lockedTip.width / 2
         y:             lockedAmount.y + lockedAmount.parent.y + lockedAmount.height + 15
 
         leftPadding:   14
@@ -89,7 +89,7 @@ Control {
     Control {
         id:            receivingTip
         visible:       receivingArea.containsMouse
-        x:             receivingAmount.x + receivingAmount.parent.x
+        x:             receivingAmount.x + receivingAmount.parent.x + receivingAmount.parent.parent.x + receivingAmount.width / 2 - receivingTip.width / 2
         y:             receivingAmount.y + receivingAmount.parent.y + receivingAmount.height + 15
 
         leftPadding:   14
