@@ -346,16 +346,6 @@ QString SendSwapViewModel::getReceiverAddress() const
     return _token;
 }
 
-bool SendSwapViewModel::isOwnAddress() const
-{
-    auto peerID = _txParameters.GetParameter<beam::wallet::WalletID>(beam::wallet::TxParameterID::PeerID);
-    if (peerID)
-    {
-        return _walletModel.isOwnAddress(*peerID);
-    }
-    return false;
-}
-
 bool SendSwapViewModel::canSend() const
 {
     // TODO:SWAP check if correct

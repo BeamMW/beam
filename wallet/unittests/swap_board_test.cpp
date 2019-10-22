@@ -16,6 +16,7 @@
 #include <assert.h>
 #include <iostream>
 #include <map>
+#include <functional>
 
 #include <boost/filesystem.hpp>
 
@@ -44,19 +45,27 @@ using namespace std;
 
 namespace
 {
-    // struct Observer : public ISwapOffersObserver
-    // {
-    //     Observer(string name) :
-    //         m_name(name) {};
-    //     virtual void onSwapOffersChanged(ChangeAction action, const vector<SwapOffer>& offers) override
-    //     {
-    //         cout << "Observer " << m_name << ": swap offer changed\n";
-    //     }
-    //     string m_name;
-    // };
+    /**
+     *  Class to test correct notification of SwapOffersBoard observers
+     */
+    struct MockBoardObserver : public ISwapOffersObserver
+    {
+        MockBoardObserver(string name, function<void(ChangeAction, const vector<SwapOffer>&)> checker) :
+            m_name(name),
+            m_testChecker(checker) {};
+
+        virtual void onSwapOffersChanged(ChangeAction action, const vector<SwapOffer>& offers) override
+        {
+            cout << "Observer " << m_name << ": swap offer changed\n";
+            m_testChecker(action, offers);
+        }
+
+        string m_name;
+        function<void(ChangeAction, const vector<SwapOffer>&)> m_testChecker;
+    };
 
     /**
-     *  Wallet implementation isn't used in this test.
+     *  Real Wallet implementation isn't used in this test.
      *  Mock used to for BaseMessageEndpoint constructor.
      */
     struct MockWallet : public IWalletMessageConsumer
@@ -75,9 +84,7 @@ namespace
     public:
         MockNetwork(IWalletMessageConsumer& wallet, const IWalletDB::Ptr& walletDB, IPrivateKeyKeeper::Ptr keyKeeper)
             : BaseMessageEndpoint(wallet, walletDB, keyKeeper)
-        {
-            cout << "\nMock network for SwapOffersBoard created" << endl;
-        };
+        {};
 
         // INetwork
         virtual void Connect() override {};
@@ -85,7 +92,7 @@ namespace
         virtual void PostRequestInternal(FlyClient::Request&) override {};
         virtual void BbsSubscribe(BbsChannel channel, Timestamp ts, FlyClient::IBbsReceiver* callback) override
         {
-            m_subscriptions[channel] = make_pair(callback, ts);
+            m_subscriptions[channel].push_back(make_pair(callback, ts));
         };
 
         // IWalletMessageEndpoint
@@ -103,101 +110,214 @@ namespace
                 bbsMsg.m_Channel = channel;
                 bbsMsg.m_Message = msg;
                 bbsMsg.m_TimePosted = getTimestamp();
-                m_subscriptions[channel].first->OnMsg(std::move(bbsMsg));
+                for (const auto& pair : m_subscriptions[channel])
+                {
+                    pair.first->OnMsg(std::move(bbsMsg));
+                }
             }
         };
 
-
-
     private:
-        map<BbsChannel, pair<FlyClient::IBbsReceiver*, Timestamp>> m_subscriptions;
+        map<BbsChannel, vector<pair<FlyClient::IBbsReceiver*, Timestamp>>> m_subscriptions;
     };
 
-    void TestSwapOfferBoardCominication()
+    TxID& stepTxID(TxID& id)
     {
-        cout << "TestSwapOfferBoardCominication" << endl;
+        for (uint8_t& i : id)
+        {
+            if (i < 0xff)
+            {
+                ++i;
+                break;
+            }
+        }
+        return id;
+    }
+
+    void TestSwapOfferBoardProtocol()
+    {
+        cout << endl << "Test protocol." << endl;
         MockWallet mockWalletWallet;
-        auto testWalletDB = createSenderWalletDB();
-        auto keyKeeper = make_shared<LocalPrivateKeyKeeper>(testWalletDB, testWalletDB->get_MasterKdf());
-        MockNetwork mockNetwork(mockWalletWallet, testWalletDB, keyKeeper);
+        auto senderWalletDB = createSenderWalletDB();
+        auto keyKeeper = make_shared<LocalPrivateKeyKeeper>(senderWalletDB, senderWalletDB->get_MasterKdf());
+        MockNetwork mockNetwork(mockWalletWallet, senderWalletDB, keyKeeper);
+
+        SwapOffersBoard Alice(mockNetwork, mockNetwork);
+        size_t countOffers = 0;
+        WALLET_CHECK_NO_THROW(countOffers = Alice.getOffersList().size());
+        WALLET_CHECK(countOffers == 0);
+        
+        {
+            cout << "Empty message." << endl;
+            BbsMsg m;
+            m.m_Channel = BbsChannel(proto::Bbs::s_MaxChannels);
+            m.m_TimePosted = getTimestamp();
+            m.m_Message = ByteBuffer();
+            Alice.OnMsg(move(m));
+            WALLET_CHECK_NO_THROW(countOffers = Alice.getOffersList().size());
+            WALLET_CHECK(countOffers == 0);
+        }
+        {
+            cout << "Message header too short." << endl;
+            BbsMsg m;
+            m.m_Channel = BbsChannel(proto::Bbs::s_MaxChannels);
+            m.m_TimePosted = getTimestamp();
+            m.m_Message = ByteBuffer(beam::MsgHeader::SIZE - 2, 't');
+            Alice.OnMsg(move(m));
+            WALLET_CHECK_NO_THROW(countOffers = Alice.getOffersList().size());
+            WALLET_CHECK(countOffers == 0);
+        }
+        {
+            cout << "Message contain only header." << endl;
+            BbsMsg m;
+            m.m_Channel = BbsChannel(proto::Bbs::s_MaxChannels);
+            m.m_TimePosted = getTimestamp();
+            ByteBuffer data;
+            data.reserve(MsgHeader::SIZE);
+            MsgHeader header(0,0,1,0,0);            
+            header.write(data.data());
+            m.m_Message = data;
+            Alice.OnMsg(move(m));
+            WALLET_CHECK_NO_THROW(countOffers = Alice.getOffersList().size());
+            WALLET_CHECK(countOffers == 0);
+        }
+        {
+            cout << "Unsupported version." << endl;
+            BbsMsg m;
+            m.m_Channel = BbsChannel(proto::Bbs::s_MaxChannels);
+            m.m_TimePosted = getTimestamp();
+            ByteBuffer data;
+            data.reserve(MsgHeader::SIZE);
+            MsgHeader header(1,2,3,0,0);
+            header.write(data.data());
+            m.m_Message = data;
+            Alice.OnMsg(move(m));
+            WALLET_CHECK_NO_THROW(countOffers = Alice.getOffersList().size());
+            WALLET_CHECK(countOffers == 0);
+        }
+        {
+            cout << "Wrong length." << endl;
+            BbsMsg m;
+            m.m_Channel = BbsChannel(proto::Bbs::s_MaxChannels);
+            m.m_TimePosted = getTimestamp();
+            ByteBuffer data;
+            data.reserve(MsgHeader::SIZE);
+            MsgHeader header(0,0,1,0,5);
+            header.write(data.data());
+            m.m_Message = data;
+            Alice.OnMsg(move(m));
+            WALLET_CHECK_NO_THROW(countOffers = Alice.getOffersList().size());
+            WALLET_CHECK(countOffers == 0);
+        }
+        {
+            cout << "Wrong message type." << endl;
+            BbsMsg m;
+            m.m_Channel = BbsChannel(proto::Bbs::s_MaxChannels);
+            m.m_TimePosted = getTimestamp();
+            ByteBuffer data;
+            data.reserve(MsgHeader::SIZE);
+            MsgHeader header(0,0,1,5,0);
+            header.write(data.data());
+            m.m_Message = data;
+            Alice.OnMsg(move(m));
+            WALLET_CHECK_NO_THROW(countOffers = Alice.getOffersList().size());
+            WALLET_CHECK(countOffers == 0);
+        }
+
+        // wrong body and signature length
+        // wrong signature
+        // wrong body (offer structure)
+
+        cout << "Test end" << endl;
+    }
+
+    void TestSwapOfferBoardCommunication()
+    {
+        cout << endl << "Test boards communication" << endl;
+        MockWallet mockWalletWallet;
+        auto senderWalletDB = createSenderWalletDB();
+        auto keyKeeper = make_shared<LocalPrivateKeyKeeper>(senderWalletDB, senderWalletDB->get_MasterKdf());
+        MockNetwork mockNetwork(mockWalletWallet, senderWalletDB, keyKeeper);
 
         SwapOffersBoard Alice(mockNetwork, mockNetwork);
         SwapOffersBoard Bob(mockNetwork, mockNetwork);
-        SwapOffersBoard Cory(mockNetwork, mockNetwork);
+        // SwapOffersBoard Cory(mockNetwork, mockNetwork);
 
-        auto offers = Alice.getOffersList();
-        cout << "Empty board contains: " << offers.size() << " offers" << endl;
+        // MockBoardObserver aliceObserver("Alice observer", [](ChangeAction a, const vector<SwapOffer>& o) {
+        //             cout << "Action: " << static_cast<uint32_t>(a) << endl;
+        //             cout << "Offers.size: " << o.size() << endl;
+        //         });
+        // Alice.Subscribe(&aliceObserver);
 
-        cout << "TestSwapOfferBoardCominication end" << endl;
-    }
+        WALLET_CHECK(Alice.getOffersList().size() == 0);
+        WALLET_CHECK(Bob.getOffersList().size() == 0);
 
-    // void TestSwapBoardsCommunication()
-    // {
-    //     cout << "\nTesting swap offer boards communication with mock network...\n";
+        // Fill offer
+        TxID txId = {{0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0}};
+        WalletAddress wa = storage::createAddress(*senderWalletDB, keyKeeper);
+        senderWalletDB->saveAddress(wa);
+        WalletID senderId = wa.m_walletID;
+        SwapOffer correctOffer(txId, SwapOfferStatus::Pending, senderId, AtomicSwapCoin::Bitcoin);
+        // mandatory parameters
+        correctOffer.SetParameter(TxParameterID::AtomicSwapCoin, correctOffer.m_coin);
+        correctOffer.SetParameter(TxParameterID::AtomicSwapIsBeamSide, true);
+        correctOffer.SetParameter(TxParameterID::Amount, Amount(15000));
+        correctOffer.SetParameter(TxParameterID::AtomicSwapAmount, Amount(85224));
+        correctOffer.SetParameter(TxParameterID::MinHeight, Height(123));
+        correctOffer.SetParameter(TxParameterID::PeerResponseTime, Height(15));
 
-    //     Observer senderObserver("sender");
-    //     Observer receiverObserver("receiver");
-
-    //     MockNetwork mockNetwork;
-
-    //     SwapOffersBoard senderBoard(mockNetwork, mockNetwork);
-    //     SwapOffersBoard receiverBoard(mockNetwork, mockNetwork);
-
-    //     // test if only subscribed coin offer stored
-    //     receiverBoard.selectSwapCoin(AtomicSwapCoin::Bitcoin);
-
-    //     // use CreateSwapParameters
-    //     SwapOffer offer1(TxID{{1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16}});
-    //     SwapOffer offer2(TxID{{10,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16}});
-    //     offer1.SetParameter(TxParameterID::AtomicSwapCoin, toByteBuffer(AtomicSwapCoin::Bitcoin));
-    //     offer1.SetParameter(TxParameterID::Status, beam::wallet::TxStatus::Pending);
-    //     offer2.SetParameter(TxParameterID::AtomicSwapCoin, toByteBuffer(AtomicSwapCoin::Litecoin));
-    //     offer2.SetParameter(TxParameterID::Status, beam::wallet::TxStatus::Pending);
-    //     senderBoard.publishOffer(offer1);
-    //     senderBoard.publishOffer(offer2);
-    //     auto offersList = receiverBoard.getOffersList();
-    //     WALLET_CHECK(offersList.size() == 1);
-
-    //     // test backward offers transmition
-    //     senderBoard.selectSwapCoin(AtomicSwapCoin::Qtum);
-
-    //     offer2.SetParameter(TxParameterID::AtomicSwapCoin, toByteBuffer(AtomicSwapCoin::Bitcoin));
-    //     senderBoard.publishOffer(offer2);
-
-    //     offersList = receiverBoard.getOffersList();
-    //     WALLET_CHECK(offersList.size() == 2);
-    //     offersList = senderBoard.getOffersList();
-    //     WALLET_CHECK(offersList.size() == 0);
-
-    //     offer1.SetParameter(TxParameterID::AtomicSwapCoin, toByteBuffer(AtomicSwapCoin::Qtum));
-    //     offer2.SetParameter(TxParameterID::AtomicSwapCoin, toByteBuffer(AtomicSwapCoin::Qtum));
-    //     receiverBoard.publishOffer(offer1);
-    //     receiverBoard.publishOffer(offer2);
-    //     offersList = senderBoard.getOffersList();
-    //     WALLET_CHECK(offersList.size() == 2);
-
-    //     // test offer corruption
-    //     receiverBoard.selectSwapCoin(AtomicSwapCoin::Litecoin);
-    //     offersList = receiverBoard.getOffersList();
-    //     WALLET_CHECK(offersList.size() == 0);
-
-    //     offer1.SetParameter(TxParameterID::AtomicSwapCoin, toByteBuffer(AtomicSwapCoin::Litecoin));
-    //     senderBoard.publishOffer(offer1);
-    //     offersList = receiverBoard.getOffersList();
-    //     WALLET_CHECK(offersList.size() == 1);
-    //     WALLET_CHECK(offersList.front() == offer1);
+        cout << "Normal offer dispatch: " << endl;
+        Alice.publishOffer(correctOffer);
+        WALLET_CHECK(Alice.getOffersList().size() == 1);
+        WALLET_CHECK(Bob.getOffersList().size() == 1);
         
-    // }
+        cout << "Mandatory parameters validation:" << endl;
+        {
+            std::array<TxParameterID,6> mandatoryParams {
+                TxParameterID::AtomicSwapCoin,
+                TxParameterID::AtomicSwapIsBeamSide,
+                TxParameterID::Amount,
+                TxParameterID::AtomicSwapAmount,
+                TxParameterID::MinHeight,
+                TxParameterID::PeerResponseTime };
+            uint32_t offersCount = 1;
+
+            for (auto parameter : mandatoryParams)
+            {
+                stepTxID(txId);
+                SwapOffer o = correctOffer;
+                o.m_txId = txId;
+                cout << "\tparameter " << static_cast<uint32_t>(parameter) << endl;
+                o.DeleteParameter(parameter);
+                Alice.publishOffer(o);
+                // No any new offer must pass validation
+                WALLET_CHECK(Alice.getOffersList().size() == offersCount);
+                WALLET_CHECK(Bob.getOffersList().size() == offersCount);
+            }            
+        }
+
+        // ++offersCount;
+
+        // validation
+        // observers notifications. if expires/failed.. pushed to observers
+        // walletDB notifications on onTransactionChanged, onSystemStateChanged
+        // case when no offer exist on board. but transaction went to state InProgress and Expired later.
+
+        cout << "Test end" << endl;
+    }
 } // namespace
 
 int main()
 {
-    cout << "Swap Offer Board tests:" << endl;
+    cout << "SwapOffersBoard tests:" << endl;
 
     io::Reactor::Ptr mainReactor{ io::Reactor::create() };
     io::Reactor::Scope scope(*mainReactor);
 
-    TestSwapOfferBoardCominication();
+    TestSwapOfferBoardProtocol();
+    TestSwapOfferBoardCommunication();
+
+    boost::filesystem::remove(SenderWalletDB);
 
     assert(g_failureCount == 0);
     return WALLET_CHECK_RESULT;

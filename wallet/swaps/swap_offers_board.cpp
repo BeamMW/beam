@@ -87,6 +87,7 @@ namespace beam::wallet
         }
 
         auto it = m_offersCache.find(newOffer.m_txId);
+        // New offer
         if (it == m_offersCache.end())
         {
             m_offersCache[newOffer.m_txId] = newOffer;
@@ -95,30 +96,37 @@ namespace beam::wallet
             {
                 notifySubscribers(ChangeAction::Added, std::vector<SwapOffer>{newOffer});
             }
-            else {} // don't push irrelevant offers to subscribers
+            else
+            {
+                // Don't push irrelevant offers to subscribers
+            }
         }
-        else    // existing offer update
+        // Existing offer update
+        else    
         {
             SwapOfferStatus existingStatus = m_offersCache[newOffer.m_txId].m_status;
 
-            if (newOffer.m_status != SwapOfferStatus::Pending)
+            // Normal case
+            if (existingStatus == SwapOfferStatus::Pending)
             {
-                if (existingStatus != newOffer.m_status)
+                if (newOffer.m_status != SwapOfferStatus::Pending)
                 {
                     m_offersCache[newOffer.m_txId].m_status = newOffer.m_status;
                     notifySubscribers(ChangeAction::Removed, std::vector<SwapOffer>{newOffer});
                 }
             }
-            else    // if incomplete offer already exist. fill it and send to network.
+            // Incomplete offer already exist for this wallet. Fill offer parameters and send it to network.
+            else
             {
-                if (existingStatus != SwapOfferStatus::Pending)
-                {
-                    sendUpdateToNetwork(newOffer.m_txId, newOffer.m_publisherId, newOffer.m_coin, existingStatus);
-                }
+                sendUpdateToNetwork(newOffer.m_txId, newOffer.m_publisherId, newOffer.m_coin, existingStatus);
             }
         }
     }
 
+    /**
+     *  Watches for system state to remove stuck expired offers from board.
+     *  Notify only subscribers. Doesn't push any updates to network.
+     */
     void SwapOffersBoard::onSystemStateChanged(const Block::SystemState::ID& stateID)
     {
         Height currentHeight = stateID.m_Height;
@@ -175,6 +183,35 @@ namespace beam::wallet
                         break;
                 }
             }
+        }
+    }
+    
+    void SwapOffersBoard::updateOffer(const TxID& offerTxID, SwapOfferStatus newStatus)
+    {
+        if (newStatus == SwapOfferStatus::Pending) return;
+
+        auto offerIt = m_offersCache.find(offerTxID);
+        if (offerIt != m_offersCache.end())
+        {
+            AtomicSwapCoin coin = offerIt->second.m_coin;
+            WalletID publisherId = offerIt->second.m_publisherId;
+            SwapOfferStatus  currentStatus = offerIt->second.m_status;
+
+            if (currentStatus == SwapOfferStatus::Pending)
+            {
+                m_offersCache[offerTxID].m_status = newStatus;
+                notifySubscribers(ChangeAction::Removed, std::vector<SwapOffer>{m_offersCache[offerTxID]});
+                sendUpdateToNetwork(offerTxID, publisherId, coin, newStatus);
+            }
+        }
+        else
+        {
+            // Case: updateOffer() had been called before offer appeared on board.
+            // Here we don't know if offer is in network at all. So don't send any update to network.
+            // Just cache incomplete offer to notify network if it will appear on board.
+            SwapOffer incompleteOffer(offerTxID);
+            incompleteOffer.m_status = newStatus;
+            m_offersCache[offerTxID] = incompleteOffer;
         }
     }
 
@@ -234,30 +271,6 @@ namespace beam::wallet
 
         beam::wallet::SwapOfferToken token(SwapOffer(offerID, newStatus, publisherID, coin));
         m_messageEndpoint.SendAndSign(toByteBuffer(token), getChannel(coin), publisherID, m_protocolVersion);
-    }
-
-    void SwapOffersBoard::updateOffer(const TxID& offerTxID, SwapOfferStatus newStatus)
-    {
-        auto offerIt = m_offersCache.find(offerTxID);
-        if (offerIt != m_offersCache.end())
-        {
-            AtomicSwapCoin coin = offerIt->second.m_coin;
-            WalletID publisherId = offerIt->second.m_publisherId;
-            SwapOfferStatus  currentStatus = offerIt->second.m_status;
-
-            if (currentStatus != newStatus)
-            {
-                m_offersCache[offerTxID].m_status = newStatus;
-                notifySubscribers(ChangeAction::Removed, std::vector<SwapOffer>{m_offersCache[offerTxID]});
-                sendUpdateToNetwork(offerTxID, publisherId, coin, newStatus);
-            }
-        }
-        else    // case: updateOffer() was called before board loaded all offers
-        {
-            SwapOffer incompleteOffer(offerTxID);
-            incompleteOffer.m_status = newStatus;
-            m_offersCache[offerTxID] = incompleteOffer;
-        }
     }
     
     void SwapOffersBoard::Subscribe(ISwapOffersObserver* observer)

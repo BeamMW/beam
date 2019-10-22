@@ -34,6 +34,7 @@ public slots:
 signals:   
     void tokenPreviousAccepted(const QString& token);
     void tokenFirstTimeAccepted(const QString& token);
+    void tokenOwnGenerated(const QString& token);
 
 private:
     void checkIsTxPreviousAccepted();

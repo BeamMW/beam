@@ -63,7 +63,16 @@ void TokenBootstrapManager::checkTokenForDuplicate(const QString& token)
         return;
     }
 
-    auto txId = parameters.value().GetTxID();
+    auto parametrsValue = parameters.value();
+    auto peerID = parametrsValue.GetParameter<beam::wallet::WalletID>(
+        beam::wallet::TxParameterID::PeerID);
+    if (peerID && _wallet_model.isOwnAddress(*peerID))
+    {
+        emit tokenOwnGenerated(token);
+        return;
+    }
+
+    auto txId = parametrsValue.GetTxID();
     if (!txId)
     {
         LOG_ERROR() << "Empty tx id in txParams";

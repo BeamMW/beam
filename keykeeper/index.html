@@ -1,28 +1,37 @@
 <!doctype html>
 <html>
-	<script>
-		var Module = {
-			onRuntimeInitialized: function() 
-			{
-				var wordList = new Module.WordList();
-				["copy", "vendor", "shallow", "raven", "coffee", "appear", "book", "blast", "lock", "exchange", "farm", "glue"].forEach((word) => wordList.push_back(word));
+    <script>
+        var Module = {
+            onRuntimeInitialized: function() 
+            {
+                var wordList = new Module.WordList();
+                ['copy', 'vendor', 'shallow', 'raven', 'coffee', 'appear', 'book', 'blast', 'lock', 'exchange', 'farm', 'glue'].forEach((word) => wordList.push_back(word));
 
-				var keykeeper = new Module.KeyKeeper(wordList);
+                var keykeeper = new Module.KeyKeeper(wordList);
 
-				{
-					var kidv = new Module.KeyIDV();
+                {
+                    var kidv = new Module.KeyIDV();
 
-        			kidv.value = 4000000;
-        			kidv.idx = 180003423;
-        			kidv.type = 1852797549;
-        			kidv.subIdx = 16777216;
+                    kidv.value = '4000000';
+                    kidv.idx = '180003423';
+                    kidv.type = '1852797549';
+                    kidv.subIdx = '16777216';
 
-					var pk = keykeeper.generatePublicKey(kidv, true);
+                    var pk = keykeeper.generatePublicKey(kidv, true);
 
-					console.log("ownerKey is: " + keykeeper.ownerKey);
-				}
-			}
-		};
-	</script>
-	<script src="key-keeper-test.js"></script>
+                    console.log('public key is: [' + pk.x + ':' + pk.y + ']')
+                    console.log('ownerKey is: ' + keykeeper.getOwnerKey('123'));
+
+                    var slot = keykeeper.allocateNonceSlot();
+                    console.log('allocated nonce slot: ' + slot);
+
+                    var nonce = keykeeper.generateNonce(slot);
+                    console.log('generated nonce : [' + nonce.x + ':' + nonce.y + ']');
+
+                    keykeeper.generateOutput('100500', kidv);
+                }
+            }
+        };
+    </script>
+    <script src='key-keeper-test.js'></script>
 </html>

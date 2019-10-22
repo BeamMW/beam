@@ -12,6 +12,12 @@ Item {
     id: root
     anchors.fill: parent
 
+    function onAccepted() { walletStackView.pop(); }
+    function onClosed() { walletStackView.pop(); }
+    function onSwapToken(token) {
+        tokenDuplicateChecker.checkTokenForDuplicate(token);
+    }
+
     WalletViewModel {
         id: viewModel
     }
@@ -54,6 +60,7 @@ Item {
         Connections {
             target: tokenDuplicateChecker.model
             onTokenPreviousAccepted: function(token) {
+                tokenDuplicateChecker.isOwn = false;
                 tokenDuplicateChecker.open();
             }
             onTokenFirstTimeAccepted: function(token) {
@@ -64,6 +71,10 @@ Item {
                                          "onClosed": onClosed
                                      });
                 walletStackView.currentItem.setToken(token);
+            }
+            onTokenOwnGenerated: function(token) {
+                tokenDuplicateChecker.isOwn = true;
+                tokenDuplicateChecker.open();
             }
         }
     }
@@ -115,20 +126,6 @@ Item {
                                                  "onAddress": onAddress
                                              });
 
-                        function onAccepted() { walletStackView.pop(); }
-                        function onClosed() { walletStackView.pop(); }
-                        function onSwapToken(token) {
-                            tokenDuplicateChecker.checkTokenForDuplicate(token);
-                            // console.log("onSwapToken");
-                            // console.log(token);
-
-                            // tokenBootstrapManager.open();
-                            // walletStackView.pop();
-                            // walletStackView.push(Qt.createComponent("send_swap.qml"),
-                            //                     {"onAccepted": onAccepted,
-                            //                      "onClosed": onClosed});
-                            // walletStackView.currentItem.setToken(token);
-                        }
                         function onAddress(token) {
                             walletStackView.pop();
                             walletStackView.push(Qt.createComponent("send_regular.qml"),
@@ -154,7 +151,6 @@ Item {
                         walletStackView.push(Qt.createComponent("receive_regular.qml"),
                                             {"onClosed": onClosed,
                                              "onSwapMode": onSwapMode});
-                        function onClosed() { walletStackView.pop(); }
                         function onSwapMode() {
                             walletStackView.pop();
                             walletStackView.push(Qt.createComponent("receive_swap.qml"),
