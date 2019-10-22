@@ -223,7 +223,6 @@ Item {
                     currencyIcon: "qrc:/assets/icon-btc.svg"
                     valueStr: parent.btcAmount()
                     valueSecondaryStr: parent.btcActiveTxStr()
-                    showLoader: viewModel.btcOK && parent.btcActiveTxStr().length
                     isOk: viewModel.btcOK
                     isConnecting: viewModel.btcConnecting
                     visible: BeamGlobals.haveBtc()
@@ -238,7 +237,6 @@ Item {
                     currencyIcon: "qrc:/assets/icon-ltc.svg"
                     valueStr: parent.ltcAmount()
                     valueSecondaryStr: parent.ltcActiveTxStr()
-                    showLoader: viewModel.ltcOK && parent.ltcActiveTxStr().length
                     isOk: viewModel.ltcOK
                     isConnecting: viewModel.ltcConnecting
                     visible: BeamGlobals.haveLtc()
@@ -251,7 +249,6 @@ Item {
                     currencyIcon: "qrc:/assets/icon-qtum.svg"
                     valueStr: parent.qtumAmount()
                     valueSecondaryStr: parent.qtumActiveTxStr()
-                    showLoader: viewModel.qtumOK && parent.qtumActiveTxStr().length
                     isOk: viewModel.qtumOK
                     isConnecting: viewModel.qtumConnecting
                     visible: BeamGlobals.haveQtum()

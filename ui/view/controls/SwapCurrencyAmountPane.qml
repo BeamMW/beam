@@ -20,7 +20,6 @@ Rectangle {
     property color textSecondaryColor: Style.content_secondary
     property string textConnectionError: "error"
     property string textConnecting: "connectring..."
-    property bool showLoader: false
     property var onClick: function() {}
 
     Layout.fillWidth: true
@@ -137,24 +136,6 @@ Rectangle {
             wrapMode: Text.Wrap
             text: textConnecting
             visible: isConnecting
-        }
-
-        SvgImage {
-            id: loader
-            property double angleValue: 0
-            visible: showLoader
-            anchors.verticalCenter: parent.verticalCenter
-            anchors.right: parent.right
-            anchors.margins: {
-                right: 10
-            }
-
-            source: "qrc:/assets/loading-spinner.svg"
-            rotation: loader.angleValue
-            Timer {
-                interval: 200; running: true; repeat: true
-                onTriggered: loader.angleValue += 15
-            }
         }
 
         Item {
