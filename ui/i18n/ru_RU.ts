@@ -1831,5 +1831,9 @@ Please check the swap token and try again.</oldsource>
         <source>ok</source>
         <translation type="unfinished"></translation>
     </message>
+    <message id="invalid-rate-min">
+        <source>Rate cannot be less than %1</source>
+        <translation type="unfinished"></translation>
+    </message>
 </context>
 </TS>

@@ -402,7 +402,6 @@ ColumnLayout {
                     font.pixelSize:      12
                     font.styleName:      "Italic"
                     width:               parent.width
-                    //% "Invalid rate"
                     text:                rateRow.rateError()
                     visible:             !rateRow.rateValid()
                 }
