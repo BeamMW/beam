@@ -97,7 +97,7 @@ ColumnLayout {
                     id:               receiverTAError
                     color:            Style.validator_error
                     font.pixelSize:   12
-                    //% "Invalid address or token"
+                    //% "Invalid wallet address or swap token"
                     text:             qsTrId("wallet-send-invalid-address-or-token")
                     visible:          !isTAInputValid()
                 }

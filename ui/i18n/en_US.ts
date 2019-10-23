@@ -1375,12 +1375,12 @@ or send this address to the sender over secure channel</translation>
         <translation>Swap currencies</translation>
     </message>
     <message id="wallet-send-invalid-token">
-        <source>Invalid token</source>
-        <translation>Invalid token</translation>
+        <source>Invalid swap token</source>
+        <translation>Invalid swap token</translation>
     </message>
     <message id="wallet-send-invalid-address-or-token">
-        <source>Invalid address or token</source>
-        <translation>Invalid address or token</translation>
+        <source>Invalid wallet address or swap token</source>
+        <translation>Invalid wallet address or swap token</translation>
     </message>
     <message id="general-comment-local">
         <source>Comments are local and won&apos;t be shared</source>

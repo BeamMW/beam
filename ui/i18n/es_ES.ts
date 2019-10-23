@@ -1380,8 +1380,8 @@ Update your settings and try again.</oldsource>
         <translation>Cambiar monedas</translation>
     </message>
     <message id="wallet-send-invalid-token">
-        <source>Invalid token</source>
-        <oldsource>Invalid address or token</oldsource>
+        <source>Invalid swap token</source>
+        <oldsource>Invalid token</oldsource>
         <translation type="unfinished">Dirección o token inválido</translation>
     </message>
     <message id="general-comment-local">
@@ -1812,7 +1812,8 @@ Please check the swap token and try again.</oldsource>
         <translation type="unfinished"></translation>
     </message>
     <message id="wallet-send-invalid-address-or-token">
-        <source>Invalid address or token</source>
+        <source>Invalid wallet address or swap token</source>
+        <oldsource>Invalid address or token</oldsource>
         <translation type="unfinished"></translation>
     </message>
     <message id="swap-offer-duplicate-title">

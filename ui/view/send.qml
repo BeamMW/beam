@@ -14,9 +14,9 @@ ColumnLayout {
     property var    defaultFocusItem: receiverTAInput
 
     // callbacks set by parent
-    property var    onClosed: undefined
-    property var    onSwapToken: undefined
-    property var    onAddress: undefined
+    property var    onClosed: function() {}
+    property var    onSwapToken: function() {}
+    property var    onAddress: function() {}
 
     TopGradient {
         mainRoot: main
@@ -48,9 +48,9 @@ ColumnLayout {
         receiverTAInput.backgroundColor =
             receiverTAInput.color = Style.validator_error;
         receiverTAError.text = isSwapMode
-            //% "Invalid token"
+            //% "Invalid swap token"
             ? qsTrId("wallet-send-invalid-token")
-            //% "Invalid address or token"
+            //% "Invalid wallet address or swap token"
             : qsTrId("wallet-send-invalid-address-or-token");
         receiverTAError.visible =
             receiverTAInput.font.italic = true;
