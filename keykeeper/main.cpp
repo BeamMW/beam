@@ -15,6 +15,7 @@
 #include "local_private_key_keeper.h"
 #include "mnemonic/mnemonic.h"
 #include "core/block_rw.h"
+#include "3rdparty/utilstrencodings.h"
 
 #include <emscripten/bind.h>
 
@@ -22,98 +23,75 @@ using namespace emscripten;
 using namespace beam;
 using namespace beam::wallet;
 
-namespace wasm
+// #define PRINT_TEST_DATA 1
+
+namespace
 {
-    char* to_hex(char* dst, const void* bytes, size_t size) 
+    template <typename T>
+    std::string to_base64(const T& obj)
     {
-        static const char digits[] = "0123456789abcdef";
-        char* d = dst;
-
-        const uint8_t* ptr = (const uint8_t*)bytes;
-        const uint8_t* end = ptr + size;
-        while (ptr < end) {
-            uint8_t c = *ptr++;
-            *d++ = digits[c >> 4];
-            *d++ = digits[c & 0xF];
-        }
-        *d = '\0';
-        return dst;
-    }
-
-    std::string to_hex(const void* bytes, size_t size) {
-        char* buf = (char*)alloca(2 * size + 1);
-        return std::string(to_hex(buf, bytes, size));
-    }
-
-    std::vector<uint8_t> from_hex(const std::string& str, bool* wholeStringIsNumber)
-    {
-        size_t bias = (str.size() % 2) == 0 ? 0 : 1;
-        assert((str.size() + bias) % 2 == 0);
-        std::vector<uint8_t> res((str.size() + bias) >> 1);
-
-        if (wholeStringIsNumber) *wholeStringIsNumber = true;
-
-        for (size_t i = 0; i < str.size(); ++i)
+        ByteBuffer buffer;
         {
-            auto c = str[i];
-            size_t j = (i + bias) >> 1;
-            res[j] <<= 4;
-            if (c >= '0' && c <= '9')
-            {
-                res[j] += (c - '0');
-            }
-            else if (c >= 'a' && c <= 'f')
-            {
-                res[j] += 10 + (c - 'a');
-            }
-            else if (c >= 'A' && c <= 'F')
-            {
-                res[j] += 10 + (c - 'A');
-            }
-            else {
-                if (wholeStringIsNumber) *wholeStringIsNumber = false;
-                break;
-            }
+            Serializer s;
+            s & obj;
+            s.swap_buf(buffer);
         }
 
-        return res;
+        return EncodeBase64(buffer.data(), buffer.size());
     }
-};
 
-struct KeyIDV
-{   
-    // !TODO: unfortunately, wasm doesn't support uint64_t as values 
-    // we could pass values as String and parse then
-    // proof: https://emscripten.org/docs/getting_started/FAQ.html#how-do-i-pass-int64-t-and-uint64-t-values-from-js-into-wasm-functions
-
-    std::string getValue() const {return std::to_string(impl.m_Value);}
-    void        setValue(const std::string& value) {impl.m_Value = std::stoull(value);}
-
-    std::string getIdx() const {return std::to_string(impl.m_Idx);}
-    void        setIdx(const std::string& value) {impl.m_Idx = std::stoull(value);}
-
-    std::string getType() const {return std::to_string(impl.m_Type.V);}
-    void        setType(const std::string& value) {impl.m_Type.V = std::stoull(value);}
-
-    std::string getSubIdx() const {return std::to_string(impl.m_SubIdx);}
-    void        setSubIdx(const std::string& value) {impl.m_SubIdx = std::stoull(value);}
-
-    Key::IDV impl;
-};
-
-struct ECCPoint
-{
-    std::string getX() const 
+    template <>
+    std::string to_base64(const KernelParameters& obj)
     {
-        return wasm::to_hex(impl.m_X.m_pData, ECC::uintBig::nBytes);
+        ByteBuffer buffer;
+        {
+            Serializer s;
+            s   
+                & obj.height.m_Min
+                & obj.height.m_Max
+                & obj.fee
+                & obj.commitment;
+            s.swap_buf(buffer);
+        }
+
+        return EncodeBase64(buffer.data(), buffer.size());
     }
 
-    std::string getY() const 
+    template <typename T>
+    T&& from_base64(const std::string& base64)
     {
-        return wasm::to_hex(&impl.m_Y, sizeof impl.m_Y);
+        T obj;
+        {
+            auto data = DecodeBase64(base64.data());
+
+            Deserializer d;
+            d.reset(data.data(), data.size());
+
+            d & obj;
+        }
+
+        return std::move(obj);
     }
 
-    ECC::Point impl;
+    template <>
+    KernelParameters&& from_base64(const std::string& base64)
+    {
+        KernelParameters obj;
+        {
+            auto data = DecodeBase64(base64.data());
+
+            Deserializer d;
+            d.reset(data.data(), data.size());
+
+            d   
+                & obj.height.m_Min
+                & obj.height.m_Max
+                & obj.fee
+                & obj.commitment;
+        }
+
+        return std::move(obj);
+    }
 };
 
 struct KeyKeeper
@@ -142,9 +120,18 @@ struct KeyKeeper
         _impl = std::make_shared<LocalPrivateKeyKeeper>(vars, _kdf);
     }
 
-    ECCPoint GeneratePublicKey(const KeyIDV& id, bool createCoinKey) const
+    std::string GeneratePublicKey(const std::string& kidv, bool createCoinKey) const
     {
-        return ECCPoint{_impl->GeneratePublicKeySync(id.impl, createCoinKey)};
+#if defined(PRINT_TEST_DATA)
+        {
+            std::cout 
+                << "ECC::Key::IDV(100500, 15, Key::Type::Regular, 7, ECC::Key::IDV::Scheme::V0) -> data:application/octet-stream;base64,"
+                << to_base64(ECC::Key::IDV(100500, 15, Key::Type::Regular, 7, ECC::Key::IDV::Scheme::V0))
+                << std::endl;
+        }
+#endif
+
+        return to_base64(_impl->GeneratePublicKeySync(from_base64<ECC::Key::IDV>(kidv), createCoinKey));
     }
 
     std::string GetOwnerKey(const std::string& pass) const
@@ -168,19 +155,149 @@ struct KeyKeeper
         return _impl->AllocateNonceSlot();
     }
 
-    ECCPoint GenerateNonce(size_t slot)
+    std::string GenerateNonce(size_t slot)
     {
-        return ECCPoint{_impl->GenerateNonceSync(slot)};
+        return to_base64(_impl->GenerateNonceSync(slot));
     }
 
-    void GenerateOutput(std::string schemeHeigh, const KeyIDV& id)
+    std::string GenerateOutput(const std::string& schemeHeigh, const std::string& kidv)
     {
-        auto outputs = _impl->GenerateOutputsSync(std::stoull(schemeHeigh), {id.impl});
-
-        for(auto& output : outputs)
+#if defined(PRINT_TEST_DATA)
         {
-            
+            Height schemeHeigh = 100500;
+            std::cout 
+                << "Height schemeHeigh -> data:application/octet-stream;base64,"
+                << to_base64(schemeHeigh)
+                << std::endl;
         }
+#endif
+        // TODO: switch to generate vector<> instead single output
+        auto outputs = _impl->GenerateOutputsSync(from_base64<Height>(schemeHeigh), {from_base64<ECC::Key::IDV>(kidv)});
+
+        return to_base64(outputs[0]);
+    }
+
+    std::string Sign(const std::string& inputs, const std::string& outputs, const std::string& offset, size_t nonceSlot, const std::string& kernelParameters, const std::string& publicNonce)
+    {
+#if defined(PRINT_TEST_DATA)
+        {
+            ECC::Point::Native totalPublicExcess = Zero;
+
+            std::vector<ECC::Key::IDV> inputCoins =
+            {
+                {40, 0, Key::Type::Regular},
+            };
+
+            std::vector<ECC::Key::IDV> outputCoins =
+            {
+                {16, 0, Key::Type::Regular},
+                {24, 0, Key::Type::Regular},
+            };
+
+            beam::Amount fee = 0;
+            ECC::Scalar::Native offset = Zero;
+            offset.GenRandomNnz();
+
+            std::cout 
+                << "std::vector<Key::IDV> inputs -> data:application/octet-stream;base64,"
+                << to_base64(inputCoins)
+                << std::endl;
+
+            std::cout 
+                << "std::vector<Key::IDV> outputs -> data:application/octet-stream;base64,"
+                << to_base64(outputCoins)
+                << std::endl;
+
+            std::cout 
+                << "ECC::Scalar offset -> data:application/octet-stream;base64,"
+                << to_base64(ECC::Scalar(offset))
+                << std::endl;
+
+            {
+
+                ECC::Point::Native publicAmount = Zero;
+                Amount amount = 0;
+                for (const auto& cid : inputCoins)
+                {
+                    amount += cid.m_Value;
+                }
+                AmountBig::AddTo(publicAmount, amount);
+                amount = 0;
+                publicAmount = -publicAmount;
+                for (const auto& cid : outputCoins)
+                {
+                    amount += cid.m_Value;
+                }
+                AmountBig::AddTo(publicAmount, amount);
+
+                ECC::Point::Native publicExcess = ECC::Context::get().G * offset;
+
+                {
+                    ECC::Point::Native commitment;
+
+                    for (const auto& output : outputCoins)
+                    {
+                        if (commitment.Import(_impl->GeneratePublicKeySync(output, true)))
+                        {
+                            publicExcess += commitment;
+                        }
+                    }
+
+                    publicExcess = -publicExcess;
+                    for (const auto& input : inputCoins)
+                    {
+                        if (commitment.Import(_impl->GeneratePublicKeySync(input, true)))
+                        {
+                            publicExcess += commitment;
+                        }
+                    }
+                }
+
+                publicExcess += publicAmount;
+
+                totalPublicExcess = publicExcess;
+            }
+
+            KernelParameters kernelParameters;
+            kernelParameters.fee = fee;
+            kernelParameters.height = { 25000, 27500 };
+            kernelParameters.commitment = totalPublicExcess;
+
+            std::cout 
+                << "KernelParameters kernelParamerters -> data:application/octet-stream;base64,"
+                << to_base64(kernelParameters)
+                << std::endl;
+
+            ECC::Point::Native peerPublicNonce = Zero;
+            ECC::Point::Native publicNonce;
+            uint8_t nonceSlot = (uint8_t)_impl->AllocateNonceSlot();
+            publicNonce.Import(_impl->GenerateNonceSync(nonceSlot));
+
+            ECC::Signature signature;
+            signature.m_NoncePub = publicNonce + peerPublicNonce;
+
+            std::cout 
+                << "publicNonce -> data:application/octet-stream;base64,"
+                << to_base64(signature.m_NoncePub)
+                << std::endl;
+        }
+#endif
+
+        ECC::Scalar::Native offsetNative;
+        offsetNative.Import(from_base64<ECC::Scalar>(offset));
+
+        ECC::Point::Native publicNonceNative;
+        publicNonceNative.Import(from_base64<ECC::Point>(publicNonce));
+
+        auto sign = _impl->SignSync(
+            from_base64<std::vector<Key::IDV>>(inputs), 
+            from_base64<std::vector<Key::IDV>>(outputs),
+            offsetNative,
+            nonceSlot,
+            from_base64<KernelParameters>(kernelParameters),
+            publicNonceNative);
+
+        return to_base64(sign);
     }
 
 private:
@@ -193,25 +310,6 @@ EMSCRIPTEN_BINDINGS()
 {
     register_vector<std::string>("WordList");
 
-    class_<KeyIDV>("KeyIDV")
-        .constructor()
-        .property("value",  &KeyIDV::getValue,  &KeyIDV::setValue)
-        .property("idx",    &KeyIDV::getIdx,    &KeyIDV::setIdx)
-        .property("type",   &KeyIDV::getType,   &KeyIDV::setType)
-        .property("subIdx", &KeyIDV::getSubIdx, &KeyIDV::setSubIdx)
-    ;
-  
-    class_<ECCPoint>("ECCPoint")
-        .constructor()
-        .property("x",  &ECCPoint::getX)
-        .property("y",  &ECCPoint::getY)
-    ;
-
-    value_object<PersonRecord>("Output")
-        .field("name", &PersonRecord::name)
-        .field("age", &PersonRecord::age)
-        ;
-
     class_<KeyKeeper>("KeyKeeper")
         .constructor<const beam::WordList&>()
         .function("generatePublicKey",  &KeyKeeper::GeneratePublicKey)
@@ -219,6 +317,7 @@ EMSCRIPTEN_BINDINGS()
         .function("allocateNonceSlot",  &KeyKeeper::AllocateNonceSlot)
         .function("generateNonce",      &KeyKeeper::GenerateNonce)
         .function("generateOutput",     &KeyKeeper::GenerateOutput)
+        .function("sign",               &KeyKeeper::Sign)
         // .function("func", &KeyKeeper::func)
         // .property("prop", &KeyKeeper::getProp, &KeyKeeper::setProp)
         // .class_function("StaticFunc", &KeyKeeper::StaticFunc)
