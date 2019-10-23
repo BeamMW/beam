@@ -46,7 +46,7 @@ Control {
 
     Control {
         id:            lockedTip
-        visible:       lockedArea.containsMouse
+        visible:       lockedArea.containsMouse && parseFloat(locked) > 0
         x:             lockedAmount.x + lockedAmount.parent.x + lockedAmount.parent.parent.x + lockedAmount.width / 2 - lockedTip.width / 2
         y:             lockedAmount.y + lockedAmount.parent.y + lockedAmount.height + 15
 
@@ -88,7 +88,7 @@ Control {
 
     Control {
         id:            receivingTip
-        visible:       receivingArea.containsMouse
+        visible:       receivingArea.containsMouse && parseFloat(receiving) > 0
         x:             receivingAmount.x + receivingAmount.parent.x + receivingAmount.parent.parent.x + receivingAmount.width / 2 - receivingTip.width / 2
         y:             receivingAmount.y + receivingAmount.parent.y + receivingAmount.height + 15
 
@@ -236,13 +236,10 @@ Control {
                 prefix:            "+"
                 showDrop:          parseFloat(receiving) > 0
 
-                //ToolTip.visible: receivingArea.containsMouse
-                //ToolTip.text: qsTr("Save the active project")
-
                 MouseArea {
                     id: receivingArea
                     anchors.fill: parent
-                    hoverEnabled: parseFloat(receiving) > 0
+                    hoverEnabled: true
                 }
             }
 
