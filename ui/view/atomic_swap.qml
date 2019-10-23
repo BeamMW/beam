@@ -194,21 +194,10 @@ Item {
                     }
                     gradLeft: Style.swapCurrencyPaneGrLeftBEAM
                     currencyIcon: "qrc:/assets/icon-beam.svg"
-                    valueStr: [viewModel.beamAvailable, Utils.symbolBeam].join(" ")
+                    amount: viewModel.beamAvailable
+                    currencySymbol: Utils.symbolBeam
                     valueSecondaryStr: activeTxCountStr()
                     visible: true
-                }
-
-                function btcAmount() {
-                    return viewModel.hasBtcTx ? "" : viewModel.btcAvailable + " " + Utils.symbolBtc;
-                }
-
-                function ltcAmount() {
-                    return viewModel.hasLtcTx ? "" : viewModel.ltcAvailable + " " + Utils.symbolLtc;
-                }
-
-                function qtumAmount() {
-                    return viewModel.hasQtumTx ? "" : viewModel.qtumAvailable + " " + Utils.symbolQtum;
                 }
 
                 //% "Transaction is in progress"
@@ -229,7 +218,8 @@ Item {
                 SwapCurrencyAmountPane {
                     gradLeft: Style.swapCurrencyPaneGrLeftBTC
                     currencyIcon: "qrc:/assets/icon-btc.svg"
-                    valueStr: parent.btcAmount()
+                    amount: viewModel.hasBtcTx ? "" : viewModel.btcAvailable
+                    currencySymbol: Utils.symbolBtc
                     valueSecondaryStr: parent.btcActiveTxStr()
                     isOk: viewModel.btcOK
                     isConnecting: viewModel.btcConnecting
@@ -243,7 +233,8 @@ Item {
                 SwapCurrencyAmountPane {
                     gradLeft: Style.swapCurrencyPaneGrLeftLTC
                     currencyIcon: "qrc:/assets/icon-ltc.svg"
-                    valueStr: parent.ltcAmount()
+                    amount: viewModel.hasLtcTx ? "" : viewModel.ltcAvailable
+                    currencySymbol: Utils.symbolLtc
                     valueSecondaryStr: parent.ltcActiveTxStr()
                     isOk: viewModel.ltcOK
                     isConnecting: viewModel.ltcConnecting
@@ -255,7 +246,8 @@ Item {
                 SwapCurrencyAmountPane {
                     gradLeft: Style.swapCurrencyPaneGrLeftQTUM
                     currencyIcon: "qrc:/assets/icon-qtum.svg"
-                    valueStr: parent.qtumAmount()
+                    amount: viewModel.hasQtumTx ? "" : viewModel.qtumAvailable
+                    currencySymbol: Utils.symbolQtum
                     valueSecondaryStr: parent.qtumActiveTxStr()
                     isOk: viewModel.qtumOK
                     isConnecting: viewModel.qtumConnecting
@@ -269,7 +261,7 @@ Item {
                     gradLeft: Style.swapCurrencyPaneGrLeftOther
                     gradRight: Style.swapCurrencyPaneGrLeftOther
                     //% "Connect other currency wallet to start trading"
-                    valueStr: qsTrId("atomic-swap-connect-other")
+                    amount: qsTrId("atomic-swap-connect-other")
                     textSize: 14
                     rectOpacity: 1.0
                     textColor: Style.active

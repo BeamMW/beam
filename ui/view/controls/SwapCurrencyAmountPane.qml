@@ -1,5 +1,7 @@
 import QtQuick 2.11
 import QtQuick.Layouts 1.3
+import "../utils.js" as Utils
+import Beam.Wallet 1.0
 
 Rectangle {
     property color borderColor: Style.swapCurrencyOptionsBorder
@@ -10,7 +12,8 @@ Rectangle {
     property string currencyIcon: ""
     property var currencyIcons: []
     property color stateIndicatorColor: Style.swapCurrencyStateIndicator
-    property string valueStr: ""
+    property string amount: ""
+    property string currencySymbol: ""
     property string valueSecondaryStr: ""
     property bool isOk: true
     property bool isConnecting: false
@@ -22,6 +25,7 @@ Rectangle {
     property string textConnecting: "connectring..."
     property var onClick: function() {}
 
+    id: control
     Layout.fillWidth: true
     height: 67
     color: "transparent"
@@ -78,19 +82,25 @@ Rectangle {
             anchors.right: parent.right
             anchors.verticalCenter: parent.verticalCenter
             visible: isOk
-            SFText {
+            RowLayout{
                 anchors.left: parent.left
                 anchors.right: parent.right
-                leftPadding: 15
-                rightPadding: 20
-                font.pixelSize: textSize
-                color: textColor
-                elide: Text.ElideRight
-                text: valueStr
-                fontSizeMode: Text.Fit
-                visible: valueStr.length
-                verticalAlignment: Text.AlignVCenter
-                wrapMode: Text.Wrap
+                Item {width:15}
+                spacing: 0
+                SFLabel {
+                    Layout.fillWidth: true
+                    font.pixelSize: textSize
+                    color: control.textColor
+                    elide: Text.ElideRight
+                    text: currencySymbol.length ? [Utils.amount2locale(amount), currencySymbol].join(" ") : amount
+                    fontSizeMode: Text.Fit
+                    visible: amount.length
+                    verticalAlignment: Text.AlignVCenter
+                    wrapMode: Text.Wrap
+                    copyMenuEnabled: currencySymbol.length
+                    onCopyText: BeamGlobals.copyToClipboard(Utils.amount2locale(amount))
+                }
+                Item {width:20}
             }
             SFText {
                 anchors.left: parent.left
