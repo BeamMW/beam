@@ -67,7 +67,7 @@ void QR::update()
     QUrlQuery query;
     if (m_amountGrothes > 0)
     {
-        query.addQueryItem("amount", beamui::amount2ui(m_amountGrothes));
+        query.addQueryItem("amount", beamui::AmountToString(m_amountGrothes));
     }
     
     QUrl url;

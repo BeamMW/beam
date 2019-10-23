@@ -1395,8 +1395,8 @@ Update your settings and try again.</oldsource>
         <translation type="unfinished">Swap currencies</translation>
     </message>
     <message id="wallet-send-invalid-token">
-        <source>Invalid token</source>
-        <oldsource>Invalid address or token</oldsource>
+        <source>Invalid swap token</source>
+        <oldsource>Invalid token</oldsource>
         <translation type="unfinished">Invalid address or token</translation>
     </message>
     <message id="general-comment-local">
@@ -1424,9 +1424,8 @@ Update your settings and try again.</oldsource>
         <translation type="unfinished">Electrum</translation>
     </message>
     <message id="swap-currency-na-message">
-        <source>You do not have %1 connected.\nUpdate your settings and try again.</source>
-        <oldsource>You do not have %1 connected.
-Update your settings and try again.</oldsource>
+        <source>%1 is not connected, \nplease review your settings and try again.</source>
+        <oldsource>%1 is not connected, please review your settings and try again.</oldsource>
         <translation type="unfinished">未连接到 %1 \n请更新设置后重试</translation>
     </message>
     <message id="send-swap-to-label">
@@ -1828,7 +1827,8 @@ Please check the swap token and try again.</oldsource>
         <translation type="unfinished"></translation>
     </message>
     <message id="wallet-send-invalid-address-or-token">
-        <source>Invalid address or token</source>
+        <source>Invalid wallet address or swap token</source>
+        <oldsource>Invalid address or token</oldsource>
         <translation type="unfinished"></translation>
     </message>
     <message id="swap-offer-duplicate-title">

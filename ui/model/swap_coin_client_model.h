@@ -30,8 +30,7 @@ public:
         std::unique_ptr<beam::bitcoin::SettingsProvider> settingsProvider,
         beam::io::Reactor& reactor);
 
-    //TODO:double
-    double getAvailable();
+    beam::Amount getAvailable();
     beam::bitcoin::Client::Status getStatus() const;
     bool canModifySettings() const;
 

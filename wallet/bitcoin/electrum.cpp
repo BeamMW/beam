@@ -303,7 +303,7 @@ namespace beam::bitcoin
     void Electrum::createRawTransaction(
         const std::string& withdrawAddress,
         const std::string& contractTxId,
-        uint64_t amount,
+        Amount amount,
         int outputIndex,
         Timestamp locktime,
         std::function<void(const IBridge::Error&, const std::string&)> callback)
@@ -409,7 +409,7 @@ namespace beam::bitcoin
     }
 
     // TODO roman.strilets check this implementation
-    void Electrum::getBalance(uint32_t confirmations, std::function<void(const Error&, double)> callback)
+    void Electrum::getBalance(uint32_t confirmations, std::function<void(const Error&, Amount)> callback)
     {
         getBlockCount([confirmations, callback, this](const Error& error, uint64_t height)
         {
@@ -434,12 +434,12 @@ namespace beam::bitcoin
                     return;
                 }
 
-                double balance = 0;
+                Amount balance = 0;
                 for (auto coin : coins)
                 {
                     if (coin.m_details["height"].get<uint64_t>() <= height)
                     {
-                        balance += coin.m_details["value"].get<uint64_t>();
+                        balance += coin.m_details["value"].get<Amount>();
                     }
                 }
 
@@ -448,13 +448,13 @@ namespace beam::bitcoin
         });
     }
 
-    void Electrum::getDetailedBalance(std::function<void(const Error&, double, double, double)> callback)
+    void Electrum::getDetailedBalance(std::function<void(const Error&, Amount, Amount, Amount)> callback)
     {
         //LOG_DEBUG() << "getDetailedBalance command";
 
         size_t index = 0;
-        double confirmed = 0;
-        double unconfirmed = 0;
+        Amount confirmed = 0;
+        Amount unconfirmed = 0;
         auto privateKeys = generatePrivateKeyList();
         auto addressVersion = m_settingsProvider.GetElectrumSettings().m_addressVersion;
 
@@ -467,15 +467,15 @@ namespace beam::bitcoin
 
                 try
                 {
-                    confirmed += result["confirmed"].get<double>();
-                    unconfirmed += result["unconfirmed"].get<double>();
+                    confirmed += result["confirmed"].get<Amount>();
+                    unconfirmed += result["unconfirmed"].get<Amount>();
                 }
                 catch (const std::exception& ex)
                 {
                     error.m_type = IBridge::InvalidResultFormat;
                     error.m_message = ex.what();
 
-                    callback(error, confirmed / satoshi_per_bitcoin, unconfirmed / satoshi_per_bitcoin, 0);
+                    callback(error, confirmed, unconfirmed, 0);
 
                     return false;
                 }
@@ -492,7 +492,7 @@ namespace beam::bitcoin
                     return true;
                 }
             }
-            callback(error, confirmed / satoshi_per_bitcoin, unconfirmed / satoshi_per_bitcoin, 0);
+            callback(error, confirmed, unconfirmed, 0);
             return false;
         });
     }

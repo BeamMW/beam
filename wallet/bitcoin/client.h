@@ -50,9 +50,9 @@ namespace beam::bitcoin
                 return !(*this == other);
             }
 
-            double m_available = 0;
-            double m_unconfirmed = 0;
-            double m_immature = 0;
+            Amount m_available = 0;
+            Amount m_unconfirmed = 0;
+            Amount m_immature = 0;
         };
 
         enum class Status

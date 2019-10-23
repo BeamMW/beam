@@ -57,6 +57,9 @@ Item {
 
     TokenDuplicateChecker {
         id: tokenDuplicateChecker
+        onAccepted: {
+            walletStackView.pop();
+        }
         Connections {
             target: tokenDuplicateChecker.model
             onTokenPreviousAccepted: function(token) {
@@ -173,7 +176,7 @@ Item {
                 Layout.maximumHeight: 67
                 Layout.minimumHeight: 67
 
-                width: parseFloat(viewModel.beamSending) > 0 || parseFloat(viewModel.beamReceiving) > 0 ? parent.width : (parent.width / 2)
+                Layout.preferredWidth: parseFloat(viewModel.beamSending) > 0 || parseFloat(viewModel.beamReceiving) > 0 ? parent.width : (parent.width / 2)
 
                 available:         viewModel.beamAvailable
                 locked:            viewModel.beamLocked
@@ -564,7 +567,7 @@ Item {
                         Item {
                             width: parent.width
                             height: transactionsTable.rowHeight
-                            property var isIncome: !!styleData.value && transactionsTable.model.getRoleValue(styleData.row, "isIncome")
+                            property var isIncome: !!styleData.value && !!model && model.isIncome
                             TableItem {
                                 text: (parent.isIncome ? "+ " : "- ") + styleData.value
                                 fontWeight: Font.Bold
@@ -585,6 +588,7 @@ Item {
                     movable: false
                     resizable: false
                     delegate: Item {
+                        property var myModel: model
                         Item {
                             width: parent.width
                             height: transactionsTable.rowHeight
@@ -596,12 +600,6 @@ Item {
                                 anchors.leftMargin: 10
                                 spacing: 10
 
-                                property var isInProgress: transactionsTable.model.getRoleValue(styleData.row, "isInProgress")
-                                property var isSelfTransaction: transactionsTable.model.getRoleValue(styleData.row, "isSelfTransaction")
-                                property var isIncome: transactionsTable.model.getRoleValue(styleData.row, "isIncome")
-                                property var isCompleted: transactionsTable.model.getRoleValue(styleData.row, "isCompleted")
-                                property var isExpired: transactionsTable.model.getRoleValue(styleData.row, "isExpired")
-
                                 SvgImage {
                                     id: statusIcon;
                                     Layout.alignment: Qt.AlignLeft
@@ -609,25 +607,28 @@ Item {
                                     sourceSize: Qt.size(20, 20)
                                     source: getIconSource()
                                     function getIconSource() {
-                                        if (statusRow.isInProgress) {
-                                            if (statusRow.isSelfTransaction) {
+                                        if (!model) {
+                                            return "";
+                                        }
+                                        if (model.isInProgress) {
+                                            if (model.isSelfTransaction) {
                                                 return "qrc:/assets/icon-sending-own.svg";
                                             }
-                                            return statusRow.isIncome ? "qrc:/assets/icon-receiving.svg"
+                                            return model.isIncome ? "qrc:/assets/icon-receiving.svg"
                                                                  : "qrc:/assets/icon-sending.svg";
                                         }
-                                        else if (statusRow.isCompleted) {
-                                            if (statusRow.isSelfTransaction) {
+                                        else if (model.isCompleted) {
+                                            if (model.isSelfTransaction) {
                                                 return "qrc:/assets/icon-sent-own.svg";
                                             }
-                                            return statusRow.isIncome ? "qrc:/assets/icon-received.svg"
+                                            return model.isIncome ? "qrc:/assets/icon-received.svg"
                                                                  : "qrc:/assets/icon-sent.svg";
                                         }
-                                        else if (statusRow.isExpired) {
+                                        else if (model.isExpired) {
                                             return "qrc:/assets/icon-failed.svg" 
                                         }
                                         else {
-                                            return statusRow.isIncome ? "qrc:/assets/icon-receive-canceled.svg"
+                                            return model.isIncome ? "qrc:/assets/icon-receive-canceled.svg"
                                                                  : "qrc:/assets/icon-send-canceled.svg";
                                         }
                                     }
@@ -642,19 +643,18 @@ Item {
                                     verticalAlignment: Text.AlignBottom
                                     color: getTextColor()
                                     function getTextColor () {
-                                        if (statusRow.isInProgress || statusRow.isCompleted) {
-                                            if (statusRow.isSelfTransaction) {
+                                        if (!model) {
+                                            return Style.content_secondary;
+                                        }
+                                        if (model.isInProgress || model.isCompleted) {
+                                            if (model.isSelfTransaction) {
                                                 return Style.content_main;
                                             }
-                                            return statusRow.isIncome ? Style.accent_incoming : Style.accent_outgoing;
+                                            return model.isIncome ? Style.accent_incoming : Style.accent_outgoing;
                                         }
                                         else {
                                             return Style.content_secondary;
                                         }
-                                    }
-                                    onTextChanged: {
-                                        color = getTextColor();
-                                        statusIcon.source = statusIcon.getIconSource();
                                     }
                                 }
                             }

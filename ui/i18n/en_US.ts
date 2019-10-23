@@ -1375,12 +1375,12 @@ or send this address to the sender over secure channel</translation>
         <translation>Swap currencies</translation>
     </message>
     <message id="wallet-send-invalid-token">
-        <source>Invalid token</source>
-        <translation>Invalid token</translation>
+        <source>Invalid swap token</source>
+        <translation>Invalid swap token</translation>
     </message>
     <message id="wallet-send-invalid-address-or-token">
-        <source>Invalid address or token</source>
-        <translation>Invalid address or token</translation>
+        <source>Invalid wallet address or swap token</source>
+        <translation>Invalid wallet address or swap token</translation>
     </message>
     <message id="general-comment-local">
         <source>Comments are local and won&apos;t be shared</source>
@@ -1407,8 +1407,9 @@ or send this address to the sender over secure channel</translation>
         <translation>Electrum</translation>
     </message>
     <message id="swap-currency-na-message">
-        <source>You do not have %1 connected.\nUpdate your settings and try again.</source>
-        <translation>You do not have %1 connected.\nUpdate your settings and try again.</translation>
+        <source>%1 is not connected, \nplease review your settings and try again.</source>
+        <oldsource>%1 is not connected, please review your settings and try again.</oldsource>
+        <translation type="unfinished">%1 is not connected, \nplease review your settings and try again.</translation>
     </message>
     <message id="send-swap-to-label">
         <source>Transaction token</source>

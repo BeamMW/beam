@@ -20,7 +20,10 @@ namespace beamui
     std::string toStdString(Currencies currency);
     QString toString(const beam::wallet::WalletID&);
     QString toString(const beam::Merkle::Hash&);
-    QString AmountToString(const beam::Amount& value, Currencies coinType);
+    // convert amount to ui string with "." as a separator
+    QString AmountToString(const beam::Amount& value, Currencies coinType = Currencies::Unknown);
+    // expects ui string with a "." as a separator
+    beam::Amount StringToAmount(const QString& value);
     QString toString(const beam::Timestamp& ts);
     Currencies convertSwapCoinToCurrency(beam::wallet::AtomicSwapCoin coin);
 
@@ -37,10 +40,4 @@ namespace beamui
         bool _is_poor;
     };
     QDateTime CalculateExpiresTime(beam::Height currentHeight, beam::Height expiresHeight);
-
-    // convert amount to ui string with "." as a separator
-    QString amount2ui(beam::Amount amount);
-
-    // expects ui string with a "." as a separator
-    beam::Amount ui2amount(const QString& uistr);
 }  // namespace beamui

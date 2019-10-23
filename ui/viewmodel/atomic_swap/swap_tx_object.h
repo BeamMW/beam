@@ -24,9 +24,9 @@ public:
     SwapTxObject(const beam::wallet::TxDescription& tx, QObject* parent = nullptr);
 
     auto getSentAmount() const -> QString;
-    auto getSentAmountValue() const -> double; // TODO:double
+    auto getSentAmountValue() const -> beam::Amount;
     auto getReceivedAmount() const -> QString;
-    auto getReceivedAmountValue() const -> double; // TODO:double
+    auto getReceivedAmountValue() const -> beam::Amount;
     auto getToken() const -> QString;
     auto getSwapCoinLockTxId() const -> QString;
     auto getSwapCoinLockTxConfirmations() const -> QString;
@@ -46,7 +46,7 @@ public:
 signals:
 
 private:
-    auto getSwapAmountValue(bool sent) const -> double; // TODO:double
+    auto getSwapAmountValue(bool sent) const -> beam::Amount;
     auto getSwapAmount(bool sent) const -> QString;
 
     boost::optional<bool> m_isBeamSide;

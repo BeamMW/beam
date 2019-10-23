@@ -53,7 +53,7 @@ ColumnLayout {
         }
 
         if (isOtherCurrActive == false) {
-            //% "You do not have %1 connected.\nUpdate your settings and try again."
+            //% "%1 is not connected, \nplease review your settings and try again."
             swapna.text = qsTrId("swap-currency-na-message").arg(currname).replace("\\n", "\n")
             swapna.open()
             return false;

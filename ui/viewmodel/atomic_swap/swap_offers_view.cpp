@@ -66,28 +66,24 @@ QAbstractItemModel* SwapOffersViewModel::getAllOffers()
     return &m_offersList;
 }
 
-// TODO:double
-double  SwapOffersViewModel::beamAvailable() const
+QString SwapOffersViewModel::beamAvailable() const
 {
-    return double(int64_t(m_walletModel.getAvailable())) / Rules::Coin;
+    return beamui::AmountToString(m_walletModel.getAvailable());
 }
 
-// TODO:double
-double  SwapOffersViewModel::btcAvailable() const
+QString SwapOffersViewModel::btcAvailable() const
 {
-    return m_btcClient->getAvailable();
+    return beamui::AmountToString(m_btcClient->getAvailable());
 }
 
-// TODO:double
-double  SwapOffersViewModel::ltcAvailable() const
+QString SwapOffersViewModel::ltcAvailable() const
 {
-    return m_ltcClient->getAvailable();
+    return beamui::AmountToString(m_ltcClient->getAvailable());
 }
 
-// TODO:double
-double  SwapOffersViewModel::qtumAvailable() const
+QString SwapOffersViewModel::qtumAvailable() const
 {
-    return m_qtumClient->getAvailable();
+    return beamui::AmountToString(m_qtumClient->getAvailable());
 }
 
 bool SwapOffersViewModel::btcOK()  const

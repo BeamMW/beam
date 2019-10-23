@@ -77,10 +77,7 @@ namespace beam::wallet
             return;
         }
 
-        if (  !(newOffer.m_coin == AtomicSwapCoin::Bitcoin ||
-                newOffer.m_coin == AtomicSwapCoin::Litecoin ||
-                newOffer.m_coin == AtomicSwapCoin::Qtum ||
-                newOffer.m_status <= SwapOfferStatus::Failed) )
+        if (newOffer.m_coin >= AtomicSwapCoin::Unknown || newOffer.m_status > SwapOfferStatus::Failed)
         {
             LOG_WARNING() << "offer board message is invalid";
             return;
@@ -115,10 +112,16 @@ namespace beam::wallet
                     notifySubscribers(ChangeAction::Removed, std::vector<SwapOffer>{newOffer});
                 }
             }
-            // Incomplete offer already exist for this wallet. Fill offer parameters and send it to network.
+            // Transaction state has changed asynchronously while board was offline.
+            // Incomplete offer with SwapOfferStatus!=Pending was created.
+            // If offer with SwapOfferStatus::Pending is still exist in network,
+            // it need to be updated to latest status.
             else
             {
-                sendUpdateToNetwork(newOffer.m_txId, newOffer.m_publisherId, newOffer.m_coin, existingStatus);
+                if (newOffer.m_status == SwapOfferStatus::Pending)
+                {
+                    sendUpdateToNetwork(newOffer.m_txId, newOffer.m_publisherId, newOffer.m_coin, existingStatus);
+                }
             }
         }
     }
