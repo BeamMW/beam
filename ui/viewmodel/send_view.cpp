@@ -64,13 +64,13 @@ void SendViewModel::setComment(const QString& value)
 
 QString SendViewModel::getSendAmount() const
 {
-    LOG_INFO() << "ret Send amount grothes: " << _sendAmountGrothes << " 2ui: " << beamui::amount2ui(_sendAmountGrothes).toStdString();
-    return beamui::amount2ui(_sendAmountGrothes);
+    LOG_INFO() << "ret Send amount grothes: " << _sendAmountGrothes << " 2ui: " << beamui::AmountToString(_sendAmountGrothes).toStdString();
+    return beamui::AmountToString(_sendAmountGrothes);
 }
 
 void SendViewModel::setSendAmount(QString value)
 {
-    beam::Amount amount = beamui::ui2amount(value);
+    beam::Amount amount = beamui::StringToAmount(value);
     if (amount != _sendAmountGrothes)
     {
         _sendAmountGrothes = amount;
@@ -137,12 +137,12 @@ beam::Amount SendViewModel::calcTotalAmount() const
 
 QString SendViewModel::getAvailable() const
 {
-    return  beamui::amount2ui(isEnough() ? _walletModel.getAvailable() - calcTotalAmount() - _changeGrothes : 0);
+    return  beamui::AmountToString(isEnough() ? _walletModel.getAvailable() - calcTotalAmount() - _changeGrothes : 0);
 }
 
 QString SendViewModel::getMissing() const
 {
-    return beamui::amount2ui(calcTotalAmount() - _walletModel.getAvailable());
+    return beamui::AmountToString(calcTotalAmount() - _walletModel.getAvailable());
 }
 
 bool SendViewModel::isEnough() const
@@ -159,12 +159,12 @@ void SendViewModel::onChangeCalculated(beam::Amount change)
 
 QString SendViewModel::getChange() const
 {
-    return beamui::amount2ui(_changeGrothes);
+    return beamui::AmountToString(_changeGrothes);
 }
 
 QString SendViewModel::getTotalUTXO() const
 {
-    return beamui::amount2ui(calcTotalAmount() + _changeGrothes);
+    return beamui::AmountToString(calcTotalAmount() + _changeGrothes);
 }
 
 bool SendViewModel::canSend() const
@@ -203,7 +203,7 @@ void SendViewModel::extractParameters()
     _txParameters = *txParameters;
     if (auto amount = _txParameters.GetParameter<beam::Amount>(beam::wallet::TxParameterID::Amount); amount)
     {
-        setSendAmount(beamui::amount2ui(*amount));
+        setSendAmount(beamui::AmountToString(*amount));
     }
     if (auto fee = _txParameters.GetParameter<beam::Amount>(beam::wallet::TxParameterID::Fee); fee)
     {

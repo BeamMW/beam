@@ -101,15 +101,15 @@ void ReceiveSwapViewModel::onGeneratedNewAddress(const beam::wallet::WalletAddre
 
 QString ReceiveSwapViewModel::getAmountToReceive() const
 {
-    return beamui::amount2ui(_amountToReceiveGrothes);
+    return beamui::AmountToString(_amountToReceiveGrothes);
 }
 
 void ReceiveSwapViewModel::setAmountToReceive(QString value)
 {
-    auto amout = beamui::ui2amount(value);
-    if (amout != _amountToReceiveGrothes)
+    auto amount = beamui::StringToAmount(value);
+    if (amount != _amountToReceiveGrothes)
     {
-        _amountToReceiveGrothes = amout;
+        _amountToReceiveGrothes = amount;
         emit amountToReceiveChanged();
         updateTransactionToken();
     }
@@ -117,7 +117,7 @@ void ReceiveSwapViewModel::setAmountToReceive(QString value)
 
 QString ReceiveSwapViewModel::getAmountSent() const
 {
-    return beamui::amount2ui(_amountSentGrothes);
+    return beamui::AmountToString(_amountSentGrothes);
 }
 
 unsigned int ReceiveSwapViewModel::getReceiveFee() const
@@ -127,10 +127,10 @@ unsigned int ReceiveSwapViewModel::getReceiveFee() const
 
 void ReceiveSwapViewModel::setAmountSent(QString value)
 {
-    auto amout = beamui::ui2amount(value);
-    if (amout != _amountSentGrothes)
+    auto amount = beamui::StringToAmount(value);
+    if (amount != _amountSentGrothes)
     {
-        _amountSentGrothes = amout;
+        _amountSentGrothes = amount;
         emit amountSentChanged();
         updateTransactionToken();
     }
@@ -272,20 +272,17 @@ bool ReceiveSwapViewModel::isEnough() const
     case Currency::CurrBtc:
     {
         // TODO sentFee is fee rate. should be corrected
-        // TODO:double
-        auto total = static_cast<double>(_amountSentGrothes + _sentFeeGrothes) / beam::wallet::UnitsPerCoin(beam::wallet::AtomicSwapCoin::Bitcoin);
+        beam::Amount total = _amountSentGrothes + _sentFeeGrothes;
         return AppModel::getInstance().getBitcoinClient()->getAvailable() > total;
     }
     case Currency::CurrLtc:
     {
-        // TODO:double
-        auto total = static_cast<double>(_amountSentGrothes + _sentFeeGrothes) / beam::wallet::UnitsPerCoin(beam::wallet::AtomicSwapCoin::Litecoin);
+        beam::Amount total = _amountSentGrothes + _sentFeeGrothes;
         return AppModel::getInstance().getLitecoinClient()->getAvailable() > total;
     }
     case Currency::CurrQtum:
     {
-        // TODO:double
-        auto total = static_cast<double>(_amountSentGrothes + _sentFeeGrothes) / beam::wallet::UnitsPerCoin(beam::wallet::AtomicSwapCoin::Qtum);
+        beam::Amount total = _amountSentGrothes + _sentFeeGrothes;
         return AppModel::getInstance().getQtumClient()->getAvailable() > total;
     }
     default:

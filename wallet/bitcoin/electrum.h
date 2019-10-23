@@ -70,15 +70,15 @@ namespace beam::bitcoin
         void createRawTransaction(
             const std::string& withdrawAddress,
             const std::string& contractTxId,
-            uint64_t amount,
+            Amount amount,
             int outputIndex,
             Timestamp locktime,
             std::function<void(const Error&, const std::string&)> callback) override;
         void getTxOut(const std::string& txid, int outputIndex, std::function<void(const Error&, const std::string&, double, uint32_t)> callback) override;
         void getBlockCount(std::function<void(const Error&, uint64_t)> callback) override;
-        void getBalance(uint32_t confirmations, std::function<void(const Error&, double)> callback) override;
+        void getBalance(uint32_t confirmations, std::function<void(const Error&, Amount)> callback) override;
 
-        void getDetailedBalance(std::function<void(const Error&, double, double, double)> callback) override;
+        void getDetailedBalance(std::function<void(const Error&, Amount, Amount, Amount)> callback) override;
 
     protected:
         void listUnspent(std::function<void(const Error&, const std::vector<Utxo>&)> callback);

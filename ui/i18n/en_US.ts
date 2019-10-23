@@ -1810,7 +1810,7 @@ Please check the swap token and try again.</translation>
     </message>
     <message id="invalid-rate-min">
         <source>Rate cannot be less than %1</source>
-        <translation>Rate cannot be less than %1</translation>
+        <translation type="vanished">Rate cannot be less than %1</translation>
     </message>
     <message id="swap-offer-duplicate-message">
         <source>The offer with this transaction token is already accepted.\nPlease check the swap token and try again.</source>

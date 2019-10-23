@@ -176,7 +176,7 @@ namespace beam::bitcoin
     void BitcoinCore016::createRawTransaction(
         const std::string& withdrawAddress,
         const std::string& contractTxId,
-        uint64_t amount,
+        Amount amount,
         int outputIndex,
         Timestamp locktime,
         std::function<void(const IBridge::Error&, const std::string&)> callback)
@@ -274,17 +274,17 @@ namespace beam::bitcoin
         });
     }
 
-    void BitcoinCore016::getBalance(uint32_t confirmations, std::function<void(const Error&, double)> callback)
+    void BitcoinCore016::getBalance(uint32_t confirmations, std::function<void(const Error&, Amount)> callback)
     {
         LOG_DEBUG() << "Send getBalance command";
         sendRequest("getbalance", "\"*\"," + std::to_string(confirmations), [callback](IBridge::Error error, const json& result) {
-            double balance = 0;
+            Amount balance = 0;
 
             if (error.m_type == IBridge::None)
             {
                 try
                 {
-                    balance = result.get<double>();
+                    libbitcoin::btc_to_satoshi(balance, result.get<std::string>());
                 }
                 catch (const std::exception& ex)
                 {
@@ -296,21 +296,21 @@ namespace beam::bitcoin
         });
     }
 
-    void BitcoinCore016::getDetailedBalance(std::function<void(const Error&, double, double, double)> callback)
+    void BitcoinCore016::getDetailedBalance(std::function<void(const Error&, Amount, Amount, Amount)> callback)
     {
         //LOG_DEBUG() << "Send getWalletInfo command";
         sendRequest("getwalletinfo", "", [callback](IBridge::Error error, const json& result) {
-            double confirmed = 0;
-            double unconfirmed = 0;
-            double immature = 0;
+            Amount confirmed = 0;
+            Amount unconfirmed = 0;
+            Amount immature = 0;
 
             if (error.m_type == IBridge::None)
             {
                 try
                 {
-                    confirmed = result["balance"].get<double>();
-                    unconfirmed = result["unconfirmed_balance"].get<double>();
-                    immature = result["immature_balance"].get<double>();
+                    libbitcoin::btc_to_satoshi(confirmed, result["balance"].get<std::string>());
+                    libbitcoin::btc_to_satoshi(unconfirmed, result["unconfirmed_balance"].get<std::string>());
+                    libbitcoin::btc_to_satoshi(immature, result["immature_balance"].get<std::string>());
                 }
                 catch (const std::exception& ex)
                 {

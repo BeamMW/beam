@@ -121,7 +121,7 @@ ColumnLayout {
                 hasFee:           true
                 color:            Style.accent_outgoing
                 //% "Insufficient funds: you would need %1 to complete the transaction"
-                error:            viewModel.isEnough ? "" : qsTrId("send-founds-fail").arg(Utils.amount2locale(viewModel.missing))
+                error:            viewModel.isEnough ? "" : qsTrId("send-founds-fail").arg(viewModel.missing)
             }
 
             Binding {
@@ -287,7 +287,7 @@ ColumnLayout {
                     {
                         addressText: viewModel.receiverAddress,
                         //% "BEAM"
-                        amountText: [Utils.amount2locale(viewModel.sendAmount), qsTrId("general-beam")].join(" "),
+                        amountText: [viewModel.sendAmount, qsTrId("general-beam")].join(" "),
                         //% "GROTH"
                         feeText: [Utils.amount2locale(viewModel.feeGrothes), qsTrId("general-groth")].join(" "),
                         onAcceptedCallback: acceptedCallback

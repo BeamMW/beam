@@ -27,9 +27,10 @@ namespace beamui
     
     QString AmountToString(const Amount& value, Currencies coinType)
     {
-        // TODO:double
-        auto realAmount = double(int64_t(value)) / Rules::Coin;
-        QString amount = QLocale().toString(realAmount, 'f', QLocale::FloatingPointShortest);
+        // TODO implement for another currencies
+        // TODO implement to support locale
+        std::string btc = libbitcoin::satoshi_to_btc(value);
+        QString amount = QString::fromStdString(btc);
 
         QString coinSign;
         switch (coinType)
@@ -55,6 +56,14 @@ namespace beamui
                 break;
         }
         return amount + coinSign;
+    }
+
+    beam::Amount StringToAmount(const QString& value)
+    {
+        // TODO implement to support locale
+        beam::Amount amount = 0;
+        libbitcoin::btc_to_satoshi(amount, value.toStdString());
+        return amount;
     }
 
     QString toString(const beam::Timestamp& ts)
@@ -147,18 +156,5 @@ namespace beamui
     std::string toStdString(Currencies currency)
     {
         return toString(currency).toStdString();
-    }
-
-    QString amount2ui(beam::Amount amount)
-    {
-        std::string btc = libbitcoin::satoshi_to_btc(amount);
-        return QString::fromStdString(btc);
-    }
-
-    beam::Amount ui2amount(const QString& uistr)
-    {
-        beam::Amount amount = 0;
-        libbitcoin::btc_to_satoshi(amount, uistr.toStdString());
-        return  amount;
     }
 }  // namespace beamui

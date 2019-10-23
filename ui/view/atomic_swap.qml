@@ -191,21 +191,21 @@ Item {
                     }
                     gradLeft: Style.swapCurrencyPaneGrLeftBEAM
                     currencyIcon: "qrc:/assets/icon-beam.svg"
-                    valueStr: [Utils.number2Locale(viewModel.beamAvailable), Utils.symbolBeam].join(" ")
+                    valueStr: [viewModel.beamAvailable, Utils.symbolBeam].join(" ")
                     valueSecondaryStr: activeTxCountStr()
                     visible: true
                 }
 
                 function btcAmount() {
-                    return viewModel.hasBtcTx ? "" : Utils.number2Locale(viewModel.btcAvailable) + " " + Utils.symbolBtc;
+                    return viewModel.hasBtcTx ? "" : viewModel.btcAvailable + " " + Utils.symbolBtc;
                 }
 
                 function ltcAmount() {
-                    return viewModel.hasLtcTx ? "" : Utils.number2Locale(viewModel.ltcAvailable) + " " + Utils.symbolLtc;
+                    return viewModel.hasLtcTx ? "" : viewModel.ltcAvailable + " " + Utils.symbolLtc;
                 }
 
                 function qtumAmount() {
-                    return viewModel.hasQtumTx ? "" : Utils.number2Locale(viewModel.qtumAvailable) + " " + Utils.symbolQtum;
+                    return viewModel.hasQtumTx ? "" : viewModel.qtumAvailable + " " + Utils.symbolQtum;
                 }
 
                 //% "Transaction is in progress"

@@ -127,7 +127,7 @@ void testSuccessResponse()
         ++counter;
     });
 
-    bridge.getBalance(2, [&counter](const bitcoin::IBridge::Error& error, double balance)
+    bridge.getBalance(2, [&counter](const bitcoin::IBridge::Error& error, Amount balance)
     {
         WALLET_CHECK(error.m_type == bitcoin::IBridge::None);
         WALLET_CHECK(balance > 0);
@@ -209,7 +209,7 @@ void testEmptyResult()
         ++counter;
     });
 
-    bridge.getBalance(2, [&counter](const bitcoin::IBridge::Error& error, double balance)
+    bridge.getBalance(2, [&counter](const bitcoin::IBridge::Error& error, Amount balance)
     {
         WALLET_CHECK(error.m_type == bitcoin::IBridge::EmptyResult);
         WALLET_CHECK(!error.m_message.empty());

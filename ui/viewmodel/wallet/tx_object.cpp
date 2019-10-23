@@ -61,10 +61,9 @@ QString TxObject::getAmount() const
     return AmountToString(m_tx.m_amount, Currencies::Beam);
 }
 
-// TODO:double
-double TxObject::getAmountValue() const
+QString TxObject::getAmountValue() const
 {
-    return m_tx.m_amount;
+    return beamui::AmountToString(m_tx.m_amount);
 }
 
 QString TxObject::getStatus() const
