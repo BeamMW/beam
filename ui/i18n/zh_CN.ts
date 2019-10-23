@@ -1424,9 +1424,8 @@ Update your settings and try again.</oldsource>
         <translation type="unfinished">Electrum</translation>
     </message>
     <message id="swap-currency-na-message">
-        <source>You do not have %1 connected.\nUpdate your settings and try again.</source>
-        <oldsource>You do not have %1 connected.
-Update your settings and try again.</oldsource>
+        <source>%1 is not connected, \nplease review your settings and try again.</source>
+        <oldsource>%1 is not connected, please review your settings and try again.</oldsource>
         <translation type="unfinished">未连接到 %1 \n请更新设置后重试</translation>
     </message>
     <message id="send-swap-to-label">

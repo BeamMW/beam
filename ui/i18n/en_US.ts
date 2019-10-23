@@ -1407,8 +1407,9 @@ or send this address to the sender over secure channel</translation>
         <translation>Electrum</translation>
     </message>
     <message id="swap-currency-na-message">
-        <source>You do not have %1 connected.\nUpdate your settings and try again.</source>
-        <translation>You do not have %1 connected.\nUpdate your settings and try again.</translation>
+        <source>%1 is not connected, \nplease review your settings and try again.</source>
+        <oldsource>%1 is not connected, please review your settings and try again.</oldsource>
+        <translation type="unfinished">%1 is not connected, \nplease review your settings and try again.</translation>
     </message>
     <message id="send-swap-to-label">
         <source>Transaction token</source>
@@ -1810,7 +1811,7 @@ Please check the swap token and try again.</translation>
     </message>
     <message id="invalid-rate-min">
         <source>Rate cannot be less than %1</source>
-        <translation type="vanished">Rate cannot be less than %1</translation>
+        <translation>Rate cannot be less than %1</translation>
     </message>
     <message id="swap-offer-duplicate-message">
         <source>The offer with this transaction token is already accepted.\nPlease check the swap token and try again.</source>

@@ -1408,9 +1408,8 @@ Update your settings and try again.</oldsource>
         <translation>Electrum</translation>
     </message>
     <message id="swap-currency-na-message">
-        <source>You do not have %1 connected.\nUpdate your settings and try again.</source>
-        <oldsource>You do not have %1 connected.
-Update your settings and try again.</oldsource>
+        <source>%1 is not connected, \nplease review your settings and try again.</source>
+        <oldsource>%1 is not connected, please review your settings and try again.</oldsource>
         <translation type="unfinished">คุณไม่มี %1 เชื่อมต่ออยู่ กรุณาแก้ไขการตั้งค่าและลองใหม่อีกครั้ง</translation>
     </message>
     <message id="send-swap-to-label">
