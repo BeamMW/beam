@@ -3223,6 +3223,19 @@ namespace beam::wallet
 
             return true;
         }
+
+        namespace
+        {
+            void LogSqliteError(void* pArg, int iErrCode, const char* zMsg)
+            {
+                LOG_ERROR() << "(" << iErrCode << ") " << zMsg;
+            }
+        }
+
+        void HookErrors()
+        {
+            sqlite3_config(SQLITE_CONFIG_LOG, LogSqliteError, nullptr);
+        }
     }
 
     ////////////////////////

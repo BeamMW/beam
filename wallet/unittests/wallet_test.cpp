@@ -1536,11 +1536,6 @@ namespace
             }
         }
     }
-
-    void LogSqliteError(void* pArg, int iErrCode, const char* zMsg)
-    {
-        LOG_ERROR() << "(" << iErrCode << ") " << zMsg;
-    }
 }
 
 bool RunNegLoop(beam::Negotiator::IBase& a, beam::Negotiator::IBase& b, const char* szTask)
@@ -2155,7 +2150,7 @@ int main()
     //Rules::get().DA.MaxAhead_s = 90;// 60 * 1;
     Rules::get().UpdateChecksum();
 
-    sqlite3_config(SQLITE_CONFIG_LOG, LogSqliteError, nullptr);
+    storage::HookErrors();
 
     TestConvertions();
     TestTxParameters();
