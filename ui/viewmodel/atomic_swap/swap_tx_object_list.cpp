@@ -84,7 +84,11 @@ auto SwapTxObjectList::data(const QModelIndex &index, int role) const -> QVarian
     switch (static_cast<Roles>(role))
     {
         case Roles::TimeCreated:
-            return value->timeCreated().toString(Qt::SystemLocaleShortDate);
+        {
+            QDateTime datetime;
+            datetime.setTime_t(value->timeCreated());
+            return datetime.toString(Qt::SystemLocaleShortDate);
+        }
         case Roles::TimeCreatedSort:
             return value->timeCreated();
 
