@@ -10,25 +10,28 @@
                 var keykeeper = new Module.KeyKeeper(wordList);
 
                 {
-                    var kidv = new Module.KeyIDV();
+                    var pk = keykeeper.generatePublicKey("j25vcm2HA5SIAQ==", true);
 
-                    kidv.value = '4000000';
-                    kidv.idx = '180003423';
-                    kidv.type = '1852797549';
-                    kidv.subIdx = '16777216';
-
-                    var pk = keykeeper.generatePublicKey(kidv, true);
-
-                    console.log('public key is: [' + pk.x + ':' + pk.y + ']')
-                    console.log('ownerKey is: ' + keykeeper.getOwnerKey('123'));
+                    console.log('public key is: data:application/octet-stream;base64,' + pk)
+                    console.log('ownerKey is: data:application/octet-stream;base64,' + keykeeper.getOwnerKey('123'));
 
                     var slot = keykeeper.allocateNonceSlot();
                     console.log('allocated nonce slot: ' + slot);
 
                     var nonce = keykeeper.generateNonce(slot);
-                    console.log('generated nonce : [' + nonce.x + ':' + nonce.y + ']');
+                    console.log('generated nonce: data:application/octet-stream;base64,' + nonce);
 
-                    keykeeper.generateOutput('100500', kidv);
+                    var output = keykeeper.generateOutput('A5SIAQ==', 'j25vcm2HA5SIAQ==');
+                    console.log('output is: data:application/octet-stream;base64,' + output)
+
+                    var sign = keykeeper.sign("gYBub3JtBAAAAAGo", 
+                        "goBub3JtBAAAAAGQgG5vcm0EAAAAAZg=", 
+                        "n4IJkOJI4RBuB+vSsRVv9eLrQYj/T63RKbuGQkPr9iQ=", 
+                        0, 
+                        "AqhhAmxrgJRDD8A004NtNAHW5OS1ejp71FSYb3+cZgdMFaQYoFTcAA==", 
+                        "xfxiHFSO5kaPrJ3YmG2v9E2RC6g25Py2eGxhQ85G1T0B");
+
+                    console.log('sign is: data:application/octet-stream;base64,' + sign)
                 }
             }
         };
