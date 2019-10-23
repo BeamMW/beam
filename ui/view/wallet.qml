@@ -57,6 +57,9 @@ Item {
 
     TokenDuplicateChecker {
         id: tokenDuplicateChecker
+        onAccepted: {
+            walletStackView.pop();
+        }
         Connections {
             target: tokenDuplicateChecker.model
             onTokenPreviousAccepted: function(token) {

@@ -64,6 +64,9 @@ Item {
 
     TokenDuplicateChecker {
         id: tokenDuplicateChecker
+        onAccepted: {
+            offersStackView.pop();
+        }
         Connections {
             target: tokenDuplicateChecker.model
             onTokenPreviousAccepted: function(token) {
