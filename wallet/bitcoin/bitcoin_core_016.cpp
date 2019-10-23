@@ -284,7 +284,8 @@ namespace beam::bitcoin
             {
                 try
                 {
-                    libbitcoin::btc_to_satoshi(balance, result.get<std::string>());
+                    // TODO should be avoided to use conversion to double and vice versa
+                    libbitcoin::btc_to_satoshi(balance, result.dump());
                 }
                 catch (const std::exception& ex)
                 {
@@ -308,9 +309,10 @@ namespace beam::bitcoin
             {
                 try
                 {
-                    libbitcoin::btc_to_satoshi(confirmed, result["balance"].get<std::string>());
-                    libbitcoin::btc_to_satoshi(unconfirmed, result["unconfirmed_balance"].get<std::string>());
-                    libbitcoin::btc_to_satoshi(immature, result["immature_balance"].get<std::string>());
+                    // TODO should be avoided to use conversion to double and vice versa
+                    libbitcoin::btc_to_satoshi(confirmed, result["balance"].dump());
+                    libbitcoin::btc_to_satoshi(unconfirmed, result["unconfirmed_balance"].dump());
+                    libbitcoin::btc_to_satoshi(immature, result["immature_balance"].dump());
                 }
                 catch (const std::exception& ex)
                 {
