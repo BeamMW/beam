@@ -10,8 +10,10 @@ import "controls"
 ColumnLayout {
     id: sendView
     property bool   isSwapMode: false
+    property bool   isSwapOnFly: false
     property bool   pasteEventComplete: false
     property var    defaultFocusItem: receiverTAInput
+    property bool   isErrorDetected: false
 
     // callbacks set by parent
     property var    onClosed: function() {}
@@ -32,7 +34,7 @@ ColumnLayout {
             font.pixelSize:  18
             font.styleName:  "Bold"; font.weight: Font.Bold
             color:           Style.content_main
-            text:            isSwapMode
+            text:            isSwapMode || isSwapOnFly
                                         //% "Swap currencies"
                                         ? qsTrId("wallet-send-swap-title")
                                         //% "Send"
@@ -42,46 +44,6 @@ ColumnLayout {
 
     function isTAInputValid(token) {
         return token.length == 0 || BeamGlobals.isTAValid(token)
-    }
-
-    function setInputErrorMode() {
-        receiverTAInput.backgroundColor =
-            receiverTAInput.color = Style.validator_error;
-        receiverTAError.text = isSwapMode
-            //% "Invalid swap token"
-            ? qsTrId("wallet-send-invalid-token")
-            //% "Invalid wallet address or swap token"
-            : qsTrId("wallet-send-invalid-address-or-token");
-        receiverTAError.visible =
-            receiverTAInput.font.italic = true;
-    }
-
-    function setInputNormalMode() {
-        receiverTAInput.backgroundColor =
-            receiverTAInput.color = Style.content_main;
-        receiverTAError.visible =
-            receiverTAInput.font.italic = false;
-    }
-
-    function checkToken(token) {
-        if (!isTAInputValid(token)) {
-            setInputErrorMode();
-            actionButton.enabled = false;
-            return;
-        }
-
-        if (BeamGlobals.isSwapToken(receiverTAInput.text) &&
-            typeof onSwapToken == "function") {
-            isSwapMode = true;
-            onSwapToken(receiverTAInput.text);
-            return;
-        } else if (isSwapMode) {
-            setInputErrorMode();
-        }
-
-        if (typeof onAddress == "function") {
-            onAddress(receiverTAInput.text);
-        }
     }
 
     ColumnLayout {
@@ -98,27 +60,49 @@ ColumnLayout {
             Layout.fillWidth: true
             id:               receiverTAInput
             font.pixelSize:   14
-            color:            Style.content_main
-            backgroundColor:  Style.content_main
+            color:            isErrorDetected
+                ? Style.validator_error
+                : Style.content_main
+            backgroundColor:  isErrorDetected
+                ? Style.validator_error
+                : Style.content_main
             validator:        RegExpValidator { regExp: /[0-9a-zA-Z]{1,}/ }
             selectByMouse:    true
             //% "Please specify contact or transaction token"
             placeholderText:  qsTrId("send-contact-placeholder")
-
-            Keys.onPressed: function(keyEvent) {
-                pasteEventComplete = keyEvent.matches(StandardKey.Paste);
+            font.italic:      isErrorDetected
+            onPaste: function() {
+                pasteEventComplete = true;
             }
 
             onTextChanged: {
-                setInputNormalMode();
+                isErrorDetected = false;
+                isSwapOnFly = false;
                 if (receiverTAInput.text.length == 0) {
-                    actionButton.enabled = false;
+                    pasteEventComplete = false;
                     return;
                 }
-                actionButton.enabled = true;
+
+                if (!isSwapMode) {
+                    isSwapOnFly = !BeamGlobals.isAddress(receiverTAInput.text);
+                }
+
+                if (!isTAInputValid(receiverTAInput.text)) {
+                    isErrorDetected = true;
+                    pasteEventComplete = false;
+                    return;
+                }
+
+                isErrorDetected = (isSwapOnFly || isSwapMode) &&
+                        !BeamGlobals.isSwapToken(receiverTAInput.text);
+                
+                if (isErrorDetected) {
+                    pasteEventComplete = false;
+                    return;
+                }
 
                 if (pasteEventComplete) {
-                    checkToken(receiverTAInput.text);
+                    actionButton.onClicked();
                 }
             }
         }
@@ -130,7 +114,12 @@ ColumnLayout {
                 id:               receiverTAError
                 color:            Style.validator_error
                 font.pixelSize:   12
-                visible:          false
+                visible:          isErrorDetected
+                text:             isSwapMode || isSwapOnFly
+                    //% "Invalid swap token"
+                    ? qsTrId("wallet-send-invalid-token")
+                    //% "Invalid wallet address or swap token"
+                    : qsTrId("wallet-send-invalid-address-or-token")
             }
         }
 
@@ -145,15 +134,13 @@ ColumnLayout {
                 palette.buttonText: Style.content_main
                 icon.source:        "qrc:/assets/icon-cancel-white.svg"
                 onClicked:          {
-                    if (typeof onClosed == "function") {
-                        onClosed();
-                    }
+                    onClosed();
                 }
             }
             
             CustomButton {
                 id: actionButton
-                text: isSwapMode
+                text: isSwapMode || isSwapOnFly
                     //% "Swap"
                     ? qsTrId("general-swap")
                     //% "Send"
@@ -161,8 +148,12 @@ ColumnLayout {
                 palette.buttonText: Style.content_opposite
                 palette.button: Style.accent_outgoing
                 icon.source: "qrc:/assets/icon-send-blue.svg"
-                enabled: false
-                onClicked: checkToken(receiverTAInput.text)
+                enabled: !isErrorDetected && receiverTAInput.text.length
+                onClicked: {
+                    isSwapMode || isSwapOnFly
+                        ? onSwapToken(receiverTAInput.text)
+                        : onAddress(receiverTAInput.text);
+                }
             }
         }
 

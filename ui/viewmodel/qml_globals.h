@@ -26,6 +26,7 @@ public:
     Q_INVOKABLE static void showMessage(const QString& message);
     Q_INVOKABLE static void copyToClipboard(const QString& text);
     Q_INVOKABLE QString version();
+    Q_INVOKABLE static bool isAddress(const QString& text);
     Q_INVOKABLE static bool isTransactionToken(const QString& text);
     Q_INVOKABLE static bool isSwapToken(const QString& text);
     Q_INVOKABLE static bool isTAValid(const QString& text);

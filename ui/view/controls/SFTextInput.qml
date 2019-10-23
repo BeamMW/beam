@@ -6,6 +6,7 @@ import "."
 
 T.TextField {
     id: control
+    property var onPaste: function() {}
 
     implicitWidth: Math.max(background ? background.implicitWidth : 0,
                             placeholderText ? placeholder.implicitWidth + leftPadding + rightPadding : 0)
@@ -102,8 +103,15 @@ T.TextField {
             icon.source: "qrc:/assets/icon-edit.svg"
             enabled: control.canPaste
             onTriggered: {
-                control.paste()
+                control.onPaste();
+                control.paste();
             }
+        }
+    }
+
+    Keys.onPressed: function(keyEvent) {
+        if (keyEvent.matches(StandardKey.Paste)) {
+            control.onPaste();
         }
     }
 }
