@@ -98,7 +98,7 @@ ColumnLayout {
         Layout.fillHeight:   true
         Layout.bottomMargin: 10
         clip:                true
-        ScrollBar.horizontal.policy: ScrollBar.AsNeeded
+        ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
         ScrollBar.vertical.policy:   ScrollBar.AsNeeded
 
         ColumnLayout {
