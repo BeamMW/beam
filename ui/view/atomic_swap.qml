@@ -601,7 +601,6 @@ Item {
                             resizable: false
                             delegate: TableItem {
                                 text: styleData.value
-                                elide: Text.ElideRight
                                 fontWeight: Font.Bold
                                 fontStyleName: "Bold"
                                 fontSizeMode: Text.Fit
@@ -617,7 +616,6 @@ Item {
                             resizable: false
                             delegate: TableItem {
                                 text: styleData.value
-                                elide: Text.ElideRight
                                 fontWeight: Font.Bold
                                 fontStyleName: "Bold"
                                 fontSizeMode: Text.Fit
@@ -1014,19 +1012,13 @@ Item {
                             width: transactionsTable.columnWidth
                             movable: false
                             resizable: false
-                            delegate: Item {
-                                Item {
-                                    width: parent.width
-                                    height: transactionsTable.rowHeight
-                                    TableItem {
-                                        text: (styleData.value === '' ? '' : '-') + styleData.value
-                                        fontWeight: Font.Bold
-                                        fontStyleName: "Bold"
-                                        fontSizeMode: Text.Fit
-                                        color: Style.accent_outgoing
-                                        onCopyText: BeamGlobals.copyToClipboard(Utils.getAmountWithoutCurrency(styleData.value)) 
-                                    }
-                                }
+                            delegate: TableItem {
+                                text: (styleData.value === '' ? '' : '-') + styleData.value
+                                fontWeight: Font.Bold
+                                fontStyleName: "Bold"
+                                fontSizeMode: Text.Fit
+                                color: Style.accent_outgoing
+                                onCopyText: BeamGlobals.copyToClipboard(Utils.getAmountWithoutCurrency(styleData.value)) 
                             }
                         }
                         TableViewColumn {
@@ -1037,20 +1029,15 @@ Item {
                             width: transactionsTable.columnWidth
                             movable: false
                             resizable: false
-                            delegate: Item {
-                                Item {
-                                    width: parent.width
-                                    height: transactionsTable.rowHeight
-                                    TableItem {
-                                        text: (styleData.value === '' ? '' : '+') + styleData.value
-                                        fontWeight: Font.Bold
-                                        fontStyleName: "Bold"
-                                        fontSizeMode: Text.Fit
-                                        color: Style.accent_incoming
-                                        onCopyText: BeamGlobals.copyToClipboard(Utils.getAmountWithoutCurrency(styleData.value)) 
-                                    }
-                                }
+                            delegate: TableItem {
+                                text: (styleData.value === '' ? '' : '+') + styleData.value
+                                fontWeight: Font.Bold
+                                fontStyleName: "Bold"
+                                fontSizeMode: Text.Fit
+                                color: Style.accent_incoming
+                                onCopyText: BeamGlobals.copyToClipboard(Utils.getAmountWithoutCurrency(styleData.value)) 
                             }
+
                         }
                         TableViewColumn {
                             id: txStatusColumn
@@ -1069,7 +1056,7 @@ Item {
                                         id: statusRow
                                         Layout.alignment: Qt.AlignLeft
                                         anchors.fill: parent
-                                        anchors.leftMargin: 10
+                                        anchors.leftMargin: 20
                                         spacing: 10
 
                                         SvgImage {
