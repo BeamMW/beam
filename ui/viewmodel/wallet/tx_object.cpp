@@ -33,11 +33,9 @@ TxObject::TxObject(const TxDescription& tx, QObject* parent/* = nullptr*/)
     setKernelID(kernelID);
 }
 
-auto TxObject::timeCreated() const -> QDateTime
+beam::Timestamp TxObject::timeCreated() const
 {
-	QDateTime datetime;
-	datetime.setTime_t(m_tx.m_createTime);
-	return datetime;
+    return m_tx.m_createTime;
 }
 
 auto TxObject::getTxID() const -> beam::wallet::TxID

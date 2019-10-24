@@ -328,7 +328,7 @@ Item {
                         
                         source: viewModel.transactions
                         filterRole: "search"
-                        filterString: "*" + searchBox.text + "*"
+                        filterString: searchBox.text
                         filterSyntax: SortFilterProxyModel.Wildcard
                         filterCaseSensitivity: Qt.CaseInsensitive
                     }

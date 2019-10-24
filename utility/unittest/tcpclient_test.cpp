@@ -91,41 +91,44 @@ void on_connected (uint64_t tag, unique_ptr<TcpStream>&& newStream, ErrorCode st
 int tcpclient_test(bool ssl) {
     callbackCount = 3;
     g_FirstRcv = true;
+    long reactorUseCount = 0;
     try {
         Reactor::Ptr reactor = Reactor::create();
+        {
+            Address a;
+            // NOTE that this is blocked resolver, TODO add async resolver to Reactor
+            a.resolve(DOMAIN_NAME);
+            a.port(ssl ? 443 : 80);
 
-        Address a;
-        // NOTE that this is blocked resolver, TODO add async resolver to Reactor
-        a.resolve(DOMAIN_NAME);
-        a.port(ssl ? 443 : 80);
+            if (!reactor->tcp_connect(a, tag_ok, on_connected, 10000, ssl)) ++errorlevel;
+            if (!reactor->tcp_connect(Address::localhost().port(666), tag_refused, on_connected, -1, ssl)) ++errorlevel;
+            if (!reactor->tcp_connect(a.port(666), tag_timedout, on_connected, 100, ssl)) ++errorlevel;
+            if (!reactor->tcp_connect(a, tag_cancelled, on_connected, -1, ssl)) ++errorlevel;
 
-        if (!reactor->tcp_connect(a, tag_ok, on_connected, 10000, ssl)) ++errorlevel;
-        if (!reactor->tcp_connect(Address::localhost().port(666), tag_refused, on_connected, -1, ssl)) ++errorlevel;
-        if (!reactor->tcp_connect(a.port(666), tag_timedout, on_connected, 100, ssl)) ++errorlevel;
-        if (!reactor->tcp_connect(a, tag_cancelled, on_connected, -1, ssl)) ++errorlevel;
+            reactor->cancel_tcp_connect(tag_cancelled);
 
-        reactor->cancel_tcp_connect(tag_cancelled);
+            Timer::Ptr timer = Timer::create(*reactor);
+            int x = 20;
+            timer->start(200, true, [&x, &reactor] {
+                if (--x == 0 || callbackCount == 0) {
+                    reactor->stop();
+                }
+                });
 
-        Timer::Ptr timer = Timer::create(*reactor);
-        int x = 20;
-        timer->start(200, true, [&x, &reactor]{
-            if (--x == 0 || callbackCount == 0) {
-                reactor->stop();
-            }
-        });
+            LOG_DEBUG() << "starting reactor...";
+            reactor->run();
+            LOG_DEBUG() << "reactor stopped";
 
-        LOG_DEBUG() << "starting reactor...";
-        reactor->run();
-        LOG_DEBUG() << "reactor stopped";
-
-        streams.clear();
-        LOG_DEBUG() << TRACE(reactor.use_count());
+            streams.clear();
+            LOG_DEBUG() << TRACE(reactor.use_count());
+        }
+        reactorUseCount = reactor.use_count() - 1;
     }
     catch (const Exception& e) {
         LOG_ERROR() << e.what();
     }
 
-    return calc_errors();
+    return reactorUseCount + calc_errors();
 }
 
 void on_connected_writecancel(uint64_t tag, unique_ptr<TcpStream>&& newStream, ErrorCode status) {

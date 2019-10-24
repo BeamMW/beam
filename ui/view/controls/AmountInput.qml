@@ -68,13 +68,12 @@ ColumnLayout {
                 if (ainput.focus) {
                     // if nothing then "0", remove insignificant zeroes and "." in floats
                     control.amount = text ? text.replace(/\.0*$|(\.\d*[1-9])0+$/,'$1') : "0"
-                } else {
-                    ainput.select(0, 0)
                 }
             }
 
             onFocusChanged: {
                 text = formatDisplayedAmount()
+                if (focus) cursorPosition = positionAt(ainput.getMousePos().x, ainput.getMousePos().y)
             }
 
             function formatDisplayedAmount() {

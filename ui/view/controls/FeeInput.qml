@@ -39,7 +39,10 @@ ColumnLayout {
             }
 
             onTextEdited:   control.fee = text ? parseInt(text) : 0
-            onFocusChanged: text = formatFee()
+            onFocusChanged: {
+                text = formatFee()
+                if (focus) cursorPosition = positionAt(feeInput.getMousePos().x, feeInput.getMousePos().y)
+            }
 
             Connections {
                 target: control
