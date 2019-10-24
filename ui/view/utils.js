@@ -90,7 +90,7 @@ function calcDisplayRate(aiReceive, aiSend, numOnly) {
         error: rate < minRate,
         errorText: rate < minRate
             //% "Rate cannot be less than %1"
-            ? qsTrId("invalid-rate-min").arg(minRate)
+            ? qsTrId("invalid-rate-min").arg(Utils.number2LocaleFixed(minRate))
             : undefined,
         minRate: minRate,
         minDisplayRate: format(minRate)
