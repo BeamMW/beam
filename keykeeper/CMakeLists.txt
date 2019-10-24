@@ -1,7 +1,7 @@
 project(keykeeper)
 cmake_minimum_required(VERSION 3.11)
 
-set(TARGET_NAME key-keeper-test)
+set(TARGET_NAME wasm-key-keeper)
 
 if(EMSCRIPTEN)
     set(CMAKE_CXX_STANDARD 17)
@@ -22,15 +22,16 @@ endif()
 if(EMSCRIPTEN)
 
     target_link_libraries(keykeeper PRIVATE secp256k1)
-    target_include_directories(keykeeper PUBLIC "${PROJECT_SOURCE_DIR}/.." "${PROJECT_SOURCE_DIR}/../3rdparty" "${PROJECT_SOURCE_DIR}/../3rdparty/libuv/include" $ENV{BOOST_ROOT})
+    target_include_directories(keykeeper PUBLIC 
+        "${PROJECT_SOURCE_DIR}/.." 
+        "${PROJECT_SOURCE_DIR}/../3rdparty" 
+        "${PROJECT_SOURCE_DIR}/../3rdparty/libuv/include"
+        $ENV{BOOST_ROOT})
+    
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-unused-value")
 
-    add_executable(${TARGET_NAME} main.cpp)
+    add_executable(${TARGET_NAME} wasm_key_keeper.cpp)
     target_link_libraries(${TARGET_NAME} PRIVATE keykeeper)
-
-    if(UNIX OR WIN32)
-        set(UV_INTERNAL ON)
-        add_definitions(-DUV_INTERNAL)
-    endif()
 
     add_subdirectory(${PROJECT_SOURCE_DIR}/../3rdparty/secp256k1-zkp secp256k1-zkp)
 
@@ -40,8 +41,10 @@ if(EMSCRIPTEN)
             ${PROJECT_SOURCE_DIR}/../core/ecc.cpp
             ${PROJECT_SOURCE_DIR}/../core/ecc_bulletproof.cpp
             ${PROJECT_SOURCE_DIR}/../core/block_crypt.cpp
+            ${PROJECT_SOURCE_DIR}/../core/block_rw.cpp
             ${PROJECT_SOURCE_DIR}/../core/merkle.cpp
             ${PROJECT_SOURCE_DIR}/../core/block_validation.cpp
+            ${PROJECT_SOURCE_DIR}/../core/aes.cpp
             ${PROJECT_SOURCE_DIR}/../utility/common.cpp
 
             ${PROJECT_SOURCE_DIR}/../mnemonic/dictionary.cpp
@@ -51,9 +54,9 @@ if(EMSCRIPTEN)
             ${PROJECT_SOURCE_DIR}/../3rdparty/pkcs5_pbkdf2.c
             ${PROJECT_SOURCE_DIR}/../3rdparty/sha512.c
             ${PROJECT_SOURCE_DIR}/../3rdparty/zeroize.c
+            ${PROJECT_SOURCE_DIR}/../3rdparty/utilstrencodings.cpp
     )
 
-    set(CMAKE_EXECUTABLE_SUFFIX ".html")
     set_target_properties(${TARGET_NAME} PROPERTIES LINK_FLAGS "--bind -s WASM=1 -s ERROR_ON_UNDEFINED_SYMBOLS=0")
 else()
 

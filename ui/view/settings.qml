@@ -130,7 +130,7 @@ ColumnLayout {
         CustomSwitch {
             id:                mode
             //% "Swap"
-            text:              qsTrId("wallet-swap")
+            text:              qsTrId("general-swap")
             Layout.alignment:  Qt.AlignRight
             checked:           settingsView.swapMode
         }

@@ -19,43 +19,43 @@
 class SendViewModel: public QObject
 {
     Q_OBJECT
-    Q_PROPERTY(int      feeGrothes         READ getFeeGrothes         WRITE setFeeGrothes       NOTIFY feeGrothesChanged)
-    Q_PROPERTY(double   sendAmount         READ getSendAmount         WRITE setSendAmount       NOTIFY sendAmountChanged)
-    Q_PROPERTY(QString  comment            READ getComment            WRITE setComment          NOTIFY commentChanged)
+    Q_PROPERTY(unsigned int  feeGrothes         READ getFeeGrothes         WRITE setFeeGrothes       NOTIFY feeGrothesChanged)
+    Q_PROPERTY(QString       sendAmount         READ getSendAmount         WRITE setSendAmount       NOTIFY sendAmountChanged)
+    Q_PROPERTY(QString       comment            READ getComment            WRITE setComment          NOTIFY commentChanged)
 
     // TA = Transaction or Address
     Q_PROPERTY(QString  receiverTA         READ getReceiverTA         WRITE setReceiverTA       NOTIFY receiverTAChanged)
     Q_PROPERTY(bool     receiverTAValid    READ getRreceiverTAValid                             NOTIFY receiverTAChanged)
 
     Q_PROPERTY(QString  receiverAddress    READ getReceiverAddress                              NOTIFY receiverTAChanged)
-    Q_PROPERTY(double   available          READ getAvailable                                    NOTIFY availableChanged)
-    Q_PROPERTY(double   change             READ getChange                                       NOTIFY availableChanged)
-    Q_PROPERTY(double   totalUTXO          READ getTotalUTXO                                    NOTIFY availableChanged)
-    Q_PROPERTY(double   missing            READ getMissing                                      NOTIFY availableChanged)
+    Q_PROPERTY(QString  available          READ getAvailable                                    NOTIFY availableChanged)
+    Q_PROPERTY(QString  change             READ getChange                                       NOTIFY availableChanged)
+    Q_PROPERTY(QString  totalUTXO          READ getTotalUTXO                                    NOTIFY availableChanged)
+    Q_PROPERTY(QString  missing            READ getMissing                                      NOTIFY availableChanged)
     Q_PROPERTY(bool     isEnough           READ isEnough                                        NOTIFY availableChanged)
     Q_PROPERTY(bool     canSend            READ canSend                                         NOTIFY canSendChanged)
 
 public:
     SendViewModel();
 
-    int  getFeeGrothes() const;
-    void setFeeGrothes(int amount);
+    unsigned int getFeeGrothes() const;
+    void setFeeGrothes(unsigned int amount);
 
     void setComment(const QString& value);
     QString getComment() const;
 
-    double getSendAmount() const;
-    void setSendAmount(double value);
+    QString getSendAmount() const;
+    void setSendAmount(QString value);
 
     QString getReceiverTA() const;
     void    setReceiverTA(const QString& value);
     bool    getRreceiverTAValid() const;
     QString getReceiverAddress() const;
 
-    double getAvailable() const;
-    double getMissing() const;
-    double getChange() const;
-    double getTotalUTXO() const;
+    QString getAvailable() const;
+    QString getMissing() const;
+    QString getChange() const;
+    QString getTotalUTXO() const;
 
     bool isEnough() const;
     bool canSend() const;
@@ -78,15 +78,15 @@ public slots:
 
 private:
     beam::Amount calcTotalAmount() const;
-    beam::Amount calcSendAmount() const;
-    beam::Amount calcFeeAmount() const;
     void extractParameters();
 
-    int     _feeGrothes;
-    double  _sendAmount;
+    beam::Amount _feeGrothes;
+    beam::Amount _sendAmountGrothes;
+    beam::Amount _changeGrothes;
+
     QString _comment;
     QString _receiverTA;
-    beam::Amount _change;
+
     WalletModel& _walletModel;
     beam::wallet::TxParameters _txParameters;
 };

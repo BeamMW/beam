@@ -62,11 +62,11 @@
     </message>
     <message id="general-receiving">
         <source>receiving</source>
-        <translation type="unfinished">receiving</translation>
+        <translation type="obsolete">receiving</translation>
     </message>
     <message id="general-sending">
         <source>sending</source>
-        <translation type="unfinished">sending</translation>
+        <translation type="obsolete">sending</translation>
     </message>
     <message id="general-rescan">
         <source>Rescan</source>
@@ -1046,7 +1046,12 @@
     </message>
     <message id="start-create-pwd-strength-message">
         <source>Strong password needs to meet the following requirements:\n•  the length must be at least 10 characters\n•  must contain at least one lowercase letter\n•  must contain at least one uppercase letter\n•  must contain at least one number</source>
-        <translation>Vahvan salasanan tulee täyttää seuraavat kriteerit:\n•  salasanassa täytyy olla vähintään 10 merkkiä\n•  vähintään yksi kirjain pienellä\n•  vähintään yksi kirjain isolla\n•  vähintään yksi numero</translation>
+        <oldsource>Strong password needs to meet the following requirements:
+•  the length must be at least 10 characters
+•  must contain at least one lowercase letter
+•  must contain at least one uppercase letter
+•  must contain at least one number</oldsource>
+        <translation type="unfinished">Vahvan salasanan tulee täyttää seuraavat kriteerit:\n•  salasanassa täytyy olla vähintään 10 merkkiä\n•  vähintään yksi kirjain pienellä\n•  vähintään yksi kirjain isolla\n•  vähintään yksi numero</translation>
     </message>
     <message id="start-open-caps-warning">
         <source>Caps lock is on!</source>
@@ -1275,13 +1280,13 @@
     </message>
     <message id="general-locked">
         <source>locked</source>
-        <translation>lukittu</translation>
+        <translation type="vanished">lukittu</translation>
     </message>
     <message id="general-change-settings">
         <source>Change settings</source>
         <translation>Muuta asetuksia</translation>
     </message>
-    <message id="wallet-swap">
+    <message id="general-swap">
         <source>Swap</source>
         <translation>Swap</translation>
     </message>
@@ -1316,7 +1321,9 @@
     </message>
     <message id="swap-na-message">
         <source>You do not have any 3rd-party currencies connected.\nUpdate your settings and try again.</source>
-        <translation>Sinulla ei ole ulkoisia valuuttoja yhdistettynä.\nPäivitä asetuksesi ja yritä uudelleen.</translation>
+        <oldsource>You do not have any 3rd-party currencies connected.
+Update your settings and try again.</oldsource>
+        <translation type="unfinished">Sinulla ei ole ulkoisia valuuttoja yhdistettynä.\nPäivitä asetuksesi ja yritä uudelleen.</translation>
     </message>
     <message id="wallet-receive-swap-title">
         <source>Create swap offer</source>
@@ -1372,8 +1379,9 @@
         <translation>Vaihda valuutat</translation>
     </message>
     <message id="wallet-send-invalid-token">
-        <source>Invalid address or token</source>
-        <translation>Virheellinen osoite tai tunniste</translation>
+        <source>Invalid swap token</source>
+        <oldsource>Invalid token</oldsource>
+        <translation type="unfinished">Virheellinen osoite tai tunniste</translation>
     </message>
     <message id="general-comment-local">
         <source>Comments are local and won&apos;t be shared</source>
@@ -1400,8 +1408,9 @@
         <translation>Electrum</translation>
     </message>
     <message id="swap-currency-na-message">
-        <source>You do not have %1 connected.\nUpdate your settings and try again.</source>
-        <translation>Sinulla ei ole %1 yhdistettynä.\nPäivitä asetuksesi ja yritä uudelleen.</translation>
+        <source>%1 is not connected, \nplease review your settings and try again.</source>
+        <oldsource>%1 is not connected, please review your settings and try again.</oldsource>
+        <translation type="unfinished">Sinulla ei ole %1 yhdistettynä.\nPäivitä asetuksesi ja yritä uudelleen.</translation>
     </message>
     <message id="send-swap-to-label">
         <source>Transaction token</source>
@@ -1620,7 +1629,7 @@
         <source>There are no active offers at the moment.\nPlease try again later or create an offer yourself.</source>
         <oldsource>There are no active offers at the moment.
 Please try again later or create an offer yourself.</oldsource>
-        <translation>Ei yhtään voimassa olevaa tarjousta.\nTee oma tarjous tai yritä myöhemmin uudelleen.</translation>
+        <translation type="unfinished">Ei yhtään voimassa olevaa tarjousta.\nTee oma tarjous tai yritä myöhemmin uudelleen.</translation>
     </message>
     <message id="send-less-than-fee">
         <source>The swap amount must be greater than the redemption fee.</source>
@@ -1685,7 +1694,9 @@ Please try again later or create an offer yourself.</oldsource>
     </message>
     <message id="accept-own-offer-allert-body">
         <source>The transaction token was generated by you, therefore it is not allowed to accept your own offer.\nPlease check the swap token and try again.</source>
-        <translation>Olet itse luonut kyseisen tapahtuman tunnisteen, eikä omaa tarjousta voida hyväksyä.\nTarkista swap-tunniste ja yritä uudelleen.</translation>
+        <oldsource>The transaction token was generated by you, therefore it is not allowed to accept your own offer.
+Please check the swap token and try again.</oldsource>
+        <translation type="unfinished">Olet itse luonut kyseisen tapahtuman tunnisteen, eikä omaa tarjousta voida hyväksyä.\nTarkista swap-tunniste ja yritä uudelleen.</translation>
     </message>
     <message id="swap-copy-token">
         <source>Copy token</source>
@@ -1797,6 +1808,27 @@ Please try again later or create an offer yourself.</oldsource>
     </message>
     <message id="connect to node">
         <source>connect to node</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="wallet-send-invalid-address-or-token">
+        <source>Invalid wallet address or swap token</source>
+        <oldsource>Invalid address or token</oldsource>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="swap-offer-duplicate-title">
+        <source>Оffer is already accepted</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="swap-offer-duplicate-message">
+        <source>The offer with this transaction token is already accepted.\nPlease check the swap token and try again.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="swap-offer-duplicate-confirm-button">
+        <source>ok</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="invalid-rate-min">
+        <source>Rate cannot be less than %1</source>
         <translation type="unfinished"></translation>
     </message>
 </context>

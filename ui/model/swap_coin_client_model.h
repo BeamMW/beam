@@ -30,7 +30,7 @@ public:
         std::unique_ptr<beam::bitcoin::SettingsProvider> settingsProvider,
         beam::io::Reactor& reactor);
 
-    double getAvailable();
+    beam::Amount getAvailable();
     beam::bitcoin::Client::Status getStatus() const;
     bool canModifySettings() const;
 
@@ -47,6 +47,7 @@ private:
     void OnStatus(Status status) override;
     void OnBalance(const Client::Balance& balance) override;
     void OnCanModifySettingsChanged(bool canModify) override;
+    void OnChangedSettings() override;
 
 private slots:
     void requestBalance();

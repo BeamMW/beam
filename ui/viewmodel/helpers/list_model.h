@@ -16,9 +16,6 @@
 
 #include <QAbstractListModel>
 
-Q_DECLARE_METATYPE(beam::wallet::TxID)
-Q_DECLARE_METATYPE(beam::wallet::TxParameters)
-
 template <typename T>
 class ListModel : public QAbstractListModel
 {

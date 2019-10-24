@@ -25,7 +25,7 @@ using namespace beam::bitcoin;
 
 SwapOffersViewModel::SwapOffersViewModel()
     :   m_walletModel{*AppModel::getInstance().getWallet()},
-        m_coinType(AtomicSwapCoin::Bitcoin),
+        m_selectedCoin(AtomicSwapCoin::Bitcoin),
         m_btcClient(AppModel::getInstance().getBitcoinClient()),
         m_ltcClient(AppModel::getInstance().getLitecoinClient()),
         m_qtumClient(AppModel::getInstance().getQtumClient())
@@ -46,21 +46,19 @@ SwapOffersViewModel::SwapOffersViewModel()
     connect(m_ltcClient.get(), SIGNAL(statusChanged()), this, SIGNAL(ltcOKChanged()));
     connect(m_qtumClient.get(), SIGNAL(statusChanged()), this, SIGNAL(qtumOKChanged()));
 
-    m_walletModel.getAsync()->setSwapOffersCoinType(m_coinType);
     m_walletModel.getAsync()->getSwapOffers();
     m_walletModel.getAsync()->getWalletStatus();
 }
 
-int SwapOffersViewModel::getCoinType()
+int SwapOffersViewModel::getSelectedCoin()
 {
-    return static_cast<int>(m_coinType);
+    return static_cast<int>(m_selectedCoin);
 }
 
-void SwapOffersViewModel::setCoinType(int coinType)
+void SwapOffersViewModel::setSelectedCoin(int coinType)
 {
-    m_coinType = static_cast<AtomicSwapCoin>(coinType);
-    m_walletModel.getAsync()->setSwapOffersCoinType(m_coinType);
-    m_walletModel.getAsync()->getSwapOffers();
+    m_selectedCoin = static_cast<AtomicSwapCoin>(coinType);
+    emit selectedCoinChanged();
 }
 
 QAbstractItemModel* SwapOffersViewModel::getAllOffers()
@@ -68,24 +66,24 @@ QAbstractItemModel* SwapOffersViewModel::getAllOffers()
     return &m_offersList;
 }
 
-double  SwapOffersViewModel::beamAvailable() const
+QString SwapOffersViewModel::beamAvailable() const
 {
-    return double(int64_t(m_walletModel.getAvailable())) / Rules::Coin;
+    return beamui::AmountToString(m_walletModel.getAvailable());
 }
 
-double  SwapOffersViewModel::btcAvailable() const
+QString SwapOffersViewModel::btcAvailable() const
 {
-    return m_btcClient->getAvailable();
+    return beamui::AmountToString(m_btcClient->getAvailable());
 }
 
-double  SwapOffersViewModel::ltcAvailable() const
+QString SwapOffersViewModel::ltcAvailable() const
 {
-    return m_ltcClient->getAvailable();
+    return beamui::AmountToString(m_ltcClient->getAvailable());
 }
 
-double  SwapOffersViewModel::qtumAvailable() const
+QString SwapOffersViewModel::qtumAvailable() const
 {
-    return m_qtumClient->getAvailable();
+    return beamui::AmountToString(m_qtumClient->getAvailable());
 }
 
 bool SwapOffersViewModel::btcOK()  const
@@ -246,6 +244,11 @@ void SwapOffersViewModel::onSwapOffersDataModelChanged(beam::wallet::ChangeActio
 
         case ChangeAction::Removed:
             {
+                for (const auto& modifiedOffer: modifiedOffers)
+                {
+                    emit offerRemovedFromTable(
+                        QVariant::fromValue(modifiedOffer->getTxID()));
+                }
                 m_offersList.remove(modifiedOffers);
                 break;
             }

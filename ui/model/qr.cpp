@@ -17,18 +17,18 @@
 #include <QUrlQuery>
 #include <QtGui/qimage.h>
 #include "qrcode/QRCodeGenerator.h"
-// #include "utility/logger.h"
+#include "viewmodel/ui_helpers.h"
 
 QR::QR()
 {
     update();
 }
 
-QR::QR(const QString& addr, uint width, uint height, double amount)
+QR::QR(const QString& addr, uint width, uint height, beam::Amount amount)
     : m_addr(addr)
     , m_width(width)
     , m_height(height)
-    , m_amount(amount)
+    , m_amountGrothes(amount)
 {
     update();
 }
@@ -38,11 +38,12 @@ QR::~QR()
 
 }
 
-void QR::setAmount(double amount)
+void QR::setAmount(beam::Amount amount)
 {
-    m_amount = amount;
+    m_amountGrothes = amount;
     update();
 }
+
 void QR::setAddr(const QString& addr)
 {
     m_addr = addr;
@@ -64,10 +65,9 @@ QString QR::getEncoded() const
 void QR::update()
 {
     QUrlQuery query;
-    if (m_amount > 0)
+    if (m_amountGrothes > 0)
     {
-        query.addQueryItem(
-                "amount", QLocale("C").toString(m_amount, 'f', -128));
+        query.addQueryItem("amount", beamui::AmountToString(m_amountGrothes));
     }
     
     QUrl url;

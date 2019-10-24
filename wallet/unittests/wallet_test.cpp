@@ -1342,7 +1342,7 @@ namespace
         printf("Testing bbs with wallets2 ...\n");
         io::Reactor::Ptr mainReactor(io::Reactor::create());
         io::Reactor::Scope scope(*mainReactor);
-        const int Count = 30;
+        const int Count = 1000;
         string nodePath = "node.db";
         if (boost::filesystem::exists(nodePath))
         {
@@ -1400,7 +1400,7 @@ namespace
                 .SetParameter(TxParameterID::PeerID, receiver.m_WalletID)
                 .SetParameter(TxParameterID::Amount, Amount(4))
                 .SetParameter(TxParameterID::Fee, Amount(1))
-                .SetParameter(TxParameterID::Lifetime, Height(20))
+                .SetParameter(TxParameterID::Lifetime, Height(30))
                 .SetParameter(TxParameterID::PeerResponseTime, Height(100)));
         }
         
@@ -1535,11 +1535,6 @@ namespace
                 WALLET_CHECK(to == from);
             }
         }
-    }
-
-    void LogSqliteError(void* pArg, int iErrCode, const char* zMsg)
-    {
-        LOG_ERROR() << "(" << iErrCode << ") " << zMsg;
     }
 }
 
@@ -2155,7 +2150,7 @@ int main()
     //Rules::get().DA.MaxAhead_s = 90;// 60 * 1;
     Rules::get().UpdateChecksum();
 
-    sqlite3_config(SQLITE_CONFIG_LOG, LogSqliteError, nullptr);
+    storage::HookErrors();
 
     TestConvertions();
     TestTxParameters();

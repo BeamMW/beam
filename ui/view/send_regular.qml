@@ -83,7 +83,8 @@ ColumnLayout {
                 placeholderText:  qsTrId("send-contact-placeholder")
 
                 onTextChanged: {
-                    if (BeamGlobals.isSwapToken(text)) {
+                    if (BeamGlobals.isSwapToken(text)&&
+                        typeof onSwapToken == "function") {
                         onSwapToken(text);
                     }
                 }
@@ -96,8 +97,8 @@ ColumnLayout {
                     id:               receiverTAError
                     color:            Style.validator_error
                     font.pixelSize:   12
-                    //% "Invalid address or token"
-                    text:             qsTrId("wallet-send-invalid-token")
+                    //% "Invalid wallet address or swap token"
+                    text:             qsTrId("wallet-send-invalid-address-or-token")
                     visible:          !isTAInputValid()
                 }
             }
@@ -120,7 +121,7 @@ ColumnLayout {
                 hasFee:           true
                 color:            Style.accent_outgoing
                 //% "Insufficient funds: you would need %1 to complete the transaction"
-                error:            viewModel.isEnough ? "" : qsTrId("send-founds-fail").arg(Utils.formatAmount(viewModel.missing))
+                error:            viewModel.isEnough ? "" : qsTrId("send-founds-fail").arg(viewModel.missing)
             }
 
             Binding {
@@ -255,7 +256,7 @@ ColumnLayout {
                 Layout.topMargin:    15
                 Layout.rightMargin:  25
                 Layout.bottomMargin: 20
-                error:               viewModel.available < 0
+                error:               !viewModel.isEnough
                 amount:              viewModel.available
             }
         }
@@ -286,9 +287,9 @@ ColumnLayout {
                     {
                         addressText: viewModel.receiverAddress,
                         //% "BEAM"
-                        amountText: [Utils.formatAmount(viewModel.sendAmount), qsTrId("general-beam")].join(" "),
+                        amountText: [viewModel.sendAmount, qsTrId("general-beam")].join(" "),
                         //% "GROTH"
-                        feeText: [Utils.formatAmount(viewModel.feeGrothes), qsTrId("general-groth")].join(" "),
+                        feeText: [Utils.amount2locale(viewModel.feeGrothes), qsTrId("general-groth")].join(" "),
                         onAcceptedCallback: acceptedCallback
                     }).open();
 

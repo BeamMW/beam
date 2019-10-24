@@ -168,7 +168,7 @@ namespace beam::wallet
     {
         virtual void onCoinsChanged() {};
         virtual void onTransactionChanged(ChangeAction action, const std::vector<TxDescription>& items) {};
-        virtual void onSystemStateChanged() {};
+        virtual void onSystemStateChanged(const Block::SystemState::ID& stateID) {};
         virtual void onAddressChanged(ChangeAction action, const std::vector<WalletAddress>& items) {};
     };
 
@@ -386,7 +386,7 @@ namespace beam::wallet
         void removeCoinImpl(const Coin::ID& cid);
         void notifyCoinsChanged();
         void notifyTransactionChanged(ChangeAction action, const std::vector<TxDescription>& items);
-        void notifySystemStateChanged();
+        void notifySystemStateChanged(const Block::SystemState::ID& stateID);
         void notifyAddressChanged(ChangeAction action, const std::vector<WalletAddress>& items);
 
         static uint64_t get_RandomID();
@@ -586,5 +586,7 @@ namespace beam::wallet
         std::string TxDetailsInfo(const IWalletDB::Ptr& db, const TxID& txID);
         ByteBuffer ExportPaymentProof(const IWalletDB& db, const TxID& txID);
         bool VerifyPaymentProof(const ByteBuffer& data);
+
+        void HookErrors();
     }
 }

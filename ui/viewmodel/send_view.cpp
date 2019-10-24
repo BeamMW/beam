@@ -20,8 +20,8 @@
 
 SendViewModel::SendViewModel()
     : _feeGrothes(0)
-    , _sendAmount(0.0)
-    , _change(0)
+    , _sendAmountGrothes(0)
+    , _changeGrothes(0)
     , _walletModel(*AppModel::getInstance().getWallet())
 {
     connect(&_walletModel, &WalletModel::changeCalculated, this, &SendViewModel::onChangeCalculated);
@@ -32,12 +32,12 @@ SendViewModel::SendViewModel()
     _walletModel.getAsync()->getWalletStatus();
 }
 
-int SendViewModel::getFeeGrothes() const
+unsigned int SendViewModel::getFeeGrothes() const
 {
     return _feeGrothes;
 }
 
-void SendViewModel::setFeeGrothes(int value)
+void SendViewModel::setFeeGrothes(unsigned int value)
 {
     if (value != _feeGrothes)
     {
@@ -62,16 +62,19 @@ void SendViewModel::setComment(const QString& value)
     }
 }
 
-double SendViewModel::getSendAmount() const
+QString SendViewModel::getSendAmount() const
 {
-    return _sendAmount;
+    LOG_INFO() << "ret Send amount grothes: " << _sendAmountGrothes << " 2ui: " << beamui::AmountToString(_sendAmountGrothes).toStdString();
+    return beamui::AmountToString(_sendAmountGrothes);
 }
 
-void SendViewModel::setSendAmount(double value)
+void SendViewModel::setSendAmount(QString value)
 {
-    if (value != _sendAmount)
+    beam::Amount amount = beamui::StringToAmount(value);
+    if (amount != _sendAmountGrothes)
     {
-        _sendAmount = value;
+        _sendAmountGrothes = amount;
+        LOG_INFO() << "Send amount: " << _sendAmountGrothes << " Coins: " << (long double)_sendAmountGrothes / beam::Rules::Coin;
         _walletModel.getAsync()->calcChange(calcTotalAmount());
         emit sendAmountChanged();
         emit canSendChanged();
@@ -127,57 +130,47 @@ QString SendViewModel::getReceiverAddress() const
     return _receiverTA;
 }
 
-beam::Amount SendViewModel::calcFeeAmount() const
-{
-    return static_cast<beam::Amount>(_feeGrothes);
-}
-
-beam::Amount SendViewModel::calcSendAmount() const
-{
-    return std::round(_sendAmount * beam::Rules::Coin);
-}
-
 beam::Amount SendViewModel::calcTotalAmount() const
 {
-    return calcSendAmount() + calcFeeAmount();
+    return _sendAmountGrothes + _feeGrothes;
 }
 
-double SendViewModel::getAvailable() const
+QString SendViewModel::getAvailable() const
 {
-    return beamui::Beam2Coins(_walletModel.getAvailable() - calcTotalAmount() - _change);
+    return  beamui::AmountToString(isEnough() ? _walletModel.getAvailable() - calcTotalAmount() - _changeGrothes : 0);
 }
 
-double SendViewModel::getMissing() const
+QString SendViewModel::getMissing() const
 {
-    return beamui::Beam2Coins(calcTotalAmount() - _walletModel.getAvailable());
+    return beamui::AmountToString(calcTotalAmount() - _walletModel.getAvailable());
 }
 
 bool SendViewModel::isEnough() const
 {
-    return _walletModel.getAvailable() >= calcTotalAmount() + _change;
+    return _walletModel.getAvailable() >= calcTotalAmount() + _changeGrothes;
 }
 
 void SendViewModel::onChangeCalculated(beam::Amount change)
 {
-    _change = change;
+    _changeGrothes = change;
     emit availableChanged();
     emit canSendChanged();
 }
 
-double SendViewModel::getChange() const
+QString SendViewModel::getChange() const
 {
-    return beamui::Beam2Coins(_change);
+    return beamui::AmountToString(_changeGrothes);
 }
 
-double SendViewModel::getTotalUTXO() const
+QString SendViewModel::getTotalUTXO() const
 {
-    return beamui::Beam2Coins(calcTotalAmount() + _change);
+    return beamui::AmountToString(calcTotalAmount() + _changeGrothes);
 }
 
 bool SendViewModel::canSend() const
 {
     return !QMLGlobals::isSwapToken(_receiverTA) && getRreceiverTAValid()
-           && _sendAmount > 0 && isEnough()
+           && _sendAmountGrothes > 0 && isEnough()
            && QMLGlobals::isFeeOK(_feeGrothes, Currency::CurrBeam);
 }
 
@@ -190,9 +183,9 @@ void SendViewModel::sendMoney()
         auto messageString = _comment.toStdString();
 
         auto p = beam::wallet::CreateSimpleTransactionParameters()
-            .SetParameter(beam::wallet::TxParameterID::PeerID, *_txParameters.GetParameter<beam::wallet::WalletID>(beam::wallet::TxParameterID::PeerID))
-            .SetParameter(beam::wallet::TxParameterID::Amount, calcSendAmount())
-            .SetParameter(beam::wallet::TxParameterID::Fee, calcFeeAmount())
+            .SetParameter(beam::wallet::TxParameterID::PeerID,  *_txParameters.GetParameter<beam::wallet::WalletID>(beam::wallet::TxParameterID::PeerID))
+            .SetParameter(beam::wallet::TxParameterID::Amount,  _sendAmountGrothes)
+            .SetParameter(beam::wallet::TxParameterID::Fee,     _feeGrothes)
             .SetParameter(beam::wallet::TxParameterID::Message, beam::ByteBuffer(messageString.begin(), messageString.end()));
 
         _walletModel.getAsync()->startTransaction(std::move(p));
@@ -210,11 +203,11 @@ void SendViewModel::extractParameters()
     _txParameters = *txParameters;
     if (auto amount = _txParameters.GetParameter<beam::Amount>(beam::wallet::TxParameterID::Amount); amount)
     {
-        setSendAmount(static_cast<double>(*amount) / beam::Rules::Coin);
+        setSendAmount(beamui::AmountToString(*amount));
     }
     if (auto fee = _txParameters.GetParameter<beam::Amount>(beam::wallet::TxParameterID::Fee); fee)
     {
-        setFeeGrothes(static_cast<int>(*fee));
+        setFeeGrothes(*fee);
     }
     if (auto comment = _txParameters.GetParameter(beam::wallet::TxParameterID::Message); comment)
     {

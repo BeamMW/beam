@@ -24,26 +24,26 @@
 class WalletViewModel : public QObject
 {
     Q_OBJECT
-    Q_PROPERTY(double beamAvailable                 READ beamAvailable              NOTIFY beamAvailableChanged)
-    Q_PROPERTY(double beamReceiving                 READ beamReceiving              NOTIFY beamReceivingChanged)
-    Q_PROPERTY(double beamSending                   READ beamSending                NOTIFY beamSendingChanged)
-    Q_PROPERTY(double beamLocked                    READ beamLocked                 NOTIFY beamLockedChanged)
-    Q_PROPERTY(double beamLockedMaturing            READ beamLockedMaturing         NOTIFY beamLockedChanged)
-    Q_PROPERTY(double beamReceivingChange           READ beamReceivingChange        NOTIFY beamReceivingChanged)
-    Q_PROPERTY(double beamReceivingIncoming         READ beamReceivingIncoming      NOTIFY beamReceivingChanged)
+    Q_PROPERTY(QString beamAvailable                 READ beamAvailable              NOTIFY beamAvailableChanged)
+    Q_PROPERTY(QString beamReceiving                 READ beamReceiving              NOTIFY beamReceivingChanged)
+    Q_PROPERTY(QString beamSending                   READ beamSending                NOTIFY beamSendingChanged)
+    Q_PROPERTY(QString beamLocked                    READ beamLocked                 NOTIFY beamLockedChanged)
+    Q_PROPERTY(QString beamLockedMaturing            READ beamLockedMaturing         NOTIFY beamLockedChanged)
+    Q_PROPERTY(QString beamReceivingChange           READ beamReceivingChange        NOTIFY beamReceivingChanged)
+    Q_PROPERTY(QString beamReceivingIncoming         READ beamReceivingIncoming      NOTIFY beamReceivingChanged)
     Q_PROPERTY(bool isAllowedBeamMWLinks            READ isAllowedBeamMWLinks       WRITE allowBeamMWLinks      NOTIFY beamMWLinksAllowed)
     Q_PROPERTY(QAbstractItemModel* transactions     READ getTransactions            NOTIFY transactionsChanged)
 
 public:
     WalletViewModel();
 
-    double  beamAvailable() const;
-    double  beamReceiving() const;
-    double  beamSending() const;
-    double  beamLocked() const;
-    double  beamLockedMaturing() const;
-    double  beamReceivingChange() const;
-    double  beamReceivingIncoming() const;
+    QString  beamAvailable() const;
+    QString  beamReceiving() const;
+    QString  beamSending() const;
+    QString  beamLocked() const;
+    QString  beamLockedMaturing() const;
+    QString  beamReceivingChange() const;
+    QString  beamReceivingIncoming() const;
 
     QAbstractItemModel* getTransactions();
     bool getIsOfflineStatus() const;

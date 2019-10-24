@@ -62,11 +62,11 @@
     </message>
     <message id="general-receiving">
         <source>receiving</source>
-        <translation type="unfinished">receiving</translation>
+        <translation type="obsolete">receiving</translation>
     </message>
     <message id="general-sending">
         <source>sending</source>
-        <translation type="unfinished">sending</translation>
+        <translation type="obsolete">sending</translation>
     </message>
     <message id="general-rescan">
         <source>Rescan</source>
@@ -1280,13 +1280,13 @@ or send this address to the sender over secure channel</translation>
     </message>
     <message id="general-locked">
         <source>locked</source>
-        <translation>locked</translation>
+        <translation type="vanished">locked</translation>
     </message>
     <message id="general-change-settings">
         <source>Change settings</source>
         <translation>Change settings</translation>
     </message>
-    <message id="wallet-swap">
+    <message id="general-swap">
         <source>Swap</source>
         <translation>Swap</translation>
     </message>
@@ -1375,8 +1375,12 @@ or send this address to the sender over secure channel</translation>
         <translation>Swap currencies</translation>
     </message>
     <message id="wallet-send-invalid-token">
-        <source>Invalid address or token</source>
-        <translation>Invalid address or token</translation>
+        <source>Invalid swap token</source>
+        <translation>Invalid swap token</translation>
+    </message>
+    <message id="wallet-send-invalid-address-or-token">
+        <source>Invalid wallet address or swap token</source>
+        <translation>Invalid wallet address or swap token</translation>
     </message>
     <message id="general-comment-local">
         <source>Comments are local and won&apos;t be shared</source>
@@ -1403,8 +1407,9 @@ or send this address to the sender over secure channel</translation>
         <translation>Electrum</translation>
     </message>
     <message id="swap-currency-na-message">
-        <source>You do not have %1 connected.\nUpdate your settings and try again.</source>
-        <translation>You do not have %1 connected.\nUpdate your settings and try again.</translation>
+        <source>%1 is not connected, \nplease review your settings and try again.</source>
+        <oldsource>%1 is not connected, please review your settings and try again.</oldsource>
+        <translation type="unfinished">%1 is not connected, \nplease review your settings and try again.</translation>
     </message>
     <message id="send-swap-to-label">
         <source>Transaction token</source>
@@ -1803,6 +1808,23 @@ Please check the swap token and try again.</translation>
     <message id="connect to node">
         <source>connect to node</source>
         <translation>connect to node</translation>
+    </message>
+    <message id="invalid-rate-min">
+        <source>Rate cannot be less than %1</source>
+        <translation>Rate cannot be less than %1</translation>
+    </message>
+    <message id="swap-offer-duplicate-message">
+        <source>The offer with this transaction token is already accepted.\nPlease check the swap token and try again.</source>
+        <translation>The offer with this transaction token is already accepted.
+Please check the swap token and try again.</translation>
+    </message>
+    <message id="swap-offer-duplicate-title">
+        <source>Оffer is already accepted</source>
+        <translation>Оffer is already accepted</translation>
+    </message>
+    <message id="swap-offer-duplicate-confirm-button">
+        <source>ok</source>
+        <translation>ok</translation>
     </message>
 </context>
 </TS>

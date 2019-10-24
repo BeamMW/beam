@@ -12,6 +12,12 @@ Item {
     id: root
     anchors.fill: parent
 
+    function onAccepted() { walletStackView.pop(); }
+    function onClosed() { walletStackView.pop(); }
+    function onSwapToken(token) {
+        tokenDuplicateChecker.checkTokenForDuplicate(token);
+    }
+
     WalletViewModel {
         id: viewModel
     }
@@ -46,6 +52,33 @@ Item {
         model:verifyInfo 
         onTextCopied: function(text){
             BeamGlobals.copyToClipboard(text);
+        }
+    }
+
+    TokenDuplicateChecker {
+        id: tokenDuplicateChecker
+        onAccepted: {
+            walletStackView.pop();
+        }
+        Connections {
+            target: tokenDuplicateChecker.model
+            onTokenPreviousAccepted: function(token) {
+                tokenDuplicateChecker.isOwn = false;
+                tokenDuplicateChecker.open();
+            }
+            onTokenFirstTimeAccepted: function(token) {
+                walletStackView.pop();
+                walletStackView.push(Qt.createComponent("send_swap.qml"),
+                                     {
+                                         "onAccepted": onAccepted,
+                                         "onClosed": onClosed
+                                     });
+                walletStackView.currentItem.setToken(token);
+            }
+            onTokenOwnGenerated: function(token) {
+                tokenDuplicateChecker.isOwn = true;
+                tokenDuplicateChecker.open();
+            }
         }
     }
     
@@ -89,20 +122,13 @@ Item {
 
                     onClicked: {
                         walletStackView.push(Qt.createComponent("send.qml"),
-                                            {"isSwapMode": false,
-                                             "onClosed": onClosed,
-                                             "onSwapToken": onSwapToken,
-                                             "onAddress": onAddress});
+                                             {
+                                                 "isSwapMode": false,
+                                                 "onClosed": onClosed,
+                                                 "onSwapToken": onSwapToken,
+                                                 "onAddress": onAddress
+                                             });
 
-                        function onAccepted() { walletStackView.pop(); }
-                        function onClosed() { walletStackView.pop(); }
-                        function onSwapToken(token) {
-                            walletStackView.pop();
-                            walletStackView.push(Qt.createComponent("send_swap.qml"),
-                                                {"onAccepted": onAccepted,
-                                                 "onClosed": onClosed});
-                            walletStackView.currentItem.setToken(token);
-                        }
                         function onAddress(token) {
                             walletStackView.pop();
                             walletStackView.push(Qt.createComponent("send_regular.qml"),
@@ -128,7 +154,6 @@ Item {
                         walletStackView.push(Qt.createComponent("receive_regular.qml"),
                                             {"onClosed": onClosed,
                                              "onSwapMode": onSwapMode});
-                        function onClosed() { walletStackView.pop(); }
                         function onSwapMode() {
                             walletStackView.pop();
                             walletStackView.push(Qt.createComponent("receive_swap.qml"),
@@ -151,7 +176,7 @@ Item {
                 Layout.maximumHeight: 67
                 Layout.minimumHeight: 67
 
-                width: viewModel.beamSending > 0 || viewModel.beamReceiving > 0 ? parent.width : (parent.width / 2)
+                Layout.preferredWidth: parseFloat(viewModel.beamSending) > 0 || parseFloat(viewModel.beamReceiving) > 0 ? parent.width : (parent.width / 2)
 
                 available:         viewModel.beamAvailable
                 locked:            viewModel.beamLocked
@@ -542,7 +567,7 @@ Item {
                         Item {
                             width: parent.width
                             height: transactionsTable.rowHeight
-                            property var isIncome: !!styleData.value && transactionsTable.model.getRoleValue(styleData.row, "isIncome")
+                            property var isIncome: !!styleData.value && !!model && model.isIncome
                             TableItem {
                                 text: (parent.isIncome ? "+ " : "- ") + styleData.value
                                 fontWeight: Font.Bold
@@ -563,6 +588,7 @@ Item {
                     movable: false
                     resizable: false
                     delegate: Item {
+                        property var myModel: model
                         Item {
                             width: parent.width
                             height: transactionsTable.rowHeight
@@ -574,12 +600,6 @@ Item {
                                 anchors.leftMargin: 10
                                 spacing: 10
 
-                                property var isInProgress: transactionsTable.model.getRoleValue(styleData.row, "isInProgress")
-                                property var isSelfTransaction: transactionsTable.model.getRoleValue(styleData.row, "isSelfTransaction")
-                                property var isIncome: transactionsTable.model.getRoleValue(styleData.row, "isIncome")
-                                property var isCompleted: transactionsTable.model.getRoleValue(styleData.row, "isCompleted")
-                                property var isExpired: transactionsTable.model.getRoleValue(styleData.row, "isExpired")
-
                                 SvgImage {
                                     id: statusIcon;
                                     Layout.alignment: Qt.AlignLeft
@@ -587,25 +607,28 @@ Item {
                                     sourceSize: Qt.size(20, 20)
                                     source: getIconSource()
                                     function getIconSource() {
-                                        if (statusRow.isInProgress) {
-                                            if (statusRow.isSelfTransaction) {
+                                        if (!model) {
+                                            return "";
+                                        }
+                                        if (model.isInProgress) {
+                                            if (model.isSelfTransaction) {
                                                 return "qrc:/assets/icon-sending-own.svg";
                                             }
-                                            return statusRow.isIncome ? "qrc:/assets/icon-receiving.svg"
+                                            return model.isIncome ? "qrc:/assets/icon-receiving.svg"
                                                                  : "qrc:/assets/icon-sending.svg";
                                         }
-                                        else if (statusRow.isCompleted) {
-                                            if (statusRow.isSelfTransaction) {
+                                        else if (model.isCompleted) {
+                                            if (model.isSelfTransaction) {
                                                 return "qrc:/assets/icon-sent-own.svg";
                                             }
-                                            return statusRow.isIncome ? "qrc:/assets/icon-received.svg"
+                                            return model.isIncome ? "qrc:/assets/icon-received.svg"
                                                                  : "qrc:/assets/icon-sent.svg";
                                         }
-                                        else if (statusRow.isExpired) {
+                                        else if (model.isExpired) {
                                             return "qrc:/assets/icon-failed.svg" 
                                         }
                                         else {
-                                            return statusRow.isIncome ? "qrc:/assets/icon-receive-canceled.svg"
+                                            return model.isIncome ? "qrc:/assets/icon-receive-canceled.svg"
                                                                  : "qrc:/assets/icon-send-canceled.svg";
                                         }
                                     }
@@ -620,19 +643,18 @@ Item {
                                     verticalAlignment: Text.AlignBottom
                                     color: getTextColor()
                                     function getTextColor () {
-                                        if (statusRow.isInProgress || statusRow.isCompleted) {
-                                            if (statusRow.isSelfTransaction) {
+                                        if (!model) {
+                                            return Style.content_secondary;
+                                        }
+                                        if (model.isInProgress || model.isCompleted) {
+                                            if (model.isSelfTransaction) {
                                                 return Style.content_main;
                                             }
-                                            return statusRow.isIncome ? Style.accent_incoming : Style.accent_outgoing;
+                                            return model.isIncome ? Style.accent_incoming : Style.accent_outgoing;
                                         }
                                         else {
                                             return Style.content_secondary;
                                         }
-                                    }
-                                    onTextChanged: {
-                                        color = getTextColor();
-                                        statusIcon.source = statusIcon.getIconSource();
                                     }
                                 }
                             }

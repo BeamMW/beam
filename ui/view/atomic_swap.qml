@@ -12,6 +12,19 @@ Item {
     Layout.fillWidth: true
     Layout.fillHeight: true
 
+    // callbacks for send views
+    function onAccepted() {
+        offersStackView.pop();
+        offersViewComponent.atomicSwapLayout.state = "transactions";
+        offersViewComponent.transactionsTab.state = "filterInProgressTransactions";
+    }
+    function onClosed() {
+        offersStackView.pop();
+    }
+    function onSwapToken(token) {
+        tokenDuplicateChecker.checkTokenForDuplicate(token);
+    }
+
     SwapOffersViewModel {
         id: viewModel
     }
@@ -46,6 +59,41 @@ Item {
         cancelButtonIconSource: "qrc:/assets/icon-back.svg"
         onAccepted: {
             viewModel.cancelOffer(cancelOfferDialog.txId);
+        }
+        Connections {
+            target: viewModel
+            onOfferRemovedFromTable: function(txId) {
+                if (cancelOfferDialog.txId == txId) {
+                    cancelOfferDialog.cancelButton.onClicked();
+                }
+            }
+        }
+    }
+
+    TokenDuplicateChecker {
+        id: tokenDuplicateChecker
+        onAccepted: {
+            offersStackView.pop();
+        }
+        Connections {
+            target: tokenDuplicateChecker.model
+            onTokenPreviousAccepted: function(token) {
+                tokenDuplicateChecker.isOwn = false;
+                tokenDuplicateChecker.open();
+            }
+            onTokenFirstTimeAccepted: function(token) {
+                offersStackView.pop();
+                offersStackView.push(Qt.createComponent("send_swap.qml"),
+                                     {
+                                         "onAccepted": onAccepted,
+                                         "onClosed": onClosed
+                                     });
+                offersStackView.currentItem.setToken(token);
+            }
+            onTokenOwnGenerated: function(token) {
+                tokenDuplicateChecker.isOwn = true;
+                tokenDuplicateChecker.open();
+            }
         }
     }
 
@@ -83,25 +131,6 @@ Item {
             Layout.fillHeight: true
             spacing: 0
             state: "offers"
-
-            // callbacks for send views
-            function onAccepted() {
-                            offersStackView.pop();
-                            atomicSwapLayout.state = "transactions";
-                            transactionsTab.state = "filterInProgressTransactions";
-            }
-            function onClosed() {
-                offersStackView.pop();
-            }
-            function onSwapToken(token) {
-                offersStackView.pop();
-                offersStackView.push(Qt.createComponent("send_swap.qml"),
-                                     {
-                                         "onAccepted": onAccepted,
-                                         "onClosed": onClosed
-                                     });
-                offersStackView.currentItem.setToken(token);
-            }
 
             RowLayout {
                 Layout.alignment: Qt.AlignRight | Qt.AlignTop
@@ -173,21 +202,10 @@ Item {
                     }
                     gradLeft: Style.swapCurrencyPaneGrLeftBEAM
                     currencyIcon: "qrc:/assets/icon-beam.svg"
-                    valueStr: [Utils.formatAmount(viewModel.beamAvailable, false, true), Utils.symbolBeam].join(" ")
+                    amount: viewModel.beamAvailable
+                    currencySymbol: Utils.symbolBeam
                     valueSecondaryStr: activeTxCountStr()
                     visible: true
-                }
-
-                function btcAmount() {
-                    return viewModel.hasBtcTx ? "" : Utils.formatAmount(viewModel.btcAvailable, false, true) + " " + Utils.symbolBtc;
-                }
-
-                function ltcAmount() {
-                    return viewModel.hasLtcTx ? "" : Utils.formatAmount(viewModel.ltcAvailable, false, true) + " " + Utils.symbolLtc;
-                }
-
-                function qtumAmount() {
-                    return viewModel.hasQtumTx ? "" : Utils.formatAmount(viewModel.qtumAvailable, false, true) + " " + Utils.symbolQtum;
                 }
 
                 //% "Transaction is in progress"
@@ -208,9 +226,9 @@ Item {
                 SwapCurrencyAmountPane {
                     gradLeft: Style.swapCurrencyPaneGrLeftBTC
                     currencyIcon: "qrc:/assets/icon-btc.svg"
-                    valueStr: parent.btcAmount()
+                    amount: viewModel.hasBtcTx ? "" : viewModel.btcAvailable
+                    currencySymbol: Utils.symbolBtc
                     valueSecondaryStr: parent.btcActiveTxStr()
-                    showLoader: viewModel.btcOK && parent.btcActiveTxStr().length
                     isOk: viewModel.btcOK
                     isConnecting: viewModel.btcConnecting
                     visible: BeamGlobals.haveBtc()
@@ -223,9 +241,9 @@ Item {
                 SwapCurrencyAmountPane {
                     gradLeft: Style.swapCurrencyPaneGrLeftLTC
                     currencyIcon: "qrc:/assets/icon-ltc.svg"
-                    valueStr: parent.ltcAmount()
+                    amount: viewModel.hasLtcTx ? "" : viewModel.ltcAvailable
+                    currencySymbol: Utils.symbolLtc
                     valueSecondaryStr: parent.ltcActiveTxStr()
-                    showLoader: viewModel.ltcOK && parent.ltcActiveTxStr().length
                     isOk: viewModel.ltcOK
                     isConnecting: viewModel.ltcConnecting
                     visible: BeamGlobals.haveLtc()
@@ -236,9 +254,9 @@ Item {
                 SwapCurrencyAmountPane {
                     gradLeft: Style.swapCurrencyPaneGrLeftQTUM
                     currencyIcon: "qrc:/assets/icon-qtum.svg"
-                    valueStr: parent.qtumAmount()
+                    amount: viewModel.hasQtumTx ? "" : viewModel.qtumAvailable
+                    currencySymbol: Utils.symbolQtum
                     valueSecondaryStr: parent.qtumActiveTxStr()
-                    showLoader: viewModel.qtumOK && parent.qtumActiveTxStr().length
                     isOk: viewModel.qtumOK
                     isConnecting: viewModel.qtumConnecting
                     visible: BeamGlobals.haveQtum()
@@ -251,7 +269,7 @@ Item {
                     gradLeft: Style.swapCurrencyPaneGrLeftOther
                     gradRight: Style.swapCurrencyPaneGrLeftOther
                     //% "Connect other currency wallet to start trading"
-                    valueStr: qsTrId("atomic-swap-connect-other")
+                    amount: qsTrId("atomic-swap-connect-other")
                     textSize: 14
                     rectOpacity: 1.0
                     textColor: Style.active
@@ -410,6 +428,7 @@ Item {
                         }
                     
                         CustomComboBox {
+                            id: coinSelector
                             Layout.alignment: Qt.AlignHCenter | Qt.AlignRight
                             height: 32
                             Layout.minimumWidth: 70
@@ -418,10 +437,12 @@ Item {
                             fontPixelSize: 14
                             fontLetterSpacing: 0.47
                             color: Style.content_main
-
-                            currentIndex: viewModel.getCoinType()
                             model: ["BTC", "LTC", "QTUM"]
-                            onCurrentIndexChanged: viewModel.setCoinType(currentIndex)
+                        }                        
+                        Binding {
+                            target:   viewModel
+                            property: "selectedCoin"
+                            value:    coinSelector.currentIndex
                         }
                     }   // RowLayout
 
@@ -482,7 +503,14 @@ Item {
                         model: SortFilterProxyModel {
                             id: proxyModel
                             source: SortFilterProxyModel {
-                                source: viewModel.allOffers                                
+                                source: SortFilterProxyModel {
+                                    // filter all offers by selected coin
+                                    source: viewModel.allOffers                                
+                                    filterRole: "swapCoin"
+                                    filterString: getCoinName(viewModel.selectedCoin)
+                                    filterSyntax: SortFilterProxyModel.Wildcard
+                                    filterCaseSensitivity: Qt.CaseInsensitive
+                                }
                                 filterRole: "isBeamSide"
                                 filterString: sendReceiveBeamSwitch.checked ? "false" : "true"
                                 filterSyntax: SortFilterProxyModel.Wildcard
@@ -604,7 +632,7 @@ Item {
                             movable: false
                             resizable: false
                             delegate: TableItem {
-                                text: Utils.formatAmount(styleData.value, false, true)
+                                text: Utils.number2Locale(styleData.value)
                             }
                         }
 
@@ -653,10 +681,8 @@ Item {
                                                 }
                                                 else {
                                                     var txParameters = offersTable.model.getRoleValue(styleData.row, "rawTxParameters");
-                                                    offersStackView.push(Qt.createComponent("send_swap.qml"),
-                                                                        {"predefinedTxParams": txParameters,
-                                                                         "onAccepted": onAccepted,
-                                                                         "onClosed": onClosed});
+                                                    var token = BeamGlobals.rawTxParametrsToTokenStr(txParameters);
+                                                    tokenDuplicateChecker.checkTokenForDuplicate(token);
                                                 }
                                             }
                                         }
@@ -1046,10 +1072,6 @@ Item {
                                         anchors.leftMargin: 10
                                         spacing: 10
 
-                                        property var isInProgress: transactionsTable.model.getRoleValue(styleData.row, "isInProgress")
-                                        property var isCompleted: transactionsTable.model.getRoleValue(styleData.row, "isCompleted")
-                                        property var isExpired: transactionsTable.model.getRoleValue(styleData.row, "isExpired")
-
                                         SvgImage {
                                             id: statusIcon
                                             Layout.alignment: Qt.AlignLeft
@@ -1057,11 +1079,13 @@ Item {
                                             sourceSize: Qt.size(20, 20)
                                             source: getIconSource()
                                             function getIconSource() {
-                                                if (statusRow.isInProgress)
+                                                if (!model)
+                                                    return "";
+                                                if (model.isInProgress)
                                                     return "qrc:/assets/icon-swap-in-progress.svg";
-                                                else if (statusRow.isCompleted)
+                                                else if (model.isCompleted)
                                                     return "qrc:/assets/icon-swap-completed.svg";
-                                                else if (statusRow.isExpired)
+                                                else if (model.isExpired)
                                                     return "qrc:/assets/icon-failed.svg";
                                                 else
                                                     return "qrc:/assets/icon-swap-failed.svg";
@@ -1077,16 +1101,14 @@ Item {
                                             verticalAlignment: Text.AlignBottom
                                             color: getTextColor()
                                             function getTextColor () {
-                                                if (statusRow.isInProgress || statusRow.isCompleted) {
+                                                if (!model) 
+                                                    return Style.content_secondary;
+                                                if (model.isInProgress || model.isCompleted) {
                                                      return Style.accent_swap;
                                                 }
                                                 else {
                                                     return Style.content_secondary;
                                                 }
-                                            }
-                                            onTextChanged: {
-                                                color = getTextColor();
-                                                statusIcon.source = statusIcon.getIconSource();
                                             }
                                         }
                                     }
@@ -1214,6 +1236,15 @@ Item {
             if (currentItem && currentItem.defaultFocusItem) {
                 offersStackView.currentItem.defaultFocusItem.forceActiveFocus();
             }
+        }
+    }
+    
+    function getCoinName(idx) {
+        switch(idx) {
+            case 0: return "btc";
+            case 1: return "ltc";
+            case 2: return "qtum";
+            default: return "";
         }
     }
 

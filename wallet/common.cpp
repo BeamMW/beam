@@ -426,6 +426,7 @@ namespace beam::wallet
 
     void SwapOffer::SetTxParameters(const PackedTxParameters& parameters)
     {
+        // Do not forget to set other SwapOffer members also!
         SubTxID subTxID = kDefaultSubTxID;
         Deserializer d;
         for (const auto& p : parameters)
@@ -450,6 +451,7 @@ namespace beam::wallet
         if (m_TxID) result.m_txId = *m_TxID;
         if (m_status) result.m_status = *m_status;
         if (m_publisherId) result.m_publisherId = *m_publisherId;
+        if (m_coin) result.m_coin = *m_coin;
         return result;
     }
 

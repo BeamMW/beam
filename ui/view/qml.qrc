@@ -12,7 +12,6 @@
         <file>controls/SFText.qml</file>
         <file>controls/SFTextInput.qml</file>
         <file>controls/AvailablePanel.qml</file>
-        <file>controls/SecondaryPanel.qml</file>
         <file>controls/Led.qml</file>
         <file>controls/TxFilter.qml</file>
         <file>controls/TableItem.qml</file>
@@ -34,6 +33,7 @@
         <file>controls/IPAddrInput.qml</file>
         <file>controls/SwapNodeSettings.qml</file>
         <file>controls/LinkButton.qml</file>
+        <file>controls/TokenDuplicateChecker.qml</file>
         <file>controls/TopGradient.qml</file>
         <file>popup_message.qml</file>
         <file>root.qml</file>
@@ -93,7 +93,6 @@
         <file>assets/icon-atomic_swap.svg</file>
         <file>assets/icon-atomic_swap-active.svg</file>
         <file>assets/icon-wallet-small.svg</file>
-        <file>assets/loading-spinner.svg</file>
         <file>assets/icon-notification.svg</file>
         <file>assets/icon-notification-active.svg</file>
         <file>assets/icon-info.svg</file>

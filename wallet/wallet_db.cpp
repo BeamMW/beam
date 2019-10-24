@@ -1856,7 +1856,7 @@ namespace beam::wallet
     {
         storage::setVar(*this, SystemStateIDName, stateID);
         storage::setVar(*this, LastUpdateTimeName, getTimestamp());
-        notifySystemStateChanged();
+        notifySystemStateChanged(stateID);
     }
 
     bool WalletDB::getSystemStateID(Block::SystemState::ID& stateID) const
@@ -2446,9 +2446,9 @@ namespace beam::wallet
         }
     }
 
-    void WalletDB::notifySystemStateChanged()
+    void WalletDB::notifySystemStateChanged(const Block::SystemState::ID& stateID)
     {
-        for (auto sub : m_subscribers) sub->onSystemStateChanged();
+        for (auto sub : m_subscribers) sub->onSystemStateChanged(stateID);
     }
 
     void WalletDB::notifyAddressChanged(ChangeAction action, const vector<WalletAddress>& items)
@@ -2584,7 +2584,7 @@ namespace beam::wallet
 
     uint64_t WalletDB::saveIncomingWalletMessage(BbsChannel channel, const ByteBuffer& message)
     {
-        const char* req = "INSERT INTO " INCOMING_WALLET_MESSAGE_NAME " (Channel, Message) VALUES(?,?)";
+        const char* req = "INSERT INTO " INCOMING_WALLET_MESSAGE_NAME " (Channel, Message) VALUES(?,?);";
         sqlite::Statement stm(this, req);
         stm.bind(1, channel);
         stm.bind(2, message);
@@ -2604,8 +2604,8 @@ namespace beam::wallet
     bool WalletDB::History::Enum(IWalker& w, const Height* pBelow)
     {
         const char* req = pBelow ?
-            "SELECT " TblStates_Hdr " FROM " TblStates " WHERE " TblStates_Height "<? ORDER BY " TblStates_Height " DESC" :
-            "SELECT " TblStates_Hdr " FROM " TblStates " ORDER BY " TblStates_Height " DESC";
+            "SELECT " TblStates_Hdr " FROM " TblStates " WHERE " TblStates_Height "<? ORDER BY " TblStates_Height " DESC;" :
+            "SELECT " TblStates_Hdr " FROM " TblStates " ORDER BY " TblStates_Height " DESC;";
 
         sqlite::Statement stm(&get_ParentObj(), req);
 
@@ -3222,6 +3222,19 @@ namespace beam::wallet
             LOG_INFO() << "Payment tx details:\n" << pi.to_string() << "Verified.";
 
             return true;
+        }
+
+        namespace
+        {
+            void LogSqliteError(void* pArg, int iErrCode, const char* zMsg)
+            {
+                LOG_ERROR() << "(" << iErrCode << ") " << zMsg;
+            }
+        }
+
+        void HookErrors()
+        {
+            sqlite3_config(SQLITE_CONFIG_LOG, LogSqliteError, nullptr);
         }
     }
 

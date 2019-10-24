@@ -62,11 +62,11 @@
     </message>
     <message id="general-receiving">
         <source>receiving</source>
-        <translation type="unfinished">receiving</translation>
+        <translation type="obsolete">receiving</translation>
     </message>
     <message id="general-sending">
         <source>sending</source>
-        <translation type="unfinished">sending</translation>
+        <translation type="obsolete">sending</translation>
     </message>
     <message id="general-rescan">
         <source>Rescan</source>
@@ -1046,7 +1046,12 @@
     </message>
     <message id="start-create-pwd-strength-message">
         <source>Strong password needs to meet the following requirements:\n•  the length must be at least 10 characters\n•  must contain at least one lowercase letter\n•  must contain at least one uppercase letter\n•  must contain at least one number</source>
-        <translation>La contraseña segura debe cumplir los siguientes requisitos:\n• la longitud debe ser de al menos 10 caracteres\n• debe contener al menos una letra minúscula\n• debe contener al menos una letra mayúscula\n• debe contener al menos un número</translation>
+        <oldsource>Strong password needs to meet the following requirements:
+•  the length must be at least 10 characters
+•  must contain at least one lowercase letter
+•  must contain at least one uppercase letter
+•  must contain at least one number</oldsource>
+        <translation type="unfinished">La contraseña segura debe cumplir los siguientes requisitos:\n• la longitud debe ser de al menos 10 caracteres\n• debe contener al menos una letra minúscula\n• debe contener al menos una letra mayúscula\n• debe contener al menos un número</translation>
     </message>
     <message id="start-open-caps-warning">
         <source>Caps lock is on!</source>
@@ -1276,13 +1281,13 @@ Escanee este código QR o envíe esta dirección al remitente a través de un ca
     </message>
     <message id="general-locked">
         <source>locked</source>
-        <translation>bloqueado</translation>
+        <translation type="vanished">bloqueado</translation>
     </message>
     <message id="general-change-settings">
         <source>Change settings</source>
         <translation>Cambiar ajustes</translation>
     </message>
-    <message id="wallet-swap">
+    <message id="general-swap">
         <source>Swap</source>
         <translation>Intercambiar</translation>
     </message>
@@ -1317,7 +1322,9 @@ Escanee este código QR o envíe esta dirección al remitente a través de un ca
     </message>
     <message id="swap-na-message">
         <source>You do not have any 3rd-party currencies connected.\nUpdate your settings and try again.</source>
-        <translation>No tienes ninguna moneda de terceros conectada.\nActualiza tus ajustes e inténtalo de nuevo.</translation>
+        <oldsource>You do not have any 3rd-party currencies connected.
+Update your settings and try again.</oldsource>
+        <translation type="unfinished">No tienes ninguna moneda de terceros conectada.\nActualiza tus ajustes e inténtalo de nuevo.</translation>
     </message>
     <message id="wallet-receive-swap-title">
         <source>Create swap offer</source>
@@ -1373,8 +1380,9 @@ Escanee este código QR o envíe esta dirección al remitente a través de un ca
         <translation>Cambiar monedas</translation>
     </message>
     <message id="wallet-send-invalid-token">
-        <source>Invalid address or token</source>
-        <translation>Dirección o token inválido</translation>
+        <source>Invalid swap token</source>
+        <oldsource>Invalid token</oldsource>
+        <translation type="unfinished">Dirección o token inválido</translation>
     </message>
     <message id="general-comment-local">
         <source>Comments are local and won&apos;t be shared</source>
@@ -1401,8 +1409,9 @@ Escanee este código QR o envíe esta dirección al remitente a través de un ca
         <translation>Electrum</translation>
     </message>
     <message id="swap-currency-na-message">
-        <source>You do not have %1 connected.\nUpdate your settings and try again.</source>
-        <translation>No tienes %1 conectado.\nActualiza tus ajustes e inténtalo de nuevo.</translation>
+        <source>%1 is not connected, \nplease review your settings and try again.</source>
+        <oldsource>%1 is not connected, please review your settings and try again.</oldsource>
+        <translation type="unfinished">No tienes %1 conectado.\nActualiza tus ajustes e inténtalo de nuevo.</translation>
     </message>
     <message id="send-swap-to-label">
         <source>Transaction token</source>
@@ -1621,7 +1630,7 @@ Escanee este código QR o envíe esta dirección al remitente a través de un ca
         <source>There are no active offers at the moment.\nPlease try again later or create an offer yourself.</source>
         <oldsource>There are no active offers at the moment.
 Please try again later or create an offer yourself.</oldsource>
-        <translation>No hay ofertas activas en este momento.\nPor favor, inténtalo de nuevo más tarde o crea una oferta usted mismo.</translation>
+        <translation type="unfinished">No hay ofertas activas en este momento.\nPor favor, inténtalo de nuevo más tarde o crea una oferta usted mismo.</translation>
     </message>
     <message id="send-less-than-fee">
         <source>The swap amount must be greater than the redemption fee.</source>
@@ -1686,7 +1695,9 @@ Please try again later or create an offer yourself.</oldsource>
     </message>
     <message id="accept-own-offer-allert-body">
         <source>The transaction token was generated by you, therefore it is not allowed to accept your own offer.\nPlease check the swap token and try again.</source>
-        <translation>El token de transacción fue generado por usted, por lo tanto no está permitido aceptar su propia oferta.\nPor favor, compruebe el token de intercambio e inténtelo de nuevo.</translation>
+        <oldsource>The transaction token was generated by you, therefore it is not allowed to accept your own offer.
+Please check the swap token and try again.</oldsource>
+        <translation type="unfinished">El token de transacción fue generado por usted, por lo tanto no está permitido aceptar su propia oferta.\nPor favor, compruebe el token de intercambio e inténtelo de nuevo.</translation>
     </message>
     <message id="swap-copy-token">
         <source>Copy token</source>
@@ -1798,6 +1809,27 @@ Please try again later or create an offer yourself.</oldsource>
     </message>
     <message id="connect to node">
         <source>connect to node</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="wallet-send-invalid-address-or-token">
+        <source>Invalid wallet address or swap token</source>
+        <oldsource>Invalid address or token</oldsource>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="swap-offer-duplicate-title">
+        <source>Оffer is already accepted</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="swap-offer-duplicate-message">
+        <source>The offer with this transaction token is already accepted.\nPlease check the swap token and try again.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="swap-offer-duplicate-confirm-button">
+        <source>ok</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="invalid-rate-min">
+        <source>Rate cannot be less than %1</source>
         <translation type="unfinished"></translation>
     </message>
 </context>

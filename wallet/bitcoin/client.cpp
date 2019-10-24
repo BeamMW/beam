@@ -33,11 +33,6 @@ namespace beam::bitcoin
         {
             call_async(&IClientAsync::GetBalance);
         }
-
-        void ResetSettings()
-        {
-            call_async(&IClientAsync::ResetSettings);
-        }
     };
     
     Client::Client(IBridgeHolder::Ptr bridgeHolder, std::unique_ptr<SettingsProvider> settingsProvider, io::Reactor& reactor)
@@ -74,27 +69,55 @@ namespace beam::bitcoin
 
     void Client::SetSettings(const Settings& settings)
     {
-        Lock lock(m_mutex);
-        m_settingsProvider->SetSettings(settings);
-        m_bridgeHolder->Reset();
+        {
+            Lock lock(m_mutex);
+            m_settingsProvider->SetSettings(settings);
+            m_bridgeHolder->Reset();
+
+            if (m_settingsProvider->GetSettings().IsActivated())
+            {
+                SetStatus(Status::Connecting);
+            }
+            else
+            {
+                SetStatus(Status::Uninitialized);
+            }
+        }
+
+        OnChangedSettings();
     }
 
     void Client::GetStatus()
     {
-        OnStatus(m_status);
+        Status status = Status::Unknown;
+        {
+            Lock lock(m_mutex);
+            status = m_status;
+        }
+        OnStatus(status);
     }
 
     void Client::GetBalance()
     {
-        GetBridge()->getDetailedBalance([this, weak = this->weak_from_this()] (const IBridge::Error& error, double confirmed, double unconfirmed, double immature)
+        auto bridge = GetBridge();
+
+        if (!bridge)
+        {
+            return;
+        }
+
+        bridge->getDetailedBalance([this, weak = this->weak_from_this()] (const IBridge::Error& error, Amount confirmed, Amount unconfirmed, Amount immature)
         {
             if (weak.expired())
             {
                 return;
             }
 
-            // TODO: check error and update status
-            SetStatus((error.m_type != IBridge::None) ? Status::Failed : Status::Connected);
+            {
+                Lock lock(m_mutex);
+                // TODO: check error and update status
+                SetStatus((error.m_type != IBridge::None) ? Status::Failed : Status::Connected);
+            }
 
             Balance balance;
             balance.m_available = confirmed;
@@ -107,11 +130,9 @@ namespace beam::bitcoin
 
     void Client::ResetSettings()
     {
-        {
-            Lock lock(m_mutex);
-            m_settingsProvider->ResetSettings();
-            m_bridgeHolder->Reset();
-        }
+        Lock lock(m_mutex);
+        m_settingsProvider->ResetSettings();
+        m_bridgeHolder->Reset();
 
         SetStatus(Status::Uninitialized);
     }

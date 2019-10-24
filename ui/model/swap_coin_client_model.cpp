@@ -50,7 +50,7 @@ SwapCoinClientModel::SwapCoinClientModel(beam::bitcoin::IBridgeHolder::Ptr bridg
     GetAsync()->GetStatus();
 }
 
-double SwapCoinClientModel::getAvailable()
+beam::Amount SwapCoinClientModel::getAvailable()
 {
     return m_balance.m_available;
 }
@@ -78,6 +78,11 @@ void SwapCoinClientModel::OnBalance(const bitcoin::Client::Balance& balance)
 void SwapCoinClientModel::OnCanModifySettingsChanged(bool canModify)
 {
     emit gotCanModifySettings(canModify);
+}
+
+void SwapCoinClientModel::OnChangedSettings()
+{
+    requestBalance();
 }
 
 void SwapCoinClientModel::requestBalance()

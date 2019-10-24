@@ -41,11 +41,13 @@ namespace beam::wallet
         virtual void OnMsg(proto::BbsMsg&& msg) override;
         /**
          *  IWalletDbObserver implementation
-         *  Watch for swap transaction status changes to update linked offer on board
+         *  Watches for swap transaction status changes to update linked offers on board
          */
         virtual void onTransactionChanged(ChangeAction action, const std::vector<TxDescription>& items) override;
-
-        void selectSwapCoin(AtomicSwapCoin coinType);
+        /**
+         *  Watches for system state to remove stuck expired offers from board
+         */
+        virtual void onSystemStateChanged(const Block::SystemState::ID& stateID) override;
 
         auto getOffersList() const -> std::vector<SwapOffer>;
         void publishOffer(const SwapOffer& offer) const;
@@ -61,11 +63,10 @@ namespace beam::wallet
         static const std::map<AtomicSwapCoin, BbsChannel> m_channelsMap;
         static constexpr uint8_t m_protocolVersion = 1;
         Timestamp m_lastTimestamp = getTimestamp() - 12*60*60;
-        boost::optional<BbsChannel> m_activeChannel;
         std::unordered_map<TxID, SwapOffer> m_offersCache;
 
-        auto getChannel(const SwapOffer& offer) const -> boost::optional<BbsChannel>;
-        void sendUpdateToNetwork(const TxID&, const WalletID&, BbsChannel, SwapOfferStatus) const;
+        auto getChannel(AtomicSwapCoin coin) const -> BbsChannel;
+        void sendUpdateToNetwork(const TxID&, const WalletID&, AtomicSwapCoin, SwapOfferStatus) const;
         void updateOffer(const TxID& offerTxID, SwapOfferStatus newStatus);
         void notifySubscribers(ChangeAction action, const std::vector<SwapOffer>& offers) const;
 
