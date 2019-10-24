@@ -88,6 +88,7 @@ ColumnLayout {
                 }
 
                 if (!isTAInputValid(receiverTAInput.text)) {
+                    isSwapOnFly = false;
                     isErrorDetected = true;
                     pasteEventComplete = false;
                     return;
