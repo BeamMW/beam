@@ -108,4 +108,4 @@ ui/beam.desktop
 ui/*.qm
 ui/translations.qrc
 beam_version.gen
-keykeeper/key-keeper-test.*
+keykeeper/wasm-key-keeper.*
