@@ -264,7 +264,7 @@ int main (int argc, char* argv[])
                 return -1;
             }
 
-            window->setMinimumSize(QSize(768, 540));
+            //window->setMinimumSize(QSize(768, 540));
             window->setFlag(Qt::WindowFullscreenButtonHint);
             window->show();
 
