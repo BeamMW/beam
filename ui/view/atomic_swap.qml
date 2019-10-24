@@ -60,6 +60,14 @@ Item {
         onAccepted: {
             viewModel.cancelOffer(cancelOfferDialog.txId);
         }
+        Connections {
+            target: viewModel
+            onOfferRemovedFromTable: function(txId) {
+                if (cancelOfferDialog.txId == txId) {
+                    cancelOfferDialog.cancelButton.onClicked();
+                }
+            }
+        }
     }
 
     TokenDuplicateChecker {

@@ -244,6 +244,11 @@ void SwapOffersViewModel::onSwapOffersDataModelChanged(beam::wallet::ChangeActio
 
         case ChangeAction::Removed:
             {
+                for (const auto& modifiedOffer: modifiedOffers)
+                {
+                    emit offerRemovedFromTable(
+                        QVariant::fromValue(modifiedOffer->getTxID()));
+                }
                 m_offersList.remove(modifiedOffers);
                 break;
             }
