@@ -98,7 +98,7 @@ Rectangle {
                     verticalAlignment: Text.AlignVCenter
                     wrapMode: Text.Wrap
                     copyMenuEnabled: currencySymbol.length
-                    onCopyText: BeamGlobals.copyToClipboard(Utils.amount2locale(amount))
+                    onCopyText: BeamGlobals.copyToClipboard(amount)
                 }
                 Item {width:20}
             }

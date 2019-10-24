@@ -2,11 +2,16 @@ import QtQuick 2.11
 import QtQuick.Controls 2.4
 import QtQuick.Controls.impl 2.4
 import QtQuick.Templates 2.4 as T
+import Beam.Wallet 1.0
 import "."
 
 T.TextField {
     id: control
     property var onPaste: function() {}
+
+    function getMousePos() {
+        return {x: mouseArea.mouseX, y: mouseArea.mouseY}
+    }
 
     implicitWidth: Math.max(background ? background.implicitWidth : 0,
                             placeholderText ? placeholder.implicitWidth + leftPadding + rightPadding : 0)
@@ -64,16 +69,16 @@ T.TextField {
         anchors.fill: parent
         acceptedButtons: Qt.RightButton
         hoverEnabled: true
+        id: mouseArea
 
         onClicked: {
             var selectStart = control.selectionStart
             var selectEnd = control.selectionEnd
-            var curPos = control.cursorPosition
-            contextMenu.x = mouse.x
-            contextMenu.y = mouse.y
+            contextMenu.x = mouseX
+            contextMenu.y = mouseY
             contextMenu.open()
-            control.cursorPosition = curPos
-            control.select(selectStart, selectEnd)
+            if (cursorPosition == selectEnd) control.select(selectStart, selectEnd)
+            else control.select(selectEnd, selectStart)
         }
     }
 
@@ -91,9 +96,7 @@ T.TextField {
                     control.copy();
                 }
                 else {
-                    control.selectAll();
-                    control.copy();
-                    control.deselect();
+                    BeamGlobals.copyToClipboard(control.text)
                 }
             }
         }
@@ -105,6 +108,28 @@ T.TextField {
             onTriggered: {
                 control.onPaste();
                 control.paste();
+            }
+        }
+
+        property bool inputFocus: false
+
+        onAboutToShow: {
+            // save input state before menu
+            inputFocus = control.focus
+            // we always force focus on menu
+            control.forceActiveFocus()
+        }
+
+        onClosed: {
+            // restore input state after menu
+            if (inputFocus) {
+                var selectStart = control.selectionStart
+                var selectEnd   = control.selectionEnd
+                control.forceActiveFocus()
+                if (cursorPosition == selectEnd) control.select(selectStart, selectEnd)
+                else control.select(selectEnd, selectStart)
+            } else {
+                backgroundRect.forceActiveFocus()
             }
         }
     }
