@@ -1086,8 +1086,10 @@ Item {
                                                     return "qrc:/assets/icon-swap-in-progress.svg";
                                                 else if (model.isCompleted)
                                                     return "qrc:/assets/icon-swap-completed.svg";
+                                                else if (model.isCanceled)
+                                                    return "qrc:/assets/icon-swap-canceled.svg";
                                                 else if (model.isExpired)
-                                                    return "qrc:/assets/icon-failed.svg";
+                                                    return "qrc:/assets/icon-expired.svg";
                                                 else
                                                     return "qrc:/assets/icon-swap-failed.svg";
                                             }
@@ -1102,10 +1104,12 @@ Item {
                                             verticalAlignment: Text.AlignBottom
                                             color: getTextColor()
                                             function getTextColor () {
-                                                if (!model) 
+                                                if (!model || model.isExpired) 
                                                     return Style.content_secondary;
                                                 if (model.isInProgress || model.isCompleted) {
-                                                     return Style.accent_swap;
+                                                    return Style.accent_swap;
+                                                } else if (model.isFailed) {
+                                                    return Style.accent_fail;
                                                 }
                                                 else {
                                                     return Style.content_secondary;
@@ -1259,23 +1263,21 @@ Item {
     }
 
     function getStatusText(value) {
+
         switch(value) {
             //% "pending"
             case "pending": return qsTrId("wallet-txs-status-pending");
-            //% "waiting for sender"
-            case "waiting for sender": return qsTrId("wallet-txs-status-waiting-sender");
-            //% "waiting for receiver"
-            case "waiting for receiver": return qsTrId("wallet-txs-status-waiting-receiver");
-            //% "in progress"
-            case "receiving": return qsTrId("wallet-txs-status-in-progress");
-            //% "in progress"
-            case "sending": return qsTrId("wallet-txs-status-in-progress");
-            //% "completed"
-            case "completed": return qsTrId("wallet-txs-status-completed");
-            //% "received"
-            case "received": return qsTrId("wallet-txs-status-received");
-            //% "sent"
-            case "sent": return qsTrId("wallet-txs-status-sent");
+            case "waiting for sender":
+            case "waiting for receiver":
+            case "receiving":
+            case "sending":
+                //% "in progress"
+                return qsTrId("wallet-txs-status-in-progress");
+            case "completed":
+            case "received":
+            case "sent":
+                //% "completed"
+                return qsTrId("wallet-txs-status-completed");
             //% "cancelled"
             case "cancelled": return qsTrId("wallet-txs-status-cancelled");
             //% "expired"

@@ -73,7 +73,11 @@ auto TxObjectList::data(const QModelIndex &index, int role) const -> QVariant
         }
             
         case Roles::TimeCreatedSort:
-            return value->timeCreated();
+        {
+            QDateTime datetime;
+            datetime.setTime_t(value->timeCreated());
+            return datetime;
+        }
 
         case Roles::AmountGeneralWithCurrency:
             return value->getAmountWithCurrency();

@@ -45,6 +45,8 @@ public:
     bool isLockTxProofReceived() const;
     bool isRefundTxProofReceived() const;
     bool isBeamSideSwap() const;
+    QString getStatus() const override;
+    bool isExpired() const override;
 
 signals:
 

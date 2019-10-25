@@ -1826,5 +1826,9 @@ Please check the swap token and try again.</translation>
         <source>ok</source>
         <translation>ok</translation>
     </message>
+    <message id="swap-details-failure-reason">
+        <source>Error</source>
+        <translation type="unfinished">Error</translation>
+    </message>
 </context>
 </TS>

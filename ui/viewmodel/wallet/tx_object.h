@@ -31,7 +31,7 @@ public:
     auto getAmountWithCurrency() const->QString;
     auto getAmount() const -> QString;
     auto getAmountValue() const -> beam::Amount;
-    auto getStatus() const -> QString;
+    virtual auto getStatus() const -> QString;
     auto getComment() const -> QString;
     auto getAddressFrom() const -> QString;
     auto getAddressTo() const -> QString;
@@ -50,7 +50,7 @@ public:
     bool isSelfTx() const;
     bool isCanceled() const;
     bool isFailed() const;
-    bool isExpired() const;
+    virtual bool isExpired() const;
 
     void setKernelID(const QString& value);
     void setStatus(beam::wallet::TxStatus status);
