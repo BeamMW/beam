@@ -42,6 +42,8 @@ public:
 
     bool isProofReceived() const;
     bool isBeamSideSwap() const;
+    QString getStatus() const override;
+    bool isExpired() const override;
 
 signals:
 

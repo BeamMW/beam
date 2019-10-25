@@ -5,6 +5,7 @@ AbstractColors {
     property color accent_outgoing:       "#da68f5"  // heliotrope
     property color accent_incoming:       "#0bccf7"  // bright-sky-blue
     property color accent_swap:           "#39fdf2"
+    property color accent_fail:           "#ff746b"
     property color content_secondary:     "#8da1ad"  // bluey-grey
     property color content_disabled:      "#889da9"
     property color content_opposite:      "#171717"

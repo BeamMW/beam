@@ -42,6 +42,20 @@ auto SwapTxObject::isBeamSideSwap() const -> bool
     else return false;
 }
 
+QString SwapTxObject::getStatus() const
+{
+    return isExpired() ? "expired" : TxObject::getStatus();
+}
+
+bool SwapTxObject::isExpired() const
+{
+    auto& txDescription = getTxDescription();
+    auto failureReason = txDescription.GetParameter<TxFailureReason>(
+        TxParameterID::InternalFailureReason);
+    return failureReason &&
+           failureReason.value() == TxFailureReason::TransactionExpired;
+}
+
 auto SwapTxObject::getSwapCoinName() const -> QString
 {
     if (m_swapCoin)
