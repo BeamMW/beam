@@ -27,6 +27,7 @@ public:
     {
         TimeCreated = Qt::UserRole + 1,
         TimeCreatedSort,
+        AmountGeneralWithCurrency,
         AmountGeneral,
         AmountGeneralSort,
         AddressFrom,
@@ -56,8 +57,10 @@ public:
         // atomic swap only roles
         IsBeamSideSwap,
         IsProofReceived,
+        AmountSendWithCurrency,
         AmountSend,
         AmountSendSort,
+        AmountReceiveWithCurrency,
         AmountReceive,
         AmountReceiveSort,
         Token,

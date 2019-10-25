@@ -556,7 +556,7 @@ Item {
                     resizable: false
                 }
                 TableViewColumn {
-                    role: "amountGeneral"
+                    role: "amountGeneralWithCurrency"
                     //% "Amount"
                     title: qsTrId("general-amount")
                     elideMode: Text.ElideRight
@@ -574,7 +574,7 @@ Item {
                                 fontStyleName: "Bold"
                                 fontSizeMode: Text.Fit
                                 color: parent.isIncome ? Style.accent_incoming : Style.accent_outgoing
-                                onCopyText: BeamGlobals.copyToClipboard(Utils.getAmountWithoutCurrency(styleData.value)) 
+                                onCopyText: BeamGlobals.copyToClipboard(!!model ? model.amountGeneral : "")
                             }
                         }
                     }

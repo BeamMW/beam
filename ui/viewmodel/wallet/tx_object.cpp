@@ -33,7 +33,7 @@ TxObject::TxObject(const TxDescription& tx, QObject* parent/* = nullptr*/)
     setKernelID(kernelID);
 }
 
-beam::Timestamp TxObject::timeCreated() const
+auto TxObject::timeCreated() const -> beam::Timestamp
 {
     return m_tx.m_createTime;
 }
@@ -54,14 +54,19 @@ QString TxObject::getComment() const
     return QString(str.c_str()).trimmed();
 }
 
-QString TxObject::getAmount() const
+QString TxObject::getAmountWithCurrency() const
 {
-    return AmountToString(m_tx.m_amount, Currencies::Beam);
+    return AmountToUIString(m_tx.m_amount, Currencies::Beam);
 }
 
-QString TxObject::getAmountValue() const
+QString TxObject::getAmount() const
 {
-    return beamui::AmountToString(m_tx.m_amount);
+    return AmountToUIString(m_tx.m_amount);
+}
+
+beam::Amount TxObject::getAmountValue() const
+{
+    return m_tx.m_amount;
 }
 
 QString TxObject::getStatus() const
@@ -93,7 +98,7 @@ QString TxObject::getFee() const
 {
     if (m_tx.m_fee)
     {
-        return AmountToString(m_tx.m_fee, Currencies::Beam);
+        return AmountToUIString(m_tx.m_fee, Currencies::Beam);
     }
     return QString{};
 }

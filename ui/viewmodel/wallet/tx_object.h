@@ -26,10 +26,11 @@ public:
     TxObject(QObject* parent = nullptr);
     TxObject(const beam::wallet::TxDescription& tx, QObject* parent = nullptr);
 
-    beam::Timestamp timeCreated() const;
+    auto timeCreated() const -> beam::Timestamp;
     auto getTxID() const -> beam::wallet::TxID;
+    auto getAmountWithCurrency() const->QString;
     auto getAmount() const -> QString;
-    auto getAmountValue() const -> QString;
+    auto getAmountValue() const -> beam::Amount;
     auto getStatus() const -> QString;
     auto getComment() const -> QString;
     auto getAddressFrom() const -> QString;

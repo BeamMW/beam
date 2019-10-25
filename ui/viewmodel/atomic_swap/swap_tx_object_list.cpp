@@ -24,6 +24,7 @@ auto SwapTxObjectList::roleNames() const -> QHash<int, QByteArray>
     {
         { static_cast<int>(Roles::TimeCreated), "timeCreated" },
         { static_cast<int>(Roles::TimeCreatedSort), "timeCreatedSort" },
+        { static_cast<int>(Roles::AmountGeneralWithCurrency), "amountGeneralWithCurrency" },
         { static_cast<int>(Roles::AmountGeneral), "amountGeneral" },
         { static_cast<int>(Roles::AmountGeneralSort), "amountGeneralSort" },
         { static_cast<int>(Roles::AddressFrom), "addressFrom" },
@@ -53,8 +54,10 @@ auto SwapTxObjectList::roleNames() const -> QHash<int, QByteArray>
         // atomic swap only roles
         { static_cast<int>(Roles::IsBeamSideSwap), "isBeamSideSwap" },
         { static_cast<int>(Roles::IsProofReceived), "isProofReceived" },
+        { static_cast<int>(Roles::AmountSendWithCurrency), "amountSendWithCurrency" },
         { static_cast<int>(Roles::AmountSend), "amountSend" },
         { static_cast<int>(Roles::AmountSendSort), "amountSendSort" },
+        { static_cast<int>(Roles::AmountReceiveWithCurrency), "amountReceiveWithCurrency" },
         { static_cast<int>(Roles::AmountReceive), "amountReceive" },
         { static_cast<int>(Roles::AmountReceiveSort), "amountReceiveSort" },
         { static_cast<int>(Roles::Token), "token" },
@@ -92,6 +95,8 @@ auto SwapTxObjectList::data(const QModelIndex &index, int role) const -> QVarian
         case Roles::TimeCreatedSort:
             return value->timeCreated();
 
+        case Roles::AmountGeneralWithCurrency:
+            return value->getAmountWithCurrency();
         case Roles::AmountGeneral:
             return value->getAmount();
         case Roles::AmountGeneralSort:
@@ -182,11 +187,15 @@ auto SwapTxObjectList::data(const QModelIndex &index, int role) const -> QVarian
         case Roles::IsProofReceived:
             return value->isProofReceived();
             
+        case Roles::AmountSendWithCurrency:
+            return value->getSentAmountWithCurrency();
         case Roles::AmountSend:
             return value->getSentAmount();
         case Roles::AmountSendSort:
             return static_cast<qulonglong>(value->getSentAmountValue());
 
+        case Roles::AmountReceiveWithCurrency:
+            return value->getReceivedAmountWithCurrency();
         case Roles::AmountReceive:
             return value->getReceivedAmount();
         case Roles::AmountReceiveSort:

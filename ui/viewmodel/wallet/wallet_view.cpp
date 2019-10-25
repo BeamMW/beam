@@ -133,30 +133,30 @@ void WalletViewModel::onTxStatus(beam::wallet::ChangeAction action, const std::v
 
 QString WalletViewModel::beamAvailable() const
 {
-    return beamui::AmountToString(_model.getAvailable());
+    return beamui::AmountToUIString(_model.getAvailable());
 }
 
 QString WalletViewModel::beamReceiving() const
 {
     // TODO:SWAP return real value
-    return beamui::AmountToString(_model.getReceivingChange() + _model.getReceivingIncoming());
+    return beamui::AmountToUIString(_model.getReceivingChange() + _model.getReceivingIncoming());
 }
 
 QString WalletViewModel::beamSending() const
 {
-    return beamui::AmountToString(_model.getSending());
+    return beamui::AmountToUIString(_model.getSending());
 }
 
 QString WalletViewModel::beamReceivingChange() const
 {
     // TODO:SWAP return real value
-    return beamui::AmountToString(_model.getReceivingChange());
+    return beamui::AmountToUIString(_model.getReceivingChange());
 }
 
 QString WalletViewModel::beamReceivingIncoming() const
 {
     // TODO:SWAP return real value
-    return beamui::AmountToString(_model.getReceivingIncoming());
+    return beamui::AmountToUIString(_model.getReceivingIncoming());
 }
 
 QString WalletViewModel::beamLocked() const
@@ -166,7 +166,7 @@ QString WalletViewModel::beamLocked() const
 
 QString WalletViewModel::beamLockedMaturing() const
 {
-    return beamui::AmountToString(_model.getMaturing());
+    return beamui::AmountToUIString(_model.getMaturing());
 }
 
 bool WalletViewModel::isAllowedBeamMWLinks() const

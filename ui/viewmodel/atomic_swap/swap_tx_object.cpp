@@ -57,13 +57,19 @@ auto SwapTxObject::getSwapCoinName() const -> QString
     return QString("unknown");
 }
 
-QString SwapTxObject::getSentAmount() const
+QString SwapTxObject::getSentAmountWithCurrency() const
 {
     if (m_type == TxType::AtomicSwap)
     {
         return getSwapAmount(true);
     }
     return m_tx.m_sender ? getAmount() : "";
+}
+
+QString SwapTxObject::getSentAmount() const
+{
+    QString amount = beamui::AmountToUIString(getSentAmountValue());
+    return amount == "0" ? "" : amount;
 }
 
 beam::Amount SwapTxObject::getSentAmountValue() const
@@ -76,13 +82,19 @@ beam::Amount SwapTxObject::getSentAmountValue() const
     return m_tx.m_sender ? m_tx.m_amount : 0;
 }
 
-QString SwapTxObject::getReceivedAmount() const
+QString SwapTxObject::getReceivedAmountWithCurrency() const
 {
     if (m_type == TxType::AtomicSwap)
     {
         return getSwapAmount(false);
     }
     return !m_tx.m_sender ? getAmount() : "";
+}
+
+QString SwapTxObject::getReceivedAmount() const
+{
+    QString amount = beamui::AmountToUIString(getReceivedAmountValue());
+    return amount == "0" ? "" : amount;
 }
 
 beam::Amount SwapTxObject::getReceivedAmountValue() const
@@ -108,7 +120,7 @@ QString SwapTxObject::getSwapAmount(bool sent) const
         auto swapAmount = m_tx.GetParameter<Amount>(TxParameterID::AtomicSwapAmount);
         if (swapAmount)
         {
-            return AmountToString(*swapAmount, beamui::convertSwapCoinToCurrency(*m_swapCoin));
+            return AmountToUIString(*swapAmount, beamui::convertSwapCoinToCurrency(*m_swapCoin));
         }
         return "";
     }
@@ -141,7 +153,7 @@ QString SwapTxObject::getFeeRate() const
 
     if (feeRate && m_swapCoin)
     {
-        QString value = AmountToString(*feeRate, beamui::Currencies::Unknown);
+        QString value = AmountToUIString(*feeRate, beamui::Currencies::Unknown);
 
         QString rateMeasure;
         switch (*m_swapCoin)

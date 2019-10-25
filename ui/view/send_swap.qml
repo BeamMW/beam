@@ -372,8 +372,8 @@ ColumnLayout {
                         var dialogObject = dialogComponent.createObject(sendSwapView,
                             {
                                 addressText: viewModel.receiverAddress,
-                                amountText: [Utils.amount2locale(viewModel.sendAmount), sendAmountInput.getCurrencyLabel()].join(" "),
-                                feeText: [Utils.amount2locale(viewModel.sendFee), sendAmountInput.getFeeLabel()].join(" "),
+                                amountText: [Utils.uiStringToLocale(viewModel.sendAmount), sendAmountInput.getCurrencyLabel()].join(" "),
+                                feeText: [Utils.uiStringToLocale(viewModel.sendFee), sendAmountInput.getFeeLabel()].join(" "),
                                 onAcceptedCallback: acceptedCallback
                             }).open();
 

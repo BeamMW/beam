@@ -24,7 +24,7 @@ function number2LocaleFixed (number) {
 }
 
 // @arg amount - any number or float string in "C" locale
-function amount2locale (amount) {
+function uiStringToLocale (amount) {
     var locale = Qt.locale()
     var parts  = amount.toString().split(".")
     var left   = parts[0].replace(/(\d)(?=(?:\d{3})+\b)/g, "$1" + locale.groupSeparator)
@@ -95,10 +95,6 @@ function calcDisplayRate(aiReceive, aiSend, numOnly) {
         minRate: minRate,
         minDisplayRate: format(minRate)
     }
-}
-
-function getAmountWithoutCurrency(amountWithCurrency) {
-    return amountWithCurrency.split(" ")[0];
 }
 
 function currenciesList() {
