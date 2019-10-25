@@ -55,7 +55,8 @@ public:
         Search,
         // atomic swap only roles
         IsBeamSideSwap,
-        IsProofReceived,
+        IsLockTxProofReceived,
+        IsRefundTxProofReceived,
         AmountSend,
         AmountSendSort,
         AmountReceive,

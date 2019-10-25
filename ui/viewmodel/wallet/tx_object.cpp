@@ -134,7 +134,7 @@ QString TxObject::getTransactionID() const
 QString TxObject::getFailureReason() const
 {
     // TODO: add support for other transactions
-    if (getTxDescription().m_status == TxStatus::Failed && getTxDescription().m_txType == beam::wallet::TxType::Simple)
+    if (getTxDescription().m_status == TxStatus::Failed)
     {
         QString Reasons[] =
                 {

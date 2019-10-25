@@ -40,7 +40,8 @@ public:
     auto getSwapCoinName() const -> QString;
     auto getFeeRate() const -> QString;
 
-    bool isProofReceived() const;
+    bool isLockTxProofReceived() const;
+    bool isRefundTxProofReceived() const;
     bool isBeamSideSwap() const;
 
 signals:

@@ -257,10 +257,20 @@ QString SwapTxObject::getToken() const
     return QString::fromStdString(std::to_string(tokenParams));
 }
 
-bool SwapTxObject::isProofReceived() const
+bool SwapTxObject::isLockTxProofReceived() const
 {
     Height proofHeight;
     if (m_tx.GetParameter(TxParameterID::KernelProofHeight, proofHeight, SubTxIndex::BEAM_LOCK_TX))
+    {
+        return true;
+    }
+    else return false;
+}
+
+bool SwapTxObject::isRefundTxProofReceived() const
+{
+    Height proofHeight;
+    if (m_tx.GetParameter(TxParameterID::KernelProofHeight, proofHeight, SubTxIndex::BEAM_REFUND_TX))
     {
         return true;
     }

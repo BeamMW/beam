@@ -52,7 +52,8 @@ auto SwapTxObjectList::roleNames() const -> QHash<int, QByteArray>
         { static_cast<int>(Roles::Search), "search" },
         // atomic swap only roles
         { static_cast<int>(Roles::IsBeamSideSwap), "isBeamSideSwap" },
-        { static_cast<int>(Roles::IsProofReceived), "isProofReceived" },
+        { static_cast<int>(Roles::IsLockTxProofReceived), "isLockTxProofReceived" },
+        { static_cast<int>(Roles::IsRefundTxProofReceived), "isRefundTxProofReceived" },
         { static_cast<int>(Roles::AmountSend), "amountSend" },
         { static_cast<int>(Roles::AmountSendSort), "amountSendSort" },
         { static_cast<int>(Roles::AmountReceive), "amountReceive" },
@@ -179,8 +180,11 @@ auto SwapTxObjectList::data(const QModelIndex &index, int role) const -> QVarian
         case Roles::IsBeamSideSwap:
             return value->isBeamSideSwap();
 
-        case Roles::IsProofReceived:
-            return value->isProofReceived();
+        case Roles::IsLockTxProofReceived:
+            return value->isLockTxProofReceived();
+
+        case Roles::IsRefundTxProofReceived:
+            return value->isRefundTxProofReceived();
             
         case Roles::AmountSend:
             return value->getSentAmount();
