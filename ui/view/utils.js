@@ -14,21 +14,21 @@ function formatDateTime(datetime, localeName) {
          + ")";
 }
 
-function number2Locale (number) {
-    return number.toLocaleString(Qt.locale(), 'f', -128)
-}
-
-function number2LocaleFixed (number) {
-    if (number < 0.00000001) number = 0.00000001;
-    return number.toLocaleString(Qt.locale(), 'f', 8).replace(/\.?0+$/,"")
-}
-
 // @arg amount - any number or float string in "C" locale
 function uiStringToLocale (amount) {
     var locale = Qt.locale()
     var parts  = amount.toString().split(".")
     var left   = parts[0].replace(/(\d)(?=(?:\d{3})+\b)/g, "$1" + locale.groupSeparator)
     return parts[1] ? [left, parts[1]].join(locale.decimalPoint) : left
+}
+
+function number2Locale (number) {
+    return number.toLocaleString(Qt.locale(), 'f', -128)
+}
+
+function number2LocaleFixed (number) {
+    if (number < 0.00000001) number = 0.00000001;
+    return uiStringToLocale(number.toLocaleString(Qt.locale("C"), 'f', 8).replace(/\.?0+$/,""))
 }
 
 function getLogoTopGapSize(parentHeight) {
@@ -81,7 +81,12 @@ function calcDisplayRate(aiReceive, aiSend, numOnly) {
 
     var minRate     = 0.00000001
     var rate        = amr / ams
-    var format      = function (value) {return value.toLocaleString(numOnly ? Qt.locale("C") : Qt.locale(), 'f', value < minRate ? 17 : 8).replace(/\.?0+$/,"")}
+
+    var format      = function (value) {
+        var cvalue = value.toLocaleString(Qt.locale("C"), 'f', value < minRate ? 17 : 8).replace(/\.?0+$/,"")
+        return numOnly ? cvalue : uiStringToLocale(cvalue)
+    }
+
     var displayRate = format(rate)
 
     return {
