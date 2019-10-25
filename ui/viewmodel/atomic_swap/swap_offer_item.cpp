@@ -16,6 +16,18 @@
 #include "utility/helpers.h"
 #include "wallet/common.h"
 #include "ui/viewmodel/ui_helpers.h"
+#include "3rdparty/libbitcoin/include/bitcoin/bitcoin/formats/base_10.hpp"
+#include <boost/algorithm/string.hpp>
+#include <iomanip>
+
+namespace
+{
+    template <char C>
+    bool char_is(const char c)
+    {
+        return c == C;
+    }
+}
 
 SwapOfferItem::SwapOfferItem(const SwapOffer& offer, bool isOwn, const QDateTime& timeExpiration)
     : m_offer{offer}
@@ -71,14 +83,43 @@ auto SwapOfferItem::rawAmountReceive() const -> beam::Amount
     return 0;
 }
 
-auto SwapOfferItem::rate() const -> double
+auto SwapOfferItem::rate() const -> QString
+{
+    // TODO should be refactored this code
+    // TODO should be created unit tests
+    const uint8_t decimalPlaces = libbitcoin::btc_decimal_places;
+    beam::Amount first = rawAmountReceive();
+    beam::Amount second = rawAmountSend();
+    std::ostringstream stream;
+
+    stream << first / second << '.' << std::setfill('0') << std::setw(decimalPlaces) << '0';
+
+    std::string result = stream.str();
+    beam::Amount remainder = first % second;
+
+    remainder *= static_cast<beam::Amount>(std::pow(10, decimalPlaces + 1));
+    stream.str(std::string());
+    stream << (remainder / second + 5);
+
+    std::string str = stream.str();
+    size_t size = result.size();
+    if (!str.empty())
+    {
+        result.insert(size - decimalPlaces + (decimalPlaces >= str.size() ? decimalPlaces - str.size() + 1 : 0), str);
+        result.erase(size);
+    }
+
+    boost::algorithm::trim_right_if(result, char_is<'0'>);
+    boost::algorithm::trim_right_if(result, char_is<'.'>);
+
+    return QString(result.c_str());
+}
+
+auto SwapOfferItem::rateValue() const -> double
 {
     double amountReceive = double(int64_t(rawAmountReceive()));
     double amountSend = double(int64_t(rawAmountSend()));
-    double rate = amountReceive / amountSend;
-
-    double p = pow( 10., 7 );
-    return floor( rate * p + .5 ) / p;
+    return amountReceive / amountSend;
 }
 
 auto SwapOfferItem::amountSend() const -> QString
@@ -87,7 +128,7 @@ auto SwapOfferItem::amountSend() const -> QString
         ? getSwapCoinType()
         : beamui::Currencies::Beam;
 
-    return beamui::AmountToString(rawAmountSend(), coinType);
+    return beamui::AmountToUIString(rawAmountSend(), coinType);
 }
 
 auto SwapOfferItem::amountReceive() const -> QString
@@ -96,7 +137,7 @@ auto SwapOfferItem::amountReceive() const -> QString
         ? beamui::Currencies::Beam
         : getSwapCoinType();
     
-    return beamui::AmountToString(rawAmountReceive(), coinType);
+    return beamui::AmountToUIString(rawAmountReceive(), coinType);
 }
 
 auto SwapOfferItem::isOwnOffer() const -> bool

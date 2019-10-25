@@ -24,6 +24,7 @@ auto TxObjectList::roleNames() const -> QHash<int, QByteArray>
     {
         { static_cast<int>(Roles::TimeCreated), "timeCreated" },
         { static_cast<int>(Roles::TimeCreatedSort), "timeCreatedSort" },
+        { static_cast<int>(Roles::AmountGeneralWithCurrency), "amountGeneralWithCurrency" },
         { static_cast<int>(Roles::AmountGeneral), "amountGeneral" },
         { static_cast<int>(Roles::AmountGeneralSort), "amountGeneralSort" },
         { static_cast<int>(Roles::AddressFrom), "addressFrom" },
@@ -74,10 +75,12 @@ auto TxObjectList::data(const QModelIndex &index, int role) const -> QVariant
         case Roles::TimeCreatedSort:
             return value->timeCreated();
 
+        case Roles::AmountGeneralWithCurrency:
+            return value->getAmountWithCurrency();
         case Roles::AmountGeneral:
             return value->getAmount();
         case Roles::AmountGeneralSort:
-            return value->getAmountValue();
+            return static_cast<qulonglong>(value->getAmountValue());
             
         case Roles::AddressFrom:
         case Roles::AddressFromSort:

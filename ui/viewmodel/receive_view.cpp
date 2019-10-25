@@ -54,12 +54,12 @@ void ReceiveViewModel::onGeneratedNewAddress(const beam::wallet::WalletAddress& 
 
 QString ReceiveViewModel::getAmountToReceive() const
 {
-    return beamui::AmountToString(_amountToReceiveGrothes);
+    return beamui::AmountToUIString(_amountToReceiveGrothes);
 }
 
 void ReceiveViewModel::setAmountToReceive(QString value)
 {
-    auto amount = beamui::StringToAmount(value);
+    auto amount = beamui::UIStringToAmount(value);
     if (amount != _amountToReceiveGrothes)
     {
         _amountToReceiveGrothes = amount;
