@@ -411,6 +411,7 @@ Item {
                             onClicked: {
                                 console.log("todo: fit current balance checkbox pressed");
                             }
+                            visible: false
                         }
 
                         Item {
