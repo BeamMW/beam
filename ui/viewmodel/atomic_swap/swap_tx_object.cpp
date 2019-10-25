@@ -209,7 +209,7 @@ QString SwapTxObject::getFailureReason() const
         }
         else
         {
-            return m_reasons[*failureReason];
+            return getReasonString(*failureReason);
         }
     }
     return QString();
