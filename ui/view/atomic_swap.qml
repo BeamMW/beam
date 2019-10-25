@@ -1012,13 +1012,19 @@ Item {
                             width: transactionsTable.columnWidth
                             movable: false
                             resizable: false
-                            delegate: TableItem {
-                                text: (styleData.value === '' ? '' : '-') + styleData.value
-                                fontWeight: Font.Bold
-                                fontStyleName: "Bold"
-                                fontSizeMode: Text.Fit
-                                color: Style.accent_outgoing
-                                onCopyText: BeamGlobals.copyToClipboard(Utils.getAmountWithoutCurrency(styleData.value)) 
+                            delegate: Item {
+                                Item {
+                                    width: parent.width
+                                    height: transactionsTable.rowHeight
+                                    TableItem {
+                                        text: (styleData.value === '' ? '' : '-') + styleData.value
+                                        fontWeight: Font.Bold
+                                        fontStyleName: "Bold"
+                                        fontSizeMode: Text.Fit
+                                        color: Style.accent_outgoing
+                                        onCopyText: BeamGlobals.copyToClipboard(Utils.getAmountWithoutCurrency(styleData.value)) 
+                                    }
+                                }
                             }
                         }
                         TableViewColumn {
@@ -1029,13 +1035,19 @@ Item {
                             width: transactionsTable.columnWidth
                             movable: false
                             resizable: false
-                            delegate: TableItem {
-                                text: (styleData.value === '' ? '' : '+') + styleData.value
-                                fontWeight: Font.Bold
-                                fontStyleName: "Bold"
-                                fontSizeMode: Text.Fit
-                                color: Style.accent_incoming
-                                onCopyText: BeamGlobals.copyToClipboard(Utils.getAmountWithoutCurrency(styleData.value)) 
+                            delegate: Item {
+                                Item {
+                                    width: parent.width
+                                    height: transactionsTable.rowHeight
+                                    TableItem {
+                                        text: (styleData.value === '' ? '' : '+') + styleData.value
+                                        fontWeight: Font.Bold
+                                        fontStyleName: "Bold"
+                                        fontSizeMode: Text.Fit
+                                        color: Style.accent_incoming
+                                        onCopyText: BeamGlobals.copyToClipboard(Utils.getAmountWithoutCurrency(styleData.value)) 
+                                    }
+                                }
                             }
 
                         }
