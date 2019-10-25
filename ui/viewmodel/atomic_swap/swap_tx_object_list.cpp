@@ -105,7 +105,7 @@ auto SwapTxObjectList::data(const QModelIndex &index, int role) const -> QVarian
         case Roles::AmountGeneral:
             return value->getAmount();
         case Roles::AmountGeneralSort:
-            return value->getAmountValue();
+            return static_cast<qulonglong>(value->getAmountValue());
 
         case Roles::AddressFrom:
         case Roles::AddressFromSort:
