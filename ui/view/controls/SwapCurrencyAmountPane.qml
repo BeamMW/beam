@@ -92,7 +92,7 @@ Rectangle {
                     font.pixelSize: textSize
                     color: control.textColor
                     elide: Text.ElideRight
-                    text: currencySymbol.length ? [Utils.uiStringToLocale(amount), currencySymbol].join(" ") : Utils.amount2locale(amount)
+                    text: currencySymbol.length ? [Utils.uiStringToLocale(amount), currencySymbol].join(" ") : Utils.uiStringToLocale(amount)
                     fontSizeMode: Text.Fit
                     visible: amount.length
                     verticalAlignment: Text.AlignVCenter

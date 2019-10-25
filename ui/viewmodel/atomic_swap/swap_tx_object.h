@@ -41,11 +41,12 @@ public:
     auto getBeamRefundTxKernelId() const -> QString;
     auto getSwapCoinName() const -> QString;
     auto getFeeRate() const -> QString;
+    auto getStatus() const -> QString override;
+    auto getFailureReason() const -> QString override;
 
     bool isLockTxProofReceived() const;
     bool isRefundTxProofReceived() const;
     bool isBeamSideSwap() const;
-    QString getStatus() const override;
     bool isExpired() const override;
 
 signals:

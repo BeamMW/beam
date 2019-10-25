@@ -38,7 +38,7 @@ public:
     auto getFee() const -> QString;
     auto getKernelID() const -> QString;
     auto getTransactionID() const -> QString;
-    auto getFailureReason() const -> QString;
+    virtual auto getFailureReason() const -> QString;
     auto hasPaymentProof() const -> bool;
 
     bool isIncome() const;
@@ -68,4 +68,5 @@ protected:
     beam::wallet::TxDescription m_tx;
     QString m_kernelID;
     beam::wallet::TxType m_type;
+    static const QString m_reasons[];
 };

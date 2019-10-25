@@ -14,6 +14,7 @@
 
 #include "swap_tx_object.h"
 #include "wallet/swaps/common.h"
+#include "wallet/swaps/swap_transaction.h"
 #include "viewmodel/qml_globals.h"
 
 using namespace beam;
@@ -188,6 +189,28 @@ QString SwapTxObject::getFeeRate() const
             break;
         }
         return value + " " + rateMeasure;
+    }
+    return QString();
+}
+
+QString SwapTxObject::getFailureReason() const
+{
+    if (getTxDescription().m_status == TxStatus::Failed && getTxDescription().m_txType == beam::wallet::TxType::AtomicSwap)
+    {
+        auto failureReason = getTxDescription().GetParameter<TxFailureReason>(TxParameterID::InternalFailureReason);
+        if (!failureReason)
+        {
+            auto txState = getTxDescription().GetParameter<wallet::AtomicSwapTransaction::State>(TxParameterID::State);
+            if (txState && *txState == wallet::AtomicSwapTransaction::State::Refunded)
+            {
+                //% "Refunded"
+                return qtTrId("swap-tx-failture-refunded");
+            }            
+        }
+        else
+        {
+            return m_reasons[*failureReason];
+        }
     }
     return QString();
 }

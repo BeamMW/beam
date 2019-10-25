@@ -1830,5 +1830,9 @@ Please check the swap token and try again.</translation>
         <source>Error</source>
         <translation type="unfinished">Error</translation>
     </message>
+    <message id="swap-tx-failture-refunded">
+        <source>Refunded</source>
+        <translation type="unfinished"></translation>
+    </message>
 </context>
 </TS>
