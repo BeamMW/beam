@@ -73,7 +73,7 @@ QString SwapOffersViewModel::beamAvailable() const
 
 QString SwapOffersViewModel::btcAvailable() const
 {
-    return beamui::AmountToUIString(m_btcClient->getAvailable());
+    return beamui::AmountToString(12222);//m_btcClient->getAvailable());
 }
 
 QString SwapOffersViewModel::ltcAvailable() const
@@ -88,7 +88,7 @@ QString SwapOffersViewModel::qtumAvailable() const
 
 bool SwapOffersViewModel::btcOK()  const
 {
-    return m_btcClient->getStatus() == Client::Status::Connected;
+    return true;// m_btcClient->getStatus() == Client::Status::Connected;
 }
 
 bool SwapOffersViewModel::ltcOK()  const

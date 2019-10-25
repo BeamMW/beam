@@ -144,7 +144,7 @@ QString WalletViewModel::beamReceiving() const
 
 QString WalletViewModel::beamSending() const
 {
-    return beamui::AmountToUIString(_model.getSending());
+    return beamui::AmountToString(121 * 10000000UL);//_model.getSending());
 }
 
 QString WalletViewModel::beamReceivingChange() const

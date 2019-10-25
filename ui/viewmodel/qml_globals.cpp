@@ -197,7 +197,7 @@ bool QMLGlobals::canSwap()
 
 bool QMLGlobals::haveBtc()
 {
-    return AppModel::getInstance().getBitcoinClient()->GetSettings().IsActivated();
+    return true;//AppModel::getInstance().getBitcoinClient()->GetSettings().IsActivated();
 }
 
 bool QMLGlobals::haveLtc()
