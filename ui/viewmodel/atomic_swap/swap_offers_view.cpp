@@ -68,22 +68,22 @@ QAbstractItemModel* SwapOffersViewModel::getAllOffers()
 
 QString SwapOffersViewModel::beamAvailable() const
 {
-    return beamui::AmountToString(m_walletModel.getAvailable());
+    return beamui::AmountToUIString(m_walletModel.getAvailable());
 }
 
 QString SwapOffersViewModel::btcAvailable() const
 {
-    return beamui::AmountToString(m_btcClient->getAvailable());
+    return beamui::AmountToUIString(m_btcClient->getAvailable());
 }
 
 QString SwapOffersViewModel::ltcAvailable() const
 {
-    return beamui::AmountToString(m_ltcClient->getAvailable());
+    return beamui::AmountToUIString(m_ltcClient->getAvailable());
 }
 
 QString SwapOffersViewModel::qtumAvailable() const
 {
-    return beamui::AmountToString(m_qtumClient->getAvailable());
+    return beamui::AmountToUIString(m_qtumClient->getAvailable());
 }
 
 bool SwapOffersViewModel::btcOK()  const

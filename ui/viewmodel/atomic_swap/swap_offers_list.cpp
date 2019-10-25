@@ -69,8 +69,9 @@ QVariant SwapOffersList::data(const QModelIndex &index, int role) const
             return static_cast<qulonglong>(value->rawAmountReceive());
 
         case Roles::Rate:
-        case Roles::RateSort:
             return value->rate();
+        case Roles::RateSort:
+            return value->rateValue();
 
         case Roles::Expiration:
             return value->timeExpiration().toString(Qt::SystemLocaleShortDate);

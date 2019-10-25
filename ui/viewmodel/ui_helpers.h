@@ -21,9 +21,9 @@ namespace beamui
     QString toString(const beam::wallet::WalletID&);
     QString toString(const beam::Merkle::Hash&);
     // convert amount to ui string with "." as a separator
-    QString AmountToString(const beam::Amount& value, Currencies coinType = Currencies::Unknown);
+    QString AmountToUIString(const beam::Amount& value, Currencies coinType = Currencies::Unknown);
     // expects ui string with a "." as a separator
-    beam::Amount StringToAmount(const QString& value);
+    beam::Amount UIStringToAmount(const QString& value);
     QString toString(const beam::Timestamp& ts);
     Currencies convertSwapCoinToCurrency(beam::wallet::AtomicSwapCoin coin);
 

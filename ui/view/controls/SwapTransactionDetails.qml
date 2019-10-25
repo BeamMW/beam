@@ -17,19 +17,21 @@ RowLayout {
     property var    swapCoinLockTxId
     property var    swapCoinLockTxConfirmations
     property var    beamLockTxKernelId
+    property var    failureReason
 
     property bool   isBeamSide
-    property bool   isProofReceived    // KernelProofHeight != null
+    property bool   isLockTxProofReceived    // KernelProofHeight != null
+    property bool   isRefundTxProofReceived
 
-    // isBeamSide || (!isBeamSide && isProofReceived)
+    // isBeamSide || (!isBeamSide && isLockTxProofReceived)
     property var    beamRedeemTxKernelId
-    // isBeamSide && isProofReceived
+    // isBeamSide && isLockTxProofReceived
     property var    swapCoinRedeemTxId
     property var    swapCoinRedeemTxConfirmations
-    // isBeamSide && !isProofReceived
-    property var    beamRefundTxKernelId
 
-    // !isBeamSide && !isProofReceived
+    // isBeamSide && isRefundTxProofReceived
+    property var    beamRefundTxKernelId
+    // !isBeamSide && swapCoinRefundTxConfirmations > 0
     property var    swapCoinRefundTxId
     property var    swapCoinRefundTxConfirmations
 
@@ -204,7 +206,7 @@ RowLayout {
         }
         SFLabel {
             id: beamRedeemTxKernelIdLabel
-            enabled: (text != "") && (isBeamSide || (!isBeamSide && isProofReceived))
+            enabled: (text != "") && (isBeamSide || (!isBeamSide && isLockTxProofReceived))
             visible: enabled
             Layout.fillWidth: true
             copyMenuEnabled: true
@@ -227,7 +229,7 @@ RowLayout {
         }
         SFLabel {
             id: swapCoinRedeemTxIdLabel
-            enabled: (text != "") && isBeamSide && isProofReceived
+            enabled: (text != "") && isBeamSide && isLockTxProofReceived
             visible: enabled
             Layout.fillWidth: true
             copyMenuEnabled: true
@@ -250,7 +252,7 @@ RowLayout {
         }
         SFLabel {
             id: swapCoinRedeemTxConfirmationsLabel
-            enabled: (text != "") && isBeamSide && isProofReceived
+            enabled: (text != "") && isBeamSide && isLockTxProofReceived
             visible: enabled
             Layout.fillWidth: true
             copyMenuEnabled: true
@@ -273,7 +275,7 @@ RowLayout {
         }
         SFLabel {
             id: beamRefundTxKernelIdLabel
-            enabled: (text != "") && isBeamSide && !isProofReceived
+            enabled: (text != "") && isBeamSide && isRefundTxProofReceived
             visible: enabled
             Layout.fillWidth: true
             copyMenuEnabled: true
@@ -296,7 +298,7 @@ RowLayout {
         }
         SFLabel {
             id: swapCoinRefundTxIdLabel
-            enabled: (text != "") && !isBeamSide && !isProofReceived
+            enabled: (text != "") && swapCoinRefundTxConfirmationsLabel.enabled
             visible: enabled
             Layout.fillWidth: true
             copyMenuEnabled: true
@@ -319,7 +321,7 @@ RowLayout {
         }
         SFLabel {
             id: swapCoinRefundTxConfirmationsLabel
-            enabled: (text != "") && !isBeamSide && !isProofReceived
+            enabled: (text != "") && (text != "0") && !isBeamSide // exist at least 1 confirmation
             visible: enabled
             Layout.fillWidth: true
             copyMenuEnabled: true
@@ -331,6 +333,28 @@ RowLayout {
             onCopyText: textCopied(text)
         }
         
+        SFText {
+            enabled: failureReasonLabel.enabled
+            visible: enabled
+            Layout.alignment: Qt.AlignTop
+            font.pixelSize: 14
+            color: Style.content_secondary
+            //% "Error"
+            text: qsTrId("swap-details-failure-reason") + ":"
+        }
+        SFLabel {
+            id: failureReasonLabel
+            enabled: text != ""
+            visible: enabled
+            Layout.fillWidth: true
+            copyMenuEnabled: true
+            font.pixelSize: 14
+            color: Style.content_main
+            // wrapMode: Text.Wrap
+            elide: Text.ElideMiddle
+            text: root.failureReason
+            onCopyText: textCopied(text)
+        }
 
         function canOpenInBlockchainExplorer(status) {
             switch(status) {

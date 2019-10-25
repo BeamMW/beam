@@ -77,7 +77,7 @@ ColumnLayout {
             }
 
             function formatDisplayedAmount() {
-                return control.amount == "0" ? "" : (ainput.focus ? control.amount : Utils.amount2locale(control.amount))
+                return control.amount == "0" ? "" : (ainput.focus ? control.amount : Utils.uiStringToLocale(control.amount))
             }
 
             Connections {

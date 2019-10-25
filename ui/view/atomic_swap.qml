@@ -202,7 +202,7 @@ Item {
                     }
                     gradLeft: Style.swapCurrencyPaneGrLeftBEAM
                     currencyIcon: "qrc:/assets/icon-beam.svg"
-                    amount: viewModel.beamAvailable
+                    amount: Utils.uiStringToLocale(viewModel.beamAvailable)
                     currencySymbol: Utils.symbolBeam
                     valueSecondaryStr: activeTxCountStr()
                     visible: true
@@ -226,7 +226,7 @@ Item {
                 SwapCurrencyAmountPane {
                     gradLeft: Style.swapCurrencyPaneGrLeftBTC
                     currencyIcon: "qrc:/assets/icon-btc.svg"
-                    amount: viewModel.hasBtcTx ? "" : viewModel.btcAvailable
+                    amount: viewModel.hasBtcTx ? "" : Utils.uiStringToLocale(viewModel.btcAvailable)
                     currencySymbol: Utils.symbolBtc
                     valueSecondaryStr: parent.btcActiveTxStr()
                     isOk: viewModel.btcOK
@@ -241,7 +241,7 @@ Item {
                 SwapCurrencyAmountPane {
                     gradLeft: Style.swapCurrencyPaneGrLeftLTC
                     currencyIcon: "qrc:/assets/icon-ltc.svg"
-                    amount: viewModel.hasLtcTx ? "" : viewModel.ltcAvailable
+                    amount: viewModel.hasLtcTx ? "" : Utils.uiStringToLocale(viewModel.ltcAvailable)
                     currencySymbol: Utils.symbolLtc
                     valueSecondaryStr: parent.ltcActiveTxStr()
                     isOk: viewModel.ltcOK
@@ -254,7 +254,7 @@ Item {
                 SwapCurrencyAmountPane {
                     gradLeft: Style.swapCurrencyPaneGrLeftQTUM
                     currencyIcon: "qrc:/assets/icon-qtum.svg"
-                    amount: viewModel.hasQtumTx ? "" : viewModel.qtumAvailable
+                    amount: viewModel.hasQtumTx ? "" : Utils.uiStringToLocale(viewModel.qtumAvailable)
                     currencySymbol: Utils.symbolQtum
                     valueSecondaryStr: parent.qtumActiveTxStr()
                     isOk: viewModel.qtumOK
@@ -834,7 +834,8 @@ Item {
                                         comment:                        txRolesMap && txRolesMap.comment ? txRolesMap.comment : ""
                                         swapCoinName:                   txRolesMap && txRolesMap.swapCoin ? txRolesMap.swapCoin : ""
                                         isBeamSide:                     txRolesMap && txRolesMap.isBeamSideSwap ? txRolesMap.isBeamSideSwap : false
-                                        isProofReceived:                txRolesMap && txRolesMap.isProofReceived ? txRolesMap.isProofReceived : false
+                                        isLockTxProofReceived:          txRolesMap && txRolesMap.isLockTxProofReceived ? txRolesMap.isLockTxProofReceived : false
+                                        isRefundTxProofReceived:        txRolesMap && txRolesMap.isRefundTxProofReceived ? txRolesMap.isRefundTxProofReceived : false
                                         swapCoinLockTxId:               txRolesMap && txRolesMap.swapCoinLockTxId ? txRolesMap.swapCoinLockTxId : ""
                                         swapCoinLockTxConfirmations:    txRolesMap && txRolesMap.swapCoinLockTxConfirmations ? txRolesMap.swapCoinLockTxConfirmations : ""
                                         swapCoinRedeemTxId:             txRolesMap && txRolesMap.swapCoinRedeemTxId ? txRolesMap.swapCoinRedeemTxId : ""
@@ -844,6 +845,7 @@ Item {
                                         beamLockTxKernelId:             txRolesMap && txRolesMap.beamLockTxKernelId ? txRolesMap.beamLockTxKernelId : ""
                                         beamRedeemTxKernelId:           txRolesMap && txRolesMap.beamRedeemTxKernelId ? txRolesMap.beamRedeemTxKernelId : ""
                                         beamRefundTxKernelId:           txRolesMap && txRolesMap.beamRefundTxKernelId ? txRolesMap.beamRefundTxKernelId : ""
+                                        failureReason:                  txRolesMap && txRolesMap.failureReason ? txRolesMap.failureReason : ""
                                         
                                         onTextCopied: function (text) {
                                             BeamGlobals.copyToClipboard(text);
@@ -1006,7 +1008,7 @@ Item {
                             resizable: false
                         }
                         TableViewColumn {
-                            role: "amountSend"
+                            role: "amountSendWithCurrency"
                             //% "Sent"
                             title: qsTrId("atomic-swap-tx-table-sent")
                             elideMode: Text.ElideRight
@@ -1023,13 +1025,13 @@ Item {
                                         fontStyleName: "Bold"
                                         fontSizeMode: Text.Fit
                                         color: Style.accent_outgoing
-                                        onCopyText: BeamGlobals.copyToClipboard(Utils.getAmountWithoutCurrency(styleData.value)) 
+                                        onCopyText: BeamGlobals.copyToClipboard(!!model ? model.amountSend  : "")
                                     }
                                 }
                             }
                         }
                         TableViewColumn {
-                            role: "amountReceive"
+                            role: "amountReceiveWithCurrency"
                             //% "Received"
                             title: qsTrId("atomic-swap-tx-table-received")
                             elideMode: Text.ElideRight
@@ -1046,11 +1048,10 @@ Item {
                                         fontStyleName: "Bold"
                                         fontSizeMode: Text.Fit
                                         color: Style.accent_incoming
-                                        onCopyText: BeamGlobals.copyToClipboard(Utils.getAmountWithoutCurrency(styleData.value)) 
+                                        onCopyText: BeamGlobals.copyToClipboard(!!model ? model.amountReceive  : "") 
                                     }
                                 }
                             }
-
                         }
                         TableViewColumn {
                             id: txStatusColumn

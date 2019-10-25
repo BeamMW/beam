@@ -53,8 +53,8 @@ Control {
                     font.styleName: lightFont ? "Light" : "Regular"
                     font.weight:    lightFont ? Font.Light : Font.Normal
                     color:          control.error ? Style.validator_error : control.color
-                    text:           parseFloat(amount) > 0 || showZero ? prefix + [Utils.amount2locale(amount), control.currencySymbol].join(" ") : "-"
-                    onCopyText:     BeamGlobals.copyToClipboard(amount)
+                    text:           parseFloat(amount) > 0 || showZero ? prefix + [Utils.uiStringToLocale(amount), control.currencySymbol].join(" ") : "-"
+                    onCopyText:     BeamGlobals.copyToClipboard(Utils.uiStringToLocale(amount))
                 }
                 Image {
                     visible: showDrop
