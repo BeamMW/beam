@@ -76,9 +76,8 @@ Item {
                 walletStackView.currentItem.setToken(token);
             }
             onTokenOwnGenerated: function(token) {
-                //tokenDuplicateChecker.isOwn = true;
-                //tokenDuplicateChecker.open();
-                onTokenFirstTimeAccepted(token)
+                tokenDuplicateChecker.isOwn = true;
+                tokenDuplicateChecker.open();
             }
         }
     }
@@ -122,7 +121,7 @@ Item {
                     //font.capitalization: Font.AllUppercase
 
                     onClicked: {
-                        walletStackView.push(Qt.createComponent("send_swap.qml"),
+                        walletStackView.push(Qt.createComponent("send.qml"),
                                              {
                                                  "isSwapMode": false,
                                                  "onClosed": onClosed,
@@ -353,10 +352,7 @@ Item {
 
                     onMyModelChanged: {
                         collapsed = true;
-                        height = Qt.binding(function(){
-                            //console.log("pref: " + detailsPanel.implicitHeight)
-                            return transactionsTable.rowHeight;// + detailsPanel.implicitHeight; //height;
-                        });
+                        height = Qt.binding(function(){ return transactionsTable.rowHeight;});
                     }
 
                     Rectangle {
@@ -403,7 +399,7 @@ Item {
                                 isSelfTx:           txRolesMap && txRolesMap.isSelfTransaction ? txRolesMap.isSelfTransaction : false
                                 rawTxID:            txRolesMap && txRolesMap.rawTxID ? txRolesMap.rawTxID : null
                                 searchFilter:       searchBox.text
-                                hideFiltered:       true
+                                hideFiltered:       false
 
                                 onOpenExternal : function() {
                                     var url = Style.explorerUrl + "block?kernel_id=" + detailsPanel.kernelID;
