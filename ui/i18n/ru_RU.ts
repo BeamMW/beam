@@ -1835,5 +1835,9 @@ Please check the swap token and try again.</oldsource>
         <source>Rate cannot be less than %1</source>
         <translation type="unfinished"></translation>
     </message>
+    <message id="swap-details-failure-reason">
+        <source>Error</source>
+        <translation type="unfinished">Ошибка</translation>
+    </message>
 </context>
 </TS>
