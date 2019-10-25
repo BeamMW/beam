@@ -94,7 +94,11 @@ auto SwapTxObjectList::data(const QModelIndex &index, int role) const -> QVarian
             return datetime.toString(Qt::SystemLocaleShortDate);
         }
         case Roles::TimeCreatedSort:
-            return value->timeCreated();
+        {
+            QDateTime datetime;
+            datetime.setTime_t(value->timeCreated());
+            return datetime;
+        }
 
         case Roles::AmountGeneralWithCurrency:
             return value->getAmountWithCurrency();
