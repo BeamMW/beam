@@ -1168,6 +1168,23 @@ namespace
         LOG_INFO() << coinName << " settings are not initialized.";
     }
 
+    bool HasActiveSwapTx(const IWalletDB::Ptr& walletDB, AtomicSwapCoin swapCoin)
+    {
+        auto txHistory = walletDB->getTxHistory(wallet::TxType::AtomicSwap);
+
+        for (const auto& tx : txHistory)
+        {
+            if (tx.m_status != TxStatus::Canceled && tx.m_status != TxStatus::Completed && tx.m_status != TxStatus::Failed)
+            {
+                AtomicSwapCoin txSwapCoin = AtomicSwapCoin::Unknown;
+                storage::getTxParameter(*walletDB, tx.m_txId, wallet::kDefaultSubTxID, wallet::TxParameterID::AtomicSwapCoin, txSwapCoin);
+                if (txSwapCoin == swapCoin) return true;
+            }
+        }
+
+        return false;
+    }
+
     boost::optional<TxID> InitSwap(const po::variables_map& vm, const IWalletDB::Ptr& walletDB, IPrivateKeyKeeper::Ptr keyKeeper, Wallet& wallet, bool checkFee)
     {
         if (vm.count(cli::SWAP_AMOUNT) == 0)
@@ -1790,6 +1807,13 @@ int main_impl(int argc, char* argv[])
                         if (vm.count(cli::SWAP_COIN) > 0)
                         {
                             auto swapCoin = wallet::from_string(vm[cli::SWAP_COIN].as<string>());
+
+                            if (HasActiveSwapTx(walletDB, swapCoin))
+                            {
+                                LOG_ERROR() << "You cannot change settings while you have transactions in progress. Please wait untill transactions are completed and try again.";
+                                return -1;
+                            }
+
                             switch (swapCoin)
                             {
                             case beam::wallet::AtomicSwapCoin::Bitcoin:
