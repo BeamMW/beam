@@ -15,6 +15,7 @@
 
 #include "model/wallet_model.h"
 #include <map>
+#include <set>
 #include <QObject>
 
 class TokenBootstrapManager : public QObject
@@ -28,7 +29,7 @@ public:
     Q_INVOKABLE void checkTokenForDuplicate(const QString& token);
 
 public slots:
-    void onTxStatus(beam::wallet::ChangeAction action,
+    void onTransactionsChanged(beam::wallet::ChangeAction action,
                     const std::vector<beam::wallet::TxDescription>& items);
 
 signals:   
@@ -41,5 +42,5 @@ private:
 
     WalletModel& _wallet_model;
     std::map<beam::wallet::TxID, QString> _tokensInProgress;
-    std::vector<beam::wallet::TxID> _myTxIds;
+    std::set<beam::wallet::TxID> _myTxIds;
 };

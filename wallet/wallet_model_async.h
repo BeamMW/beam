@@ -31,6 +31,7 @@ namespace beam::wallet
         virtual void syncWithNode() = 0;
         virtual void calcChange(Amount&& amount) = 0;
         virtual void getWalletStatus() = 0;
+        virtual void getTransactions() = 0;
         virtual void getUtxosStatus() = 0;
         virtual void getAddresses(bool own) = 0;
         virtual void cancelTx(const TxID& id) = 0;

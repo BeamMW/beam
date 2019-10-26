@@ -1340,6 +1340,13 @@ namespace beam::wallet
         , m_PrivateDB(sdb)
         , m_Reactor(reactor)
         , m_IsFlushPending(false)
+        , m_mandatoryTxParams{
+            TxParameterID::Amount,
+            TxParameterID::Fee,
+            //   TxParameterID::PeerID,
+            TxParameterID::MyID,
+            TxParameterID::CreateTime,
+            TxParameterID::IsSender }
     {
 
     }
@@ -1967,14 +1974,6 @@ namespace beam::wallet
         stm.bind(1, txId);
 
         TxDescription txDescription(txId);
-
-        const std::set<TxParameterID> mandatoryParams{ 
-            TxParameterID::Amount,
-            TxParameterID::Fee,
-         //   TxParameterID::PeerID,
-            TxParameterID::MyID, 
-            TxParameterID::CreateTime,
-            TxParameterID::IsSender };
         std::set<TxParameterID> gottenParams;
 
         while (stm.step())
@@ -2044,7 +2043,7 @@ namespace beam::wallet
 
         }
 
-        if (std::includes(gottenParams.begin(), gottenParams.end(), mandatoryParams.begin(), mandatoryParams.end()))
+        if (std::includes(gottenParams.begin(), gottenParams.end(), m_mandatoryTxParams.begin(), m_mandatoryTxParams.end()))
         {
             return txDescription;
         }
@@ -2255,7 +2254,7 @@ namespace beam::wallet
             }
         }
 
-        bool hasTx = getTx(txID).is_initialized();
+        bool hasTx = hasTransaction(txID);
         {
             sqlite::Statement stm(this, "SELECT * FROM " TX_PARAMS_NAME " WHERE txID=?1 AND subTxID=?2 AND paramID=?3;");
 
@@ -2375,6 +2374,19 @@ namespace beam::wallet
     void WalletDB::deleteParametersFromCache(const TxID& txID)
     {
         m_TxParametersCache.erase(txID);
+    }
+
+    bool WalletDB::hasTransaction(const TxID& txID) const
+    {
+        ByteBuffer blob;
+        for (const auto& paramID : m_mandatoryTxParams)
+        {
+            if (!getTxParameter(txID, kDefaultSubTxID, paramID, blob))
+            {
+                return false;
+            }
+        }
+        return true;
     }
 
     void WalletDB::flushDB()

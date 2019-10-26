@@ -45,7 +45,7 @@ public:
 
 signals:
     void walletStatus(const beam::wallet::WalletStatus& status);
-    void txStatus(beam::wallet::ChangeAction, const std::vector<beam::wallet::TxDescription>& items);
+    void transactionsChanged(beam::wallet::ChangeAction, const std::vector<beam::wallet::TxDescription>& items);
     void syncProgressUpdated(int done, int total);
     void changeCalculated(beam::Amount change);
     void allUtxoChanged(const std::vector<beam::wallet::Coin>& utxos);

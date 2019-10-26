@@ -29,8 +29,6 @@ SendSwapViewModel::SendSwapViewModel()
 {
     connect(&_walletModel, &WalletModel::changeCalculated,  this,  &SendSwapViewModel::onChangeCalculated);
     connect(&_walletModel, &WalletModel::availableChanged, this, &SendSwapViewModel::recalcAvailable);
-
-    _walletModel.getAsync()->getWalletStatus();
 }
 
 QString SendSwapViewModel::getToken() const

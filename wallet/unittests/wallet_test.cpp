@@ -1400,7 +1400,7 @@ namespace
                 .SetParameter(TxParameterID::PeerID, receiver.m_WalletID)
                 .SetParameter(TxParameterID::Amount, Amount(4))
                 .SetParameter(TxParameterID::Fee, Amount(1))
-                .SetParameter(TxParameterID::Lifetime, Height(30))
+                .SetParameter(TxParameterID::Lifetime, Height(50))
                 .SetParameter(TxParameterID::PeerResponseTime, Height(100)));
         }
         
@@ -2152,39 +2152,39 @@ int main()
 
     storage::HookErrors();
 
-    TestConvertions();
-    TestTxParameters();
-   
-	TestNegotiation();
-   
-    TestP2PWalletNegotiationST();
+ //   TestConvertions();
+ //   TestTxParameters();
+ //  
+	//TestNegotiation();
+ //  
+ //   TestP2PWalletNegotiationST();
 
-    TestTxRollback();
-   
-    {
-        io::Reactor::Ptr mainReactor{ io::Reactor::create() };
-        io::Reactor::Scope scope(*mainReactor);
-        //TestWalletNegotiation(CreateWalletDB<TestWalletDB>(), CreateWalletDB<TestWalletDB2>());
-        TestWalletNegotiation(createSenderWalletDB(), createReceiverWalletDB());
-    }
-   
-    TestSplitTransaction();
-   
-    TestMinimalFeeTransaction();
-   
-    TestTxToHimself();
-   
-    TestExpiredTransaction();
-   
-    TestTransactionUpdate();
-    //TestTxPerformance();
-    //TestTxNonces();
-   
-    TestColdWalletSending();
-    TestColdWalletReceiving();
-   
-    TestTxExceptionHandling();
-   
+ //   TestTxRollback();
+ //  
+ //   {
+ //       io::Reactor::Ptr mainReactor{ io::Reactor::create() };
+ //       io::Reactor::Scope scope(*mainReactor);
+ //       //TestWalletNegotiation(CreateWalletDB<TestWalletDB>(), CreateWalletDB<TestWalletDB2>());
+ //       TestWalletNegotiation(createSenderWalletDB(), createReceiverWalletDB());
+ //   }
+ //  
+ //   TestSplitTransaction();
+ //  
+ //   TestMinimalFeeTransaction();
+ //  
+ //   TestTxToHimself();
+ //  
+ //   TestExpiredTransaction();
+ //  
+ //   TestTransactionUpdate();
+ //   //TestTxPerformance();
+ //   //TestTxNonces();
+ //  
+ //   TestColdWalletSending();
+ //   TestColdWalletReceiving();
+ //  
+ //   TestTxExceptionHandling();
+ //  
     // @nesbox: disabled tests, they work only if device connected
 //#if defined(BEAM_HW_WALLET)
 //    TestHWCommitment();
@@ -2192,7 +2192,7 @@ int main()
 //#endif
 
     //TestBbsMessages();
-    //TestBbsMessages2();
+    TestBbsMessages2();
 
     assert(g_failureCount == 0);
     return WALLET_CHECK_RESULT;

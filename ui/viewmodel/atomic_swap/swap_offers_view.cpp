@@ -32,7 +32,7 @@ SwapOffersViewModel::SwapOffersViewModel()
 {
     connect(&m_walletModel, SIGNAL(availableChanged()), this, SIGNAL(beamAvailableChanged()));
     connect(&m_walletModel,
-            SIGNAL(txStatus(beam::wallet::ChangeAction, const std::vector<beam::wallet::TxDescription>&)),
+            SIGNAL(transactionsChanged(beam::wallet::ChangeAction, const std::vector<beam::wallet::TxDescription>&)),
             SLOT(onTransactionsDataModelChanged(beam::wallet::ChangeAction, const std::vector<beam::wallet::TxDescription>&)));
 
     connect(&m_walletModel,
@@ -47,7 +47,7 @@ SwapOffersViewModel::SwapOffersViewModel()
     connect(m_qtumClient.get(), SIGNAL(statusChanged()), this, SIGNAL(qtumOKChanged()));
 
     m_walletModel.getAsync()->getSwapOffers();
-    m_walletModel.getAsync()->getWalletStatus();
+    m_walletModel.getAsync()->getTransactions();
 }
 
 int SwapOffersViewModel::getSelectedCoin()
