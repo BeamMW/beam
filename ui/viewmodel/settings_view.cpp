@@ -546,10 +546,11 @@ void SwapCoinSettingsItem::SetSeedElectrum(const std::vector<std::string>& seedE
         m_seedPhraseItems.clear();
     }
 
+    m_seedPhraseItems.reserve(static_cast<int>(WORD_COUNT));
+
     if (seedElectrum.empty())
     {
-        m_seedPhraseItems.reserve(WORD_COUNT);
-        for (int index = 0; index < WORD_COUNT; ++index)
+        for (int index = 0; index < static_cast<int>(WORD_COUNT); ++index)
         {
             m_seedPhraseItems.push_back(new ElectrumPhraseItem(index, QString()));
         }
@@ -557,7 +558,6 @@ void SwapCoinSettingsItem::SetSeedElectrum(const std::vector<std::string>& seedE
     else
     {
         assert(seedElectrum.size() == WORD_COUNT);
-        m_seedPhraseItems.reserve(WORD_COUNT);
         int index = 0;
         for (auto& word : seedElectrum)
         {
