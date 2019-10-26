@@ -381,8 +381,7 @@ namespace beam::wallet
     }
 
     // Implementation of the INegotiatorGateway::send_tx_params
-    // TODO: make SetTxParameter const reference
-    void Wallet::send_tx_params(const WalletID& peerID, SetTxParameter&& msg)
+    void Wallet::send_tx_params(const WalletID& peerID, const SetTxParameter& msg)
     {
         for (auto& endpoint : m_MessageEndpoints)
         {
