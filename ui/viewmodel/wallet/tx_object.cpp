@@ -19,58 +19,6 @@ using namespace beam;
 using namespace beam::wallet;
 using namespace beamui;
 
-const QString TxObject::m_reasons[]
-{
-    //% "Unexpected reason, please send wallet logs to Beam support"
-    qtTrId("tx-failture-undefined"),
-    //% "Transaction cancelled"
-    qtTrId("tx-failture-cancelled"),
-    //% "Receiver signature in not valid, please send wallet logs to Beam support"
-    qtTrId("tx-failture-receiver-signature-invalid"),
-    //% "Failed to register transaction with the blockchain, see node logs for details"
-    qtTrId("tx-failture-not-registered-in-blockchain"),
-    //% "Transaction is not valid, please send wallet logs to Beam support"
-    qtTrId("tx-failture-not-valid"),
-    //% "Invalid kernel proof provided"
-    qtTrId("tx-failture-kernel-invalid"),
-    //% "Failed to send Transaction parameters"
-    qtTrId("tx-failture-parameters-not-sended"),
-    //% "No inputs"
-    qtTrId("tx-failture-no-inputs"),
-    //% "Address is expired"
-    qtTrId("tx-failture-addr-expired"),
-    //% "Failed to get transaction parameters"
-    qtTrId("tx-failture-parameters-not-readed"),
-    //% "Transaction timed out"
-    qtTrId("tx-failture-time-out"),
-    //% "Payment not signed by the receiver, please send wallet logs to Beam support"
-    qtTrId("tx-failture-not-signed-by-receiver"),
-    //% "Kernel maximum height is too high"
-    qtTrId("tx-failture-max-height-to-high"),
-    //% "Transaction has invalid state"
-    qtTrId("tx-failture-invalid-state"),
-    //% "Subtransaction has failed"
-    qtTrId("tx-failture-subtx-failed"),
-    //% "Contract's amount is not valid"
-    qtTrId("tx-failture-invalid-contract-amount"),
-    //% "Side chain has invalid contract"
-    qtTrId("tx-failture-invalid-sidechain-contract"),
-    //% "Side chain bridge has internal error"
-    qtTrId("tx-failture-sidechain-internal-error"),
-    //% "Side chain bridge has network error"
-    qtTrId("tx-failture-sidechain-network-error"),
-    //% "Side chain bridge has response format error"
-    qtTrId("tx-failture-invalid-sidechain-response-format"),
-    //% "Invalid credentials of Side chain"
-    qtTrId("tx-failture-invalid-side-chain-credentials"),
-    //% "Not enough time to finish btc lock transaction"
-    qtTrId("tx-failture-not-enough-time-btc-lock"),
-    //% "Failed to create multi-signature"
-    qtTrId("tx-failture-create-multisig"),
-    //% "Fee is too small"
-    qtTrId("tx-failture-fee-too-small")
-};
-
 TxObject::TxObject(QObject* parent)
         : QObject(parent)
 {
@@ -188,12 +136,68 @@ QString TxObject::getTransactionID() const
     return QString::fromStdString(to_hex(m_tx.m_txId.data(), m_tx.m_txId.size()));
 }
 
+QString TxObject::getReasonString(beam::wallet::TxFailureReason reason) const
+{
+    const std::array<QString,24> reasons = {
+        //% "Unexpected reason, please send wallet logs to Beam support"
+        qtTrId("tx-failture-undefined"),
+        //% "Transaction cancelled"
+        qtTrId("tx-failture-cancelled"),
+        //% "Receiver signature in not valid, please send wallet logs to Beam support"
+        qtTrId("tx-failture-receiver-signature-invalid"),
+        //% "Failed to register transaction with the blockchain, see node logs for details"
+        qtTrId("tx-failture-not-registered-in-blockchain"),
+        //% "Transaction is not valid, please send wallet logs to Beam support"
+        qtTrId("tx-failture-not-valid"),
+        //% "Invalid kernel proof provided"
+        qtTrId("tx-failture-kernel-invalid"),
+        //% "Failed to send Transaction parameters"
+        qtTrId("tx-failture-parameters-not-sended"),
+        //% "No inputs"
+        qtTrId("tx-failture-no-inputs"),
+        //% "Address is expired"
+        qtTrId("tx-failture-addr-expired"),
+        //% "Failed to get transaction parameters"
+        qtTrId("tx-failture-parameters-not-readed"),
+        //% "Transaction timed out"
+        qtTrId("tx-failture-time-out"),
+        //% "Payment not signed by the receiver, please send wallet logs to Beam support"
+        qtTrId("tx-failture-not-signed-by-receiver"),
+        //% "Kernel maximum height is too high"
+        qtTrId("tx-failture-max-height-to-high"),
+        //% "Transaction has invalid state"
+        qtTrId("tx-failture-invalid-state"),
+        //% "Subtransaction has failed"
+        qtTrId("tx-failture-subtx-failed"),
+        //% "Contract's amount is not valid"
+        qtTrId("tx-failture-invalid-contract-amount"),
+        //% "Side chain has invalid contract"
+        qtTrId("tx-failture-invalid-sidechain-contract"),
+        //% "Side chain bridge has internal error"
+        qtTrId("tx-failture-sidechain-internal-error"),
+        //% "Side chain bridge has network error"
+        qtTrId("tx-failture-sidechain-network-error"),
+        //% "Side chain bridge has response format error"
+        qtTrId("tx-failture-invalid-sidechain-response-format"),
+        //% "Invalid credentials of Side chain"
+        qtTrId("tx-failture-invalid-side-chain-credentials"),
+        //% "Not enough time to finish btc lock transaction"
+        qtTrId("tx-failture-not-enough-time-btc-lock"),
+        //% "Failed to create multi-signature"
+        qtTrId("tx-failture-create-multisig"),
+        //% "Fee is too small"
+        qtTrId("tx-failture-fee-too-small")
+    };
+    assert(reasons.size() > static_cast<size_t>(reason));
+    return reasons[reason];
+}
+
 QString TxObject::getFailureReason() const
 {
     // TODO: add support for other transactions
     if (getTxDescription().m_status == TxStatus::Failed && getTxDescription().m_txType == beam::wallet::TxType::Simple)
     {
-        return m_reasons[getTxDescription().m_failureReason];
+        return getReasonString(getTxDescription().m_failureReason);
     }
 
     return QString();

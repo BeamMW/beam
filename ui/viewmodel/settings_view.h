@@ -24,21 +24,57 @@
 
 class SwapCoinClientModel;
 
+class ElectrumPhraseItem : public QObject
+{
+    Q_OBJECT
+        Q_PROPERTY(bool    isCorrect READ isCorrect                NOTIFY isCorrectChanged)
+        Q_PROPERTY(bool    isAllowed READ isAllowed                NOTIFY isAllowedChanged)
+        Q_PROPERTY(QString value     READ getValue  WRITE setValue NOTIFY valueChanged)
+        Q_PROPERTY(QString phrase    READ getPhrase                CONSTANT)
+        Q_PROPERTY(int     index     READ getIndex                 CONSTANT)
+public:
+    ElectrumPhraseItem(int index, const QString& phrase);
+
+    bool isAllowed() const;
+    bool isCorrect() const;
+    const QString& getValue() const;
+    void setValue(const QString& value);
+    const QString& getPhrase() const;
+    int getIndex() const;
+
+    Q_INVOKABLE void applyChanges();
+    Q_INVOKABLE void revertChanges();
+
+signals:
+    void isCorrectChanged();
+    void isAllowedChanged();
+    void valueChanged();
+
+protected:
+    int m_index;
+    QString m_phrase;
+    QString m_userInput;
+};
+
 class SwapCoinSettingsItem : public QObject
 {
     Q_OBJECT
 
-    Q_PROPERTY(QString  feeRateLabel READ getFeeRateLabel                         CONSTANT)
-    Q_PROPERTY(int      minFeeRate   READ getMinFeeRate                           CONSTANT)
-    Q_PROPERTY(QString  title        READ getTitle                                NOTIFY titleChanged)
-    Q_PROPERTY(int      feeRate      READ getFeeRate      WRITE setFeeRate        NOTIFY feeRateChanged)
+    Q_PROPERTY(QString  feeRateLabel             READ getFeeRateLabel                         CONSTANT)
+    Q_PROPERTY(int      minFeeRate               READ getMinFeeRate                           CONSTANT)
+    Q_PROPERTY(QString  showSeedDialogTitle      READ getShowSeedDialogTitle                  CONSTANT)
+    Q_PROPERTY(QString  showAddressesDialogTitle READ getShowAddressesDialogTitle             CONSTANT)
+    Q_PROPERTY(QString  title                    READ getTitle                                NOTIFY titleChanged)
+    Q_PROPERTY(int      feeRate                  READ getFeeRate      WRITE setFeeRate        NOTIFY feeRateChanged)
     // node settings
     Q_PROPERTY(QString  nodeUser     READ getNodeUser     WRITE setNodeUser       NOTIFY nodeUserChanged)
     Q_PROPERTY(QString  nodePass     READ getNodePass     WRITE setNodePass       NOTIFY nodePassChanged)
     Q_PROPERTY(QString  nodeAddress  READ getNodeAddress  WRITE setNodeAddress    NOTIFY nodeAddressChanged)
     // electrum settings
-    Q_PROPERTY(QString  seedElectrum        READ getSeedElectrum         WRITE setSeedElectrum         NOTIFY seedElectrumChanged)
-    Q_PROPERTY(QString  nodeAddressElectrum READ getNodeAddressElectrum  WRITE setNodeAddressElectrum  NOTIFY nodeAddressElectrumChanged)
+    Q_PROPERTY(QChar           phrasesSeparatorElectrum READ getPhrasesSeparatorElectrum                          CONSTANT)
+    Q_PROPERTY(bool            isCurrentSeedValid       READ getIsCurrentSeedValid                                NOTIFY isCurrentSeedValidChanged)
+    Q_PROPERTY(QList<QObject*> electrumSeedPhrases      READ getElectrumSeedPhrases                               NOTIFY electrumSeedPhrasesChanged)
+    Q_PROPERTY(QString         nodeAddressElectrum      READ getNodeAddressElectrum  WRITE setNodeAddressElectrum NOTIFY nodeAddressElectrumChanged)
 
     Q_PROPERTY(bool canEdit      READ getCanEdit                            NOTIFY canEditChanged)
 
@@ -48,12 +84,14 @@ class SwapCoinSettingsItem : public QObject
 
 public:
     SwapCoinSettingsItem(SwapCoinClientModel& coinClient, beam::wallet::AtomicSwapCoin swapCoin);
-
+    virtual ~SwapCoinSettingsItem();
 
     QString getFeeRateLabel() const;
     int getMinFeeRate() const;
 
     QString getTitle() const;
+    QString getShowSeedDialogTitle() const;
+    QString getShowAddressesDialogTitle() const;
 
     int getFeeRate() const;
     void setFeeRate(int value);
@@ -64,8 +102,9 @@ public:
     QString getNodeAddress() const;
     void setNodeAddress(const QString& value);
 
-    QString getSeedElectrum() const;
-    void setSeedElectrum(const QString& value);
+    bool getIsCurrentSeedValid() const;
+    QList<QObject*> getElectrumSeedPhrases();
+    QChar getPhrasesSeparatorElectrum() const;
     QString getNodeAddressElectrum() const;
     void setNodeAddressElectrum(const QString& value);
 
@@ -82,10 +121,15 @@ public:
     Q_INVOKABLE void resetElectrumSettings();
 
     Q_INVOKABLE void newElectrumSeed();
+    Q_INVOKABLE void restoreSeedElectrum();
 
     Q_INVOKABLE void disconnect();
     Q_INVOKABLE void connectToNode();
     Q_INVOKABLE void connectToElectrum();
+    Q_INVOKABLE void copySeedElectrum();
+    Q_INVOKABLE void validateCurrentElectrumSeedPhrase();
+
+    Q_INVOKABLE QStringList getAddressesElectrum() const;
 
 signals:
 
@@ -95,10 +139,10 @@ signals:
     void nodePassChanged();
     void nodeAddressChanged();
 
-    void seedElectrumChanged();
+    void isCurrentSeedValidChanged();
+    void electrumSeedPhrasesChanged();
     void nodeAddressElectrumChanged();
 
-    void useElectrumChanged();
     void canEditChanged();
     void connectionTypeChanged();
 
@@ -108,9 +152,13 @@ private:
     QString getConnectedElectrumTitle() const;
 
     void LoadSettings();
+    void SetSeedElectrum(const std::vector<std::string>& secretWords);
     void SetDefaultNodeSettings();
     void SetDefaultElectrumSettings();
     void setConnectionType(beam::bitcoin::ISettings::ConnectionType type);
+    void setIsCurrentSeedValid(bool value);
+
+    std::vector<std::string> GetSeedPhraseFromSeedItems() const;
 
 private:
     beam::wallet::AtomicSwapCoin m_swapCoin;
@@ -124,8 +172,9 @@ private:
     QString m_nodePass;
     QString m_nodeAddress;
 
-    QString m_seedElectrum;
+    QList<QObject*> m_seedPhraseItems;
     QString m_nodeAddressElectrum;
+    bool m_isCurrentSeedValid = false;
 };
 
 

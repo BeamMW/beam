@@ -107,6 +107,7 @@ namespace beam::wallet
         void syncWithNode() override;
         void calcChange(Amount&& amount) override;
         void getWalletStatus() override;
+        void getTransactions() override;
         void getUtxosStatus() override;
         void getAddresses(bool own) override;
 #ifdef BEAM_ATOMIC_SWAP_SUPPORT

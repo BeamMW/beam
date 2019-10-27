@@ -165,13 +165,16 @@ ColumnLayout {
                     id:                  swapCoinsettings
                     Layout.minimumWidth: swapLayout.width / 2 - swapLayout.columnSpacing / 2
                     
-                    title:                modelData.title
-                    minFeeRate:           modelData.minFeeRate
-                    feeRateLabel:         modelData.feeRateLabel
-                    canEdit:              modelData.canEdit
-                    isConnected:          modelData.isConnected
-                    isNodeConnection:     modelData.isNodeConnection
-                    isElectrumConnection: modelData.isElectrumConnection
+                    title:                    modelData.title
+                    showSeedDialogTitle:      modelData.showSeedDialogTitle
+                    showAddressesDialogTitle: modelData.showAddressesDialogTitle
+                    minFeeRate:               modelData.minFeeRate
+                    feeRateLabel:             modelData.feeRateLabel
+                    canEdit:                  modelData.canEdit
+                    isConnected:              modelData.isConnected
+                    isNodeConnection:         modelData.isNodeConnection
+                    isElectrumConnection:     modelData.isElectrumConnection
+                    getAddressesElectrum:     modelData.getAddressesElectrum
 
                     //
                     // Node
@@ -185,7 +188,8 @@ ColumnLayout {
                     // Electrum
                     //
                     addressElectrum:            modelData.nodeAddressElectrum
-                    seedElectrum:               modelData.seedElectrum
+                    seedPhrasesElectrum:        modelData.electrumSeedPhrases
+                    phrasesSeparatorElectrum:   modelData.phrasesSeparatorElectrum
 
                     Connections {
                         target: modelData
@@ -208,17 +212,21 @@ ColumnLayout {
                         // Electrum
                         //
                         onNodeAddressElectrumChanged: swapCoinsettings.addressElectrum = modelData.nodeAddressElectrum
-                        onSeedElectrumChanged:        swapCoinsettings.seedElectrum    = modelData.seedElectrum
+                        onElectrumSeedPhrasesChanged: swapCoinsettings.seedPhrasesElectrum = modelData.electrumSeedPhrases
+                        onIsCurrentSeedValidChanged:  swapCoinsettings.isCurrentElectrumSeedValid = modelData.isCurrentSeedValid
                     }
 
-                    onApplyNode:         modelData.applyNodeSettings()
-                    onClearNode:         modelData.resetNodeSettings()
-                    onApplyElectrum:     modelData.applyElectrumSettings()
-                    onClearElectrum:     modelData.resetElectrumSettings()
-                    onNewSeedElectrum:   modelData.newElectrumSeed()
-                    onDisconnect:        modelData.disconnect()
-                    onConnectToNode:     modelData.connectToNode()
-                    onConnectToElectrum: modelData.connectToElectrum()
+                    onApplyNode:                 modelData.applyNodeSettings()
+                    onClearNode:                 modelData.resetNodeSettings()
+                    onApplyElectrum:             modelData.applyElectrumSettings()
+                    onClearElectrum:             modelData.resetElectrumSettings()
+                    onNewSeedElectrum:           modelData.newElectrumSeed()
+                    onRestoreSeedElectrum:       modelData.restoreSeedElectrum()
+                    onDisconnect:                modelData.disconnect()
+                    onConnectToNode:             modelData.connectToNode()
+                    onConnectToElectrum:         modelData.connectToElectrum()
+                    onCopySeedElectrum:          modelData.copySeedElectrum()
+                    onValidateCurrentSeedPhrase: modelData.validateCurrentElectrumSeedPhrase()
 
                     Binding {
                         target:   modelData
@@ -248,12 +256,6 @@ ColumnLayout {
                         target:   modelData
                         property: "nodeAddressElectrum"
                         value:    swapCoinsettings.addressElectrum
-                    }
-
-                    Binding {
-                        target:   modelData
-                        property: "seedElectrum"
-                        value:    swapCoinsettings.seedElectrum
                     }
                 }
             }

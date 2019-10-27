@@ -99,6 +99,8 @@ namespace beam::wallet
         {
             typedef boost::intrusive_ptr<MyRequestBbsMsg> Ptr;
             virtual ~MyRequestBbsMsg() {}
+
+            uint64_t m_MessageID;
         };
 
         typedef boost::intrusive::list<MyRequestBbsMsg> BbsMsgList;
@@ -137,6 +139,7 @@ namespace beam::wallet
                 proto::BbsMsg m_Msg;
                 ECC::Hash::Processor m_hpPartial;
                 volatile bool m_Done;
+                uint64_t m_StoredMessageID;
 
                 typedef std::shared_ptr<Task> Ptr;
             };
@@ -155,7 +158,7 @@ namespace beam::wallet
         } m_Miner;
 
         void OnMined();
-        void OnMined(proto::BbsMsg&&);
+        void OnMined(Miner::Task::Ptr);
 
     public:
 

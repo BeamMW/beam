@@ -88,7 +88,6 @@ ReceiveSwapViewModel::ReceiveSwapViewModel()
 
     generateNewAddress();
 
-    _walletModel.getAsync()->getWalletStatus();
     updateTransactionToken();
 }
 

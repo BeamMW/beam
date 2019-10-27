@@ -124,7 +124,7 @@ void WalletModel::onStatus(const beam::wallet::WalletStatus& status)
 
 void WalletModel::onTxStatus(beam::wallet::ChangeAction action, const std::vector<beam::wallet::TxDescription>& items)
 {
-    emit txStatus(action, items);
+    emit transactionsChanged(action, items);
 }
 
 void WalletModel::onSyncProgressUpdated(int done, int total)

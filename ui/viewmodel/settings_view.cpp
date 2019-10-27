@@ -46,13 +46,75 @@ namespace
         }
         return {};
     }
+
+    const char ELECTRUM_PHRASES_SEPARATOR = ' ';
 }
+
+
+ElectrumPhraseItem::ElectrumPhraseItem(int index, const QString& phrase)
+    : m_index(index)
+    , m_phrase(phrase)
+    , m_userInput(phrase)
+{
+}
+
+bool ElectrumPhraseItem::isCorrect() const
+{
+    return m_userInput == m_phrase;
+}
+
+const QString& ElectrumPhraseItem::getValue() const
+{
+    return m_userInput;
+}
+
+void ElectrumPhraseItem::setValue(const QString& value)
+{
+    if (m_userInput != value)
+    {
+        m_userInput = value;
+        emit valueChanged();
+        emit isCorrectChanged();
+        emit isAllowedChanged();
+    }
+}
+
+const QString& ElectrumPhraseItem::getPhrase() const
+{
+    return m_phrase;
+}
+
+int ElectrumPhraseItem::getIndex() const
+{
+    return m_index;
+}
+
+bool ElectrumPhraseItem::isAllowed() const
+{
+    return bitcoin::isAllowedWord(m_userInput.toStdString());
+}
+
+void ElectrumPhraseItem::applyChanges()
+{
+    m_phrase = m_userInput;
+}
+
+void ElectrumPhraseItem::revertChanges()
+{
+    m_userInput = m_phrase;
+}
+
 
 SwapCoinSettingsItem::SwapCoinSettingsItem(SwapCoinClientModel& coinClient, wallet::AtomicSwapCoin swapCoin)
     : m_swapCoin(swapCoin)
     , m_coinClient(coinClient)
 {
     LoadSettings();
+}
+
+SwapCoinSettingsItem::~SwapCoinSettingsItem()
+{
+    qDeleteAll(m_seedPhraseItems);
 }
 
 QString SwapCoinSettingsItem::getFeeRateLabel() const
@@ -105,6 +167,48 @@ QString SwapCoinSettingsItem::getTitle() const
         {
             assert(false && "unexpected connection type");
             return getGeneralTitle();
+        }
+    }
+}
+
+QString SwapCoinSettingsItem::getShowSeedDialogTitle() const
+{
+    switch (m_swapCoin)
+    {
+        case beam::wallet::AtomicSwapCoin::Bitcoin:
+            //% "Bitcoin seed phrase"
+            return qtTrId("bitcoin-show-seed-title");
+        case beam::wallet::AtomicSwapCoin::Litecoin:
+            //% "Litecoin seed phrase"
+            return qtTrId("litecoin-show-seed-title");
+        case beam::wallet::AtomicSwapCoin::Qtum:
+            //% "Qtum seed phrase"
+            return qtTrId("qtum-show-seed-title");
+        default:
+        {
+            assert(false && "unexpected swap coin!");
+            return QString();
+        }
+    }
+}
+
+QString SwapCoinSettingsItem::getShowAddressesDialogTitle() const
+{
+    switch (m_swapCoin)
+    {
+        case beam::wallet::AtomicSwapCoin::Bitcoin:
+            //% "Bitcoin wallet addresses"
+            return qtTrId("bitcoin-show-addresses-title");
+        case beam::wallet::AtomicSwapCoin::Litecoin:
+            //% "Litecoin wallet addresses"
+            return qtTrId("litecoin-show-addresses-title");
+        case beam::wallet::AtomicSwapCoin::Qtum:
+            //% "Qtum wallet addresses"
+            return qtTrId("qtum-show-addresses-title");
+        default:
+        {
+            assert(false && "unexpected swap coin!");
+            return QString();
         }
     }
 }
@@ -231,18 +335,19 @@ void SwapCoinSettingsItem::setNodeAddress(const QString& value)
     }
 }
 
-QString SwapCoinSettingsItem::getSeedElectrum() const
+QList<QObject*> SwapCoinSettingsItem::getElectrumSeedPhrases()
 {
-    return m_seedElectrum;
+    return m_seedPhraseItems;
 }
 
-void SwapCoinSettingsItem::setSeedElectrum(const QString& value)
+QChar SwapCoinSettingsItem::getPhrasesSeparatorElectrum() const
 {
-    if (value != m_seedElectrum)
-    {
-        m_seedElectrum = value;
-        emit seedElectrumChanged();
-    }
+    return QChar(ELECTRUM_PHRASES_SEPARATOR);
+}
+
+bool SwapCoinSettingsItem::getIsCurrentSeedValid() const
+{
+    return m_isCurrentSeedValid;
 }
 
 QString SwapCoinSettingsItem::getNodeAddressElectrum() const
@@ -257,6 +362,27 @@ void SwapCoinSettingsItem::setNodeAddressElectrum(const QString& value)
         m_nodeAddressElectrum = value;
         emit nodeAddressElectrumChanged();
     }
+}
+
+QStringList SwapCoinSettingsItem::getAddressesElectrum() const
+{
+    auto electrumSettings = m_settings->GetElectrumConnectionOptions();
+
+    if (electrumSettings.IsInitialized())
+    {
+        auto addresses = bitcoin::generateReceivingAddresses(electrumSettings.m_secretWords, 
+            electrumSettings.m_receivingAddressAmount, electrumSettings.m_addressVersion);
+
+        QStringList result;
+        result.reserve(static_cast<int>(addresses.size()));
+
+        for (const auto& address : addresses)
+        {
+            result.push_back(QString::fromStdString(address));
+        }
+        return result;
+    }
+    return {};
 }
 
 bool SwapCoinSettingsItem::getCanEdit() const
@@ -306,13 +432,8 @@ void SwapCoinSettingsItem::applyElectrumSettings()
         electrumSettings.m_address = m_nodeAddressElectrum.toStdString();
     }
 
-    if (!m_seedElectrum.isEmpty())
-    {
-        auto tempPhrase = m_seedElectrum.toStdString();
-        boost::algorithm::trim_if(tempPhrase, [](char ch) { return ch == ' '; });
-        electrumSettings.m_secretWords = string_helpers::split(tempPhrase, ' ');
-    }
-
+    // TODO: check
+    electrumSettings.m_secretWords = GetSeedPhraseFromSeedItems();
     electrumSettings.m_addressVersion = bitcoin::getAddressVersion();
     
     m_settings->SetElectrumConnectionOptions(electrumSettings);
@@ -336,7 +457,12 @@ void SwapCoinSettingsItem::resetElectrumSettings()
 void SwapCoinSettingsItem::newElectrumSeed()
 {
     auto secretWords = bitcoin::createElectrumMnemonic(getEntropy());    
-    setSeedElectrum(str2qstr(vec2str(secretWords)));
+    SetSeedElectrum(secretWords);
+}
+
+void SwapCoinSettingsItem::restoreSeedElectrum()
+{
+    SetSeedElectrum(m_settings->GetElectrumConnectionOptions().m_secretWords);
 }
 
 void SwapCoinSettingsItem::disconnect()
@@ -366,6 +492,28 @@ void SwapCoinSettingsItem::connectToElectrum()
     setConnectionType(connectionType);
 }
 
+void SwapCoinSettingsItem::copySeedElectrum()
+{
+    auto seedElectrum = GetSeedPhraseFromSeedItems();
+    auto seedString = vec2str(seedElectrum, ELECTRUM_PHRASES_SEPARATOR);
+    QMLGlobals::copyToClipboard(QString::fromStdString(seedString));
+}
+
+void SwapCoinSettingsItem::validateCurrentElectrumSeedPhrase()
+{
+    std::vector<std::string> seedElectrum;
+    seedElectrum.reserve(WORD_COUNT);
+
+    // extract seed phrase from user input
+    for (const auto phraseItem : m_seedPhraseItems)
+    {
+        auto word = static_cast<ElectrumPhraseItem*>(phraseItem)->getValue().toStdString();
+        seedElectrum.push_back(word);
+    }
+
+    setIsCurrentSeedValid(bitcoin::validateElectrumMnemonic(seedElectrum));
+}
+
 void SwapCoinSettingsItem::LoadSettings()
 {
     SetDefaultElectrumSettings();
@@ -385,9 +533,40 @@ void SwapCoinSettingsItem::LoadSettings()
 
     if (m_settings->GetElectrumConnectionOptions().IsInitialized())
     {
-        setSeedElectrum(str2qstr(vec2str(m_settings->GetElectrumConnectionOptions().m_secretWords)));
+        SetSeedElectrum(m_settings->GetElectrumConnectionOptions().m_secretWords);
         setNodeAddressElectrum(str2qstr(m_settings->GetElectrumConnectionOptions().m_address));
     }
+}
+
+void SwapCoinSettingsItem::SetSeedElectrum(const std::vector<std::string>& seedElectrum)
+{
+    if (!m_seedPhraseItems.empty())
+    {
+        qDeleteAll(m_seedPhraseItems);
+        m_seedPhraseItems.clear();
+    }
+
+    m_seedPhraseItems.reserve(static_cast<int>(WORD_COUNT));
+
+    if (seedElectrum.empty())
+    {
+        for (int index = 0; index < static_cast<int>(WORD_COUNT); ++index)
+        {
+            m_seedPhraseItems.push_back(new ElectrumPhraseItem(index, QString()));
+        }
+    }
+    else
+    {
+        assert(seedElectrum.size() == WORD_COUNT);
+        int index = 0;
+        for (auto& word : seedElectrum)
+        {
+            m_seedPhraseItems.push_back(new ElectrumPhraseItem(index++, QString::fromStdString(word)));
+        }
+    }
+
+    setIsCurrentSeedValid(bitcoin::validateElectrumMnemonic(seedElectrum));
+    emit electrumSeedPhrasesChanged();
 }
 
 void SwapCoinSettingsItem::SetDefaultNodeSettings()
@@ -402,7 +581,7 @@ void SwapCoinSettingsItem::SetDefaultElectrumSettings()
 {
     setFeeRate(QMLGlobals::defFeeRateBtc());
     setNodeAddressElectrum("");
-    setSeedElectrum("");
+    SetSeedElectrum({});
 }
 
 void SwapCoinSettingsItem::setConnectionType(beam::bitcoin::ISettings::ConnectionType type)
@@ -412,6 +591,32 @@ void SwapCoinSettingsItem::setConnectionType(beam::bitcoin::ISettings::Connectio
         m_connectionType = type;
         emit connectionTypeChanged();
     }
+}
+
+void SwapCoinSettingsItem::setIsCurrentSeedValid(bool value)
+{
+    if (m_isCurrentSeedValid != value)
+    {
+        m_isCurrentSeedValid = value;
+        emit isCurrentSeedValidChanged();
+    }
+}
+
+std::vector<std::string> SwapCoinSettingsItem::GetSeedPhraseFromSeedItems() const
+{
+    assert(static_cast<size_t>(m_seedPhraseItems.size()) == WORD_COUNT);
+
+    std::vector<std::string> seedElectrum;
+    seedElectrum.reserve(WORD_COUNT);
+
+    for (const auto phraseItem : m_seedPhraseItems)
+    {
+        auto item = static_cast<ElectrumPhraseItem*>(phraseItem);
+        auto word = item->getPhrase().toStdString();
+        seedElectrum.push_back(word);
+    }
+
+    return seedElectrum;
 }
 
 

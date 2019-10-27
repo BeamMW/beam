@@ -64,9 +64,9 @@ signals:
 
 protected:
     auto getTxDescription() const -> const beam::wallet::TxDescription&;
+    auto getReasonString(beam::wallet::TxFailureReason reason) const -> QString;
  
     beam::wallet::TxDescription m_tx;
     QString m_kernelID;
     beam::wallet::TxType m_type;
-    static const QString m_reasons[];
 };

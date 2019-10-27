@@ -401,6 +401,7 @@ namespace beam::wallet
 
         void insertParameterToCache(const TxID& txID, SubTxID subTxID, TxParameterID paramID, const boost::optional<ByteBuffer>& blob) const;
         void deleteParametersFromCache(const TxID& txID);
+        bool hasTransaction(const TxID& txID) const;
         void insertAddressToCache(const WalletID& id, const boost::optional<WalletAddress>& address) const;
         void deleteAddressFromCache(const WalletID& id);
         void flushDB();
@@ -419,6 +420,7 @@ namespace beam::wallet
         bool m_IsFlushPending;
         std::unique_ptr<sqlite::Transaction> m_DbTransaction;
         std::vector<IWalletDbObserver*> m_subscribers;
+        const std::set<TxParameterID> m_mandatoryTxParams;
 
         // Wallet has ablity to track blockchain state
         // This interface allows to check and update the blockchain state 

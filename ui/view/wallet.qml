@@ -650,7 +650,7 @@ Item {
                                     text: getStatusText(styleData.value)
                                     verticalAlignment: Text.AlignBottom
                                     color: {
-                                        if (!model) {
+                                        if (!model || model.isExpired) {
                                             return Style.content_secondary;
                                         }
                                         if (model.isInProgress || model.isCompleted) {
