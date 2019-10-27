@@ -329,11 +329,11 @@
     </message>
     <message id="settings-see-seed">
         <source>Click to see seed phrase</source>
-        <translation>Click to see seed phrase</translation>
+        <translation type="vanished">Click to see seed phrase</translation>
     </message>
     <message id="settings-new-seed">
         <source>Double click to generate new seed phrase</source>
-        <translation>Double click to generate new seed phrase</translation>
+        <translation type="vanished">Double click to generate new seed phrase</translation>
     </message>
     <message id="settings-local-node-run-checkbox">
         <source>Run local node</source>
@@ -1601,7 +1601,7 @@ or send this address to the sender over secure channel</translation>
     </message>
     <message id="settings-invalid-seed">
         <source>Invalid seed phrase</source>
-        <translation>Invalid seed phrase</translation>
+        <translation type="vanished">Invalid seed phrase</translation>
     </message>
     <message id="wallet-transactions-all-tab">
         <source>All</source>
@@ -1775,7 +1775,7 @@ Please check the swap token and try again.</translation>
     </message>
     <message id="settings-swap-seed-phrase">
         <source>Seed Phrase</source>
-        <translation>Seed Phrase</translation>
+        <translation type="vanished">Seed Phrase</translation>
     </message>
     <message id="settings-swap-bitcoin-node">
         <source>Bitcoin node</source>
@@ -1803,11 +1803,11 @@ Please check the swap token and try again.</translation>
     </message>
     <message id="connect to electrum node">
         <source>connect to electrum node</source>
-        <translation>connect to electrum node</translation>
+        <translation type="vanished">connect to electrum node</translation>
     </message>
     <message id="connect to node">
         <source>connect to node</source>
-        <translation>connect to node</translation>
+        <translation type="vanished">connect to node</translation>
     </message>
     <message id="invalid-rate-min">
         <source>Rate cannot be less than %1</source>
@@ -1825,6 +1825,86 @@ Please check the swap token and try again.</translation>
     <message id="swap-offer-duplicate-confirm-button">
         <source>ok</source>
         <translation>ok</translation>
+    </message>
+    <message id="swap-details-failure-reason">
+        <source>Error</source>
+        <translation type="unfinished">Error</translation>
+    </message>
+    <message id="swap-tx-failture-refunded">
+        <source>Refunded</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="settings-swap-edit-seed">
+        <source>Edit your seed phrase</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="settings-swap-enter-seed">
+        <source>Enter your seed phrase</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="settings-swap-label-or">
+        <source>or</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="settings-swap-new-seed">
+        <source>Generate new seed phrase</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="settings-swap-show-seed">
+        <source>Show seed phrase</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="settings-swap-show-addresses">
+        <source>Show wallet addresses</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="settings-swap-connect-electrum">
+        <source>connect to electrum node</source>
+        <translation type="unfinished">connect to electrum node</translation>
+    </message>
+    <message id="settings-swap-connect-node">
+        <source>connect to node</source>
+        <translation type="unfinished">connect to node</translation>
+    </message>
+    <message id="swap-seed-info-message">
+        <source>Your seed phrase is the access key to all the funds! Print or write down the phrase and keep it in a safe or in a locked vault.\nWithout the phrase you will not be able to recover your money.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="settings-swap-seed-generate">
+        <source>generate another seed phrase</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="swap-seed-new">
+        <source>New seed phrase</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="swap-seed-edit">
+        <source>Enter your seed phrase</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="bitcoin-show-seed-title">
+        <source>Bitcoin seed phrase</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="litecoin-show-seed-title">
+        <source>Litecoin seed phrase</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="qtum-show-seed-title">
+        <source>Qtum seed phrase</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="bitcoin-show-addresses-title">
+        <source>Bitcoin wallet addresses</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="litecoin-show-addresses-title">
+        <source>Litecoin wallet addresses</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="qtum-show-addresses-title">
+        <source>Qtum wallet addresses</source>
+        <translation type="unfinished"></translation>
     </message>
 </context>
 </TS>

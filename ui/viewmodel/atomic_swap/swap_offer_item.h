@@ -33,7 +33,8 @@ public:
     auto timeExpiration() const -> QDateTime;
     auto amountSend() const -> QString;
     auto amountReceive() const -> QString;
-    auto rate() const -> double;
+    auto rate() const -> QString;
+    auto rateValue() const-> double;
     auto isOwnOffer() const -> bool;
     auto isBeamSide() const -> bool;
 

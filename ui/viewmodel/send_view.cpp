@@ -28,8 +28,6 @@ SendViewModel::SendViewModel()
     connect(&_walletModel, SIGNAL(sendMoneyVerified()), this, SIGNAL(sendMoneyVerified()));
     connect(&_walletModel, SIGNAL(cantSendToExpired()), this, SIGNAL(cantSendToExpired()));
     connect(&_walletModel, SIGNAL(availableChanged()), this, SIGNAL(availableChanged()));
-
-    _walletModel.getAsync()->getWalletStatus();
 }
 
 unsigned int SendViewModel::getFeeGrothes() const
@@ -64,13 +62,13 @@ void SendViewModel::setComment(const QString& value)
 
 QString SendViewModel::getSendAmount() const
 {
-    LOG_INFO() << "ret Send amount grothes: " << _sendAmountGrothes << " 2ui: " << beamui::AmountToString(_sendAmountGrothes).toStdString();
-    return beamui::AmountToString(_sendAmountGrothes);
+    LOG_INFO() << "ret Send amount grothes: " << _sendAmountGrothes << " 2ui: " << beamui::AmountToUIString(_sendAmountGrothes).toStdString();
+    return beamui::AmountToUIString(_sendAmountGrothes);
 }
 
 void SendViewModel::setSendAmount(QString value)
 {
-    beam::Amount amount = beamui::StringToAmount(value);
+    beam::Amount amount = beamui::UIStringToAmount(value);
     if (amount != _sendAmountGrothes)
     {
         _sendAmountGrothes = amount;
@@ -137,12 +135,12 @@ beam::Amount SendViewModel::calcTotalAmount() const
 
 QString SendViewModel::getAvailable() const
 {
-    return  beamui::AmountToString(isEnough() ? _walletModel.getAvailable() - calcTotalAmount() - _changeGrothes : 0);
+    return  beamui::AmountToUIString(isEnough() ? _walletModel.getAvailable() - calcTotalAmount() - _changeGrothes : 0);
 }
 
 QString SendViewModel::getMissing() const
 {
-    return beamui::AmountToString(calcTotalAmount() - _walletModel.getAvailable());
+    return beamui::AmountToUIString(calcTotalAmount() - _walletModel.getAvailable());
 }
 
 bool SendViewModel::isEnough() const
@@ -159,12 +157,12 @@ void SendViewModel::onChangeCalculated(beam::Amount change)
 
 QString SendViewModel::getChange() const
 {
-    return beamui::AmountToString(_changeGrothes);
+    return beamui::AmountToUIString(_changeGrothes);
 }
 
 QString SendViewModel::getTotalUTXO() const
 {
-    return beamui::AmountToString(calcTotalAmount() + _changeGrothes);
+    return beamui::AmountToUIString(calcTotalAmount() + _changeGrothes);
 }
 
 bool SendViewModel::canSend() const
@@ -203,7 +201,7 @@ void SendViewModel::extractParameters()
     _txParameters = *txParameters;
     if (auto amount = _txParameters.GetParameter<beam::Amount>(beam::wallet::TxParameterID::Amount); amount)
     {
-        setSendAmount(beamui::AmountToString(*amount));
+        setSendAmount(beamui::AmountToUIString(*amount));
     }
     if (auto fee = _txParameters.GetParameter<beam::Amount>(beam::wallet::TxParameterID::Fee); fee)
     {

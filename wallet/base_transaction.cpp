@@ -362,7 +362,7 @@ namespace beam::wallet
         if (GetParameter(TxParameterID::MyID, msg.m_From)
             && GetParameter(TxParameterID::PeerID, peerID))
         {
-            GetGateway().send_tx_params(peerID, move(msg));
+            GetGateway().send_tx_params(peerID, msg);
             return true;
         }
         return false;

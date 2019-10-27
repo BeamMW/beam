@@ -37,8 +37,8 @@ WalletViewModel::WalletViewModel()
     : _model(*AppModel::getInstance().getWallet())
     , _settings(AppModel::getInstance().getSettings())
 {
-    connect(&_model, SIGNAL(txStatus(beam::wallet::ChangeAction, const std::vector<beam::wallet::TxDescription>&)),
-        SLOT(onTxStatus(beam::wallet::ChangeAction, const std::vector<beam::wallet::TxDescription>&)));
+    connect(&_model, SIGNAL(transactionsChanged(beam::wallet::ChangeAction, const std::vector<beam::wallet::TxDescription>&)),
+        SLOT(onTransactionsChanged(beam::wallet::ChangeAction, const std::vector<beam::wallet::TxDescription>&)));
 
     connect(&_model, SIGNAL(availableChanged()), this, SIGNAL(beamAvailableChanged()));
     connect(&_model, SIGNAL(receivingChanged()), this, SIGNAL(beamReceivingChanged()));
@@ -47,8 +47,7 @@ WalletViewModel::WalletViewModel()
     connect(&_model, SIGNAL(receivingChangeChanged()), this, SIGNAL(beamReceivingChanged()));
     connect(&_model, SIGNAL(receivingIncomingChanged()), this, SIGNAL(beamReceivingChanged()));
 
-    // TODO: This also refreshes TXs and addresses. Need to make this more transparent
-    _model.getAsync()->getWalletStatus();
+    _model.getAsync()->getTransactions();
 }
 
 QAbstractItemModel* WalletViewModel::getTransactions()
@@ -84,7 +83,7 @@ PaymentInfoItem* WalletViewModel::getPaymentInfo(QVariant variantTxID)
     else return Q_NULLPTR;
 }
 
-void WalletViewModel::onTxStatus(beam::wallet::ChangeAction action, const std::vector<beam::wallet::TxDescription>& transactions)
+void WalletViewModel::onTransactionsChanged(beam::wallet::ChangeAction action, const std::vector<beam::wallet::TxDescription>& transactions)
 {
     vector<shared_ptr<TxObject>> modifiedTransactions;
     modifiedTransactions.reserve(transactions.size());
@@ -133,30 +132,30 @@ void WalletViewModel::onTxStatus(beam::wallet::ChangeAction action, const std::v
 
 QString WalletViewModel::beamAvailable() const
 {
-    return beamui::AmountToString(_model.getAvailable());
+    return beamui::AmountToUIString(_model.getAvailable());
 }
 
 QString WalletViewModel::beamReceiving() const
 {
     // TODO:SWAP return real value
-    return beamui::AmountToString(_model.getReceivingChange() + _model.getReceivingIncoming());
+    return beamui::AmountToUIString(_model.getReceivingChange() + _model.getReceivingIncoming());
 }
 
 QString WalletViewModel::beamSending() const
 {
-    return beamui::AmountToString(_model.getSending());
+    return beamui::AmountToUIString(_model.getSending());
 }
 
 QString WalletViewModel::beamReceivingChange() const
 {
     // TODO:SWAP return real value
-    return beamui::AmountToString(_model.getReceivingChange());
+    return beamui::AmountToUIString(_model.getReceivingChange());
 }
 
 QString WalletViewModel::beamReceivingIncoming() const
 {
     // TODO:SWAP return real value
-    return beamui::AmountToString(_model.getReceivingIncoming());
+    return beamui::AmountToUIString(_model.getReceivingIncoming());
 }
 
 QString WalletViewModel::beamLocked() const
@@ -166,7 +165,7 @@ QString WalletViewModel::beamLocked() const
 
 QString WalletViewModel::beamLockedMaturing() const
 {
-    return beamui::AmountToString(_model.getMaturing());
+    return beamui::AmountToUIString(_model.getMaturing());
 }
 
 bool WalletViewModel::isAllowedBeamMWLinks() const

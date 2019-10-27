@@ -60,6 +60,14 @@ Item {
         onAccepted: {
             viewModel.cancelOffer(cancelOfferDialog.txId);
         }
+        Connections {
+            target: viewModel
+            onOfferRemovedFromTable: function(txId) {
+                if (cancelOfferDialog.txId == txId) {
+                    cancelOfferDialog.cancelButton.onClicked();
+                }
+            }
+        }
     }
 
     TokenDuplicateChecker {
@@ -194,21 +202,10 @@ Item {
                     }
                     gradLeft: Style.swapCurrencyPaneGrLeftBEAM
                     currencyIcon: "qrc:/assets/icon-beam.svg"
-                    valueStr: [viewModel.beamAvailable, Utils.symbolBeam].join(" ")
+                    amount: Utils.uiStringToLocale(viewModel.beamAvailable)
+                    currencySymbol: Utils.symbolBeam
                     valueSecondaryStr: activeTxCountStr()
                     visible: true
-                }
-
-                function btcAmount() {
-                    return viewModel.hasBtcTx ? "" : viewModel.btcAvailable + " " + Utils.symbolBtc;
-                }
-
-                function ltcAmount() {
-                    return viewModel.hasLtcTx ? "" : viewModel.ltcAvailable + " " + Utils.symbolLtc;
-                }
-
-                function qtumAmount() {
-                    return viewModel.hasQtumTx ? "" : viewModel.qtumAvailable + " " + Utils.symbolQtum;
                 }
 
                 //% "Transaction is in progress"
@@ -229,7 +226,8 @@ Item {
                 SwapCurrencyAmountPane {
                     gradLeft: Style.swapCurrencyPaneGrLeftBTC
                     currencyIcon: "qrc:/assets/icon-btc.svg"
-                    valueStr: parent.btcAmount()
+                    amount: viewModel.hasBtcTx ? "" : Utils.uiStringToLocale(viewModel.btcAvailable)
+                    currencySymbol: Utils.symbolBtc
                     valueSecondaryStr: parent.btcActiveTxStr()
                     isOk: viewModel.btcOK
                     isConnecting: viewModel.btcConnecting
@@ -243,7 +241,8 @@ Item {
                 SwapCurrencyAmountPane {
                     gradLeft: Style.swapCurrencyPaneGrLeftLTC
                     currencyIcon: "qrc:/assets/icon-ltc.svg"
-                    valueStr: parent.ltcAmount()
+                    amount: viewModel.hasLtcTx ? "" : Utils.uiStringToLocale(viewModel.ltcAvailable)
+                    currencySymbol: Utils.symbolLtc
                     valueSecondaryStr: parent.ltcActiveTxStr()
                     isOk: viewModel.ltcOK
                     isConnecting: viewModel.ltcConnecting
@@ -255,7 +254,8 @@ Item {
                 SwapCurrencyAmountPane {
                     gradLeft: Style.swapCurrencyPaneGrLeftQTUM
                     currencyIcon: "qrc:/assets/icon-qtum.svg"
-                    valueStr: parent.qtumAmount()
+                    amount: viewModel.hasQtumTx ? "" : Utils.uiStringToLocale(viewModel.qtumAvailable)
+                    currencySymbol: Utils.symbolQtum
                     valueSecondaryStr: parent.qtumActiveTxStr()
                     isOk: viewModel.qtumOK
                     isConnecting: viewModel.qtumConnecting
@@ -269,7 +269,7 @@ Item {
                     gradLeft: Style.swapCurrencyPaneGrLeftOther
                     gradRight: Style.swapCurrencyPaneGrLeftOther
                     //% "Connect other currency wallet to start trading"
-                    valueStr: qsTrId("atomic-swap-connect-other")
+                    amount: qsTrId("atomic-swap-connect-other")
                     textSize: 14
                     rectOpacity: 1.0
                     textColor: Style.active
@@ -411,6 +411,7 @@ Item {
                             onClicked: {
                                 console.log("todo: fit current balance checkbox pressed");
                             }
+                            visible: false
                         }
 
                         Item {
@@ -601,7 +602,6 @@ Item {
                             resizable: false
                             delegate: TableItem {
                                 text: styleData.value
-                                elide: Text.ElideRight
                                 fontWeight: Font.Bold
                                 fontStyleName: "Bold"
                                 fontSizeMode: Text.Fit
@@ -617,7 +617,6 @@ Item {
                             resizable: false
                             delegate: TableItem {
                                 text: styleData.value
-                                elide: Text.ElideRight
                                 fontWeight: Font.Bold
                                 fontStyleName: "Bold"
                                 fontSizeMode: Text.Fit
@@ -835,7 +834,8 @@ Item {
                                         comment:                        txRolesMap && txRolesMap.comment ? txRolesMap.comment : ""
                                         swapCoinName:                   txRolesMap && txRolesMap.swapCoin ? txRolesMap.swapCoin : ""
                                         isBeamSide:                     txRolesMap && txRolesMap.isBeamSideSwap ? txRolesMap.isBeamSideSwap : false
-                                        isProofReceived:                txRolesMap && txRolesMap.isProofReceived ? txRolesMap.isProofReceived : false
+                                        isLockTxProofReceived:          txRolesMap && txRolesMap.isLockTxProofReceived ? txRolesMap.isLockTxProofReceived : false
+                                        isRefundTxProofReceived:        txRolesMap && txRolesMap.isRefundTxProofReceived ? txRolesMap.isRefundTxProofReceived : false
                                         swapCoinLockTxId:               txRolesMap && txRolesMap.swapCoinLockTxId ? txRolesMap.swapCoinLockTxId : ""
                                         swapCoinLockTxConfirmations:    txRolesMap && txRolesMap.swapCoinLockTxConfirmations ? txRolesMap.swapCoinLockTxConfirmations : ""
                                         swapCoinRedeemTxId:             txRolesMap && txRolesMap.swapCoinRedeemTxId ? txRolesMap.swapCoinRedeemTxId : ""
@@ -845,6 +845,7 @@ Item {
                                         beamLockTxKernelId:             txRolesMap && txRolesMap.beamLockTxKernelId ? txRolesMap.beamLockTxKernelId : ""
                                         beamRedeemTxKernelId:           txRolesMap && txRolesMap.beamRedeemTxKernelId ? txRolesMap.beamRedeemTxKernelId : ""
                                         beamRefundTxKernelId:           txRolesMap && txRolesMap.beamRefundTxKernelId ? txRolesMap.beamRefundTxKernelId : ""
+                                        failureReason:                  txRolesMap && txRolesMap.failureReason ? txRolesMap.failureReason : ""
                                         
                                         onTextCopied: function (text) {
                                             BeamGlobals.copyToClipboard(text);
@@ -1007,7 +1008,7 @@ Item {
                             resizable: false
                         }
                         TableViewColumn {
-                            role: "amountSend"
+                            role: "amountSendWithCurrency"
                             //% "Sent"
                             title: qsTrId("atomic-swap-tx-table-sent")
                             elideMode: Text.ElideRight
@@ -1024,13 +1025,13 @@ Item {
                                         fontStyleName: "Bold"
                                         fontSizeMode: Text.Fit
                                         color: Style.accent_outgoing
-                                        onCopyText: BeamGlobals.copyToClipboard(Utils.getAmountWithoutCurrency(styleData.value)) 
+                                        onCopyText: BeamGlobals.copyToClipboard(!!model ? model.amountSend  : "")
                                     }
                                 }
                             }
                         }
                         TableViewColumn {
-                            role: "amountReceive"
+                            role: "amountReceiveWithCurrency"
                             //% "Received"
                             title: qsTrId("atomic-swap-tx-table-received")
                             elideMode: Text.ElideRight
@@ -1047,7 +1048,7 @@ Item {
                                         fontStyleName: "Bold"
                                         fontSizeMode: Text.Fit
                                         color: Style.accent_incoming
-                                        onCopyText: BeamGlobals.copyToClipboard(Utils.getAmountWithoutCurrency(styleData.value)) 
+                                        onCopyText: BeamGlobals.copyToClipboard(!!model ? model.amountReceive  : "") 
                                     }
                                 }
                             }
@@ -1069,7 +1070,7 @@ Item {
                                         id: statusRow
                                         Layout.alignment: Qt.AlignLeft
                                         anchors.fill: parent
-                                        anchors.leftMargin: 10
+                                        anchors.leftMargin: 20
                                         spacing: 10
 
                                         SvgImage {
@@ -1085,8 +1086,10 @@ Item {
                                                     return "qrc:/assets/icon-swap-in-progress.svg";
                                                 else if (model.isCompleted)
                                                     return "qrc:/assets/icon-swap-completed.svg";
+                                                else if (model.isCanceled)
+                                                    return "qrc:/assets/icon-swap-canceled.svg";
                                                 else if (model.isExpired)
-                                                    return "qrc:/assets/icon-failed.svg";
+                                                    return "qrc:/assets/icon-expired.svg";
                                                 else
                                                     return "qrc:/assets/icon-swap-failed.svg";
                                             }
@@ -1101,10 +1104,12 @@ Item {
                                             verticalAlignment: Text.AlignBottom
                                             color: getTextColor()
                                             function getTextColor () {
-                                                if (!model) 
+                                                if (!model || model.isExpired) 
                                                     return Style.content_secondary;
                                                 if (model.isInProgress || model.isCompleted) {
-                                                     return Style.accent_swap;
+                                                    return Style.accent_swap;
+                                                } else if (model.isFailed) {
+                                                    return Style.accent_fail;
                                                 }
                                                 else {
                                                     return Style.content_secondary;
@@ -1258,23 +1263,21 @@ Item {
     }
 
     function getStatusText(value) {
+
         switch(value) {
             //% "pending"
             case "pending": return qsTrId("wallet-txs-status-pending");
-            //% "waiting for sender"
-            case "waiting for sender": return qsTrId("wallet-txs-status-waiting-sender");
-            //% "waiting for receiver"
-            case "waiting for receiver": return qsTrId("wallet-txs-status-waiting-receiver");
-            //% "in progress"
-            case "receiving": return qsTrId("wallet-txs-status-in-progress");
-            //% "in progress"
-            case "sending": return qsTrId("wallet-txs-status-in-progress");
-            //% "completed"
-            case "completed": return qsTrId("wallet-txs-status-completed");
-            //% "received"
-            case "received": return qsTrId("wallet-txs-status-received");
-            //% "sent"
-            case "sent": return qsTrId("wallet-txs-status-sent");
+            case "waiting for sender":
+            case "waiting for receiver":
+            case "receiving":
+            case "sending":
+                //% "in progress"
+                return qsTrId("wallet-txs-status-in-progress");
+            case "completed":
+            case "received":
+            case "sent":
+                //% "completed"
+                return qsTrId("wallet-txs-status-completed");
             //% "cancelled"
             case "cancelled": return qsTrId("wallet-txs-status-cancelled");
             //% "expired"

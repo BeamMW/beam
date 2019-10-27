@@ -44,7 +44,7 @@ UtxoItem::~UtxoItem()
 
 QString UtxoItem::amount() const
 {
-    return AmountToString(_coin.m_ID.m_Value, Currencies::Beam);
+    return AmountToUIString(_coin.m_ID.m_Value, Currencies::Beam);
 }
 
 QString UtxoItem::maturity() const

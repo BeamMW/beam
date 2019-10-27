@@ -16,39 +16,49 @@
 
 #include "model/app_model.h"
 
+#include <iterator>
+
 TokenBootstrapManager::TokenBootstrapManager()
     : _wallet_model(*AppModel::getInstance().getWallet())
 {
     connect(
         &_wallet_model,
-        SIGNAL(txStatus(beam::wallet::ChangeAction,
+        SIGNAL(transactionsChanged(beam::wallet::ChangeAction,
                         const std::vector<beam::wallet::TxDescription>&)),
-        SLOT(onTxStatus(beam::wallet::ChangeAction,
+        SLOT(onTransactionsChanged(beam::wallet::ChangeAction,
                         const std::vector<beam::wallet::TxDescription>&)));
-    _wallet_model.getAsync()->getWalletStatus();
+    _wallet_model.getAsync()->getTransactions();
 }
 
 TokenBootstrapManager::~TokenBootstrapManager() {}
 
-void TokenBootstrapManager::onTxStatus(
+void TokenBootstrapManager::onTransactionsChanged(
     beam::wallet::ChangeAction action,
     const std::vector<beam::wallet::TxDescription>& items)
 {
-    if (action != beam::wallet::ChangeAction::Reset)
+    switch (action)
     {
-        _wallet_model.getAsync()->getWalletStatus();
-        return;   
-    }
-
-    _myTxIds.clear();
-    _myTxIds.reserve(items.size());
-    for (const auto& item : items)
-    {
-        const auto& txId = item.GetTxID();
-        if (txId)
+    case beam::wallet::ChangeAction::Reset:
+        _myTxIds.clear(); // no break
+    case beam::wallet::ChangeAction::Added:
+    case beam::wallet::ChangeAction::Updated:
+        for (const auto& item : items)
         {
-            _myTxIds.emplace_back(txId.value());
+            if (const auto& id = item.GetTxID(); id)
+            {
+                _myTxIds.insert(*id);
+            }
         }
+        break;
+    case beam::wallet::ChangeAction::Removed:
+        for (const auto& item : items)
+        {
+            if (const auto& id = item.GetTxID(); id)
+            {
+                _myTxIds.erase(*id);
+            }
+        }
+        break;
     }
 
     checkIsTxPreviousAccepted();
@@ -82,7 +92,7 @@ void TokenBootstrapManager::checkTokenForDuplicate(const QString& token)
     _tokensInProgress[txIdValue] = token;
 
     _myTxIds.empty()
-        ? _wallet_model.getAsync()->getWalletStatus()
+        ? _wallet_model.getAsync()->getTransactions()
         : checkIsTxPreviousAccepted();
 }
 

@@ -328,7 +328,7 @@ Item {
                         
                         source: viewModel.transactions
                         filterRole: "search"
-                        filterString: "*" + searchBox.text + "*"
+                        filterString: searchBox.text
                         filterSyntax: SortFilterProxyModel.Wildcard
                         filterCaseSensitivity: Qt.CaseInsensitive
                     }
@@ -556,7 +556,7 @@ Item {
                     resizable: false
                 }
                 TableViewColumn {
-                    role: "amountGeneral"
+                    role: "amountGeneralWithCurrency"
                     //% "Amount"
                     title: qsTrId("general-amount")
                     elideMode: Text.ElideRight
@@ -574,7 +574,7 @@ Item {
                                 fontStyleName: "Bold"
                                 fontSizeMode: Text.Fit
                                 color: parent.isIncome ? Style.accent_incoming : Style.accent_outgoing
-                                onCopyText: BeamGlobals.copyToClipboard(Utils.getAmountWithoutCurrency(styleData.value)) 
+                                onCopyText: BeamGlobals.copyToClipboard(!!model ? model.amountGeneral : "")
                             }
                         }
                     }
@@ -614,22 +614,30 @@ Item {
                                             if (model.isSelfTransaction) {
                                                 return "qrc:/assets/icon-sending-own.svg";
                                             }
-                                            return model.isIncome ? "qrc:/assets/icon-receiving.svg"
-                                                                 : "qrc:/assets/icon-sending.svg";
+                                            return model.isIncome
+                                                ? "qrc:/assets/icon-receiving.svg"
+                                                : "qrc:/assets/icon-sending.svg";
                                         }
                                         else if (model.isCompleted) {
                                             if (model.isSelfTransaction) {
                                                 return "qrc:/assets/icon-sent-own.svg";
                                             }
-                                            return model.isIncome ? "qrc:/assets/icon-received.svg"
-                                                                 : "qrc:/assets/icon-sent.svg";
+                                            return model.isIncome
+                                                ? "qrc:/assets/icon-received.svg"
+                                                : "qrc:/assets/icon-sent.svg";
                                         }
                                         else if (model.isExpired) {
-                                            return "qrc:/assets/icon-failed.svg" 
+                                            return "qrc:/assets/icon-expired.svg" 
+                                        }
+                                        else if (model.isFailed) {
+                                            return model.isIncome
+                                                ? "qrc:/assets/icon-receive-failed.svg"
+                                                : "qrc:/assets/icon-send-failed.svg";
                                         }
                                         else {
-                                            return model.isIncome ? "qrc:/assets/icon-receive-canceled.svg"
-                                                                 : "qrc:/assets/icon-send-canceled.svg";
+                                            return model.isIncome
+                                                ? "qrc:/assets/icon-receive-canceled.svg"
+                                                : "qrc:/assets/icon-send-canceled.svg";
                                         }
                                     }
                                 }
@@ -641,9 +649,8 @@ Item {
                                     wrapMode: Text.WordWrap
                                     text: getStatusText(styleData.value)
                                     verticalAlignment: Text.AlignBottom
-                                    color: getTextColor()
-                                    function getTextColor () {
-                                        if (!model) {
+                                    color: {
+                                        if (!model || model.isExpired) {
                                             return Style.content_secondary;
                                         }
                                         if (model.isInProgress || model.isCompleted) {
@@ -651,6 +658,8 @@ Item {
                                                 return Style.content_main;
                                             }
                                             return model.isIncome ? Style.accent_incoming : Style.accent_outgoing;
+                                        } else if (model.isFailed) {
+                                            return Style.accent_fail;
                                         }
                                         else {
                                             return Style.content_secondary;

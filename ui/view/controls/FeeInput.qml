@@ -39,7 +39,10 @@ ColumnLayout {
             }
 
             onTextEdited:   control.fee = text ? parseInt(text) : 0
-            onFocusChanged: text = formatFee()
+            onFocusChanged: {
+                text = formatFee()
+                if (focus) cursorPosition = positionAt(feeInput.getMousePos().x, feeInput.getMousePos().y)
+            }
 
             Connections {
                 target: control
@@ -65,7 +68,7 @@ ColumnLayout {
         Layout.fillWidth: true
         SFText {
             //% "The minimum fee is %1 %2"
-            text:            qsTrId("general-fee-fail").arg(Utils.amount2locale(control.minFee)).arg(control.feeLabel)
+            text:            qsTrId("general-fee-fail").arg(Utils.uiStringToLocale(control.minFee)).arg(control.feeLabel)
             color:           Style.validator_error
             font.pixelSize:  12
             font.styleName:  "Italic"

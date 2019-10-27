@@ -93,6 +93,7 @@ signals:
     void btcOKChanged();
     void ltcOKChanged();
     void qtumOKChanged();
+    void offerRemovedFromTable(QVariant variantTxID);
 
 private:
     bool hasActiveTx(const std::string& swapCoin) const;

@@ -23,8 +23,10 @@ public:
     SwapTxObject(QObject* parent = nullptr);
     SwapTxObject(const beam::wallet::TxDescription& tx, QObject* parent = nullptr);
 
-    auto getSentAmount() const -> QString;
+    auto getSentAmountWithCurrency() const -> QString;
+    auto getSentAmount() const-> QString;
     auto getSentAmountValue() const -> beam::Amount;
+    auto getReceivedAmountWithCurrency() const-> QString;
     auto getReceivedAmount() const -> QString;
     auto getReceivedAmountValue() const -> beam::Amount;
     auto getToken() const -> QString;
@@ -39,9 +41,13 @@ public:
     auto getBeamRefundTxKernelId() const -> QString;
     auto getSwapCoinName() const -> QString;
     auto getFeeRate() const -> QString;
+    auto getStatus() const -> QString override;
+    auto getFailureReason() const -> QString override;
 
-    bool isProofReceived() const;
+    bool isLockTxProofReceived() const;
+    bool isRefundTxProofReceived() const;
     bool isBeamSideSwap() const;
+    bool isExpired() const override;
 
 signals:
 

@@ -88,7 +88,6 @@ ReceiveSwapViewModel::ReceiveSwapViewModel()
 
     generateNewAddress();
 
-    _walletModel.getAsync()->getWalletStatus();
     updateTransactionToken();
 }
 
@@ -101,12 +100,12 @@ void ReceiveSwapViewModel::onGeneratedNewAddress(const beam::wallet::WalletAddre
 
 QString ReceiveSwapViewModel::getAmountToReceive() const
 {
-    return beamui::AmountToString(_amountToReceiveGrothes);
+    return beamui::AmountToUIString(_amountToReceiveGrothes);
 }
 
 void ReceiveSwapViewModel::setAmountToReceive(QString value)
 {
-    auto amount = beamui::StringToAmount(value);
+    auto amount = beamui::UIStringToAmount(value);
     if (amount != _amountToReceiveGrothes)
     {
         _amountToReceiveGrothes = amount;
@@ -117,7 +116,7 @@ void ReceiveSwapViewModel::setAmountToReceive(QString value)
 
 QString ReceiveSwapViewModel::getAmountSent() const
 {
-    return beamui::AmountToString(_amountSentGrothes);
+    return beamui::AmountToUIString(_amountSentGrothes);
 }
 
 unsigned int ReceiveSwapViewModel::getReceiveFee() const
@@ -127,7 +126,7 @@ unsigned int ReceiveSwapViewModel::getReceiveFee() const
 
 void ReceiveSwapViewModel::setAmountSent(QString value)
 {
-    auto amount = beamui::StringToAmount(value);
+    auto amount = beamui::UIStringToAmount(value);
     if (amount != _amountSentGrothes)
     {
         _amountSentGrothes = amount;

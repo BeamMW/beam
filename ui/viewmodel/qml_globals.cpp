@@ -49,11 +49,11 @@ QString QMLGlobals::version()
 
 bool QMLGlobals::isTAValid(const QString& text)
 {
-    if (QMLGlobals::isTransactionToken(text))
-    {
-        return true;
-    }
+    return QMLGlobals::isTransactionToken(text) || QMLGlobals::isAddress(text);
+}
 
+bool QMLGlobals::isAddress(const QString& text)
+{
     return beam::wallet::check_receiver_address(text.toStdString());
 }
 
@@ -67,6 +67,8 @@ bool QMLGlobals::isTransactionToken(const QString& text)
 
 bool QMLGlobals::isSwapToken(const QString& text)
 {
+    if (text.isEmpty()) return false;
+    
     auto params = beam::wallet::ParseParameters(text.toStdString());
     if (!params)
     {

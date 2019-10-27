@@ -44,12 +44,12 @@ inline QString str2qstr(const std::string& str) {
     return QString::fromStdString(str);
 }
 
-inline std::string vec2str(const std::vector<std::string>& vec)
+inline std::string vec2str(const std::vector<std::string>& vec, char separator)
 {
     return std::accumulate(
         std::next(vec.begin()), vec.end(), *vec.begin(),
-        [](std::string a, std::string b)
+        [separator](std::string a, std::string b)
     {
-        return a + " " + b;
+        return a + separator + b;
     });
 }
