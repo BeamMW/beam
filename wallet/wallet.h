@@ -312,5 +312,6 @@ namespace beam::wallet
 
         // Counter of running transaction updates. Used by Cold wallet
         int m_AsyncUpdateCounter = 0;
+        bool m_StoredMessagesProcessed = false; // this should happen only once, but not in destructor;
     };
 }
