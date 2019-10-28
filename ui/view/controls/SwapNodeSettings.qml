@@ -473,14 +473,15 @@ Control {
             // alert text if we have active transactions
             SFText {
                 visible:               !control.canEdit
-                Layout.preferredWidth: 500
+                Layout.topMargin:      27
+                Layout.preferredWidth: 400
                 horizontalAlignment:   Text.AlignHCenter
                 verticalAlignment:     Text.AlignVCenter
                 font.pixelSize:        14
                 wrapMode:              Text.WordWrap
                 color:                 control.color
                 lineHeight:            1.1 
-                //% "You cannot disconnect wallet, edit seed phrase or change default fee while you have\ntransactions in progress. Please wait untill transactions are completed\nand try again."
+                //% "You cannot disconnect wallet, edit seed phrase or change default\nfee while you have transactions in progress."
                 text:                  qsTrId("settings-progress-na")
             }
 

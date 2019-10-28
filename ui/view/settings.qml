@@ -148,8 +148,7 @@ ColumnLayout {
         Layout.bottomMargin: 10
         clip: true
         visible: swapMode
-        // horizontal scroll is temporary enabled
-        ScrollBar.horizontal.policy: ScrollBar.AsNeeded
+        ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
         ScrollBar.vertical.policy: ScrollBar.AsNeeded
 
         GridLayout {

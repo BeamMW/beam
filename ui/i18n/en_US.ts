@@ -1620,10 +1620,9 @@ or send this address to the sender over secure channel</translation>
         <translation type="unfinished">Received</translation>
     </message>
     <message id="settings-progress-na">
-        <source>You cannot disconnect wallet, edit seed phrase or change default fee while you have\ntransactions in progress. Please wait untill transactions are completed\nand try again.</source>
-        <translation>You cannot disconnect wallet, edit seed phrase or change default fee while you have
-transactions in progress. Please wait untill transactions are completed
-and try again.</translation>
+        <source>You cannot disconnect wallet, edit seed phrase or change default\nfee while you have transactions in progress.</source>
+        <translation>You cannot disconnect wallet, edit seed phrase or change default
+fee while you have transactions in progress.</translation>
     </message>
     <message id="atomic-no-offers">
         <source>There are no active offers at the moment.\nPlease try again later or create an offer yourself.</source>
