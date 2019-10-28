@@ -53,7 +53,7 @@
     </message>
     <message id="general-cancel">
         <source>Cancel</source>
-        <extracomment>Edit addres dialog, cancel button</extracomment>
+        <extracomment>Edit address dialog, cancel button</extracomment>
         <translation>ยกเลิก</translation>
     </message>
     <message id="general-delete">
@@ -446,17 +446,17 @@
     </message>
     <message id="edit-addr-title">
         <source>Edit address</source>
-        <extracomment>Edit addres dialog title</extracomment>
+        <extracomment>Edit address dialog title</extracomment>
         <translation>แก้ไขที่อยู่</translation>
     </message>
     <message id="edit-addr-addr-id">
         <source>Address ID</source>
-        <extracomment>Edit addres dialog, address label</extracomment>
+        <extracomment>Edit address dialog, address label</extracomment>
         <translation>ที่อยู่</translation>
     </message>
     <message id="edit-addr-save-button">
         <source>Save</source>
-        <extracomment>Edit addres dialog, save button</extracomment>
+        <extracomment>Edit address dialog, save button</extracomment>
         <translation>บันทึก</translation>
     </message>
     <message id="payment-info-proof-verification">
@@ -1124,27 +1124,27 @@
     </message>
     <message id="edit-addr-expires-label">
         <source>Expires</source>
-        <extracomment>Edit addres dialog, expires label</extracomment>
+        <extracomment>Edit address dialog, expires label</extracomment>
         <translation>หมดอายุ</translation>
     </message>
     <message id="edit-addr-expire-now-label">
         <source>Now</source>
-        <extracomment>Edit addres dialog, expire now label</extracomment>
+        <extracomment>Edit address dialog, expire now label</extracomment>
         <translation>ตอนนี้</translation>
     </message>
     <message id="edit-addr-expire-now-switch">
         <source>Expire address now</source>
-        <extracomment>Edit addres dialog, expire now switch</extracomment>
+        <extracomment>Edit address dialog, expire now switch</extracomment>
         <translation>ให้ที่อยู่หมดอายุเลย</translation>
     </message>
     <message id="edit-addr-expiration-time-label">
         <source>Expired on </source>
-        <extracomment>Edit addres dialog, expiration time label</extracomment>
+        <extracomment>Edit address dialog, expiration time label</extracomment>
         <translation>หมดอายุเมื่อ: </translation>
     </message>
     <message id="edit-addr-activate-addr-switch">
         <source>Activate address</source>
-        <extracomment>Edit addres dialog, expiration time label</extracomment>
+        <extracomment>Edit address dialog, expiration time label</extracomment>
         <translation>ใช้งานที่อยู่</translation>
     </message>
     <message id="time-never">

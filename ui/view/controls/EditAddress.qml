@@ -99,7 +99,7 @@ Dialog {
 			Layout.preferredWidth: parent.width
 			Layout.alignment: Qt.AlignLeft
 			horizontalAlignment: Text.AlignHCenter
-			//: Edit addres dialog title
+			//: Edit address dialog title
 			//% "Edit address"
 			text: qsTrId("edit-addr-title")
 			color: Style.content_main
@@ -114,7 +114,7 @@ Dialog {
 
 			SFText {
 				Layout.preferredWidth: parent.width
-				//: Edit addres dialog, address label
+				//: Edit address dialog, address label
 				//% "Address ID"
 				text: qsTrId("edit-addr-addr-id")
 				color: Style.content_main
@@ -158,7 +158,7 @@ Dialog {
 
 			SFText {
 				id: expiresDateLabel
-				//: Edit addres dialog, expires label
+				//: Edit address dialog, expires label
 				//% "Expires"
 				text: qsTrId("edit-addr-expires-label")
 				color: Style.content_main
@@ -186,7 +186,7 @@ Dialog {
 				SFText {
 					Layout.preferredWidth: parent.width
 					Layout.alignment: Qt.AlignLeft | Qt.AlignTop
-					//: Edit addres dialog, expire now label
+					//: Edit address dialog, expire now label
 					//% "Now"
 					text: qsTrId("edit-addr-expire-now-label")
 					color: Style.content_secondary
@@ -211,7 +211,7 @@ Dialog {
 			CustomSwitch {
 				id: disactivate
 				Layout.alignment: Qt.AlignRight | Qt.AlignTop
-				//: Edit addres dialog, expire now switch
+				//: Edit address dialog, expire now switch
 				//% "Expire address now"
 				text: qsTrId("edit-addr-expire-now-switch")
 				font.pixelSize: 14
@@ -228,7 +228,7 @@ Dialog {
 			visible: isExpiredAddress
 
 			SFText {
-				//: Edit addres dialog, expiration time label
+				//: Edit address dialog, expiration time label
 				//% "Expired on "
 				text: qsTrId("edit-addr-expiration-time-label")
 				color: Style.content_secondary
@@ -270,7 +270,7 @@ Dialog {
 			CustomSwitch {
 				id: activate
 				Layout.alignment: Qt.AlignLeft
-				//: Edit addres dialog, expiration time label
+				//: Edit address dialog, expiration time label
 				//% "Activate address"
 				text: qsTrId("edit-addr-activate-addr-switch")
 				font.pixelSize: 14
@@ -286,7 +286,7 @@ Dialog {
 
 			SFText {
 				id: expiresLabel
-				//: Edit addres dialog, expires label
+				//: Edit address dialog, expires label
 				//% "Expires"
 				text: qsTrId("edit-addr-expires-label")
 				color: Style.content_main
@@ -366,7 +366,7 @@ Dialog {
 
 			CustomButton {
 				Layout.preferredHeight: 40
-				//: Edit addres dialog, cancel button
+				//: Edit address dialog, cancel button
 				//% "Cancel"
 				text: qsTrId("general-cancel")
                 icon.source: "qrc:/assets/icon-cancel.svg"
@@ -383,7 +383,7 @@ Dialog {
 			PrimaryButton {
 				id: saveButton
 				Layout.preferredHeight: 40
-				//: Edit addres dialog, save button
+				//: Edit address dialog, save button
 				//% "Save"
 				text: qsTrId("edit-addr-save-button")
                 icon.source: "qrc:/assets/icon-done.svg"

@@ -53,7 +53,7 @@
     </message>
     <message id="general-cancel">
         <source>Cancel</source>
-        <extracomment>Edit addres dialog, cancel button</extracomment>
+        <extracomment>Edit address dialog, cancel button</extracomment>
         <translation>キャンセル</translation>
     </message>
     <message id="general-delete">
@@ -446,17 +446,17 @@
     </message>
     <message id="edit-addr-title">
         <source>Edit address</source>
-        <extracomment>Edit addres dialog title</extracomment>
+        <extracomment>Edit address dialog title</extracomment>
         <translation>アドレスを編集</translation>
     </message>
     <message id="edit-addr-addr-id">
         <source>Address ID</source>
-        <extracomment>Edit addres dialog, address label</extracomment>
+        <extracomment>Edit address dialog, address label</extracomment>
         <translation>アドレスID</translation>
     </message>
     <message id="edit-addr-save-button">
         <source>Save</source>
-        <extracomment>Edit addres dialog, save button</extracomment>
+        <extracomment>Edit address dialog, save button</extracomment>
         <translation>保存</translation>
     </message>
     <message id="payment-info-proof-verification">
@@ -1124,27 +1124,27 @@
     </message>
     <message id="edit-addr-expires-label">
         <source>Expires</source>
-        <extracomment>Edit addres dialog, expires label</extracomment>
+        <extracomment>Edit address dialog, expires label</extracomment>
         <translation>期限</translation>
     </message>
     <message id="edit-addr-expire-now-label">
         <source>Now</source>
-        <extracomment>Edit addres dialog, expire now label</extracomment>
+        <extracomment>Edit address dialog, expire now label</extracomment>
         <translation>今</translation>
     </message>
     <message id="edit-addr-expire-now-switch">
         <source>Expire address now</source>
-        <extracomment>Edit addres dialog, expire now switch</extracomment>
+        <extracomment>Edit address dialog, expire now switch</extracomment>
         <translation>アドレスを今すぐ期限切れにする</translation>
     </message>
     <message id="edit-addr-expiration-time-label">
         <source>Expired on </source>
-        <extracomment>Edit addres dialog, expiration time label</extracomment>
+        <extracomment>Edit address dialog, expiration time label</extracomment>
         <translation>期限切： </translation>
     </message>
     <message id="edit-addr-activate-addr-switch">
         <source>Activate address</source>
-        <extracomment>Edit addres dialog, expiration time label</extracomment>
+        <extracomment>Edit address dialog, expiration time label</extracomment>
         <translation>アドレスを有効化</translation>
     </message>
     <message id="time-never">

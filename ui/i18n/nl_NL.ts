@@ -53,7 +53,7 @@
     </message>
     <message id="general-cancel">
         <source>Cancel</source>
-        <extracomment>Edit addres dialog, cancel button</extracomment>
+        <extracomment>Edit address dialog, cancel button</extracomment>
         <translation>Annuleren</translation>
     </message>
     <message id="general-delete">
@@ -446,17 +446,17 @@
     </message>
     <message id="edit-addr-title">
         <source>Edit address</source>
-        <extracomment>Edit addres dialog title</extracomment>
+        <extracomment>Edit address dialog title</extracomment>
         <translation>Adres bewerken</translation>
     </message>
     <message id="edit-addr-addr-id">
         <source>Address ID</source>
-        <extracomment>Edit addres dialog, address label</extracomment>
+        <extracomment>Edit address dialog, address label</extracomment>
         <translation>Adres ID</translation>
     </message>
     <message id="edit-addr-save-button">
         <source>Save</source>
-        <extracomment>Edit addres dialog, save button</extracomment>
+        <extracomment>Edit address dialog, save button</extracomment>
         <translation>Opslaan</translation>
     </message>
     <message id="payment-info-proof-verification">
@@ -1124,27 +1124,27 @@
     </message>
     <message id="edit-addr-expires-label">
         <source>Expires</source>
-        <extracomment>Edit addres dialog, expires label</extracomment>
+        <extracomment>Edit address dialog, expires label</extracomment>
         <translation>Verloopt</translation>
     </message>
     <message id="edit-addr-expire-now-label">
         <source>Now</source>
-        <extracomment>Edit addres dialog, expire now label</extracomment>
+        <extracomment>Edit address dialog, expire now label</extracomment>
         <translation>Nu</translation>
     </message>
     <message id="edit-addr-expire-now-switch">
         <source>Expire address now</source>
-        <extracomment>Edit addres dialog, expire now switch</extracomment>
+        <extracomment>Edit address dialog, expire now switch</extracomment>
         <translation>Laat adres nu vervallen</translation>
     </message>
     <message id="edit-addr-expiration-time-label">
         <source>Expired on </source>
-        <extracomment>Edit addres dialog, expiration time label</extracomment>
+        <extracomment>Edit address dialog, expiration time label</extracomment>
         <translation>Verlopen op </translation>
     </message>
     <message id="edit-addr-activate-addr-switch">
         <source>Activate address</source>
-        <extracomment>Edit addres dialog, expiration time label</extracomment>
+        <extracomment>Edit address dialog, expiration time label</extracomment>
         <translation>Adres activeren</translation>
     </message>
     <message id="time-never">
