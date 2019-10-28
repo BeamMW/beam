@@ -594,6 +594,16 @@ void TestAddresses()
 
     db->saveAddress(a);
 
+    WalletAddress c = {};
+    c.m_label = "contact label";
+    c.m_category = "test category";
+    c.m_createTime = beam::getTimestamp();
+    c.m_duration = 23;
+    c.m_OwnID = 0;
+    c.m_walletID = storage::generateWalletIDFromIndex(keyKeeper, 32);
+
+    db->saveAddress(c);
+
     addresses = db->getAddresses(true);
     WALLET_CHECK(addresses.size() == 1);
     WALLET_CHECK(addresses[0].m_walletID == a.m_walletID);
@@ -602,6 +612,16 @@ void TestAddresses()
     WALLET_CHECK(addresses[0].m_createTime == a.m_createTime);
     WALLET_CHECK(addresses[0].m_duration == a.m_duration);
     WALLET_CHECK(addresses[0].m_OwnID == a.m_OwnID);
+
+    auto contacts = db->getAddresses(false);
+    WALLET_CHECK(contacts.size() == 1);
+    WALLET_CHECK(contacts[0].m_walletID == c.m_walletID);
+    WALLET_CHECK(contacts[0].m_label == c.m_label);
+    WALLET_CHECK(contacts[0].m_category == c.m_category);
+    WALLET_CHECK(contacts[0].m_createTime == c.m_createTime);
+    WALLET_CHECK(contacts[0].m_duration == c.m_duration);
+    WALLET_CHECK(contacts[0].m_OwnID == c.m_OwnID);
+
 
     a.m_category = "cat2";
 
@@ -632,7 +652,13 @@ void TestAddresses()
     {
         auto a3 = db->getAddress(a.m_walletID);
         WALLET_CHECK(a3.is_initialized());
-        addresses = db->getAddresses(true);
+        WALLET_CHECK(a3->m_category == a.m_category);
+        auto a4 = db->getAddress(c.m_walletID);
+        WALLET_CHECK(a4.is_initialized());
+        WALLET_CHECK(a4->m_category == c.m_category);
+
+        WALLET_CHECK(addresses == db->getAddresses(true));
+        WALLET_CHECK(contacts == db->getAddresses(false));
     }
 
     // check double import
@@ -640,7 +666,11 @@ void TestAddresses()
     {
         auto a3 = db->getAddress(a.m_walletID);
         WALLET_CHECK(a3.is_initialized());
+        auto a4 = db->getAddress(c.m_walletID);
+        WALLET_CHECK(a4.is_initialized());
+
         WALLET_CHECK(addresses == db->getAddresses(true));
+        WALLET_CHECK(contacts == db->getAddresses(false));
     }
 }
 
