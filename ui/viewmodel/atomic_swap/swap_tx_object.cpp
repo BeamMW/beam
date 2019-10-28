@@ -205,7 +205,15 @@ QString SwapTxObject::getFailureReason() const
             {
                 //% "Refunded"
                 return qtTrId("swap-tx-failture-refunded");
-            }            
+            }
+            else
+            {
+                auto extFailureReason = getTxDescription().GetParameter<TxFailureReason>(TxParameterID::FailureReason);
+                if (extFailureReason)
+                {
+                    return getReasonString(*extFailureReason);
+                }
+            }
         }
         else
         {
