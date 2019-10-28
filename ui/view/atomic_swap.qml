@@ -202,7 +202,7 @@ Item {
                     }
                     gradLeft: Style.swapCurrencyPaneGrLeftBEAM
                     currencyIcon: "qrc:/assets/icon-beam.svg"
-                    amount: Utils.uiStringToLocale(viewModel.beamAvailable)
+                    amount: viewModel.beamAvailable
                     currencySymbol: Utils.symbolBeam
                     valueSecondaryStr: activeTxCountStr()
                     visible: true
@@ -226,7 +226,7 @@ Item {
                 SwapCurrencyAmountPane {
                     gradLeft: Style.swapCurrencyPaneGrLeftBTC
                     currencyIcon: "qrc:/assets/icon-btc.svg"
-                    amount: viewModel.hasBtcTx ? "" : Utils.uiStringToLocale(viewModel.btcAvailable)
+                    amount: viewModel.hasBtcTx ? "" : viewModel.btcAvailable
                     currencySymbol: Utils.symbolBtc
                     valueSecondaryStr: parent.btcActiveTxStr()
                     isOk: viewModel.btcOK
@@ -241,7 +241,7 @@ Item {
                 SwapCurrencyAmountPane {
                     gradLeft: Style.swapCurrencyPaneGrLeftLTC
                     currencyIcon: "qrc:/assets/icon-ltc.svg"
-                    amount: viewModel.hasLtcTx ? "" : Utils.uiStringToLocale(viewModel.ltcAvailable)
+                    amount: viewModel.hasLtcTx ? "" : viewModel.ltcAvailable
                     currencySymbol: Utils.symbolLtc
                     valueSecondaryStr: parent.ltcActiveTxStr()
                     isOk: viewModel.ltcOK
@@ -254,7 +254,7 @@ Item {
                 SwapCurrencyAmountPane {
                     gradLeft: Style.swapCurrencyPaneGrLeftQTUM
                     currencyIcon: "qrc:/assets/icon-qtum.svg"
-                    amount: viewModel.hasQtumTx ? "" : Utils.uiStringToLocale(viewModel.qtumAvailable)
+                    amount: viewModel.hasQtumTx ? "" : viewModel.qtumAvailable
                     currencySymbol: Utils.symbolQtum
                     valueSecondaryStr: parent.qtumActiveTxStr()
                     isOk: viewModel.qtumOK
