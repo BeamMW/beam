@@ -12,19 +12,6 @@ Item {
     Layout.fillWidth: true
     Layout.fillHeight: true
 
-    // callbacks for send views
-    function onAccepted() {
-        offersStackView.pop();
-        offersViewComponent.atomicSwapLayout.state = "transactions";
-        offersViewComponent.transactionsTab.state = "filterInProgressTransactions";
-    }
-    function onClosed() {
-        offersStackView.pop();
-    }
-    function onSwapToken(token) {
-        tokenDuplicateChecker.checkTokenForDuplicate(token);
-    }
-
     SwapOffersViewModel {
         id: viewModel
     }
@@ -70,33 +57,6 @@ Item {
         }
     }
 
-    TokenDuplicateChecker {
-        id: tokenDuplicateChecker
-        onAccepted: {
-            offersStackView.pop();
-        }
-        Connections {
-            target: tokenDuplicateChecker.model
-            onTokenPreviousAccepted: function(token) {
-                tokenDuplicateChecker.isOwn = false;
-                tokenDuplicateChecker.open();
-            }
-            onTokenFirstTimeAccepted: function(token) {
-                offersStackView.pop();
-                offersStackView.push(Qt.createComponent("send_swap.qml"),
-                                     {
-                                         "onAccepted": onAccepted,
-                                         "onClosed": onClosed
-                                     });
-                offersStackView.currentItem.setToken(token);
-            }
-            onTokenOwnGenerated: function(token) {
-                tokenDuplicateChecker.isOwn = true;
-                tokenDuplicateChecker.open();
-            }
-        }
-    }
-
     Component.onCompleted: {
         if (viewModel.showBetaWarning) {
             betaDialog.open()
@@ -131,6 +91,46 @@ Item {
             Layout.fillHeight: true
             spacing: 0
             state: "offers"
+
+            // callbacks for send views
+            function onAccepted() {
+                offersStackView.pop();
+                atomicSwapLayout.state = "transactions";
+                transactionsTab.state = "filterInProgressTransactions";
+            }
+            function onClosed() {
+                offersStackView.pop();
+            }
+            function onSwapToken(token) {
+                tokenDuplicateChecker.checkTokenForDuplicate(token);
+            }
+            
+            TokenDuplicateChecker {
+                id: tokenDuplicateChecker
+                onAccepted: {
+                    offersStackView.pop();
+                }
+                Connections {
+                    target: tokenDuplicateChecker.model
+                    onTokenPreviousAccepted: function(token) {
+                        tokenDuplicateChecker.isOwn = false;
+                        tokenDuplicateChecker.open();
+                    }
+                    onTokenFirstTimeAccepted: function(token) {
+                        offersStackView.pop();
+                        offersStackView.push(Qt.createComponent("send_swap.qml"),
+                                            {
+                                                "onAccepted": atomicSwapLayout.onAccepted,
+                                                "onClosed": atomicSwapLayout.onClosed
+                                            });
+                        offersStackView.currentItem.setToken(token);
+                    }
+                    onTokenOwnGenerated: function(token) {
+                        tokenDuplicateChecker.isOwn = true;
+                        tokenDuplicateChecker.open();
+                    }
+                }
+            }
 
             RowLayout {
                 Layout.alignment: Qt.AlignRight | Qt.AlignTop
