@@ -53,7 +53,7 @@ signals:
 
 private:
     auto getSwapAmountValue(bool sent) const -> beam::Amount;
-    auto getSwapAmount(bool sent) const -> QString;
+    auto getSwapAmountWithCurrency(bool sent) const -> QString;
 
     boost::optional<bool> m_isBeamSide;
     boost::optional<beam::wallet::AtomicSwapCoin> m_swapCoin;
