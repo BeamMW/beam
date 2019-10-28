@@ -272,17 +272,17 @@
     </message>
     <message id="address-table-cm-show-qr">
         <source>Show QR code</source>
-        <extracomment>Entry in adress table context menu to show QR</extracomment>
+        <extracomment>Entry in address table context menu to show QR</extracomment>
         <translation>QR kodunu göster</translation>
     </message>
     <message id="address-table-cm-edit">
         <source>Edit address</source>
-        <extracomment>Entry in adress table context menu to edit</extracomment>
+        <extracomment>Entry in address table context menu to edit</extracomment>
         <translation>Adresi düzenle</translation>
     </message>
     <message id="address-table-cm-delete">
         <source>Delete address</source>
-        <extracomment>Entry in adress table context menu to delete</extracomment>
+        <extracomment>Entry in address table context menu to delete</extracomment>
         <translation>Adresi sil</translation>
     </message>
     <message id="address-table-cm-delete-contact">
