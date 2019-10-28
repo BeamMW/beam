@@ -96,7 +96,6 @@ Rectangle {
                     fontSizeMode: Text.Fit
                     visible: amount.length
                     verticalAlignment: Text.AlignVCenter
-                    wrapMode: Text.Wrap
                     copyMenuEnabled: currencySymbol.length
                     onCopyText: BeamGlobals.copyToClipboard(amount)
                 }
