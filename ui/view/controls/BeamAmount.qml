@@ -54,7 +54,7 @@ Control {
                     font.weight:    lightFont ? Font.Light : Font.Normal
                     color:          control.error ? Style.validator_error : control.color
                     text:           parseFloat(amount) > 0 || showZero ? prefix + [Utils.uiStringToLocale(amount), control.currencySymbol].join(" ") : "-"
-                    onCopyText:     BeamGlobals.copyToClipboard(Utils.uiStringToLocale(amount))
+                    onCopyText:     BeamGlobals.copyToClipboard(amount)
                 }
                 Image {
                     visible: showDrop
