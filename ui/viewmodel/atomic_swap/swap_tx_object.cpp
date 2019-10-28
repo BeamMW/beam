@@ -76,9 +76,9 @@ QString SwapTxObject::getSentAmountWithCurrency() const
 {
     if (m_type == TxType::AtomicSwap)
     {
-        return getSwapAmount(true);
+        return getSwapAmountWithCurrency(true);
     }
-    return m_tx.m_sender ? getAmount() : "";
+    return m_tx.m_sender ? getAmountWithCurrency() : "";
 }
 
 QString SwapTxObject::getSentAmount() const
@@ -101,9 +101,9 @@ QString SwapTxObject::getReceivedAmountWithCurrency() const
 {
     if (m_type == TxType::AtomicSwap)
     {
-        return getSwapAmount(false);
+        return getSwapAmountWithCurrency(false);
     }
-    return !m_tx.m_sender ? getAmount() : "";
+    return !m_tx.m_sender ? getAmountWithCurrency() : "";
 }
 
 QString SwapTxObject::getReceivedAmount() const
@@ -122,7 +122,7 @@ beam::Amount SwapTxObject::getReceivedAmountValue() const
     return !m_tx.m_sender ? m_tx.m_amount : 0;
 }
 
-QString SwapTxObject::getSwapAmount(bool sent) const
+QString SwapTxObject::getSwapAmountWithCurrency(bool sent) const
 {
     if (!m_isBeamSide)
     {
@@ -139,7 +139,7 @@ QString SwapTxObject::getSwapAmount(bool sent) const
         }
         return "";
     }
-    return getAmount();
+    return getAmountWithCurrency();
 }
 
 beam::Amount SwapTxObject::getSwapAmountValue(bool sent) const
