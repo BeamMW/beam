@@ -31,26 +31,26 @@ public:
     auto getAmountWithCurrency() const->QString;
     auto getAmount() const -> QString;
     auto getAmountValue() const -> beam::Amount;
-    virtual auto getStatus() const -> QString;
     auto getComment() const -> QString;
     auto getAddressFrom() const -> QString;
     auto getAddressTo() const -> QString;
     auto getFee() const -> QString;
     auto getKernelID() const -> QString;
     auto getTransactionID() const -> QString;
-    virtual auto getFailureReason() const -> QString;
     auto hasPaymentProof() const -> bool;
+    virtual auto getStatus() const -> QString;
+    virtual auto getFailureReason() const -> QString;
 
     bool isIncome() const;
-    bool isCancelAvailable() const;
-    bool isDeleteAvailable() const;
-    bool isInProgress() const;
-    bool isPending() const;
-    bool isCompleted() const;
     bool isSelfTx() const;
-    bool isCanceled() const;
-    bool isFailed() const;
+    virtual bool isCancelAvailable() const;
+    virtual bool isDeleteAvailable() const;
+    virtual bool isInProgress() const;
+    virtual bool isPending() const;
     virtual bool isExpired() const;
+    virtual bool isCompleted() const;
+    virtual bool isCanceled() const;
+    virtual bool isFailed() const;
 
     void setKernelID(const QString& value);
     void setStatus(beam::wallet::TxStatus status);

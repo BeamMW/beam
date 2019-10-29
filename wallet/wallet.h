@@ -126,6 +126,8 @@ namespace beam::wallet
         void Subscribe(IWalletObserver* observer);
         void Unsubscribe(IWalletObserver* observer);
         void ResumeAllTransactions();
+
+        bool IsWalletInSync() const;
     protected:
         void SendTransactionToNode(const TxID& txId, Transaction::Ptr, SubTxID subTxID);
     private:

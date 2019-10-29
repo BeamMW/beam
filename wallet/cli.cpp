@@ -918,6 +918,7 @@ namespace
     template<typename Settings>
     bool ParseElectrumSettings(const po::variables_map& vm, uint8_t addressVersion, Settings& settings)
     {
+        const char kElectrumSeparateSymbol = ' ';
         if (vm.count(cli::ELECTRUM_SEED) || vm.count(cli::ELECTRUM_ADDR) || vm.count(cli::GENERATE_ELECTRUM_SEED))
         {
             auto electrumSettings = settings.GetElectrumConnectionOptions();
@@ -947,8 +948,8 @@ namespace
             if (vm.count(cli::ELECTRUM_SEED))
             {
                 auto tempPhrase = vm[cli::ELECTRUM_SEED].as<string>();
-                boost::algorithm::trim_if(tempPhrase, [](char ch) { return ch == ';'; });
-                electrumSettings.m_secretWords = string_helpers::split(tempPhrase, ';');
+                boost::algorithm::trim_if(tempPhrase, [kElectrumSeparateSymbol](char ch) { return ch == kElectrumSeparateSymbol; });
+                electrumSettings.m_secretWords = string_helpers::split(tempPhrase, kElectrumSeparateSymbol);
 
                 if (!bitcoin::validateElectrumMnemonic(electrumSettings.m_secretWords))
                 {
@@ -961,9 +962,9 @@ namespace
 
                 auto strSeed = std::accumulate(
                     std::next(electrumSettings.m_secretWords.begin()), electrumSettings.m_secretWords.end(), *electrumSettings.m_secretWords.begin(),
-                    [](std::string a, std::string b)
+                    [kElectrumSeparateSymbol](std::string a, std::string b)
                 {
-                    return a + ";" + b;
+                    return a + kElectrumSeparateSymbol + b;
                 });
 
                 LOG_INFO() << "seed = " << strSeed;
@@ -1953,11 +1954,18 @@ int main_impl(int argc, char* argv[])
 
                         if (command == cli::SWAP_INIT)
                         {
+                            if (!wallet.IsWalletInSync())
+                            {
+                                return -1;
+                            }
+
                             currentTxID = InitSwap(vm, walletDB, keyKeeper, wallet, isFork1);
                             if (!currentTxID)
                             {
                                 return -1;
                             }
+
+                            return 0;
                         }
 
                         if (command == cli::SWAP_ACCEPT)

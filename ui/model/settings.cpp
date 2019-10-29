@@ -54,6 +54,7 @@ namespace
         { "be_BY", "Беларуская"},
         { "nl_NL", "Dutch"},
         { "fr_FR", "Française"},
+        { "it_IT", "Italiano"},
         { "ja_JP", "日本語"},
         { "ru_RU", "Русский" },
         { "fi_FI", "Suomi" },

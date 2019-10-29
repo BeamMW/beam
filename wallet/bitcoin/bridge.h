@@ -63,7 +63,7 @@ namespace beam::bitcoin
             Timestamp locktime,
             std::function<void(const Error&, const std::string&)> callback) = 0;
         // error, value, script (hex), confirmations
-        virtual void getTxOut(const std::string& txid, int outputIndex, std::function<void(const Error&, const std::string&, double, uint32_t)> callback) = 0;
+        virtual void getTxOut(const std::string& txid, int outputIndex, std::function<void(const Error&, const std::string&, Amount, uint32_t)> callback) = 0;
         // error, block count
         virtual void getBlockCount(std::function<void(const Error&, uint64_t)> callback) = 0;
         // error, balance

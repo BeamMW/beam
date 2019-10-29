@@ -189,6 +189,7 @@ ColumnLayout {
                     addressElectrum:            modelData.nodeAddressElectrum
                     seedPhrasesElectrum:        modelData.electrumSeedPhrases
                     phrasesSeparatorElectrum:   modelData.phrasesSeparatorElectrum
+                    isCurrentElectrumSeedValid: modelData.isCurrentSeedValid
 
                     Connections {
                         target: modelData

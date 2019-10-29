@@ -59,9 +59,6 @@ namespace beam::bitcoin
         }
 
         WriteToDb(GetFeeRateName(), settings.GetFeeRate());
-        WriteToDb(GetMinFeeRateName(), settings.GetMinFeeRate());
-        WriteToDb(GetTxMinConfirmationsName(), settings.GetTxMinConfirmations());
-        WriteToDb(GetLockTimeInBlocksName(), settings.GetLockTimeInBlocks());
         WriteToDb(GetConnectrionTypeName(), settings.GetCurrentConnectionType());
 
         // update m_settings
@@ -105,24 +102,6 @@ namespace beam::bitcoin
                 auto feeRate = m_settings->GetFeeRate();
                 ReadFromDB(GetFeeRateName(), feeRate);
                 m_settings->SetFeeRate(feeRate);
-            }
-
-            {
-                auto minFeeRate = m_settings->GetMinFeeRate();
-                ReadFromDB(GetMinFeeRateName(), minFeeRate);
-                m_settings->SetMinFeeRate(minFeeRate);
-            }
-
-            {
-                auto txMinConfirmations = m_settings->GetTxMinConfirmations();
-                ReadFromDB(GetTxMinConfirmationsName(), txMinConfirmations);
-                m_settings->SetTxMinConfirmations(txMinConfirmations);
-            }
-
-            {
-                auto lockTimeInBlocks = m_settings->GetLockTimeInBlocks();
-                ReadFromDB(GetLockTimeInBlocksName(), lockTimeInBlocks);
-                m_settings->SetLockTimeInBlocks(lockTimeInBlocks);
             }
 
             {
@@ -194,21 +173,6 @@ namespace beam::bitcoin
     std::string SettingsProvider::GetFeeRateName() const
     {
         return GetSettingsName() + "_FeeRate";
-    }
-
-    std::string SettingsProvider::GetMinFeeRateName() const
-    {
-        return GetSettingsName() + "_MinFeeRate";
-    }
-
-    std::string SettingsProvider::GetTxMinConfirmationsName() const
-    {
-        return GetSettingsName() + "_TxMinConfirmations";
-    }
-
-    std::string SettingsProvider::GetLockTimeInBlocksName() const
-    {
-        return GetSettingsName() + "_LockTimeInBlocks";
     }
 
     std::string SettingsProvider::GetConnectrionTypeName() const

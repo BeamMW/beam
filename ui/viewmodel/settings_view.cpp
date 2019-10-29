@@ -101,7 +101,7 @@ void ElectrumPhraseItem::applyChanges()
 
 void ElectrumPhraseItem::revertChanges()
 {
-    m_userInput = m_phrase;
+    setValue(m_phrase);
 }
 
 

@@ -51,6 +51,11 @@ Control {
     // function to get "receiving" addresses
     property var   getAddressesElectrum:       undefined
 
+    ConfirmPasswordDialog {
+        id: confirmPasswordDialog
+        parent: control.parent
+    }
+
     //
     // signals
     //
@@ -180,21 +185,21 @@ Control {
         id: internalElectrum
         property string initialAddress
         property string initialSeed
+        property bool   isSeedChanged: false
 
         function restore() {
-            // TODO: change
+            isSeedChanged = false
             addressElectrum = initialAddress
             control.restoreSeedElectrum()
         }
 
         function save() {
             initialAddress  = addressElectrum
+            isSeedChanged = false
         }
 
         function isChanged() {
-            // TODO: change
-            return initialAddress !== addressElectrum
-               // || initialSeed !== seedElectrum
+            return initialAddress !== addressElectrum || isSeedChanged
         }
     }
 
@@ -203,7 +208,7 @@ Control {
     }
 
     function canClearElectrum() {
-        return !isElectrumConnection && (internalElectrum.initialAddress.length || internalElectrum.initialSeed.length);
+        return !isElectrumConnection && (internalElectrum.initialAddress.length || isCurrentElectrumSeedValid);
     }
 
     function canDisconnectElectrum() {
@@ -216,8 +221,7 @@ Control {
     }
 
     function haveElectrumSettings() {
-        // TODO: fix
-        return feeRate >= minFeeRate && /*isCurrentElectrumSeedValid &&*/ addressInputElectrum.isValid;
+        return feeRate >= minFeeRate && isCurrentElectrumSeedValid && addressInputElectrum.isValid;
     }
 
     Component.onCompleted: {
@@ -264,6 +268,13 @@ Control {
                     text:  qsTrId("settings-swap-node")
                     color: useElectrumSwitch.checked ? control.color : Style.active
                     font.pixelSize: 14
+                    MouseArea {
+                        anchors.fill: parent
+                        acceptedButtons: Qt.LeftButton
+                        onClicked: {
+                            useElectrumSwitch.checked = !useElectrumSwitch.checked;
+                        }
+                    }
                 }
 
                 CustomSwitch {
@@ -277,6 +288,13 @@ Control {
                     text: qsTrId("general-electrum")
                     color: useElectrumSwitch.checked ? Style.active : control.color
                     font.pixelSize: 14
+                    MouseArea {
+                        anchors.fill: parent
+                        acceptedButtons: Qt.LeftButton
+                        onClicked: {
+                            useElectrumSwitch.checked = !useElectrumSwitch.checked;
+                        }
+                    }
                 }
 
                 Item {
@@ -289,7 +307,22 @@ Control {
                     //% "Clear"
                     text:       qsTrId("settings-reset")
                     visible:    canClear()
-                    onClicked:  clear()
+                    onClicked:  {
+                        if (editElectrum) {
+                            //: electrum settings, ask password to clear seed phrase, dialog title
+                            //% "Clear seed phrase"
+                            confirmPasswordDialog.dialogTitle = qsTrId("settings-swap-confirm-clear-seed-title");
+                            //: electrum settings, ask password to clear seed phrase, dialog message
+                            //% "Enter your wallet password to clear seed phrase"
+                            confirmPasswordDialog.dialogMessage = qsTrId("settings-swap-confirm-clear-seed-message");
+                            confirmPasswordDialog.onDialogAccepted = function() {
+                                clear();
+                            };
+                            confirmPasswordDialog.open();
+                        } else {
+                            clear();
+                        }
+                    }
                 }
 
                 LinkButton {
@@ -419,9 +452,26 @@ Control {
                                //% "Enter your seed phrase"
                                qsTrId("settings-swap-enter-seed")
                     onClicked: {
-                        seedPhraseDialog.setModeEdit()
-                        seedPhraseDialog.isCurrentElectrumSeedValid = isCurrentElectrumSeedValid
-                        seedPhraseDialog.open()
+                        function editSeedPhrase(isSeedPhraseValid) {
+                            seedPhraseDialog.setModeEdit();
+                            seedPhraseDialog.isCurrentElectrumSeedValid = isSeedPhraseValid;
+                            seedPhraseDialog.open();
+                        }
+
+                        if (isCurrentElectrumSeedValid) {
+                            //: electrum settings, ask password to edit seed phrase, dialog title
+                            //% "Edit seed phrase"
+                            confirmPasswordDialog.dialogTitle = qsTrId("settings-swap-confirm-edit-seed-title");
+                            //: electrum settings, ask password to edit seed phrase, dialog message
+                            //% "Enter your wallet password to edit the phrase"
+                            confirmPasswordDialog.dialogMessage = qsTrId("settings-swap-confirm-edit-seed-message");
+                            confirmPasswordDialog.onDialogAccepted = function() {
+                                editSeedPhrase(true);
+                            };
+                            confirmPasswordDialog.open();
+                        } else {
+                            editSeedPhrase(false);
+                        }
                     }
                 }
 
@@ -436,9 +486,26 @@ Control {
                     //% "Generate new seed phrase"
                     text:             qsTrId("settings-swap-new-seed")
                     onClicked: {
-                        newSeedElectrum();
-                        seedPhraseDialog.setModeNew();
-                        seedPhraseDialog.open();
+                        function generateSeedPhrase() {
+                            newSeedElectrum();
+                            seedPhraseDialog.setModeNew();
+                            seedPhraseDialog.open();
+                        }
+
+                        if (isCurrentElectrumSeedValid) {
+                            //: electrum settings, ask password to generate new seed phrase, dialog title
+                            //% "Generate new seed phrase"
+                            confirmPasswordDialog.dialogTitle = qsTrId("settings-swap-confirm-generate-seed-title");
+                            //: electrum settings, ask password to generate new seed phrase, dialog message
+                            //% "Enter your wallet password to generate new seed phrase"
+                            confirmPasswordDialog.dialogMessage = qsTrId("settings-swap-confirm-generate-seed-message");
+                            confirmPasswordDialog.onDialogAccepted = function() {
+                                generateSeedPhrase();
+                            };
+                            confirmPasswordDialog.open();
+                        } else {
+                            generateSeedPhrase();
+                        }
                     }
                 }
             }
@@ -455,15 +522,24 @@ Control {
                     //% "Show seed phrase"
                     text:      qsTrId("settings-swap-show-seed")
                     onClicked: {
-                        seedPhraseDialog.setModeView();
-                        seedPhraseDialog.open();
+                        //: electrum settings, ask password to show seed phrase, dialog title
+                        //% "Show seed phrase"
+                        confirmPasswordDialog.dialogTitle = qsTrId("settings-swap-confirm-show-seed-title");
+                        //: electrum settings, ask password to show seed phrase, dialog message
+                        //% "Enter your wallet password to see the phrase"
+                        confirmPasswordDialog.dialogMessage = qsTrId("settings-swap-confirm-show-seed-message");
+                        confirmPasswordDialog.onDialogAccepted = function() {
+                            seedPhraseDialog.setModeView();
+                            seedPhraseDialog.open();
+                        };
+                        confirmPasswordDialog.open();
                     }
                 }
 
                 LinkButton {
                     //% "Show wallet addresses"
                     text:      qsTrId("settings-swap-show-addresses")
-                    onClicked: {
+                    onClicked: {                        
                         showAddressesDialog.addressesElectrum = getAddressesElectrum();
                         showAddressesDialog.open();
                     }
@@ -561,23 +637,18 @@ Control {
         property string phrasesSeparatorElectrum:   ""
         property var    seedPhrasesElectrum:        undefined
         property bool   isCurrentElectrumSeedValid: false
+        property bool   isSeedChanged:              false
 
         signal newSeedElectrum
         signal copySeedElectrum
-        signal undoChanges
         signal validateFullSeedPhrase
 
         onNewSeedElectrum: control.newSeedElectrum()
         onCopySeedElectrum: control.copySeedElectrum()
-        onUndoChanges: {
-            for(var i = 0; i < seedPhraseDialog.seedPhrasesElectrum.length; ++i)
-            {
-                seedPhraseDialog.seedPhrasesElectrum[i].revertChanges();
-            }
-            validateFullSeedPhrase();
-        }
-
         onValidateFullSeedPhrase: control.validateCurrentSeedPhrase()
+        onClosed: {
+            internalElectrum.isSeedChanged = seedPhraseDialog.isSeedChanged
+        }
 
         function setModeEdit() {
             seedDialogContent.state = "editPhrase";
@@ -596,6 +667,26 @@ Control {
             {
                 seedPhraseDialog.seedPhrasesElectrum[i].applyChanges();
             }
+            seedPhraseDialog.close();
+            seedPhraseDialog.isSeedChanged = false;
+        }
+
+        function undoChanges() {
+            for(var i = 0; i < seedPhraseDialog.seedPhrasesElectrum.length; ++i)
+            {
+                seedPhraseDialog.seedPhrasesElectrum[i].revertChanges();
+            }
+            validateFullSeedPhrase();
+            seedPhraseDialog.close();
+            seedPhraseDialog.isSeedChanged = false;
+        }
+
+        function updateIsSeedChanged() {
+            var isChanged = false;
+            for(var i = 0; i < seedPhraseDialog.seedPhrasesElectrum.length; ++i) {
+                isChanged |= !seedPhraseDialog.seedPhrasesElectrum[i].isCorrect;
+            }
+            isSeedChanged = isChanged;
         }
 
         background: Rectangle {
@@ -676,7 +767,7 @@ Control {
                                     color:            Style.content_main
                                 }
                             }
-                        
+
                             // inpunt
                             SFTextInput {
                                 id: phraseValue
@@ -697,12 +788,20 @@ Control {
                                             seedPhraseDialog.seedPhrasesElectrum[i].value = phrases[i];
                                         }
                                     }
-                                    seedPhraseDialog.validateFullSeedPhrase();
                                 }
+
                                 Binding {
                                     target:   modelData
                                     property: "value"
                                     value:    phraseValue.text
+                                }
+
+                                Connections {
+                                    target: modelData
+                                    onValueChanged: {
+                                        seedPhraseDialog.updateIsSeedChanged();
+                                        seedPhraseDialog.validateFullSeedPhrase()
+                                    }
                                 }
                             }
 
@@ -739,10 +838,7 @@ Control {
                     text:                   qsTrId("general-cancel")
                     icon.source:            "qrc:/assets/icon-cancel-white.svg"
                     enabled:                true
-                    onClicked: {
-                        seedPhraseDialog.undoChanges();
-                        seedPhraseDialog.close();
-                    }
+                    onClicked:              seedPhraseDialog.undoChanges()
                 }
 
                 PrimaryButton {
@@ -752,18 +848,14 @@ Control {
                     Layout.minimumWidth:    126
                     text:                   qsTrId("settings-apply")
                     icon.source:            "qrc:/assets/icon-done.svg"
-                    // TODO: add checking isSeedChanged
                     enabled: {
-                        var enable = seedPhraseDialog.isCurrentElectrumSeedValid;
+                        var enable = seedPhraseDialog.isCurrentElectrumSeedValid & seedPhraseDialog.isSeedChanged;
                         for (var i = 0; i < seedPhraseDialog.seedPhrasesElectrum.length; ++i) {
                             enable &= seedPhraseDialog.seedPhrasesElectrum[i].isAllowed;
                         }
                         return enable;
                     }
-                    onClicked: {
-                        seedPhraseDialog.applySeedPhrase();
-                        seedPhraseDialog.close();
-                    }
+                    onClicked: seedPhraseDialog.applySeedPhrase()
                 }
 
                 // viewPhrase: "close" "copy"
@@ -830,6 +922,10 @@ Control {
                     PropertyChanges {
                         target: copyButtonId
                         visible: true
+                    }
+                    PropertyChanges {
+                        target: seedPhraseDialog
+                        isSeedChanged: true
                     }
                 },
                 State {
@@ -929,14 +1025,33 @@ Control {
 
                     Repeater {
                         model: showAddressesDialog.addressesElectrum
-                        SFLabel {
-                            Layout.fillWidth:    true
-                            horizontalAlignment: Text.AlignLeft
-                            text:                modelData
-                            font.pixelSize:      14
-                            color:               Style.content_main
-                            copyMenuEnabled:     true
-                            onCopyText:          BeamGlobals.copyToClipboard(text)
+                        RowLayout {
+                            Layout.fillWidth: true
+                            spacing: 0
+
+                            SFLabel {
+                                id: addressId
+                                Layout.fillWidth:    true
+                                horizontalAlignment: Text.AlignLeft
+                                text:                modelData
+                                font.pixelSize:      14
+                                color:               Style.content_main
+                                copyMenuEnabled:     true
+                                onCopyText:          BeamGlobals.copyToClipboard(text)
+                            }
+
+                            Item {
+                                Layout.fillWidth: true
+                                Layout.preferredWidth: 55
+                            }
+
+                            CustomToolButton {
+                                Layout.alignment: Qt.AlignVCenter | Qt.AlignRight
+                                icon.source: "qrc:/assets/icon-copy.svg"
+                                //% "Copy address"
+                                ToolTip.text: qsTrId("settings-swap-copy-address")
+                                onClicked: BeamGlobals.copyToClipboard(addressId.text)
+                            }
                         }
                     }
                 }

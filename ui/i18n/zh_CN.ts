@@ -53,7 +53,7 @@
     </message>
     <message id="general-cancel">
         <source>Cancel</source>
-        <extracomment>Edit addres dialog, cancel button</extracomment>
+        <extracomment>Edit address dialog, cancel button</extracomment>
         <translation>取消</translation>
     </message>
     <message id="general-delete">
@@ -273,17 +273,17 @@
     </message>
     <message id="address-table-cm-show-qr">
         <source>Show QR code</source>
-        <extracomment>Entry in adress table context menu to show QR</extracomment>
+        <extracomment>Entry in address table context menu to show QR</extracomment>
         <translation>显示二维码</translation>
     </message>
     <message id="address-table-cm-edit">
         <source>Edit address</source>
-        <extracomment>Entry in adress table context menu to edit</extracomment>
+        <extracomment>Entry in address table context menu to edit</extracomment>
         <translation>编辑地址</translation>
     </message>
     <message id="address-table-cm-delete">
         <source>Delete address</source>
-        <extracomment>Entry in adress table context menu to delete</extracomment>
+        <extracomment>Entry in address table context menu to delete</extracomment>
         <translation>删除地址</translation>
     </message>
     <message id="address-table-cm-delete-contact">
@@ -448,17 +448,17 @@
     </message>
     <message id="edit-addr-title">
         <source>Edit address</source>
-        <extracomment>Edit addres dialog title</extracomment>
+        <extracomment>Edit address dialog title</extracomment>
         <translation>编辑地址</translation>
     </message>
     <message id="edit-addr-addr-id">
         <source>Address ID</source>
-        <extracomment>Edit addres dialog, address label</extracomment>
+        <extracomment>Edit address dialog, address label</extracomment>
         <translation>地址ID</translation>
     </message>
     <message id="edit-addr-save-button">
         <source>Save</source>
-        <extracomment>Edit addres dialog, save button</extracomment>
+        <extracomment>Edit address dialog, save button</extracomment>
         <translation>保存</translation>
     </message>
     <message id="payment-info-proof-verification">
@@ -1062,12 +1062,7 @@
     </message>
     <message id="start-create-pwd-strength-message">
         <source>Strong password needs to meet the following requirements:\n•  the length must be at least 10 characters\n•  must contain at least one lowercase letter\n•  must contain at least one uppercase letter\n•  must contain at least one number</source>
-        <oldsource>Strong password needs to meet the following requirements:
-•  the length must be at least 10 characters
-•  must contain at least one lowercase letter
-•  must contain at least one uppercase letter
-•  must contain at least one number</oldsource>
-        <translation type="unfinished">强密码需要满足以下要求：\n• 长度必须至少为10个字符 \n• 必须包含至少一个小写字母 \n• 必须包含至少一个大写字母 \n• 必须包含至少一个数字</translation>
+        <translation>强密码需要满足以下要求：\n• 长度必须至少为10个字符 \n• 必须包含至少一个小写字母 \n• 必须包含至少一个大写字母 \n• 必须包含至少一个数字</translation>
     </message>
     <message id="start-open-caps-warning">
         <source>Caps lock is on!</source>
@@ -1140,27 +1135,27 @@
     </message>
     <message id="edit-addr-expires-label">
         <source>Expires</source>
-        <extracomment>Edit addres dialog, expires label</extracomment>
+        <extracomment>Edit address dialog, expires label</extracomment>
         <translation>失效</translation>
     </message>
     <message id="edit-addr-expire-now-label">
         <source>Now</source>
-        <extracomment>Edit addres dialog, expire now label</extracomment>
+        <extracomment>Edit address dialog, expire now label</extracomment>
         <translation>现在</translation>
     </message>
     <message id="edit-addr-expire-now-switch">
         <source>Expire address now</source>
-        <extracomment>Edit addres dialog, expire now switch</extracomment>
+        <extracomment>Edit address dialog, expire now switch</extracomment>
         <translation>立即令地址失效</translation>
     </message>
     <message id="edit-addr-expiration-time-label">
         <source>Expired on </source>
-        <extracomment>Edit addres dialog, expiration time label</extracomment>
+        <extracomment>Edit address dialog, expiration time label</extracomment>
         <translation>失效时间</translation>
     </message>
     <message id="edit-addr-activate-addr-switch">
         <source>Activate address</source>
-        <extracomment>Edit addres dialog, expiration time label</extracomment>
+        <extracomment>Edit address dialog, expiration time label</extracomment>
         <translation>激活地址</translation>
     </message>
     <message id="time-never">
@@ -1308,8 +1303,7 @@
     </message>
     <message id="settings-reset">
         <source>Clear</source>
-        <oldsource>Disconnect</oldsource>
-        <translation type="unfinished">Disconnect</translation>
+        <translation>清除</translation>
     </message>
     <message id="settings-node-address">
         <source>Node Address</source>
@@ -1337,9 +1331,7 @@
     </message>
     <message id="swap-na-message">
         <source>You do not have any 3rd-party currencies connected.\nUpdate your settings and try again.</source>
-        <oldsource>You do not have any 3rd-party currencies connected.
-Update your settings and try again.</oldsource>
-        <translation type="unfinished">无任何第三方货币连接\n请更新设置后重试</translation>
+        <translation>无任何第三方货币连接\n请更新设置后重试</translation>
     </message>
     <message id="wallet-receive-swap-title">
         <source>Create swap offer</source>
@@ -1375,8 +1367,7 @@ Update your settings and try again.</oldsource>
     </message>
     <message id="general-rate">
         <source>Exchange rate</source>
-        <oldsource>Rate</oldsource>
-        <translation type="unfinished"></translation>
+        <translation type="unfinished">Exchange rate</translation>
     </message>
     <message id="wallet-receive-your-token">
         <source>Your transaction token:</source>
@@ -1396,8 +1387,11 @@ Update your settings and try again.</oldsource>
     </message>
     <message id="wallet-send-invalid-token">
         <source>Invalid swap token</source>
-        <oldsource>Invalid token</oldsource>
-        <translation type="unfinished">Invalid address or token</translation>
+        <translation type="unfinished">Invalid swap token</translation>
+    </message>
+    <message id="wallet-send-invalid-address-or-token">
+        <source>Invalid wallet address or swap token</source>
+        <translation type="unfinished">Invalid wallet address or swap token</translation>
     </message>
     <message id="general-comment-local">
         <source>Comments are local and won&apos;t be shared</source>
@@ -1426,7 +1420,7 @@ Update your settings and try again.</oldsource>
     <message id="swap-currency-na-message">
         <source>%1 is not connected, \nplease review your settings and try again.</source>
         <oldsource>%1 is not connected, please review your settings and try again.</oldsource>
-        <translation type="unfinished">未连接到 %1 \n请更新设置后重试</translation>
+        <translation type="unfinished">%1 is not connected, \nplease review your settings and try again.</translation>
     </message>
     <message id="send-swap-to-label">
         <source>Transaction token</source>
@@ -1638,8 +1632,7 @@ Update your settings and try again.</oldsource>
     </message>
     <message id="settings-progress-na">
         <source>You cannot disconnect wallet, edit seed phrase or change default\nfee while you have transactions in progress.</source>
-        <oldsource>You cannot disconnect wallet, edit seed phrase or change default fee while you have\ntransactions in progress.</oldsource>
-        <translation type="unfinished">You cannot change settings\nwhile active transaction is in progress</translation>
+        <translation type="unfinished">You cannot disconnect wallet, edit seed phrase or change default\nfee while you have transactions in progress.</translation>
     </message>
     <message id="atomic-no-offers">
         <source>There are no active offers at the moment.\nPlease try again later or create an offer yourself.</source>
@@ -1697,8 +1690,7 @@ Please try again later or create an offer yourself.</oldsource>
     </message>
     <message id="swap-beta-connection-error">
         <source>Cannot connect to peer. Please check the address and retry.</source>
-        <oldsource>Cannot connect to peer. Please check in the address in settings and retry.</oldsource>
-        <translation type="unfinished"></translation>
+        <translation type="unfinished">Cannot connect to peer. Please check the address and retry.</translation>
     </message>
     <message id="swap-alert-confirm-button">
         <source>I understand</source>
@@ -1710,8 +1702,6 @@ Please try again later or create an offer yourself.</oldsource>
     </message>
     <message id="accept-own-offer-allert-body">
         <source>The transaction token was generated by you, therefore it is not allowed to accept your own offer.\nPlease check the swap token and try again.</source>
-        <oldsource>The transaction token was generated by you, therefore it is not allowed to accept your own offer.
-Please check the swap token and try again.</oldsource>
         <translation type="unfinished">The transaction token was generated by you, therefore it is not allowed to accept your own offer.\nPlease check the swap token and try again.</translation>
     </message>
     <message id="swap-copy-token">
@@ -1780,140 +1770,191 @@ Please check the swap token and try again.</oldsource>
     </message>
     <message id="swap-details-tx-comment">
         <source>Comment</source>
-        <translation type="unfinished">备注</translation>
+        <translation>备注</translation>
     </message>
     <message id="swap-details-tx-fee-rate">
         <source>Transaction fee rate</source>
-        <translation type="unfinished">交易费率</translation>
+        <translation>交易费率</translation>
     </message>
     <message id="settings-swap-disconnect">
         <source>Disconnect</source>
-        <translation type="unfinished"></translation>
+        <translation type="unfinished">Disconnect</translation>
+    </message>
+    <message id="settings-swap-seed-phrase">
+        <source>Seed Phrase</source>
+        <translation type="obsolete">Seed Phrase</translation>
     </message>
     <message id="settings-swap-bitcoin-node">
         <source>Bitcoin node</source>
-        <translation type="unfinished"></translation>
+        <translation type="unfinished">Bitcoin node</translation>
     </message>
     <message id="settings-swap-litecoin-node">
         <source>Litecoin node</source>
-        <translation type="unfinished"></translation>
+        <translation type="unfinished">Litecoin node</translation>
     </message>
     <message id="settings-swap-qtum-node">
         <source>Qtum node</source>
-        <translation type="unfinished"></translation>
+        <translation type="unfinished">Qtum node</translation>
     </message>
     <message id="settings-swap-bitcoin-electrum">
         <source>Bitcoin electrum</source>
-        <translation type="unfinished"></translation>
+        <translation type="unfinished">Bitcoin electrum</translation>
     </message>
     <message id="settings-swap-litecoin-electrum">
         <source>Litecoin electrum</source>
-        <translation type="unfinished"></translation>
+        <translation type="unfinished">Litecoin electrum</translation>
     </message>
     <message id="settings-swap-qtum-electrum">
         <source>Qtum electrum</source>
-        <translation type="unfinished"></translation>
+        <translation type="unfinished">Qtum electrum</translation>
     </message>
-    <message id="wallet-send-invalid-address-or-token">
-        <source>Invalid wallet address or swap token</source>
-        <oldsource>Invalid address or token</oldsource>
-        <translation type="unfinished"></translation>
+    <message id="connect to electrum node">
+        <source>connect to electrum node</source>
+        <translation type="obsolete">connect to electrum node</translation>
     </message>
-    <message id="swap-offer-duplicate-title">
-        <source>Оffer is already accepted</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message id="swap-offer-duplicate-message">
-        <source>The offer with this transaction token is already accepted.\nPlease check the swap token and try again.</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message id="swap-offer-duplicate-confirm-button">
-        <source>ok</source>
-        <translation type="unfinished"></translation>
+    <message id="connect to node">
+        <source>connect to node</source>
+        <translation type="obsolete">connect to node</translation>
     </message>
     <message id="invalid-rate-min">
         <source>Rate cannot be less than %1</source>
-        <translation type="unfinished"></translation>
+        <translation type="unfinished">Rate cannot be less than %1</translation>
+    </message>
+    <message id="swap-offer-duplicate-message">
+        <source>The offer with this transaction token is already accepted.\nPlease check the swap token and try again.</source>
+        <translation type="unfinished">The offer with this transaction token is already accepted.\nPlease check the swap token and try again.</translation>
+    </message>
+    <message id="swap-offer-duplicate-title">
+        <source>Оffer is already accepted</source>
+        <translation type="unfinished">Оffer is already accepted</translation>
+    </message>
+    <message id="swap-offer-duplicate-confirm-button">
+        <source>ok</source>
+        <translation type="unfinished">ok</translation>
     </message>
     <message id="swap-details-failure-reason">
         <source>Error</source>
-        <translation type="unfinished">错误</translation>
+        <translation>错误</translation>
     </message>
     <message id="swap-tx-failture-refunded">
         <source>Refunded</source>
-        <translation type="unfinished"></translation>
+        <translation type="unfinished">Refunded</translation>
     </message>
     <message id="settings-swap-edit-seed">
         <source>Edit your seed phrase</source>
-        <translation type="unfinished"></translation>
+        <translation type="unfinished">Edit your seed phrase</translation>
     </message>
     <message id="settings-swap-enter-seed">
         <source>Enter your seed phrase</source>
-        <translation type="unfinished"></translation>
+        <translation type="unfinished">Enter your seed phrase</translation>
     </message>
     <message id="settings-swap-label-or">
         <source>or</source>
-        <translation type="unfinished"></translation>
+        <translation type="unfinished">or</translation>
     </message>
     <message id="settings-swap-new-seed">
         <source>Generate new seed phrase</source>
-        <translation type="unfinished"></translation>
+        <translation type="unfinished">Generate new seed phrase</translation>
     </message>
     <message id="settings-swap-show-seed">
         <source>Show seed phrase</source>
-        <translation type="unfinished"></translation>
+        <translation type="unfinished">Show seed phrase</translation>
     </message>
     <message id="settings-swap-show-addresses">
         <source>Show wallet addresses</source>
-        <translation type="unfinished"></translation>
+        <translation type="unfinished">Show wallet addresses</translation>
     </message>
     <message id="settings-swap-connect-electrum">
         <source>connect to electrum node</source>
-        <translation type="unfinished"></translation>
+        <translation type="unfinished">connect to electrum node</translation>
     </message>
     <message id="settings-swap-connect-node">
         <source>connect to node</source>
-        <translation type="unfinished"></translation>
+        <translation type="unfinished">connect to node</translation>
     </message>
     <message id="swap-seed-info-message">
         <source>Your seed phrase is the access key to all the funds! Print or write down the phrase and keep it in a safe or in a locked vault.\nWithout the phrase you will not be able to recover your money.</source>
-        <translation type="unfinished"></translation>
+        <translation type="unfinished">Your seed phrase is the access key to all the funds! Print or write down the phrase and keep it in a safe or in a locked vault.\nWithout the phrase you will not be able to recover your money.</translation>
     </message>
     <message id="settings-swap-seed-generate">
         <source>generate another seed phrase</source>
-        <translation type="unfinished"></translation>
+        <translation type="unfinished">generate another seed phrase</translation>
     </message>
     <message id="swap-seed-new">
         <source>New seed phrase</source>
-        <translation type="unfinished"></translation>
+        <translation type="unfinished">New seed phrase</translation>
     </message>
     <message id="swap-seed-edit">
         <source>Enter your seed phrase</source>
-        <translation type="unfinished"></translation>
+        <translation type="unfinished">Enter your seed phrase</translation>
     </message>
     <message id="bitcoin-show-seed-title">
         <source>Bitcoin seed phrase</source>
-        <translation type="unfinished"></translation>
+        <translation type="unfinished">Bitcoin seed phrase</translation>
     </message>
     <message id="litecoin-show-seed-title">
         <source>Litecoin seed phrase</source>
-        <translation type="unfinished"></translation>
+        <translation type="unfinished">Litecoin seed phrase</translation>
     </message>
     <message id="qtum-show-seed-title">
         <source>Qtum seed phrase</source>
-        <translation type="unfinished"></translation>
+        <translation type="unfinished">Qtum seed phrase</translation>
     </message>
     <message id="bitcoin-show-addresses-title">
         <source>Bitcoin wallet addresses</source>
-        <translation type="unfinished"></translation>
+        <translation type="unfinished">Bitcoin wallet addresses</translation>
     </message>
     <message id="litecoin-show-addresses-title">
         <source>Litecoin wallet addresses</source>
-        <translation type="unfinished"></translation>
+        <translation type="unfinished">Litecoin wallet addresses</translation>
     </message>
     <message id="qtum-show-addresses-title">
         <source>Qtum wallet addresses</source>
-        <translation type="unfinished"></translation>
+        <translation type="unfinished">Qtum wallet addresses</translation>
+    </message>
+    <message id="settings-swap-copy-address">
+        <source>Copy address</source>
+        <translation>复制地址</translation>
+    </message>
+    <message id="settings-swap-confirm-edit-seed-title">
+        <source>Edit seed phrase</source>
+        <extracomment>electrum settings, ask password to edit seed phrase, dialog title</extracomment>
+        <translation type="unfinished">Edit seed phrase</translation>
+    </message>
+    <message id="settings-swap-confirm-edit-seed-message">
+        <source>Enter your wallet password to edit the phrase</source>
+        <extracomment>electrum settings, ask password to edit seed phrase, dialog message</extracomment>
+        <translation type="unfinished">Enter your wallet password to edit the phrase</translation>
+    </message>
+    <message id="settings-swap-confirm-generate-seed-title">
+        <source>Generate new seed phrase</source>
+        <extracomment>electrum settings, ask password to generate new seed phrase, dialog title</extracomment>
+        <translation type="unfinished">Generate new seed phrase</translation>
+    </message>
+    <message id="settings-swap-confirm-generate-seed-message">
+        <source>Enter your wallet password to generate new seed phrase</source>
+        <extracomment>electrum settings, ask password to generate new seed phrase, dialog message</extracomment>
+        <translation type="unfinished">Enter your wallet password to generate new seed phrase</translation>
+    </message>
+    <message id="settings-swap-confirm-show-seed-title">
+        <source>Show seed phrase</source>
+        <extracomment>electrum settings, ask password to show seed phrase, dialog title</extracomment>
+        <translation type="unfinished">Show seed phrase</translation>
+    </message>
+    <message id="settings-swap-confirm-show-seed-message">
+        <source>Enter your wallet password to see the phrase</source>
+        <extracomment>electrum settings, ask password to show seed phrase, dialog message</extracomment>
+        <translation type="unfinished">Enter your wallet password to see the phrase</translation>
+    </message>
+    <message id="settings-swap-confirm-clear-seed-title">
+        <source>Clear seed phrase</source>
+        <extracomment>electrum settings, ask password to clear seed phrase, dialog title</extracomment>
+        <translation type="unfinished">Clear seed phrase</translation>
+    </message>
+    <message id="settings-swap-confirm-clear-seed-message">
+        <source>Enter your wallet password to clear seed phrase</source>
+        <extracomment>electrum settings, ask password to clear seed phrase, dialog message</extracomment>
+        <translation type="unfinished">Enter your wallet password to clear seed phrase</translation>
     </message>
 </context>
 </TS>

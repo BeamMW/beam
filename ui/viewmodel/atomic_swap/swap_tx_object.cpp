@@ -50,11 +50,60 @@ QString SwapTxObject::getStatus() const
 
 bool SwapTxObject::isExpired() const
 {
-    auto& txDescription = getTxDescription();
-    auto failureReason = txDescription.GetParameter<TxFailureReason>(
+    auto failureReason = m_tx.GetParameter<TxFailureReason>(
         TxParameterID::InternalFailureReason);
     return failureReason &&
            failureReason.value() == TxFailureReason::TransactionExpired;
+}
+
+bool SwapTxObject::isInProgress() const
+{
+    if (isExpired())
+    {
+        return false;
+    }
+    else
+    {
+        switch (m_tx.m_status)
+        {
+            case TxStatus::Pending:
+            case TxStatus::InProgress:
+            case TxStatus::Registering:
+                return true;
+            default:
+                return false;
+        }
+    }
+}
+
+bool SwapTxObject::isPending() const
+{
+    return m_tx.m_status == TxStatus::Pending && !isExpired();
+}
+
+bool SwapTxObject::isCompleted() const
+{
+    return m_tx.m_status == TxStatus::Completed;
+}
+
+bool SwapTxObject::isCanceled() const
+{
+    return m_tx.m_status == TxStatus::Canceled;
+}
+
+bool SwapTxObject::isFailed() const
+{
+    return m_tx.m_status == TxStatus::Failed;
+}
+
+bool SwapTxObject::isCancelAvailable() const
+{
+    return isInProgress() || isPending();
+}
+
+bool SwapTxObject::isDeleteAvailable() const
+{
+    return isExpired() || isFailed() || isCompleted() || isCanceled();
 }
 
 auto SwapTxObject::getSwapCoinName() const -> QString
@@ -205,7 +254,15 @@ QString SwapTxObject::getFailureReason() const
             {
                 //% "Refunded"
                 return qtTrId("swap-tx-failture-refunded");
-            }            
+            }
+            else
+            {
+                auto extFailureReason = getTxDescription().GetParameter<TxFailureReason>(TxParameterID::FailureReason);
+                if (extFailureReason)
+                {
+                    return getReasonString(*extFailureReason);
+                }
+            }
         }
         else
         {
