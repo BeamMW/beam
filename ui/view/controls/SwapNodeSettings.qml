@@ -268,6 +268,13 @@ Control {
                     text:  qsTrId("settings-swap-node")
                     color: useElectrumSwitch.checked ? control.color : Style.active
                     font.pixelSize: 14
+                    MouseArea {
+                        anchors.fill: parent
+                        acceptedButtons: Qt.LeftButton
+                        onClicked: {
+                            useElectrumSwitch.checked = !useElectrumSwitch.checked;
+                        }
+                    }
                 }
 
                 CustomSwitch {
@@ -281,6 +288,13 @@ Control {
                     text: qsTrId("general-electrum")
                     color: useElectrumSwitch.checked ? Style.active : control.color
                     font.pixelSize: 14
+                    MouseArea {
+                        anchors.fill: parent
+                        acceptedButtons: Qt.LeftButton
+                        onClicked: {
+                            useElectrumSwitch.checked = !useElectrumSwitch.checked;
+                        }
+                    }
                 }
 
                 Item {
