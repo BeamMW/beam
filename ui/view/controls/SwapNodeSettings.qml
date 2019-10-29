@@ -180,21 +180,21 @@ Control {
         id: internalElectrum
         property string initialAddress
         property string initialSeed
+        property bool   isSeedChanged: false
 
         function restore() {
-            // TODO: change
+            isSeedChanged = false
             addressElectrum = initialAddress
             control.restoreSeedElectrum()
         }
 
         function save() {
             initialAddress  = addressElectrum
+            isSeedChanged = false
         }
 
         function isChanged() {
-            // TODO: change
-            return initialAddress !== addressElectrum
-               // || initialSeed !== seedElectrum
+            return initialAddress !== addressElectrum || isSeedChanged
         }
     }
 
@@ -203,7 +203,7 @@ Control {
     }
 
     function canClearElectrum() {
-        return !isElectrumConnection && (internalElectrum.initialAddress.length || internalElectrum.initialSeed.length);
+        return !isElectrumConnection && (internalElectrum.initialAddress.length || isCurrentElectrumSeedValid);
     }
 
     function canDisconnectElectrum() {
@@ -216,8 +216,7 @@ Control {
     }
 
     function haveElectrumSettings() {
-        // TODO: fix
-        return feeRate >= minFeeRate && /*isCurrentElectrumSeedValid &&*/ addressInputElectrum.isValid;
+        return feeRate >= minFeeRate && isCurrentElectrumSeedValid && addressInputElectrum.isValid;
     }
 
     Component.onCompleted: {
@@ -561,23 +560,18 @@ Control {
         property string phrasesSeparatorElectrum:   ""
         property var    seedPhrasesElectrum:        undefined
         property bool   isCurrentElectrumSeedValid: false
+        property bool   isSeedChanged:              false
 
         signal newSeedElectrum
         signal copySeedElectrum
-        signal undoChanges
         signal validateFullSeedPhrase
 
         onNewSeedElectrum: control.newSeedElectrum()
         onCopySeedElectrum: control.copySeedElectrum()
-        onUndoChanges: {
-            for(var i = 0; i < seedPhraseDialog.seedPhrasesElectrum.length; ++i)
-            {
-                seedPhraseDialog.seedPhrasesElectrum[i].revertChanges();
-            }
-            validateFullSeedPhrase();
-        }
-
         onValidateFullSeedPhrase: control.validateCurrentSeedPhrase()
+        onClosed: {
+            internalElectrum.isSeedChanged = seedPhraseDialog.isSeedChanged
+        }
 
         function setModeEdit() {
             seedDialogContent.state = "editPhrase";
@@ -596,6 +590,26 @@ Control {
             {
                 seedPhraseDialog.seedPhrasesElectrum[i].applyChanges();
             }
+            seedPhraseDialog.close();
+            seedPhraseDialog.isSeedChanged = false;
+        }
+
+        function undoChanges() {
+            for(var i = 0; i < seedPhraseDialog.seedPhrasesElectrum.length; ++i)
+            {
+                seedPhraseDialog.seedPhrasesElectrum[i].revertChanges();
+            }
+            validateFullSeedPhrase();
+            seedPhraseDialog.close();
+            seedPhraseDialog.isSeedChanged = false;
+        }
+
+        function updateIsSeedChanged() {
+            var isChanged = false;
+            for(var i = 0; i < seedPhraseDialog.seedPhrasesElectrum.length; ++i) {
+                isChanged |= !seedPhraseDialog.seedPhrasesElectrum[i].isCorrect;
+            }
+            isSeedChanged = isChanged;
         }
 
         background: Rectangle {
@@ -676,7 +690,7 @@ Control {
                                     color:            Style.content_main
                                 }
                             }
-                        
+
                             // inpunt
                             SFTextInput {
                                 id: phraseValue
@@ -697,12 +711,20 @@ Control {
                                             seedPhraseDialog.seedPhrasesElectrum[i].value = phrases[i];
                                         }
                                     }
-                                    seedPhraseDialog.validateFullSeedPhrase();
                                 }
+
                                 Binding {
                                     target:   modelData
                                     property: "value"
                                     value:    phraseValue.text
+                                }
+
+                                Connections {
+                                    target: modelData
+                                    onValueChanged: {
+                                        seedPhraseDialog.updateIsSeedChanged();
+                                        seedPhraseDialog.validateFullSeedPhrase()
+                                    }
                                 }
                             }
 
@@ -739,10 +761,7 @@ Control {
                     text:                   qsTrId("general-cancel")
                     icon.source:            "qrc:/assets/icon-cancel-white.svg"
                     enabled:                true
-                    onClicked: {
-                        seedPhraseDialog.undoChanges();
-                        seedPhraseDialog.close();
-                    }
+                    onClicked:              seedPhraseDialog.undoChanges()
                 }
 
                 PrimaryButton {
@@ -752,18 +771,14 @@ Control {
                     Layout.minimumWidth:    126
                     text:                   qsTrId("settings-apply")
                     icon.source:            "qrc:/assets/icon-done.svg"
-                    // TODO: add checking isSeedChanged
                     enabled: {
-                        var enable = seedPhraseDialog.isCurrentElectrumSeedValid;
+                        var enable = seedPhraseDialog.isCurrentElectrumSeedValid & seedPhraseDialog.isSeedChanged;
                         for (var i = 0; i < seedPhraseDialog.seedPhrasesElectrum.length; ++i) {
                             enable &= seedPhraseDialog.seedPhrasesElectrum[i].isAllowed;
                         }
                         return enable;
                     }
-                    onClicked: {
-                        seedPhraseDialog.applySeedPhrase();
-                        seedPhraseDialog.close();
-                    }
+                    onClicked: seedPhraseDialog.applySeedPhrase()
                 }
 
                 // viewPhrase: "close" "copy"
@@ -830,6 +845,10 @@ Control {
                     PropertyChanges {
                         target: copyButtonId
                         visible: true
+                    }
+                    PropertyChanges {
+                        target: seedPhraseDialog
+                        isSeedChanged: true
                     }
                 },
                 State {
