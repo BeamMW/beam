@@ -1898,17 +1898,17 @@ Please try again later or create an offer yourself.</oldsource>
     </message>
     <message id="settings-swap-copy-address">
         <source>Copy address</source>
-        <translation type="unfinished">Copia indirizzo</translation>
+        <translation>Copia indirizzo</translation>
     </message>
     <message id="settings-swap-confirm-edit-seed-title">
         <source>Edit seed phrase</source>
         <extracomment>electrum settings, ask password to edit seed phrase, dialog title</extracomment>
-        <translation type="unfinished"></translation>
+        <translation type="unfinished">Edit seed phrase</translation>
     </message>
     <message id="settings-swap-confirm-edit-seed-message">
         <source>Enter your wallet password to edit the phrase</source>
         <extracomment>electrum settings, ask password to edit seed phrase, dialog message</extracomment>
-        <translation type="unfinished"></translation>
+        <translation type="unfinished">Enter your wallet password to edit the phrase</translation>
     </message>
     <message id="settings-swap-confirm-generate-seed-title">
         <source>Generate new seed phrase</source>
@@ -1918,7 +1918,7 @@ Please try again later or create an offer yourself.</oldsource>
     <message id="settings-swap-confirm-generate-seed-message">
         <source>Enter your wallet password to generate new seed phrase</source>
         <extracomment>electrum settings, ask password to generate new seed phrase, dialog message</extracomment>
-        <translation type="unfinished"></translation>
+        <translation type="unfinished">Enter your wallet password to generate new seed phrase</translation>
     </message>
     <message id="settings-swap-confirm-show-seed-title">
         <source>Show seed phrase</source>
@@ -1928,17 +1928,17 @@ Please try again later or create an offer yourself.</oldsource>
     <message id="settings-swap-confirm-show-seed-message">
         <source>Enter your wallet password to see the phrase</source>
         <extracomment>electrum settings, ask password to show seed phrase, dialog message</extracomment>
-        <translation type="unfinished"></translation>
+        <translation type="unfinished">Enter your wallet password to see the phrase</translation>
     </message>
     <message id="settings-swap-confirm-clear-seed-title">
         <source>Clear seed phrase</source>
         <extracomment>electrum settings, ask password to clear seed phrase, dialog title</extracomment>
-        <translation type="unfinished"></translation>
+        <translation type="unfinished">Clear seed phrase</translation>
     </message>
     <message id="settings-swap-confirm-clear-seed-message">
         <source>Enter your wallet password to clear seed phrase</source>
         <extracomment>electrum settings, ask password to clear seed phrase, dialog message</extracomment>
-        <translation type="unfinished"></translation>
+        <translation type="unfinished">Enter your wallet password to clear seed phrase</translation>
     </message>
 </context>
 </TS>
