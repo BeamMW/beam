@@ -47,7 +47,15 @@ public:
     bool isLockTxProofReceived() const;
     bool isRefundTxProofReceived() const;
     bool isBeamSideSwap() const;
+    
+    bool isCancelAvailable() const override;
+    bool isDeleteAvailable() const override;
+    bool isInProgress() const override;
+    bool isPending() const override;
     bool isExpired() const override;
+    bool isCompleted() const override;
+    bool isCanceled() const override;
+    bool isFailed() const override;
 
 signals:
 
