@@ -309,19 +309,30 @@ Item {
                     //% "Active offers"
                     label: qsTrId("atomic-swap-active-offers-tab")
                     onClicked: atomicSwapLayout.state = "offers"
-                    capitalization: Font.AllUppercase
+                    showLed: false
+                    font {
+                        pixelSize: 14
+                        letterSpacing: 4
+                        capitalization: Font.AllUppercase
+                    }
                 }
 
                 TxFilter {
                     id: transactionsTabSelector
                     Layout.alignment: Qt.AlignTop
+                    Layout.leftMargin: 40
                     //% "Transactions"
                     label: qsTrId("atomic-swap-transactions-tab")
                     onClicked: {
                         atomicSwapLayout.state = "transactions";
                         transactionsTab.state = "filterAllTransactions"
                     }
-                    capitalization: Font.AllUppercase
+                    showLed: false
+                    font {
+                        pixelSize: 14
+                        letterSpacing: 4
+                        capitalization: Font.AllUppercase
+                    }
                 }
             }
             
@@ -697,7 +708,7 @@ Item {
                     visible: false
 
                     anchors.fill: parent
-                    anchors.topMargin: 14
+                    anchors.topMargin: 20
 
                     state: "filterAllTransactions"
 
@@ -723,13 +734,12 @@ Item {
                             Layout.fillWidth: true
                         }
 
-                        CustomButton {
-                            Layout.alignment: Qt.AlignRight
-                            rightPadding: 5
-                            textOpacity: 0
-                            icon.source: "qrc:/assets/icon-delete.svg"
-                            onClicked: console.log("todo: delete button pressed");
-                        }
+                        //CustomToolButton {
+                        //    Layout.alignment: Qt.AlignRight
+                        //    rightPadding: 5
+                        //    icon.source: "qrc:/assets/icon-delete.svg"
+                        //    onClicked: console.log("todo: delete button pressed");
+                        //}
                     }
 
                     states: [
@@ -751,7 +761,7 @@ Item {
                         Layout.alignment: Qt.AlignTop
                         Layout.fillWidth: true
                         Layout.fillHeight: true
-                        Layout.topMargin: 12
+                        Layout.topMargin: 14
 
                         property int rowHeight: 56
                         property int columnWidth: (width - txSwapCoinsColumn.width - txSwapActionColumn.width) / 6

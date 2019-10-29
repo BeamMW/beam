@@ -483,16 +483,12 @@ ColumnLayout {
                                     elide: Text.ElideRight
                                 }
 
-                                CustomButton {
+                                CustomToolButton {
                                     Layout.alignment: Qt.AlignVCenter | Qt.AlignRight
                                     Layout.minimumHeight: 20
                                     Layout.minimumWidth: 20
-                                    shadowRadius: 5
-                                    shadowSamples: 7
-                                    Layout.margins: shadowRadius
                                     leftPadding: 5
                                     rightPadding: 5
-                                    textOpacity: 0
                                     icon.source: "qrc:/assets/icon-delete.svg"
                                     enabled: localNodeRun.checked
                                     onClicked: viewModel.deleteLocalNodePeer(index)
