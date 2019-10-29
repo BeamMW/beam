@@ -406,7 +406,7 @@ void ReceiveSwapViewModel::updateTransactionToken()
     // TODO: remove after tests
     _txParameters.SetParameter(beam::wallet::TxParameterID::PeerResponseTime, GetTestBlockCount(_offerExpires));
     // TODO: remove after tests
-    _txParameters.SetParameter(beam::wallet::TxParameterID::Lifetime, 10);
+    _txParameters.SetParameter(beam::wallet::TxParameterID::Lifetime, beam::Height(10));
 
     // All parameters sets as if we were on the recipient side (mirrored)
     bool isBeamSide = (_receiveCurrency == Currency::CurrBeam);
