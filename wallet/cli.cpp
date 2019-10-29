@@ -1953,11 +1953,18 @@ int main_impl(int argc, char* argv[])
 
                         if (command == cli::SWAP_INIT)
                         {
+                            if (!wallet.IsWalletInSync())
+                            {
+                                return -1;
+                            }
+
                             currentTxID = InitSwap(vm, walletDB, keyKeeper, wallet, isFork1);
                             if (!currentTxID)
                             {
                                 return -1;
                             }
+
+                            return 0;
                         }
 
                         if (command == cli::SWAP_ACCEPT)

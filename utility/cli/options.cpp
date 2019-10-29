@@ -141,10 +141,8 @@ namespace beam
         const char* PASS = "pass";
         const char* SET_SWAP_SETTINGS = "set_swap_settings";
         const char* ACTIVE_CONNECTION = "active_connection";
-        const char* SWAP_CONNECTION = "swap_connection";
         const char* SWAP_WALLET_PASS = "swap_wallet_pass";
         const char* SWAP_WALLET_USER = "swap_wallet_user";
-        const char* ALTCOIN_SETTINGS_SET = "set";
         const char* ALTCOIN_SETTINGS_RESET = "reset";
         const char* SHOW_SWAP_SETTINGS = "show_swap_settings";
         const char* ELECTRUM_SEED = "electrum_seed";
@@ -354,17 +352,15 @@ namespace beam
         po::options_description swap_options("Atomic swap options");
         swap_options.add_options()
             (cli::SET_SWAP_SETTINGS, po::value<std::string>(), "command to work with swap settings.")
-            (cli::ALTCOIN_SETTINGS_SET, "set new altcoin's settings")
-            (cli::ALTCOIN_SETTINGS_RESET, po::value<std::string>(), "reset altcoin's settings")
-            (cli::ACTIVE_CONNECTION, po::value<string>(), "set active connection")
-            (cli::SWAP_CONNECTION, po::value<string>(), "")
+            (cli::ALTCOIN_SETTINGS_RESET, po::value<std::string>(), "reset altcoin's settings [core|electrum]")
+            (cli::ACTIVE_CONNECTION, po::value<string>(), "set active connection [core|electrum|none]")
             (cli::SHOW_SWAP_SETTINGS, "show altcoin's settings")
             (cli::ELECTRUM_SEED, po::value<string>(), "bitcoin electrum seed")
             (cli::GENERATE_ELECTRUM_SEED, "generate new electrum seed")
             (cli::ELECTRUM_ADDR, po::value<string>(), "electrum address")
-            (cli::SWAP_WALLET_ADDR, po::value<string>(), "address of swap wallet")
-            (cli::SWAP_WALLET_USER, po::value<string>(), "user name for the swap wallet")
-            (cli::SWAP_WALLET_PASS, po::value<string>(), "password for the swap wallet")
+            (cli::SWAP_WALLET_ADDR, po::value<string>(), "rpc address of swap wallet")
+            (cli::SWAP_WALLET_USER, po::value<string>(), "rpc user name for the swap wallet")
+            (cli::SWAP_WALLET_PASS, po::value<string>(), "rpc password for the swap wallet")
             (cli::SWAP_COIN, po::value<string>(), "swap coin(btc, ltc, qtum)")
             (cli::SWAP_AMOUNT, po::value<Positive<Amount>>(), "swap amount in the smallest unit of the coin")
             (cli::SWAP_FEERATE, po::value<Positive<Amount>>(), "The specific feerate you are willing to pay(the smallest unit of the coin per KB)")

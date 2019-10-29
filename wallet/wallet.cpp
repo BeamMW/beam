@@ -43,7 +43,7 @@ namespace beam::wallet
 
             if (currentTime_s > currentBlockTime_s)
             {
-                LOG_INFO() << "It seems that node is not up to date";
+                LOG_INFO() << "It seems that last known blockchain tip is not up to date";
                 return false;
             }
             return true;
@@ -232,6 +232,14 @@ namespace beam::wallet
         {
             ResumeTransaction(tx);
         }
+    }
+
+    bool Wallet::IsWalletInSync() const
+    {
+        Block::SystemState::Full state;
+        get_tip(state);
+
+        return IsValidTimeStamp(state.m_TimeStamp);
     }
 
     void Wallet::OnAsyncStarted()
