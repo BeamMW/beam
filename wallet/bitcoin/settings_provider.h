@@ -88,9 +88,6 @@ namespace beam::bitcoin
         std::string GetSecretWordsName() const;
         std::string GetAddressVersionName() const;
         std::string GetFeeRateName() const;
-        std::string GetMinFeeRateName() const;
-        std::string GetTxMinConfirmationsName() const;
-        std::string GetLockTimeInBlocksName() const;
         std::string GetConnectrionTypeName() const;
 
         template<typename T>
