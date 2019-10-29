@@ -38,7 +38,7 @@ namespace beam::bitcoin
             int outputIndex,
             Timestamp locktime,
             std::function<void(const Error&, const std::string&)> callback) override;
-        void getTxOut(const std::string& txid, int outputIndex, std::function<void(const Error&, const std::string&, double, uint32_t)> callback) override;
+        void getTxOut(const std::string& txid, int outputIndex, std::function<void(const Error&, const std::string&, Amount, uint32_t)> callback) override;
         void getBlockCount(std::function<void(const Error&, uint64_t)> callback) override;
         void getBalance(uint32_t confirmations, std::function<void(const Error&, Amount)> callback) override;
         void getDetailedBalance(std::function<void(const Error&, Amount, Amount, Amount)> callback) override;

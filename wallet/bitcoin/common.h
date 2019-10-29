@@ -30,6 +30,7 @@ namespace beam::bitcoin
     constexpr uint64_t kDustThreshold = 546;
     constexpr uint32_t kBTCWithdrawTxAverageSize = 360;
 
+    uint64_t btc_to_satoshi(double btc);
     uint8_t getAddressVersion();
     bool validateElectrumMnemonic(const std::vector<std::string>& words);
     std::vector<std::string> createElectrumMnemonic(const std::vector<uint8_t>& entropy);

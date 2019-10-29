@@ -18,6 +18,11 @@
 
 namespace beam::bitcoin
 {
+    uint64_t btc_to_satoshi(double btc)
+    {
+        return static_cast<uint64_t>(std::round(btc * libbitcoin::satoshi_per_bitcoin));
+    }
+
     uint8_t getAddressVersion()
     {
 #ifdef BEAM_MAINNET
