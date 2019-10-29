@@ -51,6 +51,11 @@ Control {
     // function to get "receiving" addresses
     property var   getAddressesElectrum:       undefined
 
+    ConfirmPasswordDialog {
+        id: confirmPasswordDialog
+        parent: control.parent
+    }
+
     //
     // signals
     //
@@ -288,7 +293,22 @@ Control {
                     //% "Clear"
                     text:       qsTrId("settings-reset")
                     visible:    canClear()
-                    onClicked:  clear()
+                    onClicked:  {
+                        if (editElectrum) {
+                            //: electrum settings, ask password to clear seed phrase, dialog title
+                            //% "Clear seed phrase"
+                            confirmPasswordDialog.dialogTitle = qsTrId("settings-swap-confirm-clear-seed-title");
+                            //: electrum settings, ask password to clear seed phrase, dialog message
+                            //% "Enter your wallet password to clear seed phrase"
+                            confirmPasswordDialog.dialogMessage = qsTrId("settings-swap-confirm-clear-seed-message");
+                            confirmPasswordDialog.onDialogAccepted = function() {
+                                clear();
+                            };
+                            confirmPasswordDialog.open();
+                        } else {
+                            clear();
+                        }
+                    }
                 }
 
                 LinkButton {
@@ -418,9 +438,26 @@ Control {
                                //% "Enter your seed phrase"
                                qsTrId("settings-swap-enter-seed")
                     onClicked: {
-                        seedPhraseDialog.setModeEdit()
-                        seedPhraseDialog.isCurrentElectrumSeedValid = isCurrentElectrumSeedValid
-                        seedPhraseDialog.open()
+                        function editSeedPhrase(isSeedPhraseValid) {
+                            seedPhraseDialog.setModeEdit();
+                            seedPhraseDialog.isCurrentElectrumSeedValid = isSeedPhraseValid;
+                            seedPhraseDialog.open();
+                        }
+
+                        if (isCurrentElectrumSeedValid) {
+                            //: electrum settings, ask password to edit seed phrase, dialog title
+                            //% "Edit seed phrase"
+                            confirmPasswordDialog.dialogTitle = qsTrId("settings-swap-confirm-edit-seed-title");
+                            //: electrum settings, ask password to edit seed phrase, dialog message
+                            //% "Enter your wallet password to edit the phrase"
+                            confirmPasswordDialog.dialogMessage = qsTrId("settings-swap-confirm-edit-seed-message");
+                            confirmPasswordDialog.onDialogAccepted = function() {
+                                editSeedPhrase(true);
+                            };
+                            confirmPasswordDialog.open();
+                        } else {
+                            editSeedPhrase(false);
+                        }
                     }
                 }
 
@@ -435,9 +472,26 @@ Control {
                     //% "Generate new seed phrase"
                     text:             qsTrId("settings-swap-new-seed")
                     onClicked: {
-                        newSeedElectrum();
-                        seedPhraseDialog.setModeNew();
-                        seedPhraseDialog.open();
+                        function generateSeedPhrase() {
+                            newSeedElectrum();
+                            seedPhraseDialog.setModeNew();
+                            seedPhraseDialog.open();
+                        }
+
+                        if (isCurrentElectrumSeedValid) {
+                            //: electrum settings, ask password to generate new seed phrase, dialog title
+                            //% "Generate new seed phrase"
+                            confirmPasswordDialog.dialogTitle = qsTrId("settings-swap-confirm-generate-seed-title");
+                            //: electrum settings, ask password to generate new seed phrase, dialog message
+                            //% "Enter your wallet password to generate new seed phrase"
+                            confirmPasswordDialog.dialogMessage = qsTrId("settings-swap-confirm-generate-seed-message");
+                            confirmPasswordDialog.onDialogAccepted = function() {
+                                generateSeedPhrase();
+                            };
+                            confirmPasswordDialog.open();
+                        } else {
+                            generateSeedPhrase();
+                        }
                     }
                 }
             }
@@ -454,15 +508,24 @@ Control {
                     //% "Show seed phrase"
                     text:      qsTrId("settings-swap-show-seed")
                     onClicked: {
-                        seedPhraseDialog.setModeView();
-                        seedPhraseDialog.open();
+                        //: electrum settings, ask password to show seed phrase, dialog title
+                        //% "Show seed phrase"
+                        confirmPasswordDialog.dialogTitle = qsTrId("settings-swap-confirm-show-seed-title");
+                        //: electrum settings, ask password to show seed phrase, dialog message
+                        //% "Enter your wallet password to see the phrase"
+                        confirmPasswordDialog.dialogMessage = qsTrId("settings-swap-confirm-show-seed-message");
+                        confirmPasswordDialog.onDialogAccepted = function() {
+                            seedPhraseDialog.setModeView();
+                            seedPhraseDialog.open();
+                        };
+                        confirmPasswordDialog.open();
                     }
                 }
 
                 LinkButton {
                     //% "Show wallet addresses"
                     text:      qsTrId("settings-swap-show-addresses")
-                    onClicked: {
+                    onClicked: {                        
                         showAddressesDialog.addressesElectrum = getAddressesElectrum();
                         showAddressesDialog.open();
                     }
