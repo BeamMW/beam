@@ -1905,5 +1905,9 @@ Please check the swap token and try again.</translation>
         <source>Qtum wallet addresses</source>
         <translation type="unfinished"></translation>
     </message>
+    <message id="settings-swap-copy-address">
+        <source>Copy address</source>
+        <translation>Copy address</translation>
+    </message>
 </context>
 </TS>

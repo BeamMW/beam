@@ -1898,5 +1898,9 @@ Please check the swap token and try again.</oldsource>
         <source>Qtum wallet addresses</source>
         <translation type="unfinished"></translation>
     </message>
+    <message id="settings-swap-copy-address">
+        <source>Copy address</source>
+        <translation type="unfinished">Капіяваць адрас</translation>
+    </message>
 </context>
 </TS>

@@ -1896,5 +1896,9 @@ Please try again later or create an offer yourself.</oldsource>
         <source>Qtum wallet addresses</source>
         <translation type="unfinished">Qtum wallet addresses</translation>
     </message>
+    <message id="settings-swap-copy-address">
+        <source>Copy address</source>
+        <translation type="unfinished">Copia indirizzo</translation>
+    </message>
 </context>
 </TS>

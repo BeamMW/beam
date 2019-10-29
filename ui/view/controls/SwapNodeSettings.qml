@@ -948,14 +948,33 @@ Control {
 
                     Repeater {
                         model: showAddressesDialog.addressesElectrum
-                        SFLabel {
-                            Layout.fillWidth:    true
-                            horizontalAlignment: Text.AlignLeft
-                            text:                modelData
-                            font.pixelSize:      14
-                            color:               Style.content_main
-                            copyMenuEnabled:     true
-                            onCopyText:          BeamGlobals.copyToClipboard(text)
+                        RowLayout {
+                            Layout.fillWidth: true
+                            spacing: 0
+
+                            SFLabel {
+                                id: addressId
+                                Layout.fillWidth:    true
+                                horizontalAlignment: Text.AlignLeft
+                                text:                modelData
+                                font.pixelSize:      14
+                                color:               Style.content_main
+                                copyMenuEnabled:     true
+                                onCopyText:          BeamGlobals.copyToClipboard(text)
+                            }
+
+                            Item {
+                                Layout.fillWidth: true
+                                Layout.preferredWidth: 55
+                            }
+
+                            CustomToolButton {
+                                Layout.alignment: Qt.AlignVCenter | Qt.AlignRight
+                                icon.source: "qrc:/assets/icon-copy.svg"
+                                //% "Copy address"
+                                ToolTip.text: qsTrId("settings-swap-copy-address")
+                                onClicked: BeamGlobals.copyToClipboard(addressId.text)
+                            }
                         }
                     }
                 }
