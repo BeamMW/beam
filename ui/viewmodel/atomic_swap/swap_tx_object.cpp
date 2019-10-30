@@ -219,7 +219,7 @@ QString SwapTxObject::getFeeRate() const
 
         if (feeRate && m_swapCoin)
         {
-            QString value = AmountToUIString(*feeRate, beamui::Currencies::Unknown);
+            QString value = QString::number(*feeRate);
 
             QString rateMeasure;
             switch (*m_swapCoin)
