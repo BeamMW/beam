@@ -34,7 +34,7 @@ if(BEAM_ATOMIC_SWAP_SUPPORT)
     add_subdirectory(swaps)
 endif()
 
-if (NOT ANDROID)
+if (NOT ANDROID AND NOT IOS)
     if(BEAM_HW_WALLET)
 
         target_compile_definitions(wallet PRIVATE BEAM_HW_WALLET)
