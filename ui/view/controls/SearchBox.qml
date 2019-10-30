@@ -36,9 +36,10 @@ FocusScope {
             color:                   Style.content_main
             visible:                 false
             inputMethodHints:        Qt.ImhNoPredictiveText
+            focusablePlaceholder:    true
             background: Item {}
             onFocusChanged: {
-                if (!focus && text.length == 0) {
+                if (!focus && text.length == 0 && !searcIconBtn.focus) {
                     visible = false;
                 }
             }
@@ -61,14 +62,17 @@ FocusScope {
         }
 
         CustomToolButton {
+            id: searcIconBtn
             Layout.alignment: Qt.AlignTop | Qt.AlignRight
             icon.source: "qrc:/assets/icon-search.svg"
             visible:     input.text.length == 0
             //% "Search"
             ToolTip.text: qsTrId("wallet-search")
             onClicked: {
+                console.log('clicked')
                 if (input.text.length == 0) {
-                    input.visible = !input.visible;
+                    input.visible = !input.visible
+                    if(input.visible) input.forceActiveFocus()
                 }
             }
         }
