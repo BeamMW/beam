@@ -398,12 +398,10 @@ Item {
                             width: transactionsTable.width
 
                             onHeightChanged: {
-                                console.log("Height changed")
                                 if (searchFilter.length && rowItem.collapsed) expand()
                                 if (!rowItem.collapsed) {
                                     rowItem.height = transactionsTable.rowHeight + detailsPanel.height
                                     txDetails.height = detailsPanel.height
-                                    console.log("   new height:" + detailsPanel.height)
                                     txDetails.visible = true
                                     detailsPanel.visible = true
                                 }
