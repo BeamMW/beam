@@ -83,6 +83,64 @@ Item
         }
     }
 
+    ConfirmationDialog {
+        id: seedPhraseSubmitAllert
+
+        //% "I understand"
+        okButtonText: qsTrId("restore-finish-alert-button")
+        okButtonIconSource: "qrc:/assets/icon-done.svg"
+        cancelButtonVisible: false
+        width: 460
+        height: contentItem.implicitHeight + footer.implicitHeight + 60
+        padding: 0
+
+        contentItem: Column {
+            width: parent.width
+            height: seedPhraseSubmitAllertTitle.implicitHeight + seedPhraseSubmitAllertMessage.implicitHeight
+            SFText {
+                id: seedPhraseSubmitAllertTitle
+                topPadding: 30
+                anchors.horizontalCenter: parent.horizontalCenter
+                width: 400
+                height: 42
+                horizontalAlignment: Qt.AlignHCenter
+                //% "Do not simultaneously run two wallets initiated from the same seed phrase"
+                text: qsTrId("restore-finish-alert-title")
+                color: Style.content_main
+                font.pixelSize: 18
+                font.styleName: "Bold"
+                font.weight: Font.Bold
+                wrapMode: Text.Wrap
+            }
+
+            Item {
+                height: 30
+                width: parent.width
+            }
+
+            SFText {
+                id: seedPhraseSubmitAllertMessage
+                padding: 30
+                bottomPadding: 0
+                anchors.horizontalCenter: parent.horizontalCenter
+                horizontalAlignment : Text.AlignHCenter
+                width: parent.width
+                height: 32
+                //% "Don’t use same seed phrase on several devices, your balance and transaction list won’t be synchronized."
+                text: qsTrId("restore-finish-alert-message-line")
+                color: Style.content_main
+                font.pixelSize: 14
+                wrapMode: Text.Wrap
+            }
+        }
+        onAccepted: {
+            onClicked: {
+                viewModel.isRecoveryMode = true;
+                startWizzardView.push(create);
+            }
+        }
+    }
+
     StackView {
         id: startWizzardView
         anchors.fill: parent
@@ -130,7 +188,7 @@ Item
                             Item {
                                 Layout.fillHeight: true
                                 Layout.minimumHeight: 40
-                                Layout.maximumHeight: 140
+                                Layout.maximumHeight: 180
                             }
 
                             RowLayout {
@@ -152,17 +210,37 @@ Item
                                     visible: startWizzardView.depth > 1
                                 }
 
-                                PrimaryButton {
-                                    id: createNewWallet
-                                    //% "Create new wallet"
-                                    text: qsTrId("general-create-wallet")
-                                    Layout.preferredHeight: 38
-                                    icon.source: "qrc:/assets/icon-add-blue.svg"
-                                    onClicked: 
-                                    {
-                                        viewModel.isRecoveryMode = false;
-                                        startWizzardView.push(createWalletEntry);
+                                ColumnLayout {
+                                    spacing: 20
+
+                                    PrimaryButton {
+                                        id: createNewWallet
+                                        //% "Create new wallet"
+                                        text: qsTrId("general-create-wallet")
+                                        Layout.preferredHeight: 38
+                                        Layout.alignment: Qt.AlignHCenter
+                                        icon.source: "qrc:/assets/icon-add-blue.svg"
+                                        onClicked: 
+                                        {
+                                            viewModel.isRecoveryMode = false;
+                                            startWizzardView.push(createWalletEntry);
+                                        }
                                     }
+
+                                    PrimaryButton {
+                                        visible: viewModel.isTrezorEnabled
+                                        id: createNewTrezorWallet
+                                        //% "Create new Trezor wallet"
+                                        text: qsTrId("general-create-trezor-wallet")
+                                        Layout.preferredHeight: 38
+                                        Layout.alignment: Qt.AlignHCenter
+                                        icon.source: "qrc:/assets/icon-add-blue.svg"
+                                        onClicked: 
+                                        {
+                                            viewModel.isRecoveryMode = false;
+                                            startWizzardView.push(createTrezorWalletEntry);
+                                        }
+                                    }                                
                                 }
                             }
 
@@ -253,9 +331,8 @@ Item
                             }
 
                             Item {
-                                Layout.fillHeight: true
                                 Layout.minimumHeight: 30
-                                Layout.maximumHeight: 130
+                                Layout.preferredHeight: 100
                             }
 
                             RowLayout {
@@ -534,8 +611,8 @@ Item
 
                             Rectangle {
                                 anchors.fill: parent
-                                color: styleData.selected ? Style.row_selected : Style.background_row_even
-                                visible: styleData.alternate || styleData.selected
+                                color: styleData.selected ? Style.row_selected :
+                                        (styleData.alternate ? Style.background_row_even : Style.background_row_odd)
                             }
                         }
 
@@ -587,9 +664,8 @@ Item
                     }
 
                     Item {
-                        Layout.fillHeight: true
                         Layout.minimumHeight: 30
-                        Layout.maximumHeight: 65
+                        Layout.preferredHeight: 100
                     }
 
                     SFText {
@@ -716,6 +792,91 @@ Item
                             text: qsTrId("start-generate-seed-phrase-button")
                             icon.source: "qrc:/assets/icon-recovery.svg"
                             onClicked: startWizzardView.push(generateRecoveryPhrase);
+                        }
+                    }
+
+                    Item {
+                        Layout.fillHeight: true
+                        Layout.minimumHeight: 67
+                        Layout.maximumHeight: 143
+                    }
+
+                    SFText {
+                        Layout.alignment:    Qt.AlignHCenter
+                        font.pixelSize:      12
+                        color:               Qt.rgba(255, 255, 255, 0.3)
+                        text:                [qsTrId("settings-version"), BeamGlobals.version()].join(' ')
+                    }
+
+                    Item {
+                        Layout.minimumHeight: 35
+                    }
+                }
+            }
+        }
+
+        Component {
+            id: createTrezorWalletEntry
+            Rectangle
+            {
+                color: Style.background_main
+                ColumnLayout {
+                    anchors.horizontalCenter: parent.horizontalCenter
+                    anchors.fill: parent
+                    anchors.topMargin: 50
+
+                    Column {
+                        spacing: 30
+                        Layout.alignment: Qt.AlignHCenter | Qt.AlignTop
+
+                        SFText {
+                            anchors.horizontalCenter: parent.horizontalCenter
+                            horizontalAlignment: Qt.AlignHCenter
+                            //% "Init wallet with Trezor"
+                            text: qsTrId("start-init-wallet-with-trezor")
+                            color: Style.content_main
+                            font.pixelSize: 36
+                        }
+
+                        SFText {
+                            anchors.horizontalCenter: parent.horizontalCenter
+                            horizontalAlignment: Qt.AlignHCenter
+                            text: viewModel.isTrezorConnected
+                                //% "Found device:"
+                                ? qsTrId("start-found-trezor-device") + " " + viewModel.trezorDeviceName
+                                //% "There is no device connected, please, connect your hardware wallet."
+                                : qsTrId("start-no-trezor-device-connected")
+                            color: Style.content_main
+                            wrapMode: Text.WordWrap
+                            font.pixelSize: 14
+                        }
+                    }
+
+                    Item {
+                        Layout.fillHeight: true
+                    }
+
+                    Row {
+                        Layout.alignment: Qt.AlignHCenter
+                        spacing: 30
+
+                        CustomButton {
+                            //% "Back"
+                            text: qsTrId("general-back")
+                            icon.source: "qrc:/assets/icon-back.svg"
+                            onClicked: startWizzardView.pop();
+                        }
+
+                        PrimaryButton {
+                            id: nextButton
+                            enabled: viewModel.isTrezorConnected
+                            //% "Next"
+                            text: qsTrId("general-next")
+                            icon.source: "qrc:/assets/icon-next-blue.svg"
+                            onClicked: {
+                                viewModel.startOwnerKeyImporting();
+                                startWizzardView.push(importTrezorOwnerKey);
+                            }
                         }
                     }
 
@@ -1056,6 +1217,105 @@ Item
         }
 
         Component {
+            id: importTrezorOwnerKey
+            Rectangle {
+                color: Style.background_main
+                property Item defaultFocusItem: null
+
+                ColumnLayout {
+                    anchors.horizontalCenter: parent.horizontalCenter
+                    anchors.fill: parent
+                    anchors.topMargin: 50
+                    Column {
+                        spacing: 30
+                        Layout.alignment: Qt.AlignHCenter | Qt.AlignTop
+                        Layout.preferredWidth: 730
+                        SFText {
+                            anchors.horizontalCenter: parent.horizontalCenter
+                            horizontalAlignment: Qt.AlignHCenter
+                            //% "Import Trezor Owner Key"
+                            text: qsTrId("start-import-trezor-owner-key")
+                            color: Style.content_main
+                            font.pixelSize: 36
+                        }
+                        SFText {
+                            anchors.left: parent.left
+                            anchors.right: parent.right
+                            horizontalAlignment: Qt.AlignHCenter
+                            text: viewModel.isOwnerKeyImported 
+                                //% "Owner Key imported. Please, enter the password you saw on device to decrypt your Owner Key."
+                                ? qsTrId("start-owner-key-imported")
+                                //% "Please, look at your Trezor to complete actions..."
+                                : qsTrId("start-look-at-trezor-to-complete-actions")
+                            color: Style.content_main
+                            wrapMode: Text.WordWrap
+                            font.pixelSize: 14
+                        }
+
+                        SFTextInput {
+                            id:trezorPassword
+                            width: 400
+                            anchors.horizontalCenter: parent.horizontalCenter
+                            visible: viewModel.isOwnerKeyImported
+                            font.pixelSize: 14
+                            color: Style.content_main
+                            echoMode: TextInput.Password
+                        }
+                    }
+
+
+                    Item {
+                        Layout.fillHeight: true
+                        Layout.minimumHeight: 120
+                    }
+
+                    Row {
+                        Layout.alignment: Qt.AlignHCenter
+
+                        spacing: 30
+
+                        CustomButton {
+                            //% "Back"
+                            text: qsTrId("general-back")
+                            enabled: viewModel.isOwnerKeyImported
+                            icon.source: "qrc:/assets/icon-back.svg"
+                            onClicked: startWizzardView.pop();
+                        }
+
+                        PrimaryButton {
+                            id: checkRecoveryNextButton
+                            //% "Next"
+                            text: qsTrId("general-next")
+                            enabled: viewModel.isOwnerKeyImported && viewModel.isPasswordValid(trezorPassword.text)
+                            icon.source: "qrc:/assets/icon-next-blue.svg"
+                            onClicked: {
+                                viewModel.setOwnerKeyPassword(trezorPassword.text)
+                                startWizzardView.push(create)
+                            }
+                        }
+                    }
+
+                    Item {
+                        Layout.fillHeight: true
+                        Layout.minimumHeight: 67
+                        Layout.maximumHeight: 143
+                    }
+
+                    SFText {
+                        Layout.alignment:    Qt.AlignHCenter
+                        font.pixelSize:      12
+                        color:               Qt.rgba(255, 255, 255, 0.3)
+                        text:                [qsTrId("settings-version"), BeamGlobals.version()].join(' ')
+                    }
+
+                    Item {
+                        Layout.minimumHeight: 35
+                    }
+                }
+            }
+        }
+
+        Component {
             id: restoreWallet
             Rectangle {
                 color: Style.background_main
@@ -1201,14 +1461,32 @@ Item
                             text: qsTrId("general-next")
                             enabled: {
                                 var enable = true;
-                                for(var i = 0; i < viewModel.recoveryPhrases.length; ++i)
-                                {
-                                    enable &= viewModel.recoveryPhrases[i].isAllowed;
+                                if (viewModel.validateDictionary) {
+                                    for(var i = 0; i < viewModel.recoveryPhrases.length; ++i) {
+                                        enable &= viewModel.recoveryPhrases[i].isAllowed;
+                                    }
                                 }
                                 return enable;
                             }
                             icon.source: "qrc:/assets/icon-next-blue.svg"
-                            onClicked: startWizzardView.push(create);
+                            onClicked: {
+                                viewModel.validateDictionary = true;
+                                onClicked: seedPhraseSubmitAllert.open();
+                            }
+                        }
+                    }
+
+                    Keys.onPressed: {
+                        if (event.key == Qt.Key_Shift)
+                        {
+                            viewModel.validateDictionary = false;
+                        }
+                    }
+
+                    Keys.onReleased: {
+                        if (event.key == Qt.Key_Shift)
+                        {
+                            viewModel.validateDictionary = true;
                         }
                     }
 
@@ -1911,13 +2189,11 @@ Item
                             }
 
                             Item {
-                                Layout.preferredHeight: 20
-                            }
-
-                            Item {
                                 Layout.alignment: Qt.AlignHCenter
                                 Layout.fillHeight: true
                                 Layout.preferredHeight: 36
+                                Layout.topMargin: 20
+                                Layout.bottomMargin: 9
                                 Rectangle {
                                     id: capsWarning
                                     anchors.centerIn: parent
@@ -1939,16 +2215,11 @@ Item
                                     visible: viewModel.isCapsLockOn 
                                 }
                             }
-                            Item {
-                                Layout.fillHeight: true
-                                Layout.minimumHeight: 9
-                                Layout.maximumHeight: 6
-                            }
 
                             Row {
                                 Layout.alignment: Qt.AlignHCenter
                                 Layout.preferredHeight: 16
-                                spacing: 30
+                                // spacing: 30
                                 SFText {
                                     Layout.alignment: Qt.AlignHCenter
                                     //% "Restore wallet or create a new one"
@@ -1969,7 +2240,7 @@ Item
 
                             Item {
                                 Layout.fillHeight: true
-                                Layout.minimumHeight: 67
+                                Layout.minimumHeight: 40
                             }
 
                             SFText {

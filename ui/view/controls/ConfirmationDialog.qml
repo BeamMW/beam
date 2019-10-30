@@ -35,25 +35,38 @@ Dialog {
         
     background: Rectangle {
         radius: 10
-        color: Style.background_second
+        color: Style.background_popup
         anchors.fill: parent
     }
 
+    header: SFText {
+        text: control.title
+        topPadding: 30
+        visible: control.title.length > 0
+        horizontalAlignment : Text.AlignHCenter
+        font.pixelSize: 18
+        font.styleName: "Bold"; font.weight: Font.Bold
+        color: Style.content_main
+    }
+
     SFText {
+        leftPadding: 20
+        rightPadding: 20
+        bottomPadding: 20
+        topPadding: control.title.length > 0 ? 10 : 30
         id: messageText
-        anchors.fill: parent
-        padding: 20
         font.pixelSize: 14
         color: Style.content_main
         wrapMode: Text.Wrap
         horizontalAlignment : Text.AlignHCenter
+        anchors.fill: parent
     }
 
     footer: Control {
         
         background: Rectangle {
             radius: 10
-            color: Style.background_second
+            color: Style.background_popup
             anchors.fill: parent
         }          
 

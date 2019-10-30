@@ -43,7 +43,7 @@ Dialog {
 	}
 
 	property var getExpirationTimeLabel: function() {
-		var localeName = parentModel.getLocaleName();
+		var localeName = BeamGlobals.getLocaleName();
 		if (isExpiredAddress) {
 			return addressItem
 				? Utils.formatDateTime(addressItem.expirationDate, localeName)
@@ -83,7 +83,7 @@ Dialog {
 
     background: Rectangle {
 		radius: 10
-        color: Style.background_second
+        color: Style.background_popup
         anchors.fill: parent
     }
 
@@ -99,7 +99,7 @@ Dialog {
 			Layout.preferredWidth: parent.width
 			Layout.alignment: Qt.AlignLeft
 			horizontalAlignment: Text.AlignHCenter
-			//: Edit addres dialog title
+			//: Edit address dialog title
 			//% "Edit address"
 			text: qsTrId("edit-addr-title")
 			color: Style.content_main
@@ -114,7 +114,7 @@ Dialog {
 
 			SFText {
 				Layout.preferredWidth: parent.width
-				//: Edit addres dialog, address label
+				//: Edit address dialog, address label
 				//% "Address ID"
 				text: qsTrId("edit-addr-addr-id")
 				color: Style.content_main
@@ -158,7 +158,7 @@ Dialog {
 
 			SFText {
 				id: expiresDateLabel
-				//: Edit addres dialog, expires label
+				//: Edit address dialog, expires label
 				//% "Expires"
 				text: qsTrId("edit-addr-expires-label")
 				color: Style.content_main
@@ -186,7 +186,7 @@ Dialog {
 				SFText {
 					Layout.preferredWidth: parent.width
 					Layout.alignment: Qt.AlignLeft | Qt.AlignTop
-					//: Edit addres dialog, expire now label
+					//: Edit address dialog, expire now label
 					//% "Now"
 					text: qsTrId("edit-addr-expire-now-label")
 					color: Style.content_secondary
@@ -211,7 +211,7 @@ Dialog {
 			CustomSwitch {
 				id: disactivate
 				Layout.alignment: Qt.AlignRight | Qt.AlignTop
-				//: Edit addres dialog, expire now switch
+				//: Edit address dialog, expire now switch
 				//% "Expire address now"
 				text: qsTrId("edit-addr-expire-now-switch")
 				font.pixelSize: 14
@@ -228,7 +228,7 @@ Dialog {
 			visible: isExpiredAddress
 
 			SFText {
-				//: Edit addres dialog, expiration time label
+				//: Edit address dialog, expiration time label
 				//% "Expired on "
 				text: qsTrId("edit-addr-expiration-time-label")
 				color: Style.content_secondary
@@ -270,7 +270,7 @@ Dialog {
 			CustomSwitch {
 				id: activate
 				Layout.alignment: Qt.AlignLeft
-				//: Edit addres dialog, expiration time label
+				//: Edit address dialog, expiration time label
 				//% "Activate address"
 				text: qsTrId("edit-addr-activate-addr-switch")
 				font.pixelSize: 14
@@ -286,7 +286,7 @@ Dialog {
 
 			SFText {
 				id: expiresLabel
-				//: Edit addres dialog, expires label
+				//: Edit address dialog, expires label
 				//% "Expires"
 				text: qsTrId("edit-addr-expires-label")
 				color: Style.content_main
@@ -345,7 +345,7 @@ Dialog {
 			Item {
 				Layout.preferredHeight: 15
 				SFText {
-					//% "Address with same comment already exist"
+					//% "Address with the same comment already exists"
 					text: qsTrId("general-addr-comment-error")
 					color: Style.validator_error
 					font.pixelSize: 12
@@ -366,7 +366,7 @@ Dialog {
 
 			CustomButton {
 				Layout.preferredHeight: 40
-				//: Edit addres dialog, cancel button
+				//: Edit address dialog, cancel button
 				//% "Cancel"
 				text: qsTrId("general-cancel")
                 icon.source: "qrc:/assets/icon-cancel.svg"
@@ -383,7 +383,7 @@ Dialog {
 			PrimaryButton {
 				id: saveButton
 				Layout.preferredHeight: 40
-				//: Edit addres dialog, save button
+				//: Edit address dialog, save button
 				//% "Save"
 				text: qsTrId("edit-addr-save-button")
                 icon.source: "qrc:/assets/icon-done.svg"
@@ -410,7 +410,8 @@ Dialog {
 					const expirationStatusEnum = {
 						Expired: 0,
 						OneDay: 1,
-						Never: 2
+						Never: 2,
+						AsIs: 3
 					}
 
 					if (rootControl.isExpiredAddress) {
@@ -445,9 +446,12 @@ Dialog {
 								case 2:
 									expirationStatus = expirationStatusEnum.Never;
 									break;
+								default:
+									expirationStatus = expirationStatusEnum.AsIs;
 							}
 						}
 					}
+					console.log(expirationStatus);
 					parentModel.saveChanges(addressID.text, addressName.text, expirationStatus);
 					rootControl.accepted();
                     rootControl.close();

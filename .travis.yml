@@ -10,13 +10,12 @@ matrix:
 
     - os: osx
       language: cpp
-      osx_image: xcode9.3
+      osx_image: xcode10.1
       install: 
         - export TZ=Etc/GMT-3
         - brew update
         - brew unlink cmake
-        - brew unlink boost
-        - brew install cmake boost
+        - brew install cmake
         - curl -O https://raw.githubusercontent.com/Homebrew/homebrew-core/56c500b569c724b049be7ab9e12d9693f85522f9/Formula/qt.rb
         - brew install ./qt.rb
         - brew link qt5 --force
@@ -46,8 +45,7 @@ matrix:
         - export TZ=Etc/GMT-3
         - brew update
         - brew unlink cmake
-        - brew unlink boost 
-        - brew install cmake boost
+        - brew install cmake
         - sudo git clone --depth=1 https://github.com/nesbox/qt5-static-mac.git /usr/local/qt5-static
         - export PATH=/usr/local/qt5-static/bin:$PATH
         - export OPENSSL_ROOT_DIR="/usr/local/opt/openssl"
@@ -115,7 +113,7 @@ matrix:
         - export BOOST_ROOT="/usr/local/boost_1_69_0"
         - sudo add-apt-repository ppa:beineri/opt-qt-5.10.1-trusty -y
         - sudo apt-get update
-        - sudo apt-get install qt510declarative qt510svg libgl1-mesa-dev-lts-xenial
+        - sudo apt-get install qt510declarative qt510svg qttools5-dev libgl1-mesa-dev-lts-trusty
         - eval "CC=gcc-7 && CXX=g++-7"
         - export PATH=/opt/qt510/bin:$PATH
       env: 
@@ -348,6 +346,31 @@ matrix:
         - curl --retry 3 --ftp-create-dirs -T libwallet-jni.tar.gz $BUILDS_SERVER_LATEST_PATH/
         - artifacts upload --target-paths "$TRAVIS_BRANCH/$(date +%Y.%m.%d)/$BUILD_TYPE/android-$ANDROID_ABI/" libwallet-jni-$BEAM_VERSION.tar.gz
         - artifacts upload --target-paths "$TRAVIS_BRANCH/latest/$BUILD_TYPE/android-$ANDROID_ABI/" libwallet-jni.tar.gz
+
+###############################################################################
+# Key Keeper Web Assembly Release
+###############################################################################
+
+    - os: linux
+      dist: bionic
+      language: cpp
+      env:
+        - TARGET_TYPE=wasm
+        - BUILD_TYPE=Release
+      sudo: required
+      services:
+        - docker
+      install:
+        - docker run -e BOOST_ROOT='/usr/local/boost_1_69_0' -dit --name emscripten -v $(pwd):/src trzeci/emscripten:sdk-incoming-64bit bash
+      script:
+        - docker exec -it emscripten git clone --depth=1 https://github.com/BeamMW/boost-linux.git /usr/local/boost_1_69_0
+        - docker exec -it emscripten emcmake cmake -DCMAKE_BUILD_TYPE=$BUILD_TYPE keykeeper
+        - docker exec -it emscripten make -j$(nproc)
+      after_success:
+        - tar -cvzf wasm-key-keeper.tar.gz wasm-key-keeper.* index.html
+        - BUILDS_SERVER_PATH=${BUILD_SERVER}/files/$TRAVIS_BRANCH/$(date +%Y.%m.%d)/$BUILD_TYPE/$TARGET_TYPE
+        - curl --retry 3 --ftp-create-dirs -T wasm-key-keeper.tar.gz $BUILDS_SERVER_PATH/
+        - artifacts upload --target-paths "$TRAVIS_BRANCH/$(date +%Y.%m.%d)/$BUILD_TYPE/$TARGET_TYPE/" wasm-key-keeper.tar.gz
 
 ###############################################################################
 # Common part

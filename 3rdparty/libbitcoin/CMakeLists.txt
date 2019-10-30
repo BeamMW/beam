@@ -1,3 +1,7 @@
+cmake_minimum_required(VERSION 3.11)
+
+#find_package(Boost 1.67 REQUIRED COMPONENTS system thread regex filesystem program_options log locale)
+
 set(TARGET_NAME libbitcoin)
 
 set(LIBBITCOIN_INCLUDE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/include/bitcoin/bitcoin)
@@ -19,52 +23,39 @@ add_library(${TARGET_NAME} STATIC
 	$<TARGET_OBJECTS:libbitcoin_utility>
 	$<TARGET_OBJECTS:libbitcoin_wallet>)
 
+target_include_directories(${TARGET_NAME} PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/include")
+
 target_link_libraries(${TARGET_NAME} secp256k1)
 
-if(ANDROID)
-    if(ANDROID_ABI STREQUAL "armeabi-v7a")
+if(IOS)
         target_link_libraries(${TARGET_NAME} 
-            $ENV{BOOST_ROOT_ANDROID}/libs/${ANDROID_ABI}/libboost_program_options-clang-mt-a32-1_68.a 
-            $ENV{BOOST_ROOT_ANDROID}/libs/${ANDROID_ABI}/libboost_filesystem-clang-mt-a32-1_68.a
-            $ENV{BOOST_ROOT_ANDROID}/libs/${ANDROID_ABI}/libboost_system-clang-mt-a32-1_68.a
-            $ENV{BOOST_ROOT_ANDROID}/libs/${ANDROID_ABI}/libboost_thread-clang-mt-a32-1_68.a
-            $ENV{BOOST_ROOT_ANDROID}/libs/${ANDROID_ABI}/libboost_regex-clang-mt-a32-1_68.a
-            $ENV{BOOST_ROOT_ANDROID}/libs/${ANDROID_ABI}/libboost_log-clang-mt-a32-1_68.a)
-    elseif(ANDROID_ABI STREQUAL "x86")
-        target_link_libraries(${TARGET_NAME} 
-            $ENV{BOOST_ROOT_ANDROID}/libs/${ANDROID_ABI}/libboost_program_options-clang-mt-x32-1_68.a 
-            $ENV{BOOST_ROOT_ANDROID}/libs/${ANDROID_ABI}/libboost_filesystem-clang-mt-x32-1_68.a
-            $ENV{BOOST_ROOT_ANDROID}/libs/${ANDROID_ABI}/libboost_system-clang-mt-x32-1_68.a
-            $ENV{BOOST_ROOT_ANDROID}/libs/${ANDROID_ABI}/libboost_thread-clang-mt-x32-1_68.a
-            $ENV{BOOST_ROOT_ANDROID}/libs/${ANDROID_ABI}/libboost_regex-clang-mt-x32-1_68.a
-            $ENV{BOOST_ROOT_ANDROID}/libs/${ANDROID_ABI}/libboost_log-clang-mt-x32-1_68.a)
-    elseif(ANDROID_ABI STREQUAL "x86_64")
-        target_link_libraries(${TARGET_NAME} 
-            $ENV{BOOST_ROOT_ANDROID}/libs/${ANDROID_ABI}/libboost_program_options-clang-mt-x64-1_68.a 
-            $ENV{BOOST_ROOT_ANDROID}/libs/${ANDROID_ABI}/libboost_filesystem-clang-mt-x64-1_68.a
-            $ENV{BOOST_ROOT_ANDROID}/libs/${ANDROID_ABI}/libboost_system-clang-mt-x64-1_68.a
-            $ENV{BOOST_ROOT_ANDROID}/libs/${ANDROID_ABI}/libboost_thread-clang-mt-x64-1_68.a
-            $ENV{BOOST_ROOT_ANDROID}/libs/${ANDROID_ABI}/libboost_regex-clang-mt-x64-1_68.a
-            $ENV{BOOST_ROOT_ANDROID}/libs/${ANDROID_ABI}/libboost_log-clang-mt-x64-1_68.a)
-    elseif(ANDROID_ABI STREQUAL "arm64-v8a")
-        target_link_libraries(${TARGET_NAME} 
-            $ENV{BOOST_ROOT_ANDROID}/libs/${ANDROID_ABI}/libboost_program_options-clang-mt-a64-1_68.a 
-            $ENV{BOOST_ROOT_ANDROID}/libs/${ANDROID_ABI}/libboost_filesystem-clang-mt-a64-1_68.a
-            $ENV{BOOST_ROOT_ANDROID}/libs/${ANDROID_ABI}/libboost_system-clang-mt-a64-1_68.a
-            $ENV{BOOST_ROOT_ANDROID}/libs/${ANDROID_ABI}/libboost_thread-clang-mt-a64-1_68.a
-            $ENV{BOOST_ROOT_ANDROID}/libs/${ANDROID_ABI}/libboost_regex-clang-mt-a64-1_68.a
-            $ENV{BOOST_ROOT_ANDROID}/libs/${ANDROID_ABI}/libboost_log-clang-mt-a64-1_68.a)
-    endif()
-else()
-    find_package(Boost COMPONENTS system thread regex filesystem program_options log locale)
-    if (Boost_FOUND)    
-        target_link_libraries(${TARGET_NAME} Boost::system Boost::thread Boost::regex Boost::filesystem Boost::program_options Boost::log Boost::locale)
-    endif()
+            $ENV{BOOST_ROOT_IOS}/lib/libboost_program_options.a 
+            $ENV{BOOST_ROOT_IOS}/lib/libboost_filesystem.a
+            $ENV{BOOST_ROOT_IOS}/lib/libboost_system.a
+            $ENV{BOOST_ROOT_IOS}/lib/libboost_thread.a
+            $ENV{BOOST_ROOT_IOS}/lib/libboost_regex.a
+            $ENV{BOOST_ROOT_IOS}/lib/libboost_log.a)
+elseif(ANDROID)
+    target_link_libraries(${TARGET_NAME} 
+            $ENV{BOOST_ROOT_ANDROID}/libs/${ANDROID_ABI}/libboost_program_options${ANDROID_SUFFIX} 
+            $ENV{BOOST_ROOT_ANDROID}/libs/${ANDROID_ABI}/libboost_filesystem${ANDROID_SUFFIX}
+            $ENV{BOOST_ROOT_ANDROID}/libs/${ANDROID_ABI}/libboost_system${ANDROID_SUFFIX}
+            $ENV{BOOST_ROOT_ANDROID}/libs/${ANDROID_ABI}/libboost_thread${ANDROID_SUFFIX}
+            $ENV{BOOST_ROOT_ANDROID}/libs/${ANDROID_ABI}/libboost_regex${ANDROID_SUFFIX}
+            $ENV{BOOST_ROOT_ANDROID}/libs/${ANDROID_ABI}/libboost_log${ANDROID_SUFFIX}
+)
 endif()
 
-if(Boost_FOUND)
-    target_link_libraries(${TARGET_NAME} boost)
-endif()
+target_link_libraries(${TARGET_NAME}
+    Boost::boost 
+    Boost::system 
+    Boost::thread 
+    Boost::regex 
+    Boost::filesystem 
+    Boost::program_options 
+    Boost::log 
+    Boost::locale
+)
 
 if(MSVC)
     target_compile_options(${TARGET_NAME} PUBLIC "/wd4245")

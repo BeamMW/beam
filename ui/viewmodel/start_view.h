@@ -19,11 +19,18 @@
 #include <QObject>
 #include <QDateTime>
 #include <QQmlListProperty>
+#include <QTimer>
+#include <QThread>
 
 #include "wallet/wallet_db.h"
 #include "mnemonic/mnemonic.h"
 
 #include "messages_view.h"
+
+namespace beam
+{
+    class HWWallet;
+}
 
 class RecoveryPhraseItem : public QObject
 {
@@ -92,6 +99,25 @@ private:
     bool m_isPreferred = false;
 };
 
+#if defined(BEAM_HW_WALLET)
+
+class TrezorThread : public QThread
+{
+    Q_OBJECT
+public:
+    TrezorThread(std::shared_ptr<beam::HWWallet> hw);
+
+    void run() override;
+
+signals:
+    void ownerKeyImported(const QString& key);
+
+private:
+    std::shared_ptr<beam::HWWallet> m_hw;
+};
+
+#endif
+
 class StartViewModel : public QObject
 {
     Q_OBJECT
@@ -101,12 +127,20 @@ class StartViewModel : public QObject
     Q_PROPERTY(QList<QObject*> recoveryPhrases READ getRecoveryPhrases NOTIFY recoveryPhrasesChanged)
     Q_PROPERTY(QList<QObject*> checkPhrases READ getCheckPhrases NOTIFY checkPhrasesChanged)
     Q_PROPERTY(QChar phrasesSeparator READ getPhrasesSeparator CONSTANT)
+    Q_PROPERTY(bool isTrezorEnabled READ isTrezorEnabled CONSTANT)
+
+#if defined(BEAM_HW_WALLET)
+    Q_PROPERTY(bool isTrezorConnected READ isTrezorConnected NOTIFY isTrezorConnectedChanged)
+    Q_PROPERTY(QString trezorDeviceName READ getTrezorDeviceName NOTIFY trezorDeviceNameChanged)
+    Q_PROPERTY(bool isOwnerKeyImported READ isOwnerKeyImported NOTIFY isOwnerKeyImportedChanged)
+#endif
 
     Q_PROPERTY(int localPort READ getLocalPort CONSTANT)
     Q_PROPERTY(QString remoteNodeAddress READ getRemoteNodeAddress CONSTANT)
     Q_PROPERTY(QString localNodePeer READ getLocalNodePeer CONSTANT)
     Q_PROPERTY(QQmlListProperty<WalletDBPathItem> walletDBpaths READ getWalletDBpaths CONSTANT)
     Q_PROPERTY(bool isCapsLockOn READ isCapsLockOn NOTIFY capsLockStateMayBeChanged)
+    Q_PROPERTY(bool validateDictionary READ getValidateDictionary WRITE setValidateDictionary NOTIFY validateDictionaryChanged)
 
 public:
 
@@ -116,6 +150,14 @@ public:
     ~StartViewModel();
 
     bool walletExists() const;
+    bool isTrezorEnabled() const;
+
+#if defined(BEAM_HW_WALLET)
+    bool isTrezorConnected() const;
+    QString getTrezorDeviceName() const;
+    bool isOwnerKeyImported() const;
+#endif
+
     bool getIsRecoveryMode() const;
     void setIsRecoveryMode(bool value);
     const QList<QObject*>& getRecoveryPhrases();
@@ -126,6 +168,8 @@ public:
     QString getLocalNodePeer() const;
     QQmlListProperty<WalletDBPathItem> getWalletDBpaths();
     bool isCapsLockOn() const;
+    bool getValidateDictionary() const;
+    void setValidateDictionary(bool value);
 
     Q_INVOKABLE void setupLocalNode(int port, const QString& localNodePeer);
     Q_INVOKABLE void setupRemoteNode(const QString& nodeAddress);
@@ -146,6 +190,12 @@ public:
     Q_INVOKABLE void checkCapsLock();
     Q_INVOKABLE void openFolder(const QString& path) const;
 
+#if defined(BEAM_HW_WALLET)
+    Q_INVOKABLE void startOwnerKeyImporting();
+    Q_INVOKABLE bool isPasswordValid(const QString& pass);
+    Q_INVOKABLE void setOwnerKeyPassword(const QString& pass);
+#endif
+
 signals:
     void walletExistsChanged();
     void generateGenesysyBlockChanged();
@@ -153,6 +203,13 @@ signals:
     void checkPhrasesChanged();
     void isRecoveryModeChanged();
     void capsLockStateMayBeChanged();
+    void validateDictionaryChanged();
+
+#if defined(BEAM_HW_WALLET)
+    void isTrezorConnectedChanged();
+    void trezorDeviceNameChanged();
+    void isOwnerKeyImportedChanged();
+#endif
 
 public slots:
     bool createWallet();
@@ -160,6 +217,11 @@ public slots:
     bool checkWalletPassword(const QString& password) const;
     void setPassword(const QString& pass);
     void onNodeSettingsChanged();
+
+#if defined(BEAM_HW_WALLET)
+    void onTrezorOwnerKeyImported(const QString& key);
+    void checkTrezor();
+#endif
 
 private:
 
@@ -173,4 +235,14 @@ private:
     QList<WalletDBPathItem*> m_walletDBpaths;
 
     bool m_isRecoveryMode;
+    bool m_validateDictionary = true;
+
+#if defined(BEAM_HW_WALLET)
+    std::shared_ptr<beam::HWWallet> m_hwWallet;
+    QTimer m_trezorTimer;
+    bool m_isTrezorConnected = false;
+    TrezorThread m_trezorThread;
+    std::string m_ownerKeyEncrypted;
+    std::string m_ownerKeyPass;
+#endif
 };

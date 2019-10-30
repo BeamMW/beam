@@ -63,8 +63,8 @@ namespace
     }
 }
 
-WalletModel::WalletModel(IWalletDB::Ptr walletDB, const std::string& nodeAddr, Reactor::Ptr reactor)
-    : WalletClient(walletDB, nodeAddr, reactor)
+WalletModel::WalletModel(IWalletDB::Ptr walletDB, IPrivateKeyKeeper::Ptr keyKeeper, const std::string& nodeAddr, Reactor::Ptr reactor)
+    : WalletClient(walletDB, nodeAddr, reactor, keyKeeper)
 {    
 }
 
@@ -226,6 +226,13 @@ void WalletModel::onAddresses(bool own, const std::vector<WalletAddress>& addres
     env->CallStaticVoidMethod(WalletListenerClass, callback, own, addrArray);
 
     env->DeleteLocalRef(addrArray);
+}
+
+void WalletModel::onSwapOffersChanged(beam::wallet::ChangeAction action, const std::vector<beam::wallet::SwapOffer>& offers)
+{
+    LOG_DEBUG() << "onSwapOffersChanged()";
+
+    // TODO
 }
 
 void WalletModel::onGeneratedNewAddress(const WalletAddress& address)

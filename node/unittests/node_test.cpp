@@ -542,11 +542,11 @@ namespace beam
 #ifdef WIN32
 		const char* g_sz = "mytest.db";
 		const char* g_sz2 = "mytest2.db";
-		const char* g_sz3 = "macroblock_";
+		const char* g_sz3 = "recovery_info";
 #else // WIN32
 		const char* g_sz = "/tmp/mytest.db";
 		const char* g_sz2 = "/tmp/mytest2.db";
-		const char* g_sz3 = "/tmp/macroblock_";
+		const char* g_sz3 = "/tmp/recovery_info";
 #endif // WIN32
 
 	void TestNodeDB()
@@ -772,7 +772,6 @@ namespace beam
 	{
 		MyNodeProcessor1 np;
 		np.m_Horizon.m_Branching = 35;
-		//np.m_Horizon.m_SchwarzschildHi = 40; - will prevent extracting some macroblock ranges
 		np.Initialize(g_sz);
 		np.OnTreasury(g_Treasury);
 
@@ -824,58 +823,23 @@ namespace beam
 			blockChain.push_back(std::move(pBlock));
 		}
 
-		Block::BodyBase::RW rwData;
-		rwData.m_sPath = g_sz3;
-
-		//Height hMid = blockChain.size() / 2 + Rules::HeightGenesis;
-		Height hMid = Rules::get().pForks[1].m_Height - 1;
-
+		for (Height h = 1; h <= np.m_Cursor.m_ID.m_Height; h++)
 		{
-			DeleteFile(g_sz2);
+			NodeDB::StateID sid;
+			sid.m_Height = h;
+			sid.m_Row = np.FindActiveAtStrict(h);
 
-			NodeProcessor np2;
-			np2.Initialize(g_sz2);
-			np2.OnTreasury(g_Treasury);
+			Block::Body block;
+			np.ExtractBlockWithExtra(block, sid);
 
-			rwData.m_hvContentTag = Zero;
-			rwData.WCreate();
-			np.ExportMacroBlock(rwData, HeightRange(Rules::HeightGenesis, hMid)); // first half
-			rwData.Close();
-
-			rwData.ROpen();
-			verify_test(np2.ImportMacroBlock(rwData));
-			rwData.Close();
-
-			rwData.m_hvContentTag.Inc();
-			rwData.WCreate();
-			np.ExportMacroBlock(rwData, HeightRange(hMid + 1, Rules::HeightGenesis + blockChain.size() - 1)); // second half
-			rwData.Close();
-
-			rwData.ROpen();
-			verify_test(np2.ImportMacroBlock(rwData));
-			rwData.Close();
-
-			// try kernel proofs.
-			for (size_t i = 0; i < np.m_Wallet.m_MyKernels.size(); i++)
+			// inputs must come with maturities!
+			for (size_t i = 0; i < block.m_vInputs.size(); i++)
 			{
-				TxKernel krn;
-				np.m_Wallet.m_MyKernels[i].Export(krn);
-
-				Merkle::Hash id;
-				krn.get_ID(id);
-
-				Merkle::Proof proof;
-				TxKernel::Ptr pKrn;
-				Height h = np2.get_ProofKernel(proof, &pKrn, id);
-				verify_test(h >= Rules::HeightGenesis);
-
-				Merkle::Interpret(id, proof);
-				verify_test(blockChain[h - Rules::HeightGenesis]->m_Hdr.m_Kernels == id);
+				const Input& inp = *block.m_vInputs[i];
+				verify_test(inp.m_Internal.m_ID && inp.m_Internal.m_Maturity);
 			}
-			
-
-			rwData.Delete();
 		}
+
 	}
 
 
@@ -883,8 +847,9 @@ namespace beam
 	{
 		NodeProcessor::Horizon horz;
 		horz.m_Branching = 12;
-		horz.m_SchwarzschildHi = 12;
-		horz.m_SchwarzschildLo = 15;
+		horz.m_Sync.Hi = 12;
+		horz.m_Sync.Lo = 15;
+		horz.m_Local = horz.m_Sync;
 
 		size_t nMid = blockChain.size() / 2;
 
@@ -980,8 +945,9 @@ namespace beam
 	{
 		NodeProcessor np, npSrc;
 		np.m_Horizon.m_Branching = 5;
-		np.m_Horizon.m_SchwarzschildHi = 12;
-		np.m_Horizon.m_SchwarzschildLo = 30;
+		np.m_Horizon.m_Sync.Hi = 12;
+		np.m_Horizon.m_Sync.Lo = 30;
+		np.m_Horizon.m_Local = np.m_Horizon.m_Sync;
 		np.Initialize(g_sz);
 		np.OnTreasury(g_Treasury);
 
@@ -1019,7 +985,7 @@ namespace beam
 			sid.m_Height = h;
 
 			ByteBuffer bbE, bbP;
-			verify_test(npSrc.GetBlock(sid, &bbE, &bbP, 0, np.m_SyncData.m_TxoLo, np.m_SyncData.m_Target.m_Height));
+			verify_test(npSrc.GetBlock(sid, &bbE, &bbP, 0, np.m_SyncData.m_TxoLo, np.m_SyncData.m_Target.m_Height, true));
 
 			if (!bTampered)
 			{
@@ -1066,7 +1032,7 @@ namespace beam
 			sid.m_Height = h;
 
 			ByteBuffer bbE, bbP;
-			verify_test(npSrc.GetBlock(sid, &bbE, &bbP, 0, np.m_SyncData.m_TxoLo, np.m_SyncData.m_Target.m_Height));
+			verify_test(npSrc.GetBlock(sid, &bbE, &bbP, 0, np.m_SyncData.m_TxoLo, np.m_SyncData.m_Target.m_Height, true));
 
 			if (!bTampered)
 			{
@@ -1107,7 +1073,7 @@ namespace beam
 			sid.m_Height = h;
 
 			ByteBuffer bbE, bbP;
-			verify_test(npSrc.GetBlock(sid, &bbE, &bbP, 0, np.m_SyncData.m_TxoLo, np.m_SyncData.m_Target.m_Height));
+			verify_test(npSrc.GetBlock(sid, &bbE, &bbP, 0, np.m_SyncData.m_TxoLo, np.m_SyncData.m_Target.m_Height, true));
 
 			if (!bTampered)
 			{
@@ -1167,7 +1133,7 @@ namespace beam
 			sid.m_Height = h;
 
 			ByteBuffer bbE, bbP;
-			verify_test(npSrc.GetBlock(sid, &bbE, &bbP, 0, np.m_SyncData.m_TxoLo, np.m_SyncData.m_Target.m_Height));
+			verify_test(npSrc.GetBlock(sid, &bbE, &bbP, 0, np.m_SyncData.m_TxoLo, np.m_SyncData.m_Target.m_Height, true));
 
 			if (!bTampered)
 			{
@@ -1229,7 +1195,7 @@ namespace beam
 			sid.m_Height = h;
 
 			ByteBuffer bbE, bbP;
-			verify_test(npSrc.GetBlock(sid, &bbE, &bbP, 0, np.m_SyncData.m_TxoLo, np.m_SyncData.m_Target.m_Height));
+			verify_test(npSrc.GetBlock(sid, &bbE, &bbP, 0, np.m_SyncData.m_TxoLo, np.m_SyncData.m_Target.m_Height, true));
 
 			if (!hTampered)
 			{
@@ -1287,7 +1253,7 @@ namespace beam
 			sid.m_Height = h;
 
 			ByteBuffer bbE, bbP;
-			verify_test(npSrc.GetBlock(sid, &bbE, &bbP, 0, np.m_SyncData.m_TxoLo, np.m_SyncData.m_Target.m_Height));
+			verify_test(npSrc.GetBlock(sid, &bbE, &bbP, 0, np.m_SyncData.m_TxoLo, np.m_SyncData.m_Target.m_Height, true));
 
 			Block::SystemState::ID id;
 			blockChain[h - 1]->m_Hdr.get_ID(id);
@@ -1470,8 +1436,9 @@ namespace beam
 		ECC::SetRandom(node);
 
 		node.m_Cfg.m_Horizon.m_Branching = 6;
-		node.m_Cfg.m_Horizon.m_SchwarzschildHi = 10;
-		node.m_Cfg.m_Horizon.m_SchwarzschildLo = 14;
+		node.m_Cfg.m_Horizon.m_Sync.Hi = 10;
+		node.m_Cfg.m_Horizon.m_Sync.Lo = 14;
+		node.m_Cfg.m_Horizon.m_Local = node.m_Cfg.m_Horizon.m_Sync;
 		node.m_Cfg.m_VerificationThreads = -1;
 
 		node.m_Cfg.m_Dandelion.m_AggregationTime_ms = 0;
@@ -1932,10 +1899,6 @@ namespace beam
 				OnBbsMsg(msg.m_Message);
 			}
 
-			virtual void OnMsg(proto::BbsMsgV0&& msg) override {
-				OnBbsMsg(msg.m_Message);
-			}
-
 			void OnBbsMsg(const ByteBuffer& msg)
 			{
 				verify_test(msg.size() == 1);
@@ -2092,6 +2055,7 @@ namespace beam
 		{
 			io::Timer::Ptr m_pTimer;
 
+			bool m_bRunning;
 			bool m_bTip;
 			Height m_hRolledTo;
 			uint32_t m_nProofsExpected;
@@ -2117,8 +2081,11 @@ namespace beam
 
 			void MaybeStop()
 			{
-				if (m_bTip && !m_nProofsExpected && m_bBbsReceived)
+				if (m_bRunning && m_bTip && !m_nProofsExpected && m_bBbsReceived)
+				{
 					io::Reactor::get_Current().stop();
+					m_bRunning = false;
+				}
 			}
 
 			virtual void OnRolledBack() override
@@ -2198,6 +2165,7 @@ namespace beam
 				net.BbsSubscribe(m_LastBbsChannel, 0, this);
 
 				SetTimer(90 * 1000);
+				m_bRunning = true;
 				io::Reactor::get_Current().run();
 				KillTimer();
 			}
@@ -2287,7 +2255,7 @@ int main()
 
 	beam::Rules::get().AllowPublicUtxos = true;
 	beam::Rules::get().FakePoW = true;
-	beam::Rules::get().Macroblock.MaxRollback = 10;
+	beam::Rules::get().MaxRollback = 10;
 	beam::Rules::get().DA.WindowWork = 35;
 	beam::Rules::get().Maturity.Coinbase = 35; // lowered to see more txs
 	beam::Rules::get().Emission.Drop0 = 5;

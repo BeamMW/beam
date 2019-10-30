@@ -36,8 +36,15 @@ MainViewModel::MainViewModel()
     , m_timer(this)
 {
     m_timer.setSingleShot(true);
+
     connect(&m_timer, SIGNAL(timeout()), this, SLOT(lockWallet()));
     connect(&m_settings, SIGNAL(lockTimeoutChanged()), this, SLOT(onLockTimeoutChanged()));
+
+#if defined(BEAM_HW_WALLET)
+    connect(AppModel::getInstance().getWallet().get(), SIGNAL(showTrezorMessage()), this, SIGNAL(showTrezorMessage()));
+    connect(AppModel::getInstance().getWallet().get(), SIGNAL(hideTrezorMessage()), this, SIGNAL(hideTrezorMessage()));
+    connect(AppModel::getInstance().getWallet().get(), SIGNAL(showTrezorError(const QString&)), this, SIGNAL(showTrezorError(const QString&)));
+#endif
 
     onLockTimeoutChanged();
 }

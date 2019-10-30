@@ -21,6 +21,10 @@
 #include <QtQuick>
 
 #include "ui/model/app_model.h"
+
+#include "wallet/bitcoin/settings.h"
+#include "wallet/default_peers.h"
+
 #include "version.h"
 
 #include "quazip/quazip.h"
@@ -35,6 +39,7 @@ namespace
     const char* kLockTimeoutName = "lock_timeout";
     const char* kRequirePasswordToSpendMoney = "require_password_to_spend_money";
     const char* kIsAlowedBeamMWLink = "beam_mw_links_allowed";
+    const char* kshowSwapBetaWarning = "show_swap_beta_warning";
 
     const char* kLocalNodeRun = "localnode/run";
     const char* kLocalNodePort = "localnode/port";
@@ -49,20 +54,32 @@ namespace
         { "be_BY", "Беларуская"},
         { "nl_NL", "Dutch"},
         { "fr_FR", "Française"},
+        { "it_IT", "Italiano"},
         { "ja_JP", "日本語"},
         { "ru_RU", "Русский" },
+        { "fi_FI", "Suomi" },
         { "sv_SE", "Svenska"},
         { "th_TH", "ภาษาไทย"},
         { "tr_TR", "Türkçe"},
         { "vi_VI", "Tiếng việt"},
         { "ko_KR", "한국어"}
     };
-}
+
+    const vector<string> kOutDatedPeers = beam::getOutdatedDefaultPeers();
+    bool isOutDatedPeer(const string& peer)
+    {
+        return find(kOutDatedPeers.begin(), kOutDatedPeers.end(), peer) !=
+               kOutDatedPeers.end();
+    }
+}  // namespace
 
 const char* WalletSettings::WalletCfg = "beam-wallet.cfg";
 const char* WalletSettings::LogsFolder = "logs";
 const char* WalletSettings::SettingsFile = "settings.ini";
 const char* WalletSettings::WalletDBFile = "wallet.db";
+#if defined(BEAM_HW_WALLET)
+const char* WalletSettings::TrezorWalletDBFile = "trezor-wallet.db";
+#endif
 const char* WalletSettings::NodeDBFile = "node.db";
 
 WalletSettings::WalletSettings(const QDir& appDataDir)
@@ -72,7 +89,19 @@ WalletSettings::WalletSettings(const QDir& appDataDir)
 
 }
 
+#if defined(BEAM_HW_WALLET)
+string WalletSettings::getTrezorWalletStorage() const
+{
+    return getWalletFolder() + "/" + TrezorWalletDBFile;
+}
+#endif
+
 string WalletSettings::getWalletStorage() const
+{
+    return getWalletFolder() + "/" + WalletDBFile;
+}
+
+string WalletSettings::getWalletFolder() const
 {
     Lock lock(m_mutex);
 
@@ -81,8 +110,8 @@ string WalletSettings::getWalletStorage() const
     {
         m_appDataDir.mkdir(version);
     }
-    
-    return m_appDataDir.filePath(version + "/" + WalletDBFile).toStdString();
+
+    return m_appDataDir.filePath(version).toStdString();
 }
 
 string WalletSettings::getAppDataPath() const
@@ -158,6 +187,18 @@ void WalletSettings::setAllowedBeamMWLinks(bool value)
     m_data.setValue(kIsAlowedBeamMWLink, value);
 }
 
+bool WalletSettings::showSwapBetaWarning()
+{
+    Lock lock(m_mutex);
+    return m_data.value(kshowSwapBetaWarning, true).toBool();
+}
+
+void WalletSettings::setShowSwapBetaWarning(bool value)
+{
+    Lock lock(m_mutex);
+    m_data.setValue(kshowSwapBetaWarning, value);
+}
+
 bool WalletSettings::getRunLocalNode() const
 {
     Lock lock(m_mutex);
@@ -218,10 +259,29 @@ static void zipLocalFile(QuaZip& zip, const QString& path, const QString& folder
     }
 }
 
-QStringList WalletSettings::getLocalNodePeers() const
+QStringList WalletSettings::getLocalNodePeers()
 {
     Lock lock(m_mutex);
-    return m_data.value(kLocalNodePeers).value<QStringList>();
+    QStringList peers = m_data.value(kLocalNodePeers).value<QStringList>();
+    size_t outDatedCount = count_if(
+        peers.begin(),
+        peers.end(),
+        [] (const QString& peer)
+        {
+            return isOutDatedPeer(peer.toStdString());
+        });
+    if (outDatedCount >= static_cast<size_t>(peers.size()) || peers.empty())
+    {
+        auto defaultPeers = beam::getDefaultPeers();
+        peers.clear();
+        peers.reserve(static_cast<int>(defaultPeers.size()));
+        for (const auto& it : defaultPeers)
+        {
+            peers << QString::fromStdString(it);
+        }
+        m_data.setValue(kLocalNodePeers, QVariant::fromValue(peers));
+    }
+    return peers;
 }
 
 void WalletSettings::setLocalNodePeers(const QStringList& qPeers)
@@ -369,4 +429,50 @@ void WalletSettings::reportProblem()
 void WalletSettings::applyChanges()
 {
     AppModel::getInstance().applySettingsChanges();
+}
+
+
+// swap settings
+namespace
+{
+    // swaps
+    const char* kSwapBitcoinNodeAddress = "swap/bitcoin/node_address";
+    const char* kSwapBitcoinUserName = "swap/bitcoin/user_name";
+    const char* kSwapBitcoinPassword = "swap/bitcoin/password";
+    const char* kSwapBitcoinFeeRate = "swap/bitcoin/fee_rate";
+    // const char* kSwapSecondSideChainType = "swap/chain_type";
+}
+
+std::shared_ptr<beam::bitcoin::Settings> WalletSettings::getBitcoinSettings() const
+{
+    std::string btcNodeUri, userName, password;
+    beam::Amount feeRate = 0;
+    try
+    {
+        Lock lock(m_mutex);
+        btcNodeUri = m_data.value(kSwapBitcoinNodeAddress).value<QString>().toStdString();
+        userName = m_data.value(kSwapBitcoinUserName).value<QString>().toStdString();
+        password = m_data.value(kSwapBitcoinPassword).value<QString>().toStdString();
+        feeRate = m_data.value(kSwapBitcoinFeeRate).value<beam::Amount>();
+    }
+    catch (...)
+    {
+        return {};
+    }
+
+    beam::bitcoin::BitcoinCoreSettings bitcoindSettings;
+
+    if (!bitcoindSettings.m_address.resolve(btcNodeUri.c_str()))
+    {
+        throw std::runtime_error("unable to resolve bitcoin node address: " + btcNodeUri);
+    }
+
+    bitcoindSettings.m_userName = userName;
+    bitcoindSettings.m_pass = password;
+
+    auto btcSettings = make_shared<beam::bitcoin::Settings>();
+    btcSettings->SetConnectionOptions(bitcoindSettings);
+    btcSettings->SetFeeRate(feeRate);
+
+    return btcSettings;   
 }

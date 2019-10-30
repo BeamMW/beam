@@ -32,13 +32,13 @@ namespace beam
     const char kTxStatusPending[] = "pending";
     const char kTxStatusWaitingForSender[] = "waiting for sender";
     const char kTxStatusWaitingForReceiver[] = "waiting for receiver";
-    const char kTxStatusSending[] = "sending";
-    const char kTxStatusReceiving[] = "receiving";
+    const char kTxStatusInProgress[] = "in progress";
+    const char kTxStatusSendingToOwn[] = "sending to own address";
     const char kTxStatusCancelled[] = "cancelled";
     const char kTxStatusSent[] = "sent";
     const char kTxStatusReceived[] = "received";
     const char kTxStatusFailed[] = "failed";
-    const char kTxStatusCompleted[] = "completed";
+    const char kTxStatusSentToOwn[] = "sent to own address";
     const char kTxStatusExpired[] = "expired";
 
     // Errors
@@ -68,17 +68,11 @@ namespace beam
     const char kErrorNegativeAmount[] = "Unable to send negative amount of coins";
     const char kErrorZeroAmount[] = "Unable to send zero coins";
     const char kErrorFeeToLow[] = "Failed to initiate the send operation. The minimum fee is 100 GROTH.";
-    const char kErrorUnknownSecondSideChainForSwap[] = "Unknown type of second side chain for swap";
-    const char kErrorBTCNodeAddrNotResolved[] = "unable to resolve bitcoin node address: %1%";
-    const char kErrorBTCNodeUserNameUnspecified[] = "user name of bitcoin node should be specified";
-    const char kErrorBTCNodePwdNotProvided[] = "Please, provide password for the bitcoin node.";
     const char kErrorSwapFeeRateMissing[] = "swap fee rate is missing";
-    const char kErrorLTCNodeAddrNotResolved[] = "unable to resolve litecoin node address: %1%";
-    const char kErrorLTCNodeUserNameUnspecified[] = "user name of litecoin node should be specified";
-    const char kErrorLTCNodePwdNotProvided[] = "Please, provide password for the litecoin node.";
-    const char kErrorQTUMNodeAddrNotResolved[] = "unable to resolve qtum node address: %1%";
-    const char kErrorQTUMNodeUserNameUnspecified[] = "user name of qtum node should be specified";
-    const char kErrorQTUMNodePwdNotProvided[] = "Please, provide password for qtum litecoin node.";
+    const char kErrorSwapWalletAddrNotResolved[] = "unable to resolve swap wallet address: %1%";
+    const char kErrorSwapWalletAddrUnspecified[] = "swap wallet address should be specified";
+    const char kErrorSwapWalletUserNameUnspecified[] = "user name of swap wallet should be specified";
+    const char kErrorSwapWalletPwdNotProvided[] = "Please, provide password for swap wallet.";
     const char kErrorCommandNotSpecified[] = "command parameter not specified.";
     const char kErrorCommandUnknown[] = "unknown command: \'%1%\'";
     const char kErrorCantRestoreColdWallet[] = "Restoring cold wallet. You have to replace generated 'wallet.db' with your existing 'wallet.db' file.";

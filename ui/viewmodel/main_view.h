@@ -29,6 +29,9 @@ public:
 
 signals:
     void gotoStartScreen();
+    void showTrezorMessage();
+    void hideTrezorMessage();
+    void showTrezorError(const QString&);
 
 public slots:
 	void update(int page);

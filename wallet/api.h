@@ -19,19 +19,29 @@
 #include "wallet/wallet.h"
 #include "nlohmann/json.hpp"
 
-#define INVALID_JSON_RPC -32600
-#define NOTFOUND_JSON_RPC -32601
-#define INVALID_PARAMS_JSON_RPC -32602
-#define INTERNAL_JSON_RPC_ERROR -32603
-#define INVALID_TX_STATUS -32001
-#define UNKNOWN_API_KEY -32002
-#define INVALID_ADDRESS -32003
-
 namespace beam::wallet
 {
-    constexpr Amount MinimumFee = 100;
+    constexpr Amount DefaultFee = 100;
 
     using json = nlohmann::json;
+    using JsonRpcId = json;
+
+#define JSON_RPC_ERRORS(macro) \
+    macro(-32600, InvalidJsonRpc,       "Invalid JSON-RPC.")        \
+    macro(-32601, NotFoundJsonRpc,      "Procedure not found.")     \
+    macro(-32602, InvalidParamsJsonRpc, "Invalid parameters.")      \
+    macro(-32603, InternalErrorJsonRpc, "Internal JSON-RPC error.") \
+    macro(-32001, InvalidTxStatus,      "Invalid TX status.")       \
+    macro(-32002, UnknownApiKey,        "Unknown API key.")         \
+    macro(-32003, InvalidAddress,       "Invalid address.")         \
+    macro(-32004, InvalidTxId,          "Invalid transaction ID.")
+
+    enum ApiError
+    {
+#define ERROR_ITEM(code, item, _) item = code,
+        JSON_RPC_ERRORS(ERROR_ITEM)
+#undef ERROR_ITEM
+    };
 
 #define API_WRITE_ACCESS true
 #define API_READ_ACCESS false
@@ -51,7 +61,8 @@ namespace beam::wallet
     macro(Lock,             "lock",             API_WRITE_ACCESS)   \
     macro(Unlock,           "unlock",           API_WRITE_ACCESS)   \
     macro(TxList,           "tx_list",          API_READ_ACCESS)    \
-    macro(WalletStatus,     "wallet_status",    API_READ_ACCESS)
+    macro(WalletStatus,     "wallet_status",    API_READ_ACCESS)    \
+    macro(GenerateTxId,     "generate_tx_id",   API_READ_ACCESS)
 
     struct AddressData
     {
@@ -65,20 +76,20 @@ namespace beam::wallet
     {
         struct Response
         {
-            wallet::WalletID address;
+            WalletID address;
         };
     };
 
     struct DeleteAddress
     {
-        wallet::WalletID address;
+        WalletID address;
 
         struct Response {};
     };
 
     struct EditAddress : AddressData
     {
-        wallet::WalletID address;
+        WalletID address;
 
         struct Response {};
     };
@@ -89,13 +100,13 @@ namespace beam::wallet
 
         struct Response
         {
-            std::vector<wallet::WalletAddress> list;
+            std::vector<WalletAddress> list;
         };
     };
 
     struct ValidateAddress
     {
-        wallet::WalletID address = Zero;
+        WalletID address = Zero;
 
         struct Response
         {
@@ -107,26 +118,27 @@ namespace beam::wallet
     struct Send
     {
         Amount value;
-        Amount fee = MinimumFee;
-        boost::optional<wallet::CoinIDList> coins;
-        boost::optional<wallet::WalletID> from;
+        Amount fee = DefaultFee;
+        boost::optional<CoinIDList> coins;
+        boost::optional<WalletID> from;
         boost::optional<uint64_t> session;
-        wallet::WalletID address;
+        boost::optional<TxID> txId;
+        WalletID address;
         std::string comment;
 
         struct Response
         {
-            wallet::TxID txId;
+            TxID txId;
         };
     };
 
     struct Status
     {
-        wallet::TxID txId;
+        TxID txId;
 
         struct Response
         {
-            wallet::TxDescription tx;
+            TxDescription tx;
             Height kernelProofHeight;
             Height systemHeight;
             uint64_t confirmations;
@@ -135,19 +147,19 @@ namespace beam::wallet
 
     struct Split
     {
-        //int session;
-        Amount fee = MinimumFee;
+        Amount fee = DefaultFee;
         AmountList coins;
+        boost::optional<TxID> txId;
 
         struct Response
         {
-            wallet::TxID txId;
+            TxID txId;
         };
     };
 
     struct TxCancel
     {
-        wallet::TxID txId;
+        TxID txId;
 
         struct Response
         {
@@ -158,7 +170,7 @@ namespace beam::wallet
 
     struct TxDelete
     {
-        wallet::TxID txId;
+        TxID txId;
 
         struct Response
         {
@@ -173,13 +185,13 @@ namespace beam::wallet
 
         struct Response
         {
-            std::vector<wallet::Coin> utxos;
+            std::vector<Coin> utxos;
         };
     };
 
     struct Lock
     {
-        wallet::CoinIDList coins;
+        CoinIDList coins;
         uint64_t session;
 
         struct Response
@@ -202,7 +214,7 @@ namespace beam::wallet
     {
         struct
         {
-            boost::optional<wallet::TxStatus> status;
+            boost::optional<TxStatus> status;
             boost::optional<Height> height;
         } filter;
 
@@ -230,13 +242,21 @@ namespace beam::wallet
         };
     };
 
+    struct GenerateTxId
+    {
+        struct Response
+        {
+            TxID txId;
+        };
+    };
+
     class IWalletApiHandler
     {
     public:
         virtual void onInvalidJsonRpc(const json& msg) = 0;
 
 #define MESSAGE_FUNC(api, name, _) \
-        virtual void onMessage(int id, const api& data) = 0;
+        virtual void onMessage(const JsonRpcId& id, const api& data) = 0;
 
         WALLET_API_METHODS(MESSAGE_FUNC)
 
@@ -253,7 +273,7 @@ namespace beam::wallet
         WalletApi(IWalletApiHandler& handler, ACL acl = boost::none);
 
 #define RESPONSE_FUNC(api, name, _) \
-        void getResponse(int id, const api::Response& data, json& msg);
+        void getResponse(const JsonRpcId& id, const api::Response& data, json& msg);
 
         WALLET_API_METHODS(RESPONSE_FUNC)
 
@@ -261,10 +281,12 @@ namespace beam::wallet
 
         bool parse(const char* data, size_t size);
 
+        static const char* getErrorMessage(ApiError code);
+
     private:
 
 #define MESSAGE_FUNC(api, name, _) \
-        void on##api##Message(int id, const json& msg);
+        void on##api##Message(const JsonRpcId& id, const json& msg);
 
         WALLET_API_METHODS(MESSAGE_FUNC)
 
@@ -275,7 +297,7 @@ namespace beam::wallet
 
         struct FuncInfo
         {
-            std::function<void(int id, const json& msg)> func;
+            std::function<void(const JsonRpcId& id, const json& msg)> func;
             bool writeAccess;
         };
 

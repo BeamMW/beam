@@ -20,11 +20,13 @@ class QR;
 class ReceiveViewModel: public QObject
 {
     Q_OBJECT
-    Q_PROPERTY(double   amountToReceive    READ getAmountToReceive    WRITE  setAmountToReceive  NOTIFY  amountToReceiveChanged)
-    Q_PROPERTY(bool     addressExpires     READ getAddressExpires     WRITE  setAddressExpires   NOTIFY  addressExpiresChanged)
-    Q_PROPERTY(QString  addressComment     READ getAddressComment     WRITE setAddressComment    NOTIFY  addressCommentChanged)
+    Q_PROPERTY(QString  amountToReceive    READ getAmountToReceive    WRITE  setAmountToReceive  NOTIFY  amountToReceiveChanged)
+    Q_PROPERTY(int      addressExpires     READ getAddressExpires     WRITE  setAddressExpires   NOTIFY  addressExpiresChanged)
+    Q_PROPERTY(QString  addressComment     READ getAddressComment     WRITE  setAddressComment   NOTIFY  addressCommentChanged)
     Q_PROPERTY(QString  receiverAddress    READ getReceiverAddress                               NOTIFY  receiverAddressChanged)
     Q_PROPERTY(QString  receiverAddressQR  READ getReceiverAddressQR                             NOTIFY  receiverAddressChanged)
+    Q_PROPERTY(QString  transactionToken   READ getTransactionToken   WRITE  setTranasctionToken NOTIFY  transactionTokenChanged)
+    Q_PROPERTY(bool     commentValid       READ getCommentValid                                  NOTIFY  commentValidChanged)
 
 public:
     ReceiveViewModel();
@@ -35,18 +37,20 @@ signals:
     void addressExpiresChanged();
     void receiverAddressChanged();
     void addressCommentChanged();
+    void transactionTokenChanged();
     void newAddressFailed();
+    void commentValidChanged();
 
 public:
     Q_INVOKABLE void generateNewAddress();
-    Q_INVOKABLE bool isValidComment(const QString& comment) const;
+    Q_INVOKABLE void saveAddress();
 
 private:
-    double getAmountToReceive() const;
-    void   setAmountToReceive(double value);
+    QString getAmountToReceive() const;
+    void    setAmountToReceive(QString value);
 
-    void setAddressExpires(bool value);
-    bool getAddressExpires() const;
+    void setAddressExpires(int value);
+    int  getAddressExpires() const;
 
     QString getReceiverAddress() const;
     QString getReceiverAddressQR() const;
@@ -54,19 +58,25 @@ private:
     void setAddressComment(const QString& value);
     QString getAddressComment() const;
 
-    void saveAddress();
+    void setTranasctionToken(const QString& value);
+    QString getTransactionToken() const;
+
+    bool getCommentValid() const;
+
+    void updateTransactionToken();
 
 private slots:
     void onGeneratedNewAddress(const beam::wallet::WalletAddress& walletAddr);
     void onReceiverQRChanged();
-    void onNewAddressFailed();
 
 private:
-    double  _amountToReceive;
-    bool    _addressExpires;
-    QString _addressComment;
+    beam::Amount _amountToReceiveGrothes;
+    int          _addressExpires;
+    QString      _addressComment;
+    QString      _token;
     beam::wallet::WalletAddress _receiverAddress;
 
     std::unique_ptr<QR> _qr;
     WalletModel& _walletModel;
+    beam::wallet::TxParameters _txParameters;
 };

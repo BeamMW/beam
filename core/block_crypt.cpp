@@ -101,14 +101,8 @@ namespace beam
 
 	/////////////
 	// Input
-	thread_local bool TxElement::s_IgnoreMaturity = false;
-
 	int TxElement::cmp(const TxElement& v) const
 	{
-		if (!s_IgnoreMaturity)
-		{
-			CMP_MEMBER(m_Maturity)
-		}
 		CMP_MEMBER_EX(m_Commitment)
 		return 0;
 	}
@@ -684,16 +678,7 @@ namespace beam
 
 	int TxBase::CmpInOut(const Input& in, const Output& out)
 	{
-		if (in.m_Maturity && !TxElement::s_IgnoreMaturity)
-			return Cast::Down<TxElement>(in).cmp(out);
-
-		// if maturity isn't overridden (as in standard txs/blocks) - we consider the commitment and the coinbase flag.
-		// In such a case the maturity parameters (such as explicit incubation) - are ignored. There's just no way to prevent the in/out elimination.
-		int n = in.m_Commitment.cmp(out.m_Commitment);
-		if (n)
-			return n;
-
-		return out.m_Coinbase ? 1 : 0;
+		return Cast::Down<TxElement>(in).cmp(out);
 	}
 
 	size_t TxVectors::Perishable::NormalizeP()
@@ -1091,8 +1076,8 @@ namespace beam
 			<< DA.WindowMedian0
 			<< DA.WindowMedian1
 			<< DA.Difficulty0.m_Packed
-			<< Macroblock.MaxRollback
-			<< Macroblock.Granularity
+			<< MaxRollback
+			<< uint32_t(720) // deprecated parameter
 			<< (uint32_t) Block::PoW::K
 			<< (uint32_t) Block::PoW::N
 			<< (uint32_t) Block::PoW::NonceType::nBits

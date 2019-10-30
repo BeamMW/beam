@@ -14,6 +14,7 @@
 
 #include "http/http_client.h"
 #include "core/treasury.h"
+#include <tuple>
 
 using namespace beam;
 using namespace beam::wallet;
@@ -31,9 +32,8 @@ struct EmptyTestGateway : wallet::INegotiatorGateway
     void confirm_kernel(const TxID&, const Merkle::Hash&, wallet::SubTxID subTxID) override {}
     void get_kernel(const TxID& txID, const Merkle::Hash& kernelID, wallet::SubTxID subTxID) override {}
     bool get_tip(Block::SystemState::Full& state) const override { return false; }
-    void send_tx_params(const WalletID& peerID, wallet::SetTxParameter&&) override {}
+    void send_tx_params(const WalletID& peerID, const wallet::SetTxParameter&) override {}
     void UpdateOnNextTip(const TxID&) override {};
-    wallet::SecondSide::Ptr GetSecondSide(const TxID&) const override { return nullptr; }
 };
 
 Coin CreateAvailCoin(Amount amount, Height maturity = 10)
@@ -104,8 +104,8 @@ public:
     void setSystemStateID(const Block::SystemState::ID&) override {};
     bool getSystemStateID(Block::SystemState::ID&) const override { return false; };
 
-    void subscribe(IWalletDbObserver* observer) override {}
-    void unsubscribe(IWalletDbObserver* observer) override {}
+    void Subscribe(IWalletDbObserver* observer) override {}
+    void Unsubscribe(IWalletDbObserver* observer) override {}
 
     std::vector<TxDescription> getTxHistory(wallet::TxType, uint64_t, int) const override { return {}; };
     boost::optional<TxDescription> getTx(const TxID&) const override { return boost::optional<TxDescription>{}; };
@@ -291,11 +291,6 @@ struct TestGateway : wallet::INegotiatorGateway
     {
         return true;
     }
-
-    wallet::SecondSide::Ptr GetSecondSide(const TxID&) const override
-    {
-        return nullptr;
-    }
 };
 
 class AsyncProcessor
@@ -326,8 +321,8 @@ public:
 class OneTimeBbsEndpoint : public WalletNetworkViaBbs
 {
 public:
-    OneTimeBbsEndpoint(IWalletMessageConsumer& wallet, std::shared_ptr<proto::FlyClient::INetwork> nodeEndpoint, const IWalletDB::Ptr& walletDB)
-        : WalletNetworkViaBbs(wallet, nodeEndpoint, walletDB)
+    OneTimeBbsEndpoint(IWalletMessageConsumer& wallet, std::shared_ptr<proto::FlyClient::INetwork> nodeEndpoint, const IWalletDB::Ptr& walletDB, IPrivateKeyKeeper::Ptr keyKeeper)
+        : WalletNetworkViaBbs(wallet, nodeEndpoint, walletDB, keyKeeper)
     {
 
     }
@@ -338,7 +333,60 @@ private:
     }
 
 };
+
+class TestWallet : public Wallet
+{
+public:
+    TestWallet(IWalletDB::Ptr walletDB, IPrivateKeyKeeper::Ptr keyKeeper, TxCompletedAction&& action = TxCompletedAction(), UpdateCompletedAction&& updateCompleted = UpdateCompletedAction())
+        : Wallet{ walletDB, keyKeeper, std::move(action), std::move(updateCompleted)}
+        , m_FlushTimer{ io::Timer::create(io::Reactor::get_Current()) }
+    {
+
+    }
+
+    void SetBufferSize(size_t s)
+    {
+        FlushBuffer();
+        m_Buffer.reserve(s);
+    }
+private:
+    void register_tx(const TxID& txID, Transaction::Ptr tx, SubTxID subTxID = kDefaultSubTxID) override
+    {
+        m_FlushTimer->cancel();
+        m_FlushTimer->start(1000, false, [this]() {FlushBuffer(); });
+        if (m_Buffer.capacity() == 0)
+        {
+            Wallet::SendTransactionToNode(txID, tx, subTxID);
+            return;
+        }
         
+        for (const auto& t : m_Buffer)
+        {
+            if (get<0>(t) == txID) return;
+        }
+
+        assert(m_Buffer.size() < m_Buffer.capacity());
+        
+        m_Buffer.push_back(std::make_tuple(txID, tx, subTxID));
+
+        if (m_Buffer.size() == m_Buffer.capacity())
+        {
+            FlushBuffer();
+        }
+    }
+
+    void FlushBuffer()
+    {
+        for (const auto& t : m_Buffer)
+        {
+            Wallet::SendTransactionToNode(std::get<0>(t), std::get<1>(t), std::get<2>(t));
+        }
+        m_Buffer.clear();
+    }
+
+    vector<tuple<TxID, Transaction::Ptr, SubTxID>> m_Buffer;
+    io::Timer::Ptr m_FlushTimer;
+};
 
 struct TestWalletRig
 {
@@ -348,14 +396,16 @@ struct TestWalletRig
         ColdWallet,
         Offline
     };
-    TestWalletRig(const string& name, IWalletDB::Ptr walletDB, Wallet::TxCompletedAction&& action = Wallet::TxCompletedAction(), Type type = Type::Regular, bool oneTimeBbsEndpoint = false, uint32_t nodePollPeriod_ms = 0)
+
+    TestWalletRig(const string& name, IWalletDB::Ptr walletDB, Wallet::TxCompletedAction&& action = Wallet::TxCompletedAction(), Type type = Type::Regular, bool oneTimeBbsEndpoint = false, uint32_t nodePollPeriod_ms = 0, io::Address nodeAddress = io::Address::localhost().port(32125))
         : m_WalletDB{ walletDB }
-        , m_KeyKeeper{ make_shared<wallet::LocalPrivateKeyKeeper>(walletDB) }
-        , m_Wallet{ m_WalletDB, move(action),( type == Type::ColdWallet) ? []() {io::Reactor::get_Current().stop(); } : Wallet::UpdateCompletedAction() }
+        , m_KeyKeeper(make_shared<LocalPrivateKeyKeeper>(m_WalletDB, m_WalletDB->get_MasterKdf()))
+        , m_Wallet{ m_WalletDB, m_KeyKeeper, move(action),( type == Type::ColdWallet) ? []() {io::Reactor::get_Current().stop(); } : Wallet::UpdateCompletedAction() }
     {
+
         if (m_WalletDB->get_MasterKdf()) // can create secrets
         {
-            WalletAddress wa = storage::createAddress(*m_WalletDB);
+            WalletAddress wa = storage::createAddress(*m_WalletDB, m_KeyKeeper);
             m_WalletDB->saveAddress(wa);
             m_WalletID = wa.m_walletID;
         }
@@ -365,11 +415,13 @@ struct TestWalletRig
             m_WalletID = addresses[0].m_walletID;
         }
 
+        m_Wallet.ResumeAllTransactions();
+
         switch (type)
         {
         case Type::ColdWallet:
             {
-                m_Wallet.AddMessageEndpoint(make_shared<ColdWalletMessageEndpoint>(m_Wallet, m_WalletDB));
+                m_Wallet.AddMessageEndpoint(make_shared<ColdWalletMessageEndpoint>(m_Wallet, m_WalletDB, m_KeyKeeper));
                 break;
             }
 
@@ -377,15 +429,15 @@ struct TestWalletRig
             {
                 auto nodeEndpoint = make_shared<proto::FlyClient::NetworkStd>(m_Wallet);
                 nodeEndpoint->m_Cfg.m_PollPeriod_ms = nodePollPeriod_ms;
-                nodeEndpoint->m_Cfg.m_vNodes.push_back(io::Address::localhost().port(32125));
+                nodeEndpoint->m_Cfg.m_vNodes.push_back(nodeAddress);
                 nodeEndpoint->Connect();
                 if (oneTimeBbsEndpoint)
                 {
-                    m_Wallet.AddMessageEndpoint(make_shared<OneTimeBbsEndpoint>(m_Wallet, nodeEndpoint, m_WalletDB));
+                    m_Wallet.AddMessageEndpoint(make_shared<OneTimeBbsEndpoint>(m_Wallet, nodeEndpoint, m_WalletDB, m_KeyKeeper));
                 }
                 else
                 {
-                    m_Wallet.AddMessageEndpoint(make_shared<WalletNetworkViaBbs>(m_Wallet, nodeEndpoint, m_WalletDB));
+                    m_Wallet.AddMessageEndpoint(make_shared<WalletNetworkViaBbs>(m_Wallet, nodeEndpoint, m_WalletDB, m_KeyKeeper));
                 }
                 m_Wallet.SetNodeEndpoint(nodeEndpoint);
                 break;
@@ -408,8 +460,8 @@ struct TestWalletRig
 
     WalletID m_WalletID;
     IWalletDB::Ptr m_WalletDB;
-    wallet::IPrivateKeyKeeper::Ptr m_KeyKeeper;
-    Wallet m_Wallet;
+    IPrivateKeyKeeper::Ptr m_KeyKeeper;
+    TestWallet m_Wallet;
 };
 
 struct TestWalletNetwork
@@ -436,6 +488,10 @@ struct TestWalletNetwork
     }
 
     virtual void SendEncryptedMessage(const WalletID& peerID, const ByteBuffer& msg) override
+    {
+    }
+    
+    virtual void SendAndSign(const ByteBuffer& msg, const BbsChannel& channel, const WalletID& wid, uint8_t version) override
     {
     }
 
@@ -503,6 +559,7 @@ struct TestBlockchain
         UtxoTree::MyLeaf* p = m_Utxos.Find(cu, key, bCreate);
 
         cu.InvalidateElement();
+		m_Utxos.OnDirty();
 
         if (bCreate)
             p->m_ID = 0;
@@ -513,7 +570,7 @@ struct TestBlockchain
             if (!nCountInc)
                 return false;
 
-            p->PushID(0);
+			m_Utxos.PushID(0, *p);
         }
 
         return true;
@@ -556,8 +613,9 @@ struct TestBlockchain
             m_Utxos.Delete(cu);
         else
         {
-            p->PopID();
+            m_Utxos.PopID(*p);
             cu.InvalidateElement();
+			m_Utxos.OnDirty();
         }
 
         return true;
@@ -821,11 +879,11 @@ class TestNode
 {
 public:
     using NewBlockFunc = std::function<void(Height)>;
-    TestNode(NewBlockFunc func = NewBlockFunc())
+    TestNode(NewBlockFunc func = NewBlockFunc(), Height height = 145)
         : m_NewBlockFunc(func)
     {
         m_Server.Listen(io::Address::localhost().port(32125));
-        while (m_Blockchain.m_mcm.m_vStates.size() < 145)
+        while (m_Blockchain.m_mcm.m_vStates.size() < height)
             m_Blockchain.AddBlock();
     }
 
@@ -1120,7 +1178,13 @@ public:
             {
                 if (sendCount--)
                 {
-                    sender.m_Wallet.transfer_money(sender.m_WalletID, receiver.m_WalletID, 5, 1, true, 10000, 10000);
+                    sender.m_Wallet.StartTransaction(CreateSimpleTransactionParameters()
+                        .SetParameter(TxParameterID::MyID, sender.m_WalletID)
+                        .SetParameter(TxParameterID::PeerID, receiver.m_WalletID)
+                        .SetParameter(TxParameterID::Amount, Amount(5))
+                        .SetParameter(TxParameterID::Fee, Amount(1))
+                        .SetParameter(TxParameterID::Lifetime, Height(10000))
+                        .SetParameter(TxParameterID::PeerResponseTime, Height(10000)));
                 }
             }
             if (sendCount)
@@ -1225,7 +1289,7 @@ ByteBuffer createTreasury(IWalletDB::Ptr db, AmountList amounts = { 5, 2, 1, 9 }
     return result;
 }
 
-void InitNodeToTest(Node& node, const ByteBuffer& binaryTreasury, Node::IObserver* observer, uint16_t port = 32125, uint32_t powSolveTime = 1000, const std::string & path = "mytest.db", const std::vector<io::Address>& peers = {})
+void InitNodeToTest(Node& node, const ByteBuffer& binaryTreasury, Node::IObserver* observer, uint16_t port = 32125, uint32_t powSolveTime = 1000, const std::string & path = "mytest.db", const std::vector<io::Address>& peers = {}, bool miningNode = true)
 {
     node.m_Cfg.m_Treasury = binaryTreasury;
     ECC::Hash::Processor() << Blob(node.m_Cfg.m_Treasury) >> Rules::get().TreasuryChecksum;
@@ -1234,7 +1298,7 @@ void InitNodeToTest(Node& node, const ByteBuffer& binaryTreasury, Node::IObserve
     node.m_Cfg.m_sPathLocal = path.c_str();
     node.m_Cfg.m_Listen.port(port);
     node.m_Cfg.m_Listen.ip(INADDR_ANY);
-    node.m_Cfg.m_MiningThreads = 1;
+    node.m_Cfg.m_MiningThreads = miningNode ? 1 : 0;
     node.m_Cfg.m_VerificationThreads = 1;
     node.m_Cfg.m_TestMode.m_FakePowSolveTime_ms = powSolveTime;
     node.m_Cfg.m_Connect = peers;

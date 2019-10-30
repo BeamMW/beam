@@ -32,11 +32,8 @@ namespace beam::wallet
             Height lifetime = m_Tx.GetMandatoryParameter<Height>(TxParameterID::Lifetime);
             m_Tx.SetParameter(TxParameterID::Lifetime, lifetime, m_SubTxID);
 
-            if (m_Tx.IsInitiator())
-            {
-                Height responseTime = m_Tx.GetMandatoryParameter<Height>(TxParameterID::PeerResponseHeight);
-                m_Tx.SetParameter(TxParameterID::PeerResponseHeight, responseTime, m_SubTxID);
-            }
+            Height responseHeight = m_Tx.GetMandatoryParameter<Height>(TxParameterID::PeerResponseHeight);
+            m_Tx.SetParameter(TxParameterID::PeerResponseHeight, responseHeight, m_SubTxID);
         }
     }
 
@@ -224,7 +221,7 @@ namespace beam::wallet
     ECC::Point::Native LockTxBuilder::GetSharedCommitment()
     {
         Point::Native commitment(Zero);
-        // TODO: check pHGen
+
         Tag::AddValue(commitment, nullptr, GetAmount());
         commitment += GetPublicSharedBlindingFactor();
         commitment += m_Tx.GetMandatoryParameter<Point::Native>(TxParameterID::PeerPublicSharedBlindingFactor, m_SubTxID);

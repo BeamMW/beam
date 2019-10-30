@@ -13,7 +13,7 @@
     </message>
     <message id="general-comment">
         <source>Comment</source>
-        <translation>Notitie</translation>
+        <translation>Omschrijving</translation>
     </message>
     <message id="general-contact">
         <source>Contact</source>
@@ -41,7 +41,7 @@
     </message>
     <message id="general-send">
         <source>Send</source>
-        <translation>Verzenden</translation>
+        <translation>Verzend</translation>
     </message>
     <message id="general-amount">
         <source>Amount</source>
@@ -53,7 +53,7 @@
     </message>
     <message id="general-cancel">
         <source>Cancel</source>
-        <extracomment>Edit addres dialog, cancel button</extracomment>
+        <extracomment>Edit address dialog, cancel button</extracomment>
         <translation>Annuleren</translation>
     </message>
     <message id="general-delete">
@@ -62,11 +62,11 @@
     </message>
     <message id="general-receiving">
         <source>receiving</source>
-        <translation>ontvangen</translation>
+        <translation type="vanished">ontvangen</translation>
     </message>
     <message id="general-sending">
         <source>sending</source>
-        <translation>bezig met verzenden</translation>
+        <translation type="vanished">verzenden</translation>
     </message>
     <message id="general-rescan">
         <source>Rescan</source>
@@ -74,7 +74,7 @@
     </message>
     <message id="general-change-pwd">
         <source>Change wallet password</source>
-        <translation>Wijzig portemonnee wachtwoord</translation>
+        <translation>Wijzig wallet wachtwoord</translation>
     </message>
     <message id="general-pwd-empty-error">
         <source>Please, enter password</source>
@@ -151,27 +151,27 @@
     </message>
     <message id="general-create-wallet">
         <source>Create new wallet</source>
-        <translation>Nieuwe portemonnee aanmaken</translation>
+        <translation>Nieuwe wallet aanmaken</translation>
     </message>
     <message id="general-restore-or-create-wallet">
         <source>Restore wallet or create a new one</source>
-        <translation>Herstel portemonnee of maak een nieuwe aan</translation>
+        <translation>Herstel wallet of maak een nieuwe aan</translation>
     </message>
     <message id="general-select-db">
         <source>Select the wallet database file</source>
-        <translation>Selecteer het portemonnee database bestand</translation>
+        <translation>Selecteer het wallet database bestand</translation>
     </message>
     <message id="general-restore-wallet">
         <source>Restore wallet</source>
-        <translation>Portemonnee herstellen</translation>
+        <translation>Wallet herstellen</translation>
     </message>
     <message id="general-start-using">
         <source>Start using your wallet</source>
-        <translation>Begin met het gebruik van uw portemonnee</translation>
+        <translation>Begin met het gebruik van uw wallet</translation>
     </message>
     <message id="general-open-wallet">
         <source>Open my wallet</source>
-        <translation>Mijn portemonnee openen</translation>
+        <translation>Mijn wallet openen</translation>
     </message>
     <message id="general-proceed">
         <source>Proceed</source>
@@ -183,8 +183,8 @@
         <translation>In map weergeven</translation>
     </message>
     <message id="general-addr-comment-error">
-        <source>Address with same comment already exist</source>
-        <translation>Adres met deze omschrijving bestaat al</translation>
+        <source>Address with the same comment already exists</source>
+        <translation>Er bestaat al een adres met deze omschrijving</translation>
     </message>
     <message id="wallet-receive-button">
         <source>Receive</source>
@@ -192,7 +192,7 @@
     </message>
     <message id="wallet-in-progress-title">
         <source>In progress</source>
-        <translation>Bezig</translation>
+        <translation type="vanished">Bezig</translation>
     </message>
     <message id="wallet-transactions-title">
         <source>Transactions</source>
@@ -203,12 +203,12 @@
         <translation>Verifieer betaling</translation>
     </message>
     <message id="wallet-txs-date-time">
-        <source>Date | Time</source>
-        <translation>Datum | Tijd</translation>
+        <source>Created on</source>
+        <translation>Gemaakt op</translation>
     </message>
     <message id="wallet-txs-copy-addr-cm">
         <source>Copy address</source>
-        <translation>Kopieer adres</translation>
+        <translation type="vanished">Kopieer adres</translation>
     </message>
     <message id="wallet-txs-delete-message">
         <source>The transaction will be deleted. This operation can not be undone</source>
@@ -272,17 +272,17 @@
     </message>
     <message id="address-table-cm-show-qr">
         <source>Show QR code</source>
-        <extracomment>Entry in adress table context menu to show QR</extracomment>
+        <extracomment>Entry in address table context menu to show QR</extracomment>
         <translation>Toon QR code</translation>
     </message>
     <message id="address-table-cm-edit">
         <source>Edit address</source>
-        <extracomment>Entry in adress table context menu to edit</extracomment>
+        <extracomment>Entry in address table context menu to edit</extracomment>
         <translation>Adres bewerken</translation>
     </message>
     <message id="address-table-cm-delete">
         <source>Delete address</source>
-        <extracomment>Entry in adress table context menu to delete</extracomment>
+        <extracomment>Entry in address table context menu to delete</extracomment>
         <translation>Adres verwijderen</translation>
     </message>
     <message id="address-table-cm-delete-contact">
@@ -293,9 +293,29 @@
         <source>Available</source>
         <translation>Beschikbaar</translation>
     </message>
-    <message id="available-panel-where-to-buy">
-        <source>Where to buy BEAM?</source>
-        <translation>Waar BEAM te kopen?</translation>
+    <message id="available-panel-locked">
+        <source>Locked</source>
+        <translation>Vergrendeld</translation>
+    </message>
+    <message id="available-panel-sending">
+        <source>Sending</source>
+        <translation>Bezig met verzenden</translation>
+    </message>
+    <message id="available-panel-receiving">
+        <source>Receiving</source>
+        <translation>Bezig met ontvangen</translation>
+    </message>
+    <message id="available-panel-maturing">
+        <source>Maturing</source>
+        <translation>Ontwikkeling</translation>
+    </message>
+    <message id="available-panel-change">
+        <source>Change</source>
+        <translation>Wijzig</translation>
+    </message>
+    <message id="available-panel-incoming">
+        <source>Incoming</source>
+        <translation>Inkomend</translation>
     </message>
     <message id="settings-version">
         <source>Version</source>
@@ -306,6 +326,14 @@
         <source>ip:port</source>
         <extracomment>settings tab, node section, address label</extracomment>
         <translation>ip:poort</translation>
+    </message>
+    <message id="settings-see-seed">
+        <source>Click to see seed phrase</source>
+        <translation type="vanished">Klik om uw herstelzin te zien</translation>
+    </message>
+    <message id="settings-new-seed">
+        <source>Double click to generate new seed phrase</source>
+        <translation type="vanished">Dubbelklik om een nieuwe herstelzin te genereren</translation>
     </message>
     <message id="settings-local-node-run-checkbox">
         <source>Run local node</source>
@@ -345,7 +373,7 @@
     <message id="settings-wallet-location-label">
         <source>Wallet folder location</source>
         <extracomment>settings tab, general section, wallet data folder location label</extracomment>
-        <translation>Portemonnee maplocatie</translation>
+        <translation>Wallet maplocatie</translation>
     </message>
     <message id="settings-apply">
         <source>Apply</source>
@@ -398,15 +426,15 @@
     </message>
     <message id="loading-loading">
         <source>Loading wallet...</source>
-        <translation>Portemonnee laden...</translation>
+        <translation>Wallet laden...</translation>
     </message>
     <message id="loading-restoring">
         <source>Restoring wallet...</source>
-        <translation>Portemonnee herstellen...</translation>
+        <translation>Wallet herstellen...</translation>
     </message>
     <message id="loading-creating">
         <source>Creating wallet...</source>
-        <translation>Portemonnee wordt aangemaakt...</translation>
+        <translation>Wallet wordt aangemaakt...</translation>
     </message>
     <message id="start-open-pwd-invitation">
         <source>Enter your password to access the wallet</source>
@@ -414,21 +442,21 @@
     </message>
     <message id="open-show-wallet-button">
         <source>Show my wallet</source>
-        <translation>Mijn portemonnee weergeven</translation>
+        <translation>Mijn wallet weergeven</translation>
     </message>
     <message id="edit-addr-title">
         <source>Edit address</source>
-        <extracomment>Edit addres dialog title</extracomment>
+        <extracomment>Edit address dialog title</extracomment>
         <translation>Adres bewerken</translation>
     </message>
     <message id="edit-addr-addr-id">
         <source>Address ID</source>
-        <extracomment>Edit addres dialog, address label</extracomment>
+        <extracomment>Edit address dialog, address label</extracomment>
         <translation>Adres ID</translation>
     </message>
     <message id="edit-addr-save-button">
         <source>Save</source>
-        <extracomment>Edit addres dialog, save button</extracomment>
+        <extracomment>Edit address dialog, save button</extracomment>
         <translation>Opslaan</translation>
     </message>
     <message id="payment-info-proof-verification">
@@ -449,7 +477,7 @@
     </message>
     <message id="payment-info-proof-sender-label">
         <source>Sender</source>
-        <translation>Afzender</translation>
+        <translation>Verzender</translation>
     </message>
     <message id="payment-info-proof-receiver-label">
         <source>Receiver</source>
@@ -463,17 +491,13 @@
         <source>Copy code</source>
         <translation>Kopieer code</translation>
     </message>
-    <message id="secondary-panel-maturing">
-        <source>Maturing</source>
-        <translation>Ontwikkeling</translation>
-    </message>
     <message id="info-title">
         <source>Info view</source>
         <translation>Informatieweergave</translation>
     </message>
     <message id="loading-change-settings-button">
         <source>Change settings</source>
-        <translation>Instellingen wijzigen</translation>
+        <translation type="vanished">Instellingen wijzigen</translation>
     </message>
     <message id="loading-try-again-button">
         <source>Try again</source>
@@ -497,7 +521,7 @@
     </message>
     <message id="tx-details-title">
         <source>General transaction info</source>
-        <translation>Algemene transactie informatie</translation>
+        <translation>Algemene transactieinformatie</translation>
     </message>
     <message id="tx-details-sending-addr-label">
         <source>Sending address</source>
@@ -505,7 +529,7 @@
     </message>
     <message id="tx-details-receiving-addr-label">
         <source>Receiving address</source>
-        <translation>Ontvangadres</translation>
+        <translation>Ontvangstadres</translation>
     </message>
     <message id="tx-details-error-label">
         <source>Error</source>
@@ -514,7 +538,7 @@
     <message id="settings-report-problem-save-log-button">
         <source>Save wallet logs</source>
         <extracomment>settings tab, report problem section, save logs button</extracomment>
-        <translation>Portemonnee logs opslaan</translation>
+        <translation>Wallet logs opslaan</translation>
     </message>
     <message id="settings-rescan-confirmation-message-line-2">
         <source>Are you sure?</source>
@@ -523,7 +547,6 @@
     </message>
     <message id="settings-title">
         <source>Settings</source>
-        <extracomment>settings tab title</extracomment>
         <translation>Instellingen</translation>
     </message>
     <message id="cant-send-to-expired-message">
@@ -544,19 +567,19 @@
     </message>
     <message id="wallet-title">
         <source>Wallet</source>
-        <translation>Portemonnee</translation>
+        <translation>Wallet</translation>
     </message>
     <message id="wallet-receive-title">
-        <source>Receive Beam</source>
-        <translation>Ontvang Beam</translation>
+        <source>Receive</source>
+        <translation>Ontvang</translation>
     </message>
     <message id="wallet-receive-my-addr-label">
-        <source>My address</source>
-        <translation>Mijn adres</translation>
+        <source>My address (auto-generated)</source>
+        <translation>Mijn adres (automatisch gegenereerd)</translation>
     </message>
     <message id="wallet-receive-expires-label">
-        <source>Expires</source>
-        <translation>Verloopt</translation>
+        <source>Expires in</source>
+        <translation>Verloopt over</translation>
     </message>
     <message id="wallet-receive-expires-24">
         <source>24 hours</source>
@@ -572,23 +595,23 @@
     </message>
     <message id="wallet-receive-propogate-addr-message">
         <source>Send this address to the sender over an external secure channel</source>
-        <translation>Stuur dit adres naar de afzender via een extern beveiligd kanaal</translation>
+        <translation type="vanished">Stuur dit adres naar de afzender via een extern beveiligd kanaal</translation>
     </message>
     <message id="invalid-addr-got-it-button">
         <source>Got it</source>
-        <translation>Ik begrijp het</translation>
+        <translation type="vanished">Ik begrijp het</translation>
     </message>
     <message id="send-title">
-        <source>Send Beam</source>
-        <translation>Verzend Beam</translation>
+        <source>Send</source>
+        <translation>Verzend</translation>
     </message>
     <message id="send-send-to-label">
-        <source>Send To</source>
-        <translation>Verzenden naar</translation>
+        <source>Transaction token or contact</source>
+        <translation>Transactietoken of contact</translation>
     </message>
     <message id="send-contact-placeholder">
-        <source>Please specify contact</source>
-        <translation>Geef contact op</translation>
+        <source>Please specify contact or transaction token</source>
+        <translation>Geef contact of transactietoken op</translation>
     </message>
     <message id="send-amount-label">
         <source>Transaction amount</source>
@@ -600,11 +623,11 @@
     </message>
     <message id="send-fee-fail">
         <source>The minimum fee is %1 GROTH</source>
-        <translation>De minimale vergoeding is %1 GROTH</translation>
+        <translation type="vanished">De minimale vergoeding is %1 GROTH</translation>
     </message>
     <message id="send-curency-sub-name">
         <source>GROTH</source>
-        <translation>GROTH</translation>
+        <translation type="vanished">GROTH</translation>
     </message>
     <message id="send-remaining-label">
         <source>Remaining</source>
@@ -612,7 +635,7 @@
     </message>
     <message id="send-send-fail">
         <source>Address %1 is invalid</source>
-        <translation>Adres %1 is ongeldig</translation>
+        <translation type="vanished">Adres %1 is ongeldig</translation>
     </message>
     <message id="start-restore-confirm-button">
         <source>I agree</source>
@@ -620,11 +643,11 @@
     </message>
     <message id="start-restore-message-line">
         <source>You are trying to restore an existing Beam Wallet. Please notice that if you use your wallet on another device, your balance will be up to date, but  transaction history and addresses will be kept separately on each device.</source>
-        <translation>U probeert een bestaande Beam portemonnee te herstellen. Let op dat wanneer u uw portemonnee op een ander apparaat gebruikt, uw saldo up to date zal zijn, maar de transactiegeschiedenis en adressen op ieder apparaat apart worden gehouden.</translation>
+        <translation>U probeert een bestaande Beam Portemonnee te herstellen. Let op dat wanneer u uw portemonnee op een ander apparaat gebruikt uw saldo up-to-date zal zijn, maar de transactiegeschiedenis en adressen op elk apparaat apart worden gehouden.</translation>
     </message>
     <message id="start-migration-message">
         <source>Your wallet will be migrated to v.</source>
-        <translation>Uw portemonnee zal worden gemigreerd naar v.</translation>
+        <translation>Uw wallet zal worden gemigreerd naar v.</translation>
     </message>
     <message id="start-migration-button">
         <source>Start auto migration</source>
@@ -650,11 +673,11 @@
     </message>
     <message id="start-create-new-message-line-1">
         <source>Create new wallet with generating seed phrase.</source>
-        <translation>Maak een nieuwe portemonnee aan met het genereren van een herstelzin.</translation>
+        <translation>Maak een nieuwe wallet aan met het genereren van een herstelzin.</translation>
     </message>
     <message id="start-create-new-message-line-2">
         <source>If you ever lose your device, you will need this phrase to recover your wallet!</source>
-        <translation>Indien u uw apparaat verliest heeft u deze zin nodig om uw portemonnee te kunnen herstellen!</translation>
+        <translation>Indien u uw apparaat verliest heeft u deze zin nodig om uw wallet te kunnen herstellen!</translation>
     </message>
     <message id="start-create-new-securiry-note-1">
         <source>Do not let anyone see your seed phrase</source>
@@ -674,7 +697,7 @@
     </message>
     <message id="start-generate-seed-phrase-message">
         <source>Your seed phrase is the access key to all the cryptocurrencies in your wallet. Write down the phrase to keep it in a safe or in a locked vault. Without the phrase you will not be able to recover your money.</source>
-        <translation>Uw herstelzin is de toegangssleutel tot alle cryptovaluta in uw portemonnee. Schrijf de zin op en bewaar deze op een veilige plaats zoals een kluis. Zonder de zin kunt u uw portemonnee, en dus uw geld, niet herstellen.</translation>
+        <translation>Uw herstelzin is de toegangssleutel tot alle cryptovaluta in uw wallet. Schrijf de zin op en bewaar deze op een veilige plaats zoals een kluis. Zonder de zin kunt u uw wallet, en dus uw geld, niet herstellen.</translation>
     </message>
     <message id="start-confirm-seed-phrase-button">
         <source>I understand</source>
@@ -694,7 +717,7 @@
     </message>
     <message id="start-create-pwd-message">
         <source>Create password to access your wallet</source>
-        <translation>Maak een wachtwoord aan om toegang te krijgen tot uw portemonnee</translation>
+        <translation>Maak een wachtwoord aan om toegang te krijgen tot uw wallet</translation>
     </message>
     <message id="start-pwd-label">
         <source>Password</source>
@@ -782,7 +805,7 @@
     </message>
     <message id="wallet-model-connection-addr-in-use-error">
         <source>The port %1 is already in use. Check if a wallet is already running on this machine or change the port settings.</source>
-        <translation>Poort %1 is al in gebruik. Controleer of er al een portemonnee op deze machine wordt uitgevoerd of wijzig de poort instellingen.</translation>
+        <translation>Poort %1 is al in gebruik. Controleer of er al een wallet op deze machine wordt uitgevoerd of wijzig de poort instellingen.</translation>
     </message>
     <message id="wallet-model-time-sync-error">
         <source>System time not synchronized</source>
@@ -798,15 +821,15 @@
     </message>
     <message id="wallet-model-data-location-error">
         <source>Failed to start wallet. Please check your wallet data location</source>
-        <translation>Starten van portemonnee mislukt. Controleer uw portemonnee gegevenslocatie</translation>
+        <translation>Starten van wallet is mislukt. Controleer uw wallet gegevenslocatie</translation>
     </message>
     <message id="loading-view-download-blocks">
-        <source>Downloading blocks</source>
-        <translation>Blokken downloaden</translation>
+        <source>Synching with blockchain</source>
+        <translation>Synchroniseren met blockchain</translation>
     </message>
     <message id="loading-view-scaning-utxo">
-        <source>Scanning UTXO %d/%d</source>
-        <translation>Scannen UTXO %d/%d</translation>
+        <source>Loading wallet data %d/%d</source>
+        <translation>Wallet data aan het laden %d/%d</translation>
     </message>
     <message id="loading-view-protocol-error">
         <source>Incompatible peer</source>
@@ -830,11 +853,11 @@
     </message>
     <message id="status-bar-view-not-connected">
         <source>Wallet is not connected to the node</source>
-        <translation>Portemonnee is niet met de node verbonden</translation>
+        <translation>Wallet is niet met de node verbonden</translation>
     </message>
     <message id="tx-failture-undefined">
         <source>Unexpected reason, please send wallet logs to Beam support</source>
-        <translation>Onverwachte reden, stuur portemonnee logs naar Beam support</translation>
+        <translation>Onverwachte reden, stuur wallet logs naar Beam support</translation>
     </message>
     <message id="tx-failture-cancelled">
         <source>Transaction cancelled</source>
@@ -842,7 +865,7 @@
     </message>
     <message id="tx-failture-receiver-signature-invalid">
         <source>Receiver signature in not valid, please send wallet logs to Beam support</source>
-        <translation>Handtekening van ontvanger is niet geldig, stuur portemonnee logs naar Beam support</translation>
+        <translation>Handtekening van ontvanger is niet geldig, stuur wallet logs naar Beam support</translation>
     </message>
     <message id="tx-failture-not-registered-in-blockchain">
         <source>Failed to register transaction with the blockchain, see node logs for details</source>
@@ -850,7 +873,7 @@
     </message>
     <message id="tx-failture-not-valid">
         <source>Transaction is not valid, please send wallet logs to Beam support</source>
-        <translation>Transactie is niet geldig, stuur portemonnee logs naar Beam support</translation>
+        <translation>Transactie is niet geldig, stuur wallet logs naar Beam support</translation>
     </message>
     <message id="tx-failture-kernel-invalid">
         <source>Invalid kernel proof provided</source>
@@ -878,7 +901,7 @@
     </message>
     <message id="tx-failture-not-signed-by-receiver">
         <source>Payment not signed by the receiver, please send wallet logs to Beam support</source>
-        <translation>Betaling niet door de ontvanger ondertekend, stuur portemonnee logs naar Beam support</translation>
+        <translation>Betaling niet door de ontvanger ondertekend, stuur wallet logs naar Beam support</translation>
     </message>
     <message id="tx-failture-max-height-to-high">
         <source>Kernel maximum height is too high</source>
@@ -890,11 +913,11 @@
     </message>
     <message id="tx-curency-name">
         <source>BEAM</source>
-        <translation>BEAM</translation>
+        <translation type="vanished">BEAM</translation>
     </message>
     <message id="tx-curency-sub-name">
         <source>GROTH</source>
-        <translation>GROTH</translation>
+        <translation type="vanished">GROTH</translation>
     </message>
     <message id="utxo-utxo">
         <source>UTXO</source>
@@ -906,7 +929,7 @@
     </message>
     <message id="utxo-last-block-hash">
         <source>Last block hash</source>
-        <translation>Laatste blok hash</translation>
+        <translation>Laatste block hash</translation>
     </message>
     <message id="utxo-head-maturity">
         <source>Maturity</source>
@@ -978,11 +1001,11 @@
     </message>
     <message id="appmodel-failed-time-not-synced">
         <source>Failed to start the integrated node: the timezone settings of your machine are out of sync. Please fix them and restart the wallet.</source>
-        <translation>Het starten van de geïntegreerde node is mislukt: de tijdzone instellingen van uw machine zijn niet gesynchroniseerd. Gelieve deze op te lossen en de portemonnee opnieuw te starten.</translation>
+        <translation>Het starten van de geïntegreerde node is mislukt: de tijdzone instellingen van uw machine zijn niet gesynchroniseerd. Gelieve deze op te lossen en de wallet opnieuw te starten.</translation>
     </message>
     <message id="can-not-generate-new-address-message">
         <source>You cannot generate new address. Your wallet doesn&apos;t have a master key.</source>
-        <translation>U kunt geen nieuw adres genereren. Uw portemonnee heeft geen hoofdsleutel.</translation>
+        <translation>U kunt geen nieuw adres genereren. Uw wallet heeft geen hoofdsleutel.</translation>
     </message>
     <message id="settings-general-language">
         <source>Language</source>
@@ -991,7 +1014,7 @@
     </message>
     <message id="open-external-open">
         <source>Open</source>
-        <translation>Open</translation>
+        <translation>Openen</translation>
     </message>
     <message id="open-external-title">
         <source>External link</source>
@@ -999,11 +1022,11 @@
     </message>
     <message id="open-external-message">
         <source>Beam Wallet app requires permission to open external link in the browser. This action will expose your IP to the web server. To avoid it, choose -Cancel-. You can change your choice in app setting anytime.</source>
-        <translation>Beam portemonnee app vereist toestemming om externe links in de browser te openen. Deze actie zal uw IP adres aan de webserver blootstellen. Kies -Annuleren- om dit te voorkomen. U kunt uw keuze op elk gewenst moment wijzigen in de app instelling.</translation>
+        <translation>Beam Wallet vereist toestemming om externe links in de browser te openen. Deze actie zal uw IP adres aan de webserver blootstellen. Kies -Annuleren- om dit te voorkomen. U kunt uw keuze op elk gewenst moment wijzigen in Instellingen.</translation>
     </message>
     <message id="start-open-change-wallet-message">
         <source>If you&apos;ll restore a wallet all transaction history and addresses will be lost.</source>
-        <translation>Wanneer u een portemonnee herstelt zullen alle transactiegeschiedenis en adressen verloren gaan.</translation>
+        <translation>Wanneer u een wallet herstelt zullen alle transactiegeschiedenis en adressen verloren gaan.</translation>
     </message>
     <message id="loading-restore-message-line1">
         <source>Please wait for synchronization and do not close or minimize the application.</source>
@@ -1011,7 +1034,7 @@
     </message>
     <message id="loading-restore-message-line2">
         <source>Only the wallet balance (UTXO) can be restored, transaction info and addresses are always private and never kept in the blockchain.</source>
-        <translation>Alleen het portemonnee saldo (UTXO) kan worden hersteld, transactieinformatie en adressen zijn altijd privé en worden nooit in de blockchain opgeslagen.</translation>
+        <translation>Alleen het wallet saldo (UTXO) kan worden hersteld, transactieinformatie en adressen zijn altijd privé en worden nooit in de blockchain opgeslagen.</translation>
     </message>
     <message id="start-recovery-title">
         <source>Create new password</source>
@@ -1019,11 +1042,11 @@
     </message>
     <message id="start-recovery-pwd-message">
         <source>Create new password to access your wallet</source>
-        <translation>Nieuw wachtwoord aanmaken om toegang te krijgen tot uw portemonnee</translation>
+        <translation>Nieuw wachtwoord aanmaken om toegang te krijgen tot uw wallet</translation>
     </message>
     <message id="start-create-pwd-strength-message">
         <source>Strong password needs to meet the following requirements:\n•  the length must be at least 10 characters\n•  must contain at least one lowercase letter\n•  must contain at least one uppercase letter\n•  must contain at least one number</source>
-        <translation>Een sterk wachtwoord moet voldoen aan de volgende vereisten:\n•  de lengte moet uit ten minste 10 tekens\n•  bestaan ten minste één kleine letter\n•  moet ten minste één hoofdletter\n•  bevatten</translation>
+        <translation>Een sterk wachtwoord moet voldoen aan de volgende vereisten:\n•  moet uit ten minste 10 tekens bestaan\n•  moet ten minste één kleine letter bevatten\n•  moet ten minste één hoofdletter bevatten\n•  moet ten minste één cijfer bevatten</translation>
     </message>
     <message id="start-open-caps-warning">
         <source>Caps lock is on!</source>
@@ -1065,7 +1088,7 @@
     </message>
     <message id="settings-report-problem-message-l1">
         <source>1. Click “Save wallet logs” and choose a destination folder for log archive</source>
-        <translation>1. Klik op &quot;Sla portemonnee logs op&quot; en kies een doelmap voor log archief</translation>
+        <translation>1. Klik op &quot;Sla wallet logs op&quot; en kies een doelmap voor log archief</translation>
     </message>
     <message id="settings-report-problem-message-l2">
         <source>2. Send email to %1 or open a ticket in %2</source>
@@ -1096,27 +1119,27 @@
     </message>
     <message id="edit-addr-expires-label">
         <source>Expires</source>
-        <extracomment>Edit addres dialog, expires label</extracomment>
-        <translation>Vervalt</translation>
+        <extracomment>Edit address dialog, expires label</extracomment>
+        <translation>Verloopt</translation>
     </message>
     <message id="edit-addr-expire-now-label">
         <source>Now</source>
-        <extracomment>Edit addres dialog, expire now label</extracomment>
+        <extracomment>Edit address dialog, expire now label</extracomment>
         <translation>Nu</translation>
     </message>
     <message id="edit-addr-expire-now-switch">
         <source>Expire address now</source>
-        <extracomment>Edit addres dialog, expire now switch</extracomment>
+        <extracomment>Edit address dialog, expire now switch</extracomment>
         <translation>Laat adres nu vervallen</translation>
     </message>
     <message id="edit-addr-expiration-time-label">
         <source>Expired on </source>
-        <extracomment>Edit addres dialog, expiration time label</extracomment>
+        <extracomment>Edit address dialog, expiration time label</extracomment>
         <translation>Verlopen op </translation>
     </message>
     <message id="edit-addr-activate-addr-switch">
         <source>Activate address</source>
-        <extracomment>Edit addres dialog, expiration time label</extracomment>
+        <extracomment>Edit address dialog, expiration time label</extracomment>
         <translation>Adres activeren</translation>
     </message>
     <message id="time-never">
@@ -1152,7 +1175,7 @@
     <message id="start-migration-select-file-button">
         <source>Select wallet database file manually</source>
         <extracomment>migration screen, select db file button</extracomment>
-        <translation>Portemonnee database bestand handmatig selecteren</translation>
+        <translation>Wallet database bestand handmatig selecteren</translation>
     </message>
     <message id="start-select-db-best-match-label">
         <source>(best match)</source>
@@ -1173,6 +1196,749 @@
         <source>Password verification is required to change that setting</source>
         <extracomment>settings tab, general section, ask password to send, confirm password dialog, message</extracomment>
         <translation>Wachtwoord verificatie is vereist om deze instelling te wijzigen</translation>
+    </message>
+    <message id="open-in-explorer">
+        <source>Open in Blockchain Explorer</source>
+        <translation>Open in Blockchain Explorer</translation>
+    </message>
+    <message id="restore-finish-alert-button">
+        <source>I understand</source>
+        <translation>Ik begrijp het</translation>
+    </message>
+    <message id="restore-finish-alert-title">
+        <source>Do not simultaneously run two wallets initiated from the same seed phrase</source>
+        <translation>Draai niet twee wallets die met dezelfde herstelzin geïnitieerd zijn tegelijkertijd</translation>
+    </message>
+    <message id="restore-finish-alert-message-line">
+        <source>Don’t use same seed phrase on several devices, your balance and transaction list won’t be synchronized.</source>
+        <translation>Gebruik dezelfde herstelzin niet op verschillende apparaten. Uw saldo- en transactielijst zal niet worden gesynchroniseerd.</translation>
+    </message>
+    <message id="tx-failture-subtx-failed">
+        <source>Subtransaction has failed</source>
+        <translation>Subtransactie is mislukt</translation>
+    </message>
+    <message id="tx-failture-invalid-contract-amount">
+        <source>Contract&apos;s amount is not valid</source>
+        <translation>Contract&apos;s bedrag is niet geldig</translation>
+    </message>
+    <message id="tx-failture-invalid-sidechain-contract">
+        <source>Side chain has invalid contract</source>
+        <translation>Side chain bevat een ongeldig contract</translation>
+    </message>
+    <message id="tx-failture-sidechain-internal-error">
+        <source>Side chain bridge has internal error</source>
+        <translation>Side chain bridge bevat een interne fout</translation>
+    </message>
+    <message id="tx-failture-sidechain-network-error">
+        <source>Side chain bridge has network error</source>
+        <translation>Side chain bridge bevat een netwerkfout</translation>
+    </message>
+    <message id="tx-failture-invalid-sidechain-response-format">
+        <source>Side chain bridge has response format error</source>
+        <translation>Side chain bridge bevat een response format fout</translation>
+    </message>
+    <message id="tx-failture-invalid-side-chain-credentials">
+        <source>Invalid credentials of Side chain</source>
+        <translation>Ongeldige inloggegevens van de Side chain</translation>
+    </message>
+    <message id="tx-failture-not-enough-time-btc-lock">
+        <source>Not enough time to finish btc lock transaction</source>
+        <translation>Niet genoeg tijd om btc lock transactie af te ronden</translation>
+    </message>
+    <message id="tx-failture-create-multisig">
+        <source>Failed to create multi-signature</source>
+        <translation>Multi-signature aanmaken mislukt</translation>
+    </message>
+    <message id="tx-failture-fee-too-small">
+        <source>Fee is too small</source>
+        <translation>Fee is te laag</translation>
+    </message>
+    <message id="loading-view-estimate-minutes">
+        <source>min.</source>
+        <translation>min.</translation>
+    </message>
+    <message id="loading-view-estimate-seconds">
+        <source>sec.</source>
+        <translation>sec.</translation>
+    </message>
+    <message id="loading-view-estimate-time">
+        <source>Estimate time: %s</source>
+        <translation>Geschatte tijd: %s</translation>
+    </message>
+    <message id="general-fee-rate">
+        <source>Transaction fee rate</source>
+        <translation>Transactiekosten</translation>
+    </message>
+    <message id="general-fee-fail">
+        <source>The minimum fee is %1 %2</source>
+        <translation>De minimale vergoeding is %1 %2</translation>
+    </message>
+    <message id="general-locked">
+        <source>locked</source>
+        <translation type="vanished">vergrendeld</translation>
+    </message>
+    <message id="general-change-settings">
+        <source>Change settings</source>
+        <translation>Instellingen wijzigen</translation>
+    </message>
+    <message id="general-swap">
+        <source>Swap</source>
+        <translation>Wisselen</translation>
+    </message>
+    <message id="settings-reset">
+        <source>Clear</source>
+        <translation>Wis</translation>
+    </message>
+    <message id="settings-node-address">
+        <source>Node Address</source>
+        <translation>Node adres</translation>
+    </message>
+    <message id="settings-username">
+        <source>Username</source>
+        <translation>Gebruikersnaam</translation>
+    </message>
+    <message id="settings-password">
+        <source>Password</source>
+        <translation>Wachtwoord</translation>
+    </message>
+    <message id="settings-fee-rate">
+        <source>Default fee</source>
+        <translation>Standaard vergoeding</translation>
+    </message>
+    <message id="swap-beta-message">
+        <source>Atomic Swap functionality is Beta at the moment. We recommend you not to send large amounts.</source>
+        <translation>Atomic Swap functie is op dit moment in bèta. We raden u aan geen grote bedragen te verzenden.</translation>
+    </message>
+    <message id="swap-beta-title">
+        <source>Atomic Swap is in BETA</source>
+        <translation>Atomic Swap is in BETA</translation>
+    </message>
+    <message id="swap-na-message">
+        <source>You do not have any 3rd-party currencies connected.\nUpdate your settings and try again.</source>
+        <translation>U heeft geen 3rd-party valuta gekoppeld.\nUpdate uw instellingen en probeer opnieuw.</translation>
+    </message>
+    <message id="wallet-receive-swap-title">
+        <source>Create swap offer</source>
+        <translation>Swap aanbieding aanmaken</translation>
+    </message>
+    <message id="wallet-receive-addr-message">
+        <source>Send this address to the sender over an external secure channel or scan the QR code</source>
+        <translation>Stuur dit adres naar de afzender via een extern beveiligd kanaal of scan de QR code</translation>
+    </message>
+    <message id="wallet-receive-copy-address">
+        <source>Copy transaction address</source>
+        <translation>Kopieer transactie adres</translation>
+    </message>
+    <message id="receive-amount-swap-label">
+        <source>Receive amount</source>
+        <translation>Ontvang bedrag</translation>
+    </message>
+    <message id="sent-amount-label">
+        <source>Send amount</source>
+        <translation>Verzend bedrag</translation>
+    </message>
+    <message id="wallet-receive-offer-expires-label">
+        <source>Offer expiration time</source>
+        <translation>Verlooptijd van aanbod</translation>
+    </message>
+    <message id="wallet-receive-expires-12">
+        <source>12 hours</source>
+        <translation>12 uur</translation>
+    </message>
+    <message id="wallet-receive-expires-6">
+        <source>6 hours</source>
+        <translation>6 uur</translation>
+    </message>
+    <message id="general-rate">
+        <source>Exchange rate</source>
+        <translation>Wisselkoers</translation>
+    </message>
+    <message id="wallet-receive-your-token">
+        <source>Your transaction token:</source>
+        <translation>Uw transactietoken:</translation>
+    </message>
+    <message id="wallet-swap-token-message">
+        <source>Send this token to the sender over an external secure channel</source>
+        <translation>Stuur deze token naar de afzender via een extern beveiligd kanaal</translation>
+    </message>
+    <message id="wallet-receive-swap-publish">
+        <source>publish transaction token</source>
+        <translation>publiceer transactietoken</translation>
+    </message>
+    <message id="wallet-send-swap-title">
+        <source>Swap currencies</source>
+        <translation>Swap valuta&apos;s</translation>
+    </message>
+    <message id="wallet-send-invalid-token">
+        <source>Invalid swap token</source>
+        <translation>Ongeldige swaptoken</translation>
+    </message>
+    <message id="wallet-send-invalid-address-or-token">
+        <source>Invalid wallet address or swap token</source>
+        <translation>Ongeldig wallet adres of swaptoken</translation>
+    </message>
+    <message id="general-comment-local">
+        <source>Comments are local and won&apos;t be shared</source>
+        <translation>Omschrijvingen zijn lokaal en worden niet gedeeld</translation>
+    </message>
+    <message id="send-total-label">
+        <source>Total UTXO value</source>
+        <translation>Totale UTXO waarde</translation>
+    </message>
+    <message id="general-bitcoin">
+        <source>Bitcoin</source>
+        <translation>Bitcoin</translation>
+    </message>
+    <message id="general-litecoin">
+        <source>Litecoin</source>
+        <translation>Litecoin</translation>
+    </message>
+    <message id="general-qtum">
+        <source>QTUM</source>
+        <translation>QTUM</translation>
+    </message>
+    <message id="general-electrum">
+        <source>Electrum</source>
+        <translation>Electrum</translation>
+    </message>
+    <message id="swap-currency-na-message">
+        <source>%1 is not connected, \nplease review your settings and try again.</source>
+        <oldsource>%1 is not connected, please review your settings and try again.</oldsource>
+        <translation>%1 is niet verbonden, \ncontroleer uw instellingen en probeer opnieuw.</translation>
+    </message>
+    <message id="send-swap-to-label">
+        <source>Transaction token</source>
+        <translation>Transactietoken</translation>
+    </message>
+    <message id="send-not-enough">
+        <source>There is not enough funds to complete the transaction</source>
+        <translation>Er is onvoldoende saldo om de transactie te voltooien</translation>
+    </message>
+    <message id="wallet-send-swap-offered-label">
+        <source>Offered on</source>
+        <translation>Aangeboden op</translation>
+    </message>
+    <message id="wallet-send-swap-expires-label">
+        <source>Expires on</source>
+        <translation>Verloopt op</translation>
+    </message>
+    <message id="general-address-from">
+        <source>From</source>
+        <translation>Van</translation>
+    </message>
+    <message id="general-address-to">
+        <source>To</source>
+        <translation>Naar</translation>
+    </message>
+    <message id="loading-view-estimate-calculating">
+        <source>calculating...</source>
+        <translation>berekenen...</translation>
+    </message>
+    <message id="loading-view-rebuild-utxos">
+        <source>Rebuilding wallet data</source>
+        <translation>Wallet data opnieuw opbouwen</translation>
+    </message>
+    <message id="loading-view-estimate-hours">
+        <source>h.</source>
+        <translation>h.</translation>
+    </message>
+    <message id="loading-view-net-problems">
+        <source>It may take longer then usual. Please, check your network.</source>
+        <translation>Het kan langer duren dan gebruikelijk. Controleer uw netwerk.</translation>
+    </message>
+    <message id="atomic-swap-title">
+        <source>Atomic Swap</source>
+        <translation>Atomic Swap</translation>
+    </message>
+    <message id="atomic-swap-create">
+        <source>Create offer</source>
+        <translation>Aanbieding aanmaken</translation>
+    </message>
+    <message id="atomic-swap-active-offers-tab">
+        <source>Active offers</source>
+        <translation>Actieve aanbiedingen</translation>
+    </message>
+    <message id="atomic-swap-transactions-tab">
+        <source>Transactions</source>
+        <translation>Transacties</translation>
+    </message>
+    <message id="atomic-swap-receive-beam">
+        <source>Receive BEAM</source>
+        <translation>Ontvang BEAM</translation>
+    </message>
+    <message id="atomic-swap-send-beam">
+        <source>Send BEAM</source>
+        <translation>Verzend BEAM</translation>
+    </message>
+    <message id="atomic-swap-only-my-offers">
+        <source>Only my offers</source>
+        <translation>Alleen mijn aanbiedingen</translation>
+    </message>
+    <message id="atomic-swap-fit-current-balance">
+        <source>Fit my current balance</source>
+        <translation>Mijn huidige saldo aanpassen</translation>
+    </message>
+    <message id="atomic-swap-currency">
+        <source>Currency</source>
+        <translation>Valuta</translation>
+    </message>
+    <message id="atomic-swap-time-created">
+        <source>Created on</source>
+        <translation>Gemaakt op</translation>
+    </message>
+    <message id="atomic-swap-amount-send">
+        <source>Send</source>
+        <translation>Verzend</translation>
+    </message>
+    <message id="atomic-swap-amount-receive">
+        <source>Receive</source>
+        <translation>Ontvang</translation>
+    </message>
+    <message id="atomic-swap-rate">
+        <source>Rate</source>
+        <translation>Rate</translation>
+    </message>
+    <message id="atomic-swap-expiration">
+        <source>Expiration</source>
+        <translation>Vervaltijd</translation>
+    </message>
+    <message id="atomic-swap-cancel">
+        <source>Cancel offer</source>
+        <translation>Aanbod annuleren</translation>
+    </message>
+    <message id="atomic-swap-accept">
+        <source>Accept offer</source>
+        <translation>Aanbod accepteren</translation>
+    </message>
+    <message id="atomic-swap-all-transactions-tab">
+        <source>All</source>
+        <translation>Alle</translation>
+    </message>
+    <message id="atomic-swap-in-progress-transactions-tab">
+        <source>In progress</source>
+        <translation>Bezig</translation>
+    </message>
+    <message id="atomic-swap-tx-table-created">
+        <source>Created on</source>
+        <translation>Gemaakt op</translation>
+    </message>
+    <message id="atomic-swap-tx-table-from">
+        <source>From</source>
+        <translation>Van</translation>
+    </message>
+    <message id="atomic-swap-tx-table-to">
+        <source>To</source>
+        <translation>Naar</translation>
+    </message>
+    <message id="atomic-swap-tx-table-sent">
+        <source>Sent</source>
+        <translation>Verzonden</translation>
+    </message>
+    <message id="atomic-swap-tx-table-received">
+        <source>Received</source>
+        <translation>Ontvangen</translation>
+    </message>
+    <message id="atomic-swap-tx-table-status">
+        <source>Status</source>
+        <translation>Status</translation>
+    </message>
+    <message id="general-create-trezor-wallet">
+        <source>Create new Trezor wallet</source>
+        <translation>Nieuwe Trezor wallet aanmaken</translation>
+    </message>
+    <message id="wallet-receive-text-online-time">
+        <source>For the transaction to complete, you should get online during the 12 hours after Beams are sent.</source>
+        <translation>Om de transactie te voltooien moet u binnen 12 uur nadat de Beam&apos;s zijn verzonden online zijn.</translation>
+    </message>
+    <message id="send-confirmation-pwd-text-online-time">
+        <source>For the transaction to complete, the recipient must get online within the next 12 hours and you should get online within 2 hours afterwards.</source>
+        <translation>Om de transactie te voltooien moet de ontvanger binnen de komende 12 uur online zijn en moet u binnen 2 uur daarna online zijn.</translation>
+    </message>
+    <message id="atomic-swap-connect-other">
+        <source>Connect other currency wallet to start trading</source>
+        <translation>Verbind een andere valuta wallet om te beginnen met handelen</translation>
+    </message>
+    <message id="trezor-message">
+        <source>Please, look at your Trezor device to complete actions...</source>
+        <translation>Pak uw Trezor om de acties te voltooien...</translation>
+    </message>
+    <message id="start-init-wallet-with-trezor">
+        <source>Init wallet with Trezor</source>
+        <translation>Initialiseer wallet met Trezor</translation>
+    </message>
+    <message id="start-import-trezor-owner-key">
+        <source>Import Trezor Owner Key</source>
+        <translation>Importeer Trezor Eigenaarssleutel</translation>
+    </message>
+    <message id="start-owner-key-imported">
+        <source>Owner Key imported. Please, enter the password you saw on device to decrypt your Owner Key.</source>
+        <translation>Eigenaarssleutel geïmporteerd. Voer het wachtwoord in dat op het apparaat werd weergegeven om uw Eigenaarssleutel te decoderen.</translation>
+    </message>
+    <message id="start-look-at-trezor-to-complete-actions">
+        <source>Please, look at your Trezor to complete actions...</source>
+        <translation>Pak uw Trezor om de acties te voltooien...</translation>
+    </message>
+    <message id="start-found-trezor-device">
+        <source>Found device:</source>
+        <translation>Gevonden apparaat:</translation>
+    </message>
+    <message id="start-no-trezor-device-connected">
+        <source>There is no device connected, please, connect your hardware wallet.</source>
+        <translation>Er is geen apparaat verbonden, maak alstublieft verbinding met uw hardware wallet.</translation>
+    </message>
+    <message id="wallet-receive-copy-token">
+        <source>copy transaction token</source>
+        <translation>kopieer transactietoken</translation>
+    </message>
+    <message id="wallet-model-device-not-connected">
+        <source>There is no Trezor device connected. Please, connect and try again.</source>
+        <translation>Er is geen Trezor apparaat verbonden. Probeer het opnieuw.</translation>
+    </message>
+    <message id="settings-invalid-seed">
+        <source>Invalid seed phrase</source>
+        <translation type="vanished">Ongeldige herstelzin</translation>
+    </message>
+    <message id="wallet-transactions-all-tab">
+        <source>All</source>
+        <translation>Alle</translation>
+    </message>
+    <message id="wallet-transactions-in-progress-tab">
+        <source>In progress</source>
+        <translation>Bezig</translation>
+    </message>
+    <message id="wallet-transactions-sent-tab">
+        <source>Sent</source>
+        <translation>Verzonden</translation>
+    </message>
+    <message id="wallet-transactions-received-tab">
+        <source>Received</source>
+        <translation>Ontvangen</translation>
+    </message>
+    <message id="settings-progress-na">
+        <source>You cannot disconnect wallet, edit seed phrase or change default\nfee while you have transactions in progress.</source>
+        <translation>U kunt de wallet niet loskoppelen, bewerk herstelzin of wijzig de standaard\nfee terwijl u transacties in uitvoering hebt.</translation>
+    </message>
+    <message id="atomic-no-offers">
+        <source>There are no active offers at the moment.\nPlease try again later or create an offer yourself.</source>
+        <oldsource>There are no active offers at the moment.
+Please try again later or create an offer yourself.</oldsource>
+        <translation>Er zijn momenteel geen actieve aanbiedingen.\nProbeer het later opnieuw of maak zelf een aanbieding.</translation>
+    </message>
+    <message id="send-less-than-fee">
+        <source>The swap amount must be greater than the redemption fee.</source>
+        <translation>Het te swappen bedrag moet groter zijn dan het fee bedrag.</translation>
+    </message>
+    <message id="wallet-txs-status-in-progress">
+        <source>in progress</source>
+        <translation>bezig</translation>
+    </message>
+    <message id="wallet-txs-status-own-sent">
+        <source>sent to own address</source>
+        <translation>verzonden naar eigen adres</translation>
+    </message>
+    <message id="wallet-txs-status-own-sending">
+        <source>sending to own address</source>
+        <translation>verzenden naar eigen adres</translation>
+    </message>
+    <message id="wallet-search-transactions-placeholder">
+        <source>Transaction or kernel ID, comment, address or contact</source>
+        <translation>Transactie- of kernel ID, omschrijving, adres of contact</translation>
+    </message>
+    <message id="settings-swap-node">
+        <source>Node</source>
+        <translation>Node</translation>
+    </message>
+    <message id="wallet-clear-search">
+        <source>Clear search</source>
+        <translation>Wis zoekopdracht</translation>
+    </message>
+    <message id="wallet-search">
+        <source>Search</source>
+        <translation>Zoeken</translation>
+    </message>
+    <message id="atomic-swap-1active-tx-count">
+        <source>1 active transaction</source>
+        <translation>1 actieve transactie</translation>
+    </message>
+    <message id="atomic-swap-active-tx-count">
+        <source>%1 active transactions</source>
+        <translation>%1 actieve transacties</translation>
+    </message>
+    <message id="swap-beta-tx-in-progress">
+        <source>Transaction is in progress</source>
+        <translation>Transactie is bezig</translation>
+    </message>
+    <message id="swap-connecting">
+        <source>Connecting...</source>
+        <translation>Verbinden...</translation>
+    </message>
+    <message id="swap-beta-connection-error">
+        <source>Cannot connect to peer. Please check the address and retry.</source>
+        <translation>Kan geen verbinding maken met peer. Controleer het adres en probeer opnieuw.</translation>
+    </message>
+    <message id="swap-alert-confirm-button">
+        <source>I understand</source>
+        <translation>Ik begrijp het</translation>
+    </message>
+    <message id="accept-own-offer-allert-head">
+        <source>Own offer can’t be accepted</source>
+        <translation>Eigen aanbieding kan niet worden geaccepteerd</translation>
+    </message>
+    <message id="accept-own-offer-allert-body">
+        <source>The transaction token was generated by you, therefore it is not allowed to accept your own offer.\nPlease check the swap token and try again.</source>
+        <translation>De transactietoken is door u gegenereerd. Het is niet toegestaan uw eigen aanbod te accepteren.\nControleer de swaptoken en probeer het opnieuw.</translation>
+    </message>
+    <message id="swap-copy-token">
+        <source>Copy token</source>
+        <translation>Kopieer token</translation>
+    </message>
+    <message id="atomic-swap-cancel-text">
+        <source>Are you sure you want to cancel your offer?</source>
+        <translation>Weet u zeker dat u uw aanbieding wilt annuleren?</translation>
+    </message>
+    <message id="atomic-swap-cancel-button">
+        <source>cancel offer</source>
+        <translation>aanbod annuleren</translation>
+    </message>
+    <message id="atomic-swap-back-button">
+        <source>back</source>
+        <translation>vorige</translation>
+    </message>
+    <message id="swap-details-lock-tx-id">
+        <source>lock transaction ID</source>
+        <translation>vergrendel transactie ID</translation>
+    </message>
+    <message id="swap-details-lock-tx-conf">
+        <source>lock transaction confirmations</source>
+        <translation>vergrendel transactie bevestigingen</translation>
+    </message>
+    <message id="swap-details-beam-lock-kernel-id">
+        <source>BEAM lock transaction kernel ID</source>
+        <translation>BEAM lock transactie kernel ID</translation>
+    </message>
+    <message id="swap-details-beam-redeem-kernel-id">
+        <source>BEAM redeem transaction kernel ID</source>
+        <translation>BEAM redeem transactie kernel ID</translation>
+    </message>
+    <message id="swap-details-redeem-tx-id">
+        <source>redeem transaction ID</source>
+        <translation>redeem transactie ID</translation>
+    </message>
+    <message id="swap-details-redeem-tx-conf">
+        <source>redeem transaction confirmations</source>
+        <translation>redeem transactie bevestigingen</translation>
+    </message>
+    <message id="swap-details-beam-refund-kernel-id">
+        <source>BEAM refund transaction kernel ID</source>
+        <translation>BEAM refund transactie kernel ID</translation>
+    </message>
+    <message id="swap-details-refund-tx-id">
+        <source>refund transaction ID</source>
+        <translation>terugbetaling transactie ID</translation>
+    </message>
+    <message id="swap-details-refund-tx-conf">
+        <source>refund transaction confirmations</source>
+        <translation>terugbetaling transactie bevestigingen</translation>
+    </message>
+    <message id="swap-invalid-rate">
+        <source>Invalid rate</source>
+        <translation>Ongeldige rate</translation>
+    </message>
+    <message id="swap-details-tx-id">
+        <source>Transaction ID</source>
+        <translation>Transactie ID</translation>
+    </message>
+    <message id="swap-details-tx-fee">
+        <source>Transaction fee</source>
+        <translation>Transactiekosten</translation>
+    </message>
+    <message id="swap-details-tx-comment">
+        <source>Comment</source>
+        <translation>Omschrijving</translation>
+    </message>
+    <message id="swap-details-tx-fee-rate">
+        <source>Transaction fee rate</source>
+        <translation>Transactiekosten</translation>
+    </message>
+    <message id="settings-swap-disconnect">
+        <source>Disconnect</source>
+        <translation>Loskoppelen</translation>
+    </message>
+    <message id="settings-swap-seed-phrase">
+        <source>Seed Phrase</source>
+        <translation type="vanished">Herstelzin</translation>
+    </message>
+    <message id="settings-swap-bitcoin-node">
+        <source>Bitcoin node</source>
+        <translation>Bitcoin node</translation>
+    </message>
+    <message id="settings-swap-litecoin-node">
+        <source>Litecoin node</source>
+        <translation>Litecoin node</translation>
+    </message>
+    <message id="settings-swap-qtum-node">
+        <source>Qtum node</source>
+        <translation>Qtum node</translation>
+    </message>
+    <message id="settings-swap-bitcoin-electrum">
+        <source>Bitcoin electrum</source>
+        <translation>Bitcoin electrum</translation>
+    </message>
+    <message id="settings-swap-litecoin-electrum">
+        <source>Litecoin electrum</source>
+        <translation>Litecoin electrum</translation>
+    </message>
+    <message id="settings-swap-qtum-electrum">
+        <source>Qtum electrum</source>
+        <translation>Qtum electrum</translation>
+    </message>
+    <message id="connect to electrum node">
+        <source>connect to electrum node</source>
+        <translation type="vanished">verbinden met electrum node</translation>
+    </message>
+    <message id="connect to node">
+        <source>connect to node</source>
+        <translation type="vanished">verbinden met node</translation>
+    </message>
+    <message id="invalid-rate-min">
+        <source>Rate cannot be less than %1</source>
+        <translation>Rate kan niet kleiner zijn dan %1</translation>
+    </message>
+    <message id="swap-offer-duplicate-message">
+        <source>The offer with this transaction token is already accepted.\nPlease check the swap token and try again.</source>
+        <translation>Het aanbod met deze transactietoken is al geaccepteerd.\nControleer de swaptoken en probeer het opnieuw.</translation>
+    </message>
+    <message id="swap-offer-duplicate-title">
+        <source>Оffer is already accepted</source>
+        <translation>Aanbod is al geaccepteerd</translation>
+    </message>
+    <message id="swap-offer-duplicate-confirm-button">
+        <source>ok</source>
+        <translation>ok</translation>
+    </message>
+    <message id="swap-details-failure-reason">
+        <source>Error</source>
+        <translation>Fout</translation>
+    </message>
+    <message id="swap-tx-failture-refunded">
+        <source>Refunded</source>
+        <translation>Teruggestort</translation>
+    </message>
+    <message id="settings-swap-edit-seed">
+        <source>Edit your seed phrase</source>
+        <translation>Bewerk uw herstelzin</translation>
+    </message>
+    <message id="settings-swap-enter-seed">
+        <source>Enter your seed phrase</source>
+        <translation>Voer uw herstelzin in</translation>
+    </message>
+    <message id="settings-swap-label-or">
+        <source>or</source>
+        <translation>of</translation>
+    </message>
+    <message id="settings-swap-new-seed">
+        <source>Generate new seed phrase</source>
+        <translation>Genereer nieuwe herstelzin</translation>
+    </message>
+    <message id="settings-swap-show-seed">
+        <source>Show seed phrase</source>
+        <translation>Herstelzin weergeven</translation>
+    </message>
+    <message id="settings-swap-show-addresses">
+        <source>Show wallet addresses</source>
+        <translation>Wallet adressen weergeven</translation>
+    </message>
+    <message id="settings-swap-connect-electrum">
+        <source>connect to electrum node</source>
+        <translation>verbinden met electrum node</translation>
+    </message>
+    <message id="settings-swap-connect-node">
+        <source>connect to node</source>
+        <translation>verbinden met node</translation>
+    </message>
+    <message id="swap-seed-info-message">
+        <source>Your seed phrase is the access key to all the funds! Print or write down the phrase and keep it in a safe or in a locked vault.\nWithout the phrase you will not be able to recover your money.</source>
+        <translation>Uw herstelzin is de toegangssleutel tot alle tegoeden! Print de zin uit of schrijf deze op en bewaar de zin op een veilige plaats.\nZonder de zin kunt u uw tegoeden niet herstellen.</translation>
+    </message>
+    <message id="settings-swap-seed-generate">
+        <source>generate another seed phrase</source>
+        <translation>genereer een andere herstelzin</translation>
+    </message>
+    <message id="swap-seed-new">
+        <source>New seed phrase</source>
+        <translation>Nieuwe herstelzin</translation>
+    </message>
+    <message id="swap-seed-edit">
+        <source>Enter your seed phrase</source>
+        <translation>Voer uw herstelzin in</translation>
+    </message>
+    <message id="bitcoin-show-seed-title">
+        <source>Bitcoin seed phrase</source>
+        <translation>Bitcoin herstelzin</translation>
+    </message>
+    <message id="litecoin-show-seed-title">
+        <source>Litecoin seed phrase</source>
+        <translation>Litecoin herstelzin</translation>
+    </message>
+    <message id="qtum-show-seed-title">
+        <source>Qtum seed phrase</source>
+        <translation>Qtum herstelzin</translation>
+    </message>
+    <message id="bitcoin-show-addresses-title">
+        <source>Bitcoin wallet addresses</source>
+        <translation>Bitcoin wallet adressen</translation>
+    </message>
+    <message id="litecoin-show-addresses-title">
+        <source>Litecoin wallet addresses</source>
+        <translation>Litecoin wallet adressen</translation>
+    </message>
+    <message id="qtum-show-addresses-title">
+        <source>Qtum wallet addresses</source>
+        <translation>Qtum wallet adressen</translation>
+    </message>
+    <message id="settings-swap-copy-address">
+        <source>Copy address</source>
+        <translation>Kopieer adres</translation>
+    </message>
+    <message id="settings-swap-confirm-edit-seed-title">
+        <source>Edit seed phrase</source>
+        <extracomment>electrum settings, ask password to edit seed phrase, dialog title</extracomment>
+        <translation type="unfinished">Edit seed phrase</translation>
+    </message>
+    <message id="settings-swap-confirm-edit-seed-message">
+        <source>Enter your wallet password to edit the phrase</source>
+        <extracomment>electrum settings, ask password to edit seed phrase, dialog message</extracomment>
+        <translation type="unfinished">Enter your wallet password to edit the phrase</translation>
+    </message>
+    <message id="settings-swap-confirm-generate-seed-title">
+        <source>Generate new seed phrase</source>
+        <extracomment>electrum settings, ask password to generate new seed phrase, dialog title</extracomment>
+        <translation>Genereer nieuwe herstelzin</translation>
+    </message>
+    <message id="settings-swap-confirm-generate-seed-message">
+        <source>Enter your wallet password to generate new seed phrase</source>
+        <extracomment>electrum settings, ask password to generate new seed phrase, dialog message</extracomment>
+        <translation type="unfinished">Enter your wallet password to generate new seed phrase</translation>
+    </message>
+    <message id="settings-swap-confirm-show-seed-title">
+        <source>Show seed phrase</source>
+        <extracomment>electrum settings, ask password to show seed phrase, dialog title</extracomment>
+        <translation>Herstelzin weergeven</translation>
+    </message>
+    <message id="settings-swap-confirm-show-seed-message">
+        <source>Enter your wallet password to see the phrase</source>
+        <extracomment>electrum settings, ask password to show seed phrase, dialog message</extracomment>
+        <translation type="unfinished">Enter your wallet password to see the phrase</translation>
+    </message>
+    <message id="settings-swap-confirm-clear-seed-title">
+        <source>Clear seed phrase</source>
+        <extracomment>electrum settings, ask password to clear seed phrase, dialog title</extracomment>
+        <translation type="unfinished">Clear seed phrase</translation>
+    </message>
+    <message id="settings-swap-confirm-clear-seed-message">
+        <source>Enter your wallet password to clear seed phrase</source>
+        <extracomment>electrum settings, ask password to clear seed phrase, dialog message</extracomment>
+        <translation type="unfinished">Enter your wallet password to clear seed phrase</translation>
     </message>
 </context>
 </TS>

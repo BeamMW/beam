@@ -6,8 +6,7 @@ import "."
 
 Item {
     id: rootControl
-    x: 5
-    y: 53
+    y: 55
 
     property var model
 
@@ -109,18 +108,18 @@ Item {
         anchors.top: parent.top
         anchors.left: parent.indicator.right
         anchors.leftMargin: 5
-        anchors.topMargin: -3
+        anchors.topMargin: -1
         color: Style.content_secondary
-        font.pixelSize: 14
+        font.pixelSize: 12
     }
     SFText {
         id: progressText
         anchors.top: parent.top
         anchors.left: status_text.right
         anchors.leftMargin: 5
-        anchors.topMargin: -3
+        anchors.topMargin: -1
         color: Style.content_secondary
-        font.pixelSize: 14
+        font.pixelSize: 12
         text: "(" + model.nodeSyncProgress + "%)"
         visible: model.nodeSyncProgress > 0 && update_indicator.visible
     }

@@ -44,7 +44,7 @@ UtxoItem::~UtxoItem()
 
 QString UtxoItem::amount() const
 {
-    return BeamToString(_coin.m_ID.m_Value) + " BEAM";
+    return AmountToUIString(_coin.m_ID.m_Value, Currencies::Beam);
 }
 
 QString UtxoItem::maturity() const
@@ -113,7 +113,7 @@ UtxoViewModel::UtxoViewModel()
 {
     connect(&_model, SIGNAL(allUtxoChanged(const std::vector<beam::wallet::Coin>&)),
         SLOT(onAllUtxoChanged(const std::vector<beam::wallet::Coin>&)));
-    connect(&_model, SIGNAL(walletStatus(const beam::wallet::WalletStatus&)), SLOT(onStatus(const beam::wallet::WalletStatus&)));
+    connect(&_model, SIGNAL(stateIDChanged()), SIGNAL(stateChanged()));
 
     _model.getAsync()->getUtxosStatus();
 }
@@ -130,12 +130,12 @@ QQmlListProperty<UtxoItem> UtxoViewModel::getAllUtxos()
 
 QString UtxoViewModel::getCurrentHeight() const
 {
-    return _currentHeight;
+    return QString::fromStdString(to_string(_model.getCurrentStateID().m_Height));
 }
 
 QString UtxoViewModel::getCurrentStateHash() const
 {
-    return _currentStateHash;
+    return QString(beam::to_hex(_model.getCurrentStateID().m_Hash.m_pData, 10).c_str());
 }
 
 QString UtxoViewModel::sortRole() const
@@ -177,13 +177,6 @@ void UtxoViewModel::onAllUtxoChanged(const std::vector<beam::wallet::Coin>& utxo
     }
 
     sortUtxos();
-}
-
-void UtxoViewModel::onStatus(const WalletStatus& status)
-{
-    _currentHeight = QString::fromStdString(to_string(status.stateID.m_Height));
-    _currentStateHash = QString(beam::to_hex(status.stateID.m_Hash.m_pData, 10).c_str());
-    emit stateChanged();
 }
 
 void UtxoViewModel::sortUtxos()

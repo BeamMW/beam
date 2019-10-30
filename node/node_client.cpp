@@ -204,9 +204,7 @@ void NodeClient::runLocalNode()
             node.m_Keys.SetSingleKey(m_pKdf);
         }
 
-        node.m_Cfg.m_Horizon.m_Branching = Rules::get().Macroblock.MaxRollback / 4; // inferior branches would be pruned when height difference is this.
-        node.m_Cfg.m_Horizon.m_SchwarzschildHi = 0; // would be adjusted anyway
-        node.m_Cfg.m_Horizon.m_SchwarzschildLo = 3600 * 24 * 180 / Rules::get().DA.Target_s; // 180-day period
+		node.m_Cfg.m_Horizon.SetStdFastSync();
 
         auto peers = m_observer->getLocalNodePeers();
 
@@ -245,6 +243,10 @@ void NodeClient::runLocalNode()
             {
                 Node::SyncStatus s = m_node.m_SyncStatus;
 
+				if (MaxHeight == m_Done0)
+					m_Done0 = s.m_Done;
+				s.ToRelative(m_Done0);
+
                 if (!m_reportedStarted && (s.m_Done == s.m_Total))
                 {
                     m_reportedStarted = true;
@@ -267,9 +269,15 @@ void NodeClient::runLocalNode()
                 m_model.m_observer->onSyncError(error);
             }
 
+            void InitializeUtxosProgress(uint64_t done, uint64_t total) override
+            {
+                m_model.m_observer->onInitProgressUpdated(done, total);
+            }
+
         private:
             Node& m_node;
             NodeClient& m_model;
+			Height m_Done0 = MaxHeight;
             bool m_reportedStarted = false;
         } obs(node, *this);
 
