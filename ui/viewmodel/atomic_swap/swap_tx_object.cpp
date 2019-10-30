@@ -213,31 +213,34 @@ beam::Amount SwapTxObject::getSwapAmountValue(bool sent) const
 
 QString SwapTxObject::getFeeRate() const
 {
-    auto feeRate = m_tx.GetParameter<beam::Amount>(TxParameterID::Fee, *m_isBeamSide ? SubTxIndex::REDEEM_TX : SubTxIndex::LOCK_TX);
-
-    if (feeRate && m_swapCoin)
+    if (m_isBeamSide)
     {
-        QString value = AmountToUIString(*feeRate, beamui::Currencies::Unknown);
+        auto feeRate = m_tx.GetParameter<beam::Amount>(TxParameterID::Fee, *m_isBeamSide ? SubTxIndex::REDEEM_TX : SubTxIndex::LOCK_TX);
 
-        QString rateMeasure;
-        switch (*m_swapCoin)
+        if (feeRate && m_swapCoin)
         {
-        case AtomicSwapCoin::Bitcoin:
-            rateMeasure = QMLGlobals::btcFeeRateLabel();
-            break;
+            QString value = AmountToUIString(*feeRate, beamui::Currencies::Unknown);
 
-        case AtomicSwapCoin::Litecoin:
-            rateMeasure = QMLGlobals::ltcFeeRateLabel();
-            break;
+            QString rateMeasure;
+            switch (*m_swapCoin)
+            {
+            case AtomicSwapCoin::Bitcoin:
+                rateMeasure = QMLGlobals::btcFeeRateLabel();
+                break;
 
-        case AtomicSwapCoin::Qtum:
-            rateMeasure = QMLGlobals::qtumFeeRateLabel();
-            break;
-        
-        default:
-            break;
+            case AtomicSwapCoin::Litecoin:
+                rateMeasure = QMLGlobals::ltcFeeRateLabel();
+                break;
+
+            case AtomicSwapCoin::Qtum:
+                rateMeasure = QMLGlobals::qtumFeeRateLabel();
+                break;
+
+            default:
+                break;
+            }
+            return value + " " + rateMeasure;
         }
-        return value + " " + rateMeasure;
     }
     return QString();
 }
