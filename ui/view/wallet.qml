@@ -369,7 +369,10 @@ Item {
 
                     Connections {
                         target: searchBox
-                        onTextChanged: searchBox.text.length ? expand() : collapse()
+                        onTextChanged: {
+                            searchBox.text.length ? expand() : collapse()
+                            detailsPanel.hideFiltered = true
+                        }
                     }
 
                     Connections {
