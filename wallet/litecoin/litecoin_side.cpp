@@ -18,7 +18,10 @@
 namespace
 {
     constexpr uint32_t kLitecoinWithdrawTxAverageSize = 360; 
-    constexpr uint32_t kLitecoinLockTxEstimatedTimeInBeamBlocks = 20;   // it's average value
+    // TODO: remove after tests
+    constexpr uint32_t kLitecoinLockTxEstimatedTimeInBeamBlocks = 5;   // it's average value
+    // TODO: uncomment after tests
+    //constexpr uint32_t kLitecoinLockTxEstimatedTimeInBeamBlocks = 20;   // it's average value
 }
 
 namespace beam::wallet
