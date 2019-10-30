@@ -26,9 +26,10 @@ Control {
     property alias  editElectrum:        useElectrumSwitch.checked
     property bool   canEdit:             true
 
-    property bool isConnected: false
-    property bool isNodeConnection: false
-    property bool isElectrumConnection: false
+    property bool   isConnected:            false
+    property bool   isNodeConnection:       false
+    property bool   isElectrumConnection:   false
+    property alias  connectionStatus:       statusIndicator.status
 
     //
     // Node props
@@ -240,15 +241,21 @@ Control {
         RowLayout {
             width: parent.width
 
-            // TODO: indicator
+            ExternalNodeStatus {
+                id:                     statusIndicator
+                width:                  10
+                height:                 10
+                Layout.rightMargin:     20
+            }
 
             SFText {
-                id:                  controlTitle
-                color:               control.color
-                font.pixelSize:      14
-                font.weight:         Font.Bold
-                font.capitalization: Font.AllUppercase
-                font.letterSpacing:  3.11
+                id:                     controlTitle
+                Layout.topMargin:       3
+                color:                  control.color
+                font.pixelSize:         14
+                font.weight:            Font.Bold
+                font.capitalization:    Font.AllUppercase
+                font.letterSpacing:     3.11
             }
         }
 

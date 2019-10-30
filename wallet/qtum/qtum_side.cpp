@@ -19,7 +19,10 @@ namespace
 {
     constexpr uint32_t kQtumWithdrawTxAverageSize = 360;
     constexpr beam::Amount kQtumDustThreshold = 72800;
-    constexpr uint32_t kQtumLockTxEstimatedTimeInBeamBlocks = 30;   // it's average value
+    // TODO: remove after tests
+    constexpr uint32_t kQtumLockTxEstimatedTimeInBeamBlocks = 5;   // it's average value
+    // TODO: uncomment after tests
+    //constexpr uint32_t kQtumLockTxEstimatedTimeInBeamBlocks = 30;   // it's average value
 }
 
 namespace beam::wallet

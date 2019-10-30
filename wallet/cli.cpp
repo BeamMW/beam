@@ -64,6 +64,8 @@ using namespace ECC;
 
 namespace beam
 {
+    const char kElectrumSeparateSymbol = ' ';
+
     string getCoinStatus(Coin::Status s)
     {
         stringstream ss;
@@ -918,7 +920,6 @@ namespace
     template<typename Settings>
     bool ParseElectrumSettings(const po::variables_map& vm, uint8_t addressVersion, Settings& settings)
     {
-        const char kElectrumSeparateSymbol = ' ';
         if (vm.count(cli::ELECTRUM_SEED) || vm.count(cli::ELECTRUM_ADDR) || vm.count(cli::GENERATE_ELECTRUM_SEED))
         {
             auto electrumSettings = settings.GetElectrumConnectionOptions();
@@ -948,7 +949,7 @@ namespace
             if (vm.count(cli::ELECTRUM_SEED))
             {
                 auto tempPhrase = vm[cli::ELECTRUM_SEED].as<string>();
-                boost::algorithm::trim_if(tempPhrase, [kElectrumSeparateSymbol](char ch) { return ch == kElectrumSeparateSymbol; });
+                boost::algorithm::trim_if(tempPhrase, [](char ch) { return ch == kElectrumSeparateSymbol; });
                 electrumSettings.m_secretWords = string_helpers::split(tempPhrase, kElectrumSeparateSymbol);
 
                 if (!bitcoin::validateElectrumMnemonic(electrumSettings.m_secretWords))
@@ -962,7 +963,7 @@ namespace
 
                 auto strSeed = std::accumulate(
                     std::next(electrumSettings.m_secretWords.begin()), electrumSettings.m_secretWords.end(), *electrumSettings.m_secretWords.begin(),
-                    [kElectrumSeparateSymbol](std::string a, std::string b)
+                    [](std::string a, std::string b)
                 {
                     return a + kElectrumSeparateSymbol + b;
                 });
@@ -1149,20 +1150,22 @@ namespace
 
         if (settings.IsInitialized())
         {
-            cout << coinName << " settings" << '\n';
+            ostringstream stream;
+            stream << "\n" << coinName << " settings" << '\n';
             if (settings.GetConnectionOptions().IsInitialized())
             {
-                cout << "RPC user: " << settings.GetConnectionOptions().m_userName << '\n'
+                stream << "RPC user: " << settings.GetConnectionOptions().m_userName << '\n'
                     << "RPC node: " << settings.GetConnectionOptions().m_address.str() << '\n';
             }
 
             if (settings.GetElectrumConnectionOptions().IsInitialized())
             {
-                cout << "Electrum node: " << settings.GetElectrumConnectionOptions().m_address << '\n';
+                stream << "Electrum node: " << settings.GetElectrumConnectionOptions().m_address << '\n';
             }
-            cout << "Fee rate: " << settings.GetFeeRate() << '\n';
-            cout << "Active connection: " << bitcoin::to_string(settings.GetCurrentConnectionType()) << '\n';
+            stream << "Fee rate: " << settings.GetFeeRate() << '\n';
+            stream << "Active connection: " << bitcoin::to_string(settings.GetCurrentConnectionType()) << '\n';
 
+            LOG_INFO() << stream.str();
             return;
         }
 

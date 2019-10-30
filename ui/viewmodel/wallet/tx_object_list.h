@@ -28,6 +28,7 @@ public:
         TimeCreated = Qt::UserRole + 1,
         TimeCreatedSort,
         AmountGeneralWithCurrency,
+        AmountGeneralWithCurrencySort,
         AmountGeneral,
         AmountGeneralSort,
         AddressFrom,

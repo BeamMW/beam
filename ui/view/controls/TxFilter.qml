@@ -9,8 +9,10 @@ Item  {
     
     property string label
     property var capitalization: Font.MixedCase
+    property alias font : text_label.font
+    property bool showLed: true
 
-    width: led.width
+    width: showLed ? led.width : text_label.width
     height: 20
 
     state: "normal"
@@ -63,14 +65,15 @@ Item  {
     states: [
         State {
             name: "normal"
-            PropertyChanges {target: text_label; font.weight: Font.Normal}
-            PropertyChanges {target: text_label; font.styleName: "Regular"}
+            PropertyChanges {target: text_label; font.weight: showLed ? Font.Normal : Font.Bold}
+            PropertyChanges {target: text_label; font.styleName: showLed ? "Regular" : "Bold"}
         },
         State {
             name: "active"
 
-            PropertyChanges {target: led; visible: true}
+            PropertyChanges {target: led; visible: showLed}
             PropertyChanges {target: text_label; opacity: 1.0}
+            PropertyChanges {target: text_label; color: Style.active}
         }
     ]
 }

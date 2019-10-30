@@ -159,9 +159,9 @@ ColumnLayout {
             columns:          2
 
             Repeater {
-                model: viewModel.swapCoinSettings
+                model: viewModel.swapCoinSettingsList
                 SwapNodeSettings {
-                    id:                  swapCoinsettings
+                    id:                  settingsControl
                     Layout.minimumWidth: swapLayout.width / 2 - swapLayout.columnSpacing / 2
                     
                     title:                    modelData.title
@@ -173,6 +173,7 @@ ColumnLayout {
                     isConnected:              modelData.isConnected
                     isNodeConnection:         modelData.isNodeConnection
                     isElectrumConnection:     modelData.isElectrumConnection
+                    connectionStatus:         modelData.connectionStatus
                     getAddressesElectrum:     modelData.getAddressesElectrum
 
                     //
@@ -193,27 +194,30 @@ ColumnLayout {
 
                     Connections {
                         target: modelData
-                        onFeeRateChanged:        swapCoinsettings.feeRate = modelData.feeRate
-                        onCanEditChanged:        swapCoinsettings.canEdit = modelData.canEdit
+                        onFeeRateChanged:        settingsControl.feeRate = modelData.feeRate
+                        onCanEditChanged:        settingsControl.canEdit = modelData.canEdit
                         onConnectionTypeChanged: { 
-                            swapCoinsettings.isConnected          = modelData.isConnected;
-                            swapCoinsettings.isNodeConnection     = modelData.isNodeConnection;
-                            swapCoinsettings.isElectrumConnection = modelData.isElectrumConnection;
-                            swapCoinsettings.title                = modelData.title;
+                            settingsControl.isConnected          = modelData.isConnected;
+                            settingsControl.isNodeConnection     = modelData.isNodeConnection;
+                            settingsControl.isElectrumConnection = modelData.isElectrumConnection;
+                            settingsControl.title                = modelData.title;
+                        }
+                        onConnectionStatusChanged: {
+                            settingsControl.connectionStatus     = modelData.connectionStatus;
                         }
 
                         //
                         // Node
                         //
-                        onNodeAddressChanged: swapCoinsettings.address  = modelData.nodeAddress
-                        onNodeUserChanged:    swapCoinsettings.username = modelData.nodeUser
-                        onNodePassChanged:    swapCoinsettings.password = modelData.nodePass
+                        onNodeAddressChanged: settingsControl.address  = modelData.nodeAddress
+                        onNodeUserChanged:    settingsControl.username = modelData.nodeUser
+                        onNodePassChanged:    settingsControl.password = modelData.nodePass
                         //
                         // Electrum
                         //
-                        onNodeAddressElectrumChanged: swapCoinsettings.addressElectrum = modelData.nodeAddressElectrum
-                        onElectrumSeedPhrasesChanged: swapCoinsettings.seedPhrasesElectrum = modelData.electrumSeedPhrases
-                        onIsCurrentSeedValidChanged:  swapCoinsettings.isCurrentElectrumSeedValid = modelData.isCurrentSeedValid
+                        onNodeAddressElectrumChanged: settingsControl.addressElectrum = modelData.nodeAddressElectrum
+                        onElectrumSeedPhrasesChanged: settingsControl.seedPhrasesElectrum = modelData.electrumSeedPhrases
+                        onIsCurrentSeedValidChanged:  settingsControl.isCurrentElectrumSeedValid = modelData.isCurrentSeedValid
                     }
 
                     onApplyNode:                 modelData.applyNodeSettings()
@@ -231,31 +235,31 @@ ColumnLayout {
                     Binding {
                         target:   modelData
                         property: "nodeAddress"
-                        value:    swapCoinsettings.address
+                        value:    settingsControl.address
                     }
 
                     Binding {
                         target:   modelData
                         property: "nodeUser"
-                        value:    swapCoinsettings.username
+                        value:    settingsControl.username
                     }
 
                     Binding {
                         target:   modelData
                         property: "nodePass"
-                        value:    swapCoinsettings.password
+                        value:    settingsControl.password
                     }
 
                     Binding {
                         target:   modelData
                         property: "feeRate"
-                        value:    swapCoinsettings.feeRate
+                        value:    settingsControl.feeRate
                     }
 
                     Binding {
                         target:   modelData
                         property: "nodeAddressElectrum"
-                        value:    swapCoinsettings.addressElectrum
+                        value:    settingsControl.addressElectrum
                     }
                 }
             }
@@ -483,16 +487,12 @@ ColumnLayout {
                                     elide: Text.ElideRight
                                 }
 
-                                CustomButton {
+                                CustomToolButton {
                                     Layout.alignment: Qt.AlignVCenter | Qt.AlignRight
                                     Layout.minimumHeight: 20
                                     Layout.minimumWidth: 20
-                                    shadowRadius: 5
-                                    shadowSamples: 7
-                                    Layout.margins: shadowRadius
                                     leftPadding: 5
                                     rightPadding: 5
-                                    textOpacity: 0
                                     icon.source: "qrc:/assets/icon-delete.svg"
                                     enabled: localNodeRun.checked
                                     onClicked: viewModel.deleteLocalNodePeer(index)

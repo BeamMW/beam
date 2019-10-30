@@ -109,6 +109,7 @@ SwapCoinSettingsItem::SwapCoinSettingsItem(SwapCoinClientModel& coinClient, wall
     : m_swapCoin(swapCoin)
     , m_coinClient(coinClient)
 {
+    connect(&m_coinClient, SIGNAL(statusChanged()), this, SIGNAL(connectionStatusChanged()));
     LoadSettings();
 }
 
@@ -403,6 +404,28 @@ bool SwapCoinSettingsItem::getIsNodeConnection() const
 bool SwapCoinSettingsItem::getIsElectrumConnection() const
 {
     return m_connectionType == beam::bitcoin::ISettings::Electrum;
+}
+
+QString SwapCoinSettingsItem::getConnectionStatus() const
+{
+    using beam::bitcoin::Client;
+
+    switch (m_coinClient.getStatus())
+    {
+        case Client::Status::Uninitialized:
+            return "uninitialized";
+            
+        case Client::Status::Connecting:
+            return "disconnected";
+
+        case Client::Status::Connected:
+            return "connected";
+
+        case Client::Status::Failed:
+        case Client::Status::Unknown:
+        default:
+            return "error";
+    }
 }
 
 void SwapCoinSettingsItem::applyNodeSettings()
