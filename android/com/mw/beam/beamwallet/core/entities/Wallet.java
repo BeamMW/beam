@@ -43,6 +43,8 @@ public class Wallet
     public native void changeNodeAddress(String address);
     public native String exportOwnerKey(String pass);
     public native void importRecovery(String path);
+    public native void importDataFromJson(String data);
+    public native void exportDataToJson();
 
     // deprecated
     public native void saveAddressChanges(String addr, String name, boolean isNever, boolean makeActive, boolean makeExpired);

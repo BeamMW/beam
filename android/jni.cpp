@@ -572,6 +572,19 @@ JNIEXPORT jstring JNICALL BEAM_JAVA_WALLET_INTERFACE(exportOwnerKey)(JNIEnv *env
     return env->NewStringUTF(ownerKey.c_str());
 }
 
+JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(importDataFromJson)(JNIEnv *env, jobject thiz,
+    jstring jdata)
+{
+    auto data = JString(env, jdata).value();
+
+    walletModel->getAsync()->importDataFromJson(data);
+}
+
+JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(exportDataToJson)(JNIEnv *env, jobject thiz)
+{
+    walletModel->getAsync()->exportDataToJson();
+}
+
 JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM* vm, void* reserved)
 {
     JNIEnv *env;
