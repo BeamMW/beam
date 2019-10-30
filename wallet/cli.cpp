@@ -1150,20 +1150,22 @@ namespace
 
         if (settings.IsInitialized())
         {
-            cout << coinName << " settings" << '\n';
+            ostringstream stream;
+            stream << "\n" << coinName << " settings" << '\n';
             if (settings.GetConnectionOptions().IsInitialized())
             {
-                cout << "RPC user: " << settings.GetConnectionOptions().m_userName << '\n'
+                stream << "RPC user: " << settings.GetConnectionOptions().m_userName << '\n'
                     << "RPC node: " << settings.GetConnectionOptions().m_address.str() << '\n';
             }
 
             if (settings.GetElectrumConnectionOptions().IsInitialized())
             {
-                cout << "Electrum node: " << settings.GetElectrumConnectionOptions().m_address << '\n';
+                stream << "Electrum node: " << settings.GetElectrumConnectionOptions().m_address << '\n';
             }
-            cout << "Fee rate: " << settings.GetFeeRate() << '\n';
-            cout << "Active connection: " << bitcoin::to_string(settings.GetCurrentConnectionType()) << '\n';
+            stream << "Fee rate: " << settings.GetFeeRate() << '\n';
+            stream << "Active connection: " << bitcoin::to_string(settings.GetCurrentConnectionType()) << '\n';
 
+            LOG_INFO() << stream.str();
             return;
         }
 
