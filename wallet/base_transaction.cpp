@@ -38,7 +38,7 @@ namespace beam::wallet
         return txID;
     }
 
-    TxParameters CreateTransactionParameters(TxType type, TxID txID)
+    TxParameters CreateTransactionParameters(TxType type, const TxID& txID)
     {
         return TxParameters(txID)
             .SetParameter(TxParameterID::TransactionType, type)

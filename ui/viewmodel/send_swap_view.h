@@ -80,7 +80,7 @@ public:
     QString getReceiverAddress() const;
 
 public:
-    Q_INVOKABLE void setParameters(QVariant parameters);    /// used to pass TxParameters directly without Token generation
+    Q_INVOKABLE void setParameters(const QVariant& parameters);    /// used to pass TxParameters directly without Token generation
     Q_INVOKABLE void sendMoney();
 
 signals:
@@ -102,7 +102,7 @@ public slots:
     void onChangeCalculated(beam::Amount change);
 
 private:
-    void fillParameters(beam::wallet::TxParameters parameters);
+    void fillParameters(const beam::wallet::TxParameters& parameters);
     void recalcAvailable();
 
     beam::Amount _sendAmountGrothes;

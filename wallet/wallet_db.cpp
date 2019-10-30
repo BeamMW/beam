@@ -2958,7 +2958,6 @@ namespace beam::wallet
                     return true;
                 }
 
-                vector<WalletAddress> addresses;
                 for (const auto& jsonAddress : obj[nodeName])
                 {
                     WalletAddress address;

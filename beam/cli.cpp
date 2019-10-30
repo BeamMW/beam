@@ -259,7 +259,7 @@ int main_impl(int argc, char* argv[])
 
 						if (!sKeyMine.empty())
 						{
-							ks.m_sRes = sKeyMine;
+							ks.m_sRes = move(sKeyMine);
 
 							std::shared_ptr<HKdf> pKdf = std::make_shared<HKdf>();
 							if (!ks.Import(*pKdf))
@@ -271,7 +271,7 @@ int main_impl(int argc, char* argv[])
 
 						if (!sKeyOwner.empty())
 						{
-							ks.m_sRes = sKeyOwner;
+							ks.m_sRes = move(sKeyOwner);
 
 							std::shared_ptr<HKdfPub> pKdf = std::make_shared<HKdfPub>();
 							if (!ks.Import(*pKdf))

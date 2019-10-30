@@ -547,17 +547,17 @@ void SwapCoinSettingsItem::LoadSettings()
     setFeeRate(m_settings->GetFeeRate());
     setConnectionType(m_settings->GetCurrentConnectionType());
 
-    if (m_settings->GetConnectionOptions().IsInitialized())
+    if (auto options = m_settings->GetConnectionOptions(); options.IsInitialized())
     {
-        setNodeUser(str2qstr(m_settings->GetConnectionOptions().m_userName));
-        setNodePass(str2qstr(m_settings->GetConnectionOptions().m_pass));
-        setNodeAddress(AddressToQstring(m_settings->GetConnectionOptions().m_address));
+        setNodeUser(str2qstr(options.m_userName));
+        setNodePass(str2qstr(options.m_pass));
+        setNodeAddress(AddressToQstring(options.m_address));
     }
 
-    if (m_settings->GetElectrumConnectionOptions().IsInitialized())
+    if (auto options = m_settings->GetElectrumConnectionOptions(); options.IsInitialized())
     {
-        SetSeedElectrum(m_settings->GetElectrumConnectionOptions().m_secretWords);
-        setNodeAddressElectrum(str2qstr(m_settings->GetElectrumConnectionOptions().m_address));
+        SetSeedElectrum(options.m_secretWords);
+        setNodeAddressElectrum(str2qstr(options.m_address));
     }
 }
 

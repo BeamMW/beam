@@ -223,7 +223,7 @@ namespace
 
                     AmountBig::Type valInBurst = Zero;
 
-                    for (Treasury::EntryMap::const_iterator it = tres.m_Entries.begin(); tres.m_Entries.end() != it; it++)
+                    for (Treasury::EntryMap::const_iterator it = tres.m_Entries.begin(); tres.m_Entries.end() != it; ++it)
                     {
                         if (&it->second == pE)
                             continue;

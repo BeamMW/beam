@@ -140,7 +140,7 @@ namespace
         return id;
     }
 
-    SwapOffer generateOffer(TxID& txID, SwapOfferStatus s, WalletID pubK, AtomicSwapCoin c)
+    SwapOffer generateOffer(TxID& txID, SwapOfferStatus s, const WalletID& pubK, AtomicSwapCoin c)
     {
         std::srand(static_cast<unsigned int>(std::time(nullptr)));
         SwapOffer o(txID, s, pubK, c);

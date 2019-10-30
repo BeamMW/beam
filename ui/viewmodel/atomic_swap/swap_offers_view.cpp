@@ -121,7 +121,7 @@ QAbstractItemModel* SwapOffersViewModel::getTransactions()
     return &m_transactionsList;
 }
 
-void SwapOffersViewModel::cancelOffer(QVariant variantTxID)
+void SwapOffersViewModel::cancelOffer(const QVariant& variantTxID)
 {
     if (!variantTxID.isNull() && variantTxID.isValid())
     {
@@ -131,7 +131,7 @@ void SwapOffersViewModel::cancelOffer(QVariant variantTxID)
     }
 }
 
-void SwapOffersViewModel::cancelTx(QVariant variantTxID)
+void SwapOffersViewModel::cancelTx(const QVariant& variantTxID)
 {
     if (!variantTxID.isNull() && variantTxID.isValid())
     {
@@ -140,7 +140,7 @@ void SwapOffersViewModel::cancelTx(QVariant variantTxID)
     }
 }
 
-void SwapOffersViewModel::deleteTx(QVariant variantTxID)
+void SwapOffersViewModel::deleteTx(const QVariant& variantTxID)
 {
     if (!variantTxID.isNull() && variantTxID.isValid())
     {
@@ -149,7 +149,7 @@ void SwapOffersViewModel::deleteTx(QVariant variantTxID)
     }
 }
 
-PaymentInfoItem* SwapOffersViewModel::getPaymentInfo(QVariant variantTxID)
+PaymentInfoItem* SwapOffersViewModel::getPaymentInfo(const QVariant& variantTxID)
 {
     if (!variantTxID.isNull() && variantTxID.isValid())
     {

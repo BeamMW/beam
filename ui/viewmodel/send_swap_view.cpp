@@ -54,7 +54,7 @@ namespace
     }
 }
 
-void SendSwapViewModel::fillParameters(beam::wallet::TxParameters parameters)
+void SendSwapViewModel::fillParameters(const beam::wallet::TxParameters& parameters)
 {
     // Set currency before fee, otherwise it would be reset to default fee
     using namespace beam::wallet;
@@ -99,7 +99,7 @@ void SendSwapViewModel::fillParameters(beam::wallet::TxParameters parameters)
     }
 }
 
-void SendSwapViewModel::setParameters(QVariant parameters)
+void SendSwapViewModel::setParameters(const QVariant& parameters)
 {
     if (!parameters.isNull() && parameters.isValid())
     {

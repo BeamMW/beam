@@ -27,7 +27,7 @@ void FlyClient::NetworkStd::Connect()
     if (m_Connections.size() == m_Cfg.m_vNodes.size())
     {
         // force (re) connect
-        for (ConnectionList::iterator it = m_Connections.begin(); m_Connections.end() != it; it++)
+        for (ConnectionList::iterator it = m_Connections.begin(); m_Connections.end() != it; ++it)
         {
             Connection& c = *it;
             if (c.IsLive() && c.IsSecureOut())
@@ -248,7 +248,7 @@ void FlyClient::NetworkStd::Connection::OnLogin(Login&& msg)
     AssignRequests();
 
     if (LoginFlags::Bbs & m_LoginFlags)
-        for (BbsSubscriptions::const_iterator it = m_This.m_BbsSubscriptions.begin(); m_This.m_BbsSubscriptions.end() != it; it++)
+        for (BbsSubscriptions::const_iterator it = m_This.m_BbsSubscriptions.begin(); m_This.m_BbsSubscriptions.end() != it; ++it)
         {
             proto::BbsSubscribe msgOut;
             msgOut.m_TimeFrom = it->second.second;
@@ -530,7 +530,7 @@ void FlyClient::NetworkStd::Connection::PostChainworkProof(const StateArray& arr
         m_This.m_Client.get_History().DeleteFrom(w.m_LowErase);
 
         // if more connections are opened simultaneously - notify them
-        for (ConnectionList::iterator it = m_This.m_Connections.begin(); m_This.m_Connections.end() != it; it++)
+        for (ConnectionList::iterator it = m_This.m_Connections.begin(); m_This.m_Connections.end() != it; ++it)
         {
             const Connection& c = *it;
             if (c.m_pSync)
@@ -576,7 +576,7 @@ void FlyClient::NetworkStd::PostRequestInternal(Request& r)
 
 void FlyClient::NetworkStd::OnNewRequests()
 {
-    for (ConnectionList::iterator it = m_Connections.begin(); m_Connections.end() != it; it++)
+    for (ConnectionList::iterator it = m_Connections.begin(); m_Connections.end() != it; ++it)
     {
         Connection& c = *it;
         if (c.IsLive() && c.IsSecureOut())
@@ -827,7 +827,7 @@ void FlyClient::NetworkStd::BbsSubscribe(BbsChannel ch, Timestamp ts, IBbsReceiv
     msg.m_Channel = ch;
     msg.m_On = (NULL != p);
 
-    for (ConnectionList::iterator it2 = m_Connections.begin(); m_Connections.end() != it2; it2++)
+    for (ConnectionList::iterator it2 = m_Connections.begin(); m_Connections.end() != it2; ++it2)
         if (it2->IsLive() && it2->IsSecureOut())
             it2->Send(msg);
 }

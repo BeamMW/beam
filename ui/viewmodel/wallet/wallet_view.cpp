@@ -55,7 +55,7 @@ QAbstractItemModel* WalletViewModel::getTransactions()
     return &_transactionsList;
 }
 
-void WalletViewModel::cancelTx(QVariant variantTxID)
+void WalletViewModel::cancelTx(const QVariant& variantTxID)
 {
     if (!variantTxID.isNull() && variantTxID.isValid())
     {
@@ -64,7 +64,7 @@ void WalletViewModel::cancelTx(QVariant variantTxID)
     }
 }
 
-void WalletViewModel::deleteTx(QVariant variantTxID)
+void WalletViewModel::deleteTx(const QVariant& variantTxID)
 {
     if (!variantTxID.isNull() && variantTxID.isValid())
     {
@@ -73,7 +73,7 @@ void WalletViewModel::deleteTx(QVariant variantTxID)
     }
 }
 
-PaymentInfoItem* WalletViewModel::getPaymentInfo(QVariant variantTxID)
+PaymentInfoItem* WalletViewModel::getPaymentInfo(const QVariant& variantTxID)
 {
     if (!variantTxID.isNull() && variantTxID.isValid())
     {

@@ -546,7 +546,7 @@ void StartViewModel::printRecoveryPhrases(QVariant viewData )
             AppModel::getInstance().getMessages().addMessage(qtTrId("start-view-printer-not-found-error"));
             return;
         }
-        QImage image = qvariant_cast<QImage>(viewData);
+        //QImage image = qvariant_cast<QImage>(viewData);
         QPrinter printer;
         printer.setOutputFormat(QPrinter::NativeFormat);
         printer.setColorMode(QPrinter::GrayScale);

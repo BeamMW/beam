@@ -40,12 +40,12 @@ namespace beam::wallet
 
         struct
         {
-            Timestamp lastTime;
-            int done;
-            int total;
+            Timestamp lastTime = 0;
+            int done = 0;
+            int total = 0;
         } update;
 
-        Block::SystemState::ID stateID;
+        Block::SystemState::ID stateID = {};
     };
 
     class WalletClient

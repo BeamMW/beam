@@ -1584,7 +1584,7 @@ bool RunNegLoop(beam::Negotiator::IBase& a, beam::Negotiator::IBase& b, const ch
 			Gateway::Direct gwFin(*pArr[!i]->m_pStorage);
 
 			size_t nSize = 0;
-			for (Storage::Map::iterator it = gwOut.begin(); gwOut.end() != it; it++)
+			for (Storage::Map::iterator it = gwOut.begin(); gwOut.end() != it; ++it)
 			{
 				ByteBuffer& buf = it->second;
 				uint32_t code = it->first;
@@ -1595,7 +1595,7 @@ bool RunNegLoop(beam::Negotiator::IBase& a, beam::Negotiator::IBase& b, const ch
 			cout << "\t" << chThis << " -> " << chOther << ' ' << nSize << " bytes" << std::endl;
 
 
-			for (Storage::Map::iterator it = gwOut.begin(); gwOut.end() != it; it++)
+			for (Storage::Map::iterator it = gwOut.begin(); gwOut.end() != it; ++it)
 			{
 				uint32_t code = it->first;
 				std::string sVar;
