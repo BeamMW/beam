@@ -20,6 +20,7 @@ Item {
         width: childrenRect.width
 
         property color color: Style.content_main
+        // property color borderColor: Style.content_main
 
         Rectangle {
             id: online_rect
@@ -32,6 +33,8 @@ Item {
             height: rootItem.indicator_radius * 2
             radius: rootItem.indicator_radius
             color: parent.color
+            border.width: 1
+            // border.color: parent.borderColor
         }
 
         DropShadow {
@@ -45,20 +48,30 @@ Item {
 
     states: [
         State {
+            name: "uninitialized"
+            when: (rootItem.status === "uninitialized")
+            PropertyChanges { target: online_rect; border.color: Style.content_main }
+            PropertyChanges { target: online_indicator; color: "transparent" }
+            PropertyChanges { target: online_indicator; opacity: 0.3 }
+        },
+        State {
             name: "disconnected"
             when: (rootItem.status === "disconnected")
+            PropertyChanges { target: online_rect; border.color: Style.content_main }
             PropertyChanges { target: online_indicator; color: Style.content_main }
             PropertyChanges { target: online_indicator; opacity: 0.3 }
         },
         State {
             name: "connected"
             when: (rootItem.status === "connected")
+            PropertyChanges { target: online_rect; border.color: Style.active }
             PropertyChanges { target: online_indicator; color: Style.active }
             PropertyChanges { target: online_indicator; opacity: 1 }
         },
         State {
             name: "error"
             when: (rootItem.status === "error")
+            PropertyChanges { target: online_rect; border.color: Style.accent_fail }
             PropertyChanges { target: online_indicator; color: Style.accent_fail }
             PropertyChanges { target: online_indicator; opacity: 1 }
         }

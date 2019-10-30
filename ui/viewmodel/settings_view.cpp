@@ -413,6 +413,8 @@ QString SwapCoinSettingsItem::getConnectionStatus() const
     switch (m_coinClient.getStatus())
     {
         case Client::Status::Uninitialized:
+            return "uninitialized";
+            
         case Client::Status::Connecting:
             return "disconnected";
 
