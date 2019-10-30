@@ -160,7 +160,7 @@ RowLayout {
         }
         SFLabel {
             id: swapCoinLockTxConfirmationsLabel
-            enabled: (text != "") && !isBeamSide
+            enabled: (text != "") && isBeamSide
             visible: enabled
             Layout.fillWidth: true
             copyMenuEnabled: true
