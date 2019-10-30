@@ -20,7 +20,6 @@ Item {
         width: childrenRect.width
 
         property color color: Style.content_main
-        // property color borderColor: Style.content_main
 
         Rectangle {
             id: online_rect
@@ -34,7 +33,6 @@ Item {
             radius: rootItem.indicator_radius
             color: parent.color
             border.width: 1
-            // border.color: parent.borderColor
         }
 
         DropShadow {
