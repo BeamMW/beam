@@ -287,11 +287,8 @@ namespace beam::wallet
 
     uint32_t BitcoinSide::GetLockTxEstimatedTimeInBeamBlocks() const
     {
-        // TODO: remove after tests
-        return 5;
-        // TODO: uncomment after tests
         // it's average value
-        // return 70;
+        return 70;
     }
 
     bool BitcoinSide::CheckAmount(Amount amount, Amount feeRate)

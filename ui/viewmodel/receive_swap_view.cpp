@@ -49,23 +49,6 @@ namespace {
     {
         return GetHourCount(offerExpires) * 60;
     }
-
-    // TODO: remove after tests
-    beam::Height GetTestBlockCount(int offerExpires)
-    {
-        switch (offerExpires)
-        {
-        case OfferExpires12h:
-            return 20;
-        case OfferExpires6h:
-            return 10;
-        default:
-        {
-            assert(false && "Unexpected value!");
-            return 0;
-        }
-        }
-    }
 }
 
 ReceiveSwapViewModel::ReceiveSwapViewModel()
@@ -401,12 +384,7 @@ void ReceiveSwapViewModel::updateTransactionToken()
     emit enoughChanged();
     emit lessThanFeeChanged();
     _txParameters.SetParameter(beam::wallet::TxParameterID::MinHeight, _walletModel.getCurrentHeight());
-    // TODO: uncomment after tests
-    // _txParameters.SetParameter(beam::wallet::TxParameterID::PeerResponseTime, GetBlockCount(_offerExpires));
-    // TODO: remove after tests
-    _txParameters.SetParameter(beam::wallet::TxParameterID::PeerResponseTime, GetTestBlockCount(_offerExpires));
-    // TODO: remove after tests
-    _txParameters.SetParameter(beam::wallet::TxParameterID::Lifetime, beam::Height(10));
+    _txParameters.SetParameter(beam::wallet::TxParameterID::PeerResponseTime, GetBlockCount(_offerExpires));
 
     // All parameters sets as if we were on the recipient side (mirrored)
     bool isBeamSide = (_receiveCurrency == Currency::CurrBeam);
