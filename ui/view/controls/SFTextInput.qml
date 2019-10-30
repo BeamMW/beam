@@ -33,6 +33,7 @@ T.TextField {
     selectedTextColor: control.palette.highlightedText
     verticalAlignment: TextInput.AlignVCenter
 
+    property bool  focusablePlaceholder: false
     property alias backgroundColor : backgroundRect.color
     property alias underlineVisible : backgroundRect.visible
     backgroundColor: Style.content_main
@@ -52,7 +53,7 @@ T.TextField {
         color: control.color
         verticalAlignment: control.verticalAlignment
         horizontalAlignment: control.horizontalAlignment
-        visible:  !control.activeFocus && !control.length && !control.preeditText
+        visible:  (focusablePlaceholder || !control.activeFocus) && !control.length && !control.preeditText
         elide: Text.ElideRight
         wrapMode: control.wrapMode
     }
