@@ -120,9 +120,6 @@ namespace beam::bitcoin
         // They are not stored in DB
         Amount m_minFeeRate = 50000;
         uint16_t m_txMinConfirmations = 6;
-        // TODO: remove after tests
-        uint32_t m_lockTimeInBlocks = 270;
-        // TODO: uncomment after tests
-        //uint32_t m_lockTimeInBlocks = 2 * 24 * 6;
+        uint32_t m_lockTimeInBlocks = 2 * 24 * 6;
     };
 } // namespace beam::bitcoin
