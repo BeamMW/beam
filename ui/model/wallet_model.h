@@ -96,6 +96,8 @@ private:
     void onAddressChecked(const std::string& addr, bool isValid) override;
     void onImportRecoveryProgress(uint64_t done, uint64_t total) override;
     void onNoDeviceConnected() override;
+    void onImportDataFromJson(bool isOk) override;
+    void onExportDataToJson(const std::string& data) override;
 
     void onShowKeyKeeperMessage() override;
     void onHideKeyKeeperMessage() override;

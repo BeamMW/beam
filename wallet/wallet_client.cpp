@@ -184,6 +184,16 @@ struct WalletModelBridge : public Bridge<IWalletModelAsync>
     {
         call_async(&IWalletModelAsync::importRecovery, path);
     }
+
+    void importDataFromJson(const std::string& data) override
+    {
+        call_async(&IWalletModelAsync::importDataFromJson, data);
+    }
+
+    void exportDataToJson() override
+    {
+        call_async(&IWalletModelAsync::exportDataToJson);
+    }
 };
 }
 
@@ -825,6 +835,20 @@ namespace beam::wallet
             LOG_UNHANDLED_EXCEPTION();
         }
         onWalletError(ErrorType::ImportRecoveryError);
+    }
+
+    void WalletClient::importDataFromJson(const std::string& data)
+    {
+        auto isOk = storage::ImportDataFromJson(*m_walletDB, m_keyKeeper, data.data(), data.size());
+
+        onImportDataFromJson(isOk);
+    }
+
+    void WalletClient::exportDataToJson()
+    {
+        auto data = storage::ExportDataToJson(*m_walletDB);
+
+        onExportDataToJson(data);
     }
 
     bool WalletClient::OnProgress(uint64_t done, uint64_t total)

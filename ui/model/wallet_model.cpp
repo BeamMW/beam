@@ -204,6 +204,14 @@ void WalletModel::onNoDeviceConnected()
 #endif
 }
 
+void WalletModel::onImportDataFromJson(bool isOk)
+{
+}
+
+void WalletModel::onExportDataToJson(const std::string& data)
+{
+}
+
 void WalletModel::onChangeCurrentWalletIDs(beam::wallet::WalletID senderID, beam::wallet::WalletID receiverID)
 {
     emit changeCurrentWalletIDs(senderID, receiverID);

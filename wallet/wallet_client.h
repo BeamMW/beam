@@ -92,6 +92,8 @@ namespace beam::wallet
         virtual void onAddressChecked(const std::string& addr, bool isValid) = 0;
         virtual void onImportRecoveryProgress(uint64_t done, uint64_t total) = 0;
         virtual void onNoDeviceConnected() = 0;
+        virtual void onImportDataFromJson(bool isOk) = 0;
+        virtual void onExportDataToJson(const std::string& data) = 0;
 
     private:
 
@@ -129,6 +131,8 @@ namespace beam::wallet
         void exportPaymentProof(const TxID& id) override;
         void checkAddress(const std::string& addr) override;
         void importRecovery(const std::string& path) override;
+        void importDataFromJson(const std::string& data) override;
+        void exportDataToJson() override;
 
         // implement IWalletDB::IRecoveryProgress
         bool OnProgress(uint64_t done, uint64_t total) override;
