@@ -31,6 +31,7 @@
         <file>controls/AmountInput.qml</file>
         <file>controls/FeeInput.qml</file>
         <file>controls/IPAddrInput.qml</file>
+        <file>controls/ExternalNodeStatus.qml</file>
         <file>controls/SwapNodeSettings.qml</file>
         <file>controls/LinkButton.qml</file>
         <file>controls/TokenDuplicateChecker.qml</file>
