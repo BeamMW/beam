@@ -67,7 +67,7 @@ void testAddress()
     io::Reactor::Scope scope(*mainReactor);
     bitcoin::Electrum electrum(*mainReactor, *provider);
 
-#ifdef BEAM_MAINNET
+#if defined(BEAM_MAINNET) || defined(SWAP_MAINNET)
     std::set<std::string> addresses
     {
         "16AW2aVqy2gva1hxdtF4xhoSrTQTbGSNvM",
@@ -89,7 +89,8 @@ void testAddress()
         "13oWcAxFsHW1n81gj7BVAM1x7qiqhvnjhp",
         "1H4u6j8yZ49FS1Ft2nvXRpRKhWzaJTcCHD",
         "1Lw1ec2Q2KsT2VcV8sXdsr3bjwkaokPE6U",
-        "1Ei6D8SRSZ7w4MgDpZsGSvpqcejjqw2ewU"
+        "1Ei6D8SRSZ7w4MgDpZsGSvpqcejjqw2ewU",
+        "1LjTVPhMx51QUPjUY9aVL2WgNhRzZERHZw",
 };
 #else
     std::set<std::string> addresses
@@ -140,7 +141,7 @@ void testDumpPrivKey()
     io::Reactor::Scope scope(*mainReactor);
     bitcoin::Electrum electrum(*mainReactor, *provider);
 
-#ifdef BEAM_MAINNET
+#if defined(BEAM_MAINNET) || defined(SWAP_MAINNET)
     electrum.dumpPrivKey("16AW2aVqy2gva1hxdtF4xhoSrTQTbGSNvM", [](const bitcoin::IBridge::Error&, const std::string& privateKey)
     {
         LOG_INFO() << "private key = " << privateKey;
