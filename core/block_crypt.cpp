@@ -107,9 +107,26 @@ namespace beam
 		return 0;
 	}
 
+	void Input::operator = (const Input& v)
+	{
+		Cast::Down<TxElement>(*this) = v;
+		m_Internal = v.m_Internal;
+		ClonePtr(m_pSpendProof, v.m_pSpendProof);
+	}
+
 	int Input::cmp(const Input& v) const
 	{
+		// make sure shielded are after MW
+		CMP_MEMBER_PTR(m_pSpendProof)
+
 		return Cast::Down<TxElement>(*this).cmp(v);
+	}
+
+	int Input::SpendProof::cmp(const SpendProof& v) const
+	{
+		CMP_MEMBER(m_Part1.m_SpendPk)
+		// ignore rest of the members
+		return 0;
 	}
 
 	/////////////
@@ -274,10 +291,13 @@ namespace beam
 			if (m_pPublic)
 				return false;
 
-			return m_pConfidential->IsValid(comm, oracle, &sc.m_hGen);
+			if (m_pDoubleBlind && (hScheme < Rules::get().pForks[2].m_Height))
+				return false; // not supported in this version
+
+			return m_pConfidential->IsValid(comm, oracle, &sc.m_hGen, m_pDoubleBlind.get());
 		}
 
-		if (!m_pPublic)
+		if (!m_pPublic || m_pDoubleBlind)
 			return false;
 
 		if (!(Rules::get().AllowPublicUtxos || m_Coinbase))
@@ -295,10 +315,14 @@ namespace beam
 		m_AssetID = v.m_AssetID;
 		ClonePtr(m_pConfidential, v.m_pConfidential);
 		ClonePtr(m_pPublic, v.m_pPublic);
+		ClonePtr(m_pDoubleBlind, v.m_pDoubleBlind);
 	}
 
 	int Output::cmp(const Output& v) const
 	{
+		// make sure shielded are after MW
+		CMP_MEMBER_PTR(m_pDoubleBlind)
+
 		{
 			int n = Cast::Down<TxElement>(*this).cmp(v);
 			if (n)
@@ -415,8 +439,14 @@ namespace beam
 	// TxKernel
 	bool TxKernel::Traverse(ECC::Hash::Value& hv, AmountBig::Type* pFee, ECC::Point::Native* pExcess, const TxKernel* pParent, const ECC::Hash::Value* pLockImage, const Height* pScheme) const
 	{
-		if (pScheme && (*pScheme < Rules::get().pForks[1].m_Height) && (m_CanEmbed || m_pRelativeLock))
-			return false; // unsupported for that version
+		if (pScheme)
+		{
+			if ((*pScheme < Rules::get().pForks[1].m_Height) && (m_CanEmbed || m_pRelativeLock))
+				return false; // unsupported for that version
+
+			if ((*pScheme < Rules::get().pForks[2].m_Height) && m_pSerial)
+				return false; // unsupported for that version
+		}
 
 		if (pParent)
 		{
@@ -432,7 +462,8 @@ namespace beam
 		uint8_t nFlags =
 			((m_pHashLock || pLockImage) ? 1 : 0) |
 			(m_pRelativeLock ? 2 : 0) |
-			(m_CanEmbed ? 4 : 0);
+			(m_CanEmbed ? 4 : 0) |
+			(m_pSerial ? 8 : 0);
 
 		ECC::Hash::Processor hp;
 		hp	<< m_Fee
@@ -495,7 +526,7 @@ namespace beam
 			ptExcNested = -ptExcNested;
 			ptExcNested += pt;
 
-			if (!m_Signature.IsValid(hv, ptExcNested))
+			if (!m_Signature.IsValid(hv, ptExcNested, m_pSerial.get()))
 				return false;
 
 			*pExcess += pt;
@@ -602,6 +633,7 @@ namespace beam
 
 		CMP_MEMBER_PTR(m_pHashLock)
 		CMP_MEMBER_PTR(m_pRelativeLock)
+		CMP_MEMBER_PTR(m_pSerial)
 
 		return 0;
 	}
@@ -628,6 +660,49 @@ namespace beam
 		m_Signature.Sign(hv, sk);
 	}
 
+	void TxKernel::Sign(const ECC::Scalar::Native& skG, const ECC::Scalar::Native& skJ)
+	{
+		ECC::Point::Native pt = ECC::Context::get().G * skG;
+		pt += ECC::Context::get().J * skJ;
+		m_Commitment = pt;
+
+		m_pSerial.reset(new ECC::Scalar);
+
+		ECC::NoLeak<ECC::Scalar> s_;
+		ECC::Hash::Value& hv = s_.V.m_Value; // alias
+
+		ECC::NonceGenerator nonceGen("beam-krn-S");
+
+		s_.V = skG;
+		nonceGen << hv;
+		s_.V = skJ;
+		nonceGen << hv;
+		ECC::GenRandom(hv); // add extra randomness to the nonce, so it's derived from both deterministic and random parts
+		nonceGen << hv;
+		get_Hash(hv);
+		nonceGen << hv;
+
+		ECC::Scalar::Native kG, kJ;
+		nonceGen
+			>> kG
+			>> kJ;
+
+		ECC::Signature::MultiSig msig;
+		msig.m_NoncePub = ECC::Context::get().G * kG;
+		msig.m_NoncePub += ECC::Context::get().J * kJ;
+
+		m_Signature.m_NoncePub = msig.m_NoncePub;
+
+		msig.m_Nonce = kG;
+		msig.SignPartial(kG, hv, skG);
+
+		msig.m_Nonce = kJ;
+		msig.SignPartial(kJ, hv, skJ);
+
+		m_Signature.m_k = kG;
+		*m_pSerial = kJ;
+	}
+
 	void TxKernel::operator = (const TxKernel& v)
 	{
 		Cast::Down<TxElement>(*this) = v;
@@ -637,6 +712,7 @@ namespace beam
 		m_AssetEmission = v.m_AssetEmission;
 		ClonePtr(m_pHashLock, v.m_pHashLock);
 		ClonePtr(m_pRelativeLock, v.m_pRelativeLock);
+		ClonePtr(m_pSerial, v.m_pSerial);
 
 		m_vNested.resize(v.m_vNested.size());
 
@@ -1099,8 +1175,7 @@ namespace beam
 		oracle
 			<< "fork2"
 			<< pForks[2].m_Height
-			// TBD
-			// ...
+			<< Shielded.Enabled
 			// out
 			>> pForks[2].m_Hash;
 	}
@@ -1116,6 +1191,17 @@ namespace beam
 		}
 
 		return nullptr;
+	}
+
+	size_t Rules::FindFork(Height h) const
+	{
+		for (size_t i = _countof(pForks); i--; )
+		{
+			if (h >= pForks[i].m_Height)
+				return i;
+		}
+
+		return 0; // should not be reached
 	}
 
 	const HeightHash& Rules::get_LastFork() const
@@ -1256,17 +1342,34 @@ namespace beam
 		return m_PoW.Solve(hv.m_pData, hv.nBytes, m_Height, fnCancel);
 	}
 
-	bool Block::SystemState::Sequence::Element::IsValidProofUtxo(const ECC::Point& comm, const Input::Proof& p) const
+	bool Block::SystemState::Sequence::Element::IsValidProofUtxoInternal(Merkle::Hash& hv, const Merkle::Proof& p) const
 	{
 		// verify known part. Last node (history) should be at left
-		if (p.m_Proof.empty() || p.m_Proof.back().first)
+		if (p.empty() || p.back().first)
 			return false;
 
+		Merkle::Interpret(hv, p);
+		return hv == m_Definition;
+	}
+
+	bool Block::SystemState::Sequence::Element::IsValidProofUtxo(const ECC::Point& comm, const Input::Proof& p) const
+	{
 		Merkle::Hash hv;
 		p.m_State.get_ID(hv, comm);
 
-		Merkle::Interpret(hv, p.m_Proof);
-		return hv == m_Definition;
+		return IsValidProofUtxoInternal(hv, p.m_Proof);
+	}
+
+	bool Block::SystemState::Sequence::Element::IsValidProofShieldedTxo(const ECC::Point& comm, TxoID id, const Merkle::Proof& p) const
+	{
+		Merkle::Hash hv;
+
+		Input inp;
+		inp.m_Commitment = comm;
+		inp.m_Internal.m_ID = id;
+		inp.get_ShieldedID(hv);
+
+		return IsValidProofUtxoInternal(hv, p);
 	}
 
 	bool Block::SystemState::Full::IsValidProofKernel(const TxKernel& krn, const TxKernel::LongProof& proof) const

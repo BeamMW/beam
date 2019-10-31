@@ -15,6 +15,7 @@
 #pragma once
 #include <limits>
 #include "ecc_native.h"
+#include "lelantus.h"
 #include "merkle.h"
 #include "difficulty.h"
 
@@ -145,6 +146,11 @@ namespace beam
 		ECC::Hash::Value Prehistoric; // Prev hash of the 1st block
 		ECC::Hash::Value TreasuryChecksum;
 
+		struct {
+			bool Enabled = true; // past Fork2
+			// TODO - policy w.r.t. supported cfgs
+		} Shielded;
+
 		void UpdateChecksum();
 
 		static Amount get_Emission(Height);
@@ -155,6 +161,7 @@ namespace beam
 
 		const HeightHash& get_LastFork() const;
 		const HeightHash* FindFork(const Merkle::Hash&) const;
+		size_t FindFork(Height) const;
 		std::string get_SignatureStr() const;
 
 	private:
@@ -232,6 +239,28 @@ namespace beam
 			static const uint32_t s_EntriesMax = 20; // if this is the size of the vector - the result is probably trunacted
 		};
 
+		struct SpendProof
+			:public Lelantus::Proof
+		{
+			TxoID m_WindowEnd; // ID of the 1st element outside the window
+
+			int cmp(const SpendProof&) const;
+			COMPARISON_VIA_CMP
+		};
+
+		std::unique_ptr<SpendProof> m_pSpendProof;
+
+		void get_ShieldedID(Merkle::Hash&) const;
+
+		Input() {}
+		Input(Input&& v)
+			:TxElement(v)
+		{
+			m_Internal = v.m_Internal;
+			m_pSpendProof = std::move(v.m_pSpendProof);
+		}
+
+		void operator = (const Input&);
 		int cmp(const Input&) const;
 		COMPARISON_VIA_CMP
 	};
@@ -261,6 +290,7 @@ namespace beam
 		// one of the following *must* be specified
 		std::unique_ptr<ECC::RangeProof::Confidential>	m_pConfidential;
 		std::unique_ptr<ECC::RangeProof::Public>		m_pPublic;
+		std::unique_ptr<ECC::RangeProof::Confidential::Part3> m_pDoubleBlind; // for shielded output, complements the confidential
 
 		void Create(Height hScheme, ECC::Scalar::Native&, Key::IKdf& coinKdf, const Key::IDV&, Key::IPKdf& tagKdf, bool bPublic = false);
 
@@ -319,6 +349,8 @@ namespace beam
 
 		std::unique_ptr<RelativeLock> m_pRelativeLock;
 
+		std::unique_ptr<ECC::Scalar> m_pSerial; // Lelantus
+
 		std::vector<Ptr> m_vNested; // nested kernels, included in the signature.
 
 		static const uint32_t s_MaxRecursionDepth = 2;
@@ -333,7 +365,9 @@ namespace beam
 		void get_ID(Merkle::Hash&, const ECC::Hash::Value* pLockImage = NULL) const; // unique kernel identifier in the system.
 
 		bool IsValid(Height hScheme, AmountBig::Type& fee, ECC::Point::Native& exc) const;
+
 		void Sign(const ECC::Scalar::Native&); // suitable for aux kernels, created by single party
+		void Sign(const ECC::Scalar::Native& skG, const ECC::Scalar::Native& skJ); // aux kernel with serial excess
 
 		struct LongProof; // legacy
 
@@ -528,6 +562,10 @@ namespace beam
 
 					// The following not only interprets the proof, but also verifies the knwon part of its structure.
 					bool IsValidProofUtxo(const ECC::Point&, const Input::Proof&) const;
+					bool IsValidProofShieldedTxo(const ECC::Point&, TxoID, const Merkle::Proof&) const;
+
+				private:
+					bool IsValidProofUtxoInternal(Merkle::Hash&, const Merkle::Proof&) const;
 				};
 			};
 
