@@ -1682,7 +1682,12 @@ namespace ECC {
 
 		ctx.m_Ipp.G_.Initialize(G_raw, oracle, cpc);
 		ctx.m_Ipp.H_.Initialize(H_raw, oracle, cpc);
-		ctx.m_Ipp.J_.Initialize(J_raw, oracle, cpc);
+
+		// for historical reasons: make a temp copy of oracle to initialize what was not present earlier
+		Oracle o2 = oracle;
+		o2 << "v1";
+
+		ctx.m_Ipp.J_.Initialize(J_raw, o2, cpc);
 
 		for (uint32_t i = 0; i < InnerProduct::nDim; i++)
 		{
