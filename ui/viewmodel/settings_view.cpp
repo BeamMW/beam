@@ -594,7 +594,6 @@ void SwapCoinSettingsItem::SetSeedElectrum(const std::vector<std::string>& seedE
 
 void SwapCoinSettingsItem::SetDefaultNodeSettings()
 {
-    setFeeRate(QMLGlobals::defFeeRateBtc());
     setNodeAddress("");
     setNodePass("");
     setNodeUser("");
@@ -602,7 +601,6 @@ void SwapCoinSettingsItem::SetDefaultNodeSettings()
 
 void SwapCoinSettingsItem::SetDefaultElectrumSettings()
 {
-    setFeeRate(QMLGlobals::defFeeRateBtc());
     setNodeAddressElectrum("");
     SetSeedElectrum({});
 }
