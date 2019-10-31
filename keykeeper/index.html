@@ -1,10 +1,11 @@
 <!doctype html>
 <html>
+    <script src='wasm-key-keeper.js'></script>    
     <script>
-        var Module = {
-            onRuntimeInitialized: function() 
-            {
-                var wordList = new Module.WordList();
+
+        Module().then(function(Module) 
+        {
+            var wordList = new Module.WordList();
                 ['copy', 'vendor', 'shallow', 'raven', 'coffee', 'appear', 'book', 'blast', 'lock', 'exchange', 'farm', 'glue'].forEach((word) => wordList.push_back(word));
 
                 var keykeeper = new Module.KeyKeeper(wordList);
@@ -33,8 +34,6 @@
 
                     console.log('sign is: data:application/octet-stream;base64,' + sign)
                 }
-            }
-        };
+        })
     </script>
-    <script src='wasm-key-keeper.js'></script>
 </html>
