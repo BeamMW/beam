@@ -64,6 +64,8 @@ using namespace ECC;
 
 namespace beam
 {
+    const char kElectrumSeparateSymbol = ' ';
+
     string getCoinStatus(Coin::Status s)
     {
         stringstream ss;
@@ -947,8 +949,8 @@ namespace
             if (vm.count(cli::ELECTRUM_SEED))
             {
                 auto tempPhrase = vm[cli::ELECTRUM_SEED].as<string>();
-                boost::algorithm::trim_if(tempPhrase, [](char ch) { return ch == ';'; });
-                electrumSettings.m_secretWords = string_helpers::split(tempPhrase, ';');
+                boost::algorithm::trim_if(tempPhrase, [](char ch) { return ch == kElectrumSeparateSymbol; });
+                electrumSettings.m_secretWords = string_helpers::split(tempPhrase, kElectrumSeparateSymbol);
 
                 if (!bitcoin::validateElectrumMnemonic(electrumSettings.m_secretWords))
                 {
@@ -963,7 +965,7 @@ namespace
                     std::next(electrumSettings.m_secretWords.begin()), electrumSettings.m_secretWords.end(), *electrumSettings.m_secretWords.begin(),
                     [](std::string a, std::string b)
                 {
-                    return a + ";" + b;
+                    return a + kElectrumSeparateSymbol + b;
                 });
 
                 LOG_INFO() << "seed = " << strSeed;
@@ -1148,24 +1150,43 @@ namespace
 
         if (settings.IsInitialized())
         {
-            cout << coinName << " settings" << '\n';
+            ostringstream stream;
+            stream << "\n" << coinName << " settings" << '\n';
             if (settings.GetConnectionOptions().IsInitialized())
             {
-                cout << "RPC user: " << settings.GetConnectionOptions().m_userName << '\n'
+                stream << "RPC user: " << settings.GetConnectionOptions().m_userName << '\n'
                     << "RPC node: " << settings.GetConnectionOptions().m_address.str() << '\n';
             }
 
             if (settings.GetElectrumConnectionOptions().IsInitialized())
             {
-                cout << "Electrum node: " << settings.GetElectrumConnectionOptions().m_address << '\n';
+                stream << "Electrum node: " << settings.GetElectrumConnectionOptions().m_address << '\n';
             }
-            cout << "Fee rate: " << settings.GetFeeRate() << '\n';
-            cout << "Active connection: " << bitcoin::to_string(settings.GetCurrentConnectionType()) << '\n';
+            stream << "Fee rate: " << settings.GetFeeRate() << '\n';
+            stream << "Active connection: " << bitcoin::to_string(settings.GetCurrentConnectionType()) << '\n';
 
+            LOG_INFO() << stream.str();
             return;
         }
 
         LOG_INFO() << coinName << " settings are not initialized.";
+    }
+
+    bool HasActiveSwapTx(const IWalletDB::Ptr& walletDB, AtomicSwapCoin swapCoin)
+    {
+        auto txHistory = walletDB->getTxHistory(wallet::TxType::AtomicSwap);
+
+        for (const auto& tx : txHistory)
+        {
+            if (tx.m_status != TxStatus::Canceled && tx.m_status != TxStatus::Completed && tx.m_status != TxStatus::Failed)
+            {
+                AtomicSwapCoin txSwapCoin = AtomicSwapCoin::Unknown;
+                storage::getTxParameter(*walletDB, tx.m_txId, wallet::kDefaultSubTxID, wallet::TxParameterID::AtomicSwapCoin, txSwapCoin);
+                if (txSwapCoin == swapCoin) return true;
+            }
+        }
+
+        return false;
     }
 
     boost::optional<TxID> InitSwap(const po::variables_map& vm, const IWalletDB::Ptr& walletDB, IPrivateKeyKeeper::Ptr keyKeeper, Wallet& wallet, bool checkFee)
@@ -1790,6 +1811,13 @@ int main_impl(int argc, char* argv[])
                         if (vm.count(cli::SWAP_COIN) > 0)
                         {
                             auto swapCoin = wallet::from_string(vm[cli::SWAP_COIN].as<string>());
+
+                            if (HasActiveSwapTx(walletDB, swapCoin))
+                            {
+                                LOG_ERROR() << "You cannot change settings while you have transactions in progress. Please wait untill transactions are completed and try again.";
+                                return -1;
+                            }
+
                             switch (swapCoin)
                             {
                             case beam::wallet::AtomicSwapCoin::Bitcoin:
@@ -1929,11 +1957,18 @@ int main_impl(int argc, char* argv[])
 
                         if (command == cli::SWAP_INIT)
                         {
+                            if (!wallet.IsWalletInSync())
+                            {
+                                return -1;
+                            }
+
                             currentTxID = InitSwap(vm, walletDB, keyKeeper, wallet, isFork1);
                             if (!currentTxID)
                             {
                                 return -1;
                             }
+
+                            return 0;
                         }
 
                         if (command == cli::SWAP_ACCEPT)

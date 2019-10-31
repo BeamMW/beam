@@ -334,12 +334,12 @@ namespace beam::bitcoin
         callback(error, encode_base16(tx.to_data()));
     }
 
-    void Electrum::getTxOut(const std::string& txid, int outputIndex, std::function<void(const IBridge::Error&, const std::string&, double, uint32_t)> callback)
+    void Electrum::getTxOut(const std::string& txid, int outputIndex, std::function<void(const IBridge::Error&, const std::string&, Amount, uint32_t)> callback)
     {
         //LOG_DEBUG() << "getTxOut command";
         sendRequest("blockchain.transaction.get", "\"" + txid + "\", true", [callback, outputIndex](IBridge::Error error, const json& result, uint64_t)
         {
-            double value = 0;
+            Amount value = 0;
             uint32_t confirmations = 0;
             std::string scriptHex;
 
@@ -359,7 +359,8 @@ namespace beam::bitcoin
                         if (vout["n"].get<int>() == outputIndex)
                         {
                             scriptHex = vout["scriptPubKey"]["hex"].get<std::string>();
-                            value = vout["value"].get<double>();
+                            // TODO should avoid using of double type
+                            value = btc_to_satoshi(vout["value"].get<double>());
                             isFind = true;
                             break;
                         }

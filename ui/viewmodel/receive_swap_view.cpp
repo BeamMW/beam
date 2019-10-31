@@ -49,23 +49,6 @@ namespace {
     {
         return GetHourCount(offerExpires) * 60;
     }
-
-    // TODO: remove after tests
-    beam::Height GetTestBlockCount(int offerExpires)
-    {
-        switch (offerExpires)
-        {
-        case OfferExpires12h:
-            return 20;
-        case OfferExpires6h:
-            return 10;
-        default:
-        {
-            assert(false && "Unexpected value!");
-            return 0;
-        }
-        }
-    }
 }
 
 ReceiveSwapViewModel::ReceiveSwapViewModel()
@@ -88,7 +71,6 @@ ReceiveSwapViewModel::ReceiveSwapViewModel()
 
     generateNewAddress();
 
-    _walletModel.getAsync()->getWalletStatus();
     updateTransactionToken();
 }
 
@@ -101,12 +83,12 @@ void ReceiveSwapViewModel::onGeneratedNewAddress(const beam::wallet::WalletAddre
 
 QString ReceiveSwapViewModel::getAmountToReceive() const
 {
-    return beamui::AmountToString(_amountToReceiveGrothes);
+    return beamui::AmountToUIString(_amountToReceiveGrothes);
 }
 
 void ReceiveSwapViewModel::setAmountToReceive(QString value)
 {
-    auto amount = beamui::StringToAmount(value);
+    auto amount = beamui::UIStringToAmount(value);
     if (amount != _amountToReceiveGrothes)
     {
         _amountToReceiveGrothes = amount;
@@ -117,7 +99,7 @@ void ReceiveSwapViewModel::setAmountToReceive(QString value)
 
 QString ReceiveSwapViewModel::getAmountSent() const
 {
-    return beamui::AmountToString(_amountSentGrothes);
+    return beamui::AmountToUIString(_amountSentGrothes);
 }
 
 unsigned int ReceiveSwapViewModel::getReceiveFee() const
@@ -127,7 +109,7 @@ unsigned int ReceiveSwapViewModel::getReceiveFee() const
 
 void ReceiveSwapViewModel::setAmountSent(QString value)
 {
-    auto amount = beamui::StringToAmount(value);
+    auto amount = beamui::UIStringToAmount(value);
     if (amount != _amountSentGrothes)
     {
         _amountSentGrothes = amount;
@@ -402,10 +384,7 @@ void ReceiveSwapViewModel::updateTransactionToken()
     emit enoughChanged();
     emit lessThanFeeChanged();
     _txParameters.SetParameter(beam::wallet::TxParameterID::MinHeight, _walletModel.getCurrentHeight());
-    // TODO: uncomment after tests
-    // _txParameters.SetParameter(beam::wallet::TxParameterID::PeerResponseTime, GetBlockCount(_offerExpires));
-    // TODO: remove after tests
-    _txParameters.SetParameter(beam::wallet::TxParameterID::PeerResponseTime, GetTestBlockCount(_offerExpires));
+    _txParameters.SetParameter(beam::wallet::TxParameterID::PeerResponseTime, GetBlockCount(_offerExpires));
 
     // All parameters sets as if we were on the recipient side (mirrored)
     bool isBeamSide = (_receiveCurrency == Currency::CurrBeam);

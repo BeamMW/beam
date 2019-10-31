@@ -32,7 +32,7 @@ struct EmptyTestGateway : wallet::INegotiatorGateway
     void confirm_kernel(const TxID&, const Merkle::Hash&, wallet::SubTxID subTxID) override {}
     void get_kernel(const TxID& txID, const Merkle::Hash& kernelID, wallet::SubTxID subTxID) override {}
     bool get_tip(Block::SystemState::Full& state) const override { return false; }
-    void send_tx_params(const WalletID& peerID, wallet::SetTxParameter&&) override {}
+    void send_tx_params(const WalletID& peerID, const wallet::SetTxParameter&) override {}
     void UpdateOnNextTip(const TxID&) override {};
 };
 

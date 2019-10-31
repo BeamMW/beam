@@ -126,6 +126,8 @@ namespace beam::wallet
         void Subscribe(IWalletObserver* observer);
         void Unsubscribe(IWalletObserver* observer);
         void ResumeAllTransactions();
+
+        bool IsWalletInSync() const;
     protected:
         void SendTransactionToNode(const TxID& txId, Transaction::Ptr, SubTxID subTxID);
     private:
@@ -141,7 +143,7 @@ namespace beam::wallet
         void confirm_kernel(const TxID&, const Merkle::Hash& kernelID, SubTxID subTxID) override;
         void get_kernel(const TxID&, const Merkle::Hash& kernelID, SubTxID subTxID) override;
         bool get_tip(Block::SystemState::Full& state) const override;
-        void send_tx_params(const WalletID& peerID, SetTxParameter&&) override;
+        void send_tx_params(const WalletID& peerID, const SetTxParameter&) override;
         void register_tx(const TxID& txId, Transaction::Ptr, SubTxID subTxID) override;
         void UpdateOnNextTip(const TxID&) override;
 
@@ -312,5 +314,6 @@ namespace beam::wallet
 
         // Counter of running transaction updates. Used by Cold wallet
         int m_AsyncUpdateCounter = 0;
+        bool m_StoredMessagesProcessed = false; // this should happen only once, but not in destructor;
     };
 }

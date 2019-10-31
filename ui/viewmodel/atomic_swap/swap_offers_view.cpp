@@ -32,7 +32,7 @@ SwapOffersViewModel::SwapOffersViewModel()
 {
     connect(&m_walletModel, SIGNAL(availableChanged()), this, SIGNAL(beamAvailableChanged()));
     connect(&m_walletModel,
-            SIGNAL(txStatus(beam::wallet::ChangeAction, const std::vector<beam::wallet::TxDescription>&)),
+            SIGNAL(transactionsChanged(beam::wallet::ChangeAction, const std::vector<beam::wallet::TxDescription>&)),
             SLOT(onTransactionsDataModelChanged(beam::wallet::ChangeAction, const std::vector<beam::wallet::TxDescription>&)));
 
     connect(&m_walletModel,
@@ -47,7 +47,7 @@ SwapOffersViewModel::SwapOffersViewModel()
     connect(m_qtumClient.get(), SIGNAL(statusChanged()), this, SIGNAL(qtumOKChanged()));
 
     m_walletModel.getAsync()->getSwapOffers();
-    m_walletModel.getAsync()->getWalletStatus();
+    m_walletModel.getAsync()->getTransactions();
 }
 
 int SwapOffersViewModel::getSelectedCoin()
@@ -68,22 +68,22 @@ QAbstractItemModel* SwapOffersViewModel::getAllOffers()
 
 QString SwapOffersViewModel::beamAvailable() const
 {
-    return beamui::AmountToString(m_walletModel.getAvailable());
+    return beamui::AmountToUIString(m_walletModel.getAvailable());
 }
 
 QString SwapOffersViewModel::btcAvailable() const
 {
-    return beamui::AmountToString(m_btcClient->getAvailable());
+    return beamui::AmountToUIString(m_btcClient->getAvailable());
 }
 
 QString SwapOffersViewModel::ltcAvailable() const
 {
-    return beamui::AmountToString(m_ltcClient->getAvailable());
+    return beamui::AmountToUIString(m_ltcClient->getAvailable());
 }
 
 QString SwapOffersViewModel::qtumAvailable() const
 {
-    return beamui::AmountToString(m_qtumClient->getAvailable());
+    return beamui::AmountToUIString(m_qtumClient->getAvailable());
 }
 
 bool SwapOffersViewModel::btcOK()  const

@@ -328,7 +328,7 @@ Item {
                         
                         source: viewModel.transactions
                         filterRole: "search"
-                        filterString: "*" + searchBox.text + "*"
+                        filterString: searchBox.text
                         filterSyntax: SortFilterProxyModel.Wildcard
                         filterCaseSensitivity: Qt.CaseInsensitive
                     }
@@ -341,176 +341,148 @@ Item {
                     filterCaseSensitivity: Qt.CaseInsensitive
                 }
 
-                rowDelegate: Item {
-                    id: rowItem
-                    height: transactionsTable.rowHeight
-                    anchors.left: parent.left
-                    anchors.right: parent.right
-                    property bool collapsed: true
+                rowDelegate: Rectangle {
+                    id:             rowItem
+                    height:         transactionsTable.rowHeight
+                    anchors.left:   parent.left
+                    anchors.right:  parent.right
+                    color:          styleData.selected ? Style.row_selected : (styleData.alternate ? Style.background_row_even : Style.background_row_odd)
 
-                    property var myModel: parent.model
+                    property bool collapsed:   true
+                    property bool rowInModel:  styleData.row !== undefined && styleData.row >= 0 &&  styleData.row < txProxyModel.count
+                    property var  myModel:     parent.model
 
-                    onMyModelChanged: {
-                        collapsed = true;
-                        height = Qt.binding(function(){ return transactionsTable.rowHeight;});
+                    onCollapsedChanged: {
+                        height = collapsed ? transactionsTable.rowHeight : transactionsTable.rowHeight + txDetails.maximumHeight
+                        txDetails.height = collapsed ? 0 : txDetails.maximumHeight
                     }
 
-                    Rectangle {
-                        anchors.fill: parent
-                        color: styleData.selected ? Style.row_selected :
-                                (styleData.alternate ? Style.background_row_even : Style.background_row_odd)
+                    function expand() {
+                       if (!rowInModel) return
+                        collapsed = false
                     }
 
-                    ColumnLayout {
-                        id: rowColumn
-                        width: parent.width
-                        Rectangle {
-                            height: 56
-                            width: parent.width
-                            color: "transparent"
+                    function collapse() {
+                        if (!rowInModel) return
+                        collapsed = true
+                    }
+
+                    Connections {
+                        target: searchBox
+                        onTextChanged: {
+                            searchBox.text.length ? expand() : collapse()
+                            detailsPanel.hideFiltered = true
                         }
-                        Item {
-                            id: txDetails
-                            height: 0
-                            width: parent.width
-                            clip: true
+                    }
 
-                            property int maximumHeight: detailsPanel.implicitHeight
+                    Connections {
+                        target: styleData
+                        onRowChanged: searchBox.text.length ? expand() : collapse()
+                    }
 
-                            Rectangle {
-                                anchors.fill: parent
-                                color: Style.background_details
+                    Item {
+                        id:      txDetails
+                        height:  0
+                        y:       transactionsTable.rowHeight
+                        width:   parent.width
+                        clip:    true
+                        property int maximumHeight: detailsPanel.implicitHeight
+
+                        Rectangle {
+                            anchors.fill: parent
+                            color: Style.background_details
+                        }
+
+                        TransactionDetails {
+                            id: detailsPanel
+                            width: transactionsTable.width
+
+                            onHeightChanged: {
+                                if (searchFilter.length && rowItem.collapsed) expand()
+                                if (!rowItem.collapsed) {
+                                    rowItem.height = transactionsTable.rowHeight + detailsPanel.height
+                                    txDetails.height = detailsPanel.height
+                                    txDetails.visible = true
+                                    detailsPanel.visible = true
+                                }
                             }
-                            TransactionDetails {
-                                id: detailsPanel
-                                width: transactionsTable.width
 
-                                property var txRolesMap: myModel
-                                sendAddress:        txRolesMap && txRolesMap.addressFrom ? txRolesMap.addressFrom : ""
-                                receiveAddress:     txRolesMap && txRolesMap.addressTo ? txRolesMap.addressTo : ""
-                                fee:                txRolesMap && txRolesMap.fee ? txRolesMap.fee : ""
-                                comment:            txRolesMap && txRolesMap.comment ? txRolesMap.comment : ""
-                                txID:               txRolesMap && txRolesMap.txID ? txRolesMap.txID : ""
-                                kernelID:           txRolesMap && txRolesMap.kernelID ? txRolesMap.kernelID : ""
-                                status:             txRolesMap && txRolesMap.status ? txRolesMap.status : ""
-                                failureReason:      txRolesMap && txRolesMap.failureReason ? txRolesMap.failureReason : ""
-                                isIncome:           txRolesMap && txRolesMap.isIncome ? txRolesMap.isIncome : false
-                                hasPaymentProof:    txRolesMap && txRolesMap.hasPaymentProof ? txRolesMap.hasPaymentProof : false
-                                isSelfTx:           txRolesMap && txRolesMap.isSelfTransaction ? txRolesMap.isSelfTransaction : false
-                                rawTxID:            txRolesMap && txRolesMap.rawTxID ? txRolesMap.rawTxID : null
-                                searchFilter:       searchBox.text
-                                hideFiltered:       false
+                            property var txRolesMap: myModel
+                            sendAddress:        txRolesMap && txRolesMap.addressFrom ? txRolesMap.addressFrom : ""
+                            receiveAddress:     txRolesMap && txRolesMap.addressTo ? txRolesMap.addressTo : ""
+                            fee:                txRolesMap && txRolesMap.fee ? txRolesMap.fee : ""
+                            comment:            txRolesMap && txRolesMap.comment ? txRolesMap.comment : ""
+                            txID:               txRolesMap && txRolesMap.txID ? txRolesMap.txID : ""
+                            kernelID:           txRolesMap && txRolesMap.kernelID ? txRolesMap.kernelID : ""
+                            status:             txRolesMap && txRolesMap.status ? txRolesMap.status : ""
+                            failureReason:      txRolesMap && txRolesMap.failureReason ? txRolesMap.failureReason : ""
+                            isIncome:           txRolesMap && txRolesMap.isIncome ? txRolesMap.isIncome : false
+                            hasPaymentProof:    txRolesMap && txRolesMap.hasPaymentProof ? txRolesMap.hasPaymentProof : false
+                            isSelfTx:           txRolesMap && txRolesMap.isSelfTransaction ? txRolesMap.isSelfTransaction : false
+                            rawTxID:            txRolesMap && txRolesMap.rawTxID ? txRolesMap.rawTxID : null
+                            searchFilter:       searchBox.text
+                            hideFiltered:       true
 
-                                onOpenExternal : function() {
-                                    var url = Style.explorerUrl + "block?kernel_id=" + detailsPanel.kernelID;
-                                    Utils.openExternal(url, viewModel, externalLinkConfirmation);
-                                }
-                                onTextCopied: function (text) {
-                                    BeamGlobals.copyToClipboard(text);
-                                }
-                                onCopyPaymentProof: function() {
-                                    if (detailsPanel.rawTxID)
+                            onOpenExternal : function() {
+                                var url = Style.explorerUrl + "block?kernel_id=" + detailsPanel.kernelID;
+                                Utils.openExternal(url, viewModel, externalLinkConfirmation);
+                            }
+
+                            onTextCopied: function (text) {
+                                BeamGlobals.copyToClipboard(text);
+                            }
+
+                            onCopyPaymentProof: function() {
+                                if (detailsPanel.rawTxID)
+                                {
+                                    var paymentInfo = viewModel.getPaymentInfo(detailsPanel.rawTxID);
+                                    if (paymentInfo.paymentProof.length === 0)
                                     {
-                                        var paymentInfo = viewModel.getPaymentInfo(detailsPanel.rawTxID);
-                                        if (paymentInfo.paymentProof.length === 0)
-                                        {
-                                            paymentInfo.paymentProofChanged.connect(function() {
-                                                textCopied(paymentInfo.paymentProof);
-                                            });
-                                        }
-                                        else
-                                        {
+                                        paymentInfo.paymentProofChanged.connect(function() {
                                             textCopied(paymentInfo.paymentProof);
-                                        }
+                                        });
+                                    }
+                                    else
+                                    {
+                                        textCopied(paymentInfo.paymentProof);
                                     }
                                 }
-                                onShowPaymentProof: {
-                                    if (detailsPanel.rawTxID)
-                                    {
-                                        paymentInfoDialog.model = viewModel.getPaymentInfo(detailsPanel.rawTxID);
-                                        paymentInfoDialog.open();
-                                    }
+                            }
+                            onShowPaymentProof: {
+                                if (detailsPanel.rawTxID)
+                                {
+                                    paymentInfoDialog.model = viewModel.getPaymentInfo(detailsPanel.rawTxID);
+                                    paymentInfoDialog.open();
                                 }
                             }
                         }
                     }
 
                     MouseArea {
-                        anchors.top: parent.top
-                        anchors.left: parent.left
-                        height: transactionsTable.rowHeight
-                        width: parent.width
+                        anchors.top:      parent.top
+                        anchors.left:     parent.left
+                        height:           transactionsTable.rowHeight
+                        width:            parent.width
+                        acceptedButtons:  Qt.LeftButton | Qt.RightButton
 
-                        acceptedButtons: Qt.LeftButton | Qt.RightButton
                         onClicked: {
-                            if (styleData.row === undefined 
-                            || styleData.row < 0
-                            || styleData.row >= txProxyModel.count)
-                            {
-                                return;
-                            }
-                            if (mouse.button === Qt.RightButton )
-                            {
-                                transactionsTable.showContextMenu(styleData.row);
-                            }
-                            else if (mouse.button === Qt.LeftButton)
-                            {
-                                if (parent.collapsed)
-                                {
-                                    expand.start()
+                            if (rowInModel) {
+                                if (mouse.button === Qt.RightButton) {
+                                    transactionsTable.showContextMenu(styleData.row)
+                                } else if (mouse.button === Qt.LeftButton) {
+                                    if(rowItem.collapsed) {
+                                        expand()
+                                        return
+                                    }
+
+                                    if (searchBox.text && detailsPanel.hideFiltered) {
+                                        detailsPanel.hideFiltered = false
+                                        return
+                                    }
+
+                                    collapse()
                                 }
-                                else 
-                                {
-                                    collapse.start()
-                                }
-                                parent.collapsed = !parent.collapsed;
                             }
-                        }
-                    }
-
-                    ParallelAnimation {
-                        id: expand
-                        running: false
-
-                        property int expandDuration: 200
-
-                        NumberAnimation {
-                            target: rowItem
-                            easing.type: Easing.Linear
-                            property: "height"
-                            to: transactionsTable.rowHeight + txDetails.maximumHeight
-                            duration: expand.expandDuration
-                        }
-
-                        NumberAnimation {
-                            target: txDetails
-                            easing.type: Easing.Linear
-                            property: "height"
-                            to: txDetails.maximumHeight
-                            duration: expand.expandDuration
-                        }
-                    }
-
-                    ParallelAnimation {
-                        id: collapse
-                        running: false
-
-                        property int collapseDuration: 200
-
-                        NumberAnimation {
-                            target: rowItem
-                            easing.type: Easing.Linear
-                            property: "height"
-                            to: transactionsTable.rowHeight
-                            duration: collapse.collapseDuration
-                        }
-
-                        NumberAnimation {
-                            target: txDetails
-                            easing.type: Easing.Linear
-                            property: "height"
-                            to: 0
-                            duration: collapse.collapseDuration
                         }
                     }
                 }
@@ -521,7 +493,7 @@ Item {
                         height: transactionsTable.rowHeight
 
                         TableItem {
-                            text: styleData.value
+                            text:  styleData.value
                             elide: styleData.elideMode
                             onCopyText: BeamGlobals.copyToClipboard(styleData.value)
                         }
@@ -556,7 +528,7 @@ Item {
                     resizable: false
                 }
                 TableViewColumn {
-                    role: "amountGeneral"
+                    role: "amountGeneralWithCurrency"
                     //% "Amount"
                     title: qsTrId("general-amount")
                     elideMode: Text.ElideRight
@@ -574,7 +546,7 @@ Item {
                                 fontStyleName: "Bold"
                                 fontSizeMode: Text.Fit
                                 color: parent.isIncome ? Style.accent_incoming : Style.accent_outgoing
-                                onCopyText: BeamGlobals.copyToClipboard(Utils.getAmountWithoutCurrency(styleData.value)) 
+                                onCopyText: BeamGlobals.copyToClipboard(!!model ? model.amountGeneral : "")
                             }
                         }
                     }
@@ -614,22 +586,30 @@ Item {
                                             if (model.isSelfTransaction) {
                                                 return "qrc:/assets/icon-sending-own.svg";
                                             }
-                                            return model.isIncome ? "qrc:/assets/icon-receiving.svg"
-                                                                 : "qrc:/assets/icon-sending.svg";
+                                            return model.isIncome
+                                                ? "qrc:/assets/icon-receiving.svg"
+                                                : "qrc:/assets/icon-sending.svg";
                                         }
                                         else if (model.isCompleted) {
                                             if (model.isSelfTransaction) {
                                                 return "qrc:/assets/icon-sent-own.svg";
                                             }
-                                            return model.isIncome ? "qrc:/assets/icon-received.svg"
-                                                                 : "qrc:/assets/icon-sent.svg";
+                                            return model.isIncome
+                                                ? "qrc:/assets/icon-received.svg"
+                                                : "qrc:/assets/icon-sent.svg";
                                         }
                                         else if (model.isExpired) {
-                                            return "qrc:/assets/icon-failed.svg" 
+                                            return "qrc:/assets/icon-expired.svg" 
+                                        }
+                                        else if (model.isFailed) {
+                                            return model.isIncome
+                                                ? "qrc:/assets/icon-receive-failed.svg"
+                                                : "qrc:/assets/icon-send-failed.svg";
                                         }
                                         else {
-                                            return model.isIncome ? "qrc:/assets/icon-receive-canceled.svg"
-                                                                 : "qrc:/assets/icon-send-canceled.svg";
+                                            return model.isIncome
+                                                ? "qrc:/assets/icon-receive-canceled.svg"
+                                                : "qrc:/assets/icon-send-canceled.svg";
                                         }
                                     }
                                 }
@@ -641,9 +621,8 @@ Item {
                                     wrapMode: Text.WordWrap
                                     text: getStatusText(styleData.value)
                                     verticalAlignment: Text.AlignBottom
-                                    color: getTextColor()
-                                    function getTextColor () {
-                                        if (!model) {
+                                    color: {
+                                        if (!model || model.isExpired) {
                                             return Style.content_secondary;
                                         }
                                         if (model.isInProgress || model.isCompleted) {
@@ -651,6 +630,8 @@ Item {
                                                 return Style.content_main;
                                             }
                                             return model.isIncome ? Style.accent_incoming : Style.accent_outgoing;
+                                        } else if (model.isFailed) {
+                                            return Style.accent_fail;
                                         }
                                         else {
                                             return Style.content_secondary;

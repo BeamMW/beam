@@ -40,10 +40,8 @@ namespace beam
         extern const char* PASS;
         extern const char* SET_SWAP_SETTINGS;
         extern const char* ACTIVE_CONNECTION;
-        extern const char* SWAP_CONNECTION;
         extern const char* SWAP_WALLET_PASS;
         extern const char* SWAP_WALLET_USER;
-        extern const char* ALTCOIN_SETTINGS_SET;
         extern const char* ALTCOIN_SETTINGS_RESET;
         extern const char* SHOW_SWAP_SETTINGS;
         extern const char* ELECTRUM_SEED;

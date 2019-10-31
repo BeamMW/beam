@@ -43,7 +43,7 @@ namespace beam::wallet
 
             if (currentTime_s > currentBlockTime_s)
             {
-                LOG_INFO() << "It seems that node is not up to date";
+                LOG_INFO() << "It seems that last known blockchain tip is not up to date";
                 return false;
             }
             return true;
@@ -117,7 +117,7 @@ namespace beam::wallet
         REQUEST_TYPES_All(THE_MACRO)
 #undef THE_MACRO
 
-            m_MessageEndpoints.clear();
+        m_MessageEndpoints.clear();
         m_NodeEndpoint = nullptr;
     }
 
@@ -232,6 +232,14 @@ namespace beam::wallet
         {
             ResumeTransaction(tx);
         }
+    }
+
+    bool Wallet::IsWalletInSync() const
+    {
+        Block::SystemState::Full state;
+        get_tip(state);
+
+        return IsValidTimeStamp(state.m_TimeStamp);
     }
 
     void Wallet::OnAsyncStarted()
@@ -381,8 +389,7 @@ namespace beam::wallet
     }
 
     // Implementation of the INegotiatorGateway::send_tx_params
-    // TODO: make SetTxParameter const reference
-    void Wallet::send_tx_params(const WalletID& peerID, SetTxParameter&& msg)
+    void Wallet::send_tx_params(const WalletID& peerID, const SetTxParameter& msg)
     {
         for (auto& endpoint : m_MessageEndpoints)
         {
@@ -1023,7 +1030,7 @@ namespace beam::wallet
 
     void Wallet::ProcessStoredMessages()
     {
-        if (m_MessageEndpoints.empty())
+        if (m_MessageEndpoints.empty() || m_StoredMessagesProcessed)
         {
             return;
         }
@@ -1036,6 +1043,7 @@ namespace beam::wallet
             }
             m_WalletDB->deleteWalletMessage(message.m_ID);
         }
+        m_StoredMessagesProcessed = true;
     }
 
     bool Wallet::IsNodeInSync() const

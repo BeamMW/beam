@@ -1400,7 +1400,7 @@ namespace
                 .SetParameter(TxParameterID::PeerID, receiver.m_WalletID)
                 .SetParameter(TxParameterID::Amount, Amount(4))
                 .SetParameter(TxParameterID::Fee, Amount(1))
-                .SetParameter(TxParameterID::Lifetime, Height(30))
+                .SetParameter(TxParameterID::Lifetime, Height(50))
                 .SetParameter(TxParameterID::PeerResponseTime, Height(100)));
         }
         

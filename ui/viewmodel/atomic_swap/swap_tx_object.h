@@ -23,8 +23,10 @@ public:
     SwapTxObject(QObject* parent = nullptr);
     SwapTxObject(const beam::wallet::TxDescription& tx, QObject* parent = nullptr);
 
-    auto getSentAmount() const -> QString;
+    auto getSentAmountWithCurrency() const -> QString;
+    auto getSentAmount() const-> QString;
     auto getSentAmountValue() const -> beam::Amount;
+    auto getReceivedAmountWithCurrency() const-> QString;
     auto getReceivedAmount() const -> QString;
     auto getReceivedAmountValue() const -> beam::Amount;
     auto getToken() const -> QString;
@@ -39,15 +41,27 @@ public:
     auto getBeamRefundTxKernelId() const -> QString;
     auto getSwapCoinName() const -> QString;
     auto getFeeRate() const -> QString;
+    auto getStatus() const -> QString override;
+    auto getFailureReason() const -> QString override;
 
-    bool isProofReceived() const;
+    bool isLockTxProofReceived() const;
+    bool isRefundTxProofReceived() const;
     bool isBeamSideSwap() const;
+    
+    bool isCancelAvailable() const override;
+    bool isDeleteAvailable() const override;
+    bool isInProgress() const override;
+    bool isPending() const override;
+    bool isExpired() const override;
+    bool isCompleted() const override;
+    bool isCanceled() const override;
+    bool isFailed() const override;
 
 signals:
 
 private:
     auto getSwapAmountValue(bool sent) const -> beam::Amount;
-    auto getSwapAmount(bool sent) const -> QString;
+    auto getSwapAmountWithCurrency(bool sent) const -> QString;
 
     boost::optional<bool> m_isBeamSide;
     boost::optional<beam::wallet::AtomicSwapCoin> m_swapCoin;

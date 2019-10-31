@@ -14,6 +14,7 @@
 
 #include "swap_tx_object.h"
 #include "wallet/swaps/common.h"
+#include "wallet/swaps/swap_transaction.h"
 #include "viewmodel/qml_globals.h"
 
 using namespace beam;
@@ -42,6 +43,69 @@ auto SwapTxObject::isBeamSideSwap() const -> bool
     else return false;
 }
 
+QString SwapTxObject::getStatus() const
+{
+    return isExpired() ? "expired" : TxObject::getStatus();
+}
+
+bool SwapTxObject::isExpired() const
+{
+    auto failureReason = m_tx.GetParameter<TxFailureReason>(
+        TxParameterID::InternalFailureReason);
+    return failureReason &&
+           failureReason.value() == TxFailureReason::TransactionExpired;
+}
+
+bool SwapTxObject::isInProgress() const
+{
+    if (isExpired())
+    {
+        return false;
+    }
+    else
+    {
+        switch (m_tx.m_status)
+        {
+            case TxStatus::Pending:
+            case TxStatus::InProgress:
+            case TxStatus::Registering:
+                return true;
+            default:
+                return false;
+        }
+    }
+}
+
+bool SwapTxObject::isPending() const
+{
+    return m_tx.m_status == TxStatus::Pending && !isExpired();
+}
+
+bool SwapTxObject::isCompleted() const
+{
+    return m_tx.m_status == TxStatus::Completed;
+}
+
+bool SwapTxObject::isCanceled() const
+{
+    return m_tx.m_status == TxStatus::Canceled;
+}
+
+bool SwapTxObject::isFailed() const
+{
+    return m_tx.m_status == TxStatus::Failed;
+}
+
+bool SwapTxObject::isCancelAvailable() const
+{
+    return isInProgress() || isPending();
+}
+
+bool SwapTxObject::isDeleteAvailable() const
+{
+    return isExpired() || isFailed() || isCompleted() || isCanceled();
+}
+
 auto SwapTxObject::getSwapCoinName() const -> QString
 {
     if (m_swapCoin)
@@ -57,13 +121,19 @@ auto SwapTxObject::getSwapCoinName() const -> QString
     return QString("unknown");
 }
 
-QString SwapTxObject::getSentAmount() const
+QString SwapTxObject::getSentAmountWithCurrency() const
 {
     if (m_type == TxType::AtomicSwap)
     {
-        return getSwapAmount(true);
+        return getSwapAmountWithCurrency(true);
     }
-    return m_tx.m_sender ? getAmount() : "";
+    return m_tx.m_sender ? getAmountWithCurrency() : "";
+}
+
+QString SwapTxObject::getSentAmount() const
+{
+    QString amount = beamui::AmountToUIString(getSentAmountValue());
+    return amount == "0" ? "" : amount;
 }
 
 beam::Amount SwapTxObject::getSentAmountValue() const
@@ -76,13 +146,19 @@ beam::Amount SwapTxObject::getSentAmountValue() const
     return m_tx.m_sender ? m_tx.m_amount : 0;
 }
 
-QString SwapTxObject::getReceivedAmount() const
+QString SwapTxObject::getReceivedAmountWithCurrency() const
 {
     if (m_type == TxType::AtomicSwap)
     {
-        return getSwapAmount(false);
+        return getSwapAmountWithCurrency(false);
     }
-    return !m_tx.m_sender ? getAmount() : "";
+    return !m_tx.m_sender ? getAmountWithCurrency() : "";
+}
+
+QString SwapTxObject::getReceivedAmount() const
+{
+    QString amount = beamui::AmountToUIString(getReceivedAmountValue());
+    return amount == "0" ? "" : amount;
 }
 
 beam::Amount SwapTxObject::getReceivedAmountValue() const
@@ -95,7 +171,7 @@ beam::Amount SwapTxObject::getReceivedAmountValue() const
     return !m_tx.m_sender ? m_tx.m_amount : 0;
 }
 
-QString SwapTxObject::getSwapAmount(bool sent) const
+QString SwapTxObject::getSwapAmountWithCurrency(bool sent) const
 {
     if (!m_isBeamSide)
     {
@@ -108,11 +184,11 @@ QString SwapTxObject::getSwapAmount(bool sent) const
         auto swapAmount = m_tx.GetParameter<Amount>(TxParameterID::AtomicSwapAmount);
         if (swapAmount)
         {
-            return AmountToString(*swapAmount, beamui::convertSwapCoinToCurrency(*m_swapCoin));
+            return AmountToUIString(*swapAmount, beamui::convertSwapCoinToCurrency(*m_swapCoin));
         }
         return "";
     }
-    return getAmount();
+    return getAmountWithCurrency();
 }
 
 beam::Amount SwapTxObject::getSwapAmountValue(bool sent) const
@@ -141,7 +217,7 @@ QString SwapTxObject::getFeeRate() const
 
     if (feeRate && m_swapCoin)
     {
-        QString value = AmountToString(*feeRate, beamui::Currencies::Unknown);
+        QString value = QString::number(*feeRate);
 
         QString rateMeasure;
         switch (*m_swapCoin)
@@ -162,6 +238,36 @@ QString SwapTxObject::getFeeRate() const
             break;
         }
         return value + " " + rateMeasure;
+    }
+    return QString();
+}
+
+QString SwapTxObject::getFailureReason() const
+{
+    if (getTxDescription().m_status == TxStatus::Failed && getTxDescription().m_txType == beam::wallet::TxType::AtomicSwap)
+    {
+        auto failureReason = getTxDescription().GetParameter<TxFailureReason>(TxParameterID::InternalFailureReason);
+        if (!failureReason)
+        {
+            auto txState = getTxDescription().GetParameter<wallet::AtomicSwapTransaction::State>(TxParameterID::State);
+            if (txState && *txState == wallet::AtomicSwapTransaction::State::Refunded)
+            {
+                //% "Refunded"
+                return qtTrId("swap-tx-failture-refunded");
+            }
+            else
+            {
+                auto extFailureReason = getTxDescription().GetParameter<TxFailureReason>(TxParameterID::FailureReason);
+                if (extFailureReason)
+                {
+                    return getReasonString(*extFailureReason);
+                }
+            }
+        }
+        else
+        {
+            return getReasonString(*failureReason);
+        }
     }
     return QString();
 }
@@ -257,10 +363,20 @@ QString SwapTxObject::getToken() const
     return QString::fromStdString(std::to_string(tokenParams));
 }
 
-bool SwapTxObject::isProofReceived() const
+bool SwapTxObject::isLockTxProofReceived() const
 {
     Height proofHeight;
     if (m_tx.GetParameter(TxParameterID::KernelProofHeight, proofHeight, SubTxIndex::BEAM_LOCK_TX))
+    {
+        return true;
+    }
+    else return false;
+}
+
+bool SwapTxObject::isRefundTxProofReceived() const
+{
+    Height proofHeight;
+    if (m_tx.GetParameter(TxParameterID::KernelProofHeight, proofHeight, SubTxIndex::BEAM_REFUND_TX))
     {
         return true;
     }

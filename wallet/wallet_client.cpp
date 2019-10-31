@@ -81,6 +81,11 @@ struct WalletModelBridge : public Bridge<IWalletModelAsync>
         call_async(&IWalletModelAsync::getWalletStatus);
     }
 
+    void getTransactions() override
+    {
+        call_async(&IWalletModelAsync::getTransactions);
+    }
+
     void getUtxosStatus() override
     {
         call_async(&IWalletModelAsync::getUtxosStatus);
@@ -237,9 +242,6 @@ namespace beam::wallet
 					io::Reactor::GracefulIntHandler gih(*m_reactor);
 
 					std::unique_ptr<WalletSubscriber> wallet_subscriber;
-
-                    onStatus(getStatus());
-                    onTxStatus(ChangeAction::Reset, m_walletDB->getTxHistory());
 
                     static const unsigned LOG_ROTATION_PERIOD_SEC = 3 * 3600; // 3 hours
                     static const unsigned LOG_CLEANUP_PERIOD_SEC = 120 * 3600; // 5 days
@@ -414,14 +416,11 @@ namespace beam::wallet
     void WalletClient::onCoinsChanged()
     {
         onAllUtxoChanged(getUtxos());
-        // TODO may be it needs to delete
-        onStatus(getStatus());
     }
 
     void WalletClient::onTransactionChanged(ChangeAction action, const std::vector<TxDescription>& items)
     {
         onTxStatus(action, items);
-        onStatus(getStatus());
     }
 
     void WalletClient::onSystemStateChanged(const Block::SystemState::ID& stateID)
@@ -592,14 +591,15 @@ namespace beam::wallet
     void WalletClient::getWalletStatus()
     {
         onStatus(getStatus());
+    }
+
+    void WalletClient::getTransactions()
+    {
         onTxStatus(ChangeAction::Reset, m_walletDB->getTxHistory(wallet::TxType::ALL));
-        onAddresses(false, m_walletDB->getAddresses(false));
-        onAddresses(true, m_walletDB->getAddresses(true));
     }
 
     void WalletClient::getUtxosStatus()
     {
-        onStatus(getStatus());
         onAllUtxoChanged(getUtxos());
     }
 

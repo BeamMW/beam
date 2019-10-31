@@ -26,30 +26,31 @@ public:
     TxObject(QObject* parent = nullptr);
     TxObject(const beam::wallet::TxDescription& tx, QObject* parent = nullptr);
 
-    auto timeCreated() const -> QDateTime;
+    auto timeCreated() const -> beam::Timestamp;
     auto getTxID() const -> beam::wallet::TxID;
+    auto getAmountWithCurrency() const->QString;
     auto getAmount() const -> QString;
-    auto getAmountValue() const -> QString;
-    auto getStatus() const -> QString;
+    auto getAmountValue() const -> beam::Amount;
     auto getComment() const -> QString;
     auto getAddressFrom() const -> QString;
     auto getAddressTo() const -> QString;
     auto getFee() const -> QString;
     auto getKernelID() const -> QString;
     auto getTransactionID() const -> QString;
-    auto getFailureReason() const -> QString;
     auto hasPaymentProof() const -> bool;
+    virtual auto getStatus() const -> QString;
+    virtual auto getFailureReason() const -> QString;
 
     bool isIncome() const;
-    bool isCancelAvailable() const;
-    bool isDeleteAvailable() const;
-    bool isInProgress() const;
-    bool isPending() const;
-    bool isCompleted() const;
     bool isSelfTx() const;
-    bool isCanceled() const;
-    bool isFailed() const;
-    bool isExpired() const;
+    virtual bool isCancelAvailable() const;
+    virtual bool isDeleteAvailable() const;
+    virtual bool isInProgress() const;
+    virtual bool isPending() const;
+    virtual bool isExpired() const;
+    virtual bool isCompleted() const;
+    virtual bool isCanceled() const;
+    virtual bool isFailed() const;
 
     void setKernelID(const QString& value);
     void setStatus(beam::wallet::TxStatus status);
@@ -63,6 +64,7 @@ signals:
 
 protected:
     auto getTxDescription() const -> const beam::wallet::TxDescription&;
+    auto getReasonString(beam::wallet::TxFailureReason reason) const -> QString;
  
     beam::wallet::TxDescription m_tx;
     QString m_kernelID;

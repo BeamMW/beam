@@ -1340,6 +1340,13 @@ namespace beam::wallet
         , m_PrivateDB(sdb)
         , m_Reactor(reactor)
         , m_IsFlushPending(false)
+        , m_mandatoryTxParams{
+            TxParameterID::Amount,
+            TxParameterID::Fee,
+            //   TxParameterID::PeerID,
+            TxParameterID::MyID,
+            TxParameterID::CreateTime,
+            TxParameterID::IsSender }
     {
 
     }
@@ -1967,14 +1974,6 @@ namespace beam::wallet
         stm.bind(1, txId);
 
         TxDescription txDescription(txId);
-
-        const std::set<TxParameterID> mandatoryParams{ 
-            TxParameterID::Amount,
-            TxParameterID::Fee,
-         //   TxParameterID::PeerID,
-            TxParameterID::MyID, 
-            TxParameterID::CreateTime,
-            TxParameterID::IsSender };
         std::set<TxParameterID> gottenParams;
 
         while (stm.step())
@@ -2044,7 +2043,7 @@ namespace beam::wallet
 
         }
 
-        if (std::includes(gottenParams.begin(), gottenParams.end(), mandatoryParams.begin(), mandatoryParams.end()))
+        if (std::includes(gottenParams.begin(), gottenParams.end(), m_mandatoryTxParams.begin(), m_mandatoryTxParams.end()))
         {
             return txDescription;
         }
@@ -2255,7 +2254,7 @@ namespace beam::wallet
             }
         }
 
-        bool hasTx = getTx(txID).is_initialized();
+        bool hasTx = hasTransaction(txID);
         {
             sqlite::Statement stm(this, "SELECT * FROM " TX_PARAMS_NAME " WHERE txID=?1 AND subTxID=?2 AND paramID=?3;");
 
@@ -2375,6 +2374,19 @@ namespace beam::wallet
     void WalletDB::deleteParametersFromCache(const TxID& txID)
     {
         m_TxParametersCache.erase(txID);
+    }
+
+    bool WalletDB::hasTransaction(const TxID& txID) const
+    {
+        ByteBuffer blob;
+        for (const auto& paramID : m_mandatoryTxParams)
+        {
+            if (!getTxParameter(txID, kDefaultSubTxID, paramID, blob))
+            {
+                return false;
+            }
+        }
+        return true;
     }
 
     void WalletDB::flushDB()
@@ -2922,44 +2934,72 @@ namespace beam::wallet
 
         namespace
         {
-            const string OwnAddressesName = "OwnAddresses";
-            const string TransactionParametersName = "TransactionParameters";
-
-            bool ImportAddressesFromJson(IWalletDB& db, IPrivateKeyKeeper::Ptr keyKeeper, const json& obj)
+            namespace Fields
             {
-                if (obj.find(OwnAddressesName) == obj.end())
+                const string OwnAddresses = "OwnAddresses";
+                const string Contacts = "Contacts";
+                const string TransactionParameters = "TransactionParameters";
+                const string Category = "Category";
+                const string WalletID = "WalletID";
+                const string Index = "Index";
+                const string Label = "Label";
+                const string CreationTime = "CreationTime";
+                const string Duration = "Duration";
+                const string TransactionId = "TransactionId";
+                const string SubTransactionId = "SubTransactionId";
+                const string ParameterId = "ParameterId";
+                const string Value = "Value";
+            }
+            
+            bool ImportAddressesFromJson(IWalletDB& db, IPrivateKeyKeeper::Ptr keyKeeper, const json& obj, const string& nodeName)
+            {
+                if (obj.find(nodeName) == obj.end())
                 {
                     return true;
                 }
 
                 vector<WalletAddress> addresses;
-                for (const auto& jsonAddress : obj["OwnAddresses"])
+                for (const auto& jsonAddress : obj[nodeName])
                 {
                     WalletAddress address;
-                    if (address.m_walletID.FromHex(jsonAddress["WalletID"]))
+                    if (address.m_walletID.FromHex(jsonAddress[Fields::WalletID]))
                     {
-                        address.m_OwnID = jsonAddress["Index"];
-                        if (address.m_walletID == generateWalletIDFromIndex(keyKeeper, address.m_OwnID))
+                        address.m_OwnID = jsonAddress[Fields::Index];
+                        if (address.m_OwnID == 0 || address.m_walletID == generateWalletIDFromIndex(keyKeeper, address.m_OwnID))
                         {
                             //{ "SubIndex", 0 },
-                            address.m_label = jsonAddress["Label"];
-                            address.m_createTime = jsonAddress["CreationTime"];
-                            address.m_duration = jsonAddress["Duration"];
+                            address.m_label = jsonAddress[Fields::Label];
+                            address.m_createTime = jsonAddress[Fields::CreationTime];
+                            address.m_duration = jsonAddress[Fields::Duration];
+                            if (jsonAddress.find(Fields::Category) != jsonAddress.end()) // for compatibility with older export
+                            {
+                                address.m_category = jsonAddress[Fields::Category];
+                            }
                             db.saveAddress(address);
 
-                            LOG_INFO() << "The address [" << jsonAddress["WalletID"] << "] has been successfully imported.";
+                            LOG_INFO() << "The address [" << jsonAddress[Fields::WalletID] << "] has been successfully imported.";
                             continue;
                         }
                     }
 
-                    LOG_INFO() << "The address [" << jsonAddress["WalletID"] << "] has NOT been imported. Wrong address.";
+                    LOG_INFO() << "The address [" << jsonAddress[Fields::WalletID] << "] has NOT been imported. Wrong address.";
                 }
                 return true;
             }
 
+            bool ImportAddressesFromJson(IWalletDB& db, IPrivateKeyKeeper::Ptr keyKeeper, const json& obj)
+            {
+                return ImportAddressesFromJson(db, keyKeeper, obj, Fields::OwnAddresses);
+            }
+
+            bool ImportContactsFromJson(IWalletDB& db, IPrivateKeyKeeper::Ptr keyKeeper, const json& obj)
+            {
+                return ImportAddressesFromJson(db, keyKeeper, obj, Fields::Contacts);
+            }
+
             bool ImportTransactionsFromJson(IWalletDB& db, IPrivateKeyKeeper::Ptr keyKeeper, const json& obj)
             {
-                if (obj.find(TransactionParametersName) == obj.end())
+                if (obj.find(Fields::TransactionParameters) == obj.end())
                 {
                     return true;
                 }
@@ -2970,13 +3010,13 @@ namespace beam::wallet
                     TxParameterID,
                     TxParameter>
                 > importedTransactionsMap;
-                for (const auto& jsonTxParameter : obj["TransactionParameters"])
+                for (const auto& jsonTxParameter : obj[Fields::TransactionParameters])
                 {
                     TxParameter txParameter;
-                    txParameter.m_txID = jsonTxParameter["TransactionId"];
-                    txParameter.m_subTxID = jsonTxParameter["SubTransactionId"];
-                    txParameter.m_paramID = jsonTxParameter["ParameterId"];
-                    for (const auto& v : jsonTxParameter["Value"])
+                    txParameter.m_txID = jsonTxParameter[Fields::TransactionId];
+                    txParameter.m_subTxID = jsonTxParameter[Fields::SubTransactionId];
+                    txParameter.m_paramID = jsonTxParameter[Fields::ParameterId];
+                    for (const auto& v : jsonTxParameter[Fields::Value])
                     {
                         txParameter.m_value.push_back(v);
                     }
@@ -3033,24 +3073,25 @@ namespace beam::wallet
                 return true;
             }
 
-            json ExportAddressesToJson(const IWalletDB& db)
+            json ExportAddressesToJson(const IWalletDB& db, bool own)
             {
-                json ownAddresses = json::array();
-                for (const auto& address : db.getAddresses(true))
+                json addresses = json::array();
+                for (const auto& address : db.getAddresses(own))
                 {
-                    ownAddresses.push_back(
+                    addresses.push_back(
                         json
                         {
-                            {"Index", address.m_OwnID},
+                            {Fields::Index, address.m_OwnID},
                             {"SubIndex", 0},
-                            {"WalletID", to_string(address.m_walletID)},
-                            {"Label", address.m_label},
-                            {"CreationTime", address.m_createTime},
-                            {"Duration", address.m_duration}
+                            {Fields::WalletID, to_string(address.m_walletID)},
+                            {Fields::Label, address.m_label},
+                            {Fields::CreationTime, address.m_createTime},
+                            {Fields::Duration, address.m_duration},
+                            {Fields::Category, address.m_category}
                         }
                     );
                 }
-                return ownAddresses;
+                return addresses;
             }
 
 
@@ -3062,10 +3103,10 @@ namespace beam::wallet
                     txParams.push_back(
                         json
                         {
-                            {"TransactionId", p.m_txID},
-                            {"SubTransactionId", p.m_subTxID},
-                            {"ParameterId", p.m_paramID},
-                            {"Value", p.m_value}
+                            {Fields::TransactionId, p.m_txID},
+                            {Fields::SubTransactionId, p.m_subTxID},
+                            {Fields::ParameterId, p.m_paramID},
+                            {Fields::Value, p.m_value}
                         }
                     );
                 }
@@ -3077,8 +3118,9 @@ namespace beam::wallet
         {
             auto res = json
             {
-                {OwnAddressesName, ExportAddressesToJson(db)},
-                {TransactionParametersName, ExportTransactionsToJson(db)}
+                {Fields::OwnAddresses, ExportAddressesToJson(db, true)},
+                {Fields::Contacts, ExportAddressesToJson(db, false)},
+                {Fields::TransactionParameters, ExportTransactionsToJson(db)}
             };
             return res.dump();
         }
@@ -3088,7 +3130,9 @@ namespace beam::wallet
             try
             {
                 json obj = json::parse(data, data + size);
-                return ImportAddressesFromJson(db, keyKeeper, obj) && ImportTransactionsFromJson(db, keyKeeper, obj);
+                return ImportAddressesFromJson(db, keyKeeper, obj) 
+                    && ImportContactsFromJson(db, keyKeeper, obj)
+                    && ImportTransactionsFromJson(db, keyKeeper, obj);
             }
             catch (const nlohmann::detail::exception& e)
             {
