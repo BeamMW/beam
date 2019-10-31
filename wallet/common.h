@@ -383,7 +383,7 @@ namespace beam::wallet
         PackedTxParameters m_Parameters;
     };    
 
-    enum class AtomicSwapCoin : uint8_t
+    enum class AtomicSwapCoin : int32_t // explicit signed type for serialization backward compatibility
     {
         Bitcoin,
         Litecoin,
