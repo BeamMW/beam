@@ -104,3 +104,5 @@ if (NOT ANDROID)
         )
     endif()
 endif()
+
+add_subdirectory(service)
