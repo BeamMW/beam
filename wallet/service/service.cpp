@@ -953,13 +953,13 @@ namespace
     public:
         //WalletApiServer(IWalletDB::Ptr walletDB, Wallet& wallet, IWalletMessageEndpoint& wnet, io::Reactor& reactor, 
         //    io::Address listenTo, const TlsOptions& tlsOptions)
-        WalletApiServer(io::Reactor& reactor, io::Address listenTo, const TlsOptions& tlsOptions)
+        WalletApiServer(io::Reactor& reactor)//, io::Address listenTo, const TlsOptions& tlsOptions)
             //WalletApi::ACL acl,
             //, const std::vector<uint32_t>& whitelist
             : _reactor(reactor)
-            , _bindAddress(listenTo)
+            //, _bindAddress(listenTo)
             //, _useHttp(useHttp)
-            , _tlsOptions(tlsOptions)
+            //, _tlsOptions(tlsOptions)
             //, _walletDB(walletDB)
             //, _wallet(wallet)
             //, _wnet(wnet)
@@ -1777,6 +1777,104 @@ namespace
         // WalletApi::ACL _acl;
         // std::vector<uint32_t> _whitelist;
     };
+
+    class WalletService
+    {
+    public:
+        void start()
+        {
+            _thread = std::make_shared<std::thread>([]()
+            {
+                //io::Address listenTo = io::Address().port(options.port);
+                io::Reactor::Ptr reactor = io::Reactor::create();
+                io::Reactor::Scope scope(*reactor);
+                io::Reactor::GracefulIntHandler gih(*reactor);
+
+                LogRotation logRotation(*reactor, LOG_ROTATION_PERIOD, 5);//options.logCleanupPeriod);
+
+                {
+                //      auto keyKeeper = std::make_shared<LocalPrivateKeyKeeper>(walletDB, walletDB->get_MasterKdf());
+                //      Wallet wallet{ walletDB, keyKeeper };
+
+                //      wallet.ResumeAllTransactions();
+
+                //      auto nnet = std::make_shared<proto::FlyClient::NetworkStd>(wallet);
+                //      nnet->m_Cfg.m_PollPeriod_ms = options.pollPeriod_ms.value;
+                //  
+                //      if (nnet->m_Cfg.m_PollPeriod_ms)
+                //      {
+                //          LOG_INFO() << "Node poll period = " << nnet->m_Cfg.m_PollPeriod_ms << " ms";
+                //          uint32_t timeout_ms = std::max(Rules::get().DA.Target_s * 1000, nnet->m_Cfg.m_PollPeriod_ms);
+                //          if (timeout_ms != nnet->m_Cfg.m_PollPeriod_ms)
+                //          {
+                //              LOG_INFO() << "Node poll period has been automatically rounded up to block rate: " << timeout_ms << " ms";
+                //          }
+                //      }
+                //      uint32_t responceTime_s = Rules::get().DA.Target_s * wallet::kDefaultTxResponseTime;
+                //      if (nnet->m_Cfg.m_PollPeriod_ms >= responceTime_s * 1000)
+                //      {
+                //          LOG_WARNING() << "The \"--node_poll_period\" parameter set to more than " << uint32_t(responceTime_s / 3600) << " hours may cause transaction problems.";
+                //      }
+                //      nnet->m_Cfg.m_vNodes.push_back(node_addr);
+                //      nnet->Connect();
+
+                //      auto wnet = std::make_shared<WalletNetworkViaBbs>(wallet, nnet, walletDB, keyKeeper);
+                        //wallet.AddMessageEndpoint(wnet);
+                //      wallet.SetNodeEndpoint(nnet);
+
+                        // WalletApiServer server(walletDB, wallet, *wnet, *reactor, 
+                        //     listenTo, true, tlsOptions);
+
+                }
+
+                WalletApiServer server(*reactor);//, listenTo, tlsOptions);
+
+                io::Reactor::get_Current().run();
+
+                LOG_INFO() << "Done";
+            });
+        }
+
+        void handle(tcp::socket&& socket)
+        {
+            // !TODO: do it in wallet thread
+
+            try
+            {
+                // Construct the stream by moving in the socket
+                websocket::stream<tcp::socket> ws{std::move(socket)};
+
+                // Accept the websocket handshake
+                ws.accept();
+
+                for(;;)
+                {
+                    // This buffer will hold the incoming message
+                    boost::beast::multi_buffer buffer;
+
+                    // Read a message
+                    ws.read(buffer);
+
+                    // Echo the message back
+                    ws.text(ws.got_text());
+                    ws.write(buffer.data());
+                }
+            }
+            catch(boost::system::system_error const& se)
+            {
+                // This indicates that the session was closed
+                if(se.code() != websocket::error::closed)
+                    std::cerr << "Error: " << se.code().message() << std::endl;
+            }
+            catch(std::exception const& e)
+            {
+                std::cerr << "Error: " << e.what() << std::endl;
+            }
+        }
+    private:
+
+        std::shared_ptr<std::thread> _thread;
+    };
 }
 
 int main(int argc, char* argv[])
@@ -1809,7 +1907,6 @@ int main(int argc, char* argv[])
 
         io::Address node_addr;
         //IWalletDB::Ptr walletDB;
-        io::Reactor::Ptr reactor = io::Reactor::create();
         //WalletApi::ACL acl;
         //std::vector<uint32_t> whitelist;
 
@@ -1953,51 +2050,29 @@ int main(int argc, char* argv[])
             //LOG_INFO() << "wallet sucessfully opened...";
         }
 
-        io::Address listenTo = io::Address().port(options.port);
-        io::Reactor::Scope scope(*reactor);
-        io::Reactor::GracefulIntHandler gih(*reactor);
+        WalletService service;
+        service.start();
 
-        LogRotation logRotation(*reactor, LOG_ROTATION_PERIOD, options.logCleanupPeriod);
+        {
+            auto const address = boost::asio::ip::make_address("0.0.0.0");
 
-      //  {
-      //      auto keyKeeper = std::make_shared<LocalPrivateKeyKeeper>(walletDB, walletDB->get_MasterKdf());
-      //      Wallet wallet{ walletDB, keyKeeper };
+            // The io_context is required for all I/O
+            boost::asio::io_context ioc{1};
 
-      //      wallet.ResumeAllTransactions();
+            // The acceptor receives incoming connections
+            tcp::acceptor acceptor{ioc, {address, options.port}};
+            for(;;)
+            {
+                // This will receive the new connection
+                tcp::socket socket{ioc};
 
-      //      auto nnet = std::make_shared<proto::FlyClient::NetworkStd>(wallet);
-      //      nnet->m_Cfg.m_PollPeriod_ms = options.pollPeriod_ms.value;
-      //  
-      //      if (nnet->m_Cfg.m_PollPeriod_ms)
-      //      {
-      //          LOG_INFO() << "Node poll period = " << nnet->m_Cfg.m_PollPeriod_ms << " ms";
-      //          uint32_t timeout_ms = std::max(Rules::get().DA.Target_s * 1000, nnet->m_Cfg.m_PollPeriod_ms);
-      //          if (timeout_ms != nnet->m_Cfg.m_PollPeriod_ms)
-      //          {
-      //              LOG_INFO() << "Node poll period has been automatically rounded up to block rate: " << timeout_ms << " ms";
-      //          }
-      //      }
-      //      uint32_t responceTime_s = Rules::get().DA.Target_s * wallet::kDefaultTxResponseTime;
-      //      if (nnet->m_Cfg.m_PollPeriod_ms >= responceTime_s * 1000)
-      //      {
-      //          LOG_WARNING() << "The \"--node_poll_period\" parameter set to more than " << uint32_t(responceTime_s / 3600) << " hours may cause transaction problems.";
-      //      }
-      //      nnet->m_Cfg.m_vNodes.push_back(node_addr);
-      //      nnet->Connect();
+                // Block until we get a connection
+                acceptor.accept(socket);
 
-      //      auto wnet = std::make_shared<WalletNetworkViaBbs>(wallet, nnet, walletDB, keyKeeper);
-		    //wallet.AddMessageEndpoint(wnet);
-      //      wallet.SetNodeEndpoint(nnet);
-
-            // WalletApiServer server(walletDB, wallet, *wnet, *reactor, 
-            //     listenTo, true, tlsOptions);
-
-            WalletApiServer server(*reactor, listenTo, tlsOptions);
-      //  }
-
-        io::Reactor::get_Current().run();
-
-        LOG_INFO() << "Done";
+                // !TODO: move this data to the wallet thread via bridge
+                service.handle(std::move(socket));
+            }
+        }        
     }
     catch (const std::exception& e)
     {
