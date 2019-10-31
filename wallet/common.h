@@ -383,7 +383,7 @@ namespace beam::wallet
         PackedTxParameters m_Parameters;
     };    
 
-    enum class AtomicSwapCoin
+    enum class AtomicSwapCoin : uint8_t
     {
         Bitcoin,
         Litecoin,
