@@ -270,6 +270,7 @@ Item {
                     gradRight: Style.swapCurrencyPaneGrLeftOther
                     //% "Connect other currency wallet to start trading"
                     amount: qsTrId("atomic-swap-connect-other")
+                    amountWrapMode: Text.Wrap
                     textSize: 14
                     rectOpacity: 1.0
                     textColor: Style.active
