@@ -143,6 +143,8 @@ namespace beam::wallet
         auto height = m_blockCount;
         assert(height);
 
+        LOG_DEBUG() << "InitLockTime height = " << height;
+
         auto externalLockPeriod = height + GetLockTimeInBlocks();
         m_tx.SetParameter(TxParameterID::AtomicSwapExternalLockTime, externalLockPeriod);
 
@@ -156,6 +158,8 @@ namespace beam::wallet
         auto height = m_blockCount;
         assert(height);
         auto externalLockTime = m_tx.GetMandatoryParameter<Height>(TxParameterID::AtomicSwapExternalLockTime);
+
+        LOG_DEBUG() << "ValidateLockTime height = " << height << " external = " << externalLockTime;
 
         if (externalLockTime <= height)
         {
