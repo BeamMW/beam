@@ -1444,10 +1444,13 @@ namespace
             // btcSettingsProvider stored in bitcoinBridgeCreator
             auto bitcoinBridgeCreator = [settingsProvider = btcSettingsProvider]() -> bitcoin::IBridge::Ptr
             {
-                if (settingsProvider->GetElectrumSettings().IsInitialized())
+                if (settingsProvider->GetSettings().IsElectrumActivated())
                     return std::make_shared<bitcoin::Electrum>(io::Reactor::get_Current(), *settingsProvider);
 
-                return std::make_shared<bitcoin::BitcoinCore017>(io::Reactor::get_Current(), *settingsProvider);
+                if (settingsProvider->GetSettings().IsCoreActivated())
+                    return std::make_shared<bitcoin::BitcoinCore017>(io::Reactor::get_Current(), *settingsProvider);
+
+                return bitcoin::IBridge::Ptr();
             };
 
             auto btcSecondSideFactory = wallet::MakeSecondSideFactory<BitcoinSide, bitcoin::Electrum, bitcoin::ISettingsProvider>(bitcoinBridgeCreator, *btcSettingsProvider);
@@ -1461,10 +1464,13 @@ namespace
             // ltcSettingsProvider stored in litecoinBridgeCreator
             auto litecoinBridgeCreator = [settingsProvider = ltcSettingsProvider]() -> bitcoin::IBridge::Ptr
             {
-                if (settingsProvider->GetElectrumSettings().IsInitialized())
+                if (settingsProvider->GetSettings().IsElectrumActivated())
                     return std::make_shared<litecoin::Electrum>(io::Reactor::get_Current(), *settingsProvider);
 
-                return std::make_shared<litecoin::LitecoinCore017>(io::Reactor::get_Current(), *settingsProvider);
+                if (settingsProvider->GetSettings().IsCoreActivated())
+                    return std::make_shared<litecoin::LitecoinCore017>(io::Reactor::get_Current(), *settingsProvider);
+
+                return bitcoin::IBridge::Ptr();
             };
 
             auto ltcSecondSideFactory = wallet::MakeSecondSideFactory<LitecoinSide, litecoin::Electrum, litecoin::ISettingsProvider>(litecoinBridgeCreator, *ltcSettingsProvider);
@@ -1478,10 +1484,13 @@ namespace
             // qtumSettingsProvider stored in qtumBridgeCreator
             auto qtumBridgeCreator = [settingsProvider = qtumSettingsProvider]() -> bitcoin::IBridge::Ptr
             {
-                if (settingsProvider->GetElectrumSettings().IsInitialized())
+                if (settingsProvider->GetSettings().IsElectrumActivated())
                     return std::make_shared<qtum::Electrum>(io::Reactor::get_Current(), *settingsProvider);
 
-                return std::make_shared<qtum::QtumCore017>(io::Reactor::get_Current(), *settingsProvider);
+                if (settingsProvider->GetSettings().IsCoreActivated())
+                    return std::make_shared<qtum::QtumCore017>(io::Reactor::get_Current(), *settingsProvider);
+
+                return bitcoin::IBridge::Ptr();
             };
 
             auto qtumSecondSideFactory = wallet::MakeSecondSideFactory<QtumSide, qtum::Electrum, qtum::ISettingsProvider>(qtumBridgeCreator, *qtumSettingsProvider);
