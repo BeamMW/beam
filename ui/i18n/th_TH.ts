@@ -239,8 +239,9 @@
         <translation>ส่งแล้ว</translation>
     </message>
     <message id="wallet-txs-status-cancelled">
-        <source>cancelled</source>
-        <translation>ยกเลิกแล้ว</translation>
+        <source>canceled</source>
+        <oldsource>cancelled</oldsource>
+        <translation type="unfinished">ยกเลิกแล้ว</translation>
     </message>
     <message id="wallet-txs-status-expired">
         <source>expired</source>

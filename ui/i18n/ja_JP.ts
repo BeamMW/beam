@@ -239,8 +239,9 @@
         <translation>送信済</translation>
     </message>
     <message id="wallet-txs-status-cancelled">
-        <source>cancelled</source>
-        <translation>キャンセル済</translation>
+        <source>canceled</source>
+        <oldsource>cancelled</oldsource>
+        <translation type="unfinished">キャンセル済</translation>
     </message>
     <message id="wallet-txs-status-expired">
         <source>expired</source>

@@ -45,40 +45,56 @@ auto SwapTxObject::isBeamSideSwap() const -> bool
 
 QString SwapTxObject::getStatus() const
 {
-    return isExpired() ? "expired" : TxObject::getStatus();
+    switch (m_tx.m_status)
+    {
+    case TxStatus::Pending:
+        return "pending";
+
+    case TxStatus::Registering:
+    case TxStatus::InProgress:
+        return "in progress";
+
+    case TxStatus::Completed:
+        return "completed";
+
+    case TxStatus::Canceled:
+        return "canceled";
+
+    case TxStatus::Failed:
+        {
+            auto failureReason = m_tx.GetParameter<TxFailureReason>(TxParameterID::InternalFailureReason);
+            if (failureReason && *failureReason == TxFailureReason::TransactionExpired)
+            {
+                return "expired";
+            }
+            return "failed";
+        }
+
+    default:
+        assert(false && "Unknown TX status!");
+        return "unknown";
+    }
 }
 
 bool SwapTxObject::isExpired() const
 {
-    auto failureReason = m_tx.GetParameter<TxFailureReason>(
-        TxParameterID::InternalFailureReason);
-    return failureReason &&
-           failureReason.value() == TxFailureReason::TransactionExpired;
+    auto failureReason = m_tx.GetParameter<TxFailureReason>(TxParameterID::InternalFailureReason);
+
+    return  m_tx.m_status == TxStatus::Failed &&
+            failureReason &&
+            *failureReason == TxFailureReason::TransactionExpired;
 }
 
 bool SwapTxObject::isInProgress() const
 {
-    if (isExpired())
-    {
-        return false;
-    }
-    else
-    {
-        switch (m_tx.m_status)
-        {
-            case TxStatus::Pending:
-            case TxStatus::InProgress:
-            case TxStatus::Registering:
-                return true;
-            default:
-                return false;
-        }
-    }
+    return  m_tx.m_status == TxStatus::Pending ||
+            m_tx.m_status == TxStatus::Registering ||
+            m_tx.m_status == TxStatus::InProgress;
 }
 
 bool SwapTxObject::isPending() const
 {
-    return m_tx.m_status == TxStatus::Pending && !isExpired();
+    return m_tx.m_status == TxStatus::Pending;
 }
 
 bool SwapTxObject::isCompleted() const
@@ -93,17 +109,24 @@ bool SwapTxObject::isCanceled() const
 
 bool SwapTxObject::isFailed() const
 {
-    return m_tx.m_status == TxStatus::Failed;
+    auto failureReason = m_tx.GetParameter<TxFailureReason>(TxParameterID::InternalFailureReason);
+
+    return  m_tx.m_status == TxStatus::Failed && !failureReason;
 }
 
 bool SwapTxObject::isCancelAvailable() const
 {
-    return isInProgress() || isPending();
+    // todo
+    return  m_tx.m_status == TxStatus::Pending ||
+            m_tx.m_status == TxStatus::Registering ||
+            m_tx.m_status == TxStatus::InProgress;
 }
 
 bool SwapTxObject::isDeleteAvailable() const
 {
-    return isExpired() || isFailed() || isCompleted() || isCanceled();
+    return  m_tx.m_status == TxStatus::Completed ||
+            m_tx.m_status == TxStatus::Canceled ||
+            m_tx.m_status == TxStatus::Failed;
 }
 
 auto SwapTxObject::getSwapCoinName() const -> QString

@@ -239,8 +239,9 @@
         <translation>lähetetty</translation>
     </message>
     <message id="wallet-txs-status-cancelled">
-        <source>cancelled</source>
-        <translation>peruutettu</translation>
+        <source>canceled</source>
+        <oldsource>cancelled</oldsource>
+        <translation type="unfinished">peruutettu</translation>
     </message>
     <message id="wallet-txs-status-expired">
         <source>expired</source>

@@ -1089,21 +1089,7 @@ Item {
                                             Layout.alignment: Qt.AlignLeft
 
                                             sourceSize: Qt.size(20, 20)
-                                            source: getIconSource()
-                                            function getIconSource() {
-                                                if (!model)
-                                                    return "";
-                                                if (model.isInProgress)
-                                                    return "qrc:/assets/icon-swap-in-progress.svg";
-                                                else if (model.isCompleted)
-                                                    return "qrc:/assets/icon-swap-completed.svg";
-                                                else if (model.isCanceled)
-                                                    return "qrc:/assets/icon-swap-canceled.svg";
-                                                else if (model.isExpired)
-                                                    return "qrc:/assets/icon-expired.svg";
-                                                else
-                                                    return "qrc:/assets/icon-swap-failed.svg";
-                                            }
+                                            source: getIconSource(styleData.value)
                                         }
                                         SFLabel {
                                             Layout.alignment: Qt.AlignLeft
@@ -1113,19 +1099,7 @@ Item {
                                             wrapMode: Text.WordWrap
                                             text: getStatusText(styleData.value)
                                             verticalAlignment: Text.AlignBottom
-                                            color: getTextColor()
-                                            function getTextColor () {
-                                                if (!model || model.isExpired) 
-                                                    return Style.content_secondary;
-                                                if (model.isInProgress || model.isCompleted) {
-                                                    return Style.accent_swap;
-                                                } else if (model.isFailed) {
-                                                    return Style.accent_fail;
-                                                }
-                                                else {
-                                                    return Style.content_secondary;
-                                                }
-                                            }
+                                            color: getTextColor(styleData.value)
                                         }
                                     }
                                 }
@@ -1273,24 +1247,49 @@ Item {
         }
     }
 
+    function getTextColor(status) {
+        switch(status)
+        {
+            case "pending":
+            case "in progress":
+            case "completed":
+                return Style.accent_swap;
+            case "failed":
+                return Style.accent_fail;
+            default:
+                return Style.content_secondary;
+        }
+    }
+
+    function getIconSource(status) {
+        switch(status)
+        {
+            case "pending":
+            case "in progress":
+                return "qrc:/assets/icon-swap-in-progress.svg";
+            case "completed":
+                return "qrc:/assets/icon-swap-completed.svg";
+            case "failed":
+                return "qrc:/assets/icon-swap-failed.svg";
+            case "canceled":
+                return "qrc:/assets/icon-swap-canceled.svg";
+            case "expired":
+                return "qrc:/assets/icon-expired.svg";
+            default: return "";
+        }
+    }
+
     function getStatusText(value) {
 
         switch(value) {
             //% "pending"
             case "pending": return qsTrId("wallet-txs-status-pending");
-            case "waiting for sender":
-            case "waiting for receiver":
-            case "receiving":
-            case "sending":
-                //% "in progress"
-                return qsTrId("wallet-txs-status-in-progress");
-            case "completed":
-            case "received":
-            case "sent":
-                //% "completed"
-                return qsTrId("wallet-txs-status-completed");
-            //% "cancelled"
-            case "cancelled": return qsTrId("wallet-txs-status-cancelled");
+            //% "in progress"
+            case "in progress": return qsTrId("wallet-txs-status-in-progress");
+            //% "completed"
+            case "completed": return qsTrId("wallet-txs-status-completed");
+            //% "canceled"
+            case "canceled": return qsTrId("wallet-txs-status-cancelled");
             //% "expired"
             case "expired": return qsTrId("wallet-txs-status-expired");
             //% "failed"
