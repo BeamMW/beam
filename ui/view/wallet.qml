@@ -357,14 +357,16 @@ Item {
                         txDetails.height = collapsed ? 0 : txDetails.maximumHeight
                     }
 
-                    function expand() {
+                    function expand(animate) {
                        if (!rowInModel) return
-                        collapsed = false
+                       if (animate) expandAnimation.start()
+                       else collapsed = false
                     }
 
-                    function collapse() {
+                    function collapse(animate) {
                         if (!rowInModel) return
-                        collapsed = true
+                        if (animate) collapseAnimation.start()
+                        else collapsed = true
                     }
 
                     Connections {
@@ -373,11 +375,6 @@ Item {
                             searchBox.text.length ? expand() : collapse()
                             detailsPanel.hideFiltered = true
                         }
-                    }
-
-                    Connections {
-                        target: styleData
-                        onRowChanged: searchBox.text.length ? expand() : collapse()
                     }
 
                     Item {
@@ -471,19 +468,67 @@ Item {
                                     transactionsTable.showContextMenu(styleData.row)
                                 } else if (mouse.button === Qt.LeftButton) {
                                     if(rowItem.collapsed) {
-                                        expand()
+                                        expand(true)
                                         return
                                     }
-
                                     if (searchBox.text && detailsPanel.hideFiltered) {
                                         detailsPanel.hideFiltered = false
                                         return
                                     }
-
-                                    collapse()
+                                    collapse(true)
                                 }
                             }
                         }
+                    }
+
+                    ParallelAnimation {
+                        id: expandAnimation
+                        running: false
+
+                        property int expandDuration: 200
+
+                        NumberAnimation {
+                            target: rowItem
+                            easing.type: Easing.Linear
+                            property: "height"
+                            to: transactionsTable.rowHeight + txDetails.maximumHeight
+                            duration: expandAnimation.expandDuration
+                        }
+
+                        NumberAnimation {
+                            target: txDetails
+                            easing.type: Easing.Linear
+                            property: "height"
+                            to: txDetails.maximumHeight
+                            duration: expandAnimation.expandDuration
+                        }
+
+                        onStopped: rowItem.collapsed = false
+                    }
+
+                    ParallelAnimation {
+                        id: collapseAnimation
+                        running: false
+
+                        property int collapseDuration: 200
+
+                        NumberAnimation {
+                            target: rowItem
+                            easing.type: Easing.Linear
+                            property: "height"
+                            to: transactionsTable.rowHeight
+                            duration: collapseAnimation.collapseDuration
+                        }
+
+                        NumberAnimation {
+                            target: txDetails
+                            easing.type: Easing.Linear
+                            property: "height"
+                            to: 0
+                            duration: collapseAnimation.collapseDuration
+                        }
+
+                        onStopped: rowItem.collapsed = true
                     }
                 }
 
