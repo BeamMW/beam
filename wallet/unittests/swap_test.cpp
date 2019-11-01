@@ -730,7 +730,7 @@ void TestSwapBeamRefundTransaction()
     });
 
     io::Timer::Ptr timer = io::Timer::create(*mainReactor);
-    timer->start(1000, true, [&node]() {node.AddBlock(); });
+    timer->start(3000, true, [&node]() {node.AddBlock(); });
 
     eventToUpdate->post();
     mainReactor->run();
@@ -832,7 +832,7 @@ void TestElectrumSwapBeamRefundTransaction()
     });
 
     io::Timer::Ptr timer = io::Timer::create(*mainReactor);
-    timer->start(1000, true, [&node]() {node.AddBlock(); });
+    timer->start(3000, true, [&node]() {node.AddBlock(); });
 
     eventToUpdate->post();
     mainReactor->run();
