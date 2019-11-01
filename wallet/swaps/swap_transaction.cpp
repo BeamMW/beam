@@ -282,6 +282,14 @@ namespace beam::wallet
                     SetParameter(TxParameterID::PeerResponseHeight, minHeight + responseTime);
                 }
 
+                // validate Lifetime
+                if (GetMandatoryParameter<Height>(TxParameterID::Lifetime) > kBeamLockTxLifetimeMax)
+                {
+                    LOG_ERROR() << GetTxID() << "[" << static_cast<SubTxID>(SubTxIndex::LOCK_TX) << "] " << "Transaction's lifetime is unacceptable.";
+                    OnSubTxFailed(TxFailureReason::InvalidTransaction, SubTxIndex::LOCK_TX, true);
+                    break;
+                }
+
                 if (IsInitiator())
                 {
                     if (!m_secondSide->Initialize())
@@ -803,6 +811,20 @@ namespace beam::wallet
                 SetParameter(TxParameterID::Fee, fee, false, SubTxIndex::BEAM_LOCK_TX);
             }
         }
+        {
+            Height minHeight = 0;
+            if (!GetParameter<Height>(TxParameterID::MinHeight, minHeight, SubTxIndex::BEAM_LOCK_TX))
+            {
+                if (!isBeamOwner)
+                {
+                    // we don't have invitation from Beam side
+                    return lockTxState;
+                }
+
+                auto currentHeight = GetWalletDB()->getCurrentHeight();
+                SetParameter(TxParameterID::MinHeight, currentHeight, false, SubTxIndex::BEAM_LOCK_TX);
+            }
+        }
 
         auto lockTxBuilder = std::make_shared<LockTxBuilder>(*this, GetAmount(), fee);
 
@@ -810,15 +832,30 @@ namespace beam::wallet
         {
             if (isBeamOwner)
             {
-                Height maxResponseHeight = 0;
-                if (GetParameter(TxParameterID::PeerResponseHeight, maxResponseHeight))
-                {
-                    LOG_INFO() << GetTxID() << "[" << static_cast<SubTxID>(SubTxIndex::BEAM_LOCK_TX) << "]"
-                        << " Max height for response: " << maxResponseHeight;
-                }
-
                 lockTxBuilder->SelectInputs();
                 lockTxBuilder->AddChange();
+            }
+            {
+                // validate Lifetime
+                auto lifetime = GetMandatoryParameter<Height>(TxParameterID::Lifetime, SubTxIndex::BEAM_LOCK_TX);
+                auto mainLifetime = GetMandatoryParameter<Height>(TxParameterID::Lifetime);
+                if (lifetime != mainLifetime)
+                {
+                    OnSubTxFailed(TxFailureReason::InvalidState, SubTxIndex::BEAM_LOCK_TX, true);
+                    return lockTxState;
+                }
+            }
+            {
+                // validate MinHeight
+                // mainMinHeight < minHeight < mainPeerResponseHeight
+                Height mainMinHeight = GetMandatoryParameter<Height>(TxParameterID::MinHeight);
+                Height mainPeerResponseHeight = GetMandatoryParameter<Height>(TxParameterID::PeerResponseHeight);
+                auto minHeight = lockTxBuilder->GetMinHeight();
+                if (minHeight < mainMinHeight || minHeight >= mainPeerResponseHeight)
+                {
+                    OnSubTxFailed(TxFailureReason::MinHeightIsUnacceptable, SubTxIndex::BEAM_LOCK_TX, true);
+                    return lockTxState;
+                }
             }
 
             UpdateTxDescription(TxStatus::InProgress);
@@ -834,12 +871,6 @@ namespace beam::wallet
 
         lockTxBuilder->GenerateNonce();
         lockTxBuilder->LoadSharedParameters();
-
-        if (!lockTxBuilder->UpdateMaxHeight())
-        {
-            OnSubTxFailed(TxFailureReason::MaxHeightIsUnacceptable, SubTxIndex::BEAM_LOCK_TX, true);
-            return lockTxState;
-        }
 
         if (!lockTxBuilder->GetPeerPublicExcessAndNonce())
         {
@@ -950,6 +981,17 @@ namespace beam::wallet
         if (!builder.GetInitialTxParams() && subTxState == SubTxState::Initial)
         {
             builder.InitTx(isTxOwner);
+            {
+                // validate minHeight
+                auto minHeightLockTx = GetMandatoryParameter<Height>(TxParameterID::MinHeight, SubTxIndex::BEAM_LOCK_TX);
+                auto minHeight = builder.GetMinHeight();
+                if ((SubTxIndex::BEAM_REFUND_TX == subTxID && minHeight != minHeightLockTx + kBeamLockTimeInBlocks) ||
+                    (SubTxIndex::BEAM_REDEEM_TX == subTxID && minHeight != minHeightLockTx))
+                {
+                    OnSubTxFailed(TxFailureReason::MinHeightIsUnacceptable, subTxID, true);
+                    return subTxState;
+                }
+            }
         }
 
         builder.GenerateNonce();
@@ -1226,6 +1268,7 @@ namespace beam::wallet
             .AddParameter(TxParameterID::AtomicSwapPeerPublicKey, swapPublicKey)
             .AddParameter(TxParameterID::SubTxIndex, SubTxIndex::BEAM_LOCK_TX)
             .AddParameter(TxParameterID::Fee, lockBuilder.GetFee())
+            .AddParameter(TxParameterID::MinHeight, lockBuilder.GetMinHeight())
             .AddParameter(TxParameterID::PeerMaxHeight, lockBuilder.GetMaxHeight())
             .AddParameter(TxParameterID::PeerPublicExcess, lockBuilder.GetPublicExcess())
             .AddParameter(TxParameterID::PeerPublicNonce, lockBuilder.GetPublicNonce())

@@ -129,6 +129,7 @@ namespace beam::wallet
     MACRO(NotEnoughTimeToFinishBtcTx,    21, "Not enough time to finish btc lock transaction") \
     MACRO(FailedToCreateMultiSig,        22, "Failed to create multi-signature") \
     MACRO(FeeIsTooSmall,                 23, "Fee is too small") \
+    MACRO(MinHeightIsUnacceptable,       24, "Kernel's min height is unacceptable") \
 
     enum TxFailureReason : int32_t
     {

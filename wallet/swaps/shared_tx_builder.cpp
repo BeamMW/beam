@@ -125,8 +125,8 @@ namespace beam::wallet
         Height minHeight = 0;
         if (!m_Tx.GetParameter(TxParameterID::MinHeight, minHeight, m_SubTxID))
         {
-            // Get MinHeight from main TX
-            minHeight = m_Tx.GetMandatoryParameter<Height>(TxParameterID::MinHeight);
+            // Get MinHeight from Lock TX
+            minHeight = m_Tx.GetMandatoryParameter<Height>(TxParameterID::MinHeight, SubTxIndex::BEAM_LOCK_TX);
 
             if (SubTxIndex::BEAM_REFUND_TX == m_SubTxID)
             {
