@@ -393,17 +393,17 @@ bool SwapCoinSettingsItem::getCanEdit() const
 
 bool SwapCoinSettingsItem::getIsConnected() const
 {
-    return m_connectionType != beam::bitcoin::ISettings::None;
+    return m_connectionType != beam::bitcoin::ISettings::ConnectionType::None;
 }
 
 bool SwapCoinSettingsItem::getIsNodeConnection() const
 {
-    return m_connectionType == beam::bitcoin::ISettings::Core;
+    return m_connectionType == beam::bitcoin::ISettings::ConnectionType::Core;
 }
 
 bool SwapCoinSettingsItem::getIsElectrumConnection() const
 {
-    return m_connectionType == beam::bitcoin::ISettings::Electrum;
+    return m_connectionType == beam::bitcoin::ISettings::ConnectionType::Electrum;
 }
 
 QString SwapCoinSettingsItem::getConnectionStatus() const
@@ -490,7 +490,7 @@ void SwapCoinSettingsItem::restoreSeedElectrum()
 
 void SwapCoinSettingsItem::disconnect()
 {
-    auto connectionType = bitcoin::ISettings::None;
+    auto connectionType = bitcoin::ISettings::ConnectionType::None;
 
     m_settings->ChangeConnectionType(connectionType);
     m_coinClient.SetSettings(*m_settings);
@@ -499,7 +499,7 @@ void SwapCoinSettingsItem::disconnect()
 
 void SwapCoinSettingsItem::connectToNode()
 {
-    auto connectionType = bitcoin::ISettings::Core;
+    auto connectionType = bitcoin::ISettings::ConnectionType::Core;
 
     m_settings->ChangeConnectionType(connectionType);
     m_coinClient.SetSettings(*m_settings);
@@ -508,7 +508,7 @@ void SwapCoinSettingsItem::connectToNode()
 
 void SwapCoinSettingsItem::connectToElectrum()
 {
-    auto connectionType = bitcoin::ISettings::Electrum;
+    auto connectionType = bitcoin::ISettings::ConnectionType::Electrum;
 
     m_settings->ChangeConnectionType(connectionType);
     m_coinClient.SetSettings(*m_settings);
