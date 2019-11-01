@@ -1045,7 +1045,7 @@ namespace
 
             if (connectionType)
             {
-                if (*connectionType == bitcoin::ISettings::Core)
+                if (*connectionType == bitcoin::ISettings::ConnectionType::Core)
                 {
                     auto settings = settingsProvider.GetSettings();
 
@@ -1066,7 +1066,7 @@ namespace
                     return 0;
                 }
 
-                if (*connectionType == bitcoin::ISettings::Electrum)
+                if (*connectionType == bitcoin::ISettings::ConnectionType::Electrum)
                 {
                     auto settings = settingsProvider.GetSettings();
 

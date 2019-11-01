@@ -56,7 +56,8 @@ namespace beam::bitcoin
 
     bool Settings::IsCoreActivated() const
     {
-        return GetConnectionOptions().IsInitialized() && GetCurrentConnectionType() == ISettings::Core;
+        return GetConnectionOptions().IsInitialized() &&
+               GetCurrentConnectionType() == ISettings::ConnectionType::Core;
     }
 
     ElectrumSettings Settings::GetElectrumConnectionOptions() const
@@ -66,7 +67,8 @@ namespace beam::bitcoin
 
     bool Settings::IsElectrumActivated() const
     {
-        return GetElectrumConnectionOptions().IsInitialized() && GetCurrentConnectionType() == ISettings::Electrum;
+        return GetElectrumConnectionOptions().IsInitialized() &&
+               GetCurrentConnectionType() == ISettings::ConnectionType::Electrum;
     }
 
     Amount Settings::GetFeeRate() const
