@@ -25,14 +25,9 @@
 #include "utility/cli/options.h"
 #include "utility/helpers.h"
 #include "utility/io/timer.h"
-#include "utility/io/tcpserver.h"
-#include "utility/io/sslserver.h"
 #include "utility/io/json_serializer.h"
 #include "utility/string_helpers.h"
 #include "utility/log_rotation.h"
-
-// #include "http/http_connection.h"
-// #include "http/http_msg_creator.h"
 
 #include "p2p/line_protocol.h"
 
@@ -42,6 +37,8 @@
 
 #include <boost/beast/core.hpp>
 #include <boost/beast/websocket.hpp>
+#include <boost/asio/bind_executor.hpp>
+#include <boost/asio/strand.hpp>
 #include <boost/asio/ip/tcp.hpp>
 
 #include "nlohmann/json.hpp"
@@ -888,83 +885,11 @@ namespace
         return ss.str();
     }
 
-    struct TlsOptions
-    {
-        bool use;
-        std::string certPath;
-        std::string keyPath;
-    };
-
-    WalletApi::ACL loadACL(const std::string& path)
-    {
-        std::ifstream file(path);
-        std::string line;
-        WalletApi::ACL::value_type keys;
-        int curLine = 1;
-
-        while (std::getline(file, line)) 
-        {
-            boost::algorithm::trim(line);
-
-            auto key = string_helpers::split(line, ':');
-            bool parsed = false;
-
-            static const char* READ_ACCESS = "read";
-            static const char* WRITE_ACCESS = "write";
-
-            if (key.size() == 2)
-            {
-                boost::algorithm::trim(key[0]);
-                boost::algorithm::trim(key[1]);
-
-                parsed = !key[0].empty() && (key[1] == READ_ACCESS || key[1] == WRITE_ACCESS);
-            }
-
-            if (!parsed)
-            {
-                LOG_ERROR() << "ACL parsing error, line " << curLine;
-                return boost::none;
-            }
-
-            keys.insert({ key[0], key[1] == WRITE_ACCESS });
-            curLine++;
-        }
-
-        if (keys.empty())
-        {
-            LOG_WARNING() << "ACL file is empty";
-        }
-        else
-        {
-            LOG_INFO() << "ACL file successfully loaded";
-        }
-
-        return WalletApi::ACL(keys);
-    }
-
-    class IWalletApiServer
+    class WalletApiServer
     {
     public:
-        virtual void closeConnection(uint64_t id) = 0;
-    };
-
-    class WalletApiServer : public IWalletApiServer
-    {
-    public:
-        //WalletApiServer(IWalletDB::Ptr walletDB, Wallet& wallet, IWalletMessageEndpoint& wnet, io::Reactor& reactor, 
-        //    io::Address listenTo, const TlsOptions& tlsOptions)
-        WalletApiServer(io::Reactor& reactor)//, io::Address listenTo, const TlsOptions& tlsOptions)
-            //WalletApi::ACL acl,
-            //, const std::vector<uint32_t>& whitelist
+        WalletApiServer(io::Reactor& reactor)
             : _reactor(reactor)
-            //, _bindAddress(listenTo)
-            //, _useHttp(useHttp)
-            //, _tlsOptions(tlsOptions)
-            //, _walletDB(walletDB)
-            //, _wallet(wallet)
-            //, _wnet(wnet)
-            //, _acl(acl)
-            //, _whitelist(whitelist)
         {
             start();
         }
@@ -978,7 +903,7 @@ namespace
 
         void start()
         {
-            LOG_INFO() << "Start websocket server on " << _bindAddress;
+            // LOG_INFO() << "Start websocket server on " << _bindAddress;
 
             // try
             // {
@@ -1000,64 +925,8 @@ namespace
 
         }
 
-        void closeConnection(uint64_t id) override
-        {
-            _pendingToClose.push_back(id);
-        }
-
     private:
 
-        void checkConnections()
-        {
-            // clean closed connections
-            {
-                for (auto id : _pendingToClose)
-                {
-                    _connections.erase(id);
-                }
-
-                _pendingToClose.clear();
-            }
-        }
-
-        class ApiConnection;
-
-        template<typename T>
-        std::shared_ptr<ApiConnection> createConnection(io::TcpStream::Ptr&& newStream)
-        {
-            //return std::static_pointer_cast<ApiConnection>(std::make_shared<T>(*this, _walletDB, _wallet, _wnet, std::move(newStream), _acl));
-            return std::static_pointer_cast<ApiConnection>(std::make_shared<T>(*this, std::move(newStream)));
-        }
-
-        void on_stream_accepted(io::TcpStream::Ptr&& newStream, io::ErrorCode errorCode)
-        {
-            if (errorCode == 0) 
-            {          
-                auto peer = newStream->peer_address();
-
-                // if (!_whitelist.empty())
-                // {
-                //     if (std::find(_whitelist.begin(), _whitelist.end(), peer.ip()) == _whitelist.end())
-                //     {
-                //         LOG_WARNING() << peer.str() << " not in IP whitelist, closing";
-                //         return;
-                //     }
-                // }
-
-                LOG_DEBUG() << "+peer " << peer;
-
-                checkConnections();
-
-                //_connections[peer.u64()] = createConnection<HttpApiConnection>(std::move(newStream));
-                    //_useHttp
-                    //? createConnection<HttpApiConnection>(std::move(newStream))
-                    //: createConnection<TcpApiConnection>(std::move(newStream));
-            }
-
-            LOG_DEBUG() << "on_stream_accepted";
-        }
-
-    private:
         class ApiConnection : IWalletApiHandler, IWalletDbObserver
         {
         public:
@@ -1303,6 +1172,7 @@ namespace
                     //     .SetParameter(TxParameterID::Message, message));
 
                     //doResponse(id, Send::Response{ txId });
+
                     doError(id, ApiError::InternalErrorJsonRpc, "Temporary disabled!!!");
                 }
                 catch(...)
@@ -1589,292 +1459,214 @@ namespace
             IPrivateKeyKeeper::Ptr _keyKeeper;
         };
 
-        // class TcpApiConnection : public ApiConnection
-        // {
-        // public:
-        //     TcpApiConnection(IWalletApiServer& server, IWalletDB::Ptr walletDB, Wallet& wallet, IWalletMessageEndpoint& wnet, io::TcpStream::Ptr&& newStream, WalletApi::ACL acl)
-        //         : ApiConnection(walletDB, wallet, wnet, acl)
-        //         , _stream(std::move(newStream))
-        //         , _lineProtocol(BIND_THIS_MEMFN(on_raw_message), BIND_THIS_MEMFN(on_write))
-        //         , _server(server)
-        //     {
-        //         _stream->enable_keepalive(2);
-        //         _stream->enable_read(BIND_THIS_MEMFN(on_stream_data));
-        //     }
-
-        //     virtual ~TcpApiConnection()
-        //     {
-
-        //     }
-
-        //     void serializeMsg(const json& msg) override
-        //     {
-        //         serialize_json_msg(_lineProtocol, msg);
-        //     }
-
-        //     void on_write(io::SharedBuffer&& msg)
-        //     {
-        //         _stream->write(msg);
-        //     }
-
-        //     bool on_raw_message(void* data, size_t size)
-        //     {
-        //         LOG_INFO() << "got " << std::string((char*)data, size);
-
-        //         return _api.parse(static_cast<const char*>(data), size);
-        //     }
-
-        //     bool on_stream_data(io::ErrorCode errorCode, void* data, size_t size)
-        //     {
-        //         if (errorCode != 0)
-        //         {
-        //             LOG_INFO() << "peer disconnected, code=" << io::error_str(errorCode);
-        //             _server.closeConnection(_stream->peer_address().u64());
-        //             return false;
-        //         }
-
-        //         if (!_lineProtocol.new_data_from_stream(data, size))
-        //         {
-        //             LOG_INFO() << "stream corrupted";
-        //             _server.closeConnection(_stream->peer_address().u64());
-        //             return false;
-        //         }
-
-        //         return true;
-        //     }
-
-        // private:
-        //     io::TcpStream::Ptr _stream;
-        //     LineProtocol _lineProtocol;
-        //     IWalletApiServer& _server;
-        // };
-
-    //     class HttpApiConnection : public ApiConnection
-    //     {
-    //     public:
-    //         //HttpApiConnection(IWalletApiServer& server, IWalletDB::Ptr walletDB, Wallet& wallet, IWalletMessageEndpoint& wnet, io::TcpStream::Ptr&& newStream, WalletApi::ACL acl)
-    //             //: ApiConnection(walletDB, wallet, wnet, acl)
-    //         HttpApiConnection(IWalletApiServer& server, io::TcpStream::Ptr&& newStream)
-    //             : _keepalive(false)
-    //             , _msgCreator(2000)
-    //             , _packer(PACKER_FRAGMENTS_SIZE)
-    //             , _server(server)
-    //         {
-    //             newStream->enable_keepalive(1);
-    //             auto peer = newStream->peer_address();
-
-    //             _connection = std::make_unique<HttpConnection>(
-    //                 peer.u64(),
-    //                 BaseConnection::inbound,
-    //                 BIND_THIS_MEMFN(on_request),
-    //                 10000,
-    //                 1024,
-    //                 std::move(newStream)
-    //                 );
-    //         }
-
-    //         virtual ~HttpApiConnection() {}
-
-    //         void serializeMsg(const json& msg) override
-    //         {
-    //             serialize_json_msg(_body, _packer, msg);
-    //             _keepalive = send(_connection, 200, "OK");
-    //         }
-
-    //     private:
-
-    //         bool on_request(uint64_t id, const HttpMsgReader::Message& msg)
-    //         {
-    //             if (msg.what != HttpMsgReader::http_message || !msg.msg)
-    //             {
-    //                 LOG_DEBUG() << "-peer " << io::Address::from_u64(id) << " : " << msg.error_str();
-    //                 _connection->shutdown();
-    //                 _server.closeConnection(id);
-    //                 return false;
-    //             }
-
-    //             if (msg.msg->get_path() != "/api/wallet")
-    //             {
-    //                 _keepalive = send(_connection, 404, "Not Found");
-    //             }
-    //             else
-    //             {
-    //                 _body.clear();
-
-    //                 size_t size = 0;
-    //                 auto data = msg.msg->get_body(size);
-
-    //                 LOG_INFO() << "got " << std::string((char*)data, size);
-
-    //                 _api.parse((char*)data, size);
-    //             }
-
-    //             if (!_keepalive)
-    //             {
-    //                 _connection->shutdown();
-    //                 _server.closeConnection(id);
-    //             }
-
-    //             return _keepalive;
-    //         }
-
-    //         bool send(const HttpConnection::Ptr& conn, int code, const char* message)
-    //         {
-    //             assert(conn);
-
-    //             size_t bodySize = 0;
-    //             for (const auto& f : _body) { bodySize += f.size; }
-
-    //             bool ok = _msgCreator.create_response(
-    //                 _headers,
-    //                 code,
-    //                 message,
-    //                 0,
-    //                 0,
-    //                 1,
-    //                 "application/json",
-    //                 bodySize
-    //             );
-
-    //             if (ok) {
-    //                 auto result = conn->write_msg(_headers);
-    //                 if (result && bodySize > 0) {
-    //                     result = conn->write_msg(_body);
-    //                 }
-    //                 if (!result) ok = false;
-    //             }
-    //             else {
-    //                 LOG_ERROR() << "cannot create response";
-    //             }
-
-    //             _headers.clear();
-    //             _body.clear();
-    //             return (ok && code == 200);
-    //         }
-
-    //         HttpConnection::Ptr _connection;
-    //         bool _keepalive;
-
-    //         HttpMsgCreator _msgCreator;
-    //         HttpMsgCreator _packer;
-    //         io::SerializedMsg _headers;
-    //         io::SerializedMsg _body;
-    //         IWalletApiServer& _server;
-    //     };
-
         io::Reactor& _reactor;
-        io::TcpServer::Ptr _server;
-        io::Address _bindAddress;
-        bool _useHttp;
-        TlsOptions _tlsOptions;
-
-        std::map<uint64_t, std::shared_ptr<ApiConnection>> _connections;
-
-        // IWalletDB::Ptr _walletDB;
-        // Wallet& _wallet;
-        // IWalletMessageEndpoint& _wnet;
-        std::vector<uint64_t> _pendingToClose;
-        // WalletApi::ACL _acl;
-        // std::vector<uint32_t> _whitelist;
     };
+}
 
-    class WalletService
+namespace
+{
+
+void fail(boost::system::error_code ec, char const* what)
+{
+    LOG_ERROR() << what << ": " << ec.message();
+}
+
+// Echoes back all received WebSocket messages
+class session : public std::enable_shared_from_this<session>
+{
+    websocket::stream<tcp::socket> ws_;
+    boost::asio::strand<boost::asio::io_context::executor_type> strand_;
+    boost::beast::multi_buffer buffer_;
+
+public:
+    // Take ownership of the socket
+    explicit
+    session(tcp::socket socket)
+        : ws_(std::move(socket))
+        , strand_(ws_.get_executor())
     {
-    public:
-        void start()
+    }
+
+    // Start the asynchronous operation
+    void
+    run()
+    {
+        // Accept the websocket handshake
+        ws_.async_accept(
+            boost::asio::bind_executor(
+                strand_,
+                std::bind(
+                    &session::on_accept,
+                    shared_from_this(),
+                    std::placeholders::_1)));
+    }
+
+    void
+    on_accept(boost::system::error_code ec)
+    {
+        if(ec)
+            return fail(ec, "accept");
+
+        // Read a message
+        do_read();
+    }
+
+    void
+    do_read()
+    {
+        // Read a message into our buffer
+        ws_.async_read(
+            buffer_,
+            boost::asio::bind_executor(
+                strand_,
+                std::bind(
+                    &session::on_read,
+                    shared_from_this(),
+                    std::placeholders::_1,
+                    std::placeholders::_2)));
+    }
+
+    void
+    on_read(
+        boost::system::error_code ec,
+        std::size_t bytes_transferred)
+    {
+        boost::ignore_unused(bytes_transferred);
+
+        // This indicates that the session was closed
+        if(ec == websocket::error::closed)
+            return;
+
+        if(ec)
+            fail(ec, "read");
+
+        LOG_DEBUG() << "data from a client:" << boost::beast::buffers(buffer_.data());
+
+        // Clear the buffer
         {
-            _thread = std::make_shared<std::thread>([]()
-            {
-                //io::Address listenTo = io::Address().port(options.port);
-                io::Reactor::Ptr reactor = io::Reactor::create();
-                io::Reactor::Scope scope(*reactor);
-                io::Reactor::GracefulIntHandler gih(*reactor);
-
-                LogRotation logRotation(*reactor, LOG_ROTATION_PERIOD, 5);//options.logCleanupPeriod);
-
-                {
-                //      auto keyKeeper = std::make_shared<LocalPrivateKeyKeeper>(walletDB, walletDB->get_MasterKdf());
-                //      Wallet wallet{ walletDB, keyKeeper };
-
-                //      wallet.ResumeAllTransactions();
-
-                //      auto nnet = std::make_shared<proto::FlyClient::NetworkStd>(wallet);
-                //      nnet->m_Cfg.m_PollPeriod_ms = options.pollPeriod_ms.value;
-                //  
-                //      if (nnet->m_Cfg.m_PollPeriod_ms)
-                //      {
-                //          LOG_INFO() << "Node poll period = " << nnet->m_Cfg.m_PollPeriod_ms << " ms";
-                //          uint32_t timeout_ms = std::max(Rules::get().DA.Target_s * 1000, nnet->m_Cfg.m_PollPeriod_ms);
-                //          if (timeout_ms != nnet->m_Cfg.m_PollPeriod_ms)
-                //          {
-                //              LOG_INFO() << "Node poll period has been automatically rounded up to block rate: " << timeout_ms << " ms";
-                //          }
-                //      }
-                //      uint32_t responceTime_s = Rules::get().DA.Target_s * wallet::kDefaultTxResponseTime;
-                //      if (nnet->m_Cfg.m_PollPeriod_ms >= responceTime_s * 1000)
-                //      {
-                //          LOG_WARNING() << "The \"--node_poll_period\" parameter set to more than " << uint32_t(responceTime_s / 3600) << " hours may cause transaction problems.";
-                //      }
-                //      nnet->m_Cfg.m_vNodes.push_back(node_addr);
-                //      nnet->Connect();
-
-                //      auto wnet = std::make_shared<WalletNetworkViaBbs>(wallet, nnet, walletDB, keyKeeper);
-                        //wallet.AddMessageEndpoint(wnet);
-                //      wallet.SetNodeEndpoint(nnet);
-
-                        // WalletApiServer server(walletDB, wallet, *wnet, *reactor, 
-                        //     listenTo, true, tlsOptions);
-
-                }
-
-                WalletApiServer server(*reactor);//, listenTo, tlsOptions);
-
-                io::Reactor::get_Current().run();
-
-                LOG_INFO() << "Done";
-            });
+            buffer_.consume(buffer_.size());
+            std::string contents = "Hello from the Boost Beast!";
+            size_t n = boost::asio::buffer_copy(buffer_.prepare(contents.size()), boost::asio::buffer(contents));
+            buffer_.commit(n);
         }
 
-        void handle(tcp::socket&& socket)
+        // Echo the message
+        ws_.text(ws_.got_text());
+        ws_.async_write(
+            buffer_.data(),
+            boost::asio::bind_executor(
+                strand_,
+                std::bind(
+                    &session::on_write,
+                    shared_from_this(),
+                    std::placeholders::_1,
+                    std::placeholders::_2)));
+    }
+
+    void
+    on_write(
+        boost::system::error_code ec,
+        std::size_t bytes_transferred)
+    {
+        boost::ignore_unused(bytes_transferred);
+
+        if(ec)
+            return fail(ec, "write");
+
+        // Clear the buffer
+        buffer_.consume(buffer_.size());
+
+        // Do another read
+        do_read();
+    }
+};
+
+// Accepts incoming connections and launches the sessions
+class listener : public std::enable_shared_from_this<listener>
+{
+    tcp::acceptor acceptor_;
+    tcp::socket socket_;
+
+public:
+    listener(
+        boost::asio::io_context& ioc,
+        tcp::endpoint endpoint)
+        : acceptor_(ioc)
+        , socket_(ioc)
+    {
+        boost::system::error_code ec;
+
+        // Open the acceptor
+        acceptor_.open(endpoint.protocol(), ec);
+        if(ec)
         {
-            // !TODO: do it in wallet thread
-
-            try
-            {
-                // Construct the stream by moving in the socket
-                websocket::stream<tcp::socket> ws{std::move(socket)};
-
-                // Accept the websocket handshake
-                ws.accept();
-
-                for(;;)
-                {
-                    // This buffer will hold the incoming message
-                    boost::beast::multi_buffer buffer;
-
-                    // Read a message
-                    ws.read(buffer);
-
-                    // Echo the message back
-                    ws.text(ws.got_text());
-                    ws.write(buffer.data());
-                }
-            }
-            catch(boost::system::system_error const& se)
-            {
-                // This indicates that the session was closed
-                if(se.code() != websocket::error::closed)
-                    std::cerr << "Error: " << se.code().message() << std::endl;
-            }
-            catch(std::exception const& e)
-            {
-                std::cerr << "Error: " << e.what() << std::endl;
-            }
+            fail(ec, "open");
+            return;
         }
-    private:
 
-        std::shared_ptr<std::thread> _thread;
-    };
+        // Allow address reuse
+        acceptor_.set_option(boost::asio::socket_base::reuse_address(true), ec);
+        if(ec)
+        {
+            fail(ec, "set_option");
+            return;
+        }
+
+        // Bind to the server address
+        acceptor_.bind(endpoint, ec);
+        if(ec)
+        {
+            fail(ec, "bind");
+            return;
+        }
+
+        // Start listening for connections
+        acceptor_.listen(
+            boost::asio::socket_base::max_listen_connections, ec);
+        if(ec)
+        {
+            fail(ec, "listen");
+            return;
+        }
+    }
+
+    // Start accepting incoming connections
+    void
+    run()
+    {
+        if(! acceptor_.is_open())
+            return;
+        do_accept();
+    }
+
+    void
+    do_accept()
+    {
+        acceptor_.async_accept(
+            socket_,
+            std::bind(
+                &listener::on_accept,
+                shared_from_this(),
+                std::placeholders::_1));
+    }
+
+    void
+    on_accept(boost::system::error_code ec)
+    {
+        if(ec)
+        {
+            fail(ec, "accept");
+        }
+        else
+        {
+            // Create the session and run it
+            std::make_shared<session>(std::move(socket_))->run();
+        }
+
+        // Accept another connection
+        do_accept();
+    }
+};
 }
 
 int main(int argc, char* argv[])
@@ -1890,25 +1682,14 @@ int main(int argc, char* argv[])
         struct
         {
             uint16_t port;
-            // std::string walletPath;
             std::string nodeURI;
-            // bool useHttp;
             Nonnegative<uint32_t> pollPeriod_ms;
-
-            // bool useAcl;
-            // std::string aclPath;
-            // std::string whitelist;
-
             uint32_t logCleanupPeriod;
 
         } options;
 
-        TlsOptions tlsOptions;
 
         io::Address node_addr;
-        //IWalletDB::Ptr walletDB;
-        //WalletApi::ACL acl;
-        //std::vector<uint32_t> whitelist;
 
         {
             po::options_description desc("Wallet API general options");
@@ -1916,29 +1697,10 @@ int main(int argc, char* argv[])
                 (cli::HELP_FULL, "list of all options")
                 (cli::PORT_FULL, po::value(&options.port)->default_value(8080), "port to start server on")
                 (cli::NODE_ADDR_FULL, po::value<std::string>(&options.nodeURI), "address of node")
-//                (cli::WALLET_STORAGE, po::value<std::string>(&options.walletPath)->default_value("wallet.db"), "path to wallet file")
-//                (cli::PASS, po::value<std::string>(), "password for the wallet")
-//                (cli::API_USE_HTTP, po::value<bool>(&options.useHttp)->default_value(true), "use JSON RPC over HTTP")
-//                (cli::IP_WHITELIST, po::value<std::string>(&options.whitelist)->default_value(""), "IP whitelist")
                 (cli::LOG_CLEANUP_DAYS, po::value<uint32_t>(&options.logCleanupPeriod)->default_value(5), "old logfiles cleanup period(days)")
                 (cli::NODE_POLL_PERIOD, po::value<Nonnegative<uint32_t>>(&options.pollPeriod_ms)->default_value(Nonnegative<uint32_t>(0)), "Node poll period in milliseconds. Set to 0 to keep connection. Anyway poll period would be no less than the expected rate of blocks if it is less then it will be rounded up to block rate value.")
             ;
 
-            //po::options_description authDesc("User authorization options");
-            //authDesc.add_options()
-            //    (cli::API_USE_ACL, po::value<bool>(&options.useAcl)->default_value(false), "use Access Control List (ACL)")
-            //    (cli::API_ACL_PATH, po::value<std::string>(&options.aclPath)->default_value("wallet_api.acl"), "path to ACL file")
-            //;
-
-            po::options_description tlsDesc("TLS protocol options");
-            tlsDesc.add_options()
-                (cli::API_USE_TLS, po::value<bool>(&tlsOptions.use)->default_value(false), "use TLS protocol")
-                (cli::API_TLS_CERT, po::value<std::string>(&tlsOptions.certPath)->default_value("wallet_api.crt"), "path to TLS certificate")
-                (cli::API_TLS_KEY, po::value<std::string>(&tlsOptions.keyPath)->default_value("wallet_api.key"), "path to TLS private key")
-            ;
-
-            //desc.add(authDesc);
-            desc.add(tlsDesc);
             desc.add(createRulesOptionsDescription());
 
             po::variables_map vm;
@@ -1971,50 +1733,6 @@ int main(int argc, char* argv[])
             LOG_INFO() << "Beam Wallet API " << PROJECT_VERSION << " (" << BRANCH_NAME << ")";
             LOG_INFO() << "Rules signature: " << Rules::get().get_SignatureStr();
             
-            //if (options.useAcl)
-            //{
-            //    if (!(boost::filesystem::exists(options.aclPath) && (acl = loadACL(options.aclPath))))
-            //    {
-            //        LOG_ERROR() << "ACL file not loaded, path is: " << options.aclPath;
-            //        return -1;
-            //    }
-            //}
-
-            //if (tlsOptions.use)
-            //{
-            //    if (tlsOptions.certPath.empty() || !boost::filesystem::exists(tlsOptions.certPath))
-            //    {
-            //        LOG_ERROR() << "TLS certificate not found, path is: " << tlsOptions.certPath;
-            //        return -1;
-            //    }
-
-            //    if (tlsOptions.keyPath.empty() || !boost::filesystem::exists(tlsOptions.keyPath))
-            //    {
-            //        LOG_ERROR() << "TLS private key not found, path is: " << tlsOptions.keyPath;
-            //        return -1;
-            //    }
-            //}
-
-            //if (!options.whitelist.empty())
-            //{
-            //    const auto& items = string_helpers::split(options.whitelist, ',');
-
-            //    for (const auto& item : items)
-            //    {
-            //        io::Address addr;
-
-            //        if (addr.resolve(item.c_str()))
-            //        {
-            //            whitelist.push_back(addr.ip());
-            //        }
-            //        else
-            //        {
-            //            LOG_ERROR() << "IP address not added to whitelist: " << item;
-            //            return -1;
-            //        }
-            //    }
-            //}
-
             if (vm.count(cli::NODE_ADDR) == 0)
             {
                 LOG_ERROR() << "node address should be specified";
@@ -2050,29 +1768,63 @@ int main(int argc, char* argv[])
             //LOG_INFO() << "wallet sucessfully opened...";
         }
 
-        WalletService service;
-        service.start();
+        io::Reactor::Ptr reactor = io::Reactor::create();
+        io::Reactor::Scope scope(*reactor);
+        io::Reactor::GracefulIntHandler gih(*reactor);
+
+        LogRotation logRotation(*reactor, LOG_ROTATION_PERIOD, 5);//options.logCleanupPeriod);
+
 
         {
-            auto const address = boost::asio::ip::make_address("0.0.0.0");
+        //      auto keyKeeper = std::make_shared<LocalPrivateKeyKeeper>(walletDB, walletDB->get_MasterKdf());
+        //      Wallet wallet{ walletDB, keyKeeper };
 
-            // The io_context is required for all I/O
-            boost::asio::io_context ioc{1};
+        //      wallet.ResumeAllTransactions();
 
-            // The acceptor receives incoming connections
-            tcp::acceptor acceptor{ioc, {address, options.port}};
-            for(;;)
-            {
-                // This will receive the new connection
-                tcp::socket socket{ioc};
+        //      auto nnet = std::make_shared<proto::FlyClient::NetworkStd>(wallet);
+        //      nnet->m_Cfg.m_PollPeriod_ms = options.pollPeriod_ms.value;
+        //  
+        //      if (nnet->m_Cfg.m_PollPeriod_ms)
+        //      {
+        //          LOG_INFO() << "Node poll period = " << nnet->m_Cfg.m_PollPeriod_ms << " ms";
+        //          uint32_t timeout_ms = std::max(Rules::get().DA.Target_s * 1000, nnet->m_Cfg.m_PollPeriod_ms);
+        //          if (timeout_ms != nnet->m_Cfg.m_PollPeriod_ms)
+        //          {
+        //              LOG_INFO() << "Node poll period has been automatically rounded up to block rate: " << timeout_ms << " ms";
+        //          }
+        //      }
+        //      uint32_t responceTime_s = Rules::get().DA.Target_s * wallet::kDefaultTxResponseTime;
+        //      if (nnet->m_Cfg.m_PollPeriod_ms >= responceTime_s * 1000)
+        //      {
+        //          LOG_WARNING() << "The \"--node_poll_period\" parameter set to more than " << uint32_t(responceTime_s / 3600) << " hours may cause transaction problems.";
+        //      }
+        //      nnet->m_Cfg.m_vNodes.push_back(node_addr);
+        //      nnet->Connect();
 
-                // Block until we get a connection
-                acceptor.accept(socket);
+        //      auto wnet = std::make_shared<WalletNetworkViaBbs>(wallet, nnet, walletDB, keyKeeper);
+                //wallet.AddMessageEndpoint(wnet);
+        //      wallet.SetNodeEndpoint(nnet);
 
-                // !TODO: move this data to the wallet thread via bridge
-                service.handle(std::move(socket));
-            }
-        }        
+                // WalletApiServer server(walletDB, wallet, *wnet, *reactor, 
+                //     listenTo, true, tlsOptions);
+
+        }
+
+        WalletApiServer server(*reactor);
+
+        boost::asio::io_context ioc{1};
+
+        std::make_shared<listener>(ioc, tcp::endpoint{boost::asio::ip::make_address("0.0.0.0"), options.port})->run();
+
+        auto timer = io::Timer::create(*reactor);
+
+        // !TODO: an attempt to run asio io_context near the libuv reactor
+        // maybe, we could find a better solution here
+        timer->start(1, true, [&ioc](){ioc.poll();});
+
+        reactor->run();
+
+        LOG_INFO() << "Done";
     }
     catch (const std::exception& e)
     {
