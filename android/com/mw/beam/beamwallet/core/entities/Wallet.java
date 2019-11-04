@@ -24,6 +24,7 @@ public class Wallet
 
     // implemented
     public native void getWalletStatus();
+    public native void getTransactions();
     public native void getUtxosStatus();
     public native void syncWithNode();
     public native void sendMoney(String sender, String receiver, String comment, long amount, long fee);
