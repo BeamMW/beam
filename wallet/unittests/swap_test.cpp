@@ -514,7 +514,7 @@ void TestSwapBTCRefundTransaction()
     WALLET_CHECK(receiverCoins.empty());
 
     io::Timer::Ptr timer = io::Timer::create(*mainReactor);
-    timer->start(1000, true, [&node]() {node.AddBlock(); });
+    timer->start(3000, true, [&node]() {node.AddBlock(); });
 
     io::AsyncEvent::Ptr eventToUpdate;
 
@@ -608,7 +608,7 @@ void TestElectrumSwapBTCRefundTransaction()
     WALLET_CHECK(receiverCoins.empty());
 
     io::Timer::Ptr timer = io::Timer::create(*mainReactor);
-    timer->start(1000, true, [&node]() {node.AddBlock(); });
+    timer->start(3000, true, [&node]() {node.AddBlock(); });
 
     io::AsyncEvent::Ptr eventToUpdate;
 
