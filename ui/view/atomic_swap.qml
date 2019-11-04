@@ -420,9 +420,6 @@ Item {
                             Layout.leftMargin: 60
                             //% "Fit my current balance"
                             text: qsTrId("atomic-swap-fit-current-balance")
-                            onClicked: {
-                                console.log("todo: fit current balance checkbox pressed");
-                            }
                             visible: false
                         }
 
@@ -739,7 +736,6 @@ Item {
                         //    Layout.alignment: Qt.AlignRight
                         //    rightPadding: 5
                         //    icon.source: "qrc:/assets/icon-delete.svg"
-                        //    onClicked: console.log("todo: delete button pressed");
                         //}
                     }
 

@@ -116,7 +116,7 @@ bool SwapTxObject::isFailed() const
 
 bool SwapTxObject::isCancelAvailable() const
 {
-    // todo
+    // TODO:SWAP link to transaction internal state like in AtomicSwapTransaction::Cancel()
     return  m_tx.m_status == TxStatus::Pending ||
             m_tx.m_status == TxStatus::Registering ||
             m_tx.m_status == TxStatus::InProgress;
