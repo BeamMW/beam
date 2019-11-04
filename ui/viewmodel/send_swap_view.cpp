@@ -213,6 +213,7 @@ void SendSwapViewModel::setReceiveFee(unsigned int value)
     {
         _receiveFeeGrothes = value;
         emit receiveFeeChanged();
+        emit canSendChanged();
     }
 }
 
@@ -346,6 +347,7 @@ bool SendSwapViewModel::canSend() const
 {
     // TODO:SWAP check if correct
     return QMLGlobals::isFeeOK(_sendFeeGrothes, _sendCurrency) &&
+           QMLGlobals::isFeeOK(_receiveFeeGrothes, _receiveCurrency) &&
            _sendCurrency != _receiveCurrency &&
            isEnough() &&
            QDateTime::currentDateTime() < _expiresTime;
