@@ -239,6 +239,8 @@ ColumnLayout {
                         multi:            true
                         resetAmount:      false
                         currColor:        currencyError() ? Style.validator_error : Style.content_main
+                        //% "%1 is not connected, \nplease review your settings and try again."
+                        error:            BeamGlobals.canReceive(currency) ? "" : qsTrId("swap-currency-na-message").arg(BeamGlobals.getCurrencyName(currency)).replace("\\n", "")
 
                         onCurrencyChanged: {
                             if(receiveAmountInput.currency != Currency.CurrBeam) {

@@ -63,6 +63,9 @@ public:
     Q_INVOKABLE static QString rawTxParametrsToTokenStr(
             QVariant variantTxParams);
 
+    Q_INVOKABLE static bool canReceive(Currency currency);
+    Q_INVOKABLE static QString getCurrencyName(Currency currency);
+
 private:
     QQmlEngine& _engine;
 };

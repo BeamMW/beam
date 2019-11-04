@@ -219,3 +219,69 @@ QString QMLGlobals::rawTxParametrsToTokenStr(QVariant variantTxParams)
     }
     return "";
 }
+
+bool QMLGlobals::canReceive(Currency currency)
+{
+    switch(currency)
+    {
+    case Currency::CurrBeam:
+    {
+        return true;
+    }
+    case Currency::CurrBtc:
+    {
+        auto client = AppModel::getInstance().getBitcoinClient();
+        return client->GetSettings().IsActivated() &&
+               client->getStatus() == beam::bitcoin::Client::Status::Connected;
+    }
+    case Currency::CurrLtc:
+    {
+        auto client = AppModel::getInstance().getLitecoinClient();
+        return client->GetSettings().IsActivated() &&
+               client->getStatus() == beam::bitcoin::Client::Status::Connected;
+    }
+    case Currency::CurrQtum:
+    {
+        auto client = AppModel::getInstance().getQtumClient();
+        return client->GetSettings().IsActivated() &&
+               client->getStatus() == beam::bitcoin::Client::Status::Connected;
+    }
+    default:
+    {
+        assert(false);
+        return false;
+    }
+    }
+}
+
+QString QMLGlobals::getCurrencyName(Currency currency)
+{
+    switch(currency)
+    {
+    case Currency::CurrBeam:
+    {
+        //% "BEAM"
+        return qtTrId("general-beam");
+    }
+    case Currency::CurrBtc:
+    {
+        //% "Bitcoin"
+        return qtTrId("general-bitcoin");
+    }
+    case Currency::CurrLtc:
+    {
+        //% "Litecoin"
+        return qtTrId("general-litecoin");
+    }
+    case Currency::CurrQtum:
+    {
+        //% "QTUM"
+        return qtTrId("general-qtum");
+    }
+    default:
+    {
+        assert(false && "unexpected swap coin!");
+        return QString();
+    }
+    }
+}

@@ -31,30 +31,9 @@ ColumnLayout {
             if (currency == Currency.CurrBeam) return;
         }
 
-        var isOtherCurrActive  = false
-        var currname = ""
-
-        if (currency == Currency.CurrBtc) {
-            isOtherCurrActive  = BeamGlobals.haveBtc()
-            //% "Bitcoin"
-            currname = qsTrId("general-bitcoin")
-        }
-
-        if (currency == Currency.CurrLtc){
-            isOtherCurrActive = BeamGlobals.haveLtc()
-            //% "Litecoin"
-            currname = qsTrId("general-litecoin")
-        }
-
-        if (currency == Currency.CurrQtum) {
-            isOtherCurrActive = BeamGlobals.haveQtum()
-            //% "QTUM"
-            currname = qsTrId("general-qtum")
-        }
-
-        if (isOtherCurrActive == false) {
+        if (!BeamGlobals.canReceive(currency)) {
             //% "%1 is not connected, \nplease review your settings and try again."
-            swapna.text = qsTrId("swap-currency-na-message").arg(currname).replace("\\n", "\n")
+            swapna.text = qsTrId("swap-currency-na-message").arg(BeamGlobals.getCurrencyName(currency)).replace("\\n", "\n")
             swapna.open()
             return false;
         }
