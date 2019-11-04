@@ -732,7 +732,7 @@ Control {
                 horizontalAlignment: Text.AlignHCenter
                 font.pixelSize:      14
                 font.weight:         Font.Normal
-                //% "Your seed phrase is the access key to all the funds! Print or write down the phrase and keep it in a safe or in a locked vault.\nWithout the phrase you will not be able to recover your money."
+                //% "Your seed phrase is the access key to all the funds! Print or write down the phrase and keep it in a safe or in a locked vault. Without the phrase you will not be able to recover your money."
                 text: qsTrId("swap-seed-info-message")
             }
             

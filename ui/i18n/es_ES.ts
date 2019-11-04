@@ -1859,8 +1859,8 @@ Please try again later or create an offer yourself.</oldsource>
         <translation>conectar con el nodo</translation>
     </message>
     <message id="swap-seed-info-message">
-        <source>Your seed phrase is the access key to all the funds! Print or write down the phrase and keep it in a safe or in a locked vault.\nWithout the phrase you will not be able to recover your money.</source>
-        <translation>¡Tu frase de semilla es la clave de acceso a todos los fondos! Imprima o escriba la frase y guárdela en un lugar seguro o bloqueado.\nSin la frase no podrás recuperar tu dinero.</translation>
+        <source>Your seed phrase is the access key to all the funds! Print or write down the phrase and keep it in a safe or in a locked vault. Without the phrase you will not be able to recover your money.</source>
+        <translation type="unfinished">¡Tu frase de semilla es la clave de acceso a todos los fondos! Imprima o escriba la frase y guárdela en un lugar seguro o bloqueado. Sin la frase no podrás recuperar tu dinero.</translation>
     </message>
     <message id="settings-swap-seed-generate">
         <source>generate another seed phrase</source>
