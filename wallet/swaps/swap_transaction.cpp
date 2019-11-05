@@ -945,7 +945,6 @@ namespace beam::wallet
                 return lockTxState;
             }
 
-            // TODO: return
             m_LockTx = transaction;
         }
 

@@ -137,7 +137,6 @@ QString WalletViewModel::beamAvailable() const
 
 QString WalletViewModel::beamReceiving() const
 {
-    // TODO:SWAP return real value
     return beamui::AmountToUIString(_model.getReceivingChange() + _model.getReceivingIncoming());
 }
 
@@ -148,13 +147,11 @@ QString WalletViewModel::beamSending() const
 
 QString WalletViewModel::beamReceivingChange() const
 {
-    // TODO:SWAP return real value
-    return beamui::AmountToUIString(_model.getReceivingChange());
+     return beamui::AmountToUIString(_model.getReceivingChange());
 }
 
 QString WalletViewModel::beamReceivingIncoming() const
 {
-    // TODO:SWAP return real value
     return beamui::AmountToUIString(_model.getReceivingIncoming());
 }
 

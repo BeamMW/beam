@@ -125,10 +125,8 @@ namespace beam::wallet
             InitSecret();
         }
 
-        // TODO roman.strilets investigate this code
         if (!m_blockCount)
         {
-            //m_tx.UpdateAsync();
             GetBlockCount(true);
             return false;
         }
@@ -138,8 +136,6 @@ namespace beam::wallet
 
     bool BitcoinSide::InitLockTime()
     {
-        // TODO roman.strilets investigate this code
-        //auto height = GetBlockCount();
         auto height = m_blockCount;
         assert(height);
 
@@ -153,8 +149,6 @@ namespace beam::wallet
 
     bool BitcoinSide::ValidateLockTime()
     {
-        // TODO roman.strilets investigate this code
-        //auto height = GetBlockCount();
         auto height = m_blockCount;
         assert(height);
         auto externalLockTime = m_tx.GetMandatoryParameter<Height>(TxParameterID::AtomicSwapExternalLockTime);
@@ -297,7 +291,6 @@ namespace beam::wallet
 
     bool BitcoinSide::CheckAmount(Amount amount, Amount feeRate)
     {
-        //TODO:double?
         Amount fee = static_cast<Amount>(std::round(double(bitcoin::kBTCWithdrawTxAverageSize * feeRate) / 1000));
         return amount > bitcoin::kDustThreshold && amount > fee;
     }

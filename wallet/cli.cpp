@@ -1312,7 +1312,6 @@ namespace
 
             auto swapTxToken = std::to_string(swapTxParameters);
             LOG_INFO() << "Swap token: " << swapTxToken;
-            // TODO: exit after print and new start with listen command?
         }
         return currentTxID;
     }
@@ -1432,8 +1431,6 @@ namespace
         WalletAddress senderAddress = GenerateNewAddress(walletDB, "", keyKeeper);
 
         swapTxParameters->SetParameter(TxParameterID::MyID, senderAddress.m_walletID);
-
-        // TODO: check fee
         swapTxParameters->SetParameter(beam::wallet::TxParameterID::Fee, beam::Amount(cli::kMinimumFee));
         auto subTxID = isBeamSide ? beam::wallet::SubTxIndex::REDEEM_TX : beam::wallet::SubTxIndex::LOCK_TX;
         swapTxParameters->SetParameter(beam::wallet::TxParameterID::Fee, swapFeeRate, subTxID);

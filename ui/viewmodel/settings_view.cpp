@@ -455,7 +455,6 @@ void SwapCoinSettingsItem::applyElectrumSettings()
         electrumSettings.m_address = m_nodeAddressElectrum.toStdString();
     }
 
-    // TODO: check
     electrumSettings.m_secretWords = GetSeedPhraseFromSeedItems();
     electrumSettings.m_addressVersion = bitcoin::getAddressVersion();
     

@@ -325,7 +325,6 @@ void SendSwapViewModel::recalcAvailable()
         return;
     default:
         // TODO:SWAP implement for all currencies
-        //assert(false);
         _changeGrothes = 0;
     }
 
