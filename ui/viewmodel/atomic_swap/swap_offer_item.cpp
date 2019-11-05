@@ -37,6 +37,11 @@ SwapOfferItem::SwapOfferItem(const SwapOffer& offer, bool isOwn, const QDateTime
     m_offer.GetParameter(TxParameterID::AtomicSwapIsBeamSide, m_isBeamSide);
 }
 
+bool SwapOfferItem::operator==(const SwapOfferItem& other) const
+{
+    return getTxID() == other.getTxID();
+}
+
 auto SwapOfferItem::timeCreated() const -> QDateTime
 {
     beam::Timestamp time;

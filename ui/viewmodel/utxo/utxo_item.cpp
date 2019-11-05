@@ -38,9 +38,9 @@ UtxoItem::UtxoItem(const beam::wallet::Coin& coin)
 
 }
 
-UtxoItem::~UtxoItem()
+bool UtxoItem::operator==(const UtxoItem& other) const
 {
-
+    return get_ID() == other.get_ID();
 }
 
 QString UtxoItem::getAmountWithCurrency() const

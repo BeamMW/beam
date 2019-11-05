@@ -28,6 +28,7 @@ class SwapOfferItem : public QObject
 public:
     SwapOfferItem() = default;
     SwapOfferItem(const SwapOffer& offer, bool isOwn, const QDateTime& timeExpiration);
+    bool operator==(const SwapOfferItem& other) const;
 
     auto timeCreated() const -> QDateTime;
     auto timeExpiration() const -> QDateTime;

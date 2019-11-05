@@ -29,7 +29,7 @@ public:
 
     UtxoItem() = default;
     UtxoItem(const beam::wallet::Coin& coin);
-    virtual ~UtxoItem();
+    bool operator==(const UtxoItem& other) const;
 
     QString getAmountWithCurrency() const;
     QString getAmount() const;

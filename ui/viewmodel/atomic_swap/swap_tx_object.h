@@ -22,6 +22,7 @@ class SwapTxObject : public TxObject
 public:
     SwapTxObject(QObject* parent = nullptr);
     SwapTxObject(const beam::wallet::TxDescription& tx, QObject* parent = nullptr);
+    bool operator==(const SwapTxObject& other) const;
 
     auto getSentAmountWithCurrency() const -> QString;
     auto getSentAmount() const-> QString;

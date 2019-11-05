@@ -34,6 +34,11 @@ SwapTxObject::SwapTxObject(const TxDescription& tx, QObject* parent/* = nullptr*
 {
 }
 
+bool SwapTxObject::operator==(const SwapTxObject& other) const
+{
+    return getTxID() == other.getTxID();
+}
+
 auto SwapTxObject::isBeamSideSwap() const -> bool
 {
     if (m_isBeamSide)
