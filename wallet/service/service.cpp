@@ -60,6 +60,8 @@ namespace websocket = boost::beast::websocket;  // from <boost/beast/websocket.h
 
 namespace beam::wallet
 {
+    io::Address node_addr;
+
     static const char JsonRpcHrd[] = "jsonrpc";
     static const char JsonRpcVerHrd[] = "2.0";
 
@@ -220,19 +222,19 @@ namespace beam::wallet
         return coins;
     }
 
-    uint64_t readSessionParameter(const JsonRpcId& id, const nlohmann::json& params)
-    {
-        uint64_t session = 0;
+    // uint64_t readSessionParameter(const JsonRpcId& id, const nlohmann::json& params)
+    // {
+    //     uint64_t session = 0;
 
-        if (params["session"] > 0)
-        {
-            session = params["session"];
-        }
-        else throw jsonrpc_exception{ ApiError::InvalidJsonRpc, "Invalid 'session' parameter.", id };
+    //     if (params["session"] > 0)
+    //     {
+    //         session = params["session"];
+    //     }
+    //     else throw jsonrpc_exception{ ApiError::InvalidJsonRpc, "Invalid 'session' parameter.", id };
 
-        return session;
+    //     return session;
     
-    }
+    // }
 
     void checkTxId(const ByteBuffer& txId, const JsonRpcId& id)
     {
@@ -276,10 +278,10 @@ namespace beam::wallet
         {
             send.coins = readCoinsParameter(id, params);
         }
-        else if (existsJsonParam(params, "session"))
-        {
-            send.session = readSessionParameter(id, params);
-        }
+        // else if (existsJsonParam(params, "session"))
+        // {
+        //     send.session = readSessionParameter(id, params);
+        // }
 
         if (!send.address.FromHex(params["address"]))
         {
@@ -419,29 +421,29 @@ namespace beam::wallet
         _handler.onMessage(id, getUtxo);
     }
 
-    void WalletApi::onLockMessage(const JsonRpcId& id, const nlohmann::json& params)
-    {
-        checkJsonParam(params, "coins", id);
-        checkJsonParam(params, "session", id);
+    // void WalletApi::onLockMessage(const JsonRpcId& id, const nlohmann::json& params)
+    // {
+    //     checkJsonParam(params, "coins", id);
+    //     checkJsonParam(params, "session", id);
 
-        Lock lock;
+    //     Lock lock;
 
-        lock.session = readSessionParameter(id, params);
-        lock.coins = readCoinsParameter(id, params);
+    //     lock.session = readSessionParameter(id, params);
+    //     lock.coins = readCoinsParameter(id, params);
 
-        _handler.onMessage(id, lock);
-    }
+    //     _handler.onMessage(id, lock);
+    // }
 
-    void WalletApi::onUnlockMessage(const JsonRpcId& id, const nlohmann::json& params)
-    {
-        checkJsonParam(params, "session", id);
+    // void WalletApi::onUnlockMessage(const JsonRpcId& id, const nlohmann::json& params)
+    // {
+    //     checkJsonParam(params, "session", id);
 
-        Unlock unlock;
+    //     Unlock unlock;
 
-        unlock.session = readSessionParameter(id, params);
+    //     unlock.session = readSessionParameter(id, params);
 
-        _handler.onMessage(id, unlock);
-    }
+    //     _handler.onMessage(id, unlock);
+    // }
 
     void WalletApi::onTxListMessage(const JsonRpcId& id, const nlohmann::json& params)
     {
@@ -517,6 +519,19 @@ namespace beam::wallet
     void WalletApi::onOpenWalletMessage(const JsonRpcId& id, const nlohmann::json& params)
     {
         OpenWallet openWallet;
+
+        if (existsJsonParam(params, "pass"))
+        {
+            openWallet.pass = params["pass"];
+        }
+        else throw jsonrpc_exception{ ApiError::InvalidJsonRpc, "'pass' parameter must be specified.", id };
+
+        if (existsJsonParam(params, "id"))
+        {
+            openWallet.id = params["id"];
+        }
+        else throw jsonrpc_exception{ ApiError::InvalidJsonRpc, "'id' parameter must be specified.", id };
+
         _handler.onMessage(id, openWallet);
     }
 
@@ -778,29 +793,29 @@ namespace beam::wallet
         {
             {JsonRpcHrd, JsonRpcVerHrd},
             {"id", id},
-            {"result", "here will be KEY to access the wallet"}
+            {"result", res.session}
         };
     }
 
-    void WalletApi::getResponse(const JsonRpcId& id, const Lock::Response& res, json& msg)
-    {
-        msg = json
-        {
-            {JsonRpcHrd, JsonRpcVerHrd},
-            {"id", id},
-            {"result", res.result}
-        };        
-    }
+    // void WalletApi::getResponse(const JsonRpcId& id, const Lock::Response& res, json& msg)
+    // {
+    //     msg = json
+    //     {
+    //         {JsonRpcHrd, JsonRpcVerHrd},
+    //         {"id", id},
+    //         {"result", res.result}
+    //     };        
+    // }
 
-    void WalletApi::getResponse(const JsonRpcId& id, const Unlock::Response& res, json& msg)
-    {
-        msg = json
-        {
-            {JsonRpcHrd, JsonRpcVerHrd},
-            {"id", id},
-            {"result", res.result}
-        };
-    }
+    // void WalletApi::getResponse(const JsonRpcId& id, const Unlock::Response& res, json& msg)
+    // {
+    //     msg = json
+    //     {
+    //         {JsonRpcHrd, JsonRpcVerHrd},
+    //         {"id", id},
+    //         {"result", res.result}
+    //     };
+    // }
 
     bool WalletApi::parse(const char* data, size_t size)
     {
@@ -1111,7 +1126,8 @@ namespace
 
             virtual ~ApiConnection()
             {
-                //_walletDB->Unsubscribe(this);
+                if(_walletDB)
+                    _walletDB->Unsubscribe(this);
             }
 
             //virtual void serializeMsg(const json& msg) = 0;
@@ -1305,17 +1321,17 @@ namespace
 
                     CoinIDList coins;
 
-                    if (data.session)
-                    {
-                        coins = _walletDB->getLockedCoins(*data.session);
+                    // if (data.session)
+                    // {
+                    //     coins = _walletDB->getLockedCoins(*data.session);
 
-                        if (coins.empty())
-                        {
-                            doError(id, ApiError::InternalErrorJsonRpc, "Requested session is empty.");
-                            return;
-                        }
-                    }
-                    else
+                    //     if (coins.empty())
+                    //     {
+                    //         doError(id, ApiError::InternalErrorJsonRpc, "Requested session is empty.");
+                    //         return;
+                    //     }
+                    // }
+                    // else
                     {
                         coins = data.coins ? *data.coins : CoinIDList();
                     }
@@ -1543,13 +1559,23 @@ namespace
                 doResponse(id, GenerateTxId::Response{ wallet::GenerateTxID() });
             }
 
+            static std::string generateUid()
+            {
+                std::array<uint8_t, 16> buf{};
+                {
+                    boost::uuids::uuid uid = boost::uuids::random_generator()();
+                    std::copy(uid.begin(), uid.end(), buf.begin());
+                }
+
+                return to_hex(buf.data(), buf.size());
+            }
+
             void onMessage(const JsonRpcId& id, const CreateWallet& data) override
             {
                 LOG_DEBUG() << "CreateWallet(id = " << id << ")";
 
                 beam::KeyString ks;
 
-                // !TODO: password should be the same as wallet DB pass?
                 ks.SetPassword(data.pass);
                 ks.m_sRes = data.ownerKey;
 
@@ -1557,16 +1583,10 @@ namespace
 
                 if(ks.Import(*ownerKdf))
                 {
-                    std::array<uint8_t, 16> dbId{};
-                    {
-                        boost::uuids::uuid uid = boost::uuids::random_generator()();
-                        copy(uid.begin(), uid.end(), dbId.begin());
-                    }
+                    auto dbName = generateUid();
+                    IWalletDB::Ptr walletDB = WalletDB::initWithOwnerKey(dbName + ".db", ownerKdf, SecString(data.pass), _reactor);
 
-                    auto dbName = to_hex(dbId.data(), dbId.size());
-                    _walletDB = WalletDB::initWithOwnerKey(dbName + ".db", ownerKdf, SecString(data.pass), _reactor);
-
-                    if(_walletDB)
+                    if(walletDB)
                     {
                         doResponse(id, CreateWallet::Response{dbName});
                         return;
@@ -1580,30 +1600,73 @@ namespace
             {
                 LOG_DEBUG() << "OpenWallet(id = " << id << ")";
 
-                doResponse(id, OpenWallet::Response{});
+                _walletDB = WalletDB::open(data.id + ".db", SecString(data.pass), _reactor);
+
+                if(!_walletDB)
+                {
+                    doError(id, ApiError::InternalErrorJsonRpc, "Wallet not opened.");
+                    return;
+                }
+
+                _walletDB->Subscribe(this);
+
+                // !TODO: create websocket key keeper proxy here
+                _keyKeeper = std::make_shared<LocalPrivateKeyKeeper>(_walletDB, _walletDB->get_MasterKdf());
+
+                _wallet = std::make_unique<Wallet>( _walletDB, _keyKeeper );
+                _wallet->ResumeAllTransactions();
+
+                auto nnet = std::make_shared<proto::FlyClient::NetworkStd>(*_wallet);
+                nnet->m_Cfg.m_PollPeriod_ms = 0;//options.pollPeriod_ms.value;
+            
+                if (nnet->m_Cfg.m_PollPeriod_ms)
+                {
+                    LOG_INFO() << "Node poll period = " << nnet->m_Cfg.m_PollPeriod_ms << " ms";
+                    uint32_t timeout_ms = std::max(Rules::get().DA.Target_s * 1000, nnet->m_Cfg.m_PollPeriod_ms);
+                    if (timeout_ms != nnet->m_Cfg.m_PollPeriod_ms)
+                    {
+                        LOG_INFO() << "Node poll period has been automatically rounded up to block rate: " << timeout_ms << " ms";
+                    }
+                }
+                uint32_t responceTime_s = Rules::get().DA.Target_s * wallet::kDefaultTxResponseTime;
+                if (nnet->m_Cfg.m_PollPeriod_ms >= responceTime_s * 1000)
+                {
+                    LOG_WARNING() << "The \"--node_poll_period\" parameter set to more than " << uint32_t(responceTime_s / 3600) << " hours may cause transaction problems.";
+                }
+                nnet->m_Cfg.m_vNodes.push_back(node_addr);
+                nnet->Connect();
+
+                auto wnet = std::make_shared<WalletNetworkViaBbs>(*_wallet, nnet, _walletDB, _keyKeeper);
+                _wallet->AddMessageEndpoint(wnet);
+                _wallet->SetNodeEndpoint(nnet);
+
+                // !TODO: not sure, do we need this id in the future
+                auto session = generateUid();
+
+                doResponse(id, OpenWallet::Response{session});
             }
 
-            void onMessage(const JsonRpcId& id, const Lock& data) override
-            {
-                LOG_DEBUG() << "Lock(id = " << id << ")";
+            // void onMessage(const JsonRpcId& id, const Lock& data) override
+            // {
+            //     LOG_DEBUG() << "Lock(id = " << id << ")";
 
-                Lock::Response response;
+            //     Lock::Response response;
 
-                response.result = _walletDB->lockCoins(data.coins, data.session);
+            //     response.result = _walletDB->lockCoins(data.coins, data.session);
 
-                doResponse(id, response);
-            }
+            //     doResponse(id, response);
+            // }
 
-            void onMessage(const JsonRpcId& id, const Unlock& data) override
-            {
-                LOG_DEBUG() << "Unlock(id = " << id << " session = " << data.session << ")";
+            // void onMessage(const JsonRpcId& id, const Unlock& data) override
+            // {
+            //     LOG_DEBUG() << "Unlock(id = " << id << " session = " << data.session << ")";
 
-                Unlock::Response response;
+            //     Unlock::Response response;
 
-                response.result = _walletDB->unlockCoins(data.session);
+            //     response.result = _walletDB->unlockCoins(data.session);
 
-                doResponse(id, response);
-            }
+            //     doResponse(id, response);
+            // }
 
             void onMessage(const JsonRpcId& id, const TxList& data) override
             {
@@ -1663,9 +1726,8 @@ namespace
 
         protected:
             IWalletDB::Ptr _walletDB;
-//            Wallet& _wallet;
+            std::unique_ptr<Wallet> _wallet;
             WalletApi _api;
-//            IWalletMessageEndpoint& _wnet;
             IPrivateKeyKeeper::Ptr _keyKeeper;
         };
 
@@ -1687,6 +1749,11 @@ namespace
                 , strand_(ws_.get_executor())
                 , ApiConnection(this, reactor)
             {
+            }
+
+            ~session()
+            {
+                LOG_DEBUG() << "session destroyed.";
             }
 
             // Start the asynchronous operation
@@ -1812,9 +1879,6 @@ int main(int argc, char* argv[])
 
         } options;
 
-
-        io::Address node_addr;
-
         {
             po::options_description desc("Wallet API general options");
             desc.add_options()
@@ -1897,42 +1961,6 @@ int main(int argc, char* argv[])
         io::Reactor::GracefulIntHandler gih(*reactor);
 
         LogRotation logRotation(*reactor, LOG_ROTATION_PERIOD, 5);//options.logCleanupPeriod);
-
-
-        {
-        //      auto keyKeeper = std::make_shared<LocalPrivateKeyKeeper>(walletDB, walletDB->get_MasterKdf());
-        //      Wallet wallet{ walletDB, keyKeeper };
-
-        //      wallet.ResumeAllTransactions();
-
-        //      auto nnet = std::make_shared<proto::FlyClient::NetworkStd>(wallet);
-        //      nnet->m_Cfg.m_PollPeriod_ms = options.pollPeriod_ms.value;
-        //  
-        //      if (nnet->m_Cfg.m_PollPeriod_ms)
-        //      {
-        //          LOG_INFO() << "Node poll period = " << nnet->m_Cfg.m_PollPeriod_ms << " ms";
-        //          uint32_t timeout_ms = std::max(Rules::get().DA.Target_s * 1000, nnet->m_Cfg.m_PollPeriod_ms);
-        //          if (timeout_ms != nnet->m_Cfg.m_PollPeriod_ms)
-        //          {
-        //              LOG_INFO() << "Node poll period has been automatically rounded up to block rate: " << timeout_ms << " ms";
-        //          }
-        //      }
-        //      uint32_t responceTime_s = Rules::get().DA.Target_s * wallet::kDefaultTxResponseTime;
-        //      if (nnet->m_Cfg.m_PollPeriod_ms >= responceTime_s * 1000)
-        //      {
-        //          LOG_WARNING() << "The \"--node_poll_period\" parameter set to more than " << uint32_t(responceTime_s / 3600) << " hours may cause transaction problems.";
-        //      }
-        //      nnet->m_Cfg.m_vNodes.push_back(node_addr);
-        //      nnet->Connect();
-
-        //      auto wnet = std::make_shared<WalletNetworkViaBbs>(wallet, nnet, walletDB, keyKeeper);
-                //wallet.AddMessageEndpoint(wnet);
-        //      wallet.SetNodeEndpoint(nnet);
-
-                // WalletApiServer server(walletDB, wallet, *wnet, *reactor, 
-                //     listenTo, true, tlsOptions);
-
-        }
 
         WalletApiServer server(reactor, options.port);
 

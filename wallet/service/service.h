@@ -58,13 +58,13 @@ namespace beam::wallet
     macro(TxCancel,         "tx_cancel",        API_WRITE_ACCESS)   \
     macro(TxDelete,         "tx_delete",        API_WRITE_ACCESS)   \
     macro(GetUtxo,          "get_utxo",         API_READ_ACCESS)    \
-    macro(Lock,             "lock",             API_WRITE_ACCESS)   \
-    macro(Unlock,           "unlock",           API_WRITE_ACCESS)   \
     macro(TxList,           "tx_list",          API_READ_ACCESS)    \
     macro(WalletStatus,     "wallet_status",    API_READ_ACCESS)    \
     macro(GenerateTxId,     "generate_tx_id",   API_READ_ACCESS)    \
     macro(CreateWallet,     "create_wallet",    API_WRITE_ACCESS)   \
     macro(OpenWallet,       "open_wallet",      API_WRITE_ACCESS)
+    // macro(Lock,             "lock",             API_WRITE_ACCESS)   \
+    // macro(Unlock,           "unlock",           API_WRITE_ACCESS)   \
 
     struct CreateWallet
     {
@@ -80,10 +80,11 @@ namespace beam::wallet
     struct OpenWallet
     {
         std::string id;
+        std::string pass;
 
         struct Response
         {
-            std::string status;
+            std::string session;
         };
     };
 
@@ -144,7 +145,7 @@ namespace beam::wallet
         Amount fee = DefaultFee;
         boost::optional<CoinIDList> coins;
         boost::optional<WalletID> from;
-        boost::optional<uint64_t> session;
+        // boost::optional<uint64_t> session;
         boost::optional<TxID> txId;
         WalletID address;
         std::string comment;
@@ -212,26 +213,26 @@ namespace beam::wallet
         };
     };
 
-    struct Lock
-    {
-        CoinIDList coins;
-        uint64_t session;
+    // struct Lock
+    // {
+    //     CoinIDList coins;
+    //     uint64_t session;
 
-        struct Response
-        {
-            bool result;
-        };
-    };
+    //     struct Response
+    //     {
+    //         bool result;
+    //     };
+    // };
 
-    struct Unlock
-    {
-        uint64_t session;
+    // struct Unlock
+    // {
+    //     uint64_t session;
 
-        struct Response
-        {
-            bool result;
-        };
-    };
+    //     struct Response
+    //     {
+    //         bool result;
+    //     };
+    // };
 
     struct TxList
     {
