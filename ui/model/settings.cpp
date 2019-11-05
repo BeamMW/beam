@@ -52,6 +52,7 @@ namespace
         { "en_US", "English" },
         { "es_ES", "Español"},
         { "be_BY", "Беларуская"},
+        { "cs_CZ", "Czech"},
         { "nl_NL", "Dutch"},
         { "fr_FR", "Française"},
         { "it_IT", "Italiano"},
