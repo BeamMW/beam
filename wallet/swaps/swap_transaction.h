@@ -14,14 +14,65 @@
 
 #pragma once
 
-#include "../base_transaction.h"
-#include "../base_tx_builder.h"
+#include "wallet/base_transaction.h"
+#include "wallet/base_tx_builder.h"
 #include "common.h"
 
 #include "second_side.h"
 
 namespace beam::wallet
 {
+    TxParameters InitNewSwap(const WalletID& myID, Height minHeight, Amount amount, Amount fee, AtomicSwapCoin swapCoin,
+        Amount swapAmount, bool isBeamSide = true,
+        Height lifetime = kDefaultTxLifetime, Height responseTime = kDefaultTxResponseTime);
+
+    TxParameters CreateSwapParameters();
+
+    TxParameters AcceptSwapParameters(const TxParameters& initialParameters, const WalletID& myID);
+
+    class SecondSideFactoryNotRegisteredException : public std::runtime_error
+    {
+    public:
+        explicit SecondSideFactoryNotRegisteredException()
+            : std::runtime_error("second side factory is not registered")
+        {
+        }
+
+    };
+
+    class ISecondSideFactory
+    {
+    public:
+        using Ptr = std::shared_ptr<ISecondSideFactory>;
+        virtual ~ISecondSideFactory() = default;
+        virtual SecondSide::Ptr CreateSecondSide(BaseTransaction& tx, bool isBeamSide) = 0;
+    };
+
+    template<typename BridgeSide, typename Bridge, typename SettingsProvider>
+    class SecondSideFactory : public ISecondSideFactory
+    {
+    public:
+        SecondSideFactory(std::function<typename Bridge::Ptr()> bridgeCreator, SettingsProvider& settingsProvider)
+            : m_bridgeCreator{ bridgeCreator }
+            , m_settingsProvider{ settingsProvider }
+        {
+        }
+    private:
+        SecondSide::Ptr CreateSecondSide(BaseTransaction& tx, bool isBeamSide) override
+        {
+            return std::make_shared<BridgeSide>(tx, m_bridgeCreator(), m_settingsProvider, isBeamSide);
+        }
+    private:
+        std::function<typename Bridge::Ptr()> m_bridgeCreator;
+        SettingsProvider& m_settingsProvider;
+    };
+
+    template<typename BridgeSide, typename Bridge, typename SettingsProvider>
+    ISecondSideFactory::Ptr MakeSecondSideFactory(std::function<typename Bridge::Ptr()> bridgeCreator, SettingsProvider& settingsProvider)
+    {
+        return std::make_shared<SecondSideFactory<BridgeSide, Bridge, SettingsProvider>>(bridgeCreator, settingsProvider);
+    }
+
     class LockTxBuilder;
 
     class AtomicSwapTransaction : public BaseTransaction
@@ -37,15 +88,22 @@ namespace beam::wallet
         {
         };
 
+        class ISecondSideProvider
+        {
+        public:
+            virtual SecondSide::Ptr GetSecondSide(BaseTransaction& tx) = 0;
+        };
+
         class WrapperSecondSide
         {
         public:
-            WrapperSecondSide(INegotiatorGateway& gateway, const TxID& txID);
+            WrapperSecondSide(ISecondSideProvider& gateway, BaseTransaction& tx);
             SecondSide::Ptr operator -> ();
+            SecondSide::Ptr GetSecondSide();
 
         private:
-            INegotiatorGateway& m_gateway;
-            TxID m_txID;
+            ISecondSideProvider& m_gateway;
+            BaseTransaction& m_tx;
             SecondSide::Ptr m_secondSide;
         };
 
@@ -53,7 +111,6 @@ namespace beam::wallet
         enum class State : uint8_t
         {
             Initial,
-            Invitation,
 
             BuildingBeamLockTX,
             BuildingBeamRefundTX,
@@ -67,7 +124,7 @@ namespace beam::wallet
             SendingBeamRefundTX,
             SendingBeamRedeemTX,
 
-            Cancelled,
+            Canceled,
 
             CompleteSwap,
             Failed,
@@ -75,16 +132,31 @@ namespace beam::wallet
         };
 
     public:
-        
-        static BaseTransaction::Ptr Create(INegotiatorGateway& gateway
-                                            , IWalletDB::Ptr walletDB
-                                            , IPrivateKeyKeeper::Ptr keyKeeper
-                                            , const TxID& txID);
+
+        class Creator : public BaseTransaction::Creator
+                      , public ISecondSideProvider
+        {
+        public:
+            Creator(IWalletDB::Ptr walletDB);
+            void RegisterFactory(AtomicSwapCoin coinType, ISecondSideFactory::Ptr factory);
+        private:
+            BaseTransaction::Ptr Create(INegotiatorGateway& gateway
+                                      , IWalletDB::Ptr walletDB
+                                      , IPrivateKeyKeeper::Ptr keyKeeper
+                                      , const TxID& txID) override;
+            TxParameters CheckAndCompleteParameters(const TxParameters& parameters) override;
+
+            SecondSide::Ptr GetSecondSide(BaseTransaction& tx) override;
+        private:
+            std::map<AtomicSwapCoin, ISecondSideFactory::Ptr> m_factories;
+            IWalletDB::Ptr m_walletDB;
+        };
 
         AtomicSwapTransaction(INegotiatorGateway& gateway
-                            , IWalletDB::Ptr walletDB
+                            , WalletDB::Ptr walletDB
                             , IPrivateKeyKeeper::Ptr keyKeeper
-                            , const TxID& txID);
+                            , const TxID& txID
+                            , ISecondSideProvider& secondSideProvider);
 
         void Cancel() override;
 
@@ -141,5 +213,5 @@ namespace beam::wallet
         Transaction::Ptr m_WithdrawTx;
 
         WrapperSecondSide m_secondSide;
-    };    
+    };
 }

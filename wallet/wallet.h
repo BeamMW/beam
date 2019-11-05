@@ -18,17 +18,14 @@
 #include "wallet/common.h"
 #include "wallet/wallet_transaction.h"
 #include "core/fly_client.h"
-#include "bitcoin/bitcoin_bridge.h"
-#include "bitcoin/options.h"
-#include "litecoin/options.h"
-#include "qtum/options.h"
 
 namespace beam::wallet
 {
+    // Exceptions
     class AddressExpiredException : public std::runtime_error
     {
     public:
-        explicit AddressExpiredException()
+        AddressExpiredException()
             : std::runtime_error("")
         {
         }
@@ -38,14 +35,33 @@ namespace beam::wallet
     class FailToStartSwapException : public std::runtime_error
     {
     public:
-        explicit FailToStartSwapException()
+        FailToStartSwapException()
             : std::runtime_error("")
         {
         }
 
     };
 
-    // Interface for walelt observer. 
+    class FailToStartNewTransactionException : public std::runtime_error
+    {
+    public:
+        FailToStartNewTransactionException()
+            : std::runtime_error("")
+        {
+        }
+
+    };
+
+    class InvalidTransactionParametersException : public std::runtime_error
+    {
+    public:
+        InvalidTransactionParametersException()
+            : std::runtime_error("")
+        {
+        }
+    };
+
+    // Interface for wallet observer. 
     struct IWalletObserver : IWalletDbObserver
     {
         // Callback for wallet sync progress. 
@@ -53,23 +69,20 @@ namespace beam::wallet
         // @param total - number of total tasks
         virtual void onSyncProgress(int done, int total) = 0;
     };
-
-    // Wallet base class. 
-    // Extends FlyClient protocol for communication with own or remote node
-    struct IWallet : public proto::FlyClient
+    
+    // Interface for swap bulletin board observer. 
+    struct ISwapOffersObserver
     {
-        using Ptr = std::shared_ptr<IWallet>;
-        virtual ~IWallet() {}
+        virtual void onSwapOffersChanged(ChangeAction action, const std::vector<SwapOffer>& offers) = 0;
+    };
 
-        virtual void subscribe(IWalletObserver* observer) = 0;
-        virtual void unsubscribe(IWalletObserver* observer) = 0;
-
-        // TODO: Consider removing these methods from the interface
-        virtual void cancel_tx(const TxID& id) = 0;
-        virtual void delete_tx(const TxID& id) = 0;
+    // Interface for wallet message consumer
+    struct IWalletMessageConsumer
+    {
+        using Ptr = std::shared_ptr<IWalletMessageConsumer>;
 
         // Callback for receiving notifications on SBBS messages
-        virtual void OnWalletMessage(const WalletID& peerID, SetTxParameter&&) = 0;
+        virtual void OnWalletMessage(const WalletID& peerID, const SetTxParameter&) = 0;
 
     };
 
@@ -80,12 +93,14 @@ namespace beam::wallet
         using Ptr = std::shared_ptr<IWalletMessageEndpoint>;
         virtual void Send(const WalletID& peerID, const SetTxParameter& msg) = 0;
         virtual void SendEncryptedMessage(const WalletID& peerID, const ByteBuffer& msg) = 0;
+        virtual void SendAndSign(const ByteBuffer& msg, const BbsChannel& channel, const WalletID& wid, uint8_t version) = 0;
     };
 
-
+    // Extends FlyClient protocol for communication with own or remote node
     class Wallet
-        : public IWallet
+        : public proto::FlyClient
         , public INegotiatorGateway
+        , public IWalletMessageConsumer
     {
     public:
 
@@ -93,43 +108,33 @@ namespace beam::wallet
         using TxCompletedAction = std::function<void(const TxID& tx_id)>;
         using UpdateCompletedAction = std::function<void()>;
 
-        Wallet(IWalletDB::Ptr walletDB, TxCompletedAction&& action = TxCompletedAction(), UpdateCompletedAction&& updateCompleted = UpdateCompletedAction());
+        Wallet(IWalletDB::Ptr walletDB, IPrivateKeyKeeper::Ptr keyKeeper, TxCompletedAction&& action = TxCompletedAction(), UpdateCompletedAction&& updateCompleted = UpdateCompletedAction());
         virtual ~Wallet();
         void CleanupNetwork();
 
         void SetNodeEndpoint(std::shared_ptr<proto::FlyClient::INetwork> nodeEndpoint);
         void AddMessageEndpoint(IWalletMessageEndpoint::Ptr endpoint);
 
-        // Metods for Atomic Swaps
-        // TODO: Refactor
-        void initBitcoin(io::Reactor& reactor, const BitcoinOptions& options);
-        void initLitecoin(io::Reactor& reactor, const LitecoinOptions& options);
-        void initQtum(io::Reactor& reactor, const QtumOptions& options);
-        void initSwapConditions(Amount beamAmount, Amount swapAmount, AtomicSwapCoin swapCoin, bool isBeamSide, SwapSecondSideChainType chainType);
-
-        TxID transfer_money(const WalletID& from, const WalletID& to, Amount amount, Amount fee = 0, bool sender = true, Height lifetime = kDefaultTxLifetime, Height responseTime = kDefaultTxResponseTime, ByteBuffer&& message = {}, bool saveReceiver = false);
-        TxID transfer_money(const WalletID& from, const WalletID& to, Amount amount, Amount fee = 0, const CoinIDList& coins = {}, bool sender = true, Height lifetime = kDefaultTxLifetime, Height responseTime = kDefaultTxResponseTime, ByteBuffer&& message = {}, bool saveReceiver = false);
-        TxID transfer_money(const WalletID& from, const WalletID& to, const AmountList& amountList, Amount fee = 0, const CoinIDList& coins = {}, bool sender = true, Height lifetime = kDefaultTxLifetime, Height responseTime = kDefaultTxResponseTime, ByteBuffer&& message = {}, bool saveReceiver = false);
-        TxID split_coins(const WalletID& from, const AmountList& amountList, Amount fee = 0, bool sender = true, Height lifetime = kDefaultTxLifetime, Height responseTime = kDefaultTxResponseTime, ByteBuffer&& message = {});
-        TxID swap_coins(const WalletID& from, const WalletID& to, Amount amount, Amount fee, AtomicSwapCoin swapCoin, Amount swapAmount, SwapSecondSideChainType chainType, bool isBeamSide = true, Height lifetime = kDefaultTxLifetime, Height responseTime = kDefaultTxResponseTime);
-
-
         // Resets wallet state and rescans the blockchain from scratch
         void Refresh();
 
-        // IWallet
-        void subscribe(IWalletObserver* observer) override;
-        void unsubscribe(IWalletObserver* observer) override;
-        void cancel_tx(const TxID& txId) override;
-        void delete_tx(const TxID& txId) override;
-
-        void ProcessTransaction(wallet::BaseTransaction::Ptr tx);
-        void RegisterTransactionType(wallet::TxType type, wallet::BaseTransaction::Creator creator);
+        void RegisterTransactionType(TxType type, BaseTransaction::Creator::Ptr creator);
+        TxID StartTransaction(const TxParameters& parameters);
+        void CancelTransaction(const TxID& txId);
+        void DeleteTransaction(const TxID& txId);
         
-    private:
-        void ResumeTransaction(const TxDescription& tx);
+        void Subscribe(IWalletObserver* observer);
+        void Unsubscribe(IWalletObserver* observer);
         void ResumeAllTransactions();
 
+        bool IsWalletInSync() const;
+    protected:
+        void SendTransactionToNode(const TxID& txId, Transaction::Ptr, SubTxID subTxID);
+    private:
+        void ProcessTransaction(BaseTransaction::Ptr tx);
+        void ResumeTransaction(const TxDescription& tx);
+
+        // INegotiatorGateway
         void OnAsyncStarted() override;
         void OnAsyncFinished() override;
         void on_tx_completed(const TxID& txID) override;
@@ -138,12 +143,12 @@ namespace beam::wallet
         void confirm_kernel(const TxID&, const Merkle::Hash& kernelID, SubTxID subTxID) override;
         void get_kernel(const TxID&, const Merkle::Hash& kernelID, SubTxID subTxID) override;
         bool get_tip(Block::SystemState::Full& state) const override;
-        void send_tx_params(const WalletID& peerID, SetTxParameter&&) override;
+        void send_tx_params(const WalletID& peerID, const SetTxParameter&) override;
         void register_tx(const TxID& txId, Transaction::Ptr, SubTxID subTxID) override;
         void UpdateOnNextTip(const TxID&) override;
-        SecondSide::Ptr GetSecondSide(const TxID& txId) const override;
 
-        void OnWalletMessage(const WalletID& peerID, SetTxParameter&&) override;
+        // IWalletMessageConsumer
+        void OnWalletMessage(const WalletID& peerID, const SetTxParameter&) override;
 
         // FlyClient
         void OnNewTip() override;
@@ -166,7 +171,7 @@ namespace beam::wallet
         void getUtxoProof(const Coin::ID&);
         void report_sync_progress();
         void notifySyncProgress();
-        void updateTransaction(const TxID& txID);
+        void UpdateTransaction(const TxID& txID);
         void UpdateOnSynced(BaseTransaction::Ptr tx);
         void UpdateOnNextTip(BaseTransaction::Ptr tx);
         void saveKnownState();
@@ -176,32 +181,18 @@ namespace beam::wallet
         void SetUtxoEventsHeight(Height);
         Height GetUtxoEventsHeightNext();
 
-        BaseTransaction::Ptr getTransaction(const WalletID& myID, const SetTxParameter& msg);
-        BaseTransaction::Ptr constructTransaction(const TxID& id, TxType type);
+        BaseTransaction::Ptr GetTransaction(const WalletID& myID, const SetTxParameter& msg);
+        BaseTransaction::Ptr ConstructTransaction(const TxID& id, TxType type);
+        BaseTransaction::Ptr ConstructTransactionFromParameters(const SetTxParameter& msg);
+        BaseTransaction::Ptr ConstructTransactionFromParameters(const TxParameters& parameters);
+
+        void MakeTransactionActive(BaseTransaction::Ptr tx);
         void ProcessStoredMessages();
         bool IsNodeInSync() const;
 
     private:
 
         static const char s_szNextUtxoEvt[];
-
-        struct SwapConditions
-        {
-            Amount beamAmount = 0;
-            Amount swapAmount = 0;
-            AtomicSwapCoin swapCoin;
-            bool isBeamSide = 0;
-            SwapSecondSideChainType sideChainType;
-
-            bool operator== (const SwapConditions& other)
-            {
-                return beamAmount == other.beamAmount &&
-                    swapAmount == other.swapAmount &&
-                    swapCoin == other.swapCoin &&
-                    isBeamSide == other.isBeamSide &&
-                    sideChainType == other.sideChainType;
-            }
-        };
 
 // The following macros define
 // Wallet to Node messages (requests) to get update on blockchain state
@@ -288,8 +279,13 @@ namespace beam::wallet
 
 
         IWalletDB::Ptr m_WalletDB; 
-        IPrivateKeyKeeper::Ptr m_KeyKeeper;
+        
         std::shared_ptr<proto::FlyClient::INetwork> m_NodeEndpoint;
+
+        // List of registered transaction creators
+        // Creators can store some objects for the transactions, 
+        // so they have to be destroyed after the transactions
+        std::unordered_map<wallet::TxType, wallet::BaseTransaction::Creator::Ptr> m_TxCreators;
 
         // List of currently active (incomplete) transactions
         std::map<TxID, BaseTransaction::Ptr> m_ActiveTransactions;
@@ -299,9 +295,6 @@ namespace beam::wallet
 
         // List of transactions that are waiting for the next tip (new block) to arrive
         std::unordered_set<BaseTransaction::Ptr> m_NextTipTransactionToUpdate;
-
-        // List of registered transaction creators
-        std::unordered_map<wallet::TxType, wallet::BaseTransaction::Creator> m_TxCreators;
 
         // Functor for callback when transaction completed
         TxCompletedAction m_TxCompletedAction;
@@ -314,17 +307,13 @@ namespace beam::wallet
 
         uint32_t m_OwnedNodesOnline;
 
+        IPrivateKeyKeeper::Ptr m_KeyKeeper;
+
         std::vector<IWalletObserver*> m_subscribers;
         std::set<IWalletMessageEndpoint::Ptr> m_MessageEndpoints;
 
         // Counter of running transaction updates. Used by Cold wallet
         int m_AsyncUpdateCounter = 0;
-
-        // Members for Atomic Swaps
-        // TODO: Refactor this
-        IBitcoinBridge::Ptr m_bitcoinBridge;
-        IBitcoinBridge::Ptr m_litecoinBridge;
-        IBitcoinBridge::Ptr m_qtumBridge;
-        std::vector<SwapConditions> m_swapConditions;
+        bool m_StoredMessagesProcessed = false; // this should happen only once, but not in destructor;
     };
 }

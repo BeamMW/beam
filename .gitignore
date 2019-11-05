@@ -56,6 +56,7 @@ debug/
 release/
 cmake-build-*/
 
+docs
 wallet/unittests/wallet_test
 beam/beam
 beam/unittests/node_test
@@ -107,3 +108,4 @@ ui/beam.desktop
 ui/*.qm
 ui/translations.qrc
 beam_version.gen
+keykeeper/wasm-key-keeper.*

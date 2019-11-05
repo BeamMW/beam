@@ -93,10 +93,9 @@ class AddressBookViewModel : public QObject
     Q_PROPERTY(QString contactSortRole READ contactSortRole WRITE setContactSortRole)
 
 public:
-	Q_INVOKABLE void deleteAddress(const QString& addr);
+    Q_INVOKABLE void deleteAddress(const QString& addr);
     Q_INVOKABLE void saveChanges(const QString& addr, const QString& name, uint expirationStatus);
     Q_INVOKABLE static QString generateQR(const QString& addr, uint width, uint height);
-    Q_INVOKABLE static QString getLocaleName();
     Q_INVOKABLE bool isAddressWithCommentExist(const QString& comment) const;
 
 public:
@@ -128,7 +127,6 @@ public:
     void setContactSortRole(QString);
 
 public slots:
-    void onStatus(const beam::wallet::WalletStatus& amount);
     void onAddresses(bool own, const std::vector<beam::wallet::WalletAddress>& addresses);
 
 signals:

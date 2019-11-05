@@ -326,12 +326,14 @@ namespace beam::wallet
             auto currentHeight = m_Tx.GetWalletDB()->getCurrentHeight();
             m_MinHeight = currentHeight;
             m_Tx.SetParameter(TxParameterID::MinHeight, m_MinHeight, m_SubTxID);
-            Height maxResponseHeight = 0;
-            if (m_Tx.GetParameter(TxParameterID::PeerResponseHeight, maxResponseHeight, m_SubTxID))
+
+            Height responseTime = 0;
+            if (m_Tx.GetParameter(TxParameterID::PeerResponseTime, responseTime, m_SubTxID))
             {
-                // adjust responce height, if min height din not set then then it should be equal to responce time
-                m_Tx.SetParameter(TxParameterID::PeerResponseHeight, maxResponseHeight + currentHeight, m_SubTxID);
+                // adjust response height, if min height din not set then then it should be equal to responce time
+                m_Tx.SetParameter(TxParameterID::PeerResponseHeight, responseTime + currentHeight, m_SubTxID);
             }
+
         }
         m_Tx.GetParameter(TxParameterID::Lifetime, m_Lifetime, m_SubTxID);
         m_Tx.GetParameter(TxParameterID::PeerMaxHeight, m_PeerMaxHeight, m_SubTxID);
@@ -369,7 +371,20 @@ namespace beam::wallet
 
         m_Kernel->get_Hash(m_Message, m_PeerLockImage.get());
 
-        m_PartialSignature = m_Tx.GetKeyKeeper()->SignSync(m_InputCoins, m_OutputCoins, m_Offset, m_NonceSlot, m_Message, GetPublicNonce() + m_PeerPublicNonce, totalPublicExcess);
+        KernelParameters kernelParameters;
+        kernelParameters.fee = m_Fee;
+        kernelParameters.height = { GetMinHeight(), GetMaxHeight() };
+        kernelParameters.commitment = totalPublicExcess;
+        if (m_PeerLockImage)
+        {
+            *kernelParameters.lockImage = *m_PeerLockImage;
+        }
+        if (m_Kernel->m_pHashLock)
+        {
+            *kernelParameters.hashLock = *m_Kernel->m_pHashLock;
+        }
+
+        m_PartialSignature = m_Tx.GetKeyKeeper()->SignSync(m_InputCoins, m_OutputCoins, m_Offset, m_NonceSlot, kernelParameters, GetPublicNonce() + m_PeerPublicNonce);
 
         StoreKernelID();
     }
@@ -522,9 +537,8 @@ namespace beam::wallet
             }
             else
             {
-                assert(false && "KernelID is not stored");
+                throw std::runtime_error("KernelID is not stored");
             }
-
         }
         return *m_KernelID;
     }

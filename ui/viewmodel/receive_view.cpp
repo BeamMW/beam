@@ -17,51 +17,59 @@
 #include "model/qr.h"
 #include "model/app_model.h"
 #include <QClipboard>
-#include <QApplication>
+
+namespace {
+    enum {
+        AddressExpires = 0,
+        AddressNotExpires = 1
+    };
+}
 
 ReceiveViewModel::ReceiveViewModel()
-    : _amountToReceive(0.0)
-    , _addressExpires(true)
+    : _amountToReceiveGrothes(0)
+    , _addressExpires(AddressExpires)
     , _qr(std::make_unique<QR>())
     , _walletModel(*AppModel::getInstance().getWallet())
 {
-    LOG_INFO() << "ReceiveViewModel created";
     connect(_qr.get(), &QR::qrDataChanged, this, &ReceiveViewModel::onReceiverQRChanged);
     connect(&_walletModel, &WalletModel::generatedNewAddress, this, &ReceiveViewModel::onGeneratedNewAddress);
-    connect(&_walletModel, &WalletModel::newAddressFailed, this,  &ReceiveViewModel::onNewAddressFailed);
+    connect(&_walletModel, &WalletModel::newAddressFailed, this, &ReceiveViewModel::newAddressFailed);
     generateNewAddress();
+    updateTransactionToken();
 }
 
 ReceiveViewModel::~ReceiveViewModel()
 {
     disconnect(_qr.get(), &QR::qrDataChanged, this, &ReceiveViewModel::onReceiverQRChanged);
-    saveAddress();
-    LOG_INFO() << "ReceiveViewModel destroyed";
 }
 
 void ReceiveViewModel::onGeneratedNewAddress(const beam::wallet::WalletAddress& addr)
 {
     _receiverAddress = addr;
-    setAddressExpires(true);
+    emit receiverAddressChanged();
+
     _qr->setAddr(beamui::toString(_receiverAddress.m_walletID));
+    updateTransactionToken();
 }
 
-double ReceiveViewModel::getAmountToReceive() const
+QString ReceiveViewModel::getAmountToReceive() const
 {
-    return _amountToReceive;
+    return beamui::AmountToUIString(_amountToReceiveGrothes);
 }
 
-void ReceiveViewModel::setAmountToReceive(double value)
+void ReceiveViewModel::setAmountToReceive(QString value)
 {
-    if (value != _amountToReceive)
+    auto amount = beamui::UIStringToAmount(value);
+    if (amount != _amountToReceiveGrothes)
     {
-        _amountToReceive = value;
-        _qr->setAmount(_amountToReceive);
+        _amountToReceiveGrothes = amount;
+        _qr->setAmount(_amountToReceiveGrothes);
         emit amountToReceiveChanged();
+        updateTransactionToken();
     }
 }
 
-void ReceiveViewModel::setAddressExpires(bool value)
+void ReceiveViewModel::setAddressExpires(int value)
 {
     if (value != _addressExpires)
     {
@@ -70,7 +78,7 @@ void ReceiveViewModel::setAddressExpires(bool value)
     }
 }
 
-bool ReceiveViewModel::getAddressExpires() const
+int ReceiveViewModel::getAddressExpires() const
 {
     return _addressExpires;
 }
@@ -93,18 +101,34 @@ void ReceiveViewModel::onReceiverQRChanged()
 void ReceiveViewModel::generateNewAddress()
 {
     _receiverAddress = {};
-    _addressComment = "";
-    _walletModel.getAsync()->generateNewAddress();
-}
+    emit receiverAddressChanged();
 
-void ReceiveViewModel::onNewAddressFailed()
-{
-    emit newAddressFailed();
+    setAddressComment("");
+    _walletModel.getAsync()->generateNewAddress();
 }
 
 QString ReceiveViewModel::getAddressComment() const
 {
     return _addressComment;
+}
+
+void ReceiveViewModel::setTranasctionToken(const QString& value)
+{
+    if (_token != value)
+    {
+        _token = value;
+        emit transactionTokenChanged();
+    }
+}
+
+QString ReceiveViewModel::getTransactionToken() const
+{
+    return _token;
+}
+
+bool ReceiveViewModel::getCommentValid() const
+{
+    return !_walletModel.isAddressWithCommentExist(_addressComment.toStdString());
 }
 
 void ReceiveViewModel::setAddressComment(const QString& value)
@@ -114,19 +138,25 @@ void ReceiveViewModel::setAddressComment(const QString& value)
     {
         _addressComment = trimmed;
         emit addressCommentChanged();
+        emit commentValidChanged();
     }
-}
-
-bool ReceiveViewModel::isValidComment(const QString &comment) const
-{
-    return !_walletModel.isAddressWithCommentExist(comment.toStdString());
 }
 
 void ReceiveViewModel::saveAddress()
 {
     using namespace beam::wallet;
 
-    _receiverAddress.m_label = _addressComment.toStdString();
-    _receiverAddress.m_duration = _addressExpires ? WalletAddress::AddressExpiration24h : WalletAddress::AddressExpirationNever;
-    _walletModel.getAsync()->saveAddress(_receiverAddress, true);
+    if (getCommentValid()) {
+        _receiverAddress.m_label = _addressComment.toStdString();
+        _receiverAddress.m_duration = _addressExpires == AddressExpires ? WalletAddress::AddressExpiration24h : WalletAddress::AddressExpirationNever;
+        _walletModel.getAsync()->saveAddress(_receiverAddress, true);
+    }
+}
+
+void ReceiveViewModel::updateTransactionToken()
+{
+    _txParameters.SetParameter(beam::wallet::TxParameterID::Amount, _amountToReceiveGrothes);
+    _txParameters.SetParameter(beam::wallet::TxParameterID::PeerID, _receiverAddress.m_walletID);
+    _txParameters.SetParameter(beam::wallet::TxParameterID::TransactionType, beam::wallet::TxType::Simple);
+    setTranasctionToken(QString::fromStdString(std::to_string(_txParameters)));
 }

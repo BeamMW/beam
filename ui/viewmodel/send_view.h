@@ -15,77 +15,78 @@
 
 #include <QObject>
 #include "model/wallet_model.h"
-#include "status_holder.h"
 
 class SendViewModel: public QObject
 {
     Q_OBJECT
-    Q_PROPERTY(int      feeGrothes         READ getFeeGrothes         WRITE setFeeGrothes       NOTIFY feeGrothesChanged)
-    Q_PROPERTY(double   sendAmount         READ getSendAmount         WRITE setSendAmount       NOTIFY sendAmountChanged)
-    Q_PROPERTY(QString  comment            READ getComment            WRITE setComment          NOTIFY commentChanged)
-    Q_PROPERTY(QString  receiverAddress    READ getReceiverAddress    WRITE setReceiverAddress  NOTIFY receiverAddressChanged)
+    Q_PROPERTY(unsigned int  feeGrothes         READ getFeeGrothes         WRITE setFeeGrothes       NOTIFY feeGrothesChanged)
+    Q_PROPERTY(QString       sendAmount         READ getSendAmount         WRITE setSendAmount       NOTIFY sendAmountChanged)
+    Q_PROPERTY(QString       comment            READ getComment            WRITE setComment          NOTIFY commentChanged)
+
+    // TA = Transaction or Address
+    Q_PROPERTY(QString  receiverTA         READ getReceiverTA         WRITE setReceiverTA       NOTIFY receiverTAChanged)
+    Q_PROPERTY(bool     receiverTAValid    READ getRreceiverTAValid                             NOTIFY receiverTAChanged)
+
+    Q_PROPERTY(QString  receiverAddress    READ getReceiverAddress                              NOTIFY receiverTAChanged)
     Q_PROPERTY(QString  available          READ getAvailable                                    NOTIFY availableChanged)
+    Q_PROPERTY(QString  change             READ getChange                                       NOTIFY availableChanged)
+    Q_PROPERTY(QString  totalUTXO          READ getTotalUTXO                                    NOTIFY availableChanged)
     Q_PROPERTY(QString  missing            READ getMissing                                      NOTIFY availableChanged)
     Q_PROPERTY(bool     isEnough           READ isEnough                                        NOTIFY availableChanged)
-    Q_PROPERTY(QString  change             READ getChange                                       NOTIFY availableChanged)
-    Q_PROPERTY(int      minimumFeeInGroth  READ getMinFeeInGroth      CONSTANT)
-    Q_PROPERTY(int      defaultFeeInGroth  READ getDefaultFeeInGroth  CONSTANT)
+    Q_PROPERTY(bool     canSend            READ canSend                                         NOTIFY canSendChanged)
 
 public:
     SendViewModel();
-    ~SendViewModel() override = default;
 
-    int  getFeeGrothes() const;
-    void setFeeGrothes(int amount);
+    unsigned int getFeeGrothes() const;
+    void setFeeGrothes(unsigned int amount);
 
     void setComment(const QString& value);
     QString getComment() const;
 
-    double getSendAmount() const;
-    void setSendAmount(double value);
+    QString getSendAmount() const;
+    void setSendAmount(QString value);
 
+    QString getReceiverTA() const;
+    void    setReceiverTA(const QString& value);
+    bool    getRreceiverTAValid() const;
     QString getReceiverAddress() const;
-    void setReceiverAddress(const QString& value);
-
-    int getMinFeeInGroth() const;
-    int getDefaultFeeInGroth() const;
 
     QString getAvailable() const;
     QString getMissing() const;
-    bool isEnough() const;
     QString getChange() const;
+    QString getTotalUTXO() const;
+
+    bool isEnough() const;
+    bool canSend() const;
 
 public:
-    Q_INVOKABLE bool isValidReceiverAddress(const QString& value);
     Q_INVOKABLE void sendMoney();
-    Q_INVOKABLE bool needPassword() const;
-    Q_INVOKABLE bool isPasswordValid(const QString& value) const;
 
 signals:
     void feeGrothesChanged();
     void commentChanged();
     void sendAmountChanged();
-    void receiverAddressChanged();
+    void receiverTAChanged();
     void availableChanged();
     void sendMoneyVerified();
     void cantSendToExpired();
+    void canSendChanged();
 
 public slots:
     void onChangeCalculated(beam::Amount change);
-    void onChangeWalletIDs(beam::wallet::WalletID senderID, beam::wallet::WalletID receiverID);
-    void onSendMoneyVerified();
-    void onCantSendToExpired();
 
 private:
     beam::Amount calcTotalAmount() const;
-    beam::Amount calcSendAmount() const;
-    beam::Amount calcFeeAmount() const;
+    void extractParameters();
 
-    int _feeGrothes;
-    double _sendAmount;
+    beam::Amount _feeGrothes;
+    beam::Amount _sendAmountGrothes;
+    beam::Amount _changeGrothes;
+
     QString _comment;
-    QString _receiverAddr;
-    StatusHolder _status;
-    beam::Amount _change;
+    QString _receiverTA;
+
     WalletModel& _walletModel;
+    beam::wallet::TxParameters _txParameters;
 };

@@ -15,8 +15,8 @@
 #pragma once
 
 #include <boost/program_options.hpp>
-#include "core/ecc.h"
 #include "utility/logger.h"
+#include "wallet/secstring.h"
 
 namespace beam
 {
@@ -38,28 +38,28 @@ namespace beam
         extern const char* NONCEPREFIX_DIGITS;
         extern const char* NODE_PEER;
         extern const char* PASS;
-        extern const char* BTC_PASS;
-        extern const char* BTC_USER_NAME;
-        extern const char* LTC_PASS;
-        extern const char* LTC_USER_NAME;
-        extern const char* QTUM_PASS;
-        extern const char* QTUM_USER_NAME;
+        extern const char* SET_SWAP_SETTINGS;
+        extern const char* ACTIVE_CONNECTION;
+        extern const char* SWAP_WALLET_PASS;
+        extern const char* SWAP_WALLET_USER;
+        extern const char* ALTCOIN_SETTINGS_RESET;
+        extern const char* SHOW_SWAP_SETTINGS;
+        extern const char* ELECTRUM_SEED;
+        extern const char* GENERATE_ELECTRUM_SEED;
+        extern const char* ELECTRUM_ADDR;
         extern const char* AMOUNT;
         extern const char* AMOUNT_FULL;
         extern const char* RECEIVER_ADDR;
         extern const char* RECEIVER_ADDR_FULL;
         extern const char* NODE_ADDR;
         extern const char* NODE_ADDR_FULL;
-        extern const char* BTC_NODE_ADDR;
-        extern const char* LTC_NODE_ADDR;
-        extern const char* QTUM_NODE_ADDR;
+        extern const char* SWAP_WALLET_ADDR;
         extern const char* COMMAND;
         extern const char* NODE;
         extern const char* WALLET;
         extern const char* LISTEN;
         extern const char* TREASURY;
         extern const char* TREASURY_BLOCK;
-        extern const char* RESYNC;
         extern const char* RESET_ID;
         extern const char* ERASE_ID;
         extern const char* CHECKDB;
@@ -114,18 +114,17 @@ namespace beam
         extern const char* IMPORT_DATA;
         extern const char* IMPORT_EXPORT_PATH;
         extern const char* IP_WHITELIST;
-        extern const char* HORIZON_HI;
-        extern const char* HORIZON_LO;
+		extern const char* FAST_SYNC;
 		extern const char* GENERATE_RECOVERY_PATH;
 		extern const char* RECOVERY_AUTO_PATH;
 		extern const char* RECOVERY_AUTO_PERIOD;
         extern const char* COLD_WALLET;
         extern const char* SWAP_INIT;
-        extern const char* SWAP_LISTEN;
+        extern const char* SWAP_ACCEPT;
+        extern const char* SWAP_TOKEN;
         extern const char* SWAP_AMOUNT;
         extern const char* SWAP_FEERATE;
         extern const char* SWAP_COIN;
-        extern const char* SWAP_NETWORK;
         extern const char* SWAP_BEAM_SIDE;
         extern const char* SWAP_TX_HISTORY;
         extern const char* NODE_POLL_PERIOD;
@@ -283,5 +282,4 @@ namespace beam
 
     bool read_wallet_pass(SecString& pass, const po::variables_map& vm);
     bool confirm_wallet_pass(const SecString& pass);
-    bool read_btc_pass(SecString& pass, po::variables_map& vm);
 }

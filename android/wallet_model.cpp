@@ -63,8 +63,8 @@ namespace
     }
 }
 
-WalletModel::WalletModel(IWalletDB::Ptr walletDB, const std::string& nodeAddr, Reactor::Ptr reactor)
-    : WalletClient(walletDB, nodeAddr, reactor)
+WalletModel::WalletModel(IWalletDB::Ptr walletDB, IPrivateKeyKeeper::Ptr keyKeeper, const std::string& nodeAddr, Reactor::Ptr reactor)
+    : WalletClient(walletDB, nodeAddr, reactor, keyKeeper)
 {    
 }
 
@@ -228,6 +228,13 @@ void WalletModel::onAddresses(bool own, const std::vector<WalletAddress>& addres
     env->DeleteLocalRef(addrArray);
 }
 
+void WalletModel::onSwapOffersChanged(beam::wallet::ChangeAction action, const std::vector<beam::wallet::SwapOffer>& offers)
+{
+    LOG_DEBUG() << "onSwapOffersChanged()";
+
+    // TODO
+}
+
 void WalletModel::onGeneratedNewAddress(const WalletAddress& address)
 {
     LOG_DEBUG() << "onGeneratedNewAddress()";
@@ -360,4 +367,29 @@ void WalletModel::onImportRecoveryProgress(uint64_t done, uint64_t total)
     jmethodID callback = env->GetStaticMethodID(WalletListenerClass, "onImportRecoveryProgress", "(JJ)V");
 
     env->CallStaticVoidMethod(WalletListenerClass, callback, done, total);
+}
+
+void WalletModel::onImportDataFromJson(bool isOk)
+{
+    LOG_DEBUG() << "onImportDataFromJson(" << isOk << ")";
+
+    JNIEnv* env = Android_JNI_getEnv();
+
+    jmethodID callback = env->GetStaticMethodID(WalletListenerClass, "onImportDataFromJson", "(Z)V");
+
+    env->CallStaticVoidMethod(WalletListenerClass, callback, isOk);
+}
+
+void WalletModel::onExportDataToJson(const std::string& data)
+{
+    LOG_DEBUG() << "onExportDataToJson";
+
+    JNIEnv* env = Android_JNI_getEnv();
+
+    jmethodID callback = env->GetStaticMethodID(WalletListenerClass, "onExportDataToJson", "(Ljava/lang/String;)V");
+
+    jstring jdata = env->NewStringUTF(data.c_str());
+
+    env->CallStaticVoidMethod(WalletListenerClass, callback, jdata);
+    env->DeleteLocalRef(jdata);
 }

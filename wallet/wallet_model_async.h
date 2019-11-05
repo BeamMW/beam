@@ -14,9 +14,9 @@
 
 #pragma once
 
-#include "wallet/wallet.h"
-#include "wallet/wallet_db.h"
-#include "wallet/wallet_network.h"
+#include "wallet.h"
+#include "wallet_db.h"
+#include "wallet_network.h"
 
 namespace beam::wallet
 {
@@ -27,9 +27,11 @@ namespace beam::wallet
 
         virtual void sendMoney(const WalletID& receiver, const std::string& comment, Amount&& amount, Amount&& fee = 0) = 0;
         virtual void sendMoney(const WalletID& sender, const WalletID& receiver, const std::string& comment, Amount&& amount, Amount&& fee = 0) = 0;
+        virtual void startTransaction(TxParameters&& parameters) = 0;
         virtual void syncWithNode() = 0;
         virtual void calcChange(Amount&& amount) = 0;
         virtual void getWalletStatus() = 0;
+        virtual void getTransactions() = 0;
         virtual void getUtxosStatus() = 0;
         virtual void getAddresses(bool own) = 0;
         virtual void cancelTx(const TxID& id) = 0;
@@ -38,7 +40,10 @@ namespace beam::wallet
         virtual void saveAddress(const WalletAddress& address, bool bOwn) = 0;
         virtual void generateNewAddress() = 0;
         virtual void changeCurrentWalletIDs(const WalletID& senderID, const WalletID& receiverID) = 0;
-
+#ifdef BEAM_ATOMIC_SWAP_SUPPORT
+        virtual void getSwapOffers() = 0;
+        virtual void publishSwapOffer(const SwapOffer& offer) = 0;
+#endif
         virtual void deleteAddress(const WalletID& id) = 0;
         virtual void updateAddress(const WalletID& id, const std::string& name, WalletAddress::ExpirationStatus status) = 0;
 
@@ -53,6 +58,8 @@ namespace beam::wallet
         virtual void checkAddress(const std::string& addr) = 0;
 
         virtual void importRecovery(const std::string& path) = 0;
+        virtual void importDataFromJson(const std::string& data) = 0;
+        virtual void exportDataToJson() = 0;
 
         virtual ~IWalletModelAsync() {}
     };

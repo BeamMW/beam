@@ -7,495 +7,153 @@ import QtQuick.Layouts 1.3
 import Beam.Wallet 1.0
 import "controls"
 
-Item {
-    SendViewModel {
-        id: viewModel
+ColumnLayout {
+    id: sendView
+    property bool   isSwapMode: false
+    property bool   isSwapOnFly: false
+    property bool   pasteEventComplete: false
+    property var    defaultFocusItem: receiverTAInput
+    property bool   isErrorDetected: false
 
-        onSendMoneyVerified: {
-           walletView.enabled = true;
-           walletView.pop();
-        }
+    // callbacks set by parent
+    property var    onClosed: function() {}
+    property var    onSwapToken: function() {}
+    property var    onAddress: function() {}
 
-        onCantSendToExpired: {
-            walletView.enabled = true;
-            Qt.createComponent("send_expired.qml")
-                .createObject(sendView)
-                .open();
+    TopGradient {
+        mainRoot: main
+        topColor: Style.accent_outgoing
+    }
+
+    Row {
+        Layout.alignment:    Qt.AlignHCenter
+        Layout.topMargin:    75
+        Layout.bottomMargin: 40
+
+        SFText {
+            font.pixelSize:  18
+            font.styleName:  "Bold"; font.weight: Font.Bold
+            color:           Style.content_main
+            text:            isSwapMode || isSwapOnFly
+                                        //% "Swap currencies"
+                                        ? qsTrId("wallet-send-swap-title")
+                                        //% "Send"
+                                        : qsTrId("send-title")
         }
     }
 
-    id: sendView
-    property Item defaultFocusItem: receiverAddrInput
-
-    ConfirmationDialog {
-        id: invalidAddressDialog
-        //% "Got it"
-        okButtonText: qsTrId("invalid-addr-got-it-button")
+    function isTAInputValid(token) {
+        return token.length == 0 || BeamGlobals.isTAValid(token)
     }
 
     ColumnLayout {
-        anchors.fill: parent
-        anchors.topMargin: 73
-        anchors.bottomMargin: 30
-
+        
         SFText {
-            Layout.alignment: Qt.AlignHCenter
-            font.pixelSize: 18
-            font.styleName: "Bold"; font.weight: Font.Bold
-            color: Style.content_main
-            //% "Send Beam"
-            text: qsTrId("send-title")
+            font.pixelSize:  14
+            font.styleName:  "Bold"; font.weight: Font.Bold
+            color:           Style.content_main
+            //% "Transaction token or contact"
+            text:            qsTrId("send-send-to-label")
         }
 
-        Item {
-            Layout.fillHeight: true
-            Layout.minimumHeight: 10
-            Layout.maximumHeight: 30
-        }
-
-        RowLayout {
+        SFTextInput {
             Layout.fillWidth: true
-            //Layout.topMargin: 50
-
-            spacing: 70
-
-            Item {
-                Layout.fillWidth: true
-                Layout.alignment: Qt.AlignTop
-                height: childrenRect.height
-
-                ColumnLayout {
-                    width: parent.width
-
-                    spacing: 12
-
-                    SFText {
-                        font.pixelSize: 14
-                        font.styleName: "Bold"; font.weight: Font.Bold
-                        color: Style.content_main
-                        //% "Send To"
-                        text: qsTrId("send-send-to-label") + ":"
-                    }
-
-                    SFTextInput {
-                        Layout.fillWidth: true
-
-                        id: receiverAddrInput
-                        font.pixelSize: 14
-                        color: Style.content_main
-                        text: viewModel.receiverAddress
-
-                        validator: RegExpValidator { regExp: /[0-9a-fA-F]{1,80}/ }
-                        selectByMouse: true
-
-                        //% "Please specify contact"
-                        placeholderText: qsTrId("send-contact-placeholder")
-
-                        onTextChanged : {
-                            receiverAddressError.visible = receiverAddrInput.text.length > 0 && !viewModel.isValidReceiverAddress(receiverAddrInput.text)
-                        }
-                    }
-
-                    SFText {
-                        Layout.alignment: Qt.AlignTop
-                        id: receiverAddressError
-                        color: Style.validator_error
-                        font.pixelSize: 10
-                        //% "Invalid address"
-                        text: qsTrId("general-invalid-address")
-                        visible: false
-                    }
-
-                    SFText {
-                        id: receiverName
-                        color: Style.content_main
-                        font.pixelSize: 14
-                        font.styleName: "Bold"; font.weight: Font.Bold
-                    }
-
-                    Binding {
-                        target: viewModel
-                        property: "receiverAddress"
-                        value: receiverAddrInput.text
-                    }
-                }
+            id:               receiverTAInput
+            font.pixelSize:   14
+            color:            isErrorDetected
+                ? Style.validator_error
+                : Style.content_main
+            backgroundColor:  isErrorDetected
+                ? Style.validator_error
+                : Style.content_main
+            validator:        RegExpValidator { regExp: /[0-9a-zA-Z]{1,}/ }
+            selectByMouse:    true
+            //% "Please specify contact or transaction token"
+            placeholderText:  qsTrId("send-contact-placeholder")
+            font.italic:      isErrorDetected
+            onPaste: function() {
+                pasteEventComplete = true;
             }
 
-            Item {
-                Layout.fillWidth: true
-                Layout.alignment: Qt.AlignTop
-                height: childrenRect.height
-
-                ColumnLayout {
-                    width: parent.width
-
-                    spacing: 12
-
-                    SFText {
-                        font.pixelSize: 14
-                        font.styleName: "Bold"; font.weight: Font.Bold
-                        color: Style.content_main
-                        //% "Transaction amount"
-                        text: qsTrId("send-amount-label")
-                    }
-
-                    RowLayout {
-                        Layout.fillWidth: true
-
-                        SFTextInput {
-                            Layout.fillWidth: true
-
-                            id: amount_input
-
-                            font.pixelSize: 36
-                            font.styleName: "Light"; font.weight: Font.Light
-                            color: Style.accent_outgoing
-
-                            property double amount: 0
-
-                            validator: RegExpValidator { regExp: /^(([1-9][0-9]{0,7})|(1[0-9]{8})|(2[0-4][0-9]{7})|(25[0-3][0-9]{6})|(0))(\.[0-9]{0,7}[1-9])?$/ }
-                            selectByMouse: true
-
-                            onTextChanged: {
-                                if (focus) {
-                                    amount = text ? text : 0;
-                                }
-                            }
-
-                            onFocusChanged: {
-                                if (amount > 0) {
-                                    text = amount.toLocaleString(focus ? Qt.locale("C") : Qt.locale(), 'f', -128);
-                                }
-                            }
-                        }
-
-                        Binding {
-                            target: viewModel
-                            property: "sendAmount"
-                            value: amount_input.amount
-                        }
-
-                        SFText {
-                            font.pixelSize: 24
-                            color: Style.content_main
-                            //% "BEAM"
-                            text: qsTrId("general-beam")
-                        }
-                    }
-                    Item {
-                        Layout.topMargin: -12
-                        Layout.minimumHeight: 16
-                        Layout.fillWidth: true
-
-                        SFText {
-                            //% "Insufficient funds: you would need %1 to complete the transaction"
-                            text: qsTrId("send-founds-fail").arg(viewModel.missing)
-                            color: Style.validator_error
-                            font.pixelSize: 14
-                            fontSizeMode: Text.Fit
-                            minimumPixelSize: 10
-                            font.styleName: "Italic"
-                            width: parent.width
-                            visible: !viewModel.isEnough
-                        }
-                    }
+            onTextChanged: {
+                isErrorDetected = false;
+                isSwapOnFly = false;
+                if (receiverTAInput.text.length == 0) {
+                    pasteEventComplete = false;
+                    return;
                 }
-            }
-        }
 
-        RowLayout {
-            Layout.fillWidth: true
-
-            spacing: 70
-
-            Item {
-                Layout.fillWidth: true
-                Layout.alignment: Qt.AlignTop
-                height: childrenRect.height
-
-                ColumnLayout {
-                    width: parent.width
-
-                    spacing: 12
-
-                    SFText {
-                        font.pixelSize: 14
-                        font.styleName: "Bold"; font.weight: Font.Bold
-                        color: Style.content_main
-                        //% "Comment"
-                        text: qsTrId("general-comment")
-                    }
-
-                    SFTextInput {
-                        id: comment_input
-                        Layout.fillWidth: true
-
-                        font.pixelSize: 14
-                        color: Style.content_main
-
-                        maximumLength: 1024
-                        selectByMouse: true
-                    }
-
-                    Binding {
-                        target: viewModel
-                        property: "comment"
-                        value: comment_input.text
-                    }
+                if (!isSwapMode) {
+                    isSwapOnFly = !BeamGlobals.isAddress(receiverTAInput.text);
                 }
-            }
 
-            Item {
-                Layout.fillWidth: true
-                Layout.alignment: Qt.AlignTop
-                height: childrenRect.height
+                if (!isTAInputValid(receiverTAInput.text)) {
+                    isSwapOnFly = false;
+                    isErrorDetected = true;
+                    pasteEventComplete = false;
+                    return;
+                }
 
-                ColumnLayout {
-                    width: parent.width
+                isErrorDetected = (isSwapOnFly || isSwapMode) &&
+                        !BeamGlobals.isSwapToken(receiverTAInput.text);
+                
+                if (isErrorDetected) {
+                    pasteEventComplete = false;
+                    return;
+                }
 
-                    spacing: 12
-
-                    SFText {
-                        font.pixelSize: 14
-                        font.styleName: "Bold"; font.weight: Font.Bold
-                        color: Style.content_main
-                        //% "Transaction fee"
-                        text: qsTrId("general-fee")
-                    }
-
-                    RowLayout {
-                        Layout.fillWidth: true
-
-                        ColumnLayout {
-                            Layout.fillWidth: true
-
-                            SFTextInput {
-                                Layout.fillWidth: true
-                                id: fee_input
-
-                                font.pixelSize: 36
-                                font.styleName: "Light"; font.weight: Font.Light
-                                color: Style.accent_outgoing
-
-                                text: viewModel.defaultFeeInGroth.toLocaleString(Qt.locale(), 'f', -128)
-
-                                property int amount: viewModel.defaultFeeInGroth
-
-                                validator: IntValidator {bottom: viewModel.minimumFeeInGroth}
-                                maximumLength: 15
-                                selectByMouse: true
-
-                                onTextChanged: {
-                                    if (focus) {
-                                        amount = text ? text : 0;
-                                    }
-                                }
-
-                                onFocusChanged: {
-                                    if (amount >= 0) {
-                                        // QLocale::FloatingPointShortest = -128
-                                        text = focus ? amount : amount.toLocaleString(Qt.locale(), 'f', -128);
-                                    }
-                                }
-                            }
-                        }
-
-                        SFText {
-                            font.pixelSize: 24
-                            color: Style.content_main
-                            //% "GROTH"
-                            text: qsTrId("send-curency-sub-name")
-                        }
-                    }
-
-                    Item {
-                        Layout.topMargin: -12
-                        Layout.minimumHeight: 16
-                        Layout.fillWidth: true
-
-                        SFText {
-                            //% "The minimum fee is %1 GROTH"
-                            text: qsTrId("send-fee-fail").arg(viewModel.minimumFeeInGroth)
-                            color: Style.validator_error
-                            font.pixelSize: 14
-                            fontSizeMode: Text.Fit
-                            minimumPixelSize: 10
-                            font.styleName: "Italic"
-                            width: parent.width
-                            visible: fee_input.amount < viewModel.minimumFeeInGroth
-                        }
-                    }
-
-                    Binding {
-                        target: viewModel
-                        property: "feeGrothes"
-                        //value: feeSlider.value
-                        value: fee_input.amount
-                    }
-
-                    Item {
-                        Layout.fillWidth: true
-                        Layout.alignment: Qt.AlignTop
-                        Layout.topMargin: 20
-                        height: 96
-
-                        Item {
-                            anchors.fill: parent
-
-                            RowLayout {
-                                anchors.fill: parent
-                                readonly property int margin: 15
-                                anchors.leftMargin: margin
-                                anchors.rightMargin: margin
-                                spacing: margin
-
-                                Item {
-                                    Layout.fillWidth: true
-                                    Layout.alignment: Qt.AlignCenter
-                                    height: childrenRect.height
-
-                                    ColumnLayout {
-                                        width: parent.width
-                                        spacing: 10
-
-                                        SFText {
-                                            Layout.alignment: Qt.AlignHCenter
-                                            font.pixelSize: 18
-                                            font.styleName: "Bold"; font.weight: Font.Bold
-                                            color: Style.content_secondary
-                                            //% "Remaining"
-                                            text: qsTrId("send-remaining-label")
-                                        }
-
-                                        RowLayout
-                                        {
-                                            Layout.alignment: Qt.AlignHCenter
-                                            spacing: 6
-                                            clip: true
-
-                                            SFText {
-                                                font.pixelSize: 24
-                                                font.styleName: "Light"; font.weight: Font.Light
-                                                color: Style.content_secondary
-                                                text: viewModel.available
-                                            }
-
-                                            SvgImage {
-                                                Layout.topMargin: 4
-                                                sourceSize: Qt.size(16, 24)
-                                                source: "qrc:/assets/b-grey.svg"
-                                            }
-                                        }
-                                    }
-                                }
-
-                                Rectangle {
-                                    id: separator
-                                    Layout.fillHeight: true
-                                    Layout.topMargin: 10
-                                    Layout.bottomMargin: 10
-                                    width: 1
-                                    color: Style.content_secondary
-                                }
-
-                                Item {
-                                    Layout.fillWidth: true
-                                    Layout.alignment: Qt.AlignCenter
-                                    height: childrenRect.height
-
-                                    ColumnLayout {
-                                        width: parent.width
-                                        spacing: 10
-
-                                        SFText {
-                                            Layout.alignment: Qt.AlignHCenter
-                                            font.pixelSize: 18
-                                            font.styleName: "Bold"; font.weight: Font.Bold
-                                            color: Style.content_secondary
-                                            //% "Change"
-                                            //: UTXO type Change 
-                                            text: qsTrId("general-change")
-                                        }
-
-                                        RowLayout
-                                        {
-                                            Layout.alignment: Qt.AlignHCenter
-                                            spacing: 6
-                                            clip: true
-
-                                            SFText {
-                                                font.pixelSize: 24
-                                                font.styleName: "Light"; font.weight: Font.Light
-                                                color: Style.content_secondary
-                                                text: viewModel.change
-                                            }
-
-                                            SvgImage {
-                                                Layout.topMargin: 4
-                                                sourceSize: Qt.size(16, 24)
-                                                source: "qrc:/assets/b-grey.svg"
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                        Rectangle {
-                            anchors.fill: parent
-                            radius: 10
-                            color: Style.white
-                            opacity: 0.1
-                        }
-                    }
+                if (pasteEventComplete) {
+                    actionButton.onClicked();
                 }
             }
         }
 
         Item {
-            Layout.fillHeight: true
-            Layout.minimumHeight: 10
-            Layout.maximumHeight: 30
+            Layout.fillWidth: true
+            SFText {
+                Layout.alignment: Qt.AlignTop
+                id:               receiverTAError
+                color:            Style.validator_error
+                font.pixelSize:   12
+                visible:          isErrorDetected
+                text:             isSwapMode || isSwapOnFly
+                    //% "Invalid swap token"
+                    ? qsTrId("wallet-send-invalid-token")
+                    //% "Invalid wallet address or swap token"
+                    : qsTrId("wallet-send-invalid-address-or-token")
+            }
         }
 
         Row {
             Layout.alignment: Qt.AlignHCenter
-
-            spacing: 30
+            Layout.topMargin: 30
+            spacing:          25
 
             CustomButton {
-                //% "Back"
-                text: qsTrId("general-back")
-                icon.source: "qrc:/assets/icon-back.svg"
-                onClicked: {
-                    walletView.pop();
+                //% "Close"
+                text:               qsTrId("general-close")
+                palette.buttonText: Style.content_main
+                icon.source:        "qrc:/assets/icon-cancel-white.svg"
+                onClicked:          {
+                    onClosed();
                 }
             }
-
+            
             CustomButton {
-                //% "Send"
-                text: qsTrId("general-send")
+                id: actionButton
+                text: isSwapMode || isSwapOnFly
+                    //% "Swap"
+                    ? qsTrId("general-swap")
+                    //% "Send"
+                    : qsTrId("general-send")
                 palette.buttonText: Style.content_opposite
                 palette.button: Style.accent_outgoing
                 icon.source: "qrc:/assets/icon-send-blue.svg"
-                enabled: {viewModel.isEnough && amount_input.amount > 0 && fee_input.amount >= viewModel.minimumFeeInGroth && receiverAddrInput.acceptableInput }
+                enabled: !isErrorDetected && receiverTAInput.text.length
                 onClicked: {
-                    if (viewModel.isValidReceiverAddress(viewModel.receiverAddress)) {
-                        const component = Qt.createComponent("send_confirm.qml");
-                        const confirmDialog = component.createObject(sendView);
-
-                        confirmDialog.addressText = viewModel.receiverAddress;
-                        //% "BEAM"
-                        confirmDialog.amountText = amount_input.amount.toLocaleString(Qt.locale(), 'f', -128) + " " + qsTrId("general-beam");
-                        //% "GROTH"
-                        confirmDialog.feeText = fee_input.amount.toLocaleString(Qt.locale(), 'f', -128) + " " + qsTrId("general-groth");
-
-                        confirmDialog.open();
-                    } else {
-                        //% "Address %1 is invalid"
-                        var message = qsTrId("send-send-fail");
-                        invalidAddressDialog.text = message.arg(viewModel.receiverAddress);
-                        invalidAddressDialog.open();
-                    }
+                    isSwapMode || isSwapOnFly
+                        ? onSwapToken(receiverTAInput.text)
+                        : onAddress(receiverTAInput.text);
                 }
             }
         }
@@ -503,5 +161,5 @@ Item {
         Item {
             Layout.fillHeight: true
         }
-    }
+    }    
 }

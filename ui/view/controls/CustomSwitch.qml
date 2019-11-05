@@ -14,9 +14,11 @@ T.Switch {
                                       indicator ? indicator.implicitHeight : 0) + topPadding + bottomPadding)
     baselineOffset: contentItem.y + contentItem.baselineOffset
 
-    spacing: 12
-
-    palette.text: Style.content_main
+    spacing:        12
+    palette.text:   Style.content_main
+    font.pixelSize: 14
+    property bool colored: true
+    property bool alwaysGreen: false
 
     contentItem: SFText {
         rightPadding: control.indicator.width + control.spacing
@@ -30,21 +32,22 @@ T.Switch {
     }
 
     indicator: Rectangle {
-        implicitWidth: 30
+        implicitWidth:  30
         implicitHeight: 20
-        x: control.width - width - control.rightPadding
-        y: parent.height / 2 - height / 2
-        radius: 10
-        color: "transparent"
-        border.color: Style.content_secondary
+        x:              control.width - width - control.rightPadding
+        y:              parent.height / 2 - height / 2
+        radius:         13
+        color:          (colored && control.checked) || alwaysGreen ? Qt.rgba(Style.active.r, Style.active.g, Style.active.b, 0.2): "transparent"
+        border.color:   (colored && control.checked) || alwaysGreen ? Style.active : Style.content_secondary
 
         Rectangle {
-            x: control.checked ? parent.width - width - 2 : 2
-            y: 2
-            width: 16
-            height: 16
-            radius: 10
-            color: control.checked && control.enabled ? Style.active : Style.content_secondary
+            id:           handle
+            x:            control.checked ? parent.width - width - 2 : 2
+            y:            2
+            width:        parent.height - 4
+            height:       parent.height - 4
+            radius:       (parent.height - 4) / 2
+            color:        (colored && control.checked) || alwaysGreen ? Style.active : Style.content_secondary
         }
     }
 }

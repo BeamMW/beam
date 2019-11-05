@@ -24,11 +24,7 @@ ColumnLayout {
 
     anchors.fill: parent
     state: "active"
-	SFText {
-        Layout.minimumHeight: 40
-        Layout.maximumHeight: 40
-        font.pixelSize: 36
-        color: Style.content_main
+	Title {
         //% "Addresses"
         text: qsTrId("addresses-tittle")
     }
@@ -56,7 +52,7 @@ ColumnLayout {
         
         background: Rectangle {
             radius: 10
-            color: Style.background_second
+            color: Style.background_popup
             anchors.fill: parent
         }
 
@@ -191,11 +187,9 @@ ColumnLayout {
         Layout.minimumHeight: 40
         Layout.maximumHeight: 40
         Layout.topMargin: 54
-        spacing: 40
 
         TxFilter{
             id: activeAddressesFilter
-            Layout.leftMargin: 20
             //% "My active addresses"
             label: qsTrId("addresses-tab-active")
             onClicked: addressRoot.state = "active"
@@ -284,20 +278,27 @@ ColumnLayout {
         CustomTableView {
             id: contactsView
 
-            property int rowHeight: 69
+            property int rowHeight: 56
             property int resizableWidth: parent.width - actions.width
+            property double columnResizeRatio: resizableWidth / 740
 
             anchors.fill: parent
             frameVisible: false
             selectionMode: SelectionMode.NoSelection
             backgroundVisible: false
             model: viewModel.contacts
+            sortIndicatorVisible: true
+            sortIndicatorColumn: 0
+            sortIndicatorOrder: Qt.AscendingOrder
+            onSortIndicatorColumnChanged: {
+                sortIndicatorOrder = Qt.AscendingOrder;
+            }
 
             TableViewColumn {
                 role: viewModel.nameRole
                 //% "Comment"
                 title: qsTrId("general-comment")
-                width: 280 * contactsView.resizableWidth / 740
+                width: 280 * contactsView.columnResizeRatio
                 movable: false
             }
 
@@ -305,7 +306,7 @@ ColumnLayout {
                 role: viewModel.addressRole
                 //% "Contact"
                 title: qsTrId("general-contact")
-                width: 170 * contactsView.resizableWidth / 740
+                width: 170 * contactsView.columnResizeRatio
                 movable: false
                 delegate: Item {
                     Item {
@@ -330,10 +331,11 @@ ColumnLayout {
             }
 
             TableViewColumn {
+                id: categoryColumn
                 role: viewModel.categoryRole
                 //% "Category"
                 title: qsTrId("general-category")
-                width: 290 * contactsView.resizableWidth / 740
+                width: contactsView.getAdjustedColumnWidth(categoryColumn)//290 * contactsView.columnResizeRatio
                 movable: false
             }
 
@@ -356,9 +358,8 @@ ColumnLayout {
 
                 Rectangle {
                     anchors.fill: parent
-
-                    color: styleData.selected ? Style.row_selected : Style.background_row_even
-                    visible: styleData.selected ? true : styleData.alternate
+                    color: styleData.selected ? Style.row_selected :
+                            (styleData.alternate ? Style.background_row_even : Style.background_row_odd)
                 }
                 MouseArea {
                     anchors.fill: parent

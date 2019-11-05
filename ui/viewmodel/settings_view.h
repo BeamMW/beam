@@ -19,30 +19,196 @@
 #include <QQmlListProperty>
 
 #include "model/settings.h"
+#include "wallet/bitcoin/client.h"
+#include "wallet/bitcoin/settings.h"
+
+class SwapCoinClientModel;
+
+class ElectrumPhraseItem : public QObject
+{
+    Q_OBJECT
+        Q_PROPERTY(bool    isCorrect READ isCorrect                NOTIFY isCorrectChanged)
+        Q_PROPERTY(bool    isAllowed READ isAllowed                NOTIFY isAllowedChanged)
+        Q_PROPERTY(QString value     READ getValue  WRITE setValue NOTIFY valueChanged)
+        Q_PROPERTY(QString phrase    READ getPhrase                CONSTANT)
+        Q_PROPERTY(int     index     READ getIndex                 CONSTANT)
+public:
+    ElectrumPhraseItem(int index, const QString& phrase);
+
+    bool isAllowed() const;
+    bool isCorrect() const;
+    const QString& getValue() const;
+    void setValue(const QString& value);
+    const QString& getPhrase() const;
+    int getIndex() const;
+
+    Q_INVOKABLE void applyChanges();
+    Q_INVOKABLE void revertChanges();
+
+signals:
+    void isCorrectChanged();
+    void isAllowedChanged();
+    void valueChanged();
+
+protected:
+    int m_index;
+    QString m_phrase;
+    QString m_userInput;
+};
+
+class SwapCoinSettingsItem : public QObject
+{
+    Q_OBJECT
+
+    Q_PROPERTY(QString  feeRateLabel             READ getFeeRateLabel                         CONSTANT)
+    Q_PROPERTY(int      minFeeRate               READ getMinFeeRate                           CONSTANT)
+    Q_PROPERTY(QString  showSeedDialogTitle      READ getShowSeedDialogTitle                  CONSTANT)
+    Q_PROPERTY(QString  showAddressesDialogTitle READ getShowAddressesDialogTitle             CONSTANT)
+    Q_PROPERTY(QString  title                    READ getTitle                                NOTIFY titleChanged)
+    Q_PROPERTY(int      feeRate                  READ getFeeRate      WRITE setFeeRate        NOTIFY feeRateChanged)
+    // node settings
+    Q_PROPERTY(QString  nodeUser     READ getNodeUser     WRITE setNodeUser       NOTIFY nodeUserChanged)
+    Q_PROPERTY(QString  nodePass     READ getNodePass     WRITE setNodePass       NOTIFY nodePassChanged)
+    Q_PROPERTY(QString  nodeAddress  READ getNodeAddress  WRITE setNodeAddress    NOTIFY nodeAddressChanged)
+    // electrum settings
+    Q_PROPERTY(QChar           phrasesSeparatorElectrum READ getPhrasesSeparatorElectrum                          CONSTANT)
+    Q_PROPERTY(bool            isCurrentSeedValid       READ getIsCurrentSeedValid                                NOTIFY isCurrentSeedValidChanged)
+    Q_PROPERTY(QList<QObject*> electrumSeedPhrases      READ getElectrumSeedPhrases                               NOTIFY electrumSeedPhrasesChanged)
+    Q_PROPERTY(QString         nodeAddressElectrum      READ getNodeAddressElectrum  WRITE setNodeAddressElectrum NOTIFY nodeAddressElectrumChanged)
+
+    Q_PROPERTY(bool canEdit      READ getCanEdit                            NOTIFY canEditChanged)
+
+    // connection properties
+    Q_PROPERTY(bool isConnected             READ getIsConnected             NOTIFY connectionTypeChanged)
+    Q_PROPERTY(bool isNodeConnection        READ getIsNodeConnection        NOTIFY connectionTypeChanged)
+    Q_PROPERTY(bool isElectrumConnection    READ getIsElectrumConnection    NOTIFY connectionTypeChanged)
+    Q_PROPERTY(QString connectionStatus     READ getConnectionStatus        NOTIFY connectionStatusChanged)
+
+public:
+    SwapCoinSettingsItem(SwapCoinClientModel& coinClient, beam::wallet::AtomicSwapCoin swapCoin);
+    virtual ~SwapCoinSettingsItem();
+
+    QString getFeeRateLabel() const;
+    int getMinFeeRate() const;
+
+    QString getTitle() const;
+    QString getShowSeedDialogTitle() const;
+    QString getShowAddressesDialogTitle() const;
+
+    int getFeeRate() const;
+    void setFeeRate(int value);
+    QString getNodeUser() const;
+    void setNodeUser(const QString& value);
+    QString getNodePass() const;
+    void setNodePass(const QString& value);
+    QString getNodeAddress() const;
+    void setNodeAddress(const QString& value);
+
+    bool getIsCurrentSeedValid() const;
+    QList<QObject*> getElectrumSeedPhrases();
+    QChar getPhrasesSeparatorElectrum() const;
+    QString getNodeAddressElectrum() const;
+    void setNodeAddressElectrum(const QString& value);
+
+    bool getCanEdit() const;
+
+    bool getIsConnected() const;
+    bool getIsNodeConnection() const;
+    bool getIsElectrumConnection() const;
+    QString getConnectionStatus() const;
+
+    Q_INVOKABLE void applyNodeSettings();
+    Q_INVOKABLE void applyElectrumSettings();
+
+    Q_INVOKABLE void resetNodeSettings();
+    Q_INVOKABLE void resetElectrumSettings();
+
+    Q_INVOKABLE void newElectrumSeed();
+    Q_INVOKABLE void restoreSeedElectrum();
+
+    Q_INVOKABLE void disconnect();
+    Q_INVOKABLE void connectToNode();
+    Q_INVOKABLE void connectToElectrum();
+    Q_INVOKABLE void copySeedElectrum();
+    Q_INVOKABLE void validateCurrentElectrumSeedPhrase();
+
+    Q_INVOKABLE QStringList getAddressesElectrum() const;
+
+signals:
+
+    void titleChanged();
+    void feeRateChanged();
+    void nodeUserChanged();
+    void nodePassChanged();
+    void nodeAddressChanged();
+
+    void isCurrentSeedValidChanged();
+    void electrumSeedPhrasesChanged();
+    void nodeAddressElectrumChanged();
+
+    void canEditChanged();
+    void connectionTypeChanged();
+    void connectionStatusChanged();
+
+private:
+    QString getGeneralTitle() const;
+    QString getConnectedNodeTitle() const;
+    QString getConnectedElectrumTitle() const;
+
+    void LoadSettings();
+    void SetSeedElectrum(const std::vector<std::string>& secretWords);
+    void SetDefaultNodeSettings();
+    void SetDefaultElectrumSettings();
+    void setConnectionType(beam::bitcoin::ISettings::ConnectionType type);
+    void setIsCurrentSeedValid(bool value);
+
+    std::vector<std::string> GetSeedPhraseFromSeedItems() const;
+
+private:
+    beam::wallet::AtomicSwapCoin m_swapCoin;
+    SwapCoinClientModel& m_coinClient;
+
+    boost::optional<beam::bitcoin::Settings> m_settings;
+    int m_feeRate = 0;
+
+    beam::bitcoin::ISettings::ConnectionType
+        m_connectionType = beam::bitcoin::ISettings::ConnectionType::None;
+    QString m_nodeUser;
+    QString m_nodePass;
+    QString m_nodeAddress;
+
+    QList<QObject*> m_seedPhraseItems;
+    QString m_nodeAddressElectrum;
+    bool m_isCurrentSeedValid = false;
+};
 
 
 class SettingsViewModel : public QObject
 {
     Q_OBJECT
 
-    Q_PROPERTY(QString nodeAddress READ getNodeAddress WRITE setNodeAddress NOTIFY nodeAddressChanged)
-    Q_PROPERTY(QString version READ getVersion CONSTANT)
-    Q_PROPERTY(bool localNodeRun READ getLocalNodeRun WRITE setLocalNodeRun NOTIFY localNodeRunChanged)
-    Q_PROPERTY(uint localNodePort READ getLocalNodePort WRITE setLocalNodePort NOTIFY localNodePortChanged)
-    Q_PROPERTY(bool isChanged READ isChanged NOTIFY propertiesChanged)
-    Q_PROPERTY(QStringList localNodePeers READ getLocalNodePeers NOTIFY localNodePeersChanged)
-    Q_PROPERTY(int lockTimeout READ getLockTimeout WRITE setLockTimeout NOTIFY lockTimeoutChanged)
-    Q_PROPERTY(QString walletLocation READ getWalletLocation CONSTANT)
-    Q_PROPERTY(bool isLocalNodeRunning READ isLocalNodeRunning NOTIFY localNodeRunningChanged)
-    Q_PROPERTY(bool isPasswordReqiredToSpendMoney READ isPasswordReqiredToSpendMoney WRITE setPasswordReqiredToSpendMoney NOTIFY passwordReqiredToSpendMoneyChanged)
-    Q_PROPERTY(bool isAllowedBeamMWLinks READ isAllowedBeamMWLinks WRITE allowBeamMWLinks NOTIFY beamMWLinksAllowed)
-    Q_PROPERTY(QStringList supportedLanguages READ getSupportedLanguages NOTIFY currentLanguageIndexChanged)
-    Q_PROPERTY(int currentLanguageIndex READ getCurrentLanguageIndex NOTIFY currentLanguageIndexChanged)
-    Q_PROPERTY(QString currentLanguage READ getCurrentLanguage WRITE setCurrentLanguage)
-    Q_PROPERTY(bool isValidNodeAddress READ isValidNodeAddress NOTIFY validNodeAddressChanged)
+    Q_PROPERTY(QString  nodeAddress     READ getNodeAddress     WRITE setNodeAddress    NOTIFY nodeAddressChanged)
+    Q_PROPERTY(QString  version         READ getVersion         CONSTANT)
+    Q_PROPERTY(bool     localNodeRun    READ getLocalNodeRun    WRITE setLocalNodeRun   NOTIFY localNodeRunChanged)
+    Q_PROPERTY(uint     localNodePort   READ getLocalNodePort   WRITE setLocalNodePort  NOTIFY localNodePortChanged)
+    Q_PROPERTY(bool     isChanged       READ isChanged          NOTIFY propertiesChanged)
+    Q_PROPERTY(QStringList  localNodePeers  READ getLocalNodePeers  NOTIFY localNodePeersChanged)
+    Q_PROPERTY(int      lockTimeout         READ getLockTimeout     WRITE setLockTimeout NOTIFY lockTimeoutChanged)
+    Q_PROPERTY(QString  walletLocation      READ getWalletLocation  CONSTANT)
+    Q_PROPERTY(bool     isLocalNodeRunning  READ isLocalNodeRunning NOTIFY localNodeRunningChanged)
+    Q_PROPERTY(bool     isPasswordReqiredToSpendMoney   READ isPasswordReqiredToSpendMoney WRITE setPasswordReqiredToSpendMoney NOTIFY passwordReqiredToSpendMoneyChanged)
+    Q_PROPERTY(bool     isAllowedBeamMWLinks    READ isAllowedBeamMWLinks       WRITE allowBeamMWLinks NOTIFY beamMWLinksAllowed)
+    Q_PROPERTY(QStringList  supportedLanguages  READ getSupportedLanguages      NOTIFY currentLanguageIndexChanged)
+    Q_PROPERTY(int      currentLanguageIndex    READ getCurrentLanguageIndex    NOTIFY currentLanguageIndexChanged)
+    Q_PROPERTY(QString  currentLanguage         READ getCurrentLanguage         WRITE setCurrentLanguage)
+    Q_PROPERTY(bool     isValidNodeAddress      READ isValidNodeAddress         NOTIFY validNodeAddressChanged)
+
+    Q_PROPERTY(QList<QObject*> swapCoinSettingsList     READ getSwapCoinSettings    CONSTANT)
+
 public:
 
     SettingsViewModel();
+    virtual ~SettingsViewModel();
 
     QString getNodeAddress() const;
     void setNodeAddress(const QString& value);
@@ -70,6 +236,8 @@ public:
     bool isValidNodeAddress() const;
 
     bool isChanged() const;
+
+    const QList<QObject*>& getSwapCoinSettings();
 
     Q_INVOKABLE uint coreAmount() const;
     Q_INVOKABLE void addLocalNodePeer(const QString& localNodePeer);
@@ -106,6 +274,7 @@ protected:
 
 private:
     WalletSettings& m_settings;
+    QList<QObject*> m_swapSettings;
 
     QString m_nodeAddress;
     bool m_localNodeRun;

@@ -15,60 +15,35 @@
 #include "model/app_model.h"
 #include "wallet/common.h"
 #include "ui_helpers.h"
+#include "qml_globals.h"
 #include <QLocale>
-
-namespace
-{
-    const int kDefaultFeeInGroth = 10;
-    const int kFeeInGroth_Fork1 = 100;
-}
 
 SendViewModel::SendViewModel()
     : _feeGrothes(0)
-    , _sendAmount(0.0)
-    , _change(0)
+    , _sendAmountGrothes(0)
+    , _changeGrothes(0)
     , _walletModel(*AppModel::getInstance().getWallet())
 {
-    connect(&_walletModel, &WalletModel::changeCalculated,       this,  &SendViewModel::onChangeCalculated);
-    connect(&_walletModel, &WalletModel::changeCurrentWalletIDs, this,  &SendViewModel::onChangeWalletIDs);
-    connect(&_walletModel, &WalletModel::sendMoneyVerified,      this,  &SendViewModel::onSendMoneyVerified);
-    connect(&_walletModel, &WalletModel::cantSendToExpired,      this,  &SendViewModel::onCantSendToExpired);
-
-    _status.setOnChanged([this]() {
-        emit availableChanged();
-    });
-
-    _status.refresh();
+    connect(&_walletModel, &WalletModel::changeCalculated, this, &SendViewModel::onChangeCalculated);
+    connect(&_walletModel, SIGNAL(sendMoneyVerified()), this, SIGNAL(sendMoneyVerified()));
+    connect(&_walletModel, SIGNAL(cantSendToExpired()), this, SIGNAL(cantSendToExpired()));
+    connect(&_walletModel, SIGNAL(availableChanged()), this, SIGNAL(availableChanged()));
 }
 
-int SendViewModel::getFeeGrothes() const
+unsigned int SendViewModel::getFeeGrothes() const
 {
     return _feeGrothes;
 }
 
-void SendViewModel::setFeeGrothes(int value)
+void SendViewModel::setFeeGrothes(unsigned int value)
 {
     if (value != _feeGrothes)
     {
         _feeGrothes = value;
         _walletModel.getAsync()->calcChange(calcTotalAmount());
         emit feeGrothesChanged();
+        emit canSendChanged();
     }
-}
-
-beam::Amount SendViewModel::calcFeeAmount() const
-{
-    return static_cast<beam::Amount>(_feeGrothes);
-}
-
-beam::Amount SendViewModel::calcSendAmount() const
-{
-    return std::round(_sendAmount * beam::Rules::Coin);
-}
-
-beam::Amount SendViewModel::calcTotalAmount() const
-{
-    return calcSendAmount() + calcFeeAmount();
 }
 
 QString SendViewModel::getComment() const
@@ -85,120 +60,156 @@ void SendViewModel::setComment(const QString& value)
     }
 }
 
-double SendViewModel::getSendAmount() const
+QString SendViewModel::getSendAmount() const
 {
-    return _sendAmount;
+    LOG_INFO() << "ret Send amount grothes: " << _sendAmountGrothes << " 2ui: " << beamui::AmountToUIString(_sendAmountGrothes).toStdString();
+    return beamui::AmountToUIString(_sendAmountGrothes);
 }
 
-void SendViewModel::setSendAmount(double value)
+void SendViewModel::setSendAmount(QString value)
 {
-    if (value != _sendAmount)
+    beam::Amount amount = beamui::UIStringToAmount(value);
+    if (amount != _sendAmountGrothes)
     {
-        _sendAmount = value;
+        _sendAmountGrothes = amount;
+        LOG_INFO() << "Send amount: " << _sendAmountGrothes << " Coins: " << (long double)_sendAmountGrothes / beam::Rules::Coin;
         _walletModel.getAsync()->calcChange(calcTotalAmount());
         emit sendAmountChanged();
+        emit canSendChanged();
     }
+}
+
+QString SendViewModel::getReceiverTA() const
+{
+    return _receiverTA;
+}
+
+void SendViewModel::setReceiverTA(const QString& value)
+{
+    if (_receiverTA != value)
+    {
+       _receiverTA = value;
+        emit receiverTAChanged();
+        emit canSendChanged();
+
+        if (QMLGlobals::isSwapToken(value))
+        {
+            // Just ignore, UI would handle this case
+            // and automatically switch to another view
+        }
+        else
+        {
+            if(getRreceiverTAValid())
+            {
+                extractParameters();
+            }
+            else
+            {
+                // Just ignore, UI will display error automatically
+            }
+        }
+    }
+}
+
+bool SendViewModel::getRreceiverTAValid() const
+{
+    return QMLGlobals::isTAValid(_receiverTA);
 }
 
 QString SendViewModel::getReceiverAddress() const
 {
-    return _receiverAddr;
-}
-
-void SendViewModel::setReceiverAddress(const QString& value)
-{
-    if (_receiverAddr != value)
+    if (QMLGlobals::isTransactionToken(_receiverTA))
     {
-        _receiverAddr = value;
-        emit receiverAddressChanged();
+        // TODO:SWAP return extracted address if we have token.
+        // Now we return token, just for tests
+        return _receiverTA;
     }
+
+    return _receiverTA;
 }
 
-bool SendViewModel::isValidReceiverAddress(const QString& value)
+beam::Amount SendViewModel::calcTotalAmount() const
 {
-    return beam::wallet::check_receiver_address(value.toStdString());
-}
-
-int SendViewModel::getDefaultFeeInGroth() const
-{
-    return _walletModel.isFork1() ? kFeeInGroth_Fork1 : kDefaultFeeInGroth;
-}
-
-int SendViewModel::getMinFeeInGroth() const
-{
-    return _walletModel.isFork1() ? kFeeInGroth_Fork1 : 0;
+    return _sendAmountGrothes + _feeGrothes;
 }
 
 QString SendViewModel::getAvailable() const
 {
-    return beamui::BeamToString(_status.getAvailable() - calcTotalAmount() - _change);
+    return  beamui::AmountToUIString(isEnough() ? _walletModel.getAvailable() - calcTotalAmount() - _changeGrothes : 0);
 }
 
 QString SendViewModel::getMissing() const
 {
-    beam::Amount missed = calcTotalAmount() - _status.getAvailable();
-    if (missed > 99999)
-    {
-        //% "BEAM"
-        return beamui::BeamToString(missed) + " " + qtTrId("tx-curency-name");
-    }
-    //% "GROTH"
-    return QLocale().toString(static_cast<qulonglong>(missed)) + " " + qtTrId("tx-curency-sub-name");
+    return beamui::AmountToUIString(calcTotalAmount() - _walletModel.getAvailable());
 }
 
 bool SendViewModel::isEnough() const
 {
-    return _status.getAvailable() >= calcTotalAmount() + _change;
-}
-
-bool SendViewModel::needPassword() const
-{
-    return AppModel::getInstance().getSettings().isPasswordReqiredToSpendMoney();
-}
-
-bool SendViewModel::isPasswordValid(const QString& value) const
-{
-    beam::SecString secretPass = value.toStdString();
-    return AppModel::getInstance().checkWalletPassword(secretPass);
+    return _walletModel.getAvailable() >= calcTotalAmount() + _changeGrothes;
 }
 
 void SendViewModel::onChangeCalculated(beam::Amount change)
 {
-    _change = change;
+    _changeGrothes = change;
     emit availableChanged();
+    emit canSendChanged();
 }
 
 QString SendViewModel::getChange() const
 {
-    return beamui::BeamToString(_change);
+    return beamui::AmountToUIString(_changeGrothes);
 }
 
-void SendViewModel::onChangeWalletIDs(beam::wallet::WalletID senderID, beam::wallet::WalletID receiverID)
+QString SendViewModel::getTotalUTXO() const
 {
-    setReceiverAddress(beamui::toString(receiverID));
+    return beamui::AmountToUIString(calcTotalAmount() + _changeGrothes);
+}
+
+bool SendViewModel::canSend() const
+{
+    return !QMLGlobals::isSwapToken(_receiverTA) && getRreceiverTAValid()
+           && _sendAmountGrothes > 0 && isEnough()
+           && QMLGlobals::isFeeOK(_feeGrothes, Currency::CurrBeam);
 }
 
 void SendViewModel::sendMoney()
 {
-    assert(isValidReceiverAddress(getReceiverAddress()));
-    if(isValidReceiverAddress(getReceiverAddress()))
+    assert(canSend());
+    if(canSend())
     {
-        beam::wallet::WalletID walletID(beam::Zero);
-        walletID.FromHex(getReceiverAddress().toStdString());
+        // TODO:SWAP show 'operation in process' animation here?
+        auto messageString = _comment.toStdString();
 
-        // TODO: show 'operation in process' animation here?
-        _walletModel.getAsync()->sendMoney(walletID, _comment.toStdString(), calcSendAmount(), calcFeeAmount());
+        auto p = beam::wallet::CreateSimpleTransactionParameters()
+            .SetParameter(beam::wallet::TxParameterID::PeerID,  *_txParameters.GetParameter<beam::wallet::WalletID>(beam::wallet::TxParameterID::PeerID))
+            .SetParameter(beam::wallet::TxParameterID::Amount,  _sendAmountGrothes)
+            .SetParameter(beam::wallet::TxParameterID::Fee,     _feeGrothes)
+            .SetParameter(beam::wallet::TxParameterID::Message, beam::ByteBuffer(messageString.begin(), messageString.end()));
+
+        _walletModel.getAsync()->startTransaction(std::move(p));
     }
 }
 
-void SendViewModel::onSendMoneyVerified()
+void SendViewModel::extractParameters()
 {
-    // forward to qml
-    emit sendMoneyVerified();
-}
+    auto txParameters = beam::wallet::ParseParameters(_receiverTA.toStdString());
+    if (!txParameters)
+    {
+        return;
+    }
 
-void SendViewModel::onCantSendToExpired()
-{
-    // forward to qml
-    emit cantSendToExpired();
+    _txParameters = *txParameters;
+    if (auto amount = _txParameters.GetParameter<beam::Amount>(beam::wallet::TxParameterID::Amount); amount)
+    {
+        setSendAmount(beamui::AmountToUIString(*amount));
+    }
+    if (auto fee = _txParameters.GetParameter<beam::Amount>(beam::wallet::TxParameterID::Fee); fee)
+    {
+        setFeeGrothes(*fee);
+    }
+    if (auto comment = _txParameters.GetParameter(beam::wallet::TxParameterID::Message); comment)
+    {
+        std::string s(comment->begin(), comment->end());
+        setComment(QString::fromStdString(s));
+    }
 }

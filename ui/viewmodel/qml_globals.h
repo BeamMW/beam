@@ -15,6 +15,7 @@
 
 #include <QObject>
 #include <QQmlApplicationEngine>
+#include "currencies.h"
 
 class QMLGlobals : public QObject
 {
@@ -22,9 +23,48 @@ class QMLGlobals : public QObject
 public:
     QMLGlobals(QQmlEngine&);
 
-    Q_INVOKABLE void    showMessage(QString message);
-    Q_INVOKABLE void    copyToClipboard(const QString& text);
+    Q_INVOKABLE static void showMessage(const QString& message);
+    Q_INVOKABLE static void copyToClipboard(const QString& text);
     Q_INVOKABLE QString version();
+    Q_INVOKABLE static bool isAddress(const QString& text);
+    Q_INVOKABLE static bool isTransactionToken(const QString& text);
+    Q_INVOKABLE static bool isSwapToken(const QString& text);
+    Q_INVOKABLE static bool isTAValid(const QString& text);
+    Q_INVOKABLE static QString getLocaleName();
+    Q_INVOKABLE static int  maxCommentLength();
+    Q_INVOKABLE static bool needPasswordToSpend();
+    Q_INVOKABLE static bool isPasswordValid(const QString& value);
+
+    // Currency utils
+    static bool isFeeOK(unsigned int fee, Currency currency);
+    static int  getMinFeeOrRate(Currency currency);
+
+    Q_INVOKABLE static unsigned int minFeeBeam();
+    Q_INVOKABLE static unsigned int minFeeRateBtc();
+    Q_INVOKABLE static unsigned int minFeeRateLtc();
+    Q_INVOKABLE static unsigned int minFeeRateQtum();
+
+    Q_INVOKABLE static unsigned int defFeeBeam();
+    Q_INVOKABLE static unsigned int defFeeRateBtc();
+    Q_INVOKABLE static unsigned int defFeeRateLtc();
+    Q_INVOKABLE static unsigned int defFeeRateQtum();
+
+    Q_INVOKABLE static QString beamFeeRateLabel();
+    Q_INVOKABLE static QString btcFeeRateLabel();
+    Q_INVOKABLE static QString ltcFeeRateLabel();
+    Q_INVOKABLE static QString qtumFeeRateLabel();
+
+    // Swap & other currencies utils
+    Q_INVOKABLE static bool canSwap();
+    Q_INVOKABLE static bool haveBtc();
+    Q_INVOKABLE static bool haveLtc();
+    Q_INVOKABLE static bool haveQtum();
+
+    Q_INVOKABLE static QString rawTxParametrsToTokenStr(
+            QVariant variantTxParams);
+
+    Q_INVOKABLE static bool canReceive(Currency currency);
+    Q_INVOKABLE static QString getCurrencyName(Currency currency);
 
 private:
     QQmlEngine& _engine;

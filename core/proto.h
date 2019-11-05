@@ -149,11 +149,6 @@ namespace proto {
 #define BeamNodeMsg_ExternalAddr(macro) \
     macro(uint32_t, Value)
 
-#define BeamNodeMsg_BbsMsgV0(macro) \
-    macro(BbsChannel, Channel) \
-    macro(Timestamp, TimePosted) \
-    macro(ByteBuffer, Message)
-
 #define BeamNodeMsg_BbsMsg(macro) \
     macro(BbsChannel, Channel) \
     macro(Timestamp, TimePosted) \
@@ -174,11 +169,6 @@ namespace proto {
 #define BeamNodeMsg_BbsResetSync(macro) \
     macro(Timestamp, TimeFrom)
 
-#define BeamNodeMsg_BbsPickChannelV0(macro)
-
-#define BeamNodeMsg_BbsPickChannelResV0(macro) \
-    macro(BbsChannel, Channel)
-
 #define BeamNodeMsg_SChannelInitiate(macro) \
     macro(ECC::uintBig, NoncePub)
 
@@ -188,16 +178,6 @@ namespace proto {
     macro(PeerID, ID) \
     macro(uint8_t, IDType) \
     macro(ECC::Signature, Sig)
-
-#define BeamNodeMsg_MacroblockGet(macro) \
-    macro(Block::SystemState::ID, ID) \
-    macro(uint8_t, Data) \
-    macro(uint64_t, Offset)
-
-#define BeamNodeMsg_Macroblock(macro) \
-    macro(Block::SystemState::ID, ID) \
-    macro(ByteBuffer, Portion) \
-    macro(uint64_t, SizeTotal)
 
 #define BeamNodeMsg_GetUtxoEvents(macro) \
     macro(Height, HeightMin)
@@ -246,8 +226,8 @@ namespace proto {
     macro(0x1c, ProofUtxo) \
     macro(0x1d, GetProofChainWork) \
     macro(0x1e, ProofChainWork) \
-    macro(0x20, MacroblockGet) \
-    macro(0x21, Macroblock) \
+    /* macro(0x20, MacroblockGet) Deprecated */ \
+    /* macro(0x21, Macroblock) Deprecated */ \
     macro(0x22, GetCommonState) \
     macro(0x23, ProofCommonState) \
     macro(0x24, GetProofKernel2) \
@@ -264,12 +244,12 @@ namespace proto {
     macro(0x31, HaveTransaction) \
     macro(0x32, GetTransaction) \
     /* bbs */ \
-    macro(0x38, BbsMsgV0) /* Deprecated */ \
+    /* macro(0x38, BbsMsgV0) Deprecated */ \
     macro(0x39, BbsHaveMsg) \
     macro(0x3a, BbsGetMsg) \
     macro(0x3b, BbsSubscribe) \
-    macro(0x3c, BbsPickChannelV0) /* Deprecated */ \
-    macro(0x3d, BbsPickChannelResV0) /* Deprecated */ \
+    /* macro(0x3c, BbsPickChannelV0) Deprecated */ \
+    /* macro(0x3d, BbsPickChannelResV0) Deprecated */ \
     macro(0x3e, BbsResetSync) \
     macro(0x3f, BbsMsg) \
 
@@ -284,10 +264,14 @@ namespace proto {
         static const uint8_t Extension3             = 0x40; // Supports Login1, Status (former Boolean) for NewTransaction result, compatible with Fork H1
 	    static const uint8_t Recognized             = 0x7f;
 
-		static const uint8_t ExtensionsAll =
+
+		static const uint8_t ExtensionsBeforeHF1 =
 			Extension1 |
 			Extension2 |
 			Extension3;
+
+		static const uint8_t ExtensionsAll =
+			ExtensionsBeforeHF1;
 	};
 
     struct IDType
@@ -297,7 +281,6 @@ namespace proto {
         static const uint8_t Viewer        = 'V';
     };
 
-    static const uint32_t g_HdrPackMaxSizeV0 = 128; // about 25K
 	static const uint32_t g_HdrPackMaxSize = 2048; // about 400K
 
     struct UtxoEvent
@@ -529,7 +512,6 @@ namespace proto {
         io::AsyncEvent::Ptr m_pAsyncFail;
         bool m_ConnectPending;
 		bool m_RulesCfgSent;
-		bool m_PeerSupportsLogin1;
 
         SerializedMsg m_SerializeCache;
 

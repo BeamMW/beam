@@ -14,31 +14,21 @@
 
 #pragma once
 
-#include "../bitcoin/bitcoin_side.h"
+#include "wallet/bitcoin/bitcoin_side.h"
+#include "settings_provider.h"
 
 namespace beam::wallet
 {
     class LitecoinSide : public BitcoinSide
     {
     public:
+        LitecoinSide(BaseTransaction& tx, bitcoin::IBridge::Ptr bitcoinBridge, litecoin::ISettingsProvider& settingsProvider, bool isBeamSide);
 
-        LitecoinSide(BaseTransaction& tx, std::shared_ptr<IBitcoinBridge> bitcoinBridge, bool isBeamSide)
-            : BitcoinSide(tx, bitcoinBridge, isBeamSide)
-        {
-        }
+        static bool CheckAmount(Amount amount, Amount feeRate);
 
-        uint32_t GetTxTimeInBeamBlocks() const
-        {
-            // it's average value
-            return 20;
-        }
+    protected:
 
-        static bool CheckAmount(Amount amount, Amount feeRate)
-        {
-            constexpr uint32_t kLTCWithdrawTxAverageSize = 360;
-            constexpr Amount kDustThreshold = 546;
-            Amount fee = static_cast<Amount>(std::round(double(kLTCWithdrawTxAverageSize * feeRate) / 1000));
-            return amount > kDustThreshold && amount > fee;
-        }
+        uint32_t GetLockTxEstimatedTimeInBeamBlocks() const override;
+        uint8_t GetAddressVersion() const override;
     };
 }

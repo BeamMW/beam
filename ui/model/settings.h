@@ -17,9 +17,11 @@
 #include <QObject>
 #include <QSettings>
 #include <QDir>
+#include <QStringList>
 #include <mutex>
-
 #include "model/wallet_model.h"
+#include "wallet/bitcoin/settings.h"
+
 
 class WalletSettings : public QObject
 {
@@ -39,8 +41,15 @@ public:
     bool isAllowedBeamMWLinks() const;
     void setAllowedBeamMWLinks(bool value);
 
+    bool showSwapBetaWarning();
+    void setShowSwapBetaWarning(bool value);
+
     void initModel(WalletModel::Ptr model);
+#if defined(BEAM_HW_WALLET)
+    std::string getTrezorWalletStorage() const;
+#endif
     std::string getWalletStorage() const;
+    std::string getWalletFolder() const;
     std::string getAppDataPath() const;
     void reportProblem();
 
@@ -52,7 +61,7 @@ public:
     std::string getLocalNodeStorage() const;
     std::string getTempDir() const;
 
-    QStringList getLocalNodePeers() const;
+    QStringList getLocalNodePeers();
     void setLocalNodePeers(const QStringList& qPeers);
 
     QString getLocale() const;
@@ -61,11 +70,16 @@ public:
     static QStringList getSupportedLanguages();
     static void openFolder(const QString& path);
 
+    std::shared_ptr<beam::bitcoin::Settings> getBitcoinSettings() const;
+
 public:
     static const char* WalletCfg;
     static const char* LogsFolder;
     static const char* SettingsFile;
     static const char* WalletDBFile;
+#if defined(BEAM_HW_WALLET)
+    static const char* TrezorWalletDBFile;
+#endif
     static const char* NodeDBFile;
 
     void applyChanges();
@@ -82,6 +96,6 @@ signals:
 private:
     QSettings m_data;
     QDir m_appDataDir;
-    mutable std::mutex m_mutex;
-    using Lock = std::unique_lock<std::mutex>;
+    mutable std::recursive_mutex m_mutex;
+    using Lock = std::unique_lock<decltype(m_mutex)>;
 };

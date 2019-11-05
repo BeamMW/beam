@@ -22,22 +22,17 @@ namespace beam::wallet
     LockTxBuilder::LockTxBuilder(BaseTransaction& tx, Amount amount, Amount fee)
         : BaseTxBuilder(tx, SubTxIndex::BEAM_LOCK_TX, { amount }, fee)
     {
-        Height minHeight = 0;
-        if (!m_Tx.GetParameter(TxParameterID::MinHeight, minHeight, m_SubTxID))
+        Height lifetime = 0;
+        if (!m_Tx.GetParameter(TxParameterID::Lifetime, lifetime, m_SubTxID))
         {
-            // Get MinHeight from main TX
-            minHeight = m_Tx.GetMandatoryParameter<Height>(TxParameterID::MinHeight);
-            m_Tx.SetParameter(TxParameterID::MinHeight, minHeight, m_SubTxID);
-
-            Height lifetime = m_Tx.GetMandatoryParameter<Height>(TxParameterID::Lifetime);
+            lifetime = m_Tx.GetMandatoryParameter<Height>(TxParameterID::Lifetime);
             m_Tx.SetParameter(TxParameterID::Lifetime, lifetime, m_SubTxID);
-
-            if (m_Tx.IsInitiator())
-            {
-                Height responseTime = m_Tx.GetMandatoryParameter<Height>(TxParameterID::PeerResponseHeight);
-                m_Tx.SetParameter(TxParameterID::PeerResponseHeight, responseTime, m_SubTxID);
-            }
         }
+    }
+
+    Height LockTxBuilder::GetMaxHeight() const
+    {
+        return m_MinHeight + m_Lifetime;
     }
 
     void LockTxBuilder::LoadPeerOffset()
@@ -224,7 +219,7 @@ namespace beam::wallet
     ECC::Point::Native LockTxBuilder::GetSharedCommitment()
     {
         Point::Native commitment(Zero);
-        // TODO: check pHGen
+
         Tag::AddValue(commitment, nullptr, GetAmount());
         commitment += GetPublicSharedBlindingFactor();
         commitment += m_Tx.GetMandatoryParameter<Point::Native>(TxParameterID::PeerPublicSharedBlindingFactor, m_SubTxID);

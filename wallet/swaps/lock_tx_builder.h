@@ -14,8 +14,8 @@
 
 #pragma once
 
-#include "../base_tx_builder.h"
-#include "../base_transaction.h"
+#include "wallet/base_tx_builder.h"
+#include "wallet/base_transaction.h"
 
 namespace beam::wallet
 {
@@ -25,6 +25,7 @@ namespace beam::wallet
         LockTxBuilder(BaseTransaction& tx, Amount amount, Amount fee);
 
         Transaction::Ptr CreateTransaction() override;
+        Height GetMaxHeight() const override;
 
         void LoadSharedParameters();
         bool CreateSharedUTXOProofPart2(bool isBeamOwner);

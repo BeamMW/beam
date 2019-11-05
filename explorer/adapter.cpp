@@ -29,11 +29,11 @@ static const size_t PACKER_FRAGMENTS_SIZE = 4096;
 static const size_t CACHE_DEPTH = 100000;
 
 const char* hash_to_hex(char* buf, const Merkle::Hash& hash) {
-    return to_hex(buf, hash.m_pData, 32);
+    return to_hex(buf, hash.m_pData, hash.nBytes);
 }
 
 const char* uint256_to_hex(char* buf, const ECC::uintBig& n) {
-    char* p = to_hex(buf + 2, n.m_pData, 32);
+    char* p = to_hex(buf + 2, n.m_pData, n.nBytes);
     while (p && *p == '0') ++p;
     if (*p == '\0') --p;
     *--p = 'x';
@@ -51,7 +51,6 @@ struct ResponseCache {
     io::SharedBuffer status;
     std::map<Height, io::SharedBuffer> blocks;
     Height currentHeight=0;
-    Height lowHorizon=0;
 
     explicit ResponseCache(size_t depth) : _depth(depth)
     {}
@@ -116,8 +115,8 @@ public:
 
 private:
     void init_helper_fragments() {
-        static const char* s = "[,]";
-        io::SharedBuffer buf(s, 3);
+        static const char* s = "[,]\"";
+        io::SharedBuffer buf(s, 4);
         _leftBrace = buf;
         _leftBrace.size = 1;
         _comma = buf;
@@ -126,6 +125,9 @@ private:
         _rightBrace = buf;
         _rightBrace.size = 1;
         _rightBrace.data += 2;
+        _quote = buf;
+        _quote.size = 1;
+        _quote.data += 3;
     }
 
     /// Returns body for /status request
@@ -142,7 +144,6 @@ private:
     void OnStateChanged() override {
         const auto& cursor = _nodeBackend.m_Cursor;
         _cache.currentHeight = cursor.m_Sid.m_Height;
-        _cache.lowHorizon = _nodeBackend.m_Extra.m_LoHorizon;
         _statusDirty = true;
         if (_nextHook) _nextHook->OnStateChanged();
     }
@@ -161,7 +162,6 @@ private:
             const auto& cursor = _nodeBackend.m_Cursor;
 
             _cache.currentHeight = cursor.m_Sid.m_Height;
-            _cache.lowHorizon = _nodeBackend.m_Extra.m_LoHorizon;
 
             char buf[80];
 
@@ -172,9 +172,10 @@ private:
                 json{
                     { "timestamp", cursor.m_Full.m_TimeStamp },
                     { "height", _cache.currentHeight },
-                    { "low_horizon", _nodeBackend.m_Extra.m_LoHorizon },
+                    { "low_horizon", _nodeBackend.m_Extra.m_TxoHi },
                     { "hash", hash_to_hex(buf, cursor.m_ID.m_Hash) },
-                    { "chainwork",  uint256_to_hex(buf, cursor.m_Full.m_ChainWork) }
+                    { "chainwork",  uint256_to_hex(buf, cursor.m_Full.m_ChainWork) },
+                    { "peers_count", _node.get_AcessiblePeerCount() }
                 }
             )) {
                 return false;
@@ -210,7 +211,7 @@ private:
         return true;
     }
 
-    bool extract_block_from_row(json& out, uint64_t row) {
+    bool extract_block_from_row(json& out, uint64_t row, Height height) {
         NodeDB& db = _nodeBackend.get_DB();
 
         Block::SystemState::Full blockState;
@@ -240,7 +241,7 @@ private:
                 inputs.push_back(
                 json{
                     {"commitment", uint256_to_hex(buf, v->m_Commitment.m_X)},
-                    {"maturity",   v->m_Maturity}
+                    {"maturity",   v->m_Internal.m_Maturity}
                 }
                 );
             }
@@ -250,7 +251,7 @@ private:
                 outputs.push_back(
                 json{
                     {"commitment", uint256_to_hex(buf, v->m_Commitment.m_X)},
-                    {"maturity",   v->m_Maturity},
+                    {"maturity",   v->get_MinMaturity(height)},
                     {"coinbase",   v->m_Coinbase},
                     {"incubation", v->m_Incubation}
                 }
@@ -301,7 +302,7 @@ private:
                 *prevRow = 0;
             }
         }
-        return ok && extract_block_from_row(out, row);
+        return ok && extract_block_from_row(out, row, height);
     }
 
     bool get_block_impl(io::SerializedMsg& out, uint64_t height, uint64_t& row, uint64_t* prevRow) {
@@ -315,11 +316,10 @@ private:
         if (_statusDirty) {
             const auto &cursor = _nodeBackend.m_Cursor;
             _cache.currentHeight = cursor.m_Sid.m_Height;
-            _cache.lowHorizon = _nodeBackend.m_Extra.m_LoHorizon;
         }
 
         io::SharedBuffer body;
-        bool blockAvailable = (/*height >= _cache.lowHorizon && */height <= _cache.currentHeight);
+        bool blockAvailable = (height <= _cache.currentHeight);
         if (blockAvailable) {
             json j;
             if (!extract_block(j, height, row, prevRow)) {
@@ -389,6 +389,34 @@ private:
         return true;
     }
 
+    bool get_peers(io::SerializedMsg& out) override
+    {
+        auto& peers = _node.get_AcessiblePeerAddrs();
+
+        out.push_back(_leftBrace);
+
+        for (auto& peer : peers)
+        {
+            auto addr = peer.get_ParentObj().m_Addr.m_Value.str();
+
+            {
+                out.push_back(_quote);
+                out.push_back({ addr.data(), addr.size() });
+                out.push_back(_quote);
+            }
+
+            out.push_back(_comma);
+        }
+
+        // remove last comma
+        if (!peers.empty())
+            out.pop_back();
+
+        out.push_back(_rightBrace);
+
+        return true;
+    }
+
     HttpMsgCreator _packer;
 
     // node db interface
@@ -396,7 +424,7 @@ private:
     NodeProcessor& _nodeBackend;
 
     // helper fragments
-    io::SharedBuffer _leftBrace, _comma, _rightBrace;
+    io::SharedBuffer _leftBrace, _comma, _rightBrace, _quote;
 
     // If true then status boby needs to be refreshed
     bool _statusDirty;

@@ -14,7 +14,7 @@
 
 #include "logger_checkpoints.h"
 #include "helpers.h"
-#include "core/common.h"
+#include "common.h"
 #include <boost/filesystem.hpp>
 #include <boost/iostreams/device/back_inserter.hpp>
 
@@ -43,8 +43,8 @@ using namespace std;
 Logger* Logger::g_logger = 0;
 
 class LoggerImpl : public Logger {
-    mutex _mutex;
 protected:
+    mutex _mutex;
     static const size_t MAX_HEADER_SIZE = 256;
     static const size_t MAX_TIMESTAMP_SIZE = 80;
 
@@ -109,8 +109,9 @@ public:
     }
 
     void write_impl(int level, const char* header, size_t headerSize, const char* msg, size_t size) {
-        if (!_sink) return;
+        if (!_sink) return; 
         lock_guard<mutex> lock(_mutex);
+        if (!_sink) return; // double check
         fwrite(header, 1, headerSize, _sink);
         fwrite(msg, 1, size, _sink);
         if (level >= _flushLevel) fflush(_sink);
@@ -155,6 +156,7 @@ public:
 
 private:
     void open_new_file() {
+        lock_guard<mutex> lock(_mutex);
         if (_sink != nullptr) {
             fclose(_sink);
             _sink = nullptr;

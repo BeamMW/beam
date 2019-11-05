@@ -38,9 +38,7 @@
 
 #include "wallet/wallet_db.h"
 #include "wallet/wallet_network.h"
-#include "wallet/bitcoin/options.h"
-#include "wallet/litecoin/options.h"
-#include "wallet/qtum/options.h"
+#include "keykeeper/local_private_key_keeper.h"
 
 #include "nlohmann/json.hpp"
 #include "version.h"
@@ -233,26 +231,27 @@ namespace
                 , _wallet(wallet)
                 , _api(*this, acl)
                 , _wnet(wnet)
+                , _keyKeeper(std::make_shared<LocalPrivateKeyKeeper>(_walletDB, _walletDB->get_MasterKdf()))
             {
-                _walletDB->subscribe(this);
+                _walletDB->Subscribe(this);
             }
 
             virtual ~ApiConnection()
             {
-                _walletDB->unsubscribe(this);
+                _walletDB->Unsubscribe(this);
             }
 
             virtual void serializeMsg(const json& msg) = 0;
 
             template<typename T>
-            void doResponse(int id, const T& response)
+            void doResponse(const JsonRpcId& id, const T& response)
             {
                 json msg;
                 _api.getResponse(id, response, msg);
                 serializeMsg(msg);
             }
 
-            void doError(int id, int code, const std::string& info)
+            void doError(const JsonRpcId& id, ApiError code, const std::string& data = "")
             {
                 json msg
                 {
@@ -261,10 +260,15 @@ namespace
                     {"error",
                         {
                             {"code", code},
-                            {"message", info},
+                            {"message", WalletApi::getErrorMessage(code)}
                         }
                     }
                 };
+
+                if (!data.empty())
+                {
+                    msg["error"]["data"] = data;
+                }
 
                 serializeMsg(msg);
             }
@@ -300,11 +304,11 @@ namespace
                 }
             }
 
-            void onMessage(int id, const CreateAddress& data) override 
+            void onMessage(const JsonRpcId& id, const CreateAddress& data) override 
             {
                 LOG_DEBUG() << "CreateAddress(id = " << id << ")";
 
-                WalletAddress address = storage::createAddress(*_walletDB);
+                WalletAddress address = storage::createAddress(*_walletDB, _keyKeeper);
                 FillAddressData(data, address);
 
                 _walletDB->saveAddress(address);
@@ -312,7 +316,7 @@ namespace
                 doResponse(id, CreateAddress::Response{ address.m_walletID });
             }
 
-            void onMessage(int id, const DeleteAddress& data) override
+            void onMessage(const JsonRpcId& id, const DeleteAddress& data) override
             {
                 LOG_DEBUG() << "DeleteAddress(id = " << id << " address = " << std::to_string(data.address) << ")";
 
@@ -326,11 +330,11 @@ namespace
                 }
                 else
                 {
-                    doError(id, INVALID_ADDRESS, "Provided address doesn't exist.");
+                    doError(id, ApiError::InvalidAddress, "Provided address doesn't exist.");
                 }
             }
 
-            void onMessage(int id, const EditAddress& data) override
+            void onMessage(const JsonRpcId& id, const EditAddress& data) override
             {
                 LOG_DEBUG() << "EditAddress(id = " << id << " address = " << std::to_string(data.address) << ")";
 
@@ -347,23 +351,23 @@ namespace
                     }
                     else
                     {
-                        doError(id, INVALID_ADDRESS, "You can edit only own address.");
+                        doError(id, ApiError::InvalidAddress, "You can edit only own address.");
                     }
                 }
                 else
                 {
-                    doError(id, INVALID_ADDRESS, "Provided address doesn't exist.");
+                    doError(id, ApiError::InvalidAddress, "Provided address doesn't exist.");
                 }
             }
 
-            void onMessage(int id, const AddrList& data) override
+            void onMessage(const JsonRpcId& id, const AddrList& data) override
             {
                 LOG_DEBUG() << "AddrList(id = " << id << ")";
 
                 doResponse(id, AddrList::Response{ _walletDB->getAddresses(data.own) });
             }
 
-            void onMessage(int id, const ValidateAddress& data) override
+            void onMessage(const JsonRpcId& id, const ValidateAddress& data) override
             {
                 LOG_DEBUG() << "ValidateAddress( address = " << std::to_string(data.address) << ")";
 
@@ -372,7 +376,12 @@ namespace
                 doResponse(id, ValidateAddress::Response{ data.address.IsValid() && (isMine ? !addr->isExpired() : true), isMine});
             }
 
-            void onMessage(int id, const Send& data) override
+            void doTxAlreadyExistsError(const JsonRpcId& id)
+            {
+                doError(id, ApiError::InvalidTxId, "Provided transaction ID already exists in the wallet.");
+            }
+
+            void onMessage(const JsonRpcId& id, const Send& data) override
             {
                 LOG_DEBUG() << "Send(id = " << id << " amount = " << data.value << " fee = " << data.fee <<  " address = " << std::to_string(data.address) << ")";
 
@@ -384,7 +393,7 @@ namespace
                     {
                         if(!data.from->IsValid())
                         {
-                            doError(id, INTERNAL_JSON_RPC_ERROR, "Invalid sender address.");
+                            doError(id, ApiError::InvalidAddress, "Invalid sender address.");
                             return;
                         }
 
@@ -393,7 +402,13 @@ namespace
 
                         if(!isMine)
                         {
-                            doError(id, INTERNAL_JSON_RPC_ERROR, "It's not your own address.");
+                            doError(id, ApiError::InvalidAddress, "It's not your own address.");
+                            return;
+                        }
+
+                        if (addr->isExpired())
+                        {
+                            doError(id, ApiError::InvalidAddress, "Sender address is expired.");
                             return;
                         }
 
@@ -401,7 +416,7 @@ namespace
                     }
                     else
                     {
-                        WalletAddress senderAddress = storage::createAddress(*_walletDB);
+                        WalletAddress senderAddress = storage::createAddress(*_walletDB, _keyKeeper);
                         _walletDB->saveAddress(senderAddress);
 
                         from = senderAddress.m_walletID;     
@@ -417,7 +432,7 @@ namespace
 
                         if (coins.empty())
                         {
-                            doError(id, INTERNAL_JSON_RPC_ERROR, "Requested session is empty.");
+                            doError(id, ApiError::InternalErrorJsonRpc, "Requested session is empty.");
                             return;
                         }
                     }
@@ -429,21 +444,33 @@ namespace
                     auto minimumFee = std::max(wallet::GetMinimumFee(2), DefaultFee); // receivers's output + change
                     if (data.fee < minimumFee)
                     {
-                        doError(id, INTERNAL_JSON_RPC_ERROR, getMinimumFeeError(minimumFee));
+                        doError(id, ApiError::InternalErrorJsonRpc, getMinimumFeeError(minimumFee));
                         return;
                     }
 
-                    auto txId = _wallet.transfer_money(from, data.address, data.value, data.fee, coins, true, kDefaultTxLifetime, kDefaultTxResponseTime, std::move(message), true);
+                    if (data.txId && _walletDB->getTx(*data.txId))
+                    {
+                        doTxAlreadyExistsError(id);
+                        return;
+                    }
+
+                    auto txId = _wallet.StartTransaction(CreateSimpleTransactionParameters(data.txId)
+                        .SetParameter(TxParameterID::MyID, from)
+                        .SetParameter(TxParameterID::PeerID, data.address)
+                        .SetParameter(TxParameterID::Amount, data.value)
+                        .SetParameter(TxParameterID::Fee, data.fee)
+                        .SetParameter(TxParameterID::PreselectedCoins, coins)
+                        .SetParameter(TxParameterID::Message, message));
 
                     doResponse(id, Send::Response{ txId });
                 }
                 catch(...)
                 {
-                    doError(id, INTERNAL_JSON_RPC_ERROR, "Transaction could not be created. Please look at logs.");
+                    doError(id, ApiError::InternalErrorJsonRpc, "Transaction could not be created. Please look at logs.");
                 }
             }
 
-            void onMessage(int id, const Status& data) override
+            void onMessage(const JsonRpcId& id, const Status& data) override
             {
                 LOG_DEBUG() << "Status(txId = " << to_hex(data.txId.data(), data.txId.size()) << ")";
 
@@ -466,37 +493,45 @@ namespace
                 }
                 else
                 {
-                    doError(id, INVALID_PARAMS_JSON_RPC, "Unknown transaction ID.");
+                    doError(id, ApiError::InvalidParamsJsonRpc, "Unknown transaction ID.");
                 }
             }
 
-            void onMessage(int id, const Split& data) override
+            void onMessage(const JsonRpcId& id, const Split& data) override
             {
                 LOG_DEBUG() << "Split(id = " << id << " coins = [";
                 for (auto& coin : data.coins) LOG_DEBUG() << coin << ",";
                 LOG_DEBUG() << "], fee = " << data.fee;
                 try
                 {
-                     WalletAddress senderAddress = storage::createAddress(*_walletDB);
+                     WalletAddress senderAddress = storage::createAddress(*_walletDB, _keyKeeper);
                     _walletDB->saveAddress(senderAddress);
 
                     auto minimumFee = std::max(wallet::GetMinimumFee(data.coins.size() + 1), DefaultFee); // +1 extra output for change 
                     if (data.fee < minimumFee)
                     {
-                        doError(id, INTERNAL_JSON_RPC_ERROR, getMinimumFeeError(minimumFee));
+                        doError(id, ApiError::InternalErrorJsonRpc, getMinimumFeeError(minimumFee));
                         return;
                     }
 
-                    auto txId = _wallet.split_coins(senderAddress.m_walletID, data.coins, data.fee);
+                    if (data.txId && _walletDB->getTx(*data.txId))
+                    {
+                        doTxAlreadyExistsError(id);
+                        return;
+                    }
+
+                    auto txId = _wallet.StartTransaction(CreateSplitTransactionParameters(senderAddress.m_walletID, data.coins, data.txId)
+                        .SetParameter(TxParameterID::Fee, data.fee));
+
                     doResponse(id, Send::Response{ txId });
                 }
                 catch(...)
                 {
-                    doError(id, INTERNAL_JSON_RPC_ERROR, "Transaction could not be created. Please look at logs.");
+                    doError(id, ApiError::InternalErrorJsonRpc, "Transaction could not be created. Please look at logs.");
                 }
             }
 
-            void onMessage(int id, const TxCancel& data) override
+            void onMessage(const JsonRpcId& id, const TxCancel& data) override
             {
                 LOG_DEBUG() << "TxCancel(txId = " << to_hex(data.txId.data(), data.txId.size()) << ")";
 
@@ -506,22 +541,22 @@ namespace
                 {
                     if (tx->canCancel())
                     {
-                        _wallet.cancel_tx(tx->m_txId);
+                        _wallet.CancelTransaction(tx->m_txId);
                         TxCancel::Response result{ true };
                         doResponse(id, result);
                     }
                     else
                     {
-                        doError(id, INVALID_TX_STATUS, "Transaction could not be cancelled. Invalid transaction status.");
+                        doError(id, ApiError::InvalidTxStatus, "Transaction could not be cancelled. Invalid transaction status.");
                     }
                 }
                 else
                 {
-                    doError(id, INVALID_PARAMS_JSON_RPC, "Unknown transaction ID.");
+                    doError(id, ApiError::InvalidParamsJsonRpc, "Unknown transaction ID.");
                 }
             }
 
-            void onMessage(int id, const TxDelete& data) override
+            void onMessage(const JsonRpcId& id, const TxDelete& data) override
             {
                 LOG_DEBUG() << "TxDelete(txId = " << to_hex(data.txId.data(), data.txId.size()) << ")";
 
@@ -535,7 +570,7 @@ namespace
 
                         if (_walletDB->getTx(data.txId))
                         {
-                            doError(id, INTERNAL_JSON_RPC_ERROR, "Transaction not deleted.");
+                            doError(id, ApiError::InternalErrorJsonRpc, "Transaction not deleted.");
                         }
                         else
                         {
@@ -544,12 +579,12 @@ namespace
                     }
                     else
                     {
-                        doError(id, INTERNAL_JSON_RPC_ERROR, "Transaction can't be deleted.");
+                        doError(id, ApiError::InternalErrorJsonRpc, "Transaction can't be deleted.");
                     }
                 }
                 else
                 {
-                    doError(id, INVALID_PARAMS_JSON_RPC, "Unknown transaction ID.");
+                    doError(id, ApiError::InvalidParamsJsonRpc, "Unknown transaction ID.");
                 }
             }
 
@@ -572,7 +607,7 @@ namespace
                 }
             }
 
-            void onMessage(int id, const GetUtxo& data) override 
+            void onMessage(const JsonRpcId& id, const GetUtxo& data) override 
             {
                 LOG_DEBUG() << "GetUtxo(id = " << id << ")";
 
@@ -588,7 +623,7 @@ namespace
                 doResponse(id, response);
             }
 
-            void onMessage(int id, const WalletStatus& data) override
+            void onMessage(const JsonRpcId& id, const WalletStatus& data) override
             {
                 LOG_DEBUG() << "WalletStatus(id = " << id << ")";
 
@@ -619,7 +654,14 @@ namespace
                 doResponse(id, response);
             }
 
-            void onMessage(int id, const Lock& data) override
+            void onMessage(const JsonRpcId& id, const GenerateTxId& data) override
+            {
+                LOG_DEBUG() << "GenerateTxId(id = " << id << ")";
+
+                doResponse(id, GenerateTxId::Response{ wallet::GenerateTxID() });
+            }
+
+            void onMessage(const JsonRpcId& id, const Lock& data) override
             {
                 LOG_DEBUG() << "Lock(id = " << id << ")";
 
@@ -630,7 +672,7 @@ namespace
                 doResponse(id, response);
             }
 
-            void onMessage(int id, const Unlock& data) override
+            void onMessage(const JsonRpcId& id, const Unlock& data) override
             {
                 LOG_DEBUG() << "Unlock(id = " << id << " session = " << data.session << ")";
 
@@ -641,7 +683,7 @@ namespace
                 doResponse(id, response);
             }
 
-            void onMessage(int id, const TxList& data) override
+            void onMessage(const JsonRpcId& id, const TxList& data) override
             {
                 LOG_DEBUG() << "List(filter.status = " << (data.filter.status ? std::to_string((uint32_t)*data.filter.status) : "nul") << ")";
 
@@ -697,17 +739,12 @@ namespace
                 doResponse(id, res);
             }
 
-        private:
-            void methodNotImplementedYet(int id)
-            {
-                doError(id, NOTFOUND_JSON_RPC, "Method not implemented yet.");
-            }
-
         protected:
             IWalletDB::Ptr _walletDB;
             Wallet& _wallet;
             WalletApi _api;
             IWalletMessageEndpoint& _wnet;
+            IPrivateKeyKeeper::Ptr _keyKeeper;
         };
 
         class TcpApiConnection : public ApiConnection
@@ -1079,7 +1116,10 @@ int main(int argc, char* argv[])
 
         LogRotation logRotation(*reactor, LOG_ROTATION_PERIOD, options.logCleanupPeriod);
 
-        Wallet wallet{ walletDB };
+        auto keyKeeper = std::make_shared<LocalPrivateKeyKeeper>(walletDB, walletDB->get_MasterKdf());
+        Wallet wallet{ walletDB, keyKeeper };
+
+        wallet.ResumeAllTransactions();
 
         auto nnet = std::make_shared<proto::FlyClient::NetworkStd>(wallet);
         nnet->m_Cfg.m_PollPeriod_ms = options.pollPeriod_ms.value;
@@ -1101,7 +1141,7 @@ int main(int argc, char* argv[])
         nnet->m_Cfg.m_vNodes.push_back(node_addr);
         nnet->Connect();
 
-        auto wnet = std::make_shared<WalletNetworkViaBbs>(wallet, nnet, walletDB);
+        auto wnet = std::make_shared<WalletNetworkViaBbs>(wallet, nnet, walletDB, keyKeeper);
 		wallet.AddMessageEndpoint(wnet);
         wallet.SetNodeEndpoint(nnet);
 

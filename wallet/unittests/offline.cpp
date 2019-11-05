@@ -19,6 +19,7 @@
 #include "utility/logger.h"
 #include <future>
 #include <boost/filesystem.hpp>
+#include "keykeeper/local_private_key_keeper.h"
 
 namespace beam {
     using namespace wallet;
@@ -26,10 +27,10 @@ struct WalletDBObserver : IWalletDbObserver {
     void onCoinsChanged() {
         LOG_DEBUG() << _who << " " << __FUNCTION__;
     }
-    void onTransactionChanged(ChangeAction, std::vector<TxDescription>&& )  {
+    void onTransactionChanged(ChangeAction, const std::vector<TxDescription>& )  {
         LOG_INFO() << _who << " QQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQ " << __FUNCTION__;
     }
-    void onSystemStateChanged()  {
+    void onSystemStateChanged(const Block::SystemState::ID& stateID)  {
         LOG_INFO() << _who << " " << __FUNCTION__;
     }
     void onAddressChanged(ChangeAction action, const std::vector<WalletAddress>& items)  {
@@ -70,17 +71,22 @@ WaitHandle run_wallet(const WalletParams& params) {
 //                params.walletDB->addPeer(receiverPeer);
 //            }
 
-			Wallet wallet{ params.walletDB, [](auto) { io::Reactor::get_Current().stop(); } };
+            auto keyKeeper = std::make_shared<LocalPrivateKeyKeeper>(params.walletDB, params.walletDB->get_MasterKdf());
+			Wallet wallet{ params.walletDB, keyKeeper, [](auto) { io::Reactor::get_Current().stop(); } };
 
 			auto nnet = std::make_shared<proto::FlyClient::NetworkStd>(wallet);
 			nnet->m_Cfg.m_vNodes.push_back(params.nodeAddress);
 			nnet->Connect();
 
-			wallet.AddMessageEndpoint(std::make_shared<WalletNetworkViaBbs>(wallet, nnet, params.walletDB));
+			wallet.AddMessageEndpoint(std::make_shared<WalletNetworkViaBbs>(wallet, nnet, params.walletDB, keyKeeper));
 			wallet.SetNodeEndpoint(nnet);
 
             if (sender) {
-                wallet.transfer_money(params.sendFrom, params.sendTo, 1000000, 100000, true);
+                wallet.StartTransaction(CreateSimpleTransactionParameters()
+                    .SetParameter(TxParameterID::MyID, params.sendFrom)
+                    .SetParameter(TxParameterID::PeerID, params.sendTo)
+                    .SetParameter(TxParameterID::Amount, Amount(1000000))
+                    .SetParameter(TxParameterID::Fee, Amount(100000)));
             }
 
 			io::Reactor::get_Current().run();
@@ -170,20 +176,22 @@ void test_offline(bool twoNodes) {
 
     senderParams.reactor = io::Reactor::create();
     senderParams.walletDB = init_wallet_db("_sender", &nodeParams.walletSeed, senderParams.reactor);
+    auto keyKeeper = std::make_shared<LocalPrivateKeyKeeper>(senderParams.walletDB, senderParams.walletDB->get_MasterKdf());
+
     receiverParams.reactor = io::Reactor::create();
     receiverParams.walletDB = init_wallet_db("_receiver", 0, receiverParams.reactor);
 
-	WalletAddress wa = storage::createAddress(*senderParams.walletDB);
+	WalletAddress wa = storage::createAddress(*senderParams.walletDB, keyKeeper);
 	senderParams.walletDB->saveAddress(wa);
 	senderParams.sendFrom = wa.m_walletID;
-    wa = storage::createAddress(*senderParams.walletDB);
+    wa = storage::createAddress(*senderParams.walletDB, keyKeeper);
     receiverParams.walletDB->saveAddress(wa);
 	senderParams.sendTo = wa.m_walletID;
 
     WalletDBObserver senderObserver("AAAAAAAAAAAAAAAAAAAAAA"), receiverObserver("BBBBBBBBBBBBBBBBBBBBBB");
 
-    senderParams.walletDB->subscribe(&senderObserver);
-    receiverParams.walletDB->subscribe(&receiverObserver);
+    senderParams.walletDB->Subscribe(&senderObserver);
+    receiverParams.walletDB->Subscribe(&receiverObserver);
 
     WaitHandle node2WH;
     if (twoNodes) {

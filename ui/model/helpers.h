@@ -27,10 +27,29 @@ public:
         for(const auto& conn: _conns) QObject::disconnect(conn);
         decltype(_conns)().swap(_conns);
     }
+
+    ~Connections() {
+        disconnect();
+    }
+
 private:
     std::vector<QMetaObject::Connection> _conns;
 };
 
 inline auto MakeConnectionPtr() {
     return std::make_shared<QMetaObject::Connection>();
+}
+
+inline QString str2qstr(const std::string& str) {
+    return QString::fromStdString(str);
+}
+
+inline std::string vec2str(const std::vector<std::string>& vec, char separator)
+{
+    return std::accumulate(
+        std::next(vec.begin()), vec.end(), *vec.begin(),
+        [separator](std::string a, std::string b)
+    {
+        return a + separator + b;
+    });
 }
