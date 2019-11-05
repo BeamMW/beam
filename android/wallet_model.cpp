@@ -175,7 +175,7 @@ void WalletModel::onChangeCalculated(Amount change)
     env->CallStaticVoidMethod(WalletListenerClass, callback, change);
 }
 
-void WalletModel::onAllUtxoChanged(const std::vector<Coin>& utxosVec)
+void WalletModel::onAllUtxoChanged(ChangeAction action, const std::vector<Coin>& utxosVec)
 {
     LOG_DEBUG() << "onAllUtxoChanged()";
 
@@ -184,7 +184,7 @@ void WalletModel::onAllUtxoChanged(const std::vector<Coin>& utxosVec)
     jobjectArray utxos = convertCoinsToJObject(env, utxosVec);
 
     jmethodID callback = env->GetStaticMethodID(WalletListenerClass, "onAllUtxoChanged", "([L" BEAM_JAVA_PATH "/entities/dto/UtxoDTO;)V");
-    env->CallStaticVoidMethod(WalletListenerClass, callback, utxos);
+    env->CallStaticVoidMethod(WalletListenerClass, callback, action, utxos);
 
     env->DeleteLocalRef(utxos);
 }

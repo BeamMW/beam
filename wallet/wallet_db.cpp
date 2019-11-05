@@ -364,6 +364,16 @@ namespace beam::wallet
         {
             value = blob;
         }
+
+        vector<Coin> converIDsToCoins(const vector<Coin::ID>& coinIDs)
+        {
+            vector<Coin> coins(coinIDs.size());
+            for (size_t i = 0; i < coins.size(); ++i)
+            {
+                coins[i].m_ID = coinIDs[i];
+            }
+            return coins;
+        }
     }
 
     namespace sqlite
@@ -1640,6 +1650,17 @@ namespace beam::wallet
         return coins;
     }
 
+    vector<Coin> WalletDB::getUpdatedCoins(const vector<Coin>& coins) const
+    {
+        vector<Coin> updatedCoins = coins;
+        Height h = getCurrentHeight();
+        for (Coin& coin : updatedCoins)
+        {
+            storage::DeduceStatus(*this, coin, h);
+        }
+        return updatedCoins;
+    }
+
     Coin WalletDB::generateNewCoin(Amount amount)
     {
         Coin coin(amount);
@@ -1682,7 +1703,7 @@ namespace beam::wallet
     void WalletDB::saveCoin(const Coin& coin)
     {
         saveCoinRaw(coin);
-        notifyCoinsChanged(ChangeAction::Updated, {coin});
+        notifyCoinsChanged(ChangeAction::Updated, getUpdatedCoins({coin}));
     }
 
     void WalletDB::saveCoins(const vector<Coin>& coins)
@@ -1695,7 +1716,7 @@ namespace beam::wallet
             saveCoinRaw(coin);
         }
 
-        notifyCoinsChanged(ChangeAction::Updated, coins);
+        notifyCoinsChanged(ChangeAction::Updated, getUpdatedCoins(coins));
     }
 
     uint64_t WalletDB::get_RandomID()
@@ -1730,19 +1751,6 @@ namespace beam::wallet
         storage::setVar(*this, szName, var);
 
         return nLast;
-    }
-
-    namespace
-    {
-        vector<Coin> converIDsToCoins(const vector<Coin::ID>& coinIDs)
-        {
-            vector<Coin> coins(coinIDs.size());
-            for (size_t i = 0; i < coins.size(); ++i)
-            {
-                coins[i].m_ID = coinIDs[i];
-            }
-            return coins;
-        }
     }
 
     void WalletDB::removeCoins(const vector<Coin::ID>& coins)

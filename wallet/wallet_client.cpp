@@ -425,7 +425,7 @@ namespace beam::wallet
 
     void WalletClient::onCoinsChanged(ChangeAction action, const std::vector<Coin>& items)
     {
-        onAllUtxoChanged(getUtxos());
+        onAllUtxoChanged(action, items);
     }
 
     void WalletClient::onTransactionChanged(ChangeAction action, const std::vector<TxDescription>& items)
@@ -610,7 +610,7 @@ namespace beam::wallet
 
     void WalletClient::getUtxosStatus()
     {
-        onAllUtxoChanged(getUtxos());
+        onAllUtxoChanged(ChangeAction::Reset, getUtxos());
     }
 
     void WalletClient::getAddresses(bool own)

@@ -79,7 +79,7 @@ namespace beam::wallet
         virtual void onTxStatus(ChangeAction, const std::vector<TxDescription>& items) = 0;
         virtual void onSyncProgressUpdated(int done, int total) = 0;
         virtual void onChangeCalculated(Amount change) = 0;
-        virtual void onAllUtxoChanged(const std::vector<Coin>& utxos) = 0;
+        virtual void onAllUtxoChanged(ChangeAction, const std::vector<Coin>& utxos) = 0;
         virtual void onAddresses(bool own, const std::vector<WalletAddress>& addresses) = 0;
         virtual void onSwapOffersChanged(ChangeAction action, const std::vector<SwapOffer>& offers) override = 0;
         virtual void onGeneratedNewAddress(const WalletAddress& walletAddr) = 0;

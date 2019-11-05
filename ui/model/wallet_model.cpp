@@ -127,9 +127,9 @@ void WalletModel::onChangeCalculated(beam::Amount change)
     emit changeCalculated(change);
 }
 
-void WalletModel::onAllUtxoChanged(const std::vector<beam::wallet::Coin>& utxos)
+void WalletModel::onAllUtxoChanged(beam::wallet::ChangeAction action, const std::vector<beam::wallet::Coin>& utxos)
 {
-    emit allUtxoChanged(utxos);
+    emit allUtxoChanged(action, utxos);
 }
 
 void WalletModel::onAddresses(bool own, const std::vector<beam::wallet::WalletAddress>& addrs)

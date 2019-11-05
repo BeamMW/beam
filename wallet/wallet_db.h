@@ -394,6 +394,7 @@ namespace beam::wallet
         void insertNewCoin(Coin&);
         void saveCoinRaw(const Coin&);
         std::vector<Coin> getCoinsByRowIDs(const std::vector<int>& rowIDs) const;
+        std::vector<Coin> getUpdatedCoins(const std::vector<Coin>& coins) const;
         // ////////////////////////////////////////
         // Cache for optimized access for database fields
         using ParameterCache = std::map<TxID, std::map<SubTxID, std::map<TxParameterID, boost::optional<ByteBuffer>>>>;
