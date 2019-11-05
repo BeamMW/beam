@@ -1978,7 +1978,7 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, MultiblockContext& m
 			if (block.m_vInputs[i]->m_pSpendProof)
 				nIns++;
 		for (size_t i = 0; i < block.m_vOutputs.size(); i++)
-			if (block.m_vOutputs[i]->m_pDoubleBlind)
+			if (block.m_vOutputs[i]->m_pShielded)
 				nOuts++;
 
 		if (nIns || nOuts)
@@ -2006,7 +2006,7 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, MultiblockContext& m
 				for (size_t i = 0; i < block.m_vOutputs.size(); i++)
 				{
 					const Output& v = *block.m_vOutputs[i];
-					if (v.m_pDoubleBlind)
+					if (v.m_pShielded)
 					{
 						ser & v;
 
@@ -2062,7 +2062,7 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, MultiblockContext& m
 		for (size_t i = 0; i < block.m_vOutputs.size(); i++)
 		{
 			const Output& x = *block.m_vOutputs[i];
-			if (x.m_pDoubleBlind)
+			if (x.m_pShielded)
 				continue;
 
 			ser.reset();
@@ -2371,7 +2371,7 @@ bool NodeProcessor::HandleBlockElement(const Input& v, Height h, bool bFwd)
 
 bool NodeProcessor::HandleBlockElement(const Output& v, Height h, bool bFwd)
 {
-	if (v.m_pDoubleBlind)
+	if (v.m_pShielded)
 		return HandleShieldedElement(v.m_Commitment, true, bFwd);
 
 	UtxoTree::Key::Data d;
@@ -2625,7 +2625,7 @@ void NodeProcessor::RollbackTo(Height h)
 				for (size_t i = 0; i < txvp.m_vOutputs.size(); i++)
 				{
 					const Output& v = *txvp.m_vOutputs[i];
-					assert(v.m_pDoubleBlind);
+					assert(v.m_pShielded);
 					HandleShieldedElement(v.m_Commitment, true, false);
 				}
 
@@ -3002,7 +3002,7 @@ bool NodeProcessor::ValidateTxContext(const Transaction& tx, const HeightRange& 
 	for (size_t i = 0; i < tx.m_vOutputs.size(); i++)
 	{
 		const Output& v = *tx.m_vOutputs[i];
-		if (v.m_pDoubleBlind && !ValidateShieldedNoDup(v.m_Commitment, true))
+		if (v.m_pShielded && !ValidateShieldedNoDup(v.m_Commitment, true))
 			return false; // shielded duplicates are not allowed
 	}
 
@@ -3618,7 +3618,7 @@ void NodeProcessor::InitializeUtxos()
 				for (size_t i = 0; i < txvp.m_vOutputs.size(); i++)
 				{
 					const Output& v = *txvp.m_vOutputs[i];
-					assert(v.m_pDoubleBlind);
+					assert(v.m_pShielded);
 					HandleShieldedElement(v.m_Commitment, true, true);
 				}
 			}

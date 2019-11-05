@@ -291,13 +291,13 @@ namespace beam
 			if (m_pPublic)
 				return false;
 
-			if (m_pDoubleBlind && (hScheme < Rules::get().pForks[2].m_Height))
+			if (m_pShielded && (hScheme < Rules::get().pForks[2].m_Height))
 				return false; // not supported in this version
 
-			return m_pConfidential->IsValid(comm, oracle, &sc.m_hGen, m_pDoubleBlind.get());
+			return m_pConfidential->IsValid(comm, oracle, &sc.m_hGen, m_pShielded ? &m_pShielded->m_Part3 : nullptr);
 		}
 
-		if (!m_pPublic || m_pDoubleBlind)
+		if (!m_pPublic || m_pShielded)
 			return false;
 
 		if (!(Rules::get().AllowPublicUtxos || m_Coinbase))
@@ -315,13 +315,18 @@ namespace beam
 		m_AssetID = v.m_AssetID;
 		ClonePtr(m_pConfidential, v.m_pConfidential);
 		ClonePtr(m_pPublic, v.m_pPublic);
-		ClonePtr(m_pDoubleBlind, v.m_pDoubleBlind);
+		ClonePtr(m_pShielded, v.m_pShielded);
+	}
+
+	int Output::Shielded::cmp(const Shielded& v) const
+	{
+		return m_Part3.cmp(v.m_Part3);
 	}
 
 	int Output::cmp(const Output& v) const
 	{
 		// make sure shielded are after MW
-		CMP_MEMBER_PTR(m_pDoubleBlind)
+		CMP_MEMBER_PTR(m_pShielded)
 
 		{
 			int n = Cast::Down<TxElement>(*this).cmp(v);

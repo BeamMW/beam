@@ -1624,7 +1624,7 @@ namespace beam
 
 					Output::Ptr pOut(new Output);
 					pOut->m_pConfidential.reset(new ECC::RangeProof::Confidential);
-					pOut->m_pDoubleBlind.reset(new ECC::RangeProof::Confidential::Part3);
+					pOut->m_pShielded.reset(new Output::Shielded);
 
 					ECC::Point::Native ptN = ECC::Context::get().G * m_Shielded.m_skSpendKey;
 					ECC::Point pt = ptN;
@@ -1641,7 +1641,7 @@ namespace beam
 					ECC::RangeProof::CreatorParams cp;
 					ZeroObject(cp);
 					cp.m_Kidv.m_Value = m_Shielded.m_Value;
-					pOut->m_pConfidential->Create(m_Shielded.m_sk, cp, oracle, nullptr, pOut->m_pDoubleBlind.get(), &m_Shielded.m_skSerial);
+					pOut->m_pConfidential->Create(m_Shielded.m_sk, cp, oracle, nullptr, &pOut->m_pShielded->m_Part3, &m_Shielded.m_skSerial);
 
 					verify_test(pOut->IsValid(h + 1, ptN));
 

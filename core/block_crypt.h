@@ -287,10 +287,18 @@ namespace beam
 
 		static const Amount s_MinimumValue = 1;
 
+		struct Shielded
+		{
+			ECC::RangeProof::Confidential::Part3 m_Part3;
+
+			int cmp(const Shielded&) const;
+			COMPARISON_VIA_CMP
+		};
+
 		// one of the following *must* be specified
 		std::unique_ptr<ECC::RangeProof::Confidential>	m_pConfidential;
 		std::unique_ptr<ECC::RangeProof::Public>		m_pPublic;
-		std::unique_ptr<ECC::RangeProof::Confidential::Part3> m_pDoubleBlind; // for shielded output, complements the confidential
+		std::unique_ptr<Shielded> m_pShielded; // for shielded output, complements the confidential
 
 		void Create(Height hScheme, ECC::Scalar::Native&, Key::IKdf& coinKdf, const Key::IDV&, Key::IPKdf& tagKdf, bool bPublic = false);
 

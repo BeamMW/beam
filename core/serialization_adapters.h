@@ -734,12 +734,27 @@ namespace detail
 			return ar;
 		}
 
+		/// beam::Output::Shielded serialization
+		template<typename Archive>
+		static Archive& save(Archive& ar, const beam::Output::Shielded& x)
+		{
+			ar & x.m_Part3;
+			return ar;
+		}
+
+		template<typename Archive>
+		static Archive& load(Archive& ar, beam::Output::Shielded& x)
+		{
+			ar & x.m_Part3;
+			return ar;
+		}
+
         /// beam::Output serialization
         template<typename Archive>
         static Archive& save(Archive& ar, const beam::Output& output)
         {
 			uint8_t nFlags2 =
-				(output.m_pDoubleBlind ? 1 : 0);
+				(output.m_pShielded ? 1 : 0);
 
 			uint8_t nFlags =
 				(output.m_Commitment.m_Y ? 1 : 0) |
@@ -772,7 +787,7 @@ namespace detail
 				ar & nFlags2;
 
 				if ((1 & nFlags2) && !output.m_RecoveryOnly)
-					ar & *output.m_pDoubleBlind;
+					ar & *output.m_pShielded;
 			}
 
             return ar;
@@ -817,11 +832,11 @@ namespace detail
 
 				if (1 & nFlags2)
 				{
-					output.m_pDoubleBlind = std::make_unique<ECC::RangeProof::Confidential::Part3>();
+					output.m_pShielded = std::make_unique<beam::Output::Shielded>();
 					if (output.m_RecoveryOnly)
-						ZeroObject(*output.m_pDoubleBlind);
+						ZeroObject(*output.m_pShielded);
 					else
-						ar & *output.m_pDoubleBlind;
+						ar & *output.m_pShielded;
 				}
 			}
 
