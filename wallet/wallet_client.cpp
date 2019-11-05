@@ -423,7 +423,7 @@ namespace beam::wallet
         return m_walletDB->getCurrentHeight() >= Rules::get().pForks[1].m_Height;
     }
 
-    void WalletClient::onCoinsChanged()
+    void WalletClient::onCoinsChanged(ChangeAction action, const std::vector<Coin>& items)
     {
         onAllUtxoChanged(getUtxos());
     }

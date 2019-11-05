@@ -103,7 +103,7 @@ namespace beam::wallet
 
         if (!m_Tx.GetParameter(TxParameterID::SharedCoinID, outputCoin.m_ID, m_SubTxID))
         {
-            outputCoin = m_Tx.GetWalletDB()->generateSharedCoin(GetAmount());
+            outputCoin = m_Tx.GetWalletDB()->generateNewCoin(GetAmount());
             m_Tx.SetParameter(TxParameterID::SharedCoinID, outputCoin.m_ID, m_SubTxID);
         }
 

@@ -27,6 +27,9 @@
 #include <thread>
 #include <atomic>
 
+#include <boost/intrusive/set.hpp>
+#include <boost/intrusive/list.hpp>
+
 namespace beam::wallet
 {
     struct WalletStatus
@@ -97,7 +100,7 @@ namespace beam::wallet
 
     private:
 
-        void onCoinsChanged() override;
+        void onCoinsChanged(ChangeAction action, const std::vector<Coin>& items) override;
         void onTransactionChanged(ChangeAction action, const std::vector<TxDescription>& items) override;
         void onSystemStateChanged(const Block::SystemState::ID& stateID) override;
         void onAddressChanged(ChangeAction action, const std::vector<WalletAddress>& items) override;
@@ -144,6 +147,78 @@ namespace beam::wallet
         void nodeConnectedStatusChanged(bool isNodeConnected);
 
     private:
+
+        template<typename T>
+        class ChangesCollector
+        {
+        public:
+            void AddItem(T&& item)
+            {
+                //if (m_UpdatedItems.find(item) != m_UpdatedItems.end())
+                //{
+                //    // error
+                //    return;
+                //}
+                //if (m_RemovedItems.find(item) != m_RemovedItems.end())
+                //{
+                //    // error
+                //    return;
+                //}
+
+                //if (m_NewItems.find(item) != m_NewItems.end())
+                //    return;
+                ////if ()
+
+            }
+
+            void UpdateItem(T&& item)
+            {
+                // if ()
+            }
+
+            void RemoveItem(T&& item)
+            {
+                /*auto it = m_SearchSet.find(item);
+                if (it == m_SearchSet.end())
+                {
+                    auto& i = m_Items.emplace_back(std::move(item));
+                    m_SearchSet.insert(i);
+                    it = SearchSet::s_iterator_to(i);
+                }
+
+                m_RemovedItems.insert(*it);*/
+            }
+        private:
+
+
+
+        private:
+
+
+            struct ItemHolder
+                : boost::intrusive::set_base_hook<>
+                , boost::intrusive::list_base_hook<>
+            {
+                bool operator < (const ItemHolder& other)
+                {
+                    return m_Item < other.m_Item;
+                }
+
+                T m_Item;
+            };
+
+            using ItemsList = boost::intrusive::list<ItemHolder>;
+            using ItemsSet = boost::intrusive::set<ItemHolder>;
+
+            ItemsList m_NewItems;
+            ItemsList m_UpdatedItems;
+            ItemsList m_RemovedItems;
+            ItemsSet m_SearchSet;
+            std::vector<ItemHolder> m_Items;
+        };
+
+        ChangesCollector<TxParameter> m_TxParametersChangesCollector;
+
         std::shared_ptr<std::thread> m_thread;
         IWalletDB::Ptr m_walletDB;
         io::Reactor::Ptr m_reactor;
