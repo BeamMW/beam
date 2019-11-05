@@ -53,7 +53,7 @@ auto UtxoItemList::data(const QModelIndex &index, int role) const -> QVariant
         case Roles::Maturity:
             return value->maturity();
         case Roles::MaturitySort:
-            return value->rawMaturity();
+            return static_cast<qulonglong>(value->rawMaturity());
 
         case Roles::Status:
         case Roles::StatusSort:
