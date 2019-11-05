@@ -236,7 +236,7 @@ beam::Amount SwapTxObject::getSwapAmountValue(bool sent) const
 
 QString SwapTxObject::getFeeRate() const
 {
-    if (m_isBeamSide)
+    if (m_isBeamSide)   // check if initialized
     {
         auto feeRate = m_tx.GetParameter<beam::Amount>(TxParameterID::Fee, *m_isBeamSide ? SubTxIndex::REDEEM_TX : SubTxIndex::LOCK_TX);
 

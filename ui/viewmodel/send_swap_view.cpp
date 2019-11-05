@@ -361,7 +361,7 @@ void SendSwapViewModel::sendMoney()
     auto isBeamSide = txParameters.GetParameter<bool>(TxParameterID::AtomicSwapIsBeamSide);
     auto beamFee = (*isBeamSide) ? getSendFee() : getReceiveFee();
     auto swapFee = (*isBeamSide) ? getReceiveFee() : getSendFee();
-    auto subTxID = isBeamSide ? beam::wallet::SubTxIndex::REDEEM_TX : beam::wallet::SubTxIndex::LOCK_TX;
+    auto subTxID = *isBeamSide ? beam::wallet::SubTxIndex::REDEEM_TX : beam::wallet::SubTxIndex::LOCK_TX;
 
     txParameters.SetParameter(TxParameterID::Fee, beam::Amount(beamFee));
     txParameters.SetParameter(TxParameterID::Fee, beam::Amount(swapFee), subTxID);
