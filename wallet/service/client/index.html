@@ -15,35 +15,101 @@
 		<hr>
 
 		<div id="connecting-panel">
-			<div class="spinner-grow spinner-grow-sm" role="status"></div>
-			Connecting to the Wallet Service, please wait...
+			<span class="badge badge-danger">status: connecting to the Wallet Service, please wait...</span>
 		</div>
 
-		<!-- <p>There are no wallet detected!</p> -->
-		<!-- <button type="button" class="btn btn-primary">Create new wallet</button> -->
+		<form id="wallet-panel" style="display: none;">
+			<div class="form-group">
+				<span class="badge badge-success">status: connected to the Wallet Service</span>
+			</div>
+			<div class="form-group">
+				<label for="seed-phrase-input">Enter seed phrase:</label>
+				<input type="text" class="form-control" id="seed-phrase-input" placeholder="Enter seed phrase" value="copy vendor shallow raven coffee appear book blast lock exchange farm glue">
+			</div>
+			<div class="form-group">
+				<label for="wallet-pass-input">Enter wallet password:</label>
+				<input type="password" class="form-control" id="wallet-pass-input" placeholder="Enter wallet password" value="456">
+			</div>
+			<div class="form-group">
+				<button id="create-wallet-button" type="button" class="btn btn-primary">
+					<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true" style="display: none;"></span>
+					Create new wallet
+				</button>
+			</div>
+		</form>
+
 	</div>
 </body>
 
+	<script src='wasm-key-keeper.js'></script>
+
 	<script type="text/javascript">
-		const url = 'ws://127.0.0.1:8080'
-		const connection = new WebSocket(url)
 
-		connection.onerror = error => 
-		{
-  			console.log(`WebSocket error: ${error}`)
-		}
+		Module().then(function(Module)
+        {
+			const url = 'ws://127.0.0.1:8080'
+			const connection = new WebSocket(url)
+			
+			connection.onerror = error => 
+			{
+				console.log(`WebSocket error: ${error}`)
+			}
+			
+			connection.onopen = () => 
+			{
+				console.log('Connected to the Wallet Servce...')
+				
+				$('#connecting-panel').hide()
+				$('#wallet-panel').show()
+				
+				$('#create-wallet-button').click(() => 
+				{
+					var seed = $('#seed-phrase-input').val()
+					console.log(`Creating new wallet with seed phrase: ${seed}`)
 
-		connection.onopen = () => 
-		{
-  			connection.send('hello1234')
-		}
+					var wordList = new Module.WordList()
+					seed.split(' ').forEach((word) => wordList.push_back(word))
+					var keykeeper = new Module.KeyKeeper(wordList)
 
-		connection.onmessage = e => 
-		{
-  			console.log(e.data)
-  			//connection.close()
-		}
+					var walletPass = $('#wallet-pass-input').val()
 
+					var ownerKey = keykeeper.getOwnerKey(walletPass)
+					console.log('ownerKey is: data:application/octet-stream;base64,' + ownerKey)
+
+					$('#create-wallet-button')
+						.attr('disabled', true)
+						.find('.spinner-border').show()
+
+					connection.onmessage = e => 
+					{
+						connection.onmessage = undefined
+
+						console.log(`got response: ${e.data}`)
+
+						var data = JSON.parse(e.data)
+						console.log(`result is: ${data.result}`)
+					}
+
+					connection.send(JSON.stringify(
+					{
+						jsonrpc:'2.0',
+						id: 0,
+						method: 'create_wallet',
+						params: 
+						{
+							pass: walletPass,
+							ownerkey: ownerKey
+						}
+					}))
+				})
+
+			}
+	
+			// connection.onmessage = e => 
+			// {
+			// 	console.log(`got response: ${e.data}`)
+			// }
+		})
 
 	</script>
 

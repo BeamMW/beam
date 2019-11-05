@@ -1032,8 +1032,7 @@ namespace beam::wallet
         return Ptr();
     }
 
-#if defined(BEAM_HW_WALLET)
-    IWalletDB::Ptr WalletDB::initWithTrezor(const string& path, std::shared_ptr<ECC::HKdfPub> ownerKey, const SecString& password, io::Reactor::Ptr reactor)
+    IWalletDB::Ptr WalletDB::initWithOwnerKey(const string& path, std::shared_ptr<ECC::HKdfPub> ownerKey, const SecString& password, io::Reactor::Ptr reactor)
     {
         if (!isInitialized(path))
         {
@@ -1069,6 +1068,12 @@ namespace beam::wallet
         LOG_ERROR() << path << " already exists.";
 
         return Ptr();
+    }
+
+#if defined(BEAM_HW_WALLET)
+    IWalletDB::Ptr WalletDB::initWithTrezor(const string& path, std::shared_ptr<ECC::HKdfPub> ownerKey, const SecString& password, io::Reactor::Ptr reactor)
+    {
+        return initWithOwnerKey(path, ownerKey, password, reactor);
     }
 #endif
 

@@ -62,7 +62,30 @@ namespace beam::wallet
     macro(Unlock,           "unlock",           API_WRITE_ACCESS)   \
     macro(TxList,           "tx_list",          API_READ_ACCESS)    \
     macro(WalletStatus,     "wallet_status",    API_READ_ACCESS)    \
-    macro(GenerateTxId,     "generate_tx_id",   API_READ_ACCESS)
+    macro(GenerateTxId,     "generate_tx_id",   API_READ_ACCESS)    \
+    macro(CreateWallet,     "create_wallet",    API_WRITE_ACCESS)   \
+    macro(OpenWallet,       "open_wallet",      API_WRITE_ACCESS)
+
+    struct CreateWallet
+    {
+        std::string pass;
+        std::string ownerKey;
+
+        struct Response
+        {
+            std::string id;
+        };
+    };
+
+    struct OpenWallet
+    {
+        std::string id;
+
+        struct Response
+        {
+            std::string status;
+        };
+    };
 
     struct AddressData
     {

@@ -40,9 +40,12 @@
 #include <boost/asio/bind_executor.hpp>
 #include <boost/asio/strand.hpp>
 #include <boost/asio/ip/tcp.hpp>
+#include <boost/uuid/uuid_generators.hpp>
 
 #include "nlohmann/json.hpp"
 #include "version.h"
+
+#include "core/block_rw.h"
 
 using json = nlohmann::json;
 
@@ -492,6 +495,31 @@ namespace beam::wallet
         _handler.onMessage(id, generateTxId);
     }
 
+    void WalletApi::onCreateWalletMessage(const JsonRpcId& id, const nlohmann::json& params)
+    {
+        CreateWallet createWallet;
+
+        if (existsJsonParam(params, "pass"))
+        {
+            createWallet.pass = params["pass"];
+        }
+        else throw jsonrpc_exception{ ApiError::InvalidJsonRpc, "'pass' parameter must be specified.", id };
+
+        if (existsJsonParam(params, "ownerkey"))
+        {
+            createWallet.ownerKey = params["ownerkey"];
+        }
+        else throw jsonrpc_exception{ ApiError::InvalidJsonRpc, "'ownerkey' parameter must be specified.", id };
+
+        _handler.onMessage(id, createWallet);
+    }
+
+    void WalletApi::onOpenWalletMessage(const JsonRpcId& id, const nlohmann::json& params)
+    {
+        OpenWallet openWallet;
+        _handler.onMessage(id, openWallet);
+    }
+
     void WalletApi::getResponse(const JsonRpcId& id, const CreateAddress::Response& res, json& msg)
     {
         msg = json
@@ -734,6 +762,26 @@ namespace beam::wallet
         };
     }
 
+    void WalletApi::getResponse(const JsonRpcId& id, const CreateWallet::Response& res, json& msg)
+    {
+        msg = json
+        {
+            {JsonRpcHrd, JsonRpcVerHrd},
+            {"id", id},
+            {"result", res.id}
+        };
+    }
+
+    void WalletApi::getResponse(const JsonRpcId& id, const OpenWallet::Response& res, json& msg)
+    {
+        msg = json
+        {
+            {JsonRpcHrd, JsonRpcVerHrd},
+            {"id", id},
+            {"result", "here will be KEY to access the wallet"}
+        };
+    }
+
     void WalletApi::getResponse(const JsonRpcId& id, const Lock::Response& res, json& msg)
     {
         msg = json
@@ -885,13 +933,22 @@ namespace
         return ss.str();
     }
 
+    void fail(boost::system::error_code ec, char const* what)
+    {
+        LOG_ERROR() << what << ": " << ec.message();
+    }
+
     class WalletApiServer
     {
+        boost::asio::io_context _ioc;
+        io::Timer::Ptr _iocTimer;
+
     public:
-        WalletApiServer(io::Reactor& reactor)
+        WalletApiServer(io::Reactor::Ptr reactor, uint16_t port)
             : _reactor(reactor)
+            , _ioc{1}
         {
-            start();
+            start(port);
         }
 
         ~WalletApiServer()
@@ -901,7 +958,7 @@ namespace
 
     protected:
 
-        void start()
+        void start(uint16_t port)
         {
             // LOG_INFO() << "Start websocket server on " << _bindAddress;
 
@@ -917,7 +974,16 @@ namespace
             //     LOG_ERROR() << "cannot start server: " << e.what();
             // }
 
+//            boost::asio::io_context ioc{1};
 
+            std::make_shared<listener>(_ioc, tcp::endpoint{boost::asio::ip::make_address("0.0.0.0"), port}, _reactor)->run();
+
+            //auto timer = io::Timer::create(_reactor);
+
+            // !TODO: an attempt to run asio io_context near the libuv reactor
+            // maybe, we could find a better solution here
+            _iocTimer = io::Timer::create(*_reactor);
+            _iocTimer->start(1, true, [this](){_ioc.poll();});
         }
 
         void stop()
@@ -927,11 +993,109 @@ namespace
 
     private:
 
+        // Accepts incoming connections and launches the sessions
+        class listener : public std::enable_shared_from_this<listener>
+        {
+            tcp::acceptor acceptor_;
+            tcp::socket socket_;
+            io::Reactor::Ptr _reactor;
+
+        public:
+            listener(
+                boost::asio::io_context& ioc,
+                tcp::endpoint endpoint, io::Reactor::Ptr reactor)
+                : acceptor_(ioc)
+                , socket_(ioc)
+                , _reactor(reactor)
+            {
+                boost::system::error_code ec;
+
+                // Open the acceptor
+                acceptor_.open(endpoint.protocol(), ec);
+                if(ec)
+                {
+                    fail(ec, "open");
+                    return;
+                }
+
+                // Allow address reuse
+                acceptor_.set_option(boost::asio::socket_base::reuse_address(true), ec);
+                if(ec)
+                {
+                    fail(ec, "set_option");
+                    return;
+                }
+
+                // Bind to the server address
+                acceptor_.bind(endpoint, ec);
+                if(ec)
+                {
+                    fail(ec, "bind");
+                    return;
+                }
+
+                // Start listening for connections
+                acceptor_.listen(
+                    boost::asio::socket_base::max_listen_connections, ec);
+                if(ec)
+                {
+                    fail(ec, "listen");
+                    return;
+                }
+            }
+
+            // Start accepting incoming connections
+            void
+            run()
+            {
+                if(! acceptor_.is_open())
+                    return;
+                do_accept();
+            }
+
+            void
+            do_accept()
+            {
+                acceptor_.async_accept(
+                    socket_,
+                    std::bind(
+                        &listener::on_accept,
+                        shared_from_this(),
+                        std::placeholders::_1));
+            }
+
+            void
+            on_accept(boost::system::error_code ec)
+            {
+                if(ec)
+                {
+                    fail(ec, "accept");
+                }
+                else
+                {
+                    // Create the session and run it
+                    std::make_shared<session>(std::move(socket_), _reactor)->run();
+                }
+
+                // Accept another connection
+                do_accept();
+            }
+        };
+
+        struct ApiConnectionHandler
+        {
+            virtual void serializeMsg(const json& msg) = 0;
+        };
+
         class ApiConnection : IWalletApiHandler, IWalletDbObserver
         {
+            ApiConnectionHandler* _handler;
+            io::Reactor::Ptr _reactor;
         public:
-            ApiConnection() 
+            ApiConnection(ApiConnectionHandler* handler, io::Reactor::Ptr reactor) 
                 : _api(*this)
+                , _handler(handler)
+                , _reactor(reactor)
             {
 
             }
@@ -947,10 +1111,16 @@ namespace
 
             virtual ~ApiConnection()
             {
-                _walletDB->Unsubscribe(this);
+                //_walletDB->Unsubscribe(this);
             }
 
-            virtual void serializeMsg(const json& msg) = 0;
+            //virtual void serializeMsg(const json& msg) = 0;
+
+            void serializeMsg(const json& msg)
+            {
+                _handler->serializeMsg(msg);
+                //serialize_json_msg(_body, _packer, msg);
+            }
 
             template<typename T>
             void doResponse(const JsonRpcId& id, const T& response)
@@ -1373,6 +1543,46 @@ namespace
                 doResponse(id, GenerateTxId::Response{ wallet::GenerateTxID() });
             }
 
+            void onMessage(const JsonRpcId& id, const CreateWallet& data) override
+            {
+                LOG_DEBUG() << "CreateWallet(id = " << id << ")";
+
+                beam::KeyString ks;
+
+                // !TODO: password should be the same as wallet DB pass?
+                ks.SetPassword(data.pass);
+                ks.m_sRes = data.ownerKey;
+
+                std::shared_ptr<ECC::HKdfPub> ownerKdf = std::make_shared<ECC::HKdfPub>();
+
+                if(ks.Import(*ownerKdf))
+                {
+                    std::array<uint8_t, 16> dbId{};
+                    {
+                        boost::uuids::uuid uid = boost::uuids::random_generator()();
+                        copy(uid.begin(), uid.end(), dbId.begin());
+                    }
+
+                    auto dbName = to_hex(dbId.data(), dbId.size());
+                    _walletDB = WalletDB::initWithOwnerKey(dbName + ".db", ownerKdf, SecString(data.pass), _reactor);
+
+                    if(_walletDB)
+                    {
+                        doResponse(id, CreateWallet::Response{dbName});
+                        return;
+                    }
+                }
+
+                doError(id, ApiError::InternalErrorJsonRpc, "Wallet not created.");
+            }
+
+            void onMessage(const JsonRpcId& id, const OpenWallet& data) override
+            {
+                LOG_DEBUG() << "OpenWallet(id = " << id << ")";
+
+                doResponse(id, OpenWallet::Response{});
+            }
+
             void onMessage(const JsonRpcId& id, const Lock& data) override
             {
                 LOG_DEBUG() << "Lock(id = " << id << ")";
@@ -1459,214 +1669,128 @@ namespace
             IPrivateKeyKeeper::Ptr _keyKeeper;
         };
 
-        io::Reactor& _reactor;
+        // Echoes back all received WebSocket messages
+        class session : 
+            public std::enable_shared_from_this<session>, 
+            public ApiConnection, 
+            public ApiConnectionHandler
+        {
+            websocket::stream<tcp::socket> ws_;
+            boost::asio::strand<boost::asio::io_context::executor_type> strand_;
+            boost::beast::multi_buffer buffer_;
+
+        public:
+            // Take ownership of the socket
+            explicit
+            session(tcp::socket socket, io::Reactor::Ptr reactor)
+                : ws_(std::move(socket))
+                , strand_(ws_.get_executor())
+                , ApiConnection(this, reactor)
+            {
+            }
+
+            // Start the asynchronous operation
+            void
+            run()
+            {
+                // Accept the websocket handshake
+                ws_.async_accept(
+                    boost::asio::bind_executor(
+                        strand_,
+                        std::bind(
+                            &session::on_accept,
+                            shared_from_this(),
+                            std::placeholders::_1)));
+            }
+
+            void
+            on_accept(boost::system::error_code ec)
+            {
+                if(ec)
+                    return fail(ec, "accept");
+
+                // Read a message
+                do_read();
+            }
+
+            void
+            do_read()
+            {
+                // Read a message into our buffer
+                ws_.async_read(
+                    buffer_,
+                    boost::asio::bind_executor(
+                        strand_,
+                        std::bind(
+                            &session::on_read,
+                            shared_from_this(),
+                            std::placeholders::_1,
+                            std::placeholders::_2)));
+            }
+
+            void serializeMsg(const json& msg) override
+            {
+                buffer_.consume(buffer_.size());
+                std::string contents = msg.dump();
+                size_t n = boost::asio::buffer_copy(buffer_.prepare(contents.size()), boost::asio::buffer(contents));
+                buffer_.commit(n);
+
+                ws_.text(ws_.got_text());
+                ws_.async_write(
+                    buffer_.data(),
+                    boost::asio::bind_executor(
+                        strand_,
+                        std::bind(
+                            &session::on_write,
+                            shared_from_this(),
+                            std::placeholders::_1,
+                            std::placeholders::_2)));
+            }
+
+            void
+            on_read(
+                boost::system::error_code ec,
+                std::size_t bytes_transferred)
+            {
+                boost::ignore_unused(bytes_transferred);
+
+                // This indicates that the session was closed
+                if(ec == websocket::error::closed)
+                    return;
+
+                if(ec)
+                    fail(ec, "read");
+
+                {
+                    std::ostringstream os;
+                    os << boost::beast::buffers(buffer_.data());
+                    auto data = os.str();
+                    LOG_DEBUG() << "data from a client:" << data;
+
+                    _api.parse(data.c_str(), data.size());
+                }
+            }
+
+            void
+            on_write(
+                boost::system::error_code ec,
+                std::size_t bytes_transferred)
+            {
+                boost::ignore_unused(bytes_transferred);
+
+                if(ec)
+                    return fail(ec, "write");
+
+                // Clear the buffer
+                buffer_.consume(buffer_.size());
+
+                // Do another read
+                do_read();
+            }
+        };
+
+        io::Reactor::Ptr _reactor;
     };
-}
-
-namespace
-{
-
-void fail(boost::system::error_code ec, char const* what)
-{
-    LOG_ERROR() << what << ": " << ec.message();
-}
-
-// Echoes back all received WebSocket messages
-class session : public std::enable_shared_from_this<session>
-{
-    websocket::stream<tcp::socket> ws_;
-    boost::asio::strand<boost::asio::io_context::executor_type> strand_;
-    boost::beast::multi_buffer buffer_;
-
-public:
-    // Take ownership of the socket
-    explicit
-    session(tcp::socket socket)
-        : ws_(std::move(socket))
-        , strand_(ws_.get_executor())
-    {
-    }
-
-    // Start the asynchronous operation
-    void
-    run()
-    {
-        // Accept the websocket handshake
-        ws_.async_accept(
-            boost::asio::bind_executor(
-                strand_,
-                std::bind(
-                    &session::on_accept,
-                    shared_from_this(),
-                    std::placeholders::_1)));
-    }
-
-    void
-    on_accept(boost::system::error_code ec)
-    {
-        if(ec)
-            return fail(ec, "accept");
-
-        // Read a message
-        do_read();
-    }
-
-    void
-    do_read()
-    {
-        // Read a message into our buffer
-        ws_.async_read(
-            buffer_,
-            boost::asio::bind_executor(
-                strand_,
-                std::bind(
-                    &session::on_read,
-                    shared_from_this(),
-                    std::placeholders::_1,
-                    std::placeholders::_2)));
-    }
-
-    void
-    on_read(
-        boost::system::error_code ec,
-        std::size_t bytes_transferred)
-    {
-        boost::ignore_unused(bytes_transferred);
-
-        // This indicates that the session was closed
-        if(ec == websocket::error::closed)
-            return;
-
-        if(ec)
-            fail(ec, "read");
-
-        LOG_DEBUG() << "data from a client:" << boost::beast::buffers(buffer_.data());
-
-        // Clear the buffer
-        {
-            buffer_.consume(buffer_.size());
-            std::string contents = "Hello from the Boost Beast!";
-            size_t n = boost::asio::buffer_copy(buffer_.prepare(contents.size()), boost::asio::buffer(contents));
-            buffer_.commit(n);
-        }
-
-        // Echo the message
-        ws_.text(ws_.got_text());
-        ws_.async_write(
-            buffer_.data(),
-            boost::asio::bind_executor(
-                strand_,
-                std::bind(
-                    &session::on_write,
-                    shared_from_this(),
-                    std::placeholders::_1,
-                    std::placeholders::_2)));
-    }
-
-    void
-    on_write(
-        boost::system::error_code ec,
-        std::size_t bytes_transferred)
-    {
-        boost::ignore_unused(bytes_transferred);
-
-        if(ec)
-            return fail(ec, "write");
-
-        // Clear the buffer
-        buffer_.consume(buffer_.size());
-
-        // Do another read
-        do_read();
-    }
-};
-
-// Accepts incoming connections and launches the sessions
-class listener : public std::enable_shared_from_this<listener>
-{
-    tcp::acceptor acceptor_;
-    tcp::socket socket_;
-
-public:
-    listener(
-        boost::asio::io_context& ioc,
-        tcp::endpoint endpoint)
-        : acceptor_(ioc)
-        , socket_(ioc)
-    {
-        boost::system::error_code ec;
-
-        // Open the acceptor
-        acceptor_.open(endpoint.protocol(), ec);
-        if(ec)
-        {
-            fail(ec, "open");
-            return;
-        }
-
-        // Allow address reuse
-        acceptor_.set_option(boost::asio::socket_base::reuse_address(true), ec);
-        if(ec)
-        {
-            fail(ec, "set_option");
-            return;
-        }
-
-        // Bind to the server address
-        acceptor_.bind(endpoint, ec);
-        if(ec)
-        {
-            fail(ec, "bind");
-            return;
-        }
-
-        // Start listening for connections
-        acceptor_.listen(
-            boost::asio::socket_base::max_listen_connections, ec);
-        if(ec)
-        {
-            fail(ec, "listen");
-            return;
-        }
-    }
-
-    // Start accepting incoming connections
-    void
-    run()
-    {
-        if(! acceptor_.is_open())
-            return;
-        do_accept();
-    }
-
-    void
-    do_accept()
-    {
-        acceptor_.async_accept(
-            socket_,
-            std::bind(
-                &listener::on_accept,
-                shared_from_this(),
-                std::placeholders::_1));
-    }
-
-    void
-    on_accept(boost::system::error_code ec)
-    {
-        if(ec)
-        {
-            fail(ec, "accept");
-        }
-        else
-        {
-            // Create the session and run it
-            std::make_shared<session>(std::move(socket_))->run();
-        }
-
-        // Accept another connection
-        do_accept();
-    }
-};
 }
 
 int main(int argc, char* argv[])
@@ -1810,17 +1934,7 @@ int main(int argc, char* argv[])
 
         }
 
-        WalletApiServer server(*reactor);
-
-        boost::asio::io_context ioc{1};
-
-        std::make_shared<listener>(ioc, tcp::endpoint{boost::asio::ip::make_address("0.0.0.0"), options.port})->run();
-
-        auto timer = io::Timer::create(*reactor);
-
-        // !TODO: an attempt to run asio io_context near the libuv reactor
-        // maybe, we could find a better solution here
-        timer->start(1, true, [&ioc](){ioc.poll();});
+        WalletApiServer server(reactor, options.port);
 
         reactor->run();
 
