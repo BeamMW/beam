@@ -291,10 +291,16 @@ namespace beam
 			if (m_pPublic)
 				return false;
 
-			if (m_pShielded && (hScheme < Rules::get().pForks[2].m_Height))
-				return false; // not supported in this version
+			if (m_pShielded)
+			{
+				if (hScheme < Rules::get().pForks[2].m_Height)
+					return false; // not supported in this version
 
-			return m_pConfidential->IsValid(comm, oracle, &sc.m_hGen, m_pShielded ? &m_pShielded->m_Part3 : nullptr);
+				if (!m_pShielded->IsValid())
+					return false;
+			}
+
+			return m_pConfidential->IsValid(comm, oracle, &sc.m_hGen);
 		}
 
 		if (!m_pPublic || m_pShielded)
@@ -318,9 +324,70 @@ namespace beam
 		ClonePtr(m_pShielded, v.m_pShielded);
 	}
 
+	void Output::Shielded::get_Hash(ECC::Hash::Value& hv) const
+	{
+		ECC::Hash::Processor()
+			<< "Out-S"
+			<< m_SerialPub
+			>> hv;
+	}
+
+	void Output::Shielded::Sign(const ECC::Scalar::Native& skG, const ECC::Scalar::Native& skJ)
+	{
+		ECC::Point::Native pt = ECC::Context::get().G * skG;
+		pt += ECC::Context::get().J * skJ;
+		m_SerialPub = pt;
+
+		ECC::NoLeak<ECC::Scalar> s_;
+		ECC::Hash::Value& hv = s_.V.m_Value; // alias
+
+		ECC::NonceGenerator nonceGen("beam-Out-S");
+
+		s_.V = skG;
+		nonceGen << hv;
+		s_.V = skJ;
+		nonceGen << hv;
+		ECC::GenRandom(hv); // add extra randomness to the nonce, so it's derived from both deterministic and random parts
+		nonceGen << hv;
+		get_Hash(hv);
+		nonceGen << hv;
+
+		ECC::Scalar::Native kG, kJ;
+		nonceGen
+			>> kG
+			>> kJ;
+
+		ECC::Signature::MultiSig msig;
+		msig.m_NoncePub = ECC::Context::get().G * kG;
+		msig.m_NoncePub += ECC::Context::get().J * kJ;
+
+		m_Signature.m_NoncePub = msig.m_NoncePub;
+
+		msig.m_Nonce = kG;
+		msig.SignPartial(kG, hv, skG);
+
+		msig.m_Nonce = kJ;
+		msig.SignPartial(kJ, hv, skJ);
+
+		m_Signature.m_k = kG;
+		m_kSer = kJ;
+	}
+
+	bool Output::Shielded::IsValid() const
+	{
+		ECC::Point::Native comm;
+		if (!comm.Import(m_SerialPub))
+			return false;
+
+		ECC::Hash::Value hv;
+		get_Hash(hv);
+		return m_Signature.IsValid(hv, comm, &m_kSer);
+	}
+
 	int Output::Shielded::cmp(const Shielded& v) const
 	{
-		return m_Part3.cmp(v.m_Part3);
+		// enough to compare the commitment, since duplicates are not allowed
+		return m_SerialPub.cmp(v.m_SerialPub);
 	}
 
 	int Output::cmp(const Output& v) const
@@ -387,6 +454,23 @@ namespace beam
 		{
 			oracle << m_Commitment;
 		}
+
+		uint8_t nFlags = m_pShielded ? 1 : 0;
+		if (nFlags)
+		{
+			oracle << nFlags;
+
+			if (m_pShielded)
+			{
+				// include all the fields, in case they will become meaningful for recognition
+				oracle
+					<< m_pShielded->m_SerialPub
+					<< m_pShielded->m_Signature.m_NoncePub
+					<< m_pShielded->m_Signature.m_k
+					<< m_pShielded->m_kSer;
+			}
+		}
+
 	}
 
 	bool Output::Recover(Height hScheme, Key::IPKdf& tagKdf, Key::IDV& kidv) const

@@ -289,10 +289,18 @@ namespace beam
 
 		struct Shielded
 		{
-			ECC::RangeProof::Confidential::Part3 m_Part3;
+			ECC::Point m_SerialPub; // blinded
+			ECC::Signature m_Signature;
+			ECC::Scalar m_kSer;
+
+			void Sign(const ECC::Scalar::Native& skG, const ECC::Scalar::Native& skJ);
+			bool IsValid() const;
 
 			int cmp(const Shielded&) const;
 			COMPARISON_VIA_CMP
+
+		private:
+			void get_Hash(ECC::Hash::Value&) const;
 		};
 
 		// one of the following *must* be specified

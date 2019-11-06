@@ -1998,7 +1998,7 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, MultiblockContext& m
 
 			if (nOuts)
 			{
-				ECC::Point::Native pt_n;
+				ECC::Point::Native pt_n, pt_n2;
 				bbE.resize(sizeof(ECC::Point::Storage) * nOuts);
 				ECC::Point::Storage* pSt = reinterpret_cast<ECC::Point::Storage*>(&bbE.front());
 
@@ -2010,8 +2010,12 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, MultiblockContext& m
 					{
 						ser & v;
 
+						BEAM_VERIFY(pt_n.Import(v.m_Commitment));
+						BEAM_VERIFY(pt_n2.Import(v.m_pShielded->m_SerialPub));
+						pt_n += pt_n2;
+
 						ECC::Point::Storage pt_s;
-						BEAM_VERIFY(pt_n.Import(v.m_Commitment, &pt_s));
+						pt_n.Export(pt_s);
 
 						memcpy(pSt + nOuts, &pt_s, sizeof(pt_s));
 
@@ -2372,7 +2376,7 @@ bool NodeProcessor::HandleBlockElement(const Input& v, Height h, bool bFwd)
 bool NodeProcessor::HandleBlockElement(const Output& v, Height h, bool bFwd)
 {
 	if (v.m_pShielded)
-		return HandleShieldedElement(v.m_Commitment, true, bFwd);
+		return HandleShieldedElement(v.m_pShielded->m_SerialPub, true, bFwd);
 
 	UtxoTree::Key::Data d;
 	d.m_Commitment = v.m_Commitment;
@@ -2626,7 +2630,7 @@ void NodeProcessor::RollbackTo(Height h)
 				{
 					const Output& v = *txvp.m_vOutputs[i];
 					assert(v.m_pShielded);
-					HandleShieldedElement(v.m_Commitment, true, false);
+					HandleShieldedElement(v.m_pShielded->m_SerialPub, true, false);
 				}
 
 				// Shrink cmList
@@ -3002,7 +3006,7 @@ bool NodeProcessor::ValidateTxContext(const Transaction& tx, const HeightRange& 
 	for (size_t i = 0; i < tx.m_vOutputs.size(); i++)
 	{
 		const Output& v = *tx.m_vOutputs[i];
-		if (v.m_pShielded && !ValidateShieldedNoDup(v.m_Commitment, true))
+		if (v.m_pShielded && !ValidateShieldedNoDup(v.m_pShielded->m_SerialPub, true))
 			return false; // shielded duplicates are not allowed
 	}
 
@@ -3619,7 +3623,7 @@ void NodeProcessor::InitializeUtxos()
 				{
 					const Output& v = *txvp.m_vOutputs[i];
 					assert(v.m_pShielded);
-					HandleShieldedElement(v.m_Commitment, true, true);
+					HandleShieldedElement(v.m_pShielded->m_SerialPub, true, true);
 				}
 			}
 

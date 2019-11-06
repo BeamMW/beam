@@ -738,14 +738,35 @@ namespace detail
 		template<typename Archive>
 		static Archive& save(Archive& ar, const beam::Output::Shielded& x)
 		{
-			ar & x.m_Part3;
+			uint8_t nFlags =
+				(x.m_SerialPub.m_Y ? 1 : 0) |
+				(x.m_Signature.m_NoncePub.m_Y ? 2 : 0);
+
+			ar
+				& nFlags
+				& x.m_SerialPub.m_X
+				& x.m_Signature.m_NoncePub.m_X
+				& x.m_Signature.m_k
+				& x.m_kSer;
+
 			return ar;
 		}
 
 		template<typename Archive>
 		static Archive& load(Archive& ar, beam::Output::Shielded& x)
 		{
-			ar & x.m_Part3;
+			uint8_t nFlags;
+
+			ar
+				& nFlags
+				& x.m_SerialPub.m_X
+				& x.m_Signature.m_NoncePub.m_X
+				& x.m_Signature.m_k
+				& x.m_kSer;
+
+			x.m_SerialPub.m_Y = (1 & nFlags);
+			x.m_Signature.m_NoncePub.m_Y = 0 != (2 & nFlags);
+
 			return ar;
 		}
 

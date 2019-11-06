@@ -1592,7 +1592,6 @@ namespace beam
 				Amount m_Value;
 				ECC::Scalar::Native m_sk;
 				ECC::Scalar::Native m_skSpendKey;
-				ECC::Scalar::Native m_skSerial;
 				ECC::Point m_Commitment;
 
 			} m_Shielded;
@@ -1619,21 +1618,27 @@ namespace beam
 				kOffset = -kOffset;
 
 				{
-					ECC::SetRandom(m_Shielded.m_sk);
-					ECC::SetRandom(m_Shielded.m_skSpendKey);
-
 					Output::Ptr pOut(new Output);
-					pOut->m_pConfidential.reset(new ECC::RangeProof::Confidential);
 					pOut->m_pShielded.reset(new Output::Shielded);
 
+					ECC::SetRandom(m_Shielded.m_skSpendKey);
 					ECC::Point::Native ptN = ECC::Context::get().G * m_Shielded.m_skSpendKey;
 					ECC::Point pt = ptN;
-					Lelantus::SpendKey::ToSerial(m_Shielded.m_skSerial, pt);
+					ECC::Scalar::Native skSerial;
+					Lelantus::SpendKey::ToSerial(skSerial, pt);
+
+					ECC::Scalar::Native skG;
+					ECC::SetRandom(skG);
+					pOut->m_pShielded->Sign(skG, skSerial);
+					verify_test(pOut->m_pShielded->IsValid());
+					m_Shielded.m_Commitment = pOut->m_pShielded->m_SerialPub;
+
+					pOut->m_pConfidential.reset(new ECC::RangeProof::Confidential);
+
+					ECC::SetRandom(m_Shielded.m_sk);
 
 					ptN = ECC::Commitment(m_Shielded.m_sk, m_Shielded.m_Value);
-					ptN += ECC::Context::get().J * m_Shielded.m_skSerial;
 					pOut->m_Commitment = ptN;
-					m_Shielded.m_Commitment = pOut->m_Commitment;
 
 					ECC::Oracle oracle;
 					pOut->Prepare(oracle, h + 1);
@@ -1641,23 +1646,24 @@ namespace beam
 					ECC::RangeProof::CreatorParams cp;
 					ZeroObject(cp);
 					cp.m_Kidv.m_Value = m_Shielded.m_Value;
-					pOut->m_pConfidential->Create(m_Shielded.m_sk, cp, oracle, nullptr, &pOut->m_pShielded->m_Part3, &m_Shielded.m_skSerial);
+					pOut->m_pConfidential->Create(m_Shielded.m_sk, cp, oracle);
 
 					verify_test(pOut->IsValid(h + 1, ptN));
 
 					msgTx.m_Transaction->m_vOutputs.push_back(std::move(pOut));
 
 					kOffset += m_Shielded.m_sk;
+
+					m_Shielded.m_sk += skG; // effective blinding factor
 				}
 
 				{
-					ECC::Scalar::Native k, ser1;
+					ECC::Scalar::Native k;
 					ECC::SetRandom(k);
-					ser1 = -m_Shielded.m_skSerial;
 
 					TxKernel::Ptr pKrn(new TxKernel);
 					pKrn->m_Fee = fee;
-					pKrn->Sign(k, ser1);
+					pKrn->Sign(k);
 
 					{
 						AmountBig::Type fee2;
