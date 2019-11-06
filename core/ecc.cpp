@@ -1410,7 +1410,10 @@ namespace ECC {
 
 				Point::Native& pt = f.m_pPt[0];
 				if (pt == Zero)
+				{
+					f.m_nNeeded = 0;
 					continue;
+				}
 
 				unsigned int nEntries = f.m_Wnaf.Init(wsC, m_pKCasual[iEntry], iEntry + 1);
 				assert(nEntries <= _countof(f.m_Wnaf.m_pVals));
