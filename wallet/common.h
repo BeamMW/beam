@@ -20,7 +20,6 @@
 
 #include "core/serialization_adapters.h"
 #include "core/proto.h"
-#include "swaps/second_side.h"
 #include <algorithm>
 
 namespace beam::wallet
