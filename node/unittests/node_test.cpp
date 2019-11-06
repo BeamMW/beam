@@ -1594,6 +1594,9 @@ namespace beam
 				ECC::Scalar::Native m_skSpendKey;
 				ECC::Point m_Commitment;
 
+				ECC::Hash::Value m_SpendKernelID;
+				bool m_SpendConfirmed = false;
+
 			} m_Shielded;
 
 
@@ -1753,6 +1756,9 @@ namespace beam
 				ctx.m_Height.m_Min = h + 1;
 				verify_test(msgTx.m_Transaction->IsValid(ctx));
 
+				verify_test(msgTx.m_Transaction->m_vKernels.size() == 1);
+				msgTx.m_Transaction->m_vKernels.front()->get_ID(m_Shielded.m_SpendKernelID);
+
 				msgTx.m_Fluff = true;
 				Send(msgTx);
 			}
@@ -1788,7 +1794,7 @@ namespace beam
 
 				if (IsHeightReached())
 				{
-					if (IsAllProofsReceived() && IsAllBbsReceived() && IsAllRecoveryReceived() /* && m_bCustomAssetRecognized*/)
+					if (IsAllProofsReceived() && IsAllBbsReceived() && IsAllRecoveryReceived() /* && m_bCustomAssetRecognized*/ && m_Shielded.m_SpendConfirmed)
 						io::Reactor::get_Current().stop();
 					return;
 				}
@@ -2041,6 +2047,9 @@ namespace beam
 						verify_test(m_vStates.back().IsValidProofKernel(krn, msg.m_Proof));
 
 						krn.get_ID(m_Wallet.m_hvKrnRel);
+
+						if (!m_Shielded.m_SpendConfirmed && (m_Wallet.m_hvKrnRel == m_Shielded.m_SpendKernelID))
+							m_Shielded.m_SpendConfirmed = true;
 					}
 				}
 				else
@@ -2194,6 +2203,8 @@ namespace beam
 			fail_test("some recovery messages missing");
 		//if (!cl.m_bCustomAssetRecognized)
 		//	fail_test("CA not recognized");
+		if (!cl.m_Shielded.m_SpendConfirmed)
+			fail_test("Shielded spend not confirmed");
 
 		struct TxoRecover
 			:public NodeProcessor::ITxoRecover
