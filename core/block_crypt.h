@@ -365,8 +365,6 @@ namespace beam
 
 		std::unique_ptr<RelativeLock> m_pRelativeLock;
 
-		std::unique_ptr<ECC::Scalar> m_pSerial; // Lelantus
-
 		std::vector<Ptr> m_vNested; // nested kernels, included in the signature.
 
 		static const uint32_t s_MaxRecursionDepth = 2;
@@ -383,7 +381,6 @@ namespace beam
 		bool IsValid(Height hScheme, AmountBig::Type& fee, ECC::Point::Native& exc) const;
 
 		void Sign(const ECC::Scalar::Native&); // suitable for aux kernels, created by single party
-		void Sign(const ECC::Scalar::Native& skG, const ECC::Scalar::Native& skJ); // aux kernel with serial excess
 
 		struct LongProof; // legacy
 

@@ -2219,15 +2219,6 @@ void TestLelantus()
 		}
 	}
 
-	{
-		// test kernel with serial
-		beam::TxKernel krn;
-		krn.Sign(p.m_Witness.V.m_R, ser);
-
-		beam::AmountBig::Type fee;
-		verify_test(krn.IsValid(g_hFork, fee, pt));
-	}
-
 	Oracle oracle;
 
 	uint32_t t = beam::GetTime_ms();
