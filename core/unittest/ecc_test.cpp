@@ -20,7 +20,7 @@
 #include "../serialization_adapters.h"
 #include "../aes.h"
 #include "../proto.h"
-#include "../negotiator.h"
+#include "../lelantus.h"
 
 #if defined(__clang__) || defined(__GNUC__) || defined(__GNUG__)
 #pragma GCC diagnostic ignored "-Wunused-result"
@@ -520,6 +520,61 @@ void TestPoints()
 	p1 = -p1;
 	p1 += p0;
 	verify_test(p1 == Zero);
+
+	// batch normalization
+	const uint32_t nBatch = 10;
+	Point::Native::BatchNormalizer_Arr_T<nBatch> bctx;
+
+	Point::Native pPts[nBatch];
+	SetRandom(pPts[0]);
+	pPts[0] = pPts[0] * Two; // make sure it's not normalized
+
+	for (uint32_t i = 1; i < nBatch; i++)
+		pPts[i] = pPts[i-1] + pPts[0];
+
+	memcpy(bctx.m_pPtsBuf, pPts, sizeof(pPts));
+
+	bctx.Normalize();
+
+	// test
+	for (uint32_t i = 0; i < nBatch; i++)
+	{
+		p0 = -pPts[i];
+
+		// treat the normalized point as affine
+		secp256k1_ge ge;
+		bctx.get_As(ge, bctx.m_pPts[i]);
+
+		secp256k1_gej_add_ge(&p0.get_Raw(), &p0.get_Raw(), &ge);
+
+		verify_test(p0 == Zero);
+	}
+
+	// bringing to the same denominator
+	memcpy(bctx.m_pPtsBuf, pPts, sizeof(pPts));
+
+	secp256k1_fe zDen;
+	bctx.ToCommonDenominator(zDen);
+
+	// test. Points brought to the same denominator can be added as if they were normalized, and only the final result should account for the denominator
+	p0 = Zero;
+	p1 = Zero;
+	for (uint32_t i = 0; i < nBatch; i++)
+	{
+		p1 += pPts[i];
+
+		// treat the normalized point as affine
+		secp256k1_ge ge;
+		bctx.get_As(ge, bctx.m_pPts[i]);
+
+		secp256k1_gej_add_ge(&p0.get_Raw(), &p0.get_Raw(), &ge);
+	}
+
+	secp256k1_fe_mul(&p0.get_Raw().z, &p0.get_Raw().z, &zDen);
+
+	p0 = -p0;
+	p0 += p1;
+	verify_test(p0 == Zero);
 }
 
 void TestSigning()
@@ -739,9 +794,14 @@ void TestRangeProof(bool bCustomTag)
 
 	InnerProduct::get_Dot(dot, pA, pB);
 
+	InnerProduct::Modifier::Channel ch0, ch1;
 	SetRandom(pwrMul);
+	ch0.SetPwr(pwrMul);
+	SetRandom(pwrMul);
+	ch1.SetPwr(pwrMul);
 	InnerProduct::Modifier mod;
-	mod.m_pMultiplier[1] = &pwrMul;
+	mod.m_ppC[0] = &ch0;
+	mod.m_ppC[1] = &ch1;
 
 	InnerProduct sig;
 	sig.Create(comm, dot, pA, pB, mod);
@@ -2097,6 +2157,99 @@ void TestTreasury()
 	}
 }
 
+void TestLelantus()
+{
+	beam::Lelantus::Cfg cfg; // default
+	const uint32_t N = cfg.get_N();
+	printf("Lelantus [n, M, N] = [%u, %u, %u]\n", cfg.n, cfg.M, N);
+
+	beam::Lelantus::CmListVec lst;
+	lst.m_vec.resize(N);
+
+	Point::Native rnd;
+	SetRandom(rnd);
+
+	for (size_t i = 0; i < lst.m_vec.size(); i++, rnd += rnd)
+		rnd.Export(lst.m_vec[i]);
+
+	beam::Lelantus::Proof proof;
+	proof.m_Cfg = cfg;
+	beam::Lelantus::Proof::Output outp;
+	beam::Lelantus::Prover p(lst, proof);
+
+	p.m_Witness.V.m_V = 100500;
+	p.m_Witness.V.m_R = 4U;
+	p.m_Witness.V.m_R_Output = 756U;
+	p.m_Witness.V.m_L = 333;
+	SetRandom(p.m_Witness.V.m_SpendSk);
+
+	Point::Native pt = Context::get().G * p.m_Witness.V.m_SpendSk;
+	Point pt_ = pt;
+	Scalar::Native ser;
+	beam::Lelantus::SpendKey::ToSerial(ser, pt_);
+
+
+	pt = Commitment(p.m_Witness.V.m_R, p.m_Witness.V.m_V);
+	pt += Context::get().J * ser;
+	pt.Export(lst.m_vec[p.m_Witness.V.m_L]);
+
+	Oracle oracle;
+
+	uint32_t t = beam::GetTime_ms();
+
+	p.Generate(outp, Zero, oracle);
+
+	printf("\tProof time = %u ms\n", beam::GetTime_ms() - t);
+
+	typedef InnerProduct::BatchContextEx<4> MyBatch;
+
+	{
+		// serialization
+		beam::Serializer ser_;
+		ser_ & proof;
+
+		proof.m_Part1.m_vG.clear();
+		proof.m_Part2.m_vF.clear();
+
+		beam::Deserializer der_;
+		der_.reset(ser_.buffer().first, ser_.buffer().second);
+		der_ & proof;
+
+		printf("\tProof size = %u\n", (uint32_t)ser_.buffer().second);
+	}
+	MyBatch bc;
+
+	std::vector<ECC::Scalar::Native> vKs;
+	vKs.resize(N);
+
+	bool bSuccess = true;
+
+	for (int j = 0; j < 2; j++)
+	{
+		const uint32_t nCycles = j ? 1 : 11;
+
+		memset0(&vKs.front(), sizeof(ECC::Scalar::Native) * vKs.size());
+
+		t = beam::GetTime_ms();
+
+		for (uint32_t i = 0; i < nCycles; i++)
+		{
+			Oracle o2;
+			if (!proof.IsValid(bc, o2, outp, &vKs.front()))
+				bSuccess = false;
+		}
+
+		lst.Calculate(bc.m_Sum, 0, N, &vKs.front());
+
+		if (!bc.Flush())
+			bSuccess = false;
+
+		printf("\tVerify time %u overlapping proofs = %u ms\n", nCycles, beam::GetTime_ms() - t);
+	}
+
+	verify_test(bSuccess);
+}
+
 void TestTxKernel()
 {
     TransactionMaker tm;
@@ -2191,6 +2344,7 @@ void TestAll()
 	TestRandom();
 	TestFourCC();
 	TestTreasury();
+	TestLelantus();
 }
 
 
@@ -2693,6 +2847,7 @@ int main()
 
 	beam::Rules::get().CA.Enabled = true;
 	beam::Rules::get().pForks[1].m_Height = g_hFork;
+	beam::Rules::get().pForks[2].m_Height = g_hFork;
 	ECC::TestAll();
 	ECC::RunBenchmark();
 

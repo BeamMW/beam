@@ -216,6 +216,30 @@ namespace beam
 		return nTips;
 	}
 
+	struct StoragePts
+	{
+		ECC::Point::Storage m_pArr[18];
+
+		void Init()
+		{
+			for (size_t i = 0; i < _countof(m_pArr); i++)
+			{
+				m_pArr[i].m_X = i;
+			}
+		}
+
+		bool IsValid(size_t i0, size_t i1, uint32_t n0) const
+		{
+			for (; i0 < i1; i0++)
+			{
+				if (m_pArr[i0].m_X != ECC::uintBig(n0++))
+					return false;
+			}
+
+			return true;
+		}
+	};
+
 	void TestNodeDB(const char* sz)
 	{
 		NodeDB db;
@@ -535,6 +559,24 @@ namespace beam
 		db.DeleteKernel(bBodyP, 5);
 		verify_test(db.FindKernel(bBodyP) == 0);
 
+		// Shielded
+		db.ShieldedResize(16 * 1024 * 3 + 5);
+
+		StoragePts pts;
+		pts.Init();
+
+		db.ShieldedWrite(16 * 1024 * 2 - 2, pts.m_pArr, _countof(pts.m_pArr));
+
+		ZeroObject(pts.m_pArr);
+
+		db.ShieldedRead(16 * 1024 * 3 + 5 - _countof(pts.m_pArr), pts.m_pArr, _countof(pts.m_pArr));
+		verify_test(memis0(pts.m_pArr, sizeof(pts.m_pArr)));
+
+		db.ShieldedRead(16 * 1024 * 2 -2, pts.m_pArr, _countof(pts.m_pArr));
+		verify_test(pts.IsValid(0, _countof(pts.m_pArr), 0));
+
+		db.ShieldedResize(1);
+		db.ShieldedResize(0);
 
 		tr.Commit();
 	}
@@ -719,7 +761,7 @@ namespace beam
 				m_MyUtxos.insert(std::make_pair(h + 1 + hIncubation, utxoOut));
 			}
 
-			if (!(m_hvKrnRel == Zero))
+			if (!(m_hvKrnRel == Zero) && (h >= Rules::get().pForks[1].m_Height))
 			{
 				mk.m_hvRelLock = m_hvKrnRel;
 				m_hvKrnRel = Zero;
@@ -788,7 +830,7 @@ namespace beam
 
 				HeightRange hr(np.m_Cursor.m_ID.m_Height + 1, MaxHeight);
 
-				verify_test(np.ValidateTxContext(*pTx, hr));
+				verify_test(np.ValidateTxContext(*pTx, hr, false));
 				verify_test(np.ValidateTxWrtHeight(*pTx, hr));
 
 				Transaction::Context::Params pars;
@@ -1539,6 +1581,207 @@ namespace beam
 				io::Reactor::get_Current().stop();
 			}
 
+			struct Shielded
+			{
+				Height m_Sent = 0;
+				bool m_Withdrew = false;
+				TxoID m_Confirmed = MaxHeight;
+				TxoID m_Wnd0 = 0;
+				uint32_t m_N;
+
+				Amount m_Value;
+				ECC::Scalar::Native m_sk;
+				ECC::Scalar::Native m_skSpendKey;
+				ECC::Point m_Commitment;
+
+				ECC::Hash::Value m_SpendKernelID;
+				bool m_SpendConfirmed = false;
+
+			} m_Shielded;
+
+
+			bool SendShielded()
+			{
+				Height h = m_vStates.back().m_Height;
+				if (h + 1 < Rules::get().pForks[2].m_Height + 3)
+					return false;
+
+				proto::NewTransaction msgTx;
+
+				m_Shielded.m_Value = m_Wallet.MakeTxInput(msgTx.m_Transaction, h);
+				if (!m_Shielded.m_Value)
+					return false;
+
+				const Amount fee = 100;
+				m_Shielded.m_Value -= fee;
+
+				assert(msgTx.m_Transaction);
+
+				ECC::Scalar::Native kOffset = msgTx.m_Transaction->m_Offset;
+				kOffset = -kOffset;
+
+				{
+					Output::Ptr pOut(new Output);
+					pOut->m_pShielded.reset(new Output::Shielded);
+
+					ECC::SetRandom(m_Shielded.m_skSpendKey);
+					ECC::Point::Native ptN = ECC::Context::get().G * m_Shielded.m_skSpendKey;
+					ECC::Point pt = ptN;
+					ECC::Scalar::Native skSerial;
+					Lelantus::SpendKey::ToSerial(skSerial, pt);
+
+					ECC::Scalar::Native skG;
+					ECC::SetRandom(skG);
+					pOut->m_pShielded->Sign(skG, skSerial);
+					verify_test(pOut->m_pShielded->IsValid());
+					m_Shielded.m_Commitment = pOut->m_pShielded->m_SerialPub;
+
+					pOut->m_pConfidential.reset(new ECC::RangeProof::Confidential);
+
+					ECC::SetRandom(m_Shielded.m_sk);
+
+					ptN = ECC::Commitment(m_Shielded.m_sk, m_Shielded.m_Value);
+					pOut->m_Commitment = ptN;
+
+					ECC::Oracle oracle;
+					pOut->Prepare(oracle, h + 1);
+
+					ECC::RangeProof::CreatorParams cp;
+					ZeroObject(cp);
+					cp.m_Kidv.m_Value = m_Shielded.m_Value;
+					pOut->m_pConfidential->Create(m_Shielded.m_sk, cp, oracle);
+
+					verify_test(pOut->IsValid(h + 1, ptN));
+
+					msgTx.m_Transaction->m_vOutputs.push_back(std::move(pOut));
+
+					kOffset += m_Shielded.m_sk;
+
+					m_Shielded.m_sk += skG; // effective blinding factor
+				}
+
+				{
+					ECC::Scalar::Native k;
+					ECC::SetRandom(k);
+
+					TxKernel::Ptr pKrn(new TxKernel);
+					pKrn->m_Fee = fee;
+					pKrn->Sign(k);
+
+					{
+						AmountBig::Type fee2;
+						ECC::Point::Native ptN;
+						verify_test(pKrn->IsValid(h + 1, fee2, ptN));
+					}
+
+					msgTx.m_Transaction->m_vKernels.push_back(std::move(pKrn));
+
+					kOffset += k;
+				}
+
+				kOffset = -kOffset;
+				msgTx.m_Transaction->m_Offset = kOffset;
+
+
+				msgTx.m_Transaction->Normalize();
+
+				Transaction::Context::Params pars;
+				Transaction::Context ctx(pars);
+				ctx.m_Height.m_Min = h + 1;
+				bool isTxValid = msgTx.m_Transaction->IsValid(ctx);
+				verify_test(isTxValid);
+
+				msgTx.m_Fluff = true;
+				Send(msgTx);
+
+				return true;
+			}
+
+			virtual void OnMsg(proto::ShieldedList&& msg) override
+			{
+				verify_test(msg.m_Items.size() <= m_Shielded.m_N);
+
+				TxoID nWnd1 = m_Shielded.m_Wnd0 + msg.m_Items.size();
+				if (nWnd1 <= m_Shielded.m_Confirmed)
+					return;
+
+				proto::NewTransaction msgTx;
+				msgTx.m_Transaction = std::make_shared<Transaction>();
+
+				ECC::Scalar::Native sk;
+				ECC::SetRandom(sk);
+
+				msgTx.m_Transaction->m_Offset = sk;
+
+				Input::Ptr pInp(new Input);
+				pInp->m_Commitment = ECC::Commitment(sk, m_Shielded.m_Value);
+				pInp->m_pSpendProof.reset(new Input::SpendProof);
+				pInp->m_pSpendProof->m_WindowEnd = nWnd1;
+
+				Lelantus::CmListVec lst;
+
+				assert(nWnd1 <= m_Shielded.m_Wnd0 + m_Shielded.m_N);
+				if (nWnd1 == m_Shielded.m_Wnd0 + m_Shielded.m_N)
+					lst.m_vec.swap(msg.m_Items);
+				else
+				{
+					// zero-pad from left
+					lst.m_vec.resize(m_Shielded.m_N);
+					memset(&lst.m_vec.front(), 0, sizeof(ECC::Point::Storage) * (m_Shielded.m_N - msg.m_Items.size()));
+					std::copy(msg.m_Items.begin(), msg.m_Items.end(), lst.m_vec.end() - msg.m_Items.size());
+				}
+
+				Lelantus::Prover p(lst, *pInp->m_pSpendProof);
+				p.m_Witness.V.m_L = static_cast<uint32_t>(m_Shielded.m_N - m_Shielded.m_Confirmed) - 1;
+				p.m_Witness.V.m_R = m_Shielded.m_sk;
+				p.m_Witness.V.m_R_Output = sk;
+				p.m_Witness.V.m_SpendSk = m_Shielded.m_skSpendKey;
+				p.m_Witness.V.m_V = m_Shielded.m_Value;
+
+				Lelantus::Proof::Output outp;
+				ECC::Oracle o1;
+				p.Generate(outp, Zero, o1);
+
+				{
+					// test
+				}
+
+				msgTx.m_Transaction->m_vInputs.push_back(std::move(pInp));
+
+				Height h = m_vStates.back().m_Height;
+				m_Wallet.MakeTxOutput(*msgTx.m_Transaction, h + 1, 0, m_Shielded.m_Value);
+
+				Transaction::Context::Params pars;
+				Transaction::Context ctx(pars);
+				ctx.m_Height.m_Min = h + 1;
+				verify_test(msgTx.m_Transaction->IsValid(ctx));
+
+				verify_test(msgTx.m_Transaction->m_vKernels.size() == 1);
+				msgTx.m_Transaction->m_vKernels.front()->get_ID(m_Shielded.m_SpendKernelID);
+
+				msgTx.m_Fluff = true;
+				Send(msgTx);
+			}
+
+			virtual void OnMsg(proto::ProofShieldedTxo&& msg) override
+			{
+				if (msg.m_Proof.empty())
+					return;
+
+				verify_test(m_vStates.back().IsValidProofShieldedTxo(m_Shielded.m_Commitment, msg.m_ID, msg.m_Proof));
+				m_Shielded.m_Confirmed = msg.m_ID;
+
+				Lelantus::Cfg cfg; // def;
+				m_Shielded.m_N = cfg.get_N();
+
+				m_Shielded.m_Wnd0 = 0; // TODO - randomize m_Wnd0
+
+				proto::GetShieldedList msgOut;
+				msgOut.m_Id0 = m_Shielded.m_Wnd0;
+				msgOut.m_Count = m_Shielded.m_N;
+				Send(msgOut);
+			}
+
 			virtual void OnMsg(proto::NewTip&& msg) override
 			{
 				if (!msg.m_Description.m_Height)
@@ -1551,9 +1794,21 @@ namespace beam
 
 				if (IsHeightReached())
 				{
-					if (IsAllProofsReceived() && IsAllBbsReceived() && IsAllRecoveryReceived() /* && m_bCustomAssetRecognized*/)
+					if (IsAllProofsReceived() && IsAllBbsReceived() && IsAllRecoveryReceived() /* && m_bCustomAssetRecognized*/ && m_Shielded.m_SpendConfirmed)
 						io::Reactor::get_Current().stop();
 					return;
+				}
+
+				if (!m_Shielded.m_Sent && SendShielded())
+					m_Shielded.m_Sent = msg.m_Description.m_Height;
+
+				if (!m_Shielded.m_Withdrew && m_Shielded.m_Sent && (msg.m_Description.m_Height - m_Shielded.m_Sent >= 5))
+				{
+					proto::GetProofShieldedTxo msgOut;
+					msgOut.m_Commitment = m_Shielded.m_Commitment;
+					Send(msgOut);
+
+					m_Shielded.m_Withdrew = true;
 				}
 
 				proto::BbsMsg msgBbs;
@@ -1792,6 +2047,9 @@ namespace beam
 						verify_test(m_vStates.back().IsValidProofKernel(krn, msg.m_Proof));
 
 						krn.get_ID(m_Wallet.m_hvKrnRel);
+
+						if (!m_Shielded.m_SpendConfirmed && (m_Wallet.m_hvKrnRel == m_Shielded.m_SpendKernelID))
+							m_Shielded.m_SpendConfirmed = true;
 					}
 				}
 				else
@@ -1945,6 +2203,8 @@ namespace beam
 			fail_test("some recovery messages missing");
 		//if (!cl.m_bCustomAssetRecognized)
 		//	fail_test("CA not recognized");
+		if (!cl.m_Shielded.m_SpendConfirmed)
+			fail_test("Shielded spend not confirmed");
 
 		struct TxoRecover
 			:public NodeProcessor::ITxoRecover
@@ -2315,10 +2575,28 @@ int main()
 	beam::DeleteFile(beam::g_sz);
 	beam::DeleteFile(beam::g_sz2);
 
+	beam::Rules::get().pForks[2].m_Height = 17;
+	beam::Rules::get().UpdateChecksum();
+
 	printf("Node <---> Client test (with proofs)...\n");
 	fflush(stdout);
 
 	beam::TestNodeClientProto();
+
+	{
+		// test utxo set image rebuilding with shielded in/outs
+		beam::io::Reactor::Ptr pReactor(beam::io::Reactor::create());
+		beam::io::Reactor::Scope scope(*pReactor);
+
+		std::string sPath;
+		beam::NodeProcessor::get_UtxoMappingPath(sPath, beam::g_sz);
+		beam::DeleteFile(sPath.c_str());
+
+		beam::Node node;
+		node.m_Cfg.m_sPathLocal = beam::g_sz;
+		node.Initialize();
+	}
+
 	beam::DeleteFile(beam::g_sz);
 	beam::DeleteFile(beam::g_sz2);
 

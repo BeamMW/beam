@@ -38,6 +38,7 @@ class NodeProcessor
 	size_t m_nSizeUtxoComission;
 
 	struct MultiblockContext;
+	struct MultiShieldedContext;
 
 	void RollbackTo(Height);
 	Height PruneOld();
@@ -56,6 +57,7 @@ class NodeProcessor
 	bool HandleValidatedBlock(TxBase::IReader&&, const Block::BodyBase&, Height, bool bFwd);
 	bool HandleBlockElement(const Input&, Height, bool bFwd);
 	bool HandleBlockElement(const Output&, Height, bool bFwd);
+	bool HandleShieldedElement(const ECC::Point&, bool bOutp, bool bFwd);
 
 	void RecognizeUtxos(TxBase::IReader&&, Height h);
 
@@ -144,6 +146,8 @@ public:
 	void Initialize(const char* szPath);
 	void Initialize(const char* szPath, const StartParams&);
 
+	static void get_UtxoMappingPath(std::string&, const char*);
+
 	virtual ~NodeProcessor();
 
 	struct Horizon {
@@ -184,6 +188,7 @@ public:
 	{
 		TxoID m_TxosTreasury;
 		TxoID m_Txos; // total num of ever created TXOs, including treasury
+		TxoID m_Shielded;
 
 		Height m_Fossil; // from here and down - no original blocks
 		Height m_TxoLo;
@@ -283,9 +288,12 @@ public:
 
 	uint64_t FindActiveAtStrict(Height);
 
-	bool ValidateTxContext(const Transaction&, const HeightRange&); // assuming context-free validation is already performed, but 
+	bool ValidateTxContext(const Transaction&, const HeightRange&, bool bShieldedTested); // assuming context-free validation is already performed, but 
 	bool ValidateTxWrtHeight(const Transaction&, const HeightRange&);
 	bool ValidateInputs(const ECC::Point&, Input::Count = 1);
+	bool ValidateShieldedNoDup(const ECC::Point&, bool bOutp);
+	bool IsShieldedInPool(const Input&);
+	bool IsShieldedInPool(const Transaction&);
 
 	struct GeneratedBlock
 	{

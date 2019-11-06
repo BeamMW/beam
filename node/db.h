@@ -55,6 +55,7 @@ public:
 			SyncData,
 			LastRecoveryHeight,
 			UtxoStamp,
+			ShieldedPoolSize,
 		};
 	};
 
@@ -152,6 +153,8 @@ public:
 			TxoGetValue,
 			BlockFind,
 			FindHeightBelow,
+			ShieldedIns,
+			ShieldedDel,
 			EnumSystemStatesBkwd,
 
 			Dbg0,
@@ -219,6 +222,8 @@ public:
 		void get(int col, Merkle::Hash& x) { get_As(col, x); }
 		void put(int col, const Block::PoW& x) { put_As(col, x); }
 		void get(int col, Block::PoW& x) { get_As(col, x); }
+
+		void putZeroBlob(int col, uint32_t nSize);
 	};
 
 	int get_RowsChanged() const;
@@ -264,8 +269,8 @@ public:
 	void set_Peer(uint64_t rowid, const PeerID*);
 	bool get_Peer(uint64_t rowid, PeerID&);
 
-	void set_StateExtra(uint64_t rowid, const ECC::Scalar*);
-	bool get_StateExtra(uint64_t rowid, ECC::Scalar&);
+	void set_StateExtra(uint64_t rowid, const Blob*);
+	bool get_StateExtra(uint64_t rowid, ECC::Scalar&, ByteBuffer* = nullptr);
 
 	void set_StateTxos(uint64_t rowid, const TxoID*);
 	TxoID get_StateTxos(uint64_t rowid);
@@ -473,6 +478,10 @@ public:
 	void TxoSetValue(TxoID, const Blob&);
 	void TxoGetValue(WalkerTxo&, TxoID);
 
+	void ShieldedResize(uint64_t);
+	void ShieldedWrite(uint64_t pos, const ECC::Point::Storage*, uint64_t nCount);
+	void ShieldedRead(uint64_t pos, ECC::Point::Storage*, uint64_t nCount);
+
 	struct WalkerSystemState
 	{
 		Recordset m_Rs;
@@ -508,8 +517,7 @@ private:
 	static void ThrowInconsistent();
 
 	void Create();
-	void CreateTableDummy();
-	void CreateTableTxos();
+	void CreateTableShielded();
 	void ExecQuick(const char*);
 	std::string ExecTextOut(const char*);
 	bool ExecStep(sqlite3_stmt*);
@@ -533,6 +541,9 @@ private:
 	void MigrateFrom18();
 
 	struct Dmmr;
+
+	static const uint32_t s_ShieldedBlob;
+	void ShieldeIO(uint64_t pos, ECC::Point::Storage*, uint64_t nCount, bool bWrite);
 };
 
 
