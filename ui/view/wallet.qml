@@ -390,6 +390,7 @@ Item {
                             color: Style.background_details
                         }
 
+
                         TransactionDetails {
                             id: detailsPanel
                             width: transactionsTable.width

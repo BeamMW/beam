@@ -793,88 +793,89 @@ Item {
                             filterCaseSensitivity: Qt.CaseInsensitive
                         }
 
-                        rowDelegate: Item {
-                            id: rowItem
-                            height: ctransactionsTable.rowHeight
-                            anchors.left: parent.left
-                            anchors.right: parent.right
-                            property bool collapsed: true
+                        rowDelegate: Rectangle {
+                            id:             rowItem
+                            height:         transactionsTable.rowHeight
+                            anchors.left:   parent.left
+                            anchors.right:  parent.right
+                            color:          styleData.selected ? Style.row_selected : (styleData.alternate ? Style.background_row_even : Style.background_row_odd)
 
-                            property var myModel: parent.model
+                            property bool collapsed:   true
+                            property bool rowInModel:  styleData.row !== undefined && styleData.row >= 0 &&  styleData.row < txProxyModel.count
+                            property var  myModel:     parent.model
 
-                            onMyModelChanged: {
-                                collapsed = true;
-                                height = Qt.binding(function(){ return transactionsTable.rowHeight;});
+                            onCollapsedChanged: {
+                                height = collapsed ? transactionsTable.rowHeight : transactionsTable.rowHeight + txDetails.maximumHeight
+                                txDetails.height = collapsed ? 0 : txDetails.maximumHeight
                             }
 
-                            Rectangle {
-                                anchors.fill: parent                        
-                                color: styleData.selected ? Style.row_selected :
-                                        (styleData.alternate ? Style.background_row_even : Style.background_row_odd)
+                            function expand(animate) {
+                                if (!rowInModel) return
+                                if (animate) expandAnimation.start()
+                                else collapsed = false
                             }
 
-                            ColumnLayout {
-                                id: rowColumn
-                                width: parent.width
+                            function collapse(animate) {
+                                if (!rowInModel) return
+                                if (animate) collapseAnimation.start()
+                                else collapsed = true
+                            }
+
+                            Item {
+                                id:      txDetails
+                                height:  0
+                                y:       transactionsTable.rowHeight
+                                width:   parent.width
+                                clip:    true
+                                property int maximumHeight: detailsPanel.implicitHeight
+
                                 Rectangle {
-                                    height: rowItem.height
-                                    width: parent.width
-                                    color: "transparent"
+                                    anchors.fill: parent
+                                    color: Style.background_details
                                 }
-                                Item {
-                                    id: txDetails
-                                    height: 0
-                                    width: parent.width
-                                    clip: true
 
-                                    property int maximumHeight: detailsPanel.implicitHeight
 
-                                    Rectangle {
-                                        anchors.fill: parent
-                                        color: Style.background_details
-                                    }
-                                    SwapTransactionDetails {
-                                        id: detailsPanel
-                                        width: transactionsTable.width
+                                SwapTransactionDetails {
+                                    id: detailsPanel
+                                    width: transactionsTable.width
 
-                                        property var txRolesMap: myModel
-                                        txId:                           txRolesMap && txRolesMap.txID ? txRolesMap.txID : ""
-                                        fee:                            txRolesMap && txRolesMap.fee ? txRolesMap.fee : ""
-                                        feeRate:                        txRolesMap && txRolesMap.feeRate ? txRolesMap.feeRate : ""
-                                        comment:                        txRolesMap && txRolesMap.comment ? txRolesMap.comment : ""
-                                        swapCoinName:                   txRolesMap && txRolesMap.swapCoin ? txRolesMap.swapCoin : ""
-                                        isBeamSide:                     txRolesMap && txRolesMap.isBeamSideSwap ? txRolesMap.isBeamSideSwap : false
-                                        isLockTxProofReceived:          txRolesMap && txRolesMap.isLockTxProofReceived ? txRolesMap.isLockTxProofReceived : false
-                                        isRefundTxProofReceived:        txRolesMap && txRolesMap.isRefundTxProofReceived ? txRolesMap.isRefundTxProofReceived : false
-                                        swapCoinLockTxId:               txRolesMap && txRolesMap.swapCoinLockTxId ? txRolesMap.swapCoinLockTxId : ""
-                                        swapCoinLockTxConfirmations:    txRolesMap && txRolesMap.swapCoinLockTxConfirmations ? txRolesMap.swapCoinLockTxConfirmations : ""
-                                        swapCoinRedeemTxId:             txRolesMap && txRolesMap.swapCoinRedeemTxId ? txRolesMap.swapCoinRedeemTxId : ""
-                                        swapCoinRedeemTxConfirmations:  txRolesMap && txRolesMap.swapCoinRedeemTxConfirmations ? txRolesMap.swapCoinRedeemTxConfirmations : ""
-                                        swapCoinRefundTxId:             txRolesMap && txRolesMap.swapCoinRefundTxId ? txRolesMap.swapCoinRefundTxId : ""
-                                        swapCoinRefundTxConfirmations:  txRolesMap && txRolesMap.swapCoinRefundTxConfirmations ? txRolesMap.swapCoinRefundTxConfirmations : ""
-                                        beamLockTxKernelId:             txRolesMap && txRolesMap.beamLockTxKernelId ? txRolesMap.beamLockTxKernelId : ""
-                                        beamRedeemTxKernelId:           txRolesMap && txRolesMap.beamRedeemTxKernelId ? txRolesMap.beamRedeemTxKernelId : ""
-                                        beamRefundTxKernelId:           txRolesMap && txRolesMap.beamRefundTxKernelId ? txRolesMap.beamRefundTxKernelId : ""
-                                        failureReason:                  txRolesMap && txRolesMap.failureReason ? txRolesMap.failureReason : ""
-                                        
-                                        onTextCopied: function (text) {
-                                            BeamGlobals.copyToClipboard(text);
-                                        }
+                                    property var txRolesMap: myModel
+                                    txId:                           txRolesMap && txRolesMap.txID ? txRolesMap.txID : ""
+                                    fee:                            txRolesMap && txRolesMap.fee ? txRolesMap.fee : ""
+                                    feeRate:                        txRolesMap && txRolesMap.feeRate ? txRolesMap.feeRate : ""
+                                    comment:                        txRolesMap && txRolesMap.comment ? txRolesMap.comment : ""
+                                    swapCoinName:                   txRolesMap && txRolesMap.swapCoin ? txRolesMap.swapCoin : ""
+                                    isBeamSide:                     txRolesMap && txRolesMap.isBeamSideSwap ? txRolesMap.isBeamSideSwap : false
+                                    isLockTxProofReceived:          txRolesMap && txRolesMap.isLockTxProofReceived ? txRolesMap.isLockTxProofReceived : false
+                                    isRefundTxProofReceived:        txRolesMap && txRolesMap.isRefundTxProofReceived ? txRolesMap.isRefundTxProofReceived : false
+                                    swapCoinLockTxId:               txRolesMap && txRolesMap.swapCoinLockTxId ? txRolesMap.swapCoinLockTxId : ""
+                                    swapCoinLockTxConfirmations:    txRolesMap && txRolesMap.swapCoinLockTxConfirmations ? txRolesMap.swapCoinLockTxConfirmations : ""
+                                    swapCoinRedeemTxId:             txRolesMap && txRolesMap.swapCoinRedeemTxId ? txRolesMap.swapCoinRedeemTxId : ""
+                                    swapCoinRedeemTxConfirmations:  txRolesMap && txRolesMap.swapCoinRedeemTxConfirmations ? txRolesMap.swapCoinRedeemTxConfirmations : ""
+                                    swapCoinRefundTxId:             txRolesMap && txRolesMap.swapCoinRefundTxId ? txRolesMap.swapCoinRefundTxId : ""
+                                    swapCoinRefundTxConfirmations:  txRolesMap && txRolesMap.swapCoinRefundTxConfirmations ? txRolesMap.swapCoinRefundTxConfirmations : ""
+                                    beamLockTxKernelId:             txRolesMap && txRolesMap.beamLockTxKernelId ? txRolesMap.beamLockTxKernelId : ""
+                                    beamRedeemTxKernelId:           txRolesMap && txRolesMap.beamRedeemTxKernelId ? txRolesMap.beamRedeemTxKernelId : ""
+                                    beamRefundTxKernelId:           txRolesMap && txRolesMap.beamRefundTxKernelId ? txRolesMap.beamRefundTxKernelId : ""
+                                    failureReason:                  txRolesMap && txRolesMap.failureReason ? txRolesMap.failureReason : ""
+                                    
+                                    onTextCopied: function (text) {
+                                        BeamGlobals.copyToClipboard(text);
                                     }
                                 }
                             }
 
                             MouseArea {
-                                anchors.top: parent.top
-                                anchors.left: parent.left
-                                height: transactionsTable.rowHeight
-                                width: parent.width
+                                anchors.top:      parent.top
+                                anchors.left:     parent.left
+                                height:           transactionsTable.rowHeight
+                                width:            parent.width
+                                acceptedButtons:  Qt.LeftButton | Qt.RightButton
 
-                                acceptedButtons: Qt.LeftButton | Qt.RightButton
                                 onClicked: {
-                                    if (styleData.row === undefined 
-                                    || styleData.row < 0
-                                    || styleData.row >= txProxyModel.count)
+                                    if (styleData.row === undefined ||
+                                        styleData.row < 0 ||
+                                        styleData.row >= txProxyModel.count)
                                     {
                                         return;
                                     }
@@ -884,21 +885,13 @@ Item {
                                     }
                                     else if (mouse.button === Qt.LeftButton)
                                     {
-                                        if (parent.collapsed)
-                                        {
-                                            expand.start()
-                                        }
-                                        else 
-                                        {
-                                            collapse.start()
-                                        }
-                                        parent.collapsed = !parent.collapsed;
+                                        parent.collapsed ? expand(true) : collapse(true);
                                     }
                                 }
                             }
 
                             ParallelAnimation {
-                                id: expand
+                                id: expandAnimation
                                 running: false
 
                                 property int expandDuration: 200
@@ -908,7 +901,7 @@ Item {
                                     easing.type: Easing.Linear
                                     property: "height"
                                     to: transactionsTable.rowHeight + txDetails.maximumHeight
-                                    duration: expand.expandDuration
+                                    duration: expandAnimation.expandDuration
                                 }
 
                                 NumberAnimation {
@@ -916,12 +909,14 @@ Item {
                                     easing.type: Easing.Linear
                                     property: "height"
                                     to: txDetails.maximumHeight
-                                    duration: expand.expandDuration
+                                    duration: expandAnimation.expandDuration
                                 }
+
+                                onStopped: rowItem.collapsed = false
                             }
 
                             ParallelAnimation {
-                                id: collapse
+                                id: collapseAnimation
                                 running: false
 
                                 property int collapseDuration: 200
@@ -931,7 +926,7 @@ Item {
                                     easing.type: Easing.Linear
                                     property: "height"
                                     to: transactionsTable.rowHeight
-                                    duration: collapse.collapseDuration
+                                    duration: collapseAnimation.collapseDuration
                                 }
 
                                 NumberAnimation {
@@ -939,8 +934,10 @@ Item {
                                     easing.type: Easing.Linear
                                     property: "height"
                                     to: 0
-                                    duration: collapse.collapseDuration
+                                    duration: collapseAnimation.collapseDuration
                                 }
+
+                                onStopped: rowItem.collapsed = true
                             }
                         }
 
