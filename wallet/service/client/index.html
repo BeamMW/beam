@@ -61,7 +61,13 @@
 
 		<form id="wallet-panel" style="display: none;">
 			<div class="form-group">
-				Balance: %beams%
+				<span class="badge badge-success">status: connected to the Wallet Service</span>
+			</div>			
+			<div class="form-group">
+				Available: <span class="available"></span>
+			</div>
+			<div class="form-group">
+				Current height: <span class="current_height"></span>
 			</div>
 		</form>		
 	
@@ -75,13 +81,40 @@
 		Module().then(function(Module)
         {
 			var connection = null;
+			// var keyKeeperConnection = null;
 
 			function showPanel(id)
 			{
-				['#connecting-panel', '#create-wallet-panel', '#open-wallet-panel'].forEach(name => $(name).hide())
+				['#connecting-panel', '#create-wallet-panel', '#open-wallet-panel', '#wallet-panel'].forEach(name => $(name).hide())
 				$(id).show()
 			}
 		
+			// function connectKeyKeeper()
+			// {
+			// 	const url = 'ws://127.0.0.1:8081'
+			// 	keyKeeperConnection = new WebSocket(url)
+				
+			// 	keyKeeperConnection.onopen = () => 
+			// 	{
+			// 		console.log('keykeeper connected to the Wallet Servce...')
+			// 		//refresh()
+			// 	}
+				
+			// 	keyKeeperConnection.onclose = () =>
+			// 	{
+			// 		// showPanel('#connecting-panel')
+
+			// 		console.log('keykeeper connection lost, reconnecting...')
+
+			// 		setTimeout(connectKeyKeeper, 5000)
+			// 	}
+
+			// 	keyKeeperConnection.onerror = error => 
+			// 	{
+			// 		console.log(`keykeeper connection error: ${error}`)
+			// 	}
+			// }
+
 			function start()
 			{
 				const url = 'ws://127.0.0.1:8080'
@@ -106,6 +139,8 @@
 				{
 					console.log(`connection error: ${error}`)
 				}
+
+				// connectKeyKeeper()
 			}
 
 			start();
@@ -126,6 +161,63 @@
 				}
 			})
 			
+			function showAddresses()
+			{
+				connection.onmessage = e => 
+				{
+					connection.onmessage = undefined
+
+					console.log(`got response: ${e.data}`)
+
+					var data = JSON.parse(e.data)
+
+					if(data.result)
+					{
+					}
+
+					if($('#wallet-panel').is(":visible"))
+						setTimeout(showWalletStatus, 5000)
+				}
+
+				connection.send(JSON.stringify(
+				{
+					jsonrpc:'2.0',
+					id: 0,
+					method: 'addr_list',
+					params:
+					{
+						own: true
+					}
+				}))
+			}
+
+			function showWalletStatus()
+			{
+				connection.onmessage = e => 
+				{
+					connection.onmessage = undefined
+
+					console.log(`got response: ${e.data}`)
+
+					var data = JSON.parse(e.data)
+
+					if(data.result)
+					{
+						$("#wallet-panel .available").text(data.result.available)
+						$("#wallet-panel .current_height").text(data.result.current_height)
+
+						showAddresses()
+					}
+				}
+
+				connection.send(JSON.stringify(
+				{
+					jsonrpc:'2.0',
+					id: 0,
+					method: 'wallet_status'
+				}))
+			}
+
 			$('#open-wallet-panel .open-wallet-button').click(() => 
 			{
 				console.log(`Opening wallet with seed phrase: ${localStorage.seed}`)
@@ -145,6 +237,8 @@
 						console.log(`wallet session: ${data.result}`)
 
 						showPanel('#wallet-panel')
+
+						showWalletStatus()
 					}
 				}
 

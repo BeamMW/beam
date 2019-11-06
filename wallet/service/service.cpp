@@ -60,6 +60,82 @@ namespace websocket = boost::beast::websocket;  // from <boost/beast/websocket.h
 
 namespace beam::wallet
 {
+    class WasmKeyKeeper : public IPrivateKeyKeeper
+        , public std::enable_shared_from_this<WasmKeyKeeper>
+    {
+    public:
+        WasmKeyKeeper(){}
+        virtual ~WasmKeyKeeper(){}
+
+        Key::IKdf::Ptr get_SbbsKdf() const override
+        {
+            if (!m_sbbsKdf)
+            {
+                // !TODO: do async generateKeySync() call here
+
+                // if (m_hwWallet.isConnected())
+                // {
+                //     ECC::HKdf::Create(m_sbbsKdf, m_hwWallet.generateKeySync({ 0, 0, Key::Type::Regular }, true).m_X);
+                // }
+            }
+            
+            return m_sbbsKdf;
+        }
+
+        void subscribe(Handler::Ptr handler) override
+        {
+
+        }
+
+    private:
+        void GeneratePublicKeys(const std::vector<Key::IDV>& ids, bool createCoinKey, Callback<PublicKeys>&& resultCallback, ExceptionCallback&& exceptionCallback) override
+        {
+
+        }
+
+        void GenerateOutputs(Height schemeHeight, const std::vector<Key::IDV>& ids, Callback<Outputs>&& resultCallback, ExceptionCallback&& exceptionCallback) override
+        {
+
+        }
+
+        size_t AllocateNonceSlot() override
+        {
+            return 0;
+        }
+
+        PublicKeys GeneratePublicKeysSync(const std::vector<Key::IDV>& ids, bool createCoinKey) override
+        {
+            return {};
+        }
+
+        ECC::Point GeneratePublicKeySync(const Key::IDV& id, bool createCoinKey) override
+        {
+            return {};
+        }
+
+        Outputs GenerateOutputsSync(Height schemeHeigh, const std::vector<Key::IDV>& ids) override
+        {
+            return {};
+        }
+
+        ECC::Point GenerateNonceSync(size_t slot) override
+        {
+            return {};
+        }
+
+        ECC::Scalar SignSync(const std::vector<Key::IDV>& inputs, const std::vector<Key::IDV>& outputs, const ECC::Scalar::Native& offset, size_t nonceSlot, const KernelParameters& kernelParamerters, const ECC::Point::Native& publicNonce) override
+        {
+            return {};
+        }
+
+    private:
+        mutable Key::IKdf::Ptr m_sbbsKdf;
+
+        // size_t m_latestSlot;
+
+        // std::vector<IPrivateKeyKeeper::Handler::Ptr> m_handlers;
+    };
+
     io::Address node_addr;
 
     static const char JsonRpcHrd[] = "jsonrpc";
@@ -1588,6 +1664,13 @@ namespace
 
                     if(walletDB)
                     {
+                        _keyKeeper = std::make_shared<WasmKeyKeeper>();
+
+                        // generate default address
+                        WalletAddress address = storage::createAddress(*walletDB, _keyKeeper);
+                        address.m_label = "default";
+                        walletDB->saveAddress(address);
+
                         doResponse(id, CreateWallet::Response{dbName});
                         return;
                     }
@@ -1608,10 +1691,11 @@ namespace
                     return;
                 }
 
+                LOG_INFO() << "wallet sucessfully opened...";
+
                 _walletDB->Subscribe(this);
 
-                // !TODO: create websocket key keeper proxy here
-                _keyKeeper = std::make_shared<LocalPrivateKeyKeeper>(_walletDB, _walletDB->get_MasterKdf());
+                _keyKeeper = std::make_shared<WasmKeyKeeper>();//std::make_shared<LocalPrivateKeyKeeper>(_walletDB, _walletDB->get_MasterKdf());
 
                 _wallet = std::make_unique<Wallet>( _walletDB, _keyKeeper );
                 _wallet->ResumeAllTransactions();
@@ -1932,28 +2016,6 @@ int main(int argc, char* argv[])
                 LOG_ERROR() << "unable to resolve node address: " << options.nodeURI;
                 return -1;
             }
-
-            // if (!WalletDB::isInitialized(options.walletPath))
-            // {
-            //     LOG_ERROR() << "Wallet not found, path is: " << options.walletPath;
-            //     return -1;
-            // }
-
-            // SecString pass;
-            // if (!beam::read_wallet_pass(pass, vm))
-            // {
-            //     LOG_ERROR() << "Please, provide password for the wallet.";
-            //     return -1;
-            // }
-
-            // walletDB = WalletDB::open(options.walletPath, pass, reactor);
-            // if (!walletDB)
-            // {
-            //     LOG_ERROR() << "Wallet not opened.";
-            //     return -1;
-            // }
-
-            //LOG_INFO() << "wallet sucessfully opened...";
         }
 
         io::Reactor::Ptr reactor = io::Reactor::create();
