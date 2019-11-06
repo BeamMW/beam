@@ -2193,32 +2193,6 @@ void TestLelantus()
 	pt += Context::get().J * ser;
 	pt.Export(lst.m_vec[p.m_Witness.V.m_L]);
 
-	{
-		// test 2-blinded bulletproof
-		RangeProof::Confidential bp;
-		RangeProof::Confidential::Part3 bpExtra;
-
-		RangeProof::CreatorParams cp;
-		ZeroObject(cp.m_Kidv);
-		cp.m_Kidv.m_Value = p.m_Witness.V.m_V;
-		cp.m_Seed.V = 32134U;
-
-		{
-			Oracle o;
-			bp.Create(p.m_Witness.V.m_R, cp, o, nullptr, &bpExtra, &ser);
-		}
-
-		{
-			Oracle o;
-			verify_test(bp.IsValid(pt, o, nullptr, &bpExtra));
-		}
-
-		{
-			Oracle o;
-			verify_test(bp.Recover(o, cp));
-		}
-	}
-
 	Oracle oracle;
 
 	uint32_t t = beam::GetTime_ms();
