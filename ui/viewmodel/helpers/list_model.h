@@ -20,23 +20,18 @@ template <typename T>
 class ListModel : public QAbstractListModel
 {
     template<typename Y>
-    struct BaseComparator
+    struct Comparator
     {
         const Y& value;
-        BaseComparator(const Y& v) : value{ v } {}
-    };
-
-    template<typename Y>
-    struct Comparator : BaseComparator<Y>
-    {
-        Comparator(const Y& v) : BaseComparator(v) {}
+        Comparator(const Y& v) : value{ v } {}
         constexpr bool operator()(const Y& other) { return value == other; }
     };
 
     template<typename Y>
-    struct Comparator<std::shared_ptr<Y>> : BaseComparator<std::shared_ptr<Y>>
+    struct Comparator<std::shared_ptr<Y>>
     {
-        Comparator(const std::shared_ptr<Y>& v) : BaseComparator(v) {}
+        std::shared_ptr<Y> value;
+        Comparator(const std::shared_ptr<Y>& v) : value{ v } {}
         constexpr bool operator()(const std::shared_ptr<Y>& other) { return *value == *other; }
     };
 public:
