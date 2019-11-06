@@ -394,6 +394,7 @@ struct TestWalletRig
     {
         Regular,
         ColdWallet,
+        RegularWithoutPoWBbs,
         Offline
     };
 
@@ -438,6 +439,29 @@ struct TestWalletRig
                 else
                 {
                     m_Wallet.AddMessageEndpoint(make_shared<WalletNetworkViaBbs>(m_Wallet, nodeEndpoint, m_WalletDB, m_KeyKeeper));
+                }
+                m_Wallet.SetNodeEndpoint(nodeEndpoint);
+                break;
+            }
+        case Type::RegularWithoutPoWBbs:
+            {
+                auto nodeEndpoint = make_shared<proto::FlyClient::NetworkStd>(m_Wallet);
+                nodeEndpoint->m_Cfg.m_PollPeriod_ms = nodePollPeriod_ms;
+                nodeEndpoint->m_Cfg.m_vNodes.push_back(nodeAddress);
+                nodeEndpoint->Connect();
+                if (oneTimeBbsEndpoint)
+                {
+                    auto tmp = make_shared<OneTimeBbsEndpoint>(m_Wallet, nodeEndpoint, m_WalletDB, m_KeyKeeper);
+
+                    tmp->m_MineOutgoing = false;
+                    m_Wallet.AddMessageEndpoint(tmp);
+                }
+                else
+                {
+                    auto tmp = make_shared<WalletNetworkViaBbs>(m_Wallet, nodeEndpoint, m_WalletDB, m_KeyKeeper);
+
+                    tmp->m_MineOutgoing = false;
+                    m_Wallet.AddMessageEndpoint(tmp);
                 }
                 m_Wallet.SetNodeEndpoint(nodeEndpoint);
                 break;
