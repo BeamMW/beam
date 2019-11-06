@@ -64,13 +64,6 @@ namespace beam::wallet
         {
             if (!builder.GetInitialTxParams() && GetState() == State::Initial)
             {
-                if (_issue) {
-                    LOG_INFO() << GetTxID() << " Issuing asset  " << PrintableAmount(builder.GetAmountBeam()) << " (fee: "
-                               << PrintableAmount(builder.GetFee()) << ")";
-                } else {
-                    LOG_INFO()  << GetTxID() << " Consuming asset  " << PrintableAmount(builder.GetAmountAsset()) << " (fee: " << PrintableAmount(builder.GetFee()) << ")";
-                }
-
                 builder.SelectInputs();
                 builder.AddChange();
 
@@ -117,12 +110,10 @@ namespace beam::wallet
                 return;
             }
 
-            // Construct transaction
+            // Construct & verify transaction
             auto transaction = builder.CreateTransaction();
-
-            // Verify final transaction
-            TxBase::Context::Params pars;
-			TxBase::Context ctx(pars);
+            TxBase::Context::Params params;
+			TxBase::Context ctx(params);
 			ctx.m_Height.m_Min = builder.GetMinHeight();
 			if (!transaction->IsValid(ctx))
             {
@@ -185,8 +176,6 @@ namespace beam::wallet
         case TxParameterID::Amount:
         case TxParameterID::Fee:
         case TxParameterID::MinHeight:
-        case TxParameterID::PeerID:
-        case TxParameterID::MyID:
         case TxParameterID::CreateTime:
         case TxParameterID::IsSender:
         case TxParameterID::Status:
@@ -220,24 +209,6 @@ namespace beam::wallet
             if (!GetParameter(TxParameterID::AmountList, amountList))
             {
                 amountList = AmountList{GetMandatoryParameter<Amount>(TxParameterID::Amount)};
-            }
-
-            uint64_t ownID;
-            if (!GetParameter(TxParameterID::MyAddressID, ownID))
-            {
-                WalletID walletId;
-                if (GetParameter(TxParameterID::MyID, walletId))
-                {
-                    auto waddr = m_WalletDB->getAddress(walletId);
-                    if(!(waddr && waddr->m_OwnID))
-                    {
-                        OnFailed(TxFailureReason::NotLoopback, true);
-                        return false;
-                    }
-
-                    ownID = waddr->m_OwnID;
-                    SetParameter(TxParameterID::MyAddressID, ownID);
-                }
             }
 
             auto assetIdx   = GetMandatoryParameter<Key::Index>(TxParameterID::AssetIdx);
