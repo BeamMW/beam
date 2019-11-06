@@ -33,7 +33,7 @@ namespace beam::wallet
                                         , IWalletDB::Ptr walletDB
                                         , IPrivateKeyKeeper::Ptr keyKeeper
                                         , const TxID& txID)
-        : BaseTransaction{ gateway, walletDB, keyKeeper, txID }
+        : BaseTransaction{ gateway, std::move(walletDB), std::move(keyKeeper), txID}
         , _issue(issue)
     {
     }
@@ -215,9 +215,7 @@ namespace beam::wallet
             auto assetKeyId = Key::ID(assetIdx, Key::Type::Asset, assetIdx);
             auto assetId    = m_KeyKeeper->AIDFromKeyID(assetKeyId);
 
-            m_TxBuilder = std::make_shared<AssetIssueTxBuilder>(_issue, *this, kDefaultSubTxID, amountList,
-                    GetMandatoryParameter<Amount>(TxParameterID::Fee), assetKeyId, assetId
-            );
+            m_TxBuilder = std::make_shared<AssetIssueTxBuilder>(_issue, *this, kDefaultSubTxID, assetKeyId, assetId);
         }
         return true;
     }
