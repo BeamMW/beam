@@ -1383,6 +1383,7 @@ namespace ECC {
 		NoLeak<secp256k1_ge> ge;
 		NoLeak<Point::Compact> ge_s;
 		secp256k1_fe zDenom;
+		bool bDenomSet = false;
 
 		WnafBase::Shared wsP, wsC;
 
@@ -1419,7 +1420,15 @@ namespace ECC {
 				assert(nEntries <= _countof(f.m_Wnaf.m_pVals));
 
 				if (Reuse::UseGenerated == m_ReuseFlag)
+				{
+					if (!bDenomSet)
+					{
+						bDenomSet = true;
+						zDenom = pt.get_Raw().z;
+					}
+
 					continue;
+				}
 
 				if (Reuse::Generate == m_ReuseFlag)
 					f.m_nNeeded = Casual::Fast::nCount; // all
@@ -1452,9 +1461,7 @@ namespace ECC {
 
 			if (Reuse::UseGenerated == m_ReuseFlag)
 			{
-				if (m_Casual)
-					zDenom = m_pCasual[0].U.F.get().m_pPt[0].get_Raw().z;
-				else
+				if (!bDenomSet)
 					secp256k1_fe_set_int(&zDenom, 1);
 			}
 			else
