@@ -41,6 +41,7 @@ Item
         //% "I agree"
         okButtonText: qsTrId("start-restore-confirm-button")
         okButtonIconSource: "qrc:/assets/icon-done.svg"
+        okButtonAllLowercase: false
         cancelButtonVisible: false
         width: 460
         height: contentItem.implicitHeight + footer.implicitHeight

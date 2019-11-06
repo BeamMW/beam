@@ -14,12 +14,13 @@ Button {
     property alias textOpacity: rect.opacity
     property alias shadowSamples: drop_shadow.samples
     property alias shadowRadius: drop_shadow.radius
+    property bool allLowercase: true
 
     font { 
         family: "SF Pro Display"
         pixelSize: 14
         styleName: "Bold"; weight: Font.Bold
-        capitalization: Font.AllLowercase
+        capitalization: allLowercase ? Font.AllLowercase : Font.MixedCase
     }
 
 //    width: 122
