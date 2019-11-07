@@ -199,11 +199,14 @@ uint32_t Multisig::Update2()
 		Set(seedSk.V, Codes::Nonce);
 	}
 
+	ECC::RangeProof::Confidential::Nonces nonces;
+	nonces.Init(seedSk.V);
+
 	Impl::Part2Plus p2;
 	if (RaiseTo(1))
 	{
 		ZeroObject(p2);
-		ECC::RangeProof::Confidential::MultiSig::CoSignPart(seedSk.V, p2);
+		ECC::RangeProof::Confidential::MultiSig::CoSignPart(nonces, p2);
 		Send(p2, Codes::BpPart2);
 	}
 
@@ -268,7 +271,7 @@ uint32_t Multisig::Update2()
 	bp.m_Part2 = p2;
 
 	o2 = oracle;
-	if (!bp.CoSign(seedSk.V, sk, cp, o2, ECC::RangeProof::Confidential::Phase::Step2))
+	if (!bp.CoSign(nonces, sk, cp, o2, ECC::RangeProof::Confidential::Phase::Step2))
 		return Status::Error;
 
 	uint32_t nShareRes = 0;
@@ -285,7 +288,7 @@ uint32_t Multisig::Update2()
 			msig.m_Part2 = bp.m_Part2;
 
 			ZeroObject(bp.m_Part3);
-			msig.CoSignPart(seedSk.V, sk, oracle, bp.m_Part3);
+			msig.CoSignPart(nonces, sk, oracle, bp.m_Part3);
 
 			Send(bp.m_Part3.m_TauX, Codes::BpPart3);
 		}
@@ -294,7 +297,7 @@ uint32_t Multisig::Update2()
 	}
 
 	o2 = oracle;
-	if (!bp.CoSign(seedSk.V, sk, cp, o2, ECC::RangeProof::Confidential::Phase::Finalize))
+	if (!bp.CoSign(nonces, sk, cp, o2, ECC::RangeProof::Confidential::Phase::Finalize))
 		return Status::Error;
 
 

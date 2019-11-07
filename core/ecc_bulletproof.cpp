@@ -595,17 +595,6 @@ namespace ECC {
             >> seedSk;
     }
 
-	struct RangeProof::Confidential::MultiSig::Impl
-	{
-		Scalar::Native m_tau1;
-		Scalar::Native m_tau2;
-
-		void Init(const uintBig& seedSk);
-
-		void AddInfo1(Point::Native& ptT1, Point::Native& ptT2) const;
-		void AddInfo2(Scalar::Native& taux, const Scalar::Native& sk, const ChallengeSet1&) const;
-	};
-
 	struct RangeProof::Confidential::ChallengeSet0
 	{
 		Scalar::Native x, y, z;
@@ -629,7 +618,7 @@ namespace ECC {
 
 #pragma pack (pop)
 
-	bool RangeProof::Confidential::CoSign(const uintBig& seedSk, const Scalar::Native& sk, const CreatorParams& cp, Oracle& oracle, Phase::Enum ePhase, const Point::Native* pHGen /* = nullptr */)
+	bool RangeProof::Confidential::CoSign(const Nonces& nonces, const Scalar::Native& sk, const CreatorParams& cp, Oracle& oracle, Phase::Enum ePhase, const Point::Native* pHGen /* = nullptr */)
 	{
 		NonceGeneratorBp nonceGen(cp.m_Seed.V);
 
@@ -717,13 +706,10 @@ namespace ECC {
 			t2 += lx * rx;
 		}
 
-		MultiSig::Impl msig;
-		msig.Init(seedSk);
-
 		if (Phase::Finalize != ePhase) // otherwise m_Part2 already contains the whole aggregate
 		{
 			Point::Native comm2;
-			msig.AddInfo1(comm, comm2);
+			nonces.AddInfo1(comm, comm2);
 
 			if (Tag::IsCustom(pHGen))
 			{
@@ -772,7 +758,7 @@ namespace ECC {
 			return true; // stop after T1,T2 calculated
 
 		// m_TauX = tau2*x^2 + tau1*x + sk*z^2
-		msig.AddInfo2(l0, sk, cs);
+		nonces.AddInfo2(l0, sk, cs);
 
 		if (Phase::SinglePass != ePhase)
 			l0 += m_Part3.m_TauX;
@@ -907,7 +893,7 @@ namespace ECC {
 		return ptA == m_Part1.m_A; // the probability of false positive should be negligible
 	}
 
-	void RangeProof::Confidential::MultiSig::Impl::Init(const uintBig& seedSk)
+	void RangeProof::Confidential::Nonces::Init(const uintBig& seedSk)
 	{
 		NonceGenerator("bp-key")
 			<< seedSk
@@ -915,13 +901,13 @@ namespace ECC {
 			>> m_tau2;
 	}
 
-	void RangeProof::Confidential::MultiSig::Impl::AddInfo1(Point::Native& ptT1, Point::Native& ptT2) const
+	void RangeProof::Confidential::Nonces::AddInfo1(Point::Native& ptT1, Point::Native& ptT2) const
 	{
 		ptT1 = Context::get().G * m_tau1;
 		ptT2 = Context::get().G * m_tau2;
 	}
 
-	void RangeProof::Confidential::MultiSig::Impl::AddInfo2(Scalar::Native& taux, const Scalar::Native& sk, const ChallengeSet1& cs) const
+	void RangeProof::Confidential::Nonces::AddInfo2(Scalar::Native& taux, const Scalar::Native& sk, const ChallengeSet1& cs) const
 	{
 		// m_TauX = tau2*x^2 + tau1*x + sk*z^2
 		taux = m_tau2;
@@ -937,13 +923,10 @@ namespace ECC {
 		taux += t1;
 	}
 
-	bool RangeProof::Confidential::MultiSig::CoSignPart(const uintBig& seedSk, Part2& p2)
+	bool RangeProof::Confidential::MultiSig::CoSignPart(const Nonces& nonces, Part2& p2)
 	{
-		Impl msig;
-		msig.Init(seedSk);
-
 		Point::Native ptT1, ptT2;
-		msig.AddInfo1(ptT1, ptT2);
+		nonces.AddInfo1(ptT1, ptT2);
 
 		Point::Native pt;
 		if (!pt.Import(p2.m_T1))
@@ -959,17 +942,14 @@ namespace ECC {
 		return true;
 	}
 
-	void RangeProof::Confidential::MultiSig::CoSignPart(const uintBig& seedSk, const Scalar::Native& sk, Oracle& oracle, Part3& p3) const
+	void RangeProof::Confidential::MultiSig::CoSignPart(const Nonces& nonces, const Scalar::Native& sk, Oracle& oracle, Part3& p3) const
 	{
-		Impl msig;
-		msig.Init(seedSk);
-
 		ChallengeSet1 cs;
 		cs.Init1(m_Part1, oracle);
 		cs.Init2(m_Part2, oracle);
 
 		Scalar::Native taux;
-		msig.AddInfo2(taux, sk, cs);
+		nonces.AddInfo2(taux, sk, cs);
 
 		taux += Scalar::Native(p3.m_TauX);
 		p3.m_TauX = taux;
