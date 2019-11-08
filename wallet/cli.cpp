@@ -29,6 +29,7 @@
 
 #include "wallet/swaps/common.h"
 #include "wallet/swaps/utils.h"
+#include "wallet/aissue_transaction.h"
 #include "keykeeper/local_private_key_keeper.h"
 #include "core/ecc_native.h"
 #include "core/serialization_adapters.h"
@@ -549,19 +550,40 @@ namespace
         return 0;
     }
 
+    void ShowAssetInfo(const storage::Totals::AssetTotals& totals)
+    {
+        const unsigned kWidth = 26;
+        const std::string aname = "asset";
+        const std::string gname = "asset groth";
+
+        cout << boost::format(kWalletAssetSummaryFormat)
+             % totals.AssetId
+             % boost::io::group(left, setfill('.'), setw(kWidth), kWalletSummaryFieldAvailable) % to_string(PrintableAmount(totals.Avail, false, aname, gname))
+             % boost::io::group(left, setfill('.'), setw(kWidth), kWalletSummaryFieldInProgress) % to_string(PrintableAmount(totals.Incoming, false, aname, gname))
+             % boost::io::group(left, setfill('.'), setw(kWidth), kWalletSummaryFieldUnavailable) % to_string(PrintableAmount(totals.Unavail, false, aname, gname))
+             % boost::io::group(left, setfill('.'), setw(kWidth), kWalletSummaryFieldTotalUnspent) % to_string(PrintableAmount(totals.Unspent, false, aname, gname));
+    }
+
     int ShowWalletInfo(const IWalletDB::Ptr& walletDB, const po::variables_map& vm)
     {
         Block::SystemState::ID stateID = {};
         walletDB->getSystemStateID(stateID);
 
-        storage::Totals totals(*walletDB);
+        storage::Totals totalsCalc(*walletDB);
 
+        // Show info about assets
+        for(auto it: totalsCalc.allTotals) {
+            if (it.second.AssetId != Zero) {
+                ShowAssetInfo(it.second);
+            }
+        }
+
+        // Show info about BEAM
+        auto totals = totalsCalc.GetTotals(Zero);
         const unsigned kWidth = 26; 
         cout << boost::format(kWalletSummaryFormat)
-
              % boost::io::group(left, setfill('.'), setw(kWidth), kWalletSummaryFieldCurHeight) % stateID.m_Height
              % boost::io::group(left, setfill('.'), setw(kWidth), kWalletSummaryFieldCurStateID) % stateID.m_Hash
-
              % boost::io::group(left, setfill('.'), setw(kWidth), kWalletSummaryFieldAvailable) % to_string(PrintableAmount(totals.Avail))
              % boost::io::group(left, setfill('.'), setw(kWidth), kWalletSummaryFieldMaturing) % to_string(PrintableAmount(totals.Maturing))
              % boost::io::group(left, setfill('.'), setw(kWidth), kWalletSummaryFieldInProgress) % to_string(PrintableAmount(totals.Incoming))
@@ -1488,6 +1510,15 @@ namespace
             swapTransactionCreator->RegisterFactory(AtomicSwapCoin::Qtum, qtumSecondSideFactory);
         }
     }
+
+    void RegisterAssetCreators(Wallet& wallet, IWalletDB::Ptr walletDB)
+    {
+        auto crIssue = std::make_shared<AssetIssueTransaction::Creator>(true);
+        wallet.RegisterTransactionType(TxType::AssetIssue, std::static_pointer_cast<BaseTransaction::Creator>(crIssue));
+
+        auto crConsume = std::make_shared<AssetIssueTransaction::Creator>(true);
+        wallet.RegisterTransactionType(TxType::AssetConsume, std::static_pointer_cast<BaseTransaction::Creator>(crConsume));
+    }
 }
 
 io::Reactor::Ptr reactor;
@@ -1612,7 +1643,9 @@ int main_impl(int argc, char* argv[])
                             cli::SWAP_INIT,
                             cli::SWAP_ACCEPT,
                             cli::SET_SWAP_SETTINGS,
-                            cli::SHOW_SWAP_SETTINGS
+                            cli::SHOW_SWAP_SETTINGS,
+                            cli::ASSET_ISSUE,
+                            cli::ASSET_CONSUME
                         };
 
                         if (find(begin(commands), end(commands), command) == end(commands))
@@ -1911,6 +1944,7 @@ int main_impl(int argc, char* argv[])
                         wallet::AsyncContextHolder holder(wallet);
 
                         TryToRegisterSwapTxCreators(wallet, walletDB);
+                        RegisterAssetCreators(wallet, walletDB);
                         wallet.ResumeAllTransactions();
 
                         if (!coldWallet)
