@@ -240,6 +240,7 @@ namespace beam::wallet
         PeerSharedBulletProofPart3 = 110,
 
         PeerLockImage = 115,
+        AssetIdx = 116,
 
         // private parameters
         PrivateFirstParam = 128,
@@ -254,10 +255,11 @@ namespace beam::wallet
 
         Offset = 140,
 
+        ChangeAsset = 149,
         Change = 150,
         Status = 151,
         KernelID = 152,
-
+        EmissionKernelID = 153,
         MyAddressID = 158, // in case the address used in the tx is eventually deleted, the user should still be able to prove it was owned
 
         SharedBlindingFactor = 160,
@@ -273,6 +275,7 @@ namespace beam::wallet
         OutputCoins = 184,
         Outputs = 190,
 
+        EmissionKernel = 199,
         Kernel = 200,
         PreImage = 201,
         AtomicSwapSecretPrivateKey = 202,
