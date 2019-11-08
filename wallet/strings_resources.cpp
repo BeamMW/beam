@@ -215,4 +215,5 @@ namespace beam
 
     // Confidential assets
     const char kInvalidAssetID[] = "Invalid asset ID";
+    const char kErrorAssetIdxRequired[] = "Asset index is not specified";
 }

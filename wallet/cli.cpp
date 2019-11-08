@@ -907,7 +907,6 @@ namespace
     {
         if (!skipReceiverWalletID)
         {
-
             if (vm.count(cli::RECEIVER_ADDR) == 0)
             {
                 LOG_ERROR() << kErrorReceiverAddrMissing;
@@ -1528,6 +1527,42 @@ namespace
         auto crConsume = std::make_shared<AssetIssueTransaction::Creator>(true);
         wallet.RegisterTransactionType(TxType::AssetConsume, std::static_pointer_cast<BaseTransaction::Creator>(crConsume));
     }
+
+    TxID IssueAsset(const po::variables_map& vm, Wallet& wallet)
+    {
+        if(!vm.count(cli::ASSET_INDEX))
+        {
+            throw std::runtime_error(kErrorAssetIdxRequired);
+        }
+
+        const auto aidx = vm[cli::ASSET_INDEX].as<Positive<uint32_t>>().value;
+
+        if (!vm.count(cli::AMOUNT))
+        {
+            throw std::runtime_error(kErrorAmountMissing);
+        }
+
+        auto signedAmount = vm[cli::AMOUNT].as<Positive<double>>().value;
+        auto amount = static_cast<ECC::Amount>(std::round(signedAmount * Rules::Coin));
+        if (amount == 0)
+        {
+            throw std::runtime_error(kErrorZeroAmount);
+        }
+
+        auto fee = vm[cli::FEE].as<Nonnegative<Amount>>().value;
+        if (fee < cli::kMinimumFee)
+        {
+            throw std::runtime_error(kErrorFeeToLow);
+        }
+
+        auto params = CreateTransactionParameters(TxType::AssetIssue, GenerateTxID())
+                        .SetParameter(TxParameterID::Amount, amount)
+                        .SetParameter(TxParameterID::Fee, fee)
+                        .SetParameter(TxParameterID::PreselectedCoins, GetPreselectedCoinIDs(vm))
+                        .SetParameter(TxParameterID::AssetIdx, Key::Index(aidx));
+
+        return wallet.StartTransaction(params);
+    }
 }
 
 io::Reactor::Ptr reactor;
@@ -2021,6 +2056,11 @@ int main_impl(int argc, char* argv[])
                             {
                                 return -1;
                             }
+                        }
+
+                        if (command == cli::ASSET_ISSUE)
+                        {
+                            currentTxID = IssueAsset(vm, wallet);
                         }
 
                         if (isTxInitiator)

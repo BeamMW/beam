@@ -377,7 +377,7 @@ namespace beam
 
         po::options_description wallet_assets_options("Confidential assets options");
         wallet_assets_options.add_options()
-            (cli::ASSET_INDEX, po::value<string>(), "asset index");
+            (cli::ASSET_INDEX, po::value<Positive<uint32_t>>(), "asset index");
 
         po::options_description options{ "Allowed options" };
         po::options_description visible_options{ "Allowed options" };

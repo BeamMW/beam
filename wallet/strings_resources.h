@@ -207,4 +207,5 @@ namespace beam
 
     // Assets
     extern const char kInvalidAssetID[];
+    extern const char kErrorAssetIdxRequired[];
 }
