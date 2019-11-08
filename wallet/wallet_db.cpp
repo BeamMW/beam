@@ -41,7 +41,8 @@
     each(spentHeight,    spentHeight,   INTEGER, obj) sep \
     each(createTxId,     createTxId,    BLOB, obj) sep \
     each(spentTxId,      spentTxId,     BLOB, obj) sep \
-    each(sessionId,      sessionId,     INTEGER NOT NULL, obj)
+    each(sessionId,      sessionId,     INTEGER NOT NULL, obj) sep \
+    each(assetId,        assetId,       BLOB, obj)
 
 #define ENUM_ALL_STORAGE_FIELDS(each, sep, obj) \
     ENUM_STORAGE_ID(each, sep, obj) sep \
@@ -682,7 +683,8 @@ namespace beam::wallet
         const char* SystemStateIDName = "SystemStateID";
         const char* LastUpdateTimeName = "LastUpdateTime";
         const int BusyTimeoutMs = 5000;
-        const int DbVersion = 15;
+        const int DbVersion = 16;
+        const int DbVersion15 = 15;
         const int DbVersion14 = 14;
         const int DbVersion13 = 13;
         const int DbVersion12 = 12;
@@ -1217,7 +1219,7 @@ namespace beam::wallet
 
                         case DbVersion14:
                             {
-                                LOG_INFO() << "Converting DB to format 14...";
+                                LOG_INFO() << "Converting DB from format 14...";
 
                                 // tx_params table changed: added new column [subTxID]
                                 // move old data to temp table
@@ -1244,20 +1246,62 @@ namespace beam::wallet
                                     int ret = sqlite3_exec(walletDB->_db, req, NULL, NULL, NULL);
                                     throwIfError(ret, walletDB->_db);
                                 }
+                            }
+                            // no break;
 
+                        case DbVersion15:
+                            LOG_INFO() << "Converting DB from format 15...";
+
+                            // migrate coins
+                            if (!IsTableCreated(walletDB.get(), STORAGE_NAME "_del"))
+                            {
+                                const char* req =
+                                    "ALTER TABLE " STORAGE_NAME " RENAME TO " STORAGE_NAME "_del;"
+                                    "DROP INDEX CoinIndex;"
+                                    "DROP INDEX ConfirmIndex;";
+
+                                int ret = sqlite3_exec(walletDB->_db, req, NULL, NULL, NULL);
+                                throwIfError(ret, walletDB->_db);
+                            }
+
+                            if (!IsTableCreated(walletDB.get(), STORAGE_NAME))
+                            {
+                                CreateStorageTable(walletDB->_db);
+                            }
+
+                            {
+                                const char *req = "SELECT * FROM " STORAGE_NAME "_del;";
+                                for (sqlite::Statement stm(walletDB.get(), req); stm.step();) {
+                                    Coin coin;
+                                    stm.get(0, coin.m_ID.m_Type);
+                                    stm.get(1, coin.m_ID.m_SubIdx);
+                                    stm.get(2, coin.m_ID.m_Idx);
+                                    stm.get(3, coin.m_ID.m_Value);
+                                    stm.get(4, coin.m_maturity);
+                                    stm.get(5, coin.m_confirmHeight);
+                                    stm.get(6, coin.m_spentHeight);
+                                    stm.get(7, coin.m_createTxId);
+                                    stm.get(8, coin.m_spentTxId);
+                                    stm.get(9, coin.m_sessionId);
+                                    walletDB->saveCoin(coin);
+                                }
+                            }
+
+                            {
+                                const char* req = "DROP TABLE " STORAGE_NAME "_del;";
+                                int ret = sqlite3_exec(walletDB->_db, req, NULL, NULL, NULL);
+                                throwIfError(ret, walletDB->_db);
                             }
 
                             storage::setVar(*walletDB, Version, DbVersion);
-                            // no break;
+                            // no break
 
                         case DbVersion:
-
-                            // drop private variables from public database for cold wallet 
+                            // drop private variables from public database for cold wallet
                             if (separateDBForPrivateData && !DropPrivateVariablesFromPublicDatabase(*walletDB))
                             {
                                 return Ptr();
                             }
-
                             break; // ok
 
                         default:
