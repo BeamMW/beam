@@ -597,16 +597,7 @@ namespace
     {
         Block::SystemState::ID stateID = {};
         walletDB->getSystemStateID(stateID);
-
         storage::Totals totalsCalc(*walletDB);
-
-        // Show info about assets
-        for(auto it: totalsCalc.allTotals) {
-            if (it.second.AssetId != Zero) {
-                ShowAssetInfo(it.second);
-                ShowAssetCoins(walletDB, it.second.AssetId, kASSET, kAGROTH);
-            }
-        }
 
         // Show info about BEAM
         auto totals = totalsCalc.GetTotals(Zero);
@@ -623,6 +614,15 @@ namespace
              % boost::io::group(left, setfill('.'), setw(kWidth), kWalletSummaryFieldAvaliableFee) % to_string(PrintableAmount(totals.AvailFee))
              % boost::io::group(left, setfill('.'), setw(kWidth), kWalletSummaryFieldTotalFee) % to_string(PrintableAmount(totals.Fee))
              % boost::io::group(left, setfill('.'), setw(kWidth), kWalletSummaryFieldTotalUnspent) % to_string(PrintableAmount(totals.Unspent));
+        ShowAssetCoins(walletDB, Zero, kBEAM, kGROTH);
+
+        // Show info about assets
+        for(auto it: totalsCalc.allTotals) {
+            if (it.second.AssetId != Zero) {
+                ShowAssetInfo(it.second);
+                ShowAssetCoins(walletDB, it.second.AssetId, kASSET, kAGROTH);
+            }
+        }
 
         if (vm.count(cli::TX_HISTORY))
         {
@@ -703,7 +703,6 @@ namespace
             return 0;
         }
 
-        ShowAssetCoins(walletDB, Zero, kBEAM, kGROTH);
         return 0;
     }
 
