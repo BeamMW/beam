@@ -78,6 +78,7 @@ namespace beam::wallet
         boost::optional<TxID> m_spentTxId;   // id of the transaction which spent the UTXO
         
         uint64_t m_sessionId;   // Used in the API to lock coins for specific session (see https://github.com/BeamMW/beam/wiki/Beam-wallet-protocol-API#tx_split)
+        AssetID  m_assetId; // Which asset coin represents, Zero is BEAM
 
         bool IsMaturityValid() const; // is/was the UTXO confirmed?
         Height get_Maturity() const; // would return MaxHeight unless the UTXO was confirmed
@@ -205,11 +206,10 @@ namespace beam::wallet
         // Will return the next id starting from a random base created during wallet initialization
         virtual uint64_t AllocateKidRange(uint64_t nCount) = 0;
 
-
         // Selects a list of coins matching certain specified amount
         // Selection logic will optimize for number of UTXOs and minimize change
         // Uses greedy algorithm up to a point and follows by some heuristics
-        virtual std::vector<Coin> selectCoins(Amount amount) = 0;
+        virtual std::vector<Coin> selectCoins(Amount amount, AssetID assetId) = 0;
 
         // Some getters to get lists of coins by some input parameters
         virtual std::vector<Coin> getCoinsCreatedByTx(const TxID& txId) = 0;
@@ -314,7 +314,8 @@ namespace beam::wallet
         beam::Key::IKdf::Ptr get_MasterKdf() const override;
         beam::Key::IPKdf::Ptr get_OwnerKdf() const override;
         uint64_t AllocateKidRange(uint64_t nCount) override;
-        std::vector<Coin> selectCoins(Amount amount) override;
+        virtual std::vector<Coin> selectCoins(Amount amount, AssetID assetId);
+
         std::vector<Coin> getCoinsCreatedByTx(const TxID& txId) override;
         std::vector<Coin> getCoinsByTx(const TxID& txId) override;
         std::vector<Coin> getCoinsByID(const CoinIDList& ids) override;

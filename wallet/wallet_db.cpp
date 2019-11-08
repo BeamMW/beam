@@ -696,6 +696,7 @@ namespace beam::wallet
         , m_confirmHeight{ MaxHeight }
         , m_spentHeight{ MaxHeight }
         , m_sessionId(EmptyCoinSession)
+        , m_assetId(Zero)
     {
         m_ID = Zero;
         m_ID.m_Value = amount;
@@ -1465,7 +1466,7 @@ namespace beam::wallet
 		return true;
 	}
 
-    vector<Coin> WalletDB::selectCoins(Amount amount)
+    vector<Coin> WalletDB::selectCoins(Amount amount, AssetID assetId)
     {
         vector<Coin> coins, coinsSel;
         Block::SystemState::ID stateID = {};
@@ -1483,6 +1484,8 @@ namespace beam::wallet
 
                 storage::DeduceStatus(*this, coin, stateID.m_Height);
                 if (Coin::Status::Available != coin.m_status)
+                    coins.pop_back();
+                else if (coin.m_assetId != assetId)
                     coins.pop_back();
                 else
                 {
@@ -1503,7 +1506,10 @@ namespace beam::wallet
                 coinsSel.push_back(std::move(coins[res.second[j]]));
         }
 
-
+        LOG_INFO() << "Selected coins: ";
+        for (auto& coin: coinsSel) {
+            LOG_INFO() << "Value : " << coin.m_ID.m_Value << " isAsset: " << coin.m_ID.isAsset();
+        }
         return coinsSel;
     }
 
@@ -2787,8 +2793,6 @@ namespace beam::wallet
 
         void Totals::Init(IWalletDB& walletDB)
         {
-            ZeroObject(*this);
-
             walletDB.visitCoins([this](const Coin& c)->bool
             {
                 const Amount& v = c.m_ID.m_Value; // alias
