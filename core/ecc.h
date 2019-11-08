@@ -183,17 +183,19 @@ namespace ECC
 			Type(uint32_t x) :FourCC(x) {}
 
 			// definitions for common types, that are used in several places. But values can be arbitrary, not only for this list
-			static const uint32_t Comission = FOURCC_FROM(fees);
-			static const uint32_t Coinbase  = FOURCC_FROM(mine);
-			static const uint32_t Regular   = FOURCC_FROM(norm);
-			static const uint32_t Change    = FOURCC_FROM(chng);
-			static const uint32_t Kernel    = FOURCC_FROM(kern); // tests only
-			static const uint32_t Kernel2   = FOURCC_FROM(kerM); // used by the miner
-			static const uint32_t Identity  = FOURCC_FROM(iden); // Node-Wallet auth
-			static const uint32_t ChildKey  = FOURCC_FROM(SubK);
-			static const uint32_t Bbs       = FOURCC_FROM(BbsM);
-			static const uint32_t Decoy     = FOURCC_FROM(dcoy);
-			static const uint32_t Treasury  = FOURCC_FROM(Tres);
+			static const uint32_t Comission   = FOURCC_FROM(fees);
+			static const uint32_t Coinbase    = FOURCC_FROM(mine);
+			static const uint32_t Regular     = FOURCC_FROM(norm);
+			static const uint32_t Change      = FOURCC_FROM(chng);
+			static const uint32_t Kernel      = FOURCC_FROM(kern); // tests only
+			static const uint32_t Kernel2     = FOURCC_FROM(kerM); // used by the miner
+			static const uint32_t Identity    = FOURCC_FROM(iden); // Node-Wallet auth
+			static const uint32_t ChildKey    = FOURCC_FROM(SubK);
+			static const uint32_t Bbs         = FOURCC_FROM(BbsM);
+			static const uint32_t Decoy       = FOURCC_FROM(dcoy);
+			static const uint32_t Treasury    = FOURCC_FROM(Tres);
+			static const uint32_t Asset       = FOURCC_FROM(Asst);
+			static const uint32_t AssetChange = FOURCC_FROM(Achg);
 		};
 
 		struct ID
@@ -225,6 +227,7 @@ namespace ECC
 #pragma pack (pop)
 
 			void operator = (const Packed&);
+			bool isAsset() const;
 
 			int cmp(const ID&) const;
 			COMPARISON_VIA_CMP
