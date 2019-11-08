@@ -128,7 +128,7 @@ namespace
         coin.m_ID.m_Type = Key::Type::Coinbase;
         senderWalletDB->storeCoin(coin);
 
-        auto coins = senderWalletDB->selectCoins(24);
+        auto coins = senderWalletDB->selectCoins(24, Zero);
         WALLET_CHECK(coins.size() == 1);
         WALLET_CHECK(coins[0].m_ID.m_Type == Key::Type::Coinbase);
         WALLET_CHECK(coins[0].m_status == Coin::Available);
@@ -208,7 +208,7 @@ namespace
         TestWalletRig sender("sender", createSenderWalletDB(), f, TestWalletRig::Type::Regular, false, 0);
         TestWalletRig receiver("receiver", createReceiverWalletDB(), f);
 
-        WALLET_CHECK(sender.m_WalletDB->selectCoins(6).size() == 2);
+        WALLET_CHECK(sender.m_WalletDB->selectCoins(6, Zero).size() == 2);
         WALLET_CHECK(sender.m_WalletDB->getTxHistory().empty());
         WALLET_CHECK(receiver.m_WalletDB->getTxHistory().empty());
 
@@ -306,7 +306,7 @@ namespace
         }
 
         // second transfer
-        auto preselectedCoins = sender.m_WalletDB->selectCoins(6);
+        auto preselectedCoins = sender.m_WalletDB->selectCoins(6, Zero);
         CoinIDList preselectedIDs;
         for (const auto& c : preselectedCoins)
         {
@@ -514,7 +514,7 @@ namespace
         coin.m_ID.m_Type = Key::Type::Coinbase;
         senderWalletDB->storeCoin(coin);
 
-        auto coins = senderWalletDB->selectCoins(24);
+        auto coins = senderWalletDB->selectCoins(24, Zero);
         WALLET_CHECK(coins.size() == 1);
         WALLET_CHECK(coins[0].m_ID.m_Type == Key::Type::Coinbase);
         WALLET_CHECK(coins[0].m_status == Coin::Available);
@@ -610,7 +610,7 @@ namespace
         coin.m_ID.m_Type = Key::Type::Coinbase;
         senderWalletDB->storeCoin(coin);
 
-        auto coins = senderWalletDB->selectCoins(24);
+        auto coins = senderWalletDB->selectCoins(24, Zero);
         WALLET_CHECK(coins.size() == 1);
         WALLET_CHECK(coins[0].m_ID.m_Type == Key::Type::Coinbase);
         WALLET_CHECK(coins[0].m_status == Coin::Available);
@@ -734,7 +734,7 @@ namespace
         io::Timer::Ptr timer = io::Timer::create(*mainReactor);
         timer->start(1000, true, [&node]() {node.AddBlock(); });
 
-        WALLET_CHECK(sender.m_WalletDB->selectCoins(6).size() == 2);
+        WALLET_CHECK(sender.m_WalletDB->selectCoins(6, Zero).size() == 2);
         WALLET_CHECK(sender.m_WalletDB->getTxHistory().empty());
         WALLET_CHECK(receiver.m_WalletDB->getTxHistory().empty());
 
@@ -995,7 +995,7 @@ namespace
         TestWalletRig receiver("receiver", createReceiverWalletDB(), f);
         {
             TestWalletRig privateSender("sender", createSenderWalletDB(true), f, TestWalletRig::Type::ColdWallet);
-            WALLET_CHECK(privateSender.m_WalletDB->selectCoins(6).size() == 2);
+            WALLET_CHECK(privateSender.m_WalletDB->selectCoins(6, Zero).size() == 2);
             WALLET_CHECK(privateSender.m_WalletDB->getTxHistory().empty());
 
             // send from cold wallet
