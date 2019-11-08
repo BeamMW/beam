@@ -777,9 +777,9 @@ namespace beam
 
 	bool Transaction::IsValid(Context& ctx) const
 	{
-		return
-			ctx.ValidateAndSummarize(*this, get_Reader()) &&
-			ctx.IsValidTransaction();
+		const auto vs = ctx.ValidateAndSummarize(*this, get_Reader());
+		const auto vt = ctx.IsValidTransaction();
+		return vs && vt;
 	}
 
 	void Transaction::get_Key(KeyType& key) const
