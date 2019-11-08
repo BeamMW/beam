@@ -24,6 +24,7 @@ namespace beam
     const char kAGROTH[] = "AGROTH";
     const char kAmountASSET[] = "assets";
     const char kAmountAGROTH[] = "agroth";
+
     // Coin statuses
     const char kCoinStatusAvailable[] = "Available";
     const char kCoinStatusUnavailable[] = "Unavailable";
@@ -210,7 +211,6 @@ namespace beam
 
     const char kNodePoolPeriod[] = "Node poll period = %1% ms";
     const char kNodePoolPeriodRounded[] = "Node poll period has been automatically rounded up to block rate: %1% ms";
-
     const char kPpRequired[] = "Parameter set: Payment proof required: %1%";
 
     // Confidential assets
