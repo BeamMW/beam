@@ -1502,6 +1502,7 @@ namespace beam::wallet
 			c.m_ID = kidv;
 			findCoin(c); // in case it exists already - fill its parameters
 
+			c.m_assetId = x.m_Output.m_AssetID;
 			c.m_maturity = x.m_Output.get_MinMaturity(x.m_CreateHeight);
 			c.m_confirmHeight = x.m_CreateHeight;
 
@@ -2847,48 +2848,81 @@ namespace beam::wallet
             return true;
         }
 
+        Totals::Totals()
+        {
+            allTotals[Zero] = AssetTotals();
+        }
+
+        Totals::Totals(IWalletDB& db)
+        {
+            allTotals[Zero] = AssetTotals();
+            Init(db);
+        }
+
+
         void Totals::Init(IWalletDB& walletDB)
         {
-            walletDB.visitCoins([this](const Coin& c)->bool
+            auto getTotals = [this](AssetID assetId) -> AssetTotals& {
+                if (allTotals.find(assetId) == allTotals.end()) allTotals[assetId] = AssetTotals();
+                return allTotals[assetId];
+            };
+
+            walletDB.visitCoins([getTotals] (const Coin& c) -> bool
             {
-                const Amount& v = c.m_ID.m_Value; // alias
+                auto& totals = getTotals(c.m_assetId);
+                const Amount& value = c.m_ID.m_Value; // alias
+
                 switch (c.m_status)
                 {
                 case Coin::Status::Available:
-                    Avail += v;
-                    Unspent += v;
-
+                    totals.Avail += value;
+                    totals.Unspent += value;
                     switch (c.m_ID.m_Type)
                     {
-                    case Key::Type::Coinbase: AvailCoinbase += v; break;
-                    case Key::Type::Comission: AvailFee += v; break;
+                    case Key::Type::Coinbase:
+                        assert(!c.isAsset());
+                        totals.AvailCoinbase += value;
+                        break;
+                    case Key::Type::Comission:
+                        assert(!c.isAsset());
+                        totals.AvailFee += value;
+                        break;
                     default: // suppress warning
                         break;
                     }
-
                     break;
 
                 case Coin::Status::Maturing:
-                    Maturing += v;
-                    Unspent += v;
+                    assert(!c.isAsset());
+                    totals.Maturing += value;
+                    totals.Unspent += value;
                     break;
 
                 case Coin::Status::Incoming:
-                {
-                    Incoming += v;
+                    totals.Incoming += value;
                     if (c.m_ID.m_Type == Key::Type::Change)
                     {
-                        ReceivingChange += v;
+                        assert(!c.isAsset());
+                        totals.ReceivingChange += value;
+                    }
+                    else if(c.m_ID.m_Type == Key::Type::AssetChange)
+                    {
+                        assert(c.isAsset());
+                        totals.ReceivingChange += value;
                     }
                     else
                     {
-                        ReceivingIncoming += v;
+                        totals.ReceivingIncoming += value;
                     }
-
                     break;
-                }
-                case Coin::Status::Outgoing: Outgoing += v; break;
-                case Coin::Status::Unavailable: Unavail += v; break;
+
+                case Coin::Status::Outgoing:
+                    totals.Outgoing += value;
+                    break;
+
+                case Coin::Status::Unavailable:
+                    totals.Unavail += value;
+                    break;
 
                 default: // suppress warning
                     break;
@@ -2896,14 +2930,25 @@ namespace beam::wallet
 
                 switch (c.m_ID.m_Type)
                 {
-                case Key::Type::Coinbase: Coinbase += v; break;
-                case Key::Type::Comission: Fee += v; break;
+                case Key::Type::Coinbase:
+                    assert(!c.isAsset());
+                    totals.Coinbase += value;
+                    break;
+                case Key::Type::Comission:
+                    assert(!c.isAsset());
+                    totals.Fee += value;
+                    break;
                 default: // suppress warning
                     break;
                 }
 
                 return true;
             });
+        }
+
+        Totals::AssetTotals Totals::GetTotals(AssetID assetId)
+        {
+            return allTotals.find(assetId) == allTotals.end() ? AssetTotals() : allTotals[assetId];
         }
 
         WalletAddress createAddress(IWalletDB& walletDB, IPrivateKeyKeeper::Ptr keyKeeper)

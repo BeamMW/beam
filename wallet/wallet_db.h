@@ -524,22 +524,29 @@ namespace beam::wallet
         // Used in statistics
         struct Totals
         {
-            Amount Avail = 0;
-            Amount Maturing = 0;
-            Amount Incoming = 0;
-            Amount ReceivingIncoming = 0;
-            Amount ReceivingChange = 0;
-            Amount Unavail = 0;
-            Amount Outgoing = 0;
-            Amount AvailCoinbase = 0;
-            Amount Coinbase = 0;
-            Amount AvailFee = 0;
-            Amount Fee = 0;
-            Amount Unspent = 0;
+            struct AssetTotals {
+                AssetID AssetId = Zero;
+                Amount  Avail = 0;
+                Amount  Maturing = 0;
+                Amount  Incoming = 0;
+                Amount  ReceivingIncoming = 0;
+                Amount  ReceivingChange = 0;
+                Amount  Unavail = 0;
+                Amount  Outgoing = 0;
+                Amount  AvailCoinbase = 0;
+                Amount  Coinbase = 0;
+                Amount  AvailFee = 0;
+                Amount  Fee = 0;
+                Amount  Unspent = 0;
+            };
 
-            Totals() {}
-            Totals(IWalletDB& db) { Init(db); }
+            Totals();
+            explicit Totals(IWalletDB& db);
             void Init(IWalletDB&);
+            AssetTotals GetTotals(AssetID assetId);
+
+        private:
+            std::map<AssetID, AssetTotals> allTotals;
         };
 
         // Used for Payment Proof feature
