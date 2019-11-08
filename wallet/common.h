@@ -29,6 +29,8 @@ namespace beam::wallet
     {
         Simple,
         AtomicSwap,
+        AssetIssue,
+        AssetConsume,
         ALL
     };
 
@@ -74,12 +76,17 @@ namespace beam::wallet
 
     struct PrintableAmount
     {
-        explicit PrintableAmount(const Amount& amount, bool showPoint = false) 
-            : m_value{ amount }
+        explicit PrintableAmount(const Amount& amount, bool showPoint = false, const std::string& coinName = "", const std::string& grothName ="")
+            : m_value{amount}
             , m_showPoint{showPoint}
+            , m_coinName{coinName}
+            , m_grothName{grothName}
         {}
+
         const Amount& m_value;
         bool m_showPoint;
+        std::string m_coinName;
+        std::string m_grothName;
     };
     
     struct Coin;
@@ -129,6 +136,8 @@ namespace beam::wallet
     MACRO(NotEnoughTimeToFinishBtcTx,    21, "Not enough time to finish btc lock transaction") \
     MACRO(FailedToCreateMultiSig,        22, "Failed to create multi-signature") \
     MACRO(FeeIsTooSmall,                 23, "Fee is too small") \
+    MACRO(NotLoopback,                   24, "Not a loopback transaction") \
+    MACRO(NoKeyKeeper,                   25, "Key keeper is not initialized") \
 
     enum TxFailureReason : int32_t
     {
