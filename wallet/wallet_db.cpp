@@ -2863,7 +2863,10 @@ namespace beam::wallet
         void Totals::Init(IWalletDB& walletDB)
         {
             auto getTotals = [this](AssetID assetId) -> AssetTotals& {
-                if (allTotals.find(assetId) == allTotals.end()) allTotals[assetId] = AssetTotals();
+                if (allTotals.find(assetId) == allTotals.end()) {
+                    allTotals[assetId] = AssetTotals();
+                    allTotals[assetId].AssetId = assetId;
+                }
                 return allTotals[assetId];
             };
 
@@ -2948,7 +2951,13 @@ namespace beam::wallet
 
         Totals::AssetTotals Totals::GetTotals(AssetID assetId)
         {
-            return allTotals.find(assetId) == allTotals.end() ? AssetTotals() : allTotals[assetId];
+            if(allTotals.find(assetId) == allTotals.end())
+            {
+                AssetTotals result;
+                result.AssetId = assetId;
+                return result;
+            }
+            return allTotals[assetId];
         }
 
         WalletAddress createAddress(IWalletDB& walletDB, IPrivateKeyKeeper::Ptr keyKeeper)

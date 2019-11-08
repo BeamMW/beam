@@ -544,8 +544,6 @@ namespace beam::wallet
             explicit Totals(IWalletDB& db);
             void Init(IWalletDB&);
             AssetTotals GetTotals(AssetID assetId);
-
-        private:
             std::map<AssetID, AssetTotals> allTotals;
         };
 
