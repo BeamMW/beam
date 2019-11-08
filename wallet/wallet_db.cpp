@@ -690,17 +690,18 @@ namespace beam::wallet
         const int DbVersion10 = 10;
     }
 
-    Coin::Coin(Amount amount /* = 0 */, Key::Type keyType /* = Key::Type::Regular */)
+    Coin::Coin(Amount amount /* = 0 */, AssetID assetId /* = Zero */, Key::Type keyType /* = Key::Type::Regular */)
         : m_status{ Status::Unavailable }
         , m_maturity{ MaxHeight }
         , m_confirmHeight{ MaxHeight }
         , m_spentHeight{ MaxHeight }
         , m_sessionId(EmptyCoinSession)
-        , m_assetId(Zero)
+        , m_assetId(assetId)
     {
         m_ID = Zero;
         m_ID.m_Value = amount;
         m_ID.m_Type = keyType;
+        assert((m_ID.isAsset() && m_assetId != Zero) || (!m_ID.isAsset() && m_assetId == Zero));
     }
 
     bool Coin::isReward() const
@@ -713,6 +714,17 @@ namespace beam::wallet
         default:
             return false;
         }
+    }
+
+    bool Coin::isAsset() const
+    {
+        assert((m_ID.isAsset() && m_assetId != Zero) || (!m_ID.isAsset() && m_assetId == Zero));
+        return m_ID.isAsset();
+    }
+
+    bool Coin::isAsset(AssetID assetId) const
+    {
+        return isAsset() && m_assetId == assetId;
     }
 
     bool Coin::IsMaturityValid() const

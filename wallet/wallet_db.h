@@ -57,10 +57,12 @@ namespace beam::wallet
             count
         };
 
-        Coin(Amount amount = 0, Key::Type keyType = Key::Type::Regular);
+        explicit Coin(Amount amount = 0, AssetID assetId = Zero, Key::Type keyType = Key::Type::Regular);
         bool operator==(const Coin&) const;
         bool operator!=(const Coin&) const;
         bool isReward() const;
+        bool isAsset() const;
+        bool isAsset(AssetID assetId) const;
         std::string toStringID() const;
         Amount getAmount() const;
 
