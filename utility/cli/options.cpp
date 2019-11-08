@@ -246,8 +246,13 @@ namespace beam
         const char* TR_COMMENT = "tr_comment";
         const char* TR_M = "tr_M";
         const char* TR_N = "tr_N";
+
         // ui
         const char* APPDATA_PATH = "appdata";
+
+        // assets
+        const char* ASSET_ISSUE   = "issue";
+        const char* ASSET_CONSUME = "consume";
         // Defaults
         const Amount kMinimumFee = 100;
     }
