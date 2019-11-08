@@ -344,7 +344,7 @@ namespace beam::wallet
     void AssetIssueTxBuilder::GenerateBeamCoin(Amount amount)
     {
         LOG_INFO() << "Creating beam coin " << amount;
-        Coin newUtxo(amount, Key::Type::Regular);
+        Coin newUtxo(amount);
         newUtxo.m_createTxId = m_Tx.GetTxID();
         m_Tx.GetWalletDB()->storeCoin(newUtxo);
         m_OutputCoins.push_back(newUtxo.m_ID);

@@ -1524,11 +1524,11 @@ namespace
         auto crIssue = std::make_shared<AssetIssueTransaction::Creator>(true);
         wallet.RegisterTransactionType(TxType::AssetIssue, std::static_pointer_cast<BaseTransaction::Creator>(crIssue));
 
-        auto crConsume = std::make_shared<AssetIssueTransaction::Creator>(true);
+        auto crConsume = std::make_shared<AssetIssueTransaction::Creator>(false);
         wallet.RegisterTransactionType(TxType::AssetConsume, std::static_pointer_cast<BaseTransaction::Creator>(crConsume));
     }
 
-    TxID IssueAsset(const po::variables_map& vm, Wallet& wallet)
+    TxID IssueConsumeAsset(bool issue, const po::variables_map& vm, Wallet& wallet)
     {
         if(!vm.count(cli::ASSET_INDEX))
         {
@@ -1555,7 +1555,7 @@ namespace
             throw std::runtime_error(kErrorFeeToLow);
         }
 
-        auto params = CreateTransactionParameters(TxType::AssetIssue, GenerateTxID())
+        auto params = CreateTransactionParameters(issue ? TxType::AssetIssue : TxType::AssetConsume, GenerateTxID())
                         .SetParameter(TxParameterID::Amount, amount)
                         .SetParameter(TxParameterID::Fee, fee)
                         .SetParameter(TxParameterID::PreselectedCoins, GetPreselectedCoinIDs(vm))
@@ -2060,7 +2060,12 @@ int main_impl(int argc, char* argv[])
 
                         if (command == cli::ASSET_ISSUE)
                         {
-                            currentTxID = IssueAsset(vm, wallet);
+                            currentTxID = IssueConsumeAsset(true, vm, wallet);
+                        }
+
+                        if (command == cli::ASSET_CONSUME)
+                        {
+                            currentTxID = IssueConsumeAsset(false, vm, wallet);
                         }
 
                         if (isTxInitiator)
