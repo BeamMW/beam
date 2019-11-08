@@ -286,11 +286,12 @@ namespace beam::wallet
         Amount amountBeamWithFee = GetAmountBeam() + m_Fee;
         if (preselAmountBeam < amountBeamWithFee)
         {
-            auto selectedCoins = m_Tx.GetWalletDB()->selectBeamCoins(amountBeamWithFee - preselAmountBeam);
+            auto selectedCoins = m_Tx.GetWalletDB()->selectCoins(amountBeamWithFee - preselAmountBeam, Zero);
             if (selectedCoins.empty())
             {
                 storage::Totals totals(*m_Tx.GetWalletDB());
-                LOG_ERROR() << m_Tx.GetTxID() << "[" << m_SubTxID << "]" << " You only have " << PrintableAmount(totals.Avail);
+                auto beamTotals = totals.GetTotals(Zero);
+                LOG_ERROR() << m_Tx.GetTxID() << "[" << m_SubTxID << "]" << " You only have " << PrintableAmount(beamTotals.Avail);
                 throw TransactionFailedException(!m_Tx.IsInitiator(), TxFailureReason::NoInputs);
             }
             copy(selectedCoins.begin(), selectedCoins.end(), back_inserter(coins));
@@ -299,11 +300,12 @@ namespace beam::wallet
         Amount amountAsset = GetAmountAsset();
         if (preselAmountAsset < amountAsset)
         {
-            auto selectedCoins = m_Tx.GetWalletDB()->selectAssetCoins(amountAsset - preselAmountAsset);
+            auto selectedCoins = m_Tx.GetWalletDB()->selectCoins(amountAsset - preselAmountAsset, m_assetId);
             if (selectedCoins.empty())
             {
                 storage::Totals totals(*m_Tx.GetWalletDB());
-                LOG_ERROR() << m_Tx.GetTxID() << "[" << m_SubTxID << "]" << " You only have " << PrintableAmount(totals.Avail);
+                auto assetTotals(totals.GetTotals(m_assetId));
+                LOG_ERROR() << m_Tx.GetTxID() << "[" << m_SubTxID << "]" << " You only have " << PrintableAmount(assetTotals.Avail);
                 throw TransactionFailedException(!m_Tx.IsInitiator(), TxFailureReason::NoInputs);
             }
             copy(selectedCoins.begin(), selectedCoins.end(), back_inserter(coins));
@@ -332,7 +334,7 @@ namespace beam::wallet
     void AssetIssueTxBuilder::GenerateAssetCoin(Amount amount)
     {
         LOG_INFO() << "Creating asset coin " << amount;
-        Coin newUtxo(amount, Key::Type::Asset);
+        Coin newUtxo(amount, m_assetId, Key::Type::Asset);
         newUtxo.m_createTxId = m_Tx.GetTxID();
         m_Tx.GetWalletDB()->storeCoin(newUtxo);
         m_OutputCoins.push_back(newUtxo.m_ID);

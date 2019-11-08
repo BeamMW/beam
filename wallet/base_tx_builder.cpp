@@ -71,15 +71,16 @@ namespace beam::wallet
         Amount amountWithFee = GetAmount() + GetFee();
         if (preselectedAmount < amountWithFee)
         {
-            auto selectedCoins = m_Tx.GetWalletDB()->selectCoins(amountWithFee - preselectedAmount);
+            auto selectedCoins = m_Tx.GetWalletDB()->selectCoins(amountWithFee - preselectedAmount, Zero);
             copy(selectedCoins.begin(), selectedCoins.end(), back_inserter(coins));
         }
 
         if (coins.empty())
         {
             storage::Totals totals(*m_Tx.GetWalletDB());
+            auto beamTotals = totals.GetTotals(Zero);
 
-            LOG_ERROR() << m_Tx.GetTxID() << "[" << m_SubTxID << "]" << " You only have " << PrintableAmount(totals.Avail);
+            LOG_ERROR() << m_Tx.GetTxID() << "[" << m_SubTxID << "]" << " You only have " << PrintableAmount(beamTotals.Avail);
             throw TransactionFailedException(!m_Tx.IsInitiator(), TxFailureReason::NoInputs);
         }
 
