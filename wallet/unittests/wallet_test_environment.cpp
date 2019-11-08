@@ -64,12 +64,13 @@ public:
         return m_pKdf;
     }
 
-    std::vector<Coin> selectCoins(ECC::Amount amount) override
+    std::vector<Coin> selectCoins(ECC::Amount amount, AssetID assetId) override
     {
         std::vector<Coin> res;
         ECC::Amount t = 0;
         for (auto& c : m_coins)
         {
+            if (c.m_assetId != assetId) continue;
             t += c.m_ID.m_Value;
             c.m_status = Coin::Outgoing;
             res.push_back(c);
