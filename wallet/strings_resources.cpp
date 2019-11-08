@@ -20,6 +20,10 @@ namespace beam
     const char kTimeStampFormat3x3[] = "%Y.%m.%d %H:%M:%S";
     const char kBEAM[] = "BEAM";
     const char kGROTH[] = "GROTH";
+    const char kASSET[] = "ASSET";
+    const char kAGROTH[] = "AGROTH";
+    const char kAmountASSET[] = "assets";
+    const char kAmountAGROTH[] = "agroth";
     // Coin statuses
     const char kCoinStatusAvailable[] = "Available";
     const char kCoinStatusUnavailable[] = "Unavailable";
@@ -149,6 +153,7 @@ namespace beam
 
     // Wallet info
     const char kWalletSummaryFormat[] = "____Wallet summary____\n\n%1%%2%\n%3%%4%\n\n%5%%6%\n%7%%8%\n%9%%10%\n%11%%12%\n%13%%14%\n%15%%16%\n%17%%18%\n%19%%20%\n%21%%22%\n\n";
+    const char kWalletAssetSummaryFormat[] = "____Asset summary____\n\nAsset ID: %1%\n\n%2%%3%\n\%4%%5%\n%6%%7%\n%8%%9%\n\n";
     const char kWalletSummaryFieldCurHeight[] = "Current height";
     const char kWalletSummaryFieldCurStateID[] = "Current state ID";
     const char kWalletSummaryFieldAvailable[] = "Available";
@@ -207,4 +212,7 @@ namespace beam
     const char kNodePoolPeriodRounded[] = "Node poll period has been automatically rounded up to block rate: %1% ms";
 
     const char kPpRequired[] = "Parameter set: Payment proof required: %1%";
+
+    // Confidential assets
+    const char kInvalidAssetID[] = "Invalid asset ID";
 }

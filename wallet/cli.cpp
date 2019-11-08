@@ -553,15 +553,44 @@ namespace
     void ShowAssetInfo(const storage::Totals::AssetTotals& totals)
     {
         const unsigned kWidth = 26;
-        const std::string aname = "asset";
-        const std::string gname = "asset groth";
-
         cout << boost::format(kWalletAssetSummaryFormat)
              % totals.AssetId
-             % boost::io::group(left, setfill('.'), setw(kWidth), kWalletSummaryFieldAvailable) % to_string(PrintableAmount(totals.Avail, false, aname, gname))
-             % boost::io::group(left, setfill('.'), setw(kWidth), kWalletSummaryFieldInProgress) % to_string(PrintableAmount(totals.Incoming, false, aname, gname))
-             % boost::io::group(left, setfill('.'), setw(kWidth), kWalletSummaryFieldUnavailable) % to_string(PrintableAmount(totals.Unavail, false, aname, gname))
-             % boost::io::group(left, setfill('.'), setw(kWidth), kWalletSummaryFieldTotalUnspent) % to_string(PrintableAmount(totals.Unspent, false, aname, gname));
+             % boost::io::group(left, setfill('.'), setw(kWidth), kWalletSummaryFieldAvailable) % to_string(PrintableAmount(totals.Avail, false, kAmountASSET, kAmountAGROTH))
+             % boost::io::group(left, setfill('.'), setw(kWidth), kWalletSummaryFieldInProgress) % to_string(PrintableAmount(totals.Incoming, false, kAmountASSET, kAmountAGROTH))
+             % boost::io::group(left, setfill('.'), setw(kWidth), kWalletSummaryFieldUnavailable) % to_string(PrintableAmount(totals.Unavail, false, kAmountASSET, kAmountAGROTH))
+             % boost::io::group(left, setfill('.'), setw(kWidth), kWalletSummaryFieldTotalUnspent) % to_string(PrintableAmount(totals.Unspent, false, kAmountASSET, kAmountAGROTH));
+    }
+
+    void ShowAssetCoins(const IWalletDB::Ptr& walletDB, AssetID assetId, const char* coin, const char* groth)
+    {
+        const array<uint8_t, 6> columnWidths{ { 49, 14, 14, 18, 30, 8} };
+        cout << boost::format(kCoinsTableHeadFormat)
+                 % boost::io::group(left, setw(columnWidths[0]), kCoinColumnId)
+                 % boost::io::group(right, setw(columnWidths[1]), coin)
+                 % boost::io::group(right, setw(columnWidths[2]), groth)
+                 % boost::io::group(left, setw(columnWidths[3]), kCoinColumnMaturity)
+                 % boost::io::group(left, setw(columnWidths[4]), kCoinColumnStatus)
+                 % boost::io::group(left, setw(columnWidths[5]), kCoinColumnType)
+                 << std::endl;
+
+        walletDB->visitCoins([&columnWidths, &assetId](const Coin& c)->bool
+        {
+            if (c.m_assetId == assetId) {
+                cout << boost::format(kCoinsTableFormat)
+                        % boost::io::group(left, setw(columnWidths[0]), c.toStringID())
+                        % boost::io::group(right, setw(columnWidths[1]), c.m_ID.m_Value / Rules::Coin)
+                        % boost::io::group(right, setw(columnWidths[2]), c.m_ID.m_Value % Rules::Coin)
+                        % boost::io::group(left, setw(columnWidths[3]),
+                                           (c.IsMaturityValid() ? std::to_string(static_cast<int64_t>(c.m_maturity))
+                                                                : "-"))
+                        % boost::io::group(left, setw(columnWidths[4]), getCoinStatus(c.m_status))
+                        % boost::io::group(left, setw(columnWidths[5]), c.m_ID.m_Type)
+                     << std::endl;
+            }
+            return true;
+        });
+
+        cout << std::endl;
     }
 
     int ShowWalletInfo(const IWalletDB::Ptr& walletDB, const po::variables_map& vm)
@@ -575,6 +604,7 @@ namespace
         for(auto it: totalsCalc.allTotals) {
             if (it.second.AssetId != Zero) {
                 ShowAssetInfo(it.second);
+                ShowAssetCoins(walletDB, it.second.AssetId, kASSET, kAGROTH);
             }
         }
 
@@ -673,28 +703,7 @@ namespace
             return 0;
         }
 
-        const array<uint8_t, 6> columnWidths{ { 49, 14, 14, 18, 30, 8} };
-        cout << boost::format(kCoinsTableHeadFormat)
-                 % boost::io::group(left, setw(columnWidths[0]), kCoinColumnId)
-                 % boost::io::group(right, setw(columnWidths[1]), kBEAM)
-                 % boost::io::group(right, setw(columnWidths[2]), kGROTH)
-                 % boost::io::group(left, setw(columnWidths[3]), kCoinColumnMaturity)
-                 % boost::io::group(left, setw(columnWidths[4]), kCoinColumnStatus)
-                 % boost::io::group(left, setw(columnWidths[5]), kCoinColumnType)
-                 << std::endl;
-        
-        walletDB->visitCoins([&columnWidths](const Coin& c)->bool
-        {
-            cout << boost::format(kCoinsTableFormat)
-                 % boost::io::group(left, setw(columnWidths[0]), c.toStringID())
-                 % boost::io::group(right, setw(columnWidths[1]), c.m_ID.m_Value / Rules::Coin)
-                 % boost::io::group(right, setw(columnWidths[2]), c.m_ID.m_Value % Rules::Coin)
-                 % boost::io::group(left, setw(columnWidths[3]), (c.IsMaturityValid() ? std::to_string(static_cast<int64_t>(c.m_maturity)) : "-"))
-                 % boost::io::group(left, setw(columnWidths[4]), getCoinStatus(c.m_status))
-                 % boost::io::group(left, setw(columnWidths[5]), c.m_ID.m_Type)
-                 << std::endl;
-            return true;
-        });
+        ShowAssetCoins(walletDB, Zero, kBEAM, kGROTH);
         return 0;
     }
 
