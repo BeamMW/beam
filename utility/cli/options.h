@@ -156,6 +156,8 @@ namespace beam
         // assets
         extern const char* ASSET_ISSUE;
         extern const char* ASSET_CONSUME;
+        extern const char* ASSET_INDEX;
+
         // Defaults that should be accessible outside
         extern const Amount kMinimumFee;
     }

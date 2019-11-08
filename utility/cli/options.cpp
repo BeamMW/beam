@@ -253,6 +253,8 @@ namespace beam
         // assets
         const char* ASSET_ISSUE   = "issue";
         const char* ASSET_CONSUME = "consume";
+        const char* ASSET_INDEX   = "asset_idx";
+
         // Defaults
         const Amount kMinimumFee = 100;
     }
@@ -373,6 +375,10 @@ namespace beam
             (cli::SWAP_TX_HISTORY, "show swap transactions history in info command")
             (cli::SWAP_TOKEN, po::value<string>(), "swap transaction token");
 
+        po::options_description wallet_assets_options("Confidential assets options");
+        wallet_assets_options.add_options()
+            (cli::ASSET_INDEX, po::value<string>(), "asset index");
+
         po::options_description options{ "Allowed options" };
         po::options_description visible_options{ "Allowed options" };
         if (flags & GENERAL_OPTIONS)
@@ -391,8 +397,10 @@ namespace beam
             options.add(wallet_options);
             options.add(wallet_treasury_options);
             options.add(swap_options);
+            if(Rules::get().CA.Enabled) options.add(wallet_assets_options);
             visible_options.add(wallet_options);
             visible_options.add(swap_options);
+            if(Rules::get().CA.Enabled) visible_options.add(wallet_assets_options);
         }
         if (flags & UI_OPTIONS)
         {
