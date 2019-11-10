@@ -178,6 +178,14 @@ void SetRandom(Point::Native& value, uint8_t y = 0)
     }
 }
 
+void SetRandom(Key::IKdf::Ptr& pPtr)
+{
+	uintBig hv;
+	SetRandom(hv);
+	ECC::HKdf::Create(pPtr, hv);
+}
+
+
 template <typename T>
 void SetRandomOrd(T& x, bool is_trezor_debug = false)
 {
@@ -972,12 +980,8 @@ void TestMultiSigOutput()
 
     beam::Key::IKdf::Ptr pKdf_A;
     beam::Key::IKdf::Ptr pKdf_B;
-    uintBig secretB;
-    uintBig secretA;
-    SetRandom(secretA);
-    SetRandom(secretB);
-    ECC::HKdf::Create(pKdf_B, secretB);
-    ECC::HKdf::Create(pKdf_A, secretA);
+    SetRandom(pKdf_B);
+    SetRandom(pKdf_A);
     // need only for last side - proof creator
     RangeProof::CreatorParams creatorParamsB;
     SetRandomOrd(creatorParamsB.m_Kidv.m_Idx);
