@@ -1622,42 +1622,32 @@ namespace beam
 
 				{
 					Output::Ptr pOut(new Output);
-					pOut->m_pShielded.reset(new Output::Shielded);
 
-					ECC::SetRandom(m_Shielded.m_skSpendKey);
-					ECC::Point::Native ptN = ECC::Context::get().G * m_Shielded.m_skSpendKey;
-					ECC::Point pt = ptN;
-					ECC::Scalar::Native skSerial;
-					Lelantus::SpendKey::ToSerial(skSerial, pt);
+					Output::Shielded::PublicGen gen;
+					gen.m_pGen = m_Wallet.m_pKdf; // whatever
+					gen.m_pSer = m_Wallet.m_pKdf; // whatever
+					gen.m_Owner = 12U; // whatever
 
-					ECC::Scalar::Native skG;
-					ECC::SetRandom(skG);
-					pOut->m_pShielded->Sign(skG, skSerial);
-					verify_test(pOut->m_pShielded->IsValid());
+					ECC::Hash::Value nonce;
+					nonce = 13U; // whatever
+
+					Output::Shielded::Data d;
+					d.m_hScheme = h + 1;
+					d.m_Value = m_Shielded.m_Value;
+					d.Generate(*pOut, gen, nonce);
+
+					m_Shielded.m_sk = d.m_sk;
+					m_Shielded.m_sk += d.m_skSerial;
 					m_Shielded.m_Commitment = pOut->m_pShielded->m_SerialPub;
 
-					pOut->m_pConfidential.reset(new ECC::RangeProof::Confidential);
+					d.GetSpendKey(m_Shielded.m_skSpendKey, *m_Wallet.m_pKdf);
 
-					ECC::SetRandom(m_Shielded.m_sk);
-
-					ptN = ECC::Commitment(m_Shielded.m_sk, m_Shielded.m_Value);
-					pOut->m_Commitment = ptN;
-
-					ECC::Oracle oracle;
-					pOut->Prepare(oracle, h + 1);
-
-					ECC::RangeProof::CreatorParams cp;
-					ZeroObject(cp);
-					cp.m_Kidv.m_Value = m_Shielded.m_Value;
-					pOut->m_pConfidential->Create(m_Shielded.m_sk, cp, oracle);
-
-					verify_test(pOut->IsValid(h + 1, ptN));
+					ECC::Point::Native pt;
+					verify_test(pOut->IsValid(h + 1, pt));
 
 					msgTx.m_Transaction->m_vOutputs.push_back(std::move(pOut));
 
-					kOffset += m_Shielded.m_sk;
-
-					m_Shielded.m_sk += skG; // effective blinding factor
+					kOffset += d.m_sk;
 				}
 
 				{

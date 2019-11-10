@@ -293,11 +293,57 @@ namespace beam
 			ECC::Signature m_Signature;
 			ECC::Scalar m_kSer;
 
-			void Sign(const ECC::Scalar::Native& skG, const ECC::Scalar::Native& skJ);
 			bool IsValid() const;
 
 			int cmp(const Shielded&) const;
 			COMPARISON_VIA_CMP
+
+			struct PublicGen
+			{
+				Key::IPKdf::Ptr m_pGen;
+				Key::IPKdf::Ptr m_pSer;
+
+				PeerID m_Owner;
+				void get_OwnerNonce(ECC::Hash::Value&, const ECC::Scalar::Native&) const;
+			};
+
+			struct Viewer
+			{
+				Key::IKdf::Ptr m_pGen;
+				Key::IPKdf::Ptr m_pSer;
+			};
+
+			struct Data
+			{
+				ECC::Scalar::Native m_sk; // blinding factor for the Output
+				ECC::Scalar::Native m_skSerial; // blinding factor for the serial. Set iff serial part is created
+				Amount m_Value;
+				Height m_hScheme = 0; // must set
+
+				// Generates Shielded from nonce
+				// Sets both m_sk and m_skSerial
+				void GenerateS(Shielded&, const PublicGen&, const ECC::Hash::Value& nonce);
+				void GenerateO(Output&, const PublicGen&); // generate UTXO from m_sk
+				void Generate(Output&, const PublicGen&, const ECC::Hash::Value& nonce); // generate everything nonce
+
+				bool Recover(const Output&, const Viewer&);
+
+				struct HashTxt;
+
+				void GetSpendKey(ECC::Scalar::Native&, Key::IKdf& ser);
+
+			private:
+				static void GenerateS0(Key::IPKdf& ser, const ECC::Hash::Value& nonce, ECC::Scalar::Native& kG, ECC::Scalar::Native& kJ);
+				static void GenerateS1(Key::IPKdf& gen, const ECC::Point& ptShared, ECC::Scalar::Native& nG, ECC::Scalar::Native& nJ);
+				static void GetSerialPreimage(ECC::Hash::Value& res, const ECC::Scalar::Native& kG);
+				static void GetSerial(ECC::Scalar::Native& kJ, const ECC::Scalar::Native& kG, Key::IPKdf& ser);
+				void ToSk(Key::IPKdf& gen);
+				void GetOutputSeed(Key::IPKdf& gen, ECC::Hash::Value&) const;
+				static void GetDH(ECC::Hash::Value&, const ECC::Point&);
+				static void DoubleBlindedCommitment(ECC::Point::Native&, const ECC::Scalar::Native& kG, const ECC::Scalar::Native& kJ);
+				static bool IsEqual(const ECC::Point::Native& pt0, const ECC::Point& pt1);
+				static bool IsEqual(const ECC::Point::Native& pt0, const ECC::Point::Native& pt1);
+			};
 
 		private:
 			void get_Hash(ECC::Hash::Value&) const;
