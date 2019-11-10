@@ -170,6 +170,7 @@ namespace ECC
 		int cmp(const Signature&) const;
 		COMPARISON_VIA_CMP
 
+		void get_Challenge(Scalar::Native&, const Hash::Value& msg) const;
 	private:
 		static void get_Challenge(Scalar::Native&, const Point&, const Hash::Value& msg);
 	};

@@ -2104,6 +2104,11 @@ namespace ECC {
 		Oracle() << pt << msg >> out;
 	}
 
+	void Signature::get_Challenge(Scalar::Native& out, const Hash::Value& msg) const
+	{
+		get_Challenge(out, m_NoncePub, msg);
+	}
+
 	void Signature::MultiSig::SignPartial(Scalar::Native& k, const Hash::Value& msg, const Scalar::Native& sk) const
 	{
 		get_Challenge(k, m_NoncePub, msg);
@@ -2140,7 +2145,7 @@ namespace ECC {
 		Mode::Scope scope(Mode::Fast);
 
 		Scalar::Native e;
-		get_Challenge(e, m_NoncePub, msg);
+		get_Challenge(e, msg);
 
 		InnerProduct::BatchContext* pBc = InnerProduct::BatchContext::s_pInstance;
 		if (pBc)
