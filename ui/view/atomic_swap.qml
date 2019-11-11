@@ -148,13 +148,10 @@ Item {
                     //% "Accept offer"
                     text: qsTrId("atomic-swap-accept")
                     font.pixelSize: 12
-                    //font.capitalization: Font.AllUppercase
-
                     onClicked: {
                         offersStackView.push(Qt.createComponent("send.qml"),
                                              {
-                                                "isSwapMode": true,
-                                                "onClosed": onClosed,
+                                                "onClosed":    onClosed,
                                                 "onSwapToken": onSwapToken
                                              });
                     }

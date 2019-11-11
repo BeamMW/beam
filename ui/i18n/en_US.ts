@@ -1379,8 +1379,8 @@ or send this address to the sender over secure channel</translation>
         <translation>Invalid swap token</translation>
     </message>
     <message id="wallet-send-invalid-address-or-token">
-        <source>Invalid wallet address or swap token</source>
-        <translation>Invalid wallet address or swap token</translation>
+        <source>Invalid wallet address</source>
+        <translation>Invalid wallet address</translation>
     </message>
     <message id="general-comment-local">
         <source>Comments are local and won&apos;t be shared</source>
@@ -1410,10 +1410,6 @@ or send this address to the sender over secure channel</translation>
         <source>%1 is not connected, \nplease review your settings and try again.</source>
         <oldsource>%1 is not connected, please review your settings and try again.</oldsource>
         <translation type="unfinished">%1 is not connected, \nplease review your settings and try again.</translation>
-    </message>
-    <message id="send-swap-to-label">
-        <source>Transaction token</source>
-        <translation>Transaction token</translation>
     </message>
     <message id="send-not-enough">
         <source>There is not enough funds to complete the transaction</source>
@@ -1966,6 +1962,14 @@ to complete.</translation>
     <message id="beam-transaction-fee">
         <source>BEAM Transaction fee</source>
         <translation>BEAM Transaction fee</translation>
+    </message>
+    <message id="send-swap-token">
+        <source>Swap token</source>
+        <translation>Swap token</translation>
+    </message>
+    <message id="send-swap-token-hint">
+        <source>Paste token here</source>
+        <translation>Paste token here</translation>
     </message>
 </context>
 </TS>
