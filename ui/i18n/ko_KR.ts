@@ -1382,8 +1382,9 @@
         <translation>잘못된 스왑 토큰</translation>
     </message>
     <message id="wallet-send-invalid-address-or-token">
-        <source>Invalid wallet address or swap token</source>
-        <translation>유효하지 않은 지갑 주소 또는 스왑 토큰</translation>
+        <source>Invalid wallet address</source>
+        <oldsource>Invalid wallet address or swap token</oldsource>
+        <translation type="unfinished">Invalid wallet address or swap token</translation>
     </message>
     <message id="general-comment-local">
         <source>Comments are local and won&apos;t be shared</source>
@@ -1416,7 +1417,7 @@
     </message>
     <message id="send-swap-to-label">
         <source>Transaction token</source>
-        <translation>트랜잭션 토큰</translation>
+        <translation type="obsolete">Transaction token</translation>
     </message>
     <message id="send-not-enough">
         <source>There is not enough funds to complete the transaction</source>
@@ -1968,6 +1969,14 @@ Without the phrase you will not be able to recover your money.</source>
     <message id="beam-transaction-fee">
         <source>BEAM Transaction fee</source>
         <translation type="unfinished">거래 수수료</translation>
+    </message>
+    <message id="send-swap-token">
+        <source>Swap token</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="send-swap-token-hint">
+        <source>Paste token here</source>
+        <translation type="unfinished"></translation>
     </message>
 </context>
 </TS>

@@ -1385,8 +1385,9 @@ Update your settings and try again.</oldsource>
         <translation>Token de intercambio inválido</translation>
     </message>
     <message id="wallet-send-invalid-address-or-token">
-        <source>Invalid wallet address or swap token</source>
-        <translation>Dirección de wallet no válida o token de intercambio</translation>
+        <source>Invalid wallet address</source>
+        <oldsource>Invalid wallet address or swap token</oldsource>
+        <translation type="unfinished">Dirección de wallet no válida o token de intercambio</translation>
     </message>
     <message id="general-comment-local">
         <source>Comments are local and won&apos;t be shared</source>
@@ -1420,7 +1421,7 @@ please review your settings and try again.</oldsource>
     </message>
     <message id="send-swap-to-label">
         <source>Transaction token</source>
-        <translation>Token de transacción</translation>
+        <translation type="vanished">Token de transacción</translation>
     </message>
     <message id="send-not-enough">
         <source>There is not enough funds to complete the transaction</source>
@@ -1978,6 +1979,14 @@ Without the phrase you will not be able to recover your money.</source>
     <message id="beam-transaction-fee">
         <source>BEAM Transaction fee</source>
         <translation type="unfinished">Tarifa de la transacción</translation>
+    </message>
+    <message id="send-swap-token">
+        <source>Swap token</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="send-swap-token-hint">
+        <source>Paste token here</source>
+        <translation type="unfinished"></translation>
     </message>
 </context>
 </TS>

@@ -52,7 +52,6 @@ ColumnLayout {
         onAccepted: main.openSwapSettings();
     }
 
-
     Component.onCompleted: {
         comment_input.forceActiveFocus();
         if (predefinedTxParams != undefined) {
@@ -126,8 +125,8 @@ ColumnLayout {
                     font.pixelSize:  14
                     font.styleName:  "Bold"; font.weight: Font.Bold
                     color:           Style.content_main
-                    //% "Transaction token"
-                    text:            qsTrId("send-swap-to-label")
+                    //% "Swap token"
+                    text:            qsTrId("send-swap-token")
                 }
 
                 SFTextInput {
@@ -141,8 +140,7 @@ ColumnLayout {
                     validator:        RegExpValidator { regExp: /[0-9a-fA-F]{1,}/ }
                     selectByMouse:    true
                     readOnly:         true
-                    //% "Please specify contact or transaction token"
-                    placeholderText:  qsTrId("send-contact-placeholder")
+                    onTextChanged:    cursorPosition = 0
                 }
 
                 Item {
