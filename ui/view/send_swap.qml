@@ -371,6 +371,7 @@ ColumnLayout {
                         const dialogComponent = Qt.createComponent("send_confirm.qml");
                         var dialogObject = dialogComponent.createObject(sendSwapView,
                             {
+                                swapMode: true,
                                 addressText: viewModel.receiverAddress,
                                 amountText: [Utils.uiStringToLocale(viewModel.sendAmount), sendAmountInput.getCurrencyLabel()].join(" "),
                                 feeText: [Utils.uiStringToLocale(viewModel.sendFee), sendAmountInput.getFeeLabel()].join(" "),

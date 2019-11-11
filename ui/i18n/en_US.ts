@@ -1953,5 +1953,15 @@ Please check the swap token and try again.</translation>
         <source>Your swap token:</source>
         <translation>Your swap token:</translation>
     </message>
+    <message id="send-swap-confirmation-title">
+        <source>Confirm atomic swap</source>
+        <translation>Confirm atomic swap</translation>
+    </message>
+    <message id="send-swap-sconfirmation-online-time">
+        <source>Keep your wallet online. The swap normally takes about 1 hour
+to complete.</source>
+        <translation>Keep your wallet online. The swap normally takes about 1 hour
+to complete.</translation>
+    </message>
 </context>
 </TS>
