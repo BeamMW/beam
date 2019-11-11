@@ -1367,8 +1367,8 @@ or send this address to the sender over secure channel</translation>
         <translation>Send this token to the sender over an external secure channel</translation>
     </message>
     <message id="wallet-receive-swap-publish">
-        <source>publish transaction token</source>
-        <translation>publish transaction token</translation>
+        <source>publish offer</source>
+        <translation>publish offer</translation>
     </message>
     <message id="wallet-send-swap-title">
         <source>Swap currencies</source>
@@ -1592,8 +1592,8 @@ or send this address to the sender over secure channel</translation>
         <translation>There is no device connected, please, connect your hardware wallet.</translation>
     </message>
     <message id="wallet-receive-copy-token">
-        <source>copy transaction token</source>
-        <translation>copy transaction token</translation>
+        <source>copy swap token</source>
+        <translation>copy swap token</translation>
     </message>
     <message id="wallet-model-device-not-connected">
         <source>There is no Trezor device connected. Please, connect and try again.</source>
@@ -1948,6 +1948,10 @@ Please check the swap token and try again.</translation>
         <source>Enter your wallet password to clear seed phrase</source>
         <extracomment>electrum settings, ask password to clear seed phrase, dialog message</extracomment>
         <translation>Enter your wallet password to clear seed phrase</translation>
+    </message>
+    <message id="wallet-receive-swap-your-token">
+        <source>Your swap token:</source>
+        <translation>Your swap token:</translation>
     </message>
 </context>
 </TS>
