@@ -239,8 +239,8 @@
         <translation>odesláno</translation>
     </message>
     <message id="wallet-txs-status-cancelled">
-        <source>canceled</source>
-        <oldsource>cancelled</oldsource>
+        <source>cancelled</source>
+        <oldsource>canceled</oldsource>
         <translation type="unfinished">canceled</translation>
     </message>
     <message id="wallet-txs-status-expired">

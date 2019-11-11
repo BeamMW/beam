@@ -1284,7 +1284,7 @@ Item {
             case "in progress": return qsTrId("wallet-txs-status-in-progress");
             //% "completed"
             case "completed": return qsTrId("wallet-txs-status-completed");
-            //% "canceled"
+            //% "cancelled"
             case "canceled": return qsTrId("wallet-txs-status-cancelled");
             //% "expired"
             case "expired": return qsTrId("wallet-txs-status-expired");

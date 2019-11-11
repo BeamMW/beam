@@ -240,8 +240,8 @@
         <translation>已付</translation>
     </message>
     <message id="wallet-txs-status-cancelled">
-        <source>canceled</source>
-        <oldsource>cancelled</oldsource>
+        <source>cancelled</source>
+        <oldsource>canceled</oldsource>
         <translation type="unfinished">已取消</translation>
     </message>
     <message id="wallet-txs-status-expired">

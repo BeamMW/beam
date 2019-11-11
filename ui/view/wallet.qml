@@ -664,7 +664,7 @@ Item {
                                     font.pixelSize: 14
                                     font.italic: true
                                     wrapMode: Text.WordWrap
-                                    text: getStatusText(styleData.value)
+                                    text: styleData.value
                                     verticalAlignment: Text.AlignBottom
                                     color: {
                                         if (!model || model.isExpired) {
@@ -798,37 +798,6 @@ Item {
         if (root.toSend) {
             sendButton.clicked();
             root.toSend = false;
-        }
-    }
-
-    function getStatusText(value) {
-        switch(value) {
-            //% "pending"
-            case "pending": return qsTrId("wallet-txs-status-pending");
-            //% "waiting for sender"
-            case "waiting for sender": return qsTrId("wallet-txs-status-waiting-sender");
-            //% "waiting for receiver"
-            case "waiting for receiver": return qsTrId("wallet-txs-status-waiting-receiver");
-            //% "in progress"
-            case "receiving": return qsTrId("wallet-txs-status-in-progress");
-            //% "in progress"
-            case "sending": return qsTrId("wallet-txs-status-in-progress");
-            //% "sent to own address"
-            case "completed": return qsTrId("wallet-txs-status-own-sent");
-            //% "sending to own address"
-            case "self sending": return qsTrId("wallet-txs-status-own-sending");
-            //% "received"
-            case "received": return qsTrId("wallet-txs-status-received");
-            //% "sent"
-            case "sent": return qsTrId("wallet-txs-status-sent");
-            //% "cancelled"
-            case "cancelled": return qsTrId("wallet-txs-status-cancelled");
-            //% "expired"
-            case "expired": return qsTrId("wallet-txs-status-expired");
-            //% "failed"
-            case "failed": return qsTrId("wallet-txs-status-failed");
-            //% "unknown"
-            default: return qsTrId("wallet-txs-status-unknown");
         }
     }
 }
