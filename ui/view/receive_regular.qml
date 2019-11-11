@@ -13,8 +13,7 @@ ColumnLayout {
     property var defaultFocusItem: addressComment
 
     // callbacks set by parent
-    property var    onClosed: undefined
-    property var    onSwapMode: undefined
+    property var onClosed: undefined
 
     TopGradient {
         mainRoot: main
@@ -50,17 +49,6 @@ ColumnLayout {
             color:               Style.content_main
             //% "Receive"
             text:                qsTrId("wallet-receive-title")
-        }
-
-        CustomSwitch {
-            id:         mode
-            //% "Swap"
-            text:       qsTrId("general-swap")
-            x:          parent.width - width
-            checked:    false
-            onClicked: {
-                if (checked) onSwapMode();
-            }
         }
     }
 

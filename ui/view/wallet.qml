@@ -151,21 +151,7 @@ Item {
                     //font.capitalization: Font.AllUppercase
 
                     onClicked: {
-                        walletStackView.push(Qt.createComponent("receive_regular.qml"),
-                                            {"onClosed": onClosed,
-                                             "onSwapMode": onSwapMode});
-                        function onSwapMode() {
-                            walletStackView.pop();
-                            walletStackView.push(Qt.createComponent("receive_swap.qml"),
-                                                {"onClosed": onClosed,
-                                                 "onRegularMode": onRegularMode});
-                        }
-                        function onRegularMode() {
-                            walletStackView.pop();
-                            walletStackView.push(Qt.createComponent("receive_regular.qml"),
-                                                {"onClosed": onClosed,
-                                                 "onSwapMode": onSwapMode});
-                        }
+                        walletStackView.push(Qt.createComponent("receive_regular.qml"), {"onClosed": onClosed});
                     }
                 }
             }
