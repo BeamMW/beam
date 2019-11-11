@@ -119,6 +119,7 @@ ColumnLayout {
                         id:               sentAmountInput
                         color:            Style.accent_outgoing
                         hasFee:           true
+                        currFeeTitle:     true
                         currency:         viewModel.sentCurrency
                         amount:           viewModel.amountSent
                         multi:            true
@@ -212,6 +213,7 @@ ColumnLayout {
                         title:            qsTrId("receive-amount-swap-label")
                         id:               receiveAmountInput
                         hasFee:           true
+                        currFeeTitle:     true
                         currency:         viewModel.receiveCurrency
                         amount:           viewModel.amountToReceive
                         multi:            true

@@ -200,6 +200,7 @@ ColumnLayout {
                         title:            qsTrId("sent-amount-label")
                         id:               sendAmountInput
                         hasFee:           true
+                        currFeeTitle:     true
                         amount:           viewModel.sendAmount
                         currency:         viewModel.sendCurrency
                         readOnlyA:        true
@@ -269,6 +270,7 @@ ColumnLayout {
                         title:            qsTrId("receive-amount-swap-label")
                         id:               receiveAmountInput
                         hasFee:           true
+                        currFeeTitle:     true
                         amount:           viewModel.receiveAmount
                         currency:         viewModel.receiveCurrency
                         readOnlyA:        true
@@ -375,6 +377,11 @@ ColumnLayout {
                                 addressText: viewModel.receiverAddress,
                                 amountText: [Utils.uiStringToLocale(viewModel.sendAmount), sendAmountInput.getCurrencyLabel()].join(" "),
                                 feeText: [Utils.uiStringToLocale(viewModel.sendFee), sendAmountInput.getFeeLabel()].join(" "),
+                                feeLabel: sendAmountInput.currency == Currency.CurrBeam ?
+                                    //% "BEAM Transaction fee"
+                                    qsTrId("beam-transaction-fee") + ":" :
+                                    //% "%1 Transaction fee rate"
+                                    qsTrId("general-fee-rate").arg(sendAmountInput.getCurrencyLabel()),
                                 onAcceptedCallback: acceptedCallback
                             }).open();
 

@@ -1271,8 +1271,9 @@
         <translation>Geschatte tijd: %s</translation>
     </message>
     <message id="general-fee-rate">
-        <source>Transaction fee rate</source>
-        <translation>Transactiekosten</translation>
+        <source>%1 Transaction fee rate</source>
+        <oldsource>Transaction fee rate</oldsource>
+        <translation type="unfinished">Transactiekosten</translation>
     </message>
     <message id="general-fee-fail">
         <source>The minimum fee is %1 %2</source>
@@ -1763,16 +1764,18 @@ Please check the swap token and try again.</source>
         <translation>Transactie ID</translation>
     </message>
     <message id="swap-details-tx-fee">
-        <source>Transaction fee</source>
-        <translation>Transactiekosten</translation>
+        <source>BEAM Transaction fee</source>
+        <oldsource>Transaction fee</oldsource>
+        <translation type="unfinished">Transactiekosten</translation>
     </message>
     <message id="swap-details-tx-comment">
         <source>Comment</source>
         <translation>Omschrijving</translation>
     </message>
     <message id="swap-details-tx-fee-rate">
-        <source>Transaction fee rate</source>
-        <translation>Transactiekosten</translation>
+        <source>%1 Transaction fee rate</source>
+        <oldsource>Transaction fee rate</oldsource>
+        <translation type="unfinished">Transactiekosten</translation>
     </message>
     <message id="settings-swap-disconnect">
         <source>Disconnect</source>
@@ -1969,6 +1972,10 @@ Without the phrase you will not be able to recover your money.</source>
     <message id="send-swap-sconfirmation-online-time">
         <source>Keep your wallet online. The swap normally takes about 1 hour to complete.</source>
         <translation type="unfinished"></translation>
+    </message>
+    <message id="beam-transaction-fee">
+        <source>BEAM Transaction fee</source>
+        <translation type="unfinished">Transactiekosten</translation>
     </message>
 </context>
 </TS>
