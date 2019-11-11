@@ -1272,7 +1272,8 @@
         <translation type="unfinished">Estimate time: %s</translation>
     </message>
     <message id="general-fee-rate">
-        <source>Transaction fee rate</source>
+        <source>%1 Transaction fee rate</source>
+        <oldsource>Transaction fee rate</oldsource>
         <translation type="unfinished">Transaction fee rate</translation>
     </message>
     <message id="general-fee-fail">
@@ -1764,15 +1765,17 @@ Please check the swap token and try again.</oldsource>
         <translation type="unfinished">Transaction ID</translation>
     </message>
     <message id="swap-details-tx-fee">
-        <source>Transaction fee</source>
-        <translation>Commissione di transazione</translation>
+        <source>BEAM Transaction fee</source>
+        <oldsource>Transaction fee</oldsource>
+        <translation type="unfinished">Commissione di transazione</translation>
     </message>
     <message id="swap-details-tx-comment">
         <source>Comment</source>
         <translation>Commento</translation>
     </message>
     <message id="swap-details-tx-fee-rate">
-        <source>Transaction fee rate</source>
+        <source>%1 Transaction fee rate</source>
+        <oldsource>Transaction fee rate</oldsource>
         <translation type="unfinished">Transaction fee rate</translation>
     </message>
     <message id="settings-swap-disconnect">
@@ -1970,6 +1973,10 @@ Without the phrase you will not be able to recover your money.</source>
     <message id="send-swap-sconfirmation-online-time">
         <source>Keep your wallet online. The swap normally takes about 1 hour to complete.</source>
         <translation type="unfinished"></translation>
+    </message>
+    <message id="beam-transaction-fee">
+        <source>BEAM Transaction fee</source>
+        <translation type="unfinished">Commissione di transazione</translation>
     </message>
 </context>
 </TS>

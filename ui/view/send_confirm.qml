@@ -14,12 +14,14 @@ ConfirmationDialog {
     id: sendViewConfirm
     parent: Overlay.overlay
 
-    property var   onAcceptedCallback: undefined
-    property alias addressText:        addressLabel.text
-    property alias amountText:         amountLabel.text
-    property alias feeText:            feeLabel.text
-    property Item  defaultFocusItem:   BeamGlobals.needPasswordToSpend() ? requirePasswordInput : cancelButton
-    property bool  swapMode:           false
+    property var    onAcceptedCallback: undefined
+    property alias  addressText:        addressLabel.text
+    property alias  amountText:         amountLabel.text
+    property alias  feeText:            feeLabel.text
+    property Item   defaultFocusItem:   BeamGlobals.needPasswordToSpend() ? requirePasswordInput : cancelButton
+    property bool   swapMode:           false
+    //% "Transaction fee"
+    property string feeLabel: qsTrId("general-fee") + ":"
 
     okButtonText: sendViewConfirm.swapMode ?
                     //% "Swap"
@@ -99,7 +101,7 @@ ConfirmationDialog {
                 // Recipient/Address
                 //
                 SFText {
-                    Layout.fillWidth: true
+                    Layout.fillWidth: false
                     Layout.fillHeight: true
                     Layout.minimumHeight: 16
                     font.pixelSize: 14
@@ -125,7 +127,7 @@ ConfirmationDialog {
                 //
                 SFText {
                     Layout.row: 2
-                    Layout.fillWidth: true
+                    Layout.fillWidth: false
                     Layout.fillHeight: true
                     Layout.minimumHeight: 16
                     Layout.bottomMargin: 3
@@ -151,12 +153,11 @@ ConfirmationDialog {
                 //
                 SFText {
                     Layout.row: 3
-                    Layout.fillWidth: true
+                    Layout.fillWidth: false
                     Layout.minimumHeight: 16
                     font.pixelSize: 14
                     color: Style.content_disabled
-                    //% "Transaction fee"
-                    text: qsTrId("general-fee") + ":"
+                    text: sendViewConfirm.feeLabel
                 }
 
                 SFText {
@@ -219,8 +220,9 @@ ConfirmationDialog {
                     Layout.columnSpan: 2
                     Layout.topMargin: 15
                     horizontalAlignment: Text.AlignHCenter
-                    Layout.preferredWidth: 400
+                    Layout.fillWidth: sendViewConfirm.swapMode
                     Layout.maximumHeight:  60
+                    Layout.maximumWidth: sendViewConfirm.swapMode ? parent.width : 400
                     Layout.minimumHeight: 16
                     font.pixelSize: 14
                     color: Style.content_disabled

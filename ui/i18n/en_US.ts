@@ -1272,8 +1272,8 @@ or send this address to the sender over secure channel</translation>
         <translation>Estimate time: %s</translation>
     </message>
     <message id="general-fee-rate">
-        <source>Transaction fee rate</source>
-        <translation>Transaction fee rate</translation>
+        <source>%1 Transaction fee rate</source>
+        <translation>%1 Transaction fee rate</translation>
     </message>
     <message id="general-fee-fail">
         <source>The minimum fee is %1 %2</source>
@@ -1758,16 +1758,16 @@ Please check the swap token and try again.</translation>
         <translation type="unfinished">Transaction ID</translation>
     </message>
     <message id="swap-details-tx-fee">
-        <source>Transaction fee</source>
-        <translation type="unfinished">Transaction fee</translation>
+        <source>BEAM Transaction fee</source>
+        <translation type="unfinished">BEAM Transaction fee</translation>
     </message>
     <message id="swap-details-tx-comment">
         <source>Comment</source>
         <translation type="unfinished">Comment</translation>
     </message>
     <message id="swap-details-tx-fee-rate">
-        <source>Transaction fee rate</source>
-        <translation type="unfinished">Transaction fee rate</translation>
+        <source>%1 Transaction fee rate</source>
+        <translation type="unfinished">%1 Transaction fee rate</translation>
     </message>
     <message id="settings-swap-disconnect">
         <source>Disconnect</source>
@@ -1963,6 +1963,10 @@ Please check the swap token and try again.</translation>
 to complete.</source>
         <translation>Keep your wallet online. The swap normally takes about 1 hour
 to complete.</translation>
+    </message>
+    <message id="beam-transaction-fee">
+        <source>BEAM Transaction fee</source>
+        <translation>BEAM Transaction fee</translation>
     </message>
 </context>
 </TS>
