@@ -56,7 +56,7 @@ namespace
         { "de_DE", "Deutsch"},
         { "nl_NL", "Dutch"},
         { "fr_FR", "Française"},
-        { "id_ID", "bahasa Indonesia"},
+        { "id_ID", "Bahasa Indonesia"},
         { "it_IT", "Italiano"},
         { "ja_JP", "日本語"},
         { "ru_RU", "Русский" },
