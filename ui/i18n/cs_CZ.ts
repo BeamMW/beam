@@ -1046,8 +1046,13 @@
         <translation>Vytvořit nové heslo pro přístup k Vaší peněžence</translation>
     </message>
     <message id="start-create-pwd-strength-message">
-        <source>Strong password needs to meet the following requirements:\n•  the length must be at least 10 characters\n•  must contain at least one lowercase letter\n•  must contain at least one uppercase letter\n•  must contain at least one number</source>
-        <translation>Silné heslo musí splňovat následující požadavky:\n• délka musí mít nejméně 10 znaků\n• musí obsahovat alespoň jedno malé písmeno\n• musí obsahovat alespoň jedno velké písmeno \n • musí obsahovat alespoň jedno číslo</translation>
+        <source>Strong password needs to meet the following requirements:
+•  the length must be at least 10 characters
+•  must contain at least one lowercase letter
+•  must contain at least one uppercase letter
+•  must contain at least one number</source>
+        <oldsource>Strong password needs to meet the following requirements:\n•  the length must be at least 10 characters\n•  must contain at least one lowercase letter\n•  must contain at least one uppercase letter\n•  must contain at least one number</oldsource>
+        <translation type="unfinished">Silné heslo musí splňovat následující požadavky:\n• délka musí mít nejméně 10 znaků\n• musí obsahovat alespoň jedno malé písmeno\n• musí obsahovat alespoň jedno velké písmeno \n • musí obsahovat alespoň jedno číslo</translation>
     </message>
     <message id="start-open-caps-warning">
         <source>Caps lock is on!</source>
@@ -1315,8 +1320,10 @@
         <translation>Okamžitý převod měn je v BETA verzi</translation>
     </message>
     <message id="swap-na-message">
-        <source>You do not have any 3rd-party currencies connected.\nUpdate your settings and try again.</source>
-        <translation>Nemáte připojené žádné měny třetích stran.\nAktualizujte nastavení a zkuste to znovu.</translation>
+        <source>You do not have any 3rd-party currencies connected.
+Update your settings and try again.</source>
+        <oldsource>You do not have any 3rd-party currencies connected.\nUpdate your settings and try again.</oldsource>
+        <translation type="unfinished">Nemáte připojené žádné měny třetích stran.\nAktualizujte nastavení a zkuste to znovu.</translation>
     </message>
     <message id="wallet-receive-swap-title">
         <source>Create swap offer</source>
@@ -1356,15 +1363,16 @@
     </message>
     <message id="wallet-receive-your-token">
         <source>Your transaction token:</source>
-        <translation>Váš transakční token:</translation>
+        <translation type="vanished">Váš transakční token:</translation>
     </message>
     <message id="wallet-swap-token-message">
         <source>Send this token to the sender over an external secure channel</source>
         <translation>Odeslat tento token odesílateli přes externí zabezpečený kanál</translation>
     </message>
     <message id="wallet-receive-swap-publish">
-        <source>publish transaction token</source>
-        <translation>publikovat token transakce</translation>
+        <source>publish offer</source>
+        <oldsource>publish transaction token</oldsource>
+        <translation type="unfinished">publikovat token transakce</translation>
     </message>
     <message id="wallet-send-swap-title">
         <source>Swap currencies</source>
@@ -1403,9 +1411,10 @@
         <translation>Electrum</translation>
     </message>
     <message id="swap-currency-na-message">
-        <source>%1 is not connected, \nplease review your settings and try again.</source>
-        <oldsource>%1 is not connected, please review your settings and try again.</oldsource>
-        <translation>%1 není připojen, \nprosím zkontrolujte nastavení a zkuste to znovu.</translation>
+        <source>%1 is not connected, 
+please review your settings and try again.</source>
+        <oldsource>%1 is not connected, \nplease review your settings and try again.</oldsource>
+        <translation type="unfinished">%1 není připojen, \nprosím zkontrolujte nastavení a zkuste to znovu.</translation>
     </message>
     <message id="send-swap-to-label">
         <source>Transaction token</source>
@@ -1588,8 +1597,9 @@
         <translation>Není žádné připojené zařízení, prosím připojte Vaši HW peněženku.</translation>
     </message>
     <message id="wallet-receive-copy-token">
-        <source>copy transaction token</source>
-        <translation>kopírovat token transakce</translation>
+        <source>copy swap token</source>
+        <oldsource>copy transaction token</oldsource>
+        <translation type="unfinished">kopírovat token transakce</translation>
     </message>
     <message id="wallet-model-device-not-connected">
         <source>There is no Trezor device connected. Please, connect and try again.</source>
@@ -1616,14 +1626,16 @@
         <translation>Přijato</translation>
     </message>
     <message id="settings-progress-na">
-        <source>You cannot disconnect wallet, edit seed phrase or change default\nfee while you have transactions in progress.</source>
-        <translation>Nemůžete odpojit peněženku, upravit klíčová slova nebo změnit výchozí poplatek\nběhem zpracování transakcí.</translation>
+        <source>You cannot disconnect wallet, edit seed phrase or change default
+fee while you have transactions in progress.</source>
+        <oldsource>You cannot disconnect wallet, edit seed phrase or change default\nfee while you have transactions in progress.</oldsource>
+        <translation type="unfinished">Nemůžete odpojit peněženku, upravit klíčová slova nebo změnit výchozí poplatek\nběhem zpracování transakcí.</translation>
     </message>
     <message id="atomic-no-offers">
-        <source>There are no active offers at the moment.\nPlease try again later or create an offer yourself.</source>
-        <oldsource>There are no active offers at the moment.
-Please try again later or create an offer yourself.</oldsource>
-        <translation>Momentálně nejsou žádné aktivní nabídky.\nZkuste to prosím později nebo vytvořte svou nabídku.</translation>
+        <source>There are no active offers at the moment.
+Please try again later or create an offer yourself.</source>
+        <oldsource>There are no active offers at the moment.\nPlease try again later or create an offer yourself.</oldsource>
+        <translation type="unfinished">Momentálně nejsou žádné aktivní nabídky.\nZkuste to prosím později nebo vytvořte svou nabídku.</translation>
     </message>
     <message id="send-less-than-fee">
         <source>The swap amount must be greater than the redemption fee.</source>
@@ -1686,8 +1698,10 @@ Please try again later or create an offer yourself.</oldsource>
         <translation>Vlastní nabídka nemůže být přijata</translation>
     </message>
     <message id="accept-own-offer-allert-body">
-        <source>The transaction token was generated by you, therefore it is not allowed to accept your own offer.\nPlease check the swap token and try again.</source>
-        <translation>Transakční token byl vytvořen Vámi a proto není možné přijmout vlastní nabídku.\nProsím zkontrolujte token výměny a zkuste to znovu.</translation>
+        <source>The transaction token was generated by you, therefore it is not allowed to accept your own offer.
+Please check the swap token and try again.</source>
+        <oldsource>The transaction token was generated by you, therefore it is not allowed to accept your own offer.\nPlease check the swap token and try again.</oldsource>
+        <translation type="unfinished">Transakční token byl vytvořen Vámi a proto není možné přijmout vlastní nabídku.\nProsím zkontrolujte token výměny a zkuste to znovu.</translation>
     </message>
     <message id="swap-copy-token">
         <source>Copy token</source>
@@ -1806,8 +1820,10 @@ Please try again later or create an offer yourself.</oldsource>
         <translation>Sazba nemůže být nižší než %1</translation>
     </message>
     <message id="swap-offer-duplicate-message">
-        <source>The offer with this transaction token is already accepted.\nPlease check the swap token and try again.</source>
-        <translation>Nabídka s tímto tokenem transakce je již přijata.\nProsím zkontrolujte token výměny a zkuste to znovu.</translation>
+        <source>The offer with this transaction token is already accepted.
+Please check the swap token and try again.</source>
+        <oldsource>The offer with this transaction token is already accepted.\nPlease check the swap token and try again.</oldsource>
+        <translation type="unfinished">Nabídka s tímto tokenem transakce je již přijata.\nProsím zkontrolujte token výměny a zkuste to znovu.</translation>
     </message>
     <message id="swap-offer-duplicate-title">
         <source>Оffer is already accepted</source>
@@ -1940,6 +1956,10 @@ Please try again later or create an offer yourself.</oldsource>
         <source>Enter your wallet password to clear seed phrase</source>
         <extracomment>electrum settings, ask password to clear seed phrase, dialog message</extracomment>
         <translation>Zadejte heslo vaší peněženky pro vymazání klíčových slov</translation>
+    </message>
+    <message id="wallet-receive-swap-your-token">
+        <source>Your swap token:</source>
+        <translation type="unfinished"></translation>
     </message>
 </context>
 </TS>

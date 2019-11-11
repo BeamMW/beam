@@ -104,28 +104,6 @@ ColumnLayout {
         ColumnLayout {
             width: scrollView.availableWidth
 
-            ColumnLayout {
-                //
-                // My Address
-                //
-                SFText {
-                    font.pixelSize: 14
-                    font.styleName: "Bold"; font.weight: Font.Bold
-                    color: Style.content_main
-                    //% "My address (auto-generated)"
-                    text: qsTrId("wallet-receive-my-addr-label")
-                }
-
-                SFTextInput {
-                    id:               myAddressID
-                    font.pixelSize:   14
-                    color:            Style.content_disabled
-                    readOnly:         true
-                    activeFocusOnTab: false
-                    text:             viewModel.receiverAddress
-                }
-            }
-
             Grid {
                 Layout.fillWidth: true
                 columnSpacing:    70
@@ -430,8 +408,8 @@ ColumnLayout {
                 font.styleName:   "Bold"
                 font.weight:      Font.Bold
                 color:            Style.content_main
-                //% "Your transaction token:"
-                text: qsTrId("wallet-receive-your-token")
+                //% "Your swap token:"
+                text: qsTrId("wallet-receive-swap-your-token")
             }
 
             SFTextArea {
@@ -473,7 +451,7 @@ ColumnLayout {
                 }
 
                 CustomButton {
-                    //% "copy transaction token"
+                    //% "copy swap token"
                     text:                qsTrId("wallet-receive-copy-token")
                     palette.buttonText:  Style.content_opposite
                     icon.color:          Style.content_opposite
@@ -492,7 +470,7 @@ ColumnLayout {
                 }
 
                 CustomButton {
-                    //% "publish transaction token"
+                    //% "publish offer"
                     text:                qsTrId("wallet-receive-swap-publish")
                     palette.buttonText:  Style.content_opposite
                     icon.color:          Style.content_opposite
