@@ -1878,8 +1878,10 @@ Please check the swap token and try again.</oldsource>
         <translation type="unfinished">connect to node</translation>
     </message>
     <message id="swap-seed-info-message">
-        <source>Your seed phrase is the access key to all the funds! Print or write down the phrase and keep it in a safe or in a locked vault. Without the phrase you will not be able to recover your money.</source>
-        <translation type="unfinished">Your seed phrase is the access key to all the funds! Print or write down the phrase and keep it in a safe or in a locked vault. Without the phrase you will not be able to recover your money.</translation>
+        <source>Your seed phrase is the access key to all the funds! Print or write down the phrase and keep it in a safe or in a locked vault.
+Without the phrase you will not be able to recover your money.</source>
+        <oldsource>Your seed phrase is the access key to all the funds! Print or write down the phrase and keep it in a safe or in a locked vault.\nWithout the phrase you will not be able to recover your money.</oldsource>
+        <translation type="unfinished">Your seed phrase is the access key to all the funds! Print or write down the phrase and keep it in a safe or in a locked vault.\nWithout the phrase you will not be able to recover your money.</translation>
     </message>
     <message id="settings-swap-seed-generate">
         <source>generate another seed phrase</source>
@@ -1963,6 +1965,14 @@ Please check the swap token and try again.</oldsource>
     </message>
     <message id="wallet-receive-swap-your-token">
         <source>Your swap token:</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="send-swap-confirmation-title">
+        <source>Confirm atomic swap</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="send-swap-sconfirmation-online-time">
+        <source>Keep your wallet online. The swap normally takes about 1 hour to complete.</source>
         <translation type="unfinished"></translation>
     </message>
 </context>

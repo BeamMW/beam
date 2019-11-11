@@ -1865,8 +1865,10 @@ Please try again later or create an offer yourself.</oldsource>
         <translation>노드에 연결하기</translation>
     </message>
     <message id="swap-seed-info-message">
-        <source>Your seed phrase is the access key to all the funds! Print or write down the phrase and keep it in a safe or in a locked vault. Without the phrase you will not be able to recover your money.</source>
-        <translation>시드 구문은 당신의 지갑에 있는 모든 자금에 접근할 수 있는 키입니다! 시드 구문을 프린트하거나 적어서 안전한 곳 또는 금고에 보관하세요. 시드 구문 없이는 자금을 복구할 수 없습니다.</translation>
+        <source>Your seed phrase is the access key to all the funds! Print or write down the phrase and keep it in a safe or in a locked vault.
+Without the phrase you will not be able to recover your money.</source>
+        <oldsource>Your seed phrase is the access key to all the funds! Print or write down the phrase and keep it in a safe or in a locked vault.\nWithout the phrase you will not be able to recover your money.</oldsource>
+        <translation type="unfinished">Your seed phrase is the access key to all the funds! Print or write down the phrase and keep it in a safe or in a locked vault.\nWithout the phrase you will not be able to recover your money.</translation>
     </message>
     <message id="settings-swap-seed-generate">
         <source>generate another seed phrase</source>
@@ -1950,6 +1952,14 @@ Please try again later or create an offer yourself.</oldsource>
     </message>
     <message id="wallet-receive-swap-your-token">
         <source>Your swap token:</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="send-swap-confirmation-title">
+        <source>Confirm atomic swap</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="send-swap-sconfirmation-online-time">
+        <source>Keep your wallet online. The swap normally takes about 1 hour to complete.</source>
         <translation type="unfinished"></translation>
     </message>
 </context>

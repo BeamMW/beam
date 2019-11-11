@@ -14,14 +14,19 @@ ConfirmationDialog {
     id: sendViewConfirm
     parent: Overlay.overlay
 
-    property var onAcceptedCallback: undefined
-    property alias addressText:      addressLabel.text
-    property alias amountText:       amountLabel.text
-    property alias feeText:          feeLabel.text
-    property Item defaultFocusItem:  BeamGlobals.needPasswordToSpend() ? requirePasswordInput : cancelButton
+    property var   onAcceptedCallback: undefined
+    property alias addressText:        addressLabel.text
+    property alias amountText:         amountLabel.text
+    property alias feeText:            feeLabel.text
+    property Item  defaultFocusItem:   BeamGlobals.needPasswordToSpend() ? requirePasswordInput : cancelButton
+    property bool  swapMode:           false
 
+    okButtonText: sendViewConfirm.swapMode ?
+                    //% "Swap"
+                    qsTrId("general-swap"):
+                    //% "Send"
+                    qsTrId("general-send")
     okButtonColor:           Style.accent_outgoing
-    okButtonText:            qsTrId("general-send")
     okButtonIconSource:      "qrc:/assets/icon-send-blue.svg"
     okButtonEnable:          BeamGlobals.needPasswordToSpend() ? requirePasswordInput.text.length : true
     cancelButtonIconSource:  "qrc:/assets/icon-cancel-white.svg"
@@ -72,8 +77,11 @@ ConfirmationDialog {
                 font.styleName: "Bold";
                 font.weight: Font.Bold
                 color: Style.content_main
-                //% "Confirm transaction details"
-                text: qsTrId("send-confirmation-title")
+                text: sendViewConfirm.swapMode ?
+                    //% "Confirm atomic swap"
+                    qsTrId("send-swap-confirmation-title") :
+                    //% "Confirm transaction details"
+                    qsTrId("send-confirmation-title")
             }
 
             GridLayout {
@@ -209,7 +217,7 @@ ConfirmationDialog {
                 SFText {
                     Layout.row: 7
                     Layout.columnSpan: 2
-                    // Layout.topMargin: 30
+                    Layout.topMargin: 15
                     horizontalAlignment: Text.AlignHCenter
                     Layout.preferredWidth: 400
                     Layout.maximumHeight:  60
@@ -217,8 +225,11 @@ ConfirmationDialog {
                     font.pixelSize: 14
                     color: Style.content_disabled
                     wrapMode: Text.WordWrap
-                    //% "For the transaction to complete, the recipient must get online within the next 12 hours and you should get online within 2 hours afterwards."
-                    text: qsTrId("send-confirmation-pwd-text-online-time")
+                    text: sendViewConfirm.swapMode ?
+                        //% "Keep your wallet online. The swap normally takes about 1 hour to complete."
+                        qsTrId("send-swap-sconfirmation-online-time") :
+                        //% "For the transaction to complete, the recipient must get online within the next 12 hours and you should get online within 2 hours afterwards."
+                        qsTrId("send-confirmation-pwd-text-online-time")
                 }
             }
         }
