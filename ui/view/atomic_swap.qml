@@ -174,10 +174,8 @@ Item {
                     //font.capitalization: Font.AllUppercase
 
                     onClicked: {
-                        offersStackView.push(Qt.createComponent("receive_swap.qml"),
-                                            {"modeSwitchEnabled": false,
-                                             "onClosed": onClosed});
-                        function onClosed() { offersStackView.pop(); }
+                        function onClosed() {offersStackView.pop();}
+                        offersStackView.push(Qt.createComponent("receive_swap.qml"), {"onClosed": onClosed});
                     }
                 }
             }

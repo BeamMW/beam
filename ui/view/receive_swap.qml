@@ -15,9 +15,7 @@ ColumnLayout {
     property bool addressSaved: false
 
     // callbacks set by parent
-    property var    modeSwitchEnabled: true
-    property var    onClosed: undefined
-    property var    onRegularMode: undefined
+    property var onClosed: undefined
 
     TopGradient {
         mainRoot: main
@@ -76,19 +74,6 @@ ColumnLayout {
             color:               Style.content_main
             //% "Create swap offer"
             text:                qsTrId("wallet-receive-swap-title")
-        }
-
-        CustomSwitch {
-            id:         mode
-            //% "Swap"
-            text:       qsTrId("general-swap")
-            x:          parent.width - width
-            checked:    true
-            enabled:    modeSwitchEnabled
-            visible:    modeSwitchEnabled
-            onClicked: {
-                if (!checked) onRegularMode();
-            }
         }
     }
 
