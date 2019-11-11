@@ -1361,7 +1361,7 @@ or send this address to the sender over secure channel</translation>
     </message>
     <message id="wallet-receive-your-token">
         <source>Your transaction token:</source>
-        <translation>Your transaction token:</translation>
+        <translation type="vanished">Your transaction token:</translation>
     </message>
     <message id="wallet-swap-token-message">
         <source>Send this token to the sender over an external secure channel</source>
