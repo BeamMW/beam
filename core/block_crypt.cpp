@@ -1444,6 +1444,10 @@ namespace beam
 			<< "fork2"
 			<< pForks[2].m_Height
 			<< Shielded.Enabled
+			<< uint32_t(1) // our current strategy w.r.t. allowed anonymity set in shielded inputs
+			<< Shielded.NMax
+			<< Shielded.NMin
+			<< Shielded.MaxWindowBacklog
 			// out
 			>> pForks[2].m_Hash;
 	}

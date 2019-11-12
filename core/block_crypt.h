@@ -148,7 +148,15 @@ namespace beam
 
 		struct {
 			bool Enabled = true; // past Fork2
-			// TODO - policy w.r.t. supported cfgs
+
+			uint32_t NMax = 0x10000; // 64K
+			uint32_t NMin = 0x400; // 1K
+
+			// Max distance of the specified window from the tip where the prover is allowed to use big N.
+			// For proofs with bigger distance only NMin is supported
+			uint32_t MaxWindowBacklog = 0x10000; // 64K
+			// Hence "big" proofs won't need more than 128K most recent elements
+
 		} Shielded;
 
 		void UpdateChecksum();

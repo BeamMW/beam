@@ -2451,9 +2451,27 @@ bool NodeProcessor::IsShieldedInPool(const Input& v)
 {
 	assert(v.m_pSpendProof);
 
-	// TODO: check cfg and referenced window vs current position
+	const Rules& r = Rules::get();
+	if (!r.Shielded.Enabled)
+		return false;
 
-	return (v.m_pSpendProof->m_WindowEnd <= m_Extra.m_Shielded);
+	if (v.m_pSpendProof->m_WindowEnd > m_Extra.m_Shielded)
+		return false;
+
+	uint32_t N = v.m_pSpendProof->m_Cfg.get_N();
+	if (N < r.Shielded.NMin)
+		return false; // invalid cfg or anonymity set is too small
+
+	if (N > r.Shielded.NMin)
+	{
+		if (N > r.Shielded.NMax)
+			return false; // too large
+
+		if (v.m_pSpendProof->m_WindowEnd > m_Extra.m_Shielded + r.Shielded.MaxWindowBacklog)
+			return false; // large anonymity set is no more allowed, expired
+	}
+
+	return true;
 }
 
 bool NodeProcessor::HandleShieldedElement(const ECC::Point& comm, bool bOutp, bool bFwd)
