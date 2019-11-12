@@ -182,10 +182,6 @@
         <source>Receive</source>
         <translation>받기</translation>
     </message>
-    <message id="wallet-in-progress-title">
-        <source>In progress</source>
-        <translation type="vanished">진행중</translation>
-    </message>
     <message id="wallet-transactions-title">
         <source>Transactions</source>
         <translation>거래내역</translation>
@@ -197,10 +193,6 @@
     <message id="wallet-txs-date-time">
         <source>Created on</source>
         <translation>작성일</translation>
-    </message>
-    <message id="wallet-txs-copy-addr-cm">
-        <source>Copy address</source>
-        <translation type="vanished">주소 복사</translation>
     </message>
     <message id="wallet-txs-delete-message">
         <source>The transaction will be deleted. This operation can not be undone</source>
@@ -319,14 +311,6 @@
         <source>ip:port</source>
         <extracomment>settings tab, node section, address label</extracomment>
         <translation>아이피 : 포트</translation>
-    </message>
-    <message id="settings-see-seed">
-        <source>Click to see seed phrase</source>
-        <translation type="vanished">시드 구문으로 돌아가려면 클릭</translation>
-    </message>
-    <message id="settings-new-seed">
-        <source>Double click to generate new seed phrase</source>
-        <translation type="vanished">새로운 시드 구문을 생성하기 위해 더블 클릭</translation>
     </message>
     <message id="settings-local-node-run-checkbox">
         <source>Run local node</source>
@@ -488,10 +472,6 @@
         <source>Info view</source>
         <translation>정보 보기</translation>
     </message>
-    <message id="loading-change-settings-button">
-        <source>Change settings</source>
-        <translation type="vanished">설정 변경</translation>
-    </message>
     <message id="loading-try-again-button">
         <source>Try again</source>
         <translation>다시 시도하기</translation>
@@ -586,14 +566,6 @@
         <source>Scan to send</source>
         <translation>스캔하여 보내기</translation>
     </message>
-    <message id="wallet-receive-propogate-addr-message">
-        <source>Send this address to the sender over an external secure channel</source>
-        <translation type="vanished">해당 주소를 외부의 보안 채널로 보내는 사람에게 보냅니다.</translation>
-    </message>
-    <message id="invalid-addr-got-it-button">
-        <source>Got it</source>
-        <translation type="vanished">네, 알겠습니다</translation>
-    </message>
     <message id="send-title">
         <source>Send</source>
         <translation>보내기</translation>
@@ -614,21 +586,9 @@
         <source>Insufficient funds: you would need %1 to complete the transaction</source>
         <translation>자금이 부족합니다 : 거래를 완료하려면 %1 만큼의 자금이 필요합니다</translation>
     </message>
-    <message id="send-fee-fail">
-        <source>The minimum fee is %1 GROTH</source>
-        <translation type="vanished">최소 수수료는 %1 GROTH 입니다</translation>
-    </message>
-    <message id="send-curency-sub-name">
-        <source>GROTH</source>
-        <translation type="vanished">GROTH</translation>
-    </message>
     <message id="send-remaining-label">
         <source>Remaining</source>
         <translation>남아있는</translation>
-    </message>
-    <message id="send-send-fail">
-        <source>Address %1 is invalid</source>
-        <translation type="vanished">주소 %1 는 유효하지 않습니다</translation>
     </message>
     <message id="start-restore-confirm-button">
         <source>I agree</source>
@@ -903,14 +863,6 @@
     <message id="tx-failture-invalid-state">
         <source>Transaction has invalid state</source>
         <translation>거래가 유효하지 않은 상태이다</translation>
-    </message>
-    <message id="tx-curency-name">
-        <source>BEAM</source>
-        <translation type="vanished">BEAM</translation>
-    </message>
-    <message id="tx-curency-sub-name">
-        <source>GROTH</source>
-        <translation type="vanished">GROTH</translation>
     </message>
     <message id="utxo-utxo">
         <source>UTXO</source>
@@ -1272,10 +1224,6 @@
         <source>The minimum fee is %1 %2</source>
         <translation>최소 수수료는 %1 %2 입니다</translation>
     </message>
-    <message id="general-locked">
-        <source>locked</source>
-        <translation type="vanished">잠김</translation>
-    </message>
     <message id="general-change-settings">
         <source>Change settings</source>
         <translation>설정 변경</translation>
@@ -1351,10 +1299,6 @@
     <message id="general-rate">
         <source>Exchange rate</source>
         <translation>환율</translation>
-    </message>
-    <message id="wallet-receive-your-token">
-        <source>Your transaction token:</source>
-        <translation type="vanished">트랜잭션 토큰:</translation>
     </message>
     <message id="wallet-swap-token-message">
         <source>Send this token to the sender over an external secure channel</source>
@@ -1592,10 +1536,6 @@
         <source>There is no Trezor device connected. Please, connect and try again.</source>
         <translation>연결된 Trezor 장치가 없습니다. 연결후 재시도해주세요.</translation>
     </message>
-    <message id="settings-invalid-seed">
-        <source>Invalid seed phrase</source>
-        <translation type="vanished">유효하지 않은 시드 구문</translation>
-    </message>
     <message id="wallet-transactions-all-tab">
         <source>All</source>
         <translation>전부</translation>
@@ -1764,10 +1704,6 @@ Please try again later or create an offer yourself.</oldsource>
         <source>Disconnect</source>
         <translation>연결 끊기</translation>
     </message>
-    <message id="settings-swap-seed-phrase">
-        <source>Seed Phrase</source>
-        <translation type="vanished">시드 구문</translation>
-    </message>
     <message id="settings-swap-bitcoin-node">
         <source>Bitcoin node</source>
         <translation>비트코인 노드</translation>
@@ -1791,14 +1727,6 @@ Please try again later or create an offer yourself.</oldsource>
     <message id="settings-swap-qtum-electrum">
         <source>Qtum electrum</source>
         <translation>큐텀 일렉트럼</translation>
-    </message>
-    <message id="connect to electrum node">
-        <source>connect to electrum node</source>
-        <translation type="vanished">일렉트럼 노드에 연결하기</translation>
-    </message>
-    <message id="connect to node">
-        <source>connect to node</source>
-        <translation type="vanished">노드에 연결하기</translation>
     </message>
     <message id="invalid-rate-min">
         <source>Rate cannot be less than %1</source>

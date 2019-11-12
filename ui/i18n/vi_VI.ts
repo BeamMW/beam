@@ -182,10 +182,6 @@
         <source>Receive</source>
         <translation>Nhận</translation>
     </message>
-    <message id="wallet-in-progress-title">
-        <source>In progress</source>
-        <translation type="vanished">Trong quá trình</translation>
-    </message>
     <message id="wallet-transactions-title">
         <source>Transactions</source>
         <translation>Giao dịch</translation>
@@ -197,10 +193,6 @@
     <message id="wallet-txs-date-time">
         <source>Created on</source>
         <translation type="unfinished">Created on</translation>
-    </message>
-    <message id="wallet-txs-copy-addr-cm">
-        <source>Copy address</source>
-        <translation type="vanished">Sao chép địa chỉ</translation>
     </message>
     <message id="wallet-txs-delete-message">
         <source>The transaction will be deleted. This operation can not be undone</source>
@@ -480,10 +472,6 @@
         <source>Info view</source>
         <translation>Xem thông tin</translation>
     </message>
-    <message id="loading-change-settings-button">
-        <source>Change settings</source>
-        <translation type="vanished">Thay đổi cài đặt</translation>
-    </message>
     <message id="loading-try-again-button">
         <source>Try again</source>
         <translation>Thử lại lần nữa</translation>
@@ -578,14 +566,6 @@
         <source>Scan to send</source>
         <translation>Quét để gửi</translation>
     </message>
-    <message id="wallet-receive-propogate-addr-message">
-        <source>Send this address to the sender over an external secure channel</source>
-        <translation type="vanished">Gửi địa chỉ này cho người gửi qua kênh bảo mật bên ngoài</translation>
-    </message>
-    <message id="invalid-addr-got-it-button">
-        <source>Got it</source>
-        <translation type="vanished">Lấy</translation>
-    </message>
     <message id="send-title">
         <source>Send</source>
         <translation>Gửi</translation>
@@ -606,21 +586,9 @@
         <source>Insufficient funds: you would need %1 to complete the transaction</source>
         <translation>Không đủ tiền: bạn sẽ cần %1 để hoàn thành giao dịch</translation>
     </message>
-    <message id="send-fee-fail">
-        <source>The minimum fee is %1 GROTH</source>
-        <translation type="vanished">Phí tối thiểu là %1 GROTH</translation>
-    </message>
-    <message id="send-curency-sub-name">
-        <source>GROTH</source>
-        <translation type="vanished">Groth: đơn vị nhỏ nhất của Beam </translation>
-    </message>
     <message id="send-remaining-label">
         <source>Remaining</source>
         <translation>Còn lại</translation>
-    </message>
-    <message id="send-send-fail">
-        <source>Address %1 is invalid</source>
-        <translation type="vanished">Địa chỉ %1 không hợp lệ</translation>
     </message>
     <message id="start-restore-confirm-button">
         <source>I agree</source>
@@ -895,14 +863,6 @@
     <message id="tx-failture-invalid-state">
         <source>Transaction has invalid state</source>
         <translation>Giao dịch ở trạng thái không hợp lệ</translation>
-    </message>
-    <message id="tx-curency-name">
-        <source>BEAM</source>
-        <translation type="vanished">BEAM</translation>
-    </message>
-    <message id="tx-curency-sub-name">
-        <source>GROTH</source>
-        <translation type="vanished">Groth: đơn vị nhỏ nhất của Beam </translation>
     </message>
     <message id="utxo-utxo">
         <source>UTXO</source>
@@ -1264,10 +1224,6 @@
         <source>The minimum fee is %1 %2</source>
         <translation>Phí tối thiểu là %1 %2</translation>
     </message>
-    <message id="general-locked">
-        <source>locked</source>
-        <translation type="vanished">đã khoá</translation>
-    </message>
     <message id="general-change-settings">
         <source>Change settings</source>
         <translation>Thay đổi cài đặt</translation>
@@ -1346,10 +1302,6 @@ Update your settings and try again.</oldsource>
         <source>Exchange rate</source>
         <translation type="unfinished">Exchange rate</translation>
     </message>
-    <message id="wallet-receive-your-token">
-        <source>Your transaction token:</source>
-        <translation type="vanished">Tiền điện tử giao dịch của bạn:</translation>
-    </message>
     <message id="wallet-swap-token-message">
         <source>Send this token to the sender over an external secure channel</source>
         <translation>Gửi tiền điện tử này cho người gửi qua kênh bảo mật bên ngoài</translation>
@@ -1401,10 +1353,6 @@ Update your settings and try again.</oldsource>
         <oldsource>%1 is not connected, 
 please review your settings and try again.</oldsource>
         <translation type="unfinished">%1 is not connected, \nplease review your settings and try again.</translation>
-    </message>
-    <message id="send-swap-to-label">
-        <source>Transaction token</source>
-        <translation type="vanished">Tiền điện tử giao dịch</translation>
     </message>
     <message id="send-not-enough">
         <source>There is not enough funds to complete the transaction</source>

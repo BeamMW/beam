@@ -864,10 +864,6 @@
         <source>Transaction has invalid state</source>
         <translation type="unfinished">Transaction has invalid state</translation>
     </message>
-    <message id="tx-curency-name">
-        <source>BEAM</source>
-        <translation type="vanished">BEAM</translation>
-    </message>
     <message id="utxo-utxo">
         <source>UTXO</source>
         <translation type="unfinished">UTXO</translation>
@@ -1222,10 +1218,6 @@
     <message id="general-fee-fail">
         <source>The minimum fee is %1 %2</source>
         <translation type="unfinished">The minimum fee is %1 %2</translation>
-    </message>
-    <message id="general-locked">
-        <source>locked</source>
-        <translation type="vanished">terkunci</translation>
     </message>
     <message id="general-change-settings">
         <source>Change settings</source>

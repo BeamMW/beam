@@ -182,10 +182,6 @@
         <source>Receive</source>
         <translation>Атрымаць</translation>
     </message>
-    <message id="wallet-in-progress-title">
-        <source>In progress</source>
-        <translation type="vanished">Выконваецца</translation>
-    </message>
     <message id="wallet-transactions-title">
         <source>Transactions</source>
         <translation>Транзакцыі</translation>
@@ -197,10 +193,6 @@
     <message id="wallet-txs-date-time">
         <source>Created on</source>
         <translation>Дата | Час</translation>
-    </message>
-    <message id="wallet-txs-copy-addr-cm">
-        <source>Copy address</source>
-        <translation type="vanished">Капіяваць адрас</translation>
     </message>
     <message id="wallet-txs-delete-message">
         <source>The transaction will be deleted. This operation can not be undone</source>
@@ -480,10 +472,6 @@
         <source>Info view</source>
         <translation>Інфармацыя</translation>
     </message>
-    <message id="loading-change-settings-button">
-        <source>Change settings</source>
-        <translation type="vanished">Змяніць усталёўкі</translation>
-    </message>
     <message id="loading-try-again-button">
         <source>Try again</source>
         <translation>Паспрабуйце зноў</translation>
@@ -578,14 +566,6 @@
         <source>Scan to send</source>
         <translation>Скануйце, каб адправіць</translation>
     </message>
-    <message id="wallet-receive-propogate-addr-message">
-        <source>Send this address to the sender over an external secure channel</source>
-        <translation type="vanished">Адпраўце гэты адрас адпраўніку сродкаў, па любым бяспечным знешнем канале</translation>
-    </message>
-    <message id="invalid-addr-got-it-button">
-        <source>Got it</source>
-        <translation type="vanished">Зразумела</translation>
-    </message>
     <message id="send-title">
         <source>Send</source>
         <translation>Адправіць</translation>
@@ -606,21 +586,9 @@
         <source>Insufficient funds: you would need %1 to complete the transaction</source>
         <translation>Недастаткова сродкаў: неабходна %1 для завяршэння транзакцыі</translation>
     </message>
-    <message id="send-fee-fail">
-        <source>The minimum fee is %1 GROTH</source>
-        <translation type="vanished">Мінімальная камісія %1 GROTH</translation>
-    </message>
-    <message id="send-curency-sub-name">
-        <source>GROTH</source>
-        <translation type="vanished">GROTH</translation>
-    </message>
     <message id="send-remaining-label">
         <source>Remaining</source>
         <translation>Засталося</translation>
-    </message>
-    <message id="send-send-fail">
-        <source>Address %1 is invalid</source>
-        <translation type="vanished">Адрас %1 ня карэктны</translation>
     </message>
     <message id="start-restore-confirm-button">
         <source>I agree</source>
@@ -895,14 +863,6 @@
     <message id="tx-failture-invalid-state">
         <source>Transaction has invalid state</source>
         <translation>Транзакцыя ў некарэктным стане</translation>
-    </message>
-    <message id="tx-curency-name">
-        <source>BEAM</source>
-        <translation type="vanished">BEAM</translation>
-    </message>
-    <message id="tx-curency-sub-name">
-        <source>GROTH</source>
-        <translation type="vanished">GROTH</translation>
     </message>
     <message id="utxo-utxo">
         <source>UTXO</source>
@@ -1264,10 +1224,6 @@
         <source>The minimum fee is %1 %2</source>
         <translation>Мінімальная камісія %1 %2</translation>
     </message>
-    <message id="general-locked">
-        <source>locked</source>
-        <translation type="vanished">заблакавана</translation>
-    </message>
     <message id="general-change-settings">
         <source>Change settings</source>
         <translation>Змяніць усталёўкі</translation>
@@ -1397,10 +1353,6 @@ Update your settings and try again.</oldsource>
         <oldsource>%1 is not connected, 
 please review your settings and try again.</oldsource>
         <translation type="unfinished">%1 is not connected, \nplease review your settings and try again.</translation>
-    </message>
-    <message id="send-swap-to-label">
-        <source>Transaction token</source>
-        <translation type="vanished">Ідэнтыфікатар транзакцыі</translation>
     </message>
     <message id="send-not-enough">
         <source>There is not enough funds to complete the transaction</source>

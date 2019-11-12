@@ -182,10 +182,6 @@
         <source>Receive</source>
         <translation>Ricevere</translation>
     </message>
-    <message id="wallet-in-progress-title">
-        <source>In progress</source>
-        <translation type="vanished">In corso</translation>
-    </message>
     <message id="wallet-transactions-title">
         <source>Transactions</source>
         <translation>Transazioni</translation>
@@ -197,10 +193,6 @@
     <message id="wallet-txs-date-time">
         <source>Created on</source>
         <translation>Creato il</translation>
-    </message>
-    <message id="wallet-txs-copy-addr-cm">
-        <source>Copy address</source>
-        <translation type="vanished">Copia indirizzo</translation>
     </message>
     <message id="wallet-txs-delete-message">
         <source>The transaction will be deleted. This operation can not be undone</source>
@@ -319,10 +311,6 @@
         <source>ip:port</source>
         <extracomment>settings tab, node section, address label</extracomment>
         <translation>ip:porta</translation>
-    </message>
-    <message id="settings-new-seed">
-        <source>Double click to generate new seed phrase</source>
-        <translation type="vanished">Doppio clic per generare una nuova frase di seed</translation>
     </message>
     <message id="settings-local-node-run-checkbox">
         <source>Run local node</source>
@@ -484,10 +472,6 @@
         <source>Info view</source>
         <translation>Visualizzazione Info</translation>
     </message>
-    <message id="loading-change-settings-button">
-        <source>Change settings</source>
-        <translation type="vanished">Modifica impostazione</translation>
-    </message>
     <message id="loading-try-again-button">
         <source>Try again</source>
         <translation>Riprova</translation>
@@ -601,10 +585,6 @@
     <message id="send-founds-fail">
         <source>Insufficient funds: you would need %1 to complete the transaction</source>
         <translation type="unfinished">Insufficient funds: you would need %1 to complete the transaction</translation>
-    </message>
-    <message id="send-curency-sub-name">
-        <source>GROTH</source>
-        <translation type="vanished">GROTH</translation>
     </message>
     <message id="send-remaining-label">
         <source>Remaining</source>
@@ -883,14 +863,6 @@
     <message id="tx-failture-invalid-state">
         <source>Transaction has invalid state</source>
         <translation type="unfinished">Transaction has invalid state</translation>
-    </message>
-    <message id="tx-curency-name">
-        <source>BEAM</source>
-        <translation type="vanished">BEAM</translation>
-    </message>
-    <message id="tx-curency-sub-name">
-        <source>GROTH</source>
-        <translation type="vanished">GROTH</translation>
     </message>
     <message id="utxo-utxo">
         <source>UTXO</source>
@@ -1566,10 +1538,6 @@ please review your settings and try again.</oldsource>
     <message id="wallet-model-device-not-connected">
         <source>There is no Trezor device connected. Please, connect and try again.</source>
         <translation>Non c&apos;è nessun dispositivo Trezor connesso. Si prega di connettersi e riprovare.</translation>
-    </message>
-    <message id="settings-invalid-seed">
-        <source>Invalid seed phrase</source>
-        <translation type="vanished">Frase di seed non valida</translation>
     </message>
     <message id="wallet-transactions-all-tab">
         <source>All</source>

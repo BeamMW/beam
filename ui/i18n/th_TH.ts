@@ -60,14 +60,6 @@
         <source>Delete</source>
         <translation>ลบ</translation>
     </message>
-    <message id="general-receiving">
-        <source>receiving</source>
-        <translation type="vanished">กำลังรับ</translation>
-    </message>
-    <message id="general-sending">
-        <source>sending</source>
-        <translation type="vanished">กำลังโอน</translation>
-    </message>
     <message id="general-rescan">
         <source>Rescan</source>
         <translation>สแกนใหม่</translation>
@@ -190,10 +182,6 @@
         <source>Receive</source>
         <translation>รับ</translation>
     </message>
-    <message id="wallet-in-progress-title">
-        <source>In progress</source>
-        <translation type="vanished">อยู่ระหว่างดำเนินการ</translation>
-    </message>
     <message id="wallet-transactions-title">
         <source>Transactions</source>
         <translation>ธุรกรรม</translation>
@@ -205,10 +193,6 @@
     <message id="wallet-txs-date-time">
         <source>Created on</source>
         <translation>สร้างเมื่อ</translation>
-    </message>
-    <message id="wallet-txs-copy-addr-cm">
-        <source>Copy address</source>
-        <translation type="vanished">คัดลอกที่อยู่</translation>
     </message>
     <message id="wallet-txs-delete-message">
         <source>The transaction will be deleted. This operation can not be undone</source>
@@ -327,14 +311,6 @@
         <source>ip:port</source>
         <extracomment>settings tab, node section, address label</extracomment>
         <translation>ip:port</translation>
-    </message>
-    <message id="settings-see-seed">
-        <source>Click to see seed phrase</source>
-        <translation type="vanished">กดเพื่อดูกลุ่มคำลับ</translation>
-    </message>
-    <message id="settings-new-seed">
-        <source>Double click to generate new seed phrase</source>
-        <translation type="vanished">ดับเบิลคลิกเพื่อทำการสร้างกลุ่มคำลับใหม่</translation>
     </message>
     <message id="settings-local-node-run-checkbox">
         <source>Run local node</source>
@@ -496,10 +472,6 @@
         <source>Info view</source>
         <translation>การแสดงรายละเอียด</translation>
     </message>
-    <message id="loading-change-settings-button">
-        <source>Change settings</source>
-        <translation type="vanished">เปลี่ยนการตั้งค่า</translation>
-    </message>
     <message id="loading-try-again-button">
         <source>Try again</source>
         <translation>ลองอีกครั้ง</translation>
@@ -594,14 +566,6 @@
         <source>Scan to send</source>
         <translation>แสกนเพื่อโอน</translation>
     </message>
-    <message id="wallet-receive-propogate-addr-message">
-        <source>Send this address to the sender over an external secure channel</source>
-        <translation type="vanished">นำที่อยู่นี้ไปให้ผู้ที่จะโอนในช่องทางอื่นๆ</translation>
-    </message>
-    <message id="invalid-addr-got-it-button">
-        <source>Got it</source>
-        <translation type="vanished">ได้รับแล้ว</translation>
-    </message>
     <message id="send-title">
         <source>Send</source>
         <translation>โอน</translation>
@@ -622,21 +586,9 @@
         <source>Insufficient funds: you would need %1 to complete the transaction</source>
         <translation>จำนวนเงินไม่พอ: คุณจะต้องมีอีกเพิ่มอีก %1 เพื่อดำเนินการธุรกรรม</translation>
     </message>
-    <message id="send-fee-fail">
-        <source>The minimum fee is %1 GROTH</source>
-        <translation type="vanished">ค่าธรรมเนียมที่ต่ำที่สุดคือ %1 GROTH</translation>
-    </message>
-    <message id="send-curency-sub-name">
-        <source>GROTH</source>
-        <translation type="vanished">GROTH</translation>
-    </message>
     <message id="send-remaining-label">
         <source>Remaining</source>
         <translation>ที่เหลืออยู่</translation>
-    </message>
-    <message id="send-send-fail">
-        <source>Address %1 is invalid</source>
-        <translation type="vanished">ที่อยู่ %1 ไม่ถูกต้อง</translation>
     </message>
     <message id="start-restore-confirm-button">
         <source>I agree</source>
@@ -911,14 +863,6 @@
     <message id="tx-failture-invalid-state">
         <source>Transaction has invalid state</source>
         <translation>State ของ Transaction ไม่ถูกต้อง</translation>
-    </message>
-    <message id="tx-curency-name">
-        <source>BEAM</source>
-        <translation type="vanished">BEAM</translation>
-    </message>
-    <message id="tx-curency-sub-name">
-        <source>GROTH</source>
-        <translation type="vanished">GROTH</translation>
     </message>
     <message id="utxo-utxo">
         <source>UTXO</source>
@@ -1280,10 +1224,6 @@
         <source>The minimum fee is %1 %2</source>
         <translation>ค่าธรรมเนียมที่ต่ำที่สุดคือ %1 %2</translation>
     </message>
-    <message id="general-locked">
-        <source>locked</source>
-        <translation type="vanished">ล็อก</translation>
-    </message>
     <message id="general-change-settings">
         <source>Change settings</source>
         <translation>เปลี่ยนการตั้งค่า</translation>
@@ -1362,10 +1302,6 @@ Update your settings and try again.</oldsource>
         <source>Exchange rate</source>
         <translation>อัตราแลกเปลี่ยน</translation>
     </message>
-    <message id="wallet-receive-your-token">
-        <source>Your transaction token:</source>
-        <translation type="vanished">โทเค็นธุรกรรมของคุณ</translation>
-    </message>
     <message id="wallet-swap-token-message">
         <source>Send this token to the sender over an external secure channel</source>
         <translation>ส่งโทเค็นนี้ไปให้ผู้ที่จะโอนในช่องทางอื่นๆ</translation>
@@ -1416,10 +1352,6 @@ Update your settings and try again.</oldsource>
         <source>%1 is not connected, \nplease review your settings and try again.</source>
         <oldsource>%1 is not connected, please review your settings and try again.</oldsource>
         <translation>%1 เชื่อมต่อไม่ได้ \nกรุณาตรวจสอบการตั้งค่าและลองอีกครั้ง</translation>
-    </message>
-    <message id="send-swap-to-label">
-        <source>Transaction token</source>
-        <translation type="vanished">โทเค็นธุรกรรม</translation>
     </message>
     <message id="send-not-enough">
         <source>There is not enough funds to complete the transaction</source>
@@ -1606,10 +1538,6 @@ Update your settings and try again.</oldsource>
         <source>There is no Trezor device connected. Please, connect and try again.</source>
         <translation>ไม่พบ Trezor ที่กำลังเชื่อมต่อ กรุณาเชื่อมต่อและลองอีกครั้ง</translation>
     </message>
-    <message id="settings-invalid-seed">
-        <source>Invalid seed phrase</source>
-        <translation type="vanished">กลุ่มคำลับไม่ถูกต้อง</translation>
-    </message>
     <message id="wallet-transactions-all-tab">
         <source>All</source>
         <translation>ทั้งหมด</translation>
@@ -1780,10 +1708,6 @@ Please try again later or create an offer yourself.</oldsource>
         <source>Disconnect</source>
         <translation>ตัดการเชื่อมต่อ</translation>
     </message>
-    <message id="settings-swap-seed-phrase">
-        <source>Seed Phrase</source>
-        <translation type="vanished">กลุ่มคำลับ</translation>
-    </message>
     <message id="settings-swap-bitcoin-node">
         <source>Bitcoin node</source>
         <translation>Node ของ Bitcoin</translation>
@@ -1807,14 +1731,6 @@ Please try again later or create an offer yourself.</oldsource>
     <message id="settings-swap-qtum-electrum">
         <source>Qtum electrum</source>
         <translation>Qtum Electrum</translation>
-    </message>
-    <message id="connect to electrum node">
-        <source>connect to electrum node</source>
-        <translation type="vanished">เชื่อมต่อไปยัง Node Electrum</translation>
-    </message>
-    <message id="connect to node">
-        <source>connect to node</source>
-        <translation type="vanished">เชื่อมต่อไปยัง Node</translation>
     </message>
     <message id="invalid-rate-min">
         <source>Rate cannot be less than %1</source>

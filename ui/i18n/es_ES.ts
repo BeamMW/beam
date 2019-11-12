@@ -60,10 +60,6 @@
         <source>Delete</source>
         <translation>Borrar</translation>
     </message>
-    <message id="general-sending">
-        <source>sending</source>
-        <translation type="vanished">enviando</translation>
-    </message>
     <message id="general-rescan">
         <source>Rescan</source>
         <translation>Vuelve a buscar</translation>
@@ -186,10 +182,6 @@
         <source>Receive</source>
         <translation>Recibe</translation>
     </message>
-    <message id="wallet-in-progress-title">
-        <source>In progress</source>
-        <translation type="vanished">En progreso</translation>
-    </message>
     <message id="wallet-transactions-title">
         <source>Transactions</source>
         <translation>Transacciones</translation>
@@ -201,10 +193,6 @@
     <message id="wallet-txs-date-time">
         <source>Created on</source>
         <translation>Creado en</translation>
-    </message>
-    <message id="wallet-txs-copy-addr-cm">
-        <source>Copy address</source>
-        <translation type="vanished">Copiar dirección</translation>
     </message>
     <message id="wallet-txs-delete-message">
         <source>The transaction will be deleted. This operation can not be undone</source>
@@ -323,14 +311,6 @@
         <source>ip:port</source>
         <extracomment>settings tab, node section, address label</extracomment>
         <translation>ip: puerto</translation>
-    </message>
-    <message id="settings-see-seed">
-        <source>Click to see seed phrase</source>
-        <translation type="vanished">Haga clic para ver la frase de semilla</translation>
-    </message>
-    <message id="settings-new-seed">
-        <source>Double click to generate new seed phrase</source>
-        <translation type="vanished">Haga doble clic para generar nueva frase de semilla</translation>
     </message>
     <message id="settings-local-node-run-checkbox">
         <source>Run local node</source>
@@ -492,10 +472,6 @@
         <source>Info view</source>
         <translation>Ver información</translation>
     </message>
-    <message id="loading-change-settings-button">
-        <source>Change settings</source>
-        <translation type="vanished">Cambiar ajustes</translation>
-    </message>
     <message id="loading-try-again-button">
         <source>Try again</source>
         <translation>Prueba de nuevo</translation>
@@ -590,14 +566,6 @@
         <source>Scan to send</source>
         <translation>Escanear para enviar</translation>
     </message>
-    <message id="wallet-receive-propogate-addr-message">
-        <source>Send this address to the sender over an external secure channel</source>
-        <translation type="vanished">Enviar esta dirección al remitente a través de un canal externo seguro</translation>
-    </message>
-    <message id="invalid-addr-got-it-button">
-        <source>Got it</source>
-        <translation type="vanished">Ok</translation>
-    </message>
     <message id="send-title">
         <source>Send</source>
         <translation>Enviar</translation>
@@ -618,21 +586,9 @@
         <source>Insufficient funds: you would need %1 to complete the transaction</source>
         <translation>Fondos insuficientes: usted necesitaría un 1% para completar la transacción</translation>
     </message>
-    <message id="send-fee-fail">
-        <source>The minimum fee is %1 GROTH</source>
-        <translation type="vanished">La cuota minima es %1 GROTH</translation>
-    </message>
-    <message id="send-curency-sub-name">
-        <source>GROTH</source>
-        <translation type="vanished">GROTH</translation>
-    </message>
     <message id="send-remaining-label">
         <source>Remaining</source>
         <translation>Restante</translation>
-    </message>
-    <message id="send-send-fail">
-        <source>Address %1 is invalid</source>
-        <translation type="vanished">La dirección 1% no es válida</translation>
     </message>
     <message id="start-restore-confirm-button">
         <source>I agree</source>
@@ -907,14 +863,6 @@
     <message id="tx-failture-invalid-state">
         <source>Transaction has invalid state</source>
         <translation>La transacción tiene un estado inválido</translation>
-    </message>
-    <message id="tx-curency-name">
-        <source>BEAM</source>
-        <translation type="vanished">BEAM</translation>
-    </message>
-    <message id="tx-curency-sub-name">
-        <source>GROTH</source>
-        <translation type="vanished">GROTH</translation>
     </message>
     <message id="utxo-utxo">
         <source>UTXO</source>
@@ -1277,10 +1225,6 @@ Escanee este código QR o envíe esta dirección al remitente a través de un ca
         <source>The minimum fee is %1 %2</source>
         <translation>La tarifa mínima es %1 %2</translation>
     </message>
-    <message id="general-locked">
-        <source>locked</source>
-        <translation type="vanished">bloqueado</translation>
-    </message>
     <message id="general-change-settings">
         <source>Change settings</source>
         <translation>Cambiar ajustes</translation>
@@ -1359,10 +1303,6 @@ Update your settings and try again.</oldsource>
         <source>Exchange rate</source>
         <translation>Tipo de cambio</translation>
     </message>
-    <message id="wallet-receive-your-token">
-        <source>Your transaction token:</source>
-        <translation type="vanished">Tu token de transacción:</translation>
-    </message>
     <message id="wallet-swap-token-message">
         <source>Send this token to the sender over an external secure channel</source>
         <translation>Enviar este token al remitente a través de un canal seguro externo</translation>
@@ -1414,10 +1354,6 @@ Update your settings and try again.</oldsource>
         <oldsource>%1 is not connected, 
 please review your settings and try again.</oldsource>
         <translation type="unfinished">%1 no está conectado, \npor favor revise su configuración e inténtelo de nuevo.</translation>
-    </message>
-    <message id="send-swap-to-label">
-        <source>Transaction token</source>
-        <translation type="vanished">Token de transacción</translation>
     </message>
     <message id="send-not-enough">
         <source>There is not enough funds to complete the transaction</source>
@@ -1604,10 +1540,6 @@ please review your settings and try again.</oldsource>
         <source>There is no Trezor device connected. Please, connect and try again.</source>
         <translation>No hay ningún dispositivo Trezor conectado. Por favor, conéctate e inténtalo de nuevo.</translation>
     </message>
-    <message id="settings-invalid-seed">
-        <source>Invalid seed phrase</source>
-        <translation type="vanished">Frase de semilla no válida</translation>
-    </message>
     <message id="wallet-transactions-all-tab">
         <source>All</source>
         <translation>Todo</translation>
@@ -1780,10 +1712,6 @@ Please check the swap token and try again.</oldsource>
         <source>Disconnect</source>
         <translation>Desconectar</translation>
     </message>
-    <message id="settings-swap-seed-phrase">
-        <source>Seed Phrase</source>
-        <translation type="vanished">Frase semilla</translation>
-    </message>
     <message id="settings-swap-bitcoin-node">
         <source>Bitcoin node</source>
         <translation>Nodo Bitcoin</translation>
@@ -1807,14 +1735,6 @@ Please check the swap token and try again.</oldsource>
     <message id="settings-swap-qtum-electrum">
         <source>Qtum electrum</source>
         <translation>Qtum electrum</translation>
-    </message>
-    <message id="connect to electrum node">
-        <source>connect to electrum node</source>
-        <translation type="vanished">conectar al nodo electrum</translation>
-    </message>
-    <message id="connect to node">
-        <source>connect to node</source>
-        <translation type="vanished">conectar con el nodo</translation>
     </message>
     <message id="invalid-rate-min">
         <source>Rate cannot be less than %1</source>

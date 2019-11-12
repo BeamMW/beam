@@ -182,10 +182,6 @@
         <source>Receive</source>
         <translation>受信</translation>
     </message>
-    <message id="wallet-in-progress-title">
-        <source>In progress</source>
-        <translation type="vanished">進行中</translation>
-    </message>
     <message id="wallet-transactions-title">
         <source>Transactions</source>
         <translation>トランザクション</translation>
@@ -197,10 +193,6 @@
     <message id="wallet-txs-date-time">
         <source>Created on</source>
         <translation type="unfinished">Created on</translation>
-    </message>
-    <message id="wallet-txs-copy-addr-cm">
-        <source>Copy address</source>
-        <translation type="vanished">アドレスをコピー</translation>
     </message>
     <message id="wallet-txs-delete-message">
         <source>The transaction will be deleted. This operation can not be undone</source>
@@ -480,10 +472,6 @@
         <source>Info view</source>
         <translation>情報を表示</translation>
     </message>
-    <message id="loading-change-settings-button">
-        <source>Change settings</source>
-        <translation type="vanished">設定変更</translation>
-    </message>
     <message id="loading-try-again-button">
         <source>Try again</source>
         <translation>再試行してください。</translation>
@@ -578,14 +566,6 @@
         <source>Scan to send</source>
         <translation>スキャンして送信</translation>
     </message>
-    <message id="wallet-receive-propogate-addr-message">
-        <source>Send this address to the sender over an external secure channel</source>
-        <translation type="vanished">このアドレスを送信者に共有してください</translation>
-    </message>
-    <message id="invalid-addr-got-it-button">
-        <source>Got it</source>
-        <translation type="vanished">了解</translation>
-    </message>
     <message id="send-title">
         <source>Send</source>
         <translation>送信</translation>
@@ -606,21 +586,9 @@
         <source>Insufficient funds: you would need %1 to complete the transaction</source>
         <translation>残高不足：トランザクションを完了する為にはあと %1が必要です</translation>
     </message>
-    <message id="send-fee-fail">
-        <source>The minimum fee is %1 GROTH</source>
-        <translation type="vanished">最小手数料は %1 GROTHです</translation>
-    </message>
-    <message id="send-curency-sub-name">
-        <source>GROTH</source>
-        <translation type="vanished">GROTH</translation>
-    </message>
     <message id="send-remaining-label">
         <source>Remaining</source>
         <translation>残高</translation>
-    </message>
-    <message id="send-send-fail">
-        <source>Address %1 is invalid</source>
-        <translation type="vanished">%1は不正なアドレスです</translation>
     </message>
     <message id="start-restore-confirm-button">
         <source>I agree</source>
@@ -895,14 +863,6 @@
     <message id="tx-failture-invalid-state">
         <source>Transaction has invalid state</source>
         <translation>トランザクションが不正なステートを持っています</translation>
-    </message>
-    <message id="tx-curency-name">
-        <source>BEAM</source>
-        <translation type="vanished">BEAM</translation>
-    </message>
-    <message id="tx-curency-sub-name">
-        <source>GROTH</source>
-        <translation type="vanished">GROTH</translation>
     </message>
     <message id="utxo-utxo">
         <source>UTXO</source>

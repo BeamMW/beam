@@ -182,10 +182,6 @@
         <source>Receive</source>
         <translation>Receive</translation>
     </message>
-    <message id="wallet-in-progress-title">
-        <source>In progress</source>
-        <translation type="vanished">In progress</translation>
-    </message>
     <message id="wallet-transactions-title">
         <source>Transactions</source>
         <translation>Transactions</translation>
@@ -197,10 +193,6 @@
     <message id="wallet-txs-date-time">
         <source>Created on</source>
         <translation>Created on</translation>
-    </message>
-    <message id="wallet-txs-copy-addr-cm">
-        <source>Copy address</source>
-        <translation type="vanished">Copy address</translation>
     </message>
     <message id="wallet-txs-delete-message">
         <source>The transaction will be deleted. This operation can not be undone</source>
@@ -318,14 +310,6 @@
         <source>ip:port</source>
         <extracomment>settings tab, node section, address label</extracomment>
         <translation>ip:port</translation>
-    </message>
-    <message id="settings-see-seed">
-        <source>Click to see seed phrase</source>
-        <translation type="vanished">Click to see seed phrase</translation>
-    </message>
-    <message id="settings-new-seed">
-        <source>Double click to generate new seed phrase</source>
-        <translation type="vanished">Double click to generate new seed phrase</translation>
     </message>
     <message id="settings-local-node-run-checkbox">
         <source>Run local node</source>
@@ -487,10 +471,6 @@
         <source>Info view</source>
         <translation>Info view</translation>
     </message>
-    <message id="loading-change-settings-button">
-        <source>Change settings</source>
-        <translation type="vanished">Change settings</translation>
-    </message>
     <message id="loading-try-again-button">
         <source>Try again</source>
         <translation>Try again</translation>
@@ -585,14 +565,6 @@
         <source>Scan to send</source>
         <translation>Scan to send</translation>
     </message>
-    <message id="wallet-receive-propogate-addr-message">
-        <source>Send this address to the sender over an external secure channel</source>
-        <translation type="vanished">Send this address to the sender over an external secure channel</translation>
-    </message>
-    <message id="invalid-addr-got-it-button">
-        <source>Got it</source>
-        <translation type="vanished">Got it</translation>
-    </message>
     <message id="send-title">
         <source>Send</source>
         <translation>Send Beam</translation>
@@ -613,21 +585,9 @@
         <source>Insufficient funds: you would need %1 to complete the transaction</source>
         <translation>Insufficient funds: you would need %1 to complete the transaction</translation>
     </message>
-    <message id="send-fee-fail">
-        <source>The minimum fee is %1 GROTH</source>
-        <translation type="vanished">The minimum fee is %1 GROTH</translation>
-    </message>
-    <message id="send-curency-sub-name">
-        <source>GROTH</source>
-        <translation type="vanished">GROTH</translation>
-    </message>
     <message id="send-remaining-label">
         <source>Remaining</source>
         <translation>Remaining</translation>
-    </message>
-    <message id="send-send-fail">
-        <source>Address %1 is invalid</source>
-        <translation type="vanished">Address %1 is invalid</translation>
     </message>
     <message id="start-restore-confirm-button">
         <source>I agree</source>
@@ -902,14 +862,6 @@
     <message id="tx-failture-invalid-state">
         <source>Transaction has invalid state</source>
         <translation>Transaction has invalid state</translation>
-    </message>
-    <message id="tx-curency-name">
-        <source>BEAM</source>
-        <translation type="vanished">BEAM</translation>
-    </message>
-    <message id="tx-curency-sub-name">
-        <source>GROTH</source>
-        <translation type="vanished">GROTH</translation>
     </message>
     <message id="utxo-utxo">
         <source>UTXO</source>
@@ -1270,10 +1222,6 @@ or send this address to the sender over secure channel</translation>
         <source>The minimum fee is %1 %2</source>
         <translation>The minimum fee is %1 %2</translation>
     </message>
-    <message id="general-locked">
-        <source>locked</source>
-        <translation type="vanished">locked</translation>
-    </message>
     <message id="general-change-settings">
         <source>Change settings</source>
         <translation>Change settings</translation>
@@ -1349,10 +1297,6 @@ or send this address to the sender over secure channel</translation>
     <message id="general-rate">
         <source>Exchange rate</source>
         <translation>Exchange rate</translation>
-    </message>
-    <message id="wallet-receive-your-token">
-        <source>Your transaction token:</source>
-        <translation type="vanished">Your transaction token:</translation>
     </message>
     <message id="wallet-swap-token-message">
         <source>Send this token to the sender over an external secure channel</source>
@@ -1586,10 +1530,6 @@ or send this address to the sender over secure channel</translation>
         <source>There is no Trezor device connected. Please, connect and try again.</source>
         <translation>There is no Trezor device connected. Please, connect and try again.</translation>
     </message>
-    <message id="settings-invalid-seed">
-        <source>Invalid seed phrase</source>
-        <translation type="vanished">Invalid seed phrase</translation>
-    </message>
     <message id="wallet-transactions-all-tab">
         <source>All</source>
         <translation type="unfinished">All</translation>
@@ -1757,10 +1697,6 @@ Please check the swap token and try again.</translation>
         <source>Disconnect</source>
         <translation>Disconnect</translation>
     </message>
-    <message id="settings-swap-seed-phrase">
-        <source>Seed Phrase</source>
-        <translation type="vanished">Seed Phrase</translation>
-    </message>
     <message id="settings-swap-bitcoin-node">
         <source>Bitcoin node</source>
         <translation>Bitcoin node</translation>
@@ -1784,14 +1720,6 @@ Please check the swap token and try again.</translation>
     <message id="settings-swap-qtum-electrum">
         <source>Qtum electrum</source>
         <translation>Qtum electrum</translation>
-    </message>
-    <message id="connect to electrum node">
-        <source>connect to electrum node</source>
-        <translation type="vanished">connect to electrum node</translation>
-    </message>
-    <message id="connect to node">
-        <source>connect to node</source>
-        <translation type="vanished">connect to node</translation>
     </message>
     <message id="invalid-rate-min">
         <source>Rate cannot be less than %1</source>

@@ -182,10 +182,6 @@
         <source>Receive</source>
         <translation>Recevoir</translation>
     </message>
-    <message id="wallet-in-progress-title">
-        <source>In progress</source>
-        <translation type="vanished">En cours</translation>
-    </message>
     <message id="wallet-transactions-title">
         <source>Transactions</source>
         <translation>Transactions</translation>
@@ -197,10 +193,6 @@
     <message id="wallet-txs-date-time">
         <source>Created on</source>
         <translation type="unfinished">Created on</translation>
-    </message>
-    <message id="wallet-txs-copy-addr-cm">
-        <source>Copy address</source>
-        <translation type="vanished">Copier adresse</translation>
     </message>
     <message id="wallet-txs-delete-message">
         <source>The transaction will be deleted. This operation can not be undone</source>
@@ -480,10 +472,6 @@
         <source>Info view</source>
         <translation>Voir information</translation>
     </message>
-    <message id="loading-change-settings-button">
-        <source>Change settings</source>
-        <translation type="vanished">Modifier paramètres</translation>
-    </message>
     <message id="loading-try-again-button">
         <source>Try again</source>
         <translation>Réessayer</translation>
@@ -578,14 +566,6 @@
         <source>Scan to send</source>
         <translation>Scanner pour envoyer</translation>
     </message>
-    <message id="wallet-receive-propogate-addr-message">
-        <source>Send this address to the sender over an external secure channel</source>
-        <translation type="vanished">Envoyez cette adresse à l&apos;expéditeur via un canal sécurisé externe</translation>
-    </message>
-    <message id="invalid-addr-got-it-button">
-        <source>Got it</source>
-        <translation type="vanished">Bien reçu</translation>
-    </message>
     <message id="send-title">
         <source>Send</source>
         <translation>Envoyer</translation>
@@ -606,21 +586,9 @@
         <source>Insufficient funds: you would need %1 to complete the transaction</source>
         <translation>Fonds insuffisants: vous auriez besoin de % 1 pour finaliser la transaction</translation>
     </message>
-    <message id="send-fee-fail">
-        <source>The minimum fee is %1 GROTH</source>
-        <translation type="vanished">Frais de transaction minimum: 1 GROTH</translation>
-    </message>
-    <message id="send-curency-sub-name">
-        <source>GROTH</source>
-        <translation type="vanished">GROTH</translation>
-    </message>
     <message id="send-remaining-label">
         <source>Remaining</source>
         <translation>Restant</translation>
-    </message>
-    <message id="send-send-fail">
-        <source>Address %1 is invalid</source>
-        <translation type="vanished">L&apos;adresse %1 est invalide</translation>
     </message>
     <message id="start-restore-confirm-button">
         <source>I agree</source>
@@ -896,14 +864,6 @@ Vous essayez de restaurer un portefeuille Beam existant. Veuillez noter que si v
     <message id="tx-failture-invalid-state">
         <source>Transaction has invalid state</source>
         <translation>L&apos;état de la transaction est invalide</translation>
-    </message>
-    <message id="tx-curency-name">
-        <source>BEAM</source>
-        <translation type="vanished">BEAM</translation>
-    </message>
-    <message id="tx-curency-sub-name">
-        <source>GROTH</source>
-        <translation type="vanished">GROTH</translation>
     </message>
     <message id="utxo-utxo">
         <source>UTXO</source>

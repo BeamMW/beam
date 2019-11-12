@@ -182,10 +182,6 @@
         <source>Receive</source>
         <translation>Al</translation>
     </message>
-    <message id="wallet-in-progress-title">
-        <source>In progress</source>
-        <translation type="vanished">Devam etmekte</translation>
-    </message>
     <message id="wallet-transactions-title">
         <source>Transactions</source>
         <translation>İşlemler</translation>
@@ -197,10 +193,6 @@
     <message id="wallet-txs-date-time">
         <source>Created on</source>
         <translation type="unfinished">Created on</translation>
-    </message>
-    <message id="wallet-txs-copy-addr-cm">
-        <source>Copy address</source>
-        <translation type="vanished">Adresi kopyala</translation>
     </message>
     <message id="wallet-txs-delete-message">
         <source>The transaction will be deleted. This operation can not be undone</source>
@@ -480,10 +472,6 @@
         <source>Info view</source>
         <translation>Bilgi görünümü</translation>
     </message>
-    <message id="loading-change-settings-button">
-        <source>Change settings</source>
-        <translation type="vanished">Ayarları değiştir</translation>
-    </message>
     <message id="loading-try-again-button">
         <source>Try again</source>
         <translation>Tekrar deneyin</translation>
@@ -578,14 +566,6 @@
         <source>Scan to send</source>
         <translation>Göndermek için tara</translation>
     </message>
-    <message id="wallet-receive-propogate-addr-message">
-        <source>Send this address to the sender over an external secure channel</source>
-        <translation type="vanished">Bu adresi gönderene harici güvenli bir kanal üzerinden gönderin</translation>
-    </message>
-    <message id="invalid-addr-got-it-button">
-        <source>Got it</source>
-        <translation type="vanished">Anlaşıldı</translation>
-    </message>
     <message id="send-title">
         <source>Send</source>
         <translation>Gönder</translation>
@@ -606,21 +586,9 @@
         <source>Insufficient funds: you would need %1 to complete the transaction</source>
         <translation>Yetersiz miktar: işlemi tamamlamak için %1 gerekir</translation>
     </message>
-    <message id="send-fee-fail">
-        <source>The minimum fee is %1 GROTH</source>
-        <translation type="vanished">Minimum işlem ücreti %1 GROTH</translation>
-    </message>
-    <message id="send-curency-sub-name">
-        <source>GROTH</source>
-        <translation type="vanished">GROTH</translation>
-    </message>
     <message id="send-remaining-label">
         <source>Remaining</source>
         <translation>Kalan</translation>
-    </message>
-    <message id="send-send-fail">
-        <source>Address %1 is invalid</source>
-        <translation type="vanished">Adres %1 geçersiz</translation>
     </message>
     <message id="start-restore-confirm-button">
         <source>I agree</source>
@@ -895,14 +863,6 @@
     <message id="tx-failture-invalid-state">
         <source>Transaction has invalid state</source>
         <translation>İşlem geçersiz durumda</translation>
-    </message>
-    <message id="tx-curency-name">
-        <source>BEAM</source>
-        <translation type="vanished">BEAM</translation>
-    </message>
-    <message id="tx-curency-sub-name">
-        <source>GROTH</source>
-        <translation type="vanished">GROTH</translation>
     </message>
     <message id="utxo-utxo">
         <source>UTXO</source>

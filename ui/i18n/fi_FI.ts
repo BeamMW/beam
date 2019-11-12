@@ -60,14 +60,6 @@
         <source>Delete</source>
         <translation>Poista</translation>
     </message>
-    <message id="general-receiving">
-        <source>receiving</source>
-        <translation type="vanished">vastaanottaa</translation>
-    </message>
-    <message id="general-sending">
-        <source>sending</source>
-        <translation type="vanished">lähettää</translation>
-    </message>
     <message id="general-rescan">
         <source>Rescan</source>
         <translation>Skannaa uudelleen</translation>
@@ -190,10 +182,6 @@
         <source>Receive</source>
         <translation>Vastaanota</translation>
     </message>
-    <message id="wallet-in-progress-title">
-        <source>In progress</source>
-        <translation type="vanished">Käsittelyssä</translation>
-    </message>
     <message id="wallet-transactions-title">
         <source>Transactions</source>
         <translation>Tapahtumat</translation>
@@ -205,10 +193,6 @@
     <message id="wallet-txs-date-time">
         <source>Created on</source>
         <translation>Luotu</translation>
-    </message>
-    <message id="wallet-txs-copy-addr-cm">
-        <source>Copy address</source>
-        <translation type="vanished">Kopioi osoite</translation>
     </message>
     <message id="wallet-txs-delete-message">
         <source>The transaction will be deleted. This operation can not be undone</source>
@@ -327,14 +311,6 @@
         <source>ip:port</source>
         <extracomment>settings tab, node section, address label</extracomment>
         <translation>IP:portti</translation>
-    </message>
-    <message id="settings-see-seed">
-        <source>Click to see seed phrase</source>
-        <translation type="vanished">Napsauta nähdäksesi seed phrasen</translation>
-    </message>
-    <message id="settings-new-seed">
-        <source>Double click to generate new seed phrase</source>
-        <translation type="vanished">Kaksoisnapsauta luodaksesi uuden seed phrasen</translation>
     </message>
     <message id="settings-local-node-run-checkbox">
         <source>Run local node</source>
@@ -496,10 +472,6 @@
         <source>Info view</source>
         <translation>Info</translation>
     </message>
-    <message id="loading-change-settings-button">
-        <source>Change settings</source>
-        <translation type="vanished">Muuta asetuksia</translation>
-    </message>
     <message id="loading-try-again-button">
         <source>Try again</source>
         <translation>Yritä uudelleen</translation>
@@ -594,14 +566,6 @@
         <source>Scan to send</source>
         <translation>Skannaa lähettääksesi</translation>
     </message>
-    <message id="wallet-receive-propogate-addr-message">
-        <source>Send this address to the sender over an external secure channel</source>
-        <translation type="vanished">Lähetä tämä osoite siirron suorittajalle turvallista viestintävälinettä käyttäen</translation>
-    </message>
-    <message id="invalid-addr-got-it-button">
-        <source>Got it</source>
-        <translation type="vanished">Selvä</translation>
-    </message>
     <message id="send-title">
         <source>Send</source>
         <translation>Lähetä</translation>
@@ -622,21 +586,9 @@
         <source>Insufficient funds: you would need %1 to complete the transaction</source>
         <translation>Saldo ei riitä: tarvitset vähintään summan %1 suorittaaksesi maksutapahtuman</translation>
     </message>
-    <message id="send-fee-fail">
-        <source>The minimum fee is %1 GROTH</source>
-        <translation type="vanished">Minimisiirtomaksu on %1 GROTHia</translation>
-    </message>
-    <message id="send-curency-sub-name">
-        <source>GROTH</source>
-        <translation type="vanished">GROTH</translation>
-    </message>
     <message id="send-remaining-label">
         <source>Remaining</source>
         <translation>Käytettävissä</translation>
-    </message>
-    <message id="send-send-fail">
-        <source>Address %1 is invalid</source>
-        <translation type="vanished">Osoite %1 on virheellinen</translation>
     </message>
     <message id="start-restore-confirm-button">
         <source>I agree</source>
@@ -911,14 +863,6 @@
     <message id="tx-failture-invalid-state">
         <source>Transaction has invalid state</source>
         <translation>Tapahtuman tila on virheellinen</translation>
-    </message>
-    <message id="tx-curency-name">
-        <source>BEAM</source>
-        <translation type="vanished">BEAM</translation>
-    </message>
-    <message id="tx-curency-sub-name">
-        <source>GROTH</source>
-        <translation type="vanished">GROTH</translation>
     </message>
     <message id="utxo-utxo">
         <source>UTXO</source>
@@ -1280,10 +1224,6 @@
         <source>The minimum fee is %1 %2</source>
         <translation>Minimisiirtomaksu on %1 %2</translation>
     </message>
-    <message id="general-locked">
-        <source>locked</source>
-        <translation type="vanished">lukittu</translation>
-    </message>
     <message id="general-change-settings">
         <source>Change settings</source>
         <translation>Muuta asetuksia</translation>
@@ -1362,10 +1302,6 @@ Update your settings and try again.</oldsource>
         <source>Exchange rate</source>
         <translation>Vaihtokurssi</translation>
     </message>
-    <message id="wallet-receive-your-token">
-        <source>Your transaction token:</source>
-        <translation type="vanished">Tapahtumasi tunniste:</translation>
-    </message>
     <message id="wallet-swap-token-message">
         <source>Send this token to the sender over an external secure channel</source>
         <translation>Lähetä tämä tunniste vaihdon suorittajalle turvallista viestintävälinettä käyttäen</translation>
@@ -1417,10 +1353,6 @@ Update your settings and try again.</oldsource>
         <oldsource>%1 is not connected, 
 please review your settings and try again.</oldsource>
         <translation type="unfinished">%1 ei ole yhdistetty. \nTarkista asetuksesi ja yritä uudelleen.</translation>
-    </message>
-    <message id="send-swap-to-label">
-        <source>Transaction token</source>
-        <translation type="vanished">Tapahtuman tunniste</translation>
     </message>
     <message id="send-not-enough">
         <source>There is not enough funds to complete the transaction</source>
@@ -1607,10 +1539,6 @@ please review your settings and try again.</oldsource>
         <source>There is no Trezor device connected. Please, connect and try again.</source>
         <translation>Trezor-laitetta ei ole yhdistetty. Yhdistä Trezor ja yritä uudelleen.</translation>
     </message>
-    <message id="settings-invalid-seed">
-        <source>Invalid seed phrase</source>
-        <translation type="vanished">Virheellinen seed phrase</translation>
-    </message>
     <message id="wallet-transactions-all-tab">
         <source>All</source>
         <translation>Kaikki</translation>
@@ -1783,10 +1711,6 @@ Please check the swap token and try again.</oldsource>
         <source>Disconnect</source>
         <translation>Katkaise yhteys</translation>
     </message>
-    <message id="settings-swap-seed-phrase">
-        <source>Seed Phrase</source>
-        <translation type="vanished">Seed phrase</translation>
-    </message>
     <message id="settings-swap-bitcoin-node">
         <source>Bitcoin node</source>
         <translation>Bitcoin palvelin (node)</translation>
@@ -1810,14 +1734,6 @@ Please check the swap token and try again.</oldsource>
     <message id="settings-swap-qtum-electrum">
         <source>Qtum electrum</source>
         <translation>Qtum Electrum</translation>
-    </message>
-    <message id="connect to electrum node">
-        <source>connect to electrum node</source>
-        <translation type="vanished">yhdistä Electrum-palvelimeen (node)</translation>
-    </message>
-    <message id="connect to node">
-        <source>connect to node</source>
-        <translation type="vanished">yhdistä palvelimeen (node)</translation>
     </message>
     <message id="invalid-rate-min">
         <source>Rate cannot be less than %1</source>

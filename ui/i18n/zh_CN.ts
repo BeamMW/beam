@@ -60,14 +60,6 @@
         <source>Delete</source>
         <translation>删除</translation>
     </message>
-    <message id="general-receiving">
-        <source>receiving</source>
-        <translation type="obsolete">receiving</translation>
-    </message>
-    <message id="general-sending">
-        <source>sending</source>
-        <translation type="obsolete">sending</translation>
-    </message>
     <message id="general-rescan">
         <source>Rescan</source>
         <translation>重新扫描</translation>
@@ -190,10 +182,6 @@
         <source>Receive</source>
         <translation>收款</translation>
     </message>
-    <message id="wallet-in-progress-title">
-        <source>In progress</source>
-        <translation type="vanished">交易中</translation>
-    </message>
     <message id="wallet-transactions-title">
         <source>Transactions</source>
         <translation>交易</translation>
@@ -205,10 +193,6 @@
     <message id="wallet-txs-date-time">
         <source>Created on</source>
         <translation type="unfinished">Created on</translation>
-    </message>
-    <message id="wallet-txs-copy-addr-cm">
-        <source>Copy address</source>
-        <translation type="vanished">复制地址</translation>
     </message>
     <message id="wallet-txs-delete-message">
         <source>The transaction will be deleted. This operation can not be undone</source>
@@ -328,14 +312,6 @@
         <source>ip:port</source>
         <extracomment>settings tab, node section, address label</extracomment>
         <translation>IP地址:端口</translation>
-    </message>
-    <message id="settings-see-seed">
-        <source>Click to see seed phrase</source>
-        <translation type="obsolete">Click to see seed phrase</translation>
-    </message>
-    <message id="settings-new-seed">
-        <source>Double click to generate new seed phrase</source>
-        <translation type="obsolete">Double click to generate new seed phrase</translation>
     </message>
     <message id="settings-local-node-run-checkbox">
         <source>Run local node</source>
@@ -499,10 +475,6 @@
         <source>Info view</source>
         <translation>信息视图</translation>
     </message>
-    <message id="loading-change-settings-button">
-        <source>Change settings</source>
-        <translation type="vanished">修改设置</translation>
-    </message>
     <message id="loading-try-again-button">
         <source>Try again</source>
         <translation>请再试一次</translation>
@@ -597,14 +569,6 @@
         <source>Scan to send</source>
         <translation>扫描以付款</translation>
     </message>
-    <message id="wallet-receive-propogate-addr-message">
-        <source>Send this address to the sender over an external secure channel</source>
-        <translation type="vanished">通过外部安全媒介将此地址发送给付款方</translation>
-    </message>
-    <message id="invalid-addr-got-it-button">
-        <source>Got it</source>
-        <translation type="vanished">知道了</translation>
-    </message>
     <message id="send-title">
         <source>Send</source>
         <translation>付款</translation>
@@ -625,21 +589,9 @@
         <source>Insufficient funds: you would need %1 to complete the transaction</source>
         <translation>资金不足：您需要%1来完成交易</translation>
     </message>
-    <message id="send-fee-fail">
-        <source>The minimum fee is %1 GROTH</source>
-        <translation type="vanished">最小交易费为 %1 GROTH</translation>
-    </message>
-    <message id="send-curency-sub-name">
-        <source>GROTH</source>
-        <translation type="vanished">GROTH</translation>
-    </message>
     <message id="send-remaining-label">
         <source>Remaining</source>
         <translation>剩余</translation>
-    </message>
-    <message id="send-send-fail">
-        <source>Address %1 is invalid</source>
-        <translation type="vanished">地址 %1 无效</translation>
     </message>
     <message id="start-restore-confirm-button">
         <source>I agree</source>
@@ -923,14 +875,6 @@
     <message id="tx-failture-invalid-state">
         <source>Transaction has invalid state</source>
         <translation>交易状态无效</translation>
-    </message>
-    <message id="tx-curency-name">
-        <source>BEAM</source>
-        <translation type="vanished">BEAM</translation>
-    </message>
-    <message id="tx-curency-sub-name">
-        <source>GROTH</source>
-        <translation type="vanished">GROTH</translation>
     </message>
     <message id="utxo-utxo">
         <source>UTXO</source>
@@ -1296,10 +1240,6 @@
         <source>The minimum fee is %1 %2</source>
         <translation>最小交易费为%1%2</translation>
     </message>
-    <message id="general-locked">
-        <source>locked</source>
-        <translation type="vanished">已锁定</translation>
-    </message>
     <message id="general-change-settings">
         <source>Change settings</source>
         <translation>修改设置</translation>
@@ -1378,10 +1318,6 @@ Update your settings and try again.</oldsource>
         <source>Exchange rate</source>
         <translation type="unfinished">Exchange rate</translation>
     </message>
-    <message id="wallet-receive-your-token">
-        <source>Your transaction token:</source>
-        <translation type="obsolete">Your transaction token:</translation>
-    </message>
     <message id="wallet-swap-token-message">
         <source>Send this token to the sender over an external secure channel</source>
         <translation type="unfinished">Send this token to the sender over an external secure channel</translation>
@@ -1433,10 +1369,6 @@ Update your settings and try again.</oldsource>
         <oldsource>%1 is not connected, 
 please review your settings and try again.</oldsource>
         <translation type="unfinished">%1 is not connected, \nplease review your settings and try again.</translation>
-    </message>
-    <message id="send-swap-to-label">
-        <source>Transaction token</source>
-        <translation type="obsolete">Transaction token</translation>
     </message>
     <message id="send-not-enough">
         <source>There is not enough funds to complete the transaction</source>
@@ -1623,10 +1555,6 @@ please review your settings and try again.</oldsource>
         <source>There is no Trezor device connected. Please, connect and try again.</source>
         <translation type="unfinished">There is no Trezor device connected. Please, connect and try again.</translation>
     </message>
-    <message id="settings-invalid-seed">
-        <source>Invalid seed phrase</source>
-        <translation type="obsolete">Invalid seed phrase</translation>
-    </message>
     <message id="wallet-transactions-all-tab">
         <source>All</source>
         <translation>所有</translation>
@@ -1799,10 +1727,6 @@ Please check the swap token and try again.</oldsource>
         <source>Disconnect</source>
         <translation type="unfinished">Disconnect</translation>
     </message>
-    <message id="settings-swap-seed-phrase">
-        <source>Seed Phrase</source>
-        <translation type="obsolete">Seed Phrase</translation>
-    </message>
     <message id="settings-swap-bitcoin-node">
         <source>Bitcoin node</source>
         <translation type="unfinished">Bitcoin node</translation>
@@ -1826,14 +1750,6 @@ Please check the swap token and try again.</oldsource>
     <message id="settings-swap-qtum-electrum">
         <source>Qtum electrum</source>
         <translation type="unfinished">Qtum electrum</translation>
-    </message>
-    <message id="connect to electrum node">
-        <source>connect to electrum node</source>
-        <translation type="obsolete">connect to electrum node</translation>
-    </message>
-    <message id="connect to node">
-        <source>connect to node</source>
-        <translation type="obsolete">connect to node</translation>
     </message>
     <message id="invalid-rate-min">
         <source>Rate cannot be less than %1</source>
