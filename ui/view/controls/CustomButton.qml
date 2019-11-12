@@ -14,7 +14,7 @@ Button {
     property alias textOpacity: rect.opacity
     property alias shadowSamples: drop_shadow.samples
     property alias shadowRadius: drop_shadow.radius
-    property bool allLowercase: true
+    property bool allLowercase: false
 
     font { 
         family: "SF Pro Display"

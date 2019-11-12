@@ -100,7 +100,7 @@ ColumnLayout {
             font.pixelSize:  18
             font.styleName:  "Bold"; font.weight: Font.Bold
             color:           Style.content_main
-            //% "Swap currencies"
+            //% "Accept Swap Offer"
             text:            qsTrId("wallet-send-swap-title")
         }
     }
