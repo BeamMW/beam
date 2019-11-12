@@ -18,14 +18,14 @@ Item {
 
     ConfirmationDialog {
         id: betaDialog
-        //% "Atomic Swap is in BETA"
+        //% "Atomic Swaps are in BETA"
         title: qsTrId("swap-beta-title")
         //% "I understand"
         okButtonText:        qsTrId("swap-alert-confirm-button")
         okButtonIconSource:  "qrc:/assets/icon-done.svg"
         cancelButtonVisible: false
         width: 470
-        //% "Atomic Swap functionality is Beta at the moment. We recommend you not to send large amounts."
+        //% "Atomic Swaps functionality is Beta at the moment. We recommend you not to send large amounts."
         text: qsTrId("swap-beta-message")
     }
 
@@ -65,7 +65,7 @@ Item {
 
     RowLayout {
         Title {
-            //% "Atomic Swap"
+            //% "Atomic Swaps"
             text: qsTrId("atomic-swap-title")
         }
 

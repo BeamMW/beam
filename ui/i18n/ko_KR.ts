@@ -1253,12 +1253,14 @@
         <translation>기본 수수료</translation>
     </message>
     <message id="swap-beta-message">
-        <source>Atomic Swap functionality is Beta at the moment. We recommend you not to send large amounts.</source>
-        <translation>아토믹 스왑은 현재 베타입니다. 큰 금액은 전송하지 않는걸 권장합니다.</translation>
+        <source>Atomic Swaps functionality is Beta at the moment. We recommend you not to send large amounts.</source>
+        <oldsource>Atomic Swap functionality is Beta at the moment. We recommend you not to send large amounts.</oldsource>
+        <translation type="unfinished">아토믹 스왑은 현재 베타입니다. 큰 금액은 전송하지 않는걸 권장합니다.</translation>
     </message>
     <message id="swap-beta-title">
-        <source>Atomic Swap is in BETA</source>
-        <translation>아토믹 스왑은 베타입니다</translation>
+        <source>Atomic Swaps are in BETA</source>
+        <oldsource>Atomic Swap is in BETA</oldsource>
+        <translation type="unfinished">아토믹 스왑은 베타입니다</translation>
     </message>
     <message id="swap-na-message">
         <source>You do not have any 3rd-party currencies connected.
@@ -1391,8 +1393,9 @@ please review your settings and try again.</source>
         <translation>평소보다 오래 걸리고 있습니다. 네트워크 상태를 확인부탁드립니다.</translation>
     </message>
     <message id="atomic-swap-title">
-        <source>Atomic Swap</source>
-        <translation>아토믹 스왑</translation>
+        <source>Atomic Swaps</source>
+        <oldsource>Atomic Swap</oldsource>
+        <translation type="unfinished">아토믹 스왑</translation>
     </message>
     <message id="atomic-swap-create">
         <source>Create offer</source>

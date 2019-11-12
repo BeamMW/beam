@@ -1253,12 +1253,14 @@
         <translation>Výchozí poplatek</translation>
     </message>
     <message id="swap-beta-message">
-        <source>Atomic Swap functionality is Beta at the moment. We recommend you not to send large amounts.</source>
-        <translation>Funkce Okamžitého převodu měn je v tuto chvíli v Beta verzi. Nedoporučujeme proto odesílat velké částky.</translation>
+        <source>Atomic Swaps functionality is Beta at the moment. We recommend you not to send large amounts.</source>
+        <oldsource>Atomic Swap functionality is Beta at the moment. We recommend you not to send large amounts.</oldsource>
+        <translation type="unfinished">Funkce Okamžitého převodu měn je v tuto chvíli v Beta verzi. Nedoporučujeme proto odesílat velké částky.</translation>
     </message>
     <message id="swap-beta-title">
-        <source>Atomic Swap is in BETA</source>
-        <translation>Okamžitý převod měn je v BETA verzi</translation>
+        <source>Atomic Swaps are in BETA</source>
+        <oldsource>Atomic Swap is in BETA</oldsource>
+        <translation type="unfinished">Okamžitý převod měn je v BETA verzi</translation>
     </message>
     <message id="swap-na-message">
         <source>You do not have any 3rd-party currencies connected.
@@ -1391,8 +1393,9 @@ please review your settings and try again.</source>
         <translation>Trvá to déle než obvykle. Zkontrolujte prosím síť.</translation>
     </message>
     <message id="atomic-swap-title">
-        <source>Atomic Swap</source>
-        <translation>Okamžitý převod měn</translation>
+        <source>Atomic Swaps</source>
+        <oldsource>Atomic Swap</oldsource>
+        <translation type="unfinished">Okamžitý převod měn</translation>
     </message>
     <message id="atomic-swap-create">
         <source>Create offer</source>

@@ -1253,12 +1253,14 @@
         <translation>ค่าธรรมเนียมมาตรฐาน</translation>
     </message>
     <message id="swap-beta-message">
-        <source>Atomic Swap functionality is Beta at the moment. We recommend you not to send large amounts.</source>
-        <translation>ฟังก์ชั่น Atomic Swap อยู่ในสถานะเบต้าในขณะนี้ เราไม่แนะนำให้ใช้งานในจำนวนที่เยอะ</translation>
+        <source>Atomic Swaps functionality is Beta at the moment. We recommend you not to send large amounts.</source>
+        <oldsource>Atomic Swap functionality is Beta at the moment. We recommend you not to send large amounts.</oldsource>
+        <translation type="unfinished">ฟังก์ชั่น Atomic Swap อยู่ในสถานะเบต้าในขณะนี้ เราไม่แนะนำให้ใช้งานในจำนวนที่เยอะ</translation>
     </message>
     <message id="swap-beta-title">
-        <source>Atomic Swap is in BETA</source>
-        <translation>Atomic Swap อยู่ในสถานะเบต้า</translation>
+        <source>Atomic Swaps are in BETA</source>
+        <oldsource>Atomic Swap is in BETA</oldsource>
+        <translation type="unfinished">Atomic Swap อยู่ในสถานะเบต้า</translation>
     </message>
     <message id="swap-na-message">
         <source>You do not have any 3rd-party currencies connected.
@@ -1391,8 +1393,9 @@ please review your settings and try again.</source>
         <translation>มีการใช้เวลามากกว่าปกติ กรุณาตรวจสอบอินเตอร์เนทของคุณ</translation>
     </message>
     <message id="atomic-swap-title">
-        <source>Atomic Swap</source>
-        <translation>Atomic Swap</translation>
+        <source>Atomic Swaps</source>
+        <oldsource>Atomic Swap</oldsource>
+        <translation type="unfinished">Atomic Swap</translation>
     </message>
     <message id="atomic-swap-create">
         <source>Create offer</source>

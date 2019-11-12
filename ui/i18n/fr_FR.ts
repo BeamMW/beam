@@ -1254,11 +1254,13 @@ Vous essayez de restaurer un portefeuille Beam existant. Veuillez noter que si v
         <translation type="unfinished">Default fee</translation>
     </message>
     <message id="swap-beta-message">
-        <source>Atomic Swap functionality is Beta at the moment. We recommend you not to send large amounts.</source>
+        <source>Atomic Swaps functionality is Beta at the moment. We recommend you not to send large amounts.</source>
+        <oldsource>Atomic Swap functionality is Beta at the moment. We recommend you not to send large amounts.</oldsource>
         <translation type="unfinished">Atomic Swap functionality is Beta at the moment. We recommend you not to send large amounts.</translation>
     </message>
     <message id="swap-beta-title">
-        <source>Atomic Swap is in BETA</source>
+        <source>Atomic Swaps are in BETA</source>
+        <oldsource>Atomic Swap is in BETA</oldsource>
         <translation type="unfinished">Atomic Swap is in BETA</translation>
     </message>
     <message id="swap-na-message">
@@ -1392,7 +1394,8 @@ please review your settings and try again.</source>
         <translation type="unfinished">It may take longer then usual. Please, check your network.</translation>
     </message>
     <message id="atomic-swap-title">
-        <source>Atomic Swap</source>
+        <source>Atomic Swaps</source>
+        <oldsource>Atomic Swap</oldsource>
         <translation type="unfinished">Atomic Swap</translation>
     </message>
     <message id="atomic-swap-create">
