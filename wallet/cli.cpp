@@ -1294,11 +1294,32 @@ namespace
         // TODO:SWAP use async callbacks or IWalletObserver?
         Height minHeight = walletDB->getCurrentHeight();
         auto swapTxParameters = InitNewSwap(senderAddress.m_walletID, minHeight, amount, fee, swapCoin, swapAmount, isBeamSide);
-        swapTxParameters.SetParameter(TxParameterID::Fee, feeRate, isBeamSide ? SubTxIndex::REDEEM_TX : SubTxIndex::LOCK_TX);
+        if (isBeamSide)
+        {
+            swapTxParameters.SetParameter(TxParameterID::Fee, fee, SubTxIndex::BEAM_LOCK_TX);
+            swapTxParameters.SetParameter(TxParameterID::Fee, fee, SubTxIndex::BEAM_REFUND_TX);
+            swapTxParameters.SetParameter(TxParameterID::Fee, feeRate, SubTxIndex::REDEEM_TX);
+        }
+        else
+        {
+            swapTxParameters.SetParameter(TxParameterID::Fee, fee, SubTxIndex::BEAM_REDEEM_TX);
+            swapTxParameters.SetParameter(TxParameterID::Fee, feeRate, SubTxIndex::LOCK_TX);
+        }
 
         boost::optional<TxID> currentTxID = wallet.StartTransaction(swapTxParameters);
         
-        swapTxParameters.DeleteParameter(TxParameterID::Fee, isBeamSide ? SubTxIndex::REDEEM_TX : SubTxIndex::LOCK_TX);
+        // delete local parameters from token
+        if (isBeamSide)
+        {
+            swapTxParameters.DeleteParameter(TxParameterID::Fee, SubTxIndex::BEAM_LOCK_TX);
+            swapTxParameters.DeleteParameter(TxParameterID::Fee, SubTxIndex::BEAM_REFUND_TX);
+            swapTxParameters.DeleteParameter(TxParameterID::Fee, SubTxIndex::REDEEM_TX);
+        }
+        else
+        {
+            swapTxParameters.DeleteParameter(TxParameterID::Fee, SubTxIndex::BEAM_REDEEM_TX);
+            swapTxParameters.DeleteParameter(TxParameterID::Fee, SubTxIndex::LOCK_TX);
+        }
 
         // print swap tx token
         {
@@ -1334,8 +1355,10 @@ namespace
         auto swapAmount = swapTxParameters->GetParameter<Amount>(TxParameterID::AtomicSwapAmount);
         auto peerID = swapTxParameters->GetParameter<WalletID>(TxParameterID::PeerID);
         auto peerResponseTime = swapTxParameters->GetParameter<Height>(TxParameterID::PeerResponseTime);
+        auto createTime = swapTxParameters->GetParameter<Height>(TxParameterID::CreateTime);
+        auto minHeight = swapTxParameters->GetParameter<Height>(TxParameterID::MinHeight);
 
-        bool isValidToken = isBeamSide && swapCoin && beamAmount && swapAmount && peerID && peerResponseTime;
+        bool isValidToken = isBeamSide && swapCoin && beamAmount && swapAmount && peerID && peerResponseTime && createTime && minHeight;
 
         if (!transactionType || *transactionType != TxType::AtomicSwap || !isValidToken)
         {
@@ -1430,10 +1453,19 @@ namespace
         // on accepting
         WalletAddress senderAddress = GenerateNewAddress(walletDB, "", keyKeeper);
 
+        Amount fee = cli::kMinimumFee;
         swapTxParameters->SetParameter(TxParameterID::MyID, senderAddress.m_walletID);
-        swapTxParameters->SetParameter(beam::wallet::TxParameterID::Fee, beam::Amount(cli::kMinimumFee));
-        auto subTxID = isBeamSide ? beam::wallet::SubTxIndex::REDEEM_TX : beam::wallet::SubTxIndex::LOCK_TX;
-        swapTxParameters->SetParameter(beam::wallet::TxParameterID::Fee, swapFeeRate, subTxID);
+        if (isBeamSide)
+        {
+            swapTxParameters->SetParameter(TxParameterID::Fee, fee, SubTxIndex::BEAM_LOCK_TX);
+            swapTxParameters->SetParameter(TxParameterID::Fee, fee, SubTxIndex::BEAM_REFUND_TX);
+            swapTxParameters->SetParameter(TxParameterID::Fee, swapFeeRate, SubTxIndex::REDEEM_TX);
+        }
+        else
+        {
+            swapTxParameters->SetParameter(TxParameterID::Fee, fee, SubTxIndex::BEAM_REDEEM_TX);
+            swapTxParameters->SetParameter(TxParameterID::Fee, swapFeeRate, SubTxIndex::LOCK_TX);
+        }
 
         return wallet.StartTransaction(*swapTxParameters);
     }
