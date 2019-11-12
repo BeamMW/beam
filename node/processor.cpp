@@ -163,26 +163,7 @@ void NodeProcessor::Initialize(const char* szPath, const StartParams& sp)
 
 	InitCursor();
 
-	if (InitUtxoMapping(szPath))
-	{
-		LOG_INFO() << "UTXO image found";
-	}
-	else
-	{
-		LOG_INFO() << "Rebuilding UTXO image...";
-		InitializeUtxos();
-	}
-
-	// final check
-	if ((m_Cursor.m_ID.m_Height >= Rules::HeightGenesis) && (m_Cursor.m_ID.m_Height >= m_SyncData.m_TxoLo))
-	{
-		get_Definition(hv, false);
-		if (m_Cursor.m_Full.m_Definition != hv)
-		{
-			LOG_ERROR() << "Definition mismatch";
-			OnCorrupted();
-		}
-	}
+	InitializeUtxos(szPath);
 
 	m_Extra.m_Txos = get_TxosBefore(m_Cursor.m_ID.m_Height + 1);
 
@@ -208,6 +189,40 @@ void NodeProcessor::Initialize(const char* szPath, const StartParams& sp)
 		TryGoUp();
 	}
 }
+
+void NodeProcessor::InitializeUtxos(const char* sz)
+{
+	if (InitUtxoMapping(sz, false))
+	{
+		LOG_INFO() << "UTXO image found";
+		if (TestDefinition())
+			return; // ok
+
+		LOG_WARNING() << "Definition mismatch, discarding UTXO image";
+		m_Utxos.Close();
+		InitUtxoMapping(sz, true);
+	}
+
+	LOG_INFO() << "Rebuilding UTXO image...";
+	InitializeUtxos();
+
+	if (!TestDefinition())
+	{
+		LOG_ERROR() << "Definition mismatch";
+		OnCorrupted();
+	}
+}
+
+bool NodeProcessor::TestDefinition()
+{
+	if ((m_Cursor.m_ID.m_Height < Rules::HeightGenesis) || (m_Cursor.m_ID.m_Height < m_SyncData.m_TxoLo))
+		return true; // irrelevant
+
+	Merkle::Hash hv;
+	get_Definition(hv, false);
+	return m_Cursor.m_Full.m_Definition == hv;
+}
+
 
 // Ridiculous! Had to write this because strmpi isn't standard!
 int My_strcmpi(const char* sz1, const char* sz2)
@@ -241,7 +256,7 @@ void NodeProcessor::get_UtxoMappingPath(std::string& sPath, const char* sz)
 	sPath += "-utxo-image.bin";
 }
 
-bool NodeProcessor::InitUtxoMapping(const char* sz)
+bool NodeProcessor::InitUtxoMapping(const char* sz, bool bForceReset)
 {
 	// derive UTXO path from db path
 	std::string sPath;
@@ -251,7 +266,7 @@ bool NodeProcessor::InitUtxoMapping(const char* sz)
 	Blob blob(us);
 
 	// don't use the saved image if no height: we may contain treasury UTXOs, but no way to verify the contents
-	if ((m_Cursor.m_ID.m_Height < Rules::HeightGenesis) || !m_DB.ParamGet(NodeDB::ParamID::UtxoStamp, nullptr, &blob))
+	if (bForceReset || (m_Cursor.m_ID.m_Height < Rules::HeightGenesis) || !m_DB.ParamGet(NodeDB::ParamID::UtxoStamp, nullptr, &blob))
 	{
 		us = 1U;
 		us.Negate();
