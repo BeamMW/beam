@@ -1597,6 +1597,8 @@ namespace beam
 				TxoID m_Wnd0 = 0;
 				uint32_t m_N;
 
+				Lelantus::Cfg m_Cfg;
+
 				Amount m_Value;
 				ECC::Scalar::Native m_sk;
 				ECC::Scalar::Native m_skSpendKey;
@@ -1624,6 +1626,8 @@ namespace beam
 				fee += Transaction::FeeSettings().m_ShieldedOutput;
 
 				m_Shielded.m_Value -= fee;
+				m_Shielded.m_Cfg.n = 4;
+				m_Shielded.m_Cfg.M = 6; // 4K
 
 				assert(msgTx.m_Transaction);
 
@@ -1692,6 +1696,7 @@ namespace beam
 				pInp->m_Commitment = ECC::Commitment(sk, m_Shielded.m_Value);
 				pInp->m_pSpendProof.reset(new Input::SpendProof);
 				pInp->m_pSpendProof->m_WindowEnd = nWnd1;
+				pInp->m_pSpendProof->m_Cfg = m_Shielded.m_Cfg;
 
 				Lelantus::CmListVec lst;
 
@@ -1750,8 +1755,7 @@ namespace beam
 				verify_test(m_vStates.back().IsValidProofShieldedTxo(m_Shielded.m_Commitment, msg.m_ID, msg.m_Proof));
 				m_Shielded.m_Confirmed = msg.m_ID;
 
-				Lelantus::Cfg cfg; // def;
-				m_Shielded.m_N = cfg.get_N();
+				m_Shielded.m_N = m_Shielded.m_Cfg.get_N();
 
 				m_Shielded.m_Wnd0 = 0; // TODO - randomize m_Wnd0
 
