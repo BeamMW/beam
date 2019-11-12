@@ -1620,7 +1620,9 @@ namespace beam
 				if (!m_Shielded.m_Value)
 					return false;
 
-				const Amount fee = 100;
+				Amount fee = 100;
+				fee += Transaction::FeeSettings().m_ShieldedOutput;
+
 				m_Shielded.m_Value -= fee;
 
 				assert(msgTx.m_Transaction);
@@ -1720,6 +1722,7 @@ namespace beam
 				}
 
 				Amount fee = 100;
+				fee += Transaction::FeeSettings().m_ShieldedOutput;
 
 				msgTx.m_Transaction->m_vInputs.push_back(std::move(pInp));
 				m_Wallet.UpdateOffset(*msgTx.m_Transaction, sk, false);

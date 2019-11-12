@@ -972,6 +972,8 @@ namespace beam
 	{
 		m_Output = 10;
 		m_Kernel = 10;
+		m_ShieldedInput = 1000;
+		m_ShieldedOutput = 1000;
 	}
 
 	Amount Transaction::FeeSettings::Calculate(const Transaction& t) const
@@ -980,10 +982,14 @@ namespace beam
 		for (size_t i = 0; i < t.m_vKernels.size(); i++)
 			nKernels += t.m_vKernels[i]->get_TotalCount();
 
+		uint32_t nIns, nOuts;
+		t.get_Reader().CalculateShielded(nIns, nOuts);
 
 		return
 			m_Output * t.m_vOutputs.size() +
-			m_Kernel * nKernels;
+			m_Kernel * nKernels +
+			m_ShieldedInput * nIns +
+			m_ShieldedOutput * nOuts;
 	}
 
 	template <class T>

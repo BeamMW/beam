@@ -556,6 +556,8 @@ namespace beam
 		{
 			Amount m_Output;
 			Amount m_Kernel; // nested kernels are accounted too
+			Amount m_ShieldedInput;
+			Amount m_ShieldedOutput;
 
 			FeeSettings(); // defaults
 
