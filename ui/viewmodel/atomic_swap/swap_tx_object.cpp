@@ -234,6 +234,19 @@ beam::Amount SwapTxObject::getSwapAmountValue(bool sent) const
     return m_tx.m_amount;
 }
 
+QString SwapTxObject::getFee() const
+{
+    if (m_isBeamSide)
+    {
+        auto fee = m_tx.GetParameter<beam::Amount>(TxParameterID::Fee, *m_isBeamSide ? SubTxIndex::BEAM_LOCK_TX : SubTxIndex::BEAM_REDEEM_TX);
+        if (fee)
+        {
+            return beamui::AmountToUIString(*fee, beamui::Currencies::Beam);
+        }
+    }
+    return QString();
+}
+
 QString SwapTxObject::getFeeRate() const
 {
     if (m_isBeamSide)   // check if initialized

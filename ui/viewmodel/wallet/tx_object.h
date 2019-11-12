@@ -34,7 +34,7 @@ public:
     auto getComment() const -> QString;
     auto getAddressFrom() const -> QString;
     auto getAddressTo() const -> QString;
-    auto getFee() const -> QString;
+    virtual auto getFee() const -> QString;
     auto getKernelID() const -> QString;
     auto getTransactionID() const -> QString;
     auto hasPaymentProof() const -> bool;
