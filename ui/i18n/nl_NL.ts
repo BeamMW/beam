@@ -1354,8 +1354,9 @@ Update your settings and try again.</source>
     </message>
     <message id="swap-currency-na-message">
         <source>%1 is not connected, 
-please review your settings and try again.</source>
-        <oldsource>%1 is not connected, \nplease review your settings and try again.</oldsource>
+please review your settings and try again</source>
+        <oldsource>%1 is not connected, 
+please review your settings and try again.</oldsource>
         <translation type="unfinished">%1 is niet verbonden, \ncontroleer uw instellingen en probeer opnieuw.</translation>
     </message>
     <message id="send-not-enough">

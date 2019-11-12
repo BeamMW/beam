@@ -109,11 +109,24 @@ ColumnLayout {
                         amount:           viewModel.amountSent
                         multi:            true
                         resetAmount:      false
-                        currColor:        currencyError() ? Style.validator_error : Style.content_main
-                        //% "There is not enough funds to complete the transaction"
-                        error:            viewModel.isGreatThanFee ? (viewModel.isEnough ? "" : qsTrId("send-not-enough"))
-                                            //% "The swap amount must be greater than the transaction fee"
-                                            : qsTrId("send-less-than-fee")
+                        currColor:        currencyError() || !BeamGlobals.canReceive(currency) ? Style.validator_error : Style.content_main
+                        error:            getErrorText()
+
+                        function getErrorText() {
+                            if(!BeamGlobals.canReceive(currency)) {
+                                //% "%1 is not connected, \nplease review your settings and try again"
+                                return qsTrId("swap-currency-na-message").arg(BeamGlobals.getCurrencyName(currency)).replace("\\n", "")
+                            }
+                            if(!viewModel.isSendFeeOK) {
+                                //% "The swap amount must be greater than the transaction fee"
+                                return qsTrId("send-less-than-fee")
+                            }
+                            if(!viewModel.isEnough) {
+                                //% "There is not enough funds to complete the transaction"
+                                return qsTrId("send-not-enough")
+                            }
+                            return ""
+                        }
 
                         onCurrencyChanged: {
                             if(sentAmountInput.currency != Currency.CurrBeam) {
@@ -203,9 +216,20 @@ ColumnLayout {
                         amount:           viewModel.amountToReceive
                         multi:            true
                         resetAmount:      false
-                        currColor:        currencyError() ? Style.validator_error : Style.content_main
-                        //% "%1 is not connected, \nplease review your settings and try again."
-                        error:            BeamGlobals.canReceive(currency) ? "" : qsTrId("swap-currency-na-message").arg(BeamGlobals.getCurrencyName(currency)).replace("\\n", "")
+                        currColor:        currencyError() || !BeamGlobals.canReceive(currency) ? Style.validator_error : Style.content_main
+                        error:            getErrorText()
+
+                        function getErrorText() {
+                            if(!BeamGlobals.canReceive(currency)) {
+                                //% "%1 is not connected, \nplease review your settings and try again"
+                                return qsTrId("swap-currency-na-message").arg(BeamGlobals.getCurrencyName(currency)).replace("\\n", "")
+                            }
+                            if(!viewModel.isReceiveFeeOK) {
+                                //% "The swap amount must be greater than the transaction fee"
+                                return qsTrId("send-less-than-fee")
+                            }
+                            return ""
+                        }
 
                         onCurrencyChanged: {
                             if(receiveAmountInput.currency != Currency.CurrBeam) {

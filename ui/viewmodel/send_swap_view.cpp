@@ -151,6 +151,7 @@ void SendSwapViewModel::setSendAmount(QString value)
     {
         _sendAmountGrothes = amount;
         emit sendAmountChanged();
+        emit isSendFeeOKChanged();
         recalcAvailable();
     }
 }
@@ -166,6 +167,7 @@ void SendSwapViewModel::setSendFee(unsigned int value)
     {
         _sendFeeGrothes = value;
         emit sendFeeChanged();
+        emit isSendFeeOKChanged();
         recalcAvailable();
     }
 }
@@ -183,6 +185,7 @@ void SendSwapViewModel::setSendCurrency(Currency value)
     {
         _sendCurrency = value;
         emit sendCurrencyChanged();
+        emit isSendFeeOKChanged();
         recalcAvailable();
     }
 }
@@ -199,6 +202,7 @@ void SendSwapViewModel::setReceiveAmount(QString value)
     {
         _receiveAmountGrothes = amount;
         emit receiveAmountChanged();
+        emit isReceiveFeeOKChanged();
     }
 }
 
@@ -214,6 +218,7 @@ void SendSwapViewModel::setReceiveFee(unsigned int value)
         _receiveFeeGrothes = value;
         emit receiveFeeChanged();
         emit canSendChanged();
+        emit isReceiveFeeOKChanged();
     }
 }
 
@@ -230,6 +235,7 @@ void SendSwapViewModel::setReceiveCurrency(Currency value)
     {
         _receiveCurrency = value;
         emit receiveCurrencyChanged();
+        emit isReceiveFeeOKChanged();
     }
 }
 
@@ -345,8 +351,7 @@ QString SendSwapViewModel::getReceiverAddress() const
 bool SendSwapViewModel::canSend() const
 {
     // TODO:SWAP check if correct
-    return QMLGlobals::isFeeOK(_sendFeeGrothes, _sendCurrency) &&
-           QMLGlobals::isFeeOK(_receiveFeeGrothes, _receiveCurrency) &&
+    return isSendFeeOK() && isReceiveFeeOK() &&
            _sendCurrency != _receiveCurrency &&
            isEnough() &&
            QDateTime::currentDateTime() < _expiresTime;
@@ -388,4 +393,14 @@ void SendSwapViewModel::sendMoney()
     }
 
     _walletModel.getAsync()->startTransaction(std::move(txParameters));
+}
+
+bool SendSwapViewModel::isSendFeeOK() const
+{
+    return QMLGlobals::isSwapFeeOK(_sendAmountGrothes, _sendFeeGrothes, _sendCurrency);
+}
+
+bool SendSwapViewModel::isReceiveFeeOK() const
+{
+    return QMLGlobals::isSwapFeeOK(_receiveAmountGrothes, _receiveFeeGrothes, _receiveCurrency);
 }

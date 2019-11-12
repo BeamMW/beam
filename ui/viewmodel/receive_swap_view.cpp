@@ -275,36 +275,14 @@ bool ReceiveSwapViewModel::isEnough() const
     }
 }
 
-bool ReceiveSwapViewModel::isGreatThanFee() const
+bool ReceiveSwapViewModel::isSendFeeOK() const
 {
-    if (_amountSentGrothes == 0)
-        return true;
+    return QMLGlobals::isSwapFeeOK(_amountSentGrothes, _sentFeeGrothes, _sentCurrency);
+}
 
-    switch (_sentCurrency)
-    {
-    case Currency::CurrBeam:
-    {
-        const auto total = _amountSentGrothes + _sentFeeGrothes;
-        return total > QMLGlobals::minFeeBeam();
-    }
-    case Currency::CurrBtc:
-    {
-        return beam::wallet::BitcoinSide::CheckAmount(_amountSentGrothes, _sentFeeGrothes);
-    }
-    case Currency::CurrLtc:
-    {
-        return beam::wallet::LitecoinSide::CheckAmount(_amountSentGrothes, _sentFeeGrothes);
-    }
-    case Currency::CurrQtum:
-    {
-        return beam::wallet::QtumSide::CheckAmount(_amountSentGrothes, _sentFeeGrothes);
-    }
-    default:
-    {
-        assert(false);
-        return true;
-    }
-    }
+bool ReceiveSwapViewModel::isReceiveFeeOK() const
+{
+    return QMLGlobals::isSwapFeeOK(_amountToReceiveGrothes, _receiveFeeGrothes, _receiveCurrency);
 }
 
 void ReceiveSwapViewModel::saveAddress()
@@ -382,7 +360,8 @@ namespace
 void ReceiveSwapViewModel::updateTransactionToken()
 {
     emit enoughChanged();
-    emit lessThanFeeChanged();
+    emit isSendFeeOKChanged();
+    emit isReceiveFeeOKChanged();
     _txParameters.SetParameter(beam::wallet::TxParameterID::MinHeight, _walletModel.getCurrentHeight());
     _txParameters.SetParameter(beam::wallet::TxParameterID::PeerResponseTime, GetBlockCount(_offerExpires));
 

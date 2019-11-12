@@ -34,6 +34,8 @@ class SendSwapViewModel: public QObject
     Q_PROPERTY(bool          canSend          READ canSend                                  NOTIFY canSendChanged)
     Q_PROPERTY(QString       comment          READ getComment          WRITE setComment     NOTIFY commentChanged)
     Q_PROPERTY(QString       receiverAddress  READ getReceiverAddress                       NOTIFY tokenChanged)
+    Q_PROPERTY(bool          isSendFeeOK      READ isSendFeeOK                              NOTIFY isSendFeeOKChanged)
+    Q_PROPERTY(bool          isReceiveFeeOK   READ isReceiveFeeOK                           NOTIFY isReceiveFeeOKChanged)
 
     Q_PROPERTY(WalletCurrency::Currency  receiveCurrency  READ getReceiveCurrency  NOTIFY  receiveCurrencyChanged)
     Q_PROPERTY(WalletCurrency::Currency  sendCurrency     READ getSendCurrency     NOTIFY  sendCurrencyChanged)
@@ -76,6 +78,8 @@ public:
 
     bool isEnough() const;
     bool canSend() const;
+    bool isSendFeeOK() const;
+    bool isReceiveFeeOK() const;
 
     QString getReceiverAddress() const;
 
@@ -97,6 +101,8 @@ signals:
     void offeredTimeChanged();
     void expiresTimeChanged();
     void enoughChanged();
+    void isSendFeeOKChanged();
+    void isReceiveFeeOKChanged();
 
 public slots:
     void onChangeCalculated(beam::Amount change);

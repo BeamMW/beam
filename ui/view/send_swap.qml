@@ -183,9 +183,20 @@ ColumnLayout {
                         readOnlyA:        true
                         multi:            false
                         color:            Style.accent_outgoing
-                        currColor:        viewModel.receiveCurrency == viewModel.sendCurrency ? Style.validator_error : Style.content_main
-                        //% "There is not enough funds to complete the transaction"
-                        error:            viewModel.isEnough ? "" : qsTrId("send-not-enough")
+                        currColor:        viewModel.receiveCurrency == viewModel.sendCurrency || getErrorText().length ? Style.validator_error : Style.content_main
+                        error:            getErrorText()
+
+                        function getErrorText () {
+                            if(!viewModel.isSendFeeOK) {
+                                //% "The swap amount must be greater than the transaction fee"
+                                return qsTrId("send-less-than-fee")
+                            }
+                            if(!viewModel.isEnough) {
+                                //% "There is not enough funds to complete the transaction"
+                                return qsTrId("send-not-enough")
+                            }
+                            return ""
+                        }
                     }
 
                     Binding {
@@ -253,7 +264,16 @@ ColumnLayout {
                         readOnlyA:        true
                         multi:            false
                         color:            Style.accent_incoming
-                        currColor:        viewModel.receiveCurrency == viewModel.sendCurrency ? Style.validator_error : Style.content_main
+                        currColor:        viewModel.receiveCurrency == viewModel.sendCurrency || getErrorText().length ? Style.validator_error : Style.content_main
+                        error:            getErrorText()
+
+                        function getErrorText() {
+                            if(!viewModel.isReceiveFeeOK) {
+                                //% "The swap amount must be greater than the transaction fee"
+                                return qsTrId("send-less-than-fee")
+                            }
+                            return ""
+                        }
                     }
 
                     Binding {
