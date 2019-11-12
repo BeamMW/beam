@@ -2358,7 +2358,20 @@ uint8_t Node::OnTransactionStem(Transaction::Ptr&& ptx, const Peer* pPeer)
 
     assert(!pDup->m_bAggregating);
 
-    if ((pDup->m_pValue->m_vOutputs.size() >= m_Cfg.m_Dandelion.m_OutputsMax) || !m_Keys.m_pMiner)
+	bool bDontAggregate =
+		(pDup->m_pValue->m_vOutputs.size() >= m_Cfg.m_Dandelion.m_OutputsMax) || // already big enough
+		!m_Keys.m_pMiner; // can't manage decoys
+
+	if (!bDontAggregate)
+	{
+		uint32_t nIns, nOuts;
+		pDup->m_pValue->get_Reader().CalculateShielded(nIns, nOuts);
+
+		if (nIns || nOuts)
+			bDontAggregate = true;
+	}
+
+    if (bDontAggregate)
         OnTransactionAggregated(*pDup);
     else
     {
