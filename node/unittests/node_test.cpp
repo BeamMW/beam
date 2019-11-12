@@ -611,17 +611,16 @@ namespace beam
 			Key::IDV m_Kidv;
 		};
 
-		void ToOutput(const MyUtxo& utxo, TxVectors::Perishable& txv, ECC::Scalar::Native& offset, Height h, Height hIncubation) const
+		void ToOutput(const MyUtxo& utxo, Transaction& tx, Height h, Height hIncubation) const
 		{
 			ECC::Scalar::Native k;
 
 			Output::Ptr pOut(new Output);
 			pOut->m_Incubation = hIncubation;
 			pOut->Create(h + 1, k, *m_pKdf, utxo.m_Kidv, *m_pKdf, true); // confidential transactions will be too slow for test in debug mode.
-			txv.m_vOutputs.push_back(std::move(pOut));
 
-			k = -k;
-			offset += k;
+			tx.m_vOutputs.push_back(std::move(pOut));
+			UpdateOffset(tx, k, true);
 		}
 
 		void ToCommtiment(const MyUtxo& utxo, ECC::Point& comm, ECC::Scalar::Native& k) const
@@ -629,15 +628,15 @@ namespace beam
 			SwitchCommitment().Create(k, comm, *m_pKdf, utxo.m_Kidv);
 		}
 
-		void ToInput(const MyUtxo& utxo, TxVectors::Perishable& txv, ECC::Scalar::Native& offset) const
+		void ToInput(const MyUtxo& utxo, Transaction& tx) const
 		{
 			ECC::Scalar::Native k;
 			Input::Ptr pInp(new Input);
 
 			ToCommtiment(utxo, pInp->m_Commitment, k);
 
-			txv.m_vInputs.push_back(std::move(pInp));
-			offset += k;
+			tx.m_vInputs.push_back(std::move(pInp));
+			UpdateOffset(tx, k, false);
 		}
 
 		typedef std::multimap<Height, MyUtxo> UtxoQueue;
@@ -701,6 +700,16 @@ namespace beam
 
 		Merkle::Hash m_hvKrnRel = Zero;
 
+		static void UpdateOffset(Transaction& tx, const ECC::Scalar::Native& offs, bool bOutput)
+		{
+			ECC::Scalar::Native k = tx.m_Offset;
+			if (bOutput)
+				k += -offs;
+			else
+				k += offs;
+			tx.m_Offset = k;
+		}
+
 		bool MakeTx(Transaction::Ptr& pTx, Height h, Height hIncubation)
 		{
 			Amount val = MakeTxInput(pTx, h);
@@ -722,13 +731,12 @@ namespace beam
 				return 0; // not spendable yet
 
 			pTx = std::make_shared<Transaction>();
+			pTx->m_Offset = Zero;
 
 			const MyUtxo& utxo = it->second;
 			assert(utxo.m_Kidv.m_Value);
 
-			ECC::Scalar::Native kOffset = Zero;
-			ToInput(utxo, *pTx, kOffset);
-			pTx->m_Offset = kOffset;
+			ToInput(utxo, *pTx);
 
 			Amount ret = utxo.m_Kidv.m_Value;
 			m_MyUtxos.erase(it);
@@ -736,30 +744,13 @@ namespace beam
 			return ret;
 		}
 
-		void MakeTxOutput(Transaction& tx, Height h, Height hIncubation, Amount val)
+		void MakeTxKernel(Transaction& tx, Amount fee, Height h)
 		{
-			ECC::Scalar::Native kOffset = tx.m_Offset;
-
 			m_MyKernels.emplace_back();
 			MyKernel& mk = m_MyKernels.back();
-			mk.m_Fee = 10900000;
+			mk.m_Fee = fee;
 			mk.m_bUseHashlock = 0 != (1 & h);
 			mk.m_Height = h;
-
-			if (mk.m_Fee >= val)
-				mk.m_Fee = val;
-			else
-			{
-				MyUtxo utxoOut;
-				utxoOut.m_Kidv.m_Value = val - mk.m_Fee;
-				utxoOut.m_Kidv.m_Idx = ++m_nRunningIndex;
-				utxoOut.m_Kidv.set_Subkey(0);
-				utxoOut.m_Kidv.m_Type = Key::Type::Regular;
-
-				ToOutput(utxoOut, tx, kOffset, h, hIncubation);
-
-				m_MyUtxos.insert(std::make_pair(h + 1 + hIncubation, utxoOut));
-			}
 
 			if (!(m_hvKrnRel == Zero) && (h >= Rules::get().pForks[1].m_Height))
 			{
@@ -771,11 +762,28 @@ namespace beam
 
 			TxKernel::Ptr pKrn;
 			mk.Export(pKrn);
-			tx.m_vKernels.push_back(std::move(pKrn));
 
-			ECC::Scalar::Native k = -mk.m_k;
-			kOffset += k;
-			tx.m_Offset = kOffset;
+			tx.m_vKernels.push_back(std::move(pKrn));
+			UpdateOffset(tx, mk.m_k, true);
+		}
+
+		void MakeTxOutput(Transaction& tx, Height h, Height hIncubation, Amount val, Amount fee = 10900000)
+		{
+			if (fee >= val)
+				MakeTxKernel(tx, val, h);
+			else
+			{
+				MakeTxKernel(tx, fee, h);
+
+				MyUtxo utxoOut;
+				utxoOut.m_Kidv.m_Value = val - fee;
+				utxoOut.m_Kidv.m_Idx = ++m_nRunningIndex;
+				utxoOut.m_Kidv.set_Subkey(0);
+				utxoOut.m_Kidv.m_Type = Key::Type::Regular;
+
+				ToOutput(utxoOut, tx, h, hIncubation);
+				m_MyUtxos.insert(std::make_pair(h + 1 + hIncubation, utxoOut));
+			}
 
 			tx.Normalize();
 
@@ -1617,9 +1625,6 @@ namespace beam
 
 				assert(msgTx.m_Transaction);
 
-				ECC::Scalar::Native kOffset = msgTx.m_Transaction->m_Offset;
-				kOffset = -kOffset;
-
 				{
 					Output::Ptr pOut(new Output);
 
@@ -1646,31 +1651,10 @@ namespace beam
 					verify_test(pOut->IsValid(h + 1, pt));
 
 					msgTx.m_Transaction->m_vOutputs.push_back(std::move(pOut));
-
-					kOffset += d.m_sk;
+					m_Wallet.UpdateOffset(*msgTx.m_Transaction, d.m_sk, true);
 				}
 
-				{
-					ECC::Scalar::Native k;
-					ECC::SetRandom(k);
-
-					TxKernel::Ptr pKrn(new TxKernel);
-					pKrn->m_Fee = fee;
-					pKrn->Sign(k);
-
-					{
-						AmountBig::Type fee2;
-						ECC::Point::Native ptN;
-						verify_test(pKrn->IsValid(h + 1, fee2, ptN));
-					}
-
-					msgTx.m_Transaction->m_vKernels.push_back(std::move(pKrn));
-
-					kOffset += k;
-				}
-
-				kOffset = -kOffset;
-				msgTx.m_Transaction->m_Offset = kOffset;
+				m_Wallet.MakeTxKernel(*msgTx.m_Transaction, fee, h);
 
 
 				msgTx.m_Transaction->Normalize();
@@ -1697,11 +1681,10 @@ namespace beam
 
 				proto::NewTransaction msgTx;
 				msgTx.m_Transaction = std::make_shared<Transaction>();
+				msgTx.m_Transaction->m_Offset = Zero;
 
 				ECC::Scalar::Native sk;
 				ECC::SetRandom(sk);
-
-				msgTx.m_Transaction->m_Offset = sk;
 
 				Input::Ptr pInp(new Input);
 				pInp->m_Commitment = ECC::Commitment(sk, m_Shielded.m_Value);
@@ -1736,10 +1719,13 @@ namespace beam
 					// test
 				}
 
+				Amount fee = 100;
+
 				msgTx.m_Transaction->m_vInputs.push_back(std::move(pInp));
+				m_Wallet.UpdateOffset(*msgTx.m_Transaction, sk, false);
 
 				Height h = m_vStates.back().m_Height;
-				m_Wallet.MakeTxOutput(*msgTx.m_Transaction, h + 1, 0, m_Shielded.m_Value);
+				m_Wallet.MakeTxOutput(*msgTx.m_Transaction, h + 1, 0, m_Shielded.m_Value, fee);
 
 				Transaction::Context::Params pars;
 				Transaction::Context ctx(pars);
@@ -1904,13 +1890,11 @@ namespace beam
 						pOutp->m_AssetID = m_AssetEmitted;
 						pOutp->Create(msg.m_Description.m_Height + 1, skOut, *m_Wallet.m_pKdf, kidv, *m_Wallet.m_pKdf);
 
-						skAsset += skOut;
-						skAsset = -skAsset;
-						skAsset += msgTx.m_Transaction->m_Offset;
-						msgTx.m_Transaction->m_Offset = skAsset;
-
 						msgTx.m_Transaction->m_vOutputs.push_back(std::move(pOutp));
+						m_Wallet.UpdateOffset(*msgTx.m_Transaction, skOut, true);
+
 						msgTx.m_Transaction->m_vKernels.push_back(std::move(pKrn));
+						m_Wallet.UpdateOffset(*msgTx.m_Transaction, skAsset, true);
 
 						msgTx.m_Transaction->Normalize();
 					}
