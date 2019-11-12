@@ -92,6 +92,11 @@ namespace beam::wallet
 
         static const uint32_t s_ProtoVersion;
 
+        virtual bool IsTxParameterExternalSettable(TxParameterID paramID, SubTxID subTxID) const
+        {
+            return true;
+        }
+
         template <typename T>
         bool GetParameter(TxParameterID paramID, T& value, SubTxID subTxID = kDefaultSubTxID) const
         {

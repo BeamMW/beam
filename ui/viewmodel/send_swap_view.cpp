@@ -367,7 +367,12 @@ void SendSwapViewModel::sendMoney()
     auto swapFee = (*isBeamSide) ? getReceiveFee() : getSendFee();
     auto subTxID = *isBeamSide ? beam::wallet::SubTxIndex::REDEEM_TX : beam::wallet::SubTxIndex::LOCK_TX;
 
-    txParameters.SetParameter(TxParameterID::Fee, beam::Amount(beamFee));
+    if (isBeamSide)
+    {
+        txParameters.SetParameter(TxParameterID::Fee, beam::Amount(beamFee), beam::wallet::SubTxIndex::BEAM_LOCK_TX);
+    }
+    txParameters.SetParameter(TxParameterID::Fee, beam::Amount(beamFee),
+        isBeamSide ? beam::wallet::SubTxIndex::BEAM_REFUND_TX : beam::wallet::SubTxIndex::BEAM_REDEEM_TX);
     txParameters.SetParameter(TxParameterID::Fee, beam::Amount(swapFee), subTxID);
     if (!_comment.isEmpty())
     {
