@@ -60,14 +60,6 @@
         <source>Delete</source>
         <translation>Xoá</translation>
     </message>
-    <message id="general-receiving">
-        <source>receiving</source>
-        <translation type="obsolete">receiving</translation>
-    </message>
-    <message id="general-sending">
-        <source>sending</source>
-        <translation type="obsolete">sending</translation>
-    </message>
     <message id="general-rescan">
         <source>Rescan</source>
         <translation>Quét lại</translation>
@@ -327,14 +319,6 @@
         <source>ip:port</source>
         <extracomment>settings tab, node section, address label</extracomment>
         <translation>ip:cổng</translation>
-    </message>
-    <message id="settings-see-seed">
-        <source>Click to see seed phrase</source>
-        <translation type="obsolete">Click to see seed phrase</translation>
-    </message>
-    <message id="settings-new-seed">
-        <source>Double click to generate new seed phrase</source>
-        <translation type="obsolete">Double click to generate new seed phrase</translation>
     </message>
     <message id="settings-local-node-run-checkbox">
         <source>Run local node</source>
@@ -1607,10 +1591,6 @@ please review your settings and try again.</oldsource>
         <source>There is no Trezor device connected. Please, connect and try again.</source>
         <translation type="unfinished">There is no Trezor device connected. Please, connect and try again.</translation>
     </message>
-    <message id="settings-invalid-seed">
-        <source>Invalid seed phrase</source>
-        <translation type="obsolete">Invalid seed phrase</translation>
-    </message>
     <message id="wallet-transactions-all-tab">
         <source>All</source>
         <translation>Tất cả</translation>
@@ -1783,10 +1763,6 @@ Please check the swap token and try again.</oldsource>
         <source>Disconnect</source>
         <translation type="unfinished">Disconnect</translation>
     </message>
-    <message id="settings-swap-seed-phrase">
-        <source>Seed Phrase</source>
-        <translation type="obsolete">Seed Phrase</translation>
-    </message>
     <message id="settings-swap-bitcoin-node">
         <source>Bitcoin node</source>
         <translation type="unfinished">Bitcoin node</translation>
@@ -1810,14 +1786,6 @@ Please check the swap token and try again.</oldsource>
     <message id="settings-swap-qtum-electrum">
         <source>Qtum electrum</source>
         <translation type="unfinished">Qtum electrum</translation>
-    </message>
-    <message id="connect to electrum node">
-        <source>connect to electrum node</source>
-        <translation type="obsolete">connect to electrum node</translation>
-    </message>
-    <message id="connect to node">
-        <source>connect to node</source>
-        <translation type="obsolete">connect to node</translation>
     </message>
     <message id="invalid-rate-min">
         <source>Rate cannot be less than %1</source>

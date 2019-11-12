@@ -60,14 +60,6 @@
         <source>Delete</source>
         <translation>Delete</translation>
     </message>
-    <message id="general-receiving">
-        <source>receiving</source>
-        <translation type="obsolete">receiving</translation>
-    </message>
-    <message id="general-sending">
-        <source>sending</source>
-        <translation type="obsolete">sending</translation>
-    </message>
     <message id="general-rescan">
         <source>Rescan</source>
         <translation>Rescan</translation>

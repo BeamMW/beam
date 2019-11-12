@@ -60,14 +60,6 @@
         <source>Delete</source>
         <translation>삭제</translation>
     </message>
-    <message id="general-receiving">
-        <source>receiving</source>
-        <translation type="obsolete">receiving</translation>
-    </message>
-    <message id="general-sending">
-        <source>sending</source>
-        <translation type="obsolete">sending</translation>
-    </message>
     <message id="general-rescan">
         <source>Rescan</source>
         <translation>다시 스캔하기</translation>
@@ -1414,10 +1406,6 @@
         <source>%1 is not connected, \nplease review your settings and try again.</source>
         <oldsource>%1 is not connected, please review your settings and try again.</oldsource>
         <translation>%1 가 연결되지 않았습니다, \n설정을 다시 하시고 재시도 해주세요.</translation>
-    </message>
-    <message id="send-swap-to-label">
-        <source>Transaction token</source>
-        <translation type="obsolete">Transaction token</translation>
     </message>
     <message id="send-not-enough">
         <source>There is not enough funds to complete the transaction</source>

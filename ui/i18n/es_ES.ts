@@ -60,10 +60,6 @@
         <source>Delete</source>
         <translation>Borrar</translation>
     </message>
-    <message id="general-receiving">
-        <source>receiving</source>
-        <translation type="obsolete">receiving</translation>
-    </message>
     <message id="general-sending">
         <source>sending</source>
         <translation type="vanished">enviando</translation>

@@ -60,14 +60,6 @@
         <source>Delete</source>
         <translation>Elimina</translation>
     </message>
-    <message id="general-receiving">
-        <source>receiving</source>
-        <translation type="obsolete">receiving</translation>
-    </message>
-    <message id="general-sending">
-        <source>sending</source>
-        <translation type="obsolete">sending</translation>
-    </message>
     <message id="general-rescan">
         <source>Rescan</source>
         <translation>Esegui di nuovo la scansione</translation>
@@ -327,10 +319,6 @@
         <source>ip:port</source>
         <extracomment>settings tab, node section, address label</extracomment>
         <translation>ip:porta</translation>
-    </message>
-    <message id="settings-see-seed">
-        <source>Click to see seed phrase</source>
-        <translation type="obsolete">Click to see seed phrase</translation>
     </message>
     <message id="settings-new-seed">
         <source>Double click to generate new seed phrase</source>
@@ -594,14 +582,6 @@
         <source>Scan to send</source>
         <translation type="unfinished">Scan to send</translation>
     </message>
-    <message id="wallet-receive-propogate-addr-message">
-        <source>Send this address to the sender over an external secure channel</source>
-        <translation type="obsolete">Send this address to the sender over an external secure channel</translation>
-    </message>
-    <message id="invalid-addr-got-it-button">
-        <source>Got it</source>
-        <translation type="obsolete">Got it</translation>
-    </message>
     <message id="send-title">
         <source>Send</source>
         <translation>Invia</translation>
@@ -622,10 +602,6 @@
         <source>Insufficient funds: you would need %1 to complete the transaction</source>
         <translation type="unfinished">Insufficient funds: you would need %1 to complete the transaction</translation>
     </message>
-    <message id="send-fee-fail">
-        <source>The minimum fee is %1 GROTH</source>
-        <translation type="obsolete">The minimum fee is %1 GROTH</translation>
-    </message>
     <message id="send-curency-sub-name">
         <source>GROTH</source>
         <translation type="vanished">GROTH</translation>
@@ -633,10 +609,6 @@
     <message id="send-remaining-label">
         <source>Remaining</source>
         <translation type="unfinished">Remaining</translation>
-    </message>
-    <message id="send-send-fail">
-        <source>Address %1 is invalid</source>
-        <translation type="obsolete">Address %1 is invalid</translation>
     </message>
     <message id="start-restore-confirm-button">
         <source>I agree</source>
@@ -1280,10 +1252,6 @@
         <source>The minimum fee is %1 %2</source>
         <translation type="unfinished">The minimum fee is %1 %2</translation>
     </message>
-    <message id="general-locked">
-        <source>locked</source>
-        <translation type="obsolete">locked</translation>
-    </message>
     <message id="general-change-settings">
         <source>Change settings</source>
         <translation>Modifica impostazione</translation>
@@ -1362,10 +1330,6 @@ Update your settings and try again.</oldsource>
         <source>Exchange rate</source>
         <translation type="unfinished">Exchange rate</translation>
     </message>
-    <message id="wallet-receive-your-token">
-        <source>Your transaction token:</source>
-        <translation type="obsolete">Your transaction token:</translation>
-    </message>
     <message id="wallet-swap-token-message">
         <source>Send this token to the sender over an external secure channel</source>
         <translation type="unfinished">Send this token to the sender over an external secure channel</translation>
@@ -1417,10 +1381,6 @@ Update your settings and try again.</oldsource>
         <oldsource>%1 is not connected, 
 please review your settings and try again.</oldsource>
         <translation type="unfinished">%1 is not connected, \nplease review your settings and try again.</translation>
-    </message>
-    <message id="send-swap-to-label">
-        <source>Transaction token</source>
-        <translation type="obsolete">Transaction token</translation>
     </message>
     <message id="send-not-enough">
         <source>There is not enough funds to complete the transaction</source>
@@ -1783,10 +1743,6 @@ Please check the swap token and try again.</oldsource>
         <source>Disconnect</source>
         <translation>Disconnetti</translation>
     </message>
-    <message id="settings-swap-seed-phrase">
-        <source>Seed Phrase</source>
-        <translation type="obsolete">Seed Phrase</translation>
-    </message>
     <message id="settings-swap-bitcoin-node">
         <source>Bitcoin node</source>
         <translation type="unfinished">Bitcoin node</translation>
@@ -1810,14 +1766,6 @@ Please check the swap token and try again.</oldsource>
     <message id="settings-swap-qtum-electrum">
         <source>Qtum electrum</source>
         <translation type="unfinished">Qtum electrum</translation>
-    </message>
-    <message id="connect to electrum node">
-        <source>connect to electrum node</source>
-        <translation type="obsolete">connect to electrum node</translation>
-    </message>
-    <message id="connect to node">
-        <source>connect to node</source>
-        <translation type="obsolete">connect to node</translation>
     </message>
     <message id="invalid-rate-min">
         <source>Rate cannot be less than %1</source>

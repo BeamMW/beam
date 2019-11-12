@@ -60,14 +60,6 @@
         <source>Delete</source>
         <translation>Ta bort</translation>
     </message>
-    <message id="general-receiving">
-        <source>receiving</source>
-        <translation type="obsolete">receiving</translation>
-    </message>
-    <message id="general-sending">
-        <source>sending</source>
-        <translation type="obsolete">sending</translation>
-    </message>
     <message id="general-rescan">
         <source>Rescan</source>
         <translation>Scanna</translation>
@@ -1783,10 +1775,6 @@ Please check the swap token and try again.</oldsource>
         <source>Disconnect</source>
         <translation type="unfinished">Disconnect</translation>
     </message>
-    <message id="settings-swap-seed-phrase">
-        <source>Seed Phrase</source>
-        <translation type="obsolete">Seed Phrase</translation>
-    </message>
     <message id="settings-swap-bitcoin-node">
         <source>Bitcoin node</source>
         <translation type="unfinished">Bitcoin node</translation>
@@ -1810,14 +1798,6 @@ Please check the swap token and try again.</oldsource>
     <message id="settings-swap-qtum-electrum">
         <source>Qtum electrum</source>
         <translation type="unfinished">Qtum electrum</translation>
-    </message>
-    <message id="connect to electrum node">
-        <source>connect to electrum node</source>
-        <translation type="obsolete">connect to electrum node</translation>
-    </message>
-    <message id="connect to node">
-        <source>connect to node</source>
-        <translation type="obsolete">connect to node</translation>
     </message>
     <message id="invalid-rate-min">
         <source>Rate cannot be less than %1</source>
