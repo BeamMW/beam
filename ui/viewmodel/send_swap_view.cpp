@@ -402,10 +402,10 @@ void SendSwapViewModel::sendMoney()
 
 bool SendSwapViewModel::isSendFeeOK() const
 {
-    return QMLGlobals::isSwapFeeOK(_sendAmountGrothes, _sendFeeGrothes, _sendCurrency);
+    return _sendAmountGrothes == 0 || QMLGlobals::isSwapFeeOK(_sendAmountGrothes, _sendFeeGrothes, _sendCurrency);
 }
 
 bool SendSwapViewModel::isReceiveFeeOK() const
 {
-    return QMLGlobals::isSwapFeeOK(_receiveAmountGrothes, _receiveFeeGrothes, _receiveCurrency);
+    return _receiveAmountGrothes == 0 || QMLGlobals::isSwapFeeOK(_receiveAmountGrothes, _receiveFeeGrothes, _receiveCurrency);
 }

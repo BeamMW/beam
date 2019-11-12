@@ -277,12 +277,12 @@ bool ReceiveSwapViewModel::isEnough() const
 
 bool ReceiveSwapViewModel::isSendFeeOK() const
 {
-    return QMLGlobals::isSwapFeeOK(_amountSentGrothes, _sentFeeGrothes, _sentCurrency);
+    return _amountSentGrothes == 0 || QMLGlobals::isSwapFeeOK(_amountSentGrothes, _sentFeeGrothes, _sentCurrency);
 }
 
 bool ReceiveSwapViewModel::isReceiveFeeOK() const
 {
-    return QMLGlobals::isSwapFeeOK(_amountToReceiveGrothes, _receiveFeeGrothes, _receiveCurrency);
+    return _amountToReceiveGrothes == 0 || QMLGlobals::isSwapFeeOK(_amountToReceiveGrothes, _receiveFeeGrothes, _receiveCurrency);
 }
 
 void ReceiveSwapViewModel::saveAddress()
@@ -308,11 +308,7 @@ void ReceiveSwapViewModel::startListen()
     txParameters.DeleteParameter(TxParameterID::PeerID);
     txParameters.SetParameter(TxParameterID::IsInitiator, !*_txParameters.GetParameter<bool>(TxParameterID::IsInitiator));
     txParameters.SetParameter(TxParameterID::MyID, *_txParameters.GetParameter<beam::wallet::WalletID>(beam::wallet::TxParameterID::PeerID));
-    if (isBeamSide)
-    {
-        txParameters.SetParameter(TxParameterID::Fee, beam::Amount(beamFee), SubTxIndex::BEAM_LOCK_TX);
-    }
-    txParameters.SetParameter(TxParameterID::Fee, beam::Amount(beamFee), isBeamSide ? SubTxIndex::BEAM_REFUND_TX : SubTxIndex::BEAM_REDEEM_TX);
+    txParameters.SetParameter(TxParameterID::Fee, beam::Amount(beamFee));
     txParameters.SetParameter(TxParameterID::Fee, beam::Amount(swapFee), isBeamSide ? SubTxIndex::REDEEM_TX : SubTxIndex::LOCK_TX);
     txParameters.SetParameter(TxParameterID::AtomicSwapIsBeamSide, isBeamSide);
     txParameters.SetParameter(TxParameterID::IsSender, isBeamSide);
