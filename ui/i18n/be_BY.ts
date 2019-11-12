@@ -1329,7 +1329,8 @@ Update your settings and try again.</source>
         <translation type="unfinished">You do not have any 3rd-party currencies connected.\nUpdate your settings and try again.</translation>
     </message>
     <message id="wallet-receive-swap-title">
-        <source>Create swap offer</source>
+        <source>Create a Swap Offer</source>
+        <oldsource>Create swap offer</oldsource>
         <translation type="unfinished">Create swap offer</translation>
     </message>
     <message id="wallet-receive-addr-message">
@@ -1369,7 +1370,8 @@ Update your settings and try again.</source>
         <translation type="obsolete">Your transaction token:</translation>
     </message>
     <message id="wallet-swap-token-message">
-        <source>Send this token to the sender over an external secure channel</source>
+        <source>Send this token to the sender over a secure external channel</source>
+        <oldsource>Send this token to the sender over an external secure channel</oldsource>
         <translation type="unfinished">Send this token to the sender over an external secure channel</translation>
     </message>
     <message id="wallet-receive-swap-publish">
@@ -1644,7 +1646,8 @@ Please try again later or create an offer yourself.</source>
         <translation type="unfinished">There are no active offers at the moment.\nPlease try again later or create an offer yourself.</translation>
     </message>
     <message id="send-less-than-fee">
-        <source>The swap amount must be greater than the redemption fee.</source>
+        <source>The swap amount must be greater than the transaction fee</source>
+        <oldsource>The swap amount must be greater than the redemption fee.</oldsource>
         <translation type="unfinished">The swap amount must be greater than the redemption fee.</translation>
     </message>
     <message id="wallet-txs-status-in-progress">

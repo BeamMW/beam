@@ -1263,8 +1263,8 @@ or send this address to the sender over secure channel</translation>
         <translation>You do not have any 3rd-party currencies connected.\nUpdate your settings and try again.</translation>
     </message>
     <message id="wallet-receive-swap-title">
-        <source>Create swap offer</source>
-        <translation>Create swap offer</translation>
+        <source>Create a Swap Offer</source>
+        <translation>Create a Swap Offer</translation>
     </message>
     <message id="wallet-receive-addr-message">
         <source>Send this address to the sender over an external secure channel or scan the QR code</source>
@@ -1299,8 +1299,8 @@ or send this address to the sender over secure channel</translation>
         <translation>Exchange rate</translation>
     </message>
     <message id="wallet-swap-token-message">
-        <source>Send this token to the sender over an external secure channel</source>
-        <translation>Send this token to the sender over an external secure channel</translation>
+        <source>Send this token to the sender over a secure external channel</source>
+        <translation>Send this token to the sender over a secure external channel</translation>
     </message>
     <message id="wallet-receive-swap-publish">
         <source>publish offer</source>
@@ -1557,8 +1557,8 @@ fee while you have transactions in progress.</translation>
 Please try again later or create an offer yourself.</translation>
     </message>
     <message id="send-less-than-fee">
-        <source>The swap amount must be greater than the redemption fee.</source>
-        <translation type="unfinished"></translation>
+        <source>The swap amount must be greater than the transaction fee</source>
+        <translation type="unfinished">The swap amount must be greater than the transaction fee</translation>
     </message>
     <message id="wallet-txs-status-in-progress">
         <source>in progress</source>

@@ -1269,8 +1269,9 @@ Update your settings and try again.</source>
         <translation type="unfinished">Sinulla ei ole ulkoisia valuuttoja yhdistettynä.\nPäivitä asetuksesi ja yritä uudelleen.</translation>
     </message>
     <message id="wallet-receive-swap-title">
-        <source>Create swap offer</source>
-        <translation>Tee swap-tarjous</translation>
+        <source>Create a Swap Offer</source>
+        <oldsource>Create swap offer</oldsource>
+        <translation type="unfinished">Tee swap-tarjous</translation>
     </message>
     <message id="wallet-receive-addr-message">
         <source>Send this address to the sender over an external secure channel or scan the QR code</source>
@@ -1305,8 +1306,9 @@ Update your settings and try again.</source>
         <translation>Vaihtokurssi</translation>
     </message>
     <message id="wallet-swap-token-message">
-        <source>Send this token to the sender over an external secure channel</source>
-        <translation>Lähetä tämä tunniste vaihdon suorittajalle turvallista viestintävälinettä käyttäen</translation>
+        <source>Send this token to the sender over a secure external channel</source>
+        <oldsource>Send this token to the sender over an external secure channel</oldsource>
+        <translation type="unfinished">Lähetä tämä tunniste vaihdon suorittajalle turvallista viestintävälinettä käyttäen</translation>
     </message>
     <message id="wallet-receive-swap-publish">
         <source>publish offer</source>
@@ -1571,8 +1573,9 @@ Please try again later or create an offer yourself.</source>
         <translation type="unfinished">Ei yhtään voimassa olevaa tarjousta.\nTee oma tarjous tai yritä myöhemmin uudelleen.</translation>
     </message>
     <message id="send-less-than-fee">
-        <source>The swap amount must be greater than the redemption fee.</source>
-        <translation>Vaihtosumman täytyy olla vaihtomaksua suurempi</translation>
+        <source>The swap amount must be greater than the transaction fee</source>
+        <oldsource>The swap amount must be greater than the redemption fee.</oldsource>
+        <translation type="unfinished">Vaihtosumman täytyy olla vaihtomaksua suurempi</translation>
     </message>
     <message id="wallet-txs-status-in-progress">
         <source>in progress</source>

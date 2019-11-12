@@ -72,7 +72,7 @@ ColumnLayout {
             font.pixelSize:      18
             font.styleName:      "Bold"; font.weight: Font.Bold
             color:               Style.content_main
-            //% "Create swap offer"
+            //% "Create a Swap Offer"
             text:                qsTrId("wallet-receive-swap-title")
         }
     }
@@ -112,7 +112,7 @@ ColumnLayout {
                         currColor:        currencyError() ? Style.validator_error : Style.content_main
                         //% "There is not enough funds to complete the transaction"
                         error:            viewModel.isGreatThanFee ? (viewModel.isEnough ? "" : qsTrId("send-not-enough"))
-                                            //% "The swap amount must be greater than the redemption fee."
+                                            //% "The swap amount must be greater than the transaction fee"
                                             : qsTrId("send-less-than-fee")
 
                         onCurrencyChanged: {
@@ -418,7 +418,7 @@ ColumnLayout {
                 Layout.topMargin: 5
                 font.pixelSize:   14
                 color:            Style.content_main
-                //% "Send this token to the sender over an external secure channel"
+                //% "Send this token to the sender over a secure external channel"
                 text: qsTrId("wallet-swap-token-message")
             }
 

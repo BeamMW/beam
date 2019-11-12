@@ -1269,8 +1269,9 @@ Update your settings and try again.</source>
         <translation type="unfinished">คุณไม่มีสกุลเงินอื่นเชื่อมต่ออยู่ กรุณาแก้ไขการตั้งค่าและลองใหม่อีกครั้ง</translation>
     </message>
     <message id="wallet-receive-swap-title">
-        <source>Create swap offer</source>
-        <translation>สร้างข้อเสนอการแลกเปลี่ยน</translation>
+        <source>Create a Swap Offer</source>
+        <oldsource>Create swap offer</oldsource>
+        <translation type="unfinished">สร้างข้อเสนอการแลกเปลี่ยน</translation>
     </message>
     <message id="wallet-receive-addr-message">
         <source>Send this address to the sender over an external secure channel or scan the QR code</source>
@@ -1305,8 +1306,9 @@ Update your settings and try again.</source>
         <translation>อัตราแลกเปลี่ยน</translation>
     </message>
     <message id="wallet-swap-token-message">
-        <source>Send this token to the sender over an external secure channel</source>
-        <translation>ส่งโทเค็นนี้ไปให้ผู้ที่จะโอนในช่องทางอื่นๆ</translation>
+        <source>Send this token to the sender over a secure external channel</source>
+        <oldsource>Send this token to the sender over an external secure channel</oldsource>
+        <translation type="unfinished">ส่งโทเค็นนี้ไปให้ผู้ที่จะโอนในช่องทางอื่นๆ</translation>
     </message>
     <message id="wallet-receive-swap-publish">
         <source>publish offer</source>
@@ -1573,8 +1575,9 @@ Please try again later or create an offer yourself.</source>
 กรุณาลองอีกครั้งหรือสร้างข้อเสนอของตัวเองเลย</translation>
     </message>
     <message id="send-less-than-fee">
-        <source>The swap amount must be greater than the redemption fee.</source>
-        <translation>จำนวนการแลกเปลี่ยนจะต้องมากกว่าค่าธรรมเนียมการไถ่ถอน</translation>
+        <source>The swap amount must be greater than the transaction fee</source>
+        <oldsource>The swap amount must be greater than the redemption fee.</oldsource>
+        <translation type="unfinished">จำนวนการแลกเปลี่ยนจะต้องมากกว่าค่าธรรมเนียมการไถ่ถอน</translation>
     </message>
     <message id="wallet-txs-status-in-progress">
         <source>in progress</source>

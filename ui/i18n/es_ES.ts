@@ -1270,8 +1270,9 @@ Update your settings and try again.</source>
         <translation type="unfinished">No tienes ninguna moneda de terceros conectada.\nActualiza tus ajustes e inténtalo de nuevo.</translation>
     </message>
     <message id="wallet-receive-swap-title">
-        <source>Create swap offer</source>
-        <translation>Crear oferta de intercambio</translation>
+        <source>Create a Swap Offer</source>
+        <oldsource>Create swap offer</oldsource>
+        <translation type="unfinished">Crear oferta de intercambio</translation>
     </message>
     <message id="wallet-receive-addr-message">
         <source>Send this address to the sender over an external secure channel or scan the QR code</source>
@@ -1306,8 +1307,9 @@ Update your settings and try again.</source>
         <translation>Tipo de cambio</translation>
     </message>
     <message id="wallet-swap-token-message">
-        <source>Send this token to the sender over an external secure channel</source>
-        <translation>Enviar este token al remitente a través de un canal seguro externo</translation>
+        <source>Send this token to the sender over a secure external channel</source>
+        <oldsource>Send this token to the sender over an external secure channel</oldsource>
+        <translation type="unfinished">Enviar este token al remitente a través de un canal seguro externo</translation>
     </message>
     <message id="wallet-receive-swap-publish">
         <source>publish offer</source>
@@ -1572,8 +1574,9 @@ Please try again later or create an offer yourself.</source>
         <translation type="unfinished">No hay ofertas activas en este momento.\nPor favor, inténtalo de nuevo más tarde o crea una oferta usted mismo.</translation>
     </message>
     <message id="send-less-than-fee">
-        <source>The swap amount must be greater than the redemption fee.</source>
-        <translation>La cantidad de intercambio debe ser mayor que la tarifa de reembolso.</translation>
+        <source>The swap amount must be greater than the transaction fee</source>
+        <oldsource>The swap amount must be greater than the redemption fee.</oldsource>
+        <translation type="unfinished">La cantidad de intercambio debe ser mayor que la tarifa de reembolso.</translation>
     </message>
     <message id="wallet-txs-status-in-progress">
         <source>in progress</source>

@@ -1269,8 +1269,9 @@ Update your settings and try again.</source>
         <translation type="unfinished">Nemáte připojené žádné měny třetích stran.\nAktualizujte nastavení a zkuste to znovu.</translation>
     </message>
     <message id="wallet-receive-swap-title">
-        <source>Create swap offer</source>
-        <translation>Vytvořit nabídku na výměnu</translation>
+        <source>Create a Swap Offer</source>
+        <oldsource>Create swap offer</oldsource>
+        <translation type="unfinished">Vytvořit nabídku na výměnu</translation>
     </message>
     <message id="wallet-receive-addr-message">
         <source>Send this address to the sender over an external secure channel or scan the QR code</source>
@@ -1305,8 +1306,9 @@ Update your settings and try again.</source>
         <translation>Směnný kurz</translation>
     </message>
     <message id="wallet-swap-token-message">
-        <source>Send this token to the sender over an external secure channel</source>
-        <translation>Odeslat tento token odesílateli přes externí zabezpečený kanál</translation>
+        <source>Send this token to the sender over a secure external channel</source>
+        <oldsource>Send this token to the sender over an external secure channel</oldsource>
+        <translation type="unfinished">Odeslat tento token odesílateli přes externí zabezpečený kanál</translation>
     </message>
     <message id="wallet-receive-swap-publish">
         <source>publish offer</source>
@@ -1571,8 +1573,9 @@ Please try again later or create an offer yourself.</source>
         <translation type="unfinished">Momentálně nejsou žádné aktivní nabídky.\nZkuste to prosím později nebo vytvořte svou nabídku.</translation>
     </message>
     <message id="send-less-than-fee">
-        <source>The swap amount must be greater than the redemption fee.</source>
-        <translation>Hodnota výměny musí být vyšší než poplatek za splatnost.</translation>
+        <source>The swap amount must be greater than the transaction fee</source>
+        <oldsource>The swap amount must be greater than the redemption fee.</oldsource>
+        <translation type="unfinished">Hodnota výměny musí být vyšší než poplatek za splatnost.</translation>
     </message>
     <message id="wallet-txs-status-in-progress">
         <source>in progress</source>

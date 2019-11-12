@@ -1269,8 +1269,9 @@ Update your settings and try again.</source>
         <translation type="unfinished">U heeft geen 3rd-party valuta gekoppeld.\nUpdate uw instellingen en probeer opnieuw.</translation>
     </message>
     <message id="wallet-receive-swap-title">
-        <source>Create swap offer</source>
-        <translation>Swap aanbieding aanmaken</translation>
+        <source>Create a Swap Offer</source>
+        <oldsource>Create swap offer</oldsource>
+        <translation type="unfinished">Swap aanbieding aanmaken</translation>
     </message>
     <message id="wallet-receive-addr-message">
         <source>Send this address to the sender over an external secure channel or scan the QR code</source>
@@ -1305,8 +1306,9 @@ Update your settings and try again.</source>
         <translation>Wisselkoers</translation>
     </message>
     <message id="wallet-swap-token-message">
-        <source>Send this token to the sender over an external secure channel</source>
-        <translation>Stuur deze token naar de afzender via een extern beveiligd kanaal</translation>
+        <source>Send this token to the sender over a secure external channel</source>
+        <oldsource>Send this token to the sender over an external secure channel</oldsource>
+        <translation type="unfinished">Stuur deze token naar de afzender via een extern beveiligd kanaal</translation>
     </message>
     <message id="wallet-receive-swap-publish">
         <source>publish offer</source>
@@ -1571,8 +1573,9 @@ Please try again later or create an offer yourself.</source>
         <translation type="unfinished">Er zijn momenteel geen actieve aanbiedingen.\nProbeer het later opnieuw of maak zelf een aanbieding.</translation>
     </message>
     <message id="send-less-than-fee">
-        <source>The swap amount must be greater than the redemption fee.</source>
-        <translation>Het te swappen bedrag moet groter zijn dan het fee bedrag.</translation>
+        <source>The swap amount must be greater than the transaction fee</source>
+        <oldsource>The swap amount must be greater than the redemption fee.</oldsource>
+        <translation type="unfinished">Het te swappen bedrag moet groter zijn dan het fee bedrag.</translation>
     </message>
     <message id="wallet-txs-status-in-progress">
         <source>in progress</source>

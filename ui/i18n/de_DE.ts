@@ -1269,8 +1269,9 @@ Update your settings and try again.</source>
         <translation type="unfinished">Sie haben keine Fremdwährungen verbunden.\nAktualisieren Sie Ihre Einstellungen und versuchen Sie es erneut.</translation>
     </message>
     <message id="wallet-receive-swap-title">
-        <source>Create swap offer</source>
-        <translation>Swap-Angebot erstellen</translation>
+        <source>Create a Swap Offer</source>
+        <oldsource>Create swap offer</oldsource>
+        <translation type="unfinished">Swap-Angebot erstellen</translation>
     </message>
     <message id="wallet-receive-addr-message">
         <source>Send this address to the sender over an external secure channel or scan the QR code</source>
@@ -1305,8 +1306,9 @@ Update your settings and try again.</source>
         <translation>Wechselkurs</translation>
     </message>
     <message id="wallet-swap-token-message">
-        <source>Send this token to the sender over an external secure channel</source>
-        <translation>Diesen Token über einen sicheren externen Kanal an den Absender senden</translation>
+        <source>Send this token to the sender over a secure external channel</source>
+        <oldsource>Send this token to the sender over an external secure channel</oldsource>
+        <translation type="unfinished">Diesen Token über einen sicheren externen Kanal an den Absender senden</translation>
     </message>
     <message id="wallet-receive-swap-publish">
         <source>publish offer</source>
@@ -1571,8 +1573,9 @@ Please try again later or create an offer yourself.</source>
         <translation type="unfinished">Momentan gibt es keine aktiven Angebote.\nBitte versuchen Sie es später noch einmal oder erstellen Sie selbst ein Angebot.</translation>
     </message>
     <message id="send-less-than-fee">
-        <source>The swap amount must be greater than the redemption fee.</source>
-        <translation>Der Swap-Betrag muss größer als die Einlösungsgebühr sein.</translation>
+        <source>The swap amount must be greater than the transaction fee</source>
+        <oldsource>The swap amount must be greater than the redemption fee.</oldsource>
+        <translation type="unfinished">Der Swap-Betrag muss größer als die Einlösungsgebühr sein.</translation>
     </message>
     <message id="wallet-txs-status-in-progress">
         <source>in progress</source>

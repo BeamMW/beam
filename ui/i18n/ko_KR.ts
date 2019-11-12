@@ -1269,8 +1269,9 @@ Update your settings and try again.</source>
         <translation type="unfinished">서드파티에 연결된 화폐가 없습니다. \n세팅을 업데이트한 후 재시도 하세요.</translation>
     </message>
     <message id="wallet-receive-swap-title">
-        <source>Create swap offer</source>
-        <translation>스왑 오퍼 만들기</translation>
+        <source>Create a Swap Offer</source>
+        <oldsource>Create swap offer</oldsource>
+        <translation type="unfinished">스왑 오퍼 만들기</translation>
     </message>
     <message id="wallet-receive-addr-message">
         <source>Send this address to the sender over an external secure channel or scan the QR code</source>
@@ -1305,8 +1306,9 @@ Update your settings and try again.</source>
         <translation>환율</translation>
     </message>
     <message id="wallet-swap-token-message">
-        <source>Send this token to the sender over an external secure channel</source>
-        <translation>해당 토큰을 외부의 보안 채널을 이용해 발송인에게로 보내기</translation>
+        <source>Send this token to the sender over a secure external channel</source>
+        <oldsource>Send this token to the sender over an external secure channel</oldsource>
+        <translation type="unfinished">해당 토큰을 외부의 보안 채널을 이용해 발송인에게로 보내기</translation>
     </message>
     <message id="wallet-receive-swap-publish">
         <source>publish offer</source>
@@ -1571,8 +1573,9 @@ Please try again later or create an offer yourself.</source>
         <translation type="unfinished">활성화된 오퍼가 현재 없습니다.\n잠시 후 재시도하거나 오퍼를 만드십시오.</translation>
     </message>
     <message id="send-less-than-fee">
-        <source>The swap amount must be greater than the redemption fee.</source>
-        <translation>스왑 금액은 리뎀션 수수료보다 더 커야합니다.</translation>
+        <source>The swap amount must be greater than the transaction fee</source>
+        <oldsource>The swap amount must be greater than the redemption fee.</oldsource>
+        <translation type="unfinished">스왑 금액은 리뎀션 수수료보다 더 커야합니다.</translation>
     </message>
     <message id="wallet-txs-status-in-progress">
         <source>in progress</source>
