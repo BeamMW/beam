@@ -1251,12 +1251,12 @@ or send this address to the sender over secure channel</translation>
         <translation>Default fee</translation>
     </message>
     <message id="swap-beta-message">
-        <source>Atomic Swap functionality is Beta at the moment. We recommend you not to send large amounts.</source>
-        <translation>Atomic Swap functionality is Beta at the moment. We recommend you not to send large amounts.</translation>
+        <source>Atomic Swaps functionality is Beta at the moment. We recommend you not to send large amounts.</source>
+        <translation>Atomic Swaps functionality is Beta at the moment. We recommend you not to send large amounts.</translation>
     </message>
     <message id="swap-beta-title">
-        <source>Atomic Swap is in BETA</source>
-        <translation>Atomic Swap is in BETA</translation>
+        <source>Atomic Swaps are in BETA</source>
+        <translation>Atomic Swaps are in BETA</translation>
     </message>
     <message id="swap-na-message">
         <source>You do not have any 3rd-party currencies connected.\nUpdate your settings and try again.</source>
@@ -1383,8 +1383,8 @@ or send this address to the sender over secure channel</translation>
         <translation type="unfinished">It may take longer then usual. Please, check your network.</translation>
     </message>
     <message id="atomic-swap-title">
-        <source>Atomic Swap</source>
-        <translation>Atomic Swap</translation>
+        <source>Atomic Swaps</source>
+        <translation>Atomic Swaps</translation>
     </message>
     <message id="atomic-swap-create">
         <source>Create offer</source>

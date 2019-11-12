@@ -990,8 +990,13 @@
         <translation>Neues Passwort anlegen, um auf Ihre Wallet zuzugreifen</translation>
     </message>
     <message id="start-create-pwd-strength-message">
-        <source>Strong password needs to meet the following requirements:\n•  the length must be at least 10 characters\n•  must contain at least one lowercase letter\n•  must contain at least one uppercase letter\n•  must contain at least one number</source>
-        <translation>Starkes Passwort muss die folgenden Anforderungen erfüllen:\n• die Länge muss mindestens 10 Zeichen lang sein\n• muss mindestens einen Kleinbuchstaben enthalten\n• muss mindestens einen Großbuchstaben enthalten\n• muss mindestens eine Zahl enthalten</translation>
+        <source>Strong password needs to meet the following requirements:
+•  the length must be at least 10 characters
+•  must contain at least one lowercase letter
+•  must contain at least one uppercase letter
+•  must contain at least one number</source>
+        <oldsource>Strong password needs to meet the following requirements:\n•  the length must be at least 10 characters\n•  must contain at least one lowercase letter\n•  must contain at least one uppercase letter\n•  must contain at least one number</oldsource>
+        <translation type="unfinished">Starkes Passwort muss die folgenden Anforderungen erfüllen:\n• die Länge muss mindestens 10 Zeichen lang sein\n• muss mindestens einen Kleinbuchstaben enthalten\n• muss mindestens einen Großbuchstaben enthalten\n• muss mindestens eine Zahl enthalten</translation>
     </message>
     <message id="start-open-caps-warning">
         <source>Caps lock is on!</source>
@@ -1256,8 +1261,10 @@
         <translation>Atomic Swap ist in BETA</translation>
     </message>
     <message id="swap-na-message">
-        <source>You do not have any 3rd-party currencies connected.\nUpdate your settings and try again.</source>
-        <translation>Sie haben keine Fremdwährungen verbunden.\nAktualisieren Sie Ihre Einstellungen und versuchen Sie es erneut.</translation>
+        <source>You do not have any 3rd-party currencies connected.
+Update your settings and try again.</source>
+        <oldsource>You do not have any 3rd-party currencies connected.\nUpdate your settings and try again.</oldsource>
+        <translation type="unfinished">Sie haben keine Fremdwährungen verbunden.\nAktualisieren Sie Ihre Einstellungen und versuchen Sie es erneut.</translation>
     </message>
     <message id="wallet-receive-swap-title">
         <source>Create swap offer</source>
@@ -1342,9 +1349,10 @@
         <translation>Electrum</translation>
     </message>
     <message id="swap-currency-na-message">
-        <source>%1 is not connected, \nplease review your settings and try again.</source>
-        <oldsource>%1 is not connected, please review your settings and try again.</oldsource>
-        <translation>%1 ist nicht verbunden, \nbitte überprüfen Sie Ihre Einstellungen und versuchen Sie es erneut.</translation>
+        <source>%1 is not connected, 
+please review your settings and try again.</source>
+        <oldsource>%1 is not connected, \nplease review your settings and try again.</oldsource>
+        <translation type="unfinished">%1 ist nicht verbunden, \nbitte überprüfen Sie Ihre Einstellungen und versuchen Sie es erneut.</translation>
     </message>
     <message id="send-not-enough">
         <source>There is not enough funds to complete the transaction</source>
@@ -1548,14 +1556,16 @@
         <translation>Erhalten</translation>
     </message>
     <message id="settings-progress-na">
-        <source>You cannot disconnect wallet, edit seed phrase or change default\nfee while you have transactions in progress.</source>
-        <translation>Sie können Ihr Wallet nicht trennen, Ihre Seed-Phrase bearbeiten oder Grundeinstellungen ändern, während Transaktionen im Gange sind.</translation>
+        <source>You cannot disconnect wallet, edit seed phrase or change default
+fee while you have transactions in progress.</source>
+        <oldsource>You cannot disconnect wallet, edit seed phrase or change default\nfee while you have transactions in progress.</oldsource>
+        <translation type="unfinished">Sie können Ihr Wallet nicht trennen, Ihre Seed-Phrase bearbeiten oder Grundeinstellungen ändern, während Transaktionen im Gange sind.</translation>
     </message>
     <message id="atomic-no-offers">
-        <source>There are no active offers at the moment.\nPlease try again later or create an offer yourself.</source>
-        <oldsource>There are no active offers at the moment.
-Please try again later or create an offer yourself.</oldsource>
-        <translation>Momentan gibt es keine aktiven Angebote.\nBitte versuchen Sie es später noch einmal oder erstellen Sie selbst ein Angebot.</translation>
+        <source>There are no active offers at the moment.
+Please try again later or create an offer yourself.</source>
+        <oldsource>There are no active offers at the moment.\nPlease try again later or create an offer yourself.</oldsource>
+        <translation type="unfinished">Momentan gibt es keine aktiven Angebote.\nBitte versuchen Sie es später noch einmal oder erstellen Sie selbst ein Angebot.</translation>
     </message>
     <message id="send-less-than-fee">
         <source>The swap amount must be greater than the redemption fee.</source>
@@ -1618,8 +1628,10 @@ Please try again later or create an offer yourself.</oldsource>
         <translation>Eigenes Angebot kann nicht akzeptiert werden</translation>
     </message>
     <message id="accept-own-offer-allert-body">
-        <source>The transaction token was generated by you, therefore it is not allowed to accept your own offer.\nPlease check the swap token and try again.</source>
-        <translation>Der Transaktions-Token wurde von Ihnen generiert, daher ist es nicht erlaubt, Ihr eigenes Angebot anzunehmen.\nBitte überprüfen Sie den Swap-Token und versuchen Sie es erneut.</translation>
+        <source>The transaction token was generated by you, therefore it is not allowed to accept your own offer.
+Please check the swap token and try again.</source>
+        <oldsource>The transaction token was generated by you, therefore it is not allowed to accept your own offer.\nPlease check the swap token and try again.</oldsource>
+        <translation type="unfinished">Der Transaktions-Token wurde von Ihnen generiert, daher ist es nicht erlaubt, Ihr eigenes Angebot anzunehmen.\nBitte überprüfen Sie den Swap-Token und versuchen Sie es erneut.</translation>
     </message>
     <message id="swap-copy-token">
         <source>Copy token</source>
@@ -1728,8 +1740,10 @@ Please try again later or create an offer yourself.</oldsource>
         <translation>Rate darf nicht kleiner als %1 sein</translation>
     </message>
     <message id="swap-offer-duplicate-message">
-        <source>The offer with this transaction token is already accepted.\nPlease check the swap token and try again.</source>
-        <translation>Das Angebot mit diesem Transaktions-Token ist bereits akzeptiert.\nBitte überprüfen Sie das Swap-Token und versuchen Sie es erneut.</translation>
+        <source>The offer with this transaction token is already accepted.
+Please check the swap token and try again.</source>
+        <oldsource>The offer with this transaction token is already accepted.\nPlease check the swap token and try again.</oldsource>
+        <translation type="unfinished">Das Angebot mit diesem Transaktions-Token ist bereits akzeptiert.\nBitte überprüfen Sie das Swap-Token und versuchen Sie es erneut.</translation>
     </message>
     <message id="swap-offer-duplicate-title">
         <source>Оffer is already accepted</source>
