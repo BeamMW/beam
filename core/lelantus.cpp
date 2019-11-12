@@ -155,14 +155,14 @@ uint32_t Cfg::get_N() const
 {
 	// typical n is 2 or 4
 	if ((n < 2) || (n > Max::n))
-		return false;
+		return 0;
 
 	if (!M || (M > Max::M))
-		return false;
+		return 0;
 
 	static_assert(Max::M * Max::n <= static_cast<uint32_t>(-1), ""); // no chance of overflow
 	if (M * n > Max::nM)
-		return false;
+		return 0;
 
 	uint64_t ret = 1;
 	for (uint32_t i = 0; i < M; i++)
