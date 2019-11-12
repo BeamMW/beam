@@ -1165,6 +1165,22 @@ namespace beam
 		COMPARE_TYPE(m_pKernel, NextKernel)
 	}
 
+	void TxBase::IReader::CalculateShielded(uint32_t& nIns, uint32_t& nOuts)
+	{
+		Reset();
+
+		for (nIns = 0; m_pUtxoIn; NextUtxoIn())
+		{
+			if (m_pUtxoIn->m_pSpendProof)
+				nIns++;
+		}
+
+		for (nOuts = 0; m_pUtxoOut; NextUtxoOut())
+		{
+			if (m_pUtxoOut->m_pShielded)
+				nOuts++;
+		}
+	}
 
 	void TxVectors::Reader::Clone(Ptr& pOut)
 	{

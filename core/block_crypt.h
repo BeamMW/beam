@@ -466,6 +466,7 @@ namespace beam
 
 			void Compare(IReader&& rOther, bool& bICover, bool& bOtherCovers);
 			size_t get_SizeNetto(); // account only for elements. Ignore offset and array sizes
+			void CalculateShielded(uint32_t& nIns, uint32_t& nOuts);
 		};
 
 		struct IWriter

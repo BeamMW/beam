@@ -1987,14 +1987,8 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, MultiblockContext& m
 		}
 
 		// save shielded in/outs
-		uint32_t nIns = 0, nOuts = 0;
-
-		for (size_t i = 0; i < block.m_vInputs.size(); i++)
-			if (block.m_vInputs[i]->m_pSpendProof)
-				nIns++;
-		for (size_t i = 0; i < block.m_vOutputs.size(); i++)
-			if (block.m_vOutputs[i]->m_pShielded)
-				nOuts++;
+		uint32_t nIns, nOuts;
+		block.get_Reader().CalculateShielded(nIns, nOuts);
 
 		if (nIns || nOuts)
 		{
