@@ -1860,18 +1860,10 @@ Please try again later or create an offer yourself.</oldsource>
         <source>Show wallet addresses</source>
         <translation>지갑 주소 보기</translation>
     </message>
-    <message id="settings-swap-connect-electrum">
-        <source>connect to electrum node</source>
-        <translation>일렉트럼 노드에 연결하기</translation>
-    </message>
-    <message id="settings-swap-connect-node">
-        <source>connect to node</source>
-        <translation>노드에 연결하기</translation>
-    </message>
     <message id="swap-seed-info-message">
-        <source>Your seed phrase is the access key to all the funds! Print or write down the phrase and keep it in a safe or in a locked vault.
-Without the phrase you will not be able to recover your money.</source>
-        <oldsource>Your seed phrase is the access key to all the funds! Print or write down the phrase and keep it in a safe or in a locked vault.\nWithout the phrase you will not be able to recover your money.</oldsource>
+        <source>Your seed phrase is the access key to all the funds! Print or write down the phrase and keep it in a safe or in a locked vault. Without the phrase you will not be able to recover your money.</source>
+        <oldsource>Your seed phrase is the access key to all the funds! Print or write down the phrase and keep it in a safe or in a locked vault.
+Without the phrase you will not be able to recover your money.</oldsource>
         <translation type="unfinished">Your seed phrase is the access key to all the funds! Print or write down the phrase and keep it in a safe or in a locked vault.\nWithout the phrase you will not be able to recover your money.</translation>
     </message>
     <message id="settings-swap-seed-generate">
@@ -1976,6 +1968,10 @@ Without the phrase you will not be able to recover your money.</source>
     </message>
     <message id="send-swap-token-hint">
         <source>Paste token here</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="settings-swap-connect">
+        <source>connect</source>
         <translation type="unfinished"></translation>
     </message>
 </context>

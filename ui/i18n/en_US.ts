@@ -240,7 +240,6 @@
     </message>
     <message id="wallet-txs-status-cancelled">
         <source>cancelled</source>
-        <oldsource>canceled</oldsource>
         <translation type="unfinished">cancelled</translation>
     </message>
     <message id="wallet-txs-status-expired">
@@ -1409,7 +1408,6 @@ or send this address to the sender over secure channel</translation>
     </message>
     <message id="swap-currency-na-message">
         <source>%1 is not connected, \nplease review your settings and try again.</source>
-        <oldsource>%1 is not connected, please review your settings and try again.</oldsource>
         <translation type="unfinished">%1 is not connected, \nplease review your settings and try again.</translation>
     </message>
     <message id="send-not-enough">
@@ -1623,8 +1621,6 @@ fee while you have transactions in progress.</translation>
     </message>
     <message id="atomic-no-offers">
         <source>There are no active offers at the moment.\nPlease try again later or create an offer yourself.</source>
-        <oldsource>There are no active offers at the moment.
-Please try again later or create an offer yourself.</oldsource>
         <translation type="unfinished">There are no active offers at the moment.
 Please try again later or create an offer yourself.</translation>
     </message>
@@ -1854,14 +1850,6 @@ Please check the swap token and try again.</translation>
         <source>Show wallet addresses</source>
         <translation type="unfinished"></translation>
     </message>
-    <message id="settings-swap-connect-electrum">
-        <source>connect to electrum node</source>
-        <translation type="unfinished">connect to electrum node</translation>
-    </message>
-    <message id="settings-swap-connect-node">
-        <source>connect to node</source>
-        <translation type="unfinished">connect to node</translation>
-    </message>
     <message id="swap-seed-info-message">
         <source>Your seed phrase is the access key to all the funds! Print or write down the phrase and keep it in a safe or in a locked vault. Without the phrase you will not be able to recover your money.</source>
         <translation type="unfinished"></translation>
@@ -1955,9 +1943,8 @@ Please check the swap token and try again.</translation>
         <translation>Confirm atomic swap</translation>
     </message>
     <message id="send-swap-sconfirmation-online-time">
-        <source>Keep your wallet online. The swap normally takes about 1 hour
-to complete.</source>
-        <translation>Keep your wallet online. The swap normally takes about 1 hour
+        <source>Keep your wallet online. The swap normally takes about 1 hour to complete.</source>
+        <translation type="unfinished">Keep your wallet online. The swap normally takes about 1 hour
 to complete.</translation>
     </message>
     <message id="beam-transaction-fee">
@@ -1971,6 +1958,10 @@ to complete.</translation>
     <message id="send-swap-token-hint">
         <source>Paste token here</source>
         <translation>Paste token here</translation>
+    </message>
+    <message id="settings-swap-connect">
+        <source>connect</source>
+        <translation type="unfinished"></translation>
     </message>
 </context>
 </TS>

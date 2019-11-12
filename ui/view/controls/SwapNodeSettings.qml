@@ -610,11 +610,8 @@ Control {
                     visible:                !isSettingsChanged() && haveSettings() && (editElectrum ? !isElectrumConnection : !isNodeConnection)
                     leftPadding:            25
                     rightPadding:           25
-                    text:                   editElectrum ?
-                                            //% "connect to electrum node"
-                                            qsTrId("settings-swap-connect-electrum") :
-                                            //% "connect to node"
-                                            qsTrId("settings-swap-connect-node");
+                    //% "connect"
+                    text:                   qsTrId("settings-swap-connect")
                     icon.source:            "qrc:/assets/icon-connect.svg"
                     onClicked:              editElectrum ? connectToElectrum() : connectToNode();
                     Layout.preferredHeight: 38

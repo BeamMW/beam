@@ -1267,8 +1267,9 @@
         <translation>Geschätzte Zeit: %s</translation>
     </message>
     <message id="general-fee-rate">
-        <source>Transaction fee rate</source>
-        <translation>Transaktionsgebühr</translation>
+        <source>%1 Transaction fee rate</source>
+        <oldsource>Transaction fee rate</oldsource>
+        <translation type="unfinished">Transaktionsgebühr</translation>
     </message>
     <message id="general-fee-fail">
         <source>The minimum fee is %1 %2</source>
@@ -1376,8 +1377,9 @@
         <translation>Ungültiger Swap-Token</translation>
     </message>
     <message id="wallet-send-invalid-address-or-token">
-        <source>Invalid wallet address or swap token</source>
-        <translation>Ungültige Wallet-Adresse oder Swap-Token</translation>
+        <source>Invalid wallet address</source>
+        <oldsource>Invalid wallet address or swap token</oldsource>
+        <translation type="unfinished">Ungültige Wallet-Adresse oder Swap-Token</translation>
     </message>
     <message id="general-comment-local">
         <source>Comments are local and won&apos;t be shared</source>
@@ -1410,7 +1412,7 @@
     </message>
     <message id="send-swap-to-label">
         <source>Transaction token</source>
-        <translation>Transaktions-Token</translation>
+        <translation type="vanished">Transaktions-Token</translation>
     </message>
     <message id="send-not-enough">
         <source>There is not enough funds to complete the transaction</source>
@@ -1752,16 +1754,18 @@ Please try again later or create an offer yourself.</oldsource>
         <translation>Transaktions-ID</translation>
     </message>
     <message id="swap-details-tx-fee">
-        <source>Transaction fee</source>
-        <translation>Transaktionsgebühr</translation>
+        <source>BEAM Transaction fee</source>
+        <oldsource>Transaction fee</oldsource>
+        <translation type="unfinished">Transaktionsgebühr</translation>
     </message>
     <message id="swap-details-tx-comment">
         <source>Comment</source>
         <translation>Kommentar</translation>
     </message>
     <message id="swap-details-tx-fee-rate">
-        <source>Transaction fee rate</source>
-        <translation>Transaktionsgebühr</translation>
+        <source>%1 Transaction fee rate</source>
+        <oldsource>Transaction fee rate</oldsource>
+        <translation type="unfinished">Transaktionsgebühr</translation>
     </message>
     <message id="settings-swap-disconnect">
         <source>Disconnect</source>
@@ -1851,14 +1855,6 @@ Please try again later or create an offer yourself.</oldsource>
         <source>Show wallet addresses</source>
         <translation>Wallet-Adressen anzeigen</translation>
     </message>
-    <message id="settings-swap-connect-electrum">
-        <source>connect to electrum node</source>
-        <translation>mit electrum node verbinden</translation>
-    </message>
-    <message id="settings-swap-connect-node">
-        <source>connect to node</source>
-        <translation>mit node verbinden</translation>
-    </message>
     <message id="swap-seed-info-message">
         <source>Your seed phrase is the access key to all the funds! Print or write down the phrase and keep it in a safe or in a locked vault. Without the phrase you will not be able to recover your money.</source>
         <translation>Ihre Seed-Phrase ist der Zugangsschlüssel zu allem Guthaben! Drucken Sie die Seed-Phrase aus oder schreiben Sie sie auf und bewahren es in einem sicheren Safe oder Ort auf. Ohne die Seed-Phrase werden Sie nicht in der Lage sein, auf Ihr Geld zuzugreifen.</translation>
@@ -1945,6 +1941,30 @@ Please try again later or create an offer yourself.</oldsource>
     </message>
     <message id="wallet-receive-swap-your-token">
         <source>Your swap token:</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="beam-transaction-fee">
+        <source>BEAM Transaction fee</source>
+        <translation type="unfinished">Transaktionsgebühr</translation>
+    </message>
+    <message id="send-swap-token">
+        <source>Swap token</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="send-swap-token-hint">
+        <source>Paste token here</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="send-swap-confirmation-title">
+        <source>Confirm atomic swap</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="send-swap-sconfirmation-online-time">
+        <source>Keep your wallet online. The swap normally takes about 1 hour to complete.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="settings-swap-connect">
+        <source>connect</source>
         <translation type="unfinished"></translation>
     </message>
 </context>

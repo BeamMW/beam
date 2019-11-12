@@ -1869,18 +1869,10 @@ Please check the swap token and try again.</oldsource>
         <source>Show wallet addresses</source>
         <translation>Näytä osoitteet</translation>
     </message>
-    <message id="settings-swap-connect-electrum">
-        <source>connect to electrum node</source>
-        <translation>yhdistä Electrum-palvelimeen (node)</translation>
-    </message>
-    <message id="settings-swap-connect-node">
-        <source>connect to node</source>
-        <translation>yhdistä palvelimeen (node)</translation>
-    </message>
     <message id="swap-seed-info-message">
-        <source>Your seed phrase is the access key to all the funds! Print or write down the phrase and keep it in a safe or in a locked vault.
-Without the phrase you will not be able to recover your money.</source>
-        <oldsource>Your seed phrase is the access key to all the funds! Print or write down the phrase and keep it in a safe or in a locked vault.\nWithout the phrase you will not be able to recover your money.</oldsource>
+        <source>Your seed phrase is the access key to all the funds! Print or write down the phrase and keep it in a safe or in a locked vault. Without the phrase you will not be able to recover your money.</source>
+        <oldsource>Your seed phrase is the access key to all the funds! Print or write down the phrase and keep it in a safe or in a locked vault.
+Without the phrase you will not be able to recover your money.</oldsource>
         <translation type="unfinished">Seed phrase -palautusavaimellasi pääsee käsiksi kaikkeen lompakon varallisuuteen. Tulosta tai kirjoita se huolellisesti ylös, sekä pidä se tallessa esimerkiksi kassakaapissa, pankkiholvissa tai muussa turvallisesti lukitussa tilassa.\nIlman seed phrasea et voi palauttaa lompakkosi saldoa tarvittaessa.</translation>
     </message>
     <message id="settings-swap-seed-generate">
@@ -1985,6 +1977,10 @@ Without the phrase you will not be able to recover your money.</source>
     </message>
     <message id="send-swap-token-hint">
         <source>Paste token here</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="settings-swap-connect">
+        <source>connect</source>
         <translation type="unfinished"></translation>
     </message>
 </context>

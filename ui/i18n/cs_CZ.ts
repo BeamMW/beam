@@ -1272,8 +1272,9 @@
         <translation>Odhad času: %s</translation>
     </message>
     <message id="general-fee-rate">
-        <source>Transaction fee rate</source>
-        <translation>Poplatek za transakci</translation>
+        <source>%1 Transaction fee rate</source>
+        <oldsource>Transaction fee rate</oldsource>
+        <translation type="unfinished">Poplatek za transakci</translation>
     </message>
     <message id="general-fee-fail">
         <source>The minimum fee is %1 %2</source>
@@ -1383,8 +1384,9 @@ Update your settings and try again.</oldsource>
         <translation>Neplatný token výměny</translation>
     </message>
     <message id="wallet-send-invalid-address-or-token">
-        <source>Invalid wallet address or swap token</source>
-        <translation>Neplatná adresa peněženky nebo token výměny</translation>
+        <source>Invalid wallet address</source>
+        <oldsource>Invalid wallet address or swap token</oldsource>
+        <translation type="unfinished">Neplatná adresa peněženky nebo token výměny</translation>
     </message>
     <message id="general-comment-local">
         <source>Comments are local and won&apos;t be shared</source>
@@ -1418,7 +1420,7 @@ please review your settings and try again.</oldsource>
     </message>
     <message id="send-swap-to-label">
         <source>Transaction token</source>
-        <translation>Token transakce</translation>
+        <translation type="vanished">Token transakce</translation>
     </message>
     <message id="send-not-enough">
         <source>There is not enough funds to complete the transaction</source>
@@ -1764,16 +1766,18 @@ Please check the swap token and try again.</oldsource>
         <translation>ID transakce</translation>
     </message>
     <message id="swap-details-tx-fee">
-        <source>Transaction fee</source>
-        <translation>Transakční poplatek</translation>
+        <source>BEAM Transaction fee</source>
+        <oldsource>Transaction fee</oldsource>
+        <translation type="unfinished">Transakční poplatek</translation>
     </message>
     <message id="swap-details-tx-comment">
         <source>Comment</source>
         <translation>Komentář</translation>
     </message>
     <message id="swap-details-tx-fee-rate">
-        <source>Transaction fee rate</source>
-        <translation>Poplatek za transakci</translation>
+        <source>%1 Transaction fee rate</source>
+        <oldsource>Transaction fee rate</oldsource>
+        <translation type="unfinished">Poplatek za transakci</translation>
     </message>
     <message id="settings-swap-disconnect">
         <source>Disconnect</source>
@@ -1865,14 +1869,6 @@ Please check the swap token and try again.</oldsource>
         <source>Show wallet addresses</source>
         <translation>Zobrazit adresy peněženky</translation>
     </message>
-    <message id="settings-swap-connect-electrum">
-        <source>connect to electrum node</source>
-        <translation>připojit k uzlu electrum</translation>
-    </message>
-    <message id="settings-swap-connect-node">
-        <source>connect to node</source>
-        <translation>připojit k nodu</translation>
-    </message>
     <message id="swap-seed-info-message">
         <source>Your seed phrase is the access key to all the funds! Print or write down the phrase and keep it in a safe or in a locked vault. Without the phrase you will not be able to recover your money.</source>
         <translation>Vaše klíčová slova jsou klíčem ke všem prostředkům! Vaše klíčová slova si vytiskněte nebo si zapište a uložte tak, aby byla v bezpečí nebo v uzamčeném trezoru. Bez Vašich klíčových slov nebudete moci obnovit peněženku a získat své peníze.</translation>
@@ -1959,6 +1955,30 @@ Please check the swap token and try again.</oldsource>
     </message>
     <message id="wallet-receive-swap-your-token">
         <source>Your swap token:</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="beam-transaction-fee">
+        <source>BEAM Transaction fee</source>
+        <translation type="unfinished">Transakční poplatek</translation>
+    </message>
+    <message id="send-swap-token">
+        <source>Swap token</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="send-swap-token-hint">
+        <source>Paste token here</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="send-swap-confirmation-title">
+        <source>Confirm atomic swap</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="send-swap-sconfirmation-online-time">
+        <source>Keep your wallet online. The swap normally takes about 1 hour to complete.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="settings-swap-connect">
+        <source>connect</source>
         <translation type="unfinished"></translation>
     </message>
 </context>
