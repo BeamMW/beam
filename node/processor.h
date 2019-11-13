@@ -53,11 +53,13 @@ class NodeProcessor
 
 	bool HandleTreasury(const Blob&);
 
+	struct BlockInterpretCtx;
+
 	bool HandleBlock(const NodeDB::StateID&, MultiblockContext&);
-	bool HandleValidatedTx(TxBase::IReader&&, Height, bool bFwd);
-	bool HandleValidatedBlock(TxBase::IReader&&, const Block::BodyBase&, Height, bool bFwd);
-	bool HandleBlockElement(const Input&, Height, bool bFwd);
-	bool HandleBlockElement(const Output&, Height, bool bFwd);
+	bool HandleValidatedTx(TxBase::IReader&&, BlockInterpretCtx&);
+	bool HandleValidatedBlock(TxBase::IReader&&, const Block::BodyBase&, BlockInterpretCtx&);
+	bool HandleBlockElement(const Input&, BlockInterpretCtx&);
+	bool HandleBlockElement(const Output&, BlockInterpretCtx&);
 	bool HandleShieldedElement(const ECC::Point&, bool bOutp, bool bFwd);
 
 	void RecognizeUtxos(TxBase::IReader&&, Height h);
@@ -378,7 +380,7 @@ public:
 	static bool IsDummy(const Key::IDV&);
 
 private:
-	size_t GenerateNewBlockInternal(BlockContext&);
+	size_t GenerateNewBlockInternal(BlockContext&, BlockInterpretCtx&);
 	void GenerateNewHdr(BlockContext&);
 	DataStatus::Enum OnStateInternal(const Block::SystemState::Full&, Block::SystemState::ID&, bool bAlreadyChecked);
 	bool GetBlockInternal(const NodeDB::StateID&, ByteBuffer* pEthernal, ByteBuffer* pPerishable, Height h0, Height hLo1, Height hHi1, bool bActive, Block::Body*);
