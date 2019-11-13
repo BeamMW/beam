@@ -77,6 +77,7 @@ namespace beam::wallet
         virtual void onSyncProgressUpdated(int done, int total) = 0;
         virtual void onChangeCalculated(Amount change) = 0;
         virtual void onAllUtxoChanged(ChangeAction, const std::vector<Coin>& utxos) = 0;
+        virtual void onAddressesChanged(ChangeAction, const std::vector<WalletAddress>& addresses) = 0;
         virtual void onAddresses(bool own, const std::vector<WalletAddress>& addresses) = 0;
         virtual void onSwapOffersChanged(ChangeAction action, const std::vector<SwapOffer>& offers) override = 0;
         virtual void onGeneratedNewAddress(const WalletAddress& walletAddr) = 0;
@@ -150,7 +151,6 @@ namespace beam::wallet
         {
             using FlushFunc = std::function<void(ChangeAction, const std::vector<T>&)>;
             
-            template<typename KeyFunc>
             struct Comparator
             {
                 bool operator()(const T& left, const T& right) const
@@ -159,7 +159,7 @@ namespace beam::wallet
                 }
             };
 
-            using ItemsList = std::set<T, Comparator<KeyFunc>>;
+            using ItemsList = std::set<T, Comparator>;
         public:
             ChangesCollector(size_t bufferSize, io::Reactor::Ptr reactor, FlushFunc&& flushFunc)
                 : m_BufferSize(bufferSize)
@@ -320,5 +320,19 @@ namespace beam::wallet
             const Coin::ID& operator()(const Coin& c) const { return c.m_ID; }
         };
         ChangesCollector <Coin, CoinKey> m_CoinChangesCollector;
+
+        struct AddressKey
+        {
+            typedef WalletID type;
+            const type& operator()(const WalletAddress& c) const { return c.m_walletID; }
+        };
+        ChangesCollector <WalletAddress, AddressKey> m_AddressChangesCollector;
+
+        struct TransactionKey
+        {
+            typedef TxID type;
+            const type& operator()(const TxDescription& c) const { return *c.GetTxID(); }
+        };
+        ChangesCollector <TxDescription, TransactionKey> m_TransactionChangesCollector;
     };
 }

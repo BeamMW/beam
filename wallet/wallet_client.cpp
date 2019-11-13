@@ -24,6 +24,8 @@ namespace
     using namespace beam;
     using namespace beam::wallet;
 
+    const size_t kCollectorBufferSize = 50;
+
 template<typename Observer, typename Notifier>
 struct ScopedSubscriber
 {
@@ -206,7 +208,9 @@ namespace beam::wallet
         , m_isConnected(false)
         , m_nodeAddrStr(nodeAddr)
         , m_keyKeeper(keyKeeper)
-        , m_CoinChangesCollector(50, m_reactor, [this](ChangeAction action, const std::vector<Coin>& items) { onAllUtxoChanged(action, items); })
+        , m_CoinChangesCollector(kCollectorBufferSize, m_reactor, [this](auto action, const auto& items) { onAllUtxoChanged(action, items); })
+        , m_AddressChangesCollector(kCollectorBufferSize, m_reactor, [this](auto action, const auto& items) { onAddressesChanged(action, items); })
+        , m_TransactionChangesCollector(kCollectorBufferSize, m_reactor, [this](auto action, const auto& items) { onTxStatus(action, items); })
     {
         m_keyKeeper->subscribe(this);
     }
@@ -431,7 +435,7 @@ namespace beam::wallet
 
     void WalletClient::onTransactionChanged(ChangeAction action, const std::vector<TxDescription>& items)
     {
-        onTxStatus(action, items);
+        m_TransactionChangesCollector.CollectItems(action, items);
     }
 
     void WalletClient::onSystemStateChanged(const Block::SystemState::ID& stateID)
@@ -441,9 +445,7 @@ namespace beam::wallet
 
     void WalletClient::onAddressChanged(ChangeAction action, const std::vector<WalletAddress>& items)
     {
-        // TODO: need to change this behavior
-        onAddresses(true, m_walletDB->getAddresses(true));
-        onAddresses(false, m_walletDB->getAddresses(false));
+        m_AddressChangesCollector.CollectItems(action, items);
     }
 
     void WalletClient::onSyncProgress(int done, int total)
