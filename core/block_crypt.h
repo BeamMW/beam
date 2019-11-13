@@ -157,6 +157,10 @@ namespace beam
 			uint32_t MaxWindowBacklog = 0x10000; // 64K
 			// Hence "big" proofs won't need more than 128K most recent elements
 
+			// max shielded ins/outs per block
+			uint32_t MaxIns = 20;
+			uint32_t MaxOuts = 1000; // basically unlimited
+
 		} Shielded;
 
 		void UpdateChecksum();

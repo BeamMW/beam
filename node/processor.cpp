@@ -1774,9 +1774,14 @@ struct NodeProcessor::BlockInterpretCtx
 	Height m_Height;
 	bool m_Fwd;
 
+	uint32_t m_ShieldedIns;
+	uint32_t m_ShieldedOuts;
+
 	BlockInterpretCtx(Height h, bool bFwd)
 		:m_Height(h)
 		,m_Fwd(bFwd)
+		,m_ShieldedIns(0)
+		,m_ShieldedOuts(0)
 	{
 	}
 };
@@ -2005,8 +2010,8 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, MultiblockContext& m
 		}
 
 		// save shielded in/outs
-		uint32_t nIns, nOuts;
-		block.get_Reader().CalculateShielded(nIns, nOuts);
+		const uint32_t& nIns = bic.m_ShieldedIns; // alias
+		uint32_t& nOuts = bic.m_ShieldedOuts; // alias
 
 		if (nIns || nOuts)
 		{
@@ -2324,9 +2329,27 @@ bool NodeProcessor::HandleBlockElement(const Input& v, BlockInterpretCtx& bic)
 {
 	if (v.m_pSpendProof)
 	{
-		if (bic.m_Fwd && !IsShieldedInPool(v))
+		if (bic.m_Fwd)
+		{
+			if (!IsShieldedInPool(v))
+				return false;
+
+			if (bic.m_ShieldedIns >= Rules::get().Shielded.MaxIns)
+				return false;
+		}
+
+		if (!HandleShieldedElement(v.m_pSpendProof->m_Part1.m_SpendPk, false, bic.m_Fwd))
 			return false;
-		return HandleShieldedElement(v.m_pSpendProof->m_Part1.m_SpendPk, false, bic.m_Fwd);
+
+		if (bic.m_Fwd)
+			bic.m_ShieldedIns++;
+		else
+		{
+			assert(bic.m_ShieldedIns);
+			bic.m_ShieldedIns--;
+		}
+
+		return true;
 	}
 
 	UtxoTree::Cursor cu;
@@ -2405,7 +2428,23 @@ bool NodeProcessor::HandleBlockElement(const Input& v, BlockInterpretCtx& bic)
 bool NodeProcessor::HandleBlockElement(const Output& v, BlockInterpretCtx& bic)
 {
 	if (v.m_pShielded)
-		return HandleShieldedElement(v.m_pShielded->m_SerialPub, true, bic.m_Fwd);
+	{
+		if (bic.m_Fwd && (bic.m_ShieldedOuts >= Rules::get().Shielded.MaxOuts))
+			return false;
+
+		if (!HandleShieldedElement(v.m_pShielded->m_SerialPub, true, bic.m_Fwd))
+			return false;
+
+		if (bic.m_Fwd)
+			bic.m_ShieldedOuts++;
+		else
+		{
+			assert(bic.m_ShieldedOuts);
+			bic.m_ShieldedOuts--;
+		}
+
+		return true;
+	}
 
 	UtxoTree::Key::Data d;
 	d.m_Commitment = v.m_Commitment;
@@ -3017,7 +3056,7 @@ bool NodeProcessor::ValidateTxContext(const Transaction& tx, const HeightRange& 
 	if (!ValidateTxWrtHeight(tx, hr))
 		return false;
 
-	bool bShieldedInputs = false;
+	uint32_t nIns = 0, nOuts = 0;
 
 	// Cheap tx verification. No need to update the internal structure, recalculate definition, or etc.
 	// Ensure input UTXOs are present
@@ -3043,7 +3082,7 @@ bool NodeProcessor::ValidateTxContext(const Transaction& tx, const HeightRange& 
 			if (!ValidateShieldedNoDup(key, false))
 				return false; // double-spending
 
-			bShieldedInputs = true;
+			nIns++;
 		}
 		else
 		{
@@ -3055,21 +3094,35 @@ bool NodeProcessor::ValidateTxContext(const Transaction& tx, const HeightRange& 
 	for (size_t i = 0; i < tx.m_vOutputs.size(); i++)
 	{
 		const Output& v = *tx.m_vOutputs[i];
-		if (v.m_pShielded && !ValidateShieldedNoDup(v.m_pShielded->m_SerialPub, true))
-			return false; // shielded duplicates are not allowed
+		if (v.m_pShielded)
+		{
+			if (!ValidateShieldedNoDup(v.m_pShielded->m_SerialPub, true))
+				return false; // shielded duplicates are not allowed
+
+			nOuts++;
+		}
 	}
 
-	if (bShieldedInputs && !bShieldedTested)
+	if (!bShieldedTested)
 	{
-		ECC::InnerProduct::BatchContextEx<4> bc;
-		MultiShieldedContext msc;
+		if (nIns)
+		{
+			if (nIns > Rules::get().Shielded.MaxIns)
+				return false;
 
-		if (!msc.IsValid(tx.m_vInputs, bc, 0, 1))
-			return false;
+			ECC::InnerProduct::BatchContextEx<4> bc;
+			MultiShieldedContext msc;
 
-		msc.Calculate(bc.m_Sum, *this);
+			if (!msc.IsValid(tx.m_vInputs, bc, 0, 1))
+				return false;
 
-		if (!bc.Flush())
+			msc.Calculate(bc.m_Sum, *this);
+
+			if (!bc.Flush())
+				return false;
+		}
+
+		if (nOuts && (nOuts > Rules::get().Shielded.MaxOuts))
 			return false;
 	}
 
