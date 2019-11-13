@@ -93,11 +93,11 @@ Update your settings and try again."
 
             Grid {
                 Layout.fillWidth: true
-                columnSpacing:    70
-                columns:          2
+                columnSpacing:    25
+                columns:          3
 
                 ColumnLayout {
-                    width: parent.width / 2 - parent.columnSpacing / 2
+                    width: parent.width / 2 - parent.columnSpacing / 2 - 13
 
                     AmountInput {
                         Layout.topMargin: 35
@@ -201,10 +201,31 @@ please review your settings and try again"
                             visible:        !viewModel.commentValid
                         }
                     }
+                }  // ColumnLayout
+
+                ColumnLayout {
+                    Item {
+                        height: 75
+                    }
+                    SvgImage {
+                        Layout.maximumHeight: 26
+                        Layout.maximumWidth: 26
+                        source: "qrc:/assets/icon-swap-currencies.svg"
+                        MouseArea {
+                            anchors.fill: parent
+                            acceptedButtons: Qt.LeftButton
+                            cursorShape: Qt.PointingHandCursor
+                            onClicked: {
+                                var sentCurency = sentAmountInput.currency;
+                                sentAmountInput.currency = receiveAmountInput.currency;
+                                receiveAmountInput.currency = sentCurency;
+                            }
+                        }
+                    }
                 }
 
                 ColumnLayout {
-                    width: parent.width / 2 - parent.columnSpacing / 2
+                    width: parent.width / 2 - parent.columnSpacing / 2 - 13
 
                     //
                     // Receive Amount
@@ -415,7 +436,7 @@ please review your settings and try again"
                             visible:             !rateRow.rateValid()
                         }
                     }
-                }
+                }  // ColumnLayout
             }
 
             SFText {
