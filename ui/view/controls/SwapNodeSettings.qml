@@ -614,7 +614,7 @@ fee while you have transactions in progress."
                     rightPadding:           25
                     //% "connect"
                     text:                   qsTrId("settings-swap-connect")
-                    icon.source:            "qrc:/assets/icon-connect.svg"
+                    icon.source:            "qrc:/assets/icon-done.svg"
                     onClicked:              editElectrum ? connectToElectrum() : connectToNode();
                     Layout.preferredHeight: 38
                     Layout.preferredWidth:  editElectrum ? 250 : 195
