@@ -46,6 +46,7 @@ namespace beam::wallet
             case TxParameterID::PeerResponseTime:
             case TxParameterID::PeerProtoVersion:
             case TxParameterID::FailureReason:
+            case TxParameterID::AtomicSwapPeerPrivateKey:
                 return true;
 
             default:
