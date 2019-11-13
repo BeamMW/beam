@@ -272,6 +272,7 @@ namespace beam::wallet
         AtomicSwapSecretPublicKey = 203,
         Confirmations = 204,
         AtomicSwapPrivateKey = 205,
+        AtomicSwapWithdrawAddress = 206,
 
         InternalFailureReason = 210,
     
