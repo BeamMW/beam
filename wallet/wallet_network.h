@@ -19,6 +19,7 @@
 #include "utility/io/timer.h"
 #include "wallet/bbs_miner.h"
 #include <boost/intrusive/set.hpp>
+#include <boost/intrusive/list.hpp>
 #include "wallet_request_bbs_msg.h"
 #include "wallet.h"
 
@@ -70,7 +71,7 @@ namespace beam::wallet
 
         // IWalletMessageEndpoint
         void Send(const WalletID& peerID, const SetTxParameter& msg) override;
-        void SendAndSign(const ByteBuffer& msg, const BbsChannel& channel, const WalletID& wid) override;
+        void SendAndSign(const ByteBuffer& msg, const BbsChannel& channel, const WalletID& wid, uint8_t version) override;
         void OnAddressTimer();
         
     private:
@@ -117,7 +118,7 @@ namespace beam::wallet
         BbsMiner m_Miner;
 
         void OnMined();
-        void OnMined(proto::BbsMsg&&);
+        void OnMined(BbsMiner::Task::Ptr);
 
     public:
 

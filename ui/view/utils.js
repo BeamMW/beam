@@ -14,8 +14,21 @@ function formatDateTime(datetime, localeName) {
          + ")";
 }
 
-function formatAmount (amount, toPlainNumber) {
-    return amount ? amount.toLocaleString(toPlainNumber ? Qt.locale("C") : Qt.locale(), 'f', -128) : ""
+// @arg amount - any number or float string in "C" locale
+function uiStringToLocale (amount) {
+    var locale = Qt.locale()
+    var parts  = amount.toString().split(".")
+    var left   = parts[0].replace(/(\d)(?=(?:\d{3})+\b)/g, "$1" + locale.groupSeparator)
+    return parts[1] ? [left, parts[1]].join(locale.decimalPoint) : left
+}
+
+function number2Locale (number) {
+    return number.toLocaleString(Qt.locale(), 'f', -128)
+}
+
+function number2LocaleFixed (number) {
+    if (number < 0.00000001) number = 0.00000001;
+    return uiStringToLocale(number.toLocaleString(Qt.locale("C"), 'f', 8).replace(/\.?0+$/,""))
 }
 
 function getLogoTopGapSize(parentHeight) {
@@ -52,23 +65,41 @@ function handleExternalLink(mouse, element, settings, dialog) {
             };
             dialog.open();
         }
-    } else {
-        settings.isAllowedBeamMWLinks = !settings.isAllowedBeamMWLinks;
+        return true;
     }
 }
 
-function calcDisplayRate(ail, air, numOnly) {
+function calcDisplayRate(aiReceive, aiSend, numOnly) {
     // ai[X] = amount input control
-    var cl = ail.currency
-    var cr = air.currency
-    if (cl == cr) return 1;
+    var cr = aiReceive.currency
+    var cs = aiSend.currency
+    if (cr == cs) return {rate: 1, displayRate: "1", error: false}
 
-    var al = ail.amount
-    var ar = air.amount
-    if (al == 0 || ar == 0) return numOnly ? "" : "?"
+    var ams = aiSend.amount
+    var amr = aiReceive.amount
+    if (ams == 0 || amr == 0) return {rate: 0, displayRate: "", error: false}
 
-    var rounder = 100000000
-    return (ar / al).toFixed(10).replace(/\.?0+$/,"")
+    var minRate     = 0.00000001
+    var rate        = amr / ams
+
+    var format      = function (value) {
+        var cvalue = value.toLocaleString(Qt.locale("C"), 'f', value < minRate ? 17 : 8).replace(/\.?0+$/,"")
+        return numOnly ? cvalue : uiStringToLocale(cvalue)
+    }
+
+    var displayRate = format(rate)
+
+    return {
+        rate: rate,
+        displayRate: displayRate,
+        error: rate < minRate,
+        errorText: rate < minRate
+            //% "Rate cannot be less than %1"
+            ? qsTrId("invalid-rate-min").arg(Utils.number2LocaleFixed(minRate))
+            : undefined,
+        minRate: minRate,
+        minDisplayRate: format(minRate)
+    }
 }
 
 function currenciesList() {
@@ -78,4 +109,4 @@ function currenciesList() {
 const symbolBeam  = '\uEAFB'
 const symbolBtc   = '\u20BF'
 const symbolLtc   = '\u0141'
-const symbolQtum  = '\uFFFD' // TODO:SWAP change when available
+const symbolQtum  = '\uEAFD'

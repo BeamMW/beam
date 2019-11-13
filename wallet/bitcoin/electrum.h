@@ -20,6 +20,7 @@
 #include "nlohmann/json.hpp"
 
 #include <memory>
+#include <chrono>
 
 namespace beam::io
 {
@@ -50,9 +51,16 @@ namespace beam::bitcoin
             nlohmann::json m_details;
         };
 
+        struct LockUtxo
+        {
+            std::string m_txHash;
+            uint32_t m_pos;
+            std::chrono::system_clock::time_point m_time;
+        };
+
     public:
         Electrum() = delete;
-        Electrum(beam::io::Reactor& reactor, IElectrumSettingsProvider::Ptr settingsProvider);
+        Electrum(beam::io::Reactor& reactor, IElectrumSettingsProvider& settingsProvider);
 
         void dumpPrivKey(const std::string& btcAddress, std::function<void(const Error&, const std::string&)> callback) override;
         void fundRawTransaction(const std::string& rawTx, Amount feeRate, std::function<void(const Error&, const std::string&, int)> callback) override;
@@ -62,36 +70,37 @@ namespace beam::bitcoin
         void createRawTransaction(
             const std::string& withdrawAddress,
             const std::string& contractTxId,
-            uint64_t amount,
+            Amount amount,
             int outputIndex,
             Timestamp locktime,
             std::function<void(const Error&, const std::string&)> callback) override;
-        void getTxOut(const std::string& txid, int outputIndex, std::function<void(const Error&, const std::string&, double, uint32_t)> callback) override;
+        void getTxOut(const std::string& txid, int outputIndex, std::function<void(const Error&, const std::string&, Amount, uint32_t)> callback) override;
         void getBlockCount(std::function<void(const Error&, uint64_t)> callback) override;
-        void getBalance(uint32_t confirmations, std::function<void(const Error&, double)> callback) override;
+        void getBalance(uint32_t confirmations, std::function<void(const Error&, Amount)> callback) override;
 
-        void getDetailedBalance(std::function<void(const Error&, double, double, double)> callback) override;
+        void getDetailedBalance(std::function<void(const Error&, Amount, Amount, Amount)> callback) override;
 
     protected:
         void listUnspent(std::function<void(const Error&, const std::vector<Utxo>&)> callback);
 
         void sendRequest(const std::string& method, const std::string& params, std::function<bool(const Error&, const nlohmann::json&, uint64_t)> callback);
 
-        // return the indexth address for private key
-        std::string getAddress(uint32_t index, const libbitcoin::wallet::hd_private& privateKey) const;
-
         // return the list of all private keys (receiving and changing)
         std::vector<libbitcoin::wallet::ec_private> generatePrivateKeyList() const;
 
-        // the first key is receiving master private key
-        // the second key is changing master private key
-        std::pair<libbitcoin::wallet::hd_private, libbitcoin::wallet::hd_private> generateMasterPrivateKeys() const;
+        void lockUtxo(std::string hash, uint32_t pos);
+        bool isLockedUtxo(std::string hash, uint32_t pos);
+        void reviewLockedUtxo();
 
     private:
         beam::io::Reactor& m_reactor;
         std::map<uint64_t, TCPConnect> m_connections;
-        uint64_t m_tagCounter = 0;
-        uint32_t m_currentReceivingAddress = 0;
-        IElectrumSettingsProvider::Ptr m_settingsProvider;
+        uint64_t m_idCounter = 0;
+        IElectrumSettingsProvider& m_settingsProvider;
+
+        std::vector<LockUtxo> m_lockedUtxo;
+        std::vector<Utxo> m_cache;
+        std::chrono::system_clock::time_point m_lastCache;
+        io::AsyncEvent::Ptr m_asyncEvent;
     };
 } // namespace beam::bitcoin

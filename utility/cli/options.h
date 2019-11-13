@@ -38,17 +38,15 @@ namespace beam
         extern const char* NONCEPREFIX_DIGITS;
         extern const char* NODE_PEER;
         extern const char* PASS;
+        extern const char* SET_SWAP_SETTINGS;
+        extern const char* ACTIVE_CONNECTION;
         extern const char* SWAP_WALLET_PASS;
         extern const char* SWAP_WALLET_USER;
-        extern const char* BTC_SETTINGS;
-        extern const char* ALTCOIN_SETTINGS_SET;
         extern const char* ALTCOIN_SETTINGS_RESET;
-        extern const char* ALTCOIN_SETTINGS_SHOW;
+        extern const char* SHOW_SWAP_SETTINGS;
         extern const char* ELECTRUM_SEED;
         extern const char* GENERATE_ELECTRUM_SEED;
         extern const char* ELECTRUM_ADDR;
-        extern const char* LTC_SETTINGS;
-        extern const char* QTUM_SETTINGS;
         extern const char* AMOUNT;
         extern const char* AMOUNT_FULL;
         extern const char* RECEIVER_ADDR;
@@ -62,7 +60,6 @@ namespace beam
         extern const char* LISTEN;
         extern const char* TREASURY;
         extern const char* TREASURY_BLOCK;
-        extern const char* RESYNC;
         extern const char* RESET_ID;
         extern const char* ERASE_ID;
         extern const char* CHECKDB;
@@ -117,8 +114,6 @@ namespace beam
         extern const char* IMPORT_DATA;
         extern const char* IMPORT_EXPORT_PATH;
         extern const char* IP_WHITELIST;
-        extern const char* HORIZON_HI;
-        extern const char* HORIZON_LO;
 		extern const char* FAST_SYNC;
 		extern const char* GENERATE_RECOVERY_PATH;
 		extern const char* RECOVERY_AUTO_PATH;

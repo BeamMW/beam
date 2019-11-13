@@ -85,7 +85,7 @@ Rectangle {
             anchors.left: parent.left
             anchors.leftMargin: 0
             anchors.top: parent.top
-            anchors.topMargin: 125
+            anchors.topMargin: 130
 
             Repeater{
                 id: controls
@@ -94,9 +94,9 @@ Rectangle {
                 Item {
                     id: control
                     width: parent.width
-                    height: parent.width
+                    height: 66
                     activeFocusOnTab: true
-                    
+
                     SvgImage {
 						id: icon
                         x: 21
@@ -143,13 +143,12 @@ Rectangle {
             }
         }
 
-        Image {
+        SvgImage {
             id: image
-            y: 50
+            y:  50
             anchors.horizontalCenter: parent.horizontalCenter
-            width: 40
-            height: 28
             source: "qrc:/assets/logo.svg"
+            smooth: true
         }
 
     }
@@ -158,8 +157,8 @@ Rectangle {
         id: content
         anchors.topMargin: 50
         anchors.bottomMargin: 0
-        anchors.rightMargin: 30
-        anchors.leftMargin: 100
+        anchors.rightMargin: 20
+        anchors.leftMargin: 90
         anchors.fill: parent
         focus: true
     }
@@ -220,7 +219,6 @@ Rectangle {
         onShowTrezorError: function(error) {
             console.log(error)
             trezor_popup = Qt.createComponent("popup_message.qml").createObject(main)
-
             trezor_popup.message = error
             trezor_popup.open()
 

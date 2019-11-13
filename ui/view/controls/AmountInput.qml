@@ -22,23 +22,36 @@ ColumnLayout {
         return currencies[control.currency].feeLabel
     }
 
-    readonly property bool    isValidFee:     hasFee ? feeInput.isValid : true
-    readonly property bool    isValid:        error.length == 0 && isValidFee
-    readonly property string  currencyLabel:  getCurrencyLabel()
+    function getFeeTitle() {
+        if (control.currency == Currency.CurrBeam) {
+            return control.currFeeTitle ?
+                //% "BEAM Transaction fee"
+                qsTrId("beam-transaction-fee") :
+                //% "Transaction fee"
+                qsTrId("general-fee")
+        }
+        //% "%1 Transaction fee rate"
+        return qsTrId("general-fee-rate").arg(getCurrencyLabel())
+    }
+
+    readonly property bool     isValidFee:     hasFee ? feeInput.isValid : true
+    readonly property bool     isValid:        error.length == 0 && isValidFee
+    readonly property string   currencyLabel:  getCurrencyLabel()
 
     property string   title
-    property string   color:       Style.accent_incoming
-    property string   currColor:   Style.content_main
-    property bool     hasFee:      false
-    property bool     multi:       false // changing this property in runtime would reset bindings
-    property int      currency:    Currency.CurrBeam
-    property double   amount:      0
-    property int      fee:         currencies[currency].defaultFee
-    property alias    error:       errmsg.text
-    property bool     readOnlyA:   false
-    property bool     readOnlyF:   false
-    property bool     resetAmount: true
-    property var      amountInput: ainput
+    property string   color:        Style.accent_incoming
+    property string   currColor:    Style.content_main
+    property bool     hasFee:       false
+    property bool     currFeeTitle: false
+    property bool     multi:        false // changing this property in runtime would reset bindings
+    property int      currency:     Currency.CurrBeam
+    property string   amount:       "0"
+    property int      fee:          currencies[currency].defaultFee
+    property alias    error:        errmsg.text
+    property bool     readOnlyA:    false
+    property bool     readOnlyF:    false
+    property bool     resetAmount:  true
+    property var      amountInput:  ainput
 
     SFText {
         font.pixelSize:   14
@@ -61,24 +74,32 @@ ColumnLayout {
             backgroundColor:  error.length ? Style.validator_error : Style.content_main
             validator:        RegExpValidator {regExp: /^(([1-9][0-9]{0,7})|(1[0-9]{8})|(2[0-4][0-9]{7})|(25[0-3][0-9]{6})|(0))(\.[0-9]{0,7}[1-9])?$/}
             selectByMouse:    true
-            text:             formatAmount()
+            text:             formatDisplayedAmount()
             readOnly:         control.readOnlyA
 
             onTextChanged: {
-                if (focus) control.amount = text ? parseFloat(text) : 0;
+                if (ainput.focus) {
+                    // if nothing then "0", remove insignificant zeroes and "." in floats
+                    control.amount = text ? text.replace(/\.0*$|(\.\d*[1-9])0+$/,'$1') : "0"
+                }
             }
 
             onFocusChanged: {
-                text = formatAmount()
+                text = formatDisplayedAmount()
+                if (focus) cursorPosition = positionAt(ainput.getMousePos().x, ainput.getMousePos().y)
             }
 
-            function formatAmount() {
-                return Utils.formatAmount(control.amount, focus)
+            function formatDisplayedAmount() {
+                return control.amount == "0" ? "" : (ainput.focus ? control.amount : Utils.uiStringToLocale(control.amount))
             }
 
             Connections {
                 target: control
-                onAmountChanged: ainput.text = ainput.formatAmount()
+                onAmountChanged: {
+                    if (!ainput.focus) {
+                        ainput.text = ainput.formatDisplayedAmount()
+                    }
+                }
             }
         }
 
@@ -128,11 +149,7 @@ ColumnLayout {
         font.styleName:   "Bold"
         font.weight:      Font.Bold
         color:            Style.content_main
-        text:             control.currency == Currency.CurrBeam
-                                                                //% "Transaction fee"
-                                                                ? qsTrId("general-fee")
-                                                                //% "Transaction fee rate"
-                                                                : qsTrId("general-fee-rate")
+        text:             getFeeTitle()
         visible:          control.hasFee
     }
 

@@ -38,12 +38,12 @@ namespace beam::wallet
         return txID;
     }
 
-    TxParameters CreateTransactionParameters(TxType type)
+    TxParameters CreateTransactionParameters(TxType type, TxID txID)
     {
-        return TxParameters(GenerateTxID())
+        return TxParameters(txID)
             .SetParameter(TxParameterID::TransactionType, type)
             .SetParameter(TxParameterID::Lifetime, kDefaultTxLifetime)
-            .SetParameter(TxParameterID::PeerResponseHeight, kDefaultTxResponseTime)
+            .SetParameter(TxParameterID::PeerResponseTime, kDefaultTxResponseTime)
             .SetParameter(TxParameterID::IsInitiator, true)
             .SetParameter(TxParameterID::IsSender, true)
             .SetParameter(TxParameterID::CreateTime, getTimestamp());
@@ -175,10 +175,10 @@ namespace beam::wallet
                     return;
                 }
                 // notify about cancellation if we have started negotiations
-                NotifyFailure(TxFailureReason::Cancelled);
+                NotifyFailure(TxFailureReason::Canceled);
 
             }
-            UpdateTxDescription(TxStatus::Cancelled);
+            UpdateTxDescription(TxStatus::Canceled);
             RollbackTx();
             GetGateway().on_tx_completed(GetTxID());
         }
@@ -218,7 +218,7 @@ namespace beam::wallet
         TxStatus s = TxStatus::Failed;
         if (GetParameter(TxParameterID::Status, s)
             && (s == TxStatus::Failed
-                || s == TxStatus::Cancelled
+                || s == TxStatus::Canceled
                 || s == TxStatus::Completed))
         {
             return false;
@@ -312,7 +312,7 @@ namespace beam::wallet
         }
 
         SetParameter(TxParameterID::FailureReason, reason, false);
-        UpdateTxDescription((reason == TxFailureReason::Cancelled) ? TxStatus::Cancelled : TxStatus::Failed);
+        UpdateTxDescription((reason == TxFailureReason::Canceled) ? TxStatus::Canceled : TxStatus::Failed);
         RollbackTx();
 
         GetGateway().on_tx_completed(GetTxID());
@@ -362,9 +362,33 @@ namespace beam::wallet
         if (GetParameter(TxParameterID::MyID, msg.m_From)
             && GetParameter(TxParameterID::PeerID, peerID))
         {
-            GetGateway().send_tx_params(peerID, move(msg));
+            GetGateway().send_tx_params(peerID, msg);
             return true;
         }
         return false;
+    }
+
+    void BaseTransaction::SetCompletedTxCoinStatuses(Height proofHeight)
+    {
+        std::vector<Coin> modified = GetWalletDB()->getCoinsByTx(GetTxID());
+        for (auto& coin : modified)
+        {
+            bool bIn = (coin.m_createTxId == m_ID);
+            bool bOut = (coin.m_spentTxId == m_ID);
+            if (bIn || bOut)
+            {
+                if (bIn)
+                {
+                    coin.m_confirmHeight = std::min(coin.m_confirmHeight, proofHeight);
+                    coin.m_maturity = proofHeight + Rules::get().Maturity.Std; // so far we don't use incubation for our created outputs
+                }
+                if (bOut)
+                {
+                    coin.m_spentHeight = std::min(coin.m_spentHeight, proofHeight);
+                }
+            }
+        }
+
+        GetWalletDB()->saveCoins(modified);
     }
 }

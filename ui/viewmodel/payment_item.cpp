@@ -37,7 +37,12 @@ QString PaymentInfoItem::getReceiver() const
 
 QString PaymentInfoItem::getAmount() const
 {
-    return AmountToString(m_paymentInfo.m_Amount, Currencies::Beam);
+    return AmountToUIString(m_paymentInfo.m_Amount, Currencies::Beam);
+}
+
+QString PaymentInfoItem::getAmountValue() const
+{
+    return AmountToUIString(m_paymentInfo.m_Amount, Currencies::Unknown);
 }
 
 QString PaymentInfoItem::getKernelID() const

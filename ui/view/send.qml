@@ -8,28 +8,17 @@ import Beam.Wallet 1.0
 import "controls"
 
 ColumnLayout {
-    id: thisView
-    property bool   isSwapMode: false
-    property var    defaultFocusItem: receiverTAInput
-    property var    predefinedTxParams: undefined
+    id: sendView
+    property var  defaultFocusItem: receiverTAInput
+    property bool isValid: !receiverTAInput.text || BeamGlobals.isSwapToken(receiverTAInput.text)
 
-    property color mainTopColor: null
-    property color mainTopGradientColor: null
+    // callbacks set by parent
+    property var    onClosed:    function() {}
+    property var    onSwapToken: function() {}
 
-    Component.onCompleted: {
-        if (isSwapMode) {
-            onSwapToken("");
-        }
-        mainTopColor = main.topColor;
-        mainTopGradientColor = main.topGradientColor;
-        main.topColor = Qt.rgba(Style.accent_outgoing.r, Style.accent_outgoing.g, Style.accent_outgoing.b, 0.5);
-        main.topGradientColor = Qt.rgba(Style.accent_outgoing.r, Style.accent_outgoing.g, Style.accent_outgoing.b, 0.0);
-    }
-
-    Component.onDestruction: {
-        main.topColor = mainTopColor;
-        main.topGradientColor = mainTopGradientColor;
-        
+    TopGradient {
+        mainRoot: main
+        topColor: Style.accent_outgoing
     }
 
     Row {
@@ -41,45 +30,36 @@ ColumnLayout {
             font.pixelSize:  18
             font.styleName:  "Bold"; font.weight: Font.Bold
             color:           Style.content_main
-            text:            isSwapMode
-                                        //% "Swap currencies"
-                                        ? qsTrId("wallet-send-swap-title")
-                                        //% "Send"
-                                        : qsTrId("send-title")
+            //% "Swap currencies"
+            text:            qsTrId("wallet-send-swap-title")
         }
     }
 
-    function isTAInputValid() {
-        return receiverTAInput.text.length == 0 || BeamGlobals.isTAValid(receiverTAInput.text)
-    }
-
     ColumnLayout {
-        visible: currentView === undefined
-
         SFText {
             font.pixelSize:  14
             font.styleName:  "Bold"; font.weight: Font.Bold
             color:           Style.content_main
-            //% "Transaction token or contact"
-            text:            qsTrId("send-send-to-label")
+            //% "Swap token"
+            text:            qsTrId("send-swap-token")
         }
 
         SFTextInput {
             Layout.fillWidth: true
             id:               receiverTAInput
             font.pixelSize:   14
-            color:            isTAInputValid() ? Style.content_main : Style.validator_error
-            backgroundColor:  isTAInputValid() ? Style.content_main : Style.validator_error
-            font.italic :     !isTAInputValid()
+            color:            isValid ? Style.content_main : Style.validator_error
+            backgroundColor:  isValid ? Style.content_main : Style.validator_error
+            font.italic:      !isValid
             validator:        RegExpValidator { regExp: /[0-9a-zA-Z]{1,}/ }
             selectByMouse:    true
-            //% "Please specify contact or transaction token"
-            placeholderText:  qsTrId("send-contact-placeholder")
+            //% "Paste token here"
+            placeholderText:  qsTrId("send-swap-token-hint")
 
-            onTextChanged: {
-                if (!isTAInputValid()) return;
-                if (receiverTAInput.text.length == 0) return;
-                BeamGlobals.isSwapToken(receiverTAInput.text) ? onSwapToken(receiverTAInput.text) : onAddress(receiverTAInput.text);
+            onTextPasted: {
+                if (BeamGlobals.isSwapToken(text)) {
+                    onSwapToken(text)
+                }
             }
         }
 
@@ -90,9 +70,10 @@ ColumnLayout {
                 id:               receiverTAError
                 color:            Style.validator_error
                 font.pixelSize:   12
-                //% "Invalid address or token"
+                font.italic:      true
+                visible:          !isValid
+                //% "Invalid swap token"
                 text:             qsTrId("wallet-send-invalid-token")
-                visible:          !isTAInputValid()
             }
         }
 
@@ -106,39 +87,23 @@ ColumnLayout {
                 text:               qsTrId("general-close")
                 palette.buttonText: Style.content_main
                 icon.source:        "qrc:/assets/icon-cancel-white.svg"
-                onClicked:          walletView.pop();
+                onClicked:          onClosed()
+            }
+            
+            CustomButton {
+                id:                actionButton
+                //% "Swap"
+                text:               qsTrId("general-swap")
+                palette.buttonText: Style.content_opposite
+                palette.button:     Style.accent_outgoing
+                icon.source:        "qrc:/assets/icon-send-blue.svg"
+                enabled:            receiverTAInput.text && isValid
+                onClicked:          onSwapToken(receiverTAInput.text)
             }
         }
 
         Item {
             Layout.fillHeight: true
         }
-    }
-
-    property var currentView: undefined
-
-    function onSwapToken(token) {
-        if (currentView) currentView.destroy()
-        currentView            = Qt.createComponent("send_swap.qml").createObject(thisView, {"predefinedTxParams": predefinedTxParams});
-        currentView.parentView = thisView
-        currentView.setToken(token)
-        isSwapMode = true
-    }
-
-    function onAddress(address) {
-        if (currentView) currentView.destroy()
-        currentView            = Qt.createComponent("send_regular.qml").createObject(thisView)
-        currentView.parentView = thisView
-        defaultFocusItem       = currentView.defaultFocusItem
-        currentView.setToken(address)
-        isSwapMode = false
-    }
-
-    function onBadSwap() {
-        if (currentView) {
-            currentView.destroy()
-            receiverTAInput.text = ""
-            currentView = undefined
-        }
-    }
+    }    
 }

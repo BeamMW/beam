@@ -139,17 +139,15 @@ namespace beam
         const char* NONCEPREFIX_DIGITS = "nonceprefix_digits";
         const char* NODE_PEER = "peer";
         const char* PASS = "pass";
+        const char* SET_SWAP_SETTINGS = "set_swap_settings";
+        const char* ACTIVE_CONNECTION = "active_connection";
         const char* SWAP_WALLET_PASS = "swap_wallet_pass";
         const char* SWAP_WALLET_USER = "swap_wallet_user";
-        const char* BTC_SETTINGS = "btc_settings";
-        const char* ALTCOIN_SETTINGS_SET = "set";
         const char* ALTCOIN_SETTINGS_RESET = "reset";
-        const char* ALTCOIN_SETTINGS_SHOW = "show";
+        const char* SHOW_SWAP_SETTINGS = "show_swap_settings";
         const char* ELECTRUM_SEED = "electrum_seed";
         const char* GENERATE_ELECTRUM_SEED = "generate_electrum_seed";
         const char* ELECTRUM_ADDR = "electrum_addr";
-        const char* LTC_SETTINGS = "ltc_settings";
-        const char* QTUM_SETTINGS = "qtum_settings";
         const char* AMOUNT = "amount";
         const char* AMOUNT_FULL = "amount,a";
         const char* RECEIVER_ADDR = "receiver_addr";
@@ -161,7 +159,6 @@ namespace beam
         const char* LISTEN = "listen";
         const char* TREASURY = "treasury";
         const char* TREASURY_BLOCK = "treasury_path";
-        const char* RESYNC = "resync";
         const char* RESET_ID = "reset_id";
         const char* ERASE_ID = "erase_id";
         const char* CHECKDB = "check_db";
@@ -214,12 +211,10 @@ namespace beam
         const char* IMPORT_DATA = "import_data";
         const char* IMPORT_EXPORT_PATH = "file_location";
         const char* IP_WHITELIST = "ip_whitelist";
-        const char* HORIZON_HI = "horizon_hi";
-        const char* HORIZON_LO = "horizon_lo";
-	const char* FAST_SYNC = "fast_sync";
-	const char* GENERATE_RECOVERY_PATH = "generate_recovery";
-	const char* RECOVERY_AUTO_PATH = "recovery_auto_path";
-	const char* RECOVERY_AUTO_PERIOD = "recovery_auto_period";
+        const char* FAST_SYNC = "fast_sync";
+        const char* GENERATE_RECOVERY_PATH = "generate_recovery";
+        const char* RECOVERY_AUTO_PATH = "recovery_auto_path";
+        const char* RECOVERY_AUTO_PERIOD = "recovery_auto_period";
         const char* COLD_WALLET = "cold_wallet";
         const char* SWAP_INIT = "swap_init";
         const char* SWAP_ACCEPT = "swap_accept";
@@ -309,7 +304,6 @@ namespace beam
             (cli::STRATUM_PORT, po::value<uint16_t>()->default_value(0), "port to start stratum server on")
             (cli::STRATUM_SECRETS_PATH, po::value<string>()->default_value("."), "path to stratum server api keys file, and tls certificate and private key")
             (cli::STRATUM_USE_TLS, po::value<bool>()->default_value(true), "enable TLS on startum server")
-            (cli::RESYNC, po::value<bool>()->default_value(false), "Enforce re-synchronization (soft reset)")
             (cli::RESET_ID, po::value<bool>()->default_value(false), "Reset self ID (used for network authentication). Must do if the node is cloned")
             (cli::ERASE_ID, po::value<bool>()->default_value(false), "Reset self ID (used for network authentication) and stop before re-creating the new one.")
             (cli::CHECKDB, po::value<bool>()->default_value(false), "DB integrity check and compact (vacuum)")
@@ -321,10 +315,8 @@ namespace beam
             (cli::KEY_MINE, po::value<string>(), "Standalone miner key (deprecated)")
             (cli::PASS, po::value<string>(), "password for keys")
             (cli::LOG_UTXOS, po::value<bool>()->default_value(false), "Log recovered UTXOs (make sure the log file is not exposed)")
-            (cli::HORIZON_HI, po::value<Height>()->default_value(MaxHeight), "spent TXO Hi-Horizon")
-            (cli::HORIZON_LO, po::value<Height>()->default_value(MaxHeight), "spent TXO Lo-Horizon")
-	    (cli::FAST_SYNC, po::value<bool>(), "Fast sync on/off (override horizons)")
-	    (cli::GENERATE_RECOVERY_PATH, po::value<string>(), "Recovery file to generate immediately after start")
+			(cli::FAST_SYNC, po::value<bool>(), "Fast sync on/off (override horizons)")
+			(cli::GENERATE_RECOVERY_PATH, po::value<string>(), "Recovery file to generate immediately after start")
 			(cli::RECOVERY_AUTO_PATH, po::value<string>(), "path and file prefix for recovery auto-generation")
 			(cli::RECOVERY_AUTO_PERIOD, po::value<uint32_t>()->default_value(30), "period (in blocks) for recovery auto-generation")
             ;
@@ -376,18 +368,16 @@ namespace beam
 
         po::options_description swap_options("Atomic swap options");
         swap_options.add_options()
-            (cli::BTC_SETTINGS, po::value<std::string>(), "command to work with BTC settings. Subcommand to execute [show|set|reset]")
-            (cli::LTC_SETTINGS, po::value<std::string>(), "command to work with LTC settings. Subcommand to execute [show|set|reset]")
-            (cli::QTUM_SETTINGS, po::value<std::string>(), "command to work with QTUM settings. Subcommand to execute [show|set|reset]")
-            (cli::ALTCOIN_SETTINGS_SET, "set new altcoin's settings")
-            (cli::ALTCOIN_SETTINGS_RESET, "reset altcoin's settings")
-            (cli::ALTCOIN_SETTINGS_SHOW, "show altcoin's settings")
+            (cli::SET_SWAP_SETTINGS, po::value<std::string>(), "command to work with swap settings.")
+            (cli::ALTCOIN_SETTINGS_RESET, po::value<std::string>(), "reset altcoin's settings [core|electrum]")
+            (cli::ACTIVE_CONNECTION, po::value<string>(), "set active connection [core|electrum|none]")
+            (cli::SHOW_SWAP_SETTINGS, "show altcoin's settings")
             (cli::ELECTRUM_SEED, po::value<string>(), "bitcoin electrum seed")
             (cli::GENERATE_ELECTRUM_SEED, "generate new electrum seed")
             (cli::ELECTRUM_ADDR, po::value<string>(), "electrum address")
-            (cli::SWAP_WALLET_ADDR, po::value<string>(), "address of swap wallet")
-            (cli::SWAP_WALLET_USER, po::value<string>(), "user name for the swap wallet")
-            (cli::SWAP_WALLET_PASS, po::value<string>(), "password for the swap wallet")
+            (cli::SWAP_WALLET_ADDR, po::value<string>(), "rpc address of swap wallet")
+            (cli::SWAP_WALLET_USER, po::value<string>(), "rpc user name for the swap wallet")
+            (cli::SWAP_WALLET_PASS, po::value<string>(), "rpc password for the swap wallet")
             (cli::SWAP_COIN, po::value<string>(), "swap coin(btc, ltc, qtum)")
             (cli::SWAP_AMOUNT, po::value<Positive<Amount>>(), "swap amount in the smallest unit of the coin")
             (cli::SWAP_FEERATE, po::value<Positive<Amount>>(), "The specific feerate you are willing to pay(the smallest unit of the coin per KB)")

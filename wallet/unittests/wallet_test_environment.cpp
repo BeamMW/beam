@@ -14,6 +14,7 @@
 
 #include "http/http_client.h"
 #include "core/treasury.h"
+#include <tuple>
 
 using namespace beam;
 using namespace beam::wallet;
@@ -31,7 +32,7 @@ struct EmptyTestGateway : wallet::INegotiatorGateway
     void confirm_kernel(const TxID&, const Merkle::Hash&, wallet::SubTxID subTxID) override {}
     void get_kernel(const TxID& txID, const Merkle::Hash& kernelID, wallet::SubTxID subTxID) override {}
     bool get_tip(Block::SystemState::Full& state) const override { return false; }
-    void send_tx_params(const WalletID& peerID, wallet::SetTxParameter&&) override {}
+    void send_tx_params(const WalletID& peerID, const wallet::SetTxParameter&) override {}
     void UpdateOnNextTip(const TxID&) override {};
 };
 
@@ -103,8 +104,8 @@ public:
     void setSystemStateID(const Block::SystemState::ID&) override {};
     bool getSystemStateID(Block::SystemState::ID&) const override { return false; };
 
-    void subscribe(IWalletDbObserver* observer) override {}
-    void unsubscribe(IWalletDbObserver* observer) override {}
+    void Subscribe(IWalletDbObserver* observer) override {}
+    void Unsubscribe(IWalletDbObserver* observer) override {}
 
     std::vector<TxDescription> getTxHistory(wallet::TxType, uint64_t, int) const override { return {}; };
     boost::optional<TxDescription> getTx(const TxID&) const override { return boost::optional<TxDescription>{}; };
@@ -333,7 +334,60 @@ private:
     }
 
 };
+
+class TestWallet : public Wallet
+{
+public:
+    TestWallet(IWalletDB::Ptr walletDB, IPrivateKeyKeeper::Ptr keyKeeper, TxCompletedAction&& action = TxCompletedAction(), UpdateCompletedAction&& updateCompleted = UpdateCompletedAction())
+        : Wallet{ walletDB, keyKeeper, std::move(action), std::move(updateCompleted)}
+        , m_FlushTimer{ io::Timer::create(io::Reactor::get_Current()) }
+    {
+
+    }
+
+    void SetBufferSize(size_t s)
+    {
+        FlushBuffer();
+        m_Buffer.reserve(s);
+    }
+private:
+    void register_tx(const TxID& txID, Transaction::Ptr tx, SubTxID subTxID = kDefaultSubTxID) override
+    {
+        m_FlushTimer->cancel();
+        m_FlushTimer->start(1000, false, [this]() {FlushBuffer(); });
+        if (m_Buffer.capacity() == 0)
+        {
+            Wallet::SendTransactionToNode(txID, tx, subTxID);
+            return;
+        }
         
+        for (const auto& t : m_Buffer)
+        {
+            if (get<0>(t) == txID) return;
+        }
+
+        assert(m_Buffer.size() < m_Buffer.capacity());
+        
+        m_Buffer.push_back(std::make_tuple(txID, tx, subTxID));
+
+        if (m_Buffer.size() == m_Buffer.capacity())
+        {
+            FlushBuffer();
+        }
+    }
+
+    void FlushBuffer()
+    {
+        for (const auto& t : m_Buffer)
+        {
+            Wallet::SendTransactionToNode(std::get<0>(t), std::get<1>(t), std::get<2>(t));
+        }
+        m_Buffer.clear();
+    }
+
+    vector<tuple<TxID, Transaction::Ptr, SubTxID>> m_Buffer;
+    io::Timer::Ptr m_FlushTimer;
+};
 
 struct TestWalletRig
 {
@@ -346,7 +400,7 @@ struct TestWalletRig
 
     TestWalletRig(const string& name, IWalletDB::Ptr walletDB, Wallet::TxCompletedAction&& action = Wallet::TxCompletedAction(), Type type = Type::Regular, bool oneTimeBbsEndpoint = false, uint32_t nodePollPeriod_ms = 0, io::Address nodeAddress = io::Address::localhost().port(32125))
         : m_WalletDB{ walletDB }
-        , m_KeyKeeper(make_shared<LocalPrivateKeyKeeper>(m_WalletDB))
+        , m_KeyKeeper(make_shared<LocalPrivateKeyKeeper>(m_WalletDB, m_WalletDB->get_MasterKdf()))
         , m_Wallet{ m_WalletDB, m_KeyKeeper, move(action),( type == Type::ColdWallet) ? []() {io::Reactor::get_Current().stop(); } : Wallet::UpdateCompletedAction() }
     {
 
@@ -408,7 +462,7 @@ struct TestWalletRig
     WalletID m_WalletID;
     IWalletDB::Ptr m_WalletDB;
     IPrivateKeyKeeper::Ptr m_KeyKeeper;
-    Wallet m_Wallet;
+    TestWallet m_Wallet;
 };
 
 struct TestWalletNetwork
@@ -438,7 +492,7 @@ struct TestWalletNetwork
     {
     }
     
-    virtual void SendAndSign(const ByteBuffer& msg, const BbsChannel& channel, const WalletID& wid) override
+    virtual void SendAndSign(const ByteBuffer& msg, const BbsChannel& channel, const WalletID& wid, uint8_t version) override
     {
     }
 
@@ -1131,7 +1185,7 @@ public:
                         .SetParameter(TxParameterID::Amount, Amount(5))
                         .SetParameter(TxParameterID::Fee, Amount(1))
                         .SetParameter(TxParameterID::Lifetime, Height(10000))
-                        .SetParameter(TxParameterID::PeerResponseHeight, Height(10000)));
+                        .SetParameter(TxParameterID::PeerResponseTime, Height(10000)));
                 }
             }
             if (sendCount)

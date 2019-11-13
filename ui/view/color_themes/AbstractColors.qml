@@ -4,6 +4,8 @@ QtObject {
     property color content_main;
     property color accent_outgoing;
     property color accent_incoming;
+    property color accent_swap;
+    property color accent_fail;
     property color content_secondary;
     property color content_disabled;
     property color content_opposite;
@@ -18,6 +20,7 @@ QtObject {
     property color background_row_odd;
     property color background_details;
     property color background_button;
+    property color background_popup;
     property color row_selected;
     property color separator;
     property color table_header;

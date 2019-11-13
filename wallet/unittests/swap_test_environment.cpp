@@ -261,12 +261,14 @@ private:
 class TestElectrumWallet
 {
 public:
-    TestElectrumWallet(io::Reactor& reactor, const io::Address& addr)
+    TestElectrumWallet(io::Reactor& reactor, const std::string& addr)
         : m_reactor(reactor)
     {
+        io::Address address;
+        address.resolve(addr.c_str());
         m_server = io::SslServer::create(
             m_reactor,
-            addr,
+            address,
             BIND_THIS_MEMFN(onStreamAccepted),
             PROJECT_SOURCE_DIR "/utility/unittest/test.crt", PROJECT_SOURCE_DIR "/utility/unittest/test.key"
         );

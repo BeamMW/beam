@@ -31,6 +31,7 @@ namespace beam::wallet
         virtual void syncWithNode() = 0;
         virtual void calcChange(Amount&& amount) = 0;
         virtual void getWalletStatus() = 0;
+        virtual void getTransactions() = 0;
         virtual void getUtxosStatus() = 0;
         virtual void getAddresses(bool own) = 0;
         virtual void cancelTx(const TxID& id) = 0;
@@ -40,10 +41,8 @@ namespace beam::wallet
         virtual void generateNewAddress() = 0;
         virtual void changeCurrentWalletIDs(const WalletID& senderID, const WalletID& receiverID) = 0;
 #ifdef BEAM_ATOMIC_SWAP_SUPPORT
-        virtual void setSwapOffersCoinType(AtomicSwapCoin type) = 0;
         virtual void getSwapOffers() = 0;
         virtual void publishSwapOffer(const SwapOffer& offer) = 0;
-        virtual void cancelOffer(const TxID& offerTxID) = 0;
 #endif
         virtual void deleteAddress(const WalletID& id) = 0;
         virtual void updateAddress(const WalletID& id, const std::string& name, WalletAddress::ExpirationStatus status) = 0;

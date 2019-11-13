@@ -16,9 +16,6 @@
 
 #include <QAbstractListModel>
 
-Q_DECLARE_METATYPE(beam::wallet::TxID)
-Q_DECLARE_METATYPE(beam::wallet::TxParameters)
-
 template <typename T>
 class ListModel : public QAbstractListModel
 {
@@ -40,6 +37,10 @@ public:
 
     void insert(const std::vector<T>& items)
     {
+        if (items.size() == 0)
+        {
+            return;
+        }
         int row = 0;
         beginInsertRows(QModelIndex(), row, row + int(items.size()) - 1);
         for (const auto& item : items)

@@ -33,19 +33,14 @@ namespace beam::bitcoin
         {
             call_async(&IClientAsync::GetBalance);
         }
-
-        void ResetSettings()
-        {
-            call_async(&IClientAsync::ResetSettings);
-        }
     };
     
-    Client::Client(CreateBridge bridgeCreator, std::unique_ptr<SettingsProvider> settingsProvider, io::Reactor& reactor)
-        : m_status(Status::Uninitialized)
+    Client::Client(IBridgeHolder::Ptr bridgeHolder, std::unique_ptr<SettingsProvider> settingsProvider, io::Reactor& reactor)
+        : m_status(settingsProvider->GetSettings().IsActivated() ? Status::Connecting : Status::Uninitialized)
         , m_reactor(reactor)
         , m_async{ std::make_shared<BitcoinClientBridge>(*(static_cast<IClientAsync*>(this)), reactor) }
         , m_settingsProvider{ std::move(settingsProvider) }
-        , m_bridgeCreator{ bridgeCreator }
+        , m_bridgeHolder(bridgeHolder)
     {
     }
 
@@ -74,26 +69,55 @@ namespace beam::bitcoin
 
     void Client::SetSettings(const Settings& settings)
     {
-        Lock lock(m_mutex);
-        m_settingsProvider->SetSettings(settings);
+        {
+            Lock lock(m_mutex);
+            m_settingsProvider->SetSettings(settings);
+            m_bridgeHolder->Reset();
+
+            if (m_settingsProvider->GetSettings().IsActivated())
+            {
+                SetStatus(Status::Connecting);
+            }
+            else
+            {
+                SetStatus(Status::Uninitialized);
+            }
+        }
+
+        OnChangedSettings();
     }
 
     void Client::GetStatus()
     {
-        OnStatus(m_status);
+        Status status = Status::Unknown;
+        {
+            Lock lock(m_mutex);
+            status = m_status;
+        }
+        OnStatus(status);
     }
 
     void Client::GetBalance()
     {
-        GetBridge()->getDetailedBalance([this, weak = this->weak_from_this()] (const IBridge::Error& error, double confirmed, double unconfirmed, double immature)
+        auto bridge = GetBridge();
+
+        if (!bridge)
+        {
+            return;
+        }
+
+        bridge->getDetailedBalance([this, weak = this->weak_from_this()] (const IBridge::Error& error, Amount confirmed, Amount unconfirmed, Amount immature)
         {
             if (weak.expired())
             {
                 return;
             }
 
-            // TODO: check error and update status
-            SetStatus((error.m_type != IBridge::None) ? Status::Failed : Status::Connected);
+            {
+                Lock lock(m_mutex);
+                // TODO: check error and update status
+                SetStatus((error.m_type != IBridge::None) ? Status::Failed : Status::Connected);
+            }
 
             Balance balance;
             balance.m_available = confirmed;
@@ -106,27 +130,45 @@ namespace beam::bitcoin
 
     void Client::ResetSettings()
     {
-        {
-            Lock lock(m_mutex);
-            m_settingsProvider->ResetSettings();
-        }
+        Lock lock(m_mutex);
+        m_settingsProvider->ResetSettings();
+        m_bridgeHolder->Reset();
 
         SetStatus(Status::Uninitialized);
     }
 
     void Client::SetStatus(const Status& status)
     {
-        m_status = status;
-        OnStatus(m_status);
+        if (m_status != status)
+        {
+            m_status = status;
+            OnStatus(m_status);
+        }
     }
 
     beam::bitcoin::IBridge::Ptr Client::GetBridge()
     {
-        if (!m_bridge)
+        return m_bridgeHolder->Get(m_reactor, *this);
+    }
+
+    bool Client::CanModify() const
+    {
+        return m_refCount == 0;
+    }
+
+    void Client::AddRef()
+    {
+        ++m_refCount;
+        OnCanModifySettingsChanged(CanModify());
+    }
+
+    void Client::ReleaseRef()
+    {
+        if (m_refCount)
         {
-            m_bridge = m_bridgeCreator(m_reactor, shared_from_this());
+            --m_refCount;
+            OnCanModifySettingsChanged(CanModify());
         }
-        return m_bridge;
     }
 
 } // namespace beam::bitcoin

@@ -30,7 +30,7 @@
 
 #include "wallet/swaps/common.h"
 #include "wallet/swaps/utils.h"
-#include "wallet/local_private_key_keeper.h"
+#include "keykeeper/local_private_key_keeper.h"
 #include "core/ecc_native.h"
 #include "core/serialization_adapters.h"
 #include "core/treasury.h"
@@ -65,6 +65,8 @@ using namespace ECC;
 
 namespace beam
 {
+    const char kElectrumSeparateSymbol = ' ';
+
     string getCoinStatus(Coin::Status s)
     {
         stringstream ss;
@@ -92,13 +94,13 @@ namespace beam
         {
         case TxStatus::Pending: return kTxStatusPending;
         case TxStatus::InProgress: return tx.m_sender ? kTxStatusWaitingForReceiver : kTxStatusWaitingForSender;
-        case TxStatus::Registering: return tx.m_sender ? kTxStatusSending : kTxStatusReceiving;
-        case TxStatus::Cancelled: return kTxStatusCancelled;
+        case TxStatus::Registering: return tx.m_selfTx ? kTxStatusSendingToOwn : kTxStatusInProgress;
+        case TxStatus::Canceled: return kTxStatusCancelled;
         case TxStatus::Completed:
         {
             if (tx.m_selfTx)
             {
-                return kTxStatusCompleted;
+                return kTxStatusSentToOwn;
             }
             return tx.m_sender ? kTxStatusSent : kTxStatusReceived;
         }
@@ -117,22 +119,6 @@ namespace beam
         storage::getTxParameter(*walletDB, tx.m_txId, wallet::TxParameterID::State, state);
 
         return wallet::getSwapTxStatus(state);
-    }
-
-    const char* getAtomicSwapCoinText(AtomicSwapCoin swapCoin)
-    {
-        switch (swapCoin)
-        {
-        case AtomicSwapCoin::Bitcoin:
-            return kSwapCoinBTC;
-        case AtomicSwapCoin::Litecoin:
-            return kSwapCoinLTC;
-        case AtomicSwapCoin::Qtum:
-            return kSwapCoinQTUM;
-        default:
-            BOOST_ASSERT_MSG(false, kErrorUnknownSwapCoin);
-        }
-        return "";
     }
 }
 namespace
@@ -633,7 +619,7 @@ namespace
                 storage::getTxParameter(*walletDB, tx.m_txId, wallet::kDefaultSubTxID, wallet::TxParameterID::AtomicSwapCoin, swapCoin);
 
                 stringstream ss;
-                ss << (isBeamSide ? kBEAM : getAtomicSwapCoinText(swapCoin)) << " <--> " << (!isBeamSide ? kBEAM : getAtomicSwapCoinText(swapCoin));
+                ss << (isBeamSide ? kBEAM : to_string(swapCoin)) << " <--> " << (!isBeamSide ? kBEAM : to_string(swapCoin));
 
                 cout << boost::format(kSwapTxHistoryTableFormat)
                      % boost::io::group(left, setw(columnWidths[0]), format_timestamp(kTimeStampFormat3x3, tx.m_createTime * 1000, false))
@@ -842,7 +828,7 @@ namespace
             return -1;
         }
         const char* p = (char*)(&buffer[0]);
-        auto keyKeeper = std::make_shared<LocalPrivateKeyKeeper>(walletDB);
+        auto keyKeeper = std::make_shared<LocalPrivateKeyKeeper>(walletDB, walletDB->get_MasterKdf());
         return storage::ImportDataFromJson(*walletDB, keyKeeper, p, buffer.size()) ? 0 : -1;
     }
 
@@ -913,24 +899,40 @@ namespace
         return true;
     }
 
-    template<typename Settings, typename ElectrumSettings>
-    std::shared_ptr<Settings> ParseElectrumSettings(const po::variables_map& vm, uint8_t addressVersion)
+    template<typename Settings>
+    bool ParseElectrumSettings(const po::variables_map& vm, uint8_t addressVersion, Settings& settings)
     {
         if (vm.count(cli::ELECTRUM_SEED) || vm.count(cli::ELECTRUM_ADDR) || vm.count(cli::GENERATE_ELECTRUM_SEED))
         {
-            ElectrumSettings electrumSettings;
+            auto electrumSettings = settings.GetElectrumConnectionOptions();
 
-            string electrumAddr = vm[cli::ELECTRUM_ADDR].as<string>();
-            if (!electrumSettings.m_address.resolve(electrumAddr.c_str()))
+            if (!electrumSettings.IsInitialized())
             {
-                throw std::runtime_error("unable to resolve litecoin electrum address: " + electrumAddr);
+                if (!vm.count(cli::ELECTRUM_SEED) && !vm.count(cli::GENERATE_ELECTRUM_SEED))
+                {
+                    throw std::runtime_error("electrum seed should be specified");
+                }
+
+                if (!vm.count(cli::ELECTRUM_ADDR))
+                {
+                    throw std::runtime_error("electrum address should be specified");
+                }
+            }
+
+            if (vm.count(cli::ELECTRUM_ADDR))
+            {
+                electrumSettings.m_address = vm[cli::ELECTRUM_ADDR].as<string>();
+                if (!io::Address().resolve(electrumSettings.m_address.c_str()))
+            {
+                    throw std::runtime_error("unable to resolve electrum address: " + electrumSettings.m_address);
+                }
             }
 
             if (vm.count(cli::ELECTRUM_SEED))
             {
                 auto tempPhrase = vm[cli::ELECTRUM_SEED].as<string>();
-                boost::algorithm::trim_if(tempPhrase, [](char ch) { return ch == ';'; });
-                electrumSettings.m_secretWords = string_helpers::split(tempPhrase, ';');
+                boost::algorithm::trim_if(tempPhrase, [](char ch) { return ch == kElectrumSeparateSymbol; });
+                electrumSettings.m_secretWords = string_helpers::split(tempPhrase, kElectrumSeparateSymbol);
 
                 if (!bitcoin::validateElectrumMnemonic(electrumSettings.m_secretWords))
                 {
@@ -945,131 +947,228 @@ namespace
                     std::next(electrumSettings.m_secretWords.begin()), electrumSettings.m_secretWords.end(), *electrumSettings.m_secretWords.begin(),
                     [](std::string a, std::string b)
                 {
-                    return a + ";" + b;
+                    return a + kElectrumSeparateSymbol + b;
                 });
 
                 LOG_INFO() << "seed = " << strSeed;
             }
-            else
-            {
-                throw std::runtime_error("electrum seed should be specified");
-            }
-
-            if (vm.count(cli::SWAP_FEERATE) == 0)
-            {
-                throw std::runtime_error("swap fee rate is missing");
-            }
 
             electrumSettings.m_addressVersion = addressVersion;
 
-            auto btcSettings = std::make_shared<Settings>();
-            btcSettings->SetElectrumConnectionOptions(electrumSettings);
-            btcSettings->SetFeeRate(vm[cli::SWAP_FEERATE].as<Positive<Amount>>().value);
+            settings.SetElectrumConnectionOptions(electrumSettings);
 
-            return btcSettings;
+            return true;
         }
 
-        return nullptr;
+        return false;
     }
 
-    template<typename Settings, typename CoreSettings>
-    std::shared_ptr<Settings> ParseSwapSettings(const po::variables_map& vm)
+    template<typename Settings>
+    bool ParseSwapSettings(const po::variables_map& vm, Settings& settings)
     {
         if (vm.count(cli::SWAP_WALLET_ADDR) > 0 || vm.count(cli::SWAP_WALLET_USER) > 0 || vm.count(cli::SWAP_WALLET_PASS) > 0)
         {
-            CoreSettings coreSettings;
-
-            string nodeUri = vm[cli::SWAP_WALLET_ADDR].as<string>();
-            if (!coreSettings.m_address.resolve(nodeUri.c_str()))
+            auto coreSettings = settings.GetConnectionOptions();
+            if (!coreSettings.IsInitialized())
             {
-                throw std::runtime_error((boost::format(kErrorSwapWalletAddrNotResolved) % nodeUri).str());
-            }
-
             if (vm.count(cli::SWAP_WALLET_USER) == 0)
             {
                 throw std::runtime_error(kErrorSwapWalletUserNameUnspecified);
             }
 
-            coreSettings.m_userName = vm[cli::SWAP_WALLET_USER].as<string>();
+                if (vm.count(cli::SWAP_WALLET_ADDR) == 0)
+                {
+                    throw std::runtime_error(kErrorSwapWalletAddrUnspecified);
+                }
 
-            // TODO roman.strilets: use SecString instead of std::string
             if (vm.count(cli::SWAP_WALLET_PASS) == 0)
             {
                 throw std::runtime_error(kErrorSwapWalletPwdNotProvided);
             }
-
-            coreSettings.m_pass = vm[cli::SWAP_WALLET_PASS].as<string>();
-
-            if (vm.count(cli::SWAP_FEERATE) == 0)
-            {
-                throw std::runtime_error(kErrorSwapFeeRateMissing);
             }
 
-            auto settings = std::make_shared<Settings>();
-            settings->SetConnectionOptions(coreSettings);
-            settings->SetFeeRate(vm[cli::SWAP_FEERATE].as<Positive<Amount>>().value);
+            if (vm.count(cli::SWAP_WALLET_USER))
+            {
+                coreSettings.m_userName = vm[cli::SWAP_WALLET_USER].as<string>();
+            }
 
-            return settings;
+            if (vm.count(cli::SWAP_WALLET_ADDR))
+            {
+                string nodeUri = vm[cli::SWAP_WALLET_ADDR].as<string>();
+                if (!coreSettings.m_address.resolve(nodeUri.c_str()))
+                {
+                    throw std::runtime_error((boost::format(kErrorSwapWalletAddrNotResolved) % nodeUri).str());
+                }
+            }
+
+            // TODO roman.strilets: use SecString instead of std::string
+            if (vm.count(cli::SWAP_WALLET_PASS))
+            {
+                coreSettings.m_pass = vm[cli::SWAP_WALLET_PASS].as<string>();
+            }
+
+            settings.SetConnectionOptions(coreSettings);
+
+            return true;
         }
 
-        return nullptr;
+        return false;
     }
 
     template<typename SettingsProvider, typename Settings, typename CoreSettings, typename ElectrumSettings>
-    int HandleSwapCoin(const po::variables_map& vm, const IWalletDB::Ptr& walletDB, uint8_t addressVersion, const char* coinName)
+    int HandleSwapCoin(const po::variables_map& vm, const IWalletDB::Ptr& walletDB, uint8_t addressVersion)
     {
         SettingsProvider settingsProvider{ walletDB };
         settingsProvider.Initialize();
 
         if (vm.count(cli::ALTCOIN_SETTINGS_RESET))
         {
-            settingsProvider.ResetSettings();
+            auto connectionType = bitcoin::from_string(vm[cli::ALTCOIN_SETTINGS_RESET].as<string>());
+
+            if (connectionType)
+            {
+                if (*connectionType == bitcoin::ISettings::Core)
+                {
+                    auto settings = settingsProvider.GetSettings();
+
+                    if (settings.GetCurrentConnectionType() == bitcoin::ISettings::ConnectionType::Core)
+                    {
+                        if (settings.GetElectrumConnectionOptions().IsInitialized())
+                        {
+                            settings.ChangeConnectionType(bitcoin::ISettings::ConnectionType::Electrum);
+                        }
+                        else
+                        {
+                            settings.ChangeConnectionType(bitcoin::ISettings::ConnectionType::None);
+                        }
+                    }
+
+                    settings.SetConnectionOptions(CoreSettings{});
+                    settingsProvider.SetSettings(settings);
             return 0;
         }
-        else if (vm.count(cli::ALTCOIN_SETTINGS_SHOW))
+
+                if (*connectionType == bitcoin::ISettings::Electrum)
         {
             auto settings = settingsProvider.GetSettings();
 
+                    if (settings.GetCurrentConnectionType() == bitcoin::ISettings::ConnectionType::Electrum)
+                    {
             if (settings.GetConnectionOptions().IsInitialized())
             {
-                cout << coinName << " settings" << '\n'
-                    << "RPC user: " << settings.GetConnectionOptions().m_userName << '\n'
-                    << "RPC node: " << settings.GetConnectionOptions().m_address.str() << '\n'
-                    << "Fee rate: " << settings.GetFeeRate() << '\n';
+                            settings.ChangeConnectionType(bitcoin::ISettings::ConnectionType::Core);
+                        }
+                        else
+                        {
+                            settings.ChangeConnectionType(bitcoin::ISettings::ConnectionType::None);
+                        }
+                    }
+
+                    settings.SetElectrumConnectionOptions(ElectrumSettings{});
+                    settingsProvider.SetSettings(settings);
                 return 0;
+            }
+            }
+
+            LOG_ERROR() << "unknown parameter";
+            return -1;
+        }
+
+        auto settings = settingsProvider.GetSettings();
+        bool isChanged = false;
+
+        isChanged |= ParseSwapSettings(vm, settings);
+        isChanged |= ParseElectrumSettings(vm, addressVersion, settings);
+
+        if (!isChanged && !settings.IsInitialized())
+        {
+            LOG_INFO() << "settings should be specified.";
+            return -1;
+        }
+
+        if (vm.count(cli::SWAP_FEERATE) == 0 && settings.GetFeeRate() == 0)
+        {
+            throw std::runtime_error(kErrorSwapFeeRateMissing);
+        }
+
+        if (vm.count(cli::SWAP_FEERATE))
+        {
+            settings.SetFeeRate(vm[cli::SWAP_FEERATE].as<Positive<Amount>>().value);
+            isChanged = true;
+        }
+
+        if (vm.count(cli::ACTIVE_CONNECTION))
+        {
+            auto typeConnection = bitcoin::from_string(vm[cli::ACTIVE_CONNECTION].as<string>());
+            if (!typeConnection)
+            {
+                throw std::runtime_error("active_connection is wrong");
+            }
+
+            if ((*typeConnection == bitcoin::ISettings::ConnectionType::Core && !settings.GetConnectionOptions().IsInitialized())
+                || (*typeConnection == bitcoin::ISettings::ConnectionType::Electrum && !settings.GetElectrumConnectionOptions().IsInitialized()))
+            {
+                throw std::runtime_error(vm[cli::ACTIVE_CONNECTION].as<string>() + " is not initialized");
+            }
+
+            settings.ChangeConnectionType(*typeConnection);
+            isChanged = true;
+            }
+
+        if (isChanged)
+        {
+            settingsProvider.SetSettings(settings);
+        }
+            return 0;
+        }
+
+    template<typename SettingsProvider>
+    void ShowSwapSettings(const IWalletDB::Ptr& walletDB, const char* coinName)
+        {
+        SettingsProvider settingsProvider{ walletDB };
+        
+        settingsProvider.Initialize();
+        auto settings = settingsProvider.GetSettings();
+
+        if (settings.IsInitialized())
+        {
+            ostringstream stream;
+            stream << "\n" << coinName << " settings" << '\n';
+            if (settings.GetConnectionOptions().IsInitialized())
+            {
+                stream << "RPC user: " << settings.GetConnectionOptions().m_userName << '\n'
+                    << "RPC node: " << settings.GetConnectionOptions().m_address.str() << '\n';
             }
 
             if (settings.GetElectrumConnectionOptions().IsInitialized())
             {
-                cout << coinName << " settings" << '\n'
-                    << "Electrum node: " << settings.GetElectrumConnectionOptions().m_address.str() << '\n'
-                    << "Fee rate: " << settings.GetFeeRate() << '\n';
-                return 0;
+                stream << "Electrum node: " << settings.GetElectrumConnectionOptions().m_address << '\n';
+            }
+            stream << "Fee rate: " << settings.GetFeeRate() << '\n';
+            stream << "Active connection: " << bitcoin::to_string(settings.GetCurrentConnectionType()) << '\n';
+
+            LOG_INFO() << stream.str();
+            return;
+        }
+
+        LOG_INFO() << coinName << " settings are not initialized.";
             }
 
-            LOG_INFO() << coinName << " settings are not initialized.";
-            return 0;
-        }
-        else if (vm.count(cli::ALTCOIN_SETTINGS_SET))
+    bool HasActiveSwapTx(const IWalletDB::Ptr& walletDB, AtomicSwapCoin swapCoin)
+    {
+        auto txHistory = walletDB->getTxHistory(wallet::TxType::AtomicSwap);
+
+        for (const auto& tx : txHistory)
         {
-            auto settings = ParseSwapSettings<Settings, CoreSettings>(vm);
-            if (!settings)
+            if (tx.m_status != TxStatus::Canceled && tx.m_status != TxStatus::Completed && tx.m_status != TxStatus::Failed)
             {
-                settings = ParseElectrumSettings<Settings, ElectrumSettings>(vm, addressVersion);
+                AtomicSwapCoin txSwapCoin = AtomicSwapCoin::Unknown;
+                storage::getTxParameter(*walletDB, tx.m_txId, wallet::kDefaultSubTxID, wallet::TxParameterID::AtomicSwapCoin, txSwapCoin);
+                if (txSwapCoin == swapCoin) return true;
             }
-
-            if (!settings)
-            {
-                LOG_INFO() << "settings should be specified.";
-                return -1;
-            }
-
-            settingsProvider.SetSettings(*settings);
-            return 0;
         }
 
-        LOG_INFO() << "subcommand didn't support or unspecified.";
-        return -1;
+        return false;
     }
 
     boost::optional<TxID> InitSwap(const po::variables_map& vm, const IWalletDB::Ptr& walletDB, IPrivateKeyKeeper::Ptr keyKeeper, Wallet& wallet, bool checkFee)
@@ -1208,9 +1307,9 @@ namespace
         auto beamAmount = swapTxParameters->GetParameter<Amount>(TxParameterID::Amount);
         auto swapAmount = swapTxParameters->GetParameter<Amount>(TxParameterID::AtomicSwapAmount);
         auto peerID = swapTxParameters->GetParameter<WalletID>(TxParameterID::PeerID);
-        auto peerResponseHeight = swapTxParameters->GetParameter<Height>(TxParameterID::PeerResponseHeight);
+        auto peerResponseTime = swapTxParameters->GetParameter<Height>(TxParameterID::PeerResponseTime);
 
-        bool isValidToken = isBeamSide && swapCoin && beamAmount && swapAmount && peerID && peerResponseHeight;
+        bool isValidToken = isBeamSide && swapCoin && beamAmount && swapAmount && peerID && peerResponseTime;
 
         if (!transactionType || *transactionType != TxType::AtomicSwap || !isValidToken)
         {
@@ -1275,7 +1374,7 @@ namespace
         // display swap details to user
         cout << " Swap conditions: " << "\n"
             << " Beam side:    " << *isBeamSide << "\n"
-            << " Swap coin:    " << getAtomicSwapCoinText(*swapCoin) << "\n"
+            << " Swap coin:    " << to_string(*swapCoin) << "\n"
             << " Beam amount:  " << PrintableAmount(*beamAmount) << "\n"
             << " Swap amount:  " << *swapAmount << "\n"
             << " Peer ID:      " << to_string(*peerID) << "\n";
@@ -1324,55 +1423,52 @@ namespace
             auto btcSettingsProvider = std::make_shared<bitcoin::SettingsProvider>(walletDB);
             btcSettingsProvider->Initialize();
 
-            if (btcSettingsProvider->GetSettings().GetElectrumConnectionOptions().IsInitialized())
+            // btcSettingsProvider stored in bitcoinBridgeCreator
+            auto bitcoinBridgeCreator = [settingsProvider = btcSettingsProvider]() -> bitcoin::IBridge::Ptr
             {
-                auto bitcoinBridge = std::make_shared<bitcoin::Electrum>(io::Reactor::get_Current(), btcSettingsProvider);
-                auto btcSecondSideFactory = wallet::MakeSecondSideFactory<BitcoinSide, bitcoin::Electrum, bitcoin::ISettingsProvider>(bitcoinBridge, btcSettingsProvider);
+                if (settingsProvider->GetElectrumSettings().IsInitialized())
+                    return std::make_shared<bitcoin::Electrum>(io::Reactor::get_Current(), *settingsProvider);
+
+                return std::make_shared<bitcoin::BitcoinCore017>(io::Reactor::get_Current(), *settingsProvider);
+            };
+
+            auto btcSecondSideFactory = wallet::MakeSecondSideFactory<BitcoinSide, bitcoin::Electrum, bitcoin::ISettingsProvider>(bitcoinBridgeCreator, *btcSettingsProvider);
                 swapTransactionCreator->RegisterFactory(AtomicSwapCoin::Bitcoin, btcSecondSideFactory);
             }
-            else if (btcSettingsProvider->GetSettings().GetConnectionOptions().IsInitialized())
-            {
-                auto bitcoinBridge = std::make_shared<bitcoin::BitcoinCore017>(io::Reactor::get_Current(), btcSettingsProvider);
-                auto btcSecondSideFactory = wallet::MakeSecondSideFactory<BitcoinSide, bitcoin::BitcoinCore017, bitcoin::ISettingsProvider>(bitcoinBridge, btcSettingsProvider);
-                swapTransactionCreator->RegisterFactory(AtomicSwapCoin::Bitcoin, btcSecondSideFactory);
-            }
-        }
 
         {
             auto ltcSettingsProvider = std::make_shared<litecoin::SettingsProvider>(walletDB);
             ltcSettingsProvider->Initialize();
 
-            if (ltcSettingsProvider->GetSettings().GetElectrumConnectionOptions().IsInitialized())
+            // ltcSettingsProvider stored in litecoinBridgeCreator
+            auto litecoinBridgeCreator = [settingsProvider = ltcSettingsProvider]() -> bitcoin::IBridge::Ptr
             {
-                auto litecoinBridge = std::make_shared<litecoin::Electrum>(io::Reactor::get_Current(), ltcSettingsProvider);
-                auto ltcSecondSideFactory = wallet::MakeSecondSideFactory<LitecoinSide, litecoin::Electrum, litecoin::ISettingsProvider>(litecoinBridge, ltcSettingsProvider);
+                if (settingsProvider->GetElectrumSettings().IsInitialized())
+                    return std::make_shared<litecoin::Electrum>(io::Reactor::get_Current(), *settingsProvider);
+
+                return std::make_shared<litecoin::LitecoinCore017>(io::Reactor::get_Current(), *settingsProvider);
+            };
+
+            auto ltcSecondSideFactory = wallet::MakeSecondSideFactory<LitecoinSide, litecoin::Electrum, litecoin::ISettingsProvider>(litecoinBridgeCreator, *ltcSettingsProvider);
                 swapTransactionCreator->RegisterFactory(AtomicSwapCoin::Litecoin, ltcSecondSideFactory);
             }
-            else if (ltcSettingsProvider->GetSettings().GetConnectionOptions().IsInitialized())
-            {
-                auto litecoinBridge = std::make_shared<litecoin::LitecoinCore017>(io::Reactor::get_Current(), ltcSettingsProvider);
-                auto ltcSecondSideFactory = wallet::MakeSecondSideFactory<LitecoinSide, litecoin::LitecoinCore017, litecoin::ISettingsProvider>(litecoinBridge, ltcSettingsProvider);
-                swapTransactionCreator->RegisterFactory(AtomicSwapCoin::Litecoin, ltcSecondSideFactory);
-            }
-        }
 
         {
             auto qtumSettingsProvider = std::make_shared<qtum::SettingsProvider>(walletDB);
             qtumSettingsProvider->Initialize();
 
-            if (qtumSettingsProvider->GetSettings().GetElectrumConnectionOptions().IsInitialized())
+            // qtumSettingsProvider stored in qtumBridgeCreator
+            auto qtumBridgeCreator = [settingsProvider = qtumSettingsProvider]() -> bitcoin::IBridge::Ptr
             {
-                auto qtumBridge = std::make_shared<qtum::Electrum>(io::Reactor::get_Current(), qtumSettingsProvider);
-                auto qtumSecondSideFactory = wallet::MakeSecondSideFactory<QtumSide, qtum::Electrum, qtum::ISettingsProvider>(qtumBridge, qtumSettingsProvider);
+                if (settingsProvider->GetElectrumSettings().IsInitialized())
+                    return std::make_shared<qtum::Electrum>(io::Reactor::get_Current(), *settingsProvider);
+
+                return std::make_shared<qtum::QtumCore017>(io::Reactor::get_Current(), *settingsProvider);
+            };
+
+            auto qtumSecondSideFactory = wallet::MakeSecondSideFactory<QtumSide, qtum::Electrum, qtum::ISettingsProvider>(qtumBridgeCreator, *qtumSettingsProvider);
                 swapTransactionCreator->RegisterFactory(AtomicSwapCoin::Qtum, qtumSecondSideFactory);
             }
-            else if (qtumSettingsProvider->GetSettings().GetConnectionOptions().IsInitialized())
-            {
-                auto qtumBridge = std::make_shared<qtum::QtumCore017>(io::Reactor::get_Current(), qtumSettingsProvider);
-                auto qtumSecondSideFactory = wallet::MakeSecondSideFactory<QtumSide, qtum::QtumCore017, qtum::ISettingsProvider>(qtumBridge, qtumSettingsProvider);
-                swapTransactionCreator->RegisterFactory(AtomicSwapCoin::Qtum, qtumSecondSideFactory);
-            }
-        }
     }
 
     proto::FlyClient::NetworkStd::Ptr CreateNetwork(
@@ -1922,9 +2018,8 @@ int main_impl(int argc, char* argv[])
                             cli::EXPORT_DATA,
                             cli::SWAP_INIT,
                             cli::SWAP_ACCEPT,
-                            cli::BTC_SETTINGS,
-                            cli::LTC_SETTINGS,
-                            cli::QTUM_SETTINGS,
+                            cli::SET_SWAP_SETTINGS,
+                            cli::SHOW_SWAP_SETTINGS,
                             cli::LASER
                         };
 
@@ -2008,9 +2103,9 @@ int main_impl(int argc, char* argv[])
                             return -1;
                         }
                         auto walletDB = WalletDB::init(walletPath, pass, walletSeed, reactor, coldWallet);
-                        IPrivateKeyKeeper::Ptr keyKeeper = make_shared<LocalPrivateKeyKeeper>(walletDB);
                         if (walletDB)
                         {
+                            IPrivateKeyKeeper::Ptr keyKeeper = make_shared<LocalPrivateKeyKeeper>(walletDB, walletDB->get_MasterKdf());
                             LOG_INFO() << kWalletCreatedMessage;
                             CreateNewAddress(vm, walletDB,
                                              keyKeeper, kDefaultAddrLabel);
@@ -2030,7 +2125,7 @@ int main_impl(int argc, char* argv[])
                         return -1;
                     }
 
-                    IPrivateKeyKeeper::Ptr keyKeeper = make_shared<LocalPrivateKeyKeeper>(walletDB);
+                    IPrivateKeyKeeper::Ptr keyKeeper = make_shared<LocalPrivateKeyKeeper>(walletDB, walletDB->get_MasterKdf());
 
                     const auto& currHeight = walletDB->getCurrentHeight();
                     const auto& fork1Height = Rules::get().pForks[1].m_Height;
@@ -2119,22 +2214,81 @@ int main_impl(int argc, char* argv[])
                         return ShowAddressList(walletDB);
                     }
 
-                    if (command == cli::BTC_SETTINGS)
+                    if (command == cli::SET_SWAP_SETTINGS)
+                    {
+                        if (vm.count(cli::SWAP_COIN) > 0)
+                        {
+                            auto swapCoin = wallet::from_string(vm[cli::SWAP_COIN].as<string>());
+
+                            if (HasActiveSwapTx(walletDB, swapCoin))
+                            {
+                                LOG_ERROR() << "You cannot change settings while you have transactions in progress. Please wait untill transactions are completed and try again.";
+                                return -1;
+                            }
+
+                            switch (swapCoin)
+                            {
+                            case beam::wallet::AtomicSwapCoin::Bitcoin:
                     {
                         return HandleSwapCoin<bitcoin::SettingsProvider, bitcoin::Settings, bitcoin::BitcoinCoreSettings, bitcoin::ElectrumSettings>
-                            (vm, walletDB, bitcoin::getAddressVersion(), "bitcoin");
+                                    (vm, walletDB, bitcoin::getAddressVersion());
                     }
-
-                    if (command == cli::LTC_SETTINGS)
+                            case beam::wallet::AtomicSwapCoin::Litecoin:
                     {
                         return HandleSwapCoin<litecoin::SettingsProvider, litecoin::Settings, litecoin::LitecoinCoreSettings, litecoin::ElectrumSettings>
-                            (vm, walletDB, litecoin::getAddressVersion(), "litecoin");
+                                    (vm, walletDB, litecoin::getAddressVersion());
+                            }
+                            case beam::wallet::AtomicSwapCoin::Qtum:
+                            {
+                                return HandleSwapCoin<qtum::SettingsProvider, qtum::Settings, qtum::QtumCoreSettings, qtum::ElectrumSettings>
+                                    (vm, walletDB, qtum::getAddressVersion());
+                            }
+                            default:
+                            {
+                                throw std::runtime_error("Unsupported coin for swap");
+                                break;
+                            }
+                            }
+                            return 0;
+                        }
+
+                        LOG_ERROR() << "swap_coin should be specified";
+                        return -1;
                     }
 
-                    if (command == cli::QTUM_SETTINGS)
+                    if (command == cli::SHOW_SWAP_SETTINGS)
                     {
-                        return HandleSwapCoin<qtum::SettingsProvider, qtum::Settings, qtum::QtumCoreSettings, qtum::ElectrumSettings>
-                            (vm, walletDB, qtum::getAddressVersion(), "qtum");
+                        if (vm.count(cli::SWAP_COIN) > 0)
+                        {
+                            auto swapCoin = wallet::from_string(vm[cli::SWAP_COIN].as<string>());
+                            switch (swapCoin)
+                            {
+                            case beam::wallet::AtomicSwapCoin::Bitcoin:
+                            {
+                                ShowSwapSettings<bitcoin::SettingsProvider>(walletDB, "bitcoin");
+                                break;
+                            }
+                            case beam::wallet::AtomicSwapCoin::Litecoin:
+                            {
+                                ShowSwapSettings<litecoin::SettingsProvider>(walletDB, "litecoin");
+                                break;
+                            }
+                            case beam::wallet::AtomicSwapCoin::Qtum:
+                            {
+                                ShowSwapSettings<qtum::SettingsProvider>(walletDB, "qtum");
+                                break;
+                            }
+                            default:
+                            {
+                                throw std::runtime_error("Unsupported coin for swap");
+                                break;
+                            }
+                            }
+                            return 0;
+                        }
+
+                        LOG_ERROR() << "swap_coin should be specified";
+                        return -1;
                     }
 
                     if (command == cli::LASER || vm.count(cli::LASER))
@@ -2214,11 +2368,18 @@ int main_impl(int argc, char* argv[])
 
                         if (command == cli::SWAP_INIT)
                         {
+                            if (!wallet.IsWalletInSync())
+                            {
+                                return -1;
+                            }
+
                             currentTxID = InitSwap(vm, walletDB, keyKeeper, wallet, isFork1);
                             if (!currentTxID)
                             {
                                 return -1;
                             }
+
+                            return 0;
                         }
 
                         if (command == cli::SWAP_ACCEPT)

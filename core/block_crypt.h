@@ -15,6 +15,7 @@
 #pragma once
 #include <limits>
 #include "ecc_native.h"
+#include "lelantus.h"
 #include "merkle.h"
 #include "difficulty.h"
 
@@ -135,10 +136,7 @@ namespace beam
 			bool Deposit = true; // CA emission in exchange for beams. If not specified - the emission is free
 		} CA;
 
-		struct {
-			uint32_t MaxRollback = 1440; // 1 day roughly
-			uint32_t Granularity = 720; // i.e. should be created for heights that are multiples of this. This should make it more likely for different nodes to have the same macroblocks
-		} Macroblock;
+		uint32_t MaxRollback = 1440; // 1 day roughly
 
 		size_t MaxBodySize = 0x100000; // 1MB
 
@@ -147,6 +145,23 @@ namespace beam
 
 		ECC::Hash::Value Prehistoric; // Prev hash of the 1st block
 		ECC::Hash::Value TreasuryChecksum;
+
+		struct {
+			bool Enabled = true; // past Fork2
+
+			uint32_t NMax = 0x10000; // 64K
+			uint32_t NMin = 0x400; // 1K
+
+			// Max distance of the specified window from the tip where the prover is allowed to use big N.
+			// For proofs with bigger distance only NMin is supported
+			uint32_t MaxWindowBacklog = 0x10000; // 64K
+			// Hence "big" proofs won't need more than 128K most recent elements
+
+			// max shielded ins/outs per block
+			uint32_t MaxIns = 20;
+			uint32_t MaxOuts = 1000; // basically unlimited
+
+		} Shielded;
 
 		void UpdateChecksum();
 
@@ -158,6 +173,7 @@ namespace beam
 
 		const HeightHash& get_LastFork() const;
 		const HeightHash* FindFork(const Merkle::Hash&) const;
+		size_t FindFork(Height) const;
 		std::string get_SignatureStr() const;
 
 	private:
@@ -185,11 +201,6 @@ namespace beam
 	struct TxElement
 	{
 		ECC::Point m_Commitment;
-		Height m_Maturity; // Used in macroblocks only.
-
-		TxElement() :m_Maturity(0) {}
-
-		static thread_local bool s_IgnoreMaturity; // should maturity be ignored incomparison?
 
 		int cmp(const TxElement&) const;
 		COMPARISON_VIA_CMP
@@ -198,7 +209,12 @@ namespace beam
 	struct Input
 		:public TxElement
 	{
-		TxoID m_ID = 0; // used internally. Not serialized/transferred
+		// used internally. Not serialized/transferred
+		struct Internal
+		{
+			Height m_Maturity = 0; // of the consumed (being-spent) UTXO
+			TxoID m_ID = 0;
+		} m_Internal;
 
 		typedef std::unique_ptr<Input> Ptr;
 		typedef uint32_t Count; // the type for count of duplicate UTXOs in the system
@@ -235,6 +251,28 @@ namespace beam
 			static const uint32_t s_EntriesMax = 20; // if this is the size of the vector - the result is probably trunacted
 		};
 
+		struct SpendProof
+			:public Lelantus::Proof
+		{
+			TxoID m_WindowEnd; // ID of the 1st element outside the window
+
+			int cmp(const SpendProof&) const;
+			COMPARISON_VIA_CMP
+		};
+
+		std::unique_ptr<SpendProof> m_pSpendProof;
+
+		void get_ShieldedID(Merkle::Hash&) const;
+
+		Input() {}
+		Input(Input&& v)
+			:TxElement(v)
+		{
+			m_Internal = v.m_Internal;
+			m_pSpendProof = std::move(v.m_pSpendProof);
+		}
+
+		void operator = (const Input&);
 		int cmp(const Input&) const;
 		COMPARISON_VIA_CMP
 	};
@@ -261,9 +299,72 @@ namespace beam
 
 		static const Amount s_MinimumValue = 1;
 
+		struct Shielded
+		{
+			ECC::Point m_SerialPub; // blinded
+			ECC::Signature m_Signature;
+			ECC::Scalar m_kSer;
+
+			bool IsValid() const;
+
+			int cmp(const Shielded&) const;
+			COMPARISON_VIA_CMP
+
+			struct PublicGen
+			{
+				Key::IPKdf::Ptr m_pGen;
+				Key::IPKdf::Ptr m_pSer;
+
+				PeerID m_Owner;
+				void get_OwnerNonce(ECC::Hash::Value&, const ECC::Scalar::Native&) const;
+			};
+
+			struct Viewer
+			{
+				Key::IKdf::Ptr m_pGen;
+				Key::IPKdf::Ptr m_pSer;
+			};
+
+			struct Data
+			{
+				ECC::Scalar::Native m_sk; // blinding factor for the Output
+				ECC::Scalar::Native m_skSerial; // blinding factor for the serial. Set iff serial part is created
+				Amount m_Value;
+				Height m_hScheme = 0; // must set
+
+				// Generates Shielded from nonce
+				// Sets both m_sk and m_skSerial
+				void GenerateS(Shielded&, const PublicGen&, const ECC::Hash::Value& nonce);
+				void GenerateO(Output&, const PublicGen&); // generate UTXO from m_sk
+				void Generate(Output&, const PublicGen&, const ECC::Hash::Value& nonce); // generate everything nonce
+
+				bool Recover(const Output&, const Viewer&);
+
+				struct HashTxt;
+
+				void GetSpendKey(ECC::Scalar::Native&, Key::IKdf& ser);
+
+			private:
+				static void GenerateS0(Key::IPKdf& ser, const ECC::Hash::Value& nonce, ECC::Scalar::Native& kG, ECC::Scalar::Native& kJ);
+				static void GenerateS1(Key::IPKdf& gen, const ECC::Point& ptShared, ECC::Scalar::Native& nG, ECC::Scalar::Native& nJ);
+				static void GetSerialPreimage(ECC::Hash::Value& res, const ECC::Scalar::Native& kG);
+				static void GetSerial(ECC::Scalar::Native& kJ, const ECC::Scalar::Native& kG, Key::IPKdf& ser);
+				void ToSk(Key::IPKdf& gen);
+				void GetOutputSeed(Key::IPKdf& gen, ECC::Hash::Value&) const;
+				static void GetDH(ECC::Hash::Value&, const ECC::Point&);
+				static void DoubleBlindedCommitment(ECC::Point::Native&, const ECC::Scalar::Native& kG, const ECC::Scalar::Native& kJ);
+				static bool IsEqual(const ECC::Point::Native& pt0, const ECC::Point& pt1);
+				static bool IsEqual(const ECC::Point::Native& pt0, const ECC::Point::Native& pt1);
+			};
+
+		private:
+			void get_Hash(ECC::Hash::Value&) const;
+		};
+
 		// one of the following *must* be specified
 		std::unique_ptr<ECC::RangeProof::Confidential>	m_pConfidential;
 		std::unique_ptr<ECC::RangeProof::Public>		m_pPublic;
+		std::unique_ptr<Shielded> m_pShielded; // for shielded output, complements the confidential
 
 		void Create(Height hScheme, ECC::Scalar::Native&, Key::IKdf& coinKdf, const Key::IDV&, Key::IPKdf& tagKdf, bool bPublic = false);
 
@@ -336,6 +437,7 @@ namespace beam
 		void get_ID(Merkle::Hash&, const ECC::Hash::Value* pLockImage = NULL) const; // unique kernel identifier in the system.
 
 		bool IsValid(Height hScheme, AmountBig::Type& fee, ECC::Point::Native& exc) const;
+
 		void Sign(const ECC::Scalar::Native&); // suitable for aux kernels, created by single party
 
 		struct LongProof; // legacy
@@ -376,6 +478,7 @@ namespace beam
 
 			void Compare(IReader&& rOther, bool& bICover, bool& bOtherCovers);
 			size_t get_SizeNetto(); // account only for elements. Ignore offset and array sizes
+			void CalculateShielded(uint32_t& nIns, uint32_t& nOuts);
 		};
 
 		struct IWriter
@@ -465,6 +568,8 @@ namespace beam
 		{
 			Amount m_Output;
 			Amount m_Kernel; // nested kernels are accounted too
+			Amount m_ShieldedInput;
+			Amount m_ShieldedOutput;
 
 			FeeSettings(); // defaults
 
@@ -531,6 +636,10 @@ namespace beam
 
 					// The following not only interprets the proof, but also verifies the knwon part of its structure.
 					bool IsValidProofUtxo(const ECC::Point&, const Input::Proof&) const;
+					bool IsValidProofShieldedTxo(const ECC::Point&, TxoID, const Merkle::Proof&) const;
+
+				private:
+					bool IsValidProofUtxoInternal(Merkle::Hash&, const Merkle::Proof&) const;
 				};
 			};
 
@@ -629,9 +738,6 @@ namespace beam
 			};
 
 			void Merge(const BodyBase& next);
-
-			// suitable for big (compressed) blocks
-			class RW;
 		};
 
 		struct Body

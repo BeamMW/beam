@@ -49,12 +49,6 @@ namespace
     private:
         bitcoin::BitcoinCoreSettings m_settings;
     };
-
-    bitcoin::BitcoinCore016 GetBitcoind016(io::Reactor& reactor, std::string userName, std::string pass, io::Address address)
-    {
-        auto settingsProvider = std::make_shared<BitcoindSettingsProvider>(btcUserName, btcPass, address);
-        return bitcoin::BitcoinCore016(reactor, settingsProvider);
-    }
 }
 
 void testSuccessResponse()
@@ -71,7 +65,8 @@ void testSuccessResponse()
     BitcoinHttpServer httpServer;
 
     io::Address addr(io::Address::localhost(), PORT);
-    bitcoin::BitcoinCore016 bridge = GetBitcoind016(*reactor, btcUserName, btcPass, addr);
+    auto settingsProvider = std::make_shared<BitcoindSettingsProvider>(btcUserName, btcPass, addr);
+    bitcoin::BitcoinCore016 bridge = bitcoin::BitcoinCore016(*reactor, *settingsProvider);
 
     bridge.dumpPrivKey("", [&counter](const bitcoin::IBridge::Error& error, const std::string& key)
     {
@@ -116,7 +111,7 @@ void testSuccessResponse()
         ++counter;
     });
 
-    bridge.getTxOut("", 2, [&counter](const bitcoin::IBridge::Error& error, const std::string& script, double value, uint16_t confirmations)
+    bridge.getTxOut("", 2, [&counter](const bitcoin::IBridge::Error& error, const std::string& script, Amount value, uint16_t confirmations)
     {
         WALLET_CHECK(error.m_type == bitcoin::IBridge::None);
         WALLET_CHECK(!script.empty());
@@ -132,7 +127,7 @@ void testSuccessResponse()
         ++counter;
     });
 
-    bridge.getBalance(2, [&counter](const bitcoin::IBridge::Error& error, double balance)
+    bridge.getBalance(2, [&counter](const bitcoin::IBridge::Error& error, Amount balance)
     {
         WALLET_CHECK(error.m_type == bitcoin::IBridge::None);
         WALLET_CHECK(balance > 0);
@@ -158,7 +153,8 @@ void testWrongCredentials()
     BitcoinHttpServer httpServer("Bob", "123");
 
     io::Address addr(io::Address::localhost(), PORT);
-    bitcoin::BitcoinCore016 bridge = GetBitcoind016(*reactor, btcUserName, btcPass, addr);
+    auto settingsProvider = std::make_shared<BitcoindSettingsProvider>(btcUserName, btcPass, addr);
+    bitcoin::BitcoinCore016 bridge = bitcoin::BitcoinCore016(*reactor, *settingsProvider);
 
     bridge.getBlockCount([&counter](const bitcoin::IBridge::Error& error, uint64_t blocks)
     {
@@ -185,7 +181,8 @@ void testEmptyResult()
     BitcoinHttpServerEmptyResult httpServer;
 
     io::Address addr(io::Address::localhost(), PORT);
-    bitcoin::BitcoinCore016 bridge = GetBitcoind016(*reactor, btcUserName, btcPass, addr);
+    auto settingsProvider = std::make_shared<BitcoindSettingsProvider>(btcUserName, btcPass, addr);
+    bitcoin::BitcoinCore016 bridge = bitcoin::BitcoinCore016(*reactor, *settingsProvider);
 
     bridge.fundRawTransaction("", 2, [&counter](const bitcoin::IBridge::Error& error, const std::string& tx, int pos)
     {
@@ -194,7 +191,7 @@ void testEmptyResult()
         ++counter;
     });
 
-    bridge.getTxOut("", 2, [&counter](const bitcoin::IBridge::Error& error, const std::string& script, double value, uint16_t confirmations)
+    bridge.getTxOut("", 2, [&counter](const bitcoin::IBridge::Error& error, const std::string& script, Amount value, uint16_t confirmations)
     {
         WALLET_CHECK(error.m_type == bitcoin::IBridge::None);
         WALLET_CHECK(error.m_message.empty());
@@ -212,7 +209,7 @@ void testEmptyResult()
         ++counter;
     });
 
-    bridge.getBalance(2, [&counter](const bitcoin::IBridge::Error& error, double balance)
+    bridge.getBalance(2, [&counter](const bitcoin::IBridge::Error& error, Amount balance)
     {
         WALLET_CHECK(error.m_type == bitcoin::IBridge::EmptyResult);
         WALLET_CHECK(!error.m_message.empty());
@@ -238,7 +235,8 @@ void testEmptyResponse()
     BitcoinHttpServerEmptyResponse httpServer;
 
     io::Address addr(io::Address::localhost(), PORT);
-    bitcoin::BitcoinCore016 bridge = GetBitcoind016(*reactor, btcUserName, btcPass, addr);
+    auto settingsProvider = std::make_shared<BitcoindSettingsProvider>(btcUserName, btcPass, addr);
+    bitcoin::BitcoinCore016 bridge = bitcoin::BitcoinCore016(*reactor, *settingsProvider);
 
     bridge.fundRawTransaction("", 2, [&counter](const bitcoin::IBridge::Error& error, const std::string& tx, int pos)
     {
@@ -264,7 +262,8 @@ void testConnectionRefused()
     });
 
     io::Address addr(io::Address::localhost(), PORT);
-    bitcoin::BitcoinCore016 bridge = GetBitcoind016(*reactor, btcUserName, btcPass, addr);
+    auto settingsProvider = std::make_shared<BitcoindSettingsProvider>(btcUserName, btcPass, addr);
+    bitcoin::BitcoinCore016 bridge = bitcoin::BitcoinCore016(*reactor, *settingsProvider);
 
     bridge.fundRawTransaction("", 2, [&counter](const bitcoin::IBridge::Error& error, const std::string& tx, int pos)
     {

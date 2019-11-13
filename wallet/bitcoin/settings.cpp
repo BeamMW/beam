@@ -17,6 +17,31 @@
 
 namespace beam::bitcoin
 {
+    boost::optional<ISettings::ConnectionType> from_string(const std::string& value)
+    {
+        if (value == "core")
+            return ISettings::ConnectionType::Core;
+        else if (value == "electrum")
+            return ISettings::ConnectionType::Electrum;
+        else if (value == "none")
+            return ISettings::ConnectionType::None;
+
+        return boost::optional<ISettings::ConnectionType>{};
+    }
+
+    std::string to_string(ISettings::ConnectionType connectionType)
+    {
+        switch (connectionType)
+        {
+        case ISettings::ConnectionType::Core:
+            return "core";
+        case ISettings::ConnectionType::Electrum:
+            return "electrum";
+        default:
+            return "none";
+        }
+    }
+
     std::string BitcoinCoreSettings::generateAuthorization()
     {
         std::string userWithPass(m_userName + ":" + m_pass);
@@ -29,9 +54,19 @@ namespace beam::bitcoin
         return m_connectionSettings;
     }
 
+    bool Settings::IsCoreActivated() const
+    {
+        return GetConnectionOptions().IsInitialized() && GetCurrentConnectionType() == ISettings::Core;
+    }
+
     ElectrumSettings Settings::GetElectrumConnectionOptions() const
     {
         return m_electrumConnectionSettings;
+    }
+
+    bool Settings::IsElectrumActivated() const
+    {
+        return GetElectrumConnectionOptions().IsInitialized() && GetCurrentConnectionType() == ISettings::Electrum;
     }
 
     Amount Settings::GetFeeRate() const
@@ -57,6 +92,16 @@ namespace beam::bitcoin
     bool Settings::IsInitialized() const
     {
         return m_connectionSettings.IsInitialized() || m_electrumConnectionSettings.IsInitialized();
+    }
+
+    bool Settings::IsActivated() const
+    {
+        return IsCoreActivated() || IsElectrumActivated();
+    }
+
+    ISettings::ConnectionType Settings::GetCurrentConnectionType() const
+    {
+        return m_connectionType;
     }
 
     void Settings::SetConnectionOptions(const BitcoinCoreSettings& connectionSettings)
@@ -87,5 +132,10 @@ namespace beam::bitcoin
     void Settings::SetLockTimeInBlocks(uint32_t lockTimeInBlocks)
     {
         m_lockTimeInBlocks = lockTimeInBlocks;
+    }
+
+    void Settings::ChangeConnectionType(ISettings::ConnectionType type)
+    {
+        m_connectionType = type;
     }
 } // namespace beam::bitcoin

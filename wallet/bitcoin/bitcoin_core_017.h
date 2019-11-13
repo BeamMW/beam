@@ -22,13 +22,13 @@ namespace beam::bitcoin
     {
     public:
         BitcoinCore017() = delete;
-        BitcoinCore017(io::Reactor& reactor, IBitcoinCoreSettingsProvider::Ptr settingsProvider);
+        BitcoinCore017(io::Reactor& reactor, IBitcoinCoreSettingsProvider& settingsProvider);
 
         void signRawTransaction(const std::string& rawTx, std::function<void(const IBridge::Error&, const std::string&, bool)> callback) override;
         void createRawTransaction(
             const std::string& withdrawAddress,
             const std::string& contractTxId,
-            uint64_t amount,
+            Amount amount,
             int outputIndex,
             Timestamp locktime,
             std::function<void(const IBridge::Error&, const std::string&)> callback) override;

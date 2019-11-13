@@ -59,7 +59,7 @@ Menu {
         height: parent.height
         border.width: 1
         border.color: Style.separator
-        color: Style.background_second
+        color: Style.background_popup
         radius: 10
     }
 }

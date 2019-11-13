@@ -23,13 +23,14 @@ namespace
 
 namespace beam::wallet
 {
-    LitecoinSide::LitecoinSide(BaseTransaction& tx, bitcoin::IBridge::Ptr bitcoinBridge, litecoin::ISettingsProvider::Ptr settingsProvider, bool isBeamSide)
+    LitecoinSide::LitecoinSide(BaseTransaction& tx, bitcoin::IBridge::Ptr bitcoinBridge, litecoin::ISettingsProvider& settingsProvider, bool isBeamSide)
         : BitcoinSide(tx, bitcoinBridge, settingsProvider, isBeamSide)
     {
     }
 
     bool LitecoinSide::CheckAmount(Amount amount, Amount feeRate)
     {
+        //TODO:double?
         Amount fee = static_cast<Amount>(std::round(double(kLitecoinWithdrawTxAverageSize * feeRate) / 1000));
         return amount > litecoin::kDustThreshold && amount > fee;
     }

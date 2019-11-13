@@ -130,6 +130,14 @@ public:
         }
     }
 
+    void destroy_connect_timer_if_needed()
+    {
+        if (_connectRequests.empty()) {
+            // we have to break cyclic reference to reactor
+            _connectTimer.reset();
+        }
+    }
+
 private:
     struct ConnectRequest : uv_connect_s {
         uint64_t tag;
@@ -425,6 +433,9 @@ void Reactor::run() {
     block_sigpipe();
     // NOTE: blocks
     uv_run(&_loop, UV_RUN_DEFAULT);
+
+    // HACK: it is likely that this is the end of the thread, we have to break cycle reference
+    _tcpConnectors->destroy_connect_timer_if_needed();
 }
 
 void Reactor::stop() {

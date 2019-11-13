@@ -24,53 +24,40 @@ using namespace beam;
 
 namespace
 {
-    const int kUpdateInterval = 5000;
+    const int kUpdateInterval = 10000;
 }
 
-
-SwapCoinClientModel::SwapCoinClientModel(beam::wallet::AtomicSwapCoin swapCoin, 
-    beam::bitcoin::Client::CreateBridge bridgeCreator,
+SwapCoinClientModel::SwapCoinClientModel(beam::bitcoin::IBridgeHolder::Ptr bridgeHolder,
     std::unique_ptr<beam::bitcoin::SettingsProvider> settingsProvider,
     io::Reactor& reactor)
-    : bitcoin::Client(bridgeCreator, std::move(settingsProvider), reactor)
+    : bitcoin::Client(bridgeHolder, std::move(settingsProvider), reactor)
     , m_timer(this)
-    , m_walletModel(AppModel::getInstance().getWallet())
-    , m_reactor(reactor)
-    , m_swapCoin(swapCoin)
 {
     qRegisterMetaType<beam::bitcoin::Client::Status>("beam::bitcoin::Client::Status");
     qRegisterMetaType<beam::bitcoin::Client::Balance>("beam::bitcoin::Client::Balance");
 
-    if (!m_walletModel.expired())
-    {
-        connect(m_walletModel.lock().get(), SIGNAL(txStatus(beam::wallet::ChangeAction, const std::vector<beam::wallet::TxDescription>&)),
-            SLOT(onTxStatus(beam::wallet::ChangeAction, const std::vector<beam::wallet::TxDescription>&)));
-    }
+    connect(&m_timer, SIGNAL(timeout()), this, SLOT(requestBalance()));
 
-    connect(&m_timer, SIGNAL(timeout()), this, SLOT(onTimer()));
+    // connect to myself for save values in UI(main) thread
+    connect(this, SIGNAL(gotBalance(const beam::bitcoin::Client::Balance&)), this, SLOT(setBalance(const beam::bitcoin::Client::Balance&)));
+    connect(this, SIGNAL(gotStatus(beam::bitcoin::Client::Status)), this, SLOT(setStatus(beam::bitcoin::Client::Status)));
+    connect(this, SIGNAL(gotCanModifySettings(bool)), this, SLOT(setCanModifySettings(bool)));
+
+    requestBalance();
 
     m_timer.start(kUpdateInterval);
+
+    GetAsync()->GetStatus();
 }
 
-double SwapCoinClientModel::getAvailable()
+beam::Amount SwapCoinClientModel::getAvailable()
 {
     return m_balance.m_available;
-}
-
-double SwapCoinClientModel::getReceiving()
-{
-    return m_receiving;
-}
-
-double SwapCoinClientModel::getSending()
-{
-    return m_sending;
 }
 
 void SwapCoinClientModel::OnStatus(Status status)
 {
     emit gotStatus(status);
-    m_status = status;
 }
 
 beam::bitcoin::Client::Status SwapCoinClientModel::getStatus() const
@@ -78,116 +65,58 @@ beam::bitcoin::Client::Status SwapCoinClientModel::getStatus() const
     return m_status;
 }
 
+bool SwapCoinClientModel::canModifySettings() const
+{
+    return m_canModifySettings;
+}
+
 void SwapCoinClientModel::OnBalance(const bitcoin::Client::Balance& balance)
 {
-    m_balance = balance;
-    emit stateChanged();
+    emit gotBalance(balance);
 }
 
-void SwapCoinClientModel::onTimer()
+void SwapCoinClientModel::OnCanModifySettingsChanged(bool canModify)
 {
-    // update balance
-    GetAsync()->GetBalance();
+    emit gotCanModifySettings(canModify);
+}
 
-    // connect to walletModel if we haven't connected yet
-    if (m_walletModel.expired() && AppModel::getInstance().getWallet())
+void SwapCoinClientModel::OnChangedSettings()
+{
+    requestBalance();
+}
+
+void SwapCoinClientModel::requestBalance()
+{
+    if (GetSettings().IsActivated())
     {
-        m_walletModel = AppModel::getInstance().getWallet();
-        auto walletModelPtr = m_walletModel.lock();
-        walletModelPtr->getAsync()->getWalletStatus();
-
-        connect(walletModelPtr.get(), SIGNAL(txStatus(beam::wallet::ChangeAction, const std::vector<beam::wallet::TxDescription>&)),
-            SLOT(onTxStatus(beam::wallet::ChangeAction, const std::vector<beam::wallet::TxDescription>&)));
+        // update balance
+        GetAsync()->GetBalance();
     }
 }
 
-void SwapCoinClientModel::onTxStatus(beam::wallet::ChangeAction action, const std::vector<beam::wallet::TxDescription>& txList)
+void SwapCoinClientModel::setBalance(const beam::bitcoin::Client::Balance& balance)
 {
-    if (action == wallet::ChangeAction::Reset)
+    if (m_balance != balance)
     {
-        m_transactions.clear();
+        m_balance = balance;
+        emit balanceChanged();
     }
-
-    for (const auto& transaction : txList)
-    {
-        const auto txId = transaction.GetTxID();
-        auto swapCoin = transaction.GetParameter<beam::wallet::AtomicSwapCoin>(beam::wallet::TxParameterID::AtomicSwapCoin);
-
-        if (txId && 
-            transaction.m_txType == wallet::TxType::AtomicSwap &&
-            swapCoin &&
-            *swapCoin == m_swapCoin)
-        {
-            switch (action)
-            {
-                case wallet::ChangeAction::Reset:
-                case wallet::ChangeAction::Added:
-                {
-                    m_transactions.emplace(*txId, transaction);
-                    break;
-                }
-                case wallet::ChangeAction::Updated:
-                {
-                    const auto it = m_transactions.find(*txId);
-                    if (it != m_transactions.end())
-                    {
-                        m_transactions[*txId] = transaction;
-                    }
-                    else
-                    {
-                        m_transactions.emplace(*txId, transaction);
-                    }
-                    break;
-                }
-                // TODO: check, may be unused
-                case wallet::ChangeAction::Removed:
-                {
-                    auto it = m_transactions.find(*txId);
-                    if (it != m_transactions.end())
-                    {
-                        m_transactions.erase(it);
-                    }
-                    break;
-                }
-                default:
-                {
-                    assert(false && "unexpected ChangeAction");
-                    break;
-                }
-            }
-        }
-    }
-
-    // recalculate sending / receiving
-    RecalculateAmounts();
 }
 
-void SwapCoinClientModel::RecalculateAmounts()
+void SwapCoinClientModel::setStatus(beam::bitcoin::Client::Status status)
 {
-    using namespace beam::wallet;
-    m_sending = 0;
-    m_receiving = 0;
-
-    for (const auto& txPair : m_transactions)
+    if (m_status != status)
     {
-        const auto& txDescription = txPair.second;
-
-        if (txDescription.m_status == beam::wallet::TxStatus::InProgress)
-        {
-            auto isBeamSide = txDescription.GetParameter<bool>(TxParameterID::AtomicSwapIsBeamSide);
-            auto swapAmount = txDescription.GetParameter<Amount>(TxParameterID::AtomicSwapAmount);
-            assert(isBeamSide && swapAmount);
-
-            if (*isBeamSide)
-            {
-                m_receiving += double(*swapAmount) / UnitsPerCoin(m_swapCoin);
-            }
-            else
-            {
-                m_sending += double(*swapAmount) / UnitsPerCoin(m_swapCoin);
-            }
-        }
+        m_status = status;
+        emit statusChanged();
     }
+}
 
-    emit stateChanged();
+void SwapCoinClientModel::setCanModifySettings(bool canModify)
+{
+    if (m_canModifySettings != canModify)
+    {
+        m_canModifySettings = canModify;
+        emit canModifySettingsChanged();
+    }
 }

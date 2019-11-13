@@ -101,21 +101,32 @@ namespace beam
 
 	/////////////
 	// Input
-	thread_local bool TxElement::s_IgnoreMaturity = false;
-
 	int TxElement::cmp(const TxElement& v) const
 	{
-		if (!s_IgnoreMaturity)
-		{
-			CMP_MEMBER(m_Maturity)
-		}
 		CMP_MEMBER_EX(m_Commitment)
 		return 0;
 	}
 
+	void Input::operator = (const Input& v)
+	{
+		Cast::Down<TxElement>(*this) = v;
+		m_Internal = v.m_Internal;
+		ClonePtr(m_pSpendProof, v.m_pSpendProof);
+	}
+
 	int Input::cmp(const Input& v) const
 	{
+		// make sure shielded are after MW
+		CMP_MEMBER_PTR(m_pSpendProof)
+
 		return Cast::Down<TxElement>(*this).cmp(v);
+	}
+
+	int Input::SpendProof::cmp(const SpendProof& v) const
+	{
+		CMP_MEMBER(m_Part1.m_SpendPk)
+		// ignore rest of the members
+		return 0;
 	}
 
 	/////////////
@@ -280,10 +291,19 @@ namespace beam
 			if (m_pPublic)
 				return false;
 
+			if (m_pShielded)
+			{
+				if (hScheme < Rules::get().pForks[2].m_Height)
+					return false; // not supported in this version
+
+				if (!m_pShielded->IsValid())
+					return false;
+			}
+
 			return m_pConfidential->IsValid(comm, oracle, &sc.m_hGen);
 		}
 
-		if (!m_pPublic)
+		if (!m_pPublic || m_pShielded)
 			return false;
 
 		if (!(Rules::get().AllowPublicUtxos || m_Coinbase))
@@ -301,10 +321,39 @@ namespace beam
 		m_AssetID = v.m_AssetID;
 		ClonePtr(m_pConfidential, v.m_pConfidential);
 		ClonePtr(m_pPublic, v.m_pPublic);
+		ClonePtr(m_pShielded, v.m_pShielded);
+	}
+
+	void Output::Shielded::get_Hash(ECC::Hash::Value& hv) const
+	{
+		ECC::Hash::Processor()
+			<< "Out-S"
+			<< m_SerialPub
+			>> hv;
+	}
+
+	bool Output::Shielded::IsValid() const
+	{
+		ECC::Point::Native comm;
+		if (!comm.Import(m_SerialPub))
+			return false;
+
+		ECC::Hash::Value hv;
+		get_Hash(hv);
+		return m_Signature.IsValid(hv, comm, &m_kSer);
+	}
+
+	int Output::Shielded::cmp(const Shielded& v) const
+	{
+		// enough to compare the commitment, since duplicates are not allowed
+		return m_SerialPub.cmp(v.m_SerialPub);
 	}
 
 	int Output::cmp(const Output& v) const
 	{
+		// make sure shielded are after MW
+		CMP_MEMBER_PTR(m_pShielded)
+
 		{
 			int n = Cast::Down<TxElement>(*this).cmp(v);
 			if (n)
@@ -364,6 +413,23 @@ namespace beam
 		{
 			oracle << m_Commitment;
 		}
+
+		uint8_t nFlags = m_pShielded ? 1 : 0;
+		if (nFlags)
+		{
+			oracle << nFlags;
+
+			if (m_pShielded)
+			{
+				// include all the fields, in case they will become meaningful for recognition
+				oracle
+					<< m_pShielded->m_SerialPub
+					<< m_pShielded->m_Signature.m_NoncePub
+					<< m_pShielded->m_Signature.m_k
+					<< m_pShielded->m_kSer;
+			}
+		}
+
 	}
 
 	bool Output::Recover(Height hScheme, Key::IPKdf& tagKdf, Key::IDV& kidv) const
@@ -418,11 +484,261 @@ namespace beam
 	}
 
 	/////////////
+	// Shielded keygen
+	struct Output::Shielded::Data::HashTxt
+	{
+		ECC::Hash::Processor m_Processor;
+		ECC::Hash::Value m_hv;
+
+		template <uint32_t n>
+		HashTxt(const char(&sz)[n])
+		{
+			m_Processor
+				<< "Output.Shielded."
+				<< sz;
+		}
+
+		template <typename T>
+		HashTxt& operator << (const T& t) { m_Processor << t; return *this; }
+
+		void operator >> (ECC::Hash::Value& hv)
+		{
+			m_Processor >> m_hv;
+			hv = m_hv;
+		}
+
+		operator const ECC::Hash::Value& ()
+		{
+			m_Processor >> m_hv;
+			return m_hv;
+		}
+	};
+
+	void Output::Shielded::Data::DoubleBlindedCommitment(ECC::Point::Native& res, const ECC::Scalar::Native& kG, const ECC::Scalar::Native& kJ)
+	{
+		res = ECC::Context::get().G * kG;
+		res += ECC::Context::get().J * kJ;
+	}
+
+	void Output::Shielded::PublicGen::get_OwnerNonce(ECC::Hash::Value& hv, const ECC::Scalar::Native& sk) const
+	{
+		Data::HashTxt("Owner") << sk >> hv;
+	}
+
+	bool Output::Shielded::Data::IsEqual(const ECC::Point::Native& pt0, const ECC::Point& pt1)
+	{
+		// Import/Export seems to be the same complexity
+		ECC::Point pt2;
+		pt0.Export(pt2);
+		return pt2 == pt1;
+	}
+
+	bool Output::Shielded::Data::IsEqual(const ECC::Point::Native& pt0, const ECC::Point::Native& pt1)
+	{
+		ECC::Point::Native pt = -pt0;
+		pt += pt1;
+		return pt == Zero;
+	}
+
+	void Output::Shielded::Data::GenerateS0(Key::IPKdf& ser, const ECC::Hash::Value& nonce, ECC::Scalar::Native& kG, ECC::Scalar::Native& kJ)
+	{
+		ser.DerivePKey(kG, HashTxt("kG") << nonce);
+		GetSerial(kJ, kG, ser);
+	}
+
+	void Output::Shielded::Data::GenerateS1(Key::IPKdf& gen, const ECC::Point& ptShared, ECC::Scalar::Native& nG, ECC::Scalar::Native& nJ)
+	{
+		gen.DerivePKey(nG, HashTxt("nG") << ptShared);
+		gen.DerivePKey(nJ, HashTxt("nJ") << ptShared);
+	}
+
+	void Output::Shielded::Data::ToSk(Key::IPKdf& gen)
+	{
+		gen.DerivePKey(m_sk, HashTxt("sG") << m_skSerial);
+	}
+
+	void Output::Shielded::Data::GetOutputSeed(Key::IPKdf& gen, ECC::Hash::Value& res) const
+	{
+		ECC::Scalar::Native k;
+		gen.DerivePKey(k, HashTxt("seed") << m_sk);
+		ECC::Hash::Processor() << k >> res;
+	}
+
+	void Output::Shielded::Data::GetDH(ECC::Hash::Value& res, const ECC::Point& pt)
+	{
+		HashTxt("DH") << pt >> res;
+	}
+
+	void Output::Shielded::Data::GenerateS(Shielded& s, const PublicGen& gen, const ECC::Hash::Value& nonce)
+	{
+		ECC::Scalar::Native kJ, nG, nJ, e;
+		GenerateS0(*gen.m_pSer, nonce, m_skSerial, kJ);
+
+		ToSk(*gen.m_pGen);
+
+		ECC::Point::Native pt, pt1;
+		DoubleBlindedCommitment(pt, m_skSerial, kJ);
+
+		s.m_SerialPub = pt;
+
+		// DH
+		ECC::Hash::Value hv;
+		GetDH(hv, s.m_SerialPub);
+
+		gen.m_pGen->DerivePKeyG(pt, hv);
+		gen.m_pGen->DerivePKeyJ(pt1, hv);
+
+		pt = pt * m_skSerial;
+		pt += pt1 * kJ; // shared point
+
+		GenerateS1(*gen.m_pGen, pt, nG, nJ);
+
+		// generalized Schnorr's sig
+		Data::DoubleBlindedCommitment(pt, nG, nJ);
+		s.m_Signature.m_NoncePub = pt;
+
+		s.get_Hash(hv);
+		s.m_Signature.get_Challenge(e, hv);
+
+		kJ *= e;
+		kJ += nJ;
+		s.m_kSer = -kJ;
+
+		kJ = m_skSerial * e;
+		kJ += nG;
+		s.m_Signature.m_k = -kJ;
+	}
+
+	void Output::Shielded::Data::Generate(Output& outp, const PublicGen& gen, const ECC::Hash::Value& nonce)
+	{
+		outp.m_pShielded.reset(new Shielded);
+		GenerateS(*outp.m_pShielded, gen, nonce);
+		GenerateO(outp, gen);
+	}
+
+	void Output::Shielded::Data::GenerateO(Output& outp, const PublicGen& gen)
+	{
+		assert(outp.m_pShielded);
+
+		ECC::Hash::Value bpNonce;
+		gen.get_OwnerNonce(bpNonce, m_sk);
+
+		ECC::Point::Native pt = ECC::Commitment(m_sk, m_Value);
+		outp.m_Commitment = pt;
+
+		assert(m_hScheme >= Rules::get().pForks[2].m_Height);
+		ECC::Oracle oracle;
+		outp.Prepare(oracle, m_hScheme);
+
+		ECC::RangeProof::CreatorParams cp;
+		GetOutputSeed(*gen.m_pGen, cp.m_Seed.V);
+
+		ZeroObject(cp.m_Kidv);
+		cp.m_Kidv.set_Subkey(0);
+		cp.m_Kidv.m_Value = m_Value;
+
+		outp.m_pConfidential.reset(new ECC::RangeProof::Confidential);
+		outp.m_pConfidential->Create(m_sk, cp, oracle);
+	}
+
+	void Output::Shielded::Data::GetSerialPreimage(ECC::Hash::Value& res, const ECC::Scalar::Native& kG)
+	{
+		ECC::NoLeak<ECC::Scalar> sk;
+		sk.V = kG;
+		HashTxt("kG-ser") << sk.V.m_Value >> res;
+	}
+
+	void Output::Shielded::Data::GetSerial(ECC::Scalar::Native& kJ, const ECC::Scalar::Native& kG, Key::IPKdf& ser)
+	{
+		ECC::Hash::Value hv;
+		GetSerialPreimage(hv, kG);
+
+		ECC::Point::Native pt;
+		ser.DerivePKeyG(pt, hv);
+		Lelantus::SpendKey::ToSerial(kJ, pt);
+	}
+
+	void Output::Shielded::Data::GetSpendKey(ECC::Scalar::Native& sk, Key::IKdf& ser)
+	{
+		ECC::Hash::Value hv;
+		GetSerialPreimage(hv, m_skSerial);
+		ser.DeriveKey(sk, hv);
+	}
+
+	bool Output::Shielded::Data::Recover(const Output& outp, const Viewer& v)
+	{
+		if (!outp.m_pConfidential || !outp.m_pShielded)
+			return false; // ?!
+
+		const Shielded& s = *outp.m_pShielded;
+
+		ECC::Point::Native ptSer;
+		if (!ptSer.Import(s.m_SerialPub))
+			return false;
+
+		ECC::Hash::Value hv;
+		GetDH(hv, s.m_SerialPub);
+
+		ECC::Scalar::Native kJ, nG, nJ;
+		v.m_pGen->DeriveKey(kJ, hv);
+
+		ECC::Point::Native pt = ptSer * kJ; // shared point
+		GenerateS1(*v.m_pGen, pt, nG, nJ);
+
+		DoubleBlindedCommitment(pt, nG, nJ);
+		if (!IsEqual(pt, s.m_Signature.m_NoncePub))
+			return false;
+
+		m_skSerial = s.m_Signature.m_k;
+		m_skSerial += nG;
+
+		kJ = s.m_kSer;
+		kJ += nJ;
+
+		s.get_Hash(hv);
+		s.m_Signature.get_Challenge(nJ, hv);
+		nJ.Inv();
+		nJ = -nJ;
+
+		m_skSerial *= nJ;
+		kJ *= nJ;
+
+		DoubleBlindedCommitment(pt, m_skSerial, kJ);
+		if (!IsEqual(ptSer, pt))
+			return false;
+
+		GetSerial(nJ, m_skSerial, *v.m_pSer);
+		if (!(nJ == kJ))
+			return false;
+
+		// looks good!
+		ToSk(*v.m_pGen);
+
+		ECC::RangeProof::CreatorParams cp;
+		GetOutputSeed(*v.m_pGen, cp.m_Seed.V);
+
+		assert(m_hScheme >= Rules::get().pForks[2].m_Height);
+		ECC::Oracle oracle;
+		outp.Prepare(oracle, m_hScheme);
+
+		if (!outp.m_pConfidential->Recover(oracle, cp))
+			return false; // oops?
+
+		m_Value = cp.m_Kidv.m_Value;
+
+		pt = ECC::Commitment(m_sk, m_Value);
+		return IsEqual(pt, outp.m_Commitment);
+	}
+
+	/////////////
 	// TxKernel
 	bool TxKernel::Traverse(ECC::Hash::Value& hv, AmountBig::Type* pFee, ECC::Point::Native* pExcess, const TxKernel* pParent, const ECC::Hash::Value* pLockImage, const Height* pScheme) const
 	{
-		if (pScheme && (*pScheme < Rules::get().pForks[1].m_Height) && (m_CanEmbed || m_pRelativeLock))
-			return false; // unsupported for that version
+		if (pScheme)
+		{
+			if ((*pScheme < Rules::get().pForks[1].m_Height) && (m_CanEmbed || m_pRelativeLock))
+				return false; // unsupported for that version
+		}
 
 		if (pParent)
 		{
@@ -656,6 +972,8 @@ namespace beam
 	{
 		m_Output = 10;
 		m_Kernel = 10;
+		m_ShieldedInput = 1000;
+		m_ShieldedOutput = 1000;
 	}
 
 	Amount Transaction::FeeSettings::Calculate(const Transaction& t) const
@@ -664,10 +982,14 @@ namespace beam
 		for (size_t i = 0; i < t.m_vKernels.size(); i++)
 			nKernels += t.m_vKernels[i]->get_TotalCount();
 
+		uint32_t nIns, nOuts;
+		t.get_Reader().CalculateShielded(nIns, nOuts);
 
 		return
 			m_Output * t.m_vOutputs.size() +
-			m_Kernel * nKernels;
+			m_Kernel * nKernels +
+			m_ShieldedInput * nIns +
+			m_ShieldedOutput * nOuts;
 	}
 
 	template <class T>
@@ -684,16 +1006,7 @@ namespace beam
 
 	int TxBase::CmpInOut(const Input& in, const Output& out)
 	{
-		if (in.m_Maturity && !TxElement::s_IgnoreMaturity)
-			return Cast::Down<TxElement>(in).cmp(out);
-
-		// if maturity isn't overridden (as in standard txs/blocks) - we consider the commitment and the coinbase flag.
-		// In such a case the maturity parameters (such as explicit incubation) - are ignored. There's just no way to prevent the in/out elimination.
-		int n = in.m_Commitment.cmp(out.m_Commitment);
-		if (n)
-			return n;
-
-		return out.m_Coinbase ? 1 : 0;
+		return Cast::Down<TxElement>(in).cmp(out);
 	}
 
 	size_t TxVectors::Perishable::NormalizeP()
@@ -858,6 +1171,22 @@ namespace beam
 		COMPARE_TYPE(m_pKernel, NextKernel)
 	}
 
+	void TxBase::IReader::CalculateShielded(uint32_t& nIns, uint32_t& nOuts)
+	{
+		Reset();
+
+		for (nIns = 0; m_pUtxoIn; NextUtxoIn())
+		{
+			if (m_pUtxoIn->m_pSpendProof)
+				nIns++;
+		}
+
+		for (nOuts = 0; m_pUtxoOut; NextUtxoOut())
+		{
+			if (m_pUtxoOut->m_pShielded)
+				nOuts++;
+		}
+	}
 
 	void TxVectors::Reader::Clone(Ptr& pOut)
 	{
@@ -1091,8 +1420,8 @@ namespace beam
 			<< DA.WindowMedian0
 			<< DA.WindowMedian1
 			<< DA.Difficulty0.m_Packed
-			<< Macroblock.MaxRollback
-			<< Macroblock.Granularity
+			<< MaxRollback
+			<< uint32_t(720) // deprecated parameter
 			<< (uint32_t) Block::PoW::K
 			<< (uint32_t) Block::PoW::N
 			<< (uint32_t) Block::PoW::NonceType::nBits
@@ -1114,8 +1443,11 @@ namespace beam
 		oracle
 			<< "fork2"
 			<< pForks[2].m_Height
-			// TBD
-			// ...
+			<< Shielded.Enabled
+			<< uint32_t(1) // our current strategy w.r.t. allowed anonymity set in shielded inputs
+			<< Shielded.NMax
+			<< Shielded.NMin
+			<< Shielded.MaxWindowBacklog
 			// out
 			>> pForks[2].m_Hash;
 	}
@@ -1131,6 +1463,17 @@ namespace beam
 		}
 
 		return nullptr;
+	}
+
+	size_t Rules::FindFork(Height h) const
+	{
+		for (size_t i = _countof(pForks); i--; )
+		{
+			if (h >= pForks[i].m_Height)
+				return i;
+		}
+
+		return 0; // should not be reached
 	}
 
 	const HeightHash& Rules::get_LastFork() const
@@ -1271,17 +1614,34 @@ namespace beam
 		return m_PoW.Solve(hv.m_pData, hv.nBytes, m_Height, fnCancel);
 	}
 
-	bool Block::SystemState::Sequence::Element::IsValidProofUtxo(const ECC::Point& comm, const Input::Proof& p) const
+	bool Block::SystemState::Sequence::Element::IsValidProofUtxoInternal(Merkle::Hash& hv, const Merkle::Proof& p) const
 	{
 		// verify known part. Last node (history) should be at left
-		if (p.m_Proof.empty() || p.m_Proof.back().first)
+		if (p.empty() || p.back().first)
 			return false;
 
+		Merkle::Interpret(hv, p);
+		return hv == m_Definition;
+	}
+
+	bool Block::SystemState::Sequence::Element::IsValidProofUtxo(const ECC::Point& comm, const Input::Proof& p) const
+	{
 		Merkle::Hash hv;
 		p.m_State.get_ID(hv, comm);
 
-		Merkle::Interpret(hv, p.m_Proof);
-		return hv == m_Definition;
+		return IsValidProofUtxoInternal(hv, p.m_Proof);
+	}
+
+	bool Block::SystemState::Sequence::Element::IsValidProofShieldedTxo(const ECC::Point& comm, TxoID id, const Merkle::Proof& p) const
+	{
+		Merkle::Hash hv;
+
+		Input inp;
+		inp.m_Commitment = comm;
+		inp.m_Internal.m_ID = id;
+		inp.get_ShieldedID(hv);
+
+		return IsValidProofUtxoInternal(hv, p);
 	}
 
 	bool Block::SystemState::Full::IsValidProofKernel(const TxKernel& krn, const TxKernel::LongProof& proof) const

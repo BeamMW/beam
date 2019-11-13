@@ -24,13 +24,14 @@ namespace
 
 namespace beam::wallet
 {
-    QtumSide::QtumSide(BaseTransaction& tx, bitcoin::IBridge::Ptr bitcoinBridge, qtum::ISettingsProvider::Ptr settingsProvider, bool isBeamSide)
+    QtumSide::QtumSide(BaseTransaction& tx, bitcoin::IBridge::Ptr bitcoinBridge, qtum::ISettingsProvider& settingsProvider, bool isBeamSide)
         : BitcoinSide(tx, bitcoinBridge, settingsProvider, isBeamSide)
     {
     }
 
     bool QtumSide::CheckAmount(Amount amount, Amount feeRate)
     {
+        //TODO:double?
         Amount fee = static_cast<Amount>(std::round(double(kQtumWithdrawTxAverageSize * feeRate) / 1000));
         return amount > kQtumDustThreshold && amount > fee;
     }

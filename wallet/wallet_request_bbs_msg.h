@@ -25,6 +25,8 @@ struct WalletRequestBbsMsg
 {
     typedef boost::intrusive_ptr<WalletRequestBbsMsg> Ptr;
     virtual ~WalletRequestBbsMsg() {}
+
+    uint64_t m_MessageID;
 };
 
 typedef boost::intrusive::list<WalletRequestBbsMsg> BbsMsgList;

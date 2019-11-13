@@ -1,16 +1,24 @@
 import QtQuick 2.11
-import QtQuick.Controls 1.2
+import QtQuick.Layouts 1.1
 import QtQuick.Controls 2.4
-import QtQuick.Controls.Styles 1.2
-import QtGraphicalEffects 1.0
-import QtQuick.Layouts 1.3
 import Beam.Wallet 1.0
 import "controls"
 import "./utils.js" as Utils
 
 ColumnLayout {
-    id: thisView
-    property variant parentView: null
+    id: sendRegularView
+
+    property var defaultFocusItem: receiverTAInput
+
+    // callbacks set by parent
+    property var onAccepted: undefined
+    property var onClosed: undefined
+    property var onSwapToken: undefined
+
+    TopGradient {
+        mainRoot: main
+        topColor: Style.accent_outgoing
+    }
 
     function setToken(token) {
         viewModel.receiverTA = token
@@ -21,20 +29,32 @@ ColumnLayout {
         id: viewModel
 
         onSendMoneyVerified: {
-           thisView.enabled = true
-           walletView.pop()
+            onAccepted();
         }
 
         onCantSendToExpired: {
-            thisView.enabled = true;
             Qt.createComponent("send_expired.qml")
-                .createObject(thisView)
+                .createObject(sendRegularView)
                 .open();
         }
     }
 
     function isTAInputValid() {
         return viewModel.receiverTA.length == 0 || viewModel.receiverTAValid
+    }
+
+    Row {
+        Layout.alignment:    Qt.AlignHCenter
+        Layout.topMargin:    75
+        Layout.bottomMargin: 40
+
+        SFText {
+            font.pixelSize:  18
+            font.styleName:  "Bold"; font.weight: Font.Bold
+            color:           Style.content_main
+            //% "Send"
+            text:            qsTrId("send-title")
+        }
     }
 
     GridLayout  {
@@ -65,8 +85,9 @@ ColumnLayout {
                 placeholderText:  qsTrId("send-contact-placeholder")
 
                 onTextChanged: {
-                    if (BeamGlobals.isSwapToken(text)) {
-                        parentView.onSwapToken(text)
+                    if (BeamGlobals.isSwapToken(text)&&
+                        typeof onSwapToken == "function") {
+                        onSwapToken(text);
                     }
                 }
             }
@@ -78,8 +99,8 @@ ColumnLayout {
                     id:               receiverTAError
                     color:            Style.validator_error
                     font.pixelSize:   12
-                    //% "Invalid address or token"
-                    text:             qsTrId("wallet-send-invalid-token")
+                    //% "Invalid wallet address"
+                    text:             qsTrId("wallet-send-invalid-address-or-token")
                     visible:          !isTAInputValid()
                 }
             }
@@ -102,7 +123,7 @@ ColumnLayout {
                 hasFee:           true
                 color:            Style.accent_outgoing
                 //% "Insufficient funds: you would need %1 to complete the transaction"
-                error:            viewModel.isEnough ? "" : qsTrId("send-founds-fail").arg(Utils.formatAmount(viewModel.missing))
+                error:            viewModel.isEnough ? "" : qsTrId("send-founds-fail").arg(Utils.uiStringToLocale(viewModel.missing))
             }
 
             Binding {
@@ -186,7 +207,7 @@ ColumnLayout {
                 Layout.topMargin:   15
                 Layout.rightMargin: 25
                 error:              !viewModel.isEnough
-                amount:             viewModel.sendAmount
+                amount:             viewModel.totalUTXO
             }
 
             SFText {
@@ -237,7 +258,7 @@ ColumnLayout {
                 Layout.topMargin:    15
                 Layout.rightMargin:  25
                 Layout.bottomMargin: 20
-                error:               viewModel.available < 0
+                error:               !viewModel.isEnough
                 amount:              viewModel.available
             }
         }
@@ -252,7 +273,7 @@ ColumnLayout {
             //% "Back"
             text:        qsTrId("general-back")
             icon.source: "qrc:/assets/icon-back.svg"
-            onClicked:   walletView.pop();
+            onClicked:   onClosed();
         }
 
         CustomButton {
@@ -262,15 +283,21 @@ ColumnLayout {
             palette.button:     Style.accent_outgoing
             icon.source:        "qrc:/assets/icon-send-blue.svg"
             enabled:            viewModel.canSend
-            onClicked: {
-                const dialog       = Qt.createComponent("send_confirm.qml").createObject(thisView);
-                dialog.addressText = viewModel.receiverAddress;
-                //% "BEAM"
-                dialog.amountText  = [Utils.formatAmount(viewModel.sendAmount), qsTrId("general-beam")].join(" ")
-                //% "GROTH"
-                dialog.feeText     = [Utils.formatAmount(viewModel.feeGrothes), qsTrId("general-groth")].join(" ")
-                dialog.y = dialog.y - 36;
-                dialog.open();
+            onClicked: {                
+                const dialogComponent = Qt.createComponent("send_confirm.qml");
+                const dialogObject = dialogComponent.createObject(sendRegularView,
+                    {
+                        addressText: viewModel.receiverAddress,
+                        //% "BEAM"
+                        amountText: [Utils.uiStringToLocale(viewModel.sendAmount), qsTrId("general-beam")].join(" "),
+                        //% "GROTH"
+                        feeText: [Utils.uiStringToLocale(viewModel.feeGrothes), qsTrId("general-groth")].join(" "),
+                        onAcceptedCallback: acceptedCallback
+                    }).open();
+
+                function acceptedCallback() {
+                    viewModel.sendMoney();
+                }
             }
         }
     }

@@ -56,11 +56,33 @@ namespace std
         switch (value)
         {
         case beam::wallet::AtomicSwapCoin::Bitcoin:
-            return "btc";
+            return "BTC";
         case beam::wallet::AtomicSwapCoin::Litecoin:
-            return "ltc";
+            return "LTC";
         case beam::wallet::AtomicSwapCoin::Qtum:
-            return "qtum";
+            return "QTUM";
+        default:
+            return "";
+        }
+    }
+
+    string to_string(beam::wallet::SwapOfferStatus status)
+    {
+        switch (status)
+        {
+        case beam::wallet::SwapOfferStatus::Pending:
+            return "Pending";
+        case beam::wallet::SwapOfferStatus::InProgress:
+            return "InProgress";
+        case beam::wallet::SwapOfferStatus::Completed:
+            return "Completed";
+        case beam::wallet::SwapOfferStatus::Canceled:
+            return "Canceled";
+        case beam::wallet::SwapOfferStatus::Expired:
+            return "Expired";
+        case beam::wallet::SwapOfferStatus::Failed:
+            return "Failed";
+
         default:
             return "";
         }
@@ -103,7 +125,7 @@ namespace std
         s.swap_buf(buffer);
         return beam::wallet::EncodeToBase58(buffer);
     }
-}
+}  // namespace std
 
 namespace beam
 {
@@ -308,7 +330,7 @@ namespace beam::wallet
         return *this;
     }
 
-    PackedTxParameters TxParameters::GetParameters() const
+    PackedTxParameters TxParameters::Pack() const
     {
         PackedTxParameters parameters;
         for (const auto& subTx : m_Parameters)
@@ -328,7 +350,7 @@ namespace beam::wallet
     TxToken::TxToken(const TxParameters& parameters)
         : m_Flags(TxToken::TokenFlag)
         , m_TxID(parameters.GetTxID())
-        , m_Parameters(parameters.GetParameters())
+        , m_Parameters(parameters.Pack())
     {
 
     }
@@ -402,6 +424,37 @@ namespace beam::wallet
         return {};
     }
 
+    void SwapOffer::SetTxParameters(const PackedTxParameters& parameters)
+    {
+        // Do not forget to set other SwapOffer members also!
+        SubTxID subTxID = kDefaultSubTxID;
+        Deserializer d;
+        for (const auto& p : parameters)
+        {
+            if (p.first == TxParameterID::SubTxIndex)
+            {
+                // change subTxID
+                d.reset(p.second.data(), p.second.size());
+                d & subTxID;
+                continue;
+            }
+
+            SetParameter(p.first, p.second, subTxID);
+        }
+    }
+
+    SwapOffer SwapOfferToken::Unpack() const
+    {
+        SwapOffer result(m_TxID);
+        result.SetTxParameters(m_Parameters);
+
+        if (m_TxID) result.m_txId = *m_TxID;
+        if (m_status) result.m_status = *m_status;
+        if (m_publisherId) result.m_publisherId = *m_publisherId;
+        if (m_coin) result.m_coin = *m_coin;
+        return result;
+    }
+
     bool TxDescription::canResume() const
     {
         return m_status == TxStatus::Pending
@@ -419,7 +472,7 @@ namespace beam::wallet
     {
         return m_status == TxStatus::Failed
             || m_status == TxStatus::Completed
-            || m_status == TxStatus::Cancelled;
+            || m_status == TxStatus::Canceled;
     }
 
     std::string TxDescription::getStatusString() const
@@ -429,9 +482,21 @@ namespace beam::wallet
         case TxStatus::Pending:
             return "pending";
         case TxStatus::InProgress:
+        {
+            if (m_selfTx)
+            {
+                return "self sending";
+            }
             return m_sender == false ? "waiting for sender" : "waiting for receiver";
+        }
         case TxStatus::Registering:
+        {
+            if (m_selfTx)
+            {
+                return "self sending";
+            }
             return m_sender == false ? "receiving" : "sending";
+        }
         case TxStatus::Completed:
         {
             if (m_selfTx)
@@ -440,7 +505,7 @@ namespace beam::wallet
             }
             return m_sender == false ? "received" : "sent";
         }
-        case TxStatus::Cancelled:
+        case TxStatus::Canceled:
             return "cancelled";
         case TxStatus::Failed:
             if (TxFailureReason::TransactionExpired == m_failureReason)

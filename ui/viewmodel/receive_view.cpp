@@ -26,12 +26,11 @@ namespace {
 }
 
 ReceiveViewModel::ReceiveViewModel()
-    : _amountToReceive(0.0)
+    : _amountToReceiveGrothes(0)
     , _addressExpires(AddressExpires)
     , _qr(std::make_unique<QR>())
     , _walletModel(*AppModel::getInstance().getWallet())
 {
-    LOG_INFO() << "ReceiveViewModel created";
     connect(_qr.get(), &QR::qrDataChanged, this, &ReceiveViewModel::onReceiverQRChanged);
     connect(&_walletModel, &WalletModel::generatedNewAddress, this, &ReceiveViewModel::onGeneratedNewAddress);
     connect(&_walletModel, &WalletModel::newAddressFailed, this, &ReceiveViewModel::newAddressFailed);
@@ -42,7 +41,6 @@ ReceiveViewModel::ReceiveViewModel()
 ReceiveViewModel::~ReceiveViewModel()
 {
     disconnect(_qr.get(), &QR::qrDataChanged, this, &ReceiveViewModel::onReceiverQRChanged);
-    LOG_INFO() << "ReceiveViewModel destroyed";
 }
 
 void ReceiveViewModel::onGeneratedNewAddress(const beam::wallet::WalletAddress& addr)
@@ -54,18 +52,18 @@ void ReceiveViewModel::onGeneratedNewAddress(const beam::wallet::WalletAddress& 
     updateTransactionToken();
 }
 
-double ReceiveViewModel::getAmountToReceive() const
+QString ReceiveViewModel::getAmountToReceive() const
 {
-    return _amountToReceive;
+    return beamui::AmountToUIString(_amountToReceiveGrothes);
 }
 
-void ReceiveViewModel::setAmountToReceive(double value)
+void ReceiveViewModel::setAmountToReceive(QString value)
 {
-    LOG_INFO() << "amount to receive " << value;
-    if (value != _amountToReceive)
+    auto amount = beamui::UIStringToAmount(value);
+    if (amount != _amountToReceiveGrothes)
     {
-        _amountToReceive = value;
-        _qr->setAmount(_amountToReceive);
+        _amountToReceiveGrothes = amount;
+        _qr->setAmount(_amountToReceiveGrothes);
         emit amountToReceiveChanged();
         updateTransactionToken();
     }
@@ -73,7 +71,6 @@ void ReceiveViewModel::setAmountToReceive(double value)
 
 void ReceiveViewModel::setAddressExpires(int value)
 {
-    LOG_INFO() << "address expires " << value;
     if (value != _addressExpires)
     {
         _addressExpires = value;
@@ -137,7 +134,6 @@ bool ReceiveViewModel::getCommentValid() const
 
 void ReceiveViewModel::setAddressComment(const QString& value)
 {
-    LOG_INFO() << "address comment " << value.toStdString();
     auto trimmed = value.trimmed();
     if (_addressComment != trimmed)
     {
@@ -160,9 +156,8 @@ void ReceiveViewModel::saveAddress()
 
 void ReceiveViewModel::updateTransactionToken()
 {
-    _txParameters.SetParameter(beam::wallet::TxParameterID::Amount, static_cast<beam::Amount>(std::round(_amountToReceive * beam::Rules::Coin)));
+    _txParameters.SetParameter(beam::wallet::TxParameterID::Amount, _amountToReceiveGrothes);
     _txParameters.SetParameter(beam::wallet::TxParameterID::PeerID, _receiverAddress.m_walletID);
     _txParameters.SetParameter(beam::wallet::TxParameterID::TransactionType, beam::wallet::TxType::Simple);
-
     setTranasctionToken(QString::fromStdString(std::to_string(_txParameters)));
 }

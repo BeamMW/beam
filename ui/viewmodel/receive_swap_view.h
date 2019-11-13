@@ -20,22 +20,23 @@
 class ReceiveSwapViewModel: public QObject
 {
     Q_OBJECT
-    Q_PROPERTY(double   amountToReceive    READ getAmountToReceive    WRITE  setAmountToReceive  NOTIFY  amountToReceiveChanged)
-    Q_PROPERTY(double   amountSent         READ getAmountSent         WRITE  setAmountSent       NOTIFY  amountSentChanged)
-    Q_PROPERTY(int      receiveFee         READ getReceiveFee         WRITE  setReceiveFee       NOTIFY  receiveFeeChanged)
-    Q_PROPERTY(int      sentFee            READ getSentFee            WRITE  setSentFee          NOTIFY  sentFeeChanged)
-    Q_PROPERTY(int      offerExpires       READ getOfferExpires       WRITE  setOfferExpires     NOTIFY  offerExpiresChanged)
-    Q_PROPERTY(QString  addressComment     READ getAddressComment     WRITE  setAddressComment   NOTIFY  addressCommentChanged)
-    Q_PROPERTY(QString  receiverAddress    READ getReceiverAddress                               NOTIFY  receiverAddressChanged)
-    Q_PROPERTY(QString  transactionToken   READ getTransactionToken   WRITE  setTransactionToken NOTIFY  transactionTokenChanged)
-    Q_PROPERTY(bool     commentValid       READ getCommentValid                                  NOTIFY  commentValidChanged)
+    Q_PROPERTY(QString       amountToReceive    READ getAmountToReceive    WRITE  setAmountToReceive   NOTIFY  amountToReceiveChanged)
+    Q_PROPERTY(QString       amountSent         READ getAmountSent         WRITE  setAmountSent        NOTIFY  amountSentChanged)
+    Q_PROPERTY(unsigned int  receiveFee         READ getReceiveFee         WRITE  setReceiveFee        NOTIFY  receiveFeeChanged)
+    Q_PROPERTY(unsigned int  sentFee            READ getSentFee            WRITE  setSentFee           NOTIFY  sentFeeChanged)
+    Q_PROPERTY(int           offerExpires       READ getOfferExpires       WRITE  setOfferExpires      NOTIFY  offerExpiresChanged)
+    Q_PROPERTY(QString       addressComment     READ getAddressComment     WRITE  setAddressComment    NOTIFY  addressCommentChanged)
+    Q_PROPERTY(QString       receiverAddress    READ getReceiverAddress                                NOTIFY  receiverAddressChanged)
+    Q_PROPERTY(QString       transactionToken   READ getTransactionToken   WRITE  setTransactionToken  NOTIFY  transactionTokenChanged)
+    Q_PROPERTY(bool          commentValid       READ getCommentValid                                   NOTIFY  commentValidChanged)
+    Q_PROPERTY(bool          isEnough           READ isEnough                                          NOTIFY  enoughChanged)
+    Q_PROPERTY(bool          isGreatThanFee      READ isGreatThanFee                                   NOTIFY  lessThanFeeChanged)
 
     Q_PROPERTY(WalletCurrency::Currency  receiveCurrency    READ getReceiveCurrency    WRITE  setReceiveCurrency  NOTIFY  receiveCurrencyChanged)
     Q_PROPERTY(WalletCurrency::Currency  sentCurrency       READ getSentCurrency       WRITE  setSentCurrency     NOTIFY  sentCurrencyChanged)
 
 public:
     ReceiveSwapViewModel();
-    ~ReceiveSwapViewModel() override;
 
 signals:
     void amountToReceiveChanged();
@@ -50,6 +51,8 @@ signals:
     void transactionTokenChanged();
     void newAddressFailed();
     void commentValidChanged();
+    void enoughChanged();
+    void lessThanFeeChanged();
 
 public:
     Q_INVOKABLE void generateNewAddress();
@@ -58,17 +61,17 @@ public:
     Q_INVOKABLE void publishToken();
 
 private:
-    double getAmountToReceive() const;
-    void   setAmountToReceive(double value);
+    QString getAmountToReceive() const;
+    void   setAmountToReceive(QString value);
 
-    double getAmountSent() const;
-    void   setAmountSent(double value);
+    QString getAmountSent() const;
+    void   setAmountSent(QString value);
 
-    int  getReceiveFee() const;
-    void setReceiveFee(int value);
+    unsigned int getReceiveFee() const;
+    void setReceiveFee(unsigned int value);
 
-    int  getSentFee() const;
-    void setSentFee(int value);
+    unsigned int getSentFee() const;
+    void setSentFee(unsigned int value);
 
     Currency  getReceiveCurrency() const;
     void setReceiveCurrency(Currency value);
@@ -88,26 +91,27 @@ private:
     QString getTransactionToken() const;
 
     bool getCommentValid() const;
+    bool isEnough() const;
+    bool isGreatThanFee() const;
 
     void updateTransactionToken();
 
 private slots:
     void onGeneratedNewAddress(const beam::wallet::WalletAddress& walletAddr);
-    void onNewAddressFailed();
-    void onWalletStatus(const beam::wallet::WalletStatus& status);
 
 private:
-    double  _amountToReceive;
-    double  _amountSent;
-    int     _receiveFee;
-    int     _sentFee;
+    beam::Amount _amountToReceiveGrothes;
+    beam::Amount _amountSentGrothes;
+    beam::Amount _receiveFeeGrothes;
+    beam::Amount _sentFeeGrothes;
+
     Currency  _receiveCurrency;
     Currency  _sentCurrency;
-    int     _offerExpires;
-    QString _addressComment;
-    QString _token;
+    int       _offerExpires;
+    QString   _addressComment;
+    QString   _token;
+
     beam::wallet::WalletAddress _receiverAddress;
     WalletModel& _walletModel;
     beam::wallet::TxParameters _txParameters;
-    beam::Height _currentHeight;
 };

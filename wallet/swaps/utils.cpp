@@ -29,7 +29,7 @@ namespace beam::wallet
         static const char* SendingBeamRefundTX = "sending Beam RefundTX";
         static const char* SendingBeamRedeemTX = "sending Beam RedeemTX";
         static const char* Completed = "completed";
-        static const char* Cancelled = "cancelled";
+        static const char* Canceled = "cancelled";
         static const char* Aborted = "aborted";
         static const char* Failed = "failed";
 
@@ -57,8 +57,8 @@ namespace beam::wallet
             return SendingBeamRedeemTX;
         case wallet::AtomicSwapTransaction::State::CompleteSwap:
             return Completed;
-        case wallet::AtomicSwapTransaction::State::Cancelled:
-            return Cancelled;
+        case wallet::AtomicSwapTransaction::State::Canceled:
+            return Canceled;
         case wallet::AtomicSwapTransaction::State::Refunded:
             return Aborted;
         case wallet::AtomicSwapTransaction::State::Failed:

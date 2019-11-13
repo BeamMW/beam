@@ -12,7 +12,6 @@
         <file>controls/SFText.qml</file>
         <file>controls/SFTextInput.qml</file>
         <file>controls/AvailablePanel.qml</file>
-        <file>controls/SecondaryPanel.qml</file>
         <file>controls/Led.qml</file>
         <file>controls/TxFilter.qml</file>
         <file>controls/TableItem.qml</file>
@@ -32,8 +31,11 @@
         <file>controls/AmountInput.qml</file>
         <file>controls/FeeInput.qml</file>
         <file>controls/IPAddrInput.qml</file>
+        <file>controls/ExternalNodeStatus.qml</file>
         <file>controls/SwapNodeSettings.qml</file>
         <file>controls/LinkButton.qml</file>
+        <file>controls/TokenDuplicateChecker.qml</file>
+        <file>controls/TopGradient.qml</file>
         <file>popup_message.qml</file>
         <file>root.qml</file>
         <file>start.qml</file>
@@ -46,7 +48,6 @@
         <file>addresses.qml</file>
         <file>utxo.qml</file>
         <file>atomic_swap.qml</file>
-        <file>receive.qml</file>
         <file>receive_regular.qml</file>
         <file>receive_swap.qml</file>
         <file>send.qml</file>
@@ -93,7 +94,6 @@
         <file>assets/icon-atomic_swap.svg</file>
         <file>assets/icon-atomic_swap-active.svg</file>
         <file>assets/icon-wallet-small.svg</file>
-        <file>assets/loading-spinner.svg</file>
         <file>assets/icon-notification.svg</file>
         <file>assets/icon-notification-active.svg</file>
         <file>assets/icon-info.svg</file>
@@ -102,19 +102,34 @@
         <file>assets/icon-settings-active.svg</file>
         <file>assets/icon-settings-blue.svg</file>
         <file>assets/icon-settings-white.svg</file>
+        <file>assets/icon-sending.svg</file>
         <file>assets/icon-sent.svg</file>
+        <file>assets/icon-send-failed.svg</file>
+        <file>assets/icon-send-canceled.svg</file>
+        <file>assets/icon-sending-own.svg</file>
+        <file>assets/icon-sent-own.svg</file>
+        <file>assets/icon-receiving.svg</file>
         <file>assets/icon-received.svg</file>
+        <file>assets/icon-receive-failed.svg</file>
+        <file>assets/icon-receive-canceled.svg</file>
+        <file>assets/icon-failed.svg</file>
+        <file>assets/icon-swap-in-progress.svg</file>
+        <file>assets/icon-swap-canceled.svg</file>
+        <file>assets/icon-swap-completed.svg</file>
+        <file>assets/icon-swap-failed.svg</file>
         <file>assets/icon-comment.svg</file>
         <file>assets/icon-send-grey.svg</file>
         <file>assets/icon-recive-grey.svg</file>
         <file>assets/icon-transaction-list.svg</file>
         <file>assets/icon-edit.svg</file>
+        <file>assets/icon-expired.svg</file>
         <file>assets/icon-external-link.svg</file>
         <file>assets/icon-external-link-black.svg</file>
         <file>assets/icon-external-link-green.svg</file>
         <file>assets/icon-cancel.svg</file>
         <file>assets/icon-cancel-16.svg</file>
         <file>assets/icon-cancel-white.svg</file>
+        <file>assets/icon-cancel-black.svg</file>
         <file>assets/icon-done.svg</file>
         <file>assets/icon-add.svg</file>
         <file>assets/icon-add-blue.svg</file>
@@ -128,6 +143,7 @@
         <file>assets/icon-send-blue.svg</file>
         <file>assets/icon-password.svg</file>
         <file>assets/icon-share.svg</file>
+        <file>assets/icon-search.svg</file>
         <file>controls/AddressComboBox.qml</file>
         <file>controls/CustomRadioButton.qml</file>
         <file>assets/icon-actions.svg</file>
@@ -161,6 +177,8 @@
         <file>controls/AddressTable.qml</file>
         <file>assets/icon-transactions.svg</file>
         <file>controls/StatusBar.qml</file>
+        <file>controls/Title.qml</file>
+        <file>controls/SearchBox.qml</file>
         <file>assets/icon-maturing.svg</file>
         <file>assets/icon-padlock.svg</file>
         <file>controls/EditAddress.qml</file>
@@ -172,11 +190,17 @@
         <file>assets/icon-proof.svg</file>
         <file>assets/icon-qr.svg</file>
         <file>controls/TransactionDetails.qml</file>
+        <file>controls/SwapTransactionDetails.qml</file>
         <file>controls/PaymentInfoDialog.qml</file>
         <file>assets/icon-copy-blue.svg</file>
         <file>assets/icon-details.svg</file>
         <file>assets/beta-label.svg</file>
+        <file>assets/icon-accept-offer.svg</file>
+        <file>assets/icon-create-offer.svg</file>
+        <file>assets/atomic-empty-state.svg</file>
+        <file>assets/icon-connect.svg</file>
         <file>controls/OpenExternalLinkConfirmation.qml</file>
+        <file>controls/SeedInput.qml</file>
         <file>utils.js</file>
         <file>qmldir</file>
     </qresource>

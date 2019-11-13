@@ -8,15 +8,24 @@ import Beam.Wallet 1.0
 import "controls"
 
 ColumnLayout {
-    id: thisView
+    id: receiveView
+
     property var defaultFocusItem: addressComment
+
+    // callbacks set by parent
+    property var onClosed: undefined
+
+    TopGradient {
+        mainRoot: main
+        topColor: Style.accent_incoming
+    }
 
     ReceiveViewModel {
         id: viewModel
         onNewAddressFailed: {
             walletView.enabled = true
             var popup = Qt.createComponent("popup_message.qml")
-                .createObject(thisView)
+                .createObject(receiveView)
 
             //% "You cannot generate new address. Your wallet doesn't have a master key."
             popup.message = qsTrId("can-not-generate-new-address-message")
@@ -28,8 +37,19 @@ ColumnLayout {
         return viewModel.commentValid
     }
 
-    function saveAddress() {
-        if (viewModel.commentValid) viewModel.saveAddress()
+    Item {
+        Layout.fillWidth:    true
+        Layout.topMargin:    75
+        Layout.bottomMargin: 50
+
+        SFText {
+            x:                   parent.width / 2 - width / 2
+            font.pixelSize:      18
+            font.styleName:      "Bold"; font.weight: Font.Bold
+            color:               Style.content_main
+            //% "Receive"
+            text:                qsTrId("wallet-receive-title")
+        }
     }
 
     RowLayout {
@@ -255,7 +275,10 @@ ColumnLayout {
             text:               qsTrId("general-close")
             palette.buttonText: Style.content_main
             icon.source:        "qrc:/assets/icon-cancel-white.svg"
-            onClicked:          walletView.pop();
+            onClicked:          {
+                if (receiveView.isValid()) viewModel.saveAddress();
+                onClosed();
+            }
         }
 
         CustomButton {
@@ -266,7 +289,7 @@ ColumnLayout {
             palette.button:     Style.active
             icon.source:        "qrc:/assets/icon-copy.svg"
             onClicked:          BeamGlobals.copyToClipboard(viewModel.receiverAddress)
-            enabled:            thisView.isValid()
+            enabled:            receiveView.isValid()
         }
     }
 

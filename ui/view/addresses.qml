@@ -24,11 +24,7 @@ ColumnLayout {
 
     anchors.fill: parent
     state: "active"
-	SFText {
-        Layout.minimumHeight: 40
-        Layout.maximumHeight: 40
-        font.pixelSize: 36
-        color: Style.content_main
+	Title {
         //% "Addresses"
         text: qsTrId("addresses-tittle")
     }
@@ -56,7 +52,7 @@ ColumnLayout {
         
         background: Rectangle {
             radius: 10
-            color: Style.background_second
+            color: Style.background_popup
             anchors.fill: parent
         }
 
@@ -191,11 +187,9 @@ ColumnLayout {
         Layout.minimumHeight: 40
         Layout.maximumHeight: 40
         Layout.topMargin: 54
-        spacing: 40
 
         TxFilter{
             id: activeAddressesFilter
-            Layout.leftMargin: 20
             //% "My active addresses"
             label: qsTrId("addresses-tab-active")
             onClicked: addressRoot.state = "active"
@@ -293,6 +287,12 @@ ColumnLayout {
             selectionMode: SelectionMode.NoSelection
             backgroundVisible: false
             model: viewModel.contacts
+            sortIndicatorVisible: true
+            sortIndicatorColumn: 0
+            sortIndicatorOrder: Qt.AscendingOrder
+            onSortIndicatorColumnChanged: {
+                sortIndicatorOrder = Qt.AscendingOrder;
+            }
 
             TableViewColumn {
                 role: viewModel.nameRole

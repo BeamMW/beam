@@ -18,6 +18,11 @@
 
 namespace beam::bitcoin
 {
+    uint64_t btc_to_satoshi(double btc)
+    {
+        return static_cast<uint64_t>(std::round(btc * libbitcoin::satoshi_per_bitcoin));
+    }
+
     uint8_t getAddressVersion()
     {
 #ifdef BEAM_MAINNET
@@ -36,5 +41,55 @@ namespace beam::bitcoin
     std::vector<std::string> createElectrumMnemonic(const std::vector<uint8_t>& entropy)
     {
         return libbitcoin::wallet::electrum::create_mnemonic(entropy);
+    }
+
+    std::pair<libbitcoin::wallet::hd_private, libbitcoin::wallet::hd_private> generateElectrumMasterPrivateKeys(const std::vector<std::string>& words)
+    {
+        auto hd_seed = libbitcoin::wallet::electrum::decode_mnemonic(words);
+        libbitcoin::data_chunk seed_chunk(libbitcoin::to_chunk(hd_seed));
+#ifdef BEAM_MAINNET
+        libbitcoin::wallet::hd_private masterPrivateKey(seed_chunk, libbitcoin::wallet::hd_public::mainnet);
+#else
+        libbitcoin::wallet::hd_private masterPrivateKey(seed_chunk, libbitcoin::wallet::hd_public::testnet);
+#endif
+
+        return std::make_pair(masterPrivateKey.derive_private(0), masterPrivateKey.derive_private(1));
+    }
+
+    std::string getElectrumAddress(const libbitcoin::wallet::hd_private& privateKey, uint32_t index, uint8_t addressVersion)
+    {
+        libbitcoin::wallet::ec_public publicKey(privateKey.to_public().derive_public(index).point());
+        libbitcoin::wallet::payment_address address = publicKey.to_payment_address(addressVersion);
+
+        return address.encoded();
+    }
+
+    std::vector<std::string> generateReceivingAddresses(const std::vector<std::string>& words, uint32_t amount, uint8_t addressVersion)
+    {
+        std::vector<std::string> addresses;
+        auto masterKey = generateElectrumMasterPrivateKeys(words).first;
+
+        for (uint32_t index = 0; index < amount; index++)
+        {
+            addresses.push_back(getElectrumAddress(masterKey, index, addressVersion));
+        }
+        return addresses;
+    }
+
+    std::vector<std::string> generateChangeAddresses(const std::vector<std::string>& words, uint32_t amount, uint8_t addressVersion)
+    {
+        std::vector<std::string> addresses;
+        auto masterKey = generateElectrumMasterPrivateKeys(words).second;
+
+        for (uint32_t index = 0; index < amount; index++)
+        {
+            addresses.push_back(getElectrumAddress(masterKey, index, addressVersion));
+        }
+        return addresses;
+    }
+
+    bool isAllowedWord(const std::string& word)
+    {
+        return std::binary_search(libbitcoin::wallet::language::electrum::en.begin(), libbitcoin::wallet::language::electrum::en.end(), word);
     }
 } // namespace beam::bitcoin

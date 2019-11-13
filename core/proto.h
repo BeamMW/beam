@@ -84,6 +84,13 @@ namespace proto {
     macro(ECC::Point, Utxo) \
     macro(Height, MaturityMin) /* set to non-zero in case the result is too big, and should be retrieved within multiple queries */
 
+#define BeamNodeMsg_GetProofShieldedTxo(macro) \
+    macro(ECC::Point, Commitment)
+
+#define BeamNodeMsg_GetShieldedList(macro) \
+    macro(TxoID, Id0) \
+	macro(uint32_t, Count)
+
 #define BeamNodeMsg_GetProofChainWork(macro) \
     macro(Difficulty::Raw, LowerBound)
 
@@ -97,6 +104,13 @@ namespace proto {
 
 #define BeamNodeMsg_ProofUtxo(macro) \
     macro(std::vector<Input::Proof>, Proofs)
+
+#define BeamNodeMsg_ProofShieldedTxo(macro) \
+    macro(Merkle::Proof, Proof) \
+    macro(TxoID, ID)
+
+#define BeamNodeMsg_ShieldedList(macro) \
+    macro(std::vector<ECC::Point::Storage>, Items)
 
 #define BeamNodeMsg_ProofState(macro) \
     macro(Merkle::HardProof, Proof)
@@ -179,16 +193,6 @@ namespace proto {
     macro(uint8_t, IDType) \
     macro(ECC::Signature, Sig)
 
-#define BeamNodeMsg_MacroblockGet(macro) \
-    macro(Block::SystemState::ID, ID) \
-    macro(uint8_t, Data) \
-    macro(uint64_t, Offset)
-
-#define BeamNodeMsg_Macroblock(macro) \
-    macro(Block::SystemState::ID, ID) \
-    macro(ByteBuffer, Portion) \
-    macro(uint64_t, SizeTotal)
-
 #define BeamNodeMsg_GetUtxoEvents(macro) \
     macro(Height, HeightMin)
 
@@ -236,14 +240,18 @@ namespace proto {
     macro(0x1c, ProofUtxo) \
     macro(0x1d, GetProofChainWork) \
     macro(0x1e, ProofChainWork) \
-    macro(0x20, MacroblockGet) \
-    macro(0x21, Macroblock) \
+    /* macro(0x20, MacroblockGet) Deprecated */ \
+    /* macro(0x21, Macroblock) Deprecated */ \
     macro(0x22, GetCommonState) \
     macro(0x23, ProofCommonState) \
     macro(0x24, GetProofKernel2) \
     macro(0x25, ProofKernel2) \
     macro(0x26, GetBodyPack) \
     macro(0x27, BodyPack) \
+    macro(0x28, GetProofShieldedTxo) \
+    macro(0x29, ProofShieldedTxo) \
+    macro(0x2a, GetShieldedList) \
+    macro(0x2b, ShieldedList) \
     /* onwer-relevant */ \
     macro(0x2c, GetUtxoEvents) \
     macro(0x2d, UtxoEvents) \

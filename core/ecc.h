@@ -132,10 +132,12 @@ namespace ECC
 		int cmp(const Point&) const;
 		COMPARISON_VIA_CMP
 
-
 		Point& operator = (const Native&);
 		Point& operator = (const Point&);
 		Point& operator = (const Commitment&);
+
+		struct Storage; // affine form, platform-independent.
+		struct Compact; // affine form, platform-dependent. For internal tables
 	};
 
 	std::ostream& operator << (std::ostream&, const Point&);
@@ -156,8 +158,8 @@ namespace ECC
 		Point m_NoncePub;
 		Scalar m_k;
 
-		bool IsValid(const Hash::Value& msg, const Point::Native& pk) const;
-		bool IsValidPartial(const Hash::Value& msg, const Point::Native& pubNonce, const Point::Native& pk) const;
+		bool IsValid(const Hash::Value& msg, const Point::Native& pk, const Scalar* pSer = nullptr) const;
+		bool IsValidPartial(const Hash::Value& msg, const Point::Native& pubNonce, const Point::Native& pk, const Scalar* pSer = nullptr) const;
 
 		// simple signature
 		void Sign(const Hash::Value& msg, const Scalar::Native& sk);
@@ -168,6 +170,7 @@ namespace ECC
 		int cmp(const Signature&) const;
 		COMPARISON_VIA_CMP
 
+		void get_Challenge(Scalar::Native&, const Hash::Value& msg) const;
 	private:
 		static void get_Challenge(Scalar::Native&, const Point&, const Hash::Value& msg);
 	};
@@ -344,9 +347,20 @@ namespace ECC
 		static void get_Dot(Scalar::Native& res, const Scalar::Native* pA, const Scalar::Native* pB);
 
 		// optional modifier for the used generators. Needed for the bulletproof.
-		struct Modifier {
-			const Scalar::Native* m_pMultiplier[2];
-			Modifier() { ZeroObject(m_pMultiplier); }
+		struct Modifier
+		{
+			struct Channel;
+
+			Channel* m_ppC[2]; // multipliers to vector elements
+			const Scalar::Native* m_pAmbient; // multiplier to all the other elements: LR and G
+
+			void Set(Scalar::Native& dst, const Scalar::Native& src, int i, int j) const;
+
+			Modifier()
+				:m_ppC{ 0 }
+				,m_pAmbient(nullptr)
+			{
+			}
 		};
 
 		void Create(Point::Native& commAB, const Scalar::Native& dotAB, const Scalar::Native* pA, const Scalar::Native* pB, const Modifier& = Modifier());
@@ -398,6 +412,7 @@ namespace ECC
 
 			struct Part3 {
 				Scalar m_TauX;
+				int cmp(const Part3& v) const { return m_TauX.cmp(v.m_TauX); }
 			} m_Part3;
 
 			Scalar m_Mu;
@@ -421,16 +436,16 @@ namespace ECC
 			int cmp(const Confidential&) const;
 			COMPARISON_VIA_CMP
 
+			struct Nonces;
+
 			// multisig
 			struct MultiSig
 			{
 				Part1 m_Part1;
 				Part2 m_Part2;
 
-				struct Impl;
-
-				static bool CoSignPart(const uintBig& seedSk, Part2&);
-				void CoSignPart(const uintBig& seedSk, const Scalar::Native& sk, Oracle&, Part3&) const;
+				static bool CoSignPart(const Nonces&, Part2&);
+				void CoSignPart(const Nonces&, const Scalar::Native& sk, Oracle&, Part3&) const;
 			};
 
 			struct Phase {
@@ -442,7 +457,7 @@ namespace ECC
 				};
 			};
 
-			bool CoSign(const uintBig& seedSk, const Scalar::Native& sk, const CreatorParams&, Oracle&, Phase::Enum, const Point::Native* pHGen = nullptr);
+			bool CoSign(const Nonces&, const Scalar::Native& sk, const CreatorParams&, Oracle&, Phase::Enum, const Point::Native* pHGen = nullptr);
 
             static void GenerateSeed(uintBig& seedSk, const Scalar::Native& sk, Amount amount, Oracle& oracle);
 

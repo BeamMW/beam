@@ -193,12 +193,12 @@ void LoadingViewModel::updateProgress()
 
         if (m_hasLocalNode)
         {
-            //% "Downloading new blocks"
+            //% "Synching with blockchain"
             progressMessage = qtTrId("loading-view-download-blocks");
         }
         else
         {
-            //% "Scanning new blocks %d/%d"
+            //% "Loading wallet data %d/%d"
             progressMessage = QString::asprintf(
                 qtTrId("loading-view-scaning-utxo").toStdString().c_str(),
                 m_done,
@@ -219,7 +219,7 @@ void LoadingViewModel::updateProgress()
         }
         else if (detectNetworkProblems())
         {
-            //% "It may take longer when usual. Please, check your network."
+            //% "It may take longer then usual. Please, check your network."
             estimateStr = qtTrId("loading-view-net-problems");
         }
         else
@@ -240,7 +240,7 @@ void LoadingViewModel::updateProgress()
        m_hasLocalNode = AppModel::getInstance().getSettings().getRunLocalNode();
         if (m_hasLocalNode)
         {
-            //% "Scanning existing blocks"
+            //% "Rebuilding wallet data"
             progressMessage = qtTrId("loading-view-rebuild-utxos");
             progress = kRebuildUTXOProgressCoefficient * m_nodeInitProgress;
         }

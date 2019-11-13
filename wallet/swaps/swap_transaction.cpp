@@ -39,7 +39,7 @@ namespace beam::wallet
         parameters.SetParameter(TxParameterID::Lifetime, lifetime);
 
         parameters.SetParameter(TxParameterID::MinHeight, minHeight);
-        parameters.SetParameter(TxParameterID::PeerResponseHeight, minHeight + responseTime);
+        parameters.SetParameter(TxParameterID::PeerResponseTime, responseTime);
         parameters.SetParameter(TxParameterID::MyID, myID);
         parameters.SetParameter(TxParameterID::IsSender, isBeamSide);
         parameters.SetParameter(TxParameterID::IsInitiator, false);
@@ -53,7 +53,7 @@ namespace beam::wallet
 
     TxParameters CreateSwapParameters()
     {
-        return CreateTransactionParameters(TxType::AtomicSwap)
+        return CreateTransactionParameters(TxType::AtomicSwap, GenerateTxID())
             .SetParameter(TxParameterID::IsInitiator, false);
     }
 
@@ -80,6 +80,11 @@ namespace beam::wallet
     }
 
     SecondSide::Ptr AtomicSwapTransaction::WrapperSecondSide::operator -> ()
+    {
+        return GetSecondSide();
+    }
+
+    SecondSide::Ptr AtomicSwapTransaction::WrapperSecondSide::GetSecondSide()
     {
         if (!m_secondSide)
         {
@@ -168,7 +173,7 @@ namespace beam::wallet
         case State::BuildingBeamRedeemTX:
         case State::BuildingBeamRefundTX:
         {
-            SetNextState(State::Cancelled);
+            SetNextState(State::Canceled);
             return;
         }
         default:
@@ -270,6 +275,13 @@ namespace beam::wallet
             {
             case State::Initial:
             {
+                if (Height responseHeight = MaxHeight; !GetParameter(TxParameterID::PeerResponseHeight, responseHeight))
+                {
+                    Height minHeight = GetMandatoryParameter<Height>(TxParameterID::MinHeight);
+                    Height responseTime = GetMandatoryParameter<Height>(TxParameterID::PeerResponseTime);
+                    SetParameter(TxParameterID::PeerResponseHeight, minHeight + responseTime);
+                }
+
                 if (IsInitiator())
                 {
                     if (!m_secondSide->Initialize())
@@ -283,19 +295,24 @@ namespace beam::wallet
                 }
                 else
                 {
+                    // TODO: refactor this
+                    // hack, used for increase refCount!
+                    auto secondSide = m_secondSide.GetSecondSide();
+
                     Height lockTime = 0;
                     if (!GetParameter(TxParameterID::AtomicSwapExternalLockTime, lockTime))
                     {
                         //we doesn't have an answer from other participant
+                        UpdateOnNextTip();
                         break;
                     }
 
-                    if (!m_secondSide->Initialize())
+                    if (!secondSide->Initialize())
                     {
                         break;
                     }
 
-                    if (!m_secondSide->ValidateLockTime())
+                    if (!secondSide->ValidateLockTime())
                     {
                         LOG_ERROR() << GetTxID() << "[" << static_cast<SubTxID>(SubTxIndex::LOCK_TX) << "] " << "Lock height is unacceptable.";
                         OnSubTxFailed(TxFailureReason::InvalidTransaction, SubTxIndex::LOCK_TX, true);
@@ -385,6 +402,12 @@ namespace beam::wallet
                 if (!m_secondSide->SendRefund())
                     break;
 
+                if (!m_secondSide->ConfirmRefundTx())
+                {
+                    UpdateOnNextTip();
+                    break;
+                }
+
                 LOG_INFO() << GetTxID() << " RefundTX completed!";
                 SetNextState(State::Refunded);
                 break;
@@ -394,6 +417,12 @@ namespace beam::wallet
                 assert(isBeamOwner);
                 if (!m_secondSide->SendRedeem())
                     break;
+
+                if (!m_secondSide->ConfirmRedeemTx())
+                {
+                    UpdateOnNextTip();
+                    break;
+                }
 
                 LOG_INFO() << GetTxID() << " RedeemTX completed!";
                 SetNextState(State::CompleteSwap);
@@ -484,11 +513,11 @@ namespace beam::wallet
                 GetGateway().on_tx_completed(GetTxID());
                 break;
             }
-            case State::Cancelled:
+            case State::Canceled:
             {
                 LOG_INFO() << GetTxID() << " Transaction cancelled.";
-                NotifyFailure(TxFailureReason::Cancelled);
-                UpdateTxDescription(TxStatus::Cancelled);
+                NotifyFailure(TxFailureReason::Canceled);
+                UpdateTxDescription(TxStatus::Canceled);
 
                 RollbackTx();
 
@@ -500,7 +529,7 @@ namespace beam::wallet
                 TxFailureReason reason = TxFailureReason::Unknown;
                 if (GetParameter(TxParameterID::FailureReason, reason))
                 {
-                    if (reason == TxFailureReason::Cancelled)
+                    if (reason == TxFailureReason::Canceled)
                     {
                         LOG_ERROR() << GetTxID() << " Swap cancelled. The other side has cancelled the transaction.";
                     }
@@ -521,7 +550,7 @@ namespace beam::wallet
             case State::Refunded:
             {
                 LOG_INFO() << GetTxID() << " Swap has not succeeded.";
-                UpdateTxDescription(TxStatus::Completed);
+                UpdateTxDescription(TxStatus::Failed);
                 GetGateway().on_tx_completed(GetTxID());
                 break;
             }
@@ -641,7 +670,7 @@ namespace beam::wallet
         TxStatus s = TxStatus::Failed;
         if (GetParameter(TxParameterID::Status, s)
             && (s == TxStatus::Failed
-                || s == TxStatus::Cancelled
+                || s == TxStatus::Canceled
                 || s == TxStatus::Completed))
         {
             return false;
@@ -649,7 +678,7 @@ namespace beam::wallet
 
         Height lockTxMaxHeight = MaxHeight;
         if (!GetParameter(TxParameterID::MaxHeight, lockTxMaxHeight, SubTxIndex::BEAM_LOCK_TX)
-            && !GetParameter(TxParameterID::PeerResponseHeight, lockTxMaxHeight, SubTxIndex::BEAM_LOCK_TX))
+            && !GetParameter(TxParameterID::PeerResponseHeight, lockTxMaxHeight))
         {
             return false;
         }
@@ -1047,10 +1076,19 @@ namespace beam::wallet
         if (!GetParameter(TxParameterID::TransactionRegistered, nRegistered, subTxID))
         {
             GetGateway().register_tx(GetTxID(), transaction, subTxID);
-            return (proto::TxStatus::Ok == nRegistered);
+            return false;
         }
 
-        if (proto::TxStatus::Ok != nRegistered)
+        if (proto::TxStatus::InvalidContext == nRegistered) // we have to ensure that this transaction hasn't already added to blockchain)
+        {
+            Height lastUnconfirmedHeight = 0;
+            if (GetParameter(TxParameterID::KernelUnconfirmedHeight, lastUnconfirmedHeight, subTxID) && lastUnconfirmedHeight > 0)
+            {
+                OnSubTxFailed(TxFailureReason::FailedToRegister, subTxID, subTxID == SubTxIndex::BEAM_LOCK_TX);
+                return false;
+            }
+        }
+        else if (proto::TxStatus::Ok != nRegistered)
         {
             OnSubTxFailed(TxFailureReason::FailedToRegister, subTxID, subTxID == SubTxIndex::BEAM_LOCK_TX);
             return false;
@@ -1092,24 +1130,7 @@ namespace beam::wallet
             GetWalletDB()->saveCoin(withdrawUtxo);
         }
 
-        std::vector<Coin> modified = GetWalletDB()->getCoinsByTx(GetTxID());
-        for (auto& coin : modified)
-        {
-            bool bIn = (coin.m_createTxId == m_ID);
-            bool bOut = (coin.m_spentTxId == m_ID);
-            if (bIn || bOut)
-            {
-                if (bIn)
-                {
-                    coin.m_confirmHeight = std::min(coin.m_confirmHeight, hProof);
-                    coin.m_maturity = hProof + Rules::get().Maturity.Std; // so far we don't use incubation for our created outputs
-                }
-                if (bOut)
-                    coin.m_spentHeight = std::min(coin.m_spentHeight, hProof);
-            }
-        }
-
-        GetWalletDB()->saveCoins(modified);
+        SetCompletedTxCoinStatuses(hProof);
 
         return true;
     }

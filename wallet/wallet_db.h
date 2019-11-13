@@ -31,7 +31,8 @@
 #include "wallet/common.h"
 #include "utility/io/address.h"
 #include "secstring.h"
-#include "private_key_keeper.h"
+#include "keykeeper/private_key_keeper.h"
+#include "variables_db.h"
 
 struct sqlite3;
 
@@ -109,7 +110,8 @@ namespace beam::wallet
         {
             Expired = 0,
             OneDay,
-            Never
+            Never,
+            AsIs
         };
         void setLabel(const std::string& label);
         void setExpiration(ExpirationStatus status);
@@ -220,11 +222,11 @@ namespace beam::wallet
     {
         virtual void onCoinsChanged() {};
         virtual void onTransactionChanged(ChangeAction action, const std::vector<TxDescription>& items) {};
-        virtual void onSystemStateChanged() {};
+        virtual void onSystemStateChanged(const Block::SystemState::ID& stateID) {};
         virtual void onAddressChanged(ChangeAction action, const std::vector<WalletAddress>& items) {};
     };
 
-    struct IWalletDB
+    struct IWalletDB : IVariablesDB
     {
         using Ptr = std::shared_ptr<IWalletDB>;
         virtual ~IWalletDB() {}
@@ -290,17 +292,6 @@ namespace beam::wallet
         virtual bool unlockCoins(uint64_t session) = 0;
         virtual CoinIDList getLockedCoins(uint64_t session) const = 0;
 
-        // Set of methods for low level database manipulation
-        virtual void setVarRaw(const char* name, const void* data, size_t size) = 0;
-        virtual bool getVarRaw(const char* name, void* data, int size) const = 0;
-        virtual void removeVarRaw(const char* name) = 0;
-
-        virtual void setPrivateVarRaw(const char* name, const void* data, size_t size) = 0;
-        virtual bool getPrivateVarRaw(const char* name, void* data, int size) const = 0;
-
-        // TODO: Consider refactoring
-        virtual bool getBlob(const char* name, ByteBuffer& var) const = 0;
-
         // Returns currently known blockchain height
         virtual Height getCurrentHeight() const = 0;
 
@@ -340,8 +331,8 @@ namespace beam::wallet
         virtual void setSystemStateID(const Block::SystemState::ID& stateID) = 0;
         virtual bool getSystemStateID(Block::SystemState::ID& stateID) const = 0;
 
-        virtual void subscribe(IWalletDbObserver* observer) = 0;
-        virtual void unsubscribe(IWalletDbObserver* observer) = 0;
+        virtual void Subscribe(IWalletDbObserver* observer) = 0;
+        virtual void Unsubscribe(IWalletDbObserver* observer) = 0;
 
         virtual void changePassword(const SecString& password) = 0;
 
@@ -434,8 +425,8 @@ namespace beam::wallet
         void setSystemStateID(const Block::SystemState::ID& stateID) override;
         bool getSystemStateID(Block::SystemState::ID& stateID) const override;
 
-        void subscribe(IWalletDbObserver* observer) override;
-        void unsubscribe(IWalletDbObserver* observer) override;
+        void Subscribe(IWalletDbObserver* observer) override;
+        void Unsubscribe(IWalletDbObserver* observer) override;
 
         void changePassword(const SecString& password) override;
 
@@ -464,7 +455,7 @@ namespace beam::wallet
         void removeCoinImpl(const Coin::ID& cid);
         void notifyCoinsChanged();
         void notifyTransactionChanged(ChangeAction action, const std::vector<TxDescription>& items);
-        void notifySystemStateChanged();
+        void notifySystemStateChanged(const Block::SystemState::ID& stateID);
         void notifyAddressChanged(ChangeAction action, const std::vector<WalletAddress>& items);
 
         bool updateCoinRaw(const Coin&);
@@ -478,6 +469,7 @@ namespace beam::wallet
 
         void insertParameterToCache(const TxID& txID, SubTxID subTxID, TxParameterID paramID, const boost::optional<ByteBuffer>& blob) const;
         void deleteParametersFromCache(const TxID& txID);
+        bool hasTransaction(const TxID& txID) const;
         void insertAddressToCache(const WalletID& id, const boost::optional<WalletAddress>& address) const;
         void deleteAddressFromCache(const WalletID& id);
         void flushDB();
@@ -496,6 +488,7 @@ namespace beam::wallet
         bool m_IsFlushPending;
         std::unique_ptr<sqlite::Transaction> m_DbTransaction;
         std::vector<IWalletDbObserver*> m_subscribers;
+        const std::set<TxParameterID> m_mandatoryTxParams;
 
         // Wallet has ablity to track blockchain state
         // This interface allows to check and update the blockchain state 
@@ -663,5 +656,7 @@ namespace beam::wallet
         std::string TxDetailsInfo(const IWalletDB::Ptr& db, const TxID& txID);
         ByteBuffer ExportPaymentProof(const IWalletDB& db, const TxID& txID);
         bool VerifyPaymentProof(const ByteBuffer& data);
+
+        void HookErrors();
     }
 }

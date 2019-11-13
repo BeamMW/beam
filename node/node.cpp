@@ -307,7 +307,10 @@ void Node::Wanted::OnTimer()
     {
         Item& n = m_lst.front();
         if (t_ms - n.m_Advertised_ms < timeout_ms)
+        {
+            SetTimer();
             break;
+        }
 
         OnExpired(n.m_Key); // should not invalidate our structure
         Delete(n); // will also reschedule the timer
@@ -553,7 +556,7 @@ void Node::Processor::DeleteOutdated()
 			continue;
 		Transaction& tx = *x.m_pValue;
 
-		if (!ValidateTxContext(tx, x.m_Threshold.m_Height))
+		if (!ValidateTxContext(tx, x.m_Threshold.m_Height, true))
 			txp.Delete(x);
 	}
 }
@@ -661,6 +664,25 @@ void Node::MaybeGenerateRecovery()
 void Node::Processor::OnRolledBack()
 {
     LOG_INFO() << "Rolled back to: " << m_Cursor.m_ID;
+
+	// Delete shielded txs which referenced shielded outputs which were reverted
+	TxPool::Fluff& txp = get_ParentObj().m_TxPool;
+	for (TxPool::Fluff::Queue::iterator it = txp.m_Queue.begin(); txp.m_Queue.end() != it; )
+	{
+		TxPool::Fluff::Element& x = (it++)->get_ParentObj();
+		if (x.m_pValue && !IsShieldedInPool(*x.m_pValue))
+			txp.Delete(x);
+	}
+
+	TxPool::Stem& txps = get_ParentObj().m_Dandelion;
+	for (TxPool::Stem::TimeSet::iterator it = txps.m_setTime.begin(); txps.m_setTime.end() != it; )
+	{
+		TxPool::Stem::Element& x = (it++)->get_ParentObj();
+		if (!IsShieldedInPool(*x.m_pValue))
+			txps.Delete(x);
+			
+	}
+
 
 	IObserver* pObserver = get_ParentObj().m_Cfg.m_Observer;
 	if (pObserver)
@@ -893,17 +915,17 @@ bool Node::Processor::EnumViewerKeys(IKeyWalker& w)
     return true;
 }
 
-void Node::Processor::OnUtxoEvent(const UtxoEvent::Value& evt)
+void Node::Processor::OnUtxoEvent(const UtxoEvent::Value& evt, Height h)
 {
 	if (get_ParentObj().m_Cfg.m_LogUtxos)
 	{
 		ECC::Key::IDV kidv;
 		kidv = evt.m_Kidv;
 
-		Height h;
-		evt.m_Maturity.Export(h);
+		Height hMaturity;
+		evt.m_Maturity.Export(hMaturity);
 
-		LOG_INFO() << "Utxo " << kidv << ", Maturity=" << h << ", Added=" << static_cast<uint32_t>(evt.m_Added);
+		LOG_INFO() << "Utxo " << kidv << ", Maturity=" << hMaturity << ", Added=" << static_cast<uint32_t>(evt.m_Added) << ", Height=" << h;
 	}
 }
 
@@ -1023,8 +1045,6 @@ void Node::Initialize(IExternalPOW* externalPOW)
 	m_Processor.get_DB().get_BbsTotals(m_Bbs.m_Totals);
     m_Bbs.Cleanup();
 	m_Bbs.m_HighestPosted_s = m_Processor.get_DB().get_BbsMaxTime();
-
-	m_Processor.OnHorizonChanged(); // invoke it once again, after the Compressor initialized and maybe deleted some of backlog, perhaps fossil height may go up
 }
 
 uint32_t Node::get_AcessiblePeerCount() const
@@ -1232,8 +1252,8 @@ void Node::Peer::OnResendPeers()
 		if (!pi.m_RawRating.m_Value)
 			continue; // banned
 
-		if (!pi.m_LastSeen)
-			continue; // recommend only verified peers
+		if (getTimestamp() - pi.m_LastSeen > pm.m_Cfg.m_TimeoutRecommend_s)
+			continue; // not seen for a while
 
 		if (pi.m_Addr.m_Value.empty())
 			continue; // address unknown, can't recommend
@@ -1258,7 +1278,7 @@ void Node::Peer::OnConnectedSecure()
 
     m_Flags |= Flags::Connected;
 
-    if (m_Port && m_This.m_Cfg.m_Listen.port())
+    if (!(Flags::Accepted & m_Flags) && m_This.m_Cfg.m_Listen.port())
     {
         // we've connected to the peer, let it now know our port
         proto::PeerInfoSelf msgPi;
@@ -1341,7 +1361,8 @@ void Node::Peer::OnMsg(proto::Authentication&& msg)
         // probably we connected by the address
         if (m_pInfo->m_ID.m_Key == msg.m_ID)
         {
-            pm.OnSeen(*m_pInfo);
+			if (!(Flags::Accepted & m_Flags))
+				pm.OnSeen(*m_pInfo);
             TakeTasks();
             return; // all settled (already)
         }
@@ -1415,7 +1436,9 @@ void Node::Peer::OnMsg(proto::Authentication&& msg)
     // attach to it
 	pPi->Attach(*this);
     pm.OnActive(*pPi, true);
-    pm.OnSeen(*pPi);
+
+	if (!(Flags::Accepted & m_Flags))
+		pm.OnSeen(*pPi);
 
     LOG_INFO() << *m_pInfo << " connected, info updated";
 
@@ -1698,7 +1721,7 @@ void Node::Peer::ModifyRatingWrtData(size_t nSize)
 	// Hence, after accounting for newly-downloaded data, the average bandwidth becomes:
 	// <bw> = (v0 + v1) / (t0 + t1) = (bw0 * t0 + v1) / (t0 + t1)
 	//
-	const uint32_t t0_s = 10;
+	const uint32_t t0_s = 3;
 	const uint32_t t0_ms = t0_s * 1000;
 	uint64_t tTotal_ms = static_cast<uint64_t>(t0_ms) + dt_ms;
 	assert(tTotal_ms); // can't overflow
@@ -1709,8 +1732,10 @@ void Node::Peer::ModifyRatingWrtData(size_t nSize)
 	uint32_t bwAvg = static_cast<uint32_t>(v * 1000 / tTotal_ms);
 
 	uint32_t nRatingAvg = PeerManager::Rating::FromBps(bwAvg);
-	m_This.m_PeerMan.SetRating(*m_pInfo, nRatingAvg);
 
+	m_This.m_PeerMan.m_LiveSet.erase(PeerMan::LiveSet::s_iterator_to(Cast::Up<PeerMan::PeerInfoPlus>(m_pInfo)->m_Live));
+	m_This.m_PeerMan.SetRating(*m_pInfo, nRatingAvg);
+	m_This.m_PeerMan.m_LiveSet.insert(Cast::Up<PeerMan::PeerInfoPlus>(m_pInfo)->m_Live);
 }
 
 void Node::Peer::OnMsg(proto::DataMissing&&)
@@ -1738,68 +1763,136 @@ void Node::Peer::OnMsg(proto::GetHdr&& msg)
 
 void Node::Peer::OnMsg(proto::GetHdrPack&& msg)
 {
-    proto::HdrPack msgOut;
+	proto::HdrPack msgOut;
 
-    if (msg.m_Count)
-    {
+	if (msg.m_Count)
+	{
 		// don't throw unexpected if pack size is bigger than max. In case it'll be increased in future versions - just truncate it.
 		msg.m_Count = std::min(msg.m_Count, proto::g_HdrPackMaxSize);
 
-        NodeDB& db = m_This.m_Processor.get_DB();
-        uint64_t rowid = db.StateFindSafe(msg.m_Top);
-        if (rowid)
-        {
-            msgOut.m_vElements.reserve(msg.m_Count);
+		NodeDB& db = m_This.m_Processor.get_DB();
 
-            Block::SystemState::Full s;
-            for (uint32_t n = 0; ; )
-            {
-                db.get_State(rowid, s);
-                msgOut.m_vElements.push_back(s);
+		NodeDB::StateID sid;
+		sid.m_Row = db.StateFindSafe(msg.m_Top);
+		if (sid.m_Row)
+		{
+			sid.m_Height = msg.m_Top.m_Height;
 
-                if (++n == msg.m_Count)
-                    break;
+			NodeDB::WalkerSystemState wlk(db);
+			for (db.EnumSystemStatesBkwd(wlk, sid); wlk.MoveNext(); )
+			{
+				if (msgOut.m_vElements.empty())
+					msgOut.m_vElements.reserve(msg.m_Count);
 
-                if (!db.get_Prev(rowid))
-                    break;
-            }
+				msgOut.m_vElements.push_back(wlk.m_State);
 
-            msgOut.m_Prefix = s;
-        }
-    }
+				if (msgOut.m_vElements.size() == msg.m_Count)
+					break;
+			}
 
-    if (msgOut.m_vElements.empty())
-        Send(proto::DataMissing(Zero));
-    else
-        Send(msgOut);
+			if (!msgOut.m_vElements.empty())
+				msgOut.m_Prefix = wlk.m_State;
+		}
+	}
+
+	if (msgOut.m_vElements.empty())
+		Send(proto::DataMissing(Zero));
+	else
+		Send(msgOut);
+}
+
+bool Node::DecodeAndCheckHdrs(std::vector<Block::SystemState::Full>& v, const proto::HdrPack& msg)
+{
+	if (msg.m_vElements.empty() || (msg.m_vElements.size() > proto::g_HdrPackMaxSize))
+		return false;
+
+	// PoW verification is heavy for big packs. Do it in parallel
+	v.resize(msg.m_vElements.size());
+
+	Cast::Down<Block::SystemState::Sequence::Prefix>(v.front()) = msg.m_Prefix;
+	Cast::Down<Block::SystemState::Sequence::Element>(v.front()) = msg.m_vElements.back();
+
+	for (size_t i = 1; i < msg.m_vElements.size(); i++)
+	{
+		Block::SystemState::Full& s0 = v[i - 1];
+		Block::SystemState::Full& s1 = v[i];
+
+		s0.get_Hash(s1.m_Prev);
+		s1.m_Height = s0.m_Height + 1;
+		Cast::Down<Block::SystemState::Sequence::Element>(s1) = msg.m_vElements[msg.m_vElements.size() - i - 1];
+		s1.m_ChainWork = s0.m_ChainWork + s1.m_PoW.m_Difficulty;
+	}
+
+	struct MyTask
+		:public NodeProcessor::Task
+	{
+		const Block::SystemState::Full* m_pV;
+		size_t m_Count;
+		bool* m_pValid;
+
+		virtual ~MyTask() {}
+
+		virtual void Exec() override
+		{
+			for (size_t i = 0; i < m_Count; i++)
+				if (!m_pV[i].IsValid())
+					*m_pValid = false;
+		}
+	};
+
+	Processor::Task::Processor& tp = m_Processor.m_TaskProcessor;
+	uint32_t nThreads = tp.get_Threads();
+
+	const Block::SystemState::Full* pV = &v.front();
+	size_t nCount = v.size();
+	bool bValid = true;
+
+	for (; nThreads; nThreads--)
+	{
+		std::unique_ptr<MyTask> pTask(new MyTask);
+		pTask->m_pValid = &bValid;
+		pTask->m_pV = pV;
+		pTask->m_Count = nCount / nThreads;
+
+		pV += pTask->m_Count;
+		nCount -= pTask->m_Count;
+
+		tp.Push(std::move(pTask));
+	}
+
+	tp.Flush(0);
+
+	return bValid;
 }
 
 void Node::Peer::OnMsg(proto::HdrPack&& msg)
 {
     Task& t = get_FirstTask();
 
-    if (t.m_Key.second || !t.m_nCount)
+	if (t.m_Key.second || !t.m_nCount) {
+		// stupid compiler insists on parentheses here!
+		ThrowUnexpected();
+	}
+
+	std::vector<Block::SystemState::Full> v;
+	if (!m_This.DecodeAndCheckHdrs(v, msg))
         ThrowUnexpected();
 
-    if (msg.m_vElements.empty() || (msg.m_vElements.size() > proto::g_HdrPackMaxSize))
-        ThrowUnexpected();
-
-    Block::SystemState::Full s;
-    Cast::Down<Block::SystemState::Sequence::Prefix>(s) = msg.m_Prefix;
-    Cast::Down<Block::SystemState::Sequence::Element>(s) = msg.m_vElements.back();
-
-    bool bInvalid = false;
-
+	// just to be pedantic
 	Block::SystemState::ID idLast;
+	v.back().get_ID(idLast);
+	if (idLast != t.m_Key.first)
+		ThrowUnexpected();
 
-    for (size_t i = msg.m_vElements.size(); ; )
+    for (size_t i = 0; i < v.size(); i++)
     {
-        NodeProcessor::DataStatus::Enum eStatus = m_This.m_Processor.OnStateSilent(s, m_pInfo->m_ID.m_Key, idLast);
+        NodeProcessor::DataStatus::Enum eStatus = m_This.m_Processor.OnStateSilent(v[i], m_pInfo->m_ID.m_Key, idLast, true);
         switch (eStatus)
         {
         case NodeProcessor::DataStatus::Invalid:
-            bInvalid = true;
-            break;
+			// though PoW was already tested, header can still be invalid. For instance, due to improper Timestamp
+			ThrowUnexpected();
+			break;
 
         case NodeProcessor::DataStatus::Accepted:
 			// no break;
@@ -1807,25 +1900,11 @@ void Node::Peer::OnMsg(proto::HdrPack&& msg)
         default:
             break; // suppress warning
         }
-
-        if (! --i)
-            break;
-
-        s.NextPrefix();
-        Cast::Down<Block::SystemState::Sequence::Element>(s) = msg.m_vElements[i - 1];
-        s.m_ChainWork += s.m_PoW.m_Difficulty;
     }
-
-	// just to be pedantic
-	if (idLast != t.m_Key.first)
-		bInvalid = true;
 
 	LOG_INFO() << "Hdr pack received " << msg.m_Prefix.m_Height << "-" << idLast;
 
 	ModifyRatingWrtData(sizeof(msg.m_Prefix) + msg.m_vElements.size() * sizeof(msg.m_vElements.front()));
-
-	if (bInvalid)
-		ThrowUnexpected();
 
 	OnFirstTaskDone(NodeProcessor::DataStatus::Accepted);
 	m_This.UpdateSyncStatus();
@@ -2079,7 +2158,7 @@ uint8_t Node::ValidateTx(Transaction::Context& ctx, const Transaction& tx)
 	if (!(m_Processor.ValidateAndSummarize(ctx, tx, tx.get_Reader()) && ctx.IsValidTransaction()))
 		return proto::TxStatus::Invalid;
 
-	if (!m_Processor.ValidateTxContext(tx, ctx.m_Height))
+	if (!m_Processor.ValidateTxContext(tx, ctx.m_Height, false))
 		return proto::TxStatus::InvalidContext;
 
 	if (ctx.m_Height.m_Min >= Rules::get().pForks[1].m_Height)
@@ -2096,6 +2175,9 @@ uint8_t Node::ValidateTx(Transaction::Context& ctx, const Transaction& tx)
 
 void Node::LogTx(const Transaction& tx, uint8_t nStatus, const Transaction::KeyType& key)
 {
+	if (!m_Cfg.m_LogTxFluff)
+		return;
+
     std::ostringstream os;
 
     os << "Tx " << key;
@@ -2129,6 +2211,29 @@ void Node::LogTx(const Transaction& tx, uint8_t nStatus, const Transaction::KeyT
 
     os << "\n\tStatus: " << static_cast<uint32_t>(nStatus);
     LOG_INFO() << os.str();
+}
+
+void Node::LogTxStem(const Transaction& tx, const char* szTxt)
+{
+	if (!m_Cfg.m_LogTxStem)
+		return;
+
+	std::ostringstream os;
+	os << "Stem-Tx " << szTxt;
+
+	for (size_t i = 0; i < tx.m_vKernels.size(); i++)
+	{
+		const TxKernel& krn = *tx.m_vKernels[i];
+		Merkle::Hash hv;
+		krn.get_ID(hv);
+
+		char sz[Merkle::Hash::nTxtLen + 1];
+		hv.Print(sz);
+
+		os << "\n\tK: " << sz;
+	}
+
+	LOG_INFO() << os.str();
 }
 
 const ECC::uintBig& Node::NextNonce()
@@ -2191,17 +2296,25 @@ uint8_t Node::OnTransactionStem(Transaction::Ptr&& ptx, const Peer* pPeer)
         bool bElemCovers = true, bNewCovers = true;
         pElem->m_pValue->get_Reader().Compare(std::move(ptx->get_Reader()), bElemCovers, bNewCovers);
 
-        if (!bNewCovers)
-            return proto::TxStatus::Obscured; // the new tx is reduced, drop it
+		if (!bNewCovers)
+		{
+			LogTxStem(*ptx, "obscured by another tx. Deleting");
+			LogTxStem(*pElem->m_pValue, "Remaining");
+			return proto::TxStatus::Obscured; // the new tx is reduced, drop it
+		}
 
         if (bElemCovers)
         {
             pDup = pElem; // exact match
 
-            if (pDup->m_bAggregating)
-                return proto::TxStatus::Ok; // it shouldn't have been received, but nevermind, just ignore
+			if (pDup->m_bAggregating)
+			{
+				LogTxStem(*ptx, "Received despite being-aggregated");
+				return proto::TxStatus::Ok; // it shouldn't have been received, but nevermind, just ignore
+			}
 
-            break;
+			LogTxStem(*ptx, "Already received");
+			break;
         }
 
 		if (!bTested)
@@ -2213,6 +2326,7 @@ uint8_t Node::OnTransactionStem(Transaction::Ptr&& ptx, const Peer* pPeer)
 			bTested = true;
 		}
 
+		LogTxStem(*pElem->m_pValue, "obscured by newer tx. Deleting");
         m_Dandelion.Delete(*pElem);
     }
 
@@ -2238,11 +2352,26 @@ uint8_t Node::OnTransactionStem(Transaction::Ptr&& ptx, const Peer* pPeer)
         m_Dandelion.InsertKrn(*pGuard);
 
         pDup = pGuard.release();
+
+		LogTxStem(*pDup->m_pValue, "New");
     }
 
     assert(!pDup->m_bAggregating);
 
-    if ((pDup->m_pValue->m_vOutputs.size() >= m_Cfg.m_Dandelion.m_OutputsMax) || !m_Keys.m_pMiner)
+	bool bDontAggregate =
+		(pDup->m_pValue->m_vOutputs.size() >= m_Cfg.m_Dandelion.m_OutputsMax) || // already big enough
+		!m_Keys.m_pMiner; // can't manage decoys
+
+	if (!bDontAggregate)
+	{
+		uint32_t nIns, nOuts;
+		pDup->m_pValue->get_Reader().CalculateShielded(nIns, nOuts);
+
+		if (nIns || nOuts)
+			bDontAggregate = true;
+	}
+
+    if (bDontAggregate)
         OnTransactionAggregated(*pDup);
     else
     {
@@ -2255,6 +2384,9 @@ uint8_t Node::OnTransactionStem(Transaction::Ptr&& ptx, const Peer* pPeer)
 
 void Node::OnTransactionAggregated(TxPool::Stem::Element& x)
 {
+	m_Dandelion.DeleteAggr(x);
+	LogTxStem(*x.m_pValue, "Aggregation finished");
+
     // must have at least 1 peer to continue the stem phase
     uint32_t nStemPeers = 0;
 
@@ -2278,7 +2410,12 @@ void Node::OnTransactionAggregated(TxPool::Stem::Element& x)
             for (PeerList::iterator it = m_lstPeers.begin(); ; it++)
                 if ((it->m_LoginFlags & proto::LoginFlags::SpreadingTransactions) && !nRandomPeerIdx--)
                 {
-                    it->SendTx(x.m_pValue, false);
+					if (m_Cfg.m_LogTxStem)
+					{
+						LOG_INFO() << "Stem continues to " << it->m_RemoteAddr;
+					}
+
+					it->SendTx(x.m_pValue, false);
                     break;
                 }
 
@@ -2290,7 +2427,8 @@ void Node::OnTransactionAggregated(TxPool::Stem::Element& x)
         }
     }
 
-    OnTransactionFluff(std::move(x.m_pValue), NULL, &x);
+	LogTxStem(*x.m_pValue, "Going to fluff");
+	OnTransactionFluff(std::move(x.m_pValue), NULL, &x);
 }
 
 void Node::PerformAggregation(TxPool::Stem::Element& x)
@@ -2331,12 +2469,15 @@ void Node::PerformAggregation(TxPool::Stem::Element& x)
         }
     }
 
+	LogTxStem(*x.m_pValue, "Aggregated so far");
+
     if (x.m_pValue->m_vOutputs.size() >= m_Cfg.m_Dandelion.m_OutputsMin)
-    {
-        m_Dandelion.DeleteAggr(x);
         OnTransactionAggregated(x);
-    } else
-        m_Dandelion.SetTimer(m_Cfg.m_Dandelion.m_AggregationTime_ms, x);
+	else
+	{
+		LogTxStem(*x.m_pValue, "Aggregation pending");
+		m_Dandelion.SetTimer(m_Cfg.m_Dandelion.m_AggregationTime_ms, x);
+	}
 }
 
 void Node::AddDummyInputs(Transaction& tx)
@@ -2545,7 +2686,7 @@ bool Node::OnTransactionFluff(Transaction::Ptr&& ptxArg, const Peer* pPeer, TxPo
 		m_TxPool.Delete(txDel);
 	}
 
-	if (!pNewTxElem)
+    if (!pNewTxElem)
 		return false;
 
     proto::HaveTransaction msgOut;
@@ -2574,14 +2715,19 @@ void Node::Dandelion::OnTimedOut(Element& x)
     if (x.m_bAggregating)
     {
         get_ParentObj().AddDummyOutputs(*x.m_pValue);
-        get_ParentObj().OnTransactionAggregated(x);
-    } else
-        get_ParentObj().OnTransactionFluff(std::move(x.m_pValue), NULL, &x);
+		get_ParentObj().LogTxStem(*x.m_pValue, "Aggregation timed-out, dummies added");
+		get_ParentObj().OnTransactionAggregated(x);
+	}
+	else
+	{
+		get_ParentObj().LogTxStem(*x.m_pValue, "Fluff timed-out. Emergency fluff");
+		get_ParentObj().OnTransactionFluff(std::move(x.m_pValue), NULL, &x);
+	}
 }
 
 bool Node::Dandelion::ValidateTxContext(const Transaction& tx, const HeightRange& hr)
 {
-    return get_ParentObj().m_Processor.ValidateTxContext(tx, hr);
+    return get_ParentObj().m_Processor.ValidateTxContext(tx, hr, true);
 }
 
 void Node::Peer::OnLogin(proto::Login&& msg)
@@ -2907,6 +3053,60 @@ void Node::Peer::OnMsg(proto::GetProofUtxo&& msg)
     Send(t.m_Msg);
 }
 
+void Node::Peer::OnMsg(proto::GetProofShieldedTxo&& msg)
+{
+	proto::ProofShieldedTxo msgOut;
+
+	Processor& p = m_This.m_Processor;
+	if (!p.IsFastSync())
+	{
+		UtxoTree::Key key;
+		key.SetShielded(msg.m_Commitment, true);
+
+		UtxoTree::Cursor cu;
+		bool bCreate = false;
+
+		const UtxoTree::MyLeaf* pLeaf = p.get_Utxos().Find(cu, key, bCreate);
+		if (pLeaf)
+		{
+			const UtxoTree::MyLeaf& v = *pLeaf;
+			UtxoTree::Key::Data d;
+			d = v.m_Key;
+
+			msgOut.m_ID = pLeaf->m_ID;
+			p.get_Utxos().get_Proof(msgOut.m_Proof, cu);
+
+			msgOut.m_Proof.emplace_back();
+			msgOut.m_Proof.back().first = false;
+			msgOut.m_Proof.back().second = p.m_Cursor.m_History;
+		}
+	}
+
+	Send(msgOut);
+}
+
+void Node::Peer::OnMsg(proto::GetShieldedList&& msg)
+{
+	proto::ShieldedList msgOut;
+
+	Processor& p = m_This.m_Processor;
+	if ((msg.m_Id0 < p.m_Extra.m_Shielded) && msg.m_Count)
+	{
+		if (msg.m_Count > Lelantus::Cfg::Max::N)
+			msg.m_Count = Lelantus::Cfg::Max::N;
+
+		TxoID n = p.m_Extra.m_Shielded - msg.m_Id0;
+
+		if (msg.m_Count > n)
+			msg.m_Count = static_cast<uint32_t>(n);
+
+		msgOut.m_Items.resize(msg.m_Count);
+		p.get_DB().ShieldedRead(msg.m_Id0, &msgOut.m_Items.front(), msg.m_Count);
+	}
+
+	Send(msgOut);
+}
+
 bool Node::Processor::BuildCwp()
 {
     if (!m_Cwp.IsEmpty())
@@ -2982,9 +3182,9 @@ void Node::Peer::OnMsg(proto::BbsMsg&& msg)
 		ECC::Hash::Value hv;
 		proto::Bbs::get_Hash(hv, msg);
 
-		if (!proto::Bbs::IsHashValid(hv))
+        if (!proto::Bbs::IsHashValid(hv))
 			return; // drop
-	}
+    }
 
 	if (!m_This.m_Cfg.m_Bbs.IsEnabled())
 		ThrowUnexpected();
@@ -2994,14 +3194,14 @@ void Node::Peer::OnMsg(proto::BbsMsg&& msg)
 
 	Timestamp t = getTimestamp();
 
-	if (msg.m_TimePosted > t + Rules::get().DA.MaxAhead_s)
+    if (msg.m_TimePosted > t + Rules::get().DA.MaxAhead_s)
 		return; // too much ahead of time
 
-	if (msg.m_TimePosted + m_This.m_Cfg.m_Bbs.m_MessageTimeout_s  < t)
-		return; // too old
+    if (msg.m_TimePosted + m_This.m_Cfg.m_Bbs.m_MessageTimeout_s < t)
+        return; // too old
 
-	if (msg.m_TimePosted + Rules::get().DA.MaxAhead_s < m_This.m_Bbs.m_HighestPosted_s)
-		return; // don't allow too much out-of-order messages
+    if (msg.m_TimePosted + Rules::get().DA.MaxAhead_s < m_This.m_Bbs.m_HighestPosted_s)
+        return; // don't allow too much out-of-order messages
 
     NodeDB& db = m_This.m_Processor.get_DB();
     NodeDB::WalkerBbs wlk(db);
@@ -3053,7 +3253,7 @@ void Node::Peer::OnMsg(proto::BbsMsg&& msg)
         Bbs::Subscription& s = range.first->get_ParentObj();
 		assert(s.m_Cursor < id);
 
-        if ((this == s.m_pPeer) || s.m_pPeer->IsChocking())
+        if (s.m_pPeer->IsChocking())
             continue;
 
         s.m_pPeer->SendBbsMsg(wlk.m_Data);
@@ -3065,7 +3265,7 @@ void Node::Peer::OnMsg(proto::BbsMsg&& msg)
 
 void Node::Peer::OnMsg(proto::BbsHaveMsg&& msg)
 {
-	if (!m_This.m_Cfg.m_Bbs.IsEnabled())
+    if (!m_This.m_Cfg.m_Bbs.IsEnabled())
 		ThrowUnexpected();
 
     NodeDB& db = m_This.m_Processor.get_DB();
@@ -3078,9 +3278,6 @@ void Node::Peer::OnMsg(proto::BbsHaveMsg&& msg)
 		// stupid compiler insists on parentheses here!
 		return; // already waiting for it
 	}
-
-	NodeDB::WalkerBbs wlk(db);
-	wlk.m_Data.m_Key = msg.m_Key;
 
     proto::BbsGetMsg msgOut;
     msgOut.m_Key = msg.m_Key;
@@ -3170,14 +3367,6 @@ void Node::Peer::OnMsg(proto::BbsResetSync&& msg)
 
 	m_CursorBbs = m_This.m_Processor.get_DB().BbsFindCursor(msg.m_TimeFrom) - 1;
 	BroadcastBbs();
-}
-
-void Node::Peer::OnMsg(proto::MacroblockGet&& msg)
-{
-    if (msg.m_Data >= Block::BodyBase::RW::Type::count)
-        ThrowUnexpected();
-
-    Send(proto::Macroblock()); // deprecated
 }
 
 void Node::Peer::OnMsg(proto::GetUtxoEvents&& msg)
@@ -3316,6 +3505,7 @@ void Node::Server::OnAccepted(io::TcpStream::Ptr&& newStream, int errorCode)
         LOG_DEBUG() << "New peer connected: " << newStream->address();
         Peer* p = get_ParentObj().AllocPeer(newStream->peer_address());
         p->Accept(std::move(newStream));
+		p->m_Flags |= Peer::Flags::Accepted;
         p->SecureConnect();
     }
 }

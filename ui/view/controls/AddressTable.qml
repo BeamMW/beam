@@ -20,7 +20,19 @@ CustomTableView {
     anchors.fill: parent
     frameVisible: false
     selectionMode: SelectionMode.NoSelection
-    backgroundVisible: false    
+    backgroundVisible: false
+    sortIndicatorVisible: true
+    sortIndicatorColumn: 4
+    sortIndicatorOrder: Qt.DescendingOrder
+
+    onSortIndicatorColumnChanged: {
+        if (sortIndicatorColumn != 3 &&
+            sortIndicatorColumn != 4) {
+            sortIndicatorOrder = Qt.AscendingOrder;
+        } else {
+            sortIndicatorOrder = Qt.DescendingOrder;
+        }
+    }
 
     TableViewColumn {
         role: parentModel.nameRole
@@ -198,7 +210,7 @@ CustomTableView {
         property var addressItem
         Action {
             id: showQRAction
-            //: Entry in adress table context menu to show QR
+            //: Entry in address table context menu to show QR
             //% "Show QR code"
             text: qsTrId("address-table-cm-show-qr")
             icon.source: "qrc:/assets/icon-qr.svg"
@@ -208,7 +220,7 @@ CustomTableView {
             }
         }
         Action {
-            //: Entry in adress table context menu to edit
+            //: Entry in address table context menu to edit
             //% "Edit address"
             text: qsTrId("address-table-cm-edit")
             icon.source: "qrc:/assets/icon-edit.svg"
@@ -219,7 +231,7 @@ CustomTableView {
             }
         }
         Action {
-            //: Entry in adress table context menu to delete
+            //: Entry in address table context menu to delete
             //% "Delete address"
             text: qsTrId("address-table-cm-delete")
             icon.source: "qrc:/assets/icon-delete.svg"

@@ -53,7 +53,7 @@
     </message>
     <message id="general-cancel">
         <source>Cancel</source>
-        <extracomment>Edit addres dialog, cancel button</extracomment>
+        <extracomment>Edit address dialog, cancel button</extracomment>
         <translation>ยกเลิก</translation>
     </message>
     <message id="general-delete">
@@ -62,11 +62,11 @@
     </message>
     <message id="general-receiving">
         <source>receiving</source>
-        <translation>กำลังรับ</translation>
+        <translation type="vanished">กำลังรับ</translation>
     </message>
     <message id="general-sending">
         <source>sending</source>
-        <translation>กำลังโอน</translation>
+        <translation type="vanished">กำลังโอน</translation>
     </message>
     <message id="general-rescan">
         <source>Rescan</source>
@@ -74,7 +74,7 @@
     </message>
     <message id="general-change-pwd">
         <source>Change wallet password</source>
-        <translation>เปลี่ยนรหัสผ่านของกระเป๋า</translation>
+        <translation>เปลี่ยนรหัสผ่านกระเป๋า</translation>
     </message>
     <message id="general-pwd-empty-error">
         <source>Please, enter password</source>
@@ -184,7 +184,7 @@
     </message>
     <message id="general-addr-comment-error">
         <source>Address with the same comment already exists</source>
-        <translation type="unfinished">มีที่อยู่ที่เคยใช้คอมเมนต์นี้แล้ว</translation>
+        <translation>มีที่อยู่ที่เคยใช้คอมเมนต์นี้แล้ว</translation>
     </message>
     <message id="wallet-receive-button">
         <source>Receive</source>
@@ -204,11 +204,11 @@
     </message>
     <message id="wallet-txs-date-time">
         <source>Created on</source>
-        <translation type="unfinished">วันที่ | เวลา</translation>
+        <translation>สร้างเมื่อ</translation>
     </message>
     <message id="wallet-txs-copy-addr-cm">
         <source>Copy address</source>
-        <translation>คัดลอกที่อยู่</translation>
+        <translation type="vanished">คัดลอกที่อยู่</translation>
     </message>
     <message id="wallet-txs-delete-message">
         <source>The transaction will be deleted. This operation can not be undone</source>
@@ -272,17 +272,17 @@
     </message>
     <message id="address-table-cm-show-qr">
         <source>Show QR code</source>
-        <extracomment>Entry in adress table context menu to show QR</extracomment>
+        <extracomment>Entry in address table context menu to show QR</extracomment>
         <translation>แสดง QR Code</translation>
     </message>
     <message id="address-table-cm-edit">
         <source>Edit address</source>
-        <extracomment>Entry in adress table context menu to edit</extracomment>
+        <extracomment>Entry in address table context menu to edit</extracomment>
         <translation>แก้ไขที่อยู่</translation>
     </message>
     <message id="address-table-cm-delete">
         <source>Delete address</source>
-        <extracomment>Entry in adress table context menu to delete</extracomment>
+        <extracomment>Entry in address table context menu to delete</extracomment>
         <translation>ลบที่อยู่</translation>
     </message>
     <message id="address-table-cm-delete-contact">
@@ -293,9 +293,29 @@
         <source>Available</source>
         <translation>พร้อมใช้งาน</translation>
     </message>
-    <message id="available-panel-where-to-buy">
-        <source>Where to buy BEAM?</source>
-        <translation type="vanished">ฉันจะซื้อ BEAM ได้ที่ไหนบ้าง?</translation>
+    <message id="available-panel-locked">
+        <source>Locked</source>
+        <translation>ล็อก</translation>
+    </message>
+    <message id="available-panel-sending">
+        <source>Sending</source>
+        <translation>กำลังโอน</translation>
+    </message>
+    <message id="available-panel-receiving">
+        <source>Receiving</source>
+        <translation>กำลังรับ</translation>
+    </message>
+    <message id="available-panel-maturing">
+        <source>Maturing</source>
+        <translation>รอการปลด</translation>
+    </message>
+    <message id="available-panel-change">
+        <source>Change</source>
+        <translation>เปลี่ยน</translation>
+    </message>
+    <message id="available-panel-incoming">
+        <source>Incoming</source>
+        <translation>ขาเข้า</translation>
     </message>
     <message id="settings-version">
         <source>Version</source>
@@ -307,10 +327,18 @@
         <extracomment>settings tab, node section, address label</extracomment>
         <translation>ip:port</translation>
     </message>
+    <message id="settings-see-seed">
+        <source>Click to see seed phrase</source>
+        <translation type="vanished">กดเพื่อดูกลุ่มคำลับ</translation>
+    </message>
+    <message id="settings-new-seed">
+        <source>Double click to generate new seed phrase</source>
+        <translation type="vanished">ดับเบิลคลิกเพื่อทำการสร้างกลุ่มคำลับใหม่</translation>
+    </message>
     <message id="settings-local-node-run-checkbox">
         <source>Run local node</source>
         <extracomment>settings tab, node section, run node label</extracomment>
-        <translation>รันโหนดเอง</translation>
+        <translation>รัน Node เอง</translation>
     </message>
     <message id="settings-local-node-port">
         <source>Port</source>
@@ -418,17 +446,17 @@
     </message>
     <message id="edit-addr-title">
         <source>Edit address</source>
-        <extracomment>Edit addres dialog title</extracomment>
+        <extracomment>Edit address dialog title</extracomment>
         <translation>แก้ไขที่อยู่</translation>
     </message>
     <message id="edit-addr-addr-id">
         <source>Address ID</source>
-        <extracomment>Edit addres dialog, address label</extracomment>
+        <extracomment>Edit address dialog, address label</extracomment>
         <translation>ที่อยู่</translation>
     </message>
     <message id="edit-addr-save-button">
         <source>Save</source>
-        <extracomment>Edit addres dialog, save button</extracomment>
+        <extracomment>Edit address dialog, save button</extracomment>
         <translation>บันทึก</translation>
     </message>
     <message id="payment-info-proof-verification">
@@ -462,10 +490,6 @@
     <message id="payment-info-copy-code-button">
         <source>Copy code</source>
         <translation>คัดลอกโค้ด</translation>
-    </message>
-    <message id="secondary-panel-maturing">
-        <source>Maturing</source>
-        <translation type="vanished">รอการปลด</translation>
     </message>
     <message id="info-title">
         <source>Info view</source>
@@ -523,7 +547,6 @@
     </message>
     <message id="settings-title">
         <source>Settings</source>
-        <extracomment>settings tab title</extracomment>
         <translation>การตั้งค่า</translation>
     </message>
     <message id="cant-send-to-expired-message">
@@ -548,15 +571,15 @@
     </message>
     <message id="wallet-receive-title">
         <source>Receive</source>
-        <translation type="unfinished">รับ Beam</translation>
+        <translation>รับ</translation>
     </message>
     <message id="wallet-receive-my-addr-label">
         <source>My address (auto-generated)</source>
-        <translation type="unfinished">ที่อยู่ของฉัน</translation>
+        <translation>ที่อยู่ (สร้างอัตโนัติ)</translation>
     </message>
     <message id="wallet-receive-expires-label">
         <source>Expires in</source>
-        <translation type="unfinished">หมดอายุ</translation>
+        <translation>หมดอายุใน</translation>
     </message>
     <message id="wallet-receive-expires-24">
         <source>24 hours</source>
@@ -580,15 +603,15 @@
     </message>
     <message id="send-title">
         <source>Send</source>
-        <translation type="unfinished">โอน Beam</translation>
+        <translation>โอน</translation>
     </message>
     <message id="send-send-to-label">
         <source>Transaction token or contact</source>
-        <translation type="unfinished">โอนไปที่</translation>
+        <translation>โทเค็นธุรกรรมหรือผู้ติดต่อ</translation>
     </message>
     <message id="send-contact-placeholder">
         <source>Please specify contact or transaction token</source>
-        <translation type="unfinished">กรุณาเลือกผู้ติดต่อ</translation>
+        <translation>กรุณาระบุผู้ติดต่อหรือโทเค็นธุรกรรม</translation>
     </message>
     <message id="send-amount-label">
         <source>Transaction amount</source>
@@ -801,14 +824,12 @@
         <translation>ไม่สามารถเปิดกระเป๋าได้ กรุณาตรวจสอบที่ตั้งของข้อมูลกระเป๋า</translation>
     </message>
     <message id="loading-view-download-blocks">
-        <source>Downloading new blocks</source>
-        <oldsource>Downloading blocks</oldsource>
-        <translation type="unfinished">กำลังดาวน์โหลดบล็อค</translation>
+        <source>Synching with blockchain</source>
+        <translation>กำลังดึงข้อมูลจากบล็อกเชน</translation>
     </message>
     <message id="loading-view-scaning-utxo">
-        <source>Scanning new blocks %d/%d</source>
-        <oldsource>Scanning UTXO %d/%d</oldsource>
-        <translation type="unfinished">กำลังสแกน UTXO %d/%d</translation>
+        <source>Loading wallet data %d/%d</source>
+        <translation>กำลังโหลดข้อมูลกระเป๋า %d/%d</translation>
     </message>
     <message id="loading-view-protocol-error">
         <source>Incompatible peer</source>
@@ -1103,27 +1124,27 @@
     </message>
     <message id="edit-addr-expires-label">
         <source>Expires</source>
-        <extracomment>Edit addres dialog, expires label</extracomment>
+        <extracomment>Edit address dialog, expires label</extracomment>
         <translation>หมดอายุ</translation>
     </message>
     <message id="edit-addr-expire-now-label">
         <source>Now</source>
-        <extracomment>Edit addres dialog, expire now label</extracomment>
+        <extracomment>Edit address dialog, expire now label</extracomment>
         <translation>ตอนนี้</translation>
     </message>
     <message id="edit-addr-expire-now-switch">
         <source>Expire address now</source>
-        <extracomment>Edit addres dialog, expire now switch</extracomment>
+        <extracomment>Edit address dialog, expire now switch</extracomment>
         <translation>ให้ที่อยู่หมดอายุเลย</translation>
     </message>
     <message id="edit-addr-expiration-time-label">
         <source>Expired on </source>
-        <extracomment>Edit addres dialog, expiration time label</extracomment>
+        <extracomment>Edit address dialog, expiration time label</extracomment>
         <translation>หมดอายุเมื่อ: </translation>
     </message>
     <message id="edit-addr-activate-addr-switch">
         <source>Activate address</source>
-        <extracomment>Edit addres dialog, expiration time label</extracomment>
+        <extracomment>Edit address dialog, expiration time label</extracomment>
         <translation>ใช้งานที่อยู่</translation>
     </message>
     <message id="time-never">
@@ -1199,35 +1220,35 @@
     </message>
     <message id="tx-failture-subtx-failed">
         <source>Subtransaction has failed</source>
-        <translation type="unfinished">Subtransaction has failed</translation>
+        <translation>ธุรกรรมย่อยผิดพลาด</translation>
     </message>
     <message id="tx-failture-invalid-contract-amount">
         <source>Contract&apos;s amount is not valid</source>
-        <translation type="unfinished">Contract&apos;s amount is not valid</translation>
+        <translation>จำนวนของสัญญาไม่ถูกต้อง</translation>
     </message>
     <message id="tx-failture-invalid-sidechain-contract">
         <source>Side chain has invalid contract</source>
-        <translation type="unfinished">Side chain has invalid contract</translation>
+        <translation>สัญญาของ Side Chain ไม่ถูกต้อง</translation>
     </message>
     <message id="tx-failture-sidechain-internal-error">
         <source>Side chain bridge has internal error</source>
-        <translation type="unfinished">Side chain bridge has internal error</translation>
+        <translation>พบปัญหาภายในของการเชื่อมต่อ Side Chain</translation>
     </message>
     <message id="tx-failture-sidechain-network-error">
         <source>Side chain bridge has network error</source>
-        <translation type="unfinished">Side chain bridge has network error</translation>
+        <translation>พบปัญหาด้านเครือข่ายของการเชื่อมต่อ Side Chain</translation>
     </message>
     <message id="tx-failture-invalid-sidechain-response-format">
         <source>Side chain bridge has response format error</source>
-        <translation type="unfinished">Side chain bridge has response format error</translation>
+        <translation>พบปัญหาด้านฟอร์แมทของการเชื่อมต่อ Side Chain</translation>
     </message>
     <message id="tx-failture-invalid-side-chain-credentials">
         <source>Invalid credentials of Side chain</source>
-        <translation type="unfinished">Invalid credentials of Side chain</translation>
+        <translation>Credential ของ Side Chain ไม่ถูกต้อง</translation>
     </message>
     <message id="tx-failture-not-enough-time-btc-lock">
         <source>Not enough time to finish btc lock transaction</source>
-        <translation type="unfinished">Not enough time to finish btc lock transaction</translation>
+        <translation>เวลาไม่พอที่ล็อคธุรกรรมของ BTC</translation>
     </message>
     <message id="tx-failture-create-multisig">
         <source>Failed to create multi-signature</source>
@@ -1249,375 +1270,720 @@
         <source>Estimate time: %s</source>
         <translation>ระยะเวลาโดยประมาณ: %s</translation>
     </message>
-    <message id="atomic-swap-title">
-        <source>Atomic Swap</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message id="atomic-swap-create">
-        <source>Create offer</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message id="atomic-swap-active-offers-tab">
-        <source>Active offers</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message id="atomic-swap-transactions-tab">
-        <source>Transactions</source>
-        <translation type="unfinished">ธุรกรรม</translation>
-    </message>
-    <message id="atomic-swap-receive-beam">
-        <source>Receive BEAM</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message id="atomic-swap-send-beam">
-        <source>Send BEAM</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message id="atomic-swap-only-my-offers">
-        <source>Only my offers</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message id="atomic-swap-fit-current-balance">
-        <source>Fit my current balance</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message id="atomic-swap-currency">
-        <source>Currency</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message id="atomic-swap-time-created">
-        <source>Created on</source>
-        <translation type="unfinished">วันที่ | เวลา</translation>
-    </message>
-    <message id="atomic-swap-amount-send">
-        <source>Send</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message id="atomic-swap-amount-receive">
-        <source>Receive</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message id="atomic-swap-rate">
-        <source>Rate</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message id="atomic-swap-expiration">
-        <source>Expiration</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message id="atomic-swap-cancel">
-        <source>Cancel offer</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message id="atomic-swap-accept">
-        <source>Accept offer</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message id="atomic-swap-all-transactions-tab">
-        <source>All</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message id="atomic-swap-in-progress-transactions-tab">
-        <source>In progress</source>
-        <translation type="unfinished">อยู่ระหว่างดำเนินการ</translation>
-    </message>
-    <message id="atomic-swap-tx-table-created">
-        <source>Created on</source>
-        <translation type="unfinished">วันที่ | เวลา</translation>
-    </message>
-    <message id="atomic-swap-tx-table-from">
-        <source>From</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message id="atomic-swap-tx-table-to">
-        <source>To</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message id="atomic-swap-tx-table-sent">
-        <source>Sent</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message id="atomic-swap-tx-table-received">
-        <source>Received</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message id="atomic-swap-tx-table-status">
-        <source>Status</source>
-        <translation type="unfinished">สถานะ</translation>
-    </message>
     <message id="general-fee-rate">
-        <source>Transaction fee rate</source>
-        <translation type="unfinished"></translation>
+        <source>%1 Transaction fee rate</source>
+        <oldsource>Transaction fee rate</oldsource>
+        <translation type="unfinished">ค่าธรรมเนียมธุรกรรม</translation>
     </message>
     <message id="general-fee-fail">
         <source>The minimum fee is %1 %2</source>
-        <translation type="unfinished"></translation>
+        <translation>ค่าธรรมเนียมที่ต่ำที่สุดคือ %1 %2</translation>
     </message>
     <message id="general-locked">
         <source>locked</source>
-        <translation type="unfinished"></translation>
+        <translation type="vanished">ล็อก</translation>
     </message>
     <message id="general-change-settings">
         <source>Change settings</source>
-        <translation type="unfinished">เปลี่ยนการตั้งค่า</translation>
+        <translation>เปลี่ยนการตั้งค่า</translation>
     </message>
-    <message id="wallet-swap">
+    <message id="general-swap">
         <source>Swap</source>
-        <translation type="unfinished"></translation>
+        <translation>สวอป</translation>
     </message>
     <message id="settings-reset">
-        <source>Switch off</source>
-        <translation type="unfinished"></translation>
+        <source>Clear</source>
+        <translation>ล้างข้อมูล</translation>
     </message>
     <message id="settings-node-address">
         <source>Node Address</source>
-        <translation type="unfinished"></translation>
+        <translation>ที่อยู่ของ Node</translation>
     </message>
     <message id="settings-username">
         <source>Username</source>
-        <translation type="unfinished"></translation>
+        <translation>ชื่อผู้ใช้</translation>
     </message>
     <message id="settings-password">
         <source>Password</source>
-        <translation type="unfinished">รหัสผ่าน</translation>
+        <translation>รหัสผ่าน</translation>
     </message>
     <message id="settings-fee-rate">
         <source>Default fee</source>
-        <translation type="unfinished"></translation>
+        <translation>ค่าธรรมเนียมมาตรฐาน</translation>
     </message>
-    <message id="trezor-message">
-        <source>Please, look at your Trezor device to complete actions...</source>
-        <translation type="unfinished"></translation>
+    <message id="swap-beta-message">
+        <source>Atomic Swap functionality is Beta at the moment. We recommend you not to send large amounts.</source>
+        <translation>ฟังก์ชั่น Atomic Swap อยู่ในสถานะเบต้าในขณะนี้ เราไม่แนะนำให้ใช้งานในจำนวนที่เยอะ</translation>
+    </message>
+    <message id="swap-beta-title">
+        <source>Atomic Swap is in BETA</source>
+        <translation>Atomic Swap อยู่ในสถานะเบต้า</translation>
     </message>
     <message id="swap-na-message">
         <source>You do not have any 3rd-party currencies connected.\nUpdate your settings and try again.</source>
         <oldsource>You do not have any 3rd-party currencies connected.
 Update your settings and try again.</oldsource>
-        <translation type="unfinished"></translation>
+        <translation type="unfinished">คุณไม่มีสกุลเงินอื่นเชื่อมต่ออยู่ กรุณาแก้ไขการตั้งค่าและลองใหม่อีกครั้ง</translation>
     </message>
     <message id="wallet-receive-swap-title">
         <source>Create swap offer</source>
-        <translation type="unfinished"></translation>
+        <translation>สร้างข้อเสนอการแลกเปลี่ยน</translation>
     </message>
     <message id="wallet-receive-addr-message">
         <source>Send this address to the sender over an external secure channel or scan the QR code</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message id="wallet-receive-text-online-time">
-        <source>For the transaction to complete, you should get online during the 12 hours after Beams are sent.</source>
-        <translation type="unfinished"></translation>
+        <translation>นำที่อยู่นี้ไปให้ผู้ที่จะโอนในช่องทางอื่นหรือสแกน QR Code</translation>
     </message>
     <message id="wallet-receive-copy-address">
         <source>Copy transaction address</source>
-        <translation type="unfinished"></translation>
+        <translation>คัดลอกที่อยู่ธุรกรรม</translation>
     </message>
     <message id="receive-amount-swap-label">
         <source>Receive amount</source>
-        <translation type="unfinished"></translation>
+        <translation>จำนวนที่ได้รับ</translation>
     </message>
     <message id="sent-amount-label">
-        <source>Sent amount</source>
-        <translation type="unfinished"></translation>
+        <source>Send amount</source>
+        <translation>จำนวนที่โอน</translation>
     </message>
     <message id="wallet-receive-offer-expires-label">
         <source>Offer expiration time</source>
-        <translation type="unfinished"></translation>
+        <translation>เวลาหมดอายุของข้อเสนอ</translation>
     </message>
     <message id="wallet-receive-expires-12">
         <source>12 hours</source>
-        <translation type="unfinished">24 ชั่วโมง {12 ?}</translation>
+        <translation>12 ชั่วโมง</translation>
     </message>
     <message id="wallet-receive-expires-6">
         <source>6 hours</source>
-        <translation type="unfinished">24 ชั่วโมง {6 ?}</translation>
+        <translation>6 ชั่วโมง</translation>
     </message>
     <message id="general-rate">
-        <source>Rate</source>
-        <translation type="unfinished"></translation>
+        <source>Exchange rate</source>
+        <translation type="unfinished">Exchange rate</translation>
     </message>
     <message id="wallet-receive-your-token">
         <source>Your transaction token:</source>
-        <translation type="unfinished"></translation>
+        <translation type="vanished">โทเค็นธุรกรรมของคุณ</translation>
     </message>
     <message id="wallet-swap-token-message">
         <source>Send this token to the sender over an external secure channel</source>
-        <translation type="unfinished"></translation>
+        <translation>ส่งโทเค็นนี้ไปให้ผู้ที่จะโอนในช่องทางอื่นๆ</translation>
     </message>
     <message id="wallet-receive-swap-publish">
-        <source>publish transaction token</source>
-        <translation type="unfinished"></translation>
+        <source>publish offer</source>
+        <oldsource>publish transaction token</oldsource>
+        <translation type="unfinished">ประกาศโทเค็นธุรกรรม</translation>
     </message>
     <message id="wallet-send-swap-title">
         <source>Swap currencies</source>
-        <translation type="unfinished"></translation>
+        <translation>แลกเปลี่ยนสกุลเงิน</translation>
     </message>
     <message id="wallet-send-invalid-token">
-        <source>Invalid address or token</source>
-        <translation type="unfinished"></translation>
+        <source>Invalid swap token</source>
+        <translation type="unfinished">Invalid swap token</translation>
     </message>
-    <message id="send-confirmation-pwd-text-online-time">
-        <source>For the transaction to complete, the recipient must get online within the next 12 hours and you should get online within 2 hours afterwards.</source>
-        <translation type="unfinished"></translation>
+    <message id="wallet-send-invalid-address-or-token">
+        <source>Invalid wallet address</source>
+        <oldsource>Invalid wallet address or swap token</oldsource>
+        <translation type="unfinished">Invalid wallet address or swap token</translation>
     </message>
     <message id="general-comment-local">
         <source>Comments are local and won&apos;t be shared</source>
-        <translation type="unfinished"></translation>
+        <translation>คอมเม้นต์ถูกเก็บเฉพาะในอุปกรณ์นี้จะไม่ถูกแชร์ไปที่อื่น</translation>
     </message>
     <message id="send-total-label">
         <source>Total UTXO value</source>
-        <translation type="unfinished"></translation>
+        <translation>ค่าของ UTXO ทั้งหมด</translation>
     </message>
     <message id="general-bitcoin">
         <source>Bitcoin</source>
-        <translation type="unfinished"></translation>
+        <translation>Bitcoin</translation>
     </message>
     <message id="general-litecoin">
         <source>Litecoin</source>
-        <translation type="unfinished"></translation>
+        <translation>Litecoin</translation>
     </message>
     <message id="general-qtum">
         <source>QTUM</source>
-        <translation type="unfinished"></translation>
+        <translation>QTUM</translation>
+    </message>
+    <message id="general-electrum">
+        <source>Electrum</source>
+        <translation>Electrum</translation>
     </message>
     <message id="swap-currency-na-message">
-        <source>You do not have %1 connected.\nUpdate your settings and try again.</source>
-        <oldsource>You do not have %1 connected.
-Update your settings and try again.</oldsource>
-        <translation type="unfinished"></translation>
+        <source>%1 is not connected, \nplease review your settings and try again.</source>
+        <oldsource>%1 is not connected, 
+please review your settings and try again.</oldsource>
+        <translation type="unfinished">%1 is not connected, \nplease review your settings and try again.</translation>
     </message>
     <message id="send-swap-to-label">
         <source>Transaction token</source>
-        <translation type="unfinished"></translation>
+        <translation type="vanished">โทเค็นธุรกรรม</translation>
     </message>
     <message id="send-not-enough">
         <source>There is not enough funds to complete the transaction</source>
-        <translation type="unfinished"></translation>
+        <translation>จำนวนยอดคงเหลือของคุณไม่เพียงพอสำหรับการทำธุรกรรมนี้</translation>
     </message>
     <message id="wallet-send-swap-offered-label">
         <source>Offered on</source>
-        <translation type="unfinished"></translation>
+        <translation>เสนอเมื่อ</translation>
     </message>
     <message id="wallet-send-swap-expires-label">
         <source>Expires on</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message id="general-create-trezor-wallet">
-        <source>Create new Trezor wallet</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message id="start-init-wallet-with-trezor">
-        <source>Init wallet with Trezor</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message id="start-found-trezor-device">
-        <source>Found device:</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message id="start-no-trezor-device-connected">
-        <source>There is no device connected, please, connect your hardware wallet.</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message id="start-import-trezor-owner-key">
-        <source>Import Trezor Owner Key</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message id="start-owner-key-imported">
-        <source>Owner Key imported. Please, enter the password you saw on device to decrypt your Owner Key.</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message id="start-look-at-trezor-to-complete-actions">
-        <source>Please, look at your Trezor to complete actions...</source>
-        <translation type="unfinished"></translation>
+        <translation>หมดอายุใน</translation>
     </message>
     <message id="general-address-from">
         <source>From</source>
-        <translation type="unfinished"></translation>
+        <translation>จาก</translation>
     </message>
     <message id="general-address-to">
         <source>To</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message id="loading-view-estimate-hours">
-        <source>h.</source>
-        <translation type="unfinished"></translation>
+        <translation>ถึง</translation>
     </message>
     <message id="loading-view-estimate-calculating">
         <source>calculating...</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message id="loading-view-net-problems">
-        <source>It may take longer when usual. Please, check your network.</source>
-        <translation type="unfinished"></translation>
+        <translation>กำลังคำนวณ...</translation>
     </message>
     <message id="loading-view-rebuild-utxos">
-        <source>Scanning existing blocks</source>
-        <oldsource>Rebuilding UTXO image</oldsource>
-        <translation type="unfinished"></translation>
+        <source>Rebuilding wallet data</source>
+        <translation>กำลังสร้างข้อมูลกระเป๋าใหม่</translation>
     </message>
-    <message id="wallet-receive-copy-token">
-        <source>copy transaction token</source>
-        <translation type="unfinished"></translation>
+    <message id="loading-view-estimate-hours">
+        <source>h.</source>
+        <translation>ชม.</translation>
+    </message>
+    <message id="loading-view-net-problems">
+        <source>It may take longer then usual. Please, check your network.</source>
+        <translation>มีการใช้เวลามากกว่าปกติ กรุณาตรวจสอบอินเตอร์เนทของคุณ</translation>
+    </message>
+    <message id="atomic-swap-title">
+        <source>Atomic Swap</source>
+        <translation>Atomic Swap</translation>
+    </message>
+    <message id="atomic-swap-create">
+        <source>Create offer</source>
+        <translation>สร้างข้อเสนอ</translation>
+    </message>
+    <message id="atomic-swap-active-offers-tab">
+        <source>Active offers</source>
+        <translation>ข้อเสนอเสนอที่ใช้งานอยู่</translation>
+    </message>
+    <message id="atomic-swap-transactions-tab">
+        <source>Transactions</source>
+        <translation>ธุรกรรม</translation>
+    </message>
+    <message id="atomic-swap-receive-beam">
+        <source>Receive BEAM</source>
+        <translation>รับ Beam</translation>
+    </message>
+    <message id="atomic-swap-send-beam">
+        <source>Send BEAM</source>
+        <translation>ส่ง BEAM</translation>
+    </message>
+    <message id="atomic-swap-only-my-offers">
+        <source>Only my offers</source>
+        <translation>เฉพาะข้อเสนอของฉัน</translation>
+    </message>
+    <message id="atomic-swap-fit-current-balance">
+        <source>Fit my current balance</source>
+        <translation>พอดีกับยอดคงเหลือของฉัน</translation>
+    </message>
+    <message id="atomic-swap-currency">
+        <source>Currency</source>
+        <translation>สกุลเงิน</translation>
+    </message>
+    <message id="atomic-swap-time-created">
+        <source>Created on</source>
+        <translation>สร้างเมื่อ</translation>
+    </message>
+    <message id="atomic-swap-amount-send">
+        <source>Send</source>
+        <translation>โอน</translation>
+    </message>
+    <message id="atomic-swap-amount-receive">
+        <source>Receive</source>
+        <translation>รับ</translation>
+    </message>
+    <message id="atomic-swap-rate">
+        <source>Rate</source>
+        <translation>เรท</translation>
+    </message>
+    <message id="atomic-swap-expiration">
+        <source>Expiration</source>
+        <translation>วันหมดอายุ</translation>
+    </message>
+    <message id="atomic-swap-cancel">
+        <source>Cancel offer</source>
+        <translation>ยกเลิกข้อเสนอ</translation>
+    </message>
+    <message id="atomic-swap-accept">
+        <source>Accept offer</source>
+        <translation>ยอมรับข้อเสนอ</translation>
+    </message>
+    <message id="atomic-swap-all-transactions-tab">
+        <source>All</source>
+        <translation>ทั้งหมด</translation>
+    </message>
+    <message id="atomic-swap-in-progress-transactions-tab">
+        <source>In progress</source>
+        <translation>อยู่ระหว่างดำเนินการ</translation>
+    </message>
+    <message id="atomic-swap-tx-table-created">
+        <source>Created on</source>
+        <translation>สร้างเมื่อ</translation>
+    </message>
+    <message id="atomic-swap-tx-table-from">
+        <source>From</source>
+        <translation>จาก</translation>
+    </message>
+    <message id="atomic-swap-tx-table-to">
+        <source>To</source>
+        <translation>ถึง</translation>
+    </message>
+    <message id="atomic-swap-tx-table-sent">
+        <source>Sent</source>
+        <translation>ส่งแล้ว</translation>
+    </message>
+    <message id="atomic-swap-tx-table-received">
+        <source>Received</source>
+        <translation>ได้​รับ​แล้ว</translation>
+    </message>
+    <message id="atomic-swap-tx-table-status">
+        <source>Status</source>
+        <translation>สถานะ</translation>
+    </message>
+    <message id="general-create-trezor-wallet">
+        <source>Create new Trezor wallet</source>
+        <translation>สร้างกระเป๋า Trezor ใหม่</translation>
+    </message>
+    <message id="wallet-receive-text-online-time">
+        <source>For the transaction to complete, you should get online during the 12 hours after Beams are sent.</source>
+        <translation>เพื่อให้การทำธุรกรรมเสร็จสมบูรณ์ คุณควรจะออนไลน์ระหว่าง 12 ชั่วโมงหลังจากที่ได้ทำการสั่งโอน Beam ออกไป</translation>
+    </message>
+    <message id="send-confirmation-pwd-text-online-time">
+        <source>For the transaction to complete, the recipient must get online within the next 12 hours and you should get online within 2 hours afterwards.</source>
+        <translation>เพื่อให้ธุรกรรมเสร็จสมบูรณ์ ผู้รับโอนจะต้องออนไลน์ภายใน 12 ชั่วโมงและคุณควรจะออนไลน์หลังจากนั้นภายใน 2 ชั่วโมง</translation>
     </message>
     <message id="atomic-swap-connect-other">
         <source>Connect other currency wallet to start trading</source>
-        <translation type="unfinished"></translation>
+        <translation>เชื่อมต่อกระเป๋าของอีกสกุลเงินเพื่อเริ่มการซื้อขาย</translation>
+    </message>
+    <message id="trezor-message">
+        <source>Please, look at your Trezor device to complete actions...</source>
+        <translation>กรุณาดูที่ Trezor ของคุณเพื่อดำเนินการคำสั่ง...</translation>
+    </message>
+    <message id="start-init-wallet-with-trezor">
+        <source>Init wallet with Trezor</source>
+        <translation>สร้างกระเป๋าใหม่ด้วย Trezor</translation>
+    </message>
+    <message id="start-import-trezor-owner-key">
+        <source>Import Trezor Owner Key</source>
+        <translation>นำเข้า Trezor Owner Key</translation>
+    </message>
+    <message id="start-owner-key-imported">
+        <source>Owner Key imported. Please, enter the password you saw on device to decrypt your Owner Key.</source>
+        <translation>นำเข้า Owner Key เรียบร้อยแล้ว กรุณากรอกรหัสผ่านที่คุณเห็นใน Trezor เพื่อถอดรหัส Owner Key</translation>
+    </message>
+    <message id="start-look-at-trezor-to-complete-actions">
+        <source>Please, look at your Trezor to complete actions...</source>
+        <translation>กรุณาดูที่ Trezor ของคุณเพื่อดำเนินการคำสั่ง...</translation>
+    </message>
+    <message id="start-found-trezor-device">
+        <source>Found device:</source>
+        <translation>พบอุปกรณ์:</translation>
+    </message>
+    <message id="start-no-trezor-device-connected">
+        <source>There is no device connected, please, connect your hardware wallet.</source>
+        <translation>ไม่มีอุปกรณ์ใดเชื่อมต่ออยู่ กรุณาเชื่อมต่อ Hardware Wallet ของคุณ</translation>
+    </message>
+    <message id="wallet-receive-copy-token">
+        <source>copy swap token</source>
+        <oldsource>copy transaction token</oldsource>
+        <translation type="unfinished">คัดลอกโทเค็นธุรกรรม</translation>
     </message>
     <message id="wallet-model-device-not-connected">
         <source>There is no Trezor device connected. Please, connect and try again.</source>
-        <translation type="unfinished"></translation>
+        <translation>ไม่พบ Trezor ที่กำลังเชื่อมต่อ กรุณาเชื่อมต่อและลองอีกครั้ง</translation>
     </message>
-    <message id="swap-beta-button">
-        <source>I understand</source>
-        <translation type="unfinished">ฉันเข้าใจ</translation>
+    <message id="settings-invalid-seed">
+        <source>Invalid seed phrase</source>
+        <translation type="vanished">กลุ่มคำลับไม่ถูกต้อง</translation>
     </message>
-    <message id="swap-beta-message">
-        <source>Atomic Swap functionality is Beta at the moment. We recommend you not to send large amounts.</source>
-        <oldsource>Atomic Swap functionality is Beta at the moment. We recommend
-you do not send large amounts.</oldsource>
-        <translation type="unfinished"></translation>
+    <message id="wallet-transactions-all-tab">
+        <source>All</source>
+        <translation>ทั้งหมด</translation>
     </message>
-    <message id="swap-beta-title">
-        <source>Atomic Swap is in BETA</source>
-        <translation type="unfinished"></translation>
+    <message id="wallet-transactions-in-progress-tab">
+        <source>In progress</source>
+        <translation>อยู่ระหว่างดำเนินการ</translation>
     </message>
-    <message id="swap-beta-connection-error">
-        <source>Cannot connect to peer. Please check in the address in settings and retry.</source>
-        <translation type="unfinished"></translation>
+    <message id="wallet-transactions-sent-tab">
+        <source>Sent</source>
+        <translation>ส่งแล้ว</translation>
     </message>
-    <message id="available-panel-locked">
-        <source>Locked</source>
-        <translation type="unfinished"></translation>
+    <message id="wallet-transactions-received-tab">
+        <source>Received</source>
+        <translation>ได้​รับ​แล้ว</translation>
     </message>
-    <message id="available-panel-sending">
-        <source>Sending</source>
-        <translation type="unfinished"></translation>
+    <message id="settings-progress-na">
+        <source>You cannot disconnect wallet, edit seed phrase or change default\nfee while you have transactions in progress.</source>
+        <oldsource>You cannot disconnect wallet, edit seed phrase or change default
+fee while you have transactions in progress.</oldsource>
+        <translation type="unfinished">You cannot disconnect wallet, edit seed phrase or change default\nfee while you have transactions in progress.</translation>
     </message>
-    <message id="available-panel-receiving">
-        <source>Receiving</source>
-        <translation type="unfinished"></translation>
+    <message id="atomic-no-offers">
+        <source>There are no active offers at the moment.\nPlease try again later or create an offer yourself.</source>
+        <oldsource>There are no active offers at the moment.
+Please try again later or create an offer yourself.</oldsource>
+        <translation type="unfinished">There are no active offers at the moment.\nPlease try again later or create an offer yourself.</translation>
     </message>
-    <message id="available-panel-maturing">
-        <source>Maturing</source>
-        <translation type="unfinished">รอการปลด</translation>
+    <message id="send-less-than-fee">
+        <source>The swap amount must be greater than the redemption fee.</source>
+        <translation type="unfinished">The swap amount must be greater than the redemption fee.</translation>
     </message>
-    <message id="available-panel-change">
-        <source>Change</source>
-        <translation type="unfinished">เปลี่ยน</translation>
+    <message id="wallet-txs-status-in-progress">
+        <source>in progress</source>
+        <translation>กำลังดำเนินการ</translation>
     </message>
-    <message id="available-panel-incoming">
-        <source>Incoming</source>
-        <translation type="unfinished"></translation>
+    <message id="wallet-txs-status-own-sent">
+        <source>sent to own address</source>
+        <translation>ส่งให้ที่อยู่ตัวเองแล้ว</translation>
     </message>
-    <message id="atomic-swap-active-tx-count">
-        <source>%1 active transactions</source>
-        <translation type="unfinished"></translation>
+    <message id="wallet-txs-status-own-sending">
+        <source>sending to own address</source>
+        <translation>กำลังส่งให้ที่อยู่ของตัวเอง</translation>
+    </message>
+    <message id="wallet-search-transactions-placeholder">
+        <source>Transaction or kernel ID, comment, address or contact</source>
+        <translation type="unfinished">Transaction or kernel ID, comment, address or contact</translation>
+    </message>
+    <message id="settings-swap-node">
+        <source>Node</source>
+        <translation>Node</translation>
+    </message>
+    <message id="wallet-clear-search">
+        <source>Clear search</source>
+        <translation>ล้างการค้นหา</translation>
+    </message>
+    <message id="wallet-search">
+        <source>Search</source>
+        <translation>ค้นหา</translation>
     </message>
     <message id="atomic-swap-1active-tx-count">
         <source>1 active transaction</source>
-        <translation type="unfinished"></translation>
+        <translation>1 ธุรกรรมที่มีผล</translation>
+    </message>
+    <message id="atomic-swap-active-tx-count">
+        <source>%1 active transactions</source>
+        <translation>%1 ธุรกรรมที่มีผล</translation>
     </message>
     <message id="swap-beta-tx-in-progress">
         <source>Transaction is in progress</source>
+        <translation>ธุรกรรมที่กำลังดำเนินการ</translation>
+    </message>
+    <message id="swap-connecting">
+        <source>Connecting...</source>
+        <translation>กำลังเชื่อมต่อ...</translation>
+    </message>
+    <message id="swap-beta-connection-error">
+        <source>Cannot connect to peer. Please check the address and retry.</source>
+        <translation type="unfinished">Cannot connect to peer. Please check the address and retry.</translation>
+    </message>
+    <message id="swap-alert-confirm-button">
+        <source>I understand</source>
+        <translation>ฉันเข้าใจ</translation>
+    </message>
+    <message id="accept-own-offer-allert-head">
+        <source>Own offer can’t be accepted</source>
+        <translation type="unfinished">Own offer can’t be accepted</translation>
+    </message>
+    <message id="accept-own-offer-allert-body">
+        <source>The transaction token was generated by you, therefore it is not allowed to accept your own offer.\nPlease check the swap token and try again.</source>
+        <oldsource>The transaction token was generated by you, therefore it is not allowed to accept your own offer.
+Please check the swap token and try again.</oldsource>
+        <translation type="unfinished">The transaction token was generated by you, therefore it is not allowed to accept your own offer.\nPlease check the swap token and try again.</translation>
+    </message>
+    <message id="swap-copy-token">
+        <source>Copy token</source>
+        <translation>คัดลอกโทเค็น</translation>
+    </message>
+    <message id="atomic-swap-cancel-text">
+        <source>Are you sure you want to cancel your offer?</source>
+        <translation type="unfinished">Are you sure you want to cancel your offer?</translation>
+    </message>
+    <message id="atomic-swap-cancel-button">
+        <source>cancel offer</source>
+        <translation type="unfinished">cancel offer</translation>
+    </message>
+    <message id="atomic-swap-back-button">
+        <source>back</source>
+        <translation>ย้อนกลับ</translation>
+    </message>
+    <message id="swap-details-lock-tx-id">
+        <source>lock transaction ID</source>
+        <translation type="unfinished">lock transaction ID</translation>
+    </message>
+    <message id="swap-details-lock-tx-conf">
+        <source>lock transaction confirmations</source>
+        <translation type="unfinished">lock transaction confirmations</translation>
+    </message>
+    <message id="swap-details-beam-lock-kernel-id">
+        <source>BEAM lock transaction kernel ID</source>
+        <translation type="unfinished">BEAM lock transaction kernel ID</translation>
+    </message>
+    <message id="swap-details-beam-redeem-kernel-id">
+        <source>BEAM redeem transaction kernel ID</source>
+        <translation type="unfinished">BEAM redeem transaction kernel ID</translation>
+    </message>
+    <message id="swap-details-redeem-tx-id">
+        <source>redeem transaction ID</source>
+        <translation type="unfinished">redeem transaction ID</translation>
+    </message>
+    <message id="swap-details-redeem-tx-conf">
+        <source>redeem transaction confirmations</source>
+        <translation type="unfinished">redeem transaction confirmations</translation>
+    </message>
+    <message id="swap-details-beam-refund-kernel-id">
+        <source>BEAM refund transaction kernel ID</source>
+        <translation type="unfinished">BEAM refund transaction kernel ID</translation>
+    </message>
+    <message id="swap-details-refund-tx-id">
+        <source>refund transaction ID</source>
+        <translation type="unfinished">refund transaction ID</translation>
+    </message>
+    <message id="swap-details-refund-tx-conf">
+        <source>refund transaction confirmations</source>
+        <translation type="unfinished">refund transaction confirmations</translation>
+    </message>
+    <message id="swap-invalid-rate">
+        <source>Invalid rate</source>
+        <translation type="unfinished">Invalid rate</translation>
+    </message>
+    <message id="swap-details-tx-id">
+        <source>Transaction ID</source>
+        <translation>หมายเลขธุรกรรม</translation>
+    </message>
+    <message id="swap-details-tx-fee">
+        <source>BEAM Transaction fee</source>
+        <oldsource>Transaction fee</oldsource>
+        <translation type="unfinished">ค่าธรรมเนียมธุรกรรม</translation>
+    </message>
+    <message id="swap-details-tx-comment">
+        <source>Comment</source>
+        <translation>คอมเมนต์</translation>
+    </message>
+    <message id="swap-details-tx-fee-rate">
+        <source>%1 Transaction fee rate</source>
+        <oldsource>Transaction fee rate</oldsource>
+        <translation type="unfinished">ค่าธรรมเนียมธุรกรรม</translation>
+    </message>
+    <message id="settings-swap-disconnect">
+        <source>Disconnect</source>
+        <translation>ตัดการเชื่อมต่อ</translation>
+    </message>
+    <message id="settings-swap-seed-phrase">
+        <source>Seed Phrase</source>
+        <translation type="obsolete">Seed Phrase</translation>
+    </message>
+    <message id="settings-swap-bitcoin-node">
+        <source>Bitcoin node</source>
+        <translation type="unfinished">Bitcoin node</translation>
+    </message>
+    <message id="settings-swap-litecoin-node">
+        <source>Litecoin node</source>
+        <translation type="unfinished">Litecoin node</translation>
+    </message>
+    <message id="settings-swap-qtum-node">
+        <source>Qtum node</source>
+        <translation type="unfinished">Qtum node</translation>
+    </message>
+    <message id="settings-swap-bitcoin-electrum">
+        <source>Bitcoin electrum</source>
+        <translation type="unfinished">Bitcoin electrum</translation>
+    </message>
+    <message id="settings-swap-litecoin-electrum">
+        <source>Litecoin electrum</source>
+        <translation type="unfinished">Litecoin electrum</translation>
+    </message>
+    <message id="settings-swap-qtum-electrum">
+        <source>Qtum electrum</source>
+        <translation type="unfinished">Qtum electrum</translation>
+    </message>
+    <message id="connect to electrum node">
+        <source>connect to electrum node</source>
+        <translation type="obsolete">connect to electrum node</translation>
+    </message>
+    <message id="connect to node">
+        <source>connect to node</source>
+        <translation type="obsolete">connect to node</translation>
+    </message>
+    <message id="invalid-rate-min">
+        <source>Rate cannot be less than %1</source>
+        <translation type="unfinished">Rate cannot be less than %1</translation>
+    </message>
+    <message id="swap-offer-duplicate-message">
+        <source>The offer with this transaction token is already accepted.\nPlease check the swap token and try again.</source>
+        <oldsource>The offer with this transaction token is already accepted.
+Please check the swap token and try again.</oldsource>
+        <translation type="unfinished">The offer with this transaction token is already accepted.\nPlease check the swap token and try again.</translation>
+    </message>
+    <message id="swap-offer-duplicate-title">
+        <source>Оffer is already accepted</source>
+        <translation type="unfinished">Оffer is already accepted</translation>
+    </message>
+    <message id="swap-offer-duplicate-confirm-button">
+        <source>ok</source>
+        <translation type="unfinished">ok</translation>
+    </message>
+    <message id="swap-details-failure-reason">
+        <source>Error</source>
+        <translation>ผิดพลาด</translation>
+    </message>
+    <message id="swap-tx-failture-refunded">
+        <source>Refunded</source>
+        <translation type="unfinished">Refunded</translation>
+    </message>
+    <message id="settings-swap-edit-seed">
+        <source>Edit your seed phrase</source>
+        <translation type="unfinished">Edit your seed phrase</translation>
+    </message>
+    <message id="settings-swap-enter-seed">
+        <source>Enter your seed phrase</source>
+        <translation type="unfinished">Enter your seed phrase</translation>
+    </message>
+    <message id="settings-swap-label-or">
+        <source>or</source>
+        <translation type="unfinished">or</translation>
+    </message>
+    <message id="settings-swap-new-seed">
+        <source>Generate new seed phrase</source>
+        <translation type="unfinished">Generate new seed phrase</translation>
+    </message>
+    <message id="settings-swap-show-seed">
+        <source>Show seed phrase</source>
+        <translation>แสดงกลุ่มคำลับ</translation>
+    </message>
+    <message id="settings-swap-show-addresses">
+        <source>Show wallet addresses</source>
+        <translation type="unfinished">Show wallet addresses</translation>
+    </message>
+    <message id="settings-swap-connect-electrum">
+        <source>connect to electrum node</source>
+        <translation type="unfinished">connect to electrum node</translation>
+    </message>
+    <message id="settings-swap-connect-node">
+        <source>connect to node</source>
+        <translation type="unfinished">connect to node</translation>
+    </message>
+    <message id="swap-seed-info-message">
+        <source>Your seed phrase is the access key to all the funds! Print or write down the phrase and keep it in a safe or in a locked vault.\nWithout the phrase you will not be able to recover your money.</source>
+        <oldsource>Your seed phrase is the access key to all the funds! Print or write down the phrase and keep it in a safe or in a locked vault.
+Without the phrase you will not be able to recover your money.</oldsource>
+        <translation type="unfinished">Your seed phrase is the access key to all the funds! Print or write down the phrase and keep it in a safe or in a locked vault.\nWithout the phrase you will not be able to recover your money.</translation>
+    </message>
+    <message id="settings-swap-seed-generate">
+        <source>generate another seed phrase</source>
+        <translation type="unfinished">generate another seed phrase</translation>
+    </message>
+    <message id="swap-seed-new">
+        <source>New seed phrase</source>
+        <translation type="unfinished">New seed phrase</translation>
+    </message>
+    <message id="swap-seed-edit">
+        <source>Enter your seed phrase</source>
+        <translation type="unfinished">Enter your seed phrase</translation>
+    </message>
+    <message id="bitcoin-show-seed-title">
+        <source>Bitcoin seed phrase</source>
+        <translation type="unfinished">Bitcoin seed phrase</translation>
+    </message>
+    <message id="litecoin-show-seed-title">
+        <source>Litecoin seed phrase</source>
+        <translation type="unfinished">Litecoin seed phrase</translation>
+    </message>
+    <message id="qtum-show-seed-title">
+        <source>Qtum seed phrase</source>
+        <translation type="unfinished">Qtum seed phrase</translation>
+    </message>
+    <message id="bitcoin-show-addresses-title">
+        <source>Bitcoin wallet addresses</source>
+        <translation type="unfinished">Bitcoin wallet addresses</translation>
+    </message>
+    <message id="litecoin-show-addresses-title">
+        <source>Litecoin wallet addresses</source>
+        <translation type="unfinished">Litecoin wallet addresses</translation>
+    </message>
+    <message id="qtum-show-addresses-title">
+        <source>Qtum wallet addresses</source>
+        <translation type="unfinished">Qtum wallet addresses</translation>
+    </message>
+    <message id="settings-swap-copy-address">
+        <source>Copy address</source>
+        <translation>คัดลอกที่อยู่</translation>
+    </message>
+    <message id="settings-swap-confirm-edit-seed-title">
+        <source>Edit seed phrase</source>
+        <extracomment>electrum settings, ask password to edit seed phrase, dialog title</extracomment>
+        <translation type="unfinished">Edit seed phrase</translation>
+    </message>
+    <message id="settings-swap-confirm-edit-seed-message">
+        <source>Enter your wallet password to edit the phrase</source>
+        <extracomment>electrum settings, ask password to edit seed phrase, dialog message</extracomment>
+        <translation type="unfinished">Enter your wallet password to edit the phrase</translation>
+    </message>
+    <message id="settings-swap-confirm-generate-seed-title">
+        <source>Generate new seed phrase</source>
+        <extracomment>electrum settings, ask password to generate new seed phrase, dialog title</extracomment>
+        <translation type="unfinished">Generate new seed phrase</translation>
+    </message>
+    <message id="settings-swap-confirm-generate-seed-message">
+        <source>Enter your wallet password to generate new seed phrase</source>
+        <extracomment>electrum settings, ask password to generate new seed phrase, dialog message</extracomment>
+        <translation type="unfinished">Enter your wallet password to generate new seed phrase</translation>
+    </message>
+    <message id="settings-swap-confirm-show-seed-title">
+        <source>Show seed phrase</source>
+        <extracomment>electrum settings, ask password to show seed phrase, dialog title</extracomment>
+        <translation>แสดงกลุ่มคำลับ</translation>
+    </message>
+    <message id="settings-swap-confirm-show-seed-message">
+        <source>Enter your wallet password to see the phrase</source>
+        <extracomment>electrum settings, ask password to show seed phrase, dialog message</extracomment>
+        <translation type="unfinished">Enter your wallet password to see the phrase</translation>
+    </message>
+    <message id="settings-swap-confirm-clear-seed-title">
+        <source>Clear seed phrase</source>
+        <extracomment>electrum settings, ask password to clear seed phrase, dialog title</extracomment>
+        <translation type="unfinished">Clear seed phrase</translation>
+    </message>
+    <message id="settings-swap-confirm-clear-seed-message">
+        <source>Enter your wallet password to clear seed phrase</source>
+        <extracomment>electrum settings, ask password to clear seed phrase, dialog message</extracomment>
+        <translation type="unfinished">Enter your wallet password to clear seed phrase</translation>
+    </message>
+    <message id="wallet-receive-swap-your-token">
+        <source>Your swap token:</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="send-swap-confirmation-title">
+        <source>Confirm atomic swap</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="send-swap-sconfirmation-online-time">
+        <source>Keep your wallet online. The swap normally takes about 1 hour to complete.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="beam-transaction-fee">
+        <source>BEAM Transaction fee</source>
+        <translation type="unfinished">ค่าธรรมเนียมธุรกรรม</translation>
+    </message>
+    <message id="send-swap-token">
+        <source>Swap token</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="send-swap-token-hint">
+        <source>Paste token here</source>
         <translation type="unfinished"></translation>
     </message>
 </context>

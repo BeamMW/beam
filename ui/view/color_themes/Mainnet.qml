@@ -5,6 +5,8 @@ AbstractColors {
     property color content_main:          "#ffffff"  // white
     property color accent_outgoing:       "#da68f5"  // heliotrope
     property color accent_incoming:       "#0bccf7"  // bright-sky-blue
+    property color accent_swap:           "#39fdf2"
+    property color accent_fail:           "#ff746b"
     property color content_secondary:     "#8da1ad"  // bluey-grey
     property color content_disabled:      "#889da9"
     property color content_opposite:      "#032e49" // marine
@@ -14,11 +16,12 @@ AbstractColors {
     property color navigation_background: "#000000" 
     property color background_main:       "#042548" 
     property color background_main_top:   "#035b8f"
-    property color background_second:     "#1c435b"  // dark-slate-blue
+    property color background_second:     Qt.rgba(255, 255, 255, 0.05)
     property color background_row_even:   "#07ffffff"
     property color background_row_odd:    "#0cffffff"
     property color background_details:    "#09425e"
     property color background_button:     "#33566B"
+    property color background_popup:      "#00446c"
     property color row_selected:          "#085469"
     property color separator:             "#33566b"
     property color table_header:          Qt.rgba(0, 246, 210, 0.1)

@@ -88,37 +88,47 @@ namespace beam::wallet
     {
         Pending,
         InProgress,
-        Cancelled,
+        Canceled,
         Completed,
         Failed,
         Registering
     };
 
+    enum class SwapOfferStatus : uint32_t
+    {
+        Pending,
+        InProgress,
+        Completed,
+        Canceled,
+        Expired,
+        Failed
+    };
+
 #define BEAM_TX_FAILURE_REASON_MAP(MACRO) \
-    MACRO(Unknown,                      0, "Unknown reason") \
-    MACRO(Cancelled,                    1, "Transaction was cancelled") \
-    MACRO(InvalidPeerSignature,         2, "Peer's signature is not valid ") \
-    MACRO(FailedToRegister,             3, "Failed to register transaction") \
-    MACRO(InvalidTransaction,           4, "Transaction is not valid") \
-    MACRO(InvalidKernelProof,           5, "Invalid kernel proof provided") \
-    MACRO(FailedToSendParameters,       6, "Failed to send tx parameters") \
-    MACRO(NoInputs,                     7, "No inputs") \
-    MACRO(ExpiredAddressProvided,       8, "Address is expired") \
-    MACRO(FailedToGetParameter,         9, "Failed to get parameter") \
-    MACRO(TransactionExpired,           10, "Transaction has expired") \
-    MACRO(NoPaymentProof,               11, "Payment not signed by the receiver") \
-    MACRO(MaxHeightIsUnacceptable,      12, "Kernel's max height is unacceptable") \
-    MACRO(InvalidState,                 13, "Transaction has invalid state") \
-    MACRO(SubTxFailed,                  14, "Subtransaction has failed") \
-    MACRO(SwapInvalidAmount,            15, "Contract's amount is not valid") \
-    MACRO(SwapInvalidContract,          16, "Side chain has invalid contract") \
-    MACRO(SwapSecondSideBridgeError,    17, "Side chain bridge has internal error") \
-    MACRO(SwapNetworkBridgeError,       18, "Side chain bridge has network error") \
-    MACRO(SwapFormatResponseError,      19, "Side chain bridge has response format error") \
-    MACRO(InvalidCredentialsOfSideChain,   20, "Invalid credentials of Side chain") \
-    MACRO(NotEnoughTimeToFinishBtcTx,   21, "Not enough time to finish btc lock transaction") \
-    MACRO(FailedToCreateMultiSig,       22, "Failed to create multi-signature") \
-    MACRO(FeeIsTooSmall,                23, "Fee is too small") \
+    MACRO(Unknown,                       0, "Unknown reason") \
+    MACRO(Canceled,                      1, "Transaction was cancelled") \
+    MACRO(InvalidPeerSignature,          2, "Peer's signature is not valid ") \
+    MACRO(FailedToRegister,              3, "Failed to register transaction") \
+    MACRO(InvalidTransaction,            4, "Transaction is not valid") \
+    MACRO(InvalidKernelProof,            5, "Invalid kernel proof provided") \
+    MACRO(FailedToSendParameters,        6, "Failed to send tx parameters") \
+    MACRO(NoInputs,                      7, "No inputs") \
+    MACRO(ExpiredAddressProvided,        8, "Address is expired") \
+    MACRO(FailedToGetParameter,          9, "Failed to get parameter") \
+    MACRO(TransactionExpired,            10, "Transaction has expired") \
+    MACRO(NoPaymentProof,                11, "Payment not signed by the receiver") \
+    MACRO(MaxHeightIsUnacceptable,       12, "Kernel's max height is unacceptable") \
+    MACRO(InvalidState,                  13, "Transaction has invalid state") \
+    MACRO(SubTxFailed,                   14, "Subtransaction has failed") \
+    MACRO(SwapInvalidAmount,             15, "Contract's amount is not valid") \
+    MACRO(SwapInvalidContract,           16, "Side chain has invalid contract") \
+    MACRO(SwapSecondSideBridgeError,     17, "Side chain bridge has internal error") \
+    MACRO(SwapNetworkBridgeError,        18, "Side chain bridge has network error") \
+    MACRO(SwapFormatResponseError,       19, "Side chain bridge has response format error") \
+    MACRO(InvalidCredentialsOfSideChain, 20, "Invalid credentials of Side chain") \
+    MACRO(NotEnoughTimeToFinishBtcTx,    21, "Not enough time to finish btc lock transaction") \
+    MACRO(FailedToCreateMultiSig,        22, "Failed to create multi-signature") \
+    MACRO(FeeIsTooSmall,                 23, "Fee is too small") \
 
     enum TxFailureReason : int32_t
     {
@@ -180,6 +190,7 @@ namespace beam::wallet
         PeerProtoVersion = 16,
         MaxHeight = 17,
 
+        PeerResponseTime = 24,
         SubTxIndex = 25,
         PeerPublicSharedBlindingFactor = 26,
 
@@ -250,13 +261,14 @@ namespace beam::wallet
 
         Inputs = 180,
         InputCoins = 183,
-        OutputCoins = 184,           
+        OutputCoins = 184,
         Outputs = 190,
 
         Kernel = 200,
         PreImage = 201,
         AtomicSwapSecretPrivateKey = 202,
         AtomicSwapSecretPublicKey = 203,
+        Confirmations = 204,
 
         InternalFailureReason = 210,
     
@@ -280,6 +292,7 @@ namespace beam::wallet
         template <typename T>
         boost::optional<T> GetParameter(TxParameterID parameterID, SubTxID subTxID = kDefaultSubTxID) const
         {
+            static_assert(std::is_same<T, ByteBuffer>::value == false);
             auto buffer = GetParameter(parameterID, subTxID);
             if (buffer && !buffer->empty())
             {
@@ -323,6 +336,7 @@ namespace beam::wallet
         template <typename T>
         TxParameters& SetParameter(TxParameterID parameterID, const T& value, SubTxID subTxID = kDefaultSubTxID)
         {
+            static_assert(std::is_same<T, ByteBuffer>::value == false);
             return SetParameter(parameterID, toByteBuffer(value), subTxID);
         }
 
@@ -344,7 +358,7 @@ namespace beam::wallet
             return true;
         }
 
-        PackedTxParameters GetParameters() const;
+        PackedTxParameters Pack() const;
 
         boost::optional<ByteBuffer> GetParameter(TxParameterID parameterID, SubTxID subTxID = kDefaultSubTxID) const;
         TxParameters& SetParameter(TxParameterID parameterID, const ByteBuffer& parameter, SubTxID subTxID = kDefaultSubTxID);
@@ -367,9 +381,61 @@ namespace beam::wallet
         uint8_t m_Flags = TokenFlag;
         boost::optional<TxID> m_TxID;
         PackedTxParameters m_Parameters;
+    };    
+
+    enum class AtomicSwapCoin
+    {
+        Bitcoin,
+        Litecoin,
+        Qtum,
+        Unknown
     };
 
-    using SwapOffer = TxParameters;
+    AtomicSwapCoin from_string(const std::string& value);
+
+    struct SwapOffer : public TxParameters
+    {
+        SwapOffer() = default;
+        SwapOffer(const boost::optional<TxID>& txID)
+            : TxParameters(txID) {};
+        SwapOffer(const TxID& txId, SwapOfferStatus status, WalletID publisherId, AtomicSwapCoin coin)
+            : TxParameters(txId),
+              m_txId(txId),
+              m_status(status),
+              m_publisherId(publisherId),
+              m_coin(coin) {};
+
+        /**
+         * Used to set m_Parameters on default constructed SwapOffer
+         */
+        void SetTxParameters(const PackedTxParameters&);
+
+        TxID m_txId = {};
+        SwapOfferStatus m_status = SwapOfferStatus::Pending;
+        WalletID m_publisherId = {};
+        AtomicSwapCoin m_coin = AtomicSwapCoin::Unknown;
+    };
+
+    class SwapOfferToken
+    {
+    public:
+        SwapOfferToken() = default;
+        SwapOfferToken(const SwapOffer& offer)
+            : m_TxID(offer.m_txId),
+              m_status(offer.m_status),
+              m_publisherId(offer.m_publisherId),
+              m_coin(offer.m_coin),
+              m_Parameters(offer.Pack()) {};
+        
+        SwapOffer Unpack() const;
+        SERIALIZE(m_TxID, m_status, m_publisherId, m_coin, m_Parameters);
+    private:
+        boost::optional<TxID> m_TxID;
+        boost::optional<SwapOfferStatus> m_status;
+        boost::optional<WalletID> m_publisherId;
+        boost::optional<AtomicSwapCoin> m_coin;
+        PackedTxParameters m_Parameters;
+    };
 
     boost::optional<TxParameters> ParseParameters(const std::string& text);
 
@@ -432,16 +498,6 @@ namespace beam::wallet
         Merkle::Hash m_kernelID = Zero;
         TxFailureReason m_failureReason = TxFailureReason::Unknown;
     };
-
-    enum class AtomicSwapCoin
-    {
-        Bitcoin,
-        Litecoin,
-        Qtum,
-        Unknown
-    };
-
-    AtomicSwapCoin from_string(const std::string& value);
 
     // messages
     struct SetTxParameter
@@ -519,7 +575,7 @@ namespace beam::wallet
         virtual void confirm_kernel(const TxID&, const Merkle::Hash& kernelID, SubTxID subTxID = kDefaultSubTxID) = 0;
         virtual void get_kernel(const TxID&, const Merkle::Hash& kernelID, SubTxID subTxID = kDefaultSubTxID) = 0;
         virtual bool get_tip(Block::SystemState::Full& state) const = 0;
-        virtual void send_tx_params(const WalletID& peerID, SetTxParameter&&) = 0;
+        virtual void send_tx_params(const WalletID& peerID, const SetTxParameter&) = 0;
         virtual void UpdateOnNextTip(const TxID&) = 0;
     };
 
@@ -583,6 +639,7 @@ namespace std
     string to_string(const beam::wallet::WalletID&);
     string to_string(const beam::Merkle::Hash& hash);
     string to_string(beam::wallet::AtomicSwapCoin value);
+    string to_string(beam::wallet::SwapOfferStatus status);
     string to_string(const beam::wallet::PrintableAmount& amount);
     string to_string(const beam::wallet::TxParameters&);
 }

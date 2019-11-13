@@ -58,17 +58,17 @@ namespace beam::bitcoin
         virtual void createRawTransaction(
             const std::string& withdrawAddress,
             const std::string& contractTxId,
-            uint64_t amount,
+            Amount amount,
             int outputIndex,
             Timestamp locktime,
             std::function<void(const Error&, const std::string&)> callback) = 0;
         // error, value, script (hex), confirmations
-        virtual void getTxOut(const std::string& txid, int outputIndex, std::function<void(const Error&, const std::string&, double, uint32_t)> callback) = 0;
+        virtual void getTxOut(const std::string& txid, int outputIndex, std::function<void(const Error&, const std::string&, Amount, uint32_t)> callback) = 0;
         // error, block count
         virtual void getBlockCount(std::function<void(const Error&, uint64_t)> callback) = 0;
         // error, balance
-        virtual void getBalance(uint32_t confirmations, std::function<void(const Error&, double)> callback) = 0;
+        virtual void getBalance(uint32_t confirmations, std::function<void(const Error&, Amount)> callback) = 0;
         // error, confirmed, unconfirmed and immature balances
-        virtual void getDetailedBalance(std::function<void(const Error&, double, double, double)> callback) = 0;
+        virtual void getDetailedBalance(std::function<void(const Error&, Amount, Amount, Amount)> callback) = 0;
     };
 } // namespace beam::bitcoin

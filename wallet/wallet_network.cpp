@@ -225,7 +225,7 @@ namespace beam::wallet {
      * @param channel   BBS channel to send message
      * @param wid       Public key used in signature creation
      */
-    void BaseMessageEndpoint::SendAndSign(const ByteBuffer& msg, const BbsChannel& channel, const WalletID& wid)
+    void BaseMessageEndpoint::SendAndSign(const ByteBuffer& msg, const BbsChannel& channel, const WalletID& wid, uint8_t version)
     {
         SwapOfferConfirmation confirmation;
 
@@ -243,15 +243,20 @@ namespace beam::wallet {
             confirmation.Sign(sk);
 
             ByteBuffer signature = toByteBuffer(confirmation.m_Signature);
-            ByteBuffer signedMessage;
-            signedMessage.reserve(msg.size() + signature.size());
 
-            std::copy(std::begin(msg), std::end(msg), std::back_inserter(signedMessage));
-            std::copy(std::begin(signature), std::end(signature), std::back_inserter(signedMessage));
+            size_t bodySize = msg.size() + signature.size();
+            assert(bodySize <= UINT32_MAX);
+            MsgHeader header(0, 0, version, 0, static_cast<uint32_t>(bodySize));
+
+            ByteBuffer finalMessage(header.SIZE);
+            header.write(finalMessage.data());
+            finalMessage.reserve(header.size + header.SIZE);
+            std::copy(std::begin(msg), std::end(msg), std::back_inserter(finalMessage));
+            std::copy(std::begin(signature), std::end(signature), std::back_inserter(finalMessage));
             
             WalletID dummyWId;
             dummyWId.m_Channel = channel;
-            SendEncryptedMessage(dummyWId, signedMessage);
+            SendEncryptedMessage(dummyWId, finalMessage);
         }
     }
 
@@ -290,27 +295,29 @@ namespace beam::wallet {
 		}
 
         Subscribe();
-        m_WalletDB->subscribe(this);
+        m_WalletDB->Subscribe(this);
 	}
 
 	WalletNetworkViaBbs::~WalletNetworkViaBbs()
 	{
-        m_WalletDB->unsubscribe(this);
+        try 
+        {
+            m_WalletDB->Unsubscribe(this);
 		m_Miner.Stop();
 
 		while (!m_PendingBbsMsgs.empty())
 			DeleteReq(m_PendingBbsMsgs.front());
 
         Unsubscribe();
-
-		try {
+		
 			SaveBbsTimestamps();
 		} 
         catch (const std::exception& e)
         {
             LOG_UNHANDLED_EXCEPTION() << "what = " << e.what();
         }
-        catch (...) {
+        catch (...)
+        {
             LOG_UNHANDLED_EXCEPTION();
 		}
 	}
@@ -339,6 +346,7 @@ namespace beam::wallet {
 	{
 		m_PendingBbsMsgs.erase(BbsMsgList::s_iterator_to(r));
 		r.m_pTrg = NULL;
+        m_WalletDB->deleteWalletMessage(r.m_MessageID);
 		r.Release();
 	}
 
@@ -385,11 +393,16 @@ namespace beam::wallet {
 
     void WalletNetworkViaBbs::SendEncryptedMessage(const WalletID& peerID, const ByteBuffer& msg)
     {
+        // first store message for accidental app close
+        auto messageID = m_WalletDB->saveWalletMessage(OutgoingWalletMessage{ 0, peerID, msg });
+
         BbsMiner::Task::Ptr pTask = std::make_shared<BbsMiner::Task>();
         pTask->m_Msg.m_Message = msg;
         
         pTask->m_Done = false;
         pTask->m_Msg.m_Channel = channel_from_wallet_id(peerID);
+
+        pTask->m_StoredMessageID = messageID; // store id to be able to remove if send succeeded
 
         if (m_MineOutgoing)
         {
@@ -416,7 +429,7 @@ namespace beam::wallet {
         else
         {
             pTask->m_Msg.m_TimePosted = getTimestamp();
-            OnMined(std::move(pTask->m_Msg));
+            OnMined(pTask);
         }
     }
 
@@ -453,15 +466,16 @@ namespace beam::wallet {
 			if (!pTask)
 				break;
 
-			OnMined(std::move(pTask->m_Msg));
+			OnMined(pTask);
 		}
 	}
 
-	void WalletNetworkViaBbs::OnMined(proto::BbsMsg&& msg)
+	void WalletNetworkViaBbs::OnMined(BbsMiner::Task::Ptr task)
 	{
 		WalletRequestBbsMsg::Ptr pReq(new WalletRequestBbsMsg);
 
-		pReq->m_Msg = std::move(msg);
+		pReq->m_Msg = std::move(task->m_Msg);
+                pReq->m_MessageID = task->m_StoredMessageID;
 
 		m_PendingBbsMsgs.push_back(*pReq);
 		pReq->AddRef();

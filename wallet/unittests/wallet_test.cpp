@@ -27,8 +27,8 @@
 #include "wallet/wallet_transaction.h"
 #include "core/negotiator.h"
 #include "node/node.h"
-#include "wallet/local_private_key_keeper.h"
-#include "wallet/trezor_key_keeper.h"
+#include "keykeeper/local_private_key_keeper.h"
+#include "keykeeper/trezor_key_keeper.h"
 
 #include "test_helpers.h"
 
@@ -45,7 +45,7 @@
 #include <boost/intrusive/list.hpp>
 
 #if defined(BEAM_HW_WALLET)
-#include "wallet/hw_wallet.h"
+#include "keykeeper/hw_wallet.h"
 #endif
 
 using namespace beam;
@@ -64,13 +64,13 @@ namespace
 
         io::Reactor::Ptr mainReactor{ io::Reactor::create() };
         io::Reactor::Scope scope(*mainReactor);
-        auto receiverKeyKeeper = std::make_shared<LocalPrivateKeyKeeper>(receiverWalletDB);
+        auto receiverKeyKeeper = std::make_shared<LocalPrivateKeyKeeper>(receiverWalletDB, receiverWalletDB->get_MasterKdf());
 
         WalletAddress wa = storage::createAddress(*receiverWalletDB, receiverKeyKeeper);
         receiverWalletDB->saveAddress(wa);
         WalletID receiver_id = wa.m_walletID;
 
-        auto senderKeyKeeper = std::make_shared<LocalPrivateKeyKeeper>(senderWalletDB);
+        auto senderKeyKeeper = std::make_shared<LocalPrivateKeyKeeper>(senderWalletDB, senderWalletDB->get_MasterKdf());
         wa = storage::createAddress(*senderWalletDB, senderKeyKeeper);
         senderWalletDB->saveAddress(wa);
         WalletID sender_id = wa.m_walletID;
@@ -220,7 +220,8 @@ namespace
             .SetParameter(TxParameterID::PeerID, receiver.m_WalletID)
             .SetParameter(TxParameterID::Amount, Amount(4))
             .SetParameter(TxParameterID::Fee, Amount(2))
-            .SetParameter(TxParameterID::Lifetime, Height(200)));
+            .SetParameter(TxParameterID::Lifetime, Height(200))
+            .SetParameter(TxParameterID::PeerResponseTime, Height(20)));
 
         mainReactor->run();
         sw.stop();
@@ -418,6 +419,84 @@ namespace
         WALLET_CHECK(stx->m_status == TxStatus::Failed);
         WALLET_CHECK(stx->m_sender == true);
         WALLET_CHECK(stx->m_failureReason == TxFailureReason::NoInputs);
+    }
+
+    void TestTxRollback()
+    {
+        cout << "\nTesting transaction restore on tip rollback...\n";
+
+        io::Reactor::Ptr mainReactor{ io::Reactor::create() };
+        io::Reactor::Scope scope(*mainReactor);
+
+        int completedCount = 2;
+        auto f = [&completedCount, mainReactor](auto)
+        {
+            --completedCount;
+            if (completedCount == 0)
+            {
+                mainReactor->stop();
+                completedCount = 2;
+            }
+        };
+
+
+        auto senderDB = createSenderWalletDB();
+        TestNode node;
+        {
+            TestWalletRig sender("sender", senderDB, f, TestWalletRig::Type::Regular, false, 0);
+            TestWalletRig receiver("receiver", createReceiverWalletDB(), f);
+
+            sender.m_Wallet.StartTransaction(CreateSimpleTransactionParameters()
+                .SetParameter(TxParameterID::MyID, sender.m_WalletID)
+                .SetParameter(TxParameterID::PeerID, receiver.m_WalletID)
+                .SetParameter(TxParameterID::Amount, Amount(4))
+                .SetParameter(TxParameterID::Fee, Amount(2))
+                .SetParameter(TxParameterID::Lifetime, Height(200))
+                .SetParameter(TxParameterID::PeerResponseTime, Height(20)));
+
+            mainReactor->run();
+
+            Block::SystemState::Full tip;
+            sender.m_WalletDB->get_History().get_Tip(tip);
+            sender.m_WalletDB->get_History().DeleteFrom(tip.m_Height);
+
+            proto::FlyClient& client = sender.m_Wallet;
+            client.OnRolledBack();
+            // emulating what FlyClient does on rollback
+            sender.m_WalletDB->get_History().AddStates(&tip, 1);
+            node.AddBlock();
+            sender.m_WalletDB->get_History().AddStates(&node.m_Blockchain.m_mcm.m_vStates.back().m_Hdr, 1);
+            client.OnNewTip();
+        }
+
+       // disconnect wallet from the blockchain for a while
+       for (int i = 0; i < 1; ++i)
+       {
+           node.AddBlock();
+       }
+
+        completedCount = 1;
+        TestWalletRig sender("sender", senderDB, f, TestWalletRig::Type::Regular, false, 0);
+        mainReactor->run();
+
+       // check coins
+       vector<Coin> newSenderCoins = sender.GetCoins();
+       
+        WALLET_CHECK(newSenderCoins[0].m_ID.m_Value == 5);
+        WALLET_CHECK(newSenderCoins[0].m_status == Coin::Spent);
+        WALLET_CHECK(newSenderCoins[0].m_ID.m_Type == Key::Type::Regular);
+
+        WALLET_CHECK(newSenderCoins[1].m_ID.m_Value == 2);
+        WALLET_CHECK(newSenderCoins[1].m_status == Coin::Available);
+        WALLET_CHECK(newSenderCoins[1].m_ID.m_Type == Key::Type::Regular);
+
+        WALLET_CHECK(newSenderCoins[2].m_ID.m_Value == 1);
+        WALLET_CHECK(newSenderCoins[2].m_status == Coin::Spent);
+        WALLET_CHECK(newSenderCoins[2].m_ID.m_Type == Key::Type::Regular);
+
+        WALLET_CHECK(newSenderCoins[3].m_ID.m_Value == 9);
+        WALLET_CHECK(newSenderCoins[3].m_status == Coin::Available);
+        WALLET_CHECK(newSenderCoins[3].m_ID.m_Type == Key::Type::Regular);
     }
 
     void TestSplitTransaction()
@@ -664,8 +743,8 @@ namespace
             .SetParameter(TxParameterID::PeerID, receiver.m_WalletID)
             .SetParameter(TxParameterID::Amount, Amount(4))
             .SetParameter(TxParameterID::Fee, Amount(2))
-            .SetParameter(TxParameterID::Lifetime, Height(1))
-            .SetParameter(TxParameterID::PeerResponseHeight, Height(10)));
+            .SetParameter(TxParameterID::Lifetime, Height(0))
+            .SetParameter(TxParameterID::PeerResponseTime, Height(10)));
 
         mainReactor->run();
 
@@ -1247,11 +1326,11 @@ namespace
 
         TestWalletRig receiver("receiver", createReceiverWalletDB(), [](auto) {});
 
-        auto senderKeyKeeper = std::make_shared<LocalPrivateKeyKeeper>(db);
+        auto senderKeyKeeper = std::make_shared<LocalPrivateKeyKeeper>(db, db->get_MasterKdf());
         SenderFlyClient flyClient(db, receiver.m_WalletID, senderKeyKeeper);
         flyClient.Connect(senderNodeAddress);
 
-        auto receiverKeyKeeper = std::make_shared<LocalPrivateKeyKeeper>(receiver.m_WalletDB);
+        auto receiverKeyKeeper = std::make_shared<LocalPrivateKeyKeeper>(receiver.m_WalletDB, receiver.m_WalletDB->get_MasterKdf());
         ReceiverFlyClient flyClinet2(receiver.m_WalletDB, flyClient.m_WalletID, receiverKeyKeeper);
         flyClinet2.Connect(receiverNodeAddress);
 
@@ -1263,7 +1342,7 @@ namespace
         printf("Testing bbs with wallets2 ...\n");
         io::Reactor::Ptr mainReactor(io::Reactor::create());
         io::Reactor::Scope scope(*mainReactor);
-        const int Count = 500;
+        const int Count = 1000;
         string nodePath = "node.db";
         if (boost::filesystem::exists(nodePath))
         {
@@ -1310,6 +1389,8 @@ namespace
 
         mainReactor->run();
 
+        sender.m_Wallet.SetBufferSize(10);
+
         completedCount = 2 * Count;
 
         for (int i = 0; i < Count; ++i)
@@ -1319,8 +1400,8 @@ namespace
                 .SetParameter(TxParameterID::PeerID, receiver.m_WalletID)
                 .SetParameter(TxParameterID::Amount, Amount(4))
                 .SetParameter(TxParameterID::Fee, Amount(1))
-                .SetParameter(TxParameterID::Lifetime, Height(20))
-                .SetParameter(TxParameterID::PeerResponseHeight, Height(100)));
+                .SetParameter(TxParameterID::Lifetime, Height(50))
+                .SetParameter(TxParameterID::PeerResponseTime, Height(100)));
         }
         
         mainReactor->run();
@@ -2027,7 +2108,8 @@ void TestHWWallet()
         io::Reactor::Ptr mainReactor{ io::Reactor::create() };
         io::Reactor::Scope scope(*mainReactor);
         TrezorKeyKeeper tk;
-        LocalPrivateKeyKeeper lpkk(createSqliteWalletDB());
+        auto db = createSqliteWalletDB();
+        LocalPrivateKeyKeeper lpkk(db, db->get_MasterKdf());
         IPrivateKeyKeeper& pkk = tk;
         ECC::Point::Native comm2;
         auto outputs = pkk.GenerateOutputsSync(scheme, { kidv });
@@ -2039,7 +2121,8 @@ void TestHWWallet()
         io::Reactor::Ptr mainReactor{ io::Reactor::create() };
         io::Reactor::Scope scope(*mainReactor);
 
-        LocalPrivateKeyKeeper lpkk(createSqliteWalletDB());
+        auto db = createSqliteWalletDB();
+        LocalPrivateKeyKeeper lpkk(db, db->get_MasterKdf());
         TestHWTransaction(lpkk);
     }
 
@@ -2067,40 +2150,46 @@ int main()
     //Rules::get().DA.MaxAhead_s = 90;// 60 * 1;
     Rules::get().UpdateChecksum();
 
+    storage::HookErrors();
+
     TestConvertions();
     TestTxParameters();
-
+   
 	TestNegotiation();
-
+   
     TestP2PWalletNegotiationST();
 
+    TestTxRollback();
+   
     {
         io::Reactor::Ptr mainReactor{ io::Reactor::create() };
         io::Reactor::Scope scope(*mainReactor);
         //TestWalletNegotiation(CreateWalletDB<TestWalletDB>(), CreateWalletDB<TestWalletDB2>());
         TestWalletNegotiation(createSenderWalletDB(), createReceiverWalletDB());
     }
-
+   
     TestSplitTransaction();
-
+   
     TestMinimalFeeTransaction();
-
+   
     TestTxToHimself();
-
+   
     TestExpiredTransaction();
-
+   
     TestTransactionUpdate();
     //TestTxPerformance();
     //TestTxNonces();
-
+   
     TestColdWalletSending();
     TestColdWalletReceiving();
-
+   
     TestTxExceptionHandling();
-#if defined(BEAM_HW_WALLET)
-    TestHWCommitment();
-    TestHWWallet();
-#endif
+   
+    // @nesbox: disabled tests, they work only if device connected
+//#if defined(BEAM_HW_WALLET)
+//    TestHWCommitment();
+//    TestHWWallet();
+//#endif
 
     //TestBbsMessages();
     //TestBbsMessages2();

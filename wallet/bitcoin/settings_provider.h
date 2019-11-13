@@ -53,6 +53,9 @@ namespace beam::bitcoin
         virtual Settings GetSettings() const = 0;
         virtual void SetSettings(const Settings& settings) = 0;
         virtual void ResetSettings() = 0;
+        virtual bool CanModify() const = 0;
+        virtual void AddRef() = 0;
+        virtual void ReleaseRef() = 0;
     };
 
     class SettingsProvider
@@ -71,11 +74,46 @@ namespace beam::bitcoin
 
     protected:
 
-        virtual const char* GetSettingsName() const;
+        bool CanModify() const override;
+        void AddRef() override;
+        void ReleaseRef() override;
+
+        virtual std::string GetSettingsName() const;
         virtual Settings GetEmptySettings();
+
+        std::string GetUserName() const;
+        std::string GetPassName() const;
+        std::string GetAddressName() const;
+        std::string GetElectrumAddressName() const;
+        std::string GetSecretWordsName() const;
+        std::string GetAddressVersionName() const;
+        std::string GetFeeRateName() const;
+        std::string GetConnectrionTypeName() const;
+
+        template<typename T>
+        void ReadFromDB(const std::string& name, T& value)
+        {
+            ByteBuffer settings;
+            m_walletDB->getBlob(name.c_str(), settings);
+
+            if (!settings.empty())
+            {
+                Deserializer d;
+                d.reset(settings.data(), settings.size());
+                d& value;
+            }
+        }
+
+        template<typename T>
+        void WriteToDb(const std::string& name, const T& value)
+        {
+            auto buffer = wallet::toByteBuffer(value);
+            m_walletDB->setVarRaw(name.c_str(), buffer.data(), buffer.size());
+        }
 
     private:
         wallet::IWalletDB::Ptr m_walletDB;
         std::unique_ptr<Settings> m_settings;
+        size_t m_refCount = 0;
     };
 } // namespace beam::bitcoin

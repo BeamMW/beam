@@ -65,7 +65,7 @@ void testAddress()
     auto provider = std::make_shared<bitcoin::Provider>(settings);
     io::Reactor::Ptr mainReactor{ io::Reactor::create() };
     io::Reactor::Scope scope(*mainReactor);
-    bitcoin::Electrum electrum(*mainReactor, provider);
+    bitcoin::Electrum electrum(*mainReactor, *provider);
 
 #ifdef BEAM_MAINNET
     std::set<std::string> addresses
@@ -138,7 +138,7 @@ void testDumpPrivKey()
     auto provider = std::make_shared<bitcoin::Provider>(settings);
     io::Reactor::Ptr mainReactor{ io::Reactor::create() };
     io::Reactor::Scope scope(*mainReactor);
-    bitcoin::Electrum electrum(*mainReactor, provider);
+    bitcoin::Electrum electrum(*mainReactor, *provider);
 
 #ifdef BEAM_MAINNET
     electrum.dumpPrivKey("16AW2aVqy2gva1hxdtF4xhoSrTQTbGSNvM", [](const bitcoin::IBridge::Error&, const std::string& privateKey)

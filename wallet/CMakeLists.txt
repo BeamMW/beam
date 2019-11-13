@@ -4,31 +4,28 @@ set(TARGET_NAME beam-wallet${BEAM_TARGET_SUFFIX})
 
 add_library(wallet STATIC)
 target_sources(wallet
-    PRIVATE common_utils.cpp
-    PRIVATE common.cpp
-    PRIVATE default_peers.cpp
-    PRIVATE wallet.h
-    PRIVATE wallet.cpp
-    PRIVATE base_transaction.cpp
-    PRIVATE base_tx_builder.cpp
-    PRIVATE wallet_transaction.cpp
-    PRIVATE wallet_network.cpp
-    PRIVATE wallet_db.cpp
-    PRIVATE wallet_client.h
-    PRIVATE wallet_client.cpp
-    PRIVATE local_private_key_keeper.cpp
-    PRIVATE base58.cpp
-    PRIVATE bbs_miner.cpp
-    PRIVATE unittests/util.cpp
+    PRIVATE
+        common.cpp
+        common_utils.cpp
+        default_peers.cpp
+        wallet.h
+        wallet.cpp
+        base_transaction.cpp
+        base_tx_builder.cpp
+        wallet_transaction.cpp
+        wallet_network.cpp
+        wallet_db.cpp
+        wallet_client.h
+        wallet_client.cpp
+        base58.cpp
+        bbs_miner.cpp
+        unittests/util.cpp
 )
-
-if(BEAM_HW_WALLET)
-    target_sources(wallet PRIVATE trezor_key_keeper.cpp)
-endif()
 
 target_link_libraries(wallet 
     PUBLIC
         core
+        keykeeper
     PRIVATE
         sqlite
 )
@@ -45,50 +42,6 @@ if (NOT ANDROID)
     if(BEAM_HW_WALLET)
 
         target_compile_definitions(wallet PRIVATE BEAM_HW_WALLET)
-
-        add_library(hw_wallet STATIC hw_wallet.cpp
-            ${PROJECT_SOURCE_DIR}/3rdparty/trezor-cpp-client/src/messages/messages.pb.cc
-            ${PROJECT_SOURCE_DIR}/3rdparty/trezor-cpp-client/src/messages/messages-common.pb.cc
-            ${PROJECT_SOURCE_DIR}/3rdparty/trezor-cpp-client/src/messages/messages-management.pb.cc
-            ${PROJECT_SOURCE_DIR}/3rdparty/trezor-cpp-client/src/messages/messages-beam.pb.cc
-        )
-
-        target_link_libraries(hw_wallet
-            PUBLIC 
-                core
-                libprotobuf
-                libcurl
-        )
-
-        if(MSVC)
-            target_compile_options(hw_wallet PRIVATE "/wd4125")
-            target_compile_options(hw_wallet PRIVATE "/wd4127")
-            target_compile_options(hw_wallet PRIVATE "/wd4244")
-            target_compile_options(hw_wallet PRIVATE "/wd4996")
-        endif()
-
-        target_include_directories(hw_wallet PRIVATE ${PROJECT_SOURCE_DIR}/3rdparty/trezor-cpp-client
-            ${PROJECT_SOURCE_DIR}/3rdparty/trezor-cpp-client/src
-            ${PROJECT_SOURCE_DIR}/3rdparty/trezor-cpp-client/src/messages
-            ${PROJECT_SOURCE_DIR}/3rdparty/curl/include
-            ${PROJECT_SOURCE_DIR}/3rdparty/protobuf/src)
-
-        target_link_libraries(wallet PRIVATE hw_wallet)
-
-        # build trezor usage demo
-        add_executable(trezor-cpp-client ${PROJECT_SOURCE_DIR}/3rdparty/trezor-cpp-client/main.cpp)
-        if(MSVC)
-            target_compile_options(trezor-cpp-client PRIVATE "/wd4125")
-            target_compile_options(trezor-cpp-client PRIVATE "/wd4127")
-            target_compile_options(trezor-cpp-client PRIVATE "/wd4244")
-            target_compile_options(trezor-cpp-client PRIVATE "/wd4996")
-        endif()
-
-        target_include_directories(trezor-cpp-client PRIVATE ${PROJECT_SOURCE_DIR}/3rdparty/trezor-cpp-client
-            ${PROJECT_SOURCE_DIR}/3rdparty/trezor-cpp-client/src
-            ${PROJECT_SOURCE_DIR}/3rdparty/trezor-cpp-client/src/messages)
-
-        target_link_libraries(trezor-cpp-client PRIVATE hw_wallet)
 
     endif()
 

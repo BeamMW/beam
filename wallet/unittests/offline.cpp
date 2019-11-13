@@ -19,7 +19,7 @@
 #include "utility/logger.h"
 #include <future>
 #include <boost/filesystem.hpp>
-#include "wallet/local_private_key_keeper.h"
+#include "keykeeper/local_private_key_keeper.h"
 
 namespace beam {
     using namespace wallet;
@@ -30,7 +30,7 @@ struct WalletDBObserver : IWalletDbObserver {
     void onTransactionChanged(ChangeAction, const std::vector<TxDescription>& )  {
         LOG_INFO() << _who << " QQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQ " << __FUNCTION__;
     }
-    void onSystemStateChanged()  {
+    void onSystemStateChanged(const Block::SystemState::ID& stateID)  {
         LOG_INFO() << _who << " " << __FUNCTION__;
     }
     void onAddressChanged(ChangeAction action, const std::vector<WalletAddress>& items)  {
@@ -71,7 +71,7 @@ WaitHandle run_wallet(const WalletParams& params) {
 //                params.walletDB->addPeer(receiverPeer);
 //            }
 
-            auto keyKeeper = std::make_shared<LocalPrivateKeyKeeper>(params.walletDB);
+            auto keyKeeper = std::make_shared<LocalPrivateKeyKeeper>(params.walletDB, params.walletDB->get_MasterKdf());
 			Wallet wallet{ params.walletDB, keyKeeper, [](auto) { io::Reactor::get_Current().stop(); } };
 
 			auto nnet = std::make_shared<proto::FlyClient::NetworkStd>(wallet);
@@ -176,7 +176,7 @@ void test_offline(bool twoNodes) {
 
     senderParams.reactor = io::Reactor::create();
     senderParams.walletDB = init_wallet_db("_sender", &nodeParams.walletSeed, senderParams.reactor);
-    auto keyKeeper = std::make_shared<LocalPrivateKeyKeeper>(senderParams.walletDB);
+    auto keyKeeper = std::make_shared<LocalPrivateKeyKeeper>(senderParams.walletDB, senderParams.walletDB->get_MasterKdf());
 
     receiverParams.reactor = io::Reactor::create();
     receiverParams.walletDB = init_wallet_db("_receiver", 0, receiverParams.reactor);
@@ -190,8 +190,8 @@ void test_offline(bool twoNodes) {
 
     WalletDBObserver senderObserver("AAAAAAAAAAAAAAAAAAAAAA"), receiverObserver("BBBBBBBBBBBBBBBBBBBBBB");
 
-    senderParams.walletDB->subscribe(&senderObserver);
-    receiverParams.walletDB->subscribe(&receiverObserver);
+    senderParams.walletDB->Subscribe(&senderObserver);
+    receiverParams.walletDB->Subscribe(&receiverObserver);
 
     WaitHandle node2WH;
     if (twoNodes) {

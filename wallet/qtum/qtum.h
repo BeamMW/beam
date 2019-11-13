@@ -17,4 +17,5 @@
 #include "wallet/qtum/qtum_core_017.h"
 #include "wallet/qtum/settings.h"
 #include "wallet/qtum/qtum_side.h"
+#include "wallet/qtum/electrum.h"
 #include "wallet/qtum/common.h"

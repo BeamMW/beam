@@ -73,6 +73,8 @@ struct Node
 		uint32_t m_MiningThreads = 0; // by default disabled
 
 		bool m_LogUtxos = false; // may be insecure. Off by default.
+		bool m_LogTxStem = true;
+		bool m_LogTxFluff = true;
 
 		// Number of verification threads for CPU-hungry cryptography. Currently used for block validation only.
 		// 0: single threaded
@@ -190,6 +192,8 @@ struct Node
 
 	bool GenerateRecoveryInfo(const char*);
 
+	bool DecodeAndCheckHdrs(std::vector<Block::SystemState::Full>&, const proto::HdrPack&);
+
 private:
 
 	struct Processor
@@ -202,7 +206,7 @@ private:
 		void OnRolledBack() override;
 		void OnModified() override;
 		bool EnumViewerKeys(IKeyWalker&) override;
-		void OnUtxoEvent(const UtxoEvent::Value&) override;
+		void OnUtxoEvent(const UtxoEvent::Value&, Height) override;
 		void OnDummy(const Key::ID&, Height) override;
 		void InitializeUtxosProgress(uint64_t done, uint64_t total) override;
 		void Stop();
@@ -374,6 +378,7 @@ private:
 
 	uint8_t ValidateTx(Transaction::Context&, const Transaction&); // complete validation
 	void LogTx(const Transaction&, uint8_t nStatus, const Transaction::KeyType&);
+	void LogTxStem(const Transaction&, const char* szTxt);
 
 	struct Bbs
 	{
@@ -477,6 +482,7 @@ private:
 			static const uint16_t HasTreasury	= 0x100;
 			static const uint16_t Chocking		= 0x200;
 			static const uint16_t Viewer		= 0x400;
+			static const uint16_t Accepted		= 0x800;
 		};
 
 		uint16_t m_Flags;
@@ -555,6 +561,8 @@ private:
 		virtual void OnMsg(proto::GetProofKernel&&) override;
 		virtual void OnMsg(proto::GetProofKernel2&&) override;
 		virtual void OnMsg(proto::GetProofUtxo&&) override;
+		virtual void OnMsg(proto::GetProofShieldedTxo&&) override;
+		virtual void OnMsg(proto::GetShieldedList&&) override;
 		virtual void OnMsg(proto::GetProofChainWork&&) override;
 		virtual void OnMsg(proto::PeerInfoSelf&&) override;
 		virtual void OnMsg(proto::PeerInfo&&) override;
@@ -564,7 +572,6 @@ private:
 		virtual void OnMsg(proto::BbsGetMsg&&) override;
 		virtual void OnMsg(proto::BbsSubscribe&&) override;
 		virtual void OnMsg(proto::BbsResetSync&&) override;
-		virtual void OnMsg(proto::MacroblockGet&&) override;
 		virtual void OnMsg(proto::GetUtxoEvents&&) override;
 		virtual void OnMsg(proto::BlockFinalization&&) override;
 	};

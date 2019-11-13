@@ -54,6 +54,7 @@ namespace
         { "be_BY", "Беларуская"},
         { "nl_NL", "Dutch"},
         { "fr_FR", "Française"},
+        { "it_IT", "Italiano"},
         { "ja_JP", "日本語"},
         { "ru_RU", "Русский" },
         { "fi_FI", "Suomi" },
@@ -91,15 +92,13 @@ WalletSettings::WalletSettings(const QDir& appDataDir)
 #if defined(BEAM_HW_WALLET)
 string WalletSettings::getTrezorWalletStorage() const
 {
-    Lock lock(m_mutex);
-    return m_appDataDir.filePath(QString::fromStdString(getWalletFolder()) + "/" + TrezorWalletDBFile).toStdString();
+    return getWalletFolder() + "/" + TrezorWalletDBFile;
 }
 #endif
 
 string WalletSettings::getWalletStorage() const
 {
-    Lock lock(m_mutex);
-    return m_appDataDir.filePath(QString::fromStdString(getWalletFolder()) + "/" + WalletDBFile).toStdString();
+    return getWalletFolder() + "/" + WalletDBFile;
 }
 
 string WalletSettings::getWalletFolder() const

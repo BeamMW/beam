@@ -51,7 +51,6 @@ struct ResponseCache {
     io::SharedBuffer status;
     std::map<Height, io::SharedBuffer> blocks;
     Height currentHeight=0;
-    Height lowHorizon=0;
 
     explicit ResponseCache(size_t depth) : _depth(depth)
     {}
@@ -145,7 +144,6 @@ private:
     void OnStateChanged() override {
         const auto& cursor = _nodeBackend.m_Cursor;
         _cache.currentHeight = cursor.m_Sid.m_Height;
-        _cache.lowHorizon = _nodeBackend.m_Extra.m_LoHorizon;
         _statusDirty = true;
         if (_nextHook) _nextHook->OnStateChanged();
     }
@@ -164,7 +162,6 @@ private:
             const auto& cursor = _nodeBackend.m_Cursor;
 
             _cache.currentHeight = cursor.m_Sid.m_Height;
-            _cache.lowHorizon = _nodeBackend.m_Extra.m_LoHorizon;
 
             char buf[80];
 
@@ -175,7 +172,7 @@ private:
                 json{
                     { "timestamp", cursor.m_Full.m_TimeStamp },
                     { "height", _cache.currentHeight },
-                    { "low_horizon", _nodeBackend.m_Extra.m_LoHorizon },
+                    { "low_horizon", _nodeBackend.m_Extra.m_TxoHi },
                     { "hash", hash_to_hex(buf, cursor.m_ID.m_Hash) },
                     { "chainwork",  uint256_to_hex(buf, cursor.m_Full.m_ChainWork) },
                     { "peers_count", _node.get_AcessiblePeerCount() }
@@ -214,7 +211,7 @@ private:
         return true;
     }
 
-    bool extract_block_from_row(json& out, uint64_t row) {
+    bool extract_block_from_row(json& out, uint64_t row, Height height) {
         NodeDB& db = _nodeBackend.get_DB();
 
         Block::SystemState::Full blockState;
@@ -244,7 +241,7 @@ private:
                 inputs.push_back(
                 json{
                     {"commitment", uint256_to_hex(buf, v->m_Commitment.m_X)},
-                    {"maturity",   v->m_Maturity}
+                    {"maturity",   v->m_Internal.m_Maturity}
                 }
                 );
             }
@@ -254,7 +251,7 @@ private:
                 outputs.push_back(
                 json{
                     {"commitment", uint256_to_hex(buf, v->m_Commitment.m_X)},
-                    {"maturity",   v->m_Maturity},
+                    {"maturity",   v->get_MinMaturity(height)},
                     {"coinbase",   v->m_Coinbase},
                     {"incubation", v->m_Incubation}
                 }
@@ -305,7 +302,7 @@ private:
                 *prevRow = 0;
             }
         }
-        return ok && extract_block_from_row(out, row);
+        return ok && extract_block_from_row(out, row, height);
     }
 
     bool get_block_impl(io::SerializedMsg& out, uint64_t height, uint64_t& row, uint64_t* prevRow) {
@@ -319,11 +316,10 @@ private:
         if (_statusDirty) {
             const auto &cursor = _nodeBackend.m_Cursor;
             _cache.currentHeight = cursor.m_Sid.m_Height;
-            _cache.lowHorizon = _nodeBackend.m_Extra.m_LoHorizon;
         }
 
         io::SharedBuffer body;
-        bool blockAvailable = (/*height >= _cache.lowHorizon && */height <= _cache.currentHeight);
+        bool blockAvailable = (height <= _cache.currentHeight);
         if (blockAvailable) {
             json j;
             if (!extract_block(j, height, row, prevRow)) {

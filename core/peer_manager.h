@@ -83,6 +83,7 @@ namespace beam {
 			uint32_t m_TimeoutReconnect_ms	= 1000;
 			uint32_t m_TimeoutBan_ms		= 1000 * 60 * 10;
 			uint32_t m_TimeoutAddrChange_s	= 60 * 60 * 2;
+			uint32_t m_TimeoutRecommend_s	= 60 * 60 * 10;
 		} m_Cfg;
 
 		class TimePoint

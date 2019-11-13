@@ -1,40 +1,47 @@
 import QtQuick 2.11
 import QtQuick.Layouts 1.3
+import "../utils.js" as Utils
+import Beam.Wallet 1.0
 
 Rectangle {
     property color borderColor: Style.swapCurrencyOptionsBorder
     property int borderSize: 0
+    property alias rectOpacity: rect.opacity
     property color gradLeft: Style.swapCurrencyPaneGrLeftBEAM
     property color gradRight: Style.swapCurrencyPaneGrRight
     property string currencyIcon: ""
     property var currencyIcons: []
     property color stateIndicatorColor: Style.swapCurrencyStateIndicator
-    property string valueStr: ""
-    property string vatueSecondaryStr: ""
+    property string amount: ""
+    property string currencySymbol: ""
+    property string valueSecondaryStr: ""
     property bool isOk: true
+    property bool isConnecting: false
     property int textSize: 16
     property int textSecondarySize: 12
     property color textColor: Style.content_main
     property color textSecondaryColor: Style.content_secondary
     property string textConnectionError: "error"
-    property bool showLoader: false
+    property string textConnecting: "connectring..."
     property var onClick: function() {}
 
+    id: control
     Layout.fillWidth: true
     height: 67
-    radius: 10
-    color: Style.background_main
+    color: "transparent"
 
     Rectangle {
-        anchors.centerIn: parent
-        width: parent.height
+        id: rect
+        width:  parent.height
         height: parent.width
-        radius: 10
-        rotation: -90
+        anchors.centerIn: parent
+        anchors.alignWhenCentered: false
+        rotation: 90
+        radius:   10
         opacity: 0.3
         gradient: Gradient {
-            GradientStop { position: 0.0; color: gradLeft }
-            GradientStop { position: 1.0; color: gradRight }
+            GradientStop { position: 0.0; color: gradRight }
+            GradientStop { position: 1.0; color: gradLeft }
         }
         border {
             width: borderSize
@@ -75,29 +82,36 @@ Rectangle {
             anchors.right: parent.right
             anchors.verticalCenter: parent.verticalCenter
             visible: isOk
-            SFText {
+            RowLayout{
                 anchors.left: parent.left
                 anchors.right: parent.right
-                leftPadding: 20
-                rightPadding: 20
-                font.pixelSize: textSize
-                color: textColor
-                elide: Text.ElideRight
-                text: valueStr
-                wrapMode: Text.Wrap
-                visible: valueStr.length
+                Item {width:15}
+                spacing: 0
+                SFLabel {
+                    Layout.fillWidth: true
+                    font.pixelSize: textSize
+                    color: control.textColor
+                    elide: Text.ElideRight
+                    text: currencySymbol.length ? [Utils.uiStringToLocale(amount), currencySymbol].join(" ") : Utils.uiStringToLocale(amount)
+                    fontSizeMode: Text.Fit
+                    visible: amount.length
+                    verticalAlignment: Text.AlignVCenter
+                    copyMenuEnabled: currencySymbol.length
+                    onCopyText: BeamGlobals.copyToClipboard(amount)
+                }
+                Item {width:20}
             }
             SFText {
                 anchors.left: parent.left
                 anchors.right: parent.right
-                leftPadding: 20
+                leftPadding: 15
                 rightPadding: 20
                 font.pixelSize: textSecondarySize
                 color: textSecondaryColor
                 elide: Text.ElideRight
                 wrapMode: Text.Wrap
-                text: vatueSecondaryStr
-                visible: vatueSecondaryStr.length
+                text: valueSecondaryStr
+                visible: valueSecondaryStr.length
             }
         }
 
@@ -114,25 +128,23 @@ Rectangle {
             elide: Text.ElideRight
             wrapMode: Text.Wrap
             text: textConnectionError
-            visible: !isOk
+            visible: !isOk && !isConnecting
         }
 
-        SvgImage {
-            id: loader
-            property double angleValue: 0
-            visible: showLoader
-            anchors.verticalCenter: parent.verticalCenter
+        SFText {
+            id: connecting
+            anchors.left: currencyLogo.right
             anchors.right: parent.right
-            anchors.margins: {
-                right: 15
-            }
-
-            source: "qrc:/assets/loading-spinner.svg"            
-            rotation: loader.angleValue
-            Timer {
-                interval: 200; running: true; repeat: true
-                onTriggered: loader.angleValue += 15
-            }
+            anchors.verticalCenter: parent.verticalCenter
+            leftPadding: 10
+            rightPadding: 10
+            font.pixelSize: 12
+            verticalAlignment: Text.AlignVCenter
+            color: textColor
+            elide: Text.ElideRight
+            wrapMode: Text.Wrap
+            text: textConnecting
+            visible: isConnecting
         }
 
         Item {
@@ -143,7 +155,7 @@ Rectangle {
                 right: 15
             }
             width: childrenRect.width
-            visible: !isOk
+            visible: !isOk && !isConnecting
 
             property int radius: 5
 

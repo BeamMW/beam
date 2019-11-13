@@ -1,8 +1,8 @@
 #include "ui_helpers.h"
-
 #include <QDateTime>
 #include <QLocale>
 #include <numeric>
+#include "3rdparty/libbitcoin/include/bitcoin/bitcoin/formats/base_10.hpp"
 
 using namespace std;
 using namespace beam;
@@ -25,28 +25,29 @@ namespace beamui
         return QString::fromStdString(id);
     }
     
-    QString AmountToString(const Amount& value, Currencies coinType)
+    QString AmountToUIString(const Amount& value, Currencies coinType)
     {
-        auto realAmount = double(int64_t(value)) / Rules::Coin;
-        QString amount = QLocale().toString(realAmount, 'f', QLocale::FloatingPointShortest);
+        // TODO implement for another currencies
+        std::string btc = libbitcoin::satoshi_to_btc(value);
+        QString amount = QString::fromStdString(btc);
 
         QString coinSign;
         switch (coinType)
         {
             case Currencies::Beam:
-                coinSign = QString::fromUtf16((const char16_t*)(L" \uEAFB"));
+                coinSign = QString::fromUtf16(u" \uEAFB");
                 break;
 
             case Currencies::Bitcoin:
-                coinSign = QString::fromUtf16((const char16_t*)(L" \u20BF"));
+                coinSign = QString::fromUtf16(u" \u20BF");
                 break;
 
             case Currencies::Litecoin:
-                coinSign = QString::fromUtf16((const char16_t*)(L" \u0141"));
+                coinSign = QString::fromUtf16(u" \u0141");
                 break;
 
             case Currencies::Qtum:
-                coinSign = QString::fromUtf16((const char16_t*)(L" \uFFFD"));
+                coinSign = QString::fromUtf16(u" \uEAFD");
                 break;
 
             case Currencies::Unknown:
@@ -54,6 +55,13 @@ namespace beamui
                 break;
         }
         return amount + coinSign;
+    }
+
+    beam::Amount UIStringToAmount(const QString& value)
+    {
+        beam::Amount amount = 0;
+        libbitcoin::btc_to_satoshi(amount, value.toStdString());
+        return amount;
     }
 
     QString toString(const beam::Timestamp& ts)
@@ -64,9 +72,20 @@ namespace beamui
         return datetime.toString(Qt::SystemLocaleShortDate);
     }
 
-    double Beam2Coins(const Amount& value)
+    Currencies convertSwapCoinToCurrency(wallet::AtomicSwapCoin coin)
     {
-        return double(int64_t(value)) / Rules::Coin;
+        switch (coin)
+        {
+        case wallet::AtomicSwapCoin::Bitcoin:
+            return beamui::Currencies::Bitcoin;
+        case wallet::AtomicSwapCoin::Litecoin:
+            return beamui::Currencies::Litecoin;
+        case wallet::AtomicSwapCoin::Qtum:
+            return beamui::Currencies::Qtum;
+        case wallet::AtomicSwapCoin::Unknown:
+        default:
+            return beamui::Currencies::Unknown;
+        }
     }
 
     Filter::Filter(size_t size)
@@ -118,5 +137,22 @@ namespace beamui
         }
 
         return expiresTime;
+    }
+
+    QString toString(Currencies currency)
+    {
+        switch(currency)
+        {
+            case Currencies::Beam: return "beam";
+            case Currencies::Bitcoin: return "btc";
+            case Currencies::Litecoin: return "ltc";
+            case Currencies::Qtum: return "qtum";
+            default: return "unknown";
+        }
+    }
+
+    std::string toStdString(Currencies currency)
+    {
+        return toString(currency).toStdString();
     }
 }  // namespace beamui

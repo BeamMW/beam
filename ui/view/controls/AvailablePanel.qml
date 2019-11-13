@@ -9,13 +9,13 @@ import "../utils.js" as Utils
 Control {
     id: control
 
-    property double available
-    property double locked
-    property double lockedMaturing
-    property double sending
-    property double receiving
-    property double receivingChange
-    property double receivingIncoming
+    property string available
+    property string locked
+    property string lockedMaturing
+    property string sending
+    property string receiving
+    property string receivingChange
+    property string receivingIncoming
 
     property var onOpenExternal: null
     signal copyValueText()
@@ -28,12 +28,13 @@ Control {
             width:  parent.height
             height: parent.width
             anchors.centerIn: parent
+            anchors.alignWhenCentered: false
             rotation: 90
             radius:   10
             opacity:  0.3
             gradient: Gradient {
-                GradientStop { position: 0.0; color: "#00458f" }
-                GradientStop { position: 1.0; color: "#00B4A3" }
+                GradientStop { position: 0.0; color: Style.swapCurrencyPaneGrRight }
+                GradientStop { position: 1.0; color: Style.swapCurrencyPaneGrLeftBEAM }
             }
         }
     }
@@ -45,8 +46,8 @@ Control {
 
     Control {
         id:            lockedTip
-        visible:       lockedArea.containsMouse
-        x:             lockedAmount.x + lockedAmount.parent.x
+        visible:       lockedArea.containsMouse && parseFloat(locked) > 0
+        x:             lockedAmount.x + lockedAmount.parent.x + lockedAmount.parent.parent.x + lockedAmount.width / 2 - lockedTip.width / 2
         y:             lockedAmount.y + lockedAmount.parent.y + lockedAmount.height + 15
 
         leftPadding:   14
@@ -87,8 +88,8 @@ Control {
 
     Control {
         id:            receivingTip
-        visible:       receivingArea.containsMouse
-        x:             receivingAmount.x + receivingAmount.parent.x
+        visible:       receivingArea.containsMouse && parseFloat(receiving) > 0
+        x:             receivingAmount.x + receivingAmount.parent.x + receivingAmount.parent.parent.x + receivingAmount.width / 2 - receivingTip.width / 2
         y:             receivingAmount.y + receivingAmount.parent.y + receivingAmount.height + 15
 
         leftPadding:   14
@@ -151,7 +152,7 @@ Control {
     contentItem: RowLayout {
         spacing: 0
         RowLayout{
-            Layout.preferredWidth: receiving > 0 || sending > 0 ? parent.width / 2 : parent.width
+            Layout.preferredWidth: parseFloat(receiving) > 0 || parseFloat(sending) > 0 ? parent.width / 2 : parent.width
             BeamAmount {
                 amount:            available
                 spacing:           15
@@ -178,7 +179,7 @@ Control {
                 copyMenuEnabled:   true
                 //% "Locked"
                 caption:           qsTrId("available-panel-locked")
-                visible:           locked > 0
+                visible:           parseFloat(locked) > 0
                 showDrop:          true
 
                  MouseArea {
@@ -195,7 +196,7 @@ Control {
 
         RowLayout{
             Layout.preferredWidth: parent.width / 2
-            visible: receiving > 0 || sending > 0
+            visible: parseFloat(receiving) > 0 || parseFloat(sending) > 0
 
             Rectangle {
                 color:   Qt.rgba(255, 255, 255, 0.1)
@@ -233,10 +234,7 @@ Control {
                 caption:           qsTrId("available-panel-receiving")
                 showZero:          false
                 prefix:            "+"
-                showDrop:          true
-
-                //ToolTip.visible: receivingArea.containsMouse
-                //ToolTip.text: qsTr("Save the active project")
+                showDrop:          parseFloat(receiving) > 0
 
                 MouseArea {
                     id: receivingArea

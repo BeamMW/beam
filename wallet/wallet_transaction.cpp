@@ -25,14 +25,14 @@ namespace beam::wallet
     using namespace ECC;
     using namespace std;
 
-    TxParameters CreateSimpleTransactionParameters()
+    TxParameters CreateSimpleTransactionParameters(boost::optional<TxID> txId)
     {
-        return CreateTransactionParameters(TxType::Simple).SetParameter(TxParameterID::TransactionType, TxType::Simple);
+        return CreateTransactionParameters(TxType::Simple, txId ? *txId : GenerateTxID()).SetParameter(TxParameterID::TransactionType, TxType::Simple);
     }
 
-    TxParameters CreateSplitTransactionParameters(const WalletID& myID, const AmountList& amountList)
+    TxParameters CreateSplitTransactionParameters(const WalletID& myID, const AmountList& amountList, boost::optional<TxID> txId)
     {
-        return CreateSimpleTransactionParameters()
+        return CreateSimpleTransactionParameters(txId)
             .SetParameter(TxParameterID::MyID, myID)
             .SetParameter(TxParameterID::PeerID, myID)
             .SetParameter(TxParameterID::AmountList, amountList)
@@ -71,6 +71,18 @@ namespace beam::wallet
             TxParameters temp{ parameters };
             temp.SetParameter(TxParameterID::IsSelfTx, receiverAddr->m_OwnID != 0);
             return temp;
+        }
+        else
+        {
+            WalletAddress address;
+            address.m_walletID = *peerID;
+            address.m_createTime = getTimestamp();
+            if (auto message = parameters.GetParameter(TxParameterID::Message); message)
+            {
+                address.m_label = std::string(message->begin(), message->end());
+            }
+
+            m_WalletDB->saveAddress(address);
         }
         return parameters;
     }
@@ -315,8 +327,17 @@ namespace beam::wallet
             SetState(State::Registration);
             return;
         }
-
-        if (proto::TxStatus::Ok != nRegistered)
+        
+        if (proto::TxStatus::InvalidContext == nRegistered) // we have to ensure that this transaction hasn't already added to blockchain)
+        {
+            Height lastUnconfirmedHeight = 0;
+            if (GetParameter(TxParameterID::KernelUnconfirmedHeight, lastUnconfirmedHeight) && lastUnconfirmedHeight > 0)
+            {
+                OnFailed(TxFailureReason::FailedToRegister, true);
+                return;
+            }
+        }
+        else if (proto::TxStatus::Ok != nRegistered )
         {
             OnFailed(TxFailureReason::FailedToRegister, true);
             return;
@@ -326,38 +347,12 @@ namespace beam::wallet
         GetParameter(TxParameterID::KernelProofHeight, hProof);
         if (!hProof)
         {
-            if (txState == State::Registration)
-            {
-                uint32_t nVer = 0;
-                if (!GetParameter(TxParameterID::PeerProtoVersion, nVer))
-                {
-                    // notify old peer that transaction has been registered
-                    NotifyTransactionRegistered();
-                }
-            }
             SetState(State::KernelConfirmation);
             ConfirmKernel(builder.GetKernelID());
             return;
         }
 
-        vector<Coin> modified = m_WalletDB->getCoinsByTx(GetTxID());
-        for (auto& coin : modified)
-        {
-            bool bIn = (coin.m_createTxId == m_ID);
-            bool bOut = (coin.m_spentTxId == m_ID);
-            if (bIn || bOut)
-            {
-                if (bIn)
-                {
-                    coin.m_confirmHeight = std::min(coin.m_confirmHeight, hProof);
-                    coin.m_maturity = hProof + Rules::get().Maturity.Std; // so far we don't use incubation for our created outputs
-                }
-                if (bOut)
-                    coin.m_spentHeight = std::min(coin.m_spentHeight, hProof);
-            }
-        }
-
-        GetWalletDB()->saveCoins(modified);
+        SetCompletedTxCoinStatuses(hProof);
 
         CompleteTx();
     }

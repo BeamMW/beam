@@ -19,7 +19,7 @@
 
 #include <boost/optional.hpp>
 #include "utility/logger.h"
-#include "private_key_keeper.h"
+#include "keykeeper/private_key_keeper.h"
 
 #include <condition_variable>
 #include <memory>
@@ -27,7 +27,7 @@
 namespace beam::wallet
 {
     TxID GenerateTxID();
-    TxParameters CreateTransactionParameters(TxType type);
+    TxParameters CreateTransactionParameters(TxType type, TxID txID);
     //
     // Interface for all possible transaction types
     //
@@ -154,6 +154,7 @@ namespace beam::wallet
         virtual void UpdateImpl() = 0;
 
         virtual bool ShouldNotifyAboutChanges(TxParameterID paramID) const { return true; };
+        void SetCompletedTxCoinStatuses(Height proofHeight);
     protected:
 
         INegotiatorGateway& m_Gateway;

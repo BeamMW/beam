@@ -205,6 +205,19 @@ namespace beam
 
 		void Induce(Type);
 	}
+
+	// compile-time calculation of x^n
+	template <uint32_t n> struct Power {
+		template <uint32_t x> struct Of {
+			static const uint32_t V = Power<n - 1>::template Of<x>::V * x;
+		};
+	};
+
+	template <> struct Power<0> {
+		template <uint32_t x> struct Of {
+			static const uint32_t V = 1;
+		};
+	};
 }
 
 namespace std

@@ -31,12 +31,21 @@ public:
     ~WalletModel() override;
 
     QString GetErrorString(beam::wallet::ErrorType type);
-    bool isOwnAddress(beam::wallet::WalletID& walletID) const;
+    bool isOwnAddress(const beam::wallet::WalletID& walletID) const;
     bool isAddressWithCommentExist(const std::string& comment) const;
+
+    beam::Amount getAvailable() const;
+    beam::Amount getReceiving() const;
+    beam::Amount getReceivingIncoming() const;
+    beam::Amount getReceivingChange() const;
+    beam::Amount getSending() const;
+    beam::Amount getMaturing() const;
+    beam::Height getCurrentHeight() const;
+    beam::Block::SystemState::ID getCurrentStateID() const;
 
 signals:
     void walletStatus(const beam::wallet::WalletStatus& status);
-    void txStatus(beam::wallet::ChangeAction, const std::vector<beam::wallet::TxDescription>& items);
+    void transactionsChanged(beam::wallet::ChangeAction, const std::vector<beam::wallet::TxDescription>& items);
     void syncProgressUpdated(int done, int total);
     void changeCalculated(beam::Amount change);
     void allUtxoChanged(const std::vector<beam::wallet::Coin>& utxos);
@@ -51,6 +60,14 @@ signals:
     void cantSendToExpired();
     void paymentProofExported(const beam::wallet::TxID& txID, const QString& proof);
     void addressChecked(const QString& addr, bool isValid);
+
+    void availableChanged();
+    void receivingChanged();
+    void receivingIncomingChanged();
+    void receivingChangeChanged();
+    void sendingChanged();
+    void maturingChanged();
+    void stateIDChanged();
 
 #if defined(BEAM_HW_WALLET)
     void showTrezorMessage();
@@ -84,6 +101,11 @@ private:
     void onHideKeyKeeperMessage() override;
     void onShowKeyKeeperError(const std::string&) override;
 
+private slots:
+    void setStatus(const beam::wallet::WalletStatus& status);
+    void setAddresses(bool own, const std::vector<beam::wallet::WalletAddress>& addrs);
+
 private:
     std::vector<beam::wallet::WalletAddress> m_addresses;
+    beam::wallet::WalletStatus m_status;
 };

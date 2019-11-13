@@ -41,6 +41,7 @@ struct BbsMiner
         proto::BbsMsg m_Msg;
         ECC::Hash::Processor m_hpPartial;
         volatile bool m_Done;
+        uint64_t m_StoredMessageID;
 
         typedef std::shared_ptr<Task> Ptr;
     };
