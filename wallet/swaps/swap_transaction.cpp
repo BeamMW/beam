@@ -25,42 +25,6 @@ using namespace ECC;
 
 namespace beam::wallet
 {
-    /// Swap Parameters 
-    TxParameters InitNewSwap(const WalletID& myID, Height minHeight, Amount amount, Amount fee, AtomicSwapCoin swapCoin,
-        Amount swapAmount, bool isBeamSide /*= true*/,
-        Height lifetime /*= kDefaultTxLifetime*/, Height responseTime/* = kDefaultTxResponseTime*/)
-    {
-        TxParameters parameters(GenerateTxID());
-
-        parameters.SetParameter(TxParameterID::TransactionType, TxType::AtomicSwap);
-        parameters.SetParameter(TxParameterID::CreateTime, getTimestamp());
-        parameters.SetParameter(TxParameterID::Amount, amount);
-        if (isBeamSide)
-        {
-            parameters.SetParameter(TxParameterID::Fee, fee, SubTxIndex::BEAM_LOCK_TX);
-        }
-        parameters.SetParameter(TxParameterID::Fee, fee, isBeamSide ? SubTxIndex::BEAM_REFUND_TX : SubTxIndex::BEAM_REDEEM_TX);
-        parameters.SetParameter(TxParameterID::Lifetime, lifetime);
-
-        parameters.SetParameter(TxParameterID::MinHeight, minHeight);
-        parameters.SetParameter(TxParameterID::PeerResponseTime, responseTime);
-        parameters.SetParameter(TxParameterID::MyID, myID);
-        parameters.SetParameter(TxParameterID::IsSender, isBeamSide);
-        parameters.SetParameter(TxParameterID::IsInitiator, false);
-
-        parameters.SetParameter(TxParameterID::AtomicSwapCoin, swapCoin);
-        parameters.SetParameter(TxParameterID::AtomicSwapAmount, swapAmount);
-        parameters.SetParameter(TxParameterID::AtomicSwapIsBeamSide, isBeamSide);
-
-        return parameters;
-    }
-
-    TxParameters CreateSwapParameters()
-    {
-        return CreateTransactionParameters(TxType::AtomicSwap, GenerateTxID())
-            .SetParameter(TxParameterID::IsInitiator, false);
-    }
-
     bool IsCommonTxParameterExternalSettable(TxParameterID paramID, const boost::optional<bool>& isBeamSide)
     {
         switch (paramID)
@@ -719,6 +683,31 @@ namespace beam::wallet
     {
         SetTxParameter msg;
         msg.AddParameter(TxParameterID::FailureReason, reason);
+
+        if (IsBeamSide())
+        {
+            State state = GetState(kDefaultSubTxID);
+
+            switch (state)
+            {
+            case State::BuildingBeamLockTX:
+            case State::BuildingBeamRedeemTX:
+            case State::BuildingBeamRefundTX:
+            case State::HandlingContractTX:
+            {
+                NoLeak<uintBig> secretPrivateKey;
+
+                if (GetParameter(TxParameterID::AtomicSwapPrivateKey, secretPrivateKey.V))
+                {
+                    // send our private key of redeem tx. we are good :)
+                    msg.AddParameter(TxParameterID::AtomicSwapPeerPrivateKey, secretPrivateKey.V);
+                }
+                break;
+            }            
+            default:
+                break;
+            }
+        }
         SendTxParameters(std::move(msg));
     }
 

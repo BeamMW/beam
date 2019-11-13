@@ -22,12 +22,6 @@
 
 namespace beam::wallet
 {
-    TxParameters InitNewSwap(const WalletID& myID, Height minHeight, Amount amount, Amount fee, AtomicSwapCoin swapCoin,
-        Amount swapAmount, bool isBeamSide = true,
-        Height lifetime = kDefaultTxLifetime, Height responseTime = kDefaultTxResponseTime);
-
-    TxParameters CreateSwapParameters();
-
     class SecondSideFactoryNotRegisteredException : public std::runtime_error
     {
     public:
