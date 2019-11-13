@@ -2084,7 +2084,7 @@ int main_impl(int argc, char* argv[])
 
                         if (command == cli::WALLET_RESCAN)
                         {
-                            wallet.Refresh();
+                            wallet.Rescan();
                         }
                     }
                     io::Reactor::get_Current().run();

@@ -2543,7 +2543,7 @@ namespace beam::wallet
 
     void WalletDB::notifyCoinsChanged(ChangeAction action, const vector<Coin>& items)
     {
-        if (items.empty())
+        if (items.empty() && action != ChangeAction::Reset)
             return;
 
         for (auto sub : m_subscribers)
@@ -2554,7 +2554,7 @@ namespace beam::wallet
 
     void WalletDB::notifyTransactionChanged(ChangeAction action, const vector<TxDescription>& items)
     {
-        if (items.empty())
+        if (items.empty() && action != ChangeAction::Reset)
             return;
 
         for (auto sub : m_subscribers)
@@ -2570,7 +2570,7 @@ namespace beam::wallet
 
     void WalletDB::notifyAddressChanged(ChangeAction action, const vector<WalletAddress>& items)
     {
-        if (items.empty())
+        if (items.empty() && action != ChangeAction::Reset)
             return;
 
         for (auto sub : m_subscribers)

@@ -52,7 +52,7 @@ namespace beam::wallet
         virtual void changeWalletPassword(const beam::SecString& password) = 0;
 
         virtual void getNetworkStatus() = 0;
-        virtual void refresh() = 0;
+        virtual void rescan() = 0;
         virtual void exportPaymentProof(const TxID& id) = 0;
 
         virtual void checkAddress(const std::string& addr) = 0;

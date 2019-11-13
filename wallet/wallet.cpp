@@ -170,9 +170,8 @@ namespace beam::wallet
         m_MessageEndpoints.insert(endpoint);
     }
 
-    // TODO: Rename to Rescan ?
-    // Reset wallet state and rescan the blockchain
-    void Wallet::Refresh()
+    // Rescan the blockchain for UTXOs
+    void Wallet::Rescan()
     {
         // We save all Incoming coins of active transactions and
         // restore them after clearing db. This will save our outgoing & available amounts
@@ -184,9 +183,6 @@ namespace beam::wallet
         }
 
         m_WalletDB->clearCoins();
-        Block::SystemState::ID id;
-        ZeroObject(id);
-        m_WalletDB->setSystemStateID(id);
 
         // Restore Incoming coins of active transactions
         m_WalletDB->saveCoins(ocoins);

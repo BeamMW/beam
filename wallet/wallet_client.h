@@ -27,9 +27,6 @@
 #include <thread>
 #include <atomic>
 
-#include <boost/intrusive/set.hpp>
-#include <boost/intrusive/list.hpp>
-
 namespace beam::wallet
 {
     struct WalletStatus
@@ -130,7 +127,7 @@ namespace beam::wallet
         void setNodeAddress(const std::string& addr) override;
         void changeWalletPassword(const SecString& password) override;
         void getNetworkStatus() override;
-        void refresh() override;
+        void rescan() override;
         void exportPaymentProof(const TxID& id) override;
         void checkAddress(const std::string& addr) override;
         void importRecovery(const std::string& path) override;
@@ -148,76 +145,159 @@ namespace beam::wallet
 
     private:
 
-        template<typename T>
+        template<typename T, typename KeyFunc>
         class ChangesCollector
         {
-        public:
-            void AddItem(T&& item)
+            using FlushFunc = std::function<void(ChangeAction, const std::vector<T>&)>;
+            
+            template<typename KeyFunc>
+            struct Comparator
             {
-                //if (m_UpdatedItems.find(item) != m_UpdatedItems.end())
-                //{
-                //    // error
-                //    return;
-                //}
-                //if (m_RemovedItems.find(item) != m_RemovedItems.end())
-                //{
-                //    // error
-                //    return;
-                //}
-
-                //if (m_NewItems.find(item) != m_NewItems.end())
-                //    return;
-                ////if ()
-
-            }
-
-            void UpdateItem(T&& item)
-            {
-                // if ()
-            }
-
-            void RemoveItem(T&& item)
-            {
-                /*auto it = m_SearchSet.find(item);
-                if (it == m_SearchSet.end())
+                bool operator()(const T& left, const T& right) const
                 {
-                    auto& i = m_Items.emplace_back(std::move(item));
-                    m_SearchSet.insert(i);
-                    it = SearchSet::s_iterator_to(i);
+                    return KeyFunc()(left) < KeyFunc()(right);
                 }
-
-                m_RemovedItems.insert(*it);*/
-            }
-        private:
-
-
-
-        private:
-
-
-            struct ItemHolder
-                : boost::intrusive::set_base_hook<>
-                , boost::intrusive::list_base_hook<>
-            {
-                bool operator < (const ItemHolder& other)
-                {
-                    return m_Item < other.m_Item;
-                }
-
-                T m_Item;
             };
 
-            using ItemsList = boost::intrusive::list<ItemHolder>;
-            using ItemsSet = boost::intrusive::set<ItemHolder>;
+            using ItemsList = std::set<T, Comparator<KeyFunc>>;
+        public:
+            ChangesCollector(size_t bufferSize, io::Reactor::Ptr reactor, FlushFunc&& flushFunc)
+                : m_BufferSize(bufferSize)
+                , m_FlushTimer(io::Timer::create(*reactor))
+                , m_FlushFunc(std::move(flushFunc))
+            {
+            }
+
+            void CollectItems(ChangeAction action, const std::vector<T>& items)
+            {
+                if (action == ChangeAction::Reset)
+                {
+                    m_NewItems.clear();
+                    m_UpdatedItems.clear();
+                    m_RemovedItems.clear();
+                    m_FlushFunc(action, items);
+                    return;
+                }
+
+                for (const auto& item : items)
+                {
+                    CollectItem(action, item);
+                }
+            }
+
+            void Flush()
+            {
+                Flush(ChangeAction::Added, m_NewItems);
+                Flush(ChangeAction::Updated, m_UpdatedItems);
+                Flush(ChangeAction::Removed, m_RemovedItems);
+            }
+
+        private:
+
+            void CollectItem(ChangeAction action, const T& item)
+            {
+                m_FlushTimer->cancel();
+                m_FlushTimer->start(100, false, [this]() { Flush(); });
+                switch (action)
+                {
+                case ChangeAction::Added:
+                    AddItem(item);
+                    break;
+                case ChangeAction::Updated:
+                    UpdateItem(item);
+                    break;
+                case ChangeAction::Removed:
+                    RemoveItem(item);
+                    break;
+                default:
+                    break;
+                }
+
+                if (GetChangesCount() > m_BufferSize)
+                {
+                    Flush();
+                }
+            }
+
+            void Flush(ChangeAction action, ItemsList& items)
+            {
+                if (!items.empty())
+                {
+                    m_FlushFunc(action, std::vector<T>(items.begin(), items.end()));
+                    items.clear();
+                }
+            }
+
+            size_t GetChangesCount() const
+            {
+                return m_NewItems.size() + m_UpdatedItems.size() + m_RemovedItems.size();
+            }
+
+            void AddItem(const T& item)
+            {
+                // if it was removed do nothing
+                if (m_RemovedItems.find(item) != m_RemovedItems.end())
+                {
+                    return;
+                }
+                m_NewItems.insert(item);
+            }
+
+            void UpdateItem(const T& item)
+            {
+                // if it was removed do nothing
+                if (m_RemovedItems.find(item) != m_RemovedItems.end())
+                {
+                    return;
+                }
+                // if it is not in new add it to updated
+                auto it = m_NewItems.find(item);
+                if (it == m_NewItems.end())
+                {
+                    auto p = m_UpdatedItems.insert(item);
+                    if (p.second == false)
+                    {
+                        // update
+                        auto node = m_UpdatedItems.extract(p.first);
+                        node.value() = item;
+                        m_UpdatedItems.insert(std::move(node));
+                    }
+                }
+                else
+                {
+                    // update
+                    auto node = m_NewItems.extract(it);
+                    node.value() = item;
+                    m_NewItems.insert(std::move(node));
+                }
+            }
+
+            void RemoveItem(const T& item)
+            {
+                // if it is in new erase it
+                if (auto it = m_NewItems.find(item); it != m_NewItems.end())
+                {
+                    m_NewItems.erase(it);
+                    return;
+                }
+                // else if it is in updated remove and add to removed
+                if (auto it = m_UpdatedItems.find(item); it != m_UpdatedItems.end())
+                {
+                    m_UpdatedItems.erase(it);
+                }
+                // add to removed
+                m_RemovedItems.insert(item);
+            }
+
+        private:
+            size_t m_BufferSize;
+            io::Timer::Ptr m_FlushTimer;
+            FlushFunc m_FlushFunc;
 
             ItemsList m_NewItems;
             ItemsList m_UpdatedItems;
             ItemsList m_RemovedItems;
-            ItemsSet m_SearchSet;
-            std::vector<ItemHolder> m_Items;
         };
-
-        ChangesCollector<TxParameter> m_TxParametersChangesCollector;
 
         std::shared_ptr<std::thread> m_thread;
         IWalletDB::Ptr m_walletDB;
@@ -233,5 +313,12 @@ namespace beam::wallet
         boost::optional<ErrorType> m_walletError;
         std::string m_nodeAddrStr;
         IPrivateKeyKeeper::Ptr m_keyKeeper;
+
+        struct CoinKey
+        {
+            typedef Coin::ID type;
+            const Coin::ID& operator()(const Coin& c) const { return c.m_ID; }
+        };
+        ChangesCollector <Coin, CoinKey> m_CoinChangesCollector;
     };
 }

@@ -115,8 +115,8 @@ namespace beam::wallet
         void SetNodeEndpoint(std::shared_ptr<proto::FlyClient::INetwork> nodeEndpoint);
         void AddMessageEndpoint(IWalletMessageEndpoint::Ptr endpoint);
 
-        // Resets wallet state and rescans the blockchain from scratch
-        void Refresh();
+        // Rescans the blockchain from scratch
+        void Rescan();
 
         void RegisterTransactionType(TxType type, BaseTransaction::Creator::Ptr creator);
         TxID StartTransaction(const TxParameters& parameters);

@@ -864,7 +864,7 @@ void SettingsViewModel::openUrl(const QString& url)
 
 void SettingsViewModel::refreshWallet()
 {
-    AppModel::getInstance().getWallet()->getAsync()->refresh();
+    AppModel::getInstance().getWallet()->getAsync()->rescan();
 }
 
 void SettingsViewModel::openFolder(const QString& path)

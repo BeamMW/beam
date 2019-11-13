@@ -165,9 +165,9 @@ struct WalletModelBridge : public Bridge<IWalletModelAsync>
         call_async(&IWalletModelAsync::getNetworkStatus);
     }
 
-    void refresh() override
+    void rescan() override
     {
-        call_async(&IWalletModelAsync::refresh);
+        call_async(&IWalletModelAsync::rescan);
     }
 
     void exportPaymentProof(const wallet::TxID& id) override
@@ -206,6 +206,7 @@ namespace beam::wallet
         , m_isConnected(false)
         , m_nodeAddrStr(nodeAddr)
         , m_keyKeeper(keyKeeper)
+        , m_CoinChangesCollector(50, m_reactor, [this](ChangeAction action, const std::vector<Coin>& items) { onAllUtxoChanged(action, items); })
     {
         m_keyKeeper->subscribe(this);
     }
@@ -425,7 +426,7 @@ namespace beam::wallet
 
     void WalletClient::onCoinsChanged(ChangeAction action, const std::vector<Coin>& items)
     {
-        onAllUtxoChanged(action, items);
+        m_CoinChangesCollector.CollectItems(action, items);
     }
 
     void WalletClient::onTransactionChanged(ChangeAction action, const std::vector<TxDescription>& items)
@@ -786,7 +787,7 @@ namespace beam::wallet
         onNodeConnectionChanged(m_isConnected);
     }
 
-    void WalletClient::refresh()
+    void WalletClient::rescan()
     {
         try
         {
@@ -794,7 +795,7 @@ namespace beam::wallet
             auto s = m_wallet.lock();
             if (s)
             {
-                s->Refresh();
+                s->Rescan();
             }
         }
         catch (const std::exception& e)
