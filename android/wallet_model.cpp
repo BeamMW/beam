@@ -220,7 +220,7 @@ void WalletModel::onAllUtxoChanged(ChangeAction action, const std::vector<Coin>&
     env->DeleteLocalRef(utxos);
 }
 
-void onAddressesChanged(beam::wallet::ChangeAction action, const std::vector<beam::wallet::WalletAddress>& addresses)
+void WalletModel::onAddressesChanged(beam::wallet::ChangeAction action, const std::vector<beam::wallet::WalletAddress>& addresses)
 {
     LOG_DEBUG() << "onAddressesChanged()";
 
