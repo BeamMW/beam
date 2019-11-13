@@ -1356,9 +1356,8 @@ Update your settings and try again.</source>
     <message id="swap-currency-na-message">
         <source>%1 is not connected, 
 please review your settings and try again</source>
-        <oldsource>%1 is not connected, 
-please review your settings and try again.</oldsource>
-        <translation type="unfinished">%1 ist nicht verbunden, \nbitte überprüfen Sie Ihre Einstellungen und versuchen Sie es erneut.</translation>
+        <translation type="unfinished">%1 ist nicht verbunden, 
+bitte überprüfen Sie Ihre Einstellungen und versuchen Sie es erneut.</translation>
     </message>
     <message id="send-not-enough">
         <source>There is not enough funds to complete the transaction</source>

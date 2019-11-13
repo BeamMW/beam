@@ -1357,8 +1357,7 @@ Update your settings and try again.</source>
     <message id="swap-currency-na-message">
         <source>%1 is not connected, 
 please review your settings and try again</source>
-        <oldsource>%1 is not connected, 
-please review your settings and try again.</oldsource>
+        <oldsource>%1 is not connected, \nplease review your settings and try again</oldsource>
         <translation type="unfinished">%1 is not connected, \nplease review your settings and try again.</translation>
     </message>
     <message id="send-not-enough">

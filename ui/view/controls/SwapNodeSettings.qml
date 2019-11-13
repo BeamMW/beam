@@ -564,7 +564,9 @@ Control {
                 wrapMode:              Text.WordWrap
                 color:                 control.color
                 lineHeight:            1.1 
-                //% "You cannot disconnect wallet, edit seed phrase or change default\nfee while you have transactions in progress."
+/*% "You cannot disconnect wallet, edit seed phrase or change default
+fee while you have transactions in progress."
+*/
                 text:                  qsTrId("settings-progress-na")
             }
 

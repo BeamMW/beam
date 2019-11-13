@@ -1661,9 +1661,13 @@ Item
                             }
 
                             SFText {
-                                //% "Strong password needs to meet the following requirements:\n•  the length must be at least 10 characters\n•  must contain at least one lowercase letter\n•  must contain at least one uppercase letter\n•  must contain at least one number"
+/*% "Strong password needs to meet the following requirements:
+•  the length must be at least 10 characters
+•  must contain at least one lowercase letter
+•  must contain at least one uppercase letter
+•  must contain at least one number"
+*/
                                 text: qsTrId("start-create-pwd-strength-message")
-                                // text: "Strong password needs to meet the following requirements:\n•  the length must be at least 10 characters\n•  must contain at least one lowercase letter\n•  must contain at least one uppercase letter\n•  must contain at least one number"
                                 color: Style.content_secondary
                                 visible: strengthChecker.strength > 0 && strengthChecker.strength < 6
                                 font.pixelSize: 14

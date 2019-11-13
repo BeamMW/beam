@@ -471,7 +471,9 @@ Item {
                             color:                Style.content_main
                             opacity:              0.5
                             lineHeight:           1.43
-                            //% "There are no active offers at the moment.\nPlease try again later or create an offer yourself."
+/*% "There are no active offers at the moment.
+Please try again later or create an offer yourself."
+*/
                             text:                 qsTrId("atomic-no-offers")
                         }
 

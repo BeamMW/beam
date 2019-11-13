@@ -743,7 +743,7 @@ ColumnLayout {
                             SFText {
                                 property string beamUrl: "<a href='https://www.beam.mw/'>beam.mw</a>"
                                 //% "blockchain explorer"
-                                            property string explorerUrl: "<a href='%1'>%2</a>".arg(Style.explorerUrl).arg(qsTrId("explorer"))
+                                property string explorerUrl: "<a href='%1'>%2</a>".arg(Style.explorerUrl).arg(qsTrId("explorer"))
                                 //: general settings, label for alow open external links
                                 //% "Allow access to %1 and %2 (to fetch exchanges and transaction data)"
                                 text: Style.linkStyle + qsTrId("settings-general-allow-beammw-label").arg(beamUrl).arg(explorerUrl)

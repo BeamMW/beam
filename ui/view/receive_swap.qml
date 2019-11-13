@@ -58,8 +58,10 @@ ColumnLayout {
         id: swapna
         onRejected: thisView.onClosed()
         onAccepted: main.openSwapSettings()
-        //% "You do not have any 3rd-party currencies connected.\nUpdate your settings and try again."
-        text:       qsTrId("swap-na-message").replace("\\n", "\n")
+/*% "You do not have any 3rd-party currencies connected.
+Update your settings and try again."
+*/
+        text:       qsTrId("swap-na-message")
     }
 
     Item {
@@ -114,8 +116,10 @@ ColumnLayout {
 
                         function getErrorText() {
                             if(!BeamGlobals.canReceive(currency)) {
-                                //% "%1 is not connected, \nplease review your settings and try again"
-                                return qsTrId("swap-currency-na-message").arg(BeamGlobals.getCurrencyName(currency)).replace("\\n", "")
+/*% "%1 is not connected, 
+please review your settings and try again" 
+*/
+                                return qsTrId("swap-currency-na-message").arg(BeamGlobals.getCurrencyName(currency)).replace("\n", "")
                             }
                             if(!viewModel.isSendFeeOK) {
                                 //% "The swap amount must be greater than the transaction fee"
@@ -221,8 +225,10 @@ ColumnLayout {
 
                         function getErrorText() {
                             if(!BeamGlobals.canReceive(currency)) {
-                                //% "%1 is not connected, \nplease review your settings and try again"
-                                return qsTrId("swap-currency-na-message").arg(BeamGlobals.getCurrencyName(currency)).replace("\\n", "")
+/*% "%1 is not connected, 
+please review your settings and try again" 
+*/
+                                return qsTrId("swap-currency-na-message").arg(BeamGlobals.getCurrencyName(currency)).replace("\n", "")
                             }
                             if(!viewModel.isReceiveFeeOK) {
                                 //% "The swap amount must be greater than the transaction fee"
