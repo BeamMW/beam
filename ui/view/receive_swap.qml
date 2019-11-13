@@ -285,48 +285,10 @@ please review your settings and try again"
                         value:    receiveAmountInput.fee
                     }
 
-                    //
-                    // Expires
-                    //
-                    RowLayout {
-                        id:      expiresCtrl
-                        spacing: 10
-                        property alias title: expiresTitle.text
-
-                        SFText {
-                            id:               expiresTitle
-                            Layout.topMargin: 18
-                            font.pixelSize:   14
-                            color:            Style.content_main
-                            //% "Offer expiration time"
-                            text:             qsTrId("wallet-receive-offer-expires-label")
-                        }
-
-                        CustomComboBox {
-                            id:                  expiresCombo
-                            Layout.topMargin:    18
-                            Layout.minimumWidth: 75
-                            height:              20
-                            currentIndex:        viewModel.offerExpires
-
-                            model: [
-                                //% "12 hours"
-                                qsTrId("wallet-receive-expires-12"),
-                                //% "6 hours"
-                                qsTrId("wallet-receive-expires-6")
-                            ]
-                        }
-
-                        Binding {
-                            target:   viewModel
-                            property: "offerExpires"
-                            value:    expiresCombo.currentIndex
-                        }
-                    }
-
                     SFText {
                         Layout.topMargin: 18
                         font.pixelSize:   14
+                        font.styleName:   "Bold"
                         font.weight:      Font.Bold
                         color:            Style.content_main
                         //% "Exchange rate"
@@ -385,7 +347,7 @@ please review your settings and try again"
                         SFTextInput {
                             id:                  rateInput
                             padding:             0
-                            Layout.minimumWidth: 22
+                            Layout.minimumWidth: 35
                             activeFocusOnTab:    true
                             font.pixelSize:      14
                             color:               rateRow.rateValid() ? Style.content_main : Style.validator_error
@@ -434,6 +396,47 @@ please review your settings and try again"
                             width:               parent.width
                             text:                rateRow.rateError()
                             visible:             !rateRow.rateValid()
+                        }
+                    }
+
+                    //
+                    // Expires
+                    //
+                    RowLayout {
+                        id:      expiresCtrl
+                        spacing: 10
+                        property alias title: expiresTitle.text
+
+                        SFText {
+                            id:               expiresTitle
+                            Layout.topMargin: 18
+                            font.pixelSize:   14
+                            font.styleName:   "Bold"
+                            font.weight:      Font.Bold
+                            color:            Style.content_main
+                            //% "Offer expiration time"
+                            text:             qsTrId("wallet-receive-offer-expires-label")
+                        }
+
+                        CustomComboBox {
+                            id:                  expiresCombo
+                            Layout.topMargin:    18
+                            Layout.minimumWidth: 75
+                            height:              20
+                            currentIndex:        viewModel.offerExpires
+
+                            model: [
+                                //% "12 hours"
+                                qsTrId("wallet-receive-expires-12"),
+                                //% "6 hours"
+                                qsTrId("wallet-receive-expires-6")
+                            ]
+                        }
+
+                        Binding {
+                            target:   viewModel
+                            property: "offerExpires"
+                            value:    expiresCombo.currentIndex
                         }
                     }
                 }  // ColumnLayout
