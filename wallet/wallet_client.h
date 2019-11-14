@@ -80,6 +80,7 @@ namespace beam::wallet
         virtual void onAddresses(bool own, const std::vector<WalletAddress>& addresses) = 0;
         virtual void onSwapOffersChanged(ChangeAction action, const std::vector<SwapOffer>& offers) override = 0;
         virtual void onGeneratedNewAddress(const WalletAddress& walletAddr) = 0;
+        virtual void onSwapParamsLoaded(const beam::ByteBuffer& params) = 0;
         virtual void onNewAddressFailed() = 0;
         virtual void onChangeCurrentWalletIDs(WalletID senderID, WalletID receiverID) = 0;
         virtual void onNodeConnectionChanged(bool isNodeConnected) = 0;
@@ -122,6 +123,8 @@ namespace beam::wallet
         void saveAddress(const WalletAddress& address, bool bOwn) override;
         void changeCurrentWalletIDs(const WalletID& senderID, const WalletID& receiverID) override;
         void generateNewAddress() override;
+        void loadSwapParams() override;
+        void storeSwapParams(const beam::ByteBuffer& params) override;
         void deleteAddress(const WalletID& id) override;
         void updateAddress(const WalletID& id, const std::string& name, WalletAddress::ExpirationStatus status) override;
         void setNodeAddress(const std::string& addr) override;

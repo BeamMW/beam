@@ -53,6 +53,7 @@ signals:
     void addressesChanged(bool own, const std::vector<beam::wallet::WalletAddress>& addresses);
     void swapOffersChanged(beam::wallet::ChangeAction action, const std::vector<beam::wallet::SwapOffer>& offers);
     void generatedNewAddress(const beam::wallet::WalletAddress& walletAddr);
+    void swapParamsLoaded(const beam::ByteBuffer& params);
     void newAddressFailed();
     void changeCurrentWalletIDs(beam::wallet::WalletID senderID, beam::wallet::WalletID receiverID);
     void nodeConnectionChanged(bool isNodeConnected);
@@ -85,6 +86,7 @@ private:
     void onAddresses(bool own, const std::vector<beam::wallet::WalletAddress>& addrs) override;
     void onSwapOffersChanged(beam::wallet::ChangeAction action, const std::vector<beam::wallet::SwapOffer>& offers) override;
     void onGeneratedNewAddress(const beam::wallet::WalletAddress& walletAddr) override;
+    void onSwapParamsLoaded(const beam::ByteBuffer& token) override;
     void onNewAddressFailed() override;
     void onChangeCurrentWalletIDs(beam::wallet::WalletID senderID, beam::wallet::WalletID receiverID) override;
     void onNodeConnectionChanged(bool isNodeConnected) override;

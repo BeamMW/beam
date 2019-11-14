@@ -58,6 +58,7 @@ ReceiveSwapViewModel::ReceiveSwapViewModel()
     , _receiveCurrency(Currency::CurrBeam)
     , _sentCurrency(Currency::CurrBtc)
     , _offerExpires(OfferExpires12h)
+    , _saveParamsAllowed(false)
     , _walletModel(*AppModel::getInstance().getWallet())
     , _txParameters(beam::wallet::CreateSwapParameters()
         .SetParameter(beam::wallet::TxParameterID::AtomicSwapCoin, beam::wallet::AtomicSwapCoin::Bitcoin)
@@ -65,11 +66,11 @@ ReceiveSwapViewModel::ReceiveSwapViewModel()
         .SetParameter(beam::wallet::TxParameterID::IsInitiator, true))
 {
     connect(&_walletModel, &WalletModel::generatedNewAddress, this, &ReceiveSwapViewModel::onGeneratedNewAddress);
+    connect(&_walletModel, &WalletModel::swapParamsLoaded, this, &ReceiveSwapViewModel::onSwapParamsLoaded);
     connect(&_walletModel, SIGNAL(newAddressFailed()), this, SIGNAL(newAddressFailed()));
     connect(&_walletModel, &WalletModel::stateIDChanged, this, &ReceiveSwapViewModel::updateTransactionToken);
 
     generateNewAddress();
-
     updateTransactionToken();
 }
 
@@ -78,6 +79,64 @@ void ReceiveSwapViewModel::onGeneratedNewAddress(const beam::wallet::WalletAddre
     _receiverAddress = addr;
     emit receiverAddressChanged();
     updateTransactionToken();
+    loadSwapParams();
+}
+
+void ReceiveSwapViewModel::loadSwapParams()
+{
+    _walletModel.getAsync()->loadSwapParams();
+}
+
+void ReceiveSwapViewModel::storeSwapParams()
+{
+    if(!_saveParamsAllowed) return;
+
+    try {
+        beam::Serializer ser;
+        ser & _receiveCurrency
+            & _sentCurrency
+            & _receiveFeeGrothes
+            & _sentFeeGrothes;
+
+        beam::ByteBuffer buffer;
+        ser.swap_buf(buffer);
+        _walletModel.getAsync()->storeSwapParams(buffer);
+    }
+    catch(...)
+    {
+        LOG_ERROR() << "failed to serialize swap params";
+    }
+}
+
+void ReceiveSwapViewModel::onSwapParamsLoaded(const beam::ByteBuffer& params)
+{
+    if(!params.empty())
+    {
+        try
+        {
+            beam::Deserializer der;
+            der.reset(params);
+
+            Currency receiveCurrency, sentCurrency;
+            beam::Amount receiveFee, sentFee;
+
+            der & receiveCurrency
+                & sentCurrency
+                & receiveFee
+                & sentFee;
+
+            setReceiveCurrency(receiveCurrency);
+            setSentCurrency(sentCurrency);
+            setReceiveFee(receiveFee);
+            setSentFee(sentFee);
+        }
+        catch(...)
+        {
+            LOG_ERROR() << "failed to deserialize swap params";
+        }
+    }
+
+   _saveParamsAllowed = true;
 }
 
 QString ReceiveSwapViewModel::getAmountToReceive() const
@@ -128,6 +187,7 @@ void ReceiveSwapViewModel::setSentFee(unsigned int value)
     {
         _sentFeeGrothes = value;
         emit sentFeeChanged();
+        storeSwapParams();
     }
 }
 
@@ -145,6 +205,7 @@ void ReceiveSwapViewModel::setReceiveCurrency(Currency value)
         _receiveCurrency = value;
         emit receiveCurrencyChanged();
         updateTransactionToken();
+        storeSwapParams();
     }
 }
 
@@ -162,6 +223,7 @@ void ReceiveSwapViewModel::setSentCurrency(Currency value)
         _sentCurrency = value;
         emit sentCurrencyChanged();
         updateTransactionToken();
+        storeSwapParams();
     }
 }
 
@@ -171,6 +233,7 @@ void ReceiveSwapViewModel::setReceiveFee(unsigned int value)
     {
         _receiveFeeGrothes = value;
         emit receiveFeeChanged();
+        storeSwapParams();
     }
 }
 

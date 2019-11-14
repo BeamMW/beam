@@ -58,9 +58,9 @@ ColumnLayout {
         id: swapna
         onRejected: thisView.onClosed()
         onAccepted: main.openSwapSettings()
-/*% "You do not have any 3rd-party currencies connected.
-Update your settings and try again."
-*/
+        /*% "You do not have any 3rd-party currencies connected.
+        Update your settings and try again."
+        */
         text:       qsTrId("swap-na-message")
     }
 
@@ -116,9 +116,9 @@ Update your settings and try again."
 
                         function getErrorText() {
                             if(!BeamGlobals.canReceive(currency)) {
-/*% "%1 is not connected, 
-please review your settings and try again" 
-*/
+                                /*% "%1 is not connected,
+                                please review your settings and try again"
+                                */
                                 return qsTrId("swap-currency-na-message").arg(BeamGlobals.getCurrencyName(currency)).replace("\n", "")
                             }
                             if(!viewModel.isSendFeeOK) {
@@ -157,6 +157,11 @@ please review your settings and try again"
                         target:   viewModel
                         property: "sentFee"
                         value:    sentAmountInput.fee
+                    }
+
+                    Connections {
+                        target: viewModel
+                        onSentFeeChanged: sentAmountInput.fee = viewModel.sentFee
                     }
 
                     //
@@ -283,6 +288,11 @@ please review your settings and try again"
                         target:   viewModel
                         property: "receiveFee"
                         value:    receiveAmountInput.fee
+                    }
+
+                    Connections {
+                        target: viewModel
+                        onReceiveFeeChanged: receiveAmountInput.fee = viewModel.receiveFee
                     }
 
                     SFText {
