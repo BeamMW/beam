@@ -368,3 +368,28 @@ void WalletModel::onImportRecoveryProgress(uint64_t done, uint64_t total)
 
     env->CallStaticVoidMethod(WalletListenerClass, callback, done, total);
 }
+
+void WalletModel::onImportDataFromJson(bool isOk)
+{
+    LOG_DEBUG() << "onImportDataFromJson(" << isOk << ")";
+
+    JNIEnv* env = Android_JNI_getEnv();
+
+    jmethodID callback = env->GetStaticMethodID(WalletListenerClass, "onImportDataFromJson", "(Z)V");
+
+    env->CallStaticVoidMethod(WalletListenerClass, callback, isOk);
+}
+
+void WalletModel::onExportDataToJson(const std::string& data)
+{
+    LOG_DEBUG() << "onExportDataToJson";
+
+    JNIEnv* env = Android_JNI_getEnv();
+
+    jmethodID callback = env->GetStaticMethodID(WalletListenerClass, "onExportDataToJson", "(Ljava/lang/String;)V");
+
+    jstring jdata = env->NewStringUTF(data.c_str());
+
+    env->CallStaticVoidMethod(WalletListenerClass, callback, jdata);
+    env->DeleteLocalRef(jdata);
+}

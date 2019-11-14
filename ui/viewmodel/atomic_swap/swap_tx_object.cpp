@@ -45,40 +45,56 @@ auto SwapTxObject::isBeamSideSwap() const -> bool
 
 QString SwapTxObject::getStatus() const
 {
-    return isExpired() ? "expired" : TxObject::getStatus();
+    switch (m_tx.m_status)
+    {
+    case TxStatus::Pending:
+        return "pending";
+
+    case TxStatus::Registering:
+    case TxStatus::InProgress:
+        return "in progress";
+
+    case TxStatus::Completed:
+        return "completed";
+
+    case TxStatus::Canceled:
+        return "canceled";
+
+    case TxStatus::Failed:
+        {
+            auto failureReason = m_tx.GetParameter<TxFailureReason>(TxParameterID::InternalFailureReason);
+            if (failureReason && *failureReason == TxFailureReason::TransactionExpired)
+            {
+                return "expired";
+            }
+            return "failed";
+        }
+
+    default:
+        assert(false && "Unknown TX status!");
+        return "unknown";
+    }
 }
 
 bool SwapTxObject::isExpired() const
 {
-    auto failureReason = m_tx.GetParameter<TxFailureReason>(
-        TxParameterID::InternalFailureReason);
-    return failureReason &&
-           failureReason.value() == TxFailureReason::TransactionExpired;
+    auto failureReason = m_tx.GetParameter<TxFailureReason>(TxParameterID::InternalFailureReason);
+
+    return  m_tx.m_status == TxStatus::Failed &&
+            failureReason &&
+            *failureReason == TxFailureReason::TransactionExpired;
 }
 
 bool SwapTxObject::isInProgress() const
 {
-    if (isExpired())
-    {
-        return false;
-    }
-    else
-    {
-        switch (m_tx.m_status)
-        {
-            case TxStatus::Pending:
-            case TxStatus::InProgress:
-            case TxStatus::Registering:
-                return true;
-            default:
-                return false;
-        }
-    }
+    return  m_tx.m_status == TxStatus::Pending ||
+            m_tx.m_status == TxStatus::Registering ||
+            m_tx.m_status == TxStatus::InProgress;
 }
 
 bool SwapTxObject::isPending() const
 {
-    return m_tx.m_status == TxStatus::Pending && !isExpired();
+    return m_tx.m_status == TxStatus::Pending;
 }
 
 bool SwapTxObject::isCompleted() const
@@ -93,17 +109,24 @@ bool SwapTxObject::isCanceled() const
 
 bool SwapTxObject::isFailed() const
 {
-    return m_tx.m_status == TxStatus::Failed;
+    auto failureReason = m_tx.GetParameter<TxFailureReason>(TxParameterID::InternalFailureReason);
+
+    return  m_tx.m_status == TxStatus::Failed && !failureReason;
 }
 
 bool SwapTxObject::isCancelAvailable() const
 {
-    return isInProgress() || isPending();
+    // TODO:SWAP link to transaction internal state like in AtomicSwapTransaction::Cancel()
+    return  m_tx.m_status == TxStatus::Pending ||
+            m_tx.m_status == TxStatus::Registering ||
+            m_tx.m_status == TxStatus::InProgress;
 }
 
 bool SwapTxObject::isDeleteAvailable() const
 {
-    return isExpired() || isFailed() || isCompleted() || isCanceled();
+    return  m_tx.m_status == TxStatus::Completed ||
+            m_tx.m_status == TxStatus::Canceled ||
+            m_tx.m_status == TxStatus::Failed;
 }
 
 auto SwapTxObject::getSwapCoinName() const -> QString
@@ -211,33 +234,51 @@ beam::Amount SwapTxObject::getSwapAmountValue(bool sent) const
     return m_tx.m_amount;
 }
 
+QString SwapTxObject::getFee() const
+{
+    if (m_isBeamSide)
+    {
+        auto fee = m_tx.GetParameter<beam::Amount>(TxParameterID::Fee, *m_isBeamSide ? SubTxIndex::BEAM_LOCK_TX : SubTxIndex::BEAM_REDEEM_TX);
+        if (fee)
+        {
+            return beamui::AmountToUIString(*fee, beamui::Currencies::Beam);
+        }
+    }
+    return QString();
+}
+
 QString SwapTxObject::getFeeRate() const
 {
-    auto feeRate = m_tx.GetParameter<beam::Amount>(TxParameterID::Fee, *m_isBeamSide ? SubTxIndex::REDEEM_TX : SubTxIndex::LOCK_TX);
-
-    if (feeRate && m_swapCoin)
+    if (m_isBeamSide)   // check if initialized
     {
-        QString value = QString::number(*feeRate);
+        auto feeRate = m_tx.GetParameter<beam::Amount>(
+            TxParameterID::Fee,
+            *m_isBeamSide ? SubTxIndex::REDEEM_TX : SubTxIndex::LOCK_TX);
 
-        QString rateMeasure;
-        switch (*m_swapCoin)
+        if (feeRate && m_swapCoin)
         {
-        case AtomicSwapCoin::Bitcoin:
-            rateMeasure = QMLGlobals::btcFeeRateLabel();
-            break;
+            QString value = QString::number(*feeRate);
 
-        case AtomicSwapCoin::Litecoin:
-            rateMeasure = QMLGlobals::ltcFeeRateLabel();
-            break;
+            QString rateMeasure;
+            switch (*m_swapCoin)
+            {
+            case AtomicSwapCoin::Bitcoin:
+                rateMeasure = QMLGlobals::btcFeeRateLabel();
+                break;
 
-        case AtomicSwapCoin::Qtum:
-            rateMeasure = QMLGlobals::qtumFeeRateLabel();
-            break;
-        
-        default:
-            break;
+            case AtomicSwapCoin::Litecoin:
+                rateMeasure = QMLGlobals::ltcFeeRateLabel();
+                break;
+
+            case AtomicSwapCoin::Qtum:
+                rateMeasure = QMLGlobals::qtumFeeRateLabel();
+                break;
+
+            default:
+                break;
+            }
+            return value + " " + rateMeasure;
         }
-        return value + " " + rateMeasure;
     }
     return QString();
 }

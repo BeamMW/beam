@@ -393,17 +393,17 @@ bool SwapCoinSettingsItem::getCanEdit() const
 
 bool SwapCoinSettingsItem::getIsConnected() const
 {
-    return m_connectionType != beam::bitcoin::ISettings::None;
+    return m_connectionType != beam::bitcoin::ISettings::ConnectionType::None;
 }
 
 bool SwapCoinSettingsItem::getIsNodeConnection() const
 {
-    return m_connectionType == beam::bitcoin::ISettings::Core;
+    return m_connectionType == beam::bitcoin::ISettings::ConnectionType::Core;
 }
 
 bool SwapCoinSettingsItem::getIsElectrumConnection() const
 {
-    return m_connectionType == beam::bitcoin::ISettings::Electrum;
+    return m_connectionType == beam::bitcoin::ISettings::ConnectionType::Electrum;
 }
 
 QString SwapCoinSettingsItem::getConnectionStatus() const
@@ -455,7 +455,6 @@ void SwapCoinSettingsItem::applyElectrumSettings()
         electrumSettings.m_address = m_nodeAddressElectrum.toStdString();
     }
 
-    // TODO: check
     electrumSettings.m_secretWords = GetSeedPhraseFromSeedItems();
     electrumSettings.m_addressVersion = bitcoin::getAddressVersion();
     
@@ -490,7 +489,7 @@ void SwapCoinSettingsItem::restoreSeedElectrum()
 
 void SwapCoinSettingsItem::disconnect()
 {
-    auto connectionType = bitcoin::ISettings::None;
+    auto connectionType = bitcoin::ISettings::ConnectionType::None;
 
     m_settings->ChangeConnectionType(connectionType);
     m_coinClient.SetSettings(*m_settings);
@@ -499,7 +498,7 @@ void SwapCoinSettingsItem::disconnect()
 
 void SwapCoinSettingsItem::connectToNode()
 {
-    auto connectionType = bitcoin::ISettings::Core;
+    auto connectionType = bitcoin::ISettings::ConnectionType::Core;
 
     m_settings->ChangeConnectionType(connectionType);
     m_coinClient.SetSettings(*m_settings);
@@ -508,7 +507,7 @@ void SwapCoinSettingsItem::connectToNode()
 
 void SwapCoinSettingsItem::connectToElectrum()
 {
-    auto connectionType = bitcoin::ISettings::Electrum;
+    auto connectionType = bitcoin::ISettings::ConnectionType::Electrum;
 
     m_settings->ChangeConnectionType(connectionType);
     m_coinClient.SetSettings(*m_settings);
@@ -547,17 +546,17 @@ void SwapCoinSettingsItem::LoadSettings()
     setFeeRate(m_settings->GetFeeRate());
     setConnectionType(m_settings->GetCurrentConnectionType());
 
-    if (m_settings->GetConnectionOptions().IsInitialized())
+    if (auto options = m_settings->GetConnectionOptions(); options.IsInitialized())
     {
-        setNodeUser(str2qstr(m_settings->GetConnectionOptions().m_userName));
-        setNodePass(str2qstr(m_settings->GetConnectionOptions().m_pass));
-        setNodeAddress(AddressToQstring(m_settings->GetConnectionOptions().m_address));
+        setNodeUser(str2qstr(options.m_userName));
+        setNodePass(str2qstr(options.m_pass));
+        setNodeAddress(AddressToQstring(options.m_address));
     }
 
-    if (m_settings->GetElectrumConnectionOptions().IsInitialized())
+    if (auto options = m_settings->GetElectrumConnectionOptions(); options.IsInitialized())
     {
-        SetSeedElectrum(m_settings->GetElectrumConnectionOptions().m_secretWords);
-        setNodeAddressElectrum(str2qstr(m_settings->GetElectrumConnectionOptions().m_address));
+        SetSeedElectrum(options.m_secretWords);
+        setNodeAddressElectrum(str2qstr(options.m_address));
     }
 }
 
@@ -594,7 +593,6 @@ void SwapCoinSettingsItem::SetSeedElectrum(const std::vector<std::string>& seedE
 
 void SwapCoinSettingsItem::SetDefaultNodeSettings()
 {
-    setFeeRate(QMLGlobals::defFeeRateBtc());
     setNodeAddress("");
     setNodePass("");
     setNodeUser("");
@@ -602,7 +600,6 @@ void SwapCoinSettingsItem::SetDefaultNodeSettings()
 
 void SwapCoinSettingsItem::SetDefaultElectrumSettings()
 {
-    setFeeRate(QMLGlobals::defFeeRateBtc());
     setNodeAddressElectrum("");
     SetSeedElectrum({});
 }

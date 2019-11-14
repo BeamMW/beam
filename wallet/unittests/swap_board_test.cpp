@@ -140,7 +140,7 @@ namespace
         return id;
     }
 
-    SwapOffer generateOffer(TxID& txID, SwapOfferStatus s, WalletID pubK, AtomicSwapCoin c)
+    SwapOffer generateOffer(TxID& txID, SwapOfferStatus s, const WalletID& pubK, AtomicSwapCoin c)
     {
         std::srand(static_cast<unsigned int>(std::time(nullptr)));
         SwapOffer o(txID, s, pubK, c);
@@ -276,14 +276,14 @@ namespace
         WALLET_CHECK(Alice.getOffersList().size() == 0);
 
         TxID txId = generateTxID();
-        WalletAddress wa = storage::createAddress(*senderWalletDB, keyKeeper);
-        SwapOffer correctOffer = generateOffer(txId, SwapOfferStatus::Pending, wa.m_walletID, AtomicSwapCoin::Bitcoin);
-
         auto kdf = senderWalletDB->get_MasterKdf();
         size_t count = 0;
+
         {
             std::cout << "Case: invalid signature" << endl;
-            const ByteBuffer msg = toByteBuffer(SwapOfferToken(correctOffer));
+            WalletAddress wa = storage::createAddress(*senderWalletDB, keyKeeper);
+            SwapOffer offer = generateOffer(stepTxID(txId), SwapOfferStatus::Pending, wa.m_walletID, AtomicSwapCoin::Bitcoin);
+            const ByteBuffer msg = toByteBuffer(SwapOfferToken(offer));
             ECC::Scalar::Native sk;
             SwapOfferConfirmation confirmation;
             kdf->DeriveKey(sk, ECC::Key::ID(wa.m_OwnID, Key::Type::Bbs));
@@ -293,7 +293,7 @@ namespace
             confirmation.Sign(sk);
 
             ByteBuffer signature = toByteBuffer(confirmation.m_Signature);
-            signature.data()[0] = 't';  // corrupt signature
+            signature.front() += 1;  // corrupt signature
 
             size_t bodySize = msg.size() + signature.size();
             assert(bodySize <= UINT32_MAX);
@@ -315,10 +315,11 @@ namespace
         }
         {
             std::cout << "Case: invalid public key" << endl;
+            WalletAddress wa = storage::createAddress(*senderWalletDB, keyKeeper);
+            SwapOffer offer = generateOffer(stepTxID(txId), SwapOfferStatus::Pending, wa.m_walletID, AtomicSwapCoin::Bitcoin);
             WalletAddress newAddr = storage::createAddress(*senderWalletDB, keyKeeper);
-            correctOffer.m_publisherId = newAddr.m_walletID;
-            // changed public key to new random
-            const ByteBuffer msg = toByteBuffer(SwapOfferToken(correctOffer));
+            offer.m_publisherId = newAddr.m_walletID;   // changed public key to new random
+            const ByteBuffer msg = toByteBuffer(SwapOfferToken(offer));
             ECC::Scalar::Native sk;
             SwapOfferConfirmation confirmation;
             kdf->DeriveKey(sk, ECC::Key::ID(wa.m_OwnID, Key::Type::Bbs));
@@ -349,9 +350,9 @@ namespace
         }
         {
             std::cout << "Case: correct message" << endl;
-            correctOffer.m_publisherId = wa.m_walletID;
-            // changed public key back to correct
-            const ByteBuffer msg = toByteBuffer(SwapOfferToken(correctOffer));
+            WalletAddress wa = storage::createAddress(*senderWalletDB, keyKeeper);
+            SwapOffer offer = generateOffer(stepTxID(txId), SwapOfferStatus::Pending, wa.m_walletID, AtomicSwapCoin::Bitcoin);
+            const ByteBuffer msg = toByteBuffer(SwapOfferToken(offer));
             ECC::Scalar::Native sk;
             SwapOfferConfirmation confirmation;
             kdf->DeriveKey(sk, ECC::Key::ID(wa.m_OwnID, Key::Type::Bbs));

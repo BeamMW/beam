@@ -14,6 +14,76 @@
 
 #include "tx_object_list.h"
 
+namespace
+{
+
+QString getStatusText(const QString& status)
+{
+    if (status == "pending")
+    {
+        //% "pending"
+        return qtTrId("wallet-txs-status-pending");
+    }
+    else if (status == "waiting for sender")
+    {
+        //% "waiting for sender"
+        return qtTrId("wallet-txs-status-waiting-sender");
+    }
+    else if (status == "waiting for receiver")
+    {
+        //% "waiting for receiver"
+        return qtTrId("wallet-txs-status-waiting-receiver");
+    }
+    else if (status == "receiving" || status == "sending")
+    {
+        //% "in progress"
+        return qtTrId("wallet-txs-status-in-progress");
+    }
+    else if (status == "completed")
+    {
+        //% "sent to own address"
+        return qtTrId("wallet-txs-status-own-sent");
+    }
+    else if (status == "self sending")
+    {
+        //% "sending to own address"
+        return qtTrId("wallet-txs-status-own-sending");
+    }
+    else if (status == "received")
+    {
+        //% "received"
+        return qtTrId("wallet-txs-status-received");
+    }
+    else if (status == "sent")
+    {
+        //% "sent"
+        return qtTrId("wallet-txs-status-sent");
+    }
+    else if (status == "cancelled")
+    {
+        //% "cancelled"
+        return qtTrId("wallet-txs-status-cancelled");
+    }
+    else if (status == "expired")
+    {
+        //% "expired"
+        return qtTrId("wallet-txs-status-expired");
+    }
+    else if (status == "failed")
+    {
+        //% "failed"
+        return qtTrId("wallet-txs-status-failed");
+    }
+
+    else
+    {
+        //% "unknown"
+        return qtTrId("wallet-txs-status-unknown");
+    }
+}
+
+}  // namespace
+
 TxObjectList::TxObjectList()
 {
 }
@@ -97,7 +167,7 @@ auto TxObjectList::data(const QModelIndex &index, int role) const -> QVariant
 
         case Roles::Status:
         case Roles::StatusSort:
-            return value->getStatus();
+            return getStatusText(value->getStatus());
 
         case Roles::Fee:
             return value->getFee();

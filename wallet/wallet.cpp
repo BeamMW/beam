@@ -49,7 +49,7 @@ namespace beam::wallet
             return true;
         }
 
-        bool ApplyTransactionParameters(BaseTransaction::Ptr tx, const PackedTxParameters& parameters, bool allowPrivate = false)
+        bool ApplyTransactionParameters(BaseTransaction::Ptr tx, const PackedTxParameters& parameters, bool isInternalSource, bool allowPrivate = false)
         {
             bool txChanged = false;
             SubTxID subTxID = kDefaultSubTxID;
@@ -66,6 +66,11 @@ namespace beam::wallet
 
                 if (allowPrivate || p.first < TxParameterID::PrivateFirstParam)
                 {
+                    if (!isInternalSource && !tx->IsTxParameterExternalSettable(p.first, subTxID))
+                    {
+                        LOG_WARNING() << tx->GetTxID() << "Attempt to set internal tx parameter: " << static_cast<int>(p.first);
+                        continue;
+                    }
                     txChanged |= tx->SetParameter(p.first, p.second, subTxID);
                 }
                 else
@@ -415,7 +420,7 @@ namespace beam::wallet
             return;
         }
 
-        if (ApplyTransactionParameters(t, msg.m_Parameters))
+        if (ApplyTransactionParameters(t, msg.m_Parameters, false))
         {
             UpdateTransaction(msg.m_TxID);
         }
@@ -949,8 +954,14 @@ namespace beam::wallet
             return BaseTransaction::Ptr();
         }
 
+        if (msg.m_Type == TxType::AtomicSwap)
+        {
+            // we don't create swap from SBBS message
+            return BaseTransaction::Ptr();
+        }
+
         bool isSender = false;
-        if (!msg.GetParameter(TxParameterID::IsSender, isSender) || (isSender == true && msg.m_Type != TxType::AtomicSwap))
+        if (!msg.GetParameter(TxParameterID::IsSender, isSender) || isSender == true)
         {
             return BaseTransaction::Ptr();
         }
@@ -1019,7 +1030,7 @@ namespace beam::wallet
         auto completedParameters = it->second->CheckAndCompleteParameters(parameters);
 
         auto newTx = it->second->Create(*this, m_WalletDB, m_KeyKeeper, *parameters.GetTxID());
-        ApplyTransactionParameters(newTx, completedParameters.Pack());
+        ApplyTransactionParameters(newTx, completedParameters.Pack(), true);
         return newTx;
     }
 

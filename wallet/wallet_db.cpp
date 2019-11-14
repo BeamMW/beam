@@ -1346,9 +1346,8 @@ namespace beam::wallet
         , m_Reactor(reactor)
         , m_IsFlushPending(false)
         , m_mandatoryTxParams{
+            TxParameterID::TransactionType,
             TxParameterID::Amount,
-            TxParameterID::Fee,
-            //   TxParameterID::PeerID,
             TxParameterID::MyID,
             TxParameterID::CreateTime,
             TxParameterID::IsSender }
@@ -2963,7 +2962,6 @@ namespace beam::wallet
                     return true;
                 }
 
-                vector<WalletAddress> addresses;
                 for (const auto& jsonAddress : obj[nodeName])
                 {
                     WalletAddress address;

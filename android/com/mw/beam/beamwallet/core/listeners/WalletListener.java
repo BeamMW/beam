@@ -199,4 +199,14 @@ public class WalletListener
     {
         System.out.println(">>>>>>>>>>>>>> async onImportRecoveryProgress in Java [ " + done + " / " + total + " ]");
     }
+
+    static void onImportDataFromJson(boolean isOk)
+    {
+        System.out.println(">>>>>>>>>>>>>> async onImportDataFromJson(" + isOk +") in Java");
+    }
+
+    static void onExportDataToJson(String data)
+    {
+        System.out.println(">>>>>>>>>>>>>> async onExportDataToJson(" + data +") in Java");
+    }
 }

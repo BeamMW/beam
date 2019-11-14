@@ -52,7 +52,6 @@ namespace beam::bitcoin
 
         virtual Settings GetSettings() const = 0;
         virtual void SetSettings(const Settings& settings) = 0;
-        virtual void ResetSettings() = 0;
         virtual bool CanModify() const = 0;
         virtual void AddRef() = 0;
         virtual void ReleaseRef() = 0;
@@ -68,7 +67,6 @@ namespace beam::bitcoin
         ElectrumSettings GetElectrumSettings() const override;
         Settings GetSettings() const override;
         void SetSettings(const Settings& settings) override;
-        void ResetSettings() override;
 
         void Initialize();
 

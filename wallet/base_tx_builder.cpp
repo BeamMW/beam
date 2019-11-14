@@ -537,9 +537,8 @@ namespace beam::wallet
             }
             else
             {
-                assert(false && "KernelID is not stored");
+                throw std::runtime_error("KernelID is not stored");
             }
-
         }
         return *m_KernelID;
     }

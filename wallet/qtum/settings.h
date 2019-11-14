@@ -29,10 +29,12 @@ namespace beam::qtum
         {
             constexpr uint16_t kQtumDefaultTxMinConfirmations = 10;
             constexpr uint32_t kQtumDefaultLockTimeInBlocks = 2 * 600;  // 48h
+            constexpr Amount kQtumMinFeeRate = 500000;
 
             SetTxMinConfirmations(kQtumDefaultTxMinConfirmations);
             SetLockTimeInBlocks(kQtumDefaultLockTimeInBlocks);
-            SetMinFeeRate(90000);
+            SetFeeRate(kQtumMinFeeRate);
+            SetMinFeeRate(kQtumMinFeeRate);
         }
     };
 } // namespace beam::qtum

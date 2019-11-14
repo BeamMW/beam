@@ -129,6 +129,7 @@ namespace beam::wallet
     MACRO(NotEnoughTimeToFinishBtcTx,    21, "Not enough time to finish btc lock transaction") \
     MACRO(FailedToCreateMultiSig,        22, "Failed to create multi-signature") \
     MACRO(FeeIsTooSmall,                 23, "Fee is too small") \
+    MACRO(MinHeightIsUnacceptable,       24, "Kernel's min height is unacceptable") \
 
     enum TxFailureReason : int32_t
     {
@@ -196,6 +197,7 @@ namespace beam::wallet
 
         IsSelfTx = 27,
 
+        AtomicSwapPeerPrivateKey = 29,
         AtomicSwapIsBeamSide = 30,
         AtomicSwapCoin = 31,
         AtomicSwapAmount = 32,
@@ -269,6 +271,8 @@ namespace beam::wallet
         AtomicSwapSecretPrivateKey = 202,
         AtomicSwapSecretPublicKey = 203,
         Confirmations = 204,
+        AtomicSwapPrivateKey = 205,
+        AtomicSwapWithdrawAddress = 206,
 
         InternalFailureReason = 210,
     
@@ -383,7 +387,7 @@ namespace beam::wallet
         PackedTxParameters m_Parameters;
     };    
 
-    enum class AtomicSwapCoin
+    enum class AtomicSwapCoin : int32_t // explicit signed type for serialization backward compatibility
     {
         Bitcoin,
         Litecoin,

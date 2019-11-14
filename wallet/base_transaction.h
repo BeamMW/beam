@@ -27,7 +27,7 @@
 namespace beam::wallet
 {
     TxID GenerateTxID();
-    TxParameters CreateTransactionParameters(TxType type, TxID txID);
+    TxParameters CreateTransactionParameters(TxType type, const TxID& txID);
     //
     // Interface for all possible transaction types
     //
@@ -91,6 +91,11 @@ namespace beam::wallet
         bool Rollback(Height height) override;
 
         static const uint32_t s_ProtoVersion;
+
+        virtual bool IsTxParameterExternalSettable(TxParameterID paramID, SubTxID subTxID) const
+        {
+            return true;
+        }
 
         template <typename T>
         bool GetParameter(TxParameterID paramID, T& value, SubTxID subTxID = kDefaultSubTxID) const

@@ -15,8 +15,7 @@
 #include "receive_swap_view.h"
 #include "ui_helpers.h"
 #include "model/app_model.h"
-#include "wallet/swaps/common.h"
-#include "wallet/swaps/swap_transaction.h"
+#include "wallet/swaps/utils.h"
 #include "wallet/bitcoin/bitcoin_side.h"
 #include "wallet/litecoin/litecoin_side.h"
 #include "wallet/qtum/qtum_side.h"
@@ -275,36 +274,14 @@ bool ReceiveSwapViewModel::isEnough() const
     }
 }
 
-bool ReceiveSwapViewModel::isGreatThanFee() const
+bool ReceiveSwapViewModel::isSendFeeOK() const
 {
-    if (_amountSentGrothes == 0)
-        return true;
+    return _amountSentGrothes == 0 || QMLGlobals::isSwapFeeOK(_amountSentGrothes, _sentFeeGrothes, _sentCurrency);
+}
 
-    switch (_sentCurrency)
-    {
-    case Currency::CurrBeam:
-    {
-        const auto total = _amountSentGrothes + _sentFeeGrothes;
-        return total > QMLGlobals::minFeeBeam();
-    }
-    case Currency::CurrBtc:
-    {
-        return beam::wallet::BitcoinSide::CheckAmount(_amountSentGrothes, _sentFeeGrothes);
-    }
-    case Currency::CurrLtc:
-    {
-        return beam::wallet::LitecoinSide::CheckAmount(_amountSentGrothes, _sentFeeGrothes);
-    }
-    case Currency::CurrQtum:
-    {
-        return beam::wallet::QtumSide::CheckAmount(_amountSentGrothes, _sentFeeGrothes);
-    }
-    default:
-    {
-        assert(false);
-        return true;
-    }
-    }
+bool ReceiveSwapViewModel::isReceiveFeeOK() const
+{
+    return _amountToReceiveGrothes == 0 || QMLGlobals::isSwapFeeOK(_amountToReceiveGrothes, _receiveFeeGrothes, _receiveCurrency);
 }
 
 void ReceiveSwapViewModel::saveAddress()
@@ -330,7 +307,11 @@ void ReceiveSwapViewModel::startListen()
     txParameters.DeleteParameter(TxParameterID::PeerID);
     txParameters.SetParameter(TxParameterID::IsInitiator, !*_txParameters.GetParameter<bool>(TxParameterID::IsInitiator));
     txParameters.SetParameter(TxParameterID::MyID, *_txParameters.GetParameter<beam::wallet::WalletID>(beam::wallet::TxParameterID::PeerID));
-    txParameters.SetParameter(TxParameterID::Fee, beam::Amount(beamFee));
+    if (isBeamSide)
+    {
+        txParameters.SetParameter(TxParameterID::Fee, beam::Amount(beamFee), SubTxIndex::BEAM_LOCK_TX);
+    }
+    txParameters.SetParameter(TxParameterID::Fee, beam::Amount(beamFee), isBeamSide ? SubTxIndex::BEAM_REFUND_TX : SubTxIndex::BEAM_REDEEM_TX);
     txParameters.SetParameter(TxParameterID::Fee, beam::Amount(swapFee), isBeamSide ? SubTxIndex::REDEEM_TX : SubTxIndex::LOCK_TX);
     txParameters.SetParameter(TxParameterID::AtomicSwapIsBeamSide, isBeamSide);
     txParameters.SetParameter(TxParameterID::IsSender, isBeamSide);
@@ -382,7 +363,8 @@ namespace
 void ReceiveSwapViewModel::updateTransactionToken()
 {
     emit enoughChanged();
-    emit lessThanFeeChanged();
+    emit isSendFeeOKChanged();
+    emit isReceiveFeeOKChanged();
     _txParameters.SetParameter(beam::wallet::TxParameterID::MinHeight, _walletModel.getCurrentHeight());
     _txParameters.SetParameter(beam::wallet::TxParameterID::PeerResponseTime, GetBlockCount(_offerExpires));
 

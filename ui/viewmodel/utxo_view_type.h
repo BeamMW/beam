@@ -20,8 +20,6 @@ class UtxoViewType : public QObject
 {
     Q_OBJECT
 public:
-    UtxoViewType() : QObject() {}
-
     enum EnType
     {
         Undefined = 0,

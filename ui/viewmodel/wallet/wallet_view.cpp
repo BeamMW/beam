@@ -55,7 +55,7 @@ QAbstractItemModel* WalletViewModel::getTransactions()
     return &_transactionsList;
 }
 
-void WalletViewModel::cancelTx(QVariant variantTxID)
+void WalletViewModel::cancelTx(const QVariant& variantTxID)
 {
     if (!variantTxID.isNull() && variantTxID.isValid())
     {
@@ -64,7 +64,7 @@ void WalletViewModel::cancelTx(QVariant variantTxID)
     }
 }
 
-void WalletViewModel::deleteTx(QVariant variantTxID)
+void WalletViewModel::deleteTx(const QVariant& variantTxID)
 {
     if (!variantTxID.isNull() && variantTxID.isValid())
     {
@@ -73,7 +73,7 @@ void WalletViewModel::deleteTx(QVariant variantTxID)
     }
 }
 
-PaymentInfoItem* WalletViewModel::getPaymentInfo(QVariant variantTxID)
+PaymentInfoItem* WalletViewModel::getPaymentInfo(const QVariant& variantTxID)
 {
     if (!variantTxID.isNull() && variantTxID.isValid())
     {
@@ -137,7 +137,6 @@ QString WalletViewModel::beamAvailable() const
 
 QString WalletViewModel::beamReceiving() const
 {
-    // TODO:SWAP return real value
     return beamui::AmountToUIString(_model.getReceivingChange() + _model.getReceivingIncoming());
 }
 
@@ -148,13 +147,11 @@ QString WalletViewModel::beamSending() const
 
 QString WalletViewModel::beamReceivingChange() const
 {
-    // TODO:SWAP return real value
-    return beamui::AmountToUIString(_model.getReceivingChange());
+     return beamui::AmountToUIString(_model.getReceivingChange());
 }
 
 QString WalletViewModel::beamReceivingIncoming() const
 {
-    // TODO:SWAP return real value
     return beamui::AmountToUIString(_model.getReceivingIncoming());
 }
 

@@ -29,11 +29,11 @@ static const size_t PACKER_FRAGMENTS_SIZE = 4096;
 static const size_t CACHE_DEPTH = 100000;
 
 const char* hash_to_hex(char* buf, const Merkle::Hash& hash) {
-    return to_hex(buf, hash.m_pData, 32);
+    return to_hex(buf, hash.m_pData, hash.nBytes);
 }
 
 const char* uint256_to_hex(char* buf, const ECC::uintBig& n) {
-    char* p = to_hex(buf + 2, n.m_pData, 32);
+    char* p = to_hex(buf + 2, n.m_pData, n.nBytes);
     while (p && *p == '0') ++p;
     if (*p == '\0') --p;
     *--p = 'x';

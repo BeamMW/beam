@@ -60,7 +60,7 @@ namespace beam::bitcoin
     public:
         using Ptr = std::shared_ptr<ISettings>;
 
-        enum ConnectionType
+        enum class ConnectionType : uint8_t
         {
             None,
             Core,
@@ -115,7 +115,7 @@ namespace beam::bitcoin
     protected:
         BitcoinCoreSettings m_connectionSettings;
         ElectrumSettings m_electrumConnectionSettings;
-        ConnectionType m_connectionType = None;
+        ConnectionType m_connectionType = ConnectionType::None;
         Amount m_feeRate = 90000;
         // They are not stored in DB
         Amount m_minFeeRate = 50000;

@@ -24,6 +24,7 @@ public class Wallet
 
     // implemented
     public native void getWalletStatus();
+    public native void getTransactions();
     public native void getUtxosStatus();
     public native void syncWithNode();
     public native void sendMoney(String sender, String receiver, String comment, long amount, long fee);
@@ -43,6 +44,8 @@ public class Wallet
     public native void changeNodeAddress(String address);
     public native String exportOwnerKey(String pass);
     public native void importRecovery(String path);
+    public native void importDataFromJson(String data);
+    public native void exportDataToJson();
 
     // deprecated
     public native void saveAddressChanges(String addr, String name, boolean isNever, boolean makeActive, boolean makeExpired);

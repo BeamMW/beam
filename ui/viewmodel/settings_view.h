@@ -171,7 +171,8 @@ private:
     boost::optional<beam::bitcoin::Settings> m_settings;
     int m_feeRate = 0;
 
-    beam::bitcoin::ISettings::ConnectionType m_connectionType = beam::bitcoin::ISettings::None;
+    beam::bitcoin::ISettings::ConnectionType
+        m_connectionType = beam::bitcoin::ISettings::ConnectionType::None;
     QString m_nodeUser;
     QString m_nodePass;
     QString m_nodeAddress;

@@ -52,8 +52,11 @@ namespace
         { "en_US", "English" },
         { "es_ES", "Español"},
         { "be_BY", "Беларуская"},
+        { "cs_CZ", "Czech"},
+        { "de_DE", "Deutsch"},
         { "nl_NL", "Dutch"},
         { "fr_FR", "Française"},
+        { "id_ID", "Bahasa Indonesia"},
         { "it_IT", "Italiano"},
         { "ja_JP", "日本語"},
         { "ru_RU", "Русский" },
@@ -467,8 +470,8 @@ std::shared_ptr<beam::bitcoin::Settings> WalletSettings::getBitcoinSettings() co
         throw std::runtime_error("unable to resolve bitcoin node address: " + btcNodeUri);
     }
 
-    bitcoindSettings.m_userName = userName;
-    bitcoindSettings.m_pass = password;
+    bitcoindSettings.m_userName = move(userName);
+    bitcoindSettings.m_pass = move(password);
 
     auto btcSettings = make_shared<beam::bitcoin::Settings>();
     btcSettings->SetConnectionOptions(bitcoindSettings);

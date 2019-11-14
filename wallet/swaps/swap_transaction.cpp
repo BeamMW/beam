@@ -25,53 +25,118 @@ using namespace ECC;
 
 namespace beam::wallet
 {
-    /// Swap Parameters 
-    TxParameters InitNewSwap(const WalletID& myID, Height minHeight, Amount amount, Amount fee, AtomicSwapCoin swapCoin,
-        Amount swapAmount, bool isBeamSide /*= true*/,
-        Height lifetime /*= kDefaultTxLifetime*/, Height responseTime/* = kDefaultTxResponseTime*/)
+    bool IsCommonTxParameterExternalSettable(TxParameterID paramID, const boost::optional<bool>& isBeamSide)
     {
-        TxParameters parameters(GenerateTxID());
+        switch (paramID)
+        {
+            case TxParameterID::TransactionType:
+            case TxParameterID::IsSender:
+            case TxParameterID::IsInitiator:
+            case TxParameterID::AtomicSwapCoin:
+            case TxParameterID::AtomicSwapAmount:
+            case TxParameterID::AtomicSwapIsBeamSide:
+            case TxParameterID::AtomicSwapPeerPublicKey:
+            case TxParameterID::AtomicSwapExternalLockTime:
+            case TxParameterID::Amount:
+            case TxParameterID::MyID:
+            case TxParameterID::PeerID:
+            case TxParameterID::Lifetime:
+            case TxParameterID::CreateTime:
+            case TxParameterID::MinHeight:
+            case TxParameterID::PeerResponseTime:
+            case TxParameterID::PeerProtoVersion:
+            case TxParameterID::FailureReason:
+            case TxParameterID::AtomicSwapPeerPrivateKey:
+                return true;
 
-        parameters.SetParameter(TxParameterID::TransactionType, TxType::AtomicSwap);
-        parameters.SetParameter(TxParameterID::CreateTime, getTimestamp());
-        parameters.SetParameter(TxParameterID::Amount, amount);
-        parameters.SetParameter(TxParameterID::Fee, fee);
-        parameters.SetParameter(TxParameterID::Lifetime, lifetime);
-
-        parameters.SetParameter(TxParameterID::MinHeight, minHeight);
-        parameters.SetParameter(TxParameterID::PeerResponseTime, responseTime);
-        parameters.SetParameter(TxParameterID::MyID, myID);
-        parameters.SetParameter(TxParameterID::IsSender, isBeamSide);
-        parameters.SetParameter(TxParameterID::IsInitiator, false);
-
-        parameters.SetParameter(TxParameterID::AtomicSwapCoin, swapCoin);
-        parameters.SetParameter(TxParameterID::AtomicSwapAmount, swapAmount);
-        parameters.SetParameter(TxParameterID::AtomicSwapIsBeamSide, isBeamSide);
-
-        return parameters;
+            default:
+                assert(false && "unexpected common parameter!");
+                return false;
+        }
     }
 
-    TxParameters CreateSwapParameters()
+    bool IsBeamLockTxParameterExternalSettable(TxParameterID paramID, const boost::optional<bool>& isBeamSide)
     {
-        return CreateTransactionParameters(TxType::AtomicSwap, GenerateTxID())
-            .SetParameter(TxParameterID::IsInitiator, false);
+        if (isBeamSide)
+        {
+            if (!*isBeamSide)
+            {
+                switch (paramID)
+                {
+                    case TxParameterID::Fee:
+                    case TxParameterID::MinHeight:
+
+                    case TxParameterID::PeerMaxHeight:
+                    case TxParameterID::PeerPublicNonce:
+                    case TxParameterID::PeerPublicExcess:
+                    case TxParameterID::PeerSharedBulletProofPart2:
+                    case TxParameterID::PeerPublicSharedBlindingFactor:
+                        return true;
+                    default:
+                        break;
+                }
+            }
+            else
+            {
+                switch (paramID)
+                {
+                   // case TxParameterID::Fee:
+
+                    case TxParameterID::PeerSignature:
+                    case TxParameterID::PeerOffset:
+                    case TxParameterID::PeerMaxHeight:
+                    case TxParameterID::PeerPublicNonce:
+                    case TxParameterID::PeerPublicExcess:
+                    case TxParameterID::PeerSharedBulletProofPart2:
+                    case TxParameterID::PeerPublicSharedBlindingFactor:
+                    case TxParameterID::PeerSharedBulletProofPart3:
+                        return true;
+                    default:
+                        break;
+                }
+            }
+        }
+        return false;
     }
 
-    TxParameters AcceptSwapParameters(const TxParameters& initialParameters, const WalletID& myID)
+    bool IsBeamWithdrawTxParameterExternalSettable(TxParameterID paramID, SubTxID subTxID, const boost::optional<bool>& isBeamSide)
     {
-        TxParameters parameters = initialParameters;
-
-        parameters.SetParameter(TxParameterID::PeerID, *parameters.GetParameter<WalletID>(TxParameterID::MyID));
-        parameters.SetParameter(TxParameterID::MyID, myID);
-
-        bool isBeamSide = *parameters.GetParameter<bool>(TxParameterID::AtomicSwapIsBeamSide);
-
-        parameters.SetParameter(TxParameterID::IsSender, !isBeamSide);
-        parameters.SetParameter(TxParameterID::AtomicSwapIsBeamSide, !isBeamSide);
-        parameters.SetParameter(TxParameterID::IsInitiator, true);
-
-        return parameters;
+        if (isBeamSide)
+        {
+            bool isTxOwner = (*isBeamSide && (SubTxIndex::BEAM_REFUND_TX == subTxID)) || (!*isBeamSide && (SubTxIndex::BEAM_REDEEM_TX == subTxID));
+            if (!isTxOwner)
+            {
+                switch (paramID)
+                {
+                case TxParameterID::Amount:
+                case TxParameterID::Fee:
+                case TxParameterID::MinHeight:
+                case TxParameterID::PeerPublicExcess:
+                case TxParameterID::PeerPublicNonce:
+                case TxParameterID::PeerSignature:
+                    return true;
+                default:
+                    break;
+                }
+            }
+            else
+            {
+                switch (paramID)
+                {
+                // case TxParameterID::Fee:
+                case TxParameterID::PeerPublicExcess:
+                case TxParameterID::PeerPublicNonce:
+                case TxParameterID::PeerSignature:
+                case TxParameterID::PeerOffset:
+                    return true;
+                default:
+                    break;
+                }
+            }
+        }
+        return false;
     }
+
     ///
     AtomicSwapTransaction::WrapperSecondSide::WrapperSecondSide(ISecondSideProvider& gateway, BaseTransaction& tx)
         : m_gateway(gateway)
@@ -231,6 +296,42 @@ namespace beam::wallet
         return isRolledback;
     }
 
+    bool AtomicSwapTransaction::IsTxParameterExternalSettable(TxParameterID paramID, SubTxID subTxID) const
+    {
+        boost::optional<bool> isBeamSide;
+        if (bool value = false; GetParameter(TxParameterID::AtomicSwapIsBeamSide, value))
+        {
+            isBeamSide = value;
+        }
+
+        switch (subTxID)
+        {
+            case kDefaultSubTxID:
+                return IsCommonTxParameterExternalSettable(paramID, isBeamSide);
+            case SubTxIndex::BEAM_LOCK_TX:
+                return IsBeamLockTxParameterExternalSettable(paramID, isBeamSide);
+            case SubTxIndex::BEAM_REDEEM_TX:
+            case SubTxIndex::BEAM_REFUND_TX:
+                return IsBeamWithdrawTxParameterExternalSettable(paramID, subTxID, isBeamSide);
+            case SubTxIndex::LOCK_TX:
+            {
+                if (isBeamSide && *isBeamSide)
+                {
+                    return TxParameterID::AtomicSwapExternalTxID == paramID
+                        || TxParameterID::AtomicSwapExternalTxOutputIndex == paramID;
+                }
+                return false;
+            }
+            case SubTxIndex::REDEEM_TX:
+                return false;
+            case SubTxIndex::REFUND_TX:
+                return false;
+            default:
+                assert(false && "unexpected subTxID!");
+                return false;
+        }
+    }
+
     void AtomicSwapTransaction::SetNextState(State state)
     {
         SetState(state);
@@ -280,6 +381,14 @@ namespace beam::wallet
                     Height minHeight = GetMandatoryParameter<Height>(TxParameterID::MinHeight);
                     Height responseTime = GetMandatoryParameter<Height>(TxParameterID::PeerResponseTime);
                     SetParameter(TxParameterID::PeerResponseHeight, minHeight + responseTime);
+                }
+
+                // validate Lifetime
+                if (GetMandatoryParameter<Height>(TxParameterID::Lifetime) > kBeamLockTxLifetimeMax)
+                {
+                    LOG_ERROR() << GetTxID() << "[" << static_cast<SubTxID>(SubTxIndex::LOCK_TX) << "] " << "Transaction's lifetime is unacceptable.";
+                    OnSubTxFailed(TxFailureReason::InvalidTransaction, SubTxIndex::LOCK_TX, true);
+                    break;
                 }
 
                 if (IsInitiator())
@@ -575,6 +684,31 @@ namespace beam::wallet
     {
         SetTxParameter msg;
         msg.AddParameter(TxParameterID::FailureReason, reason);
+
+        if (IsBeamSide())
+        {
+            State state = GetState(kDefaultSubTxID);
+
+            switch (state)
+            {
+            case State::BuildingBeamLockTX:
+            case State::BuildingBeamRedeemTX:
+            case State::BuildingBeamRefundTX:
+            case State::HandlingContractTX:
+            {
+                NoLeak<uintBig> secretPrivateKey;
+
+                if (GetParameter(TxParameterID::AtomicSwapPrivateKey, secretPrivateKey.V))
+                {
+                    // send our private key of redeem tx. we are good :)
+                    msg.AddParameter(TxParameterID::AtomicSwapPeerPrivateKey, secretPrivateKey.V);
+                }
+                break;
+            }            
+            default:
+                break;
+            }
+        }
         SendTxParameters(std::move(msg));
     }
 
@@ -794,13 +928,24 @@ namespace beam::wallet
 
         bool isBeamOwner = IsBeamSide();
         Amount fee = 0;
-        if (!GetParameter<Amount>(TxParameterID::Fee, fee, SubTxIndex::BEAM_LOCK_TX))
+        // Receiver must get fee along with LockTX invitation, beam owner should have fee
+        if (!GetParameter<Amount>(TxParameterID::Fee, fee, SubTxIndex::BEAM_LOCK_TX) && isBeamOwner)
         {
-            // Beam owner extract fee from main TX, receiver must get fee along with LockTX invitation
-            if (isBeamOwner && lockTxState == SubTxState::Initial)
+            OnSubTxFailed(TxFailureReason::FailedToGetParameter, SubTxIndex::BEAM_LOCK_TX, true);
+            return lockTxState;
+        }
+        {
+            Height minHeight = 0;
+            if (!GetParameter<Height>(TxParameterID::MinHeight, minHeight, SubTxIndex::BEAM_LOCK_TX))
             {
-                fee = GetMandatoryParameter<Amount>(TxParameterID::Fee);
-                SetParameter(TxParameterID::Fee, fee, false, SubTxIndex::BEAM_LOCK_TX);
+                if (!isBeamOwner)
+                {
+                    // we don't have invitation from Beam side
+                    return lockTxState;
+                }
+
+                auto currentHeight = GetWalletDB()->getCurrentHeight();
+                SetParameter(TxParameterID::MinHeight, currentHeight, false, SubTxIndex::BEAM_LOCK_TX);
             }
         }
 
@@ -810,15 +955,30 @@ namespace beam::wallet
         {
             if (isBeamOwner)
             {
-                Height maxResponseHeight = 0;
-                if (GetParameter(TxParameterID::PeerResponseHeight, maxResponseHeight))
-                {
-                    LOG_INFO() << GetTxID() << "[" << static_cast<SubTxID>(SubTxIndex::BEAM_LOCK_TX) << "]"
-                        << " Max height for response: " << maxResponseHeight;
-                }
-
                 lockTxBuilder->SelectInputs();
                 lockTxBuilder->AddChange();
+            }
+            {
+                // validate Lifetime
+                auto lifetime = GetMandatoryParameter<Height>(TxParameterID::Lifetime, SubTxIndex::BEAM_LOCK_TX);
+                auto mainLifetime = GetMandatoryParameter<Height>(TxParameterID::Lifetime);
+                if (lifetime != mainLifetime)
+                {
+                    OnSubTxFailed(TxFailureReason::InvalidState, SubTxIndex::BEAM_LOCK_TX, true);
+                    return lockTxState;
+                }
+            }
+            {
+                // validate MinHeight
+                // mainMinHeight < minHeight < mainPeerResponseHeight
+                Height mainMinHeight = GetMandatoryParameter<Height>(TxParameterID::MinHeight);
+                Height mainPeerResponseHeight = GetMandatoryParameter<Height>(TxParameterID::PeerResponseHeight);
+                auto minHeight = lockTxBuilder->GetMinHeight();
+                if (minHeight < mainMinHeight || minHeight >= mainPeerResponseHeight)
+                {
+                    OnSubTxFailed(TxFailureReason::MinHeightIsUnacceptable, SubTxIndex::BEAM_LOCK_TX, true);
+                    return lockTxState;
+                }
             }
 
             UpdateTxDescription(TxStatus::InProgress);
@@ -834,12 +994,6 @@ namespace beam::wallet
 
         lockTxBuilder->GenerateNonce();
         lockTxBuilder->LoadSharedParameters();
-
-        if (!lockTxBuilder->UpdateMaxHeight())
-        {
-            OnSubTxFailed(TxFailureReason::MaxHeightIsUnacceptable, SubTxIndex::BEAM_LOCK_TX, true);
-            return lockTxState;
-        }
 
         if (!lockTxBuilder->GetPeerPublicExcessAndNonce())
         {
@@ -914,7 +1068,6 @@ namespace beam::wallet
                 return lockTxState;
             }
 
-            // TODO: return
             m_LockTx = transaction;
         }
 
@@ -924,21 +1077,32 @@ namespace beam::wallet
     AtomicSwapTransaction::SubTxState AtomicSwapTransaction::BuildBeamWithdrawTx(SubTxID subTxID, Transaction::Ptr& resultTx)
     {
         SubTxState subTxState = GetSubTxState(subTxID);
+        bool isTxOwner = (IsBeamSide() && (SubTxIndex::BEAM_REFUND_TX == subTxID)) || (!IsBeamSide() && (SubTxIndex::BEAM_REDEEM_TX == subTxID));
 
-        Amount withdrawFee = 0;
         Amount withdrawAmount = 0;
-
-        if (!GetParameter(TxParameterID::Amount, withdrawAmount, subTxID) ||
-            !GetParameter(TxParameterID::Fee, withdrawFee, subTxID))
+        Amount withdrawFee = 0;
+        // Peer must get fee and amount along with WithdrawTX invitation, txOwner should have fee
+        if (!GetParameter(TxParameterID::Fee, withdrawFee, subTxID))
         {
-            withdrawFee = GetWithdrawFee();
-            withdrawAmount = GetAmount() - withdrawFee;
-
-            SetParameter(TxParameterID::Amount, withdrawAmount, subTxID);
-            SetParameter(TxParameterID::Fee, withdrawFee, subTxID);
+            if (isTxOwner)
+            {
+                OnSubTxFailed(TxFailureReason::FailedToGetParameter, subTxID, true);
+            }
+            return subTxState;
         }
 
-        bool isTxOwner = (IsBeamSide() && (SubTxIndex::BEAM_REFUND_TX == subTxID)) || (!IsBeamSide() && (SubTxIndex::BEAM_REDEEM_TX == subTxID));
+        if (!GetParameter(TxParameterID::Amount, withdrawAmount, subTxID))
+        {
+            if (!isTxOwner)
+            {
+                // we don't have invitation from other side
+                return subTxState;
+            }
+            // initialize withdrawAmount
+            withdrawAmount = GetAmount() - withdrawFee;
+            SetParameter(TxParameterID::Amount, withdrawAmount, subTxID);
+        }
+
         SharedTxBuilder builder{ *this, subTxID, withdrawAmount, withdrawFee };
 
         if (!builder.GetSharedParameters())
@@ -950,6 +1114,17 @@ namespace beam::wallet
         if (!builder.GetInitialTxParams() && subTxState == SubTxState::Initial)
         {
             builder.InitTx(isTxOwner);
+            {
+                // validate minHeight
+                auto minHeightLockTx = GetMandatoryParameter<Height>(TxParameterID::MinHeight, SubTxIndex::BEAM_LOCK_TX);
+                auto minHeight = builder.GetMinHeight();
+                if ((SubTxIndex::BEAM_REFUND_TX == subTxID && minHeight != minHeightLockTx + kBeamLockTimeInBlocks) ||
+                    (SubTxIndex::BEAM_REDEEM_TX == subTxID && minHeight != minHeightLockTx))
+                {
+                    OnSubTxFailed(TxFailureReason::MinHeightIsUnacceptable, subTxID, true);
+                    return subTxState;
+                }
+            }
         }
 
         builder.GenerateNonce();
@@ -1190,7 +1365,6 @@ namespace beam::wallet
         // send invitation
         SetTxParameter msg;
         msg.AddParameter(TxParameterID::Amount, GetAmount())
-            .AddParameter(TxParameterID::Fee, GetMandatoryParameter<Amount>(TxParameterID::Fee))
             .AddParameter(TxParameterID::IsSender, !IsSender())
             .AddParameter(TxParameterID::Lifetime, lifetime)
             .AddParameter(TxParameterID::AtomicSwapAmount, swapAmount)
@@ -1226,6 +1400,7 @@ namespace beam::wallet
             .AddParameter(TxParameterID::AtomicSwapPeerPublicKey, swapPublicKey)
             .AddParameter(TxParameterID::SubTxIndex, SubTxIndex::BEAM_LOCK_TX)
             .AddParameter(TxParameterID::Fee, lockBuilder.GetFee())
+            .AddParameter(TxParameterID::MinHeight, lockBuilder.GetMinHeight())
             .AddParameter(TxParameterID::PeerMaxHeight, lockBuilder.GetMaxHeight())
             .AddParameter(TxParameterID::PeerPublicExcess, lockBuilder.GetPublicExcess())
             .AddParameter(TxParameterID::PeerPublicNonce, lockBuilder.GetPublicNonce())

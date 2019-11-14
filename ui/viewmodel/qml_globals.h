@@ -37,6 +37,7 @@ public:
 
     // Currency utils
     static bool isFeeOK(unsigned int fee, Currency currency);
+    static bool isSwapFeeOK(unsigned int amount, unsigned int fee, Currency currency);
     static int  getMinFeeOrRate(Currency currency);
 
     Q_INVOKABLE static unsigned int minFeeBeam();
@@ -62,6 +63,9 @@ public:
 
     Q_INVOKABLE static QString rawTxParametrsToTokenStr(
             QVariant variantTxParams);
+
+    Q_INVOKABLE static bool canReceive(Currency currency);
+    Q_INVOKABLE static QString getCurrencyName(Currency currency);
 
 private:
     QQmlEngine& _engine;

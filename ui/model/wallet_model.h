@@ -17,6 +17,7 @@
 #include <QObject>
 
 #include "wallet/wallet_client.h"
+#include <set>
 
 class WalletModel
     : public QObject
@@ -96,6 +97,8 @@ private:
     void onAddressChecked(const std::string& addr, bool isValid) override;
     void onImportRecoveryProgress(uint64_t done, uint64_t total) override;
     void onNoDeviceConnected() override;
+    void onImportDataFromJson(bool isOk) override;
+    void onExportDataToJson(const std::string& data) override;
 
     void onShowKeyKeeperMessage() override;
     void onHideKeyKeeperMessage() override;
@@ -106,6 +109,7 @@ private slots:
     void setAddresses(bool own, const std::vector<beam::wallet::WalletAddress>& addrs);
 
 private:
-    std::vector<beam::wallet::WalletAddress> m_addresses;
+    std::set<beam::wallet::WalletID> m_myWalletIds;
+    std::set<std::string> m_myAddrLabels;
     beam::wallet::WalletStatus m_status;
 };

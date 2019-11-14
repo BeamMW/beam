@@ -25,7 +25,7 @@ namespace beam::litecoin
 {
     uint8_t getAddressVersion()
     {
-#ifdef BEAM_MAINNET
+#if defined(BEAM_MAINNET) || defined(SWAP_MAINNET)
         return kLitecoinMainnetP2KH;
 #else
 
