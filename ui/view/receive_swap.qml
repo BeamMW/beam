@@ -93,11 +93,11 @@ Update your settings and try again."
 
             Grid {
                 Layout.fillWidth: true
-                columnSpacing:    25
+                columnSpacing:    13
                 columns:          3
 
                 ColumnLayout {
-                    width: parent.width / 2 - parent.columnSpacing / 2 - 13
+                    width: parent.width / 2 - parent.columnSpacing / 2 - 20
 
                     AmountInput {
                         Layout.topMargin: 35
@@ -225,7 +225,7 @@ please review your settings and try again"
                 }
 
                 ColumnLayout {
-                    width: parent.width / 2 - parent.columnSpacing / 2 - 13
+                    width: parent.width / 2 - parent.columnSpacing / 2 - 20
 
                     //
                     // Receive Amount
