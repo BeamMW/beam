@@ -49,6 +49,7 @@ public:
     using StopCallback = std::function<void()>;
     void run_ex(StopCallback&& scb);
     void run();
+    void run_once();
 
     /// Stops the running reactor.
     /// NOTE: Called from another thread.

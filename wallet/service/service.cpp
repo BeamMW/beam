@@ -1112,11 +1112,11 @@ namespace
             , public std::enable_shared_from_this<WasmKeyKeeper>
         {
             session& _s;
-            boost::asio::io_context& _ioc;
+            io::Reactor::Ptr _reactor;
         public:
-            WasmKeyKeeper(session& s, boost::asio::io_context& ioc)
+            WasmKeyKeeper(session& s, io::Reactor::Ptr reactor)
             : _s(s)
-            , _ioc(ioc)
+            , _reactor(reactor)
             {}
             virtual ~WasmKeyKeeper(){}
 
@@ -1181,7 +1181,8 @@ namespace
                     // !TODO: move this to the write_keykeeper_msg()
                     // also reuse _ioc in session
                     while(!gotResponse)
-                        _ioc.run_one();
+                        _reactor->run_once();
+                        //_ioc.run_one();
 
                     ECC::HKdf::Create(m_sbbsKdf, pk.m_X);
                 }
@@ -1253,17 +1254,8 @@ namespace
                 , _handler(handler)
                 , _reactor(reactor)
             {
-                _keyKeeper = std::make_shared<WasmKeyKeeper>(s, ioc);
+                _keyKeeper = std::make_shared<WasmKeyKeeper>(s, _reactor);
             }
-            // ApiConnection(IWalletDB::Ptr walletDB, Wallet& wallet, IWalletMessageEndpoint& wnet, WalletApi::ACL acl)
-            //     : _walletDB(walletDB)
-            //     , _wallet(wallet)
-            //     , _api(*this, acl)
-            //     , _wnet(wnet)
-            //     , _keyKeeper(std::make_shared<LocalPrivateKeyKeeper>(_walletDB, _walletDB->get_MasterKdf()))
-            // {
-            //     _walletDB->Subscribe(this);
-            // }
 
             virtual ~ApiConnection()
             {
@@ -1729,7 +1721,7 @@ namespace
 
                     if(walletDB)
                     {
-                        //_keyKeeper = std::make_shared<WasmKeyKeeper>();
+                        walletDB->Subscribe(this);
 
                         // generate default address
                         WalletAddress address = storage::createAddress(*walletDB, _keyKeeper);
@@ -1759,8 +1751,6 @@ namespace
                 LOG_INFO() << "wallet sucessfully opened...";
 
                 _walletDB->Subscribe(this);
-
-                //_keyKeeper = std::make_shared<WasmKeyKeeper>();//std::make_shared<LocalPrivateKeyKeeper>(_walletDB, _walletDB->get_MasterKdf());
 
                 _wallet = std::make_unique<Wallet>( _walletDB, _keyKeeper );
                 _wallet->ResumeAllTransactions();
@@ -1879,128 +1869,6 @@ namespace
             WalletApi _api;
             IPrivateKeyKeeper::Ptr _keyKeeper;
         };
-
-        // class KeyKeeperSession : 
-        //     public std::enable_shared_from_this<KeyKeeperSession>
-        // {
-        //     websocket::stream<tcp::socket> ws_;
-        //     boost::asio::strand<boost::asio::io_context::executor_type> strand_;
-        //     boost::beast::multi_buffer buffer_;
-
-        // public:
-
-        //     explicit
-        //     KeyKeeperSession(tcp::socket socket, io::Reactor::Ptr reactor, boost::asio::io_context& ioc)
-        //         : ws_(std::move(socket))
-        //         , strand_(ws_.get_executor())
-        //     {
-        //         LOG_DEBUG() << "KeyKeeperSession created.";
-        //     }
-
-        //     ~KeyKeeperSession()
-        //     {
-        //         LOG_DEBUG() << "KeyKeeperSession destroyed.";
-        //     }
-
-        //     void
-        //     run()
-        //     {
-        //         // Accept the websocket handshake
-        //         ws_.async_accept(
-        //             boost::asio::bind_executor(
-        //                 strand_,
-        //                 std::bind(
-        //                     &KeyKeeperSession::on_accept,
-        //                     shared_from_this(),
-        //                     std::placeholders::_1)));
-        //     }
-
-        //     void
-        //     on_accept(boost::system::error_code ec)
-        //     {
-        //         if(ec)
-        //             return fail(ec, "accept");
-
-        //         // Read a message
-        //         do_read();
-        //     }
-
-        //     void
-        //     do_read()
-        //     {
-        //         // Read a message into our buffer
-        //         ws_.async_read(
-        //             buffer_,
-        //             boost::asio::bind_executor(
-        //                 strand_,
-        //                 std::bind(
-        //                     &KeyKeeperSession::on_read,
-        //                     shared_from_this(),
-        //                     std::placeholders::_1,
-        //                     std::placeholders::_2)));
-        //     }
-
-        //     void
-        //     on_read(
-        //         boost::system::error_code ec,
-        //         std::size_t bytes_transferred)
-        //     {
-        //         boost::ignore_unused(bytes_transferred);
-
-        //         // This indicates that the session was closed
-        //         if(ec == websocket::error::closed)
-        //             return;
-
-        //         if(ec)
-        //             fail(ec, "read");
-
-        //         {
-        //             std::ostringstream os;
-        //             os << boost::beast::buffers(buffer_.data());
-        //             auto data = os.str();
-        //             LOG_DEBUG() << "data from a client:" << data;
-
-        //             // TODO: parse response here
-        //             //_api.parse(data.c_str(), data.size());
-        //         }
-        //     }
-
-        //     void write(const json& msg)
-        //     {
-        //         buffer_.consume(buffer_.size());
-        //         std::string contents = msg.dump();
-        //         size_t n = boost::asio::buffer_copy(buffer_.prepare(contents.size()), boost::asio::buffer(contents));
-        //         buffer_.commit(n);
-
-        //         ws_.text(ws_.got_text());
-        //         ws_.async_write(
-        //             buffer_.data(),
-        //             boost::asio::bind_executor(
-        //                 strand_,
-        //                 std::bind(
-        //                     &KeyKeeperSession::on_write,
-        //                     shared_from_this(),
-        //                     std::placeholders::_1,
-        //                     std::placeholders::_2)));
-        //     }
-
-        //     void
-        //     on_write(
-        //         boost::system::error_code ec,
-        //         std::size_t bytes_transferred)
-        //     {
-        //         boost::ignore_unused(bytes_transferred);
-
-        //         if(ec)
-        //             return fail(ec, "write");
-
-        //         // Clear the buffer
-        //         buffer_.consume(buffer_.size());
-
-        //         // Do another read
-        //         do_read();
-        //     }
-        // };
 
         class session : 
             public std::enable_shared_from_this<session>, 
