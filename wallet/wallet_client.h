@@ -257,18 +257,12 @@ namespace beam::wallet
                     auto p = m_UpdatedItems.insert(item);
                     if (p.second == false)
                     {
-                        // update
-                        auto node = m_UpdatedItems.extract(p.first);
-                        node.value() = item;
-                        m_UpdatedItems.insert(std::move(node));
+                        UpdateItemValue(item, p.first, m_UpdatedItems);
                     }
                 }
                 else
                 {
-                    // update
-                    auto node = m_NewItems.extract(it);
-                    node.value() = item;
-                    m_NewItems.insert(std::move(node));
+                    UpdateItemValue(item, it, m_NewItems);
                 }
             }
 
@@ -287,6 +281,16 @@ namespace beam::wallet
                 }
                 // add to removed
                 m_RemovedItems.insert(item);
+            }
+
+            void UpdateItemValue(const T& item, typename ItemsList::iterator& it, ItemsList& items)
+            {
+                // MacOS doesn't support 'extract'
+                //auto node = items.extract(it);
+                //node.value() = item;
+                //items.insert(std::move(node));
+                items.erase(it);
+                items.insert(item);
             }
 
         private:
