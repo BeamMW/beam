@@ -1121,19 +1121,14 @@ namespace
             virtual ~WasmKeyKeeperProxy(){}
 
             template <typename T>
-            static T&& from_base64(const std::string& base64)
+            static void from_base64(const std::string& base64, T& obj)
             {
-                T obj;
-                {
-                    auto data = DecodeBase64(base64.data());
+                auto data = DecodeBase64(base64.data());
 
-                    Deserializer d;
-                    d.reset(data.data(), data.size());
+                Deserializer d;
+                d.reset(data.data(), data.size());
 
-                    d & obj;
-                }
-
-                return std::move(obj);
+                d & obj;
             }
 
             template <typename T>
@@ -1247,7 +1242,7 @@ namespace
 
                 _s.call_keykeeper_method(msg, [&pk](const json& msg)
                 {
-                    pk = from_base64<ECC::Point>(msg["result"]);
+                    from_base64<ECC::Point>(msg["result"], pk);
                 });
 
                 return pk;
@@ -1278,7 +1273,7 @@ namespace
 
                     _s.call_keykeeper_method(msg, [&output](const json& msg)
                     {
-                        output = from_base64<Output::Ptr>(msg["result"]);
+                        from_base64<Output::Ptr>(msg["result"], output);
                     });
                 }
 
@@ -1302,7 +1297,7 @@ namespace
 
                 _s.call_keykeeper_method(msg, [&nonce](const json& msg)
                 {
-                    nonce = from_base64<ECC::Point>(msg["result"]);
+                    from_base64<ECC::Point>(msg["result"], nonce);
                 });
 
                 return nonce;
@@ -1336,7 +1331,7 @@ namespace
 
                 _s.call_keykeeper_method(msg, [&sign](const json& msg)
                 {
-                    sign = from_base64<ECC::Scalar>(msg["result"]);
+                    from_base64<ECC::Scalar>(msg["result"], sign);
                 });
 
                 return sign;
