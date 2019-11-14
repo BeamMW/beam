@@ -1108,20 +1108,20 @@ namespace
 
         class session;
 
-        class WasmKeyKeeper : public IPrivateKeyKeeper
-            , public std::enable_shared_from_this<WasmKeyKeeper>
+        class WasmKeyKeeperProxy : public IPrivateKeyKeeper
+            , public std::enable_shared_from_this<WasmKeyKeeperProxy>
         {
             session& _s;
             io::Reactor::Ptr _reactor;
         public:
-            WasmKeyKeeper(session& s, io::Reactor::Ptr reactor)
+            WasmKeyKeeperProxy(session& s, io::Reactor::Ptr reactor)
             : _s(s)
             , _reactor(reactor)
             {}
-            virtual ~WasmKeyKeeper(){}
+            virtual ~WasmKeyKeeperProxy(){}
 
             template <typename T>
-            static T from_base64(const std::string& base64)
+            static T&& from_base64(const std::string& base64)
             {
                 T obj;
                 {
@@ -1149,39 +1149,39 @@ namespace
                 return EncodeBase64(buffer.data(), buffer.size());
             }
 
-            Key::IKdf::Ptr get_SbbsKdf() const override
+            template <>
+            static std::string to_base64(const KernelParameters& obj)
             {
-                if (!m_sbbsKdf)
+                ByteBuffer buffer;
+                {
+                    Serializer s;
+                    s   
+                        & obj.height.m_Min
+                        & obj.height.m_Max
+                        & obj.fee
+                        & obj.commitment;
+                    s.swap_buf(buffer);
+                }
+
+                return EncodeBase64(buffer.data(), buffer.size());
+            }
+
+            Key::IKdf::Ptr get_SbbsKdf() override
+            {
+                if (!_sbbsKdf)
                 {
                     // !TODO: temporary solution to init SBBS KDF with commitment
+                    auto pk = GeneratePublicKeySync(ECC::Key::IDV(0, 0, Key::Type::Regular), true);
 
-                    json msg = 
-                    {
-                        {JsonRpcHrd, JsonRpcVerHrd},
-                        {"id", 0},
-                        {"method", "generate_key"},
-                        {"params", 
-                        {
-                            {"id", to_base64(ECC::Key::IDV(0, 0, Key::Type::Regular))},
-                            {"create_coin_key", true}
-                        }}
-                    };
-
-                    ECC::Point pk;
-                    _s.call_keykeeper_method(msg, [&pk](const json& msg)
-                    {
-                        pk = from_base64<ECC::Point>(msg["result"]);
-                    });
-
-                    ECC::HKdf::Create(m_sbbsKdf, pk.m_X);
+                    ECC::HKdf::Create(_sbbsKdf, pk.m_X);
                 }
                 
-                return m_sbbsKdf;
+                return _sbbsKdf;
             }
 
             void subscribe(Handler::Ptr handler) override
             {
-
+                assert(!"not implemented.");
             }
 
         private:
@@ -1215,35 +1215,135 @@ namespace
 
             PublicKeys GeneratePublicKeysSync(const std::vector<Key::IDV>& ids, bool createCoinKey) override
             {
-                return {};
+                // !TODO: must be implemented as separate method, too many websocket calls
+
+                PublicKeys result;
+                result.reserve(ids.size());
+
+                for (const auto& idv : ids)
+                {
+                    ECC::Point& publicKey = result.emplace_back();
+                    publicKey = GeneratePublicKeySync(idv, createCoinKey);
+                }
+
+                return result;
             }
 
             ECC::Point GeneratePublicKeySync(const Key::IDV& id, bool createCoinKey) override
             {
-                return {};
+                json msg = 
+                {
+                    {JsonRpcHrd, JsonRpcVerHrd},
+                    {"id", 0},
+                    {"method", "generate_key"},
+                    {"params", 
+                    {
+                        {"id", to_base64(id)},
+                        {"create_coin_key", createCoinKey}
+                    }}
+                };
+
+                ECC::Point pk;
+
+                _s.call_keykeeper_method(msg, [&pk](const json& msg)
+                {
+                    pk = from_base64<ECC::Point>(msg["result"]);
+                });
+
+                return pk;
             }
 
             Outputs GenerateOutputsSync(Height schemeHeigh, const std::vector<Key::IDV>& ids) override
             {
-                return {};
+                // !TODO: must be implemented as separate method, too many websocket calls
+
+                Outputs outputs;
+                outputs.reserve(ids.size());
+
+                for (const auto& kidv : ids)
+                {
+                    auto& output = outputs.emplace_back(std::make_unique<Output>());
+
+                    json msg = 
+                    {
+                        {JsonRpcHrd, JsonRpcVerHrd},
+                        {"id", 0},
+                        {"method", "generate_output"},
+                        {"params", 
+                        {
+                            {"scheme", to_base64(schemeHeigh)},
+                            {"id", to_base64(kidv)}
+                        }}
+                    };
+
+                    _s.call_keykeeper_method(msg, [&output](const json& msg)
+                    {
+                        output = from_base64<Output::Ptr>(msg["result"]);
+                    });
+                }
+
+                return outputs;
             }
 
             ECC::Point GenerateNonceSync(size_t slot) override
             {
-                return {};
+                json msg = 
+                {
+                    {JsonRpcHrd, JsonRpcVerHrd},
+                    {"id", 0},
+                    {"method", "generate_nonce"},
+                    {"params", 
+                    {
+                        {"slot", slot},
+                    }}
+                };
+
+                ECC::Point nonce;
+
+                _s.call_keykeeper_method(msg, [&nonce](const json& msg)
+                {
+                    nonce = from_base64<ECC::Point>(msg["result"]);
+                });
+
+                return nonce;
             }
 
-            ECC::Scalar SignSync(const std::vector<Key::IDV>& inputs, const std::vector<Key::IDV>& outputs, const ECC::Scalar::Native& offset, size_t nonceSlot, const KernelParameters& kernelParamerters, const ECC::Point::Native& publicNonce) override
+            ECC::Scalar SignSync(const std::vector<Key::IDV>& inputs, const std::vector<Key::IDV>& outputs, const ECC::Scalar::Native& offsetNative, size_t nonceSlot, const KernelParameters& kernelParamerters, const ECC::Point::Native& publicNonceNative) override
             {
-                return {};
+                ECC::Scalar offset;
+                offsetNative.Export(offset);
+
+                ECC::Point publicNonce;
+                publicNonceNative.Export(publicNonce);
+
+                json msg = 
+                {
+                    {JsonRpcHrd, JsonRpcVerHrd},
+                    {"id", 0},
+                    {"method", "sign"},
+                    {"params", 
+                    {
+                        {"inputs", to_base64(inputs)},
+                        {"outputs", to_base64(outputs)},
+                        {"offset", to_base64(offset)},
+                        {"slot", nonceSlot},
+                        {"kernel_parameters", to_base64(kernelParamerters)},
+                        {"public_nonce", to_base64(publicNonce)},
+                    }}
+                };
+
+                ECC::Scalar sign;
+
+                _s.call_keykeeper_method(msg, [&sign](const json& msg)
+                {
+                    sign = from_base64<ECC::Scalar>(msg["result"]);
+                });
+
+                return sign;
             }
 
         private:
-            mutable Key::IKdf::Ptr m_sbbsKdf;
-
-            // size_t m_latestSlot;
-
-            // std::vector<IPrivateKeyKeeper::Handler::Ptr> m_handlers;
+            Key::IKdf::Ptr _sbbsKdf;
         };
         
         class ApiConnection : IWalletApiHandler, IWalletDbObserver
@@ -1256,7 +1356,7 @@ namespace
                 , _handler(handler)
                 , _reactor(reactor)
             {
-                _keyKeeper = std::make_shared<WasmKeyKeeper>(s, _reactor);
+                _keyKeeper = std::make_shared<WasmKeyKeeperProxy>(s, _reactor);
             }
 
             void reactorRunOnce()

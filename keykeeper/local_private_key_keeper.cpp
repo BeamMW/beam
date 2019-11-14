@@ -190,7 +190,7 @@ namespace beam::wallet
         return Scalar(partialSignature);
     }
 
-    Key::IKdf::Ptr LocalPrivateKeyKeeper::get_SbbsKdf() const
+    Key::IKdf::Ptr LocalPrivateKeyKeeper::get_SbbsKdf()
     {
         return m_MasterKdf;
     }

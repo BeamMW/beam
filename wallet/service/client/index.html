@@ -258,6 +258,8 @@
 
 			function sendKeykeeperResult(id, result)
 			{
+				console.log(`>>> keykeeper result: ${result}`)
+
 				connection.send(JSON.stringify(
 					{
 						jsonrpc:'2.0', 
@@ -267,17 +269,33 @@
 				)
 			}
 
+			function sendKeykeeperError(id, error)
+			{
+				console.log(`>>> keykeeper error: ${error}`)
+
+				connection.send(JSON.stringify(
+					{
+						jsonrpc:'2.0', 
+						id: id,
+						error: error
+					})
+				)
+			}
+
 			function onkeykeeper(data)
 			{
 				var handlers = 
 				{
-					generate_key: () => sendKeykeeperResult(data.id, keykeeper.generatePublicKey(data.params.id, data.params.create_coin_key)),
-					allocate_nonce_slot: () => sendKeykeeperResult(data.id, keykeeper.allocateNonceSlot()),
+					generate_key: 			() => sendKeykeeperResult(data.id, keykeeper.generatePublicKey(data.params.id, data.params.create_coin_key)),
+					allocate_nonce_slot: 	() => sendKeykeeperResult(data.id, keykeeper.allocateNonceSlot()),
+					generate_output: 		() => sendKeykeeperResult(data.id, keykeeper.generateOutput(data.scheme, data.id)),
+					generate_nonce: 		() => sendKeykeeperResult(data.id, keykeeper.generateNonce(data.slot)),
+					sign: 					() => sendKeykeeperResult(data.id, keykeeper.sign(data.inputs, data.outputs, data.offset, data.slot, data.kernel_parameters, data.public_nonce)),
 				}
 
 				handlers[data.method] 
 					? handlers[data.method]() 
-					: console.log(`Unknown Key Keeper method: ${data.method}`)
+					: sendKeykeeperError(data.id, `unknown method: ${data.method}`)
 			}
 
 			$('#create-wallet-panel .create-wallet-button').click(() => 
