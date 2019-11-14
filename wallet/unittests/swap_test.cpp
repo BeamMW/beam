@@ -165,7 +165,7 @@ void TestSwapTransaction(bool isBeamOwnerStart, beam::Height fork1Height)
     receiverAddress.resolve("127.0.0.1:10300");
 
     Amount beamAmount = 300;
-    Amount beamFee = 100;
+    Amount beamFee = 101;
     Amount swapAmount = 2000;
     Amount feeRate = 256;
 
@@ -239,7 +239,7 @@ void TestSwapTransaction(bool isBeamOwnerStart, beam::Height fork1Height)
 
     receiverCoins = receiver.GetCoins();
     WALLET_CHECK(receiverCoins.size() == 1);
-    WALLET_CHECK(receiverCoins[0].m_ID.m_Value == beamAmount - kMinFeeInGroth);
+    WALLET_CHECK(receiverCoins[0].m_ID.m_Value == beamAmount - beamFee);
     WALLET_CHECK(receiverCoins[0].m_status == Coin::Available);
     WALLET_CHECK(receiverCoins[0].m_createTxId == txID);
 
@@ -249,7 +249,7 @@ void TestSwapTransaction(bool isBeamOwnerStart, beam::Height fork1Height)
     WALLET_CHECK(senderCoins[0].m_status == Coin::Spent);
     WALLET_CHECK(senderCoins[0].m_spentTxId == txID);
     // change
-    WALLET_CHECK(senderCoins[4].m_ID.m_Value == 100);
+    WALLET_CHECK(senderCoins[4].m_ID.m_Value == 500 - beamAmount - beamFee);
     WALLET_CHECK(senderCoins[4].m_status == Coin::Available);
     WALLET_CHECK(senderCoins[4].m_createTxId == txID);
 
@@ -282,7 +282,7 @@ void TestElectrumSwapTransaction(bool isBeamOwnerStart, beam::Height fork1Height
     std::string address("127.0.0.1:10400");
 
     Amount beamAmount = 300;
-    Amount beamFee = 100;
+    Amount beamFee = 102;
     Amount swapAmount = 200000;
     Amount feeRate = 80000;
 
@@ -345,7 +345,7 @@ void TestElectrumSwapTransaction(bool isBeamOwnerStart, beam::Height fork1Height
 
     receiverCoins = receiver.GetCoins();
     WALLET_CHECK(receiverCoins.size() == 1);
-    WALLET_CHECK(receiverCoins[0].m_ID.m_Value == beamAmount - kMinFeeInGroth);
+    WALLET_CHECK(receiverCoins[0].m_ID.m_Value == beamAmount - beamFee);
     WALLET_CHECK(receiverCoins[0].m_status == Coin::Available);
     WALLET_CHECK(receiverCoins[0].m_createTxId == txID);
 
@@ -355,7 +355,7 @@ void TestElectrumSwapTransaction(bool isBeamOwnerStart, beam::Height fork1Height
     WALLET_CHECK(senderCoins[0].m_status == Coin::Spent);
     WALLET_CHECK(senderCoins[0].m_spentTxId == txID);
     // change
-    WALLET_CHECK(senderCoins[4].m_ID.m_Value == 100);
+    WALLET_CHECK(senderCoins[4].m_ID.m_Value == 500 - beamAmount - beamFee);
     WALLET_CHECK(senderCoins[4].m_status == Coin::Available);
     WALLET_CHECK(senderCoins[4].m_createTxId == txID);
 
@@ -391,8 +391,8 @@ void TestSwapTransactionWithoutChange(bool isBeamOwnerStart)
     io::Address receiverAddress;
     receiverAddress.resolve("127.0.0.1:10300");
 
-    Amount beamAmount = 400;
-    Amount beamFee = 100;
+    Amount beamAmount = 380;
+    Amount beamFee = 120;
     Amount swapAmount = 2000;
     Amount feeRate = 256;
 
@@ -447,7 +447,7 @@ void TestSwapTransactionWithoutChange(bool isBeamOwnerStart)
 
     receiverCoins = receiver.GetCoins();
     WALLET_CHECK(receiverCoins.size() == 1);
-    WALLET_CHECK(receiverCoins[0].m_ID.m_Value == beamAmount - kMinFeeInGroth);
+    WALLET_CHECK(receiverCoins[0].m_ID.m_Value == beamAmount - beamFee);
     WALLET_CHECK(receiverCoins[0].m_status == Coin::Available);
     WALLET_CHECK(receiverCoins[0].m_createTxId == txID);
 
@@ -671,8 +671,8 @@ void TestSwapBeamRefundTransaction()
     io::Address receiverAddress;
     receiverAddress.resolve("127.0.0.1:10300");
 
-    Amount beamAmount = 300;
-    Amount beamFee = 100;
+    Amount beamAmount = 350;
+    Amount beamFee = 125;
     Amount swapAmount = 2000;
     Amount feeRate = 256;
 
@@ -755,12 +755,12 @@ void TestSwapBeamRefundTransaction()
     WALLET_CHECK(senderCoins[0].m_spentTxId == txID);
 
     // change of Beam LockTx
-    WALLET_CHECK(senderCoins[4].m_ID.m_Value == 100);
+    WALLET_CHECK(senderCoins[4].m_ID.m_Value == 500 - beamAmount - beamFee);
     WALLET_CHECK(senderCoins[4].m_status == Coin::Available);
     WALLET_CHECK(senderCoins[4].m_createTxId == txID);
 
     // Refund
-    WALLET_CHECK(senderCoins[5].m_ID.m_Value == beamAmount - kMinFeeInGroth);
+    WALLET_CHECK(senderCoins[5].m_ID.m_Value == beamAmount - beamFee);
     WALLET_CHECK(senderCoins[5].m_status == Coin::Available);
     WALLET_CHECK(senderCoins[5].m_createTxId == txID);
 }
@@ -779,8 +779,8 @@ void TestElectrumSwapBeamRefundTransaction()
 
     std::string address("127.0.0.1:10400");
 
-    Amount beamAmount = 300;
-    Amount beamFee = 100;
+    Amount beamAmount = 320;
+    Amount beamFee = 110;
     Amount swapAmount = 200000;
     Amount feeRate = 80000;
 
@@ -860,12 +860,12 @@ void TestElectrumSwapBeamRefundTransaction()
     WALLET_CHECK(senderCoins[0].m_spentTxId == txID);
 
     // change of Beam LockTx
-    WALLET_CHECK(senderCoins[4].m_ID.m_Value == 100);
+    WALLET_CHECK(senderCoins[4].m_ID.m_Value == 500 - beamAmount - beamFee);
     WALLET_CHECK(senderCoins[4].m_status == Coin::Available);
     WALLET_CHECK(senderCoins[4].m_createTxId == txID);
 
     // Refund
-    WALLET_CHECK(senderCoins[5].m_ID.m_Value == beamAmount - kMinFeeInGroth);
+    WALLET_CHECK(senderCoins[5].m_ID.m_Value == beamAmount - beamFee);
     WALLET_CHECK(senderCoins[5].m_status == Coin::Available);
     WALLET_CHECK(senderCoins[5].m_createTxId == txID);
 }
