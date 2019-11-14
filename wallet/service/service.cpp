@@ -1093,7 +1093,7 @@ namespace
                 else
                 {
                     // Create the session and run it
-                    std::make_shared<session>(std::move(socket_), _reactor, _ioc)->run();
+                    std::make_shared<session>(std::move(socket_), _reactor)->run();
                 }
 
                 // Accept another connection
@@ -1121,7 +1121,7 @@ namespace
             virtual ~WasmKeyKeeper(){}
 
             template <typename T>
-            static T&& from_base64(const std::string& base64)
+            static T from_base64(const std::string& base64)
             {
                 T obj;
                 {
@@ -1167,22 +1167,11 @@ namespace
                         }}
                     };
 
-                    bool gotResponse = false;
                     ECC::Point pk;
-
-                    _s.write_keykeeper_msg(msg, [&gotResponse, &pk](const json& msg)
+                    _s.call_keykeeper_method(msg, [&pk](const json& msg)
                     {
-                        gotResponse = true;
-
                         pk = from_base64<ECC::Point>(msg["result"]);
                     });
-
-                    // wait for the responce here
-                    // !TODO: move this to the write_keykeeper_msg()
-                    // also reuse _ioc in session
-                    while(!gotResponse)
-                        _reactor->run_once();
-                        //_ioc.run_one();
 
                     ECC::HKdf::Create(m_sbbsKdf, pk.m_X);
                 }
@@ -1198,17 +1187,30 @@ namespace
         private:
             void GeneratePublicKeys(const std::vector<Key::IDV>& ids, bool createCoinKey, Callback<PublicKeys>&& resultCallback, ExceptionCallback&& exceptionCallback) override
             {
-
+                assert(!"not implemented.");
             }
 
             void GenerateOutputs(Height schemeHeight, const std::vector<Key::IDV>& ids, Callback<Outputs>&& resultCallback, ExceptionCallback&& exceptionCallback) override
             {
-
+                assert(!"not implemented.");
             }
 
             size_t AllocateNonceSlot() override
             {
-                return 0;
+                json msg = 
+                {
+                    {JsonRpcHrd, JsonRpcVerHrd},
+                    {"id", 0},
+                    {"method", "allocate_nonce_slot"}
+                };
+
+                size_t slot = 0;
+                _s.call_keykeeper_method(msg, [&slot](const json& msg)
+                {
+                    slot = msg["result"];
+                });
+
+                return slot;
             }
 
             PublicKeys GeneratePublicKeysSync(const std::vector<Key::IDV>& ids, bool createCoinKey) override
@@ -1249,12 +1251,17 @@ namespace
             ApiConnectionHandler* _handler;
             io::Reactor::Ptr _reactor;
         public:
-            ApiConnection(ApiConnectionHandler* handler, io::Reactor::Ptr reactor, session& s, boost::asio::io_context& ioc) 
+            ApiConnection(ApiConnectionHandler* handler, io::Reactor::Ptr reactor, session& s) 
                 : _api(*this)
                 , _handler(handler)
                 , _reactor(reactor)
             {
                 _keyKeeper = std::make_shared<WasmKeyKeeper>(s, _reactor);
+            }
+
+            void reactorRunOnce()
+            {
+                _reactor->run_once();
             }
 
             virtual ~ApiConnection()
@@ -1882,10 +1889,10 @@ namespace
         public:
             // Take ownership of the socket
             explicit
-            session(tcp::socket socket, io::Reactor::Ptr reactor, boost::asio::io_context& ioc)
+            session(tcp::socket socket, io::Reactor::Ptr reactor)
                 : ws_(std::move(socket))
                 , strand_(ws_.get_executor())
-                , ApiConnection(this, reactor, *this, ioc)
+                , ApiConnection(this, reactor, *this)
             {
             }
 
@@ -1969,12 +1976,14 @@ namespace
                             std::placeholders::_2)));
             }
 
-            void write_keykeeper_msg(const json& msg, KeyKeeperFunc func)
+            void call_keykeeper_method(const json& msg, KeyKeeperFunc func)
             {
                 buffer_.consume(buffer_.size());
                 std::string contents = msg.dump();
                 size_t n = boost::asio::buffer_copy(buffer_.prepare(contents.size()), boost::asio::buffer(contents));
                 buffer_.commit(n);
+
+                bool gotResponse = false;
 
                 ws_.text(ws_.got_text());
                 ws_.async_write(
@@ -1985,7 +1994,14 @@ namespace
                             &session::on_keykeeper_write,
                             shared_from_this(),
                             std::placeholders::_1,
-                            std::placeholders::_2, func)));
+                            std::placeholders::_2, [&gotResponse, &func](const json& msg)
+                            {
+                                gotResponse = true;
+                                func(msg);
+                            })));
+
+                while(!gotResponse)
+                    reactorRunOnce();
             }
 
             void

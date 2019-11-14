@@ -256,24 +256,28 @@
 				}))
 			})
 
+			function sendKeykeeperResult(id, result)
+			{
+				connection.send(JSON.stringify(
+					{
+						jsonrpc:'2.0', 
+						id: id,
+						result: result
+					})
+				)
+			}
+
 			function onkeykeeper(data)
 			{
-				if(data.method == "generate_key")
+				var handlers = 
 				{
-					console.log(`<<< request from key keeper: ${data.method}`)
-
-					var pk = keykeeper.generatePublicKey(data.params.id, data.params.create_coin_key)
-
-					console.log(`>>> sending public key: ${pk}`)
-
-					connection.send(JSON.stringify(
-					{
-						jsonrpc:'2.0',
-						id: data.id,
-						result: pk
-					}))
+					generate_key: () => sendKeykeeperResult(data.id, keykeeper.generatePublicKey(data.params.id, data.params.create_coin_key)),
+					allocate_nonce_slot: () => sendKeykeeperResult(data.id, keykeeper.allocateNonceSlot()),
 				}
-				else console.log(`Unknown Key Keeper method: ${data.method}`)
+
+				handlers[data.method] 
+					? handlers[data.method]() 
+					: console.log(`Unknown Key Keeper method: ${data.method}`)
 			}
 
 			$('#create-wallet-panel .create-wallet-button').click(() => 
