@@ -62,26 +62,11 @@ namespace
         return libbitcoin::chain::script(contract_operations);
     }
 
-
-    libbitcoin::wallet::ec_public GetSwapPublicKeyFromTx(const beam::wallet::BaseTransaction& tx, uint8_t addressVersion)
-    {
-        NoLeak<uintBig> swapPrivateKey;
-        swapPrivateKey.V = tx.GetMandatoryParameter<uintBig>(beam::wallet::TxParameterID::AtomicSwapPrivateKey);
-
-        libbitcoin::ec_secret localSecret;
-        std::copy(std::begin(swapPrivateKey.V.m_pData), std::end(swapPrivateKey.V.m_pData), localSecret.begin());
-        libbitcoin::wallet::ec_private localPrivateKey(localSecret, addressVersion);
-
-        return localPrivateKey.to_public();
-    }
-
     libbitcoin::chain::script CreateAtomicSwapContract(const beam::wallet::BaseTransaction& tx, bool isBtcOwner, uint8_t addressVersion)
     {
         using namespace beam;
         using namespace beam::wallet;
 
-        Timestamp locktime = tx.GetMandatoryParameter<Timestamp>(TxParameterID::AtomicSwapExternalLockTime);
-        std::string peerSwapPublicKeyStr = tx.GetMandatoryParameter<std::string>(TxParameterID::AtomicSwapPeerPublicKey);
         libbitcoin::wallet::ec_public secretPublicKey;
 
         if (NoLeak<uintBig> secretPrivateKey; tx.GetParameter(TxParameterID::AtomicSwapSecretPrivateKey, secretPrivateKey.V, SubTxIndex::BEAM_REDEEM_TX))
@@ -102,13 +87,14 @@ namespace
             secretPublicKey = libbitcoin::wallet::ec_public(publicKeyRaw);
         }
 
-        libbitcoin::wallet::ec_public localPublicKey = GetSwapPublicKeyFromTx(tx, addressVersion);
-        libbitcoin::wallet::ec_public peerPublicKey(peerSwapPublicKeyStr);
+        Timestamp locktime = tx.GetMandatoryParameter<Timestamp>(TxParameterID::AtomicSwapExternalLockTime);
+        std::string peerSwapPublicKeyStr = tx.GetMandatoryParameter<std::string>(TxParameterID::AtomicSwapPeerPublicKey);
+        std::string localPublicKeyStr = tx.GetMandatoryParameter<std::string>(TxParameterID::AtomicSwapPublicKey);
 
-        return AtomicSwapContract(isBtcOwner ? localPublicKey.point() : peerPublicKey.point(),
-                                  isBtcOwner ? peerPublicKey.point() : localPublicKey.point(),
-                                  secretPublicKey.point(),
-                                  locktime);
+        libbitcoin::wallet::ec_public senderPublicKey(isBtcOwner ? localPublicKeyStr : peerSwapPublicKeyStr);
+        libbitcoin::wallet::ec_public receiverPublicKey(isBtcOwner ? peerSwapPublicKeyStr : localPublicKeyStr);
+
+        return AtomicSwapContract(senderPublicKey.point(), receiverPublicKey.point(), secretPublicKey.point(), locktime);
     }
 }
 
@@ -188,7 +174,7 @@ namespace beam::wallet
     {
         auto txID = m_tx.GetMandatoryParameter<std::string>(TxParameterID::AtomicSwapExternalTxID, SubTxIndex::LOCK_TX);
         uint32_t outputIndex = m_tx.GetMandatoryParameter<uint32_t>(TxParameterID::AtomicSwapExternalTxOutputIndex, SubTxIndex::LOCK_TX);
-        std::string swapPublicKeyStr = GetSwapPublicKeyFromTx(m_tx, GetAddressVersion()).encoded();
+        std::string swapPublicKeyStr = m_tx.GetMandatoryParameter<std::string>(TxParameterID::AtomicSwapPublicKey);
 
         txParameters.AddParameter(TxParameterID::AtomicSwapPeerPublicKey, swapPublicKeyStr)
             .AddParameter(TxParameterID::SubTxIndex, SubTxIndex::LOCK_TX)
