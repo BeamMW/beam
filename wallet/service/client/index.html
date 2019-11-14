@@ -62,13 +62,33 @@
 		<form id="wallet-panel" style="display: none;">
 			<div class="form-group">
 				<span class="badge badge-success">status: connected to the Wallet Service</span>
-			</div>			
+			</div>
 			<div class="form-group">
 				Available: <span class="available"></span>
 			</div>
 			<div class="form-group">
 				Current height: <span class="current_height"></span>
 			</div>
+			<hr>
+			<h3>Addresses</h3>
+			<table class="table addresses">
+				<thead>
+					<tr>
+						<th>#</th>
+						<th>address</th>
+						<th>comment</th>
+						<th>create_time</th>
+						<th>duration</th>
+						<th>expired</th>
+						<th>own</th>
+					</tr>
+				</thead>
+				<tbody></tbody>
+			</table>
+			<hr>
+			<button type="button" class="close-wallet-button btn btn-secondary">
+				Close wallet
+			</button>
 		</form>		
 	
 	</div>
@@ -81,7 +101,7 @@
 		Module().then(function(Module)
         {
 			var connection = null;
-			// var keyKeeperConnection = null;
+			var keykeeper = null
 
 			function showPanel(id)
 			{
@@ -89,37 +109,11 @@
 				$(id).show()
 			}
 		
-			// function connectKeyKeeper()
-			// {
-			// 	const url = 'ws://127.0.0.1:8081'
-			// 	keyKeeperConnection = new WebSocket(url)
-				
-			// 	keyKeeperConnection.onopen = () => 
-			// 	{
-			// 		console.log('keykeeper connected to the Wallet Servce...')
-			// 		//refresh()
-			// 	}
-				
-			// 	keyKeeperConnection.onclose = () =>
-			// 	{
-			// 		// showPanel('#connecting-panel')
-
-			// 		console.log('keykeeper connection lost, reconnecting...')
-
-			// 		setTimeout(connectKeyKeeper, 5000)
-			// 	}
-
-			// 	keyKeeperConnection.onerror = error => 
-			// 	{
-			// 		console.log(`keykeeper connection error: ${error}`)
-			// 	}
-			// }
-
 			function start()
 			{
 				const url = 'ws://127.0.0.1:8080'
 				connection = new WebSocket(url)
-				
+
 				connection.onopen = () => 
 				{
 					console.log('Connected to the Wallet Servce...')			
@@ -139,8 +133,6 @@
 				{
 					console.log(`connection error: ${error}`)
 				}
-
-				// connectKeyKeeper()
 			}
 
 			start();
@@ -160,20 +152,31 @@
 					refresh()
 				}
 			})
-			
+
 			function showAddresses()
 			{
 				connection.onmessage = e => 
 				{
-					connection.onmessage = undefined
-
 					console.log(`got response: ${e.data}`)
 
 					var data = JSON.parse(e.data)
 
 					if(data.result)
 					{
+						var body = $('#wallet-panel .addresses > tbody')
+							.empty()
+
+						data.result.forEach((item, index) => body.append(`<tr>
+							<td>${index+1}</td>
+							<td>${item.address}</td>
+							<td>${item.comment}</td>
+							<td>${item.create_time}</td>
+							<td>${item.duration}</td>
+							<td>${item.expired}</td>
+							<td>${item.own}</td>
+							</tr>`))
 					}
+					else onkeykeeper(data)
 
 					if($('#wallet-panel').is(":visible"))
 						setTimeout(showWalletStatus, 5000)
@@ -195,8 +198,6 @@
 			{
 				connection.onmessage = e => 
 				{
-					connection.onmessage = undefined
-
 					console.log(`got response: ${e.data}`)
 
 					var data = JSON.parse(e.data)
@@ -208,6 +209,7 @@
 
 						showAddresses()
 					}
+					else onkeykeeper(data)
 				}
 
 				connection.send(JSON.stringify(
@@ -221,13 +223,11 @@
 			$('#open-wallet-panel .open-wallet-button').click(() => 
 			{
 				console.log(`Opening wallet with seed phrase: ${localStorage.seed}`)
-				var keykeeper = initKeyKeeper(localStorage.seed)
+				keykeeper = initKeyKeeper(localStorage.seed)
 				var walletPass = $('#open-wallet-panel .wallet-pass-input').val()
 
 				connection.onmessage = e => 
 				{
-					connection.onmessage = undefined
-
 					console.log(`got response: ${e.data}`)
 
 					var data = JSON.parse(e.data)
@@ -240,6 +240,7 @@
 
 						showWalletStatus()
 					}
+					else onkeykeeper(data)
 				}
 
 				connection.send(JSON.stringify(
@@ -255,12 +256,32 @@
 				}))
 			})
 
+			function onkeykeeper(data)
+			{
+				if(data.method == "generate_key")
+				{
+					console.log(`<<< request from key keeper: ${data.method}`)
+
+					var pk = keykeeper.generatePublicKey(data.params.id, data.params.create_coin_key)
+
+					console.log(`>>> sending public key: ${pk}`)
+
+					connection.send(JSON.stringify(
+					{
+						jsonrpc:'2.0',
+						id: data.id,
+						result: pk
+					}))
+				}
+				else console.log(`Unknown Key Keeper method: ${data.method}`)
+			}
+
 			$('#create-wallet-panel .create-wallet-button').click(() => 
 			{
 				var seed = $('#create-wallet-panel .seed-phrase-input').val()
 				console.log(`Creating new wallet with seed phrase: ${seed}`)
 
-				var keykeeper = initKeyKeeper(seed)
+				keykeeper = initKeyKeeper(seed)
 				var walletPass = $('#create-wallet-panel .wallet-pass-input').val()
 				var ownerKey = keykeeper.getOwnerKey(walletPass)
 
@@ -272,8 +293,6 @@
 
 				connection.onmessage = e => 
 				{
-					connection.onmessage = undefined
-
 					console.log(`got response: ${e.data}`)
 
 					var data = JSON.parse(e.data)
@@ -292,6 +311,7 @@
 
 						refresh()
 					}
+					else onkeykeeper(data)
 				}
 
 				connection.send(JSON.stringify(

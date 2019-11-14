@@ -42,6 +42,8 @@
 #include <boost/asio/ip/tcp.hpp>
 #include <boost/uuid/uuid_generators.hpp>
 
+#include "3rdparty/utilstrencodings.h"
+
 #include "nlohmann/json.hpp"
 #include "version.h"
 
@@ -60,82 +62,6 @@ namespace websocket = boost::beast::websocket;  // from <boost/beast/websocket.h
 
 namespace beam::wallet
 {
-    class WasmKeyKeeper : public IPrivateKeyKeeper
-        , public std::enable_shared_from_this<WasmKeyKeeper>
-    {
-    public:
-        WasmKeyKeeper(){}
-        virtual ~WasmKeyKeeper(){}
-
-        Key::IKdf::Ptr get_SbbsKdf() const override
-        {
-            if (!m_sbbsKdf)
-            {
-                // !TODO: do async generateKeySync() call here
-
-                // if (m_hwWallet.isConnected())
-                // {
-                //     ECC::HKdf::Create(m_sbbsKdf, m_hwWallet.generateKeySync({ 0, 0, Key::Type::Regular }, true).m_X);
-                // }
-            }
-            
-            return m_sbbsKdf;
-        }
-
-        void subscribe(Handler::Ptr handler) override
-        {
-
-        }
-
-    private:
-        void GeneratePublicKeys(const std::vector<Key::IDV>& ids, bool createCoinKey, Callback<PublicKeys>&& resultCallback, ExceptionCallback&& exceptionCallback) override
-        {
-
-        }
-
-        void GenerateOutputs(Height schemeHeight, const std::vector<Key::IDV>& ids, Callback<Outputs>&& resultCallback, ExceptionCallback&& exceptionCallback) override
-        {
-
-        }
-
-        size_t AllocateNonceSlot() override
-        {
-            return 0;
-        }
-
-        PublicKeys GeneratePublicKeysSync(const std::vector<Key::IDV>& ids, bool createCoinKey) override
-        {
-            return {};
-        }
-
-        ECC::Point GeneratePublicKeySync(const Key::IDV& id, bool createCoinKey) override
-        {
-            return {};
-        }
-
-        Outputs GenerateOutputsSync(Height schemeHeigh, const std::vector<Key::IDV>& ids) override
-        {
-            return {};
-        }
-
-        ECC::Point GenerateNonceSync(size_t slot) override
-        {
-            return {};
-        }
-
-        ECC::Scalar SignSync(const std::vector<Key::IDV>& inputs, const std::vector<Key::IDV>& outputs, const ECC::Scalar::Native& offset, size_t nonceSlot, const KernelParameters& kernelParamerters, const ECC::Point::Native& publicNonce) override
-        {
-            return {};
-        }
-
-    private:
-        mutable Key::IKdf::Ptr m_sbbsKdf;
-
-        // size_t m_latestSlot;
-
-        // std::vector<IPrivateKeyKeeper::Handler::Ptr> m_handlers;
-    };
-
     io::Address node_addr;
 
     static const char JsonRpcHrd[] = "jsonrpc";
@@ -1090,6 +1016,7 @@ namespace
             tcp::acceptor acceptor_;
             tcp::socket socket_;
             io::Reactor::Ptr _reactor;
+            boost::asio::io_context& _ioc;
 
         public:
             listener(
@@ -1098,6 +1025,7 @@ namespace
                 : acceptor_(ioc)
                 , socket_(ioc)
                 , _reactor(reactor)
+                , _ioc(ioc)
             {
                 boost::system::error_code ec;
 
@@ -1165,7 +1093,7 @@ namespace
                 else
                 {
                     // Create the session and run it
-                    std::make_shared<session>(std::move(socket_), _reactor)->run();
+                    std::make_shared<session>(std::move(socket_), _reactor, _ioc)->run();
                 }
 
                 // Accept another connection
@@ -1178,17 +1106,154 @@ namespace
             virtual void serializeMsg(const json& msg) = 0;
         };
 
+        class session;
+
+        class WasmKeyKeeper : public IPrivateKeyKeeper
+            , public std::enable_shared_from_this<WasmKeyKeeper>
+        {
+            session& _s;
+            boost::asio::io_context& _ioc;
+        public:
+            WasmKeyKeeper(session& s, boost::asio::io_context& ioc)
+            : _s(s)
+            , _ioc(ioc)
+            {}
+            virtual ~WasmKeyKeeper(){}
+
+            template <typename T>
+            static T&& from_base64(const std::string& base64)
+            {
+                T obj;
+                {
+                    auto data = DecodeBase64(base64.data());
+
+                    Deserializer d;
+                    d.reset(data.data(), data.size());
+
+                    d & obj;
+                }
+
+                return std::move(obj);
+            }
+
+            template <typename T>
+            static std::string to_base64(const T& obj)
+            {
+                ByteBuffer buffer;
+                {
+                    Serializer s;
+                    s & obj;
+                    s.swap_buf(buffer);
+                }
+
+                return EncodeBase64(buffer.data(), buffer.size());
+            }
+
+            Key::IKdf::Ptr get_SbbsKdf() const override
+            {
+                if (!m_sbbsKdf)
+                {
+                    // !TODO: temporary solution to init SBBS KDF with commitment
+
+                    json msg = 
+                    {
+                        {JsonRpcHrd, JsonRpcVerHrd},
+                        {"id", 0},
+                        {"method", "generate_key"},
+                        {"params", 
+                        {
+                            {"id", to_base64(ECC::Key::IDV(0, 0, Key::Type::Regular))},
+                            {"create_coin_key", true}
+                        }}
+                    };
+
+                    bool gotResponse = false;
+                    ECC::Point pk;
+
+                    _s.write_keykeeper_msg(msg, [&gotResponse, &pk](const json& msg)
+                    {
+                        gotResponse = true;
+
+                        pk = from_base64<ECC::Point>(msg["result"]);
+                    });
+
+                    // wait for the responce here
+                    // !TODO: move this to the write_keykeeper_msg()
+                    // also reuse _ioc in session
+                    while(!gotResponse)
+                        _ioc.run_one();
+
+                    ECC::HKdf::Create(m_sbbsKdf, pk.m_X);
+                }
+                
+                return m_sbbsKdf;
+            }
+
+            void subscribe(Handler::Ptr handler) override
+            {
+
+            }
+
+        private:
+            void GeneratePublicKeys(const std::vector<Key::IDV>& ids, bool createCoinKey, Callback<PublicKeys>&& resultCallback, ExceptionCallback&& exceptionCallback) override
+            {
+
+            }
+
+            void GenerateOutputs(Height schemeHeight, const std::vector<Key::IDV>& ids, Callback<Outputs>&& resultCallback, ExceptionCallback&& exceptionCallback) override
+            {
+
+            }
+
+            size_t AllocateNonceSlot() override
+            {
+                return 0;
+            }
+
+            PublicKeys GeneratePublicKeysSync(const std::vector<Key::IDV>& ids, bool createCoinKey) override
+            {
+                return {};
+            }
+
+            ECC::Point GeneratePublicKeySync(const Key::IDV& id, bool createCoinKey) override
+            {
+                return {};
+            }
+
+            Outputs GenerateOutputsSync(Height schemeHeigh, const std::vector<Key::IDV>& ids) override
+            {
+                return {};
+            }
+
+            ECC::Point GenerateNonceSync(size_t slot) override
+            {
+                return {};
+            }
+
+            ECC::Scalar SignSync(const std::vector<Key::IDV>& inputs, const std::vector<Key::IDV>& outputs, const ECC::Scalar::Native& offset, size_t nonceSlot, const KernelParameters& kernelParamerters, const ECC::Point::Native& publicNonce) override
+            {
+                return {};
+            }
+
+        private:
+            mutable Key::IKdf::Ptr m_sbbsKdf;
+
+            // size_t m_latestSlot;
+
+            // std::vector<IPrivateKeyKeeper::Handler::Ptr> m_handlers;
+        };
+        
         class ApiConnection : IWalletApiHandler, IWalletDbObserver
         {
             ApiConnectionHandler* _handler;
             io::Reactor::Ptr _reactor;
         public:
-            ApiConnection(ApiConnectionHandler* handler, io::Reactor::Ptr reactor) 
+            ApiConnection(ApiConnectionHandler* handler, io::Reactor::Ptr reactor, session& s, boost::asio::io_context& ioc) 
                 : _api(*this)
                 , _handler(handler)
                 , _reactor(reactor)
             {
-
+                _keyKeeper = std::make_shared<WasmKeyKeeper>(s, ioc);
             }
             // ApiConnection(IWalletDB::Ptr walletDB, Wallet& wallet, IWalletMessageEndpoint& wnet, WalletApi::ACL acl)
             //     : _walletDB(walletDB)
@@ -1664,7 +1729,7 @@ namespace
 
                     if(walletDB)
                     {
-                        _keyKeeper = std::make_shared<WasmKeyKeeper>();
+                        //_keyKeeper = std::make_shared<WasmKeyKeeper>();
 
                         // generate default address
                         WalletAddress address = storage::createAddress(*walletDB, _keyKeeper);
@@ -1695,7 +1760,7 @@ namespace
 
                 _walletDB->Subscribe(this);
 
-                _keyKeeper = std::make_shared<WasmKeyKeeper>();//std::make_shared<LocalPrivateKeyKeeper>(_walletDB, _walletDB->get_MasterKdf());
+                //_keyKeeper = std::make_shared<WasmKeyKeeper>();//std::make_shared<LocalPrivateKeyKeeper>(_walletDB, _walletDB->get_MasterKdf());
 
                 _wallet = std::make_unique<Wallet>( _walletDB, _keyKeeper );
                 _wallet->ResumeAllTransactions();
@@ -1815,7 +1880,128 @@ namespace
             IPrivateKeyKeeper::Ptr _keyKeeper;
         };
 
-        // Echoes back all received WebSocket messages
+        // class KeyKeeperSession : 
+        //     public std::enable_shared_from_this<KeyKeeperSession>
+        // {
+        //     websocket::stream<tcp::socket> ws_;
+        //     boost::asio::strand<boost::asio::io_context::executor_type> strand_;
+        //     boost::beast::multi_buffer buffer_;
+
+        // public:
+
+        //     explicit
+        //     KeyKeeperSession(tcp::socket socket, io::Reactor::Ptr reactor, boost::asio::io_context& ioc)
+        //         : ws_(std::move(socket))
+        //         , strand_(ws_.get_executor())
+        //     {
+        //         LOG_DEBUG() << "KeyKeeperSession created.";
+        //     }
+
+        //     ~KeyKeeperSession()
+        //     {
+        //         LOG_DEBUG() << "KeyKeeperSession destroyed.";
+        //     }
+
+        //     void
+        //     run()
+        //     {
+        //         // Accept the websocket handshake
+        //         ws_.async_accept(
+        //             boost::asio::bind_executor(
+        //                 strand_,
+        //                 std::bind(
+        //                     &KeyKeeperSession::on_accept,
+        //                     shared_from_this(),
+        //                     std::placeholders::_1)));
+        //     }
+
+        //     void
+        //     on_accept(boost::system::error_code ec)
+        //     {
+        //         if(ec)
+        //             return fail(ec, "accept");
+
+        //         // Read a message
+        //         do_read();
+        //     }
+
+        //     void
+        //     do_read()
+        //     {
+        //         // Read a message into our buffer
+        //         ws_.async_read(
+        //             buffer_,
+        //             boost::asio::bind_executor(
+        //                 strand_,
+        //                 std::bind(
+        //                     &KeyKeeperSession::on_read,
+        //                     shared_from_this(),
+        //                     std::placeholders::_1,
+        //                     std::placeholders::_2)));
+        //     }
+
+        //     void
+        //     on_read(
+        //         boost::system::error_code ec,
+        //         std::size_t bytes_transferred)
+        //     {
+        //         boost::ignore_unused(bytes_transferred);
+
+        //         // This indicates that the session was closed
+        //         if(ec == websocket::error::closed)
+        //             return;
+
+        //         if(ec)
+        //             fail(ec, "read");
+
+        //         {
+        //             std::ostringstream os;
+        //             os << boost::beast::buffers(buffer_.data());
+        //             auto data = os.str();
+        //             LOG_DEBUG() << "data from a client:" << data;
+
+        //             // TODO: parse response here
+        //             //_api.parse(data.c_str(), data.size());
+        //         }
+        //     }
+
+        //     void write(const json& msg)
+        //     {
+        //         buffer_.consume(buffer_.size());
+        //         std::string contents = msg.dump();
+        //         size_t n = boost::asio::buffer_copy(buffer_.prepare(contents.size()), boost::asio::buffer(contents));
+        //         buffer_.commit(n);
+
+        //         ws_.text(ws_.got_text());
+        //         ws_.async_write(
+        //             buffer_.data(),
+        //             boost::asio::bind_executor(
+        //                 strand_,
+        //                 std::bind(
+        //                     &KeyKeeperSession::on_write,
+        //                     shared_from_this(),
+        //                     std::placeholders::_1,
+        //                     std::placeholders::_2)));
+        //     }
+
+        //     void
+        //     on_write(
+        //         boost::system::error_code ec,
+        //         std::size_t bytes_transferred)
+        //     {
+        //         boost::ignore_unused(bytes_transferred);
+
+        //         if(ec)
+        //             return fail(ec, "write");
+
+        //         // Clear the buffer
+        //         buffer_.consume(buffer_.size());
+
+        //         // Do another read
+        //         do_read();
+        //     }
+        // };
+
         class session : 
             public std::enable_shared_from_this<session>, 
             public ApiConnection, 
@@ -1828,10 +2014,10 @@ namespace
         public:
             // Take ownership of the socket
             explicit
-            session(tcp::socket socket, io::Reactor::Ptr reactor)
+            session(tcp::socket socket, io::Reactor::Ptr reactor, boost::asio::io_context& ioc)
                 : ws_(std::move(socket))
                 , strand_(ws_.get_executor())
-                , ApiConnection(this, reactor)
+                , ApiConnection(this, reactor, *this, ioc)
             {
             }
 
@@ -1879,6 +2065,23 @@ namespace
                             std::placeholders::_2)));
             }
 
+            using KeyKeeperFunc = std::function<void(const json&)>;
+
+            void
+            do_keykeeper_read(KeyKeeperFunc func)
+            {
+                // Read a message into our buffer
+                ws_.async_read(
+                    buffer_,
+                    boost::asio::bind_executor(
+                        strand_,
+                        std::bind(
+                            &session::on_keykeeper_read,
+                            shared_from_this(),
+                            std::placeholders::_1,
+                            std::placeholders::_2, func)));
+            }
+
             void serializeMsg(const json& msg) override
             {
                 buffer_.consume(buffer_.size());
@@ -1896,6 +2099,25 @@ namespace
                             shared_from_this(),
                             std::placeholders::_1,
                             std::placeholders::_2)));
+            }
+
+            void write_keykeeper_msg(const json& msg, KeyKeeperFunc func)
+            {
+                buffer_.consume(buffer_.size());
+                std::string contents = msg.dump();
+                size_t n = boost::asio::buffer_copy(buffer_.prepare(contents.size()), boost::asio::buffer(contents));
+                buffer_.commit(n);
+
+                ws_.text(ws_.got_text());
+                ws_.async_write(
+                    buffer_.data(),
+                    boost::asio::bind_executor(
+                        strand_,
+                        std::bind(
+                            &session::on_keykeeper_write,
+                            shared_from_this(),
+                            std::placeholders::_1,
+                            std::placeholders::_2, func)));
             }
 
             void
@@ -1923,6 +2145,32 @@ namespace
             }
 
             void
+            on_keykeeper_read(
+                boost::system::error_code ec,
+                std::size_t bytes_transferred, KeyKeeperFunc func)
+            {
+                boost::ignore_unused(bytes_transferred);
+
+                // This indicates that the session was closed
+                if(ec == websocket::error::closed)
+                    return;
+
+                if(ec)
+                    fail(ec, "read");
+
+                {
+                    std::ostringstream os;
+                    os << boost::beast::buffers(buffer_.data());
+                    auto data = os.str();
+                    LOG_DEBUG() << "data from a keykeeper:" << data;
+
+                    json msg = json::parse(data.c_str(), data.c_str() + data.size());
+
+                    func(msg);
+                }
+            }
+
+            void
             on_write(
                 boost::system::error_code ec,
                 std::size_t bytes_transferred)
@@ -1937,6 +2185,23 @@ namespace
 
                 // Do another read
                 do_read();
+            }
+
+            void
+            on_keykeeper_write(
+                boost::system::error_code ec,
+                std::size_t bytes_transferred, KeyKeeperFunc func)
+            {
+                boost::ignore_unused(bytes_transferred);
+
+                if(ec)
+                    return fail(ec, "write");
+
+                // Clear the buffer
+                buffer_.consume(buffer_.size());
+
+                // Do another read
+                do_keykeeper_read(func);
             }
         };
 
