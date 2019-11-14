@@ -15,9 +15,7 @@ ColumnLayout {
     property bool addressSaved: false
 
     // callbacks set by parent
-    property var    modeSwitchEnabled: true
-    property var    onClosed: undefined
-    property var    onRegularMode: undefined
+    property var onClosed: undefined
 
     TopGradient {
         mainRoot: main
@@ -77,19 +75,6 @@ ColumnLayout {
             //% "Create swap offer"
             text:                qsTrId("wallet-receive-swap-title")
         }
-
-        CustomSwitch {
-            id:         mode
-            //% "Swap"
-            text:       qsTrId("general-swap")
-            x:          parent.width - width
-            checked:    true
-            enabled:    modeSwitchEnabled
-            visible:    modeSwitchEnabled
-            onClicked: {
-                if (!checked) onRegularMode();
-            }
-        }
     }
 
     ScrollView {
@@ -103,28 +88,6 @@ ColumnLayout {
 
         ColumnLayout {
             width: scrollView.availableWidth
-
-            ColumnLayout {
-                //
-                // My Address
-                //
-                SFText {
-                    font.pixelSize: 14
-                    font.styleName: "Bold"; font.weight: Font.Bold
-                    color: Style.content_main
-                    //% "My address (auto-generated)"
-                    text: qsTrId("wallet-receive-my-addr-label")
-                }
-
-                SFTextInput {
-                    id:               myAddressID
-                    font.pixelSize:   14
-                    color:            Style.content_disabled
-                    readOnly:         true
-                    activeFocusOnTab: false
-                    text:             viewModel.receiverAddress
-                }
-            }
 
             Grid {
                 Layout.fillWidth: true
@@ -141,6 +104,7 @@ ColumnLayout {
                         id:               sentAmountInput
                         color:            Style.accent_outgoing
                         hasFee:           true
+                        currFeeTitle:     true
                         currency:         viewModel.sentCurrency
                         amount:           viewModel.amountSent
                         multi:            true
@@ -234,6 +198,7 @@ ColumnLayout {
                         title:            qsTrId("receive-amount-swap-label")
                         id:               receiveAmountInput
                         hasFee:           true
+                        currFeeTitle:     true
                         currency:         viewModel.receiveCurrency
                         amount:           viewModel.amountToReceive
                         multi:            true
@@ -428,8 +393,8 @@ ColumnLayout {
                 font.styleName:   "Bold"
                 font.weight:      Font.Bold
                 color:            Style.content_main
-                //% "Your transaction token:"
-                text: qsTrId("wallet-receive-your-token")
+                //% "Your swap token:"
+                text: qsTrId("wallet-receive-swap-your-token")
             }
 
             SFTextArea {
@@ -471,7 +436,7 @@ ColumnLayout {
                 }
 
                 CustomButton {
-                    //% "copy transaction token"
+                    //% "copy swap token"
                     text:                qsTrId("wallet-receive-copy-token")
                     palette.buttonText:  Style.content_opposite
                     icon.color:          Style.content_opposite
@@ -490,7 +455,7 @@ ColumnLayout {
                 }
 
                 CustomButton {
-                    //% "publish transaction token"
+                    //% "publish offer"
                     text:                qsTrId("wallet-receive-swap-publish")
                     palette.buttonText:  Style.content_opposite
                     icon.color:          Style.content_opposite

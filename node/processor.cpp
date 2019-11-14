@@ -163,26 +163,7 @@ void NodeProcessor::Initialize(const char* szPath, const StartParams& sp)
 
 	InitCursor();
 
-	if (InitUtxoMapping(szPath))
-	{
-		LOG_INFO() << "UTXO image found";
-	}
-	else
-	{
-		LOG_INFO() << "Rebuilding UTXO image...";
-		InitializeUtxos();
-	}
-
-	// final check
-	if ((m_Cursor.m_ID.m_Height >= Rules::HeightGenesis) && (m_Cursor.m_ID.m_Height >= m_SyncData.m_TxoLo))
-	{
-		get_Definition(hv, false);
-		if (m_Cursor.m_Full.m_Definition != hv)
-		{
-			LOG_ERROR() << "Definition mismatch";
-			OnCorrupted();
-		}
-	}
+	InitializeUtxos(szPath);
 
 	m_Extra.m_Txos = get_TxosBefore(m_Cursor.m_ID.m_Height + 1);
 
@@ -208,6 +189,40 @@ void NodeProcessor::Initialize(const char* szPath, const StartParams& sp)
 		TryGoUp();
 	}
 }
+
+void NodeProcessor::InitializeUtxos(const char* sz)
+{
+	if (InitUtxoMapping(sz, false))
+	{
+		LOG_INFO() << "UTXO image found";
+		if (TestDefinition())
+			return; // ok
+
+		LOG_WARNING() << "Definition mismatch, discarding UTXO image";
+		m_Utxos.Close();
+		InitUtxoMapping(sz, true);
+	}
+
+	LOG_INFO() << "Rebuilding UTXO image...";
+	InitializeUtxos();
+
+	if (!TestDefinition())
+	{
+		LOG_ERROR() << "Definition mismatch";
+		OnCorrupted();
+	}
+}
+
+bool NodeProcessor::TestDefinition()
+{
+	if ((m_Cursor.m_ID.m_Height < Rules::HeightGenesis) || (m_Cursor.m_ID.m_Height < m_SyncData.m_TxoLo))
+		return true; // irrelevant
+
+	Merkle::Hash hv;
+	get_Definition(hv, false);
+	return m_Cursor.m_Full.m_Definition == hv;
+}
+
 
 // Ridiculous! Had to write this because strmpi isn't standard!
 int My_strcmpi(const char* sz1, const char* sz2)
@@ -241,7 +256,7 @@ void NodeProcessor::get_UtxoMappingPath(std::string& sPath, const char* sz)
 	sPath += "-utxo-image.bin";
 }
 
-bool NodeProcessor::InitUtxoMapping(const char* sz)
+bool NodeProcessor::InitUtxoMapping(const char* sz, bool bForceReset)
 {
 	// derive UTXO path from db path
 	std::string sPath;
@@ -251,7 +266,7 @@ bool NodeProcessor::InitUtxoMapping(const char* sz)
 	Blob blob(us);
 
 	// don't use the saved image if no height: we may contain treasury UTXOs, but no way to verify the contents
-	if ((m_Cursor.m_ID.m_Height < Rules::HeightGenesis) || !m_DB.ParamGet(NodeDB::ParamID::UtxoStamp, nullptr, &blob))
+	if (bForceReset || (m_Cursor.m_ID.m_Height < Rules::HeightGenesis) || !m_DB.ParamGet(NodeDB::ParamID::UtxoStamp, nullptr, &blob))
 	{
 		us = 1U;
 		us.Negate();
@@ -1754,6 +1769,23 @@ Height NodeProcessor::get_ProofKernel(Merkle::Proof& proof, TxKernel::Ptr* ppRes
 	return h;
 }
 
+struct NodeProcessor::BlockInterpretCtx
+{
+	Height m_Height;
+	bool m_Fwd;
+
+	uint32_t m_ShieldedIns;
+	uint32_t m_ShieldedOuts;
+
+	BlockInterpretCtx(Height h, bool bFwd)
+		:m_Height(h)
+		,m_Fwd(bFwd)
+		,m_ShieldedIns(0)
+		,m_ShieldedOuts(0)
+	{
+	}
+};
+
 bool NodeProcessor::HandleTreasury(const Blob& blob)
 {
 	assert(!IsTreasuryHandled());
@@ -1788,14 +1820,16 @@ bool NodeProcessor::HandleTreasury(const Blob& blob)
 
 	LOG_INFO() << os.str();
 
+	BlockInterpretCtx bic(0, true);
 	for (size_t iG = 0; iG < td.m_vGroups.size(); iG++)
 	{
-		if (!HandleValidatedTx(td.m_vGroups[iG].m_Data.get_Reader(), 0, true))
+		if (!HandleValidatedTx(td.m_vGroups[iG].m_Data.get_Reader(), bic))
 		{
 			// undo partial changes
+			bic.m_Fwd = false;
 			while (iG--)
 			{
-				if (!HandleValidatedTx(td.m_vGroups[iG].m_Data.get_Reader(), 0, false))
+				if (!HandleValidatedTx(td.m_vGroups[iG].m_Data.get_Reader(), bic))
 					OnCorrupted(); // although should not happen anyway
 			}
 
@@ -1917,7 +1951,8 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, MultiblockContext& m
 
 	TxoID id0 = m_Extra.m_Txos;
 
-	bool bOk = HandleValidatedBlock(block.get_Reader(), block, sid.m_Height, true);
+	BlockInterpretCtx bic(sid.m_Height, true);
+	bool bOk = HandleValidatedBlock(block.get_Reader(), block, bic);
 	if (!bOk)
 		LOG_WARNING() << LogSid(m_DB, sid) << " invalid in its context";
 
@@ -1955,7 +1990,10 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, MultiblockContext& m
 		if (bOk)
 			m_DB.set_StateTxos(sid.m_Row, &m_Extra.m_Txos);
 		else
-            BEAM_VERIFY(HandleValidatedBlock(block.get_Reader(), block, sid.m_Height, false));
+		{
+			bic.m_Fwd = false;
+			BEAM_VERIFY(HandleValidatedBlock(block.get_Reader(), block, bic));
+		}
 	}
 
 	if (bOk)
@@ -1972,14 +2010,8 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, MultiblockContext& m
 		}
 
 		// save shielded in/outs
-		uint32_t nIns = 0, nOuts = 0;
-
-		for (size_t i = 0; i < block.m_vInputs.size(); i++)
-			if (block.m_vInputs[i]->m_pSpendProof)
-				nIns++;
-		for (size_t i = 0; i < block.m_vOutputs.size(); i++)
-			if (block.m_vOutputs[i]->m_pShielded)
-				nOuts++;
+		const uint32_t& nIns = bic.m_ShieldedIns; // alias
+		uint32_t& nOuts = bic.m_ShieldedOuts; // alias
 
 		if (nIns || nOuts)
 		{
@@ -2217,7 +2249,7 @@ bool NodeProcessor::IsDummy(const Key::IDV&  kidv)
 	return !kidv.m_Value && (Key::Type::Decoy == kidv.m_Type);
 }
 
-bool NodeProcessor::HandleValidatedTx(TxBase::IReader&& r, Height h, bool bFwd)
+bool NodeProcessor::HandleValidatedTx(TxBase::IReader&& r, BlockInterpretCtx& bic)
 {
 	uint32_t nInp = 0, nOut = 0;
 	r.Reset();
@@ -2233,13 +2265,13 @@ bool NodeProcessor::HandleValidatedTx(TxBase::IReader&& r, Height h, bool bFwd)
 			return false;
 
 		HeightAdd(h0, x.m_LockHeight);
-		if (h0 > h)
+		if (h0 > bic.m_Height)
 			return false;
 	}
 
 	bool bOk = true;
 	for (; r.m_pUtxoIn; r.NextUtxoIn(), nInp++)
-		if (!HandleBlockElement(*r.m_pUtxoIn, h, bFwd))
+		if (!HandleBlockElement(*r.m_pUtxoIn, bic))
 		{
 			bOk = false;
 			break;
@@ -2247,7 +2279,7 @@ bool NodeProcessor::HandleValidatedTx(TxBase::IReader&& r, Height h, bool bFwd)
 
 	if (bOk)
 		for (; r.m_pUtxoOut; r.NextUtxoOut(), nOut++)
-			if (!HandleBlockElement(*r.m_pUtxoOut, h, bFwd))
+			if (!HandleBlockElement(*r.m_pUtxoOut, bic))
 			{
 				bOk = false;
 				break;
@@ -2256,48 +2288,68 @@ bool NodeProcessor::HandleValidatedTx(TxBase::IReader&& r, Height h, bool bFwd)
 	if (bOk)
 		return true;
 
-	if (!bFwd)
+	if (!bic.m_Fwd)
 		OnCorrupted();
 
 	// Rollback all the changes. Must succeed!
+	bic.m_Fwd = false;
 	r.Reset();
 
 	for (; nOut--; r.NextUtxoOut())
-		HandleBlockElement(*r.m_pUtxoOut, h, false);
+		HandleBlockElement(*r.m_pUtxoOut, bic);
 
 	for (; nInp--; r.NextUtxoIn())
-		HandleBlockElement(*r.m_pUtxoIn, h, false);
+		HandleBlockElement(*r.m_pUtxoIn, bic);
 
+	bic.m_Fwd = true; // restore it to prevent confuse
 	return false;
 }
 
-bool NodeProcessor::HandleValidatedBlock(TxBase::IReader&& r, const Block::BodyBase& body, Height h, bool bFwd)
+bool NodeProcessor::HandleValidatedBlock(TxBase::IReader&& r, const Block::BodyBase& body, BlockInterpretCtx& bic)
 {
 	// make sure we adjust txo count, to prevent the same Txos for consecutive blocks after cut-through
-	if (!bFwd)
+	if (!bic.m_Fwd)
 	{
 		assert(m_Extra.m_Txos);
 		m_Extra.m_Txos--;
 	}
 
-	if (!HandleValidatedTx(std::move(r), h, bFwd))
+	if (!HandleValidatedTx(std::move(r), bic))
 		return false;
 
 	// currently there's no extra info in the block that's needed
 
-	if (bFwd)
+	if (bic.m_Fwd)
 		m_Extra.m_Txos++;
 
 	return true;
 }
 
-bool NodeProcessor::HandleBlockElement(const Input& v, Height h, bool bFwd)
+bool NodeProcessor::HandleBlockElement(const Input& v, BlockInterpretCtx& bic)
 {
 	if (v.m_pSpendProof)
 	{
-		if (bFwd && !IsShieldedInPool(v))
+		if (bic.m_Fwd)
+		{
+			if (!IsShieldedInPool(v))
+				return false;
+
+			if (bic.m_ShieldedIns >= Rules::get().Shielded.MaxIns)
+				return false;
+		}
+
+		if (!HandleShieldedElement(v.m_pSpendProof->m_Part1.m_SpendPk, false, bic.m_Fwd))
 			return false;
-		return HandleShieldedElement(v.m_pSpendProof->m_Part1.m_SpendPk, false, bFwd);
+
+		if (bic.m_Fwd)
+			bic.m_ShieldedIns++;
+		else
+		{
+			assert(bic.m_ShieldedIns);
+			bic.m_ShieldedIns--;
+		}
+
+		return true;
 	}
 
 	UtxoTree::Cursor cu;
@@ -2305,7 +2357,7 @@ bool NodeProcessor::HandleBlockElement(const Input& v, Height h, bool bFwd)
 	UtxoTree::Key::Data d;
 	d.m_Commitment = v.m_Commitment;
 
-	if (bFwd)
+	if (bic.m_Fwd)
 	{
 		struct Traveler :public UtxoTree::ITraveler {
 			virtual bool OnLeaf(const RadixTree::Leaf& x) override {
@@ -2318,7 +2370,7 @@ bool NodeProcessor::HandleBlockElement(const Input& v, Height h, bool bFwd)
 
 		d.m_Maturity = Rules::HeightGenesis - 1;
 		kMin = d;
-		d.m_Maturity = h - 1;
+		d.m_Maturity = bic.m_Height - 1;
 		kMax = d;
 
 		t.m_pCu = &cu;
@@ -2332,7 +2384,7 @@ bool NodeProcessor::HandleBlockElement(const Input& v, Height h, bool bFwd)
 
 		d = p->m_Key;
 		assert(d.m_Commitment == v.m_Commitment);
-		assert(d.m_Maturity < h);
+		assert(d.m_Maturity < bic.m_Height);
 
 		TxoID nID = p->m_ID;
 
@@ -2373,14 +2425,30 @@ bool NodeProcessor::HandleBlockElement(const Input& v, Height h, bool bFwd)
 	return true;
 }
 
-bool NodeProcessor::HandleBlockElement(const Output& v, Height h, bool bFwd)
+bool NodeProcessor::HandleBlockElement(const Output& v, BlockInterpretCtx& bic)
 {
 	if (v.m_pShielded)
-		return HandleShieldedElement(v.m_pShielded->m_SerialPub, true, bFwd);
+	{
+		if (bic.m_Fwd && (bic.m_ShieldedOuts >= Rules::get().Shielded.MaxOuts))
+			return false;
+
+		if (!HandleShieldedElement(v.m_pShielded->m_SerialPub, true, bic.m_Fwd))
+			return false;
+
+		if (bic.m_Fwd)
+			bic.m_ShieldedOuts++;
+		else
+		{
+			assert(bic.m_ShieldedOuts);
+			bic.m_ShieldedOuts--;
+		}
+
+		return true;
+	}
 
 	UtxoTree::Key::Data d;
 	d.m_Commitment = v.m_Commitment;
-	d.m_Maturity = v.get_MinMaturity(h);
+	d.m_Maturity = v.get_MinMaturity(bic.m_Height);
 
 	UtxoTree::Key key;
 	key = d;
@@ -2394,7 +2462,7 @@ bool NodeProcessor::HandleBlockElement(const Output& v, Height h, bool bFwd)
 	cu.InvalidateElement();
 	m_Utxos.OnDirty();
 
-	if (bFwd)
+	if (bic.m_Fwd)
 	{
 		TxoID nID = m_Extra.m_Txos;
 
@@ -2442,9 +2510,27 @@ bool NodeProcessor::IsShieldedInPool(const Input& v)
 {
 	assert(v.m_pSpendProof);
 
-	// TODO: check cfg and referenced window vs current position
+	const Rules& r = Rules::get();
+	if (!r.Shielded.Enabled)
+		return false;
 
-	return (v.m_pSpendProof->m_WindowEnd <= m_Extra.m_Shielded);
+	if (v.m_pSpendProof->m_WindowEnd > m_Extra.m_Shielded)
+		return false;
+
+	uint32_t N = v.m_pSpendProof->m_Cfg.get_N();
+	if (N < r.Shielded.NMin)
+		return false; // invalid cfg or anonymity set is too small
+
+	if (N > r.Shielded.NMin)
+	{
+		if (N > r.Shielded.NMax)
+			return false; // too large
+
+		if (v.m_pSpendProof->m_WindowEnd > m_Extra.m_Shielded + r.Shielded.MaxWindowBacklog)
+			return false; // large anonymity set is no more allowed, expired
+	}
+
+	return true;
 }
 
 bool NodeProcessor::HandleShieldedElement(const ECC::Point& comm, bool bOutp, bool bFwd)
@@ -2539,6 +2625,7 @@ void NodeProcessor::RollbackTo(Height h)
 		std::vector<NodeDB::StateInput> v;
 		m_DB.get_StateInputs(sid.m_Row, v);
 
+		BlockInterpretCtx bic(sid.m_Height, false);
 		for (size_t i = 0; i < v.size(); i++)
 		{
 			TxoID id = v[i].get_ID();
@@ -2548,7 +2635,7 @@ void NodeProcessor::RollbackTo(Height h)
 			Input inp;
 			ToInputWithMaturity(inp, id);
 
-			if (!HandleBlockElement(inp, 0, false))
+			if (!HandleBlockElement(inp, bic))
 				OnCorrupted();
 
 			m_DB.TxoSetSpent(id, MaxHeight);
@@ -2568,7 +2655,8 @@ void NodeProcessor::RollbackTo(Height h)
 
 		virtual bool OnTxo(const NodeDB::WalkerTxo& wlk, Height hCreate, Output& outp) override
 		{
-			if (!m_pThis->HandleBlockElement(outp, hCreate, false))
+			BlockInterpretCtx bic(hCreate, false);
+			if (!m_pThis->HandleBlockElement(outp, bic))
 				OnCorrupted();
 			return true;
 		}
@@ -2968,7 +3056,7 @@ bool NodeProcessor::ValidateTxContext(const Transaction& tx, const HeightRange& 
 	if (!ValidateTxWrtHeight(tx, hr))
 		return false;
 
-	bool bShieldedInputs = false;
+	uint32_t nIns = 0, nOuts = 0;
 
 	// Cheap tx verification. No need to update the internal structure, recalculate definition, or etc.
 	// Ensure input UTXOs are present
@@ -2994,7 +3082,7 @@ bool NodeProcessor::ValidateTxContext(const Transaction& tx, const HeightRange& 
 			if (!ValidateShieldedNoDup(key, false))
 				return false; // double-spending
 
-			bShieldedInputs = true;
+			nIns++;
 		}
 		else
 		{
@@ -3006,21 +3094,35 @@ bool NodeProcessor::ValidateTxContext(const Transaction& tx, const HeightRange& 
 	for (size_t i = 0; i < tx.m_vOutputs.size(); i++)
 	{
 		const Output& v = *tx.m_vOutputs[i];
-		if (v.m_pShielded && !ValidateShieldedNoDup(v.m_pShielded->m_SerialPub, true))
-			return false; // shielded duplicates are not allowed
+		if (v.m_pShielded)
+		{
+			if (!ValidateShieldedNoDup(v.m_pShielded->m_SerialPub, true))
+				return false; // shielded duplicates are not allowed
+
+			nOuts++;
+		}
 	}
 
-	if (bShieldedInputs && !bShieldedTested)
+	if (!bShieldedTested)
 	{
-		ECC::InnerProduct::BatchContextEx<4> bc;
-		MultiShieldedContext msc;
+		if (nIns)
+		{
+			if (nIns > Rules::get().Shielded.MaxIns)
+				return false;
 
-		if (!msc.IsValid(tx.m_vInputs, bc, 0, 1))
-			return false;
+			ECC::InnerProduct::BatchContextEx<4> bc;
+			MultiShieldedContext msc;
 
-		msc.Calculate(bc.m_Sum, *this);
+			if (!msc.IsValid(tx.m_vInputs, bc, 0, 1))
+				return false;
 
-		if (!bc.Flush())
+			msc.Calculate(bc.m_Sum, *this);
+
+			if (!bc.Flush())
+				return false;
+		}
+
+		if (nOuts && (nOuts > Rules::get().Shielded.MaxOuts))
 			return false;
 	}
 
@@ -3064,7 +3166,7 @@ bool NodeProcessor::ValidateInputs(const ECC::Point& comm, Input::Count nCount /
 	return !m_Utxos.Traverse(t);
 }
 
-size_t NodeProcessor::GenerateNewBlockInternal(BlockContext& bc)
+size_t NodeProcessor::GenerateNewBlockInternal(BlockContext& bc, BlockInterpretCtx& bic)
 {
 	Height h = m_Cursor.m_Sid.m_Height + 1;
 
@@ -3090,7 +3192,7 @@ size_t NodeProcessor::GenerateNewBlockInternal(BlockContext& bc)
 	{
 		if (pOutp)
 		{
-			if (!HandleBlockElement(*pOutp, h, true))
+			if (!HandleBlockElement(*pOutp, bic))
 				return 0;
 
 			bc.m_Block.m_vOutputs.push_back(std::move(pOutp));
@@ -3157,7 +3259,7 @@ size_t NodeProcessor::GenerateNewBlockInternal(BlockContext& bc)
 
 		Transaction& tx = *x.m_pValue;
 
-		if (ValidateTxWrtHeight(tx, x.m_Threshold.m_Height) && HandleValidatedTx(tx.get_Reader(), h, true))
+		if (ValidateTxWrtHeight(tx, x.m_Threshold.m_Height) && HandleValidatedTx(tx.get_Reader(), bic))
 		{
 			TxVectors::Writer(bc.m_Block, bc.m_Block).Dump(tx.get_Reader());
 
@@ -3177,7 +3279,7 @@ size_t NodeProcessor::GenerateNewBlockInternal(BlockContext& bc)
 		if (bc.m_Fees)
 		{
 			bb.AddFees(bc.m_Fees, pOutp);
-			if (!HandleBlockElement(*pOutp, h, true))
+			if (!HandleBlockElement(*pOutp, bic))
 				return 0;
 
 			bc.m_Block.m_vOutputs.push_back(std::move(pOutp));
@@ -3242,7 +3344,7 @@ NodeProcessor::BlockContext::BlockContext(TxPool::Fluff& txp, Key::Index nSubKey
 
 bool NodeProcessor::GenerateNewBlock(BlockContext& bc)
 {
-	Height h = m_Cursor.m_Sid.m_Height + 1;
+	BlockInterpretCtx bic(m_Cursor.m_Sid.m_Height + 1, true);
 
 	bool bEmpty =
 		bc.m_Block.m_vInputs.empty() &&
@@ -3251,22 +3353,23 @@ bool NodeProcessor::GenerateNewBlock(BlockContext& bc)
 
 	if (!bEmpty)
 	{
-		if ((BlockContext::Mode::Finalize != bc.m_Mode) && !VerifyBlock(bc.m_Block, bc.m_Block.get_Reader(), h))
+		if ((BlockContext::Mode::Finalize != bc.m_Mode) && !VerifyBlock(bc.m_Block, bc.m_Block.get_Reader(), bic.m_Height))
 			return false;
 
-		if (!HandleValidatedTx(bc.m_Block.get_Reader(), h, true))
+		if (!HandleValidatedTx(bc.m_Block.get_Reader(), bic))
 			return false;
 	}
 
 	size_t nSizeEstimated = 1;
 
 	if (BlockContext::Mode::Finalize != bc.m_Mode)
-		nSizeEstimated = GenerateNewBlockInternal(bc);
+		nSizeEstimated = GenerateNewBlockInternal(bc, bic);
 
 	if (nSizeEstimated)
-		bc.m_Hdr.m_Height = h;
+		bc.m_Hdr.m_Height = bic.m_Height;
 
-    BEAM_VERIFY(HandleValidatedTx(bc.m_Block.get_Reader(), h, false)); // undo changes
+	bic.m_Fwd = false;
+    BEAM_VERIFY(HandleValidatedTx(bc.m_Block.get_Reader(), bic)); // undo changes
 
 	// reset input maturities
 	for (size_t i = 0; i < bc.m_Block.m_vInputs.size(); i++)
@@ -3283,13 +3386,15 @@ bool NodeProcessor::GenerateNewBlock(BlockContext& bc)
 
 	// The effect of the cut-through block may be different than it was during block construction, because the consumed and created UTXOs (removed by cut-through) could have different maturities.
 	// Hence - we need to re-apply the block after the cut-throught, evaluate the definition, and undo the changes (once again).
-	if (!HandleValidatedTx(bc.m_Block.get_Reader(), h, true))
+	bic.m_Fwd = true;
+	if (!HandleValidatedTx(bc.m_Block.get_Reader(), bic))
 	{
 		LOG_WARNING() << "couldn't apply block after cut-through!";
 		return false; // ?!
 	}
 	GenerateNewHdr(bc);
-    BEAM_VERIFY(HandleValidatedTx(bc.m_Block.get_Reader(), h, false)); // undo changes
+	bic.m_Fwd = false;
+    BEAM_VERIFY(HandleValidatedTx(bc.m_Block.get_Reader(), bic)); // undo changes
 
 
 	Serializer ser;
@@ -3577,7 +3682,8 @@ void NodeProcessor::InitializeUtxos()
 		virtual bool OnTxo(const NodeDB::WalkerTxo& wlk, Height hCreate, Output& outp) override
 		{
 			m_This.m_Extra.m_Txos = wlk.m_ID;
-			if (!m_This.HandleBlockElement(outp, hCreate, true))
+			BlockInterpretCtx bic(hCreate, true);
+			if (!m_This.HandleBlockElement(outp, bic))
 				OnCorrupted();
 
 			return true;

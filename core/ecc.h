@@ -170,6 +170,7 @@ namespace ECC
 		int cmp(const Signature&) const;
 		COMPARISON_VIA_CMP
 
+		void get_Challenge(Scalar::Native&, const Hash::Value& msg) const;
 	private:
 		static void get_Challenge(Scalar::Native&, const Point&, const Hash::Value& msg);
 	};
@@ -435,16 +436,16 @@ namespace ECC
 			int cmp(const Confidential&) const;
 			COMPARISON_VIA_CMP
 
+			struct Nonces;
+
 			// multisig
 			struct MultiSig
 			{
 				Part1 m_Part1;
 				Part2 m_Part2;
 
-				struct Impl;
-
-				static bool CoSignPart(const uintBig& seedSk, Part2&);
-				void CoSignPart(const uintBig& seedSk, const Scalar::Native& sk, Oracle&, Part3&) const;
+				static bool CoSignPart(const Nonces&, Part2&);
+				void CoSignPart(const Nonces&, const Scalar::Native& sk, Oracle&, Part3&) const;
 			};
 
 			struct Phase {
@@ -456,7 +457,7 @@ namespace ECC
 				};
 			};
 
-			bool CoSign(const uintBig& seedSk, const Scalar::Native& sk, const CreatorParams&, Oracle&, Phase::Enum, const Point::Native* pHGen = nullptr);
+			bool CoSign(const Nonces&, const Scalar::Native& sk, const CreatorParams&, Oracle&, Phase::Enum, const Point::Native* pHGen = nullptr);
 
             static void GenerateSeed(uintBig& seedSk, const Scalar::Native& sk, Amount amount, Oracle& oracle);
 

@@ -148,7 +148,19 @@ namespace beam
 
 		struct {
 			bool Enabled = true; // past Fork2
-			// TODO - policy w.r.t. supported cfgs
+
+			uint32_t NMax = 0x10000; // 64K
+			uint32_t NMin = 0x400; // 1K
+
+			// Max distance of the specified window from the tip where the prover is allowed to use big N.
+			// For proofs with bigger distance only NMin is supported
+			uint32_t MaxWindowBacklog = 0x10000; // 64K
+			// Hence "big" proofs won't need more than 128K most recent elements
+
+			// max shielded ins/outs per block
+			uint32_t MaxIns = 20;
+			uint32_t MaxOuts = 1000; // basically unlimited
+
 		} Shielded;
 
 		void UpdateChecksum();
@@ -293,11 +305,57 @@ namespace beam
 			ECC::Signature m_Signature;
 			ECC::Scalar m_kSer;
 
-			void Sign(const ECC::Scalar::Native& skG, const ECC::Scalar::Native& skJ);
 			bool IsValid() const;
 
 			int cmp(const Shielded&) const;
 			COMPARISON_VIA_CMP
+
+			struct PublicGen
+			{
+				Key::IPKdf::Ptr m_pGen;
+				Key::IPKdf::Ptr m_pSer;
+
+				PeerID m_Owner;
+				void get_OwnerNonce(ECC::Hash::Value&, const ECC::Scalar::Native&) const;
+			};
+
+			struct Viewer
+			{
+				Key::IKdf::Ptr m_pGen;
+				Key::IPKdf::Ptr m_pSer;
+			};
+
+			struct Data
+			{
+				ECC::Scalar::Native m_sk; // blinding factor for the Output
+				ECC::Scalar::Native m_skSerial; // blinding factor for the serial. Set iff serial part is created
+				Amount m_Value;
+				Height m_hScheme = 0; // must set
+
+				// Generates Shielded from nonce
+				// Sets both m_sk and m_skSerial
+				void GenerateS(Shielded&, const PublicGen&, const ECC::Hash::Value& nonce);
+				void GenerateO(Output&, const PublicGen&); // generate UTXO from m_sk
+				void Generate(Output&, const PublicGen&, const ECC::Hash::Value& nonce); // generate everything nonce
+
+				bool Recover(const Output&, const Viewer&);
+
+				struct HashTxt;
+
+				void GetSpendKey(ECC::Scalar::Native&, Key::IKdf& ser);
+
+			private:
+				static void GenerateS0(Key::IPKdf& ser, const ECC::Hash::Value& nonce, ECC::Scalar::Native& kG, ECC::Scalar::Native& kJ);
+				static void GenerateS1(Key::IPKdf& gen, const ECC::Point& ptShared, ECC::Scalar::Native& nG, ECC::Scalar::Native& nJ);
+				static void GetSerialPreimage(ECC::Hash::Value& res, const ECC::Scalar::Native& kG);
+				static void GetSerial(ECC::Scalar::Native& kJ, const ECC::Scalar::Native& kG, Key::IPKdf& ser);
+				void ToSk(Key::IPKdf& gen);
+				void GetOutputSeed(Key::IPKdf& gen, ECC::Hash::Value&) const;
+				static void GetDH(ECC::Hash::Value&, const ECC::Point&);
+				static void DoubleBlindedCommitment(ECC::Point::Native&, const ECC::Scalar::Native& kG, const ECC::Scalar::Native& kJ);
+				static bool IsEqual(const ECC::Point::Native& pt0, const ECC::Point& pt1);
+				static bool IsEqual(const ECC::Point::Native& pt0, const ECC::Point::Native& pt1);
+			};
 
 		private:
 			void get_Hash(ECC::Hash::Value&) const;
@@ -420,6 +478,7 @@ namespace beam
 
 			void Compare(IReader&& rOther, bool& bICover, bool& bOtherCovers);
 			size_t get_SizeNetto(); // account only for elements. Ignore offset and array sizes
+			void CalculateShielded(uint32_t& nIns, uint32_t& nOuts);
 		};
 
 		struct IWriter
@@ -509,6 +568,8 @@ namespace beam
 		{
 			Amount m_Output;
 			Amount m_Kernel; // nested kernels are accounted too
+			Amount m_ShieldedInput;
+			Amount m_ShieldedOutput;
 
 			FeeSettings(); // defaults
 

@@ -73,7 +73,6 @@ ColumnLayout {
         onAccepted: main.openSwapSettings();
     }
 
-
     Component.onCompleted: {
         comment_input.forceActiveFocus();
         if (predefinedTxParams != undefined) {
@@ -147,8 +146,8 @@ ColumnLayout {
                     font.pixelSize:  14
                     font.styleName:  "Bold"; font.weight: Font.Bold
                     color:           Style.content_main
-                    //% "Transaction token"
-                    text:            qsTrId("send-swap-to-label")
+                    //% "Swap token"
+                    text:            qsTrId("send-swap-token")
                 }
 
                 SFTextInput {
@@ -162,8 +161,7 @@ ColumnLayout {
                     validator:        RegExpValidator { regExp: /[0-9a-fA-F]{1,}/ }
                     selectByMouse:    true
                     readOnly:         true
-                    //% "Please specify contact or transaction token"
-                    placeholderText:  qsTrId("send-contact-placeholder")
+                    onTextChanged:    cursorPosition = 0
                 }
 
                 Item {
@@ -200,6 +198,7 @@ ColumnLayout {
                         title:            qsTrId("sent-amount-label")
                         id:               sendAmountInput
                         hasFee:           true
+                        currFeeTitle:     true
                         amount:           viewModel.sendAmount
                         currency:         viewModel.sendCurrency
                         readOnlyA:        true
@@ -269,6 +268,7 @@ ColumnLayout {
                         title:            qsTrId("receive-amount-swap-label")
                         id:               receiveAmountInput
                         hasFee:           true
+                        currFeeTitle:     true
                         amount:           viewModel.receiveAmount
                         currency:         viewModel.receiveCurrency
                         readOnlyA:        true
@@ -371,9 +371,15 @@ ColumnLayout {
                         const dialogComponent = Qt.createComponent("send_confirm.qml");
                         var dialogObject = dialogComponent.createObject(sendSwapView,
                             {
+                                swapMode: true,
                                 addressText: viewModel.receiverAddress,
                                 amountText: [Utils.uiStringToLocale(viewModel.sendAmount), sendAmountInput.getCurrencyLabel()].join(" "),
                                 feeText: [Utils.uiStringToLocale(viewModel.sendFee), sendAmountInput.getFeeLabel()].join(" "),
+                                feeLabel: sendAmountInput.currency == Currency.CurrBeam ?
+                                    //% "BEAM Transaction fee"
+                                    qsTrId("beam-transaction-fee") + ":" :
+                                    //% "%1 Transaction fee rate"
+                                    qsTrId("general-fee-rate").arg(sendAmountInput.getCurrencyLabel()),
                                 onAcceptedCallback: acceptedCallback
                             }).open();
 

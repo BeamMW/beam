@@ -1271,8 +1271,8 @@ or send this address to the sender over secure channel</translation>
         <translation>Estimate time: %s</translation>
     </message>
     <message id="general-fee-rate">
-        <source>Transaction fee rate</source>
-        <translation>Transaction fee rate</translation>
+        <source>%1 Transaction fee rate</source>
+        <translation>%1 Transaction fee rate</translation>
     </message>
     <message id="general-fee-fail">
         <source>The minimum fee is %1 %2</source>
@@ -1367,8 +1367,8 @@ or send this address to the sender over secure channel</translation>
         <translation>Send this token to the sender over an external secure channel</translation>
     </message>
     <message id="wallet-receive-swap-publish">
-        <source>publish transaction token</source>
-        <translation>publish transaction token</translation>
+        <source>publish offer</source>
+        <translation>publish offer</translation>
     </message>
     <message id="wallet-send-swap-title">
         <source>Swap currencies</source>
@@ -1379,8 +1379,8 @@ or send this address to the sender over secure channel</translation>
         <translation>Invalid swap token</translation>
     </message>
     <message id="wallet-send-invalid-address-or-token">
-        <source>Invalid wallet address or swap token</source>
-        <translation>Invalid wallet address or swap token</translation>
+        <source>Invalid wallet address</source>
+        <translation>Invalid wallet address</translation>
     </message>
     <message id="general-comment-local">
         <source>Comments are local and won&apos;t be shared</source>
@@ -1410,10 +1410,6 @@ or send this address to the sender over secure channel</translation>
         <source>%1 is not connected, \nplease review your settings and try again.</source>
         <oldsource>%1 is not connected, please review your settings and try again.</oldsource>
         <translation type="unfinished">%1 is not connected, \nplease review your settings and try again.</translation>
-    </message>
-    <message id="send-swap-to-label">
-        <source>Transaction token</source>
-        <translation>Transaction token</translation>
     </message>
     <message id="send-not-enough">
         <source>There is not enough funds to complete the transaction</source>
@@ -1592,8 +1588,8 @@ or send this address to the sender over secure channel</translation>
         <translation>There is no device connected, please, connect your hardware wallet.</translation>
     </message>
     <message id="wallet-receive-copy-token">
-        <source>copy transaction token</source>
-        <translation>copy transaction token</translation>
+        <source>copy swap token</source>
+        <translation>copy swap token</translation>
     </message>
     <message id="wallet-model-device-not-connected">
         <source>There is no Trezor device connected. Please, connect and try again.</source>
@@ -1757,16 +1753,16 @@ Please check the swap token and try again.</translation>
         <translation type="unfinished">Transaction ID</translation>
     </message>
     <message id="swap-details-tx-fee">
-        <source>Transaction fee</source>
-        <translation type="unfinished">Transaction fee</translation>
+        <source>BEAM Transaction fee</source>
+        <translation type="unfinished">BEAM Transaction fee</translation>
     </message>
     <message id="swap-details-tx-comment">
         <source>Comment</source>
         <translation type="unfinished">Comment</translation>
     </message>
     <message id="swap-details-tx-fee-rate">
-        <source>Transaction fee rate</source>
-        <translation type="unfinished">Transaction fee rate</translation>
+        <source>%1 Transaction fee rate</source>
+        <translation type="unfinished">%1 Transaction fee rate</translation>
     </message>
     <message id="settings-swap-disconnect">
         <source>Disconnect</source>
@@ -1948,6 +1944,32 @@ Please check the swap token and try again.</translation>
         <source>Enter your wallet password to clear seed phrase</source>
         <extracomment>electrum settings, ask password to clear seed phrase, dialog message</extracomment>
         <translation>Enter your wallet password to clear seed phrase</translation>
+    </message>
+    <message id="wallet-receive-swap-your-token">
+        <source>Your swap token:</source>
+        <translation>Your swap token:</translation>
+    </message>
+    <message id="send-swap-confirmation-title">
+        <source>Confirm atomic swap</source>
+        <translation>Confirm atomic swap</translation>
+    </message>
+    <message id="send-swap-sconfirmation-online-time">
+        <source>Keep your wallet online. The swap normally takes about 1 hour
+to complete.</source>
+        <translation>Keep your wallet online. The swap normally takes about 1 hour
+to complete.</translation>
+    </message>
+    <message id="beam-transaction-fee">
+        <source>BEAM Transaction fee</source>
+        <translation>BEAM Transaction fee</translation>
+    </message>
+    <message id="send-swap-token">
+        <source>Swap token</source>
+        <translation>Swap token</translation>
+    </message>
+    <message id="send-swap-token-hint">
+        <source>Paste token here</source>
+        <translation>Paste token here</translation>
     </message>
 </context>
 </TS>

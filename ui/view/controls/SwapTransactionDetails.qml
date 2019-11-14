@@ -94,7 +94,7 @@ RowLayout {
             Layout.alignment: Qt.AlignTop
             font.pixelSize: 14
             color: Style.content_secondary
-            //% "Transaction fee"
+            //% "BEAM Transaction fee"
             text: qsTrId("swap-details-tx-fee") + ":"
         }
         SFLabel {
@@ -112,8 +112,8 @@ RowLayout {
             Layout.alignment: Qt.AlignTop
             font.pixelSize: 14
             color: Style.content_secondary
-            //% "Transaction fee rate"
-            text: qsTrId("swap-details-tx-fee-rate") + ":"
+            //% "%1 Transaction fee rate"
+            text: qsTrId("swap-details-tx-fee-rate").arg(swapCoinName.toUpperCase()) + ":"
         }
         SFLabel {
             Layout.fillWidth: true

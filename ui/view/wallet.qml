@@ -121,22 +121,10 @@ Item {
                     //font.capitalization: Font.AllUppercase
 
                     onClicked: {
-                        walletStackView.push(Qt.createComponent("send.qml"),
-                                             {
-                                                 "isSwapMode": false,
-                                                 "onClosed": onClosed,
-                                                 "onSwapToken": onSwapToken,
-                                                 "onAddress": onAddress
-                                             });
-
-                        function onAddress(token) {
-                            walletStackView.pop();
-                            walletStackView.push(Qt.createComponent("send_regular.qml"),
-                                                {"onAccepted": onAccepted,
-                                                 "onClosed": onClosed,
-                                                 "onSwapToken": onSwapToken});
-                            walletStackView.currentItem.setToken(token);
-                        }
+                        walletStackView.push(Qt.createComponent("send_regular.qml"),
+                                             {"onAccepted":  onAccepted,
+                                              "onClosed":    onClosed,
+                                              "onSwapToken": onSwapToken})
                     }
                 }
 
@@ -151,21 +139,7 @@ Item {
                     //font.capitalization: Font.AllUppercase
 
                     onClicked: {
-                        walletStackView.push(Qt.createComponent("receive_regular.qml"),
-                                            {"onClosed": onClosed,
-                                             "onSwapMode": onSwapMode});
-                        function onSwapMode() {
-                            walletStackView.pop();
-                            walletStackView.push(Qt.createComponent("receive_swap.qml"),
-                                                {"onClosed": onClosed,
-                                                 "onRegularMode": onRegularMode});
-                        }
-                        function onRegularMode() {
-                            walletStackView.pop();
-                            walletStackView.push(Qt.createComponent("receive_regular.qml"),
-                                                {"onClosed": onClosed,
-                                                 "onSwapMode": onSwapMode});
-                        }
+                        walletStackView.push(Qt.createComponent("receive_regular.qml"), {"onClosed": onClosed});
                     }
                 }
             }

@@ -8,6 +8,8 @@ import "./utils.js" as Utils
 ColumnLayout {
     id: sendRegularView
 
+    property var defaultFocusItem: receiverTAInput
+
     // callbacks set by parent
     property var onAccepted: undefined
     property var onClosed: undefined
@@ -97,7 +99,7 @@ ColumnLayout {
                     id:               receiverTAError
                     color:            Style.validator_error
                     font.pixelSize:   12
-                    //% "Invalid wallet address or swap token"
+                    //% "Invalid wallet address"
                     text:             qsTrId("wallet-send-invalid-address-or-token")
                     visible:          !isTAInputValid()
                 }

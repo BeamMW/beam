@@ -1045,8 +1045,13 @@
         <translation>Luo lompakkoosi uusi salasana</translation>
     </message>
     <message id="start-create-pwd-strength-message">
-        <source>Strong password needs to meet the following requirements:\n•  the length must be at least 10 characters\n•  must contain at least one lowercase letter\n•  must contain at least one uppercase letter\n•  must contain at least one number</source>
-        <translation>Vahvan salasanan tulee täyttää seuraavat kriteerit:\n•  salasanassa täytyy olla vähintään 10 merkkiä\n•  vähintään yksi kirjain pienellä\n•  vähintään yksi kirjain isolla\n•  vähintään yksi numero</translation>
+        <source>Strong password needs to meet the following requirements:
+•  the length must be at least 10 characters
+•  must contain at least one lowercase letter
+•  must contain at least one uppercase letter
+•  must contain at least one number</source>
+        <oldsource>Strong password needs to meet the following requirements:\n•  the length must be at least 10 characters\n•  must contain at least one lowercase letter\n•  must contain at least one uppercase letter\n•  must contain at least one number</oldsource>
+        <translation type="unfinished">Vahvan salasanan tulee täyttää seuraavat kriteerit:\n•  salasanassa täytyy olla vähintään 10 merkkiä\n•  vähintään yksi kirjain pienellä\n•  vähintään yksi kirjain isolla\n•  vähintään yksi numero</translation>
     </message>
     <message id="start-open-caps-warning">
         <source>Caps lock is on!</source>
@@ -1266,8 +1271,9 @@
         <translation>Arvioitu kesto: %s</translation>
     </message>
     <message id="general-fee-rate">
-        <source>Transaction fee rate</source>
-        <translation>Vaihtomaksu</translation>
+        <source>%1 Transaction fee rate</source>
+        <oldsource>Transaction fee rate</oldsource>
+        <translation type="unfinished">Vaihtomaksu</translation>
     </message>
     <message id="general-fee-fail">
         <source>The minimum fee is %1 %2</source>
@@ -1314,8 +1320,10 @@
         <translation>Atomic Swap on BETA-vaiheessa</translation>
     </message>
     <message id="swap-na-message">
-        <source>You do not have any 3rd-party currencies connected.\nUpdate your settings and try again.</source>
-        <translation>Sinulla ei ole ulkoisia valuuttoja yhdistettynä.\nPäivitä asetuksesi ja yritä uudelleen.</translation>
+        <source>You do not have any 3rd-party currencies connected.
+Update your settings and try again.</source>
+        <oldsource>You do not have any 3rd-party currencies connected.\nUpdate your settings and try again.</oldsource>
+        <translation type="unfinished">Sinulla ei ole ulkoisia valuuttoja yhdistettynä.\nPäivitä asetuksesi ja yritä uudelleen.</translation>
     </message>
     <message id="wallet-receive-swap-title">
         <source>Create swap offer</source>
@@ -1355,15 +1363,16 @@
     </message>
     <message id="wallet-receive-your-token">
         <source>Your transaction token:</source>
-        <translation>Tapahtumasi tunniste:</translation>
+        <translation type="vanished">Tapahtumasi tunniste:</translation>
     </message>
     <message id="wallet-swap-token-message">
         <source>Send this token to the sender over an external secure channel</source>
         <translation>Lähetä tämä tunniste vaihdon suorittajalle turvallista viestintävälinettä käyttäen</translation>
     </message>
     <message id="wallet-receive-swap-publish">
-        <source>publish transaction token</source>
-        <translation>julkaise tapahtuman tunniste</translation>
+        <source>publish offer</source>
+        <oldsource>publish transaction token</oldsource>
+        <translation type="unfinished">julkaise tapahtuman tunniste</translation>
     </message>
     <message id="wallet-send-swap-title">
         <source>Swap currencies</source>
@@ -1374,8 +1383,9 @@
         <translation>Virheellinen swap-tunniste</translation>
     </message>
     <message id="wallet-send-invalid-address-or-token">
-        <source>Invalid wallet address or swap token</source>
-        <translation>Virheelinen osoite tai swap-tunniste</translation>
+        <source>Invalid wallet address</source>
+        <oldsource>Invalid wallet address or swap token</oldsource>
+        <translation type="unfinished">Virheelinen osoite tai swap-tunniste</translation>
     </message>
     <message id="general-comment-local">
         <source>Comments are local and won&apos;t be shared</source>
@@ -1402,13 +1412,14 @@
         <translation>Electrum</translation>
     </message>
     <message id="swap-currency-na-message">
-        <source>%1 is not connected, \nplease review your settings and try again.</source>
-        <oldsource>%1 is not connected, please review your settings and try again.</oldsource>
-        <translation>%1 ei ole yhdistetty. \nTarkista asetuksesi ja yritä uudelleen.</translation>
+        <source>%1 is not connected, 
+please review your settings and try again.</source>
+        <oldsource>%1 is not connected, \nplease review your settings and try again.</oldsource>
+        <translation type="unfinished">%1 ei ole yhdistetty. \nTarkista asetuksesi ja yritä uudelleen.</translation>
     </message>
     <message id="send-swap-to-label">
         <source>Transaction token</source>
-        <translation>Tapahtuman tunniste</translation>
+        <translation type="vanished">Tapahtuman tunniste</translation>
     </message>
     <message id="send-not-enough">
         <source>There is not enough funds to complete the transaction</source>
@@ -1587,8 +1598,9 @@
         <translation>Sopivaa laitetta ei ole yhdistetty. Ole hyvä ja yhdistä hardware-lompakkosi.</translation>
     </message>
     <message id="wallet-receive-copy-token">
-        <source>copy transaction token</source>
-        <translation>kopioi tapahtuman tunniste</translation>
+        <source>copy swap token</source>
+        <oldsource>copy transaction token</oldsource>
+        <translation type="unfinished">kopioi tapahtuman tunniste</translation>
     </message>
     <message id="wallet-model-device-not-connected">
         <source>There is no Trezor device connected. Please, connect and try again.</source>
@@ -1615,14 +1627,16 @@
         <translation>Vastaanotettu</translation>
     </message>
     <message id="settings-progress-na">
-        <source>You cannot disconnect wallet, edit seed phrase or change default\nfee while you have transactions in progress.</source>
-        <translation>Et voi katkaista lompakon yhteyttä, muokata seed phrasea tai vaihtaa oletuksena olevaa\nsiirtomaksua, kun sinulla on käsittelyssä olevia tapahtumia.</translation>
+        <source>You cannot disconnect wallet, edit seed phrase or change default
+fee while you have transactions in progress.</source>
+        <oldsource>You cannot disconnect wallet, edit seed phrase or change default\nfee while you have transactions in progress.</oldsource>
+        <translation type="unfinished">Et voi katkaista lompakon yhteyttä, muokata seed phrasea tai vaihtaa oletuksena olevaa\nsiirtomaksua, kun sinulla on käsittelyssä olevia tapahtumia.</translation>
     </message>
     <message id="atomic-no-offers">
-        <source>There are no active offers at the moment.\nPlease try again later or create an offer yourself.</source>
-        <oldsource>There are no active offers at the moment.
-Please try again later or create an offer yourself.</oldsource>
-        <translation>Ei yhtään voimassa olevaa tarjousta.\nTee oma tarjous tai yritä myöhemmin uudelleen.</translation>
+        <source>There are no active offers at the moment.
+Please try again later or create an offer yourself.</source>
+        <oldsource>There are no active offers at the moment.\nPlease try again later or create an offer yourself.</oldsource>
+        <translation type="unfinished">Ei yhtään voimassa olevaa tarjousta.\nTee oma tarjous tai yritä myöhemmin uudelleen.</translation>
     </message>
     <message id="send-less-than-fee">
         <source>The swap amount must be greater than the redemption fee.</source>
@@ -1685,8 +1699,10 @@ Please try again later or create an offer yourself.</oldsource>
         <translation>Omaa tarjousta ei voi hyväksyä</translation>
     </message>
     <message id="accept-own-offer-allert-body">
-        <source>The transaction token was generated by you, therefore it is not allowed to accept your own offer.\nPlease check the swap token and try again.</source>
-        <translation>Olet itse luonut kyseisen tapahtuman tunnisteen, eikä omaa tarjousta voida hyväksyä.\nTarkista swap-tunniste ja yritä uudelleen.</translation>
+        <source>The transaction token was generated by you, therefore it is not allowed to accept your own offer.
+Please check the swap token and try again.</source>
+        <oldsource>The transaction token was generated by you, therefore it is not allowed to accept your own offer.\nPlease check the swap token and try again.</oldsource>
+        <translation type="unfinished">Olet itse luonut kyseisen tapahtuman tunnisteen, eikä omaa tarjousta voida hyväksyä.\nTarkista swap-tunniste ja yritä uudelleen.</translation>
     </message>
     <message id="swap-copy-token">
         <source>Copy token</source>
@@ -1749,16 +1765,18 @@ Please try again later or create an offer yourself.</oldsource>
         <translation>Tapahtuman ID</translation>
     </message>
     <message id="swap-details-tx-fee">
-        <source>Transaction fee</source>
-        <translation>Siirtomaksu</translation>
+        <source>BEAM Transaction fee</source>
+        <oldsource>Transaction fee</oldsource>
+        <translation type="unfinished">Siirtomaksu</translation>
     </message>
     <message id="swap-details-tx-comment">
         <source>Comment</source>
         <translation>Kommentti</translation>
     </message>
     <message id="swap-details-tx-fee-rate">
-        <source>Transaction fee rate</source>
-        <translation>Vaihtomaksu</translation>
+        <source>%1 Transaction fee rate</source>
+        <oldsource>Transaction fee rate</oldsource>
+        <translation type="unfinished">Vaihtomaksu</translation>
     </message>
     <message id="settings-swap-disconnect">
         <source>Disconnect</source>
@@ -1805,8 +1823,10 @@ Please try again later or create an offer yourself.</oldsource>
         <translation>Vaihtomaksu ei voi olla alle %1</translation>
     </message>
     <message id="swap-offer-duplicate-message">
-        <source>The offer with this transaction token is already accepted.\nPlease check the swap token and try again.</source>
-        <translation>Tarjous tällä tapahtuman tunnisteella on jo hyväksytty.\nTarkista swap-tunniste ja yritä uudelleen.</translation>
+        <source>The offer with this transaction token is already accepted.
+Please check the swap token and try again.</source>
+        <oldsource>The offer with this transaction token is already accepted.\nPlease check the swap token and try again.</oldsource>
+        <translation type="unfinished">Tarjous tällä tapahtuman tunnisteella on jo hyväksytty.\nTarkista swap-tunniste ja yritä uudelleen.</translation>
     </message>
     <message id="swap-offer-duplicate-title">
         <source>Оffer is already accepted</source>
@@ -1857,8 +1877,10 @@ Please try again later or create an offer yourself.</oldsource>
         <translation>yhdistä palvelimeen (node)</translation>
     </message>
     <message id="swap-seed-info-message">
-        <source>Your seed phrase is the access key to all the funds! Print or write down the phrase and keep it in a safe or in a locked vault.\nWithout the phrase you will not be able to recover your money.</source>
-        <translation>Seed phrase -palautusavaimellasi pääsee käsiksi kaikkeen lompakon varallisuuteen. Tulosta tai kirjoita se huolellisesti ylös, sekä pidä se tallessa esimerkiksi kassakaapissa, pankkiholvissa tai muussa turvallisesti lukitussa tilassa.\nIlman seed phrasea et voi palauttaa lompakkosi saldoa tarvittaessa.</translation>
+        <source>Your seed phrase is the access key to all the funds! Print or write down the phrase and keep it in a safe or in a locked vault.
+Without the phrase you will not be able to recover your money.</source>
+        <oldsource>Your seed phrase is the access key to all the funds! Print or write down the phrase and keep it in a safe or in a locked vault.\nWithout the phrase you will not be able to recover your money.</oldsource>
+        <translation type="unfinished">Seed phrase -palautusavaimellasi pääsee käsiksi kaikkeen lompakon varallisuuteen. Tulosta tai kirjoita se huolellisesti ylös, sekä pidä se tallessa esimerkiksi kassakaapissa, pankkiholvissa tai muussa turvallisesti lukitussa tilassa.\nIlman seed phrasea et voi palauttaa lompakkosi saldoa tarvittaessa.</translation>
     </message>
     <message id="settings-swap-seed-generate">
         <source>generate another seed phrase</source>
@@ -1939,6 +1961,30 @@ Please try again later or create an offer yourself.</oldsource>
         <source>Enter your wallet password to clear seed phrase</source>
         <extracomment>electrum settings, ask password to clear seed phrase, dialog message</extracomment>
         <translation type="unfinished">Enter your wallet password to clear seed phrase</translation>
+    </message>
+    <message id="wallet-receive-swap-your-token">
+        <source>Your swap token:</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="send-swap-confirmation-title">
+        <source>Confirm atomic swap</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="send-swap-sconfirmation-online-time">
+        <source>Keep your wallet online. The swap normally takes about 1 hour to complete.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="beam-transaction-fee">
+        <source>BEAM Transaction fee</source>
+        <translation type="unfinished">Siirtomaksu</translation>
+    </message>
+    <message id="send-swap-token">
+        <source>Swap token</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="send-swap-token-hint">
+        <source>Paste token here</source>
+        <translation type="unfinished"></translation>
     </message>
 </context>
 </TS>

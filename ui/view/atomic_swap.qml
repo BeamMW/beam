@@ -148,13 +148,10 @@ Item {
                     //% "Accept offer"
                     text: qsTrId("atomic-swap-accept")
                     font.pixelSize: 12
-                    //font.capitalization: Font.AllUppercase
-
                     onClicked: {
                         offersStackView.push(Qt.createComponent("send.qml"),
                                              {
-                                                "isSwapMode": true,
-                                                "onClosed": onClosed,
+                                                "onClosed":    onClosed,
                                                 "onSwapToken": onSwapToken
                                              });
                     }
@@ -174,10 +171,8 @@ Item {
                     //font.capitalization: Font.AllUppercase
 
                     onClicked: {
-                        offersStackView.push(Qt.createComponent("receive_swap.qml"),
-                                            {"modeSwitchEnabled": false,
-                                             "onClosed": onClosed});
-                        function onClosed() { offersStackView.pop(); }
+                        function onClosed() {offersStackView.pop();}
+                        offersStackView.push(Qt.createComponent("receive_swap.qml"), {"onClosed": onClosed});
                     }
                 }
             }
