@@ -93,7 +93,7 @@ Update your settings and try again."
 
             Grid {
                 Layout.fillWidth: true
-                columnSpacing:    13
+                columnSpacing:    10
                 columns:          3
 
                 ColumnLayout {
