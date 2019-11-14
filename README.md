@@ -10,7 +10,7 @@ BEAM is a next generation scalable, confidential cryptocurrency based on an eleg
 
 
 [Download latest version](http://beam.mw/downloads)
-**Clear Cathode 3.1 **
+**Clear Cathode 3.1**
 
 
 ### JOIN OUR COMMUNITIES ON TELEGRAM
