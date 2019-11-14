@@ -136,7 +136,7 @@ namespace beam::wallet
 
         for (auto& pair : m_offersCache)
         {
-            if (pair.second.m_status != SwapOfferStatus::Pending) continue;    // have to be already removed from board
+            if (pair.second.m_status != SwapOfferStatus::Pending) continue;    // has to be already removed from board
 
             auto peerResponseTime = pair.second.GetParameter<Height>(TxParameterID::PeerResponseTime);
             auto minHeight = pair.second.GetParameter<Height>(TxParameterID::MinHeight);

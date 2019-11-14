@@ -27,6 +27,7 @@ namespace beam { namespace io {
 class TcpStream;
 class CoarseTimer;
 class TcpConnectors;
+class ProxyConnector;
 class TcpShutdowns;
 class PendingWrites;
 class SslStream;
@@ -170,10 +171,12 @@ private:
 
     std::unique_ptr<PendingWrites> _pendingWrites;
     std::unique_ptr<TcpConnectors> _tcpConnectors;
+    std::unique_ptr<ProxyConnector> _proxyConnector;
     std::unique_ptr<TcpShutdowns>  _tcpShutdowns;
     StopCallback _stopCB;
 
     friend class TcpConnectors;
+    friend class ProxyConnector;
     friend class TcpShutdowns;
     friend class PendingWrites;
     friend class AsyncEvent;
