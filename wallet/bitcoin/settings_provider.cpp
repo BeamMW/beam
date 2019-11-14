@@ -65,14 +65,6 @@ namespace beam::bitcoin
         m_settings = std::make_unique<Settings>(settings);
     }
 
-    void SettingsProvider::ResetSettings()
-    {
-        // remove from DB
-        m_walletDB->removeVarRaw(GetSettingsName().c_str());
-
-        m_settings = std::make_unique<Settings>(GetEmptySettings());
-    }
-
     void SettingsProvider::Initialize()
     {
         if (!m_settings)

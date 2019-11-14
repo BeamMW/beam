@@ -31,30 +31,11 @@ ColumnLayout {
             if (currency == Currency.CurrBeam) return;
         }
 
-        var isOtherCurrActive  = false
-        var currname = ""
-
-        if (currency == Currency.CurrBtc) {
-            isOtherCurrActive  = BeamGlobals.haveBtc()
-            //% "Bitcoin"
-            currname = qsTrId("general-bitcoin")
-        }
-
-        if (currency == Currency.CurrLtc){
-            isOtherCurrActive = BeamGlobals.haveLtc()
-            //% "Litecoin"
-            currname = qsTrId("general-litecoin")
-        }
-
-        if (currency == Currency.CurrQtum) {
-            isOtherCurrActive = BeamGlobals.haveQtum()
-            //% "QTUM"
-            currname = qsTrId("general-qtum")
-        }
-
-        if (isOtherCurrActive == false) {
-            //% "%1 is not connected, \nplease review your settings and try again."
-            swapna.text = qsTrId("swap-currency-na-message").arg(currname).replace("\\n", "\n")
+        if (!BeamGlobals.canReceive(currency)) {
+/*% "%1 is not connected, 
+please review your settings and try again" 
+*/
+            swapna.text = qsTrId("swap-currency-na-message").arg(BeamGlobals.getCurrencyName(currency))
             swapna.open()
             return false;
         }
@@ -121,7 +102,7 @@ ColumnLayout {
             font.pixelSize:  18
             font.styleName:  "Bold"; font.weight: Font.Bold
             color:           Style.content_main
-            //% "Swap currencies"
+            //% "Accept Swap Offer"
             text:            qsTrId("wallet-send-swap-title")
         }
     }
@@ -204,9 +185,20 @@ ColumnLayout {
                         readOnlyA:        true
                         multi:            false
                         color:            Style.accent_outgoing
-                        currColor:        viewModel.receiveCurrency == viewModel.sendCurrency ? Style.validator_error : Style.content_main
-                        //% "There is not enough funds to complete the transaction"
-                        error:            viewModel.isEnough ? "" : qsTrId("send-not-enough")
+                        currColor:        viewModel.receiveCurrency == viewModel.sendCurrency || getErrorText().length ? Style.validator_error : Style.content_main
+                        error:            getErrorText()
+
+                        function getErrorText () {
+                            if(!viewModel.isSendFeeOK) {
+                                //% "The swap amount must be greater than the transaction fee"
+                                return qsTrId("send-less-than-fee")
+                            }
+                            if(!viewModel.isEnough) {
+                                //% "There is not enough funds to complete the transaction"
+                                return qsTrId("send-not-enough")
+                            }
+                            return ""
+                        }
                     }
 
                     Binding {
@@ -274,7 +266,16 @@ ColumnLayout {
                         readOnlyA:        true
                         multi:            false
                         color:            Style.accent_incoming
-                        currColor:        viewModel.receiveCurrency == viewModel.sendCurrency ? Style.validator_error : Style.content_main
+                        currColor:        viewModel.receiveCurrency == viewModel.sendCurrency || getErrorText().length ? Style.validator_error : Style.content_main
+                        error:            getErrorText()
+
+                        function getErrorText() {
+                            if(!viewModel.isReceiveFeeOK) {
+                                //% "The swap amount must be greater than the transaction fee"
+                                return qsTrId("send-less-than-fee")
+                            }
+                            return ""
+                        }
                     }
 
                     Binding {

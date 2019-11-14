@@ -103,49 +103,6 @@ namespace
 
         return walletDBs;
     }
-
-    void removeNodeDataIfNeeded()
-    {
-        try
-        {
-            auto appDataPath = pathFromStdString(AppModel::getInstance().getSettings().getAppDataPath());
-
-            if (!boost::filesystem::exists(appDataPath))
-            {
-                return;
-            }
-            string nodePath = AppModel::getInstance().getSettings().getLocalNodeStorage();
-            try
-            {
-                beam::NodeDB nodeDB;
-                nodeDB.Open(nodePath.c_str());
-                return;
-            }
-            catch (const beam::NodeDBUpgradeException&)
-            {
-            }
-            
-            boost::filesystem::remove(pathFromStdString(nodePath));
-
-            std::vector<boost::filesystem::path> macroBlockFiles;
-            for (boost::filesystem::directory_iterator endDirIt, it{ appDataPath }; it != endDirIt; ++it)
-            {
-                if (it->path().filename().wstring().find(L"tempmb") == 0)
-                {
-                    macroBlockFiles.push_back(it->path());
-                }
-            }
-
-            for (auto& path : macroBlockFiles)
-            {
-                boost::filesystem::remove(path);
-            }
-        }
-        catch (std::exception &e)
-        {
-            LOG_ERROR() << e.what();
-        }
-    }
 }
 
 RecoveryPhraseItem::RecoveryPhraseItem(int index, const QString& phrase)
@@ -271,7 +228,6 @@ StartViewModel::StartViewModel()
     {
         // find all wallet.db in appData and defaultAppData
         findExistingWalletDB();
-        removeNodeDataIfNeeded();
     }
 
 #if defined(BEAM_HW_WALLET)
@@ -546,7 +502,7 @@ void StartViewModel::printRecoveryPhrases(QVariant viewData )
             AppModel::getInstance().getMessages().addMessage(qtTrId("start-view-printer-not-found-error"));
             return;
         }
-        QImage image = qvariant_cast<QImage>(viewData);
+        //QImage image = qvariant_cast<QImage>(viewData);
         QPrinter printer;
         printer.setOutputFormat(QPrinter::NativeFormat);
         printer.setColorMode(QPrinter::GrayScale);

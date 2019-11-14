@@ -9,11 +9,11 @@ import "controls"
 
 ColumnLayout {
     id: sendView
-    property var  defaultFocusItem: receiverTAInput
+    property var    defaultFocusItem: receiverTAInput
     property bool isValid: !receiverTAInput.text || BeamGlobals.isSwapToken(receiverTAInput.text)
 
     // callbacks set by parent
-    property var    onClosed:    function() {}
+    property var    onClosed: function() {}
     property var    onSwapToken: function() {}
 
     TopGradient {
@@ -30,7 +30,7 @@ ColumnLayout {
             font.pixelSize:  18
             font.styleName:  "Bold"; font.weight: Font.Bold
             color:           Style.content_main
-            //% "Swap currencies"
+            //% "Accept Swap Offer"
             text:            qsTrId("wallet-send-swap-title")
         }
     }
@@ -72,7 +72,7 @@ ColumnLayout {
                 font.pixelSize:   12
                 font.italic:      true
                 visible:          !isValid
-                //% "Invalid swap token"
+                    //% "Invalid swap token"
                 text:             qsTrId("wallet-send-invalid-token")
             }
         }
@@ -91,12 +91,12 @@ ColumnLayout {
             }
             
             CustomButton {
-                id:                actionButton
-                //% "Swap"
+                id: actionButton
+                    //% "Swap"
                 text:               qsTrId("general-swap")
                 palette.buttonText: Style.content_opposite
-                palette.button:     Style.accent_outgoing
-                icon.source:        "qrc:/assets/icon-send-blue.svg"
+                palette.button: Style.accent_outgoing
+                icon.source: "qrc:/assets/icon-send-blue.svg"
                 enabled:            receiverTAInput.text && isValid
                 onClicked:          onSwapToken(receiverTAInput.text)
             }

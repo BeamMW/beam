@@ -152,7 +152,7 @@ Job::Job(const std::string& _id, const Merkle::Hash& _input, const Block::PoW& _
     height(height)
 {
     char buf[72];
-    input = to_hex(buf, _input.m_pData, 32);
+    input = to_hex(buf, _input.m_pData, _input.nBytes);
 }
 
 bool append_json_msg(io::FragmentWriter& packer, const Job& m) {

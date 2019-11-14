@@ -60,14 +60,6 @@
         <source>Delete</source>
         <translation>Verwijderen</translation>
     </message>
-    <message id="general-receiving">
-        <source>receiving</source>
-        <translation type="vanished">ontvangen</translation>
-    </message>
-    <message id="general-sending">
-        <source>sending</source>
-        <translation type="vanished">verzenden</translation>
-    </message>
     <message id="general-rescan">
         <source>Rescan</source>
         <translation>Opnieuw scannen</translation>
@@ -190,10 +182,6 @@
         <source>Receive</source>
         <translation>Ontvang</translation>
     </message>
-    <message id="wallet-in-progress-title">
-        <source>In progress</source>
-        <translation type="vanished">Bezig</translation>
-    </message>
     <message id="wallet-transactions-title">
         <source>Transactions</source>
         <translation>Transacties</translation>
@@ -205,10 +193,6 @@
     <message id="wallet-txs-date-time">
         <source>Created on</source>
         <translation>Gemaakt op</translation>
-    </message>
-    <message id="wallet-txs-copy-addr-cm">
-        <source>Copy address</source>
-        <translation type="vanished">Kopieer adres</translation>
     </message>
     <message id="wallet-txs-delete-message">
         <source>The transaction will be deleted. This operation can not be undone</source>
@@ -240,7 +224,8 @@
     </message>
     <message id="wallet-txs-status-cancelled">
         <source>cancelled</source>
-        <translation>geannuleerd</translation>
+        <oldsource>canceled</oldsource>
+        <translation type="unfinished">cancelled</translation>
     </message>
     <message id="wallet-txs-status-expired">
         <source>expired</source>
@@ -326,14 +311,6 @@
         <source>ip:port</source>
         <extracomment>settings tab, node section, address label</extracomment>
         <translation>ip:poort</translation>
-    </message>
-    <message id="settings-see-seed">
-        <source>Click to see seed phrase</source>
-        <translation type="vanished">Klik om uw herstelzin te zien</translation>
-    </message>
-    <message id="settings-new-seed">
-        <source>Double click to generate new seed phrase</source>
-        <translation type="vanished">Dubbelklik om een nieuwe herstelzin te genereren</translation>
     </message>
     <message id="settings-local-node-run-checkbox">
         <source>Run local node</source>
@@ -495,10 +472,6 @@
         <source>Info view</source>
         <translation>Informatieweergave</translation>
     </message>
-    <message id="loading-change-settings-button">
-        <source>Change settings</source>
-        <translation type="vanished">Instellingen wijzigen</translation>
-    </message>
     <message id="loading-try-again-button">
         <source>Try again</source>
         <translation>Probeer opnieuw</translation>
@@ -593,14 +566,6 @@
         <source>Scan to send</source>
         <translation>Scan om te verzenden</translation>
     </message>
-    <message id="wallet-receive-propogate-addr-message">
-        <source>Send this address to the sender over an external secure channel</source>
-        <translation type="vanished">Stuur dit adres naar de afzender via een extern beveiligd kanaal</translation>
-    </message>
-    <message id="invalid-addr-got-it-button">
-        <source>Got it</source>
-        <translation type="vanished">Ik begrijp het</translation>
-    </message>
     <message id="send-title">
         <source>Send</source>
         <translation>Verzend</translation>
@@ -621,21 +586,9 @@
         <source>Insufficient funds: you would need %1 to complete the transaction</source>
         <translation>Onvoldoende saldo: u heeft %1 nodig om de transactie te voltooien</translation>
     </message>
-    <message id="send-fee-fail">
-        <source>The minimum fee is %1 GROTH</source>
-        <translation type="vanished">De minimale vergoeding is %1 GROTH</translation>
-    </message>
-    <message id="send-curency-sub-name">
-        <source>GROTH</source>
-        <translation type="vanished">GROTH</translation>
-    </message>
     <message id="send-remaining-label">
         <source>Remaining</source>
         <translation>Resterende</translation>
-    </message>
-    <message id="send-send-fail">
-        <source>Address %1 is invalid</source>
-        <translation type="vanished">Adres %1 is ongeldig</translation>
     </message>
     <message id="start-restore-confirm-button">
         <source>I agree</source>
@@ -905,19 +858,11 @@
     </message>
     <message id="tx-failture-max-height-to-high">
         <source>Kernel maximum height is too high</source>
-        <translation>Maximale kernel hoogte is te hoog</translation>
+        <translation>Maximale kernel height is te hoog</translation>
     </message>
     <message id="tx-failture-invalid-state">
         <source>Transaction has invalid state</source>
         <translation>Transactie heeft ongeldige status</translation>
-    </message>
-    <message id="tx-curency-name">
-        <source>BEAM</source>
-        <translation type="vanished">BEAM</translation>
-    </message>
-    <message id="tx-curency-sub-name">
-        <source>GROTH</source>
-        <translation type="vanished">GROTH</translation>
     </message>
     <message id="utxo-utxo">
         <source>UTXO</source>
@@ -925,7 +870,7 @@
     </message>
     <message id="utxo-blockchain-height">
         <source>Blockchain Height</source>
-        <translation>Blockchain hoogte</translation>
+        <translation>Blockchain Height</translation>
     </message>
     <message id="utxo-last-block-hash">
         <source>Last block hash</source>
@@ -945,7 +890,7 @@
     </message>
     <message id="utxo-status-maturing">
         <source>Maturing%1(till block height %2)</source>
-        <translation>Groeien%1(tot blok hoogte %2)</translation>
+        <translation>Groeien%1(tot block height %2)</translation>
     </message>
     <message id="utxo-status-unavailable">
         <source>Unavailable%1(mining result rollback)</source>
@@ -1279,10 +1224,6 @@
         <source>The minimum fee is %1 %2</source>
         <translation>De minimale vergoeding is %1 %2</translation>
     </message>
-    <message id="general-locked">
-        <source>locked</source>
-        <translation type="vanished">vergrendeld</translation>
-    </message>
     <message id="general-change-settings">
         <source>Change settings</source>
         <translation>Instellingen wijzigen</translation>
@@ -1312,12 +1253,14 @@
         <translation>Standaard vergoeding</translation>
     </message>
     <message id="swap-beta-message">
-        <source>Atomic Swap functionality is Beta at the moment. We recommend you not to send large amounts.</source>
-        <translation>Atomic Swap functie is op dit moment in bèta. We raden u aan geen grote bedragen te verzenden.</translation>
+        <source>Atomic Swaps functionality is Beta at the moment. We recommend you not to send large amounts.</source>
+        <oldsource>Atomic Swap functionality is Beta at the moment. We recommend you not to send large amounts.</oldsource>
+        <translation type="unfinished">Atomic Swap functie is op dit moment in bèta. We raden u aan geen grote bedragen te verzenden.</translation>
     </message>
     <message id="swap-beta-title">
-        <source>Atomic Swap is in BETA</source>
-        <translation>Atomic Swap is in BETA</translation>
+        <source>Atomic Swaps are in BETA</source>
+        <oldsource>Atomic Swap is in BETA</oldsource>
+        <translation type="unfinished">Atomic Swap is in BETA</translation>
     </message>
     <message id="swap-na-message">
         <source>You do not have any 3rd-party currencies connected.
@@ -1326,8 +1269,9 @@ Update your settings and try again.</source>
         <translation type="unfinished">U heeft geen 3rd-party valuta gekoppeld.\nUpdate uw instellingen en probeer opnieuw.</translation>
     </message>
     <message id="wallet-receive-swap-title">
-        <source>Create swap offer</source>
-        <translation>Swap aanbieding aanmaken</translation>
+        <source>Create a Swap Offer</source>
+        <oldsource>Create swap offer</oldsource>
+        <translation type="unfinished">Swap aanbieding aanmaken</translation>
     </message>
     <message id="wallet-receive-addr-message">
         <source>Send this address to the sender over an external secure channel or scan the QR code</source>
@@ -1361,13 +1305,10 @@ Update your settings and try again.</source>
         <source>Exchange rate</source>
         <translation>Wisselkoers</translation>
     </message>
-    <message id="wallet-receive-your-token">
-        <source>Your transaction token:</source>
-        <translation type="vanished">Uw transactietoken:</translation>
-    </message>
     <message id="wallet-swap-token-message">
-        <source>Send this token to the sender over an external secure channel</source>
-        <translation>Stuur deze token naar de afzender via een extern beveiligd kanaal</translation>
+        <source>Send this token to the sender over a secure external channel</source>
+        <oldsource>Send this token to the sender over an external secure channel</oldsource>
+        <translation type="unfinished">Stuur deze token naar de afzender via een extern beveiligd kanaal</translation>
     </message>
     <message id="wallet-receive-swap-publish">
         <source>publish offer</source>
@@ -1375,8 +1316,9 @@ Update your settings and try again.</source>
         <translation type="unfinished">publiceer transactietoken</translation>
     </message>
     <message id="wallet-send-swap-title">
-        <source>Swap currencies</source>
-        <translation>Swap valuta&apos;s</translation>
+        <source>Accept Swap Offer</source>
+        <oldsource>Swap currencies</oldsource>
+        <translation type="unfinished">Swap valuta&apos;s</translation>
     </message>
     <message id="wallet-send-invalid-token">
         <source>Invalid swap token</source>
@@ -1413,13 +1355,9 @@ Update your settings and try again.</source>
     </message>
     <message id="swap-currency-na-message">
         <source>%1 is not connected, 
-please review your settings and try again.</source>
-        <oldsource>%1 is not connected, \nplease review your settings and try again.</oldsource>
+please review your settings and try again</source>
+        <oldsource>%1 is not connected, \nplease review your settings and try again</oldsource>
         <translation type="unfinished">%1 is niet verbonden, \ncontroleer uw instellingen en probeer opnieuw.</translation>
-    </message>
-    <message id="send-swap-to-label">
-        <source>Transaction token</source>
-        <translation type="vanished">Transactietoken</translation>
     </message>
     <message id="send-not-enough">
         <source>There is not enough funds to complete the transaction</source>
@@ -1458,8 +1396,9 @@ please review your settings and try again.</source>
         <translation>Het kan langer duren dan gebruikelijk. Controleer uw netwerk.</translation>
     </message>
     <message id="atomic-swap-title">
-        <source>Atomic Swap</source>
-        <translation>Atomic Swap</translation>
+        <source>Atomic Swaps</source>
+        <oldsource>Atomic Swap</oldsource>
+        <translation type="unfinished">Atomic Swap</translation>
     </message>
     <message id="atomic-swap-create">
         <source>Create offer</source>
@@ -1606,10 +1545,6 @@ please review your settings and try again.</source>
         <source>There is no Trezor device connected. Please, connect and try again.</source>
         <translation>Er is geen Trezor apparaat verbonden. Probeer het opnieuw.</translation>
     </message>
-    <message id="settings-invalid-seed">
-        <source>Invalid seed phrase</source>
-        <translation type="vanished">Ongeldige herstelzin</translation>
-    </message>
     <message id="wallet-transactions-all-tab">
         <source>All</source>
         <translation>Alle</translation>
@@ -1639,8 +1574,9 @@ Please try again later or create an offer yourself.</source>
         <translation type="unfinished">Er zijn momenteel geen actieve aanbiedingen.\nProbeer het later opnieuw of maak zelf een aanbieding.</translation>
     </message>
     <message id="send-less-than-fee">
-        <source>The swap amount must be greater than the redemption fee.</source>
-        <translation>Het te swappen bedrag moet groter zijn dan het fee bedrag.</translation>
+        <source>The swap amount must be greater than the transaction fee</source>
+        <oldsource>The swap amount must be greater than the redemption fee.</oldsource>
+        <translation type="unfinished">Het te swappen bedrag moet groter zijn dan het fee bedrag.</translation>
     </message>
     <message id="wallet-txs-status-in-progress">
         <source>in progress</source>
@@ -1695,13 +1631,14 @@ Please try again later or create an offer yourself.</source>
         <translation>Ik begrijp het</translation>
     </message>
     <message id="accept-own-offer-allert-head">
-        <source>Own offer can’t be accepted</source>
-        <translation>Eigen aanbieding kan niet worden geaccepteerd</translation>
+        <source>You cannot accept your own offer</source>
+        <oldsource>Own offer can’t be accepted</oldsource>
+        <translation type="unfinished">Eigen aanbieding kan niet worden geaccepteerd</translation>
     </message>
     <message id="accept-own-offer-allert-body">
-        <source>The transaction token was generated by you, therefore it is not allowed to accept your own offer.
-Please check the swap token and try again.</source>
-        <oldsource>The transaction token was generated by you, therefore it is not allowed to accept your own offer.\nPlease check the swap token and try again.</oldsource>
+        <source>The swap token was generated by you, and therefore cannot be accepted.</source>
+        <oldsource>The transaction token was generated by you, therefore it is not allowed to accept your own offer.
+Please check the swap token and try again.</oldsource>
         <translation type="unfinished">De transactietoken is door u gegenereerd. Het is niet toegestaan uw eigen aanbod te accepteren.\nControleer de swaptoken en probeer het opnieuw.</translation>
     </message>
     <message id="swap-copy-token">
@@ -1782,10 +1719,6 @@ Please check the swap token and try again.</source>
         <source>Disconnect</source>
         <translation>Loskoppelen</translation>
     </message>
-    <message id="settings-swap-seed-phrase">
-        <source>Seed Phrase</source>
-        <translation type="vanished">Herstelzin</translation>
-    </message>
     <message id="settings-swap-bitcoin-node">
         <source>Bitcoin node</source>
         <translation>Bitcoin node</translation>
@@ -1809,14 +1742,6 @@ Please check the swap token and try again.</source>
     <message id="settings-swap-qtum-electrum">
         <source>Qtum electrum</source>
         <translation>Qtum electrum</translation>
-    </message>
-    <message id="connect to electrum node">
-        <source>connect to electrum node</source>
-        <translation type="vanished">verbinden met electrum node</translation>
-    </message>
-    <message id="connect to node">
-        <source>connect to node</source>
-        <translation type="vanished">verbinden met node</translation>
     </message>
     <message id="invalid-rate-min">
         <source>Rate cannot be less than %1</source>
@@ -1868,18 +1793,10 @@ Please check the swap token and try again.</source>
         <source>Show wallet addresses</source>
         <translation>Wallet adressen weergeven</translation>
     </message>
-    <message id="settings-swap-connect-electrum">
-        <source>connect to electrum node</source>
-        <translation>verbinden met electrum node</translation>
-    </message>
-    <message id="settings-swap-connect-node">
-        <source>connect to node</source>
-        <translation>verbinden met node</translation>
-    </message>
     <message id="swap-seed-info-message">
-        <source>Your seed phrase is the access key to all the funds! Print or write down the phrase and keep it in a safe or in a locked vault.
-Without the phrase you will not be able to recover your money.</source>
-        <oldsource>Your seed phrase is the access key to all the funds! Print or write down the phrase and keep it in a safe or in a locked vault.\nWithout the phrase you will not be able to recover your money.</oldsource>
+        <source>Your seed phrase is the access key to all the funds! Print or write down the phrase and keep it in a safe or in a locked vault. Without the phrase you will not be able to recover your money.</source>
+        <oldsource>Your seed phrase is the access key to all the funds! Print or write down the phrase and keep it in a safe or in a locked vault.
+Without the phrase you will not be able to recover your money.</oldsource>
         <translation type="unfinished">Uw herstelzin is de toegangssleutel tot alle tegoeden! Print de zin uit of schrijf deze op en bewaar de zin op een veilige plaats.\nZonder de zin kunt u uw tegoeden niet herstellen.</translation>
     </message>
     <message id="settings-swap-seed-generate">
@@ -1925,12 +1842,12 @@ Without the phrase you will not be able to recover your money.</source>
     <message id="settings-swap-confirm-edit-seed-title">
         <source>Edit seed phrase</source>
         <extracomment>electrum settings, ask password to edit seed phrase, dialog title</extracomment>
-        <translation type="unfinished">Edit seed phrase</translation>
+        <translation>Bewerk herstelzin</translation>
     </message>
     <message id="settings-swap-confirm-edit-seed-message">
         <source>Enter your wallet password to edit the phrase</source>
         <extracomment>electrum settings, ask password to edit seed phrase, dialog message</extracomment>
-        <translation type="unfinished">Enter your wallet password to edit the phrase</translation>
+        <translation>Voer uw wallet wachtwoord in om de herstelzin te bewerken</translation>
     </message>
     <message id="settings-swap-confirm-generate-seed-title">
         <source>Generate new seed phrase</source>
@@ -1940,7 +1857,7 @@ Without the phrase you will not be able to recover your money.</source>
     <message id="settings-swap-confirm-generate-seed-message">
         <source>Enter your wallet password to generate new seed phrase</source>
         <extracomment>electrum settings, ask password to generate new seed phrase, dialog message</extracomment>
-        <translation type="unfinished">Enter your wallet password to generate new seed phrase</translation>
+        <translation>Voer uw wallet wachtwoord in om een nieuwe herstelzin te genereren</translation>
     </message>
     <message id="settings-swap-confirm-show-seed-title">
         <source>Show seed phrase</source>
@@ -1950,17 +1867,17 @@ Without the phrase you will not be able to recover your money.</source>
     <message id="settings-swap-confirm-show-seed-message">
         <source>Enter your wallet password to see the phrase</source>
         <extracomment>electrum settings, ask password to show seed phrase, dialog message</extracomment>
-        <translation type="unfinished">Enter your wallet password to see the phrase</translation>
+        <translation>Voer uw wallet wachtwoord in om de herstelzin te bekijken</translation>
     </message>
     <message id="settings-swap-confirm-clear-seed-title">
         <source>Clear seed phrase</source>
         <extracomment>electrum settings, ask password to clear seed phrase, dialog title</extracomment>
-        <translation type="unfinished">Clear seed phrase</translation>
+        <translation>Wis herstelszin</translation>
     </message>
     <message id="settings-swap-confirm-clear-seed-message">
         <source>Enter your wallet password to clear seed phrase</source>
         <extracomment>electrum settings, ask password to clear seed phrase, dialog message</extracomment>
-        <translation type="unfinished">Enter your wallet password to clear seed phrase</translation>
+        <translation>Voer uw wallet wachtwoord in om de herstelzin te wissen</translation>
     </message>
     <message id="wallet-receive-swap-your-token">
         <source>Your swap token:</source>
@@ -1984,6 +1901,10 @@ Without the phrase you will not be able to recover your money.</source>
     </message>
     <message id="send-swap-token-hint">
         <source>Paste token here</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="settings-swap-connect">
+        <source>connect</source>
         <translation type="unfinished"></translation>
     </message>
 </context>

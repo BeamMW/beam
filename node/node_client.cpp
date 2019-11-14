@@ -21,6 +21,59 @@
 namespace
 {
     constexpr int kVerificationThreadsMaxAvailable = -1;
+
+    boost::filesystem::path pathFromStdString(const std::string& path)
+    {
+#ifdef WIN32
+        boost::filesystem::path boostPath{ beam::Utf8toUtf16(path.c_str()) };
+#else
+        boost::filesystem::path boostPath{ path };
+#endif
+        return boostPath;
+    }
+
+    void removeNodeDataIfNeeded(const std::string& nodePathStr)
+    {
+        try
+        {
+            auto nodePath = pathFromStdString(nodePathStr);
+            auto appDataPath = nodePath.parent_path();
+
+            if (!boost::filesystem::exists(appDataPath))
+            {
+                return;
+            }
+            try
+            {
+                beam::NodeDB nodeDB;
+                nodeDB.Open(nodePathStr.c_str());
+                return;
+            }
+            catch (const beam::NodeDBUpgradeException&)
+            {
+            }
+
+            boost::filesystem::remove(nodePath);
+
+            std::vector<boost::filesystem::path> macroBlockFiles;
+            for (boost::filesystem::directory_iterator endDirIt, it{ appDataPath }; it != endDirIt; ++it)
+            {
+                if (it->path().filename().wstring().find(L"tempmb") == 0)
+                {
+                    macroBlockFiles.push_back(it->path());
+                }
+            }
+
+            for (auto& path : macroBlockFiles)
+            {
+                boost::filesystem::remove(path);
+            }
+        }
+        catch (std::exception & e)
+        {
+            LOG_ERROR() << e.what();
+        }
+    }
 }
 
 namespace beam
@@ -93,6 +146,8 @@ void NodeClient::start()
     {
         try
         {
+            removeNodeDataIfNeeded(m_observer->getLocalNodeStorage());
+
             auto reactor = io::Reactor::create();
             m_reactor = reactor;// store weak ref
             io::Reactor::Scope scope(*reactor);

@@ -228,7 +228,7 @@ void AppModel::startWallet()
 
     if (auto qtumClient = getQtumClient(); qtumClient)
     {
-        auto qtumBridgeCreator = [bridgeHolder = m_ltcBridgeHolder, reactor = m_walletReactor, settingsProvider = qtumClient]() -> bitcoin::IBridge::Ptr
+        auto qtumBridgeCreator = [bridgeHolder = m_qtumBridgeHolder, reactor = m_walletReactor, settingsProvider = qtumClient]() -> bitcoin::IBridge::Ptr
         {
             return bridgeHolder->Get(*reactor, *settingsProvider);
         };

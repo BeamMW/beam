@@ -64,7 +64,7 @@ else()
     
 endif()
 
-if (NOT ANDROID)
+if (NOT ANDROID AND NOT IOS)
     if(BEAM_HW_WALLET)
 
         add_library(hw_wallet STATIC hw_wallet.cpp

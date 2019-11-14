@@ -69,10 +69,10 @@ public:
     bool hasLtcTx() const;
     bool hasQtumTx() const;
 
-    Q_INVOKABLE void cancelOffer(QVariant variantTxID);
-    Q_INVOKABLE void cancelTx(QVariant variantTxID);
-    Q_INVOKABLE void deleteTx(QVariant variantTxID);
-    Q_INVOKABLE PaymentInfoItem* getPaymentInfo(QVariant variantTxID);
+    Q_INVOKABLE void cancelOffer(const QVariant& variantTxID);
+    Q_INVOKABLE void cancelTx(const QVariant& variantTxID);
+    Q_INVOKABLE void deleteTx(const QVariant& variantTxID);
+    Q_INVOKABLE PaymentInfoItem* getPaymentInfo(const QVariant& variantTxID);
 
 public slots:
     void onTransactionsDataModelChanged(

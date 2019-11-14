@@ -26,8 +26,8 @@ namespace beam::wallet
 {
     class BaseTxBuilder;
 
-    TxParameters CreateSimpleTransactionParameters(boost::optional<TxID> txId = boost::none);
-    TxParameters CreateSplitTransactionParameters(const WalletID& myID, const AmountList& amountList, boost::optional<TxID> txId = boost::none);
+    TxParameters CreateSimpleTransactionParameters(const boost::optional<TxID>& txId = boost::none);
+    TxParameters CreateSplitTransactionParameters(const WalletID& myID, const AmountList& amountList, const boost::optional<TxID>& txId = boost::none);
 
     class SimpleTransaction : public BaseTransaction
     {

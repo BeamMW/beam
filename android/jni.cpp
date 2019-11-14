@@ -298,6 +298,13 @@ JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(getWalletStatus)(JNIEnv *env, 
     walletModel->getAsync()->getWalletStatus();
 }
 
+JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(getTransactions)(JNIEnv *env, jobject thiz)
+{
+    LOG_DEBUG() << "getTransactions()";
+
+    walletModel->getAsync()->getTransactions();
+}
+
 JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(getUtxosStatus)(JNIEnv *env, jobject thiz)
 {
     LOG_DEBUG() << "getUtxosStatus()";
@@ -570,6 +577,19 @@ JNIEXPORT jstring JNICALL BEAM_JAVA_WALLET_INTERFACE(exportOwnerKey)(JNIEnv *env
 {
     std::string ownerKey = walletModel->exportOwnerKey(JString(env, pass).value());
     return env->NewStringUTF(ownerKey.c_str());
+}
+
+JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(importDataFromJson)(JNIEnv *env, jobject thiz,
+    jstring jdata)
+{
+    auto data = JString(env, jdata).value();
+
+    walletModel->getAsync()->importDataFromJson(data);
+}
+
+JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(exportDataToJson)(JNIEnv *env, jobject thiz)
+{
+    walletModel->getAsync()->exportDataToJson();
 }
 
 JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM* vm, void* reserved)

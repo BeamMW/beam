@@ -88,8 +88,8 @@ RowLayout {
             color: Style.content_main
             elide: Text.ElideMiddle
             text: getHighlitedText(root.sendAddress)
-            onCopyText: textCopied(text)
-            visible: isTextFieldVisible(text)
+            onCopyText: textCopied(root.sendAddress)
+            visible: isTextFieldVisible(root.sendAddress)
         }
 
         SFText {
@@ -109,8 +109,8 @@ RowLayout {
             //wrapMode: Text.Wrap
             elide: Text.ElideMiddle
             text: getHighlitedText(root.receiveAddress)
-            onCopyText: textCopied(text)
-            visible: isTextFieldVisible(text)
+            onCopyText: textCopied(root.receiveAddress)
+            visible: isTextFieldVisible(root.receiveAddress)
         }
         
         SFText {
@@ -149,8 +149,8 @@ RowLayout {
             text: getHighlitedText(root.comment)
             font.styleName: "Italic"
             elide: Text.ElideRight
-            onCopyText: textCopied(text)
-            visible: isTextFieldVisible(text)
+            onCopyText: textCopied(root.comment)
+            visible: isTextFieldVisible(root.comment)
         }
         SFText {
             Layout.alignment: Qt.AlignTop
@@ -169,8 +169,8 @@ RowLayout {
             text: getHighlitedText(root.txID)
             font.styleName: "Italic"
             elide: Text.ElideMiddle
-            onCopyText: textCopied(text)
-            visible: isTextFieldVisible(text)
+            onCopyText: textCopied(root.txID)
+            visible: isTextFieldVisible(root.txID)
         }
         SFText {
             Layout.alignment: Qt.AlignTop
@@ -190,8 +190,8 @@ RowLayout {
             text: getHighlitedText(root.kernelID)
             font.styleName: "Italic"
             elide: Text.ElideMiddle
-            onCopyText: textCopied(text)
-            visible: isTextFieldVisible(text)
+            onCopyText: textCopied(root.kernelID)
+            visible: isTextFieldVisible(root.kernelID)
         }
 
         function canOpenInBlockchainExplorer(status) {

@@ -60,14 +60,6 @@
         <source>Delete</source>
         <translation>Xoá</translation>
     </message>
-    <message id="general-receiving">
-        <source>receiving</source>
-        <translation type="obsolete">receiving</translation>
-    </message>
-    <message id="general-sending">
-        <source>sending</source>
-        <translation type="obsolete">sending</translation>
-    </message>
     <message id="general-rescan">
         <source>Rescan</source>
         <translation>Quét lại</translation>
@@ -190,10 +182,6 @@
         <source>Receive</source>
         <translation>Nhận</translation>
     </message>
-    <message id="wallet-in-progress-title">
-        <source>In progress</source>
-        <translation type="vanished">Trong quá trình</translation>
-    </message>
     <message id="wallet-transactions-title">
         <source>Transactions</source>
         <translation>Giao dịch</translation>
@@ -205,10 +193,6 @@
     <message id="wallet-txs-date-time">
         <source>Created on</source>
         <translation type="unfinished">Created on</translation>
-    </message>
-    <message id="wallet-txs-copy-addr-cm">
-        <source>Copy address</source>
-        <translation type="vanished">Sao chép địa chỉ</translation>
     </message>
     <message id="wallet-txs-delete-message">
         <source>The transaction will be deleted. This operation can not be undone</source>
@@ -240,7 +224,8 @@
     </message>
     <message id="wallet-txs-status-cancelled">
         <source>cancelled</source>
-        <translation>đã huỷ</translation>
+        <oldsource>canceled</oldsource>
+        <translation type="unfinished">cancelled</translation>
     </message>
     <message id="wallet-txs-status-expired">
         <source>expired</source>
@@ -326,14 +311,6 @@
         <source>ip:port</source>
         <extracomment>settings tab, node section, address label</extracomment>
         <translation>ip:cổng</translation>
-    </message>
-    <message id="settings-see-seed">
-        <source>Click to see seed phrase</source>
-        <translation type="obsolete">Click to see seed phrase</translation>
-    </message>
-    <message id="settings-new-seed">
-        <source>Double click to generate new seed phrase</source>
-        <translation type="obsolete">Double click to generate new seed phrase</translation>
     </message>
     <message id="settings-local-node-run-checkbox">
         <source>Run local node</source>
@@ -495,10 +472,6 @@
         <source>Info view</source>
         <translation>Xem thông tin</translation>
     </message>
-    <message id="loading-change-settings-button">
-        <source>Change settings</source>
-        <translation type="vanished">Thay đổi cài đặt</translation>
-    </message>
     <message id="loading-try-again-button">
         <source>Try again</source>
         <translation>Thử lại lần nữa</translation>
@@ -593,14 +566,6 @@
         <source>Scan to send</source>
         <translation>Quét để gửi</translation>
     </message>
-    <message id="wallet-receive-propogate-addr-message">
-        <source>Send this address to the sender over an external secure channel</source>
-        <translation type="vanished">Gửi địa chỉ này cho người gửi qua kênh bảo mật bên ngoài</translation>
-    </message>
-    <message id="invalid-addr-got-it-button">
-        <source>Got it</source>
-        <translation type="vanished">Lấy</translation>
-    </message>
     <message id="send-title">
         <source>Send</source>
         <translation>Gửi</translation>
@@ -621,21 +586,9 @@
         <source>Insufficient funds: you would need %1 to complete the transaction</source>
         <translation>Không đủ tiền: bạn sẽ cần %1 để hoàn thành giao dịch</translation>
     </message>
-    <message id="send-fee-fail">
-        <source>The minimum fee is %1 GROTH</source>
-        <translation type="vanished">Phí tối thiểu là %1 GROTH</translation>
-    </message>
-    <message id="send-curency-sub-name">
-        <source>GROTH</source>
-        <translation type="vanished">Groth: đơn vị nhỏ nhất của Beam </translation>
-    </message>
     <message id="send-remaining-label">
         <source>Remaining</source>
         <translation>Còn lại</translation>
-    </message>
-    <message id="send-send-fail">
-        <source>Address %1 is invalid</source>
-        <translation type="vanished">Địa chỉ %1 không hợp lệ</translation>
     </message>
     <message id="start-restore-confirm-button">
         <source>I agree</source>
@@ -910,14 +863,6 @@
     <message id="tx-failture-invalid-state">
         <source>Transaction has invalid state</source>
         <translation>Giao dịch ở trạng thái không hợp lệ</translation>
-    </message>
-    <message id="tx-curency-name">
-        <source>BEAM</source>
-        <translation type="vanished">BEAM</translation>
-    </message>
-    <message id="tx-curency-sub-name">
-        <source>GROTH</source>
-        <translation type="vanished">Groth: đơn vị nhỏ nhất của Beam </translation>
     </message>
     <message id="utxo-utxo">
         <source>UTXO</source>
@@ -1279,10 +1224,6 @@
         <source>The minimum fee is %1 %2</source>
         <translation>Phí tối thiểu là %1 %2</translation>
     </message>
-    <message id="general-locked">
-        <source>locked</source>
-        <translation type="vanished">đã khoá</translation>
-    </message>
     <message id="general-change-settings">
         <source>Change settings</source>
         <translation>Thay đổi cài đặt</translation>
@@ -1312,11 +1253,13 @@
         <translation>Phí mặc định</translation>
     </message>
     <message id="swap-beta-message">
-        <source>Atomic Swap functionality is Beta at the moment. We recommend you not to send large amounts.</source>
+        <source>Atomic Swaps functionality is Beta at the moment. We recommend you not to send large amounts.</source>
+        <oldsource>Atomic Swap functionality is Beta at the moment. We recommend you not to send large amounts.</oldsource>
         <translation type="unfinished">Atomic Swap functionality is Beta at the moment. We recommend you not to send large amounts.</translation>
     </message>
     <message id="swap-beta-title">
-        <source>Atomic Swap is in BETA</source>
+        <source>Atomic Swaps are in BETA</source>
+        <oldsource>Atomic Swap is in BETA</oldsource>
         <translation type="unfinished">Atomic Swap is in BETA</translation>
     </message>
     <message id="swap-na-message">
@@ -1326,8 +1269,9 @@ Update your settings and try again.</source>
         <translation type="unfinished">Bạn không có bất kỳ loại tiền tệ của bên thứ 3 nào được kết nối. \nCập nhật cài đặt và thử lại.</translation>
     </message>
     <message id="wallet-receive-swap-title">
-        <source>Create swap offer</source>
-        <translation>Tạo đề nghị trao đổi</translation>
+        <source>Create a Swap Offer</source>
+        <oldsource>Create swap offer</oldsource>
+        <translation type="unfinished">Tạo đề nghị trao đổi</translation>
     </message>
     <message id="wallet-receive-addr-message">
         <source>Send this address to the sender over an external secure channel or scan the QR code</source>
@@ -1361,13 +1305,10 @@ Update your settings and try again.</source>
         <source>Exchange rate</source>
         <translation type="unfinished">Exchange rate</translation>
     </message>
-    <message id="wallet-receive-your-token">
-        <source>Your transaction token:</source>
-        <translation type="vanished">Tiền điện tử giao dịch của bạn:</translation>
-    </message>
     <message id="wallet-swap-token-message">
-        <source>Send this token to the sender over an external secure channel</source>
-        <translation>Gửi tiền điện tử này cho người gửi qua kênh bảo mật bên ngoài</translation>
+        <source>Send this token to the sender over a secure external channel</source>
+        <oldsource>Send this token to the sender over an external secure channel</oldsource>
+        <translation type="unfinished">Gửi tiền điện tử này cho người gửi qua kênh bảo mật bên ngoài</translation>
     </message>
     <message id="wallet-receive-swap-publish">
         <source>publish offer</source>
@@ -1375,8 +1316,9 @@ Update your settings and try again.</source>
         <translation type="unfinished">xuất tiền điện tử giao dịch</translation>
     </message>
     <message id="wallet-send-swap-title">
-        <source>Swap currencies</source>
-        <translation>Hoán đổi tiền tệ</translation>
+        <source>Accept Swap Offer</source>
+        <oldsource>Swap currencies</oldsource>
+        <translation type="unfinished">Hoán đổi tiền tệ</translation>
     </message>
     <message id="wallet-send-invalid-token">
         <source>Invalid swap token</source>
@@ -1413,13 +1355,9 @@ Update your settings and try again.</source>
     </message>
     <message id="swap-currency-na-message">
         <source>%1 is not connected, 
-please review your settings and try again.</source>
-        <oldsource>%1 is not connected, \nplease review your settings and try again.</oldsource>
+please review your settings and try again</source>
+        <oldsource>%1 is not connected, \nplease review your settings and try again</oldsource>
         <translation type="unfinished">%1 is not connected, \nplease review your settings and try again.</translation>
-    </message>
-    <message id="send-swap-to-label">
-        <source>Transaction token</source>
-        <translation type="vanished">Tiền điện tử giao dịch</translation>
     </message>
     <message id="send-not-enough">
         <source>There is not enough funds to complete the transaction</source>
@@ -1458,7 +1396,8 @@ please review your settings and try again.</source>
         <translation type="unfinished">It may take longer then usual. Please, check your network.</translation>
     </message>
     <message id="atomic-swap-title">
-        <source>Atomic Swap</source>
+        <source>Atomic Swaps</source>
+        <oldsource>Atomic Swap</oldsource>
         <translation type="unfinished">Atomic Swap</translation>
     </message>
     <message id="atomic-swap-create">
@@ -1606,10 +1545,6 @@ please review your settings and try again.</source>
         <source>There is no Trezor device connected. Please, connect and try again.</source>
         <translation type="unfinished">There is no Trezor device connected. Please, connect and try again.</translation>
     </message>
-    <message id="settings-invalid-seed">
-        <source>Invalid seed phrase</source>
-        <translation type="obsolete">Invalid seed phrase</translation>
-    </message>
     <message id="wallet-transactions-all-tab">
         <source>All</source>
         <translation>Tất cả</translation>
@@ -1639,7 +1574,8 @@ Please try again later or create an offer yourself.</source>
         <translation type="unfinished">There are no active offers at the moment.\nPlease try again later or create an offer yourself.</translation>
     </message>
     <message id="send-less-than-fee">
-        <source>The swap amount must be greater than the redemption fee.</source>
+        <source>The swap amount must be greater than the transaction fee</source>
+        <oldsource>The swap amount must be greater than the redemption fee.</oldsource>
         <translation type="unfinished">The swap amount must be greater than the redemption fee.</translation>
     </message>
     <message id="wallet-txs-status-in-progress">
@@ -1695,13 +1631,14 @@ Please try again later or create an offer yourself.</source>
         <translation>Tôi đã hiểu</translation>
     </message>
     <message id="accept-own-offer-allert-head">
-        <source>Own offer can’t be accepted</source>
+        <source>You cannot accept your own offer</source>
+        <oldsource>Own offer can’t be accepted</oldsource>
         <translation type="unfinished">Own offer can’t be accepted</translation>
     </message>
     <message id="accept-own-offer-allert-body">
-        <source>The transaction token was generated by you, therefore it is not allowed to accept your own offer.
-Please check the swap token and try again.</source>
-        <oldsource>The transaction token was generated by you, therefore it is not allowed to accept your own offer.\nPlease check the swap token and try again.</oldsource>
+        <source>The swap token was generated by you, and therefore cannot be accepted.</source>
+        <oldsource>The transaction token was generated by you, therefore it is not allowed to accept your own offer.
+Please check the swap token and try again.</oldsource>
         <translation type="unfinished">The transaction token was generated by you, therefore it is not allowed to accept your own offer.\nPlease check the swap token and try again.</translation>
     </message>
     <message id="swap-copy-token">
@@ -1782,10 +1719,6 @@ Please check the swap token and try again.</source>
         <source>Disconnect</source>
         <translation type="unfinished">Disconnect</translation>
     </message>
-    <message id="settings-swap-seed-phrase">
-        <source>Seed Phrase</source>
-        <translation type="obsolete">Seed Phrase</translation>
-    </message>
     <message id="settings-swap-bitcoin-node">
         <source>Bitcoin node</source>
         <translation type="unfinished">Bitcoin node</translation>
@@ -1809,14 +1742,6 @@ Please check the swap token and try again.</source>
     <message id="settings-swap-qtum-electrum">
         <source>Qtum electrum</source>
         <translation type="unfinished">Qtum electrum</translation>
-    </message>
-    <message id="connect to electrum node">
-        <source>connect to electrum node</source>
-        <translation type="obsolete">connect to electrum node</translation>
-    </message>
-    <message id="connect to node">
-        <source>connect to node</source>
-        <translation type="obsolete">connect to node</translation>
     </message>
     <message id="invalid-rate-min">
         <source>Rate cannot be less than %1</source>
@@ -1868,18 +1793,10 @@ Please check the swap token and try again.</source>
         <source>Show wallet addresses</source>
         <translation type="unfinished">Show wallet addresses</translation>
     </message>
-    <message id="settings-swap-connect-electrum">
-        <source>connect to electrum node</source>
-        <translation type="unfinished">connect to electrum node</translation>
-    </message>
-    <message id="settings-swap-connect-node">
-        <source>connect to node</source>
-        <translation type="unfinished">connect to node</translation>
-    </message>
     <message id="swap-seed-info-message">
-        <source>Your seed phrase is the access key to all the funds! Print or write down the phrase and keep it in a safe or in a locked vault.
-Without the phrase you will not be able to recover your money.</source>
-        <oldsource>Your seed phrase is the access key to all the funds! Print or write down the phrase and keep it in a safe or in a locked vault.\nWithout the phrase you will not be able to recover your money.</oldsource>
+        <source>Your seed phrase is the access key to all the funds! Print or write down the phrase and keep it in a safe or in a locked vault. Without the phrase you will not be able to recover your money.</source>
+        <oldsource>Your seed phrase is the access key to all the funds! Print or write down the phrase and keep it in a safe or in a locked vault.
+Without the phrase you will not be able to recover your money.</oldsource>
         <translation type="unfinished">Your seed phrase is the access key to all the funds! Print or write down the phrase and keep it in a safe or in a locked vault.\nWithout the phrase you will not be able to recover your money.</translation>
     </message>
     <message id="settings-swap-seed-generate">
@@ -1984,6 +1901,10 @@ Without the phrase you will not be able to recover your money.</source>
     </message>
     <message id="send-swap-token-hint">
         <source>Paste token here</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="settings-swap-connect">
+        <source>connect</source>
         <translation type="unfinished"></translation>
     </message>
 </context>

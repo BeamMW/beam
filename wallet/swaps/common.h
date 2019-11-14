@@ -19,6 +19,7 @@
 namespace beam::wallet
 {
     constexpr uint32_t kBeamLockTimeInBlocks = 24 * 60;
+    constexpr Height kBeamLockTxLifetimeMax = 12 * 60;
     constexpr Amount kMinFeeInGroth = 100;
 
     enum SubTxIndex : SubTxID
@@ -40,4 +41,4 @@ namespace beam::wallet
     };
 
     uint64_t UnitsPerCoin(AtomicSwapCoin swapCoin) noexcept;
-}
+}  // namespace beam::wallet

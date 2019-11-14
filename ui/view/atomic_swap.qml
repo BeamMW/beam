@@ -18,14 +18,14 @@ Item {
 
     ConfirmationDialog {
         id: betaDialog
-        //% "Atomic Swap is in BETA"
+        //% "Atomic Swaps are in BETA"
         title: qsTrId("swap-beta-title")
         //% "I understand"
         okButtonText:        qsTrId("swap-alert-confirm-button")
         okButtonIconSource:  "qrc:/assets/icon-done.svg"
         cancelButtonVisible: false
         width: 470
-        //% "Atomic Swap functionality is Beta at the moment. We recommend you not to send large amounts."
+        //% "Atomic Swaps functionality is Beta at the moment. We recommend you not to send large amounts."
         text: qsTrId("swap-beta-message")
     }
 
@@ -65,7 +65,7 @@ Item {
 
     RowLayout {
         Title {
-            //% "Atomic Swap"
+            //% "Atomic Swaps"
             text: qsTrId("atomic-swap-title")
         }
 
@@ -265,6 +265,7 @@ Item {
                     gradRight: Style.swapCurrencyPaneGrLeftOther
                     //% "Connect other currency wallet to start trading"
                     amount: qsTrId("atomic-swap-connect-other")
+                    amountWrapMode: Text.Wrap
                     textSize: 14
                     rectOpacity: 1.0
                     textColor: Style.active
@@ -414,9 +415,6 @@ Item {
                             Layout.leftMargin: 60
                             //% "Fit my current balance"
                             text: qsTrId("atomic-swap-fit-current-balance")
-                            onClicked: {
-                                console.log("todo: fit current balance checkbox pressed");
-                            }
                             visible: false
                         }
 
@@ -473,7 +471,9 @@ Item {
                             color:                Style.content_main
                             opacity:              0.5
                             lineHeight:           1.43
-                            //% "There are no active offers at the moment.\nPlease try again later or create an offer yourself."
+/*% "There are no active offers at the moment.
+Please try again later or create an offer yourself."
+*/
                             text:                 qsTrId("atomic-no-offers")
                         }
 
@@ -733,7 +733,6 @@ Item {
                         //    Layout.alignment: Qt.AlignRight
                         //    rightPadding: 5
                         //    icon.source: "qrc:/assets/icon-delete.svg"
-                        //    onClicked: console.log("todo: delete button pressed");
                         //}
                     }
 
@@ -1080,21 +1079,7 @@ Item {
                                             Layout.alignment: Qt.AlignLeft
 
                                             sourceSize: Qt.size(20, 20)
-                                            source: getIconSource()
-                                            function getIconSource() {
-                                                if (!model)
-                                                    return "";
-                                                if (model.isInProgress)
-                                                    return "qrc:/assets/icon-swap-in-progress.svg";
-                                                else if (model.isCompleted)
-                                                    return "qrc:/assets/icon-swap-completed.svg";
-                                                else if (model.isCanceled)
-                                                    return "qrc:/assets/icon-swap-canceled.svg";
-                                                else if (model.isExpired)
-                                                    return "qrc:/assets/icon-expired.svg";
-                                                else
-                                                    return "qrc:/assets/icon-swap-failed.svg";
-                                            }
+                                            source: getIconSource(styleData.value)
                                         }
                                         SFLabel {
                                             Layout.alignment: Qt.AlignLeft
@@ -1104,19 +1089,7 @@ Item {
                                             wrapMode: Text.WordWrap
                                             text: getStatusText(styleData.value)
                                             verticalAlignment: Text.AlignBottom
-                                            color: getTextColor()
-                                            function getTextColor () {
-                                                if (!model || model.isExpired) 
-                                                    return Style.content_secondary;
-                                                if (model.isInProgress || model.isCompleted) {
-                                                    return Style.accent_swap;
-                                                } else if (model.isFailed) {
-                                                    return Style.accent_fail;
-                                                }
-                                                else {
-                                                    return Style.content_secondary;
-                                                }
-                                            }
+                                            color: getTextColor(styleData.value)
                                         }
                                     }
                                 }
@@ -1264,24 +1237,49 @@ Item {
         }
     }
 
+    function getTextColor(status) {
+        switch(status)
+        {
+            case "pending":
+            case "in progress":
+            case "completed":
+                return Style.accent_swap;
+            case "failed":
+                return Style.accent_fail;
+            default:
+                return Style.content_secondary;
+        }
+    }
+
+    function getIconSource(status) {
+        switch(status)
+        {
+            case "pending":
+            case "in progress":
+                return "qrc:/assets/icon-swap-in-progress.svg";
+            case "completed":
+                return "qrc:/assets/icon-swap-completed.svg";
+            case "failed":
+                return "qrc:/assets/icon-swap-failed.svg";
+            case "canceled":
+                return "qrc:/assets/icon-swap-canceled.svg";
+            case "expired":
+                return "qrc:/assets/icon-expired.svg";
+            default: return "";
+        }
+    }
+
     function getStatusText(value) {
 
         switch(value) {
             //% "pending"
             case "pending": return qsTrId("wallet-txs-status-pending");
-            case "waiting for sender":
-            case "waiting for receiver":
-            case "receiving":
-            case "sending":
-                //% "in progress"
-                return qsTrId("wallet-txs-status-in-progress");
-            case "completed":
-            case "received":
-            case "sent":
-                //% "completed"
-                return qsTrId("wallet-txs-status-completed");
+            //% "in progress"
+            case "in progress": return qsTrId("wallet-txs-status-in-progress");
+            //% "completed"
+            case "completed": return qsTrId("wallet-txs-status-completed");
             //% "cancelled"
-            case "cancelled": return qsTrId("wallet-txs-status-cancelled");
+            case "canceled": return qsTrId("wallet-txs-status-cancelled");
             //% "expired"
             case "expired": return qsTrId("wallet-txs-status-expired");
             //% "failed"

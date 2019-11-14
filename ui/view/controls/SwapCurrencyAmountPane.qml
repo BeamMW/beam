@@ -23,8 +23,9 @@ Rectangle {
     property color textSecondaryColor: Style.content_secondary
     property string textConnectionError: "error"
     property string textConnecting: "connectring..."
+    property alias amountWrapMode: amountField.wrapMode
     property var onClick: function() {}
-
+   
     id: control
     Layout.fillWidth: true
     height: 67
@@ -88,6 +89,7 @@ Rectangle {
                 Item {width:15}
                 spacing: 0
                 SFLabel {
+                    id: amountField
                     Layout.fillWidth: true
                     font.pixelSize: textSize
                     color: control.textColor

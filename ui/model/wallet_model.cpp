@@ -43,6 +43,8 @@ WalletModel::WalletModel(IWalletDB::Ptr walletDB, IPrivateKeyKeeper::Ptr keyKeep
     connect(this, SIGNAL(walletStatus(const beam::wallet::WalletStatus&)), this, SLOT(setStatus(const beam::wallet::WalletStatus&)));
     connect(this, SIGNAL(addressesChanged(bool, const std::vector<beam::wallet::WalletAddress>&)),
             this, SLOT(setAddresses(bool, const std::vector<beam::wallet::WalletAddress>&)));
+
+    getAsync()->getAddresses(true);
 }
 
 WalletModel::~WalletModel()
@@ -93,13 +95,7 @@ QString WalletModel::GetErrorString(beam::wallet::ErrorType type)
 
 bool WalletModel::isOwnAddress(const WalletID& walletID) const
 {
-    for (const auto& it: m_addresses)
-    {
-        if (it.m_walletID == walletID) {
-            return true;
-        }
-    }
-    return false;
+    return m_myWalletIds.find(walletID) != m_myWalletIds.end();
 }
 
 bool WalletModel::isAddressWithCommentExist(const std::string& comment) const
@@ -108,13 +104,7 @@ bool WalletModel::isAddressWithCommentExist(const std::string& comment) const
     {
         return false;
     }
-    for (const auto& it: m_addresses)
-    {
-        if (it.m_label == comment) {
-            return true;
-        }
-    }
-    return false;
+    return m_myAddrLabels.find(comment) != m_myAddrLabels.end();
 }
 
 void WalletModel::onStatus(const beam::wallet::WalletStatus& status)
@@ -202,6 +192,14 @@ void WalletModel::onNoDeviceConnected()
     //% "There is no Trezor device connected. Please, connect and try again."
     showTrezorError(qtTrId("wallet-model-device-not-connected"));
 #endif
+}
+
+void WalletModel::onImportDataFromJson(bool isOk)
+{
+}
+
+void WalletModel::onExportDataToJson(const std::string& data)
+{
 }
 
 void WalletModel::onChangeCurrentWalletIDs(beam::wallet::WalletID senderID, beam::wallet::WalletID receiverID)
@@ -333,6 +331,10 @@ void WalletModel::setAddresses(bool own, const std::vector<beam::wallet::WalletA
 {
     if (own)
     {
-        m_addresses = addrs;
+        for (const auto& addr : addrs)
+        {
+            m_myWalletIds.emplace(addr.m_walletID);
+            m_myAddrLabels.emplace(addr.m_label);
+        }
     }
 }
