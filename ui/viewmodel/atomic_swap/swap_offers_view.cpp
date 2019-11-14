@@ -104,6 +104,46 @@ QAbstractItemModel* SwapOffersViewModel::getAllOffers()
     return &m_offersList;
 }
 
+QAbstractItemModel* SwapOffersViewModel::getAllOffersFitBalance()
+{
+    vector<shared_ptr<SwapOfferItem>> offersListFitBalance;
+    auto offersCount = m_offersList.rowCount();
+    offersListFitBalance.reserve(offersCount);
+
+    auto beamAmount = m_walletModel.getAvailable();
+    auto btcAmount = btcOK() ? m_btcClient->getAvailable() : 0;
+    auto ltcAmount = ltcOK() ? m_ltcClient->getAvailable() : 0;
+    auto qtumAmount = qtumOK() ? m_qtumClient->getAvailable() : 0;
+
+    for(int i = 0; i < offersCount; ++i)
+    {
+        const auto&it = m_offersList.get(i);
+        bool isBeamSide = it->isBeamSide();
+        auto beamOfferAmount =
+            isBeamSide ? it->rawAmountSend() : it->rawAmountReceive();
+        auto swapCoinOfferAmount =
+            isBeamSide ? it->rawAmountReceive() : it->rawAmountSend();
+
+        if (beamOfferAmount > beamAmount)
+            continue;
+
+        auto swapCoinName = it->getSwapCoinName();
+        if (swapCoinName == toString(beamui::Currencies::Bitcoin) &&
+            swapCoinOfferAmount > btcAmount)
+            continue;
+        if (swapCoinName == toString(beamui::Currencies::Litecoin) &&
+            swapCoinOfferAmount > ltcAmount)
+            continue;
+        if (swapCoinName == toString(beamui::Currencies::Qtum) &&
+            swapCoinOfferAmount > qtumAmount)
+            continue;
+
+        offersListFitBalance.push_back(it);
+    }
+    m_offersListFitBalance.reset(offersListFitBalance);
+    return &m_offersListFitBalance;
+}
+
 QString SwapOffersViewModel::beamAvailable() const
 {
     return beamui::AmountToUIString(m_walletModel.getAvailable());

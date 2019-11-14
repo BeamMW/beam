@@ -62,6 +62,11 @@ public:
         endResetModel();
     }
 
+    T get(int index) const
+    {
+        return m_list.at(index);
+    }
+
 protected:
     QList<T> m_list;
 };

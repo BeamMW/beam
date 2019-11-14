@@ -439,11 +439,11 @@ Item {
                         }
 
                         CustomCheckBox {
+                            id: checkboxFitBalance
                             Layout.alignment: Qt.AlignHCenter | Qt.AlignLeft
                             Layout.leftMargin: 60
                             //% "Fit my current balance"
                             text: qsTrId("atomic-swap-fit-current-balance")
-                            visible: false
                         }
 
                         Item {
@@ -540,7 +540,9 @@ Please try again later or create an offer yourself."
                             source: SortFilterProxyModel {
                                 source: SortFilterProxyModel {
                                     // filter all offers by selected coin
-                                    source: viewModel.allOffers                                
+                                    source: checkboxFitBalance.checked
+                                        ? viewModel.allOffersFitBalance
+                                        : viewModel.allOffers                                
                                     filterRole: "swapCoin"
                                     filterString: getCoinName(viewModel.selectedCoin)
                                     filterSyntax: SortFilterProxyModel.Wildcard
