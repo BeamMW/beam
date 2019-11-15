@@ -55,6 +55,11 @@ public:
         m_peers.push_back(addr);
     }
 
+    uint64_t getBlockCount()
+    {
+        return m_blockCount; 
+    }
+
 private:
 
     void onStreamAccepted(io::TcpStream::Ptr&& newStream, io::ErrorCode errorCode)
