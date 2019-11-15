@@ -288,9 +288,9 @@
 				{
 					generate_key: 			() => sendKeykeeperResult(data.id, keykeeper.generatePublicKey(data.params.id, data.params.create_coin_key)),
 					allocate_nonce_slot: 	() => sendKeykeeperResult(data.id, keykeeper.allocateNonceSlot()),
-					generate_output: 		() => sendKeykeeperResult(data.id, keykeeper.generateOutput(data.scheme, data.id)),
-					generate_nonce: 		() => sendKeykeeperResult(data.id, keykeeper.generateNonce(data.slot)),
-					sign: 					() => sendKeykeeperResult(data.id, keykeeper.sign(data.inputs, data.outputs, data.offset, data.slot, data.kernel_parameters, data.public_nonce)),
+					generate_output: 		() => sendKeykeeperResult(data.id, keykeeper.generateOutput(data.params.scheme, data.params.id)),
+					generate_nonce: 		() => sendKeykeeperResult(data.id, keykeeper.generateNonce(data.params.slot)),
+					sign: 					() => sendKeykeeperResult(data.id, keykeeper.sign(data.params.inputs, data.params.outputs, data.params.offset, data.params.slot, data.params.kernel_parameters, data.params.public_nonce)),
 				}
 
 				handlers[data.method] 

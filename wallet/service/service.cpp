@@ -1187,7 +1187,36 @@ namespace
 
             void GenerateOutputs(Height schemeHeight, const std::vector<Key::IDV>& ids, Callback<Outputs>&& resultCallback, ExceptionCallback&& exceptionCallback) override
             {
-                assert(!"not implemented.");
+                using namespace std;
+
+                auto thisHolder = shared_from_this();
+                shared_ptr<Outputs> result = make_shared<Outputs>();
+                shared_ptr<exception> storedException;
+                shared_ptr<future<void>> futureHolder = make_shared<future<void>>();
+                *futureHolder = do_thread_async(
+                    [thisHolder, this, schemeHeight, ids, result, storedException]()
+                    {
+                        try
+                        {
+                            *result = GenerateOutputsSync(schemeHeight, ids);
+                        }
+                        catch (const exception& ex)
+                        {
+                            *storedException = ex;
+                        }
+                    },
+                    [futureHolder, resultCallback = move(resultCallback), exceptionCallback = move(exceptionCallback), result, storedException]() mutable
+                    {
+                        if (storedException)
+                        {
+                            exceptionCallback(*storedException);
+                        }
+                        else
+                        {
+                            resultCallback(move(*result));
+                        }
+                        futureHolder.reset();
+                    });
             }
 
             size_t AllocateNonceSlot() override
