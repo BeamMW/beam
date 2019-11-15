@@ -30,9 +30,7 @@ using namespace std;
 
 // RFC 1928                SOCKS Protocol Version 5
 // TODO mempool memory allocation optimisation may be implemented
-// proxy connection object
-// pass object handlers to callbacks
-// insert to wallet
+// TODO: proxy insert to wallet CLI
 
 namespace
 {
@@ -54,8 +52,10 @@ namespace
 			LOG_DEBUG() << "CONNECTED TO DESTINATION";
 
 			newStream->enable_read(on_http_resp);
-			static const char* req = "GET / HTTP/1.0\r\nHost: beam.mw\r\n\r\n";
-			Result res = newStream->write(req, strlen(req));
+			string req("GET / HTTP/1.0\r\nHost: ");
+			req.append(test_domain);
+			req.append("\r\n\r\n");
+			Result res = newStream->write(req.c_str(), req.size());
 			if (!res) {
 				LOG_DEBUG() << "Http request write result: " << error_str(res.error());
 			}

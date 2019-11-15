@@ -17,6 +17,7 @@
 #include "utility/io/reactor.h"
 #include "utility/io/tcpstream.h"
 
+#include <array>
 
 namespace beam {
 namespace io {
@@ -31,7 +32,7 @@ public:
                                             size_t size)>;
 
     ProxyConnector(Reactor&);
-    // ~ProxyConnector(); // TODO: proxy
+    ~ProxyConnector(); // TODO: proxy
 
     OnConnect create_connection(uint64_t tag,   // unique identifier
                                 Address destination,
@@ -45,7 +46,8 @@ public:
 
 private:
     struct ProxyConnectRequest {
-        using Ptr = std::unique_ptr<ProxyConnectRequest>;
+        ~ProxyConnectRequest();
+        // using Ptr = std::unique_ptr<ProxyConnectRequest>;
 
         uint64_t tag;
         beam::io::Address destination;
@@ -56,7 +58,7 @@ private:
         TcpStream::Ptr stream;
     };
 
-    void delete_connection(uint64_t tag);
+    void release_connection(uint64_t tag, Result res);
 
     void on_tcp_connect(uint64_t tag, std::unique_ptr<TcpStream>&& new_stream, ErrorCode errorCode);
     void send_auth_methods(uint64_t tag);
@@ -68,6 +70,52 @@ private:
     Reactor& _reactor;
     MemPool<ProxyConnectRequest, sizeof(ProxyConnectRequest)> _connectRequestsPool;
     std::unordered_map<uint64_t, ProxyConnectRequest*> _connectRequests;
+};
+
+struct Socks5_Protocol {
+
+    static constexpr uint8_t ProtoVersion = 0x05;
+    static constexpr uint8_t Reserved = 0x00;
+
+    enum class AuthMethod : uint8_t {
+        NO_AUTHENTICATION_REQUIRED = 0x00,
+        GSSAPI = 0x01,
+        USERNAME_PASSWORD = 0x02,
+        // 0x03 to X'7F' IANA ASSIGNED
+        // 0x80 to X'FE' RESERVED FOR PRIVATE METHODS
+        NO_ACCEPTABLE_METHODS = 0xFF
+    };
+
+    enum class Command : uint8_t {
+        CONNECT = 0x01,
+        BIND = 0x02,
+        UDP_ASSOCIATE = 0x03
+    };
+
+    enum class AddrType : uint8_t {
+        IP_V4 = 0x01,
+        DOMAINNAME = 0x03,
+        IP_V6 = 0x04
+    };
+
+    enum class Reply : uint8_t {
+        OK = 0x00,              /// succeeded
+        SOCKS_FAIL = 0x01,      /// general SOCKS server failure
+        NOT_ALLOWED = 0x02,     /// connection not allowed by ruleset
+        NET_UNREACH = 0x03,     /// Network unreachable
+        HOST_UNREACH = 0x04,    /// Host unreachable
+        REFUSED = 0x05,         /// Connection refused
+        TTL_EXP = 0x06,         /// TTL expired
+        CMD_UNSUPP = 0x07,      /// Command not supported
+        ADDR_UNSUPP = 0x08,     /// Address type not supported
+        // X'09' to X'FF' unassigned
+    };
+
+    static std::array<uint8_t,3> makeAuthRequest(AuthMethod method);
+    static bool parseAuthResp(void* data, AuthMethod& outMethod);
+    static std::array<uint8_t,10> makeRequest(const Address& addr, Command cmd);
+    static Reply parseReply(void* data);
+
 };
 
 }   // namespace beam

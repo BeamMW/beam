@@ -621,14 +621,12 @@ Result Reactor::tcp_connect(
     }
 
     Result res;
-    if (bool isProxyEnabled = config().get<bool>("io.proxy_socks5", false)) {
-        ConnectCallback on_tcp_connect = _proxyConnector->
-            create_connection(tag, address, callback, timeoutMsec, tlsConnect);
-
+    if (config().get<bool>("io.proxy_socks5", false)) {
         Address proxy_address;
         proxy_address.resolve(config().get_string("io.proxy_address", "127.0.0.1").c_str());
         proxy_address.port(config().get<uint16_t>("io.proxy_port", 1080));
-
+        ConnectCallback on_tcp_connect = _proxyConnector->
+            create_connection(tag, address, callback, timeoutMsec, tlsConnect);
         res = _tcpConnectors->tcp_connect((uv_tcp_t*)h, proxy_address, tag, on_tcp_connect, timeoutMsec, false);
     }
     else {
