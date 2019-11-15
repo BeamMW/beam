@@ -548,7 +548,7 @@ Please try again later or create an offer yourself."
                                     filterSyntax: SortFilterProxyModel.Wildcard
                                     filterCaseSensitivity: Qt.CaseInsensitive
                                 }
-                                filterRole: "isBeamSide"
+                                filterRole: "isSendBeam"
                                 filterString: sendReceiveBeamSwitch.checked ? "false" : "true"
                                 filterSyntax: SortFilterProxyModel.Wildcard
                                 filterCaseSensitivity: Qt.CaseInsensitive
@@ -593,7 +593,7 @@ Please try again later or create an offer yourself."
                                 width: parent.width
                                 height: offersTable.rowHeight
                                 property var swapCoin: styleData.value
-                                property var isSendBeam: offersTable.model.getRoleValue(styleData.row, "isBeamSide")
+                                property var isSendBeam: offersTable.model.getRoleValue(styleData.row, "isSendBeam")
                                 property var isOwnOffer: offersTable.model.getRoleValue(styleData.row, "isOwnOffer")
                                 
                                 anchors.fill: parent
