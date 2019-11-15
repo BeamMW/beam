@@ -25,6 +25,16 @@ using namespace ECC;
 
 namespace beam::wallet
 {
+    template <typename T>
+    boost::optional<T> GetTxParameterAsOptional(const BaseTransaction& tx, TxParameterID paramID, SubTxID subTxID = kDefaultSubTxID)
+    {
+        if (T value{}; tx.GetParameter(paramID, value, subTxID))
+        {
+            return value;
+        }
+        return boost::optional<T>();
+    }
+
     bool IsCommonTxParameterExternalSettable(TxParameterID paramID, const boost::optional<bool>& isInitiator)
     {
         switch (paramID)
@@ -41,18 +51,18 @@ namespace beam::wallet
         }
     }
 
-    bool IsBeamLockTxParameterExternalSettable(TxParameterID paramID, bool isBeamSide, bool isInitiator)
+    bool IsBeamLockTxParameterExternalSettable(TxParameterID paramID, const boost::optional<bool>& isBeamSide, const boost::optional<bool>& isInitiator)
     {
         switch (paramID)
         {
             case TxParameterID::MinHeight:
-                return !isInitiator;
+                return isInitiator && !isInitiator.get();
             case TxParameterID::Fee:
-                return !isBeamSide;
+                return isBeamSide && !isBeamSide.get();
             case TxParameterID::PeerSignature:
             case TxParameterID::PeerOffset:
             case TxParameterID::PeerSharedBulletProofPart3:
-                return isBeamSide;
+                return isBeamSide && isBeamSide.get();
             case TxParameterID::PeerMaxHeight:
             case TxParameterID::PeerPublicNonce:
             case TxParameterID::PeerPublicExcess:
@@ -64,18 +74,22 @@ namespace beam::wallet
         }
     }
 
-    bool IsBeamWithdrawTxParameterExternalSettable(TxParameterID paramID, SubTxID subTxID, bool isBeamSide)
+    bool IsBeamWithdrawTxParameterExternalSettable(TxParameterID paramID, SubTxID subTxID, const boost::optional<bool>& isBeamSide)
     {
-        bool isTxOwner = (isBeamSide && (SubTxIndex::BEAM_REFUND_TX == subTxID)) || (!isBeamSide && (SubTxIndex::BEAM_REDEEM_TX == subTxID));
+        boost::optional<bool> isTxOwner;
+        if (isBeamSide)
+        {
+            isTxOwner = (isBeamSide.get() && (SubTxIndex::BEAM_REFUND_TX == subTxID)) || (!isBeamSide.get() && (SubTxIndex::BEAM_REDEEM_TX == subTxID));
+        }
 
         switch (paramID)
         {
             case TxParameterID::Amount:
             case TxParameterID::Fee:
             case TxParameterID::MinHeight:
-                return !isTxOwner;
+                return isTxOwner && !isTxOwner.get();
             case TxParameterID::PeerOffset:
-                return isTxOwner;
+                return isTxOwner && isTxOwner.get();
             case TxParameterID::PeerPublicExcess:
             case TxParameterID::PeerPublicNonce:
             case TxParameterID::PeerSignature:
@@ -250,23 +264,19 @@ namespace beam::wallet
         {
             case kDefaultSubTxID:
             {
-                boost::optional<bool> isInitiator;
-                if (bool value = false; GetParameter(TxParameterID::IsInitiator, value))
-                {
-                    isInitiator = value;
-                }
+                auto isInitiator = GetTxParameterAsOptional<bool>(*this, TxParameterID::IsInitiator);
                 return IsCommonTxParameterExternalSettable(paramID, isInitiator);
             }
             case SubTxIndex::BEAM_LOCK_TX:
             {
-                bool isBeamSide = GetMandatoryParameter<bool>(TxParameterID::AtomicSwapIsBeamSide);
-                bool isInitiator = GetMandatoryParameter<bool>(TxParameterID::IsInitiator);
+                auto isBeamSide = GetTxParameterAsOptional<bool>(*this, TxParameterID::AtomicSwapIsBeamSide);
+                auto isInitiator = GetTxParameterAsOptional<bool>(*this, TxParameterID::IsInitiator);
                 return IsBeamLockTxParameterExternalSettable(paramID, isBeamSide, isInitiator);
             }
             case SubTxIndex::BEAM_REDEEM_TX:
             case SubTxIndex::BEAM_REFUND_TX:
             {
-                bool isBeamSide = GetMandatoryParameter<bool>(TxParameterID::AtomicSwapIsBeamSide);
+                auto isBeamSide = GetTxParameterAsOptional<bool>(*this, TxParameterID::AtomicSwapIsBeamSide);
                 return IsBeamWithdrawTxParameterExternalSettable(paramID, subTxID, isBeamSide);
             }
             case SubTxIndex::LOCK_TX:
