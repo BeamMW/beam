@@ -892,11 +892,15 @@ namespace beam::wallet
                 return;
             }
 
-            m_blockCount = blockCount;
-
-            if (notify)
+            if (m_blockCount != blockCount)
             {
-                m_tx.UpdateAsync();
+                m_blockCount = blockCount;
+                m_tx.SetParameter(TxParameterID::AtomicSwapExternalHeight, m_blockCount, true);
+
+                if (notify)
+                {
+                    m_tx.UpdateAsync();
+                }
             }
         }
         catch (const std::exception& ex)
