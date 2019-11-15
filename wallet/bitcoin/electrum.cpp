@@ -54,41 +54,6 @@ namespace beam::bitcoin
     {
     }
 
-    void Electrum::dumpPrivKey(const std::string& btcAddress, std::function<void(const IBridge::Error&, const std::string&)> callback)
-    {
-        LOG_DEBUG() << "dumpPrivKey command";
-
-        Error error{ None, "" };
-        auto privateKeys = generateElectrumMasterPrivateKeys(m_settingsProvider.GetElectrumSettings().m_secretWords);
-        auto settings = m_settingsProvider.GetElectrumSettings();
-        auto addressVersion = settings.m_addressVersion;
-        auto receivingAddressAmount = settings.m_receivingAddressAmount;
-        for (uint32_t i = 0; i < receivingAddressAmount; ++i)
-        {
-            if (btcAddress == getElectrumAddress(privateKeys.first, i, addressVersion))
-            {
-                ec_private privateKey(privateKeys.first.derive_private(i).secret(), addressVersion);
-                callback(error, privateKey.encoded());
-                return;
-            }
-        }
-
-        auto changeAddressAmount = settings.m_changeAddressAmount;
-        for (uint32_t i = 0; i < changeAddressAmount; ++i)
-        {
-            if (btcAddress == getElectrumAddress(privateKeys.second, i, addressVersion))
-            {
-                ec_private privateKey(privateKeys.second.derive_private(i).secret(), addressVersion);
-                callback(error, privateKey.encoded());
-                return;
-            }
-        }
-
-        error.m_type = ErrorType::BitcoinError;
-        error.m_message = "This address is absent in wallet!";
-        callback(error, "");
-    }
-
     void Electrum::fundRawTransaction(const std::string& rawTx, Amount feeRate, std::function<void(const IBridge::Error&, const std::string&, int)> callback)
     {
         LOG_DEBUG() << "fundRawTransaction command";

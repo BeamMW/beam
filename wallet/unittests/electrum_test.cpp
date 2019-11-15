@@ -130,51 +130,12 @@ void testAddress()
     }
 }
 
-void testDumpPrivKey()
-{
-    bitcoin::ElectrumSettings settings;
-    settings.m_secretWords = { "child", "happy", "moment", "weird", "ten", "token", "stuff", "surface", "success", "desk", "embark", "observe" };
-    settings.m_addressVersion = bitcoin::getAddressVersion();
-
-    auto provider = std::make_shared<bitcoin::Provider>(settings);
-    io::Reactor::Ptr mainReactor{ io::Reactor::create() };
-    io::Reactor::Scope scope(*mainReactor);
-    bitcoin::Electrum electrum(*mainReactor, *provider);
-
-#if defined(BEAM_MAINNET) || defined(SWAP_MAINNET)
-    electrum.dumpPrivKey("16AW2aVqy2gva1hxdtF4xhoSrTQTbGSNvM", [](const bitcoin::IBridge::Error&, const std::string& privateKey)
-    {
-        LOG_INFO() << "private key = " << privateKey;
-
-        libbitcoin::wallet::ec_private addressPrivateKey(privateKey, bitcoin::getAddressVersion());
-        libbitcoin::wallet::ec_public publicKey(addressPrivateKey.to_public());
-        libbitcoin::wallet::payment_address address = publicKey.to_payment_address(bitcoin::getAddressVersion());
-        LOG_INFO() << address.encoded();
-
-        WALLET_CHECK(address.encoded() == "16AW2aVqy2gva1hxdtF4xhoSrTQTbGSNvM");
-    });
-#else
-    electrum.dumpPrivKey("mkgTKdapn48BM8BaMTDSnd1miT1AZSjV7P", [](const bitcoin::IBridge::Error&, const std::string& privateKey)
-    {
-        LOG_INFO() << "private key = " << privateKey;
-
-        libbitcoin::wallet::ec_private addressPrivateKey(privateKey, bitcoin::getAddressVersion());
-        libbitcoin::wallet::ec_public publicKey(addressPrivateKey.to_public());
-        libbitcoin::wallet::payment_address address = publicKey.to_payment_address(bitcoin::getAddressVersion());
-        LOG_INFO() << address.encoded();
-
-        WALLET_CHECK(address.encoded() == "mkgTKdapn48BM8BaMTDSnd1miT1AZSjV7P");
-    });
-#endif
-}
-
 int main()
 {
     int logLevel = LOG_LEVEL_DEBUG;
     auto logger = beam::Logger::create(logLevel, logLevel);
 
     testAddress();
-    testDumpPrivKey();
     
     assert(g_failureCount == 0);
     return WALLET_CHECK_RESULT;

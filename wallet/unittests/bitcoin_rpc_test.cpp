@@ -68,13 +68,6 @@ void testSuccessResponse()
     auto settingsProvider = std::make_shared<BitcoindSettingsProvider>(btcUserName, btcPass, addr);
     bitcoin::BitcoinCore016 bridge = bitcoin::BitcoinCore016(*reactor, *settingsProvider);
 
-    bridge.dumpPrivKey("", [&counter](const bitcoin::IBridge::Error& error, const std::string& key)
-    {
-        WALLET_CHECK(error.m_type == bitcoin::IBridge::None);
-        WALLET_CHECK(!key.empty());
-        ++counter;
-    });
-
     bridge.fundRawTransaction("", 2, [&counter](const bitcoin::IBridge::Error& error, const std::string& tx, int pos)
     {
         WALLET_CHECK(error.m_type == bitcoin::IBridge::None);
@@ -136,7 +129,7 @@ void testSuccessResponse()
 
     reactor->run();
 
-    WALLET_CHECK(counter == 9);
+    WALLET_CHECK(counter == 8);
 }
 
 void testWrongCredentials()

@@ -44,30 +44,6 @@ namespace beam::bitcoin
     {
     }
 
-    void BitcoinCore016::dumpPrivKey(const std::string& btcAddress, std::function<void(const IBridge::Error&, const std::string&)> callback)
-    {
-        LOG_DEBUG() << "Send dumpPrivKey command";
-
-        sendRequest("dumpprivkey", "\"" + btcAddress + "\"", [callback] (IBridge::Error error, const json& result){
-            std::string privKey;
-
-            if (error.m_type == IBridge::None)
-            {
-                try
-                {
-                    privKey = result.get<std::string>();
-                }
-                catch (const std::exception& ex)
-                {
-                    error.m_type = IBridge::InvalidResultFormat;
-                    error.m_message = ex.what();
-                }
-            }
-
-            callback(error, privKey);
-        });
-    }
-
     void BitcoinCore016::fundRawTransaction(const std::string& rawTx, Amount feeRate, std::function<void(const IBridge::Error&, const std::string&, int)> callback)
     {
         LOG_DEBUG() << "Send fundRawTransaction command";

@@ -47,11 +47,6 @@ public:
 
 protected:
 
-    virtual std::string dumpPrivKey()
-    {
-        return R"({"result":"cTZEjMtL96FyC43AxEvUxbs3pinad2cH8wvLeeCYNUwPURqeknkG","error":null,"id":null})";
-    }
-
     virtual std::string fundRawTransaction()
     {
         return R"({"result":{"hex":"2NB9nqKnHgThByiSzVEVDg5cYC2HwEMBcEK", "fee": 0, "changepos": 0},"error":null,"id":null})";
@@ -177,8 +172,6 @@ private:
         json j = json::parse(msg);
         if (j["method"] == "getbalance")
             return getBalance();
-        else if (j["method"] == "dumpprivkey")
-            return dumpPrivKey();
         else if (j["method"] == "fundrawtransaction")
             return fundRawTransaction();
         else if (j["method"] == "signrawtransaction")

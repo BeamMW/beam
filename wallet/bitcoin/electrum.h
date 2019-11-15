@@ -62,7 +62,6 @@ namespace beam::bitcoin
         Electrum() = delete;
         Electrum(beam::io::Reactor& reactor, IElectrumSettingsProvider& settingsProvider);
 
-        void dumpPrivKey(const std::string& btcAddress, std::function<void(const Error&, const std::string&)> callback) override;
         void fundRawTransaction(const std::string& rawTx, Amount feeRate, std::function<void(const Error&, const std::string&, int)> callback) override;
         void signRawTransaction(const std::string& rawTx, std::function<void(const Error&, const std::string&, bool)> callback) override;
         void sendRawTransaction(const std::string& rawTx, std::function<void(const Error&, const std::string&)> callback) override;
