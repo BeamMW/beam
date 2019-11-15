@@ -29,7 +29,7 @@ class SwapOffersViewModel : public QObject
 	Q_OBJECT
     Q_PROPERTY(QAbstractItemModel*  transactions        READ getTransactions        NOTIFY allTransactionsChanged)
     Q_PROPERTY(QAbstractItemModel*  allOffers           READ getAllOffers           NOTIFY allOffersChanged)
-    Q_PROPERTY(QAbstractItemModel*  allOffersFitBalance READ getAllOffersFitBalance NOTIFY allOffersChanged)
+    Q_PROPERTY(QAbstractItemModel*  allOffersFitBalance READ getAllOffersFitBalance NOTIFY allOffersFitBalanceChanged)
     Q_PROPERTY(int                  selectedCoin        READ getSelectedCoin        NOTIFY selectedCoinChanged     WRITE   setSelectedCoin)
     Q_PROPERTY(QString              beamAvailable       READ beamAvailable          NOTIFY beamAvailableChanged)
     Q_PROPERTY(QString              btcAvailable        READ btcAvailable           NOTIFY btcAvailableChanged)
@@ -83,10 +83,12 @@ public slots:
     void onSwapOffersDataModelChanged(
         beam::wallet::ChangeAction action,
         const std::vector<beam::wallet::SwapOffer>& offers);
+    void resetAllOffersFitBalance();
 
 signals:
     void allTransactionsChanged();
     void allOffersChanged();
+    void allOffersFitBalanceChanged();
     void selectedCoinChanged();
     void beamAvailableChanged();
     void btcAvailableChanged();
@@ -98,6 +100,12 @@ signals:
     void offerRemovedFromTable(QVariant variantTxID);
 
 private:
+    void monitorAllOffersFitBalance();
+    bool isOfferFitBalance(const SwapOfferItem& offer);
+    void insertAllOffersFitBalance(
+        const std::vector<std::shared_ptr<SwapOfferItem>>& offers);
+    void removeAllOffersFitBalance(
+        const std::vector<std::shared_ptr<SwapOfferItem>>& offers);
     bool hasActiveTx(const std::string& swapCoin) const;
     WalletModel& m_walletModel;
     

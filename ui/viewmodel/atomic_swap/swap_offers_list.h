@@ -37,7 +37,7 @@ public:
         ExpirationSort,
         SwapCoin,
         IsOwnOffer,
-        IsBeamSide,
+        isSendBeam,
         RawTxID,
         RawTxParameters
     };
