@@ -132,12 +132,12 @@ struct WalletModelBridge : public Bridge<IWalletModelAsync>
         call_async(&IWalletModelAsync::changeCurrentWalletIDs, senderID, receiverID);
     }
 
-    void loadSwapParams()
+    void loadSwapParams() override
     {
         call_async(&IWalletModelAsync::loadSwapParams);
     }
 
-    void storeSwapParams(const beam::ByteBuffer& params)
+    void storeSwapParams(const beam::ByteBuffer& params) override
     {
         call_async(&IWalletModelAsync::storeSwapParams, params);
     }
