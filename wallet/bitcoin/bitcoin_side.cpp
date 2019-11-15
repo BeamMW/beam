@@ -284,7 +284,7 @@ namespace beam::wallet
         return true;
     }
 
-    bool BitcoinSide::IsQuickRefundEnabled()
+    bool BitcoinSide::IsQuickRefundAvailable()
     {
         NoLeak<uintBig> rawPeerPrivateKey;
 
@@ -504,7 +504,7 @@ namespace beam::wallet
             auto swapLockTxID = m_tx.GetMandatoryParameter<std::string>(TxParameterID::AtomicSwapExternalTxID, SubTxIndex::LOCK_TX);
 
             Timestamp locktime = 0;
-            if (subTxID == SubTxIndex::REFUND_TX && !IsQuickRefundEnabled())
+            if (subTxID == SubTxIndex::REFUND_TX && !IsQuickRefundAvailable())
             {
                 locktime = m_tx.GetMandatoryParameter<Timestamp>(TxParameterID::AtomicSwapExternalLockTime);
             }
@@ -744,9 +744,9 @@ namespace beam::wallet
             auto addressVersion = GetAddressVersion();
 
             NoLeak<uintBig> localPrivateKey;
-            bool quickRefund = IsQuickRefundEnabled();
+            bool quickRefund = IsQuickRefundAvailable();
 
-            if (quickRefund)
+            if (SubTxIndex::REFUND_TX == subTxID && quickRefund)
                 localPrivateKey.V = m_tx.GetMandatoryParameter<uintBig>(beam::wallet::TxParameterID::AtomicSwapPeerPrivateKey);
             else
                 localPrivateKey.V = m_tx.GetMandatoryParameter<uintBig>(beam::wallet::TxParameterID::AtomicSwapPrivateKey);

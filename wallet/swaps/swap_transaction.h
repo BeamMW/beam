@@ -176,6 +176,7 @@ namespace beam::wallet
 
         void SendSharedTxInvitation(const BaseTxBuilder& builder);
         void ConfirmSharedTxInvitation(const BaseTxBuilder& builder);
+        void SendQuickRefundPrivateKey();
 
 
         SubTxState BuildBeamLockTx();

@@ -502,7 +502,7 @@ namespace beam::wallet
             {
                 assert(!isBeamOwner);
 
-                if (!m_secondSide->IsLockTimeExpired() && !m_secondSide->IsQuickRefundEnabled())
+                if (!m_secondSide->IsLockTimeExpired() && !m_secondSide->IsQuickRefundAvailable())
                 {
                     UpdateOnNextTip();
                     break;
@@ -612,6 +612,8 @@ namespace beam::wallet
                     break;
 
                 LOG_INFO() << GetTxID() << " Beam Refund TX completed!";
+
+                SendQuickRefundPrivateKey();
                 SetNextState(State::Refunded);
                 break;
             }
@@ -695,6 +697,7 @@ namespace beam::wallet
             case State::BuildingBeamRedeemTX:
             case State::BuildingBeamRefundTX:
             case State::HandlingContractTX:
+            case State::Canceled:
             {
                 NoLeak<uintBig> secretPrivateKey;
 
@@ -879,15 +882,15 @@ namespace beam::wallet
                 break;
             }
             case State::SendingBeamLockTX:
-            case State::SendingBeamRedeemTX:
             {
-                if (!IsBeamSide() && m_secondSide->IsQuickRefundEnabled())
+                if (!IsBeamSide() && m_secondSide->IsQuickRefundAvailable())
                 {
                     SetState(State::SendingRefundTX);
                 }
 
                 break;
             }
+            case State::SendingBeamRedeemTX:
             case State::SendingRedeemTX:
             {
                 // nothing
@@ -1463,6 +1466,22 @@ namespace beam::wallet
         if (!SendTxParameters(std::move(msg)))
         {
             OnFailed(TxFailureReason::FailedToSendParameters, false);
+        }
+    }
+
+    void AtomicSwapTransaction::SendQuickRefundPrivateKey()
+    {
+        NoLeak<uintBig> secretPrivateKey;
+
+        if (GetParameter(TxParameterID::AtomicSwapPrivateKey, secretPrivateKey.V))
+        {
+            LOG_DEBUG() << "AtomicSwapTransaction::NotifyFailure send secret";
+
+            SetTxParameter msg;
+
+            // send our private key of redeem tx. we are good :)
+            msg.AddParameter(TxParameterID::AtomicSwapPeerPrivateKey, secretPrivateKey.V);
+            SendTxParameters(std::move(msg));
         }
     }
 

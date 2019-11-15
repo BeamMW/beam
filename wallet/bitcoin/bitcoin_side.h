@@ -42,7 +42,7 @@ namespace beam::wallet
         bool SendRedeem() override;
         bool IsLockTimeExpired() override;
         bool HasEnoughTimeToProcessLockTx() override;
-        bool IsQuickRefundEnabled() override;
+        bool IsQuickRefundAvailable() override;
 
         static bool CheckAmount(Amount amount, Amount feeRate);
 
