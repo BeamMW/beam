@@ -15,6 +15,7 @@
 #include "bitcoin_side.h"
 
 #include "common.h"
+#include "core/block_crypt.h"
 
 #include "bitcoin/bitcoin.hpp"
 #include "nlohmann/json.hpp"
@@ -24,7 +25,7 @@ using json = nlohmann::json;
 
 namespace
 {
-    constexpr uint32_t kBTCMaxHeightDifference = 10;
+    constexpr uint32_t kExternalHeightMaxDifference = 5;
 
     libbitcoin::chain::script AtomicSwapContract(const libbitcoin::ec_compressed& publicKeyA
         , const libbitcoin::ec_compressed& publicKeyB
@@ -161,13 +162,15 @@ namespace beam::wallet
             return false;
         }
 
-        Height lockPeriod = externalLockTime - height;
-        if (lockPeriod > GetLockTimeInBlocks())
-        {
-            return (lockPeriod - GetLockTimeInBlocks()) <= kBTCMaxHeightDifference;
-        }
+        double blocksPerBeamBlock = GetBlocksPerHour() / beam::Rules::get().DA.Target_s;
+        Height beamCurrentHeight = m_tx.GetWalletDB()->getCurrentHeight();
+        Height beamHeightDiff = beamCurrentHeight - m_tx.GetMandatoryParameter<Height>(TxParameterID::MinHeight);
 
-        return (GetLockTimeInBlocks() - lockPeriod) <= kBTCMaxHeightDifference;
+        Height peerMinHeight = externalLockTime - GetLockTimeInBlocks();
+        Height peerEstCurrentHeight = peerMinHeight + static_cast<Height>(std::ceil(blocksPerBeamBlock * beamHeightDiff));
+
+        return peerEstCurrentHeight >= height - kExternalHeightMaxDifference
+            && peerEstCurrentHeight <= height + kExternalHeightMaxDifference;
     }
 
     void BitcoinSide::AddTxDetails(SetTxParameter& txParameters)
@@ -347,6 +350,11 @@ namespace beam::wallet
     uint32_t BitcoinSide::GetLockTimeInBlocks() const
     {
         return m_settingsProvider.GetSettings().GetLockTimeInBlocks();
+    }
+
+    double BitcoinSide::GetBlocksPerHour() const
+    {
+        return m_settingsProvider.GetSettings().GetBlocksPerHour();
     }
 
     bool BitcoinSide::LoadSwapAddress()

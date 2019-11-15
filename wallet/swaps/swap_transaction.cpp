@@ -399,7 +399,16 @@ namespace beam::wallet
                         break;
                     }
 
-                    // TODO: validate MinHeight BEAM_LOCK_TX
+                    // validate BEAM_LOCK_TX MinHeight
+                    // mainMinHeight < minHeight < mainPeerResponseHeight
+                    Height mainMinHeight = GetMandatoryParameter<Height>(TxParameterID::MinHeight);
+                    Height mainPeerResponseHeight = GetMandatoryParameter<Height>(TxParameterID::PeerResponseHeight);
+                    auto minHeight = GetMandatoryParameter<Height>(TxParameterID::MinHeight, SubTxIndex::BEAM_LOCK_TX);
+                    if (minHeight < mainMinHeight || minHeight >= mainPeerResponseHeight)
+                    {
+                        OnSubTxFailed(TxFailureReason::MinHeightIsUnacceptable, SubTxIndex::BEAM_LOCK_TX, true);
+                        break;
+                    }
                 }
 
                 SetNextState(State::BuildingBeamLockTX);
@@ -923,19 +932,6 @@ namespace beam::wallet
                 lockTxBuilder->SelectInputs();
                 lockTxBuilder->AddChange();
             }
-            {
-                // validate MinHeight
-                // mainMinHeight < minHeight < mainPeerResponseHeight
-                Height mainMinHeight = GetMandatoryParameter<Height>(TxParameterID::MinHeight);
-                Height mainPeerResponseHeight = GetMandatoryParameter<Height>(TxParameterID::PeerResponseHeight);
-                auto minHeight = lockTxBuilder->GetMinHeight();
-                if (minHeight < mainMinHeight || minHeight >= mainPeerResponseHeight)
-                {
-                    OnSubTxFailed(TxFailureReason::MinHeightIsUnacceptable, SubTxIndex::BEAM_LOCK_TX, true);
-                    return lockTxState;
-                }
-            }
-
             UpdateTxDescription(TxStatus::InProgress);
 
             lockTxBuilder->GenerateOffset();

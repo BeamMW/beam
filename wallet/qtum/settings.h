@@ -28,13 +28,15 @@ namespace beam::qtum
             : bitcoin::Settings()
         {
             constexpr uint16_t kQtumDefaultTxMinConfirmations = 10;
-            constexpr uint32_t kQtumDefaultLockTimeInBlocks = 2 * 600;  // 48h
+            constexpr double kQtumBlocksPerHour = 25;
+            constexpr uint32_t kQtumDefaultLockTimeInBlocks = 12 * 25;  // 12h
             constexpr Amount kQtumMinFeeRate = 500000;
 
             SetTxMinConfirmations(kQtumDefaultTxMinConfirmations);
             SetLockTimeInBlocks(kQtumDefaultLockTimeInBlocks);
             SetFeeRate(kQtumMinFeeRate);
             SetMinFeeRate(kQtumMinFeeRate);
+            SetBlocksPerHour(kQtumBlocksPerHour);
         }
     };
 } // namespace beam::qtum

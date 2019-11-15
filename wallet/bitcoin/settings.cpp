@@ -106,6 +106,11 @@ namespace beam::bitcoin
         return m_connectionType;
     }
 
+    double Settings::GetBlocksPerHour() const
+    {
+        return m_blocksPerHour;
+    }
+
     void Settings::SetConnectionOptions(const BitcoinCoreSettings& connectionSettings)
     {
         m_connectionSettings = connectionSettings;
@@ -139,5 +144,10 @@ namespace beam::bitcoin
     void Settings::ChangeConnectionType(ISettings::ConnectionType type)
     {
         m_connectionType = type;
+    }
+
+    void Settings::SetBlocksPerHour(double blocksPerHour)
+    {
+        m_blocksPerHour = blocksPerHour;
     }
 } // namespace beam::bitcoin

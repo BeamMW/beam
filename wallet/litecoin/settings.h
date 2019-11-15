@@ -27,12 +27,14 @@ namespace beam::litecoin
         Settings()
             : bitcoin::Settings()
         {
-            constexpr uint32_t kLTCDefaultLockTimeInBlocks = 2 * 24 * 4 * 6;
+            constexpr double kLTCBlocksPerHour = 24;
+            constexpr uint32_t kLTCDefaultLockTimeInBlocks = 12 * 24;  // 12h
             constexpr Amount kLtcMinFeeRate = 90000;
 
             SetLockTimeInBlocks(kLTCDefaultLockTimeInBlocks);
             SetFeeRate(kLtcMinFeeRate);
             SetMinFeeRate(kLtcMinFeeRate);
+            SetBlocksPerHour(kLTCBlocksPerHour);
         }
     };
 } //namespace beam::litecoin

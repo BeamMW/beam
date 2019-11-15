@@ -54,6 +54,7 @@ namespace beam::wallet
         Amount GetFeeRate(SubTxID subTxID) const;
         uint16_t GetTxMinConfirmations() const;
         uint32_t GetLockTimeInBlocks() const;
+        double GetBlocksPerHour() const;
 
     private:
         bool LoadSwapAddress();
