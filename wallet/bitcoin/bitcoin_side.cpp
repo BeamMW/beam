@@ -284,6 +284,24 @@ namespace beam::wallet
         return true;
     }
 
+    bool BitcoinSide::IsQuickRefundEnabled()
+    {
+        NoLeak<uintBig> rawPeerPrivateKey;
+
+        if (m_tx.GetParameter(TxParameterID::AtomicSwapPeerPrivateKey, rawPeerPrivateKey.V))
+        {
+            libbitcoin::ec_secret peerPrivateKey;
+            std::copy(std::begin(rawPeerPrivateKey.V.m_pData), std::end(rawPeerPrivateKey.V.m_pData), peerPrivateKey.begin());
+
+            libbitcoin::wallet::ec_private localPrivateKey(peerPrivateKey, GetAddressVersion());
+            std::string peerSwapPublicKeyStr = m_tx.GetMandatoryParameter<std::string>(TxParameterID::AtomicSwapPeerPublicKey);
+
+            return localPrivateKey.to_public() == libbitcoin::wallet::ec_public(peerSwapPublicKeyStr);
+        }
+
+        return false;
+    }
+
     uint32_t BitcoinSide::GetLockTxEstimatedTimeInBeamBlocks() const
     {
         // it's average value
@@ -486,7 +504,7 @@ namespace beam::wallet
             auto swapLockTxID = m_tx.GetMandatoryParameter<std::string>(TxParameterID::AtomicSwapExternalTxID, SubTxIndex::LOCK_TX);
 
             Timestamp locktime = 0;
-            if (subTxID == SubTxIndex::REFUND_TX)
+            if (subTxID == SubTxIndex::REFUND_TX && !IsQuickRefundEnabled())
             {
                 locktime = m_tx.GetMandatoryParameter<Timestamp>(TxParameterID::AtomicSwapExternalLockTime);
             }
@@ -588,8 +606,6 @@ namespace beam::wallet
 
         if (!RegisterTx(*m_SwapWithdrawRawTx, subTxID))
             return false;
-
-        // TODO: check confirmations
 
         return true;
     }
@@ -728,7 +744,13 @@ namespace beam::wallet
             auto addressVersion = GetAddressVersion();
 
             NoLeak<uintBig> localPrivateKey;
-            localPrivateKey.V = m_tx.GetMandatoryParameter<uintBig>(beam::wallet::TxParameterID::AtomicSwapPrivateKey);
+            bool quickRefund = IsQuickRefundEnabled();
+
+            if (quickRefund)
+                localPrivateKey.V = m_tx.GetMandatoryParameter<uintBig>(beam::wallet::TxParameterID::AtomicSwapPeerPrivateKey);
+            else
+                localPrivateKey.V = m_tx.GetMandatoryParameter<uintBig>(beam::wallet::TxParameterID::AtomicSwapPrivateKey);
+
             libbitcoin::ec_secret localSecret;
             std::copy(std::begin(localPrivateKey.V.m_pData), std::end(localPrivateKey.V.m_pData), localSecret.begin());
             libbitcoin::endorsement sig;
@@ -740,7 +762,7 @@ namespace beam::wallet
             // Create input script
             libbitcoin::machine::operation::list sig_script;
 
-            if (SubTxIndex::REFUND_TX == subTxID)
+            if (SubTxIndex::REFUND_TX == subTxID && !quickRefund)
             {
                 // <my sig> 0
                 sig_script.push_back(libbitcoin::machine::operation(sig));

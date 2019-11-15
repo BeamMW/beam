@@ -502,7 +502,7 @@ namespace beam::wallet
             {
                 assert(!isBeamOwner);
 
-                if (!m_secondSide->IsLockTimeExpired())
+                if (!m_secondSide->IsLockTimeExpired() && !m_secondSide->IsQuickRefundEnabled())
                 {
                     UpdateOnNextTip();
                     break;
@@ -879,13 +879,13 @@ namespace beam::wallet
                 break;
             }
             case State::SendingBeamLockTX:
-            {
-                // nothing
-                break;
-            }
             case State::SendingBeamRedeemTX:
             {
-                // nothing
+                if (!IsBeamSide() && m_secondSide->IsQuickRefundEnabled())
+                {
+                    SetState(State::SendingRefundTX);
+                }
+
                 break;
             }
             case State::SendingRedeemTX:
