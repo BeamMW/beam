@@ -73,6 +73,7 @@ ProxyConnector::OnConnect ProxyConnector::create_connection(
 void ProxyConnector::release_connection(uint64_t tag, Result res) {
     // TODO: proxy refact to modern pointers
     // TODO: check if @stream destructor is called properly
+    LOG_DEBUG() << "release_connection(" << tag << ")";
     
     ProxyConnectRequest* req_ptr = _connectRequests[tag];
 
@@ -81,7 +82,7 @@ void ProxyConnector::release_connection(uint64_t tag, Result res) {
         LOG_DEBUG() << "Proxy connection error: " << error_str(res.error());
     }
     req_ptr->~ProxyConnectRequest();
-    _connectRequestsPool.release(_connectRequests[tag]);
+    _connectRequestsPool.release(req_ptr);
     _connectRequests.erase(tag);
 }
 
