@@ -1207,12 +1207,12 @@ or send this address to the sender over secure channel</translation>
         <translation>Fee is too small</translation>
     </message>
     <message id="loading-view-estimate-minutes">
-        <source>min.</source>
-        <translation>min.</translation>
+        <source>min</source>
+        <translation>min</translation>
     </message>
     <message id="loading-view-estimate-seconds">
-        <source>sec.</source>
-        <translation>sec.</translation>
+        <source>sec</source>
+        <translation>sec</translation>
     </message>
     <message id="loading-view-estimate-time">
         <source>Estimate time: %s</source>
@@ -1383,8 +1383,8 @@ please review your settings and try again</translation>
         <translation>Rebuilding wallet data</translation>
     </message>
     <message id="loading-view-estimate-hours">
-        <source>h.</source>
-        <translation>h.</translation>
+        <source>h</source>
+        <translation>h</translation>
     </message>
     <message id="loading-view-net-problems">
         <source>It may take longer then usual. Please, check your network.</source>
@@ -1892,6 +1892,19 @@ to complete.</translation>
     <message id="settings-swap-connect">
         <source>connect</source>
         <translation>connect</translation>
+    </message>
+    <message id="swap-tx-state-initial">
+        <source>If the peer won&apos;t get online in %1, the swap will be canceled automatically</source>
+        <oldsource>If the peer won&apos;t get online in %1 %2, the swap will be canceled automatically</oldsource>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="swap-tx-state-in-progress-normal">
+        <source>The swap is expected to complete in %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="swap-tx-state-in-progress-refunding">
+        <source>Your %2 will be refunded in %1</source>
+        <translation type="unfinished"></translation>
     </message>
 </context>
 </TS>

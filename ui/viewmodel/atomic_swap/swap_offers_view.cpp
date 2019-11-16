@@ -23,6 +23,36 @@ using namespace beam::wallet;
 using namespace std;
 using namespace beam::bitcoin;
 
+void SwapOffersViewModel::ActiveTxCounters::increment(AtomicSwapCoin swapCoinType)
+{
+    ++getCounter(swapCoinType);
+}
+
+void SwapOffersViewModel::ActiveTxCounters::decrement(AtomicSwapCoin swapCoinType)
+{
+    --getCounter(swapCoinType);
+}
+
+int& SwapOffersViewModel::ActiveTxCounters::getCounter(AtomicSwapCoin swapCoinType)
+{
+    switch(swapCoinType)
+    {
+    case wallet::AtomicSwapCoin::Bitcoin:
+        return btc;
+    case wallet::AtomicSwapCoin::Litecoin:
+        return ltc;
+    case wallet::AtomicSwapCoin::Qtum:
+        return qtum;
+    default:
+        throw std::runtime_error("Unexpected coin type");
+    }
+}
+
+void SwapOffersViewModel::ActiveTxCounters::clear()
+{
+    btc = ltc = qtum = 0;
+}
+
 SwapOffersViewModel::SwapOffersViewModel()
     :   m_walletModel{*AppModel::getInstance().getWallet()},
         m_selectedCoin(AtomicSwapCoin::Bitcoin),
@@ -162,39 +192,99 @@ PaymentInfoItem* SwapOffersViewModel::getPaymentInfo(const QVariant& variantTxID
 void SwapOffersViewModel::onTransactionsDataModelChanged(beam::wallet::ChangeAction action, const std::vector<beam::wallet::TxDescription>& transactions)
 {
     vector<shared_ptr<SwapTxObject>> swapTransactions;
+    vector<shared_ptr<SwapTxObject>> activeTransactions;
+    vector<shared_ptr<SwapTxObject>> inactiveTransactions;
     swapTransactions.reserve(transactions.size());
 
     for (const auto& t : transactions)
     {
         if (t.GetParameter<TxType>(TxParameterID::TransactionType) == TxType::AtomicSwap)
         {
-            swapTransactions.push_back(make_shared<SwapTxObject>(t));
+            auto newItem = make_shared<SwapTxObject>(t);
+            swapTransactions.push_back(newItem);
+            if (!newItem->isPending() && newItem->isInProgress())
+            {
+                activeTransactions.push_back(newItem);
+            }
+            else
+            {
+                inactiveTransactions.push_back(newItem);
+            }
         }
     }
+
+    if (swapTransactions.empty())
+    {
+        return;
+    }
+    
+    auto eraseActive = [this](auto tx)
+    {
+        auto swapCoinType = tx->getSwapCoinType();
+        if (m_activeTx.erase(tx->getTxID()) > 0) // item was erased
+        {
+            m_activeTxCounters.decrement(swapCoinType);
+        }
+    };
+
+    auto insertActive = [this](auto tx)
+    {
+        auto swapCoinType = tx->getSwapCoinType();
+        auto p = m_activeTx.emplace(tx->getTxID(), swapCoinType);
+        if (p.second) // new item was inserted
+        {
+            m_activeTxCounters.increment(swapCoinType);
+        }
+    };
 
     switch (action)
     {
         case ChangeAction::Reset:
             {
                 m_transactionsList.reset(swapTransactions);
+                m_activeTx.clear();
+                m_activeTxCounters.clear();
+                for (auto tx : activeTransactions)
+                {
+                    auto swapCoinType = tx->getSwapCoinType();
+                    m_activeTx.emplace(tx->getTxID(), swapCoinType);
+                    m_activeTxCounters.increment(swapCoinType);
+                }
                 break;
             }
 
         case ChangeAction::Removed:
             {
                 m_transactionsList.remove(swapTransactions);
+                for (auto tx : swapTransactions)
+                {
+                    eraseActive(tx);
+                }
                 break;
             }
 
         case ChangeAction::Added:
             {
                 m_transactionsList.insert(swapTransactions);
+                for (auto tx : activeTransactions)
+                {
+                    insertActive(tx);
+                }
                 break;
             }
         
         case ChangeAction::Updated:
             {
                 m_transactionsList.update(swapTransactions);
+                for (auto tx : activeTransactions)
+                {
+                    insertActive(tx);
+                }
+                for (auto tx : inactiveTransactions)
+                {
+                    eraseActive(tx);
+                }
+
                 break;
             }
 
@@ -202,7 +292,7 @@ void SwapOffersViewModel::onTransactionsDataModelChanged(beam::wallet::ChangeAct
             assert(false && "Unexpected action");
             break;
     }
-
+    m_activeTxCount = static_cast<int>(m_activeTx.size());
     emit allTransactionsChanged();
 }
 
@@ -274,41 +364,22 @@ bool SwapOffersViewModel::showBetaWarning() const
 
 int SwapOffersViewModel::getActiveTxCount() const
 {
-    int count = 0;
-    for (int i = 0; i < m_transactionsList.rowCount(); ++i)
-    {
-        auto index = m_transactionsList.index(i, 0);
-        try
-        {
-            bool isInProgress = m_transactionsList.data(index, static_cast<int>(SwapTxObjectList::Roles::IsInProgress)).toBool();
-            bool isPending = m_transactionsList.data(index, static_cast<int>(SwapTxObjectList::Roles::IsPending)).toBool();
-            if (!isPending && isInProgress)
-            {
-                ++count;
-            }
-        }
-        catch(...)
-        {
-            qDebug() << "Wrong ROLE data";
-        }
-    }
-
-    return count;
+    return m_activeTxCount;
 }
 
 bool SwapOffersViewModel::hasBtcTx() const
 {
-    return hasActiveTx(toStdString(beamui::Currencies::Bitcoin));
+    return m_activeTxCounters.btc > 0;
 }
 
 bool SwapOffersViewModel::hasLtcTx() const
 {
-    return hasActiveTx(toStdString(beamui::Currencies::Litecoin));
+    return m_activeTxCounters.ltc > 0;
 }
 
 bool SwapOffersViewModel::hasQtumTx() const
 {
-    return hasActiveTx(toStdString(beamui::Currencies::Qtum));
+    return m_activeTxCounters.qtum > 0;
 }
 
 bool SwapOffersViewModel::hasActiveTx(const std::string& swapCoin) const
@@ -318,14 +389,18 @@ bool SwapOffersViewModel::hasActiveTx(const std::string& swapCoin) const
         auto index = m_transactionsList.index(i, 0);
         try
         {
-            bool isInProgress = m_transactionsList.data(index, static_cast<int>(SwapTxObjectList::Roles::IsInProgress)).toBool();
             bool isPending = m_transactionsList.data(index, static_cast<int>(SwapTxObjectList::Roles::IsPending)).toBool();
-            auto mySwapCoin = m_transactionsList.data(index, static_cast<int>(SwapTxObjectList::Roles::SwapCoin)).toString();
-            if (!isPending &&
-                isInProgress &&
-                mySwapCoin.toStdString() == swapCoin)
+            if (!isPending)
             {
-                return true;
+                bool isInProgress = m_transactionsList.data(index, static_cast<int>(SwapTxObjectList::Roles::IsInProgress)).toBool();
+                if (isInProgress)
+                {
+                    auto mySwapCoin = m_transactionsList.data(index, static_cast<int>(SwapTxObjectList::Roles::SwapCoin)).toString();
+                    if (mySwapCoin.toStdString() == swapCoin)
+                    {
+                        return true;
+                    }
+                }
             }
         }
         catch(...)

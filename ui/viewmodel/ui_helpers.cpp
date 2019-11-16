@@ -139,6 +139,71 @@ namespace beamui
         return expiresTime;
     }
 
+    QString getEstimateTimeStr(int estimate)
+    {
+        const int kSecondsInMinute = 60;
+        const int kSecondsInHour = 60 * kSecondsInMinute;
+        int value = 0;
+        QString units;
+        if (estimate >= kSecondsInHour)
+        {
+            value = estimate / kSecondsInHour;
+            //% "h"
+            units = qtTrId("loading-view-estimate-hours");
+            auto res = QString::asprintf(
+                "%ld %s", value, units.toStdString().c_str());
+
+            estimate %= kSecondsInHour;
+            value = estimate / kSecondsInMinute;
+
+            estimate %= kSecondsInMinute;
+            if (estimate)
+            {
+                ++value;
+            }
+
+            if (value >= 1)
+            {
+                //% "min"
+                units = qtTrId("loading-view-estimate-minutes");
+                res = res + " " + QString::asprintf(
+                    "%ld %s", value, units.toStdString().c_str());
+            }
+
+            return res;
+        }
+        else if (estimate < kSecondsInHour && estimate > 100)
+        {
+            value = estimate / kSecondsInMinute;
+            estimate %= kSecondsInMinute;
+            if (estimate)
+            {
+                ++value;
+            }
+            units = qtTrId("loading-view-estimate-minutes");
+        }
+        else if (estimate <= 100 && estimate > kSecondsInMinute)
+        {
+            value = estimate / kSecondsInMinute;
+            units = qtTrId("loading-view-estimate-minutes");
+            auto res = QString::asprintf(
+                "%ld %s", value, units.toStdString().c_str());
+            value = estimate - kSecondsInMinute;
+            //% "sec"
+            units = qtTrId("loading-view-estimate-seconds");
+            res = res + " " + QString::asprintf(
+                "%ld %s", value, units.toStdString().c_str());
+            return res;
+        }
+        else
+        {
+            value = estimate > 0 ? estimate : 1;
+            units = qtTrId("loading-view-estimate-seconds");
+        }
+        return QString::asprintf(
+            "%ld %s", value, units.toStdString().c_str());
+    }
+
     QString toString(Currencies currency)
     {
         switch(currency)

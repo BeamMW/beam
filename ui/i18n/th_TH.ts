@@ -1204,12 +1204,14 @@
         <translation>ค่าธรรมเนียมน้อยเกินไป</translation>
     </message>
     <message id="loading-view-estimate-minutes">
-        <source>min.</source>
-        <translation>นาที</translation>
+        <source>min</source>
+        <oldsource> min</oldsource>
+        <translation type="unfinished">นาที</translation>
     </message>
     <message id="loading-view-estimate-seconds">
-        <source>sec.</source>
-        <translation>วินาที</translation>
+        <source>sec</source>
+        <oldsource> sec</oldsource>
+        <translation type="unfinished">วินาที</translation>
     </message>
     <message id="loading-view-estimate-time">
         <source>Estimate time: %s</source>
@@ -1388,8 +1390,9 @@ please review your settings and try again</source>
         <translation>กำลังสร้างข้อมูลกระเป๋าใหม่</translation>
     </message>
     <message id="loading-view-estimate-hours">
-        <source>h.</source>
-        <translation>ชม.</translation>
+        <source>h</source>
+        <oldsource> h</oldsource>
+        <translation type="unfinished">ชม.</translation>
     </message>
     <message id="loading-view-net-problems">
         <source>It may take longer then usual. Please, check your network.</source>
@@ -1907,6 +1910,19 @@ Without the phrase you will not be able to recover your money.</oldsource>
     </message>
     <message id="settings-swap-connect">
         <source>connect</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="swap-tx-state-initial">
+        <source>If the peer won&apos;t get online in %1, the swap will be canceled automatically</source>
+        <oldsource>If the peer won&apos;t get online in %1 %2, the swap will be canceled automatically</oldsource>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="swap-tx-state-in-progress-normal">
+        <source>The swap is expected to complete in %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="swap-tx-state-in-progress-refunding">
+        <source>Your %coins will be refunded in %1</source>
         <translation type="unfinished"></translation>
     </message>
 </context>
