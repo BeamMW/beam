@@ -301,33 +301,6 @@ namespace proto {
 
 	static const uint32_t g_HdrPackMaxSize = 2048; // about 400K
 
-    struct UtxoEvent
-    {
-        static const uint32_t s_Max = 64; // will send more, if the remaining events are on the same height
-
-        Key::IDV m_Kidv;
-        ECC::Point m_Commitment;
-        AssetID m_AssetID;
-
-        Height m_Height;
-        Height m_Maturity;
-
-        uint8_t m_Added; // 1 = add, 0 = spend
-
-
-        template <typename Archive>
-        void serialize(Archive& ar)
-        {
-            ar
-                & m_Commitment
-                & m_Kidv
-                & m_AssetID
-                & m_Height
-                & m_Maturity
-                & m_Added;
-        }
-    };
-
 	struct BodyBuffers
 	{
 		ByteBuffer m_Perishable;

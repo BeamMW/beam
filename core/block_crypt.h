@@ -919,4 +919,22 @@ namespace beam
 		void ZeroInit();
 		bool EnumStatesHeadingOnly(IStateWalker&) const; // skip arbitrary
 	};
+
+	namespace proto
+	{
+		struct UtxoEvent
+		{
+			static const uint32_t s_Max = 64; // will send more, if the remaining events are on the same height
+
+			Key::IDV m_Kidv;
+			ECC::Point m_Commitment;
+			AssetID m_AssetID;
+
+			Height m_Height;
+			Height m_Maturity;
+
+			uint8_t m_Added; // 1 = add, 0 = spend
+		};
+
+	} // namespace proto
 }

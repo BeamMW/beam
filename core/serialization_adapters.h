@@ -1288,6 +1288,34 @@ namespace detail
 
 			return ar;
 		}
+
+		template<typename Archive>
+		static Archive& save(Archive& ar, const beam::proto::UtxoEvent& v)
+		{
+			ar
+				& v.m_Commitment
+				& v.m_Kidv
+				& v.m_AssetID
+				& v.m_Height
+				& v.m_Maturity
+				& v.m_Added;
+
+			return ar;
+		}
+
+		template<typename Archive>
+		static Archive& load(Archive& ar, beam::proto::UtxoEvent& v)
+		{
+			ar
+				& v.m_Commitment
+				& v.m_Kidv
+				& v.m_AssetID
+				& v.m_Height
+				& v.m_Maturity
+				& v.m_Added;
+
+			return ar;
+		}
 	};
 }
 }
