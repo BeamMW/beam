@@ -306,6 +306,7 @@ namespace proto {
 		static const uint32_t s_Max = 64; // will send more, if the remaining events are on the same height
 
 		Key::IDV m_Kidv;
+		uint8_t m_pShieldedID[sizeof(ECC::Scalar) - sizeof(Key::ID)]; // remaining part of ID for shielded outputs. Not used for non-shielded
 		ECC::Point m_Commitment;
 		AssetID m_AssetID;
 
@@ -332,6 +333,9 @@ namespace proto {
 				& m_Height
 				& m_Maturity
 				& m_Flags;
+
+			if (beam::proto::UtxoEvent::Flags::Shielded & m_Flags)
+				ar & m_pShieldedID;
 		}
 	};
 

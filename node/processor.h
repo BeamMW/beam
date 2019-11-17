@@ -371,6 +371,12 @@ public:
 			AssetID m_AssetID;
 			uint8_t m_Flags;
 		};
+
+		struct ValueS
+			:public Value
+		{
+			uint8_t m_pShieldedID[sizeof(ECC::Scalar) - sizeof(ECC::Key::ID)]; // remaining part of ID for shielded outputs.
+		};
 	};
 #pragma pack (pop)
 

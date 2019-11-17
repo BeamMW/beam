@@ -3394,6 +3394,9 @@ void Node::Peer::OnMsg(proto::GetUtxoEvents&& msg)
                 continue; // although shouldn't happen
             const UE::Value& evt = *reinterpret_cast<const UE::Value*>(wlk.m_Body.p);
 
+			if ((proto::UtxoEvent::Flags::Shielded & evt.m_Flags) && (wlk.m_Body.n < sizeof(UE::ValueS)))
+				continue; // although shouldn't happen
+
             msgOut.m_Events.emplace_back();
             proto::UtxoEvent& res = msgOut.m_Events.back();
 
@@ -3404,7 +3407,13 @@ void Node::Peer::OnMsg(proto::GetUtxoEvents&& msg)
             res.m_Commitment = *reinterpret_cast<const ECC::Point*>(wlk.m_Key.p);
             res.m_AssetID = evt.m_AssetID;
             res.m_Flags = evt.m_Flags;
-        }
+
+			if (proto::UtxoEvent::Flags::Shielded & evt.m_Flags)
+			{
+				static_assert(sizeof(res.m_pShieldedID) == sizeof(Cast::Up<UE::ValueS>(evt).m_pShieldedID));
+				memcpy(res.m_pShieldedID, Cast::Up<UE::ValueS>(evt).m_pShieldedID, sizeof(res.m_pShieldedID));
+			}
+		}
     }
     else
         LOG_WARNING() << "Peer " << m_RemoteAddr << " Unauthorized Utxo events request.";
