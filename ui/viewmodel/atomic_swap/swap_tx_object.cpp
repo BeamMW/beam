@@ -30,7 +30,6 @@ namespace
             return "";
         }
         const int32_t minute_s = 60;
-        const int32_t hour_s = 60 * minute_s;
         const int32_t quantum_s = 5 * minute_s;
         int32_t time_s = dt * beam::Rules().DA.Target_s;
         time_s = (time_s + (quantum_s >> 1)) / quantum_s;
