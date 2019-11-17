@@ -369,7 +369,7 @@ public:
 			ECC::Key::IDV::Packed m_Kidv;
 			uintBigFor<Height>::Type m_Maturity;
 			AssetID m_AssetID;
-			uint8_t m_Added;
+			uint8_t m_Flags;
 		};
 	};
 #pragma pack (pop)

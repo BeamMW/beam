@@ -933,7 +933,12 @@ namespace beam
 			Height m_Height;
 			Height m_Maturity;
 
-			uint8_t m_Added; // 1 = add, 0 = spend
+			struct Flags {
+				static const uint8_t Add = 1; // otherwise it's spend
+				static const uint8_t Shielded = 2;
+			};
+
+			uint8_t m_Flags;
 		};
 
 	} // namespace proto

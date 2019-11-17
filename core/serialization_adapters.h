@@ -1298,7 +1298,7 @@ namespace detail
 				& v.m_AssetID
 				& v.m_Height
 				& v.m_Maturity
-				& v.m_Added;
+				& v.m_Flags;
 
 			return ar;
 		}
@@ -1312,7 +1312,7 @@ namespace detail
 				& v.m_AssetID
 				& v.m_Height
 				& v.m_Maturity
-				& v.m_Added;
+				& v.m_Flags;
 
 			return ar;
 		}

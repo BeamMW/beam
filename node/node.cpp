@@ -925,7 +925,7 @@ void Node::Processor::OnUtxoEvent(const UtxoEvent::Value& evt, Height h)
 		Height hMaturity;
 		evt.m_Maturity.Export(hMaturity);
 
-		LOG_INFO() << "Utxo " << kidv << ", Maturity=" << hMaturity << ", Added=" << static_cast<uint32_t>(evt.m_Added) << ", Height=" << h;
+		LOG_INFO() << "Utxo " << kidv << ", Maturity=" << hMaturity << ", Flags=" << static_cast<uint32_t>(evt.m_Flags) << ", Height=" << h;
 	}
 }
 
@@ -3403,7 +3403,7 @@ void Node::Peer::OnMsg(proto::GetUtxoEvents&& msg)
 
             res.m_Commitment = *reinterpret_cast<const ECC::Point*>(wlk.m_Key.p);
             res.m_AssetID = evt.m_AssetID;
-            res.m_Added = evt.m_Added;
+            res.m_Flags = evt.m_Flags;
         }
     }
     else

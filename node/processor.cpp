@@ -2154,7 +2154,7 @@ void NodeProcessor::RecognizeUtxos(TxBase::IReader&& r, Height h)
 
 			UtxoEvent::Value evt = *reinterpret_cast<const UtxoEvent::Value*>(wlk.m_Body.p); // copy
 			evt.m_Maturity = x.m_Internal.m_Maturity;
-			evt.m_Added = 0;
+			evt.m_Flags = 0;
 
 			m_DB.InsertEvent(h, Blob(&evt, sizeof(evt)), Blob(&key, sizeof(key)));
 			OnUtxoEvent(evt, h);
@@ -2178,7 +2178,7 @@ void NodeProcessor::RecognizeUtxos(TxBase::IReader&& r, Height h)
 			// bingo!
 			UtxoEvent::Value evt;
 			evt.m_Kidv = kidv;
-			evt.m_Added = 1;
+			evt.m_Flags = proto::UtxoEvent::Flags::Add;
 			evt.m_AssetID = r.m_pUtxoOut->m_AssetID;
 
 			evt.m_Maturity = x.get_MinMaturity(h);
@@ -2215,7 +2215,7 @@ void NodeProcessor::RescanOwnedTxos()
 			UtxoEvent::Value evt;
 			evt.m_Kidv = kidv;
 			evt.m_Maturity = outp.get_MinMaturity(hCreate);
-			evt.m_Added = 1;
+			evt.m_Flags = proto::UtxoEvent::Flags::Add;
 			evt.m_AssetID = outp.m_AssetID;
 
 			const UtxoEvent::Key& key = outp.m_Commitment;
@@ -2229,7 +2229,7 @@ void NodeProcessor::RescanOwnedTxos()
 				m_Unspent++;
 			else
 			{
-				evt.m_Added = 0;
+				evt.m_Flags = 0;
 				m_This.get_DB().InsertEvent(wlk.m_SpendHeight, Blob(&evt, sizeof(evt)), Blob(&key, sizeof(key)));
 				m_This.OnUtxoEvent(evt, wlk.m_SpendHeight);
 			}

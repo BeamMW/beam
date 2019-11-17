@@ -503,7 +503,7 @@ namespace beam::wallet
         const auto& proof = r.m_Res.m_Proofs.front(); // Currently - no handling for multiple coins for the same commitment.
 
         proto::UtxoEvent evt;
-        evt.m_Added = 1;
+        evt.m_Flags = proto::UtxoEvent::Flags::Add;
         evt.m_Kidv = r.m_CoinID;
         evt.m_Maturity = proof.m_State.m_Maturity;
         evt.m_Height = evt.m_Maturity; // we don't know the real height, but it'll be used for logging only. For standard outputs maturity and height are the same
@@ -677,9 +677,10 @@ namespace beam::wallet
         bool bExists = m_WalletDB->findCoin(c);
         c.m_maturity = evt.m_Maturity;
 
-        LOG_INFO() << "CoinID: " << evt.m_Kidv << " Maturity=" << evt.m_Maturity << (evt.m_Added ? " Confirmed" : " Spent") << ", Height=" << evt.m_Height;
+		bool bAdd = 0 != (proto::UtxoEvent::Flags::Add & evt.m_Flags);
+        LOG_INFO() << "CoinID: " << evt.m_Kidv << " Maturity=" << evt.m_Maturity << (bAdd ? " Confirmed" : " Spent") << ", Height=" << evt.m_Height;
 
-        if (evt.m_Added)
+        if (bAdd)
         {
             c.m_confirmHeight = std::min(c.m_confirmHeight, evt.m_Height); // in case of std utxo proofs - the event height may be bigger than actual utxo height
 
