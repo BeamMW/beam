@@ -902,17 +902,9 @@ void Node::Processor::Stop()
     }
 }
 
-bool Node::Processor::EnumViewerKeys(IKeyWalker& w)
+Key::IPKdf* Node::Processor::get_ViewerKey()
 {
-    const Keys& keys = get_ParentObj().m_Keys;
-
-    // according to current design - a single master viewer key is enough
-	if (keys.m_pOwner && !w.OnKey(*keys.m_pOwner, 0)) {
-		// stupid compiler insists on parentheses here!
-		return false;
-	}
-
-    return true;
+	return get_ParentObj().m_Keys.m_pOwner.get();
 }
 
 void Node::Processor::OnUtxoEvent(const UtxoEvent::Value& evt, Height h)

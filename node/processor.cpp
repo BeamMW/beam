@@ -2162,12 +2162,16 @@ void NodeProcessor::RecognizeUtxos(TxBase::IReader&& r, Height h)
 		}
 	}
 
+	Key::IPKdf* pKey = get_ViewerKey();
+	if (!pKey)
+		return;
+
 	for (; r.m_pUtxoOut; r.NextUtxoOut())
 	{
 		const Output& x = *r.m_pUtxoOut;
 
 		Key::IDV kidv;
-		if (Recover(kidv, x, h))
+		if (x.Recover(h, *pKey, kidv))
 		{
 			// filter-out dummies
 			if (IsDummy(kidv))
@@ -2193,17 +2197,20 @@ void NodeProcessor::RecognizeUtxos(TxBase::IReader&& r, Height h)
 
 void NodeProcessor::RescanOwnedTxos()
 {
-	LOG_INFO() << "Rescanning owned Txos...";
-
 	m_DB.DeleteEventsFrom(Rules::HeightGenesis - 1);
 
 	struct TxoRecover
 		:public ITxoRecover
 	{
+		NodeProcessor& m_This;
 		uint32_t m_Total = 0;
 		uint32_t m_Unspent = 0;
 
-		TxoRecover(NodeProcessor& x) :ITxoRecover(x) {}
+		TxoRecover(Key::IPKdf& key, NodeProcessor& x)
+			:ITxoRecover(key)
+			,m_This(x)
+		{
+		}
 
 		virtual bool OnTxo(const NodeDB::WalkerTxo& wlk, Height hCreate, Output& outp, const Key::IDV& kidv) override
 		{
@@ -2239,10 +2246,20 @@ void NodeProcessor::RescanOwnedTxos()
 		}
 	};
 
-	TxoRecover wlk(*this);
-	EnumTxos(wlk);
+	Key::IPKdf* pKey = get_ViewerKey();
+	if (pKey)
+	{
+		LOG_INFO() << "Rescanning owned Txos...";
 
-	LOG_INFO() << "Recovered " << wlk.m_Unspent << "/" << wlk.m_Total << " unspent/total Txos";
+		TxoRecover wlk(*pKey, *this);
+		EnumTxos(wlk);
+
+		LOG_INFO() << "Recovered " << wlk.m_Unspent << "/" << wlk.m_Total << " unspent/total Txos";
+	}
+	else
+	{
+		LOG_INFO() << "Owned Txos reset";
+	}
 }
 
 bool NodeProcessor::IsDummy(const Key::IDV&  kidv)
@@ -3613,36 +3630,10 @@ bool NodeProcessor::ITxoWalker::OnTxo(const NodeDB::WalkerTxo&, Height hCreate, 
 bool NodeProcessor::ITxoRecover::OnTxo(const NodeDB::WalkerTxo& wlk, Height hCreate, Output& outp)
 {
 	Key::IDV kidv;
-	if (!m_This.Recover(kidv, outp, hCreate))
+	if (!outp.Recover(hCreate, m_Key, kidv))
 		return true;
 
 	return OnTxo(wlk, hCreate, outp, kidv);
-}
-
-bool NodeProcessor::Recover(Key::IDV& kidv, const Output& outp, Height h)
-{
-	struct Walker :public IKeyWalker
-	{
-		Key::IDV& m_Kidv;
-		const Output& m_Outp;
-		Height m_Height;
-
-		Walker(Key::IDV& kidv, const Output& outp)
-			:m_Kidv(kidv)
-			,m_Outp(outp)
-		{
-		}
-
-		virtual bool OnKey(Key::IPKdf& tag, Key::Index) override
-		{
-			return !m_Outp.Recover(m_Height, tag, m_Kidv);
-		}
-
-	} wlk(kidv, outp);
-
-	wlk.m_Height = h;
-
-	return !EnumViewerKeys(wlk);
 }
 
 bool NodeProcessor::ITxoWalker_UnspentNaked::OnTxo(const NodeDB::WalkerTxo& wlk, Height hCreate)

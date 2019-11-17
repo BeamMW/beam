@@ -281,12 +281,7 @@ public:
 	bool ValidateAndSummarize(TxBase::Context&, const TxBase&, TxBase::IReader&&);
 	bool VerifyBlock(const Block::BodyBase&, TxBase::IReader&&, const HeightRange&);
 
-	struct IKeyWalker {
-		virtual bool OnKey(Key::IPKdf&, Key::Index) = 0;
-	};
-	virtual bool EnumViewerKeys(IKeyWalker&) { return true; }
-
-	bool Recover(Key::IDV&, const Output&, Height h);
+	virtual Key::IPKdf* get_ViewerKey() { return nullptr; }
 
 	void RescanOwnedTxos();
 
@@ -346,8 +341,8 @@ public:
 	struct ITxoRecover
 		:public ITxoWalker
 	{
-		NodeProcessor& m_This;
-		ITxoRecover(NodeProcessor& x) :m_This(x) {}
+		Key::IPKdf& m_Key;
+		ITxoRecover(Key::IPKdf& key) :m_Key(key) {}
 
 		virtual bool OnTxo(const NodeDB::WalkerTxo&, Height hCreate, Output&) override;
 		virtual bool OnTxo(const NodeDB::WalkerTxo&, Height hCreate, Output&, const Key::IDV&) = 0;
