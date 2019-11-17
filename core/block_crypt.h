@@ -327,28 +327,28 @@ namespace beam
 
 			struct Data
 			{
-				ECC::Scalar::Native m_sk; // blinding factor for the Output
-				ECC::Scalar::Native m_skSerial; // blinding factor for the serial. Set iff serial part is created
+				ECC::Scalar::Native m_kSerG; // blinding factor for the serial
+				ECC::Scalar::Native m_kOutG; // blinding factor for the Output
 				Amount m_Value;
 				Height m_hScheme = 0; // must set
 
 				// Generates Shielded from nonce
-				// Sets both m_sk and m_skSerial
+				// Sets both m_kOutG and m_kSerG
 				void GenerateS(Shielded&, const PublicGen&, const ECC::Hash::Value& nonce);
-				void GenerateO(Output&, const PublicGen&); // generate UTXO from m_sk
+				void GenerateO(Output&, const PublicGen&); // generate UTXO from m_kOutG
 				void Generate(Output&, const PublicGen&, const ECC::Hash::Value& nonce); // generate everything nonce
 
 				bool Recover(const Output&, const Viewer&);
 
 				struct HashTxt;
 
-				void GetSpendKey(ECC::Scalar::Native&, Key::IKdf& ser);
+				void GetSpendKey(ECC::Scalar::Native&, Key::IKdf& ser) const;
+				void GetSpendPKey(ECC::Point::Native&, Key::IPKdf& ser) const;
 
 			private:
-				static void GenerateS0(Key::IPKdf& ser, const ECC::Hash::Value& nonce, ECC::Scalar::Native& kG, ECC::Scalar::Native& kJ);
 				static void GenerateS1(Key::IPKdf& gen, const ECC::Point& ptShared, ECC::Scalar::Native& nG, ECC::Scalar::Native& nJ);
-				static void GetSerialPreimage(ECC::Hash::Value& res, const ECC::Scalar::Native& kG);
-				static void GetSerial(ECC::Scalar::Native& kJ, const ECC::Scalar::Native& kG, Key::IPKdf& ser);
+				void GetSerialPreimage(ECC::Hash::Value& res) const;
+				void GetSerial(ECC::Scalar::Native& kJ, Key::IPKdf& ser) const;
 				void ToSk(Key::IPKdf& gen);
 				void GetOutputSeed(Key::IPKdf& gen, ECC::Hash::Value&) const;
 				static void GetDH(ECC::Hash::Value&, const ECC::Point&);
