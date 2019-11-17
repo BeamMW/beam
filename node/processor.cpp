@@ -14,6 +14,7 @@
 
 #include "processor.h"
 #include "../core/treasury.h"
+#include "../core/proto.h"
 #include "../core/serialization_adapters.h"
 #include "../utility/serialize.h"
 #include "../utility/logger.h"
