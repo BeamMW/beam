@@ -74,7 +74,7 @@ namespace
         {
             auto currentBeamHeight = AppModel::getInstance().getWallet()->getCurrentHeight();
             auto refundMinHeight = txParameters.GetParameter<Height>(TxParameterID::MinHeight, BEAM_REFUND_TX);
-            if (refundMinHeight && currentBeamHeight < refundMinHeight)
+            if (refundMinHeight && currentBeamHeight < *refundMinHeight)
             {
                 time = convertBeamHeightDiffToTime(*refundMinHeight - currentBeamHeight);
                 coin = "beam";
