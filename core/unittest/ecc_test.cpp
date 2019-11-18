@@ -1845,17 +1845,8 @@ void TestAES()
 	verify_test(!memcmp(pBuf, pPlaintext, sizeof(pPlaintext)));
 }
 
-void TestKdf()
+void TestKdfPair(Key::IKdf& skdf, Key::IPKdf& pkdf)
 {
-	HKdf skdf;
-	HKdfPub pkdf;
-
-	uintBig seed;
-	SetRandom(seed);
-
-	skdf.Generate(seed);
-	pkdf.GenerateFrom(skdf);
-
 	for (uint32_t i = 0; i < 10; i++)
 	{
 		Hash::Value hv;
@@ -1882,6 +1873,20 @@ void TestKdf()
 		pk0 += pk1;
 		verify_test(pk0 == Zero);
 	}
+}
+
+void TestKdf()
+{
+	HKdf skdf;
+	HKdfPub pkdf;
+
+	uintBig seed;
+	SetRandom(seed);
+
+	skdf.Generate(seed);
+	pkdf.GenerateFrom(skdf);
+
+	TestKdfPair(skdf, pkdf);
 
 	const std::string sPass("test password");
 
@@ -1905,6 +1910,16 @@ void TestKdf()
 	seed.Inc();
 	skdf2.Generate(seed);
 	verify_test(!skdf2.IsSame(skdf));
+
+	// parallel key generation
+	SetRandom(seed);
+
+	skdf2.GenerateChildParallel(skdf, seed);
+
+	pkdf.GenerateFrom(skdf);
+	pkdf2.GenerateChildParallel(pkdf, seed);
+
+	TestKdfPair(skdf2, pkdf2);
 }
 
 void TestBbs()
