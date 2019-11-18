@@ -305,8 +305,16 @@ namespace proto {
 	{
 		static const uint32_t s_Max = 64; // will send more, if the remaining events are on the same height
 
+		struct Shielded
+		{
+			uint8_t m_pBuf[sizeof(ECC::Scalar) - sizeof(Key::ID) + sizeof(TxoID)]; // remaining part of ID for shielded outputs. Not used for non-shielded
+
+			void Set(Key::ID::Packed&, const ECC::Scalar&, TxoID);
+			TxoID Get(const Key::ID::Packed&, ECC::Scalar&) const;
+		};
+
 		Key::IDV m_Kidv;
-		uint8_t m_pShieldedID[sizeof(ECC::Scalar) - sizeof(Key::ID)]; // remaining part of ID for shielded outputs. Not used for non-shielded
+		Shielded m_Shielded;
 		ECC::Point m_Commitment;
 		AssetID m_AssetID;
 
@@ -320,9 +328,6 @@ namespace proto {
 
 		uint8_t m_Flags;
 
-		void set_ShieldedID(const ECC::Scalar&);
-		void get_ShieldedID(ECC::Scalar&) const;
-
 		template <typename Archive>
 		void serialize(Archive& ar)
 		{
@@ -335,7 +340,7 @@ namespace proto {
 				& m_Flags;
 
 			if (beam::proto::UtxoEvent::Flags::Shielded & m_Flags)
-				ar & m_pShieldedID;
+				ar & m_Shielded.m_pBuf;
 		}
 	};
 

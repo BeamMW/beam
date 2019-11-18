@@ -3401,10 +3401,7 @@ void Node::Peer::OnMsg(proto::GetUtxoEvents&& msg)
             res.m_Flags = evt.m_Flags;
 
 			if (proto::UtxoEvent::Flags::Shielded & evt.m_Flags)
-			{
-				static_assert(sizeof(res.m_pShieldedID) == sizeof(Cast::Up<UE::ValueS>(evt).m_pShieldedID));
-				memcpy(res.m_pShieldedID, Cast::Up<UE::ValueS>(evt).m_pShieldedID, sizeof(res.m_pShieldedID));
-			}
+				res.m_Shielded = Cast::Up<UE::ValueS>(evt).m_Shielded;
 		}
     }
     else

@@ -15,6 +15,7 @@
 #pragma once
 
 #include "../core/radixtree.h"
+#include "../core/proto.h"
 #include "../utility/dvector.h"
 #include "db.h"
 #include "txpool.h"
@@ -370,7 +371,7 @@ public:
 		struct ValueS
 			:public Value
 		{
-			uint8_t m_pShieldedID[sizeof(ECC::Scalar) - sizeof(ECC::Key::ID)]; // remaining part of ID for shielded outputs.
+			proto::UtxoEvent::Shielded m_Shielded;
 		};
 	};
 #pragma pack (pop)
