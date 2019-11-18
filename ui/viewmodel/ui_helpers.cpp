@@ -1,6 +1,7 @@
 #include "ui_helpers.h"
 #include <QDateTime>
 #include <QLocale>
+#include <QTextStream>
 #include <numeric>
 #include "3rdparty/libbitcoin/include/bitcoin/bitcoin/formats/base_10.hpp"
 
@@ -144,14 +145,19 @@ namespace beamui
         const int kSecondsInMinute = 60;
         const int kSecondsInHour = 60 * kSecondsInMinute;
         int value = 0;
+        QString res;
+        QTextStream ss(&res);
         QString units;
+        auto writeTime = [&ss](const auto& value, const auto& units)
+        { 
+            ss << value << " " << units;
+        };
         if (estimate >= kSecondsInHour)
         {
             value = estimate / kSecondsInHour;
             //% "h"
             units = qtTrId("loading-view-estimate-hours");
-            auto res = QString::asprintf(
-                "%ld %s", value, units.toStdString().c_str());
+            writeTime(value, units);
 
             estimate %= kSecondsInHour;
             value = estimate / kSecondsInMinute;
@@ -166,8 +172,8 @@ namespace beamui
             {
                 //% "min"
                 units = qtTrId("loading-view-estimate-minutes");
-                res = res + " " + QString::asprintf(
-                    "%ld %s", value, units.toStdString().c_str());
+                ss << " ";
+                writeTime(value, units);
             }
 
             return res;
@@ -186,13 +192,12 @@ namespace beamui
         {
             value = estimate / kSecondsInMinute;
             units = qtTrId("loading-view-estimate-minutes");
-            auto res = QString::asprintf(
-                "%ld %s", value, units.toStdString().c_str());
+            writeTime(value, units);
             value = estimate - kSecondsInMinute;
             //% "sec"
             units = qtTrId("loading-view-estimate-seconds");
-            res = res + " " + QString::asprintf(
-                "%ld %s", value, units.toStdString().c_str());
+            ss << " ";
+            writeTime(value, units);
             return res;
         }
         else
@@ -200,8 +205,8 @@ namespace beamui
             value = estimate > 0 ? estimate : 1;
             units = qtTrId("loading-view-estimate-seconds");
         }
-        return QString::asprintf(
-            "%ld %s", value, units.toStdString().c_str());
+        writeTime(value, units);
+        return res;
     }
 
     QString toString(Currencies currency)
