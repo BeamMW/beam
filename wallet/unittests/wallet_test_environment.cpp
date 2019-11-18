@@ -945,6 +945,12 @@ public:
             m_NewBlockFunc(m_Blockchain.m_mcm.m_vStates.back().m_Hdr.m_Height);
         }
     }
+
+    Height GetHeight()
+    {
+        return m_Blockchain.m_mcm.m_vStates.back().m_Hdr.m_Height;
+    }
+
 private:
 
     struct Client

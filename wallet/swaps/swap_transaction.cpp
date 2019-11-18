@@ -573,6 +573,12 @@ namespace beam::wallet
                 }
                 else
                 {
+                    if (!IsBeamRedeemTxRegistered() && !IsSafeToSendBeamRedeemTx())
+                    {
+                        SetNextState(State::SendingRefundTX);
+                        break;
+                    }
+
                     if (!CompleteBeamWithdrawTx(SubTxIndex::BEAM_REDEEM_TX))
                         break;
 
@@ -1231,6 +1237,22 @@ namespace beam::wallet
         Block::SystemState::Full state;
 
         return GetTip(state) && state.m_Height > (lockTimeHeight + kBeamLockTimeInBlocks);
+    }
+
+    bool AtomicSwapTransaction::IsBeamRedeemTxRegistered() const
+    {
+        uint8_t nRegistered = proto::TxStatus::Unspecified;
+        return GetParameter(TxParameterID::TransactionRegistered, nRegistered, SubTxIndex::BEAM_REDEEM_TX);
+    }
+
+    bool AtomicSwapTransaction::IsSafeToSendBeamRedeemTx() const
+    {
+        Height minHeight = MaxHeight;
+        GetParameter(TxParameterID::MinHeight, minHeight);
+
+        Block::SystemState::Full state;
+
+        return GetTip(state) && state.m_Height < (minHeight + kMaxSentTimeOfBeamRedeemInBlocks);
     }
 
     bool AtomicSwapTransaction::CompleteSubTx(SubTxID subTxID)

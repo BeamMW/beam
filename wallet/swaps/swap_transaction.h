@@ -186,6 +186,8 @@ namespace beam::wallet
         bool SendSubTx(Transaction::Ptr transaction, SubTxID subTxID);
 
         bool IsBeamLockTimeExpired() const;
+        bool IsBeamRedeemTxRegistered() const;
+        bool IsSafeToSendBeamRedeemTx() const;
 
         // wait SubTX in BEAM chain(request kernel proof), returns true if got kernel proof
         bool CompleteSubTx(SubTxID subTxID);
