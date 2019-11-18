@@ -1606,6 +1606,8 @@ namespace beam
 
 				ECC::Hash::Value m_SpendKernelID;
 				bool m_SpendConfirmed = false;
+				bool m_EvtAdd = false;
+				bool m_EvtSpend = false;
 
 			} m_Shielded;
 
@@ -1792,6 +1794,10 @@ namespace beam
 				//	return OnNotAchieved(bFin, "CA not recognized");
 				if (!m_Shielded.m_SpendConfirmed)
 					return OnNotAchieved(bFin, "Shielded spend not confirmed");
+				if (!m_Shielded.m_EvtAdd)
+					return OnNotAchieved(bFin, "Shielded Add event didn't arrive");
+				if (!m_Shielded.m_EvtSpend)
+					return OnNotAchieved(bFin, "Shielded Spend event didn't arrive");
 
 				return true; // all achieved
 			}
@@ -2095,6 +2101,10 @@ namespace beam
 
 					if (proto::UtxoEvent::Flags::Shielded & evt.m_Flags)
 					{
+						if (proto::UtxoEvent::Flags::Add & evt.m_Flags)
+							m_Shielded.m_EvtAdd = true;
+						else
+							m_Shielded.m_EvtSpend = true;
 					}
 					else
 					{
