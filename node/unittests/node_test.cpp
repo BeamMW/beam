@@ -1647,8 +1647,8 @@ namespace beam
 					d.m_Value = m_Shielded.m_Value;
 					d.Generate(*pOut, gen, nonce);
 
-					m_Shielded.m_sk = d.m_sk;
-					m_Shielded.m_sk += d.m_skSerial;
+					m_Shielded.m_sk = d.m_kOutG;
+					m_Shielded.m_sk += d.m_kSerG;
 					m_Shielded.m_Commitment = pOut->m_pShielded->m_SerialPub;
 
 					d.GetSpendKey(m_Shielded.m_skSpendKey, *m_Wallet.m_pKdf);
@@ -1657,7 +1657,7 @@ namespace beam
 					verify_test(pOut->IsValid(h + 1, pt));
 
 					msgTx.m_Transaction->m_vOutputs.push_back(std::move(pOut));
-					m_Wallet.UpdateOffset(*msgTx.m_Transaction, d.m_sk, true);
+					m_Wallet.UpdateOffset(*msgTx.m_Transaction, d.m_kOutG, true);
 				}
 
 				m_Wallet.MakeTxKernel(*msgTx.m_Transaction, fee, h);
