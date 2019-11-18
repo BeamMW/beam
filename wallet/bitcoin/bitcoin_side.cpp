@@ -873,6 +873,10 @@ namespace beam::wallet
                     << GetTxMinConfirmations() << " confirmations for Lock TX are received.";
                 m_SwapLockTxConfirmations = confirmations;
                 m_tx.SetParameter(TxParameterID::Confirmations, m_SwapLockTxConfirmations, true, SubTxIndex::LOCK_TX);
+                if (m_SwapLockTxConfirmations >= GetTxMinConfirmations())
+                {
+                    m_tx.UpdateAsync();
+                }
             }
         }
         catch (const TransactionFailedException& ex)
