@@ -2340,6 +2340,38 @@ void NodeProcessor::RescanOwnedTxos()
 	{
 		LOG_INFO() << "Owned Txos reset";
 	}
+
+	if (get_ViewerShieldedKey())
+	{
+		LOG_INFO() << "Rescanning shielded Txos...";
+
+		// shielded items
+		Height h0 = Rules::get().pForks[2].m_Height;
+		if (m_Cursor.m_Sid.m_Height >= h0)
+		{
+			BlockShieldedData bd;
+			TxVectors::Eternal txve; // dummy
+
+			TxoID nShielded = 0;
+
+			while (true)
+			{
+				if (bd.FromHeight(*this, h0))
+				{
+					TxVectors::Reader r(bd.m_txvp, txve);
+					r.Reset();
+
+					RecognizeUtxos(std::move(r), h0, nShielded);
+					nShielded += bd.m_txvp.m_vOutputs.size();
+				}
+
+				if (++h0 > m_Cursor.m_Sid.m_Height)
+					break;
+			}
+		}
+
+		LOG_INFO() << "Shielded scan complete";
+	}
 }
 
 bool NodeProcessor::IsDummy(const Key::IDV&  kidv)
