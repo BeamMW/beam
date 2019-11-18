@@ -2091,6 +2091,10 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, MultiblockContext& m
 			m_DB.set_StateInputs(sid.m_Row, &v.front(), v.size());
 
 
+		auto r = block.get_Reader();
+		r.Reset();
+		RecognizeUtxos(std::move(r), sid.m_Height, id0);
+
 		Serializer ser;
 		bbP.clear();
 		ser.swap_buf(bbP);
@@ -2107,10 +2111,6 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, MultiblockContext& m
 			SerializeBuffer sb = ser.buffer();
 			m_DB.TxoAdd(id0++, Blob(sb.first, static_cast<uint32_t>(sb.second)));
 		}
-
-		auto r = block.get_Reader();
-		r.Reset();
-		RecognizeUtxos(std::move(r), sid.m_Height);
 
 		m_RecentStates.Push(sid.m_Row, s);
 	}
@@ -2132,28 +2132,49 @@ void NodeProcessor::AdjustOffset(ECC::Scalar& offs, uint64_t rowid, bool bAdd)
 	offs = s;
 }
 
-void NodeProcessor::RecognizeUtxos(TxBase::IReader&& r, Height h)
+void NodeProcessor::RecognizeUtxos(TxBase::IReader&& r, Height h, TxoID nShielded)
 {
 	NodeDB::WalkerEvent wlk(m_DB);
 
 	for ( ; r.m_pUtxoIn; r.NextUtxoIn())
 	{
 		const Input& x = *r.m_pUtxoIn;
+
+		ECC::Point pt;
+		const UtxoEvent::Key& key = x.m_pSpendProof ? pt : x.m_Commitment;
 		if (x.m_pSpendProof)
-			continue; // irrelevant
-
-		assert(x.m_Internal.m_Maturity); // must've already been validated
-
-		const UtxoEvent::Key& key = x.m_Commitment;
+		{
+			pt = x.m_pSpendProof->m_Part1.m_SpendPk;
+			pt.m_Y |= proto::UtxoEvent::Flags::Shielded;
+		}
 
 		m_DB.FindEvents(wlk, Blob(&key, sizeof(key))); // raw find (each time from scratch) is suboptimal, because inputs are sorted, should be a way to utilize this
-		if (wlk.MoveNext())
+		if (!wlk.MoveNext())
+			continue;
+
+		if (x.m_pSpendProof)
 		{
+			if (wlk.m_Body.n < sizeof(UtxoEvent::ValueS))
+				OnCorrupted();
+
+			UtxoEvent::ValueS evt = *reinterpret_cast<const UtxoEvent::ValueS*>(wlk.m_Body.p); // copy
+
+			evt.m_Flags &= ~proto::UtxoEvent::Flags::Add;
+
+			m_DB.InsertEvent(h, Blob(&evt, sizeof(evt)), Blob(&key, sizeof(key)));
+			OnUtxoEvent(evt, h);
+		}
+		else
+		{
+
 			if (wlk.m_Body.n < sizeof(UtxoEvent::Value))
 				OnCorrupted();
 
 			UtxoEvent::Value evt = *reinterpret_cast<const UtxoEvent::Value*>(wlk.m_Body.p); // copy
-			evt.m_Maturity = x.m_Internal.m_Maturity;
+
+			assert(x.m_Internal.m_Maturity); // must've already been validated
+			evt.m_Maturity = x.m_Internal.m_Maturity; // in case of duplicated utxo this is necessary
+
 			evt.m_Flags = 0;
 
 			m_DB.InsertEvent(h, Blob(&evt, sizeof(evt)), Blob(&key, sizeof(key)));
@@ -2162,16 +2183,47 @@ void NodeProcessor::RecognizeUtxos(TxBase::IReader&& r, Height h)
 	}
 
 	Key::IPKdf* pKey = get_ViewerKey();
-	if (!pKey)
+	const Output::Shielded::Viewer* pKeyShielded = get_ViewerShieldedKey();
+	if (!(pKey || pKeyShielded))
 		return;
+
+	Output::Shielded::Data d;
+	d.m_hScheme = h;
 
 	for (; r.m_pUtxoOut; r.NextUtxoOut())
 	{
 		const Output& x = *r.m_pUtxoOut;
 
-		Key::IDV kidv;
-		if (x.Recover(h, *pKey, kidv))
+		if (x.m_pShielded)
 		{
+			TxoID nID = nShielded++;
+
+			if (!(pKeyShielded && d.Recover(x, *pKeyShielded)))
+				continue;
+
+			UtxoEvent::ValueS evt;
+			evt.m_Kidv.m_Value = d.m_Value;
+			evt.m_Shielded.Set(evt.m_Kidv, ECC::Scalar(d.m_kSerG), nID);
+			evt.m_AssetID = x.m_AssetID;
+			evt.m_Maturity = h;
+
+			evt.m_Flags =
+				proto::UtxoEvent::Flags::Add |
+				proto::UtxoEvent::Flags::Shielded;
+
+			ECC::Point::Native ptN;
+			d.GetSpendPKey(ptN, *pKeyShielded->m_pSer);
+			UtxoEvent::Key key = ptN;
+
+			m_DB.InsertEvent(h, Blob(&evt, sizeof(evt)), Blob(&key, sizeof(key)));
+			OnUtxoEvent(evt, h);
+		}
+		else
+		{
+			Key::IDV kidv;
+			if (!(pKey && x.Recover(h, *pKey, kidv)))
+				continue;
+
 			// filter-out dummies
 			if (IsDummy(kidv))
 			{

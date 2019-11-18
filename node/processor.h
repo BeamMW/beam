@@ -63,7 +63,7 @@ class NodeProcessor
 	bool HandleBlockElement(const Output&, BlockInterpretCtx&);
 	bool HandleShieldedElement(const ECC::Point&, bool bOutp, bool bFwd);
 
-	void RecognizeUtxos(TxBase::IReader&&, Height h);
+	void RecognizeUtxos(TxBase::IReader&&, Height h, TxoID nShielded);
 
 	static uint64_t ProcessKrnMmr(Merkle::Mmr&, TxBase::IReader&&, const Merkle::Hash& idKrn, TxKernel::Ptr* ppRes);
 
@@ -283,6 +283,7 @@ public:
 	bool VerifyBlock(const Block::BodyBase&, TxBase::IReader&&, const HeightRange&);
 
 	virtual Key::IPKdf* get_ViewerKey() { return nullptr; }
+	virtual const Output::Shielded::Viewer* get_ViewerShieldedKey() { return nullptr; }
 
 	void RescanOwnedTxos();
 
