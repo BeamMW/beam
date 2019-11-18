@@ -53,37 +53,52 @@ namespace
 
     QString getInProgressNormalStr(const beam::wallet::TxParameters& txParameters)
     {
-        auto minHeightLock = txParameters.GetParameter<beam::Height>(TxParameterID::MinHeight, BEAM_LOCK_TX);
-        auto lifeTime = txParameters.GetParameter<beam::Height>(TxParameterID::Lifetime, BEAM_LOCK_TX);
-        QString time = "";
-        if (minHeightLock && lifeTime)
-        {
-            time = convertBeamHeightDiffToTime(*minHeightLock + *lifeTime - AppModel::getInstance().getWallet()->getCurrentHeight());
-        }
-        //% "The swap is expected to complete in %1"
-        return qtTrId("swap-tx-state-in-progress-normal").arg(time);
+        return "";
+        //auto minHeightLock = txParameters.GetParameter<beam::Height>(TxParameterID::MinHeight, BEAM_LOCK_TX);
+        //auto lifeTime = txParameters.GetParameter<beam::Height>(TxParameterID::Lifetime, BEAM_LOCK_TX);
+        //QString time = "";
+        //if (minHeightLock && lifeTime)
+        //{
+        //    time = convertBeamHeightDiffToTime(*minHeightLock + *lifeTime - AppModel::getInstance().getWallet()->getCurrentHeight());
+        //}
+        ////% "The swap is expected to complete in %1"
+        //return qtTrId("swap-tx-state-in-progress-normal").arg(time);
     }
 
     QString getInProgressRefundingStr(const beam::wallet::TxParameters& txParameters)
     {
-        auto maxHeight = txParameters.GetParameter<beam::Height>(TxParameterID::MaxHeight, BEAM_REFUND_TX);
-        auto isBeamSide = txParameters.GetParameter<bool>(TxParameterID::AtomicSwapIsBeamSide);
-        auto swapCoin = txParameters.GetParameter<beam::wallet::AtomicSwapCoin>(TxParameterID::AtomicSwapCoin);
-        QString coin = "";
+        auto isBeamSide = *txParameters.GetParameter<bool>(TxParameterID::AtomicSwapIsBeamSide); // mandatoty parameter
+        QString coin;
+        QString time;
+        if (isBeamSide)
+        {
+            auto currentBeamHeight = AppModel::getInstance().getWallet()->getCurrentHeight();
+            auto refundMinHeight = txParameters.GetParameter<Height>(TxParameterID::MinHeight, BEAM_REFUND_TX);
+            if (refundMinHeight && currentBeamHeight < refundMinHeight)
+            {
+                time = convertBeamHeightDiffToTime(*refundMinHeight - currentBeamHeight);
+                coin = "beam";
+            }
+        }
+        else
+        {
+            auto swapCoin = txParameters.GetParameter<AtomicSwapCoin>(TxParameterID::AtomicSwapCoin);
+            if (swapCoin)
+            {
+                coin = beamui::toString(beamui::convertSwapCoinToCurrency(*swapCoin));
+                auto currentCoinHeight = txParameters.GetParameter<Height>(TxParameterID::AtomicSwapExternalHeight);
+                auto lockTime = txParameters.GetParameter<Height>(TxParameterID::AtomicSwapExternalLockTime);
+                if (lockTime && currentCoinHeight && *currentCoinHeight < *lockTime)
+                {
+                    time = convertBeamHeightDiffToTime(*lockTime - *currentCoinHeight);
+                }
+            }
+        }
+        if (time.isEmpty() || coin.isEmpty())
+        {
+            return "";
+        }
 
-        if (isBeamSide && *isBeamSide)
-        {
-            coin = "beam";
-        }
-        else if (swapCoin)
-        {
-            coin = beamui::toString(beamui::convertSwapCoinToCurrency(*swapCoin));
-        }
-        QString time = "";
-        if (maxHeight)
-        {
-            time = convertBeamHeightDiffToTime(*maxHeight - AppModel::getInstance().getWallet()->getCurrentHeight());
-        }
         //% "Your %2 will be refunded in %1"
         return qtTrId("swap-tx-state-in-progress-refunding").arg(time).arg(coin);
     }
@@ -400,8 +415,9 @@ QString SwapTxObject::getSwapState() const
                     case wallet::AtomicSwapTransaction::State::BuildingBeamRefundTX:
                     case wallet::AtomicSwapTransaction::State::BuildingBeamRedeemTX:
                     case wallet::AtomicSwapTransaction::State::HandlingContractTX:
-                    case wallet::AtomicSwapTransaction::State::SendingRedeemTX:
                     case wallet::AtomicSwapTransaction::State::SendingBeamLockTX:
+                        return getInProgressNormalStr(getTxDescription());
+                    case wallet::AtomicSwapTransaction::State::SendingRedeemTX:
                     case wallet::AtomicSwapTransaction::State::SendingBeamRedeemTX:
                         return getInProgressNormalStr(getTxDescription());
                     case wallet::AtomicSwapTransaction::State::SendingRefundTX:
