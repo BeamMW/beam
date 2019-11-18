@@ -252,8 +252,8 @@ namespace beam
 			:m_Coinbase(false)
 			,m_RecoveryOnly(false)
 			,m_Incubation(0)
+			,m_AssetID(Zero)
 		{
-			m_AssetID = Zero;
 		}
 
 		static const Amount s_MinimumValue = 1;

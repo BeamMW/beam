@@ -156,27 +156,27 @@ void TestStoreCoins()
     auto walletDB = createSqliteWalletDB();
 
   
-    Coin coin = { 5, Key::Type::Coinbase };
+    Coin coin = Coin(5, Key::Type::Coinbase);
     walletDB->storeCoin(coin);
-    coin = { 4, Key::Type::Comission };
+    coin = Coin(4, Key::Type::Comission);
     walletDB->storeCoin(coin);
-    coin = { 2, Key::Type::Regular };
+    coin = Coin(2, Key::Type::Regular);
     walletDB->storeCoin(coin);
-    coin = { 5, Key::Type::Coinbase };
+    coin = Coin(5, Key::Type::Coinbase);
     walletDB->storeCoin(coin);
-    coin = { 1, Key::Type::Regular };
+    coin = Coin(1, Key::Type::Regular);
     walletDB->storeCoin(coin);
-    coin = { 5, Key::Type::Coinbase };
+    coin = Coin(5, Key::Type::Coinbase);
     walletDB->storeCoin(coin);
-    coin = { 4, Key::Type::Comission };
+    coin = Coin(4, Key::Type::Comission);
     walletDB->storeCoin(coin);
-    coin = { 1, Key::Type::Regular };
+    coin = Coin(1, Key::Type::Regular);
     walletDB->storeCoin(coin);
-    coin = { 4, Key::Type::Comission };
+    coin = Coin(4, Key::Type::Comission);
     walletDB->storeCoin(coin);
-    coin = { 1, Key::Type::Regular };
+    coin = Coin(1, Key::Type::Regular);
     walletDB->storeCoin(coin);
-    coin = { 1, Key::Type::Regular };
+    coin = Coin(1, Key::Type::Regular);
     walletDB->storeCoin(coin);
 
     auto coins = vector<Coin>{

@@ -27,7 +27,7 @@ namespace beam::wallet
         //
         // Transaction
         //
-        AssetIssueTxBuilder(bool issue, BaseTransaction& tx, SubTxID subTxID, beam::Key::ID assetKeyId, beam::AssetID assetId);
+        AssetIssueTxBuilder(bool issue, BaseTransaction& tx, SubTxID subTxID, uint32_t assetIdx, beam::AssetID assetId);
 
         bool GetInitialTxParams();
         virtual Transaction::Ptr CreateTransaction();
@@ -70,9 +70,9 @@ namespace beam::wallet
         BaseTransaction& m_Tx;
         SubTxID m_SubTxID;
 
-        beam::Key::ID m_assetKeyId;
         beam::Key::ID m_kernelKeyId;
         beam::AssetID m_assetId;
+        uint32_t      m_assetIdx;
 
         bool       m_issue;
         AmountList m_AmountList;

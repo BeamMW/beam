@@ -43,11 +43,11 @@ namespace beam::wallet
     using namespace ECC;
     using namespace std;
 
-    AssetIssueTxBuilder::AssetIssueTxBuilder(bool issue, BaseTransaction& tx, SubTxID subTxID, beam::Key::ID assetKeyId, beam::AssetID assetId)
+    AssetIssueTxBuilder::AssetIssueTxBuilder(bool issue, BaseTransaction& tx, SubTxID subTxID, uint32_t assetIdx, beam::AssetID assetId)
         : m_Tx{tx}
         , m_SubTxID(subTxID)
-        , m_assetKeyId(assetKeyId)
         , m_assetId(assetId)
+        , m_assetIdx(assetIdx)
         , m_issue(issue)
         , m_AmountList{0}
         , m_Fee(0)
@@ -63,8 +63,7 @@ namespace beam::wallet
             m_AmountList = AmountList{m_Tx.GetMandatoryParameter<Amount>(TxParameterID::Amount, m_SubTxID)};
         }
 
-        m_kernelKeyId = m_assetKeyId;
-        m_kernelKeyId.m_Type = Key::Type::Kernel;
+        m_kernelKeyId = Key::ID(assetIdx,  Key::Type::Kernel, assetIdx);
     }
 
     bool AssetIssueTxBuilder::CreateInputs()
@@ -334,7 +333,7 @@ namespace beam::wallet
     void AssetIssueTxBuilder::GenerateAssetCoin(Amount amount)
     {
         LOG_INFO() << "Creating asset coin " << amount;
-        Coin newUtxo(amount, m_assetId, Key::Type::Asset);
+        Coin newUtxo(amount, Key::Type::Asset, m_assetId);
         newUtxo.m_createTxId = m_Tx.GetTxID();
         m_Tx.GetWalletDB()->storeCoin(newUtxo);
         m_OutputCoins.push_back(newUtxo.m_ID);
@@ -453,7 +452,7 @@ namespace beam::wallet
         //
         // Emission kernel
         //
-        keysKeeper->SignEmissionKernel(m_EmissionKernel, m_assetKeyId, m_Offset);
+        keysKeeper->SignEmissionKernel(m_EmissionKernel, m_assetIdx, m_Offset);
 
         Merkle::Hash emissionKernelID;
         m_Kernel->get_ID(emissionKernelID);
