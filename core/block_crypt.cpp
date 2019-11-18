@@ -514,6 +514,39 @@ namespace beam
 		}
 	};
 
+	void Output::Shielded::Viewer::FromOwner(Key::IPKdf& key)
+	{
+		ECC::Scalar::Native sk;
+		key.DerivePKey(sk, Data::HashTxt("Own.Gen"));
+		ECC::NoLeak<ECC::Scalar> s;
+		s.V = sk;
+
+		ECC::HKdf::Create(m_pGen, s.V.m_Value);
+
+		GenerateSerSrc(s.V.m_Value, key);
+
+		m_pSer.reset(new ECC::HKdfPub);
+		Cast::Up<ECC::HKdfPub>(*m_pSer).GenerateChildParallel(key, s.V.m_Value);
+	}
+
+	void Output::Shielded::Viewer::GenerateSerSrc(ECC::Hash::Value& res, Key::IPKdf& key)
+	{
+		ECC::Scalar::Native sk;
+		key.DerivePKey(sk, Data::HashTxt("Own.Ser"));
+
+		static_assert(sizeof(res) == sizeof(ECC::Scalar));
+		((ECC::Scalar&) res) = sk;
+	}
+
+	void Output::Shielded::Viewer::GenerateSerPrivate(Key::IKdf::Ptr& pOut, Key::IKdf& key)
+	{
+		ECC::NoLeak<ECC::Hash::Value> hv;
+		GenerateSerSrc(hv.V, key);
+
+		pOut.reset(new ECC::HKdf);
+		Cast::Up<ECC::HKdf>(*pOut).GenerateChildParallel(key, hv.V);
+	}
+
 	void Output::Shielded::Data::DoubleBlindedCommitment(ECC::Point::Native& res, const ECC::Scalar::Native& kG, const ECC::Scalar::Native& kJ)
 	{
 		res = ECC::Context::get().G * kG;

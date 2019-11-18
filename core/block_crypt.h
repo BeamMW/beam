@@ -323,6 +323,12 @@ namespace beam
 			{
 				Key::IKdf::Ptr m_pGen;
 				Key::IPKdf::Ptr m_pSer;
+
+				void FromOwner(Key::IPKdf&);
+				static void GenerateSerPrivate(Key::IKdf::Ptr&, Key::IKdf&);
+
+			private:
+				static void GenerateSerSrc(ECC::Hash::Value&, Key::IPKdf&);
 			};
 
 			struct Data
