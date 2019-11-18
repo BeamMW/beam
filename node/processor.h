@@ -139,6 +139,8 @@ class NodeProcessor
 	void DeleteBlocksInRange(const NodeDB::StateID& sidTop, Height hStop);
 	void DeleteBlock(uint64_t);
 
+	struct BlockShieldedData;
+
 public:
 
 	struct StartParams {

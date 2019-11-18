@@ -2248,6 +2248,33 @@ void NodeProcessor::RecognizeUtxos(TxBase::IReader&& r, Height h, TxoID nShielde
 	}
 }
 
+struct NodeProcessor::BlockShieldedData
+{
+	ByteBuffer m_Buf;
+	TxVectors::Perishable m_txvp;
+	ECC::Scalar m_Offs;
+
+	bool FromRow(NodeProcessor& p, uint64_t row)
+	{
+		if (!p.get_DB().get_StateExtra(row, m_Offs, &m_Buf) || m_Buf.empty())
+			return false;
+
+		m_txvp.m_vInputs.clear();
+		m_txvp.m_vOutputs.clear();
+
+		Deserializer der;
+		der.reset(m_Buf);
+		der & m_txvp;
+
+		return true;
+	}
+
+	bool FromHeight(NodeProcessor& p, Height h)
+	{
+		return FromRow(p, p.FindActiveAtStrict(h));
+	}
+};
+
 void NodeProcessor::RescanOwnedTxos()
 {
 	m_DB.DeleteEventsFrom(Rules::HeightGenesis - 1);
@@ -2742,9 +2769,10 @@ void NodeProcessor::RollbackTo(Height h)
 
 
 	// Kernels, shielded elements, and cursor
-	ByteBuffer bbE;
+	BlockShieldedData bd;
+	ByteBuffer& bbE = bd.m_Buf; // alias
 	TxVectors::Eternal txve;
-	TxVectors::Perishable txvp;
+	TxVectors::Perishable& txvp = bd.m_txvp; // alias
 
 	for (; m_Cursor.m_Sid.m_Height > h; m_DB.MoveBack(m_Cursor.m_Sid))
 	{
@@ -2764,18 +2792,8 @@ void NodeProcessor::RollbackTo(Height h)
 			m_DB.DeleteKernel(hv, m_Cursor.m_Sid.m_Height);
 		}
 
-		ECC::Scalar offs;
-		bbE.clear();
-		m_DB.get_StateExtra(m_Cursor.m_Sid.m_Row, offs, &bbE);
-
-		if (!bbE.empty())
+		if (bd.FromRow(*this, m_Cursor.m_Sid.m_Row))
 		{
-			txvp.m_vInputs.clear();
-			txvp.m_vOutputs.clear();
-
-			der.reset(bbE);
-			der & txvp;
-
 			for (size_t i = 0; i < txvp.m_vInputs.size(); i++)
 			{
 				const Input& v = *txvp.m_vInputs[i];
@@ -3743,26 +3761,16 @@ void NodeProcessor::InitializeUtxos()
 	Height h0 = Rules::get().pForks[2].m_Height;
 	if (m_Cursor.m_Sid.m_Height >= h0)
 	{
-		ByteBuffer bbE;
-		TxVectors::Perishable txvp;
+		BlockShieldedData bd;
+		TxVectors::Perishable& txvp = bd.m_txvp; // alias
 
 		TxoID nShielded = m_Extra.m_Shielded;
 		m_Extra.m_Shielded = 0;
 
 		while (true)
 		{
-			ECC::Scalar offs;
-			m_DB.get_StateExtra(FindActiveAtStrict(h0), offs, &bbE);
-
-			if (!bbE.empty())
+			if (bd.FromHeight(*this, h0))
 			{
-				txvp.m_vInputs.clear();
-				txvp.m_vOutputs.clear();
-
-				Deserializer der;
-				der.reset(bbE);
-				der & txvp;
-
 				for (size_t i = 0; i < txvp.m_vInputs.size(); i++)
 				{
 					const Input& v = *txvp.m_vInputs[i];
@@ -3836,28 +3844,21 @@ bool NodeProcessor::GetBlockInternal(const NodeDB::StateID& sid, ByteBuffer* pEt
 	if (!bActive && !(m_DB.GetStateFlags(sid.m_Row) & NodeDB::StateFlags::Active))
 		return false; // only active states are supported
 
-	TxBase txb;
-
 	TxoID idInpCut = get_TxosBefore(h0 + 1);
 	TxoID id0;
 
 	TxoID id1 = m_DB.get_StateTxos(sid.m_Row);
 
-	ByteBuffer bbBlob;
+	BlockShieldedData bd;
+	ByteBuffer& bbBlob = bd.m_Buf; // alias
 
-	if (!m_DB.get_StateExtra(sid.m_Row, txb.m_Offset, &bbBlob))
-		OnCorrupted();
+	bd.FromRow(*this, sid.m_Row);
+	bbBlob.clear();
 
-	TxVectors::Perishable txvpShielded;
+	TxVectors::Perishable& txvpShielded = bd.m_txvp; // alias
+	TxBase txb;
+	txb.m_Offset = bd.m_Offs;
 
-	if (!bbBlob.empty())
-	{
-		Deserializer der;
-		der.reset(bbBlob);
-		der & txvpShielded;
-
-		bbBlob.clear();
-	}
 
 	uint64_t rowid = sid.m_Row;
 	if (m_DB.get_Prev(rowid))
