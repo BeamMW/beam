@@ -98,7 +98,7 @@ namespace beam::wallet
             {
                 SetState(State::MakingKernels);
                 builder.CreateKernels();
-                builder.SignKernels(m_KeyKeeper);
+                builder.SignKernels();
             }
         }
 
@@ -212,8 +212,7 @@ namespace beam::wallet
             }
 
             auto assetIdx = GetMandatoryParameter<Key::Index>(TxParameterID::AssetIdx);
-            auto assetId  = m_KeyKeeper->AIDFromIndex(assetIdx);
-            m_TxBuilder   = std::make_shared<AssetIssueTxBuilder>(_issue, *this, kDefaultSubTxID, assetIdx, assetId);
+            m_TxBuilder   = std::make_shared<AssetIssueTxBuilder>(_issue, *this, kDefaultSubTxID, assetIdx, m_KeyKeeper);
         }
         return true;
     }

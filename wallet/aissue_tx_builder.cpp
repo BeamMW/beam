@@ -43,10 +43,10 @@ namespace beam::wallet
     using namespace ECC;
     using namespace std;
 
-    AssetIssueTxBuilder::AssetIssueTxBuilder(bool issue, BaseTransaction& tx, SubTxID subTxID, uint32_t assetIdx, beam::AssetID assetId)
+    AssetIssueTxBuilder::AssetIssueTxBuilder(bool issue, BaseTransaction& tx, SubTxID subTxID, uint32_t assetIdx, IPrivateKeyKeeper::Ptr keyKeeper)
         : m_Tx{tx}
+        , m_keyKeeper(keyKeeper)
         , m_SubTxID(subTxID)
-        , m_assetId(assetId)
         , m_assetIdx(assetIdx)
         , m_issue(issue)
         , m_AmountList{0}
@@ -64,6 +64,7 @@ namespace beam::wallet
         }
 
         m_kernelKeyId = Key::ID(assetIdx,  Key::Type::Kernel, assetIdx);
+        m_assetId = keyKeeper->AIDFromIndex(assetIdx);
     }
 
     bool AssetIssueTxBuilder::CreateInputs()
@@ -437,12 +438,12 @@ namespace beam::wallet
         m_EmissionKernel->m_Commitment     = Zero;
     }
 
-    void AssetIssueTxBuilder::SignKernels(IPrivateKeyKeeper::Ptr keysKeeper)
+    void AssetIssueTxBuilder::SignKernels()
     {
         //
         // Kernel
         //
-        keysKeeper->SignKernel(m_Kernel, m_kernelKeyId, m_Offset);
+        m_keyKeeper->SignKernel(m_Kernel, m_kernelKeyId, m_Offset);
 
         Merkle::Hash kernelID;
         m_Kernel->get_ID(kernelID);
@@ -452,7 +453,7 @@ namespace beam::wallet
         //
         // Emission kernel
         //
-        keysKeeper->SignEmissionKernel(m_EmissionKernel, m_assetIdx, m_Offset);
+        m_keyKeeper->SignEmissionKernel(m_EmissionKernel, m_assetIdx, m_Offset);
 
         Merkle::Hash emissionKernelID;
         m_Kernel->get_ID(emissionKernelID);

@@ -27,7 +27,7 @@ namespace beam::wallet
         //
         // Transaction
         //
-        AssetIssueTxBuilder(bool issue, BaseTransaction& tx, SubTxID subTxID, uint32_t assetIdx, beam::AssetID assetId);
+        AssetIssueTxBuilder(bool issue, BaseTransaction& tx, SubTxID subTxID, uint32_t assetIdx, IPrivateKeyKeeper::Ptr keyKeeper);
 
         bool GetInitialTxParams();
         virtual Transaction::Ptr CreateTransaction();
@@ -55,7 +55,7 @@ namespace beam::wallet
         const Merkle::Hash& GetEmissionKernelID() const;
         bool LoadKernels();
         void CreateKernels();
-        void SignKernels(IPrivateKeyKeeper::Ptr keysKeeper);
+        void SignKernels();
 
         std::string GetKernelIDString() const;
         Height GetMinHeight() const;
@@ -68,6 +68,7 @@ namespace beam::wallet
 
     private:
         BaseTransaction& m_Tx;
+        IPrivateKeyKeeper::Ptr m_keyKeeper;
         SubTxID m_SubTxID;
 
         beam::Key::ID m_kernelKeyId;
