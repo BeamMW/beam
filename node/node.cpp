@@ -907,6 +907,13 @@ Key::IPKdf* Node::Processor::get_ViewerKey()
 	return get_ParentObj().m_Keys.m_pOwner.get();
 }
 
+const Output::Shielded::Viewer* Node::Processor::get_ViewerShieldedKey()
+{
+	return get_ParentObj().m_Keys.m_pOwner ?
+		&get_ParentObj().m_Keys.m_ShieldedViewer :
+		nullptr;
+}
+
 void Node::Processor::OnUtxoEvent(const UtxoEvent::Value& evt, Height h)
 {
 	if (get_ParentObj().m_Cfg.m_LogUtxos)
@@ -1062,6 +1069,8 @@ void Node::InitKeys()
 			throw exc;
 
 		}
+
+		m_Keys.m_ShieldedViewer.FromOwner(*m_Keys.m_pOwner);
 	}
 	else
         m_Keys.m_pMiner = nullptr; // can't mine without owner view key, because it's used for Tagging

@@ -1634,9 +1634,12 @@ namespace beam
 				{
 					Output::Ptr pOut(new Output);
 
+					Output::Shielded::Viewer viewer;
+					viewer.FromOwner(*m_Wallet.m_pKdf);
+
 					Output::Shielded::PublicGen gen;
-					gen.m_pGen = m_Wallet.m_pKdf; // whatever
-					gen.m_pSer = m_Wallet.m_pKdf; // whatever
+					gen.m_pGen = viewer.m_pGen;
+					gen.m_pSer = viewer.m_pSer;
 					gen.m_Owner = 12U; // whatever
 
 					ECC::Hash::Value nonce;
@@ -1651,7 +1654,10 @@ namespace beam
 					m_Shielded.m_sk += d.m_kSerG;
 					m_Shielded.m_Commitment = pOut->m_pShielded->m_SerialPub;
 
-					d.GetSpendKey(m_Shielded.m_skSpendKey, *m_Wallet.m_pKdf);
+					Key::IKdf::Ptr pSerPrivate;
+					Output::Shielded::Viewer::GenerateSerPrivate(pSerPrivate, *m_Wallet.m_pKdf);
+
+					d.GetSpendKey(m_Shielded.m_skSpendKey, *pSerPrivate);
 
 					ECC::Point::Native pt;
 					verify_test(pOut->IsValid(h + 1, pt));
@@ -2062,11 +2068,16 @@ namespace beam
 						m_bCustomAssetRecognized = true;
 					}
 
-					ECC::Scalar::Native sk;
-					ECC::Point comm;
-					SwitchCommitment(&evt.m_AssetID).Create(sk, comm, *m_Wallet.m_pKdf, evt.m_Kidv);
-					verify_test(comm == evt.m_Commitment);
-
+					if (proto::UtxoEvent::Flags::Shielded & evt.m_Flags)
+					{
+					}
+					else
+					{
+						ECC::Scalar::Native sk;
+						ECC::Point comm;
+						SwitchCommitment(&evt.m_AssetID).Create(sk, comm, *m_Wallet.m_pKdf, evt.m_Kidv);
+						verify_test(comm == evt.m_Commitment);
+					}
 				}
 			}
 

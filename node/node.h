@@ -162,6 +162,8 @@ struct Node
 		void InitSingleKey(const ECC::uintBig& seed);
 		void SetSingleKey(const Key::IKdf::Ptr&);
 
+		Output::Shielded::Viewer m_ShieldedViewer; // derived from owner
+
 	} m_Keys;
 
 	~Node();
@@ -206,6 +208,7 @@ private:
 		void OnRolledBack() override;
 		void OnModified() override;
 		Key::IPKdf* get_ViewerKey() override;
+		const Output::Shielded::Viewer* get_ViewerShieldedKey() override;
 		void OnUtxoEvent(const UtxoEvent::Value&, Height) override;
 		void OnDummy(const Key::ID&, Height) override;
 		void InitializeUtxosProgress(uint64_t done, uint64_t total) override;
