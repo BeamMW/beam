@@ -1771,6 +1771,31 @@ namespace beam
 				Send(msgOut);
 			}
 
+			bool OnNotAchieved(bool bFin, const char* sz)
+			{
+				if (bFin)
+					fail_test(sz);
+				return false;
+			}
+
+			bool TestAllDone(bool bFin)
+			{
+				if (!IsHeightReached())
+					return OnNotAchieved(bFin, "Blockchain height didn't reach target");
+				if (!IsAllProofsReceived())
+					return OnNotAchieved(bFin, "some proofs missing");
+				if (!IsAllBbsReceived())
+					return OnNotAchieved(bFin, "some BBS messages missing");
+				if (!IsAllRecoveryReceived())
+					return OnNotAchieved(bFin, "some recovery messages missing");
+				//if (!m_bCustomAssetRecognized)
+				//	return OnNotAchieved(bFin, "CA not recognized");
+				if (!m_Shielded.m_SpendConfirmed)
+					return OnNotAchieved(bFin, "Shielded spend not confirmed");
+
+				return true; // all achieved
+			}
+
 			virtual void OnMsg(proto::NewTip&& msg) override
 			{
 				if (!msg.m_Description.m_Height)
@@ -1783,7 +1808,7 @@ namespace beam
 
 				if (IsHeightReached())
 				{
-					if (IsAllProofsReceived() && IsAllBbsReceived() && IsAllRecoveryReceived() /* && m_bCustomAssetRecognized*/ && m_Shielded.m_SpendConfirmed)
+					if (TestAllDone(false))
 						io::Reactor::get_Current().stop();
 					return;
 				}
@@ -2184,19 +2209,7 @@ namespace beam
 
 		pReactor->run();
 
-
-		if (!cl.IsHeightReached())
-			fail_test("Blockchain height didn't reach target");
-		if (!cl.IsAllProofsReceived())
-			fail_test("some proofs missing");
-		if (!cl.IsAllBbsReceived())
-			fail_test("some BBS messages missing");
-		if (!cl.IsAllRecoveryReceived())
-			fail_test("some recovery messages missing");
-		//if (!cl.m_bCustomAssetRecognized)
-		//	fail_test("CA not recognized");
-		if (!cl.m_Shielded.m_SpendConfirmed)
-			fail_test("Shielded spend not confirmed");
+		cl.TestAllDone(true);
 
 		struct TxoRecover
 			:public NodeProcessor::ITxoRecover
