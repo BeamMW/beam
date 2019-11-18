@@ -138,6 +138,7 @@ namespace beam::wallet
     MACRO(FeeIsTooSmall,                 23, "Fee is too small") \
     MACRO(NotLoopback,                   24, "Not a loopback transaction") \
     MACRO(NoKeyKeeper,                   25, "Key keeper is not initialized") \
+    MACRO(NoAssetId,                     26, "No valid asset id/asset idx")
 
     enum TxFailureReason : int32_t
     {

@@ -27,7 +27,7 @@ namespace beam::wallet
         //
         // Transaction
         //
-        AssetIssueTxBuilder(bool issue, BaseTransaction& tx, SubTxID subTxID, uint32_t assetIdx, IPrivateKeyKeeper::Ptr keyKeeper);
+        AssetIssueTxBuilder(bool issue, BaseTransaction& tx, SubTxID subTxID, IPrivateKeyKeeper::Ptr keyKeeper);
 
         bool GetInitialTxParams();
         virtual Transaction::Ptr CreateTransaction();
@@ -71,7 +71,6 @@ namespace beam::wallet
         IPrivateKeyKeeper::Ptr m_keyKeeper;
         SubTxID m_SubTxID;
 
-        beam::Key::ID m_kernelKeyId;
         beam::AssetID m_assetId;
         uint32_t      m_assetIdx;
 

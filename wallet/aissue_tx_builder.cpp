@@ -43,11 +43,12 @@ namespace beam::wallet
     using namespace ECC;
     using namespace std;
 
-    AssetIssueTxBuilder::AssetIssueTxBuilder(bool issue, BaseTransaction& tx, SubTxID subTxID, uint32_t assetIdx, IPrivateKeyKeeper::Ptr keyKeeper)
+    AssetIssueTxBuilder::AssetIssueTxBuilder(bool issue, BaseTransaction& tx, SubTxID subTxID, IPrivateKeyKeeper::Ptr keyKeeper)
         : m_Tx{tx}
-        , m_keyKeeper(keyKeeper)
+        , m_keyKeeper(std::move(keyKeeper))
         , m_SubTxID(subTxID)
-        , m_assetIdx(assetIdx)
+        , m_assetId(Zero)
+        , m_assetIdx(0)
         , m_issue(issue)
         , m_AmountList{0}
         , m_Fee(0)
@@ -57,14 +58,23 @@ namespace beam::wallet
         , m_MaxHeight(MaxHeight)
         , m_Offset(Zero)
     {
+        if (!m_keyKeeper.get())
+        {
+            throw TransactionFailedException(!m_Tx.IsInitiator(), TxFailureReason::NoKeyKeeper);
+        }
+
         m_Fee = m_Tx.GetMandatoryParameter<Amount>(TxParameterID::Fee, m_SubTxID);
         if (!m_Tx.GetParameter(TxParameterID::AmountList, m_AmountList, m_SubTxID))
         {
             m_AmountList = AmountList{m_Tx.GetMandatoryParameter<Amount>(TxParameterID::Amount, m_SubTxID)};
         }
 
-        m_kernelKeyId = Key::ID(assetIdx,  Key::Type::Kernel, assetIdx);
-        m_assetId = keyKeeper->AIDFromIndex(assetIdx);
+        m_assetIdx = m_Tx.GetMandatoryParameter<Key::Index>(TxParameterID::AssetIdx);
+        m_assetId  = m_keyKeeper->AIDFromKeyIndex(m_assetIdx);
+        if (m_assetIdx == 0 && m_assetId == Zero)
+        {
+            throw TransactionFailedException(!m_Tx.IsInitiator(), TxFailureReason::NoAssetId);
+        }
     }
 
     bool AssetIssueTxBuilder::CreateInputs()
@@ -443,7 +453,7 @@ namespace beam::wallet
         //
         // Kernel
         //
-        m_keyKeeper->SignKernel(m_Kernel, m_kernelKeyId, m_Offset);
+        m_keyKeeper->SignEmissionInOutKernel(m_Kernel, m_assetIdx, m_Offset);
 
         Merkle::Hash kernelID;
         m_Kernel->get_ID(kernelID);

@@ -211,8 +211,7 @@ namespace beam::wallet
                 amountList = AmountList{GetMandatoryParameter<Amount>(TxParameterID::Amount)};
             }
 
-            auto assetIdx = GetMandatoryParameter<Key::Index>(TxParameterID::AssetIdx);
-            m_TxBuilder   = std::make_shared<AssetIssueTxBuilder>(_issue, *this, kDefaultSubTxID, assetIdx, m_KeyKeeper);
+            m_TxBuilder = std::make_shared<AssetIssueTxBuilder>(_issue, *this, kDefaultSubTxID, m_KeyKeeper);
         }
         return true;
     }
