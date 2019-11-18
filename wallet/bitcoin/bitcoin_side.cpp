@@ -299,7 +299,7 @@ namespace beam::wallet
             libbitcoin::wallet::ec_private localPrivateKey(peerPrivateKey, GetAddressVersion());
             std::string peerSwapPublicKeyStr = m_tx.GetMandatoryParameter<std::string>(TxParameterID::AtomicSwapPeerPublicKey);
 
-            return localPrivateKey.to_public() == libbitcoin::wallet::ec_public(peerSwapPublicKeyStr);
+            return localPrivateKey.to_public().encoded() == peerSwapPublicKeyStr;
         }
 
         return false;
