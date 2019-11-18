@@ -2145,6 +2145,7 @@ void NodeProcessor::RecognizeUtxos(TxBase::IReader&& r, Height h, TxoID nShielde
 		if (x.m_pSpendProof)
 		{
 			pt = x.m_pSpendProof->m_Part1.m_SpendPk;
+			static_assert(proto::UtxoEvent::Flags::Shielded != 1); // 1 is used in the point itself
 			pt.m_Y |= proto::UtxoEvent::Flags::Shielded;
 		}
 
@@ -2214,6 +2215,7 @@ void NodeProcessor::RecognizeUtxos(TxBase::IReader&& r, Height h, TxoID nShielde
 			ECC::Point::Native ptN;
 			d.GetSpendPKey(ptN, *pKeyShielded->m_pSer);
 			UtxoEvent::Key key = ptN;
+			key.m_Y |= proto::UtxoEvent::Flags::Shielded;
 
 			m_DB.InsertEvent(h, Blob(&evt, sizeof(evt)), Blob(&key, sizeof(key)));
 			OnUtxoEvent(evt, h);
