@@ -50,7 +50,7 @@ ProxyConnector::OnConnect ProxyConnector::create_connection(
         Address destination,
         const OnConnect& on_proxy_establish,
         int timeoutMsec,
-        bool tlsConnect) {
+        bool isTls) {
 
     // is_tag_free
     assert(_connectRequests.count(tag) == 0);
@@ -61,7 +61,7 @@ ProxyConnector::OnConnect ProxyConnector::create_connection(
     request_ptr->on_connection_establish = OnConnect(on_proxy_establish);
     request_ptr->on_proxy_response = OnResponse();
     request_ptr->timeoutMsec = timeoutMsec;
-    request_ptr->tlsConnect = tlsConnect;
+    request_ptr->isTls = isTls;
     _connectRequests[tag] = request_ptr;
 
     // Lambda used to hold context
@@ -212,38 +212,28 @@ bool ProxyConnector::on_connect_resp(uint64_t tag, ErrorCode errorCode, void *da
 }
 
 void ProxyConnector::on_connection_established(uint64_t tag) {
-    // SSL initialisation
-    // TcpStream::Ptr stream;
-    // TcpStream *streamPtr = 0;
-    // move TcpStream to SslStream ctor _connectRequests[tag]->stream;
-    // if (request->isTls)
-    // {
-    //     if (!create_ssl_context())
-    //     {
-    //         errorCode = EC_SSL_ERROR;
-    //     }
-    //     else
-    //     {
-    //         streamPtr = new SslStream(_sslContext);
-    //     }
-    // }
-    // else
-    // {
-    //     streamPtr = new TcpStream();
-    // }
-    // if (streamPtr)
-    // {
-    //     stream.reset(_reactor.stream_connected(streamPtr, request->handle));
-    // }
+    ProxyConnectRequest* request = _connectRequests[tag];
+    TcpStream::Ptr stream;
+
+    if (request->isTls) {
+        if (!create_ssl_context()) {
+            release_connection(tag, make_result(EC_SSL_ERROR));
+        }
+        TcpStream* sslStreamPtr = new SslStream(_sslContext);
+        _reactor.move_stream(sslStreamPtr, request->stream.get());
+        stream.reset(sslStreamPtr);
+    }
+    else {
+        request->stream->disable_read();
+        stream = std::move(request->stream);
+    }
 
     // if (_connectTimer)
     //     _connectTimer->cancel(request->tag);
 
-    ProxyConnectRequest* request = _connectRequests[tag];
-    request->stream->disable_read();
-    request->on_proxy_response.~OnResponse();
-    request->on_connection_establish(tag, std::move(request->stream), EC_OK);
-    request->on_connection_establish.~OnConnect();
+    // request->on_proxy_response.~OnResponse();
+    request->on_connection_establish(tag, std::move(stream), EC_OK);
+    // request->on_connection_establish.~OnConnect();
     release_connection(tag, make_result(EC_OK));
 }
 

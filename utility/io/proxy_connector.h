@@ -16,6 +16,7 @@
 
 #include "utility/io/reactor.h"
 #include "utility/io/tcpstream.h"
+#include "utility/io/sslstream.h"
 
 #include <array>
 
@@ -54,9 +55,20 @@ private:
         OnConnect on_connection_establish;
         OnResponse on_proxy_response;
         int timeoutMsec;
-        bool tlsConnect;
+        bool isTls;
         TcpStream::Ptr stream;
     };
+
+    bool create_ssl_context() {
+        if (!_sslContext) {
+            try {
+                _sslContext = SSLContext::create_client_context();
+            } catch (...) {
+                return false;
+            }
+        }
+        return true;
+    }
 
     void release_connection(uint64_t tag, Result res);
 
@@ -70,6 +82,7 @@ private:
     Reactor& _reactor;
     MemPool<ProxyConnectRequest, sizeof(ProxyConnectRequest)> _connectRequestsPool;
     std::unordered_map<uint64_t, ProxyConnectRequest*> _connectRequests;
+    SSLContext::Ptr _sslContext;
 };
 
 struct Socks5_Protocol {

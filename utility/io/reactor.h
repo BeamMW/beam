@@ -150,6 +150,7 @@ private:
     ErrorCode init_tcpstream(Object* o);
     ErrorCode accept_tcpstream(Object* acceptor, Object* newConnection);
     TcpStream* stream_connected(TcpStream* stream, uv_handle_t* h);
+    TcpStream* move_stream(TcpStream* newStream, TcpStream* oldStream);
     void shutdown_tcpstream(Object* o);
 
     using OnDataWritten = std::function<void(ErrorCode, size_t)>;

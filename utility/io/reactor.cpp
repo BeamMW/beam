@@ -553,6 +553,17 @@ TcpStream* Reactor::stream_connected(TcpStream* stream, uv_handle_t* h) {
     return stream;
 }
 
+TcpStream* Reactor::move_stream(TcpStream* newStream, TcpStream* oldStream) {
+    LOG_DEBUG() << "move_stream() handle: " << static_cast<void*>(oldStream->_handle);
+    oldStream->disable_read();
+    newStream->_handle = oldStream->_handle;
+    newStream->_handle->data = newStream;
+    newStream->_reactor = std::move(oldStream->_reactor);
+    oldStream->_handle = 0;
+    oldStream->_handle->data = 0;
+    return newStream;
+}
+
 ErrorCode Reactor::accept_tcpstream(Object* acceptor, Object* newConnection) {
     assert(acceptor->_handle);
 

@@ -36,6 +36,7 @@ private:
     friend class SslServer;
     friend class Reactor;
     friend class TcpConnectors;
+    friend class ProxyConnector;
 
     explicit SslStream(const SSLContext::Ptr& ctx);
 
