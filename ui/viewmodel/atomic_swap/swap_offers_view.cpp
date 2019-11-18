@@ -220,9 +220,9 @@ void SwapOffersViewModel::onTransactionsDataModelChanged(beam::wallet::ChangeAct
     
     auto eraseActive = [this](auto tx)
     {
-        auto swapCoinType = tx->getSwapCoinType();
         if (m_activeTx.erase(tx->getTxID()) > 0) // item was erased
         {
+            auto swapCoinType = tx->getSwapCoinType();
             m_activeTxCounters.decrement(swapCoinType);
         }
     };

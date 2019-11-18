@@ -362,10 +362,10 @@ void SendSwapViewModel::sendMoney()
     using beam::wallet::TxParameterID;
     
     auto txParameters = beam::wallet::TxParameters(_txParameters);
-    auto isBeamSide = txParameters.GetParameter<bool>(TxParameterID::AtomicSwapIsBeamSide);
-    auto beamFee = (*isBeamSide) ? getSendFee() : getReceiveFee();
-    auto swapFee = (*isBeamSide) ? getReceiveFee() : getSendFee();
-    auto subTxID = *isBeamSide ? beam::wallet::SubTxIndex::REDEEM_TX : beam::wallet::SubTxIndex::LOCK_TX;
+    auto isBeamSide = *txParameters.GetParameter<bool>(TxParameterID::AtomicSwapIsBeamSide);
+    auto beamFee = isBeamSide ? getSendFee() : getReceiveFee();
+    auto swapFee = isBeamSide ? getReceiveFee() : getSendFee();
+    auto subTxID = isBeamSide ? beam::wallet::SubTxIndex::REDEEM_TX : beam::wallet::SubTxIndex::LOCK_TX;
 
     if (isBeamSide)
     {
@@ -389,7 +389,7 @@ void SendSwapViewModel::sendMoney()
         auto minimalHeight = txParameters.GetParameter<beam::Height>(TxParameterID::MinHeight);
 
         LOG_INFO() << *txID << " Accept offer.\n\t"
-                    << "isBeamSide: " << (*isBeamSide ? "true" : "false") << "\n\t"
+                    << "isBeamSide: " << (isBeamSide ? "true" : "false") << "\n\t"
                     << "swapCoin: " << std::to_string(*swapCoin) << "\n\t"
                     << "amount: " << *amount << "\n\t"
                     << "swapAmount: " << *swapAmount << "\n\t"
