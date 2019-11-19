@@ -14,6 +14,7 @@ target_sources(wallet
         aissue_tx_builder.cpp
         aissue_transaction.cpp
         wallet_transaction.cpp
+        strings_resources.cpp
         wallet_network.cpp
         wallet_db.cpp
         wallet_client.h
@@ -43,7 +44,7 @@ if (NOT ANDROID)
 
     endif()
 
-    add_executable(${TARGET_NAME} cli.cpp strings_resources.h strings_resources.cpp)
+    add_executable(${TARGET_NAME} cli.cpp)
 
     if(LINUX)
         target_link_libraries(${TARGET_NAME}

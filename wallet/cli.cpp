@@ -902,7 +902,28 @@ namespace
         return coinIDs;
     }
 
-    bool LoadBaseParamsForTX(const po::variables_map& vm, Amount& amount, Amount& fee, WalletID& receiverWalletID, bool checkFee, bool skipReceiverWalletID=false)
+    bool ReadAssetId(const po::variables_map& vm, AssetID& assetId)
+    {
+        if(!vm.count(cli::ASSET_ID))
+        {
+            // Just no asset id, it is normal, use BEAM
+            return true;
+        }
+
+        const auto hexstr = vm[cli::ASSET_ID].as<string>();
+        const auto buffer = from_hex(hexstr);
+        if (buffer.size() != sizeof(assetId))
+        {
+            return false;
+        }
+
+        beam::Blob blob(buffer);
+        assetId = blob;
+
+        return true;
+    }
+
+    bool LoadBaseParamsForTX(const po::variables_map& vm, AssetID& assetId, Amount& amount, Amount& fee, WalletID& receiverWalletID, bool checkFee, bool skipReceiverWalletID=false)
     {
         if (!skipReceiverWalletID)
         {
@@ -940,6 +961,12 @@ namespace
         if (checkFee && fee < cli::kMinimumFee)
         {
             LOG_ERROR() << kErrorFeeToLow;
+            return false;
+        }
+
+        if (!ReadAssetId(vm, assetId))
+        {
+            LOG_ERROR() << kInvalidAssetID;
             return false;
         }
 
@@ -1293,13 +1320,19 @@ namespace
 
         bool isBeamSide = (vm.count(cli::SWAP_BEAM_SIDE) != 0);
 
+        AssetID assetId = Zero;
         Amount amount = 0;
         Amount fee = 0;
         WalletID receiverWalletID(Zero);
 
-        if (!LoadBaseParamsForTX(vm, amount, fee, receiverWalletID, checkFee, true))
+        if (!LoadBaseParamsForTX(vm, assetId, amount, fee, receiverWalletID, checkFee, true))
         {
             return boost::none;
+        }
+
+        if (assetId != Zero)
+        {
+            throw std::runtime_error(kErrorCantSwapAsset);
         }
 
         if (vm.count(cli::SWAP_AMOUNT) == 0)
@@ -1960,11 +1993,12 @@ int main_impl(int argc, char* argv[])
                     }
 
                     io::Address receiverAddr;
+                    AssetID assetId = Zero;
                     Amount amount = 0;
                     Amount fee = 0;
                     WalletID receiverWalletID(Zero);
                     bool isTxInitiator = (command == cli::SEND);
-                    if (isTxInitiator && !LoadBaseParamsForTX(vm, amount, fee, receiverWalletID, isFork1))
+                    if (isTxInitiator && !LoadBaseParamsForTX(vm, assetId, amount, fee, receiverWalletID, isFork1))
                     {
                         return -1;
                     }
@@ -2075,6 +2109,7 @@ int main_impl(int argc, char* argv[])
                                 .SetParameter(TxParameterID::PeerID, receiverWalletID)
                                 .SetParameter(TxParameterID::Amount, amount)
                                 .SetParameter(TxParameterID::Fee, fee)
+                                .SetParameter(TxParameterID::AssetID, assetId)
                                 .SetParameter(TxParameterID::PreselectedCoins, GetPreselectedCoinIDs(vm)));
                         }
 

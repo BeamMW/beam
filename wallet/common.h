@@ -199,6 +199,7 @@ namespace beam::wallet
         Lifetime = 15,
         PeerProtoVersion = 16,
         MaxHeight = 17,
+        AssetID = 18,
 
         PeerResponseTime = 24,
         SubTxIndex = 25,
@@ -257,7 +258,7 @@ namespace beam::wallet
         Offset = 140,
 
         ChangeAsset = 149,
-        Change = 150,
+        ChangeBeam = 150,
         Status = 151,
         KernelID = 152,
         EmissionKernelID = 153,

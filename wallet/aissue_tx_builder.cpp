@@ -335,7 +335,7 @@ namespace beam::wallet
         m_ChangeBeam  = totalBeam  - amountBeamWithFee;
         m_ChangeAsset = totalAsset - amountAsset;
 
-        m_Tx.SetParameter(TxParameterID::Change,      m_ChangeBeam,  false, m_SubTxID);
+        m_Tx.SetParameter(TxParameterID::ChangeBeam,  m_ChangeBeam,  false, m_SubTxID);
         m_Tx.SetParameter(TxParameterID::ChangeAsset, m_ChangeAsset, false, m_SubTxID);
         m_Tx.SetParameter(TxParameterID::InputCoins,  m_InputCoins,  false, m_SubTxID);
         m_Tx.GetWalletDB()->saveCoins(coins);

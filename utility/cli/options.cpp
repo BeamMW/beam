@@ -254,6 +254,7 @@ namespace beam
         const char* ASSET_ISSUE   = "issue";
         const char* ASSET_CONSUME = "consume";
         const char* ASSET_INDEX   = "asset_idx";
+        const char* ASSET_ID      = "asset_id";
 
         // Defaults
         const Amount kMinimumFee = 100;
@@ -377,7 +378,8 @@ namespace beam
 
         po::options_description wallet_assets_options("Confidential assets options");
         wallet_assets_options.add_options()
-            (cli::ASSET_INDEX, po::value<Positive<uint32_t>>(), "asset index");
+            (cli::ASSET_INDEX, po::value<Positive<uint32_t>>(), "asset index")
+            (cli::ASSET_ID, po::value<string>(), "asset id");
 
         po::options_description options{ "Allowed options" };
         po::options_description visible_options{ "Allowed options" };

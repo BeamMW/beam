@@ -92,7 +92,8 @@ namespace beam
     const char kErrorNodeAddrUnresolved[] = "unable to resolve node address: %1%";
     const char kErrorNodePoolPeriodTooMuch[] = "The \"--node_poll_period\" parameter set to more than %1% hours may cause transaction problems.";
     const char kErrorSwapAmountMissing[] = "swap amount is missing";
-    const char kErrorSwapCoinUnknown[] = "Unknown coin for swap";
+    const char kErrorSwapCoinUnknown[] = "cannot swap asset coins";
+    const char kErrorCantSwapAsset[] = "Unknown coin for swap";
     const char kErrorNoBTCNodeCredentials[] = "BTC node credentials should be provided";
     const char kErrorSwapAmountTooLow[] = "The swap amount must be greater than the redemption fee.";
     const char kErrorNoLTCNodeCredentials[] = "LTC node credentials should be provided";

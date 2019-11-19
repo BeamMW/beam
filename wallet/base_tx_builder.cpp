@@ -15,6 +15,7 @@
 #include "base_tx_builder.h"
 #include "core/block_crypt.h"
 #include "wallet_transaction.h"
+#include "strings_resources.h"
 
 // TODO: getrandom not available until API 28 in the Android NDK 17b
 // https://github.com/boostorg/uuid/issues/76
@@ -34,9 +35,11 @@ namespace beam::wallet
     BaseTxBuilder::BaseTxBuilder(BaseTransaction& tx, SubTxID subTxID, const AmountList& amountList, Amount fee)
         : m_Tx{ tx }
         , m_SubTxID(subTxID)
+        , m_AssetId(Zero)
         , m_AmountList{ amountList }
         , m_Fee{ fee }
-        , m_Change{ 0 }
+        , m_ChangeBeam{0}
+        , m_ChangeAsset{0}
         , m_Lifetime{ kDefaultTxLifetime }
         , m_MinHeight{ 0 }
         , m_MaxHeight{ MaxHeight }
@@ -50,53 +53,72 @@ namespace beam::wallet
         {
             m_Tx.GetParameter(TxParameterID::Fee, m_Fee, m_SubTxID);
         }
+        m_Tx.GetParameter(TxParameterID::AssetID, m_AssetId, m_SubTxID);
     }
 
     void BaseTxBuilder::SelectInputs()
     {
         CoinIDList preselectedCoinIDs;
         vector<Coin> coins;
-        Amount preselectedAmount = 0;
+        Amount preselAmountBeam = 0;
+        Amount preselAmountAsset = 0;
         if (m_Tx.GetParameter(TxParameterID::PreselectedCoins, preselectedCoinIDs, m_SubTxID) && !preselectedCoinIDs.empty())
         {
             coins = m_Tx.GetWalletDB()->getCoinsByID(preselectedCoinIDs);
             for (auto& coin : coins)
             {
-                preselectedAmount += coin.getAmount();
+                if (coin.isAsset()) preselAmountAsset += coin.getAmount();
+                else preselAmountBeam += coin.getAmount();
                 coin.m_spentTxId = m_Tx.GetTxID();
             }
             m_Tx.GetWalletDB()->saveCoins(coins);
         }
 
-        Amount amountWithFee = GetAmount() + GetFee();
-        if (preselectedAmount < amountWithFee)
+        const bool isBeamTransaction = m_AssetId == Zero;
+        const Amount amountBeamWithFee = (isBeamTransaction ? GetAmount() : 0) + GetFee();
+        if (preselAmountBeam < amountBeamWithFee)
         {
-            auto selectedCoins = m_Tx.GetWalletDB()->selectCoins(amountWithFee - preselectedAmount, Zero);
+            auto selectedCoins = m_Tx.GetWalletDB()->selectCoins(amountBeamWithFee - preselAmountBeam, Zero);
+            copy(selectedCoins.begin(), selectedCoins.end(), back_inserter(coins));
+            if (selectedCoins.empty())
+            {
+                storage::Totals allTotals(*m_Tx.GetWalletDB());
+                const auto totals = allTotals.GetTotals(Zero);
+                LOG_ERROR() << m_Tx.GetTxID() << "[" << m_SubTxID << "]" << " You only have " << PrintableAmount(totals.Avail);
+                throw TransactionFailedException(!m_Tx.IsInitiator(), TxFailureReason::NoInputs);
+            }
+        }
+
+        const Amount amountAsset = isBeamTransaction ? 0 : GetAmount();
+        if (preselAmountAsset < amountAsset)
+        {
+            auto selectedCoins = m_Tx.GetWalletDB()->selectCoins(amountAsset - preselAmountAsset, m_AssetId);
+            if (selectedCoins.empty())
+            {
+                storage::Totals allTotals(*m_Tx.GetWalletDB());
+                const auto totals = allTotals.GetTotals(m_AssetId);
+                LOG_ERROR() << m_Tx.GetTxID() << "[" << m_SubTxID << "]" << " You only have " << PrintableAmount(totals.Avail, kAmountASSET, kAmountAGROTH);
+                throw TransactionFailedException(!m_Tx.IsInitiator(), TxFailureReason::NoInputs);
+            }
             copy(selectedCoins.begin(), selectedCoins.end(), back_inserter(coins));
         }
 
-        if (coins.empty())
-        {
-            storage::Totals totals(*m_Tx.GetWalletDB());
-            auto beamTotals = totals.GetTotals(Zero);
-
-            LOG_ERROR() << m_Tx.GetTxID() << "[" << m_SubTxID << "]" << " You only have " << PrintableAmount(beamTotals.Avail);
-            throw TransactionFailedException(!m_Tx.IsInitiator(), TxFailureReason::NoInputs);
-        }
-
         m_InputCoins.reserve(coins.size());
-
-        Amount total = 0;
+        Amount totalBeam = 0;
+        Amount totalAsset = 0;
         for (auto& coin : coins)
         {
             coin.m_spentTxId = m_Tx.GetTxID();
-            total += coin.m_ID.m_Value;
+            if (coin.isAsset()) totalAsset += coin.m_ID.m_Value;
+            else totalBeam += coin.m_ID.m_Value;
             m_InputCoins.push_back(coin.m_ID);
         }
 
-        m_Change += total - amountWithFee;
+        m_ChangeBeam  = totalBeam  - amountBeamWithFee;
+        m_ChangeAsset = totalAsset - amountAsset;
 
-        m_Tx.SetParameter(TxParameterID::Change, m_Change, false, m_SubTxID);
+        m_Tx.SetParameter(TxParameterID::ChangeBeam, m_ChangeBeam, false, m_SubTxID);
+        m_Tx.SetParameter(TxParameterID::ChangeAsset, m_ChangeAsset, false, m_SubTxID);
         m_Tx.SetParameter(TxParameterID::InputCoins, m_InputCoins, false, m_SubTxID);
 
         m_Tx.GetWalletDB()->saveCoins(coins);
@@ -104,17 +126,23 @@ namespace beam::wallet
 
     void BaseTxBuilder::AddChange()
     {
-        if (m_Change == 0)
+        if (m_ChangeBeam)
         {
-            return;
+            GenerateOutputCoin(m_ChangeBeam, true, false);
         }
 
-        GenerateNewCoin(m_Change, true);
+        if (m_ChangeAsset)
+        {
+            GenerateOutputCoin(m_ChangeAsset, true, true);
+        }
     }
 
-    void BaseTxBuilder::GenerateNewCoin(Amount amount, bool bChange)
+    void BaseTxBuilder::GenerateOutputCoin(beam::Amount amount, bool bChange, bool bAsset)
     {
-        Coin newUtxo(amount, bChange ? Key::Type::Change : Key::Type::Regular);
+        auto keyType = bChange ? Key::Type::Change : Key::Type::Regular;
+        if (bAsset) keyType = bChange ? Key::Type::AssetChange : Key::Type::Asset;
+
+        Coin newUtxo(amount, keyType, m_AssetId);
         newUtxo.m_createTxId = m_Tx.GetTxID();
         m_Tx.GetWalletDB()->storeCoin(newUtxo);
         m_OutputCoins.push_back(newUtxo.m_ID);
@@ -130,8 +158,9 @@ namespace beam::wallet
 
         auto thisHolder = shared_from_this();
         auto txHolder = m_Tx.shared_from_this(); // increment use counter of tx object. We use it to avoid tx object desctruction during Update call.
+        ECC::Scalar::Native dummy = Zero;
         m_Tx.GetAsyncAcontext().OnAsyncStarted();
-        m_Tx.GetKeyKeeper()->GenerateOutputs(m_MinHeight, m_OutputCoins,
+        m_Tx.GetKeyKeeper()->GenerateOutputsEx(m_MinHeight, m_OutputCoins, m_AssetId, dummy,
             [thisHolder, this, txHolder](auto&& result)
             {
                 m_Outputs = move(result);
@@ -179,7 +208,8 @@ namespace beam::wallet
         //    {
         //        //m_Tx.Update();
         //    });
-        auto commitments = m_Tx.GetKeyKeeper()->GeneratePublicKeysSync(m_InputCoins, true);
+        ECC::Scalar::Native dummy;
+        auto commitments = m_Tx.GetKeyKeeper()->GeneratePublicKeysSyncEx(m_InputCoins, true, m_AssetId, dummy);
         m_Inputs.reserve(commitments.size());
         for (const auto& commitment : commitments)
         {
@@ -245,23 +275,71 @@ namespace beam::wallet
         }
     }
 
+    namespace {
+        typedef uintBig_t<sizeof(Amount) + sizeof(Height)> Type;
+        Amount get_Lo(const Type& x)
+            {
+                Amount res;
+                x.ExportWord<1>(res);
+                return res;
+            }
+
+            Amount get_Hi(const Type& x)
+            {
+                Amount res;
+                x.ExportWord<0>(res);
+                return res;
+            }
+
+        void AddToEX(ECC::Point::Native& res, const Type& x, ECC::Point::Native hgen)
+        {
+            ECC::Mode::Scope scope(ECC::Mode::Fast);
+
+            if (get_Hi(x))
+            {
+                assert(false);
+                ECC::Scalar s;
+                s.m_Value = x;
+                res += ECC::Context::get().H_Big * s;
+            }
+            else
+            {
+                Amount lo = get_Lo(x);
+                if (lo)
+                    res += hgen * lo;
+            }
+        }
+    }
+
     Point::Native BaseTxBuilder::GetPublicExcess() const
     {
         // PublicExcess = Sum(inputs) - Sum(outputs) - offset * G - (Sum(input amounts) - Sum(output amounts)) * H
+        SwitchCommitment sc(&m_AssetId);
         Point::Native publicAmount = Zero;
-        Amount amount = 0;
         for (const auto& cid : m_InputCoins)
         {
-            amount += cid.m_Value;
+            if (cid.isAsset())
+            {
+                AddToEX(publicAmount, cid.m_Value, sc.m_hGen);
+            }
+            else
+            {
+                AmountBig::AddTo(publicAmount, cid.m_Value);
+            }
         }
-        AmountBig::AddTo(publicAmount, amount);
-        amount = 0;
+
         publicAmount = -publicAmount;
         for (const auto& cid : m_OutputCoins)
         {
-            amount += cid.m_Value;
+            if(cid.m_Type == Key::Type::Asset || cid.m_Type == Key::Type::AssetChange)
+            {
+                 AddToEX(publicAmount, cid.m_Value, sc.m_hGen);
+            }
+            else
+            {
+                AmountBig::AddTo(publicAmount, cid.m_Value);
+            }
         }
-        AmountBig::AddTo(publicAmount, amount);
 
         Point::Native publicExcess = Context::get().G * m_Offset;
         {
@@ -284,6 +362,7 @@ namespace beam::wallet
                 }
             }
         }
+
         publicExcess += publicAmount;
         return publicExcess;
     }
@@ -291,6 +370,11 @@ namespace beam::wallet
     Point::Native BaseTxBuilder::GetPublicNonce() const
     {
         return m_PublicNonce;
+    }
+
+    AssetID BaseTxBuilder::GetAssetId() const
+    {
+        return m_AssetId;
     }
 
     bool BaseTxBuilder::GetPeerPublicExcessAndNonce()
@@ -316,8 +400,9 @@ namespace beam::wallet
         m_Tx.GetParameter(TxParameterID::Outputs, m_Outputs, m_SubTxID);
         m_Tx.GetParameter(TxParameterID::InputCoins, m_InputCoins, m_SubTxID);
         m_Tx.GetParameter(TxParameterID::OutputCoins, m_OutputCoins, m_SubTxID);
+        m_Tx.GetParameter(TxParameterID::AssetID, m_AssetId, m_SubTxID);
 
-        if (!m_Tx.GetParameter(TxParameterID::MinHeight, m_MinHeight, m_SubTxID))
+         if (!m_Tx.GetParameter(TxParameterID::MinHeight, m_MinHeight, m_SubTxID))
         {
             // adjust min height, this allows create transaction when node is out of sync
             auto currentHeight = m_Tx.GetWalletDB()->getCurrentHeight();
@@ -381,8 +466,7 @@ namespace beam::wallet
             *kernelParameters.hashLock = *m_Kernel->m_pHashLock;
         }
 
-        m_PartialSignature = m_Tx.GetKeyKeeper()->SignSync(m_InputCoins, m_OutputCoins, m_Offset, m_NonceSlot, kernelParameters, GetPublicNonce() + m_PeerPublicNonce);
-
+        m_PartialSignature = m_Tx.GetKeyKeeper()->SignSync(m_InputCoins, m_OutputCoins, m_AssetId, m_Offset, m_NonceSlot, kernelParameters, GetPublicNonce() + m_PeerPublicNonce);
         StoreKernelID();
     }
 

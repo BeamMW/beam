@@ -32,7 +32,7 @@ namespace beam::wallet
 
         void SelectInputs();
         void AddChange();
-        void GenerateNewCoin(Amount amount, bool bChange);
+        void GenerateOutputCoin(Amount amount, bool bChange, bool bAsset);
         bool CreateOutputs();
         bool FinalizeOutputs();
         bool LoadKernel();
@@ -42,6 +42,7 @@ namespace beam::wallet
         void GenerateNonce();
         virtual ECC::Point::Native GetPublicExcess() const;
         ECC::Point::Native GetPublicNonce() const;
+        AssetID GetAssetId() const;
         bool GetInitialTxParams();
         bool GetInputs();
         bool GetOutputs();
@@ -84,9 +85,11 @@ namespace beam::wallet
         SubTxID m_SubTxID;
 
         // input
+        AssetID m_AssetId;
         AmountList m_AmountList;
         Amount m_Fee;
-        Amount m_Change;
+        Amount m_ChangeBeam;
+        Amount m_ChangeAsset;
         Height m_Lifetime;
         Height m_MinHeight;
         Height m_MaxHeight;

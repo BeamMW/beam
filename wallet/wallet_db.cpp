@@ -2081,7 +2081,7 @@ namespace beam::wallet
                 case TxParameterID::Message:
                     deserialize(txDescription.m_message, parameter.m_value);
                     break;
-                case TxParameterID::Change:
+                case TxParameterID::ChangeBeam:
                     deserialize(txDescription.m_change, parameter.m_value);
                     break;
                 case TxParameterID::ModifyTime:
@@ -2121,7 +2121,7 @@ namespace beam::wallet
         storage::setTxParameter(*this, p.m_txId, TxParameterID::TransactionType, p.m_txType, false);
         storage::setTxParameter(*this, p.m_txId, TxParameterID::Amount, p.m_amount, false);
         storage::setTxParameter(*this, p.m_txId, TxParameterID::Fee, p.m_fee, false);
-        storage::setTxParameter(*this, p.m_txId, TxParameterID::Change, p.m_change, false);
+        storage::setTxParameter(*this, p.m_txId, TxParameterID::ChangeBeam, p.m_change, false);
         if (p.m_minHeight)
         {
             storage::setTxParameter(*this, p.m_txId, TxParameterID::MinHeight, p.m_minHeight, false);

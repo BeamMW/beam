@@ -155,7 +155,8 @@ namespace beam::wallet
                     // create receiver utxo
                     for (const auto& amount : builder.GetAmountList())
                     {
-                        builder.GenerateNewCoin(amount, false);
+                        // TODO: check if this is correct
+                        builder.GenerateOutputCoin(amount, false, builder.GetAssetId() != Zero);
                     }
                 }
 
@@ -368,7 +369,8 @@ namespace beam::wallet
             .AddParameter(TxParameterID::IsSender, !isSender)
             .AddParameter(TxParameterID::PeerProtoVersion, s_ProtoVersion)
             .AddParameter(TxParameterID::PeerPublicExcess, builder.GetPublicExcess())
-            .AddParameter(TxParameterID::PeerPublicNonce, builder.GetPublicNonce());
+            .AddParameter(TxParameterID::PeerPublicNonce, builder.GetPublicNonce())
+            .AddParameter(TxParameterID::AssetID, builder.GetAssetId());
 
         if (!SendTxParameters(move(msg)))
         {
@@ -482,6 +484,7 @@ namespace beam::wallet
         case TxParameterID::Status:
         case TxParameterID::TransactionType:
         case TxParameterID::KernelID:
+        case TxParameterID::AssetID:
             return true;
         default:
             return false;

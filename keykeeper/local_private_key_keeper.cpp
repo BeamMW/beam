@@ -84,7 +84,7 @@ namespace beam::wallet
 
     }
 
-    void LocalPrivateKeyKeeper::GenerateOutputsEx(Height schemeHeight, const std::vector<Key::IDV>& ids, beam::AssetID assetId, ECC::Scalar::Native& offset, Callback<Outputs>&& resultCallback, ExceptionCallback&& exceptionCallback)
+    void LocalPrivateKeyKeeper::GenerateOutputsEx(Height schemeHeight, const std::vector<Key::IDV>& ids, const AssetID& assetId, ECC::Scalar::Native& offset, Callback<Outputs>&& resultCallback, ExceptionCallback&& exceptionCallback)
      {
         auto thisHolder = shared_from_this();
         shared_ptr<Outputs> result = make_shared<Outputs>();
@@ -162,7 +162,7 @@ namespace beam::wallet
         return result;
     }
 
-    IPrivateKeyKeeper::PublicKeys LocalPrivateKeyKeeper::GeneratePublicKeysSyncEx(const std::vector<Key::IDV>& ids, bool createCoinKey, beam::AssetID assetID, Scalar::Native& offset)
+    IPrivateKeyKeeper::PublicKeys LocalPrivateKeyKeeper::GeneratePublicKeysSyncEx(const std::vector<Key::IDV>& ids, bool createCoinKey, const AssetID& assetID, Scalar::Native& offset)
     {
         PublicKeys result;
         Scalar::Native secretKey;
@@ -233,7 +233,7 @@ namespace beam::wallet
         return result;
     }
 
-    IPrivateKeyKeeper::Outputs LocalPrivateKeyKeeper::GenerateOutputsSyncEx(Height schemeHeigh, const std::vector<Key::IDV>& ids, beam::AssetID assetId, Scalar::Native& offset)
+    IPrivateKeyKeeper::Outputs LocalPrivateKeyKeeper::GenerateOutputsSyncEx(Height schemeHeigh, const std::vector<Key::IDV>& ids, const AssetID& assetId, Scalar::Native& offset)
     {
         Outputs result;
         Scalar::Native secretKey;
@@ -263,9 +263,9 @@ namespace beam::wallet
         return result;
     }
 
-    Scalar LocalPrivateKeyKeeper::SignSync(const std::vector<Key::IDV>& inputs, const std::vector<Key::IDV>& outputs, const Scalar::Native& offset, size_t nonceSlot, const KernelParameters& kernelParamerters, const Point::Native& publicNonce)
+    Scalar LocalPrivateKeyKeeper::SignSync(const std::vector<Key::IDV>& inputs, const std::vector<Key::IDV>& outputs, const AssetID& assetId, const Scalar::Native& offset, size_t nonceSlot, const KernelParameters& kernelParamerters, const Point::Native& publicNonce)
     {
-        auto excess = GetExcess(inputs, outputs, offset);
+        auto excess = GetExcess(inputs, outputs, assetId, offset);
 
         TxKernel kernel;
         kernel.m_Commitment = kernelParamerters.commitment;
@@ -340,24 +340,25 @@ namespace beam::wallet
         return nonce.V;
     }
 
-    Scalar::Native LocalPrivateKeyKeeper::GetExcess(const std::vector<Key::IDV>& inputs, const std::vector<Key::IDV>& outputs, const ECC::Scalar::Native& offset) const
+    Scalar::Native LocalPrivateKeyKeeper::GetExcess(const std::vector<Key::IDV>& inputs, const std::vector<Key::IDV>& outputs, const AssetID& assetId, const ECC::Scalar::Native& offset) const
     {
         // Excess = Sum(input blinfing factors) - Sum(output blinfing factors) - offset
         Point commitment;
         Scalar::Native blindingFactor;
         Scalar::Native excess = offset;
+
         for (const auto& coinID : outputs)
         {
-            SwitchCommitment().Create(blindingFactor, commitment, *GetChildKdf(coinID), coinID);
+            SwitchCommitment(coinID.isAsset() ? &assetId : nullptr).Create(blindingFactor, commitment, *GetChildKdf(coinID), coinID);
             excess += blindingFactor;
         }
         excess = -excess;
-
         for (const auto& coinID : inputs)
         {
-            SwitchCommitment().Create(blindingFactor, commitment, *GetChildKdf(coinID), coinID);
+            SwitchCommitment(coinID.isAsset() ? &assetId : nullptr).Create(blindingFactor, commitment, *GetChildKdf(coinID), coinID);
             excess += blindingFactor;
         }
+
         return excess;
     }
 
@@ -368,12 +369,12 @@ namespace beam::wallet
         return secretKey;
     }
 
-    beam::AssetID LocalPrivateKeyKeeper::AIDFromKeyIndex(uint32_t assetIdx)
+    AssetID LocalPrivateKeyKeeper::AIDFromKeyIndex(uint32_t assetIdx)
     {
         const auto assetKeyId = Key::ID(assetIdx, Key::Type::Asset, assetIdx);
         auto assetKey = GetAssetKey(assetKeyId);
-        beam::AssetID assetId = Zero;
-        beam::proto::Sk2Pk(assetId, assetKey);
+        AssetID assetId = Zero;
+        proto::Sk2Pk(assetId, assetKey);
         return assetId;
     }
 
