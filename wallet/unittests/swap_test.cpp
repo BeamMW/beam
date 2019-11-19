@@ -1270,9 +1270,9 @@ void TestSwapCancelTransaction(bool isSender, wallet::AtomicSwapTransaction::Sta
     }    
 }
 
-void TestSwap120Blocks()
+void TestExpireByLifeTime()
 {
-    cout << "\nAtomic swap: testing 120 blocks ...\n";
+    cout << "\nAtomic swap: expire by lifetime ...\n";
 
     io::Reactor::Ptr mainReactor{ io::Reactor::create() };
     io::Reactor::Scope scope(*mainReactor);
@@ -1326,59 +1326,57 @@ void TestSwap120Blocks()
     auto receiverCoins = receiver->GetCoins();
     WALLET_CHECK(receiverCoins.empty());
 
-    io::AsyncEvent::Ptr eventToUpdate;
-
     bool isNeedReset = true;
-    Height currentHeight = 0;
+    io::AsyncEvent::Ptr eventToUpdate;
     Node node;
     TxID txID;
 
     eventToUpdate = io::AsyncEvent::create(*mainReactor, [&]()
-    {
-        if (receiver)
         {
-            wallet::AtomicSwapTransaction::State txState = wallet::AtomicSwapTransaction::State::Initial;
-            storage::getTxParameter(*receiver->m_WalletDB, txID, wallet::kDefaultSubTxID, wallet::TxParameterID::State, txState);
-            if (txState == wallet::AtomicSwapTransaction::State::Failed)
+            if (receiver)
             {
-                return;
+                wallet::AtomicSwapTransaction::State txState = wallet::AtomicSwapTransaction::State::Initial;
+                storage::getTxParameter(*receiver->m_WalletDB, txID, wallet::kDefaultSubTxID, wallet::TxParameterID::State, txState);
+                if (txState == wallet::AtomicSwapTransaction::State::Failed)
+                {
+                    return;
+                }
+                if (txState == wallet::AtomicSwapTransaction::State::BuildingBeamLockTX && isNeedReset)
+                {
+                    receiver.reset();
+                    isNeedReset = false;
+                }
             }
-            else if (txState == wallet::AtomicSwapTransaction::State::HandlingContractTX && isNeedReset)
+            else if (sender)
             {
-                isNeedReset = false;
-                currentHeight = receiver->m_WalletDB->getCurrentHeight();
-                receiver.reset();
-                node.m_Cfg.m_TestMode.m_FakePowSolveTime_ms = 100;
+                wallet::AtomicSwapTransaction::State txState = wallet::AtomicSwapTransaction::State::Initial;
+                storage::getTxParameter(*sender->m_WalletDB, txID, wallet::kDefaultSubTxID, wallet::TxParameterID::State, txState);
+                if (txState == wallet::AtomicSwapTransaction::State::Failed)
+                {
+                    receiver = std::make_unique<TestWalletRig>("receiver", receiverWalletDB, completeAction);
+                    InitBitcoin(receiver->m_Wallet, receiver->m_WalletDB, *mainReactor, *receiverSP);
+                    receiver->m_Wallet.ResumeAllTransactions();
+                }
             }
-        }
-        else
-        {
-            if (sender->m_WalletDB->getCurrentHeight() - currentHeight >= 110)
-            {
-                receiver = std::make_unique<TestWalletRig>("receiver", receiverWalletDB, completeAction);
-                InitBitcoin(receiver->m_Wallet, receiver->m_WalletDB, *mainReactor, *receiverSP);
-                receiver->m_Wallet.ResumeAllTransactions();
-            }
-        }
-        eventToUpdate->post();
-    });
+            eventToUpdate->post();
+        });
 
     eventToUpdate->post();
 
     NodeObserver observer([&]()
-    {
-        Height minHeight = 5;
-        auto cursor = node.get_Processor().m_Cursor;
-        if (cursor.m_Sid.m_Height == minHeight)
         {
-            InitBitcoin(sender->m_Wallet, sender->m_WalletDB, *mainReactor, *senderSP);
-            InitBitcoin(receiver->m_Wallet, receiver->m_WalletDB, *mainReactor, *receiverSP);
+            Height minHeight = 5;
+            auto cursor = node.get_Processor().m_Cursor;
+            if (cursor.m_Sid.m_Height == minHeight)
+            {
+                InitBitcoin(sender->m_Wallet, sender->m_WalletDB, *mainReactor, *senderSP);
+                InitBitcoin(receiver->m_Wallet, receiver->m_WalletDB, *mainReactor, *receiverSP);
 
-            auto parameters = InitNewSwap(receiver->m_WalletID, minHeight, beamAmount, beamFee, wallet::AtomicSwapCoin::Bitcoin, swapAmount, false);
-            receiver->m_Wallet.StartTransaction(parameters);
-            txID = sender->m_Wallet.StartTransaction(AcceptSwapParameters(parameters, sender->m_WalletID, beamFee));
-        }
-    });
+                auto parameters = InitNewSwap(receiver->m_WalletID, minHeight, beamAmount, beamFee, wallet::AtomicSwapCoin::Bitcoin, swapAmount, false);
+                receiver->m_Wallet.StartTransaction(parameters);
+                txID = sender->m_Wallet.StartTransaction(AcceptSwapParameters(parameters, sender->m_WalletID, beamFee));
+            }
+        });
 
     InitNodeToTest(node, binaryTreasury, &observer, 32125, 200);
 
@@ -1391,6 +1389,14 @@ void TestSwap120Blocks()
 
     storage::getTxParameter(*sender->m_WalletDB, txID, wallet::kDefaultSubTxID, wallet::TxParameterID::State, txState);
     WALLET_CHECK(txState == wallet::AtomicSwapTransaction::State::Failed);
+
+    TxFailureReason reason = TxFailureReason::Unknown;
+    storage::getTxParameter(*sender->m_WalletDB, txID, wallet::kDefaultSubTxID, TxParameterID::InternalFailureReason, reason);
+    WALLET_CHECK(reason == TxFailureReason::TransactionExpired);
+
+    reason = TxFailureReason::Unknown;
+    storage::getTxParameter(*receiver->m_WalletDB, txID, wallet::kDefaultSubTxID, TxParameterID::InternalFailureReason, reason);
+    WALLET_CHECK(reason == TxFailureReason::TransactionExpired);
 
     auto senderCoins = sender->GetCoins();
     WALLET_CHECK(senderCoins.size() == kDefaultTestAmounts.size());
@@ -1468,7 +1474,7 @@ void TestIgnoringThirdPeer()
     WALLET_CHECK(receiverCoins.empty());
 
     io::Timer::Ptr timer = io::Timer::create(*mainReactor);
-    timer->start(100, true, [&node]() {node.AddBlock(); });
+    timer->start(200, true, [&node]() {node.AddBlock(); });
 
     io::AsyncEvent::Ptr eventToUpdate;
 
@@ -1546,6 +1552,7 @@ int main()
 
     ExpireByResponseTime(true);
     ExpireByResponseTime(false);
+    TestExpireByLifeTime();
 
     TestSwapCancelTransaction(true, wallet::AtomicSwapTransaction::State::Initial);
 
@@ -1558,7 +1565,6 @@ int main()
     TestSwapCancelTransaction(true, wallet::AtomicSwapTransaction::State::BuildingBeamRefundTX);
     TestSwapCancelTransaction(false, wallet::AtomicSwapTransaction::State::BuildingBeamRefundTX);
 
-    TestSwap120Blocks();
 
 #ifndef BEAM_MAINNET
     TestElectrumSwapTransaction(true, fork1Height);

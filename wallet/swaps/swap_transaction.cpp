@@ -350,7 +350,8 @@ namespace beam::wallet
                 }
 
                 // validate Lifetime
-                if (GetMandatoryParameter<Height>(TxParameterID::Lifetime) > kBeamLockTxLifetimeMax)
+                Height lifeTime = GetMandatoryParameter<Height>(TxParameterID::Lifetime);
+                if (lifeTime > kBeamLockTxLifetimeMax)
                 {
                     LOG_ERROR() << GetTxID() << "[" << static_cast<SubTxID>(SubTxIndex::BEAM_LOCK_TX) << "] " << "Transaction's lifetime is unacceptable.";
                     OnSubTxFailed(TxFailureReason::InvalidTransaction, SubTxIndex::BEAM_LOCK_TX, true);
@@ -410,6 +411,11 @@ namespace beam::wallet
                         break;
                     }
                 }
+
+                // save LifeTime & MaxHeight for BEAM_LOCK_TX
+                Height beamLockTxMaxHeight = GetMandatoryParameter<Height>(TxParameterID::MinHeight, SubTxIndex::BEAM_LOCK_TX) + lifeTime;
+                SetParameter(TxParameterID::Lifetime, lifeTime, SubTxIndex::BEAM_LOCK_TX);
+                SetParameter(TxParameterID::MaxHeight, beamLockTxMaxHeight, SubTxIndex::BEAM_LOCK_TX);
 
                 SetNextState(State::BuildingBeamLockTX);
                 break;
@@ -956,12 +962,6 @@ namespace beam::wallet
         {
             if (lockTxState == SubTxState::Initial && isBeamOwner)
             {
-                if (!IsInitiator())
-                {
-                    // When swap started not from Beam side, we should save MaxHeight
-                    SetParameter(TxParameterID::MaxHeight, lockTxBuilder->GetMaxHeight(), false, SubTxIndex::BEAM_LOCK_TX);
-                }
-
                 SendLockTxInvitation(*lockTxBuilder);
                 SetState(SubTxState::Invitation, SubTxIndex::BEAM_LOCK_TX);
                 lockTxState = SubTxState::Invitation;
@@ -1367,7 +1367,6 @@ namespace beam::wallet
             .AddParameter(TxParameterID::AtomicSwapPeerPublicKey, swapPublicKey)
             .AddParameter(TxParameterID::SubTxIndex, SubTxIndex::BEAM_LOCK_TX)
             .AddParameter(TxParameterID::Fee, lockBuilder.GetFee())
-            .AddParameter(TxParameterID::PeerMaxHeight, lockBuilder.GetMaxHeight())
             .AddParameter(TxParameterID::PeerPublicExcess, lockBuilder.GetPublicExcess())
             .AddParameter(TxParameterID::PeerPublicNonce, lockBuilder.GetPublicNonce())
             .AddParameter(TxParameterID::PeerSharedBulletProofPart2, lockBuilder.GetRangeProofInitialPart2())
@@ -1388,7 +1387,6 @@ namespace beam::wallet
             .AddParameter(TxParameterID::SubTxIndex, SubTxIndex::BEAM_LOCK_TX)
             .AddParameter(TxParameterID::PeerPublicExcess, lockBuilder.GetPublicExcess())
             .AddParameter(TxParameterID::PeerPublicNonce, lockBuilder.GetPublicNonce())
-            .AddParameter(TxParameterID::PeerMaxHeight, lockBuilder.GetMaxHeight())
             .AddParameter(TxParameterID::PeerSignature, lockBuilder.GetPartialSignature())
             .AddParameter(TxParameterID::PeerOffset, lockBuilder.GetOffset())
             .AddParameter(TxParameterID::PeerSharedBulletProofPart2, lockBuilder.GetRangeProofInitialPart2())
