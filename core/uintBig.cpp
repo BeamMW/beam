@@ -22,6 +22,13 @@ namespace beam {
 		return v + ((v < 10) ? '0' : ('a' - 10));
 	}
 
+	std::string uintBigImpl::_Str(const uint8_t* pDst, uint32_t nDst)
+    {
+	    std::vector<char> buffer(nDst * 2 + 1);
+	    _Print(pDst, nDst, &buffer[0]);
+	    return std::string(&buffer[0]);
+    }
+
 	void uintBigImpl::_Print(const uint8_t* pDst, uint32_t nDst, std::ostream& s)
 	{
 		const uint32_t nDigitsMax = 8;

@@ -554,7 +554,7 @@ namespace
     {
         const unsigned kWidth = 26;
         cout << boost::format(kWalletAssetSummaryFormat)
-             % totals.AssetId
+             % totals.AssetId.str()
              % boost::io::group(left, setfill('.'), setw(kWidth), kWalletSummaryFieldAvailable) % to_string(PrintableAmount(totals.Avail, false, kAmountASSET, kAmountAGROTH))
              % boost::io::group(left, setfill('.'), setw(kWidth), kWalletSummaryFieldInProgress) % to_string(PrintableAmount(totals.Incoming, false, kAmountASSET, kAmountAGROTH))
              % boost::io::group(left, setfill('.'), setw(kWidth), kWalletSummaryFieldUnavailable) % to_string(PrintableAmount(totals.Unavail, false, kAmountASSET, kAmountAGROTH))

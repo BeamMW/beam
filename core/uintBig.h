@@ -39,6 +39,7 @@ namespace beam
 		static int _Cmp(const uint8_t* pSrc0, uint32_t nSrc0, const uint8_t* pSrc1, uint32_t nSrc1);
 		static void _Print(const uint8_t* pDst, uint32_t nDst, std::ostream&);
 		static void _Print(const uint8_t* pDst, uint32_t nDst, char*);
+		static std::string _Str(const uint8_t* pDst, uint32_t nDst);
 
 		static uint32_t _GetOrder(const uint8_t* pDst, uint32_t nDst);
 		static bool _Accept(uint8_t* pDst, const uint8_t* pThr, uint32_t nDst, uint32_t nThrOrder);
@@ -332,6 +333,11 @@ namespace beam
 		void Print(char* sz) const
 		{
 			_Print(m_pData, nBytes, sz);
+		}
+
+		std::string str() const
+		{
+		    return _Str(m_pData, nBytes);
 		}
 
 		friend std::ostream& operator << (std::ostream& s, const uintBig_t& x)
