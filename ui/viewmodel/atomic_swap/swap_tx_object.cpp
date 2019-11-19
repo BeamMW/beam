@@ -15,6 +15,7 @@
 #include "swap_tx_object.h"
 #include "wallet/swaps/common.h"
 #include "wallet/swaps/swap_transaction.h"
+#include "core/ecc.h"
 #include "viewmodel/qml_globals.h"
 #include "model/app_model.h"
 
@@ -53,21 +54,27 @@ namespace
 
     QString getInProgressNormalStr(const beam::wallet::TxParameters& txParameters)
     {
-        return "";
-        //auto minHeightLock = txParameters.GetParameter<beam::Height>(TxParameterID::MinHeight, BEAM_LOCK_TX);
-        //auto lifeTime = txParameters.GetParameter<beam::Height>(TxParameterID::Lifetime, BEAM_LOCK_TX);
-        //QString time = "";
-        //if (minHeightLock && lifeTime)
-        //{
-        //    time = convertBeamHeightDiffToTime(*minHeightLock + *lifeTime - AppModel::getInstance().getWallet()->getCurrentHeight());
-        //}
-        ////% "The swap is expected to complete in %1"
-        //return qtTrId("swap-tx-state-in-progress-normal").arg(time);
+        auto minHeightRefund = txParameters.GetParameter<beam::Height>(TxParameterID::MinHeight, BEAM_REFUND_TX);
+         QString time = "";
+        if (minHeightRefund)
+        {
+            auto currentHeight = AppModel::getInstance().getWallet()->getCurrentHeight();
+            if (currentHeight < *minHeightRefund)
+            {
+                time = convertBeamHeightDiffToTime(*minHeightRefund - currentHeight);
+            }
+        }
+        if (time.isEmpty())
+        {
+            return "";
+        }
+        //% "The swap is expected to complete in %1 at most"
+        return qtTrId("swap-tx-state-in-progress-normal").arg(time);
     }
 
     QString getInProgressRefundingStr(const beam::wallet::TxParameters& txParameters)
     {
-        auto isBeamSide = *txParameters.GetParameter<bool>(TxParameterID::AtomicSwapIsBeamSide); // mandatoty parameter
+        auto isBeamSide = *txParameters.GetParameter<bool>(TxParameterID::AtomicSwapIsBeamSide); // mandatory parameter
         QString coin;
         QString time;
         if (isBeamSide)
@@ -99,7 +106,7 @@ namespace
             return "";
         }
 
-        //% "Your %2 will be refunded in %1"
+        //% "The refund of your %2 will start in %1 (the actual refund duration depends on the transaction fee specified for the %2 blockchain)"
         return qtTrId("swap-tx-state-in-progress-refunding").arg(time).arg(coin);
     }
 }
