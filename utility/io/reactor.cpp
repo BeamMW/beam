@@ -636,6 +636,7 @@ Result Reactor::tcp_connect(
         Address proxy_address;
         proxy_address.resolve(config().get_string("io.proxy_address", "127.0.0.1").c_str());
         proxy_address.port(config().get<uint16_t>("io.proxy_port", 1080));
+        // TODO: proxy. Decide about proxy server connect timeout setup.
         ConnectCallback on_tcp_connect = _proxyConnector->
             create_connection(tag, address, callback, timeoutMsec, tlsConnect);
         res = _tcpConnectors->tcp_connect((uv_tcp_t*)h, proxy_address, tag, on_tcp_connect, timeoutMsec, false);
@@ -652,7 +653,7 @@ Result Reactor::tcp_connect(
 
 void Reactor::cancel_tcp_connect(uint64_t tag) {
     _tcpConnectors->cancel_tcp_connect(tag);
-    _proxyConnector->cancel_tcp_connect(tag);
+    _proxyConnector->cancel_connection(tag);
 }
 
 void Reactor::async_close(uv_handle_t*& handle) {

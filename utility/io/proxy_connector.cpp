@@ -59,7 +59,7 @@ ProxyConnector::OnConnect ProxyConnector::create_connection(
     request_ptr->tag = tag;
     request_ptr->destination = destination;
     request_ptr->on_connection_establish = OnConnect(on_proxy_establish);
-    request_ptr->on_proxy_response = OnResponse();
+    request_ptr->on_proxy_reply = OnReply();
     request_ptr->timeoutMsec = timeoutMsec;
     request_ptr->isTls = isTls;
     _connectRequests[tag] = request_ptr;
@@ -70,9 +70,23 @@ ProxyConnector::OnConnect ProxyConnector::create_connection(
     };
 }
 
+void ProxyConnector::cancel_all() {
+    for (auto& p : _connectRequests) {
+        release_connection(p.first, make_result(EC_OK));
+    }
+    _connectTimer.reset();
+}
+
+void ProxyConnector::cancel_connection(uint64_t tag) {
+    if (_connectRequests.count(tag) != 0) {
+        release_connection(tag, make_result(EC_OK));
+    }
+}
+
 void ProxyConnector::release_connection(uint64_t tag, Result res) {
-    // TODO: proxy refact to modern pointers
-    // TODO: check if @stream destructor is called properly
+    // TODO: proxy, refact ProxyConnectRequest set to smart pointers.
+    // Not possible with current custom MemPool.
+    // TODO: proxy, check if @ProxyConnectRequest::stream destructor is called properly.
     LOG_DEBUG() << "release_connection(" << tag << ")";
     
     ProxyConnectRequest* req_ptr = _connectRequests[tag];
@@ -84,6 +98,20 @@ void ProxyConnector::release_connection(uint64_t tag, Result res) {
     req_ptr->~ProxyConnectRequest();
     _connectRequestsPool.release(req_ptr);
     _connectRequests.erase(tag);
+    if (_connectTimer) _connectTimer->cancel(tag);
+}
+
+void ProxyConnector::on_connect_timeout(uint64_t tag) {
+    LOG_DEBUG() << "Proxy connection timeout. Tag: " << tag;
+    if (_connectRequests.count(tag) != 0) {
+        release_connection(tag, make_unexpected(EC_ETIMEDOUT));
+    }
+}
+
+void ProxyConnector::destroy_connect_timer_if_needed() {
+    if (_connectRequests.empty()) {
+        _connectTimer.reset();
+    }
 }
 
 void ProxyConnector::on_tcp_connect(uint64_t tag, std::unique_ptr<TcpStream>&& new_stream, ErrorCode errorCode) {
@@ -105,28 +133,47 @@ void ProxyConnector::on_tcp_connect(uint64_t tag, std::unique_ptr<TcpStream>&& n
 }
 
 void ProxyConnector::send_auth_methods(uint64_t tag) {
+    auto request = _connectRequests[tag];
+    if (request->timeoutMsec >= 0) {
+        if (!_connectTimer) {
+            try {
+                _connectTimer = CoarseTimer::create(
+                    _reactor,
+                    config().get_int("io.connect_timer_resolution", 1000, 1, 60000),
+                    BIND_THIS_MEMFN(on_connect_timeout)
+                );
+            } catch (const Exception& e) {
+                release_connection(tag, make_unexpected(e.errorCode));
+                return;
+            }
+        }
+        auto result = _connectTimer->set_timer(request->timeoutMsec, tag);
+        if (!result) {
+            release_connection(tag, result);
+            return;
+        }
+    }
     // set callback for proxy auth method response
-    _connectRequests[tag]->on_proxy_response = &ProxyConnector::on_auth_method_resp;
-    _connectRequests[tag]->stream->enable_read(
+    request->on_proxy_reply = &ProxyConnector::on_auth_method_resp;
+    request->stream->enable_read(
         /* Lambda used to hold pointer ProxyConnector instance and ProxyConnectRequest tag
          * in TcpStream cause enable_read() doesn't pass info about
          * stream it was executed on.
          */
         [this, tag](ErrorCode errorCode, void *data, size_t size) {
-            return _connectRequests[tag]->on_proxy_response(*this, tag, errorCode, data, size);
+            return _connectRequests[tag]->on_proxy_reply(*this, tag, errorCode, data, size);
         });
 
     // send authentication methods to proxy server
     auto auth_request = Socks5_Protocol::makeAuthRequest(
         Socks5_Protocol::AuthMethod::NO_AUTHENTICATION_REQUIRED);
-    Result res = _connectRequests[tag]->stream->write(auth_request.data(), auth_request.size());
+    Result res = request->stream->write(auth_request.data(), auth_request.size());
     {
         std::string req = beam::to_hex(auth_request.data(), auth_request.size());
         LOG_DEBUG() << "Write to proxy " << sizeof auth_request << " bytes: " << req;
     }
     if (!res)
     {
-        //make_unexpected(EC_ENOTCONN)
         LOG_DEBUG() << "AuthRequest to proxy error: " << error_str(res.error());
         release_connection(tag, res);
     }
@@ -151,6 +198,7 @@ bool ProxyConnector::on_auth_method_resp(uint64_t tag, ErrorCode errorCode, void
             method != Socks5_Protocol::AuthMethod::NO_AUTHENTICATION_REQUIRED) {
             LOG_ERROR() << "Proxy required unsupported auth method.";
             release_connection(tag, make_unexpected(EC_PROXY_AUTH_ERROR));
+            return false;
         }
         // No authentication required
         send_connect_request(tag);        
@@ -165,7 +213,7 @@ bool ProxyConnector::on_auth_method_resp(uint64_t tag, ErrorCode errorCode, void
 
 void ProxyConnector::send_connect_request(uint64_t tag) {
     // set callback for proxy connection request reply
-    _connectRequests[tag]->on_proxy_response = &ProxyConnector::on_connect_resp;
+    _connectRequests[tag]->on_proxy_reply = &ProxyConnector::on_connect_resp;
     
     auto conn_req = Socks5_Protocol::makeRequest(
         _connectRequests[tag]->destination,
@@ -218,6 +266,7 @@ void ProxyConnector::on_connection_established(uint64_t tag) {
     if (request->isTls) {
         if (!create_ssl_context()) {
             release_connection(tag, make_result(EC_SSL_ERROR));
+            return;
         }
         TcpStream* sslStreamPtr = new SslStream(_sslContext);
         _reactor.move_stream(sslStreamPtr, request->stream.get());
@@ -228,13 +277,21 @@ void ProxyConnector::on_connection_established(uint64_t tag) {
         stream = std::move(request->stream);
     }
 
-    // if (_connectTimer)
-    //     _connectTimer->cancel(request->tag);
-
-    // request->on_proxy_response.~OnResponse();
+    // request->on_proxy_reply.~OnReply();
     request->on_connection_establish(tag, std::move(stream), EC_OK);
     // request->on_connection_establish.~OnConnect();
     release_connection(tag, make_result(EC_OK));
+}
+
+bool ProxyConnector::create_ssl_context() {
+    if (!_sslContext) {
+        try {
+            _sslContext = SSLContext::create_client_context();
+        } catch (...) {
+            return false;
+        }
+    }
+    return true;
 }
 
 std::array<uint8_t,3> Socks5_Protocol::makeAuthRequest(AuthMethod method) {

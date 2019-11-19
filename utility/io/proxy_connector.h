@@ -15,6 +15,7 @@
 #pragma once
 
 #include "utility/io/reactor.h"
+#include "utility/io/coarsetimer.h"
 #include "utility/io/tcpstream.h"
 #include "utility/io/sslstream.h"
 
@@ -26,51 +27,59 @@ namespace io {
 class ProxyConnector {
 public:
     using OnConnect = Reactor::ConnectCallback;
-    using OnResponse = std::function<bool(  ProxyConnector& instance,   // implicit this pass
-                                            uint64_t tag,
-                                            ErrorCode errorCode,
-                                            void *data,
-                                            size_t size)>;
 
     ProxyConnector(Reactor&);
-    ~ProxyConnector(); // TODO: proxy
+    ~ProxyConnector();
 
+    /**
+     * Allocate proxy connection request.
+     * Callback will start process of connection establishment.
+     * @return callback functor to be executed on tcp connect to proxy server.
+     */
     OnConnect create_connection(uint64_t tag,   // unique identifier
                                 Address destination,
                                 const OnConnect& onProxyEstablish,
                                 int timeoutMsec,
                                 bool tlsConnect);
 
-    void cancel_all() {}; // TODO: proxy
-    void destroy_connect_timer_if_needed() {};
-    void cancel_tcp_connect(uint64_t tag) {};
+    /**
+     * Cancel all active proxy connection requests.
+     * User callbacks would not be called.
+     */
+    void cancel_all();
+
+    /**
+     * Cancel proxy server connection establishment.
+     */
+    void cancel_connection(uint64_t tag);
+
+    /**
+     * see TcpConnectors::destroy_connect_timer_if_needed()
+     */
+    void destroy_connect_timer_if_needed();
 
 private:
+    using OnReply = std::function<bool(  ProxyConnector& instance,   // implicit "this" pass
+                                            uint64_t tag,
+                                            ErrorCode errorCode,
+                                            void *data,
+                                            size_t size)>;
     struct ProxyConnectRequest {
         ~ProxyConnectRequest();
         // using Ptr = std::unique_ptr<ProxyConnectRequest>;
-
         uint64_t tag;
         beam::io::Address destination;
         OnConnect on_connection_establish;
-        OnResponse on_proxy_response;
+        OnReply on_proxy_reply;
         int timeoutMsec;
         bool isTls;
         TcpStream::Ptr stream;
     };
 
-    bool create_ssl_context() {
-        if (!_sslContext) {
-            try {
-                _sslContext = SSLContext::create_client_context();
-            } catch (...) {
-                return false;
-            }
-        }
-        return true;
-    }
+    bool create_ssl_context();
 
     void release_connection(uint64_t tag, Result res);
+    void on_connect_timeout(uint64_t tag);
 
     void on_tcp_connect(uint64_t tag, std::unique_ptr<TcpStream>&& new_stream, ErrorCode errorCode);
     void send_auth_methods(uint64_t tag);
@@ -83,6 +92,7 @@ private:
     MemPool<ProxyConnectRequest, sizeof(ProxyConnectRequest)> _connectRequestsPool;
     std::unordered_map<uint64_t, ProxyConnectRequest*> _connectRequests;
     SSLContext::Ptr _sslContext;
+    std::unique_ptr<CoarseTimer> _connectTimer;
 };
 
 struct Socks5_Protocol {
