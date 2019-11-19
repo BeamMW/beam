@@ -82,9 +82,7 @@ void onConnectionEstablished(uint64_t tag, unique_ptr<TcpStream>&& newStream, Er
 
 void onInitialState(uint8_t* data, size_t size) {
 	std::array<uint8_t,3> referenceAuthReq = {0x05, 0x01, 0x00};
-	// std::vector<uint8_t> input(data, data+size);
-	bool res = std::equal(referenceAuthReq.cbegin(), referenceAuthReq.cend(), data);
-	assert(res);
+	assert(std::equal(referenceAuthReq.cbegin(), referenceAuthReq.cend(), data));
 
 	std::array<uint8_t,2> referenceAuthReply = {0x05, 0x00};
 	serverStream->write(referenceAuthReply.data(), referenceAuthReply.size());
@@ -93,9 +91,7 @@ void onInitialState(uint8_t* data, size_t size) {
 
 void onAuthState(uint8_t* data, size_t size) {
 	std::array<uint8_t,4> referenceAuthReq = {0x05, 0x01, 0x00, 0x01};
-	// std::vector<uint8_t> input(data, data+size);
-	bool res = std::equal(referenceAuthReq.cbegin(), referenceAuthReq.cend(), data);
-	assert(res);
+	assert(std::equal(referenceAuthReq.cbegin(), referenceAuthReq.cend(), data));
 
 	// here we can really connect to requested destination...
 	// and implement real proxy bridge
