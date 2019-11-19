@@ -329,17 +329,7 @@ namespace beam::wallet
 
     Amount BitcoinSide::GetFeeRate(SubTxID subTxID) const
     {
-        Amount defaultFeeRate = GetFeeRate();
-        assert(defaultFeeRate);
-        Amount feeRate = 0;
-        m_tx.GetParameter(TxParameterID::Fee, feeRate, subTxID);
-
-        if (subTxID == SubTxIndex::REFUND_TX && !feeRate)
-        {
-            // use LOCK_TX feeRate if REFUND_TX doesn't have defined feeRate
-            m_tx.GetParameter(TxParameterID::Fee, feeRate, SubTxIndex::LOCK_TX);
-        }
-        return (defaultFeeRate > feeRate) ? defaultFeeRate : feeRate;
+        return m_tx.GetMandatoryParameter<Amount>(TxParameterID::Fee, subTxID);
     }
 
     uint16_t BitcoinSide::GetTxMinConfirmations() const
