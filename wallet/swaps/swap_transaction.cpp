@@ -414,8 +414,8 @@ namespace beam::wallet
 
                 // save LifeTime & MaxHeight for BEAM_LOCK_TX
                 Height beamLockTxMaxHeight = GetMandatoryParameter<Height>(TxParameterID::MinHeight, SubTxIndex::BEAM_LOCK_TX) + lifeTime;
-                SetParameter(TxParameterID::Lifetime, lifeTime, SubTxIndex::BEAM_LOCK_TX);
-                SetParameter(TxParameterID::MaxHeight, beamLockTxMaxHeight, SubTxIndex::BEAM_LOCK_TX);
+                SetParameter(TxParameterID::Lifetime, lifeTime, false, SubTxIndex::BEAM_LOCK_TX);
+                SetParameter(TxParameterID::MaxHeight, beamLockTxMaxHeight, false, SubTxIndex::BEAM_LOCK_TX);
 
                 SetNextState(State::BuildingBeamLockTX);
                 break;
