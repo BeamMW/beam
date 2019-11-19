@@ -974,7 +974,7 @@ void TestSwapBeamAndBTCRefundTransaction()
         }
     });
 
-    InitNodeToTest(node, binaryTreasury, &observer, 32125, 50);
+    InitNodeToTest(node, binaryTreasury, &observer, 32125, 300);
 
 
     eventToUpdate->post();
