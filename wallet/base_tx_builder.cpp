@@ -314,13 +314,13 @@ namespace beam::wallet
     Point::Native BaseTxBuilder::GetPublicExcess() const
     {
         // PublicExcess = Sum(inputs) - Sum(outputs) - offset * G - (Sum(input amounts) - Sum(output amounts)) * H
-        SwitchCommitment sc(&m_AssetId);
+        const auto assetHGen = SwitchCommitment::HGenFromAID(m_AssetId);
         Point::Native publicAmount = Zero;
         for (const auto& cid : m_InputCoins)
         {
             if (cid.isAsset())
             {
-                AddToEX(publicAmount, cid.m_Value, sc.m_hGen);
+                AddToEX(publicAmount, cid.m_Value, assetHGen);
             }
             else
             {
@@ -333,7 +333,7 @@ namespace beam::wallet
         {
             if(cid.m_Type == Key::Type::Asset || cid.m_Type == Key::Type::AssetChange)
             {
-                 AddToEX(publicAmount, cid.m_Value, sc.m_hGen);
+                 AddToEX(publicAmount, cid.m_Value, assetHGen);
             }
             else
             {
