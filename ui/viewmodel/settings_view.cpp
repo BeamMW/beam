@@ -58,9 +58,9 @@ ElectrumPhraseItem::ElectrumPhraseItem(int index, const QString& phrase)
 {
 }
 
-bool ElectrumPhraseItem::isCorrect() const
+bool ElectrumPhraseItem::isModified() const
 {
-    return m_userInput == m_phrase;
+    return m_userInput != m_phrase;
 }
 
 const QString& ElectrumPhraseItem::getValue() const
@@ -74,7 +74,7 @@ void ElectrumPhraseItem::setValue(const QString& value)
     {
         m_userInput = value;
         emit valueChanged();
-        emit isCorrectChanged();
+        emit isModifiedChanged();
         emit isAllowedChanged();
     }
 }
