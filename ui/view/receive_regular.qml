@@ -13,7 +13,7 @@ ColumnLayout {
     property var defaultFocusItem: addressComment
 
     // callbacks set by parent
-    property var onClosed: undefined
+    property var onClosed: function() {}
 
     TopGradient {
         mainRoot: main
@@ -35,6 +35,10 @@ ColumnLayout {
 
     function isValid() {
         return viewModel.commentValid
+    }
+
+    function saveAddress() {
+        if (receiveView.isValid()) viewModel.saveAddress();
     }
 
     Item {
@@ -241,7 +245,7 @@ ColumnLayout {
             palette.buttonText: Style.content_main
             icon.source:        "qrc:/assets/icon-cancel-white.svg"
             onClicked:          {
-                if (receiveView.isValid()) viewModel.saveAddress();
+                receiveView.saveAddress();
                 onClosed();
             }
         }
@@ -253,7 +257,11 @@ ColumnLayout {
             icon.color:         Style.content_opposite
             palette.button:     Style.active
             icon.source:        "qrc:/assets/icon-copy.svg"
-            onClicked:          BeamGlobals.copyToClipboard(viewModel.receiverAddress)
+            onClicked:          {
+                BeamGlobals.copyToClipboard(viewModel.receiverAddress);
+                receiveView.saveAddress();
+                onClosed();
+            }
             enabled:            receiveView.isValid()
         }
     }
