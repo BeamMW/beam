@@ -1946,6 +1946,18 @@ int main_impl(int argc, char* argv[])
                                 LOG_WARNING() << boost::format(kErrorNodePoolPeriodTooMuch) % uint32_t(responceTime_s / 3600);
                             }
                             nnet->m_Cfg.m_vNodes.push_back(nodeAddress);
+                            nnet->m_Cfg.m_UseProxy = vm[cli::PROXY_USE].as<bool>();
+                            if (nnet->m_Cfg.m_UseProxy)
+                            {
+                                string proxyURI = vm[cli::PROXY_ADDRESS].as<string>();
+                                io::Address proxyAddr;
+                                if (!proxyAddr.resolve(proxyURI.c_str()))
+                                {
+                                    LOG_ERROR() << boost::format(kErrorNodeAddrUnresolved) % nodeURI;
+                                    return -1;
+                                }
+                                nnet->m_Cfg.m_ProxyAddr = proxyAddr;
+                            }
                             nnet->Connect();
                             wallet.AddMessageEndpoint(make_shared<WalletNetworkViaBbs>(wallet, nnet, walletDB, keyKeeper));
                             wallet.SetNodeEndpoint(nnet);

@@ -65,6 +65,19 @@ public:
         Address bindTo=Address()
     );
 
+    /**
+     * Connect to remote socket using proxy server
+     * @proxyAddr proxy server address
+     */
+    Result tcp_connect_with_proxy(
+        Address destAddr,
+        Address proxyAddr,
+        uint64_t tag,
+        const ConnectCallback& callback,
+        int timeoutMsec=-1,
+        bool tlsConnect=false
+    );
+
     void cancel_tcp_connect(uint64_t tag);
 
 	class Scope

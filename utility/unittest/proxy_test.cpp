@@ -38,8 +38,8 @@ namespace {
 constexpr auto testDomain = "beam.mw";
 constexpr uint16_t testPort = 80;
 
-constexpr uint32_t dummyProxyServerIp = 0x7F000001;
-constexpr uint16_t dummyProxyServerPort = 1080;
+constexpr auto dummyProxyServerIp = "localhost";
+constexpr uint16_t dummyProxyServerPort = 9150;
 
 TcpStream::Ptr serverStream;
 TcpStream::Ptr clientStream;
@@ -129,24 +129,31 @@ bool onInputData(ErrorCode errorCode, void* data, size_t size) {
 	return true;
 };
 
-void proxy_test() {
+/**
+ * @createOwnServer use this to create own dummy proxy server or connect to any other real proxy
+ */
+void proxy_test(bool createOwnServer) {
 	Reactor::Ptr reactor = Reactor::create();
 
-	TcpServer::Ptr server = TcpServer::create(
-		*reactor,
-		Address(dummyProxyServerIp, dummyProxyServerPort),
-		[](TcpStream::Ptr&& newStream, int errorCode) {
-			LOG_DEBUG() << "TcpServer accepted connection";
-			serverStream = std::move(newStream);
-			serverStream->enable_read(onInputData);
-		}
-	);
+	Address destAddr, proxyAddr;
+	destAddr.resolve(testDomain);
+	destAddr.port(testPort);
+	proxyAddr.resolve(dummyProxyServerIp);
+	proxyAddr.port(dummyProxyServerPort);
 
-	Address a;
-	a.resolve(testDomain);
-	a.port(testPort);
+	if (createOwnServer) {
+		TcpServer::Ptr server = TcpServer::create(
+			*reactor,
+			proxyAddr,
+			[](TcpStream::Ptr&& newStream, int errorCode) {
+				LOG_DEBUG() << "TcpServer accepted connection";
+				serverStream = std::move(newStream);
+				serverStream->enable_read(onInputData);
+			}
+		);
+	}
 
-	reactor->tcp_connect(a, 1, onConnectionEstablished, 10000, false);
+	reactor->tcp_connect_with_proxy(destAddr, proxyAddr, 1, onConnectionEstablished, 10000, false);
 
 	Timer::Ptr timer = Timer::create(*reactor);
 	timer->start(10000, false, [&reactor]{ 
@@ -155,7 +162,6 @@ void proxy_test() {
 	LOG_DEBUG() << "starting reactor...";
 	reactor->run();
 	LOG_DEBUG() << "reactor stopped";
-
 }
 
 }	// namespace
@@ -169,13 +175,7 @@ int main() {
 
 	auto logger = Logger::create(logLevel, logLevel);
 
-	Config config;
-	config.set<bool>("io.proxy_socks5", true);
-	config.set<string>("io.proxy_address", "127.0.0.1");
-	config.set<uint16_t>("io.proxy_port", dummyProxyServerPort);
-	reset_global_config(std::move(config));
-
-	proxy_test();
+	proxy_test(false);
 
 	return 0;
 }

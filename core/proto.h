@@ -540,7 +540,7 @@ namespace proto {
 
         static void ThrowUnexpected(const char* = NULL, NodeProcessingException::Type type = NodeProcessingException::Type::Base);
 
-        void Connect(const io::Address& addr);
+        void Connect(const io::Address& addr, const boost::optional<io::Address> proxyAddr = boost::none);
         void Accept(io::TcpStream::Ptr&& newStream);
 
         // Secure-channel-specific

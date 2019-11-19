@@ -631,19 +631,43 @@ Result Reactor::tcp_connect(
         }
     }
 
-    Result res;
-    if (config().get<bool>("io.proxy_socks5", false)) {
-        Address proxy_address;
-        proxy_address.resolve(config().get_string("io.proxy_address", "127.0.0.1").c_str());
-        proxy_address.port(config().get<uint16_t>("io.proxy_port", 1080));
-        // TODO: proxy. Decide about proxy server connect timeout setup.
-        ConnectCallback on_tcp_connect = _proxyConnector->
-            create_connection(tag, address, callback, timeoutMsec, tlsConnect);
-        res = _tcpConnectors->tcp_connect((uv_tcp_t*)h, proxy_address, tag, on_tcp_connect, timeoutMsec, false);
+    Result res = _tcpConnectors->tcp_connect((uv_tcp_t*)h, address, tag, callback, timeoutMsec, tlsConnect);
+    if (!res) {
+        async_close(h);
     }
-    else {
-        res = _tcpConnectors->tcp_connect((uv_tcp_t*)h, address, tag, callback, timeoutMsec, tlsConnect);
+
+    return res;
+}
+
+Result Reactor::tcp_connect_with_proxy(
+    Address destAddr,
+    Address proxyAddr,
+    uint64_t tag,
+    const ConnectCallback& callback,
+    int timeoutMsec,
+    bool tlsConnect
+) {
+    // TODO: proxy connection timeout setup
+    // TODO: proxy implement proxy bind request
+    assert(callback);
+    assert(!destAddr.empty());
+    assert(!proxyAddr.empty());
+    assert(_tcpConnectors->is_tag_free(tag));
+
+    if (!callback || destAddr.empty() || !_tcpConnectors->is_tag_free(tag)) {
+        return make_unexpected(EC_EINVAL);
     }
+
+    uv_handle_t* h = _handlePool.alloc();
+    ErrorCode errorCode = (ErrorCode)uv_tcp_init(&_loop, (uv_tcp_t*)h);
+    if (errorCode != 0) {
+        _handlePool.release(h);
+        return make_unexpected(errorCode);
+    }
+
+    ConnectCallback on_tcp_connect = _proxyConnector->
+        create_connection(tag, destAddr, callback, timeoutMsec, tlsConnect);
+    Result res = _tcpConnectors->tcp_connect((uv_tcp_t*)h, proxyAddr, tag, on_tcp_connect, timeoutMsec, false);
     if (!res) {
         async_close(h);
     }

@@ -24,6 +24,12 @@ FlyClient::NetworkStd::~NetworkStd()
 
 void FlyClient::NetworkStd::Connect()
 {
+    boost::optional<io::Address> proxyAddr;
+    if (m_Cfg.m_UseProxy)
+    {
+        proxyAddr = m_Cfg.m_ProxyAddr;
+    }
+
     if (m_Connections.size() == m_Cfg.m_vNodes.size())
     {
         // force (re) connect
@@ -34,7 +40,7 @@ void FlyClient::NetworkStd::Connect()
                 continue;
 
             c.ResetAll();
-            c.Connect(c.m_Addr);
+            c.Connect(c.m_Addr, proxyAddr);
         }
     }
     else
@@ -45,7 +51,7 @@ void FlyClient::NetworkStd::Connect()
         {
             Connection* pConn = new Connection(*this, i);
             pConn->m_Addr = m_Cfg.m_vNodes[i];
-            pConn->Connect(pConn->m_Addr);
+            pConn->Connect(pConn->m_Addr, proxyAddr);
         }
     }
 }

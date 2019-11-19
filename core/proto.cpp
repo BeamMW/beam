@@ -489,14 +489,26 @@ void NodeConnection::ThrowUnexpected(const char* sz, NodeProcessingException::Ty
     throw NodeProcessingException(sz ? sz : "proto violation", type);
 }
 
-void NodeConnection::Connect(const io::Address& addr)
+void NodeConnection::Connect(const io::Address& addr, const boost::optional<io::Address> proxyAddr)
 {
     assert(!m_Connection && !m_ConnectPending);
 
-    io::Result res = io::Reactor::get_Current().tcp_connect(
-        addr,
-        uint64_t(this),
-        OnConnectInternal);
+    io::Result res;
+    if (proxyAddr)
+    {
+        res = io::Reactor::get_Current().tcp_connect_with_proxy(
+            addr,
+            proxyAddr.value(),
+            uint64_t(this),
+            OnConnectInternal);
+    }
+    else
+    {
+        res = io::Reactor::get_Current().tcp_connect(
+            addr,
+            uint64_t(this),
+            OnConnectInternal);
+    }
 
     TestIoResultAsync(res);
     m_ConnectPending = true;
