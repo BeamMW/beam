@@ -789,151 +789,39 @@ Please try again later or create an offer yourself."
                             filterCaseSensitivity: Qt.CaseInsensitive
                         }
 
-                        rowDelegate: Rectangle {
-                            id:             rowItem
-                            height:         transactionsTable.rowHeight
-                            anchors.left:   parent.left
-                            anchors.right:  parent.right
-                            color:          styleData.selected ? Style.row_selected : (styleData.alternate ? Style.background_row_even : Style.background_row_odd)
+                        rowDelegate: ExpandableRowDelegate {
+                            collapsed: true
+                            rowInModel: styleData.row !== undefined && styleData.row >= 0 &&  styleData.row < txProxyModel.count
+                            rowHeight: transactionsTable.rowHeight
+                            backgroundColor: styleData.selected ? Style.row_selected : (styleData.alternate ? Style.background_row_even : Style.background_row_odd)
+                            property var myModel: parent.model
 
-                            property bool collapsed:   true
-                            property bool rowInModel:  styleData.row !== undefined && styleData.row >= 0 &&  styleData.row < txProxyModel.count
-                            property var  myModel:     parent.model
+                            delegate: SwapTransactionDetails {
+                                width: transactionsTable.width
 
-                            onCollapsedChanged: {
-                                height = collapsed ? transactionsTable.rowHeight : transactionsTable.rowHeight + txDetails.maximumHeight
-                                txDetails.height = collapsed ? 0 : txDetails.maximumHeight
-                            }
-
-                            function expand(animate) {
-                                if (!rowInModel) return
-                                if (animate) expandAnimation.start()
-                                else collapsed = false
-                            }
-
-                            function collapse(animate) {
-                                if (!rowInModel) return
-                                if (animate) collapseAnimation.start()
-                                else collapsed = true
-                            }
-
-                            Item {
-                                id:      txDetails
-                                height:  0
-                                y:       transactionsTable.rowHeight
-                                width:   parent.width
-                                clip:    true
-                                property int maximumHeight: detailsPanel.implicitHeight
-
-                                Rectangle {
-                                    anchors.fill: parent
-                                    color: Style.background_details
+                                property var txRolesMap:        myModel
+                                txId:                           txRolesMap && txRolesMap.txID ? txRolesMap.txID : ""
+                                fee:                            txRolesMap && txRolesMap.fee ? txRolesMap.fee : ""
+                                feeRate:                        txRolesMap && txRolesMap.feeRate ? txRolesMap.feeRate : ""
+                                comment:                        txRolesMap && txRolesMap.comment ? txRolesMap.comment : ""
+                                swapCoinName:                   txRolesMap && txRolesMap.swapCoin ? txRolesMap.swapCoin : ""
+                                isBeamSide:                     txRolesMap && txRolesMap.isBeamSideSwap ? txRolesMap.isBeamSideSwap : false
+                                isLockTxProofReceived:          txRolesMap && txRolesMap.isLockTxProofReceived ? txRolesMap.isLockTxProofReceived : false
+                                isRefundTxProofReceived:        txRolesMap && txRolesMap.isRefundTxProofReceived ? txRolesMap.isRefundTxProofReceived : false
+                                swapCoinLockTxId:               txRolesMap && txRolesMap.swapCoinLockTxId ? txRolesMap.swapCoinLockTxId : ""
+                                swapCoinLockTxConfirmations:    txRolesMap && txRolesMap.swapCoinLockTxConfirmations ? txRolesMap.swapCoinLockTxConfirmations : ""
+                                swapCoinRedeemTxId:             txRolesMap && txRolesMap.swapCoinRedeemTxId ? txRolesMap.swapCoinRedeemTxId : ""
+                                swapCoinRedeemTxConfirmations:  txRolesMap && txRolesMap.swapCoinRedeemTxConfirmations ? txRolesMap.swapCoinRedeemTxConfirmations : ""
+                                swapCoinRefundTxId:             txRolesMap && txRolesMap.swapCoinRefundTxId ? txRolesMap.swapCoinRefundTxId : ""
+                                swapCoinRefundTxConfirmations:  txRolesMap && txRolesMap.swapCoinRefundTxConfirmations ? txRolesMap.swapCoinRefundTxConfirmations : ""
+                                beamLockTxKernelId:             txRolesMap && txRolesMap.beamLockTxKernelId ? txRolesMap.beamLockTxKernelId : ""
+                                beamRedeemTxKernelId:           txRolesMap && txRolesMap.beamRedeemTxKernelId ? txRolesMap.beamRedeemTxKernelId : ""
+                                beamRefundTxKernelId:           txRolesMap && txRolesMap.beamRefundTxKernelId ? txRolesMap.beamRefundTxKernelId : ""
+                                failureReason:                  txRolesMap && txRolesMap.failureReason ? txRolesMap.failureReason : ""
+                                
+                                onTextCopied: function (text) {
+                                    BeamGlobals.copyToClipboard(text);
                                 }
-
-
-                                SwapTransactionDetails {
-                                    id: detailsPanel
-                                    width: transactionsTable.width
-
-                                    property var txRolesMap: myModel
-                                    txId:                           txRolesMap && txRolesMap.txID ? txRolesMap.txID : ""
-                                    fee:                            txRolesMap && txRolesMap.fee ? txRolesMap.fee : ""
-                                    feeRate:                        txRolesMap && txRolesMap.feeRate ? txRolesMap.feeRate : ""
-                                    comment:                        txRolesMap && txRolesMap.comment ? txRolesMap.comment : ""
-                                    swapCoinName:                   txRolesMap && txRolesMap.swapCoin ? txRolesMap.swapCoin : ""
-                                    isBeamSide:                     txRolesMap && txRolesMap.isBeamSideSwap ? txRolesMap.isBeamSideSwap : false
-                                    isLockTxProofReceived:          txRolesMap && txRolesMap.isLockTxProofReceived ? txRolesMap.isLockTxProofReceived : false
-                                    isRefundTxProofReceived:        txRolesMap && txRolesMap.isRefundTxProofReceived ? txRolesMap.isRefundTxProofReceived : false
-                                    swapCoinLockTxId:               txRolesMap && txRolesMap.swapCoinLockTxId ? txRolesMap.swapCoinLockTxId : ""
-                                    swapCoinLockTxConfirmations:    txRolesMap && txRolesMap.swapCoinLockTxConfirmations ? txRolesMap.swapCoinLockTxConfirmations : ""
-                                    swapCoinRedeemTxId:             txRolesMap && txRolesMap.swapCoinRedeemTxId ? txRolesMap.swapCoinRedeemTxId : ""
-                                    swapCoinRedeemTxConfirmations:  txRolesMap && txRolesMap.swapCoinRedeemTxConfirmations ? txRolesMap.swapCoinRedeemTxConfirmations : ""
-                                    swapCoinRefundTxId:             txRolesMap && txRolesMap.swapCoinRefundTxId ? txRolesMap.swapCoinRefundTxId : ""
-                                    swapCoinRefundTxConfirmations:  txRolesMap && txRolesMap.swapCoinRefundTxConfirmations ? txRolesMap.swapCoinRefundTxConfirmations : ""
-                                    beamLockTxKernelId:             txRolesMap && txRolesMap.beamLockTxKernelId ? txRolesMap.beamLockTxKernelId : ""
-                                    beamRedeemTxKernelId:           txRolesMap && txRolesMap.beamRedeemTxKernelId ? txRolesMap.beamRedeemTxKernelId : ""
-                                    beamRefundTxKernelId:           txRolesMap && txRolesMap.beamRefundTxKernelId ? txRolesMap.beamRefundTxKernelId : ""
-                                    failureReason:                  txRolesMap && txRolesMap.failureReason ? txRolesMap.failureReason : ""
-                                    
-                                    onTextCopied: function (text) {
-                                        BeamGlobals.copyToClipboard(text);
-                                    }
-                                }
-                            }
-
-                            MouseArea {
-                                anchors.top:      parent.top
-                                anchors.left:     parent.left
-                                height:           transactionsTable.rowHeight
-                                width:            parent.width
-                                acceptedButtons:  Qt.LeftButton | Qt.RightButton
-
-                                onClicked: {
-                                    if (styleData.row === undefined ||
-                                        styleData.row < 0 ||
-                                        styleData.row >= txProxyModel.count)
-                                    {
-                                        return;
-                                    }
-                                    if (mouse.button === Qt.RightButton )
-                                    {
-                                        transactionsTable.showContextMenu(styleData.row);
-                                    }
-                                    else if (mouse.button === Qt.LeftButton)
-                                    {
-                                        parent.collapsed ? expand(true) : collapse(true);
-                                    }
-                                }
-                            }
-
-                            ParallelAnimation {
-                                id: expandAnimation
-                                running: false
-
-                                property int expandDuration: 200
-
-                                NumberAnimation {
-                                    target: rowItem
-                                    easing.type: Easing.Linear
-                                    property: "height"
-                                    to: transactionsTable.rowHeight + txDetails.maximumHeight
-                                    duration: expandAnimation.expandDuration
-                                }
-
-                                NumberAnimation {
-                                    target: txDetails
-                                    easing.type: Easing.Linear
-                                    property: "height"
-                                    to: txDetails.maximumHeight
-                                    duration: expandAnimation.expandDuration
-                                }
-
-                                onStopped: rowItem.collapsed = false
-                            }
-
-                            ParallelAnimation {
-                                id: collapseAnimation
-                                running: false
-
-                                property int collapseDuration: 200
-
-                                NumberAnimation {
-                                    target: rowItem
-                                    easing.type: Easing.Linear
-                                    property: "height"
-                                    to: transactionsTable.rowHeight
-                                    duration: collapseAnimation.collapseDuration
-                                }
-
-                                NumberAnimation {
-                                    target: txDetails
-                                    easing.type: Easing.Linear
-                                    property: "height"
-                                    to: 0
-                                    duration: collapseAnimation.collapseDuration
-                                }
-
-                                onStopped: rowItem.collapsed = true
                             }
                         }
 
