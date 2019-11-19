@@ -72,7 +72,7 @@ namespace beam::wallet
 
     /// Swap Parameters 
     TxParameters InitNewSwap(const WalletID& myID, Height minHeight, Amount amount, Amount fee, AtomicSwapCoin swapCoin,
-        Amount swapAmount, bool isBeamSide /*= true*/,
+        Amount swapAmount, Amount swapFee, bool isBeamSide /*= true*/,
         Height lifetime /*= kDefaultTxLifetime*/, Height responseTime/* = kDefaultTxResponseTime*/)
     {
         TxParameters parameters(GenerateTxID());
@@ -83,8 +83,15 @@ namespace beam::wallet
         if (isBeamSide)
         {
             parameters.SetParameter(TxParameterID::Fee, fee, SubTxIndex::BEAM_LOCK_TX);
+            parameters.SetParameter(TxParameterID::Fee, fee, SubTxIndex::BEAM_REFUND_TX);
+            parameters.SetParameter(TxParameterID::Fee, swapFee, SubTxIndex::REDEEM_TX);
         }
-        parameters.SetParameter(TxParameterID::Fee, fee, isBeamSide ? SubTxIndex::BEAM_REFUND_TX : SubTxIndex::BEAM_REDEEM_TX);
+        else
+        {
+            parameters.SetParameter(TxParameterID::Fee, fee, SubTxIndex::BEAM_REDEEM_TX);
+            parameters.SetParameter(TxParameterID::Fee, swapFee, SubTxIndex::LOCK_TX);
+            parameters.SetParameter(TxParameterID::Fee, swapFee, SubTxIndex::REFUND_TX);
+        }
         parameters.SetParameter(TxParameterID::Lifetime, lifetime);
 
         parameters.SetParameter(TxParameterID::MinHeight, minHeight);

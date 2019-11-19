@@ -365,15 +365,20 @@ void SendSwapViewModel::sendMoney()
     auto isBeamSide = *txParameters.GetParameter<bool>(TxParameterID::AtomicSwapIsBeamSide);
     auto beamFee = isBeamSide ? getSendFee() : getReceiveFee();
     auto swapFee = isBeamSide ? getReceiveFee() : getSendFee();
-    auto subTxID = isBeamSide ? beam::wallet::SubTxIndex::REDEEM_TX : beam::wallet::SubTxIndex::LOCK_TX;
 
     if (isBeamSide)
     {
         txParameters.SetParameter(TxParameterID::Fee, beam::Amount(beamFee), beam::wallet::SubTxIndex::BEAM_LOCK_TX);
+        txParameters.SetParameter(TxParameterID::Fee, beam::Amount(beamFee), beam::wallet::SubTxIndex::BEAM_REFUND_TX);
+        txParameters.SetParameter(TxParameterID::Fee, beam::Amount(swapFee), beam::wallet::SubTxIndex::REDEEM_TX);
     }
-    txParameters.SetParameter(TxParameterID::Fee, beam::Amount(beamFee),
-        isBeamSide ? beam::wallet::SubTxIndex::BEAM_REFUND_TX : beam::wallet::SubTxIndex::BEAM_REDEEM_TX);
-    txParameters.SetParameter(TxParameterID::Fee, beam::Amount(swapFee), subTxID);
+    else
+    {
+        txParameters.SetParameter(TxParameterID::Fee, beam::Amount(swapFee), beam::wallet::SubTxIndex::LOCK_TX);
+        txParameters.SetParameter(TxParameterID::Fee, beam::Amount(swapFee), beam::wallet::SubTxIndex::REFUND_TX);
+        txParameters.SetParameter(TxParameterID::Fee, beam::Amount(beamFee), beam::wallet::SubTxIndex::BEAM_REDEEM_TX);
+    }
+
     if (!_comment.isEmpty())
     {
         std::string localComment = _comment.toStdString();

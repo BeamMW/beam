@@ -1291,18 +1291,7 @@ namespace
 
         // TODO:SWAP use async callbacks or IWalletObserver?
         Height minHeight = walletDB->getCurrentHeight();
-        auto swapTxParameters = InitNewSwap(senderAddress.m_walletID, minHeight, amount, fee, swapCoin, swapAmount, isBeamSide);
-        if (isBeamSide)
-        {
-            swapTxParameters.SetParameter(TxParameterID::Fee, fee, SubTxIndex::BEAM_LOCK_TX);
-            swapTxParameters.SetParameter(TxParameterID::Fee, fee, SubTxIndex::BEAM_REFUND_TX);
-            swapTxParameters.SetParameter(TxParameterID::Fee, feeRate, SubTxIndex::REDEEM_TX);
-        }
-        else
-        {
-            swapTxParameters.SetParameter(TxParameterID::Fee, fee, SubTxIndex::BEAM_REDEEM_TX);
-            swapTxParameters.SetParameter(TxParameterID::Fee, feeRate, SubTxIndex::LOCK_TX);
-        }
+        auto swapTxParameters = InitNewSwap(senderAddress.m_walletID, minHeight, amount, fee, swapCoin, swapAmount, feeRate, isBeamSide);
 
         boost::optional<TxID> currentTxID = wallet.StartTransaction(swapTxParameters);
         
@@ -1317,6 +1306,7 @@ namespace
         {
             swapTxParameters.DeleteParameter(TxParameterID::Fee, SubTxIndex::BEAM_REDEEM_TX);
             swapTxParameters.DeleteParameter(TxParameterID::Fee, SubTxIndex::LOCK_TX);
+            swapTxParameters.DeleteParameter(TxParameterID::Fee, SubTxIndex::REFUND_TX);
         }
 
         // print swap tx token
@@ -1463,6 +1453,7 @@ namespace
         {
             swapTxParameters->SetParameter(TxParameterID::Fee, fee, SubTxIndex::BEAM_REDEEM_TX);
             swapTxParameters->SetParameter(TxParameterID::Fee, swapFeeRate, SubTxIndex::LOCK_TX);
+            swapTxParameters->SetParameter(TxParameterID::Fee, swapFeeRate, SubTxIndex::REFUND_TX);
         }
 
         return wallet.StartTransaction(*swapTxParameters);

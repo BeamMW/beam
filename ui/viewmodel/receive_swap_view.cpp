@@ -373,9 +373,15 @@ void ReceiveSwapViewModel::startListen()
     if (isBeamSide)
     {
         txParameters.SetParameter(TxParameterID::Fee, beam::Amount(beamFee), SubTxIndex::BEAM_LOCK_TX);
+        txParameters.SetParameter(TxParameterID::Fee, beam::Amount(beamFee), SubTxIndex::BEAM_REFUND_TX);
+        txParameters.SetParameter(TxParameterID::Fee, beam::Amount(swapFee), SubTxIndex::REDEEM_TX);
     }
-    txParameters.SetParameter(TxParameterID::Fee, beam::Amount(beamFee), isBeamSide ? SubTxIndex::BEAM_REFUND_TX : SubTxIndex::BEAM_REDEEM_TX);
-    txParameters.SetParameter(TxParameterID::Fee, beam::Amount(swapFee), isBeamSide ? SubTxIndex::REDEEM_TX : SubTxIndex::LOCK_TX);
+    else
+    {
+        txParameters.SetParameter(TxParameterID::Fee, beam::Amount(swapFee), SubTxIndex::LOCK_TX);
+        txParameters.SetParameter(TxParameterID::Fee, beam::Amount(swapFee), SubTxIndex::REFUND_TX);
+        txParameters.SetParameter(TxParameterID::Fee, beam::Amount(beamFee), SubTxIndex::BEAM_REDEEM_TX);
+    }
     txParameters.SetParameter(TxParameterID::AtomicSwapIsBeamSide, isBeamSide);
     txParameters.SetParameter(TxParameterID::IsSender, isBeamSide);
     if (!_addressComment.isEmpty())
