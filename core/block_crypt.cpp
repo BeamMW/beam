@@ -135,28 +135,36 @@ namespace beam
 
 	/////////////
 	// SwitchCommitment
+	ECC::Point::Native SwitchCommitment::HGenFromAID(const AssetID& assetId)
+    {
+	    if (assetId == Zero)
+        {
+	        return Zero;
+        }
+
+	    ECC::Oracle oracle;
+        oracle
+            << "a-id"
+            << assetId;
+
+        ECC::Point pt;
+        pt.m_Y = 0;
+
+        ECC::Point::Native result;
+        do
+        {
+            oracle
+                << "a-gen"
+                >> pt.m_X;
+        }
+        while (!result.ImportNnz(pt));
+
+        return result;
+    }
+
 	SwitchCommitment::SwitchCommitment(const AssetID* pAssetID /* = nullptr */)
 	{
-		if (pAssetID && !(*pAssetID == Zero))
-		{
-			ECC::Oracle oracle;
-			oracle
-				<< "a-id"
-				<< *pAssetID;
-
-			ECC::Point pt;
-			pt.m_Y = 0;
-
-			do
-			{
-				oracle
-					<< "a-gen"
-					>> pt.m_X;
-			}
-			while (!m_hGen.ImportNnz(pt));
-		}
-		else
-			m_hGen = Zero;
+	    m_hGen = SwitchCommitment::HGenFromAID(pAssetID ? *pAssetID : Zero);
 	}
 
 	void SwitchCommitment::get_sk1(ECC::Scalar::Native& res, const ECC::Point::Native& comm0, const ECC::Point::Native& sk0_J)

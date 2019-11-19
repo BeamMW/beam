@@ -169,8 +169,9 @@ namespace beam
 		void AddValue(ECC::Point::Native& comm, Amount) const;
 		static void get_Hash(ECC::Hash::Value&, const Key::IDV&);
 	public:
+		static ECC::Point::Native HGenFromAID(const AssetID& assetId);
 
-		ECC::Point::Native m_hGen;
+	    ECC::Point::Native m_hGen;
 		SwitchCommitment(const AssetID* pAssetID = nullptr);
 
 		void Create(ECC::Scalar::Native& sk, Key::IKdf&, const Key::IDV&) const;
