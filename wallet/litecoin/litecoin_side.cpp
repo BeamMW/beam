@@ -38,9 +38,4 @@ namespace beam::wallet
     {
         return kLitecoinLockTxEstimatedTimeInBeamBlocks;
     }
-
-    uint8_t LitecoinSide::GetAddressVersion() const
-    {
-        return litecoin::getAddressVersion();
-    }
 }

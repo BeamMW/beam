@@ -319,7 +319,7 @@ namespace beam::wallet
 
     uint8_t BitcoinSide::GetAddressVersion() const
     {
-        return bitcoin::getAddressVersion();
+        return m_settingsProvider.GetSettings().GetAddressVersion();
     }
 
     Amount BitcoinSide::GetFeeRate() const

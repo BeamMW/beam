@@ -24,7 +24,7 @@ namespace beam::qtum
     {
     public:
         QtumCore017() = delete;
-        QtumCore017(io::Reactor& reactor, IQtumCoreSettingsProvider& settingsProvider);
+        QtumCore017(io::Reactor& reactor, ISettingsProvider& settingsProvider);
 
     protected:
         std::string getCoinName() const override;

@@ -38,7 +38,7 @@ namespace beam::bitcoin
         };
     }
 
-    BitcoinCore016::BitcoinCore016(io::Reactor& reactor, IBitcoinCoreSettingsProvider& settingsProvider)
+    BitcoinCore016::BitcoinCore016(io::Reactor& reactor, ISettingsProvider& settingsProvider)
         : m_httpClient(reactor)
         , m_settingsProvider(settingsProvider)
     {
@@ -310,7 +310,7 @@ namespace beam::bitcoin
     void BitcoinCore016::sendRequest(const std::string& method, const std::string& params, std::function<void(const Error&, const json&)> callback)
     {
         const std::string content(R"({"method":")" + method + R"(","params":[)" + params + "]}");
-        auto settings = m_settingsProvider.GetBitcoinCoreSettings();
+        auto settings = m_settingsProvider.GetSettings().GetConnectionOptions();
         const std::string authorization(settings.generateAuthorization());
         const HeaderPair headers[] = {
             {"Authorization", authorization.data()}

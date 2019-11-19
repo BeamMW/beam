@@ -28,26 +28,39 @@ WALLET_TEST_INIT
 
 namespace beam::bitcoin
 {
-    class Provider : public IElectrumSettingsProvider
+    class Provider : public ISettingsProvider
     {
     public:
         Provider(const ElectrumSettings& settings)
-            : m_settings(settings)
         {
+            m_settings.SetElectrumConnectionOptions(settings);
         }
 
-        ~Provider() override
-        {
-
-        }
-
-        ElectrumSettings GetElectrumSettings() const override
+        Settings GetSettings() const override
         {
             return m_settings;
         }
 
+        void SetSettings(const bitcoin::Settings& /*settings*/) override
+        {
+        }
+
+        bool CanModify() const override
+        {
+            return true;
+        }
+
+        void AddRef() override
+        {
+        }
+
+        void ReleaseRef() override
+        {
+
+        }
+
     private:
-        ElectrumSettings m_settings;
+        Settings m_settings;
     };
 }
 
@@ -60,7 +73,6 @@ void testAddress()
 {
     bitcoin::ElectrumSettings settings;
     settings.m_secretWords = { "child", "happy", "moment", "weird", "ten", "token", "stuff", "surface", "success", "desk", "embark", "observe" };
-    settings.m_addressVersion = bitcoin::getAddressVersion();
 
     auto provider = std::make_shared<bitcoin::Provider>(settings);
     io::Reactor::Ptr mainReactor{ io::Reactor::create() };

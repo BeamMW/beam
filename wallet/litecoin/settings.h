@@ -15,6 +15,7 @@
 #pragma once
 
 #include "wallet/bitcoin/settings.h"
+#include "common.h"
 
 namespace beam::litecoin
 {
@@ -35,6 +36,7 @@ namespace beam::litecoin
             SetFeeRate(kLtcMinFeeRate);
             SetMinFeeRate(kLtcMinFeeRate);
             SetBlocksPerHour(kLTCBlocksPerHour);
+            SetAddressVersion(getAddressVersion());
         }
     };
 } //namespace beam::litecoin

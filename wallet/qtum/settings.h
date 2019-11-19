@@ -15,6 +15,7 @@
 #pragma once
 
 #include "wallet/bitcoin/settings.h"
+#include "common.h"
 
 namespace beam::qtum
 {
@@ -37,6 +38,7 @@ namespace beam::qtum
             SetFeeRate(kQtumMinFeeRate);
             SetMinFeeRate(kQtumMinFeeRate);
             SetBlocksPerHour(kQtumBlocksPerHour);
+            SetAddressVersion(getAddressVersion());
         }
     };
 } // namespace beam::qtum

@@ -22,7 +22,7 @@ using json = nlohmann::json;
 
 namespace beam::bitcoin
 {
-    BitcoinCore017::BitcoinCore017(io::Reactor& reactor, IBitcoinCoreSettingsProvider& settingsProvider)
+    BitcoinCore017::BitcoinCore017(io::Reactor& reactor, ISettingsProvider& settingsProvider)
         : BitcoinCore016(reactor, settingsProvider)
     {
     }

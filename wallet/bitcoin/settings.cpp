@@ -111,6 +111,11 @@ namespace beam::bitcoin
         return m_blocksPerHour;
     }
 
+    uint8_t Settings::GetAddressVersion() const
+    {
+        return m_addressVersion;
+    }
+
     void Settings::SetConnectionOptions(const BitcoinCoreSettings& connectionSettings)
     {
         m_connectionSettings = connectionSettings;
@@ -149,5 +154,10 @@ namespace beam::bitcoin
     void Settings::SetBlocksPerHour(double blocksPerHour)
     {
         m_blocksPerHour = blocksPerHour;
+    }
+
+    void Settings::SetAddressVersion(uint8_t addressVersion)
+    {
+        m_addressVersion = addressVersion;
     }
 } // namespace beam::bitcoin

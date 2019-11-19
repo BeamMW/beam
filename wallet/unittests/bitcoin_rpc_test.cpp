@@ -34,20 +34,41 @@ namespace
 {
     const unsigned TEST_PERIOD = 1000;
 
-    class BitcoindSettingsProvider : public bitcoin::IBitcoinCoreSettingsProvider
+    class BitcoindSettingsProvider : public bitcoin::ISettingsProvider
     {
     public:
         BitcoindSettingsProvider(const std::string& userName, const std::string& pass, const io::Address& address)
-            : m_settings{ userName, pass, address }
         {
+            bitcoin::BitcoinCoreSettings tmp{ userName, pass, address };
+
+            m_settings.SetConnectionOptions(tmp);
         }
-        bitcoin::BitcoinCoreSettings GetBitcoinCoreSettings() const override
+
+        bitcoin::Settings GetSettings() const override
         {
             return m_settings;
         }
 
+        void SetSettings(const bitcoin::Settings& /*settings*/) override
+        {
+        }
+
+        bool CanModify() const override
+        {
+            return true;
+        }
+
+        void AddRef() override
+        {
+        }
+
+        void ReleaseRef() override
+        {
+
+        }
+
     private:
-        bitcoin::BitcoinCoreSettings m_settings;
+        bitcoin::Settings m_settings;
     };
 }
 
