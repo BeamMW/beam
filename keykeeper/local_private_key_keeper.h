@@ -32,12 +32,17 @@ namespace beam::wallet
     private:
         void GeneratePublicKeys(const std::vector<Key::IDV>& ids, bool createCoinKey, Callback<PublicKeys>&& resultCallback, ExceptionCallback&& exceptionCallback) override;
         void GenerateOutputs(Height schemeHeight, const std::vector<Key::IDV>& ids, Callback<Outputs>&&, ExceptionCallback&&) override;
+        void GenerateOutputsEx(Height schemeHeight, const std::vector<Key::IDV>& ids, beam::AssetID assetId, ECC::Scalar::Native& offset, Callback<Outputs>&&, ExceptionCallback&&) override;
 
         size_t AllocateNonceSlot() override;
 
         PublicKeys GeneratePublicKeysSync(const std::vector<Key::IDV>& ids, bool createCoinKey) override;
+        PublicKeys GeneratePublicKeysSyncEx(const std::vector<Key::IDV>& ids, bool createCoinKey, beam::AssetID assetID, ECC::Scalar::Native& offset) override;
+
         ECC::Point GeneratePublicKeySync(const Key::IDV& id, bool createCoinKey) override;
         Outputs GenerateOutputsSync(Height schemeHeigh, const std::vector<Key::IDV>& ids) override;
+        Outputs GenerateOutputsSyncEx(Height schemeHeigh, const std::vector<Key::IDV>& ids, beam::AssetID assetId, ECC::Scalar::Native& offset) override;
+
         //RangeProofs GenerateRangeProofSync(Height schemeHeight, const std::vector<Key::IDV>& ids) override;
         ECC::Point GenerateNonceSync(size_t slot) override;
         ECC::Scalar SignSync(const std::vector<Key::IDV>& inputs, const std::vector<Key::IDV>& outputs, const ECC::Scalar::Native& offset, size_t nonceSlot, const KernelParameters& kernelParameters, const ECC::Point::Native& publicNonce) override;
@@ -45,7 +50,16 @@ namespace beam::wallet
         Key::IKdf::Ptr get_SbbsKdf() const override;
 
         void subscribe(Handler::Ptr handler) override {}
+
+        //
+        // Assets
+        //
+        beam::AssetID AIDFromKeyIndex(uint32_t assetIdx) override;
+        void SignEmissionInOutKernel(TxKernel::Ptr& m_Kernel, uint32_t assetIdx, ECC::Scalar::Native& offset) override;
+        void SignEmissionKernel(TxKernel::Ptr& kernel, uint32_t assetIdx, ECC::Scalar::Native& offset) override;
+
     private:
+        ECC::Scalar::Native GetAssetKey(beam::Key::ID assetKeyId);
         Key::IKdf::Ptr GetChildKdf(const Key::IDV&) const;
         ECC::Scalar::Native GetNonce(size_t slot);
         ECC::Scalar::Native GetExcess(const std::vector<Key::IDV>& inputs, const std::vector<Key::IDV>& outputs, const ECC::Scalar::Native& offset) const;

@@ -13,6 +13,7 @@
 // limitations under the License.
 
 #include "local_private_key_keeper.h"
+#include "logger.h"
 
 namespace beam::wallet
 {
@@ -83,6 +84,38 @@ namespace beam::wallet
 
     }
 
+    void LocalPrivateKeyKeeper::GenerateOutputsEx(Height schemeHeight, const std::vector<Key::IDV>& ids, beam::AssetID assetId, ECC::Scalar::Native& offset, Callback<Outputs>&& resultCallback, ExceptionCallback&& exceptionCallback)
+     {
+        auto thisHolder = shared_from_this();
+        shared_ptr<Outputs> result = make_shared<Outputs>();
+        shared_ptr<exception> storedException;
+        shared_ptr<future<void>> futureHolder = make_shared<future<void>>();
+        *futureHolder = do_thread_async(
+            [thisHolder, this, schemeHeight, ids, assetId, result, storedException, &offset]()
+            {
+                try
+                {
+                    *result = GenerateOutputsSyncEx(schemeHeight, ids, assetId, offset);
+                }
+                catch (const exception& ex)
+                {
+                    *storedException = ex;
+                }
+            },
+            [futureHolder, resultCallback = move(resultCallback), exceptionCallback = move(exceptionCallback), result, storedException]() mutable
+            {
+                if (storedException)
+                {
+                    exceptionCallback(*storedException);
+                }
+                else
+                {
+                    resultCallback(move(*result));
+                }
+                futureHolder.reset();
+            });
+     }
+
     size_t LocalPrivateKeyKeeper::AllocateNonceSlot()
     {
         ++m_NonceSlotLast %= kMaxNonces;
@@ -129,6 +162,45 @@ namespace beam::wallet
         return result;
     }
 
+    IPrivateKeyKeeper::PublicKeys LocalPrivateKeyKeeper::GeneratePublicKeysSyncEx(const std::vector<Key::IDV>& ids, bool createCoinKey, beam::AssetID assetID, Scalar::Native& offset)
+    {
+        PublicKeys result;
+        Scalar::Native secretKey;
+        result.reserve(ids.size());
+        if (createCoinKey)
+        {
+            for (const auto& coinID : ids)
+            {
+                if(coinID.isAsset())
+                {
+                    Point &publicKey = result.emplace_back();
+                    SwitchCommitment(&assetID).Create(secretKey, publicKey, *GetChildKdf(coinID), coinID);
+                    offset += secretKey;
+                    LOG_INFO() << "[Assets] Signing asset input: " << coinID.m_Value << ", commitment: " << publicKey;
+                }
+                else
+                {
+                    Point &publicKey = result.emplace_back();
+                    SwitchCommitment().Create(secretKey, publicKey, *GetChildKdf(coinID), coinID);
+                    offset += secretKey;
+                    LOG_INFO() << "[Assets] signing beam input: " << coinID.m_Value << ", commitment: " << publicKey;
+                }
+            }
+        }
+        else
+        {
+            for (const auto& keyID : ids)
+            {
+                assert(!keyID.isAsset()); // TODO:ASSET
+                Point& publicKey = result.emplace_back();
+                m_MasterKdf->DeriveKey(secretKey, keyID);
+                publicKey = Context::get().G * secretKey;
+                offset += secretKey;
+            }
+        }
+        return result;
+    }
+
     ECC::Point LocalPrivateKeyKeeper::GeneratePublicKeySync(const Key::IDV& id, bool createCoinKey)
     {
         Scalar::Native secretKey;
@@ -146,6 +218,7 @@ namespace beam::wallet
         return publicKey;
     }
 
+
     IPrivateKeyKeeper::Outputs LocalPrivateKeyKeeper::GenerateOutputsSync(Height schemeHeigh, const std::vector<Key::IDV>& ids)
     {
         Outputs result;
@@ -156,6 +229,30 @@ namespace beam::wallet
         {
             auto& output = result.emplace_back(make_unique<Output>());
             output->Create(schemeHeigh, secretKey, *GetChildKdf(coinID), coinID, *m_MasterKdf);
+        }
+        return result;
+    }
+
+    IPrivateKeyKeeper::Outputs LocalPrivateKeyKeeper::GenerateOutputsSyncEx(Height schemeHeigh, const std::vector<Key::IDV>& ids, beam::AssetID assetId, Scalar::Native& offset)
+    {
+        Outputs result;
+        Scalar::Native secretKey;
+        Point commitment;
+        result.reserve(ids.size());
+        for (const auto& coinID : ids)
+        {
+            auto& output = result.emplace_back(make_unique<Output>());
+            if (coinID.isAsset())
+            {
+                LOG_INFO() << "[Assets] generating asset out: " << coinID.m_Value;
+                output->m_AssetID = assetId;
+            }
+            else
+            {
+                LOG_INFO() << "[Assets] generating regular out: " << coinID.m_Value;
+            }
+            output->Create(schemeHeigh, secretKey, *GetChildKdf(coinID), coinID, *m_MasterKdf);
+            offset += -secretKey;
         }
         return result;
     }
@@ -262,5 +359,44 @@ namespace beam::wallet
             excess += blindingFactor;
         }
         return excess;
+    }
+
+    Scalar::Native LocalPrivateKeyKeeper::GetAssetKey(beam::Key::ID assetKeyId)
+    {
+        Scalar::Native secretKey;
+        m_MasterKdf->DeriveKey(secretKey, assetKeyId);
+        return secretKey;
+    }
+
+    beam::AssetID LocalPrivateKeyKeeper::AIDFromKeyIndex(uint32_t assetIdx)
+    {
+        const auto assetKeyId = Key::ID(assetIdx, Key::Type::Asset, assetIdx);
+        auto assetKey = GetAssetKey(assetKeyId);
+        beam::AssetID assetId = Zero;
+        beam::proto::Sk2Pk(assetId, assetKey);
+        return assetId;
+    }
+
+    void LocalPrivateKeyKeeper::SignEmissionInOutKernel(TxKernel::Ptr& kernel, uint32_t assetIdx, ECC::Scalar::Native& offset)
+    {
+        Scalar::Native sk;
+
+        auto kernelKeyId = Key::ID(assetIdx,  Key::Type::Kernel, assetIdx);
+        m_MasterKdf->DeriveKey(sk, kernelKeyId);
+        kernel->m_Commitment = ECC::Context::get().G * sk;
+        kernel->Sign(sk);
+
+        offset += -sk;
+    }
+
+    void LocalPrivateKeyKeeper::SignEmissionKernel(TxKernel::Ptr& kernel, uint32_t assetIdx, ECC::Scalar::Native& offset)
+    {
+        auto assetID = AIDFromKeyIndex(assetIdx);
+        kernel->m_Commitment.m_X = assetID;
+        kernel->m_Commitment.m_Y = 0;
+
+        auto assetKey = GetAssetKey(Key::ID(assetIdx, Key::Type::Asset, assetIdx));
+        kernel->Sign(assetKey);
+        offset += -assetKey;
     }
 }
