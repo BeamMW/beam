@@ -48,7 +48,7 @@ namespace
         {
             time = convertBeamHeightDiffToTime(*minHeight + *responseTime - AppModel::getInstance().getWallet()->getCurrentHeight());
         }
-        //% "If the peer won't get online in %1, the swap will be canceled automatically"
+        //% "if nobody accepts the offer in %1, the offer will be automatically canceled"
         return qtTrId("swap-tx-state-initial").arg(time);
     }
 
@@ -113,7 +113,7 @@ namespace
             return "";
         }
 
-        //% "The refund of your %2 will start in %1 (the actual refund duration depends on the transaction fee specified for the %2 blockchain)"
+        //% "The refund of your %2 will start in %1. Refund duration depends on the transaction fee you specified for %2"
         return qtTrId("swap-tx-state-in-progress-refunding").arg(time).arg(coin);
     }
 }

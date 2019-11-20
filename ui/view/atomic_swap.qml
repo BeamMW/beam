@@ -1296,8 +1296,8 @@ Please try again later or create an offer yourself."
     function getStatusText(value) {
 
         switch(value) {
-            //% "pending"
-            case "pending": return qsTrId("wallet-txs-status-pending");
+            //% "waiting for peer"
+            case "pending": return qsTrId("wallet-txs-status-waiting-peer");
             //% "in progress"
             case "in progress": return qsTrId("wallet-txs-status-in-progress");
             //% "completed"
