@@ -31,7 +31,7 @@ Item {
 
     ConfirmationDialog {
         id:                     cancelOfferDialog
-        property var txId: undefined
+        property var txId:      undefined
         width:                  460
         //% "Cancel offer"
         title:                  qsTrId("atomic-swap-cancel")
@@ -54,6 +54,25 @@ Item {
                     cancelOfferDialog.cancelButton.onClicked();
                 }
             }
+        }
+    }
+
+    ConfirmationDialog {
+        id:                     cancelSwapDialog
+        property var txId:      undefined
+        //% "Cancel atomic swap"
+        title:                  qsTrId("atomic-swap-tx-cancel")
+        //% "Are you sure you want to cancel?"
+        text:                   qsTrId("atomic-swap-tx-cancel-text")
+        //% "yes"
+        okButtonText:           qsTrId("atomic-swap-tx-yes-button")
+        okButtonIconSource:     "qrc:/assets/icon-done.svg"
+        okButtonColor:          Style.swapCurrencyStateIndicator
+        //% "no"
+        cancelButtonText:       qsTrId("atomic-swap-no-button")
+        cancelButtonIconSource: "qrc:/assets/icon-cancel-16.svg"
+        onAccepted: {
+            viewModel.cancelTx(cancelSwapDialog.txId);
         }
     }
 
@@ -1165,7 +1184,8 @@ Please try again later or create an offer yourself."
                             icon.source: "qrc:/assets/icon-cancel.svg"
                             enabled: txContextMenu.cancelEnabled
                             onTriggered: {
-                                viewModel.cancelTx(txContextMenu.txID);
+                                cancelSwapDialog.txId = txContextMenu.txID;
+                                cancelSwapDialog.open();
                             }
                         }
                         Action {

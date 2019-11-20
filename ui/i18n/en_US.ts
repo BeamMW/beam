@@ -1905,5 +1905,22 @@ to complete.</translation>
         <source>The refund of your %2 will start in %1 (the actual refund duration depends on the transaction fee specified for the %2 blockchain)</source>
         <translation>The refund of your %2 will start in %1 (the actual refund duration depends on the transaction fee specified for the %2 blockchain)</translation>
     </message>
+    <message id="atomic-swap-tx-cancel">
+        <source>Cancel atomic swap</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="atomic-swap-tx-cancel-text">
+        <source>Are you sure you want to cancel?</source>
+        <oldsource>Are you sure you want to cancel atomic swap transaction?</oldsource>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="atomic-swap-tx-yes-button">
+        <source>yes</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="atomic-swap-no-button">
+        <source>no</source>
+        <translation type="unfinished"></translation>
+    </message>
 </context>
 </TS>
