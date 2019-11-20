@@ -105,12 +105,12 @@ namespace std
         {
             if (amount.m_value >= Rules::Coin)
             {
-                ss << Amount(amount.m_value / Rules::Coin) << " " << (amount.m_coinName.empty() ? "beams" : amount.m_coinName) << " ";
+                ss << Amount(amount.m_value / Rules::Coin) << " " << (amount.m_coinName.empty() ? "beams" : amount.m_coinName);
             }
             Amount c = amount.m_value % Rules::Coin;
             if (c > 0 || amount.m_value == 0)
             {
-                ss << c << " " << (amount.m_grothName.empty() ? "groth" : amount.m_grothName) << " ";
+                ss << " " << c << " " << (amount.m_grothName.empty() ? "groth" : amount.m_grothName) << " ";
             }
             return ss.str();
         }

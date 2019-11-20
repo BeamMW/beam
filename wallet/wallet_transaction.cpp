@@ -16,6 +16,7 @@
 #include "base_tx_builder.h"
 #include "wallet.h"
 #include "core/block_crypt.h"
+#include "strings_resources.h"
 
 #include <numeric>
 #include "utility/logger.h"
@@ -134,8 +135,9 @@ namespace beam::wallet
 
             if (!builder.GetInitialTxParams() && txState == State::Initial)
             {
+                const auto isAsset = builder.GetAssetId() != Zero;
                 LOG_INFO() << GetTxID() << (isSender ? " Sending " : " Receiving ")
-                    << PrintableAmount(builder.GetAmount())
+                    << PrintableAmount(builder.GetAmount(), false,isAsset ? kAmountASSET : "", isAsset ? kAmountAGROTH : "")
                     << " (fee: " << PrintableAmount(builder.GetFee()) << ")";
 
                 if (isSender)

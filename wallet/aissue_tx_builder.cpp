@@ -14,6 +14,7 @@
 #include "aissue_tx_builder.h"
 #include "core/block_crypt.h"
 #include "utility/logger.h"
+#include "strings_resources.h"
 #include <numeric>
 
 namespace beam::wallet
@@ -315,7 +316,7 @@ namespace beam::wallet
             {
                 storage::Totals totals(*m_Tx.GetWalletDB());
                 auto assetTotals(totals.GetTotals(m_assetId));
-                LOG_ERROR() << m_Tx.GetTxID() << "[" << m_SubTxID << "]" << " You only have " << PrintableAmount(assetTotals.Avail);
+                LOG_ERROR() << m_Tx.GetTxID() << "[" << m_SubTxID << "]" << " You only have " << PrintableAmount(assetTotals.Avail, false, kAmountASSET, kAmountAGROTH);
                 throw TransactionFailedException(!m_Tx.IsInitiator(), TxFailureReason::NoInputs);
             }
             copy(selectedCoins.begin(), selectedCoins.end(), back_inserter(coins));
