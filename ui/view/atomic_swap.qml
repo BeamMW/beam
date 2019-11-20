@@ -698,6 +698,7 @@ Please try again later or create an offer yourself."
                                         MouseArea {
                                             anchors.fill: parent
                                             acceptedButtons: Qt.LeftButton
+                                            cursorShape: Qt.PointingHandCursor
                                             onClicked: {
                                                 if (isOwnOffer) {
                                                     cancelOfferDialog.txId = offersTable.model.getRoleValue(styleData.row, "rawTxID");
