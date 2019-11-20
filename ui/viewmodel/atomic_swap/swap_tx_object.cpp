@@ -207,10 +207,27 @@ bool SwapTxObject::isFailed() const
 
 bool SwapTxObject::isCancelAvailable() const
 {
-    // TODO:SWAP link to transaction internal state like in AtomicSwapTransaction::Cancel()
-    return  m_tx.m_status == wallet::TxStatus::Pending ||
-            m_tx.m_status == wallet::TxStatus::Registering ||
-            m_tx.m_status == wallet::TxStatus::InProgress;
+    auto txState = getTxDescription().GetParameter<wallet::AtomicSwapTransaction::State>(TxParameterID::State);
+    if (txState)
+    {
+        switch (*txState)
+        {
+            case wallet::AtomicSwapTransaction::State::Initial:
+            case wallet::AtomicSwapTransaction::State::BuildingBeamLockTX:
+            case wallet::AtomicSwapTransaction::State::BuildingBeamRedeemTX:
+            case wallet::AtomicSwapTransaction::State::BuildingBeamRefundTX:
+            {
+                return true;
+            }
+            case wallet::AtomicSwapTransaction::State::HandlingContractTX:
+            {
+                return m_isBeamSide && *m_isBeamSide;
+            }
+            default:
+                break;
+        }
+    }
+    return m_tx.m_status == wallet::TxStatus::Pending;
 }
 
 bool SwapTxObject::isDeleteAvailable() const
