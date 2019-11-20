@@ -142,7 +142,7 @@ namespace beam::wallet
         auto keyType = bChange ? Key::Type::Change : Key::Type::Regular;
         if (bAsset) keyType = bChange ? Key::Type::AssetChange : Key::Type::Asset;
 
-        Coin newUtxo(amount, keyType, m_AssetId);
+        Coin newUtxo(amount, keyType, bAsset ? m_AssetId : Zero);
         newUtxo.m_createTxId = m_Tx.GetTxID();
         m_Tx.GetWalletDB()->storeCoin(newUtxo);
         m_OutputCoins.push_back(newUtxo.m_ID);

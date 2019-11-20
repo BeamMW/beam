@@ -80,6 +80,9 @@ namespace beam
 		Amount get_Hi(const Type&);
 
 		void AddTo(ECC::Point::Native&, const Type&);
+
+		// This one is not optimized (slow)
+		void AddTo(ECC::Point::Native& res, const Type& x, const ECC::Point::Native& hGen);
 	};
 
 	typedef int64_t AmountSigned;

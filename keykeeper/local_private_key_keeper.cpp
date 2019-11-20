@@ -244,7 +244,7 @@ namespace beam::wallet
             auto& output = result.emplace_back(make_unique<Output>());
             if (coinID.isAsset())
             {
-                LOG_INFO() << "[Assets] generating asset out: " << coinID.m_Value;
+                LOG_INFO() << "[Assets] generating asset out: " << coinID.m_Value << ", asset id: " << assetId.str();
                 output->m_AssetID = assetId;
             }
             else

@@ -932,6 +932,13 @@ namespace beam
 			}
 		}
 
+		void AddTo(ECC::Point::Native& res, const Type& x, const ECC::Point::Native& hGen)
+        {
+            ECC::Mode::Scope scope(ECC::Mode::Fast);
+            ECC::Scalar s;
+            s.m_Value = x;
+			res += hGen * s;
+        }
 	} // namespace AmountBig
 
 
