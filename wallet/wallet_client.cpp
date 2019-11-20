@@ -675,6 +675,8 @@ namespace beam::wallet
     void WalletClient::saveAddress(const WalletAddress& address, bool bOwn)
     {
         m_walletDB->saveAddress(address);
+        if (bOwn)
+            getAddresses(bOwn);
     }
 
     void WalletClient::changeCurrentWalletIDs(const WalletID& senderID, const WalletID& receiverID)
