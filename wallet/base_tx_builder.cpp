@@ -275,42 +275,6 @@ namespace beam::wallet
         }
     }
 
-    namespace {
-        typedef uintBig_t<sizeof(Amount) + sizeof(Height)> Type;
-        Amount get_Lo(const Type& x)
-            {
-                Amount res;
-                x.ExportWord<1>(res);
-                return res;
-            }
-
-            Amount get_Hi(const Type& x)
-            {
-                Amount res;
-                x.ExportWord<0>(res);
-                return res;
-            }
-
-        void AddToEX(ECC::Point::Native& res, const Type& x, ECC::Point::Native hgen)
-        {
-            ECC::Mode::Scope scope(ECC::Mode::Fast);
-
-            if (get_Hi(x))
-            {
-                assert(false);
-                ECC::Scalar s;
-                s.m_Value = x;
-                res += ECC::Context::get().H_Big * s;
-            }
-            else
-            {
-                Amount lo = get_Lo(x);
-                if (lo)
-                    res += hgen * lo;
-            }
-        }
-    }
-
     Point::Native BaseTxBuilder::GetPublicExcess() const
     {
         // PublicExcess = Sum(inputs) - Sum(outputs) - offset * G - (Sum(input amounts) - Sum(output amounts)) * H
@@ -320,7 +284,7 @@ namespace beam::wallet
         {
             if (cid.isAsset())
             {
-                AddToEX(publicAmount, cid.m_Value, assetHGen);
+                AmountBig::AddTo(publicAmount, cid.m_Value, assetHGen);
             }
             else
             {
@@ -333,7 +297,7 @@ namespace beam::wallet
         {
             if(cid.m_Type == Key::Type::Asset || cid.m_Type == Key::Type::AssetChange)
             {
-                 AddToEX(publicAmount, cid.m_Value, assetHGen);
+                 AmountBig::AddTo(publicAmount, cid.m_Value, assetHGen);
             }
             else
             {
