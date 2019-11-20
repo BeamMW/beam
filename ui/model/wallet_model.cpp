@@ -27,6 +27,7 @@ using namespace std;
 WalletModel::WalletModel(IWalletDB::Ptr walletDB, IPrivateKeyKeeper::Ptr keyKeeper, const std::string& nodeAddr, beam::io::Reactor::Ptr reactor)
     : WalletClient(walletDB, nodeAddr, reactor, keyKeeper)
 {
+    qRegisterMetaType<beam::ByteBuffer>("beam::ByteBuffer");
     qRegisterMetaType<beam::wallet::WalletStatus>("beam::wallet::WalletStatus");
     qRegisterMetaType<beam::wallet::ChangeAction>("beam::wallet::ChangeAction");
     qRegisterMetaType<vector<beam::wallet::TxDescription>>("std::vector<beam::wallet::TxDescription>");
@@ -179,6 +180,11 @@ void WalletModel::onShowKeyKeeperError(const std::string& error)
 #if defined(BEAM_HW_WALLET)
     emit showTrezorError(QString::fromStdString(error));
 #endif
+}
+
+void WalletModel::onSwapParamsLoaded(const beam::ByteBuffer& params)
+{
+    emit swapParamsLoaded(params);
 }
 
 void WalletModel::onGeneratedNewAddress(const beam::wallet::WalletAddress& walletAddr)

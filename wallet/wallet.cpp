@@ -940,7 +940,15 @@ namespace beam::wallet
             {
                 LOG_WARNING() << msg.m_TxID << " Parameters for invalid tx type";
             }
-            it->second->SetParameter(TxParameterID::PeerID, msg.m_From, false);
+            if (WalletID peerID; it->second->GetParameter(TxParameterID::PeerID, peerID) && peerID != msg.m_From)
+            {
+                // if we already have PeerID, we should ignore messages from others
+                return BaseTransaction::Ptr();
+            }
+            else
+            {
+                it->second->SetParameter(TxParameterID::PeerID, msg.m_From, false);
+            }
             return it->second;
         }
 

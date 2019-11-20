@@ -279,6 +279,13 @@ void WalletModel::onGeneratedNewAddress(const WalletAddress& address)
     env->DeleteLocalRef(addr);
 }
 
+void WalletModel::onSwapParamsLoaded(const beam::ByteBuffer& params)
+{
+    LOG_DEBUG() << "onSwapParamsLoaded()";
+
+    // TODO
+}
+
 void WalletModel::onNewAddressFailed()
 {
 

@@ -27,16 +27,16 @@ class SwapCoinClientModel;
 class ElectrumPhraseItem : public QObject
 {
     Q_OBJECT
-        Q_PROPERTY(bool    isCorrect READ isCorrect                NOTIFY isCorrectChanged)
-        Q_PROPERTY(bool    isAllowed READ isAllowed                NOTIFY isAllowedChanged)
-        Q_PROPERTY(QString value     READ getValue  WRITE setValue NOTIFY valueChanged)
-        Q_PROPERTY(QString phrase    READ getPhrase                CONSTANT)
-        Q_PROPERTY(int     index     READ getIndex                 CONSTANT)
+        Q_PROPERTY(bool    isModified READ isModified               NOTIFY isModifiedChanged)
+        Q_PROPERTY(bool    isAllowed  READ isAllowed                NOTIFY isAllowedChanged)
+        Q_PROPERTY(QString value      READ getValue  WRITE setValue NOTIFY valueChanged)
+        Q_PROPERTY(QString phrase     READ getPhrase                CONSTANT)
+        Q_PROPERTY(int     index      READ getIndex                 CONSTANT)
 public:
     ElectrumPhraseItem(int index, const QString& phrase);
 
     bool isAllowed() const;
-    bool isCorrect() const;
+    bool isModified() const;
     const QString& getValue() const;
     void setValue(const QString& value);
     const QString& getPhrase() const;
@@ -46,7 +46,7 @@ public:
     Q_INVOKABLE void revertChanges();
 
 signals:
-    void isCorrectChanged();
+    void isModifiedChanged();
     void isAllowedChanged();
     void valueChanged();
 

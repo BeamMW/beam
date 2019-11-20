@@ -134,6 +134,16 @@ struct WalletModelBridge : public Bridge<IWalletModelAsync>
         call_async(&IWalletModelAsync::changeCurrentWalletIDs, senderID, receiverID);
     }
 
+    void loadSwapParams() override
+    {
+        call_async(&IWalletModelAsync::loadSwapParams);
+    }
+
+    void storeSwapParams(const beam::ByteBuffer& params) override
+    {
+        call_async(&IWalletModelAsync::storeSwapParams, params);
+    }
+
     void generateNewAddress() override
     {
         call_async(&IWalletModelAsync::generateNewAddress);
@@ -695,6 +705,22 @@ namespace beam::wallet
         catch (...) {
             LOG_UNHANDLED_EXCEPTION();
         }
+    }
+
+    namespace {
+        const char* SWAP_PARAMS_NAME = "LastSwapParams";
+    }
+
+    void WalletClient::loadSwapParams()
+    {
+        ByteBuffer params;
+        m_walletDB->getBlob(SWAP_PARAMS_NAME, params);
+        onSwapParamsLoaded(params);
+    }
+
+    void WalletClient::storeSwapParams(const ByteBuffer& params)
+    {
+        m_walletDB->setVarRaw(SWAP_PARAMS_NAME, params.data(), params.size());
     }
 
     void WalletClient::deleteAddress(const WalletID& id)

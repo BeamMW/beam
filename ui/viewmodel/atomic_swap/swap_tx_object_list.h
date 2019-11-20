@@ -78,7 +78,8 @@ public:
         SwapCoinRefundTxConfirmations,
         BeamLockTxKernelId,
         BeamRedeemTxKernelId,
-        BeamRefundTxKernelId
+        BeamRefundTxKernelId,
+        SwapState
     };
 
     SwapTxObjectList();

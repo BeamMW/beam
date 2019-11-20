@@ -45,6 +45,8 @@ public:
     auto getFee() const -> QString override;
     auto getStatus() const -> QString override;
     auto getFailureReason() const -> QString override;
+    QString getSwapState() const;
+    beam::wallet::AtomicSwapCoin getSwapCoinType() const;
 
     bool isLockTxProofReceived() const;
     bool isRefundTxProofReceived() const;

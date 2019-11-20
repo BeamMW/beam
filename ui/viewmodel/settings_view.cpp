@@ -58,9 +58,9 @@ ElectrumPhraseItem::ElectrumPhraseItem(int index, const QString& phrase)
 {
 }
 
-bool ElectrumPhraseItem::isCorrect() const
+bool ElectrumPhraseItem::isModified() const
 {
-    return m_userInput == m_phrase;
+    return m_userInput != m_phrase;
 }
 
 const QString& ElectrumPhraseItem::getValue() const
@@ -74,7 +74,7 @@ void ElectrumPhraseItem::setValue(const QString& value)
     {
         m_userInput = value;
         emit valueChanged();
-        emit isCorrectChanged();
+        emit isModifiedChanged();
         emit isAllowedChanged();
     }
 }
@@ -372,7 +372,7 @@ QStringList SwapCoinSettingsItem::getAddressesElectrum() const
     if (electrumSettings.IsInitialized())
     {
         auto addresses = bitcoin::generateReceivingAddresses(electrumSettings.m_secretWords, 
-            electrumSettings.m_receivingAddressAmount, electrumSettings.m_addressVersion);
+            electrumSettings.m_receivingAddressAmount, m_settings->GetAddressVersion());
 
         QStringList result;
         result.reserve(static_cast<int>(addresses.size()));
@@ -456,7 +456,6 @@ void SwapCoinSettingsItem::applyElectrumSettings()
     }
 
     electrumSettings.m_secretWords = GetSeedPhraseFromSeedItems();
-    electrumSettings.m_addressVersion = bitcoin::getAddressVersion();
     
     m_settings->SetElectrumConnectionOptions(electrumSettings);
     m_settings->SetFeeRate(m_feeRate);

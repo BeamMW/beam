@@ -1893,5 +1893,17 @@ to complete.</translation>
         <source>connect</source>
         <translation>connect</translation>
     </message>
+    <message id="swap-tx-state-initial">
+        <source>If the peer won&apos;t get online in %1, the swap will be canceled automatically</source>
+        <translation>If the peer won&apos;t get online in %1, the swap will be canceled automatically</translation>
+    </message>
+    <message id="swap-tx-state-in-progress-normal">
+        <source>The swap is expected to complete in %1 at most</source>
+        <translation>The swap is expected to complete in %1 at most</translation>
+    </message>
+    <message id="swap-tx-state-in-progress-refunding">
+        <source>The refund of your %2 will start in %1 (the actual refund duration depends on the transaction fee specified for the %2 blockchain)</source>
+        <translation>The refund of your %2 will start in %1 (the actual refund duration depends on the transaction fee specified for the %2 blockchain)</translation>
+    </message>
 </context>
 </TS>

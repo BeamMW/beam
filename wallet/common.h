@@ -272,6 +272,7 @@ namespace beam::wallet
         Confirmations = 204,
         AtomicSwapPrivateKey = 205,
         AtomicSwapWithdrawAddress = 206,
+        AtomicSwapExternalHeight = 207,
 
         InternalFailureReason = 210,
     

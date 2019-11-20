@@ -40,4 +40,5 @@ namespace beamui
         bool _is_poor;
     };
     QDateTime CalculateExpiresTime(beam::Height currentHeight, beam::Height expiresHeight);
+    QString getEstimateTimeStr(int estimate);
 }  // namespace beamui

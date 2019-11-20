@@ -459,12 +459,11 @@ Control {
                                //% "Enter your seed phrase"
                                qsTrId("settings-swap-enter-seed")
                     onClicked: {
-                        function editSeedPhrase(isSeedPhraseValid) {
+                        function editSeedPhrase() {
                             seedPhraseDialog.setModeEdit();
-                            seedPhraseDialog.isCurrentElectrumSeedValid = isSeedPhraseValid;
+                            seedPhraseDialog.isCurrentElectrumSeedValid = Qt.binding(function(){return isCurrentElectrumSeedValid;});
                             seedPhraseDialog.open();
                         }
-
                         if (isCurrentElectrumSeedValid) {
                             //: electrum settings, ask password to edit seed phrase, dialog title
                             //% "Edit seed phrase"
@@ -473,11 +472,11 @@ Control {
                             //% "Enter your wallet password to edit the phrase"
                             confirmPasswordDialog.dialogMessage = qsTrId("settings-swap-confirm-edit-seed-message");
                             confirmPasswordDialog.onDialogAccepted = function() {
-                                editSeedPhrase(true);
+                                editSeedPhrase();
                             };
                             confirmPasswordDialog.open();
                         } else {
-                            editSeedPhrase(false);
+                            editSeedPhrase();
                         }
                     }
                 }
@@ -690,7 +689,10 @@ fee while you have transactions in progress."
         function updateIsSeedChanged() {
             var isChanged = false;
             for(var i = 0; i < seedPhraseDialog.seedPhrasesElectrum.length; ++i) {
-                isChanged |= !seedPhraseDialog.seedPhrasesElectrum[i].isCorrect;
+                if (seedPhraseDialog.seedPhrasesElectrum[i].isModified) {
+                    isChanged = true;
+                    break;
+                }
             }
             isSeedChanged = isChanged;
         }
@@ -855,9 +857,9 @@ fee while you have transactions in progress."
                     text:                   qsTrId("settings-apply")
                     icon.source:            "qrc:/assets/icon-done.svg"
                     enabled: {
-                        var enable = seedPhraseDialog.isCurrentElectrumSeedValid & seedPhraseDialog.isSeedChanged;
+                        var enable = seedPhraseDialog.isCurrentElectrumSeedValid && seedPhraseDialog.isSeedChanged;
                         for (var i = 0; i < seedPhraseDialog.seedPhrasesElectrum.length; ++i) {
-                            enable &= seedPhraseDialog.seedPhrasesElectrum[i].isAllowed;
+                            enable = enable && seedPhraseDialog.seedPhrasesElectrum[i].isAllowed;
                         }
                         return enable;
                     }

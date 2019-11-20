@@ -98,9 +98,12 @@ private:
     bool isReceiveFeeOK() const;
 
     void updateTransactionToken();
+    void loadSwapParams();
+    void storeSwapParams();
 
 private slots:
     void onGeneratedNewAddress(const beam::wallet::WalletAddress& walletAddr);
+    void onSwapParamsLoaded(const beam::ByteBuffer& token);
 
 private:
     beam::Amount _amountToReceiveGrothes;
@@ -113,6 +116,7 @@ private:
     int       _offerExpires;
     QString   _addressComment;
     QString   _token;
+    bool      _saveParamsAllowed;
 
     beam::wallet::WalletAddress _receiverAddress;
     WalletModel& _walletModel;
