@@ -455,7 +455,7 @@ namespace beam::wallet
         m_Kernel->m_Commitment   = Zero;
 
         m_EmissionKernel = make_unique<TxKernel>();
-        m_EmissionKernel->m_AssetEmission  = m_issue ? GetAmountBeam() : -GetAmountAsset();
+        m_EmissionKernel->m_AssetEmission  = m_issue ? GetAmountBeam() : -static_cast<AmountSigned>(GetAmountAsset());
         m_EmissionKernel->m_Height.m_Min   = GetMinHeight();
         m_EmissionKernel->m_Height.m_Max   = m_MaxHeight;
         m_EmissionKernel->m_Commitment     = Zero;
