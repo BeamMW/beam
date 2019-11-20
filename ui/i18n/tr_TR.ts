@@ -1915,5 +1915,9 @@ Please check the swap token and try again.</source>
         <source>no</source>
         <translation type="unfinished"></translation>
     </message>
+    <message id="swap-tx-state-refunding">
+        <source>Refunding</source>
+        <translation type="unfinished"></translation>
+    </message>
 </context>
 </TS>

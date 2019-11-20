@@ -1922,5 +1922,9 @@ to complete.</translation>
         <source>no</source>
         <translation type="unfinished"></translation>
     </message>
+    <message id="swap-tx-state-refunding">
+        <source>Refunding</source>
+        <translation type="unfinished"></translation>
+    </message>
 </context>
 </TS>

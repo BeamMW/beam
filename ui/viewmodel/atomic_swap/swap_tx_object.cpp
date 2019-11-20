@@ -75,6 +75,13 @@ namespace
     QString getInProgressRefundingStr(const beam::wallet::TxParameters& txParameters)
     {
         auto isBeamSide = *txParameters.GetParameter<bool>(TxParameterID::AtomicSwapIsBeamSide); // mandatory parameter
+        auto isRegistered = txParameters.GetParameter<uint8_t>(TxParameterID::TransactionRegistered, isBeamSide ? BEAM_REFUND_TX : REFUND_TX);
+        if (isRegistered)
+        {
+            //% "Refunding"
+            return qtTrId("swap-tx-state-refunding");
+        }
+
         QString coin;
         QString time;
         if (isBeamSide)
@@ -118,10 +125,11 @@ SwapTxObject::SwapTxObject(QObject* parent)
 {
 }
 
-SwapTxObject::SwapTxObject(const TxDescription& tx, QObject* parent/* = nullptr*/)
+SwapTxObject::SwapTxObject(const TxDescription& tx, uint32_t minTxConfirmations, QObject* parent/* = nullptr*/)
         : TxObject(tx, parent),
           m_isBeamSide(m_tx.GetParameter<bool>(TxParameterID::AtomicSwapIsBeamSide)),
-          m_swapCoin(m_tx.GetParameter<AtomicSwapCoin>(TxParameterID::AtomicSwapCoin))
+          m_swapCoin(m_tx.GetParameter<AtomicSwapCoin>(TxParameterID::AtomicSwapCoin)),
+          m_minTxConfirmations(minTxConfirmations)
 {
 }
 
@@ -499,14 +507,23 @@ namespace
     }
     
     template<size_t V>
-    QString getSwapCoinTxConfirmations(const TxParameters& source)
+    QString getSwapCoinTxConfirmations(const TxParameters& source, uint32_t minTxConfirmations)
     {
         if (auto res = source.GetParameter<uint32_t>(TxParameterID::Confirmations, V))
         {
-            auto n = std::to_string(*res);
-            return QString::fromStdString(n);
+            std::string result;
+            if (minTxConfirmations)
+            {
+                result = (*res > minTxConfirmations) ? std::to_string(minTxConfirmations) : std::to_string(*res);
+                result += "/" + std::to_string(minTxConfirmations);
+            }
+            else
+            {
+                result = std::to_string(*res);
+            }
+            return QString::fromStdString(result);
         }
-        else return QString();
+        return QString();
     }
 
     template<size_t V>
@@ -597,17 +614,17 @@ QString SwapTxObject::getSwapCoinRefundTxId() const
 
 QString SwapTxObject::getSwapCoinLockTxConfirmations() const
 {
-    return getSwapCoinTxConfirmations<SubTxIndex::LOCK_TX>(m_tx);
+    return getSwapCoinTxConfirmations<SubTxIndex::LOCK_TX>(m_tx, m_minTxConfirmations);
 }
 
 QString SwapTxObject::getSwapCoinRedeemTxConfirmations() const
 {
-    return getSwapCoinTxConfirmations<SubTxIndex::REDEEM_TX>(m_tx);
+    return getSwapCoinTxConfirmations<SubTxIndex::REDEEM_TX>(m_tx, m_minTxConfirmations);
 }
 
 QString SwapTxObject::getSwapCoinRefundTxConfirmations() const
 {
-    return getSwapCoinTxConfirmations<SubTxIndex::REFUND_TX>(m_tx);
+    return getSwapCoinTxConfirmations<SubTxIndex::REFUND_TX>(m_tx, m_minTxConfirmations);
 }
 
 QString SwapTxObject::getBeamLockTxKernelId() const
