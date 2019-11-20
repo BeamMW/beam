@@ -33,7 +33,7 @@ ColumnLayout {
 
         if (!BeamGlobals.canReceive(currency)) {
 /*% "%1 is not connected, 
-please review your settings and try again" 
+please review your settings and try again"
 */
             swapna.text = qsTrId("swap-currency-na-message").arg(BeamGlobals.getCurrencyName(currency))
             swapna.open()
