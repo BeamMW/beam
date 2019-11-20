@@ -490,5 +490,4 @@ namespace beam::wallet
             return false;
         }
     }
-
 }
