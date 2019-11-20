@@ -277,6 +277,7 @@ void ProxyConnector::on_connection_established(uint64_t tag) {
         stream = std::move(request->stream);
     }
 
+    LOG_DEBUG() << "Proxy connection established. Tag:" << tag;
     // request->on_proxy_reply.~OnReply();
     request->on_connection_establish(tag, std::move(stream), EC_OK);
     // request->on_connection_establish.~OnConnect();

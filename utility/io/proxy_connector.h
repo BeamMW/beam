@@ -24,6 +24,9 @@
 namespace beam {
 namespace io {
 
+/**
+ * Implements a connection to TCP socket using the socks5 proxy protocol.
+ */
 class ProxyConnector {
 public:
     using OnConnect = Reactor::ConnectCallback;
