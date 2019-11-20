@@ -35,18 +35,20 @@ namespace beam::wallet
         //
         // Coins, amounts & fees
         //
-        Amount GetFee() const;
-        Amount GetAmountBeam() const;
-        Amount GetAmountAsset() const;
-        const  AmountList& GetAmountList() const;
-        void   AddChange();
-        void   SelectInputs();
-        bool   GetInputs();
-        bool   GetOutputs();
-        void   GenerateAssetCoin(Amount amount);
-        void   GenerateBeamCoin(Amount amount);
-        bool   CreateInputs();
-        bool   CreateOutputs();
+        Amount   GetFee() const;
+        Amount   GetAmountBeam() const;
+        Amount   GetAmountAsset() const;
+        const    AmountList& GetAmountList() const;
+        void     AddChange();
+        void     SelectInputs();
+        bool     GetInputs();
+        bool     GetOutputs();
+        void     GenerateAssetCoin(Amount amount);
+        void     GenerateBeamCoin(Amount amount);
+        bool     CreateInputs();
+        bool     CreateOutputs();
+        uint32_t GetAssetIdx() const;
+        AssetID  GetAssetId() const;
 
         //
         // Blockchain stuff

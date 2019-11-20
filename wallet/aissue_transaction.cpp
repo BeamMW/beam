@@ -64,6 +64,13 @@ namespace beam::wallet
         {
             if (!builder.GetInitialTxParams() && GetState() == State::Initial)
             {
+                if (_issue)
+                {
+                    LOG_INFO() << GetTxID() << " Generating asset with index " << builder.GetAssetIdx()
+                               << " and asset id " << builder.GetAssetId().str();
+                    LOG_INFO() << GetTxID() << " Please remember your assset index. You won't be able to consume the asset or generate additional coins without it";
+                }
+
                 builder.SelectInputs();
                 builder.AddChange();
 

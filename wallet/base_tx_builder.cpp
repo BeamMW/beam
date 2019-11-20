@@ -468,14 +468,14 @@ namespace beam::wallet
         {
             LOG_INFO() << m_Tx.GetTxID() << "[" << m_SubTxID << "]"
                 << " Transaction created. Kernel: " << GetKernelIDString()
-                << " min height: " << m_Kernel->m_Height.m_Min;
+                << ", min height: " << m_Kernel->m_Height.m_Min;
         }
         else
         {
             LOG_INFO() << m_Tx.GetTxID() << "[" << m_SubTxID << "]"
                 << " Transaction created. Kernel: " << GetKernelIDString()
-                << " min height: " << m_Kernel->m_Height.m_Min
-                << " max height: " << m_Kernel->m_Height.m_Max;
+                << ", min height: " << m_Kernel->m_Height.m_Min
+                << ", max height: " << m_Kernel->m_Height.m_Max;
         }
 
         // create transaction

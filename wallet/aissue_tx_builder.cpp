@@ -143,14 +143,14 @@ namespace beam::wallet
         {
             LOG_INFO() << m_Tx.GetTxID() << "[" << m_SubTxID << "]"
                 << " Transaction created. Kernel: " << GetKernelIDString()
-                << " min height: " << m_Kernel->m_Height.m_Min;
+                << ", min height: " << m_Kernel->m_Height.m_Min;
         }
         else
         {
             LOG_INFO() << m_Tx.GetTxID() << "[" << m_SubTxID << "]"
                 << " Transaction created. Kernel: " << GetKernelIDString()
-                << " min height: " << m_Kernel->m_Height.m_Min
-                << " max height: " << m_Kernel->m_Height.m_Max;
+                << ", min height: " << m_Kernel->m_Height.m_Min
+                << ", max height: " << m_Kernel->m_Height.m_Max;
         }
 
         auto tx = make_shared<Transaction>();
@@ -250,6 +250,16 @@ namespace beam::wallet
         return m_Fee;
     }
 
+    uint32_t AssetIssueTxBuilder::GetAssetIdx() const
+    {
+        return m_assetIdx;
+    }
+
+     AssetID AssetIssueTxBuilder::GetAssetId() const
+     {
+        return m_assetId;
+     }
+
     string AssetIssueTxBuilder::GetKernelIDString() const {
         Merkle::Hash kernelID;
         m_Tx.GetParameter(TxParameterID::KernelID, kernelID, m_SubTxID);
@@ -344,12 +354,14 @@ namespace beam::wallet
 
     void AssetIssueTxBuilder::GenerateAssetCoin(Amount amount)
     {
-        LOG_INFO() << "Creating asset coin " << amount;
         Coin newUtxo(amount, Key::Type::Asset, m_assetId);
         newUtxo.m_createTxId = m_Tx.GetTxID();
         m_Tx.GetWalletDB()->storeCoin(newUtxo);
         m_OutputCoins.push_back(newUtxo.m_ID);
         m_Tx.SetParameter(TxParameterID::OutputCoins, m_OutputCoins, false, m_SubTxID);
+        LOG_INFO() << m_Tx.GetTxID() << " Creating asset coin: "
+                   << PrintableAmount(amount, false, kAmountASSET, kAmountAGROTH)
+                   << ", id " << newUtxo.toStringID();
     }
 
     void AssetIssueTxBuilder::GenerateBeamCoin(Amount amount)

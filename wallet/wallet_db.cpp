@@ -1563,10 +1563,6 @@ namespace beam::wallet
                 coinsSel.push_back(std::move(coins[res.second[j]]));
         }
 
-        LOG_INFO() << "Selected coins: ";
-        for (auto& coin: coinsSel) {
-            LOG_INFO() << "Value : " << coin.m_ID.m_Value << " isAsset: " << coin.m_ID.isAsset();
-        }
         return coinsSel;
     }
 
