@@ -1926,5 +1926,9 @@ Please check the swap token and try again.</source>
         <source>waiting for peer</source>
         <translation type="unfinished"></translation>
     </message>
+    <message id="send-swap-fee-warning">
+        <source> Once the offer is accepted by the other side, the %1 transaction fee will be charged even if the offer is cancelled.</source>
+        <translation type="unfinished"></translation>
+    </message>
 </context>
 </TS>
