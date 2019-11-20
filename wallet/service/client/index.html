@@ -157,7 +157,7 @@
 			{
 				connection.onmessage = e => 
 				{
-					console.log(`got response: ${e.data}`)
+					// console.log(`got response: ${e.data}`)
 
 					var data = JSON.parse(e.data)
 
@@ -166,7 +166,7 @@
 						var body = $('#wallet-panel .addresses > tbody')
 							.empty()
 
-						data.result.forEach((item, index) => body.append(`<tr>
+						data.result.forEach && data.result.forEach((item, index) => body.append(`<tr>
 							<td>${index+1}</td>
 							<td>${item.address}</td>
 							<td>${item.comment}</td>
@@ -194,11 +194,28 @@
 				}))
 			}
 
+            function createNewTestAddr()
+            {
+                connection.send(JSON.stringify(
+                {
+                    jsonrpc:'2.0',
+                    id: 123,
+                    method: 'create_address',
+                    params:
+                    {
+                        expiration : '24h',
+                        comment : 'John Smith'
+                    }
+                }))
+            }
+
 			function showWalletStatus()
 			{
+				//setTimeout(createNewTestAddr, 5000)
+
 				connection.onmessage = e => 
 				{
-					console.log(`got response: ${e.data}`)
+					// console.log(`got response: ${e.data}`)
 
 					var data = JSON.parse(e.data)
 
@@ -284,6 +301,8 @@
 
 			function onkeykeeper(data)
 			{
+				console.log(`<<< keykeeper request: ${JSON.stringify(data)}`)
+				
 				var handlers = 
 				{
 					generate_key: 			() => sendKeykeeperResult(data.id, keykeeper.generatePublicKey(data.params.id, data.params.create_coin_key)),

@@ -977,25 +977,7 @@ namespace
 
         void start(uint16_t port)
         {
-            // LOG_INFO() << "Start websocket server on " << _bindAddress;
-
-            // try
-            // {
-            //     _server = _tlsOptions.use
-            //         ? io::SslServer::create(_reactor, _bindAddress, BIND_THIS_MEMFN(on_stream_accepted), _tlsOptions.certPath.c_str(), _tlsOptions.keyPath.c_str())
-            //         : io::TcpServer::create(_reactor, _bindAddress, BIND_THIS_MEMFN(on_stream_accepted));
-
-            // }
-            // catch (const std::exception& e)
-            // {
-            //     LOG_ERROR() << "cannot start server: " << e.what();
-            // }
-
-//            boost::asio::io_context ioc{1};
-
             std::make_shared<listener>(_ioc, tcp::endpoint{boost::asio::ip::make_address("0.0.0.0"), port}, _reactor)->run();
-
-            //auto timer = io::Timer::create(_reactor);
 
             // !TODO: an attempt to run asio io_context near the libuv reactor
             // maybe, we could find a better solution here
@@ -1009,97 +991,6 @@ namespace
         }
 
     private:
-
-        // Accepts incoming connections and launches the sessions
-        class listener : public std::enable_shared_from_this<listener>
-        {
-            tcp::acceptor acceptor_;
-            tcp::socket socket_;
-            io::Reactor::Ptr _reactor;
-            boost::asio::io_context& _ioc;
-
-        public:
-            listener(
-                boost::asio::io_context& ioc,
-                tcp::endpoint endpoint, io::Reactor::Ptr reactor)
-                : acceptor_(ioc)
-                , socket_(ioc)
-                , _reactor(reactor)
-                , _ioc(ioc)
-            {
-                boost::system::error_code ec;
-
-                // Open the acceptor
-                acceptor_.open(endpoint.protocol(), ec);
-                if(ec)
-                {
-                    fail(ec, "open");
-                    return;
-                }
-
-                // Allow address reuse
-                acceptor_.set_option(boost::asio::socket_base::reuse_address(true), ec);
-                if(ec)
-                {
-                    fail(ec, "set_option");
-                    return;
-                }
-
-                // Bind to the server address
-                acceptor_.bind(endpoint, ec);
-                if(ec)
-                {
-                    fail(ec, "bind");
-                    return;
-                }
-
-                // Start listening for connections
-                acceptor_.listen(
-                    boost::asio::socket_base::max_listen_connections, ec);
-                if(ec)
-                {
-                    fail(ec, "listen");
-                    return;
-                }
-            }
-
-            // Start accepting incoming connections
-            void
-            run()
-            {
-                if(! acceptor_.is_open())
-                    return;
-                do_accept();
-            }
-
-            void
-            do_accept()
-            {
-                acceptor_.async_accept(
-                    socket_,
-                    std::bind(
-                        &listener::on_accept,
-                        shared_from_this(),
-                        std::placeholders::_1));
-            }
-
-            void
-            on_accept(boost::system::error_code ec)
-            {
-                if(ec)
-                {
-                    fail(ec, "accept");
-                }
-                else
-                {
-                    // Create the session and run it
-                    std::make_shared<session>(std::move(socket_), _reactor)->run();
-                }
-
-                // Accept another connection
-                do_accept();
-            }
-        };
 
         struct ApiConnectionHandler
         {
@@ -1189,34 +1080,36 @@ namespace
             {
                 using namespace std;
 
-                auto thisHolder = shared_from_this();
-                shared_ptr<Outputs> result = make_shared<Outputs>();
-                shared_ptr<exception> storedException;
-                shared_ptr<future<void>> futureHolder = make_shared<future<void>>();
-                *futureHolder = do_thread_async(
-                    [thisHolder, this, schemeHeight, ids, result, storedException]()
-                    {
-                        try
-                        {
-                            *result = GenerateOutputsSync(schemeHeight, ids);
-                        }
-                        catch (const exception& ex)
-                        {
-                            *storedException = ex;
-                        }
-                    },
-                    [futureHolder, resultCallback = move(resultCallback), exceptionCallback = move(exceptionCallback), result, storedException]() mutable
-                    {
-                        if (storedException)
-                        {
-                            exceptionCallback(*storedException);
-                        }
-                        else
-                        {
-                            resultCallback(move(*result));
-                        }
-                        futureHolder.reset();
-                    });
+                resultCallback(GenerateOutputsSync(schemeHeight, ids));
+
+                // auto thisHolder = shared_from_this();
+                // shared_ptr<exception> storedException;
+                // shared_ptr<Outputs> result = make_shared<Outputs>();
+                // shared_ptr<future<void>> futureHolder = make_shared<future<void>>();
+                // *futureHolder = do_thread_async(
+                //     [thisHolder, this, schemeHeight, ids, result, storedException]()
+                //     {
+                //         try
+                //         {
+                //             *result = GenerateOutputsSync(schemeHeight, ids);
+                //         }
+                //         catch (const exception& ex)
+                //         {
+                //             *storedException = ex;
+                //         }
+                //     },
+                //     [futureHolder, resultCallback = move(resultCallback), exceptionCallback = move(exceptionCallback), result, storedException]() mutable
+                //     {
+                //         if (storedException)
+                //         {
+                //             exceptionCallback(*storedException);
+                //         }
+                //         else
+                //         {
+                //             resultCallback(move(*result));
+                //         }
+                //         futureHolder.reset();
+                //     });
             }
 
             size_t AllocateNonceSlot() override
@@ -2009,6 +1902,8 @@ namespace
             websocket::stream<tcp::socket> ws_;
             boost::asio::strand<boost::asio::io_context::executor_type> strand_;
             boost::beast::multi_buffer buffer_;
+            io::Timer::Ptr _readTimer;
+            bool systemIsBusy = false;
 
         public:
             // Take ownership of the socket
@@ -2017,7 +1912,9 @@ namespace
                 : ws_(std::move(socket))
                 , strand_(ws_.get_executor())
                 , ApiConnection(this, reactor, *this)
+                , _readTimer(io::Timer::create(*reactor))
             {
+                
             }
 
             ~session()
@@ -2046,7 +1943,13 @@ namespace
                     return fail(ec, "accept");
 
                 // Read a message
-                do_read();
+                do_async_read();
+            }
+
+            void do_async_read()
+            {
+                //do_read();
+                _readTimer->start(1, false, [this](){do_read();});
             }
 
             void
@@ -2062,70 +1965,86 @@ namespace
                             shared_from_this(),
                             std::placeholders::_1,
                             std::placeholders::_2)));
+
+                // while(!done)
+                //     reactorRunOnce();
             }
 
             using KeyKeeperFunc = std::function<void(const json&)>;
 
-            void
-            do_keykeeper_read(KeyKeeperFunc func)
-            {
-                // Read a message into our buffer
-                ws_.async_read(
-                    buffer_,
-                    boost::asio::bind_executor(
-                        strand_,
-                        std::bind(
-                            &session::on_keykeeper_read,
-                            shared_from_this(),
-                            std::placeholders::_1,
-                            std::placeholders::_2, func)));
-            }
+            boost::optional<KeyKeeperFunc> _awaitingResponse;
+
+            // void
+            // do_keykeeper_read(KeyKeeperFunc func)
+            // {
+            //     // Read a message into our buffer
+            //     ws_.async_read(
+            //         buffer_,
+            //         boost::asio::bind_executor(
+            //             strand_,
+            //             std::bind(
+            //                 &session::on_keykeeper_read,
+            //                 shared_from_this(),
+            //                 std::placeholders::_1,
+            //                 std::placeholders::_2, func)));
+            // }
 
             void serializeMsg(const json& msg) override
             {
-                buffer_.consume(buffer_.size());
+                //buffer_.consume(buffer_.size());
                 std::string contents = msg.dump();
-                size_t n = boost::asio::buffer_copy(buffer_.prepare(contents.size()), boost::asio::buffer(contents));
-                buffer_.commit(n);
+                //size_t n = boost::asio::buffer_copy(buffer_.prepare(contents.size()), boost::asio::buffer(contents));
+                //buffer_.commit(n);
+
+                bool done = false;
 
                 ws_.text(ws_.got_text());
                 ws_.async_write(
-                    buffer_.data(),
+                    boost::asio::buffer(contents),//buffer_.data(),
                     boost::asio::bind_executor(
                         strand_,
                         std::bind(
                             &session::on_write,
                             shared_from_this(),
                             std::placeholders::_1,
-                            std::placeholders::_2)));
+                            std::placeholders::_2, [&done](){done=true;})));
+
+                while(!done)
+                    reactorRunOnce();
             }
 
             void call_keykeeper_method(const json& msg, KeyKeeperFunc func)
             {
-                buffer_.consume(buffer_.size());
-                std::string contents = msg.dump();
-                size_t n = boost::asio::buffer_copy(buffer_.prepare(contents.size()), boost::asio::buffer(contents));
-                buffer_.commit(n);
+                systemIsBusy = true;
 
-                bool gotResponse = false;
+                //buffer_.consume(buffer_.size());
+                std::string contents = msg.dump();
+                // size_t n = boost::asio::buffer_copy(buffer_.prepare(contents.size()), boost::asio::buffer(contents));
+                // buffer_.commit(n);
+
+                bool done = false;
+
+                _awaitingResponse = [&done, &func](const json& msg)
+                {
+                    done = true;
+                    func(msg);
+                };
 
                 ws_.text(ws_.got_text());
                 ws_.async_write(
-                    buffer_.data(),
+                    boost::asio::buffer(contents),
                     boost::asio::bind_executor(
                         strand_,
                         std::bind(
                             &session::on_keykeeper_write,
                             shared_from_this(),
                             std::placeholders::_1,
-                            std::placeholders::_2, [&gotResponse, &func](const json& msg)
-                            {
-                                gotResponse = true;
-                                func(msg);
-                            })));
+                            std::placeholders::_2, [&done](){})));
 
-                while(!gotResponse)
+                while(!done)
                     reactorRunOnce();
+
+                systemIsBusy = false;
             }
 
             void
@@ -2145,43 +2064,76 @@ namespace
                 {
                     std::ostringstream os;
                     os << boost::beast::buffers(buffer_.data());
+                    buffer_.consume(buffer_.size());
                     auto data = os.str();
-                    LOG_DEBUG() << "data from a client:" << data;
 
-                    _api.parse(data.c_str(), data.size());
+                    if(data.size())
+                    {
+                        LOG_DEBUG() << "data from a client:" << data;
+                        
+                        do_async_read();
+
+                        try
+                        {
+                            json msg = json::parse(data.c_str(), data.c_str() + data.size());
+
+                            if(existsJsonParam(msg, "result"))
+                            {
+                                // here is Key Keeper result
+                                if(_awaitingResponse)
+                                {
+                                    (*_awaitingResponse)(msg);
+                                    _awaitingResponse.reset();
+                                }
+                                //else assert(false);
+                            }
+                            else if(!systemIsBusy)
+                            {
+                                // !TODO: don't forget to cache this request
+                                _api.parse(data.c_str(), data.size());
+                            }
+                        }
+                        catch (const nlohmann::detail::exception& e)
+                        {
+                            LOG_ERROR() << "json parse: " << e.what() << "\n";
+
+                        }
+                    }
                 }
+
+                
             }
 
-            void
-            on_keykeeper_read(
-                boost::system::error_code ec,
-                std::size_t bytes_transferred, KeyKeeperFunc func)
-            {
-                boost::ignore_unused(bytes_transferred);
+            // void
+            // on_keykeeper_read(
+            //     boost::system::error_code ec,
+            //     std::size_t bytes_transferred, KeyKeeperFunc func)
+            // {
+            //     boost::ignore_unused(bytes_transferred);
 
-                // This indicates that the session was closed
-                if(ec == websocket::error::closed)
-                    return;
+            //     // This indicates that the session was closed
+            //     if(ec == websocket::error::closed)
+            //         return;
 
-                if(ec)
-                    fail(ec, "read");
+            //     if(ec)
+            //         fail(ec, "read");
 
-                {
-                    std::ostringstream os;
-                    os << boost::beast::buffers(buffer_.data());
-                    auto data = os.str();
-                    LOG_DEBUG() << "data from a keykeeper:" << data;
+            //     {
+            //         std::ostringstream os;
+            //         os << boost::beast::buffers(buffer_.data());
+            //         auto data = os.str();
+            //         LOG_DEBUG() << "data from a keykeeper:" << data;
 
-                    json msg = json::parse(data.c_str(), data.c_str() + data.size());
+            //         json msg = json::parse(data.c_str(), data.c_str() + data.size());
 
-                    func(msg);
-                }
-            }
+            //         func(msg);
+            //     }
+            // }
 
             void
             on_write(
                 boost::system::error_code ec,
-                std::size_t bytes_transferred)
+                std::size_t bytes_transferred, std::function<void()> done)
             {
                 boost::ignore_unused(bytes_transferred);
 
@@ -2189,16 +2141,18 @@ namespace
                     return fail(ec, "write");
 
                 // Clear the buffer
-                buffer_.consume(buffer_.size());
+                //buffer_.consume(buffer_.size());
+
+                done();
 
                 // Do another read
-                do_read();
+                //do_read();
             }
 
             void
             on_keykeeper_write(
                 boost::system::error_code ec,
-                std::size_t bytes_transferred, KeyKeeperFunc func)
+                std::size_t bytes_transferred, std::function<void()> done)
             {
                 boost::ignore_unused(bytes_transferred);
 
@@ -2206,11 +2160,108 @@ namespace
                     return fail(ec, "write");
 
                 // Clear the buffer
-                buffer_.consume(buffer_.size());
+                //buffer_.consume(buffer_.size());
+
+                done();
 
                 // Do another read
-                do_keykeeper_read(func);
+                //do_keykeeper_read(func);
             }
+        };
+
+        // Accepts incoming connections and launches the sessions
+        class listener : public std::enable_shared_from_this<listener>
+        {
+            tcp::acceptor acceptor_;
+            tcp::socket socket_;
+            io::Reactor::Ptr _reactor;
+            boost::asio::io_context& _ioc;
+
+        public:
+            listener(
+                boost::asio::io_context& ioc,
+                tcp::endpoint endpoint, io::Reactor::Ptr reactor)
+                : acceptor_(ioc)
+                , socket_(ioc)
+                , _reactor(reactor)
+                , _ioc(ioc)
+            {
+                boost::system::error_code ec;
+
+                // Open the acceptor
+                acceptor_.open(endpoint.protocol(), ec);
+                if(ec)
+                {
+                    fail(ec, "open");
+                    return;
+                }
+
+                // Allow address reuse
+                acceptor_.set_option(boost::asio::socket_base::reuse_address(true), ec);
+                if(ec)
+                {
+                    fail(ec, "set_option");
+                    return;
+                }
+
+                // Bind to the server address
+                acceptor_.bind(endpoint, ec);
+                if(ec)
+                {
+                    fail(ec, "bind");
+                    return;
+                }
+
+                // Start listening for connections
+                acceptor_.listen(
+                    boost::asio::socket_base::max_listen_connections, ec);
+                if(ec)
+                {
+                    fail(ec, "listen");
+                    return;
+                }
+            }
+
+            // Start accepting incoming connections
+            void
+            run()
+            {
+                if(! acceptor_.is_open())
+                    return;
+                do_accept();
+            }
+
+            void
+            do_accept()
+            {
+                acceptor_.async_accept(
+                    socket_,
+                    std::bind(
+                        &listener::on_accept,
+                        shared_from_this(),
+                        std::placeholders::_1));
+            }
+
+            void
+            on_accept(boost::system::error_code ec)
+            {
+                if(ec)
+                {
+                    fail(ec, "accept");
+                }
+                else
+                {
+                    // Create the session and run it
+                    auto s = std::make_shared<session>(std::move(socket_), _reactor);
+                    _sessions.push_back(s);
+                    s->run();
+                }
+
+                // Accept another connection
+                do_accept();
+            }
+
+            std::vector<std::shared_ptr<session>> _sessions;
         };
 
         io::Reactor::Ptr _reactor;
