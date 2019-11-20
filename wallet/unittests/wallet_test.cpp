@@ -1434,7 +1434,9 @@ namespace
         WALLET_CHECK(peerID.FromHex("1b516fb39884a3281bc0761f97817782a8bc51fdb1336882a2c7efebdb400d00d4"));
         auto params = CreateSimpleTransactionParameters()
             .SetParameter(TxParameterID::MyID, myID)
-            .SetParameter(TxParameterID::PeerID, peerID);
+            .SetParameter(TxParameterID::PeerID, peerID)
+            .SetParameter(TxParameterID::Lifetime, Height(200));
+
 
         string token = to_string(params);
 
