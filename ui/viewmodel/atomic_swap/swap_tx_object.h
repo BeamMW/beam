@@ -21,7 +21,7 @@ class SwapTxObject : public TxObject
 
 public:
     SwapTxObject(QObject* parent = nullptr);
-    SwapTxObject(const beam::wallet::TxDescription& tx, uint32_t minTxConfirmations, QObject* parent = nullptr);
+    SwapTxObject(const beam::wallet::TxDescription& tx, uint32_t minTxConfirmations, double blocksPerHour, QObject* parent = nullptr);
 
     auto getSentAmountWithCurrency() const -> QString;
     auto getSentAmount() const-> QString;
@@ -69,4 +69,5 @@ private:
     boost::optional<bool> m_isBeamSide;
     boost::optional<beam::wallet::AtomicSwapCoin> m_swapCoin;
     uint32_t m_minTxConfirmations = 0;
+    double m_blocksPerHour = 0;
 };

@@ -82,6 +82,10 @@ SwapOffersViewModel::SwapOffersViewModel()
     m_minTxConfirmations.emplace(AtomicSwapCoin::Bitcoin, m_btcClient->GetSettings().GetTxMinConfirmations());
     m_minTxConfirmations.emplace(AtomicSwapCoin::Litecoin, m_ltcClient->GetSettings().GetTxMinConfirmations());
     m_minTxConfirmations.emplace(AtomicSwapCoin::Qtum, m_qtumClient->GetSettings().GetTxMinConfirmations());
+
+    m_blocksPerHour.emplace(AtomicSwapCoin::Bitcoin, m_btcClient->GetSettings().GetBlocksPerHour());
+    m_blocksPerHour.emplace(AtomicSwapCoin::Litecoin, m_ltcClient->GetSettings().GetBlocksPerHour());
+    m_blocksPerHour.emplace(AtomicSwapCoin::Qtum, m_qtumClient->GetSettings().GetBlocksPerHour());
 }
 
 int SwapOffersViewModel::getSelectedCoin()
@@ -206,7 +210,8 @@ void SwapOffersViewModel::onTransactionsDataModelChanged(beam::wallet::ChangeAct
         {
             auto swapCoinType = t.GetParameter<AtomicSwapCoin>(TxParameterID::AtomicSwapCoin);
             uint32_t minTxConfirmations = swapCoinType ? getTxMinConfirmations(*swapCoinType) : 0;
-            auto newItem = make_shared<SwapTxObject>(t, minTxConfirmations);
+            double blocksPerHour = swapCoinType ? getBlocksPerHour(*swapCoinType) : 0;
+            auto newItem = make_shared<SwapTxObject>(t, minTxConfirmations, blocksPerHour);
             swapTransactions.push_back(newItem);
             if (!newItem->isPending() && newItem->isInProgress())
             {
@@ -422,6 +427,16 @@ uint32_t SwapOffersViewModel::getTxMinConfirmations(beam::wallet::AtomicSwapCoin
 {
     auto it = m_minTxConfirmations.find(swapCoinType);
     if (it != m_minTxConfirmations.end())
+    {
+        return it->second;
+    }
+    return 0;
+}
+
+double SwapOffersViewModel::getBlocksPerHour(AtomicSwapCoin swapCoinType)
+{
+    auto it = m_blocksPerHour.find(swapCoinType);
+    if (it != m_blocksPerHour.end())
     {
         return it->second;
     }

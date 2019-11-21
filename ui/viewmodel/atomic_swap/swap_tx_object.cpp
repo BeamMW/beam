@@ -24,6 +24,8 @@ using namespace beam::wallet;
 
 namespace
 {
+    constexpr uint32_t kSecondsPerHour = 60 * 60;
+
     QString convertBeamHeightDiffToTime(int32_t dt)
     {
         if (dt <= 0)
@@ -79,7 +81,7 @@ namespace
         return qtTrId("swap-tx-state-in-progress-normal").arg(time);
     }
 
-    QString getInProgressRefundingStr(const beam::wallet::TxParameters& txParameters)
+    QString getInProgressRefundingStr(const beam::wallet::TxParameters& txParameters, double blocksPerHour)
     {
         auto isBeamSide = *txParameters.GetParameter<bool>(TxParameterID::AtomicSwapIsBeamSide); // mandatory parameter
         auto isRegistered = txParameters.GetParameter<uint8_t>(TxParameterID::TransactionRegistered, isBeamSide ? BEAM_REFUND_TX : REFUND_TX);
@@ -109,9 +111,11 @@ namespace
                 coin = beamui::toString(beamui::convertSwapCoinToCurrency(*swapCoin));
                 auto currentCoinHeight = txParameters.GetParameter<Height>(TxParameterID::AtomicSwapExternalHeight);
                 auto lockTime = txParameters.GetParameter<Height>(TxParameterID::AtomicSwapExternalLockTime);
-                if (lockTime && currentCoinHeight && *currentCoinHeight < *lockTime)
+                if (lockTime && currentCoinHeight && *currentCoinHeight < *lockTime && blocksPerHour)
                 {
-                    time = convertBeamHeightDiffToTime(*lockTime - *currentCoinHeight);
+                    double beamBlocksPerBlock = (kSecondsPerHour / beam::Rules().DA.Target_s) / blocksPerHour;
+                    double beamBlocks = (*lockTime - *currentCoinHeight) * beamBlocksPerBlock;
+                    time = convertBeamHeightDiffToTime(static_cast<int32_t>(std::round(beamBlocks)));
                 }
             }
         }
@@ -132,11 +136,12 @@ SwapTxObject::SwapTxObject(QObject* parent)
 {
 }
 
-SwapTxObject::SwapTxObject(const TxDescription& tx, uint32_t minTxConfirmations, QObject* parent/* = nullptr*/)
+SwapTxObject::SwapTxObject(const TxDescription& tx, uint32_t minTxConfirmations, double blocksPerHour, QObject* parent/* = nullptr*/)
         : TxObject(tx, parent),
           m_isBeamSide(m_tx.GetParameter<bool>(TxParameterID::AtomicSwapIsBeamSide)),
           m_swapCoin(m_tx.GetParameter<AtomicSwapCoin>(TxParameterID::AtomicSwapCoin)),
-          m_minTxConfirmations(minTxConfirmations)
+          m_minTxConfirmations(minTxConfirmations),
+          m_blocksPerHour(blocksPerHour)
 {
 }
 
@@ -461,7 +466,7 @@ QString SwapTxObject::getSwapState() const
                         return getInProgressNormalStr(getTxDescription());
                     case wallet::AtomicSwapTransaction::State::SendingRefundTX:
                     case wallet::AtomicSwapTransaction::State::SendingBeamRefundTX:
-                        return getInProgressRefundingStr(getTxDescription());
+                        return getInProgressRefundingStr(getTxDescription(), m_blocksPerHour);
                     default:
                         break;
                     }
