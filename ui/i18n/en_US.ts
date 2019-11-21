@@ -1894,8 +1894,8 @@ to complete.</translation>
         <translation>connect</translation>
     </message>
     <message id="swap-tx-state-initial">
-        <source>if nobody accepts the offer in %1, the offer will be automatically canceled</source>
-        <translation>if nobody accepts the offer in %1, the offer will be automatically canceled</translation>
+        <source>If nobody accepts the offer in %1, the offer will be automatically canceled</source>
+        <translation>If nobody accepts the offer in %1, the offer will be automatically canceled</translation>
     </message>
     <message id="swap-tx-state-in-progress-normal">
         <source>The swap is expected to complete in %1 at most</source>

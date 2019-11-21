@@ -50,7 +50,7 @@ namespace
         {
             time = convertBeamHeightDiffToTime(*minHeight + *responseTime - AppModel::getInstance().getWallet()->getCurrentHeight());
         }
-        //% "if nobody accepts the offer in %1, the offer will be automatically canceled"
+        //% "If nobody accepts the offer in %1, the offer will be automatically canceled"
         return qtTrId("swap-tx-state-initial").arg(time);
     }
 
