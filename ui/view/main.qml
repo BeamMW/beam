@@ -3,6 +3,7 @@ import QtQuick.Controls 1.4
 import QtQuick.Controls 2.4
 import QtQuick.Controls.Styles 1.2
 import QtGraphicalEffects 1.0
+import QtQuick.Window 2.2
 import "controls"
 import Beam.Wallet 1.0
 
@@ -12,6 +13,37 @@ Rectangle {
     anchors.fill: parent
 
 	MainViewModel {id: viewModel}
+
+    ConfirmationDialog {
+        id:                     closeDialog
+        //% "Beam wallet close"
+        title:                  qsTrId("app-close-title")
+        //% "There are %1 active transactions that might fail if the wallet will go offline. Are you sure to close the wallet now?"
+        text:                   qsTrId("app-close-text").arg(viewModel.unsafeTxCount)
+        //% "yes"
+        okButtonText:           qsTrId("atomic-swap-tx-yes-button")
+        okButtonIconSource:     "qrc:/assets/icon-done.svg"
+        okButtonColor:          Style.swapCurrencyStateIndicator
+        //% "no"
+        cancelButtonText:       qsTrId("atomic-swap-no-button")
+        cancelButtonIconSource: "qrc:/assets/icon-cancel-16.svg"
+        
+        onOpened: {
+            closeDialog.visible = Qt.binding(function(){return viewModel.unsafeTxCount > 0;});
+        }
+
+        onAccepted: {
+            Qt.quit();
+        }
+        modal: true
+    }
+
+    function onClosing (close) {
+        if (viewModel.unsafeTxCount > 0) {
+            close.accepted = false;
+            closeDialog.open();
+        }
+    }
 
     property color topColor: Style.background_main_top
     property color topGradientColor: Qt.rgba(Style.background_main_top.r, Style.background_main_top.g, Style.background_main_top.b, 0)
@@ -227,6 +259,11 @@ Rectangle {
 
     Component.onCompleted: {
         updateItem("wallet")
+        main.Window.window.closing.connect(onClosing)
+    }
+
+    Component.onDestruction: {
+        main.Window.window.closing.disconnect(onClosing)
     }
 
 }

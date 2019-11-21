@@ -64,6 +64,7 @@ namespace beam::wallet
                         , const TxID& txID);
     private:
         TxType GetType() const override;
+        bool IsInSafety() const override;
         void UpdateImpl() override;
         bool ShouldNotifyAboutChanges(TxParameterID paramID) const override;
         void SendInvitation(const BaseTxBuilder& builder, bool isSender);

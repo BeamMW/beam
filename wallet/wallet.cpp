@@ -247,6 +247,14 @@ namespace beam::wallet
         return IsValidTimeStamp(state.m_TimeStamp);
     }
 
+    size_t Wallet::GetUnsafeActiveTransactionsCount() const
+    {
+        return std::count_if(m_ActiveTransactions.begin(), m_ActiveTransactions.end(), [](const auto& p)
+            {
+                return !p.second->IsInSafety();
+            });
+    }
+
     void Wallet::OnAsyncStarted()
     {
         if (m_AsyncUpdateCounter == 0)
