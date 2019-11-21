@@ -210,39 +210,15 @@ namespace beam::wallet
     {
         if (m_ChangeBeam)
         {
-            const auto coin = GenerateBeamChangeCoin(m_ChangeBeam);
-            m_OutputCoins.push_back(coin.m_ID);
+            GenerateBeamCoin(m_ChangeBeam, true);
         }
 
         if (m_ChangeAsset)
         {
-            const auto coin = GenerateAssetChangeCoin(m_ChangeAsset);
-            m_OutputCoins.push_back(coin.m_ID);
+            GenerateAssetCoin(m_ChangeAsset, true);
         }
 
          m_Tx.SetParameter(TxParameterID::OutputCoins, m_OutputCoins, false, m_SubTxID);
-    }
-
-    Coin AssetIssueTxBuilder::GenerateBeamChangeCoin(beam::Amount amount) const
-    {
-        Coin coin(amount);
-
-        coin.m_createTxId = m_Tx.GetTxID();
-        coin.m_ID.m_Type  = Key::Type::Change;
-        m_Tx.GetWalletDB()->storeCoin(coin);
-
-        return coin;
-    }
-
-    Coin AssetIssueTxBuilder::GenerateAssetChangeCoin(beam::Amount amount) const
-    {
-        Coin coin(amount);
-
-        coin.m_createTxId = m_Tx.GetTxID();
-        coin.m_ID.m_Type  = Key::Type::AssetChange;
-        m_Tx.GetWalletDB()->storeCoin(coin);
-
-        return coin;
     }
 
     Amount AssetIssueTxBuilder::GetFee() const
@@ -352,26 +328,29 @@ namespace beam::wallet
         m_Tx.GetWalletDB()->saveCoins(coins);
     }
 
-    void AssetIssueTxBuilder::GenerateAssetCoin(Amount amount)
+    void AssetIssueTxBuilder::GenerateAssetCoin(Amount amount, bool change)
     {
-        Coin newUtxo(amount, Key::Type::Asset, m_assetId);
+        Coin newUtxo(amount, change ? Key::Type::AssetChange : Key::Type::Asset, m_assetId);
         newUtxo.m_createTxId = m_Tx.GetTxID();
         m_Tx.GetWalletDB()->storeCoin(newUtxo);
         m_OutputCoins.push_back(newUtxo.m_ID);
         m_Tx.SetParameter(TxParameterID::OutputCoins, m_OutputCoins, false, m_SubTxID);
-        LOG_INFO() << m_Tx.GetTxID() << " Creating asset coin: "
+        LOG_INFO() << m_Tx.GetTxID() << " Creating ASSET coin " << (change ? "(change):" : ":")
                    << PrintableAmount(amount, false, kAmountASSET, kAmountAGROTH)
+                   << ", asset id " << m_assetId.str()
                    << ", id " << newUtxo.toStringID();
     }
 
-    void AssetIssueTxBuilder::GenerateBeamCoin(Amount amount)
+    void AssetIssueTxBuilder::GenerateBeamCoin(Amount amount, bool change)
     {
-        LOG_INFO() << "Creating beam coin " << amount;
-        Coin newUtxo(amount);
+        Coin newUtxo(amount, change ? Key::Type::Change : Key::Type::Regular);
         newUtxo.m_createTxId = m_Tx.GetTxID();
         m_Tx.GetWalletDB()->storeCoin(newUtxo);
         m_OutputCoins.push_back(newUtxo.m_ID);
         m_Tx.SetParameter(TxParameterID::OutputCoins, m_OutputCoins, false, m_SubTxID);
+        LOG_INFO() << m_Tx.GetTxID() << " Creating BEAM coin " << (change ? "(change):" : ":")
+                   << PrintableAmount(amount)
+                   << ", id " << newUtxo.toStringID();
     }
 
     bool AssetIssueTxBuilder::CreateOutputs()

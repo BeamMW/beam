@@ -16,6 +16,7 @@
 #include "aissue_tx_builder.h"
 #include "core/block_crypt.h"
 #include "utility/logger.h"
+#include "strings_resources.h"
 
 namespace beam::wallet
 {
@@ -67,8 +68,13 @@ namespace beam::wallet
                 if (_issue)
                 {
                     LOG_INFO() << GetTxID() << " Generating asset with index " << builder.GetAssetIdx()
-                               << " and asset id " << builder.GetAssetId().str();
+                               << " and asset id " << builder.GetAssetId().str() << ". Amount: " << PrintableAmount(builder.GetAmountBeam(), false, kASSET, kAGROTH);
                     LOG_INFO() << GetTxID() << " Please remember your assset index. You won't be able to consume the asset or generate additional coins without it";
+                }
+                else
+                {
+                    LOG_INFO() << GetTxID() << " Consuming asset with index " << builder.GetAssetIdx() << " and asset id " << builder.GetAssetId().str()
+                               << ". Amount: " << PrintableAmount(builder.GetAmountAsset(), false, kASSET, kAGROTH);
                 }
 
                 builder.SelectInputs();
@@ -76,8 +82,8 @@ namespace beam::wallet
 
                 for (const auto& amount : builder.GetAmountList())
                 {
-                    if (_issue) builder.GenerateAssetCoin(amount);
-                    else builder.GenerateBeamCoin(amount);
+                    if (_issue) builder.GenerateAssetCoin(amount, false);
+                    else builder.GenerateBeamCoin(amount, false);
                 }
 
                 UpdateTxDescription(TxStatus::InProgress);

@@ -43,8 +43,8 @@ namespace beam::wallet
         void     SelectInputs();
         bool     GetInputs();
         bool     GetOutputs();
-        void     GenerateAssetCoin(Amount amount);
-        void     GenerateBeamCoin(Amount amount);
+        void     GenerateAssetCoin(Amount amount, bool change);
+        void     GenerateBeamCoin(Amount amount, bool change);
         bool     CreateInputs();
         bool     CreateOutputs();
         uint32_t GetAssetIdx() const;
@@ -65,8 +65,6 @@ namespace beam::wallet
     private:
         const CoinIDList& GetInputCoins() const;
         const CoinIDList& GetOutputCoins() const;
-        Coin GenerateBeamChangeCoin(Amount amount) const;
-        Coin GenerateAssetChangeCoin(Amount amount) const;
 
     private:
         BaseTransaction& m_Tx;
