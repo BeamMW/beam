@@ -53,4 +53,5 @@ private:
     void onShowKeyKeeperMessage() override {}
     void onHideKeyKeeperMessage() override {}
     void onShowKeyKeeperError(const std::string&) override {}
+    void onPostFunctionToClientContext(MessageFunction&& func) override {};
 };
