@@ -1052,14 +1052,14 @@ namespace
                         if (settings.GetElectrumConnectionOptions().IsInitialized())
                         {
                             settings.ChangeConnectionType(bitcoin::ISettings::ConnectionType::Electrum);
+                            settings.SetConnectionOptions(CoreSettings{});
                         }
                         else
                         {
-                            settings.ChangeConnectionType(bitcoin::ISettings::ConnectionType::None);
+                            settings = Settings{};
                         }
                     }
 
-                    settings.SetConnectionOptions(CoreSettings{});
                     settingsProvider.SetSettings(settings);
                     return 0;
                 }
@@ -1073,14 +1073,14 @@ namespace
                         if (settings.GetConnectionOptions().IsInitialized())
                         {
                             settings.ChangeConnectionType(bitcoin::ISettings::ConnectionType::Core);
+                            settings.SetElectrumConnectionOptions(ElectrumSettings{});
                         }
                         else
                         {
-                            settings.ChangeConnectionType(bitcoin::ISettings::ConnectionType::None);
+                            settings = Settings{};
                         }
                     }
 
-                    settings.SetElectrumConnectionOptions(ElectrumSettings{});
                     settingsProvider.SetSettings(settings);
                     return 0;
                 }
