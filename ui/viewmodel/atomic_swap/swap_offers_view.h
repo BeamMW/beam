@@ -107,6 +107,9 @@ private:
     void removeAllOffersFitBalance(
         const std::vector<std::shared_ptr<SwapOfferItem>>& offers);
     bool hasActiveTx(const std::string& swapCoin) const;
+    uint32_t getTxMinConfirmations(AtomicSwapCoin swapCoinType);
+    double getBlocksPerHour(AtomicSwapCoin swapCoinType);
+
     WalletModel& m_walletModel;
     
     AtomicSwapCoin m_selectedCoin;
@@ -132,4 +135,6 @@ private:
     int m_activeTxCount = 0;
     ActiveTxCounters m_activeTxCounters;
     std::map<beam::wallet::TxID, beam::wallet::AtomicSwapCoin> m_activeTx;
+    std::map<AtomicSwapCoin, uint32_t> m_minTxConfirmations;
+    std::map<AtomicSwapCoin, double> m_blocksPerHour;
 };

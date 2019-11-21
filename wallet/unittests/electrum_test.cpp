@@ -23,8 +23,15 @@
 #include "test_helpers.h"
 
 #include "bitcoin/bitcoin.hpp"
+#include "utility/io/sslserver.h"
 
 WALLET_TEST_INIT
+
+using namespace beam;
+using namespace std;
+using namespace ECC;
+
+#include "swap_test_environment.cpp"
 
 namespace beam::bitcoin
 {
@@ -64,7 +71,7 @@ namespace beam::bitcoin
     };
 }
 
-using namespace beam;
+//using namespace beam;
 using json = nlohmann::json;
 
 
@@ -142,12 +149,58 @@ void testAddress()
     }
 }
 
+void testConnection()
+{
+    io::Reactor::Ptr mainReactor{ io::Reactor::create() };
+    io::Reactor::Scope scope(*mainReactor);
+    io::Timer::Ptr timer(io::Timer::create(*mainReactor));
+    std::string address("127.0.0.1:10400");
+    TestElectrumWallet btcWallet(*mainReactor, address);
+    io::Address addr;
+    std::unique_ptr<io::TcpStream> sslStream;
+
+    addr.resolve(address.c_str());
+
+    mainReactor->tcp_connect(addr, 1, [&](uint64_t tag, std::unique_ptr<io::TcpStream>&& newStream, io::ErrorCode status)
+    {
+        LOG_DEBUG() << "status = " << static_cast<int>(status);
+        sslStream = std::move(newStream);
+
+        sslStream->enable_read([&](io::ErrorCode what, void* data, size_t size)
+        {
+            if (data && size)
+            {
+                LOG_DEBUG() << "result: " << std::string((const char*)data, size);
+            }
+            else
+            {
+                LOG_DEBUG() << "error what = " << static_cast<int>(what);
+            }
+            return true;
+        });
+
+        std::string request = "tt";
+
+        io::Result res = sslStream->write(request.data(), request.size());
+        if (!res) {
+            LOG_ERROR() << error_str(res.error());
+        }
+    }, 2000, true);
+
+    timer->start(5000, false, [&]() {
+        mainReactor->stop();
+    });
+
+    mainReactor->run();
+}
+
 int main()
 {
     int logLevel = LOG_LEVEL_DEBUG;
     auto logger = beam::Logger::create(logLevel, logLevel);
 
     testAddress();
+    //testConnection();
     
     assert(g_failureCount == 0);
     return WALLET_CHECK_RESULT;

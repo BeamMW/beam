@@ -381,6 +381,7 @@ please review your settings and try again"
                                     qsTrId("beam-transaction-fee") + ":" :
                                     //% "%1 Transaction fee rate"
                                     qsTrId("general-fee-rate").arg(sendAmountInput.getCurrencyLabel()),
+                                swapCurrencyLabel: sendAmountInput.currency == Currency.CurrBeam ? "" : sendAmountInput.getCurrencyLabel(),
                                 onAcceptedCallback: acceptedCallback
                             }).open();
 

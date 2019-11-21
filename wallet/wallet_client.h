@@ -66,11 +66,17 @@ namespace beam::wallet
         std::string exportOwnerKey(const beam::SecString& pass) const;
         bool isRunning() const;
         bool isFork1() const;
+        size_t getUnsafeActiveTransactionsCount() const;
 
     protected:
         // Call this before derived class is destructed to ensure
         // that no virtual function calls below will result in purecall
         void stopReactor();
+
+        using MessageFunction = std::function<void()>;
+
+        // use this function to post function call to client's main loop
+        void postFunctionToClientContext(MessageFunction&& func);
 
         virtual void onStatus(const WalletStatus& status) = 0;
         virtual void onTxStatus(ChangeAction, const std::vector<TxDescription>& items) = 0;
@@ -96,6 +102,7 @@ namespace beam::wallet
         virtual void onNoDeviceConnected() = 0;
         virtual void onImportDataFromJson(bool isOk) = 0;
         virtual void onExportDataToJson(const std::string& data) = 0;
+        virtual void onPostFunctionToClientContext(MessageFunction&& func) = 0;
 
     private:
 
@@ -146,7 +153,8 @@ namespace beam::wallet
 
         void nodeConnectionFailed(const proto::NodeConnection::DisconnectReason&);
         void nodeConnectedStatusChanged(bool isNodeConnected);
-
+        void updateClientState();
+        void updateClientTxState();
     private:
 
         template<typename T, typename KeyFunc>
@@ -341,5 +349,7 @@ namespace beam::wallet
             const type& operator()(const TxDescription& c) const { return *c.GetTxID(); }
         };
         ChangesCollector <TxDescription, TransactionKey> m_TransactionChangesCollector;
+        size_t m_unsafeActiveTxCount = 0;
+        beam::Height m_currentHeight = 0;
     };
 }
