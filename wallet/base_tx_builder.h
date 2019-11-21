@@ -32,7 +32,8 @@ namespace beam::wallet
 
         void SelectInputs();
         void AddChange();
-        void GenerateOutputCoin(Amount amount, bool bChange, bool bAsset);
+        void GenerateAssetCoin(Amount amount, bool change);
+        void GenerateBeamCoin(Amount amount, bool change);
         bool CreateOutputs();
         bool FinalizeOutputs();
         bool LoadKernel();

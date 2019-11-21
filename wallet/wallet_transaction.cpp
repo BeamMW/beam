@@ -157,13 +157,18 @@ namespace beam::wallet
                     // create receiver utxo
                     for (const auto& amount : builder.GetAmountList())
                     {
-                        // TODO: check if this is correct
-                        builder.GenerateOutputCoin(amount, false, builder.GetAssetId() != Zero);
+                        if (builder.GetAssetId() != Zero)
+                        {
+                            builder.GenerateAssetCoin(amount, false);
+                        }
+                        else
+                        {
+                            builder.GenerateBeamCoin(amount, false);
+                        }
                     }
                 }
 
                 UpdateTxDescription(TxStatus::InProgress);
-
                 builder.GenerateOffset();
             }
 

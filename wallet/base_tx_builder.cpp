@@ -128,21 +128,27 @@ namespace beam::wallet
     {
         if (m_ChangeBeam)
         {
-            GenerateOutputCoin(m_ChangeBeam, true, false);
+            GenerateBeamCoin(m_ChangeBeam, true);
         }
 
         if (m_ChangeAsset)
         {
-            GenerateOutputCoin(m_ChangeAsset, true, true);
+            GenerateAssetCoin(m_ChangeAsset, true);
         }
     }
 
-    void BaseTxBuilder::GenerateOutputCoin(beam::Amount amount, bool bChange, bool bAsset)
+    void BaseTxBuilder::GenerateAssetCoin(Amount amount, bool change)
     {
-        auto keyType = bChange ? Key::Type::Change : Key::Type::Regular;
-        if (bAsset) keyType = bChange ? Key::Type::AssetChange : Key::Type::Asset;
+        Coin newUtxo(amount, change ? Key::Type::AssetChange : Key::Type::Asset, m_AssetId);
+        newUtxo.m_createTxId = m_Tx.GetTxID();
+        m_Tx.GetWalletDB()->storeCoin(newUtxo);
+        m_OutputCoins.push_back(newUtxo.m_ID);
+        m_Tx.SetParameter(TxParameterID::OutputCoins, m_OutputCoins, false, m_SubTxID);
+    }
 
-        Coin newUtxo(amount, keyType, bAsset ? m_AssetId : Zero);
+    void BaseTxBuilder::GenerateBeamCoin(Amount amount, bool change)
+    {
+        Coin newUtxo(amount, change ? Key::Type::Change : Key::Type::Regular);
         newUtxo.m_createTxId = m_Tx.GetTxID();
         m_Tx.GetWalletDB()->storeCoin(newUtxo);
         m_OutputCoins.push_back(newUtxo.m_ID);
