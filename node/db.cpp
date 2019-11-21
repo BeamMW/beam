@@ -84,6 +84,10 @@ namespace beam {
 #define TblTxo_Value			"Value"
 #define TblTxo_SpendHeight		"SpendHeight"
 
+#define TblShielded				"Shielded"
+#define TblShielded_ID			"ID"
+#define TblShielded_Value		"Value"
+
 NodeDB::NodeDB()
 	:m_pDb(NULL)
 {
@@ -230,6 +234,11 @@ void NodeDB::Recordset::put(int col, const Key::ID& kid, Key::ID::Packed& p)
 	put(col, Blob(&p, sizeof(p)));
 }
 
+void NodeDB::Recordset::putZeroBlob(int col, uint32_t nSize)
+{
+	m_DB.TestRet(sqlite3_bind_zeroblob(m_pStmt, col + 1, nSize));
+}
+
 void NodeDB::Recordset::get(int col, uint32_t& x)
 {
 	x = sqlite3_column_int(m_pStmt, col);
@@ -293,7 +302,8 @@ void NodeDB::Open(const char* szPath)
 
 	const uint64_t nVersion17 = 17; // before UTXO image
 	const uint64_t nVersion18 = 18; // ridiculous rating values, no States.Inputs column, Txo.SpendHeight is still indexed
-	const uint64_t nVersionTop = 19;
+	const uint64_t nVersion19 = 19; // before Shielded shards
+	const uint64_t nVersionTop = 20;
 
 	Transaction t(*this);
 
@@ -305,29 +315,31 @@ void NodeDB::Open(const char* szPath)
 	else
 	{
 		uint64_t nVer = ParamIntGetDef(ParamID::DbVer);
-		if (nVer != nVersionTop)
+		switch (nVer)
 		{
-			switch (nVer)
-			{
-			case nVersion17:
-				// no break;
+		case nVersion17:
+			// no break;
 
-			case nVersion18:
+		case nVersion18:
 
-				LOG_INFO() << "DB migrate from" << nVersion18;
-				MigrateFrom18();
-				break;
+			LOG_INFO() << "DB migrate from" << nVersion18;
+			MigrateFrom18();
+			// no break;
 
-			default:
-				if (nVer < nVersion17)
-					throw NodeDBUpgradeException("Node upgrade is not supported. Please, remove node.db and tempmb files");
-
-				if (nVer > nVersionTop)
-					throw NodeDBUpgradeException("Unsupported db version");
-
-			}
-
+		case nVersion19:
+			CreateTableShielded();
 			ParamSet(ParamID::DbVer, &nVersionTop, NULL);
+			// no break;
+
+		case nVersionTop:
+			break;
+
+		default:
+			if (nVer < nVersion17)
+				throw NodeDBUpgradeException("Node upgrade is not supported. Please, remove node.db and tempmb files");
+
+			if (nVer > nVersionTop)
+				throw NodeDBUpgradeException("Unsupported db version");
 		}
 	}
 
@@ -424,25 +436,25 @@ void NodeDB::Create()
 	ExecQuick("CREATE INDEX [Idx" TblBbs "TSeq] ON [" TblBbs "] ([" TblBbs_Time "],[" TblBbs_ID "]);");
 	ExecQuick("CREATE INDEX [Idx" TblBbs "Key] ON [" TblBbs "] ([" TblBbs_Key "]);");
 
-	CreateTableDummy();
-	CreateTableTxos();
-}
-
-void NodeDB::CreateTableDummy()
-{
 	ExecQuick("CREATE TABLE [" TblDummy "] ("
 		"[" TblDummy_ID				"] BLOB NOT NULL PRIMARY KEY,"
 		"[" TblDummy_SpendHeight	"] INTEGER NOT NULL)");
 
 	ExecQuick("CREATE INDEX [Idx" TblDummy "H] ON [" TblDummy "] ([" TblDummy_SpendHeight "])");
-}
 
-void NodeDB::CreateTableTxos()
-{
 	ExecQuick("CREATE TABLE [" TblTxo "] ("
 		"[" TblTxo_ID				"] INTEGER NOT NULL PRIMARY KEY,"
 		"[" TblTxo_Value			"] BLOB NOT NULL,"
 		"[" TblTxo_SpendHeight		"] INTEGER)");
+
+	CreateTableShielded();
+}
+
+void NodeDB::CreateTableShielded()
+{
+	ExecQuick("CREATE TABLE [" TblShielded "] ("
+		"[" TblShielded_ID			"] INTEGER NOT NULL PRIMARY KEY,"
+		"[" TblShielded_Value		"] BLOB NOT NULL)");
 }
 
 void NodeDB::Vacuum()
@@ -1171,17 +1183,17 @@ bool NodeDB::get_Peer(uint64_t rowid, PeerID& peer)
 	return true;
 }
 
-void NodeDB::set_StateExtra(uint64_t rowid, const ECC::Scalar* pVal)
+void NodeDB::set_StateExtra(uint64_t rowid, const Blob* p)
 {
 	Recordset rs(*this, Query::StateSetExtra, "UPDATE " TblStates " SET " TblStates_Extra "=? WHERE rowid=?");
-	if (pVal)
-		rs.put(0, pVal->m_Value);
+	if (p)
+		rs.put(0, *p);
 	rs.put(1, rowid);
 	rs.Step();
 	TestChanged1Row();
 }
 
-bool NodeDB::get_StateExtra(uint64_t rowid, ECC::Scalar& val)
+bool NodeDB::get_StateExtra(uint64_t rowid, ECC::Scalar& val, ByteBuffer* p)
 {
 	Recordset rs(*this, Query::StateGetExtra, "SELECT " TblStates_Extra " FROM " TblStates " WHERE rowid=?");
 	rs.put(0, rowid);
@@ -1190,7 +1202,21 @@ bool NodeDB::get_StateExtra(uint64_t rowid, ECC::Scalar& val)
 	if (rs.IsNull(0))
 		return false;
 
-	rs.get(0, val.m_Value);
+	Blob b;
+	rs.get(0, b);
+
+	if (b.n < val.m_Value.nBytes)
+		return false;
+	val.m_Value = b;
+
+	if (p)
+	{
+		((const uint8_t*&) b.p) += val.m_Value.nBytes;
+		b.n -= val.m_Value.nBytes;
+
+		b.Export(*p);
+	}
+
 	return true;
 }
 
@@ -2195,6 +2221,85 @@ void NodeDB::TxoGetValue(WalkerTxo& wlk, TxoID id0)
 
 	wlk.m_Rs.StepStrict();
 	wlk.m_Rs.get(0, wlk.m_Value);
+}
+
+const uint32_t NodeDB::s_ShieldedBlob = 16*1024; // arbitrary, but should not be changed after DB is created
+
+void NodeDB::ShieldedResize(uint64_t n)
+{
+	uint64_t n0 = 0;
+	ParamGet(ParamID::ShieldedPoolSize, &n0, nullptr);
+
+	uint64_t nBlobs0 = (n0 + s_ShieldedBlob - 1) / s_ShieldedBlob;
+	uint64_t nBlobs1 = (n + s_ShieldedBlob - 1) / s_ShieldedBlob;
+
+	for (; nBlobs0 < nBlobs1; nBlobs0++)
+	{
+		Recordset rs(*this, Query::ShieldedIns, "INSERT INTO " TblShielded "(" TblShielded_ID "," TblShielded_Value ") VALUES (?,?)");
+		rs.put(0, nBlobs0);
+		rs.putZeroBlob(1, s_ShieldedBlob * sizeof(ECC::Point::Storage));
+		rs.Step();
+		TestChanged1Row();
+	}
+
+	if (nBlobs0 > nBlobs1)
+	{
+		Recordset rs(*this, Query::ShieldedDel, "DELETE FROM " TblShielded " WHERE " TblShielded_ID ">=?");
+		rs.put(0, nBlobs1);
+		rs.Step();
+	}
+
+	ParamSet(ParamID::ShieldedPoolSize, &n, nullptr);
+}
+
+void NodeDB::ShieldeIO(uint64_t pos, ECC::Point::Storage* p, uint64_t nCount, bool bWrite)
+{
+	struct Guard
+	{
+		sqlite3_blob* m_pPtr = nullptr;
+
+		~Guard()
+		{
+			if (m_pPtr)
+				BEAM_VERIFY(SQLITE_OK == sqlite3_blob_close(m_pPtr));
+		}
+	};
+
+	uint64_t nBlob0 = pos / s_ShieldedBlob;
+	uint32_t nOffs = static_cast<uint32_t>(pos % s_ShieldedBlob);
+	;
+
+	while (nCount)
+	{
+		Guard blob;
+
+		TestRet(sqlite3_blob_open(m_pDb, "main", TblShielded, TblShielded_Value, nBlob0, bWrite ? 1 : 0, &blob.m_pPtr));
+
+		uint32_t nPortion = s_ShieldedBlob - nOffs;
+		if (nPortion > nCount)
+			nPortion = static_cast<uint32_t>(nCount);
+
+		int nRes = bWrite ?
+			sqlite3_blob_write(blob.m_pPtr, p, nPortion * sizeof(ECC::Point::Storage), nOffs * sizeof(ECC::Point::Storage)) :
+			sqlite3_blob_read(blob.m_pPtr, p, nPortion * sizeof(ECC::Point::Storage), nOffs * sizeof(ECC::Point::Storage));
+
+		TestRet(nRes);
+
+		nCount -= nPortion;
+		p += nPortion;
+		nOffs = 0;
+		nBlob0++;
+	}
+}
+
+void NodeDB::ShieldedWrite(uint64_t pos, const ECC::Point::Storage* p, uint64_t nCount)
+{
+	ShieldeIO(pos, Cast::NotConst(p), nCount, true);
+}
+
+void NodeDB::ShieldedRead(uint64_t pos, ECC::Point::Storage* p, uint64_t nCount)
+{
+	ShieldeIO(pos, p, nCount, false);
 }
 
 void NodeDB::MigrateFrom18()

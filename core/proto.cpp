@@ -970,5 +970,26 @@ void NodeConnection::Server::Listen(const io::Address& addr)
     m_pServer = io::TcpServer::create(io::Reactor::get_Current(), addr, BIND_THIS_MEMFN(OnAccepted));
 }
 
+/////////////////////////
+// UtxoEvent
+void UtxoEvent::Shielded::Set(Key::ID::Packed& kid, const ECC::Scalar& k, TxoID id)
+{
+	memcpy(&kid, k.m_Value.m_pData, sizeof(kid));
+	memcpy(m_pBuf, k.m_Value.m_pData + sizeof(kid), sizeof(k.m_Value) - sizeof(kid));
+
+	*((uintBigFor<TxoID>::Type*) (m_pBuf + sizeof(k.m_Value) - sizeof(kid))) = id;
+}
+
+TxoID UtxoEvent::Shielded::Get(const Key::ID::Packed& kid, ECC::Scalar& k) const
+{
+	memcpy(k.m_Value.m_pData, &kid, sizeof(kid));
+	memcpy(k.m_Value.m_pData + sizeof(kid), m_pBuf, sizeof(k.m_Value) - sizeof(kid));
+
+	TxoID ret;
+	((uintBigFor<TxoID>::Type*) (m_pBuf + sizeof(k.m_Value) - sizeof(kid)))->Export(ret);
+	return ret;
+}
+
+
 } // namespace proto
 } // namespace beam

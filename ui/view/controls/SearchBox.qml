@@ -69,7 +69,6 @@ FocusScope {
             //% "Search"
             ToolTip.text: qsTrId("wallet-search")
             onClicked: {
-                console.log('clicked')
                 if (input.text.length == 0) {
                     input.visible = !input.visible
                     if(input.visible) input.forceActiveFocus()

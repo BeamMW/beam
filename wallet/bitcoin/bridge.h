@@ -44,8 +44,6 @@ namespace beam::bitcoin
 
         virtual ~IBridge() {};
 
-        // error, private key
-        virtual void dumpPrivKey(const std::string& btcAddress, std::function<void(const Error&, const std::string&)> callback) = 0;
         // error, transaction (hex), changepos
         virtual void fundRawTransaction(const std::string& rawTx, Amount feeRate, std::function<void(const Error&, const std::string&, int)> callback) = 0;
         //error, transaction (hex), complete

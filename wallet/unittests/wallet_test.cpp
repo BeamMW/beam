@@ -1434,7 +1434,9 @@ namespace
         WALLET_CHECK(peerID.FromHex("1b516fb39884a3281bc0761f97817782a8bc51fdb1336882a2c7efebdb400d00d4"));
         auto params = CreateSimpleTransactionParameters()
             .SetParameter(TxParameterID::MyID, myID)
-            .SetParameter(TxParameterID::PeerID, peerID);
+            .SetParameter(TxParameterID::PeerID, peerID)
+            .SetParameter(TxParameterID::Lifetime, Height(200));
+
 
         string token = to_string(params);
 
@@ -1584,7 +1586,7 @@ bool RunNegLoop(beam::Negotiator::IBase& a, beam::Negotiator::IBase& b, const ch
 			Gateway::Direct gwFin(*pArr[!i]->m_pStorage);
 
 			size_t nSize = 0;
-			for (Storage::Map::iterator it = gwOut.begin(); gwOut.end() != it; it++)
+			for (Storage::Map::iterator it = gwOut.begin(); gwOut.end() != it; ++it)
 			{
 				ByteBuffer& buf = it->second;
 				uint32_t code = it->first;
@@ -1595,7 +1597,7 @@ bool RunNegLoop(beam::Negotiator::IBase& a, beam::Negotiator::IBase& b, const ch
 			cout << "\t" << chThis << " -> " << chOther << ' ' << nSize << " bytes" << std::endl;
 
 
-			for (Storage::Map::iterator it = gwOut.begin(); gwOut.end() != it; it++)
+			for (Storage::Map::iterator it = gwOut.begin(); gwOut.end() != it; ++it)
 			{
 				uint32_t code = it->first;
 				std::string sVar;

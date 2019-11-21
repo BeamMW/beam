@@ -109,7 +109,6 @@ void ReceiveViewModel::generateNewAddress()
 
 QString ReceiveViewModel::getAddressComment() const
 {
-    auto val = _addressComment.toStdString();
     return _addressComment;
 }
 

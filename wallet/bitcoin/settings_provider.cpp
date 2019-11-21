@@ -21,18 +21,6 @@ namespace beam::bitcoin
     {
     }
 
-    BitcoinCoreSettings SettingsProvider::GetBitcoinCoreSettings() const
-    {
-        assert(m_settings);
-        return m_settings->GetConnectionOptions();
-    }
-
-    ElectrumSettings SettingsProvider::GetElectrumSettings() const
-    {
-        assert(m_settings);
-        return m_settings->GetElectrumConnectionOptions();
-    }
-
     Settings SettingsProvider::GetSettings() const
     {
         assert(m_settings);
@@ -55,7 +43,6 @@ namespace beam::bitcoin
 
             WriteToDb(GetElectrumAddressName(), electrumSettings.m_address);
             WriteToDb(GetSecretWordsName(), electrumSettings.m_secretWords);
-            WriteToDb(GetAddressVersionName(), electrumSettings.m_addressVersion);
         }
 
         WriteToDb(GetFeeRateName(), settings.GetFeeRate());
@@ -63,14 +50,6 @@ namespace beam::bitcoin
 
         // update m_settings
         m_settings = std::make_unique<Settings>(settings);
-    }
-
-    void SettingsProvider::ResetSettings()
-    {
-        // remove from DB
-        m_walletDB->removeVarRaw(GetSettingsName().c_str());
-
-        m_settings = std::make_unique<Settings>(GetEmptySettings());
     }
 
     void SettingsProvider::Initialize()
@@ -93,7 +72,6 @@ namespace beam::bitcoin
 
                 ReadFromDB(GetElectrumAddressName(), settings.m_address);
                 ReadFromDB(GetSecretWordsName(), settings.m_secretWords);
-                ReadFromDB(GetAddressVersionName(), settings.m_addressVersion);
 
                 m_settings->SetElectrumConnectionOptions(settings);
             }

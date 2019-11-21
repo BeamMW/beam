@@ -38,6 +38,7 @@ Dialog {
 				//: Edit address dialog, expiration option, do not change
 				//% "Within 24 hours"
 				expirationOptionsForActive.model = [qsTrId("edit-addr-as-is-option"),].concat(expirationOptions);
+				expirationOptionsForActive.currentIndex = 0;
 			}
 		}
 	}
@@ -451,7 +452,6 @@ Dialog {
 							}
 						}
 					}
-					console.log(expirationStatus);
 					parentModel.saveChanges(addressID.text, addressName.text, expirationStatus);
 					rootControl.accepted();
                     rootControl.close();

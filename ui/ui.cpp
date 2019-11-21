@@ -25,9 +25,9 @@
 #include "viewmodel/start_view.h"
 #include "viewmodel/loading_view.h"
 #include "viewmodel/main_view.h"
-#include "viewmodel/utxo_view.h"
-#include "viewmodel/utxo_view_status.h"
-#include "viewmodel/utxo_view_type.h"
+#include "viewmodel/utxo/utxo_view.h"
+#include "viewmodel/utxo/utxo_view_status.h"
+#include "viewmodel/utxo/utxo_view_type.h"
 #include "viewmodel/atomic_swap/swap_offers_view.h"
 #include "viewmodel/dashboard_view.h"
 #include "viewmodel/address_book_view.h"
@@ -214,14 +214,15 @@ int main (int argc, char* argv[])
                         return new QMLGlobals(*engine);
                     });
 
-            qmlRegisterType<WalletCurrency>("Beam.Wallet", 1, 0, "Currency");
+            qRegisterMetaType<Currency>("Currency");
+            qmlRegisterUncreatableType<WalletCurrency>("Beam.Wallet", 1, 0, "Currency", "Not creatable as it is an enum type.");
             qmlRegisterType<StartViewModel>("Beam.Wallet", 1, 0, "StartViewModel");
             qmlRegisterType<LoadingViewModel>("Beam.Wallet", 1, 0, "LoadingViewModel");
             qmlRegisterType<MainViewModel>("Beam.Wallet", 1, 0, "MainViewModel");
             qmlRegisterType<DashboardViewModel>("Beam.Wallet", 1, 0, "DashboardViewModel");
             qmlRegisterType<WalletViewModel>("Beam.Wallet", 1, 0, "WalletViewModel");
-            qmlRegisterType<UtxoViewStatus>("Beam.Wallet", 1, 0, "UtxoStatus");
-            qmlRegisterType<UtxoViewType>("Beam.Wallet", 1, 0, "UtxoType");
+            qmlRegisterUncreatableType<UtxoViewStatus>("Beam.Wallet", 1, 0, "UtxoStatus", "Not creatable as it is an enum type.");
+            qmlRegisterUncreatableType<UtxoViewType>("Beam.Wallet", 1, 0, "UtxoType", "Not creatable as it is an enum type.");
             qmlRegisterType<UtxoViewModel>("Beam.Wallet", 1, 0, "UtxoViewModel");
             qmlRegisterType<SettingsViewModel>("Beam.Wallet", 1, 0, "SettingsViewModel");
             qmlRegisterType<AddressBookViewModel>("Beam.Wallet", 1, 0, "AddressBookViewModel");

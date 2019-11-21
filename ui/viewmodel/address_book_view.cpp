@@ -120,6 +120,10 @@ AddressBookViewModel::AddressBookViewModel()
             SIGNAL(addressesChanged(bool, const std::vector<beam::wallet::WalletAddress>&)),
             SLOT(onAddresses(bool, const std::vector<beam::wallet::WalletAddress>&)));
 
+    connect(&m_model,
+            SIGNAL(addressesChanged(beam::wallet::ChangeAction, const std::vector<beam::wallet::WalletAddress>&)),
+            SLOT(onAddressesChanged(beam::wallet::ChangeAction, const std::vector<beam::wallet::WalletAddress>&)));
+
     getAddressesFromModel();
 
     startTimer(3 * 1000);
@@ -294,6 +298,12 @@ void AddressBookViewModel::onAddresses(bool own, const std::vector<beam::wallet:
 
         sortContacts();
     }
+}
+
+void AddressBookViewModel::onAddressesChanged(beam::wallet::ChangeAction, const std::vector<beam::wallet::WalletAddress>& addresses)
+{
+    // TODO: refactor this
+    getAddressesFromModel();
 }
 
 void AddressBookViewModel::timerEvent(QTimerEvent *event)

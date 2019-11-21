@@ -15,8 +15,7 @@
 #include "receive_swap_view.h"
 #include "ui_helpers.h"
 #include "model/app_model.h"
-#include "wallet/swaps/common.h"
-#include "wallet/swaps/swap_transaction.h"
+#include "wallet/swaps/utils.h"
 #include "wallet/bitcoin/bitcoin_side.h"
 #include "wallet/litecoin/litecoin_side.h"
 #include "wallet/qtum/qtum_side.h"
@@ -59,6 +58,7 @@ ReceiveSwapViewModel::ReceiveSwapViewModel()
     , _receiveCurrency(Currency::CurrBeam)
     , _sentCurrency(Currency::CurrBtc)
     , _offerExpires(OfferExpires12h)
+    , _saveParamsAllowed(false)
     , _walletModel(*AppModel::getInstance().getWallet())
     , _txParameters(beam::wallet::CreateSwapParameters()
         .SetParameter(beam::wallet::TxParameterID::AtomicSwapCoin, beam::wallet::AtomicSwapCoin::Bitcoin)
@@ -66,11 +66,11 @@ ReceiveSwapViewModel::ReceiveSwapViewModel()
         .SetParameter(beam::wallet::TxParameterID::IsInitiator, true))
 {
     connect(&_walletModel, &WalletModel::generatedNewAddress, this, &ReceiveSwapViewModel::onGeneratedNewAddress);
+    connect(&_walletModel, &WalletModel::swapParamsLoaded, this, &ReceiveSwapViewModel::onSwapParamsLoaded);
     connect(&_walletModel, SIGNAL(newAddressFailed()), this, SIGNAL(newAddressFailed()));
     connect(&_walletModel, &WalletModel::stateIDChanged, this, &ReceiveSwapViewModel::updateTransactionToken);
 
     generateNewAddress();
-
     updateTransactionToken();
 }
 
@@ -79,6 +79,64 @@ void ReceiveSwapViewModel::onGeneratedNewAddress(const beam::wallet::WalletAddre
     _receiverAddress = addr;
     emit receiverAddressChanged();
     updateTransactionToken();
+    loadSwapParams();
+}
+
+void ReceiveSwapViewModel::loadSwapParams()
+{
+    _walletModel.getAsync()->loadSwapParams();
+}
+
+void ReceiveSwapViewModel::storeSwapParams()
+{
+    if(!_saveParamsAllowed) return;
+
+    try {
+        beam::Serializer ser;
+        ser & _receiveCurrency
+            & _sentCurrency
+            & _receiveFeeGrothes
+            & _sentFeeGrothes;
+
+        beam::ByteBuffer buffer;
+        ser.swap_buf(buffer);
+        _walletModel.getAsync()->storeSwapParams(buffer);
+    }
+    catch(...)
+    {
+        LOG_ERROR() << "failed to serialize swap params";
+    }
+}
+
+void ReceiveSwapViewModel::onSwapParamsLoaded(const beam::ByteBuffer& params)
+{
+    if(!params.empty())
+    {
+        try
+        {
+            beam::Deserializer der;
+            der.reset(params);
+
+            Currency receiveCurrency, sentCurrency;
+            beam::Amount receiveFee, sentFee;
+
+            der & receiveCurrency
+                & sentCurrency
+                & receiveFee
+                & sentFee;
+
+            setReceiveCurrency(receiveCurrency);
+            setSentCurrency(sentCurrency);
+            setReceiveFee(receiveFee);
+            setSentFee(sentFee);
+        }
+        catch(...)
+        {
+            LOG_ERROR() << "failed to deserialize swap params";
+        }
+    }
+
+   _saveParamsAllowed = true;
 }
 
 QString ReceiveSwapViewModel::getAmountToReceive() const
@@ -129,6 +187,7 @@ void ReceiveSwapViewModel::setSentFee(unsigned int value)
     {
         _sentFeeGrothes = value;
         emit sentFeeChanged();
+        storeSwapParams();
     }
 }
 
@@ -146,6 +205,7 @@ void ReceiveSwapViewModel::setReceiveCurrency(Currency value)
         _receiveCurrency = value;
         emit receiveCurrencyChanged();
         updateTransactionToken();
+        storeSwapParams();
     }
 }
 
@@ -163,6 +223,7 @@ void ReceiveSwapViewModel::setSentCurrency(Currency value)
         _sentCurrency = value;
         emit sentCurrencyChanged();
         updateTransactionToken();
+        storeSwapParams();
     }
 }
 
@@ -172,6 +233,7 @@ void ReceiveSwapViewModel::setReceiveFee(unsigned int value)
     {
         _receiveFeeGrothes = value;
         emit receiveFeeChanged();
+        storeSwapParams();
     }
 }
 
@@ -275,36 +337,14 @@ bool ReceiveSwapViewModel::isEnough() const
     }
 }
 
-bool ReceiveSwapViewModel::isGreatThanFee() const
+bool ReceiveSwapViewModel::isSendFeeOK() const
 {
-    if (_amountSentGrothes == 0)
-        return true;
+    return _amountSentGrothes == 0 || QMLGlobals::isSwapFeeOK(_amountSentGrothes, _sentFeeGrothes, _sentCurrency);
+}
 
-    switch (_sentCurrency)
-    {
-    case Currency::CurrBeam:
-    {
-        const auto total = _amountSentGrothes + _sentFeeGrothes;
-        return total > QMLGlobals::minFeeBeam();
-    }
-    case Currency::CurrBtc:
-    {
-        return beam::wallet::BitcoinSide::CheckAmount(_amountSentGrothes, _sentFeeGrothes);
-    }
-    case Currency::CurrLtc:
-    {
-        return beam::wallet::LitecoinSide::CheckAmount(_amountSentGrothes, _sentFeeGrothes);
-    }
-    case Currency::CurrQtum:
-    {
-        return beam::wallet::QtumSide::CheckAmount(_amountSentGrothes, _sentFeeGrothes);
-    }
-    default:
-    {
-        assert(false);
-        return true;
-    }
-    }
+bool ReceiveSwapViewModel::isReceiveFeeOK() const
+{
+    return _amountToReceiveGrothes == 0 || QMLGlobals::isSwapFeeOK(_amountToReceiveGrothes, _receiveFeeGrothes, _receiveCurrency);
 }
 
 void ReceiveSwapViewModel::saveAddress()
@@ -330,8 +370,18 @@ void ReceiveSwapViewModel::startListen()
     txParameters.DeleteParameter(TxParameterID::PeerID);
     txParameters.SetParameter(TxParameterID::IsInitiator, !*_txParameters.GetParameter<bool>(TxParameterID::IsInitiator));
     txParameters.SetParameter(TxParameterID::MyID, *_txParameters.GetParameter<beam::wallet::WalletID>(beam::wallet::TxParameterID::PeerID));
-    txParameters.SetParameter(TxParameterID::Fee, beam::Amount(beamFee));
-    txParameters.SetParameter(TxParameterID::Fee, beam::Amount(swapFee), isBeamSide ? SubTxIndex::REDEEM_TX : SubTxIndex::LOCK_TX);
+    if (isBeamSide)
+    {
+        txParameters.SetParameter(TxParameterID::Fee, beam::Amount(beamFee), SubTxIndex::BEAM_LOCK_TX);
+        txParameters.SetParameter(TxParameterID::Fee, beam::Amount(beamFee), SubTxIndex::BEAM_REFUND_TX);
+        txParameters.SetParameter(TxParameterID::Fee, beam::Amount(swapFee), SubTxIndex::REDEEM_TX);
+    }
+    else
+    {
+        txParameters.SetParameter(TxParameterID::Fee, beam::Amount(swapFee), SubTxIndex::LOCK_TX);
+        txParameters.SetParameter(TxParameterID::Fee, beam::Amount(swapFee), SubTxIndex::REFUND_TX);
+        txParameters.SetParameter(TxParameterID::Fee, beam::Amount(beamFee), SubTxIndex::BEAM_REDEEM_TX);
+    }
     txParameters.SetParameter(TxParameterID::AtomicSwapIsBeamSide, isBeamSide);
     txParameters.SetParameter(TxParameterID::IsSender, isBeamSide);
     if (!_addressComment.isEmpty())
@@ -382,7 +432,8 @@ namespace
 void ReceiveSwapViewModel::updateTransactionToken()
 {
     emit enoughChanged();
-    emit lessThanFeeChanged();
+    emit isSendFeeOKChanged();
+    emit isReceiveFeeOKChanged();
     _txParameters.SetParameter(beam::wallet::TxParameterID::MinHeight, _walletModel.getCurrentHeight());
     _txParameters.SetParameter(beam::wallet::TxParameterID::PeerResponseTime, GetBlockCount(_offerExpires));
 

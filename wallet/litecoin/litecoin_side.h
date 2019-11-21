@@ -29,6 +29,5 @@ namespace beam::wallet
     protected:
 
         uint32_t GetLockTxEstimatedTimeInBeamBlocks() const override;
-        uint8_t GetAddressVersion() const override;
     };
 }

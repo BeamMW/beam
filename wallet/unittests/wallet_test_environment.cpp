@@ -236,7 +236,7 @@ IWalletDB::Ptr createSqliteWalletDB(const string& path, bool separateDBForPrivat
     return walletDB;
 }
 
-IWalletDB::Ptr createSenderWalletDB(bool separateDBForPrivateData = false, AmountList amounts = {5, 2, 1, 9})
+IWalletDB::Ptr createSenderWalletDB(bool separateDBForPrivateData = false, const AmountList& amounts = {5, 2, 1, 9})
 {
     auto db = createSqliteWalletDB(SenderWalletDB, separateDBForPrivateData);
     db->AllocateKidRange(100500); // make sure it'll get the address different from the receiver
@@ -394,6 +394,7 @@ struct TestWalletRig
     {
         Regular,
         ColdWallet,
+        RegularWithoutPoWBbs,
         Offline
     };
 
@@ -421,7 +422,7 @@ struct TestWalletRig
         {
         case Type::ColdWallet:
             {
-                m_Wallet.AddMessageEndpoint(make_shared<ColdWalletMessageEndpoint>(m_Wallet, m_WalletDB, m_KeyKeeper));
+                m_messageEndpoint = make_shared<ColdWalletMessageEndpoint>(m_Wallet, m_WalletDB, m_KeyKeeper);
                 break;
             }
 
@@ -433,17 +434,45 @@ struct TestWalletRig
                 nodeEndpoint->Connect();
                 if (oneTimeBbsEndpoint)
                 {
-                    m_Wallet.AddMessageEndpoint(make_shared<OneTimeBbsEndpoint>(m_Wallet, nodeEndpoint, m_WalletDB, m_KeyKeeper));
+                    m_messageEndpoint = make_shared<OneTimeBbsEndpoint>(m_Wallet, nodeEndpoint, m_WalletDB, m_KeyKeeper);
                 }
                 else
                 {
-                    m_Wallet.AddMessageEndpoint(make_shared<WalletNetworkViaBbs>(m_Wallet, nodeEndpoint, m_WalletDB, m_KeyKeeper));
+                    m_messageEndpoint = make_shared<WalletNetworkViaBbs>(m_Wallet, nodeEndpoint, m_WalletDB, m_KeyKeeper);
+                }
+                m_Wallet.SetNodeEndpoint(nodeEndpoint);
+                break;
+            }
+        case Type::RegularWithoutPoWBbs:
+            {
+                auto nodeEndpoint = make_shared<proto::FlyClient::NetworkStd>(m_Wallet);
+                nodeEndpoint->m_Cfg.m_PollPeriod_ms = nodePollPeriod_ms;
+                nodeEndpoint->m_Cfg.m_vNodes.push_back(nodeAddress);
+                nodeEndpoint->Connect();
+                if (oneTimeBbsEndpoint)
+                {
+                    auto tmp = make_shared<OneTimeBbsEndpoint>(m_Wallet, nodeEndpoint, m_WalletDB, m_KeyKeeper);
+
+                    tmp->m_MineOutgoing = false;
+                    m_messageEndpoint = tmp;
+                }
+                else
+                {
+                    auto tmp = make_shared<WalletNetworkViaBbs>(m_Wallet, nodeEndpoint, m_WalletDB, m_KeyKeeper);
+
+                    tmp->m_MineOutgoing = false;
+                    m_messageEndpoint = tmp;
                 }
                 m_Wallet.SetNodeEndpoint(nodeEndpoint);
                 break;
             }
         case Type::Offline:
             break;
+        }
+
+        if (m_messageEndpoint)
+        {
+            m_Wallet.AddMessageEndpoint(m_messageEndpoint);
         }
     }
 
@@ -462,6 +491,7 @@ struct TestWalletRig
     IWalletDB::Ptr m_WalletDB;
     IPrivateKeyKeeper::Ptr m_KeyKeeper;
     TestWallet m_Wallet;
+    IWalletMessageEndpoint::Ptr m_messageEndpoint;
 };
 
 struct TestWalletNetwork
@@ -497,7 +527,7 @@ struct TestWalletNetwork
 
     virtual void Proceed() override
     {
-        for (WalletMap::iterator it = m_Map.begin(); m_Map.end() != it; it++)
+        for (WalletMap::iterator it = m_Map.begin(); m_Map.end() != it; ++it)
             for (Entry& v = it->second; !v.m_Msgs.empty(); v.m_Msgs.pop_front())
                 v.m_pSink->OnWalletMessage(v.m_Msgs.front().first, v.m_Msgs.front().second);
     }
@@ -783,7 +813,7 @@ struct TestNodeNetwork
         {
             m_Blockchain.AddBlock();
 
-            for (List::iterator it = m_lst.begin(); m_lst.end() != it; it++)
+            for (List::iterator it = m_lst.begin(); m_lst.end() != it; ++it)
             {
                 proto::FlyClient& c = it->m_Client;
                 c.get_History().AddStates(&m_Blockchain.m_mcm.m_vStates.back().m_Hdr, 1);
@@ -903,7 +933,7 @@ public:
     {
         m_Blockchain.AddBlock();
 
-        for (ClientList::iterator it = m_lstClients.begin(); m_lstClients.end() != it; it++)
+        for (ClientList::iterator it = m_lstClients.begin(); m_lstClients.end() != it; ++it)
         {
             Client& c = *it;
             if (c.IsSecureOut())
@@ -915,6 +945,12 @@ public:
             m_NewBlockFunc(m_Blockchain.m_mcm.m_vStates.back().m_Hdr.m_Height);
         }
     }
+
+    Height GetHeight()
+    {
+        return m_Blockchain.m_mcm.m_vStates.back().m_Hdr.m_Height;
+    }
+
 private:
 
     struct Client
@@ -1019,7 +1055,7 @@ private:
         {
             m_This.m_bbs.push_back(msg);
 
-            for (ClientList::iterator it = m_This.m_lstClients.begin(); m_This.m_lstClients.end() != it; it++)
+            for (ClientList::iterator it = m_This.m_lstClients.begin(); m_This.m_lstClients.end() != it; ++it)
             {
                 Client& c = *it;
                 if ((&c != this) && c.m_Subscribed)
@@ -1236,7 +1272,7 @@ private:
     uint64_t m_TotalTime = 0;
 };
 
-ByteBuffer createTreasury(IWalletDB::Ptr db, AmountList amounts = { 5, 2, 1, 9 })
+ByteBuffer createTreasury(IWalletDB::Ptr db, const AmountList& amounts = { 5, 2, 1, 9 })
 {
     Treasury treasury;
     PeerID pid;
@@ -1295,7 +1331,7 @@ void InitNodeToTest(Node& node, const ByteBuffer& binaryTreasury, Node::IObserve
     ECC::Hash::Processor() << Blob(node.m_Cfg.m_Treasury) >> Rules::get().TreasuryChecksum;
 
     boost::filesystem::remove(path);
-    node.m_Cfg.m_sPathLocal = path.c_str();
+    node.m_Cfg.m_sPathLocal = path;
     node.m_Cfg.m_Listen.port(port);
     node.m_Cfg.m_Listen.ip(INADDR_ANY);
     node.m_Cfg.m_MiningThreads = miningNode ? 1 : 0;

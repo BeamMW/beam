@@ -69,7 +69,7 @@ namespace beam::wallet {
         Addr::Channel key;
         key.m_Value = channel;
 
-        for (ChannelSet::iterator it = m_Channels.lower_bound(key); ; it++)
+        for (ChannelSet::iterator it = m_Channels.lower_bound(key); ; ++it)
         {
             if (m_Channels.end() == it)
                 break;
@@ -339,7 +339,7 @@ namespace beam::wallet {
 		ByteBuffer buffer;
 		s.swap_buf(buffer);
 
-		m_WalletDB->setVarRaw(BBS_TIMESTAMPS, buffer.data(), static_cast<int>(buffer.size()));
+		m_WalletDB->setVarRaw(BBS_TIMESTAMPS, buffer.data(), buffer.size());
 	}
 
 	void WalletNetworkViaBbs::DeleteReq(MyRequestBbsMsg& r)

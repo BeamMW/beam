@@ -75,7 +75,8 @@ auto SwapTxObjectList::roleNames() const -> QHash<int, QByteArray>
         { static_cast<int>(Roles::SwapCoinRefundTxConfirmations), "swapCoinRefundTxConfirmations" },
         { static_cast<int>(Roles::BeamLockTxKernelId), "beamLockTxKernelId" },
         { static_cast<int>(Roles::BeamRedeemTxKernelId), "beamRedeemTxKernelId" },
-        { static_cast<int>(Roles::BeamRefundTxKernelId), "beamRefundTxKernelId" }
+        { static_cast<int>(Roles::BeamRefundTxKernelId), "beamRefundTxKernelId" },
+        { static_cast<int>(Roles::SwapState), "swapState" }
     };
     return roles;
 }
@@ -256,49 +257,10 @@ auto SwapTxObjectList::data(const QModelIndex &index, int role) const -> QVarian
         case Roles::BeamRefundTxKernelId:
             return value->getBeamRefundTxKernelId();
 
+        case Roles::SwapState:
+            return value->getSwapState();
+
         default:
             return QVariant();
-    }
-}
-
-void SwapTxObjectList::remove(const std::vector<std::shared_ptr<SwapTxObject>>& items)
-{
-    for (const auto& item : items)
-    {
-        auto it = std::find_if(std::begin(m_list), std::end(m_list),
-                            [&item](const auto& element) { return element->getTxID() == item->getTxID(); });
-        
-        if (it != std::end(m_list))
-        {
-            auto index = m_list.indexOf(*it);
-            beginRemoveRows(QModelIndex(), index, index);
-            m_list.removeAt(index);
-            endRemoveRows();
-        }
-    }
-}
-
-void SwapTxObjectList::update(const std::vector<std::shared_ptr<SwapTxObject>>& items)
-{
-    for (const auto& item : items)
-    {
-        auto it = std::find_if(std::begin(m_list), std::end(m_list),
-                            [&item](const auto& element) { return element->getTxID() == item->getTxID(); });
-        
-        // index to add item on last position by default
-        int index = (m_list.count() == 0) ? 0 : m_list.count() - 1;
-
-        if (it != std::end(m_list))
-        {
-            index = m_list.indexOf(*it);
-
-            beginRemoveRows(QModelIndex(), index, index);
-            m_list.removeAt(index);
-            endRemoveRows();
-        }
-
-        beginInsertRows(QModelIndex(), index, index);
-        m_list.insert(index, item);
-        endInsertRows();
     }
 }

@@ -14,22 +14,29 @@
 
 #pragma once
 
-#include <QObject>
+#include "utxo_item.h"
+#include "viewmodel/helpers/list_model.h"
 
-class UtxoViewType : public QObject
+class UtxoItemList : public ListModel<std::shared_ptr<UtxoItem>>
 {
-    Q_OBJECT
-public:
-    UtxoViewType() : QObject() {}
 
-    enum EnType
+    Q_OBJECT
+
+public:
+    enum class Roles
     {
-        Undefined = 0,
-        Comission,
-        Coinbase,
-        Regular,
-        Change,
-        Treasury,
+        Amount = Qt::UserRole + 1,
+        AmountSort,
+        Maturity,
+        MaturitySort,
+        Status,
+        StatusSort,
+        Type,
+        TypeSort
     };
-    Q_ENUMS(EnType)
+
+    UtxoItemList();
+
+    QVariant data(const QModelIndex &index, int role) const override;
+    QHash<int, QByteArray> roleNames() const override;
 };

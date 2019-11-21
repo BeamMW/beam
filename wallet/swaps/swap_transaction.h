@@ -22,14 +22,6 @@
 
 namespace beam::wallet
 {
-    TxParameters InitNewSwap(const WalletID& myID, Height minHeight, Amount amount, Amount fee, AtomicSwapCoin swapCoin,
-        Amount swapAmount, bool isBeamSide = true,
-        Height lifetime = kDefaultTxLifetime, Height responseTime = kDefaultTxResponseTime);
-
-    TxParameters CreateSwapParameters();
-
-    TxParameters AcceptSwapParameters(const TxParameters& initialParameters, const WalletID& myID);
-
     class SecondSideFactoryNotRegisteredException : public std::runtime_error
     {
     public:
@@ -162,6 +154,8 @@ namespace beam::wallet
 
         bool Rollback(Height height) override;
 
+        bool IsTxParameterExternalSettable(TxParameterID paramID, SubTxID subTxID) const override;
+
     private:
         void SetNextState(State state);
 
@@ -182,6 +176,7 @@ namespace beam::wallet
 
         void SendSharedTxInvitation(const BaseTxBuilder& builder);
         void ConfirmSharedTxInvitation(const BaseTxBuilder& builder);
+        void SendQuickRefundPrivateKey();
 
 
         SubTxState BuildBeamLockTx();
@@ -191,6 +186,8 @@ namespace beam::wallet
         bool SendSubTx(Transaction::Ptr transaction, SubTxID subTxID);
 
         bool IsBeamLockTimeExpired() const;
+        bool IsBeamRedeemTxRegistered() const;
+        bool IsSafeToSendBeamRedeemTx() const;
 
         // wait SubTX in BEAM chain(request kernel proof), returns true if got kernel proof
         bool CompleteSubTx(SubTxID subTxID);

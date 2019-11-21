@@ -35,6 +35,8 @@ RowLayout {
     property var    swapCoinRefundTxId
     property var    swapCoinRefundTxConfirmations
 
+    property var    stateDetails
+
     // property var onOpenExternal: null
     signal textCopied(string text)
 
@@ -94,7 +96,7 @@ RowLayout {
             Layout.alignment: Qt.AlignTop
             font.pixelSize: 14
             color: Style.content_secondary
-            //% "Transaction fee"
+            //% "BEAM Transaction fee"
             text: qsTrId("swap-details-tx-fee") + ":"
         }
         SFLabel {
@@ -112,8 +114,8 @@ RowLayout {
             Layout.alignment: Qt.AlignTop
             font.pixelSize: 14
             color: Style.content_secondary
-            //% "Transaction fee rate"
-            text: qsTrId("swap-details-tx-fee-rate") + ":"
+            //% "%1 Transaction fee rate"
+            text: qsTrId("swap-details-tx-fee-rate").arg(swapCoinName.toUpperCase()) + ":"
         }
         SFLabel {
             Layout.fillWidth: true
@@ -333,6 +335,28 @@ RowLayout {
             onCopyText: textCopied(text)
         }
         
+        RowLayout {
+            Layout.columnSpan: 2
+            Layout.fillWidth: true
+            visible: root.stateDetails != ""
+            SvgImage {
+                sourceSize: Qt.size(16, 16)
+                source:  "qrc:/assets/icon-attention.svg"
+            }
+            SFLabel {
+                id: stateDelailsLabel
+                Layout.fillWidth: true
+                copyMenuEnabled: true
+                font.pixelSize: 14
+                color: Style.content_main
+                wrapMode: Text.Wrap
+                elide: Text.ElideMiddle
+                text: root.stateDetails
+                onCopyText: textCopied(text)
+            }
+        }
+        
+
         SFText {
             enabled: failureReasonLabel.enabled
             visible: enabled

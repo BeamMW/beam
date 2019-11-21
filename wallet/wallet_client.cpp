@@ -24,6 +24,8 @@ namespace
     using namespace beam;
     using namespace beam::wallet;
 
+    const size_t kCollectorBufferSize = 50;
+
 template<typename Observer, typename Notifier>
 struct ScopedSubscriber
 {
@@ -132,6 +134,16 @@ struct WalletModelBridge : public Bridge<IWalletModelAsync>
         call_async(&IWalletModelAsync::changeCurrentWalletIDs, senderID, receiverID);
     }
 
+    void loadSwapParams() override
+    {
+        call_async(&IWalletModelAsync::loadSwapParams);
+    }
+
+    void storeSwapParams(const beam::ByteBuffer& params) override
+    {
+        call_async(&IWalletModelAsync::storeSwapParams, params);
+    }
+
     void generateNewAddress() override
     {
         call_async(&IWalletModelAsync::generateNewAddress);
@@ -165,9 +177,9 @@ struct WalletModelBridge : public Bridge<IWalletModelAsync>
         call_async(&IWalletModelAsync::getNetworkStatus);
     }
 
-    void refresh() override
+    void rescan() override
     {
-        call_async(&IWalletModelAsync::refresh);
+        call_async(&IWalletModelAsync::rescan);
     }
 
     void exportPaymentProof(const wallet::TxID& id) override
@@ -184,6 +196,16 @@ struct WalletModelBridge : public Bridge<IWalletModelAsync>
     {
         call_async(&IWalletModelAsync::importRecovery, path);
     }
+
+    void importDataFromJson(const std::string& data) override
+    {
+        call_async(&IWalletModelAsync::importDataFromJson, data);
+    }
+
+    void exportDataToJson() override
+    {
+        call_async(&IWalletModelAsync::exportDataToJson);
+    }
 };
 }
 
@@ -196,6 +218,9 @@ namespace beam::wallet
         , m_isConnected(false)
         , m_nodeAddrStr(nodeAddr)
         , m_keyKeeper(keyKeeper)
+        , m_CoinChangesCollector(kCollectorBufferSize, m_reactor, [this](auto action, const auto& items) { onAllUtxoChanged(action, items); })
+        , m_AddressChangesCollector(kCollectorBufferSize, m_reactor, [this](auto action, const auto& items) { onAddressesChanged(action, items); })
+        , m_TransactionChangesCollector(kCollectorBufferSize, m_reactor, [this](auto action, const auto& items) { onTxStatus(action, items); })
     {
         m_keyKeeper->subscribe(this);
     }
@@ -413,14 +438,14 @@ namespace beam::wallet
         return m_walletDB->getCurrentHeight() >= Rules::get().pForks[1].m_Height;
     }
 
-    void WalletClient::onCoinsChanged()
+    void WalletClient::onCoinsChanged(ChangeAction action, const std::vector<Coin>& items)
     {
-        onAllUtxoChanged(getUtxos());
+        m_CoinChangesCollector.CollectItems(action, items);
     }
 
     void WalletClient::onTransactionChanged(ChangeAction action, const std::vector<TxDescription>& items)
     {
-        onTxStatus(action, items);
+        m_TransactionChangesCollector.CollectItems(action, items);
     }
 
     void WalletClient::onSystemStateChanged(const Block::SystemState::ID& stateID)
@@ -430,9 +455,7 @@ namespace beam::wallet
 
     void WalletClient::onAddressChanged(ChangeAction action, const std::vector<WalletAddress>& items)
     {
-        // TODO: need to change this behavior
-        onAddresses(true, m_walletDB->getAddresses(true));
-        onAddresses(false, m_walletDB->getAddresses(false));
+        m_AddressChangesCollector.CollectItems(action, items);
     }
 
     void WalletClient::onSyncProgress(int done, int total)
@@ -600,7 +623,7 @@ namespace beam::wallet
 
     void WalletClient::getUtxosStatus()
     {
-        onAllUtxoChanged(getUtxos());
+        onAllUtxoChanged(ChangeAction::Reset, getUtxos());
     }
 
     void WalletClient::getAddresses(bool own)
@@ -652,6 +675,8 @@ namespace beam::wallet
     void WalletClient::saveAddress(const WalletAddress& address, bool bOwn)
     {
         m_walletDB->saveAddress(address);
+        if (bOwn)
+            getAddresses(bOwn);
     }
 
     void WalletClient::changeCurrentWalletIDs(const WalletID& senderID, const WalletID& receiverID)
@@ -682,6 +707,22 @@ namespace beam::wallet
         catch (...) {
             LOG_UNHANDLED_EXCEPTION();
         }
+    }
+
+    namespace {
+        const char* SWAP_PARAMS_NAME = "LastSwapParams";
+    }
+
+    void WalletClient::loadSwapParams()
+    {
+        ByteBuffer params;
+        m_walletDB->getBlob(SWAP_PARAMS_NAME, params);
+        onSwapParamsLoaded(params);
+    }
+
+    void WalletClient::storeSwapParams(const ByteBuffer& params)
+    {
+        m_walletDB->setVarRaw(SWAP_PARAMS_NAME, params.data(), params.size());
     }
 
     void WalletClient::deleteAddress(const WalletID& id)
@@ -776,7 +817,7 @@ namespace beam::wallet
         onNodeConnectionChanged(m_isConnected);
     }
 
-    void WalletClient::refresh()
+    void WalletClient::rescan()
     {
         try
         {
@@ -784,7 +825,7 @@ namespace beam::wallet
             auto s = m_wallet.lock();
             if (s)
             {
-                s->Refresh();
+                s->Rescan();
             }
         }
         catch (const std::exception& e)
@@ -825,6 +866,20 @@ namespace beam::wallet
             LOG_UNHANDLED_EXCEPTION();
         }
         onWalletError(ErrorType::ImportRecoveryError);
+    }
+
+    void WalletClient::importDataFromJson(const std::string& data)
+    {
+        auto isOk = storage::ImportDataFromJson(*m_walletDB, m_keyKeeper, data.data(), data.size());
+
+        onImportDataFromJson(isOk);
+    }
+
+    void WalletClient::exportDataToJson()
+    {
+        auto data = storage::ExportDataToJson(*m_walletDB);
+
+        onExportDataToJson(data);
     }
 
     bool WalletClient::OnProgress(uint64_t done, uint64_t total)

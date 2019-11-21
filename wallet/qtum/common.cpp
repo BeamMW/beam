@@ -24,7 +24,7 @@ namespace beam::qtum
 {
     uint8_t getAddressVersion()
     {
-#ifdef BEAM_MAINNET
+#if defined(BEAM_MAINNET) || defined(SWAP_MAINNET)
         return kQtumMainnetP2KH;
 #else
         return kQtumTestnetP2KH;

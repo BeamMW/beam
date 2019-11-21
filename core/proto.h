@@ -84,6 +84,13 @@ namespace proto {
     macro(ECC::Point, Utxo) \
     macro(Height, MaturityMin) /* set to non-zero in case the result is too big, and should be retrieved within multiple queries */
 
+#define BeamNodeMsg_GetProofShieldedTxo(macro) \
+    macro(ECC::Point, Commitment)
+
+#define BeamNodeMsg_GetShieldedList(macro) \
+    macro(TxoID, Id0) \
+	macro(uint32_t, Count)
+
 #define BeamNodeMsg_GetProofChainWork(macro) \
     macro(Difficulty::Raw, LowerBound)
 
@@ -97,6 +104,13 @@ namespace proto {
 
 #define BeamNodeMsg_ProofUtxo(macro) \
     macro(std::vector<Input::Proof>, Proofs)
+
+#define BeamNodeMsg_ProofShieldedTxo(macro) \
+    macro(Merkle::Proof, Proof) \
+    macro(TxoID, ID)
+
+#define BeamNodeMsg_ShieldedList(macro) \
+    macro(std::vector<ECC::Point::Storage>, Items)
 
 #define BeamNodeMsg_ProofState(macro) \
     macro(Merkle::HardProof, Proof)
@@ -234,6 +248,10 @@ namespace proto {
     macro(0x25, ProofKernel2) \
     macro(0x26, GetBodyPack) \
     macro(0x27, BodyPack) \
+    macro(0x28, GetProofShieldedTxo) \
+    macro(0x29, ProofShieldedTxo) \
+    macro(0x2a, GetShieldedList) \
+    macro(0x2b, ShieldedList) \
     /* onwer-relevant */ \
     macro(0x2c, GetUtxoEvents) \
     macro(0x2d, UtxoEvents) \
@@ -283,32 +301,48 @@ namespace proto {
 
 	static const uint32_t g_HdrPackMaxSize = 2048; // about 400K
 
-    struct UtxoEvent
-    {
-        static const uint32_t s_Max = 64; // will send more, if the remaining events are on the same height
+	struct UtxoEvent
+	{
+		static const uint32_t s_Max = 64; // will send more, if the remaining events are on the same height
 
-        Key::IDV m_Kidv;
-        ECC::Point m_Commitment;
-        AssetID m_AssetID;
+		struct Shielded
+		{
+			uint8_t m_pBuf[sizeof(ECC::Scalar) - sizeof(Key::ID) + sizeof(TxoID)]; // remaining part of ID for shielded outputs. Not used for non-shielded
 
-        Height m_Height;
-        Height m_Maturity;
+			void Set(Key::ID::Packed&, const ECC::Scalar&, TxoID);
+			TxoID Get(const Key::ID::Packed&, ECC::Scalar&) const;
+		};
 
-        uint8_t m_Added; // 1 = add, 0 = spend
+		Key::IDV m_Kidv;
+		Shielded m_Shielded;
+		ECC::Point m_Commitment;
+		AssetID m_AssetID;
 
+		Height m_Height;
+		Height m_Maturity;
 
-        template <typename Archive>
-        void serialize(Archive& ar)
-        {
-            ar
-                & m_Commitment
-                & m_Kidv
-                & m_AssetID
-                & m_Height
-                & m_Maturity
-                & m_Added;
-        }
-    };
+		struct Flags {
+			static const uint8_t Add = 1; // otherwise it's spend
+			static const uint8_t Shielded = 2;
+		};
+
+		uint8_t m_Flags;
+
+		template <typename Archive>
+		void serialize(Archive& ar)
+		{
+			ar
+				& m_Commitment
+				& m_Kidv
+				& m_AssetID
+				& m_Height
+				& m_Maturity
+				& m_Flags;
+
+			if (beam::proto::UtxoEvent::Flags::Shielded & m_Flags)
+				ar & m_Shielded.m_pBuf;
+		}
+	};
 
 	struct BodyBuffers
 	{
