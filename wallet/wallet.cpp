@@ -676,7 +676,8 @@ namespace beam::wallet
         bool bExists = m_WalletDB->findCoin(c);
         c.m_maturity = evt.m_Maturity;
 
-        LOG_INFO() << "CoinID: " << evt.m_Kidv << " Maturity=" << evt.m_Maturity << (evt.m_Added ? " Confirmed" : " Spent") << ", Height=" << evt.m_Height;
+        LOG_INFO() << "CoinID: " << evt.m_Kidv << (evt.m_Kidv.isAsset() ? std::string(" AssetID= ") + evt.m_AssetID.str() : "")
+                   << " Maturity=" << evt.m_Maturity << (evt.m_Added ? " Confirmed" : " Spent") << ", Height=" << evt.m_Height;
 
         if (evt.m_Added)
         {
@@ -692,7 +693,8 @@ namespace beam::wallet
                 {
                     c.m_status = Coin::Status::Outgoing;
                     c.m_spentTxId = txid;
-                    LOG_INFO() << "CoinID: " << evt.m_Kidv << " marked as Outgoing";
+                    LOG_INFO() << "CoinID: " << evt.m_Kidv << (evt.m_Kidv.isAsset() ? std::string(" AssetID= ") + evt.m_AssetID.str() : "")
+                               << " marked as Outgoing";
                 }
             }
         }

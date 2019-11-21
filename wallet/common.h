@@ -119,7 +119,7 @@ namespace beam::wallet
     MACRO(InvalidTransaction,            4, "Transaction is not valid") \
     MACRO(InvalidKernelProof,            5, "Invalid kernel proof provided") \
     MACRO(FailedToSendParameters,        6, "Failed to send tx parameters") \
-    MACRO(NoInputs,                      7, "No inputs") \
+    MACRO(NoInputs,                      7, "Not enough inputs to process the transaction") \
     MACRO(ExpiredAddressProvided,        8, "Address is expired") \
     MACRO(FailedToGetParameter,          9, "Failed to get parameter") \
     MACRO(TransactionExpired,            10, "Transaction has expired") \
