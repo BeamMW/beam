@@ -68,7 +68,6 @@ private:
                                             void *data,
                                             size_t size)>;
     struct ProxyConnectRequest {
-        ~ProxyConnectRequest();
         // using Ptr = std::unique_ptr<ProxyConnectRequest>;
         uint64_t tag;
         beam::io::Address destination;

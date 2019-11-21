@@ -149,7 +149,7 @@ void proxy_test() {
 			1,
 			[&timeStart, &connTO, &connTimeoutCalled](uint64_t tag, unique_ptr<TcpStream>&& newStream, ErrorCode status) {
 				auto timeStop = std::time(nullptr);
-				LOG_DEBUG() << "Proxy connection timed out";
+				LOG_DEBUG() << "Proxy connection timeout: " << error_str(status) << ". Tag: " << tag;
 				assert(tag == 1);
 				assert(status == EC_ETIMEDOUT);
 				assert(timeStop >= timeStart+(connTO/1000));
@@ -236,7 +236,7 @@ void proxy_test() {
 		[&failedCalled](uint64_t tag, unique_ptr<TcpStream>&& newStream, ErrorCode status) {
 			assert(tag == 3);
 			assert(status == EC_PROXY_AUTH_ERROR);
-			LOG_DEBUG() << "Proxy connection error: " << status << ". Tag: " << tag;
+			LOG_DEBUG() << "Proxy connection error: " << error_str(status) << ". Tag: " << tag;
 			failedCalled = true;
 		},
 		1000,
@@ -250,7 +250,7 @@ void proxy_test() {
 		[&repplyTimeoutCalled](uint64_t tag, unique_ptr<TcpStream>&& newStream, ErrorCode status) {
 			assert(tag == 4);
 			assert(status == EC_ETIMEDOUT);
-			LOG_DEBUG() << "Proxy connection timeout: " << status << ". Tag: " << tag;
+			LOG_DEBUG() << "Proxy connection timeout: " << error_str(status) << ". Tag: " << tag;
 			repplyTimeoutCalled = true;
 		},
 		1000,
@@ -262,7 +262,7 @@ void proxy_test() {
 		3000,
 		false,
 		[&reactor] {
-			LOG_DEBUG() << "Watchdog called"; reactor->stop();
+			LOG_DEBUG() << "Test watchdog called"; reactor->stop();
 			}
 		);
 	LOG_DEBUG() << "reactor start";
