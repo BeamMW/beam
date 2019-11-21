@@ -89,7 +89,7 @@ private:
 
 	void onInitialState(uint8_t* data, size_t size) {
 		std::array<uint8_t,3> referenceAuthReq = {0x05, 0x01, 0x00};
-		if (std::equal(referenceAuthReq.cbegin(), referenceAuthReq.cend(), data))
+		if (!std::equal(referenceAuthReq.cbegin(), referenceAuthReq.cend(), data))
 			assert(false);
 
 		std::array<uint8_t,2> referenceAuthReply = {0x05, 0x00};
@@ -101,7 +101,7 @@ private:
 		// 123.45.67.89 = 0x7B2D4359
 		// 80 = 0x50
 		std::array<uint8_t,10> referenceAuthReq = {0x05, 0x01, 0x00, 0x01, 0x7B, 0x2D, 0x43, 0x59, 0x00, 0x50};
-		if (std::equal(referenceAuthReq.cbegin(), referenceAuthReq.cend(), data))
+		if (!std::equal(referenceAuthReq.cbegin(), referenceAuthReq.cend(), data))
 			assert(false);
 
 		// here we can really connect to requested destination...
@@ -156,9 +156,9 @@ void proxy_test() {
 				if (status == EC_ECONNREFUSED) {} // in some cases
 				if (status == EC_ETIMEDOUT) {
 					auto timeStop = std::time(nullptr);
-					if (timeStop >= timeStart+(connTO/1000))
+					if (timeStop < timeStart+(connTO/1000))
 						assert(false);
-					if (timeStop <= timeStart+(connTO/1000)+1)	// 1-second accuracy
+					if (timeStop > timeStart+(connTO/1000)+1)	// 1-second accuracy
 						assert(false);
 				}
 				connTimeoutCalled = true;
@@ -220,7 +220,7 @@ void proxy_test() {
 			clientStream = std::move(newStream);
 			clientStream->enable_read([](ErrorCode errorCode, void* data, size_t size){
 				if (errorCode != EC_OK) {
-					LOG_DEBUG() << "Destination server response error. Code: " << errorCode;
+					LOG_DEBUG() << "Destination server response error: " << error_str(errorCode);
 					assert(false);
 				}
 				assert(data && size);
@@ -231,7 +231,7 @@ void proxy_test() {
 			});
 			auto req = "Hello, hello!";
 			Result res = clientStream->write(req, strlen(req));
-			if (res) assert(false);
+			if (!res) assert(false);
 			successfulCalled = true;
 		},
 		1000,
