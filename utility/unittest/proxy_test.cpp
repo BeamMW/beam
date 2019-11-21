@@ -89,7 +89,8 @@ private:
 
 	void onInitialState(uint8_t* data, size_t size) {
 		std::array<uint8_t,3> referenceAuthReq = {0x05, 0x01, 0x00};
-		assert(std::equal(referenceAuthReq.cbegin(), referenceAuthReq.cend(), data));
+		if (std::equal(referenceAuthReq.cbegin(), referenceAuthReq.cend(), data))
+			assert(false);
 
 		std::array<uint8_t,2> referenceAuthReply = {0x05, 0x00};
 		m_streamPtr->write(referenceAuthReply.data(), referenceAuthReply.size());
@@ -100,7 +101,8 @@ private:
 		// 123.45.67.89 = 0x7B2D4359
 		// 80 = 0x50
 		std::array<uint8_t,10> referenceAuthReq = {0x05, 0x01, 0x00, 0x01, 0x7B, 0x2D, 0x43, 0x59, 0x00, 0x50};
-		assert(std::equal(referenceAuthReq.cbegin(), referenceAuthReq.cend(), data));
+		if (std::equal(referenceAuthReq.cbegin(), referenceAuthReq.cend(), data))
+			assert(false);
 
 		// here we can really connect to requested destination...
 		// and implement real proxy bridge
@@ -148,12 +150,17 @@ void proxy_test() {
 			Address(0x7f000001, 12345),	// intentionally corrupted port
 			1,
 			[&timeStart, &connTO, &connTimeoutCalled](uint64_t tag, unique_ptr<TcpStream>&& newStream, ErrorCode status) {
-				auto timeStop = std::time(nullptr);
 				LOG_DEBUG() << "Proxy connection timeout: " << error_str(status) << ". Tag: " << tag;
 				assert(tag == 1);
-				assert(status == EC_ETIMEDOUT);
-				assert(timeStop >= timeStart+(connTO/1000));
-				assert(timeStop <= timeStart+(connTO/1000)+1);	// 1-second accuracy
+				assert(status != EC_OK);
+				if (status == EC_ECONNREFUSED) {} // in some cases
+				if (status == EC_ETIMEDOUT) {
+					auto timeStop = std::time(nullptr);
+					if (timeStop >= timeStart+(connTO/1000))
+						assert(false);
+					if (timeStop <= timeStart+(connTO/1000)+1)	// 1-second accuracy
+						assert(false);
+				}
 				connTimeoutCalled = true;
 			},
 			connTO,
@@ -214,15 +221,17 @@ void proxy_test() {
 			clientStream->enable_read([](ErrorCode errorCode, void* data, size_t size){
 				if (errorCode != EC_OK) {
 					LOG_DEBUG() << "Destination server response error. Code: " << errorCode;
+					assert(false);
 				}
 				assert(data && size);
 				string reply = "Aloha!";
 				assert(std::equal(reply.cbegin(), reply.cend(), static_cast<uint8_t*>(data)));
+				LOG_DEBUG() << "Proxy data transfer successful.";
 				return true;
 			});
 			auto req = "Hello, hello!";
 			Result res = clientStream->write(req, strlen(req));
-			assert(res);
+			if (res) assert(false);
 			successfulCalled = true;
 		},
 		1000,
