@@ -1129,7 +1129,7 @@ Please try again later or create an offer yourself."
                         }
 
                         function showContextMenu(row) {
-                            txContextMenu.canCopyToken = true;
+                            txContextMenu.canCopyToken = transactionsTable.model.getRoleValue(row, "isPending");;
                             txContextMenu.token = transactionsTable.model.getRoleValue(row, "token");
                             txContextMenu.cancelEnabled = transactionsTable.model.getRoleValue(row, "isCancelAvailable");
                             txContextMenu.deleteEnabled = transactionsTable.model.getRoleValue(row, "isDeleteAvailable");
