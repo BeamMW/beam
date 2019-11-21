@@ -459,12 +459,11 @@ Control {
                                //% "Enter your seed phrase"
                                qsTrId("settings-swap-enter-seed")
                     onClicked: {
-                        function editSeedPhrase(isSeedPhraseValid) {
+                        function editSeedPhrase() {
                             seedPhraseDialog.setModeEdit();
-                            seedPhraseDialog.isCurrentElectrumSeedValid = isSeedPhraseValid;
+                            seedPhraseDialog.isCurrentElectrumSeedValid = Qt.binding(function(){return isCurrentElectrumSeedValid;});
                             seedPhraseDialog.open();
                         }
-
                         if (isCurrentElectrumSeedValid) {
                             //: electrum settings, ask password to edit seed phrase, dialog title
                             //% "Edit seed phrase"
@@ -473,11 +472,11 @@ Control {
                             //% "Enter your wallet password to edit the phrase"
                             confirmPasswordDialog.dialogMessage = qsTrId("settings-swap-confirm-edit-seed-message");
                             confirmPasswordDialog.onDialogAccepted = function() {
-                                editSeedPhrase(true);
+                                editSeedPhrase();
                             };
                             confirmPasswordDialog.open();
                         } else {
-                            editSeedPhrase(false);
+                            editSeedPhrase();
                         }
                     }
                 }
@@ -564,7 +563,9 @@ Control {
                 wrapMode:              Text.WordWrap
                 color:                 control.color
                 lineHeight:            1.1 
-                //% "You cannot disconnect wallet, edit seed phrase or change default\nfee while you have transactions in progress."
+/*% "You cannot disconnect wallet, edit seed phrase or change default
+fee while you have transactions in progress."
+*/
                 text:                  qsTrId("settings-progress-na")
             }
 
@@ -610,12 +611,9 @@ Control {
                     visible:                !isSettingsChanged() && haveSettings() && (editElectrum ? !isElectrumConnection : !isNodeConnection)
                     leftPadding:            25
                     rightPadding:           25
-                    text:                   editElectrum ?
-                                            //% "connect to electrum node"
-                                            qsTrId("settings-swap-connect-electrum") :
-                                            //% "connect to node"
-                                            qsTrId("settings-swap-connect-node");
-                    icon.source:            "qrc:/assets/icon-connect.svg"
+                    //% "connect"
+                    text:                   qsTrId("settings-swap-connect")
+                    icon.source:            "qrc:/assets/icon-done.svg"
                     onClicked:              editElectrum ? connectToElectrum() : connectToNode();
                     Layout.preferredHeight: 38
                     Layout.preferredWidth:  editElectrum ? 250 : 195
@@ -691,7 +689,10 @@ Control {
         function updateIsSeedChanged() {
             var isChanged = false;
             for(var i = 0; i < seedPhraseDialog.seedPhrasesElectrum.length; ++i) {
-                isChanged |= !seedPhraseDialog.seedPhrasesElectrum[i].isCorrect;
+                if (seedPhraseDialog.seedPhrasesElectrum[i].isModified) {
+                    isChanged = true;
+                    break;
+                }
             }
             isSeedChanged = isChanged;
         }
@@ -856,9 +857,9 @@ Control {
                     text:                   qsTrId("settings-apply")
                     icon.source:            "qrc:/assets/icon-done.svg"
                     enabled: {
-                        var enable = seedPhraseDialog.isCurrentElectrumSeedValid & seedPhraseDialog.isSeedChanged;
+                        var enable = seedPhraseDialog.isCurrentElectrumSeedValid && seedPhraseDialog.isSeedChanged;
                         for (var i = 0; i < seedPhraseDialog.seedPhrasesElectrum.length; ++i) {
-                            enable &= seedPhraseDialog.seedPhrasesElectrum[i].isAllowed;
+                            enable = enable && seedPhraseDialog.seedPhrasesElectrum[i].isAllowed;
                         }
                         return enable;
                     }

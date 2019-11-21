@@ -60,14 +60,6 @@
         <source>Delete</source>
         <translation>ลบ</translation>
     </message>
-    <message id="general-receiving">
-        <source>receiving</source>
-        <translation type="vanished">กำลังรับ</translation>
-    </message>
-    <message id="general-sending">
-        <source>sending</source>
-        <translation type="vanished">กำลังโอน</translation>
-    </message>
     <message id="general-rescan">
         <source>Rescan</source>
         <translation>สแกนใหม่</translation>
@@ -190,10 +182,6 @@
         <source>Receive</source>
         <translation>รับ</translation>
     </message>
-    <message id="wallet-in-progress-title">
-        <source>In progress</source>
-        <translation type="vanished">อยู่ระหว่างดำเนินการ</translation>
-    </message>
     <message id="wallet-transactions-title">
         <source>Transactions</source>
         <translation>ธุรกรรม</translation>
@@ -205,10 +193,6 @@
     <message id="wallet-txs-date-time">
         <source>Created on</source>
         <translation>สร้างเมื่อ</translation>
-    </message>
-    <message id="wallet-txs-copy-addr-cm">
-        <source>Copy address</source>
-        <translation type="vanished">คัดลอกที่อยู่</translation>
     </message>
     <message id="wallet-txs-delete-message">
         <source>The transaction will be deleted. This operation can not be undone</source>
@@ -239,9 +223,8 @@
         <translation>ส่งแล้ว</translation>
     </message>
     <message id="wallet-txs-status-cancelled">
-        <source>canceled</source>
-        <oldsource>cancelled</oldsource>
-        <translation type="unfinished">ยกเลิกแล้ว</translation>
+        <source>cancelled</source>
+        <translation>ยกเลิกแล้ว</translation>
     </message>
     <message id="wallet-txs-status-expired">
         <source>expired</source>
@@ -328,14 +311,6 @@
         <extracomment>settings tab, node section, address label</extracomment>
         <translation>ip:port</translation>
     </message>
-    <message id="settings-see-seed">
-        <source>Click to see seed phrase</source>
-        <translation type="vanished">กดเพื่อดูกลุ่มคำลับ</translation>
-    </message>
-    <message id="settings-new-seed">
-        <source>Double click to generate new seed phrase</source>
-        <translation type="vanished">ดับเบิลคลิกเพื่อทำการสร้างกลุ่มคำลับใหม่</translation>
-    </message>
     <message id="settings-local-node-run-checkbox">
         <source>Run local node</source>
         <extracomment>settings tab, node section, run node label</extracomment>
@@ -383,7 +358,7 @@
     </message>
     <message id="logo-description">
         <source>Scalable confidential cryptocurrency</source>
-        <translation>คริปโตเคอเรนซี่ที่ปลอดภัยและยืดหยุ่น</translation>
+        <translation>คริปโตที่วางใจได้และไร้ขีดจำกัด</translation>
     </message>
     <message id="change-pwd-old-empty">
         <source>Please, enter old password</source>
@@ -453,7 +428,7 @@
     <message id="edit-addr-addr-id">
         <source>Address ID</source>
         <extracomment>Edit address dialog, address label</extracomment>
-        <translation>ที่อยู่</translation>
+        <translation>ID ที่อยู่</translation>
     </message>
     <message id="edit-addr-save-button">
         <source>Save</source>
@@ -495,10 +470,6 @@
     <message id="info-title">
         <source>Info view</source>
         <translation>การแสดงรายละเอียด</translation>
-    </message>
-    <message id="loading-change-settings-button">
-        <source>Change settings</source>
-        <translation type="vanished">เปลี่ยนการตั้งค่า</translation>
     </message>
     <message id="loading-try-again-button">
         <source>Try again</source>
@@ -594,14 +565,6 @@
         <source>Scan to send</source>
         <translation>แสกนเพื่อโอน</translation>
     </message>
-    <message id="wallet-receive-propogate-addr-message">
-        <source>Send this address to the sender over an external secure channel</source>
-        <translation type="vanished">นำที่อยู่นี้ไปให้ผู้ที่จะโอนในช่องทางอื่นๆ</translation>
-    </message>
-    <message id="invalid-addr-got-it-button">
-        <source>Got it</source>
-        <translation type="vanished">ได้รับแล้ว</translation>
-    </message>
     <message id="send-title">
         <source>Send</source>
         <translation>โอน</translation>
@@ -622,21 +585,9 @@
         <source>Insufficient funds: you would need %1 to complete the transaction</source>
         <translation>จำนวนเงินไม่พอ: คุณจะต้องมีอีกเพิ่มอีก %1 เพื่อดำเนินการธุรกรรม</translation>
     </message>
-    <message id="send-fee-fail">
-        <source>The minimum fee is %1 GROTH</source>
-        <translation type="vanished">ค่าธรรมเนียมที่ต่ำที่สุดคือ %1 GROTH</translation>
-    </message>
-    <message id="send-curency-sub-name">
-        <source>GROTH</source>
-        <translation type="vanished">GROTH</translation>
-    </message>
     <message id="send-remaining-label">
         <source>Remaining</source>
         <translation>ที่เหลืออยู่</translation>
-    </message>
-    <message id="send-send-fail">
-        <source>Address %1 is invalid</source>
-        <translation type="vanished">ที่อยู่ %1 ไม่ถูกต้อง</translation>
     </message>
     <message id="start-restore-confirm-button">
         <source>I agree</source>
@@ -912,14 +863,6 @@
         <source>Transaction has invalid state</source>
         <translation>State ของ Transaction ไม่ถูกต้อง</translation>
     </message>
-    <message id="tx-curency-name">
-        <source>BEAM</source>
-        <translation type="vanished">BEAM</translation>
-    </message>
-    <message id="tx-curency-sub-name">
-        <source>GROTH</source>
-        <translation type="vanished">GROTH</translation>
-    </message>
     <message id="utxo-utxo">
         <source>UTXO</source>
         <translation>UTXO</translation>
@@ -998,7 +941,7 @@
     </message>
     <message id="tx-details-tx-id-label">
         <source>Transaction ID</source>
-        <translation>หมายเลขธุรกรรม</translation>
+        <translation>ID ของธุรกรรม</translation>
     </message>
     <message id="appmodel-failed-time-not-synced">
         <source>Failed to start the integrated node: the timezone settings of your machine are out of sync. Please fix them and restart the wallet.</source>
@@ -1046,8 +989,16 @@
         <translation>สร้างรหัสผ่านสำหรับเปิดกระเป๋า</translation>
     </message>
     <message id="start-create-pwd-strength-message">
-        <source>Strong password needs to meet the following requirements:\n•  the length must be at least 10 characters\n•  must contain at least one lowercase letter\n•  must contain at least one uppercase letter\n•  must contain at least one number</source>
-        <translation>รหัสผ่านที่ปลอดภัยจะต้องประกอบด้วยข้อกำหนดดังนี้:\n•  ความยาวอย่างน้อย 10 ตัวอักษร\n•  มีตัวพิมพ์เล็กอย่างน้อย 1 ตัวอักษร\n•  มีตัวพิมพ์ใหญ่อย่างน้อย 1 ตัวอักษร\n•  มีตัวเลขอย่างน้อย 1 ตัวอักษร</translation>
+        <source>Strong password needs to meet the following requirements:
+•  the length must be at least 10 characters
+•  must contain at least one lowercase letter
+•  must contain at least one uppercase letter
+•  must contain at least one number</source>
+        <translation>รหัสผ่านที่ปลอดภัยจะต้องประกอบด้วยข้อกำหนดดังนี้:
+•  ความยาวอย่างน้อย 10 ตัวอักษร
+•  มีตัวพิมพ์เล็กอย่างน้อย 1 ตัวอักษร
+•  มีตัวพิมพ์ใหญ่อย่างน้อย 1 ตัวอักษร
+•  มีตัวเลขอย่างน้อย 1 ตัวอักษร</translation>
     </message>
     <message id="start-open-caps-warning">
         <source>Caps lock is on!</source>
@@ -1267,16 +1218,12 @@
         <translation>ระยะเวลาโดยประมาณ: %s</translation>
     </message>
     <message id="general-fee-rate">
-        <source>Transaction fee rate</source>
+        <source>%1 Transaction fee rate</source>
         <translation>ค่าธรรมเนียมธุรกรรม</translation>
     </message>
     <message id="general-fee-fail">
         <source>The minimum fee is %1 %2</source>
         <translation>ค่าธรรมเนียมที่ต่ำที่สุดคือ %1 %2</translation>
-    </message>
-    <message id="general-locked">
-        <source>locked</source>
-        <translation type="vanished">ล็อก</translation>
     </message>
     <message id="general-change-settings">
         <source>Change settings</source>
@@ -1307,19 +1254,20 @@
         <translation>ค่าธรรมเนียมมาตรฐาน</translation>
     </message>
     <message id="swap-beta-message">
-        <source>Atomic Swap functionality is Beta at the moment. We recommend you not to send large amounts.</source>
+        <source>Atomic Swaps functionality is Beta at the moment. We recommend you not to send large amounts.</source>
         <translation>ฟังก์ชั่น Atomic Swap อยู่ในสถานะเบต้าในขณะนี้ เราไม่แนะนำให้ใช้งานในจำนวนที่เยอะ</translation>
     </message>
     <message id="swap-beta-title">
-        <source>Atomic Swap is in BETA</source>
+        <source>Atomic Swaps are in BETA</source>
         <translation>Atomic Swap อยู่ในสถานะเบต้า</translation>
     </message>
     <message id="swap-na-message">
-        <source>You do not have any 3rd-party currencies connected.\nUpdate your settings and try again.</source>
+        <source>You do not have any 3rd-party currencies connected.
+Update your settings and try again.</source>
         <translation>คุณไม่มีสกุลเงินอื่นเชื่อมต่ออยู่ กรุณาแก้ไขการตั้งค่าและลองใหม่อีกครั้ง</translation>
     </message>
     <message id="wallet-receive-swap-title">
-        <source>Create swap offer</source>
+        <source>Create a Swap Offer</source>
         <translation>สร้างข้อเสนอการแลกเปลี่ยน</translation>
     </message>
     <message id="wallet-receive-addr-message">
@@ -1352,31 +1300,27 @@
     </message>
     <message id="general-rate">
         <source>Exchange rate</source>
-        <translation type="unfinished">Exchange rate</translation>
-    </message>
-    <message id="wallet-receive-your-token">
-        <source>Your transaction token:</source>
-        <translation>โทเค็นธุรกรรมของคุณ</translation>
+        <translation>อัตราแลกเปลี่ยน</translation>
     </message>
     <message id="wallet-swap-token-message">
-        <source>Send this token to the sender over an external secure channel</source>
+        <source>Send this token to the sender over a secure external channel</source>
         <translation>ส่งโทเค็นนี้ไปให้ผู้ที่จะโอนในช่องทางอื่นๆ</translation>
     </message>
     <message id="wallet-receive-swap-publish">
-        <source>publish transaction token</source>
+        <source>publish offer</source>
         <translation>ประกาศโทเค็นธุรกรรม</translation>
     </message>
     <message id="wallet-send-swap-title">
-        <source>Swap currencies</source>
+        <source>Accept Swap Offer</source>
         <translation>แลกเปลี่ยนสกุลเงิน</translation>
     </message>
     <message id="wallet-send-invalid-token">
         <source>Invalid swap token</source>
-        <translation type="unfinished">Invalid swap token</translation>
+        <translation>โทเค็นแลกเปลี่ยนไม่ถูกต้อง</translation>
     </message>
     <message id="wallet-send-invalid-address-or-token">
-        <source>Invalid wallet address or swap token</source>
-        <translation type="unfinished">Invalid wallet address or swap token</translation>
+        <source>Invalid wallet address</source>
+        <translation>Invalid wallet address or swap token</translation>
     </message>
     <message id="general-comment-local">
         <source>Comments are local and won&apos;t be shared</source>
@@ -1403,13 +1347,9 @@
         <translation>Electrum</translation>
     </message>
     <message id="swap-currency-na-message">
-        <source>%1 is not connected, \nplease review your settings and try again.</source>
-        <oldsource>%1 is not connected, please review your settings and try again.</oldsource>
-        <translation type="unfinished">%1 is not connected, \nplease review your settings and try again.</translation>
-    </message>
-    <message id="send-swap-to-label">
-        <source>Transaction token</source>
-        <translation>โทเค็นธุรกรรม</translation>
+        <source>%1 is not connected, 
+please review your settings and try again</source>
+        <translation>%1 เชื่อมต่อไม่ได้ \nกรุณาตรวจสอบการตั้งค่าและลองอีกครั้ง</translation>
     </message>
     <message id="send-not-enough">
         <source>There is not enough funds to complete the transaction</source>
@@ -1448,7 +1388,7 @@
         <translation>มีการใช้เวลามากกว่าปกติ กรุณาตรวจสอบอินเตอร์เนทของคุณ</translation>
     </message>
     <message id="atomic-swap-title">
-        <source>Atomic Swap</source>
+        <source>Atomic Swaps</source>
         <translation>Atomic Swap</translation>
     </message>
     <message id="atomic-swap-create">
@@ -1588,16 +1528,12 @@
         <translation>ไม่มีอุปกรณ์ใดเชื่อมต่ออยู่ กรุณาเชื่อมต่อ Hardware Wallet ของคุณ</translation>
     </message>
     <message id="wallet-receive-copy-token">
-        <source>copy transaction token</source>
+        <source>copy swap token</source>
         <translation>คัดลอกโทเค็นธุรกรรม</translation>
     </message>
     <message id="wallet-model-device-not-connected">
         <source>There is no Trezor device connected. Please, connect and try again.</source>
         <translation>ไม่พบ Trezor ที่กำลังเชื่อมต่อ กรุณาเชื่อมต่อและลองอีกครั้ง</translation>
-    </message>
-    <message id="settings-invalid-seed">
-        <source>Invalid seed phrase</source>
-        <translation type="vanished">กลุ่มคำลับไม่ถูกต้อง</translation>
     </message>
     <message id="wallet-transactions-all-tab">
         <source>All</source>
@@ -1616,18 +1552,20 @@
         <translation>ได้​รับ​แล้ว</translation>
     </message>
     <message id="settings-progress-na">
-        <source>You cannot disconnect wallet, edit seed phrase or change default\nfee while you have transactions in progress.</source>
-        <translation type="unfinished">You cannot disconnect wallet, edit seed phrase or change default\nfee while you have transactions in progress.</translation>
+        <source>You cannot disconnect wallet, edit seed phrase or change default
+fee while you have transactions in progress.</source>
+        <translation>คุณไม่สามารถตัดการเชื่อมต่อกระเป๋า, แก้ไขกลุ่มคำลับหรือเปลี่ยนค่าธรรมเนียม\n
+ในขณะที่คุณมีธุรกรรมที่กำลังดำเนินการอยู่</translation>
     </message>
     <message id="atomic-no-offers">
-        <source>There are no active offers at the moment.\nPlease try again later or create an offer yourself.</source>
-        <oldsource>There are no active offers at the moment.
-Please try again later or create an offer yourself.</oldsource>
-        <translation type="unfinished">There are no active offers at the moment.\nPlease try again later or create an offer yourself.</translation>
+        <source>There are no active offers at the moment.
+Please try again later or create an offer yourself.</source>
+        <translation>ไม่มีข้อเสนอการแลกเปลี่ยนใดๆในตอนนี้\n
+กรุณาลองอีกครั้งหรือสร้างข้อเสนอของตัวเองเลย</translation>
     </message>
     <message id="send-less-than-fee">
-        <source>The swap amount must be greater than the redemption fee.</source>
-        <translation type="unfinished">The swap amount must be greater than the redemption fee.</translation>
+        <source>The swap amount must be greater than the transaction fee</source>
+        <translation>จำนวนการแลกเปลี่ยนจะต้องมากกว่าค่าธรรมเนียมการไถ่ถอน</translation>
     </message>
     <message id="wallet-txs-status-in-progress">
         <source>in progress</source>
@@ -1643,7 +1581,7 @@ Please try again later or create an offer yourself.</oldsource>
     </message>
     <message id="wallet-search-transactions-placeholder">
         <source>Transaction or kernel ID, comment, address or contact</source>
-        <translation type="unfinished">Transaction or kernel ID, comment, address or contact</translation>
+        <translation>ID ของธุรกรรม หรือ Kernel ID, คอมเมนต์, ที่อยู่ หรือรายชื่อผู้ติดต่อ</translation>
     </message>
     <message id="settings-swap-node">
         <source>Node</source>
@@ -1675,19 +1613,19 @@ Please try again later or create an offer yourself.</oldsource>
     </message>
     <message id="swap-beta-connection-error">
         <source>Cannot connect to peer. Please check the address and retry.</source>
-        <translation type="unfinished">Cannot connect to peer. Please check the address and retry.</translation>
+        <translation>ไม่สามารถเชื่อมต่อปลายทางได้ กรุณาตรวจสอบที่อยู่และลองอีกครั้ง</translation>
     </message>
     <message id="swap-alert-confirm-button">
         <source>I understand</source>
         <translation>ฉันเข้าใจ</translation>
     </message>
     <message id="accept-own-offer-allert-head">
-        <source>Own offer can’t be accepted</source>
-        <translation type="unfinished">Own offer can’t be accepted</translation>
+        <source>You cannot accept your own offer</source>
+        <translation>ไม่สามารถตั้งข้อเสนอให้กับตัวเองได้</translation>
     </message>
     <message id="accept-own-offer-allert-body">
-        <source>The transaction token was generated by you, therefore it is not allowed to accept your own offer.\nPlease check the swap token and try again.</source>
-        <translation type="unfinished">The transaction token was generated by you, therefore it is not allowed to accept your own offer.\nPlease check the swap token and try again.</translation>
+        <source>The swap token was generated by you, and therefore cannot be accepted.</source>
+        <translation>โทเค็นของธุรกรรมนั้นถูกสร้างโดยคุณ ระบบไม่อนุญาติให้คุณสร้างข้อเสนอให้กับตัวคุณเอง\nกรุณาตรวจสอบโทเค็นการแลกเปลี่ยนและลองอีกครั้ง</translation>
     </message>
     <message id="swap-copy-token">
         <source>Copy token</source>
@@ -1695,11 +1633,11 @@ Please try again later or create an offer yourself.</oldsource>
     </message>
     <message id="atomic-swap-cancel-text">
         <source>Are you sure you want to cancel your offer?</source>
-        <translation type="unfinished">Are you sure you want to cancel your offer?</translation>
+        <translation>คุณแน่ใจที่จะยกเลิกข้อเสนอการแลกเปลี่ยน?</translation>
     </message>
     <message id="atomic-swap-cancel-button">
         <source>cancel offer</source>
-        <translation type="unfinished">cancel offer</translation>
+        <translation>ยกเลิกข้อเสนอ</translation>
     </message>
     <message id="atomic-swap-back-button">
         <source>back</source>
@@ -1707,50 +1645,50 @@ Please try again later or create an offer yourself.</oldsource>
     </message>
     <message id="swap-details-lock-tx-id">
         <source>lock transaction ID</source>
-        <translation type="unfinished">lock transaction ID</translation>
+        <translation>ID ของธุรกรรมการล็อค</translation>
     </message>
     <message id="swap-details-lock-tx-conf">
         <source>lock transaction confirmations</source>
-        <translation type="unfinished">lock transaction confirmations</translation>
+        <translation>จำนวนการยืนยันธุรกรรมการล็อค</translation>
     </message>
     <message id="swap-details-beam-lock-kernel-id">
         <source>BEAM lock transaction kernel ID</source>
-        <translation type="unfinished">BEAM lock transaction kernel ID</translation>
+        <translation>Kernel ID ของธุรกรรมการล็อค Beam</translation>
     </message>
     <message id="swap-details-beam-redeem-kernel-id">
         <source>BEAM redeem transaction kernel ID</source>
-        <translation type="unfinished">BEAM redeem transaction kernel ID</translation>
+        <translation>Kernel ID ของธุรกรรมไถ่ถอน BEAM</translation>
     </message>
     <message id="swap-details-redeem-tx-id">
         <source>redeem transaction ID</source>
-        <translation type="unfinished">redeem transaction ID</translation>
+        <translation>ID ของธุรกรรมการไถ่ถอน</translation>
     </message>
     <message id="swap-details-redeem-tx-conf">
         <source>redeem transaction confirmations</source>
-        <translation type="unfinished">redeem transaction confirmations</translation>
+        <translation>จำนวนการยืนยันธุรกรรมการไถ่ถอน</translation>
     </message>
     <message id="swap-details-beam-refund-kernel-id">
         <source>BEAM refund transaction kernel ID</source>
-        <translation type="unfinished">BEAM refund transaction kernel ID</translation>
+        <translation>Kernel ID ของธุรกรรมชำระคืน BEAM</translation>
     </message>
     <message id="swap-details-refund-tx-id">
         <source>refund transaction ID</source>
-        <translation type="unfinished">refund transaction ID</translation>
+        <translation>ID ของการยืนยันธุรกรรมชำระคืน</translation>
     </message>
     <message id="swap-details-refund-tx-conf">
         <source>refund transaction confirmations</source>
-        <translation type="unfinished">refund transaction confirmations</translation>
+        <translation>จำนวนการยืนยันธุรกรรมชำระคืน</translation>
     </message>
     <message id="swap-invalid-rate">
         <source>Invalid rate</source>
-        <translation type="unfinished">Invalid rate</translation>
+        <translation>เรทไม่ถูกต้อง</translation>
     </message>
     <message id="swap-details-tx-id">
         <source>Transaction ID</source>
-        <translation>หมายเลขธุรกรรม</translation>
+        <translation>ID ของธุรกรรม</translation>
     </message>
     <message id="swap-details-tx-fee">
-        <source>Transaction fee</source>
+        <source>BEAM Transaction fee</source>
         <translation>ค่าธรรมเนียมธุรกรรม</translation>
     </message>
     <message id="swap-details-tx-comment">
@@ -1758,64 +1696,53 @@ Please try again later or create an offer yourself.</oldsource>
         <translation>คอมเมนต์</translation>
     </message>
     <message id="swap-details-tx-fee-rate">
-        <source>Transaction fee rate</source>
+        <source>%1 Transaction fee rate</source>
         <translation>ค่าธรรมเนียมธุรกรรม</translation>
     </message>
     <message id="settings-swap-disconnect">
         <source>Disconnect</source>
         <translation>ตัดการเชื่อมต่อ</translation>
     </message>
-    <message id="settings-swap-seed-phrase">
-        <source>Seed Phrase</source>
-        <translation type="obsolete">Seed Phrase</translation>
-    </message>
     <message id="settings-swap-bitcoin-node">
         <source>Bitcoin node</source>
-        <translation type="unfinished">Bitcoin node</translation>
+        <translation>Node ของ Bitcoin</translation>
     </message>
     <message id="settings-swap-litecoin-node">
         <source>Litecoin node</source>
-        <translation type="unfinished">Litecoin node</translation>
+        <translation>Node ของ Litecoin</translation>
     </message>
     <message id="settings-swap-qtum-node">
         <source>Qtum node</source>
-        <translation type="unfinished">Qtum node</translation>
+        <translation>Node ของ Qtum</translation>
     </message>
     <message id="settings-swap-bitcoin-electrum">
         <source>Bitcoin electrum</source>
-        <translation type="unfinished">Bitcoin electrum</translation>
+        <translation>Bitcoin Electrum</translation>
     </message>
     <message id="settings-swap-litecoin-electrum">
         <source>Litecoin electrum</source>
-        <translation type="unfinished">Litecoin electrum</translation>
+        <translation>Litecoin Electrum</translation>
     </message>
     <message id="settings-swap-qtum-electrum">
         <source>Qtum electrum</source>
-        <translation type="unfinished">Qtum electrum</translation>
-    </message>
-    <message id="connect to electrum node">
-        <source>connect to electrum node</source>
-        <translation type="obsolete">connect to electrum node</translation>
-    </message>
-    <message id="connect to node">
-        <source>connect to node</source>
-        <translation type="obsolete">connect to node</translation>
+        <translation>Qtum Electrum</translation>
     </message>
     <message id="invalid-rate-min">
         <source>Rate cannot be less than %1</source>
-        <translation type="unfinished">Rate cannot be less than %1</translation>
+        <translation>เรทไม่สามารถต่ำกว่า %1</translation>
     </message>
     <message id="swap-offer-duplicate-message">
-        <source>The offer with this transaction token is already accepted.\nPlease check the swap token and try again.</source>
-        <translation type="unfinished">The offer with this transaction token is already accepted.\nPlease check the swap token and try again.</translation>
+        <source>The offer with this transaction token is already accepted.
+Please check the swap token and try again.</source>
+        <translation>The offer with this transaction token is already accepted.\nPlease check the swap token and try again.</translation>
     </message>
     <message id="swap-offer-duplicate-title">
         <source>Оffer is already accepted</source>
-        <translation type="unfinished">Оffer is already accepted</translation>
+        <translation>ข้อเสนอของคุณได้ถูกยอมรับแล้ว</translation>
     </message>
     <message id="swap-offer-duplicate-confirm-button">
         <source>ok</source>
-        <translation type="unfinished">ok</translation>
+        <translation>ตกลง</translation>
     </message>
     <message id="swap-details-failure-reason">
         <source>Error</source>
@@ -1823,23 +1750,23 @@ Please try again later or create an offer yourself.</oldsource>
     </message>
     <message id="swap-tx-failture-refunded">
         <source>Refunded</source>
-        <translation type="unfinished">Refunded</translation>
+        <translation>ชำระคืนแล้ว</translation>
     </message>
     <message id="settings-swap-edit-seed">
         <source>Edit your seed phrase</source>
-        <translation type="unfinished">Edit your seed phrase</translation>
+        <translation>แก้ไขกลุ่มคำลับของคุณ</translation>
     </message>
     <message id="settings-swap-enter-seed">
         <source>Enter your seed phrase</source>
-        <translation type="unfinished">Enter your seed phrase</translation>
+        <translation>กรุณาใส่กลุ่มคำลับของคุณ</translation>
     </message>
     <message id="settings-swap-label-or">
         <source>or</source>
-        <translation type="unfinished">or</translation>
+        <translation>หรือ</translation>
     </message>
     <message id="settings-swap-new-seed">
         <source>Generate new seed phrase</source>
-        <translation type="unfinished">Generate new seed phrase</translation>
+        <translation>สร้างกลุ่มคำลับใหม่</translation>
     </message>
     <message id="settings-swap-show-seed">
         <source>Show seed phrase</source>
@@ -1847,55 +1774,47 @@ Please try again later or create an offer yourself.</oldsource>
     </message>
     <message id="settings-swap-show-addresses">
         <source>Show wallet addresses</source>
-        <translation type="unfinished">Show wallet addresses</translation>
-    </message>
-    <message id="settings-swap-connect-electrum">
-        <source>connect to electrum node</source>
-        <translation type="unfinished">connect to electrum node</translation>
-    </message>
-    <message id="settings-swap-connect-node">
-        <source>connect to node</source>
-        <translation type="unfinished">connect to node</translation>
+        <translation>แสดงที่อยู่ของกระเป๋า</translation>
     </message>
     <message id="swap-seed-info-message">
         <source>Your seed phrase is the access key to all the funds! Print or write down the phrase and keep it in a safe or in a locked vault. Without the phrase you will not be able to recover your money.</source>
-        <translation type="unfinished">Your seed phrase is the access key to all the funds! Print or write down the phrase and keep it in a safe or in a locked vault. Without the phrase you will not be able to recover your money.</translation>
+        <translation>Your seed phrase is the access key to all the funds! Print or write down the phrase and keep it in a safe or in a locked vault.\nWithout the phrase you will not be able to recover your money.</translation>
     </message>
     <message id="settings-swap-seed-generate">
         <source>generate another seed phrase</source>
-        <translation type="unfinished">generate another seed phrase</translation>
+        <translation>สร้างกลุ่มคำลับชุดอื่น</translation>
     </message>
     <message id="swap-seed-new">
         <source>New seed phrase</source>
-        <translation type="unfinished">New seed phrase</translation>
+        <translation>กลุ่มคำลับใหม่</translation>
     </message>
     <message id="swap-seed-edit">
         <source>Enter your seed phrase</source>
-        <translation type="unfinished">Enter your seed phrase</translation>
+        <translation>กรุณาใส่กลุ่มคำลับของคุณ</translation>
     </message>
     <message id="bitcoin-show-seed-title">
         <source>Bitcoin seed phrase</source>
-        <translation type="unfinished">Bitcoin seed phrase</translation>
+        <translation>กลุ่มคำลับของ Bitcoin</translation>
     </message>
     <message id="litecoin-show-seed-title">
         <source>Litecoin seed phrase</source>
-        <translation type="unfinished">Litecoin seed phrase</translation>
+        <translation>กลุ่มคำลับของ Litecoin</translation>
     </message>
     <message id="qtum-show-seed-title">
         <source>Qtum seed phrase</source>
-        <translation type="unfinished">Qtum seed phrase</translation>
+        <translation>กลุ่มคำลับของ Qtum</translation>
     </message>
     <message id="bitcoin-show-addresses-title">
         <source>Bitcoin wallet addresses</source>
-        <translation type="unfinished">Bitcoin wallet addresses</translation>
+        <translation>ที่อยู่ของกระเป๋า Bitcoin</translation>
     </message>
     <message id="litecoin-show-addresses-title">
         <source>Litecoin wallet addresses</source>
-        <translation type="unfinished">Litecoin wallet addresses</translation>
+        <translation>ที่อยู่ของกระเป๋า Litecoin</translation>
     </message>
     <message id="qtum-show-addresses-title">
         <source>Qtum wallet addresses</source>
-        <translation type="unfinished">Qtum wallet addresses</translation>
+        <translation>ที่อยู่ของกระเป๋า Qtum</translation>
     </message>
     <message id="settings-swap-copy-address">
         <source>Copy address</source>
@@ -1904,22 +1823,22 @@ Please try again later or create an offer yourself.</oldsource>
     <message id="settings-swap-confirm-edit-seed-title">
         <source>Edit seed phrase</source>
         <extracomment>electrum settings, ask password to edit seed phrase, dialog title</extracomment>
-        <translation type="unfinished">Edit seed phrase</translation>
+        <translation>แก้ไขกลุ่มคำลับ</translation>
     </message>
     <message id="settings-swap-confirm-edit-seed-message">
         <source>Enter your wallet password to edit the phrase</source>
         <extracomment>electrum settings, ask password to edit seed phrase, dialog message</extracomment>
-        <translation type="unfinished">Enter your wallet password to edit the phrase</translation>
+        <translation>กรอกรหัสผ่านกระเป๋าของคุณเพื่อแก้ไขกลุ่มคำลับ</translation>
     </message>
     <message id="settings-swap-confirm-generate-seed-title">
         <source>Generate new seed phrase</source>
         <extracomment>electrum settings, ask password to generate new seed phrase, dialog title</extracomment>
-        <translation type="unfinished">Generate new seed phrase</translation>
+        <translation>สร้างกลุ่มคำลับใหม่</translation>
     </message>
     <message id="settings-swap-confirm-generate-seed-message">
         <source>Enter your wallet password to generate new seed phrase</source>
         <extracomment>electrum settings, ask password to generate new seed phrase, dialog message</extracomment>
-        <translation type="unfinished">Enter your wallet password to generate new seed phrase</translation>
+        <translation>กรอกรหัสผ่านกระเป๋าของคุณเพื่อสร้างกลุ่มคำลับใหม่</translation>
     </message>
     <message id="settings-swap-confirm-show-seed-title">
         <source>Show seed phrase</source>
@@ -1929,17 +1848,96 @@ Please try again later or create an offer yourself.</oldsource>
     <message id="settings-swap-confirm-show-seed-message">
         <source>Enter your wallet password to see the phrase</source>
         <extracomment>electrum settings, ask password to show seed phrase, dialog message</extracomment>
-        <translation type="unfinished">Enter your wallet password to see the phrase</translation>
+        <translation>กรอกรหัสผ่านกระเป๋าของคุณเพื่อดูกลุ่มคำลับ</translation>
     </message>
     <message id="settings-swap-confirm-clear-seed-title">
         <source>Clear seed phrase</source>
         <extracomment>electrum settings, ask password to clear seed phrase, dialog title</extracomment>
-        <translation type="unfinished">Clear seed phrase</translation>
+        <translation>ล้างกลุ่มคำลับ</translation>
     </message>
     <message id="settings-swap-confirm-clear-seed-message">
         <source>Enter your wallet password to clear seed phrase</source>
         <extracomment>electrum settings, ask password to clear seed phrase, dialog message</extracomment>
-        <translation type="unfinished">Enter your wallet password to clear seed phrase</translation>
+        <translation>กรอกรหัสผ่านกระเป๋าของคุณเพื่อล้างกลุ่มคำลับ</translation>
+    </message>
+    <message id="wallet-receive-swap-your-token">
+        <source>Your swap token:</source>
+        <translation>โทเค็นแลกเปลี่ยนของคุณ</translation>
+    </message>
+    <message id="send-swap-confirmation-title">
+        <source>Confirm atomic swap</source>
+        <translation>ยืนยันการทำ Atomic Swap</translation>
+    </message>
+    <message id="send-swap-sconfirmation-online-time">
+        <source>Keep your wallet online. The swap normally takes about 1 hour to complete.</source>
+        <translation>ออนไลน์กระเป๋าของคุณไว้ในขณะที่กำลังดำเนินการ การแลกเปลี่ยนจะใช้เวลาโดยปกติประมาณ 1 ชั่วโมง</translation>
+    </message>
+    <message id="beam-transaction-fee">
+        <source>BEAM Transaction fee</source>
+        <translation>ค่าธรรมเนียมธุรกรรม</translation>
+    </message>
+    <message id="send-swap-token">
+        <source>Swap token</source>
+        <translation>โทเค็นแลกเปลี่ยน</translation>
+    </message>
+    <message id="send-swap-token-hint">
+        <source>Paste token here</source>
+        <translation>วางโทเค็นที่นี่</translation>
+    </message>
+    <message id="settings-swap-connect">
+        <source>connect</source>
+        <translation>เชื่อมต่อ</translation>
+    </message>
+    <message id="swap-tx-state-initial">
+        <source>If nobody accepts the offer in %1, the offer will be automatically canceled</source>
+        <oldsource>if nobody accepts the offer in %1, the offer will be automatically canceled</oldsource>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="swap-tx-state-in-progress-normal">
+        <source>The swap is expected to complete in %1 at most</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="swap-tx-state-in-progress-refunding">
+        <source>The refund of your %2 will start in %1. Refund duration depends on the transaction fee you specified for %2</source>
+        <oldsource>The refund of your %2 will start in %1 (the actual refund duration depends on the transaction fee specified for the %2 blockchain)</oldsource>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="atomic-swap-tx-cancel">
+        <source>Cancel atomic swap</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="atomic-swap-tx-cancel-text">
+        <source>Are you sure you want to cancel?</source>
+        <oldsource>Are you sure you want to cancel atomic swap transaction?</oldsource>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="atomic-swap-tx-yes-button">
+        <source>yes</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="atomic-swap-no-button">
+        <source>no</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="swap-tx-state-refunding">
+        <source>Refunding</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="wallet-txs-status-waiting-peer">
+        <source>waiting for peer</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="send-swap-fee-warning">
+        <source> Once the offer is accepted by the other side, the %1 transaction fee will be charged even if the offer is cancelled.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="app-close-title">
+        <source>Beam wallet close</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="app-close-text">
+        <source>There are %1 active transactions that might fail if the wallet will go offline. Are you sure to close the wallet now?</source>
+        <translation type="unfinished"></translation>
     </message>
 </context>
 </TS>

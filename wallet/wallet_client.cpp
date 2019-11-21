@@ -132,6 +132,16 @@ struct WalletModelBridge : public Bridge<IWalletModelAsync>
         call_async(&IWalletModelAsync::changeCurrentWalletIDs, senderID, receiverID);
     }
 
+    void loadSwapParams() override
+    {
+        call_async(&IWalletModelAsync::loadSwapParams);
+    }
+
+    void storeSwapParams(const beam::ByteBuffer& params) override
+    {
+        call_async(&IWalletModelAsync::storeSwapParams, params);
+    }
+
     void generateNewAddress() override
     {
         call_async(&IWalletModelAsync::generateNewAddress);
@@ -242,6 +252,11 @@ namespace beam::wallet
         }
     }
 
+    void WalletClient::postFunctionToClientContext(MessageFunction&& func)
+    {
+        onPostFunctionToClientContext(move(func));
+    }
+
     void WalletClient::start(std::shared_ptr<std::unordered_map<TxType, BaseTransaction::Creator::Ptr>> txCreators)
     {
         m_thread = std::make_shared<std::thread>([this, txCreators]()
@@ -269,6 +284,8 @@ namespace beam::wallet
                     }
 
                     wallet->ResumeAllTransactions();
+
+                    updateClientState();
 
                     class NodeNetwork final: public proto::FlyClient::NetworkStd
                     {
@@ -420,7 +437,12 @@ namespace beam::wallet
 
     bool WalletClient::isFork1() const
     {
-        return m_walletDB->getCurrentHeight() >= Rules::get().pForks[1].m_Height;
+        return m_currentHeight >= Rules::get().pForks[1].m_Height;
+    }
+
+    size_t WalletClient::getUnsafeActiveTransactionsCount() const
+    {
+        return m_unsafeActiveTxCount;
     }
 
     void WalletClient::onCoinsChanged()
@@ -431,11 +453,13 @@ namespace beam::wallet
     void WalletClient::onTransactionChanged(ChangeAction action, const std::vector<TxDescription>& items)
     {
         onTxStatus(action, items);
+        updateClientTxState();
     }
 
     void WalletClient::onSystemStateChanged(const Block::SystemState::ID& stateID)
     {
         onStatus(getStatus());
+        updateClientState();
     }
 
     void WalletClient::onAddressChanged(ChangeAction action, const std::vector<WalletAddress>& items)
@@ -694,6 +718,22 @@ namespace beam::wallet
         }
     }
 
+    namespace {
+        const char* SWAP_PARAMS_NAME = "LastSwapParams";
+    }
+
+    void WalletClient::loadSwapParams()
+    {
+        ByteBuffer params;
+        m_walletDB->getBlob(SWAP_PARAMS_NAME, params);
+        onSwapParamsLoaded(params);
+    }
+
+    void WalletClient::storeSwapParams(const ByteBuffer& params)
+    {
+        m_walletDB->setVarRaw(SWAP_PARAMS_NAME, params.data(), params.size());
+    }
+
     void WalletClient::deleteAddress(const WalletID& id)
     {
         try
@@ -914,5 +954,27 @@ namespace beam::wallet
     {
         m_isConnected = isNodeConnected;
         onNodeConnectionChanged(isNodeConnected);
+    }
+
+    void WalletClient::updateClientState()
+    {
+        if (auto w = m_wallet.lock(); w)
+        {
+            postFunctionToClientContext([this, currentHeight = m_walletDB->getCurrentHeight(), count = w->GetUnsafeActiveTransactionsCount()]()
+            {
+                m_currentHeight = currentHeight;
+                m_unsafeActiveTxCount = count;
+            });
+        }
+    }
+    void WalletClient::updateClientTxState()
+    {
+        if (auto w = m_wallet.lock(); w)
+        {
+            postFunctionToClientContext([this, count = w->GetUnsafeActiveTransactionsCount()]()
+            {
+                m_unsafeActiveTxCount = count;
+            });
+        }
     }
 }

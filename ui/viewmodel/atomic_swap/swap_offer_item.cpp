@@ -29,6 +29,8 @@ namespace
     }
 }
 
+using namespace beam::wallet;
+
 SwapOfferItem::SwapOfferItem(const SwapOffer& offer, bool isOwn, const QDateTime& timeExpiration)
     : m_offer{offer}
     , m_isOwnOffer{isOwn}

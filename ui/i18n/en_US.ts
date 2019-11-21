@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!DOCTYPE TS>
-<TS version="2.1">
+<TS version="2.1" language="en" sourcelanguage="en">
 <context>
     <name></name>
     <message id="general-beam">
@@ -59,14 +59,6 @@
     <message id="general-delete">
         <source>Delete</source>
         <translation>Delete</translation>
-    </message>
-    <message id="general-receiving">
-        <source>receiving</source>
-        <translation type="obsolete">receiving</translation>
-    </message>
-    <message id="general-sending">
-        <source>sending</source>
-        <translation type="obsolete">sending</translation>
     </message>
     <message id="general-rescan">
         <source>Rescan</source>
@@ -190,10 +182,6 @@
         <source>Receive</source>
         <translation>Receive</translation>
     </message>
-    <message id="wallet-in-progress-title">
-        <source>In progress</source>
-        <translation type="vanished">In progress</translation>
-    </message>
     <message id="wallet-transactions-title">
         <source>Transactions</source>
         <translation>Transactions</translation>
@@ -205,10 +193,6 @@
     <message id="wallet-txs-date-time">
         <source>Created on</source>
         <translation>Created on</translation>
-    </message>
-    <message id="wallet-txs-copy-addr-cm">
-        <source>Copy address</source>
-        <translation type="vanished">Copy address</translation>
     </message>
     <message id="wallet-txs-delete-message">
         <source>The transaction will be deleted. This operation can not be undone</source>
@@ -239,9 +223,8 @@
         <translation>sent</translation>
     </message>
     <message id="wallet-txs-status-cancelled">
-        <source>canceled</source>
-        <oldsource>cancelled</oldsource>
-        <translation type="unfinished">cancelled</translation>
+        <source>cancelled</source>
+        <translation>cancelled</translation>
     </message>
     <message id="wallet-txs-status-expired">
         <source>expired</source>
@@ -327,14 +310,6 @@
         <source>ip:port</source>
         <extracomment>settings tab, node section, address label</extracomment>
         <translation>ip:port</translation>
-    </message>
-    <message id="settings-see-seed">
-        <source>Click to see seed phrase</source>
-        <translation type="vanished">Click to see seed phrase</translation>
-    </message>
-    <message id="settings-new-seed">
-        <source>Double click to generate new seed phrase</source>
-        <translation type="vanished">Double click to generate new seed phrase</translation>
     </message>
     <message id="settings-local-node-run-checkbox">
         <source>Run local node</source>
@@ -496,10 +471,6 @@
         <source>Info view</source>
         <translation>Info view</translation>
     </message>
-    <message id="loading-change-settings-button">
-        <source>Change settings</source>
-        <translation type="vanished">Change settings</translation>
-    </message>
     <message id="loading-try-again-button">
         <source>Try again</source>
         <translation>Try again</translation>
@@ -594,14 +565,6 @@
         <source>Scan to send</source>
         <translation>Scan to send</translation>
     </message>
-    <message id="wallet-receive-propogate-addr-message">
-        <source>Send this address to the sender over an external secure channel</source>
-        <translation type="vanished">Send this address to the sender over an external secure channel</translation>
-    </message>
-    <message id="invalid-addr-got-it-button">
-        <source>Got it</source>
-        <translation type="vanished">Got it</translation>
-    </message>
     <message id="send-title">
         <source>Send</source>
         <translation>Send Beam</translation>
@@ -622,21 +585,9 @@
         <source>Insufficient funds: you would need %1 to complete the transaction</source>
         <translation>Insufficient funds: you would need %1 to complete the transaction</translation>
     </message>
-    <message id="send-fee-fail">
-        <source>The minimum fee is %1 GROTH</source>
-        <translation type="vanished">The minimum fee is %1 GROTH</translation>
-    </message>
-    <message id="send-curency-sub-name">
-        <source>GROTH</source>
-        <translation type="vanished">GROTH</translation>
-    </message>
     <message id="send-remaining-label">
         <source>Remaining</source>
         <translation>Remaining</translation>
-    </message>
-    <message id="send-send-fail">
-        <source>Address %1 is invalid</source>
-        <translation type="vanished">Address %1 is invalid</translation>
     </message>
     <message id="start-restore-confirm-button">
         <source>I agree</source>
@@ -912,14 +863,6 @@
         <source>Transaction has invalid state</source>
         <translation>Transaction has invalid state</translation>
     </message>
-    <message id="tx-curency-name">
-        <source>BEAM</source>
-        <translation type="vanished">BEAM</translation>
-    </message>
-    <message id="tx-curency-sub-name">
-        <source>GROTH</source>
-        <translation type="vanished">GROTH</translation>
-    </message>
     <message id="utxo-utxo">
         <source>UTXO</source>
         <translation>UTXO</translation>
@@ -1046,12 +989,16 @@
         <translation>Create new password to access your wallet</translation>
     </message>
     <message id="start-create-pwd-strength-message">
-        <source>Strong password needs to meet the following requirements:\n•  the length must be at least 10 characters\n•  must contain at least one lowercase letter\n•  must contain at least one uppercase letter\n•  must contain at least one number</source>
+        <source>Strong password needs to meet the following requirements:
+•  the length must be at least 10 characters
+•  must contain at least one lowercase letter
+•  must contain at least one uppercase letter
+•  must contain at least one number</source>
         <translation>Strong password needs to meet the following requirements:
-        •  the length must be at least 10 characters
-        •  must contain at least one lowercase letter
-        •  must contain at least one uppercase letter
-        •  must contain at least one number</translation>
+•  the length must be at least 10 characters
+•  must contain at least one lowercase letter
+•  must contain at least one uppercase letter
+•  must contain at least one number</translation>
     </message>
     <message id="start-open-caps-warning">
         <source>Caps lock is on!</source>
@@ -1272,16 +1219,12 @@ or send this address to the sender over secure channel</translation>
         <translation>Estimate time: %s</translation>
     </message>
     <message id="general-fee-rate">
-        <source>Transaction fee rate</source>
-        <translation>Transaction fee rate</translation>
+        <source>%1 Transaction fee rate</source>
+        <translation>%1 Transaction fee rate</translation>
     </message>
     <message id="general-fee-fail">
         <source>The minimum fee is %1 %2</source>
         <translation>The minimum fee is %1 %2</translation>
-    </message>
-    <message id="general-locked">
-        <source>locked</source>
-        <translation type="vanished">locked</translation>
     </message>
     <message id="general-change-settings">
         <source>Change settings</source>
@@ -1312,20 +1255,22 @@ or send this address to the sender over secure channel</translation>
         <translation>Default fee</translation>
     </message>
     <message id="swap-beta-message">
-        <source>Atomic Swap functionality is Beta at the moment. We recommend you not to send large amounts.</source>
-        <translation>Atomic Swap functionality is Beta at the moment. We recommend you not to send large amounts.</translation>
+        <source>Atomic Swaps functionality is Beta at the moment. We recommend you not to send large amounts.</source>
+        <translation>Atomic Swaps functionality is Beta at the moment. We recommend you not to send large amounts.</translation>
     </message>
     <message id="swap-beta-title">
-        <source>Atomic Swap is in BETA</source>
-        <translation>Atomic Swap is in BETA</translation>
+        <source>Atomic Swaps are in BETA</source>
+        <translation>Atomic Swaps are in BETA</translation>
     </message>
     <message id="swap-na-message">
-        <source>You do not have any 3rd-party currencies connected.\nUpdate your settings and try again.</source>
-        <translation>You do not have any 3rd-party currencies connected.\nUpdate your settings and try again.</translation>
+        <source>You do not have any 3rd-party currencies connected.
+Update your settings and try again.</source>
+        <translation>You do not have any 3rd-party currencies connected.
+Update your settings and try again.</translation>
     </message>
     <message id="wallet-receive-swap-title">
-        <source>Create swap offer</source>
-        <translation>Create swap offer</translation>
+        <source>Create a Swap Offer</source>
+        <translation>Create a Swap Offer</translation>
     </message>
     <message id="wallet-receive-addr-message">
         <source>Send this address to the sender over an external secure channel or scan the QR code</source>
@@ -1359,29 +1304,25 @@ or send this address to the sender over secure channel</translation>
         <source>Exchange rate</source>
         <translation>Exchange rate</translation>
     </message>
-    <message id="wallet-receive-your-token">
-        <source>Your transaction token:</source>
-        <translation>Your transaction token:</translation>
-    </message>
     <message id="wallet-swap-token-message">
-        <source>Send this token to the sender over an external secure channel</source>
-        <translation>Send this token to the sender over an external secure channel</translation>
+        <source>Send this token to the sender over a secure external channel</source>
+        <translation>Send this token to the sender over a secure external channel</translation>
     </message>
     <message id="wallet-receive-swap-publish">
-        <source>publish transaction token</source>
-        <translation>publish transaction token</translation>
+        <source>publish offer</source>
+        <translation>publish offer</translation>
     </message>
     <message id="wallet-send-swap-title">
-        <source>Swap currencies</source>
-        <translation>Swap currencies</translation>
+        <source>Accept Swap Offer</source>
+        <translation>Accept Swap Offer</translation>
     </message>
     <message id="wallet-send-invalid-token">
         <source>Invalid swap token</source>
         <translation>Invalid swap token</translation>
     </message>
     <message id="wallet-send-invalid-address-or-token">
-        <source>Invalid wallet address or swap token</source>
-        <translation>Invalid wallet address or swap token</translation>
+        <source>Invalid wallet address</source>
+        <translation>Invalid wallet address</translation>
     </message>
     <message id="general-comment-local">
         <source>Comments are local and won&apos;t be shared</source>
@@ -1408,13 +1349,10 @@ or send this address to the sender over secure channel</translation>
         <translation>Electrum</translation>
     </message>
     <message id="swap-currency-na-message">
-        <source>%1 is not connected, \nplease review your settings and try again.</source>
-        <oldsource>%1 is not connected, please review your settings and try again.</oldsource>
-        <translation type="unfinished">%1 is not connected, \nplease review your settings and try again.</translation>
-    </message>
-    <message id="send-swap-to-label">
-        <source>Transaction token</source>
-        <translation>Transaction token</translation>
+        <source>%1 is not connected, 
+please review your settings and try again</source>
+        <translation>%1 is not connected, 
+please review your settings and try again</translation>
     </message>
     <message id="send-not-enough">
         <source>There is not enough funds to complete the transaction</source>
@@ -1450,11 +1388,11 @@ or send this address to the sender over secure channel</translation>
     </message>
     <message id="loading-view-net-problems">
         <source>It may take longer then usual. Please, check your network.</source>
-        <translation type="unfinished">It may take longer then usual. Please, check your network.</translation>
+        <translation>It may take longer then usual. Please, check your network.</translation>
     </message>
     <message id="atomic-swap-title">
-        <source>Atomic Swap</source>
-        <translation>Atomic Swap</translation>
+        <source>Atomic Swaps</source>
+        <translation>Atomic Swaps</translation>
     </message>
     <message id="atomic-swap-create">
         <source>Create offer</source>
@@ -1593,64 +1531,60 @@ or send this address to the sender over secure channel</translation>
         <translation>There is no device connected, please, connect your hardware wallet.</translation>
     </message>
     <message id="wallet-receive-copy-token">
-        <source>copy transaction token</source>
-        <translation>copy transaction token</translation>
+        <source>copy swap token</source>
+        <translation>copy swap token</translation>
     </message>
     <message id="wallet-model-device-not-connected">
         <source>There is no Trezor device connected. Please, connect and try again.</source>
         <translation>There is no Trezor device connected. Please, connect and try again.</translation>
     </message>
-    <message id="settings-invalid-seed">
-        <source>Invalid seed phrase</source>
-        <translation type="vanished">Invalid seed phrase</translation>
-    </message>
     <message id="wallet-transactions-all-tab">
         <source>All</source>
-        <translation type="unfinished">All</translation>
+        <translation>All</translation>
     </message>
     <message id="wallet-transactions-in-progress-tab">
         <source>In progress</source>
-        <translation type="unfinished">In progress</translation>
+        <translation>In progress</translation>
     </message>
     <message id="wallet-transactions-sent-tab">
         <source>Sent</source>
-        <translation type="unfinished">Sent</translation>
+        <translation>Sent</translation>
     </message>
     <message id="wallet-transactions-received-tab">
         <source>Received</source>
-        <translation type="unfinished">Received</translation>
+        <translation>Received</translation>
     </message>
     <message id="settings-progress-na">
-        <source>You cannot disconnect wallet, edit seed phrase or change default\nfee while you have transactions in progress.</source>
+        <source>You cannot disconnect wallet, edit seed phrase or change default
+fee while you have transactions in progress.</source>
         <translation>You cannot disconnect wallet, edit seed phrase or change default
 fee while you have transactions in progress.</translation>
     </message>
     <message id="atomic-no-offers">
-        <source>There are no active offers at the moment.\nPlease try again later or create an offer yourself.</source>
-        <oldsource>There are no active offers at the moment.
-Please try again later or create an offer yourself.</oldsource>
-        <translation type="unfinished">There are no active offers at the moment.
+        <source>There are no active offers at the moment.
+Please try again later or create an offer yourself.</source>
+        <translation>There are no active offers at the moment.
 Please try again later or create an offer yourself.</translation>
     </message>
     <message id="send-less-than-fee">
-        <source>The swap amount must be greater than the redemption fee.</source>
-        <translation type="unfinished"></translation>
+        <source>The swap amount must be greater than the transaction fee</source>
+        <translation>The swap amount must be greater than the transaction fee</translation>
     </message>
     <message id="wallet-txs-status-in-progress">
         <source>in progress</source>
-        <translation type="unfinished"></translation>
+        <translation>in progress</translation>
     </message>
     <message id="wallet-txs-status-own-sent">
         <source>sent to own address</source>
-        <translation type="unfinished"></translation>
+        <translation>sent to own address</translation>
     </message>
     <message id="wallet-txs-status-own-sending">
         <source>sending to own address</source>
-        <translation type="unfinished"></translation>
+        <translation>sending to own address</translation>
     </message>
     <message id="wallet-search-transactions-placeholder">
         <source>Transaction or kernel ID, comment, address or contact</source>
-        <translation type="unfinished"></translation>
+        <translation>Transaction or kernel ID, comment, address or contact</translation>
     </message>
     <message id="settings-swap-node">
         <source>Node</source>
@@ -1658,27 +1592,27 @@ Please try again later or create an offer yourself.</translation>
     </message>
     <message id="wallet-clear-search">
         <source>Clear search</source>
-        <translation type="unfinished"></translation>
+        <translation>Clear search</translation>
     </message>
     <message id="wallet-search">
         <source>Search</source>
-        <translation type="unfinished"></translation>
+        <translation>Search</translation>
     </message>
     <message id="atomic-swap-1active-tx-count">
         <source>1 active transaction</source>
-        <translation type="unfinished"></translation>
+        <translation>1 active transaction</translation>
     </message>
     <message id="atomic-swap-active-tx-count">
         <source>%1 active transactions</source>
-        <translation type="unfinished"></translation>
+        <translation>%1 active transactions</translation>
     </message>
     <message id="swap-beta-tx-in-progress">
         <source>Transaction is in progress</source>
-        <translation type="unfinished"></translation>
+        <translation>Transaction is in progress</translation>
     </message>
     <message id="swap-connecting">
         <source>Connecting...</source>
-        <translation type="unfinished"></translation>
+        <translation>Connecting...</translation>
     </message>
     <message id="swap-beta-connection-error">
         <source>Cannot connect to peer. Please check the address and retry.</source>
@@ -1686,68 +1620,67 @@ Please try again later or create an offer yourself.</translation>
     </message>
     <message id="swap-alert-confirm-button">
         <source>I understand</source>
-        <translation type="unfinished">I understand</translation>
+        <translation>I understand</translation>
     </message>
     <message id="accept-own-offer-allert-head">
-        <source>Own offer can’t be accepted</source>
-        <translation type="unfinished"></translation>
+        <source>You cannot accept your own offer</source>
+        <translation>You cannot accept your own offer</translation>
     </message>
     <message id="accept-own-offer-allert-body">
-        <source>The transaction token was generated by you, therefore it is not allowed to accept your own offer.\nPlease check the swap token and try again.</source>
-        <translation type="unfinished">The transaction token was generated by you, therefore it is not allowed to accept your own offer.
-Please check the swap token and try again.</translation>
+        <source>The swap token was generated by you, and therefore cannot be accepted.</source>
+        <translation>The swap token was generated by you, and therefore cannot be accepted.</translation>
     </message>
     <message id="swap-copy-token">
         <source>Copy token</source>
-        <translation type="unfinished"></translation>
+        <translation>Copy token</translation>
     </message>
     <message id="atomic-swap-cancel-text">
         <source>Are you sure you want to cancel your offer?</source>
-        <translation type="unfinished"></translation>
+        <translation>Are you sure you want to cancel your offer?</translation>
     </message>
     <message id="atomic-swap-cancel-button">
         <source>cancel offer</source>
-        <translation type="unfinished"></translation>
+        <translation>cancel offer</translation>
     </message>
     <message id="atomic-swap-back-button">
         <source>back</source>
-        <translation type="unfinished"></translation>
+        <translation>back</translation>
     </message>
     <message id="swap-details-lock-tx-id">
         <source>lock transaction ID</source>
-        <translation type="unfinished"></translation>
+        <translation>lock transaction ID</translation>
     </message>
     <message id="swap-details-lock-tx-conf">
         <source>lock transaction confirmations</source>
-        <translation type="unfinished"></translation>
+        <translation>lock transaction confirmations</translation>
     </message>
     <message id="swap-details-beam-lock-kernel-id">
         <source>BEAM lock transaction kernel ID</source>
-        <translation type="unfinished"></translation>
+        <translation>BEAM lock transaction kernel ID</translation>
     </message>
     <message id="swap-details-beam-redeem-kernel-id">
         <source>BEAM redeem transaction kernel ID</source>
-        <translation type="unfinished"></translation>
+        <translation>BEAM redeem transaction kernel ID</translation>
     </message>
     <message id="swap-details-redeem-tx-id">
         <source>redeem transaction ID</source>
-        <translation type="unfinished"></translation>
+        <translation>redeem transaction ID</translation>
     </message>
     <message id="swap-details-redeem-tx-conf">
         <source>redeem transaction confirmations</source>
-        <translation type="unfinished"></translation>
+        <translation>redeem transaction confirmations</translation>
     </message>
     <message id="swap-details-beam-refund-kernel-id">
         <source>BEAM refund transaction kernel ID</source>
-        <translation type="unfinished"></translation>
+        <translation>BEAM refund transaction kernel ID</translation>
     </message>
     <message id="swap-details-refund-tx-id">
         <source>refund transaction ID</source>
-        <translation type="unfinished"></translation>
+        <translation>refund transaction ID</translation>
     </message>
     <message id="swap-details-refund-tx-conf">
         <source>refund transaction confirmations</source>
-        <translation type="unfinished"></translation>
+        <translation>refund transaction confirmations</translation>
     </message>
     <message id="swap-invalid-rate">
         <source>Invalid rate</source>
@@ -1755,27 +1688,23 @@ Please check the swap token and try again.</translation>
     </message>
     <message id="swap-details-tx-id">
         <source>Transaction ID</source>
-        <translation type="unfinished">Transaction ID</translation>
+        <translation>Transaction ID</translation>
     </message>
     <message id="swap-details-tx-fee">
-        <source>Transaction fee</source>
-        <translation type="unfinished">Transaction fee</translation>
+        <source>BEAM Transaction fee</source>
+        <translation>BEAM Transaction fee</translation>
     </message>
     <message id="swap-details-tx-comment">
         <source>Comment</source>
-        <translation type="unfinished">Comment</translation>
+        <translation>Comment</translation>
     </message>
     <message id="swap-details-tx-fee-rate">
-        <source>Transaction fee rate</source>
-        <translation type="unfinished">Transaction fee rate</translation>
+        <source>%1 Transaction fee rate</source>
+        <translation>%1 Transaction fee rate</translation>
     </message>
     <message id="settings-swap-disconnect">
         <source>Disconnect</source>
         <translation>Disconnect</translation>
-    </message>
-    <message id="settings-swap-seed-phrase">
-        <source>Seed Phrase</source>
-        <translation type="vanished">Seed Phrase</translation>
     </message>
     <message id="settings-swap-bitcoin-node">
         <source>Bitcoin node</source>
@@ -1801,20 +1730,13 @@ Please check the swap token and try again.</translation>
         <source>Qtum electrum</source>
         <translation>Qtum electrum</translation>
     </message>
-    <message id="connect to electrum node">
-        <source>connect to electrum node</source>
-        <translation type="vanished">connect to electrum node</translation>
-    </message>
-    <message id="connect to node">
-        <source>connect to node</source>
-        <translation type="vanished">connect to node</translation>
-    </message>
     <message id="invalid-rate-min">
         <source>Rate cannot be less than %1</source>
         <translation>Rate cannot be less than %1</translation>
     </message>
     <message id="swap-offer-duplicate-message">
-        <source>The offer with this transaction token is already accepted.\nPlease check the swap token and try again.</source>
+        <source>The offer with this transaction token is already accepted.
+Please check the swap token and try again.</source>
         <translation>The offer with this transaction token is already accepted.
 Please check the swap token and try again.</translation>
     </message>
@@ -1828,83 +1750,75 @@ Please check the swap token and try again.</translation>
     </message>
     <message id="swap-details-failure-reason">
         <source>Error</source>
-        <translation type="unfinished">Error</translation>
+        <translation>Error</translation>
     </message>
     <message id="swap-tx-failture-refunded">
         <source>Refunded</source>
-        <translation type="unfinished"></translation>
+        <translation>Refunded</translation>
     </message>
     <message id="settings-swap-edit-seed">
         <source>Edit your seed phrase</source>
-        <translation type="unfinished"></translation>
+        <translation>Edit your seed phrase</translation>
     </message>
     <message id="settings-swap-enter-seed">
         <source>Enter your seed phrase</source>
-        <translation type="unfinished"></translation>
+        <translation>Enter your seed phrase</translation>
     </message>
     <message id="settings-swap-label-or">
         <source>or</source>
-        <translation type="unfinished"></translation>
+        <translation>or</translation>
     </message>
     <message id="settings-swap-new-seed">
         <source>Generate new seed phrase</source>
-        <translation type="unfinished">Generate new seed phrase</translation>
+        <translation>Generate new seed phrase</translation>
     </message>
     <message id="settings-swap-show-seed">
         <source>Show seed phrase</source>
-        <translation type="unfinished">Show seed phrase</translation>
+        <translation>Show seed phrase</translation>
     </message>
     <message id="settings-swap-show-addresses">
         <source>Show wallet addresses</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message id="settings-swap-connect-electrum">
-        <source>connect to electrum node</source>
-        <translation type="unfinished">connect to electrum node</translation>
-    </message>
-    <message id="settings-swap-connect-node">
-        <source>connect to node</source>
-        <translation type="unfinished">connect to node</translation>
+        <translation>Show wallet addresses</translation>
     </message>
     <message id="swap-seed-info-message">
         <source>Your seed phrase is the access key to all the funds! Print or write down the phrase and keep it in a safe or in a locked vault. Without the phrase you will not be able to recover your money.</source>
-        <translation type="unfinished"></translation>
+        <translation>Your seed phrase is the access key to all the funds! Print or write down the phrase and keep it in a safe or in a locked vault. Without the phrase you will not be able to recover your money.</translation>
     </message>
     <message id="settings-swap-seed-generate">
         <source>generate another seed phrase</source>
-        <translation type="unfinished"></translation>
+        <translation>generate another seed phrase</translation>
     </message>
     <message id="swap-seed-new">
         <source>New seed phrase</source>
-        <translation type="unfinished"></translation>
+        <translation>New seed phrase</translation>
     </message>
     <message id="swap-seed-edit">
         <source>Enter your seed phrase</source>
-        <translation type="unfinished"></translation>
+        <translation>Enter your seed phrase</translation>
     </message>
     <message id="bitcoin-show-seed-title">
         <source>Bitcoin seed phrase</source>
-        <translation type="unfinished"></translation>
+        <translation>Bitcoin seed phrase</translation>
     </message>
     <message id="litecoin-show-seed-title">
         <source>Litecoin seed phrase</source>
-        <translation type="unfinished"></translation>
+        <translation>Litecoin seed phrase</translation>
     </message>
     <message id="qtum-show-seed-title">
         <source>Qtum seed phrase</source>
-        <translation type="unfinished"></translation>
+        <translation>Qtum seed phrase</translation>
     </message>
     <message id="bitcoin-show-addresses-title">
         <source>Bitcoin wallet addresses</source>
-        <translation type="unfinished"></translation>
+        <translation>Bitcoin wallet addresses</translation>
     </message>
     <message id="litecoin-show-addresses-title">
         <source>Litecoin wallet addresses</source>
-        <translation type="unfinished"></translation>
+        <translation>Litecoin wallet addresses</translation>
     </message>
     <message id="qtum-show-addresses-title">
         <source>Qtum wallet addresses</source>
-        <translation type="unfinished"></translation>
+        <translation>Qtum wallet addresses</translation>
     </message>
     <message id="settings-swap-copy-address">
         <source>Copy address</source>
@@ -1949,6 +1863,84 @@ Please check the swap token and try again.</translation>
         <source>Enter your wallet password to clear seed phrase</source>
         <extracomment>electrum settings, ask password to clear seed phrase, dialog message</extracomment>
         <translation>Enter your wallet password to clear seed phrase</translation>
+    </message>
+    <message id="wallet-receive-swap-your-token">
+        <source>Your swap token:</source>
+        <translation>Your swap token:</translation>
+    </message>
+    <message id="send-swap-confirmation-title">
+        <source>Confirm atomic swap</source>
+        <translation>Confirm atomic swap</translation>
+    </message>
+    <message id="send-swap-sconfirmation-online-time">
+        <source>Keep your wallet online. The swap normally takes about 1 hour to complete.</source>
+        <translation>Keep your wallet online. The swap normally takes about 1 hour
+to complete.</translation>
+    </message>
+    <message id="beam-transaction-fee">
+        <source>BEAM Transaction fee</source>
+        <translation>BEAM Transaction fee</translation>
+    </message>
+    <message id="send-swap-token">
+        <source>Swap token</source>
+        <translation>Swap token</translation>
+    </message>
+    <message id="send-swap-token-hint">
+        <source>Paste token here</source>
+        <translation>Paste token here</translation>
+    </message>
+    <message id="settings-swap-connect">
+        <source>connect</source>
+        <translation>connect</translation>
+    </message>
+    <message id="swap-tx-state-initial">
+        <source>If nobody accepts the offer in %1, the offer will be automatically canceled</source>
+        <translation>If nobody accepts the offer in %1, the offer will be automatically canceled</translation>
+    </message>
+    <message id="swap-tx-state-in-progress-normal">
+        <source>The swap is expected to complete in %1 at most</source>
+        <translation>The swap is expected to complete in %1 at most</translation>
+    </message>
+    <message id="swap-tx-state-in-progress-refunding">
+        <source>The refund of your %2 will start in %1. Refund duration depends on the transaction fee you specified for %2</source>
+        <translation>The refund of your %2 will start in %1. Refund duration depends on the transaction fee you specified for %2</translation>
+    </message>
+    <message id="atomic-swap-tx-cancel">
+        <source>Cancel atomic swap</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="atomic-swap-tx-cancel-text">
+        <source>Are you sure you want to cancel?</source>
+        <oldsource>Are you sure you want to cancel atomic swap transaction?</oldsource>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="atomic-swap-tx-yes-button">
+        <source>yes</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="atomic-swap-no-button">
+        <source>no</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="swap-tx-state-refunding">
+        <source>Refunding</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="wallet-txs-status-waiting-peer">
+        <source>waiting for peer</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="send-swap-fee-warning">
+        <source> Once the offer is accepted by the other side, the %1 transaction fee will be charged even if the offer is cancelled.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="app-close-title">
+        <source>Beam wallet close</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="app-close-text">
+        <source>There are %1 active transactions that might fail if the wallet will go offline. Are you sure to close the wallet now?</source>
+        <translation type="unfinished"></translation>
     </message>
 </context>
 </TS>

@@ -197,6 +197,7 @@ namespace beam::wallet
 
         IsSelfTx = 27,
 
+        AtomicSwapPeerPrivateKey = 29,
         AtomicSwapIsBeamSide = 30,
         AtomicSwapCoin = 31,
         AtomicSwapAmount = 32,
@@ -270,6 +271,9 @@ namespace beam::wallet
         AtomicSwapSecretPrivateKey = 202,
         AtomicSwapSecretPublicKey = 203,
         Confirmations = 204,
+        AtomicSwapPrivateKey = 205,
+        AtomicSwapWithdrawAddress = 206,
+        AtomicSwapExternalHeight = 207,
 
         InternalFailureReason = 210,
     

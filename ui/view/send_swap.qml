@@ -32,8 +32,10 @@ ColumnLayout {
         }
 
         if (!BeamGlobals.canReceive(currency)) {
-            //% "%1 is not connected, \nplease review your settings and try again."
-            swapna.text = qsTrId("swap-currency-na-message").arg(BeamGlobals.getCurrencyName(currency)).replace("\\n", "\n")
+/*% "%1 is not connected, 
+please review your settings and try again"
+*/
+            swapna.text = qsTrId("swap-currency-na-message").arg(BeamGlobals.getCurrencyName(currency))
             swapna.open()
             return false;
         }
@@ -51,7 +53,6 @@ ColumnLayout {
         onRejected: sendSwapView.onClosed();
         onAccepted: main.openSwapSettings();
     }
-
 
     Component.onCompleted: {
         comment_input.forceActiveFocus();
@@ -101,7 +102,7 @@ ColumnLayout {
             font.pixelSize:  18
             font.styleName:  "Bold"; font.weight: Font.Bold
             color:           Style.content_main
-            //% "Swap currencies"
+            //% "Accept Swap Offer"
             text:            qsTrId("wallet-send-swap-title")
         }
     }
@@ -126,8 +127,8 @@ ColumnLayout {
                     font.pixelSize:  14
                     font.styleName:  "Bold"; font.weight: Font.Bold
                     color:           Style.content_main
-                    //% "Transaction token"
-                    text:            qsTrId("send-swap-to-label")
+                    //% "Swap token"
+                    text:            qsTrId("send-swap-token")
                 }
 
                 SFTextInput {
@@ -141,8 +142,7 @@ ColumnLayout {
                     validator:        RegExpValidator { regExp: /[0-9a-fA-F]{1,}/ }
                     selectByMouse:    true
                     readOnly:         true
-                    //% "Please specify contact or transaction token"
-                    placeholderText:  qsTrId("send-contact-placeholder")
+                    onTextChanged:    cursorPosition = 0
                 }
 
                 Item {
@@ -179,14 +179,26 @@ ColumnLayout {
                         title:            qsTrId("sent-amount-label")
                         id:               sendAmountInput
                         hasFee:           true
+                        currFeeTitle:     true
                         amount:           viewModel.sendAmount
                         currency:         viewModel.sendCurrency
                         readOnlyA:        true
                         multi:            false
                         color:            Style.accent_outgoing
-                        currColor:        viewModel.receiveCurrency == viewModel.sendCurrency ? Style.validator_error : Style.content_main
-                        //% "There is not enough funds to complete the transaction"
-                        error:            viewModel.isEnough ? "" : qsTrId("send-not-enough")
+                        currColor:        viewModel.receiveCurrency == viewModel.sendCurrency || getErrorText().length ? Style.validator_error : Style.content_main
+                        error:            getErrorText()
+
+                        function getErrorText () {
+                            if(!viewModel.isSendFeeOK) {
+                                //% "The swap amount must be greater than the transaction fee"
+                                return qsTrId("send-less-than-fee")
+                            }
+                            if(!viewModel.isEnough) {
+                                //% "There is not enough funds to complete the transaction"
+                                return qsTrId("send-not-enough")
+                            }
+                            return ""
+                        }
                     }
 
                     Binding {
@@ -248,12 +260,22 @@ ColumnLayout {
                         title:            qsTrId("receive-amount-swap-label")
                         id:               receiveAmountInput
                         hasFee:           true
+                        currFeeTitle:     true
                         amount:           viewModel.receiveAmount
                         currency:         viewModel.receiveCurrency
                         readOnlyA:        true
                         multi:            false
                         color:            Style.accent_incoming
-                        currColor:        viewModel.receiveCurrency == viewModel.sendCurrency ? Style.validator_error : Style.content_main
+                        currColor:        viewModel.receiveCurrency == viewModel.sendCurrency || getErrorText().length ? Style.validator_error : Style.content_main
+                        error:            getErrorText()
+
+                        function getErrorText() {
+                            if(!viewModel.isReceiveFeeOK) {
+                                //% "The swap amount must be greater than the transaction fee"
+                                return qsTrId("send-less-than-fee")
+                            }
+                            return ""
+                        }
                     }
 
                     Binding {
@@ -350,9 +372,16 @@ ColumnLayout {
                         const dialogComponent = Qt.createComponent("send_confirm.qml");
                         var dialogObject = dialogComponent.createObject(sendSwapView,
                             {
+                                swapMode: true,
                                 addressText: viewModel.receiverAddress,
                                 amountText: [Utils.uiStringToLocale(viewModel.sendAmount), sendAmountInput.getCurrencyLabel()].join(" "),
                                 feeText: [Utils.uiStringToLocale(viewModel.sendFee), sendAmountInput.getFeeLabel()].join(" "),
+                                feeLabel: sendAmountInput.currency == Currency.CurrBeam ?
+                                    //% "BEAM Transaction fee"
+                                    qsTrId("beam-transaction-fee") + ":" :
+                                    //% "%1 Transaction fee rate"
+                                    qsTrId("general-fee-rate").arg(sendAmountInput.getCurrencyLabel()),
+                                swapCurrencyLabel: sendAmountInput.currency == Currency.CurrBeam ? "" : sendAmountInput.getCurrencyLabel(),
                                 onAcceptedCallback: acceptedCallback
                             }).open();
 

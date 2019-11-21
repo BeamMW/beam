@@ -85,6 +85,7 @@
         <file>assets/bg.svg</file>
         <file>assets/b-grey.svg</file>
         <file>assets/b-red.svg</file>
+        <file>assets/icon-attention.svg</file>
         <file>assets/icon-dashboard.svg</file>
         <file>assets/icon-dashboard-active.svg</file>
         <file>assets/icon-addresses.svg</file>
@@ -115,6 +116,7 @@
         <file>assets/icon-failed.svg</file>
         <file>assets/icon-swap-in-progress.svg</file>
         <file>assets/icon-swap-canceled.svg</file>
+        <file>assets/icon-swap-currencies.svg</file>
         <file>assets/icon-swap-completed.svg</file>
         <file>assets/icon-swap-failed.svg</file>
         <file>assets/icon-comment.svg</file>
@@ -198,7 +200,6 @@
         <file>assets/icon-accept-offer.svg</file>
         <file>assets/icon-create-offer.svg</file>
         <file>assets/atomic-empty-state.svg</file>
-        <file>assets/icon-connect.svg</file>
         <file>controls/OpenExternalLinkConfirmation.qml</file>
         <file>controls/SeedInput.qml</file>
         <file>utils.js</file>

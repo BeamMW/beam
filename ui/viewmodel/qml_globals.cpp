@@ -19,6 +19,9 @@
 #include "model/app_model.h"
 #include "wallet/common.h"
 #include "ui_helpers.h"
+#include "wallet/bitcoin/bitcoin_side.h"
+#include "wallet/litecoin/litecoin_side.h"
+#include "wallet/qtum/qtum_side.h"
 
 namespace
 {
@@ -283,5 +286,27 @@ QString QMLGlobals::getCurrencyName(Currency currency)
         assert(false && "unexpected swap coin!");
         return QString();
     }
+    }
+}
+
+bool QMLGlobals::isSwapFeeOK(unsigned int amount, unsigned int fee, Currency currency)
+{
+    switch (currency) {
+        case Currency::CurrBeam: {
+            return amount > fee && fee >= QMLGlobals::minFeeBeam();
+        }
+        case Currency::CurrBtc: {
+            return beam::wallet::BitcoinSide::CheckAmount(amount, fee);
+        }
+        case Currency::CurrLtc: {
+            return beam::wallet::LitecoinSide::CheckAmount(amount, fee);
+        }
+        case Currency::CurrQtum: {
+            return beam::wallet::QtumSide::CheckAmount(amount, fee);
+        }
+        default: {
+            assert(false);
+            return true;
+        }
     }
 }

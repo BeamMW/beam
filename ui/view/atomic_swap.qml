@@ -18,20 +18,20 @@ Item {
 
     ConfirmationDialog {
         id: betaDialog
-        //% "Atomic Swap is in BETA"
+        //% "Atomic Swaps are in BETA"
         title: qsTrId("swap-beta-title")
         //% "I understand"
         okButtonText:        qsTrId("swap-alert-confirm-button")
         okButtonIconSource:  "qrc:/assets/icon-done.svg"
         cancelButtonVisible: false
         width: 470
-        //% "Atomic Swap functionality is Beta at the moment. We recommend you not to send large amounts."
+        //% "Atomic Swaps functionality is Beta at the moment. We recommend you not to send large amounts."
         text: qsTrId("swap-beta-message")
     }
 
     ConfirmationDialog {
         id:                     cancelOfferDialog
-        property var txId: undefined
+        property var txId:      undefined
         width:                  460
         //% "Cancel offer"
         title:                  qsTrId("atomic-swap-cancel")
@@ -57,6 +57,25 @@ Item {
         }
     }
 
+    ConfirmationDialog {
+        id:                     cancelSwapDialog
+        property var txId:      undefined
+        //% "Cancel atomic swap"
+        title:                  qsTrId("atomic-swap-tx-cancel")
+        //% "Are you sure you want to cancel?"
+        text:                   qsTrId("atomic-swap-tx-cancel-text")
+        //% "yes"
+        okButtonText:           qsTrId("atomic-swap-tx-yes-button")
+        okButtonIconSource:     "qrc:/assets/icon-done.svg"
+        okButtonColor:          Style.swapCurrencyStateIndicator
+        //% "no"
+        cancelButtonText:       qsTrId("atomic-swap-no-button")
+        cancelButtonIconSource: "qrc:/assets/icon-cancel-16.svg"
+        onAccepted: {
+            viewModel.cancelTx(cancelSwapDialog.txId);
+        }
+    }
+
     Component.onCompleted: {
         if (viewModel.showBetaWarning) {
             betaDialog.open()
@@ -65,7 +84,7 @@ Item {
 
     RowLayout {
         Title {
-            //% "Atomic Swap"
+            //% "Atomic Swaps"
             text: qsTrId("atomic-swap-title")
         }
 
@@ -148,13 +167,10 @@ Item {
                     //% "Accept offer"
                     text: qsTrId("atomic-swap-accept")
                     font.pixelSize: 12
-                    //font.capitalization: Font.AllUppercase
-
                     onClicked: {
                         offersStackView.push(Qt.createComponent("send.qml"),
                                              {
-                                                "isSwapMode": true,
-                                                "onClosed": onClosed,
+                                                "onClosed":    onClosed,
                                                 "onSwapToken": onSwapToken
                                              });
                     }
@@ -174,10 +190,8 @@ Item {
                     //font.capitalization: Font.AllUppercase
 
                     onClicked: {
-                        offersStackView.push(Qt.createComponent("receive_swap.qml"),
-                                            {"modeSwitchEnabled": false,
-                                             "onClosed": onClosed});
-                        function onClosed() { offersStackView.pop(); }
+                        function onClosed() {offersStackView.pop();}
+                        offersStackView.push(Qt.createComponent("receive_swap.qml"), {"onClosed": onClosed});
                     }
                 }
             }
@@ -476,7 +490,9 @@ Item {
                             color:                Style.content_main
                             opacity:              0.5
                             lineHeight:           1.43
-                            //% "There are no active offers at the moment.\nPlease try again later or create an offer yourself."
+/*% "There are no active offers at the moment.
+Please try again later or create an offer yourself."
+*/
                             text:                 qsTrId("atomic-no-offers")
                         }
 
@@ -682,6 +698,7 @@ Item {
                                         MouseArea {
                                             anchors.fill: parent
                                             acceptedButtons: Qt.LeftButton
+                                            cursorShape: Qt.PointingHandCursor
                                             onClicked: {
                                                 if (isOwnOffer) {
                                                     cancelOfferDialog.txId = offersTable.model.getRoleValue(styleData.row, "rawTxID");
@@ -852,6 +869,7 @@ Item {
                                         beamLockTxKernelId:             txRolesMap && txRolesMap.beamLockTxKernelId ? txRolesMap.beamLockTxKernelId : ""
                                         beamRedeemTxKernelId:           txRolesMap && txRolesMap.beamRedeemTxKernelId ? txRolesMap.beamRedeemTxKernelId : ""
                                         beamRefundTxKernelId:           txRolesMap && txRolesMap.beamRefundTxKernelId ? txRolesMap.beamRefundTxKernelId : ""
+                                        stateDetails:                   txRolesMap && txRolesMap.swapState ? txRolesMap.swapState : ""
                                         failureReason:                  txRolesMap && txRolesMap.failureReason ? txRolesMap.failureReason : ""
                                         
                                         onTextCopied: function (text) {
@@ -1111,7 +1129,7 @@ Item {
                         }
 
                         function showContextMenu(row) {
-                            txContextMenu.canCopyToken = true;
+                            txContextMenu.canCopyToken = transactionsTable.model.getRoleValue(row, "isPending");;
                             txContextMenu.token = transactionsTable.model.getRoleValue(row, "token");
                             txContextMenu.cancelEnabled = transactionsTable.model.getRoleValue(row, "isCancelAvailable");
                             txContextMenu.deleteEnabled = transactionsTable.model.getRoleValue(row, "isDeleteAvailable");
@@ -1167,7 +1185,8 @@ Item {
                             icon.source: "qrc:/assets/icon-cancel.svg"
                             enabled: txContextMenu.cancelEnabled
                             onTriggered: {
-                                viewModel.cancelTx(txContextMenu.txID);
+                                cancelSwapDialog.txId = txContextMenu.txID;
+                                cancelSwapDialog.open();
                             }
                         }
                         Action {
@@ -1278,13 +1297,13 @@ Item {
     function getStatusText(value) {
 
         switch(value) {
-            //% "pending"
-            case "pending": return qsTrId("wallet-txs-status-pending");
+            //% "waiting for peer"
+            case "pending": return qsTrId("wallet-txs-status-waiting-peer");
             //% "in progress"
             case "in progress": return qsTrId("wallet-txs-status-in-progress");
             //% "completed"
             case "completed": return qsTrId("wallet-txs-status-completed");
-            //% "canceled"
+            //% "cancelled"
             case "canceled": return qsTrId("wallet-txs-status-cancelled");
             //% "expired"
             case "expired": return qsTrId("wallet-txs-status-expired");

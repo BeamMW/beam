@@ -39,9 +39,4 @@ namespace beam::wallet
     {
         return kQtumLockTxEstimatedTimeInBeamBlocks;
     }
-
-    uint8_t QtumSide::GetAddressVersion() const
-    {
-        return qtum::getAddressVersion();
-    }
 }

@@ -9,16 +9,12 @@ import "controls"
 
 ColumnLayout {
     id: sendView
-    property bool   isSwapMode: false
-    property bool   isSwapOnFly: false
-    property bool   pasteEventComplete: false
-    property var    defaultFocusItem: receiverTAInput
-    property bool   isErrorDetected: false
+    property var  defaultFocusItem: receiverTAInput
+    property bool isValid: !receiverTAInput.text || BeamGlobals.isSwapToken(receiverTAInput.text)
 
     // callbacks set by parent
-    property var    onClosed: function() {}
+    property var    onClosed:    function() {}
     property var    onSwapToken: function() {}
-    property var    onAddress: function() {}
 
     TopGradient {
         mainRoot: main
@@ -34,76 +30,35 @@ ColumnLayout {
             font.pixelSize:  18
             font.styleName:  "Bold"; font.weight: Font.Bold
             color:           Style.content_main
-            text:            isSwapMode || isSwapOnFly
-                                        //% "Swap currencies"
-                                        ? qsTrId("wallet-send-swap-title")
-                                        //% "Send"
-                                        : qsTrId("send-title")
+            //% "Accept Swap Offer"
+            text:            qsTrId("wallet-send-swap-title")
         }
     }
 
-    function isTAInputValid(token) {
-        return token.length == 0 || BeamGlobals.isTAValid(token)
-    }
-
     ColumnLayout {
-        
         SFText {
             font.pixelSize:  14
             font.styleName:  "Bold"; font.weight: Font.Bold
             color:           Style.content_main
-            //% "Transaction token or contact"
-            text:            qsTrId("send-send-to-label")
+            //% "Swap token"
+            text:            qsTrId("send-swap-token")
         }
 
         SFTextInput {
             Layout.fillWidth: true
             id:               receiverTAInput
             font.pixelSize:   14
-            color:            isErrorDetected
-                ? Style.validator_error
-                : Style.content_main
-            backgroundColor:  isErrorDetected
-                ? Style.validator_error
-                : Style.content_main
+            color:            isValid ? Style.content_main : Style.validator_error
+            backgroundColor:  isValid ? Style.content_main : Style.validator_error
+            font.italic:      !isValid
             validator:        RegExpValidator { regExp: /[0-9a-zA-Z]{1,}/ }
             selectByMouse:    true
-            //% "Please specify contact or transaction token"
-            placeholderText:  qsTrId("send-contact-placeholder")
-            font.italic:      isErrorDetected
-            onPaste: function() {
-                pasteEventComplete = true;
-            }
+            //% "Paste token here"
+            placeholderText:  qsTrId("send-swap-token-hint")
 
-            onTextChanged: {
-                isErrorDetected = false;
-                isSwapOnFly = false;
-                if (receiverTAInput.text.length == 0) {
-                    pasteEventComplete = false;
-                    return;
-                }
-
-                if (!isSwapMode) {
-                    isSwapOnFly = !BeamGlobals.isAddress(receiverTAInput.text);
-                }
-
-                if (!isTAInputValid(receiverTAInput.text)) {
-                    isSwapOnFly = false;
-                    isErrorDetected = true;
-                    pasteEventComplete = false;
-                    return;
-                }
-
-                isErrorDetected = (isSwapOnFly || isSwapMode) &&
-                        !BeamGlobals.isSwapToken(receiverTAInput.text);
-                
-                if (isErrorDetected) {
-                    pasteEventComplete = false;
-                    return;
-                }
-
-                if (pasteEventComplete) {
-                    actionButton.onClicked();
+            onTextPasted: {
+                if (BeamGlobals.isSwapToken(text)) {
+                    onSwapToken(text)
                 }
             }
         }
@@ -115,12 +70,10 @@ ColumnLayout {
                 id:               receiverTAError
                 color:            Style.validator_error
                 font.pixelSize:   12
-                visible:          isErrorDetected
-                text:             isSwapMode || isSwapOnFly
-                    //% "Invalid swap token"
-                    ? qsTrId("wallet-send-invalid-token")
-                    //% "Invalid wallet address or swap token"
-                    : qsTrId("wallet-send-invalid-address-or-token")
+                font.italic:      true
+                visible:          !isValid
+                //% "Invalid swap token"
+                text:             qsTrId("wallet-send-invalid-token")
             }
         }
 
@@ -134,27 +87,18 @@ ColumnLayout {
                 text:               qsTrId("general-close")
                 palette.buttonText: Style.content_main
                 icon.source:        "qrc:/assets/icon-cancel-white.svg"
-                onClicked:          {
-                    onClosed();
-                }
+                onClicked:          onClosed()
             }
             
             CustomButton {
-                id: actionButton
-                text: isSwapMode || isSwapOnFly
-                    //% "Swap"
-                    ? qsTrId("general-swap")
-                    //% "Send"
-                    : qsTrId("general-send")
+                id:                actionButton
+                //% "Swap"
+                text:               qsTrId("general-swap")
                 palette.buttonText: Style.content_opposite
-                palette.button: Style.accent_outgoing
-                icon.source: "qrc:/assets/icon-send-blue.svg"
-                enabled: !isErrorDetected && receiverTAInput.text.length
-                onClicked: {
-                    isSwapMode || isSwapOnFly
-                        ? onSwapToken(receiverTAInput.text)
-                        : onAddress(receiverTAInput.text);
-                }
+                palette.button:     Style.accent_outgoing
+                icon.source:        "qrc:/assets/icon-send-blue.svg"
+                enabled:            receiverTAInput.text && isValid
+                onClicked:          onSwapToken(receiverTAInput.text)
             }
         }
 

@@ -918,7 +918,7 @@ namespace
     }
 
     template<typename Settings>
-    bool ParseElectrumSettings(const po::variables_map& vm, uint8_t addressVersion, Settings& settings)
+    bool ParseElectrumSettings(const po::variables_map& vm, Settings& settings)
     {
         if (vm.count(cli::ELECTRUM_SEED) || vm.count(cli::ELECTRUM_ADDR) || vm.count(cli::GENERATE_ELECTRUM_SEED))
         {
@@ -970,8 +970,6 @@ namespace
 
                 LOG_INFO() << "seed = " << strSeed;
             }
-
-            electrumSettings.m_addressVersion = addressVersion;
 
             settings.SetElectrumConnectionOptions(electrumSettings);
 
@@ -1034,7 +1032,7 @@ namespace
     }
 
     template<typename SettingsProvider, typename Settings, typename CoreSettings, typename ElectrumSettings>
-    int HandleSwapCoin(const po::variables_map& vm, const IWalletDB::Ptr& walletDB, uint8_t addressVersion)
+    int HandleSwapCoin(const po::variables_map& vm, const IWalletDB::Ptr& walletDB)
     {
         SettingsProvider settingsProvider{ walletDB };
         settingsProvider.Initialize();
@@ -1096,7 +1094,7 @@ namespace
         bool isChanged = false;
 
         isChanged |= ParseSwapSettings(vm, settings);
-        isChanged |= ParseElectrumSettings(vm, addressVersion, settings);
+        isChanged |= ParseElectrumSettings(vm, settings);
 
         if (!isChanged && !settings.IsInitialized())
         {
@@ -1293,12 +1291,23 @@ namespace
 
         // TODO:SWAP use async callbacks or IWalletObserver?
         Height minHeight = walletDB->getCurrentHeight();
-        auto swapTxParameters = InitNewSwap(senderAddress.m_walletID, minHeight, amount, fee, swapCoin, swapAmount, isBeamSide);
-        swapTxParameters.SetParameter(TxParameterID::Fee, feeRate, isBeamSide ? SubTxIndex::REDEEM_TX : SubTxIndex::LOCK_TX);
+        auto swapTxParameters = InitNewSwap(senderAddress.m_walletID, minHeight, amount, fee, swapCoin, swapAmount, feeRate, isBeamSide);
 
         boost::optional<TxID> currentTxID = wallet.StartTransaction(swapTxParameters);
         
-        swapTxParameters.DeleteParameter(TxParameterID::Fee, isBeamSide ? SubTxIndex::REDEEM_TX : SubTxIndex::LOCK_TX);
+        // delete local parameters from token
+        if (isBeamSide)
+        {
+            swapTxParameters.DeleteParameter(TxParameterID::Fee, SubTxIndex::BEAM_LOCK_TX);
+            swapTxParameters.DeleteParameter(TxParameterID::Fee, SubTxIndex::BEAM_REFUND_TX);
+            swapTxParameters.DeleteParameter(TxParameterID::Fee, SubTxIndex::REDEEM_TX);
+        }
+        else
+        {
+            swapTxParameters.DeleteParameter(TxParameterID::Fee, SubTxIndex::BEAM_REDEEM_TX);
+            swapTxParameters.DeleteParameter(TxParameterID::Fee, SubTxIndex::LOCK_TX);
+            swapTxParameters.DeleteParameter(TxParameterID::Fee, SubTxIndex::REFUND_TX);
+        }
 
         // print swap tx token
         {
@@ -1334,8 +1343,10 @@ namespace
         auto swapAmount = swapTxParameters->GetParameter<Amount>(TxParameterID::AtomicSwapAmount);
         auto peerID = swapTxParameters->GetParameter<WalletID>(TxParameterID::PeerID);
         auto peerResponseTime = swapTxParameters->GetParameter<Height>(TxParameterID::PeerResponseTime);
+        auto createTime = swapTxParameters->GetParameter<Height>(TxParameterID::CreateTime);
+        auto minHeight = swapTxParameters->GetParameter<Height>(TxParameterID::MinHeight);
 
-        bool isValidToken = isBeamSide && swapCoin && beamAmount && swapAmount && peerID && peerResponseTime;
+        bool isValidToken = isBeamSide && swapCoin && beamAmount && swapAmount && peerID && peerResponseTime && createTime && minHeight;
 
         if (!transactionType || *transactionType != TxType::AtomicSwap || !isValidToken)
         {
@@ -1430,10 +1441,20 @@ namespace
         // on accepting
         WalletAddress senderAddress = GenerateNewAddress(walletDB, "", keyKeeper);
 
+        Amount fee = cli::kMinimumFee;
         swapTxParameters->SetParameter(TxParameterID::MyID, senderAddress.m_walletID);
-        swapTxParameters->SetParameter(beam::wallet::TxParameterID::Fee, beam::Amount(cli::kMinimumFee));
-        auto subTxID = isBeamSide ? beam::wallet::SubTxIndex::REDEEM_TX : beam::wallet::SubTxIndex::LOCK_TX;
-        swapTxParameters->SetParameter(beam::wallet::TxParameterID::Fee, swapFeeRate, subTxID);
+        if (isBeamSide)
+        {
+            swapTxParameters->SetParameter(TxParameterID::Fee, fee, SubTxIndex::BEAM_LOCK_TX);
+            swapTxParameters->SetParameter(TxParameterID::Fee, fee, SubTxIndex::BEAM_REFUND_TX);
+            swapTxParameters->SetParameter(TxParameterID::Fee, swapFeeRate, SubTxIndex::REDEEM_TX);
+        }
+        else
+        {
+            swapTxParameters->SetParameter(TxParameterID::Fee, fee, SubTxIndex::BEAM_REDEEM_TX);
+            swapTxParameters->SetParameter(TxParameterID::Fee, swapFeeRate, SubTxIndex::LOCK_TX);
+            swapTxParameters->SetParameter(TxParameterID::Fee, swapFeeRate, SubTxIndex::REFUND_TX);
+        }
 
         return wallet.StartTransaction(*swapTxParameters);
     }
@@ -1837,18 +1858,15 @@ int main_impl(int argc, char* argv[])
                             {
                             case beam::wallet::AtomicSwapCoin::Bitcoin:
                             {
-                                return HandleSwapCoin<bitcoin::SettingsProvider, bitcoin::Settings, bitcoin::BitcoinCoreSettings, bitcoin::ElectrumSettings>
-                                    (vm, walletDB, bitcoin::getAddressVersion());
+                                return HandleSwapCoin<bitcoin::SettingsProvider, bitcoin::Settings, bitcoin::BitcoinCoreSettings, bitcoin::ElectrumSettings>(vm, walletDB);
                             }
                             case beam::wallet::AtomicSwapCoin::Litecoin:
                             {
-                                return HandleSwapCoin<litecoin::SettingsProvider, litecoin::Settings, litecoin::LitecoinCoreSettings, litecoin::ElectrumSettings>
-                                    (vm, walletDB, litecoin::getAddressVersion());
+                                return HandleSwapCoin<litecoin::SettingsProvider, litecoin::Settings, litecoin::LitecoinCoreSettings, litecoin::ElectrumSettings>(vm, walletDB);
                             }
                             case beam::wallet::AtomicSwapCoin::Qtum:
                             {
-                                return HandleSwapCoin<qtum::SettingsProvider, qtum::Settings, qtum::QtumCoreSettings, qtum::ElectrumSettings>
-                                    (vm, walletDB, qtum::getAddressVersion());
+                                return HandleSwapCoin<qtum::SettingsProvider, qtum::Settings, qtum::QtumCoreSettings, qtum::ElectrumSettings>(vm, walletDB);
                             }
                             default:
                             {

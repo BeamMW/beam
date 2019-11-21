@@ -13,8 +13,7 @@ ColumnLayout {
     property var defaultFocusItem: addressComment
 
     // callbacks set by parent
-    property var    onClosed: undefined
-    property var    onSwapMode: undefined
+    property var onClosed: undefined
 
     TopGradient {
         mainRoot: main
@@ -50,17 +49,6 @@ ColumnLayout {
             color:               Style.content_main
             //% "Receive"
             text:                qsTrId("wallet-receive-title")
-        }
-
-        CustomSwitch {
-            id:         mode
-            //% "Swap"
-            text:       qsTrId("general-swap")
-            x:          parent.width - width
-            checked:    false
-            onClicked: {
-                if (checked) onSwapMode();
-            }
         }
     }
 
@@ -218,41 +206,6 @@ ColumnLayout {
         }
     }
 
-    /* Token temorarily removed, only address at the moment
-    SFText {
-        Layout.alignment: Qt.AlignHCenter
-        Layout.topMargin: 40
-        font.pixelSize:   14
-        font.styleName:   "Bold"
-        font.weight:      Font.Bold
-        color:            Style.content_main
-        //% "Your transaction token:"
-        text: qsTrId("wallet-receive-your-token")
-    }
-
-    SFTextArea {
-        Layout.alignment:    Qt.AlignHCenter
-        width:               392
-        height:              48
-        focus:               true
-        activeFocusOnTab:    true
-        font.pixelSize:      14
-        wrapMode:            TextInput.Wrap
-        color:               isValid() ? Style.content_secondary : Style.validator_error
-        text:                viewModel.transactionToken
-        horizontalAlignment: TextEdit.AlignHCenter
-        readOnly:            true
-    }
-
-    SFText {
-        Layout.alignment: Qt.AlignHCenter
-        Layout.topMargin: 5
-        font.pixelSize:   14
-        color:            Style.content_main
-        //% "Send this token to the sender over an external secure channel or scan the QR code"
-        text: qsTrId("wallet-receive-token-message")
-    }
-    */
     SFText {
         Layout.alignment: Qt.AlignHCenter
         Layout.topMargin: 30

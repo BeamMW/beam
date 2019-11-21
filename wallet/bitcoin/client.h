@@ -29,6 +29,7 @@ namespace beam::bitcoin
 
         virtual void GetStatus() = 0;
         virtual void GetBalance() = 0;
+        virtual void ChangeSettings(const Settings& settings) = 0;
     };
 
     class Client 
@@ -68,8 +69,6 @@ namespace beam::bitcoin
 
         IClientAsync::Ptr GetAsync();
 
-        BitcoinCoreSettings GetBitcoinCoreSettings() const override;
-        ElectrumSettings GetElectrumSettings() const override;
         Settings GetSettings() const override;
         void SetSettings(const Settings& settings) override;
 
@@ -87,9 +86,7 @@ namespace beam::bitcoin
         // IClientAsync
         void GetStatus() override;
         void GetBalance() override;
-
-        // ISettingsProvider
-        void ResetSettings() override;
+        void ChangeSettings(const Settings& settings) override;
 
         void SetStatus(const Status& status);
         IBridge::Ptr GetBridge();

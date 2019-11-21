@@ -18,7 +18,7 @@
 
 namespace beam::litecoin
 {
-    LitecoinCore017::LitecoinCore017(io::Reactor& reactor, ILitecoinCoreSettingsProvider& settingsProvider)
+    LitecoinCore017::LitecoinCore017(io::Reactor& reactor, ISettingsProvider& settingsProvider)
         : bitcoin::BitcoinCore017(reactor, settingsProvider)
     {
     }

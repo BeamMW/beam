@@ -15,6 +15,7 @@
 #include "bitcoin_side.h"
 
 #include "common.h"
+#include "core/block_crypt.h"
 
 #include "bitcoin/bitcoin.hpp"
 #include "nlohmann/json.hpp"
@@ -24,7 +25,7 @@ using json = nlohmann::json;
 
 namespace
 {
-    constexpr uint32_t kBTCMaxHeightDifference = 10;
+    constexpr uint32_t kExternalHeightMaxDifference = 5;
 
     libbitcoin::chain::script AtomicSwapContract(const libbitcoin::ec_compressed& publicKeyA
         , const libbitcoin::ec_compressed& publicKeyB
@@ -67,11 +68,6 @@ namespace
         using namespace beam;
         using namespace beam::wallet;
 
-        Timestamp locktime = tx.GetMandatoryParameter<Timestamp>(TxParameterID::AtomicSwapExternalLockTime);
-        std::string peerSwapPublicKeyStr = tx.GetMandatoryParameter<std::string>(TxParameterID::AtomicSwapPeerPublicKey);
-        std::string swapPublicKeyStr = tx.GetMandatoryParameter<std::string>(TxParameterID::AtomicSwapPublicKey);
-
-
         libbitcoin::wallet::ec_public secretPublicKey;
 
         if (NoLeak<uintBig> secretPrivateKey; tx.GetParameter(TxParameterID::AtomicSwapSecretPrivateKey, secretPrivateKey.V, SubTxIndex::BEAM_REDEEM_TX))
@@ -92,8 +88,12 @@ namespace
             secretPublicKey = libbitcoin::wallet::ec_public(publicKeyRaw);
         }
 
-        libbitcoin::wallet::ec_public senderPublicKey(isBtcOwner ? swapPublicKeyStr : peerSwapPublicKeyStr);
-        libbitcoin::wallet::ec_public receiverPublicKey(isBtcOwner ? peerSwapPublicKeyStr : swapPublicKeyStr);
+        Timestamp locktime = tx.GetMandatoryParameter<Timestamp>(TxParameterID::AtomicSwapExternalLockTime);
+        std::string peerSwapPublicKeyStr = tx.GetMandatoryParameter<std::string>(TxParameterID::AtomicSwapPeerPublicKey);
+        std::string localPublicKeyStr = tx.GetMandatoryParameter<std::string>(TxParameterID::AtomicSwapPublicKey);
+
+        libbitcoin::wallet::ec_public senderPublicKey(isBtcOwner ? localPublicKeyStr : peerSwapPublicKeyStr);
+        libbitcoin::wallet::ec_public receiverPublicKey(isBtcOwner ? peerSwapPublicKeyStr : localPublicKeyStr);
 
         return AtomicSwapContract(senderPublicKey.point(), receiverPublicKey.point(), secretPublicKey.point(), locktime);
     }
@@ -120,16 +120,18 @@ namespace beam::wallet
         if (!LoadSwapAddress())
             return false;
 
-        if (m_isBtcOwner)
-        {
-            InitSecret();
-        }
-
         if (!m_blockCount)
         {
             GetBlockCount(true);
             return false;
         }
+
+        if (m_isBtcOwner)
+        {
+            InitSecret();
+        }
+
+        InitLocalKeys();
 
         return true;
     }
@@ -160,13 +162,15 @@ namespace beam::wallet
             return false;
         }
 
-        Height lockPeriod = externalLockTime - height;
-        if (lockPeriod > GetLockTimeInBlocks())
-        {
-            return (lockPeriod - GetLockTimeInBlocks()) <= kBTCMaxHeightDifference;
-        }
+        double blocksPerBeamBlock = GetBlocksPerHour() / beam::Rules::get().DA.Target_s;
+        Height beamCurrentHeight = m_tx.GetWalletDB()->getCurrentHeight();
+        Height beamHeightDiff = beamCurrentHeight - m_tx.GetMandatoryParameter<Height>(TxParameterID::MinHeight);
 
-        return (GetLockTimeInBlocks() - lockPeriod) <= kBTCMaxHeightDifference;
+        Height peerMinHeight = externalLockTime - GetLockTimeInBlocks();
+        Height peerEstCurrentHeight = peerMinHeight + static_cast<Height>(std::ceil(blocksPerBeamBlock * beamHeightDiff));
+
+        return peerEstCurrentHeight >= height - kExternalHeightMaxDifference
+            && peerEstCurrentHeight <= height + kExternalHeightMaxDifference;
     }
 
     void BitcoinSide::AddTxDetails(SetTxParameter& txParameters)
@@ -283,6 +287,24 @@ namespace beam::wallet
         return true;
     }
 
+    bool BitcoinSide::IsQuickRefundAvailable()
+    {
+        NoLeak<uintBig> rawPeerPrivateKey;
+
+        if (m_tx.GetParameter(TxParameterID::AtomicSwapPeerPrivateKey, rawPeerPrivateKey.V))
+        {
+            libbitcoin::ec_secret peerPrivateKey;
+            std::copy(std::begin(rawPeerPrivateKey.V.m_pData), std::end(rawPeerPrivateKey.V.m_pData), peerPrivateKey.begin());
+
+            libbitcoin::wallet::ec_private localPrivateKey(peerPrivateKey, GetAddressVersion());
+            std::string peerSwapPublicKeyStr = m_tx.GetMandatoryParameter<std::string>(TxParameterID::AtomicSwapPeerPublicKey);
+
+            return localPrivateKey.to_public().encoded() == peerSwapPublicKeyStr;
+        }
+
+        return false;
+    }
+
     uint32_t BitcoinSide::GetLockTxEstimatedTimeInBeamBlocks() const
     {
         // it's average value
@@ -297,7 +319,7 @@ namespace beam::wallet
 
     uint8_t BitcoinSide::GetAddressVersion() const
     {
-        return bitcoin::getAddressVersion();
+        return m_settingsProvider.GetSettings().GetAddressVersion();
     }
 
     Amount BitcoinSide::GetFeeRate() const
@@ -307,17 +329,7 @@ namespace beam::wallet
 
     Amount BitcoinSide::GetFeeRate(SubTxID subTxID) const
     {
-        Amount defaultFeeRate = GetFeeRate();
-        assert(defaultFeeRate);
-        Amount feeRate = 0;
-        m_tx.GetParameter(TxParameterID::Fee, feeRate, subTxID);
-
-        if (subTxID == SubTxIndex::REFUND_TX && !feeRate)
-        {
-            // use LOCK_TX feeRate if REFUND_TX doesn't have defined feeRate
-            m_tx.GetParameter(TxParameterID::Fee, feeRate, SubTxIndex::LOCK_TX);
-        }
-        return (defaultFeeRate > feeRate) ? defaultFeeRate : feeRate;
+        return m_tx.GetMandatoryParameter<Amount>(TxParameterID::Fee, subTxID);
     }
 
     uint16_t BitcoinSide::GetTxMinConfirmations() const
@@ -330,10 +342,15 @@ namespace beam::wallet
         return m_settingsProvider.GetSettings().GetLockTimeInBlocks();
     }
 
+    double BitcoinSide::GetBlocksPerHour() const
+    {
+        return m_settingsProvider.GetSettings().GetBlocksPerHour();
+    }
+
     bool BitcoinSide::LoadSwapAddress()
     {
-        // load or generate BTC address
-        if (std::string swapPublicKeyStr; !m_tx.GetParameter(TxParameterID::AtomicSwapPublicKey, swapPublicKeyStr))
+        // load or generate withdraw address
+        if (std::string swapWithdrawAddress; !m_tx.GetParameter(TxParameterID::AtomicSwapWithdrawAddress, swapWithdrawAddress))
         {
             // is need to setup type 'legacy'?
             m_bitcoinBridge->getRawChangeAddress([this, weak = this->weak_from_this()](const bitcoin::IBridge::Error& error, const std::string& address)
@@ -343,7 +360,6 @@ namespace beam::wallet
                     OnGetRawChangeAddress(error, address);
                 }
             });
-
             return false;
         }
         return true;
@@ -354,6 +370,22 @@ namespace beam::wallet
         NoLeak<uintBig> secretPrivateKey;
         GenRandom(secretPrivateKey.V);
         m_tx.SetParameter(TxParameterID::AtomicSwapSecretPrivateKey, secretPrivateKey.V, false, BEAM_REDEEM_TX);
+    }
+
+    void BitcoinSide::InitLocalKeys()
+    {
+        if (std::string publicKey; !m_tx.GetParameter(TxParameterID::AtomicSwapPublicKey, publicKey))
+        {
+            NoLeak<uintBig> randomPrivateKey;
+            GenRandom(randomPrivateKey.V);
+            m_tx.SetParameter(TxParameterID::AtomicSwapPrivateKey, randomPrivateKey.V);
+
+            libbitcoin::ec_secret localSecret;
+            std::copy(std::begin(randomPrivateKey.V.m_pData), std::end(randomPrivateKey.V.m_pData), localSecret.begin());
+            libbitcoin::wallet::ec_private localPrivateKey(localSecret, GetAddressVersion());
+
+            m_tx.SetParameter(TxParameterID::AtomicSwapPublicKey, localPrivateKey.to_public().encoded());
+        }
     }
 
     bool BitcoinSide::RegisterTx(const std::string& rawTransaction, SubTxID subTxID)
@@ -470,7 +502,7 @@ namespace beam::wallet
             auto swapLockTxID = m_tx.GetMandatoryParameter<std::string>(TxParameterID::AtomicSwapExternalTxID, SubTxIndex::LOCK_TX);
 
             Timestamp locktime = 0;
-            if (subTxID == SubTxIndex::REFUND_TX)
+            if (subTxID == SubTxIndex::REFUND_TX && !IsQuickRefundAvailable())
             {
                 locktime = m_tx.GetMandatoryParameter<Timestamp>(TxParameterID::AtomicSwapExternalLockTime);
             }
@@ -485,6 +517,7 @@ namespace beam::wallet
             return swapTxState;
         }
 
+        // TODO: may be delete this branch
         if (swapTxState == SwapTxState::CreatingTx)
         {
             if (!m_SwapWithdrawRawTx.is_initialized())
@@ -494,15 +527,7 @@ namespace beam::wallet
                 return SwapTxState::Initial;
             }
 
-            std::string withdrawAddress = GetWithdrawAddress();
-            auto callback = [this, subTxID, weak = this->weak_from_this()](const bitcoin::IBridge::Error& error, const std::string& privateKey) {
-                if (!weak.expired())
-                {
-                    OnDumpPrivateKey(subTxID, error, privateKey);
-                }
-            };
-
-            m_bitcoinBridge->dumpPrivKey(withdrawAddress, callback);
+            FillWithdrawTx(subTxID);
         }
 
         if (swapTxState == SwapTxState::Constructed && !m_SwapWithdrawRawTx.is_initialized())
@@ -580,8 +605,6 @@ namespace beam::wallet
         if (!RegisterTx(*m_SwapWithdrawRawTx, subTxID))
             return false;
 
-        // TODO: check confirmations
-
         return true;
     }
 
@@ -599,9 +622,7 @@ namespace beam::wallet
 
     std::string BitcoinSide::GetWithdrawAddress() const
     {
-        std::string swapPublicKeyStr = m_tx.GetMandatoryParameter<std::string>(TxParameterID::AtomicSwapPublicKey);
-        libbitcoin::wallet::ec_public swapPublicKey(swapPublicKeyStr);
-        return swapPublicKey.to_payment_address(GetAddressVersion()).encoded();
+        return m_tx.GetMandatoryParameter<std::string>(TxParameterID::AtomicSwapWithdrawAddress);
     }
 
     void BitcoinSide::SetTxError(const bitcoin::IBridge::Error& error, SubTxID subTxID)
@@ -643,22 +664,11 @@ namespace beam::wallet
                 return;
             }
 
-            // Don't need overwrite existing public key
-            if (std::string swapPublicKey; !m_tx.GetParameter(TxParameterID::AtomicSwapPublicKey, swapPublicKey))
+            // Don't need overwrite existing withdraw address
+            if (std::string swapWithdrawAddress; !m_tx.GetParameter(TxParameterID::AtomicSwapWithdrawAddress, swapWithdrawAddress))
             {
-                auto callback = [this, weak = this->weak_from_this()](const bitcoin::IBridge::Error& error, const std::string& privateKey) {
-                    if (!weak.expired())
-                    {
-                        if (std::string swapPublicKey; !m_tx.GetParameter(TxParameterID::AtomicSwapPublicKey, swapPublicKey))
-                        {
-                            libbitcoin::wallet::ec_private addressPrivateKey(privateKey, GetAddressVersion());
-
-                            m_tx.SetParameter(TxParameterID::AtomicSwapPublicKey, addressPrivateKey.to_public().encoded());
-                            m_tx.UpdateAsync();
-                        }
-                    }
-                };
-                m_bitcoinBridge->dumpPrivKey(address, callback);
+                m_tx.SetParameter(TxParameterID::AtomicSwapWithdrawAddress, address);
+                m_tx.UpdateAsync();
             }
         }
         catch (const std::exception& ex)
@@ -716,36 +726,41 @@ namespace beam::wallet
         {
             m_SwapWithdrawRawTx = hexTx;
             m_tx.SetState(SwapTxState::CreatingTx, subTxID);
-            m_tx.UpdateAsync();
+
+            FillWithdrawTx(subTxID);
         }
     }
 
-    void BitcoinSide::OnDumpPrivateKey(SubTxID subTxID, const bitcoin::IBridge::Error& error, const std::string& privateKey)
+    void BitcoinSide::FillWithdrawTx(SubTxID subTxID)
     {
         try
         {
-            if (error.m_type != bitcoin::IBridge::None)
-            {
-                SetTxError(error, subTxID);
-                return;
-            }
-
             libbitcoin::data_chunk tx_data;
             libbitcoin::decode_base16(tx_data, *m_SwapWithdrawRawTx);
             libbitcoin::chain::transaction withdrawTX = libbitcoin::chain::transaction::factory_from_data(tx_data);
 
             auto addressVersion = GetAddressVersion();
-            libbitcoin::wallet::ec_private wallet_key(privateKey, addressVersion);
+
+            NoLeak<uintBig> localPrivateKey;
+            bool quickRefund = IsQuickRefundAvailable();
+
+            if (SubTxIndex::REFUND_TX == subTxID && quickRefund)
+                localPrivateKey.V = m_tx.GetMandatoryParameter<uintBig>(beam::wallet::TxParameterID::AtomicSwapPeerPrivateKey);
+            else
+                localPrivateKey.V = m_tx.GetMandatoryParameter<uintBig>(beam::wallet::TxParameterID::AtomicSwapPrivateKey);
+
+            libbitcoin::ec_secret localSecret;
+            std::copy(std::begin(localPrivateKey.V.m_pData), std::end(localPrivateKey.V.m_pData), localSecret.begin());
             libbitcoin::endorsement sig;
 
             uint32_t input_index = 0;
             auto contractScript = CreateAtomicSwapContract(m_tx, m_isBtcOwner, addressVersion);
-            libbitcoin::chain::script::create_endorsement(sig, wallet_key.secret(), contractScript, withdrawTX, input_index, libbitcoin::machine::sighash_algorithm::all);
+            libbitcoin::chain::script::create_endorsement(sig, localSecret, contractScript, withdrawTX, input_index, libbitcoin::machine::sighash_algorithm::all);
 
             // Create input script
             libbitcoin::machine::operation::list sig_script;
 
-            if (SubTxIndex::REFUND_TX == subTxID)
+            if (SubTxIndex::REFUND_TX == subTxID && !quickRefund)
             {
                 // <my sig> 0
                 sig_script.push_back(libbitcoin::machine::operation(sig));
@@ -830,8 +845,8 @@ namespace beam::wallet
             auto script = libbitcoin::chain::script::factory_from_data(scriptData, false);
 
             auto contractScript = CreateAtomicSwapContract(m_tx, m_isBtcOwner, GetAddressVersion());
-            auto inputScript = libbitcoin::chain::script::to_pay_script_hash_pattern(libbitcoin::bitcoin_short_hash(contractScript.to_data(false)));
-
+            libbitcoin::chain::script inputScript = libbitcoin::chain::script::to_pay_script_hash_pattern(libbitcoin::bitcoin_short_hash(contractScript.to_data(false)));
+            
             assert(script == inputScript);
 
             if (script != inputScript)
@@ -848,6 +863,10 @@ namespace beam::wallet
                     << GetTxMinConfirmations() << " confirmations for Lock TX are received.";
                 m_SwapLockTxConfirmations = confirmations;
                 m_tx.SetParameter(TxParameterID::Confirmations, m_SwapLockTxConfirmations, true, SubTxIndex::LOCK_TX);
+                if (m_SwapLockTxConfirmations >= GetTxMinConfirmations())
+                {
+                    m_tx.UpdateAsync();
+                }
             }
         }
         catch (const TransactionFailedException& ex)
@@ -875,11 +894,15 @@ namespace beam::wallet
                 return;
             }
 
-            m_blockCount = blockCount;
-
-            if (notify)
+            if (m_blockCount != blockCount)
             {
-                m_tx.UpdateAsync();
+                m_blockCount = blockCount;
+                m_tx.SetParameter(TxParameterID::AtomicSwapExternalHeight, m_blockCount, true);
+
+                if (notify)
+                {
+                    m_tx.UpdateAsync();
+                }
             }
         }
         catch (const std::exception& ex)

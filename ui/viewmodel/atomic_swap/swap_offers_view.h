@@ -97,6 +97,9 @@ signals:
 
 private:
     bool hasActiveTx(const std::string& swapCoin) const;
+    uint32_t getTxMinConfirmations(AtomicSwapCoin swapCoinType);
+    double getBlocksPerHour(AtomicSwapCoin swapCoinType);
+
     WalletModel& m_walletModel;
     
     AtomicSwapCoin m_selectedCoin;
@@ -106,4 +109,21 @@ private:
     SwapCoinClientModel::Ptr m_btcClient;
     SwapCoinClientModel::Ptr m_ltcClient;
     SwapCoinClientModel::Ptr m_qtumClient;
+
+    struct ActiveTxCounters
+    {
+        int btc = 0;
+        int ltc = 0;
+        int qtum = 0;
+
+        void increment(AtomicSwapCoin swapCoinType);
+        void decrement(AtomicSwapCoin swapCoinType);
+        int& getCounter(AtomicSwapCoin swapCoinType);
+        void clear();
+    };
+    int m_activeTxCount = 0;
+    ActiveTxCounters m_activeTxCounters;
+    std::map<beam::wallet::TxID, beam::wallet::AtomicSwapCoin> m_activeTx;
+    std::map<AtomicSwapCoin, uint32_t> m_minTxConfirmations;
+    std::map<AtomicSwapCoin, double> m_blocksPerHour;
 };

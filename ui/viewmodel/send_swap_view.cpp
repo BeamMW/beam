@@ -151,6 +151,7 @@ void SendSwapViewModel::setSendAmount(QString value)
     {
         _sendAmountGrothes = amount;
         emit sendAmountChanged();
+        emit isSendFeeOKChanged();
         recalcAvailable();
     }
 }
@@ -166,6 +167,7 @@ void SendSwapViewModel::setSendFee(unsigned int value)
     {
         _sendFeeGrothes = value;
         emit sendFeeChanged();
+        emit isSendFeeOKChanged();
         recalcAvailable();
     }
 }
@@ -183,6 +185,7 @@ void SendSwapViewModel::setSendCurrency(Currency value)
     {
         _sendCurrency = value;
         emit sendCurrencyChanged();
+        emit isSendFeeOKChanged();
         recalcAvailable();
     }
 }
@@ -199,6 +202,7 @@ void SendSwapViewModel::setReceiveAmount(QString value)
     {
         _receiveAmountGrothes = amount;
         emit receiveAmountChanged();
+        emit isReceiveFeeOKChanged();
     }
 }
 
@@ -214,6 +218,7 @@ void SendSwapViewModel::setReceiveFee(unsigned int value)
         _receiveFeeGrothes = value;
         emit receiveFeeChanged();
         emit canSendChanged();
+        emit isReceiveFeeOKChanged();
     }
 }
 
@@ -230,6 +235,7 @@ void SendSwapViewModel::setReceiveCurrency(Currency value)
     {
         _receiveCurrency = value;
         emit receiveCurrencyChanged();
+        emit isReceiveFeeOKChanged();
     }
 }
 
@@ -345,8 +351,7 @@ QString SendSwapViewModel::getReceiverAddress() const
 bool SendSwapViewModel::canSend() const
 {
     // TODO:SWAP check if correct
-    return QMLGlobals::isFeeOK(_sendFeeGrothes, _sendCurrency) &&
-           QMLGlobals::isFeeOK(_receiveFeeGrothes, _receiveCurrency) &&
+    return isSendFeeOK() && isReceiveFeeOK() &&
            _sendCurrency != _receiveCurrency &&
            isEnough() &&
            QDateTime::currentDateTime() < _expiresTime;
@@ -357,13 +362,23 @@ void SendSwapViewModel::sendMoney()
     using beam::wallet::TxParameterID;
     
     auto txParameters = beam::wallet::TxParameters(_txParameters);
-    auto isBeamSide = txParameters.GetParameter<bool>(TxParameterID::AtomicSwapIsBeamSide);
-    auto beamFee = (*isBeamSide) ? getSendFee() : getReceiveFee();
-    auto swapFee = (*isBeamSide) ? getReceiveFee() : getSendFee();
-    auto subTxID = *isBeamSide ? beam::wallet::SubTxIndex::REDEEM_TX : beam::wallet::SubTxIndex::LOCK_TX;
+    auto isBeamSide = *txParameters.GetParameter<bool>(TxParameterID::AtomicSwapIsBeamSide);
+    auto beamFee = isBeamSide ? getSendFee() : getReceiveFee();
+    auto swapFee = isBeamSide ? getReceiveFee() : getSendFee();
 
-    txParameters.SetParameter(TxParameterID::Fee, beam::Amount(beamFee));
-    txParameters.SetParameter(TxParameterID::Fee, beam::Amount(swapFee), subTxID);
+    if (isBeamSide)
+    {
+        txParameters.SetParameter(TxParameterID::Fee, beam::Amount(beamFee), beam::wallet::SubTxIndex::BEAM_LOCK_TX);
+        txParameters.SetParameter(TxParameterID::Fee, beam::Amount(beamFee), beam::wallet::SubTxIndex::BEAM_REFUND_TX);
+        txParameters.SetParameter(TxParameterID::Fee, beam::Amount(swapFee), beam::wallet::SubTxIndex::REDEEM_TX);
+    }
+    else
+    {
+        txParameters.SetParameter(TxParameterID::Fee, beam::Amount(swapFee), beam::wallet::SubTxIndex::LOCK_TX);
+        txParameters.SetParameter(TxParameterID::Fee, beam::Amount(swapFee), beam::wallet::SubTxIndex::REFUND_TX);
+        txParameters.SetParameter(TxParameterID::Fee, beam::Amount(beamFee), beam::wallet::SubTxIndex::BEAM_REDEEM_TX);
+    }
+
     if (!_comment.isEmpty())
     {
         std::string localComment = _comment.toStdString();
@@ -379,7 +394,7 @@ void SendSwapViewModel::sendMoney()
         auto minimalHeight = txParameters.GetParameter<beam::Height>(TxParameterID::MinHeight);
 
         LOG_INFO() << *txID << " Accept offer.\n\t"
-                    << "isBeamSide: " << (*isBeamSide ? "true" : "false") << "\n\t"
+                    << "isBeamSide: " << (isBeamSide ? "true" : "false") << "\n\t"
                     << "swapCoin: " << std::to_string(*swapCoin) << "\n\t"
                     << "amount: " << *amount << "\n\t"
                     << "swapAmount: " << *swapAmount << "\n\t"
@@ -388,4 +403,14 @@ void SendSwapViewModel::sendMoney()
     }
 
     _walletModel.getAsync()->startTransaction(std::move(txParameters));
+}
+
+bool SendSwapViewModel::isSendFeeOK() const
+{
+    return _sendAmountGrothes == 0 || QMLGlobals::isSwapFeeOK(_sendAmountGrothes, _sendFeeGrothes, _sendCurrency);
+}
+
+bool SendSwapViewModel::isReceiveFeeOK() const
+{
+    return _receiveAmountGrothes == 0 || QMLGlobals::isSwapFeeOK(_receiveAmountGrothes, _receiveFeeGrothes, _receiveCurrency);
 }

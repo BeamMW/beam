@@ -33,6 +33,11 @@ namespace beam::bitcoin
         {
             call_async(&IClientAsync::GetBalance);
         }
+
+        void ChangeSettings(const Settings& settings)
+        {
+            call_async(&IClientAsync::ChangeSettings, settings);
+        }
     };
     
     Client::Client(IBridgeHolder::Ptr bridgeHolder, std::unique_ptr<SettingsProvider> settingsProvider, io::Reactor& reactor)
@@ -49,18 +54,6 @@ namespace beam::bitcoin
         return m_async;
     }
 
-    BitcoinCoreSettings Client::GetBitcoinCoreSettings() const
-    {
-        Lock lock(m_mutex);
-        return m_settingsProvider->GetBitcoinCoreSettings();
-    }
-
-    ElectrumSettings Client::GetElectrumSettings() const
-    {
-        Lock lock(m_mutex);
-        return m_settingsProvider->GetElectrumSettings();
-    }
-
     Settings Client::GetSettings() const
     {
         Lock lock(m_mutex);
@@ -69,22 +62,7 @@ namespace beam::bitcoin
 
     void Client::SetSettings(const Settings& settings)
     {
-        {
-            Lock lock(m_mutex);
-            m_settingsProvider->SetSettings(settings);
-            m_bridgeHolder->Reset();
-
-            if (m_settingsProvider->GetSettings().IsActivated())
-            {
-                SetStatus(Status::Connecting);
-            }
-            else
-            {
-                SetStatus(Status::Uninitialized);
-            }
-        }
-
-        OnChangedSettings();
+        GetAsync()->ChangeSettings(settings);
     }
 
     void Client::GetStatus()
@@ -128,13 +106,24 @@ namespace beam::bitcoin
         });
     }
 
-    void Client::ResetSettings()
+    void Client::ChangeSettings(const Settings& settings)
     {
-        Lock lock(m_mutex);
-        m_settingsProvider->ResetSettings();
-        m_bridgeHolder->Reset();
+        {
+            Lock lock(m_mutex);
+            m_settingsProvider->SetSettings(settings);
+            m_bridgeHolder->Reset();
 
-        SetStatus(Status::Uninitialized);
+            if (m_settingsProvider->GetSettings().IsActivated())
+            {
+                SetStatus(Status::Connecting);
+            }
+            else
+            {
+                SetStatus(Status::Uninitialized);
+            }
+        }
+
+        OnChangedSettings();
     }
 
     void Client::SetStatus(const Status& status)

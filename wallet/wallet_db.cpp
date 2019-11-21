@@ -1341,9 +1341,8 @@ namespace beam::wallet
         , m_Reactor(reactor)
         , m_IsFlushPending(false)
         , m_mandatoryTxParams{
+            TxParameterID::TransactionType,
             TxParameterID::Amount,
-            TxParameterID::Fee,
-            //   TxParameterID::PeerID,
             TxParameterID::MyID,
             TxParameterID::CreateTime,
             TxParameterID::IsSender }

@@ -1,6 +1,7 @@
 #include "ui_helpers.h"
 #include <QDateTime>
 #include <QLocale>
+#include <QTextStream>
 #include <numeric>
 #include "3rdparty/libbitcoin/include/bitcoin/bitcoin/formats/base_10.hpp"
 
@@ -137,6 +138,75 @@ namespace beamui
         }
 
         return expiresTime;
+    }
+
+    QString getEstimateTimeStr(int estimate)
+    {
+        const int kSecondsInMinute = 60;
+        const int kSecondsInHour = 60 * kSecondsInMinute;
+        int value = 0;
+        QString res;
+        QTextStream ss(&res);
+        QString units;
+        auto writeTime = [&ss](const auto& value, const auto& units)
+        { 
+            ss << value << " " << units;
+        };
+        if (estimate >= kSecondsInHour)
+        {
+            value = estimate / kSecondsInHour;
+            //% "h."
+            units = qtTrId("loading-view-estimate-hours");
+            writeTime(value, units);
+
+            estimate %= kSecondsInHour;
+            value = estimate / kSecondsInMinute;
+
+            estimate %= kSecondsInMinute;
+            if (estimate)
+            {
+                ++value;
+            }
+
+            if (value >= 1)
+            {
+                //% "min."
+                units = qtTrId("loading-view-estimate-minutes");
+                ss << " ";
+                writeTime(value, units);
+            }
+
+            return res;
+        }
+        else if (estimate < kSecondsInHour && estimate > 100)
+        {
+            value = estimate / kSecondsInMinute;
+            estimate %= kSecondsInMinute;
+            if (estimate)
+            {
+                ++value;
+            }
+            units = qtTrId("loading-view-estimate-minutes");
+        }
+        else if (estimate <= 100 && estimate > kSecondsInMinute)
+        {
+            value = estimate / kSecondsInMinute;
+            units = qtTrId("loading-view-estimate-minutes");
+            writeTime(value, units);
+            value = estimate - kSecondsInMinute;
+            //% "sec."
+            units = qtTrId("loading-view-estimate-seconds");
+            ss << " ";
+            writeTime(value, units);
+            return res;
+        }
+        else
+        {
+            value = estimate > 0 ? estimate : 1;
+            units = qtTrId("loading-view-estimate-seconds");
+        }
+        writeTime(value, units);
+        return res;
     }
 
     QString toString(Currencies currency)
