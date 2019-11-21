@@ -30,101 +30,95 @@ using namespace beam::io;
 using namespace std;
 
 // RFC 1928	SOCKS Protocol Version 5
-// TODO mempool memory allocation optimisation may be implemented
-// TODO: proxy insert to wallet CLI
 
 namespace {
 
 constexpr auto testDomain = "123.45.67.89";
 constexpr uint16_t testPort = 80;
-
 constexpr auto dummyProxyServerIp = "localhost";
 constexpr uint16_t dummyProxyServerPort = 1080;
 
-TcpStream::Ptr serverStream;
-TcpStream::Ptr clientStream;
-enum class ConnState : uint8_t {
-	Initial,
-	AuthChosen,
-	DestRequested
-} testProxyConnState;
+class DummyProxyServerConnection {
+public:
+	DummyProxyServerConnection() :
+		m_state(ConnState::Initial) {};
 
-bool onTargetReply(ErrorCode errorCode, void* data, size_t size) {
-	if (errorCode != EC_OK) {
-		LOG_DEBUG() << "Destination server response error. Code: " << errorCode;
-	}
-	assert(data && size);
-	string reply = "Aloha!";
-	assert(std::equal(reply.cbegin(), reply.cend(), static_cast<uint8_t*>(data)));
-	return true;
-}
+	bool isInitialized() { 
+		if (m_streamPtr) return true;
+		else return false;
+	};
 
-void onConnectionEstablished(uint64_t tag, unique_ptr<TcpStream>&& newStream, ErrorCode status) {
-	if (!newStream) {
-		LOG_DEBUG() << "Error connection establish: " << error_str(status);
-		assert(false);
-	}
-	LOG_DEBUG() << "Proxy connection established. Tag: " << tag;
-	clientStream = std::move(newStream);
-	clientStream->enable_read(onTargetReply);
-	auto req = "Hello, hello!";
-	Result res = clientStream->write(req, strlen(req));
-	assert(res);
-};
+	void setStream(TcpStream::Ptr&& newStream) {
+		m_streamPtr = std::move(newStream);
+		m_streamPtr->enable_read([this](ErrorCode errorCode, void* data, size_t size) {
+			return onInputData(errorCode, data, size);
+			});
+	};
 
-void onInitialState(uint8_t* data, size_t size) {
-	std::array<uint8_t,3> referenceAuthReq = {0x05, 0x01, 0x00};
-	assert(std::equal(referenceAuthReq.cbegin(), referenceAuthReq.cend(), data));
+	bool onInputData(ErrorCode errorCode, void* data, size_t size) {
+		if (errorCode != EC_OK) {
+			LOG_DEBUG() << "m_state: " <<
+							static_cast<uint8_t>(m_state) <<
+							";  errorCode: " << errorCode;
+			assert(false);
+		}
+		assert(data && size);
+		uint8_t* buf = static_cast<uint8_t*>(data);
+		switch(m_state) {
+			case ConnState::Initial:
+				onInitialState(buf, size);
+				break;
+			case ConnState::AuthChosen:
+				onAuthState(buf, size);
+				break;
+			case ConnState::DestRequested:
+				onRequestState(buf, size);
+				break;
+			default:
+				return false;
+		}
+		return true;
+	};
 
-	std::array<uint8_t,2> referenceAuthReply = {0x05, 0x00};
-	serverStream->write(referenceAuthReply.data(), referenceAuthReply.size());
-	testProxyConnState = ConnState::AuthChosen;
-};
+private:
+	enum class ConnState : uint8_t {
+		Initial,
+		AuthChosen,
+		DestRequested
+	};
 
-void onAuthState(uint8_t* data, size_t size) {
-	// 123.45.67.89 = 0x7B2D4359
-	// 80 = 0x50
-	std::array<uint8_t,10> referenceAuthReq = {0x05, 0x01, 0x00, 0x01, 0x7B, 0x2D, 0x43, 0x59, 0x00, 0x50};
-	assert(std::equal(referenceAuthReq.cbegin(), referenceAuthReq.cend(), data));
+	void onInitialState(uint8_t* data, size_t size) {
+		std::array<uint8_t,3> referenceAuthReq = {0x05, 0x01, 0x00};
+		assert(std::equal(referenceAuthReq.cbegin(), referenceAuthReq.cend(), data));
 
-	// here we can really connect to requested destination...
-	// and implement real proxy bridge
+		std::array<uint8_t,2> referenceAuthReply = {0x05, 0x00};
+		m_streamPtr->write(referenceAuthReply.data(), referenceAuthReply.size());
+		m_state = ConnState::AuthChosen;
+	};
 
-	std::array<uint8_t,10> referenceAuthReply = {0x05, 0x00, 0x00, 0x01, 0x12, 0x34, 0x56, 0x78, 0x98, 0x76};
-	serverStream->write(referenceAuthReply.data(), referenceAuthReply.size());
-	testProxyConnState = ConnState::DestRequested;
-};
+	void onAuthState(uint8_t* data, size_t size) {
+		// 123.45.67.89 = 0x7B2D4359
+		// 80 = 0x50
+		std::array<uint8_t,10> referenceAuthReq = {0x05, 0x01, 0x00, 0x01, 0x7B, 0x2D, 0x43, 0x59, 0x00, 0x50};
+		assert(std::equal(referenceAuthReq.cbegin(), referenceAuthReq.cend(), data));
 
-void onRequestState(uint8_t* data, size_t size) {
-	string req = "Hello, hello!";
-	assert(std::equal(req.cbegin(), req.cend(), data));
-	auto dummyDestinationServerRepply = "Aloha!";
-	serverStream->write(dummyDestinationServerRepply, strlen(dummyDestinationServerRepply));
-};
+		// here we can really connect to requested destination...
+		// and implement real proxy bridge
 
-bool onInputData(ErrorCode errorCode, void* data, size_t size) {
-	if (errorCode != EC_OK) {
-		LOG_DEBUG() << "testProxyConnState: " <<
-						static_cast<uint8_t>(testProxyConnState) <<
-						";  errorCode: " << errorCode;
-		assert(false);
-	}
-	assert(data && size);
-	uint8_t* buf = static_cast<uint8_t*>(data);
-	switch(testProxyConnState) {
-		case ConnState::Initial:
-			onInitialState(buf, size);
-			break;
-		case ConnState::AuthChosen:
-			onAuthState(buf, size);
-			break;
-		case ConnState::DestRequested:
-			onRequestState(buf, size);
-			break;
-		default:
-			return false;
-	}
-	return true;
+		std::array<uint8_t,10> referenceAuthReply = {0x05, 0x00, 0x00, 0x01, 0x12, 0x34, 0x56, 0x78, 0x98, 0x76};
+		m_streamPtr->write(referenceAuthReply.data(), referenceAuthReply.size());
+		m_state = ConnState::DestRequested;
+	};
+
+	void onRequestState(uint8_t* data, size_t size) {
+		string req = "Hello, hello!";
+		assert(std::equal(req.cbegin(), req.cend(), data));
+		auto dummyDestinationServerRepply = "Aloha!";
+		m_streamPtr->write(dummyDestinationServerRepply, strlen(dummyDestinationServerRepply));
+	};
+
+	TcpStream::Ptr m_streamPtr;
+	ConnState m_state;
 };
 
 /**
@@ -139,37 +133,128 @@ void proxy_test() {
 	proxyAddr.resolve(dummyProxyServerIp);
 	proxyAddr.port(dummyProxyServerPort);
 
-	// Connection timeout testcase
-	uint32_t connTO = 2000;
-	auto timeStart = std::time(nullptr);
-	bool timeoutCalled = false;
-	reactor->tcp_connect_with_proxy(
-		destAddr,
-		Address(0x7f000001, 12345),	// intentionally corrupted port
-		1,
-		[&timeStart, &connTO, &timeoutCalled](uint64_t tag, unique_ptr<TcpStream>&& newStream, ErrorCode status) {
-			auto timeStop = std::time(nullptr);
-			LOG_DEBUG() << "Timed out";
-			assert(tag == 1);
-			assert(status == EC_ETIMEDOUT);
-			assert(timeStop >= timeStart+(connTO/1000));
-			assert(timeStop <= timeStart+(connTO/1000)+1);	// 1-second accuracy
-			timeoutCalled = true;
-		},
-		connTO,
-		false);
+	// indicate testcase execution
+	bool connTimeoutCalled = false;
+	bool successfulCalled = false;
+	bool failedCalled = false;
+	bool repplyTimeoutCalled = false;
 
-	// Successful connection testcase
+	// Connection timeout testcase
+	{
+		uint32_t connTO = 2000;
+		auto timeStart = std::time(nullptr);
+		reactor->tcp_connect_with_proxy(
+			destAddr,
+			Address(0x7f000001, 12345),	// intentionally corrupted port
+			1,
+			[&timeStart, &connTO, &connTimeoutCalled](uint64_t tag, unique_ptr<TcpStream>&& newStream, ErrorCode status) {
+				auto timeStop = std::time(nullptr);
+				LOG_DEBUG() << "Proxy connection timed out";
+				assert(tag == 1);
+				assert(status == EC_ETIMEDOUT);
+				assert(timeStop >= timeStart+(connTO/1000));
+				assert(timeStop <= timeStart+(connTO/1000)+1);	// 1-second accuracy
+				connTimeoutCalled = true;
+			},
+			connTO,
+			false);
+	}
+
+	// Create proxy server
+	DummyProxyServerConnection serverConnection;
+	TcpStream::Ptr failStream;
+	TcpStream::Ptr timeoutStream;
 	TcpServer::Ptr server = TcpServer::create(
 		*reactor,
 		proxyAddr,
-		[](TcpStream::Ptr&& newStream, int errorCode) {
-			LOG_DEBUG() << "Dummy proxy server accepted connection";
-			serverStream = std::move(newStream);
-			serverStream->enable_read(onInputData);
+		[&serverConnection, &failStream, &timeoutStream](TcpStream::Ptr&& newStream, int errorCode) {
+			// First connection will be handled successfully
+			if (!serverConnection.isInitialized()) {
+				LOG_DEBUG() << "Dummy proxy server accepted connection to handle successful scenario";
+				serverConnection.setStream(std::move(newStream));
+				return;
+			}
+			// Second will be intentionally failed
+			if (!failStream) {
+				LOG_DEBUG() << "Dummy proxy server accepted connection to fail";
+				failStream = std::move(newStream);
+				failStream->enable_read([&failStream](ErrorCode errorCode, void* data, size_t size) -> bool {
+					auto failReply = "abra-cadabra";
+					failStream->write(failReply, strlen(failReply));
+					return true;
+				});
+				return;
+			}
+			// Third will be timedout
+			if (!timeoutStream) {
+				LOG_DEBUG() << "Dummy proxy server accepted connection to check timeout";
+				timeoutStream = std::move(newStream);
+				timeoutStream->enable_read([](ErrorCode errorCode, void* data, size_t size) -> bool {
+					// ignoring request
+					return true;
+				});
+				return;
+			}
 		}
 	);
-	reactor->tcp_connect_with_proxy(destAddr, proxyAddr, 2,	onConnectionEstablished, 1000, false);
+	// Successful connection testcase
+	TcpStream::Ptr clientStream;
+	reactor->tcp_connect_with_proxy(
+		destAddr,
+		proxyAddr,
+		2,
+		[&successfulCalled, &clientStream](uint64_t tag, unique_ptr<TcpStream>&& newStream, ErrorCode status) {
+			assert(tag == 2);
+			if (!newStream) {
+				LOG_DEBUG() << "Error connection establish: " << error_str(status);
+				assert(false);
+			}
+			LOG_DEBUG() << "Proxy connection established. Tag: " << tag;
+			clientStream = std::move(newStream);
+			clientStream->enable_read([](ErrorCode errorCode, void* data, size_t size){
+				if (errorCode != EC_OK) {
+					LOG_DEBUG() << "Destination server response error. Code: " << errorCode;
+				}
+				assert(data && size);
+				string reply = "Aloha!";
+				assert(std::equal(reply.cbegin(), reply.cend(), static_cast<uint8_t*>(data)));
+				return true;
+			});
+			auto req = "Hello, hello!";
+			Result res = clientStream->write(req, strlen(req));
+			assert(res);
+			successfulCalled = true;
+		},
+		1000,
+		false);
+
+	// Connection error in socks protocol
+	reactor->tcp_connect_with_proxy(
+		destAddr,
+		proxyAddr,
+		3,
+		[&failedCalled](uint64_t tag, unique_ptr<TcpStream>&& newStream, ErrorCode status) {
+			assert(tag == 3);
+			assert(status == EC_PROXY_AUTH_ERROR);
+			LOG_DEBUG() << "Proxy connection error: " << status << ". Tag: " << tag;
+			failedCalled = true;
+		},
+		1000,
+		false);
+
+	// Proxy reply timeout testcase
+	reactor->tcp_connect_with_proxy(
+		destAddr,
+		proxyAddr,
+		4,
+		[&repplyTimeoutCalled](uint64_t tag, unique_ptr<TcpStream>&& newStream, ErrorCode status) {
+			assert(tag == 4);
+			assert(status == EC_ETIMEDOUT);
+			LOG_DEBUG() << "Proxy connection timeout: " << status << ". Tag: " << tag;
+			repplyTimeoutCalled = true;
+		},
+		1000,
+		false);
 
 	// Run test
 	Timer::Ptr timer = Timer::create(*reactor);
@@ -183,7 +268,7 @@ void proxy_test() {
 	LOG_DEBUG() << "reactor start";
 	reactor->run();
 	LOG_DEBUG() << "reactor stop";
-	assert(timeoutCalled);
+	assert(connTimeoutCalled & successfulCalled & failedCalled & repplyTimeoutCalled);
 }
 
 }	// namespace

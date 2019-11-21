@@ -620,7 +620,6 @@ Result Reactor::tcp_connect(
     }
 
     if (!bindTo.empty()) {
-        // TODO: proxy implement proxy bind request
         sockaddr_in bindAddr;
         bindTo.fill_sockaddr_in(bindAddr);
 
@@ -647,7 +646,7 @@ Result Reactor::tcp_connect_with_proxy(
     int timeoutMsec,
     bool tlsConnect
 ) {
-    // TODO: proxy connection timeout setup
+    // TODO: proxy connection timeout calculation
     // TODO: proxy implement proxy bind request
     assert(callback);
     assert(!destAddr.empty());
