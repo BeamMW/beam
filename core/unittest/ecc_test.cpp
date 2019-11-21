@@ -2145,7 +2145,7 @@ void TestAssetEmission()
 	//pKrn->m_Commitment = ECC::Context::get().G * skAssetSk;
 	pKrn->m_Commitment.m_X = assetID;
 	pKrn->m_Commitment.m_Y = 0;
-	pKrn->m_AssetEmission  = -kidvInpAsset.m_Value;
+	pKrn->m_AssetEmission  = -static_cast<beam::AmountSigned>(kidvInpAsset.m_Value);
 	pKrn->Sign(skAssetSk);
 	tx.m_vKernels.push_back(std::move(pKrn));
 	kOffset += -skAssetSk;

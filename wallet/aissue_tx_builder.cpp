@@ -446,7 +446,19 @@ namespace beam::wallet
 
     void AssetIssueTxBuilder::CreateKernels()
     {
+        static_assert(std::is_same<decltype(m_EmissionKernel->m_AssetEmission), int64_t>::value,
+                      "If this fails please update value in the ConsumeAmountTooBig's message and typecheck in this assert");
+
         assert(!m_Kernel);
+        if (!m_issue)
+        {
+            // Note, m_EmissionKernel is still nullptr, do not don't anything except typecheks here
+            // This should never happen, nobody would ever have so much asset/beams, but just in case
+            if (GetAmountAsset() > (Amount)std::numeric_limits<decltype(m_EmissionKernel->m_AssetEmission)>::max())
+            {
+                throw TransactionFailedException(!m_Tx.IsInitiator(), ConsumeAmountTooBig);
+            }
+        }
 
         m_Kernel = make_unique<TxKernel>();
         m_Kernel->m_Fee          = m_Fee;

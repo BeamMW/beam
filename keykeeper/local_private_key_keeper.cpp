@@ -13,7 +13,6 @@
 // limitations under the License.
 
 #include "local_private_key_keeper.h"
-#include "logger.h"
 
 namespace beam::wallet
 {
@@ -176,7 +175,6 @@ namespace beam::wallet
                     Point &publicKey = result.emplace_back();
                     SwitchCommitment(&assetID).Create(secretKey, publicKey, *GetChildKdf(coinID), coinID);
                     offset += secretKey;
-                    LOG_INFO() << "[Assets] Signing asset input: " << coinID.m_Value << ", commitment: " << publicKey;
                 }
                 else
                 {
