@@ -54,6 +54,13 @@ namespace
 
     QString getInProgressNormalStr(const beam::wallet::TxParameters& txParameters)
     {
+        auto isBeamSide = *txParameters.GetParameter<bool>(TxParameterID::AtomicSwapIsBeamSide); // mandatory parameter
+        auto isRegistered = txParameters.GetParameter<uint8_t>(TxParameterID::TransactionRegistered, isBeamSide ? REDEEM_TX : BEAM_REDEEM_TX);
+        if (isRegistered)
+        {
+            return "";
+        }
+
         auto minHeightRefund = txParameters.GetParameter<beam::Height>(TxParameterID::MinHeight, BEAM_REFUND_TX);
          QString time = "";
         if (minHeightRefund)
