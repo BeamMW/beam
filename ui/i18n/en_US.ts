@@ -1895,8 +1895,7 @@ to complete.</translation>
     </message>
     <message id="swap-tx-state-initial">
         <source>if nobody accepts the offer in %1, the offer will be automatically canceled</source>
-        <oldsource>If the peer won&apos;t get online in %1, the swap will be canceled automatically</oldsource>
-        <translation type="unfinished">If the peer won&apos;t get online in %1, the swap will be canceled automatically</translation>
+        <translation>if nobody accepts the offer in %1, the offer will be automatically canceled</translation>
     </message>
     <message id="swap-tx-state-in-progress-normal">
         <source>The swap is expected to complete in %1 at most</source>
@@ -1904,8 +1903,7 @@ to complete.</translation>
     </message>
     <message id="swap-tx-state-in-progress-refunding">
         <source>The refund of your %2 will start in %1. Refund duration depends on the transaction fee you specified for %2</source>
-        <oldsource>The refund of your %2 will start in %1 (the actual refund duration depends on the transaction fee specified for the %2 blockchain)</oldsource>
-        <translation type="unfinished">The refund of your %2 will start in %1 (the actual refund duration depends on the transaction fee specified for the %2 blockchain)</translation>
+        <translation>The refund of your %2 will start in %1. Refund duration depends on the transaction fee you specified for %2</translation>
     </message>
     <message id="atomic-swap-tx-cancel">
         <source>Cancel atomic swap</source>
