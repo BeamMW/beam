@@ -110,7 +110,7 @@ namespace std
             Amount c = amount.m_value % Rules::Coin;
             if (c > 0 || amount.m_value == 0)
             {
-                ss << " " << c << " " << (amount.m_grothName.empty() ? "groth" : amount.m_grothName) << " ";
+                ss << (amount.m_value ? (" ") : "") << c << " " << (amount.m_grothName.empty() ? "groth" : amount.m_grothName) << " ";
             }
             return ss.str();
         }
