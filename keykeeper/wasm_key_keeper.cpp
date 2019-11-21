@@ -292,6 +292,7 @@ struct KeyKeeper
         auto sign = _impl->SignSync(
             from_base64<std::vector<Key::IDV>>(inputs), 
             from_base64<std::vector<Key::IDV>>(outputs),
+            Zero,
             offsetNative,
             nonceSlot,
             from_base64<KernelParameters>(kernelParameters),
