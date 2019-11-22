@@ -724,6 +724,8 @@ namespace beam::wallet
 
                 if (GetParameter(TxParameterID::AtomicSwapPrivateKey, secretPrivateKey.V))
                 {
+                    LOG_DEBUG() << GetTxID() << " send additional info for quick refund";
+
                     // send our private key of redeem tx. we are good :)
                     msg.AddParameter(TxParameterID::AtomicSwapPeerPrivateKey, secretPrivateKey.V);
                 }
@@ -1463,7 +1465,7 @@ namespace beam::wallet
 
         if (GetParameter(TxParameterID::AtomicSwapPrivateKey, secretPrivateKey.V))
         {
-            LOG_DEBUG() << "AtomicSwapTransaction::NotifyFailure send secret";
+            LOG_DEBUG() << GetTxID() << " send additional info for quick refund";
 
             SetTxParameter msg;
 
