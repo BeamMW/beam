@@ -353,9 +353,11 @@ namespace beam
             (cli::WALLET_ADDR, po::value<vector<string>>()->multitoken())
             (cli::APPDATA_PATH, po::value<string>());
 
-        po::options_description swap_options("Atomic swap options");
+        po::options_description swap_options("Atomic swap options");        
+        po::options_description visible_swap_options(swap_options);
+        visible_swap_options.add_options()
+            (cli::COMMAND, po::value<string>(), "command to execute [swap_init|swap_accept]");
         swap_options.add_options()
-            //(cli::COMMAND, po::value<string>(), "command to execute [swap_init|swap_accept]")
             (cli::SET_SWAP_SETTINGS, po::value<std::string>(), "command to work with swap settings.")
             (cli::ALTCOIN_SETTINGS_RESET, po::value<std::string>(), "reset altcoin's settings [core|electrum]")
             (cli::ACTIVE_CONNECTION, po::value<string>(), "set active connection [core|electrum|none]")
@@ -372,6 +374,11 @@ namespace beam
             (cli::SWAP_BEAM_SIDE, "Should be set by Beam owner")
             (cli::SWAP_TX_HISTORY, "show swap transactions history in info command")
             (cli::SWAP_TOKEN, po::value<string>(), "swap transaction token");
+
+        for (auto opt : swap_options.options())
+        {
+            visible_swap_options.add(opt);
+        }
 
         po::options_description options{ "Allowed options" };
         po::options_description visible_options{ "Allowed options" };
@@ -392,7 +399,7 @@ namespace beam
             options.add(wallet_treasury_options);
             options.add(swap_options);
             visible_options.add(wallet_options);
-            visible_options.add(swap_options);
+            visible_options.add(visible_swap_options);
         }
         if (flags & UI_OPTIONS)
         {
