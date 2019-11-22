@@ -16,6 +16,7 @@ matrix:
         - brew update
         - brew unlink cmake
         - brew install cmake
+        - brew link cmake
         - curl -O https://raw.githubusercontent.com/Homebrew/homebrew-core/56c500b569c724b049be7ab9e12d9693f85522f9/Formula/qt.rb
         - brew install ./qt.rb
         - brew link qt5 --force
@@ -46,6 +47,7 @@ matrix:
         - brew update
         - brew unlink cmake
         - brew install cmake
+        - brew link cmake
         - sudo git clone --depth=1 https://github.com/nesbox/qt5-static-mac.git /usr/local/qt5-static
         - export PATH=/usr/local/qt5-static/bin:$PATH
         - export OPENSSL_ROOT_DIR="/usr/local/opt/openssl"
