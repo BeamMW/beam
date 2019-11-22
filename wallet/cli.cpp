@@ -604,17 +604,17 @@ namespace
 
     void ShowAssetTxs(const IWalletDB::Ptr& walletDB, AssetID assetId, const char* coin, const char* groth)
     {
-        auto txHistory = walletDB->getTxHistory(TxType::Simple);
-        auto txIssue   = walletDB->getTxHistory(TxType::AssetIssue);
+        auto txHistory = walletDB->getTxHistory(TxType::AssetIssue);
         auto txConsume = walletDB->getTxHistory(TxType::AssetConsume);
-        txHistory.insert(txHistory.end(), txIssue.begin(), txIssue.end());
+        auto txSimple  = walletDB->getTxHistory(TxType::Simple);
         txHistory.insert(txHistory.end(), txConsume.begin(), txConsume.end());
+        txHistory.insert(txHistory.end(), txSimple.begin(), txSimple.end());
 
         txHistory.erase(std::remove_if(txHistory.begin(), txHistory.end(), [&assetId](const auto& tx) {
             return tx.m_assetId != assetId;
         }), txHistory.end());
 
-        if (txHistory.empty() && txIssue.empty() && txConsume.empty())
+        if (txHistory.empty())
         {
             cout << kTxHistoryEmpty << endl;
             return;
