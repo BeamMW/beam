@@ -157,7 +157,7 @@ namespace
         WALLET_CHECK(txHistory.size() == 1);
         WALLET_CHECK(txHistory[0].m_txId == txId);
         WALLET_CHECK(txHistory[0].m_amount == 24);
-        WALLET_CHECK(txHistory[0].m_change == 14);
+        WALLET_CHECK(txHistory[0].m_changeBeam == 14);
         WALLET_CHECK(txHistory[0].m_fee == 2);
         WALLET_CHECK(txHistory[0].m_status == TxStatus::Completed);
 
@@ -540,7 +540,7 @@ namespace
         WALLET_CHECK(txHistory.size() == 1);
         WALLET_CHECK(txHistory[0].m_txId == txId);
         WALLET_CHECK(txHistory[0].m_amount == 36);
-        WALLET_CHECK(txHistory[0].m_change == 2);
+        WALLET_CHECK(txHistory[0].m_changeBeam == 2);
         WALLET_CHECK(txHistory[0].m_fee == 2);
         WALLET_CHECK(txHistory[0].m_status == TxStatus::Completed);
 
@@ -632,7 +632,7 @@ namespace
             WALLET_CHECK(txHistory.size() == 1);
             WALLET_CHECK(txHistory[0].m_txId == txId);
             WALLET_CHECK(txHistory[0].m_amount == 36);
-            WALLET_CHECK(txHistory[0].m_change == 0);
+            WALLET_CHECK(txHistory[0].m_changeBeam == 0);
             WALLET_CHECK(txHistory[0].m_fee == 2);
             WALLET_CHECK(txHistory[0].m_status == TxStatus::Failed);
         }
@@ -650,7 +650,7 @@ namespace
             auto tx = *senderWalletDB->getTx(txId);
             WALLET_CHECK(tx.m_txId == txId);
             WALLET_CHECK(tx.m_amount == 36);
-            WALLET_CHECK(tx.m_change == 0);
+            WALLET_CHECK(tx.m_changeBeam == 0);
             WALLET_CHECK(tx.m_fee == 42);
             WALLET_CHECK(tx.m_status == TxStatus::Failed);
         }
@@ -667,7 +667,7 @@ namespace
             WALLET_CHECK(tx);
             WALLET_CHECK(tx->m_txId == txId);
             WALLET_CHECK(tx->m_amount == 36);
-            WALLET_CHECK(tx->m_change == 14);
+            WALLET_CHECK(tx->m_changeBeam == 14);
             WALLET_CHECK(tx->m_fee == 50);
             WALLET_CHECK(tx->m_status == TxStatus::Completed);
         }

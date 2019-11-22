@@ -256,7 +256,8 @@ void TestStoreTxRecord()
     tr.m_minHeight = 134;
     tr.m_sender = true;
     tr.m_status = TxStatus::InProgress;
-    tr.m_change = 5;
+    tr.m_changeBeam = 5;
+    tr.m_changeAsset = 7;
 
     WALLET_CHECK_NO_THROW(walletDB->saveTx(tr));
     WALLET_CHECK_NO_THROW(walletDB->saveTx(tr));
@@ -273,7 +274,8 @@ void TestStoreTxRecord()
     tr2.m_createTime = 1234564;
     tr2.m_modifyTime = 12345644;
     tr2.m_status = TxStatus::Completed;
-    tr2.m_change = 5;
+    tr2.m_changeBeam = 5;
+    tr2.m_changeAsset = 7;
     WALLET_CHECK_NO_THROW(walletDB->saveTx(tr2));
     
     auto t = walletDB->getTxHistory();
@@ -287,7 +289,8 @@ void TestStoreTxRecord()
     WALLET_CHECK(t[0].m_modifyTime == tr2.m_modifyTime);
     WALLET_CHECK(t[0].m_sender == tr.m_sender);
     WALLET_CHECK(t[0].m_status == tr2.m_status);
-    WALLET_CHECK(t[0].m_change == tr.m_change);
+    WALLET_CHECK(t[0].m_changeBeam == tr.m_changeBeam);
+    WALLET_CHECK(t[0].m_changeAsset == tr.m_changeAsset);
     TxID id2 = {{ 3,4,5 }};
     WALLET_CHECK_NO_THROW(walletDB->deleteTx(id2));
     WALLET_CHECK_NO_THROW(walletDB->deleteTx(id));
@@ -296,8 +299,6 @@ void TestStoreTxRecord()
         WALLET_CHECK(storage::getTxParameter(*walletDB, id, TxParameterID::TransactionType, type));
         WALLET_CHECK(type == TxType::Simple);
     }
-    
-
 
     WALLET_CHECK_NO_THROW(walletDB->saveTx(tr2));
     WALLET_CHECK_NO_THROW(walletDB->saveTx(tr2));
@@ -689,7 +690,8 @@ void TestExportImportTx()
     tr.m_minHeight = 185;
     tr.m_sender = false;
     tr.m_status = TxStatus::Pending;
-    tr.m_change = 8;
+    tr.m_changeBeam = 8;
+    tr.m_changeAsset = 9;
     tr.m_myId = wa.m_walletID;
     walletDB->saveTx(tr);
     storage::setTxParameter(
@@ -709,10 +711,10 @@ void TestExportImportTx()
     tr2.m_createTime = 4628;
     tr2.m_modifyTime = 45285;
     tr2.m_status = TxStatus::Canceled;
-    tr2.m_change = 8;
+    tr2.m_changeBeam = 8;
+    tr2.m_changeAsset = 9;
     tr2.m_myId = wa2.m_walletID;
     walletDB->saveTx(tr2); // without MyAddressID
-
 
     auto exported = storage::ExportDataToJson(*walletDB);
     walletDB->deleteTx(tr.m_txId);
