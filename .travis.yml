@@ -53,7 +53,6 @@ matrix:
         - brew link cmake
         - brew uninstall --ignore-dependencies qt boost
         - sudo git clone --depth=1 https://github.com/nesbox/qt5-static-mac.git /usr/local/qt5-static
-        - brew uninstall --ignore-dependencies boost
         - curl -O https://raw.githubusercontent.com/Homebrew/homebrew-core/5da5895add2f6b9320d654dd844d4827f6876c8b/Formula/boost.rb
         - brew install ./boost.rb
         - export PATH=/usr/local/qt5-static/bin:$PATH
