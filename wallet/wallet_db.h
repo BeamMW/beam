@@ -53,7 +53,7 @@ namespace beam::wallet
             Incoming,    // Outputs of incoming transaction, currently unavailable
             ChangeV0,    // deprecated.
             Spent,       // UTXO that was spent. Stored in wallet database until reset or restore
-
+            Consumed,    // Asset UTXO that was consumed (converted back to BEAM). Stored in wallet db until reset or restore
             count
         };
 
@@ -316,7 +316,7 @@ namespace beam::wallet
         beam::Key::IKdf::Ptr get_MasterKdf() const override;
         beam::Key::IPKdf::Ptr get_OwnerKdf() const override;
         uint64_t AllocateKidRange(uint64_t nCount) override;
-        virtual std::vector<Coin> selectCoins(Amount amount, AssetID assetId);
+        std::vector<Coin> selectCoins(Amount amount, AssetID assetId) override;
 
         std::vector<Coin> getCoinsCreatedByTx(const TxID& txId) override;
         std::vector<Coin> getCoinsByTx(const TxID& txId) override;

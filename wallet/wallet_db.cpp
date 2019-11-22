@@ -780,6 +780,7 @@ namespace beam::wallet
             {Outgoing,      "outgoing"},
             {Incoming,      "incoming"},
             {Spent,         "spent"},
+            {Consumed,      "consumed"},
         };
 
         return Strings[m_status];
@@ -1828,7 +1829,6 @@ namespace beam::wallet
         sqlite::Statement stm(this, req);
 
         Height h = getCurrentHeight();
-
         while (stm.step())
         {
             Coin coin;
@@ -3018,10 +3018,29 @@ namespace beam::wallet
             return false;
         }
 
+        bool IsConsumeTx(const IWalletDB& walletDB, const boost::optional<TxID>& txID)
+        {
+            if (!txID) return false;
+
+            TxType txType;
+            if (getTxParameter(walletDB, txID.get(), TxParameterID::TransactionType, txType))
+            {
+                return txType == TxType::AssetConsume;
+            }
+
+            return false;
+        }
+
         Coin::Status GetCoinStatus(const IWalletDB& walletDB, const Coin& c, Height hTop)
         {
             if (c.m_spentHeight != MaxHeight)
+            {
+                if (c.isAsset() && IsConsumeTx(walletDB, c.m_spentTxId))
+                {
+                    return Coin::Status::Consumed;
+                }
                 return Coin::Status::Spent;
+            }
 
             if (c.m_confirmHeight != MaxHeight)
             {

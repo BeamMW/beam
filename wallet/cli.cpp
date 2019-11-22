@@ -79,6 +79,7 @@ namespace beam
         case Coin::Maturing: ss << kCoinStatusMaturing; break;
         case Coin::Outgoing: ss << kCoinStatusOutgoing; break;
         case Coin::Incoming: ss << kCoinStatusIncoming; break;
+        case Coin::Consumed: ss << kCoinStatusConsumed; break;
         default:
             BOOST_ASSERT_MSG(false, kErrorUnknownCoinStatus);
         }

@@ -32,6 +32,7 @@ namespace beam
     extern const char kCoinStatusMaturing[];
     extern const char kCoinStatusOutgoing[];
     extern const char kCoinStatusIncoming[];
+    extern const char kCoinStatusConsumed[];
     // Tx statuses
     extern const char kTxStatusPending[];
     extern const char kTxStatusWaitingForSender[];

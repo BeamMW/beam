@@ -26,12 +26,13 @@ namespace beam
     const char kAmountAGROTH[] = "agroth";
 
     // Coin statuses
-    const char kCoinStatusAvailable[] = "Available";
+    const char kCoinStatusAvailable[]   = "Available";
     const char kCoinStatusUnavailable[] = "Unavailable";
-    const char kCoinStatusSpent[] = "Spent";
-    const char kCoinStatusMaturing[] = "Maturing";
-    const char kCoinStatusOutgoing[] = "In progress(outgoing)";
-    const char kCoinStatusIncoming[] = "In progress(incoming/change)";
+    const char kCoinStatusSpent[]       = "Spent";
+    const char kCoinStatusMaturing[]    = "Maturing";
+    const char kCoinStatusOutgoing[]    = "In progress(outgoing)";
+    const char kCoinStatusIncoming[]    = "In progress(incoming/change)";
+    const char kCoinStatusConsumed[]    = "Consumed";
 
     // Tx statuses
     const char kTxStatusPending[] = "pending";
