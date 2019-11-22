@@ -32,6 +32,10 @@ Rectangle {
             closeDialog.visible = Qt.binding(function(){return viewModel.unsafeTxCount > 0;});
         }
 
+        onClosed: {
+            closeDialog.visible = false;
+        }
+
         onAccepted: {
             Qt.quit();
         }
