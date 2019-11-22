@@ -20,6 +20,8 @@ matrix:
         - curl -O https://raw.githubusercontent.com/Homebrew/homebrew-core/56c500b569c724b049be7ab9e12d9693f85522f9/Formula/qt.rb
         - brew install ./qt.rb
         - brew link qt5 --force
+        - brew instal openssl
+        - brew link openssl
         - export PATH=/usr/local/opt/qt/bin:$PATH
         - export OPENSSL_ROOT_DIR="/usr/local/opt/openssl"
       env: 
@@ -49,6 +51,8 @@ matrix:
         - brew install cmake
         - brew link cmake
         - sudo git clone --depth=1 https://github.com/nesbox/qt5-static-mac.git /usr/local/qt5-static
+        - brew instal openssl
+        - brew link openssl
         - export PATH=/usr/local/qt5-static/bin:$PATH
         - export OPENSSL_ROOT_DIR="/usr/local/opt/openssl"
         - export QT5_ROOT_DIR="/usr/local/qt5-static"
