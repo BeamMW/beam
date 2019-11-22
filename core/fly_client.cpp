@@ -24,7 +24,7 @@ FlyClient::NetworkStd::~NetworkStd()
 
 void FlyClient::NetworkStd::Connect()
 {
-    boost::optional<io::Address> proxyAddr;
+    boost::optional<io::Address> proxyAddr = boost::none;
     if (m_Cfg.m_UseProxy)
     {
         proxyAddr = m_Cfg.m_ProxyAddr;
