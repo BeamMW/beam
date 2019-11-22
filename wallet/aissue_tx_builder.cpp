@@ -72,7 +72,8 @@ namespace beam::wallet
 
         m_assetIdx = m_Tx.GetMandatoryParameter<Key::Index>(TxParameterID::AssetIdx);
         m_assetId  = m_keyKeeper->AIDFromKeyIndex(m_assetIdx);
-        if (m_assetIdx == 0 && m_assetId == Zero)
+        m_Tx.SetParameter(TxParameterID::AssetID, m_assetId, m_SubTxID);
+        if (m_assetIdx == 0 || m_assetId == Zero)
         {
             throw TransactionFailedException(!m_Tx.IsInitiator(), TxFailureReason::NoAssetId);
         }
@@ -335,7 +336,7 @@ namespace beam::wallet
         m_Tx.GetWalletDB()->storeCoin(newUtxo);
         m_OutputCoins.push_back(newUtxo.m_ID);
         m_Tx.SetParameter(TxParameterID::OutputCoins, m_OutputCoins, false, m_SubTxID);
-        LOG_INFO() << m_Tx.GetTxID() << " Creating ASSET coin " << (change ? "(change):" : ":")
+        LOG_INFO() << m_Tx.GetTxID() << " Creating ASSET coin" << (change ? " (change):" : ":")
                    << PrintableAmount(amount, false, kAmountASSET, kAmountAGROTH)
                    << ", asset id " << m_assetId.str()
                    << ", id " << newUtxo.toStringID();
@@ -348,7 +349,7 @@ namespace beam::wallet
         m_Tx.GetWalletDB()->storeCoin(newUtxo);
         m_OutputCoins.push_back(newUtxo.m_ID);
         m_Tx.SetParameter(TxParameterID::OutputCoins, m_OutputCoins, false, m_SubTxID);
-        LOG_INFO() << m_Tx.GetTxID() << " Creating BEAM coin " << (change ? "(change):" : ":")
+        LOG_INFO() << m_Tx.GetTxID() << " Creating BEAM coin" << (change ? " (change):" : ":")
                    << PrintableAmount(amount)
                    << ", id " << newUtxo.toStringID();
     }

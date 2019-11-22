@@ -2078,7 +2078,10 @@ namespace beam::wallet
                     deserialize(txDescription.m_message, parameter.m_value);
                     break;
                 case TxParameterID::ChangeBeam:
-                    deserialize(txDescription.m_change, parameter.m_value);
+                    deserialize(txDescription.m_changeBeam, parameter.m_value);
+                    break;
+                case TxParameterID::ChangeAsset:
+                    deserialize(txDescription.m_changeAsset, parameter.m_value);
                     break;
                 case TxParameterID::ModifyTime:
                     deserialize(txDescription.m_modifyTime, parameter.m_value);
@@ -2095,11 +2098,13 @@ namespace beam::wallet
                 case TxParameterID::IsSelfTx:
                     deserialize(txDescription.m_selfTx, parameter.m_value);
                     break;
+                case TxParameterID ::AssetID:
+                    deserialize(txDescription.m_assetId, parameter.m_value);
+                    break;
                 default:
                     break; // suppress warning
                 }
             }
-
         }
 
         if (std::includes(gottenParams.begin(), gottenParams.end(), m_mandatoryTxParams.begin(), m_mandatoryTxParams.end()))
@@ -2117,7 +2122,9 @@ namespace beam::wallet
         storage::setTxParameter(*this, p.m_txId, TxParameterID::TransactionType, p.m_txType, false);
         storage::setTxParameter(*this, p.m_txId, TxParameterID::Amount, p.m_amount, false);
         storage::setTxParameter(*this, p.m_txId, TxParameterID::Fee, p.m_fee, false);
-        storage::setTxParameter(*this, p.m_txId, TxParameterID::ChangeBeam, p.m_change, false);
+        storage::setTxParameter(*this, p.m_txId, TxParameterID::ChangeBeam,  p.m_changeBeam, false);
+        storage::setTxParameter(*this, p.m_txId, TxParameterID::ChangeAsset, p.m_changeAsset, false);
+        storage::setTxParameter(*this, p.m_txId, TxParameterID::AssetID, p.m_assetId, false);
         if (p.m_minHeight)
         {
             storage::setTxParameter(*this, p.m_txId, TxParameterID::MinHeight, p.m_minHeight, false);

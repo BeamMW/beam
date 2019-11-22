@@ -99,6 +99,14 @@ namespace beam
         case TxStatus::Canceled: return kTxStatusCancelled;
         case TxStatus::Completed:
         {
+            if (tx.m_txType == TxType::AssetIssue)
+            {
+                return kTxStatusIssued;
+            }
+            if (tx.m_txType == TxType::AssetConsume)
+            {
+                return kTxStatusConsumed;
+            }
             if (tx.m_selfTx)
             {
                 return kTxStatusSentToOwn;
@@ -594,6 +602,51 @@ namespace
         cout << std::endl;
     }
 
+    void ShowAssetTxs(const IWalletDB::Ptr& walletDB, AssetID assetId, const char* coin, const char* groth)
+    {
+        auto txHistory = walletDB->getTxHistory(TxType::Simple);
+        auto txIssue   = walletDB->getTxHistory(TxType::AssetIssue);
+        auto txConsume = walletDB->getTxHistory(TxType::AssetConsume);
+        txHistory.insert(txHistory.end(), txIssue.begin(), txIssue.end());
+        txHistory.insert(txHistory.end(), txConsume.begin(), txConsume.end());
+
+        txHistory.erase(std::remove_if(txHistory.begin(), txHistory.end(), [&assetId](const auto& tx) {
+            return tx.m_assetId != assetId;
+        }), txHistory.end());
+
+        if (txHistory.empty() && txIssue.empty() && txConsume.empty())
+        {
+            cout << kTxHistoryEmpty << endl;
+            return;
+        }
+
+        if (!txHistory.empty())
+        {
+            const array<uint8_t, 6> columnWidths{{20, 17, 26, 21, 33, 65}};
+                cout << boost::format(kTxHistoryTableHead)
+                        % boost::io::group(left, setw(columnWidths[0]),  kTxHistoryColumnDatetTime)
+                        % boost::io::group(left, setw(columnWidths[1]),  kTxHistoryColumnDirection)
+                        % boost::io::group(right, setw(columnWidths[2]), kAssetTxHistoryColumnAmount)
+                        % boost::io::group(left, setw(columnWidths[3]),  kTxHistoryColumnStatus)
+                        % boost::io::group(left, setw(columnWidths[4]),  kTxHistoryColumnId)
+                        % boost::io::group(left, setw(columnWidths[5]),  kTxHistoryColumnKernelId)
+                     << std::endl;
+
+            for (auto& tx : txHistory) {
+                auto direction = tx.m_selfTx || tx.m_txType == TxType::AssetIssue || tx.m_txType == TxType::AssetConsume ?
+                                 kTxDirectionSelf : (tx.m_sender ? kTxDirectionOut : kTxDirectionIn);
+                cout << boost::format(kTxHistoryTableFormat)
+                        % boost::io::group(left, setw(columnWidths[0]),  format_timestamp(kTimeStampFormat3x3, tx.m_createTime * 1000, false))
+                        % boost::io::group(left, setw(columnWidths[1]),  direction)
+                        % boost::io::group(right, setw(columnWidths[2]), to_string(PrintableAmount(tx.m_amount, true)))
+                        % boost::io::group(left, setw(columnWidths[3]),  getTxStatus(tx))
+                        % boost::io::group(left, setw(columnWidths[4]),  to_hex(tx.m_txId.data(), tx.m_txId.size()))
+                        % boost::io::group(left, setw(columnWidths[5]),  to_string(tx.m_kernelID))
+                     << std::endl;
+            }
+        }
+    }
+
     int ShowWalletInfo(const IWalletDB::Ptr& walletDB, const po::variables_map& vm)
     {
         Block::SystemState::ID stateID = {};
@@ -617,46 +670,44 @@ namespace
              % boost::io::group(left, setfill('.'), setw(kWidth), kWalletSummaryFieldTotalUnspent) % to_string(PrintableAmount(totals.Unspent));
         ShowAssetCoins(walletDB, Zero, kBEAM, kGROTH);
 
-        // Show info about assets
-        for(auto it: totalsCalc.allTotals) {
-            if (it.second.AssetId != Zero) {
-                ShowAssetInfo(it.second);
-                ShowAssetCoins(walletDB, it.second.AssetId, kASSET, kAGROTH);
-            }
-        }
-
         if (vm.count(cli::TX_HISTORY))
         {
             auto txHistory = walletDB->getTxHistory();
+            txHistory.erase(std::remove_if(txHistory.begin(), txHistory.end(), [](const auto& tx) {
+                return tx.m_assetId != Zero;
+            }), txHistory.end());
+
             if (txHistory.empty())
             {
                 cout << kTxHistoryEmpty << endl;
-                return 0;
             }
-
-            const array<uint8_t, 6> columnWidths{ { 20, 17, 26, 21, 33, 65} };
-
-            cout << boost::format(kTxHistoryTableHead)
-                 % boost::io::group(left, setw(columnWidths[0]), kTxHistoryColumnDatetTime)
-                 % boost::io::group(left, setw(columnWidths[1]), kTxHistoryColumnDirection)
-                 % boost::io::group(right, setw(columnWidths[2]), kTxHistoryColumnAmount)
-                 % boost::io::group(left, setw(columnWidths[3]), kTxHistoryColumnStatus)
-                 % boost::io::group(left, setw(columnWidths[4]), kTxHistoryColumnId)
-                 % boost::io::group(left, setw(columnWidths[5]), kTxHistoryColumnKernelId)
-                 << std::endl;
-
-            for (auto& tx : txHistory)
+            else
             {
-                cout << boost::format(kTxHistoryTableFormat)
-                     % boost::io::group(left, setw(columnWidths[0]), format_timestamp(kTimeStampFormat3x3, tx.m_createTime * 1000, false))
-                     % boost::io::group(left, setw(columnWidths[1]), (tx.m_selfTx ? kTxDirectionSelf : (tx.m_sender ? kTxDirectionOut : kTxDirectionIn)))
-                     % boost::io::group(right, setw(columnWidths[2]), to_string(PrintableAmount(tx.m_amount, true)))
-                     % boost::io::group(left, setw(columnWidths[3]), getTxStatus(tx))
-                     % boost::io::group(left, setw(columnWidths[4]), to_hex(tx.m_txId.data(), tx.m_txId.size()))
-                     % boost::io::group(left, setw(columnWidths[5]), to_string(tx.m_kernelID))
+                const array<uint8_t, 6> columnWidths{{20, 17, 26, 21, 33, 65}};
+                cout << boost::format(kTxHistoryTableHead)
+                        % boost::io::group(left, setw(columnWidths[0]), kTxHistoryColumnDatetTime)
+                        % boost::io::group(left, setw(columnWidths[1]), kTxHistoryColumnDirection)
+                        % boost::io::group(right, setw(columnWidths[2]), kTxHistoryColumnAmount)
+                        % boost::io::group(left, setw(columnWidths[3]), kTxHistoryColumnStatus)
+                        % boost::io::group(left, setw(columnWidths[4]), kTxHistoryColumnId)
+                        % boost::io::group(left, setw(columnWidths[5]), kTxHistoryColumnKernelId)
                      << std::endl;
+
+                for (auto &tx : txHistory) {
+                    cout << boost::format(kTxHistoryTableFormat)
+                            % boost::io::group(left, setw(columnWidths[0]),
+                                               format_timestamp(kTimeStampFormat3x3, tx.m_createTime * 1000, false))
+                            % boost::io::group(left, setw(columnWidths[1]),
+                                               (tx.m_selfTx ? kTxDirectionSelf : (tx.m_sender ? kTxDirectionOut
+                                                                                              : kTxDirectionIn)))
+                            % boost::io::group(right, setw(columnWidths[2]),
+                                               to_string(PrintableAmount(tx.m_amount, true)))
+                            % boost::io::group(left, setw(columnWidths[3]), getTxStatus(tx))
+                            % boost::io::group(left, setw(columnWidths[4]), to_hex(tx.m_txId.data(), tx.m_txId.size()))
+                            % boost::io::group(left, setw(columnWidths[5]), to_string(tx.m_kernelID))
+                         << std::endl;
+                }
             }
-            return 0;
         }
 
         if (vm.count(cli::SWAP_TX_HISTORY))
@@ -665,43 +716,63 @@ namespace
             if (txHistory.empty())
             {
                 cout << kSwapTxHistoryEmpty << endl;
-                return 0;
             }
-
-            const array<uint8_t, 6> columnWidths{ { 20, 26, 18, 15, 23, 33} };
-
-            cout << boost::format(kTxHistoryTableHead)
-                 % boost::io::group(left, setw(columnWidths[0]), kTxHistoryColumnDatetTime)
-                 % boost::io::group(right, setw(columnWidths[1]), kTxHistoryColumnAmount)
-                 % boost::io::group(right, setw(columnWidths[2]), kTxHistoryColumnSwapAmount)
-                 % boost::io::group(left, setw(columnWidths[3]), kTxHistoryColumnSwapType)
-                 % boost::io::group(left, setw(columnWidths[4]), kTxHistoryColumnStatus)
-                 % boost::io::group(left, setw(columnWidths[5]), kTxHistoryColumnId)
-                 << std::endl;
-
-            for (auto& tx : txHistory)
+            else
             {
-                Amount swapAmount = 0;
-                storage::getTxParameter(*walletDB, tx.m_txId, wallet::kDefaultSubTxID, wallet::TxParameterID::AtomicSwapAmount, swapAmount);
-                bool isBeamSide = false;
-                storage::getTxParameter(*walletDB, tx.m_txId, wallet::kDefaultSubTxID, wallet::TxParameterID::AtomicSwapIsBeamSide, isBeamSide);
-
-                AtomicSwapCoin swapCoin = AtomicSwapCoin::Unknown;
-                storage::getTxParameter(*walletDB, tx.m_txId, wallet::kDefaultSubTxID, wallet::TxParameterID::AtomicSwapCoin, swapCoin);
-
-                stringstream ss;
-                ss << (isBeamSide ? kBEAM : to_string(swapCoin)) << " <--> " << (!isBeamSide ? kBEAM : to_string(swapCoin));
-
-                cout << boost::format(kSwapTxHistoryTableFormat)
-                     % boost::io::group(left, setw(columnWidths[0]), format_timestamp(kTimeStampFormat3x3, tx.m_createTime * 1000, false))
-                     % boost::io::group(right, setw(columnWidths[1]), to_string(PrintableAmount(tx.m_amount, true)))
-                     % boost::io::group(right, setw(columnWidths[2]), swapAmount)
-                     % boost::io::group(right, setw(columnWidths[3]), ss.str())
-                     % boost::io::group(left, setw(columnWidths[4]), getSwapTxStatus(walletDB, tx))
-                     % boost::io::group(left, setw(columnWidths[5]), to_hex(tx.m_txId.data(), tx.m_txId.size()))
+                const array<uint8_t, 6> columnWidths{{20, 26, 18, 15, 23, 33}};
+                cout << boost::format(kTxHistoryTableHead)
+                        % boost::io::group(left, setw(columnWidths[0]), kTxHistoryColumnDatetTime)
+                        % boost::io::group(right, setw(columnWidths[1]), kTxHistoryColumnAmount)
+                        % boost::io::group(right, setw(columnWidths[2]), kTxHistoryColumnSwapAmount)
+                        % boost::io::group(left, setw(columnWidths[3]), kTxHistoryColumnSwapType)
+                        % boost::io::group(left, setw(columnWidths[4]), kTxHistoryColumnStatus)
+                        % boost::io::group(left, setw(columnWidths[5]), kTxHistoryColumnId)
                      << std::endl;
+
+                for (auto &tx : txHistory) {
+                    Amount swapAmount = 0;
+                    storage::getTxParameter(*walletDB, tx.m_txId, wallet::kDefaultSubTxID,
+                                            wallet::TxParameterID::AtomicSwapAmount, swapAmount);
+                    bool isBeamSide = false;
+                    storage::getTxParameter(*walletDB, tx.m_txId, wallet::kDefaultSubTxID,
+                                            wallet::TxParameterID::AtomicSwapIsBeamSide, isBeamSide);
+
+                    AtomicSwapCoin swapCoin = AtomicSwapCoin::Unknown;
+                    storage::getTxParameter(*walletDB, tx.m_txId, wallet::kDefaultSubTxID,
+                                            wallet::TxParameterID::AtomicSwapCoin, swapCoin);
+
+                    stringstream ss;
+                    ss << (isBeamSide ? kBEAM : to_string(swapCoin)) << " <--> "
+                       << (!isBeamSide ? kBEAM : to_string(swapCoin));
+
+                    cout << boost::format(kSwapTxHistoryTableFormat)
+                            % boost::io::group(left, setw(columnWidths[0]),
+                                               format_timestamp(kTimeStampFormat3x3, tx.m_createTime * 1000, false))
+                            % boost::io::group(right, setw(columnWidths[1]),
+                                               to_string(PrintableAmount(tx.m_amount, true)))
+                            % boost::io::group(right, setw(columnWidths[2]), swapAmount)
+                            % boost::io::group(right, setw(columnWidths[3]), ss.str())
+                            % boost::io::group(left, setw(columnWidths[4]), getSwapTxStatus(walletDB, tx))
+                            % boost::io::group(left, setw(columnWidths[5]), to_hex(tx.m_txId.data(), tx.m_txId.size()))
+                         << std::endl;
+                }
             }
-            return 0;
+        }
+
+        //
+        // Show info about assets
+        //
+        for(auto it: totalsCalc.allTotals) {
+            const auto assetId = it.second.AssetId;
+            if (assetId != Zero) {
+                cout << endl;
+                ShowAssetInfo(it.second);
+                ShowAssetCoins(walletDB, it.second.AssetId, kASSET, kAGROTH);
+                if (vm.count(cli::TX_HISTORY))
+                {
+                    ShowAssetTxs(walletDB, it.second.AssetId, kASSET, kAGROTH);
+                }
+            }
         }
 
         return 0;
@@ -1592,7 +1663,8 @@ namespace
                         .SetParameter(TxParameterID::Amount, amount)
                         .SetParameter(TxParameterID::Fee, fee)
                         .SetParameter(TxParameterID::PreselectedCoins, GetPreselectedCoinIDs(vm))
-                        .SetParameter(TxParameterID::AssetIdx, Key::Index(aidx));
+                        .SetParameter(TxParameterID::AssetIdx, Key::Index(aidx))
+                        .SetParameter(TxParameterID::MyID, WalletID(Zero));
 
         return wallet.StartTransaction(params);
     }

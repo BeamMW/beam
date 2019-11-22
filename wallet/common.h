@@ -463,6 +463,7 @@ namespace beam::wallet
             , TxType txType = TxType::Simple
             , Amount amount = 0
             , Amount fee =0
+            , const AssetID& assetId = Zero
             , Height minHeight = 0
             , const WalletID & peerId = Zero
             , const WalletID& myId = Zero
@@ -474,7 +475,9 @@ namespace beam::wallet
             , m_txType{ txType }
             , m_amount{ amount }
             , m_fee{ fee }
-            , m_change{}
+            , m_changeBeam{0}
+            , m_changeAsset{0}
+            , m_assetId{assetId}
             , m_minHeight{ minHeight }
             , m_peerId{ peerId }
             , m_myId{ myId }
@@ -500,7 +503,9 @@ namespace beam::wallet
         wallet::TxType m_txType = wallet::TxType::Simple;
         Amount m_amount = 0;
         Amount m_fee = 0;
-        Amount m_change = 0;
+        Amount m_changeBeam = 0;
+        Amount m_changeAsset = 0;
+        AssetID m_assetId = Zero;
         Height m_minHeight = 0;
         WalletID m_peerId = Zero;
         WalletID m_myId = Zero;

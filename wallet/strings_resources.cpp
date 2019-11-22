@@ -46,6 +46,8 @@ namespace beam
     const char kTxStatusFailed[] = "failed";
     const char kTxStatusSentToOwn[] = "sent to own address";
     const char kTxStatusExpired[] = "expired";
+    const char kTxStatusConsumed[] = "asset consumed";
+    const char kTxStatusIssued[] = "asset issued";
 
     // Errors
     const char kErrorUnknownCoinStatus[] = "Unknown coin status";
@@ -181,6 +183,7 @@ namespace beam
     const char kTxHistoryColumnDatetTime[] = "datetime";
     const char kTxHistoryColumnDirection[] = "direction";
     const char kTxHistoryColumnAmount[] = "amount, BEAM";
+    const char kAssetTxHistoryColumnAmount[] = "amount, ASSET";
     const char kTxHistoryColumnStatus[] = "status";
     const char kTxHistoryColumnId[] = "ID";
     const char kTxHistoryColumnKernelId[] = "kernel ID";
