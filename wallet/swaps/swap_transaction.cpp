@@ -325,11 +325,13 @@ namespace beam::wallet
         State state = GetState(kDefaultSubTxID);
         switch (state)
         {
-        case wallet::AtomicSwapTransaction::State::SendingRedeemTX:
-        case wallet::AtomicSwapTransaction::State::SendingBeamRedeemTX:
+        case State::Initial:
+            return true;
+        case State::SendingRedeemTX:
+        case State::SendingBeamRedeemTX:
             return isRegistered(BEAM_REDEEM_TX, REDEEM_TX);
-        case wallet::AtomicSwapTransaction::State::SendingRefundTX:
-        case wallet::AtomicSwapTransaction::State::SendingBeamRefundTX:
+        case State::SendingRefundTX:
+        case State::SendingBeamRefundTX:
             return isRegistered(BEAM_REFUND_TX, REFUND_TX);
         default:
             return false;
