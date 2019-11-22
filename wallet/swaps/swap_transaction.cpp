@@ -309,6 +309,33 @@ namespace beam::wallet
         return TxType::AtomicSwap;
     }
 
+    bool AtomicSwapTransaction::IsInSafety() const
+    {
+        auto isRegistered = [this](SubTxID beamSubTxID, SubTxID coinSubTxID)
+        {
+            bool isBeamSide = GetMandatoryParameter<bool>(TxParameterID::AtomicSwapIsBeamSide);
+            uint8_t status = proto::TxStatus::Unspecified;
+            if (GetParameter(TxParameterID::TransactionRegistered, status, isBeamSide ? coinSubTxID : beamSubTxID))
+            {
+                return status == proto::TxStatus::Ok;
+            }
+            return false;
+        };
+
+        State state = GetState(kDefaultSubTxID);
+        switch (state)
+        {
+        case wallet::AtomicSwapTransaction::State::SendingRedeemTX:
+        case wallet::AtomicSwapTransaction::State::SendingBeamRedeemTX:
+            return isRegistered(BEAM_REDEEM_TX, REDEEM_TX);
+        case wallet::AtomicSwapTransaction::State::SendingRefundTX:
+        case wallet::AtomicSwapTransaction::State::SendingBeamRefundTX:
+            return isRegistered(BEAM_REFUND_TX, REFUND_TX);
+        default:
+            return false;
+        }
+    }
+
     AtomicSwapTransaction::State AtomicSwapTransaction::GetState(SubTxID subTxID) const
     {
         State state = State::Initial;

@@ -364,6 +364,7 @@ private:
                     }
                     catch (const std::exception& /*ex*/)
                     {
+                        result = R"({"jsonrpc": "2.0", "error": [], "id": "teste"})";
                     }
 
                     m_connections[peerId]->write(result.data(), result.size());

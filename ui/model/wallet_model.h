@@ -71,7 +71,7 @@ signals:
     void sendingChanged();
     void maturingChanged();
     void stateIDChanged();
-
+    void functionPosted(const std::function<void()>&);
 #if defined(BEAM_HW_WALLET)
     void showTrezorMessage();
     void hideTrezorMessage();
@@ -108,9 +108,12 @@ private:
     void onHideKeyKeeperMessage() override;
     void onShowKeyKeeperError(const std::string&) override;
 
+    void onPostFunctionToClientContext(MessageFunction&& func) override;
+
 private slots:
     void setStatus(const beam::wallet::WalletStatus& status);
     void setAddresses(bool own, const std::vector<beam::wallet::WalletAddress>& addrs);
+    void doFunction(const std::function<void()>& func);
 
 private:
     std::set<beam::wallet::WalletID> m_myWalletIds;

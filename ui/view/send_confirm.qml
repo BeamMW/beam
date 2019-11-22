@@ -20,6 +20,7 @@ ConfirmationDialog {
     property alias  feeText:            feeLabel.text
     property Item   defaultFocusItem:   BeamGlobals.needPasswordToSpend() ? requirePasswordInput : cancelButton
     property bool   swapMode:           false
+    property var    swapCurrencyLabel:  ""
     //% "Transaction fee"
     property string feeLabel: qsTrId("general-fee") + ":"
 
@@ -229,7 +230,11 @@ ConfirmationDialog {
                     wrapMode: Text.WordWrap
                     text: sendViewConfirm.swapMode ?
                         //% "Keep your wallet online. The swap normally takes about 1 hour to complete."
-                        qsTrId("send-swap-sconfirmation-online-time") :
+                        qsTrId("send-swap-sconfirmation-online-time") + (swapCurrencyLabel !== "" ?
+                            //% " Once the offer is accepted by the other side, the %1 transaction fee will be charged even if the offer is cancelled."
+                            qsTrId("send-swap-fee-warning").arg(swapCurrencyLabel)
+                            : "")
+                        :
                         //% "For the transaction to complete, the recipient must get online within the next 12 hours and you should get online within 2 hours afterwards."
                         qsTrId("send-confirmation-pwd-text-online-time")
                 }

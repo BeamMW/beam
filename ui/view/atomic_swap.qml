@@ -31,7 +31,7 @@ Item {
 
     ConfirmationDialog {
         id:                     cancelOfferDialog
-        property var txId: undefined
+        property var txId:      undefined
         width:                  460
         //% "Cancel offer"
         title:                  qsTrId("atomic-swap-cancel")
@@ -54,6 +54,25 @@ Item {
                     cancelOfferDialog.cancelButton.onClicked();
                 }
             }
+        }
+    }
+
+    ConfirmationDialog {
+        id:                     cancelSwapDialog
+        property var txId:      undefined
+        //% "Cancel atomic swap"
+        title:                  qsTrId("atomic-swap-tx-cancel")
+        //% "Are you sure you want to cancel?"
+        text:                   qsTrId("atomic-swap-tx-cancel-text")
+        //% "yes"
+        okButtonText:           qsTrId("atomic-swap-tx-yes-button")
+        okButtonIconSource:     "qrc:/assets/icon-done.svg"
+        okButtonColor:          Style.swapCurrencyStateIndicator
+        //% "no"
+        cancelButtonText:       qsTrId("atomic-swap-no-button")
+        cancelButtonIconSource: "qrc:/assets/icon-cancel-16.svg"
+        onAccepted: {
+            viewModel.cancelTx(cancelSwapDialog.txId);
         }
     }
 
@@ -681,6 +700,7 @@ Please try again later or create an offer yourself."
                                         MouseArea {
                                             anchors.fill: parent
                                             acceptedButtons: Qt.LeftButton
+                                            cursorShape: Qt.PointingHandCursor
                                             onClicked: {
                                                 if (isOwnOffer) {
                                                     cancelOfferDialog.txId = offersTable.model.getRoleValue(styleData.row, "rawTxID");
@@ -996,7 +1016,7 @@ Please try again later or create an offer yourself."
                         }
 
                         function showContextMenu(row) {
-                            txContextMenu.canCopyToken = true;
+                            txContextMenu.canCopyToken = transactionsTable.model.getRoleValue(row, "isPending");;
                             txContextMenu.token = transactionsTable.model.getRoleValue(row, "token");
                             txContextMenu.cancelEnabled = transactionsTable.model.getRoleValue(row, "isCancelAvailable");
                             txContextMenu.deleteEnabled = transactionsTable.model.getRoleValue(row, "isDeleteAvailable");
@@ -1052,7 +1072,8 @@ Please try again later or create an offer yourself."
                             icon.source: "qrc:/assets/icon-cancel.svg"
                             enabled: txContextMenu.cancelEnabled
                             onTriggered: {
-                                viewModel.cancelTx(txContextMenu.txID);
+                                cancelSwapDialog.txId = txContextMenu.txID;
+                                cancelSwapDialog.open();
                             }
                         }
                         Action {
@@ -1163,8 +1184,8 @@ Please try again later or create an offer yourself."
     function getStatusText(value) {
 
         switch(value) {
-            //% "pending"
-            case "pending": return qsTrId("wallet-txs-status-pending");
+            //% "waiting for peer"
+            case "pending": return qsTrId("wallet-txs-status-waiting-peer");
             //% "in progress"
             case "in progress": return qsTrId("wallet-txs-status-in-progress");
             //% "completed"

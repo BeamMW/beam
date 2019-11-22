@@ -160,6 +160,7 @@ namespace beam::wallet
         void SetNextState(State state);
 
         TxType GetType() const override;
+        bool IsInSafety() const override;
         State GetState(SubTxID subTxID) const;
         SubTxState GetSubTxState(SubTxID subTxID) const;
         Amount GetWithdrawFee() const;
