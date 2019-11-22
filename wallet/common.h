@@ -506,6 +506,7 @@ namespace beam::wallet
         Amount m_changeBeam = 0;
         Amount m_changeAsset = 0;
         AssetID m_assetId = Zero;
+        Key::Index m_assetIdx = 0;
         Height m_minHeight = 0;
         WalletID m_peerId = Zero;
         WalletID m_myId = Zero;
