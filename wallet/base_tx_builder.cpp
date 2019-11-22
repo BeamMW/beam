@@ -97,7 +97,7 @@ namespace beam::wallet
             {
                 storage::Totals allTotals(*m_Tx.GetWalletDB());
                 const auto totals = allTotals.GetTotals(m_AssetId);
-                LOG_ERROR() << m_Tx.GetTxID() << "[" << m_SubTxID << "]" << " You only have " << PrintableAmount(totals.Avail, kAmountASSET, kAmountAGROTH);
+                LOG_ERROR() << m_Tx.GetTxID() << "[" << m_SubTxID << "]" << " You only have " << PrintableAmount(totals.Avail, false, kAmountASSET, kAmountAGROTH);
                 throw TransactionFailedException(!m_Tx.IsInitiator(), TxFailureReason::NoInputs);
             }
             copy(selectedCoins.begin(), selectedCoins.end(), back_inserter(coins));
