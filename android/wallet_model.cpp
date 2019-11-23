@@ -127,7 +127,7 @@ void WalletModel::onTxStatus(ChangeAction action, const std::vector<TxDescriptio
             setStringField(env, TxDescriptionClass, tx, "id", to_hex(item.m_txId.data(), item.m_txId.size()));
             setLongField(env, TxDescriptionClass, tx, "amount", item.m_amount);
             setLongField(env, TxDescriptionClass, tx, "fee", item.m_fee);
-            setLongField(env, TxDescriptionClass, tx, "change", item.m_change);
+            setLongField(env, TxDescriptionClass, tx, "change", item.m_changeBeam);
             setLongField(env, TxDescriptionClass, tx, "minHeight", item.m_minHeight);
 
             setStringField(env, TxDescriptionClass, tx, "peerId", to_string(item.m_peerId));
