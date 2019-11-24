@@ -325,11 +325,13 @@ namespace beam::wallet
         State state = GetState(kDefaultSubTxID);
         switch (state)
         {
-        case wallet::AtomicSwapTransaction::State::SendingRedeemTX:
-        case wallet::AtomicSwapTransaction::State::SendingBeamRedeemTX:
+        case State::Initial:
+            return true;
+        case State::SendingRedeemTX:
+        case State::SendingBeamRedeemTX:
             return isRegistered(BEAM_REDEEM_TX, REDEEM_TX);
-        case wallet::AtomicSwapTransaction::State::SendingRefundTX:
-        case wallet::AtomicSwapTransaction::State::SendingBeamRefundTX:
+        case State::SendingRefundTX:
+        case State::SendingBeamRefundTX:
             return isRegistered(BEAM_REFUND_TX, REFUND_TX);
         default:
             return false;
@@ -724,6 +726,8 @@ namespace beam::wallet
 
                 if (GetParameter(TxParameterID::AtomicSwapPrivateKey, secretPrivateKey.V))
                 {
+                    LOG_DEBUG() << GetTxID() << " send additional info for quick refund";
+
                     // send our private key of redeem tx. we are good :)
                     msg.AddParameter(TxParameterID::AtomicSwapPeerPrivateKey, secretPrivateKey.V);
                 }
@@ -1463,7 +1467,7 @@ namespace beam::wallet
 
         if (GetParameter(TxParameterID::AtomicSwapPrivateKey, secretPrivateKey.V))
         {
-            LOG_DEBUG() << "AtomicSwapTransaction::NotifyFailure send secret";
+            LOG_DEBUG() << GetTxID() << " send additional info for quick refund";
 
             SetTxParameter msg;
 
