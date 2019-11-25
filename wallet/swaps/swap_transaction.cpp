@@ -610,6 +610,7 @@ namespace beam::wallet
                 {
                     if (!IsBeamRedeemTxRegistered() && !IsSafeToSendBeamRedeemTx())
                     {
+                        LOG_INFO() << GetTxID() << " Not enough time to finish Beam redeem transaction.";
                         SetNextState(State::SendingRefundTX);
                         break;
                     }
@@ -1262,12 +1263,12 @@ namespace beam::wallet
 
     bool AtomicSwapTransaction::IsBeamLockTimeExpired() const
     {
-        Height lockTimeHeight = MaxHeight;
-        GetParameter(TxParameterID::MinHeight, lockTimeHeight);
+        Height refundMinHeight = MaxHeight;
+        GetParameter(TxParameterID::MinHeight, refundMinHeight, SubTxIndex::BEAM_REFUND_TX);
 
         Block::SystemState::Full state;
 
-        return GetTip(state) && state.m_Height > (lockTimeHeight + kBeamLockTimeInBlocks);
+        return GetTip(state) && state.m_Height > refundMinHeight;
     }
 
     bool AtomicSwapTransaction::IsBeamRedeemTxRegistered() const
@@ -1279,7 +1280,7 @@ namespace beam::wallet
     bool AtomicSwapTransaction::IsSafeToSendBeamRedeemTx() const
     {
         Height minHeight = MaxHeight;
-        GetParameter(TxParameterID::MinHeight, minHeight);
+        GetParameter(TxParameterID::MinHeight, minHeight, SubTxIndex::BEAM_LOCK_TX);
 
         Block::SystemState::Full state;
 
