@@ -597,7 +597,7 @@ namespace beam::wallet
         if (m_KeyKeeper)
         {
             commitmentFunc = [this](const auto& kidv, const auto& assetId) {
-                return m_KeyKeeper->GeneratePublicKeySync(kidv, assetId, true);
+                return m_KeyKeeper->GenerateCoinKeySync(kidv, assetId);
             };
         }
         else if (auto ownerKdf = m_WalletDB->get_OwnerKdf(); ownerKdf)
@@ -803,8 +803,8 @@ namespace beam::wallet
             LOG_WARNING() << "You cannot get utxo commitment without private key";
             return;
         }
-        pReq->m_Msg.m_Utxo = m_KeyKeeper->GeneratePublicKeySync(coin.m_ID, coin.m_assetId, true);
 
+        pReq->m_Msg.m_Utxo = m_KeyKeeper->GenerateCoinKeySync(coin.m_ID, coin.m_assetId);
         LOG_DEBUG() << "Get utxo proof: " << pReq->m_Msg.m_Utxo;
 
         PostReqUnique(*pReq);

@@ -67,7 +67,8 @@ namespace beam::wallet
         virtual PublicKeys GeneratePublicKeysSync(const std::vector<Key::IDV>& ids, bool createCoinKey) = 0;
         virtual PublicKeys GeneratePublicKeysSyncEx(const std::vector<Key::IDV>& ids, bool createCoinKey, const AssetID& assetID, ECC::Scalar::Native& offset) = 0;
 
-        virtual ECC::Point GeneratePublicKeySync(const Key::IDV& id, const AssetID& assetId, bool createCoinKey) = 0;
+        virtual ECC::Point GeneratePublicKeySync(const Key::IDV& id) = 0;
+        virtual ECC::Point GenerateCoinKeySync(const Key::IDV& id, const AssetID& assetId) = 0;
         virtual Outputs GenerateOutputsSync(Height schemeHeigh, const std::vector<Key::IDV>& ids) = 0;
         virtual Outputs GenerateOutputsSyncEx(Height schemeHeigh, const std::vector<Key::IDV>& ids, const AssetID& assetId, ECC::Scalar::Native& offset) = 0;
 

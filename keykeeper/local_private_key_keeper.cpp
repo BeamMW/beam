@@ -198,24 +198,24 @@ namespace beam::wallet
         return result;
     }
 
-    ECC::Point LocalPrivateKeyKeeper::GeneratePublicKeySync(const Key::IDV& id, const AssetID& assetId, bool createCoinKey)
+    ECC::Point LocalPrivateKeyKeeper::GeneratePublicKeySync(const Key::IDV& id)
     {
         Scalar::Native secretKey;
         Point publicKey;
 
-        if (createCoinKey)
-        {
-            SwitchCommitment(&assetId).Create(secretKey, publicKey, *GetChildKdf(id), id);
-        }
-        else
-        {
-            assert(assetId == Zero);
-            m_MasterKdf->DeriveKey(secretKey, id);
-            publicKey = Context::get().G * secretKey;
-        }
+        m_MasterKdf->DeriveKey(secretKey, id);
+        publicKey = Context::get().G * secretKey;
+
         return publicKey;
     }
 
+    ECC::Point LocalPrivateKeyKeeper::GenerateCoinKeySync(const Key::IDV& id, const AssetID& assetId)
+    {
+        Scalar::Native secretKey;
+        Point publicKey;
+        SwitchCommitment(&assetId).Create(secretKey, publicKey, *GetChildKdf(id), id);
+        return publicKey;
+    }
 
     IPrivateKeyKeeper::Outputs LocalPrivateKeyKeeper::GenerateOutputsSync(Height schemeHeigh, const std::vector<Key::IDV>& ids)
     {
