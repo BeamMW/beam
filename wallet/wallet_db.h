@@ -190,7 +190,7 @@ namespace beam::wallet
         virtual beam::Key::IPKdf::Ptr get_OwnerKdf() const = 0;
 
         // Calculates blinding factor and commitment of specifc Coin::ID
-        void calcCommitment(ECC::Scalar::Native& sk, ECC::Point& comm, const Coin::ID&);
+        ECC::Point calcCommitment(const Coin::ID&, const AssetID& assetId);
 
 		// import blockchain recovery data (all at once)
 		// should be used only upon creation on 'clean' wallet. Throws exception on error

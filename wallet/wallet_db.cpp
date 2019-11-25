@@ -1457,9 +1457,12 @@ namespace beam::wallet
         return m_OwnerKdf;
     }
 
-    void IWalletDB::calcCommitment(ECC::Scalar::Native& sk, ECC::Point& comm, const Coin::ID& cid)
+    ECC::Point IWalletDB::calcCommitment(const Coin::ID& cid, const AssetID& assetId)
     {
-        SwitchCommitment().Create(sk, comm, *get_ChildKdf(cid), cid);
+        ECC::Point commitment;
+        ECC::Scalar::Native sk;
+        SwitchCommitment(&assetId).Create(sk, commitment, *get_ChildKdf(cid), cid);
+        return commitment;
     }
 
 	void IWalletDB::ImportRecovery(const std::string& path)
@@ -1493,9 +1496,7 @@ namespace beam::wallet
 			if (!kidv.m_Value && (Key::Type::Decoy == kidv.m_Type))
 				continue; // filter-out decoys
 
-			ECC::Scalar::Native sk;
-			ECC::Point comm;
-			calcCommitment(sk, comm, kidv);
+			ECC::Point&& comm = calcCommitment(kidv, x.m_Output.m_AssetID);
 			if (!(comm == x.m_Output.m_Commitment))
 				continue;
 
