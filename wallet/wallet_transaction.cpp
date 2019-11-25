@@ -26,12 +26,12 @@ namespace beam::wallet
     using namespace ECC;
     using namespace std;
 
-    TxParameters CreateSimpleTransactionParameters(boost::optional<TxID> txId)
+    TxParameters CreateSimpleTransactionParameters(const boost::optional<TxID>& txId)
     {
         return CreateTransactionParameters(TxType::Simple, txId ? *txId : GenerateTxID()).SetParameter(TxParameterID::TransactionType, TxType::Simple);
     }
 
-    TxParameters CreateSplitTransactionParameters(const WalletID& myID, const AmountList& amountList, boost::optional<TxID> txId)
+    TxParameters CreateSplitTransactionParameters(const WalletID& myID, const AmountList& amountList, const boost::optional<TxID>& txId)
     {
         return CreateSimpleTransactionParameters(txId)
             .SetParameter(TxParameterID::MyID, myID)
@@ -100,6 +100,12 @@ namespace beam::wallet
     TxType SimpleTransaction::GetType() const
     {
         return TxType::Simple;
+    }
+
+    bool SimpleTransaction::IsInSafety() const
+    {
+        State txState = GetState();
+        return txState == State::KernelConfirmation;
     }
 
     void SimpleTransaction::UpdateImpl()

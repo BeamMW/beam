@@ -246,6 +246,7 @@ public:
 		struct Data {
 			ECC::Point m_Commitment;
 			Height m_Maturity;
+			bool m_Shielded = false;
 			Data& operator = (const Key&);
 		};
 
@@ -253,6 +254,9 @@ public:
 		static const uint16_t s_Bytes = (s_Bits + 7) >> 3;
 
 		Key& operator = (const Data&);
+
+		bool IsShielded() const;
+		void SetShielded(const ECC::Point& comm, bool bOutp);
 
 		uintBig_t<s_Bytes> V;
 	};
@@ -281,7 +285,8 @@ public:
 		bool IsCommitmentDuplicated() const;
 
 		void get_Hash(Merkle::Hash&) const;
-		static void get_Hash(Merkle::Hash&, const Key&, Input::Count);
+		static void get_Hash_MW(Merkle::Hash&, const Key&, Input::Count);
+		static void get_Hash_Shielded(Merkle::Hash&, const Key&, TxoID);
 	};
 
 	typedef RadixTree::Cursor_T<Key::s_Bits> Cursor;

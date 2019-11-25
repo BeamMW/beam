@@ -51,9 +51,9 @@ public:
     QString getWalletStatusErrorMsg() const;
     void allowBeamMWLinks(bool value);
 
-    Q_INVOKABLE void cancelTx(QVariant variantTxID);
-    Q_INVOKABLE void deleteTx(QVariant variantTxID);
-    Q_INVOKABLE PaymentInfoItem* getPaymentInfo(QVariant variantTxID);
+    Q_INVOKABLE void cancelTx(const QVariant& variantTxID);
+    Q_INVOKABLE void deleteTx(const QVariant& variantTxID);
+    Q_INVOKABLE PaymentInfoItem* getPaymentInfo(const QVariant& variantTxID);
     Q_INVOKABLE bool isAllowedBeamMWLinks() const;
 
 public slots:

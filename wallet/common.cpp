@@ -304,7 +304,7 @@ namespace beam::wallet
         return !(*this == other);
     }
 
-    boost::optional<TxID> TxParameters::GetTxID() const
+    const boost::optional<TxID>& TxParameters::GetTxID() const
     {
         return m_ID;
     }

@@ -34,20 +34,41 @@ namespace
 {
     const unsigned TEST_PERIOD = 1000;
 
-    class BitcoindSettingsProvider : public bitcoin::IBitcoinCoreSettingsProvider
+    class BitcoindSettingsProvider : public bitcoin::ISettingsProvider
     {
     public:
         BitcoindSettingsProvider(const std::string& userName, const std::string& pass, const io::Address& address)
-            : m_settings{ userName, pass, address }
         {
+            bitcoin::BitcoinCoreSettings tmp{ userName, pass, address };
+
+            m_settings.SetConnectionOptions(tmp);
         }
-        bitcoin::BitcoinCoreSettings GetBitcoinCoreSettings() const override
+
+        bitcoin::Settings GetSettings() const override
         {
             return m_settings;
         }
 
+        void SetSettings(const bitcoin::Settings& /*settings*/) override
+        {
+        }
+
+        bool CanModify() const override
+        {
+            return true;
+        }
+
+        void AddRef() override
+        {
+        }
+
+        void ReleaseRef() override
+        {
+
+        }
+
     private:
-        bitcoin::BitcoinCoreSettings m_settings;
+        bitcoin::Settings m_settings;
     };
 }
 
@@ -67,13 +88,6 @@ void testSuccessResponse()
     io::Address addr(io::Address::localhost(), PORT);
     auto settingsProvider = std::make_shared<BitcoindSettingsProvider>(btcUserName, btcPass, addr);
     bitcoin::BitcoinCore016 bridge = bitcoin::BitcoinCore016(*reactor, *settingsProvider);
-
-    bridge.dumpPrivKey("", [&counter](const bitcoin::IBridge::Error& error, const std::string& key)
-    {
-        WALLET_CHECK(error.m_type == bitcoin::IBridge::None);
-        WALLET_CHECK(!key.empty());
-        ++counter;
-    });
 
     bridge.fundRawTransaction("", 2, [&counter](const bitcoin::IBridge::Error& error, const std::string& tx, int pos)
     {
@@ -136,7 +150,7 @@ void testSuccessResponse()
 
     reactor->run();
 
-    WALLET_CHECK(counter == 9);
+    WALLET_CHECK(counter == 8);
 }
 
 void testWrongCredentials()

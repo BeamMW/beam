@@ -15,6 +15,7 @@
 #pragma once
 
 #include "../core/radixtree.h"
+#include "../core/proto.h"
 #include "../utility/dvector.h"
 #include "db.h"
 #include "txpool.h"
@@ -38,6 +39,7 @@ class NodeProcessor
 	size_t m_nSizeUtxoComission;
 
 	struct MultiblockContext;
+	struct MultiShieldedContext;
 
 	void RollbackTo(Height);
 	Height PruneOld();
@@ -46,18 +48,22 @@ class NodeProcessor
 	Height RaiseTxoHi(Height);
 	void Vacuum();
 	void InitializeUtxos();
+	bool TestDefinition();
 	void CommitUtxosAndDB();
 	void RequestDataInternal(const Block::SystemState::ID&, uint64_t row, bool bBlock, const NodeDB::StateID& sidTrg);
 
 	bool HandleTreasury(const Blob&);
 
-	bool HandleBlock(const NodeDB::StateID&, MultiblockContext&);
-	bool HandleValidatedTx(TxBase::IReader&&, Height, bool bFwd);
-	bool HandleValidatedBlock(TxBase::IReader&&, const Block::BodyBase&, Height, bool bFwd);
-	bool HandleBlockElement(const Input&, Height, bool bFwd);
-	bool HandleBlockElement(const Output&, Height, bool bFwd);
+	struct BlockInterpretCtx;
 
-	void RecognizeUtxos(TxBase::IReader&&, Height h);
+	bool HandleBlock(const NodeDB::StateID&, MultiblockContext&);
+	bool HandleValidatedTx(TxBase::IReader&&, BlockInterpretCtx&);
+	bool HandleValidatedBlock(TxBase::IReader&&, const Block::BodyBase&, BlockInterpretCtx&);
+	bool HandleBlockElement(const Input&, BlockInterpretCtx&);
+	bool HandleBlockElement(const Output&, BlockInterpretCtx&);
+	bool HandleShieldedElement(const ECC::Point&, bool bOutp, bool bFwd);
+
+	void RecognizeUtxos(TxBase::IReader&&, Height h, TxoID nShielded);
 
 	static uint64_t ProcessKrnMmr(Merkle::Mmr&, TxBase::IReader&&, const Merkle::Hash& idKrn, TxKernel::Ptr* ppRes);
 
@@ -73,7 +79,8 @@ class NodeProcessor
 	void AdjustOffset(ECC::Scalar&, uint64_t rowid, bool bAdd);
 
 	void InitCursor();
-	bool InitUtxoMapping(const char*);
+	bool InitUtxoMapping(const char*, bool bForceReset);
+	void InitializeUtxos(const char*);
 	static void OnCorrupted();
 	void get_Definition(Merkle::Hash&, bool bForNextState);
 	void get_Definition(Merkle::Hash&, const Merkle::Hash& hvHist);
@@ -132,6 +139,8 @@ class NodeProcessor
 	void DeleteBlocksInRange(const NodeDB::StateID& sidTop, Height hStop);
 	void DeleteBlock(uint64_t);
 
+	struct BlockShieldedData;
+
 public:
 
 	struct StartParams {
@@ -143,6 +152,8 @@ public:
 
 	void Initialize(const char* szPath);
 	void Initialize(const char* szPath, const StartParams&);
+
+	static void get_UtxoMappingPath(std::string&, const char*);
 
 	virtual ~NodeProcessor();
 
@@ -184,6 +195,7 @@ public:
 	{
 		TxoID m_TxosTreasury;
 		TxoID m_Txos; // total num of ever created TXOs, including treasury
+		TxoID m_Shielded;
 
 		Height m_Fossil; // from here and down - no original blocks
 		Height m_TxoLo;
@@ -272,20 +284,19 @@ public:
 	bool ValidateAndSummarize(TxBase::Context&, const TxBase&, TxBase::IReader&&);
 	bool VerifyBlock(const Block::BodyBase&, TxBase::IReader&&, const HeightRange&);
 
-	struct IKeyWalker {
-		virtual bool OnKey(Key::IPKdf&, Key::Index) = 0;
-	};
-	virtual bool EnumViewerKeys(IKeyWalker&) { return true; }
-
-	bool Recover(Key::IDV&, const Output&, Height h);
+	virtual Key::IPKdf* get_ViewerKey() { return nullptr; }
+	virtual const Output::Shielded::Viewer* get_ViewerShieldedKey() { return nullptr; }
 
 	void RescanOwnedTxos();
 
 	uint64_t FindActiveAtStrict(Height);
 
-	bool ValidateTxContext(const Transaction&, const HeightRange&); // assuming context-free validation is already performed, but 
+	bool ValidateTxContext(const Transaction&, const HeightRange&, bool bShieldedTested); // assuming context-free validation is already performed, but 
 	bool ValidateTxWrtHeight(const Transaction&, const HeightRange&);
 	bool ValidateInputs(const ECC::Point&, Input::Count = 1);
+	bool ValidateShieldedNoDup(const ECC::Point&, bool bOutp);
+	bool IsShieldedInPool(const Input&);
+	bool IsShieldedInPool(const Transaction&);
 
 	struct GeneratedBlock
 	{
@@ -334,8 +345,8 @@ public:
 	struct ITxoRecover
 		:public ITxoWalker
 	{
-		NodeProcessor& m_This;
-		ITxoRecover(NodeProcessor& x) :m_This(x) {}
+		Key::IPKdf& m_Key;
+		ITxoRecover(Key::IPKdf& key) :m_Key(key) {}
 
 		virtual bool OnTxo(const NodeDB::WalkerTxo&, Height hCreate, Output&) override;
 		virtual bool OnTxo(const NodeDB::WalkerTxo&, Height hCreate, Output&, const Key::IDV&) = 0;
@@ -357,7 +368,13 @@ public:
 			ECC::Key::IDV::Packed m_Kidv;
 			uintBigFor<Height>::Type m_Maturity;
 			AssetID m_AssetID;
-			uint8_t m_Added;
+			uint8_t m_Flags;
+		};
+
+		struct ValueS
+			:public Value
+		{
+			proto::UtxoEvent::Shielded m_Shielded;
 		};
 	};
 #pragma pack (pop)
@@ -368,7 +385,7 @@ public:
 	static bool IsDummy(const Key::IDV&);
 
 private:
-	size_t GenerateNewBlockInternal(BlockContext&);
+	size_t GenerateNewBlockInternal(BlockContext&, BlockInterpretCtx&);
 	void GenerateNewHdr(BlockContext&);
 	DataStatus::Enum OnStateInternal(const Block::SystemState::Full&, Block::SystemState::ID&, bool bAlreadyChecked);
 	bool GetBlockInternal(const NodeDB::StateID&, ByteBuffer* pEthernal, ByteBuffer* pPerishable, Height h0, Height hLo1, Height hHi1, bool bActive, Block::Body*);

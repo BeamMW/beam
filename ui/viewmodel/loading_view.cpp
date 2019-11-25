@@ -37,55 +37,6 @@ const char* kPercentagePlaceholderNatural = " %.0lf%%";
 const int kMaxTimeDiffForUpdate = 20;
 const int kBpsRecessionCountThreshold = 60;
 
-QString getEstimateStr(int estimate)
-{
-    double value = 0;
-    QString units;
-    if (estimate >= kSecondsInHour)
-    {
-        value = ceil(estimate / kSecondsInHour) - 1;
-        //% "h."
-        units = qtTrId("loading-view-estimate-hours");
-        auto res = QString::asprintf(
-            "%.0lf %s", value, units.toStdString().c_str());
-        value = ceil(
-            (estimate - value * kSecondsInHour) / kSecondsInMinute - 1);
-        if (value >= 1.)
-        {
-            //% "min."
-            units = qtTrId("loading-view-estimate-minutes");
-            res = res + " " + QString::asprintf(
-                "%.0lf %s", value, units.toStdString().c_str());
-        }
-        return res;
-    }
-    else if (estimate < kSecondsInHour && estimate > 100)
-    {
-        value = ceil(estimate / kSecondsInMinute);
-        units = qtTrId("loading-view-estimate-minutes");
-    }
-    else if (estimate <= 100 && estimate > kSecondsInMinute)
-    {
-        value = ceil(estimate / kSecondsInMinute) - 1;
-        units = qtTrId("loading-view-estimate-minutes");
-        auto res = QString::asprintf(
-            "%.0lf %s", value, units.toStdString().c_str());
-        value = ceil(estimate - kSecondsInMinute);
-        //% "sec."
-        units = qtTrId("loading-view-estimate-seconds");
-        res = res + " " + QString::asprintf(
-            "%.0lf %s", value, units.toStdString().c_str());
-        return res;
-    }
-    else
-    {
-        value = estimate > 0 ? estimate : 1.;
-        units = qtTrId("loading-view-estimate-seconds");
-    }
-    return QString::asprintf(
-        "%.0lf %s", value, units.toStdString().c_str());
-}
-
 }  // namespace
 
 Q_DECLARE_METATYPE(uint64_t);
@@ -227,7 +178,7 @@ void LoadingViewModel::updateProgress()
             m_estimate = getEstimate(bps);
             estimateStr = QString::asprintf(
                     estimateStr.toStdString().c_str(),
-                    getEstimateStr(m_estimate).toStdString().c_str());
+                    beamui::getEstimateTimeStr(m_estimate).toStdString().c_str());
         }
 
         if (m_done >= m_total)

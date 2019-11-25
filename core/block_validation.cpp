@@ -84,13 +84,14 @@ namespace beam
 
 		const Rules& rules = Rules::get(); // alias
 
-		if ((m_Height.m_Min < rules.pForks[1].m_Height) && (m_Height.m_Max >= rules.pForks[1].m_Height))
+		size_t iFork = rules.FindFork(m_Height.m_Min);
+		if (rules.FindFork(m_Height.m_Max) != iFork)
 		{
-			// mixed version are not allowed!
+			// mixed versions are not allowed!
 			if (m_Params.m_bBlockMode)
 				return false;
 
-			m_Height.m_Max = rules.pForks[1].m_Height - 1;
+			m_Height.m_Max = rules.pForks[iFork + 1].m_Height - 1;
 			assert(!m_Height.IsEmpty());
 
 		}
@@ -130,6 +131,9 @@ namespace beam
 							return false; // duplicate!
 					}
 				}
+
+				if (r.m_pUtxoIn->m_pSpendProof && (m_Height.m_Min < rules.pForks[2].m_Height))
+					return false; // not supported in this version
 
 				if (!pt.Import(r.m_pUtxoIn->m_Commitment))
 					return false;

@@ -14,14 +14,22 @@ ConfirmationDialog {
     id: sendViewConfirm
     parent: Overlay.overlay
 
-    property var onAcceptedCallback: undefined
-    property alias addressText:      addressLabel.text
-    property alias amountText:       amountLabel.text
-    property alias feeText:          feeLabel.text
-    property Item defaultFocusItem:  BeamGlobals.needPasswordToSpend() ? requirePasswordInput : cancelButton
+    property var    onAcceptedCallback: undefined
+    property alias  addressText:        addressLabel.text
+    property alias  amountText:         amountLabel.text
+    property alias  feeText:            feeLabel.text
+    property Item   defaultFocusItem:   BeamGlobals.needPasswordToSpend() ? requirePasswordInput : cancelButton
+    property bool   swapMode:           false
+    property var    swapCurrencyLabel:  ""
+    //% "Transaction fee"
+    property string feeLabel: qsTrId("general-fee") + ":"
 
+    okButtonText: sendViewConfirm.swapMode ?
+                    //% "Swap"
+                    qsTrId("general-swap"):
+                    //% "Send"
+                    qsTrId("general-send")
     okButtonColor:           Style.accent_outgoing
-    okButtonText:            qsTrId("general-send")
     okButtonIconSource:      "qrc:/assets/icon-send-blue.svg"
     okButtonEnable:          BeamGlobals.needPasswordToSpend() ? requirePasswordInput.text.length : true
     cancelButtonIconSource:  "qrc:/assets/icon-cancel-white.svg"
@@ -72,8 +80,11 @@ ConfirmationDialog {
                 font.styleName: "Bold";
                 font.weight: Font.Bold
                 color: Style.content_main
-                //% "Confirm transaction details"
-                text: qsTrId("send-confirmation-title")
+                text: sendViewConfirm.swapMode ?
+                    //% "Confirm atomic swap"
+                    qsTrId("send-swap-confirmation-title") :
+                    //% "Confirm transaction details"
+                    qsTrId("send-confirmation-title")
             }
 
             GridLayout {
@@ -91,7 +102,7 @@ ConfirmationDialog {
                 // Recipient/Address
                 //
                 SFText {
-                    Layout.fillWidth: true
+                    Layout.fillWidth: false
                     Layout.fillHeight: true
                     Layout.minimumHeight: 16
                     font.pixelSize: 14
@@ -117,7 +128,7 @@ ConfirmationDialog {
                 //
                 SFText {
                     Layout.row: 2
-                    Layout.fillWidth: true
+                    Layout.fillWidth: false
                     Layout.fillHeight: true
                     Layout.minimumHeight: 16
                     Layout.bottomMargin: 3
@@ -143,12 +154,11 @@ ConfirmationDialog {
                 //
                 SFText {
                     Layout.row: 3
-                    Layout.fillWidth: true
+                    Layout.fillWidth: false
                     Layout.minimumHeight: 16
                     font.pixelSize: 14
                     color: Style.content_disabled
-                    //% "Transaction fee"
-                    text: qsTrId("general-fee") + ":"
+                    text: sendViewConfirm.feeLabel
                 }
 
                 SFText {
@@ -209,16 +219,24 @@ ConfirmationDialog {
                 SFText {
                     Layout.row: 7
                     Layout.columnSpan: 2
-                    // Layout.topMargin: 30
+                    Layout.topMargin: 15
                     horizontalAlignment: Text.AlignHCenter
-                    Layout.preferredWidth: 400
+                    Layout.fillWidth: sendViewConfirm.swapMode
                     Layout.maximumHeight:  60
+                    Layout.maximumWidth: sendViewConfirm.swapMode ? parent.width : 400
                     Layout.minimumHeight: 16
                     font.pixelSize: 14
                     color: Style.content_disabled
                     wrapMode: Text.WordWrap
-                    //% "For the transaction to complete, the recipient must get online within the next 12 hours and you should get online within 2 hours afterwards."
-                    text: qsTrId("send-confirmation-pwd-text-online-time")
+                    text: sendViewConfirm.swapMode ?
+                        //% "Keep your wallet online. The swap normally takes about 1 hour to complete."
+                        qsTrId("send-swap-sconfirmation-online-time") + (swapCurrencyLabel !== "" ?
+                            //% " Once the offer is accepted by the other side, the %1 transaction fee will be charged even if the offer is cancelled."
+                            qsTrId("send-swap-fee-warning").arg(swapCurrencyLabel)
+                            : "")
+                        :
+                        //% "For the transaction to complete, the recipient must get online within the next 12 hours and you should get online within 2 hours afterwards."
+                        qsTrId("send-confirmation-pwd-text-online-time")
                 }
             }
         }

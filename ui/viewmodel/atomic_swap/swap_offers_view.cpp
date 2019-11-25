@@ -23,6 +23,36 @@ using namespace beam::wallet;
 using namespace std;
 using namespace beam::bitcoin;
 
+void SwapOffersViewModel::ActiveTxCounters::increment(AtomicSwapCoin swapCoinType)
+{
+    ++getCounter(swapCoinType);
+}
+
+void SwapOffersViewModel::ActiveTxCounters::decrement(AtomicSwapCoin swapCoinType)
+{
+    --getCounter(swapCoinType);
+}
+
+int& SwapOffersViewModel::ActiveTxCounters::getCounter(AtomicSwapCoin swapCoinType)
+{
+    switch(swapCoinType)
+    {
+    case wallet::AtomicSwapCoin::Bitcoin:
+        return btc;
+    case wallet::AtomicSwapCoin::Litecoin:
+        return ltc;
+    case wallet::AtomicSwapCoin::Qtum:
+        return qtum;
+    default:
+        throw std::runtime_error("Unexpected coin type");
+    }
+}
+
+void SwapOffersViewModel::ActiveTxCounters::clear()
+{
+    btc = ltc = qtum = 0;
+}
+
 SwapOffersViewModel::SwapOffersViewModel()
     :   m_walletModel{*AppModel::getInstance().getWallet()},
         m_selectedCoin(AtomicSwapCoin::Bitcoin),
@@ -46,8 +76,18 @@ SwapOffersViewModel::SwapOffersViewModel()
     connect(m_ltcClient.get(), SIGNAL(statusChanged()), this, SIGNAL(ltcOKChanged()));
     connect(m_qtumClient.get(), SIGNAL(statusChanged()), this, SIGNAL(qtumOKChanged()));
 
+    monitorAllOffersFitBalance();
+
     m_walletModel.getAsync()->getSwapOffers();
     m_walletModel.getAsync()->getTransactions();
+    
+    m_minTxConfirmations.emplace(AtomicSwapCoin::Bitcoin, m_btcClient->GetSettings().GetTxMinConfirmations());
+    m_minTxConfirmations.emplace(AtomicSwapCoin::Litecoin, m_ltcClient->GetSettings().GetTxMinConfirmations());
+    m_minTxConfirmations.emplace(AtomicSwapCoin::Qtum, m_qtumClient->GetSettings().GetTxMinConfirmations());
+
+    m_blocksPerHour.emplace(AtomicSwapCoin::Bitcoin, m_btcClient->GetSettings().GetBlocksPerHour());
+    m_blocksPerHour.emplace(AtomicSwapCoin::Litecoin, m_ltcClient->GetSettings().GetBlocksPerHour());
+    m_blocksPerHour.emplace(AtomicSwapCoin::Qtum, m_qtumClient->GetSettings().GetBlocksPerHour());
 }
 
 int SwapOffersViewModel::getSelectedCoin()
@@ -64,6 +104,11 @@ void SwapOffersViewModel::setSelectedCoin(int coinType)
 QAbstractItemModel* SwapOffersViewModel::getAllOffers()
 {
     return &m_offersList;
+}
+
+QAbstractItemModel* SwapOffersViewModel::getAllOffersFitBalance()
+{
+    return &m_offersListFitBalance;
 }
 
 QString SwapOffersViewModel::beamAvailable() const
@@ -121,7 +166,7 @@ QAbstractItemModel* SwapOffersViewModel::getTransactions()
     return &m_transactionsList;
 }
 
-void SwapOffersViewModel::cancelOffer(QVariant variantTxID)
+void SwapOffersViewModel::cancelOffer(const QVariant& variantTxID)
 {
     if (!variantTxID.isNull() && variantTxID.isValid())
     {
@@ -131,7 +176,7 @@ void SwapOffersViewModel::cancelOffer(QVariant variantTxID)
     }
 }
 
-void SwapOffersViewModel::cancelTx(QVariant variantTxID)
+void SwapOffersViewModel::cancelTx(const QVariant& variantTxID)
 {
     if (!variantTxID.isNull() && variantTxID.isValid())
     {
@@ -140,7 +185,7 @@ void SwapOffersViewModel::cancelTx(QVariant variantTxID)
     }
 }
 
-void SwapOffersViewModel::deleteTx(QVariant variantTxID)
+void SwapOffersViewModel::deleteTx(const QVariant& variantTxID)
 {
     if (!variantTxID.isNull() && variantTxID.isValid())
     {
@@ -149,7 +194,7 @@ void SwapOffersViewModel::deleteTx(QVariant variantTxID)
     }
 }
 
-PaymentInfoItem* SwapOffersViewModel::getPaymentInfo(QVariant variantTxID)
+PaymentInfoItem* SwapOffersViewModel::getPaymentInfo(const QVariant& variantTxID)
 {
     if (!variantTxID.isNull() && variantTxID.isValid())
     {
@@ -162,39 +207,102 @@ PaymentInfoItem* SwapOffersViewModel::getPaymentInfo(QVariant variantTxID)
 void SwapOffersViewModel::onTransactionsDataModelChanged(beam::wallet::ChangeAction action, const std::vector<beam::wallet::TxDescription>& transactions)
 {
     vector<shared_ptr<SwapTxObject>> swapTransactions;
+    vector<shared_ptr<SwapTxObject>> activeTransactions;
+    vector<shared_ptr<SwapTxObject>> inactiveTransactions;
     swapTransactions.reserve(transactions.size());
 
     for (const auto& t : transactions)
     {
         if (t.GetParameter<TxType>(TxParameterID::TransactionType) == TxType::AtomicSwap)
         {
-            swapTransactions.push_back(make_shared<SwapTxObject>(t));
+            auto swapCoinType = t.GetParameter<AtomicSwapCoin>(TxParameterID::AtomicSwapCoin);
+            uint32_t minTxConfirmations = swapCoinType ? getTxMinConfirmations(*swapCoinType) : 0;
+            double blocksPerHour = swapCoinType ? getBlocksPerHour(*swapCoinType) : 0;
+            auto newItem = make_shared<SwapTxObject>(t, minTxConfirmations, blocksPerHour);
+            swapTransactions.push_back(newItem);
+            if (!newItem->isPending() && newItem->isInProgress())
+            {
+                activeTransactions.push_back(newItem);
+            }
+            else
+            {
+                inactiveTransactions.push_back(newItem);
+            }
         }
     }
+
+    if (swapTransactions.empty())
+    {
+        return;
+    }
+    
+    auto eraseActive = [this](auto tx)
+    {
+        if (m_activeTx.erase(tx->getTxID()) > 0) // item was erased
+        {
+            auto swapCoinType = tx->getSwapCoinType();
+            m_activeTxCounters.decrement(swapCoinType);
+        }
+    };
+
+    auto insertActive = [this](auto tx)
+    {
+        auto swapCoinType = tx->getSwapCoinType();
+        auto p = m_activeTx.emplace(tx->getTxID(), swapCoinType);
+        if (p.second) // new item was inserted
+        {
+            m_activeTxCounters.increment(swapCoinType);
+        }
+    };
 
     switch (action)
     {
         case ChangeAction::Reset:
             {
                 m_transactionsList.reset(swapTransactions);
+                m_activeTx.clear();
+                m_activeTxCounters.clear();
+                for (auto tx : activeTransactions)
+                {
+                    auto swapCoinType = tx->getSwapCoinType();
+                    m_activeTx.emplace(tx->getTxID(), swapCoinType);
+                    m_activeTxCounters.increment(swapCoinType);
+                }
                 break;
             }
 
         case ChangeAction::Removed:
             {
                 m_transactionsList.remove(swapTransactions);
+                for (auto tx : swapTransactions)
+                {
+                    eraseActive(tx);
+                }
                 break;
             }
 
         case ChangeAction::Added:
             {
                 m_transactionsList.insert(swapTransactions);
+                for (auto tx : activeTransactions)
+                {
+                    insertActive(tx);
+                }
                 break;
             }
         
         case ChangeAction::Updated:
             {
                 m_transactionsList.update(swapTransactions);
+                for (auto tx : activeTransactions)
+                {
+                    insertActive(tx);
+                }
+                for (auto tx : inactiveTransactions)
+                {
+                    eraseActive(tx);
+                }
+
                 break;
             }
 
@@ -202,7 +310,7 @@ void SwapOffersViewModel::onTransactionsDataModelChanged(beam::wallet::ChangeAct
             assert(false && "Unexpected action");
             break;
     }
-
+    m_activeTxCount = static_cast<int>(m_activeTx.size());
     emit allTransactionsChanged();
 }
 
@@ -233,12 +341,14 @@ void SwapOffersViewModel::onSwapOffersDataModelChanged(beam::wallet::ChangeActio
         case ChangeAction::Reset:
             {
                 m_offersList.reset(modifiedOffers);
+                resetAllOffersFitBalance();
                 break;
             }
 
         case ChangeAction::Added:
             {
                 m_offersList.insert(modifiedOffers);
+                insertAllOffersFitBalance(modifiedOffers);
                 break;
             }
 
@@ -250,6 +360,7 @@ void SwapOffersViewModel::onSwapOffersDataModelChanged(beam::wallet::ChangeActio
                         QVariant::fromValue(modifiedOffer->getTxID()));
                 }
                 m_offersList.remove(modifiedOffers);
+                removeAllOffersFitBalance(modifiedOffers);
                 break;
             }
         
@@ -259,6 +370,22 @@ void SwapOffersViewModel::onSwapOffersDataModelChanged(beam::wallet::ChangeActio
     }
     
     emit allOffersChanged();
+}
+
+void SwapOffersViewModel::resetAllOffersFitBalance()
+{
+    auto offersCount = m_offersList.rowCount();
+    std::vector<std::shared_ptr<SwapOfferItem>> offersListFitBalance;
+    offersListFitBalance.reserve(offersCount);
+
+    for(int i = 0; i < offersCount; ++i)
+    {
+        const auto&it = m_offersList.get(i);
+        if (isOfferFitBalance(*it))
+            offersListFitBalance.push_back(it);
+    }
+    m_offersListFitBalance.reset(offersListFitBalance);
+    emit allOffersFitBalanceChanged();
 }
 
 bool SwapOffersViewModel::showBetaWarning() const
@@ -274,41 +401,101 @@ bool SwapOffersViewModel::showBetaWarning() const
 
 int SwapOffersViewModel::getActiveTxCount() const
 {
-    int count = 0;
-    for (int i = 0; i < m_transactionsList.rowCount(); ++i)
-    {
-        auto index = m_transactionsList.index(i, 0);
-        try
-        {
-            bool isInProgress = m_transactionsList.data(index, static_cast<int>(SwapTxObjectList::Roles::IsInProgress)).toBool();
-            bool isPending = m_transactionsList.data(index, static_cast<int>(SwapTxObjectList::Roles::IsPending)).toBool();
-            if (!isPending && isInProgress)
-            {
-                ++count;
-            }
-        }
-        catch(...)
-        {
-            qDebug() << "Wrong ROLE data";
-        }
-    }
-
-    return count;
+    return m_activeTxCount;
 }
 
 bool SwapOffersViewModel::hasBtcTx() const
 {
-    return hasActiveTx(toStdString(beamui::Currencies::Bitcoin));
+    return m_activeTxCounters.btc > 0;
 }
 
 bool SwapOffersViewModel::hasLtcTx() const
 {
-    return hasActiveTx(toStdString(beamui::Currencies::Litecoin));
+    return m_activeTxCounters.ltc > 0;
 }
 
 bool SwapOffersViewModel::hasQtumTx() const
 {
-    return hasActiveTx(toStdString(beamui::Currencies::Qtum));
+    return m_activeTxCounters.qtum > 0;
+}
+
+void SwapOffersViewModel::monitorAllOffersFitBalance()
+{
+    connect(this, SIGNAL(beamAvailableChanged()), SLOT(resetAllOffersFitBalance()));
+    connect(this, SIGNAL(btcAvailableChanged()), SLOT(resetAllOffersFitBalance()));
+    connect(this, SIGNAL(ltcAvailableChanged()), SLOT(resetAllOffersFitBalance()));
+    connect(this, SIGNAL(qtumAvailableChanged()), SLOT(resetAllOffersFitBalance()));
+    connect(this, SIGNAL(btcOKChanged()), SLOT(resetAllOffersFitBalance()));
+    connect(this, SIGNAL(ltcOKChanged()), SLOT(resetAllOffersFitBalance()));
+    connect(this, SIGNAL(qtumOKChanged()), SLOT(resetAllOffersFitBalance()));
+}
+
+bool SwapOffersViewModel::isOfferFitBalance(const SwapOfferItem& offer)
+{
+    if (offer.isOwnOffer())
+        return true;
+
+    bool isBeamSide = offer.isBeamSide();
+
+    auto beamOfferAmount =
+        isBeamSide ? offer.rawAmountSend() : offer.rawAmountReceive();
+    if (beamOfferAmount > m_walletModel.getAvailable())
+        return false;
+    
+    auto swapCoinOfferAmount =
+        isBeamSide ? offer.rawAmountReceive() : offer.rawAmountSend();
+    auto swapCoinName = offer.getSwapCoinName();
+
+    
+    if (swapCoinName == toString(beamui::Currencies::Bitcoin))
+    {
+        auto myBtcAmount = btcOK() ? m_btcClient->getAvailable() : 0;
+        return isBeamSide ? btcOK() : swapCoinOfferAmount <= myBtcAmount;
+    } 
+    else if (swapCoinName == toString(beamui::Currencies::Litecoin))
+    {
+        auto myLtcAmount = ltcOK() ? m_ltcClient->getAvailable() : 0;
+        return isBeamSide ? ltcOK() : swapCoinOfferAmount <= myLtcAmount;
+    }
+    else if (swapCoinName == toString(beamui::Currencies::Qtum))
+    {
+        auto myQtumAmount = qtumOK() ? m_qtumClient->getAvailable() : 0;
+        return isBeamSide ? qtumOK() : swapCoinOfferAmount <= myQtumAmount;
+    }
+    
+    return false;
+}
+
+void SwapOffersViewModel::insertAllOffersFitBalance(
+    const std::vector<std::shared_ptr<SwapOfferItem>>& offers)
+{
+    std::vector<std::shared_ptr<SwapOfferItem>> fitBalanceOffers;
+    fitBalanceOffers.reserve(offers.size());
+
+    std::copy_if(offers.begin(), offers.end(),
+                 std::back_inserter(fitBalanceOffers),
+                 [this] (const std::shared_ptr<SwapOfferItem>& it)
+                 {
+                     return isOfferFitBalance(*it);
+                 });
+    m_offersListFitBalance.insert(fitBalanceOffers);
+    emit allOffersFitBalanceChanged();
+}
+
+void SwapOffersViewModel::removeAllOffersFitBalance(
+    const std::vector<std::shared_ptr<SwapOfferItem>>& offers)
+{
+    std::vector<std::shared_ptr<SwapOfferItem>> fitBalanceOffers;
+    fitBalanceOffers.reserve(offers.size());
+
+    std::copy_if(offers.begin(), offers.end(),
+                 std::back_inserter(fitBalanceOffers),
+                 [this] (const std::shared_ptr<SwapOfferItem>& it)
+                 {
+                     return isOfferFitBalance(*it);
+                 });
+    m_offersListFitBalance.remove(fitBalanceOffers);
+    emit allOffersFitBalanceChanged();    
 }
 
 bool SwapOffersViewModel::hasActiveTx(const std::string& swapCoin) const
@@ -318,14 +505,18 @@ bool SwapOffersViewModel::hasActiveTx(const std::string& swapCoin) const
         auto index = m_transactionsList.index(i, 0);
         try
         {
-            bool isInProgress = m_transactionsList.data(index, static_cast<int>(SwapTxObjectList::Roles::IsInProgress)).toBool();
             bool isPending = m_transactionsList.data(index, static_cast<int>(SwapTxObjectList::Roles::IsPending)).toBool();
-            auto mySwapCoin = m_transactionsList.data(index, static_cast<int>(SwapTxObjectList::Roles::SwapCoin)).toString();
-            if (!isPending &&
-                isInProgress &&
-                mySwapCoin.toStdString() == swapCoin)
+            if (!isPending)
             {
-                return true;
+                bool isInProgress = m_transactionsList.data(index, static_cast<int>(SwapTxObjectList::Roles::IsInProgress)).toBool();
+                if (isInProgress)
+                {
+                    auto mySwapCoin = m_transactionsList.data(index, static_cast<int>(SwapTxObjectList::Roles::SwapCoin)).toString();
+                    if (mySwapCoin.toStdString() == swapCoin)
+                    {
+                        return true;
+                    }
+                }
             }
         }
         catch(...)
@@ -335,4 +526,24 @@ bool SwapOffersViewModel::hasActiveTx(const std::string& swapCoin) const
     }
 
     return false;
+}
+
+uint32_t SwapOffersViewModel::getTxMinConfirmations(beam::wallet::AtomicSwapCoin swapCoinType)
+{
+    auto it = m_minTxConfirmations.find(swapCoinType);
+    if (it != m_minTxConfirmations.end())
+    {
+        return it->second;
+    }
+    return 0;
+}
+
+double SwapOffersViewModel::getBlocksPerHour(AtomicSwapCoin swapCoinType)
+{
+    auto it = m_blocksPerHour.find(swapCoinType);
+    if (it != m_blocksPerHour.end())
+    {
+        return it->second;
+    }
+    return 0;
 }

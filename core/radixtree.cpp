@@ -534,7 +534,7 @@ void RadixHashTree::get_Proof(Merkle::Proof& proof, const CursorBase& cu)
 
 /////////////////////////////
 // UtxoTree
-void UtxoTree::MyLeaf::get_Hash(Merkle::Hash& hv, const Key& key, Input::Count nCount)
+void UtxoTree::MyLeaf::get_Hash_MW(Merkle::Hash& hv, const Key& key, Input::Count nCount)
 {
 	ECC::Hash::Processor()
 		<< key.V // whole description of the UTXO
@@ -542,9 +542,20 @@ void UtxoTree::MyLeaf::get_Hash(Merkle::Hash& hv, const Key& key, Input::Count n
 		>> hv;
 }
 
+void UtxoTree::MyLeaf::get_Hash_Shielded(Merkle::Hash& hv, const Key& key, TxoID id)
+{
+	ECC::Hash::Processor()
+		<< key.V // whole description of the UTXO
+		<< id
+		>> hv;
+}
+
 void UtxoTree::MyLeaf::get_Hash(Merkle::Hash& hv) const
 {
-	get_Hash(hv, m_Key, get_Count());
+	if (m_Key.IsShielded())
+		get_Hash_Shielded(hv, m_Key, m_ID);
+	else
+		get_Hash_MW(hv, m_Key, get_Count());
 }
 
 void Input::State::get_ID(Merkle::Hash& hv, const ECC::Point& comm) const
@@ -556,7 +567,15 @@ void Input::State::get_ID(Merkle::Hash& hv, const ECC::Point& comm) const
 	UtxoTree::Key key;
 	key = d;
 
-	UtxoTree::MyLeaf::get_Hash(hv, key, m_Count);
+	UtxoTree::MyLeaf::get_Hash_MW(hv, key, m_Count);
+}
+
+void Input::get_ShieldedID(Merkle::Hash& hv) const
+{
+	UtxoTree::Key key;
+	key.SetShielded(m_Commitment, true);
+
+	UtxoTree::MyLeaf::get_Hash_Shielded(hv, key, m_Internal.m_ID);
 }
 
 const Merkle::Hash& UtxoTree::get_LeafHash(Node& n, Merkle::Hash& hv)
@@ -743,7 +762,14 @@ UtxoTree::Key::Data& UtxoTree::Key::Data::operator = (const Key& key)
 	for (size_t i = 0; i < sizeof(m_Maturity); i++, pKey++)
 		m_Maturity = (m_Maturity << 8) | (pKey[0] << 1) | (pKey[1] >> 7);
 
+	m_Shielded = 1 & (pKey[0] >> 6);
+
 	return *this;
+}
+
+bool UtxoTree::Key::IsShielded() const
+{
+	return 0 != (V.m_pData[ECC::uintBig::nBytes + sizeof(Height)] & (1 << 6));
 }
 
 UtxoTree::Key& UtxoTree::Key::operator = (const Data& d)
@@ -760,11 +786,28 @@ UtxoTree::Key& UtxoTree::Key::operator = (const Data& d)
 	{
 		uint8_t val = uint8_t(d.m_Maturity >> ((sizeof(d.m_Maturity) - i - 1) << 3));
 		pKey[i] |= val >> 1;
-		pKey[i + 1] |= (val << 7);
+		pKey[i + 1] = (val << 7);
 	}
+
+	if (d.m_Shielded)
+		pKey[sizeof(d.m_Maturity)] |= (1 << 6);
 
 	return *this;
 }
+
+void UtxoTree::Key::SetShielded(const ECC::Point& comm, bool bOutp)
+{
+	Data d;
+	d.m_Commitment = comm;
+	d.m_Shielded = true;
+	d.m_Maturity = MaxHeight; // convention
+	if (bOutp)
+		d.m_Maturity--;
+
+	*this = d;
+	assert(IsShielded());
+}
+
 
 bool UtxoTree::Compact::Add(const Key& key)
 {
@@ -826,7 +869,7 @@ void UtxoTree::Compact::FlushInternal(uint16_t nBitsCommonNext)
 	if (m_LastCount)
 	{
 		// convert leaf -> node
-		MyLeaf::get_Hash(n.m_Hash, m_LastKey, m_LastCount);
+		MyLeaf::get_Hash_MW(n.m_Hash, m_LastKey, m_LastCount);
 		m_LastCount = 0;
 	}
 

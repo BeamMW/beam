@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.11)
 cmake_policy(SET CMP0074 NEW)
 
 set(VERSION_MAJOR 4)
-set(VERSION_MINOR 0)
+set(VERSION_MINOR 1)
 set(VERSION_REVISION 0)
 set(GIT_COMMIT_HASH "unknown")
 
@@ -153,6 +153,9 @@ endif()
 # uncoment next line for mainnet
 #set(BEAM_MAINNET TRUE)
 
+# uncoment next line for swap mainnet
+#set(SWAP_MAINNET TRUE)
+
 if(BEAM_TESTNET)
     add_definitions(-DBEAM_TESTNET)
     set(BEAM_SUFFIX_LOWER_CASE "testnet")
@@ -165,6 +168,11 @@ elseif(BEAM_MAINNET)
     set(BEAM_SUFFIX_UPPER_CASE "")
     set(BEAM_TARGET_SUFFIX "")
     set(BEAM_DISPLAY_SUFFIX "")
+endif()
+
+if(SWAP_MAINNET)
+    message("SWAP_MAINNET")
+    add_definitions(-DSWAP_MAINNET)
 endif()
 
 option(BEAM_ATOMIC_SWAP_SUPPORT "Build with wallet with atomic swap support" ON)

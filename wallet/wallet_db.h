@@ -169,7 +169,7 @@ namespace beam::wallet
 
     struct IWalletDbObserver
     {
-        virtual void onCoinsChanged() {};
+        virtual void onCoinsChanged(ChangeAction action, const std::vector<Coin>& items) {};
         virtual void onTransactionChanged(ChangeAction action, const std::vector<TxDescription>& items) {};
         virtual void onSystemStateChanged(const Block::SystemState::ID& stateID) {};
         virtual void onAddressChanged(ChangeAction action, const std::vector<WalletAddress>& items) {};
@@ -218,9 +218,8 @@ namespace beam::wallet
         virtual std::vector<Coin> getCoinsByTx(const TxID& txId) = 0;
         virtual std::vector<Coin> getCoinsByID(const CoinIDList& ids) = 0;
 
-        // Creates a shared (multisigned) coin with specific amount
-        // Used in Atomic Swaps
-        virtual Coin generateSharedCoin(Amount amount) = 0;
+        // Generates a new valid coin with specific amount. In order to save it into the database you have to call save() method
+        virtual Coin generateNewCoin(Amount amount) = 0;
 
         // Set of basic coin related database methods
         virtual void storeCoin(Coin& coin) = 0;
@@ -321,7 +320,7 @@ namespace beam::wallet
         std::vector<Coin> getCoinsCreatedByTx(const TxID& txId) override;
         std::vector<Coin> getCoinsByTx(const TxID& txId) override;
         std::vector<Coin> getCoinsByID(const CoinIDList& ids) override;
-        Coin generateSharedCoin(Amount amount) override;
+        Coin generateNewCoin(Amount amount) override;
         void storeCoin(Coin& coin) override;
         void storeCoins(std::vector<Coin>&) override;
         void saveCoin(const Coin& coin) override;
@@ -387,7 +386,7 @@ namespace beam::wallet
     private:
         static void createTables(sqlite3* db, sqlite3* privateDb);
         void removeCoinImpl(const Coin::ID& cid);
-        void notifyCoinsChanged();
+        void notifyCoinsChanged(ChangeAction action, const std::vector<Coin>& items);
         void notifyTransactionChanged(ChangeAction action, const std::vector<TxDescription>& items);
         void notifySystemStateChanged(const Block::SystemState::ID& stateID);
         void notifyAddressChanged(ChangeAction action, const std::vector<WalletAddress>& items);
@@ -397,7 +396,8 @@ namespace beam::wallet
         void insertCoinRaw(const Coin&);
         void insertNewCoin(Coin&);
         void saveCoinRaw(const Coin&);
-
+        std::vector<Coin> getCoinsByRowIDs(const std::vector<int>& rowIDs) const;
+        std::vector<Coin> getUpdatedCoins(const std::vector<Coin>& coins) const;
         // ////////////////////////////////////////
         // Cache for optimized access for database fields
         using ParameterCache = std::map<TxID, std::map<SubTxID, std::map<TxParameterID, boost::optional<ByteBuffer>>>>;

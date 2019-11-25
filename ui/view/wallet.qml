@@ -121,22 +121,10 @@ Item {
                     //font.capitalization: Font.AllUppercase
 
                     onClicked: {
-                        walletStackView.push(Qt.createComponent("send.qml"),
-                                             {
-                                                 "isSwapMode": false,
-                                                 "onClosed": onClosed,
-                                                 "onSwapToken": onSwapToken,
-                                                 "onAddress": onAddress
-                                             });
-
-                        function onAddress(token) {
-                            walletStackView.pop();
-                            walletStackView.push(Qt.createComponent("send_regular.qml"),
-                                                {"onAccepted": onAccepted,
-                                                 "onClosed": onClosed,
-                                                 "onSwapToken": onSwapToken});
-                            walletStackView.currentItem.setToken(token);
-                        }
+                        walletStackView.push(Qt.createComponent("send_regular.qml"),
+                                             {"onAccepted":  onAccepted,
+                                              "onClosed":    onClosed,
+                                              "onSwapToken": onSwapToken})
                     }
                 }
 
@@ -151,21 +139,7 @@ Item {
                     //font.capitalization: Font.AllUppercase
 
                     onClicked: {
-                        walletStackView.push(Qt.createComponent("receive_regular.qml"),
-                                            {"onClosed": onClosed,
-                                             "onSwapMode": onSwapMode});
-                        function onSwapMode() {
-                            walletStackView.pop();
-                            walletStackView.push(Qt.createComponent("receive_swap.qml"),
-                                                {"onClosed": onClosed,
-                                                 "onRegularMode": onRegularMode});
-                        }
-                        function onRegularMode() {
-                            walletStackView.pop();
-                            walletStackView.push(Qt.createComponent("receive_regular.qml"),
-                                                {"onClosed": onClosed,
-                                                 "onSwapMode": onSwapMode});
-                        }
+                        walletStackView.push(Qt.createComponent("receive_regular.qml"), {"onClosed": onClosed});
                     }
                 }
             }
@@ -341,149 +315,76 @@ Item {
                     filterCaseSensitivity: Qt.CaseInsensitive
                 }
 
-                rowDelegate: Rectangle {
-                    id:             rowItem
-                    height:         transactionsTable.rowHeight
-                    anchors.left:   parent.left
-                    anchors.right:  parent.right
-                    color:          styleData.selected ? Style.row_selected : (styleData.alternate ? Style.background_row_even : Style.background_row_odd)
-
-                    property bool collapsed:   true
-                    property bool rowInModel:  styleData.row !== undefined && styleData.row >= 0 &&  styleData.row < txProxyModel.count
-                    property var  myModel:     parent.model
-
-                    onCollapsedChanged: {
-                        height = collapsed ? transactionsTable.rowHeight : transactionsTable.rowHeight + txDetails.maximumHeight
-                        txDetails.height = collapsed ? 0 : txDetails.maximumHeight
-                    }
-
-                    function expand() {
-                       if (!rowInModel) return
-                        collapsed = false
-                    }
-
-                    function collapse() {
-                        if (!rowInModel) return
-                        collapsed = true
-                    }
-
-                    Connections {
-                        target: searchBox
-                        onTextChanged: {
-                            searchBox.text.length ? expand() : collapse()
-                            detailsPanel.hideFiltered = true
+                rowDelegate: ExpandableRowDelegate {
+                    id: rowItem
+                    collapsed: true
+                    rowInModel: styleData.row !== undefined && styleData.row >= 0 &&  styleData.row < txProxyModel.count
+                    rowHeight: transactionsTable.rowHeight
+                    backgroundColor: styleData.selected ? Style.row_selected : (styleData.alternate ? Style.background_row_even : Style.background_row_odd)
+                    property var myModel: parent.model
+                    property bool hideFiltered: true
+                    onLeftClick: function() {
+                        if (!collapsed && searchBox.text.length && hideFiltered) {
+                            hideFiltered = false;
+                            return false;
                         }
+                        return true;
                     }
 
-                    Connections {
-                        target: styleData
-                        onRowChanged: searchBox.text.length ? expand() : collapse()
-                    }
+                    delegate: TransactionDetails {
+                        id: detailsPanel
+                        width: transactionsTable.width
+                        property var        txRolesMap: myModel
+                        sendAddress:        txRolesMap && txRolesMap.addressFrom ? txRolesMap.addressFrom : ""
+                        receiveAddress:     txRolesMap && txRolesMap.addressTo ? txRolesMap.addressTo : ""
+                        fee:                txRolesMap && txRolesMap.fee ? txRolesMap.fee : ""
+                        comment:            txRolesMap && txRolesMap.comment ? txRolesMap.comment : ""
+                        txID:               txRolesMap && txRolesMap.txID ? txRolesMap.txID : ""
+                        kernelID:           txRolesMap && txRolesMap.kernelID ? txRolesMap.kernelID : ""
+                        status:             txRolesMap && txRolesMap.status ? txRolesMap.status : ""
+                        failureReason:      txRolesMap && txRolesMap.failureReason ? txRolesMap.failureReason : ""
+                        isIncome:           txRolesMap && txRolesMap.isIncome ? txRolesMap.isIncome : false
+                        hasPaymentProof:    txRolesMap && txRolesMap.hasPaymentProof ? txRolesMap.hasPaymentProof : false
+                        isSelfTx:           txRolesMap && txRolesMap.isSelfTransaction ? txRolesMap.isSelfTransaction : false
+                        rawTxID:            txRolesMap && txRolesMap.rawTxID ? txRolesMap.rawTxID : null
+                        searchFilter:       searchBox.text
+                        hideFiltered:       rowItem.hideFiltered
 
-                    Item {
-                        id:      txDetails
-                        height:  0
-                        y:       transactionsTable.rowHeight
-                        width:   parent.width
-                        clip:    true
-                        property int maximumHeight: detailsPanel.implicitHeight
-
-                        Rectangle {
-                            anchors.fill: parent
-                            color: Style.background_details
+                        onSearchFilterChanged: function(text) {
+                            rowItem.collapsed = searchBox.text.length == 0;
+                            rowItem.hideFiltered = true;
                         }
 
-                        TransactionDetails {
-                            id: detailsPanel
-                            width: transactionsTable.width
+                        onOpenExternal : function() {
+                            var url = Style.explorerUrl + "block?kernel_id=" + detailsPanel.kernelID;
+                            Utils.openExternal(url, viewModel, externalLinkConfirmation);
+                        }
 
-                            onHeightChanged: {
-                                console.log("Height changed")
-                                if (searchFilter.length && rowItem.collapsed) expand()
-                                if (!rowItem.collapsed) {
-                                    rowItem.height = transactionsTable.rowHeight + detailsPanel.height
-                                    txDetails.height = detailsPanel.height
-                                    console.log("   new height:" + detailsPanel.height)
-                                    txDetails.visible = true
-                                    detailsPanel.visible = true
-                                }
-                            }
+                        onTextCopied: function (text) {
+                            BeamGlobals.copyToClipboard(text);
+                        }
 
-                            property var txRolesMap: myModel
-                            sendAddress:        txRolesMap && txRolesMap.addressFrom ? txRolesMap.addressFrom : ""
-                            receiveAddress:     txRolesMap && txRolesMap.addressTo ? txRolesMap.addressTo : ""
-                            fee:                txRolesMap && txRolesMap.fee ? txRolesMap.fee : ""
-                            comment:            txRolesMap && txRolesMap.comment ? txRolesMap.comment : ""
-                            txID:               txRolesMap && txRolesMap.txID ? txRolesMap.txID : ""
-                            kernelID:           txRolesMap && txRolesMap.kernelID ? txRolesMap.kernelID : ""
-                            status:             txRolesMap && txRolesMap.status ? txRolesMap.status : ""
-                            failureReason:      txRolesMap && txRolesMap.failureReason ? txRolesMap.failureReason : ""
-                            isIncome:           txRolesMap && txRolesMap.isIncome ? txRolesMap.isIncome : false
-                            hasPaymentProof:    txRolesMap && txRolesMap.hasPaymentProof ? txRolesMap.hasPaymentProof : false
-                            isSelfTx:           txRolesMap && txRolesMap.isSelfTransaction ? txRolesMap.isSelfTransaction : false
-                            rawTxID:            txRolesMap && txRolesMap.rawTxID ? txRolesMap.rawTxID : null
-                            searchFilter:       searchBox.text
-                            hideFiltered:       true
-
-                            onOpenExternal : function() {
-                                var url = Style.explorerUrl + "block?kernel_id=" + detailsPanel.kernelID;
-                                Utils.openExternal(url, viewModel, externalLinkConfirmation);
-                            }
-
-                            onTextCopied: function (text) {
-                                BeamGlobals.copyToClipboard(text);
-                            }
-
-                            onCopyPaymentProof: function() {
-                                if (detailsPanel.rawTxID)
+                        onCopyPaymentProof: function() {
+                            if (detailsPanel.rawTxID)
+                            {
+                                var paymentInfo = viewModel.getPaymentInfo(detailsPanel.rawTxID);
+                                if (paymentInfo.paymentProof.length === 0)
                                 {
-                                    var paymentInfo = viewModel.getPaymentInfo(detailsPanel.rawTxID);
-                                    if (paymentInfo.paymentProof.length === 0)
-                                    {
-                                        paymentInfo.paymentProofChanged.connect(function() {
-                                            textCopied(paymentInfo.paymentProof);
-                                        });
-                                    }
-                                    else
-                                    {
+                                    paymentInfo.paymentProofChanged.connect(function() {
                                         textCopied(paymentInfo.paymentProof);
-                                    }
+                                    });
                                 }
-                            }
-                            onShowPaymentProof: {
-                                if (detailsPanel.rawTxID)
+                                else
                                 {
-                                    paymentInfoDialog.model = viewModel.getPaymentInfo(detailsPanel.rawTxID);
-                                    paymentInfoDialog.open();
+                                    textCopied(paymentInfo.paymentProof);
                                 }
                             }
                         }
-                    }
-
-                    MouseArea {
-                        anchors.top:      parent.top
-                        anchors.left:     parent.left
-                        height:           transactionsTable.rowHeight
-                        width:            parent.width
-                        acceptedButtons:  Qt.LeftButton | Qt.RightButton
-
-                        onClicked: {
-                            if (rowInModel) {
-                                if (mouse.button === Qt.RightButton) {
-                                    transactionsTable.showContextMenu(styleData.row)
-                                } else if (mouse.button === Qt.LeftButton) {
-                                    if(rowItem.collapsed) {
-                                        expand()
-                                        return
-                                    }
-
-                                    if (searchBox.text && detailsPanel.hideFiltered) {
-                                        detailsPanel.hideFiltered = false
-                                        return
-                                    }
-
-                                    collapse()
-                                }
+                        onShowPaymentProof: {
+                            if (detailsPanel.rawTxID)
+                            {
+                                paymentInfoDialog.model = viewModel.getPaymentInfo(detailsPanel.rawTxID);
+                                paymentInfoDialog.open();
                             }
                         }
                     }
@@ -621,7 +522,7 @@ Item {
                                     font.pixelSize: 14
                                     font.italic: true
                                     wrapMode: Text.WordWrap
-                                    text: getStatusText(styleData.value)
+                                    text: styleData.value
                                     verticalAlignment: Text.AlignBottom
                                     color: {
                                         if (!model || model.isExpired) {
@@ -758,34 +659,12 @@ Item {
         }
     }
 
-    function getStatusText(value) {
-        switch(value) {
-            //% "pending"
-            case "pending": return qsTrId("wallet-txs-status-pending");
-            //% "waiting for sender"
-            case "waiting for sender": return qsTrId("wallet-txs-status-waiting-sender");
-            //% "waiting for receiver"
-            case "waiting for receiver": return qsTrId("wallet-txs-status-waiting-receiver");
-            //% "in progress"
-            case "receiving": return qsTrId("wallet-txs-status-in-progress");
-            //% "in progress"
-            case "sending": return qsTrId("wallet-txs-status-in-progress");
-            //% "sent to own address"
-            case "completed": return qsTrId("wallet-txs-status-own-sent");
-            //% "sending to own address"
-            case "self sending": return qsTrId("wallet-txs-status-own-sending");
-            //% "received"
-            case "received": return qsTrId("wallet-txs-status-received");
-            //% "sent"
-            case "sent": return qsTrId("wallet-txs-status-sent");
-            //% "cancelled"
-            case "cancelled": return qsTrId("wallet-txs-status-cancelled");
-            //% "expired"
-            case "expired": return qsTrId("wallet-txs-status-expired");
-            //% "failed"
-            case "failed": return qsTrId("wallet-txs-status-failed");
-            //% "unknown"
-            default: return qsTrId("wallet-txs-status-unknown");
+    Component.onDestruction: {
+        console.log("Component.onDestruction");
+        var item = walletStackView.currentItem;
+        if (item && item.saveAddress && typeof item.saveAddress == "function") {
+            item.saveAddress();
+            console.log("saveAddress");
         }
     }
 }

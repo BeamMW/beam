@@ -212,7 +212,7 @@ Item
 
                     Item {
                         Layout.fillHeight: true
-                        Layout.minimumHeight: 67
+                        Layout.minimumHeight: isRecoveryMode ? 47 : 67
                     }
 
                     SFText {

@@ -60,8 +60,7 @@ namespace beam::wallet
     {
         CoinIDList preselectedCoinIDs;
         vector<Coin> coins;
-        Amount preselAmountBeam = 0;
-        Amount preselAmountAsset = 0;
+        Amount preselectedAmount = 0;
         if (m_Tx.GetParameter(TxParameterID::PreselectedCoins, preselectedCoinIDs, m_SubTxID) && !preselectedCoinIDs.empty())
         {
             coins = m_Tx.GetWalletDB()->getCoinsByID(preselectedCoinIDs);
@@ -139,6 +138,7 @@ namespace beam::wallet
 
     void BaseTxBuilder::GenerateAssetCoin(Amount amount, bool change)
     {
+        Coin newUtxo = m_Tx.GetWalletDB()->generateNewCoin(amount);
         Coin newUtxo(amount, change ? Key::Type::AssetChange : Key::Type::Asset, m_AssetId);
         newUtxo.m_createTxId = m_Tx.GetTxID();
         m_Tx.GetWalletDB()->storeCoin(newUtxo);
@@ -588,9 +588,8 @@ namespace beam::wallet
             }
             else
             {
-                assert(false && "KernelID is not stored");
+                throw std::runtime_error("KernelID is not stored");
             }
-
         }
         return *m_KernelID;
     }

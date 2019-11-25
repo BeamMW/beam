@@ -18,20 +18,20 @@ Item {
 
     ConfirmationDialog {
         id: betaDialog
-        //% "Atomic Swap is in BETA"
+        //% "Atomic Swaps are in BETA"
         title: qsTrId("swap-beta-title")
         //% "I understand"
         okButtonText:        qsTrId("swap-alert-confirm-button")
         okButtonIconSource:  "qrc:/assets/icon-done.svg"
         cancelButtonVisible: false
         width: 470
-        //% "Atomic Swap functionality is Beta at the moment. We recommend you not to send large amounts."
+        //% "Atomic Swaps functionality is Beta at the moment. We recommend you not to send large amounts."
         text: qsTrId("swap-beta-message")
     }
 
     ConfirmationDialog {
         id:                     cancelOfferDialog
-        property var txId: undefined
+        property var txId:      undefined
         width:                  460
         //% "Cancel offer"
         title:                  qsTrId("atomic-swap-cancel")
@@ -57,6 +57,25 @@ Item {
         }
     }
 
+    ConfirmationDialog {
+        id:                     cancelSwapDialog
+        property var txId:      undefined
+        //% "Cancel atomic swap"
+        title:                  qsTrId("atomic-swap-tx-cancel")
+        //% "Are you sure you want to cancel?"
+        text:                   qsTrId("atomic-swap-tx-cancel-text")
+        //% "yes"
+        okButtonText:           qsTrId("atomic-swap-tx-yes-button")
+        okButtonIconSource:     "qrc:/assets/icon-done.svg"
+        okButtonColor:          Style.swapCurrencyStateIndicator
+        //% "no"
+        cancelButtonText:       qsTrId("atomic-swap-no-button")
+        cancelButtonIconSource: "qrc:/assets/icon-cancel-16.svg"
+        onAccepted: {
+            viewModel.cancelTx(cancelSwapDialog.txId);
+        }
+    }
+
     Component.onCompleted: {
         if (viewModel.showBetaWarning) {
             betaDialog.open()
@@ -65,7 +84,7 @@ Item {
 
     RowLayout {
         Title {
-            //% "Atomic Swap"
+            //% "Atomic Swaps"
             text: qsTrId("atomic-swap-title")
         }
 
@@ -148,13 +167,10 @@ Item {
                     //% "Accept offer"
                     text: qsTrId("atomic-swap-accept")
                     font.pixelSize: 12
-                    //font.capitalization: Font.AllUppercase
-
                     onClicked: {
                         offersStackView.push(Qt.createComponent("send.qml"),
                                              {
-                                                "isSwapMode": true,
-                                                "onClosed": onClosed,
+                                                "onClosed":    onClosed,
                                                 "onSwapToken": onSwapToken
                                              });
                     }
@@ -174,10 +190,8 @@ Item {
                     //font.capitalization: Font.AllUppercase
 
                     onClicked: {
-                        offersStackView.push(Qt.createComponent("receive_swap.qml"),
-                                            {"modeSwitchEnabled": false,
-                                             "onClosed": onClosed});
-                        function onClosed() { offersStackView.pop(); }
+                        function onClosed() {offersStackView.pop();}
+                        offersStackView.push(Qt.createComponent("receive_swap.qml"), {"onClosed": onClosed});
                     }
                 }
             }
@@ -270,6 +284,7 @@ Item {
                     gradRight: Style.swapCurrencyPaneGrLeftOther
                     //% "Connect other currency wallet to start trading"
                     amount: qsTrId("atomic-swap-connect-other")
+                    amountWrapMode: Text.Wrap
                     textSize: 14
                     rectOpacity: 1.0
                     textColor: Style.active
@@ -415,14 +430,11 @@ Item {
                         }
 
                         CustomCheckBox {
+                            id: checkboxFitBalance
                             Layout.alignment: Qt.AlignHCenter | Qt.AlignLeft
                             Layout.leftMargin: 60
                             //% "Fit my current balance"
                             text: qsTrId("atomic-swap-fit-current-balance")
-                            onClicked: {
-                                console.log("todo: fit current balance checkbox pressed");
-                            }
-                            visible: false
                         }
 
                         Item {
@@ -478,7 +490,9 @@ Item {
                             color:                Style.content_main
                             opacity:              0.5
                             lineHeight:           1.43
-                            //% "There are no active offers at the moment.\nPlease try again later or create an offer yourself."
+/*% "There are no active offers at the moment.
+Please try again later or create an offer yourself."
+*/
                             text:                 qsTrId("atomic-no-offers")
                         }
 
@@ -517,13 +531,15 @@ Item {
                             source: SortFilterProxyModel {
                                 source: SortFilterProxyModel {
                                     // filter all offers by selected coin
-                                    source: viewModel.allOffers                                
+                                    source: checkboxFitBalance.checked
+                                        ? viewModel.allOffersFitBalance
+                                        : viewModel.allOffers                                
                                     filterRole: "swapCoin"
                                     filterString: getCoinName(viewModel.selectedCoin)
                                     filterSyntax: SortFilterProxyModel.Wildcard
                                     filterCaseSensitivity: Qt.CaseInsensitive
                                 }
-                                filterRole: "isBeamSide"
+                                filterRole: "isSendBeam"
                                 filterString: sendReceiveBeamSwitch.checked ? "false" : "true"
                                 filterSyntax: SortFilterProxyModel.Wildcard
                                 filterCaseSensitivity: Qt.CaseInsensitive
@@ -568,7 +584,7 @@ Item {
                                 width: parent.width
                                 height: offersTable.rowHeight
                                 property var swapCoin: styleData.value
-                                property var isSendBeam: offersTable.model.getRoleValue(styleData.row, "isBeamSide")
+                                property var isSendBeam: offersTable.model.getRoleValue(styleData.row, "isSendBeam")
                                 property var isOwnOffer: offersTable.model.getRoleValue(styleData.row, "isOwnOffer")
                                 
                                 anchors.fill: parent
@@ -684,6 +700,7 @@ Item {
                                         MouseArea {
                                             anchors.fill: parent
                                             acceptedButtons: Qt.LeftButton
+                                            cursorShape: Qt.PointingHandCursor
                                             onClicked: {
                                                 if (isOwnOffer) {
                                                     cancelOfferDialog.txId = offersTable.model.getRoleValue(styleData.row, "rawTxID");
@@ -738,7 +755,6 @@ Item {
                         //    Layout.alignment: Qt.AlignRight
                         //    rightPadding: 5
                         //    icon.source: "qrc:/assets/icon-delete.svg"
-                        //    onClicked: console.log("todo: delete button pressed");
                         //}
                     }
 
@@ -793,48 +809,14 @@ Item {
                             filterCaseSensitivity: Qt.CaseInsensitive
                         }
 
-                        rowDelegate: Item {
-                            id: rowItem
-                            height: ctransactionsTable.rowHeight
-                            anchors.left: parent.left
-                            anchors.right: parent.right
-                            property bool collapsed: true
-
+                        rowDelegate: ExpandableRowDelegate {
+                            collapsed: true
+                            rowInModel: styleData.row !== undefined && styleData.row >= 0 &&  styleData.row < txProxyModel.count
+                            rowHeight: transactionsTable.rowHeight
+                            backgroundColor: styleData.selected ? Style.row_selected : (styleData.alternate ? Style.background_row_even : Style.background_row_odd)
                             property var myModel: parent.model
 
-                            onMyModelChanged: {
-                                collapsed = true;
-                                height = Qt.binding(function(){ return transactionsTable.rowHeight;});
-                            }
-
-                            Rectangle {
-                                anchors.fill: parent                        
-                                color: styleData.selected ? Style.row_selected :
-                                        (styleData.alternate ? Style.background_row_even : Style.background_row_odd)
-                            }
-
-                            ColumnLayout {
-                                id: rowColumn
-                                width: parent.width
-                                Rectangle {
-                                    height: rowItem.height
-                                    width: parent.width
-                                    color: "transparent"
-                                }
-                                Item {
-                                    id: txDetails
-                                    height: 0
-                                    width: parent.width
-                                    clip: true
-
-                                    property int maximumHeight: detailsPanel.implicitHeight
-
-                                    Rectangle {
-                                        anchors.fill: parent
-                                        color: Style.background_details
-                                    }
-                                    SwapTransactionDetails {
-                                        id: detailsPanel
+                            delegate: SwapTransactionDetails {
                                         width: transactionsTable.width
 
                                         property var txRolesMap: myModel
@@ -855,6 +837,7 @@ Item {
                                         beamLockTxKernelId:             txRolesMap && txRolesMap.beamLockTxKernelId ? txRolesMap.beamLockTxKernelId : ""
                                         beamRedeemTxKernelId:           txRolesMap && txRolesMap.beamRedeemTxKernelId ? txRolesMap.beamRedeemTxKernelId : ""
                                         beamRefundTxKernelId:           txRolesMap && txRolesMap.beamRefundTxKernelId ? txRolesMap.beamRefundTxKernelId : ""
+                                        stateDetails:                   txRolesMap && txRolesMap.swapState ? txRolesMap.swapState : ""
                                         failureReason:                  txRolesMap && txRolesMap.failureReason ? txRolesMap.failureReason : ""
                                         
                                         onTextCopied: function (text) {
@@ -862,87 +845,6 @@ Item {
                                         }
                                     }
                                 }
-                            }
-
-                            MouseArea {
-                                anchors.top: parent.top
-                                anchors.left: parent.left
-                                height: transactionsTable.rowHeight
-                                width: parent.width
-
-                                acceptedButtons: Qt.LeftButton | Qt.RightButton
-                                onClicked: {
-                                    if (styleData.row === undefined 
-                                    || styleData.row < 0
-                                    || styleData.row >= txProxyModel.count)
-                                    {
-                                        return;
-                                    }
-                                    if (mouse.button === Qt.RightButton )
-                                    {
-                                        transactionsTable.showContextMenu(styleData.row);
-                                    }
-                                    else if (mouse.button === Qt.LeftButton)
-                                    {
-                                        if (parent.collapsed)
-                                        {
-                                            expand.start()
-                                        }
-                                        else 
-                                        {
-                                            collapse.start()
-                                        }
-                                        parent.collapsed = !parent.collapsed;
-                                    }
-                                }
-                            }
-
-                            ParallelAnimation {
-                                id: expand
-                                running: false
-
-                                property int expandDuration: 200
-
-                                NumberAnimation {
-                                    target: rowItem
-                                    easing.type: Easing.Linear
-                                    property: "height"
-                                    to: transactionsTable.rowHeight + txDetails.maximumHeight
-                                    duration: expand.expandDuration
-                                }
-
-                                NumberAnimation {
-                                    target: txDetails
-                                    easing.type: Easing.Linear
-                                    property: "height"
-                                    to: txDetails.maximumHeight
-                                    duration: expand.expandDuration
-                                }
-                            }
-
-                            ParallelAnimation {
-                                id: collapse
-                                running: false
-
-                                property int collapseDuration: 200
-
-                                NumberAnimation {
-                                    target: rowItem
-                                    easing.type: Easing.Linear
-                                    property: "height"
-                                    to: transactionsTable.rowHeight
-                                    duration: collapse.collapseDuration
-                                }
-
-                                NumberAnimation {
-                                    target: txDetails
-                                    easing.type: Easing.Linear
-                                    property: "height"
-                                    to: 0
-                                    duration: collapse.collapseDuration
-                                }
-                            }
-                        }
 
                         itemDelegate: Item {
                             Item {
@@ -1088,21 +990,7 @@ Item {
                                             Layout.alignment: Qt.AlignLeft
 
                                             sourceSize: Qt.size(20, 20)
-                                            source: getIconSource()
-                                            function getIconSource() {
-                                                if (!model)
-                                                    return "";
-                                                if (model.isInProgress)
-                                                    return "qrc:/assets/icon-swap-in-progress.svg";
-                                                else if (model.isCompleted)
-                                                    return "qrc:/assets/icon-swap-completed.svg";
-                                                else if (model.isCanceled)
-                                                    return "qrc:/assets/icon-swap-canceled.svg";
-                                                else if (model.isExpired)
-                                                    return "qrc:/assets/icon-expired.svg";
-                                                else
-                                                    return "qrc:/assets/icon-swap-failed.svg";
-                                            }
+                                            source: getIconSource(styleData.value)
                                         }
                                         SFLabel {
                                             Layout.alignment: Qt.AlignLeft
@@ -1112,19 +1000,7 @@ Item {
                                             wrapMode: Text.WordWrap
                                             text: getStatusText(styleData.value)
                                             verticalAlignment: Text.AlignBottom
-                                            color: getTextColor()
-                                            function getTextColor () {
-                                                if (!model || model.isExpired) 
-                                                    return Style.content_secondary;
-                                                if (model.isInProgress || model.isCompleted) {
-                                                    return Style.accent_swap;
-                                                } else if (model.isFailed) {
-                                                    return Style.accent_fail;
-                                                }
-                                                else {
-                                                    return Style.content_secondary;
-                                                }
-                                            }
+                                            color: getTextColor(styleData.value)
                                         }
                                     }
                                 }
@@ -1140,7 +1016,7 @@ Item {
                         }
 
                         function showContextMenu(row) {
-                            txContextMenu.canCopyToken = true;
+                            txContextMenu.canCopyToken = transactionsTable.model.getRoleValue(row, "isPending");;
                             txContextMenu.token = transactionsTable.model.getRoleValue(row, "token");
                             txContextMenu.cancelEnabled = transactionsTable.model.getRoleValue(row, "isCancelAvailable");
                             txContextMenu.deleteEnabled = transactionsTable.model.getRoleValue(row, "isDeleteAvailable");
@@ -1196,7 +1072,8 @@ Item {
                             icon.source: "qrc:/assets/icon-cancel.svg"
                             enabled: txContextMenu.cancelEnabled
                             onTriggered: {
-                                viewModel.cancelTx(txContextMenu.txID);
+                                cancelSwapDialog.txId = txContextMenu.txID;
+                                cancelSwapDialog.open();
                             }
                         }
                         Action {
@@ -1272,24 +1149,49 @@ Item {
         }
     }
 
+    function getTextColor(status) {
+        switch(status)
+        {
+            case "pending":
+            case "in progress":
+            case "completed":
+                return Style.accent_swap;
+            case "failed":
+                return Style.accent_fail;
+            default:
+                return Style.content_secondary;
+        }
+    }
+
+    function getIconSource(status) {
+        switch(status)
+        {
+            case "pending":
+            case "in progress":
+                return "qrc:/assets/icon-swap-in-progress.svg";
+            case "completed":
+                return "qrc:/assets/icon-swap-completed.svg";
+            case "failed":
+                return "qrc:/assets/icon-swap-failed.svg";
+            case "canceled":
+                return "qrc:/assets/icon-swap-canceled.svg";
+            case "expired":
+                return "qrc:/assets/icon-expired.svg";
+            default: return "";
+        }
+    }
+
     function getStatusText(value) {
 
         switch(value) {
-            //% "pending"
-            case "pending": return qsTrId("wallet-txs-status-pending");
-            case "waiting for sender":
-            case "waiting for receiver":
-            case "receiving":
-            case "sending":
-                //% "in progress"
-                return qsTrId("wallet-txs-status-in-progress");
-            case "completed":
-            case "received":
-            case "sent":
-                //% "completed"
-                return qsTrId("wallet-txs-status-completed");
+            //% "waiting for peer"
+            case "pending": return qsTrId("wallet-txs-status-waiting-peer");
+            //% "in progress"
+            case "in progress": return qsTrId("wallet-txs-status-in-progress");
+            //% "completed"
+            case "completed": return qsTrId("wallet-txs-status-completed");
             //% "cancelled"
-            case "cancelled": return qsTrId("wallet-txs-status-cancelled");
+            case "canceled": return qsTrId("wallet-txs-status-cancelled");
             //% "expired"
             case "expired": return qsTrId("wallet-txs-status-expired");
             //% "failed"

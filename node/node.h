@@ -162,6 +162,8 @@ struct Node
 		void InitSingleKey(const ECC::uintBig& seed);
 		void SetSingleKey(const Key::IKdf::Ptr&);
 
+		Output::Shielded::Viewer m_ShieldedViewer; // derived from owner
+
 	} m_Keys;
 
 	~Node();
@@ -205,7 +207,8 @@ private:
 		void OnNewState() override;
 		void OnRolledBack() override;
 		void OnModified() override;
-		bool EnumViewerKeys(IKeyWalker&) override;
+		Key::IPKdf* get_ViewerKey() override;
+		const Output::Shielded::Viewer* get_ViewerShieldedKey() override;
 		void OnUtxoEvent(const UtxoEvent::Value&, Height) override;
 		void OnDummy(const Key::ID&, Height) override;
 		void InitializeUtxosProgress(uint64_t done, uint64_t total) override;
@@ -561,6 +564,8 @@ private:
 		virtual void OnMsg(proto::GetProofKernel&&) override;
 		virtual void OnMsg(proto::GetProofKernel2&&) override;
 		virtual void OnMsg(proto::GetProofUtxo&&) override;
+		virtual void OnMsg(proto::GetProofShieldedTxo&&) override;
+		virtual void OnMsg(proto::GetShieldedList&&) override;
 		virtual void OnMsg(proto::GetProofChainWork&&) override;
 		virtual void OnMsg(proto::PeerInfoSelf&&) override;
 		virtual void OnMsg(proto::PeerInfo&&) override;

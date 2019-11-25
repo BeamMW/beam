@@ -7,7 +7,7 @@ import "."
 
 T.TextField {
     id: control
-    property var onPaste: function() {}
+    signal textPasted()
 
     function getMousePos() {
         return {x: mouseArea.mouseX, y: mouseArea.mouseY}
@@ -107,8 +107,8 @@ T.TextField {
             icon.source: "qrc:/assets/icon-edit.svg"
             enabled: control.canPaste
             onTriggered: {
-                control.onPaste();
-                control.paste();
+                control.paste()
+                control.textPasted()
             }
         }
 
@@ -135,9 +135,12 @@ T.TextField {
         }
     }
 
-    Keys.onPressed: function(keyEvent) {
-        if (keyEvent.matches(StandardKey.Paste)) {
-            control.onPaste();
+    Keys.onShortcutOverride: event.accepted = event.matches(StandardKey.Paste)
+    Keys.onPressed: {
+        if (event.matches(StandardKey.Paste)) {
+            event.accepted = true
+            control.paste()
+            control.textPasted()
         }
     }
 }

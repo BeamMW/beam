@@ -556,7 +556,7 @@ void Node::Processor::DeleteOutdated()
 			continue;
 		Transaction& tx = *x.m_pValue;
 
-		if (!ValidateTxContext(tx, x.m_Threshold.m_Height))
+		if (!ValidateTxContext(tx, x.m_Threshold.m_Height, true))
 			txp.Delete(x);
 	}
 }
@@ -664,6 +664,25 @@ void Node::MaybeGenerateRecovery()
 void Node::Processor::OnRolledBack()
 {
     LOG_INFO() << "Rolled back to: " << m_Cursor.m_ID;
+
+	// Delete shielded txs which referenced shielded outputs which were reverted
+	TxPool::Fluff& txp = get_ParentObj().m_TxPool;
+	for (TxPool::Fluff::Queue::iterator it = txp.m_Queue.begin(); txp.m_Queue.end() != it; )
+	{
+		TxPool::Fluff::Element& x = (it++)->get_ParentObj();
+		if (x.m_pValue && !IsShieldedInPool(*x.m_pValue))
+			txp.Delete(x);
+	}
+
+	TxPool::Stem& txps = get_ParentObj().m_Dandelion;
+	for (TxPool::Stem::TimeSet::iterator it = txps.m_setTime.begin(); txps.m_setTime.end() != it; )
+	{
+		TxPool::Stem::Element& x = (it++)->get_ParentObj();
+		if (!IsShieldedInPool(*x.m_pValue))
+			txps.Delete(x);
+			
+	}
+
 
 	IObserver* pObserver = get_ParentObj().m_Cfg.m_Observer;
 	if (pObserver)
@@ -883,17 +902,16 @@ void Node::Processor::Stop()
     }
 }
 
-bool Node::Processor::EnumViewerKeys(IKeyWalker& w)
+Key::IPKdf* Node::Processor::get_ViewerKey()
 {
-    const Keys& keys = get_ParentObj().m_Keys;
+	return get_ParentObj().m_Keys.m_pOwner.get();
+}
 
-    // according to current design - a single master viewer key is enough
-	if (keys.m_pOwner && !w.OnKey(*keys.m_pOwner, 0)) {
-		// stupid compiler insists on parentheses here!
-		return false;
-	}
-
-    return true;
+const Output::Shielded::Viewer* Node::Processor::get_ViewerShieldedKey()
+{
+	return get_ParentObj().m_Keys.m_pOwner ?
+		&get_ParentObj().m_Keys.m_ShieldedViewer :
+		nullptr;
 }
 
 void Node::Processor::OnUtxoEvent(const UtxoEvent::Value& evt, Height h)
@@ -906,7 +924,7 @@ void Node::Processor::OnUtxoEvent(const UtxoEvent::Value& evt, Height h)
 		Height hMaturity;
 		evt.m_Maturity.Export(hMaturity);
 
-		LOG_INFO() << "Utxo " << kidv << ", Maturity=" << hMaturity << ", Added=" << static_cast<uint32_t>(evt.m_Added) << ", Height=" << h;
+		LOG_INFO() << "Utxo " << kidv << ", Maturity=" << hMaturity << ", Flags=" << static_cast<uint32_t>(evt.m_Flags) << ", Height=" << h;
 	}
 }
 
@@ -1051,6 +1069,8 @@ void Node::InitKeys()
 			throw exc;
 
 		}
+
+		m_Keys.m_ShieldedViewer.FromOwner(*m_Keys.m_pOwner);
 	}
 	else
         m_Keys.m_pMiner = nullptr; // can't mine without owner view key, because it's used for Tagging
@@ -2139,7 +2159,7 @@ uint8_t Node::ValidateTx(Transaction::Context& ctx, const Transaction& tx)
 	if (!(m_Processor.ValidateAndSummarize(ctx, tx, tx.get_Reader()) && ctx.IsValidTransaction()))
 		return proto::TxStatus::Invalid;
 
-	if (!m_Processor.ValidateTxContext(tx, ctx.m_Height))
+	if (!m_Processor.ValidateTxContext(tx, ctx.m_Height, false))
 		return proto::TxStatus::InvalidContext;
 
 	if (ctx.m_Height.m_Min >= Rules::get().pForks[1].m_Height)
@@ -2339,7 +2359,20 @@ uint8_t Node::OnTransactionStem(Transaction::Ptr&& ptx, const Peer* pPeer)
 
     assert(!pDup->m_bAggregating);
 
-    if ((pDup->m_pValue->m_vOutputs.size() >= m_Cfg.m_Dandelion.m_OutputsMax) || !m_Keys.m_pMiner)
+	bool bDontAggregate =
+		(pDup->m_pValue->m_vOutputs.size() >= m_Cfg.m_Dandelion.m_OutputsMax) || // already big enough
+		!m_Keys.m_pMiner; // can't manage decoys
+
+	if (!bDontAggregate)
+	{
+		uint32_t nIns, nOuts;
+		pDup->m_pValue->get_Reader().CalculateShielded(nIns, nOuts);
+
+		if (nIns || nOuts)
+			bDontAggregate = true;
+	}
+
+    if (bDontAggregate)
         OnTransactionAggregated(*pDup);
     else
     {
@@ -2695,7 +2728,7 @@ void Node::Dandelion::OnTimedOut(Element& x)
 
 bool Node::Dandelion::ValidateTxContext(const Transaction& tx, const HeightRange& hr)
 {
-    return get_ParentObj().m_Processor.ValidateTxContext(tx, hr);
+    return get_ParentObj().m_Processor.ValidateTxContext(tx, hr, true);
 }
 
 void Node::Peer::OnLogin(proto::Login&& msg)
@@ -3021,6 +3054,60 @@ void Node::Peer::OnMsg(proto::GetProofUtxo&& msg)
     Send(t.m_Msg);
 }
 
+void Node::Peer::OnMsg(proto::GetProofShieldedTxo&& msg)
+{
+	proto::ProofShieldedTxo msgOut;
+
+	Processor& p = m_This.m_Processor;
+	if (!p.IsFastSync())
+	{
+		UtxoTree::Key key;
+		key.SetShielded(msg.m_Commitment, true);
+
+		UtxoTree::Cursor cu;
+		bool bCreate = false;
+
+		const UtxoTree::MyLeaf* pLeaf = p.get_Utxos().Find(cu, key, bCreate);
+		if (pLeaf)
+		{
+			const UtxoTree::MyLeaf& v = *pLeaf;
+			UtxoTree::Key::Data d;
+			d = v.m_Key;
+
+			msgOut.m_ID = pLeaf->m_ID;
+			p.get_Utxos().get_Proof(msgOut.m_Proof, cu);
+
+			msgOut.m_Proof.emplace_back();
+			msgOut.m_Proof.back().first = false;
+			msgOut.m_Proof.back().second = p.m_Cursor.m_History;
+		}
+	}
+
+	Send(msgOut);
+}
+
+void Node::Peer::OnMsg(proto::GetShieldedList&& msg)
+{
+	proto::ShieldedList msgOut;
+
+	Processor& p = m_This.m_Processor;
+	if ((msg.m_Id0 < p.m_Extra.m_Shielded) && msg.m_Count)
+	{
+		if (msg.m_Count > Lelantus::Cfg::Max::N)
+			msg.m_Count = Lelantus::Cfg::Max::N;
+
+		TxoID n = p.m_Extra.m_Shielded - msg.m_Id0;
+
+		if (msg.m_Count > n)
+			msg.m_Count = static_cast<uint32_t>(n);
+
+		msgOut.m_Items.resize(msg.m_Count);
+		p.get_DB().ShieldedRead(msg.m_Id0, &msgOut.m_Items.front(), msg.m_Count);
+	}
+
+	Send(msgOut);
+}
+
 bool Node::Processor::BuildCwp()
 {
     if (!m_Cwp.IsEmpty())
@@ -3308,6 +3395,9 @@ void Node::Peer::OnMsg(proto::GetUtxoEvents&& msg)
                 continue; // although shouldn't happen
             const UE::Value& evt = *reinterpret_cast<const UE::Value*>(wlk.m_Body.p);
 
+			if ((proto::UtxoEvent::Flags::Shielded & evt.m_Flags) && (wlk.m_Body.n < sizeof(UE::ValueS)))
+				continue; // although shouldn't happen
+
             msgOut.m_Events.emplace_back();
             proto::UtxoEvent& res = msgOut.m_Events.back();
 
@@ -3317,8 +3407,11 @@ void Node::Peer::OnMsg(proto::GetUtxoEvents&& msg)
 
             res.m_Commitment = *reinterpret_cast<const ECC::Point*>(wlk.m_Key.p);
             res.m_AssetID = evt.m_AssetID;
-            res.m_Added = evt.m_Added;
-        }
+            res.m_Flags = evt.m_Flags;
+
+			if (proto::UtxoEvent::Flags::Shielded & evt.m_Flags)
+				res.m_Shielded = Cast::Up<UE::ValueS>(evt).m_Shielded;
+		}
     }
     else
         LOG_WARNING() << "Peer " << m_RemoteAddr << " Unauthorized Utxo events request.";

@@ -27,6 +27,7 @@ using namespace std;
 WalletModel::WalletModel(IWalletDB::Ptr walletDB, IPrivateKeyKeeper::Ptr keyKeeper, const std::string& nodeAddr, beam::io::Reactor::Ptr reactor)
     : WalletClient(walletDB, nodeAddr, reactor, keyKeeper)
 {
+    qRegisterMetaType<beam::ByteBuffer>("beam::ByteBuffer");
     qRegisterMetaType<beam::wallet::WalletStatus>("beam::wallet::WalletStatus");
     qRegisterMetaType<beam::wallet::ChangeAction>("beam::wallet::ChangeAction");
     qRegisterMetaType<vector<beam::wallet::TxDescription>>("std::vector<beam::wallet::TxDescription>");
@@ -39,10 +40,14 @@ WalletModel::WalletModel(IWalletDB::Ptr walletDB, IPrivateKeyKeeper::Ptr keyKeep
     qRegisterMetaType<beam::wallet::ErrorType>("beam::wallet::ErrorType");
     qRegisterMetaType<beam::wallet::TxID>("beam::wallet::TxID");
     qRegisterMetaType<beam::wallet::TxParameters>("beam::wallet::TxParameters");
+    qRegisterMetaType<std::function<void()>>("std::function<void()>");
 
     connect(this, SIGNAL(walletStatus(const beam::wallet::WalletStatus&)), this, SLOT(setStatus(const beam::wallet::WalletStatus&)));
     connect(this, SIGNAL(addressesChanged(bool, const std::vector<beam::wallet::WalletAddress>&)),
             this, SLOT(setAddresses(bool, const std::vector<beam::wallet::WalletAddress>&)));
+    connect(this, SIGNAL(functionPosted(const std::function<void()>&)), this, SLOT(doFunction(const std::function<void()>&)));
+
+    getAsync()->getAddresses(true);
 }
 
 WalletModel::~WalletModel()
@@ -93,13 +98,7 @@ QString WalletModel::GetErrorString(beam::wallet::ErrorType type)
 
 bool WalletModel::isOwnAddress(const WalletID& walletID) const
 {
-    for (const auto& it: m_addresses)
-    {
-        if (it.m_walletID == walletID) {
-            return true;
-        }
-    }
-    return false;
+    return m_myWalletIds.find(walletID) != m_myWalletIds.end();
 }
 
 bool WalletModel::isAddressWithCommentExist(const std::string& comment) const
@@ -108,13 +107,7 @@ bool WalletModel::isAddressWithCommentExist(const std::string& comment) const
     {
         return false;
     }
-    for (const auto& it: m_addresses)
-    {
-        if (it.m_label == comment) {
-            return true;
-        }
-    }
-    return false;
+    return m_myAddrLabels.find(comment) != m_myAddrLabels.end();
 }
 
 void WalletModel::onStatus(const beam::wallet::WalletStatus& status)
@@ -137,9 +130,14 @@ void WalletModel::onChangeCalculated(beam::Amount change)
     emit changeCalculated(change);
 }
 
-void WalletModel::onAllUtxoChanged(const std::vector<beam::wallet::Coin>& utxos)
+void WalletModel::onAllUtxoChanged(beam::wallet::ChangeAction action, const std::vector<beam::wallet::Coin>& utxos)
 {
-    emit allUtxoChanged(utxos);
+    emit allUtxoChanged(action, utxos);
+}
+
+void WalletModel::onAddressesChanged(beam::wallet::ChangeAction action, const std::vector<beam::wallet::WalletAddress>& items)
+{
+    emit addressesChanged(action, items);
 }
 
 void WalletModel::onAddresses(bool own, const std::vector<beam::wallet::WalletAddress>& addrs)
@@ -186,6 +184,11 @@ void WalletModel::onShowKeyKeeperError(const std::string& error)
 #endif
 }
 
+void WalletModel::onSwapParamsLoaded(const beam::ByteBuffer& params)
+{
+    emit swapParamsLoaded(params);
+}
+
 void WalletModel::onGeneratedNewAddress(const beam::wallet::WalletAddress& walletAddr)
 {
     emit generatedNewAddress(walletAddr);
@@ -202,6 +205,14 @@ void WalletModel::onNoDeviceConnected()
     //% "There is no Trezor device connected. Please, connect and try again."
     showTrezorError(qtTrId("wallet-model-device-not-connected"));
 #endif
+}
+
+void WalletModel::onImportDataFromJson(bool isOk)
+{
+}
+
+void WalletModel::onExportDataToJson(const std::string& data)
+{
 }
 
 void WalletModel::onChangeCurrentWalletIDs(beam::wallet::WalletID senderID, beam::wallet::WalletID receiverID)
@@ -242,6 +253,11 @@ void WalletModel::onPaymentProofExported(const beam::wallet::TxID& txID, const b
 
     beam::to_hex(str.data(), proof.data(), proof.size());
     emit paymentProofExported(txID, QString::fromStdString(str));
+}
+
+void WalletModel::onPostFunctionToClientContext(MessageFunction&& func)
+{
+    emit functionPosted(func);
 }
 
 beam::Amount WalletModel::getAvailable() const
@@ -333,6 +349,15 @@ void WalletModel::setAddresses(bool own, const std::vector<beam::wallet::WalletA
 {
     if (own)
     {
-        m_addresses = addrs;
+        for (const auto& addr : addrs)
+        {
+            m_myWalletIds.emplace(addr.m_walletID);
+            m_myAddrLabels.emplace(addr.m_label);
+        }
     }
+}
+
+void WalletModel::doFunction(const std::function<void()>& func)
+{
+    func();
 }

@@ -28,7 +28,7 @@ public:
     // 1) call back with sub-chunk of shared memory
     // 2) embed deserializer (protocol-specific) object into stream
 
-    // errorCode==0 on new data
+    /// errorCode==0 on new data
     using Callback = std::function<bool(ErrorCode errorCode, void* data, size_t size)>;
 
     struct State {
@@ -39,8 +39,10 @@ public:
 
     ~TcpStream();
 
-    // Sets callback and enables reading from the stream if callback is not empty
-    // returns false if stream disconnected
+    /**
+     * Sets callback and enables reading from the stream if callback is not empty.
+     * @return false if stream disconnected
+     */
     Result enable_read(const Callback& callback);
 
     /// Disables listening to data and events

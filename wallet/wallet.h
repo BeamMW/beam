@@ -115,8 +115,8 @@ namespace beam::wallet
         void SetNodeEndpoint(std::shared_ptr<proto::FlyClient::INetwork> nodeEndpoint);
         void AddMessageEndpoint(IWalletMessageEndpoint::Ptr endpoint);
 
-        // Resets wallet state and rescans the blockchain from scratch
-        void Refresh();
+        // Rescans the blockchain from scratch
+        void Rescan();
 
         void RegisterTransactionType(TxType type, BaseTransaction::Creator::Ptr creator);
         TxID StartTransaction(const TxParameters& parameters);
@@ -128,6 +128,9 @@ namespace beam::wallet
         void ResumeAllTransactions();
 
         bool IsWalletInSync() const;
+
+        // Count of active transactions which are not in safe state, negotiation are not finished or data is not sent to node
+        size_t GetUnsafeActiveTransactionsCount() const;
     protected:
         void SendTransactionToNode(const TxID& txId, Transaction::Ptr, SubTxID subTxID);
     private:

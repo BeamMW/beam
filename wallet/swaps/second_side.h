@@ -39,5 +39,6 @@ namespace beam::wallet
         virtual bool SendRedeem() = 0;
         virtual bool IsLockTimeExpired() = 0;
         virtual bool HasEnoughTimeToProcessLockTx() = 0;
+        virtual bool IsQuickRefundAvailable() = 0;
     };
 }

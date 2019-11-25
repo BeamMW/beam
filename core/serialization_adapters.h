@@ -90,10 +90,11 @@ namespace detail
         }
     };
 
-	/// ECC::InnerProduct
-	struct InnerProductFlags
+	/// Multibit, many bits packed
+	template <uint32_t nBits>
+	struct Multibit
 	{
-		static const uint32_t N = ECC::InnerProduct::nCycles * 2;
+		static const uint32_t N = nBits;
 		static const uint32_t N_Max = (N + 7) & ~7;
 		uint8_t m_pF[N_Max >> 3];
 
@@ -117,7 +118,13 @@ namespace detail
 				x |= msk;
 			}
 		}
+	};
 
+
+	/// ECC::InnerProduct
+	struct InnerProductFlags
+		:public Multibit<ECC::InnerProduct::nCycles * 2>
+	{
 		void save(const ECC::InnerProduct& v)
 		{
 			uint32_t iBit = 0;
@@ -144,9 +151,28 @@ namespace detail
         /// ECC serialization adapters
         ///////////////////////////////////////////////////////////
 
-        /// ECC::Point serialization
+		/// ECC::Point serialization
+		template<typename Archive>
+		static Archive& save(Archive& ar, const ECC::Point& point)
+		{
+			ar
+				& point.m_X
+				& point.m_Y;
+			return ar;
+		}
+
+		template<typename Archive>
+		static Archive& load(Archive& ar, ECC::Point& point)
+		{
+			ar
+				& point.m_X
+				& point.m_Y;
+			return ar;
+		}
+
+		/// ECC::Point::Storage serialization
         template<typename Archive>
-        static Archive& save(Archive& ar, const ECC::Point& point)
+        static Archive& save(Archive& ar, const ECC::Point::Storage& point)
         {
             ar
                 & point.m_X
@@ -155,7 +181,7 @@ namespace detail
         }
 
         template<typename Archive>
-        static Archive& load(Archive& ar, ECC::Point& point)
+        static Archive& load(Archive& ar, ECC::Point::Storage& point)
         {
             ar
                 & point.m_X
@@ -524,11 +550,15 @@ namespace detail
         static Archive& save(Archive& ar, const beam::Input& input)
         {
 			uint8_t nFlags =
-				(input.m_Commitment.m_Y ? 1 : 0);
+				(input.m_Commitment.m_Y ? 1 : 0) |
+				(input.m_pSpendProof ? 2 : 0);
 
 			ar
 				& nFlags
 				& input.m_Commitment.m_X;
+
+			if (input.m_pSpendProof)
+				ar & *input.m_pSpendProof;
 
             return ar;
         }
@@ -543,13 +573,210 @@ namespace detail
 
 			input.m_Commitment.m_Y = (1 & nFlags);
 
+			if (2 & nFlags)
+			{
+				input.m_pSpendProof.reset(new beam::Input::SpendProof);
+				ar & *input.m_pSpendProof;
+			}
+
             return ar;
         }
+
+		template<typename Archive>
+		static Archive& save(Archive& ar, const beam::Input::SpendProof& v)
+		{
+			ar
+				& v.m_WindowEnd
+				& Cast::Down<beam::Lelantus::Proof>(v);
+
+			return ar;
+		}
+
+		template<typename Archive>
+		static Archive& load(Archive& ar, beam::Input::SpendProof& v)
+		{
+			ar
+				& v.m_WindowEnd
+				& Cast::Down<beam::Lelantus::Proof>(v);
+
+			return ar;
+		}
+
+		template<typename Archive>
+		class MultibitVar
+		{
+			Archive& m_ar;
+			uint8_t m_Flag = 0;
+			uint8_t m_Bits = 0;
+
+		public:
+			MultibitVar(Archive& ar) :m_ar(ar) {}
+
+			void put(uint8_t i)
+			{
+				assert(i <= 1);
+				m_Flag |= (i << (7 - m_Bits));
+
+				if (++m_Bits == 8)
+				{
+					m_ar & m_Flag;
+					m_Bits = 0;
+					m_Flag = 0;
+				}
+			}
+
+			void Flush()
+			{
+				if (m_Bits)
+					m_ar & m_Flag;
+			}
+
+			void get(uint8_t& res)
+			{
+				if (!m_Bits)
+				{
+					m_ar & m_Flag;
+					m_Bits = 8;
+				}
+
+				res = 1 & (m_Flag >> (--m_Bits));
+			}
+		};
+
+		template<typename Archive>
+		static Archive& save(Archive& ar, const beam::Lelantus::Proof& v)
+		{
+			ar
+				& v.m_Cfg.n
+				& v.m_Cfg.M
+				& v.m_Part1.m_SpendPk.m_X
+				& v.m_Part1.m_A.m_X
+				& v.m_Part1.m_B.m_X
+				& v.m_Part1.m_C.m_X
+				& v.m_Part1.m_D.m_X
+				& v.m_Part1.m_Nonce.m_X
+				& v.m_Part2.m_zA
+				& v.m_Part2.m_zC
+				& v.m_Part2.m_zR
+				& v.m_Part2.m_ProofG
+				& v.m_Part2.m_ProofH;
+
+			assert(v.m_Part1.m_vG.size() >= v.m_Cfg.M);
+			for (uint32_t i = 0; i < v.m_Cfg.M; i++)
+				ar & v.m_Part1.m_vG[i].m_X;
+
+			MultibitVar<Archive> mb(ar);
+
+			mb.put(v.m_Part1.m_SpendPk.m_Y);
+			mb.put(v.m_Part1.m_A.m_Y);
+			mb.put(v.m_Part1.m_B.m_Y);
+			mb.put(v.m_Part1.m_C.m_Y);
+			mb.put(v.m_Part1.m_D.m_Y);
+			mb.put(v.m_Part1.m_Nonce.m_Y);
+
+			for (uint32_t i = 0; i < v.m_Cfg.M; i++)
+				mb.put(v.m_Part1.m_vG[i].m_Y);
+
+			mb.Flush();
+
+			uint32_t nSizeF = v.m_Cfg.get_F();
+			assert(v.m_Part2.m_vF.size() >= nSizeF);
+
+			for (uint32_t i = 0; i < nSizeF; i++)
+				ar & v.m_Part2.m_vF[i];
+
+			return ar;
+		}
+
+		template<typename Archive>
+		static Archive& load(Archive& ar, beam::Lelantus::Proof& v)
+		{
+			ar
+				& v.m_Cfg.n
+				& v.m_Cfg.M
+				& v.m_Part1.m_SpendPk.m_X
+				& v.m_Part1.m_A.m_X
+				& v.m_Part1.m_B.m_X
+				& v.m_Part1.m_C.m_X
+				& v.m_Part1.m_D.m_X
+				& v.m_Part1.m_Nonce.m_X
+				& v.m_Part2.m_zA
+				& v.m_Part2.m_zC
+				& v.m_Part2.m_zR
+				& v.m_Part2.m_ProofG
+				& v.m_Part2.m_ProofH;
+
+			if (!v.m_Cfg.get_N())
+				throw std::runtime_error("L/Cfg");
+
+			v.m_Part1.m_vG.resize(v.m_Cfg.M);
+			for (uint32_t i = 0; i < v.m_Cfg.M; i++)
+				ar & v.m_Part1.m_vG[i].m_X;
+
+			MultibitVar<Archive> mb(ar);
+
+			mb.get(v.m_Part1.m_SpendPk.m_Y);
+			mb.get(v.m_Part1.m_A.m_Y);
+			mb.get(v.m_Part1.m_B.m_Y);
+			mb.get(v.m_Part1.m_C.m_Y);
+			mb.get(v.m_Part1.m_D.m_Y);
+			mb.get(v.m_Part1.m_Nonce.m_Y);
+
+			for (uint32_t i = 0; i < v.m_Cfg.M; i++)
+				mb.get(v.m_Part1.m_vG[i].m_Y);
+
+			uint32_t nSizeF = v.m_Cfg.get_F();
+			v.m_Part2.m_vF.resize(nSizeF);
+
+			for (uint32_t i = 0; i < nSizeF; i++)
+				ar & v.m_Part2.m_vF[i];
+
+			return ar;
+		}
+
+		/// beam::Output::Shielded serialization
+		template<typename Archive>
+		static Archive& save(Archive& ar, const beam::Output::Shielded& x)
+		{
+			uint8_t nFlags =
+				(x.m_SerialPub.m_Y ? 1 : 0) |
+				(x.m_Signature.m_NoncePub.m_Y ? 2 : 0);
+
+			ar
+				& nFlags
+				& x.m_SerialPub.m_X
+				& x.m_Signature.m_NoncePub.m_X
+				& x.m_Signature.m_k
+				& x.m_kSer;
+
+			return ar;
+		}
+
+		template<typename Archive>
+		static Archive& load(Archive& ar, beam::Output::Shielded& x)
+		{
+			uint8_t nFlags;
+
+			ar
+				& nFlags
+				& x.m_SerialPub.m_X
+				& x.m_Signature.m_NoncePub.m_X
+				& x.m_Signature.m_k
+				& x.m_kSer;
+
+			x.m_SerialPub.m_Y = (1 & nFlags);
+			x.m_Signature.m_NoncePub.m_Y = 0 != (2 & nFlags);
+
+			return ar;
+		}
 
         /// beam::Output serialization
         template<typename Archive>
         static Archive& save(Archive& ar, const beam::Output& output)
         {
+			uint8_t nFlags2 =
+				(output.m_pShielded ? 1 : 0);
+
 			uint8_t nFlags =
 				(output.m_Commitment.m_Y ? 1 : 0) |
 				(output.m_Coinbase ? 2 : 0) |
@@ -557,7 +784,8 @@ namespace detail
 				(output.m_pPublic ? 8 : 0) |
 				(output.m_Incubation ? 0x10 : 0) |
 				((output.m_AssetID == beam::Zero) ? 0 : 0x20) |
-				(output.m_RecoveryOnly ? 0x40 : 0);
+				(output.m_RecoveryOnly ? 0x40 : 0) |
+				(nFlags2 ? 0x80 : 0);
 
 			ar
 				& nFlags
@@ -574,6 +802,14 @@ namespace detail
 
 			if (0x20 & nFlags)
 				ar & output.m_AssetID;
+
+			if (nFlags2)
+			{
+				ar & nFlags2;
+
+				if ((1 & nFlags2) && !output.m_RecoveryOnly)
+					ar & *output.m_pShielded;
+			}
 
             return ar;
         }
@@ -609,6 +845,21 @@ namespace detail
 				ar & output.m_AssetID;
 			else
 				output.m_AssetID = beam::Zero;
+
+			if (0x80 & nFlags)
+			{
+				uint8_t nFlags2;
+				ar & nFlags2;
+
+				if (1 & nFlags2)
+				{
+					output.m_pShielded = std::make_unique<beam::Output::Shielded>();
+					if (output.m_RecoveryOnly)
+						ZeroObject(*output.m_pShielded);
+					else
+						ar & *output.m_pShielded;
+				}
+			}
 
             return ar;
         }

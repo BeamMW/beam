@@ -121,7 +121,14 @@ ColumnLayout {
         frameVisible: false
         selectionMode: SelectionMode.NoSelection
         backgroundVisible: false
-        model: viewModel.allUtxos
+        model: SortFilterProxyModel {
+            sortOrder: tableView.sortIndicatorOrder
+            sortCaseSensitivity: Qt.CaseInsensitive
+            sortRole: tableView.getColumn(tableView.sortIndicatorColumn).role + "Sort"
+            source: viewModel.allUtxos
+            filterSyntax: SortFilterProxyModel.Wildcard
+            filterCaseSensitivity: Qt.CaseInsensitive
+        }
         sortIndicatorVisible: true
         sortIndicatorColumn: 1
         sortIndicatorOrder: Qt.DescendingOrder
@@ -134,22 +141,10 @@ ColumnLayout {
             }
         }
 
-        Binding{
-            target: viewModel
-            property: "sortRole"
-            value: tableView.getColumn(tableView.sortIndicatorColumn).role
-        }
-
-        Binding{
-            target: viewModel
-            property: "sortOrder"
-            value: tableView.sortIndicatorOrder
-        }
-
         property double columnResizeRatio: tableView.width / 800
 
         TableViewColumn {
-            role: viewModel.amountRole
+            role: "amount"
             //% "Amount"
             title: qsTrId("general-amount")
             width: 300 * tableView.columnResizeRatio
@@ -157,7 +152,7 @@ ColumnLayout {
         }
 
         TableViewColumn {
-            role: viewModel.maturityRole
+            role: "maturity"
             //% "Maturity"
             title: qsTrId("utxo-head-maturity")
             width: 150 * tableView.columnResizeRatio
@@ -165,7 +160,7 @@ ColumnLayout {
         }
 
         TableViewColumn {
-            role: viewModel.statusRole
+            role: "status"
             //% "Status"
             title: qsTrId("general-status")
             width: 200 * tableView.columnResizeRatio
@@ -264,7 +259,7 @@ ColumnLayout {
 
         TableViewColumn {
             id: typeColumn
-            role: viewModel.typeRole
+            role: "type"
             //% "Type"
             title: qsTrId("utxo-head-type")
             width: tableView.getAdjustedColumnWidth(typeColumn)//150 * columnResizeRatio

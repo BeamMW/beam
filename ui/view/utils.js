@@ -71,13 +71,13 @@ function handleExternalLink(mouse, element, settings, dialog) {
 
 function calcDisplayRate(aiReceive, aiSend, numOnly) {
     // ai[X] = amount input control
-    var cr = aiReceive.currency
-    var cs = aiSend.currency
-    if (cr == cs) return {rate: 1, displayRate: "1", error: false}
-
     var ams = aiSend.amount
     var amr = aiReceive.amount
     if (ams == 0 || amr == 0) return {rate: 0, displayRate: "", error: false}
+
+    var cr = aiReceive.currency
+    var cs = aiSend.currency
+    if (cr == cs && ams == amr) return {rate: 1, displayRate: "1", error: false}
 
     var minRate     = 0.00000001
     var rate        = amr / ams
@@ -92,11 +92,12 @@ function calcDisplayRate(aiReceive, aiSend, numOnly) {
     return {
         rate: rate,
         displayRate: displayRate,
-        error: rate < minRate,
+        error: rate < minRate || (cs == cr && rate != 1),
         errorText: rate < minRate
             //% "Rate cannot be less than %1"
             ? qsTrId("invalid-rate-min").arg(Utils.number2LocaleFixed(minRate))
-            : undefined,
+            //% "Invalid rate"
+            : (cs == cr && rate != 1) ? qsTrId("swap-invalid-rate") : undefined,
         minRate: minRate,
         minDisplayRate: format(minRate)
     }
