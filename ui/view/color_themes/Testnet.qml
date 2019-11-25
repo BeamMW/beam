@@ -13,8 +13,8 @@ AbstractColors {
     property color validator_error:       "#ff625c"
 
     property color navigation_background: "#000000"
-    property color background_main:       "#1e172c"
-    property color background_main_top:   "#035b8f"
+    property color background_main:       "#1a132d"
+    property color background_main_top:   "#4c3677"
     property color background_second:     Qt.rgba(255, 255, 255, 0.05)
     property color background_row_even:   "#07ffffff"
     property color background_row_odd:    "#0cffffff"
@@ -23,7 +23,7 @@ AbstractColors {
     property color background_popup:      "#342e41"
     property color row_selected:          "#534e5e"
     property color separator:             "#342e41"
-    property color table_header:          Qt.rgba(0, 246, 210, 0.1)
+    property color table_header:          "#3e384a"
 
     property color active :               "#00f6d2" // bright-teal
     property color passive:               "#d6d9e0"  // silver
@@ -33,7 +33,7 @@ AbstractColors {
     property string linkStyle: "<style>a:link {color: '#00f6d2'; text-decoration: none;}</style>"
     property string explorerUrl: "https://testnet.explorer.beam.mw/"
 
-    property color swapCurrencyPaneGrRight:     "#00458f"
+    property color swapCurrencyPaneGrRight:     "#45316c"
     property color swapCurrencyPaneGrLeftBEAM:  "#00f6d2"
     property color swapCurrencyPaneGrLeftBTC:   "#fcaf38"
     property color swapCurrencyPaneGrLeftLTC:   "#bebebe"
