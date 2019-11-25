@@ -95,6 +95,7 @@ namespace beam
     extern const char kErrorUnableSendZeroCoin[];
     extern const char kErrorTxStatusInvalid[];
     extern const char kErrorTxIdUnknown[];
+    extern const char kErrorImportPathInvalid[];
 
     // Swap Tx statuses
     extern const char kSwapTxStatusInitial[];
