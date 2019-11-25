@@ -126,8 +126,10 @@ namespace beam::wallet
         return PublicKeys();
     }
 
-    ECC::Point TrezorKeyKeeper::GeneratePublicKeySync(const Key::IDV& id, bool createCoinKey)
+    ECC::Point TrezorKeyKeeper::GeneratePublicKeySync(const Key::IDV& id, const AssetID& assetId, bool createCoinKey)
     {
+        // TODO:ASSETS implement
+        assert(assetId == Zero);
         return m_hwWallet.generateKeySync(id, createCoinKey);
     }
 

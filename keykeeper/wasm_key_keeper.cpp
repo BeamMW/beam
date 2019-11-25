@@ -131,7 +131,8 @@ struct KeyKeeper
         }
 #endif
 
-        return to_base64(_impl->GeneratePublicKeySync(from_base64<ECC::Key::IDV>(kidv), createCoinKey));
+        // TODO:ASSETS implement
+        return to_base64(_impl->GeneratePublicKeySync(from_base64<ECC::Key::IDV>(kidv), Zero, createCoinKey));
     }
 
     std::string GetOwnerKey(const std::string& pass) const
@@ -237,7 +238,8 @@ struct KeyKeeper
 
                     for (const auto& output : outputCoins)
                     {
-                        if (commitment.Import(_impl->GeneratePublicKeySync(output, true)))
+                        // TODO:ASSETS implement
+                        if (commitment.Import(_impl->GeneratePublicKeySync(output, Zero, true)))
                         {
                             publicExcess += commitment;
                         }
@@ -246,7 +248,8 @@ struct KeyKeeper
                     publicExcess = -publicExcess;
                     for (const auto& input : inputCoins)
                     {
-                        if (commitment.Import(_impl->GeneratePublicKeySync(input, true)))
+                        // TODO:ASSETS implement
+                        if (commitment.Import(_impl->GeneratePublicKeySync(input, Zero, true)))
                         {
                             publicExcess += commitment;
                         }

@@ -1952,7 +1952,7 @@ void TestHWTransaction(IPrivateKeyKeeper& pkk)
 
             for (const auto& output : outputCoins)
             {
-                if (commitment.Import(pkk.GeneratePublicKeySync(output, true)))
+                if (commitment.Import(pkk.GeneratePublicKeySync(output, Zero, true)))
                 {
                     publicExcess += commitment;
                 }
@@ -1961,7 +1961,7 @@ void TestHWTransaction(IPrivateKeyKeeper& pkk)
             publicExcess = -publicExcess;
             for (const auto& input : inputCoins)
             {
-                if (commitment.Import(pkk.GeneratePublicKeySync(input, true)))
+                if (commitment.Import(pkk.GeneratePublicKeySync(input, Zero, true)))
                 {
                     publicExcess += commitment;
                 }

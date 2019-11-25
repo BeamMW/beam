@@ -168,7 +168,7 @@ namespace beam::wallet
 
         uint32_t SyncRemains() const;
         void CheckSyncDone();
-        void getUtxoProof(const Coin::ID&);
+        void getUtxoProof(const Coin&);
         void report_sync_progress();
         void notifySyncProgress();
         void UpdateTransaction(const TxID& txID);

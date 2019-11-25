@@ -198,17 +198,18 @@ namespace beam::wallet
         return result;
     }
 
-    ECC::Point LocalPrivateKeyKeeper::GeneratePublicKeySync(const Key::IDV& id, bool createCoinKey)
+    ECC::Point LocalPrivateKeyKeeper::GeneratePublicKeySync(const Key::IDV& id, const AssetID& assetId, bool createCoinKey)
     {
         Scalar::Native secretKey;
         Point publicKey;
 
         if (createCoinKey)
         {
-            SwitchCommitment().Create(secretKey, publicKey, *GetChildKdf(id), id);
+            SwitchCommitment(&assetId).Create(secretKey, publicKey, *GetChildKdf(id), id);
         }
         else
         {
+            assert(assetId == Zero);
             m_MasterKdf->DeriveKey(secretKey, id);
             publicKey = Context::get().G * secretKey;
         }
