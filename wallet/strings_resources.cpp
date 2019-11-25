@@ -97,6 +97,7 @@ namespace beam
     const char kErrorTxStatusInvalid[] = "Transaction could not be deleted. Invalid transaction status.";
     const char kErrorTxIdUnknown[] = "Unknown transaction ID.";
     const char kErrorImportPathInvalid[] = "Operation failed: provided path \"%1%\" is not valid";
+    const char kErrorFileLocationParamReqired[] = "Failed, --file_location param required";
 
     // Swap Tx statuses
     const char kSwapTxStatusInitial[] = "initial";
