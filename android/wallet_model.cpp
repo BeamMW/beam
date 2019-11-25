@@ -61,6 +61,37 @@ namespace
 
         return utxos;
     }
+
+    jobjectArray convertAddressesToJObject(JNIEnv* env, const std::vector<WalletAddress>& addresses)
+    {
+        jobjectArray addrArray = 0;
+
+        if (!addresses.empty())
+        {
+            addrArray = env->NewObjectArray(static_cast<jsize>(addresses.size()), WalletAddressClass, NULL);
+
+            for (int i = 0; i < addresses.size(); ++i)
+            {
+                const auto& addrRef = addresses[i];
+
+                jobject addr = env->AllocObject(WalletAddressClass);
+
+                {
+                    setStringField(env, WalletAddressClass, addr, "walletID", to_string(addrRef.m_walletID));
+                    setStringField(env, WalletAddressClass, addr, "label", addrRef.m_label);
+                    setStringField(env, WalletAddressClass, addr, "category", addrRef.m_category);
+                    setLongField(env, WalletAddressClass, addr, "createTime", addrRef.m_createTime);
+                    setLongField(env, WalletAddressClass, addr, "duration", addrRef.m_duration);
+                    setLongField(env, WalletAddressClass, addr, "own", addrRef.m_OwnID);
+                }
+
+                env->SetObjectArrayElement(addrArray, i, addr);
+
+                env->DeleteLocalRef(addr);
+            }
+        }
+        return addrArray;
+    }
 }
 
 WalletModel::WalletModel(IWalletDB::Ptr walletDB, IPrivateKeyKeeper::Ptr keyKeeper, const std::string& nodeAddr, Reactor::Ptr reactor)
@@ -175,7 +206,7 @@ void WalletModel::onChangeCalculated(Amount change)
     env->CallStaticVoidMethod(WalletListenerClass, callback, change);
 }
 
-void WalletModel::onAllUtxoChanged(const std::vector<Coin>& utxosVec)
+void WalletModel::onAllUtxoChanged(ChangeAction action, const std::vector<Coin>& utxosVec)
 {
     LOG_DEBUG() << "onAllUtxoChanged()";
 
@@ -183,10 +214,25 @@ void WalletModel::onAllUtxoChanged(const std::vector<Coin>& utxosVec)
 
     jobjectArray utxos = convertCoinsToJObject(env, utxosVec);
 
-    jmethodID callback = env->GetStaticMethodID(WalletListenerClass, "onAllUtxoChanged", "([L" BEAM_JAVA_PATH "/entities/dto/UtxoDTO;)V");
-    env->CallStaticVoidMethod(WalletListenerClass, callback, utxos);
+    jmethodID callback = env->GetStaticMethodID(WalletListenerClass, "onAllUtxoChanged", "(I[L" BEAM_JAVA_PATH "/entities/dto/UtxoDTO;)V");
+    env->CallStaticVoidMethod(WalletListenerClass, callback, action, utxos);
 
     env->DeleteLocalRef(utxos);
+}
+
+void WalletModel::onAddressesChanged(beam::wallet::ChangeAction action, const std::vector<beam::wallet::WalletAddress>& addresses)
+{
+    LOG_DEBUG() << "onAddressesChanged()";
+
+    JNIEnv* env = Android_JNI_getEnv();
+
+    jmethodID callback = env->GetStaticMethodID(WalletListenerClass, "onAddressesChanged", "(I[L" BEAM_JAVA_PATH "/entities/dto/WalletAddressDTO;)V");
+
+    jobjectArray addrArray = convertAddressesToJObject(env, addresses);
+
+    env->CallStaticVoidMethod(WalletListenerClass, callback, action, addrArray);
+
+    env->DeleteLocalRef(addrArray);
 }
 
 void WalletModel::onAddresses(bool own, const std::vector<WalletAddress>& addresses)
@@ -195,32 +241,7 @@ void WalletModel::onAddresses(bool own, const std::vector<WalletAddress>& addres
 
     JNIEnv* env = Android_JNI_getEnv();
 
-    jobjectArray addrArray = 0;
-
-    if (!addresses.empty())
-    {
-        addrArray = env->NewObjectArray(static_cast<jsize>(addresses.size()), WalletAddressClass, NULL);
-
-        for (int i = 0; i < addresses.size(); ++i)
-        {
-            const auto& addrRef = addresses[i];
-
-            jobject addr = env->AllocObject(WalletAddressClass);
-
-            {
-                setStringField(env, WalletAddressClass, addr, "walletID", to_string(addrRef.m_walletID));
-                setStringField(env, WalletAddressClass, addr, "label", addrRef.m_label);
-                setStringField(env, WalletAddressClass, addr, "category", addrRef.m_category);
-                setLongField(env, WalletAddressClass, addr, "createTime", addrRef.m_createTime);
-                setLongField(env, WalletAddressClass, addr, "duration", addrRef.m_duration);
-                setLongField(env, WalletAddressClass, addr, "own", addrRef.m_OwnID);
-            }
-
-            env->SetObjectArrayElement(addrArray, i, addr);
-
-            env->DeleteLocalRef(addr);
-        }
-    }
+    jobjectArray addrArray = convertAddressesToJObject(env, addresses);
 
     jmethodID callback = env->GetStaticMethodID(WalletListenerClass, "onAddresses", "(Z[L" BEAM_JAVA_PATH "/entities/dto/WalletAddressDTO;)V");
     env->CallStaticVoidMethod(WalletListenerClass, callback, own, addrArray);
@@ -256,6 +277,13 @@ void WalletModel::onGeneratedNewAddress(const WalletAddress& address)
     env->CallStaticVoidMethod(WalletListenerClass, callback, addr);
 
     env->DeleteLocalRef(addr);
+}
+
+void WalletModel::onSwapParamsLoaded(const beam::ByteBuffer& params)
+{
+    LOG_DEBUG() << "onSwapParamsLoaded()";
+
+    // TODO
 }
 
 void WalletModel::onNewAddressFailed()

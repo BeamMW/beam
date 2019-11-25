@@ -918,7 +918,7 @@ namespace
     }
 
     template<typename Settings>
-    bool ParseElectrumSettings(const po::variables_map& vm, uint8_t addressVersion, Settings& settings)
+    bool ParseElectrumSettings(const po::variables_map& vm, Settings& settings)
     {
         if (vm.count(cli::ELECTRUM_SEED) || vm.count(cli::ELECTRUM_ADDR) || vm.count(cli::GENERATE_ELECTRUM_SEED))
         {
@@ -970,8 +970,6 @@ namespace
 
                 LOG_INFO() << "seed = " << strSeed;
             }
-
-            electrumSettings.m_addressVersion = addressVersion;
 
             settings.SetElectrumConnectionOptions(electrumSettings);
 
@@ -1034,7 +1032,7 @@ namespace
     }
 
     template<typename SettingsProvider, typename Settings, typename CoreSettings, typename ElectrumSettings>
-    int HandleSwapCoin(const po::variables_map& vm, const IWalletDB::Ptr& walletDB, uint8_t addressVersion)
+    int HandleSwapCoin(const po::variables_map& vm, const IWalletDB::Ptr& walletDB)
     {
         SettingsProvider settingsProvider{ walletDB };
         settingsProvider.Initialize();
@@ -1054,14 +1052,14 @@ namespace
                         if (settings.GetElectrumConnectionOptions().IsInitialized())
                         {
                             settings.ChangeConnectionType(bitcoin::ISettings::ConnectionType::Electrum);
+                            settings.SetConnectionOptions(CoreSettings{});
                         }
                         else
                         {
-                            settings.ChangeConnectionType(bitcoin::ISettings::ConnectionType::None);
+                            settings = Settings{};
                         }
                     }
 
-                    settings.SetConnectionOptions(CoreSettings{});
                     settingsProvider.SetSettings(settings);
                     return 0;
                 }
@@ -1075,14 +1073,14 @@ namespace
                         if (settings.GetConnectionOptions().IsInitialized())
                         {
                             settings.ChangeConnectionType(bitcoin::ISettings::ConnectionType::Core);
+                            settings.SetElectrumConnectionOptions(ElectrumSettings{});
                         }
                         else
                         {
-                            settings.ChangeConnectionType(bitcoin::ISettings::ConnectionType::None);
+                            settings = Settings{};
                         }
                     }
 
-                    settings.SetElectrumConnectionOptions(ElectrumSettings{});
                     settingsProvider.SetSettings(settings);
                     return 0;
                 }
@@ -1096,7 +1094,7 @@ namespace
         bool isChanged = false;
 
         isChanged |= ParseSwapSettings(vm, settings);
-        isChanged |= ParseElectrumSettings(vm, addressVersion, settings);
+        isChanged |= ParseElectrumSettings(vm, settings);
 
         if (!isChanged && !settings.IsInitialized())
         {
@@ -1293,18 +1291,7 @@ namespace
 
         // TODO:SWAP use async callbacks or IWalletObserver?
         Height minHeight = walletDB->getCurrentHeight();
-        auto swapTxParameters = InitNewSwap(senderAddress.m_walletID, minHeight, amount, fee, swapCoin, swapAmount, isBeamSide);
-        if (isBeamSide)
-        {
-            swapTxParameters.SetParameter(TxParameterID::Fee, fee, SubTxIndex::BEAM_LOCK_TX);
-            swapTxParameters.SetParameter(TxParameterID::Fee, fee, SubTxIndex::BEAM_REFUND_TX);
-            swapTxParameters.SetParameter(TxParameterID::Fee, feeRate, SubTxIndex::REDEEM_TX);
-        }
-        else
-        {
-            swapTxParameters.SetParameter(TxParameterID::Fee, fee, SubTxIndex::BEAM_REDEEM_TX);
-            swapTxParameters.SetParameter(TxParameterID::Fee, feeRate, SubTxIndex::LOCK_TX);
-        }
+        auto swapTxParameters = InitNewSwap(senderAddress.m_walletID, minHeight, amount, fee, swapCoin, swapAmount, feeRate, isBeamSide);
 
         boost::optional<TxID> currentTxID = wallet.StartTransaction(swapTxParameters);
         
@@ -1319,6 +1306,7 @@ namespace
         {
             swapTxParameters.DeleteParameter(TxParameterID::Fee, SubTxIndex::BEAM_REDEEM_TX);
             swapTxParameters.DeleteParameter(TxParameterID::Fee, SubTxIndex::LOCK_TX);
+            swapTxParameters.DeleteParameter(TxParameterID::Fee, SubTxIndex::REFUND_TX);
         }
 
         // print swap tx token
@@ -1465,6 +1453,7 @@ namespace
         {
             swapTxParameters->SetParameter(TxParameterID::Fee, fee, SubTxIndex::BEAM_REDEEM_TX);
             swapTxParameters->SetParameter(TxParameterID::Fee, swapFeeRate, SubTxIndex::LOCK_TX);
+            swapTxParameters->SetParameter(TxParameterID::Fee, swapFeeRate, SubTxIndex::REFUND_TX);
         }
 
         return wallet.StartTransaction(*swapTxParameters);
@@ -1869,18 +1858,15 @@ int main_impl(int argc, char* argv[])
                             {
                             case beam::wallet::AtomicSwapCoin::Bitcoin:
                             {
-                                return HandleSwapCoin<bitcoin::SettingsProvider, bitcoin::Settings, bitcoin::BitcoinCoreSettings, bitcoin::ElectrumSettings>
-                                    (vm, walletDB, bitcoin::getAddressVersion());
+                                return HandleSwapCoin<bitcoin::SettingsProvider, bitcoin::Settings, bitcoin::BitcoinCoreSettings, bitcoin::ElectrumSettings>(vm, walletDB);
                             }
                             case beam::wallet::AtomicSwapCoin::Litecoin:
                             {
-                                return HandleSwapCoin<litecoin::SettingsProvider, litecoin::Settings, litecoin::LitecoinCoreSettings, litecoin::ElectrumSettings>
-                                    (vm, walletDB, litecoin::getAddressVersion());
+                                return HandleSwapCoin<litecoin::SettingsProvider, litecoin::Settings, litecoin::LitecoinCoreSettings, litecoin::ElectrumSettings>(vm, walletDB);
                             }
                             case beam::wallet::AtomicSwapCoin::Qtum:
                             {
-                                return HandleSwapCoin<qtum::SettingsProvider, qtum::Settings, qtum::QtumCoreSettings, qtum::ElectrumSettings>
-                                    (vm, walletDB, qtum::getAddressVersion());
+                                return HandleSwapCoin<qtum::SettingsProvider, qtum::Settings, qtum::QtumCoreSettings, qtum::ElectrumSettings>(vm, walletDB);
                             }
                             default:
                             {
@@ -1993,6 +1979,18 @@ int main_impl(int argc, char* argv[])
                                 LOG_WARNING() << boost::format(kErrorNodePoolPeriodTooMuch) % uint32_t(responceTime_s / 3600);
                             }
                             nnet->m_Cfg.m_vNodes.push_back(nodeAddress);
+                            nnet->m_Cfg.m_UseProxy = vm[cli::PROXY_USE].as<bool>();
+                            if (nnet->m_Cfg.m_UseProxy)
+                            {
+                                string proxyURI = vm[cli::PROXY_ADDRESS].as<string>();
+                                io::Address proxyAddr;
+                                if (!proxyAddr.resolve(proxyURI.c_str()))
+                                {
+                                    LOG_ERROR() << boost::format(kErrorNodeAddrUnresolved) % nodeURI;
+                                    return -1;
+                                }
+                                nnet->m_Cfg.m_ProxyAddr = proxyAddr;
+                            }
                             nnet->Connect();
                             wallet.AddMessageEndpoint(make_shared<WalletNetworkViaBbs>(wallet, nnet, walletDB, keyKeeper));
                             wallet.SetNodeEndpoint(nnet);
@@ -2084,7 +2082,7 @@ int main_impl(int argc, char* argv[])
 
                         if (command == cli::WALLET_RESCAN)
                         {
-                            wallet.Refresh();
+                            wallet.Rescan();
                         }
                     }
                     io::Reactor::get_Current().run();

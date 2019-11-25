@@ -15,6 +15,7 @@
 #pragma once
 
 #include "../core/radixtree.h"
+#include "../core/proto.h"
 #include "../utility/dvector.h"
 #include "db.h"
 #include "txpool.h"
@@ -62,7 +63,7 @@ class NodeProcessor
 	bool HandleBlockElement(const Output&, BlockInterpretCtx&);
 	bool HandleShieldedElement(const ECC::Point&, bool bOutp, bool bFwd);
 
-	void RecognizeUtxos(TxBase::IReader&&, Height h);
+	void RecognizeUtxos(TxBase::IReader&&, Height h, TxoID nShielded);
 
 	static uint64_t ProcessKrnMmr(Merkle::Mmr&, TxBase::IReader&&, const Merkle::Hash& idKrn, TxKernel::Ptr* ppRes);
 
@@ -137,6 +138,8 @@ class NodeProcessor
 
 	void DeleteBlocksInRange(const NodeDB::StateID& sidTop, Height hStop);
 	void DeleteBlock(uint64_t);
+
+	struct BlockShieldedData;
 
 public:
 
@@ -281,12 +284,8 @@ public:
 	bool ValidateAndSummarize(TxBase::Context&, const TxBase&, TxBase::IReader&&);
 	bool VerifyBlock(const Block::BodyBase&, TxBase::IReader&&, const HeightRange&);
 
-	struct IKeyWalker {
-		virtual bool OnKey(Key::IPKdf&, Key::Index) = 0;
-	};
-	virtual bool EnumViewerKeys(IKeyWalker&) { return true; }
-
-	bool Recover(Key::IDV&, const Output&, Height h);
+	virtual Key::IPKdf* get_ViewerKey() { return nullptr; }
+	virtual const Output::Shielded::Viewer* get_ViewerShieldedKey() { return nullptr; }
 
 	void RescanOwnedTxos();
 
@@ -346,8 +345,8 @@ public:
 	struct ITxoRecover
 		:public ITxoWalker
 	{
-		NodeProcessor& m_This;
-		ITxoRecover(NodeProcessor& x) :m_This(x) {}
+		Key::IPKdf& m_Key;
+		ITxoRecover(Key::IPKdf& key) :m_Key(key) {}
 
 		virtual bool OnTxo(const NodeDB::WalkerTxo&, Height hCreate, Output&) override;
 		virtual bool OnTxo(const NodeDB::WalkerTxo&, Height hCreate, Output&, const Key::IDV&) = 0;
@@ -369,7 +368,13 @@ public:
 			ECC::Key::IDV::Packed m_Kidv;
 			uintBigFor<Height>::Type m_Maturity;
 			AssetID m_AssetID;
-			uint8_t m_Added;
+			uint8_t m_Flags;
+		};
+
+		struct ValueS
+			:public Value
+		{
+			proto::UtxoEvent::Shielded m_Shielded;
 		};
 	};
 #pragma pack (pop)

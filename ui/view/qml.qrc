@@ -17,6 +17,8 @@
         <file>controls/TableItem.qml</file>
         <file>controls/ContextMenu.qml</file>
         <file>controls/DefaultButton.qml</file>
+        <file>controls/EditAddress.qml</file>
+        <file>controls/ExpandableRowDelegate.qml</file>
         <file>controls/PrimaryButton.qml</file>
         <file>controls/CustomButton.qml</file>
         <file>controls/ConfirmationDialog.qml</file>
@@ -85,6 +87,7 @@
         <file>assets/bg.svg</file>
         <file>assets/b-grey.svg</file>
         <file>assets/b-red.svg</file>
+        <file>assets/icon-attention.svg</file>
         <file>assets/icon-dashboard.svg</file>
         <file>assets/icon-dashboard-active.svg</file>
         <file>assets/icon-addresses.svg</file>
@@ -182,7 +185,6 @@
         <file>controls/SearchBox.qml</file>
         <file>assets/icon-maturing.svg</file>
         <file>assets/icon-padlock.svg</file>
-        <file>controls/EditAddress.qml</file>
         <file>assets/icon-repeat.svg</file>
         <file>assets/icon-repeat-white.svg</file>
         <file>assets/icon-save.svg</file>

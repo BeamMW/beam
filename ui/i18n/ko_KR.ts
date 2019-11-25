@@ -224,7 +224,6 @@
     </message>
     <message id="wallet-txs-status-cancelled">
         <source>cancelled</source>
-        <oldsource>canceled</oldsource>
         <translation type="unfinished">cancelled</translation>
     </message>
     <message id="wallet-txs-status-expired">
@@ -995,8 +994,11 @@
 •  must contain at least one lowercase letter
 •  must contain at least one uppercase letter
 •  must contain at least one number</source>
-        <oldsource>Strong password needs to meet the following requirements:\n•  the length must be at least 10 characters\n•  must contain at least one lowercase letter\n•  must contain at least one uppercase letter\n•  must contain at least one number</oldsource>
-        <translation type="unfinished">보안성이 강한 비밀번호를 만들기 위해서는 아래의 조건들을 충족시켜야 합니다 : \n• 최소한 10개의 글자로 이루어져야합니다.\n• 최소한 1개의 소문자가 포함되어야 합니다.\n• 최소한 1개의 대문자가 포함되어야 합니다.\n• 최소한 1개의 숫자가 포함되어야 합니다.</translation>
+        <translation>보안성이 강한 비밀번호를 만들기 위해서는 아래의 조건들을 충족시켜야 합니다 : 
+• 최소한 10개의 글자로 이루어져야합니다.
+• 최소한 1개의 소문자가 포함되어야 합니다.
+• 최소한 1개의 대문자가 포함되어야 합니다.
+• 최소한 1개의 숫자가 포함되어야 합니다.</translation>
     </message>
     <message id="start-open-caps-warning">
         <source>Caps lock is on!</source>
@@ -1217,8 +1219,7 @@
     </message>
     <message id="general-fee-rate">
         <source>%1 Transaction fee rate</source>
-        <oldsource>Transaction fee rate</oldsource>
-        <translation type="unfinished">Transaction fee rate</translation>
+        <translation>Transaction fee rate</translation>
     </message>
     <message id="general-fee-fail">
         <source>The minimum fee is %1 %2</source>
@@ -1254,24 +1255,20 @@
     </message>
     <message id="swap-beta-message">
         <source>Atomic Swaps functionality is Beta at the moment. We recommend you not to send large amounts.</source>
-        <oldsource>Atomic Swap functionality is Beta at the moment. We recommend you not to send large amounts.</oldsource>
-        <translation type="unfinished">아토믹 스왑은 현재 베타입니다. 큰 금액은 전송하지 않는걸 권장합니다.</translation>
+        <translation>아토믹 스왑은 현재 베타입니다. 큰 금액은 전송하지 않는걸 권장합니다.</translation>
     </message>
     <message id="swap-beta-title">
         <source>Atomic Swaps are in BETA</source>
-        <oldsource>Atomic Swap is in BETA</oldsource>
-        <translation type="unfinished">아토믹 스왑은 베타입니다</translation>
+        <translation>아토믹 스왑은 베타입니다</translation>
     </message>
     <message id="swap-na-message">
         <source>You do not have any 3rd-party currencies connected.
 Update your settings and try again.</source>
-        <oldsource>You do not have any 3rd-party currencies connected.\nUpdate your settings and try again.</oldsource>
-        <translation type="unfinished">서드파티에 연결된 화폐가 없습니다. \n세팅을 업데이트한 후 재시도 하세요.</translation>
+        <translation>서드파티에 연결된 화폐가 없습니다. \n세팅을 업데이트한 후 재시도 하세요.</translation>
     </message>
     <message id="wallet-receive-swap-title">
         <source>Create a Swap Offer</source>
-        <oldsource>Create swap offer</oldsource>
-        <translation type="unfinished">스왑 오퍼 만들기</translation>
+        <translation>스왑 오퍼 만들기</translation>
     </message>
     <message id="wallet-receive-addr-message">
         <source>Send this address to the sender over an external secure channel or scan the QR code</source>
@@ -1307,18 +1304,15 @@ Update your settings and try again.</source>
     </message>
     <message id="wallet-swap-token-message">
         <source>Send this token to the sender over a secure external channel</source>
-        <oldsource>Send this token to the sender over an external secure channel</oldsource>
-        <translation type="unfinished">해당 토큰을 외부의 보안 채널을 이용해 발송인에게로 보내기</translation>
+        <translation>해당 토큰을 외부의 보안 채널을 이용해 발송인에게로 보내기</translation>
     </message>
     <message id="wallet-receive-swap-publish">
         <source>publish offer</source>
-        <oldsource>publish transaction token</oldsource>
-        <translation type="unfinished">퍼블릭 트랜잭션 토큰</translation>
+        <translation>퍼블릭 트랜잭션 토큰</translation>
     </message>
     <message id="wallet-send-swap-title">
         <source>Accept Swap Offer</source>
-        <oldsource>Swap currencies</oldsource>
-        <translation type="unfinished">화폐 스왑</translation>
+        <translation>화폐 스왑</translation>
     </message>
     <message id="wallet-send-invalid-token">
         <source>Invalid swap token</source>
@@ -1326,8 +1320,7 @@ Update your settings and try again.</source>
     </message>
     <message id="wallet-send-invalid-address-or-token">
         <source>Invalid wallet address</source>
-        <oldsource>Invalid wallet address or swap token</oldsource>
-        <translation type="unfinished">Invalid wallet address or swap token</translation>
+        <translation>Invalid wallet address or swap token</translation>
     </message>
     <message id="general-comment-local">
         <source>Comments are local and won&apos;t be shared</source>
@@ -1356,8 +1349,7 @@ Update your settings and try again.</source>
     <message id="swap-currency-na-message">
         <source>%1 is not connected, 
 please review your settings and try again</source>
-        <oldsource>%1 is not connected, \nplease review your settings and try again</oldsource>
-        <translation type="unfinished">%1 가 연결되지 않았습니다, \n설정을 다시 하시고 재시도 해주세요.</translation>
+        <translation>%1 가 연결되지 않았습니다, \n설정을 다시 하시고 재시도 해주세요.</translation>
     </message>
     <message id="send-not-enough">
         <source>There is not enough funds to complete the transaction</source>
@@ -1397,8 +1389,7 @@ please review your settings and try again</source>
     </message>
     <message id="atomic-swap-title">
         <source>Atomic Swaps</source>
-        <oldsource>Atomic Swap</oldsource>
-        <translation type="unfinished">아토믹 스왑</translation>
+        <translation>아토믹 스왑</translation>
     </message>
     <message id="atomic-swap-create">
         <source>Create offer</source>
@@ -1538,8 +1529,7 @@ please review your settings and try again</source>
     </message>
     <message id="wallet-receive-copy-token">
         <source>copy swap token</source>
-        <oldsource>copy transaction token</oldsource>
-        <translation type="unfinished">트랜잭션 토큰 복사</translation>
+        <translation>트랜잭션 토큰 복사</translation>
     </message>
     <message id="wallet-model-device-not-connected">
         <source>There is no Trezor device connected. Please, connect and try again.</source>
@@ -1564,19 +1554,16 @@ please review your settings and try again</source>
     <message id="settings-progress-na">
         <source>You cannot disconnect wallet, edit seed phrase or change default
 fee while you have transactions in progress.</source>
-        <oldsource>You cannot disconnect wallet, edit seed phrase or change default\nfee while you have transactions in progress.</oldsource>
-        <translation type="unfinished">트랜잭션이 진행되는 동안은 지갑 연결을 끊거나 \n시드 구문을 수정하거나 또는 기본 수수료를 바꿀 수 없습니다.</translation>
+        <translation>트랜잭션이 진행되는 동안은 지갑 연결을 끊거나 \n시드 구문을 수정하거나 또는 기본 수수료를 바꿀 수 없습니다.</translation>
     </message>
     <message id="atomic-no-offers">
         <source>There are no active offers at the moment.
 Please try again later or create an offer yourself.</source>
-        <oldsource>There are no active offers at the moment.\nPlease try again later or create an offer yourself.</oldsource>
-        <translation type="unfinished">활성화된 오퍼가 현재 없습니다.\n잠시 후 재시도하거나 오퍼를 만드십시오.</translation>
+        <translation>활성화된 오퍼가 현재 없습니다.\n잠시 후 재시도하거나 오퍼를 만드십시오.</translation>
     </message>
     <message id="send-less-than-fee">
         <source>The swap amount must be greater than the transaction fee</source>
-        <oldsource>The swap amount must be greater than the redemption fee.</oldsource>
-        <translation type="unfinished">스왑 금액은 리뎀션 수수료보다 더 커야합니다.</translation>
+        <translation>스왑 금액은 리뎀션 수수료보다 더 커야합니다.</translation>
     </message>
     <message id="wallet-txs-status-in-progress">
         <source>in progress</source>
@@ -1632,14 +1619,11 @@ Please try again later or create an offer yourself.</source>
     </message>
     <message id="accept-own-offer-allert-head">
         <source>You cannot accept your own offer</source>
-        <oldsource>Own offer can’t be accepted</oldsource>
-        <translation type="unfinished">나의 직접 오퍼는 수락불가능합니다</translation>
+        <translation>나의 직접 오퍼는 수락불가능합니다</translation>
     </message>
     <message id="accept-own-offer-allert-body">
         <source>The swap token was generated by you, and therefore cannot be accepted.</source>
-        <oldsource>The transaction token was generated by you, therefore it is not allowed to accept your own offer.
-Please check the swap token and try again.</oldsource>
-        <translation type="unfinished">The transaction token was generated by you, therefore it is not allowed to accept your own offer.\nPlease check the swap token and try again.</translation>
+        <translation>The transaction token was generated by you, therefore it is not allowed to accept your own offer.\nPlease check the swap token and try again.</translation>
     </message>
     <message id="swap-copy-token">
         <source>Copy token</source>
@@ -1703,8 +1687,7 @@ Please check the swap token and try again.</oldsource>
     </message>
     <message id="swap-details-tx-fee">
         <source>BEAM Transaction fee</source>
-        <oldsource>Transaction fee</oldsource>
-        <translation type="unfinished">거래 수수료</translation>
+        <translation>거래 수수료</translation>
     </message>
     <message id="swap-details-tx-comment">
         <source>Comment</source>
@@ -1712,8 +1695,7 @@ Please check the swap token and try again.</oldsource>
     </message>
     <message id="swap-details-tx-fee-rate">
         <source>%1 Transaction fee rate</source>
-        <oldsource>Transaction fee rate</oldsource>
-        <translation type="unfinished">Transaction fee rate</translation>
+        <translation>Transaction fee rate</translation>
     </message>
     <message id="settings-swap-disconnect">
         <source>Disconnect</source>
@@ -1750,8 +1732,7 @@ Please check the swap token and try again.</oldsource>
     <message id="swap-offer-duplicate-message">
         <source>The offer with this transaction token is already accepted.
 Please check the swap token and try again.</source>
-        <oldsource>The offer with this transaction token is already accepted.\nPlease check the swap token and try again.</oldsource>
-        <translation type="unfinished">The offer with this transaction token is already accepted.\nPlease check the swap token and try again.</translation>
+        <translation>The offer with this transaction token is already accepted.\nPlease check the swap token and try again.</translation>
     </message>
     <message id="swap-offer-duplicate-title">
         <source>Оffer is already accepted</source>
@@ -1795,9 +1776,7 @@ Please check the swap token and try again.</source>
     </message>
     <message id="swap-seed-info-message">
         <source>Your seed phrase is the access key to all the funds! Print or write down the phrase and keep it in a safe or in a locked vault. Without the phrase you will not be able to recover your money.</source>
-        <oldsource>Your seed phrase is the access key to all the funds! Print or write down the phrase and keep it in a safe or in a locked vault.
-Without the phrase you will not be able to recover your money.</oldsource>
-        <translation type="unfinished">Your seed phrase is the access key to all the funds! Print or write down the phrase and keep it in a safe or in a locked vault.\nWithout the phrase you will not be able to recover your money.</translation>
+        <translation>Your seed phrase is the access key to all the funds! Print or write down the phrase and keep it in a safe or in a locked vault.\nWithout the phrase you will not be able to recover your money.</translation>
     </message>
     <message id="settings-swap-seed-generate">
         <source>generate another seed phrase</source>
@@ -1881,30 +1860,81 @@ Without the phrase you will not be able to recover your money.</oldsource>
     </message>
     <message id="wallet-receive-swap-your-token">
         <source>Your swap token:</source>
-        <translation type="unfinished"></translation>
+        <translation type="unfinished">Your swap token:</translation>
     </message>
     <message id="send-swap-confirmation-title">
         <source>Confirm atomic swap</source>
-        <translation type="unfinished"></translation>
+        <translation type="unfinished">Confirm atomic swap</translation>
     </message>
     <message id="send-swap-sconfirmation-online-time">
         <source>Keep your wallet online. The swap normally takes about 1 hour to complete.</source>
-        <translation type="unfinished"></translation>
+        <translation type="unfinished">Keep your wallet online. The swap normally takes about 1 hour to complete.</translation>
     </message>
     <message id="beam-transaction-fee">
         <source>BEAM Transaction fee</source>
-        <translation type="unfinished">거래 수수료</translation>
+        <translation>거래 수수료</translation>
     </message>
     <message id="send-swap-token">
         <source>Swap token</source>
-        <translation type="unfinished"></translation>
+        <translation type="unfinished">Swap token</translation>
     </message>
     <message id="send-swap-token-hint">
         <source>Paste token here</source>
-        <translation type="unfinished"></translation>
+        <translation type="unfinished">Paste token here</translation>
     </message>
     <message id="settings-swap-connect">
         <source>connect</source>
+        <translation type="unfinished">connect</translation>
+    </message>
+    <message id="swap-tx-state-initial">
+        <source>If nobody accepts the offer in %1, the offer will be automatically canceled</source>
+        <oldsource>if nobody accepts the offer in %1, the offer will be automatically canceled</oldsource>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="swap-tx-state-in-progress-normal">
+        <source>The swap is expected to complete in %1 at most</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="swap-tx-state-in-progress-refunding">
+        <source>The refund of your %2 will start in %1. Refund duration depends on the transaction fee you specified for %2</source>
+        <oldsource>The refund of your %2 will start in %1 (the actual refund duration depends on the transaction fee specified for the %2 blockchain)</oldsource>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="atomic-swap-tx-cancel">
+        <source>Cancel atomic swap</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="atomic-swap-tx-cancel-text">
+        <source>Are you sure you want to cancel?</source>
+        <oldsource>Are you sure you want to cancel atomic swap transaction?</oldsource>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="atomic-swap-tx-yes-button">
+        <source>yes</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="atomic-swap-no-button">
+        <source>no</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="swap-tx-state-refunding">
+        <source>Refunding</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="wallet-txs-status-waiting-peer">
+        <source>waiting for peer</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="send-swap-fee-warning">
+        <source> Once the offer is accepted by the other side, the %1 transaction fee will be charged even if the offer is cancelled.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="app-close-title">
+        <source>Beam wallet close</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="app-close-text">
+        <source>There are %1 active transactions that might fail if the wallet will go offline. Are you sure to close the wallet now?</source>
         <translation type="unfinished"></translation>
     </message>
 </context>

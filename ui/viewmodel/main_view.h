@@ -22,6 +22,7 @@
 class MainViewModel : public QObject
 {
 	Q_OBJECT
+    Q_PROPERTY(int unsafeTxCount READ getUnsafeTxCount           NOTIFY unsafeTxCountChanged)
 public:
     MainViewModel();
 
@@ -32,12 +33,15 @@ signals:
     void showTrezorMessage();
     void hideTrezorMessage();
     void showTrezorError(const QString&);
+    void unsafeTxCountChanged();
 
 public slots:
 	void update(int page);
     void lockWallet();
     void onLockTimeoutChanged();
 
+private:
+    int getUnsafeTxCount() const;
 private:
     WalletSettings& m_settings;
     QTimer m_timer;

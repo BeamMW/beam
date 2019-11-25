@@ -128,6 +128,7 @@ public:
 
 public slots:
     void onAddresses(bool own, const std::vector<beam::wallet::WalletAddress>& addresses);
+    void onAddressesChanged(beam::wallet::ChangeAction, const std::vector<beam::wallet::WalletAddress>& addresses);
 
 signals:
     void contactsChanged();

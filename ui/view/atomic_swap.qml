@@ -31,7 +31,7 @@ Item {
 
     ConfirmationDialog {
         id:                     cancelOfferDialog
-        property var txId: undefined
+        property var txId:      undefined
         width:                  460
         //% "Cancel offer"
         title:                  qsTrId("atomic-swap-cancel")
@@ -54,6 +54,25 @@ Item {
                     cancelOfferDialog.cancelButton.onClicked();
                 }
             }
+        }
+    }
+
+    ConfirmationDialog {
+        id:                     cancelSwapDialog
+        property var txId:      undefined
+        //% "Cancel atomic swap"
+        title:                  qsTrId("atomic-swap-tx-cancel")
+        //% "Are you sure you want to cancel?"
+        text:                   qsTrId("atomic-swap-tx-cancel-text")
+        //% "yes"
+        okButtonText:           qsTrId("atomic-swap-tx-yes-button")
+        okButtonIconSource:     "qrc:/assets/icon-done.svg"
+        okButtonColor:          Style.swapCurrencyStateIndicator
+        //% "no"
+        cancelButtonText:       qsTrId("atomic-swap-no-button")
+        cancelButtonIconSource: "qrc:/assets/icon-cancel-16.svg"
+        onAccepted: {
+            viewModel.cancelTx(cancelSwapDialog.txId);
         }
     }
 
@@ -411,11 +430,11 @@ Item {
                         }
 
                         CustomCheckBox {
+                            id: checkboxFitBalance
                             Layout.alignment: Qt.AlignHCenter | Qt.AlignLeft
                             Layout.leftMargin: 60
                             //% "Fit my current balance"
                             text: qsTrId("atomic-swap-fit-current-balance")
-                            visible: false
                         }
 
                         Item {
@@ -512,13 +531,15 @@ Please try again later or create an offer yourself."
                             source: SortFilterProxyModel {
                                 source: SortFilterProxyModel {
                                     // filter all offers by selected coin
-                                    source: viewModel.allOffers                                
+                                    source: checkboxFitBalance.checked
+                                        ? viewModel.allOffersFitBalance
+                                        : viewModel.allOffers                                
                                     filterRole: "swapCoin"
                                     filterString: getCoinName(viewModel.selectedCoin)
                                     filterSyntax: SortFilterProxyModel.Wildcard
                                     filterCaseSensitivity: Qt.CaseInsensitive
                                 }
-                                filterRole: "isBeamSide"
+                                filterRole: "isSendBeam"
                                 filterString: sendReceiveBeamSwitch.checked ? "false" : "true"
                                 filterSyntax: SortFilterProxyModel.Wildcard
                                 filterCaseSensitivity: Qt.CaseInsensitive
@@ -563,7 +584,7 @@ Please try again later or create an offer yourself."
                                 width: parent.width
                                 height: offersTable.rowHeight
                                 property var swapCoin: styleData.value
-                                property var isSendBeam: offersTable.model.getRoleValue(styleData.row, "isBeamSide")
+                                property var isSendBeam: offersTable.model.getRoleValue(styleData.row, "isSendBeam")
                                 property var isOwnOffer: offersTable.model.getRoleValue(styleData.row, "isOwnOffer")
                                 
                                 anchors.fill: parent
@@ -679,6 +700,7 @@ Please try again later or create an offer yourself."
                                         MouseArea {
                                             anchors.fill: parent
                                             acceptedButtons: Qt.LeftButton
+                                            cursorShape: Qt.PointingHandCursor
                                             onClicked: {
                                                 if (isOwnOffer) {
                                                     cancelOfferDialog.txId = offersTable.model.getRoleValue(styleData.row, "rawTxID");
@@ -787,153 +809,42 @@ Please try again later or create an offer yourself."
                             filterCaseSensitivity: Qt.CaseInsensitive
                         }
 
-                        rowDelegate: Rectangle {
-                            id:             rowItem
-                            height:         transactionsTable.rowHeight
-                            anchors.left:   parent.left
-                            anchors.right:  parent.right
-                            color:          styleData.selected ? Style.row_selected : (styleData.alternate ? Style.background_row_even : Style.background_row_odd)
+                        rowDelegate: ExpandableRowDelegate {
+                            collapsed: true
+                            rowInModel: styleData.row !== undefined && styleData.row >= 0 &&  styleData.row < txProxyModel.count
+                            rowHeight: transactionsTable.rowHeight
+                            backgroundColor: styleData.selected ? Style.row_selected : (styleData.alternate ? Style.background_row_even : Style.background_row_odd)
+                            property var myModel: parent.model
 
-                            property bool collapsed:   true
-                            property bool rowInModel:  styleData.row !== undefined && styleData.row >= 0 &&  styleData.row < txProxyModel.count
-                            property var  myModel:     parent.model
+                            delegate: SwapTransactionDetails {
+                                        width: transactionsTable.width
 
-                            onCollapsedChanged: {
-                                height = collapsed ? transactionsTable.rowHeight : transactionsTable.rowHeight + txDetails.maximumHeight
-                                txDetails.height = collapsed ? 0 : txDetails.maximumHeight
-                            }
-
-                            function expand(animate) {
-                                if (!rowInModel) return
-                                if (animate) expandAnimation.start()
-                                else collapsed = false
-                            }
-
-                            function collapse(animate) {
-                                if (!rowInModel) return
-                                if (animate) collapseAnimation.start()
-                                else collapsed = true
-                            }
-
-                            Item {
-                                id:      txDetails
-                                height:  0
-                                y:       transactionsTable.rowHeight
-                                width:   parent.width
-                                clip:    true
-                                property int maximumHeight: detailsPanel.implicitHeight
-
-                                Rectangle {
-                                    anchors.fill: parent
-                                    color: Style.background_details
-                                }
-
-
-                                SwapTransactionDetails {
-                                    id: detailsPanel
-                                    width: transactionsTable.width
-
-                                    property var txRolesMap: myModel
-                                    txId:                           txRolesMap && txRolesMap.txID ? txRolesMap.txID : ""
-                                    fee:                            txRolesMap && txRolesMap.fee ? txRolesMap.fee : ""
-                                    feeRate:                        txRolesMap && txRolesMap.feeRate ? txRolesMap.feeRate : ""
-                                    comment:                        txRolesMap && txRolesMap.comment ? txRolesMap.comment : ""
-                                    swapCoinName:                   txRolesMap && txRolesMap.swapCoin ? txRolesMap.swapCoin : ""
-                                    isBeamSide:                     txRolesMap && txRolesMap.isBeamSideSwap ? txRolesMap.isBeamSideSwap : false
-                                    isLockTxProofReceived:          txRolesMap && txRolesMap.isLockTxProofReceived ? txRolesMap.isLockTxProofReceived : false
-                                    isRefundTxProofReceived:        txRolesMap && txRolesMap.isRefundTxProofReceived ? txRolesMap.isRefundTxProofReceived : false
-                                    swapCoinLockTxId:               txRolesMap && txRolesMap.swapCoinLockTxId ? txRolesMap.swapCoinLockTxId : ""
-                                    swapCoinLockTxConfirmations:    txRolesMap && txRolesMap.swapCoinLockTxConfirmations ? txRolesMap.swapCoinLockTxConfirmations : ""
-                                    swapCoinRedeemTxId:             txRolesMap && txRolesMap.swapCoinRedeemTxId ? txRolesMap.swapCoinRedeemTxId : ""
-                                    swapCoinRedeemTxConfirmations:  txRolesMap && txRolesMap.swapCoinRedeemTxConfirmations ? txRolesMap.swapCoinRedeemTxConfirmations : ""
-                                    swapCoinRefundTxId:             txRolesMap && txRolesMap.swapCoinRefundTxId ? txRolesMap.swapCoinRefundTxId : ""
-                                    swapCoinRefundTxConfirmations:  txRolesMap && txRolesMap.swapCoinRefundTxConfirmations ? txRolesMap.swapCoinRefundTxConfirmations : ""
-                                    beamLockTxKernelId:             txRolesMap && txRolesMap.beamLockTxKernelId ? txRolesMap.beamLockTxKernelId : ""
-                                    beamRedeemTxKernelId:           txRolesMap && txRolesMap.beamRedeemTxKernelId ? txRolesMap.beamRedeemTxKernelId : ""
-                                    beamRefundTxKernelId:           txRolesMap && txRolesMap.beamRefundTxKernelId ? txRolesMap.beamRefundTxKernelId : ""
-                                    failureReason:                  txRolesMap && txRolesMap.failureReason ? txRolesMap.failureReason : ""
-                                    
-                                    onTextCopied: function (text) {
-                                        BeamGlobals.copyToClipboard(text);
+                                        property var txRolesMap: myModel
+                                        txId:                           txRolesMap && txRolesMap.txID ? txRolesMap.txID : ""
+                                        fee:                            txRolesMap && txRolesMap.fee ? txRolesMap.fee : ""
+                                        feeRate:                        txRolesMap && txRolesMap.feeRate ? txRolesMap.feeRate : ""
+                                        comment:                        txRolesMap && txRolesMap.comment ? txRolesMap.comment : ""
+                                        swapCoinName:                   txRolesMap && txRolesMap.swapCoin ? txRolesMap.swapCoin : ""
+                                        isBeamSide:                     txRolesMap && txRolesMap.isBeamSideSwap ? txRolesMap.isBeamSideSwap : false
+                                        isLockTxProofReceived:          txRolesMap && txRolesMap.isLockTxProofReceived ? txRolesMap.isLockTxProofReceived : false
+                                        isRefundTxProofReceived:        txRolesMap && txRolesMap.isRefundTxProofReceived ? txRolesMap.isRefundTxProofReceived : false
+                                        swapCoinLockTxId:               txRolesMap && txRolesMap.swapCoinLockTxId ? txRolesMap.swapCoinLockTxId : ""
+                                        swapCoinLockTxConfirmations:    txRolesMap && txRolesMap.swapCoinLockTxConfirmations ? txRolesMap.swapCoinLockTxConfirmations : ""
+                                        swapCoinRedeemTxId:             txRolesMap && txRolesMap.swapCoinRedeemTxId ? txRolesMap.swapCoinRedeemTxId : ""
+                                        swapCoinRedeemTxConfirmations:  txRolesMap && txRolesMap.swapCoinRedeemTxConfirmations ? txRolesMap.swapCoinRedeemTxConfirmations : ""
+                                        swapCoinRefundTxId:             txRolesMap && txRolesMap.swapCoinRefundTxId ? txRolesMap.swapCoinRefundTxId : ""
+                                        swapCoinRefundTxConfirmations:  txRolesMap && txRolesMap.swapCoinRefundTxConfirmations ? txRolesMap.swapCoinRefundTxConfirmations : ""
+                                        beamLockTxKernelId:             txRolesMap && txRolesMap.beamLockTxKernelId ? txRolesMap.beamLockTxKernelId : ""
+                                        beamRedeemTxKernelId:           txRolesMap && txRolesMap.beamRedeemTxKernelId ? txRolesMap.beamRedeemTxKernelId : ""
+                                        beamRefundTxKernelId:           txRolesMap && txRolesMap.beamRefundTxKernelId ? txRolesMap.beamRefundTxKernelId : ""
+                                        stateDetails:                   txRolesMap && txRolesMap.swapState ? txRolesMap.swapState : ""
+                                        failureReason:                  txRolesMap && txRolesMap.failureReason ? txRolesMap.failureReason : ""
+                                        
+                                        onTextCopied: function (text) {
+                                            BeamGlobals.copyToClipboard(text);
+                                        }
                                     }
                                 }
-                            }
-
-                            MouseArea {
-                                anchors.top:      parent.top
-                                anchors.left:     parent.left
-                                height:           transactionsTable.rowHeight
-                                width:            parent.width
-                                acceptedButtons:  Qt.LeftButton | Qt.RightButton
-
-                                onClicked: {
-                                    if (styleData.row === undefined ||
-                                        styleData.row < 0 ||
-                                        styleData.row >= txProxyModel.count)
-                                    {
-                                        return;
-                                    }
-                                    if (mouse.button === Qt.RightButton )
-                                    {
-                                        transactionsTable.showContextMenu(styleData.row);
-                                    }
-                                    else if (mouse.button === Qt.LeftButton)
-                                    {
-                                        parent.collapsed ? expand(true) : collapse(true);
-                                    }
-                                }
-                            }
-
-                            ParallelAnimation {
-                                id: expandAnimation
-                                running: false
-
-                                property int expandDuration: 200
-
-                                NumberAnimation {
-                                    target: rowItem
-                                    easing.type: Easing.Linear
-                                    property: "height"
-                                    to: transactionsTable.rowHeight + txDetails.maximumHeight
-                                    duration: expandAnimation.expandDuration
-                                }
-
-                                NumberAnimation {
-                                    target: txDetails
-                                    easing.type: Easing.Linear
-                                    property: "height"
-                                    to: txDetails.maximumHeight
-                                    duration: expandAnimation.expandDuration
-                                }
-
-                                onStopped: rowItem.collapsed = false
-                            }
-
-                            ParallelAnimation {
-                                id: collapseAnimation
-                                running: false
-
-                                property int collapseDuration: 200
-
-                                NumberAnimation {
-                                    target: rowItem
-                                    easing.type: Easing.Linear
-                                    property: "height"
-                                    to: transactionsTable.rowHeight
-                                    duration: collapseAnimation.collapseDuration
-                                }
-
-                                NumberAnimation {
-                                    target: txDetails
-                                    easing.type: Easing.Linear
-                                    property: "height"
-                                    to: 0
-                                    duration: collapseAnimation.collapseDuration
-                                }
-
-                                onStopped: rowItem.collapsed = true
-                            }
-                        }
 
                         itemDelegate: Item {
                             Item {
@@ -1105,7 +1016,7 @@ Please try again later or create an offer yourself."
                         }
 
                         function showContextMenu(row) {
-                            txContextMenu.canCopyToken = true;
+                            txContextMenu.canCopyToken = transactionsTable.model.getRoleValue(row, "isPending");;
                             txContextMenu.token = transactionsTable.model.getRoleValue(row, "token");
                             txContextMenu.cancelEnabled = transactionsTable.model.getRoleValue(row, "isCancelAvailable");
                             txContextMenu.deleteEnabled = transactionsTable.model.getRoleValue(row, "isDeleteAvailable");
@@ -1161,7 +1072,8 @@ Please try again later or create an offer yourself."
                             icon.source: "qrc:/assets/icon-cancel.svg"
                             enabled: txContextMenu.cancelEnabled
                             onTriggered: {
-                                viewModel.cancelTx(txContextMenu.txID);
+                                cancelSwapDialog.txId = txContextMenu.txID;
+                                cancelSwapDialog.open();
                             }
                         }
                         Action {
@@ -1272,8 +1184,8 @@ Please try again later or create an offer yourself."
     function getStatusText(value) {
 
         switch(value) {
-            //% "pending"
-            case "pending": return qsTrId("wallet-txs-status-pending");
+            //% "waiting for peer"
+            case "pending": return qsTrId("wallet-txs-status-waiting-peer");
             //% "in progress"
             case "in progress": return qsTrId("wallet-txs-status-in-progress");
             //% "completed"

@@ -19,6 +19,7 @@
 #include "utility/common.h"
 #include "wallet/common.h"
 #include "wallet/wallet_db.h"
+#include "common.h"
 
 namespace beam::bitcoin
 {
@@ -34,15 +35,12 @@ namespace beam::bitcoin
         {
             return !m_userName.empty() && !m_pass.empty() && !m_address.empty();
         }
-
-        SERIALIZE(m_userName, m_pass, m_address);
     };
 
     struct ElectrumSettings
     {
         std::string m_address;
         std::vector<std::string> m_secretWords;
-        uint8_t m_addressVersion;
 
         uint32_t m_receivingAddressAmount = 21;
         uint32_t m_changeAddressAmount = 6;
@@ -51,8 +49,6 @@ namespace beam::bitcoin
         {
             return !m_secretWords.empty() && !m_address.empty();
         }
-
-        SERIALIZE(m_address, m_secretWords, m_addressVersion);
     };
 
     class ISettings
@@ -80,6 +76,8 @@ namespace beam::bitcoin
         virtual bool IsInitialized() const = 0;
         virtual bool IsActivated() const = 0;
         virtual ConnectionType GetCurrentConnectionType() const = 0;
+        virtual double GetBlocksPerHour() const = 0;
+        virtual uint8_t GetAddressVersion() const = 0;
     };
 
     boost::optional<ISettings::ConnectionType> from_string(const std::string&);
@@ -101,6 +99,8 @@ namespace beam::bitcoin
         bool IsInitialized() const override;
         bool IsActivated() const override;
         ConnectionType GetCurrentConnectionType() const override;
+        double GetBlocksPerHour() const override;
+        uint8_t GetAddressVersion() const override;
 
         void SetConnectionOptions(const BitcoinCoreSettings& connectionSettings);
         void SetElectrumConnectionOptions(const ElectrumSettings& connectionSettings);
@@ -109,8 +109,8 @@ namespace beam::bitcoin
         void SetTxMinConfirmations(uint16_t txMinConfirmations);
         void SetLockTimeInBlocks(uint32_t lockTimeInBlocks);
         void ChangeConnectionType(ConnectionType type);
-
-        SERIALIZE(m_connectionSettings, m_electrumConnectionSettings, m_feeRate, m_minFeeRate, m_txMinConfirmations, m_lockTimeInBlocks, m_connectionType);
+        void SetBlocksPerHour(double beamBlocksPerBlock);
+        void SetAddressVersion(uint8_t addressVersion);
 
     protected:
         BitcoinCoreSettings m_connectionSettings;
@@ -120,6 +120,8 @@ namespace beam::bitcoin
         // They are not stored in DB
         Amount m_minFeeRate = 50000;
         uint16_t m_txMinConfirmations = 6;
-        uint32_t m_lockTimeInBlocks = 2 * 24 * 6;
+        uint32_t m_lockTimeInBlocks = 12 * 6;  // 12h
+        double m_blocksPerHour = 6;
+        uint8_t m_addressVersion = getAddressVersion();
     };
 } // namespace beam::bitcoin

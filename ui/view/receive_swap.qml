@@ -50,6 +50,13 @@ ColumnLayout {
         return false;
     }
 
+    function saveAddress() {
+        if (!thisView.addressSaved) {
+            thisView.addressSaved = true
+            viewModel.saveAddress()
+        }
+    }
+
     Component.onCompleted: {
         if (!BeamGlobals.canSwap()) swapna.open();
     }
@@ -117,7 +124,7 @@ Update your settings and try again."
                         function getErrorText() {
                             if(!BeamGlobals.canReceive(currency)) {
 /*% "%1 is not connected, 
-please review your settings and try again" 
+please review your settings and try again"
 */
                                 return qsTrId("swap-currency-na-message").arg(BeamGlobals.getCurrencyName(currency)).replace("\n", "")
                             }
@@ -157,6 +164,11 @@ please review your settings and try again"
                         target:   viewModel
                         property: "sentFee"
                         value:    sentAmountInput.fee
+                    }
+
+                    Connections {
+                        target: viewModel
+                        onSentFeeChanged: sentAmountInput.fee = viewModel.sentFee
                     }
 
                     //
@@ -247,7 +259,7 @@ please review your settings and try again"
                         function getErrorText() {
                             if(!BeamGlobals.canReceive(currency)) {
 /*% "%1 is not connected, 
-please review your settings and try again" 
+please review your settings and try again"
 */
                                 return qsTrId("swap-currency-na-message").arg(BeamGlobals.getCurrencyName(currency)).replace("\n", "")
                             }
@@ -283,6 +295,11 @@ please review your settings and try again"
                         target:   viewModel
                         property: "receiveFee"
                         value:    receiveAmountInput.fee
+                    }
+
+                    Connections {
+                        target: viewModel
+                        onReceiveFeeChanged: receiveAmountInput.fee = viewModel.receiveFee
                     }
 
                     SFText {
@@ -501,12 +518,9 @@ please review your settings and try again"
                     enabled:             thisView.canSend()
                     onClicked: {
                         BeamGlobals.copyToClipboard(viewModel.transactionToken);
-                        if (!thisView.addressSaved) {
-                            thisView.addressSaved = true
-                            viewModel.saveAddress()
-                        }
-                        viewModel.startListen()
-                        onClosed()
+                        thisView.saveAddress();
+                        viewModel.startListen();
+                        onClosed();
                     }
                 }
 
@@ -519,13 +533,10 @@ please review your settings and try again"
                     icon.source:         "qrc:/assets/icon-share.svg"
                     enabled:             thisView.canSend()
                     onClicked: {
-                        if (!thisView.addressSaved) {
-                            thisView.addressSaved = true
-                            viewModel.saveAddress()
-                        }
-                        viewModel.startListen()
-                        viewModel.publishToken()
-                        onClosed()
+                        thisView.saveAddress();
+                        viewModel.startListen();
+                        viewModel.publishToken();
+                        onClosed();
                     }
                 }
             }

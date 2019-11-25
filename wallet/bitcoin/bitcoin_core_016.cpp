@@ -38,34 +38,10 @@ namespace beam::bitcoin
         };
     }
 
-    BitcoinCore016::BitcoinCore016(io::Reactor& reactor, IBitcoinCoreSettingsProvider& settingsProvider)
+    BitcoinCore016::BitcoinCore016(io::Reactor& reactor, ISettingsProvider& settingsProvider)
         : m_httpClient(reactor)
         , m_settingsProvider(settingsProvider)
     {
-    }
-
-    void BitcoinCore016::dumpPrivKey(const std::string& btcAddress, std::function<void(const IBridge::Error&, const std::string&)> callback)
-    {
-        LOG_DEBUG() << "Send dumpPrivKey command";
-
-        sendRequest("dumpprivkey", "\"" + btcAddress + "\"", [callback] (IBridge::Error error, const json& result){
-            std::string privKey;
-
-            if (error.m_type == IBridge::None)
-            {
-                try
-                {
-                    privKey = result.get<std::string>();
-                }
-                catch (const std::exception& ex)
-                {
-                    error.m_type = IBridge::InvalidResultFormat;
-                    error.m_message = ex.what();
-                }
-            }
-
-            callback(error, privKey);
-        });
     }
 
     void BitcoinCore016::fundRawTransaction(const std::string& rawTx, Amount feeRate, std::function<void(const IBridge::Error&, const std::string&, int)> callback)
@@ -334,7 +310,7 @@ namespace beam::bitcoin
     void BitcoinCore016::sendRequest(const std::string& method, const std::string& params, std::function<void(const Error&, const json&)> callback)
     {
         const std::string content(R"({"method":")" + method + R"(","params":[)" + params + "]}");
-        auto settings = m_settingsProvider.GetBitcoinCoreSettings();
+        auto settings = m_settingsProvider.GetSettings().GetConnectionOptions();
         const std::string authorization(settings.generateAuthorization());
         const HeaderPair headers[] = {
             {"Authorization", authorization.data()}

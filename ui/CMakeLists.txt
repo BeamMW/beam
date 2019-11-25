@@ -120,10 +120,14 @@ set(UI_SRC
     viewmodel/start_view.cpp
     viewmodel/loading_view.h
     viewmodel/loading_view.cpp
-    viewmodel/utxo_view.h
-    viewmodel/utxo_view.cpp
-    viewmodel/utxo_view_status.h
-    viewmodel/utxo_view_type.h
+    viewmodel/utxo/utxo_item.h
+    viewmodel/utxo/utxo_item.cpp
+    viewmodel/utxo/utxo_item_list.h
+    viewmodel/utxo/utxo_item_list.cpp
+    viewmodel/utxo/utxo_view.h
+    viewmodel/utxo/utxo_view.cpp
+    viewmodel/utxo/utxo_view_status.h
+    viewmodel/utxo/utxo_view_type.h
     viewmodel/main_view.h
     viewmodel/main_view.cpp
     viewmodel/dashboard_view.h

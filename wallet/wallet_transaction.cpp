@@ -101,6 +101,12 @@ namespace beam::wallet
         return TxType::Simple;
     }
 
+    bool SimpleTransaction::IsInSafety() const
+    {
+        State txState = GetState();
+        return txState == State::KernelConfirmation;
+    }
+
     void SimpleTransaction::UpdateImpl()
     {
         bool isSender = GetMandatoryParameter<bool>(TxParameterID::IsSender);

@@ -42,6 +42,7 @@ namespace beam::wallet
         bool SendRedeem() override;
         bool IsLockTimeExpired() override;
         bool HasEnoughTimeToProcessLockTx() override;
+        bool IsQuickRefundAvailable() override;
 
         static bool CheckAmount(Amount amount, Amount feeRate);
 
@@ -53,6 +54,7 @@ namespace beam::wallet
         Amount GetFeeRate(SubTxID subTxID) const;
         uint16_t GetTxMinConfirmations() const;
         uint32_t GetLockTimeInBlocks() const;
+        double GetBlocksPerHour() const;
 
     private:
         bool LoadSwapAddress();

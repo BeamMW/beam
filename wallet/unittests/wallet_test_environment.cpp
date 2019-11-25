@@ -422,7 +422,7 @@ struct TestWalletRig
         {
         case Type::ColdWallet:
             {
-                m_Wallet.AddMessageEndpoint(make_shared<ColdWalletMessageEndpoint>(m_Wallet, m_WalletDB, m_KeyKeeper));
+                m_messageEndpoint = make_shared<ColdWalletMessageEndpoint>(m_Wallet, m_WalletDB, m_KeyKeeper);
                 break;
             }
 
@@ -434,11 +434,11 @@ struct TestWalletRig
                 nodeEndpoint->Connect();
                 if (oneTimeBbsEndpoint)
                 {
-                    m_Wallet.AddMessageEndpoint(make_shared<OneTimeBbsEndpoint>(m_Wallet, nodeEndpoint, m_WalletDB, m_KeyKeeper));
+                    m_messageEndpoint = make_shared<OneTimeBbsEndpoint>(m_Wallet, nodeEndpoint, m_WalletDB, m_KeyKeeper);
                 }
                 else
                 {
-                    m_Wallet.AddMessageEndpoint(make_shared<WalletNetworkViaBbs>(m_Wallet, nodeEndpoint, m_WalletDB, m_KeyKeeper));
+                    m_messageEndpoint = make_shared<WalletNetworkViaBbs>(m_Wallet, nodeEndpoint, m_WalletDB, m_KeyKeeper);
                 }
                 m_Wallet.SetNodeEndpoint(nodeEndpoint);
                 break;
@@ -454,20 +454,25 @@ struct TestWalletRig
                     auto tmp = make_shared<OneTimeBbsEndpoint>(m_Wallet, nodeEndpoint, m_WalletDB, m_KeyKeeper);
 
                     tmp->m_MineOutgoing = false;
-                    m_Wallet.AddMessageEndpoint(tmp);
+                    m_messageEndpoint = tmp;
                 }
                 else
                 {
                     auto tmp = make_shared<WalletNetworkViaBbs>(m_Wallet, nodeEndpoint, m_WalletDB, m_KeyKeeper);
 
                     tmp->m_MineOutgoing = false;
-                    m_Wallet.AddMessageEndpoint(tmp);
+                    m_messageEndpoint = tmp;
                 }
                 m_Wallet.SetNodeEndpoint(nodeEndpoint);
                 break;
             }
         case Type::Offline:
             break;
+        }
+
+        if (m_messageEndpoint)
+        {
+            m_Wallet.AddMessageEndpoint(m_messageEndpoint);
         }
     }
 
@@ -486,6 +491,7 @@ struct TestWalletRig
     IWalletDB::Ptr m_WalletDB;
     IPrivateKeyKeeper::Ptr m_KeyKeeper;
     TestWallet m_Wallet;
+    IWalletMessageEndpoint::Ptr m_messageEndpoint;
 };
 
 struct TestWalletNetwork
@@ -939,6 +945,12 @@ public:
             m_NewBlockFunc(m_Blockchain.m_mcm.m_vStates.back().m_Hdr.m_Height);
         }
     }
+
+    Height GetHeight()
+    {
+        return m_Blockchain.m_mcm.m_vStates.back().m_Hdr.m_Height;
+    }
+
 private:
 
     struct Client

@@ -27,6 +27,7 @@ namespace beam { namespace io {
 class TcpStream;
 class CoarseTimer;
 class TcpConnectors;
+class ProxyConnector;
 class TcpShutdowns;
 class PendingWrites;
 class SslStream;
@@ -63,6 +64,19 @@ public:
         int timeoutMsec=-1,
         bool tlsConnect=false,
         Address bindTo=Address()
+    );
+
+    /**
+     * Connect to remote socket using proxy server
+     * @proxyAddr proxy server address
+     */
+    Result tcp_connect_with_proxy(
+        Address destAddr,
+        Address proxyAddr,
+        uint64_t tag,
+        const ConnectCallback& callback,
+        int timeoutMsec=-1,
+        bool tlsConnect=false
     );
 
     void cancel_tcp_connect(uint64_t tag);
@@ -150,6 +164,7 @@ private:
     ErrorCode init_tcpstream(Object* o);
     ErrorCode accept_tcpstream(Object* acceptor, Object* newConnection);
     TcpStream* stream_connected(TcpStream* stream, uv_handle_t* h);
+    TcpStream* move_stream(TcpStream* newStream, TcpStream* oldStream);
     void shutdown_tcpstream(Object* o);
 
     using OnDataWritten = std::function<void(ErrorCode, size_t)>;
@@ -171,10 +186,12 @@ private:
 
     std::unique_ptr<PendingWrites> _pendingWrites;
     std::unique_ptr<TcpConnectors> _tcpConnectors;
+    std::unique_ptr<ProxyConnector> _proxyConnector;
     std::unique_ptr<TcpShutdowns>  _tcpShutdowns;
     StopCallback _stopCB;
 
     friend class TcpConnectors;
+    friend class ProxyConnector;
     friend class TcpShutdowns;
     friend class PendingWrites;
     friend class AsyncEvent;

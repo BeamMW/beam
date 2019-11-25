@@ -28,6 +28,7 @@ set(IO_SRC
     io/sslio.cpp
     io/tcpstream.cpp
     io/sslstream.cpp
+    io/proxy_connector.cpp
     io/errorhandling.cpp
     io/coarsetimer.cpp
     io/fragment_writer.cpp

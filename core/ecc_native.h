@@ -713,6 +713,8 @@ namespace ECC
 
 		void GenerateChild(Key::IKdf&, Key::Index iKdf);
 		static void CreateChild(Ptr&, Key::IKdf&, Key::Index iKdf);
+
+		void GenerateChildParallel(Key::IKdf&, const Hash::Value&); // generate a subkey compatible with the appropriate HKdfPub
 	};
 
 	class HKdfPub
@@ -747,6 +749,8 @@ namespace ECC
 		bool Import(const Packed&);
 
 		void GenerateFrom(const HKdf&);
+
+		void GenerateChildParallel(Key::IPKdf&, const Hash::Value&); // generate a subkey compatible with the appropriate HKdfPub
 	};
 
 	struct Context

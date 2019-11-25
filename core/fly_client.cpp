@@ -34,7 +34,8 @@ void FlyClient::NetworkStd::Connect()
                 continue;
 
             c.ResetAll();
-            c.Connect(c.m_Addr);
+            if (m_Cfg.m_UseProxy) c.Connect(c.m_Addr, m_Cfg.m_ProxyAddr);
+            else c.Connect(c.m_Addr);
         }
     }
     else
@@ -45,7 +46,8 @@ void FlyClient::NetworkStd::Connect()
         {
             Connection* pConn = new Connection(*this, i);
             pConn->m_Addr = m_Cfg.m_vNodes[i];
-            pConn->Connect(pConn->m_Addr);
+            if (m_Cfg.m_UseProxy) pConn->Connect(pConn->m_Addr, m_Cfg.m_ProxyAddr);
+            else pConn->Connect(pConn->m_Addr);
         }
     }
 }
@@ -162,7 +164,8 @@ void FlyClient::NetworkStd::Connection::OnTimer()
     else
     {
         ResetAll();
-        Connect(m_Addr);
+        if (m_This.m_Cfg.m_UseProxy) Connect(m_Addr, m_This.m_Cfg.m_ProxyAddr);
+        else Connect(m_Addr);
     }
 }
 

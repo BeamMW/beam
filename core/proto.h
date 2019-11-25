@@ -301,32 +301,48 @@ namespace proto {
 
 	static const uint32_t g_HdrPackMaxSize = 2048; // about 400K
 
-    struct UtxoEvent
-    {
-        static const uint32_t s_Max = 64; // will send more, if the remaining events are on the same height
+	struct UtxoEvent
+	{
+		static const uint32_t s_Max = 64; // will send more, if the remaining events are on the same height
 
-        Key::IDV m_Kidv;
-        ECC::Point m_Commitment;
-        AssetID m_AssetID;
+		struct Shielded
+		{
+			uint8_t m_pBuf[sizeof(ECC::Scalar) - sizeof(Key::ID) + sizeof(TxoID)]; // remaining part of ID for shielded outputs. Not used for non-shielded
 
-        Height m_Height;
-        Height m_Maturity;
+			void Set(Key::ID::Packed&, const ECC::Scalar&, TxoID);
+			TxoID Get(const Key::ID::Packed&, ECC::Scalar&) const;
+		};
 
-        uint8_t m_Added; // 1 = add, 0 = spend
+		Key::IDV m_Kidv;
+		Shielded m_Shielded;
+		ECC::Point m_Commitment;
+		AssetID m_AssetID;
 
+		Height m_Height;
+		Height m_Maturity;
 
-        template <typename Archive>
-        void serialize(Archive& ar)
-        {
-            ar
-                & m_Commitment
-                & m_Kidv
-                & m_AssetID
-                & m_Height
-                & m_Maturity
-                & m_Added;
-        }
-    };
+		struct Flags {
+			static const uint8_t Add = 1; // otherwise it's spend
+			static const uint8_t Shielded = 2;
+		};
+
+		uint8_t m_Flags;
+
+		template <typename Archive>
+		void serialize(Archive& ar)
+		{
+			ar
+				& m_Commitment
+				& m_Kidv
+				& m_AssetID
+				& m_Height
+				& m_Maturity
+				& m_Flags;
+
+			if (beam::proto::UtxoEvent::Flags::Shielded & m_Flags)
+				ar & m_Shielded.m_pBuf;
+		}
+	};
 
 	struct BodyBuffers
 	{
@@ -558,7 +574,7 @@ namespace proto {
 
         static void ThrowUnexpected(const char* = NULL, NodeProcessingException::Type type = NodeProcessingException::Type::Base);
 
-        void Connect(const io::Address& addr);
+        void Connect(const io::Address& addr, const boost::optional<io::Address> proxyAddr = boost::none);
         void Accept(io::TcpStream::Ptr&& newStream);
 
         // Secure-channel-specific

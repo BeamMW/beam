@@ -364,6 +364,16 @@ namespace beam::wallet
         {
             value = blob;
         }
+
+        vector<Coin> converIDsToCoins(const vector<Coin::ID>& coinIDs)
+        {
+            vector<Coin> coins(coinIDs.size());
+            for (size_t i = 0; i < coins.size(); ++i)
+            {
+                coins[i].m_ID = coinIDs[i];
+            }
+            return coins;
+        }
     }
 
     namespace sqlite
@@ -1623,11 +1633,53 @@ namespace beam::wallet
             insertCoinRaw(coin);
     }
 
-    Coin WalletDB::generateSharedCoin(Amount amount)
+    vector<Coin> WalletDB::getCoinsByRowIDs(const vector<int>& rowIDs) const
+    {
+        vector<Coin> coins;
+        coins.reserve(rowIDs.size());
+        Height h = getCurrentHeight();
+        sqlite::Statement stm(this, "SELECT * FROM " STORAGE_NAME " WHERE rowid=?1");
+        for (int rowid : rowIDs)
+        {
+            stm.bind(1, rowid);
+            if (stm.step())
+            {
+                Coin& coin = coins.emplace_back();
+                int colIdx = 0;
+                ENUM_STORAGE_FIELDS(STM_GET_LIST, NOSEP, coin);
+
+                storage::DeduceStatus(*this, coin, h);
+            }
+            stm.Reset();
+        }
+        return coins;
+    }
+
+    vector<Coin> WalletDB::getUpdatedCoins(const vector<Coin>& coins) const
+    {
+        vector<Coin> updatedCoins = coins;
+        Height h = getCurrentHeight();
+        for (Coin& coin : updatedCoins)
+        {
+            storage::DeduceStatus(*this, coin, h);
+        }
+        return updatedCoins;
+    }
+
+    Coin WalletDB::generateNewCoin(Amount amount)
     {
         Coin coin(amount);
-
         coin.m_ID.m_Idx = get_RandomID();
+
+        // check for collisions
+        Coin cDup;
+        cDup.m_ID = coin.m_ID;
+        while (findCoin(cDup))
+        {
+            cDup.m_ID.m_Idx++;
+        }
+
+        coin.m_ID.m_Idx = cDup.m_ID.m_Idx;
         return coin;
     }
 
@@ -1635,7 +1687,7 @@ namespace beam::wallet
     {
         coin.m_ID.m_Idx = get_RandomID();
         insertNewCoin(coin);
-        notifyCoinsChanged();
+        notifyCoinsChanged(ChangeAction::Added, {coin});
     }
 
     void WalletDB::storeCoins(std::vector<Coin>& coins)
@@ -1650,13 +1702,13 @@ namespace beam::wallet
             insertNewCoin(coin);
             nKeyIndex = coin.m_ID.m_Idx + 1;
         }
-        notifyCoinsChanged();
+        notifyCoinsChanged(ChangeAction::Added, coins);
     }
 
     void WalletDB::saveCoin(const Coin& coin)
     {
         saveCoinRaw(coin);
-        notifyCoinsChanged();
+        notifyCoinsChanged(ChangeAction::Updated, getUpdatedCoins({coin}));
     }
 
     void WalletDB::saveCoins(const vector<Coin>& coins)
@@ -1669,7 +1721,7 @@ namespace beam::wallet
             saveCoinRaw(coin);
         }
 
-        notifyCoinsChanged();
+        notifyCoinsChanged(ChangeAction::Updated, getUpdatedCoins(coins));
     }
 
     uint64_t WalletDB::get_RandomID()
@@ -1713,7 +1765,7 @@ namespace beam::wallet
             for (const auto& cid : coins)
                 removeCoinImpl(cid);
 
-            notifyCoinsChanged();
+            notifyCoinsChanged(ChangeAction::Removed, converIDsToCoins(coins));
         }
     }
 
@@ -1738,14 +1790,14 @@ namespace beam::wallet
     void WalletDB::removeCoin(const Coin::ID& cid)
     {
         removeCoinImpl(cid);
-        notifyCoinsChanged();
+        notifyCoinsChanged(ChangeAction::Removed, converIDsToCoins({cid}));
     }
 
     void WalletDB::clearCoins()
     {
         sqlite::Statement stm(this, "DELETE FROM " STORAGE_NAME ";");
         stm.step();
-        notifyCoinsChanged();
+        notifyCoinsChanged(ChangeAction::Reset, {});
     }
 
     bool WalletDB::findCoin(Coin& coin)
@@ -1888,23 +1940,37 @@ namespace beam::wallet
     void WalletDB::rollbackConfirmedUtxo(Height minHeight)
     {
         // UTXOs
+        vector<int> changedRows;
         {
-            const char* req = "UPDATE " STORAGE_NAME " SET confirmHeight=?1 WHERE confirmHeight > ?2;";
+            const char* req = "SELECT rowid FROM " STORAGE_NAME " WHERE confirmHeight > ?1 OR spentHeight > ?1;";
             sqlite::Statement stm(this, req);
-            stm.bind(1, MaxHeight);
-            stm.bind(2, minHeight);
-            stm.step();
+            stm.bind(1, minHeight);
+            while (stm.step())
+            {
+                int& rowid = changedRows.emplace_back();
+                stm.get(0, rowid);
+            }
         }
-
+        if (!changedRows.empty())
         {
-            const char* req = "UPDATE " STORAGE_NAME " SET spentHeight=?1 WHERE spentHeight > ?2;";
-            sqlite::Statement stm(this, req);
-            stm.bind(1, MaxHeight);
-            stm.bind(2, minHeight);
-            stm.step();
-        }
+            {
+                const char* req = "UPDATE " STORAGE_NAME " SET confirmHeight=?1 WHERE confirmHeight > ?2;";
+                sqlite::Statement stm(this, req);
+                stm.bind(1, MaxHeight);
+                stm.bind(2, minHeight);
+                stm.step();
+            }
 
-        notifyCoinsChanged();
+            {
+                const char* req = "UPDATE " STORAGE_NAME " SET spentHeight=?1 WHERE spentHeight > ?2;";
+                sqlite::Statement stm(this, req);
+                stm.bind(1, MaxHeight);
+                stm.bind(2, minHeight);
+                stm.step();
+            }
+ 
+            notifyCoinsChanged(ChangeAction::Updated, getCoinsByRowIDs(changedRows));
+        }
     }
 
     vector<TxDescription> WalletDB::getTxHistory(wallet::TxType txType, uint64_t start, int count) const
@@ -2099,20 +2165,51 @@ namespace beam::wallet
 
     void WalletDB::rollbackTx(const TxID& txId)
     {
+        std::vector<int> updatedRows;
         {
-            const char* req = "UPDATE " STORAGE_NAME " SET spentTxId=NULL WHERE spentTxId=?1;";
+            const char* req = "SELECT rowid FROM " STORAGE_NAME " WHERE spentTxId=?1;";
             sqlite::Statement stm(this, req);
             stm.bind(1, txId);
-            stm.step();
+            while(stm.step())
+            {
+                int& coin = updatedRows.emplace_back();
+                stm.get(0, coin);
+            }
         }
+        if (!updatedRows.empty())
+        {
+            {
+                const char* req = "UPDATE " STORAGE_NAME " SET spentTxId=NULL WHERE spentTxId=?1;";
+                sqlite::Statement stm(this, req);
+                stm.bind(1, txId);
+                stm.step();
+            }
+            notifyCoinsChanged(ChangeAction::Updated, getCoinsByRowIDs(updatedRows));
+        }
+
+        std::vector<Coin> deletedItems;
+        {
+            const char* req = "SELECT " ENUM_STORAGE_FIELDS(LIST, COMMA, ) " FROM " STORAGE_NAME " WHERE createTxId=?1 AND confirmHeight=?2;";
+            sqlite::Statement stm(this, req);
+            stm.bind(1, txId);
+            stm.bind(2, MaxHeight);
+            while (stm.step())
+            {
+                Coin& coin = deletedItems.emplace_back();
+                int colIdx = 0;
+                ENUM_STORAGE_FIELDS(STM_GET_LIST, NOSEP, coin);
+            }
+        }
+        if (!deletedItems.empty())
         {
             const char* req = "DELETE FROM " STORAGE_NAME " WHERE createTxId=?1 AND confirmHeight=?2;";
             sqlite::Statement stm(this, req);
             stm.bind(1, txId);
             stm.bind(2, MaxHeight);
             stm.step();
+
+            notifyCoinsChanged(ChangeAction::Removed, deletedItems);
         }
-        notifyCoinsChanged();
     }
 
     boost::optional<WalletAddress> WalletDB::getAddress(const WalletID& id) const
@@ -2449,13 +2546,22 @@ namespace beam::wallet
         }
     }
 
-    void WalletDB::notifyCoinsChanged()
+    void WalletDB::notifyCoinsChanged(ChangeAction action, const vector<Coin>& items)
     {
-        for (auto sub : m_subscribers) sub->onCoinsChanged();
+        if (items.empty() && action != ChangeAction::Reset)
+            return;
+
+        for (auto sub : m_subscribers)
+        {
+            sub->onCoinsChanged(action, items);
+        }
     }
 
     void WalletDB::notifyTransactionChanged(ChangeAction action, const vector<TxDescription>& items)
     {
+        if (items.empty() && action != ChangeAction::Reset)
+            return;
+
         for (auto sub : m_subscribers)
         {
             sub->onTransactionChanged(action, items);
@@ -2469,6 +2575,9 @@ namespace beam::wallet
 
     void WalletDB::notifyAddressChanged(ChangeAction action, const vector<WalletAddress>& items)
     {
+        if (items.empty() && action != ChangeAction::Reset)
+            return;
+
         for (auto sub : m_subscribers)
         {
             sub->onAddressChanged(action, items);

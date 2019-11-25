@@ -22,17 +22,11 @@ namespace beam::wallet
     LockTxBuilder::LockTxBuilder(BaseTransaction& tx, Amount amount, Amount fee)
         : BaseTxBuilder(tx, SubTxIndex::BEAM_LOCK_TX, { amount }, fee)
     {
-        Height lifetime = 0;
-        if (!m_Tx.GetParameter(TxParameterID::Lifetime, lifetime, m_SubTxID))
-        {
-            lifetime = m_Tx.GetMandatoryParameter<Height>(TxParameterID::Lifetime);
-            m_Tx.SetParameter(TxParameterID::Lifetime, lifetime, m_SubTxID);
-        }
     }
 
     Height LockTxBuilder::GetMaxHeight() const
     {
-        return m_MinHeight + m_Lifetime;
+        return m_Tx.GetMandatoryParameter<Height>(TxParameterID::MaxHeight, m_SubTxID);
     }
 
     void LockTxBuilder::LoadPeerOffset()
@@ -123,7 +117,7 @@ namespace beam::wallet
     {
         if (!m_Tx.GetParameter(TxParameterID::SharedBlindingFactor, m_SharedBlindingFactor, m_SubTxID))
         {
-            m_SharedCoin = m_Tx.GetWalletDB()->generateSharedCoin(GetAmount());
+            m_SharedCoin = m_Tx.GetWalletDB()->generateNewCoin(GetAmount());
             m_Tx.SetParameter(TxParameterID::SharedCoinID, m_SharedCoin.m_ID, m_SubTxID);
 
             m_OutputCoins.push_back(m_SharedCoin.m_ID);

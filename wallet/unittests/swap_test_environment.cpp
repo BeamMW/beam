@@ -55,6 +55,11 @@ public:
         m_peers.push_back(addr);
     }
 
+    uint64_t getBlockCount()
+    {
+        return m_blockCount; 
+    }
+
 private:
 
     void onStreamAccepted(io::TcpStream::Ptr&& newStream, io::ErrorCode errorCode)
@@ -359,6 +364,7 @@ private:
                     }
                     catch (const std::exception& /*ex*/)
                     {
+                        result = R"({"jsonrpc": "2.0", "error": [], "id": "teste"})";
                     }
 
                     m_connections[peerId]->write(result.data(), result.size());

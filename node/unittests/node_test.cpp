@@ -1606,6 +1606,8 @@ namespace beam
 
 				ECC::Hash::Value m_SpendKernelID;
 				bool m_SpendConfirmed = false;
+				bool m_EvtAdd = false;
+				bool m_EvtSpend = false;
 
 			} m_Shielded;
 
@@ -1634,9 +1636,12 @@ namespace beam
 				{
 					Output::Ptr pOut(new Output);
 
+					Output::Shielded::Viewer viewer;
+					viewer.FromOwner(*m_Wallet.m_pKdf);
+
 					Output::Shielded::PublicGen gen;
-					gen.m_pGen = m_Wallet.m_pKdf; // whatever
-					gen.m_pSer = m_Wallet.m_pKdf; // whatever
+					gen.m_pGen = viewer.m_pGen;
+					gen.m_pSer = viewer.m_pSer;
 					gen.m_Owner = 12U; // whatever
 
 					ECC::Hash::Value nonce;
@@ -1647,17 +1652,20 @@ namespace beam
 					d.m_Value = m_Shielded.m_Value;
 					d.Generate(*pOut, gen, nonce);
 
-					m_Shielded.m_sk = d.m_sk;
-					m_Shielded.m_sk += d.m_skSerial;
+					m_Shielded.m_sk = d.m_kOutG;
+					m_Shielded.m_sk += d.m_kSerG;
 					m_Shielded.m_Commitment = pOut->m_pShielded->m_SerialPub;
 
-					d.GetSpendKey(m_Shielded.m_skSpendKey, *m_Wallet.m_pKdf);
+					Key::IKdf::Ptr pSerPrivate;
+					Output::Shielded::Viewer::GenerateSerPrivate(pSerPrivate, *m_Wallet.m_pKdf);
+
+					d.GetSpendKey(m_Shielded.m_skSpendKey, *pSerPrivate);
 
 					ECC::Point::Native pt;
 					verify_test(pOut->IsValid(h + 1, pt));
 
 					msgTx.m_Transaction->m_vOutputs.push_back(std::move(pOut));
-					m_Wallet.UpdateOffset(*msgTx.m_Transaction, d.m_sk, true);
+					m_Wallet.UpdateOffset(*msgTx.m_Transaction, d.m_kOutG, true);
 				}
 
 				m_Wallet.MakeTxKernel(*msgTx.m_Transaction, fee, h);
@@ -1765,6 +1773,35 @@ namespace beam
 				Send(msgOut);
 			}
 
+			bool OnNotAchieved(bool bFin, const char* sz)
+			{
+				if (bFin)
+					fail_test(sz);
+				return false;
+			}
+
+			bool TestAllDone(bool bFin)
+			{
+				if (!IsHeightReached())
+					return OnNotAchieved(bFin, "Blockchain height didn't reach target");
+				if (!IsAllProofsReceived())
+					return OnNotAchieved(bFin, "some proofs missing");
+				if (!IsAllBbsReceived())
+					return OnNotAchieved(bFin, "some BBS messages missing");
+				if (!IsAllRecoveryReceived())
+					return OnNotAchieved(bFin, "some recovery messages missing");
+				//if (!m_bCustomAssetRecognized)
+				//	return OnNotAchieved(bFin, "CA not recognized");
+				if (!m_Shielded.m_SpendConfirmed)
+					return OnNotAchieved(bFin, "Shielded spend not confirmed");
+				if (!m_Shielded.m_EvtAdd)
+					return OnNotAchieved(bFin, "Shielded Add event didn't arrive");
+				if (!m_Shielded.m_EvtSpend)
+					return OnNotAchieved(bFin, "Shielded Spend event didn't arrive");
+
+				return true; // all achieved
+			}
+
 			virtual void OnMsg(proto::NewTip&& msg) override
 			{
 				if (!msg.m_Description.m_Height)
@@ -1777,7 +1814,7 @@ namespace beam
 
 				if (IsHeightReached())
 				{
-					if (IsAllProofsReceived() && IsAllBbsReceived() && IsAllRecoveryReceived() /* && m_bCustomAssetRecognized*/ && m_Shielded.m_SpendConfirmed)
+					if (TestAllDone(false))
 						io::Reactor::get_Current().stop();
 					return;
 				}
@@ -2062,11 +2099,20 @@ namespace beam
 						m_bCustomAssetRecognized = true;
 					}
 
-					ECC::Scalar::Native sk;
-					ECC::Point comm;
-					SwitchCommitment(&evt.m_AssetID).Create(sk, comm, *m_Wallet.m_pKdf, evt.m_Kidv);
-					verify_test(comm == evt.m_Commitment);
-
+					if (proto::UtxoEvent::Flags::Shielded & evt.m_Flags)
+					{
+						if (proto::UtxoEvent::Flags::Add & evt.m_Flags)
+							m_Shielded.m_EvtAdd = true;
+						else
+							m_Shielded.m_EvtSpend = true;
+					}
+					else
+					{
+						ECC::Scalar::Native sk;
+						ECC::Point comm;
+						SwitchCommitment(&evt.m_AssetID).Create(sk, comm, *m_Wallet.m_pKdf, evt.m_Kidv);
+						verify_test(comm == evt.m_Commitment);
+					}
 				}
 			}
 
@@ -2173,26 +2219,14 @@ namespace beam
 
 		pReactor->run();
 
-
-		if (!cl.IsHeightReached())
-			fail_test("Blockchain height didn't reach target");
-		if (!cl.IsAllProofsReceived())
-			fail_test("some proofs missing");
-		if (!cl.IsAllBbsReceived())
-			fail_test("some BBS messages missing");
-		if (!cl.IsAllRecoveryReceived())
-			fail_test("some recovery messages missing");
-		//if (!cl.m_bCustomAssetRecognized)
-		//	fail_test("CA not recognized");
-		if (!cl.m_Shielded.m_SpendConfirmed)
-			fail_test("Shielded spend not confirmed");
+		cl.TestAllDone(true);
 
 		struct TxoRecover
 			:public NodeProcessor::ITxoRecover
 		{
 			uint32_t m_Recovered = 0;
 
-			TxoRecover(NodeProcessor& x) :NodeProcessor::ITxoRecover(x) {}
+			TxoRecover(Key::IPKdf& key) :NodeProcessor::ITxoRecover(key) {}
 
 			virtual bool OnTxo(const NodeDB::WalkerTxo&, Height hCreate, Output&, const Key::IDV& kidv) override
 			{
@@ -2201,7 +2235,7 @@ namespace beam
 			}
 		};
 
-		TxoRecover wlk(node.get_Processor());
+		TxoRecover wlk(*node.m_Keys.m_pOwner);
 		node2.get_Processor().EnumTxos(wlk);
 
 		node.get_Processor().RescanOwnedTxos();

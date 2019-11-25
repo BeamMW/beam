@@ -113,13 +113,13 @@ namespace beam::wallet
 
     void BaseTxBuilder::GenerateNewCoin(Amount amount, bool bChange)
     {
-        Coin newUtxo{ amount };
+        Coin newUtxo = m_Tx.GetWalletDB()->generateNewCoin(amount);
         newUtxo.m_createTxId = m_Tx.GetTxID();
         if (bChange)
         {
             newUtxo.m_ID.m_Type = Key::Type::Change;
         }
-        m_Tx.GetWalletDB()->storeCoin(newUtxo);
+        m_Tx.GetWalletDB()->saveCoin(newUtxo);
         m_OutputCoins.push_back(newUtxo.m_ID);
         m_Tx.SetParameter(TxParameterID::OutputCoins, m_OutputCoins, false, m_SubTxID);
     }

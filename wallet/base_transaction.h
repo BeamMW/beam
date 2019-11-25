@@ -29,16 +29,26 @@ namespace beam::wallet
     TxID GenerateTxID();
     TxParameters CreateTransactionParameters(TxType type, const TxID& txID);
     //
-    // Interface for all possible transaction types
+    // Interface for all possible transaction types in active state
     //
     struct ITransaction
     {
         using Ptr = std::shared_ptr<ITransaction>;
-
+        
+        // Type of transaction
         virtual TxType GetType() const = 0;
+
+        // Updates state of transation. 
         virtual void Update() = 0;
+
+        // Cancel active transaction
         virtual void Cancel() = 0;
+        
+        // Rollback transation state up to give height
         virtual bool Rollback(Height height) = 0;
+
+        // Returns true if negotiation is finished and all needed data is sent
+        virtual bool IsInSafety() const = 0;
     };
 
     std::string GetFailureMessage(TxFailureReason reason);

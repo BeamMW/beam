@@ -20,7 +20,6 @@
 
 #include "core/serialization_adapters.h"
 #include "core/proto.h"
-#include "swaps/second_side.h"
 #include <algorithm>
 
 namespace beam::wallet
@@ -273,6 +272,7 @@ namespace beam::wallet
         Confirmations = 204,
         AtomicSwapPrivateKey = 205,
         AtomicSwapWithdrawAddress = 206,
+        AtomicSwapExternalHeight = 207,
 
         InternalFailureReason = 210,
     
@@ -291,7 +291,7 @@ namespace beam::wallet
         bool operator==(const TxParameters& other);
         bool operator!=(const TxParameters& other);
 
-        boost::optional<TxID> GetTxID() const;
+        const boost::optional<TxID>& GetTxID() const;
 
         template <typename T>
         boost::optional<T> GetParameter(TxParameterID parameterID, SubTxID subTxID = kDefaultSubTxID) const

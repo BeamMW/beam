@@ -23,35 +23,55 @@
 #include "test_helpers.h"
 
 #include "bitcoin/bitcoin.hpp"
+#include "utility/io/sslserver.h"
 
 WALLET_TEST_INIT
 
+using namespace beam;
+using namespace std;
+using namespace ECC;
+
+#include "swap_test_environment.cpp"
+
 namespace beam::bitcoin
 {
-    class Provider : public IElectrumSettingsProvider
+    class Provider : public ISettingsProvider
     {
     public:
         Provider(const ElectrumSettings& settings)
-            : m_settings(settings)
         {
+            m_settings.SetElectrumConnectionOptions(settings);
         }
 
-        ~Provider() override
-        {
-
-        }
-
-        ElectrumSettings GetElectrumSettings() const override
+        Settings GetSettings() const override
         {
             return m_settings;
         }
 
+        void SetSettings(const bitcoin::Settings& /*settings*/) override
+        {
+        }
+
+        bool CanModify() const override
+        {
+            return true;
+        }
+
+        void AddRef() override
+        {
+        }
+
+        void ReleaseRef() override
+        {
+
+        }
+
     private:
-        ElectrumSettings m_settings;
+        Settings m_settings;
     };
 }
 
-using namespace beam;
+//using namespace beam;
 using json = nlohmann::json;
 
 
@@ -60,7 +80,6 @@ void testAddress()
 {
     bitcoin::ElectrumSettings settings;
     settings.m_secretWords = { "child", "happy", "moment", "weird", "ten", "token", "stuff", "surface", "success", "desk", "embark", "observe" };
-    settings.m_addressVersion = bitcoin::getAddressVersion();
 
     auto provider = std::make_shared<bitcoin::Provider>(settings);
     io::Reactor::Ptr mainReactor{ io::Reactor::create() };
@@ -130,42 +149,49 @@ void testAddress()
     }
 }
 
-void testDumpPrivKey()
+void testConnection()
 {
-    bitcoin::ElectrumSettings settings;
-    settings.m_secretWords = { "child", "happy", "moment", "weird", "ten", "token", "stuff", "surface", "success", "desk", "embark", "observe" };
-    settings.m_addressVersion = bitcoin::getAddressVersion();
-
-    auto provider = std::make_shared<bitcoin::Provider>(settings);
     io::Reactor::Ptr mainReactor{ io::Reactor::create() };
     io::Reactor::Scope scope(*mainReactor);
-    bitcoin::Electrum electrum(*mainReactor, *provider);
+    io::Timer::Ptr timer(io::Timer::create(*mainReactor));
+    std::string address("127.0.0.1:10400");
+    TestElectrumWallet btcWallet(*mainReactor, address);
+    io::Address addr;
+    std::unique_ptr<io::TcpStream> sslStream;
 
-#if defined(BEAM_MAINNET) || defined(SWAP_MAINNET)
-    electrum.dumpPrivKey("16AW2aVqy2gva1hxdtF4xhoSrTQTbGSNvM", [](const bitcoin::IBridge::Error&, const std::string& privateKey)
+    addr.resolve(address.c_str());
+
+    mainReactor->tcp_connect(addr, 1, [&](uint64_t tag, std::unique_ptr<io::TcpStream>&& newStream, io::ErrorCode status)
     {
-        LOG_INFO() << "private key = " << privateKey;
+        LOG_DEBUG() << "status = " << static_cast<int>(status);
+        sslStream = std::move(newStream);
 
-        libbitcoin::wallet::ec_private addressPrivateKey(privateKey, bitcoin::getAddressVersion());
-        libbitcoin::wallet::ec_public publicKey(addressPrivateKey.to_public());
-        libbitcoin::wallet::payment_address address = publicKey.to_payment_address(bitcoin::getAddressVersion());
-        LOG_INFO() << address.encoded();
+        sslStream->enable_read([&](io::ErrorCode what, void* data, size_t size)
+        {
+            if (data && size)
+            {
+                LOG_DEBUG() << "result: " << std::string((const char*)data, size);
+            }
+            else
+            {
+                LOG_DEBUG() << "error what = " << static_cast<int>(what);
+            }
+            return true;
+        });
 
-        WALLET_CHECK(address.encoded() == "16AW2aVqy2gva1hxdtF4xhoSrTQTbGSNvM");
+        std::string request = "tt";
+
+        io::Result res = sslStream->write(request.data(), request.size());
+        if (!res) {
+            LOG_ERROR() << error_str(res.error());
+        }
+    }, 2000, true);
+
+    timer->start(5000, false, [&]() {
+        mainReactor->stop();
     });
-#else
-    electrum.dumpPrivKey("mkgTKdapn48BM8BaMTDSnd1miT1AZSjV7P", [](const bitcoin::IBridge::Error&, const std::string& privateKey)
-    {
-        LOG_INFO() << "private key = " << privateKey;
 
-        libbitcoin::wallet::ec_private addressPrivateKey(privateKey, bitcoin::getAddressVersion());
-        libbitcoin::wallet::ec_public publicKey(addressPrivateKey.to_public());
-        libbitcoin::wallet::payment_address address = publicKey.to_payment_address(bitcoin::getAddressVersion());
-        LOG_INFO() << address.encoded();
-
-        WALLET_CHECK(address.encoded() == "mkgTKdapn48BM8BaMTDSnd1miT1AZSjV7P");
-    });
-#endif
+    mainReactor->run();
 }
 
 int main()
@@ -174,7 +200,7 @@ int main()
     auto logger = beam::Logger::create(logLevel, logLevel);
 
     testAddress();
-    testDumpPrivKey();
+    //testConnection();
     
     assert(g_failureCount == 0);
     return WALLET_CHECK_RESULT;

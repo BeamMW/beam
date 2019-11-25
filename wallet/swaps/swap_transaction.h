@@ -160,6 +160,7 @@ namespace beam::wallet
         void SetNextState(State state);
 
         TxType GetType() const override;
+        bool IsInSafety() const override;
         State GetState(SubTxID subTxID) const;
         SubTxState GetSubTxState(SubTxID subTxID) const;
         Amount GetWithdrawFee() const;
@@ -176,6 +177,7 @@ namespace beam::wallet
 
         void SendSharedTxInvitation(const BaseTxBuilder& builder);
         void ConfirmSharedTxInvitation(const BaseTxBuilder& builder);
+        void SendQuickRefundPrivateKey();
 
 
         SubTxState BuildBeamLockTx();
@@ -185,6 +187,8 @@ namespace beam::wallet
         bool SendSubTx(Transaction::Ptr transaction, SubTxID subTxID);
 
         bool IsBeamLockTimeExpired() const;
+        bool IsBeamRedeemTxRegistered() const;
+        bool IsSafeToSendBeamRedeemTx() const;
 
         // wait SubTX in BEAM chain(request kernel proof), returns true if got kernel proof
         bool CompleteSubTx(SubTxID subTxID);

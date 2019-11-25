@@ -514,6 +514,39 @@ namespace beam
 		}
 	};
 
+	void Output::Shielded::Viewer::FromOwner(Key::IPKdf& key)
+	{
+		ECC::Scalar::Native sk;
+		key.DerivePKey(sk, Data::HashTxt("Own.Gen"));
+		ECC::NoLeak<ECC::Scalar> s;
+		s.V = sk;
+
+		ECC::HKdf::Create(m_pGen, s.V.m_Value);
+
+		GenerateSerSrc(s.V.m_Value, key);
+
+		m_pSer.reset(new ECC::HKdfPub);
+		Cast::Up<ECC::HKdfPub>(*m_pSer).GenerateChildParallel(key, s.V.m_Value);
+	}
+
+	void Output::Shielded::Viewer::GenerateSerSrc(ECC::Hash::Value& res, Key::IPKdf& key)
+	{
+		ECC::Scalar::Native sk;
+		key.DerivePKey(sk, Data::HashTxt("Own.Ser"));
+
+		static_assert(sizeof(res) == sizeof(ECC::Scalar));
+		((ECC::Scalar&) res) = sk;
+	}
+
+	void Output::Shielded::Viewer::GenerateSerPrivate(Key::IKdf::Ptr& pOut, Key::IKdf& key)
+	{
+		ECC::NoLeak<ECC::Hash::Value> hv;
+		GenerateSerSrc(hv.V, key);
+
+		pOut.reset(new ECC::HKdf);
+		Cast::Up<ECC::HKdf>(*pOut).GenerateChildParallel(key, hv.V);
+	}
+
 	void Output::Shielded::Data::DoubleBlindedCommitment(ECC::Point::Native& res, const ECC::Scalar::Native& kG, const ECC::Scalar::Native& kJ)
 	{
 		res = ECC::Context::get().G * kG;
@@ -540,12 +573,6 @@ namespace beam
 		return pt == Zero;
 	}
 
-	void Output::Shielded::Data::GenerateS0(Key::IPKdf& ser, const ECC::Hash::Value& nonce, ECC::Scalar::Native& kG, ECC::Scalar::Native& kJ)
-	{
-		ser.DerivePKey(kG, HashTxt("kG") << nonce);
-		GetSerial(kJ, kG, ser);
-	}
-
 	void Output::Shielded::Data::GenerateS1(Key::IPKdf& gen, const ECC::Point& ptShared, ECC::Scalar::Native& nG, ECC::Scalar::Native& nJ)
 	{
 		gen.DerivePKey(nG, HashTxt("nG") << ptShared);
@@ -554,13 +581,13 @@ namespace beam
 
 	void Output::Shielded::Data::ToSk(Key::IPKdf& gen)
 	{
-		gen.DerivePKey(m_sk, HashTxt("sG") << m_skSerial);
+		gen.DerivePKey(m_kOutG, HashTxt("sG") << m_kSerG);
 	}
 
 	void Output::Shielded::Data::GetOutputSeed(Key::IPKdf& gen, ECC::Hash::Value& res) const
 	{
 		ECC::Scalar::Native k;
-		gen.DerivePKey(k, HashTxt("seed") << m_sk);
+		gen.DerivePKey(k, HashTxt("seed") << m_kOutG);
 		ECC::Hash::Processor() << k >> res;
 	}
 
@@ -572,12 +599,13 @@ namespace beam
 	void Output::Shielded::Data::GenerateS(Shielded& s, const PublicGen& gen, const ECC::Hash::Value& nonce)
 	{
 		ECC::Scalar::Native kJ, nG, nJ, e;
-		GenerateS0(*gen.m_pSer, nonce, m_skSerial, kJ);
 
+		gen.m_pSer->DerivePKey(m_kSerG, HashTxt("kG") << nonce);
+		GetSerial(kJ, *gen.m_pSer);
 		ToSk(*gen.m_pGen);
 
 		ECC::Point::Native pt, pt1;
-		DoubleBlindedCommitment(pt, m_skSerial, kJ);
+		DoubleBlindedCommitment(pt, m_kSerG, kJ);
 
 		s.m_SerialPub = pt;
 
@@ -588,7 +616,7 @@ namespace beam
 		gen.m_pGen->DerivePKeyG(pt, hv);
 		gen.m_pGen->DerivePKeyJ(pt1, hv);
 
-		pt = pt * m_skSerial;
+		pt = pt * m_kSerG;
 		pt += pt1 * kJ; // shared point
 
 		GenerateS1(*gen.m_pGen, pt, nG, nJ);
@@ -604,7 +632,7 @@ namespace beam
 		kJ += nJ;
 		s.m_kSer = -kJ;
 
-		kJ = m_skSerial * e;
+		kJ = m_kSerG * e;
 		kJ += nG;
 		s.m_Signature.m_k = -kJ;
 	}
@@ -621,9 +649,9 @@ namespace beam
 		assert(outp.m_pShielded);
 
 		ECC::Hash::Value bpNonce;
-		gen.get_OwnerNonce(bpNonce, m_sk);
+		gen.get_OwnerNonce(bpNonce, m_kOutG);
 
-		ECC::Point::Native pt = ECC::Commitment(m_sk, m_Value);
+		ECC::Point::Native pt = ECC::Commitment(m_kOutG, m_Value);
 		outp.m_Commitment = pt;
 
 		assert(m_hScheme >= Rules::get().pForks[2].m_Height);
@@ -638,30 +666,34 @@ namespace beam
 		cp.m_Kidv.m_Value = m_Value;
 
 		outp.m_pConfidential.reset(new ECC::RangeProof::Confidential);
-		outp.m_pConfidential->Create(m_sk, cp, oracle);
+		outp.m_pConfidential->Create(m_kOutG, cp, oracle);
 	}
 
-	void Output::Shielded::Data::GetSerialPreimage(ECC::Hash::Value& res, const ECC::Scalar::Native& kG)
+	void Output::Shielded::Data::GetSerialPreimage(ECC::Hash::Value& res) const
 	{
 		ECC::NoLeak<ECC::Scalar> sk;
-		sk.V = kG;
+		sk.V = m_kSerG;
 		HashTxt("kG-ser") << sk.V.m_Value >> res;
 	}
 
-	void Output::Shielded::Data::GetSerial(ECC::Scalar::Native& kJ, const ECC::Scalar::Native& kG, Key::IPKdf& ser)
+	void Output::Shielded::Data::GetSerial(ECC::Scalar::Native& kJ, Key::IPKdf& ser) const
 	{
-		ECC::Hash::Value hv;
-		GetSerialPreimage(hv, kG);
-
 		ECC::Point::Native pt;
-		ser.DerivePKeyG(pt, hv);
+		GetSpendPKey(pt, ser);
 		Lelantus::SpendKey::ToSerial(kJ, pt);
 	}
 
-	void Output::Shielded::Data::GetSpendKey(ECC::Scalar::Native& sk, Key::IKdf& ser)
+	void Output::Shielded::Data::GetSpendPKey(ECC::Point::Native& pt, Key::IPKdf& ser) const
 	{
 		ECC::Hash::Value hv;
-		GetSerialPreimage(hv, m_skSerial);
+		GetSerialPreimage(hv);
+		ser.DerivePKeyG(pt, hv);
+	}
+
+	void Output::Shielded::Data::GetSpendKey(ECC::Scalar::Native& sk, Key::IKdf& ser) const
+	{
+		ECC::Hash::Value hv;
+		GetSerialPreimage(hv);
 		ser.DeriveKey(sk, hv);
 	}
 
@@ -689,8 +721,8 @@ namespace beam
 		if (!IsEqual(pt, s.m_Signature.m_NoncePub))
 			return false;
 
-		m_skSerial = s.m_Signature.m_k;
-		m_skSerial += nG;
+		m_kSerG = s.m_Signature.m_k;
+		m_kSerG += nG;
 
 		kJ = s.m_kSer;
 		kJ += nJ;
@@ -700,14 +732,14 @@ namespace beam
 		nJ.Inv();
 		nJ = -nJ;
 
-		m_skSerial *= nJ;
+		m_kSerG *= nJ;
 		kJ *= nJ;
 
-		DoubleBlindedCommitment(pt, m_skSerial, kJ);
+		DoubleBlindedCommitment(pt, m_kSerG, kJ);
 		if (!IsEqual(ptSer, pt))
 			return false;
 
-		GetSerial(nJ, m_skSerial, *v.m_pSer);
+		GetSerial(nJ, *v.m_pSer);
 		if (!(nJ == kJ))
 			return false;
 
@@ -726,7 +758,7 @@ namespace beam
 
 		m_Value = cp.m_Kidv.m_Value;
 
-		pt = ECC::Commitment(m_sk, m_Value);
+		pt = ECC::Commitment(m_kOutG, m_Value);
 		return IsEqual(pt, outp.m_Commitment);
 	}
 
