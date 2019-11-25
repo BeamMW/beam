@@ -54,7 +54,7 @@ namespace beam::wallet
     {
         switch (reason)
         {
-#define MACRO(name, code, message) case name: return message;
+#define MACRO(name, code, message)
             BEAM_TX_FAILURE_REASON_MAP(MACRO)
 #undef MACRO
         }

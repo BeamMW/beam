@@ -219,7 +219,7 @@ namespace beam::wallet
         virtual std::vector<Coin> getCoinsByID(const CoinIDList& ids) = 0;
 
         // Generates a new valid coin with specific amount. In order to save it into the database you have to call save() method
-        virtual Coin generateNewCoin(Amount amount) = 0;
+        virtual Coin generateNewCoin(Amount amount, const AssetID& assetId) = 0;
 
         // Set of basic coin related database methods
         virtual void storeCoin(Coin& coin) = 0;
@@ -320,7 +320,7 @@ namespace beam::wallet
         std::vector<Coin> getCoinsCreatedByTx(const TxID& txId) override;
         std::vector<Coin> getCoinsByTx(const TxID& txId) override;
         std::vector<Coin> getCoinsByID(const CoinIDList& ids) override;
-        Coin generateNewCoin(Amount amount) override;
+        Coin generateNewCoin(Amount amount, const AssetID& assetId) override;
         void storeCoin(Coin& coin) override;
         void storeCoins(std::vector<Coin>&) override;
         void saveCoin(const Coin& coin) override;

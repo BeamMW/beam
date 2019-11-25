@@ -138,9 +138,11 @@ namespace beam::wallet
 
     void BaseTxBuilder::GenerateAssetCoin(Amount amount, bool change)
     {
-        Coin newUtxo = m_Tx.GetWalletDB()->generateNewCoin(amount);
-        Coin newUtxo(amount, change ? Key::Type::AssetChange : Key::Type::Asset, m_AssetId);
-        newUtxo.m_createTxId = m_Tx.GetTxID();
+        Coin newUtxo = m_Tx.GetWalletDB()->generateNewCoin(amount, m_AssetId);
+        if (change)
+        {
+            newUtxo.m_ID.m_Type = Key::Type::AssetChange;
+        }
         m_Tx.GetWalletDB()->storeCoin(newUtxo);
         m_OutputCoins.push_back(newUtxo.m_ID);
         m_Tx.SetParameter(TxParameterID::OutputCoins, m_OutputCoins, false, m_SubTxID);
@@ -148,7 +150,11 @@ namespace beam::wallet
 
     void BaseTxBuilder::GenerateBeamCoin(Amount amount, bool change)
     {
-        Coin newUtxo(amount, change ? Key::Type::Change : Key::Type::Regular);
+        Coin newUtxo = m_Tx.GetWalletDB()->generateNewCoin(amount, Zero);
+        if (change)
+        {
+            newUtxo.m_ID.m_Type = Key::Type::Change;
+        }
         newUtxo.m_createTxId = m_Tx.GetTxID();
         m_Tx.GetWalletDB()->storeCoin(newUtxo);
         m_OutputCoins.push_back(newUtxo.m_ID);

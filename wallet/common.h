@@ -135,11 +135,11 @@ namespace beam::wallet
     MACRO(NotEnoughTimeToFinishBtcTx,    21, "Not enough time to finish btc lock transaction") \
     MACRO(FailedToCreateMultiSig,        22, "Failed to create multi-signature") \
     MACRO(FeeIsTooSmall,                 23, "Fee is too small") \
-    MACRO(MinHeightIsUnacceptable,       25, "Kernel's min height is unacceptable") \
-    MACRO(NotLoopback,                   24, "Not a loopback transaction") \
-    MACRO(NoKeyKeeper,                   25, "Key keeper is not initialized") \
-    MACRO(NoAssetId,                     26, "No valid asset id/asset idx") \
-    MACRO(ConsumeAmountTooBig,           27, "Cannot consume more than MAX_INT64 asset groth in one transaction")
+    MACRO(MinHeightIsUnacceptable,       24, "Kernel's min height is unacceptable") \
+    MACRO(NotLoopback,                   25, "Not a loopback transaction") \
+    MACRO(NoKeyKeeper,                   26, "Key keeper is not initialized") \
+    MACRO(NoAssetId,                     27, "No valid asset id/asset idx") \
+    MACRO(ConsumeAmountTooBig,           28, "Cannot consume more than MAX_INT64 asset groth in one transaction")
 
     enum TxFailureReason : int32_t
     {

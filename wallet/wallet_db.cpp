@@ -1722,9 +1722,9 @@ namespace beam::wallet
         return updatedCoins;
     }
 
-    Coin WalletDB::generateNewCoin(Amount amount)
+    Coin WalletDB::generateNewCoin(Amount amount, const AssetID& assetId)
     {
-        Coin coin(amount);
+        Coin coin(amount, assetId == Zero ? Key::Type::Regular : Key::Type::Asset, assetId);
         coin.m_ID.m_Idx = get_RandomID();
 
         // check for collisions
