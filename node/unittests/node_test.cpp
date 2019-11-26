@@ -1715,7 +1715,12 @@ namespace beam
 				{
 					// zero-pad from left
 					lst.m_vec.resize(m_Shielded.m_N);
-					memset(&lst.m_vec.front(), 0, sizeof(ECC::Point::Storage) * (m_Shielded.m_N - msg.m_Items.size()));
+					for (size_t i = 0; i < m_Shielded.m_N - msg.m_Items.size(); i++)
+					{
+						ECC::Point::Storage& v = lst.m_vec[i];
+						v.m_X = Zero;
+						v.m_Y = Zero;
+					}
 					std::copy(msg.m_Items.begin(), msg.m_Items.end(), lst.m_vec.end() - msg.m_Items.size());
 				}
 

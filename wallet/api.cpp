@@ -504,7 +504,7 @@ namespace beam::wallet
                 {"create_time", addr.getCreateTime()},
                 {"duration", addr.m_duration},
                 {"expired", addr.isExpired()},
-                {"own", addr.m_OwnID != 0}
+                {"own", addr.isOwn()}
             });
         }
     }

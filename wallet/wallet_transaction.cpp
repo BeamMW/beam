@@ -63,13 +63,13 @@ namespace beam::wallet
         auto receiverAddr = m_WalletDB->getAddress(*peerID);
         if (receiverAddr)
         {
-            if (receiverAddr->m_OwnID && receiverAddr->isExpired())
+            if (receiverAddr->isOwn() && receiverAddr->isExpired())
             {
                 LOG_INFO() << "Can't send to the expired address.";
                 throw AddressExpiredException();
             }
             TxParameters temp{ parameters };
-            temp.SetParameter(TxParameterID::IsSelfTx, receiverAddr->m_OwnID != 0);
+            temp.SetParameter(TxParameterID::IsSelfTx, receiverAddr->isOwn());
             return temp;
         }
         else
@@ -187,7 +187,7 @@ namespace beam::wallet
                 if (GetParameter(TxParameterID::MyID, wid))
                 {
                     auto waddr = m_WalletDB->getAddress(wid);
-                    if (waddr && waddr->m_OwnID)
+                    if (waddr && waddr->isOwn())
                         SetParameter(TxParameterID::MyAddressID, waddr->m_OwnID);
                 }
             }
@@ -415,7 +415,7 @@ namespace beam::wallet
                 pc.m_Sender = widPeer.m_Pk;
 
                 auto waddr = m_WalletDB->getAddress(widMy);
-                if (waddr && waddr->m_OwnID)
+                if (waddr && waddr->isOwn())
                 {
                     Scalar::Native sk;
                     
@@ -464,7 +464,7 @@ namespace beam::wallet
     {
         WalletID peerID = GetMandatoryParameter<WalletID>(TxParameterID::PeerID);
         auto address = m_WalletDB->getAddress(peerID);
-        return address.is_initialized() && address->m_OwnID;
+        return address.is_initialized() && address->isOwn();
     }
 
     SimpleTransaction::State SimpleTransaction::GetState() const

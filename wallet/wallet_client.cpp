@@ -689,8 +689,6 @@ namespace beam::wallet
     void WalletClient::saveAddress(const WalletAddress& address, bool bOwn)
     {
         m_walletDB->saveAddress(address);
-        if (bOwn)
-            getAddresses(bOwn);
     }
 
     void WalletClient::changeCurrentWalletIDs(const WalletID& senderID, const WalletID& receiverID)
@@ -766,7 +764,7 @@ namespace beam::wallet
 
             if (addr)
             {
-                if (addr->m_OwnID &&
+                if (addr->isOwn() &&
                     status != WalletAddress::ExpirationStatus::AsIs)
                 {
                     addr->setExpiration(status);

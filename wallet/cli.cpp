@@ -841,8 +841,17 @@ namespace
     int ImportWalletData(const po::variables_map& vm, const IWalletDB::Ptr& walletDB)
     {
         ByteBuffer buffer;
-        if (!LoadDataToImport(vm[cli::IMPORT_EXPORT_PATH].as<string>(), buffer))
+        if (vm[cli::IMPORT_EXPORT_PATH].defaulted())
         {
+            LOG_ERROR() << kErrorFileLocationParamReqired;
+            return -1;
+        }
+
+        auto path = vm[cli::IMPORT_EXPORT_PATH].as<string>();
+        if (path.empty() || !LoadDataToImport(path, buffer))
+        {
+            LOG_ERROR() << boost::format(kErrorImportPathInvalid)
+                        % path;
             return -1;
         }
         const char* p = (char*)(&buffer[0]);
