@@ -448,6 +448,9 @@ namespace beam::wallet
     void WalletClient::onCoinsChanged()
     {
         onAllUtxoChanged(getUtxos());
+        // TODO: refactor this
+        // We should call getStatus to update balances
+        onStatus(getStatus());
     }
 
     void WalletClient::onTransactionChanged(ChangeAction action, const std::vector<TxDescription>& items)
