@@ -42,6 +42,7 @@ namespace beam::wallet
     private:
         AssetIssueTransaction(bool issue, INegotiatorGateway& gateway, IWalletDB::Ptr walletDB, IPrivateKeyKeeper::Ptr keyKeeper, const TxID& txID);
         TxType GetType() const override;
+        bool IsInSafety() const override;
 
         void UpdateImpl() override;
         bool ShouldNotifyAboutChanges(TxParameterID paramID) const override;

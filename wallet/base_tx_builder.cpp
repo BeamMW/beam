@@ -60,7 +60,10 @@ namespace beam::wallet
     {
         CoinIDList preselectedCoinIDs;
         vector<Coin> coins;
-        Amount preselectedAmount = 0;
+
+        Amount preselAmountBeam = 0;
+        Amount preselAmountAsset = 0;
+
         if (m_Tx.GetParameter(TxParameterID::PreselectedCoins, preselectedCoinIDs, m_SubTxID) && !preselectedCoinIDs.empty())
         {
             coins = m_Tx.GetWalletDB()->getCoinsByID(preselectedCoinIDs);

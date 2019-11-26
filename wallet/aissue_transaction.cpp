@@ -228,4 +228,10 @@ namespace beam::wallet
         }
         return true;
     }
+
+    bool AssetIssueTransaction::IsInSafety() const
+    {
+        State txState = GetState();
+        return txState == State::KernelConfirmation;
+    }
 }
