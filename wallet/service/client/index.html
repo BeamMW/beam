@@ -64,11 +64,41 @@
 				<span class="badge badge-success">status: connected to the Wallet Service</span>
 			</div>
 			<div class="form-group">
-				Available: <span class="available"></span>
+				<div>Available: <span class="available"></span></div>
+				<div>Sending: <span class="sending"></span></div>
+				<div>Receiving: <span class="receiving"></span></div>
 			</div>
 			<div class="form-group">
 				Current height: <span class="current_height"></span>
 			</div>
+			<hr>
+			<h3>Send</h3>
+				<div class="form-group">
+					<label for="receiver-address-input">Enter receiver address:</label>
+					<input type="text" class="receiver-address-input form-control" placeholder="Enter receiver address" value="19f3b39d925ce49f19f67c3787b54bfe4414d490f0acf42b58527a23608427bbb34">
+				</div>
+				<div class="form-group">
+					<label for="amount-input">Enter amount (GROTH):</label>
+					<input type="text" class="amount-input form-control" placeholder="Enter amount">
+				</div>
+				<button type="button" class="send-button btn btn-danger">
+					Send
+				</button>				
+			<hr>
+			<h3>Transactions</h3>
+			<table class="table transactions">
+				<thead>
+					<tr>
+						<th>#</th>
+						<th>created</th>
+						<th>receiver</th>
+						<th>sender</th>
+						<th>amount</th>
+						<th>status</th>
+					</tr>
+				</thead>
+				<tbody></tbody>
+			</table>
 			<hr>
 			<h3>Addresses</h3>
 			<table class="table addresses">
@@ -77,10 +107,25 @@
 						<th>#</th>
 						<th>address</th>
 						<th>comment</th>
-						<th>create_time</th>
+						<th>create time</th>
 						<th>duration</th>
 						<th>expired</th>
 						<th>own</th>
+					</tr>
+				</thead>
+				<tbody></tbody>
+			</table>
+			<hr>
+			<h3>UTXO</h3>
+			<table class="table utxo">
+				<thead>
+					<tr>
+						<th>#</th>
+						<th>amount</th>
+						<th>id</th>
+						<th>maturity</th>
+						<th>status</th>
+						<th>type</th>
 					</tr>
 				</thead>
 				<tbody></tbody>
@@ -144,6 +189,43 @@
 				return new Module.KeyKeeper(wordList)
 			}
 
+			function send(amount, address)
+			{
+				console.log(`!!! sending ${amount} groth to ${address}...`)
+			}
+
+			$('#wallet-panel .send-button').click(() => 
+			{
+				var addr = $('#wallet-panel .receiver-address-input').val()
+				if(addr.length == 0)
+				{
+					alert('Please, enter valid address.')
+					return
+				}
+
+				var amount = $('#wallet-panel .amount-input').val()
+
+				if(isNaN(parseInt(amount)))
+				{
+					alert('Please, enter valid amount.')
+					return
+				}
+
+				if (confirm(`Are you sure want send ${amount} groth to ${addr}?`)) 
+				{
+					$('#wallet-panel .amount-input').val('')
+					send(amount, addr)
+				}
+			})
+
+			$('#wallet-panel .close-wallet-button').click(() => 
+			{
+				if (confirm('Are you sure want do close the wallet?')) 
+				{
+					connection.close()
+				}
+			})
+
 			$('#open-wallet-panel .delete-wallet-button').click(() => 
 			{
 				if (confirm('Are you sure want do delete current wallet data?')) 
@@ -175,11 +257,10 @@
 							<td>${item.expired}</td>
 							<td>${item.own}</td>
 							</tr>`))
+
+						showUtxo()
 					}
 					else onkeykeeper(data)
-
-					if($('#wallet-panel').is(":visible"))
-						setTimeout(showWalletStatus, 5000)
 				}
 
 				connection.send(JSON.stringify(
@@ -191,6 +272,77 @@
 					{
 						own: true
 					}
+				}))
+			}
+
+			function showTransactions()
+			{
+				connection.onmessage = e => 
+				{
+					// console.log(`got response: ${e.data}`)
+
+					var data = JSON.parse(e.data)
+
+					if(data.result)
+					{
+						var body = $('#wallet-panel .transactions > tbody')
+							.empty()
+					
+						data.result.forEach && data.result.forEach((item, index) => body.append(`<tr>
+							<td>${index+1}</td>
+							<td>${new Date(item.create_time*1000).toLocaleString()}</td>
+							<td>${item.receiver.slice(0,32)}...</td>
+							<td>${item.sender.slice(0,32)}...</td>
+							<td>${item.value}</td>
+							<td>${item.status_string}</td>
+							</tr>`))
+					}
+					else onkeykeeper(data)
+
+					if($('#wallet-panel').is(":visible"))
+						setTimeout(showWalletStatus, 5000)
+				}
+
+				connection.send(JSON.stringify(
+				{
+					jsonrpc:'2.0',
+					id: 0,
+					method: 'tx_list'
+				}))
+			}
+
+			function showUtxo()
+			{
+				connection.onmessage = e => 
+				{
+					// console.log(`got response: ${e.data}`)
+
+					var data = JSON.parse(e.data)
+
+					if(data.result)
+					{
+						var body = $('#wallet-panel .utxo > tbody')
+							.empty()
+
+						data.result.forEach && data.result.forEach((item, index) => body.append(`<tr>
+							<td>${index+1}</td>
+							<td>${item.amount}</td>
+							<td>${item.id}</td>
+							<td>${item.maturity}</td>
+							<td>${item.status_string}</td>
+							<td>${item.type}</td>
+							</tr>`))
+
+						showTransactions()
+					}
+					else onkeykeeper(data)
+				}
+
+				connection.send(JSON.stringify(
+				{
+					jsonrpc:'2.0',
+					id: 0,
+					method: 'get_utxo'
 				}))
 			}
 
@@ -222,6 +374,8 @@
 					if(data.result)
 					{
 						$("#wallet-panel .available").text(data.result.available)
+						$("#wallet-panel .sending").text(data.result.sending)
+						$("#wallet-panel .receiving").text(data.result.receiving)
 						$("#wallet-panel .current_height").text(data.result.current_height)
 
 						showAddresses()
