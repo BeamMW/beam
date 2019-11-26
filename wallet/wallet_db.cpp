@@ -3076,8 +3076,18 @@ namespace beam::wallet
                         {
                             //{ "SubIndex", 0 },
                             address.m_label = jsonAddress[Fields::Label];
-                            address.m_createTime = jsonAddress[Fields::CreationTime];
-                            address.m_duration = jsonAddress[Fields::Duration];
+                            auto creationTime = jsonAddress[Fields::CreationTime];
+                            auto currentTime = beam::getTimestamp();
+                            if (currentTime >= creationTime)
+                            {
+                                address.m_createTime = creationTime;
+                                address.m_duration = jsonAddress[Fields::Duration];
+                            }
+                            else
+                            {
+                                address.m_createTime = currentTime;
+                                address.m_duration = WalletAddress::AddressExpiration24h;
+                            }
                             if (jsonAddress.find(Fields::Category) != jsonAddress.end()) // for compatibility with older export
                             {
                                 address.m_category = jsonAddress[Fields::Category];
