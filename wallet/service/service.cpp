@@ -1435,17 +1435,15 @@ namespace
                         return;
                     }
 
-                    // auto txId = _wallet.StartTransaction(CreateSimpleTransactionParameters(data.txId)
-                    //     .SetParameter(TxParameterID::MyID, from)
-                    //     .SetParameter(TxParameterID::PeerID, data.address)
-                    //     .SetParameter(TxParameterID::Amount, data.value)
-                    //     .SetParameter(TxParameterID::Fee, data.fee)
-                    //     .SetParameter(TxParameterID::PreselectedCoins, coins)
-                    //     .SetParameter(TxParameterID::Message, message));
+                    auto txId = _wallet->StartTransaction(CreateSimpleTransactionParameters(data.txId)
+                        .SetParameter(TxParameterID::MyID, from)
+                        .SetParameter(TxParameterID::PeerID, data.address)
+                        .SetParameter(TxParameterID::Amount, data.value)
+                        .SetParameter(TxParameterID::Fee, data.fee)
+                        .SetParameter(TxParameterID::PreselectedCoins, coins)
+                        .SetParameter(TxParameterID::Message, message));
 
-                    //doResponse(id, Send::Response{ txId });
-
-                    doError(id, ApiError::InternalErrorJsonRpc, "Temporary disabled!!!");
+                    doResponse(id, Send::Response{ txId });
                 }
                 catch(...)
                 {
@@ -2183,7 +2181,7 @@ namespace
                 {
                     // Create the session and run it
                     auto s = std::make_shared<session>(std::move(socket_), _reactor);
-                    //_sessions.push_back(s);
+                    _sessions.push_back(s);
                     s->run();
                 }
 
@@ -2191,7 +2189,7 @@ namespace
                 do_accept();
             }
 
-            //std::vector<std::shared_ptr<session>> _sessions;
+            std::vector<std::shared_ptr<session>> _sessions;
         };
 
         io::Reactor::Ptr _reactor;

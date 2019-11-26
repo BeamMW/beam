@@ -192,6 +192,32 @@
 			function send(amount, address)
 			{
 				console.log(`!!! sending ${amount} groth to ${address}...`)
+
+				connection.onmessage = (e) =>
+				{
+					var data = JSON.parse(e.data)
+
+					if(data.result)
+						console.log(`result is ${data.result}`)
+					else if(data.error)
+						console.log(`error occured, code:${data.error.code} text:${data.error.data}`)
+					else if(data.method) 
+						onkeykeeper(data)
+				}
+
+				connection.send(JSON.stringify(
+				{
+					jsonrpc:"2.0", 
+					id: 123,
+					method:"tx_send", 
+					params:
+					{
+						value : amount,
+						fee : 100,
+						address : address,
+						comment : "thank you!"
+					}
+				}))
 			}
 
 			$('#wallet-panel .send-button').click(() => 
@@ -214,7 +240,7 @@
 				if (confirm(`Are you sure want send ${amount} groth to ${addr}?`)) 
 				{
 					$('#wallet-panel .amount-input').val('')
-					send(amount, addr)
+					send(parseInt(amount), addr)
 				}
 			})
 
@@ -260,7 +286,10 @@
 
 						showUtxo()
 					}
-					else onkeykeeper(data)
+					else if(data.error)
+						console.log(`error occured, code:${data.error.code} text:${data.error.data}`)
+					else if(data.method) 
+						onkeykeeper(data)
 				}
 
 				connection.send(JSON.stringify(
@@ -335,7 +364,10 @@
 
 						showTransactions()
 					}
-					else onkeykeeper(data)
+					else if(data.error)
+						console.log(`error occured, code:${data.error.code} text:${data.error.data}`)
+					else if(data.method) 
+						onkeykeeper(data)
 				}
 
 				connection.send(JSON.stringify(
@@ -380,7 +412,10 @@
 
 						showAddresses()
 					}
-					else onkeykeeper(data)
+					else if(data.error)
+						console.log(`error occured, code:${data.error.code} text:${data.error.data}`)
+					else if(data.method) 
+						onkeykeeper(data)
 				}
 
 				connection.send(JSON.stringify(
@@ -411,7 +446,10 @@
 
 						showWalletStatus()
 					}
-					else onkeykeeper(data)
+					else if(data.error)
+						console.log(`error occured, code:${data.error.code} text:${data.error.data}`)
+					else if(data.method) 
+						onkeykeeper(data)
 				}
 
 				connection.send(JSON.stringify(
@@ -506,7 +544,10 @@
 
 						refresh()
 					}
-					else onkeykeeper(data)
+					else if(data.error)
+						console.log(`error occured, code:${data.error.code} text:${data.error.data}`)
+					else if(data.method) 
+						onkeykeeper(data)
 				}
 
 				connection.send(JSON.stringify(
