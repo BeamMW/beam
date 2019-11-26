@@ -1336,16 +1336,24 @@ Height NodeProcessor::RaiseTxoLo(Height hTrg)
 		if (!m_DB.get_StateInputs(rowid, v))
 			continue;
 
+		size_t iRes = 0;
 		for (size_t i = 0; i < v.size(); i++)
 		{
-			TxoID id = v[i].get_ID();
+			const NodeDB::StateInput& inp = v[i];
+			TxoID id = inp.get_ID();
 			if (id >= m_Extra.m_TxosTreasury)
 				m_DB.TxoDel(id);
+			else
+			{
+				if (iRes != i)
+					v[iRes] = inp;
+				iRes++;
+			}
 		}
 
-		hRet += v.size();
+		hRet += (v.size() - iRes);
 
-		m_DB.set_StateInputs(rowid, nullptr, 0);
+		m_DB.set_StateInputs(rowid, &v.front(), iRes);
 	}
 
 	m_Extra.m_TxoLo = hTrg;
