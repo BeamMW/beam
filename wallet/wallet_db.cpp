@@ -1641,7 +1641,7 @@ namespace beam::wallet
             {
                 Coin& coin = coins.emplace_back();
                 int colIdx = 0;
-                ENUM_STORAGE_FIELDS(STM_GET_LIST, NOSEP, coin);
+                ENUM_ALL_STORAGE_FIELDS(STM_GET_LIST, NOSEP, coin);
 
                 storage::DeduceStatus(*this, coin, h);
             }
