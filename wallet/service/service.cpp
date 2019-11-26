@@ -42,12 +42,10 @@
 #include <boost/asio/ip/tcp.hpp>
 #include <boost/uuid/uuid_generators.hpp>
 
-#include "3rdparty/utilstrencodings.h"
-
 #include "nlohmann/json.hpp"
 #include "version.h"
 
-#include "core/block_rw.h"
+#include "keykeeper/wasm_key_keeper.h"
 
 using json = nlohmann::json;
 
@@ -1011,49 +1009,6 @@ namespace
             {}
             virtual ~WasmKeyKeeperProxy(){}
 
-            template <typename T>
-            static void from_base64(const std::string& base64, T& obj)
-            {
-                auto data = DecodeBase64(base64.data());
-
-                Deserializer d;
-                d.reset(data.data(), data.size());
-
-                d & obj;
-            }
-
-            template <typename T>
-            static std::string to_base64(const T& obj)
-            {
-                ByteBuffer buffer;
-                {
-                    Serializer s;
-                    s & obj;
-                    s.swap_buf(buffer);
-                }
-
-                return EncodeBase64(buffer.data(), buffer.size());
-            }
-
-            template <>
-            static std::string to_base64(const KernelParameters& obj)
-            {
-                ByteBuffer buffer;
-                {
-                    Serializer s;
-                    s   
-                        & obj.height.m_Min
-                        & obj.height.m_Max
-                        & obj.fee
-                        & obj.commitment
-                        & obj.lockImage
-                        & obj.hashLock;
-                    s.swap_buf(buffer);
-                }
-
-                return EncodeBase64(buffer.data(), buffer.size());
-            }
-
             Key::IKdf::Ptr get_SbbsKdf() override
             {
                 if (!_sbbsKdf)
@@ -1082,36 +1037,8 @@ namespace
             {
                 using namespace std;
 
+                // TODO: this works synchronously only
                 resultCallback(GenerateOutputsSync(schemeHeight, ids));
-
-                // auto thisHolder = shared_from_this();
-                // shared_ptr<exception> storedException;
-                // shared_ptr<Outputs> result = make_shared<Outputs>();
-                // shared_ptr<future<void>> futureHolder = make_shared<future<void>>();
-                // *futureHolder = do_thread_async(
-                //     [thisHolder, this, schemeHeight, ids, result, storedException]()
-                //     {
-                //         try
-                //         {
-                //             *result = GenerateOutputsSync(schemeHeight, ids);
-                //         }
-                //         catch (const exception& ex)
-                //         {
-                //             *storedException = ex;
-                //         }
-                //     },
-                //     [futureHolder, resultCallback = move(resultCallback), exceptionCallback = move(exceptionCallback), result, storedException]() mutable
-                //     {
-                //         if (storedException)
-                //         {
-                //             exceptionCallback(*storedException);
-                //         }
-                //         else
-                //         {
-                //             resultCallback(move(*result));
-                //         }
-                //         futureHolder.reset();
-                //     });
             }
 
             size_t AllocateNonceSlot() override
@@ -1166,7 +1093,7 @@ namespace
 
                 _s.call_keykeeper_method(msg, [&pk](const json& msg)
                 {
-                    from_base64<ECC::Point>(msg["result"], pk);
+                    pk = from_base64<ECC::Point>(msg["result"]);
                 });
 
                 return pk;
@@ -1197,7 +1124,7 @@ namespace
 
                     _s.call_keykeeper_method(msg, [&output](const json& msg)
                     {
-                        from_base64<Output::Ptr>(msg["result"], output);
+                        output = from_base64<Output::Ptr>(msg["result"]);
                     });
                 }
 
@@ -1221,7 +1148,7 @@ namespace
 
                 _s.call_keykeeper_method(msg, [&nonce](const json& msg)
                 {
-                    from_base64<ECC::Point>(msg["result"], nonce);
+                    nonce = from_base64<ECC::Point>(msg["result"]);
                 });
 
                 return nonce;
@@ -1255,7 +1182,7 @@ namespace
 
                 _s.call_keykeeper_method(msg, [&sign](const json& msg)
                 {
-                    from_base64<ECC::Scalar>(msg["result"], sign);
+                    sign = from_base64<ECC::Scalar>(msg["result"]);
                 });
 
                 return sign;
@@ -1945,7 +1872,8 @@ namespace
                     return fail(ec, "accept");
 
                 // Read a message
-                do_async_read();
+                // do_async_read();
+                do_read();
             }
 
             void do_async_read()
@@ -2255,7 +2183,7 @@ namespace
                 {
                     // Create the session and run it
                     auto s = std::make_shared<session>(std::move(socket_), _reactor);
-                    _sessions.push_back(s);
+                    //_sessions.push_back(s);
                     s->run();
                 }
 
@@ -2263,7 +2191,7 @@ namespace
                 do_accept();
             }
 
-            std::vector<std::shared_ptr<session>> _sessions;
+            //std::vector<std::shared_ptr<session>> _sessions;
         };
 
         io::Reactor::Ptr _reactor;

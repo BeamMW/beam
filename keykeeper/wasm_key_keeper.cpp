@@ -14,8 +14,7 @@
 
 #include "local_private_key_keeper.h"
 #include "mnemonic/mnemonic.h"
-#include "core/block_rw.h"
-#include "3rdparty/utilstrencodings.h"
+#include "wasm_key_keeper.h"
 
 #include <emscripten/bind.h>
 
@@ -24,79 +23,6 @@ using namespace beam;
 using namespace beam::wallet;
 
 // #define PRINT_TEST_DATA 1
-
-namespace
-{
-    template <typename T>
-    std::string to_base64(const T& obj)
-    {
-        ByteBuffer buffer;
-        {
-            Serializer s;
-            s & obj;
-            s.swap_buf(buffer);
-        }
-
-        return EncodeBase64(buffer.data(), buffer.size());
-    }
-
-    template <>
-    std::string to_base64(const KernelParameters& obj)
-    {
-        ByteBuffer buffer;
-        {
-            Serializer s;
-            s   
-                & obj.height.m_Min
-                & obj.height.m_Max
-                & obj.fee
-                & obj.commitment
-                & obj.lockImage
-                & obj.hashLock;
-            s.swap_buf(buffer);
-        }
-
-        return EncodeBase64(buffer.data(), buffer.size());
-    }
-
-    template <typename T>
-    T from_base64(const std::string& base64)
-    {
-        T obj;
-        {
-            auto data = DecodeBase64(base64.data());
-
-            Deserializer d;
-            d.reset(data.data(), data.size());
-
-            d & obj;
-        }
-
-        return obj;
-    }
-
-    template <>
-    KernelParameters from_base64(const std::string& base64)
-    {
-        KernelParameters obj;
-        {
-            auto data = DecodeBase64(base64.data());
-
-            Deserializer d;
-            d.reset(data.data(), data.size());
-
-            d   
-                & obj.height.m_Min
-                & obj.height.m_Max
-                & obj.fee
-                & obj.commitment
-                & obj.lockImage
-                & obj.hashLock;
-        }
-
-        return obj;
-    }
-};
 
 struct KeyKeeper
 {
