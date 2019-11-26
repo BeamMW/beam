@@ -39,13 +39,13 @@ namespace beam::wallet
         virtual void getCoinsByTx(const TxID& txId) = 0;
         virtual void saveAddress(const WalletAddress& address, bool bOwn) = 0;
         virtual void generateNewAddress() = 0;
+#ifdef BEAM_ATOMIC_SWAP_SUPPORT
         virtual void loadSwapParams() = 0;
         virtual void storeSwapParams(const beam::ByteBuffer& params) = 0;
-        virtual void changeCurrentWalletIDs(const WalletID& senderID, const WalletID& receiverID) = 0;
-#ifdef BEAM_ATOMIC_SWAP_SUPPORT
         virtual void getSwapOffers() = 0;
         virtual void publishSwapOffer(const SwapOffer& offer) = 0;
 #endif
+        virtual void changeCurrentWalletIDs(const WalletID& senderID, const WalletID& receiverID) = 0;
         virtual void deleteAddress(const WalletID& id) = 0;
         virtual void updateAddress(const WalletID& id, const std::string& name, WalletAddress::ExpirationStatus status) = 0;
 

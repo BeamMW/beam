@@ -165,7 +165,7 @@ namespace beam::wallet
         if (peerID)
         {
             auto receiverAddr = m_walletDB->getAddress(*peerID);
-            if (receiverAddr && receiverAddr->m_OwnID)
+            if (receiverAddr && receiverAddr->isOwn())
             {
                 LOG_INFO() << "Failed to initiate the atomic swap. Not able to use own address as receiver's.";
                 throw FailToStartSwapException();
