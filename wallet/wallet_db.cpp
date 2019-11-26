@@ -2184,7 +2184,7 @@ namespace beam::wallet
 
         std::vector<Coin> deletedItems;
         {
-            const char* req = "SELECT " ENUM_STORAGE_FIELDS(LIST, COMMA, ) " FROM " STORAGE_NAME " WHERE createTxId=?1 AND confirmHeight=?2;";
+            const char* req = "SELECT " ENUM_ALL_STORAGE_FIELDS(LIST, COMMA, ) " FROM " STORAGE_NAME " WHERE createTxId=?1 AND confirmHeight=?2;";
             sqlite::Statement stm(this, req);
             stm.bind(1, txId);
             stm.bind(2, MaxHeight);
@@ -2192,7 +2192,7 @@ namespace beam::wallet
             {
                 Coin& coin = deletedItems.emplace_back();
                 int colIdx = 0;
-                ENUM_STORAGE_FIELDS(STM_GET_LIST, NOSEP, coin);
+                ENUM_ALL_STORAGE_FIELDS(STM_GET_LIST, NOSEP, coin);
             }
         }
         if (!deletedItems.empty())
