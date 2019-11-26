@@ -50,7 +50,9 @@ namespace
                 & obj.height.m_Min
                 & obj.height.m_Max
                 & obj.fee
-                & obj.commitment;
+                & obj.commitment
+                & obj.lockImage
+                & obj.hashLock;
             s.swap_buf(buffer);
         }
 
@@ -58,7 +60,7 @@ namespace
     }
 
     template <typename T>
-    T&& from_base64(const std::string& base64)
+    T from_base64(const std::string& base64)
     {
         T obj;
         {
@@ -70,11 +72,11 @@ namespace
             d & obj;
         }
 
-        return std::move(obj);
+        return obj;
     }
 
     template <>
-    KernelParameters&& from_base64(const std::string& base64)
+    KernelParameters from_base64(const std::string& base64)
     {
         KernelParameters obj;
         {
@@ -87,10 +89,12 @@ namespace
                 & obj.height.m_Min
                 & obj.height.m_Max
                 & obj.fee
-                & obj.commitment;
+                & obj.commitment
+                & obj.lockImage
+                & obj.hashLock;
         }
 
-        return std::move(obj);
+        return obj;
     }
 };
 

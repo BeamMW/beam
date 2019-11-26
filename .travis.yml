@@ -368,7 +368,7 @@ matrix:
       language: cpp
       env:
         - TARGET_TYPE=wasm
-        - BUILD_TYPE=Release
+        - BUILD_TYPE=MinSizeRel
       sudo: required
       services:
         - docker

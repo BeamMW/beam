@@ -1045,7 +1045,9 @@ namespace
                         & obj.height.m_Min
                         & obj.height.m_Max
                         & obj.fee
-                        & obj.commitment;
+                        & obj.commitment
+                        & obj.lockImage
+                        & obj.hashLock;
                     s.swap_buf(buffer);
                 }
 

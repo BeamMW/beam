@@ -139,7 +139,7 @@ namespace beam::wallet
             {
                 m_Outputs = move(result);
                 FinalizeOutputs();
-               // m_Tx.Update(); // may complete tranasction 
+                m_Tx.Update(); // may complete tranasction 
                 m_Tx.GetAsyncAcontext().OnAsyncFinished();
             },
             [thisHolder, this, txHolder](const exception&)
@@ -147,7 +147,7 @@ namespace beam::wallet
                 //m_Tx.Update();
                 m_Tx.GetAsyncAcontext().OnAsyncFinished();
             });
-        return false;// true if async
+        return true;// true if async
     }
 
     bool BaseTxBuilder::FinalizeOutputs()
