@@ -231,7 +231,7 @@ namespace beam::wallet {
 
         auto waddr = m_WalletDB->getAddress(wid);
 
-        if (waddr && waddr->m_OwnID)
+        if (waddr && waddr->isOwn())
         {
             ECC::Scalar::Native sk;
             

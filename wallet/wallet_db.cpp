@@ -1702,7 +1702,7 @@ namespace beam::wallet
             {
                 Coin& coin = coins.emplace_back();
                 int colIdx = 0;
-                ENUM_STORAGE_FIELDS(STM_GET_LIST, NOSEP, coin);
+                ENUM_ALL_STORAGE_FIELDS(STM_GET_LIST, NOSEP, coin);
 
                 storage::DeduceStatus(*this, coin, h);
             }
@@ -2310,7 +2310,7 @@ namespace beam::wallet
             int colIdx = 0;
             ENUM_ADDRESS_FIELDS(STM_GET_LIST, NOSEP, a);
 
-            if ((!a.m_OwnID) == own)
+            if (a.isOwn() != own)
                 res.pop_back(); // akward, but ok
         }
         return res;
@@ -3210,12 +3210,22 @@ namespace beam::wallet
                     if (address.m_walletID.FromHex(jsonAddress[Fields::WalletID]))
                     {
                         address.m_OwnID = jsonAddress[Fields::Index];
-                        if (address.m_OwnID == 0 || address.m_walletID == generateWalletIDFromIndex(keyKeeper, address.m_OwnID))
+                        if (!address.isOwn() || address.m_walletID == generateWalletIDFromIndex(keyKeeper, address.m_OwnID))
                         {
                             //{ "SubIndex", 0 },
                             address.m_label = jsonAddress[Fields::Label];
-                            address.m_createTime = jsonAddress[Fields::CreationTime];
-                            address.m_duration = jsonAddress[Fields::Duration];
+                            auto creationTime = jsonAddress[Fields::CreationTime];
+                            auto currentTime = beam::getTimestamp();
+                            if (currentTime >= creationTime)
+                            {
+                                address.m_createTime = creationTime;
+                                address.m_duration = jsonAddress[Fields::Duration];
+                            }
+                            else
+                            {
+                                address.m_createTime = currentTime;
+                                address.m_duration = WalletAddress::AddressExpiration24h;
+                            }
                             if (jsonAddress.find(Fields::Category) != jsonAddress.end()) // for compatibility with older export
                             {
                                 address.m_category = jsonAddress[Fields::Category];
@@ -3284,7 +3294,7 @@ namespace beam::wallet
                     }
 
                     auto waddr = db.getAddress(wid);
-                    if (waddr && (waddr->m_OwnID == 0 || wid != generateWalletIDFromIndex(keyKeeper, waddr->m_OwnID)))
+                    if (waddr && (!waddr->isOwn() || wid != generateWalletIDFromIndex(keyKeeper, waddr->m_OwnID)))
                     {
                         LOG_ERROR() << "Transaction " << txPair.first << " was not imported. Invalid address parameter";
                         continue;
@@ -3549,6 +3559,11 @@ namespace beam::wallet
     bool WalletAddress::isExpired() const
     {
         return getTimestamp() > getExpirationTime();
+    }
+
+    bool WalletAddress::isOwn() const
+    {
+        return m_OwnID != 0;
     }
 
     Timestamp WalletAddress::getCreateTime() const
