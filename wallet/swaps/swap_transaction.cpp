@@ -971,12 +971,13 @@ namespace beam::wallet
 
         if (!lockTxBuilder->GetInitialTxParams() && lockTxState == SubTxState::Initial)
         {
+            UpdateTxDescription(TxStatus::InProgress);
+
             if (isBeamOwner)
             {
                 lockTxBuilder->SelectInputs();
                 lockTxBuilder->AddChange();
             }
-            UpdateTxDescription(TxStatus::InProgress);
 
             lockTxBuilder->GenerateOffset();
         }
