@@ -1120,8 +1120,6 @@ void NodeProcessor::TryGoTo(NodeDB::StateID& sidTrg)
 	if (bKeepBlocks)
 		return;
 
-	HeightRange hrDel(m_Cursor.m_Sid.m_Height + 1, sidFwd.m_Height);
-
 	if (!(mbc.m_pidLast == Zero))
 	{
 		OnPeerInsane(mbc.m_pidLast);
@@ -1136,14 +1134,14 @@ void NodeProcessor::TryGoTo(NodeDB::StateID& sidTrg)
 			if (pid != mbc.m_pidLast)
 				break;
 
-			hrDel.m_Max++;
+			sidFwd.m_Row = vPath[iPos - 1];
+			sidFwd.m_Height++;
 		}
 	}
 
-	LOG_INFO() << "Deleting blocks range: " << hrDel.m_Min << "-" <<  hrDel.m_Max;
+	LOG_INFO() << "Deleting blocks range: " << (m_Cursor.m_Sid.m_Height + 1) << "-" <<  sidFwd.m_Height;
 
-	for (; !hrDel.IsEmpty(); iPos++, hrDel.m_Max--)
-		DeleteBlock(vPath[iPos]);
+	DeleteBlocksInRange(sidFwd, m_Cursor.m_Sid.m_Height);
 }
 
 void NodeProcessor::OnFastSyncOver(MultiblockContext& mbc, bool& bContextFail)
