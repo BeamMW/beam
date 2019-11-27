@@ -455,8 +455,6 @@ namespace beam::wallet
                     OnFundRawTransaction(error, hexTx, changePos);
                 }
             });
-
-            m_tx.SetState(SwapTxState::CreatingTx, SubTxIndex::LOCK_TX);
             return SwapTxState::CreatingTx;
         }
 
@@ -682,7 +680,9 @@ namespace beam::wallet
 
     void BitcoinSide::OnFundRawTransaction(const bitcoin::IBridge::Error& error, const std::string& hexTx, int changePos)
     {
-        if (error.m_type != bitcoin::IBridge::None)
+        // TODO: refactor this condition.
+        // Checking !m_SwapLockRawTx.is_initialized() used to ignore double lock on electrum
+        if (error.m_type != bitcoin::IBridge::None && !m_SwapLockRawTx.is_initialized())
         {
             SetTxError(error, SubTxIndex::LOCK_TX);
             return;
@@ -692,6 +692,7 @@ namespace beam::wallet
         {
             m_SwapLockRawTx = hexTx;
             m_LockTxValuePosition = changePos ? 0 : 1;
+            m_tx.SetState(SwapTxState::CreatingTx, SubTxIndex::LOCK_TX);
             m_tx.UpdateAsync();
         }
     }
