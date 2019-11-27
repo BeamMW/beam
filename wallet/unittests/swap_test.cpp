@@ -951,6 +951,7 @@ void TestSwapBeamAndBTCRefundTransaction()
                 // delete receiver to simulate refund on Beam side
                 receiver.reset();
                 isNeedReset = false;
+                node.m_Cfg.m_TestMode.m_FakePowSolveTime_ms = 50;
             }
         }
         else
@@ -987,7 +988,7 @@ void TestSwapBeamAndBTCRefundTransaction()
         }
     });
 
-    InitNodeToTest(node, binaryTreasury, &observer, 32125, 300);
+    InitNodeToTest(node, binaryTreasury, &observer, 32125, 500);
 
 
     eventToUpdate->post();
