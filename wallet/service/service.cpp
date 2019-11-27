@@ -62,6 +62,10 @@ namespace beam::wallet
 {
     io::Address node_addr;
 
+    // !TODO: temporary solution, just to reuse already opened wallet DB
+    // DB shouldn't be locked in normal case
+    static std::map<std::string, IWalletDB::Ptr> WalletsMap;
+
     static const char JsonRpcHrd[] = "jsonrpc";
     static const char JsonRpcVerHrd[] = "2.0";
 
@@ -1691,13 +1695,18 @@ namespace
             {
                 LOG_DEBUG() << "OpenWallet(id = " << id << ")";
 
-                _walletDB = WalletDB::open(data.id + ".db", SecString(data.pass), _reactor);
+                _walletDB = WalletsMap.count(data.id)
+                    ? WalletsMap[data.id]
+                    : WalletDB::open(data.id + ".db", SecString(data.pass), _reactor);
 
                 if(!_walletDB)
                 {
                     doError(id, ApiError::InternalErrorJsonRpc, "Wallet not opened.");
                     return;
                 }
+
+                if(!WalletsMap.count(data.id))
+                    WalletsMap[data.id] = _walletDB;
 
                 LOG_INFO() << "wallet sucessfully opened...";
 
