@@ -12,6 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#pragma once
+
 #include "core/block_rw.h"
 #include "3rdparty/utilstrencodings.h"
 
