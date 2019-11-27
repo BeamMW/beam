@@ -2252,7 +2252,7 @@ namespace beam::wallet
 
         std::vector<Coin> deletedItems;
         {
-            const char* req = "SELECT " ENUM_STORAGE_FIELDS(LIST, COMMA, ) " FROM " STORAGE_NAME " WHERE createTxId=?1 AND confirmHeight=?2;";
+            const char* req = "SELECT " ENUM_ALL_STORAGE_FIELDS(LIST, COMMA, ) " FROM " STORAGE_NAME " WHERE createTxId=?1 AND confirmHeight=?2;";
             sqlite::Statement stm(this, req);
             stm.bind(1, txId);
             stm.bind(2, MaxHeight);
@@ -2260,7 +2260,7 @@ namespace beam::wallet
             {
                 Coin& coin = deletedItems.emplace_back();
                 int colIdx = 0;
-                ENUM_STORAGE_FIELDS(STM_GET_LIST, NOSEP, coin);
+                ENUM_ALL_STORAGE_FIELDS(STM_GET_LIST, NOSEP, coin);
             }
         }
         if (!deletedItems.empty())
@@ -3521,6 +3521,36 @@ namespace beam::wallet
             LOG_INFO() << "Payment tx details:\n" << pi.to_string() << "Verified.";
 
             return true;
+        }
+
+        std::string ExportTxHistoryToCsv(const IWalletDB& db)
+        {
+            std::stringstream ss;
+            ss << "Type" << ","
+               << "Date | Time" << ","
+               << "\"Amount, BEAM\"" << ","
+               << "Status" << ","
+               << "Sending address" << ","
+               << "Receiving address" << ","
+               << "\"Transaction fee, BEAM\"" << ","
+               << "Transaction ID" << ","
+               << "Kernel ID" << "," 
+               << "Comment" << std::endl;
+
+            for (const auto& tx : db.getTxHistory())
+            {
+                ss << (tx.m_sender ? "Send BEAM" : "Receive BEAM") << ","
+                   << format_timestamp(kTimeStampFormatCsv, tx.m_createTime * 1000, false) << ","
+                   << "\"" << PrintableAmount(tx.m_amount, true) << "\"" << ","
+                   << tx.getStatusString() << ","
+                   << std::to_string(tx.m_sender ? tx.m_myId : tx.m_peerId) << ","
+                   << std::to_string(!tx.m_sender ? tx.m_myId : tx.m_peerId) << ","
+                   << "\"" << PrintableAmount(tx.m_fee, true) << "\"" << ","
+                   << to_hex(tx.m_txId.data(), tx.m_txId.size()) << ","
+                   << std::to_string(tx.m_kernelID) << ","
+                   << std::string { tx.m_message.begin(), tx.m_message.end() } << std::endl;
+            }
+            return ss.str();
         }
 
         namespace

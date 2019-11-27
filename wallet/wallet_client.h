@@ -103,6 +103,7 @@ namespace beam::wallet
         virtual void onImportDataFromJson(bool isOk) = 0;
         virtual void onExportDataToJson(const std::string& data) = 0;
         virtual void onPostFunctionToClientContext(MessageFunction&& func) = 0;
+        virtual void onExportTxHistoryToCsv(const std::string& data) = 0;
 
     private:
 
@@ -144,6 +145,7 @@ namespace beam::wallet
         void importRecovery(const std::string& path) override;
         void importDataFromJson(const std::string& data) override;
         void exportDataToJson() override;
+        void exportTxHistoryToCsv() override;
 
         // implement IWalletDB::IRecoveryProgress
         bool OnProgress(uint64_t done, uint64_t total) override;

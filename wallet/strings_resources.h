@@ -18,7 +18,6 @@ namespace beam
 {
     extern const char kDefaultConfigFile[];
 
-    extern const char kTimeStampFormat3x3[];
     extern const char kBEAM[];
     extern const char kGROTH[];
     extern const char kASSET[];

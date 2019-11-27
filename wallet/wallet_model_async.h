@@ -62,6 +62,7 @@ namespace beam::wallet
         virtual void importRecovery(const std::string& path) = 0;
         virtual void importDataFromJson(const std::string& data) = 0;
         virtual void exportDataToJson() = 0;
+        virtual void exportTxHistoryToCsv() = 0;
 
         virtual ~IWalletModelAsync() {}
     };

@@ -144,6 +144,7 @@ struct WalletModelBridge : public Bridge<IWalletModelAsync>
         call_async(&IWalletModelAsync::changeCurrentWalletIDs, senderID, receiverID);
     }
 
+
     void generateNewAddress() override
     {
         call_async(&IWalletModelAsync::generateNewAddress);
@@ -205,6 +206,11 @@ struct WalletModelBridge : public Bridge<IWalletModelAsync>
     void exportDataToJson() override
     {
         call_async(&IWalletModelAsync::exportDataToJson);
+    }
+
+    void exportTxHistoryToCsv() override
+    {
+        call_async(&IWalletModelAsync::exportTxHistoryToCsv);
     }
 };
 }
@@ -661,6 +667,23 @@ namespace beam::wallet
             p->publishOffer(offer);
         }
     }
+
+    namespace {
+        const char* SWAP_PARAMS_NAME = "LastSwapParams";
+    }
+
+    void WalletClient::loadSwapParams()
+    {
+        ByteBuffer params;
+        m_walletDB->getBlob(SWAP_PARAMS_NAME, params);
+        onSwapParamsLoaded(params);
+    }
+
+    void WalletClient::storeSwapParams(const ByteBuffer& params)
+    {
+        m_walletDB->setVarRaw(SWAP_PARAMS_NAME, params.data(), params.size());
+    }
+
 #endif
 
     void WalletClient::cancelTx(const TxID& id)
@@ -719,22 +742,6 @@ namespace beam::wallet
         catch (...) {
             LOG_UNHANDLED_EXCEPTION();
         }
-    }
-
-    namespace {
-        const char* SWAP_PARAMS_NAME = "LastSwapParams";
-    }
-
-    void WalletClient::loadSwapParams()
-    {
-        ByteBuffer params;
-        m_walletDB->getBlob(SWAP_PARAMS_NAME, params);
-        onSwapParamsLoaded(params);
-    }
-
-    void WalletClient::storeSwapParams(const ByteBuffer& params)
-    {
-        m_walletDB->setVarRaw(SWAP_PARAMS_NAME, params.data(), params.size());
     }
 
     void WalletClient::deleteAddress(const WalletID& id)
@@ -892,6 +899,13 @@ namespace beam::wallet
         auto data = storage::ExportDataToJson(*m_walletDB);
 
         onExportDataToJson(data);
+    }
+
+    void WalletClient::exportTxHistoryToCsv()
+    {
+        auto data = storage::ExportTxHistoryToCsv(*m_walletDB);
+
+        onExportTxHistoryToCsv(data);   
     }
 
     bool WalletClient::OnProgress(uint64_t done, uint64_t total)

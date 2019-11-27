@@ -20,6 +20,7 @@
 #include "utility/logger.h"
 #include <boost/filesystem.hpp>
 #include <numeric>
+#include <queue>
 
 #include "keykeeper/local_private_key_keeper.h"
 
@@ -32,6 +33,23 @@ WALLET_TEST_INIT
 
 namespace
 {
+
+    struct WalletDBObserver : IWalletDbObserver
+    {
+        WalletDBObserver()
+        {
+        }
+        void onCoinsChanged(ChangeAction action, const std::vector<Coin>& items) override
+        {
+            WALLET_CHECK(!m_changes.empty());
+            const auto& c = m_changes.front();
+            WALLET_CHECK(c.first == action);
+            WALLET_CHECK(c.second == items);
+            m_changes.pop();
+        }
+        std::queue<std::pair<ChangeAction, std::vector<Coin>>> m_changes;
+    };
+
 IWalletDB::Ptr createSqliteWalletDB(bool separatePrivateDB = false)
 {
     const char* dbName = "wallet.db";
@@ -560,7 +578,20 @@ void TestTxRollback()
     });
     WALLET_CHECK(coins.size() == 3);
 
-    walletDB->rollbackTx(id);
+    {
+        WalletDBObserver w;
+        Coin c = coins[1];
+        c.m_status = Coin::Available;
+        c.m_spentTxId.reset();
+        w.m_changes.push({ ChangeAction::Updated, { c } });
+        c = coins[2];
+        c.m_status = Coin::Unavailable;
+        w.m_changes.push({ ChangeAction::Removed, { c } });
+
+        walletDB->Subscribe(&w);
+        walletDB->rollbackTx(id);
+        walletDB->Unsubscribe(&w);
+    }
 
     coins.clear();
     walletDB->visitCoins([&coins](const Coin& c)->bool
