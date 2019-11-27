@@ -124,6 +124,8 @@ namespace beam::wallet
 #ifdef BEAM_ATOMIC_SWAP_SUPPORT
         void getSwapOffers() override;
         void publishSwapOffer(const SwapOffer& offer) override;
+        void loadSwapParams() override;
+        void storeSwapParams(const beam::ByteBuffer& params) override;
 #endif
         void cancelTx(const TxID& id) override;
         void deleteTx(const TxID& id) override;
@@ -131,8 +133,6 @@ namespace beam::wallet
         void saveAddress(const WalletAddress& address, bool bOwn) override;
         void changeCurrentWalletIDs(const WalletID& senderID, const WalletID& receiverID) override;
         void generateNewAddress() override;
-        void loadSwapParams() override;
-        void storeSwapParams(const beam::ByteBuffer& params) override;
         void deleteAddress(const WalletID& id) override;
         void updateAddress(const WalletID& id, const std::string& name, WalletAddress::ExpirationStatus status) override;
         void setNodeAddress(const std::string& addr) override;
