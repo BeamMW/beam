@@ -35,6 +35,7 @@ namespace beam::wallet
     const Height kDefaultTxLifetime = 2 * 60;
     const Height kDefaultTxResponseTime = 12 * 60;
     const char kTimeStampFormat3x3[] = "%Y.%m.%d %H:%M:%S";
+    const char kTimeStampFormatCsv[] = "%d %b %Y | %H:%M";
 
     using SubTxID = uint16_t;
     const SubTxID kDefaultSubTxID = 1;
