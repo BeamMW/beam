@@ -205,7 +205,7 @@ struct WalletModelBridge : public Bridge<IWalletModelAsync>
         call_async(&IWalletModelAsync::exportDataToJson);
     }
 
-    void exportTxHistoryToCsv()
+    void exportTxHistoryToCsv() override
     {
         call_async(&IWalletModelAsync::exportTxHistoryToCsv);
     }
