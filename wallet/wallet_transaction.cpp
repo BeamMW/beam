@@ -16,6 +16,7 @@
 #include "base_tx_builder.h"
 #include "wallet.h"
 #include "core/block_crypt.h"
+#include "strings_resources.h"
 
 #include <numeric>
 #include "utility/logger.h"
@@ -140,8 +141,9 @@ namespace beam::wallet
 
             if (!builder.GetInitialTxParams() && txState == State::Initial)
             {
+                const auto isAsset = builder.GetAssetId() != Zero;
                 LOG_INFO() << GetTxID() << (isSender ? " Sending " : " Receiving ")
-                    << PrintableAmount(builder.GetAmount())
+                    << PrintableAmount(builder.GetAmount(), false,isAsset ? kAmountASSET : "", isAsset ? kAmountAGROTH : "")
                     << " (fee: " << PrintableAmount(builder.GetFee()) << ")";
 
                 if (isSender)
@@ -161,12 +163,18 @@ namespace beam::wallet
                     // create receiver utxo
                     for (const auto& amount : builder.GetAmountList())
                     {
-                        builder.GenerateNewCoin(amount, false);
+                        if (builder.GetAssetId() != Zero)
+                        {
+                            builder.GenerateAssetCoin(amount, false);
+                        }
+                        else
+                        {
+                            builder.GenerateBeamCoin(amount, false);
+                        }
                     }
                 }
 
                 UpdateTxDescription(TxStatus::InProgress);
-
                 builder.GenerateOffset();
             }
 
@@ -374,7 +382,8 @@ namespace beam::wallet
             .AddParameter(TxParameterID::IsSender, !isSender)
             .AddParameter(TxParameterID::PeerProtoVersion, s_ProtoVersion)
             .AddParameter(TxParameterID::PeerPublicExcess, builder.GetPublicExcess())
-            .AddParameter(TxParameterID::PeerPublicNonce, builder.GetPublicNonce());
+            .AddParameter(TxParameterID::PeerPublicNonce, builder.GetPublicNonce())
+            .AddParameter(TxParameterID::AssetID, builder.GetAssetId());
 
         if (!SendTxParameters(move(msg)))
         {
@@ -488,10 +497,10 @@ namespace beam::wallet
         case TxParameterID::Status:
         case TxParameterID::TransactionType:
         case TxParameterID::KernelID:
+        case TxParameterID::AssetID:
             return true;
         default:
             return false;
         }
     }
-
 }

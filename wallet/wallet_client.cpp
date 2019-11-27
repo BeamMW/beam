@@ -615,7 +615,7 @@ namespace beam::wallet
 
     void WalletClient::calcChange(Amount&& amount)
     {
-        auto coins = m_walletDB->selectCoins(amount);
+        auto coins = m_walletDB->selectCoins(amount, Zero);
         Amount sum = 0;
         for (auto& c : coins)
         {
@@ -917,7 +917,8 @@ namespace beam::wallet
     WalletStatus WalletClient::getStatus() const
     {
         WalletStatus status;
-        storage::Totals totals(*m_walletDB);
+        storage::Totals totalsCalc(*m_walletDB);
+        auto totals = totalsCalc.GetTotals(Zero);
 
         status.available = totals.Avail;
         status.receivingIncoming = totals.ReceivingIncoming;

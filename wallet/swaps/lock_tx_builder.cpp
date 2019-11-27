@@ -117,7 +117,7 @@ namespace beam::wallet
     {
         if (!m_Tx.GetParameter(TxParameterID::SharedBlindingFactor, m_SharedBlindingFactor, m_SubTxID))
         {
-            m_SharedCoin = m_Tx.GetWalletDB()->generateNewCoin(GetAmount());
+            m_SharedCoin = m_Tx.GetWalletDB()->generateNewCoin(GetAmount(), Zero);
             m_Tx.SetParameter(TxParameterID::SharedCoinID, m_SharedCoin.m_ID, m_SubTxID);
 
             m_OutputCoins.push_back(m_SharedCoin.m_ID);

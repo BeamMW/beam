@@ -83,6 +83,39 @@ namespace beam::wallet
 
     }
 
+    void LocalPrivateKeyKeeper::GenerateOutputsEx(Height schemeHeight, const std::vector<Key::IDV>& ids, const AssetID& assetId, CallbackEx<Outputs, ECC::Scalar::Native>&& resultCallback, ExceptionCallback&& exceptionCallback)
+     {
+        auto thisHolder = shared_from_this();
+        auto resOuts    = make_shared<Outputs>();
+        auto resOffset  = make_shared<ECC::Scalar::Native>();
+        shared_ptr<exception> storedException;
+        shared_ptr<future<void>> futureHolder = make_shared<future<void>>();
+        *futureHolder = do_thread_async(
+            [thisHolder, this, schemeHeight, ids, assetId, resOuts, resOffset, storedException]()
+            {
+                try
+                {
+                   std::tie(*resOuts, *resOffset) = GenerateOutputsSyncEx(schemeHeight, ids, assetId);
+                }
+                catch (const exception& ex)
+                {
+                    *storedException = ex;
+                }
+            },
+            [futureHolder, resultCallback = move(resultCallback), exceptionCallback = move(exceptionCallback), resOuts, resOffset, storedException]() mutable
+            {
+                if (storedException)
+                {
+                    exceptionCallback(*storedException);
+                }
+                else
+                {
+                    resultCallback(move(*resOuts), std::move(*resOffset));
+                }
+                futureHolder.reset();
+            });
+     }
+
     size_t LocalPrivateKeyKeeper::AllocateNonceSlot()
     {
         ++m_NonceSlotLast %= kMaxNonces;
@@ -129,20 +162,60 @@ namespace beam::wallet
         return result;
     }
 
-    ECC::Point LocalPrivateKeyKeeper::GeneratePublicKeySync(const Key::IDV& id, bool createCoinKey)
+    std::pair<IPrivateKeyKeeper::PublicKeys, ECC::Scalar::Native> LocalPrivateKeyKeeper::GeneratePublicKeysSyncEx(const std::vector<Key::IDV>& ids, bool createCoinKey, const AssetID& assetID)
+    {
+        PublicKeys resKeys;
+        Scalar::Native resOffset;
+        Scalar::Native secretKey;
+        resKeys.reserve(ids.size());
+        if (createCoinKey)
+        {
+            for (const auto& coinID : ids)
+            {
+                if(coinID.isAsset())
+                {
+                    Point &publicKey = resKeys.emplace_back();
+                    SwitchCommitment(&assetID).Create(secretKey, publicKey, *GetChildKdf(coinID), coinID);
+                    resOffset += secretKey;
+                }
+                else
+                {
+                    Point &publicKey = resKeys.emplace_back();
+                    SwitchCommitment().Create(secretKey, publicKey, *GetChildKdf(coinID), coinID);
+                    resOffset += secretKey;
+                }
+            }
+        }
+        else
+        {
+            for (const auto& keyID : ids)
+            {
+                assert(!keyID.isAsset()); // TODO:ASSET
+                Point& publicKey = resKeys.emplace_back();
+                m_MasterKdf->DeriveKey(secretKey, keyID);
+                publicKey = Context::get().G * secretKey;
+                resOffset += secretKey;
+            }
+        }
+        return std::make_pair(std::move(resKeys), std::move(resOffset));
+    }
+
+    ECC::Point LocalPrivateKeyKeeper::GeneratePublicKeySync(const Key::IDV& id)
     {
         Scalar::Native secretKey;
         Point publicKey;
 
-        if (createCoinKey)
-        {
-            SwitchCommitment().Create(secretKey, publicKey, *GetChildKdf(id), id);
-        }
-        else
-        {
-            m_MasterKdf->DeriveKey(secretKey, id);
-            publicKey = Context::get().G * secretKey;
-        }
+        m_MasterKdf->DeriveKey(secretKey, id);
+        publicKey = Context::get().G * secretKey;
+
+        return publicKey;
+    }
+
+    ECC::Point LocalPrivateKeyKeeper::GenerateCoinKeySync(const Key::IDV& id, const AssetID& assetId)
+    {
+        Scalar::Native secretKey;
+        Point publicKey;
+        SwitchCommitment(&assetId).Create(secretKey, publicKey, *GetChildKdf(id), id);
         return publicKey;
     }
 
@@ -160,15 +233,37 @@ namespace beam::wallet
         return result;
     }
 
+    std::pair<IPrivateKeyKeeper::Outputs, ECC::Scalar::Native> LocalPrivateKeyKeeper::GenerateOutputsSyncEx(Height schemeHeigh, const std::vector<Key::IDV>& ids, const AssetID& assetId)
+    {
+        Outputs resOuts;
+        Scalar::Native resOffset;
+        Scalar::Native secretKey;
+        Point commitment;
+        resOuts.reserve(ids.size());
+
+        for (const auto& coinID : ids)
+        {
+            auto& output = resOuts.emplace_back(make_unique<Output>());
+            if (coinID.isAsset())
+            {
+                output->m_AssetID = assetId;
+            }
+            output->Create(schemeHeigh, secretKey, *GetChildKdf(coinID), coinID, *m_MasterKdf);
+            resOffset += -secretKey;
+        }
+
+        return std::make_pair(std::move(resOuts), std::move(resOffset));
+    }
+
     ECC::Point LocalPrivateKeyKeeper::GenerateNonceSync(size_t slot)
     {
         Point::Native result = Context::get().G * GetNonce(slot);
         return result;
     }
 
-    Scalar LocalPrivateKeyKeeper::SignSync(const std::vector<Key::IDV>& inputs, const std::vector<Key::IDV>& outputs, const Scalar::Native& offset, size_t nonceSlot, const KernelParameters& kernelParamerters, const Point::Native& publicNonce)
+    Scalar LocalPrivateKeyKeeper::SignSync(const std::vector<Key::IDV>& inputs, const std::vector<Key::IDV>& outputs, const AssetID& assetId, const Scalar::Native& offset, size_t nonceSlot, const KernelParameters& kernelParamerters, const Point::Native& publicNonce)
     {
-        auto excess = GetExcess(inputs, outputs, offset);
+        auto excess = GetExcess(inputs, outputs, assetId, offset);
 
         TxKernel kernel;
         kernel.m_Commitment = kernelParamerters.commitment;
@@ -243,24 +338,64 @@ namespace beam::wallet
         return nonce.V;
     }
 
-    Scalar::Native LocalPrivateKeyKeeper::GetExcess(const std::vector<Key::IDV>& inputs, const std::vector<Key::IDV>& outputs, const ECC::Scalar::Native& offset) const
+    Scalar::Native LocalPrivateKeyKeeper::GetExcess(const std::vector<Key::IDV>& inputs, const std::vector<Key::IDV>& outputs, const AssetID& assetId, const ECC::Scalar::Native& offset) const
     {
         // Excess = Sum(input blinfing factors) - Sum(output blinfing factors) - offset
         Point commitment;
         Scalar::Native blindingFactor;
         Scalar::Native excess = offset;
+
         for (const auto& coinID : outputs)
         {
-            SwitchCommitment().Create(blindingFactor, commitment, *GetChildKdf(coinID), coinID);
+            SwitchCommitment(coinID.isAsset() ? &assetId : nullptr).Create(blindingFactor, commitment, *GetChildKdf(coinID), coinID);
             excess += blindingFactor;
         }
         excess = -excess;
-
         for (const auto& coinID : inputs)
         {
-            SwitchCommitment().Create(blindingFactor, commitment, *GetChildKdf(coinID), coinID);
+            SwitchCommitment(coinID.isAsset() ? &assetId : nullptr).Create(blindingFactor, commitment, *GetChildKdf(coinID), coinID);
             excess += blindingFactor;
         }
+
         return excess;
+    }
+
+    Scalar::Native LocalPrivateKeyKeeper::GetAssetKey(beam::Key::ID assetKeyId)
+    {
+        Scalar::Native secretKey;
+        m_MasterKdf->DeriveKey(secretKey, assetKeyId);
+        return secretKey;
+    }
+
+    AssetID LocalPrivateKeyKeeper::AIDFromKeyIndex(uint32_t assetIdx)
+    {
+        const auto assetKeyId = Key::ID(assetIdx, Key::Type::Asset, assetIdx);
+        auto assetKey = GetAssetKey(assetKeyId);
+        AssetID assetId = Zero;
+        proto::Sk2Pk(assetId, assetKey);
+        return assetId;
+    }
+
+    void LocalPrivateKeyKeeper::SignEmissionInOutKernel(TxKernel::Ptr& kernel, uint32_t assetIdx, ECC::Scalar::Native& offset)
+    {
+        Scalar::Native sk;
+
+        auto kernelKeyId = Key::ID(assetIdx,  Key::Type::Kernel, assetIdx);
+        m_MasterKdf->DeriveKey(sk, kernelKeyId);
+        kernel->m_Commitment = ECC::Context::get().G * sk;
+        kernel->Sign(sk);
+
+        offset += -sk;
+    }
+
+    void LocalPrivateKeyKeeper::SignEmissionKernel(TxKernel::Ptr& kernel, uint32_t assetIdx, ECC::Scalar::Native& offset)
+    {
+        auto assetID = AIDFromKeyIndex(assetIdx);
+        kernel->m_Commitment.m_X = assetID;
+        kernel->m_Commitment.m_Y = 0;
+
+        auto assetKey = GetAssetKey(Key::ID(assetIdx, Key::Type::Asset, assetIdx));
+        kernel->Sign(assetKey);
+        offset += -assetKey;
     }
 }

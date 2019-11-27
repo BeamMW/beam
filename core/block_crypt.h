@@ -81,6 +81,9 @@ namespace beam
 		Amount get_Hi(const Type&);
 
 		void AddTo(ECC::Point::Native&, const Type&);
+
+		// This one is not optimized (slow)
+		void AddTo(ECC::Point::Native& res, const Type& x, const ECC::Point::Native& hGen);
 	};
 
 	typedef int64_t AmountSigned;
@@ -188,8 +191,9 @@ namespace beam
 		void AddValue(ECC::Point::Native& comm, Amount) const;
 		static void get_Hash(ECC::Hash::Value&, const Key::IDV&);
 	public:
+		static ECC::Point::Native HGenFromAID(const AssetID& assetId);
 
-		ECC::Point::Native m_hGen;
+	    ECC::Point::Native m_hGen;
 		SwitchCommitment(const AssetID* pAssetID = nullptr);
 
 		void Create(ECC::Scalar::Native& sk, Key::IKdf&, const Key::IDV&) const;
@@ -293,8 +297,8 @@ namespace beam
 			:m_Coinbase(false)
 			,m_RecoveryOnly(false)
 			,m_Incubation(0)
+			,m_AssetID(Zero)
 		{
-			m_AssetID = Zero;
 		}
 
 		static const Amount s_MinimumValue = 1;

@@ -155,6 +155,12 @@ namespace beam
         // ui
         extern const char* APPDATA_PATH;
 
+        // assets
+        extern const char* ASSET_ISSUE;
+        extern const char* ASSET_CONSUME;
+        extern const char* ASSET_INDEX;
+        extern const char* ASSET_ID;
+
         // Defaults that should be accessible outside
         extern const Amount kMinimumFee;
     }

@@ -128,7 +128,7 @@ namespace
         coin.m_ID.m_Type = Key::Type::Coinbase;
         senderWalletDB->storeCoin(coin);
 
-        auto coins = senderWalletDB->selectCoins(24);
+        auto coins = senderWalletDB->selectCoins(24, Zero);
         WALLET_CHECK(coins.size() == 1);
         WALLET_CHECK(coins[0].m_ID.m_Type == Key::Type::Coinbase);
         WALLET_CHECK(coins[0].m_status == Coin::Available);
@@ -157,7 +157,7 @@ namespace
         WALLET_CHECK(txHistory.size() == 1);
         WALLET_CHECK(txHistory[0].m_txId == txId);
         WALLET_CHECK(txHistory[0].m_amount == 24);
-        WALLET_CHECK(txHistory[0].m_change == 14);
+        WALLET_CHECK(txHistory[0].m_changeBeam == 14);
         WALLET_CHECK(txHistory[0].m_fee == 2);
         WALLET_CHECK(txHistory[0].m_status == TxStatus::Completed);
 
@@ -208,7 +208,7 @@ namespace
         TestWalletRig sender("sender", createSenderWalletDB(), f, TestWalletRig::Type::Regular, false, 0);
         TestWalletRig receiver("receiver", createReceiverWalletDB(), f);
 
-        WALLET_CHECK(sender.m_WalletDB->selectCoins(6).size() == 2);
+        WALLET_CHECK(sender.m_WalletDB->selectCoins(6, Zero).size() == 2);
         WALLET_CHECK(sender.m_WalletDB->getTxHistory().empty());
         WALLET_CHECK(receiver.m_WalletDB->getTxHistory().empty());
 
@@ -306,7 +306,7 @@ namespace
         }
 
         // second transfer
-        auto preselectedCoins = sender.m_WalletDB->selectCoins(6);
+        auto preselectedCoins = sender.m_WalletDB->selectCoins(6, Zero);
         CoinIDList preselectedIDs;
         for (const auto& c : preselectedCoins)
         {
@@ -514,7 +514,7 @@ namespace
         coin.m_ID.m_Type = Key::Type::Coinbase;
         senderWalletDB->storeCoin(coin);
 
-        auto coins = senderWalletDB->selectCoins(24);
+        auto coins = senderWalletDB->selectCoins(24, Zero);
         WALLET_CHECK(coins.size() == 1);
         WALLET_CHECK(coins[0].m_ID.m_Type == Key::Type::Coinbase);
         WALLET_CHECK(coins[0].m_status == Coin::Available);
@@ -540,7 +540,7 @@ namespace
         WALLET_CHECK(txHistory.size() == 1);
         WALLET_CHECK(txHistory[0].m_txId == txId);
         WALLET_CHECK(txHistory[0].m_amount == 36);
-        WALLET_CHECK(txHistory[0].m_change == 2);
+        WALLET_CHECK(txHistory[0].m_changeBeam == 2);
         WALLET_CHECK(txHistory[0].m_fee == 2);
         WALLET_CHECK(txHistory[0].m_status == TxStatus::Completed);
 
@@ -610,7 +610,7 @@ namespace
         coin.m_ID.m_Type = Key::Type::Coinbase;
         senderWalletDB->storeCoin(coin);
 
-        auto coins = senderWalletDB->selectCoins(24);
+        auto coins = senderWalletDB->selectCoins(24, Zero);
         WALLET_CHECK(coins.size() == 1);
         WALLET_CHECK(coins[0].m_ID.m_Type == Key::Type::Coinbase);
         WALLET_CHECK(coins[0].m_status == Coin::Available);
@@ -632,7 +632,7 @@ namespace
             WALLET_CHECK(txHistory.size() == 1);
             WALLET_CHECK(txHistory[0].m_txId == txId);
             WALLET_CHECK(txHistory[0].m_amount == 36);
-            WALLET_CHECK(txHistory[0].m_change == 0);
+            WALLET_CHECK(txHistory[0].m_changeBeam == 0);
             WALLET_CHECK(txHistory[0].m_fee == 2);
             WALLET_CHECK(txHistory[0].m_status == TxStatus::Failed);
         }
@@ -650,7 +650,7 @@ namespace
             auto tx = *senderWalletDB->getTx(txId);
             WALLET_CHECK(tx.m_txId == txId);
             WALLET_CHECK(tx.m_amount == 36);
-            WALLET_CHECK(tx.m_change == 0);
+            WALLET_CHECK(tx.m_changeBeam == 0);
             WALLET_CHECK(tx.m_fee == 42);
             WALLET_CHECK(tx.m_status == TxStatus::Failed);
         }
@@ -667,7 +667,7 @@ namespace
             WALLET_CHECK(tx);
             WALLET_CHECK(tx->m_txId == txId);
             WALLET_CHECK(tx->m_amount == 36);
-            WALLET_CHECK(tx->m_change == 14);
+            WALLET_CHECK(tx->m_changeBeam == 14);
             WALLET_CHECK(tx->m_fee == 50);
             WALLET_CHECK(tx->m_status == TxStatus::Completed);
         }
@@ -734,7 +734,7 @@ namespace
         io::Timer::Ptr timer = io::Timer::create(*mainReactor);
         timer->start(1000, true, [&node]() {node.AddBlock(); });
 
-        WALLET_CHECK(sender.m_WalletDB->selectCoins(6).size() == 2);
+        WALLET_CHECK(sender.m_WalletDB->selectCoins(6, Zero).size() == 2);
         WALLET_CHECK(sender.m_WalletDB->getTxHistory().empty());
         WALLET_CHECK(receiver.m_WalletDB->getTxHistory().empty());
 
@@ -995,7 +995,7 @@ namespace
         TestWalletRig receiver("receiver", createReceiverWalletDB(), f);
         {
             TestWalletRig privateSender("sender", createSenderWalletDB(true), f, TestWalletRig::Type::ColdWallet);
-            WALLET_CHECK(privateSender.m_WalletDB->selectCoins(6).size() == 2);
+            WALLET_CHECK(privateSender.m_WalletDB->selectCoins(6, Zero).size() == 2);
             WALLET_CHECK(privateSender.m_WalletDB->getTxHistory().empty());
 
             // send from cold wallet
@@ -1954,7 +1954,7 @@ void TestHWTransaction(IPrivateKeyKeeper& pkk)
 
             for (const auto& output : outputCoins)
             {
-                if (commitment.Import(pkk.GeneratePublicKeySync(output, true)))
+                if (commitment.Import(pkk.GeneratePublicKeySync(output, Zero, true)))
                 {
                     publicExcess += commitment;
                 }
@@ -1963,7 +1963,7 @@ void TestHWTransaction(IPrivateKeyKeeper& pkk)
             publicExcess = -publicExcess;
             for (const auto& input : inputCoins)
             {
-                if (commitment.Import(pkk.GeneratePublicKeySync(input, true)))
+                if (commitment.Import(pkk.GeneratePublicKeySync(input, Zero, true)))
                 {
                     publicExcess += commitment;
                 }

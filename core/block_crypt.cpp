@@ -152,28 +152,36 @@ namespace beam
 
 	/////////////
 	// SwitchCommitment
+	ECC::Point::Native SwitchCommitment::HGenFromAID(const AssetID& assetId)
+    {
+	    if (assetId == Zero)
+        {
+	        return Zero;
+        }
+
+	    ECC::Oracle oracle;
+        oracle
+            << "a-id"
+            << assetId;
+
+        ECC::Point pt;
+        pt.m_Y = 0;
+
+        ECC::Point::Native result;
+        do
+        {
+            oracle
+                << "a-gen"
+                >> pt.m_X;
+        }
+        while (!result.ImportNnz(pt));
+
+        return result;
+    }
+
 	SwitchCommitment::SwitchCommitment(const AssetID* pAssetID /* = nullptr */)
 	{
-		if (pAssetID && !(*pAssetID == Zero))
-		{
-			ECC::Oracle oracle;
-			oracle
-				<< "a-id"
-				<< *pAssetID;
-
-			ECC::Point pt;
-			pt.m_Y = 0;
-
-			do
-			{
-				oracle
-					<< "a-gen"
-					>> pt.m_X;
-			}
-			while (!m_hGen.ImportNnz(pt));
-		}
-		else
-			m_hGen = Zero;
+	    m_hGen = SwitchCommitment::HGenFromAID(pAssetID ? *pAssetID : Zero);
 	}
 
 	void SwitchCommitment::get_sk1(ECC::Scalar::Native& res, const ECC::Point::Native& comm0, const ECC::Point::Native& sk0_J)
@@ -1137,9 +1145,19 @@ namespace beam
 
 	bool Transaction::IsValid(Context& ctx) const
 	{
-		return
-			ctx.ValidateAndSummarize(*this, get_Reader()) &&
-			ctx.IsValidTransaction();
+	    // Please do not rewrite to a shorter form.
+	    // It is easy to debug/set breakpoints when code is like below
+		if(!ctx.ValidateAndSummarize(*this, get_Reader()))
+        {
+		    return false;
+        }
+
+		if(!ctx.IsValidTransaction())
+        {
+		    return false;
+        }
+		
+		return true;
 	}
 
 	void Transaction::get_Key(KeyType& key) const
@@ -1300,6 +1318,13 @@ namespace beam
 			}
 		}
 
+		void AddTo(ECC::Point::Native& res, const Type& x, const ECC::Point::Native& hGen)
+        {
+            ECC::Mode::Scope scope(ECC::Mode::Fast);
+            ECC::Scalar s;
+            s.m_Value = x;
+			res += hGen * s;
+        }
 	} // namespace AmountBig
 
 

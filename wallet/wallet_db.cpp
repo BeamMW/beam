@@ -41,7 +41,8 @@
     each(spentHeight,    spentHeight,   INTEGER, obj) sep \
     each(createTxId,     createTxId,    BLOB, obj) sep \
     each(spentTxId,      spentTxId,     BLOB, obj) sep \
-    each(sessionId,      sessionId,     INTEGER NOT NULL, obj)
+    each(sessionId,      sessionId,     INTEGER NOT NULL, obj) sep \
+    each(assetId,        assetId,       BLOB, obj)
 
 #define ENUM_ALL_STORAGE_FIELDS(each, sep, obj) \
     ENUM_STORAGE_ID(each, sep, obj) sep \
@@ -692,7 +693,8 @@ namespace beam::wallet
         const char* SystemStateIDName = "SystemStateID";
         const char* LastUpdateTimeName = "LastUpdateTime";
         const int BusyTimeoutMs = 5000;
-        const int DbVersion = 15;
+        const int DbVersion = 16;
+        const int DbVersion15 = 15;
         const int DbVersion14 = 14;
         const int DbVersion13 = 13;
         const int DbVersion12 = 12;
@@ -700,16 +702,18 @@ namespace beam::wallet
         const int DbVersion10 = 10;
     }
 
-    Coin::Coin(Amount amount /* = 0 */, Key::Type keyType /* = Key::Type::Regular */)
+    Coin::Coin(Amount amount /* = 0 */, Key::Type keyType /* = Key::Type::Regular */, AssetID assetId /* = Zero */)
         : m_status{ Status::Unavailable }
         , m_maturity{ MaxHeight }
         , m_confirmHeight{ MaxHeight }
         , m_spentHeight{ MaxHeight }
         , m_sessionId(EmptyCoinSession)
+        , m_assetId(assetId)
     {
         m_ID = Zero;
         m_ID.m_Value = amount;
         m_ID.m_Type = keyType;
+        assert((m_ID.isAsset() && m_assetId != Zero) || (!m_ID.isAsset() && m_assetId == Zero));
     }
 
     bool Coin::isReward() const
@@ -722,6 +726,17 @@ namespace beam::wallet
         default:
             return false;
         }
+    }
+
+    bool Coin::isAsset() const
+    {
+        assert((m_ID.isAsset() && m_assetId != Zero) || (!m_ID.isAsset() && m_assetId == Zero));
+        return m_ID.isAsset();
+    }
+
+    bool Coin::isAsset(AssetID assetId) const
+    {
+        return isAsset() && m_assetId == assetId;
     }
 
     bool Coin::IsMaturityValid() const
@@ -775,6 +790,7 @@ namespace beam::wallet
             {Outgoing,      "outgoing"},
             {Incoming,      "incoming"},
             {Spent,         "spent"},
+            {Consumed,      "consumed"},
         };
 
         return Strings[m_status];
@@ -1214,7 +1230,7 @@ namespace beam::wallet
 
                         case DbVersion14:
                             {
-                                LOG_INFO() << "Converting DB to format 14...";
+                                LOG_INFO() << "Converting DB from format 14...";
 
                                 // tx_params table changed: added new column [subTxID]
                                 // move old data to temp table
@@ -1241,20 +1257,62 @@ namespace beam::wallet
                                     int ret = sqlite3_exec(walletDB->_db, req, NULL, NULL, NULL);
                                     throwIfError(ret, walletDB->_db);
                                 }
+                            }
+                            // no break;
 
+                        case DbVersion15:
+                            LOG_INFO() << "Converting DB from format 15...";
+
+                            // migrate coins
+                            if (!IsTableCreated(walletDB.get(), STORAGE_NAME "_del"))
+                            {
+                                const char* req =
+                                    "ALTER TABLE " STORAGE_NAME " RENAME TO " STORAGE_NAME "_del;"
+                                    "DROP INDEX CoinIndex;"
+                                    "DROP INDEX ConfirmIndex;";
+
+                                int ret = sqlite3_exec(walletDB->_db, req, NULL, NULL, NULL);
+                                throwIfError(ret, walletDB->_db);
+                            }
+
+                            if (!IsTableCreated(walletDB.get(), STORAGE_NAME))
+                            {
+                                CreateStorageTable(walletDB->_db);
+                            }
+
+                            {
+                                const char *req = "SELECT * FROM " STORAGE_NAME "_del;";
+                                for (sqlite::Statement stm(walletDB.get(), req); stm.step();) {
+                                    Coin coin;
+                                    stm.get(0, coin.m_ID.m_Type);
+                                    stm.get(1, coin.m_ID.m_SubIdx);
+                                    stm.get(2, coin.m_ID.m_Idx);
+                                    stm.get(3, coin.m_ID.m_Value);
+                                    stm.get(4, coin.m_maturity);
+                                    stm.get(5, coin.m_confirmHeight);
+                                    stm.get(6, coin.m_spentHeight);
+                                    stm.get(7, coin.m_createTxId);
+                                    stm.get(8, coin.m_spentTxId);
+                                    stm.get(9, coin.m_sessionId);
+                                    walletDB->saveCoin(coin);
+                                }
+                            }
+
+                            {
+                                const char* req = "DROP TABLE " STORAGE_NAME "_del;";
+                                int ret = sqlite3_exec(walletDB->_db, req, NULL, NULL, NULL);
+                                throwIfError(ret, walletDB->_db);
                             }
 
                             storage::setVar(*walletDB, Version, DbVersion);
-                            // no break;
+                            // no break
 
                         case DbVersion:
-
-                            // drop private variables from public database for cold wallet 
+                            // drop private variables from public database for cold wallet
                             if (separateDBForPrivateData && !DropPrivateVariablesFromPublicDatabase(*walletDB))
                             {
                                 return Ptr();
                             }
-
                             break; // ok
 
                         default:
@@ -1408,9 +1466,12 @@ namespace beam::wallet
         return m_OwnerKdf;
     }
 
-    void IWalletDB::calcCommitment(ECC::Scalar::Native& sk, ECC::Point& comm, const Coin::ID& cid)
+    ECC::Point IWalletDB::calcCommitment(const Coin::ID& cid, const AssetID& assetId)
     {
-        SwitchCommitment().Create(sk, comm, *get_ChildKdf(cid), cid);
+        ECC::Point commitment;
+        ECC::Scalar::Native sk;
+        SwitchCommitment(&assetId).Create(sk, commitment, *get_ChildKdf(cid), cid);
+        return commitment;
     }
 
 	void IWalletDB::ImportRecovery(const std::string& path)
@@ -1444,9 +1505,7 @@ namespace beam::wallet
 			if (!kidv.m_Value && (Key::Type::Decoy == kidv.m_Type))
 				continue; // filter-out decoys
 
-			ECC::Scalar::Native sk;
-			ECC::Point comm;
-			calcCommitment(sk, comm, kidv);
+			ECC::Point&& comm = calcCommitment(kidv, x.m_Output.m_AssetID);
 			if (!(comm == x.m_Output.m_Commitment))
 				continue;
 
@@ -1454,6 +1513,7 @@ namespace beam::wallet
 			c.m_ID = kidv;
 			findCoin(c); // in case it exists already - fill its parameters
 
+			c.m_assetId = x.m_Output.m_AssetID;
 			c.m_maturity = x.m_Output.get_MinMaturity(x.m_CreateHeight);
 			c.m_confirmHeight = x.m_CreateHeight;
 
@@ -1474,7 +1534,7 @@ namespace beam::wallet
 		return true;
 	}
 
-    vector<Coin> WalletDB::selectCoins(Amount amount)
+    vector<Coin> WalletDB::selectCoins(Amount amount, AssetID assetId)
     {
         vector<Coin> coins, coinsSel;
         Block::SystemState::ID stateID = {};
@@ -1492,6 +1552,8 @@ namespace beam::wallet
 
                 storage::DeduceStatus(*this, coin, stateID.m_Height);
                 if (Coin::Status::Available != coin.m_status)
+                    coins.pop_back();
+                else if (coin.m_assetId != assetId)
                     coins.pop_back();
                 else
                 {
@@ -1511,7 +1573,6 @@ namespace beam::wallet
             for (size_t j = 0; j < res.second.size(); j++)
                 coinsSel.push_back(std::move(coins[res.second[j]]));
         }
-
 
         return coinsSel;
     }
@@ -1661,9 +1722,9 @@ namespace beam::wallet
         return updatedCoins;
     }
 
-    Coin WalletDB::generateNewCoin(Amount amount)
+    Coin WalletDB::generateNewCoin(Amount amount, const AssetID& assetId)
     {
-        Coin coin(amount);
+        Coin coin(amount, assetId == Zero ? Key::Type::Regular : Key::Type::Asset, assetId);
         coin.m_ID.m_Idx = get_RandomID();
 
         // check for collisions
@@ -1820,7 +1881,6 @@ namespace beam::wallet
         sqlite::Statement stm(this, req);
 
         Height h = getCurrentHeight();
-
         while (stm.step())
         {
             Coin coin;
@@ -2083,8 +2143,11 @@ namespace beam::wallet
                 case TxParameterID::Message:
                     deserialize(txDescription.m_message, parameter.m_value);
                     break;
-                case TxParameterID::Change:
-                    deserialize(txDescription.m_change, parameter.m_value);
+                case TxParameterID::ChangeBeam:
+                    deserialize(txDescription.m_changeBeam, parameter.m_value);
+                    break;
+                case TxParameterID::ChangeAsset:
+                    deserialize(txDescription.m_changeAsset, parameter.m_value);
                     break;
                 case TxParameterID::ModifyTime:
                     deserialize(txDescription.m_modifyTime, parameter.m_value);
@@ -2101,11 +2164,13 @@ namespace beam::wallet
                 case TxParameterID::IsSelfTx:
                     deserialize(txDescription.m_selfTx, parameter.m_value);
                     break;
+                case TxParameterID ::AssetID:
+                    deserialize(txDescription.m_assetId, parameter.m_value);
+                    break;
                 default:
                     break; // suppress warning
                 }
             }
-
         }
 
         if (std::includes(gottenParams.begin(), gottenParams.end(), m_mandatoryTxParams.begin(), m_mandatoryTxParams.end()))
@@ -2123,7 +2188,10 @@ namespace beam::wallet
         storage::setTxParameter(*this, p.m_txId, TxParameterID::TransactionType, p.m_txType, false);
         storage::setTxParameter(*this, p.m_txId, TxParameterID::Amount, p.m_amount, false);
         storage::setTxParameter(*this, p.m_txId, TxParameterID::Fee, p.m_fee, false);
-        storage::setTxParameter(*this, p.m_txId, TxParameterID::Change, p.m_change, false);
+        storage::setTxParameter(*this, p.m_txId, TxParameterID::ChangeBeam,  p.m_changeBeam, false);
+        storage::setTxParameter(*this, p.m_txId, TxParameterID::ChangeAsset, p.m_changeAsset, false);
+        storage::setTxParameter(*this, p.m_txId, TxParameterID::AssetID, p.m_assetId, false);
+        storage::setTxParameter(*this, p.m_txId, TxParameterID::AssetIdx, p.m_assetIdx, false);
         if (p.m_minHeight)
         {
             storage::setTxParameter(*this, p.m_txId, TxParameterID::MinHeight, p.m_minHeight, false);
@@ -2893,50 +2961,84 @@ namespace beam::wallet
             return true;
         }
 
+        Totals::Totals()
+        {
+            allTotals[Zero] = AssetTotals();
+        }
+
+        Totals::Totals(IWalletDB& db)
+        {
+            allTotals[Zero] = AssetTotals();
+            Init(db);
+        }
+
+
         void Totals::Init(IWalletDB& walletDB)
         {
-            ZeroObject(*this);
+            auto getTotals = [this](AssetID assetId) -> AssetTotals& {
+                if (allTotals.find(assetId) == allTotals.end()) {
+                    allTotals[assetId] = AssetTotals();
+                    allTotals[assetId].AssetId = assetId;
+                }
+                return allTotals[assetId];
+            };
 
-            walletDB.visitCoins([this](const Coin& c)->bool
+            walletDB.visitCoins([getTotals] (const Coin& c) -> bool
             {
-                const Amount& v = c.m_ID.m_Value; // alias
+                auto& totals = getTotals(c.m_assetId);
+                const Amount& value = c.m_ID.m_Value; // alias
+
                 switch (c.m_status)
                 {
                 case Coin::Status::Available:
-                    Avail += v;
-                    Unspent += v;
-
+                    totals.Avail += value;
+                    totals.Unspent += value;
                     switch (c.m_ID.m_Type)
                     {
-                    case Key::Type::Coinbase: AvailCoinbase += v; break;
-                    case Key::Type::Comission: AvailFee += v; break;
+                    case Key::Type::Coinbase:
+                        assert(!c.isAsset());
+                        totals.AvailCoinbase += value;
+                        break;
+                    case Key::Type::Comission:
+                        assert(!c.isAsset());
+                        totals.AvailFee += value;
+                        break;
                     default: // suppress warning
                         break;
                     }
-
                     break;
 
                 case Coin::Status::Maturing:
-                    Maturing += v;
-                    Unspent += v;
+                    assert(!c.isAsset());
+                    totals.Maturing += value;
+                    totals.Unspent += value;
                     break;
 
                 case Coin::Status::Incoming:
-                {
-                    Incoming += v;
+                    totals.Incoming += value;
                     if (c.m_ID.m_Type == Key::Type::Change)
                     {
-                        ReceivingChange += v;
+                        assert(!c.isAsset());
+                        totals.ReceivingChange += value;
+                    }
+                    else if(c.m_ID.m_Type == Key::Type::AssetChange)
+                    {
+                        assert(c.isAsset());
+                        totals.ReceivingChange += value;
                     }
                     else
                     {
-                        ReceivingIncoming += v;
+                        totals.ReceivingIncoming += value;
                     }
-
                     break;
-                }
-                case Coin::Status::Outgoing: Outgoing += v; break;
-                case Coin::Status::Unavailable: Unavail += v; break;
+
+                case Coin::Status::Outgoing:
+                    totals.Outgoing += value;
+                    break;
+
+                case Coin::Status::Unavailable:
+                    totals.Unavail += value;
+                    break;
 
                 default: // suppress warning
                     break;
@@ -2944,14 +3046,31 @@ namespace beam::wallet
 
                 switch (c.m_ID.m_Type)
                 {
-                case Key::Type::Coinbase: Coinbase += v; break;
-                case Key::Type::Comission: Fee += v; break;
+                case Key::Type::Coinbase:
+                    assert(!c.isAsset());
+                    totals.Coinbase += value;
+                    break;
+                case Key::Type::Comission:
+                    assert(!c.isAsset());
+                    totals.Fee += value;
+                    break;
                 default: // suppress warning
                     break;
                 }
 
                 return true;
             });
+        }
+
+        Totals::AssetTotals Totals::GetTotals(AssetID assetId)
+        {
+            if(allTotals.find(assetId) == allTotals.end())
+            {
+                AssetTotals result;
+                result.AssetId = assetId;
+                return result;
+            }
+            return allTotals[assetId];
         }
 
         WalletAddress createAddress(IWalletDB& walletDB, IPrivateKeyKeeper::Ptr keyKeeper)
@@ -3016,10 +3135,29 @@ namespace beam::wallet
             return false;
         }
 
+        bool IsConsumeTx(const IWalletDB& walletDB, const boost::optional<TxID>& txID)
+        {
+            if (!txID) return false;
+
+            TxType txType;
+            if (getTxParameter(walletDB, txID.get(), TxParameterID::TransactionType, txType))
+            {
+                return txType == TxType::AssetConsume;
+            }
+
+            return false;
+        }
+
         Coin::Status GetCoinStatus(const IWalletDB& walletDB, const Coin& c, Height hTop)
         {
             if (c.m_spentHeight != MaxHeight)
+            {
+                if (c.isAsset() && IsConsumeTx(walletDB, c.m_spentTxId))
+                {
+                    return Coin::Status::Consumed;
+                }
                 return Coin::Status::Spent;
+            }
 
             if (c.m_confirmHeight != MaxHeight)
             {

@@ -644,7 +644,8 @@ namespace
                     response.difficulty = state.m_PoW.m_Difficulty.ToFloat();
                 }
 
-                storage::Totals totals(*_walletDB);
+                storage::Totals allTotals(*_walletDB);
+                const auto totals = allTotals.GetTotals(Zero);
 
                 response.available = totals.Avail;
                 response.receiving = totals.Incoming;

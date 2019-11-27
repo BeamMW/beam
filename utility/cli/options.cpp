@@ -248,8 +248,16 @@ namespace beam
         const char* TR_COMMENT = "tr_comment";
         const char* TR_M = "tr_M";
         const char* TR_N = "tr_N";
+
         // ui
         const char* APPDATA_PATH = "appdata";
+
+        // assets
+        const char* ASSET_ISSUE   = "issue";
+        const char* ASSET_CONSUME = "consume";
+        const char* ASSET_INDEX   = "asset_idx";
+        const char* ASSET_ID      = "asset_id";
+
         // Defaults
         const Amount kMinimumFee = 100;
     }
@@ -353,7 +361,7 @@ namespace beam
             (cli::WALLET_ADDR, po::value<vector<string>>()->multitoken())
             (cli::APPDATA_PATH, po::value<string>());
 
-        po::options_description swap_options("Atomic swap options");        
+        po::options_description swap_options("Atomic swap options");
         po::options_description visible_swap_options(swap_options);
         visible_swap_options.add_options()
             (cli::COMMAND, po::value<string>(), "command to execute [swap_init|swap_accept]");
@@ -380,6 +388,11 @@ namespace beam
             visible_swap_options.add(opt);
         }
 
+        po::options_description wallet_assets_options("Confidential assets options");
+        wallet_assets_options.add_options()
+            (cli::ASSET_INDEX, po::value<Positive<uint32_t>>(), "asset index")
+            (cli::ASSET_ID, po::value<string>(), "asset id");
+
         po::options_description options{ "Allowed options" };
         po::options_description visible_options{ "Allowed options" };
         if (flags & GENERAL_OPTIONS)
@@ -398,8 +411,10 @@ namespace beam
             options.add(wallet_options);
             options.add(wallet_treasury_options);
             options.add(swap_options);
+            if(Rules::get().CA.Enabled) options.add(wallet_assets_options);
             visible_options.add(wallet_options);
             visible_options.add(visible_swap_options);
+            if(Rules::get().CA.Enabled) visible_options.add(wallet_assets_options);
         }
         if (flags & UI_OPTIONS)
         {
