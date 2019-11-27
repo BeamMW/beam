@@ -1966,5 +1966,10 @@ deploy the key at the node you trust completely.</translation>
         <extracomment>settings tab, show owner key dialog title</extracomment>
         <translation>Owner key</translation>
     </message>
+    <message id="wallet-export-tx-history">
+        <source>Export transactions history</source>
+        <extracomment>transactions history screen, export button tooltip and open file dialog</extracomment>
+        <translation>Export transactions history</translation>
+    </message>
 </context>
 </TS>

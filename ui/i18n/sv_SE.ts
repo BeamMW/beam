@@ -1206,14 +1206,12 @@
         <translation>Avgift är för liten</translation>
     </message>
     <message id="loading-view-estimate-minutes">
-        <source>min</source>
-        <oldsource>min.</oldsource>
-        <translation type="unfinished">minut.</translation>
+        <source>min.</source>
+        <translation>minut.</translation>
     </message>
     <message id="loading-view-estimate-seconds">
-        <source>sec</source>
-        <oldsource>sec.</oldsource>
-        <translation type="unfinished">sekund.</translation>
+        <source>sec.</source>
+        <translation>sekund.</translation>
     </message>
     <message id="loading-view-estimate-time">
         <source>Estimate time: %s</source>
@@ -1382,9 +1380,8 @@ please review your settings and try again</source>
         <translation>Återbygger plånboksdata</translation>
     </message>
     <message id="loading-view-estimate-hours">
-        <source>h</source>
-        <oldsource>h.</oldsource>
-        <translation type="unfinished">t.</translation>
+        <source>h.</source>
+        <translation>t.</translation>
     </message>
     <message id="loading-view-net-problems">
         <source>It may take longer then usual. Please, check your network.</source>
@@ -1940,26 +1937,9 @@ Please check the swap token and try again.</source>
         <source>There are %1 active transactions that might fail if the wallet will go offline. Are you sure to close the wallet now?</source>
         <translation type="unfinished"></translation>
     </message>
-    <message id="settings-show-owner-key-message">
-        <source>Please notice, that knowing your owner key allows to
-know all your funds (UTXO). Make sure that you
-deploy the key at the node you trust completely.</source>
-        <extracomment>settings tab, show owner key message</extracomment>
-        <translation type="unfinished"></translation>
-    </message>
-    <message id="settings-general-require-pwd-to-show-owner-key">
-        <source>Show owner key</source>
-        <extracomment>settings tab, general section, Show owner key button and dialog title</extracomment>
-        <translation type="unfinished"></translation>
-    </message>
-    <message id="settings-general-require-pwd-to-show-owner-key-message">
-        <source>Password verification is required to see the owner key</source>
-        <extracomment>settings tab, general section, ask password to Show owner key, message</extracomment>
-        <translation type="unfinished"></translation>
-    </message>
-    <message id="settings-show-owner-key-title">
-        <source>Owner key</source>
-        <extracomment>settings tab, show owner key dialog title</extracomment>
+    <message id="wallet-export-tx-history">
+        <source>Export transactions history</source>
+        <extracomment>transactions history screen, export button tooltip and open file dialog</extracomment>
         <translation type="unfinished"></translation>
     </message>
 </context>

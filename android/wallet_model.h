@@ -54,4 +54,5 @@ private:
     void onHideKeyKeeperMessage() override {}
     void onShowKeyKeeperError(const std::string&) override {}
     void onPostFunctionToClientContext(MessageFunction&& func) override {};
+    void onExportTxHistoryToCsv(const std::string& data) override {};
 };

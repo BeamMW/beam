@@ -3276,6 +3276,34 @@ namespace beam::wallet
             return true;
         }
 
+        std::string ExportTxHistoryToCsv(const IWalletDB& db)
+        {
+            std::stringstream ss;
+            ss << "created on" << ","
+               << "sender" << ","
+               << "receiver" << ","
+               << "amount" << ","
+               << "fee" << ","
+               << "comment" << ","
+               << "status" << ","
+               << "transaction ID" << ","
+               << "kernel ID" << std::endl;
+
+            for (const auto& tx : db.getTxHistory())
+            {
+                ss << format_timestamp(kTimeStampFormat3x3, tx.m_createTime * 1000, false) << ","
+                   << std::to_string(tx.m_sender ? tx.m_myId : tx.m_peerId) << ","
+                   << std::to_string(!tx.m_sender ? tx.m_myId : tx.m_peerId) << ","
+                   << PrintableAmount(tx.m_amount, true) << ","
+                   << PrintableAmount(tx.m_fee, true) << ","
+                   << std::string { tx.m_message.begin(), tx.m_message.end() } << ","
+                   << tx.getStatusString() << ","
+                   << tx.m_txId << ","
+                   << std::to_string(tx.m_kernelID) << std::endl;
+            }
+            return ss.str();
+        }
+
         namespace
         {
             void LogSqliteError(void* pArg, int iErrCode, const char* zMsg)
