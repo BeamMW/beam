@@ -960,8 +960,8 @@ namespace
 
     public:
         WalletApiServer(io::Reactor::Ptr reactor, uint16_t port)
-            : _reactor(reactor)
-            , _ioc{1}
+            : _ioc{1}
+            , _reactor(reactor)
         {
             start(port);
         }
@@ -1198,9 +1198,9 @@ namespace
             io::Reactor::Ptr _reactor;
         public:
             ApiConnection(ApiConnectionHandler* handler, io::Reactor::Ptr reactor, session& s) 
-                : _api(*this)
-                , _handler(handler)
+                : _handler(handler)
                 , _reactor(reactor)
+                , _api(*this)
             {
                 _keyKeeper = std::make_shared<WasmKeyKeeperProxy>(s, _reactor);
             }
@@ -1836,9 +1836,9 @@ namespace
             // Take ownership of the socket
             explicit
             session(tcp::socket socket, io::Reactor::Ptr reactor)
-                : ws_(std::move(socket))
+                : ApiConnection(this, reactor, *this)
+                , ws_(std::move(socket))
                 , strand_(ws_.get_executor())
-                , ApiConnection(this, reactor, *this)
                 , _readTimer(io::Timer::create(*reactor))
             {
                 
@@ -1967,7 +1967,7 @@ namespace
                             &session::on_keykeeper_write,
                             shared_from_this(),
                             std::placeholders::_1,
-                            std::placeholders::_2, [&done](){})));
+                            std::placeholders::_2, [](){})));
 
                 while(!done)
                     reactorRunOnce();
@@ -1991,7 +1991,7 @@ namespace
 
                 {
                     std::ostringstream os;
-                    os << boost::beast::buffers(buffer_.data());
+                    os << boost::beast::make_printable(buffer_.data());
                     buffer_.consume(buffer_.size());
                     auto data = os.str();
 
@@ -2103,16 +2103,13 @@ namespace
             tcp::acceptor acceptor_;
             tcp::socket socket_;
             io::Reactor::Ptr _reactor;
-            boost::asio::io_context& _ioc;
 
         public:
-            listener(
-                boost::asio::io_context& ioc,
+            listener(boost::asio::io_context& ioc,
                 tcp::endpoint endpoint, io::Reactor::Ptr reactor)
                 : acceptor_(ioc)
                 , socket_(ioc)
                 , _reactor(reactor)
-                , _ioc(ioc)
             {
                 boost::system::error_code ec;
 
