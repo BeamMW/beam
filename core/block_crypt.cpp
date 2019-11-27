@@ -1145,9 +1145,19 @@ namespace beam
 
 	bool Transaction::IsValid(Context& ctx) const
 	{
-		const auto vs = ctx.ValidateAndSummarize(*this, get_Reader());
-		const auto vt = ctx.IsValidTransaction();
-		return vs && vt;
+	    // Please do not rewrite to a shorter form.
+	    // It is easy to debug/set breakpoints when code is like below
+		if(!ctx.ValidateAndSummarize(*this, get_Reader()))
+        {
+		    return false;
+        }
+
+		if(!ctx.IsValidTransaction())
+        {
+		    return false;
+        }
+		
+		return true;
 	}
 
 	void Transaction::get_Key(KeyType& key) const

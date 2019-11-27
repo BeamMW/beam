@@ -92,7 +92,7 @@ namespace beam::wallet
             });
     }
 
-    void TrezorKeyKeeper::GenerateOutputsEx(Height schemeHeigh, const std::vector<Key::IDV>& ids, const AssetID& assetId, ECC::Scalar::Native& offset, Callback<Outputs>&&, ExceptionCallback&&)
+    void TrezorKeyKeeper::GenerateOutputsEx(Height schemeHeight, const std::vector<Key::IDV>& ids, const AssetID& assetId, CallbackEx<Outputs, ECC::Scalar::Native>&&, ExceptionCallback&&)
     {
         // TODO:ASSETS implement
         assert(false);
@@ -119,11 +119,11 @@ namespace beam::wallet
         return result;
     }
 
-    IPrivateKeyKeeper::PublicKeys TrezorKeyKeeper::GeneratePublicKeysSyncEx(const std::vector<Key::IDV>& ids, bool createCoinKey, const AssetID& assetID, ECC::Scalar::Native& offset)
+    std::pair<IPrivateKeyKeeper::PublicKeys, ECC::Scalar::Native> TrezorKeyKeeper::GeneratePublicKeysSyncEx(const std::vector<Key::IDV>& ids, bool createCoinKey, const AssetID& assetID)
     {
         // TODO:ASSETS implement
         assert(false);
-        return PublicKeys();
+        return std::make_pair(PublicKeys(), ECC::Scalar::Native());
     }
 
     ECC::Point TrezorKeyKeeper::GeneratePublicKeySync(const Key::IDV& id)
@@ -155,11 +155,11 @@ namespace beam::wallet
         return outputs;
     }
 
-    IPrivateKeyKeeper::Outputs TrezorKeyKeeper::GenerateOutputsSyncEx(Height schemeHeigh, const std::vector<Key::IDV>& ids, const AssetID& assetId, ECC::Scalar::Native& offset)
+    std::pair<IPrivateKeyKeeper::Outputs, ECC::Scalar::Native> TrezorKeyKeeper::GenerateOutputsSyncEx(Height schemeHeigh, const std::vector<Key::IDV>& ids, const AssetID& assetId)
     {
         // TODO:ASSETS implement
         assert(false);
-        return Outputs();
+        return std::make_pair(Outputs(), ECC::Scalar::Native());
     }
 
     ECC::Point TrezorKeyKeeper::GenerateNonceSync(size_t slot)

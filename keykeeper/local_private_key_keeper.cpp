@@ -83,25 +83,26 @@ namespace beam::wallet
 
     }
 
-    void LocalPrivateKeyKeeper::GenerateOutputsEx(Height schemeHeight, const std::vector<Key::IDV>& ids, const AssetID& assetId, ECC::Scalar::Native& offset, Callback<Outputs>&& resultCallback, ExceptionCallback&& exceptionCallback)
+    void LocalPrivateKeyKeeper::GenerateOutputsEx(Height schemeHeight, const std::vector<Key::IDV>& ids, const AssetID& assetId, CallbackEx<Outputs, ECC::Scalar::Native>&& resultCallback, ExceptionCallback&& exceptionCallback)
      {
         auto thisHolder = shared_from_this();
-        shared_ptr<Outputs> result = make_shared<Outputs>();
+        auto resOuts    = make_shared<Outputs>();
+        auto resOffset  = make_shared<ECC::Scalar::Native>();
         shared_ptr<exception> storedException;
         shared_ptr<future<void>> futureHolder = make_shared<future<void>>();
         *futureHolder = do_thread_async(
-            [thisHolder, this, schemeHeight, ids, assetId, result, storedException, &offset]()
+            [thisHolder, this, schemeHeight, ids, assetId, resOuts, resOffset, storedException]()
             {
                 try
                 {
-                    *result = GenerateOutputsSyncEx(schemeHeight, ids, assetId, offset);
+                   std::tie(*resOuts, *resOffset) = GenerateOutputsSyncEx(schemeHeight, ids, assetId);
                 }
                 catch (const exception& ex)
                 {
                     *storedException = ex;
                 }
             },
-            [futureHolder, resultCallback = move(resultCallback), exceptionCallback = move(exceptionCallback), result, storedException]() mutable
+            [futureHolder, resultCallback = move(resultCallback), exceptionCallback = move(exceptionCallback), resOuts, resOffset, storedException]() mutable
             {
                 if (storedException)
                 {
@@ -109,7 +110,7 @@ namespace beam::wallet
                 }
                 else
                 {
-                    resultCallback(move(*result));
+                    resultCallback(move(*resOuts), std::move(*resOffset));
                 }
                 futureHolder.reset();
             });
@@ -161,26 +162,27 @@ namespace beam::wallet
         return result;
     }
 
-    IPrivateKeyKeeper::PublicKeys LocalPrivateKeyKeeper::GeneratePublicKeysSyncEx(const std::vector<Key::IDV>& ids, bool createCoinKey, const AssetID& assetID, Scalar::Native& offset)
+    std::pair<IPrivateKeyKeeper::PublicKeys, ECC::Scalar::Native> LocalPrivateKeyKeeper::GeneratePublicKeysSyncEx(const std::vector<Key::IDV>& ids, bool createCoinKey, const AssetID& assetID)
     {
-        PublicKeys result;
+        PublicKeys resKeys;
+        Scalar::Native resOffset;
         Scalar::Native secretKey;
-        result.reserve(ids.size());
+        resKeys.reserve(ids.size());
         if (createCoinKey)
         {
             for (const auto& coinID : ids)
             {
                 if(coinID.isAsset())
                 {
-                    Point &publicKey = result.emplace_back();
+                    Point &publicKey = resKeys.emplace_back();
                     SwitchCommitment(&assetID).Create(secretKey, publicKey, *GetChildKdf(coinID), coinID);
-                    offset += secretKey;
+                    resOffset += secretKey;
                 }
                 else
                 {
-                    Point &publicKey = result.emplace_back();
+                    Point &publicKey = resKeys.emplace_back();
                     SwitchCommitment().Create(secretKey, publicKey, *GetChildKdf(coinID), coinID);
-                    offset += secretKey;
+                    resOffset += secretKey;
                 }
             }
         }
@@ -189,13 +191,13 @@ namespace beam::wallet
             for (const auto& keyID : ids)
             {
                 assert(!keyID.isAsset()); // TODO:ASSET
-                Point& publicKey = result.emplace_back();
+                Point& publicKey = resKeys.emplace_back();
                 m_MasterKdf->DeriveKey(secretKey, keyID);
                 publicKey = Context::get().G * secretKey;
-                offset += secretKey;
+                resOffset += secretKey;
             }
         }
-        return result;
+        return std::make_pair(std::move(resKeys), std::move(resOffset));
     }
 
     ECC::Point LocalPrivateKeyKeeper::GeneratePublicKeySync(const Key::IDV& id)
@@ -231,23 +233,26 @@ namespace beam::wallet
         return result;
     }
 
-    IPrivateKeyKeeper::Outputs LocalPrivateKeyKeeper::GenerateOutputsSyncEx(Height schemeHeigh, const std::vector<Key::IDV>& ids, const AssetID& assetId, Scalar::Native& offset)
+    std::pair<IPrivateKeyKeeper::Outputs, ECC::Scalar::Native> LocalPrivateKeyKeeper::GenerateOutputsSyncEx(Height schemeHeigh, const std::vector<Key::IDV>& ids, const AssetID& assetId)
     {
-        Outputs result;
+        Outputs resOuts;
+        Scalar::Native resOffset;
         Scalar::Native secretKey;
         Point commitment;
-        result.reserve(ids.size());
+        resOuts.reserve(ids.size());
+
         for (const auto& coinID : ids)
         {
-            auto& output = result.emplace_back(make_unique<Output>());
+            auto& output = resOuts.emplace_back(make_unique<Output>());
             if (coinID.isAsset())
             {
                 output->m_AssetID = assetId;
             }
             output->Create(schemeHeigh, secretKey, *GetChildKdf(coinID), coinID, *m_MasterKdf);
-            offset += -secretKey;
+            resOffset += -secretKey;
         }
-        return result;
+
+        return std::make_pair(std::move(resOuts), std::move(resOffset));
     }
 
     ECC::Point LocalPrivateKeyKeeper::GenerateNonceSync(size_t slot)

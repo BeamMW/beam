@@ -173,14 +173,13 @@ namespace beam::wallet
 
         auto thisHolder = shared_from_this();
         auto txHolder = m_Tx.shared_from_this(); // increment use counter of tx object. We use it to avoid tx object desctruction during Update call.
-        ECC::Scalar::Native dummy = Zero;
         m_Tx.GetAsyncAcontext().OnAsyncStarted();
-        m_Tx.GetKeyKeeper()->GenerateOutputsEx(m_MinHeight, m_OutputCoins, m_AssetId, dummy,
-            [thisHolder, this, txHolder](auto&& result)
+        m_Tx.GetKeyKeeper()->GenerateOutputsEx(m_MinHeight, m_OutputCoins, m_AssetId,
+            [thisHolder, this, txHolder](IPrivateKeyKeeper::Outputs&& resOutputs, auto&&)
             {
-                m_Outputs = move(result);
+                m_Outputs = std::move(resOutputs);
                 FinalizeOutputs();
-                m_Tx.Update(); // may complete tranasction 
+                m_Tx.Update(); // may complete transaction
                 m_Tx.GetAsyncAcontext().OnAsyncFinished();
             },
             [thisHolder, this, txHolder](const exception&)
@@ -223,8 +222,7 @@ namespace beam::wallet
         //    {
         //        //m_Tx.Update();
         //    });
-        ECC::Scalar::Native dummy;
-        auto commitments = m_Tx.GetKeyKeeper()->GeneratePublicKeysSyncEx(m_InputCoins, true, m_AssetId, dummy);
+        const auto& [commitments, ignore] = m_Tx.GetKeyKeeper()->GeneratePublicKeysSyncEx(m_InputCoins, true, m_AssetId);
         m_Inputs.reserve(commitments.size());
         for (const auto& commitment : commitments)
         {
