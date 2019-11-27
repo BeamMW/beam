@@ -591,9 +591,17 @@ namespace beam::wallet
                         NoLeak<uintBig> secretPrivateKey;
                         if (!GetParameter(TxParameterID::AtomicSwapSecretPrivateKey, secretPrivateKey.V, SubTxIndex::BEAM_REDEEM_TX))
                         {
-                            LOG_INFO() << GetTxID() << " Beam locktime expired.";
-                            SetNextState(State::SendingBeamRefundTX);
-                            break;
+                            Height kernelUnconfirmedHeight = 0;
+                            GetParameter(TxParameterID::KernelUnconfirmedHeight, kernelUnconfirmedHeight, SubTxIndex::BEAM_REDEEM_TX);
+                            Height refundMinHeight = MaxHeight;
+                            GetParameter(TxParameterID::MinHeight, refundMinHeight, SubTxIndex::BEAM_REFUND_TX);
+
+                            if (kernelUnconfirmedHeight > refundMinHeight)
+                            {
+                                LOG_INFO() << GetTxID() << " Beam locktime expired.";
+                                SetNextState(State::SendingBeamRefundTX);
+                                break;
+                            }
                         }
                     }
 

@@ -564,6 +564,12 @@ namespace beam::wallet
             tx->SetParameter(TxParameterID::Kernel, r.m_Res.m_Kernel, r.m_SubTxID);
             tx->SetParameter(TxParameterID::KernelProofHeight, r.m_Res.m_Height, r.m_SubTxID);
         }
+        else
+        {
+            Block::SystemState::Full sTip;
+            get_tip(sTip);
+            tx->SetParameter(TxParameterID::KernelUnconfirmedHeight, sTip.m_Height, r.m_SubTxID);
+        }
     }
 
     void Wallet::OnRequestComplete(MyRequestBbsMsg& r)

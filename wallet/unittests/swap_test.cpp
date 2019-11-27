@@ -1688,7 +1688,7 @@ int main()
     TestSwapBTCRefundTransaction();
     TestSwapBeamRefundTransaction();
     TestSwapBeamAndBTCRefundTransaction();
-    //TestSwapBTCRedeemAfterExpired();
+    TestSwapBTCRedeemAfterExpired();
 
     ExpireByResponseTime(true);
     ExpireByResponseTime(false);
