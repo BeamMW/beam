@@ -1206,12 +1206,14 @@
         <translation>Gebühr ist zu klein</translation>
     </message>
     <message id="loading-view-estimate-minutes">
-        <source>min.</source>
-        <translation>min.</translation>
+        <source>min</source>
+        <oldsource>min.</oldsource>
+        <translation type="unfinished">min</translation>
     </message>
     <message id="loading-view-estimate-seconds">
-        <source>sec.</source>
-        <translation>Sek.</translation>
+        <source>sec</source>
+        <oldsource>sec.</oldsource>
+        <translation type="unfinished">Sek</translation>
     </message>
     <message id="loading-view-estimate-time">
         <source>Estimate time: %s</source>
@@ -1381,8 +1383,9 @@ bitte überprüfen Sie Ihre Einstellungen und versuchen Sie es erneut.</translat
         <translation>Wallet-Daten werden geladen</translation>
     </message>
     <message id="loading-view-estimate-hours">
-        <source>h.</source>
-        <translation>h.</translation>
+        <source>h</source>
+        <oldsource>h.</oldsource>
+        <translation type="unfinished">h.</translation>
     </message>
     <message id="loading-view-net-problems">
         <source>It may take longer then usual. Please, check your network.</source>

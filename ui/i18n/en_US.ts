@@ -1207,12 +1207,12 @@ or send this address to the sender over secure channel</translation>
         <translation>Fee is too small</translation>
     </message>
     <message id="loading-view-estimate-minutes">
-        <source>min.</source>
-        <translation>min.</translation>
+        <source>min</source>
+        <translation>min</translation>
     </message>
     <message id="loading-view-estimate-seconds">
-        <source>sec.</source>
-        <translation>sec.</translation>
+        <source>sec</source>
+        <translation>sec</translation>
     </message>
     <message id="loading-view-estimate-time">
         <source>Estimate time: %s</source>
@@ -1383,8 +1383,8 @@ please review your settings and try again</translation>
         <translation>Rebuilding wallet data</translation>
     </message>
     <message id="loading-view-estimate-hours">
-        <source>h.</source>
-        <translation>h.</translation>
+        <source>h</source>
+        <translation>h</translation>
     </message>
     <message id="loading-view-net-problems">
         <source>It may take longer then usual. Please, check your network.</source>

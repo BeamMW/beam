@@ -1206,12 +1206,14 @@
         <translation>ค่าธรรมเนียมน้อยเกินไป</translation>
     </message>
     <message id="loading-view-estimate-minutes">
-        <source>min.</source>
-        <translation>นาที</translation>
+        <source>min</source>
+        <oldsource>min.</oldsource>
+        <translation type="unfinished">นาที</translation>
     </message>
     <message id="loading-view-estimate-seconds">
-        <source>sec.</source>
-        <translation>วินาที</translation>
+        <source>sec</source>
+        <oldsource>sec.</oldsource>
+        <translation type="unfinished">วินาที</translation>
     </message>
     <message id="loading-view-estimate-time">
         <source>Estimate time: %s</source>
@@ -1380,8 +1382,9 @@ please review your settings and try again</source>
         <translation>กำลังสร้างข้อมูลกระเป๋าใหม่</translation>
     </message>
     <message id="loading-view-estimate-hours">
-        <source>h.</source>
-        <translation>ชม.</translation>
+        <source>h</source>
+        <oldsource>h.</oldsource>
+        <translation type="unfinished">ชม.</translation>
     </message>
     <message id="loading-view-net-problems">
         <source>It may take longer then usual. Please, check your network.</source>
