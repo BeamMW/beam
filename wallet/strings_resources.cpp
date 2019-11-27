@@ -17,7 +17,6 @@
 namespace beam
 {
     const char kDefaultConfigFile[] = "beam-wallet.cfg";
-    const char kTimeStampFormat3x3[] = "%Y.%m.%d %H:%M:%S";
     const char kBEAM[] = "BEAM";
     const char kGROTH[] = "GROTH";
     // Coin statuses

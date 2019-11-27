@@ -207,6 +207,11 @@ struct WalletModelBridge : public Bridge<IWalletModelAsync>
     {
         call_async(&IWalletModelAsync::exportDataToJson);
     }
+
+    void exportTxHistoryToCsv()
+    {
+        call_async(&IWalletModelAsync::exportTxHistoryToCsv);
+    }
 };
 }
 
@@ -894,6 +899,13 @@ namespace beam::wallet
         auto data = storage::ExportDataToJson(*m_walletDB);
 
         onExportDataToJson(data);
+    }
+
+    void WalletClient::exportTxHistoryToCsv()
+    {
+        auto data = storage::ExportTxHistoryToCsv(*m_walletDB);
+
+        onExportTxHistoryToCsv(data);   
     }
 
     bool WalletClient::OnProgress(uint64_t done, uint64_t total)
