@@ -108,6 +108,16 @@ struct WalletModelBridge : public Bridge<IWalletModelAsync>
     {
 		call_async(&IWalletModelAsync::publishSwapOffer, offer);
     }
+
+    void loadSwapParams() override
+    {
+        call_async(&IWalletModelAsync::loadSwapParams);
+    }
+
+    void storeSwapParams(const beam::ByteBuffer& params) override
+    {
+        call_async(&IWalletModelAsync::storeSwapParams, params);
+    }
 #endif
     void cancelTx(const wallet::TxID& id) override
     {
@@ -134,15 +144,6 @@ struct WalletModelBridge : public Bridge<IWalletModelAsync>
         call_async(&IWalletModelAsync::changeCurrentWalletIDs, senderID, receiverID);
     }
 
-    void loadSwapParams() override
-    {
-        call_async(&IWalletModelAsync::loadSwapParams);
-    }
-
-    void storeSwapParams(const beam::ByteBuffer& params) override
-    {
-        call_async(&IWalletModelAsync::storeSwapParams, params);
-    }
 
     void generateNewAddress() override
     {
@@ -205,6 +206,11 @@ struct WalletModelBridge : public Bridge<IWalletModelAsync>
     void exportDataToJson() override
     {
         call_async(&IWalletModelAsync::exportDataToJson);
+    }
+
+    void exportTxHistoryToCsv()
+    {
+        call_async(&IWalletModelAsync::exportTxHistoryToCsv);
     }
 };
 }
@@ -661,6 +667,23 @@ namespace beam::wallet
             p->publishOffer(offer);
         }
     }
+
+    namespace {
+        const char* SWAP_PARAMS_NAME = "LastSwapParams";
+    }
+
+    void WalletClient::loadSwapParams()
+    {
+        ByteBuffer params;
+        m_walletDB->getBlob(SWAP_PARAMS_NAME, params);
+        onSwapParamsLoaded(params);
+    }
+
+    void WalletClient::storeSwapParams(const ByteBuffer& params)
+    {
+        m_walletDB->setVarRaw(SWAP_PARAMS_NAME, params.data(), params.size());
+    }
+
 #endif
 
     void WalletClient::cancelTx(const TxID& id)
@@ -719,22 +742,6 @@ namespace beam::wallet
         catch (...) {
             LOG_UNHANDLED_EXCEPTION();
         }
-    }
-
-    namespace {
-        const char* SWAP_PARAMS_NAME = "LastSwapParams";
-    }
-
-    void WalletClient::loadSwapParams()
-    {
-        ByteBuffer params;
-        m_walletDB->getBlob(SWAP_PARAMS_NAME, params);
-        onSwapParamsLoaded(params);
-    }
-
-    void WalletClient::storeSwapParams(const ByteBuffer& params)
-    {
-        m_walletDB->setVarRaw(SWAP_PARAMS_NAME, params.data(), params.size());
     }
 
     void WalletClient::deleteAddress(const WalletID& id)
@@ -892,6 +899,13 @@ namespace beam::wallet
         auto data = storage::ExportDataToJson(*m_walletDB);
 
         onExportDataToJson(data);
+    }
+
+    void WalletClient::exportTxHistoryToCsv()
+    {
+        auto data = storage::ExportTxHistoryToCsv(*m_walletDB);
+
+        onExportTxHistoryToCsv(data);   
     }
 
     bool WalletClient::OnProgress(uint64_t done, uint64_t total)

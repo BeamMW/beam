@@ -231,6 +231,11 @@ void WalletModel::onExportDataToJson(const std::string& data)
 {
 }
 
+void WalletModel::onExportTxHistoryToCsv(const std::string& data)
+{
+    emit txHistoryExportedToCsv(QString::fromStdString(data));
+}
+
 void WalletModel::onChangeCurrentWalletIDs(beam::wallet::WalletID senderID, beam::wallet::WalletID receiverID)
 {
     emit changeCurrentWalletIDs(senderID, receiverID);

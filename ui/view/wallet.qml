@@ -235,6 +235,16 @@ Item {
                 }
                 CustomToolButton {
                     Layout.alignment: Qt.AlignVCenter | Qt.AlignRight
+                    icon.source: "qrc:/assets/icon-export.svg"
+                    //: transactions history screen, export button tooltip and open file dialog
+                    //% "Export transactions history"
+                    ToolTip.text: qsTrId("wallet-export-tx-history")
+                    onClicked: {
+                        viewModel.exportTxHistoryToCsv();
+                    }
+                }
+                CustomToolButton {
+                    Layout.alignment: Qt.AlignVCenter | Qt.AlignRight
                     icon.source: "qrc:/assets/icon-proof.svg"
                     //% "Verify payment"
                     ToolTip.text: qsTrId("wallet-verify-payment")

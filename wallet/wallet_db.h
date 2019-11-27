@@ -590,6 +590,7 @@ namespace beam::wallet
         std::string TxDetailsInfo(const IWalletDB::Ptr& db, const TxID& txID);
         ByteBuffer ExportPaymentProof(const IWalletDB& db, const TxID& txID);
         bool VerifyPaymentProof(const ByteBuffer& data);
+        std::string ExportTxHistoryToCsv(const IWalletDB& db);
 
         void HookErrors();
     }
