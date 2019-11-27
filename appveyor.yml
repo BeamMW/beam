@@ -46,6 +46,8 @@ after_build:
     
     7z a c:/projects/beam/beam/%BUILD_CONFIG%/wallet-api%BEAM_TARGET_SUFFIX%-%BEAM_VERSION%.zip c:/projects/beam/wallet/%BUILD_CONFIG%/wallet-api%BEAM_TARGET_SUFFIX%.exe c:/projects/beam/wallet/wallet-api.cfg
 
+    7z a c:/projects/beam/beam/%BUILD_CONFIG%/wallet-service%BEAM_TARGET_SUFFIX%-%BEAM_VERSION%.zip c:/projects/beam/wallet/service/%BUILD_CONFIG%/wallet-service%BEAM_TARGET_SUFFIX%.exe
+
     7z a c:/projects/beam/beam/%BUILD_CONFIG%/explorer-node%BEAM_TARGET_SUFFIX%-%BEAM_VERSION%.zip c:/projects/beam/explorer/%BUILD_CONFIG%/explorer-node%BEAM_TARGET_SUFFIX%.exe c:/projects/beam/explorer/explorer-node.cfg
         
     mkdir pdb
@@ -57,6 +59,8 @@ after_build:
     copy c:\projects\beam\beam\%BUILD_CONFIG%\beam-wallet-cli%BEAM_TARGET_SUFFIX%-%BEAM_VERSION%.zip c:\projects\beam\beam-wallet-cli%BEAM_TARGET_SUFFIX%-%BEAM_VERSION%.zip
 
     copy c:\projects\beam\beam\%BUILD_CONFIG%\wallet-api%BEAM_TARGET_SUFFIX%-%BEAM_VERSION%.zip c:\projects\beam\wallet-api%BEAM_TARGET_SUFFIX%-%BEAM_VERSION%.zip
+
+    copy c:\projects\beam\beam\%BUILD_CONFIG%\wallet-service%BEAM_TARGET_SUFFIX%-%BEAM_VERSION%.zip c:\projects\beam\wallet-service%BEAM_TARGET_SUFFIX%-%BEAM_VERSION%.zip
 
     copy c:\projects\beam\beam\%BUILD_CONFIG%\explorer-node%BEAM_TARGET_SUFFIX%-%BEAM_VERSION%.zip c:\projects\beam\explorer-node%BEAM_TARGET_SUFFIX%-%BEAM_VERSION%.zip
 
@@ -76,6 +80,8 @@ on_success:
 
     curl --retry 3 --ftp-create-dirs -T "c:/projects/beam/beam/%BUILD_CONFIG%/wallet-api%BEAM_TARGET_SUFFIX%-%BEAM_VERSION%.zip" "%BUILDS_SERVER_PATH%/wallet-api%BEAM_TARGET_SUFFIX%-%BEAM_VERSION%.zip"
 
+    curl --retry 3 --ftp-create-dirs -T "c:/projects/beam/beam/%BUILD_CONFIG%/wallet-service%BEAM_TARGET_SUFFIX%-%BEAM_VERSION%.zip" "%BUILDS_SERVER_PATH%/wallet-service%BEAM_TARGET_SUFFIX%-%BEAM_VERSION%.zip"
+
     curl --retry 3 --ftp-create-dirs -T "c:/projects/beam/beam/%BUILD_CONFIG%/explorer-node%BEAM_TARGET_SUFFIX%-%BEAM_VERSION%.zip" "%BUILDS_SERVER_PATH%/explorer-node%BEAM_TARGET_SUFFIX%-%BEAM_VERSION%.zip"
 
     curl --retry 3 --ftp-create-dirs -T "c:/projects/beam/BeamWallet%BEAM_DISPLAY_SUFFIX%-%BEAM_VERSION%-win64.exe" "%BUILDS_SERVER_PATH%/Beam-Wallet%BEAM_DISPLAY_SUFFIX2%-%BEAM_VERSION%.exe"
@@ -91,6 +97,9 @@ artifacts:
 
   - path: wallet-api%BEAM_TARGET_SUFFIX%-%BEAM_VERSION%.zip
     name: BeamWalletApi
+
+  - path: wallet-service%BEAM_TARGET_SUFFIX%-%BEAM_VERSION%.zip
+    name: BeamWalletService
 
   - path: explorer-node%BEAM_TARGET_SUFFIX%-%BEAM_VERSION%.zip
     name: BeamNodeExplorer
@@ -112,7 +121,7 @@ deploy:
   unzip: false
   set_public: true
   folder: "%APPVEYOR_REPO_BRANCH%/%DATE%/Release/win/"
-  artifact: BeamPdb, BeamWalletApi, BeamNodeExplorer, BeamWalletCli, BeamNode, BeamWallet
+  artifact: BeamPdb, BeamWalletApi, BeamWalletService, BeamNodeExplorer, BeamWalletCli, BeamNode, BeamWallet
 
 notifications:
   - provider: Email

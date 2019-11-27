@@ -399,12 +399,14 @@ after_success:
   - tar -cvzf beam-node$BEAM_TARGET_SUFFIX-$BEAM_VERSION.tar.gz --directory=$HOME/build/BeamMW/beam/beam beam-node$BEAM_TARGET_SUFFIX beam-node.cfg
   - tar -cvzf beam-wallet-cli$BEAM_TARGET_SUFFIX-$BEAM_VERSION.tar.gz --directory=$HOME/build/BeamMW/beam/wallet beam-wallet$BEAM_TARGET_SUFFIX beam-wallet.cfg
   - tar -cvzf wallet-api$BEAM_TARGET_SUFFIX-$BEAM_VERSION.tar.gz --directory=$HOME/build/BeamMW/beam/wallet wallet-api$BEAM_TARGET_SUFFIX wallet-api.cfg
+  - tar -cvzf wallet-service$BEAM_TARGET_SUFFIX-$BEAM_VERSION.tar.gz --directory=$HOME/build/BeamMW/beam/wallet/service wallet-service$BEAM_TARGET_SUFFIX
   - tar -cvzf explorer-node$BEAM_TARGET_SUFFIX-$BEAM_VERSION.tar.gz --directory=$HOME/build/BeamMW/beam/explorer explorer-node$BEAM_TARGET_SUFFIX explorer-node.cfg
     
   # upload binaries to FTP
   - curl --retry 3 --ftp-create-dirs -T beam-node$BEAM_TARGET_SUFFIX-$BEAM_VERSION.tar.gz $BUILDS_SERVER_PATH/
   - curl --retry 3 --ftp-create-dirs -T beam-wallet-cli$BEAM_TARGET_SUFFIX-$BEAM_VERSION.tar.gz $BUILDS_SERVER_PATH/
   - curl --retry 3 --ftp-create-dirs -T wallet-api$BEAM_TARGET_SUFFIX-$BEAM_VERSION.tar.gz $BUILDS_SERVER_PATH/
+  - curl --retry 3 --ftp-create-dirs -T wallet-service$BEAM_TARGET_SUFFIX-$BEAM_VERSION.tar.gz $BUILDS_SERVER_PATH/
   - curl --retry 3 --ftp-create-dirs -T explorer-node$BEAM_TARGET_SUFFIX-$BEAM_VERSION.tar.gz $BUILDS_SERVER_PATH/
   - curl --retry 3 --ftp-create-dirs -T "$HOME/build/BeamMW/beam/$BEAM_WALLET_UI_IN" "$BUILDS_SERVER_PATH/$BEAM_WALLET_UI_OUT"
 
@@ -413,6 +415,7 @@ after_success:
   - curl --retry 3 --ftp-create-dirs -T beam-node$BEAM_TARGET_SUFFIX-$BEAM_VERSION.tar.gz $BUILDS_SERVER_LATEST_PATH/beam-node$BEAM_TARGET_SUFFIX.tar.gz
   - curl --retry 3 --ftp-create-dirs -T beam-wallet-cli$BEAM_TARGET_SUFFIX-$BEAM_VERSION.tar.gz $BUILDS_SERVER_LATEST_PATH/beam-wallet-cli$BEAM_TARGET_SUFFIX.tar.gz
   - curl --retry 3 --ftp-create-dirs -T wallet-api$BEAM_TARGET_SUFFIX-$BEAM_VERSION.tar.gz $BUILDS_SERVER_LATEST_PATH/wallet-api$BEAM_TARGET_SUFFIX.tar.gz
+  - curl --retry 3 --ftp-create-dirs -T wallet-service$BEAM_TARGET_SUFFIX-$BEAM_VERSION.tar.gz $BUILDS_SERVER_LATEST_PATH/wallet-service$BEAM_TARGET_SUFFIX.tar.gz
   - curl --retry 3 --ftp-create-dirs -T explorer-node$BEAM_TARGET_SUFFIX-$BEAM_VERSION.tar.gz $BUILDS_SERVER_LATEST_PATH/explorer-node$BEAM_TARGET_SUFFIX.tar.gz
   - curl --retry 3 --ftp-create-dirs -T "$HOME/build/BeamMW/beam/$BEAM_WALLET_UI_IN" "$BUILDS_SERVER_LATEST_PATH/$BEAM_WALLET_UI_OUT_VERLESS"
 
@@ -423,6 +426,7 @@ after_success:
   - artifacts upload --target-paths "$TRAVIS_BRANCH/$(date +%Y.%m.%d)/$BUILD_TYPE/$OS_FOLDER/" beam-node$BEAM_TARGET_SUFFIX-$BEAM_VERSION.tar.gz
   - artifacts upload --target-paths "$TRAVIS_BRANCH/$(date +%Y.%m.%d)/$BUILD_TYPE/$OS_FOLDER/" beam-wallet-cli$BEAM_TARGET_SUFFIX-$BEAM_VERSION.tar.gz
   - artifacts upload --target-paths "$TRAVIS_BRANCH/$(date +%Y.%m.%d)/$BUILD_TYPE/$OS_FOLDER/" wallet-api$BEAM_TARGET_SUFFIX-$BEAM_VERSION.tar.gz
+  - artifacts upload --target-paths "$TRAVIS_BRANCH/$(date +%Y.%m.%d)/$BUILD_TYPE/$OS_FOLDER/" wallet-service$BEAM_TARGET_SUFFIX-$BEAM_VERSION.tar.gz
   - artifacts upload --target-paths "$TRAVIS_BRANCH/$(date +%Y.%m.%d)/$BUILD_TYPE/$OS_FOLDER/" explorer-node$BEAM_TARGET_SUFFIX-$BEAM_VERSION.tar.gz
   - artifacts upload --target-paths "$TRAVIS_BRANCH/$(date +%Y.%m.%d)/$BUILD_TYPE/$OS_FOLDER/" $HOME/build/BeamMW/beam/$BEAM_WALLET_UI_OUT
 
@@ -430,6 +434,7 @@ after_success:
   - cp beam-node$BEAM_TARGET_SUFFIX-$BEAM_VERSION.tar.gz beam-node$BEAM_TARGET_SUFFIX.tar.gz
   - cp beam-wallet-cli$BEAM_TARGET_SUFFIX-$BEAM_VERSION.tar.gz beam-wallet-cli$BEAM_TARGET_SUFFIX.tar.gz
   - cp wallet-api$BEAM_TARGET_SUFFIX-$BEAM_VERSION.tar.gz wallet-api$BEAM_TARGET_SUFFIX.tar.gz
+  - cp wallet-service$BEAM_TARGET_SUFFIX-$BEAM_VERSION.tar.gz wallet-service$BEAM_TARGET_SUFFIX.tar.gz
   - cp explorer-node$BEAM_TARGET_SUFFIX-$BEAM_VERSION.tar.gz explorer-node$BEAM_TARGET_SUFFIX.tar.gz
   - cp $HOME/build/BeamMW/beam/$BEAM_WALLET_UI_IN $HOME/build/BeamMW/beam/$BEAM_WALLET_UI_OUT_VERLESS
 
@@ -437,6 +442,7 @@ after_success:
   - artifacts upload --target-paths "$TRAVIS_BRANCH/latest/$BUILD_TYPE/$OS_FOLDER/" beam-node$BEAM_TARGET_SUFFIX.tar.gz
   - artifacts upload --target-paths "$TRAVIS_BRANCH/latest/$BUILD_TYPE/$OS_FOLDER/" beam-wallet-cli$BEAM_TARGET_SUFFIX.tar.gz
   - artifacts upload --target-paths "$TRAVIS_BRANCH/latest/$BUILD_TYPE/$OS_FOLDER/" wallet-api$BEAM_TARGET_SUFFIX.tar.gz
+  - artifacts upload --target-paths "$TRAVIS_BRANCH/latest/$BUILD_TYPE/$OS_FOLDER/" wallet-service$BEAM_TARGET_SUFFIX.tar.gz
   - artifacts upload --target-paths "$TRAVIS_BRANCH/latest/$BUILD_TYPE/$OS_FOLDER/" explorer-node$BEAM_TARGET_SUFFIX.tar.gz
   - artifacts upload --target-paths "$TRAVIS_BRANCH/latest/$BUILD_TYPE/$OS_FOLDER/" $HOME/build/BeamMW/beam/$BEAM_WALLET_UI_OUT_VERLESS
 
