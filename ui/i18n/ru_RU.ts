@@ -1206,12 +1206,14 @@
         <translation>Размер комиссии слишком мал</translation>
     </message>
     <message id="loading-view-estimate-minutes">
-        <source>min.</source>
-        <translation>мин.</translation>
+        <source>min</source>
+        <oldsource>min.</oldsource>
+        <translation type="unfinished">мин.</translation>
     </message>
     <message id="loading-view-estimate-seconds">
-        <source>sec.</source>
-        <translation>сек.</translation>
+        <source>sec</source>
+        <oldsource>sec.</oldsource>
+        <translation type="unfinished">сек.</translation>
     </message>
     <message id="loading-view-estimate-time">
         <source>Estimate time: %s</source>
@@ -1380,8 +1382,9 @@ please review your settings and try again</source>
         <translation>Перестройка данных кошелька</translation>
     </message>
     <message id="loading-view-estimate-hours">
-        <source>h.</source>
-        <translation>ч.</translation>
+        <source>h</source>
+        <oldsource>h.</oldsource>
+        <translation type="unfinished">ч.</translation>
     </message>
     <message id="loading-view-net-problems">
         <source>It may take longer then usual. Please, check your network.</source>

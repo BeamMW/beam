@@ -1206,12 +1206,12 @@
         <translation>Poplatek je příliš malý</translation>
     </message>
     <message id="loading-view-estimate-minutes">
-        <source>min.</source>
-        <translation>minut.</translation>
+        <source>min</source>
+        <translation>minut</translation>
     </message>
     <message id="loading-view-estimate-seconds">
-        <source>sec.</source>
-        <translation>vteřiny.</translation>
+        <source>sec</source>
+        <translation>vteřiny</translation>
     </message>
     <message id="loading-view-estimate-time">
         <source>Estimate time: %s</source>
@@ -1381,8 +1381,8 @@ prosím zkontrolujte nastavení a zkuste to znovu.</translation>
         <translation>Obnovuji data peněženky</translation>
     </message>
     <message id="loading-view-estimate-hours">
-        <source>h.</source>
-        <translation>h.</translation>
+        <source>h</source>
+        <translation type="unfinished">h</translation>
     </message>
     <message id="loading-view-net-problems">
         <source>It may take longer then usual. Please, check your network.</source>

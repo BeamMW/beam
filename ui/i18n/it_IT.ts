@@ -1206,11 +1206,13 @@
         <translation type="unfinished">Fee is too small</translation>
     </message>
     <message id="loading-view-estimate-minutes">
-        <source>min.</source>
+        <source>min</source>
+        <oldsource>min.</oldsource>
         <translation type="unfinished">min.</translation>
     </message>
     <message id="loading-view-estimate-seconds">
-        <source>sec.</source>
+        <source>sec</source>
+        <oldsource>sec.</oldsource>
         <translation type="unfinished">sec.</translation>
     </message>
     <message id="loading-view-estimate-time">
@@ -1380,7 +1382,8 @@ please review your settings and try again</source>
         <translation type="unfinished">Rebuilding wallet data</translation>
     </message>
     <message id="loading-view-estimate-hours">
-        <source>h.</source>
+        <source>h</source>
+        <oldsource>h.</oldsource>
         <translation type="unfinished">h.</translation>
     </message>
     <message id="loading-view-net-problems">

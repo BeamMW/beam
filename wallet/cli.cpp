@@ -654,7 +654,7 @@ namespace
         storage::Totals totalsCalc(*walletDB);
 
         // Show info about BEAM
-        auto totals = totalsCalc.GetTotals(Zero);
+        const auto& totals = totalsCalc.GetTotals(Zero);
         const unsigned kWidth = 26; 
         cout << boost::format(kWalletSummaryFormat)
              % boost::io::group(left, setfill('.'), setw(kWidth), kWalletSummaryFieldCurHeight) % stateID.m_Height

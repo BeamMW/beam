@@ -369,14 +369,14 @@ namespace beam::wallet
 
     AssetID LocalPrivateKeyKeeper::AIDFromKeyIndex(uint32_t assetIdx)
     {
-        const auto assetKeyId = Key::ID(assetIdx, Key::Type::Asset, assetIdx);
+        auto assetKeyId = Key::ID(assetIdx, Key::Type::Asset, assetIdx);
         auto assetKey = GetAssetKey(assetKeyId);
         AssetID assetId = Zero;
         proto::Sk2Pk(assetId, assetKey);
         return assetId;
     }
 
-    void LocalPrivateKeyKeeper::SignEmissionInOutKernel(TxKernel::Ptr& kernel, uint32_t assetIdx, ECC::Scalar::Native& offset)
+    ECC::Scalar::Native LocalPrivateKeyKeeper::SignEmissionInOutKernel(TxKernel::Ptr& kernel, uint32_t assetIdx)
     {
         Scalar::Native sk;
 
@@ -385,10 +385,11 @@ namespace beam::wallet
         kernel->m_Commitment = ECC::Context::get().G * sk;
         kernel->Sign(sk);
 
-        offset += -sk;
+        sk = -sk;
+        return sk;
     }
 
-    void LocalPrivateKeyKeeper::SignEmissionKernel(TxKernel::Ptr& kernel, uint32_t assetIdx, ECC::Scalar::Native& offset)
+    ECC::Scalar::Native LocalPrivateKeyKeeper::SignEmissionKernel(TxKernel::Ptr& kernel, uint32_t assetIdx)
     {
         auto assetID = AIDFromKeyIndex(assetIdx);
         kernel->m_Commitment.m_X = assetID;
@@ -396,6 +397,8 @@ namespace beam::wallet
 
         auto assetKey = GetAssetKey(Key::ID(assetIdx, Key::Type::Asset, assetIdx));
         kernel->Sign(assetKey);
-        offset += -assetKey;
+
+        assetKey = -assetKey;
+        return assetKey;
     }
 }

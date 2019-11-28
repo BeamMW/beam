@@ -85,7 +85,7 @@ namespace beam::wallet
             if (selectedCoins.empty())
             {
                 storage::Totals allTotals(*m_Tx.GetWalletDB());
-                const auto totals = allTotals.GetTotals(Zero);
+                const auto& totals = allTotals.GetTotals(Zero);
                 LOG_ERROR() << m_Tx.GetTxID() << "[" << m_SubTxID << "]" << " You only have " << PrintableAmount(totals.Avail);
                 throw TransactionFailedException(!m_Tx.IsInitiator(), TxFailureReason::NoInputs);
             }
@@ -98,7 +98,7 @@ namespace beam::wallet
             if (selectedCoins.empty())
             {
                 storage::Totals allTotals(*m_Tx.GetWalletDB());
-                const auto totals = allTotals.GetTotals(m_AssetId);
+                const auto& totals = allTotals.GetTotals(m_AssetId);
                 LOG_ERROR() << m_Tx.GetTxID() << "[" << m_SubTxID << "]" << " You only have " << PrintableAmount(totals.Avail, false, kAmountASSET, kAmountAGROTH);
                 throw TransactionFailedException(!m_Tx.IsInitiator(), TxFailureReason::NoInputs);
             }
@@ -222,7 +222,8 @@ namespace beam::wallet
         //    {
         //        //m_Tx.Update();
         //    });
-        const auto& [commitments, ignored] = m_Tx.GetKeyKeeper()->GeneratePublicKeysSyncEx(m_InputCoins, true, m_AssetId);
+        IPrivateKeyKeeper::PublicKeys commitments;
+        std::tie(commitments, std::ignore) = m_Tx.GetKeyKeeper()->GeneratePublicKeysSyncEx(m_InputCoins, true, m_AssetId);
         m_Inputs.reserve(commitments.size());
         for (const auto& commitment : commitments)
         {

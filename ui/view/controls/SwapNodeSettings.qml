@@ -238,8 +238,12 @@ Control {
     }
 
     contentItem: ColumnLayout {
+        spacing: 0
+
+        // indicator & status
         RowLayout {
-            width: parent.width
+            width:   parent.width
+            spacing: 0
 
             ExternalNodeStatus {
                 id:                     statusIndicator
@@ -259,369 +263,365 @@ Control {
             }
         }
 
-        ColumnLayout {
-            id: editableLayout
-            Layout.fillHeight: true
-            Layout.fillWidth:  true
+        // Node & Electrum switch
+        RowLayout {
+            Layout.topMargin: 20
+            height:           20
+            spacing:          10
 
-            // Node & Electrum switch
-            RowLayout {
-                Layout.topMargin: 18
-                Layout.bottomMargin: 18
-                spacing: 10
-
-                SFText {
-                    //% "Node"
-                    text:  qsTrId("settings-swap-node")
-                    color: useElectrumSwitch.checked ? control.color : Style.active
-                    font.pixelSize: 14
-                    MouseArea {
-                        anchors.fill: parent
-                        acceptedButtons: Qt.LeftButton
-                        onClicked: {
-                            useElectrumSwitch.checked = !useElectrumSwitch.checked;
-                        }
-                    }
-                }
-
-                CustomSwitch {
-                    id:          useElectrumSwitch
-                    alwaysGreen: true
-                    spacing:     0
-                }
-
-                SFText {
-                    //% "Electrum"
-                    text: qsTrId("general-electrum")
-                    color: useElectrumSwitch.checked ? Style.active : control.color
-                    font.pixelSize: 14
-                    MouseArea {
-                        anchors.fill: parent
-                        acceptedButtons: Qt.LeftButton
-                        onClicked: {
-                            useElectrumSwitch.checked = !useElectrumSwitch.checked;
-                        }
-                    }
-                }
-
-                Item {
-                    Layout.fillWidth: true
-                }
-
-                LinkButton {
-                    Layout.alignment: Qt.AlignVCenter
-                    linkStyle: "<style>a:link {color: '#f9605b'; text-decoration: none;}</style>"
-                    //% "Clear"
-                    text:       qsTrId("settings-reset")
-                    visible:    canClear()
-                    onClicked:  {
-                        if (editElectrum) {
-                            //: electrum settings, ask password to clear seed phrase, dialog title
-                            //% "Clear seed phrase"
-                            confirmPasswordDialog.dialogTitle = qsTrId("settings-swap-confirm-clear-seed-title");
-                            //: electrum settings, ask password to clear seed phrase, dialog message
-                            //% "Enter your wallet password to clear seed phrase"
-                            confirmPasswordDialog.dialogMessage = qsTrId("settings-swap-confirm-clear-seed-message");
-                            confirmPasswordDialog.onDialogAccepted = function() {
-                                clear();
-                            };
-                            confirmPasswordDialog.open();
-                        } else {
-                            clear();
-                        }
-                    }
-                }
-
-                LinkButton {
-                    Layout.alignment: Qt.AlignVCenter
-                    linkStyle: "<style>a:link {color: '#f9605b'; text-decoration: none;}</style>"
-                    //% "Disconnect"
-                    text:       qsTrId("settings-swap-disconnect")
-                    visible:    canDisconnect()
-                    onClicked:  disconnect()
-                }
-            }
-
-            GridLayout {
-                columns:          2
-                columnSpacing:    30
-                rowSpacing:       15
-
-                SFText {
-                    visible:        !editElectrum
-                    font.pixelSize: 14
-                    color:          control.color
-                    //% "Node Address"
-                    text:           qsTrId("settings-node-address")
-                }
-
-                IPAddrInput {
-                    id:               addressInput
-                    visible:          !editElectrum
-                    Layout.fillWidth: true
-                    color:            Style.content_main
-                    underlineVisible: canEditNode
-                    readOnly:         !canEditNode
-                }
-
-                SFText {
-                    visible:        !editElectrum
-                    font.pixelSize: 14
-                    color:          control.color
-                    //% "Username"
-                    text:           qsTrId("settings-username")
-                }
-
-                SFTextInput {
-                    id:               usernameInput
-                    visible:          !editElectrum
-                    Layout.fillWidth: true
-                    font.pixelSize:   14
-                    color:            Style.content_main
-                    activeFocusOnTab: true
-                    underlineVisible: canEditNode
-                    readOnly:         !canEditNode
-                }
-
-                SFText {
-                    visible:        !editElectrum
-                    font.pixelSize: 14
-                    color:          control.color
-                    //% "Password"
-                    text:           qsTrId("settings-password")
-                }
-
-                SFTextInput {
-                    id:               passwordInput
-                    visible:          !editElectrum
-                    Layout.fillWidth: true
-                    font.pixelSize:   14
-                    color:            Style.content_main
-                    activeFocusOnTab: true
-                    echoMode:         TextInput.Password
-                    underlineVisible: canEditNode
-                    readOnly:         !canEditNode
-                }
-
-                // electrum settings
-                SFText {
-                    visible:        editElectrum
-                    font.pixelSize: 14
-                    color:          control.color
-                    //% "Node Address"
-                    text:           qsTrId("settings-node-address")
-                }
-
-                IPAddrInput {
-                    visible:          editElectrum
-                    id:               addressInputElectrum
-                    Layout.fillWidth: true
-                    color:            Style.content_main
-                    ipOnly:           false
-                    underlineVisible: canEditElectrum
-                    readOnly:         !canEditElectrum
-                }
-
-                // common fee rate
-                SFText {
-                    font.pixelSize: 14
-                    color:          control.color
-                    //% "Default fee"
-                    text:           qsTrId("settings-fee-rate")
-                }
-
-                FeeInput {
-                    id:                  feeRateInput
-                    Layout.fillWidth:    true
-                    fillWidth:           true
-                    inputPreferredWidth: -1
-                    minFee:              control.minFeeRate
-                    feeLabel:            control.feeRateLabel
-                    color:               Style.content_main
-                    spacing:             0
-                    underlineVisible:    canEdit
-                    readOnly:            !canEdit
-                }
-            }
-
-            // electrum settings - seed: new || edit
-            RowLayout {
-                visible:             editElectrum && canEditElectrum
-                spacing:             20
-                Layout.fillWidth:    true
-                Layout.topMargin:    30
-                Layout.bottomMargin: control.canEdit ? 37 : 15
-
-                LinkButton {
-                    text:      isCurrentElectrumSeedValid ?   
-                               //% "Edit your seed phrase"
-                               qsTrId("settings-swap-edit-seed") :
-                               //% "Enter your seed phrase"
-                               qsTrId("settings-swap-enter-seed")
+            SFText {
+                //% "Node"
+                text:  qsTrId("settings-swap-node")
+                color: useElectrumSwitch.checked ? control.color : Style.active
+                font.pixelSize: 14
+                MouseArea {
+                    anchors.fill: parent
+                    acceptedButtons: Qt.LeftButton
                     onClicked: {
-                        function editSeedPhrase() {
-                            seedPhraseDialog.setModeEdit();
-                            seedPhraseDialog.isCurrentElectrumSeedValid = Qt.binding(function(){return isCurrentElectrumSeedValid;});
-                            seedPhraseDialog.open();
-                        }
-                        if (isCurrentElectrumSeedValid) {
-                            //: electrum settings, ask password to edit seed phrase, dialog title
-                            //% "Edit seed phrase"
-                            confirmPasswordDialog.dialogTitle = qsTrId("settings-swap-confirm-edit-seed-title");
-                            //: electrum settings, ask password to edit seed phrase, dialog message
-                            //% "Enter your wallet password to edit the phrase"
-                            confirmPasswordDialog.dialogMessage = qsTrId("settings-swap-confirm-edit-seed-message");
-                            confirmPasswordDialog.onDialogAccepted = function() {
-                                editSeedPhrase();
-                            };
-                            confirmPasswordDialog.open();
-                        } else {
-                            editSeedPhrase();
-                        }
-                    }
-                }
-
-                SFText {
-                    font.pixelSize: 14
-                    color:          control.color
-                    //% "or"
-                    text:           qsTrId("settings-swap-label-or")
-                }
-
-                LinkButton {
-                    //% "Generate new seed phrase"
-                    text:             qsTrId("settings-swap-new-seed")
-                    onClicked: {
-                        function generateSeedPhrase() {
-                            newSeedElectrum();
-                            seedPhraseDialog.setModeNew();
-                            seedPhraseDialog.open();
-                        }
-
-                        if (isCurrentElectrumSeedValid) {
-                            //: electrum settings, ask password to generate new seed phrase, dialog title
-                            //% "Generate new seed phrase"
-                            confirmPasswordDialog.dialogTitle = qsTrId("settings-swap-confirm-generate-seed-title");
-                            //: electrum settings, ask password to generate new seed phrase, dialog message
-                            //% "Enter your wallet password to generate new seed phrase"
-                            confirmPasswordDialog.dialogMessage = qsTrId("settings-swap-confirm-generate-seed-message");
-                            confirmPasswordDialog.onDialogAccepted = function() {
-                                generateSeedPhrase();
-                            };
-                            confirmPasswordDialog.open();
-                        } else {
-                            generateSeedPhrase();
-                        }
+                        useElectrumSwitch.checked = !useElectrumSwitch.checked;
                     }
                 }
             }
 
-            // electrum settings: show seed && show addresses
-            RowLayout {
-                visible:             editElectrum && !canEditElectrum
-                spacing:             20
-                Layout.fillWidth:    true
-                Layout.topMargin:    30
-                Layout.bottomMargin: control.canEdit ? 37 : 15
+            CustomSwitch {
+                id:          useElectrumSwitch
+                alwaysGreen: true
+                spacing:     0
+            }
 
-                LinkButton {
-                    //% "Show seed phrase"
-                    text:      qsTrId("settings-swap-show-seed")
+            SFText {
+                //% "Electrum"
+                text: qsTrId("general-electrum")
+                color: useElectrumSwitch.checked ? Style.active : control.color
+                font.pixelSize: 14
+                MouseArea {
+                    anchors.fill: parent
+                    acceptedButtons: Qt.LeftButton
                     onClicked: {
-                        //: electrum settings, ask password to show seed phrase, dialog title
-                        //% "Show seed phrase"
-                        confirmPasswordDialog.dialogTitle = qsTrId("settings-swap-confirm-show-seed-title");
-                        //: electrum settings, ask password to show seed phrase, dialog message
-                        //% "Enter your wallet password to see the phrase"
-                        confirmPasswordDialog.dialogMessage = qsTrId("settings-swap-confirm-show-seed-message");
+                        useElectrumSwitch.checked = !useElectrumSwitch.checked;
+                    }
+                }
+            }
+
+            Item {
+                Layout.fillWidth: true
+            }
+
+            LinkButton {
+                Layout.alignment: Qt.AlignVCenter
+                linkStyle: "<style>a:link {color: '#f9605b'; text-decoration: none;}</style>"
+                //% "Clear"
+                text:       qsTrId("settings-reset")
+                visible:    canClear()
+                onClicked:  {
+                    if (editElectrum) {
+                        //: electrum settings, ask password to clear seed phrase, dialog title
+                        //% "Clear seed phrase"
+                        confirmPasswordDialog.dialogTitle = qsTrId("settings-swap-confirm-clear-seed-title");
+                        //: electrum settings, ask password to clear seed phrase, dialog message
+                        //% "Enter your wallet password to clear seed phrase"
+                        confirmPasswordDialog.dialogMessage = qsTrId("settings-swap-confirm-clear-seed-message");
                         confirmPasswordDialog.onDialogAccepted = function() {
-                            seedPhraseDialog.setModeView();
-                            seedPhraseDialog.open();
+                            clear();
                         };
                         confirmPasswordDialog.open();
-                    }
-                }
-
-                LinkButton {
-                    //% "Show wallet addresses"
-                    text:      qsTrId("settings-swap-show-addresses")
-                    onClicked: {                        
-                        showAddressesDialog.addressesElectrum = getAddressesElectrum();
-                        showAddressesDialog.open();
+                    } else {
+                        clear();
                     }
                 }
             }
 
-            // alert text if we have active transactions
+            LinkButton {
+                Layout.alignment: Qt.AlignVCenter
+                linkStyle: "<style>a:link {color: '#f9605b'; text-decoration: none;}</style>"
+                //% "Disconnect"
+                text:       qsTrId("settings-swap-disconnect")
+                visible:    canDisconnect()
+                onClicked:  disconnect()
+            }
+        }
+
+        GridLayout {
+            Layout.topMargin: 20
+            columns:          2
+            columnSpacing:    30
+            rowSpacing:       13
+
             SFText {
-                visible:               !control.canEdit
-                Layout.topMargin:      27
-                Layout.preferredWidth: 400
-                horizontalAlignment:   Text.AlignHCenter
-                verticalAlignment:     Text.AlignVCenter
-                font.pixelSize:        14
-                wrapMode:              Text.WordWrap
-                color:                 control.color
-                lineHeight:            1.1 
+                visible:        !editElectrum
+                font.pixelSize: 14
+                color:          control.color
+                //% "Node Address"
+                text:           qsTrId("settings-node-address")
+            }
+
+            IPAddrInput {
+                id:               addressInput
+                visible:          !editElectrum
+                Layout.fillWidth: true
+                color:            Style.content_main
+                underlineVisible: canEditNode
+                readOnly:         !canEditNode
+            }
+
+            SFText {
+                visible:        !editElectrum
+                font.pixelSize: 14
+                color:          control.color
+                //% "Username"
+                text:           qsTrId("settings-username")
+            }
+
+            SFTextInput {
+                id:               usernameInput
+                visible:          !editElectrum
+                Layout.fillWidth: true
+                font.pixelSize:   14
+                color:            Style.content_main
+                activeFocusOnTab: true
+                underlineVisible: canEditNode
+                readOnly:         !canEditNode
+            }
+
+            SFText {
+                visible:        !editElectrum
+                font.pixelSize: 14
+                color:          control.color
+                //% "Password"
+                text:           qsTrId("settings-password")
+            }
+
+            SFTextInput {
+                id:               passwordInput
+                visible:          !editElectrum
+                Layout.fillWidth: true
+                font.pixelSize:   14
+                color:            Style.content_main
+                activeFocusOnTab: true
+                echoMode:         TextInput.Password
+                underlineVisible: canEditNode
+                readOnly:         !canEditNode
+            }
+
+            // electrum settings
+            SFText {
+                visible:        editElectrum
+                font.pixelSize: 14
+                color:          control.color
+                //% "Node Address"
+                text:           qsTrId("settings-node-address")
+            }
+
+            IPAddrInput {
+                visible:          editElectrum
+                id:               addressInputElectrum
+                Layout.fillWidth: true
+                color:            Style.content_main
+                ipOnly:           false
+                underlineVisible: canEditElectrum
+                readOnly:         !canEditElectrum
+            }
+
+            // common fee rate
+            SFText {
+                font.pixelSize: 14
+                color:          control.color
+                //% "Default fee"
+                text:           qsTrId("settings-fee-rate")
+            }
+
+            FeeInput {
+                id:                  feeRateInput
+                Layout.fillWidth:    true
+                fillWidth:           true
+                inputPreferredWidth: -1
+                minFee:              control.minFeeRate
+                feeLabel:            control.feeRateLabel
+                color:               Style.content_main
+                spacing:             0
+                underlineVisible:    canEdit
+                readOnly:            !canEdit
+            }
+        }
+
+        // electrum settings - seed: new || edit
+        RowLayout {
+            visible:             editElectrum && canEditElectrum
+            spacing:             20
+            Layout.fillWidth:    true
+            Layout.topMargin:    30
+            Layout.bottomMargin: 37
+
+            LinkButton {
+                text:      isCurrentElectrumSeedValid ?   
+                            //% "Edit your seed phrase"
+                            qsTrId("settings-swap-edit-seed") :
+                            //% "Enter your seed phrase"
+                            qsTrId("settings-swap-enter-seed")
+                onClicked: {
+                    function editSeedPhrase() {
+                        seedPhraseDialog.setModeEdit();
+                        seedPhraseDialog.isCurrentElectrumSeedValid = Qt.binding(function(){return isCurrentElectrumSeedValid;});
+                        seedPhraseDialog.open();
+                    }
+                    if (isCurrentElectrumSeedValid) {
+                        //: electrum settings, ask password to edit seed phrase, dialog title
+                        //% "Edit seed phrase"
+                        confirmPasswordDialog.dialogTitle = qsTrId("settings-swap-confirm-edit-seed-title");
+                        //: electrum settings, ask password to edit seed phrase, dialog message
+                        //% "Enter your wallet password to edit the phrase"
+                        confirmPasswordDialog.dialogMessage = qsTrId("settings-swap-confirm-edit-seed-message");
+                        confirmPasswordDialog.onDialogAccepted = function() {
+                            editSeedPhrase();
+                        };
+                        confirmPasswordDialog.open();
+                    } else {
+                        editSeedPhrase();
+                    }
+                }
+            }
+
+            SFText {
+                font.pixelSize: 14
+                color:          control.color
+                //% "or"
+                text:           qsTrId("settings-swap-label-or")
+            }
+
+            LinkButton {
+                //% "Generate new seed phrase"
+                text:             qsTrId("settings-swap-new-seed")
+                onClicked: {
+                    function generateSeedPhrase() {
+                        newSeedElectrum();
+                        seedPhraseDialog.setModeNew();
+                        seedPhraseDialog.open();
+                    }
+
+                    if (isCurrentElectrumSeedValid) {
+                        //: electrum settings, ask password to generate new seed phrase, dialog title
+                        //% "Generate new seed phrase"
+                        confirmPasswordDialog.dialogTitle = qsTrId("settings-swap-confirm-generate-seed-title");
+                        //: electrum settings, ask password to generate new seed phrase, dialog message
+                        //% "Enter your wallet password to generate new seed phrase"
+                        confirmPasswordDialog.dialogMessage = qsTrId("settings-swap-confirm-generate-seed-message");
+                        confirmPasswordDialog.onDialogAccepted = function() {
+                            generateSeedPhrase();
+                        };
+                        confirmPasswordDialog.open();
+                    } else {
+                        generateSeedPhrase();
+                    }
+                }
+            }
+        }
+
+        // electrum settings: show seed && show addresses
+        RowLayout {
+            visible:             editElectrum && !canEditElectrum
+            spacing:             20
+            Layout.fillWidth:    true
+            Layout.topMargin:    30
+            Layout.bottomMargin: 37
+
+            LinkButton {
+                //% "Show seed phrase"
+                text:      qsTrId("settings-swap-show-seed")
+                onClicked: {
+                    //: electrum settings, ask password to show seed phrase, dialog title
+                    //% "Show seed phrase"
+                    confirmPasswordDialog.dialogTitle = qsTrId("settings-swap-confirm-show-seed-title");
+                    //: electrum settings, ask password to show seed phrase, dialog message
+                    //% "Enter your wallet password to see the phrase"
+                    confirmPasswordDialog.dialogMessage = qsTrId("settings-swap-confirm-show-seed-message");
+                    confirmPasswordDialog.onDialogAccepted = function() {
+                        seedPhraseDialog.setModeView();
+                        seedPhraseDialog.open();
+                    };
+                    confirmPasswordDialog.open();
+                }
+            }
+
+            LinkButton {
+                //% "Show wallet addresses"
+                text:      qsTrId("settings-swap-show-addresses")
+                onClicked: {                        
+                    showAddressesDialog.addressesElectrum = getAddressesElectrum();
+                    showAddressesDialog.open();
+                }
+            }
+        }
+
+        // alert text if we have active transactions
+        SFText {
+            visible:               !control.canEdit
+            Layout.topMargin:      30
+            Layout.preferredWidth: 400
+            Layout.alignment:      Qt.AlignVCenter | Qt.AlignHCenter
+            horizontalAlignment:   Text.AlignHCenter
+            verticalAlignment:     Text.AlignVCenter
+            font.pixelSize:        14
+            wrapMode:              Text.WordWrap
+            color:                 control.color
+            lineHeight:            1.1 
 /*% "You cannot disconnect wallet, edit seed phrase or change default
 fee while you have transactions in progress."
 */
-                text:                  qsTrId("settings-progress-na")
+            text:                  qsTrId("settings-progress-na")
+        }
+
+        // buttons
+        // "cancel" "apply"
+        // "connect to node" or "connect to electrum"
+        RowLayout {
+            visible:          control.canEdit
+            Layout.fillWidth: true
+            Layout.topMargin: 30
+            spacing:          15
+
+            Item {
+                Layout.fillWidth: true
             }
 
-            // buttons
-            // "cancel" "apply"
-            // "connect to node" or "connect to electrum"
-            RowLayout {
-                visible:          control.canEdit
+            CustomButton {
+                visible:                !connectButtonId.visible
+                Layout.preferredHeight: 38
+                Layout.preferredWidth:  130
+                leftPadding:  25
+                rightPadding: 25
+                text:         qsTrId("general-cancel")
+                icon.source:  "qrc:/assets/icon-cancel-white.svg"
+                enabled:      isSettingsChanged()
+                onClicked:    restoreSettings()
+            }
+
+            PrimaryButton {
+                visible:                !connectButtonId.visible
+                leftPadding:            25
+                rightPadding:           25
+                text:                   qsTrId("settings-apply")
+                icon.source:            "qrc:/assets/icon-done.svg"
+                enabled:                isSettingsChanged() && canApplySettings()
+                onClicked:              applyChanges()
+                Layout.preferredHeight: 38
+                Layout.preferredWidth:  130
+            }
+
+            PrimaryButton {
+                id:                     connectButtonId
+                visible:                !isSettingsChanged() && haveSettings() && (editElectrum ? !isElectrumConnection : !isNodeConnection)
+                leftPadding:            25
+                rightPadding:           25
+                //% "connect"
+                text:                   qsTrId("settings-swap-connect")
+                icon.source:            "qrc:/assets/icon-done.svg"
+                onClicked:              editElectrum ? connectToElectrum() : connectToNode();
+                Layout.preferredHeight: 38
+                Layout.preferredWidth:  195
+            }
+
+            Item {
                 Layout.fillWidth: true
-                Layout.topMargin: 25
-                spacing:          15
-
-                Item {
-                    Layout.fillWidth: true
-                }
-
-                CustomButton {
-                    visible:                !connectButtonId.visible
-                    Layout.preferredHeight: 38
-                    Layout.preferredWidth:  130
-                    leftPadding:  25
-                    rightPadding: 25
-                    text:         qsTrId("general-cancel")
-                    icon.source:  "qrc:/assets/icon-cancel-white.svg"
-                    enabled:      isSettingsChanged()
-                    onClicked:    restoreSettings()
-                }
-
-                PrimaryButton {
-                    visible:                !connectButtonId.visible
-                    leftPadding:            25
-                    rightPadding:           25
-                    text:                   qsTrId("settings-apply")
-                    icon.source:            "qrc:/assets/icon-done.svg"
-                    enabled:                isSettingsChanged() && canApplySettings()
-                    onClicked:              applyChanges()
-                    Layout.preferredHeight: 38
-                    Layout.preferredWidth:  130
-                }
-
-                PrimaryButton {
-                    id:                     connectButtonId
-                    visible:                !isSettingsChanged() && haveSettings() && (editElectrum ? !isElectrumConnection : !isNodeConnection)
-                    leftPadding:            25
-                    rightPadding:           25
-                    //% "connect"
-                    text:                   qsTrId("settings-swap-connect")
-                    icon.source:            "qrc:/assets/icon-done.svg"
-                    onClicked:              editElectrum ? connectToElectrum() : connectToNode();
-                    Layout.preferredHeight: 38
-                    Layout.preferredWidth:  editElectrum ? 250 : 195
-                }
-
-                Item {
-                    Layout.fillWidth: true
-                }
             }
         }
     }

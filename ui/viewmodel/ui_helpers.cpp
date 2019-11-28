@@ -155,7 +155,7 @@ namespace beamui
         if (estimate >= kSecondsInHour)
         {
             value = estimate / kSecondsInHour;
-            //% "h."
+            //% "h"
             units = qtTrId("loading-view-estimate-hours");
             writeTime(value, units);
 
@@ -170,7 +170,7 @@ namespace beamui
 
             if (value >= 1)
             {
-                //% "min."
+                //% "min"
                 units = qtTrId("loading-view-estimate-minutes");
                 ss << " ";
                 writeTime(value, units);
@@ -194,7 +194,7 @@ namespace beamui
             units = qtTrId("loading-view-estimate-minutes");
             writeTime(value, units);
             value = estimate - kSecondsInMinute;
-            //% "sec."
+            //% "sec"
             units = qtTrId("loading-view-estimate-seconds");
             ss << " ";
             writeTime(value, units);

@@ -1206,12 +1206,14 @@
         <translation>수수료가 너무 작습니다.</translation>
     </message>
     <message id="loading-view-estimate-minutes">
-        <source>min.</source>
-        <translation>뷴</translation>
+        <source>min</source>
+        <oldsource>min.</oldsource>
+        <translation type="unfinished">뷴</translation>
     </message>
     <message id="loading-view-estimate-seconds">
-        <source>sec.</source>
-        <translation>초</translation>
+        <source>sec</source>
+        <oldsource>sec.</oldsource>
+        <translation type="unfinished">초</translation>
     </message>
     <message id="loading-view-estimate-time">
         <source>Estimate time: %s</source>
@@ -1380,8 +1382,9 @@ please review your settings and try again</source>
         <translation>지갑 데이터 재구축중</translation>
     </message>
     <message id="loading-view-estimate-hours">
-        <source>h.</source>
-        <translation>h.</translation>
+        <source>h</source>
+        <oldsource>h.</oldsource>
+        <translation type="unfinished">h.</translation>
     </message>
     <message id="loading-view-net-problems">
         <source>It may take longer then usual. Please, check your network.</source>
