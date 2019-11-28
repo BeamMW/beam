@@ -59,6 +59,7 @@ Item {
         id: tokenDuplicateChecker
         onAccepted: {
             walletStackView.pop();
+            main.openSwapActiveTransactionsList()
         }
         Connections {
             target: tokenDuplicateChecker.model
@@ -70,7 +71,7 @@ Item {
                 walletStackView.pop();
                 walletStackView.push(Qt.createComponent("send_swap.qml"),
                                      {
-                                         "onAccepted": onAccepted,
+                                         "onAccepted": tokenDuplicateChecker.onAccepted,
                                          "onClosed": onClosed
                                      });
                 walletStackView.currentItem.setToken(token);

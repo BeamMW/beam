@@ -12,6 +12,8 @@ Item {
     Layout.fillWidth: true
     Layout.fillHeight: true
 
+    property bool shouldShowActiveTransactions: false
+
     SwapOffersViewModel {
         id: viewModel
     }
@@ -110,6 +112,13 @@ Item {
             Layout.fillHeight: true
             spacing: 0
             state: "offers"
+
+            Component.onCompleted: {
+                if (offersViewRoot.shouldShowActiveTransactions) {
+                    atomicSwapLayout.state = "transactions";
+                    transactionsTab.state = "filterInProgressTransactions";
+                }
+            }
 
             // callbacks for send views
             function onAccepted() {
