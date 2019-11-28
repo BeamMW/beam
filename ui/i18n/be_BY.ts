@@ -1206,12 +1206,12 @@
         <translation>Памер каміссіі вельмі малы</translation>
     </message>
     <message id="loading-view-estimate-minutes">
-        <source>min.</source>
-        <translation>хв.</translation>
+        <source>min</source>
+        <translation>хв</translation>
     </message>
     <message id="loading-view-estimate-seconds">
-        <source>sec.</source>
-        <translation>сяк.</translation>
+        <source>sec</source>
+        <translation>сяк</translation>
     </message>
     <message id="loading-view-estimate-time">
         <source>Estimate time: %s</source>
@@ -1381,8 +1381,8 @@ please review your settings and try again.</translation>
         <translation>Перабудаванне дадзенных гаманца</translation>
     </message>
     <message id="loading-view-estimate-hours">
-        <source>h.</source>
-        <translation>гадз.</translation>
+        <source>h</source>
+        <translation>гадз</translation>
     </message>
     <message id="loading-view-net-problems">
         <source>It may take longer then usual. Please, check your network.</source>

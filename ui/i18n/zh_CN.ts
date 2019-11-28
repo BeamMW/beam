@@ -1222,12 +1222,14 @@
         <translation>手续费过低</translation>
     </message>
     <message id="loading-view-estimate-minutes">
-        <source>min.</source>
-        <translation>分</translation>
+        <source>min</source>
+        <oldsource>min.</oldsource>
+        <translation type="unfinished">分</translation>
     </message>
     <message id="loading-view-estimate-seconds">
-        <source>sec.</source>
-        <translation>秒</translation>
+        <source>sec</source>
+        <oldsource>sec.</oldsource>
+        <translation type="unfinished">秒</translation>
     </message>
     <message id="loading-view-estimate-time">
         <source>Estimate time: %s</source>
@@ -1396,8 +1398,9 @@ please review your settings and try again</source>
         <translation type="unfinished">Rebuilding wallet data</translation>
     </message>
     <message id="loading-view-estimate-hours">
-        <source>h.</source>
-        <translation>小时</translation>
+        <source>h</source>
+        <oldsource>h.</oldsource>
+        <translation type="unfinished">小时</translation>
     </message>
     <message id="loading-view-net-problems">
         <source>It may take longer then usual. Please, check your network.</source>

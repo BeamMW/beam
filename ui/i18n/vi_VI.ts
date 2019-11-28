@@ -1206,12 +1206,14 @@
         <translation>Phí quá nhỏ</translation>
     </message>
     <message id="loading-view-estimate-minutes">
-        <source>min.</source>
-        <translation>phút.</translation>
+        <source>min</source>
+        <oldsource>min.</oldsource>
+        <translation type="unfinished">phút.</translation>
     </message>
     <message id="loading-view-estimate-seconds">
-        <source>sec.</source>
-        <translation>giây.</translation>
+        <source>sec</source>
+        <oldsource>sec.</oldsource>
+        <translation type="unfinished">giây.</translation>
     </message>
     <message id="loading-view-estimate-time">
         <source>Estimate time: %s</source>
@@ -1380,8 +1382,9 @@ please review your settings and try again</source>
         <translation type="unfinished">Rebuilding wallet data</translation>
     </message>
     <message id="loading-view-estimate-hours">
-        <source>h.</source>
-        <translation>giờ.</translation>
+        <source>h</source>
+        <oldsource>h.</oldsource>
+        <translation type="unfinished">giờ.</translation>
     </message>
     <message id="loading-view-net-problems">
         <source>It may take longer then usual. Please, check your network.</source>
