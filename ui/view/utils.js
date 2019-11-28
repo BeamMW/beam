@@ -53,19 +53,15 @@ function openExternal(externalLink, settings, dialog) {
     }
 }
 
-function handleExternalLink(mouse, element, settings, dialog) {
-    if (element.cursorShape == Qt.PointingHandCursor) {
-        var externalLink = element.parent.linkAt(mouse.x, mouse.y);
-        if (settings.isAllowedBeamMWLinks) {
-            Qt.openUrlExternally(externalLink);
-        } else {
-            dialog.externalUrl = externalLink;
-            dialog.onOkClicked = function () {
-                settings.isAllowedBeamMWLinks = true;
-            };
-            dialog.open();
-        }
-        return true;
+function handleExternalLink(externalLink, settings, dialog) {
+    if (settings.isAllowedBeamMWLinks) {
+        Qt.openUrlExternally(externalLink);
+    } else {
+        dialog.externalUrl = externalLink;
+        dialog.onOkClicked = function () {
+            settings.isAllowedBeamMWLinks = true;
+        };
+        dialog.open();
     }
 }
 

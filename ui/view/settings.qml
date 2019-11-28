@@ -831,20 +831,9 @@ deploy the key at the node you trust completely."*/
                                 wrapMode: Text.WordWrap
                                 Layout.preferredWidth: generalBlock.width - 95
                                 Layout.preferredHeight: 32
-                                MouseArea {
-                                    id: allowOpenExternalArea
-                                    anchors.fill: parent
-                                    acceptedButtons: Qt.LeftButton
-                                    onClicked: {
-                                        if(!Utils.handleExternalLink(mouse, allowOpenExternalArea, viewModel, externalLinkConfirmation))
-                                        {
-                                            viewModel.isAllowedBeamMWLinks = !viewModel.isAllowedBeamMWLinks;
-                                        }
-                                    }
-                                    hoverEnabled: true
-                                    onPositionChanged : {
-                                        Utils.handleMousePointer(mouse, allowOpenExternalArea);
-                                    }
+                                linkEnabled: true
+                                onLinkActivated:  {
+                                    Utils.handleExternalLink(link, viewModel, externalLinkConfirmation)
                                 }
                             }
 
@@ -951,17 +940,9 @@ deploy the key at the node you trust completely."*/
                             color: Style.content_main
                             font.pixelSize: 14
                             wrapMode: Text.WordWrap
-                            MouseArea {
-                                id: reportProblemMessageArea
-                                anchors.fill: parent
-                                acceptedButtons: Qt.LeftButton
-                                onClicked: {
-                                    Utils.handleExternalLink(mouse, reportProblemMessageArea, viewModel, externalLinkConfirmation);
-                                }
-                                hoverEnabled: true
-                                onPositionChanged : {
-                                    Utils.handleMousePointer(mouse, reportProblemMessageArea);
-                                }
+                            linkEnabled: true
+                            onLinkActivated: {
+                                Utils.handleExternalLink(link, viewModel, externalLinkConfirmation);
                             }
                         }
 
