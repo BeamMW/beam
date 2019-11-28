@@ -289,7 +289,7 @@ namespace beam::wallet
             if (selectedCoins.empty())
             {
                 storage::Totals totals(*m_Tx.GetWalletDB());
-                auto beamTotals = totals.GetTotals(Zero);
+                const auto& beamTotals = totals.GetTotals(Zero);
                 LOG_ERROR() << m_Tx.GetTxID() << "[" << m_SubTxID << "]" << " You only have " << PrintableAmount(beamTotals.Avail);
                 throw TransactionFailedException(!m_Tx.IsInitiator(), TxFailureReason::NoInputs);
             }
@@ -303,7 +303,7 @@ namespace beam::wallet
             if (selectedCoins.empty())
             {
                 storage::Totals totals(*m_Tx.GetWalletDB());
-                auto assetTotals(totals.GetTotals(m_assetId));
+                const auto& assetTotals(totals.GetTotals(m_assetId));
                 LOG_ERROR() << m_Tx.GetTxID() << "[" << m_SubTxID << "]" << " You only have " << PrintableAmount(assetTotals.Avail, false, kAmountASSET, kAmountAGROTH);
                 throw TransactionFailedException(!m_Tx.IsInitiator(), TxFailureReason::NoInputs);
             }
@@ -460,7 +460,7 @@ namespace beam::wallet
         //
         // Kernel
         //
-        m_keyKeeper->SignEmissionInOutKernel(m_Kernel, m_assetIdx, m_Offset);
+        m_Offset += m_keyKeeper->SignEmissionInOutKernel(m_Kernel, m_assetIdx);
 
         Merkle::Hash kernelID;
         m_Kernel->get_ID(kernelID);
@@ -470,7 +470,7 @@ namespace beam::wallet
         //
         // Emission kernel
         //
-        m_keyKeeper->SignEmissionKernel(m_EmissionKernel, m_assetIdx, m_Offset);
+        m_Offset += m_keyKeeper->SignEmissionKernel(m_EmissionKernel, m_assetIdx);
 
         Merkle::Hash emissionKernelID;
         m_Kernel->get_ID(emissionKernelID);

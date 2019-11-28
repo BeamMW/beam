@@ -645,7 +645,7 @@ namespace
                 }
 
                 storage::Totals allTotals(*_walletDB);
-                const auto totals = allTotals.GetTotals(Zero);
+                const auto& totals = allTotals.GetTotals(Zero);
 
                 response.available = totals.Avail;
                 response.receiving = totals.Incoming;

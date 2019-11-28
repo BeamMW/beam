@@ -2975,7 +2975,7 @@ namespace beam::wallet
 
         void Totals::Init(IWalletDB& walletDB)
         {
-            auto getTotals = [this](AssetID assetId) -> AssetTotals& {
+            auto getTotalsRef = [this](AssetID assetId) -> AssetTotals& {
                 if (allTotals.find(assetId) == allTotals.end()) {
                     allTotals[assetId] = AssetTotals();
                     allTotals[assetId].AssetId = assetId;
@@ -2983,9 +2983,9 @@ namespace beam::wallet
                 return allTotals[assetId];
             };
 
-            walletDB.visitCoins([getTotals] (const Coin& c) -> bool
+            walletDB.visitCoins([getTotalsRef] (const Coin& c) -> bool
             {
-                auto& totals = getTotals(c.m_assetId);
+                auto& totals = getTotalsRef(c.m_assetId);
                 const Amount& value = c.m_ID.m_Value; // alias
 
                 switch (c.m_status)
@@ -3062,7 +3062,7 @@ namespace beam::wallet
             });
         }
 
-        Totals::AssetTotals Totals::GetTotals(AssetID assetId)
+        Totals::AssetTotals Totals::GetTotals(AssetID assetId) const
         {
             if(allTotals.find(assetId) == allTotals.end())
             {
