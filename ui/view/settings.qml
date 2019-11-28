@@ -98,12 +98,11 @@ ColumnLayout {
         height: 372
 
         contentItem: Item {
-            Column {
+            ColumnLayout {
                 anchors.fill: parent
-                spacing: 30
                 SFText {
                     id: ownerKeyValue
-                    width: parent.width
+                    Layout.fillWidth: true
                     leftPadding: 20
                     rightPadding: 20
                     topPadding: 15
@@ -114,10 +113,12 @@ ColumnLayout {
                     text: viewModel.getOwnerKey(showOwnerKeyDialog.pwd)
                 }
                 SFText {
+                    Layout.fillWidth: true
                     Layout.alignment: Qt.AlignBottom
                     width: parent.width
                     leftPadding: 20
                     rightPadding: 20
+                    bottomPadding: 30
                     font.pixelSize: 14
                     font.italic:    true
                     color: Style.content_main
