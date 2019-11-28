@@ -877,6 +877,14 @@ bool SettingsViewModel::checkWalletPassword(const QString& oldPass) const
     return AppModel::getInstance().checkWalletPassword(secretPass);
 }
 
+QString SettingsViewModel::getOwnerKey(const QString& password) const
+{
+    SecString secretPass = password.toStdString();
+    const auto& ownerKey = 
+        AppModel::getInstance().getWallet()->exportOwnerKey(secretPass);
+    return QString::fromStdString(ownerKey);
+}
+
 bool SettingsViewModel::isChanged() const
 {
     return m_nodeAddress != m_settings.getNodeAddress()

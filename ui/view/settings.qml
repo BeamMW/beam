@@ -34,6 +34,8 @@ ColumnLayout {
         id: confirmRefreshDialog
         property bool canRefresh: true
         //% "Rescan"
+        title: qsTrId("general-rescan")
+        //% "Rescan"
         okButtonText: qsTrId("general-rescan")
         okButtonIconSource: "qrc:/assets/icon-repeat.svg"
         cancelButtonIconSource: "qrc:/assets/icon-cancel-white.svg"
@@ -47,15 +49,6 @@ ColumnLayout {
                 anchors.fill: parent
                 spacing: 30
                 
-                SFText {
-                    width: parent.width
-                    topPadding: 20
-                    font.pixelSize: 18
-                    color: Style.content_main
-                    horizontalAlignment : Text.AlignHCenter
-                    //% "Rescan"
-                    text: qsTrId("general-rescan")
-                }
                 SFText {
                     width: parent.width
                     leftPadding: 20
@@ -87,6 +80,60 @@ ColumnLayout {
         onAccepted: {
             canRefresh = false;
             viewModel.refreshWallet();
+        }
+    }
+
+    ConfirmationDialog {
+        id: showOwnerKeyDialog
+        property string pwd: ""
+        //: settings tab, show owner key dialog title
+        //% "Owner key"
+        title: qsTrId("settings-show-owner-key-title")
+        okButtonText: qsTrId("general-copy")
+        okButtonIconSource: "qrc:/assets/icon-copy-blue.svg"
+        cancelButtonIconSource: "qrc:/assets/icon-cancel-white.svg"
+        cancelButtonText: qsTrId("general-close")
+        cancelButtonVisible: true
+        width: 460
+        height: 372
+
+        contentItem: Item {
+            Column {
+                anchors.fill: parent
+                spacing: 30
+                SFText {
+                    id: ownerKeyValue
+                    width: parent.width
+                    leftPadding: 20
+                    rightPadding: 20
+                    topPadding: 15
+                    font.pixelSize: 14
+                    color: Style.content_secondary
+                    wrapMode: Text.Wrap
+                    horizontalAlignment : Text.AlignHCenter
+                    text: viewModel.getOwnerKey(showOwnerKeyDialog.pwd)
+                }
+                SFText {
+                    Layout.alignment: Qt.AlignBottom
+                    width: parent.width
+                    leftPadding: 20
+                    rightPadding: 20
+                    font.pixelSize: 14
+                    font.italic:    true
+                    color: Style.content_main
+                    wrapMode: Text.Wrap
+                    horizontalAlignment : Text.AlignHCenter
+                    //: settings tab, show owner key message
+/*% "Please notice, that knowing your owner key allows to
+know all your funds (UTXO). Make sure that you
+deploy the key at the node you trust completely."*/
+                    text: qsTrId("settings-show-owner-key-message")
+                }
+            }
+        }
+
+        onAccepted: {
+            BeamGlobals.copyToClipboard(ownerKeyValue.text);
         }
     }
 
@@ -546,6 +593,36 @@ ColumnLayout {
                                 onClicked: viewModel.applyChanges()
                             }
                         }
+                    }
+                }
+
+                 CustomButton {
+                    // Layout.preferredWidth: 250
+                    Layout.fillWidth: true
+                    Layout.preferredHeight: 38
+                    Layout.alignment: Qt.AlignHCenter
+                    Layout.topMargin: 10
+                    //: settings tab, general section, Show owner key button and dialog title
+                    //% "Show owner key"
+                    text: qsTrId("settings-general-require-pwd-to-show-owner-key")
+                    palette.button: Style.background_second
+                    palette.buttonText : viewModel.localNodeRun ? Style.content_main : Style.content_disabled
+                    onClicked: {
+                        //: settings tab, general section, Show owner key button and dialog title
+                        //% "Show owner key"
+                        confirmPasswordDialog.dialogTitle = qsTrId("settings-general-require-pwd-to-show-owner-key");
+                        //: settings tab, general section, ask password to Show owner key, message
+                        //% "Password verification is required to see the owner key"
+                        confirmPasswordDialog.dialogMessage = qsTrId("settings-general-require-pwd-to-show-owner-key-message");
+                         //: settings tab, general section, Show owner key button and dialog title
+                         //% "Show owner key"
+                        confirmPasswordDialog.okButtonText = qsTrId("settings-general-require-pwd-to-show-owner-key")
+                        confirmPasswordDialog.okButtonIcon = "assets/icon-show-key.svg"
+                        confirmPasswordDialog.onDialogAccepted = function () {
+                            showOwnerKeyDialog.pwd = confirmPasswordDialog.pwd;
+                            showOwnerKeyDialog.open();
+                        };
+                        confirmPasswordDialog.open();
                     }
                 }
             }

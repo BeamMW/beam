@@ -246,6 +246,7 @@ public:
     Q_INVOKABLE void refreshWallet();
     Q_INVOKABLE void openFolder(const QString& path);
     Q_INVOKABLE bool checkWalletPassword(const QString& password) const;
+    Q_INVOKABLE QString getOwnerKey(const QString& password) const;
 
 public slots:
     void applyChanges();
