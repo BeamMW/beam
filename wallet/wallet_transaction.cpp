@@ -146,6 +146,8 @@ namespace beam::wallet
                     << PrintableAmount(builder.GetAmount(), false,isAsset ? kAmountASSET : "", isAsset ? kAmountAGROTH : "")
                     << " (fee: " << PrintableAmount(builder.GetFee()) << ")";
 
+                UpdateTxDescription(TxStatus::InProgress);
+
                 if (isSender)
                 {
                     Height maxResponseHeight = 0;
@@ -174,7 +176,6 @@ namespace beam::wallet
                     }
                 }
 
-                UpdateTxDescription(TxStatus::InProgress);
                 builder.GenerateOffset();
             }
 

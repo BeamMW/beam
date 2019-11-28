@@ -49,7 +49,6 @@ SSL_CTX* init_ctx(bool isServer) {
     }
 
     static const char* cipher_settings = "ALL:!ADH:!LOW:!EXP:!MD5:@STRENGTH";
-    static const char* srtp_settings = "SRTP_AES128_CM_SHA1_80";
 
     SSL_CTX* ctx = SSL_CTX_new(isServer ? SSLv23_server_method() : SSLv23_client_method());
     if (!ctx) {
@@ -60,11 +59,7 @@ SSL_CTX* init_ctx(bool isServer) {
         LOG_ERROR() << "SSL_CTX_set_cipher_list failed";
         IO_EXCEPTION(EC_SSL_ERROR);
     }
-    // TODO ???
-    if (SSL_CTX_set_tlsext_use_srtp(ctx, srtp_settings) != 0) {
-        LOG_ERROR() << "SSL_CTX_set_tlsext_use_srtp failed";
-        IO_EXCEPTION(EC_SSL_ERROR);
-    }
+
     SSL_CTX_set_options(ctx, SSL_OP_ALL|SSL_OP_NO_SSLv2|SSL_OP_NO_SSLv3);
     return ctx;
 }

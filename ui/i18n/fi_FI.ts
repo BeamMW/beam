@@ -1206,12 +1206,14 @@
         <translation>Siirtomaksu on liian pieni</translation>
     </message>
     <message id="loading-view-estimate-minutes">
-        <source>min.</source>
-        <translation>min</translation>
+        <source>min</source>
+        <oldsource>min.</oldsource>
+        <translation type="unfinished">min</translation>
     </message>
     <message id="loading-view-estimate-seconds">
-        <source>sec.</source>
-        <translation>s</translation>
+        <source>sec</source>
+        <oldsource>sec.</oldsource>
+        <translation type="unfinished">s</translation>
     </message>
     <message id="loading-view-estimate-time">
         <source>Estimate time: %s</source>
@@ -1380,8 +1382,9 @@ please review your settings and try again</source>
         <translation>Rakennetaan uudelleen lompakon tietoja</translation>
     </message>
     <message id="loading-view-estimate-hours">
-        <source>h.</source>
-        <translation>t</translation>
+        <source>h</source>
+        <oldsource>h.</oldsource>
+        <translation type="unfinished">t</translation>
     </message>
     <message id="loading-view-net-problems">
         <source>It may take longer then usual. Please, check your network.</source>
