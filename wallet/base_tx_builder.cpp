@@ -222,7 +222,8 @@ namespace beam::wallet
         //    {
         //        //m_Tx.Update();
         //    });
-        const auto& [commitments, ignored] = m_Tx.GetKeyKeeper()->GeneratePublicKeysSyncEx(m_InputCoins, true, m_AssetId);
+        IPrivateKeyKeeper::PublicKeys commitments;
+        std::tie(commitments, std::ignore) = m_Tx.GetKeyKeeper()->GeneratePublicKeysSyncEx(m_InputCoins, true, m_AssetId);
         m_Inputs.reserve(commitments.size());
         for (const auto& commitment : commitments)
         {
