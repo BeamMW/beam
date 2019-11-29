@@ -294,7 +294,7 @@ namespace beam::wallet
         bool operator==(const TxParameters& other);
         bool operator!=(const TxParameters& other);
 
-        boost::optional<TxID> GetTxID() const;
+        const boost::optional<TxID>& GetTxID() const;
 
         template <typename T>
         boost::optional<T> GetParameter(TxParameterID parameterID, SubTxID subTxID = kDefaultSubTxID) const
