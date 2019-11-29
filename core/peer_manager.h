@@ -27,8 +27,9 @@ namespace beam {
 	public:
 
 		// Rating system:
+		//	Represents the "effective" bandwidth" on a logarithmic scale, i.e. Rating = A*Log(Bw/norm)
 		//	Initially set to default (non-zero)
-		//	Increased after a valid data is received from this peer (minor for header and transaction, major for a block)
+		//	Adjusted each time the data download (by request) has been completed
 		//	Decreased if the peer fails to accomplish the data request ()
 		//	Decreased on network error shortly after connect/accept (or inability to connect)
 		//	Reset to 0 for banned peers. Triggered upon:
@@ -39,27 +40,40 @@ namespace beam {
 		//	Connection to banned peers is disallowed for at least specified time period (even if no other options left)
 		//	We calculate two ratings for all the peers:
 		//		Raw rating, based on its behavior
-		//		Adjusted rating, which is increased with the starvation time, i.e. how long ago it was connected
+		//		Adjusted rating, which is increased with the starvation time, i.e. how long ago anything was requested from this peer
 		//	The selection of the peer to performed by selecting two (non-overlapping) groups.
 		//		Those with highest ratings
 		//		Those with highest *adjusted* ratings.
 		//	So that we effectively always try to maintain connection with the best peers, but also shuffle and connect to others.
 		//
 		//	There is a min threshold for connection time, i.e. we won't disconnect shortly after connecting because the rating of this peer went slightly below another candidate
+		//
+		//	At any moment when we need data - it's requested from the connected peer with max adjusted rating. The "starvation bonus" for this peer is immediately reset.
 
 		struct Rating
 		{
 			static const uint32_t Initial = 1024;
-			static const uint32_t RewardHeader = 64;
-			static const uint32_t RewardTx = 16;
-			static const uint32_t RewardBlock = 512;
-			static const uint32_t PenaltyTimeout = 256;
-			static const uint32_t PenaltyNetworkErr = 128;
-			static const uint32_t Max = 10240; // saturation
 
-			static uint32_t Saturate(uint32_t);
-			static void Inc(uint32_t& r, uint32_t delta);
-			static void Dec(uint32_t& r, uint32_t delta);
+			static const uint32_t PenaltyNetworkErr = 128;
+
+			static const uint32_t Starvation_s_ToRatio = 1; // increase per second
+
+			// Our Bps -> rating convertion formula:
+			//	Rating = A * log (Bps / norm)
+			// 
+			// We want x2 bw difference be equivalent to ~120 rating units. Means, for a x2 difference the slower peer gets prioity after 2 minutes of starvation.
+			// Hence: A = 172 (roughly)
+			//
+			// The initial rating (for unknown peer) considered to be ~100 KBps.
+			// Hence: 1024 = 172 * log(100 KBps / norm)
+			// norm = 255 Bps (roughly)
+
+			static const uint32_t kA = 172;
+			static const uint32_t kNorm = 255;
+
+			static uint32_t FromBps(uint32_t);
+			static uint32_t ToBps(uint32_t);
+
 		};
 
 		struct Cfg {
@@ -69,10 +83,19 @@ namespace beam {
 			uint32_t m_TimeoutReconnect_ms	= 1000;
 			uint32_t m_TimeoutBan_ms		= 1000 * 60 * 10;
 			uint32_t m_TimeoutAddrChange_s	= 60 * 60 * 2;
-			uint32_t m_StarvationRatioInc	= 1; // increase per second while not connected
-			uint32_t m_StarvationRatioDec	= 2; // decrease per second while connected (until starvation reward is zero)
+			uint32_t m_TimeoutRecommend_s	= 60 * 60 * 10;
 		} m_Cfg;
 
+		class TimePoint
+		{
+			static thread_local uint32_t s_Value_ms;
+			bool m_Set;
+
+		public:
+			TimePoint();
+			~TimePoint();
+			static uint32_t get();
+		};
 
 		struct PeerInfo
 		{
@@ -97,7 +120,7 @@ namespace beam {
 			struct AdjustedRating
 				:public boost::intrusive::set_base_hook<>
 			{
-				uint32_t m_Increment;
+				uint32_t m_BoostFrom_ms;
 				uint32_t get() const;
 				bool operator < (const AdjustedRating& x) const { return (get() > x.get()); } // reverse order, begin - max
 
@@ -135,10 +158,10 @@ namespace beam {
 		PeerInfo* Find(const PeerID& id, bool& bCreate);
 
 		void OnActive(PeerInfo&, bool bActive);
-		void ModifyRating(PeerInfo&, uint32_t, bool bAdd);
+		void SetRating(PeerInfo&, uint32_t);
 		void Ban(PeerInfo&);
+		void ResetRatingBoost(PeerInfo&);
 		void OnSeen(PeerInfo&);
-		void OnRemoteError(PeerInfo&, bool bShouldBan);
 		bool IsOutdated(const PeerInfo&) const;
 		void ModifyAddr(PeerInfo&, const io::Address&);
 		void RemoveAddr(PeerInfo&);
@@ -164,10 +187,8 @@ namespace beam {
 		ActiveList m_Active;
 		uint32_t m_TicksLast_ms = 0;
 
-		void UpdateRatingsInternal(uint32_t t_ms);
-
 		void ActivatePeerInternal(PeerInfo&, uint32_t nTicks_ms, uint32_t& nSelected);
-		void ModifyRatingInternal(PeerInfo&, uint32_t, bool bAdd, bool ban);
+		void SetRatingInternal(PeerInfo&, uint32_t, bool ban);
 	};
 
 	std::ostream& operator << (std::ostream& s, const PeerManager::PeerInfo&);

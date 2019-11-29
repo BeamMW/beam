@@ -13,3 +13,4 @@ endif()
 
 target_compile_definitions(${TARGET_NAME} PRIVATE  ${COMMON_COMPILE_FLAGS} ${COMPILE_FLAGS})
 target_include_directories(${TARGET_NAME} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_SOURCE_DIR}/src)
+target_include_directories(${TARGET_NAME} PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)

@@ -49,6 +49,32 @@
 #	pragma warning (pop)
 #endif
 
+#define TREZOR_DEBUG 1
+#if TREZOR_DEBUG == 1
+    #define ANSI_COLOR_RED     "\x1b[31m"
+    #define ANSI_COLOR_GREEN   "\x1b[32m"
+    #define ANSI_COLOR_YELLOW  "\x1b[33m"
+    #define ANSI_COLOR_BLUE    "\x1b[34m"
+    #define ANSI_COLOR_MAGENTA "\x1b[35m"
+    #define ANSI_COLOR_CYAN    "\x1b[36m"
+    #define ANSI_COLOR_RESET   "\x1b[0m"
+
+    #define DEBUG_PRINT(msg, arr, len)                                                  \
+        printf(ANSI_COLOR_CYAN "Line=%u" ANSI_COLOR_RESET ", Msg=%s ", __LINE__, msg);  \
+    printf(ANSI_COLOR_YELLOW);                                                          \
+    for (size_t i = 0; i < len; i++)                                                    \
+    {                                                                                   \
+        printf("%02x", arr[i]);                                                         \
+    }                                                                                   \
+    printf(ANSI_COLOR_RESET "\n");
+#else
+    #define DEBUG_PRINT(msg, arr, len) 0
+#endif // TREZOR_DEBUG
+
+#if defined(BEAM_HW_WALLET)
+#include "keykeeper/hw_wallet.h"
+#endif
+
 // Needed for test
 struct secp256k1_context_struct {
     secp256k1_ecmult_context ecmult_ctx;
@@ -80,7 +106,32 @@ void TestFailed(const char* szExpr, uint32_t nLine)
 			TestFailed(#x, __LINE__); \
 	} while (false)
 
+inline void hex2bin(const char *hex_string, const size_t size_string, uint8_t *out_bytes)
+{
+  uint32_t buffer = 0;
+  for (size_t i = 0; i < size_string / 2; i++)
+  {
+#ifdef WIN32
+    sscanf_s(hex_string + 2 * i, "%2X", &buffer);
+#else
+    sscanf(hex_string + 2 * i, "%2X", &buffer);
+#endif
+    out_bytes[i] = (uint8_t)buffer;
+  }
+}
+
+int IS_EQUAL_HEX(const char *hex_str, const uint8_t *bytes, size_t str_size)
+{
+  std::vector<uint8_t> tmp(str_size / 2);
+  hex2bin(hex_str, str_size, &tmp[0]);
+  return memcmp(&tmp[0], bytes, str_size / 2) == 0;
+}
+
 namespace ECC {
+void Test_SetUintBig(uintBig& uintbig, int value)
+{
+	memset(uintbig.m_pData, value, uintbig.nBytes);
+}
 
 void GenerateRandom(void* p, uint32_t n)
 {
@@ -88,17 +139,26 @@ void GenerateRandom(void* p, uint32_t n)
 		((uint8_t*) p)[i] = (uint8_t) rand();
 }
 
-void SetRandom(uintBig& x)
+void Test_GenerateNonRandom(void* p, uint32_t n, uint8_t value)
 {
-	GenerateRandom(x.m_pData, x.nBytes);
+	for (uint32_t i = 0; i < n; i++)
+		((uint8_t*) p)[i] = value;
 }
 
-void SetRandom(Scalar::Native& x)
+void SetRandom(uintBig& x, bool is_trezor_debug = false)
+{
+    if (is_trezor_debug)
+        Test_GenerateNonRandom(x.m_pData, x.nBytes, 3);
+    else
+        GenerateRandom(x.m_pData, x.nBytes);
+}
+
+void SetRandom(Scalar::Native& x, bool is_trezor_debug = false)
 {
 	Scalar s;
 	while (true)
 	{
-		SetRandom(s.m_Value);
+		SetRandom(s.m_Value, is_trezor_debug);
 		if (!x.Import(s))
 			break;
 	}
@@ -119,9 +179,12 @@ void SetRandom(Point::Native& value, uint8_t y = 0)
 }
 
 template <typename T>
-void SetRandomOrd(T& x)
+void SetRandomOrd(T& x, bool is_trezor_debug = false)
 {
-	GenerateRandom(&x, sizeof(x));
+    if (is_trezor_debug)
+        Test_GenerateNonRandom(&x, sizeof(x), 0);
+    else
+        GenerateRandom(&x, sizeof(x));
 }
 
 uint32_t get_LsBit(const uint8_t* pSrc, uint32_t nSrc, uint32_t iBit)
@@ -1060,23 +1123,23 @@ struct TransactionMaker
 			m_k = Zero;
 		}
 
-		void FinalizeExcess(Point::Native& kG, Scalar::Native& kOffset)
+		void FinalizeExcess(Point::Native& kG, Scalar::Native& kOffset, bool is_trezor_debug = false)
 		{
 			kOffset += m_k;
 
-			SetRandom(m_k);
+			SetRandom(m_k, is_trezor_debug);
 			kOffset += m_k;
 
 			m_k = -m_k;
 			kG += Context::get().G * m_k;
 		}
 
-		void AddInput(beam::Transaction& t, Amount val, Key::IKdf& kdf, const beam::AssetID* pAssetID = nullptr)
+		void AddInput(beam::Transaction& t, Amount val, Key::IKdf& kdf, const beam::AssetID* pAssetID = nullptr, bool is_trezor_debug = false)
 		{
 			std::unique_ptr<beam::Input> pInp(new beam::Input);
 
 			Key::IDV kidv;
-			SetRandomOrd(kidv.m_Idx);
+			SetRandomOrd(kidv.m_Idx, is_trezor_debug);
 			kidv.m_Type = Key::Type::Regular;
 			kidv.set_Subkey(0);
 			kidv.m_Value = val;
@@ -1088,14 +1151,14 @@ struct TransactionMaker
 			m_k += k;
 		}
 
-		void AddOutput(beam::Transaction& t, Amount val, Key::IKdf& kdf, const beam::AssetID* pAssetID = nullptr)
+		void AddOutput(beam::Transaction& t, Amount val, Key::IKdf& kdf, const beam::AssetID* pAssetID = nullptr, bool is_trezor_debug = false)
 		{
 			std::unique_ptr<beam::Output> pOut(new beam::Output);
 
 			Scalar::Native k;
 
 			Key::IDV kidv;
-			SetRandomOrd(kidv.m_Idx);
+			SetRandomOrd(kidv.m_Idx, is_trezor_debug);
 			kidv.m_Type = Key::Type::Regular;
 			kidv.set_Subkey(0);
 			kidv.m_Value = val;
@@ -1119,7 +1182,7 @@ struct TransactionMaker
 
 	Peer m_pPeers[2]; // actually can be more
 
-	void CoSignKernel(beam::TxKernel& krn, const Hash::Value& hvLockImage)
+	void CoSignKernel(beam::TxKernel& krn, const Hash::Value& hvLockImage, bool is_trezor_debug = false)
 	{
 		// 1st pass. Public excesses and Nonces are summed.
 		Scalar::Native pX[_countof(m_pPeers)];
@@ -1130,9 +1193,9 @@ struct TransactionMaker
 		for (size_t i = 0; i < _countof(m_pPeers); i++)
 		{
 			Peer& p = m_pPeers[i];
-			p.FinalizeExcess(kG, offset);
+			p.FinalizeExcess(kG, offset, is_trezor_debug);
 
-			SetRandom(pX[i]);
+			SetRandom(pX[i], is_trezor_debug);
 			xG += Context::get().G * pX[i];
 		}
 
@@ -1173,7 +1236,7 @@ struct TransactionMaker
 		krn.m_Signature.m_k = kSig;
 	}
 
-	void CreateTxKernel(std::vector<beam::TxKernel::Ptr>& lstTrg, Amount fee, std::vector<beam::TxKernel::Ptr>& lstNested, bool bEmitCustomTag, bool bNested)
+	void CreateTxKernel(std::vector<beam::TxKernel::Ptr>& lstTrg, Amount fee, std::vector<beam::TxKernel::Ptr>& lstNested, bool bEmitCustomTag, bool bNested, bool is_trezor_debug = false)
 	{
 		std::unique_ptr<beam::TxKernel> pKrn(new beam::TxKernel);
 		pKrn->m_Fee = fee;
@@ -1182,9 +1245,10 @@ struct TransactionMaker
 
 		// hashlock
 		pKrn->m_pHashLock.reset(new beam::TxKernel::HashLock);
+		//pKrn->m_pHashLock.release();
 
 		uintBig hlPreimage;
-		SetRandom(hlPreimage);
+		SetRandom(hlPreimage, is_trezor_debug);
 
 		Hash::Value hvLockImage;
 		Hash::Processor() << hlPreimage >> hvLockImage;
@@ -1196,13 +1260,13 @@ struct TransactionMaker
 			beam::AssetID aid;
 			Amount valAsset = 4431;
 
-			SetRandom(skAsset);
+			SetRandom(skAsset, is_trezor_debug);
 			beam::proto::Sk2Pk(aid, skAsset);
 
 			if (beam::Rules::get().CA.Deposit)
-				m_pPeers[0].AddInput(m_Trans, valAsset, m_Kdf); // input being-deposited
+				m_pPeers[0].AddInput(m_Trans, valAsset, m_Kdf, nullptr, is_trezor_debug); // input being-deposited
 
-			m_pPeers[0].AddOutput(m_Trans, valAsset, m_Kdf, &aid); // output UTXO to consume the created asset
+			m_pPeers[0].AddOutput(m_Trans, valAsset, m_Kdf, &aid, is_trezor_debug); // output UTXO to consume the created asset
 
 			std::unique_ptr<beam::TxKernel> pKrnEmission(new beam::TxKernel);
 			pKrnEmission->m_AssetEmission = valAsset;
@@ -1216,7 +1280,7 @@ struct TransactionMaker
 			m_pPeers[0].m_k += skAsset;
 		}
 
-		CoSignKernel(*pKrn, hvLockImage);
+		CoSignKernel(*pKrn, hvLockImage, is_trezor_debug);
 
 
 		Point::Native exc;
@@ -1230,14 +1294,14 @@ struct TransactionMaker
 		lstTrg.push_back(std::move(pKrn));
 	}
 
-	void AddInput(int i, Amount val)
+	void AddInput(int i, Amount val, bool is_trezor_debug = false)
 	{
-		m_pPeers[i].AddInput(m_Trans, val, m_Kdf);
+		m_pPeers[i].AddInput(m_Trans, val, m_Kdf, nullptr, is_trezor_debug);
 	}
 
-	void AddOutput(int i, Amount val)
+	void AddOutput(int i, Amount val, bool is_trezor_debug = false)
 	{
-		m_pPeers[i].AddOutput(m_Trans, val, m_Kdf);
+		m_pPeers[i].AddOutput(m_Trans, val, m_Kdf, nullptr, is_trezor_debug);
 	}
 };
 
@@ -1330,7 +1394,11 @@ struct HWWalletEmulator
 	{
 		// random wallet initialization
 		Hash::Value hv;
-		GenRandom(hv);
+#if TREZOR_DEBUG == 1
+        Test_SetUintBig(hv, 3);
+#else
+        GenRandom(hv);
+#endif
 		HKdf::Create(m_pKdf, hv);
 
 		// pre-initialize all the nonces
@@ -1342,11 +1410,16 @@ struct HWWalletEmulator
 	// Regenerate a specific nonce
 	void Regenerate(uint32_t iSlot)
 	{
+#if TREZOR_DEBUG == 1
+        m_nonceLast = (uint32_t)3;
+        m_pNonces[iSlot] = m_nonceLast;
+#else
 		do
 			Hash::Processor() << m_nonceLast.m_Value >> m_nonceLast.m_Value;
 		while (!m_nonceLast.IsValid());
 
 		m_pNonces[iSlot] = m_nonceLast;
+#endif
 	}
 
 	virtual void ResetNonce(Point::Native& res, uint32_t iSlot) override
@@ -1475,7 +1548,11 @@ struct MyWallet
 
 	void AddInp(Amount val)
 	{
+#if TREZOR_DEBUG == 1
+		Key::IDV kidv(val, 0, Key::Type::Regular);
+#else
 		Key::IDV kidv(val, ++m_nLastCoinIndex, Key::Type::Regular);
+#endif
 		m_vIns.push_back(kidv);
 
 		beam::Input::Ptr pInp(new beam::Input);
@@ -1487,7 +1564,11 @@ struct MyWallet
 
 	void AddOutp(Amount val)
 	{
+#if TREZOR_DEBUG == 1
+		Key::IDV kidv(val, 0, Key::Type::Regular);
+#else
 		Key::IDV kidv(val, ++m_nLastCoinIndex, Key::Type::Regular);
+#endif
 		m_vOuts.push_back(kidv);
 
 		beam::Output::Ptr pOutp(new beam::Output);
@@ -2016,6 +2097,77 @@ void TestTreasury()
 	}
 }
 
+void TestTxKernel()
+{
+    TransactionMaker tm;
+    tm.AddInput(0, 100, true);
+    uint8_t scalar_data[32];
+    secp256k1_scalar_get_b32(scalar_data, &tm.m_pPeers[0].m_k.get());
+    verify_test(IS_EQUAL_HEX("72644062a0703bbe61c5cadc1ec5fdad2b32dfe9684909b0f339ba825fb3f103", scalar_data, 32));
+    tm.AddInput(0, 3000, true);
+    secp256k1_scalar_get_b32(scalar_data, &tm.m_pPeers[0].m_k.get());
+    verify_test(IS_EQUAL_HEX("c25325ec65ebbfcd5297bfb1f8a37c14d63283085f3703e6afa62cfa9c68bfeb", scalar_data, 32));
+    tm.AddInput(0, 2000, true);
+    secp256k1_scalar_get_b32(scalar_data, &tm.m_pPeers[0].m_k.get());
+    verify_test(IS_EQUAL_HEX("2ebd4b44494ef4344a7199da37c54ffc24ca31a094ff5b8a33c433403f771dfc", scalar_data, 32));
+
+    tm.AddOutput(0, 100, true);
+    secp256k1_scalar_get_b32(scalar_data, &tm.m_pPeers[0].m_k.get());
+    verify_test(IS_EQUAL_HEX("bc590ae1a8deb875e8abcefe18ff524db4462e9ddbfef215005cd74aaff96e3a", scalar_data, 32));
+
+    std::vector<beam::TxKernel::Ptr> lstNested;
+    std::vector<beam::TxKernel::Ptr> lstDummy;
+
+    Amount fee1 = 100;
+
+    tm.CreateTxKernel(lstNested, fee1, lstDummy, false, false, true);
+}
+
+void TestTransactionHWSingular()
+{
+    HWWalletEmulator hw1;
+    hw1.Initialize();
+
+    MyWallet mw1(hw1);
+    mw1.m_Kernel.m_Fee = 100;
+    mw1.m_Kernel.m_Height.m_Min = 25000;
+    mw1.m_Kernel.m_Height.m_Max = 27500;
+
+    mw1.AddInp(350000);
+    mw1.AddInp(250000);
+    mw1.AddOutp(170000);
+
+    Point::Native pt(Zero);
+    //mw1.CalcCommitment(pt);
+
+    Test_SetUintBig(mw1.m_Kernel.m_Signature.m_NoncePub.m_X, 3);
+    mw1.m_Kernel.m_Signature.m_NoncePub.m_Y = 1;
+    Test_SetUintBig(mw1.m_Kernel.m_Commitment.m_X, 3);
+    mw1.m_Kernel.m_Commitment.m_Y = 1;
+    mw1.m_Offset = (uint32_t)3;
+
+#if TREZOR_DEBUG == 1
+    printf("Kernel params for TX sign:\n\tFee: %ld\n\tMin_height: %ld; Max_height: %ld\n\tAsset_emission: %ld\n",
+           (long)mw1.m_Kernel.m_Fee, (long)mw1.m_Kernel.m_Height.m_Min, (long)mw1.m_Kernel.m_Height.m_Max, (long)mw1.m_Kernel.m_AssetEmission);
+    char point_str[64];
+    mw1.m_Kernel.m_Signature.m_NoncePub.m_X.Print(point_str);
+    printf("\tNonce pub x: %s\n", point_str);
+    mw1.m_Kernel.m_Commitment.m_X.Print(point_str);
+    printf("\tCommitment x: %s\n", point_str);
+#endif
+
+    mw1.m_iSlot = 6;
+    mw1.m_HW.ResetNonce(pt, mw1.m_iSlot);
+
+    Scalar::Native k1;
+    verify_test(mw1.SignTx(k1));
+
+    uint8_t scalar_data[32];
+    secp256k1_scalar_get_b32(scalar_data, &k1.get());
+    DEBUG_PRINT("Test transaction signature. Signature scalar k: ", scalar_data, 32);
+    verify_test(IS_EQUAL_HEX("f2381d7329c680eb1afe31f01201c6da30c90790f4130a757a3c3607e7b19838", scalar_data, 32));
+}
+
 void TestAll()
 {
 	TestUintBig();
@@ -2028,7 +2180,9 @@ void TestAll()
 	TestRangeProof(true);
 	TestTransaction();
 	TestTransactionHW();
-    TestMultiSigOutput();
+	//TestTxKernel();
+	//TestTransactionHWSingular();   
+	TestMultiSigOutput();
 	TestCutThrough();
 	TestAES();
 	TestKdf();

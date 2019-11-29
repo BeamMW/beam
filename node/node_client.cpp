@@ -21,6 +21,59 @@
 namespace
 {
     constexpr int kVerificationThreadsMaxAvailable = -1;
+
+    boost::filesystem::path pathFromStdString(const std::string& path)
+    {
+#ifdef WIN32
+        boost::filesystem::path boostPath{ beam::Utf8toUtf16(path.c_str()) };
+#else
+        boost::filesystem::path boostPath{ path };
+#endif
+        return boostPath;
+    }
+
+    void removeNodeDataIfNeeded(const std::string& nodePathStr)
+    {
+        try
+        {
+            auto nodePath = pathFromStdString(nodePathStr);
+            auto appDataPath = nodePath.parent_path();
+
+            if (!boost::filesystem::exists(appDataPath))
+            {
+                return;
+            }
+            try
+            {
+                beam::NodeDB nodeDB;
+                nodeDB.Open(nodePathStr.c_str());
+                return;
+            }
+            catch (const beam::NodeDBUpgradeException&)
+            {
+            }
+
+            boost::filesystem::remove(nodePath);
+
+            std::vector<boost::filesystem::path> macroBlockFiles;
+            for (boost::filesystem::directory_iterator endDirIt, it{ appDataPath }; it != endDirIt; ++it)
+            {
+                if (it->path().filename().wstring().find(L"tempmb") == 0)
+                {
+                    macroBlockFiles.push_back(it->path());
+                }
+            }
+
+            for (auto& path : macroBlockFiles)
+            {
+                boost::filesystem::remove(path);
+            }
+        }
+        catch (std::exception & e)
+        {
+            LOG_ERROR() << e.what();
+        }
+    }
 }
 
 namespace beam
@@ -93,6 +146,8 @@ void NodeClient::start()
     {
         try
         {
+            removeNodeDataIfNeeded(m_observer->getLocalNodeStorage());
+
             auto reactor = io::Reactor::create();
             m_reactor = reactor;// store weak ref
             io::Reactor::Scope scope(*reactor);
@@ -204,9 +259,7 @@ void NodeClient::runLocalNode()
             node.m_Keys.SetSingleKey(m_pKdf);
         }
 
-        node.m_Cfg.m_Horizon.m_Branching = Rules::get().Macroblock.MaxRollback / 4; // inferior branches would be pruned when height difference is this.
-        node.m_Cfg.m_Horizon.m_SchwarzschildHi = 0; // would be adjusted anyway
-        node.m_Cfg.m_Horizon.m_SchwarzschildLo = 3600 * 24 * 180 / Rules::get().DA.Target_s; // 180-day period
+		node.m_Cfg.m_Horizon.SetStdFastSync();
 
         auto peers = m_observer->getLocalNodePeers();
 
@@ -245,6 +298,10 @@ void NodeClient::runLocalNode()
             {
                 Node::SyncStatus s = m_node.m_SyncStatus;
 
+				if (MaxHeight == m_Done0)
+					m_Done0 = s.m_Done;
+				s.ToRelative(m_Done0);
+
                 if (!m_reportedStarted && (s.m_Done == s.m_Total))
                 {
                     m_reportedStarted = true;
@@ -267,9 +324,15 @@ void NodeClient::runLocalNode()
                 m_model.m_observer->onSyncError(error);
             }
 
+            void InitializeUtxosProgress(uint64_t done, uint64_t total) override
+            {
+                m_model.m_observer->onInitProgressUpdated(done, total);
+            }
+
         private:
             Node& m_node;
             NodeClient& m_model;
+			Height m_Done0 = MaxHeight;
             bool m_reportedStarted = false;
         } obs(node, *this);
 

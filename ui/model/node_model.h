@@ -44,6 +44,7 @@ public:
     bool isNodeRunning() const;
 
 signals:
+    void initProgressUpdated(quint64 done, quint64 total);
     void syncProgressUpdated(int done, int total);
     void startedNode();
     void stoppedNode();
@@ -53,6 +54,7 @@ signals:
     void destroyedNode();
 
 protected:
+    void onInitProgressUpdated(uint64_t done, uint64_t total) override;
     void onSyncProgressUpdated(int done, int total) override;
     void onStartedNode() override;
     void onStoppedNode() override;

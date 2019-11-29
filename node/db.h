@@ -47,13 +47,14 @@ public:
 			CfgChecksum,
 			MyID,
 			SyncTarget, // deprecated
-			LoHorizon, // Height of no-return. Navigation is impossible below it
+			Deprecated_2,
 			Treasury,
 			DummyID, // hash of keys used to create UTXOs (owner key, dummy key)
 			HeightTxoLo, // Height starting from which and below Txo info is totally erased.
 			HeightTxoHi, // Height starting from which and below Txo infi is compacted, only the commitment is left
 			SyncData,
 			LastRecoveryHeight,
+			UtxoStamp,
 		};
 	};
 
@@ -76,6 +77,7 @@ public:
 			StateGetHeightAndPrev,
 			StateFind,
 			StateFind2,
+			StateFindWithFlag,
 			StateFindWorkGreater,
 			StateUpdPrevRow,
 			StateGetNextFCount,
@@ -92,6 +94,8 @@ public:
 			StateGetPeer,
 			StateSetExtra,
 			StateGetExtra,
+			StateSetInputs,
+			StateGetInputs,
 			StateSetTxos,
 			StateGetTxos,
 			StateFindByTxos,
@@ -105,7 +109,6 @@ public:
 			EnumAncestors,
 			StateGetPrev,
 			Unactivate,
-			UnactivateAll,
 			Activate,
 			MmrGet,
 			MmrSet,
@@ -139,18 +142,17 @@ public:
 			KernelIns,
 			KernelFind,
 			KernelDel,
-			KernelDelAll,
 			TxoAdd,
+			TxoDel,
 			TxoDelFrom,
 			TxoSetSpent,
-			TxoDelSpentFrom,
 			TxoEnum,
-			TxoEnumBySpent,
-			TxoDelSpentTxosFrom,
+			TxoEnumBySpentMigrate,
 			TxoSetValue,
 			TxoGetValue,
 			BlockFind,
 			FindHeightBelow,
+			EnumSystemStatesBkwd,
 
 			Dbg0,
 			Dbg1,
@@ -245,6 +247,7 @@ public:
 
 	uint64_t InsertState(const Block::SystemState::Full&); // Fails if state already exists
 
+	uint64_t FindActiveStateStrict(Height);
 	uint64_t StateFindSafe(const Block::SystemState::ID&);
 	void get_State(uint64_t rowid, Block::SystemState::Full&);
 	void get_StateHash(uint64_t rowid, Merkle::Hash&);
@@ -289,6 +292,27 @@ public:
 		WalkerState(NodeDB& db) :m_Rs(db) {}
 		bool MoveNext();
 	};
+
+#pragma pack (push, 1)
+	struct StateInput
+	{
+		ECC::uintBig m_CommX;
+		TxoID m_Txo_AndY;
+
+		static const TxoID s_Y = TxoID(1) << (sizeof(TxoID) * 8 - 1);
+
+		void Set(TxoID, const ECC::Point&);
+		void Set(TxoID, const ECC::uintBig& x, uint8_t y);
+
+		TxoID get_ID() const;
+		void Get(ECC::Point&) const;
+
+		static bool IsLess(const StateInput&, const StateInput&);
+	};
+#pragma pack (pop)
+
+	void set_StateInputs(uint64_t rowid, StateInput*, size_t);
+	bool get_StateInputs(uint64_t rowid, std::vector<StateInput>&);
 
 	void EnumTips(WalkerState&); // height lowest to highest
 	void EnumFunctionalTips(WalkerState&); // chainwork highest to lowest
@@ -360,7 +384,6 @@ public:
 			Timestamp m_TimePosted;
 			Blob m_Message;
 			uint32_t m_Nonce;
-			bool m_bNonce;
 		} m_Data;
 
 		WalkerBbs(NodeDB& db) :m_Rs(db) {}
@@ -431,9 +454,9 @@ public:
 	uint64_t FindStateWorkGreater(const Difficulty::Raw&);
 
 	void TxoAdd(TxoID, const Blob&);
+	void TxoDel(TxoID);
 	void TxoDelFrom(TxoID);
 	void TxoSetSpent(TxoID, Height);
-	void TxoDelSpentFrom(Height);
 
 	struct WalkerTxo
 	{
@@ -447,13 +470,20 @@ public:
 	};
 
 	void EnumTxos(WalkerTxo&, TxoID id0);
-	void EnumTxosBySpent(WalkerTxo&, const HeightRange&);
-	uint64_t DeleteSpentTxos(const HeightRange&, TxoID id0); // delete Txos where (SpendHeight is within range) AND (TxoID >= id0)
 	void TxoSetValue(TxoID, const Blob&);
 	void TxoGetValue(WalkerTxo&, TxoID);
 
-	// reset cursor to zero. Keep all the data: local peers, bbs, dummy UTXOs
-	void ResetCursor();
+	struct WalkerSystemState
+	{
+		Recordset m_Rs;
+		uint64_t m_RowTrg;
+		Block::SystemState::Full m_State;
+
+		WalkerSystemState(NodeDB& db) :m_Rs(db) {}
+		bool MoveNext();
+	};
+
+	void EnumSystemStatesBkwd(WalkerSystemState&, const StateID&);
 
 private:
 
@@ -499,6 +529,8 @@ private:
 	void put_Cursor(const StateID& sid); // jump
 
 	void TestChanged1Row();
+
+	void MigrateFrom18();
 
 	struct Dmmr;
 };

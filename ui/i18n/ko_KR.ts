@@ -25,7 +25,7 @@
     </message>
     <message id="general-actions">
         <source>Actions</source>
-        <translation type="unfinished">Actions</translation>
+        <translation>작업</translation>
     </message>
     <message id="general-address">
         <source>Address</source>
@@ -53,20 +53,12 @@
     </message>
     <message id="general-cancel">
         <source>Cancel</source>
-        <extracomment>Edit addres dialog, cancel button</extracomment>
+        <extracomment>Edit address dialog, cancel button</extracomment>
         <translation>취소</translation>
     </message>
     <message id="general-delete">
         <source>Delete</source>
         <translation>삭제</translation>
-    </message>
-    <message id="general-receiving">
-        <source>receiving</source>
-        <translation>받는 중</translation>
-    </message>
-    <message id="general-sending">
-        <source>sending</source>
-        <translation>보내는 중</translation>
     </message>
     <message id="general-rescan">
         <source>Rescan</source>
@@ -139,7 +131,7 @@
     <message id="general-treasury">
         <source>Treasury</source>
         <extracomment>UTXO type Treasury</extracomment>
-        <translation type="unfinished">Treasury</translation>
+        <translation>Treausry</translation>
     </message>
     <message id="general-back">
         <source>Back</source>
@@ -183,16 +175,12 @@
         <translation>폴더 보기</translation>
     </message>
     <message id="general-addr-comment-error">
-        <source>Address with same comment already exist</source>
+        <source>Address with the same comment already exists</source>
         <translation>동일한 메모가 있는 주소가 이미 존재합니다</translation>
     </message>
     <message id="wallet-receive-button">
         <source>Receive</source>
         <translation>받기</translation>
-    </message>
-    <message id="wallet-in-progress-title">
-        <source>In progress</source>
-        <translation>진행중</translation>
     </message>
     <message id="wallet-transactions-title">
         <source>Transactions</source>
@@ -203,12 +191,8 @@
         <translation>지불 증명</translation>
     </message>
     <message id="wallet-txs-date-time">
-        <source>Date | Time</source>
-        <translation>날짜 | 시간</translation>
-    </message>
-    <message id="wallet-txs-copy-addr-cm">
-        <source>Copy address</source>
-        <translation>주소 복사</translation>
+        <source>Created on</source>
+        <translation>작성일</translation>
     </message>
     <message id="wallet-txs-delete-message">
         <source>The transaction will be deleted. This operation can not be undone</source>
@@ -240,7 +224,7 @@
     </message>
     <message id="wallet-txs-status-cancelled">
         <source>cancelled</source>
-        <translation>취소됨</translation>
+        <translation type="unfinished">cancelled</translation>
     </message>
     <message id="wallet-txs-status-expired">
         <source>expired</source>
@@ -272,17 +256,17 @@
     </message>
     <message id="address-table-cm-show-qr">
         <source>Show QR code</source>
-        <extracomment>Entry in adress table context menu to show QR</extracomment>
+        <extracomment>Entry in address table context menu to show QR</extracomment>
         <translation>QR 코드 보이기</translation>
     </message>
     <message id="address-table-cm-edit">
         <source>Edit address</source>
-        <extracomment>Entry in adress table context menu to edit</extracomment>
+        <extracomment>Entry in address table context menu to edit</extracomment>
         <translation>주소 수정</translation>
     </message>
     <message id="address-table-cm-delete">
         <source>Delete address</source>
-        <extracomment>Entry in adress table context menu to delete</extracomment>
+        <extracomment>Entry in address table context menu to delete</extracomment>
         <translation>주소 삭제</translation>
     </message>
     <message id="address-table-cm-delete-contact">
@@ -293,9 +277,29 @@
         <source>Available</source>
         <translation>사용가능</translation>
     </message>
-    <message id="available-panel-where-to-buy">
-        <source>Where to buy BEAM?</source>
-        <translation>BEAM 은 어디서 사나요?</translation>
+    <message id="available-panel-locked">
+        <source>Locked</source>
+        <translation>잠김</translation>
+    </message>
+    <message id="available-panel-sending">
+        <source>Sending</source>
+        <translation>보내는 중</translation>
+    </message>
+    <message id="available-panel-receiving">
+        <source>Receiving</source>
+        <translation>받는 중</translation>
+    </message>
+    <message id="available-panel-maturing">
+        <source>Maturing</source>
+        <translation>형성중</translation>
+    </message>
+    <message id="available-panel-change">
+        <source>Change</source>
+        <translation>잔액</translation>
+    </message>
+    <message id="available-panel-incoming">
+        <source>Incoming</source>
+        <translation>받는중</translation>
     </message>
     <message id="settings-version">
         <source>Version</source>
@@ -418,17 +422,17 @@
     </message>
     <message id="edit-addr-title">
         <source>Edit address</source>
-        <extracomment>Edit addres dialog title</extracomment>
+        <extracomment>Edit address dialog title</extracomment>
         <translation>주소 수정</translation>
     </message>
     <message id="edit-addr-addr-id">
         <source>Address ID</source>
-        <extracomment>Edit addres dialog, address label</extracomment>
+        <extracomment>Edit address dialog, address label</extracomment>
         <translation>주소 ID</translation>
     </message>
     <message id="edit-addr-save-button">
         <source>Save</source>
-        <extracomment>Edit addres dialog, save button</extracomment>
+        <extracomment>Edit address dialog, save button</extracomment>
         <translation>저장</translation>
     </message>
     <message id="payment-info-proof-verification">
@@ -463,21 +467,13 @@
         <source>Copy code</source>
         <translation>코드 복사하기</translation>
     </message>
-    <message id="secondary-panel-maturing">
-        <source>Maturing</source>
-        <translation>형성중</translation>
-    </message>
     <message id="info-title">
         <source>Info view</source>
         <translation>정보 보기</translation>
     </message>
-    <message id="loading-change-settings-button">
-        <source>Change settings</source>
-        <translation>설정 변경</translation>
-    </message>
     <message id="loading-try-again-button">
         <source>Try again</source>
-        <translation>다시 시도하십시오.</translation>
+        <translation>다시 시도하기</translation>
     </message>
     <message id="notifications-title">
         <source>Notifications view</source>
@@ -523,7 +519,6 @@
     </message>
     <message id="settings-title">
         <source>Settings</source>
-        <extracomment>settings tab title</extracomment>
         <translation>설정</translation>
     </message>
     <message id="cant-send-to-expired-message">
@@ -547,16 +542,16 @@
         <translation>지갑</translation>
     </message>
     <message id="wallet-receive-title">
-        <source>Receive Beam</source>
-        <translation>Beam 받기</translation>
+        <source>Receive</source>
+        <translation>받기</translation>
     </message>
     <message id="wallet-receive-my-addr-label">
-        <source>My address</source>
-        <translation>내 주소</translation>
+        <source>My address (auto-generated)</source>
+        <translation>내 주소 (자동 생성된)</translation>
     </message>
     <message id="wallet-receive-expires-label">
-        <source>Expires</source>
-        <translation>만료</translation>
+        <source>Expires in</source>
+        <translation>안에 만료됨</translation>
     </message>
     <message id="wallet-receive-expires-24">
         <source>24 hours</source>
@@ -564,31 +559,23 @@
     </message>
     <message id="wallet-receive-expires-never">
         <source>Never</source>
-        <translation type="unfinished">Never</translation>
+        <translation>안함</translation>
     </message>
     <message id="wallet-receive-qr-label">
         <source>Scan to send</source>
         <translation>스캔하여 보내기</translation>
     </message>
-    <message id="wallet-receive-propogate-addr-message">
-        <source>Send this address to the sender over an external secure channel</source>
-        <translation>해당 주소를 외부의 보안 채널로 보내는 사람에게 보냅니다.</translation>
-    </message>
-    <message id="invalid-addr-got-it-button">
-        <source>Got it</source>
-        <translation>네, 알겠습니다</translation>
-    </message>
     <message id="send-title">
-        <source>Send Beam</source>
-        <translation>Beam 보내기</translation>
+        <source>Send</source>
+        <translation>보내기</translation>
     </message>
     <message id="send-send-to-label">
-        <source>Send To</source>
-        <translation>~~ 에게 보내기</translation>
+        <source>Transaction token or contact</source>
+        <translation>트랜잭션 토큰 또는 연락처</translation>
     </message>
     <message id="send-contact-placeholder">
-        <source>Please specify contact</source>
-        <translation>연락처를 명확히 하십시오</translation>
+        <source>Please specify contact or transaction token</source>
+        <translation>연락처 또는 트랜잭션 토큰을 지정해주세요</translation>
     </message>
     <message id="send-amount-label">
         <source>Transaction amount</source>
@@ -598,21 +585,9 @@
         <source>Insufficient funds: you would need %1 to complete the transaction</source>
         <translation>자금이 부족합니다 : 거래를 완료하려면 %1 만큼의 자금이 필요합니다</translation>
     </message>
-    <message id="send-fee-fail">
-        <source>The minimum fee is %1 GROTH</source>
-        <translation>최소 수수료는 %1 GROTH 입니다</translation>
-    </message>
-    <message id="send-curency-sub-name">
-        <source>GROTH</source>
-        <translation>GROTH</translation>
-    </message>
     <message id="send-remaining-label">
         <source>Remaining</source>
         <translation>남아있는</translation>
-    </message>
-    <message id="send-send-fail">
-        <source>Address %1 is invalid</source>
-        <translation>주소 %1 는 유효하지 않습니다</translation>
     </message>
     <message id="start-restore-confirm-button">
         <source>I agree</source>
@@ -801,12 +776,12 @@
         <translation>지갑을 실행하지 못했습니다. 지갑 데이터 위치를 확인하십시오</translation>
     </message>
     <message id="loading-view-download-blocks">
-        <source>Downloading blocks</source>
-        <translation>블록 다운로딩중</translation>
+        <source>Synching with blockchain</source>
+        <translation>블록체인 싱크중</translation>
     </message>
     <message id="loading-view-scaning-utxo">
-        <source>Scanning UTXO %d/%d</source>
-        <translation>UTXO %d/%d 스캔하는중</translation>
+        <source>Loading wallet data %d/%d</source>
+        <translation>지갑 데이터 로딩중 %d/%d</translation>
     </message>
     <message id="loading-view-protocol-error">
         <source>Incompatible peer</source>
@@ -888,14 +863,6 @@
         <source>Transaction has invalid state</source>
         <translation>거래가 유효하지 않은 상태이다</translation>
     </message>
-    <message id="tx-curency-name">
-        <source>BEAM</source>
-        <translation>BEAM</translation>
-    </message>
-    <message id="tx-curency-sub-name">
-        <source>GROTH</source>
-        <translation>GROTH</translation>
-    </message>
     <message id="utxo-utxo">
         <source>UTXO</source>
         <translation>UTXO</translation>
@@ -946,7 +913,7 @@
     </message>
     <message id="settings-general-lock-screen-never">
         <source>Never</source>
-        <translation type="unfinished">Never</translation>
+        <translation>안함</translation>
     </message>
     <message id="settings-general-lock-screen-1m">
         <source>1 minute</source>
@@ -1022,8 +989,16 @@
         <translation>지갑에 접근하기 위해서 새 비밀번호를 생성해야합니다.</translation>
     </message>
     <message id="start-create-pwd-strength-message">
-        <source>Strong password needs to meet the following requirements:\n•  the length must be at least 10 characters\n•  must contain at least one lowercase letter\n•  must contain at least one uppercase letter\n•  must contain at least one number</source>
-        <translation>보안성이 강한 비밀번호를 만들기 위해서는 아래의 조건들을 충족시켜야 합니다 : \n• 최소한 10개의 글자로 이루어져야합니다.\n• 최소한 1개의 소문자가 포함되어야 합니다.\n• 최소한 1개의 대문자가 포함되어야 합니다.\n• 최소한 1개의 숫자가 포함되어야 합니다.</translation>
+        <source>Strong password needs to meet the following requirements:
+•  the length must be at least 10 characters
+•  must contain at least one lowercase letter
+•  must contain at least one uppercase letter
+•  must contain at least one number</source>
+        <translation>보안성이 강한 비밀번호를 만들기 위해서는 아래의 조건들을 충족시켜야 합니다 : 
+• 최소한 10개의 글자로 이루어져야합니다.
+• 최소한 1개의 소문자가 포함되어야 합니다.
+• 최소한 1개의 대문자가 포함되어야 합니다.
+• 최소한 1개의 숫자가 포함되어야 합니다.</translation>
     </message>
     <message id="start-open-caps-warning">
         <source>Caps lock is on!</source>
@@ -1087,7 +1062,7 @@
     <message id="edit-addr-never-option">
         <source>Never</source>
         <extracomment>Edit address dialog, expiration option, never</extracomment>
-        <translation type="unfinished">Never</translation>
+        <translation>안함</translation>
     </message>
     <message id="edit-addr-as-is-option">
         <source>Within 24 hours</source>
@@ -1096,33 +1071,33 @@
     </message>
     <message id="edit-addr-expires-label">
         <source>Expires</source>
-        <extracomment>Edit addres dialog, expires label</extracomment>
+        <extracomment>Edit address dialog, expires label</extracomment>
         <translation>만료</translation>
     </message>
     <message id="edit-addr-expire-now-label">
         <source>Now</source>
-        <extracomment>Edit addres dialog, expire now label</extracomment>
+        <extracomment>Edit address dialog, expire now label</extracomment>
         <translation>현재</translation>
     </message>
     <message id="edit-addr-expire-now-switch">
         <source>Expire address now</source>
-        <extracomment>Edit addres dialog, expire now switch</extracomment>
+        <extracomment>Edit address dialog, expire now switch</extracomment>
         <translation>주소 만료시키기</translation>
     </message>
     <message id="edit-addr-expiration-time-label">
         <source>Expired on </source>
-        <extracomment>Edit addres dialog, expiration time label</extracomment>
-        <translation>~~ 만료됨</translation>
+        <extracomment>Edit address dialog, expiration time label</extracomment>
+        <translation>만료됨</translation>
     </message>
     <message id="edit-addr-activate-addr-switch">
         <source>Activate address</source>
-        <extracomment>Edit addres dialog, expiration time label</extracomment>
+        <extracomment>Edit address dialog, expiration time label</extracomment>
         <translation>주소 활성화</translation>
     </message>
     <message id="time-never">
         <source>Never</source>
         <extracomment>time never string</extracomment>
-        <translation type="unfinished">Never</translation>
+        <translation>안함</translation>
     </message>
     <message id="start-pwd-difficulty-very-weak">
         <source>Very weak password</source>
@@ -1174,44 +1149,795 @@
         <extracomment>settings tab, general section, ask password to send, confirm password dialog, message</extracomment>
         <translation>설정 바꾸기를 하려면 비밀번호 검증이 필요합니다</translation>
     </message>
+    <message id="open-in-explorer">
+        <source>Open in Blockchain Explorer</source>
+        <translation>블록체인 탐색기에서 열기</translation>
+    </message>
+    <message id="restore-finish-alert-button">
+        <source>I understand</source>
+        <translation>이해합니다</translation>
+    </message>
+    <message id="restore-finish-alert-title">
+        <source>Do not simultaneously run two wallets initiated from the same seed phrase</source>
+        <translation>같은 시드 구문으로 생성된 2개의 다른 지갑을 같이 실행하지 마십시오</translation>
+    </message>
+    <message id="restore-finish-alert-message-line">
+        <source>Don’t use same seed phrase on several devices, your balance and transaction list won’t be synchronized.</source>
+        <translation>같은 시드 구문을 여러 기기에서 사용하지 마십시오, 당신의 잔고와 거래 내역은 동기화되지 않습니다.</translation>
+    </message>
     <message id="tx-failture-subtx-failed">
         <source>Subtransaction has failed</source>
-        <translation type="unfinished"></translation>
+        <translation>Subtransaction 이 실패했습니다.</translation>
     </message>
     <message id="tx-failture-invalid-contract-amount">
         <source>Contract&apos;s amount is not valid</source>
-        <translation type="unfinished"></translation>
+        <translation>계약&apos;s 금액이 유효하지 않음</translation>
     </message>
     <message id="tx-failture-invalid-sidechain-contract">
         <source>Side chain has invalid contract</source>
-        <translation type="unfinished"></translation>
+        <translation>사이드 체인이 유효하지 않은 연락처를 가지고 있습니다.</translation>
     </message>
     <message id="tx-failture-sidechain-internal-error">
         <source>Side chain bridge has internal error</source>
-        <translation type="unfinished"></translation>
+        <translation>사이드 체인 브릿지 내부에 에러가 있습니다.</translation>
     </message>
     <message id="tx-failture-sidechain-network-error">
         <source>Side chain bridge has network error</source>
-        <translation type="unfinished"></translation>
+        <translation>사이드 체인 브릿지 네트워크에 에러가 있습니다.</translation>
     </message>
     <message id="tx-failture-invalid-sidechain-response-format">
         <source>Side chain bridge has response format error</source>
-        <translation type="unfinished"></translation>
+        <translation>사이드 체인 브릿지 반응 포맷 에러가 있습니다.</translation>
     </message>
     <message id="tx-failture-invalid-side-chain-credentials">
         <source>Invalid credentials of Side chain</source>
-        <translation type="unfinished"></translation>
+        <translation>유효하지 않은 사이드 체인 증명</translation>
     </message>
     <message id="tx-failture-not-enough-time-btc-lock">
         <source>Not enough time to finish btc lock transaction</source>
-        <translation type="unfinished"></translation>
+        <translation>BTC 잠금 거래 완료에 시간이 충분하지 않음</translation>
     </message>
     <message id="tx-failture-create-multisig">
         <source>Failed to create multi-signature</source>
-        <translation type="unfinished"></translation>
+        <translation>다중 서명 생성 실패</translation>
     </message>
     <message id="tx-failture-fee-too-small">
         <source>Fee is too small</source>
+        <translation>수수료가 너무 작습니다.</translation>
+    </message>
+    <message id="loading-view-estimate-minutes">
+        <source>min</source>
+        <oldsource>min.</oldsource>
+        <translation type="unfinished">뷴</translation>
+    </message>
+    <message id="loading-view-estimate-seconds">
+        <source>sec</source>
+        <oldsource>sec.</oldsource>
+        <translation type="unfinished">초</translation>
+    </message>
+    <message id="loading-view-estimate-time">
+        <source>Estimate time: %s</source>
+        <translation>예상 소요시간: %s</translation>
+    </message>
+    <message id="general-fee-rate">
+        <source>%1 Transaction fee rate</source>
+        <translation>Transaction fee rate</translation>
+    </message>
+    <message id="general-fee-fail">
+        <source>The minimum fee is %1 %2</source>
+        <translation>최소 수수료는 %1 %2 입니다</translation>
+    </message>
+    <message id="general-change-settings">
+        <source>Change settings</source>
+        <translation>설정 변경</translation>
+    </message>
+    <message id="general-swap">
+        <source>Swap</source>
+        <translation>바꾸기</translation>
+    </message>
+    <message id="settings-reset">
+        <source>Clear</source>
+        <translation>지우기</translation>
+    </message>
+    <message id="settings-node-address">
+        <source>Node Address</source>
+        <translation>노드 주소</translation>
+    </message>
+    <message id="settings-username">
+        <source>Username</source>
+        <translation>사용자명</translation>
+    </message>
+    <message id="settings-password">
+        <source>Password</source>
+        <translation>비밀번호</translation>
+    </message>
+    <message id="settings-fee-rate">
+        <source>Default fee</source>
+        <translation>기본 수수료</translation>
+    </message>
+    <message id="swap-beta-message">
+        <source>Atomic Swaps functionality is Beta at the moment. We recommend you not to send large amounts.</source>
+        <translation>아토믹 스왑은 현재 베타입니다. 큰 금액은 전송하지 않는걸 권장합니다.</translation>
+    </message>
+    <message id="swap-beta-title">
+        <source>Atomic Swaps are in BETA</source>
+        <translation>아토믹 스왑은 베타입니다</translation>
+    </message>
+    <message id="swap-na-message">
+        <source>You do not have any 3rd-party currencies connected.
+Update your settings and try again.</source>
+        <translation>서드파티에 연결된 화폐가 없습니다. \n세팅을 업데이트한 후 재시도 하세요.</translation>
+    </message>
+    <message id="wallet-receive-swap-title">
+        <source>Create a Swap Offer</source>
+        <translation>스왑 오퍼 만들기</translation>
+    </message>
+    <message id="wallet-receive-addr-message">
+        <source>Send this address to the sender over an external secure channel or scan the QR code</source>
+        <translation>해당 주소를 외부의 보안 채널로 보내는 사람에게 보내거나 QR 코드를 스캔하세요</translation>
+    </message>
+    <message id="wallet-receive-copy-address">
+        <source>Copy transaction address</source>
+        <translation>트랜잭션 주소 복사</translation>
+    </message>
+    <message id="receive-amount-swap-label">
+        <source>Receive amount</source>
+        <translation>송금 받기</translation>
+    </message>
+    <message id="sent-amount-label">
+        <source>Send amount</source>
+        <translation>송금하기</translation>
+    </message>
+    <message id="wallet-receive-offer-expires-label">
+        <source>Offer expiration time</source>
+        <translation>만기 시간 제안</translation>
+    </message>
+    <message id="wallet-receive-expires-12">
+        <source>12 hours</source>
+        <translation>12 시간</translation>
+    </message>
+    <message id="wallet-receive-expires-6">
+        <source>6 hours</source>
+        <translation>6 시간</translation>
+    </message>
+    <message id="general-rate">
+        <source>Exchange rate</source>
+        <translation>환율</translation>
+    </message>
+    <message id="wallet-swap-token-message">
+        <source>Send this token to the sender over a secure external channel</source>
+        <translation>해당 토큰을 외부의 보안 채널을 이용해 발송인에게로 보내기</translation>
+    </message>
+    <message id="wallet-receive-swap-publish">
+        <source>publish offer</source>
+        <translation>퍼블릭 트랜잭션 토큰</translation>
+    </message>
+    <message id="wallet-send-swap-title">
+        <source>Accept Swap Offer</source>
+        <translation>화폐 스왑</translation>
+    </message>
+    <message id="wallet-send-invalid-token">
+        <source>Invalid swap token</source>
+        <translation>잘못된 스왑 토큰</translation>
+    </message>
+    <message id="wallet-send-invalid-address-or-token">
+        <source>Invalid wallet address</source>
+        <translation>Invalid wallet address or swap token</translation>
+    </message>
+    <message id="general-comment-local">
+        <source>Comments are local and won&apos;t be shared</source>
+        <translation>Comments are local and won&apos;t be shared</translation>
+    </message>
+    <message id="send-total-label">
+        <source>Total UTXO value</source>
+        <translation>UTXO 총량</translation>
+    </message>
+    <message id="general-bitcoin">
+        <source>Bitcoin</source>
+        <translation>비트코인</translation>
+    </message>
+    <message id="general-litecoin">
+        <source>Litecoin</source>
+        <translation>라이트코인</translation>
+    </message>
+    <message id="general-qtum">
+        <source>QTUM</source>
+        <translation>큐텀</translation>
+    </message>
+    <message id="general-electrum">
+        <source>Electrum</source>
+        <translation>일렉트럼</translation>
+    </message>
+    <message id="swap-currency-na-message">
+        <source>%1 is not connected, 
+please review your settings and try again</source>
+        <translation>%1 가 연결되지 않았습니다, \n설정을 다시 하시고 재시도 해주세요.</translation>
+    </message>
+    <message id="send-not-enough">
+        <source>There is not enough funds to complete the transaction</source>
+        <translation>자금이 부족하여 트랜잭션을 완료할 수 없습니다</translation>
+    </message>
+    <message id="wallet-send-swap-offered-label">
+        <source>Offered on</source>
+        <translation>오퍼 시기</translation>
+    </message>
+    <message id="wallet-send-swap-expires-label">
+        <source>Expires on</source>
+        <translation>만료 시기</translation>
+    </message>
+    <message id="general-address-from">
+        <source>From</source>
+        <translation>From</translation>
+    </message>
+    <message id="general-address-to">
+        <source>To</source>
+        <translation>To</translation>
+    </message>
+    <message id="loading-view-estimate-calculating">
+        <source>calculating...</source>
+        <translation>계산 중...</translation>
+    </message>
+    <message id="loading-view-rebuild-utxos">
+        <source>Rebuilding wallet data</source>
+        <translation>지갑 데이터 재구축중</translation>
+    </message>
+    <message id="loading-view-estimate-hours">
+        <source>h</source>
+        <oldsource>h.</oldsource>
+        <translation type="unfinished">h.</translation>
+    </message>
+    <message id="loading-view-net-problems">
+        <source>It may take longer then usual. Please, check your network.</source>
+        <translation>평소보다 오래 걸리고 있습니다. 네트워크 상태를 확인부탁드립니다.</translation>
+    </message>
+    <message id="atomic-swap-title">
+        <source>Atomic Swaps</source>
+        <translation>아토믹 스왑</translation>
+    </message>
+    <message id="atomic-swap-create">
+        <source>Create offer</source>
+        <translation>오퍼 만들기</translation>
+    </message>
+    <message id="atomic-swap-active-offers-tab">
+        <source>Active offers</source>
+        <translation>활성화된 오퍼들</translation>
+    </message>
+    <message id="atomic-swap-transactions-tab">
+        <source>Transactions</source>
+        <translation>거래내역</translation>
+    </message>
+    <message id="atomic-swap-receive-beam">
+        <source>Receive BEAM</source>
+        <translation>BEAM 받기</translation>
+    </message>
+    <message id="atomic-swap-send-beam">
+        <source>Send BEAM</source>
+        <translation>BEAM 보내기</translation>
+    </message>
+    <message id="atomic-swap-only-my-offers">
+        <source>Only my offers</source>
+        <translation>내 오퍼들만</translation>
+    </message>
+    <message id="atomic-swap-fit-current-balance">
+        <source>Fit my current balance</source>
+        <translation>현재 자금에 맞추기</translation>
+    </message>
+    <message id="atomic-swap-currency">
+        <source>Currency</source>
+        <translation>Currency</translation>
+    </message>
+    <message id="atomic-swap-time-created">
+        <source>Created on</source>
+        <translation>작성일</translation>
+    </message>
+    <message id="atomic-swap-amount-send">
+        <source>Send</source>
+        <translation>보내기</translation>
+    </message>
+    <message id="atomic-swap-amount-receive">
+        <source>Receive</source>
+        <translation>받기</translation>
+    </message>
+    <message id="atomic-swap-rate">
+        <source>Rate</source>
+        <translation>Rate</translation>
+    </message>
+    <message id="atomic-swap-expiration">
+        <source>Expiration</source>
+        <translation>만료</translation>
+    </message>
+    <message id="atomic-swap-cancel">
+        <source>Cancel offer</source>
+        <translation>오퍼 취소</translation>
+    </message>
+    <message id="atomic-swap-accept">
+        <source>Accept offer</source>
+        <translation>오퍼 수락</translation>
+    </message>
+    <message id="atomic-swap-all-transactions-tab">
+        <source>All</source>
+        <translation>전부</translation>
+    </message>
+    <message id="atomic-swap-in-progress-transactions-tab">
+        <source>In progress</source>
+        <translation>진행중</translation>
+    </message>
+    <message id="atomic-swap-tx-table-created">
+        <source>Created on</source>
+        <translation>작성일</translation>
+    </message>
+    <message id="atomic-swap-tx-table-from">
+        <source>From</source>
+        <translation>From</translation>
+    </message>
+    <message id="atomic-swap-tx-table-to">
+        <source>To</source>
+        <translation>To</translation>
+    </message>
+    <message id="atomic-swap-tx-table-sent">
+        <source>Sent</source>
+        <translation>보냄</translation>
+    </message>
+    <message id="atomic-swap-tx-table-received">
+        <source>Received</source>
+        <translation>받음</translation>
+    </message>
+    <message id="atomic-swap-tx-table-status">
+        <source>Status</source>
+        <translation>상태</translation>
+    </message>
+    <message id="general-create-trezor-wallet">
+        <source>Create new Trezor wallet</source>
+        <translation>새로운 Trezor 지갑 생성</translation>
+    </message>
+    <message id="wallet-receive-text-online-time">
+        <source>For the transaction to complete, you should get online during the 12 hours after Beams are sent.</source>
+        <translation>거래를 완료하기 위해서는, Beam 을 보낸 후 12시간 동안 온라인 상태이어야 합니다.</translation>
+    </message>
+    <message id="send-confirmation-pwd-text-online-time">
+        <source>For the transaction to complete, the recipient must get online within the next 12 hours and you should get online within 2 hours afterwards.</source>
+        <translation>거래가 완료되기 위해서, 수신자는 12시간 이내로 온라인 상태가 되어야하고 당신 역시 2시간 안으로 온라인 상태이어야합니다.</translation>
+    </message>
+    <message id="atomic-swap-connect-other">
+        <source>Connect other currency wallet to start trading</source>
+        <translation>트레이딩 시작을 위해 다른 화폐 주소랑 연결하기</translation>
+    </message>
+    <message id="trezor-message">
+        <source>Please, look at your Trezor device to complete actions...</source>
+        <translation>액션을 완료하기 위해 Trezor 디바이스를 확인해주세요</translation>
+    </message>
+    <message id="start-init-wallet-with-trezor">
+        <source>Init wallet with Trezor</source>
+        <translation>Trezor를 통해 지갑 초기화</translation>
+    </message>
+    <message id="start-import-trezor-owner-key">
+        <source>Import Trezor Owner Key</source>
+        <translation>Trezor Owner 키 불러오기</translation>
+    </message>
+    <message id="start-owner-key-imported">
+        <source>Owner Key imported. Please, enter the password you saw on device to decrypt your Owner Key.</source>
+        <translation>오너키 불러옴. 오너키 해독을 위해 디바이스에 있는 비밀번호를 입력해주세요.</translation>
+    </message>
+    <message id="start-look-at-trezor-to-complete-actions">
+        <source>Please, look at your Trezor to complete actions...</source>
+        <translation>액션을 완료하기 위해 Trezor를 확인해주세요</translation>
+    </message>
+    <message id="start-found-trezor-device">
+        <source>Found device:</source>
+        <translation>디바이스 찾음:</translation>
+    </message>
+    <message id="start-no-trezor-device-connected">
+        <source>There is no device connected, please, connect your hardware wallet.</source>
+        <translation>연결된 디바이스 없음, 하드웨어 지갑을 연결해주세요.</translation>
+    </message>
+    <message id="wallet-receive-copy-token">
+        <source>copy swap token</source>
+        <translation>트랜잭션 토큰 복사</translation>
+    </message>
+    <message id="wallet-model-device-not-connected">
+        <source>There is no Trezor device connected. Please, connect and try again.</source>
+        <translation>연결된 Trezor 장치가 없습니다. 연결후 재시도해주세요.</translation>
+    </message>
+    <message id="wallet-transactions-all-tab">
+        <source>All</source>
+        <translation>전부</translation>
+    </message>
+    <message id="wallet-transactions-in-progress-tab">
+        <source>In progress</source>
+        <translation>진행중</translation>
+    </message>
+    <message id="wallet-transactions-sent-tab">
+        <source>Sent</source>
+        <translation>보냄</translation>
+    </message>
+    <message id="wallet-transactions-received-tab">
+        <source>Received</source>
+        <translation>받음</translation>
+    </message>
+    <message id="settings-progress-na">
+        <source>You cannot disconnect wallet, edit seed phrase or change default
+fee while you have transactions in progress.</source>
+        <translation>트랜잭션이 진행되는 동안은 지갑 연결을 끊거나 \n시드 구문을 수정하거나 또는 기본 수수료를 바꿀 수 없습니다.</translation>
+    </message>
+    <message id="atomic-no-offers">
+        <source>There are no active offers at the moment.
+Please try again later or create an offer yourself.</source>
+        <translation>활성화된 오퍼가 현재 없습니다.\n잠시 후 재시도하거나 오퍼를 만드십시오.</translation>
+    </message>
+    <message id="send-less-than-fee">
+        <source>The swap amount must be greater than the transaction fee</source>
+        <translation>스왑 금액은 리뎀션 수수료보다 더 커야합니다.</translation>
+    </message>
+    <message id="wallet-txs-status-in-progress">
+        <source>in progress</source>
+        <translation>진행중</translation>
+    </message>
+    <message id="wallet-txs-status-own-sent">
+        <source>sent to own address</source>
+        <translation>내 주소로 보냈음</translation>
+    </message>
+    <message id="wallet-txs-status-own-sending">
+        <source>sending to own address</source>
+        <translation>내 주소로 보내는 중</translation>
+    </message>
+    <message id="wallet-search-transactions-placeholder">
+        <source>Transaction or kernel ID, comment, address or contact</source>
+        <translation>트랜잭션 또는 커널 ID, 코멘트, 주소 또는 연락처</translation>
+    </message>
+    <message id="settings-swap-node">
+        <source>Node</source>
+        <translation>노드</translation>
+    </message>
+    <message id="wallet-clear-search">
+        <source>Clear search</source>
+        <translation>검색 지우기</translation>
+    </message>
+    <message id="wallet-search">
+        <source>Search</source>
+        <translation>검색</translation>
+    </message>
+    <message id="atomic-swap-1active-tx-count">
+        <source>1 active transaction</source>
+        <translation>1 활성화된 트랜잭션</translation>
+    </message>
+    <message id="atomic-swap-active-tx-count">
+        <source>%1 active transactions</source>
+        <translation>%1 활성화된 트랜잭션들</translation>
+    </message>
+    <message id="swap-beta-tx-in-progress">
+        <source>Transaction is in progress</source>
+        <translation>트랜잭션 진행 중</translation>
+    </message>
+    <message id="swap-connecting">
+        <source>Connecting...</source>
+        <translation>연결중...</translation>
+    </message>
+    <message id="swap-beta-connection-error">
+        <source>Cannot connect to peer. Please check the address and retry.</source>
+        <translation>피어와 연결이 불가능합니다. 주소를 확인하고 재시도해주세요.</translation>
+    </message>
+    <message id="swap-alert-confirm-button">
+        <source>I understand</source>
+        <translation>이해합니다</translation>
+    </message>
+    <message id="accept-own-offer-allert-head">
+        <source>You cannot accept your own offer</source>
+        <translation>나의 직접 오퍼는 수락불가능합니다</translation>
+    </message>
+    <message id="accept-own-offer-allert-body">
+        <source>The swap token was generated by you, and therefore cannot be accepted.</source>
+        <translation>The transaction token was generated by you, therefore it is not allowed to accept your own offer.\nPlease check the swap token and try again.</translation>
+    </message>
+    <message id="swap-copy-token">
+        <source>Copy token</source>
+        <translation>토큰 복사하기</translation>
+    </message>
+    <message id="atomic-swap-cancel-text">
+        <source>Are you sure you want to cancel your offer?</source>
+        <translation>정말로 당신의 오퍼를 취소하시겠습니까?</translation>
+    </message>
+    <message id="atomic-swap-cancel-button">
+        <source>cancel offer</source>
+        <translation>오퍼 취소</translation>
+    </message>
+    <message id="atomic-swap-back-button">
+        <source>back</source>
+        <translation>뒤로</translation>
+    </message>
+    <message id="swap-details-lock-tx-id">
+        <source>lock transaction ID</source>
+        <translation>트랜잭션 ID 잠금</translation>
+    </message>
+    <message id="swap-details-lock-tx-conf">
+        <source>lock transaction confirmations</source>
+        <translation>트랜잭션 컨펌 수 잠금</translation>
+    </message>
+    <message id="swap-details-beam-lock-kernel-id">
+        <source>BEAM lock transaction kernel ID</source>
+        <translation>BEAM lock transaction kernel ID</translation>
+    </message>
+    <message id="swap-details-beam-redeem-kernel-id">
+        <source>BEAM redeem transaction kernel ID</source>
+        <translation>BEAM redeem transaction kernel ID</translation>
+    </message>
+    <message id="swap-details-redeem-tx-id">
+        <source>redeem transaction ID</source>
+        <translation>redeem transaction ID</translation>
+    </message>
+    <message id="swap-details-redeem-tx-conf">
+        <source>redeem transaction confirmations</source>
+        <translation>redeem transaction confirmations</translation>
+    </message>
+    <message id="swap-details-beam-refund-kernel-id">
+        <source>BEAM refund transaction kernel ID</source>
+        <translation>BEAM refund transaction kernel ID</translation>
+    </message>
+    <message id="swap-details-refund-tx-id">
+        <source>refund transaction ID</source>
+        <translation>refund transaction ID</translation>
+    </message>
+    <message id="swap-details-refund-tx-conf">
+        <source>refund transaction confirmations</source>
+        <translation>refund transaction confirmations</translation>
+    </message>
+    <message id="swap-invalid-rate">
+        <source>Invalid rate</source>
+        <translation>유효하지 않은 rate</translation>
+    </message>
+    <message id="swap-details-tx-id">
+        <source>Transaction ID</source>
+        <translation>거래 ID</translation>
+    </message>
+    <message id="swap-details-tx-fee">
+        <source>BEAM Transaction fee</source>
+        <translation>거래 수수료</translation>
+    </message>
+    <message id="swap-details-tx-comment">
+        <source>Comment</source>
+        <translation>메모</translation>
+    </message>
+    <message id="swap-details-tx-fee-rate">
+        <source>%1 Transaction fee rate</source>
+        <translation>Transaction fee rate</translation>
+    </message>
+    <message id="settings-swap-disconnect">
+        <source>Disconnect</source>
+        <translation>연결 끊기</translation>
+    </message>
+    <message id="settings-swap-bitcoin-node">
+        <source>Bitcoin node</source>
+        <translation>비트코인 노드</translation>
+    </message>
+    <message id="settings-swap-litecoin-node">
+        <source>Litecoin node</source>
+        <translation>라이트코인 노드</translation>
+    </message>
+    <message id="settings-swap-qtum-node">
+        <source>Qtum node</source>
+        <translation>큐텀 노드</translation>
+    </message>
+    <message id="settings-swap-bitcoin-electrum">
+        <source>Bitcoin electrum</source>
+        <translation>비트코인 일렉트럼</translation>
+    </message>
+    <message id="settings-swap-litecoin-electrum">
+        <source>Litecoin electrum</source>
+        <translation>라이트코인 일렉트럼</translation>
+    </message>
+    <message id="settings-swap-qtum-electrum">
+        <source>Qtum electrum</source>
+        <translation>큐텀 일렉트럼</translation>
+    </message>
+    <message id="invalid-rate-min">
+        <source>Rate cannot be less than %1</source>
+        <translation>Rate는 %1보다 작을 수 없습니다</translation>
+    </message>
+    <message id="swap-offer-duplicate-message">
+        <source>The offer with this transaction token is already accepted.
+Please check the swap token and try again.</source>
+        <translation>The offer with this transaction token is already accepted.\nPlease check the swap token and try again.</translation>
+    </message>
+    <message id="swap-offer-duplicate-title">
+        <source>Оffer is already accepted</source>
+        <translation>오퍼가 이미 수락되었습니다</translation>
+    </message>
+    <message id="swap-offer-duplicate-confirm-button">
+        <source>ok</source>
+        <translation>ok</translation>
+    </message>
+    <message id="swap-details-failure-reason">
+        <source>Error</source>
+        <translation>오류</translation>
+    </message>
+    <message id="swap-tx-failture-refunded">
+        <source>Refunded</source>
+        <translation>환불됨</translation>
+    </message>
+    <message id="settings-swap-edit-seed">
+        <source>Edit your seed phrase</source>
+        <translation>시드 구문 수정</translation>
+    </message>
+    <message id="settings-swap-enter-seed">
+        <source>Enter your seed phrase</source>
+        <translation>시드 구문 입력</translation>
+    </message>
+    <message id="settings-swap-label-or">
+        <source>or</source>
+        <translation>또는</translation>
+    </message>
+    <message id="settings-swap-new-seed">
+        <source>Generate new seed phrase</source>
+        <translation>새로운 시드 구문 생성하기</translation>
+    </message>
+    <message id="settings-swap-show-seed">
+        <source>Show seed phrase</source>
+        <translation type="unfinished">Show seed phrase</translation>
+    </message>
+    <message id="settings-swap-show-addresses">
+        <source>Show wallet addresses</source>
+        <translation>지갑 주소 보기</translation>
+    </message>
+    <message id="swap-seed-info-message">
+        <source>Your seed phrase is the access key to all the funds! Print or write down the phrase and keep it in a safe or in a locked vault. Without the phrase you will not be able to recover your money.</source>
+        <translation>Your seed phrase is the access key to all the funds! Print or write down the phrase and keep it in a safe or in a locked vault.\nWithout the phrase you will not be able to recover your money.</translation>
+    </message>
+    <message id="settings-swap-seed-generate">
+        <source>generate another seed phrase</source>
+        <translation>또 다른 시드 구문 생성하기</translation>
+    </message>
+    <message id="swap-seed-new">
+        <source>New seed phrase</source>
+        <translation>새로운 시드 구문</translation>
+    </message>
+    <message id="swap-seed-edit">
+        <source>Enter your seed phrase</source>
+        <translation>시드 구문 입력</translation>
+    </message>
+    <message id="bitcoin-show-seed-title">
+        <source>Bitcoin seed phrase</source>
+        <translation>비트코인 시드 구문</translation>
+    </message>
+    <message id="litecoin-show-seed-title">
+        <source>Litecoin seed phrase</source>
+        <translation>라이트코인 시드 구문</translation>
+    </message>
+    <message id="qtum-show-seed-title">
+        <source>Qtum seed phrase</source>
+        <translation>큐텀 시드 구문</translation>
+    </message>
+    <message id="bitcoin-show-addresses-title">
+        <source>Bitcoin wallet addresses</source>
+        <translation>비트코인 지갑 주소들</translation>
+    </message>
+    <message id="litecoin-show-addresses-title">
+        <source>Litecoin wallet addresses</source>
+        <translation>라이트코인 지갑 주소들</translation>
+    </message>
+    <message id="qtum-show-addresses-title">
+        <source>Qtum wallet addresses</source>
+        <translation>큐텀 지갑 주소들</translation>
+    </message>
+    <message id="settings-swap-copy-address">
+        <source>Copy address</source>
+        <translation>주소 복사</translation>
+    </message>
+    <message id="settings-swap-confirm-edit-seed-title">
+        <source>Edit seed phrase</source>
+        <extracomment>electrum settings, ask password to edit seed phrase, dialog title</extracomment>
+        <translation>시드 구문 수정</translation>
+    </message>
+    <message id="settings-swap-confirm-edit-seed-message">
+        <source>Enter your wallet password to edit the phrase</source>
+        <extracomment>electrum settings, ask password to edit seed phrase, dialog message</extracomment>
+        <translation>시드 구문을 수정하기 위해 지갑 비밀번호를 입력해주세요</translation>
+    </message>
+    <message id="settings-swap-confirm-generate-seed-title">
+        <source>Generate new seed phrase</source>
+        <extracomment>electrum settings, ask password to generate new seed phrase, dialog title</extracomment>
+        <translation>새로운 시드 구문 생성하기</translation>
+    </message>
+    <message id="settings-swap-confirm-generate-seed-message">
+        <source>Enter your wallet password to generate new seed phrase</source>
+        <extracomment>electrum settings, ask password to generate new seed phrase, dialog message</extracomment>
+        <translation>새로운 시드 구문을 생성하기 위해 지갑 비밀번호를 입력해주세요</translation>
+    </message>
+    <message id="settings-swap-confirm-show-seed-title">
+        <source>Show seed phrase</source>
+        <extracomment>electrum settings, ask password to show seed phrase, dialog title</extracomment>
+        <translation type="unfinished">Show seed phrase</translation>
+    </message>
+    <message id="settings-swap-confirm-show-seed-message">
+        <source>Enter your wallet password to see the phrase</source>
+        <extracomment>electrum settings, ask password to show seed phrase, dialog message</extracomment>
+        <translation>시드 구문을 보기 위해 지갑 비밀번호를 입력해주세요</translation>
+    </message>
+    <message id="settings-swap-confirm-clear-seed-title">
+        <source>Clear seed phrase</source>
+        <extracomment>electrum settings, ask password to clear seed phrase, dialog title</extracomment>
+        <translation>시드 구문 치우기</translation>
+    </message>
+    <message id="settings-swap-confirm-clear-seed-message">
+        <source>Enter your wallet password to clear seed phrase</source>
+        <extracomment>electrum settings, ask password to clear seed phrase, dialog message</extracomment>
+        <translation>시드 구문을 치우기 위해 지갑 비밀번호를 입력해주세요</translation>
+    </message>
+    <message id="wallet-receive-swap-your-token">
+        <source>Your swap token:</source>
+        <translation type="unfinished">Your swap token:</translation>
+    </message>
+    <message id="send-swap-confirmation-title">
+        <source>Confirm atomic swap</source>
+        <translation type="unfinished">Confirm atomic swap</translation>
+    </message>
+    <message id="send-swap-sconfirmation-online-time">
+        <source>Keep your wallet online. The swap normally takes about 1 hour to complete.</source>
+        <translation type="unfinished">Keep your wallet online. The swap normally takes about 1 hour to complete.</translation>
+    </message>
+    <message id="beam-transaction-fee">
+        <source>BEAM Transaction fee</source>
+        <translation>거래 수수료</translation>
+    </message>
+    <message id="send-swap-token">
+        <source>Swap token</source>
+        <translation type="unfinished">Swap token</translation>
+    </message>
+    <message id="send-swap-token-hint">
+        <source>Paste token here</source>
+        <translation type="unfinished">Paste token here</translation>
+    </message>
+    <message id="settings-swap-connect">
+        <source>connect</source>
+        <translation type="unfinished">connect</translation>
+    </message>
+    <message id="swap-tx-state-initial">
+        <source>If nobody accepts the offer in %1, the offer will be automatically canceled</source>
+        <oldsource>if nobody accepts the offer in %1, the offer will be automatically canceled</oldsource>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="swap-tx-state-in-progress-normal">
+        <source>The swap is expected to complete in %1 at most</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="swap-tx-state-in-progress-refunding">
+        <source>The refund of your %2 will start in %1. Refund duration depends on the transaction fee you specified for %2</source>
+        <oldsource>The refund of your %2 will start in %1 (the actual refund duration depends on the transaction fee specified for the %2 blockchain)</oldsource>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="atomic-swap-tx-cancel">
+        <source>Cancel atomic swap</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="atomic-swap-tx-cancel-text">
+        <source>Are you sure you want to cancel?</source>
+        <oldsource>Are you sure you want to cancel atomic swap transaction?</oldsource>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="atomic-swap-tx-yes-button">
+        <source>yes</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="atomic-swap-no-button">
+        <source>no</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="swap-tx-state-refunding">
+        <source>Refunding</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="wallet-txs-status-waiting-peer">
+        <source>waiting for peer</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="send-swap-fee-warning">
+        <source> Once the offer is accepted by the other side, the %1 transaction fee will be charged even if the offer is cancelled.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="app-close-title">
+        <source>Beam wallet close</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="app-close-text">
+        <source>There are %1 active transactions that might fail if the wallet will go offline. Are you sure to close the wallet now?</source>
         <translation type="unfinished"></translation>
     </message>
 </context>

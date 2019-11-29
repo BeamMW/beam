@@ -17,155 +17,38 @@
 #include "wallet/common.h"
 #include "wallet/wallet_db.h"
 
-#include <condition_variable>
 #include <boost/optional.hpp>
 #include "utility/logger.h"
+#include "keykeeper/private_key_keeper.h"
 
+#include <condition_variable>
 #include <memory>
-
-#if defined(BEAM_HW_WALLET)
-#include "hw_wallet.h"
-#endif
 
 namespace beam::wallet
 {
     TxID GenerateTxID();
-
+    TxParameters CreateTransactionParameters(TxType type, const TxID& txID);
     //
-    // Interface for all possible transaction types
+    // Interface for all possible transaction types in active state
     //
     struct ITransaction
     {
         using Ptr = std::shared_ptr<ITransaction>;
+        
+        // Type of transaction
         virtual TxType GetType() const = 0;
+
+        // Updates state of transation. 
         virtual void Update() = 0;
+
+        // Cancel active transaction
         virtual void Cancel() = 0;
+        
+        // Rollback transation state up to give height
         virtual bool Rollback(Height height) = 0;
-    };
 
-
-
-    //
-    // Interface to master key storage. HW wallet etc.
-    // Only public info should cross its boundary.
-    //
-    struct IPrivateKeyKeeper
-    {
-        using Ptr = std::shared_ptr<IPrivateKeyKeeper>;
-
-        template<typename R>
-        using Callback = std::function<void(R&&)>;
-        using ExceptionCallback = Callback<const std::exception&>;
-        using PublicKeys = std::vector<ECC::Point>;
-        using RangeProofs = std::vector<std::unique_ptr<ECC::RangeProof::Confidential>>;
-        using Outputs = std::vector<Output::Ptr>;
-
-        struct Nonce
-        {
-            uint8_t m_Slot = 0;
-            ECC::Point m_PublicValue;
-        };
-
-        virtual void GeneratePublicKeys(const std::vector<Key::IDV>& ids, bool createCoinKey, Callback<PublicKeys>&&, ExceptionCallback&&) = 0;
-        virtual void GenerateOutputs(Height schemeHeigh, const std::vector<Key::IDV>& ids, Callback<Outputs>&&, ExceptionCallback&&) = 0;
-
-        virtual size_t AllocateNonceSlot() = 0;
-
-        // sync part for integration test
-        virtual PublicKeys GeneratePublicKeysSync(const std::vector<Key::IDV>& ids, bool createCoinKey) = 0;
-        virtual ECC::Point GeneratePublicKeySync(const Key::IDV& id, bool createCoinKey) = 0;
-        virtual Outputs GenerateOutputsSync(Height schemeHeigh, const std::vector<Key::IDV>& ids) = 0;
-        //virtual RangeProofs GenerateRangeProofSync(Height schemeHeigh, const std::vector<Key::IDV>& ids) = 0;
-        virtual ECC::Point GenerateNonceSync(size_t slot) = 0;
-        virtual ECC::Scalar SignSync(const std::vector<Key::IDV>& inputs, const std::vector<Key::IDV>& outputs, const ECC::Scalar::Native& offset, size_t nonceSlot, const ECC::Hash::Value& message, const ECC::Point::Native& publicNonce, const ECC::Point::Native& commitment) = 0;
-    };
-
-#if defined(BEAM_HW_WALLET)
-    //
-    // Private key keeper in HW wallet implementation
-    //
-    class HWWalletKeyKeeper : public IPrivateKeyKeeper
-    {
-    public:
-        void GeneratePublicKeys(const std::vector<Key::IDV>& ids, bool createCoinKey, Callback<PublicKeys>&&, ExceptionCallback&&) override
-        {
-
-        }
-
-        size_t AllocateNonceSlot() override
-        {
-            return 0;
-        }
-
-        PublicKeys GeneratePublicKeysSync(const std::vector<Key::IDV>& ids, bool createCoinKey) override
-        {
-            return {};
-        }
-
-        ECC::Point GeneratePublicKeySync(const Key::IDV& id, bool createCoinKey) override
-        {
-            return {};
-        }
-
-        Outputs GenerateOutputsSync(Height schemeHeigh, const std::vector<Key::IDV>& ids) override
-        {
-            return {};
-        }
-
-        ECC::Point GenerateNonceSync(size_t slot) override
-        {            
-            return m_hwWallet.generateNonceSync(static_cast<uint8_t>(slot));
-        }
-
-        ECC::Scalar SignSync(const std::vector<Key::IDV>& inputs, const std::vector<Key::IDV>& outputs, const ECC::Scalar::Native& offset, size_t nonceSlot, const ECC::Hash::Value& message, const ECC::Point::Native& publicNonce, const ECC::Point::Native& commitment) override
-        {
-            return {};
-        }
-    private:
-
-        beam::HWWallet m_hwWallet;
-    };
-#endif
-
-    //
-    // Private key keeper in local storage implementation
-    //
-    class LocalPrivateKeyKeeper : public IPrivateKeyKeeper
-                                , public std::enable_shared_from_this<LocalPrivateKeyKeeper>
-    {
-    public:
-        LocalPrivateKeyKeeper(IWalletDB::Ptr walletDB);
-    private:
-        void GeneratePublicKeys(const std::vector<Key::IDV>& ids, bool createCoinKey, Callback<PublicKeys>&& resultCallback, ExceptionCallback&& exceptionCallback) override;
-        void GenerateOutputs(Height schemeHeight, const std::vector<Key::IDV>& ids, Callback<Outputs>&&, ExceptionCallback&&) override;
-
-        size_t AllocateNonceSlot() override;
-
-        PublicKeys GeneratePublicKeysSync(const std::vector<Key::IDV>& ids, bool createCoinKey) override;
-        ECC::Point GeneratePublicKeySync(const Key::IDV& id, bool createCoinKey) override;
-        Outputs GenerateOutputsSync(Height schemeHeigh, const std::vector<Key::IDV>& ids) override;
-        //RangeProofs GenerateRangeProofSync(Height schemeHeight, const std::vector<Key::IDV>& ids) override;
-        ECC::Point GenerateNonceSync(size_t slot) override;
-        ECC::Scalar SignSync(const std::vector<Key::IDV>& inputs, const std::vector<Key::IDV>& outputs, const ECC::Scalar::Native& offset, size_t nonceSlot, const ECC::Hash::Value& message, const ECC::Point::Native& publicNonce, const ECC::Point::Native& commitment) override;
-
-    private:
-		Key::IKdf::Ptr GetChildKdf(const Key::IDV&) const;
-        ECC::Scalar::Native GetNonce(size_t slot);
-        ECC::Scalar::Native GetExcess(const std::vector<Key::IDV>& inputs, const std::vector<Key::IDV>& outputs, const ECC::Scalar::Native& offset) const;
-        void LoadNonceSeeds();
-        void SaveNonceSeeds();
-    private:
-        IWalletDB::Ptr m_WalletDB;
-        Key::IKdf::Ptr m_MasterKdf;
-
-		struct MyNonce :public ECC::NoLeak<ECC::Hash::Value> {
-			template <typename Archive> void serialize(Archive& ar) {
-				ar & V;
-			}
-		};
-
-        std::vector<MyNonce> m_Nonces;
-		size_t m_NonceSlotLast = 0;
+        // Returns true if negotiation is finished and all needed data is sent
+        virtual bool IsInSafety() const = 0;
     };
 
     std::string GetFailureMessage(TxFailureReason reason);
@@ -190,7 +73,20 @@ namespace beam::wallet
     {
     public:
         using Ptr = std::shared_ptr<BaseTransaction>;
-        using Creator = std::function<BaseTransaction::Ptr(INegotiatorGateway&, IWalletDB::Ptr, IPrivateKeyKeeper::Ptr, const TxID&)>;
+
+        class Creator
+        {
+        public:
+            using Ptr = std::shared_ptr<Creator>;
+
+            virtual ~Creator() = default;
+            
+            // Ñreates new instance of transaction (virtual constructor)
+            virtual BaseTransaction::Ptr Create(INegotiatorGateway& gateway, WalletDB::Ptr, IPrivateKeyKeeper::Ptr, const TxID&) = 0;
+            
+            // Allows to add any additional user's checks and enhancements of parameters. Should throw exceptions if something is wrong
+            virtual TxParameters CheckAndCompleteParameters(const TxParameters& p) { return p; } // TODO: find better solution without redundant copies
+        };
 
         BaseTransaction(INegotiatorGateway& gateway
                       , IWalletDB::Ptr walletDB
@@ -205,6 +101,11 @@ namespace beam::wallet
         bool Rollback(Height height) override;
 
         static const uint32_t s_ProtoVersion;
+
+        virtual bool IsTxParameterExternalSettable(TxParameterID paramID, SubTxID subTxID) const
+        {
+            return true;
+        }
 
         template <typename T>
         bool GetParameter(TxParameterID paramID, T& value, SubTxID subTxID = kDefaultSubTxID) const
@@ -250,7 +151,9 @@ namespace beam::wallet
         uint32_t get_PeerVersion() const;
         bool GetTip(Block::SystemState::Full& state) const;
         void UpdateAsync();
+        INegotiatorGateway& GetGateway() const;
     protected:
+        
         virtual bool CheckExpired();
         virtual bool CheckExternalFailures();
         void ConfirmKernel(const Merkle::Hash& kernelID);
@@ -266,6 +169,7 @@ namespace beam::wallet
         virtual void UpdateImpl() = 0;
 
         virtual bool ShouldNotifyAboutChanges(TxParameterID paramID) const { return true; };
+        void SetCompletedTxCoinStatuses(Height proofHeight);
     protected:
 
         INegotiatorGateway& m_Gateway;

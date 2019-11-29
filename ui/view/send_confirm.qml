@@ -1,14 +1,10 @@
 import QtQuick 2.11
-import QtQuick.Controls 1.2
 import QtQuick.Controls 2.4
-import QtQuick.Controls.Styles 1.2
-import QtGraphicalEffects 1.0
-import QtQuick.Layouts 1.3
+import QtQuick.Layouts 1.1
 import Beam.Wallet 1.0
 import "controls"
 
-ConfirmationDialog
-{
+ConfirmationDialog {
     onVisibleChanged: {
         if (!this.visible) {
             this.destroy();
@@ -16,25 +12,35 @@ ConfirmationDialog
     }
 
     id: sendViewConfirm
+    parent: Overlay.overlay
 
-    property alias addressText:      addressLabel.text
-    property alias amountText:       amountLabel.text
-    property alias feeText:          feeLabel.text
-    property Item defaultFocusItem:  viewModel.needPassword() ? requirePasswordInput : cancelButton
+    property var    onAcceptedCallback: undefined
+    property alias  addressText:        addressLabel.text
+    property alias  amountText:         amountLabel.text
+    property alias  feeText:            feeLabel.text
+    property Item   defaultFocusItem:   BeamGlobals.needPasswordToSpend() ? requirePasswordInput : cancelButton
+    property bool   swapMode:           false
+    property var    swapCurrencyLabel:  ""
+    //% "Transaction fee"
+    property string feeLabel: qsTrId("general-fee") + ":"
 
+    okButtonText: sendViewConfirm.swapMode ?
+                    //% "Swap"
+                    qsTrId("general-swap"):
+                    //% "Send"
+                    qsTrId("general-send")
     okButtonColor:           Style.accent_outgoing
-    okButtonText:            qsTrId("general-send")
     okButtonIconSource:      "qrc:/assets/icon-send-blue.svg"
-    okButtonEnable:          viewModel.needPassword() ? requirePasswordInput.text.length : true
+    okButtonEnable:          BeamGlobals.needPasswordToSpend() ? requirePasswordInput.text.length : true
     cancelButtonIconSource:  "qrc:/assets/icon-cancel-white.svg"
 
     function confirmationHandler() {
-        if (viewModel.needPassword()) {
+        if (BeamGlobals.needPasswordToSpend()) {
             if (requirePasswordInput.text.length == 0) {
                 requirePasswordInput.forceActiveFocus(Qt.TabFocusReason);
                 return;
             }
-            if (!viewModel.isPasswordValid(requirePasswordInput.text)) {
+            if (!BeamGlobals.isPasswordValid(requirePasswordInput.text)) {
                 requirePasswordInput.forceActiveFocus(Qt.TabFocusReason);
                 requirePasswordError.text = qsTrId("general-pwd-invalid");
                 return;
@@ -55,8 +61,7 @@ ConfirmationDialog
     }
 
     onAccepted: {
-        viewModel.sendMoney();
-        sendView.enabled = false;
+        onAcceptedCallback();
     }
 
     contentItem: Item {
@@ -75,8 +80,11 @@ ConfirmationDialog
                 font.styleName: "Bold";
                 font.weight: Font.Bold
                 color: Style.content_main
-                //% "Confirm transaction details"
-                text: qsTrId("send-confirmation-title")
+                text: sendViewConfirm.swapMode ?
+                    //% "Confirm atomic swap"
+                    qsTrId("send-swap-confirmation-title") :
+                    //% "Confirm transaction details"
+                    qsTrId("send-confirmation-title")
             }
 
             GridLayout {
@@ -94,7 +102,7 @@ ConfirmationDialog
                 // Recipient/Address
                 //
                 SFText {
-                    Layout.fillWidth: true
+                    Layout.fillWidth: false
                     Layout.fillHeight: true
                     Layout.minimumHeight: 16
                     font.pixelSize: 14
@@ -120,7 +128,7 @@ ConfirmationDialog
                 //
                 SFText {
                     Layout.row: 2
-                    Layout.fillWidth: true
+                    Layout.fillWidth: false
                     Layout.fillHeight: true
                     Layout.minimumHeight: 16
                     Layout.bottomMargin: 3
@@ -146,12 +154,11 @@ ConfirmationDialog
                 //
                 SFText {
                     Layout.row: 3
-                    Layout.fillWidth: true
+                    Layout.fillWidth: false
                     Layout.minimumHeight: 16
                     font.pixelSize: 14
                     color: Style.content_disabled
-                    //% "Transaction fee"
-                    text: qsTrId("general-fee") + ":"
+                    text: sendViewConfirm.feeLabel
                 }
 
                 SFText {
@@ -167,7 +174,7 @@ ConfirmationDialog
                 //
                 SFText {
                     id: requirePasswordLabel
-                    visible: viewModel.needPassword()
+                    visible: BeamGlobals.needPasswordToSpend()
                     Layout.row: 4
                     Layout.columnSpan: 2
                     Layout.topMargin: 50
@@ -182,7 +189,7 @@ ConfirmationDialog
 
                 SFTextInput {
                     id: requirePasswordInput
-                    visible: viewModel.needPassword()
+                    visible: BeamGlobals.needPasswordToSpend()
                     Layout.row: 5
                     Layout.columnSpan: 2
                     Layout.fillWidth: true
@@ -197,13 +204,39 @@ ConfirmationDialog
 
                 SFText {
                     id: requirePasswordError
-                    visible: viewModel.needPassword()
+                    visible: BeamGlobals.needPasswordToSpend()
                     Layout.row: 6
                     Layout.columnSpan: 2
                     height: 16
                     width: parent.width
                     color: Style.validator_error
                     font.pixelSize: 14
+                }
+
+                //
+                // Wait online message
+                //
+                SFText {
+                    Layout.row: 7
+                    Layout.columnSpan: 2
+                    Layout.topMargin: 15
+                    horizontalAlignment: Text.AlignHCenter
+                    Layout.fillWidth: sendViewConfirm.swapMode
+                    Layout.maximumHeight:  60
+                    Layout.maximumWidth: sendViewConfirm.swapMode ? parent.width : 400
+                    Layout.minimumHeight: 16
+                    font.pixelSize: 14
+                    color: Style.content_disabled
+                    wrapMode: Text.WordWrap
+                    text: sendViewConfirm.swapMode ?
+                        //% "Keep your wallet online. The swap normally takes about 1 hour to complete."
+                        qsTrId("send-swap-sconfirmation-online-time") + (swapCurrencyLabel !== "" ?
+                            //% " Once the offer is accepted by the other side, the %1 transaction fee will be charged even if the offer is cancelled."
+                            qsTrId("send-swap-fee-warning").arg(swapCurrencyLabel)
+                            : "")
+                        :
+                        //% "For the transaction to complete, the recipient must get online within the next 12 hours and you should get online within 2 hours afterwards."
+                        qsTrId("send-confirmation-pwd-text-online-time")
                 }
             }
         }

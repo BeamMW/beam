@@ -1,3 +1,6 @@
+cmake_minimum_required(VERSION 3.11)
+cmake_policy(SET CMP0074 NEW)
+
 set(UTILITY_SRC
     common.cpp
     logger.cpp
@@ -47,59 +50,47 @@ if (MSVC)
 endif()
 
 add_library(utility STATIC ${UTILITY_SRC} ${IO_SRC})
+target_include_directories(utility PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 
-if(ANDROID OR NOT BEAM_USE_AVX)
-    add_library(crypto STATIC ${PROJECT_SOURCE_DIR}/3rdparty/crypto/blake/ref/blake2b-ref.c)
-else()
-    add_library(crypto STATIC ${PROJECT_SOURCE_DIR}/3rdparty/crypto/blake/sse/blake2b.cpp)
-endif()
+target_compile_features(utility PUBLIC cxx_std_17)
 
-#if(NOT ANDROID)
-    add_library(cli STATIC ${CLI_SRC})
-#endif()
+add_library(cli STATIC ${CLI_SRC})
 
 if (UV_INTERNAL)
-    add_dependencies(utility uv_a)
     target_link_libraries(utility uv_a)
 else()
     target_link_libraries(utility uv)
 endif()
 
-target_link_libraries(utility ${OPENSSL_LIBSSL} ${OPENSSL_LIBCRYPTO})
-
-if (UNIX)
-    target_link_libraries(utility dl)
+if (IOS)
+    target_link_libraries(utility 
+        $ENV{BOOST_ROOT_IOS}/lib/libboost_filesystem.a
+        $ENV{BOOST_ROOT_IOS}/lib/libboost_system.a
+    )
+elseif(ANDROID)
+    target_link_libraries(utility 
+        $ENV{BOOST_ROOT_ANDROID}/libs/${ANDROID_ABI}/libboost_filesystem${ANDROID_SUFFIX}
+        $ENV{BOOST_ROOT_ANDROID}/libs/${ANDROID_ABI}/libboost_system${ANDROID_SUFFIX}
+    )
 endif()
 
-target_link_libraries(utility mnemonic)
+target_link_libraries(utility Boost::system Boost::filesystem)
+target_link_libraries(cli Boost::program_options)
 
-if(ANDROID)
-    if(ANDROID_ABI STREQUAL "armeabi-v7a")
-        target_link_libraries(utility 
-            $ENV{BOOST_ROOT_ANDROID}/libs/${ANDROID_ABI}/libboost_filesystem-clang-mt-a32-1_68.a
-            $ENV{BOOST_ROOT_ANDROID}/libs/${ANDROID_ABI}/libboost_system-clang-mt-a32-1_68.a)
-    elseif(ANDROID_ABI STREQUAL "x86")
-        target_link_libraries(utility 
-            $ENV{BOOST_ROOT_ANDROID}/libs/${ANDROID_ABI}/libboost_filesystem-clang-mt-x32-1_68.a
-            $ENV{BOOST_ROOT_ANDROID}/libs/${ANDROID_ABI}/libboost_system-clang-mt-x32-1_68.a)
-    elseif(ANDROID_ABI STREQUAL "x86_64")
-        target_link_libraries(utility 
-            $ENV{BOOST_ROOT_ANDROID}/libs/${ANDROID_ABI}/libboost_filesystem-clang-mt-x64-1_68.a
-            $ENV{BOOST_ROOT_ANDROID}/libs/${ANDROID_ABI}/libboost_system-clang-mt-x64-1_68.a)
-    elseif(ANDROID_ABI STREQUAL "arm64-v8a")
-        target_link_libraries(utility 
-            $ENV{BOOST_ROOT_ANDROID}/libs/${ANDROID_ABI}/libboost_filesystem-clang-mt-a64-1_68.a
-            $ENV{BOOST_ROOT_ANDROID}/libs/${ANDROID_ABI}/libboost_system-clang-mt-a64-1_68.a)
+target_link_libraries(utility OpenSSL::SSL OpenSSL::Crypto)
+if (LINUX)
+    target_link_libraries(utility ${OPENSSL_SSL_LIBRARY} ${OPENSSL_CRYPTO_LIBRARY})
+endif()
+
+if(OPENSSL_USE_STATIC_LIBS AND MSVC)
+    target_link_libraries(utility crypt32.lib)
+    if(MSVC_VERSION GREATER_EQUAL 1900)
+        target_link_libraries(utility legacy_stdio_definitions.lib)
     endif()
-else()
-    if (Boost_FOUND)
-        find_package(Boost COMPONENTS program_options filesystem)
-        target_link_libraries(utility Boost::filesystem)
-        target_link_libraries(cli Boost::program_options)
-    else()
-        target_link_libraries(utility boost_filesystem boost_system)
-        target_link_libraries(cli boost_program_options)
-    endif()
+endif()
+
+if (UNIX)
+    target_link_libraries(utility ${CMAKE_DL_LIBS})
 endif()
 
 add_subdirectory(unittest)

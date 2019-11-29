@@ -68,6 +68,7 @@ namespace {
     DEF_LABEL(height);
     DEF_LABEL(nonceprefix);
     DEF_LABEL(forkheight);
+    DEF_LABEL(blockhash);
 #undef DEF_LABEL
 
 ResultCode parse_json(const void* buf, size_t bufSize, json& o) {
@@ -151,7 +152,7 @@ Job::Job(const std::string& _id, const Merkle::Hash& _input, const Block::PoW& _
     height(height)
 {
     char buf[72];
-    input = to_hex(buf, _input.m_pData, 32);
+    input = to_hex(buf, _input.m_pData, _input.nBytes);
 }
 
 bool append_json_msg(io::FragmentWriter& packer, const Job& m) {
@@ -203,7 +204,8 @@ bool append_json_msg(io::FragmentWriter& packer, const Result& m) {
     o[l_code] = m.code;
     o[l_description] = m.description;
     if (!m.nonceprefix.empty()) o[l_nonceprefix] = m.nonceprefix;
-    if (m.forkheight != MaxHeight) o[l_forkheight] = m.forkheight;	
+    if (m.forkheight != MaxHeight) o[l_forkheight] = m.forkheight;
+    if (!m.blockhash.empty()) o[l_blockhash] = m.blockhash;
     return serialize_json_msg(packer, o);
 }
 

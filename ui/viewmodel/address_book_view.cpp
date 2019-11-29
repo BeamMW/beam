@@ -117,10 +117,6 @@ AddressBookViewModel::AddressBookViewModel()
     : m_model{*AppModel::getInstance().getWallet()}
 {
     connect(&m_model,
-            SIGNAL(walletStatus(const beam::wallet::WalletStatus&)),
-            SLOT(onStatus(const beam::wallet::WalletStatus&)));
-
-    connect(&m_model,
             SIGNAL(addressesChanged(bool, const std::vector<beam::wallet::WalletAddress>&)),
             SLOT(onAddresses(bool, const std::vector<beam::wallet::WalletAddress>&)));
 
@@ -260,20 +256,9 @@ QString AddressBookViewModel::generateQR(
 }
 
 // static
-QString AddressBookViewModel::getLocaleName()
-{
-    const auto& settings = AppModel::getInstance().getSettings();
-    return settings.getLocale();
-}
-
 bool AddressBookViewModel::isAddressWithCommentExist(const QString& comment) const
 {
     return m_model.isAddressWithCommentExist(comment.toStdString());
-}
-
-void AddressBookViewModel::onStatus(const beam::wallet::WalletStatus&)
-{
-    getAddressesFromModel();
 }
 
 void AddressBookViewModel::onAddresses(bool own, const std::vector<beam::wallet::WalletAddress>& addresses)

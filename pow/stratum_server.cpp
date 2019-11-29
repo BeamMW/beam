@@ -176,6 +176,9 @@ bool Server::on_solution(uint64_t from, const Solution& sol) {
         stratumCode = stratum::solution_expired;
     }
     Result res(sol.id, stratumCode);
+    if (result == IExternalPOW::solution_accepted) {
+        res.blockhash = result._blockhash;
+    }
     append_json_msg(_fw, res);
     bool sent = _connections[from]->send_msg(_currentMsg, true);
     _currentMsg.clear();

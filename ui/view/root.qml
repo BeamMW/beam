@@ -12,8 +12,8 @@ Window  {
 
     function cellResize() {
         if(appWindow.visibility != ApplicationWindow.Maximized) {
-            var minWidth = Math.min(1024, Screen.desktopAvailableWidth - 10);
-            var minHeight = Math.min(867, Screen.desktopAvailableHeight - 80);
+            var minWidth = Math.min(1024, appWindow.screen.width - 10);
+            var minHeight = Math.min(867, appWindow.screen.height - 80);
             appWindow.minimumWidth = minWidth;
             appWindow.minimumHeight = minHeight;
             appWindow.width = minWidth;

@@ -135,10 +135,7 @@ namespace beam
 			bool Deposit = true; // CA emission in exchange for beams. If not specified - the emission is free
 		} CA;
 
-		struct {
-			uint32_t MaxRollback = 1440; // 1 day roughly
-			uint32_t Granularity = 720; // i.e. should be created for heights that are multiples of this. This should make it more likely for different nodes to have the same macroblocks
-		} Macroblock;
+		uint32_t MaxRollback = 1440; // 1 day roughly
 
 		size_t MaxBodySize = 0x100000; // 1MB
 
@@ -185,11 +182,6 @@ namespace beam
 	struct TxElement
 	{
 		ECC::Point m_Commitment;
-		Height m_Maturity; // Used in macroblocks only.
-
-		TxElement() :m_Maturity(0) {}
-
-		static thread_local bool s_IgnoreMaturity; // should maturity be ignored incomparison?
 
 		int cmp(const TxElement&) const;
 		COMPARISON_VIA_CMP
@@ -198,7 +190,12 @@ namespace beam
 	struct Input
 		:public TxElement
 	{
-		TxoID m_ID = 0; // used internally. Not serialized/transferred
+		// used internally. Not serialized/transferred
+		struct Internal
+		{
+			Height m_Maturity = 0; // of the consumed (being-spent) UTXO
+			TxoID m_ID = 0;
+		} m_Internal;
 
 		typedef std::unique_ptr<Input> Ptr;
 		typedef uint32_t Count; // the type for count of duplicate UTXOs in the system
@@ -629,9 +626,6 @@ namespace beam
 			};
 
 			void Merge(const BodyBase& next);
-
-			// suitable for big (compressed) blocks
-			class RW;
 		};
 
 		struct Body

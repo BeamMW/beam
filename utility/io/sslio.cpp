@@ -49,7 +49,6 @@ SSL_CTX* init_ctx(bool isServer) {
     }
 
     static const char* cipher_settings = "ALL:!ADH:!LOW:!EXP:!MD5:@STRENGTH";
-    static const char* srtp_settings = "SRTP_AES128_CM_SHA1_80";
 
     SSL_CTX* ctx = SSL_CTX_new(isServer ? SSLv23_server_method() : SSLv23_client_method());
     if (!ctx) {
@@ -60,11 +59,7 @@ SSL_CTX* init_ctx(bool isServer) {
         LOG_ERROR() << "SSL_CTX_set_cipher_list failed";
         IO_EXCEPTION(EC_SSL_ERROR);
     }
-    // TODO ???
-    if (SSL_CTX_set_tlsext_use_srtp(ctx, srtp_settings) != 0) {
-        LOG_ERROR() << "SSL_CTX_set_tlsext_use_srtp failed";
-        IO_EXCEPTION(EC_SSL_ERROR);
-    }
+
     SSL_CTX_set_options(ctx, SSL_OP_ALL|SSL_OP_NO_SSLv2|SSL_OP_NO_SSLv3);
     return ctx;
 }
@@ -186,7 +181,7 @@ Result SSLIO::send_pending_data(bool flush) {
     int bytes = BIO_pending(_wbio);
     if (bytes < 0) return make_unexpected(EC_SSL_ERROR);
     if (bytes > 0) {
-        LOG_DEBUG() << __FUNCTION__ << TRACE(this) << TRACE(bytes);
+        //LOG_DEBUG() << __FUNCTION__ << TRACE(this) << TRACE(bytes);
         auto p = alloc_heap((size_t) bytes);
         assert(p.first);
         int bytesRead = BIO_read(_wbio, p.first, bytes);
@@ -205,7 +200,7 @@ Result SSLIO::do_handshake() {
 }
 
 Result SSLIO::on_encrypted_data_from_stream(const void *data, size_t size) {
-    LOG_DEBUG() << TRACE(size); // << std::string((const char*)data, size);
+    //LOG_DEBUG() << TRACE(size); // << std::string((const char*)data, size);
 
     void* buf = alloca(_fragmentSize);
     auto ptr = (const uint8_t *) data;

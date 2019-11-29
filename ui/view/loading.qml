@@ -23,7 +23,7 @@ Item
         okButtonText: qsTrId("loading-try-again-button")
         okButtonIconSource: "qrc:/assets/icon-restore-blue.svg"
         //% "Change settings"
-        cancelButtonText: qsTrId("loading-change-settings-button")
+        cancelButtonText: qsTrId("general-change-settings")
         cancelButtonIconSource: "qrc:/assets/icon-settings-white.svg"
 
         property alias titleText: title.text
@@ -85,7 +85,7 @@ Item
             confirmationDialog.open();
         }
 
-        onWalletReseted: {
+        onWalletResetCompleted: {
             if(cancelCallback) {
                 cancelCallback();
             }
@@ -212,7 +212,7 @@ Item
 
                     Item {
                         Layout.fillHeight: true
-                        Layout.minimumHeight: 67
+                        Layout.minimumHeight: isRecoveryMode ? 47 : 67
                     }
 
                     SFText {
@@ -226,6 +226,15 @@ Item
                         Layout.minimumHeight: 35
                     }
                 }
+            }
+        }
+
+        Timer {
+            interval: 1000
+            running: true
+            repeat: true
+            onTriggered: {
+                viewModel.recalculateProgress();
             }
         }
     }

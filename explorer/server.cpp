@@ -31,7 +31,7 @@ static const unsigned SERVER_RESTART_INTERVAL = 1000;
 static const unsigned ACL_REFRESH_INTERVAL = 5555;
 
 enum Dirs {
-    DIR_STATUS, DIR_BLOCK, DIR_BLOCKS
+    DIR_STATUS, DIR_BLOCK, DIR_BLOCKS, DIR_PEERS
     // etc
 };
 
@@ -112,7 +112,7 @@ bool Server::on_request(uint64_t id, const HttpMsgReader::Message& msg) {
     const std::string& path = msg.msg->get_path();
 
     static const std::map<std::string_view, int> dirs {
-        { "status", DIR_STATUS }, { "block", DIR_BLOCK }, { "blocks", DIR_BLOCKS }
+        { "status", DIR_STATUS }, { "block", DIR_BLOCK }, { "blocks", DIR_BLOCKS }, { "peers", DIR_PEERS}
     };
 
     const HttpConnection::Ptr& conn = it->second;
@@ -129,6 +129,9 @@ bool Server::on_request(uint64_t id, const HttpMsgReader::Message& msg) {
                 break;
             case DIR_BLOCKS:
                 func = &Server::send_blocks;
+                break;
+            case DIR_PEERS:
+                func = &Server::send_peers;
                 break;
             default:
                 break;
@@ -200,6 +203,13 @@ bool Server::send_blocks(const HttpConnection::Ptr& conn) {
         return send(conn, 400, "Bad request");
     }
     if (!_backend.get_blocks(_body, start, n)) {
+        return send(conn, 500, "Internal error #3");
+    }
+    return send(conn, 200, "OK");
+}
+
+bool Server::send_peers(const HttpConnection::Ptr& conn) {
+    if (!_backend.get_peers(_body)) {
         return send(conn, 500, "Internal error #3");
     }
     return send(conn, 200, "OK");

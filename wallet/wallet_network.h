@@ -52,7 +52,7 @@ namespace beam::wallet
             Timestamp m_ExpirationTime;
         };
     public:
-        BaseMessageEndpoint(IWallet&, const IWalletDB::Ptr&);
+        BaseMessageEndpoint(IWalletMessageConsumer&, const IWalletDB::Ptr&, IPrivateKeyKeeper::Ptr);
         virtual ~BaseMessageEndpoint();
         void AddOwnAddress(const WalletAddress& address);
         void DeleteOwnAddress(uint64_t ownID);
@@ -69,6 +69,7 @@ namespace beam::wallet
 
         // IWalletMessageEndpoint
         void Send(const WalletID& peerID, const SetTxParameter& msg) override;
+        void SendAndSign(const ByteBuffer& msg, const BbsChannel& channel, const WalletID& wid, uint8_t version) override;
         void OnAddressTimer();
         
     private:
@@ -78,9 +79,11 @@ namespace beam::wallet
         typedef  bi::multiset<Addr::Channel> ChannelSet;
         ChannelSet m_Channels;
 
-        IWallet& m_Wallet;
+        IWalletMessageConsumer& m_Wallet;
         IWalletDB::Ptr m_WalletDB;
         io::Timer::Ptr m_AddressExpirationTimer;
+
+        IPrivateKeyKeeper::Ptr m_keyKeeper;
     };
 
     class WalletNetworkViaBbs
@@ -96,6 +99,8 @@ namespace beam::wallet
         {
             typedef boost::intrusive_ptr<MyRequestBbsMsg> Ptr;
             virtual ~MyRequestBbsMsg() {}
+
+            uint64_t m_MessageID;
         };
 
         typedef boost::intrusive::list<MyRequestBbsMsg> BbsMsgList;
@@ -134,6 +139,7 @@ namespace beam::wallet
                 proto::BbsMsg m_Msg;
                 ECC::Hash::Processor m_hpPartial;
                 volatile bool m_Done;
+                uint64_t m_StoredMessageID;
 
                 typedef std::shared_ptr<Task> Ptr;
             };
@@ -152,11 +158,11 @@ namespace beam::wallet
         } m_Miner;
 
         void OnMined();
-        void OnMined(proto::BbsMsg&&);
+        void OnMined(Miner::Task::Ptr);
 
     public:
 
-        WalletNetworkViaBbs(IWallet&, std::shared_ptr<proto::FlyClient::INetwork>, const IWalletDB::Ptr&);
+        WalletNetworkViaBbs(IWalletMessageConsumer&, std::shared_ptr<proto::FlyClient::INetwork>, const IWalletDB::Ptr&, IPrivateKeyKeeper::Ptr);
         virtual ~WalletNetworkViaBbs();
 
         bool m_MineOutgoing = true; // can be turned-off for testing
@@ -173,7 +179,7 @@ namespace beam::wallet
         : public BaseMessageEndpoint
     {
     public:
-        ColdWalletMessageEndpoint(IWallet& wallet, IWalletDB::Ptr walletDB);
+        ColdWalletMessageEndpoint(IWalletMessageConsumer& wallet, IWalletDB::Ptr walletDB, IPrivateKeyKeeper::Ptr keyKeeper);
         ~ColdWalletMessageEndpoint();
     private:
         void SendEncryptedMessage(const WalletID& peerID, const ByteBuffer& msg) override;

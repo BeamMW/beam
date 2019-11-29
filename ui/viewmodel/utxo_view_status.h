@@ -20,14 +20,12 @@ class UtxoViewStatus : public QObject
 {
     Q_OBJECT
 public:
-    UtxoViewStatus() : QObject() {}
-
     enum EnStatus
     {
         Undefined = 0,
-        Unavailable,
         Available,
         Maturing,
+        Unavailable,
         Outgoing,
         Incoming,
         Spent,

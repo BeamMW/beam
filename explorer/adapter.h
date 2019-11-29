@@ -37,6 +37,8 @@ struct IAdapter {
     virtual bool get_block_by_kernel(io::SerializedMsg& out, const ByteBuffer& key) = 0;
 
     virtual bool get_blocks(io::SerializedMsg& out, uint64_t startHeight, uint64_t n) = 0;
+
+    virtual bool get_peers(io::SerializedMsg& out) = 0;
 };
 
 IAdapter::Ptr create_adapter(Node& node);

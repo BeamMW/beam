@@ -1,3 +1,5 @@
+cmake_minimum_required(VERSION 3.11)
+
 set(CORE_SRC
     uintBig.cpp
     ecc.cpp
@@ -8,6 +10,7 @@ set(CORE_SRC
     block_validation.cpp
     difficulty.cpp
     chainwork.cpp
+    mapped_file.cpp
     navigator.cpp
     radixtree.cpp
     merkle.cpp
@@ -21,13 +24,17 @@ set(CORE_SRC
 )
 
 add_library(core STATIC ${CORE_SRC})
+target_link_libraries(core 
+    PUBLIC
+        Boost::boost
+        p2p
+    PRIVATE
+        pow
+        pbkdf
+        secp256k1
+)
 
-add_dependencies(core p2p pow secp256k1)
-target_link_libraries(core p2p pow secp256k1)
-
-target_include_directories(core PUBLIC ${PROJECT_SOURCE_DIR}/3rdparty/secp256k1-zkp/include)
-target_include_directories(core PUBLIC ${PROJECT_SOURCE_DIR}/3rdparty/secp256k1-zkp/src)
-target_include_directories(core PUBLIC ${PROJECT_SOURCE_DIR}/3rdparty/)
-include_directories(${PROJECT_SOURCE_DIR}/core)
+#target_include_directories(core PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+target_include_directories(core PUBLIC ${PROJECT_SOURCE_DIR}/core)
 
 add_subdirectory(unittest)

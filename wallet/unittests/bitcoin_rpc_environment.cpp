@@ -14,7 +14,6 @@
 
 #include "utility/logger.h"
 #include "utility/io/timer.h"
-//#include "utility/io/tcpserver.h"
 #include "http/http_connection.h"
 #include "http/http_msg_creator.h"
 #include "utility/helpers.h"
@@ -28,17 +27,6 @@ const std::string btcPass = "123";
 
 using namespace beam;
 using json = nlohmann::json;
-
-namespace
-{
-    // TODO roman.strilec: temporary solution
-    std::string generateAuthorization(const std::string& userName, const std::string& pass)
-    {
-        std::string userWithPass(userName + ":" + pass);
-        libbitcoin::data_chunk t(userWithPass.begin(), userWithPass.end());
-        return std::string("Basic " + libbitcoin::encode_base64(t));
-    }
-}
 
 class BitcoinHttpServer
 {
@@ -58,11 +46,6 @@ public:
     }
 
 protected:
-
-    virtual std::string dumpPrivKey()
-    {
-        return R"({"result":"cTZEjMtL96FyC43AxEvUxbs3pinad2cH8wvLeeCYNUwPURqeknkG","error":null,"id":null})";
-    }
 
     virtual std::string fundRawTransaction()
     {
@@ -110,7 +93,6 @@ private:
     {
         if (errorCode == 0)
         {
-            LOG_DEBUG() << "Stream accepted";
             uint64_t peerId = m_lastId++;
             m_connections[peerId] = std::make_unique<HttpConnection>(
                 peerId,
@@ -138,8 +120,9 @@ private:
 
         std::string result;
         int responseStatus = 200;
+        bitcoin::BitcoinCoreSettings settings{ m_userName, m_pass, io::Address{} };
 
-        if (msg.msg->get_header("Authorization") == generateAuthorization(m_userName, m_pass))
+        if (msg.msg->get_header("Authorization") == settings.generateAuthorization())
         {
             size_t sz = 0;
             const void* rawReq = msg.msg->get_body(sz);
@@ -189,8 +172,6 @@ private:
         json j = json::parse(msg);
         if (j["method"] == "getbalance")
             return getBalance();
-        else if (j["method"] == "dumpprivkey")
-            return dumpPrivKey();
         else if (j["method"] == "fundrawtransaction")
             return fundRawTransaction();
         else if (j["method"] == "signrawtransaction")

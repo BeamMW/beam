@@ -113,12 +113,12 @@ namespace beam
 		static const uint32_t nBits = nBytes_ << 3;
 		static const uint32_t nBytes = nBytes_;
 
-        uintBig_t()
-        {
+		uintBig_t()
+		{
 #ifdef _DEBUG
 			memset(m_pData, 0xcd, nBytes);
 #endif // _DEBUG
-        }
+		}
 
 		uintBig_t(Zero_)
 		{
@@ -130,10 +130,10 @@ namespace beam
 			memcpy(m_pData, p, nBytes);
 		}
 
-        uintBig_t(const std::initializer_list<uint8_t>& v)
-        {
+		uintBig_t(const std::initializer_list<uint8_t>& v)
+		{
 			_Assign(m_pData, nBytes, v.begin(), static_cast<uint32_t>(v.size()));
-        }
+		}
 
 		uintBig_t(const Blob& v)
 		{
@@ -171,6 +171,11 @@ namespace beam
 		bool operator == (Zero_) const
 		{
 			return memis0(m_pData, nBytes);
+		}
+
+		bool operator != (Zero_) const
+		{
+			return !(*this == Zero);
 		}
 
 		template <typename T>

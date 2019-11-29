@@ -14,16 +14,112 @@
 
 #include "options.h"
 
-#include "boost/lexical_cast.hpp"
+#include <boost/lexical_cast.hpp>
 #include "core/block_crypt.h"
 #include "core/ecc.h"
 #include "utility/string_helpers.h"
 #include "utility/helpers.h"
-#include "wallet/secstring.h"
 #include "mnemonic/mnemonic.h"
+#if defined __linux__
+    #include <unistd.h>
+    #include <termios.h>
+#elif defined _WIN32
+    #define WIN32_LEAN_AND_MEAN
+    #include <windows.h>
+#else
+    #include <unistd.h>
+    #include <termios.h>
+#endif
 
 using namespace std;
 using namespace ECC;
+
+namespace
+{
+#ifndef WIN32
+
+    namespace {
+
+        int getch() {
+            int ch;
+            struct termios t_old, t_new;
+
+            tcgetattr(STDIN_FILENO, &t_old);
+            t_new = t_old;
+            t_new.c_lflag &= ~(ICANON | ECHO);
+            tcsetattr(STDIN_FILENO, TCSANOW, &t_new);
+
+            ch = getchar();
+
+            tcsetattr(STDIN_FILENO, TCSANOW, &t_old);
+            return ch;
+        }
+
+    } //namespace
+
+#endif
+
+    void read_password(const char* prompt, beam::SecString& out, bool includeTerminatingZero) {
+        std::cout << prompt;
+
+        size_t maxLen = beam::SecString::MAX_SIZE - 1;
+        unsigned char ch = 0;
+
+#ifdef WIN32
+
+        static const char BACKSPACE = 8;
+        static const char RETURN = 13;
+
+
+        DWORD con_mode;
+        DWORD dwRead;
+        HANDLE hIn = GetStdHandle(STD_INPUT_HANDLE);
+
+        GetConsoleMode(hIn, &con_mode);
+        SetConsoleMode(hIn, con_mode & ~(ENABLE_ECHO_INPUT | ENABLE_LINE_INPUT));
+
+        while (ReadConsoleA(hIn, &ch, 1, &dwRead, NULL) && ch != RETURN && out.size() < maxLen) {
+            if (ch == BACKSPACE) {
+                if (out.size() > 0) {
+                    std::cout << "\b \b";
+                    out.pop_back();
+                }
+            }
+            else {
+                out.push_back((char)ch);
+                std::cout << '*';
+            }
+        }
+
+        GetConsoleMode(hIn, &con_mode);
+        SetConsoleMode(hIn, con_mode | (ENABLE_ECHO_INPUT | ENABLE_LINE_INPUT));
+
+#else
+        static const char BACKSPACE = 127;
+        static const char RETURN = 10;
+
+        while ((ch = getch()) != RETURN && out.size() < maxLen)
+        {
+            if (ch == BACKSPACE) {
+                if (out.size() > 0) {
+                    std::cout << "\b \b";
+                    out.pop_back();
+                }
+            }
+            else {
+                out.push_back((char)ch);
+                std::cout << '*';
+            }
+        }
+
+#endif
+
+        if (includeTerminatingZero) {
+            out.push_back('\0');
+        }
+        std::cout << std::endl;
+    }
+}
 
 namespace beam
 {
@@ -43,26 +139,26 @@ namespace beam
         const char* NONCEPREFIX_DIGITS = "nonceprefix_digits";
         const char* NODE_PEER = "peer";
         const char* PASS = "pass";
-        const char* BTC_PASS = "btc_pass";
-        const char* BTC_USER_NAME = "btc_user";
-        const char* LTC_PASS = "ltc_pass";
-        const char* LTC_USER_NAME = "ltc_user";
-        const char* QTUM_PASS = "qtum_pass";
-        const char* QTUM_USER_NAME = "qtum_user";
+        const char* SET_SWAP_SETTINGS = "set_swap_settings";
+        const char* ACTIVE_CONNECTION = "active_connection";
+        const char* SWAP_WALLET_PASS = "swap_wallet_pass";
+        const char* SWAP_WALLET_USER = "swap_wallet_user";
+        const char* ALTCOIN_SETTINGS_RESET = "reset";
+        const char* SHOW_SWAP_SETTINGS = "show_swap_settings";
+        const char* ELECTRUM_SEED = "electrum_seed";
+        const char* GENERATE_ELECTRUM_SEED = "generate_electrum_seed";
+        const char* ELECTRUM_ADDR = "electrum_addr";
         const char* AMOUNT = "amount";
         const char* AMOUNT_FULL = "amount,a";
         const char* RECEIVER_ADDR = "receiver_addr";
         const char* RECEIVER_ADDR_FULL = "receiver_addr,r";
         const char* NODE_ADDR = "node_addr";
         const char* NODE_ADDR_FULL = "node_addr,n";
-        const char* BTC_NODE_ADDR = "btc_node_addr";
-        const char* LTC_NODE_ADDR = "ltc_node_addr";
-        const char* QTUM_NODE_ADDR = "qtum_node_addr";
+        const char* SWAP_WALLET_ADDR = "swap_wallet_addr";
         const char* COMMAND = "command";
         const char* LISTEN = "listen";
         const char* TREASURY = "treasury";
         const char* TREASURY_BLOCK = "treasury_path";
-        const char* RESYNC = "resync";
         const char* RESET_ID = "reset_id";
         const char* ERASE_ID = "erase_id";
         const char* CHECKDB = "check_db";
@@ -115,18 +211,17 @@ namespace beam
         const char* IMPORT_DATA = "import_data";
         const char* IMPORT_EXPORT_PATH = "file_location";
         const char* IP_WHITELIST = "ip_whitelist";
-        const char* HORIZON_HI = "horizon_hi";
-        const char* HORIZON_LO = "horizon_lo";
+		const char* FAST_SYNC = "fast_sync";
 		const char* GENERATE_RECOVERY_PATH = "generate_recovery";
 		const char* RECOVERY_AUTO_PATH = "recovery_auto_path";
 		const char* RECOVERY_AUTO_PERIOD = "recovery_auto_period";
         const char* COLD_WALLET = "cold_wallet";
         const char* SWAP_INIT = "swap_init";
-        const char* SWAP_LISTEN = "swap_listen";
+        const char* SWAP_ACCEPT = "swap_accept";
+        const char* SWAP_TOKEN = "swap_token";
         const char* SWAP_AMOUNT = "swap_amount";
         const char* SWAP_FEERATE = "swap_feerate";
         const char* SWAP_COIN = "swap_coin";
-        const char* SWAP_NETWORK = "swap_network";
         const char* SWAP_BEAM_SIDE = "swap_beam_side";
         const char* SWAP_TX_HISTORY = "swap_tx_history";
         const char* NODE_POLL_PERIOD = "node_poll_period";
@@ -192,7 +287,6 @@ namespace beam
             (cli::STRATUM_PORT, po::value<uint16_t>()->default_value(0), "port to start stratum server on")
             (cli::STRATUM_SECRETS_PATH, po::value<string>()->default_value("."), "path to stratum server api keys file, and tls certificate and private key")
             (cli::STRATUM_USE_TLS, po::value<bool>()->default_value(true), "enable TLS on startum server")
-            (cli::RESYNC, po::value<bool>()->default_value(false), "Enforce re-synchronization (soft reset)")
             (cli::RESET_ID, po::value<bool>()->default_value(false), "Reset self ID (used for network authentication). Must do if the node is cloned")
             (cli::ERASE_ID, po::value<bool>()->default_value(false), "Reset self ID (used for network authentication) and stop before re-creating the new one.")
             (cli::CHECKDB, po::value<bool>()->default_value(false), "DB integrity check and compact (vacuum)")
@@ -204,8 +298,7 @@ namespace beam
             (cli::KEY_MINE, po::value<string>(), "Standalone miner key (deprecated)")
             (cli::PASS, po::value<string>(), "password for keys")
             (cli::LOG_UTXOS, po::value<bool>()->default_value(false), "Log recovered UTXOs (make sure the log file is not exposed)")
-            (cli::HORIZON_HI, po::value<Height>()->default_value(MaxHeight), "spent TXO Hi-Horizon")
-            (cli::HORIZON_LO, po::value<Height>()->default_value(MaxHeight), "spent TXO Lo-Horizon")
+			(cli::FAST_SYNC, po::value<bool>(), "Fast sync on/off (override horizons)")
 			(cli::GENERATE_RECOVERY_PATH, po::value<string>(), "Recovery file to generate immediately after start")
 			(cli::RECOVERY_AUTO_PATH, po::value<string>(), "path and file prefix for recovery auto-generation")
 			(cli::RECOVERY_AUTO_PERIOD, po::value<uint32_t>()->default_value(30), "period (in blocks) for recovery auto-generation")
@@ -238,7 +331,7 @@ namespace beam
             (cli::IMPORT_EXPORT_PATH, po::value<string>()->default_value("export.dat"), "path to import or export data (import_data|export_data)")
             (cli::COLD_WALLET, "used to init cold wallet")
             (cli::IGNORE_DICTIONARY, "ignore dictionaty while validating seed phrase")
-            (cli::COMMAND, po::value<string>(), "command to execute [new_addr|send|listen|init|restore|info|export_miner_key|export_owner_key|generate_phrase|change_address_expiration|address_list|rescan|export_data|import_data|tx_details|payment_proof_export|payment_proof_verify|utxo|cancel_tx|delete_tx|swap_init|swap_listen]")
+            (cli::COMMAND, po::value<string>(), "command to execute [new_addr|send|listen|init|restore|info|export_miner_key|export_owner_key|generate_phrase|change_address_expiration|address_list|rescan|export_data|import_data|tx_details|payment_proof_export|payment_proof_verify|utxo|cancel_tx|delete_tx|swap_init|swap_accept]")
             (cli::NODE_POLL_PERIOD, po::value<Nonnegative<uint32_t>>()->default_value(Nonnegative<uint32_t>(0)), "Node poll period in milliseconds. Set to 0 to keep connection. Anyway poll period would be no less than the expected rate of blocks if it is less then it will be rounded up to block rate value.");
 
         po::options_description wallet_treasury_options("Wallet treasury options");
@@ -258,21 +351,22 @@ namespace beam
 
         po::options_description swap_options("Atomic swap options");
         swap_options.add_options()
-            (cli::BTC_NODE_ADDR, po::value<string>(), "address of bitcoin node")
-            (cli::BTC_USER_NAME, po::value<string>(), "user name for the bitcoin node")
-            (cli::BTC_PASS, po::value<string>(), "password for the bitcoin node")
-            (cli::LTC_NODE_ADDR, po::value<string>(), "address of litecoin node")
-            (cli::LTC_USER_NAME, po::value<string>(), "user name for the litecoin node")
-            (cli::LTC_PASS, po::value<string>(), "password for the litecoin node")
-            (cli::QTUM_NODE_ADDR, po::value<string>(), "address of qtum node")
-            (cli::QTUM_USER_NAME, po::value<string>(), "user name for the qtum node")
-            (cli::QTUM_PASS, po::value<string>(), "password for the qtum node")
+            (cli::SET_SWAP_SETTINGS, po::value<std::string>(), "command to work with swap settings.")
+            (cli::ALTCOIN_SETTINGS_RESET, po::value<std::string>(), "reset altcoin's settings [core|electrum]")
+            (cli::ACTIVE_CONNECTION, po::value<string>(), "set active connection [core|electrum|none]")
+            (cli::SHOW_SWAP_SETTINGS, "show altcoin's settings")
+            (cli::ELECTRUM_SEED, po::value<string>(), "bitcoin electrum seed")
+            (cli::GENERATE_ELECTRUM_SEED, "generate new electrum seed")
+            (cli::ELECTRUM_ADDR, po::value<string>(), "electrum address")
+            (cli::SWAP_WALLET_ADDR, po::value<string>(), "rpc address of swap wallet")
+            (cli::SWAP_WALLET_USER, po::value<string>(), "rpc user name for the swap wallet")
+            (cli::SWAP_WALLET_PASS, po::value<string>(), "rpc password for the swap wallet")
             (cli::SWAP_COIN, po::value<string>(), "swap coin(btc, ltc, qtum)")
             (cli::SWAP_AMOUNT, po::value<Positive<Amount>>(), "swap amount in the smallest unit of the coin")
             (cli::SWAP_FEERATE, po::value<Positive<Amount>>(), "The specific feerate you are willing to pay(the smallest unit of the coin per KB)")
-            (cli::SWAP_NETWORK, po::value<string>(), "type of second side network(mainnet, testnet)")
             (cli::SWAP_BEAM_SIDE, "Should be set by Beam owner")
-            (cli::SWAP_TX_HISTORY, "show swap transactions history in info command");
+            (cli::SWAP_TX_HISTORY, "show swap transactions history in info command")
+            (cli::SWAP_TOKEN, po::value<string>(), "swap transaction token");
 
         po::options_description options{ "Allowed options" };
         po::options_description visible_options{ "Allowed options" };
@@ -441,10 +535,5 @@ namespace beam
         SecString passConfirm;
         read_password("Confirm password: ", passConfirm, false);
         return passConfirm.hash().V == pass.hash().V;
-    }
-
-    bool read_btc_pass(SecString& pass, po::variables_map& vm)
-    {
-        return read_secret_impl(pass, "Enter password of bitcoin node: ", cli::BTC_PASS, vm);
     }
 }

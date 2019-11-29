@@ -1,8 +1,8 @@
-cmake_minimum_required(VERSION 3.5)
+cmake_minimum_required(VERSION 3.11)
 cmake_policy(SET CMP0074 NEW)
 
-set(VERSION_MAJOR 3)
-set(VERSION_MINOR 1)
+set(VERSION_MAJOR 4)
+set(VERSION_MINOR 0)
 set(VERSION_REVISION 0)
 set(GIT_COMMIT_HASH "unknown")
 
@@ -10,6 +10,15 @@ set(BEAM_SUFFIX_LOWER_CASE "masternet")
 set(BEAM_SUFFIX_UPPER_CASE "Masternet")
 set(BEAM_TARGET_SUFFIX "-${BEAM_SUFFIX_LOWER_CASE}")
 set(BEAM_DISPLAY_SUFFIX " ${BEAM_SUFFIX_UPPER_CASE}")
+
+if(IOS)
+    add_compile_definitions(_LIBCPP_ENABLE_CXX17_REMOVED_AUTO_PTR)
+
+    if (POLICY CMP0025)
+        cmake_policy(SET CMP0025 NEW)
+    endif ()
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Winvalid-ios-deployment-target")
+endif()
 
 if (BEAM_SIGN_PACKAGE AND WIN32)
   #  add_custom_target(signing ALL DEPENDS beam-wallet-ui COMMENT "Signing Package...")
@@ -98,7 +107,6 @@ enable_testing()
 
 function(add_test_snippet EXE_NAME LIB_NAME)
     add_executable(${EXE_NAME} ${EXE_NAME}.cpp)
-    add_dependencies(${EXE_NAME} ${LIB_NAME} ${ARGN})
     target_link_libraries(${EXE_NAME} ${LIB_NAME} ${ARGN})
     add_test(NAME ${EXE_NAME} COMMAND $<TARGET_FILE:${EXE_NAME}>)
 endfunction()
@@ -115,7 +123,7 @@ if(BEAM_USE_AVX)
     add_definitions(-DBEAM_USE_AVX)
 endif()
 
-set(BEAM_QT_UI_WALLET TRUE)
+option(BEAM_QT_UI_WALLET "Build wallet UI" TRUE)
 if (BEAM_NO_QT_UI_WALLET)
     set(BEAM_QT_UI_WALLET FALSE)    
 endif()
@@ -145,6 +153,9 @@ endif()
 # uncoment next line for mainnet
 set(BEAM_MAINNET TRUE)
 
+# uncoment next line for swap mainnet
+#set(SWAP_MAINNET TRUE)
+
 if(BEAM_TESTNET)
     add_definitions(-DBEAM_TESTNET)
     set(BEAM_SUFFIX_LOWER_CASE "testnet")
@@ -159,7 +170,15 @@ elseif(BEAM_MAINNET)
     set(BEAM_DISPLAY_SUFFIX "")
 endif()
 
+if(SWAP_MAINNET)
+    message("SWAP_MAINNET")
+    add_definitions(-DSWAP_MAINNET)
+endif()
+
+option(BEAM_ATOMIC_SWAP_SUPPORT "Build with wallet with atomic swap support" ON)
+
 option(BEAM_HW_WALLET "Build with hardware wallet support" OFF)
+
 
 if(BEAM_HW_WALLET)
 
@@ -193,6 +212,7 @@ if(MSVC)
 
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /wd4100") # unreferenced formal parameter
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /wd4324") # '__blake2b_state': structure was padded due to alignment specifier
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /Zc:__cplusplus")
 
     set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} /O2")
     set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} /O2")
@@ -217,7 +237,7 @@ if(MSVC)
     endif()
 
 else()
-    if(NOT ANDROID)
+    if(NOT ANDROID AND NOT IOS)
         if(ARCH_NATIVE)
             set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -march=native")
         else()
@@ -249,10 +269,61 @@ if(UNIX OR WIN32)
     add_definitions(-DUV_INTERNAL)
 endif()
 
-if(ANDROID)
-    message("ANDROID_ABI: ${ANDROID_ABI}")
+#Boost
+
+set(BEAM_BOOST_COMPONENTS system filesystem program_options thread regex log locale)
+
+function(CreateBoostComponentTargets listOfComponents root libPrefix libSuffix)
+    add_library(Boost::boost INTERFACE IMPORTED)
+    set (INCLUDE_LOCATION "${root}/include")
+    set_target_properties(Boost::boost PROPERTIES
+        INTERFACE_INCLUDE_DIRECTORIES ${INCLUDE_LOCATION})
+
+    message(STATUS "Boost includes: ${INCLUDE_LOCATION}")
+
+    foreach(COMPONENT ${listOfComponents})
+        set(COMPONENT_LOCATION ${root}/${libPrefix}${COMPONENT}${libSuffix})
+        message(STATUS "${COMPONENT_LOCATION}")
+        if (NOT TARGET Boost::${COMPONENT})
+       # if (EXISTS(${COMPONENT_LOCATION}))
+            add_library(Boost::${COMPONENT} STATIC IMPORTED)
+            set_target_properties(Boost::${COMPONENT} PROPERTIES
+                INTERFACE_INCLUDE_DIRECTORIES ${INCLUDE_LOCATION})
+            set_target_properties(Boost::${COMPONENT} PROPERTIES
+                IMPORTED_LINK_INTERFACE_LANGUAGES "CXX"
+                IMPORTED_LOCATION ${COMPONENT_LOCATION})
+       else()
+           message(STATUS "Boost::${COMPONENT} is already defined")
+       endif()
+    endforeach()
+endfunction()
+
+if(IOS)
+    set(BEAM_ATOMIC_SWAP_SUPPORT OFF)
+    add_compile_definitions(BOOST_NO_AUTO_PTR)
     add_definitions(-DBOOST_ERROR_CODE_HEADER_ONLY)
-    include_directories($ENV{BOOST_ROOT_ANDROID}/include)
+    CreateBoostComponentTargets("${BEAM_BOOST_COMPONENTS}" "$ENV{BOOST_ROOT_IOS}" "lib/libboost_" ".a")
+elseif(ANDROID)
+    message("ANDROID_ABI: ${ANDROID_ABI}")
+    set(BEAM_ATOMIC_SWAP_SUPPORT OFF)
+    add_compile_definitions(BOOST_ERROR_CODE_HEADER_ONLY)
+    add_definitions(-DBOOST_ERROR_CODE_HEADER_ONLY)
+
+    set(ANDROID_SUFFIX "")
+
+    if(ANDROID_ABI STREQUAL "armeabi-v7a")
+        set(ANDROID_SUFFIX "-clang-mt-a32-1_68.a")
+    elseif(ANDROID_ABI STREQUAL "x86")
+        set(ANDROID_SUFFIX "-clang-mt-x32-1_68.a")
+    elseif(ANDROID_ABI STREQUAL "x86_64")
+        set(ANDROID_SUFFIX "-clang-mt-x64-1_68.a")
+    elseif(ANDROID_ABI STREQUAL "arm64-v8a")
+        set(ANDROID_SUFFIX "-clang-mt-a64-1_68.a")
+    endif()
+
+    CreateBoostComponentTargets("${BEAM_BOOST_COMPONENTS}" "$ENV{BOOST_ROOT_ANDROID}" "libs/${ANDROID_ABI}/libboost_" "${ANDROID_SUFFIX}")
+    
+    
 else()
 
     if(LINUX)
@@ -264,11 +335,7 @@ else()
         add_definitions(-DNOMINMAX)
     endif()
 
-    find_package(Boost REQUIRED)
-
     if(BEAM_USE_STATIC)
-        include(FindBoost)
-
         set(Boost_USE_MULTITHREADED ON)
         set(Boost_USE_STATIC_LIBS ON)
         set(Boost_USE_STATIC_RUNTIME ON)
@@ -278,86 +345,58 @@ else()
         endif()
     endif()
 
+    #set (Boost_VERBOSE TRUE)
+    find_package(Boost 1.67 REQUIRED COMPONENTS ${BEAM_BOOST_COMPONENTS})
 endif()
+
+#Boost end
 
 include_directories(${PROJECT_SOURCE_DIR})
 add_definitions(-DPROJECT_SOURCE_DIR=\"${PROJECT_SOURCE_DIR}\")
 
 include_directories(${PROJECT_SOURCE_DIR}/3rdparty)
 
+#OpenSSL
+
 if(BEAM_USE_STATIC)
 
-    if(MSVC)
-        include_directories($ENV{OPENSSL_ROOT_DIR}/include)
-    else()
-        find_package(OpenSSL REQUIRED)
+    set(OPENSSL_USE_STATIC_LIBS TRUE)
+    set(OPENSSL_MSVC_STATIC_RT TRUE)
+    find_package(OpenSSL REQUIRED)
 
-        if( OpenSSL_FOUND )
-            set(OPENSSL_USE_STATIC_LIBS TRUE)
-            link_directories(${OPENSSL_LIBRARIES})
-            include_directories(${OPENSSL_INCLUDE_DIR})
-            message(STATUS "Using OpenSSL ${OPENSSL_VERSION}")
-        else()
-            message(FATAL_ERROR "error, OpenSSL not found, please install: 'apt-get install libssl-dev' on Ubuntu")
-        endif()
-    endif()
-
-    # cmake can't find static lib on macos, harcoded
-    if(APPLE)
-        set(OPENSSL_LIBCRYPTO $ENV{OPENSSL_ROOT_DIR}/lib/libcrypto.a)
-        set(OPENSSL_LIBSSL $ENV{OPENSSL_ROOT_DIR}/lib/libssl.a)
-    elseif(UNIX)
-        set(OPENSSL_LIBCRYPTO /usr/lib/x86_64-linux-gnu/libcrypto.a)
-        set(OPENSSL_LIBSSL /usr/lib/x86_64-linux-gnu/libssl.a)
-    elseif(MSVC)
-        set(OPENSSL_LIBCRYPTO $ENV{OPENSSL_ROOT_DIR}/lib/VC/static/libcrypto64MT.lib crypt32.lib)
-        set(OPENSSL_LIBSSL $ENV{OPENSSL_ROOT_DIR}/lib/VC/static/libssl64MT.lib)
-
-        if(MSVC_VERSION GREATER_EQUAL 1900)
-            set(OPENSSL_LIBCRYPTO ${OPENSSL_LIBCRYPTO} legacy_stdio_definitions.lib)
-        endif()
-    endif()
 else()
     if(ANDROID)
-        include_directories($ENV{OPENSSL_ROOT_DIR_ANDROID}/include)
-        set(OPENSSL_LIBCRYPTO $ENV{OPENSSL_ROOT_DIR_ANDROID}/libs/${ANDROID_ABI}/libcrypto.a)
-        set(OPENSSL_LIBSSL $ENV{OPENSSL_ROOT_DIR_ANDROID}/libs/${ANDROID_ABI}/libssl.a)
+
+        add_library(OpenSSL::Crypto STATIC IMPORTED)
+        set_target_properties(OpenSSL::Crypto PROPERTIES
+            INTERFACE_INCLUDE_DIRECTORIES "$ENV{OPENSSL_ROOT_DIR_ANDROID}/include")
+        set_target_properties(OpenSSL::Crypto PROPERTIES
+            IMPORTED_LINK_INTERFACE_LANGUAGES "C"
+            IMPORTED_LOCATION "$ENV{OPENSSL_ROOT_DIR_ANDROID}/libs/${ANDROID_ABI}/libcrypto.a")
+
+        add_library(OpenSSL::SSL STATIC IMPORTED)
+        set_target_properties(OpenSSL::SSL PROPERTIES
+            INTERFACE_INCLUDE_DIRECTORIES "$ENV{OPENSSL_ROOT_DIR_ANDROID}/include")
+        set_target_properties(OpenSSL::SSL PROPERTIES
+            IMPORTED_LINK_INTERFACE_LANGUAGES "C"
+            IMPORTED_LOCATION "$ENV{OPENSSL_ROOT_DIR_ANDROID}/libs/${ANDROID_ABI}/libssl.a")
+
     else()
         find_package(OpenSSL REQUIRED)
-
-        if( OpenSSL_FOUND )
-            set(OPENSSL_USE_STATIC_LIBS TRUE)
-            link_directories(${OPENSSL_LIBRARIES})
-            include_directories(${OPENSSL_INCLUDE_DIR})
-            message(STATUS "Using OpenSSL ${OPENSSL_VERSION}")
-            set(OPENSSL_LIBCRYPTO OpenSSL::Crypto)
-            set(OPENSSL_LIBSSL OpenSSL::SSL)
-        else()
-            message(FATAL_ERROR "error, OpenSSL not found, please install: 'apt-get install libssl-dev' on Ubuntu")
-        endif()
     endif()
 endif()
 
-if (UV_INTERNAL)
-    include_directories(${PROJECT_SOURCE_DIR}/3rdparty/libuv/include)
-    add_subdirectory(3rdparty/libuv)
-endif()
-
-if(Boost_FOUND)
-    add_library(boost INTERFACE IMPORTED)
-    set_property(TARGET boost PROPERTY INTERFACE_INCLUDE_DIRECTORIES ${Boost_INCLUDE_DIR})
-endif()
+#OpenSSL end
 
 add_definitions(-DBC_STATIC)
 
-add_subdirectory(3rdparty/secp256k1-zkp)
-add_subdirectory(3rdparty/libbitcoin)
-add_subdirectory(3rdparty/sqlite)
+add_subdirectory(3rdparty)
 add_subdirectory(utility)
 add_subdirectory(core)
 add_subdirectory(pow)
 add_subdirectory(p2p)
 add_subdirectory(http)
+add_subdirectory(keykeeper)
 add_subdirectory(wallet)
 add_subdirectory(node)
 add_subdirectory(mnemonic)
@@ -367,8 +406,7 @@ if(ANDROID OR BEAM_BUILD_JNI)
     add_subdirectory(android)
 endif()
 
-# TODO: uncomment this later
-if(NOT ANDROID)
+if(NOT ANDROID AND NOT IOS)
     add_subdirectory(beam)
     add_subdirectory(explorer)
 

@@ -36,6 +36,7 @@ struct Node
 		virtual void OnSyncProgress() = 0;
 		virtual void OnStateChanged() {}
 		virtual void OnRolledBack(const Block::SystemState::ID& id) {};
+		virtual void InitializeUtxosProgress(uint64_t done, uint64_t total) {};
 
         enum Error
         {
@@ -72,6 +73,8 @@ struct Node
 		uint32_t m_MiningThreads = 0; // by default disabled
 
 		bool m_LogUtxos = false; // may be insecure. Off by default.
+		bool m_LogTxStem = true;
+		bool m_LogTxFluff = true;
 
 		// Number of verification threads for CPU-hungry cryptography. Currently used for block validation only.
 		// 0: single threaded
@@ -177,14 +180,19 @@ struct Node
 
 		bool operator == (const SyncStatus&) const;
 
+		void ToRelative(Height hDone0);
+
 	} m_SyncStatus;
 
 	uint32_t get_AcessiblePeerCount() const; // all the peers with known addresses. Including temporarily banned
+    const PeerManager::AddrSet& get_AcessiblePeerAddrs() const;
 
 	bool m_UpdatedFromPeers = false;
 	bool m_PostStartSynced = false;
 
 	bool GenerateRecoveryInfo(const char*);
+
+	bool DecodeAndCheckHdrs(std::vector<Block::SystemState::Full>&, const proto::HdrPack&);
 
 private:
 
@@ -192,14 +200,15 @@ private:
 		:public NodeProcessor
 	{
 		// NodeProcessor
-		void RequestData(const Block::SystemState::ID&, bool bBlock, const PeerID* pPreferredPeer, const NodeDB::StateID& sidTrg) override;
+		void RequestData(const Block::SystemState::ID&, bool bBlock, const NodeDB::StateID& sidTrg) override;
 		void OnPeerInsane(const PeerID&) override;
 		void OnNewState() override;
 		void OnRolledBack() override;
 		void OnModified() override;
 		bool EnumViewerKeys(IKeyWalker&) override;
-		void OnUtxoEvent(const UtxoEvent::Value&) override;
+		void OnUtxoEvent(const UtxoEvent::Value&, Height) override;
 		void OnDummy(const Key::ID&, Height) override;
+		void InitializeUtxosProgress(uint64_t done, uint64_t total) override;
 		void Stop();
 
 		struct TaskProcessor
@@ -276,6 +285,7 @@ private:
 
 		bool m_bNeeded;
 		uint32_t m_nCount;
+		uint32_t m_TimeAssigned_ms;
 		NodeDB::StateID m_sidTrg;
 		Peer* m_pOwner;
 
@@ -294,9 +304,8 @@ private:
 	void UpdateSyncStatus();
 	void UpdateSyncStatusRaw();
 
-	void TryAssignTask(Task&, const PeerID*);
+	void TryAssignTask(Task&);
 	bool TryAssignTask(Task&, Peer&);
-	bool TryAssignTask(Task&, Peer&, bool bMustSupportLatestProto);
 	void DeleteUnassignedTask(Task&);
 
 	void InitKeys();
@@ -369,6 +378,7 @@ private:
 
 	uint8_t ValidateTx(Transaction::Context&, const Transaction&); // complete validation
 	void LogTx(const Transaction&, uint8_t nStatus, const Transaction::KeyType&);
+	void LogTxStem(const Transaction&, const char* szTxt);
 
 	struct Bbs
 	{
@@ -427,7 +437,18 @@ private:
 		struct PeerInfoPlus
 			:public PeerInfo
 		{
-			Peer* m_pLive;
+			struct AdjustedRatingLive
+				:public boost::intrusive::set_base_hook<>
+			{
+				Peer* m_p;
+
+				bool operator < (const AdjustedRatingLive& x) const { return (get_ParentObj().m_AdjustedRating < x.get_ParentObj().m_AdjustedRating); }
+
+				IMPLEMENT_GET_PARENT_OBJ(PeerInfoPlus, m_Live)
+			} m_Live;
+
+			void Attach(Peer&);
+			void DetachStrict();
 		};
 
 		// PeerManager
@@ -435,6 +456,9 @@ private:
 		virtual void DeactivatePeer(PeerInfo&) override;
 		virtual PeerInfo* AllocPeer() override;
 		virtual void DeletePeer(PeerInfo&) override;
+
+		typedef boost::intrusive::multiset<PeerInfoPlus::AdjustedRatingLive> LiveSet;
+		LiveSet m_LiveSet;
 
 		~PeerMan() { Clear(); }
 
@@ -458,6 +482,7 @@ private:
 			static const uint16_t HasTreasury	= 0x100;
 			static const uint16_t Chocking		= 0x200;
 			static const uint16_t Viewer		= 0x400;
+			static const uint16_t Accepted		= 0x800;
 		};
 
 		uint16_t m_Flags;
@@ -475,7 +500,7 @@ private:
 
 		Bbs::Subscription::PeerSet m_Subscriptions;
 
-		io::Timer::Ptr m_pTimer;
+		io::Timer::Ptr m_pTimerRequest;
 		io::Timer::Ptr m_pTimerPeers;
 
 		Peer(Node& n) :m_This(n) {}
@@ -486,9 +511,7 @@ private:
 		void SetTimerWrtFirstTask();
 		void Unsubscribe(Bbs::Subscription&);
 		void Unsubscribe();
-		void OnTimer();
-		void SetTimer(uint32_t timeout_ms);
-		void KillTimer();
+		void OnRequestTimeout();
 		void OnResendPeers();
 		void SendBbsMsg(const NodeDB::WalkerBbs::Data&);
 		void DeleteSelf(bool bIsError, uint8_t nByeReason);
@@ -497,7 +520,7 @@ private:
 		void BroadcastBbs(Bbs::Subscription&);
 		void OnChocking();
 		void SetTxCursor(TxPool::Fluff::Element*);
-		bool GetBlock(proto::BodyBuffers&, const NodeDB::StateID&, const proto::GetBodyPack&);
+		bool GetBlock(proto::BodyBuffers&, const NodeDB::StateID&, const proto::GetBodyPack&, bool bActive);
 
 		bool IsChocking(size_t nExtra = 0);
 		bool ShouldAssignTasks();
@@ -505,8 +528,7 @@ private:
 		Task& get_FirstTask();
 		void OnFirstTaskDone();
 		void OnFirstTaskDone(NodeProcessor::DataStatus::Enum);
-
-		void OnMsg(const proto::BbsMsg&, bool bNonceValid);
+		void ModifyRatingWrtData(size_t nSize);
 
 		void SendTx(Transaction::Ptr& ptx, bool bFluff);
 
@@ -526,7 +548,6 @@ private:
 		virtual void OnMsg(proto::DataMissing&&) override;
 		virtual void OnMsg(proto::GetHdr&&) override;
 		virtual void OnMsg(proto::GetHdrPack&&) override;
-		virtual void OnMsg(proto::Hdr&&) override;
 		virtual void OnMsg(proto::HdrPack&&) override;
 		virtual void OnMsg(proto::GetBody&&) override;
 		virtual void OnMsg(proto::GetBodyPack&&) override;
@@ -545,13 +566,10 @@ private:
 		virtual void OnMsg(proto::PeerInfo&&) override;
 		virtual void OnMsg(proto::GetExternalAddr&&) override;
 		virtual void OnMsg(proto::BbsMsg&&) override;
-		virtual void OnMsg(proto::BbsMsgV0&&) override;
 		virtual void OnMsg(proto::BbsHaveMsg&&) override;
 		virtual void OnMsg(proto::BbsGetMsg&&) override;
 		virtual void OnMsg(proto::BbsSubscribe&&) override;
-		virtual void OnMsg(proto::BbsPickChannelV0&&) override;
 		virtual void OnMsg(proto::BbsResetSync&&) override;
-		virtual void OnMsg(proto::MacroblockGet&&) override;
 		virtual void OnMsg(proto::GetUtxoEvents&&) override;
 		virtual void OnMsg(proto::BlockFinalization&&) override;
 	};
@@ -654,7 +672,7 @@ private:
 			IExternalPOW* m_pSolver = nullptr;
 			uint64_t m_jobID = 0;
 
-			Task::Ptr m_ppTask[3]; // backlog of potentially being-mined currently
+			Task::Ptr m_ppTask[64]; // backlog of potentially being-mined currently
 			Task::Ptr& get_At(uint64_t);
 
 		} m_External;

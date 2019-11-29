@@ -2,105 +2,250 @@ import QtQuick 2.11
 import QtQuick.Controls 2.4
 import QtQuick.Controls.Styles 1.2
 import QtQuick.Layouts 1.0
+import Beam.Wallet 1.0
 import "."
+import "../utils.js" as Utils
 
-Rectangle {
-    id: panel
-    radius: 10
-    color: Style.background_second
+Control {
+    id: control
 
-    clip: true
+    property string available
+    property string locked
+    property string lockedMaturing
+    property string sending
+    property string receiving
+    property string receivingChange
+    property string receivingIncoming
 
-    property string value
-    property alias color: panel.color
     property var onOpenExternal: null
-
     signal copyValueText()
 
-    SFText {
-        id: title
-        font {
-            pixelSize: 18
-            styleName: "Bold"; weight: Font.Bold
-        }
+    background: Rectangle {
+        id:       panel
+        color:    "transparent"
 
-        anchors.left: parent.left
-        anchors.top: parent.top
-        anchors.topMargin: 30
-        anchors.leftMargin: 30
-        
-        color: Style.content_main
-        //% "Available"
-        text: qsTrId("available-panel-available")
+        Rectangle {
+            width:  parent.height
+            height: parent.width
+            anchors.centerIn: parent
+            anchors.alignWhenCentered: false
+            rotation: 90
+            radius:   10
+            opacity:  0.3
+            gradient: Gradient {
+                GradientStop { position: 0.0; color: Style.swapCurrencyPaneGrRight }
+                GradientStop { position: 1.0; color: Style.swapCurrencyPaneGrLeftBEAM }
+            }
+        }
     }
-    Item {
-        anchors.top: parent.top
-        anchors.right: parent.right
-        anchors.topMargin: 33
-        anchors.rightMargin: 30
-        width: whereToBuy.width + 10 + whereToBuyIcon.width
-        height: 15
 
-        SFText {
-            id: whereToBuy
-            font.pixelSize: 14
-            anchors.right: whereToBuyIcon.left
-            anchors.top: parent.top
-            anchors.rightMargin: 10
-            
-            color: Style.active
-            opacity: 0.5
-            //% "Where to buy BEAM?"
-            text: qsTrId("available-panel-where-to-buy")
-        }
-        SvgImage {
-            id: whereToBuyIcon
-            anchors.top: parent.top
-            anchors.right: parent.right
-            source: "qrc:/assets/icon-external-link.svg"
-        }
-        MouseArea {
+    leftPadding:   20
+    rightPadding:  20
+    topPadding:    8
+    bottomPadding: 12
+
+    Control {
+        id:            lockedTip
+        visible:       lockedArea.containsMouse && parseFloat(locked) > 0
+        x:             lockedAmount.x + lockedAmount.parent.x + lockedAmount.parent.parent.x + lockedAmount.width / 2 - lockedTip.width / 2
+        y:             lockedAmount.y + lockedAmount.parent.y + lockedAmount.height + 15
+
+        leftPadding:   14
+        rightPadding:  14
+        topPadding:    13
+        bottomPadding: 13
+
+        background: Rectangle {
             anchors.fill: parent
-            acceptedButtons: Qt.LeftButton
-            cursorShape: Qt.PointingHandCursor
-            onClicked: {
-                if (onOpenExternal && typeof onOpenExternal === 'function') {
-                    onOpenExternal();
+            color:  Qt.rgba(255, 255, 255, 0.15)
+            radius: 10
+        }
+
+        contentItem:  GridLayout {
+            columnSpacing: 15
+            rowSpacing:    10
+            columns:       2
+            rows:          2
+
+            SFText {
+                font.pixelSize: 12
+                font.styleName: "Light"
+                font.weight:    Font.Light
+                color:          Qt.rgba(Style.content_main.r, Style.content_main.g, Style.content_main.b, 0.5)
+                //% "Maturing"
+                text:           qsTrId("available-panel-maturing")
+            }
+
+            BeamAmount {
+                amount:            lockedMaturing
+                spacing:           15
+                lightFont:         false
+                fontSize:          12
+                currencySymbol:    Utils.symbolBeam
+            }
+        }
+    }
+
+    Control {
+        id:            receivingTip
+        visible:       receivingArea.containsMouse && parseFloat(receiving) > 0
+        x:             receivingAmount.x + receivingAmount.parent.x + receivingAmount.parent.parent.x + receivingAmount.width / 2 - receivingTip.width / 2
+        y:             receivingAmount.y + receivingAmount.parent.y + receivingAmount.height + 15
+
+        leftPadding:   14
+        rightPadding:  14
+        topPadding:    13
+        bottomPadding: 13
+
+        background: Rectangle {
+            anchors.fill: parent
+            color:  Qt.rgba(255, 255, 255, 0.15)
+            radius: 10
+        }
+
+        contentItem:  GridLayout {
+            columnSpacing: 15
+            rowSpacing:    10
+            columns:       2
+            rows:          2
+
+            SFText {
+                font.pixelSize: 12
+                font.styleName: "Light"
+                font.weight:    Font.Light
+                color:          Qt.rgba(Style.content_main.r, Style.content_main.g, Style.content_main.b, 0.5)
+                //% "Change"
+                text:           qsTrId("available-panel-change")
+            }
+
+            BeamAmount {
+                amount:            receivingChange
+                spacing:           15
+                lightFont:         false
+                fontSize:          12
+                currencySymbol:    Utils.symbolBeam
+                color:             Style.accent_incoming
+                prefix:            "+"
+            }
+
+            SFText {
+                font.pixelSize: 12
+                font.styleName: "Light"
+                font.weight:    Font.Light
+                color:          Qt.rgba(Style.content_main.r, Style.content_main.g, Style.content_main.b, 0.5)
+                //% "Incoming"
+                text:           qsTrId("available-panel-incoming")
+            }
+
+            BeamAmount {
+                amount:            receivingIncoming
+                spacing:           15
+                lightFont:         false
+                fontSize:          12
+                currencySymbol:    Utils.symbolBeam
+                color:             Style.accent_incoming
+                prefix:            "+"
+            }
+        }
+    }
+
+    contentItem: RowLayout {
+        spacing: 0
+        RowLayout{
+            Layout.preferredWidth: parseFloat(receiving) > 0 || parseFloat(sending) > 0 ? parent.width / 2 : parent.width
+            BeamAmount {
+                amount:            available
+                spacing:           15
+                lightFont:         false
+                fontSize:          16
+                currencySymbol:    Utils.symbolBeam
+                iconSource:        "qrc:/assets/icon-beam.svg"
+                iconSize:          Qt.size(22, 22)
+                copyMenuEnabled:   true
+                //% "Available"
+                caption:           qsTrId("available-panel-available")
+            }
+
+            Item {
+                Layout.fillWidth: true
+            }
+
+            BeamAmount {
+                id:                lockedAmount
+                amount:            locked
+                lightFont:         false
+                fontSize:          16
+                currencySymbol:    Utils.symbolBeam
+                copyMenuEnabled:   true
+                //% "Locked"
+                caption:           qsTrId("available-panel-locked")
+                visible:           parseFloat(locked) > 0
+                showDrop:          true
+
+                 MouseArea {
+                    id: lockedArea
+                    anchors.fill: parent
+                    hoverEnabled: true
                 }
             }
-            hoverEnabled: true
-        }
-    }
 
-    Row
-    {
-        id: amount
-        anchors.verticalCenter: parent.verticalCenter
-        anchors.left: title.left
-
-        spacing: 6
-
-        SFLabel {
-            id: amount_text
-            font.pixelSize: 36
-            font.styleName: "Light"; font.weight: Font.Light
-            color: Style.active
-
-            text: value
-            anchors.bottom: parent.bottom
-            copyMenuEnabled: true
-            onCopyText: panel.copyValueText()
+            Item {
+                Layout.fillWidth: true
+            }
         }
 
-        SFText {
-            id: currency_text
-            font.pixelSize: 24
-            font.styleName: "Light"; font.weight: Font.Light
-            color: Style.active
+        RowLayout{
+            Layout.preferredWidth: parent.width / 2
+            visible: parseFloat(receiving) > 0 || parseFloat(sending) > 0
 
-            text: "BEAM"
-            anchors.bottom: parent.bottom
-            anchors.bottomMargin: 3
+            Rectangle {
+                color:   Qt.rgba(255, 255, 255, 0.1)
+                width:   1
+                height:  45
+            }
+
+            BeamAmount {
+                Layout.leftMargin: 20
+                amount:            sending
+                color:             Style.accent_outgoing
+                lightFont:         false
+                fontSize:          16
+                currencySymbol:    Utils.symbolBeam
+                copyMenuEnabled:   true
+                //% "Sending"
+                caption:           qsTrId("available-panel-sending")
+                showZero:          false
+                prefix:            "-"
+            }
+
+            Item {
+                Layout.fillWidth: true
+            }
+
+            BeamAmount {
+                id:                receivingAmount
+                amount:            receiving
+                color:             Style.accent_incoming
+                lightFont:         false
+                fontSize:          16
+                currencySymbol:    Utils.symbolBeam
+                copyMenuEnabled:   true
+                //% "Receiving"
+                caption:           qsTrId("available-panel-receiving")
+                showZero:          false
+                prefix:            "+"
+                showDrop:          parseFloat(receiving) > 0
+
+                MouseArea {
+                    id: receivingArea
+                    anchors.fill: parent
+                    hoverEnabled: true
+                }
+            }
+
+            Item {
+                Layout.fillWidth: true
+            }
         }
     }
 }

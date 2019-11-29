@@ -38,7 +38,7 @@
 
         background: Rectangle {
             radius: 10
-            color: Style.background_second
+            color: Style.background_popup
             anchors.fill: parent
         }
 
@@ -232,7 +232,7 @@
                     wrapMode: Text.Wrap
                     font.pixelSize: 14
                     color: Style.content_disabled
-                    text: model ? model.amount + " BEAM" : ""
+                    text: model ? model.amount : ""
                     visible: model? model.isValid : false
                 }
             
@@ -270,7 +270,7 @@
                 {
                     if (model)
                     {
-                        textCopied("Sender: " + model.sender + "\nReceiver: " + model.receiver + "\nAmount: " + model.amount + " BEAM" + "\nKernel ID: " + model.kernelID);
+                        textCopied("Sender: " + model.sender + "\nReceiver: " + model.receiver + "\nAmount: " + model.amountValue + " BEAM" + "\nKernel ID: " + model.kernelID);
                     }
                 }
 

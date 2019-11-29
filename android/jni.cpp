@@ -17,6 +17,7 @@
 #include "wallet/wallet_network.h"
 #include "wallet/wallet_model_async.h"
 #include "wallet/default_peers.h"
+#include "keykeeper/local_private_key_keeper.h"
 
 #include "utility/bridge.h"
 #include "utility/string_helpers.h"
@@ -52,12 +53,12 @@ namespace
             : m_observer(observer)
             , m_notifier(notifier)
         {
-            m_notifier->subscribe(m_observer);
+            m_notifier->Subscribe(m_observer);
         }
 
         ~ScopedSubscriber()
         {
-            m_notifier->unsubscribe(m_observer);
+            m_notifier->Unsubscribe(m_observer);
         }
     private:
         Observer * m_observer;
@@ -131,6 +132,8 @@ JNIEXPORT jobject JNICALL BEAM_JAVA_API_INTERFACE(createWallet)(JNIEnv *env, job
     {
         LOG_DEBUG() << "wallet successfully created.";
 
+        auto keyKeeper = std::make_shared<LocalPrivateKeyKeeper>(walletDB, walletDB->get_MasterKdf());
+
         passwordHash.V = SecString(pass).hash().V;
         // generate default address
         
@@ -143,17 +146,17 @@ JNIEXPORT jobject JNICALL BEAM_JAVA_API_INTERFACE(createWallet)(JNIEnv *env, job
         }
         
         // generate default address
-        WalletAddress address = storage::createAddress(*walletDB);
+        WalletAddress address = storage::createAddress(*walletDB, keyKeeper);
         address.m_label = "default";
         walletDB->saveAddress(address);
         
         if (restore)
         {
-            walletModel = make_unique<WalletModel>(walletDB, "127.0.0.1:10005", reactor);
+            walletModel = make_unique<WalletModel>(walletDB, keyKeeper, "127.0.0.1:10005", reactor);
         }
         else
         {
-            walletModel = make_unique<WalletModel>(walletDB, JString(env, nodeAddrStr).value(), reactor);
+            walletModel = make_unique<WalletModel>(walletDB, keyKeeper, JString(env, nodeAddrStr).value(), reactor);
         }
 
         jobject walletObj = env->AllocObject(WalletClass);
@@ -208,6 +211,7 @@ JNIEXPORT jobject JNICALL BEAM_JAVA_API_INTERFACE(openWallet)(JNIEnv *env, jobje
     string pass = JString(env, passStr).value();
     auto reactor = io::Reactor::create();
     auto walletDB = WalletDB::open(appData + "/" WALLET_FILENAME, pass, reactor);
+    auto keyKeeper = std::make_shared<LocalPrivateKeyKeeper>(walletDB, walletDB->get_MasterKdf());
 
     if(walletDB)
     {
@@ -215,7 +219,7 @@ JNIEXPORT jobject JNICALL BEAM_JAVA_API_INTERFACE(openWallet)(JNIEnv *env, jobje
 
         passwordHash.V = SecString(pass).hash().V;
         
-        walletModel = make_unique<WalletModel>(walletDB, JString(env, nodeAddrStr).value(), reactor);
+        walletModel = make_unique<WalletModel>(walletDB, keyKeeper, JString(env, nodeAddrStr).value(), reactor);
                 
         jobject walletObj = env->AllocObject(WalletClass);
 
@@ -292,6 +296,13 @@ JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(getWalletStatus)(JNIEnv *env, 
     LOG_DEBUG() << "getWalletStatus()";
 
     walletModel->getAsync()->getWalletStatus();
+}
+
+JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(getTransactions)(JNIEnv *env, jobject thiz)
+{
+    LOG_DEBUG() << "getTransactions()";
+
+    walletModel->getAsync()->getTransactions();
 }
 
 JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(getUtxosStatus)(JNIEnv *env, jobject thiz)
@@ -566,6 +577,19 @@ JNIEXPORT jstring JNICALL BEAM_JAVA_WALLET_INTERFACE(exportOwnerKey)(JNIEnv *env
 {
     std::string ownerKey = walletModel->exportOwnerKey(JString(env, pass).value());
     return env->NewStringUTF(ownerKey.c_str());
+}
+
+JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(importDataFromJson)(JNIEnv *env, jobject thiz,
+    jstring jdata)
+{
+    auto data = JString(env, jdata).value();
+
+    walletModel->getAsync()->importDataFromJson(data);
+}
+
+JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(exportDataToJson)(JNIEnv *env, jobject thiz)
+{
+    walletModel->getAsync()->exportDataToJson();
 }
 
 JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM* vm, void* reserved)

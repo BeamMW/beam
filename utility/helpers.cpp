@@ -19,7 +19,6 @@
 #include <time.h>
 #include <atomic>
 
-#include "wallet/secstring.h"
 #include "io/reactor.h"
 #include "io/asyncevent.h"
 
@@ -215,88 +214,6 @@ void block_sigpipe() {
         exit(1);
     }
 #endif
-}
-
-#ifndef WIN32
-
-namespace {
-
-int getch() {
-    int ch;
-    struct termios t_old, t_new;
-
-    tcgetattr(STDIN_FILENO, &t_old);
-    t_new = t_old;
-    t_new.c_lflag &= ~(ICANON | ECHO);
-    tcsetattr(STDIN_FILENO, TCSANOW, &t_new);
-
-    ch = getchar();
-
-    tcsetattr(STDIN_FILENO, TCSANOW, &t_old);
-    return ch;
-}
-
-} //namespace
-
-#endif
-
-void read_password(const char* prompt, SecString& out, bool includeTerminatingZero) {
-    std::cout << prompt;
-
-    size_t maxLen = SecString::MAX_SIZE-1;
-    unsigned char ch=0;
-
-#ifdef WIN32
-
-    static const char BACKSPACE=8;
-    static const char RETURN=13;
-
-
-    DWORD con_mode;
-    DWORD dwRead;
-    HANDLE hIn=GetStdHandle(STD_INPUT_HANDLE);
-
-    GetConsoleMode( hIn, &con_mode );
-    SetConsoleMode( hIn, con_mode & ~(ENABLE_ECHO_INPUT | ENABLE_LINE_INPUT) );
-
-    while(ReadConsoleA( hIn, &ch, 1, &dwRead, NULL) && ch !=RETURN && out.size() < maxLen) {
-        if(ch==BACKSPACE) {
-            if(out.size() > 0) {
-                std::cout <<"\b \b";
-                out.pop_back();
-            }
-        } else {
-            out.push_back((char)ch);
-            std::cout << '*';
-        }
-    }
-
-    GetConsoleMode( hIn, &con_mode );
-    SetConsoleMode( hIn, con_mode | (ENABLE_ECHO_INPUT | ENABLE_LINE_INPUT) );
-
-#else
-    static const char BACKSPACE=127;
-    static const char RETURN=10;
-
-    while((ch=getch())!=RETURN && out.size() < maxLen)
-    {
-        if(ch==BACKSPACE) {
-            if(out.size() > 0) {
-                std::cout <<"\b \b";
-                out.pop_back();
-            }
-        } else {
-            out.push_back((char)ch);
-            std::cout << '*';
-        }
-    }
-
-#endif
-
-    if (includeTerminatingZero) {
-        out.push_back('\0');
-    }
-    std::cout << std::endl;
 }
 
 std::future<void> do_thread_async(Functor&& functor, CompletionCallback&& callback)
