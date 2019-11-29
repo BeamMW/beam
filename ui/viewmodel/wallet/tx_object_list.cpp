@@ -121,7 +121,8 @@ auto TxObjectList::roleNames() const -> QHash<int, QByteArray>
         { static_cast<int>(Roles::IsExpired), "isExpired" },
         { static_cast<int>(Roles::HasPaymentProof), "hasPaymentProof" },
         { static_cast<int>(Roles::RawTxID), "rawTxID" },
-        { static_cast<int>(Roles::Search), "search" }
+        { static_cast<int>(Roles::Search), "search" },
+        { static_cast<int>(Roles::StateDetails), "stateDetails" }
     };
     return roles;
 }
@@ -233,6 +234,8 @@ auto TxObjectList::data(const QModelIndex &index, int role) const -> QVariant
             r.append(value->getComment());
             return r;
         }
+        case Roles::StateDetails:
+            return value->getStateDetails();
 
         default:
             return QVariant();

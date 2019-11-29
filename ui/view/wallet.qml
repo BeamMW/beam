@@ -358,6 +358,7 @@ Item {
                         hasPaymentProof:    txRolesMap && txRolesMap.hasPaymentProof ? txRolesMap.hasPaymentProof : false
                         isSelfTx:           txRolesMap && txRolesMap.isSelfTransaction ? txRolesMap.isSelfTransaction : false
                         rawTxID:            txRolesMap && txRolesMap.rawTxID ? txRolesMap.rawTxID : null
+                        stateDetails:       txRolesMap && txRolesMap.stateDetails ? txRolesMap.stateDetails : ""
                         searchFilter:       searchBox.text
                         hideFiltered:       rowItem.hideFiltered
 

@@ -26,21 +26,6 @@ namespace
 {
     constexpr uint32_t kSecondsPerHour = 60 * 60;
 
-    QString convertBeamHeightDiffToTime(int32_t dt)
-    {
-        if (dt <= 0)
-        {
-            return "";
-        }
-        const int32_t minute_s = 60;
-        const int32_t quantum_s = 5 * minute_s;
-        int32_t time_s = dt * beam::Rules().DA.Target_s;
-        time_s = (time_s + (quantum_s >> 1)) / quantum_s;
-        time_s *= quantum_s;
-        return beamui::getEstimateTimeStr(time_s);
-    }
-
-
     QString getWaitingPeerStr(const beam::wallet::TxParameters& txParameters)
     {
         auto minHeight = txParameters.GetParameter<beam::Height>(TxParameterID::MinHeight);
@@ -48,7 +33,7 @@ namespace
         QString time = "";
         if (minHeight && responseTime)
         {
-            time = convertBeamHeightDiffToTime(*minHeight + *responseTime - AppModel::getInstance().getWallet()->getCurrentHeight());
+            time = beamui::convertBeamHeightDiffToTime(*minHeight + *responseTime - AppModel::getInstance().getWallet()->getCurrentHeight());
         }
         //% "If nobody accepts the offer in %1, the offer will be automatically canceled"
         return qtTrId("swap-tx-state-initial").arg(time);
@@ -70,7 +55,7 @@ namespace
             auto currentHeight = AppModel::getInstance().getWallet()->getCurrentHeight();
             if (currentHeight < *minHeightRefund)
             {
-                time = convertBeamHeightDiffToTime(*minHeightRefund - currentHeight);
+                time = beamui::convertBeamHeightDiffToTime(*minHeightRefund - currentHeight);
             }
         }
         if (time.isEmpty())
@@ -99,7 +84,7 @@ namespace
             auto refundMinHeight = txParameters.GetParameter<Height>(TxParameterID::MinHeight, BEAM_REFUND_TX);
             if (refundMinHeight && currentBeamHeight < *refundMinHeight)
             {
-                time = convertBeamHeightDiffToTime(*refundMinHeight - currentBeamHeight);
+                time = beamui::convertBeamHeightDiffToTime(*refundMinHeight - currentBeamHeight);
                 coin = "beam";
             }
         }
@@ -115,7 +100,7 @@ namespace
                 {
                     double beamBlocksPerBlock = (kSecondsPerHour / beam::Rules().DA.Target_s) / blocksPerHour;
                     double beamBlocks = (*lockTime - *currentCoinHeight) * beamBlocksPerBlock;
-                    time = convertBeamHeightDiffToTime(static_cast<int32_t>(std::round(beamBlocks)));
+                    time = beamui::convertBeamHeightDiffToTime(static_cast<int32_t>(std::round(beamBlocks)));
                 }
             }
         }
@@ -439,7 +424,7 @@ QString SwapTxObject::getFailureReason() const
     return QString();
 }
 
-QString SwapTxObject::getSwapState() const
+QString SwapTxObject::getStateDetails() const
 {
     if (getTxDescription().m_txType == beam::wallet::TxType::AtomicSwap)
     {

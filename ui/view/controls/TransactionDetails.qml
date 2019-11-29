@@ -19,6 +19,7 @@ RowLayout {
     property var hasPaymentProof
     property var isSelfTx
     property var rawTxID
+    property var stateDetails
     property string searchFilter: ""
     property bool hideFiltered: false
     property var searchRegExp: { return new RegExp(root.searchFilter, "gi");}
@@ -243,6 +244,27 @@ RowLayout {
                 hoverEnabled: true
             }
         }
+
+        RowLayout {
+            Layout.columnSpan: 2
+            Layout.fillWidth: true
+            visible: root.stateDetails != ""
+            SvgImage {
+                sourceSize: Qt.size(16, 16)
+                source:  "qrc:/assets/icon-attention.svg"
+            }
+            SFLabel {
+                Layout.fillWidth: true
+                copyMenuEnabled: true
+                font.pixelSize: 14
+                color: Style.content_main
+                wrapMode: Text.Wrap
+                elide: Text.ElideMiddle
+                text: root.stateDetails
+                onCopyText: textCopied(text)
+            }
+        }
+
         SFText {
             Layout.alignment: Qt.AlignTop
             font.pixelSize: 14

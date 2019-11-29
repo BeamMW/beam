@@ -1971,5 +1971,13 @@ deploy the key at the node you trust completely.</translation>
         <extracomment>transactions history screen, export button tooltip and open file dialog</extracomment>
         <translation>Export transactions history</translation>
     </message>
+    <message id="tx-state-initial-sender">
+        <source>If the receiver won&apos;t get online in %1, the transaction will be cancelled automatically</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="tx-state-initial-receiver">
+        <source>If the sender won&apos;t get online in %1, the transaction will be cancelled automatically</source>
+        <translation type="unfinished"></translation>
+    </message>
 </context>
 </TS>

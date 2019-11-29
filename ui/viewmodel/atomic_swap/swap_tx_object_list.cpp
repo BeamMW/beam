@@ -258,7 +258,7 @@ auto SwapTxObjectList::data(const QModelIndex &index, int role) const -> QVarian
             return value->getBeamRefundTxKernelId();
 
         case Roles::SwapState:
-            return value->getSwapState();
+            return value->getStateDetails();
 
         default:
             return QVariant();

@@ -344,7 +344,6 @@ RowLayout {
                 source:  "qrc:/assets/icon-attention.svg"
             }
             SFLabel {
-                id: stateDelailsLabel
                 Layout.fillWidth: true
                 copyMenuEnabled: true
                 font.pixelSize: 14
@@ -355,7 +354,6 @@ RowLayout {
                 onCopyText: textCopied(text)
             }
         }
-        
 
         SFText {
             enabled: failureReasonLabel.enabled

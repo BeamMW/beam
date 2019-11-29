@@ -1969,5 +1969,13 @@ deploy the key at the node you trust completely.</source>
         <extracomment>settings tab, general section, ask password to Show owner key, message</extracomment>
         <translation type="unfinished"></translation>
     </message>
+    <message id="tx-state-initial-sender">
+        <source>If the receiver won&apos;t get online in %1, the transaction will be cancelled automatically</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="tx-state-initial-receiver">
+        <source>If the sender won&apos;t get online in %1, the transaction will be cancelled automatically</source>
+        <translation type="unfinished"></translation>
+    </message>
 </context>
 </TS>
