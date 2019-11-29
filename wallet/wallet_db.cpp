@@ -2110,6 +2110,18 @@ namespace beam::wallet
         notifyCoinsChanged();
     }
 
+    void WalletDB::deleteCoinsCreatedByTx(const TxID& txId)
+    {
+        {
+            const char* req = "DELETE FROM " STORAGE_NAME " WHERE createTxId=?1 AND confirmHeight=?2;";
+            sqlite::Statement stm(this, req);
+            stm.bind(1, txId);
+            stm.bind(2, MaxHeight);
+            stm.step();
+        }
+        notifyCoinsChanged();
+    }
+
     boost::optional<WalletAddress> WalletDB::getAddress(const WalletID& id) const
     {
         if (auto it = m_AddressesCache.find(id); it != m_AddressesCache.end())
