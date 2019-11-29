@@ -1938,7 +1938,6 @@ Please check the swap token and try again.</source>
         <source>There are %1 active transactions that might fail if the wallet will go offline. Are you sure to close the wallet now?</source>
         <translation type="unfinished"></translation>
     </message>
-<<<<<<< HEAD
     <message id="settings-show-owner-key-message">
         <source>Please notice, that knowing your owner key allows to
 know all your funds (UTXO). Make sure that you
@@ -1959,11 +1958,11 @@ deploy the key at the node you trust completely.</source>
     <message id="settings-show-owner-key-title">
         <source>Owner key</source>
         <extracomment>settings tab, show owner key dialog title</extracomment>
-=======
+        <translation type="unfinished"></translation>
+    </message>
     <message id="wallet-export-tx-history">
         <source>Export transactions history</source>
         <extracomment>transactions history screen, export button tooltip and open file dialog</extracomment>
->>>>>>> 731e4032... #1010 Export transactions history to scv file
         <translation type="unfinished"></translation>
     </message>
 </context>
