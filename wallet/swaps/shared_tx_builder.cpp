@@ -105,6 +105,12 @@ namespace beam::wallet
         {
             outputCoin = m_Tx.GetWalletDB()->generateSharedCoin(GetAmount());
             m_Tx.SetParameter(TxParameterID::SharedCoinID, outputCoin.m_ID, m_SubTxID);
+
+            if (m_SubTxID == SubTxIndex::BEAM_REDEEM_TX)
+            {
+                outputCoin.m_createTxId = m_Tx.GetTxID();
+                m_Tx.GetWalletDB()->saveCoin(outputCoin);
+            }
         }
 
 		Height minHeight = 0;

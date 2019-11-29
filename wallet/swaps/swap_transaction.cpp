@@ -519,6 +519,8 @@ namespace beam::wallet
             {
                 assert(!isBeamOwner);
 
+                m_WalletDB->deleteCoinsCreatedByTx(GetTxID());
+
                 if (!m_secondSide->IsLockTimeExpired() && !m_secondSide->IsQuickRefundAvailable())
                 {
                     UpdateOnNextTip();
@@ -669,6 +671,11 @@ namespace beam::wallet
             }
             case State::Failed:
             {
+                if (isBeamOwner)
+                {
+                    m_WalletDB->deleteCoinsCreatedByTx(GetTxID());
+                }
+
                 TxFailureReason reason = TxFailureReason::Unknown;
                 if (GetParameter(TxParameterID::FailureReason, reason))
                 {
@@ -1307,7 +1314,7 @@ namespace beam::wallet
             return false;
         }
 
-        if ((SubTxIndex::BEAM_REDEEM_TX == subTxID) || (SubTxIndex::BEAM_REFUND_TX == subTxID))
+        if (SubTxIndex::BEAM_REFUND_TX == subTxID)
         {
             // store Coin in DB
             auto amount = GetMandatoryParameter<Amount>(TxParameterID::Amount, subTxID);
