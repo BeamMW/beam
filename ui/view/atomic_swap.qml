@@ -33,7 +33,7 @@ Item {
 
     ConfirmationDialog {
         id:                     cancelOfferDialog
-        property var txId:      undefined
+        property var txId: undefined
         width:                  460
         //% "Cancel offer"
         title:                  qsTrId("atomic-swap-cancel")
@@ -818,157 +818,42 @@ Please try again later or create an offer yourself."
                             filterCaseSensitivity: Qt.CaseInsensitive
                         }
 
-                        rowDelegate: Item {
-                            id: rowItem
-                            height: ctransactionsTable.rowHeight
-                            anchors.left: parent.left
-                            anchors.right: parent.right
-                            property bool collapsed: true
+                        rowDelegate: ExpandableRowDelegate {
+                            collapsed: true
+                            rowInModel: styleData.row !== undefined && styleData.row >= 0 &&  styleData.row < txProxyModel.count
+                            rowHeight: transactionsTable.rowHeight
+                            backgroundColor: styleData.selected ? Style.row_selected : (styleData.alternate ? Style.background_row_even : Style.background_row_odd)
+                            property var  myModel:     parent.model
 
-                            property var myModel: parent.model
+                            delegate: SwapTransactionDetails {
+                                    width: transactionsTable.width
 
-                            onMyModelChanged: {
-                                collapsed = true;
-                                height = Qt.binding(function(){ return transactionsTable.rowHeight;});
-                            }
-
-                            Rectangle {
-                                anchors.fill: parent                        
-                                color: styleData.selected ? Style.row_selected :
-                                        (styleData.alternate ? Style.background_row_even : Style.background_row_odd)
-                            }
-
-                            ColumnLayout {
-                                id: rowColumn
-                                width: parent.width
-                                Rectangle {
-                                    height: rowItem.height
-                                    width: parent.width
-                                    color: "transparent"
-                                }
-                                Item {
-                                    id: txDetails
-                                    height: 0
-                                    width: parent.width
-                                    clip: true
-
-                                    property int maximumHeight: detailsPanel.implicitHeight
-
-                                    Rectangle {
-                                        anchors.fill: parent
-                                        color: Style.background_details
-                                    }
-                                    SwapTransactionDetails {
-                                        id: detailsPanel
-                                        width: transactionsTable.width
-
-                                        property var txRolesMap: myModel
-                                        txId:                           txRolesMap && txRolesMap.txID ? txRolesMap.txID : ""
-                                        fee:                            txRolesMap && txRolesMap.fee ? txRolesMap.fee : ""
-                                        feeRate:                        txRolesMap && txRolesMap.feeRate ? txRolesMap.feeRate : ""
-                                        comment:                        txRolesMap && txRolesMap.comment ? txRolesMap.comment : ""
-                                        swapCoinName:                   txRolesMap && txRolesMap.swapCoin ? txRolesMap.swapCoin : ""
-                                        isBeamSide:                     txRolesMap && txRolesMap.isBeamSideSwap ? txRolesMap.isBeamSideSwap : false
-                                        isLockTxProofReceived:          txRolesMap && txRolesMap.isLockTxProofReceived ? txRolesMap.isLockTxProofReceived : false
-                                        isRefundTxProofReceived:        txRolesMap && txRolesMap.isRefundTxProofReceived ? txRolesMap.isRefundTxProofReceived : false
-                                        swapCoinLockTxId:               txRolesMap && txRolesMap.swapCoinLockTxId ? txRolesMap.swapCoinLockTxId : ""
-                                        swapCoinLockTxConfirmations:    txRolesMap && txRolesMap.swapCoinLockTxConfirmations ? txRolesMap.swapCoinLockTxConfirmations : ""
-                                        swapCoinRedeemTxId:             txRolesMap && txRolesMap.swapCoinRedeemTxId ? txRolesMap.swapCoinRedeemTxId : ""
-                                        swapCoinRedeemTxConfirmations:  txRolesMap && txRolesMap.swapCoinRedeemTxConfirmations ? txRolesMap.swapCoinRedeemTxConfirmations : ""
-                                        swapCoinRefundTxId:             txRolesMap && txRolesMap.swapCoinRefundTxId ? txRolesMap.swapCoinRefundTxId : ""
-                                        swapCoinRefundTxConfirmations:  txRolesMap && txRolesMap.swapCoinRefundTxConfirmations ? txRolesMap.swapCoinRefundTxConfirmations : ""
-                                        beamLockTxKernelId:             txRolesMap && txRolesMap.beamLockTxKernelId ? txRolesMap.beamLockTxKernelId : ""
-                                        beamRedeemTxKernelId:           txRolesMap && txRolesMap.beamRedeemTxKernelId ? txRolesMap.beamRedeemTxKernelId : ""
-                                        beamRefundTxKernelId:           txRolesMap && txRolesMap.beamRefundTxKernelId ? txRolesMap.beamRefundTxKernelId : ""
+                                    property var txRolesMap: myModel
+                                    txId:                           txRolesMap && txRolesMap.txID ? txRolesMap.txID : ""
+                                    fee:                            txRolesMap && txRolesMap.fee ? txRolesMap.fee : ""
+                                    feeRate:                        txRolesMap && txRolesMap.feeRate ? txRolesMap.feeRate : ""
+                                    comment:                        txRolesMap && txRolesMap.comment ? txRolesMap.comment : ""
+                                    swapCoinName:                   txRolesMap && txRolesMap.swapCoin ? txRolesMap.swapCoin : ""
+                                    isBeamSide:                     txRolesMap && txRolesMap.isBeamSideSwap ? txRolesMap.isBeamSideSwap : false
+                                    isLockTxProofReceived:          txRolesMap && txRolesMap.isLockTxProofReceived ? txRolesMap.isLockTxProofReceived : false
+                                    isRefundTxProofReceived:        txRolesMap && txRolesMap.isRefundTxProofReceived ? txRolesMap.isRefundTxProofReceived : false
+                                    swapCoinLockTxId:               txRolesMap && txRolesMap.swapCoinLockTxId ? txRolesMap.swapCoinLockTxId : ""
+                                    swapCoinLockTxConfirmations:    txRolesMap && txRolesMap.swapCoinLockTxConfirmations ? txRolesMap.swapCoinLockTxConfirmations : ""
+                                    swapCoinRedeemTxId:             txRolesMap && txRolesMap.swapCoinRedeemTxId ? txRolesMap.swapCoinRedeemTxId : ""
+                                    swapCoinRedeemTxConfirmations:  txRolesMap && txRolesMap.swapCoinRedeemTxConfirmations ? txRolesMap.swapCoinRedeemTxConfirmations : ""
+                                    swapCoinRefundTxId:             txRolesMap && txRolesMap.swapCoinRefundTxId ? txRolesMap.swapCoinRefundTxId : ""
+                                    swapCoinRefundTxConfirmations:  txRolesMap && txRolesMap.swapCoinRefundTxConfirmations ? txRolesMap.swapCoinRefundTxConfirmations : ""
+                                    beamLockTxKernelId:             txRolesMap && txRolesMap.beamLockTxKernelId ? txRolesMap.beamLockTxKernelId : ""
+                                    beamRedeemTxKernelId:           txRolesMap && txRolesMap.beamRedeemTxKernelId ? txRolesMap.beamRedeemTxKernelId : ""
+                                    beamRefundTxKernelId:           txRolesMap && txRolesMap.beamRefundTxKernelId ? txRolesMap.beamRefundTxKernelId : ""
                                         stateDetails:                   txRolesMap && txRolesMap.swapState ? txRolesMap.swapState : ""
-                                        failureReason:                  txRolesMap && txRolesMap.failureReason ? txRolesMap.failureReason : ""
-                                        
-                                        onTextCopied: function (text) {
-                                            BeamGlobals.copyToClipboard(text);
-                                        }
+                                    failureReason:                  txRolesMap && txRolesMap.failureReason ? txRolesMap.failureReason : ""
+                                    
+                                    onTextCopied: function (text) {
+                                        BeamGlobals.copyToClipboard(text);
                                     }
                                 }
                             }
-
-                            MouseArea {
-                                anchors.top: parent.top
-                                anchors.left: parent.left
-                                height: transactionsTable.rowHeight
-                                width: parent.width
-
-                                acceptedButtons: Qt.LeftButton | Qt.RightButton
-                                onClicked: {
-                                    if (styleData.row === undefined 
-                                    || styleData.row < 0
-                                    || styleData.row >= txProxyModel.count)
-                                    {
-                                        return;
-                                    }
-                                    if (mouse.button === Qt.RightButton )
-                                    {
-                                        transactionsTable.showContextMenu(styleData.row);
-                                    }
-                                    else if (mouse.button === Qt.LeftButton)
-                                    {
-                                        if (parent.collapsed)
-                                        {
-                                            expand.start()
-                                        }
-                                        else 
-                                        {
-                                            collapse.start()
-                                        }
-                                        parent.collapsed = !parent.collapsed;
-                                    }
-                                }
-                            }
-
-                            ParallelAnimation {
-                                id: expand
-                                running: false
-
-                                property int expandDuration: 200
-
-                                NumberAnimation {
-                                    target: rowItem
-                                    easing.type: Easing.Linear
-                                    property: "height"
-                                    to: transactionsTable.rowHeight + txDetails.maximumHeight
-                                    duration: expand.expandDuration
-                                }
-
-                                NumberAnimation {
-                                    target: txDetails
-                                    easing.type: Easing.Linear
-                                    property: "height"
-                                    to: txDetails.maximumHeight
-                                    duration: expand.expandDuration
-                                }
-                            }
-
-                            ParallelAnimation {
-                                id: collapse
-                                running: false
-
-                                property int collapseDuration: 200
-
-                                NumberAnimation {
-                                    target: rowItem
-                                    easing.type: Easing.Linear
-                                    property: "height"
-                                    to: transactionsTable.rowHeight
-                                    duration: collapse.collapseDuration
-                                }
-
-                                NumberAnimation {
-                                    target: txDetails
-                                    easing.type: Easing.Linear
-                                    property: "height"
-                                    to: 0
-                                    duration: collapse.collapseDuration
-                                }
-                            }
-                        }
 
                         itemDelegate: Item {
                             Item {
