@@ -512,11 +512,8 @@ uint32_t MultiTx::Update2()
 		krn.m_Signature.m_k = k;
 
 		ECC::Point::Native comm;
-		AmountBig::Type fee(Zero);
-		if (!krn.IsValid(hScheme, fee, comm))
+		if (!krn.IsValid(hScheme, comm))
 			return Status::Error;
-
-		assert(fee == AmountBig::Type(krn.m_Fee));
 
 		tx.m_vKernels.emplace_back(new TxKernel);
 		*tx.m_vKernels.back() = krn;

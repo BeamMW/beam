@@ -202,6 +202,23 @@ namespace beam
 		void Recover(ECC::Point::Native& comm, Key::IPKdf&, const Key::IDV&) const;
 	};
 
+	struct TxStats
+	{
+		AmountBig::Type m_Fee;
+		AmountBig::Type m_Coinbase;
+
+		uint64_t m_Kernels;
+		uint64_t m_Inputs;
+		uint64_t m_Outputs;
+		uint64_t m_InputsShielded;
+		uint64_t m_OutputsShielded;
+
+		TxStats() { Reset(); }
+
+		void Reset();
+		void operator += (const TxStats&);
+	};
+
 	struct TxElement
 	{
 		ECC::Point m_Commitment;
@@ -275,6 +292,8 @@ namespace beam
 			m_Internal = v.m_Internal;
 			m_pSpendProof = std::move(v.m_pSpendProof);
 		}
+
+		void AddStats(TxStats&) const;
 
 		void operator = (const Input&);
 		int cmp(const Input&) const;
@@ -384,6 +403,8 @@ namespace beam
 		bool IsValid(Height hScheme, ECC::Point::Native& comm) const;
 		Height get_MinMaturity(Height h) const; // regardless to the explicitly-overridden
 
+		void AddStats(TxStats&) const;
+
 		void operator = (const Output&);
 		int cmp(const Output&) const;
 		COMPARISON_VIA_CMP
@@ -446,7 +467,7 @@ namespace beam
 		void get_Hash(Merkle::Hash&, const ECC::Hash::Value* pLockImage = NULL) const; // for signature. Contains all, including the m_Commitment (i.e. the public key)
 		void get_ID(Merkle::Hash&, const ECC::Hash::Value* pLockImage = NULL) const; // unique kernel identifier in the system.
 
-		bool IsValid(Height hScheme, AmountBig::Type& fee, ECC::Point::Native& exc) const;
+		bool IsValid(Height hScheme, ECC::Point::Native& exc) const;
 
 		void Sign(const ECC::Scalar::Native&); // suitable for aux kernels, created by single party
 
@@ -456,10 +477,10 @@ namespace beam
 		int cmp(const TxKernel&) const;
 		COMPARISON_VIA_CMP
 
-		size_t get_TotalCount() const; // including self and nested
+		void AddStats(TxStats&) const; // including self and nested
 
 	private:
-		bool Traverse(ECC::Hash::Value&, AmountBig::Type*, ECC::Point::Native*, const TxKernel* pParent, const ECC::Hash::Value* pLockImage, const Height* pScheme) const;
+		bool Traverse(ECC::Hash::Value&, ECC::Point::Native*, const TxKernel* pParent, const ECC::Hash::Value* pLockImage, const Height* pScheme) const;
 	};
 
 	inline bool operator < (const TxKernel::Ptr& a, const TxKernel::Ptr& b) { return *a < *b; }
@@ -488,7 +509,7 @@ namespace beam
 
 			void Compare(IReader&& rOther, bool& bICover, bool& bOtherCovers);
 			size_t get_SizeNetto(); // account only for elements. Ignore offset and array sizes
-			void CalculateShielded(uint32_t& nIns, uint32_t& nOuts);
+			void AddStats(TxStats&);
 		};
 
 		struct IWriter
@@ -584,6 +605,7 @@ namespace beam
 			FeeSettings(); // defaults
 
 			Amount Calculate(const Transaction&) const;
+			Amount Calculate(const TxStats&) const;
 		};
 	};
 
@@ -845,9 +867,7 @@ namespace beam
 		const Params& m_Params;
 
 		ECC::Point::Native m_Sigma;
-
-		AmountBig::Type m_Fee;
-		AmountBig::Type m_Coinbase;
+		TxStats m_Stats;
 		HeightRange m_Height;
 
 		uint32_t m_iVerifier;

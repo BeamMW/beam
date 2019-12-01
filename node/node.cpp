@@ -2165,9 +2165,9 @@ uint8_t Node::ValidateTx(Transaction::Context& ctx, const Transaction& tx)
 	if (ctx.m_Height.m_Min >= Rules::get().pForks[1].m_Height)
 	{
 		Transaction::FeeSettings feeSettings;
-		AmountBig::Type fees = feeSettings.Calculate(tx);
+		AmountBig::Type fees = feeSettings.Calculate(ctx.m_Stats);
 
-		if (ctx.m_Fee < fees)
+		if (ctx.m_Stats.m_Fee < fees)
 			return proto::TxStatus::LowFee;
 	}
 
@@ -2345,7 +2345,7 @@ uint8_t Node::OnTransactionStem(Transaction::Ptr&& ptx, const Peer* pPeer)
         std::unique_ptr<TxPool::Stem::Element> pGuard(new TxPool::Stem::Element);
         pGuard->m_bAggregating = false;
         pGuard->m_Time.m_Value = 0;
-        pGuard->m_Profit.m_Fee = ctx.m_Fee;
+        pGuard->m_Profit.m_Fee = ctx.m_Stats.m_Fee;
         pGuard->m_Profit.SetSize(*ptx);
         pGuard->m_pValue.swap(ptx);
 		pGuard->m_Height = ctx.m_Height;
@@ -2361,16 +2361,8 @@ uint8_t Node::OnTransactionStem(Transaction::Ptr&& ptx, const Peer* pPeer)
 
 	bool bDontAggregate =
 		(pDup->m_pValue->m_vOutputs.size() >= m_Cfg.m_Dandelion.m_OutputsMax) || // already big enough
+		(ctx.m_Stats.m_InputsShielded || ctx.m_Stats.m_OutputsShielded) || // contains shielded elements
 		!m_Keys.m_pMiner; // can't manage decoys
-
-	if (!bDontAggregate)
-	{
-		uint32_t nIns, nOuts;
-		pDup->m_pValue->get_Reader().CalculateShielded(nIns, nOuts);
-
-		if (nIns || nOuts)
-			bDontAggregate = true;
-	}
 
     if (bDontAggregate)
         OnTransactionAggregated(*pDup);
@@ -2639,7 +2631,7 @@ bool Node::OnTransactionFluff(Transaction::Ptr&& ptxArg, const Peer* pPeer, TxPo
 		if (!pElem->m_Height.IsInRange(m_Processor.m_Cursor.m_ID.m_Height + 1))
 			return false;
 
-        ctx.m_Fee = pElem->m_Profit.m_Fee;
+        ctx.m_Stats.m_Fee = pElem->m_Profit.m_Fee;
 		ctx.m_Height = pElem->m_Height;
         m_Dandelion.Delete(*pElem);
     }
@@ -3456,12 +3448,12 @@ void Node::Peer::OnMsg(proto::BlockFinalization&& msg)
         if (!m_This.m_Processor.ValidateAndSummarize(ctx, *msg.m_Value, msg.m_Value->get_Reader()))
             ThrowUnexpected();
 
-        if (ctx.m_Coinbase != AmountBig::Type(Rules::get_Emission(m_This.m_Processor.m_Cursor.m_ID.m_Height + 1)))
+        if (ctx.m_Stats.m_Coinbase != AmountBig::Type(Rules::get_Emission(m_This.m_Processor.m_Cursor.m_ID.m_Height + 1)))
             ThrowUnexpected();
 
         ctx.m_Sigma = -ctx.m_Sigma;
-        ctx.m_Coinbase += AmountBig::Type(x.m_Fees);
-        AmountBig::AddTo(ctx.m_Sigma, ctx.m_Coinbase);
+        ctx.m_Stats.m_Coinbase += AmountBig::Type(x.m_Fees);
+        AmountBig::AddTo(ctx.m_Sigma, ctx.m_Stats.m_Coinbase);
 
         if (!(ctx.m_Sigma == Zero))
             ThrowUnexpected();

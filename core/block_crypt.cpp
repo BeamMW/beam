@@ -100,6 +100,25 @@ namespace beam
 	}
 
 	/////////////
+	// TxStats
+	void TxStats::Reset()
+	{
+		ZeroObject(*this);
+	}
+
+	void TxStats::operator += (const TxStats& s)
+	{
+		m_Fee				+= s.m_Fee;
+		m_Coinbase			+= s.m_Coinbase;
+
+		m_Kernels			+= s.m_Kernels;
+		m_Inputs			+= s.m_Inputs;
+		m_Outputs			+= s.m_Outputs;
+		m_InputsShielded	+= s.m_InputsShielded;
+		m_OutputsShielded	+= s.m_OutputsShielded;
+	}
+
+	/////////////
 	// Input
 	int TxElement::cmp(const TxElement& v) const
 	{
@@ -127,6 +146,13 @@ namespace beam
 		CMP_MEMBER(m_Part1.m_SpendPk)
 		// ignore rest of the members
 		return 0;
+	}
+
+	void Input::AddStats(TxStats& s) const
+	{
+		s.m_Inputs++;
+		if (m_pSpendProof)
+			s.m_InputsShielded++;
 	}
 
 	/////////////
@@ -376,6 +402,16 @@ namespace beam
 		CMP_MEMBER_PTR(m_pPublic)
 
 		return 0;
+	}
+
+	void Output::AddStats(TxStats& s) const
+	{
+		s.m_Outputs++;
+		if (m_pShielded)
+			s.m_OutputsShielded++;
+
+		if (m_Coinbase && m_pPublic)
+			s.m_Coinbase += uintBigFrom(m_pPublic->m_Value);
 	}
 
 	void Output::Create(Height hScheme, ECC::Scalar::Native& sk, Key::IKdf& coinKdf, const Key::IDV& kidv, Key::IPKdf& tagKdf, bool bPublic /* = false */)
@@ -772,7 +808,7 @@ namespace beam
 
 	/////////////
 	// TxKernel
-	bool TxKernel::Traverse(ECC::Hash::Value& hv, AmountBig::Type* pFee, ECC::Point::Native* pExcess, const TxKernel* pParent, const ECC::Hash::Value* pLockImage, const Height* pScheme) const
+	bool TxKernel::Traverse(ECC::Hash::Value& hv, ECC::Point::Native* pExcess, const TxKernel* pParent, const ECC::Hash::Value* pLockImage, const Height* pScheme) const
 	{
 		if (pScheme)
 		{
@@ -840,7 +876,7 @@ namespace beam
 				return false;
 			p0Krn = &v;
 
-			if (!v.Traverse(hv, pFee, pExcess ? &ptExcNested : nullptr, this, nullptr, pScheme))
+			if (!v.Traverse(hv, pExcess ? &ptExcNested : nullptr, this, nullptr, pScheme))
 				return false;
 
 			hp << hv;
@@ -900,31 +936,27 @@ namespace beam
 			}
 		}
 
-		if (pFee)
-			*pFee += uintBigFrom(m_Fee);
-
 		return true;
 	}
 
-	size_t TxKernel::get_TotalCount() const
+	void TxKernel::AddStats(TxStats& s) const
 	{
-		size_t ret = 1;
+		s.m_Kernels++;
+		s.m_Fee += uintBigFrom(m_Fee);
 
 		for (auto it = m_vNested.begin(); m_vNested.end() != it; it++)
-			ret += (*it)->get_TotalCount();
-
-		return ret;
+			(*it)->AddStats(s);
 	}
 
 	void TxKernel::get_Hash(Merkle::Hash& out, const ECC::Hash::Value* pLockImage /* = NULL */) const
 	{
-		Traverse(out, nullptr, nullptr, nullptr, pLockImage, nullptr);
+		Traverse(out, nullptr, nullptr, pLockImage, nullptr);
 	}
 
-	bool TxKernel::IsValid(Height hScheme, AmountBig::Type& fee, ECC::Point::Native& exc) const
+	bool TxKernel::IsValid(Height hScheme, ECC::Point::Native& exc) const
 	{
 		ECC::Hash::Value hv;
-		return Traverse(hv, &fee, &exc, nullptr, nullptr, &hScheme);
+		return Traverse(hv, &exc, nullptr, nullptr, &hScheme);
 	}
 
 	void TxKernel::get_ID(Merkle::Hash& out, const ECC::Hash::Value* pLockImage /* = NULL */) const
@@ -1018,18 +1050,18 @@ namespace beam
 
 	Amount Transaction::FeeSettings::Calculate(const Transaction& t) const
 	{
-		size_t nKernels = 0;
-		for (size_t i = 0; i < t.m_vKernels.size(); i++)
-			nKernels += t.m_vKernels[i]->get_TotalCount();
+		TxStats s;
+		t.get_Reader().AddStats(s);
+		return Calculate(s);
+	}
 
-		uint32_t nIns, nOuts;
-		t.get_Reader().CalculateShielded(nIns, nOuts);
-
+	Amount Transaction::FeeSettings::Calculate(const TxStats& s) const
+	{
 		return
-			m_Output * t.m_vOutputs.size() +
-			m_Kernel * nKernels +
-			m_ShieldedInput * nIns +
-			m_ShieldedOutput * nOuts;
+			m_Output * s.m_Outputs +
+			m_Kernel * s.m_Kernels +
+			m_ShieldedInput * s.m_InputsShielded +
+			m_ShieldedOutput * s.m_OutputsShielded;
 	}
 
 	template <class T>
@@ -1221,21 +1253,18 @@ namespace beam
 		COMPARE_TYPE(m_pKernel, NextKernel)
 	}
 
-	void TxBase::IReader::CalculateShielded(uint32_t& nIns, uint32_t& nOuts)
+	void TxBase::IReader::AddStats(TxStats& s)
 	{
 		Reset();
 
-		for (nIns = 0; m_pUtxoIn; NextUtxoIn())
-		{
-			if (m_pUtxoIn->m_pSpendProof)
-				nIns++;
-		}
+		for (; m_pUtxoIn; NextUtxoIn())
+			m_pUtxoIn->AddStats(s);
 
-		for (nOuts = 0; m_pUtxoOut; NextUtxoOut())
-		{
-			if (m_pUtxoOut->m_pShielded)
-				nOuts++;
-		}
+		for (; m_pUtxoOut; NextUtxoOut())
+			m_pUtxoOut->AddStats(s);
+
+		for (; m_pKernel; NextKernel())
+			m_pKernel->AddStats(s);
 	}
 
 	void TxVectors::Reader::Clone(Ptr& pOut)

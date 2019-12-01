@@ -1348,12 +1348,11 @@ struct TransactionMaker
 
 
 		Point::Native exc;
-		beam::AmountBig::Type fee2;
-		verify_test(!pKrn->IsValid(g_hFork, fee2, exc)); // should not pass validation unless correct hash preimage is specified
+		verify_test(!pKrn->IsValid(g_hFork, exc)); // should not pass validation unless correct hash preimage is specified
 
 		// finish HL: add hash preimage
 		pKrn->m_pHashLock->m_Preimage = hlPreimage;
-		verify_test(pKrn->IsValid(g_hFork, fee2, exc));
+		verify_test(pKrn->IsValid(g_hFork, exc));
 
 		lstTrg.push_back(std::move(pKrn));
 	}
@@ -1395,7 +1394,7 @@ void TestTransaction()
 	beam::TxBase::Context ctx(pars);
 	ctx.m_Height.m_Min = g_hFork;
 	verify_test(tm.m_Trans.IsValid(ctx));
-	verify_test(ctx.m_Fee == beam::AmountBig::Type(fee1 + fee2));
+	verify_test(ctx.m_Stats.m_Fee == beam::AmountBig::Type(fee1 + fee2));
 }
 
 struct IHWWallet
@@ -1744,9 +1743,8 @@ void TestTransactionHW()
 	mw2.m_Kernel.m_Signature.m_k = mw1.m_Kernel.m_Signature.m_k;
 
 	{
-		beam::AmountBig::Type fees;
 		Point::Native exc;
-		verify_test(mw1.m_Kernel.IsValid(g_hFork, fees, exc));
+		verify_test(mw1.m_Kernel.IsValid(g_hFork, exc));
 	}
 
 	// merge txs

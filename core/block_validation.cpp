@@ -28,8 +28,7 @@ namespace beam
 	void TxBase::Context::Reset()
 	{
 		m_Sigma = Zero;
-		m_Fee = Zero;
-		m_Coinbase = Zero;
+		m_Stats.Reset();
 		m_Height.Reset();
 		m_iVerifier = 0;
 	}
@@ -72,8 +71,7 @@ namespace beam
 			return false;
 
 		m_Sigma += x.m_Sigma;
-		m_Fee += x.m_Fee;
-		m_Coinbase += x.m_Coinbase;
+		m_Stats += x.m_Stats;
 		return true;
 	}
 
@@ -138,6 +136,7 @@ namespace beam
 				if (!pt.Import(r.m_pUtxoIn->m_Commitment))
 					return false;
 
+				r.m_pUtxoIn->AddStats(m_Stats);
 				m_Sigma += pt;
 			}
 		}
@@ -174,19 +173,11 @@ namespace beam
 						return false;
 				}
 
+				r.m_pUtxoOut->AddStats(m_Stats);
 				m_Sigma += pt;
 
-				if (r.m_pUtxoOut->m_Coinbase)
-				{
-					if (!m_Params.m_bBlockMode)
-						return false; // regular transactions should not produce coinbase outputs, only the miner should do this.
-
-					if (bSigned)
-					{
-						assert(r.m_pUtxoOut->m_pPublic); // must have already been checked
-						m_Coinbase += uintBigFrom(r.m_pUtxoOut->m_pPublic->m_Value);
-					}
-				}
+				if (r.m_pUtxoOut->m_Coinbase && !m_Params.m_bBlockMode)
+					return false; // regular transactions should not produce coinbase outputs, only the miner should do this.
 			}
 		}
 
@@ -200,11 +191,13 @@ namespace beam
 				if (m_Params.m_bVerifyOrder && pPrev && (*pPrev > *r.m_pKernel))
 					return false;
 
-				if (!r.m_pKernel->IsValid(m_Height.m_Min, m_Fee, m_Sigma))
+				if (!r.m_pKernel->IsValid(m_Height.m_Min, m_Sigma))
 					return false;
 
 				if (!HandleElementHeight(r.m_pKernel->m_Height))
 					return false;
+
+				r.m_pKernel->AddStats(m_Stats);
 			}
 		}
 
@@ -217,9 +210,9 @@ namespace beam
 
 	bool TxBase::Context::IsValidTransaction()
 	{
-		assert(m_Coinbase == Zero); // must have already been checked
+		assert(m_Stats.m_Coinbase == Zero); // must have already been checked
 
-		AmountBig::AddTo(m_Sigma, m_Fee);
+		AmountBig::AddTo(m_Sigma, m_Stats.m_Fee);
 		return m_Sigma == Zero;
 	}
 
@@ -249,7 +242,7 @@ namespace beam
 				Rules::get_Emission(subsLocked, hr);
 			}
 
-			if (m_Coinbase < subsLocked)
+			if (m_Stats.m_Coinbase < subsLocked)
 				return false;
 		}
 

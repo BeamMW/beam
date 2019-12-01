@@ -404,7 +404,7 @@ namespace beam
 		if (!ctx.ValidateAndSummarize(m_Data, m_Data.get_Reader()))
 			return false;
 
-		if (!(ctx.m_Fee == Zero))
+		if (!(ctx.m_Stats.m_Fee == Zero))
 			return false; // doesn't make sense for treasury
 
 		ctx.m_Sigma = -ctx.m_Sigma;

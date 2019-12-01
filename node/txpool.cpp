@@ -49,7 +49,7 @@ TxPool::Fluff::Element* TxPool::Fluff::AddValidTx(Transaction::Ptr&& pValue, con
 	Element* p = new Element;
 	p->m_pValue = std::move(pValue);
 	p->m_Threshold.m_Height	= ctx.m_Height;
-	p->m_Profit.m_Fee = ctx.m_Fee;
+	p->m_Profit.m_Fee = ctx.m_Stats.m_Fee;
 	p->m_Profit.SetSize(*p->m_pValue);
 	p->m_Tx.m_Key = key;
 
