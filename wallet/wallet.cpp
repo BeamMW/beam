@@ -446,6 +446,15 @@ namespace beam::wallet
         }
     }
 
+    bool Wallet::CanCancelTransaction(const TxID& txId) const
+    {
+        if (auto it = m_ActiveTransactions.find(txId); it != m_ActiveTransactions.end())
+        {
+            return it->second->CanCancel();
+        }
+        return false;
+    }
+
     void Wallet::CancelTransaction(const TxID& txId)
     {
         LOG_INFO() << txId << " Canceling tx";

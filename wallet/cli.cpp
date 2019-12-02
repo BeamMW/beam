@@ -2058,7 +2058,7 @@ int main_impl(int argc, char* argv[])
                                 }
                                 else
                                 {
-                                    if (tx->canCancel())
+                                    if (wallet.CanCancelTransaction(txId))
                                     {
                                         currentTxID = txId;
                                         wallet.CancelTransaction(txId);

@@ -184,7 +184,7 @@ namespace beam::wallet
     {
     }
 
-    void AtomicSwapTransaction::Cancel()
+    bool AtomicSwapTransaction::CanCancel() const
     {
         State state = GetState(kDefaultSubTxID);
 
@@ -200,14 +200,24 @@ namespace beam::wallet
         case State::BuildingBeamRedeemTX:
         case State::BuildingBeamRefundTX:
         {
-            SetNextState(State::Canceled);
-            return;
+            return true;
         }
         default:
             break;
         }
 
-        LOG_INFO() << GetTxID() << " You cannot cancel transaction in state: " << static_cast<int>(state);
+        return false;
+    }
+
+    void AtomicSwapTransaction::Cancel()
+    {
+        if (CanCancel())
+        {
+            SetNextState(State::Canceled);
+            return;
+        }
+
+        LOG_INFO() << GetTxID() << " You cannot cancel transaction in state: " << static_cast<int>(GetState(kDefaultSubTxID));
     }
 
     bool AtomicSwapTransaction::Rollback(Height height)

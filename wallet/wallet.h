@@ -120,6 +120,7 @@ namespace beam::wallet
 
         void RegisterTransactionType(TxType type, BaseTransaction::Creator::Ptr creator);
         TxID StartTransaction(const TxParameters& parameters);
+        bool CanCancelTransaction(const TxID& txId) const;
         void CancelTransaction(const TxID& txId);
         void DeleteTransaction(const TxID& txId);
         

@@ -539,7 +539,7 @@ namespace
 
                 if (tx)
                 {
-                    if (tx->canCancel())
+                    if (_wallet.CanCancelTransaction(tx->m_txId))
                     {
                         _wallet.CancelTransaction(tx->m_txId);
                         TxCancel::Response result{ true };
