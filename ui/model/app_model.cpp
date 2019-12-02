@@ -68,15 +68,30 @@ void AppModel::backupDB(const std::string& dbFilePath)
     {
         // it seems that we are trying to restore or login to another wallet.
         // Rename/backup existing db
-#if WIN32
-        boost::filesystem::path p = Utf8toUtf16(dbFilePath);
-        boost::filesystem::path newName = Utf8toUtf16(dbFilePath + "_" + to_string(getTimestamp()));
-#else
-        boost::filesystem::path p = dbFilePath;
-        boost::filesystem::path newName = dbFilePath + "_" + to_string(getTimestamp());
-#endif
-        
-        boost::filesystem::rename(p, newName);
+        std::string newName = dbFilePath + "_" + to_string(getTimestamp());
+       
+        if (fsutils::rename(dbFilePath, newName))
+        {
+            m_walletDBBackupPath = newName;
+        }
+    }
+}
+
+void AppModel::restoreDBFromBackup(const std::string& dbFilePath)
+{
+    const auto wasInitialized = WalletDB::isInitialized(dbFilePath);
+    m_db.reset();
+
+    if (!wasInitialized && !m_walletDBBackupPath.empty())
+    {
+        // Restore existing db
+        bool isBackupExist = fsutils::isExist(m_walletDBBackupPath);
+        if (!isBackupExist)
+        {
+            return;
+        }
+        fsutils::rename(m_walletDBBackupPath, dbFilePath);
+        m_walletDBBackupPath = {};
     }
 }
 
@@ -141,6 +156,9 @@ bool AppModel::openWallet(const beam::SecString& pass)
     }
 #endif
 
+    if (!m_db)
+        return false;
+
     onWalledOpened(pass);
     return true;
 }
@@ -193,6 +211,8 @@ void AppModel::onResetWallet()
 #endif
 
     fsutils::remove(getSettings().getLocalNodeStorage());
+
+    restoreDBFromBackup(getSettings().getWalletStorage());
 
     emit walletResetCompleted();
 }

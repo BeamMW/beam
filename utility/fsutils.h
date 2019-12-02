@@ -21,4 +21,10 @@ namespace beam::fsutils {
     // remove file, log error if any
     bool remove(const boost::filesystem::path& path);
     bool remove(const std::string& path);
+
+    bool isExist(const std::string& path);
+
+    // rename file, log error if any
+    bool rename(const boost::filesystem::path& oldPath, const boost::filesystem::path& newPath);
+    bool rename(const std::string& oldPath, const std::string& newPath);
 }

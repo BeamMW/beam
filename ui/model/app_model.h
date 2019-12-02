@@ -73,6 +73,7 @@ private:
     void InitQtumClient();
     void onWalledOpened(const beam::SecString& pass);
     void backupDB(const std::string& dbFilePath);
+    void restoreDBFromBackup(const std::string& dbFilePath);
     void generateDefaultAddress();
 
 private:
@@ -96,4 +97,5 @@ private:
     Connections m_nsc; // [n]ode [s]tarting [c]onnections
     Connections m_walletConnections;
     static AppModel* s_instance;
+    std::string m_walletDBBackupPath;
 };
